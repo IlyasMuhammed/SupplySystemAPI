@@ -1,0 +1,36 @@
+.supplier-create-page {
+  padding: 1.5rem;
+
+  .page-header {
+    margin-bottom: 1.5rem;
+    .page-title {
+      font-size: 1.75rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin: 0 0 0.25rem;
+    }
+    .page-subtitle { color: var(--text-color-secondary); margin: 0; }
+  }
+}
+
+.card-section-header {
+  padding: 1rem 1.25rem;
+  font-size: 1rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--surface-200);
+  background: var(--surface-50);
+}
+
+.field-label {
+  display: block;
+  font-weight: 500;
+  margin-bottom: 0.35rem;
+  font-size: 0.875rem;
+}
+
+.req { color: var(--red-500); }

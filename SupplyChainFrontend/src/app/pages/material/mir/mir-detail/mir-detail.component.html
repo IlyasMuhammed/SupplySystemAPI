@@ -1,0 +1,380 @@
+<div class="mir-detail-page">
+  <p-toast></p-toast>
+  <p-confirmDialog></p-confirmDialog>
+
+  <!-- Approve Dialog — includes per-line qty inputs and live stock figures -->
+  <p-dialog header="Approve MIR Step" [(visible)]="showApproveDialog" [modal]="true" [style]="{width:'860px'}">
+    <div class="dialog-field" *ngIf="mir?.activeStepName">
+      <div class="step-badge">Step {{ mir?.activeStepNumber }}: {{ mir?.activeStepName }}</div>
+    </div>
+
+    <!-- Availability loading -->
+    <div class="avail-loading" *ngIf="availabilityLoading">
+      <p-progressSpinner [style]="{width:'24px',height:'24px'}" strokeWidth="4"></p-progressSpinner>
+      <span>Loading stock availability...</span>
+    </div>
+
+    <!-- Warehouse label -->
+    <div class="avail-warehouse" *ngIf="availabilityData?.warehouseName && !availabilityLoading">
+      <i class="pi pi-warehouse"></i>
+      <span>Warehouse: <strong>{{ availabilityData?.warehouseName }}</strong></span>
+    </div>
+
+    <div class="dialog-field">
+      <label class="dialog-label">Approved Quantities per Line</label>
+      <div class="line-approval-table">
+        <div class="la-header la-header-full">
+          <span>Product</span>
+          <span class="text-right">Requested</span>
+          <span class="text-right">Ceiling</span>
+          <span class="text-right avail-col">On-Hand</span>
+          <span class="text-right avail-col">Reserved</span>
+          <span class="text-right avail-col">Available</span>
+          <span class="text-right">Approve Qty</span>
+        </div>
+        <ng-container *ngFor="let row of lineApprovalRows">
+          <div class="la-row la-row-full" [class.la-row-error]="row.stockError">
+            <span class="la-desc">{{ row.line.itemDescription }}</span>
+            <span class="text-right la-num">{{ row.line.requestedQty | number:'1.0-3' }}</span>
+            <span class="text-right la-num">{{ row.ceiling | number:'1.0-3' }}</span>
+            <span class="text-right avail-col la-num" *ngIf="row.availability; else dash">
+              {{ row.availability.qtyOnHand | number:'1.0-3' }}
+            </span>
+            <span class="text-right avail-col la-num" *ngIf="row.availability; else dash">
+              {{ row.availability.qtyReserved | number:'1.0-3' }}
+            </span>
+            <span class="text-right avail-col la-num" [class.avail-ok]="row.availability?.isAvailable" [class.avail-low]="row.availability && !row.availability?.isAvailable" *ngIf="row.availability; else dash">
+              {{ row.availability.qtyAvailable | number:'1.0-3' }}
+            </span>
+            <ng-template #dash><span class="text-right avail-col la-num avail-loading-cell">—</span></ng-template>
+            <span class="la-input">
+              <p-inputNumber [(ngModel)]="row.approvedQty" [min]="0" [max]="row.ceiling"
+                             [maxFractionDigits]="3" [style]="{'width':'110px'}"
+                             (onInput)="onApprovedQtyChange(row)"
+                             (onBlur)="onApprovedQtyChange(row)"></p-inputNumber>
+            </span>
+          </div>
+          <div class="la-stock-error" *ngIf="row.stockError">
+            <i class="pi pi-exclamation-triangle"></i> {{ row.stockError }}
+          </div>
+          <div class="la-reorder-warn" *ngIf="row.availability && row.availability.reorderPoint && row.availability.qtyAvailable <= row.availability.reorderPoint">
+            <i class="pi pi-info-circle"></i>
+            Stock at or below reorder point ({{ row.availability.reorderPoint | number:'1.0-3' }}). Replenishment may be needed.
+          </div>
+        </ng-container>
+      </div>
+    </div>
+    <div class="dialog-field">
+      <label class="dialog-label">Remarks (optional)</label>
+      <textarea pTextarea [(ngModel)]="approveRemarks" rows="2" style="width:100%"
+                placeholder="Add approver remarks..."></textarea>
+    </div>
+    <ng-template pTemplate="footer">
+      <p-button label="Cancel" [outlined]="true" severity="secondary" (onClick)="showApproveDialog=false"></p-button>
+      <p-button label="Approve Step" severity="success" icon="pi pi-check"
+                [disabled]="hasStockErrors || availabilityLoading"
+                (onClick)="confirmApprove()"></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <!-- Reject Dialog -->
+  <p-dialog header="Reject MIR" [(visible)]="showRejectDialog" [modal]="true" [style]="{width:'420px'}">
+    <div class="dialog-field">
+      <label class="dialog-label">Rejection Reason <span class="required">*</span></label>
+      <textarea pTextarea [(ngModel)]="rejectReason" rows="3" style="width:100%"
+                placeholder="State the reason for rejection..."></textarea>
+    </div>
+    <ng-template pTemplate="footer">
+      <p-button label="Cancel" [outlined]="true" severity="secondary" (onClick)="showRejectDialog=false"></p-button>
+      <p-button label="Reject" severity="danger" icon="pi pi-times" (onClick)="confirmReject()"></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <!-- Edit Dialog (DRAFT only) -->
+  <p-dialog header="Edit MIR" [(visible)]="showEditDialog" [modal]="true" [style]="{width:'820px'}" [draggable]="false">
+    <div *ngIf="isLoadingEditData" style="padding:1.5rem;text-align:center;">
+      <i class="pi pi-spin pi-spinner" style="font-size:1.5rem"></i>
+      <p style="margin:.5rem 0 0;color:var(--text-color-secondary)">Loading data...</p>
+    </div>
+
+    <div *ngIf="!isLoadingEditData">
+      <!-- Header fields -->
+      <div class="edit-grid">
+        <div class="edit-field" *ngIf="editData.requestType === 'PROJECT'">
+          <label class="dialog-label">Project</label>
+          <p-dropdown [options]="editProjectOptions" [(ngModel)]="editData.projectUuid"
+                      optionLabel="label" optionValue="value"
+                      [filter]="true" placeholder="Select project..."
+                      styleClass="w-full"></p-dropdown>
+        </div>
+        <div class="edit-field" *ngIf="editData.requestType === 'DEPARTMENT'">
+          <label class="dialog-label">Department</label>
+          <input pInputText [(ngModel)]="editData.department" placeholder="e.g. Operations" style="width:100%" />
+        </div>
+        <div class="edit-field" *ngIf="editData.requestType === 'MAINTENANCE'">
+          <label class="dialog-label">Maintenance Reference</label>
+          <input pInputText [(ngModel)]="editData.maintenanceRef" placeholder="e.g. WO-2026-001" style="width:100%" />
+        </div>
+        <div class="edit-field">
+          <label class="dialog-label">Priority</label>
+          <p-dropdown [options]="priorityOptions" [(ngModel)]="editData.priority"
+                      optionLabel="label" optionValue="value"
+                      styleClass="w-full"></p-dropdown>
+        </div>
+        <div class="edit-field">
+          <label class="dialog-label">Required By</label>
+          <p-calendar [(ngModel)]="editData.requiredDate" dateFormat="dd/mm/yy"
+                      [showIcon]="true" appendTo="body" styleClass="w-full"></p-calendar>
+        </div>
+        <div class="edit-field full-edit-field">
+          <label class="dialog-label">Purpose</label>
+          <input pInputText [(ngModel)]="editData.purpose" placeholder="Brief purpose..." style="width:100%" />
+        </div>
+        <div class="edit-field full-edit-field">
+          <label class="dialog-label">Notes</label>
+          <textarea pTextarea [(ngModel)]="editData.notes" rows="2" style="width:100%" placeholder="Additional notes..."></textarea>
+        </div>
+      </div>
+
+      <!-- Lines -->
+      <div class="edit-lines-header">
+        <span class="dialog-label" style="margin:0">Material Lines</span>
+        <p-button label="Add Line" icon="pi pi-plus" severity="contrast" size="small" (onClick)="addEditLine()"></p-button>
+      </div>
+
+      <div class="edit-line-row" *ngFor="let line of editLines; let i = index">
+        <div class="edit-line-num">{{ i + 1 }}</div>
+        <div class="edit-line-fields">
+          <div class="edit-field">
+            <label class="dialog-label">Product <span class="required">*</span></label>
+            <p-dropdown [options]="editProductOptions" [(ngModel)]="line.productUuid"
+                        optionLabel="label" optionValue="value"
+                        [filter]="true" placeholder="Select product..."
+                        (ngModelChange)="onEditProductChange(i, $event)"
+                        styleClass="w-full"></p-dropdown>
+
+            <!-- Warehouse picker -->
+            <div class="edit-warehouse-section" *ngIf="line.productUuid">
+              <div class="edit-stock-loading" *ngIf="line.isLoadingStock">
+                <i class="pi pi-spin pi-spinner"></i> Checking stock...
+              </div>
+              <ng-container *ngIf="!line.isLoadingStock">
+                <ng-container *ngIf="line.stockItems.length > 0">
+                  <label class="edit-sub-label">
+                    Warehouse
+                    <span class="edit-avail-badge" *ngIf="line.maxQty != null"> — Available: {{ line.maxQty | number:'1.0-3' }}</span>
+                  </label>
+                  <p-dropdown [options]="getEditWarehouseOptions(i)" [(ngModel)]="line.selectedWarehouseId"
+                              optionLabel="label" optionValue="value"
+                              placeholder="Select warehouse..."
+                              (ngModelChange)="onEditWarehouseChange(i, $event)"
+                              styleClass="w-full"></p-dropdown>
+                </ng-container>
+                <div class="edit-no-stock" *ngIf="line.stockItems.length === 0">
+                  <i class="pi pi-exclamation-triangle"></i> No stock available in any warehouse
+                </div>
+              </ng-container>
+            </div>
+          </div>
+
+          <div class="edit-field">
+            <label class="dialog-label">Qty <span class="required">*</span></label>
+            <p-inputNumber [(ngModel)]="line.requestedQty" [min]="0.001"
+                           [max]="line.maxQty ?? undefined"
+                           [minFractionDigits]="0" [maxFractionDigits]="3"
+                           styleClass="w-full"></p-inputNumber>
+            <small class="edit-qty-hint" *ngIf="line.maxQty != null">Max: {{ line.maxQty | number:'1.0-3' }}</small>
+          </div>
+
+          <div class="edit-field">
+            <label class="dialog-label">Purpose</label>
+            <input pInputText [(ngModel)]="line.purpose" placeholder="Optional" style="width:100%" />
+          </div>
+        </div>
+        <button type="button" class="edit-remove-btn" (click)="removeEditLine(i)" [disabled]="editLines.length <= 1">
+          <i class="pi pi-times"></i>
+        </button>
+      </div>
+    </div>
+
+    <ng-template pTemplate="footer">
+      <p-button label="Cancel" [outlined]="true" severity="secondary" (onClick)="showEditDialog=false"></p-button>
+      <p-button label="Save Changes" icon="pi pi-check" severity="contrast"
+                [loading]="isEditing" [disabled]="isLoadingEditData"
+                (onClick)="saveEdit()"></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <div class="loading-state" *ngIf="isLoading">
+    <i class="pi pi-spin pi-spinner"></i><span>Loading MIR...</span>
+  </div>
+
+  <ng-container *ngIf="mir && !isLoading">
+    <!-- Page Header -->
+    <div class="page-header">
+      <div class="header-left">
+        <div class="header-icon icon-teal"><i class="pi pi-file-export"></i></div>
+        <div>
+          <h1 class="page-title">{{ mir.requestNo }}</h1>
+          <p class="page-subtitle">Material Issue Request · {{ getTypeLabel(mir.requestType) }}</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <p-button label="Back" icon="pi pi-arrow-left" [outlined]="true" severity="secondary"
+                  routerLink="/portal/pages/material/mir"></p-button>
+        <p-button label="Edit" icon="pi pi-pencil" severity="secondary"
+                  *ngIf="mir.status === 'DRAFT'"
+                  (onClick)="openEdit()"></p-button>
+        <p-button label="Submit for Approval" icon="pi pi-send" severity="contrast"
+                  *ngIf="mir.status === 'DRAFT'"
+                  [loading]="actionBusy" (onClick)="submit()"></p-button>
+        <p-button label="Approve Step" icon="pi pi-check" severity="success"
+                  *ngIf="mir.status === 'PENDING_APPROVAL'"
+                  [loading]="actionBusy" (onClick)="openApprove()"></p-button>
+        <p-button label="Reject" icon="pi pi-times" severity="danger" [outlined]="true"
+                  *ngIf="mir.status === 'PENDING_APPROVAL'"
+                  [loading]="actionBusy" (onClick)="openReject()"></p-button>
+        <p-button label="Create Issue Voucher" icon="pi pi-receipt" severity="info"
+                  *ngIf="mir.status === 'APPROVED' || mir.status === 'PARTIALLY_APPROVED' || mir.status === 'PARTIALLY_ISSUED'"
+                  (onClick)="createIssueVoucher()"></p-button>
+        <p-button label="Cancel" icon="pi pi-ban" severity="danger" [outlined]="true"
+                  *ngIf="mir.status === 'DRAFT' || mir.status === 'PENDING_APPROVAL' || mir.status === 'APPROVED' || mir.status === 'PARTIALLY_APPROVED'"
+                  [loading]="actionBusy" (onClick)="cancel()"></p-button>
+      </div>
+    </div>
+
+    <!-- Workflow step indicator -->
+    <div class="workflow-banner" *ngIf="mir.status === 'PENDING_APPROVAL' && mir.activeStepName">
+      <i class="pi pi-hourglass"></i>
+      <span>Awaiting <strong>Step {{ mir.activeStepNumber }}</strong>: {{ mir.activeStepName }}</span>
+    </div>
+
+    <!-- Summary card -->
+    <div class="detail-card">
+      <div class="detail-header">
+        <div class="detail-header-bg"></div>
+        <div class="detail-header-content">
+          <p-tag [value]="getStatusLabel(mir.status)" [severity]="getStatusSeverity(mir.status)" styleClass="status-tag"></p-tag>
+          <span class="mir-no-badge">{{ mir.requestNo }}</span>
+        </div>
+      </div>
+      <div class="detail-body">
+        <div class="detail-grid">
+          <div class="detail-cell">
+            <span class="cell-label">Type</span>
+            <span class="cell-value">{{ getTypeLabel(mir.requestType) }}</span>
+          </div>
+          <div class="detail-cell">
+            <span class="cell-label">{{ mir.requestType === 'PROJECT' ? 'Project' : mir.requestType === 'DEPARTMENT' ? 'Department' : 'Maintenance Ref' }}</span>
+            <span class="cell-value">{{ mir.projectName || mir.department || mir.maintenanceRef || '—' }}</span>
+          </div>
+          <div class="detail-cell">
+            <span class="cell-label">Priority</span>
+            <span class="cell-value">{{ getPriorityLabel(mir.priority) }}</span>
+          </div>
+          <div class="detail-cell">
+            <span class="cell-label">Required By</span>
+            <span class="cell-value">{{ mir.requiredDate ? (mir.requiredDate | date:'dd MMM yyyy') : '—' }}</span>
+          </div>
+          <div class="detail-cell">
+            <span class="cell-label">Estimated Value</span>
+            <span class="cell-value value-highlight">{{ mir.estimatedValue | number:'1.2-2' }}</span>
+          </div>
+          <div class="detail-cell">
+            <span class="cell-label">Created</span>
+            <span class="cell-value">{{ mir.createdDate | date:'dd MMM yyyy, HH:mm' }}</span>
+          </div>
+        </div>
+
+        <div class="detail-cell full-width" *ngIf="mir.purpose">
+          <span class="cell-label">Purpose</span>
+          <span class="cell-value">{{ mir.purpose }}</span>
+        </div>
+
+        <div class="detail-cell full-width" *ngIf="mir.rejectionReason">
+          <span class="cell-label">Rejection Reason</span>
+          <span class="cell-value rejection">{{ mir.rejectionReason }}</span>
+        </div>
+
+        <div class="detail-cell full-width" *ngIf="mir.approverRemarks">
+          <span class="cell-label">Approver Remarks</span>
+          <span class="cell-value">{{ mir.approverRemarks }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Issue Vouchers for this MIR -->
+    <div class="detail-card" *ngIf="mivs.length > 0 || mivsLoading">
+      <div class="lines-section-title">Issue Vouchers</div>
+      <div *ngIf="mivsLoading" class="miv-loading"><i class="pi pi-spin pi-spinner"></i></div>
+      <p-table *ngIf="!mivsLoading" [value]="mivs" [tableStyle]="{'min-width':'52rem'}">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>MIV #</th>
+            <th>Status</th>
+            <th>Issued To</th>
+            <th>Issue Date</th>
+            <th style="text-align:right">Total Value</th>
+            <th class="text-center">Actions</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-miv>
+          <tr>
+            <td class="font-mono font-semibold">{{ miv.issueNo }}</td>
+            <td><p-tag [value]="miv.status | titlecase" [severity]="getMivStatusSeverity(miv.status)"></p-tag></td>
+            <td>{{ miv.issuedTo || '—' }}</td>
+            <td>{{ miv.issueDate | date:'dd MMM yyyy' }}</td>
+            <td style="text-align:right">{{ miv.totalValue | number:'1.2-2' }}</td>
+            <td class="text-center">
+              <p-button icon="pi pi-eye" [text]="true" severity="info" size="small"
+                        pTooltip="View Voucher"
+                        [routerLink]="['/portal/pages/material/miv', miv.uuid]"></p-button>
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </div>
+
+    <!-- Lines -->
+    <div class="detail-card">
+      <div class="lines-section-title">Material Lines</div>
+      <p-table [value]="mir.lines" [tableStyle]="{'min-width':'55rem'}">
+        <ng-template pTemplate="header">
+          <tr>
+            <th style="width:60px">#</th>
+            <th>Product</th>
+            <th>UOM</th>
+            <th>Warehouse</th>
+            <th class="text-right">Requested Qty</th>
+            <th class="text-right">Approved Qty</th>
+            <th class="text-right">Unit Cost</th>
+            <th class="text-right">Est. Line Value</th>
+            <th>Purpose</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-line>
+          <tr>
+            <td>{{ line.lineNo }}</td>
+            <td>{{ line.itemDescription }}</td>
+            <td>{{ line.unitOfMeasure || '—' }}</td>
+            <td>{{ line.warehouseName || '—' }}</td>
+            <td class="text-right">{{ line.requestedQty | number:'1.0-3' }}</td>
+            <td class="text-right" [class.partial-qty]="line.latestApprovedQty !== null && line.latestApprovedQty !== undefined && line.latestApprovedQty < line.requestedQty">
+              {{ line.latestApprovedQty !== null && line.latestApprovedQty !== undefined ? (line.latestApprovedQty | number:'1.0-3') : '—' }}
+            </td>
+            <td class="text-right">{{ line.unitCost | number:'1.2-2' }}</td>
+            <td class="text-right font-semibold">{{ line.estimatedLineValue | number:'1.2-2' }}</td>
+            <td>{{ line.purpose || '—' }}</td>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="footer">
+          <tr>
+            <td colspan="7" class="text-right font-semibold">Total Estimated</td>
+            <td class="text-right total-cell">{{ mir.estimatedValue | number:'1.2-2' }}</td>
+            <td></td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </div>
+  </ng-container>
+</div>

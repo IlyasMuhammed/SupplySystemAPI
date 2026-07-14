@@ -1,0 +1,232 @@
+<div class="miv-create-page">
+  <p-toast></p-toast>
+
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-left">
+      <div class="header-icon icon-purple">
+        <i class="pi pi-receipt"></i>
+      </div>
+      <div>
+        <h1 class="page-title">New Issue Voucher</h1>
+        <p class="page-subtitle" *ngIf="mirData">
+          MIR: <strong>{{ mirData.requestNo }}</strong>
+          <span *ngIf="mirData.projectName"> &mdash; {{ mirData.projectName }}</span>
+          <span *ngIf="mirData.department"> &mdash; {{ mirData.department }}</span>
+        </p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <p-button label="Cancel" icon="pi pi-times" [outlined]="true" severity="secondary" (onClick)="cancel()"></p-button>
+      <p-button label="Save Draft" icon="pi pi-save" severity="contrast"
+                [disabled]="hasErrors || isSaving || isLoading"
+                [loading]="isSaving"
+                (onClick)="save()"></p-button>
+    </div>
+  </div>
+
+  <!-- Loading skeleton -->
+  <div *ngIf="isLoading" class="loading-card">
+    <i class="pi pi-spin pi-spinner"></i>
+    <span>Loading issuable data&hellip;</span>
+  </div>
+
+  <!-- No data -->
+  <div *ngIf="!isLoading && !mirData" class="no-data-card">
+    <i class="pi pi-exclamation-circle"></i>
+    <p>No issuable lines found. The MIR may not be in an approved state.</p>
+    <p-button label="Back to MIR" [routerLink]="['/portal/pages/material/mir', mirUuid]" severity="secondary" [outlined]="true"></p-button>
+  </div>
+
+  <ng-container *ngIf="!isLoading && mirData">
+
+    <!-- Issue details -->
+    <div class="card section-card">
+      <h3 class="section-title">Issue Details</h3>
+      <div class="detail-grid">
+        <div class="field-group">
+          <label>Issued To</label>
+          <input pInputText [(ngModel)]="issuedTo" placeholder="Employee / Department name" />
+        </div>
+        <div class="field-group">
+          <label>Issue Date</label>
+          <p-calendar [(ngModel)]="issueDate" dateFormat="dd/mm/yy" [showIcon]="true" appendTo="body"></p-calendar>
+        </div>
+        <div class="field-group full-width">
+          <label>Notes</label>
+          <input pInputText [(ngModel)]="notes" placeholder="Optional notes" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Lines -->
+    <div *ngFor="let line of lines" class="line-card" [class.line-card-error]="!!line.error || !isBatchSelectionValid(line) || !isSerialSelectionValid(line)">
+
+      <!-- Card header -->
+      <div class="line-card-head">
+        <div class="line-product-info">
+          <span class="line-product-name">{{ line.itemDescription }}</span>
+          <span class="line-uom" *ngIf="line.unitOfMeasure">({{ line.unitOfMeasure }})</span>
+        </div>
+        <div class="line-tags">
+          <p-tag *ngIf="line.lineStatus !== 'PENDING'" [value]="line.lineStatus | titlecase"
+                 [severity]="getLineStatusSeverity(line.lineStatus)"></p-tag>
+          <p-tag *ngIf="line.isBatchTracked"  value="Batch"  severity="info"></p-tag>
+          <p-tag *ngIf="line.isSerialTracked" value="Serial" severity="contrast"></p-tag>
+        </div>
+      </div>
+
+      <!-- Card body -->
+      <div class="line-card-body">
+
+        <!-- Stats row -->
+        <div class="line-stats">
+          <div class="stat-cell">
+            <span class="stat-label">Approved</span>
+            <span class="stat-value">{{ line.approvedQty | number:'1.0-4' }}</span>
+          </div>
+          <div class="stat-cell">
+            <span class="stat-label">Already Issued</span>
+            <span class="stat-value">{{ line.issuedQty | number:'1.0-4' }}</span>
+          </div>
+          <div class="stat-cell">
+            <span class="stat-label">Pending</span>
+            <span class="stat-value pending-val">{{ line.pendingQty | number:'1.0-4' }}</span>
+          </div>
+          <div class="stat-cell">
+            <span class="stat-label">Unit Cost</span>
+            <span class="stat-value">{{ line.unitCost | number:'1.2-4' }}</span>
+          </div>
+        </div>
+
+        <!-- Action row -->
+        <div class="line-action-row">
+          <div class="line-notes-field">
+            <label>Line Notes</label>
+            <input pInputText [(ngModel)]="line.notes" placeholder="Optional notes..." />
+          </div>
+          <div class="issue-qty-block">
+            <div class="issue-qty-wrap">
+              <label>Issue Qty</label>
+              <p-inputNumber [(ngModel)]="line.issuedQtyInput"
+                             [min]="0.0001" [max]="line.availableToIssue"
+                             [minFractionDigits]="0" [maxFractionDigits]="4"
+                             (ngModelChange)="onQtyChange(line)"
+                             inputStyleClass="qty-input">
+              </p-inputNumber>
+              <div *ngIf="line.error" class="inline-error">{{ line.error }}</div>
+            </div>
+            <div class="line-value-block">
+              <span class="stat-label">Line Value</span>
+              <span class="line-value-amount">{{ (line.issuedQtyInput * line.unitCost) | number:'1.2-2' }}</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Batch selection panel -->
+      <ng-container *ngIf="line.isBatchTracked">
+        <div class="batch-panel">
+          <div class="batch-panel-header">
+            <i class="pi pi-box"></i>
+            <span>Batch Selection <span class="fefo-hint">(FEFO — oldest expiry suggested first)</span></span>
+            <span class="batch-total" [class.total-ok]="isBatchSelectionValid(line)" [class.total-bad]="!isBatchSelectionValid(line)">
+              Selected: {{ getBatchTotal(line) | number:'1.0-4' }} / {{ line.issuedQtyInput | number:'1.0-4' }}
+            </span>
+          </div>
+
+          <div *ngIf="line.batchLoading" class="batch-loading">
+            <i class="pi pi-spin pi-spinner"></i> Loading batches&hellip;
+          </div>
+
+          <div *ngIf="!line.batchLoading && (!line.batchData || line.batchData.batches.length === 0)" class="batch-empty">
+            <i class="pi pi-exclamation-triangle"></i> No available batches found for this product.
+          </div>
+
+          <div *ngIf="!line.batchLoading && line.batchData && line.batchData.batches.length > 0" class="batch-table">
+            <div class="batch-row batch-row-header">
+              <span class="bcol-batch">Batch No.</span>
+              <span class="bcol-expiry">Expiry</span>
+              <span class="bcol-qty">Available</span>
+              <span class="bcol-wh">Warehouse</span>
+              <span class="bcol-cost">Unit Cost</span>
+              <span class="bcol-input">Take Qty</span>
+            </div>
+            <div *ngFor="let batch of line.batchData.batches" class="batch-row"
+                 [class.batch-row-selected]="(line.batchQtys[batch.inventoryItemId] || 0) > 0">
+              <span class="bcol-batch">{{ batch.batchNumber }}</span>
+              <span class="bcol-expiry" [class.expiry-soon]="isExpiringSoon(batch.expiryDate)">
+                {{ batch.expiryDate ? (batch.expiryDate | date:'dd MMM yyyy') : '—' }}
+                <i *ngIf="isExpiringSoon(batch.expiryDate)" class="pi pi-exclamation-triangle" title="Expiring within 30 days"></i>
+              </span>
+              <span class="bcol-qty">{{ batch.qtyAvailable | number:'1.0-4' }}</span>
+              <span class="bcol-wh text-muted">{{ batch.warehouseName }}</span>
+              <span class="bcol-cost">{{ batch.unitCost | number:'1.2-4' }}</span>
+              <span class="bcol-input">
+                <p-inputNumber
+                  [(ngModel)]="line.batchQtys[batch.inventoryItemId]"
+                  [min]="0" [max]="batch.qtyAvailable"
+                  [minFractionDigits]="0" [maxFractionDigits]="4"
+                  inputStyleClass="batch-qty-input">
+                </p-inputNumber>
+              </span>
+            </div>
+          </div>
+
+          <div *ngIf="!isBatchSelectionValid(line) && !line.batchLoading" class="batch-error">
+            <i class="pi pi-times-circle"></i>
+            Batch quantities must sum to the issued qty ({{ line.issuedQtyInput | number:'1.0-4' }}).
+            Current total: {{ getBatchTotal(line) | number:'1.0-4' }}.
+          </div>
+        </div>
+      </ng-container>
+
+      <!-- Serial selection panel -->
+      <ng-container *ngIf="line.isSerialTracked">
+        <div class="serial-panel">
+          <div class="serial-panel-header">
+            <i class="pi pi-qrcode"></i>
+            <span>Serial Number Selection</span>
+            <span class="serial-count" [class.total-ok]="isSerialSelectionValid(line)" [class.total-bad]="!isSerialSelectionValid(line)">
+              Selected: {{ line.selectedSerialIds.size }} / {{ line.issuedQtyInput | number:'1.0-0' }}
+            </span>
+          </div>
+
+          <div *ngIf="line.batchLoading" class="batch-loading">
+            <i class="pi pi-spin pi-spinner"></i> Loading serials&hellip;
+          </div>
+
+          <div *ngIf="!line.batchLoading && (!line.batchData || line.batchData.serials.length === 0)" class="batch-empty">
+            <i class="pi pi-exclamation-triangle"></i> No available serial numbers found for this product.
+          </div>
+
+          <div *ngIf="!line.batchLoading && line.batchData && line.batchData.serials.length > 0" class="serial-grid">
+            <div *ngFor="let serial of line.batchData.serials"
+                 class="serial-chip"
+                 [class.serial-chip-selected]="isSerialSelected(line, serial)"
+                 [class.serial-chip-disabled]="!isSerialSelected(line, serial) && line.selectedSerialIds.size >= line.issuedQtyInput"
+                 (click)="toggleSerial(line, serial)">
+              <i class="pi" [class.pi-check-circle]="isSerialSelected(line, serial)" [class.pi-circle]="!isSerialSelected(line, serial)"></i>
+              <span>{{ serial.serialNumber }}</span>
+              <span class="serial-wh text-muted">{{ serial.warehouseName }}</span>
+            </div>
+          </div>
+
+          <div *ngIf="!isSerialSelectionValid(line) && !line.batchLoading" class="batch-error">
+            <i class="pi pi-times-circle"></i>
+            Select exactly {{ line.issuedQtyInput | number:'1.0-0' }} serial number(s). Currently {{ line.selectedSerialIds.size }} selected.
+          </div>
+        </div>
+      </ng-container>
+
+    </div>
+
+    <!-- Footer total -->
+    <div class="footer-total card">
+      <span>Total Issue Value:</span>
+      <strong>{{ totalValue | number:'1.2-2' }}</strong>
+    </div>
+
+  </ng-container>
+</div>

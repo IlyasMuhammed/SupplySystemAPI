@@ -1,0 +1,32 @@
+.report-page { padding: 1.5rem; }
+
+.page-header {
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--surface-card); border-radius: 12px;
+  padding: 1.25rem 1.5rem; margin-bottom: 1.25rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,.06); border: 1px solid var(--surface-border);
+  .header-left { display: flex; align-items: center; gap: 1rem; }
+  .header-icon {
+    width: 48px; height: 48px; border-radius: 12px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    i { font-size: 1.25rem; color: #fff; }
+  }
+  .icon-teal { background: linear-gradient(135deg, #10b981, #059669); }
+  .page-title { margin: 0; font-size: 1.375rem; font-weight: 700; color: var(--text-color); }
+  .page-subtitle { margin: .2rem 0 0; font-size: .875rem; color: var(--text-color-secondary); }
+}
+
+.filter-card {
+  background: var(--surface-card); border-radius: 12px;
+  padding: 1.25rem 1.5rem; margin-bottom: 1.25rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,.06); border: 1px solid var(--surface-border);
+  .filter-title { font-size: .85rem; font-weight: 600; color: var(--text-color-secondary); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 1rem; display: flex; align-items: center; gap: .4rem; i { font-size: .8rem; } }
+  .filter-controls { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 1.25rem; }
+  .filter-field { display: flex; flex-direction: column; gap: .4rem; min-width: 200px; label { font-size: .85rem; font-weight: 500; color: var(--text-color); } }
+  .filter-actions { display: flex; gap: .5rem; align-items: flex-end; }
+}
+
+.table-card { background: var(--surface-card); border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.06); border: 1px solid var(--surface-border); }
+.text-right { text-align: right !important; }
+.font-mono { font-family: monospace; }
+.empty-state { display: flex; flex-direction: column; align-items: center; gap: .75rem; color: var(--text-color-secondary); padding: 2rem 0; i { font-size: 2.5rem; opacity: .4; } p { margin: 0; font-size: .9rem; } }

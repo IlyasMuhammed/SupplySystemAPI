@@ -1,0 +1,79 @@
+<div class="project-create-page">
+  <p-toast></p-toast>
+
+  <div class="page-header">
+    <div class="header-left">
+      <div class="header-icon icon-purple">
+        <i class="pi pi-briefcase"></i>
+      </div>
+      <div>
+        <h1 class="page-title">{{ isEditMode ? 'Edit Project' : 'New Project' }}</h1>
+        <p class="page-subtitle">{{ isEditMode ? 'Update project details' : 'Create a new project record' }}</p>
+      </div>
+    </div>
+    <p-button label="Back to Projects" icon="pi pi-arrow-left" [outlined]="true" severity="secondary"
+              routerLink="/portal/pages/material/projects"></p-button>
+  </div>
+
+  <div class="form-card" *ngIf="!isLoading">
+    <div class="form-section-title">Project Details</div>
+
+    <div class="form-grid">
+      <div class="form-field" *ngIf="!isEditMode">
+        <label>Project Code <span class="required">*</span></label>
+        <input pInputText [(ngModel)]="projectCode" placeholder="e.g. PRJ-001"
+               style="text-transform:uppercase;width:100%" />
+      </div>
+
+      <div class="form-field">
+        <label>Project Name <span class="required">*</span></label>
+        <input pInputText [(ngModel)]="projectName" placeholder="Project name" style="width:100%" />
+      </div>
+
+      <div class="form-field">
+        <label>Project Manager</label>
+        <p-dropdown [(ngModel)]="projectManagerId"
+                    [options]="userOptions"
+                    optionLabel="label" optionValue="value"
+                    placeholder="Select project manager"
+                    [filter]="true" filterBy="label"
+                    [showClear]="true"
+                    styleClass="w-full"></p-dropdown>
+      </div>
+
+      <div class="form-field">
+        <label>Budget Amount</label>
+        <p-inputNumber [(ngModel)]="budgetAmount" mode="decimal"
+                       [minFractionDigits]="2" [maxFractionDigits]="2"
+                       placeholder="0.00" styleClass="w-full"></p-inputNumber>
+      </div>
+
+      <div class="form-field" *ngIf="isEditMode">
+        <label>Status</label>
+        <p-dropdown [(ngModel)]="selectedStatus"
+                    [options]="statusOptions"
+                    optionLabel="label" optionValue="value"
+                    styleClass="w-full"></p-dropdown>
+      </div>
+    </div>
+
+    <div class="form-field full-width">
+      <label>Description</label>
+      <textarea pTextarea [(ngModel)]="description" rows="4"
+                placeholder="Project description..." style="width:100%"></textarea>
+    </div>
+
+    <div class="form-actions">
+      <p-button label="Cancel" icon="pi pi-times" [outlined]="true" severity="secondary"
+                routerLink="/portal/pages/material/projects"></p-button>
+      <p-button [label]="isEditMode ? 'Save Changes' : 'Create Project'"
+                icon="pi pi-check" severity="contrast"
+                [loading]="isSaving" (onClick)="onSubmit()"></p-button>
+    </div>
+  </div>
+
+  <div class="loading-state" *ngIf="isLoading">
+    <i class="pi pi-spin pi-spinner"></i>
+    <span>Loading project...</span>
+  </div>
+</div>

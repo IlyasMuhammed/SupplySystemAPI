@@ -1,0 +1,81 @@
+<p-toast />
+<div class="report-page">
+
+  <!-- Page Header -->
+  <div class="page-header">
+    <div class="header-left">
+      <div class="header-icon icon-teal">
+        <i class="pi pi-star"></i>
+      </div>
+      <div>
+        <h2 class="page-title">Supplier Performance</h2>
+        <p class="page-subtitle">Evaluate supplier reliability, on-time delivery rates and quality scores</p>
+      </div>
+    </div>
+    <div class="flex gap-2">
+      <p-button label="Download PDF" icon="pi pi-file-pdf" severity="secondary" [outlined]="true"
+                (onClick)="downloadPdf()" [disabled]="!items.length"></p-button>
+      <p-button label="Refresh" icon="pi pi-refresh" severity="secondary" [outlined]="true"
+                (onClick)="load()" [loading]="isLoading"></p-button>
+    </div>
+  </div>
+
+  <!-- Filter Bar -->
+  <div class="filter-card">
+    <div class="filter-title"><i class="pi pi-filter"></i> Filter by Date Range</div>
+    <div class="filter-controls">
+      <div class="filter-field">
+        <label>Date From</label>
+        <p-calendar [(ngModel)]="dateFrom" dateFormat="dd/mm/yy" [showIcon]="true" [showClear]="true"
+                    placeholder="Select start date" styleClass="w-full" appendTo="body"></p-calendar>
+      </div>
+      <div class="filter-field">
+        <label>Date To</label>
+        <p-calendar [(ngModel)]="dateTo" dateFormat="dd/mm/yy" [showIcon]="true" [showClear]="true"
+                    placeholder="Select end date" styleClass="w-full" appendTo="body"></p-calendar>
+      </div>
+      <div class="filter-actions">
+        <p-button label="Apply" icon="pi pi-search" (onClick)="load()" [loading]="isLoading"></p-button>
+        <p-button label="Reset" icon="pi pi-times" severity="secondary" [outlined]="true" (onClick)="resetFilters()"></p-button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="table-card">
+    <p-table [value]="items" [loading]="isLoading" [paginator]="true" [rows]="20"
+             responsiveLayout="scroll" styleClass="p-datatable-sm p-datatable-striped">
+      <ng-template pTemplate="header">
+        <tr>
+          <th>Supplier</th>
+          <th class="text-right">POs</th>
+          <th class="text-right">Total Spend</th>
+          <th class="text-right">On-Time %</th>
+          <th class="text-right">Quality Score</th>
+          <th class="text-right">GRNs</th>
+          <th class="text-right">Rejected GRNs</th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-row>
+        <tr>
+          <td class="font-semibold">{{ row.supplierName }}</td>
+          <td class="text-right">{{ row.poCount }}</td>
+          <td class="text-right font-semibold">{{ row.totalSpend | number:'1.2-2' }}</td>
+          <td class="text-right"
+              [class.text-green-600]="row.onTimeDeliveryRate >= 90"
+              [class.text-orange-500]="row.onTimeDeliveryRate < 90 && row.onTimeDeliveryRate >= 70"
+              [class.text-red-500]="row.onTimeDeliveryRate < 70">
+            {{ row.onTimeDeliveryRate | number:'1.1-1' }}%
+          </td>
+          <td class="text-right">{{ row.qualityScore | number:'1.1-1' }}%</td>
+          <td class="text-right">{{ row.grnCount }}</td>
+          <td class="text-right" [class.text-red-500]="row.rejectedGrnCount > 0">{{ row.rejectedGrnCount }}</td>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="emptymessage">
+        <tr><td colspan="7"><div class="empty-state"><i class="pi pi-inbox"></i><p>No supplier performance data found.</p></div></td></tr>
+      </ng-template>
+    </p-table>
+  </div>
+
+</div>

@@ -1,0 +1,116 @@
+.doc-history-page {
+  padding: 2rem;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  min-height: 100vh;
+
+  .loading-center {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; min-height: 40vh; gap: .75rem;
+    color: #7f8c8d; i { font-size: 2rem; color: #2980b9; }
+  }
+
+  .page-header {
+    margin-bottom: 2rem;
+    .header-content {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      background: white; padding: 1.75rem 2rem; border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.1);
+    }
+    .breadcrumb {
+      display: flex; align-items: center; gap: .4rem;
+      font-size: .85rem; color: #7f8c8d; margin-bottom: .5rem;
+      .crumb-link { color: #2980b9; text-decoration: none; &:hover { text-decoration: underline; } }
+      .crumb-sep  { font-size: .7rem; }
+    }
+    .page-title {
+      font-size: 1.7rem; font-weight: 700; color: #2c3e50; margin: 0 0 .3rem;
+      display: flex; align-items: center; gap: .6rem;
+      i { color: #2980b9; }
+    }
+    .doc-badge {
+      font-family: monospace; font-size: .9rem; font-weight: 700;
+      background: #eef2ff; color: #3730a3;
+      padding: .2rem .5rem; border-radius: 4px;
+    }
+    .page-subtitle { color: #7f8c8d; margin: 0; font-size: .9rem; }
+    .rev-count { color: #7f8c8d; font-size: .95rem; font-weight: 600; }
+  }
+
+  .empty-state {
+    text-align: center; padding: 4rem 1rem;
+    background: white; border-radius: 16px; box-shadow: 0 6px 20px rgba(0,0,0,.07);
+    i { font-size: 3rem; color: #b2bec3; display: block; margin-bottom: 1rem; }
+    p { color: #7f8c8d; margin-bottom: 1.5rem; }
+  }
+
+  .rev-card {
+    background: white; border-radius: 14px;
+    box-shadow: 0 6px 20px rgba(0,0,0,.07);
+    margin-bottom: 1.25rem; overflow: hidden;
+
+    .rev-header {
+      display: flex; justify-content: space-between; align-items: center;
+      flex-wrap: wrap; gap: .5rem;
+      padding: .85rem 1.25rem;
+      background: linear-gradient(90deg, #f8fafc 0%, #f1f5f9 100%);
+      border-bottom: 1px solid #e2e8f0;
+
+      .rev-header-left  { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+      .rev-header-right { display: flex; align-items: center; gap: 1rem; }
+
+      .rev-badge {
+        background: #f3e8ff; color: #7c3aed; font-weight: 700;
+        font-size: .85rem; padding: .2rem .5rem; border-radius: 4px;
+      }
+      .rev-doc     { font-weight: 700; color: #1e293b; }
+      .rev-date    { font-size: .82rem; color: #64748b; }
+      .view-link   {
+        font-size: .82rem; color: #2980b9; text-decoration: none;
+        display: flex; align-items: center; gap: .25rem;
+        &:hover { text-decoration: underline; }
+        i { font-size: .7rem; }
+      }
+    }
+
+    .rev-body {
+      padding: 1rem 1.25rem;
+      .rev-meta {
+        display: flex; flex-wrap: wrap; gap: .85rem; margin-bottom: .85rem;
+        font-size: .83rem; color: #64748b;
+        span { display: flex; align-items: center; gap: .3rem; }
+      }
+    }
+  }
+
+  // ── Steps grid ─────────────────────────────────────────────────────────────
+
+  .steps-grid {
+    display: flex; flex-direction: column; gap: .5rem;
+    .step-pill {
+      display: flex; align-items: center; flex-wrap: wrap; gap: .4rem;
+      padding: .45rem .75rem; border-radius: 8px;
+      font-size: .85rem; border-left: 4px solid transparent;
+
+      i { font-size: .9rem; }
+      .step-num-label  { font-weight: 700; color: #64748b; }
+      .step-name-label { font-weight: 600; color: #1e293b; }
+      .approver-name   { color: #64748b; }
+      .acted-at        { color: #94a3b8; font-size: .78rem; margin-left: auto; }
+      .step-comment    { color: #94a3b8; font-size: .78rem; display: flex; align-items: center; gap: .25rem; width: 100%; }
+
+      &.step-approved  { background: #f0fdf4; border-color: #10b981; i { color: #10b981; } }
+      &.step-rejected  { background: #fef2f2; border-color: #ef4444; i { color: #ef4444; } }
+      &.step-skipped   { background: #f8fafc; border-color: #94a3b8; i { color: #94a3b8; } }
+      &.step-pending   { background: #fffbeb; border-color: #f59e0b; i { color: #f59e0b; } }
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .doc-history-page {
+    padding: 1rem;
+    .page-header .header-content { flex-direction: column; }
+    .rev-card .rev-header { flex-direction: column; align-items: flex-start; }
+    .step-pill .acted-at { margin-left: 0; }
+  }
+}

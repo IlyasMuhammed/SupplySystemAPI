@@ -1,0 +1,116 @@
+<div class="return-detail-page">
+  <p-toast></p-toast>
+
+  <div *ngIf="isLoading" class="loading-state">
+    <i class="pi pi-spin pi-spinner" style="font-size:2rem;color:#7c3aed"></i>
+    <p>Loading return voucher...</p>
+  </div>
+
+  <ng-container *ngIf="returnDetail && !isLoading">
+
+    <!-- Header -->
+    <div class="page-header">
+      <div class="header-left">
+        <div class="header-icon icon-purple"><i class="pi pi-replay"></i></div>
+        <div>
+          <h1 class="page-title">{{ returnDetail.returnNo }}</h1>
+          <p class="page-subtitle">
+            Return from <strong>{{ returnDetail.issueNo }}</strong> &bull;
+            {{ returnDetail.returnDate | date:'dd MMM yyyy' }}
+          </p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <p-tag [value]="returnDetail.status" [severity]="getStatusSeverity(returnDetail.status)"
+               styleClass="status-tag"></p-tag>
+        <ng-container *ngIf="returnDetail.status === 'DRAFT'">
+          <p-button label="Post Return" icon="pi pi-check-circle" [loading]="isPosting"
+                    (onClick)="post()" severity="success"></p-button>
+          <p-button label="Cancel" icon="pi pi-times" [loading]="isCancelling"
+                    (onClick)="cancel()" severity="danger" [outlined]="true"></p-button>
+        </ng-container>
+        <p-button *ngIf="returnDetail.status === 'POSTED'"
+                  label="Download PDF" icon="pi pi-file-pdf"
+                  severity="danger" [outlined]="true"
+                  (onClick)="downloadPdf()"></p-button>
+        <a routerLink="/portal/pages/material/returns">
+          <p-button icon="pi pi-arrow-left" [outlined]="true" severity="secondary" label="Back"></p-button>
+        </a>
+      </div>
+    </div>
+
+    <!-- Info cards -->
+    <div class="info-row">
+      <div class="info-card">
+        <span class="info-label">Issue Voucher</span>
+        <a [routerLink]="['/portal/pages/material/miv', returnDetail.mivUuid]" class="info-link">
+          {{ returnDetail.issueNo }}
+        </a>
+      </div>
+      <div class="info-card">
+        <span class="info-label">Return Date</span>
+        <span class="info-val">{{ returnDetail.returnDate | date:'dd MMM yyyy' }}</span>
+      </div>
+      <div class="info-card">
+        <span class="info-label">Total Value</span>
+        <span class="info-val primary">{{ totalValue | number:'1.2-2' }}</span>
+      </div>
+      <div class="info-card" *ngIf="returnDetail.postedDate">
+        <span class="info-label">Posted Date</span>
+        <span class="info-val">{{ returnDetail.postedDate | date:'dd MMM yyyy HH:mm' }}</span>
+      </div>
+    </div>
+
+    <!-- Notes -->
+    <div class="card" *ngIf="returnDetail.notes">
+      <div class="detail-label">Notes</div>
+      <p class="notes-text">{{ returnDetail.notes }}</p>
+    </div>
+
+    <!-- Post info for DAMAGED lines -->
+    <div class="info-banner damaged" *ngIf="hasDamagedLines">
+      <i class="pi pi-info-circle"></i>
+      <span>DAMAGED lines have auto-created <strong>Wastage</strong> records awaiting supervisor approval.
+        <a routerLink="/portal/pages/material/wastage" class="wastage-link">View Wastage Records</a></span>
+    </div>
+
+    <!-- Return lines table -->
+    <div class="card">
+      <h3 class="section-title">Return Lines</h3>
+      <p-table [value]="returnDetail.lines" styleClass="p-datatable-sm">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Item</th>
+            <th>UoM</th>
+            <th>Condition</th>
+            <th style="text-align:right">Returned Qty</th>
+            <th style="text-align:right">Unit Cost</th>
+            <th style="text-align:right">Line Value</th>
+            <th>Reason</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-line>
+          <tr [class.row-damaged]="line.condition === 'DAMAGED'">
+            <td><strong>{{ line.itemDescription }}</strong></td>
+            <td>{{ line.unitOfMeasure }}</td>
+            <td>
+              <p-tag [value]="line.condition" [severity]="getConditionSeverity(line.condition)"></p-tag>
+            </td>
+            <td style="text-align:right">{{ line.returnedQty | number:'1.0-4' }}</td>
+            <td style="text-align:right">{{ line.unitCost | number:'1.2-4' }}</td>
+            <td style="text-align:right"><strong>{{ line.lineValue | number:'1.2-2' }}</strong></td>
+            <td class="reason-cell">{{ line.reason || '—' }}</td>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="footer">
+          <tr>
+            <td colspan="5" style="text-align:right;font-weight:700">Total:</td>
+            <td style="text-align:right;font-weight:700">{{ totalValue | number:'1.2-2' }}</td>
+            <td></td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </div>
+
+  </ng-container>
+</div>

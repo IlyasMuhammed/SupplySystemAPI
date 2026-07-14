@@ -1,0 +1,336 @@
+<p-toast></p-toast>
+
+<div class="profile-page">
+  <div class="profile-layout">
+
+    <!-- ══════════════════════════════════════ LEFT SIDEBAR ══ -->
+    <aside class="profile-sidebar">
+
+      <!-- Hidden file input (accessible from entire sidebar template scope) -->
+      <input #picInput type="file" accept="image/jpeg,image/png,image/webp"
+             style="display:none" (change)="onFileSelected($event)" />
+
+      <!-- Banner + floating avatar -->
+      <div class="sidebar-banner">
+        <div class="sidebar-avatar" [class.has-pic]="avatarSrc">
+          <img *ngIf="avatarSrc" [src]="avatarSrc" alt="Profile photo" class="avatar-img" />
+          <span *ngIf="!avatarSrc">{{ userInitials }}</span>
+          <div class="avatar-overlay" (click)="triggerFilePicker(picInput)">
+            <i class="pi pi-camera"></i>
+            <span>Change</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="sidebar-body">
+
+        <!-- Avatar action buttons: shown when no pending preview or delete confirm -->
+        <div class="avatar-actions" *ngIf="!previewUrl && !showDeleteConfirm && !isUploadingPicture">
+          <button class="avt-btn avt-edit" type="button"
+                  (click)="triggerFilePicker(picInput)"
+                  pTooltip="Upload photo" tooltipPosition="bottom">
+            <i class="pi pi-camera"></i>
+            <span>Change Photo</span>
+          </button>
+          <button class="avt-btn avt-delete" type="button"
+                  *ngIf="user?.profilePictureUrl"
+                  (click)="confirmDelete()"
+                  pTooltip="Remove photo" tooltipPosition="bottom">
+            <i class="pi pi-trash"></i>
+          </button>
+        </div>
+
+        <!-- Uploading spinner -->
+        <div class="avatar-spinner" *ngIf="isUploadingPicture">
+          <i class="pi pi-spin pi-spinner"></i>
+          <span>Please wait…</span>
+        </div>
+
+        <!-- Preview confirmation panel -->
+        <div class="avatar-preview-panel" *ngIf="previewUrl && !isUploadingPicture">
+          <div class="avp-file-name">
+            <i class="pi pi-image"></i>
+            <span>{{ selectedFile?.name }}</span>
+          </div>
+          <div class="avp-actions">
+            <button class="avp-btn avp-cancel" type="button" (click)="cancelPreview()">
+              <i class="pi pi-times"></i> Discard
+            </button>
+            <button class="avp-btn avp-save" type="button" (click)="uploadPicture()">
+              <i class="pi pi-cloud-upload"></i> Save Photo
+            </button>
+          </div>
+        </div>
+
+        <!-- Delete confirmation panel -->
+        <div class="avatar-delete-panel" *ngIf="showDeleteConfirm && !isUploadingPicture">
+          <div class="adp-text">
+            <i class="pi pi-exclamation-triangle"></i>
+            Remove your profile picture?
+          </div>
+          <div class="adp-actions">
+            <button class="adp-btn adp-cancel" type="button" (click)="showDeleteConfirm=false">
+              Cancel
+            </button>
+            <button class="adp-btn adp-confirm" type="button" (click)="deletePicture()">
+              <i class="pi pi-trash"></i> Remove
+            </button>
+          </div>
+        </div>
+
+        <div class="sidebar-name">{{ userFullName }}</div>
+        <span class="sidebar-role-chip">
+          <i class="pi pi-shield"></i>
+          {{ user?.role?.value || 'User' }}
+        </span>
+
+        <div class="sidebar-meta">
+          <div class="meta-row">
+            <i class="pi pi-envelope"></i>
+            <span>{{ user?.email || '—' }}</span>
+          </div>
+          <div class="meta-row" *ngIf="user?.phoneNo">
+            <i class="pi pi-phone"></i>
+            <span>{{ user?.phoneNo }}</span>
+          </div>
+        </div>
+
+        <div class="sidebar-divider"></div>
+
+        <nav class="sidebar-nav">
+          <button class="snav-item" [class.snav-active]="activeTab==='profile'"
+                  (click)="setTab('profile')">
+            <div class="snav-icon"><i class="pi pi-user"></i></div>
+            <span>Edit Profile</span>
+            <i class="pi pi-chevron-right snav-arrow"></i>
+          </button>
+          <button class="snav-item" [class.snav-active]="activeTab==='password'"
+                  (click)="setTab('password')">
+            <div class="snav-icon"><i class="pi pi-lock"></i></div>
+            <span>Change Password</span>
+            <i class="pi pi-chevron-right snav-arrow"></i>
+          </button>
+          <button class="snav-item" [class.snav-active]="activeTab==='account'"
+                  (click)="setTab('account')">
+            <div class="snav-icon"><i class="pi pi-id-card"></i></div>
+            <span>Account Details</span>
+            <i class="pi pi-chevron-right snav-arrow"></i>
+          </button>
+        </nav>
+
+        <div class="sidebar-divider"></div>
+
+        <div class="sidebar-user-id" *ngIf="user?.userId">
+          <span class="uid-label">User ID</span>
+          <span class="uid-value">{{ user?.userId }}</span>
+        </div>
+
+      </div>
+    </aside>
+
+    <!-- ══════════════════════════════════════ RIGHT CONTENT ══ -->
+    <div class="profile-content">
+
+      <!-- ── Edit Profile ──────────────────────────────────── -->
+      <div *ngIf="activeTab === 'profile'" class="content-card">
+        <div class="content-card-head">
+          <div class="cch-icon purple"><i class="pi pi-user-edit"></i></div>
+          <div>
+            <div class="cch-title">Personal Information</div>
+            <div class="cch-sub">Update your name, email address and phone number</div>
+          </div>
+        </div>
+        <div class="content-card-body">
+
+          <form [formGroup]="profileForm" (ngSubmit)="saveProfile()">
+            <div class="form-grid">
+
+              <div class="form-field">
+                <label class="field-label">
+                  <i class="pi pi-user"></i> First Name <span class="req">*</span>
+                </label>
+                <input pInputText formControlName="firstName" class="w-full"
+                       placeholder="First name"
+                       [ngClass]="{'ng-invalid ng-dirty': pf['firstName'].invalid && pf['firstName'].touched}" />
+                <small class="field-error" *ngIf="pf['firstName'].invalid && pf['firstName'].touched">
+                  First name is required (min. 2 characters).
+                </small>
+              </div>
+
+              <div class="form-field">
+                <label class="field-label">
+                  <i class="pi pi-user"></i> Last Name
+                </label>
+                <input pInputText formControlName="lastName" class="w-full" placeholder="Last name" />
+              </div>
+
+              <div class="form-field">
+                <label class="field-label">
+                  <i class="pi pi-envelope"></i> Email Address <span class="req">*</span>
+                </label>
+                <input pInputText formControlName="email" class="w-full" placeholder="you@example.com"
+                       [ngClass]="{'ng-invalid ng-dirty': pf['email'].invalid && pf['email'].touched}" />
+                <small class="field-error" *ngIf="pf['email'].invalid && pf['email'].touched">
+                  A valid email address is required.
+                </small>
+              </div>
+
+              <div class="form-field">
+                <label class="field-label">
+                  <i class="pi pi-phone"></i> Phone Number
+                </label>
+                <input pInputText formControlName="phone" class="w-full" placeholder="+92 300 0000000" />
+              </div>
+
+            </div>
+
+            <div class="form-actions">
+              <p-button label="Save Changes" icon="pi pi-check" type="submit"
+                        [loading]="isSavingProfile" [disabled]="profileForm.pristine"></p-button>
+            </div>
+          </form>
+
+        </div>
+      </div>
+
+      <!-- ── Change Password ───────────────────────────────── -->
+      <div *ngIf="activeTab === 'password'" class="content-card">
+        <div class="content-card-head">
+          <div class="cch-icon amber"><i class="pi pi-shield"></i></div>
+          <div>
+            <div class="cch-title">Change Password</div>
+            <div class="cch-sub">After saving you will be logged out and prompted to sign in again</div>
+          </div>
+        </div>
+        <div class="content-card-body">
+
+          <form [formGroup]="passwordForm" (ngSubmit)="changePassword()">
+
+            <div class="form-field form-field--full">
+              <label class="field-label">
+                <i class="pi pi-lock"></i> Current Password <span class="req">*</span>
+              </label>
+              <p-password formControlName="currentPassword" styleClass="w-full"
+                          [feedback]="false" [toggleMask]="true"
+                          placeholder="Enter your current password"
+                          [ngClass]="{'ng-invalid ng-dirty': pwf['currentPassword'].invalid && pwf['currentPassword'].touched}">
+              </p-password>
+              <small class="field-error" *ngIf="pwf['currentPassword'].invalid && pwf['currentPassword'].touched">
+                Current password is required.
+              </small>
+            </div>
+
+            <div class="form-grid mt-1">
+              <div class="form-field">
+                <label class="field-label">
+                  <i class="pi pi-key"></i> New Password <span class="req">*</span>
+                </label>
+                <p-password formControlName="newPassword" styleClass="w-full"
+                            [toggleMask]="true" placeholder="Min. 8 characters"
+                            [ngClass]="{'ng-invalid ng-dirty': pwf['newPassword'].invalid && pwf['newPassword'].touched}">
+                </p-password>
+                <small class="field-error" *ngIf="pwf['newPassword'].invalid && pwf['newPassword'].touched">
+                  New password must be at least 8 characters.
+                </small>
+              </div>
+
+              <div class="form-field">
+                <label class="field-label">
+                  <i class="pi pi-key"></i> Confirm New Password <span class="req">*</span>
+                </label>
+                <p-password formControlName="confirmPassword" styleClass="w-full"
+                            [feedback]="false" [toggleMask]="true"
+                            placeholder="Repeat new password"
+                            [ngClass]="{'ng-invalid ng-dirty': pwf['confirmPassword'].invalid && pwf['confirmPassword'].touched}">
+                </p-password>
+                <small class="field-error" *ngIf="pwf['confirmPassword'].hasError('mismatch') && pwf['confirmPassword'].touched">
+                  Passwords do not match.
+                </small>
+                <small class="field-error" *ngIf="pwf['confirmPassword'].hasError('required') && pwf['confirmPassword'].touched">
+                  Please confirm your new password.
+                </small>
+              </div>
+            </div>
+
+            <div class="password-rules">
+              <div class="pw-rules-title"><i class="pi pi-info-circle"></i> Password requirements</div>
+              <div class="pw-rules-grid">
+                <div class="pw-rule"><i class="pi pi-check-circle"></i> At least 8 characters</div>
+                <div class="pw-rule"><i class="pi pi-check-circle"></i> Uppercase and lowercase letters</div>
+                <div class="pw-rule"><i class="pi pi-check-circle"></i> At least one number or symbol</div>
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <p-button label="Change Password" icon="pi pi-lock" severity="warn" type="submit"
+                        [loading]="isSavingPassword"></p-button>
+            </div>
+
+          </form>
+
+        </div>
+      </div>
+
+      <!-- ── Account Details ───────────────────────────────── -->
+      <div *ngIf="activeTab === 'account'" class="content-card">
+        <div class="content-card-head">
+          <div class="cch-icon blue"><i class="pi pi-id-card"></i></div>
+          <div>
+            <div class="cch-title">Account Details</div>
+            <div class="cch-sub">Read-only information about your account</div>
+          </div>
+        </div>
+        <div class="content-card-body">
+
+          <div class="account-grid">
+
+            <div class="account-card">
+              <div class="ac-icon purple"><i class="pi pi-user"></i></div>
+              <div class="ac-body">
+                <span class="ac-label">Full Name</span>
+                <span class="ac-value">{{ userFullName }}</span>
+              </div>
+            </div>
+
+            <div class="account-card">
+              <div class="ac-icon blue"><i class="pi pi-envelope"></i></div>
+              <div class="ac-body">
+                <span class="ac-label">Email Address</span>
+                <span class="ac-value">{{ user?.email || '—' }}</span>
+              </div>
+            </div>
+
+            <div class="account-card">
+              <div class="ac-icon green"><i class="pi pi-phone"></i></div>
+              <div class="ac-body">
+                <span class="ac-label">Phone Number</span>
+                <span class="ac-value">{{ user?.phoneNo || '—' }}</span>
+              </div>
+            </div>
+
+            <div class="account-card">
+              <div class="ac-icon amber"><i class="pi pi-shield"></i></div>
+              <div class="ac-body">
+                <span class="ac-label">Role</span>
+                <span class="ac-value">
+                  <span class="role-badge">{{ user?.role?.value || '—' }}</span>
+                </span>
+              </div>
+            </div>
+
+            <div class="account-card" *ngIf="user?.address">
+              <div class="ac-icon slate"><i class="pi pi-map-marker"></i></div>
+              <div class="ac-body">
+                <span class="ac-label">Address</span>
+                <span class="ac-value">{{ user?.address }}</span>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>

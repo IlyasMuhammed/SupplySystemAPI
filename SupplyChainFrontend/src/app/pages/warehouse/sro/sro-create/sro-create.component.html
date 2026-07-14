@@ -1,0 +1,220 @@
+<div class="sro-create-page">
+  <p-toast></p-toast>
+
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-left">
+      <div class="header-icon icon-rose">
+        <i class="pi pi-reply"></i>
+      </div>
+      <div>
+        <div class="title-row">
+          <p-button icon="pi pi-arrow-left" [text]="true" severity="secondary" size="small"
+                    routerLink="/portal/pages/warehouse/sro"></p-button>
+          <h1 class="page-title">New Supplier Return Order</h1>
+        </div>
+        <p class="page-subtitle">Select a GRN or PO to auto-populate return lines, or add them manually</p>
+      </div>
+    </div>
+  </div>
+
+  <form [formGroup]="form" (ngSubmit)="submit()">
+
+    <!-- Return Details -->
+    <div class="form-card">
+      <div class="section-title">Return Details</div>
+      <div class="form-grid">
+
+        <div class="form-field">
+          <label>Supplier <span class="req">*</span></label>
+          <p-dropdown [options]="suppliers" formControlName="supplierId"
+                      placeholder="Select supplier" [filter]="true" filterBy="label"
+                      styleClass="w-full" appendTo="body"></p-dropdown>
+          <small class="error" *ngIf="f['supplierId'].touched && f['supplierId'].invalid">
+            Supplier is required.
+          </small>
+        </div>
+
+        <div class="form-field">
+          <label>Return Type <span class="req">*</span></label>
+          <p-dropdown [options]="sroTypeOptions" formControlName="sroType"
+                      styleClass="w-full" appendTo="body"></p-dropdown>
+        </div>
+
+        <div class="form-field">
+          <label>GRN Reference</label>
+          <p-dropdown [options]="grns" formControlName="originalGrnId"
+                      placeholder="Link to a GRN" [filter]="true" filterBy="label"
+                      styleClass="w-full" appendTo="body"
+                      (onChange)="onGrnChange($event.value)"></p-dropdown>
+          <small class="field-hint">Select to auto-fill return lines and warehouse</small>
+        </div>
+
+        <div class="form-field">
+          <label>PO Reference</label>
+          <p-dropdown [options]="pos" formControlName="originalPoId"
+                      placeholder="Link to a PO" [filter]="true" filterBy="label"
+                      styleClass="w-full" appendTo="body"
+                      (onChange)="onPoChange($event.value)"></p-dropdown>
+          <small class="field-hint">Auto-fills lines when no GRN is selected</small>
+        </div>
+
+        <div class="form-field">
+          <label>Source Warehouse <span class="req">*</span></label>
+          <p-dropdown [options]="warehouses" formControlName="warehouseUuid"
+                      placeholder="Select warehouse" [filter]="true" filterBy="label"
+                      styleClass="w-full" appendTo="body"></p-dropdown>
+          <small class="field-hint" *ngIf="!f['warehouseUuid'].disabled">
+            Stock will be deducted from this warehouse on dispatch.
+          </small>
+          <small class="field-hint" *ngIf="f['warehouseUuid'].disabled">
+            Auto-filled from selected GRN.
+          </small>
+          <small class="error" *ngIf="f['warehouseUuid'].touched && f['warehouseUuid'].invalid">
+            Warehouse is required for stock deduction.
+          </small>
+        </div>
+
+        <div class="form-field">
+          <label>Return Reason <span class="req">*</span></label>
+          <p-dropdown [options]="returnReasonOptions" formControlName="returnReason"
+                      styleClass="w-full" appendTo="body"></p-dropdown>
+        </div>
+
+        <div class="form-field full-width">
+          <label>Reason Details</label>
+          <textarea pTextarea formControlName="returnReasonDetail" rows="2" class="w-full"
+                    placeholder="Additional details about the return reason..."></textarea>
+        </div>
+
+        <div class="form-field full-width">
+          <label>Notes</label>
+          <textarea pTextarea formControlName="notes" rows="2" class="w-full"
+                    placeholder="Internal notes..."></textarea>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Return Lines -->
+    <div class="form-card">
+      <div class="section-header">
+        <div class="section-title">Return Lines</div>
+        <p-button label="Add Line" icon="pi pi-plus" [outlined]="true" size="small"
+                  type="button" (onClick)="addLine()"></p-button>
+      </div>
+
+      <!-- Auto-populate indicator -->
+      <div class="lines-source-badge" *ngIf="linesSource !== 'manual'">
+        <i class="pi" [ngClass]="linesSource === 'grn' ? 'pi-check-circle' : 'pi-file-edit'"></i>
+        Lines auto-populated from {{ linesSource === 'grn' ? 'GRN' : 'PO' }}.
+        You can edit quantities and reasons below.
+      </div>
+
+      <!-- Lines loading -->
+      <div class="lines-loading" *ngIf="isLoadingLines">
+        <p-progressSpinner strokeWidth="4" styleClass="small-spinner"></p-progressSpinner>
+        <span>Loading items...</span>
+      </div>
+
+      <div formArrayName="lines" *ngIf="!isLoadingLines">
+        <div *ngFor="let line of linesArray.controls; let i = index"
+             [formGroupName]="i" class="line-card">
+
+          <div class="line-header">
+            <div class="line-num">{{ i + 1 }}</div>
+            <span class="line-title">Line {{ i + 1 }}</span>
+            <p-button *ngIf="linesArray.length > 1" icon="pi pi-times"
+                      [text]="true" severity="danger" size="small"
+                      type="button" pTooltip="Remove line" tooltipPosition="left"
+                      (onClick)="removeLine(i)"></p-button>
+          </div>
+
+          <div class="line-body">
+            <div class="form-grid">
+
+              <div class="form-field wide">
+                <label>Product / Item Description <span class="req">*</span></label>
+
+                <!-- Auto-populated from GRN or PO: read-only text -->
+                <input *ngIf="linesSource !== 'manual'"
+                       pInputText formControlName="itemDescription"
+                       class="w-full" [readonly]="true" />
+
+                <!-- Manual line: searchable autocomplete -->
+                <p-autoComplete *ngIf="linesSource === 'manual'"
+                  [(ngModel)]="lineProductSelections[i]"
+                  [ngModelOptions]="{standalone: true}"
+                  [suggestions]="productSuggestions"
+                  (completeMethod)="searchProducts($event)"
+                  (onSelect)="onProductSelected($event.value, i)"
+                  (ngModelChange)="onProductInputChange($event, i)"
+                  [field]="'name'"
+                  placeholder="Search by name or type a description..."
+                  styleClass="w-full"
+                  [forceSelection]="false"
+                  [dropdown]="false">
+                  <ng-template let-p pTemplate="item">
+                    <div class="product-option">
+                      <span class="product-name">{{ p.name }}</span>
+                    </div>
+                  </ng-template>
+                </p-autoComplete>
+
+                <small class="field-hint" *ngIf="linesSource === 'manual'">
+                  Search catalogue or type a description. Selecting a product auto-fills UOM and cost.
+                </small>
+                <small class="error"
+                       *ngIf="line.get('itemDescription')?.touched && !line.get('itemDescription')?.value">
+                  Description is required.
+                </small>
+              </div>
+
+              <div class="form-field">
+                <label>UOM</label>
+                <input pInputText formControlName="unitOfMeasure" class="w-full"
+                       placeholder="e.g. EA, KG, PCS" />
+              </div>
+
+              <div class="form-field">
+                <label>Qty to Return <span class="req">*</span></label>
+                <p-inputNumber formControlName="qtyToReturn" [min]="1"
+                               styleClass="w-full"></p-inputNumber>
+              </div>
+
+              <div class="form-field">
+                <label>Return Reason <span class="req">*</span></label>
+                <p-dropdown [options]="returnReasonOptions" formControlName="returnReason"
+                            styleClass="w-full"></p-dropdown>
+              </div>
+
+              <div class="form-field">
+                <label>Condition</label>
+                <input pInputText formControlName="condition" class="w-full"
+                       placeholder="e.g. Damaged packaging" />
+              </div>
+
+              <div class="form-field">
+                <label>Unit Cost</label>
+                <p-inputNumber formControlName="unitCost" mode="currency" currency="USD"
+                               [minFractionDigits]="2" styleClass="w-full"
+                               [readonly]="linesSource !== 'manual'"></p-inputNumber>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- Form actions -->
+    <div class="form-actions">
+      <p-button label="Cancel" [outlined]="true" severity="secondary" type="button"
+                routerLink="/portal/pages/warehouse/sro"></p-button>
+      <p-button label="Create Return Order" icon="pi pi-save"
+                [loading]="isSubmitting" type="submit"></p-button>
+    </div>
+
+  </form>
+</div>

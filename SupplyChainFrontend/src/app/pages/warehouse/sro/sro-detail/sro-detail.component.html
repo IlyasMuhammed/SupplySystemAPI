@@ -1,0 +1,391 @@
+<div class="sro-detail-page">
+  <p-toast></p-toast>
+
+  <!-- Loading -->
+  <div *ngIf="isLoading" class="loading-state">
+    <i class="pi pi-spin pi-spinner"></i>
+    <span>Loading return order...</span>
+  </div>
+
+  <ng-container *ngIf="!isLoading && sro">
+
+    <!-- Header -->
+    <div class="page-header">
+      <div class="header-left">
+        <div class="header-icon icon-rose">
+          <i class="pi pi-reply"></i>
+        </div>
+        <div>
+          <div class="header-meta">
+            <p-button icon="pi pi-arrow-left" [text]="true" severity="secondary" size="small"
+                      routerLink="/portal/pages/warehouse/sro"></p-button>
+            <span class="sro-number">{{ sro.sroNumber }}</span>
+            <p-tag [value]="getStatusLabel(sro.status)" [severity]="getStatusSeverity(sro.status)"></p-tag>
+            <p-tag [value]="getSroTypeLabel(sro.sroType)" severity="secondary"></p-tag>
+          </div>
+          <p class="page-subtitle">{{ sro.supplierName }} &bull; Created {{ sro.createdDate | date:'dd MMM yyyy' }}</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <p-button *ngIf="canApprove" label="Approve" icon="pi pi-check" severity="success"
+                  (onClick)="openApproveDialog()"></p-button>
+        <p-button *ngIf="canApprove" label="Reject" icon="pi pi-times" severity="danger" [outlined]="true"
+                  (onClick)="openRejectDialog()"></p-button>
+        <p-button *ngIf="canDispatch" label="Mark as Dispatched" icon="pi pi-send" severity="info"
+                  (onClick)="openDispatchDialog()"></p-button>
+        <p-button *ngIf="canConfirmReceipt" label="Confirm Supplier Receipt" icon="pi pi-check-circle" severity="success"
+                  (onClick)="openConfirmReceiptDialog()"></p-button>
+        <p-button *ngIf="canResolve" label="Resolve" icon="pi pi-check-square" severity="warn"
+                  (onClick)="openResolveDialog()"></p-button>
+        <p-button *ngIf="canExpectReplacement" label="Expect Replacement" icon="pi pi-truck" severity="info" [outlined]="true"
+                  [loading]="isExpectingReplacement" (onClick)="expectReplacement()"></p-button>
+        <p-button *ngIf="canCreateDebitNote" label="Raise Debit Note" icon="pi pi-file-edit" severity="danger" [outlined]="true"
+                  (onClick)="openDebitNoteDialog()"></p-button>
+      </div>
+    </div>
+
+    <!-- Info cards -->
+    <div class="info-grid">
+
+      <div class="info-card">
+        <div class="info-section-title">Return Information</div>
+        <div class="info-row">
+          <span class="info-label">Return Reason</span>
+          <span class="info-value">{{ getReasonLabel(sro.returnReason) }}</span>
+        </div>
+        <div class="info-row" *ngIf="sro.returnReasonDetail">
+          <span class="info-label">Details</span>
+          <span class="info-value">{{ sro.returnReasonDetail }}</span>
+        </div>
+        <div class="info-row" *ngIf="sro.notes">
+          <span class="info-label">Notes</span>
+          <span class="info-value">{{ sro.notes }}</span>
+        </div>
+        <div class="info-row" *ngIf="sro.approvedAt">
+          <span class="info-label">Approved At</span>
+          <span class="info-value">{{ sro.approvedAt | date:'dd MMM yyyy HH:mm' }}</span>
+        </div>
+        <div class="info-row" *ngIf="sro.rejectionReason">
+          <span class="info-label">Rejection Reason</span>
+          <span class="info-value danger">{{ sro.rejectionReason }}</span>
+        </div>
+      </div>
+
+      <div class="info-card">
+        <div class="info-section-title">Reference Documents</div>
+        <div class="info-row">
+          <span class="info-label">GRN Reference</span>
+          <span class="info-value">
+            <a *ngIf="sro.originalGrnId; else noGrn"
+               [routerLink]="['/portal/pages/warehouse/grn', sro.originalGrnId]"
+               class="link">{{ sro.originalGrnNumber }}</a>
+            <ng-template #noGrn>—</ng-template>
+          </span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">PO Reference</span>
+          <span class="info-value font-mono">{{ sro.originalPoNumber || '—' }}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">RMA Number</span>
+          <span class="info-value font-mono">{{ sro.rmaNumber || '—' }}</span>
+        </div>
+      </div>
+
+      <div class="info-card" *ngIf="sro.dispatchDate">
+        <div class="info-section-title">Dispatch Details</div>
+        <div class="info-row">
+          <span class="info-label">Dispatch Date</span>
+          <span class="info-value">{{ sro.dispatchDate | date:'dd MMM yyyy' }}</span>
+        </div>
+        <div class="info-row" *ngIf="sro.slaDeadline">
+          <span class="info-label">SLA Deadline</span>
+          <span class="info-value" [class.danger]="isSlaOverdue">
+            {{ sro.slaDeadline | date:'dd MMM yyyy' }}
+            <span *ngIf="isSlaOverdue" class="overdue-badge">OVERDUE</span>
+          </span>
+        </div>
+        <div class="info-row" *ngIf="sro.dispatchCarrier">
+          <span class="info-label">Carrier</span>
+          <span class="info-value">{{ sro.dispatchCarrier }}</span>
+        </div>
+        <div class="info-row" *ngIf="sro.dispatchTrackingRef">
+          <span class="info-label">Tracking Ref</span>
+          <span class="info-value font-mono">{{ sro.dispatchTrackingRef }}</span>
+        </div>
+      </div>
+
+      <div class="info-card" *ngIf="sro.resolutionType">
+        <div class="info-section-title">Resolution</div>
+        <div class="info-row">
+          <span class="info-label">Resolution Type</span>
+          <span class="info-value">{{ sro.resolutionType }}</span>
+        </div>
+        <div class="info-row" *ngIf="sro.resolvedAt">
+          <span class="info-label">Resolved At</span>
+          <span class="info-value">{{ sro.resolvedAt | date:'dd MMM yyyy HH:mm' }}</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Lines table -->
+    <div class="table-card">
+      <div class="table-header">
+        <h3>Return Lines <span class="count-badge">{{ sro.lines.length }}</span></h3>
+      </div>
+      <p-table [value]="sro.lines" [tableStyle]="{'min-width':'50rem'}">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>#</th>
+            <th>Item Name</th>
+            <th>UOM</th>
+            <th class="text-right">Qty to Return</th>
+            <th>Reason</th>
+            <th>Condition</th>
+            <th class="text-right">Unit Cost</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-line>
+          <tr>
+            <td>{{ line.lineNo }}</td>
+            <td>{{ line.itemDescription }}</td>
+            <td>{{ line.unitOfMeasure || '—' }}</td>
+            <td class="text-right font-semibold">{{ line.qtyToReturn }}</td>
+            <td>{{ getReasonLabel(line.returnReason) }}</td>
+            <td>{{ line.condition || '—' }}</td>
+            <td class="text-right font-mono">{{ line.unitCost != null ? (line.unitCost | number:'1.2-2') : '—' }}</td>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="emptymessage">
+          <tr>
+            <td colspan="7" class="text-center" style="padding:2rem; color:var(--text-color-secondary)">
+              No return lines found.
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </div>
+
+    <!-- Audit Trail -->
+    <div class="table-card" style="margin-top:1.25rem">
+      <div class="table-header" style="display:flex;justify-content:space-between;align-items:center">
+        <h3 style="margin:0">Audit Trail</h3>
+        <p-button label="Load Audit Trail" icon="pi pi-history" severity="secondary" size="small"
+                  [text]="true" [loading]="isLoadingAudit" (onClick)="loadAuditTrail()"></p-button>
+      </div>
+
+      <div *ngIf="isLoadingAudit" style="display:flex;justify-content:center;padding:2rem">
+        <p-progressSpinner styleClass="w-2rem h-2rem"></p-progressSpinner>
+      </div>
+
+      <table *ngIf="showAuditTrail && !isLoadingAudit" class="audit-table">
+        <thead>
+          <tr>
+            <th>Timestamp</th>
+            <th>Action</th>
+            <th>User</th>
+            <th>Field Changed</th>
+            <th>From</th>
+            <th>To</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let entry of auditTrail">
+            <td style="white-space:nowrap;color:#64748b;font-size:.82rem">{{ entry.timestamp | date:'dd MMM yy HH:mm' }}</td>
+            <td><p-tag [value]="entry.action" [severity]="getAuditActionSeverity(entry.action)" styleClass="tag-xs"></p-tag></td>
+            <td style="font-size:.85rem">{{ entry.userName || ('User #' + entry.userId) }}</td>
+            <td style="font-size:.82rem;color:#64748b">{{ entry.fieldChanged || '—' }}</td>
+            <td style="font-size:.82rem;color:#64748b">{{ entry.oldValue || '—' }}</td>
+            <td style="font-size:.82rem;color:#64748b">{{ entry.newValue || '—' }}</td>
+            <td style="font-size:.82rem;color:#64748b;max-width:220px">{{ entry.notes || '—' }}</td>
+          </tr>
+          <tr *ngIf="auditTrail.length === 0">
+            <td colspan="7" style="text-align:center;padding:1.5rem;color:#94a3b8">No audit entries found.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </ng-container>
+
+  <!-- Not found -->
+  <div *ngIf="!isLoading && !sro" class="not-found">
+    <i class="pi pi-exclamation-circle"></i>
+    <p>Supplier return order not found.</p>
+    <p-button label="Back to List" icon="pi pi-arrow-left" severity="secondary"
+              routerLink="/portal/pages/warehouse/sro"></p-button>
+  </div>
+
+  <!-- ── Approve Dialog ───────────────────────────────────────────────────── -->
+  <p-dialog header="Approve Return Order" [(visible)]="showApproveDialog"
+            [style]="{width:'440px'}" [modal]="true">
+    <div class="dialog-body">
+      <p class="dialog-info">Approve <strong>{{ sro?.sroNumber }}</strong>? The supplier will be notified to expect the return.</p>
+      <div class="form-field">
+        <label>Notes (optional)</label>
+        <textarea pTextarea [(ngModel)]="approveNotes" rows="3" class="w-full"
+                  placeholder="Approval notes..."></textarea>
+      </div>
+    </div>
+    <ng-template pTemplate="footer">
+      <p-button label="Cancel" [text]="true" severity="secondary" (onClick)="showApproveDialog=false"></p-button>
+      <p-button label="Approve" icon="pi pi-check" severity="success"
+                [loading]="isApproving" (onClick)="confirmApprove()"></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <!-- ── Reject Dialog ────────────────────────────────────────────────────── -->
+  <p-dialog header="Reject Return Order" [(visible)]="showRejectDialog"
+            [style]="{width:'440px'}" [modal]="true">
+    <div class="dialog-body">
+      <p class="dialog-info">Reject SRO <strong>{{ sro?.sroNumber }}</strong>?</p>
+      <div class="form-field">
+        <label>Rejection Reason <span class="req">*</span></label>
+        <textarea pTextarea [(ngModel)]="rejectReason" rows="3" class="w-full"
+                  placeholder="Reason for rejection..."></textarea>
+      </div>
+    </div>
+    <ng-template pTemplate="footer">
+      <p-button label="Cancel" [text]="true" severity="secondary" (onClick)="showRejectDialog=false"></p-button>
+      <p-button label="Reject" icon="pi pi-times" severity="danger"
+                [loading]="isRejecting" [disabled]="!rejectReason.trim()"
+                (onClick)="confirmReject()"></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <!-- ── Dispatch Dialog ──────────────────────────────────────────────────── -->
+  <p-dialog header="Mark as Dispatched" [(visible)]="showDispatchDialog"
+            [style]="{width:'480px'}" [modal]="true">
+    <div class="dialog-body">
+      <div class="form-field">
+        <label>RMA Number</label>
+        <input pInputText [(ngModel)]="dispatchRmaNumber" class="w-full" placeholder="Supplier RMA #" />
+      </div>
+      <div class="form-field">
+        <label>Dispatch Date <span class="req">*</span></label>
+        <p-calendar [(ngModel)]="dispatchDate" styleClass="w-full" [showIcon]="true"
+                    appendTo="body" dateFormat="dd M yy"></p-calendar>
+      </div>
+      <div class="form-field">
+        <label>Carrier</label>
+        <input pInputText [(ngModel)]="dispatchCarrier" class="w-full" placeholder="Carrier name" />
+      </div>
+      <div class="form-field">
+        <label>Tracking Reference</label>
+        <input pInputText [(ngModel)]="dispatchTrackingRef" class="w-full" placeholder="Tracking number" />
+      </div>
+    </div>
+    <ng-template pTemplate="footer">
+      <p-button label="Cancel" [text]="true" severity="secondary" (onClick)="showDispatchDialog=false"></p-button>
+      <p-button label="Confirm Dispatch" icon="pi pi-send" severity="info"
+                [loading]="isDispatching" [disabled]="!dispatchDate"
+                (onClick)="confirmDispatch()"></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <!-- ── Confirm Receipt Dialog ────────────────────────────────────────────── -->
+  <p-dialog header="Confirm Supplier Receipt" [(visible)]="showConfirmReceiptDialog"
+            [style]="{width:'440px'}" [modal]="true">
+    <div class="dialog-body">
+      <p class="dialog-info">Confirm that the supplier has received the returned goods for <strong>{{ sro?.sroNumber }}</strong>.</p>
+      <div class="form-field">
+        <label>Notes (optional)</label>
+        <textarea pTextarea [(ngModel)]="confirmReceiptNotes" rows="3" class="w-full"
+                  placeholder="Notes..."></textarea>
+      </div>
+    </div>
+    <ng-template pTemplate="footer">
+      <p-button label="Cancel" [text]="true" severity="secondary" (onClick)="showConfirmReceiptDialog=false"></p-button>
+      <p-button label="Confirm Receipt" icon="pi pi-check-circle" severity="success"
+                [loading]="isConfirmingReceipt" (onClick)="confirmReceipt()"></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <!-- ── Resolve Dialog ────────────────────────────────────────────────────── -->
+  <p-dialog header="Resolve Return Order" [(visible)]="showResolveDialog"
+            [style]="{width:'500px'}" [modal]="true">
+    <div class="dialog-body">
+      <div class="form-field">
+        <label>Resolution Type <span class="req">*</span></label>
+        <p-dropdown [options]="resolveTypeOptions" [(ngModel)]="resolveType"
+                    styleClass="w-full" placeholder="Select resolution..."
+                    appendTo="body"></p-dropdown>
+      </div>
+      <ng-container *ngIf="resolveType === 'CREDIT'">
+        <div class="form-field">
+          <label>Credit Note Number</label>
+          <input pInputText [(ngModel)]="creditNoteNumber" class="w-full" placeholder="CN-YYYY-NNNNN" />
+        </div>
+        <div class="form-field">
+          <label>Credit Amount</label>
+          <p-inputNumber [(ngModel)]="creditAmount" mode="currency" currency="USD"
+                         [minFractionDigits]="2" styleClass="w-full"></p-inputNumber>
+        </div>
+      </ng-container>
+      <ng-container *ngIf="resolveType === 'DEBIT'">
+        <div class="form-field">
+          <label>Debit Note Number</label>
+          <input pInputText [(ngModel)]="debitNoteNumber" class="w-full" placeholder="DN-YYYY-NNNNN" />
+        </div>
+        <div class="form-field">
+          <label>Debit Amount</label>
+          <p-inputNumber [(ngModel)]="debitAmount" mode="currency" currency="USD"
+                         [minFractionDigits]="2" styleClass="w-full"></p-inputNumber>
+        </div>
+      </ng-container>
+      <ng-container *ngIf="resolveType === 'REPLACEMENT'">
+        <div class="form-field">
+          <label>Replacement PO Reference</label>
+          <input pInputText [(ngModel)]="replacementPoUuid" class="w-full" placeholder="PO UUID or number" />
+        </div>
+      </ng-container>
+      <div class="form-field">
+        <label>Notes</label>
+        <textarea pTextarea [(ngModel)]="resolveNotes" rows="3" class="w-full"
+                  placeholder="Resolution notes..."></textarea>
+      </div>
+    </div>
+    <ng-template pTemplate="footer">
+      <p-button label="Cancel" [text]="true" severity="secondary" (onClick)="showResolveDialog=false"></p-button>
+      <p-button label="Resolve" icon="pi pi-check-square" severity="warn"
+                [loading]="isResolving" [disabled]="!resolveType"
+                (onClick)="confirmResolve()"></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <!-- Create Debit Note dialog -->
+  <p-dialog header="Raise Debit Note" [(visible)]="showDebitNoteDialog" [modal]="true" [style]="{width:'520px'}">
+    <div class="form-field">
+      <label>Debit Reason <span class="req">*</span></label>
+      <p-dropdown [(ngModel)]="debitNoteReason" [options]="debitReasonOptions"
+                  optionLabel="label" optionValue="value" placeholder="Select reason"
+                  styleClass="w-full"></p-dropdown>
+    </div>
+    <div class="form-field">
+      <label>Reason Detail</label>
+      <input pInputText [(ngModel)]="debitNoteReasonDetail" class="w-full"
+             placeholder="Optional additional detail..." />
+    </div>
+    <div class="form-field">
+      <label>Debit Amount <span class="req">*</span></label>
+      <p-inputNumber [(ngModel)]="debitNoteAmount" mode="decimal"
+                     [minFractionDigits]="2" [maxFractionDigits]="2"
+                     [min]="0.01" styleClass="w-full" placeholder="0.00"></p-inputNumber>
+    </div>
+    <div class="form-field">
+      <label>Notes</label>
+      <textarea pTextarea [(ngModel)]="debitNoteNotes" rows="3" class="w-full"
+                placeholder="Internal notes..."></textarea>
+    </div>
+    <ng-template pTemplate="footer">
+      <p-button label="Cancel" [text]="true" severity="secondary" (onClick)="showDebitNoteDialog=false"></p-button>
+      <p-button label="Raise Debit Note" icon="pi pi-file-edit" severity="danger"
+                [loading]="isCreatingDebitNote"
+                [disabled]="!debitNoteReason || !debitNoteAmount"
+                (onClick)="confirmCreateDebitNote()"></p-button>
+    </ng-template>
+  </p-dialog>
+
+</div>

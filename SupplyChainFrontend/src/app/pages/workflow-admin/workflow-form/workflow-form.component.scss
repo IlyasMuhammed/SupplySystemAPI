@@ -1,0 +1,305 @@
+.wf-form-page {
+  padding: 1.5rem;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  min-height: 100vh;
+
+  // ── Loading ──────────────────────────────────────────────────────────────
+  .loading-overlay {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; min-height: 40vh; gap: 1rem;
+    p { color: #64748b; font-size: .9rem; }
+  }
+
+  // ── Page header card ──────────────────────────────────────────────────────
+  .page-header-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, .08);
+    padding: 1.1rem 1.5rem;
+    margin-bottom: 1.25rem;
+
+    .ph-left {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .ph-icon-wrap {
+      width: 48px; height: 48px; border-radius: 13px;
+      background: linear-gradient(135deg, #6c63ff, #a78bfa);
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 14px rgba(108, 99, 255, .35);
+      flex-shrink: 0;
+      i { font-size: 1.3rem; color: #fff; }
+    }
+
+    .ph-name {
+      font-size: 1.2rem; font-weight: 700; color: #0f172a; margin-bottom: .15rem;
+    }
+
+    .ph-sub {
+      font-size: .78rem; color: #64748b; max-width: 520px;
+    }
+
+    .ph-actions {
+      display: flex; align-items: center; gap: .5rem; flex-shrink: 0;
+    }
+  }
+
+  // ── Section cards ─────────────────────────────────────────────────────────
+  .section-card {
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, .06);
+    border: 1px solid #f1f5f9;
+    margin-bottom: 1rem;
+    overflow: visible;
+
+    .section-card-head {
+      display: flex;
+      align-items: center;
+      gap: .55rem;
+      padding: .7rem 1.25rem;
+      background: linear-gradient(90deg, #f8f7ff 0%, #f5f7fa 100%);
+      border-bottom: 1px solid #ede9fe;
+      border-radius: 14px 14px 0 0;
+
+      > i {
+        font-size: .82rem;
+        color: #6c63ff;
+        flex-shrink: 0;
+      }
+
+      > span:first-of-type {
+        font-size: .75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .065em;
+        color: #475569;
+      }
+
+      .head-hint {
+        font-size: .72rem;
+        font-weight: 400;
+        color: #94a3b8;
+        text-transform: none;
+        letter-spacing: 0;
+        margin-left: .15rem;
+      }
+
+      .head-spacer { flex: 1; }
+    }
+
+    .section-card-body {
+      padding: 1rem 1.25rem .875rem;
+    }
+  }
+
+  // ── Form grid ────────────────────────────────────────────────────────────
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: .85rem;
+
+    .field-full { grid-column: 1 / -1; }
+  }
+
+  // ── Fields ───────────────────────────────────────────────────────────────
+  .field {
+    label {
+      display: block;
+      font-weight: 600;
+      font-size: .8rem;
+      color: #374151;
+      margin-bottom: .3rem;
+    }
+
+    .required { color: #ef4444; }
+    .error { color: #ef4444; font-size: .75rem; margin-top: .2rem; display: block; }
+    .hint { color: #94a3b8; font-weight: 400; font-size: .75rem; }
+
+    .toggle-label {
+      display: flex; align-items: center; gap: .5rem;
+      cursor: pointer; font-weight: 500; color: #374151; font-size: .84rem;
+      white-space: nowrap;
+    }
+
+    .w-full { width: 100%; }
+  }
+
+  // ── Inline checkbox group ─────────────────────────────────────────────────
+  .toggle-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem 1.5rem;
+    align-items: center;
+    padding: .6rem .9rem;
+    background: #faf8ff;
+    border: 1px solid #ede9fe;
+    border-radius: 10px;
+  }
+
+  // ── Dropdown purple overrides (scoped to section-card) ────────────────────
+  ::ng-deep .section-card {
+
+    .p-dropdown {
+      border: 1.5px solid #e2e8f0;
+      border-radius: 10px;
+      background: #fafbff;
+      transition: border-color .18s, background .18s;
+
+      &:hover {
+        border-color: #c4b5fd;
+        background: #fff;
+      }
+
+      &.p-focus,
+      &.p-inputwrapper-focus {
+        border-color: #6c63ff;
+        background: #fff;
+        box-shadow: 0 0 0 3px rgba(108, 99, 255, .12);
+      }
+
+      .p-dropdown-label {
+        font-size: .85rem;
+        font-weight: 500;
+        color: #1e293b;
+        padding: .55rem .85rem;
+      }
+
+      .p-dropdown-label.p-placeholder {
+        color: #94a3b8;
+        font-weight: 400;
+      }
+
+      .p-dropdown-trigger { color: #a78bfa; }
+      .p-dropdown-trigger-icon { font-size: .76rem; }
+    }
+
+    .p-dropdown-panel {
+      border: 1.5px solid #ede9fe;
+      border-radius: 10px;
+      box-shadow: 0 10px 28px rgba(108, 99, 255, .14);
+      margin-top: 3px;
+      overflow: hidden;
+    }
+
+    .p-dropdown-item {
+      font-size: .85rem;
+      color: #374151;
+      padding: .5rem .875rem;
+
+      &:hover { background: #f5f3ff; color: #6c63ff; }
+      &.p-highlight {
+        background: linear-gradient(90deg, #ede9fe, #f5f3ff);
+        color: #6c63ff;
+        font-weight: 600;
+      }
+    }
+
+    .p-dropdown-empty-message {
+      font-size: .82rem; color: #94a3b8; padding: .875rem; text-align: center;
+    }
+  }
+
+  // ── No-steps placeholder ──────────────────────────────────────────────────
+  .no-steps {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    color: #94a3b8;
+    padding: 1.25rem 1rem;
+    border: 2px dashed #c4b5fd;
+    border-radius: 10px;
+    background: #faf8ff;
+    font-size: .875rem;
+
+    i { font-size: 1.25rem; color: #c4b5fd; flex-shrink: 0; }
+  }
+
+  // ── Step card ────────────────────────────────────────────────────────────
+  .step-card {
+    border: 1px solid #ede9fe;
+    border-radius: 12px;
+    margin-bottom: .65rem;
+    transition: box-shadow .18s;
+    overflow: visible;
+
+    &:last-child { margin-bottom: 0; }
+
+    &:hover { box-shadow: 0 4px 18px rgba(108, 99, 255, .12); }
+
+    .step-header {
+      display: flex;
+      align-items: center;
+      gap: .6rem;
+      background: linear-gradient(90deg, #f5f3ff 0%, #f9fafb 100%);
+      padding: .5rem .875rem;
+      border-bottom: 1px solid #ede9fe;
+      border-radius: 12px 12px 0 0;
+
+      .step-num {
+        width: 24px; height: 24px; border-radius: 7px; flex-shrink: 0;
+        background: linear-gradient(135deg, #6c63ff, #a78bfa);
+        display: flex; align-items: center; justify-content: center;
+        font-size: .68rem; font-weight: 700; color: #fff;
+        box-shadow: 0 2px 6px rgba(108, 99, 255, .28);
+      }
+
+      .step-title {
+        flex: 1;
+        font-size: .8rem;
+        font-weight: 600;
+        color: #374151;
+      }
+
+      .step-actions {
+        display: flex;
+        gap: .05rem;
+      }
+    }
+
+    .step-body {
+      padding: .875rem .875rem .6rem;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: .6rem;
+
+      .field-full { grid-column: 1 / -1; }
+    }
+  }
+
+  // ── Add step bottom ───────────────────────────────────────────────────────
+  .add-step-bottom {
+    display: flex;
+    justify-content: center;
+    margin-top: .875rem;
+    padding-top: .875rem;
+    border-top: 1px dashed #ede9fe;
+  }
+}
+
+@media (max-width: 768px) {
+  .wf-form-page {
+    padding: 1rem;
+
+    .page-header-card {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .form-grid {
+      grid-template-columns: 1fr;
+      .field-full { grid-column: 1; }
+    }
+
+    .step-body {
+      grid-template-columns: 1fr !important;
+      .field-full { grid-column: 1; }
+    }
+  }
+}

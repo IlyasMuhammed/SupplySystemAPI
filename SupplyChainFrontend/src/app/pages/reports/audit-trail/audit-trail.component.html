@@ -1,0 +1,99 @@
+<p-toast />
+<div class="report-page">
+
+  <!-- Page Header -->
+  <div class="page-header">
+    <div class="header-left">
+      <div class="header-icon icon-slate">
+        <i class="pi pi-shield"></i>
+      </div>
+      <div>
+        <h2 class="page-title">Audit Trail</h2>
+        <p class="page-subtitle">Full history of system actions — who did what, when, and what changed</p>
+      </div>
+    </div>
+    <p-button label="Search" icon="pi pi-search" severity="secondary" [outlined]="true"
+              (onClick)="load()" [loading]="isLoading"></p-button>
+  </div>
+
+  <!-- Filter Bar -->
+  <div class="filter-card">
+    <div class="filter-title"><i class="pi pi-filter"></i> Filter Audit Logs</div>
+    <div class="filter-controls">
+      <div class="filter-field">
+        <label>Module</label>
+        <p-dropdown [options]="moduleOptions" [(ngModel)]="filter.module"
+                    optionLabel="label" optionValue="value"
+                    placeholder="All Modules" styleClass="w-full" appendTo="body"></p-dropdown>
+      </div>
+      <div class="filter-field">
+        <label>Action</label>
+        <p-dropdown [options]="actionOptions" [(ngModel)]="filter.action"
+                    optionLabel="label" optionValue="value"
+                    placeholder="All Actions" styleClass="w-full" appendTo="body"></p-dropdown>
+      </div>
+      <div class="filter-field">
+        <label>Entity Type</label>
+        <p-dropdown [options]="entityTypeOptions" [(ngModel)]="filter.entityType"
+                    optionLabel="label" optionValue="value"
+                    placeholder="All Entity Types" styleClass="w-full" appendTo="body"></p-dropdown>
+      </div>
+      <div class="filter-field">
+        <label>Date From</label>
+        <p-calendar [(ngModel)]="filterDateFrom" dateFormat="dd/mm/yy" [showIcon]="true" [showClear]="true"
+                    placeholder="Select start date" styleClass="w-full" appendTo="body"></p-calendar>
+      </div>
+      <div class="filter-field">
+        <label>Date To</label>
+        <p-calendar [(ngModel)]="filterDateTo" dateFormat="dd/mm/yy" [showIcon]="true" [showClear]="true"
+                    placeholder="Select end date" styleClass="w-full" appendTo="body"></p-calendar>
+      </div>
+      <div class="filter-actions">
+        <p-button label="Search" icon="pi pi-search" (onClick)="load()" [loading]="isLoading"></p-button>
+        <p-button label="Reset" icon="pi pi-times" severity="secondary" [outlined]="true" (onClick)="resetFilters()"></p-button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="table-card">
+    <p-table [value]="items" [loading]="isLoading"
+             [lazy]="true" [totalRecords]="totalRecords" [paginator]="true" [rows]="50"
+             (onPage)="onPage($event)"
+             responsiveLayout="scroll" styleClass="p-datatable-sm p-datatable-striped">
+      <ng-template pTemplate="header">
+        <tr>
+          <th>Timestamp</th>
+          <th>User</th>
+          <th class="text-center">Module</th>
+          <th class="text-center">Action</th>
+          <th>Entity Type</th>
+          <th>Field</th>
+          <th>Old Value</th>
+          <th>New Value</th>
+          <th>IP Address</th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-row>
+        <tr>
+          <td class="text-sm font-mono">{{ row.timestamp | date:'dd MMM yyyy, HH:mm' }}</td>
+          <td class="font-semibold">{{ row.userName || ('User #' + row.userId) }}</td>
+          <td class="text-center"><p-tag [value]="row.module" severity="info" /></td>
+          <td class="text-center">
+            <p-tag [value]="row.action"
+                   [severity]="row.action === 'DELETE' ? 'danger' : row.action === 'CREATE' ? 'success' : 'warn'" />
+          </td>
+          <td>{{ row.entityType }}</td>
+          <td class="text-color-secondary">{{ row.fieldChanged || '–' }}</td>
+          <td class="text-color-secondary text-sm">{{ row.oldValue || '–' }}</td>
+          <td class="text-sm">{{ row.newValue || '–' }}</td>
+          <td class="text-color-secondary text-sm font-mono">{{ row.ipAddress }}</td>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="emptymessage">
+        <tr><td colspan="9"><div class="empty-state"><i class="pi pi-inbox"></i><p>No audit logs match the selected filters.</p></div></td></tr>
+      </ng-template>
+    </p-table>
+  </div>
+
+</div>

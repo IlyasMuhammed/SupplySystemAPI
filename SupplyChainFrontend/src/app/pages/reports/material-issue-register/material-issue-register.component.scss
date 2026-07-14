@@ -1,0 +1,43 @@
+.report-page { padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem; }
+
+.page-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  background: var(--surface-card); border-radius: 12px; padding: 1.25rem 1.5rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,.06); border: 1px solid var(--surface-border);
+  .header-left { display: flex; align-items: center; gap: 1rem; }
+  .header-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; i { font-size: 1.25rem; color: #fff; } }
+  .icon-indigo { background: linear-gradient(135deg, #6366f1, #4f46e5); }
+  .page-title { margin: 0; font-size: 1.375rem; font-weight: 700; color: var(--text-color); }
+  .page-subtitle { margin: .2rem 0 0; font-size: .875rem; color: var(--text-color-secondary); }
+}
+
+.card {
+  background: var(--surface-card); border-radius: 12px;
+  padding: 1.25rem; box-shadow: 0 2px 8px rgba(0,0,0,.06); border: 1px solid var(--surface-border);
+}
+
+.filter-card { }
+.filter-row  { display: flex; align-items: flex-end; gap: 1rem; flex-wrap: wrap; }
+.filter-group { display: flex; flex-direction: column; gap: .35rem; flex: 1; min-width: 160px; label { font-size: .85rem; font-weight: 600; color: var(--text-color); } }
+.filter-input { width: 100%; }
+.filter-actions { display: flex; gap: .5rem; align-items: flex-end; }
+
+.summary-row { display: flex; gap: 1rem; flex-wrap: wrap; }
+.summary-card {
+  background: var(--surface-card); border-radius: 12px; padding: 1rem 1.25rem;
+  flex: 1; min-width: 110px; display: flex; flex-direction: column; gap: .3rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,.06); border: 1px solid var(--surface-border);
+  .s-label { font-size: .7rem; font-weight: 600; text-transform: uppercase; color: var(--text-color-secondary); }
+  .s-val   { font-size: 1.1rem; font-weight: 700; color: var(--text-color); }
+  .s-val.value  { color: #6366f1; }
+  .s-val.posted { color: #22c55e; }
+}
+
+.ref-no { font-family: monospace; font-size: .875rem; font-weight: 600; color: var(--text-color); }
+.ref-no.secondary { color: var(--text-color-secondary); }
+.text-right  { text-align: right !important; }
+.text-center { text-align: center !important; }
+.amount  { font-weight: 600; font-family: monospace; }
+.total   { color: #6366f1; }
+.total-label { font-weight: 700; text-align: right; }
+.empty-msg { text-align: center; padding: 3rem; color: var(--text-color-secondary); font-style: italic; }

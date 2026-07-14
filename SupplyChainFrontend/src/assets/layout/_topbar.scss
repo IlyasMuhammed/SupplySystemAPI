@@ -1,0 +1,249 @@
+@use 'mixins' as *;
+
+.layout-topbar {
+    position: fixed;
+    height: 4rem;
+    z-index: 997;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 0 1.5rem 0 1.25rem;
+    background-color: var(--surface-card);
+    border-bottom: 1px solid var(--surface-border);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04), 0 2px 8px rgba(0, 0, 0, 0.03);
+    transition: left var(--layout-section-transition-duration);
+    display: flex;
+    align-items: center;
+    gap: 0;
+
+    .layout-topbar-logo-container {
+        width: 19rem;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+    }
+
+    .layout-topbar-logo {
+        display: inline-flex;
+        align-items: center;
+        border-radius: var(--content-border-radius);
+        color: var(--text-color);
+        font-weight: 500;
+        gap: 0.625rem;
+
+        svg {
+            width: 2.625rem;
+        }
+
+        &:focus-visible {
+            @include focused();
+        }
+    }
+
+    // ── Center search ──────────────────────────────────────────────────────
+    .topbar-center {
+        flex: 1;
+        display: flex;
+        justify-content: center;
+        padding: 0 1.5rem;
+    }
+
+    .topbar-search-btn {
+        display: flex;
+        align-items: center;
+        gap: 0.625rem;
+        width: 100%;
+        max-width: 380px;
+        padding: 0.4375rem 0.875rem;
+        background: var(--surface-hover);
+        border: 1px solid var(--surface-border);
+        border-radius: 8px;
+        cursor: pointer;
+        color: var(--text-color-secondary);
+        font-size: 0.875rem;
+        font-family: inherit;
+        transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+
+        .topbar-search-icon {
+            font-size: 0.8125rem;
+            flex-shrink: 0;
+            opacity: 0.6;
+        }
+
+        .topbar-search-text {
+            flex: 1;
+            text-align: left;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .topbar-kbd {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.125rem;
+            padding: 0.1875rem 0.4375rem;
+            background: var(--surface-card);
+            border: 1px solid var(--surface-200);
+            border-radius: 5px;
+            font-size: 0.6875rem;
+            font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace;
+            color: var(--text-color-secondary);
+            flex-shrink: 0;
+            letter-spacing: 0.02em;
+        }
+
+        &:hover {
+            background: var(--surface-100);
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 12%, transparent);
+        }
+    }
+
+    // ── Action buttons ─────────────────────────────────────────────────────
+    .layout-topbar-action {
+        position: relative;
+        display: inline-flex;
+        justify-content: center;
+        align-items: center;
+        color: var(--text-color-secondary);
+        border-radius: 8px;
+        width: 2.25rem;
+        height: 2.25rem;
+        color: var(--text-color);
+        transition: background-color var(--element-transition-duration), color var(--element-transition-duration);
+        cursor: pointer;
+        flex-shrink: 0;
+
+        &:hover {
+            background-color: var(--surface-hover);
+            color: var(--text-color);
+        }
+
+        &:focus-visible {
+            @include focused();
+        }
+
+        i {
+            font-size: 1.125rem;
+        }
+
+        span {
+            font-size: 1rem;
+            display: none;
+        }
+
+        &.layout-topbar-action-highlight {
+            background-color: var(--primary-color);
+            color: var(--primary-contrast-color);
+            border-radius: 8px;
+
+            &:hover {
+                background-color: color-mix(in srgb, var(--primary-color) 85%, black);
+            }
+        }
+    }
+
+    .layout-menu-button {
+        margin-right: 0.25rem;
+    }
+
+    .layout-topbar-menu-button {
+        display: none;
+    }
+
+    .layout-topbar-actions {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+        flex-shrink: 0;
+    }
+
+    .layout-topbar-menu-content {
+        display: flex;
+        gap: 0.25rem;
+    }
+
+    .layout-config-menu {
+        display: flex;
+        gap: 0.25rem;
+        align-items: center;
+    }
+
+    // ── Vertical divider ───────────────────────────────────────────────────
+    .topbar-vdivider {
+        width: 1px;
+        height: 1.5rem;
+        background: var(--surface-200);
+        margin: 0 0.5rem;
+        flex-shrink: 0;
+    }
+}
+
+@media (max-width: 991px) {
+    .layout-topbar {
+        padding: 0 1.25rem;
+
+        .layout-topbar-logo-container {
+            width: auto;
+        }
+
+        .layout-menu-button {
+            margin-left: 0;
+            margin-right: 0.25rem;
+        }
+
+        .layout-topbar-menu-button {
+            display: inline-flex;
+        }
+
+        // Hide search bar on small screens
+        .topbar-center {
+            display: none;
+        }
+
+        .layout-topbar-menu {
+            position: absolute;
+            background-color: var(--surface-overlay);
+            transform-origin: top;
+            box-shadow:
+                0px 3px 5px rgba(0, 0, 0, 0.02),
+                0px 0px 2px rgba(0, 0, 0, 0.05),
+                0px 1px 4px rgba(0, 0, 0, 0.08);
+            border-radius: var(--content-border-radius);
+            padding: 1rem;
+            right: 2rem;
+            top: 4rem;
+            min-width: 15rem;
+            border: 1px solid var(--surface-border);
+
+            .layout-topbar-menu-content {
+                gap: 0.5rem;
+            }
+
+            .layout-topbar-action {
+                display: flex;
+                width: 100%;
+                height: auto;
+                justify-content: flex-start;
+                border-radius: var(--content-border-radius);
+                padding: 0.5rem 1rem;
+
+                i {
+                    font-size: 1rem;
+                    margin-right: 0.5rem;
+                }
+
+                span {
+                    font-weight: medium;
+                    display: block;
+                }
+            }
+        }
+
+        .layout-topbar-menu-content {
+            flex-direction: column;
+        }
+    }
+}

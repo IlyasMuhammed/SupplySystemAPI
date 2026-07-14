@@ -1,0 +1,104 @@
+<div class="report-page">
+  <p-toast />
+
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-left">
+      <div class="header-icon icon-indigo"><i class="pi pi-file-edit"></i></div>
+      <div>
+        <h2 class="page-title">Material Issue Register</h2>
+        <p class="page-subtitle">All material issue vouchers — date range, status, type</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="card filter-card">
+    <div class="filter-row">
+      <div class="filter-group">
+        <label>From Date</label>
+        <input pInputText type="date" [(ngModel)]="filter.dateFrom" class="filter-input" />
+      </div>
+      <div class="filter-group">
+        <label>To Date</label>
+        <input pInputText type="date" [(ngModel)]="filter.dateTo" class="filter-input" />
+      </div>
+      <div class="filter-group">
+        <label>Status</label>
+        <p-dropdown [options]="statusOptions" [(ngModel)]="filter.status" optionLabel="label" optionValue="value" class="filter-input" />
+      </div>
+      <div class="filter-group">
+        <label>Request Type</label>
+        <p-dropdown [options]="requestTypeOptions" [(ngModel)]="filter.requestType" optionLabel="label" optionValue="value" class="filter-input" />
+      </div>
+      <div class="filter-group">
+        <label>Search</label>
+        <input pInputText type="text" [(ngModel)]="filter.search" placeholder="Issue No / MIR No" class="filter-input" />
+      </div>
+      <div class="filter-actions">
+        <button pButton label="Run Report" icon="pi pi-play" (click)="load()" [loading]="isLoading" class="p-button-primary"></button>
+        <button pButton label="Clear" icon="pi pi-times" (click)="clear()" class="p-button-outlined p-button-secondary"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Summary Cards -->
+  <div class="summary-row">
+    <div class="summary-card">
+      <span class="s-label">Total Vouchers</span>
+      <span class="s-val">{{ items.length }}</span>
+    </div>
+    <div class="summary-card">
+      <span class="s-label">Total Lines</span>
+      <span class="s-val">{{ totalLines }}</span>
+    </div>
+    <div class="summary-card">
+      <span class="s-label">Total Value (PKR)</span>
+      <span class="s-val value">{{ totalValue | number:'1.2-2' }}</span>
+    </div>
+    <div class="summary-card">
+      <span class="s-label">Posted</span>
+      <span class="s-val posted">{{ postedCount }}</span>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="card">
+    <p-table [value]="items" [loading]="isLoading" [paginator]="true" [rows]="20"
+             [rowsPerPageOptions]="[10,20,50]" sortMode="multiple" styleClass="p-datatable-sm">
+      <ng-template pTemplate="header">
+        <tr>
+          <th pSortableColumn="issueNo">Issue No <p-sortIcon field="issueNo" /></th>
+          <th pSortableColumn="mirNo">MIR No <p-sortIcon field="mirNo" /></th>
+          <th>Request Type</th>
+          <th>Issued To</th>
+          <th pSortableColumn="issueDate">Issue Date <p-sortIcon field="issueDate" /></th>
+          <th>Status</th>
+          <th pSortableColumn="lineCount">Lines <p-sortIcon field="lineCount" /></th>
+          <th pSortableColumn="totalValue" class="text-right">Total Value <p-sortIcon field="totalValue" /></th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-row>
+        <tr>
+          <td><span class="ref-no">{{ row.issueNo }}</span></td>
+          <td><span class="ref-no secondary">{{ row.mirNo }}</span></td>
+          <td>{{ row.requestType }}</td>
+          <td>{{ row.issuedTo ?? '—' }}</td>
+          <td>{{ row.issueDate | date:'dd MMM yyyy' }}</td>
+          <td><p-tag [value]="row.status" [severity]="getStatusSeverity(row.status)" /></td>
+          <td class="text-center">{{ row.lineCount }}</td>
+          <td class="text-right amount">{{ row.totalValue | number:'1.2-2' }}</td>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="emptymessage">
+        <tr><td colspan="8" class="empty-msg">No vouchers found. Adjust filters and run the report.</td></tr>
+      </ng-template>
+      <ng-template pTemplate="footer">
+        <tr *ngIf="items.length > 0">
+          <td colspan="7" class="total-label">Grand Total</td>
+          <td class="text-right amount total">{{ totalValue | number:'1.2-2' }}</td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </div>
+</div>

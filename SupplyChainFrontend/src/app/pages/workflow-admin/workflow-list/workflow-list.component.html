@@ -1,0 +1,115 @@
+<div class="wf-list-page">
+  <p-toast></p-toast>
+  <p-confirmDialog></p-confirmDialog>
+
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-content">
+      <div class="header-left">
+        <h1 class="page-title"><i class="pi pi-sitemap"></i> Workflow Definitions</h1>
+        <p class="page-subtitle">Design and manage approval workflows for each document type</p>
+      </div>
+      <div class="header-right">
+        <p-button label="New Workflow" icon="pi pi-plus"
+                  routerLink="/portal/pages/workflow-admin/workflows/new"></p-button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Interface summary cards -->
+  <div class="summary-grid">
+    <div class="stat-card" *ngFor="let s of summaries">
+      <div class="stat-code">{{ s.interfaceCode }}</div>
+      <div class="stat-body">
+        <div class="stat-name" *ngIf="s.hasActiveWorkflow">{{ s.activeWorkflowName }}</div>
+        <div class="stat-name muted" *ngIf="!s.hasActiveWorkflow">No active workflow</div>
+        <div class="stat-meta" *ngIf="s.hasActiveWorkflow">
+          v{{ s.activeVersion }} &bull; {{ s.stepCount }} step{{ s.stepCount === 1 ? '' : 's' }}
+        </div>
+      </div>
+      <div class="stat-badge">
+        <p-tag [value]="s.hasActiveWorkflow ? 'Active' : 'Inactive'"
+               [severity]="s.hasActiveWorkflow ? 'success' : 'danger'"></p-tag>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="main-card mb-4">
+    <div class="filter-bar">
+      <p-dropdown [options]="interfaceCodeOptions" [(ngModel)]="filterCode"
+                  optionLabel="label" optionValue="value" placeholder="All Interfaces"
+                  (onChange)="onFilterChange()" styleClass="filter-dropdown" appendTo="body"></p-dropdown>
+
+      <p-dropdown [options]="activeFilterOptions" [(ngModel)]="filterActive"
+                  optionLabel="label" optionValue="value" placeholder="All"
+                  (onChange)="onFilterChange()" styleClass="filter-dropdown" appendTo="body"></p-dropdown>
+
+      <p-button icon="pi pi-refresh" severity="secondary" [text]="true"
+                pTooltip="Reset filters" (onClick)="resetFilters()"></p-button>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="main-card">
+    <p-table [value]="definitions" [loading]="isLoading" [tableStyle]="{'min-width':'60rem'}"
+             [rows]="pageSize" [paginator]="true" [lazy]="true" [totalRecords]="totalRecords"
+             [rowsPerPageOptions]="[10,20,50]" [showCurrentPageReport]="true"
+             currentPageReportTemplate="Showing {first} to {last} of {totalRecords} definitions"
+             (onPage)="onPageChange($event)">
+
+      <ng-template pTemplate="header">
+        <tr>
+          <th>Interface</th>
+          <th>Workflow Name</th>
+          <th>Version</th>
+          <th>Status</th>
+          <th>Steps</th>
+          <th>Condition</th>
+          <th>Recall / Reissue</th>
+          <th>Created</th>
+          <th style="width:140px">Actions</th>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="body" let-def>
+        <tr>
+          <td><span class="code-badge">{{ def.interfaceCode }}</span></td>
+          <td class="font-semibold">{{ def.name }}</td>
+          <td>v{{ def.version }}</td>
+          <td>
+            <p-tag [value]="def.isActive ? 'Active' : 'Inactive'"
+                   [severity]="getSeverity(def.isActive)"></p-tag>
+          </td>
+          <td>{{ def.stepCount }}</td>
+          <td class="text-secondary">{{ getConditionLabel(def) }}</td>
+          <td class="text-secondary">
+            <span *ngIf="def.allowRecall">Recall</span>
+            <span *ngIf="def.allowRecall && def.allowReissue"> / </span>
+            <span *ngIf="def.allowReissue">Reissue</span>
+            <span *ngIf="!def.allowRecall && !def.allowReissue">—</span>
+          </td>
+          <td class="text-secondary">{{ def.createdDate | date:'dd MMM yyyy' }}</td>
+          <td>
+            <div class="action-row">
+              <p-button icon="pi pi-pencil" severity="secondary" [text]="true" size="small"
+                        pTooltip="Edit"
+                        [routerLink]="['/portal/pages/workflow-admin/workflows', def.uuid, 'edit']">
+              </p-button>
+              <p-button [icon]="def.isActive ? 'pi pi-times-circle' : 'pi pi-check-circle'"
+                        [severity]="def.isActive ? 'danger' : 'success'"
+                        [text]="true" size="small"
+                        [pTooltip]="def.isActive ? 'Deactivate' : 'Activate'"
+                        (onClick)="confirmToggle(def)">
+              </p-button>
+            </div>
+          </td>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="emptymessage">
+        <tr><td colspan="9" class="text-center p-4 text-secondary">No workflow definitions found.</td></tr>
+      </ng-template>
+    </p-table>
+  </div>
+</div>

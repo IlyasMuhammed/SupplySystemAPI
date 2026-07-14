@@ -1,0 +1,121 @@
+﻿<div class="supplier-list-page">
+  <p-toast></p-toast>
+
+  <div class="page-header">
+    <div class="header-content">
+      <div class="header-left">
+        <h1 class="page-title"><i class="pi pi-building"></i> Suppliers Management</h1>
+        <p class="page-subtitle">Manage your supplier network and partnerships</p>
+      </div>
+      <div class="header-right">
+        <p-button label="Add New Supplier" icon="pi pi-plus" routerLink="/portal/pages/suppliers/supplier-create"></p-button>
+      </div>
+    </div>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-icon"><i class="pi pi-building"></i></div>
+      <div class="stat-content"><h3>{{ totalRecords }}</h3><p>Total Suppliers</p></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon active"><i class="pi pi-check-circle"></i></div>
+      <div class="stat-content"><h3>{{ activeSuppliersCount }}</h3><p>Active (this page)</p></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon pending"><i class="pi pi-clock"></i></div>
+      <div class="stat-content"><h3>{{ pendingSuppliersCount }}</h3><p>Pending (this page)</p></div>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="main-card mb-4">
+    <div class="filter-bar">
+      <p-iconfield class="flex-1">
+        <p-inputicon styleClass="pi pi-search" />
+        <input pInputText type="text" [(ngModel)]="searchText" (ngModelChange)="onSearchChange()"
+               placeholder="Search by name, code, email..." class="w-full" />
+      </p-iconfield>
+
+      <p-dropdown
+        [options]="statusOptions"
+        [(ngModel)]="selectedStatus"
+        optionLabel="label"
+        optionValue="value"
+        placeholder="All Statuses"
+        (onChange)="onFilterChange()"
+        styleClass="filter-dropdown" appendTo="body">
+      </p-dropdown>
+
+      <input pInputText type="text" [(ngModel)]="selectedCountry"
+             (ngModelChange)="onFilterChange()"
+             placeholder="Filter by country..." class="filter-input" />
+
+      <p-button icon="pi pi-refresh" severity="secondary" [text]="true"
+                pTooltip="Reset filters" (onClick)="resetFilters()"></p-button>
+    </div>
+  </div>
+
+  <div class="main-card">
+    <p-table
+      [value]="suppliers"
+      [loading]="isLoading"
+      [tableStyle]="{'min-width': '60rem'}"
+      [rows]="pageSize"
+      [paginator]="true"
+      [lazy]="true"
+      [totalRecords]="totalRecords"
+      [rowsPerPageOptions]="[10, 20, 50]"
+      [showCurrentPageReport]="true"
+      currentPageReportTemplate="Showing {first} to {last} of {totalRecords} suppliers"
+      (onPage)="onPageChange($event)">
+
+      <ng-template pTemplate="header">
+        <tr>
+          <th>Supplier Name</th>
+          <th>Code</th>
+          <th>Status</th>
+          <th>Country</th>
+          <th>Email</th>
+          <th>Phone</th>
+          <th>Actions</th>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="body" let-supplier>
+        <tr>
+          <td class="font-semibold">{{ supplier.supplierName }}</td>
+          <td><span class="text-secondary">{{ supplier.supplierCode || '—' }}</span></td>
+          <td>
+            <p-tag [value]="supplier.status || 'UNKNOWN'"
+                   [severity]="getStatusSeverity(supplier.status)"></p-tag>
+          </td>
+          <td>{{ supplier.country || '—' }}</td>
+          <td>{{ supplier.email || '—' }}</td>
+          <td>{{ supplier.phone || '—' }}</td>
+          <td>
+            <p-button
+              icon="pi pi-eye"
+              size="small"
+              [text]="true"
+              pTooltip="View Details"
+              [routerLink]="['/portal/pages/suppliers/supplier-detail', supplier.uuid]">
+            </p-button>
+          </td>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="7" class="text-center p-8">
+            <i class="pi pi-building text-4xl text-gray-400 block mb-2"></i>
+            <p class="text-gray-500">No suppliers found.
+              <a routerLink="/portal/pages/suppliers/supplier-create" class="text-primary">Add the first supplier.</a>
+            </p>
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </div>
+</div>
+

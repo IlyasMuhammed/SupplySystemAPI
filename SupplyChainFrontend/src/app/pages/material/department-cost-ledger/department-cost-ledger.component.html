@@ -1,0 +1,98 @@
+<div class="dept-ledger-page">
+  <p-toast></p-toast>
+
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-left">
+      <div class="header-icon icon-purple"><i class="pi pi-wallet"></i></div>
+      <div>
+        <h1 class="page-title">Department Cost Ledger</h1>
+        <p class="page-subtitle">Issue, return, and wastage cost entries by department</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Summary -->
+  <div class="cost-summary-row">
+    <div class="cost-summary-card issued">
+      <span class="cs-label">Total Issued</span>
+      <span class="cs-value">{{ totalIssued | number:'1.2-2' }}</span>
+    </div>
+    <div class="cost-summary-card returned">
+      <span class="cs-label">Total Returned</span>
+      <span class="cs-value">{{ totalReturned | number:'1.2-2' }}</span>
+    </div>
+    <div class="cost-summary-card net">
+      <span class="cs-label">Net Cost</span>
+      <span class="cs-value">{{ netCost | number:'1.2-2' }}</span>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="card filter-card">
+    <div class="filter-row">
+      <div class="filter-field">
+        <label>Department</label>
+        <input pInputText [(ngModel)]="department" placeholder="Department name" (keyup.enter)="applyFilters()" />
+      </div>
+      <div class="filter-field">
+        <label>Type</label>
+        <p-dropdown [options]="txTypes" [(ngModel)]="transactionType" optionLabel="label" optionValue="value"
+                    appendTo="body" placeholder="All Types"></p-dropdown>
+      </div>
+      <div class="filter-field">
+        <label>From</label>
+        <p-calendar [(ngModel)]="dateFrom" dateFormat="dd/mm/yy" [showIcon]="true" appendTo="body"></p-calendar>
+      </div>
+      <div class="filter-field">
+        <label>To</label>
+        <p-calendar [(ngModel)]="dateTo" dateFormat="dd/mm/yy" [showIcon]="true" appendTo="body"></p-calendar>
+      </div>
+      <p-button label="Search" icon="pi pi-search" (onClick)="applyFilters()" severity="contrast"></p-button>
+      <p-button label="Reset" icon="pi pi-times" [outlined]="true" severity="secondary" (onClick)="resetFilters()"></p-button>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="card">
+    <p-table [value]="entries" [loading]="isLoading"
+             [paginator]="true" [rows]="pageSize" [totalRecords]="total"
+             [lazy]="true" (onLazyLoad)="onLazyLoad($event)"
+             [rowsPerPageOptions]="[10,20,50]"
+             styleClass="p-datatable-sm">
+      <ng-template pTemplate="header">
+        <tr>
+          <th>Date</th>
+          <th>Department</th>
+          <th>Reference</th>
+          <th>Item</th>
+          <th>Type</th>
+          <th style="text-align:right">Qty</th>
+          <th style="text-align:right">Unit Cost</th>
+          <th style="text-align:right">Amount</th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-entry>
+        <tr [class.row-credit]="entry.amount < 0">
+          <td>{{ entry.postedDate | date:'dd MMM yyyy' }}</td>
+          <td><strong>{{ entry.department }}</strong><span *ngIf="entry.costCenter" class="text-muted"> / {{ entry.costCenter }}</span></td>
+          <td>
+            <a [routerLink]="['/portal/pages/material/miv', entry.referenceId]" class="ref-link">
+              {{ entry.referenceNumber }}
+            </a>
+          </td>
+          <td>{{ entry.itemDescription }}</td>
+          <td><p-tag [value]="entry.transactionType" [severity]="getTxSeverity(entry.transactionType)"></p-tag></td>
+          <td style="text-align:right" [class.negative]="entry.quantity < 0">{{ entry.quantity | number:'1.0-4' }}</td>
+          <td style="text-align:right">{{ entry.unitCost | number:'1.2-4' }}</td>
+          <td style="text-align:right" [class.negative]="entry.amount < 0"><strong>{{ entry.amount | number:'1.2-2' }}</strong></td>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="emptymessage">
+        <tr><td colspan="8" style="text-align:center;color:var(--text-color-secondary);padding:2rem">
+          No cost entries found. Try adjusting filters.
+        </td></tr>
+      </ng-template>
+    </p-table>
+  </div>
+</div>

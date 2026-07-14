@@ -1,0 +1,127 @@
+<p-toast />
+<div class="inv-reports-page">
+
+  <div class="page-header">
+    <div class="header-left">
+      <div class="header-icon">
+        <i class="pi pi-box"></i>
+      </div>
+      <div>
+        <h2 class="page-title">Inventory Reports</h2>
+        <p class="page-subtitle">Monitor stock levels, reorder alerts and warehouse valuation</p>
+      </div>
+    </div>
+    <p-button
+      label="Refresh"
+      icon="pi pi-refresh"
+      severity="secondary"
+      [outlined]="true"
+      (onClick)="load()"
+      [loading]="isLoadingStock || isLoadingReorder || isLoadingVal">
+    </p-button>
+  </div>
+
+  <p-tabView>
+    <p-tabPanel header="Stock Levels">
+      <div class="tab-toolbar">
+        <p-button label="Download PDF" icon="pi pi-file-pdf" severity="secondary" [outlined]="true" size="small"
+                  (onClick)="downloadStockLevels()" [disabled]="!stockLevels.length"></p-button>
+      </div>
+      <p-table [value]="stockLevels" [loading]="isLoadingStock" [paginator]="true" [rows]="25"
+               responsiveLayout="scroll" styleClass="p-datatable-sm p-datatable-striped">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Product</th>
+            <th>SKU</th>
+            <th>Warehouse</th>
+            <th>On Hand</th>
+            <th>Reserved</th>
+            <th>Available</th>
+            <th>Unit Cost</th>
+            <th>Stock Value</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-row>
+          <tr>
+            <td>{{ row.productName }}</td>
+            <td class="text-500">{{ row.sku || '–' }}</td>
+            <td>{{ row.warehouseName || '–' }}</td>
+            <td>{{ row.qtyOnHand | number:'1.2-2' }}</td>
+            <td>{{ row.qtyReserved | number:'1.2-2' }}</td>
+            <td [class.text-red-500]="row.qtyAvailable <= 0">{{ row.qtyAvailable | number:'1.2-2' }}</td>
+            <td>{{ row.unitCost | number:'1.2-2' }}</td>
+            <td class="font-bold">{{ row.stockValue | number:'1.2-2' }}</td>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="emptymessage">
+          <tr><td colspan="8" class="text-center text-500 p-4">No data found</td></tr>
+        </ng-template>
+      </p-table>
+    </p-tabPanel>
+
+    <p-tabPanel header="Reorder Alerts">
+      <div class="tab-toolbar">
+        <p-button label="Download PDF" icon="pi pi-file-pdf" severity="secondary" [outlined]="true" size="small"
+                  (onClick)="downloadReorderAlerts()" [disabled]="!reorderAlerts.length"></p-button>
+      </div>
+      <p-table [value]="reorderAlerts" [loading]="isLoadingReorder" [paginator]="true" [rows]="25"
+               responsiveLayout="scroll" styleClass="p-datatable-sm p-datatable-striped">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Product</th>
+            <th>SKU</th>
+            <th>Warehouse</th>
+            <th>On Hand</th>
+            <th>Reorder Point</th>
+            <th>Reorder Qty</th>
+            <th>Shortfall</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-row>
+          <tr>
+            <td>{{ row.productName }}</td>
+            <td class="text-500">{{ row.sku || '–' }}</td>
+            <td>{{ row.warehouseName || '–' }}</td>
+            <td [class.text-red-500]="row.qtyOnHand <= 0">{{ row.qtyOnHand | number:'1.2-2' }}</td>
+            <td>{{ row.reorderPoint | number:'1.2-2' }}</td>
+            <td>{{ row.reorderQty | number:'1.2-2' }}</td>
+            <td class="font-bold text-red-500">{{ row.shortfall | number:'1.2-2' }}</td>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="emptymessage">
+          <tr><td colspan="7" class="text-center text-500 p-4">No reorder alerts</td></tr>
+        </ng-template>
+      </p-table>
+    </p-tabPanel>
+
+    <p-tabPanel header="Inventory Valuation">
+      <div class="tab-toolbar">
+        <p-button label="Download PDF" icon="pi pi-file-pdf" severity="secondary" [outlined]="true" size="small"
+                  (onClick)="downloadValuation()" [disabled]="!valuation.length"></p-button>
+      </div>
+      <p-table [value]="valuation" [loading]="isLoadingVal"
+               responsiveLayout="scroll" styleClass="p-datatable-sm p-datatable-striped">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Warehouse</th>
+            <th>Products</th>
+            <th>Total Qty</th>
+            <th>Total Value</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-row>
+          <tr>
+            <td>{{ row.warehouseName || 'Unassigned' }}</td>
+            <td>{{ row.productCount }}</td>
+            <td>{{ row.totalQty | number:'1.2-2' }}</td>
+            <td class="font-bold">{{ row.totalValue | number:'1.2-2' }}</td>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="emptymessage">
+          <tr><td colspan="4" class="text-center text-500 p-4">No data found</td></tr>
+        </ng-template>
+      </p-table>
+    </p-tabPanel>
+  </p-tabView>
+
+</div>

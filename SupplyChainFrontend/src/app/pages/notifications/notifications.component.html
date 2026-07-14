@@ -1,0 +1,234 @@
+<p-toast />
+<div class="notif-page">
+
+  <!-- ── Hero ─────────────────────────────────────────────────────────────── -->
+  <div class="notif-hero">
+    <div class="notif-hero-bg"></div>
+    <div class="notif-hero-content">
+      <div class="notif-hero-left">
+        <div class="notif-hero-icon">
+          <i class="pi pi-bell"></i>
+          <span *ngIf="notifService.unreadCount() > 0" class="hero-badge">
+            {{ notifService.unreadCount() }}
+          </span>
+        </div>
+        <div>
+          <h1 class="notif-hero-title">Notifications</h1>
+          <p class="notif-hero-sub">Approvals, rejections, and system events — all in one place</p>
+        </div>
+      </div>
+      <div class="notif-hero-actions">
+        <button class="hero-btn hero-btn--ghost"
+                (click)="refreshLists()"
+                [disabled]="isLoadingAll || isLoadingUnread">
+          <i class="pi" [class.pi-refresh]="!isLoadingAll && !isLoadingUnread"
+                        [class.pi-spin]="isLoadingAll || isLoadingUnread"></i>
+          Refresh
+        </button>
+        <button class="hero-btn hero-btn--primary"
+                (click)="markAllRead()"
+                [disabled]="notifService.unreadCount() === 0">
+          <i class="pi pi-check-circle"></i>
+          Mark all read
+        </button>
+      </div>
+    </div>
+
+    <!-- Stats strip -->
+    <div class="notif-stats">
+      <div class="stat-item">
+        <span class="stat-value">{{ allTotal }}</span>
+        <span class="stat-label">Total</span>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-item stat-item--accent">
+        <span class="stat-value">{{ notifService.unreadCount() }}</span>
+        <span class="stat-label">Unread</span>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-item stat-item--muted">
+        <span class="stat-value">{{ allTotal - notifService.unreadCount() }}</span>
+        <span class="stat-label">Read</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Body ─────────────────────────────────────────────────────────────── -->
+  <div class="notif-body">
+
+    <!-- Toolbar: tabs + category filters -->
+    <div class="notif-toolbar">
+      <div class="notif-tabs">
+        <button class="ntab" [class.ntab--active]="activeTab === 'all'" (click)="switchTab('all')">
+          All
+          <span class="ntab-chip">{{ allTotal }}</span>
+        </button>
+        <button class="ntab" [class.ntab--active]="activeTab === 'unread'" (click)="switchTab('unread')">
+          Unread
+          <span *ngIf="notifService.unreadCount() > 0" class="ntab-chip ntab-chip--red">
+            {{ notifService.unreadCount() }}
+          </span>
+        </button>
+      </div>
+
+      <div class="notif-cat-filters">
+        <button *ngFor="let cat of categories"
+                class="nfilt"
+                [class.nfilt--active]="selectedCategory === cat.value"
+                (click)="selectedCategory = cat.value">
+          <i [class]="cat.icon"></i>
+          {{ cat.label }}
+        </button>
+      </div>
+    </div>
+
+    <!-- ── All tab ──────────────────────────────────────────────────────────── -->
+    <ng-container *ngIf="activeTab === 'all'">
+      <div *ngIf="isLoadingAll" class="notif-loading">
+        <div class="loading-shimmer" *ngFor="let i of [1,2,3,4,5]"></div>
+      </div>
+
+      <ng-container *ngIf="!isLoadingAll">
+        <div *ngIf="filteredAll.length === 0" class="notif-empty">
+          <div class="empty-icon-wrap">
+            <i class="pi pi-bell-slash"></i>
+          </div>
+          <p class="empty-title">No notifications found</p>
+          <p class="empty-sub">You're all caught up — nothing to see here.</p>
+        </div>
+
+        <div class="notif-list">
+          <div *ngFor="let n of filteredAll; let i = index"
+               class="notif-card" [class.notif-card--unread]="!n.isRead"
+               [style.--cat-color]="notifService.categoryColor(n.category)"
+               (click)="navigate(n)">
+
+            <div class="ncard-accent"></div>
+
+            <div class="ncard-icon"
+                 [style.background]="'color-mix(in srgb,' + notifService.categoryColor(n.category) + ' 14%, var(--surface-ground))'">
+              <i [class]="notifService.categoryIcon(n.category)"
+                 [style.color]="notifService.categoryColor(n.category)"></i>
+            </div>
+
+            <div class="ncard-body">
+              <div class="ncard-top">
+                <span class="ncard-title">{{ n.title }}</span>
+                <span class="ncard-cat-pill"
+                      [style.background]="'color-mix(in srgb,' + notifService.categoryColor(n.category) + ' 12%, transparent)'"
+                      [style.color]="notifService.categoryColor(n.category)">
+                  {{ n.category }}
+                </span>
+              </div>
+              <p class="ncard-msg">{{ n.message }}</p>
+              <span class="ncard-time">
+                <i class="pi pi-clock"></i>
+                {{ timeAgo(n.createdAt) }}
+              </span>
+            </div>
+
+            <div class="ncard-actions" (click)="$event.stopPropagation()">
+              <button *ngIf="!n.isRead" class="ncard-btn ncard-btn--read" title="Mark as read" (click)="markOneRead(n)">
+                <i class="pi pi-check"></i>
+              </button>
+              <button class="ncard-btn ncard-btn--del" title="Delete" (click)="deleteNotif(n)">
+                <i class="pi pi-trash"></i>
+              </button>
+            </div>
+
+            <div *ngIf="!n.isRead" class="ncard-unread-dot"></div>
+          </div>
+        </div>
+
+        <div *ngIf="totalAllPages > 1" class="notif-pager">
+          <button class="pager-btn" [disabled]="allPage === 1" (click)="prevAllPage()">
+            <i class="pi pi-chevron-left"></i>
+          </button>
+          <div class="pager-pages">
+            <span class="pager-current">{{ allPage }}</span>
+            <span class="pager-sep">/</span>
+            <span class="pager-total">{{ totalAllPages }}</span>
+          </div>
+          <button class="pager-btn" [disabled]="allPage === totalAllPages" (click)="nextAllPage()">
+            <i class="pi pi-chevron-right"></i>
+          </button>
+        </div>
+      </ng-container>
+    </ng-container>
+
+    <!-- ── Unread tab ───────────────────────────────────────────────────────── -->
+    <ng-container *ngIf="activeTab === 'unread'">
+      <div *ngIf="isLoadingUnread" class="notif-loading">
+        <div class="loading-shimmer" *ngFor="let i of [1,2,3]"></div>
+      </div>
+
+      <ng-container *ngIf="!isLoadingUnread">
+        <div *ngIf="filteredUnread.length === 0" class="notif-empty">
+          <div class="empty-icon-wrap empty-icon-wrap--green">
+            <i class="pi pi-check-circle"></i>
+          </div>
+          <p class="empty-title">You're all caught up!</p>
+          <p class="empty-sub">No unread notifications at the moment.</p>
+        </div>
+
+        <div class="notif-list">
+          <div *ngFor="let n of filteredUnread"
+               class="notif-card notif-card--unread"
+               [style.--cat-color]="notifService.categoryColor(n.category)"
+               (click)="navigate(n)">
+
+            <div class="ncard-accent"></div>
+
+            <div class="ncard-icon"
+                 [style.background]="'color-mix(in srgb,' + notifService.categoryColor(n.category) + ' 14%, var(--surface-ground))'">
+              <i [class]="notifService.categoryIcon(n.category)"
+                 [style.color]="notifService.categoryColor(n.category)"></i>
+            </div>
+
+            <div class="ncard-body">
+              <div class="ncard-top">
+                <span class="ncard-title">{{ n.title }}</span>
+                <span class="ncard-cat-pill"
+                      [style.background]="'color-mix(in srgb,' + notifService.categoryColor(n.category) + ' 12%, transparent)'"
+                      [style.color]="notifService.categoryColor(n.category)">
+                  {{ n.category }}
+                </span>
+              </div>
+              <p class="ncard-msg">{{ n.message }}</p>
+              <span class="ncard-time">
+                <i class="pi pi-clock"></i>
+                {{ timeAgo(n.createdAt) }}
+              </span>
+            </div>
+
+            <div class="ncard-actions" (click)="$event.stopPropagation()">
+              <button class="ncard-btn ncard-btn--read" title="Mark as read" (click)="markOneRead(n)">
+                <i class="pi pi-check"></i>
+              </button>
+              <button class="ncard-btn ncard-btn--del" title="Delete" (click)="deleteNotif(n)">
+                <i class="pi pi-trash"></i>
+              </button>
+            </div>
+
+            <div class="ncard-unread-dot"></div>
+          </div>
+        </div>
+
+        <div *ngIf="totalUnreadPages > 1" class="notif-pager">
+          <button class="pager-btn" [disabled]="unreadPage === 1" (click)="prevUnreadPage()">
+            <i class="pi pi-chevron-left"></i>
+          </button>
+          <div class="pager-pages">
+            <span class="pager-current">{{ unreadPage }}</span>
+            <span class="pager-sep">/</span>
+            <span class="pager-total">{{ totalUnreadPages }}</span>
+          </div>
+          <button class="pager-btn" [disabled]="unreadPage === totalUnreadPages" (click)="nextUnreadPage()">
+            <i class="pi pi-chevron-right"></i>
+          </button>
+        </div>
+      </ng-container>
+    </ng-container>
+
+  </div>
+</div>

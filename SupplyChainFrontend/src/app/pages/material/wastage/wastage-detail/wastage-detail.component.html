@@ -1,0 +1,163 @@
+<div class="wastage-detail-page">
+  <p-toast></p-toast>
+
+  <!-- Approve Dialog -->
+  <p-dialog header="Approve Wastage" [(visible)]="showApproveDialog" [modal]="true" [style]="{width:'450px'}">
+    <div class="dialog-body">
+      <p class="dialog-hint">Approving this wastage will post a cost charge to the originating project or department. This action cannot be undone.</p>
+      <div class="input-group">
+        <label>Approval Notes (optional)</label>
+        <textarea pTextarea [(ngModel)]="approvalNotes" rows="3" placeholder="Any additional notes..."></textarea>
+      </div>
+    </div>
+    <ng-template pTemplate="footer">
+      <p-button label="Cancel" severity="secondary" [outlined]="true" (onClick)="showApproveDialog=false"></p-button>
+      <p-button label="Confirm Approval" severity="success" icon="pi pi-check" (onClick)="confirmApprove()"></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <!-- Reject Dialog -->
+  <p-dialog header="Reject Wastage" [(visible)]="showRejectDialog" [modal]="true" [style]="{width:'450px'}">
+    <div class="dialog-body">
+      <div class="input-group">
+        <label>Rejection Reason <span class="required">*</span></label>
+        <textarea pTextarea [(ngModel)]="rejectionReason" rows="3" placeholder="Explain why this wastage is being rejected..."></textarea>
+      </div>
+    </div>
+    <ng-template pTemplate="footer">
+      <p-button label="Cancel" severity="secondary" [outlined]="true" (onClick)="showRejectDialog=false"></p-button>
+      <p-button label="Reject" severity="danger" icon="pi pi-times" (onClick)="confirmReject()"></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <div *ngIf="isLoading" class="loading-state">
+    <i class="pi pi-spin pi-spinner" style="font-size:2rem;color:#ea580c"></i>
+    <p>Loading wastage record...</p>
+  </div>
+
+  <ng-container *ngIf="wastage && !isLoading">
+
+    <!-- Header -->
+    <div class="page-header">
+      <div class="header-left">
+        <div class="header-icon icon-orange"><i class="pi pi-trash"></i></div>
+        <div>
+          <h1 class="page-title">{{ wastage.wastageNo }}</h1>
+          <p class="page-subtitle">
+            {{ getSourceLabel(wastage.sourceType) }} &bull; {{ wastage.createdDate | date:'dd MMM yyyy' }}
+          </p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <p-tag [value]="wastage.status.replace('_', ' ')"
+               [severity]="getStatusSeverity(wastage.status)" styleClass="status-tag"></p-tag>
+        <ng-container *ngIf="wastage.status === 'PENDING_APPROVAL'">
+          <p-button label="Approve" icon="pi pi-check-circle" [loading]="isApproving"
+                    (onClick)="openApprove()" severity="success"></p-button>
+          <p-button label="Reject" icon="pi pi-times-circle" [loading]="isRejecting"
+                    (onClick)="openReject()" severity="danger" [outlined]="true"></p-button>
+        </ng-container>
+        <a routerLink="/portal/pages/material/wastage">
+          <p-button icon="pi pi-arrow-left" [outlined]="true" severity="secondary" label="Back"></p-button>
+        </a>
+      </div>
+    </div>
+
+    <!-- Self-approval warning -->
+    <div class="info-banner warning" *ngIf="wastage.status === 'PENDING_APPROVAL'">
+      <i class="pi pi-shield"></i>
+      <span>This wastage must be approved by a <strong>different user</strong> from the one who recorded it. Self-approval is not permitted.</span>
+    </div>
+
+    <!-- Info cards -->
+    <div class="info-row">
+      <div class="info-card">
+        <span class="info-label">Item</span>
+        <span class="info-val">{{ wastage.itemDescription }}</span>
+      </div>
+      <div class="info-card">
+        <span class="info-label">Qty Wasted</span>
+        <span class="info-val danger">{{ wastage.wastedQty | number:'1.0-4' }} {{ wastage.unitOfMeasure }}</span>
+      </div>
+      <div class="info-card">
+        <span class="info-label">Unit Cost</span>
+        <span class="info-val">{{ wastage.unitCost | number:'1.2-4' }}</span>
+      </div>
+      <div class="info-card">
+        <span class="info-label">Total Amount</span>
+        <span class="info-val primary">{{ wastage.amount | number:'1.2-2' }}</span>
+      </div>
+    </div>
+
+    <!-- Origin -->
+    <div class="card detail-card">
+      <h3 class="section-title">Origin</h3>
+      <div class="detail-grid">
+        <div class="detail-cell">
+          <span class="cell-label">Source Type</span>
+          <span class="cell-val">{{ getSourceLabel(wastage.sourceType) }}</span>
+        </div>
+        <div class="detail-cell">
+          <span class="cell-label">Issue Voucher</span>
+          <a [routerLink]="['/portal/pages/material/miv', wastage.mivUuid]" class="ref-link">
+            {{ wastage.issueNo }}
+          </a>
+        </div>
+        <div class="detail-cell" *ngIf="wastage.sourceUuid">
+          <span class="cell-label">Return Detail UUID</span>
+          <span class="cell-val mono">{{ wastage.sourceUuid }}</span>
+        </div>
+        <div class="detail-cell">
+          <span class="cell-label">Recorded By</span>
+          <span class="cell-val">User #{{ wastage.recordedBy }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Reason -->
+    <div class="card">
+      <div class="detail-label">Reason for Wastage</div>
+      <p class="reason-text">{{ wastage.reason }}</p>
+      <div class="detail-label notes-label" *ngIf="wastage.notes">Notes</div>
+      <p class="notes-text" *ngIf="wastage.notes">{{ wastage.notes }}</p>
+    </div>
+
+    <!-- Approval/Rejection info -->
+    <div class="card" *ngIf="wastage.status === 'APPROVED'">
+      <h3 class="section-title approved-title">Approval Record</h3>
+      <div class="detail-grid">
+        <div class="detail-cell">
+          <span class="cell-label">Approved By</span>
+          <span class="cell-val">User #{{ wastage.approvedBy }}</span>
+        </div>
+        <div class="detail-cell">
+          <span class="cell-label">Approved At</span>
+          <span class="cell-val">{{ wastage.approvedAt | date:'dd MMM yyyy HH:mm' }}</span>
+        </div>
+      </div>
+      <div class="approved-note">
+        <i class="pi pi-check-circle"></i>
+        Cost of <strong>{{ wastage.amount | number:'1.2-2' }}</strong> has been posted as a WASTAGE charge.
+      </div>
+    </div>
+
+    <div class="card rejection-card" *ngIf="wastage.status === 'REJECTED'">
+      <h3 class="section-title rejected-title">Rejection Record</h3>
+      <div class="detail-grid">
+        <div class="detail-cell">
+          <span class="cell-label">Rejected By</span>
+          <span class="cell-val">User #{{ wastage.rejectedBy }}</span>
+        </div>
+        <div class="detail-cell">
+          <span class="cell-label">Rejected At</span>
+          <span class="cell-val">{{ wastage.rejectedAt | date:'dd MMM yyyy HH:mm' }}</span>
+        </div>
+      </div>
+      <div class="rejection-reason">
+        <span class="cell-label">Reason</span>
+        <p class="reason-text">{{ wastage.rejectionReason }}</p>
+      </div>
+    </div>
+
+  </ng-container>
+</div>

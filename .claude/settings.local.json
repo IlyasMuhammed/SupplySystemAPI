@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-ChildItem -Path \"d:\\\\Supply System\\\\SupplyChain-master\\\\SupplyChain-master\\\\auth-service\\\\src\" -Recurse | Where-Object { -not $_.PSIsContainer } | ForEach-Object { Write-Host $_.FullName.Replace\\(\"d:\\\\Supply System\\\\SupplyChain-master\\\\SupplyChain-master\\\\\", \"\"\\) })",
+      "PowerShell(cd \"d:\\\\Supply System\\\\SupplyChain-master\\\\SupplyChain-master\"; dotnet build src\\\\SMS.API\\\\SMS.API.csproj --no-restore -v q 2>&1 | Where-Object { $_ -match \"error|warning|succeeded|failed\" } | Select-Object -Last 10)",
+      "PowerShell(cd \"d:\\\\Supply System\\\\SupplyChain-master\\\\SupplyChain-master\\\\SupplyChainFrontend\"; npx ng build --configuration=development 2>&1 | Where-Object { $_ -match \"^\\(✓|✘|ERROR|Build|X \\)\" } | Select-Object -Last 10)",
+      "PowerShell(cd \"d:\\\\Supply System\\\\SupplyChain-master\\\\SupplyChain-master\\\\SupplyChainFrontend\"; npx ng build --configuration=development 2>&1 | Where-Object { $_ -match \"error|Error|ERROR\" } | Select-Object -First 30)",
+      "PowerShell(cd \"d:\\\\Supply System\\\\SupplyChain-master\\\\SupplyChain-master\\\\SupplyChainFrontend\"; npx ng build --configuration=development 2>&1 | Where-Object { $_ -match \"\\\\[ERROR\\\\]\" } | Select-Object -First 20)",
+      "PowerShell(cd \"d:\\\\Supply System\\\\SupplyChain-master\\\\SupplyChain-master\\\\SupplyChainFrontend\"; $output = npx ng build --configuration=development 2>&1; $output | Where-Object { $_ -notmatch \"NG8107|WARNING|optional chain|therefore\" } | Where-Object { $_ -match \"Error|error\" } | Select-Object -First 30)",
+      "PowerShell(Get-Process dotnet -ErrorAction SilentlyContinue)",
+      "PowerShell(Stop-Process -Force -Confirm:$false)",
+      "PowerShell(cd \"d:\\\\Supply System\\\\SupplyChain-master\\\\SupplyChain-master\\\\src\\\\SMS.Modules.Inventory\"; $env:SMS_DB_CONNECTION = \"Server=localhost;Database=SMS_Dev;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=true\"; dotnet ef migrations add InitialInventorySchema --context InventoryDbContext 2>&1)",
+      "PowerShell(Get-ChildItem -Path \"d:\\\\Supply System\\\\SupplyChain-master\\\\SupplyChain-master\\\\src\" -Directory | Where-Object { $_.Name -match \"SMS\\\\.\" } | Select-Object Name)"
+    ]
+  }
+}

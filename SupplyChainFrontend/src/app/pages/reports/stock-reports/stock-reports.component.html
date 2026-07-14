@@ -1,0 +1,161 @@
+<div class="report-page">
+  <p-toast />
+
+  <div class="page-header">
+    <div class="header-left">
+      <div class="header-icon icon-blue"><i class="pi pi-database"></i></div>
+      <div>
+        <h2 class="page-title">Stock Movement &amp; Ledger</h2>
+        <p class="page-subtitle">Inventory transactions in/out · Chronological ledger with running balance</p>
+      </div>
+    </div>
+  </div>
+
+  <p-tabView>
+
+    <!-- ── Tab 1: Stock Movement ─────────────────────────────────────────── -->
+    <p-tabPanel header="Stock Movement">
+      <div class="tab-content">
+        <div class="card filter-card">
+          <div class="filter-row">
+            <div class="filter-group">
+              <label>From Date</label>
+              <input pInputText type="date" [(ngModel)]="movementFilter.dateFrom" class="filter-input" />
+            </div>
+            <div class="filter-group">
+              <label>To Date</label>
+              <input pInputText type="date" [(ngModel)]="movementFilter.dateTo" class="filter-input" />
+            </div>
+            <div class="filter-group">
+              <label>Transaction Type</label>
+              <p-dropdown [options]="txTypeOptions" [(ngModel)]="movementFilter.transactionType" optionLabel="label" optionValue="value" class="filter-input" />
+            </div>
+            <div class="filter-group">
+              <label>Search Product</label>
+              <input pInputText type="text" [(ngModel)]="movementFilter.search" placeholder="Name or SKU" class="filter-input" />
+            </div>
+            <div class="filter-actions">
+              <button pButton label="Run" icon="pi pi-play" (click)="loadMovement()" [loading]="isLoadingMovement" class="p-button-primary"></button>
+              <button pButton icon="pi pi-times" (click)="clearMovement()" class="p-button-outlined p-button-secondary"></button>
+            </div>
+          </div>
+        </div>
+
+        <div class="summary-row">
+          <div class="summary-card"><span class="s-label">Transactions</span><span class="s-val">{{ movements.length }}</span></div>
+          <div class="summary-card"><span class="s-label">Total In</span><span class="s-val in">{{ totalIn | number:'1.2-2' }}</span></div>
+          <div class="summary-card"><span class="s-label">Total Out</span><span class="s-val out">{{ totalOut | number:'1.2-2' }}</span></div>
+          <div class="summary-card"><span class="s-label">Total Value (PKR)</span><span class="s-val value">{{ totalValue | number:'1.2-2' }}</span></div>
+        </div>
+
+        <div class="card">
+          <p-table [value]="movements" [loading]="isLoadingMovement" [paginator]="true" [rows]="25" sortMode="multiple" styleClass="p-datatable-sm">
+            <ng-template pTemplate="header">
+              <tr>
+                <th pSortableColumn="transactionDate">Date <p-sortIcon field="transactionDate" /></th>
+                <th>Type</th>
+                <th pSortableColumn="productName">Product <p-sortIcon field="productName" /></th>
+                <th>SKU</th>
+                <th>Warehouse</th>
+                <th>Batch</th>
+                <th class="text-right">In</th>
+                <th class="text-right">Out</th>
+                <th class="text-right">Unit Cost</th>
+                <th class="text-right">Value</th>
+                <th>Reference</th>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-row>
+              <tr>
+                <td>{{ row.transactionDate | date:'dd MMM yyyy' }}</td>
+                <td><p-tag [value]="row.transactionType" [severity]="getTxSeverity(row.transactionType)" /></td>
+                <td><strong>{{ row.productName }}</strong></td>
+                <td><span class="mono">{{ row.sku ?? '—' }}</span></td>
+                <td>{{ row.warehouseName }}</td>
+                <td><span class="mono">{{ row.batchNumber ?? '—' }}</span></td>
+                <td class="text-right in-cell">{{ row.quantityIn > 0 ? (row.quantityIn | number:'1.2-2') : '' }}</td>
+                <td class="text-right out-cell">{{ row.quantityOut > 0 ? (row.quantityOut | number:'1.2-2') : '' }}</td>
+                <td class="text-right">{{ row.unitCost | number:'1.2-2' }}</td>
+                <td class="text-right amount">{{ row.totalValue | number:'1.2-2' }}</td>
+                <td><span class="ref-no secondary">{{ row.referenceNumber ?? '—' }}</span></td>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="emptymessage">
+              <tr><td colspan="11" class="empty-msg">Select filters and run the report.</td></tr>
+            </ng-template>
+          </p-table>
+        </div>
+      </div>
+    </p-tabPanel>
+
+    <!-- ── Tab 2: Stock Ledger ────────────────────────────────────────────── -->
+    <p-tabPanel header="Stock Ledger">
+      <div class="tab-content">
+        <div class="note-banner">
+          <i class="pi pi-info-circle"></i>
+          Filter by Product UUID and/or Warehouse UUID to get a meaningful ledger. Running balance is computed from the first-ever transaction to the selected end date.
+        </div>
+
+        <div class="card filter-card">
+          <div class="filter-row">
+            <div class="filter-group">
+              <label>Product UUID</label>
+              <input pInputText type="text" [(ngModel)]="ledgerFilter.productUuid" placeholder="paste product UUID" class="filter-input" />
+            </div>
+            <div class="filter-group">
+              <label>Warehouse UUID</label>
+              <input pInputText type="text" [(ngModel)]="ledgerFilter.warehouseId" placeholder="paste warehouse UUID" class="filter-input" />
+            </div>
+            <div class="filter-group">
+              <label>From Date</label>
+              <input pInputText type="date" [(ngModel)]="ledgerFilter.dateFrom" class="filter-input" />
+            </div>
+            <div class="filter-group">
+              <label>To Date</label>
+              <input pInputText type="date" [(ngModel)]="ledgerFilter.dateTo" class="filter-input" />
+            </div>
+            <div class="filter-actions">
+              <button pButton label="Run" icon="pi pi-play" (click)="loadLedger()" [loading]="isLoadingLedger" class="p-button-primary"></button>
+              <button pButton icon="pi pi-times" (click)="clearLedger()" class="p-button-outlined p-button-secondary"></button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <p-table [value]="ledger" [loading]="isLoadingLedger" [paginator]="true" [rows]="25" styleClass="p-datatable-sm">
+            <ng-template pTemplate="header">
+              <tr>
+                <th>Date</th>
+                <th>Type</th>
+                <th>Product</th>
+                <th>Warehouse</th>
+                <th class="text-right">In</th>
+                <th class="text-right">Out</th>
+                <th class="text-right">Balance</th>
+                <th class="text-right">Unit Cost</th>
+                <th>Reference</th>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-row>
+              <tr>
+                <td>{{ row.transactionDate | date:'dd MMM yyyy HH:mm' }}</td>
+                <td><p-tag [value]="row.transactionType" [severity]="getTxSeverity(row.transactionType)" /></td>
+                <td>{{ row.productName }}</td>
+                <td>{{ row.warehouseName }}</td>
+                <td class="text-right in-cell">{{ row.quantityIn > 0 ? (row.quantityIn | number:'1.2-2') : '' }}</td>
+                <td class="text-right out-cell">{{ row.quantityOut > 0 ? (row.quantityOut | number:'1.2-2') : '' }}</td>
+                <td class="text-right"><strong [class.balance-neg]="row.runningBalance < 0">{{ row.runningBalance | number:'1.2-2' }}</strong></td>
+                <td class="text-right">{{ row.unitCost | number:'1.2-2' }}</td>
+                <td><span class="ref-no secondary">{{ row.referenceNumber ?? '—' }}</span></td>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="emptymessage">
+              <tr><td colspan="9" class="empty-msg">Enter a product UUID and run the report.</td></tr>
+            </ng-template>
+          </p-table>
+        </div>
+      </div>
+    </p-tabPanel>
+
+  </p-tabView>
+</div>

@@ -1,0 +1,334 @@
+<p-toast />
+
+<div class="kpi-page">
+
+  <!-- ── Dark gradient header ──────────────────────────────────────────────── -->
+  <div class="dash-header">
+    <div class="dash-header-left">
+      <div class="dash-icon-box"><i class="pi pi-chart-bar"></i></div>
+      <div>
+        <h1 class="dash-title">Supply Chain Dashboard</h1>
+        <p class="dash-subtitle">Real-time performance across procurement, inventory &amp; finance</p>
+      </div>
+    </div>
+    <div class="dash-header-right">
+      <div class="live-pill" *ngIf="!isLoading && !isRefreshing">
+        <span class="live-dot"></span>Live
+      </div>
+      <div class="refreshing-pill" *ngIf="isRefreshing">
+        <i class="pi pi-spin pi-spinner"></i>Updating
+      </div>
+      <span *ngIf="lastUpdated" class="last-updated">
+        <i class="pi pi-clock"></i> {{ lastUpdated | date:'HH:mm:ss' }}
+      </span>
+      <p-button label="Refresh" icon="pi pi-refresh" size="small"
+                [outlined]="true" severity="secondary"
+                (onClick)="load()" [loading]="isLoading" [disabled]="isRefreshing" />
+    </div>
+  </div>
+
+  <div class="dash-body">
+
+    <!-- ── Skeleton ────────────────────────────────────────────────────────── -->
+    <ng-container *ngIf="isLoading">
+      <div class="hero-row">
+        <p-skeleton *ngFor="let _ of [1,2,3,4]" height="110px" borderRadius="20px" />
+      </div>
+      <div class="charts-row">
+        <p-skeleton height="300px" borderRadius="20px" />
+        <p-skeleton height="300px" borderRadius="20px" />
+      </div>
+      <div class="section-hdr"><p-skeleton width="130px" height="18px" /></div>
+      <div class="kpi-grid">
+        <p-skeleton *ngFor="let _ of [1,2,3]" height="200px" borderRadius="20px" />
+      </div>
+      <div class="section-hdr mt-3"><p-skeleton width="110px" height="18px" /></div>
+      <div class="kpi-grid">
+        <p-skeleton *ngFor="let _ of [1,2,3]" height="200px" borderRadius="20px" />
+      </div>
+      <div class="section-hdr mt-3"><p-skeleton width="90px" height="18px" /></div>
+      <div class="kpi-grid kpi-grid--4">
+        <p-skeleton *ngFor="let _ of [1,2,3,4]" height="200px" borderRadius="20px" />
+      </div>
+    </ng-container>
+
+    <!-- ── Loaded ──────────────────────────────────────────────────────────── -->
+    <ng-container *ngIf="!isLoading && kpis">
+
+      <!-- ── Hero summary strip ─────────────────────────────────────────────── -->
+      <div class="hero-row">
+
+        <div class="hero-card hc-health">
+          <div class="hc-left">
+            <div class="hc-icon"><i class="pi pi-chart-bar"></i></div>
+          </div>
+          <div class="hc-center">
+            <div class="hc-value">{{ healthScore }}<span class="hc-unit">%</span></div>
+            <div class="hc-label">Overall Health</div>
+            <div class="hc-desc">{{ allCards.length }} KPIs tracked</div>
+          </div>
+          <div class="hc-bg-ring"></div>
+        </div>
+
+        <div class="hero-card hc-good">
+          <div class="hc-icon"><i class="pi pi-check-circle"></i></div>
+          <div class="hc-center">
+            <div class="hc-value">{{ goodCount }}</div>
+            <div class="hc-label">On Track</div>
+            <div class="hc-desc">of {{ allCards.length }} KPIs</div>
+          </div>
+        </div>
+
+        <div class="hero-card hc-warn">
+          <div class="hc-icon"><i class="pi pi-info-circle"></i></div>
+          <div class="hc-center">
+            <div class="hc-value">{{ warnCount }}</div>
+            <div class="hc-label">Need Attention</div>
+            <div class="hc-desc">watch these metrics</div>
+          </div>
+        </div>
+
+        <div class="hero-card hc-bad">
+          <div class="hc-icon"><i class="pi pi-exclamation-circle"></i></div>
+          <div class="hc-center">
+            <div class="hc-value">{{ badCount }}</div>
+            <div class="hc-label">Alerts</div>
+            <div class="hc-desc">action required</div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ── Charts row ─────────────────────────────────────────────────────── -->
+      <div class="charts-row">
+
+        <!-- KPI Health Donut -->
+        <div class="chart-card donut-card">
+          <div class="chart-card-header">
+            <span class="chart-card-title">
+              <i class="pi pi-chart-pie"></i>Health Distribution
+            </span>
+          </div>
+
+          <div class="donut-wrap">
+            <p-chart type="doughnut" [data]="donutData" [options]="donutOptions"
+                     width="220" height="220"
+                     [style]="{'display':'block'}" />
+            <div class="donut-center-overlay">
+              <div class="dc-pct">{{ healthScore }}<span class="dc-unit">%</span></div>
+              <div class="dc-lbl">Overall Health</div>
+            </div>
+          </div>
+
+          <div class="donut-legend">
+            <div class="dl-item dl-good">
+              <span class="dl-dot"></span>
+              <div>
+                <div class="dl-count">{{ goodCount }}</div>
+                <div class="dl-name">On Track</div>
+              </div>
+            </div>
+            <div class="dl-sep"></div>
+            <div class="dl-item dl-warn">
+              <span class="dl-dot"></span>
+              <div>
+                <div class="dl-count">{{ warnCount }}</div>
+                <div class="dl-name">Watch</div>
+              </div>
+            </div>
+            <div class="dl-sep"></div>
+            <div class="dl-item dl-bad">
+              <span class="dl-dot"></span>
+              <div>
+                <div class="dl-count">{{ badCount }}</div>
+                <div class="dl-name">Alert</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Performance Scorecard (custom HTML — no Chart.js) -->
+        <div class="chart-card scorecard-card">
+          <div class="chart-card-header">
+            <span class="chart-card-title">
+              <i class="pi pi-sliders-h"></i>Performance Scorecard
+            </span>
+            <span class="chart-card-sub">% progress toward target</span>
+          </div>
+
+          <div class="scorecard-list">
+
+            <!-- Procurement rows -->
+            <div class="sc-section-label procurement-sc">
+              <i class="pi pi-shopping-cart"></i>Procurement
+            </div>
+            <div class="sc-row" *ngFor="let card of procurementCards" [class]="statusClass(card)">
+              <div class="sc-name-cell">
+                <span class="sc-icon" [class]="card.iconClass"><i [class]="card.icon"></i></span>
+                <span class="sc-label">{{ card.label }}</span>
+              </div>
+              <div class="sc-bar-cell">
+                <div class="sc-bar-track">
+                  <div class="sc-bar-fill" [class]="statusClass(card)" [style.width]="progressPct(card) + '%'"></div>
+                </div>
+              </div>
+              <span class="sc-pct" [class]="statusClass(card)">{{ progressPct(card) }}%</span>
+              <span class="sc-badge" [class]="statusClass(card)">
+                <i [class]="statusIcon(card)"></i>{{ statusLabel(card) }}
+              </span>
+            </div>
+
+            <div class="sc-divider"></div>
+
+            <!-- Inventory rows -->
+            <div class="sc-section-label inventory-sc">
+              <i class="pi pi-box"></i>Inventory
+            </div>
+            <div class="sc-row" *ngFor="let card of inventoryCards" [class]="statusClass(card)">
+              <div class="sc-name-cell">
+                <span class="sc-icon" [class]="card.iconClass"><i [class]="card.icon"></i></span>
+                <span class="sc-label">{{ card.label }}</span>
+              </div>
+              <div class="sc-bar-cell">
+                <div class="sc-bar-track">
+                  <div class="sc-bar-fill" [class]="statusClass(card)" [style.width]="progressPct(card) + '%'"></div>
+                </div>
+              </div>
+              <span class="sc-pct" [class]="statusClass(card)">{{ progressPct(card) }}%</span>
+              <span class="sc-badge" [class]="statusClass(card)">
+                <i [class]="statusIcon(card)"></i>{{ statusLabel(card) }}
+              </span>
+            </div>
+
+            <div class="sc-divider"></div>
+
+            <!-- Finance rows -->
+            <div class="sc-section-label finance-sc">
+              <i class="pi pi-wallet"></i>Finance
+            </div>
+            <div class="sc-row" *ngFor="let card of financeCards" [class]="statusClass(card)">
+              <div class="sc-name-cell">
+                <span class="sc-icon" [class]="card.iconClass"><i [class]="card.icon"></i></span>
+                <span class="sc-label">{{ card.label }}</span>
+              </div>
+              <div class="sc-bar-cell">
+                <div class="sc-bar-track">
+                  <div class="sc-bar-fill" [class]="statusClass(card)" [style.width]="progressPct(card) + '%'"></div>
+                </div>
+              </div>
+              <span class="sc-pct" [class]="statusClass(card)">{{ progressPct(card) }}%</span>
+              <span class="sc-badge" [class]="statusClass(card)">
+                <i [class]="statusIcon(card)"></i>{{ statusLabel(card) }}
+              </span>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ── Procurement KPI cards ──────────────────────────────────────────── -->
+      <div class="section-hdr">
+        <span class="sh-accent procurement-accent"></span>
+        <span class="sh-icon procurement-icon"><i class="pi pi-shopping-cart"></i></span>
+        <span class="sh-title">Procurement</span>
+        <span class="sh-line"></span>
+        <span class="sh-count">{{ procurementCards.length }} metrics</span>
+      </div>
+      <div class="kpi-grid">
+        <div class="kpi-card" *ngFor="let card of procurementCards" [class]="statusClass(card)">
+          <div class="kc-top">
+            <div class="kc-icon-box" [class]="card.iconClass"><i [class]="card.icon"></i></div>
+            <div class="kc-badge" [class]="statusClass(card)">
+              <i [class]="statusIcon(card)"></i>{{ statusLabel(card) }}
+            </div>
+          </div>
+          <div class="kc-value">{{ formatValue(card) }}</div>
+          <div class="kc-label">{{ card.label }}</div>
+          <div class="kc-sub">{{ card.subtitle }}</div>
+          <div class="kc-divider"></div>
+          <div class="kc-footer">
+            <div class="kc-progress">
+              <div class="kc-track">
+                <div class="kc-fill" [class]="statusClass(card)" [style.width]="progressPct(card) + '%'"></div>
+              </div>
+              <span class="kc-pct" [class]="statusClass(card)">{{ progressPct(card) }}%</span>
+            </div>
+            <div class="kc-target">
+              <i class="pi pi-flag"></i>Target: {{ formatTarget(card) }}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Inventory KPI cards ────────────────────────────────────────────── -->
+      <div class="section-hdr mt-3">
+        <span class="sh-accent inventory-accent"></span>
+        <span class="sh-icon inventory-icon"><i class="pi pi-box"></i></span>
+        <span class="sh-title">Inventory</span>
+        <span class="sh-line"></span>
+        <span class="sh-count">{{ inventoryCards.length }} metrics</span>
+      </div>
+      <div class="kpi-grid">
+        <div class="kpi-card" *ngFor="let card of inventoryCards" [class]="statusClass(card)">
+          <div class="kc-top">
+            <div class="kc-icon-box" [class]="card.iconClass"><i [class]="card.icon"></i></div>
+            <div class="kc-badge" [class]="statusClass(card)">
+              <i [class]="statusIcon(card)"></i>{{ statusLabel(card) }}
+            </div>
+          </div>
+          <div class="kc-value">{{ formatValue(card) }}</div>
+          <div class="kc-label">{{ card.label }}</div>
+          <div class="kc-sub">{{ card.subtitle }}</div>
+          <div class="kc-divider"></div>
+          <div class="kc-footer">
+            <div class="kc-progress">
+              <div class="kc-track">
+                <div class="kc-fill" [class]="statusClass(card)" [style.width]="progressPct(card) + '%'"></div>
+              </div>
+              <span class="kc-pct" [class]="statusClass(card)">{{ progressPct(card) }}%</span>
+            </div>
+            <div class="kc-target">
+              <i class="pi pi-flag"></i>Target: {{ formatTarget(card) }}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Finance KPI cards ──────────────────────────────────────────────── -->
+      <div class="section-hdr mt-3">
+        <span class="sh-accent finance-accent"></span>
+        <span class="sh-icon finance-icon"><i class="pi pi-wallet"></i></span>
+        <span class="sh-title">Finance</span>
+        <span class="sh-line"></span>
+        <span class="sh-count">{{ financeCards.length }} metrics</span>
+      </div>
+      <div class="kpi-grid kpi-grid--4">
+        <div class="kpi-card" *ngFor="let card of financeCards" [class]="statusClass(card)">
+          <div class="kc-top">
+            <div class="kc-icon-box" [class]="card.iconClass"><i [class]="card.icon"></i></div>
+            <div class="kc-badge" [class]="statusClass(card)">
+              <i [class]="statusIcon(card)"></i>{{ statusLabel(card) }}
+            </div>
+          </div>
+          <div class="kc-value">{{ formatValue(card) }}</div>
+          <div class="kc-label">{{ card.label }}</div>
+          <div class="kc-sub">{{ card.subtitle }}</div>
+          <div class="kc-divider"></div>
+          <div class="kc-footer">
+            <div class="kc-progress">
+              <div class="kc-track">
+                <div class="kc-fill" [class]="statusClass(card)" [style.width]="progressPct(card) + '%'"></div>
+              </div>
+              <span class="kc-pct" [class]="statusClass(card)">{{ progressPct(card) }}%</span>
+            </div>
+            <div class="kc-target">
+              <i class="pi pi-flag"></i>Target: {{ formatTarget(card) }}
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </ng-container>
+  </div>
+</div>

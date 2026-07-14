@@ -1,0 +1,100 @@
+﻿<div class="grn-list-page">
+  <p-toast></p-toast>
+  <p-confirmDialog [style]="{width:'420px'}"></p-confirmDialog>
+
+  <!-- ── Header ─────────────────────────────────────────────────────────────── -->
+  <div class="page-header">
+    <div>
+      <h1 class="page-title"><i class="pi pi-truck"></i> Goods Receipt Notes</h1>
+      <p class="page-subtitle">Track and manage incoming deliveries against purchase orders</p>
+    </div>
+    <p-button label="New GRN" icon="pi pi-plus" severity="warn"
+              routerLink="/portal/pages/warehouse/grn/create"></p-button>
+  </div>
+
+  <!-- ── Stat cards ─────────────────────────────────────────────────────────── -->
+  <div class="stat-cards">
+    <div class="stat-card">
+      <div class="stat-icon draft"><i class="pi pi-file"></i></div>
+      <div><div class="stat-value">{{ draftCount }}</div><div class="stat-label">Draft</div></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon pending"><i class="pi pi-clock"></i></div>
+      <div><div class="stat-value">{{ pendingQcCount }}</div><div class="stat-label">Pending QC</div></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon approval"><i class="pi pi-shield"></i></div>
+      <div><div class="stat-value">{{ pendingApprovalCount }}</div><div class="stat-label">In Approval</div></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon accepted"><i class="pi pi-check-circle"></i></div>
+      <div><div class="stat-value">{{ approvedCount }}</div><div class="stat-label">Approved</div></div>
+    </div>
+  </div>
+
+  <!-- ── Filter bar ─────────────────────────────────────────────────────────── -->
+  <div class="filter-bar">
+    <p-iconfield>
+      <p-inputicon styleClass="pi pi-search"></p-inputicon>
+      <input pInputText type="text" placeholder="Search GRN, PO, supplier..."
+             [(ngModel)]="searchText" (ngModelChange)="onSearchChange()" class="search-input" />
+    </p-iconfield>
+    <p-dropdown [options]="statusOptions" [(ngModel)]="selectedStatus"
+                (ngModelChange)="onFilterChange()" placeholder="Status" styleClass="filter-dropdown" appendTo="body"></p-dropdown>
+    <p-button icon="pi pi-refresh" [text]="true" severity="secondary"
+              pTooltip="Reset filters" (onClick)="resetFilters()"></p-button>
+  </div>
+
+  <!-- ── Table ──────────────────────────────────────────────────────────────── -->
+  <div class="table-card">
+    <p-table [value]="grns" [loading]="isLoading" [lazy]="true"
+             [totalRecords]="totalRecords" [rows]="pageSize"
+             (onLazyLoad)="onPageChange($event)"
+             [paginator]="true" [rowsPerPageOptions]="[10,20,50]"
+             [tableStyle]="{'min-width':'60rem'}">
+      <ng-template pTemplate="header">
+        <tr>
+          <th>GRN #</th>
+          <th>PO #</th>
+          <th>Supplier</th>
+          <th>Status</th>
+          <th>Received At</th>
+          <th>Partial</th>
+          <th class="text-center">Actions</th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-grn>
+        <tr>
+          <td class="font-mono font-semibold">{{ grn.grnNumber }}</td>
+          <td class="font-mono">{{ grn.poNumber }}</td>
+          <td>{{ grn.supplierName }}</td>
+          <td><p-tag [value]="grn.status" [severity]="getStatusSeverity(grn.status)"></p-tag></td>
+          <td>{{ grn.receivedAt | date:'dd-MMM-yyyy, HH:mm' }}</td>
+          <td>
+            <span *ngIf="grn.isPartialReceipt" class="partial-badge">
+              <i class="pi pi-exclamation-triangle"></i> Partial
+            </span>
+            <span *ngIf="!grn.isPartialReceipt" class="text-secondary">—</span>
+          </td>
+          <td class="text-center">
+            <p-button icon="pi pi-eye" [text]="true" severity="info" size="small"
+                      pTooltip="View GRN"
+                      [routerLink]="['/portal/pages/warehouse/grn', grn.uuid]"></p-button>
+            <p-button *ngIf="grn.status === 'DRAFT'" icon="pi pi-pencil" [text]="true"
+                      severity="warn" size="small" pTooltip="Edit GRN"
+                      [routerLink]="['/portal/pages/warehouse/grn', grn.uuid, 'edit']"></p-button>
+            <p-button *ngIf="grn.status === 'DRAFT'" icon="pi pi-trash" [text]="true"
+                      severity="danger" size="small" pTooltip="Delete GRN"
+                      (onClick)="confirmDelete(grn)"></p-button>
+          </td>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="emptymessage">
+        <tr><td colspan="7" class="text-center text-secondary" style="padding:3rem">
+          No goods receipt notes found.
+        </td></tr>
+      </ng-template>
+    </p-table>
+  </div>
+</div>
+

@@ -1,0 +1,88 @@
+.sro-detail-page { padding: 1.5rem; }
+
+.loading-state {
+  display: flex; align-items: center; gap: .75rem; padding: 3rem;
+  color: var(--text-color-secondary); justify-content: center;
+  i { font-size: 1.5rem; }
+}
+
+.not-found {
+  display: flex; flex-direction: column; align-items: center; gap: 1rem; padding: 4rem;
+  color: var(--text-color-secondary);
+  i { font-size: 3rem; opacity: .4; }
+  p { margin: 0; }
+}
+
+.page-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  background: var(--surface-card); border-radius: 12px;
+  padding: 1.25rem 1.5rem; margin-bottom: 1.25rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,.06); border: 1px solid var(--surface-border);
+  .header-left { display: flex; align-items: flex-start; gap: 1rem; }
+  .header-icon {
+    width: 48px; height: 48px; border-radius: 12px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    i { font-size: 1.25rem; color: #fff; }
+  }
+  .icon-rose { background: linear-gradient(135deg, #f43f5e, #be123c); }
+  .header-meta { display: flex; align-items: center; gap: .6rem; margin-bottom: .25rem; flex-wrap: wrap; }
+  .sro-number { font-family: monospace; font-size: 1.1rem; font-weight: 700; color: var(--text-color); }
+  .page-subtitle { margin: 0; font-size: .875rem; color: var(--text-color-secondary); }
+  .header-actions { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
+}
+
+.info-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem; margin-bottom: 1.25rem;
+}
+
+.info-card {
+  background: var(--surface-card); border-radius: 12px;
+  padding: 1.25rem; box-shadow: 0 2px 8px rgba(0,0,0,.06); border: 1px solid var(--surface-border);
+  .info-section-title {
+    font-size: .8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+    color: var(--text-color-secondary); margin-bottom: .875rem;
+  }
+  .info-row {
+    display: flex; justify-content: space-between; padding: .35rem 0;
+    border-bottom: 1px solid var(--surface-border); font-size: .875rem;
+    &:last-child { border-bottom: none; }
+  }
+  .info-label { color: var(--text-color-secondary); }
+  .info-value { font-weight: 500; color: var(--text-color); text-align: right; &.danger { color: #ef4444; } }
+  .link { color: var(--primary-color); text-decoration: none; &:hover { text-decoration: underline; } }
+}
+
+.table-card {
+  background: var(--surface-card); border-radius: 12px; overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,.06); border: 1px solid var(--surface-border);
+  .table-header {
+    padding: 1rem 1.5rem; border-bottom: 1px solid var(--surface-border);
+    h3 { margin: 0; font-size: 1rem; font-weight: 600; color: var(--text-color); display: flex; align-items: center; gap: .5rem; }
+    .count-badge { background: var(--primary-color); color: #fff; border-radius: 20px; padding: .1rem .5rem; font-size: .75rem; }
+  }
+}
+
+.audit-table {
+  width: 100%; border-collapse: collapse; font-size: .85rem;
+  thead th { background: var(--surface-ground); color: var(--text-color-secondary);
+    font-weight: 600; font-size: .75rem; text-transform: uppercase; letter-spacing: .05em;
+    padding: .6rem 1rem; text-align: left; border-bottom: 2px solid var(--surface-border); }
+  tbody td { padding: .55rem 1rem; border-bottom: 1px solid var(--surface-border); vertical-align: top; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: var(--surface-ground); }
+}
+
+::ng-deep .tag-xs .p-tag { font-size: .65rem !important; padding: .1rem .4rem !important; }
+
+.text-right   { text-align: right !important; }
+.text-center  { text-align: center !important; }
+.font-mono    { font-family: monospace; font-size: .875rem; }
+.font-semibold { font-weight: 600; }
+
+.dialog-body { padding: .25rem 0; }
+.dialog-info { margin: 0 0 1rem; font-size: .9rem; color: var(--text-color); }
+.form-field {
+  display: flex; flex-direction: column; gap: .4rem; margin-bottom: .875rem;
+  label { font-size: .85rem; font-weight: 500; color: var(--text-color); .req { color: #ef4444; } }
+}

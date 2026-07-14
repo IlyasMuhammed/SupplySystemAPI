@@ -1,0 +1,115 @@
+<div class="miv-detail-page">
+  <p-toast></p-toast>
+  <p-confirmDialog></p-confirmDialog>
+
+  <!-- Loading -->
+  <div *ngIf="isLoading" class="loading-card">
+    <i class="pi pi-spin pi-spinner"></i>
+    <span>Loading&hellip;</span>
+  </div>
+
+  <ng-container *ngIf="!isLoading && miv">
+
+    <!-- Header -->
+    <div class="page-header">
+      <div class="header-left">
+        <div class="header-icon icon-purple">
+          <i class="pi pi-receipt"></i>
+        </div>
+        <div>
+          <h1 class="page-title">{{ miv.issueNo }}</h1>
+          <p class="page-subtitle">
+            MIR: <a class="mir-link" [routerLink]="['/portal/pages/material/mir', miv.mirUuid]">{{ miv.mirRequestNo }}</a>
+            <span *ngIf="miv.mirProjectName"> &mdash; {{ miv.mirProjectName }}</span>
+          </p>
+        </div>
+      </div>
+      <div class="header-right">
+        <p-tag [value]="miv.status | titlecase" [severity]="getStatusSeverity(miv.status)" class="status-tag"></p-tag>
+        <ng-container *ngIf="miv.status === 'DRAFT'">
+          <p-button label="Post Voucher" icon="pi pi-check" severity="success"
+                    [loading]="isPosting" (onClick)="confirmPost()"></p-button>
+          <p-button label="Cancel" icon="pi pi-times" severity="danger" [outlined]="true"
+                    [loading]="isCancelling" (onClick)="confirmCancel()"></p-button>
+        </ng-container>
+        <p-button *ngIf="miv.status === 'POSTED'"
+                  label="Download PDF" icon="pi pi-file-pdf" severity="danger" [outlined]="true"
+                  (onClick)="downloadPdf()"></p-button>
+        <p-button label="Back to MIV List" icon="pi pi-arrow-left" severity="secondary" [outlined]="true"
+                  routerLink="/portal/pages/material/miv"></p-button>
+      </div>
+    </div>
+
+    <!-- Summary card -->
+    <div class="card">
+      <h3 class="section-title">Voucher Details</h3>
+      <div class="detail-grid">
+        <div class="detail-cell">
+          <span class="dc-label">Issued To</span>
+          <span class="dc-value">{{ miv.issuedTo || '—' }}</span>
+        </div>
+        <div class="detail-cell">
+          <span class="dc-label">Issue Date</span>
+          <span class="dc-value">{{ miv.issueDate | date:'dd MMM yyyy' }}</span>
+        </div>
+        <div class="detail-cell">
+          <span class="dc-label">Total Value</span>
+          <span class="dc-value value-amount">{{ miv.totalValue | number:'1.2-2' }}</span>
+        </div>
+        <div class="detail-cell">
+          <span class="dc-label">Status</span>
+          <span class="dc-value"><p-tag [value]="miv.status | titlecase" [severity]="getStatusSeverity(miv.status)"></p-tag></span>
+        </div>
+        <div class="detail-cell" *ngIf="miv.notes">
+          <span class="dc-label">Notes</span>
+          <span class="dc-value">{{ miv.notes }}</span>
+        </div>
+        <div class="detail-cell">
+          <span class="dc-label">Created</span>
+          <span class="dc-value">{{ miv.createdDate | date:'dd MMM yyyy HH:mm' }}</span>
+        </div>
+        <div class="detail-cell" *ngIf="miv.postedDate">
+          <span class="dc-label">Posted</span>
+          <span class="dc-value">{{ miv.postedDate | date:'dd MMM yyyy HH:mm' }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Lines -->
+    <div class="card">
+      <h3 class="section-title">Issue Lines</h3>
+      <div class="lines-table">
+        <div class="lines-header">
+          <span class="col-desc">Item</span>
+          <span class="col-uom">UOM</span>
+          <span class="col-wh">Warehouse</span>
+          <span class="col-qty num-col">Issued Qty</span>
+          <span class="col-qty num-col">Unit Cost</span>
+          <span class="col-qty num-col">Line Value</span>
+          <span class="col-notes">Notes</span>
+        </div>
+        <div *ngFor="let line of miv.lines" class="line-row">
+          <span class="col-desc item-name">{{ line.itemDescription }}</span>
+          <span class="col-uom text-muted">{{ line.unitOfMeasure || '—' }}</span>
+          <span class="col-wh wh-chip">{{ line.warehouseName || '—' }}</span>
+          <span class="col-qty num-col font-semibold">{{ line.issuedQty | number:'1.0-4' }}</span>
+          <span class="col-qty num-col">{{ line.unitCost | number:'1.2-4' }}</span>
+          <span class="col-qty num-col">{{ line.lineValue | number:'1.2-2' }}</span>
+          <span class="col-notes text-muted">{{ line.notes || '—' }}</span>
+        </div>
+
+        <!-- Total row -->
+        <div class="total-row">
+          <span class="col-desc"></span>
+          <span class="col-uom"></span>
+          <span class="col-wh"></span>
+          <span class="col-qty num-col"></span>
+          <span class="col-qty num-col total-label">Total</span>
+          <span class="col-qty num-col total-value">{{ miv.totalValue | number:'1.2-2' }}</span>
+          <span class="col-notes"></span>
+        </div>
+      </div>
+    </div>
+
+  </ng-container>
+</div>

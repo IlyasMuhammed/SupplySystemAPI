@@ -1,0 +1,84 @@
+<div class="project-list-page">
+  <p-toast></p-toast>
+
+  <div class="page-header">
+    <div class="header-left">
+      <div class="header-icon icon-purple">
+        <i class="pi pi-briefcase"></i>
+      </div>
+      <div>
+        <h1 class="page-title">Projects</h1>
+        <p class="page-subtitle">Manage project master records for material issue tracking</p>
+      </div>
+    </div>
+    <p-button label="New Project" icon="pi pi-plus" severity="contrast"
+              routerLink="/portal/pages/material/projects/new"></p-button>
+  </div>
+
+  <div class="filter-card">
+    <div class="filter-title"><i class="pi pi-filter"></i> Filters</div>
+    <div class="filter-controls">
+      <div class="filter-field search-field">
+        <label>Search</label>
+        <p-iconfield>
+          <p-inputicon styleClass="pi pi-search"></p-inputicon>
+          <input pInputText placeholder="Project code or name..." style="width:100%"
+                 [(ngModel)]="filter.search" (ngModelChange)="onSearchChange()" />
+        </p-iconfield>
+      </div>
+      <div class="filter-field">
+        <label>Status</label>
+        <p-dropdown [options]="statusOptions" [(ngModel)]="filter.status"
+                    (ngModelChange)="onFilterChange()" placeholder="All Statuses"
+                    appendTo="body" styleClass="w-full"></p-dropdown>
+      </div>
+      <div class="filter-actions">
+        <p-button label="Reset" icon="pi pi-refresh" [outlined]="true"
+                  severity="secondary" (onClick)="resetFilters()"></p-button>
+      </div>
+    </div>
+  </div>
+
+  <div class="table-card">
+    <p-table [value]="projects" [loading]="isLoading" [lazy]="true"
+             [totalRecords]="totalRecords" [rows]="pageSize"
+             (onLazyLoad)="onPageChange($event)"
+             [paginator]="true" [rowsPerPageOptions]="[10,20,50]"
+             [tableStyle]="{'min-width':'60rem'}">
+      <ng-template pTemplate="header">
+        <tr>
+          <th>Code</th>
+          <th>Project Name</th>
+          <th>Status</th>
+          <th>Budget</th>
+          <th>Created</th>
+          <th class="text-center">Actions</th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-proj>
+        <tr>
+          <td class="font-mono font-semibold">{{ proj.projectCode }}</td>
+          <td>{{ proj.projectName }}</td>
+          <td><p-tag [value]="getStatusLabel(proj.status)" [severity]="getStatusSeverity(proj.status)"></p-tag></td>
+          <td>{{ proj.budgetAmount != null ? (proj.budgetAmount | number:'1.0-0') : '—' }}</td>
+          <td>{{ proj.createdDate | date:'dd MMM yyyy' }}</td>
+          <td class="text-center">
+            <p-button icon="pi pi-eye" [text]="true" severity="info" size="small"
+                      pTooltip="View Project"
+                      [routerLink]="['/portal/pages/material/projects', proj.uuid]"></p-button>
+          </td>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="6">
+            <div class="empty-state">
+              <i class="pi pi-briefcase"></i>
+              <p>No projects found</p>
+            </div>
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </div>
+</div>

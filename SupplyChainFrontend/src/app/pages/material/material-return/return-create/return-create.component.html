@@ -1,0 +1,160 @@
+<div class="return-create-page">
+  <p-toast></p-toast>
+
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-left">
+      <div class="header-icon icon-purple"><i class="pi pi-replay"></i></div>
+      <div>
+        <h1 class="page-title">New Material Return</h1>
+        <p class="page-subtitle">Return issued material back to warehouse stock</p>
+      </div>
+    </div>
+    <a routerLink="/portal/pages/material/returns">
+      <p-button label="All Returns" icon="pi pi-list" [outlined]="true" severity="secondary"></p-button>
+    </a>
+  </div>
+
+  <!-- Step 1: Select MIV from dropdown -->
+  <div class="card" *ngIf="step === 'select'">
+    <h3 class="section-title">Select Issue Voucher</h3>
+    <p class="section-hint">Choose the Material Issue Voucher you want to create a return for.</p>
+
+    <div class="select-row">
+      <p-dropdown
+        [options]="mivOptions"
+        [(ngModel)]="selectedMivUuid"
+        optionLabel="label"
+        optionValue="value"
+        placeholder="Select a voucher..."
+        [filter]="true"
+        filterBy="label"
+        [loading]="isLoadingMivs"
+        [disabled]="isLoadingMivs || isSearching"
+        styleClass="miv-dropdown"
+        emptyMessage="No posted vouchers available"
+        emptyFilterMessage="No vouchers match your search"
+        (onChange)="onMivSelect($event.value)">
+      </p-dropdown>
+
+      <div class="searching-hint" *ngIf="isSearching">
+        <i class="pi pi-spin pi-spinner"></i>
+        <span>Loading voucher lines&hellip;</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 2: Return form -->
+  <ng-container *ngIf="step === 'form' && returnable">
+
+    <!-- MIV info banner -->
+    <div class="miv-banner card">
+      <div class="banner-col">
+        <span class="banner-label">Issue Voucher</span>
+        <strong class="banner-value">{{ returnable.issueNo }}</strong>
+      </div>
+      <div class="banner-col">
+        <span class="banner-label">MIV Status</span>
+        <p-tag [value]="returnable.mivStatus" severity="success"></p-tag>
+      </div>
+      <div class="banner-col">
+        <span class="banner-label">Returnable Lines</span>
+        <strong class="banner-value">{{ returnable.lines.length }}</strong>
+      </div>
+      <div class="banner-col banner-action">
+        <p-button label="Change Voucher" icon="pi pi-refresh" severity="secondary" [outlined]="true"
+                  size="small" (onClick)="changeMiv()"></p-button>
+      </div>
+    </div>
+
+    <!-- Return lines -->
+    <div class="card" *ngFor="let line of lines; let i = index">
+      <div class="line-header">
+        <div class="line-toggle">
+          <input type="checkbox" [(ngModel)]="line.included" [id]="'inc-'+i" />
+          <label [for]="'inc-'+i" class="line-title">{{ line.itemDescription }}</label>
+          <span class="line-uom" *ngIf="line.unitOfMeasure">{{ line.unitOfMeasure }}</span>
+        </div>
+        <div class="line-meta">
+          <div class="meta-chip">
+            <span class="meta-label">Issued</span>
+            <span class="meta-val">{{ line.issuedQty | number:'1.0-4' }}</span>
+          </div>
+          <div class="meta-chip" *ngIf="line.alreadyReturned > 0">
+            <span class="meta-label">Returned</span>
+            <span class="meta-val returned">{{ line.alreadyReturned | number:'1.0-4' }}</span>
+          </div>
+          <div class="meta-chip">
+            <span class="meta-label">Returnable</span>
+            <span class="meta-val avail">{{ line.returnableQty | number:'1.0-4' }}</span>
+          </div>
+          <div class="meta-chip">
+            <span class="meta-label">Unit Cost</span>
+            <span class="meta-val">{{ line.unitCost | number:'1.2-4' }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="line-inputs" *ngIf="line.included">
+        <div class="input-group">
+          <label>Return Qty <span class="required">*</span></label>
+          <p-inputNumber [(ngModel)]="line.returnQty" [min]="0.0001" [max]="line.returnableQty"
+                         [minFractionDigits]="0" [maxFractionDigits]="4"
+                         [ngClass]="{'ng-invalid ng-dirty': line.returnQty > line.returnableQty}">
+          </p-inputNumber>
+          <small class="error-hint" *ngIf="line.returnQty > line.returnableQty">
+            Cannot exceed returnable qty ({{ line.returnableQty | number:'1.0-4' }})
+          </small>
+        </div>
+
+        <div class="input-group">
+          <label>Condition <span class="required">*</span></label>
+          <p-selectButton [options]="conditionOptions" [(ngModel)]="line.condition"
+                          optionLabel="label" optionValue="value"></p-selectButton>
+        </div>
+
+        <div class="input-group damaged-warning" *ngIf="line.condition === 'DAMAGED'">
+          <i class="pi pi-exclamation-triangle"></i>
+          <span>Damaged items will not restore inventory. A <strong>Wastage</strong> record will be auto-created for supervisor approval.</span>
+        </div>
+
+        <div class="input-group">
+          <label>Reason {{ line.condition === 'DAMAGED' ? '*' : '' }}</label>
+          <input pInputText [(ngModel)]="line.reason" placeholder="Reason for return..." />
+          <small class="error-hint" *ngIf="line.condition === 'DAMAGED' && !line.reason.trim()">
+            Reason is required for damaged items
+          </small>
+        </div>
+      </div>
+
+      <!-- Batch/Serial info (read-only, for reference) -->
+      <div class="batch-info" *ngIf="line.batchSerials.length > 0">
+        <div class="batch-row" *ngFor="let bs of line.batchSerials">
+          <span class="batch-chip" *ngIf="bs.batchNumber">Batch: {{ bs.batchNumber }}</span>
+          <span class="batch-chip" *ngIf="bs.serialNumber">S/N: {{ bs.serialNumber }}</span>
+          <span class="batch-qty">{{ bs.issuedQty | number:'1.0-4' }}</span>
+          <span class="batch-expiry" *ngIf="bs.expiryDate">Exp: {{ bs.expiryDate | date:'dd/MM/yyyy' }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Header notes & submit -->
+    <div class="card footer-card">
+      <div class="footer-left">
+        <label class="notes-label">Return Notes</label>
+        <textarea pTextarea [(ngModel)]="headerNotes" rows="2" cols="50" placeholder="Optional notes..."></textarea>
+      </div>
+      <div class="footer-right">
+        <div class="footer-summary" *ngIf="selectedLines.length > 0">
+          <span>{{ selectedLines.length }} line(s) selected</span>
+          <span class="good-count" *ngIf="goodCount > 0">&bull; {{ goodCount }} Good</span>
+          <span class="damaged-count" *ngIf="damagedCount > 0">&bull; {{ damagedCount }} Damaged</span>
+        </div>
+        <p-button label="Create Return Voucher (DRAFT)" icon="pi pi-save"
+                  [loading]="isSaving" [disabled]="hasErrors"
+                  (onClick)="save()" severity="contrast"></p-button>
+      </div>
+    </div>
+
+  </ng-container>
+</div>

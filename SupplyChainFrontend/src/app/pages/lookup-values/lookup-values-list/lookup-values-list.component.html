@@ -1,0 +1,80 @@
+<p-toast />
+<p-confirmDialog />
+
+<div class="card">
+
+  <!-- ── Page Header ──────────────────────────────────────────────────────── -->
+  <div class="md-header">
+    <div class="md-icon"><i class="pi pi-tags"></i></div>
+    <div class="md-title-wrap">
+      <h2 class="md-title">Lookup Values</h2>
+      <p class="md-subtitle">Manage configurable values assigned to lookup types</p>
+    </div>
+    <p-button label="New Value" icon="pi pi-plus"
+              routerLink="../lookup-values-create">
+    </p-button>
+  </div>
+
+  <hr class="md-sep" />
+
+  <!-- ── Search Bar ────────────────────────────────────────────────────────── -->
+  <div class="md-toolbar">
+    <p-iconfield>
+      <p-inputicon styleClass="pi pi-search" />
+      <input pInputText type="text"
+             (input)="onGlobalFilter($event)"
+             placeholder="Search lookup values…" />
+    </p-iconfield>
+    <span class="md-count" *ngIf="!isLoading()">{{ lookupValues().length }} values</span>
+  </div>
+
+  <!-- ── Data Table ────────────────────────────────────────────────────────── -->
+  <p-table
+    #dt
+    [value]="lookupValues()"
+    [loading]="isLoading()"
+    [paginator]="true"
+    [rows]="20"
+    [rowsPerPageOptions]="[10, 20, 50]"
+    [showCurrentPageReport]="true"
+    currentPageReportTemplate="{first}–{last} of {totalRecords}"
+    [globalFilterFields]="['value']"
+    [rowHover]="true"
+    dataKey="id"
+    responsiveLayout="scroll">
+
+    <ng-template pTemplate="header">
+      <tr>
+        <th pSortableColumn="value">Value <p-sortIcon field="value" /></th>
+        <th style="width: 7rem">Actions</th>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="body" let-item>
+      <tr>
+        <td>
+          <span class="md-value-chip">{{ item.value }}</span>
+        </td>
+        <td>
+          <p-button icon="pi pi-trash" severity="danger" [rounded]="true" [outlined]="true" size="small"
+                    pTooltip="Delete" tooltipPosition="top"
+                    [loading]="deletingIds.has(item.id)" [disabled]="deletingIds.has(item.id)"
+                    (click)="deleteLookupValue(item)" />
+        </td>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="emptymessage">
+      <tr>
+        <td colspan="2">
+          <div class="md-empty">
+            <i class="pi pi-tags md-empty-icon"></i>
+            <p class="md-empty-text">No lookup values found</p>
+            <small class="md-empty-hint">Click "New Value" to create one.</small>
+          </div>
+        </td>
+      </tr>
+    </ng-template>
+
+  </p-table>
+</div>

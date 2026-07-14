@@ -1,0 +1,227 @@
+<!-- ── Loading ──────────────────────────────────────────────────────────────── -->
+<div class="sp-shell">
+
+  <ng-container *ngIf="loading">
+    <div class="sp-center-state">
+      <p-progressSpinner strokeWidth="4" styleClass="sp-spinner"></p-progressSpinner>
+      <p class="sp-state-caption">Loading your RFQ…</p>
+    </div>
+  </ng-container>
+
+  <!-- ── Blocking states ────────────────────────────────────────────────────── -->
+
+  <ng-container *ngIf="!loading && status === 'CONSUMED'">
+    <div class="sp-message-card sp-message-card--consumed">
+      <div class="sp-msg-icon">
+        <i class="pi pi-check-circle"></i>
+      </div>
+      <h2 class="sp-msg-title">Already Submitted</h2>
+      <p class="sp-msg-body">
+        You have already submitted your response for this RFQ.
+        If you need to make changes, please contact your procurement representative.
+      </p>
+    </div>
+  </ng-container>
+
+  <ng-container *ngIf="!loading && status === 'EXPIRED'">
+    <div class="sp-message-card sp-message-card--expired">
+      <div class="sp-msg-icon">
+        <i class="pi pi-clock"></i>
+      </div>
+      <h2 class="sp-msg-title">Link Expired</h2>
+      <p class="sp-msg-body">
+        This link has expired. Please contact your procurement team to request a new link.
+      </p>
+    </div>
+  </ng-container>
+
+  <ng-container *ngIf="!loading && status === 'INVALID'">
+    <div class="sp-message-card sp-message-card--invalid">
+      <div class="sp-msg-icon">
+        <i class="pi pi-ban"></i>
+      </div>
+      <h2 class="sp-msg-title">Invalid Link</h2>
+      <p class="sp-msg-body">
+        This link is invalid or has already been used. Please contact your procurement team.
+      </p>
+    </div>
+  </ng-container>
+
+  <!-- ── Submitted — thank-you card ───────────────────────────────────────── -->
+
+  <ng-container *ngIf="!loading && submitResult?.status === 'SUBMITTED'">
+    <div class="sp-message-card sp-message-card--submitted">
+      <div class="sp-msg-icon">
+        <i class="pi pi-send"></i>
+      </div>
+      <h2 class="sp-msg-title">Response Submitted</h2>
+      <p class="sp-msg-body">
+        Thank you, <strong>{{ submitResult?.supplierName }}</strong>. Your quotation response for
+        <strong>{{ submitResult?.quotationNumber }}</strong> has been received on
+        {{ formatDate(submitResult?.submittedAt) }}.
+        The procurement team will be in touch shortly.
+      </p>
+    </div>
+  </ng-container>
+
+  <!-- ── Valid: RFQ form ───────────────────────────────────────────────────── -->
+
+  <ng-container *ngIf="!loading && status === 'VALID' && payload && !submitResult">
+
+    <!-- Brand header bar -->
+    <header class="sp-topbar">
+      <div class="sp-brand">
+        <i class="pi pi-send sp-brand-icon"></i>
+        <div>
+          <div class="sp-brand-title">Request for Quotation</div>
+          <div class="sp-brand-sub">Supplier Response Portal</div>
+        </div>
+      </div>
+      <div class="sp-rfq-number">{{ payload.quotationNumber }}</div>
+    </header>
+
+    <div class="sp-content">
+
+      <!-- ── RFQ Header card ─────────────────────────────────────────────── -->
+      <section class="sp-card sp-header-card">
+        <h3 class="sp-section-title">
+          <i class="pi pi-file-pdf"></i> RFQ Details
+        </h3>
+
+        <div class="sp-meta-grid">
+          <div class="sp-meta-item">
+            <span class="sp-meta-label">RFQ Number</span>
+            <span class="sp-meta-value sp-rfq-badge">{{ payload.quotationNumber }}</span>
+          </div>
+          <div class="sp-meta-item">
+            <span class="sp-meta-label">Title</span>
+            <span class="sp-meta-value">{{ payload.title }}</span>
+          </div>
+          <div class="sp-meta-item">
+            <span class="sp-meta-label">Supplier</span>
+            <span class="sp-meta-value">{{ payload.supplierName ?? '—' }}</span>
+          </div>
+          <div class="sp-meta-item">
+            <span class="sp-meta-label">Issue Date</span>
+            <span class="sp-meta-value">{{ formatDate(payload.issueDate) }}</span>
+          </div>
+          <div class="sp-meta-item">
+            <span class="sp-meta-label">Closing Date</span>
+            <span class="sp-meta-value sp-closing-date">
+              <i class="pi pi-calendar"></i>
+              {{ formatDate(payload.dueDate) }}
+            </span>
+          </div>
+          <div class="sp-meta-item">
+            <span class="sp-meta-label">Link Expires</span>
+            <span class="sp-meta-value">{{ formatDate(payload.expiresAt) }}</span>
+          </div>
+          <div class="sp-meta-item sp-meta-full" *ngIf="payload.notes">
+            <span class="sp-meta-label">Terms / Notes</span>
+            <span class="sp-meta-value">{{ payload.notes }}</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Item grid ───────────────────────────────────────────────────── -->
+      <section class="sp-card">
+        <h3 class="sp-section-title">
+          <i class="pi pi-list"></i> Items — Enter Your Prices
+        </h3>
+
+        <p class="sp-grid-hint">
+          Fill in Unit Price, Delivery Days, and Remarks for each item.
+          Toggle <strong>Can Supply</strong> off if you cannot fulfil an item.
+          All fields are optional — you may leave any field blank.
+        </p>
+
+        <div class="sp-table-wrap">
+          <table class="sp-table">
+            <thead>
+              <tr>
+                <th class="sp-th sp-th--num">#</th>
+                <th class="sp-th sp-th--desc">Item Description</th>
+                <th class="sp-th sp-th--spec">Specification</th>
+                <th class="sp-th sp-th--uom">UOM</th>
+                <th class="sp-th sp-th--qty">Qty Required</th>
+                <!-- editable -->
+                <th class="sp-th sp-th--price">Unit Price</th>
+                <th class="sp-th sp-th--days">Delivery Days</th>
+                <th class="sp-th sp-th--supply">Can Supply</th>
+                <th class="sp-th sp-th--remarks">Remarks</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let row of rows; let i = index" class="sp-tr">
+                <td class="sp-td sp-td--num">{{ row.lineNo }}</td>
+                <td class="sp-td sp-td--desc">{{ row.itemDescription }}</td>
+                <td class="sp-td sp-td--spec">{{ row.specification ?? '—' }}</td>
+                <td class="sp-td sp-td--uom">{{ row.unitOfMeasure ?? '—' }}</td>
+                <td class="sp-td sp-td--qty">{{ row.quantity }}</td>
+
+                <!-- Unit Price — no validation by design (FSD §5.2) -->
+                <td class="sp-td sp-td--edit">
+                  <input
+                    class="sp-input sp-input--price"
+                    type="text"
+                    inputmode="decimal"
+                    placeholder="0.00"
+                    [(ngModel)]="row.unitPrice"
+                    [name]="'up_' + i" />
+                </td>
+
+                <!-- Delivery Days — no validation by design -->
+                <td class="sp-td sp-td--edit">
+                  <input
+                    class="sp-input sp-input--days"
+                    type="text"
+                    inputmode="numeric"
+                    placeholder="e.g. 14"
+                    [(ngModel)]="row.deliveryDays"
+                    [name]="'dd_' + i" />
+                </td>
+
+                <!-- Can Supply toggle -->
+                <td class="sp-td sp-td--supply">
+                  <p-checkbox
+                    [(ngModel)]="row.canSupply"
+                    [binary]="true"
+                    [name]="'cs_' + i">
+                  </p-checkbox>
+                </td>
+
+                <!-- Remarks — no validation by design -->
+                <td class="sp-td sp-td--edit">
+                  <input
+                    class="sp-input sp-input--remarks"
+                    type="text"
+                    placeholder="Optional remarks…"
+                    [(ngModel)]="row.remarks"
+                    [name]="'rm_' + i" />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Submit bar -->
+        <div class="sp-submit-bar">
+          <p class="sp-submit-hint">
+            Once submitted, this form cannot be edited. All fields are optional.
+          </p>
+          <p-button
+            label="Submit Quotation Response"
+            icon="pi pi-send"
+            [loading]="submitting"
+            [disabled]="submitting"
+            styleClass="sp-submit-btn"
+            (onClick)="submit()">
+          </p-button>
+        </div>
+
+      </section>
+
+    </div><!-- /sp-content -->
+  </ng-container>
+
+</div><!-- /sp-shell -->

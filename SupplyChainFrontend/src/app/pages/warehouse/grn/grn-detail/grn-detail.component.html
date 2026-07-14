@@ -1,0 +1,716 @@
+<div class="grn-detail-page">
+  <p-toast></p-toast>
+  <p-confirmDialog [style]="{width:'420px'}"></p-confirmDialog>
+
+  <div *ngIf="isLoading" class="loading-card">
+    <i class="pi pi-spin pi-spinner" style="font-size:2rem;color:#e67e22"></i>
+    <p>Loading GRN...</p>
+  </div>
+
+  <ng-container *ngIf="!isLoading && grn">
+
+    <!-- ── Header ─────────────────────────────────────────────────────────── -->
+    <div class="page-header">
+      <div class="header-left">
+        <p-button icon="pi pi-arrow-left" [text]="true" severity="secondary"
+                  routerLink="/portal/pages/warehouse/grn"></p-button>
+        <div>
+          <div class="title-row">
+            <h1 class="page-title">{{ grn.grnNumber }}</h1>
+            <p-tag [value]="getStatusLabel(grn.status)" [severity]="getStatusSeverity(grn.status)"></p-tag>
+            <span *ngIf="grn.isPartialReceipt" class="partial-badge">
+              <i class="pi pi-exclamation-triangle"></i> Partial Receipt
+            </span>
+            <span *ngIf="grn.financeApprovalRequired" class="finance-badge">
+              <i class="pi pi-dollar"></i> Finance Review
+            </span>
+          </div>
+          <p class="page-subtitle">PO: {{ grn.poNumber }} &bull; {{ grn.supplierName }}</p>
+          <p *ngIf="grn.approvalDeadline" class="deadline-hint">
+            <i class="pi pi-clock"></i> Approval SLA: {{ grn.approvalDeadline | date:'dd MMM yyyy HH:mm' }}
+          </p>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <!-- DRAFT: Edit + Delete -->
+        <p-button *ngIf="canEdit" label="Edit" icon="pi pi-pencil" severity="secondary"
+                  [routerLink]="['/portal/pages/warehouse/grn', grn.uuid, 'edit']"></p-button>
+        <p-button *ngIf="canEdit" icon="pi pi-trash" severity="danger" [outlined]="true"
+                  pTooltip="Delete GRN" [loading]="isDeleting"
+                  (onClick)="confirmDelete()"></p-button>
+
+        <!-- DRAFT: Submit for QC -->
+        <p-button *ngIf="canSubmit" label="Submit for QC" icon="pi pi-send"
+                  severity="info" [loading]="isSubmitting"
+                  pTooltip="Move to PENDING_QC"
+                  (onClick)="submitGrn()"></p-button>
+
+        <!-- PENDING_QC: QC Confirm + QC Reject -->
+        <p-button *ngIf="canQcConfirm" label="QC Confirm" icon="pi pi-check-circle"
+                  severity="success"
+                  pTooltip="Goods passed quality inspection"
+                  (onClick)="openQcConfirmDialog()"></p-button>
+        <p-button *ngIf="canQcReject" label="QC Reject" icon="pi pi-times-circle"
+                  severity="danger"
+                  pTooltip="Goods failed quality inspection"
+                  (onClick)="openQcRejectDialog()"></p-button>
+
+        <!-- PENDING_FINANCE: Finance Approve + Finance Reject -->
+        <p-button *ngIf="canFinanceApprove" label="Finance Approve" icon="pi pi-dollar"
+                  severity="success"
+                  pTooltip="Approve high-value GRN as Finance Officer"
+                  (onClick)="openFinanceApproveDialog()"></p-button>
+        <p-button *ngIf="canFinanceReject" label="Finance Reject" icon="pi pi-times"
+                  severity="danger"
+                  pTooltip="Reject high-value GRN as Finance Officer"
+                  (onClick)="openFinanceRejectDialog()"></p-button>
+
+        <!-- PENDING_APPROVAL: IM Approve + IM Reject -->
+        <p-button *ngIf="canApprove" label="Approve GRN" icon="pi pi-check-circle"
+                  severity="success"
+                  pTooltip="Final approval — posts stock to inventory"
+                  (onClick)="openApproveDialog()"></p-button>
+        <p-button *ngIf="canReject" label="Reject GRN" icon="pi pi-times"
+                  severity="danger"
+                  pTooltip="Reject and create supplier return order"
+                  (onClick)="openRejectDialog()"></p-button>
+      </div>
+    </div>
+
+    <!-- ── Info cards ──────────────────────────────────────────────────────── -->
+    <div class="info-grid">
+      <div class="info-card">
+        <h3><i class="pi pi-truck"></i> Delivery Info</h3>
+        <div class="info-rows">
+          <div class="info-row"><span>Warehouse</span><strong>{{ getWarehouseName(grn.warehouseUuid) }}</strong></div>
+          <div class="info-row"><span>Received At</span><strong>{{ grn.receivedAt | date:'dd-MMM-yyyy, HH:mm' }}</strong></div>
+          <div class="info-row">
+            <span>Inspection</span>
+            <strong [class]="grn.requiresInspection ? 'text-success' : 'text-warn'">
+              <i [class]="grn.requiresInspection ? 'pi pi-check-circle' : 'pi pi-times-circle'"></i>
+              {{ grn.requiresInspection ? 'Required' : 'Skipped' }}
+            </strong>
+          </div>
+          <div class="info-row"><span>Delivery Note</span><strong>{{ grn.deliveryNoteNo || '—' }}</strong></div>
+          <div class="info-row"><span>Invoice No.</span><strong>{{ grn.invoiceNo || '—' }}</strong></div>
+          <div class="info-row"><span>Vehicle</span><strong>{{ grn.vehicleNo || '—' }}</strong></div>
+          <div class="info-row"><span>Driver</span><strong>{{ grn.driverName || '—' }}</strong></div>
+        </div>
+      </div>
+
+      <div class="info-card">
+        <h3><i class="pi pi-building"></i> Supplier &amp; PO</h3>
+        <div class="info-rows">
+          <div class="info-row"><span>Supplier</span><strong>{{ grn.supplierName }}</strong></div>
+          <div class="info-row">
+            <span>Purchase Order</span>
+            <strong>
+              <span class="font-mono">{{ grn.poNumber }}</span>
+              <p-button icon="pi pi-eye" size="small" [text]="true" pTooltip="View PO"
+                        [routerLink]="['/portal/pages/demand/purchase-orders', grn.poUuid]"></p-button>
+            </strong>
+          </div>
+          <div class="info-row"><span>Created</span><strong>{{ grn.createdDate | date:'dd MMM yyyy' }}</strong></div>
+        </div>
+      </div>
+
+      <!-- QC Result card — visible once QC is done -->
+      <div class="info-card" *ngIf="grn.status !== 'DRAFT' && grn.status !== 'PENDING_QC'">
+        <h3><i class="pi pi-search"></i> QC Result</h3>
+        <div class="info-rows">
+          <div class="info-row">
+            <span>QC Outcome</span>
+            <strong [class]="grn.qcPassed ? 'text-success' : 'text-danger'">
+              <i [class]="grn.qcPassed ? 'pi pi-check-circle' : 'pi pi-times-circle'"></i>
+              {{ grn.qcPassed ? 'Passed' : 'Failed' }}
+            </strong>
+          </div>
+          <div class="info-row col" *ngIf="grn.qcNotes"><span>QC Notes</span><strong>{{ grn.qcNotes }}</strong></div>
+          <div class="info-row" *ngIf="grn.qcConfirmedAt">
+            <span>Confirmed At</span><strong>{{ grn.qcConfirmedAt | date:'dd MMM yyyy HH:mm' }}</strong>
+          </div>
+        </div>
+      </div>
+
+      <!-- Finance Approval card -->
+      <div class="info-card" *ngIf="grn.financeApprovalRequired">
+        <h3><i class="pi pi-dollar"></i> Finance Approval</h3>
+        <div class="info-rows">
+          <div class="info-row">
+            <span>Required</span>
+            <strong class="text-warn"><i class="pi pi-dollar"></i> Yes (High-value GRN)</strong>
+          </div>
+          <div class="info-row" *ngIf="grn.financeApprovedAt">
+            <span>Approved At</span><strong>{{ grn.financeApprovedAt | date:'dd MMM yyyy HH:mm' }}</strong>
+          </div>
+        </div>
+      </div>
+
+      <!-- Approval info card -->
+      <div class="info-card" *ngIf="grn.status === 'APPROVED'">
+        <h3><i class="pi pi-check-circle"></i> Approval</h3>
+        <div class="info-rows">
+          <div class="info-row">
+            <span>Final Approval</span>
+            <strong class="text-success"><i class="pi pi-check-circle"></i> Approved</strong>
+          </div>
+          <div class="info-row" *ngIf="grn.approvedAt">
+            <span>Approved At</span><strong>{{ grn.approvedAt | date:'dd MMM yyyy HH:mm' }}</strong>
+          </div>
+        </div>
+      </div>
+
+      <!-- Rejection reason card -->
+      <div class="info-card rejection-card" *ngIf="grn.status === 'REJECTED' && grn.rejectionReason">
+        <h3><i class="pi pi-times-circle"></i> Rejection Reason</h3>
+        <p class="notes-text text-danger">{{ grn.rejectionReason }}</p>
+      </div>
+
+      <div class="info-card" *ngIf="grn.notes">
+        <h3><i class="pi pi-file-edit"></i> Notes</h3>
+        <p class="notes-text">{{ grn.notes }}</p>
+      </div>
+    </div>
+
+    <!-- ── Lines table ─────────────────────────────────────────────────────── -->
+    <div class="lines-card">
+      <div class="lines-header">
+        <h2 class="section-title"><i class="pi pi-list"></i> Receipt Lines</h2>
+        <p class="lines-hint" *ngIf="canEdit">
+          <i class="pi pi-pencil"></i> Click a line to record quantities
+        </p>
+      </div>
+
+      <p-table [value]="grn.lines" [tableStyle]="{'min-width':'72rem'}">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>#</th>
+            <th>Description</th>
+            <th>UOM</th>
+            <th class="text-right">Qty Ordered</th>
+            <th class="text-right">Qty Received</th>
+            <th class="text-right">Qty Accepted</th>
+            <th>Rejection</th>
+            <th>Batch No.</th>
+            <th>Expiry Date</th>
+            <th class="text-right">Unit Cost</th>
+            <th>QC Result</th>
+            <th>Variance</th>
+            <th *ngIf="canEdit" class="text-center">Edit</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-line>
+          <tr [class.has-variance]="line.hasVariance">
+            <td>{{ line.lineNo }}</td>
+            <td class="font-semibold">{{ line.itemDescription }}</td>
+            <td>{{ line.unitOfMeasure || '—' }}</td>
+            <td class="text-right">{{ line.qtyOrdered | number:'1.0-4' }}</td>
+            <td class="text-right" [class.text-warn]="line.qtyReceived < line.qtyOrdered">
+              {{ line.qtyReceived | number:'1.0-4' }}
+            </td>
+            <td class="text-right text-success">{{ line.qtyAccepted | number:'1.0-4' }}</td>
+            <td class="rejection-cell">
+              <ng-container *ngIf="line.qtyRejected > 0; else noRejection">
+                <span class="text-danger font-semibold">{{ line.qtyRejected | number:'1.0-4' }}</span>
+                <span *ngIf="line.rejectionReason" class="rejection-badge">{{ line.rejectionReason }}</span>
+              </ng-container>
+              <ng-template #noRejection><span class="text-secondary">—</span></ng-template>
+            </td>
+            <td>{{ line.batchNumber || '—' }}</td>
+            <td>{{ line.expiryDate ? (line.expiryDate | date:'dd MMM yyyy') : '—' }}</td>
+            <td class="text-right">{{ line.unitCost != null ? (line.unitCost | number:'1.2-2') : '—' }}</td>
+            <td>
+              <span *ngIf="line.qcResult" class="qc-badge" [class]="'qc-' + line.qcResult.toLowerCase()">
+                {{ line.qcResult }}
+              </span>
+              <span *ngIf="!line.qcResult" class="text-secondary">—</span>
+            </td>
+            <td>
+              <span *ngIf="line.hasVariance" class="variance-badge">
+                <i class="pi pi-exclamation-triangle"></i> Variance
+              </span>
+              <span *ngIf="!line.hasVariance" class="text-secondary">—</span>
+            </td>
+            <td *ngIf="canEdit" class="text-center">
+              <p-button icon="pi pi-pencil" [text]="true" severity="warn" size="small"
+                        pTooltip="Record quantities" (onClick)="openLineDialog(line)"></p-button>
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </div>
+
+    <!-- ── Inspection Results ─────────────────────────────────────────────── -->
+    <div class="inspection-grid-card" *ngIf="grn.requiresInspection && grn.status !== 'DRAFT'">
+      <div class="inspection-grid-header">
+        <div class="inspection-title-group">
+          <h2 class="section-title"><i class="pi pi-search"></i> Inspection Results</h2>
+          <span class="inspection-progress-badge"
+                [class.complete]="grn.inspectionComplete"
+                [class.partial]="!grn.inspectionComplete && grn.inspectedLineCount > 0">
+            <i [class]="grn.inspectionComplete ? 'pi pi-check-circle' : 'pi pi-clock'"></i>
+            {{ grn.inspectedLineCount }} / {{ grn.totalLineCount }} lines inspected
+          </span>
+        </div>
+        <div class="inspection-hint" *ngIf="canInspect">
+          <i class="pi pi-info-circle"></i>
+          Select an Inspection Result per line and save. Pass auto-sets Accepted = Received; Fail auto-sets Rejected = Received.
+        </div>
+        <div class="inspection-completed-at" *ngIf="grn.inspectionCompletedAt">
+          <i class="pi pi-check-circle text-success"></i>
+          All lines inspected at {{ grn.inspectionCompletedAt | date:'dd-MMM-yyyy, HH:mm' }}
+        </div>
+      </div>
+
+      <div class="inspection-progress-bar">
+        <div class="inspection-progress-fill"
+             [style.width.%]="grn.totalLineCount > 0 ? (grn.inspectedLineCount / grn.totalLineCount * 100) : 0"
+             [class.complete]="grn.inspectionComplete">
+        </div>
+      </div>
+
+      <div class="insp-table-wrap">
+        <table class="insp-table">
+          <colgroup>
+            <col style="width:36px">
+            <col style="width:200px">
+            <col style="width:60px">
+            <col style="width:90px">
+            <col style="width:140px">
+            <col style="width:100px">
+            <col style="width:100px">
+            <col style="width:155px">
+            <col style="width:175px">
+            <col style="width:130px">
+            <col style="width:80px">
+          </colgroup>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Item</th>
+              <th>UOM</th>
+              <th class="text-right">Qty Rec.</th>
+              <th>Inspection Result</th>
+              <th class="text-right">Qty Accepted</th>
+              <th class="text-right">Qty Rejected</th>
+              <th>Rejection Reason</th>
+              <th>Inspector Remarks</th>
+              <th>Inspected</th>
+              <th *ngIf="canInspect" class="text-center">Save</th>
+            </tr>
+          </thead>
+          <tbody>
+            <ng-container *ngFor="let line of grn.lines; let i = index">
+              <ng-container *ngIf="inspectionRows[i] as row">
+                <tr [class.insp-done]="line.inspectionResult"
+                    [class.insp-dirty]="row.isDirty"
+                    [class.insp-fail]="line.inspectionResult === 'Fail'">
+                  <td class="line-no">{{ line.lineNo }}</td>
+                  <td class="item-desc">{{ line.itemDescription }}</td>
+                  <td class="uom">{{ line.unitOfMeasure || '—' }}</td>
+                  <td class="text-right font-bold">{{ line.qtyReceived | number:'1.0-4' }}</td>
+
+                  <!-- Inspection Result -->
+                  <td class="insp-result-cell">
+                    <ng-container *ngIf="canInspect; else showResult">
+                      <p-dropdown
+                        [(ngModel)]="row.inspectionResult"
+                        [options]="inspectionResultOptions"
+                        placeholder="Select…"
+                        styleClass="insp-dropdown"
+                        appendTo="body"
+                        (onChange)="onInspectionResultChange(row)">
+                      </p-dropdown>
+                    </ng-container>
+                    <ng-template #showResult>
+                      <p-tag *ngIf="line.inspectionResult"
+                             [value]="getInspectionResultLabel(line.inspectionResult)"
+                             [severity]="getInspectionResultSeverity(line.inspectionResult)">
+                      </p-tag>
+                      <span *ngIf="!line.inspectionResult" class="text-secondary">—</span>
+                    </ng-template>
+                  </td>
+
+                  <!-- Qty Accepted -->
+                  <td class="text-right insp-qty-cell">
+                    <ng-container *ngIf="canInspect && row.inspectionResult === 'PartialPass'; else showAccepted">
+                      <p-inputNumber
+                        [(ngModel)]="row.qtyAccepted"
+                        [minFractionDigits]="0" [maxFractionDigits]="4" [min]="0"
+                        styleClass="insp-qty-field"
+                        (onInput)="onInspectionQtyChange(row)">
+                      </p-inputNumber>
+                    </ng-container>
+                    <ng-template #showAccepted>
+                      <span [class.text-success]="(canInspect ? row.qtyAccepted : line.qtyAccepted) > 0"
+                            [class.text-secondary]="(canInspect ? row.qtyAccepted : line.qtyAccepted) === 0">
+                        {{ (canInspect ? row.qtyAccepted : line.qtyAccepted) | number:'1.0-4' }}
+                      </span>
+                    </ng-template>
+                  </td>
+
+                  <!-- Qty Rejected -->
+                  <td class="text-right insp-qty-cell">
+                    <ng-container *ngIf="canInspect && row.inspectionResult === 'PartialPass'; else showRejected">
+                      <p-inputNumber
+                        [(ngModel)]="row.qtyRejected"
+                        [minFractionDigits]="0" [maxFractionDigits]="4" [min]="0"
+                        styleClass="insp-qty-field"
+                        (onInput)="onInspectionQtyChange(row)">
+                      </p-inputNumber>
+                    </ng-container>
+                    <ng-template #showRejected>
+                      <span [class.text-danger]="(canInspect ? row.qtyRejected : line.qtyRejected) > 0"
+                            [class.text-secondary]="(canInspect ? row.qtyRejected : line.qtyRejected) === 0">
+                        {{ (canInspect ? row.qtyRejected : line.qtyRejected) | number:'1.0-4' }}
+                      </span>
+                    </ng-template>
+                  </td>
+
+                  <!-- Rejection Reason -->
+                  <td class="insp-reason-cell">
+                    <ng-container *ngIf="canInspect && (row.qtyRejected > 0 || row.inspectionResult === 'Fail' || row.inspectionResult === 'PartialPass'); else showReason">
+                      <p-dropdown
+                        [(ngModel)]="row.rejectionReason"
+                        [options]="rejectionReasonOptions"
+                        [showClear]="true"
+                        placeholder="Select…"
+                        styleClass="insp-dropdown"
+                        appendTo="body"
+                        (onChange)="row.isDirty = true">
+                      </p-dropdown>
+                    </ng-container>
+                    <ng-template #showReason>
+                      <span *ngIf="line.rejectionReason" class="rejection-badge">{{ line.rejectionReason }}</span>
+                      <span *ngIf="!line.rejectionReason" class="text-secondary">—</span>
+                    </ng-template>
+                  </td>
+
+                  <!-- Inspector Remarks -->
+                  <td class="insp-remarks-cell">
+                    <ng-container *ngIf="canInspect; else showRemarks">
+                      <input pInputText
+                             [(ngModel)]="row.inspectorRemarks"
+                             class="insp-remarks-input"
+                             placeholder="Remarks…"
+                             maxlength="200"
+                             (input)="row.isDirty = true" />
+                    </ng-container>
+                    <ng-template #showRemarks>
+                      <span *ngIf="line.inspectorRemarks" class="remarks-text">{{ line.inspectorRemarks }}</span>
+                      <span *ngIf="!line.inspectorRemarks" class="text-secondary">—</span>
+                    </ng-template>
+                  </td>
+
+                  <!-- Inspected by/at -->
+                  <td class="insp-by-cell">
+                    <ng-container *ngIf="line.inspectedAt">
+                      <span class="insp-by-date">{{ line.inspectedAt | date:'dd-MMM-yyyy, HH:mm' }}</span>
+                    </ng-container>
+                    <span *ngIf="!line.inspectedAt" class="text-secondary">—</span>
+                  </td>
+
+                  <!-- Save button -->
+                  <td *ngIf="canInspect" class="text-center">
+                    <p-button icon="pi pi-check"
+                              [loading]="row.isSaving"
+                              [disabled]="!row.inspectionResult || !row.isDirty"
+                              size="small"
+                              severity="success"
+                              pTooltip="Save inspection for this line"
+                              (onClick)="saveInspection(row)">
+                    </p-button>
+                  </td>
+                </tr>
+              </ng-container>
+            </ng-container>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Audit Trail -->
+    <div class="audit-trail-card">
+      <div class="audit-trail-header">
+        <h3>Audit Trail</h3>
+        <p-button label="Load Audit Trail" icon="pi pi-history" severity="secondary" size="small"
+                  [text]="true" [loading]="isLoadingAudit" (onClick)="loadAuditTrail()"></p-button>
+      </div>
+
+      <div *ngIf="isLoadingAudit" style="display:flex;justify-content:center;padding:2rem">
+        <p-progressSpinner styleClass="w-2rem h-2rem"></p-progressSpinner>
+      </div>
+
+      <table *ngIf="showAuditTrail && !isLoadingAudit" class="audit-table">
+        <thead>
+          <tr>
+            <th>Timestamp</th>
+            <th>Action</th>
+            <th>User</th>
+            <th>Field</th>
+            <th>From</th>
+            <th>To</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let entry of auditTrail">
+            <td style="white-space:nowrap;font-size:.82rem;color:#64748b">{{ entry.timestamp | date:'dd MMM yy HH:mm' }}</td>
+            <td><p-tag [value]="entry.action" [severity]="getAuditActionSeverity(entry.action)"></p-tag></td>
+            <td style="font-size:.85rem">{{ entry.userName || ('User #' + entry.userId) }}</td>
+            <td style="font-size:.82rem;color:#64748b">{{ entry.fieldChanged || '—' }}</td>
+            <td style="font-size:.82rem;color:#64748b">{{ entry.oldValue || '—' }}</td>
+            <td style="font-size:.82rem;color:#64748b">{{ entry.newValue || '—' }}</td>
+            <td style="font-size:.82rem;color:#64748b;max-width:220px">{{ entry.notes || '—' }}</td>
+          </tr>
+          <tr *ngIf="auditTrail.length === 0">
+            <td colspan="7" style="text-align:center;padding:1.5rem;color:#94a3b8">No audit entries found.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </ng-container>
+
+  <div *ngIf="!isLoading && !grn" class="loading-card">
+    <i class="pi pi-exclamation-triangle" style="font-size:2rem;color:#e74c3c"></i>
+    <p>GRN not found.</p>
+    <p-button label="Back to List" severity="secondary" routerLink="/portal/pages/warehouse/grn" class="mt-3"></p-button>
+  </div>
+
+  <!-- ── Edit Line Dialog ────────────────────────────────────────────────────── -->
+  <p-dialog [(visible)]="showLineDialog" [modal]="true" [closable]="true"
+            [style]="{width:'560px'}" header="Record Receipt Quantities">
+    <form [formGroup]="lineForm" *ngIf="editingLine">
+      <div class="dialog-line-info">
+        <strong>{{ editingLine.itemDescription }}</strong>
+        <span class="ordered-qty">Ordered: {{ editingLine.qtyOrdered | number:'1.0-4' }} {{ editingLine.unitOfMeasure }}</span>
+      </div>
+      <div class="dialog-grid">
+        <div class="field">
+          <label>Qty Received <span class="required">*</span></label>
+          <p-inputNumber formControlName="qtyReceived" [minFractionDigits]="0" [maxFractionDigits]="4"
+                         [min]="0" styleClass="full-width" placeholder="Physical qty received"></p-inputNumber>
+          <small class="hint">Max: {{ (editingLine.qtyOrdered * 1.03) | number:'1.0-4' }} (3% tolerance)</small>
+        </div>
+        <div class="field">
+          <label>Qty Accepted <span class="required">*</span></label>
+          <p-inputNumber formControlName="qtyAccepted" [minFractionDigits]="0" [maxFractionDigits]="4"
+                         [min]="0" styleClass="full-width" placeholder="Qty passing QC"></p-inputNumber>
+        </div>
+        <div class="field">
+          <label>Qty Rejected</label>
+          <p-inputNumber formControlName="qtyRejected" [minFractionDigits]="0" [maxFractionDigits]="4"
+                         [min]="0" styleClass="full-width" placeholder="Qty failing QC"></p-inputNumber>
+        </div>
+        <div class="field">
+          <label>QC Result</label>
+          <p-dropdown formControlName="qcResult" [options]="qcResultOptions"
+                      placeholder="Select result" styleClass="full-width"></p-dropdown>
+        </div>
+        <div class="field">
+          <label>Batch Number</label>
+          <input pInputText formControlName="batchNumber" placeholder="e.g. BATCH-2025-01" class="full-width" maxlength="50" />
+        </div>
+        <div class="field">
+          <label>Expiry Date</label>
+          <p-calendar formControlName="expiryDate" [showIcon]="true"
+                      dateFormat="dd M yy" styleClass="full-width"
+                      placeholder="Select expiry date"></p-calendar>
+        </div>
+        <div class="field">
+          <label>Unit Cost</label>
+          <p-inputNumber formControlName="unitCost" mode="decimal"
+                         [minFractionDigits]="2" styleClass="full-width" placeholder="0.00"></p-inputNumber>
+        </div>
+      </div>
+      <div class="field mt-1" *ngIf="lf['qtyRejected'].value > 0">
+        <label>Rejection Reason</label>
+        <p-dropdown formControlName="rejectionReason"
+                    [options]="rejectionReasonOptions"
+                    [showClear]="true"
+                    placeholder="Select rejection reason"
+                    styleClass="full-width"></p-dropdown>
+      </div>
+    </form>
+    <ng-template pTemplate="footer">
+      <p-button label="Cancel" severity="secondary" [text]="true" (onClick)="showLineDialog=false"></p-button>
+      <p-button label="Save" icon="pi pi-check" severity="warn"
+                [loading]="isSavingLine" (onClick)="saveLineChanges()"></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <!-- ── QC Confirm Dialog ──────────────────────────────────────────────────── -->
+  <p-dialog [(visible)]="showQcConfirmDialog" [modal]="true" [closable]="true"
+            [style]="{width:'440px'}" header="Confirm QC Pass">
+    <div class="action-dialog-body">
+      <p class="action-info success-info">
+        <i class="pi pi-check-circle"></i>
+        Confirming that goods have passed quality inspection. The GRN will move to
+        <strong>Pending Finance</strong> (if high-value) or <strong>Pending Approval</strong>.
+      </p>
+      <div class="field mt-1">
+        <label>QC Notes (optional)</label>
+        <textarea pTextarea [(ngModel)]="qcConfirmNotes" rows="3"
+                  placeholder="Any quality control observations..." class="full-width"></textarea>
+      </div>
+    </div>
+    <ng-template pTemplate="footer">
+      <p-button label="Cancel" severity="secondary" [text]="true" (onClick)="showQcConfirmDialog=false"></p-button>
+      <p-button label="Confirm QC Pass" icon="pi pi-check-circle"
+                severity="success" [loading]="isQcConfirming" (onClick)="confirmQc()"></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <!-- ── QC Reject Dialog ───────────────────────────────────────────────────── -->
+  <p-dialog [(visible)]="showQcRejectDialog" [modal]="true" [closable]="true"
+            [style]="{width:'440px'}" header="Reject GRN — QC Failure">
+    <div class="action-dialog-body">
+      <p class="action-info danger-info">
+        <i class="pi pi-times-circle"></i>
+        The GRN will be <strong>REJECTED</strong> and the supplier will need to be notified.
+      </p>
+      <div class="field mt-1">
+        <label>Rejection Reason <span class="required">*</span></label>
+        <textarea pTextarea [(ngModel)]="qcRejectReason" rows="3"
+                  placeholder="Describe the quality issues found..." class="full-width"></textarea>
+      </div>
+    </div>
+    <ng-template pTemplate="footer">
+      <p-button label="Cancel" severity="secondary" [text]="true" (onClick)="showQcRejectDialog=false"></p-button>
+      <p-button label="Reject" icon="pi pi-times-circle"
+                severity="danger" [loading]="isQcRejecting"
+                [disabled]="!qcRejectReason.trim()"
+                (onClick)="confirmQcReject()"></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <!-- ── Finance Approve Dialog ─────────────────────────────────────────────── -->
+  <p-dialog [(visible)]="showFinanceApproveDialog" [modal]="true" [closable]="true"
+            [style]="{width:'420px'}" header="Finance Approval">
+    <div class="action-dialog-body">
+      <p class="action-info success-info">
+        <i class="pi pi-dollar"></i>
+        Approving this high-value GRN as Finance Officer. The GRN will proceed to
+        <strong>Inventory Manager</strong> for final approval.
+      </p>
+    </div>
+    <ng-template pTemplate="footer">
+      <p-button label="Cancel" severity="secondary" [text]="true" (onClick)="showFinanceApproveDialog=false"></p-button>
+      <p-button label="Approve" icon="pi pi-check-circle"
+                severity="success" [loading]="isFinanceApproving" (onClick)="confirmFinanceApprove()"></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <!-- ── Finance Reject Dialog ──────────────────────────────────────────────── -->
+  <p-dialog [(visible)]="showFinanceRejectDialog" [modal]="true" [closable]="true"
+            [style]="{width:'440px'}" header="Finance Rejection">
+    <div class="action-dialog-body">
+      <p class="action-info danger-info">
+        <i class="pi pi-times-circle"></i>
+        The GRN will be <strong>REJECTED</strong>. Stock will not be updated.
+      </p>
+      <div class="field mt-1">
+        <label>Rejection Reason <span class="required">*</span></label>
+        <textarea pTextarea [(ngModel)]="financeRejectReason" rows="3"
+                  placeholder="Reason for finance rejection..." class="full-width"></textarea>
+      </div>
+    </div>
+    <ng-template pTemplate="footer">
+      <p-button label="Cancel" severity="secondary" [text]="true" (onClick)="showFinanceRejectDialog=false"></p-button>
+      <p-button label="Reject" icon="pi pi-times-circle"
+                severity="danger" [loading]="isFinanceRejecting"
+                [disabled]="!financeRejectReason.trim()"
+                (onClick)="confirmFinanceReject()"></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <!-- ── Approve Dialog (IM) ────────────────────────────────────────────────── -->
+  <p-dialog [(visible)]="showApproveDialog" [modal]="true" [closable]="!isApproving"
+            [style]="{width:'500px'}" [draggable]="false">
+    <ng-template pTemplate="header">
+      <div class="approve-dialog-header">
+        <span class="approve-dialog-icon"><i class="pi pi-check-circle"></i></span>
+        <div>
+          <div class="approve-dialog-title">Approve GRN</div>
+          <div class="approve-dialog-subtitle">{{ grn?.grnNumber }} &bull; {{ grn?.supplierName }}</div>
+        </div>
+      </div>
+    </ng-template>
+
+    <div class="approve-dialog-body">
+      <div class="approve-summary-row">
+        <div class="approve-summary-item">
+          <span class="approve-summary-label">Purchase Order</span>
+          <span class="approve-summary-value">{{ grn?.poNumber }}</span>
+        </div>
+        <div class="approve-summary-item">
+          <span class="approve-summary-label">Lines</span>
+          <span class="approve-summary-value">{{ grn?.lines?.length ?? 0 }}</span>
+        </div>
+        <div class="approve-summary-item">
+          <span class="approve-summary-label">QC Result</span>
+          <span class="approve-summary-value" [style.color]="grn?.qcPassed ? '#2e7d32' : '#c62828'">
+            <i [class]="grn?.qcPassed ? 'pi pi-check-circle' : 'pi pi-times-circle'"></i>
+            {{ grn?.qcPassed ? 'Passed' : 'Failed' }}
+          </span>
+        </div>
+      </div>
+
+      <div class="approve-effect-box">
+        <div class="approve-effect-item">
+          <i class="pi pi-box" style="color:#1565c0"></i>
+          <span>Accepted quantities will be <strong>posted to inventory</strong></span>
+        </div>
+        <div class="approve-effect-item">
+          <i class="pi pi-file-edit" style="color:#1565c0"></i>
+          <span>Purchase order receipt status will be <strong>updated</strong></span>
+        </div>
+        <div class="approve-effect-item">
+          <i class="pi pi-lock" style="color:#c62828"></i>
+          <span>This action <strong>cannot be undone</strong></span>
+        </div>
+      </div>
+
+      <div class="field mt-3">
+        <label class="field-label-sm">Remarks <span style="color:#6c757d;font-weight:400">(optional)</span></label>
+        <textarea pTextarea [(ngModel)]="approveRemarks" rows="2"
+                  placeholder="Any notes about this approval..."
+                  class="w-full" [disabled]="isApproving"></textarea>
+      </div>
+    </div>
+
+    <ng-template pTemplate="footer">
+      <p-button label="Cancel" severity="secondary" [text]="true"
+                [disabled]="isApproving" (onClick)="showApproveDialog=false"></p-button>
+      <p-button label="Approve & Post Stock" icon="pi pi-check-circle"
+                severity="success" [loading]="isApproving" (onClick)="confirmApprove()"></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <!-- ── Reject Dialog (IM) ─────────────────────────────────────────────────── -->
+  <p-dialog [(visible)]="showRejectDialog" [modal]="true" [closable]="true"
+            [style]="{width:'440px'}" header="Reject GRN">
+    <div class="action-dialog-body">
+      <p class="action-info danger-info">
+        <i class="pi pi-times-circle"></i>
+        The GRN will be <strong>REJECTED</strong> and a <strong>supplier return order</strong> will be
+        created automatically for all received lines.
+      </p>
+      <div class="field mt-1">
+        <label>Rejection Reason <span class="required">*</span></label>
+        <textarea pTextarea [(ngModel)]="rejectReason" rows="3"
+                  placeholder="Reason for rejection..." class="full-width"></textarea>
+      </div>
+    </div>
+    <ng-template pTemplate="footer">
+      <p-button label="Cancel" severity="secondary" [text]="true" (onClick)="showRejectDialog=false"></p-button>
+      <p-button label="Reject & Create Return" icon="pi pi-times-circle"
+                severity="danger" [loading]="isRejecting"
+                [disabled]="!rejectReason.trim()"
+                (onClick)="confirmReject()"></p-button>
+    </ng-template>
+  </p-dialog>
+
+</div>

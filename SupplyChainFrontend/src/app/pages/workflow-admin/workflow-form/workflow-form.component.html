@@ -1,0 +1,301 @@
+<div class="wf-form-page">
+  <p-toast></p-toast>
+
+  <!-- Loading -->
+  <div *ngIf="isLoading" class="loading-overlay">
+    <i class="pi pi-spin pi-spinner" style="font-size:2rem;color:#6c63ff"></i>
+    <p>Loading workflow…</p>
+  </div>
+
+  <div *ngIf="!isLoading">
+
+    <!-- ── Page Header ──────────────────────────────────────────────────── -->
+    <div class="page-header-card">
+      <div class="ph-left">
+        <div class="ph-icon-wrap"><i class="pi pi-sitemap"></i></div>
+        <div>
+          <div class="ph-name">{{ pageTitle }}</div>
+          <div class="ph-sub" *ngIf="isEditMode">
+            "Save (Update)" edits this version in-place. "Save (New Version)" deactivates this version and creates a new active one — preserving in-progress approvals.
+          </div>
+          <div class="ph-sub" *ngIf="!isEditMode">
+            Design the approval workflow for a document type. Add steps and configure routing.
+          </div>
+        </div>
+      </div>
+      <div class="ph-actions">
+        <p-button label="Cancel" icon="pi pi-times" severity="secondary" [outlined]="true"
+                  (onClick)="cancel()"></p-button>
+        <ng-container *ngIf="isEditMode">
+          <p-button label="Save (Update)" icon="pi pi-check" severity="secondary"
+                    [loading]="isSavingInPlace" (onClick)="saveInPlace()"></p-button>
+          <p-button label="Save (New Version)" icon="pi pi-copy"
+                    [loading]="isSaving" (onClick)="saveNewVersion()"></p-button>
+        </ng-container>
+        <p-button *ngIf="!isEditMode" label="Create Workflow"
+                  icon="pi pi-save" [loading]="isSaving" (onClick)="save()"></p-button>
+      </div>
+    </div>
+
+    <form [formGroup]="form">
+
+      <!-- ── Workflow Details ─────────────────────────────────────────────── -->
+      <div class="section-card">
+        <div class="section-card-head">
+          <i class="pi pi-info-circle"></i>
+          <span>Workflow Details</span>
+        </div>
+        <div class="section-card-body">
+          <div class="form-grid">
+
+            <div class="field">
+              <label>Interface Code <span class="required">*</span></label>
+              <p-dropdown formControlName="interfaceCode" [options]="interfaceOptions"
+                          optionLabel="label" optionValue="value"
+                          placeholder="Select document type" styleClass="w-full"></p-dropdown>
+              <small class="error"
+                     *ngIf="form.get('interfaceCode')?.invalid && form.get('interfaceCode')?.touched">
+                Required.
+              </small>
+            </div>
+
+            <div class="field">
+              <label>Workflow Name <span class="required">*</span></label>
+              <input pInputText formControlName="name"
+                     placeholder="e.g. Standard PO Approval" class="w-full" />
+              <small class="error"
+                     *ngIf="form.get('name')?.invalid && form.get('name')?.touched">
+                Required.
+              </small>
+            </div>
+
+            <div class="field field-full">
+              <label>Description</label>
+              <textarea pTextarea formControlName="description" rows="2"
+                        placeholder="Optional description…" class="w-full"></textarea>
+            </div>
+
+            <div class="field">
+              <label>Overall SLA (hours) <span class="required">*</span></label>
+              <p-inputNumber formControlName="slaHours" [useGrouping]="false" [min]="1"
+                             placeholder="48" styleClass="w-full"></p-inputNumber>
+              <small class="hint">Applied per step unless overridden at step level.</small>
+            </div>
+
+            <div class="field toggle-group">
+              <label class="toggle-label">
+                <p-checkbox formControlName="requiresSequentialApproval" [binary]="true"></p-checkbox>
+                Sequential Approval
+              </label>
+              <label class="toggle-label">
+                <p-checkbox formControlName="allowRecall" [binary]="true"></p-checkbox>
+                Allow Recall
+              </label>
+              <label class="toggle-label">
+                <p-checkbox formControlName="allowReissue" [binary]="true"></p-checkbox>
+                Allow Reissue
+              </label>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Routing Condition ────────────────────────────────────────────── -->
+      <div class="section-card">
+        <div class="section-card-head">
+          <i class="pi pi-filter"></i>
+          <span>Routing Condition</span>
+          <span class="head-hint">optional — routes to the correct version based on a document field</span>
+        </div>
+        <div class="section-card-body">
+          <div class="form-grid">
+
+            <div class="field">
+              <label>Condition Field</label>
+              <p-dropdown formControlName="conditionField" [options]="conditionFields"
+                          optionLabel="label" optionValue="value"
+                          placeholder="— None —" styleClass="w-full"></p-dropdown>
+            </div>
+
+            <div class="field">
+              <label>Operator</label>
+              <p-dropdown formControlName="conditionOperator" [options]="operatorOptions"
+                          optionLabel="label" optionValue="value"
+                          placeholder="Select operator" styleClass="w-full"></p-dropdown>
+            </div>
+
+            <ng-container *ngIf="!isBetween">
+              <div class="field">
+                <label>Value</label>
+                <p-inputNumber formControlName="conditionValue" [useGrouping]="false"
+                               styleClass="w-full" placeholder="e.g. 10000"></p-inputNumber>
+              </div>
+            </ng-container>
+
+            <ng-container *ngIf="isBetween">
+              <div class="field">
+                <label>Min Value</label>
+                <p-inputNumber formControlName="conditionValueMin" [useGrouping]="false"
+                               styleClass="w-full"></p-inputNumber>
+              </div>
+              <div class="field">
+                <label>Max Value</label>
+                <p-inputNumber formControlName="conditionValueMax" [useGrouping]="false"
+                               styleClass="w-full"></p-inputNumber>
+              </div>
+            </ng-container>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Approval Steps ───────────────────────────────────────────────── -->
+      <div class="section-card">
+        <div class="section-card-head">
+          <i class="pi pi-list-check"></i>
+          <span>Approval Steps</span>
+          <span class="head-spacer"></span>
+          <p-button label="Add Step" icon="pi pi-plus" severity="secondary" size="small"
+                    [outlined]="true" (onClick)="addStep()"></p-button>
+        </div>
+
+        <div class="section-card-body">
+
+          <div *ngIf="stepsArray.length === 0" class="no-steps">
+            <i class="pi pi-list-check"></i>
+            No steps yet — click "Add Step" to define who approves this document.
+          </div>
+
+          <div formArrayName="steps">
+            <div *ngFor="let step of stepsArray.controls; let i = index"
+                 [formGroupName]="i" class="step-card">
+
+              <!-- Step header -->
+              <div class="step-header">
+                <div class="step-num">{{ i + 1 }}</div>
+                <span class="step-title">Step {{ i + 1 }}</span>
+                <div class="step-actions">
+                  <p-button icon="pi pi-arrow-up" [text]="true" size="small"
+                            pTooltip="Move up" [disabled]="i === 0"
+                            (onClick)="moveStep(i, -1)"></p-button>
+                  <p-button icon="pi pi-arrow-down" [text]="true" size="small"
+                            pTooltip="Move down" [disabled]="i === stepsArray.length - 1"
+                            (onClick)="moveStep(i, 1)"></p-button>
+                  <p-button icon="pi pi-trash" severity="danger" [text]="true" size="small"
+                            pTooltip="Remove step" (onClick)="removeStep(i)"></p-button>
+                </div>
+              </div>
+
+              <!-- Step body -->
+              <div class="step-body">
+
+                <div class="field">
+                  <label>Step Name <span class="required">*</span></label>
+                  <input pInputText formControlName="stepName"
+                         placeholder="e.g. Procurement Manager Review" class="w-full" />
+                  <small class="error"
+                         *ngIf="step.get('stepName')?.invalid && step.get('stepName')?.touched">
+                    Required.
+                  </small>
+                </div>
+
+                <div class="field">
+                  <label>Step Type</label>
+                  <p-dropdown formControlName="stepType" [options]="stepTypeOptions"
+                              optionLabel="label" optionValue="value"
+                              styleClass="w-full"></p-dropdown>
+                </div>
+
+                <div class="field">
+                  <label>Approver Type</label>
+                  <p-dropdown formControlName="approverType" [options]="approverTypeOptions"
+                              optionLabel="label" optionValue="value"
+                              styleClass="w-full"></p-dropdown>
+                </div>
+
+                <div class="field">
+                  <label>Approval Mode</label>
+                  <p-dropdown formControlName="approvalMode" [options]="approvalModeOptions"
+                              optionLabel="label" optionValue="value"
+                              styleClass="w-full"></p-dropdown>
+                </div>
+
+                <div class="field" *ngIf="needsApproverRole(step)">
+                  <label>Role</label>
+                  <p-dropdown formControlName="approverRefId" [options]="getRoleOptions()"
+                              optionLabel="label" optionValue="value"
+                              placeholder="Select role" styleClass="w-full"></p-dropdown>
+                </div>
+
+                <div class="field" *ngIf="needsApproverRef(step)">
+                  <label>{{ step.get('approverType')?.value === 'USER' ? 'User' : 'Group' }}</label>
+                  <p-dropdown formControlName="approverRefId"
+                              [options]="step.get('approverType')?.value === 'USER' ? getUserOptions() : getGroupOptions()"
+                              optionLabel="label" optionValue="value"
+                              placeholder="Select…" styleClass="w-full"></p-dropdown>
+                </div>
+
+                <div class="field">
+                  <label>Approver Label</label>
+                  <input pInputText formControlName="approverRefName"
+                         placeholder="e.g. Finance Manager" class="w-full" />
+                </div>
+
+                <div class="field">
+                  <label>SLA Override (hours) <small class="hint">— blank = inherit</small></label>
+                  <p-inputNumber formControlName="slaHoursOverride" [useGrouping]="false"
+                                 placeholder="Inherit from workflow" styleClass="w-full"></p-inputNumber>
+                </div>
+
+                <div class="field field-full">
+                  <label>Step Instructions
+                    <small class="hint">— shown to the approver at this step</small>
+                  </label>
+                  <textarea pTextarea formControlName="stepInstructions" rows="2"
+                            placeholder="Instructions for the approver…" class="w-full"></textarea>
+                </div>
+
+                <div class="field field-full">
+                  <label>Skip Condition
+                    <small class="hint">— Dynamic LINQ; e.g. <em>ConditionValue &lt; 10000</em></small>
+                  </label>
+                  <input pInputText formControlName="skipCondition"
+                         placeholder="e.g. ConditionValue < 10000" class="w-full" />
+                </div>
+
+                <div class="field field-full toggle-group">
+                  <label class="toggle-label">
+                    <p-checkbox formControlName="canReject" [binary]="true"></p-checkbox>
+                    Approver can reject
+                  </label>
+                  <label class="toggle-label">
+                    <p-checkbox formControlName="canRecall" [binary]="true"></p-checkbox>
+                    Submitter can recall
+                  </label>
+                  <label class="toggle-label">
+                    <p-checkbox formControlName="isFinalStep" [binary]="true"></p-checkbox>
+                    Final step
+                  </label>
+                  <label class="toggle-label">
+                    <p-checkbox formControlName="isMandatory" [binary]="true"></p-checkbox>
+                    Mandatory step
+                  </label>
+                </div>
+
+              </div>
+            </div>
+          </div>
+
+          <div class="add-step-bottom" *ngIf="stepsArray.length > 0">
+            <p-button label="Add Another Step" icon="pi pi-plus"
+                      severity="secondary" [outlined]="true"
+                      size="small" (onClick)="addStep()"></p-button>
+          </div>
+
+        </div>
+      </div>
+
+    </form>
+  </div>
+</div>

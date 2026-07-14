@@ -1,0 +1,242 @@
+<div class="report-page">
+  <p-toast />
+
+  <div class="page-header">
+    <div class="header-left">
+      <div class="header-icon icon-teal"><i class="pi pi-chart-bar"></i></div>
+      <div>
+        <h2 class="page-title">Material Consumption Reports</h2>
+        <p class="page-subtitle">Issued vs consumed by MIR · Project cost · Department cost</p>
+      </div>
+    </div>
+  </div>
+
+  <p-tabView>
+
+    <!-- ── Tab 1: Consumption per MIR ──────────────────────────────────────── -->
+    <p-tabPanel header="Issue vs Consumed">
+      <div class="tab-content">
+        <div class="card filter-card">
+          <div class="filter-row">
+            <div class="filter-group">
+              <label>From Date</label>
+              <input pInputText type="date" [(ngModel)]="consumptionFilter.dateFrom" class="filter-input" />
+            </div>
+            <div class="filter-group">
+              <label>To Date</label>
+              <input pInputText type="date" [(ngModel)]="consumptionFilter.dateTo" class="filter-input" />
+            </div>
+            <div class="filter-group">
+              <label>Source Type</label>
+              <p-dropdown [options]="sourceTypeOptions" [(ngModel)]="consumptionFilter.sourceType" optionLabel="label" optionValue="value" class="filter-input" />
+            </div>
+            <div class="filter-group">
+              <label>MIR UUID</label>
+              <input pInputText type="text" [(ngModel)]="consumptionFilter.mirUuid" placeholder="paste MIR UUID" class="filter-input" />
+            </div>
+            <div class="filter-group">
+              <label>Search Item</label>
+              <input pInputText type="text" [(ngModel)]="consumptionFilter.search" placeholder="Item name" class="filter-input" />
+            </div>
+            <div class="filter-actions">
+              <button pButton label="Run" icon="pi pi-play" (click)="loadConsumption()" [loading]="isLoadingConsumption" class="p-button-primary"></button>
+              <button pButton icon="pi pi-times" (click)="clearConsumption()" class="p-button-outlined p-button-secondary"></button>
+            </div>
+          </div>
+        </div>
+
+        <div class="summary-row">
+          <div class="summary-card"><span class="s-label">Total Issued</span><span class="s-val">{{ totalIssued | number:'1.2-2' }}</span></div>
+          <div class="summary-card"><span class="s-label">Total Consumed</span><span class="s-val consumed">{{ totalConsumed | number:'1.2-2' }}</span></div>
+          <div class="summary-card"><span class="s-label">Balance Qty</span><span class="s-val balance">{{ totalBalance | number:'1.2-2' }}</span></div>
+          <div class="summary-card"><span class="s-label">Balance Value (PKR)</span><span class="s-val value">{{ totalBalVal | number:'1.2-2' }}</span></div>
+        </div>
+
+        <div class="card">
+          <p-table [value]="consumptions" [loading]="isLoadingConsumption" [paginator]="true" [rows]="20" sortMode="multiple" styleClass="p-datatable-sm">
+            <ng-template pTemplate="header">
+              <tr>
+                <th pSortableColumn="mirNo">MIR No <p-sortIcon field="mirNo" /></th>
+                <th pSortableColumn="productName">Item <p-sortIcon field="productName" /></th>
+                <th>UoM</th>
+                <th class="text-right">Issued</th>
+                <th class="text-right">Consumed</th>
+                <th class="text-right">Balance</th>
+                <th class="text-right">Unit Cost</th>
+                <th class="text-right">Balance Value</th>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-row>
+              <tr>
+                <td><span class="ref-no">{{ row.mirNo }}</span></td>
+                <td>{{ row.productName }}</td>
+                <td>{{ row.unitOfMeasure ?? '—' }}</td>
+                <td class="text-right">{{ row.issuedQty | number:'1.2-2' }}</td>
+                <td class="text-right consumed-cell">{{ row.consumedQty | number:'1.2-2' }}</td>
+                <td class="text-right">
+                  <p-tag [value]="(row.balanceQty | number:'1.2-2') || ''" [severity]="getBalanceSeverity(row.balanceQty)" />
+                </td>
+                <td class="text-right">{{ row.unitCost | number:'1.2-2' }}</td>
+                <td class="text-right amount">{{ row.balanceValue | number:'1.2-2' }}</td>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="emptymessage">
+              <tr><td colspan="8" class="empty-msg">No data. Run the report with filters.</td></tr>
+            </ng-template>
+            <ng-template pTemplate="footer">
+              <tr *ngIf="consumptions.length > 0">
+                <td colspan="3" class="total-label">Grand Total</td>
+                <td class="text-right amount">{{ totalIssued | number:'1.2-2' }}</td>
+                <td class="text-right amount consumed-cell">{{ totalConsumed | number:'1.2-2' }}</td>
+                <td class="text-right amount">{{ totalBalance | number:'1.2-2' }}</td>
+                <td></td>
+                <td class="text-right amount total">{{ totalBalVal | number:'1.2-2' }}</td>
+              </tr>
+            </ng-template>
+          </p-table>
+        </div>
+      </div>
+    </p-tabPanel>
+
+    <!-- ── Tab 2: Project Consumption ─────────────────────────────────────── -->
+    <p-tabPanel header="Project Costs">
+      <div class="tab-content">
+        <div class="card filter-card">
+          <div class="filter-row">
+            <div class="filter-group">
+              <label>From Date</label>
+              <input pInputText type="date" [(ngModel)]="projectFilter.dateFrom" class="filter-input" />
+            </div>
+            <div class="filter-group">
+              <label>To Date</label>
+              <input pInputText type="date" [(ngModel)]="projectFilter.dateTo" class="filter-input" />
+            </div>
+            <div class="filter-group">
+              <label>Transaction Type</label>
+              <p-dropdown [options]="txTypeOptions" [(ngModel)]="projectFilter.transactionType" optionLabel="label" optionValue="value" class="filter-input" />
+            </div>
+            <div class="filter-group">
+              <label>Search</label>
+              <input pInputText type="text" [(ngModel)]="projectFilter.search" placeholder="Project code / item" class="filter-input" />
+            </div>
+            <div class="filter-actions">
+              <button pButton label="Run" icon="pi pi-play" (click)="loadProject()" [loading]="isLoadingProject" class="p-button-primary"></button>
+              <button pButton icon="pi pi-times" (click)="clearProject()" class="p-button-outlined p-button-secondary"></button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <p-table [value]="projectItems" [loading]="isLoadingProject" [paginator]="true" [rows]="20" sortMode="multiple" styleClass="p-datatable-sm">
+            <ng-template pTemplate="header">
+              <tr>
+                <th pSortableColumn="projectCode">Project <p-sortIcon field="projectCode" /></th>
+                <th>Item</th>
+                <th>Type</th>
+                <th>Reference</th>
+                <th pSortableColumn="postedDate">Date <p-sortIcon field="postedDate" /></th>
+                <th class="text-right">Qty</th>
+                <th class="text-right">Unit Cost</th>
+                <th class="text-right">Amount</th>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-row>
+              <tr>
+                <td><span class="project-code">{{ row.projectCode }}</span><br><span class="project-name">{{ row.projectName }}</span></td>
+                <td>{{ row.itemDescription }}</td>
+                <td><p-tag [value]="row.transactionType" [severity]="row.transactionType === 'ISSUE' ? 'info' : row.transactionType === 'RETURN' ? 'warn' : 'danger'" /></td>
+                <td><span class="ref-no secondary">{{ row.referenceNumber }}</span></td>
+                <td>{{ row.postedDate | date:'dd MMM yyyy' }}</td>
+                <td class="text-right">{{ row.quantity | number:'1.2-2' }}</td>
+                <td class="text-right">{{ row.unitCost | number:'1.2-2' }}</td>
+                <td class="text-right amount" [class.credit]="row.amount < 0">{{ row.amount | number:'1.2-2' }}</td>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="emptymessage">
+              <tr><td colspan="8" class="empty-msg">No project cost entries found.</td></tr>
+            </ng-template>
+            <ng-template pTemplate="footer">
+              <tr *ngIf="projectItems.length > 0">
+                <td colspan="7" class="total-label">Grand Total</td>
+                <td class="text-right amount total">{{ projectTotal | number:'1.2-2' }}</td>
+              </tr>
+            </ng-template>
+          </p-table>
+        </div>
+      </div>
+    </p-tabPanel>
+
+    <!-- ── Tab 3: Department Consumption ──────────────────────────────────── -->
+    <p-tabPanel header="Department Costs">
+      <div class="tab-content">
+        <div class="card filter-card">
+          <div class="filter-row">
+            <div class="filter-group">
+              <label>From Date</label>
+              <input pInputText type="date" [(ngModel)]="deptFilter.dateFrom" class="filter-input" />
+            </div>
+            <div class="filter-group">
+              <label>To Date</label>
+              <input pInputText type="date" [(ngModel)]="deptFilter.dateTo" class="filter-input" />
+            </div>
+            <div class="filter-group">
+              <label>Department</label>
+              <input pInputText type="text" [(ngModel)]="deptFilter.department" placeholder="e.g. Maintenance" class="filter-input" />
+            </div>
+            <div class="filter-group">
+              <label>Transaction Type</label>
+              <p-dropdown [options]="txTypeOptions" [(ngModel)]="deptFilter.transactionType" optionLabel="label" optionValue="value" class="filter-input" />
+            </div>
+            <div class="filter-group">
+              <label>Search</label>
+              <input pInputText type="text" [(ngModel)]="deptFilter.search" placeholder="Department / item" class="filter-input" />
+            </div>
+            <div class="filter-actions">
+              <button pButton label="Run" icon="pi pi-play" (click)="loadDept()" [loading]="isLoadingDept" class="p-button-primary"></button>
+              <button pButton icon="pi pi-times" (click)="clearDept()" class="p-button-outlined p-button-secondary"></button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <p-table [value]="deptItems" [loading]="isLoadingDept" [paginator]="true" [rows]="20" sortMode="multiple" styleClass="p-datatable-sm">
+            <ng-template pTemplate="header">
+              <tr>
+                <th pSortableColumn="department">Department <p-sortIcon field="department" /></th>
+                <th>Cost Center</th>
+                <th>Item</th>
+                <th>Type</th>
+                <th>Reference</th>
+                <th pSortableColumn="postedDate">Date <p-sortIcon field="postedDate" /></th>
+                <th class="text-right">Qty</th>
+                <th class="text-right">Amount</th>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-row>
+              <tr>
+                <td><strong>{{ row.department }}</strong></td>
+                <td>{{ row.costCenter ?? '—' }}</td>
+                <td>{{ row.itemDescription }}</td>
+                <td><p-tag [value]="row.transactionType" [severity]="row.transactionType === 'ISSUE' ? 'info' : row.transactionType === 'RETURN' ? 'warn' : 'danger'" /></td>
+                <td><span class="ref-no secondary">{{ row.referenceNumber }}</span></td>
+                <td>{{ row.postedDate | date:'dd MMM yyyy' }}</td>
+                <td class="text-right">{{ row.quantity | number:'1.2-2' }}</td>
+                <td class="text-right amount" [class.credit]="row.amount < 0">{{ row.amount | number:'1.2-2' }}</td>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="emptymessage">
+              <tr><td colspan="8" class="empty-msg">No department cost entries found.</td></tr>
+            </ng-template>
+            <ng-template pTemplate="footer">
+              <tr *ngIf="deptItems.length > 0">
+                <td colspan="7" class="total-label">Grand Total</td>
+                <td class="text-right amount total">{{ deptTotal | number:'1.2-2' }}</td>
+              </tr>
+            </ng-template>
+          </p-table>
+        </div>
+      </div>
+    </p-tabPanel>
+
+  </p-tabView>
+</div>

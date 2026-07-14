@@ -1,0 +1,315 @@
+<div class="approval-detail-page">
+  <p-toast></p-toast>
+
+  <!-- Loading -->
+  <div *ngIf="isLoadingDetail" class="loading-center">
+    <i class="pi pi-spin pi-spinner" style="font-size:2.5rem;color:#2980b9"></i>
+    <p>Loading approval...</p>
+  </div>
+
+  <ng-container *ngIf="!isLoadingDetail && detail">
+
+    <!-- Header -->
+    <div class="page-header">
+      <div class="header-content">
+        <div class="header-left">
+          <div class="breadcrumb">
+            <a routerLink="/portal/pages/workflow-inbox" class="crumb-link">Approval Inbox</a>
+            <i class="pi pi-chevron-right crumb-sep"></i>
+            <span>{{ detail.documentNumber }}</span>
+          </div>
+          <h1 class="page-title">
+            <p-tag [value]="detail.interfaceCode" severity="info" styleClass="mr-2"></p-tag>
+            {{ detail.documentNumber }}
+            <span class="revision-badge">Rev. {{ detail.revisionNo }}</span>
+          </h1>
+          <p class="page-subtitle" *ngIf="detail.workflowName">
+            {{ detail.workflowName }} &bull; {{ detail.totalSteps }} steps
+          </p>
+        </div>
+        <div class="header-right">
+          <p-tag [value]="detail.status" [severity]="getStatusSeverity(detail.status)"
+                 styleClass="status-large"></p-tag>
+        </div>
+      </div>
+    </div>
+
+    <!-- Action Banner (if pending) -->
+    <div class="action-banner" *ngIf="canApprove">
+      <div class="action-banner-info">
+        <i class="pi pi-clock"></i>
+        <span *ngIf="currentStep">Awaiting: <strong>{{ currentStep.stepName }}</strong>
+          (Step {{ detail.currentStepNumber }} of {{ detail.totalSteps }})
+        </span>
+      </div>
+      <div class="action-banner-btns">
+        <p-button label="Approve" icon="pi pi-check" severity="success"
+                  (onClick)="approveRemarks=''; showApproveDialog=true"></p-button>
+        <p-button *ngIf="canReject" label="Reject" icon="pi pi-times" severity="danger"
+                  [outlined]="true" (onClick)="rejectReason=''; showRejectDialog=true"></p-button>
+        <p-button *ngIf="canRecall" label="Recall" icon="pi pi-replay" severity="secondary"
+                  [text]="true" (onClick)="recallReason=''; showRecallDialog=true"></p-button>
+      </div>
+    </div>
+
+    <!-- Meta Info -->
+    <div class="meta-row">
+      <div class="meta-item"><span class="meta-label">Initiated by</span><span class="meta-value">{{ detail.initiatedByName || ('#' + detail.initiatedBy) }}</span></div>
+      <div class="meta-item"><span class="meta-label">Initiated at</span><span class="meta-value">{{ detail.initiatedAt | date:'dd MMM yyyy HH:mm' }}</span></div>
+      <div class="meta-item" *ngIf="detail.slaDeadline">
+        <span class="meta-label">Overall SLA</span>
+        <span class="meta-value">{{ detail.slaDeadline | date:'dd MMM yyyy HH:mm' }}</span>
+      </div>
+      <div class="meta-item" *ngIf="detail.completedAt">
+        <span class="meta-label">Completed</span>
+        <span class="meta-value">{{ detail.completedAt | date:'dd MMM yyyy HH:mm' }}</span>
+      </div>
+      <div class="meta-item" *ngIf="detail.isEscalated">
+        <p-tag value="ESCALATED" severity="danger"></p-tag>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <p-tabView [(activeIndex)]="activeTab" (onChange)="onTabChange($event)">
+
+      <!-- ── Tab 1: Step Timeline ──────────────────────────────────────── -->
+      <p-tabPanel header="Step Timeline">
+        <div class="timeline-container">
+          <div *ngFor="let group of groupedSteps; let i = index"
+               class="step-row" [class.step-current]="group.isCurrentStep">
+
+            <div class="step-indicator">
+              <div class="step-icon" [style.background]="getGroupColor(group)">
+                <i [class]="getGroupIcon(group)"></i>
+              </div>
+              <div class="step-line" *ngIf="i < groupedSteps.length - 1"></div>
+            </div>
+
+            <div class="step-content">
+              <div class="step-head">
+                <span class="step-num">Step {{ group.stepNumber }}</span>
+                <strong class="step-name">{{ group.stepName }}</strong>
+                <p-tag [value]="group.status" [severity]="getStatusSeverity(group.status)"></p-tag>
+                <p-tag *ngIf="group.isCurrentStep" value="CURRENT" severity="warn"
+                       styleClass="ml-1"></p-tag>
+                <p-tag *ngIf="group.isEscalated" value="ESCALATED" severity="danger"
+                       styleClass="ml-1"></p-tag>
+              </div>
+
+              <div class="step-meta">
+                <span *ngIf="group.assignedRole">
+                  <i class="pi pi-shield"></i> {{ group.assignedRole }}
+                </span>
+                <span *ngIf="group.approvalMode">
+                  <i class="pi pi-users"></i> {{ group.approvalMode.replace('_',' ') }}
+                </span>
+                <span *ngIf="group.dueAt && group.status === 'PENDING'">
+                  <i class="pi pi-clock"></i> Due: {{ group.dueAt | date:'dd MMM yy HH:mm' }}
+                </span>
+              </div>
+
+              <!-- Individual approver rows within this step -->
+              <div class="step-approvers">
+                <div class="approver-row" *ngFor="let row of group.rows">
+                  <i class="pi pi-user approver-icon"></i>
+                  <span class="approver-name">{{ row.resolvedApproverName || row.assignedRole || '—' }}</span>
+                  <div class="approver-row-status">
+                    <p-tag [value]="row.status" [severity]="getStatusSeverity(row.status)"
+                           styleClass="tag-xs"></p-tag>
+                    <span *ngIf="row.actedAt" class="text-secondary approver-date">
+                      {{ row.actedAt | date:'dd MMM yy HH:mm' }}
+                    </span>
+                  </div>
+                  <span *ngIf="row.comments" class="approver-comment text-secondary">
+                    <i class="pi pi-comment"></i> {{ row.comments }}
+                  </span>
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+        </div>
+      </p-tabPanel>
+
+      <!-- ── Tab 2: Audit Log ──────────────────────────────────────────── -->
+      <p-tabPanel header="Audit Log">
+        <div *ngIf="isLoadingAudit" class="loading-center">
+          <i class="pi pi-spin pi-spinner"></i>
+        </div>
+        <div *ngIf="!isLoadingAudit">
+          <table class="audit-table" *ngIf="auditLog.length">
+            <thead>
+              <tr>
+                <th>#Step</th><th>Action</th><th>Performed By</th>
+                <th>Date</th><th>From</th><th>To</th><th>Remarks</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let entry of auditLog">
+                <td>{{ entry.stepNumber ?? '—' }}</td>
+                <td>
+                  <span class="audit-action">
+                    <i [class]="getAuditIcon(entry.action)"></i> {{ entry.action }}
+                  </span>
+                </td>
+                <td>{{ entry.performedByName || ('#' + entry.performedBy) }}</td>
+                <td class="text-secondary">{{ entry.performedAt | date:'dd MMM yy HH:mm' }}</td>
+                <td class="text-secondary">{{ entry.fromStatus ?? '—' }}</td>
+                <td class="text-secondary">{{ entry.toStatus   ?? '—' }}</td>
+                <td class="text-secondary">{{ entry.remarks   ?? '—' }}</td>
+              </tr>
+            </tbody>
+          </table>
+          <div *ngIf="!auditLog.length" class="empty-tab">No audit entries found.</div>
+        </div>
+      </p-tabPanel>
+
+      <!-- ── Tab 3: Revision History ───────────────────────────────────── -->
+      <p-tabPanel header="Revision History">
+        <div *ngIf="isLoadingHistory" class="loading-center">
+          <i class="pi pi-spin pi-spinner"></i>
+        </div>
+        <div *ngIf="!isLoadingHistory">
+          <div *ngFor="let rev of history" class="history-card">
+            <div class="history-head">
+              <span class="rev-badge">Rev. {{ rev.revisionNo }}</span>
+              <p-tag [value]="rev.status" [severity]="getHistoryStatusSeverity(rev.status)"></p-tag>
+              <span class="text-secondary">{{ rev.initiatedAt | date:'dd MMM yyyy HH:mm' }}</span>
+              <span *ngIf="rev.completedAt" class="text-secondary">
+                → {{ rev.completedAt | date:'dd MMM yyyy HH:mm' }}
+              </span>
+            </div>
+            <div class="history-steps">
+              <div *ngFor="let step of rev.steps" class="history-step">
+                <span class="step-num-sm">{{ step.stepNumber }}</span>
+                <span class="step-name-sm">{{ step.stepName }}</span>
+                <p-tag [value]="step.status" [severity]="getStatusSeverity(step.status)"
+                       styleClass="tag-xs"></p-tag>
+                <span *ngIf="step.resolvedApproverName" class="text-secondary">
+                  {{ step.resolvedApproverName }}
+                </span>
+                <span *ngIf="step.actedAt" class="text-secondary">
+                  {{ step.actedAt | date:'dd MMM yy HH:mm' }}
+                </span>
+                <span *ngIf="step.comments" class="comment-sm">
+                  <i class="pi pi-comment"></i> {{ step.comments }}
+                </span>
+              </div>
+            </div>
+          </div>
+          <div *ngIf="!history.length" class="empty-tab">No revision history found.</div>
+        </div>
+      </p-tabPanel>
+
+    </p-tabView>
+
+  </ng-container>
+
+  <!-- ── Approve Dialog ──────────────────────────────────────────────────── -->
+  <p-dialog [(visible)]="showApproveDialog" [modal]="true" [style]="{'width':'460px'}"
+            [draggable]="false" [resizable]="false" [closable]="!isApproving" styleClass="sdlg">
+    <ng-template pTemplate="header">
+      <div class="sdlg-header">
+        <div class="sdlg-header-icon sdlg-icon-green"><i class="pi pi-check-circle"></i></div>
+        <div class="sdlg-header-text">
+          <div class="sdlg-title">Confirm Approval</div>
+          <div class="sdlg-subtitle">{{ detail?.documentNumber }} &bull; Action will be logged in audit trail</div>
+        </div>
+      </div>
+    </ng-template>
+    <div class="sdlg-body">
+      <div class="sdlg-info-banner">
+        <i class="pi pi-info-circle"></i>
+        <span>You are approving <strong>{{ detail?.documentNumber }}</strong>. The workflow will advance to the next step.</span>
+      </div>
+      <div class="sdlg-field">
+        <label>Remarks <span class="sdlg-optional">(optional)</span></label>
+        <textarea pTextarea [(ngModel)]="approveRemarks" rows="3"
+                  placeholder="Add any comments..." class="w-full"></textarea>
+      </div>
+    </div>
+    <ng-template pTemplate="footer">
+      <div class="sdlg-footer">
+        <div class="sdlg-footer-btns">
+          <p-button label="Cancel" severity="secondary" [text]="true"
+                    (onClick)="showApproveDialog=false" [disabled]="isApproving"></p-button>
+          <p-button label="Approve" icon="pi pi-check" severity="success"
+                    [loading]="isApproving" (onClick)="submitApprove()"></p-button>
+        </div>
+      </div>
+    </ng-template>
+  </p-dialog>
+
+  <!-- ── Reject Dialog ───────────────────────────────────────────────────── -->
+  <p-dialog [(visible)]="showRejectDialog" [modal]="true" [style]="{'width':'460px'}"
+            [draggable]="false" [resizable]="false" [closable]="!isRejecting" styleClass="sdlg">
+    <ng-template pTemplate="header">
+      <div class="sdlg-header">
+        <div class="sdlg-header-icon sdlg-icon-red"><i class="pi pi-times-circle"></i></div>
+        <div class="sdlg-header-text">
+          <div class="sdlg-title">Reject Document</div>
+          <div class="sdlg-subtitle">{{ detail?.documentNumber }} &bull; This action is permanently logged</div>
+        </div>
+      </div>
+    </ng-template>
+    <div class="sdlg-body">
+      <div class="sdlg-warn-banner">
+        <i class="pi pi-exclamation-triangle"></i>
+        <span>Rejecting this document will halt the workflow. The submitter will be notified to make corrections and resubmit.</span>
+      </div>
+      <div class="sdlg-field">
+        <label>Rejection Reason <span class="sdlg-required">*</span></label>
+        <textarea pTextarea [(ngModel)]="rejectReason" rows="3"
+                  placeholder="Explain why this document is being rejected..."
+                  class="w-full"></textarea>
+      </div>
+    </div>
+    <ng-template pTemplate="footer">
+      <div class="sdlg-footer">
+        <div class="sdlg-footer-btns">
+          <p-button label="Cancel" severity="secondary" [text]="true"
+                    (onClick)="showRejectDialog=false" [disabled]="isRejecting"></p-button>
+          <p-button label="Reject" icon="pi pi-ban" severity="danger"
+                    [loading]="isRejecting" [disabled]="!rejectReason.trim()" (onClick)="submitReject()"></p-button>
+        </div>
+      </div>
+    </ng-template>
+  </p-dialog>
+
+  <!-- ── Recall Dialog ───────────────────────────────────────────────────── -->
+  <p-dialog [(visible)]="showRecallDialog" [modal]="true" [style]="{'width':'460px'}"
+            [draggable]="false" [resizable]="false" [closable]="!isRecalling" styleClass="sdlg">
+    <ng-template pTemplate="header">
+      <div class="sdlg-header">
+        <div class="sdlg-header-icon sdlg-icon-amber"><i class="pi pi-replay"></i></div>
+        <div class="sdlg-header-text">
+          <div class="sdlg-title">Recall Document</div>
+          <div class="sdlg-subtitle">{{ detail?.documentNumber }} &bull; Document returns to draft status</div>
+        </div>
+      </div>
+    </ng-template>
+    <div class="sdlg-body">
+      <div class="sdlg-info-banner">
+        <i class="pi pi-info-circle"></i>
+        <span>Recalling <strong>{{ detail?.documentNumber }}</strong> will pull it back to draft so corrections can be made.</span>
+      </div>
+      <div class="sdlg-field">
+        <label>Reason <span class="sdlg-optional">(optional)</span></label>
+        <textarea pTextarea [(ngModel)]="recallReason" rows="3"
+                  placeholder="Why are you recalling this document?" class="w-full"></textarea>
+      </div>
+    </div>
+    <ng-template pTemplate="footer">
+      <div class="sdlg-footer">
+        <div class="sdlg-footer-btns">
+          <p-button label="Cancel" severity="secondary" [text]="true"
+                    (onClick)="showRecallDialog=false" [disabled]="isRecalling"></p-button>
+          <p-button label="Recall" icon="pi pi-replay" severity="secondary"
+                    [loading]="isRecalling" (onClick)="submitRecall()"></p-button>
+        </div>
+      </div>
+    </ng-template>
+  </p-dialog>
+
+</div>

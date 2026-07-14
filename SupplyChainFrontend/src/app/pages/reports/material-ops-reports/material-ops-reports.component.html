@@ -1,0 +1,248 @@
+<div class="report-page">
+  <p-toast />
+
+  <div class="page-header">
+    <div class="header-left">
+      <div class="header-icon icon-amber"><i class="pi pi-exclamation-triangle"></i></div>
+      <div>
+        <h2 class="page-title">Material Operations Reports</h2>
+        <p class="page-subtitle">Returns · Wastage · Reserved stock register</p>
+      </div>
+    </div>
+  </div>
+
+  <p-tabView>
+
+    <!-- ── Tab 1: Material Returns ────────────────────────────────────────── -->
+    <p-tabPanel header="Material Returns">
+      <div class="tab-content">
+        <div class="card filter-card">
+          <div class="filter-row">
+            <div class="filter-group">
+              <label>From Date</label>
+              <input pInputText type="date" [(ngModel)]="returnFilter.dateFrom" class="filter-input" />
+            </div>
+            <div class="filter-group">
+              <label>To Date</label>
+              <input pInputText type="date" [(ngModel)]="returnFilter.dateTo" class="filter-input" />
+            </div>
+            <div class="filter-group">
+              <label>Status</label>
+              <p-dropdown [options]="returnStatusOptions" [(ngModel)]="returnFilter.status" optionLabel="label" optionValue="value" class="filter-input" />
+            </div>
+            <div class="filter-group">
+              <label>Condition</label>
+              <p-dropdown [options]="conditionOptions" [(ngModel)]="returnFilter.condition" optionLabel="label" optionValue="value" class="filter-input" />
+            </div>
+            <div class="filter-group">
+              <label>Search</label>
+              <input pInputText type="text" [(ngModel)]="returnFilter.search" placeholder="Return No / MIV No" class="filter-input" />
+            </div>
+            <div class="filter-actions">
+              <button pButton label="Run" icon="pi pi-play" (click)="loadReturns()" [loading]="isLoadingReturns" class="p-button-primary"></button>
+              <button pButton icon="pi pi-times" (click)="clearReturns()" class="p-button-outlined p-button-secondary"></button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <p-table [value]="returns" [loading]="isLoadingReturns" [paginator]="true" [rows]="20" sortMode="multiple" styleClass="p-datatable-sm">
+            <ng-template pTemplate="header">
+              <tr>
+                <th pSortableColumn="returnNo">Return No <p-sortIcon field="returnNo" /></th>
+                <th>MIV No</th>
+                <th>MIR No</th>
+                <th pSortableColumn="returnDate">Date <p-sortIcon field="returnDate" /></th>
+                <th>Status</th>
+                <th>Item</th>
+                <th>UoM</th>
+                <th>Condition</th>
+                <th>Reason</th>
+                <th class="text-right">Qty</th>
+                <th class="text-right">Unit Cost</th>
+                <th class="text-right">Value</th>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-row>
+              <tr>
+                <td><span class="ref-no">{{ row.returnNo }}</span></td>
+                <td><span class="ref-no secondary">{{ row.mivNo }}</span></td>
+                <td><span class="ref-no secondary">{{ row.mirNo }}</span></td>
+                <td>{{ row.returnDate | date:'dd MMM yyyy' }}</td>
+                <td><p-tag [value]="row.status" [severity]="getReturnStatusSeverity(row.status)" /></td>
+                <td>{{ row.itemDescription }}</td>
+                <td>{{ row.unitOfMeasure ?? '—' }}</td>
+                <td><p-tag [value]="row.condition" [severity]="getConditionSeverity(row.condition)" /></td>
+                <td>{{ row.reason ?? '—' }}</td>
+                <td class="text-right">{{ row.returnedQty | number:'1.2-2' }}</td>
+                <td class="text-right">{{ row.unitCost | number:'1.2-2' }}</td>
+                <td class="text-right amount">{{ row.lineValue | number:'1.2-2' }}</td>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="emptymessage">
+              <tr><td colspan="12" class="empty-msg">No return entries found.</td></tr>
+            </ng-template>
+            <ng-template pTemplate="footer">
+              <tr *ngIf="returns.length > 0">
+                <td colspan="11" class="total-label">Grand Total</td>
+                <td class="text-right amount total">{{ returnTotal | number:'1.2-2' }}</td>
+              </tr>
+            </ng-template>
+          </p-table>
+        </div>
+      </div>
+    </p-tabPanel>
+
+    <!-- ── Tab 2: Wastage ─────────────────────────────────────────────────── -->
+    <p-tabPanel header="Wastage">
+      <div class="tab-content">
+        <div class="card filter-card">
+          <div class="filter-row">
+            <div class="filter-group">
+              <label>From Date</label>
+              <input pInputText type="date" [(ngModel)]="wastageFilter.dateFrom" class="filter-input" />
+            </div>
+            <div class="filter-group">
+              <label>To Date</label>
+              <input pInputText type="date" [(ngModel)]="wastageFilter.dateTo" class="filter-input" />
+            </div>
+            <div class="filter-group">
+              <label>Status</label>
+              <p-dropdown [options]="wastageStatusOptions" [(ngModel)]="wastageFilter.status" optionLabel="label" optionValue="value" class="filter-input" />
+            </div>
+            <div class="filter-group">
+              <label>Source Type</label>
+              <p-dropdown [options]="sourceTypeOptions" [(ngModel)]="wastageFilter.sourceType" optionLabel="label" optionValue="value" class="filter-input" />
+            </div>
+            <div class="filter-group">
+              <label>Search</label>
+              <input pInputText type="text" [(ngModel)]="wastageFilter.search" placeholder="Wastage No / item / reason" class="filter-input" />
+            </div>
+            <div class="filter-actions">
+              <button pButton label="Run" icon="pi pi-play" (click)="loadWastage()" [loading]="isLoadingWastage" class="p-button-primary"></button>
+              <button pButton icon="pi pi-times" (click)="clearWastage()" class="p-button-outlined p-button-secondary"></button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <p-table [value]="wastages" [loading]="isLoadingWastage" [paginator]="true" [rows]="20" sortMode="multiple" styleClass="p-datatable-sm">
+            <ng-template pTemplate="header">
+              <tr>
+                <th pSortableColumn="wastageNo">Wastage No <p-sortIcon field="wastageNo" /></th>
+                <th>Source</th>
+                <th>Item</th>
+                <th>UoM</th>
+                <th>Reason</th>
+                <th pSortableColumn="createdDate">Created <p-sortIcon field="createdDate" /></th>
+                <th>Status</th>
+                <th>Approved At</th>
+                <th class="text-right">Qty</th>
+                <th class="text-right">Unit Cost</th>
+                <th class="text-right">Amount</th>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-row>
+              <tr>
+                <td><span class="ref-no">{{ row.wastageNo }}</span></td>
+                <td>{{ row.sourceType }}</td>
+                <td>{{ row.itemDescription }}</td>
+                <td>{{ row.unitOfMeasure ?? '—' }}</td>
+                <td>{{ row.reason }}</td>
+                <td>{{ row.createdDate | date:'dd MMM yyyy' }}</td>
+                <td><p-tag [value]="row.status" [severity]="getWastageStatusSeverity(row.status)" /></td>
+                <td>{{ row.approvedAt ? (row.approvedAt | date:'dd MMM yyyy') : '—' }}</td>
+                <td class="text-right">{{ row.wastedQty | number:'1.2-2' }}</td>
+                <td class="text-right">{{ row.unitCost | number:'1.2-2' }}</td>
+                <td class="text-right amount wastage-cell">{{ row.amount | number:'1.2-2' }}</td>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="emptymessage">
+              <tr><td colspan="11" class="empty-msg">No wastage records found.</td></tr>
+            </ng-template>
+            <ng-template pTemplate="footer">
+              <tr *ngIf="wastages.length > 0">
+                <td colspan="10" class="total-label">Total Wastage Amount</td>
+                <td class="text-right amount wastage-cell">{{ wastageTotal | number:'1.2-2' }}</td>
+              </tr>
+            </ng-template>
+          </p-table>
+        </div>
+      </div>
+    </p-tabPanel>
+
+    <!-- ── Tab 3: Reserved Stock ──────────────────────────────────────────── -->
+    <p-tabPanel header="Reserved Stock">
+      <div class="tab-content">
+        <div class="card filter-card">
+          <div class="filter-row">
+            <div class="filter-group">
+              <label>From Date</label>
+              <input pInputText type="date" [(ngModel)]="reservedFilter.dateFrom" class="filter-input" />
+            </div>
+            <div class="filter-group">
+              <label>To Date</label>
+              <input pInputText type="date" [(ngModel)]="reservedFilter.dateTo" class="filter-input" />
+            </div>
+            <div class="filter-group">
+              <label>Status</label>
+              <p-dropdown [options]="reservedStatusOptions" [(ngModel)]="reservedFilter.status" optionLabel="label" optionValue="value" class="filter-input" />
+            </div>
+            <div class="filter-actions">
+              <button pButton label="Run" icon="pi pi-play" (click)="loadReserved()" [loading]="isLoadingReserved" class="p-button-primary"></button>
+              <button pButton icon="pi pi-times" (click)="clearReserved()" class="p-button-outlined p-button-secondary"></button>
+            </div>
+          </div>
+        </div>
+
+        <div class="summary-row" *ngIf="reserved.length > 0">
+          <div class="summary-card"><span class="s-label">Active Reservations</span><span class="s-val">{{ reserved.length }}</span></div>
+          <div class="summary-card"><span class="s-label">Total Reserved Qty</span><span class="s-val">{{ reservedTotal | number:'1.2-2' }}</span></div>
+          <div class="summary-card"><span class="s-label">Flagged</span><span class="s-val flagged">{{ flaggedCount }}</span></div>
+        </div>
+
+        <div class="card">
+          <p-table [value]="reserved" [loading]="isLoadingReserved" [paginator]="true" [rows]="20" sortMode="multiple" styleClass="p-datatable-sm">
+            <ng-template pTemplate="header">
+              <tr>
+                <th>MIR No</th>
+                <th>Type</th>
+                <th pSortableColumn="productName">Product <p-sortIcon field="productName" /></th>
+                <th>SKU</th>
+                <th>Warehouse</th>
+                <th class="text-right">Reserved Qty</th>
+                <th>Status</th>
+                <th pSortableColumn="reservedAt">Reserved At <p-sortIcon field="reservedAt" /></th>
+                <th pSortableColumn="ageDays">Age (Days) <p-sortIcon field="ageDays" /></th>
+                <th>Flagged</th>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-row>
+              <tr [class.row-flagged]="row.isFlagged">
+                <td><span class="ref-no">{{ row.mirNo }}</span></td>
+                <td>{{ row.requestType }}</td>
+                <td><strong>{{ row.productName }}</strong></td>
+                <td><span class="mono">{{ row.sku ?? '—' }}</span></td>
+                <td>{{ row.warehouseName }}</td>
+                <td class="text-right">{{ row.reservedQty | number:'1.2-2' }}</td>
+                <td><p-tag [value]="row.status" [severity]="getReservedStatusSeverity(row.status)" /></td>
+                <td>{{ row.reservedAt | date:'dd MMM yyyy' }}</td>
+                <td class="text-center">
+                  <p-tag [value]="row.ageDays.toString() + 'd'" [severity]="getAgeSeverity(row.ageDays)" />
+                </td>
+                <td class="text-center">
+                  <i *ngIf="row.isFlagged" class="pi pi-flag flagged-icon"></i>
+                  <span *ngIf="!row.isFlagged">—</span>
+                </td>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="emptymessage">
+              <tr><td colspan="10" class="empty-msg">No reservations found.</td></tr>
+            </ng-template>
+          </p-table>
+        </div>
+      </div>
+    </p-tabPanel>
+
+  </p-tabView>
+</div>

@@ -1,0 +1,166 @@
+<div class="project-detail-page">
+  <p-toast></p-toast>
+  <p-confirmDialog></p-confirmDialog>
+
+  <div class="page-header" *ngIf="project">
+    <div class="header-left">
+      <div class="header-icon icon-purple"><i class="pi pi-briefcase"></i></div>
+      <div>
+        <h1 class="page-title">{{ project.projectCode }} — {{ project.projectName }}</h1>
+        <p class="page-subtitle">Project Detail</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <p-button label="Back" icon="pi pi-arrow-left" [outlined]="true" severity="secondary"
+                routerLink="/portal/pages/material/projects"></p-button>
+      <p-button label="Edit" icon="pi pi-pencil" severity="contrast"
+                [routerLink]="['/portal/pages/material/projects', uuid, 'edit']"></p-button>
+      <p-button label="Delete" icon="pi pi-trash" severity="danger" [outlined]="true"
+                (onClick)="confirmDelete()"></p-button>
+    </div>
+  </div>
+
+  <!-- Tab bar -->
+  <div class="tab-bar" *ngIf="project && !isLoading">
+    <button class="tab-btn" [class.active]="activeTab === 'details'"
+            (click)="switchTab('details')">
+      <i class="pi pi-info-circle"></i> Details
+    </button>
+    <button class="tab-btn" [class.active]="activeTab === 'cost-ledger'"
+            (click)="switchTab('cost-ledger')">
+      <i class="pi pi-wallet"></i> Cost Ledger
+    </button>
+  </div>
+
+  <!-- Details tab -->
+  <ng-container *ngIf="activeTab === 'details' && project && !isLoading">
+    <div class="detail-card">
+      <div class="detail-header">
+        <div class="detail-header-bg"></div>
+        <div class="detail-header-content">
+          <p-tag [value]="getStatusLabel(project.status)" [severity]="getStatusSeverity(project.status)" styleClass="status-tag"></p-tag>
+          <span class="project-code-badge">{{ project.projectCode }}</span>
+        </div>
+      </div>
+
+      <div class="detail-body">
+        <div class="detail-grid">
+          <div class="detail-cell">
+            <span class="cell-label">Project Name</span>
+            <span class="cell-value">{{ project.projectName }}</span>
+          </div>
+          <div class="detail-cell">
+            <span class="cell-label">Status</span>
+            <span class="cell-value">
+              <p-tag [value]="getStatusLabel(project.status)" [severity]="getStatusSeverity(project.status)"></p-tag>
+            </span>
+          </div>
+          <div class="detail-cell">
+            <span class="cell-label">Budget Amount</span>
+            <span class="cell-value">{{ project.budgetAmount != null ? (project.budgetAmount | number:'1.2-2') : '—' }}</span>
+          </div>
+          <div class="detail-cell">
+            <span class="cell-label">Created</span>
+            <span class="cell-value">{{ project.createdDate | date:'dd MMM yyyy, HH:mm' }}</span>
+          </div>
+        </div>
+        <div class="detail-cell full-width" *ngIf="project.description">
+          <span class="cell-label">Description</span>
+          <span class="cell-value description">{{ project.description }}</span>
+        </div>
+      </div>
+    </div>
+  </ng-container>
+
+  <!-- Cost Ledger tab -->
+  <ng-container *ngIf="activeTab === 'cost-ledger' && project">
+
+    <!-- Summary cards -->
+    <div class="cost-summary-row">
+      <div class="cost-summary-card issued">
+        <span class="cs-label">Total Issued</span>
+        <span class="cs-value">{{ totalIssued | number:'1.2-2' }}</span>
+      </div>
+      <div class="cost-summary-card returned">
+        <span class="cs-label">Total Returned</span>
+        <span class="cs-value">{{ totalReturned | number:'1.2-2' }}</span>
+      </div>
+      <div class="cost-summary-card net">
+        <span class="cs-label">Net Cost</span>
+        <span class="cs-value">{{ netCost | number:'1.2-2' }}</span>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card filter-card">
+      <div class="filter-row">
+        <div class="filter-field">
+          <label>From</label>
+          <p-calendar [(ngModel)]="dateFrom" dateFormat="dd/mm/yy" [showIcon]="true" appendTo="body"
+                      placeholder="Date from"></p-calendar>
+        </div>
+        <div class="filter-field">
+          <label>To</label>
+          <p-calendar [(ngModel)]="dateTo" dateFormat="dd/mm/yy" [showIcon]="true" appendTo="body"
+                      placeholder="Date to"></p-calendar>
+        </div>
+        <p-button label="Apply" icon="pi pi-filter" (onClick)="applyDateFilter()" severity="contrast"></p-button>
+        <p-button label="Reset" icon="pi pi-times" [outlined]="true" severity="secondary"
+                  (onClick)="dateFrom = null; dateTo = null; applyDateFilter()"></p-button>
+      </div>
+    </div>
+
+    <!-- Ledger table -->
+    <div class="card">
+      <p-table [value]="ledgerEntries" [loading]="ledgerLoading"
+               [paginator]="true" [rows]="ledgerPageSize" [totalRecords]="ledgerTotal"
+               [lazy]="true" (onLazyLoad)="onLedgerPage($event)"
+               [rowsPerPageOptions]="[10,20,50]"
+               styleClass="p-datatable-sm">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Date</th>
+            <th>Reference</th>
+            <th>Item</th>
+            <th>Type</th>
+            <th style="text-align:right">Qty</th>
+            <th style="text-align:right">Unit Cost</th>
+            <th style="text-align:right">Amount</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-entry>
+          <tr [class.row-credit]="entry.amount < 0">
+            <td>{{ entry.postedDate | date:'dd MMM yyyy' }}</td>
+            <td>
+              <a [routerLink]="['/portal/pages/material/miv', entry.referenceId]" class="ref-link">
+                {{ entry.referenceNumber }}
+              </a>
+            </td>
+            <td>{{ entry.itemDescription }}</td>
+            <td>
+              <p-tag [value]="entry.transactionType"
+                     [severity]="entry.transactionType === 'RETURN' ? 'warn' : 'success'"></p-tag>
+            </td>
+            <td style="text-align:right" [class.negative]="entry.quantity < 0">
+              {{ entry.quantity | number:'1.0-4' }}
+            </td>
+            <td style="text-align:right">{{ entry.unitCost | number:'1.2-4' }}</td>
+            <td style="text-align:right" [class.negative]="entry.amount < 0">
+              <strong>{{ entry.amount | number:'1.2-2' }}</strong>
+            </td>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="emptymessage">
+          <tr><td colspan="7" style="text-align:center;color:var(--text-color-secondary);padding:2rem">
+            No cost entries found.
+          </td></tr>
+        </ng-template>
+      </p-table>
+    </div>
+
+  </ng-container>
+
+  <div class="loading-state" *ngIf="isLoading">
+    <i class="pi pi-spin pi-spinner"></i><span>Loading project...</span>
+  </div>
+</div>

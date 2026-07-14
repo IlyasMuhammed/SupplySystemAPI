@@ -1,0 +1,67 @@
+.grn-list-page {
+  padding: 2rem;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  min-height: 100vh;
+
+  .page-header {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    background: white; padding: 1.5rem 2rem; border-radius: 16px;
+    box-shadow: 0 8px 25px rgba(0,0,0,.08); margin-bottom: 1.5rem;
+    .page-title { font-size: 1.6rem; font-weight: 700; color: #2c3e50; margin: 0 0 .25rem; i { color: #e67e22; margin-right: .5rem; } }
+    .page-subtitle { color: #7f8c8d; margin: 0; font-size: .9rem; }
+  }
+
+  .stat-cards {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.5rem;
+    .stat-card {
+      background: white; border-radius: 14px; padding: 1.25rem 1.5rem;
+      box-shadow: 0 6px 20px rgba(0,0,0,.07);
+      display: flex; align-items: center; gap: 1rem;
+      .stat-icon {
+        width: 48px; height: 48px; border-radius: 12px;
+        display: flex; align-items: center; justify-content: center;
+        i { font-size: 1.3rem; }
+        &.draft   { background: #f0f0f0; i { color: #7f8c8d; } }
+        &.pending { background: #e8f4fd; i { color: #3498db; } }
+        &.approval { background: #f3eafb; i { color: #8e44ad; } }
+        &.accepted { background: #eafaf1; i { color: #27ae60; } }
+      }
+      .stat-value { font-size: 1.6rem; font-weight: 700; color: #2c3e50; }
+      .stat-label { font-size: .8rem; color: #7f8c8d; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
+    }
+  }
+
+  .filter-bar {
+    display: flex; align-items: center; gap: 1rem; margin-bottom: 1.25rem;
+    background: white; padding: 1rem 1.5rem; border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,.06);
+    .search-input { width: 280px; }
+    .filter-dropdown { width: 160px; }
+  }
+
+  .table-card {
+    background: white; border-radius: 16px; overflow: hidden;
+    box-shadow: 0 6px 20px rgba(0,0,0,.07);
+  }
+
+  .font-mono    { font-family: monospace; font-size: .85rem; }
+  .font-semibold { font-weight: 600; }
+  .text-center  { text-align: center; }
+  .text-secondary { color: #aaa; font-size: .85rem; }
+
+  .partial-badge {
+    display: inline-flex; align-items: center; gap: .35rem;
+    background: #fef9e7; color: #f39c12; padding: .25rem .6rem;
+    border-radius: 20px; font-size: .8rem; font-weight: 600;
+    i { font-size: .75rem; }
+  }
+}
+
+@media (max-width: 900px) {
+  .grn-list-page {
+    padding: 1rem;
+    .stat-cards { grid-template-columns: repeat(2, 1fr); }
+    .page-header { flex-direction: column; gap: 1rem; }
+    .filter-bar { flex-wrap: wrap; }
+  }
+}

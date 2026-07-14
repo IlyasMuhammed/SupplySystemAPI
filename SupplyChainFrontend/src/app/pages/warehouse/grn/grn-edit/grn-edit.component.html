@@ -1,0 +1,196 @@
+<div class="grn-edit-page">
+  <p-toast></p-toast>
+
+  <!-- ── Header ─────────────────────────────────────────────────────────────── -->
+  <div class="page-header">
+    <p-button icon="pi pi-arrow-left" [text]="true" severity="secondary"
+              [routerLink]="['/portal/pages/warehouse/grn', uuid]"></p-button>
+    <div>
+      <h1 class="page-title"><i class="pi pi-pencil"></i> Edit GRN</h1>
+      <p class="page-subtitle">
+        <span *ngIf="grn">{{ grn.grnNumber }} &bull; {{ grn.supplierName }}</span>
+        <span *ngIf="!grn && !isLoading">Update this DRAFT goods receipt note</span>
+      </p>
+    </div>
+  </div>
+
+  <!-- ── Loading ────────────────────────────────────────────────────────────── -->
+  <div *ngIf="isLoading" class="loading-card">
+    <i class="pi pi-spin pi-spinner" style="font-size:2rem;color:#e67e22"></i>
+    <p>Loading GRN…</p>
+  </div>
+
+  <!-- ── Form ───────────────────────────────────────────────────────────────── -->
+  <form *ngIf="!isLoading && grn" [formGroup]="form" (ngSubmit)="onSubmit()">
+
+    <!-- Info banner -->
+    <div class="info-banner">
+      <i class="pi pi-info-circle"></i>
+      The purchase order reference (<strong>{{ grn.poNumber }}</strong>) and supplier cannot be changed.
+      Only delivery details can be updated on a DRAFT GRN.
+    </div>
+
+    <!-- ── Delivery Details ──────────────────────────────────────────────────── -->
+    <div class="form-card">
+      <h3 class="section-title"><i class="pi pi-truck"></i> Delivery Details</h3>
+      <hr class="section-divider" />
+
+      <div class="form-grid">
+
+        <div class="field">
+          <label>Receiving Warehouse <span class="required">*</span></label>
+          <p-dropdown formControlName="warehouseUuid"
+                      [options]="warehouseOptions"
+                      placeholder="Select warehouse"
+                      [showClear]="false"
+                      [filter]="true"
+                      filterBy="label"
+                      styleClass="full-width"
+                      [class.p-invalid]="isInvalid('warehouseUuid')"
+                      appendTo="body">
+          </p-dropdown>
+          <small class="error" *ngIf="isInvalid('warehouseUuid')">
+            Receiving warehouse is required.
+          </small>
+        </div>
+
+        <div class="field">
+          <label>Received At <span class="required">*</span></label>
+          <p-calendar formControlName="receivedAt" [showIcon]="true"
+                      dateFormat="dd M yy" [showTime]="true" hourFormat="24"
+                      styleClass="full-width"
+                      [class.p-invalid]="isInvalid('receivedAt')"></p-calendar>
+          <small class="error" *ngIf="isInvalid('receivedAt')">Received date and time is required.</small>
+        </div>
+
+        <div class="field">
+          <label>Delivery Note No.</label>
+          <input pInputText formControlName="deliveryNoteNo"
+                 placeholder="e.g. DN-2025-001" class="full-width" maxlength="50" />
+        </div>
+
+        <div class="field">
+          <label>Invoice No.</label>
+          <input pInputText formControlName="invoiceNo"
+                 placeholder="Supplier invoice number" class="full-width" maxlength="50" />
+        </div>
+
+        <div class="field">
+          <label>Vehicle No.</label>
+          <input pInputText formControlName="vehicleNo"
+                 placeholder="e.g. ABC-1234" class="full-width" maxlength="30" />
+        </div>
+
+        <div class="field">
+          <label>Driver Name</label>
+          <input pInputText formControlName="driverName"
+                 placeholder="Driver's full name" class="full-width" maxlength="100" />
+        </div>
+
+      </div>
+
+      <div class="field mt-1">
+        <label>Notes</label>
+        <textarea pTextarea formControlName="notes" rows="3" maxlength="300"
+                  placeholder="Any delivery notes or observations…" class="full-width"></textarea>
+      </div>
+    </div>
+
+    <!-- ── Inspection Requirement ────────────────────────────────────────────── -->
+    <div class="form-card">
+      <h3 class="section-title"><i class="pi pi-search"></i> Inspection Requirement</h3>
+      <p class="section-hint">
+        Choose whether a formal inspection is required for this receipt.
+        This choice locks once the GRN is submitted for approval.
+      </p>
+      <hr class="section-divider" />
+
+      <div class="inspection-radio-group">
+        <div class="inspection-radio-option">
+          <p-radioButton name="requiresInspection" [value]="true"
+                         [(ngModel)]="requiresInspection"
+                         [ngModelOptions]="{standalone: true}"
+                         inputId="insp-yes">
+          </p-radioButton>
+          <label for="insp-yes" class="insp-label insp-yes">
+            <i class="pi pi-check-circle"></i>
+            <span>Yes — Inspection Required</span>
+            <small>QC team will record accepted/rejected quantities and results</small>
+          </label>
+        </div>
+        <div class="inspection-radio-option">
+          <p-radioButton name="requiresInspection" [value]="false"
+                         [(ngModel)]="requiresInspection"
+                         [ngModelOptions]="{standalone: true}"
+                         inputId="insp-no">
+          </p-radioButton>
+          <label for="insp-no" class="insp-label insp-no">
+            <i class="pi pi-times-circle"></i>
+            <span>No — Skip Formal Inspection</span>
+            <small>Accepted qty = received qty; manual rejection still permitted</small>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Receipt Lines ─────────────────────────────────────────────────────── -->
+    <div class="form-card" *ngIf="grn?.lines?.length">
+      <h3 class="section-title"><i class="pi pi-list"></i> Receipt Lines</h3>
+      <p class="lines-hint">
+        Link each line to a catalogue product. Lines without a product link cannot have stock posted on approval.
+      </p>
+      <hr class="section-divider" />
+
+      <div class="lines-summary">
+        <div class="line-card" *ngFor="let line of grn!.lines; let i = index">
+          <div class="line-top">
+            <span class="line-num">{{ i + 1 }}</span>
+            <div class="line-info">
+              <span class="line-desc">{{ line.itemDescription }}</span>
+              <div class="line-meta">
+                <span class="line-uom">{{ line.unitOfMeasure || '—' }}</span>
+                <span class="line-qty">Ordered: <strong>{{ line.qtyOrdered | number:'1.0-4' }}</strong></span>
+                <span class="line-qty">
+                  Received: <strong [class.text-warn]="line.qtyReceived < line.qtyOrdered">
+                    {{ line.qtyReceived | number:'1.0-4' }}
+                  </strong>
+                </span>
+              </div>
+            </div>
+          </div>
+          <div class="line-product">
+            <label class="product-label">
+              <i class="pi pi-box"></i> Catalogue Product
+              <span class="unlinked-badge"
+                    *ngIf="!lineProductUuids[i] && line.qtyReceived > 0">
+                <i class="pi pi-exclamation-triangle"></i> Required for stock posting
+              </span>
+            </label>
+            <p-dropdown
+              [options]="productOptions"
+              [(ngModel)]="lineProductUuids[i]"
+              [ngModelOptions]="{standalone: true}"
+              optionLabel="label"
+              optionValue="value"
+              [filter]="true"
+              filterBy="label"
+              [showClear]="true"
+              placeholder="— Select catalogue product —"
+              styleClass="product-dropdown"
+              appendTo="body">
+            </p-dropdown>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Actions ────────────────────────────────────────────────────────────── -->
+    <div class="form-actions">
+      <p-button label="Cancel" severity="secondary" [text]="true" type="button"
+                [routerLink]="['/portal/pages/warehouse/grn', uuid]"></p-button>
+      <p-button label="Save Changes" icon="pi pi-check" type="submit"
+                severity="warn" [loading]="isSubmitting"></p-button>
+    </div>
+
+  </form>
+</div>

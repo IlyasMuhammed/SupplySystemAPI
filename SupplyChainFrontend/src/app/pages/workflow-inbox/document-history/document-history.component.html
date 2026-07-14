@@ -1,0 +1,93 @@
+<div class="doc-history-page">
+  <p-toast></p-toast>
+
+  <!-- Loading -->
+  <div *ngIf="isLoading" class="loading-center">
+    <i class="pi pi-spin pi-spinner" style="font-size:2rem;color:#2980b9"></i>
+    <p>Loading history...</p>
+  </div>
+
+  <ng-container *ngIf="!isLoading">
+    <!-- Header -->
+    <div class="page-header">
+      <div class="header-content">
+        <div class="header-left">
+          <div class="breadcrumb">
+            <a routerLink="/portal/pages/workflow-inbox" class="crumb-link">Approval Inbox</a>
+            <i class="pi pi-chevron-right crumb-sep"></i>
+            <span>Document History</span>
+          </div>
+          <h1 class="page-title">
+            <i class="pi pi-history"></i>
+            Revision History
+            <span *ngIf="documentNumber" class="doc-badge">{{ documentNumber }}</span>
+          </h1>
+          <p class="page-subtitle">All approval cycles for this document, newest first</p>
+        </div>
+        <div class="header-right">
+          <span class="rev-count">{{ history.length }} revision{{ history.length !== 1 ? 's' : '' }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Empty state -->
+    <div *ngIf="!history.length" class="empty-state">
+      <i class="pi pi-inbox"></i>
+      <p>No approval history found for this document.</p>
+      <p-button label="Back to Inbox" icon="pi pi-arrow-left" severity="secondary"
+                routerLink="/portal/pages/workflow-inbox"></p-button>
+    </div>
+
+    <!-- History list -->
+    <div *ngFor="let rev of history; let i = index" class="rev-card">
+      <div class="rev-header">
+        <div class="rev-header-left">
+          <span class="rev-badge">Rev. {{ rev.revisionNo }}</span>
+          <p-tag [value]="rev.interfaceCode" severity="info"></p-tag>
+          <strong class="rev-doc">{{ rev.documentNumber }}</strong>
+          <p-tag [value]="rev.status" [severity]="getStatusSeverity(rev.status)"></p-tag>
+        </div>
+        <div class="rev-header-right">
+          <span class="rev-date">
+            {{ rev.initiatedAt | date:'dd MMM yyyy HH:mm' }}
+            <span *ngIf="rev.completedAt"> → {{ rev.completedAt | date:'dd MMM yyyy HH:mm' }}</span>
+          </span>
+          <a [routerLink]="['/portal/pages/workflow-inbox', rev.uuid]" class="view-link">
+            View Detail <i class="pi pi-external-link"></i>
+          </a>
+        </div>
+      </div>
+
+      <div class="rev-body">
+        <div class="rev-meta">
+          <span><i class="pi pi-user"></i> Initiated by #{{ rev.initiatedBy }}</span>
+          <span><i class="pi pi-list"></i> {{ rev.totalSteps }} step{{ rev.totalSteps !== 1 ? 's' : '' }}</span>
+          <span *ngIf="rev.remarks"><i class="pi pi-comment"></i> {{ rev.remarks }}</span>
+        </div>
+
+        <!-- Steps grid -->
+        <div class="steps-grid">
+          <div *ngFor="let step of rev.steps" class="step-pill"
+               [class.step-approved]="step.status === 'APPROVED'"
+               [class.step-rejected]="step.status === 'REJECTED'"
+               [class.step-skipped]="step.status === 'SKIPPED'"
+               [class.step-pending]="step.status === 'PENDING'">
+            <i [class]="getStepStatusIcon(step.status)"></i>
+            <span class="step-num-label">{{ step.stepNumber }}.</span>
+            <span class="step-name-label">{{ step.stepName }}</span>
+            <span *ngIf="step.resolvedApproverName" class="approver-name">
+              ({{ step.resolvedApproverName }})
+            </span>
+            <span *ngIf="step.actedAt" class="acted-at">
+              {{ step.actedAt | date:'dd MMM yy HH:mm' }}
+            </span>
+            <span *ngIf="step.comments" class="step-comment">
+              <i class="pi pi-comment"></i> {{ step.comments }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </ng-container>
+</div>

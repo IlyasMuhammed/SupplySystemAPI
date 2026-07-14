@@ -1,0 +1,130 @@
+<div class="card">
+
+  <!-- ── Page Header ──────────────────────────────────────────────────────── -->
+  <div class="md-header">
+    <div class="md-icon"><i class="pi pi-credit-card"></i></div>
+    <div class="md-title-wrap">
+      <h2 class="md-title">Payment Terms</h2>
+      <p class="md-subtitle">Define payment due-day periods for purchase orders</p>
+    </div>
+    <p-button label="Add Payment Term" icon="pi pi-plus" (onClick)="openNew()"></p-button>
+  </div>
+
+  <hr class="md-sep" />
+
+  <!-- ── Search Bar ────────────────────────────────────────────────────────── -->
+  <div class="md-toolbar">
+    <p-iconfield>
+      <p-inputicon styleClass="pi pi-search" />
+      <input #gf pInputText type="text"
+             (input)="dt.filterGlobal(gf.value, 'contains')"
+             placeholder="Search payment terms…" />
+    </p-iconfield>
+    <span class="md-count" *ngIf="!isLoading">{{ terms.length }} terms</span>
+  </div>
+
+  <!-- ── Data Table ────────────────────────────────────────────────────────── -->
+  <p-table #dt [value]="terms" [loading]="isLoading"
+           [paginator]="true" [rows]="15" [rowsPerPageOptions]="[10, 15, 50]"
+           [showCurrentPageReport]="true"
+           currentPageReportTemplate="{first}–{last} of {totalRecords}"
+           [globalFilterFields]="['name']"
+           [rowHover]="true"
+           dataKey="id" responsiveLayout="scroll">
+
+    <ng-template pTemplate="header">
+      <tr>
+        <th pSortableColumn="name">Term Name <p-sortIcon field="name"></p-sortIcon></th>
+        <th pSortableColumn="days" style="width: 11rem">Net Days <p-sortIcon field="days"></p-sortIcon></th>
+        <th style="width: 8rem">Actions</th>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="body" let-t>
+      <tr>
+        <td class="font-medium">{{ t.name }}</td>
+        <td>
+          <span class="md-days-badge" *ngIf="t.days != null">{{ t.days }} days</span>
+          <span class="text-color-secondary" *ngIf="t.days == null">—</span>
+        </td>
+        <td>
+          <button pButton icon="pi pi-pencil"
+                  class="p-button-rounded p-button-text p-button-sm mr-1"
+                  pTooltip="Edit" tooltipPosition="top"
+                  (click)="openEdit(t)">
+          </button>
+          <button pButton icon="pi pi-trash"
+                  class="p-button-rounded p-button-text p-button-danger p-button-sm"
+                  pTooltip="Delete" tooltipPosition="top"
+                  (click)="confirmDelete(t)">
+          </button>
+        </td>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="emptymessage">
+      <tr>
+        <td colspan="3">
+          <div class="md-empty">
+            <i class="pi pi-credit-card md-empty-icon"></i>
+            <p class="md-empty-text">No payment terms found</p>
+            <small class="md-empty-hint">Click "Add Payment Term" to create one.</small>
+          </div>
+        </td>
+      </tr>
+    </ng-template>
+
+  </p-table>
+</div>
+
+<!-- ── Create / Edit Dialog ─────────────────────────────────────────────────── -->
+<p-dialog [(visible)]="showDialog" [modal]="true" [style]="{ width: '440px' }"
+          [showHeader]="false" [closable]="false" [draggable]="false"
+          [contentStyle]="{ padding: '0', borderRadius: '0.875rem', overflow: 'hidden' }">
+
+  <div class="dlg-header">
+    <div class="dlg-icon">
+      <i class="pi pi-credit-card"></i>
+    </div>
+    <div class="dlg-title-wrap">
+      <h3 class="dlg-title">{{ isEditing ? 'Edit Payment Term' : 'Add Payment Term' }}</h3>
+      <p class="dlg-subtitle">{{ isEditing ? 'Update the payment term details.' : 'Define a new payment term and due-day period.' }}</p>
+    </div>
+    <button pButton icon="pi pi-times" class="p-button-text p-button-secondary dlg-close-btn"
+            (click)="showDialog = false"></button>
+  </div>
+
+  <form [formGroup]="form" (ngSubmit)="save()" class="dlg-body">
+
+    <div class="dlg-field">
+      <label class="dlg-label">
+        <i class="pi pi-tag dlg-field-icon"></i>
+        Term Name <span class="req">*</span>
+      </label>
+      <input pInputText formControlName="name" class="w-full" placeholder="e.g. Net 30" maxlength="100"
+             [ngClass]="{'ng-invalid ng-dirty': f['name'].invalid && f['name'].touched}" />
+      <small class="dlg-error" *ngIf="f['name'].invalid && f['name'].touched">Name is required.</small>
+    </div>
+
+    <div class="dlg-field">
+      <label class="dlg-label">
+        <i class="pi pi-calendar dlg-field-icon"></i>
+        Net Days
+      </label>
+      <p-inputnumber formControlName="days" styleClass="w-full" [min]="0" [max]="3650"
+                     placeholder="e.g. 30"></p-inputnumber>
+      <small class="dlg-hint">Number of days until payment is due. Leave blank for immediate / custom terms.</small>
+    </div>
+
+    <div class="dlg-footer">
+      <p-button label="Cancel" severity="secondary" [text]="true"
+                type="button" (onClick)="showDialog = false"></p-button>
+      <p-button [label]="isEditing ? 'Update Term' : 'Create Term'"
+                icon="pi pi-check" type="submit" [loading]="isSaving"></p-button>
+    </div>
+
+  </form>
+</p-dialog>
+
+<p-confirmDialog></p-confirmDialog>
+<p-toast></p-toast>

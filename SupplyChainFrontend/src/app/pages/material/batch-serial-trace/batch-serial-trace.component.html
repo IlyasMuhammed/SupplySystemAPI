@@ -1,0 +1,186 @@
+<div class="trace-page">
+  <p-toast></p-toast>
+
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-left">
+      <div class="header-icon icon-purple">
+        <i class="pi pi-search"></i>
+      </div>
+      <div>
+        <h1 class="page-title">Batch / Serial Trace</h1>
+        <p class="page-subtitle">Full chain-of-custody: GRN receipt &rarr; inventory &rarr; issue voucher</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Search box -->
+  <div class="card search-card">
+    <label class="search-label">Enter Batch Number or Serial Number</label>
+    <div class="search-row">
+      <input pInputText
+             [(ngModel)]="reference"
+             placeholder="e.g. BATCH-001 or SN-20240101-001"
+             class="search-input"
+             (keyup.enter)="search()" />
+      <p-button label="Trace" icon="pi pi-search" (onClick)="search()"
+                [loading]="isSearching" [disabled]="!reference.trim()"></p-button>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div *ngIf="isSearching" class="loading-card">
+    <i class="pi pi-spin pi-spinner"></i>
+    <span>Tracing&hellip;</span>
+  </div>
+
+  <!-- Not found -->
+  <div *ngIf="!isSearching && searched && !result" class="no-data-card">
+    <i class="pi pi-search-minus"></i>
+    <p>No inventory records found for <strong>"{{ reference }}"</strong>.</p>
+  </div>
+
+  <!-- Results -->
+  <ng-container *ngIf="result">
+
+    <!-- Product summary -->
+    <div class="card product-card">
+      <div class="product-header">
+        <div class="ref-badge" [class.ref-serial]="result.referenceType === 'SERIAL'">
+          <i class="pi" [class.pi-qrcode]="result.referenceType === 'SERIAL'" [class.pi-box]="result.referenceType === 'BATCH'"></i>
+          <span>{{ result.referenceType }}</span>
+        </div>
+        <div class="product-info">
+          <h2 class="product-name">{{ result.reference }}</h2>
+          <p class="product-sub">{{ result.productName }} &nbsp;&bull;&nbsp; SKU: {{ result.productSku }}</p>
+        </div>
+      </div>
+
+      <!-- Current stock -->
+      <div *ngIf="result.currentLocation" class="location-row">
+        <div class="location-cell">
+          <span class="loc-label">Warehouse</span>
+          <span class="loc-value">{{ result.currentLocation.warehouseName }}</span>
+        </div>
+        <div class="location-cell" *ngIf="result.currentLocation.zoneName">
+          <span class="loc-label">Zone</span>
+          <span class="loc-value">{{ result.currentLocation.zoneName }}</span>
+        </div>
+        <div class="location-cell" *ngIf="result.currentLocation.binCode">
+          <span class="loc-label">Bin</span>
+          <span class="loc-value">{{ result.currentLocation.binCode }}</span>
+        </div>
+        <div class="location-cell">
+          <span class="loc-label">On Hand</span>
+          <span class="loc-value qty-highlight">{{ result.currentLocation.qtyOnHand | number:'1.0-4' }}</span>
+        </div>
+        <div class="location-cell">
+          <span class="loc-label">Reserved</span>
+          <span class="loc-value">{{ result.currentLocation.qtyReserved | number:'1.0-4' }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Timeline -->
+    <div class="card timeline-card">
+      <h3 class="section-title">Chain of Custody</h3>
+      <p-timeline [value]="timelineEvents" align="left">
+        <ng-template pTemplate="marker" let-event>
+          <div class="timeline-marker" [style.background]="event.color">
+            <i class="pi {{ event.icon }}"></i>
+          </div>
+        </ng-template>
+        <ng-template pTemplate="content" let-event>
+          <div class="timeline-content">
+            <div class="timeline-label">{{ event.label }}</div>
+
+            <!-- GRN receipt data -->
+            <ng-container *ngIf="isGrnEvent(event.data)">
+              <div class="detail-cells">
+                <div class="detail-cell" *ngIf="event.data.grnNumber">
+                  <span class="dc-label">GRN No.</span>
+                  <span class="dc-value">{{ event.data.grnNumber }}</span>
+                </div>
+                <div class="detail-cell" *ngIf="event.data.receivedDate">
+                  <span class="dc-label">Received</span>
+                  <span class="dc-value">{{ event.data.receivedDate | date:'dd MMM yyyy' }}</span>
+                </div>
+                <div class="detail-cell" *ngIf="event.data.supplierName">
+                  <span class="dc-label">Supplier</span>
+                  <span class="dc-value">{{ event.data.supplierName }}</span>
+                </div>
+                <div class="detail-cell" *ngIf="event.data.receivedQty">
+                  <span class="dc-label">Qty Received</span>
+                  <span class="dc-value">{{ event.data.receivedQty | number:'1.0-4' }}</span>
+                </div>
+              </div>
+            </ng-container>
+
+            <!-- Inventory location data -->
+            <ng-container *ngIf="isLocationEvent(event.data)">
+              <div class="detail-cells">
+                <div class="detail-cell">
+                  <span class="dc-label">Warehouse</span>
+                  <span class="dc-value">{{ event.data.warehouseName }}</span>
+                </div>
+                <div class="detail-cell" *ngIf="event.data.zoneName">
+                  <span class="dc-label">Zone</span>
+                  <span class="dc-value">{{ event.data.zoneName }}</span>
+                </div>
+                <div class="detail-cell" *ngIf="event.data.binCode">
+                  <span class="dc-label">Bin</span>
+                  <span class="dc-value">{{ event.data.binCode }}</span>
+                </div>
+                <div class="detail-cell">
+                  <span class="dc-label">On Hand</span>
+                  <span class="dc-value qty-highlight">{{ event.data.qtyOnHand | number:'1.0-4' }}</span>
+                </div>
+              </div>
+            </ng-container>
+
+            <!-- Issue event data -->
+            <ng-container *ngIf="isIssueEvent(event.data)">
+              <div class="detail-cells">
+                <div class="detail-cell">
+                  <span class="dc-label">Issue Date</span>
+                  <span class="dc-value">{{ event.data.issueDate | date:'dd MMM yyyy' }}</span>
+                </div>
+                <div class="detail-cell">
+                  <span class="dc-label">MIR No.</span>
+                  <span class="dc-value">{{ event.data.mirRequestNo }}</span>
+                </div>
+                <div class="detail-cell" *ngIf="event.data.projectName">
+                  <span class="dc-label">Project</span>
+                  <span class="dc-value">{{ event.data.projectName }}</span>
+                </div>
+                <div class="detail-cell" *ngIf="event.data.department">
+                  <span class="dc-label">Department</span>
+                  <span class="dc-value">{{ event.data.department }}</span>
+                </div>
+                <div class="detail-cell" *ngIf="event.data.issuedTo">
+                  <span class="dc-label">Issued To</span>
+                  <span class="dc-value">{{ event.data.issuedTo }}</span>
+                </div>
+                <div class="detail-cell">
+                  <span class="dc-label">Qty</span>
+                  <span class="dc-value qty-highlight">{{ event.data.issuedQty | number:'1.0-4' }}</span>
+                </div>
+                <div class="detail-cell">
+                  <span class="dc-label">Status</span>
+                  <p-tag [value]="event.data.mivStatus" [severity]="getMivStatusSeverity(event.data.mivStatus)"></p-tag>
+                </div>
+              </div>
+            </ng-container>
+
+          </div>
+        </ng-template>
+      </p-timeline>
+
+      <div *ngIf="timelineEvents.length === 0" class="no-data-card" style="border:none;padding:1rem;">
+        <i class="pi pi-info-circle"></i>
+        <p>No trace history available for this reference.</p>
+      </div>
+    </div>
+
+  </ng-container>
+</div>

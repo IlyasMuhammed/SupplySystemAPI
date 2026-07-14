@@ -1,0 +1,210 @@
+<div class="inbox-page">
+  <p-toast></p-toast>
+
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-content">
+      <div class="header-left">
+        <h1 class="page-title">
+          <i class="pi pi-inbox"></i> Approval Inbox
+          <span class="badge-count" *ngIf="pendingCount > 0">{{ pendingCount }}</span>
+        </h1>
+        <p class="page-subtitle">Documents awaiting your approval action</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="main-card mb-4">
+    <div class="filter-bar">
+      <p-dropdown [options]="interfaceCodeOptions" [(ngModel)]="filterCode"
+                  optionLabel="label" optionValue="value" placeholder="All Interfaces"
+                  (onChange)="onFilterChange()" styleClass="filter-dropdown" appendTo="body"></p-dropdown>
+
+      <p-calendar [(ngModel)]="filterFromDate" placeholder="From date"
+                  (onSelect)="onFilterChange()" [showIcon]="true" dateFormat="dd/mm/yy"
+                  styleClass="filter-cal" appendTo="body"></p-calendar>
+
+      <p-calendar [(ngModel)]="filterToDate" placeholder="To date"
+                  (onSelect)="onFilterChange()" [showIcon]="true" dateFormat="dd/mm/yy"
+                  styleClass="filter-cal" appendTo="body"></p-calendar>
+
+      <p-button icon="pi pi-refresh" severity="secondary" [text]="true"
+                pTooltip="Reset" (onClick)="resetFilters()"></p-button>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="main-card">
+    <p-table [value]="items" [loading]="isLoading" [tableStyle]="{'min-width':'60rem'}"
+             [rows]="pageSize" [paginator]="true" [lazy]="true" [totalRecords]="totalRecords"
+             [rowsPerPageOptions]="[10,20,50]" [showCurrentPageReport]="true"
+             currentPageReportTemplate="Showing {first} to {last} of {totalRecords} pending items"
+             (onPage)="onPageChange($event)">
+
+      <ng-template pTemplate="header">
+        <tr>
+          <th style="width:90px">Interface</th>
+          <th>Document #</th>
+          <th>Step</th>
+          <th>Progress</th>
+          <th>Submitted</th>
+          <th style="width:110px">SLA</th>
+          <th style="width:80px">Flags</th>
+          <th style="width:180px">Actions</th>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="body" let-item>
+        <tr [class.escalated-row]="item.isEscalated">
+          <!-- Interface badge -->
+          <td>
+            <p-tag [value]="item.interfaceCode" [severity]="getInterfaceSeverity(item.interfaceCode)"></p-tag>
+          </td>
+
+          <!-- Document number -->
+          <td>
+            <span class="doc-number">{{ item.documentNumber }}</span>
+          </td>
+
+          <!-- Step name -->
+          <td>
+            <div class="step-label">{{ item.stepName }}</div>
+            <div class="step-mode">{{ item.approvalMode.replace('_',' ') }}</div>
+          </td>
+
+          <!-- Step progress -->
+          <td>
+            <span class="step-progress">{{ item.stepNumber }} / {{ item.totalSteps }}</span>
+          </td>
+
+          <!-- Submitted at -->
+          <td class="text-secondary">{{ item.submittedAt | date:'dd MMM yy HH:mm' }}</td>
+
+          <!-- SLA countdown -->
+          <td>
+            <ng-container *ngIf="getSla(item) as sla">
+              <div class="sla-chip" [class]="sla.cssClass">
+                <i class="pi pi-clock"></i>
+                {{ sla.label }}
+              </div>
+              <div class="sla-bar" *ngIf="sla.label !== '—' && sla.label !== 'OVERDUE'">
+                <div class="sla-fill" [class]="sla.cssClass" [style.width.%]="sla.pct"></div>
+              </div>
+            </ng-container>
+          </td>
+
+          <!-- Escalation flag -->
+          <td>
+            <p-tag *ngIf="item.isEscalated" value="Escalated" severity="danger"
+                   [pTooltip]="'This item has been escalated'"></p-tag>
+          </td>
+
+          <!-- Actions -->
+          <td>
+            <div class="action-row">
+              <p-button label="View" icon="pi pi-eye" severity="secondary" size="small"
+                        [text]="true"
+                        [routerLink]="['/portal/pages/workflow-inbox', item.approvalUUID]">
+              </p-button>
+              <p-button label="Approve" icon="pi pi-check" severity="success" size="small"
+                        (onClick)="openApprove(item)">
+              </p-button>
+              <p-button *ngIf="item.canReject" label="Reject" icon="pi pi-times"
+                        severity="danger" size="small" [outlined]="true"
+                        (onClick)="openReject(item)">
+              </p-button>
+            </div>
+          </td>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="8">
+            <div class="empty-inbox">
+              <i class="pi pi-check-circle"></i>
+              <p>Your inbox is empty — no pending approvals.</p>
+            </div>
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </div>
+
+  <!-- ── Approve Dialog ─────────────────────────────────────────────────── -->
+  <p-dialog [(visible)]="showApproveDialog" [modal]="true" [style]="{'width':'480px'}"
+            [draggable]="false" [resizable]="false" [closable]="!isApproving" styleClass="sdlg">
+    <ng-template pTemplate="header">
+      <div class="sdlg-header">
+        <div class="sdlg-header-icon sdlg-icon-green"><i class="pi pi-check-circle"></i></div>
+        <div class="sdlg-header-text">
+          <div class="sdlg-title">Approve Document</div>
+          <div class="sdlg-subtitle" *ngIf="approveItem">
+            {{ approveItem.documentNumber }} &bull; {{ approveItem.stepName }}
+          </div>
+        </div>
+      </div>
+    </ng-template>
+    <div class="sdlg-body" *ngIf="approveItem">
+      <div class="sdlg-doc-chip">
+        <p-tag [value]="approveItem.interfaceCode" severity="info"></p-tag>
+        <strong>{{ approveItem.documentNumber }}</strong>
+      </div>
+      <div class="sdlg-field">
+        <label>Remarks <span class="sdlg-optional">(optional)</span></label>
+        <textarea pTextarea [(ngModel)]="approveRemarks" rows="3"
+                  placeholder="Add any comments..." class="w-full"></textarea>
+      </div>
+    </div>
+    <ng-template pTemplate="footer">
+      <div class="sdlg-footer">
+        <div class="sdlg-footer-btns">
+          <p-button label="Cancel" severity="secondary" [text]="true"
+                    (onClick)="showApproveDialog = false" [disabled]="isApproving"></p-button>
+          <p-button label="Confirm Approval" icon="pi pi-check" severity="success"
+                    [loading]="isApproving" (onClick)="submitApprove()"></p-button>
+        </div>
+      </div>
+    </ng-template>
+  </p-dialog>
+
+  <!-- ── Reject Dialog ──────────────────────────────────────────────────── -->
+  <p-dialog [(visible)]="showRejectDialog" [modal]="true" [style]="{'width':'480px'}"
+            [draggable]="false" [resizable]="false" [closable]="!isRejecting" styleClass="sdlg">
+    <ng-template pTemplate="header">
+      <div class="sdlg-header">
+        <div class="sdlg-header-icon sdlg-icon-red"><i class="pi pi-ban"></i></div>
+        <div class="sdlg-header-text">
+          <div class="sdlg-title">Reject Document</div>
+          <div class="sdlg-subtitle" *ngIf="rejectItem">
+            {{ rejectItem.documentNumber }} &bull; This action is permanently logged
+          </div>
+        </div>
+      </div>
+    </ng-template>
+    <div class="sdlg-body" *ngIf="rejectItem">
+      <div class="sdlg-warn-banner">
+        <i class="pi pi-exclamation-triangle"></i>
+        <span>Rejecting <strong>{{ rejectItem.documentNumber }}</strong> will halt the workflow and notify the submitter.</span>
+      </div>
+      <div class="sdlg-field">
+        <label>Rejection Reason <span class="sdlg-required">*</span></label>
+        <textarea pTextarea [(ngModel)]="rejectReason" rows="3"
+                  placeholder="Please explain why this document is being rejected..."
+                  class="w-full"></textarea>
+      </div>
+    </div>
+    <ng-template pTemplate="footer">
+      <div class="sdlg-footer">
+        <div class="sdlg-footer-btns">
+          <p-button label="Cancel" severity="secondary" [text]="true"
+                    (onClick)="showRejectDialog = false" [disabled]="isRejecting"></p-button>
+          <p-button label="Confirm Rejection" icon="pi pi-ban" severity="danger"
+                    [loading]="isRejecting" [disabled]="!rejectReason.trim()" (onClick)="submitReject()"></p-button>
+        </div>
+      </div>
+    </ng-template>
+  </p-dialog>
+
+</div>

@@ -1,0 +1,157 @@
+<div class="mir-create-page">
+  <p-toast></p-toast>
+
+  <div class="page-header">
+    <div class="header-left">
+      <div class="header-icon icon-teal"><i class="pi pi-file-export"></i></div>
+      <div>
+        <h1 class="page-title">New Material Issue Request</h1>
+        <p class="page-subtitle">Request materials for a project, department, or maintenance task</p>
+      </div>
+    </div>
+    <p-button label="Back to MIR List" icon="pi pi-arrow-left" [outlined]="true" severity="secondary"
+              routerLink="/portal/pages/material/mir"></p-button>
+  </div>
+
+  <div *ngIf="isLoading" class="loading-state">
+    <i class="pi pi-spin pi-spinner"></i><span>Loading reference data...</span>
+  </div>
+
+  <div *ngIf="!isLoading">
+    <!-- Header Section -->
+    <div class="form-card">
+      <div class="form-section-title">Request Details</div>
+
+      <div class="form-grid">
+        <div class="form-field">
+          <label>Request Type <span class="required">*</span></label>
+          <p-dropdown [options]="typeOptions" [(ngModel)]="requestType"
+                      optionLabel="label" optionValue="value"
+                      styleClass="w-full"></p-dropdown>
+        </div>
+
+        <div class="form-field" *ngIf="requestType === 'PROJECT'">
+          <label>Project <span class="required">*</span></label>
+          <p-dropdown [options]="projectOptions" [(ngModel)]="projectUuid"
+                      optionLabel="label" optionValue="value"
+                      [filter]="true" placeholder="Select project..."
+                      styleClass="w-full"></p-dropdown>
+        </div>
+
+        <div class="form-field" *ngIf="requestType === 'DEPARTMENT'">
+          <label>Department <span class="required">*</span></label>
+          <input pInputText [(ngModel)]="department" placeholder="e.g. Operations" style="width:100%" />
+        </div>
+
+        <div class="form-field" *ngIf="requestType === 'MAINTENANCE'">
+          <label>Maintenance Reference <span class="required">*</span></label>
+          <input pInputText [(ngModel)]="maintenanceRef" placeholder="e.g. WO-2026-001" style="width:100%" />
+        </div>
+
+        <div class="form-field">
+          <label>Priority</label>
+          <p-dropdown [options]="priorityOptions" [(ngModel)]="priority"
+                      optionLabel="label" optionValue="value"
+                      styleClass="w-full"></p-dropdown>
+        </div>
+
+        <div class="form-field">
+          <label>Required By Date</label>
+          <p-calendar [(ngModel)]="requiredDate" dateFormat="dd/mm/yy"
+                      [showIcon]="true" placeholder="Select date" styleClass="w-full"></p-calendar>
+        </div>
+      </div>
+
+      <div class="form-field full-width">
+        <label>Purpose</label>
+        <input pInputText [(ngModel)]="purpose" placeholder="Brief description of purpose" style="width:100%" />
+      </div>
+
+      <div class="form-field full-width">
+        <label>Notes</label>
+        <textarea pTextarea [(ngModel)]="notes" rows="3" placeholder="Additional notes..." style="width:100%"></textarea>
+      </div>
+    </div>
+
+    <!-- Lines Section -->
+    <div class="form-card lines-card">
+      <div class="lines-header">
+        <div class="form-section-title" style="margin-bottom:0">Material Lines</div>
+        <p-button label="Add Line" icon="pi pi-plus" severity="contrast" size="small"
+                  (onClick)="addLine()"></p-button>
+      </div>
+
+      <div class="total-banner">
+        <span class="total-label">Estimated Total</span>
+        <span class="total-value">{{ getTotalEstimated() | number:'1.2-2' }}</span>
+      </div>
+
+      <div class="line-card" *ngFor="let line of lines; let i = index">
+        <div class="line-num-badge">{{ i + 1 }}</div>
+        <div class="line-fields">
+          <div class="form-field product-col">
+            <label>Product <span class="required">*</span></label>
+            <p-dropdown [options]="productOptions" [(ngModel)]="line.productUuid"
+                        optionLabel="label" optionValue="value"
+                        [filter]="true" placeholder="Select product..."
+                        (ngModelChange)="onProductChange(i, $event)"
+                        styleClass="w-full"></p-dropdown>
+
+            <!-- Warehouse picker — shown after product is selected -->
+            <div class="warehouse-picker" *ngIf="line.productUuid">
+              <div class="stock-loading" *ngIf="line.isLoadingStock">
+                <i class="pi pi-spin pi-spinner"></i> Checking stock...
+              </div>
+              <ng-container *ngIf="!line.isLoadingStock">
+                <ng-container *ngIf="line.stockItems.length > 0">
+                  <label class="sub-label">
+                    Warehouse <span class="required">*</span>
+                    <span class="avail-badge" *ngIf="line.maxQty != null"> — Available: {{ line.maxQty | number:'1.0-3' }}</span>
+                  </label>
+                  <p-dropdown [options]="getWarehouseOptions(i)" [(ngModel)]="line.selectedWarehouseId"
+                              optionLabel="label" optionValue="value"
+                              placeholder="Select warehouse..."
+                              (ngModelChange)="onWarehouseChange(i, $event)"
+                              styleClass="w-full"></p-dropdown>
+                </ng-container>
+                <div class="no-stock" *ngIf="line.stockItems.length === 0">
+                  <i class="pi pi-exclamation-triangle"></i> No stock available in any warehouse
+                </div>
+              </ng-container>
+            </div>
+          </div>
+
+          <div class="form-field qty-field">
+            <label>Qty <span class="required">*</span></label>
+            <p-inputNumber [(ngModel)]="line.requestedQty" [min]="0.001"
+                           [max]="line.maxQty ?? undefined"
+                           [minFractionDigits]="0" [maxFractionDigits]="3"
+                           styleClass="w-full"></p-inputNumber>
+            <small class="qty-hint" *ngIf="line.maxQty != null">Max: {{ line.maxQty | number:'1.0-3' }}</small>
+          </div>
+
+          <div class="form-field est-field">
+            <label>Est. Value</label>
+            <div class="est-value">{{ getEstimatedLineValue(line.productUuid, line.requestedQty) | number:'1.2-2' }}</div>
+          </div>
+
+          <div class="form-field">
+            <label>Line Purpose</label>
+            <input pInputText [(ngModel)]="line.purpose" placeholder="Optional" style="width:100%" />
+          </div>
+        </div>
+        <button type="button" class="remove-btn" (click)="removeLine(i)"
+                [disabled]="lines.length <= 1">
+          <i class="pi pi-times"></i>
+        </button>
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <p-button label="Cancel" icon="pi pi-times" [outlined]="true" severity="secondary"
+                routerLink="/portal/pages/material/mir"></p-button>
+      <p-button label="Create MIR" icon="pi pi-check" severity="contrast"
+                [loading]="isSaving" (onClick)="onSubmit()"></p-button>
+    </div>
+  </div>
+</div>

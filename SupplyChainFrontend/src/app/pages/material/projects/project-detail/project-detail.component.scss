@@ -1,0 +1,95 @@
+.project-detail-page { padding: 1.5rem; }
+
+.page-header {
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--surface-card); border-radius: 12px;
+  padding: 1.25rem 1.5rem; margin-bottom: 1.25rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,.06); border: 1px solid var(--surface-border);
+  .header-left { display: flex; align-items: center; gap: 1rem; }
+  .header-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; i { font-size: 1.25rem; color: #fff; } }
+  .icon-purple { background: linear-gradient(135deg, #7c3aed, #5b21b6); }
+  .page-title { margin: 0; font-size: 1.25rem; font-weight: 700; color: var(--text-color); }
+  .page-subtitle { margin: .2rem 0 0; font-size: .875rem; color: var(--text-color-secondary); }
+  .header-actions { display: flex; gap: .5rem; }
+}
+
+.detail-card {
+  background: var(--surface-card); border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.06); border: 1px solid var(--surface-border);
+  overflow: hidden;
+}
+
+.detail-header {
+  position: relative; height: 80px;
+  .detail-header-bg { position: absolute; inset: 0; background: linear-gradient(135deg, #7c3aed, #5b21b6); opacity: .15; }
+  .detail-header-content { position: relative; display: flex; align-items: center; gap: 1rem; padding: 1.25rem 1.5rem; }
+  .project-code-badge { font-family: monospace; font-weight: 700; font-size: 1rem; color: #7c3aed; background: rgba(124,58,237,.12); padding: .25rem .75rem; border-radius: 6px; }
+}
+
+.detail-body { padding: 1.5rem; }
+
+.detail-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem; margin-bottom: 1rem;
+}
+
+.detail-cell {
+  display: flex; flex-direction: column; gap: .3rem;
+  &.full-width { grid-column: 1/-1; }
+  .cell-label { font-size: .78rem; font-weight: 600; color: var(--text-color-secondary); text-transform: uppercase; letter-spacing: .04em; }
+  .cell-value { font-size: .95rem; color: var(--text-color); font-weight: 500; &.description { font-weight: 400; white-space: pre-wrap; } }
+}
+
+.loading-state { display: flex; align-items: center; gap: .75rem; padding: 3rem; color: var(--text-color-secondary); }
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+.tab-bar {
+  display: flex; gap: .25rem; margin-bottom: 1rem;
+  background: var(--surface-card); border-radius: 10px;
+  padding: .375rem; border: 1px solid var(--surface-border);
+  box-shadow: 0 2px 8px rgba(0,0,0,.06);
+}
+.tab-btn {
+  padding: .5rem 1.25rem; border-radius: 7px; border: none;
+  background: transparent; cursor: pointer; font-size: .875rem; font-weight: 500;
+  color: var(--text-color-secondary); display: flex; align-items: center; gap: .4rem;
+  transition: all .15s;
+  &.active { background: linear-gradient(135deg, #7c3aed, #5b21b6); color: #fff; box-shadow: 0 2px 6px rgba(124,58,237,.3); }
+  &:hover:not(.active) { background: var(--surface-hover); color: var(--text-color); }
+  i { font-size: .875rem; }
+}
+
+// ── Cost Ledger ───────────────────────────────────────────────────────────────
+.cost-summary-row {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1rem;
+}
+.cost-summary-card {
+  background: var(--surface-card); border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,.06); border: 1px solid var(--surface-border);
+  display: flex; flex-direction: column; gap: .4rem;
+  .cs-label { font-size: .78rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--text-color-secondary); }
+  .cs-value { font-size: 1.4rem; font-weight: 700; }
+  &.issued  .cs-value { color: #059669; }
+  &.returned .cs-value { color: #d97706; }
+  &.net     .cs-value { color: #7c3aed; }
+}
+
+.card {
+  background: var(--surface-card); border-radius: 12px;
+  padding: 1.25rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,.06); border: 1px solid var(--surface-border);
+  margin-bottom: 1rem;
+}
+
+.filter-card { display: flex; flex-direction: column; gap: .75rem; }
+.filter-row { display: flex; align-items: flex-end; gap: .75rem; flex-wrap: wrap; }
+.filter-field {
+  display: flex; flex-direction: column; gap: .35rem;
+  label { font-size: .8rem; font-weight: 600; color: var(--text-color); }
+}
+
+::ng-deep .row-credit td { background: rgba(245,158,11,.04) !important; }
+.negative { color: #dc2626 !important; font-weight: 600 !important; }
+.ref-link { color: #7c3aed; text-decoration: none; font-weight: 600;
+  &:hover { text-decoration: underline; } }

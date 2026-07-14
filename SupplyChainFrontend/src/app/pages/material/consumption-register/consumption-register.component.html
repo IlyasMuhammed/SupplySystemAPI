@@ -1,0 +1,143 @@
+<div class="register-page">
+  <p-toast></p-toast>
+
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-left">
+      <div class="header-icon icon-teal"><i class="pi pi-chart-bar"></i></div>
+      <div>
+        <h1 class="page-title">Consumption Register</h1>
+        <p class="page-subtitle">Balance = Issued − Consumed − Returned − Wasted (FSD 15A.13)</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- MIR selector -->
+  <div class="card search-card">
+    <div class="search-row">
+      <div class="search-group">
+        <label>Material Issue Request</label>
+        <p-dropdown
+          [options]="mirOptions"
+          [(ngModel)]="selectedMirUuid"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Select a Material Issue Request…"
+          [filter]="true"
+          filterBy="label"
+          [loading]="isLoadingMirs"
+          [disabled]="isLoadingMirs || isLoading"
+          styleClass="mir-dropdown"
+          emptyMessage="No MIRs available"
+          emptyFilterMessage="No MIRs match your search"
+          (onChange)="onMirSelect($event.value)">
+        </p-dropdown>
+      </div>
+      <p-button *ngIf="register"
+                label="Clear" icon="pi pi-times" severity="secondary" [outlined]="true"
+                (onClick)="clearSelection()"></p-button>
+    </div>
+    <div class="loading-hint" *ngIf="isLoading">
+      <i class="pi pi-spin pi-spinner"></i>
+      <span>Loading register&hellip;</span>
+    </div>
+  </div>
+
+  <!-- Register table -->
+  <ng-container *ngIf="register && !isLoading">
+
+    <div class="register-header card">
+      <div class="rh-col">
+        <span class="register-label">MIR</span>
+        <span class="register-no">{{ register.requestNo }}</span>
+      </div>
+    </div>
+
+    <!-- Summary cards -->
+    <div class="summary-row">
+      <div class="summary-card">
+        <span class="s-label">Total Issued</span>
+        <span class="s-val">{{ totalIssued | number:'1.0-4' }}</span>
+      </div>
+      <div class="summary-card">
+        <span class="s-label">Consumed</span>
+        <span class="s-val consumed">{{ totalConsumed | number:'1.0-4' }}</span>
+      </div>
+      <div class="summary-card">
+        <span class="s-label">Returned</span>
+        <span class="s-val returned">{{ totalReturned | number:'1.0-4' }}</span>
+      </div>
+      <div class="summary-card">
+        <span class="s-label">Wasted</span>
+        <span class="s-val wasted">{{ totalWasted | number:'1.0-4' }}</span>
+      </div>
+      <div class="summary-card">
+        <span class="s-label">Balance Qty</span>
+        <span class="s-val balance">{{ totalBalance | number:'1.0-4' }}</span>
+      </div>
+      <div class="summary-card">
+        <span class="s-label">Balance Value</span>
+        <span class="s-val balance">{{ totalValue | number:'1.2-2' }}</span>
+      </div>
+    </div>
+
+    <!-- Detail table -->
+    <div class="card">
+      <p-table [value]="register.lines" styleClass="p-datatable-sm" responsiveLayout="scroll">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Item</th>
+            <th>UoM</th>
+            <th style="text-align:right">Issued</th>
+            <th style="text-align:right">Consumed</th>
+            <th style="text-align:right">Returned</th>
+            <th style="text-align:right">Wasted</th>
+            <th style="text-align:right">Balance Qty</th>
+            <th style="text-align:right">Unit Cost</th>
+            <th style="text-align:right">Balance Value</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-line>
+          <tr>
+            <td><strong>{{ line.itemDescription }}</strong></td>
+            <td>{{ line.unitOfMeasure || '—' }}</td>
+            <td style="text-align:right">{{ line.issuedQty   | number:'1.0-4' }}</td>
+            <td style="text-align:right" class="consumed-cell">{{ line.consumedQty | number:'1.0-4' }}</td>
+            <td style="text-align:right" class="returned-cell">{{ line.returnedQty | number:'1.0-4' }}</td>
+            <td style="text-align:right" class="wasted-cell">{{ line.wastedQty   | number:'1.0-4' }}</td>
+            <td style="text-align:right">
+              <p-tag [value]="(line.balanceQty | number:'1.0-4') ?? ''"
+                     [severity]="getBalanceSeverity(line.balanceQty)"></p-tag>
+            </td>
+            <td style="text-align:right">{{ line.unitCost    | number:'1.2-4' }}</td>
+            <td style="text-align:right"><strong>{{ line.balanceValue | number:'1.2-2' }}</strong></td>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="footer">
+          <tr>
+            <td colspan="2" style="font-weight:700;text-align:right">Totals:</td>
+            <td style="text-align:right;font-weight:700">{{ totalIssued   | number:'1.0-4' }}</td>
+            <td style="text-align:right;font-weight:700">{{ totalConsumed | number:'1.0-4' }}</td>
+            <td style="text-align:right;font-weight:700">{{ totalReturned | number:'1.0-4' }}</td>
+            <td style="text-align:right;font-weight:700">{{ totalWasted   | number:'1.0-4' }}</td>
+            <td style="text-align:right;font-weight:700">{{ totalBalance  | number:'1.0-4' }}</td>
+            <td></td>
+            <td style="text-align:right;font-weight:700">{{ totalValue    | number:'1.2-2' }}</td>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="emptymessage">
+          <tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--text-color-secondary)">
+            No items found for this MIR.
+          </td></tr>
+        </ng-template>
+      </p-table>
+    </div>
+
+    <!-- Formula note -->
+    <div class="formula-note">
+      <i class="pi pi-info-circle"></i>
+      <span>Balance = Issued − Consumed − Returned (POSTED) − Wasted (APPROVED). Per FSD 15A.13.</span>
+    </div>
+
+  </ng-container>
+</div>

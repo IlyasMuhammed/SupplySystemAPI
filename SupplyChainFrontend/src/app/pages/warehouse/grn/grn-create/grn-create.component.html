@@ -1,0 +1,374 @@
+<div class="grn-create-page">
+  <p-toast></p-toast>
+
+  <form [formGroup]="form" (ngSubmit)="submit()">
+
+    <!-- ── Page Header ────────────────────────────────────────────────────── -->
+    <div class="page-header-card">
+      <div class="ph-left">
+        <p-button icon="pi pi-arrow-left" [text]="true" severity="secondary" size="small"
+                  routerLink="/portal/pages/warehouse/grn"></p-button>
+        <div class="ph-icon-wrap"><i class="pi pi-inbox"></i></div>
+        <div>
+          <div class="ph-name">New Goods Receipt Note</div>
+          <div class="ph-sub">Record a delivery against an approved purchase order</div>
+        </div>
+      </div>
+      <div class="ph-actions">
+        <p-button label="Cancel" severity="secondary" [outlined]="true" type="button"
+                  routerLink="/portal/pages/warehouse/grn"></p-button>
+        <p-button label="Create GRN" icon="pi pi-check" type="submit"
+                  [loading]="isSaving" [disabled]="!selectedPo || poBlockedByStatus"></p-button>
+      </div>
+    </div>
+
+    <!-- ── Step 1 — Purchase Order ───────────────────────────────────────── -->
+    <div class="section-card">
+      <div class="section-card-head">
+        <div class="sc-step">1</div>
+        <div class="sc-icon-wrap"><i class="pi pi-file-edit"></i></div>
+        <span class="sc-title">Purchase Order</span>
+        <span class="sc-hint">search or browse receivable POs</span>
+      </div>
+      <div class="section-card-body">
+
+        <div class="field">
+          <label><i class="pi pi-search"></i> Search Purchase Order <span class="req">*</span></label>
+          <p-autoComplete
+            [(ngModel)]="poAuto"
+            [ngModelOptions]="{standalone: true}"
+            [suggestions]="poSuggestions"
+            [minLength]="0"
+            field="poNumber"
+            (completeMethod)="searchPos($event)"
+            (onSelect)="onPoSelect($event)"
+            (onClear)="onPoClear()"
+            (onFocus)="onPoFocus()"
+            placeholder="Focus to browse receivable POs, or type to search…"
+            styleClass="full-width"
+            inputStyleClass="full-width"
+            [forceSelection]="true"
+            [class.p-invalid]="poInvalid">
+            <ng-template let-po pTemplate="item">
+              <div class="po-suggestion">
+                <span class="po-number">{{ po.poNumber }}</span>
+                <span class="po-sep">—</span>
+                <span class="po-supplier">{{ po.supplierName }}</span>
+                <span class="po-sep">—</span>
+                <span class="po-amount">{{ po.grandTotal | number:'1.2-2' }}{{ po.currency ? ' ' + po.currency : '' }}</span>
+                <span class="po-sep">—</span>
+                <span class="po-pending">{{ po.qtyPending | number:'1.0-2' }} units pending</span>
+                <p-tag [value]="po.status" [severity]="getStatusSeverity(po.status)" styleClass="text-xs ml-auto"></p-tag>
+              </div>
+            </ng-template>
+          </p-autoComplete>
+          <small class="err-msg" *ngIf="poInvalid">Please select a Purchase Order from the list.</small>
+        </div>
+
+        <!-- Selected PO summary -->
+        <div class="po-info-card" *ngIf="selectedPo">
+          <div class="po-info-accent"></div>
+          <div class="po-info-cells">
+            <div class="po-detail-cell">
+              <span class="pdc-label">PO Number</span>
+              <strong class="pdc-value font-mono">{{ selectedPo.poNumber }}</strong>
+            </div>
+            <div class="po-detail-cell">
+              <span class="pdc-label">Supplier</span>
+              <strong class="pdc-value">{{ selectedPo.supplierName }}</strong>
+            </div>
+            <div class="po-detail-cell">
+              <span class="pdc-label">Status</span>
+              <p-tag [value]="selectedPo.status" [severity]="getStatusSeverity(selectedPo.status)"></p-tag>
+            </div>
+            <div class="po-detail-cell" *ngIf="selectedPo.grandTotal">
+              <span class="pdc-label">PO Value</span>
+              <strong class="pdc-value">{{ selectedPo.grandTotal | number:'1.2-2' }}{{ selectedPo.currency ? ' ' + selectedPo.currency : '' }}</strong>
+            </div>
+            <div class="po-detail-cell" *ngIf="selectedPo.qtyPending > 0">
+              <span class="pdc-label">Qty Pending</span>
+              <strong class="pdc-value pdc-pending">{{ selectedPo.qtyPending | number:'1.0-2' }} units</strong>
+            </div>
+          </div>
+        </div>
+
+        <div *ngIf="poWarning" class="po-warning-banner">
+          <i class="pi pi-exclamation-triangle"></i>
+          <span>{{ poWarning }}</span>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── Step 2 — Receiving Location & Delivery ──────────────────────── -->
+    <div class="section-card">
+      <div class="section-card-head">
+        <div class="sc-step">2</div>
+        <div class="sc-icon-wrap"><i class="pi pi-truck"></i></div>
+        <span class="sc-title">Receiving Location &amp; Delivery</span>
+      </div>
+      <div class="section-card-body">
+        <div class="form-grid cols-3">
+
+          <div class="field col-span-2">
+            <label><i class="pi pi-building"></i> Receiving Warehouse <span class="req">*</span></label>
+            <p-dropdown formControlName="warehouseUuid"
+                        [options]="warehouseOptions"
+                        placeholder="Select warehouse"
+                        [showClear]="false"
+                        [filter]="true"
+                        filterBy="label"
+                        styleClass="w-full"
+                        [class.p-invalid]="f['warehouseUuid'].invalid && f['warehouseUuid'].touched"
+                        appendTo="body">
+            </p-dropdown>
+            <small class="err-msg" *ngIf="f['warehouseUuid'].invalid && f['warehouseUuid'].touched">
+              Receiving warehouse is required.
+            </small>
+          </div>
+
+          <div class="field">
+            <label><i class="pi pi-calendar"></i> Received At <span class="req">*</span></label>
+            <p-calendar formControlName="receivedAt" [showIcon]="true"
+                        dateFormat="dd M yy" [showTime]="true" hourFormat="24"
+                        styleClass="w-full"
+                        [class.p-invalid]="f['receivedAt'].invalid && f['receivedAt'].touched"></p-calendar>
+            <small class="err-msg" *ngIf="f['receivedAt'].invalid && f['receivedAt'].touched">Required.</small>
+          </div>
+
+          <div class="field">
+            <label><i class="pi pi-file"></i> Delivery Note No.</label>
+            <input pInputText formControlName="deliveryNoteNo" placeholder="e.g. DN-2025-001"
+                   class="w-full" maxlength="50" />
+          </div>
+
+          <div class="field">
+            <label><i class="pi pi-receipt"></i> Invoice No.</label>
+            <input pInputText formControlName="invoiceNo" placeholder="Supplier invoice number"
+                   class="w-full" maxlength="50" />
+          </div>
+
+          <div class="field">
+            <label><i class="pi pi-car"></i> Vehicle No.</label>
+            <input pInputText formControlName="vehicleNo" placeholder="e.g. ABC-1234"
+                   class="w-full" maxlength="30" />
+          </div>
+
+          <div class="field">
+            <label><i class="pi pi-user"></i> Driver Name</label>
+            <input pInputText formControlName="driverName" placeholder="Driver's full name"
+                   class="w-full" maxlength="100" />
+          </div>
+
+          <div class="field col-span-2">
+            <label><i class="pi pi-comment"></i> Notes</label>
+            <textarea pTextarea formControlName="notes" rows="2" maxlength="300"
+                      placeholder="Any delivery observations…" class="w-full"></textarea>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Step 3 — Inspection Requirement ────────────────────────────── -->
+    <div class="section-card">
+      <div class="section-card-head">
+        <div class="sc-step">3</div>
+        <div class="sc-icon-wrap"><i class="pi pi-search"></i></div>
+        <span class="sc-title">Inspection Requirement</span>
+        <span class="sc-hint">indicate whether a formal quality inspection is required</span>
+      </div>
+      <div class="section-card-body">
+
+        <div class="inspection-radio-group">
+
+          <div class="inspection-radio-option insp-yes-option">
+            <p-radioButton
+              name="requiresInspection"
+              [value]="true"
+              [(ngModel)]="requiresInspection"
+              [ngModelOptions]="{standalone: true}"
+              inputId="insp-yes"
+              (onClick)="onRequiresInspectionChange()">
+            </p-radioButton>
+            <label for="insp-yes" class="insp-label">
+              <div class="insp-icon-wrap insp-yes">
+                <i class="pi pi-check-circle"></i>
+              </div>
+              <div class="insp-text">
+                <span class="insp-title">Yes — Inspection Required</span>
+                <small>QC team will record accepted / rejected quantities and results</small>
+              </div>
+            </label>
+          </div>
+
+          <div class="inspection-radio-option insp-no-option">
+            <p-radioButton
+              name="requiresInspection"
+              [value]="false"
+              [(ngModel)]="requiresInspection"
+              [ngModelOptions]="{standalone: true}"
+              inputId="insp-no"
+              (onClick)="onRequiresInspectionChange()">
+            </p-radioButton>
+            <label for="insp-no" class="insp-label">
+              <div class="insp-icon-wrap insp-no">
+                <i class="pi pi-times-circle"></i>
+              </div>
+              <div class="insp-text">
+                <span class="insp-title">No — Skip Formal Inspection</span>
+                <small>Accepted qty = received qty; manual rejection still permitted</small>
+              </div>
+            </label>
+          </div>
+
+        </div>
+
+        <div *ngIf="!requiresInspection" class="no-inspection-banner">
+          <i class="pi pi-info-circle"></i>
+          <span>Formal inspection skipped. Accepted quantities will equal received quantities.
+            Manual rejection for visual defects is still permitted.</span>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── Step 4 — Received Quantities ───────────────────────────────── -->
+    <div class="section-card" *ngIf="selectedPo">
+      <div class="section-card-head">
+        <div class="sc-step">4</div>
+        <div class="sc-icon-wrap"><i class="pi pi-list"></i></div>
+        <span class="sc-title">Received Quantities</span>
+        <span class="sc-spacer"></span>
+        <span *ngIf="loadingLines" class="loading-hint">
+          <i class="pi pi-spin pi-spinner"></i> Loading lines…
+        </span>
+        <span *ngIf="!loadingLines && lineInputs.length > 0" class="lines-count-badge">
+          {{ lineInputs.length }} line{{ lineInputs.length > 1 ? 's' : '' }}
+        </span>
+      </div>
+      <div class="section-card-body">
+
+        <p class="section-hint" *ngIf="!loadingLines && lineInputs.length > 0">
+          Enter the quantity received for each item. Accepted quantity is auto-calculated from received minus rejected.
+        </p>
+
+        <div class="lines-table-wrap" *ngIf="!loadingLines && lineInputs.length > 0">
+          <table class="lines-table">
+            <colgroup>
+              <col style="width:36px">
+              <col style="width:200px">
+              <col style="width:60px">
+              <col style="width:95px">
+              <col style="width:130px">
+              <col style="width:100px">
+              <col *ngIf="requiresInspection" style="width:190px">
+              <col style="width:110px">
+              <col style="width:145px">
+              <col style="width:40px">
+            </colgroup>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Item Description</th>
+                <th>UOM</th>
+                <th class="qty-col">Pending</th>
+                <th class="qty-col qty-received-header">Qty Received <span class="req">*</span></th>
+                <th class="qty-col">Accepted</th>
+                <th *ngIf="requiresInspection">Rejection</th>
+                <th>Batch No.</th>
+                <th>Expiry Date</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let line of lineInputs; let i = index"
+                  [class.has-rejection]="(line.qtyRejected || 0) > 0">
+                <td class="line-no">{{ i + 1 }}</td>
+                <td class="item-desc">
+                  <span class="desc-text">{{ line.itemDescription }}</span>
+                  <small *ngIf="line.specification" class="spec-text">{{ line.specification }}</small>
+                </td>
+                <td class="uom">{{ line.unitOfMeasure || '—' }}</td>
+                <td class="qty-ordered">{{ line.qtyOrdered | number:'1.0-4' }}</td>
+                <td class="qty-input">
+                  <p-inputNumber
+                    [(ngModel)]="line.qtyReceived"
+                    [ngModelOptions]="{standalone: true}"
+                    [minFractionDigits]="0" [maxFractionDigits]="4"
+                    [min]="0"
+                    styleClass="qty-field"
+                    (onInput)="onQtyReceivedChange(line)">
+                  </p-inputNumber>
+                </td>
+                <td class="qty-accepted">
+                  <span class="accepted-display" [class.text-success]="line.qtyAccepted > 0">
+                    {{ line.qtyAccepted | number:'1.0-4' }}
+                  </span>
+                </td>
+                <td class="rejection-col" *ngIf="requiresInspection">
+                  <p-inputNumber
+                    [(ngModel)]="line.qtyRejected"
+                    [ngModelOptions]="{standalone: true}"
+                    [minFractionDigits]="0" [maxFractionDigits]="4"
+                    [min]="0"
+                    styleClass="qty-field"
+                    (onInput)="onQtyRejectedChange(line)">
+                  </p-inputNumber>
+                  <div class="rejection-reason-wrap" *ngIf="(line.qtyRejected || 0) > 0">
+                    <p-dropdown
+                      [(ngModel)]="line.rejectionReason"
+                      [ngModelOptions]="{standalone: true}"
+                      [options]="rejectionReasonOptions"
+                      [showClear]="true"
+                      placeholder="Select reason…"
+                      styleClass="reason-field"
+                      appendTo="body">
+                    </p-dropdown>
+                  </div>
+                </td>
+                <td class="batch-col">
+                  <input pInputText
+                         [(ngModel)]="line.batchNumber"
+                         [ngModelOptions]="{standalone: true}"
+                         placeholder="Batch #"
+                         class="batch-field"
+                         maxlength="50" />
+                </td>
+                <td class="expiry-col">
+                  <p-calendar
+                    [(ngModel)]="line.expiryDate"
+                    [ngModelOptions]="{standalone: true}"
+                    dateFormat="dd M yy"
+                    [showIcon]="true"
+                    styleClass="expiry-field"
+                    placeholder="Expiry"
+                    appendTo="body">
+                  </p-calendar>
+                </td>
+                <td class="remove-col">
+                  <p-button icon="pi pi-trash" [text]="true" severity="danger" size="small"
+                            pTooltip="Remove line" (onClick)="removeLine(i)"></p-button>
+                </td>
+              </tr>
+            </tbody>
+            <tfoot>
+              <tr class="totals-row">
+                <td colspan="4" class="totals-label">Total Received</td>
+                <td class="qty-col font-bold">{{ totalReceived | number:'1.0-4' }}</td>
+                <td colspan="4"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        <div class="empty-lines" *ngIf="!loadingLines && lineInputs.length === 0 && selectedPo">
+          <i class="pi pi-info-circle"></i>
+          <span>No pending lines found on this PO. All quantities may already be fully received.</span>
+        </div>
+
+      </div>
+    </div>
+
+  </form>
+</div>

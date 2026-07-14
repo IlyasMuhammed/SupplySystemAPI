@@ -1,0 +1,281 @@
+<div class="supplier-create-page">
+  <p-toast />
+
+  <div class="page-header">
+    <h1 class="page-title"><i class="pi pi-plus-circle"></i> Add New Supplier</h1>
+    <p class="page-subtitle">Fill in the supplier details below</p>
+  </div>
+
+  <form [formGroup]="supplierForm" (ngSubmit)="onSubmit()">
+
+    <!-- SECTION 1: Basic Information -->
+    <p-card styleClass="mb-4">
+      <ng-template pTemplate="header">
+        <div class="card-section-header"><i class="pi pi-info-circle"></i> Basic Information</div>
+      </ng-template>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+
+        <div class="field">
+          <label class="field-label">Supplier Name <span class="req">*</span></label>
+          <input pInputText formControlName="supplierName" placeholder="e.g. Acme Corporation" class="w-full"
+                 maxlength="150" [class.ng-invalid]="f['supplierName'].invalid && f['supplierName'].touched" />
+          <small class="text-red-500" *ngIf="f['supplierName'].invalid && f['supplierName'].touched">
+            <span *ngIf="f['supplierName'].errors?.['required']">Supplier name is required.</span>
+            <span *ngIf="f['supplierName'].errors?.['minlength']">At least 2 characters required.</span>
+          </small>
+        </div>
+
+        <div class="field">
+          <label class="field-label">Supplier Code <span class="req">*</span></label>
+          <input pInputText formControlName="supplierCode" placeholder="e.g. SUP001" class="w-full" maxlength="10"
+                 [class.ng-invalid]="f['supplierCode'].invalid && f['supplierCode'].touched" />
+          <small class="text-red-500" *ngIf="f['supplierCode'].invalid && f['supplierCode'].touched">Supplier code is required (max 10 chars).</small>
+        </div>
+
+        <div class="field">
+          <label class="field-label">Registration No.</label>
+          <input pInputText formControlName="registrationNo" placeholder="Business registration number" class="w-full" maxlength="50" />
+        </div>
+
+        <div class="field">
+          <label class="field-label">Tax ID (NTN)</label>
+          <input pInputText formControlName="taxId" placeholder="e.g. 1234567-8" class="w-full" maxlength="30" />
+        </div>
+
+      </div>
+    </p-card>
+
+    <!-- SECTION 2: Address -->
+    <p-card styleClass="mb-4">
+      <ng-template pTemplate="header">
+        <div class="card-section-header"><i class="pi pi-map-marker"></i> Address</div>
+      </ng-template>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+
+        <div class="field">
+          <label class="field-label">Country</label>
+          <p-dropdown [options]="countryOptions" formControlName="country"
+                      optionLabel="label" optionValue="value"
+                      placeholder="Select country" [filter]="true" filterBy="label"
+                      styleClass="w-full" [showClear]="true"
+                      (onChange)="onCountryChange()">
+          </p-dropdown>
+        </div>
+
+        <div class="field">
+          <label class="field-label">Province / State</label>
+          <input pInputText formControlName="provinceState" placeholder="e.g. Punjab" class="w-full" maxlength="100" />
+        </div>
+
+        <div class="field">
+          <label class="field-label">City</label>
+          <p-dropdown [options]="cityOptions" formControlName="city"
+                      optionLabel="label" optionValue="value"
+                      [placeholder]="isCitiesLoading ? 'Loading cities…' : (f['country'].value ? 'Select city' : 'Select country first')"
+                      [filter]="true" filterBy="label"
+                      styleClass="w-full" [showClear]="true">
+          </p-dropdown>
+        </div>
+
+        <div class="field md:col-span-2">
+          <label class="field-label">Address Line 1</label>
+          <input pInputText formControlName="addressLine1" placeholder="Street address" class="w-full" maxlength="200" />
+        </div>
+
+        <div class="field">
+          <label class="field-label">Address Line 2</label>
+          <input pInputText formControlName="addressLine2" placeholder="Apt, suite, etc." class="w-full" maxlength="200" />
+        </div>
+
+        <div class="field">
+          <label class="field-label">Postal Code</label>
+          <input pInputText formControlName="postalCode" placeholder="e.g. 54000" class="w-full" maxlength="15" />
+        </div>
+
+      </div>
+    </p-card>
+
+    <!-- SECTION 3: Contact Information -->
+    <p-card styleClass="mb-4">
+      <ng-template pTemplate="header">
+        <div class="card-section-header"><i class="pi pi-phone"></i> Contact Information</div>
+      </ng-template>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+
+        <div class="field">
+          <label class="field-label">Phone</label>
+          <input pInputText formControlName="phone" placeholder="+92 300 1234567" class="w-full" maxlength="25" />
+        </div>
+
+        <div class="field">
+          <label class="field-label">Fax</label>
+          <input pInputText formControlName="fax" placeholder="Fax number" class="w-full" maxlength="25" />
+        </div>
+
+        <div class="field">
+          <label class="field-label">Email</label>
+          <input pInputText formControlName="email" placeholder="info@company.com" class="w-full"
+                 maxlength="150" [class.ng-invalid]="f['email'].invalid && f['email'].touched" />
+          <small class="text-red-500" *ngIf="f['email'].invalid && f['email'].touched">Enter a valid email address.</small>
+        </div>
+
+        <div class="field">
+          <label class="field-label">Website</label>
+          <input pInputText formControlName="website" placeholder="https://company.com" class="w-full" maxlength="300" />
+        </div>
+
+      </div>
+    </p-card>
+
+    <!-- SECTION 4: Primary Contact Person -->
+    <p-card styleClass="mb-4">
+      <ng-template pTemplate="header">
+        <div class="card-section-header"><i class="pi pi-user"></i> Primary Contact Person</div>
+      </ng-template>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+
+        <div class="field">
+          <label class="field-label">Contact Name</label>
+          <input pInputText formControlName="primaryContactName" placeholder="Full name" class="w-full" maxlength="150" />
+        </div>
+
+        <div class="field">
+          <label class="field-label">Title / Position</label>
+          <input pInputText formControlName="primaryContactTitle" placeholder="e.g. Sales Manager" class="w-full" maxlength="100" />
+        </div>
+
+        <div class="field">
+          <label class="field-label">Contact Phone</label>
+          <input pInputText formControlName="primaryContactPhone" placeholder="+92 300 1234567" class="w-full" maxlength="25" />
+        </div>
+
+        <div class="field">
+          <label class="field-label">Contact Email</label>
+          <input pInputText formControlName="primaryContactEmail" placeholder="contact@company.com" class="w-full"
+                 maxlength="150" [class.ng-invalid]="f['primaryContactEmail'].invalid && f['primaryContactEmail'].touched" />
+          <small class="text-red-500" *ngIf="f['primaryContactEmail'].invalid && f['primaryContactEmail'].touched">Enter a valid email address.</small>
+        </div>
+
+      </div>
+    </p-card>
+
+    <!-- SECTION 5: Commercial Terms -->
+    <p-card styleClass="mb-4">
+      <ng-template pTemplate="header">
+        <div class="card-section-header"><i class="pi pi-dollar"></i> Commercial Terms</div>
+      </ng-template>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+
+        <div class="field">
+          <label class="field-label">Preferred Payment Terms</label>
+          <p-dropdown [options]="paymentTermsOptions" formControlName="preferredPaymentTerms"
+                      optionLabel="label" optionValue="value"
+                      placeholder="Select payment terms" [showClear]="true"
+                      styleClass="w-full">
+          </p-dropdown>
+        </div>
+
+        <div class="field">
+          <label class="field-label">Preferred Currency</label>
+          <p-dropdown [options]="currencyOptions" formControlName="preferredCurrency"
+                      optionLabel="label" optionValue="value"
+                      placeholder="Select currency" [filter]="true" filterBy="label"
+                      [showClear]="true" styleClass="w-full">
+          </p-dropdown>
+        </div>
+
+        <div class="field">
+          <label class="field-label">
+            Credit Limit
+            <span class="text-500 font-normal" *ngIf="selectedCurrencySymbol">
+              ({{ selectedCurrencySymbol }})
+            </span>
+          </label>
+          <p-inputnumber formControlName="creditLimit" placeholder="0.00"
+                         mode="decimal" [minFractionDigits]="2" [maxFractionDigits]="2"
+                         [min]="0" [max]="9999999999"
+                         [prefix]="selectedCurrencySymbol ? selectedCurrencySymbol + ' ' : ''"
+                         styleClass="w-full">
+          </p-inputnumber>
+        </div>
+
+        <div class="field">
+          <label class="field-label">Lead Time (days)</label>
+          <p-inputnumber formControlName="leadTimeDays" placeholder="e.g. 14"
+                         [min]="0" [max]="999" styleClass="w-full">
+          </p-inputnumber>
+        </div>
+
+      </div>
+    </p-card>
+
+    <!-- SECTION 6: Classification -->
+    <p-card styleClass="mb-4">
+      <ng-template pTemplate="header">
+        <div class="card-section-header"><i class="pi pi-tags"></i> Classification</div>
+      </ng-template>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+        <div class="field">
+          <label class="field-label">Supplier Types</label>
+          <p-multiselect [options]="supplierTypeOptions" formControlName="supplierTypeIds"
+                         optionLabel="label" optionValue="value"
+                         placeholder="Select supplier types"
+                         [filter]="true" filterBy="label"
+                         styleClass="w-full">
+          </p-multiselect>
+          <small class="text-gray-500">The first selected type is marked as primary.</small>
+        </div>
+
+        <div class="field">
+          <label class="field-label">Industry Categories</label>
+          <p-multiselect [options]="industryOptions" formControlName="industryIds"
+                         optionLabel="label" optionValue="value"
+                         placeholder="Select industries"
+                         [filter]="true" filterBy="label"
+                         styleClass="w-full">
+          </p-multiselect>
+          <small class="text-gray-500">The first selected industry is marked as primary.</small>
+        </div>
+
+      </div>
+    </p-card>
+
+    <!-- SECTION 7: Additional -->
+    <p-card styleClass="mb-4">
+      <ng-template pTemplate="header">
+        <div class="card-section-header"><i class="pi pi-file-edit"></i> Additional Information</div>
+      </ng-template>
+
+      <div class="grid grid-cols-1 gap-4">
+
+        <div class="field">
+          <label class="field-label">Notes</label>
+          <textarea pTextarea formControlName="notes" rows="3"
+                    placeholder="Internal notes about this supplier..." class="w-full" maxlength="1000"></textarea>
+        </div>
+
+        <div class="field flex items-center gap-2">
+          <p-checkbox formControlName="isPreferredSupplier" [binary]="true" inputId="preferred"></p-checkbox>
+          <label for="preferred" class="cursor-pointer">Mark as Preferred Supplier</label>
+        </div>
+
+      </div>
+    </p-card>
+
+    <!-- Actions -->
+    <div class="flex justify-end gap-3 mb-6">
+      <p-button label="Cancel" icon="pi pi-times" severity="secondary" type="button"
+                (onClick)="router.navigate(['/portal/pages/suppliers/supplier-list'])"></p-button>
+      <p-button label="Create Supplier" icon="pi pi-check" type="submit"
+                [loading]="isSubmitting" [disabled]="isLoadingLookups"></p-button>
+    </div>
+
+  </form>
+</div>
