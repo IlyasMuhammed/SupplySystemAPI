@@ -1,0 +1,1671 @@
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (16ms) [Parameters=[@__code_0='?' (Size = 100)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[Permissions] AS [p]
+              WHERE [p].[Code] = @__code_0) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (4ms) [Parameters=[@__code_0='?' (Size = 100)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[Permissions] AS [p]
+              WHERE [p].[Code] = @__code_0) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__code_0='?' (Size = 100)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[Permissions] AS [p]
+              WHERE [p].[Code] = @__code_0) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__code_0='?' (Size = 100)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[Permissions] AS [p]
+              WHERE [p].[Code] = @__code_0) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__code_0='?' (Size = 100)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[Permissions] AS [p]
+              WHERE [p].[Code] = @__code_0) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__code_0='?' (Size = 100)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[Permissions] AS [p]
+              WHERE [p].[Code] = @__code_0) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__code_0='?' (Size = 100)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[Permissions] AS [p]
+              WHERE [p].[Code] = @__code_0) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__code_0='?' (Size = 100)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[Permissions] AS [p]
+              WHERE [p].[Code] = @__code_0) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__code_0='?' (Size = 100)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[Permissions] AS [p]
+              WHERE [p].[Code] = @__code_0) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__code_0='?' (Size = 100)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[Permissions] AS [p]
+              WHERE [p].[Code] = @__code_0) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__code_0='?' (Size = 100)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[Permissions] AS [p]
+              WHERE [p].[Code] = @__code_0) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__code_0='?' (Size = 100)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[Permissions] AS [p]
+              WHERE [p].[Code] = @__code_0) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (2ms) [Parameters=[@__code_0='?' (Size = 100)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[Permissions] AS [p]
+              WHERE [p].[Code] = @__code_0) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__code_0='?' (Size = 100)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[Permissions] AS [p]
+              WHERE [p].[Code] = @__code_0) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__code_0='?' (Size = 100)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[Permissions] AS [p]
+              WHERE [p].[Code] = @__code_0) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__code_0='?' (Size = 100)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[Permissions] AS [p]
+              WHERE [p].[Code] = @__code_0) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__code_0='?' (Size = 100)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[Permissions] AS [p]
+              WHERE [p].[Code] = @__code_0) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__code_0='?' (Size = 100)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[Permissions] AS [p]
+              WHERE [p].[Code] = @__code_0) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__code_0='?' (Size = 100)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[Permissions] AS [p]
+              WHERE [p].[Code] = @__code_0) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__code_0='?' (Size = 100)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[Permissions] AS [p]
+              WHERE [p].[Code] = @__code_0) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__code_0='?' (Size = 100)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[Permissions] AS [p]
+              WHERE [p].[Code] = @__code_0) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__code_0='?' (Size = 100)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[Permissions] AS [p]
+              WHERE [p].[Code] = @__code_0) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__code_0='?' (Size = 100)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[Permissions] AS [p]
+              WHERE [p].[Code] = @__code_0) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__code_0='?' (Size = 100)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[Permissions] AS [p]
+              WHERE [p].[Code] = @__code_0) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__code_0='?' (Size = 100)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[Permissions] AS [p]
+              WHERE [p].[Code] = @__code_0) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__code_0='?' (Size = 100)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[Permissions] AS [p]
+              WHERE [p].[Code] = @__code_0) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__code_0='?' (Size = 100)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[Permissions] AS [p]
+              WHERE [p].[Code] = @__code_0) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__code_0='?' (Size = 100)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[Permissions] AS [p]
+              WHERE [p].[Code] = @__code_0) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__code_0='?' (Size = 100)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[Permissions] AS [p]
+              WHERE [p].[Code] = @__code_0) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__code_0='?' (Size = 100)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[Permissions] AS [p]
+              WHERE [p].[Code] = @__code_0) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__code_0='?' (Size = 100)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[Permissions] AS [p]
+              WHERE [p].[Code] = @__code_0) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__code_0='?' (Size = 100)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[Permissions] AS [p]
+              WHERE [p].[Code] = @__code_0) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__code_0='?' (Size = 100)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[Permissions] AS [p]
+              WHERE [p].[Code] = @__code_0) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__code_0='?' (Size = 100)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[Permissions] AS [p]
+              WHERE [p].[Code] = @__code_0) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__code_0='?' (Size = 100)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[Permissions] AS [p]
+              WHERE [p].[Code] = @__code_0) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__code_0='?' (Size = 100)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[Permissions] AS [p]
+              WHERE [p].[Code] = @__code_0) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__code_0='?' (Size = 100)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[Permissions] AS [p]
+              WHERE [p].[Code] = @__code_0) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__code_0='?' (Size = 100)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[Permissions] AS [p]
+              WHERE [p].[Code] = @__code_0) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__code_0='?' (Size = 100)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[Permissions] AS [p]
+              WHERE [p].[Code] = @__code_0) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__code_0='?' (Size = 100)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[Permissions] AS [p]
+              WHERE [p].[Code] = @__code_0) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (5ms) [Parameters=[@__code_0='?' (Size = 100)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[Permissions] AS [p]
+              WHERE [p].[Code] = @__code_0) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__code_0='?' (Size = 100)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[Permissions] AS [p]
+              WHERE [p].[Code] = @__code_0) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (35ms) [Parameters=[@p0='?' (Size = 100), @p1='?' (Size = 500), @p2='?' (Size = 100), @p3='?' (Size = 100), @p4='?' (Size = 500), @p5='?' (Size = 100), @p6='?' (Size = 100), @p7='?' (Size = 500), @p8='?' (Size = 100), @p9='?' (Size = 100), @p10='?' (Size = 500), @p11='?' (Size = 100), @p12='?' (Size = 100), @p13='?' (Size = 500), @p14='?' (Size = 100), @p15='?' (Size = 100), @p16='?' (Size = 500), @p17='?' (Size = 100), @p18='?' (Size = 100), @p19='?' (Size = 500), @p20='?' (Size = 100), @p21='?' (Size = 100), @p22='?' (Size = 500), @p23='?' (Size = 100), @p24='?' (Size = 100), @p25='?' (Size = 500), @p26='?' (Size = 100), @p27='?' (Size = 100), @p28='?' (Size = 500), @p29='?' (Size = 100), @p30='?' (Size = 100), @p31='?' (Size = 500), @p32='?' (Size = 100), @p33='?' (Size = 100), @p34='?' (Size = 500), @p35='?' (Size = 100), @p36='?' (Size = 100), @p37='?' (Size = 500), @p38='?' (Size = 100), @p39='?' (Size = 100), @p40='?' (Size = 500), @p41='?' (Size = 100), @p42='?' (Size = 100), @p43='?' (Size = 500), @p44='?' (Size = 100), @p45='?' (Size = 100), @p46='?' (Size = 500), @p47='?' (Size = 100), @p48='?' (Size = 100), @p49='?' (Size = 500), @p50='?' (Size = 100), @p51='?' (Size = 100), @p52='?' (Size = 500), @p53='?' (Size = 100), @p54='?' (Size = 100), @p55='?' (Size = 500), @p56='?' (Size = 100), @p57='?' (Size = 100), @p58='?' (Size = 500), @p59='?' (Size = 100), @p60='?' (Size = 100), @p61='?' (Size = 500), @p62='?' (Size = 100), @p63='?' (Size = 100), @p64='?' (Size = 500), @p65='?' (Size = 100), @p66='?' (Size = 100), @p67='?' (Size = 500), @p68='?' (Size = 100), @p69='?' (Size = 100), @p70='?' (Size = 500), @p71='?' (Size = 100), @p72='?' (Size = 100), @p73='?' (Size = 500), @p74='?' (Size = 100), @p75='?' (Size = 100), @p76='?' (Size = 500), @p77='?' (Size = 100), @p78='?' (Size = 100), @p79='?' (Size = 500), @p80='?' (Size = 100), @p81='?' (Size = 100), @p82='?' (Size = 500), @p83='?' (Size = 100), @p84='?' (Size = 100), @p85='?' (Size = 500), @p86='?' (Size = 100), @p87='?' (Size = 100), @p88='?' (Size = 500), @p89='?' (Size = 100), @p90='?' (Size = 100), @p91='?' (Size = 500), @p92='?' (Size = 100), @p93='?' (Size = 100), @p94='?' (Size = 500), @p95='?' (Size = 100), @p96='?' (Size = 100), @p97='?' (Size = 500), @p98='?' (Size = 100), @p99='?' (Size = 100), @p100='?' (Size = 500), @p101='?' (Size = 100), @p102='?' (Size = 100), @p103='?' (Size = 500), @p104='?' (Size = 100), @p105='?' (Size = 100), @p106='?' (Size = 500), @p107='?' (Size = 100), @p108='?' (Size = 100), @p109='?' (Size = 500), @p110='?' (Size = 100), @p111='?' (Size = 100), @p112='?' (Size = 500), @p113='?' (Size = 100), @p114='?' (Size = 100), @p115='?' (Size = 500), @p116='?' (Size = 100), @p117='?' (Size = 100), @p118='?' (Size = 500), @p119='?' (Size = 100), @p120='?' (Size = 100), @p121='?' (Size = 500), @p122='?' (Size = 100), @p123='?' (Size = 100), @p124='?' (Size = 500), @p125='?' (Size = 100)], CommandType='Text', CommandTimeout='30']
+      SET IMPLICIT_TRANSACTIONS OFF;
+      SET NOCOUNT ON;
+      MERGE [auth].[Permissions] USING (
+      VALUES (@p0, @p1, @p2, 0),
+      (@p3, @p4, @p5, 1),
+      (@p6, @p7, @p8, 2),
+      (@p9, @p10, @p11, 3),
+      (@p12, @p13, @p14, 4),
+      (@p15, @p16, @p17, 5),
+      (@p18, @p19, @p20, 6),
+      (@p21, @p22, @p23, 7),
+      (@p24, @p25, @p26, 8),
+      (@p27, @p28, @p29, 9),
+      (@p30, @p31, @p32, 10),
+      (@p33, @p34, @p35, 11),
+      (@p36, @p37, @p38, 12),
+      (@p39, @p40, @p41, 13),
+      (@p42, @p43, @p44, 14),
+      (@p45, @p46, @p47, 15),
+      (@p48, @p49, @p50, 16),
+      (@p51, @p52, @p53, 17),
+      (@p54, @p55, @p56, 18),
+      (@p57, @p58, @p59, 19),
+      (@p60, @p61, @p62, 20),
+      (@p63, @p64, @p65, 21),
+      (@p66, @p67, @p68, 22),
+      (@p69, @p70, @p71, 23),
+      (@p72, @p73, @p74, 24),
+      (@p75, @p76, @p77, 25),
+      (@p78, @p79, @p80, 26),
+      (@p81, @p82, @p83, 27),
+      (@p84, @p85, @p86, 28),
+      (@p87, @p88, @p89, 29),
+      (@p90, @p91, @p92, 30),
+      (@p93, @p94, @p95, 31),
+      (@p96, @p97, @p98, 32),
+      (@p99, @p100, @p101, 33),
+      (@p102, @p103, @p104, 34),
+      (@p105, @p106, @p107, 35),
+      (@p108, @p109, @p110, 36),
+      (@p111, @p112, @p113, 37),
+      (@p114, @p115, @p116, 38),
+      (@p117, @p118, @p119, 39),
+      (@p120, @p121, @p122, 40),
+      (@p123, @p124, @p125, 41)) AS i ([Code], [Description], [Name], _Position) ON 1=0
+      WHEN NOT MATCHED THEN
+      INSERT ([Code], [Description], [Name])
+      VALUES (i.[Code], i.[Description], i.[Name])
+      OUTPUT INSERTED.[PermissionID], i._Position;
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (4ms) [Parameters=[@__id_0='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[Roles] AS [r]
+              WHERE [r].[RoleID] = @__id_0) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__id_0='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[Roles] AS [r]
+              WHERE [r].[RoleID] = @__id_0) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__id_0='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[Roles] AS [r]
+              WHERE [r].[RoleID] = @__id_0) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__id_0='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[Roles] AS [r]
+              WHERE [r].[RoleID] = @__id_0) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__id_0='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[Roles] AS [r]
+              WHERE [r].[RoleID] = @__id_0) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__id_0='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[Roles] AS [r]
+              WHERE [r].[RoleID] = @__id_0) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__id_0='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[Roles] AS [r]
+              WHERE [r].[RoleID] = @__id_0) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (4ms) [Parameters=[@__id_0='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[Roles] AS [r]
+              WHERE [r].[RoleID] = @__id_0) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (8ms) [Parameters=[@p0='?' (DbType = Int32), @p1='?' (Size = 500), @p2='?' (Size = 100), @p3='?' (DbType = Int32), @p4='?' (Size = 500), @p5='?' (Size = 100), @p6='?' (DbType = Int32), @p7='?' (Size = 500), @p8='?' (Size = 100), @p9='?' (DbType = Int32), @p10='?' (Size = 500), @p11='?' (Size = 100), @p12='?' (DbType = Int32), @p13='?' (Size = 500), @p14='?' (Size = 100), @p15='?' (DbType = Int32), @p16='?' (Size = 500), @p17='?' (Size = 100), @p18='?' (DbType = Int32), @p19='?' (Size = 500), @p20='?' (Size = 100), @p21='?' (DbType = Int32), @p22='?' (Size = 500), @p23='?' (Size = 100)], CommandType='Text', CommandTimeout='30']
+      SET IMPLICIT_TRANSACTIONS OFF;
+      SET NOCOUNT ON;
+      INSERT INTO [auth].[Roles] ([RoleID], [Description], [Name])
+      VALUES (@p0, @p1, @p2),
+      (@p3, @p4, @p5),
+      (@p6, @p7, @p8),
+      (@p9, @p10, @p11),
+      (@p12, @p13, @p14),
+      (@p15, @p16, @p17),
+      (@p18, @p19, @p20),
+      (@p21, @p22, @p23);
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (2ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT [p].[PermissionID], [p].[Code], [p].[Description], [p].[Name]
+      FROM [auth].[Permissions] AS [p]
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (5ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (2ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (6ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (3ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (2ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (3ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (2ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (3ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (2ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (11ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (2ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__8__locals1_roleId_0='?' (DbType = Int32), @__permId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[RolePermissions] AS [r]
+              WHERE [r].[RoleID] = @__8__locals1_roleId_0 AND [r].[PermissionID] = @__permId_1) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (18ms) [Parameters=[@p0='?' (DbType = Boolean), @p1='?' (DbType = Int32), @p2='?' (DbType = Int32), @p3='?' (DbType = Boolean), @p4='?' (DbType = Int32), @p5='?' (DbType = Int32), @p6='?' (DbType = Boolean), @p7='?' (DbType = Int32), @p8='?' (DbType = Int32), @p9='?' (DbType = Boolean), @p10='?' (DbType = Int32), @p11='?' (DbType = Int32), @p12='?' (DbType = Boolean), @p13='?' (DbType = Int32), @p14='?' (DbType = Int32), @p15='?' (DbType = Boolean), @p16='?' (DbType = Int32), @p17='?' (DbType = Int32), @p18='?' (DbType = Boolean), @p19='?' (DbType = Int32), @p20='?' (DbType = Int32), @p21='?' (DbType = Boolean), @p22='?' (DbType = Int32), @p23='?' (DbType = Int32), @p24='?' (DbType = Boolean), @p25='?' (DbType = Int32), @p26='?' (DbType = Int32), @p27='?' (DbType = Boolean), @p28='?' (DbType = Int32), @p29='?' (DbType = Int32), @p30='?' (DbType = Boolean), @p31='?' (DbType = Int32), @p32='?' (DbType = Int32), @p33='?' (DbType = Boolean), @p34='?' (DbType = Int32), @p35='?' (DbType = Int32), @p36='?' (DbType = Boolean), @p37='?' (DbType = Int32), @p38='?' (DbType = Int32), @p39='?' (DbType = Boolean), @p40='?' (DbType = Int32), @p41='?' (DbType = Int32), @p42='?' (DbType = Boolean), @p43='?' (DbType = Int32), @p44='?' (DbType = Int32), @p45='?' (DbType = Boolean), @p46='?' (DbType = Int32), @p47='?' (DbType = Int32), @p48='?' (DbType = Boolean), @p49='?' (DbType = Int32), @p50='?' (DbType = Int32), @p51='?' (DbType = Boolean), @p52='?' (DbType = Int32), @p53='?' (DbType = Int32), @p54='?' (DbType = Boolean), @p55='?' (DbType = Int32), @p56='?' (DbType = Int32), @p57='?' (DbType = Boolean), @p58='?' (DbType = Int32), @p59='?' (DbType = Int32), @p60='?' (DbType = Boolean), @p61='?' (DbType = Int32), @p62='?' (DbType = Int32), @p63='?' (DbType = Boolean), @p64='?' (DbType = Int32), @p65='?' (DbType = Int32), @p66='?' (DbType = Boolean), @p67='?' (DbType = Int32), @p68='?' (DbType = Int32), @p69='?' (DbType = Boolean), @p70='?' (DbType = Int32), @p71='?' (DbType = Int32), @p72='?' (DbType = Boolean), @p73='?' (DbType = Int32), @p74='?' (DbType = Int32), @p75='?' (DbType = Boolean), @p76='?' (DbType = Int32), @p77='?' (DbType = Int32), @p78='?' (DbType = Boolean), @p79='?' (DbType = Int32), @p80='?' (DbType = Int32), @p81='?' (DbType = Boolean), @p82='?' (DbType = Int32), @p83='?' (DbType = Int32), @p84='?' (DbType = Boolean), @p85='?' (DbType = Int32), @p86='?' (DbType = Int32), @p87='?' (DbType = Boolean), @p88='?' (DbType = Int32), @p89='?' (DbType = Int32), @p90='?' (DbType = Boolean), @p91='?' (DbType = Int32), @p92='?' (DbType = Int32), @p93='?' (DbType = Boolean), @p94='?' (DbType = Int32), @p95='?' (DbType = Int32), @p96='?' (DbType = Boolean), @p97='?' (DbType = Int32), @p98='?' (DbType = Int32), @p99='?' (DbType = Boolean), @p100='?' (DbType = Int32), @p101='?' (DbType = Int32), @p102='?' (DbType = Boolean), @p103='?' (DbType = Int32), @p104='?' (DbType = Int32), @p105='?' (DbType = Boolean), @p106='?' (DbType = Int32), @p107='?' (DbType = Int32), @p108='?' (DbType = Boolean), @p109='?' (DbType = Int32), @p110='?' (DbType = Int32), @p111='?' (DbType = Boolean), @p112='?' (DbType = Int32), @p113='?' (DbType = Int32), @p114='?' (DbType = Boolean), @p115='?' (DbType = Int32), @p116='?' (DbType = Int32), @p117='?' (DbType = Boolean), @p118='?' (DbType = Int32), @p119='?' (DbType = Int32), @p120='?' (DbType = Boolean), @p121='?' (DbType = Int32), @p122='?' (DbType = Int32), @p123='?' (DbType = Boolean), @p124='?' (DbType = Int32), @p125='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SET IMPLICIT_TRANSACTIONS OFF;
+      SET NOCOUNT ON;
+      MERGE [auth].[RolePermissions] USING (
+      VALUES (@p0, @p1, @p2, 0),
+      (@p3, @p4, @p5, 1),
+      (@p6, @p7, @p8, 2),
+      (@p9, @p10, @p11, 3),
+      (@p12, @p13, @p14, 4),
+      (@p15, @p16, @p17, 5),
+      (@p18, @p19, @p20, 6),
+      (@p21, @p22, @p23, 7),
+      (@p24, @p25, @p26, 8),
+      (@p27, @p28, @p29, 9),
+      (@p30, @p31, @p32, 10),
+      (@p33, @p34, @p35, 11),
+      (@p36, @p37, @p38, 12),
+      (@p39, @p40, @p41, 13),
+      (@p42, @p43, @p44, 14),
+      (@p45, @p46, @p47, 15),
+      (@p48, @p49, @p50, 16),
+      (@p51, @p52, @p53, 17),
+      (@p54, @p55, @p56, 18),
+      (@p57, @p58, @p59, 19),
+      (@p60, @p61, @p62, 20),
+      (@p63, @p64, @p65, 21),
+      (@p66, @p67, @p68, 22),
+      (@p69, @p70, @p71, 23),
+      (@p72, @p73, @p74, 24),
+      (@p75, @p76, @p77, 25),
+      (@p78, @p79, @p80, 26),
+      (@p81, @p82, @p83, 27),
+      (@p84, @p85, @p86, 28),
+      (@p87, @p88, @p89, 29),
+      (@p90, @p91, @p92, 30),
+      (@p93, @p94, @p95, 31),
+      (@p96, @p97, @p98, 32),
+      (@p99, @p100, @p101, 33),
+      (@p102, @p103, @p104, 34),
+      (@p105, @p106, @p107, 35),
+      (@p108, @p109, @p110, 36),
+      (@p111, @p112, @p113, 37),
+      (@p114, @p115, @p116, 38),
+      (@p117, @p118, @p119, 39),
+      (@p120, @p121, @p122, 40),
+      (@p123, @p124, @p125, 41)) AS i ([IsAllowed], [PermissionID], [RoleID], _Position) ON 1=0
+      WHEN NOT MATCHED THEN
+      INSERT ([IsAllowed], [PermissionID], [RoleID])
+      VALUES (i.[IsAllowed], i.[PermissionID], i.[RoleID])
+      OUTPUT INSERTED.[RolePermissionID], i._Position;
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (2ms) [Parameters=[@p0='?' (DbType = Boolean), @p1='?' (DbType = Int32), @p2='?' (DbType = Int32), @p3='?' (DbType = Boolean), @p4='?' (DbType = Int32), @p5='?' (DbType = Int32), @p6='?' (DbType = Boolean), @p7='?' (DbType = Int32), @p8='?' (DbType = Int32), @p9='?' (DbType = Boolean), @p10='?' (DbType = Int32), @p11='?' (DbType = Int32), @p12='?' (DbType = Boolean), @p13='?' (DbType = Int32), @p14='?' (DbType = Int32), @p15='?' (DbType = Boolean), @p16='?' (DbType = Int32), @p17='?' (DbType = Int32), @p18='?' (DbType = Boolean), @p19='?' (DbType = Int32), @p20='?' (DbType = Int32), @p21='?' (DbType = Boolean), @p22='?' (DbType = Int32), @p23='?' (DbType = Int32), @p24='?' (DbType = Boolean), @p25='?' (DbType = Int32), @p26='?' (DbType = Int32), @p27='?' (DbType = Boolean), @p28='?' (DbType = Int32), @p29='?' (DbType = Int32), @p30='?' (DbType = Boolean), @p31='?' (DbType = Int32), @p32='?' (DbType = Int32), @p33='?' (DbType = Boolean), @p34='?' (DbType = Int32), @p35='?' (DbType = Int32), @p36='?' (DbType = Boolean), @p37='?' (DbType = Int32), @p38='?' (DbType = Int32), @p39='?' (DbType = Boolean), @p40='?' (DbType = Int32), @p41='?' (DbType = Int32), @p42='?' (DbType = Boolean), @p43='?' (DbType = Int32), @p44='?' (DbType = Int32), @p45='?' (DbType = Boolean), @p46='?' (DbType = Int32), @p47='?' (DbType = Int32), @p48='?' (DbType = Boolean), @p49='?' (DbType = Int32), @p50='?' (DbType = Int32), @p51='?' (DbType = Boolean), @p52='?' (DbType = Int32), @p53='?' (DbType = Int32), @p54='?' (DbType = Boolean), @p55='?' (DbType = Int32), @p56='?' (DbType = Int32), @p57='?' (DbType = Boolean), @p58='?' (DbType = Int32), @p59='?' (DbType = Int32), @p60='?' (DbType = Boolean), @p61='?' (DbType = Int32), @p62='?' (DbType = Int32), @p63='?' (DbType = Boolean), @p64='?' (DbType = Int32), @p65='?' (DbType = Int32), @p66='?' (DbType = Boolean), @p67='?' (DbType = Int32), @p68='?' (DbType = Int32), @p69='?' (DbType = Boolean), @p70='?' (DbType = Int32), @p71='?' (DbType = Int32), @p72='?' (DbType = Boolean), @p73='?' (DbType = Int32), @p74='?' (DbType = Int32), @p75='?' (DbType = Boolean), @p76='?' (DbType = Int32), @p77='?' (DbType = Int32), @p78='?' (DbType = Boolean), @p79='?' (DbType = Int32), @p80='?' (DbType = Int32), @p81='?' (DbType = Boolean), @p82='?' (DbType = Int32), @p83='?' (DbType = Int32), @p84='?' (DbType = Boolean), @p85='?' (DbType = Int32), @p86='?' (DbType = Int32), @p87='?' (DbType = Boolean), @p88='?' (DbType = Int32), @p89='?' (DbType = Int32), @p90='?' (DbType = Boolean), @p91='?' (DbType = Int32), @p92='?' (DbType = Int32), @p93='?' (DbType = Boolean), @p94='?' (DbType = Int32), @p95='?' (DbType = Int32), @p96='?' (DbType = Boolean), @p97='?' (DbType = Int32), @p98='?' (DbType = Int32), @p99='?' (DbType = Boolean), @p100='?' (DbType = Int32), @p101='?' (DbType = Int32), @p102='?' (DbType = Boolean), @p103='?' (DbType = Int32), @p104='?' (DbType = Int32), @p105='?' (DbType = Boolean), @p106='?' (DbType = Int32), @p107='?' (DbType = Int32), @p108='?' (DbType = Boolean), @p109='?' (DbType = Int32), @p110='?' (DbType = Int32), @p111='?' (DbType = Boolean), @p112='?' (DbType = Int32), @p113='?' (DbType = Int32), @p114='?' (DbType = Boolean), @p115='?' (DbType = Int32), @p116='?' (DbType = Int32), @p117='?' (DbType = Boolean), @p118='?' (DbType = Int32), @p119='?' (DbType = Int32), @p120='?' (DbType = Boolean), @p121='?' (DbType = Int32), @p122='?' (DbType = Int32), @p123='?' (DbType = Boolean), @p124='?' (DbType = Int32), @p125='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SET IMPLICIT_TRANSACTIONS OFF;
+      SET NOCOUNT ON;
+      MERGE [auth].[RolePermissions] USING (
+      VALUES (@p0, @p1, @p2, 0),
+      (@p3, @p4, @p5, 1),
+      (@p6, @p7, @p8, 2),
+      (@p9, @p10, @p11, 3),
+      (@p12, @p13, @p14, 4),
+      (@p15, @p16, @p17, 5),
+      (@p18, @p19, @p20, 6),
+      (@p21, @p22, @p23, 7),
+      (@p24, @p25, @p26, 8),
+      (@p27, @p28, @p29, 9),
+      (@p30, @p31, @p32, 10),
+      (@p33, @p34, @p35, 11),
+      (@p36, @p37, @p38, 12),
+      (@p39, @p40, @p41, 13),
+      (@p42, @p43, @p44, 14),
+      (@p45, @p46, @p47, 15),
+      (@p48, @p49, @p50, 16),
+      (@p51, @p52, @p53, 17),
+      (@p54, @p55, @p56, 18),
+      (@p57, @p58, @p59, 19),
+      (@p60, @p61, @p62, 20),
+      (@p63, @p64, @p65, 21),
+      (@p66, @p67, @p68, 22),
+      (@p69, @p70, @p71, 23),
+      (@p72, @p73, @p74, 24),
+      (@p75, @p76, @p77, 25),
+      (@p78, @p79, @p80, 26),
+      (@p81, @p82, @p83, 27),
+      (@p84, @p85, @p86, 28),
+      (@p87, @p88, @p89, 29),
+      (@p90, @p91, @p92, 30),
+      (@p93, @p94, @p95, 31),
+      (@p96, @p97, @p98, 32),
+      (@p99, @p100, @p101, 33),
+      (@p102, @p103, @p104, 34),
+      (@p105, @p106, @p107, 35),
+      (@p108, @p109, @p110, 36),
+      (@p111, @p112, @p113, 37),
+      (@p114, @p115, @p116, 38),
+      (@p117, @p118, @p119, 39),
+      (@p120, @p121, @p122, 40),
+      (@p123, @p124, @p125, 41)) AS i ([IsAllowed], [PermissionID], [RoleID], _Position) ON 1=0
+      WHEN NOT MATCHED THEN
+      INSERT ([IsAllowed], [PermissionID], [RoleID])
+      VALUES (i.[IsAllowed], i.[PermissionID], i.[RoleID])
+      OUTPUT INSERTED.[RolePermissionID], i._Position;
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (10ms) [Parameters=[@p0='?' (DbType = Boolean), @p1='?' (DbType = Int32), @p2='?' (DbType = Int32), @p3='?' (DbType = Boolean), @p4='?' (DbType = Int32), @p5='?' (DbType = Int32), @p6='?' (DbType = Boolean), @p7='?' (DbType = Int32), @p8='?' (DbType = Int32), @p9='?' (DbType = Boolean), @p10='?' (DbType = Int32), @p11='?' (DbType = Int32), @p12='?' (DbType = Boolean), @p13='?' (DbType = Int32), @p14='?' (DbType = Int32), @p15='?' (DbType = Boolean), @p16='?' (DbType = Int32), @p17='?' (DbType = Int32), @p18='?' (DbType = Boolean), @p19='?' (DbType = Int32), @p20='?' (DbType = Int32), @p21='?' (DbType = Boolean), @p22='?' (DbType = Int32), @p23='?' (DbType = Int32), @p24='?' (DbType = Boolean), @p25='?' (DbType = Int32), @p26='?' (DbType = Int32), @p27='?' (DbType = Boolean), @p28='?' (DbType = Int32), @p29='?' (DbType = Int32), @p30='?' (DbType = Boolean), @p31='?' (DbType = Int32), @p32='?' (DbType = Int32), @p33='?' (DbType = Boolean), @p34='?' (DbType = Int32), @p35='?' (DbType = Int32), @p36='?' (DbType = Boolean), @p37='?' (DbType = Int32), @p38='?' (DbType = Int32), @p39='?' (DbType = Boolean), @p40='?' (DbType = Int32), @p41='?' (DbType = Int32), @p42='?' (DbType = Boolean), @p43='?' (DbType = Int32), @p44='?' (DbType = Int32), @p45='?' (DbType = Boolean), @p46='?' (DbType = Int32), @p47='?' (DbType = Int32), @p48='?' (DbType = Boolean), @p49='?' (DbType = Int32), @p50='?' (DbType = Int32), @p51='?' (DbType = Boolean), @p52='?' (DbType = Int32), @p53='?' (DbType = Int32), @p54='?' (DbType = Boolean), @p55='?' (DbType = Int32), @p56='?' (DbType = Int32), @p57='?' (DbType = Boolean), @p58='?' (DbType = Int32), @p59='?' (DbType = Int32), @p60='?' (DbType = Boolean), @p61='?' (DbType = Int32), @p62='?' (DbType = Int32), @p63='?' (DbType = Boolean), @p64='?' (DbType = Int32), @p65='?' (DbType = Int32), @p66='?' (DbType = Boolean), @p67='?' (DbType = Int32), @p68='?' (DbType = Int32), @p69='?' (DbType = Boolean), @p70='?' (DbType = Int32), @p71='?' (DbType = Int32), @p72='?' (DbType = Boolean), @p73='?' (DbType = Int32), @p74='?' (DbType = Int32), @p75='?' (DbType = Boolean), @p76='?' (DbType = Int32), @p77='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SET IMPLICIT_TRANSACTIONS OFF;
+      SET NOCOUNT ON;
+      MERGE [auth].[RolePermissions] USING (
+      VALUES (@p0, @p1, @p2, 0),
+      (@p3, @p4, @p5, 1),
+      (@p6, @p7, @p8, 2),
+      (@p9, @p10, @p11, 3),
+      (@p12, @p13, @p14, 4),
+      (@p15, @p16, @p17, 5),
+      (@p18, @p19, @p20, 6),
+      (@p21, @p22, @p23, 7),
+      (@p24, @p25, @p26, 8),
+      (@p27, @p28, @p29, 9),
+      (@p30, @p31, @p32, 10),
+      (@p33, @p34, @p35, 11),
+      (@p36, @p37, @p38, 12),
+      (@p39, @p40, @p41, 13),
+      (@p42, @p43, @p44, 14),
+      (@p45, @p46, @p47, 15),
+      (@p48, @p49, @p50, 16),
+      (@p51, @p52, @p53, 17),
+      (@p54, @p55, @p56, 18),
+      (@p57, @p58, @p59, 19),
+      (@p60, @p61, @p62, 20),
+      (@p63, @p64, @p65, 21),
+      (@p66, @p67, @p68, 22),
+      (@p69, @p70, @p71, 23),
+      (@p72, @p73, @p74, 24),
+      (@p75, @p76, @p77, 25)) AS i ([IsAllowed], [PermissionID], [RoleID], _Position) ON 1=0
+      WHEN NOT MATCHED THEN
+      INSERT ([IsAllowed], [PermissionID], [RoleID])
+      VALUES (i.[IsAllowed], i.[PermissionID], i.[RoleID])
+      OUTPUT INSERTED.[RolePermissionID], i._Position;
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (5ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [auth].[UserAccounts] AS [u]
+              WHERE [u].[Email] = N'admin@sms.local') THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (7ms) [Parameters=[@p0='?' (Size = 256), @p1='?' (DbType = DateTime2), @p2='?' (Size = 500), @p3='?' (DbType = Int32), @p4='?' (DbType = DateTime2), @p5='?' (Size = 100), @p6='?' (Size = 256), @p7='?' (Size = 100), @p8='?' (DbType = Boolean), @p9='?' (DbType = Boolean), @p10='?' (DbType = DateTime2), @p11='?' (DbType = DateTime2), @p12='?' (Size = 100), @p13='?' (DbType = DateTime2), @p14='?' (Size = 100), @p15='?' (Size = 512), @p16='?' (Size = 50), @p17='?' (DbType = DateTime2), @p18='?' (DbType = Int32), @p19='?' (Size = 30), @p20='?' (DbType = Int32), @p21='?' (DbType = DateTime2), @p22='?' (Size = 20)], CommandType='Text', CommandTimeout='30']
+      SET IMPLICIT_TRANSACTIONS OFF;
+      SET NOCOUNT ON;
+      INSERT INTO [auth].[UserAccounts] ([AccountActivationToken], [AccountActivationTokenTime], [Address], [CreatedBy], [CreatedDate], [Department], [Email], [FirstName], [IsActive], [IsDelete], [LastFailedAt], [LastLoginAt], [LastName], [LockedUntil], [MiddleName], [Password], [PasswordResetToken], [PasswordResetTokenTime], [PaymentMethod], [Phone], [RoleID], [UpdateDate], [ZipCode])
+      OUTPUT INSERTED.[UserID], INSERTED.[FailedLoginAttempts]
+      VALUES (@p0, @p1, @p2, @p3, @p4, @p5, @p6, @p7, @p8, @p9, @p10, @p11, @p12, @p13, @p14, @p15, @p16, @p17, @p18, @p19, @p20, @p21, @p22);
+warn: Microsoft.AspNetCore.StaticFiles.StaticFileMiddleware[16]
+      The WebRootPath was not found: D:\Supply System\SupplyChain-master\SupplyChain-master\src\SMS.API\wwwroot. Static files may be unavailable.
+info: Microsoft.Hosting.Lifetime[14]
+      Now listening on: http://localhost:5000
+info: Microsoft.Hosting.Lifetime[0]
+      Application started. Press Ctrl+C to shut down.
+info: Microsoft.Hosting.Lifetime[0]
+      Hosting environment: Production
+info: Microsoft.Hosting.Lifetime[0]
+      Content root path: D:\Supply System\SupplyChain-master\SupplyChain-master\src\SMS.API

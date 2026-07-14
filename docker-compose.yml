@@ -1,0 +1,127 @@
+version: '3.9'
+
+services:
+
+  # ── SQL Server 2022 ────────────────────────────────────────────────────────
+  sms-db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: sms-db
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=${SQL_SA_PASSWORD:-YourStrong@Passw0rd}
+      - MSSQL_PID=Developer
+    ports:
+      - "1433:1433"
+    volumes:
+      - sms-db-data:/var/opt/mssql
+    networks:
+      - sms-net
+    restart: unless-stopped
+
+  # ── MinIO (Azure Blob local replacement) ─────────────────────────────────
+  sms-minio:
+    image: minio/minio
+    container_name: sms-minio
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ACCESS_KEY:-minioadmin}
+      - MINIO_ROOT_PASSWORD=${MINIO_SECRET_KEY:-minioadmin}
+    volumes:
+      - sms-minio-data:/data
+    networks:
+      - sms-net
+    restart: unless-stopped
+
+  # ── SMS.API (ASP.NET Core 8 Modular Monolith) ────────────────────────────
+  sms-api:
+    build:
+      context: .
+      dockerfile: src/SMS.API/Dockerfile
+    container_name: sms-api
+    ports:
+      - "5000:80"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - Data__mainOrg=Server=sms-db;Database=SMS_Prod;User Id=sa;Password=${SQL_SA_PASSWORD:-YourStrong@Passw0rd};TrustServerCertificate=True;
+      - AppSettings__Secret=${JWT_SECRET}
+      - AppSettings__AppSupportEmail=${APP_SUPPORT_EMAIL}
+      - AppSettings__BaseUrl=${BASE_URL:-http://localhost}
+      - AppSettings__SendGridApiKey=${SENDGRID_API_KEY}
+      - AppSettings__AzureBlobConnectionString=http://sms-minio:9000
+      - AppSettings__AzureBlobContainerName=sms-files
+    depends_on:
+      - sms-db
+    networks:
+      - sms-net
+    restart: unless-stopped
+
+  # ── SMS.Notifications (C# Worker — Hangfire + SendGrid) ─────────────────
+  sms-notifications:
+    build:
+      context: .
+      dockerfile: src/SMS.Notifications/Dockerfile
+    container_name: sms-notifications
+    environment:
+      - Data__mainOrg=Server=sms-db;Database=SMS_Prod;User Id=sa;Password=${SQL_SA_PASSWORD:-YourStrong@Passw0rd};TrustServerCertificate=True;
+      - SendGrid__ApiKey=${SENDGRID_API_KEY}
+      - SendGrid__FromEmail=${APP_SUPPORT_EMAIL}
+      - SendGrid__FromName=SMS System
+    depends_on:
+      - sms-db
+    networks:
+      - sms-net
+    restart: unless-stopped
+
+  # ── SMS.FileStore (C# Web API — Azure Blob / MinIO) ─────────────────────
+  sms-filestore:
+    build:
+      context: .
+      dockerfile: src/SMS.FileStore/Dockerfile
+    container_name: sms-filestore
+    ports:
+      - "5002:80"
+    environment:
+      - AppSettings__Secret=${JWT_SECRET}
+      - AzureBlob__ConnectionString=http://sms-minio:9000
+      - AzureBlob__ContainerName=sms-files
+    depends_on:
+      - sms-minio
+    networks:
+      - sms-net
+    restart: unless-stopped
+
+  # ── Nginx API Gateway ─────────────────────────────────────────────────────
+  sms-gateway:
+    build: ./nginx
+    container_name: sms-gateway
+    ports:
+      - "80:80"
+    depends_on:
+      - sms-api
+      - sms-filestore
+    networks:
+      - sms-net
+    restart: unless-stopped
+
+  # ── Frontend (React + Vite SPA) ───────────────────────────────────────────
+  sms-frontend:
+    build: ./frontend
+    container_name: sms-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - sms-gateway
+    networks:
+      - sms-net
+    restart: unless-stopped
+
+volumes:
+  sms-db-data:
+  sms-minio-data:
+
+networks:
+  sms-net:
+    driver: bridge
