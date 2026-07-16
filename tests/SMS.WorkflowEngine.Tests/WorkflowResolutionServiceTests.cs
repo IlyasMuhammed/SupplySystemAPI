@@ -67,7 +67,7 @@ public class WorkflowResolutionService_ConditionalRouting
     {
         var db        = DbFactory.Create(seed);
         var approvers = new Mock<IApproverResolutionService>();
-        approvers.Setup(a => a.ResolveApproversAsync(It.IsAny<Domain.WorkflowStep>(), It.IsAny<int>()))
+        approvers.Setup(a => a.ResolveApproversAsync(It.IsAny<Domain.WorkflowStep>(), It.IsAny<int>(), It.IsAny<IReadOnlyDictionary<string, int>?>()))
                  .ReturnsAsync((IReadOnlyList<ResolvedApprover>)[new ResolvedApprover(Fake.User1, "Alice")]);
         return (new WorkflowResolutionService(db, approvers.Object), approvers);
     }
@@ -189,7 +189,7 @@ public class WorkflowResolutionService_SkipCondition
     {
         var db        = DbFactory.Create(seed);
         var approvers = new Mock<IApproverResolutionService>();
-        approvers.Setup(a => a.ResolveApproversAsync(It.IsAny<Domain.WorkflowStep>(), It.IsAny<int>()))
+        approvers.Setup(expression: a => a.ResolveApproversAsync(It.IsAny<Domain.WorkflowStep>(), It.IsAny<int>(), It.IsAny<IReadOnlyDictionary<string, int>?>()))
                  .ReturnsAsync((IReadOnlyList<ResolvedApprover>)[new ResolvedApprover(Fake.User1, "Alice")]);
         return new WorkflowResolutionService(db, approvers.Object);
     }
@@ -289,7 +289,7 @@ public class WorkflowResolutionService_SkipCondition
         });
 
         approvers.Verify(
-            a => a.ResolveApproversAsync(It.IsAny<Domain.WorkflowStep>(), It.IsAny<int>()),
+            a => a.ResolveApproversAsync(It.IsAny<Domain.WorkflowStep>(), It.IsAny<int>(), It.IsAny<IReadOnlyDictionary<string, int>?>()),
             Times.Never);
     }
 
