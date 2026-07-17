@@ -55,6 +55,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SMS.Modules.Material", "src
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SMS.Modules.Notifications", "src\SMS.Modules.Notifications\SMS.Modules.Notifications.csproj", "{97B7F86D-AC79-429E-A874-CDDFC1B00932}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SMS.Modules.Material.Tests", "tests\SMS.Modules.Material.Tests\SMS.Modules.Material.Tests.csproj", "{62670326-1700-4972-92DD-914D60336869}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -353,6 +355,18 @@ Global
 		{97B7F86D-AC79-429E-A874-CDDFC1B00932}.Release|x64.Build.0 = Release|Any CPU
 		{97B7F86D-AC79-429E-A874-CDDFC1B00932}.Release|x86.ActiveCfg = Release|Any CPU
 		{97B7F86D-AC79-429E-A874-CDDFC1B00932}.Release|x86.Build.0 = Release|Any CPU
+		{62670326-1700-4972-92DD-914D60336869}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{62670326-1700-4972-92DD-914D60336869}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{62670326-1700-4972-92DD-914D60336869}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{62670326-1700-4972-92DD-914D60336869}.Debug|x64.Build.0 = Debug|Any CPU
+		{62670326-1700-4972-92DD-914D60336869}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{62670326-1700-4972-92DD-914D60336869}.Debug|x86.Build.0 = Debug|Any CPU
+		{62670326-1700-4972-92DD-914D60336869}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{62670326-1700-4972-92DD-914D60336869}.Release|Any CPU.Build.0 = Release|Any CPU
+		{62670326-1700-4972-92DD-914D60336869}.Release|x64.ActiveCfg = Release|Any CPU
+		{62670326-1700-4972-92DD-914D60336869}.Release|x64.Build.0 = Release|Any CPU
+		{62670326-1700-4972-92DD-914D60336869}.Release|x86.ActiveCfg = Release|Any CPU
+		{62670326-1700-4972-92DD-914D60336869}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -382,5 +396,6 @@ Global
 		{BB25A084-F6A1-42A0-BC16-8AE5C793C2CD} = {F0000002-0000-0000-0000-000000000002}
 		{37D1A2BC-1FE4-4688-9D6C-6B5099BD3920} = {F0000001-0000-0000-0000-000000000001}
 		{97B7F86D-AC79-429E-A874-CDDFC1B00932} = {F0000001-0000-0000-0000-000000000001}
+		{62670326-1700-4972-92DD-914D60336869} = {F0000002-0000-0000-0000-000000000002}
 	EndGlobalSection
 EndGlobal

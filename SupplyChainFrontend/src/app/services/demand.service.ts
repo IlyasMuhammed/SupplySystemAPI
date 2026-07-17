@@ -105,6 +105,7 @@ export interface PrLineModel {
   lineStatus?: string;
   requiredDate?: string;
   lineNotes?: string;
+  disbursedQty: number;
 }
 
 export interface LinkedAwardedQuotationInfo {

@@ -92,6 +92,35 @@
 
 .qty-hint { font-size: .75rem; color: #0d9488; font-weight: 500; margin-top: .25rem; }
 
+.pr-link-section { margin-top: .6rem; }
+
+.pr-fetch-row {
+  display: flex; flex-direction: column; align-items: flex-start; gap: .5rem;
+  .pr-dropdown { width: 100%; }
+}
+
+.pr-link-badge {
+  display: flex; align-items: center; gap: .5rem;
+  .pr-badge {
+    display: inline-flex; align-items: center; gap: .35rem;
+    background: rgba(13,148,136,.1); color: #0d9488; border: 1px solid rgba(13,148,136,.3);
+    border-radius: 6px; padding: .3rem .6rem; font-size: .8rem; font-weight: 600;
+  }
+}
+
+.pr-clear-btn {
+  background: none; border: 1px solid var(--surface-border); border-radius: 6px;
+  width: 26px; height: 26px; cursor: pointer; color: var(--text-color-secondary);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  transition: all .2s;
+  &:hover { border-color: #ef4444; color: #ef4444; }
+}
+
+.pr-no-results {
+  font-size: .8rem; color: var(--text-color-secondary);
+  display: flex; align-items: center; gap: .4rem; padding: .3rem 0;
+}
+
 .est-value {
   height: 42px; display: flex; align-items: center;
   font-size: .95rem; font-weight: 600; color: #0d9488;

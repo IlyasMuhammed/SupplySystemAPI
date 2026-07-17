@@ -131,6 +131,19 @@ public class CreateGrn_SentPo_Tests
         var grn = await wh.Grns.FirstAsync(g => g.UUID == grnUuid);
         grn.GrnNumber.Should().MatchRegex(@"^GRN-\d{4}-\d{5}$");
     }
+
+    [Fact]
+    public async Task GRN_Inherits_TraceId_From_PO()
+    {
+        var sentPo = GrnBuild.SentPo();
+        sentPo.TraceId = Guid.NewGuid();
+        var (repo, wh, _) = GrnBuild.New(db => db.PurchaseOrders.Add(sentPo));
+
+        var grnUuid = await repo.CreateAsync(GrnBuild.GrnReq(sentPo.UUID), createdBy: 1);
+
+        var grn = await wh.Grns.FirstAsync(g => g.UUID == grnUuid);
+        grn.TraceId.Should().Be(sentPo.TraceId);
+    }
 }
 
 // ── WAR-001-TC-3: Over-receipt tolerance → 400 ───────────────────────────────

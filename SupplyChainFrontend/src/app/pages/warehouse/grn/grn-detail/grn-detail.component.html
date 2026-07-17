@@ -75,6 +75,9 @@
                   severity="danger"
                   pTooltip="Reject and create supplier return order"
                   (onClick)="openRejectDialog()"></p-button>
+
+        <p-button icon="pi pi-history" [text]="true" severity="secondary"
+                  pTooltip="View Timeline" (onClick)="showTimeline = true"></p-button>
       </div>
     </div>
 
@@ -712,5 +715,8 @@
                 (onClick)="confirmReject()"></p-button>
     </ng-template>
   </p-dialog>
+
+  <!-- ── Timeline panel (TL-010) ────────────────────────────────────────────── -->
+  <app-timeline-panel [(visible)]="showTimeline" [documentId]="uuid" interfaceCode="GRN"></app-timeline-panel>
 
 </div>

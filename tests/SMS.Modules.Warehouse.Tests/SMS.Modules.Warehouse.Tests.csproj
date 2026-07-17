@@ -17,12 +17,14 @@
     </PackageReference>
     <PackageReference Include="FluentAssertions" Version="6.12.2" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="9.0.2" />
+    <PackageReference Include="Moq" Version="4.20.72" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\SMS.Modules.Warehouse\SMS.Modules.Warehouse.csproj" />
     <ProjectReference Include="..\..\src\SMS.Modules.Demand\SMS.Modules.Demand.csproj" />
     <ProjectReference Include="..\..\src\SMS.Modules.Inventory\SMS.Modules.Inventory.csproj" />
+    <ProjectReference Include="..\..\src\SMS.WorkflowEngine\SMS.WorkflowEngine.csproj" />
     <ProjectReference Include="..\..\src\SMS.Shared\SMS.Shared.csproj" />
   </ItemGroup>
 

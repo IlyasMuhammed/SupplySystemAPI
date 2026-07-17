@@ -22,6 +22,7 @@ import {
 import { InventoryService, WarehouseModel } from '../../../../services/inventory.service';
 import { ReportsService, AuditLogItemModel } from '../../../../services/reports.service';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
+import { TimelinePanelComponent } from '../../../../shared/timeline-panel/timeline-panel.component';
 
 export interface InspectionRowState {
   lineUuid: string;
@@ -41,7 +42,8 @@ export interface InspectionRowState {
     CommonModule, RouterModule, FormsModule, ReactiveFormsModule,
     ButtonModule, TagModule, ToastModule, TableModule, DialogModule,
     InputTextModule, InputNumberModule, ToggleButtonModule,
-    TextareaModule, TooltipModule, DropdownModule, CalendarModule, ConfirmDialogModule, ProgressSpinnerModule
+    TextareaModule, TooltipModule, DropdownModule, CalendarModule, ConfirmDialogModule, ProgressSpinnerModule,
+    TimelinePanelComponent
   ],
   templateUrl: './grn-detail.component.html',
   styleUrls: ['./grn-detail.component.scss'],
@@ -49,6 +51,7 @@ export interface InspectionRowState {
 })
 export class GrnDetailComponent implements OnInit {
   uuid = '';
+  showTimeline = false;
   grn: GrnDetailModel | null = null;
   isLoading = true;
   warehouses: WarehouseModel[] = [];

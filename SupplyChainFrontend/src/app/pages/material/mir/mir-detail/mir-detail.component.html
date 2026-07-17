@@ -175,6 +175,38 @@
                 </div>
               </ng-container>
             </div>
+
+            <!-- Link to Purchase Requisition — shown after product is selected -->
+            <div class="pr-link-section" *ngIf="line.productUuid">
+              <label class="edit-sub-label">Link to Purchase Requisition (optional)</label>
+
+              <div class="pr-link-badge" *ngIf="line.prLineId">
+                <span class="pr-badge"><i class="pi pi-link"></i> {{ line.prLineLabel ?? 'Linked PR' }}</span>
+                <button type="button" class="pr-clear-btn" (click)="clearEditPrLine(i)" title="Clear PR link">
+                  <i class="pi pi-times"></i>
+                </button>
+              </div>
+
+              <div class="pr-fetch-row" *ngIf="!line.prLineId">
+                <p-button label="Fetch" icon="pi pi-search" [outlined]="true" size="small"
+                          [loading]="line.isFetchingPr"
+                          (onClick)="fetchEditPrLines(i)"></p-button>
+
+                <p-dropdown *ngIf="line.showPrResults && line.prSearchResults.length > 0"
+                            [options]="line.prSearchResults"
+                            optionLabel="prNumber"
+                            placeholder="Select a matching PR line..."
+                            styleClass="w-full pr-dropdown"
+                            (onChange)="selectEditPrLine(i, $event.value)">
+                  <ng-template let-pr pTemplate="item">{{ getPrLineOptionLabel(pr) }}</ng-template>
+                </p-dropdown>
+
+                <div class="pr-no-results" *ngIf="line.showPrResults && line.prFetchAttempted && line.prSearchResults.length === 0">
+                  <i class="pi pi-info-circle"></i>
+                  No approved PRs with remaining undisbursed quantity found for this product
+                </div>
+              </div>
+            </div>
           </div>
 
           <div class="edit-field">
@@ -240,6 +272,9 @@
         <p-button label="Cancel" icon="pi pi-ban" severity="danger" [outlined]="true"
                   *ngIf="mir.status === 'DRAFT' || mir.status === 'PENDING_APPROVAL' || mir.status === 'APPROVED' || mir.status === 'PARTIALLY_APPROVED'"
                   [loading]="actionBusy" (onClick)="cancel()"></p-button>
+
+        <p-button icon="pi pi-history" [text]="true" severity="secondary"
+                  pTooltip="View Timeline" (onClick)="showTimeline = true"></p-button>
       </div>
     </div>
 
@@ -377,4 +412,7 @@
       </p-table>
     </div>
   </ng-container>
+
+  <!-- ── Timeline panel (TL-010) ────────────────────────────────────────────── -->
+  <app-timeline-panel [(visible)]="showTimeline" [documentId]="uuid" interfaceCode="MIR_GENERAL"></app-timeline-panel>
 </div>

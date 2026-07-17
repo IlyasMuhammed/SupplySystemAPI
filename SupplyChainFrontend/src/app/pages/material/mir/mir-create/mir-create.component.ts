@@ -12,7 +12,7 @@ import { ToastModule } from 'primeng/toast';
 import { DividerModule } from 'primeng/divider';
 import { MessageService } from 'primeng/api';
 import { forkJoin } from 'rxjs';
-import { MaterialService, CreateMirRequest } from '../../../../services/material.service';
+import { MaterialService, CreateMirRequest, PrLineSearchResult } from '../../../../services/material.service';
 import { InventoryService, ProductStockModel } from '../../../../services/inventory.service';
 
 interface MirLine {
@@ -24,6 +24,12 @@ interface MirLine {
   selectedWarehouseId: number | null;
   maxQty: number | null;
   isLoadingStock: boolean;
+  prLineId: string | null;
+  prLineLabel: string | null;
+  prSearchResults: PrLineSearchResult[];
+  showPrResults: boolean;
+  isFetchingPr: boolean;
+  prFetchAttempted: boolean;
 }
 
 @Component({
@@ -57,9 +63,7 @@ export class MirCreateComponent implements OnInit {
   purpose        = '';
   notes          = '';
 
-  lines: MirLine[] = [
-    { productUuid: '', requestedQty: 1, purpose: '', notes: '', stockItems: [], selectedWarehouseId: null, maxQty: null, isLoadingStock: false }
-  ];
+  lines: MirLine[] = [ this.newLine() ];
 
   typeOptions = [
     { label: 'Project',     value: 'PROJECT' },
@@ -111,8 +115,17 @@ export class MirCreateComponent implements OnInit {
     });
   }
 
+  newLine(): MirLine {
+    return {
+      productUuid: '', requestedQty: 1, purpose: '', notes: '',
+      stockItems: [], selectedWarehouseId: null, maxQty: null, isLoadingStock: false,
+      prLineId: null, prLineLabel: null, prSearchResults: [], showPrResults: false,
+      isFetchingPr: false, prFetchAttempted: false
+    };
+  }
+
   addLine() {
-    this.lines.push({ productUuid: '', requestedQty: 1, purpose: '', notes: '', stockItems: [], selectedWarehouseId: null, maxQty: null, isLoadingStock: false });
+    this.lines.push(this.newLine());
   }
 
   removeLine(i: number) {
@@ -124,6 +137,7 @@ export class MirCreateComponent implements OnInit {
     line.stockItems = [];
     line.selectedWarehouseId = null;
     line.maxQty = null;
+    this.clearPrLine(i);
 
     const productId = this._productIdByUuid.get(uuid);
     if (!productId) return;
@@ -138,6 +152,52 @@ export class MirCreateComponent implements OnInit {
       },
       error: () => { line.isLoadingStock = false; }
     });
+  }
+
+  // ── Link to Purchase Requisition (Fetch button) ─────────────────────────────
+
+  fetchPrLines(i: number) {
+    const line = this.lines[i];
+    if (!line.productUuid) return;
+
+    line.isFetchingPr = true;
+    line.prFetchAttempted = false;
+    line.showPrResults = false;
+    this.materialService.searchPrLines(line.productUuid, 'APPROVED').subscribe({
+      next: (res) => {
+        line.isFetchingPr = false;
+        line.prFetchAttempted = true;
+        line.prSearchResults = res.success && res.result ? res.result : [];
+        line.showPrResults = true;
+      },
+      error: () => {
+        line.isFetchingPr = false;
+        line.prFetchAttempted = true;
+        line.prSearchResults = [];
+        line.showPrResults = true;
+        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to search purchase requisitions.' });
+      }
+    });
+  }
+
+  getPrLineOptionLabel(r: PrLineSearchResult): string {
+    return `${r.prNumber} — ${r.prTitle} — ${r.lineDescription} — Requested: ${r.requestedQty} — Remaining: ${r.remainingUndisbursedQty}`;
+  }
+
+  selectPrLine(i: number, result: PrLineSearchResult) {
+    const line = this.lines[i];
+    line.prLineId    = result.prLineId;
+    line.prLineLabel = result.prNumber;
+    line.showPrResults = false;
+  }
+
+  clearPrLine(i: number) {
+    const line = this.lines[i];
+    line.prLineId    = null;
+    line.prLineLabel = null;
+    line.prSearchResults = [];
+    line.showPrResults = false;
+    line.prFetchAttempted = false;
   }
 
   onWarehouseChange(i: number, warehouseId: number) {
@@ -199,7 +259,8 @@ export class MirCreateComponent implements OnInit {
         requestedQty: l.requestedQty,
         warehouseId:  l.selectedWarehouseId ?? undefined,
         purpose:      l.purpose  || undefined,
-        notes:        l.notes    || undefined
+        notes:        l.notes    || undefined,
+        prLineId:     l.prLineId ?? undefined
       }))
     };
 

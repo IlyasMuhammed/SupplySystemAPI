@@ -75,6 +75,29 @@ public class CreateAsync_Tests
         var uuid = await repo.CreateAsync(Build.DraftRequest(), createdBy: 1);
         uuid.Should().NotBeEmpty();
     }
+
+    [Fact]
+    public async Task Creates_PR_With_System_Generated_TraceId()
+    {
+        var (repo, db) = Build.New();
+
+        var uuid = await repo.CreateAsync(Build.DraftRequest(), createdBy: 1);
+
+        var pr = await db.PurchaseRequisitions.FirstAsync(r => r.UUID == uuid);
+        pr.TraceId.Should().NotBe(Guid.Empty);
+    }
+
+    [Fact]
+    public async Task TraceId_Is_Present_In_GetById_Response()
+    {
+        var (repo, db) = Build.New();
+        var uuid = await repo.CreateAsync(Build.DraftRequest(), createdBy: 1);
+
+        var detail = await repo.GetByIdAsync(uuid);
+
+        detail.Should().NotBeNull();
+        detail!.TraceId.Should().NotBe(Guid.Empty);
+    }
 }
 
 // ── AC-2: PATCH on a non-DRAFT PR returns 422 ────────────────────────────────

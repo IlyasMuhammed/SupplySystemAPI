@@ -119,6 +119,38 @@
                 </div>
               </ng-container>
             </div>
+
+            <!-- Link to Purchase Requisition — shown after product is selected -->
+            <div class="pr-link-section" *ngIf="line.productUuid">
+              <label class="sub-label">Link to Purchase Requisition (optional)</label>
+
+              <div class="pr-link-badge" *ngIf="line.prLineId">
+                <span class="pr-badge"><i class="pi pi-link"></i> {{ line.prLineLabel }}</span>
+                <button type="button" class="pr-clear-btn" (click)="clearPrLine(i)" title="Clear PR link">
+                  <i class="pi pi-times"></i>
+                </button>
+              </div>
+
+              <div class="pr-fetch-row" *ngIf="!line.prLineId">
+                <p-button label="Fetch" icon="pi pi-search" [outlined]="true" size="small"
+                          [loading]="line.isFetchingPr"
+                          (onClick)="fetchPrLines(i)"></p-button>
+
+                <p-dropdown *ngIf="line.showPrResults && line.prSearchResults.length > 0"
+                            [options]="line.prSearchResults"
+                            optionLabel="prNumber"
+                            placeholder="Select a matching PR line..."
+                            styleClass="w-full pr-dropdown"
+                            (onChange)="selectPrLine(i, $event.value)">
+                  <ng-template let-pr pTemplate="item">{{ getPrLineOptionLabel(pr) }}</ng-template>
+                </p-dropdown>
+
+                <div class="pr-no-results" *ngIf="line.showPrResults && line.prFetchAttempted && line.prSearchResults.length === 0">
+                  <i class="pi pi-info-circle"></i>
+                  No approved PRs with remaining undisbursed quantity found for this product
+                </div>
+              </div>
+            </div>
           </div>
 
           <div class="form-field qty-field">

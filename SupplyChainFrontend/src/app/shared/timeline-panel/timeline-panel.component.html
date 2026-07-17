@@ -1,0 +1,55 @@
+<p-sidebar [visible]="visible" (visibleChange)="onVisibleChange($event)"
+           position="right" styleClass="timeline-panel-sidebar" [style]="{width:'28rem'}">
+
+  <ng-template pTemplate="header">
+    <div class="tl-header">
+      <i class="pi pi-history"></i>
+      <span class="tl-title">Document Timeline</span>
+    </div>
+  </ng-template>
+
+  <div *ngIf="isLoading" class="tl-loading">
+    <i class="pi pi-spin pi-spinner"></i>
+    <span>Loading timeline...</span>
+  </div>
+
+  <div *ngIf="!isLoading && loadFailed" class="tl-empty">
+    <i class="pi pi-info-circle"></i>
+    <span>No timeline available for this document. It may have been created before timeline tracking was enabled.</span>
+  </div>
+
+  <ng-container *ngIf="!isLoading && !loadFailed && detail">
+    <div class="tl-meta">
+      <div class="tl-meta-row" *ngIf="detail.chainRootRef || detail.chainRootType">
+        <span>Chain Root</span><strong>{{ detail.chainRootRef || detail.chainRootType }}</strong>
+      </div>
+      <div class="tl-meta-row">
+        <span>Total Events</span><strong>{{ detail.totalEventCount }}</strong>
+      </div>
+    </div>
+
+    <div class="tl-filter" *ngIf="filterOptions.length > 2">
+      <p-dropdown [options]="filterOptions" [(ngModel)]="selectedFilter"
+                  optionLabel="label" optionValue="value" styleClass="w-full"></p-dropdown>
+    </div>
+
+    <div class="tl-list">
+      <div class="tl-event" *ngFor="let e of filteredEvents">
+        <span class="tl-dot" [style.background]="colorFor(e.interfaceCode)"></span>
+        <div class="tl-event-body">
+          <div class="tl-event-top">
+            <a class="tl-doc-link" (click)="goToDocument(e)">{{ e.documentNumber || e.documentId }}</a>
+            <span class="tl-time">{{ e.occurredAt | date:'dd MMM yyyy, HH:mm' }}</span>
+          </div>
+          <div class="tl-event-desc">{{ describeEvent(e) }}</div>
+        </div>
+      </div>
+
+      <div class="tl-empty" *ngIf="!filteredEvents.length">
+        <i class="pi pi-filter-slash"></i>
+        <span>No events match this filter.</span>
+      </div>
+    </div>
+  </ng-container>
+
+</p-sidebar>

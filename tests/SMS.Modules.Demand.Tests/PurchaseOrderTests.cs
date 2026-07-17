@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using SMS.Modules.Demand.Data;
 using SMS.Modules.Demand.Models;
 using SMS.Modules.Demand.Repositories;
@@ -20,7 +21,7 @@ file static class PoBuild
         var db = new DemandDbContext(opts);
         seed?.Invoke(db);
         db.SaveChanges();
-        return (new PurchaseOrderRepository(db), db);
+        return (new PurchaseOrderRepository(db, NullLogger<PurchaseOrderRepository>.Instance), db);
     }
 
     // Creates an approved PR and returns its UUID + lines in LineNo order.

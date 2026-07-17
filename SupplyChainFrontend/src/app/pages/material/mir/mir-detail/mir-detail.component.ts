@@ -20,9 +20,10 @@ import { forkJoin } from 'rxjs';
 import {
   MaterialService, MirDetail, MirLine, MirLineApprovalInput,
   MirLineAvailability, MirStockAvailabilityResponse, MivListItem,
-  PatchMirRequest
+  PatchMirRequest, PrLineSearchResult
 } from '../../../../services/material.service';
 import { InventoryService, ProductStockModel } from '../../../../services/inventory.service';
+import { TimelinePanelComponent } from '../../../../shared/timeline-panel/timeline-panel.component';
 
 interface EditMirLine {
   productUuid:         string;
@@ -33,6 +34,12 @@ interface EditMirLine {
   selectedWarehouseId: number | null;
   maxQty:              number | null;
   isLoadingStock:      boolean;
+  prLineId:            string | null;
+  prLineLabel:         string | null;
+  prSearchResults:     PrLineSearchResult[];
+  showPrResults:       boolean;
+  isFetchingPr:        boolean;
+  prFetchAttempted:    boolean;
 }
 
 interface LineApprovalRow {
@@ -51,7 +58,7 @@ interface LineApprovalRow {
     ButtonModule, TagModule, ToastModule, DialogModule,
     InputTextModule, InputNumberModule, TextareaModule, TableModule,
     ConfirmDialogModule, ProgressSpinnerModule, TooltipModule,
-    DropdownModule, CalendarModule
+    DropdownModule, CalendarModule, TimelinePanelComponent
   ],
   templateUrl: './mir-detail.component.html',
   styleUrls: ['./mir-detail.component.scss'],
@@ -59,6 +66,7 @@ interface LineApprovalRow {
 })
 export class MirDetailComponent implements OnInit {
   uuid!: string;
+  showTimeline = false;
   mir: MirDetail | null = null;
   isLoading  = true;
   actionBusy = false;
@@ -286,7 +294,13 @@ export class MirDetailComponent implements OnInit {
       stockItems:          [],
       selectedWarehouseId: l.warehouseId ?? null,
       maxQty:              null,
-      isLoadingStock:      false
+      isLoadingStock:      false,
+      prLineId:            l.prLineId ?? null,
+      prLineLabel:         null,
+      prSearchResults:     [],
+      showPrResults:       false,
+      isFetchingPr:        false,
+      prFetchAttempted:    false
     }));
 
     if (this.editProductOptions.length === 0 || this.editProjectOptions.length === 0) {
@@ -328,7 +342,9 @@ export class MirDetailComponent implements OnInit {
   addEditLine() {
     this.editLines.push({
       productUuid: '', requestedQty: 1, purpose: '', notes: '',
-      stockItems: [], selectedWarehouseId: null, maxQty: null, isLoadingStock: false
+      stockItems: [], selectedWarehouseId: null, maxQty: null, isLoadingStock: false,
+      prLineId: null, prLineLabel: null, prSearchResults: [], showPrResults: false,
+      isFetchingPr: false, prFetchAttempted: false
     });
   }
 
@@ -336,7 +352,12 @@ export class MirDetailComponent implements OnInit {
     const line = this.editLines[i];
     line.stockItems = [];
     line.maxQty     = null;
-    if (resetWarehouse) line.selectedWarehouseId = null;
+    if (resetWarehouse) {
+      line.selectedWarehouseId = null;
+      this.clearEditPrLine(i);
+    } else if (line.prLineId) {
+      this.resolveEditPrLineLabel(i);
+    }
 
     const productId = this._editProductIdByUuid.get(uuid);
     if (!productId) return;
@@ -354,6 +375,64 @@ export class MirDetailComponent implements OnInit {
       },
       error: () => { line.isLoadingStock = false; }
     });
+  }
+
+  // ── Link to Purchase Requisition (Fetch button) ─────────────────────────────
+
+  private resolveEditPrLineLabel(i: number) {
+    const line = this.editLines[i];
+    if (!line.prLineId || !line.productUuid) return;
+    this.materialService.searchPrLines(line.productUuid, 'APPROVED').subscribe({
+      next: (res) => {
+        const match = res.success && res.result ? res.result.find(r => r.prLineId === line.prLineId) : undefined;
+        line.prLineLabel = match ? match.prNumber : 'Linked PR';
+      },
+      error: () => { line.prLineLabel = 'Linked PR'; }
+    });
+  }
+
+  fetchEditPrLines(i: number) {
+    const line = this.editLines[i];
+    if (!line.productUuid) return;
+
+    line.isFetchingPr = true;
+    line.prFetchAttempted = false;
+    line.showPrResults = false;
+    this.materialService.searchPrLines(line.productUuid, 'APPROVED').subscribe({
+      next: (res) => {
+        line.isFetchingPr = false;
+        line.prFetchAttempted = true;
+        line.prSearchResults = res.success && res.result ? res.result : [];
+        line.showPrResults = true;
+      },
+      error: () => {
+        line.isFetchingPr = false;
+        line.prFetchAttempted = true;
+        line.prSearchResults = [];
+        line.showPrResults = true;
+        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to search purchase requisitions.' });
+      }
+    });
+  }
+
+  getPrLineOptionLabel(r: PrLineSearchResult): string {
+    return `${r.prNumber} — ${r.prTitle} — ${r.lineDescription} — Requested: ${r.requestedQty} — Remaining: ${r.remainingUndisbursedQty}`;
+  }
+
+  selectEditPrLine(i: number, result: PrLineSearchResult) {
+    const line = this.editLines[i];
+    line.prLineId    = result.prLineId;
+    line.prLineLabel = result.prNumber;
+    line.showPrResults = false;
+  }
+
+  clearEditPrLine(i: number) {
+    const line = this.editLines[i];
+    line.prLineId    = null;
+    line.prLineLabel = null;
+    line.prSearchResults = [];
+    line.showPrResults = false;
+    line.prFetchAttempted = false;
   }
 
   onEditWarehouseChange(i: number, warehouseId: number) {
@@ -396,7 +475,8 @@ export class MirDetailComponent implements OnInit {
         requestedQty: l.requestedQty,
         warehouseId:  l.selectedWarehouseId ?? undefined,
         purpose:      l.purpose || undefined,
-        notes:        l.notes   || undefined
+        notes:        l.notes   || undefined,
+        prLineId:     l.prLineId ?? undefined
       }))
     };
 

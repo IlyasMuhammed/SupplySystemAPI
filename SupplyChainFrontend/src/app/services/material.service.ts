@@ -64,6 +64,7 @@ export interface CreateMirLineRequest {
   warehouseId?: number;
   purpose?: string;
   notes?: string;
+  prLineId?: string;
 }
 
 export interface CreateMirRequest {
@@ -130,9 +131,29 @@ export interface MirLine {
   estimatedLineValue: number;
   warehouseId?: number;
   warehouseName?: string;
+  prLineId?: string;
   purpose?: string;
   notes?: string;
   latestApprovedQty?: number;
+}
+
+// ── Purchase Requisition lookup (Fetch button) ─────────────────────────────────
+
+export interface PrLineSearchResult {
+  prNumber: string;
+  prTitle: string;
+  lineDescription: string;
+  requestedQty: number;
+  remainingUndisbursedQty: number;
+  prLineId: string;
+}
+
+export interface PrLineDisbursement {
+  mirUuid: string;
+  mirNumber: string;
+  approvedDate?: string;
+  approvedQty: number;
+  projectOrDept?: string;
 }
 
 export interface MirDetail {
@@ -285,6 +306,17 @@ export class MaterialService {
   getMirStockAvailability(uuid: string): Observable<ApiResponse<MirStockAvailabilityResponse>> {
     return this.http.get<ApiResponse<MirStockAvailabilityResponse>>(
       `${BASE}/material-issue-requests/${uuid}/workflow/stock-availability`
+    );
+  }
+
+  searchPrLines(productId: string, status: string = 'APPROVED'): Observable<ApiResponse<PrLineSearchResult[]>> {
+    const params = new HttpParams().set('productId', productId).set('status', status);
+    return this.http.get<ApiResponse<PrLineSearchResult[]>>(`${BASE}/purchase-requisitions/search`, { params });
+  }
+
+  getPrLineDisbursements(prId: string, lineId: string): Observable<ApiResponse<PrLineDisbursement[]>> {
+    return this.http.get<ApiResponse<PrLineDisbursement[]>>(
+      `${BASE}/purchase-requisitions/${prId}/lines/${lineId}/disbursements`
     );
   }
 
