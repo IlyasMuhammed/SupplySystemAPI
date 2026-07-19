@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SMS.Modules.Finance.Data;
 
@@ -11,9 +12,11 @@ using SMS.Modules.Finance.Data;
 namespace SMS.Modules.Finance.Migrations
 {
     [DbContext(typeof(FinanceDbContext))]
-    partial class FinanceDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260717064942_AddSupplierPayments")]
+    partial class AddSupplierPayments
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -314,11 +317,6 @@ namespace SMS.Modules.Finance.Migrations
                         .HasMaxLength(300)
                         .HasColumnType("nvarchar(300)");
 
-                    b.Property<decimal>("PaidAmount")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("decimal(18,2)")
-                        .HasDefaultValue(0m);
-
                     b.Property<string>("PaymentMethod")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
@@ -534,42 +532,6 @@ namespace SMS.Modules.Finance.Migrations
                     b.ToTable("payments", "finance");
                 });
 
-            modelBuilder.Entity("SMS.Modules.Finance.Domain.SupplierAdvancePayment", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<decimal>("AvailableBalance")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<DateTime>("CreatedDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<decimal>("OriginalAmount")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<Guid>("SupplierId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("SupplierPaymentUuid")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("UUID")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("SupplierId");
-
-                    b.HasIndex("UUID")
-                        .IsUnique();
-
-                    b.ToTable("supplier_advance_payments", "finance");
-                });
-
             modelBuilder.Entity("SMS.Modules.Finance.Domain.SupplierLedgerEntry", b =>
                 {
                     b.Property<int>("Id")
@@ -658,9 +620,6 @@ namespace SMS.Modules.Finance.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
-                    b.Property<DateTime?>("BouncedAt")
-                        .HasColumnType("datetime2");
-
                     b.Property<DateTime?>("ChequeDate")
                         .HasColumnType("datetime2");
 
@@ -673,9 +632,6 @@ namespace SMS.Modules.Finance.Migrations
 
                     b.Property<DateTime>("CreatedDate")
                         .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("CreditNoteUuid")
-                        .HasColumnType("uniqueidentifier");
 
                     b.Property<int?>("ModifiedBy")
                         .HasColumnType("int");
@@ -699,16 +655,6 @@ namespace SMS.Modules.Finance.Migrations
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
-
-                    b.Property<string>("PaymentType")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)")
-                        .HasDefaultValue("STANDARD");
-
-                    b.Property<DateTime?>("PostedAt")
-                        .HasColumnType("datetime2");
 
                     b.Property<string>("Status")
                         .IsRequired()

@@ -111,6 +111,7 @@ public class InvoiceDetailModel
     public decimal  VarianceAmount    { get; set; }
     public string   MatchStatus       { get; set; } = string.Empty;
     public string   PaymentStatus     { get; set; } = string.Empty;
+    public decimal  PaidAmount        { get; set; }
     public string?  PaymentMethod     { get; set; }
     public int?     ApprovedBy        { get; set; }
     public DateTime? ApprovedAt       { get; set; }
@@ -262,6 +263,258 @@ public class DebitNoteDetailModel
     public string?  DisputeNotes         { get; set; }
     public string?  Notes                { get; set; }
     public DateTime CreatedDate          { get; set; }
+}
+
+// ── Supplier Ledger models ────────────────────────────────────────────────────
+
+public class SupplierLedgerEntryModel
+{
+    public Guid     Uuid            { get; set; }
+    public Guid     SupplierId      { get; set; }
+    public int      SequenceNo      { get; set; }
+    public string   TransactionType { get; set; } = string.Empty;
+    public string   ReferenceType   { get; set; } = string.Empty;
+    public Guid     ReferenceId     { get; set; }
+    public string   ReferenceNo     { get; set; } = string.Empty;
+    public DateTime EntryDate       { get; set; }
+    public decimal  DebitAmount     { get; set; }
+    public decimal  CreditAmount    { get; set; }
+    public decimal  BalanceAfter    { get; set; }
+    public string?  Narration       { get; set; }
+    public int      CreatedBy       { get; set; }
+    public DateTime CreatedDate     { get; set; }
+}
+
+public class SupplierLedgerFilter
+{
+    public DateTime? DateFrom { get; set; }
+    public DateTime? DateTo   { get; set; }
+    public int        Page     { get; set; } = 1;
+    public int        PageSize { get; set; } = 20;
+}
+
+public class SupplierBalanceSummary
+{
+    public Guid    SupplierId             { get; set; }
+    public decimal TotalDebits            { get; set; }
+    public decimal TotalCredits           { get; set; }
+    public decimal NetBalance             { get; set; }
+    public decimal AvailableAdvanceCredit { get; set; }
+}
+
+// ── Supplier Payment models (SFM-003) ─────────────────────────────────────────
+
+public class CreateSupplierPaymentLineRequest
+{
+    public Guid    InvoiceUuid     { get; set; }
+    public decimal AllocatedAmount { get; set; }
+    public string? Notes           { get; set; }
+}
+
+public class CreateSupplierPaymentRequest
+{
+    public Guid     SupplierId    { get; set; }
+    public string   SupplierName  { get; set; } = string.Empty;
+    public DateTime PaymentDate   { get; set; }
+    public string   PaymentMethod { get; set; } = string.Empty;
+    public decimal  TotalAmount   { get; set; }
+    public string?  BankAccount   { get; set; }
+    public string?  ChequeNo      { get; set; }
+    public DateTime? ChequeDate   { get; set; }
+    public string?  Notes         { get; set; }
+    // PaymentType: STANDARD (default) | ADVANCE_PAYMENT | PURCHASE_RETURN_SETTLEMENT
+    public string   PaymentType   { get; set; } = "STANDARD";
+    // Required when PaymentType == PURCHASE_RETURN_SETTLEMENT.
+    public Guid?    CreditNoteUuid { get; set; }
+    public List<CreateSupplierPaymentLineRequest> Lines { get; set; } = [];
+}
+
+public class SupplierPaymentFilter
+{
+    public Guid?     SupplierId { get; set; }
+    public string?   Status     { get; set; }
+    public string?   Method     { get; set; }
+    public DateTime? DateFrom   { get; set; }
+    public DateTime? DateTo     { get; set; }
+    public int        Page       { get; set; } = 1;
+    public int        PageSize   { get; set; } = 20;
+}
+
+public class SupplierPaymentListItemModel
+{
+    public Guid     UUID          { get; set; }
+    public string   PaymentNumber { get; set; } = string.Empty;
+    public Guid     SupplierId    { get; set; }
+    public string   SupplierName  { get; set; } = string.Empty;
+    public DateTime PaymentDate   { get; set; }
+    public string   PaymentMethod { get; set; } = string.Empty;
+    public decimal  TotalAmount   { get; set; }
+    public string   Status        { get; set; } = string.Empty;
+    public string   PaymentType   { get; set; } = string.Empty;
+    public int      LineCount     { get; set; }
+}
+
+public class SupplierPaymentLineModel
+{
+    public Guid    Uuid                        { get; set; }
+    public Guid    InvoiceUuid                 { get; set; }
+    public string  InvoiceNumber               { get; set; } = string.Empty;
+    public decimal AllocatedAmount             { get; set; }
+    public decimal OutstandingBeforeAllocation { get; set; }
+    public string? Notes                       { get; set; }
+}
+
+public class SupplierPaymentDetailModel
+{
+    public Guid     UUID          { get; set; }
+    public string   PaymentNumber { get; set; } = string.Empty;
+    public Guid     SupplierId    { get; set; }
+    public string   SupplierName  { get; set; } = string.Empty;
+    public DateTime PaymentDate   { get; set; }
+    public string   PaymentMethod { get; set; } = string.Empty;
+    public decimal  TotalAmount   { get; set; }
+    public string?  BankAccount   { get; set; }
+    public string?  ChequeNo      { get; set; }
+    public DateTime? ChequeDate   { get; set; }
+    public string   Status        { get; set; } = string.Empty;
+    public string?  Notes         { get; set; }
+    public int      CreatedBy     { get; set; }
+    public DateTime CreatedDate   { get; set; }
+    public int?     ApprovedBy    { get; set; }
+    public DateTime? ApprovedAt   { get; set; }
+    public DateTime? PostedAt     { get; set; }
+    public DateTime? BouncedAt    { get; set; }
+    public string   PaymentType   { get; set; } = string.Empty;
+    public Guid?    CreditNoteUuid { get; set; }
+    public List<SupplierPaymentLineModel> Lines { get; set; } = [];
+}
+
+// ── Supplier Aging models (SFM-006) ───────────────────────────────────────────
+
+public class AgingInvoiceItem
+{
+    public Guid     InvoiceUuid       { get; set; }
+    public string   InvoiceNumber     { get; set; } = string.Empty;
+    public DateTime DueDate           { get; set; }
+    public int      DaysOverdue       { get; set; }
+    public decimal  OutstandingAmount { get; set; }
+}
+
+public class AgingBucket
+{
+    public string BucketName { get; set; } = string.Empty;
+    public decimal Total     { get; set; }
+    public List<AgingInvoiceItem> Invoices { get; set; } = [];
+}
+
+public class SupplierAgingModel
+{
+    public Guid    SupplierId   { get; set; }
+    public string  SupplierName { get; set; } = string.Empty;
+    public List<AgingBucket> Buckets { get; set; } = [];
+    public decimal GrandTotal   { get; set; }
+}
+
+public class SupplierAgingSummaryRow
+{
+    public Guid    SupplierId    { get; set; }
+    public string  SupplierName  { get; set; } = string.Empty;
+    public decimal Current       { get; set; }
+    public decimal Bucket31To60  { get; set; }
+    public decimal Bucket61To90  { get; set; }
+    public decimal Bucket91To120 { get; set; }
+    public decimal Bucket120Plus { get; set; }
+    public decimal GrandTotal    { get; set; }
+}
+
+public class CrossSupplierAgingReport
+{
+    public List<SupplierAgingSummaryRow> Suppliers { get; set; } = [];
+    public SupplierAgingSummaryRow       GrandTotalRow { get; set; } = new() { SupplierName = "Grand Total" };
+}
+
+// ── Supplier Payment Reports (SFM-007) ────────────────────────────────────────
+
+public class PaymentRegisterFilter
+{
+    public Guid?     SupplierId    { get; set; }
+    public string?   Status        { get; set; }
+    public string?   Method        { get; set; }
+    // Matches against either BankAccount or ChequeNo.
+    public string?   BankReference { get; set; }
+    public DateTime? DateFrom      { get; set; }
+    public DateTime? DateTo        { get; set; }
+    public int        Page          { get; set; } = 1;
+    public int        PageSize      { get; set; } = 20;
+}
+
+public class PaymentRegisterItem
+{
+    public Guid     Uuid          { get; set; }
+    public string   PaymentNumber { get; set; } = string.Empty;
+    public Guid     SupplierId    { get; set; }
+    public string   SupplierName  { get; set; } = string.Empty;
+    public DateTime PaymentDate   { get; set; }
+    public string   PaymentMethod { get; set; } = string.Empty;
+    public string   Status        { get; set; } = string.Empty;
+    public decimal  TotalAmount   { get; set; }
+    public string?  BankAccount   { get; set; }
+    public string?  ChequeNo      { get; set; }
+}
+
+public class OutstandingPayablesFilter
+{
+    public int Page     { get; set; } = 1;
+    public int PageSize { get; set; } = 20;
+}
+
+public class OutstandingPayableInvoiceItem
+{
+    public Guid     InvoiceUuid       { get; set; }
+    public string   InvoiceNumber     { get; set; } = string.Empty;
+    public decimal  TotalAmount       { get; set; }
+    public decimal  OutstandingAmount { get; set; }
+    public DateTime DueDate           { get; set; }
+    public int      DaysOverdue       { get; set; }
+    public string   PaymentStatus     { get; set; } = string.Empty;
+}
+
+public class OutstandingPayablesSupplierGroup
+{
+    public Guid    SupplierId       { get; set; }
+    public string  SupplierName     { get; set; } = string.Empty;
+    public decimal TotalOutstanding { get; set; }
+    public List<OutstandingPayableInvoiceItem> Invoices { get; set; } = [];
+}
+
+public class PaymentMethodBreakdownFilter
+{
+    public DateTime? DateFrom { get; set; }
+    public DateTime? DateTo   { get; set; }
+}
+
+public class PaymentMethodBreakdownItem
+{
+    public string  Method      { get; set; } = string.Empty;
+    public int     Count       { get; set; }
+    public decimal TotalAmount { get; set; }
+}
+
+public class PaymentMethodBreakdownReport
+{
+    public List<PaymentMethodBreakdownItem> Methods { get; set; } = [];
+    public decimal GrandTotal { get; set; }
+    public int     TotalCount { get; set; }
+}
+
+public class OutstandingInvoiceModel
+{
+    public Guid     InvoiceUuid       { get; set; }
+    public string   InvoiceNumber     { get; set; } = string.Empty;
+    public decimal  TotalAmount       { get; set; }
+    public decimal  OutstandingAmount { get; set; }
+    public string   PaymentStatus     { get; set; } = string.Empty;
+    public DateTime DueDate           { get; set; }
 }
 
 // ── Credit Note models ────────────────────────────────────────────────────────

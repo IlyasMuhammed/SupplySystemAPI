@@ -3,6 +3,7 @@ using SMS.Modules.Demand.Data;
 using SMS.Modules.Finance.Data;
 using SMS.Modules.Finance.Domain;
 using SMS.Modules.Finance.Models;
+using SMS.Modules.Finance.Services;
 using SMS.Modules.Warehouse.Data;
 using SMS.Shared.Exceptions;
 using SMS.Shared.Pagination;
@@ -11,15 +12,18 @@ namespace SMS.Modules.Finance.Repositories;
 
 internal sealed class InvoiceRepository : IInvoiceRepository
 {
-    private readonly FinanceDbContext   _db;
-    private readonly DemandDbContext    _demand;
-    private readonly WarehouseDbContext _warehouse;
+    private readonly FinanceDbContext      _db;
+    private readonly DemandDbContext       _demand;
+    private readonly WarehouseDbContext    _warehouse;
+    private readonly ISupplierLedgerService _ledger;
 
-    public InvoiceRepository(FinanceDbContext db, DemandDbContext demand, WarehouseDbContext warehouse)
+    public InvoiceRepository(
+        FinanceDbContext db, DemandDbContext demand, WarehouseDbContext warehouse, ISupplierLedgerService ledger)
     {
         _db        = db;
         _demand    = demand;
         _warehouse = warehouse;
+        _ledger    = ledger;
     }
 
     public async Task<Guid> CreateAsync(CreateInvoiceRequest req, int createdBy)
@@ -211,6 +215,7 @@ internal sealed class InvoiceRepository : IInvoiceRepository
             VarianceAmount    = inv.VarianceAmount,
             MatchStatus       = inv.MatchStatus,
             PaymentStatus     = inv.PaymentStatus,
+            PaidAmount        = inv.PaidAmount,
             PaymentMethod     = inv.PaymentMethod,
             ApprovedBy        = inv.ApprovedBy,
             ApprovedAt        = inv.ApprovedAt,
@@ -285,7 +290,15 @@ internal sealed class InvoiceRepository : IInvoiceRepository
         if (notes is not null) inv.Notes = notes.Trim();
         inv.ModifiedBy   = approvedBy;
         inv.ModifiedDate = DateTime.UtcNow;
-        await _db.SaveChangesAsync();
+
+        // SFM-002: the ledger debit is posted in the SAME SaveChangesAsync as the invoice
+        // approval itself (PostEntryAsync performs that save) — if it throws, none of the
+        // invoice's tracked changes above have been persisted either, so the whole approval
+        // rolls back atomically. Do not call _db.SaveChangesAsync() separately here.
+        await _ledger.PostEntryAsync(
+            inv.SupplierId, "INVOICE_APPROVED", "Invoice", inv.UUID, inv.InvoiceNumber,
+            debitAmount: inv.TotalAmount, creditAmount: 0m,
+            narration: $"Invoice {inv.InvoiceNumber} approved.", createdBy: approvedBy);
 
         // Update PO line QtyInvoiced — prefer invoice lines (precise), fall back to GRN lines
         var po = await _demand.PurchaseOrders

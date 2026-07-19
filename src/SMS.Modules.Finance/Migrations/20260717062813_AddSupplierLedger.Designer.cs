@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SMS.Modules.Finance.Data;
 
@@ -11,9 +12,11 @@ using SMS.Modules.Finance.Data;
 namespace SMS.Modules.Finance.Migrations
 {
     [DbContext(typeof(FinanceDbContext))]
-    partial class FinanceDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260717062813_AddSupplierLedger")]
+    partial class AddSupplierLedger
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -314,11 +317,6 @@ namespace SMS.Modules.Finance.Migrations
                         .HasMaxLength(300)
                         .HasColumnType("nvarchar(300)");
 
-                    b.Property<decimal>("PaidAmount")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("decimal(18,2)")
-                        .HasDefaultValue(0m);
-
                     b.Property<string>("PaymentMethod")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
@@ -534,42 +532,6 @@ namespace SMS.Modules.Finance.Migrations
                     b.ToTable("payments", "finance");
                 });
 
-            modelBuilder.Entity("SMS.Modules.Finance.Domain.SupplierAdvancePayment", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<decimal>("AvailableBalance")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<DateTime>("CreatedDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<decimal>("OriginalAmount")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<Guid>("SupplierId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("SupplierPaymentUuid")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("UUID")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("SupplierId");
-
-                    b.HasIndex("UUID")
-                        .IsUnique();
-
-                    b.ToTable("supplier_advance_payments", "finance");
-                });
-
             modelBuilder.Entity("SMS.Modules.Finance.Domain.SupplierLedgerEntry", b =>
                 {
                     b.Property<int>("Id")
@@ -640,154 +602,6 @@ namespace SMS.Modules.Finance.Migrations
                     b.ToTable("supplier_ledger_entries", "finance");
                 });
 
-            modelBuilder.Entity("SMS.Modules.Finance.Domain.SupplierPayment", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime?>("ApprovedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int?>("ApprovedBy")
-                        .HasColumnType("int");
-
-                    b.Property<string>("BankAccount")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<DateTime?>("BouncedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("ChequeDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("ChequeNo")
-                        .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)");
-
-                    b.Property<int>("CreatedBy")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("CreatedDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("CreditNoteUuid")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<int?>("ModifiedBy")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("ModifiedDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Notes")
-                        .HasMaxLength(300)
-                        .HasColumnType("nvarchar(300)");
-
-                    b.Property<DateTime>("PaymentDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("PaymentMethod")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<string>("PaymentNumber")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<string>("PaymentType")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)")
-                        .HasDefaultValue("STANDARD");
-
-                    b.Property<DateTime?>("PostedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
-                        .HasDefaultValue("DRAFT");
-
-                    b.Property<Guid>("SupplierId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("SupplierName")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<decimal>("TotalAmount")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<Guid>("UUID")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("PaymentNumber")
-                        .IsUnique();
-
-                    b.HasIndex("SupplierId");
-
-                    b.HasIndex("UUID")
-                        .IsUnique();
-
-                    b.ToTable("supplier_payments", "finance");
-                });
-
-            modelBuilder.Entity("SMS.Modules.Finance.Domain.SupplierPaymentLine", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<decimal>("AllocatedAmount")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<string>("InvoiceNumber")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<Guid>("InvoiceUuid")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Notes")
-                        .HasMaxLength(300)
-                        .HasColumnType("nvarchar(300)");
-
-                    b.Property<decimal>("OutstandingBeforeAllocation")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<int>("SupplierPaymentId")
-                        .HasColumnType("int");
-
-                    b.Property<Guid>("UUID")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("InvoiceUuid");
-
-                    b.HasIndex("SupplierPaymentId");
-
-                    b.HasIndex("UUID")
-                        .IsUnique();
-
-                    b.ToTable("supplier_payment_lines", "finance");
-                });
-
             modelBuilder.Entity("SMS.Modules.Finance.Domain.InvoiceLine", b =>
                 {
                     b.HasOne("SMS.Modules.Finance.Domain.Invoice", "Invoice")
@@ -810,27 +624,11 @@ namespace SMS.Modules.Finance.Migrations
                     b.Navigation("Invoice");
                 });
 
-            modelBuilder.Entity("SMS.Modules.Finance.Domain.SupplierPaymentLine", b =>
-                {
-                    b.HasOne("SMS.Modules.Finance.Domain.SupplierPayment", "SupplierPayment")
-                        .WithMany("Lines")
-                        .HasForeignKey("SupplierPaymentId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("SupplierPayment");
-                });
-
             modelBuilder.Entity("SMS.Modules.Finance.Domain.Invoice", b =>
                 {
                     b.Navigation("Lines");
 
                     b.Navigation("Payments");
-                });
-
-            modelBuilder.Entity("SMS.Modules.Finance.Domain.SupplierPayment", b =>
-                {
-                    b.Navigation("Lines");
                 });
 #pragma warning restore 612, 618
         }

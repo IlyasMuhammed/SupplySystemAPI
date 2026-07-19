@@ -37,6 +37,9 @@ public static class FinanceModuleExtensions
         services.AddScoped<IPaymentService,       PaymentService>();
         services.AddScoped<ICreditNoteService,    CreditNoteService>();
         services.AddScoped<IDebitNoteService,     DebitNoteService>();
+        services.AddScoped<ISupplierLedgerService, SupplierLedgerService>();
+        services.AddScoped<ISupplierPaymentRepository, SupplierPaymentRepository>();
+        services.AddScoped<ISupplierPaymentService,    SupplierPaymentService>();
 
         // Timeline trace_id resolver
         services.AddScoped<ITraceIdResolver, InvoiceTraceIdResolver>();

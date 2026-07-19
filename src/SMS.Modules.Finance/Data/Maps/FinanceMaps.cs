@@ -30,6 +30,7 @@ internal sealed class InvoiceMap : IEntityTypeConfiguration<Invoice>
         b.Property(x => x.VarianceAmount).HasColumnType("decimal(18,2)");
         b.Property(x => x.MatchStatus).HasMaxLength(20).HasDefaultValue("Pending");
         b.Property(x => x.PaymentStatus).HasMaxLength(20).HasDefaultValue("Unpaid");
+        b.Property(x => x.PaidAmount).HasColumnType("decimal(18,2)").HasDefaultValue(0m);
         b.Property(x => x.PaymentMethod).HasMaxLength(50);
         b.Property(x => x.Notes).HasMaxLength(300);
         b.Property(x => x.AttachmentUrl).HasMaxLength(500);
@@ -85,6 +86,93 @@ internal sealed class DebitNoteMap : IEntityTypeConfiguration<DebitNote>
         b.Property(x => x.DisputeNotes).HasMaxLength(500);
         b.Property(x => x.Notes).HasMaxLength(300);
         b.Property(x => x.IsActive).HasDefaultValue(true);
+    }
+}
+
+internal sealed class SupplierLedgerEntryMap : IEntityTypeConfiguration<SupplierLedgerEntry>
+{
+    public void Configure(EntityTypeBuilder<SupplierLedgerEntry> b)
+    {
+        b.ToTable("supplier_ledger_entries");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.Id).ValueGeneratedOnAdd();
+        b.Property(x => x.UUID).IsRequired();
+        b.HasIndex(x => x.UUID).IsUnique();
+        b.Property(x => x.SupplierId).IsRequired();
+        // Concurrency guard for PostEntryAsync — see comment on the entity.
+        b.HasIndex(x => new { x.SupplierId, x.SequenceNo }).IsUnique();
+        b.HasIndex(x => new { x.SupplierId, x.EntryDate });
+        b.Property(x => x.TransactionType).HasMaxLength(30).IsRequired();
+        b.Property(x => x.ReferenceType).HasMaxLength(30).IsRequired();
+        b.Property(x => x.ReferenceNo).HasMaxLength(30).IsRequired();
+        b.Property(x => x.DebitAmount).HasColumnType("decimal(18,2)");
+        b.Property(x => x.CreditAmount).HasColumnType("decimal(18,2)");
+        b.Property(x => x.BalanceAfter).HasColumnType("decimal(18,2)");
+        b.Property(x => x.Narration).HasMaxLength(500);
+    }
+}
+
+internal sealed class SupplierPaymentMap : IEntityTypeConfiguration<SupplierPayment>
+{
+    public void Configure(EntityTypeBuilder<SupplierPayment> b)
+    {
+        b.ToTable("supplier_payments");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.Id).ValueGeneratedOnAdd();
+        b.Property(x => x.UUID).IsRequired();
+        b.HasIndex(x => x.UUID).IsUnique();
+        b.Property(x => x.PaymentNumber).HasMaxLength(20).IsRequired();
+        b.HasIndex(x => x.PaymentNumber).IsUnique();
+        b.Property(x => x.SupplierId).IsRequired();
+        b.HasIndex(x => x.SupplierId);
+        b.Property(x => x.SupplierName).HasMaxLength(200).IsRequired();
+        b.Property(x => x.PaymentMethod).HasMaxLength(20).IsRequired();
+        b.Property(x => x.TotalAmount).HasColumnType("decimal(18,2)");
+        b.Property(x => x.BankAccount).HasMaxLength(100);
+        b.Property(x => x.ChequeNo).HasMaxLength(30);
+        b.Property(x => x.Status).HasMaxLength(20).HasDefaultValue("DRAFT");
+        b.Property(x => x.Notes).HasMaxLength(300);
+        b.Property(x => x.PaymentType).HasMaxLength(30).HasDefaultValue("STANDARD");
+
+        b.HasMany(x => x.Lines)
+         .WithOne(x => x.SupplierPayment)
+         .HasForeignKey(x => x.SupplierPaymentId)
+         .OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+internal sealed class SupplierAdvancePaymentMap : IEntityTypeConfiguration<SupplierAdvancePayment>
+{
+    public void Configure(EntityTypeBuilder<SupplierAdvancePayment> b)
+    {
+        b.ToTable("supplier_advance_payments");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.Id).ValueGeneratedOnAdd();
+        b.Property(x => x.UUID).IsRequired();
+        b.HasIndex(x => x.UUID).IsUnique();
+        b.Property(x => x.SupplierId).IsRequired();
+        b.HasIndex(x => x.SupplierId);
+        b.Property(x => x.SupplierPaymentUuid).IsRequired();
+        b.Property(x => x.OriginalAmount).HasColumnType("decimal(18,2)");
+        b.Property(x => x.AvailableBalance).HasColumnType("decimal(18,2)");
+    }
+}
+
+internal sealed class SupplierPaymentLineMap : IEntityTypeConfiguration<SupplierPaymentLine>
+{
+    public void Configure(EntityTypeBuilder<SupplierPaymentLine> b)
+    {
+        b.ToTable("supplier_payment_lines");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.Id).ValueGeneratedOnAdd();
+        b.Property(x => x.UUID).IsRequired();
+        b.HasIndex(x => x.UUID).IsUnique();
+        b.Property(x => x.InvoiceUuid).IsRequired();
+        b.HasIndex(x => x.InvoiceUuid);
+        b.Property(x => x.InvoiceNumber).HasMaxLength(20).IsRequired();
+        b.Property(x => x.AllocatedAmount).HasColumnType("decimal(18,2)");
+        b.Property(x => x.OutstandingBeforeAllocation).HasColumnType("decimal(18,2)");
+        b.Property(x => x.Notes).HasMaxLength(300);
     }
 }
 

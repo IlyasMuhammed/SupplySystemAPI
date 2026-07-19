@@ -26,8 +26,15 @@ internal class Invoice
 
     // MatchStatus: Pending | Matched | Variance | Approved | Rejected
     public string MatchStatus    { get; set; } = "Pending";
-    // PaymentStatus: Unpaid | Scheduled | Partial | Paid | Overdue
+    // PaymentStatus: Unpaid | Scheduled | Partial | Paid | Overdue (legacy single-invoice Payment
+    // flow) — OR, once posted via SFM-004's SupplierPayment flow: UNPAID | PARTIALLY_PAID |
+    // FULLY_PAID | OVERPAID, derived from PaidAmount. Both vocabularies can appear on this field
+    // depending on which payment mechanism touched the invoice; "fully paid" checks must treat
+    // "Paid" and "FULLY_PAID" as equivalent.
     public string PaymentStatus  { get; set; } = "Unpaid";
+    // Running total paid via SupplierPayment postings (SFM-004). Not incremented by the legacy
+    // single-invoice Payment flow.
+    public decimal PaidAmount    { get; set; }
     public string? PaymentMethod { get; set; }
 
     public int?    ApprovedBy   { get; set; }
@@ -128,6 +135,109 @@ internal class DebitNote
     public DateTime  CreatedDate  { get; set; }
     public int?      ModifiedBy   { get; set; }
     public DateTime? ModifiedDate { get; set; }
+}
+
+// Append-only running-balance ledger per supplier. BalanceAfter is always derived from the
+// previous entry (by SequenceNo) at post time — never stored/updated anywhere else. SequenceNo
+// carries a unique (SupplierId, SequenceNo) index that doubles as the concurrency guard for
+// PostEntryAsync: a losing concurrent writer hits a unique-index violation and retries.
+internal class SupplierLedgerEntry
+{
+    public int      Id              { get; set; }
+    public Guid     UUID            { get; set; }
+    public Guid     SupplierId      { get; set; }
+    public int      SequenceNo      { get; set; }
+
+    // TransactionType: e.g. INVOICE | PAYMENT | DEBIT_NOTE | CREDIT_NOTE | ADJUSTMENT | OPENING_BALANCE
+    public string   TransactionType { get; set; } = string.Empty;
+    // ReferenceType: e.g. Invoice | Payment | DebitNote | CreditNote
+    public string   ReferenceType   { get; set; } = string.Empty;
+    public Guid     ReferenceId     { get; set; }
+    public string   ReferenceNo     { get; set; } = string.Empty;
+
+    public DateTime EntryDate       { get; set; }
+    public decimal  DebitAmount     { get; set; }
+    public decimal  CreditAmount    { get; set; }
+    public decimal  BalanceAfter    { get; set; }
+    public string?  Narration       { get; set; }
+
+    public int      CreatedBy       { get; set; }
+    public DateTime CreatedDate     { get; set; }
+}
+
+// Multi-invoice supplier payment header (SFM-003). Distinct from the existing single-invoice
+// Payment entity — a SupplierPayment can allocate its TotalAmount across several invoices via
+// SupplierPaymentLines, or be created unallocated (an advance) with zero lines.
+internal class SupplierPayment
+{
+    public int      Id            { get; set; }
+    public Guid     UUID          { get; set; }
+    public string   PaymentNumber { get; set; } = string.Empty;   // SPAY-YYYY-NNNNN
+
+    public Guid     SupplierId    { get; set; }
+    public string   SupplierName  { get; set; } = string.Empty;
+
+    public DateTime PaymentDate   { get; set; }
+    // PaymentMethod: BANK_TRANSFER | ONLINE_WIRE | CHEQUE | CASH
+    public string   PaymentMethod { get; set; } = string.Empty;
+    public decimal  TotalAmount   { get; set; }
+
+    // Conditional fields — required per PaymentMethod, validated in the service layer.
+    public string?  BankAccount   { get; set; }   // BANK_TRANSFER / ONLINE_WIRE
+    public string?  ChequeNo      { get; set; }   // CHEQUE
+    public DateTime? ChequeDate   { get; set; }   // CHEQUE
+
+    // Status: DRAFT | APPROVED | POSTED | CANCELLED
+    public string   Status        { get; set; } = "DRAFT";
+    public string?  Notes         { get; set; }
+
+    public int      CreatedBy     { get; set; }
+    public DateTime CreatedDate   { get; set; }
+    public int?     ModifiedBy    { get; set; }
+    public DateTime? ModifiedDate { get; set; }
+    public int?     ApprovedBy    { get; set; }
+    public DateTime? ApprovedAt   { get; set; }
+
+    // SFM-004 posting fields.
+    public DateTime? PostedAt     { get; set; }
+    // SFM-005 — set when a CHEQUE payment bounces (Status becomes BOUNCED).
+    public DateTime? BouncedAt    { get; set; }
+    // PaymentType: STANDARD | ADVANCE_PAYMENT | PURCHASE_RETURN_SETTLEMENT
+    public string   PaymentType   { get; set; } = "STANDARD";
+    // Source credit note for PURCHASE_RETURN_SETTLEMENT — its remaining credit is reduced by
+    // TotalAmount when this payment is posted.
+    public Guid?    CreditNoteUuid { get; set; }
+
+    public ICollection<SupplierPaymentLine> Lines { get; set; } = new List<SupplierPaymentLine>();
+}
+
+// Created when an ADVANCE_PAYMENT-type SupplierPayment is posted — tracks the unallocated
+// balance available to offset against future invoices for the supplier.
+internal class SupplierAdvancePayment
+{
+    public int      Id                   { get; set; }
+    public Guid     UUID                 { get; set; }
+    public Guid     SupplierId           { get; set; }
+    public Guid     SupplierPaymentUuid  { get; set; }
+    public decimal  OriginalAmount       { get; set; }
+    public decimal  AvailableBalance     { get; set; }
+    public DateTime CreatedDate          { get; set; }
+}
+
+internal class SupplierPaymentLine
+{
+    public int      Id                          { get; set; }
+    public Guid     UUID                        { get; set; }
+    public int      SupplierPaymentId            { get; set; }
+
+    public Guid     InvoiceUuid                 { get; set; }
+    public string   InvoiceNumber                { get; set; } = string.Empty;
+    public decimal  AllocatedAmount              { get; set; }
+    // Snapshot of the invoice's outstanding balance at the moment this allocation was made.
+    public decimal  OutstandingBeforeAllocation  { get; set; }
+    public string?  Notes                        { get; set; }
+
+    public SupplierPayment SupplierPayment { get; set; } = null!;
 }
 
 internal class CreditNote

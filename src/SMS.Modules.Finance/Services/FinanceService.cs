@@ -95,3 +95,24 @@ internal sealed class PaymentService : IPaymentService
     public Task<PaymentDetailModel?>                    GetByUuidAsync(Guid uuid)                               => _repo.GetByUuidAsync(uuid);
     public Task<bool>                                   PatchAsync(Guid uuid, PatchPaymentRequest req, int mod) => _repo.PatchAsync(uuid, req, mod);
 }
+
+internal sealed class SupplierPaymentService : ISupplierPaymentService
+{
+    private readonly ISupplierPaymentRepository _repo;
+    public SupplierPaymentService(ISupplierPaymentRepository repo) => _repo = repo;
+
+    public Task<Guid>                                           CreateAsync(CreateSupplierPaymentRequest req, int createdBy) => _repo.CreateAsync(req, createdBy);
+    public Task<PaginatedResponse<SupplierPaymentListItemModel>> GetListAsync(SupplierPaymentFilter filter)                   => _repo.GetListAsync(filter);
+    public Task<SupplierPaymentDetailModel?>                    GetByUuidAsync(Guid uuid)                                    => _repo.GetByUuidAsync(uuid);
+    public Task<bool>                                           ApproveAsync(Guid uuid, int approvedBy)                      => _repo.ApproveAsync(uuid, approvedBy);
+    public Task<bool>                                           CancelAsync(Guid uuid, int cancelledBy)                      => _repo.CancelAsync(uuid, cancelledBy);
+    public Task<bool>                                           PostAsync(Guid uuid, int postedBy)                          => _repo.PostAsync(uuid, postedBy);
+    public Task<bool>                                           BounceAsync(Guid uuid, int bouncedBy)                       => _repo.BounceAsync(uuid, bouncedBy);
+    public Task<List<OutstandingInvoiceModel>>                  GetOutstandingInvoicesAsync(Guid supplierId)                 => _repo.GetOutstandingInvoicesAsync(supplierId);
+    public Task<SupplierAgingModel>                              GetSupplierAgingAsync(Guid supplierId)                      => _repo.GetSupplierAgingAsync(supplierId);
+    public Task<CrossSupplierAgingReport>                        GetCrossSupplierAgingAsync()                                => _repo.GetCrossSupplierAgingAsync();
+
+    public Task<PaginatedResponse<PaymentRegisterItem>>          GetPaymentRegisterAsync(PaymentRegisterFilter filter)       => _repo.GetPaymentRegisterAsync(filter);
+    public Task<PaginatedResponse<OutstandingPayablesSupplierGroup>> GetOutstandingPayablesAsync(OutstandingPayablesFilter filter) => _repo.GetOutstandingPayablesAsync(filter);
+    public Task<PaymentMethodBreakdownReport>                    GetPaymentMethodBreakdownAsync(PaymentMethodBreakdownFilter filter) => _repo.GetPaymentMethodBreakdownAsync(filter);
+}
