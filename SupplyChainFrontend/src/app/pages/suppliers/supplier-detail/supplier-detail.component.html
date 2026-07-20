@@ -31,6 +31,12 @@
     </div>
   </div>
 
+  <!-- ── Grade F warning banner (SC-007) ────────────────────────────────── -->
+  <div class="grade-f-banner" *ngIf="!isLoading && scoreGrade === 'F'">
+    <i class="pi pi-exclamation-triangle"></i>
+    <span>This supplier is rated F (Disqualification Candidate). Review the Scorecard before placing new orders.</span>
+  </div>
+
   <!-- ── Loading ─────────────────────────────────────────────────────────── -->
   <div *ngIf="isLoading" class="loading-state">
     <i class="pi pi-spin pi-spinner" style="font-size:2rem;color:#6c63ff"></i>

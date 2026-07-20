@@ -1,0 +1,63 @@
+<p-sidebar [visible]="visible" (visibleChange)="onVisibleChange($event)"
+           position="right" styleClass="scorecard-panel-sidebar" [style]="{width:'32rem'}">
+
+  <ng-template pTemplate="header">
+    <div class="sc-header">
+      <i class="pi pi-star"></i>
+      <span class="sc-title">Supplier Scorecard</span>
+    </div>
+  </ng-template>
+
+  <div *ngIf="isLoading" class="sc-loading">
+    <i class="pi pi-spin pi-spinner"></i>
+    <span>Loading scorecard...</span>
+  </div>
+
+  <div *ngIf="!isLoading && loadFailed" class="sc-empty">
+    <i class="pi pi-info-circle"></i>
+    <span>This supplier has not been scored yet.</span>
+  </div>
+
+  <ng-container *ngIf="!isLoading && !loadFailed && detail">
+    <div class="sc-summary">
+      <div class="sc-supplier-name">{{ detail.supplierName }}</div>
+      <div class="sc-summary-row">
+        <p-tag [value]="detail.grade" [severity]="gradeSeverity(detail.grade)" styleClass="sc-grade-badge"></p-tag>
+        <span class="sc-composite">{{ detail.compositeScore | number:'1.1-1' }}</span>
+        <span class="sc-trend" [ngClass]="trendClass(detail.trend)">
+          <i [class]="trendIcon(detail.trend)"></i> {{ detail.trend || 'NEW' }}
+        </span>
+      </div>
+    </div>
+
+    <div class="sc-section">
+      <div class="sc-section-title">Dimension Breakdown</div>
+      <div class="sc-radar-wrap">
+        <p-chart type="radar" [data]="radarData" [options]="radarOptions" [style]="{height:'260px'}"></p-chart>
+      </div>
+    </div>
+
+    <div class="sc-section" *ngIf="detail.trendHistory.length > 1">
+      <div class="sc-section-title">Composite Score Trend</div>
+      <div class="sc-line-wrap">
+        <p-chart type="line" [data]="lineData" [options]="lineOptions" [style]="{height:'180px'}"></p-chart>
+      </div>
+    </div>
+
+    <div class="sc-section">
+      <div class="sc-section-title">Individual GRN Scores ({{ detail.grnScores.length }})</div>
+      <div class="sc-grn-list">
+        <div class="sc-grn-row" *ngFor="let g of detail.grnScores">
+          <a class="sc-grn-link" (click)="goToGrn(g.grnId)">{{ g.grnNumber || g.grnId }}</a>
+          <span class="sc-grn-date">{{ g.scoredAt | date:'dd MMM yyyy' }}</span>
+          <span class="sc-grn-score">{{ g.weightedScore | number:'1.1-1' }}</span>
+        </div>
+        <div class="sc-empty" *ngIf="!detail.grnScores.length">
+          <i class="pi pi-inbox"></i>
+          <span>No GRN scores recorded.</span>
+        </div>
+      </div>
+    </div>
+  </ng-container>
+
+</p-sidebar>

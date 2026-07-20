@@ -270,6 +270,218 @@ public class PaymentByMethodItem
     public decimal TotalAmount { get; set; }
 }
 
+// ── Supplier Ledger Summary (SC-001) ────────────────────────────────────────────
+
+public class SupplierLedgerSummaryFilter
+{
+    public string? DateFrom       { get; set; }
+    public string? DateTo         { get; set; }
+    /// <summary>Filters on Supplier.TypeMappings — this system has no separate "category" concept;
+    /// SupplierType is the closest existing classification (same field SupplierListFilter.SupplierType filters on).</summary>
+    public Guid?   SupplierCategory { get; set; }
+    public string? SupplierStatus   { get; set; }
+    public decimal? MinOutstanding  { get; set; }
+    /// <summary>outstanding_balance (default) | supplier_name | last_transaction_date</summary>
+    public string? SortBy           { get; set; }
+}
+
+public class SupplierLedgerSummaryItem
+{
+    public Guid      SupplierId          { get; set; }
+    public string    SupplierName        { get; set; } = string.Empty;
+    public string?   SupplierCode        { get; set; }
+    public decimal   TotalInvoiced       { get; set; }
+    public decimal   TotalPaid           { get; set; }
+    public decimal   OutstandingBalance  { get; set; }
+    public decimal   AdvanceBalance      { get; set; }
+    public DateTime? LastTransactionDate { get; set; }
+    /// <summary>Drill-down into the per-supplier ledger (Addendum 22), carrying this report's date range.</summary>
+    public string    DrillDownUrl        { get; set; } = string.Empty;
+}
+
+public class SupplierLedgerSummaryReport
+{
+    public List<SupplierLedgerSummaryItem> Items { get; set; } = [];
+    public decimal GrandTotalInvoiced    { get; set; }
+    public decimal GrandTotalPaid        { get; set; }
+    public decimal GrandTotalOutstanding { get; set; }
+}
+
+// ── Supplier Orders Report (SC-002, FSD Addendum 23) ────────────────────────────
+
+public class SupplierOrdersFilter
+{
+    public string? DateFrom            { get; set; }
+    public string? DateTo              { get; set; }
+    public Guid?   SupplierId          { get; set; }
+    public string? PoStatus            { get; set; }
+    /// <summary>on_time | late | all (default: all)</summary>
+    public string? DeliveryPerformance { get; set; }
+}
+
+public class SupplierOrderDetailItem
+{
+    public Guid      PoUuid               { get; set; }
+    public string    PoNumber             { get; set; } = string.Empty;
+    public DateTime  PoDate               { get; set; }
+    public decimal   TotalAmount          { get; set; }
+    public string    Status               { get; set; } = string.Empty;
+    public decimal   QtyOrdered           { get; set; }
+    public decimal   QtyReceived          { get; set; }
+    public int       GrnCount             { get; set; }
+    public DateTime? ExpectedDeliveryDate { get; set; }
+    public DateTime? FirstGrnReceivedAt   { get; set; }
+    /// <summary>first GRN ReceivedAt minus PO ExpectedDeliveryDate, in days. Negative = early, 0 = on time,
+    /// positive = late. Null when there's no expected delivery date or no GRN has been received yet.</summary>
+    public int?      DeliveryVarianceDays { get; set; }
+    /// <summary>green (on time/early) | amber (1-7 days late) | red (8+ days late) | null (no variance to show).</summary>
+    public string?   DeliveryColor        { get; set; }
+}
+
+public class SupplierOrdersSummaryItem
+{
+    public Guid    SupplierId              { get; set; }
+    public string  SupplierName            { get; set; } = string.Empty;
+    public int     TotalPoCount            { get; set; }
+    public decimal TotalPoValue            { get; set; }
+    public decimal AvgPoValue              { get; set; }
+    public int     FullyReceivedCount      { get; set; }
+    public int     PartiallyReceivedCount  { get; set; }
+    public int     PendingCount            { get; set; }
+    public int     CancelledCount          { get; set; }
+    /// <summary>Every PO for this supplier (post-filter) — embedded so the frontend can drill down without
+    /// a page reload or a second request.</summary>
+    public List<SupplierOrderDetailItem> PurchaseOrders { get; set; } = [];
+}
+
+public class SupplierOrdersReport
+{
+    public List<SupplierOrdersSummaryItem> Suppliers { get; set; } = [];
+    public int     GrandTotalPoCount { get; set; }
+    public decimal GrandTotalPoValue { get; set; }
+}
+
+// ── Supplier Comparison (SC-008) ──────────────────────────────────────────────
+
+public class SupplierComparisonColumn
+{
+    public Guid      SupplierId              { get; set; }
+    public string    SupplierName            { get; set; } = string.Empty;
+    public string?   Grade                   { get; set; }
+    public decimal?  CompositeScore          { get; set; }
+    public int       PoCount                 { get; set; }
+    public decimal   TotalPoValue            { get; set; }
+    /// <summary>Average (first GRN ReceivedAt - PO DeliveryDate) across POs with both dates known. Null
+    /// when this supplier has no such comparable POs.</summary>
+    public decimal?  AvgDeliveryVarianceDays { get; set; }
+    /// <summary>% of inspected GRN lines that did not pass (Fail or PartialPass).</summary>
+    public decimal   RejectionRatePercent    { get; set; }
+    public decimal   TotalInvoiced           { get; set; }
+    public decimal   TotalPaid               { get; set; }
+    public decimal   OutstandingBalance      { get; set; }
+}
+
+public class SupplierComparisonResponse
+{
+    public List<SupplierComparisonColumn> Suppliers { get; set; } = [];
+}
+
+// ── GRN Quality Analysis (SC-008) ─────────────────────────────────────────────
+
+public class GrnQualityAnalysisFilter
+{
+    public string? DateFrom   { get; set; }
+    public string? DateTo     { get; set; }
+    public Guid?   SupplierId { get; set; }
+}
+
+public class GrnQualityMonthlyPoint
+{
+    public string  Month       { get; set; } = string.Empty; // "yyyy-MM"
+    public decimal PassRate    { get; set; }
+    public decimal FailRate    { get; set; }
+    public decimal PartialRate { get; set; }
+    public int     TotalLines  { get; set; }
+}
+
+public class SupplierGrnQualityItem
+{
+    public Guid    SupplierId      { get; set; }
+    public string  SupplierName    { get; set; } = string.Empty;
+    public decimal OverallPassRate { get; set; }
+    public int     TotalLines      { get; set; }
+    public List<GrnQualityMonthlyPoint> MonthlyTrend { get; set; } = [];
+}
+
+public class FailedGrnLineItem
+{
+    public Guid      GrnId            { get; set; }
+    public string?   GrnNumber        { get; set; }
+    public Guid      SupplierId       { get; set; }
+    public string    SupplierName     { get; set; } = string.Empty;
+    public string    ItemDescription  { get; set; } = string.Empty;
+    public string?   InspectionResult { get; set; }
+    public string?   RejectionReason  { get; set; }
+    public DateTime? InspectedAt      { get; set; }
+}
+
+public class GrnQualityAnalysisResponse
+{
+    public List<SupplierGrnQualityItem> Suppliers   { get; set; } = [];
+    public List<FailedGrnLineItem>      FailedLines { get; set; } = [];
+}
+
+// ── Supplier Spend Analysis (SC-008) ──────────────────────────────────────────
+
+public class SupplierSpendFilter
+{
+    public string? DateFrom { get; set; }
+    public string? DateTo   { get; set; }
+}
+
+public class SupplierSpendItem
+{
+    public Guid    SupplierId    { get; set; }
+    public string  SupplierName  { get; set; } = string.Empty;
+    public decimal TotalInvoiced { get; set; }
+}
+
+public class CategorySpendItem
+{
+    public string  Category      { get; set; } = string.Empty;
+    public string? SubCategory   { get; set; }
+    public decimal TotalInvoiced { get; set; }
+}
+
+public class SupplierSpendAnalysisResponse
+{
+    public decimal GrandTotalSpend          { get; set; }
+    /// <summary>Top 10 suppliers by invoiced amount, descending.</summary>
+    public List<SupplierSpendItem> TopSuppliers { get; set; } = [];
+    /// <summary>Top-5 suppliers' combined spend as a % of GrandTotalSpend.</summary>
+    public decimal Top5ConcentrationPercent { get; set; }
+    public List<CategorySpendItem> SpendByCategory { get; set; } = [];
+}
+
+// ── Delivery Performance Heatmap (SC-008) ─────────────────────────────────────
+
+public class DeliveryHeatmapDayItem
+{
+    public DateTime Date         { get; set; }
+    public bool     HasGrn       { get; set; }
+    public int?     VarianceDays { get; set; }
+    /// <summary>green (on time/early) | amber (1-7 late) | red (8+ late) | grey (no GRN that day).</summary>
+    public string   Color        { get; set; } = "grey";
+}
+
+public class DeliveryHeatmapResponse
+{
+    public Guid   SupplierId   { get; set; }
+    public string SupplierName { get; set; } = string.Empty;
+    public int    Year         { get; set; }
+    public List<DeliveryHeatmapDayItem> Days { get; set; } = [];
+}
+
 // ── Budget Utilization ────────────────────────────────────────────────────────
 
 public class BudgetUtilizationItem

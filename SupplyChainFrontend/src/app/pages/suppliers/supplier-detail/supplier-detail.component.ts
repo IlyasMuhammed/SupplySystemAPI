@@ -50,6 +50,9 @@ export class SupplierDetailComponent implements OnInit {
   supplier: SupplierDetailModel = this.createEmptySupplier();
   isLoading = true;
 
+  // SC-007 — Grade F warning banner.
+  scoreGrade: string | null = null;
+
   // ── Edit information dialog ───────────────────────────────────────────────
   showEditDialog   = false;
   editForm!: FormGroup;
@@ -349,12 +352,20 @@ export class SupplierDetailComponent implements OnInit {
           this.loadDocuments();
           this.loadBankDetail();
           this.loadLookups();
+          this.loadScoreSummary();
         }
       },
       error: () => {
         this.isLoading = false;
         this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to load supplier' });
       }
+    });
+  }
+
+  private loadScoreSummary() {
+    this.supplierService.getScoreSummary(this.uuid).subscribe({
+      next: (res) => { this.scoreGrade = res.success ? res.result.grade : null; },
+      error: () => { this.scoreGrade = null; }
     });
   }
 

@@ -11,6 +11,7 @@ using SMS.Modules.Reports.Models;
 using SMS.Modules.Suppliers.Data;
 using SMS.Modules.Warehouse.Data;
 using SMS.Shared.Common;
+using SMS.Shared.Exceptions;
 using SMS.Shared.Pagination;
 using SMS.WorkflowEngine.Services;
 
@@ -965,6 +966,476 @@ internal sealed class ReportsRepository : IReportsRepository
             ReversedCount  = payments.Count(p => p.Status == "Reversed"),
             ByMethod       = byMethod
         };
+    }
+
+    // ── Supplier Ledger Summary (SC-001) ────────────────────────────────────────
+
+    public async Task<SupplierLedgerSummaryReport> GetSupplierLedgerSummaryAsync(SupplierLedgerSummaryFilter filter)
+    {
+        var (from, to) = ParseDates(filter.DateFrom, filter.DateTo);
+
+        var suppliersQuery = _suppliers.Suppliers.AsNoTracking().Where(s => !s.IsDelete).AsQueryable();
+        if (!string.IsNullOrWhiteSpace(filter.SupplierStatus))
+            suppliersQuery = suppliersQuery.Where(s => s.Status == filter.SupplierStatus);
+        if (filter.SupplierCategory.HasValue)
+            suppliersQuery = suppliersQuery.Where(s => s.TypeMappings.Any(m => m.LookupValueId == filter.SupplierCategory.Value));
+
+        var eligibleSuppliers = await suppliersQuery
+            .Select(s => new { s.UUID, s.SupplierName, s.SupplierCode })
+            .ToDictionaryAsync(s => s.UUID);
+
+        var entriesQuery = _finance.SupplierLedgerEntries.AsNoTracking().AsQueryable();
+        if (from.HasValue) entriesQuery = entriesQuery.Where(e => e.EntryDate >= from.Value);
+        if (to.HasValue)   entriesQuery = entriesQuery.Where(e => e.EntryDate <  to.Value);
+
+        var entries = await entriesQuery
+            .Select(e => new { e.SupplierId, e.DebitAmount, e.CreditAmount, e.EntryDate })
+            .ToListAsync();
+
+        var items = entries
+            .Where(e => eligibleSuppliers.ContainsKey(e.SupplierId))
+            .GroupBy(e => e.SupplierId)
+            .Select(g =>
+            {
+                var supplier    = eligibleSuppliers[g.Key];
+                var totalDebits = g.Sum(e => e.DebitAmount);
+                var totalCredits = g.Sum(e => e.CreditAmount);
+                var netBalance   = totalDebits - totalCredits;
+
+                return new SupplierLedgerSummaryItem
+                {
+                    SupplierId          = g.Key,
+                    SupplierName        = supplier.SupplierName,
+                    SupplierCode        = supplier.SupplierCode,
+                    TotalInvoiced       = totalDebits,
+                    TotalPaid           = totalCredits,
+                    OutstandingBalance  = netBalance > 0 ? netBalance : 0m,
+                    AdvanceBalance      = netBalance < 0 ? -netBalance : 0m,
+                    LastTransactionDate = g.Max(e => e.EntryDate),
+                    DrillDownUrl        = BuildLedgerDrillDownUrl(g.Key, filter.DateFrom, filter.DateTo)
+                };
+            })
+            .Where(i => !filter.MinOutstanding.HasValue || i.OutstandingBalance >= filter.MinOutstanding.Value)
+            .ToList();
+
+        items = (filter.SortBy switch
+        {
+            "supplier_name"         => items.OrderBy(i => i.SupplierName),
+            "last_transaction_date" => items.OrderByDescending(i => i.LastTransactionDate),
+            _                       => items.OrderByDescending(i => i.OutstandingBalance)
+        }).ToList();
+
+        return new SupplierLedgerSummaryReport
+        {
+            Items                 = items,
+            GrandTotalInvoiced    = items.Sum(i => i.TotalInvoiced),
+            GrandTotalPaid        = items.Sum(i => i.TotalPaid),
+            GrandTotalOutstanding = items.Sum(i => i.OutstandingBalance)
+        };
+    }
+
+    private static string BuildLedgerDrillDownUrl(Guid supplierId, string? dateFrom, string? dateTo)
+    {
+        var url = $"/api/suppliers/{supplierId}/ledger";
+        var query = new List<string>();
+        if (!string.IsNullOrWhiteSpace(dateFrom)) query.Add($"dateFrom={Uri.EscapeDataString(dateFrom)}");
+        if (!string.IsNullOrWhiteSpace(dateTo))   query.Add($"dateTo={Uri.EscapeDataString(dateTo)}");
+        return query.Count > 0 ? $"{url}?{string.Join("&", query)}" : url;
+    }
+
+    // ── Supplier Orders Report (SC-002, FSD Addendum 23) ────────────────────────
+
+    public async Task<SupplierOrdersReport> GetSupplierOrdersAsync(SupplierOrdersFilter filter)
+    {
+        var (from, to) = ParseDates(filter.DateFrom, filter.DateTo);
+
+        var poQuery = _demand.PurchaseOrders.AsNoTracking().Where(po => !po.IsDelete).AsQueryable();
+        if (from.HasValue) poQuery = poQuery.Where(po => po.CreatedDate >= from.Value);
+        if (to.HasValue)   poQuery = poQuery.Where(po => po.CreatedDate <  to.Value);
+        if (filter.SupplierId.HasValue) poQuery = poQuery.Where(po => po.SupplierId == filter.SupplierId.Value);
+        if (!string.IsNullOrWhiteSpace(filter.PoStatus)) poQuery = poQuery.Where(po => po.Status == filter.PoStatus);
+
+        var pos = await poQuery.Include(po => po.Lines).ToListAsync();
+        if (pos.Count == 0) return new SupplierOrdersReport();
+
+        var poUuids = pos.Select(p => p.UUID).ToList();
+        var grnByPo = (await _warehouse.Grns.AsNoTracking()
+                .Where(g => !g.IsDelete && poUuids.Contains(g.PoUuid))
+                .Select(g => new { g.PoUuid, g.ReceivedAt })
+                .ToListAsync())
+            .GroupBy(g => g.PoUuid)
+            .ToDictionary(g => g.Key, g => (Count: g.Count(), FirstReceivedAt: g.Min(x => x.ReceivedAt)));
+
+        var rows = pos.Select(po =>
+        {
+            var hasGrn = grnByPo.TryGetValue(po.UUID, out var grn);
+
+            int?    variance = null;
+            string? color    = null;
+            if (po.DeliveryDate.HasValue && hasGrn)
+            {
+                variance = (int)(grn.FirstReceivedAt.Date - po.DeliveryDate.Value.Date).TotalDays;
+                color = variance <= 0 ? "green" : variance <= 7 ? "amber" : "red";
+            }
+
+            var detail = new SupplierOrderDetailItem
+            {
+                PoUuid               = po.UUID,
+                PoNumber             = po.PoNumber,
+                PoDate               = po.CreatedDate,
+                TotalAmount          = po.TotalAmount,
+                Status               = po.Status,
+                QtyOrdered           = po.Lines.Sum(l => l.Quantity),
+                QtyReceived          = po.Lines.Sum(l => l.QtyReceived),
+                GrnCount             = hasGrn ? grn.Count : 0,
+                ExpectedDeliveryDate = po.DeliveryDate,
+                FirstGrnReceivedAt   = hasGrn ? grn.FirstReceivedAt : null,
+                DeliveryVarianceDays = variance,
+                DeliveryColor        = color
+            };
+
+            return (po.SupplierId, po.SupplierName, Detail: detail);
+        }).ToList();
+
+        rows = filter.DeliveryPerformance?.ToLowerInvariant() switch
+        {
+            "late"    => rows.Where(r => r.Detail.DeliveryVarianceDays > 0).ToList(),
+            "on_time" => rows.Where(r => r.Detail.DeliveryVarianceDays is <= 0).ToList(),
+            _         => rows
+        };
+
+        var suppliers = rows
+            .GroupBy(r => r.SupplierId)
+            .Select(g =>
+            {
+                // Lifecycle: DRAFT/APPROVED/SENT (pending) -> PARTIALLY_RECEIVED -> RECEIVED -> PARTIALLY_INVOICED -> CLOSED,
+                // with CANCELLED reachable from the pending states. Anything past RECEIVED implies receipt already completed.
+                var posForSupplier    = g.Select(x => x.Detail).OrderByDescending(d => d.PoDate).ToList();
+                var fullyReceived     = posForSupplier.Count(d => d.Status is "RECEIVED" or "PARTIALLY_INVOICED" or "CLOSED");
+                var partiallyReceived = posForSupplier.Count(d => d.Status == "PARTIALLY_RECEIVED");
+                var cancelled         = posForSupplier.Count(d => d.Status == "CANCELLED");
+                var pending           = posForSupplier.Count - fullyReceived - partiallyReceived - cancelled;
+                var totalValue        = posForSupplier.Sum(d => d.TotalAmount);
+
+                return new SupplierOrdersSummaryItem
+                {
+                    SupplierId              = g.Key,
+                    SupplierName            = g.First().SupplierName,
+                    TotalPoCount            = posForSupplier.Count,
+                    TotalPoValue            = totalValue,
+                    AvgPoValue              = posForSupplier.Count > 0 ? Math.Round(totalValue / posForSupplier.Count, 2) : 0m,
+                    FullyReceivedCount      = fullyReceived,
+                    PartiallyReceivedCount  = partiallyReceived,
+                    PendingCount            = pending,
+                    CancelledCount          = cancelled,
+                    PurchaseOrders          = posForSupplier
+                };
+            })
+            .OrderByDescending(s => s.TotalPoValue)
+            .ToList();
+
+        return new SupplierOrdersReport
+        {
+            Suppliers         = suppliers,
+            GrandTotalPoCount = suppliers.Sum(s => s.TotalPoCount),
+            GrandTotalPoValue = suppliers.Sum(s => s.TotalPoValue)
+        };
+    }
+
+    // ── Supplier Comparison (SC-008) ────────────────────────────────────────────
+
+    public async Task<SupplierComparisonResponse> GetSupplierComparisonAsync(List<Guid> supplierIds)
+    {
+        if (supplierIds.Count < 2 || supplierIds.Count > 5)
+            throw new BadRequestException("Supplier comparison requires between 2 and 5 supplier IDs.");
+
+        var suppliers = await _suppliers.Suppliers.AsNoTracking()
+            .Where(s => !s.IsDelete && supplierIds.Contains(s.UUID))
+            .Select(s => new { s.UUID, s.SupplierName })
+            .ToListAsync();
+
+        var columns = new List<SupplierComparisonColumn>();
+
+        foreach (var supplierId in supplierIds)
+        {
+            var supplier = suppliers.FirstOrDefault(s => s.UUID == supplierId);
+            if (supplier is null) continue; // unknown/deleted id — silently excluded from the comparison
+
+            var latestSnapshot = await _suppliers.SupplierScoreSnapshots.AsNoTracking()
+                .Where(s => s.SupplierId == supplierId)
+                .OrderByDescending(s => s.PeriodEnd)
+                .Select(s => new { s.Grade, s.TotalScore })
+                .FirstOrDefaultAsync();
+
+            var pos = await _demand.PurchaseOrders.AsNoTracking()
+                .Where(po => !po.IsDelete && po.SupplierId == supplierId)
+                .Select(po => new { po.UUID, po.TotalAmount, po.DeliveryDate })
+                .ToListAsync();
+
+            var poUuids = pos.Select(p => p.UUID).ToList();
+            var grnFirstReceipt = await _warehouse.Grns.AsNoTracking()
+                .Where(g => !g.IsDelete && poUuids.Contains(g.PoUuid))
+                .GroupBy(g => g.PoUuid)
+                .Select(g => new { PoUuid = g.Key, FirstReceivedAt = g.Min(x => x.ReceivedAt) })
+                .ToListAsync();
+
+            var variances = new List<int>();
+            foreach (var po in pos)
+            {
+                if (!po.DeliveryDate.HasValue) continue;
+                var grn = grnFirstReceipt.FirstOrDefault(g => g.PoUuid == po.UUID);
+                if (grn is null) continue;
+                variances.Add((grn.FirstReceivedAt.Date - po.DeliveryDate.Value.Date).Days);
+            }
+
+            var grnLineResults = await _warehouse.GrnLines.AsNoTracking()
+                .Where(l => !l.Grn.IsDelete && l.Grn.SupplierId == supplierId && l.InspectionResult != null)
+                .Select(l => l.InspectionResult)
+                .ToListAsync();
+
+            var ledgerEntries = await _finance.SupplierLedgerEntries.AsNoTracking()
+                .Where(e => e.SupplierId == supplierId)
+                .ToListAsync();
+            var totalInvoiced = ledgerEntries.Sum(e => e.DebitAmount);
+            var totalPaid     = ledgerEntries.Sum(e => e.CreditAmount);
+
+            columns.Add(new SupplierComparisonColumn
+            {
+                SupplierId              = supplierId,
+                SupplierName            = supplier.SupplierName,
+                Grade                   = latestSnapshot?.Grade,
+                CompositeScore          = latestSnapshot?.TotalScore,
+                PoCount                 = pos.Count,
+                TotalPoValue            = pos.Sum(p => p.TotalAmount),
+                AvgDeliveryVarianceDays = variances.Count > 0 ? Math.Round((decimal)variances.Average(), 1) : null,
+                RejectionRatePercent    = grnLineResults.Count > 0
+                    ? Math.Round((decimal)grnLineResults.Count(r => r != "Pass") / grnLineResults.Count * 100, 1)
+                    : 0m,
+                TotalInvoiced      = totalInvoiced,
+                TotalPaid          = totalPaid,
+                OutstandingBalance = Math.Max(0m, totalInvoiced - totalPaid)
+            });
+        }
+
+        return new SupplierComparisonResponse { Suppliers = columns };
+    }
+
+    // ── GRN Quality Analysis (SC-008) ───────────────────────────────────────────
+
+    public async Task<GrnQualityAnalysisResponse> GetGrnQualityAnalysisAsync(GrnQualityAnalysisFilter filter)
+    {
+        var (from, to) = ParseDates(filter.DateFrom, filter.DateTo);
+
+        var query = _warehouse.GrnLines.AsNoTracking().Where(l => !l.Grn.IsDelete && l.InspectionResult != null);
+        if (from.HasValue) query = query.Where(l => l.Grn.ReceivedAt >= from.Value);
+        if (to.HasValue)   query = query.Where(l => l.Grn.ReceivedAt < to.Value);
+        if (filter.SupplierId.HasValue) query = query.Where(l => l.Grn.SupplierId == filter.SupplierId.Value);
+
+        var lines = await query
+            .Select(l => new { l.Grn.SupplierId, l.Grn.SupplierName, l.Grn.ReceivedAt, l.InspectionResult })
+            .ToListAsync();
+
+        var suppliers = lines
+            .GroupBy(l => l.SupplierId)
+            .Select(g =>
+            {
+                var lineList = g.ToList();
+                var monthly = lineList
+                    .GroupBy(l => new DateTime(l.ReceivedAt.Year, l.ReceivedAt.Month, 1))
+                    .OrderBy(mg => mg.Key)
+                    .Select(mg =>
+                    {
+                        var total = mg.Count();
+                        return new GrnQualityMonthlyPoint
+                        {
+                            Month       = mg.Key.ToString("yyyy-MM"),
+                            PassRate    = Math.Round((decimal)mg.Count(l => l.InspectionResult == "Pass") / total * 100, 1),
+                            FailRate    = Math.Round((decimal)mg.Count(l => l.InspectionResult == "Fail") / total * 100, 1),
+                            PartialRate = Math.Round((decimal)mg.Count(l => l.InspectionResult == "PartialPass") / total * 100, 1),
+                            TotalLines  = total
+                        };
+                    })
+                    .ToList();
+
+                return new SupplierGrnQualityItem
+                {
+                    SupplierId      = g.Key,
+                    SupplierName    = lineList[0].SupplierName,
+                    OverallPassRate = Math.Round((decimal)lineList.Count(l => l.InspectionResult == "Pass") / lineList.Count * 100, 1),
+                    TotalLines      = lineList.Count,
+                    MonthlyTrend    = monthly
+                };
+            })
+            .OrderByDescending(s => s.TotalLines)
+            .ToList();
+
+        var failedQuery = _warehouse.GrnLines.AsNoTracking()
+            .Where(l => !l.Grn.IsDelete && (l.InspectionResult == "Fail" || l.InspectionResult == "PartialPass"));
+        if (from.HasValue) failedQuery = failedQuery.Where(l => l.Grn.ReceivedAt >= from.Value);
+        if (to.HasValue)   failedQuery = failedQuery.Where(l => l.Grn.ReceivedAt < to.Value);
+        if (filter.SupplierId.HasValue) failedQuery = failedQuery.Where(l => l.Grn.SupplierId == filter.SupplierId.Value);
+
+        var failedLines = await failedQuery
+            .OrderByDescending(l => l.InspectedAt)
+            .Take(200)
+            .Select(l => new FailedGrnLineItem
+            {
+                GrnId            = l.Grn.UUID,
+                GrnNumber        = l.Grn.GrnNumber,
+                SupplierId       = l.Grn.SupplierId,
+                SupplierName     = l.Grn.SupplierName,
+                ItemDescription  = l.ItemDescription,
+                InspectionResult = l.InspectionResult,
+                RejectionReason  = l.RejectionReason,
+                InspectedAt      = l.InspectedAt
+            })
+            .ToListAsync();
+
+        return new GrnQualityAnalysisResponse { Suppliers = suppliers, FailedLines = failedLines };
+    }
+
+    // ── Supplier Spend Analysis (SC-008) ────────────────────────────────────────
+
+    public async Task<SupplierSpendAnalysisResponse> GetSupplierSpendAnalysisAsync(SupplierSpendFilter filter)
+    {
+        var (from, to) = ParseDates(filter.DateFrom, filter.DateTo);
+
+        var query = _finance.InvoiceLines.AsNoTracking().Where(il => !il.Invoice.IsDelete);
+        if (from.HasValue) query = query.Where(il => il.Invoice.InvoiceDate >= from.Value);
+        if (to.HasValue)   query = query.Where(il => il.Invoice.InvoiceDate < to.Value);
+
+        var lines = await query
+            .Select(il => new { il.Invoice.SupplierId, il.Invoice.SupplierName, il.LineTotal, il.PoLineUuid })
+            .ToListAsync();
+
+        var supplierTotals = lines
+            .GroupBy(l => l.SupplierId)
+            .Select(g => new SupplierSpendItem
+            {
+                SupplierId    = g.Key,
+                SupplierName  = g.First().SupplierName,
+                TotalInvoiced = g.Sum(l => l.LineTotal)
+            })
+            .OrderByDescending(s => s.TotalInvoiced)
+            .ToList();
+
+        var grandTotal = supplierTotals.Sum(s => s.TotalInvoiced);
+        var top5Sum     = supplierTotals.Take(5).Sum(s => s.TotalInvoiced);
+
+        // Category breakdown: InvoiceLine -> PurchaseOrderLine -> Product -> Category/SubCategory
+        var poLineUuids = lines.Select(l => l.PoLineUuid).Distinct().ToList();
+        var poLineProducts = await _demand.PurchaseOrderLines.AsNoTracking()
+            .Where(pl => poLineUuids.Contains(pl.UUID))
+            .Select(pl => new { pl.UUID, pl.ProductUuid })
+            .ToDictionaryAsync(pl => pl.UUID, pl => pl.ProductUuid);
+
+        var productUuids = poLineProducts.Values.Where(p => p.HasValue).Select(p => p!.Value).Distinct().ToList();
+        var products = await _inventory.Products.AsNoTracking()
+            .Where(p => productUuids.Contains(p.Uuid))
+            .Select(p => new { p.Uuid, p.CategoryId, p.SubCategoryId })
+            .ToDictionaryAsync(p => p.Uuid);
+
+        var categoryIds    = products.Values.Where(p => p.CategoryId.HasValue).Select(p => p.CategoryId!.Value).Distinct().ToList();
+        var subCategoryIds = products.Values.Where(p => p.SubCategoryId.HasValue).Select(p => p.SubCategoryId!.Value).Distinct().ToList();
+
+        var categoryNames = await _inventory.ProductCategories.AsNoTracking()
+            .Where(c => categoryIds.Contains(c.Id)).ToDictionaryAsync(c => c.Id, c => c.Name);
+        var subCategoryNames = await _inventory.ProductSubCategories.AsNoTracking()
+            .Where(c => subCategoryIds.Contains(c.Id)).ToDictionaryAsync(c => c.Id, c => c.Name);
+
+        var spendByCategory = lines
+            .Select(l =>
+            {
+                string  category    = "Uncategorised";
+                string? subCategory = null;
+                if (poLineProducts.TryGetValue(l.PoLineUuid, out var productUuid) && productUuid.HasValue
+                    && products.TryGetValue(productUuid.Value, out var product))
+                {
+                    if (product.CategoryId.HasValue && categoryNames.TryGetValue(product.CategoryId.Value, out var catName))
+                        category = catName;
+                    if (product.SubCategoryId.HasValue && subCategoryNames.TryGetValue(product.SubCategoryId.Value, out var subName))
+                        subCategory = subName;
+                }
+                return new { category, subCategory, l.LineTotal };
+            })
+            .GroupBy(x => new { x.category, x.subCategory })
+            .Select(g => new CategorySpendItem
+            {
+                Category      = g.Key.category,
+                SubCategory   = g.Key.subCategory,
+                TotalInvoiced = g.Sum(x => x.LineTotal)
+            })
+            .OrderByDescending(c => c.TotalInvoiced)
+            .ToList();
+
+        return new SupplierSpendAnalysisResponse
+        {
+            GrandTotalSpend          = grandTotal,
+            TopSuppliers             = supplierTotals.Take(10).ToList(),
+            Top5ConcentrationPercent = grandTotal > 0 ? Math.Round(top5Sum / grandTotal * 100, 1) : 0m,
+            SpendByCategory          = spendByCategory
+        };
+    }
+
+    // ── Delivery Performance Heatmap (SC-008) ───────────────────────────────────
+
+    public async Task<DeliveryHeatmapResponse?> GetDeliveryPerformanceHeatmapAsync(Guid supplierId, int year)
+    {
+        var supplier = await _suppliers.Suppliers.AsNoTracking()
+            .Where(s => s.UUID == supplierId && !s.IsDelete)
+            .Select(s => new { s.SupplierName })
+            .FirstOrDefaultAsync();
+        if (supplier is null) return null;
+
+        var yearStart = new DateTime(year, 1, 1);
+        var yearEnd   = yearStart.AddYears(1);
+
+        var grns = await _warehouse.Grns.AsNoTracking()
+            .Where(g => !g.IsDelete && g.SupplierId == supplierId && g.ReceivedAt >= yearStart && g.ReceivedAt < yearEnd)
+            .Select(g => new { g.ReceivedAt, g.PoUuid })
+            .ToListAsync();
+
+        var poUuids = grns.Select(g => g.PoUuid).Distinct().ToList();
+        var poDeliveryDates = await _demand.PurchaseOrders.AsNoTracking()
+            .Where(po => poUuids.Contains(po.UUID))
+            .Select(po => new { po.UUID, po.DeliveryDate })
+            .ToDictionaryAsync(po => po.UUID, po => po.DeliveryDate);
+
+        // Worst (highest) variance wins when multiple GRNs land on the same day.
+        var varianceByDay = new Dictionary<DateTime, int?>();
+        foreach (var grn in grns)
+        {
+            var day = grn.ReceivedAt.Date;
+            int? variance = null;
+            if (poDeliveryDates.TryGetValue(grn.PoUuid, out var deliveryDate) && deliveryDate.HasValue)
+                variance = (grn.ReceivedAt.Date - deliveryDate.Value.Date).Days;
+
+            if (!varianceByDay.TryGetValue(day, out var existing) || (variance ?? int.MinValue) > (existing ?? int.MinValue))
+                varianceByDay[day] = variance;
+        }
+
+        var days = new List<DeliveryHeatmapDayItem>();
+        for (var date = yearStart; date < yearEnd; date = date.AddDays(1))
+        {
+            var hasGrn = varianceByDay.TryGetValue(date, out var variance);
+            days.Add(new DeliveryHeatmapDayItem
+            {
+                Date         = date,
+                HasGrn       = hasGrn,
+                VarianceDays = hasGrn ? variance : null,
+                Color        = HeatmapColorFor(hasGrn, variance)
+            });
+        }
+
+        return new DeliveryHeatmapResponse { SupplierId = supplierId, SupplierName = supplier.SupplierName, Year = year, Days = days };
+    }
+
+    private static string HeatmapColorFor(bool hasGrn, int? variance)
+    {
+        if (!hasGrn || !variance.HasValue) return "grey";
+        if (variance <= 0) return "green";
+        if (variance <= 7) return "amber";
+        return "red";
     }
 
     // ── Budget Utilization ────────────────────────────────────────────────────

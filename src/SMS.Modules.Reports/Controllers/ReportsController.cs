@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using SMS.Modules.Reports.Models;
 using SMS.Modules.Reports.Services;
+using SMS.Modules.Reports.Services.Exports;
 using SMS.Shared.Authorization;
 using SMS.Shared.Constants;
 using SMS.Shared.Pagination;
@@ -127,6 +128,95 @@ public class ReportsController : ControllerBase
     {
         var result = await _svc.GetPaymentSummaryAsync(filter);
         return Ok(ApiResponse<PaymentSummaryModel>.Ok(result));
+    }
+
+    // ── Supplier Ledger Summary (SC-001) ────────────────────────────────────────
+
+    [HttpGet("supplier-ledger-summary")]
+    [RequirePermission(PermissionCodes.REPORT_VIEW)]
+    public async Task<IActionResult> GetSupplierLedgerSummary([FromQuery] SupplierLedgerSummaryFilter filter)
+    {
+        var result = await _svc.GetSupplierLedgerSummaryAsync(filter);
+        return Ok(ApiResponse<SupplierLedgerSummaryReport>.Ok(result));
+    }
+
+    [HttpGet("supplier-ledger-summary/pdf")]
+    [RequirePermission(PermissionCodes.REPORT_EXPORT)]
+    public async Task<IActionResult> ExportSupplierLedgerSummaryPdf([FromQuery] SupplierLedgerSummaryFilter filter)
+    {
+        var result = await _svc.GetSupplierLedgerSummaryAsync(filter);
+        var bytes  = SupplierLedgerSummaryPdfExporter.Export(result);
+        return File(bytes, "application/pdf", $"supplier-ledger-summary-{DateTime.UtcNow:yyyyMMdd}.pdf");
+    }
+
+    [HttpGet("supplier-ledger-summary/excel")]
+    [RequirePermission(PermissionCodes.REPORT_EXPORT)]
+    public async Task<IActionResult> ExportSupplierLedgerSummaryExcel([FromQuery] SupplierLedgerSummaryFilter filter)
+    {
+        var result = await _svc.GetSupplierLedgerSummaryAsync(filter);
+        var bytes  = SupplierLedgerSummaryExcelExporter.Export(result);
+        return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            $"supplier-ledger-summary-{DateTime.UtcNow:yyyyMMdd}.xlsx");
+    }
+
+    // ── Supplier Orders Report (SC-002, FSD Addendum 23) ────────────────────────
+
+    [HttpGet("supplier-orders")]
+    [RequirePermission(PermissionCodes.REPORT_VIEW)]
+    public async Task<IActionResult> GetSupplierOrders([FromQuery] SupplierOrdersFilter filter)
+    {
+        var result = await _svc.GetSupplierOrdersAsync(filter);
+        return Ok(ApiResponse<SupplierOrdersReport>.Ok(result));
+    }
+
+    // ── Supplier Comparison (SC-008) ────────────────────────────────────────────
+
+    [HttpGet("supplier-comparison")]
+    [RequirePermission(PermissionCodes.REPORT_VIEW)]
+    public async Task<IActionResult> GetSupplierComparison([FromQuery] string ids)
+    {
+        var supplierIds = new List<Guid>();
+        foreach (var raw in (ids ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (!Guid.TryParse(raw, out var id))
+                return BadRequest(ApiResponse.Fail($"'{raw}' is not a valid supplier ID."));
+            supplierIds.Add(id);
+        }
+
+        var result = await _svc.GetSupplierComparisonAsync(supplierIds);
+        return Ok(ApiResponse<SupplierComparisonResponse>.Ok(result));
+    }
+
+    // ── GRN Quality Analysis (SC-008) ───────────────────────────────────────────
+
+    [HttpGet("grn-quality-analysis")]
+    [RequirePermission(PermissionCodes.REPORT_VIEW)]
+    public async Task<IActionResult> GetGrnQualityAnalysis([FromQuery] GrnQualityAnalysisFilter filter)
+    {
+        var result = await _svc.GetGrnQualityAnalysisAsync(filter);
+        return Ok(ApiResponse<GrnQualityAnalysisResponse>.Ok(result));
+    }
+
+    // ── Supplier Spend Analysis (SC-008) ────────────────────────────────────────
+
+    [HttpGet("supplier-spend-analysis")]
+    [RequirePermission(PermissionCodes.REPORT_VIEW)]
+    public async Task<IActionResult> GetSupplierSpendAnalysis([FromQuery] SupplierSpendFilter filter)
+    {
+        var result = await _svc.GetSupplierSpendAnalysisAsync(filter);
+        return Ok(ApiResponse<SupplierSpendAnalysisResponse>.Ok(result));
+    }
+
+    // ── Delivery Performance Heatmap (SC-008) ───────────────────────────────────
+
+    [HttpGet("delivery-performance-heatmap")]
+    [RequirePermission(PermissionCodes.REPORT_VIEW)]
+    public async Task<IActionResult> GetDeliveryPerformanceHeatmap([FromQuery] Guid supplierId, [FromQuery] int year)
+    {
+        var result = await _svc.GetDeliveryPerformanceHeatmapAsync(supplierId, year);
+        return result is null
+            ? NotFound(ApiResponse.Fail(StaticResponseMessage.recordNotFound))
+            : Ok(ApiResponse<DeliveryHeatmapResponse>.Ok(result));
     }
 
     [HttpGet("budget-utilization")]

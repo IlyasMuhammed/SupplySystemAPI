@@ -24,6 +24,12 @@ internal sealed class ReportsService : IReportsService
     public Task<List<ShipmentTrackerItem>>                  GetShipmentTrackerAsync(string? status)              => _repo.GetShipmentTrackerAsync(status);
     public Task<(List<InvoiceAgingItem>, List<InvoiceAgingBucketSummary>)> GetInvoiceAgingAsync()               => _repo.GetInvoiceAgingAsync();
     public Task<PaymentSummaryModel>                        GetPaymentSummaryAsync(ReportDateFilter filter)      => _repo.GetPaymentSummaryAsync(filter);
+    public Task<SupplierLedgerSummaryReport>                GetSupplierLedgerSummaryAsync(SupplierLedgerSummaryFilter filter) => _repo.GetSupplierLedgerSummaryAsync(filter);
+    public Task<SupplierOrdersReport>                       GetSupplierOrdersAsync(SupplierOrdersFilter filter)                => _repo.GetSupplierOrdersAsync(filter);
+    public Task<SupplierComparisonResponse>                  GetSupplierComparisonAsync(List<Guid> supplierIds)                => _repo.GetSupplierComparisonAsync(supplierIds);
+    public Task<GrnQualityAnalysisResponse>                   GetGrnQualityAnalysisAsync(GrnQualityAnalysisFilter filter)       => _repo.GetGrnQualityAnalysisAsync(filter);
+    public Task<SupplierSpendAnalysisResponse>                GetSupplierSpendAnalysisAsync(SupplierSpendFilter filter)         => _repo.GetSupplierSpendAnalysisAsync(filter);
+    public Task<DeliveryHeatmapResponse?>                     GetDeliveryPerformanceHeatmapAsync(Guid supplierId, int year)     => _repo.GetDeliveryPerformanceHeatmapAsync(supplierId, year);
     public Task<List<BudgetUtilizationItem>>                GetBudgetUtilizationAsync(ReportDateFilter filter)   => _repo.GetBudgetUtilizationAsync(filter);
     public Task<PaginatedResponse<AuditLogItemModel>>       GetAuditTrailAsync(AuditLogFilter filter)            => _repo.GetAuditTrailAsync(filter);
     public Task<List<UserActivityItem>>                     GetUserActivityAsync(ReportDateFilter filter)        => _repo.GetUserActivityAsync(filter);

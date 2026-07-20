@@ -1,0 +1,140 @@
+<p-toast />
+
+<div class="scd-page">
+
+  <div class="scd-header">
+    <div class="scd-header-left">
+      <div class="scd-icon-box"><i class="pi pi-star-fill"></i></div>
+      <div>
+        <h1 class="scd-title">Supplier Scorecard</h1>
+        <p class="scd-subtitle">Ranked supplier performance across delivery, quantity, quality, price &amp; documentation</p>
+      </div>
+    </div>
+    <div class="scd-header-right">
+      <p-button label="Recalculate Now" icon="pi pi-refresh" size="small"
+                [outlined]="true" severity="secondary"
+                (onClick)="recalculate()" [loading]="isRecalculating"></p-button>
+    </div>
+  </div>
+
+  <!-- ── Period selector ────────────────────────────────────────────────────── -->
+  <div class="scd-period-bar">
+    <div class="scd-presets">
+      <p-button label="3 Months" size="small" [outlined]="activePreset !== '3m'" (onClick)="applyPreset('3m')"></p-button>
+      <p-button label="6 Months" size="small" [outlined]="activePreset !== '6m'" (onClick)="applyPreset('6m')"></p-button>
+      <p-button label="12 Months" size="small" [outlined]="activePreset !== '12m'" (onClick)="applyPreset('12m')"></p-button>
+    </div>
+    <div class="scd-custom-range">
+      <p-calendar [(ngModel)]="customStart" dateFormat="dd/mm/yy" placeholder="Start date" [showIcon]="true" appendTo="body"></p-calendar>
+      <span class="scd-range-sep">to</span>
+      <p-calendar [(ngModel)]="customEnd" dateFormat="dd/mm/yy" placeholder="End date" [showIcon]="true" appendTo="body"></p-calendar>
+      <p-button label="Apply" size="small" [outlined]="activePreset !== 'custom'"
+                [disabled]="!customStart || !customEnd" (onClick)="applyCustomRange()"></p-button>
+    </div>
+    <div class="scd-period-label" *ngIf="periodStart && periodEnd">
+      {{ periodStart | date:'dd MMM yyyy' }} &ndash; {{ periodEnd | date:'dd MMM yyyy' }}
+    </div>
+  </div>
+
+  <!-- ── Summary cards ──────────────────────────────────────────────────────── -->
+  <ng-container *ngIf="isLoading">
+    <div class="scd-cards-row">
+      <p-skeleton *ngFor="let _ of [1,2,3,4,5]" height="100px" borderRadius="16px"></p-skeleton>
+    </div>
+  </ng-container>
+
+  <div class="scd-cards-row" *ngIf="!isLoading">
+    <div class="scd-card">
+      <div class="scd-card-label">Total Suppliers Scored</div>
+      <div class="scd-card-value">{{ totalSuppliersScored }}</div>
+    </div>
+
+    <div class="scd-card">
+      <div class="scd-card-label">Average Composite Score</div>
+      <div class="scd-card-value">{{ averageCompositeScore }}</div>
+    </div>
+
+    <div class="scd-card scd-card-grades">
+      <div class="scd-card-label">Grade Distribution</div>
+      <div class="scd-grade-chips">
+        <span class="scd-grade-chip" [ngClass]="gradeClass(g.grade)" *ngFor="let g of gradeDistribution">
+          {{ g.grade }}: {{ g.count }}
+        </span>
+        <span class="scd-empty-inline" *ngIf="!gradeDistribution.length">&mdash;</span>
+      </div>
+    </div>
+
+    <div class="scd-card">
+      <div class="scd-card-label">Most Improved</div>
+      <div class="scd-card-value scd-card-value-sm" *ngIf="mostImproved">
+        {{ mostImproved.supplierName }}
+        <span class="trend-up">+{{ mostImproved.scoreDelta | number:'1.1-1' }}</span>
+      </div>
+      <div class="scd-card-value-sm scd-empty-inline" *ngIf="!mostImproved">No trend data yet</div>
+    </div>
+
+    <div class="scd-card">
+      <div class="scd-card-label">Most Declined</div>
+      <div class="scd-card-value scd-card-value-sm" *ngIf="mostDeclined">
+        {{ mostDeclined.supplierName }}
+        <span class="trend-down">{{ mostDeclined.scoreDelta | number:'1.1-1' }}</span>
+      </div>
+      <div class="scd-card-value-sm scd-empty-inline" *ngIf="!mostDeclined">No trend data yet</div>
+    </div>
+  </div>
+
+  <!-- ── Ranking table ───────────────────────────────────────────────────────── -->
+  <div class="scd-table-card">
+    <p-table [value]="suppliers" [loading]="isLoading" responsiveLayout="scroll"
+             styleClass="p-datatable-sm" [rowHover]="true">
+      <ng-template pTemplate="header">
+        <tr>
+          <th>Rank</th>
+          <th>Supplier</th>
+          <th>Grade</th>
+          <th>Composite</th>
+          <th>Delivery</th>
+          <th>Quantity</th>
+          <th>Quality</th>
+          <th>Price</th>
+          <th>Documentation</th>
+          <th>GRN Count</th>
+          <th>Trend</th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-s>
+        <tr class="scd-row" (click)="openDetail(s)">
+          <td>{{ s.rank }}</td>
+          <td class="scd-name-cell">{{ s.supplierName }}</td>
+          <td><p-tag [value]="s.grade" [severity]="gradeSeverity(s.grade)"></p-tag></td>
+          <td class="scd-composite-cell">{{ s.compositeScore | number:'1.1-1' }}</td>
+          <td>{{ s.deliveryScore | number:'1.1-1' }}</td>
+          <td>{{ s.quantityScore | number:'1.1-1' }}</td>
+          <td>{{ s.qualityScore | number:'1.1-1' }}</td>
+          <td>{{ s.priceScore | number:'1.1-1' }}</td>
+          <td>{{ s.documentationScore | number:'1.1-1' }}</td>
+          <td>{{ s.grnCount }}</td>
+          <td>
+            <span [ngClass]="trendClass(s.trend)">
+              <i [class]="trendIcon(s.trend)"></i>
+            </span>
+          </td>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="11" class="scd-empty-row">
+            <i class="pi pi-inbox"></i>
+            No suppliers have been scored for this period.
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </div>
+
+</div>
+
+<app-scorecard-detail-panel
+  [supplierId]="selectedSupplierId"
+  [(visible)]="panelVisible">
+</app-scorecard-detail-panel>

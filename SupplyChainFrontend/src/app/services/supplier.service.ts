@@ -18,6 +18,11 @@ export interface PaginatedResponse<T> {
   totalPages: number;
 }
 
+export interface SupplierScoreSummaryModel {
+  grade:          string | null;
+  compositeScore: number | null;
+}
+
 // ── Junction types ────────────────────────────────────────────────────────────
 
 export interface SupplierTypeMappingInput {
@@ -290,6 +295,11 @@ export class SupplierService {
 
   getSupplierById(uuid: string): Observable<ApiResponse<SupplierDetailModel>> {
     return this.http.get<ApiResponse<SupplierDetailModel>>(`${this.baseUrl}/${uuid}`);
+  }
+
+  // Lightweight grade check (SC-007) — returns grade + composite_score only.
+  getScoreSummary(uuid: string): Observable<ApiResponse<SupplierScoreSummaryModel>> {
+    return this.http.get<ApiResponse<SupplierScoreSummaryModel>>(`${this.baseUrl}/${uuid}/score-summary`);
   }
 
   createSupplier(data: CreateSupplierRequest): Observable<ApiResponse<string>> {

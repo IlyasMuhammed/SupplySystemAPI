@@ -56,10 +56,16 @@ export class GrnEditComponent implements OnInit {
       },
       error: () => {}
     });
-    this.inventoryService.getProducts({ activeOnly: true, pageSize: 500 }).subscribe({
+    // Deliberately not filtered to activeOnly: a line already linked to a product that has since
+    // been deactivated must still show that product here, or the dropdown looks blank/broken even
+    // though the link is genuinely still in place. Inactive products are labelled, not hidden.
+    this.inventoryService.getProducts({ pageSize: 500 }).subscribe({
       next: res => {
         const data = res?.result?.data ?? [];
-        this.productOptions = data.map(p => ({ label: p.name, value: p.uuid }));
+        this.productOptions = data.map(p => ({
+          label: p.status === 'ACTIVE' ? p.name : `${p.name} (Inactive)`,
+          value: p.uuid
+        }));
       },
       error: () => {}
     });

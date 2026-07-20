@@ -20,6 +20,12 @@ public interface IReportsService
     Task<List<ShipmentTrackerItem>>                  GetShipmentTrackerAsync(string? status);
     Task<(List<InvoiceAgingItem> Items, List<InvoiceAgingBucketSummary> Buckets)> GetInvoiceAgingAsync();
     Task<PaymentSummaryModel>                        GetPaymentSummaryAsync(ReportDateFilter filter);
+    Task<SupplierLedgerSummaryReport>                GetSupplierLedgerSummaryAsync(SupplierLedgerSummaryFilter filter);
+    Task<SupplierOrdersReport>                       GetSupplierOrdersAsync(SupplierOrdersFilter filter);
+    Task<SupplierComparisonResponse>                 GetSupplierComparisonAsync(List<Guid> supplierIds);
+    Task<GrnQualityAnalysisResponse>                 GetGrnQualityAnalysisAsync(GrnQualityAnalysisFilter filter);
+    Task<SupplierSpendAnalysisResponse>              GetSupplierSpendAnalysisAsync(SupplierSpendFilter filter);
+    Task<DeliveryHeatmapResponse?>                   GetDeliveryPerformanceHeatmapAsync(Guid supplierId, int year);
     Task<List<BudgetUtilizationItem>>                GetBudgetUtilizationAsync(ReportDateFilter filter);
     Task<PaginatedResponse<AuditLogItemModel>>       GetAuditTrailAsync(AuditLogFilter filter);
     Task<List<UserActivityItem>>                     GetUserActivityAsync(ReportDateFilter filter);

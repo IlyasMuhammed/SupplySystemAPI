@@ -1,0 +1,143 @@
+.scd-page {
+  min-height: 100vh;
+  background: #f0f4fb;
+  padding: 1.5rem 2rem 2.5rem;
+}
+
+.scd-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.scd-header-left { display: flex; align-items: center; gap: 1rem; }
+
+.scd-icon-box {
+  width: 48px; height: 48px; border-radius: 14px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  display: flex; align-items: center; justify-content: center;
+  i { font-size: 1.3rem; color: #fff; }
+}
+
+.scd-title    { font-size: 1.55rem; font-weight: 800; color: #1e293b; margin: 0 0 .15rem; letter-spacing: -.02em; }
+.scd-subtitle { font-size: .84rem; color: #64748b; margin: 0; }
+
+// ── Period selector ────────────────────────────────────────────────────────
+
+.scd-period-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  background: #fff;
+  border-radius: 16px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.25rem;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, .06);
+}
+
+.scd-presets { display: flex; gap: .5rem; }
+
+.scd-custom-range {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+
+.scd-range-sep { color: #94a3b8; font-size: .82rem; }
+
+.scd-period-label {
+  margin-left: auto;
+  font-size: .82rem;
+  color: #64748b;
+  font-weight: 600;
+}
+
+// ── Summary cards ──────────────────────────────────────────────────────────
+
+.scd-cards-row {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+
+  @media (max-width: 1200px) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  @media (max-width: 600px)  { grid-template-columns: 1fr; }
+}
+
+.scd-card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 1.1rem 1.25rem;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, .06);
+}
+
+.scd-card-label {
+  font-size: .74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+  color: #94a3b8;
+  margin-bottom: .5rem;
+}
+
+.scd-card-value {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: #1e293b;
+}
+
+.scd-card-value-sm {
+  font-size: .95rem;
+  font-weight: 700;
+  color: #1e293b;
+  display: flex;
+  flex-direction: column;
+  gap: .2rem;
+}
+
+.scd-empty-inline { color: #94a3b8; font-weight: 500; font-size: .82rem; }
+
+.scd-grade-chips { display: flex; flex-wrap: wrap; gap: .4rem; }
+
+.scd-grade-chip {
+  font-size: .78rem;
+  font-weight: 700;
+  padding: .2rem .6rem;
+  border-radius: 20px;
+
+  &.grade-a { background: rgba(22,163,74,.12);  color: #16a34a; }
+  &.grade-b { background: rgba(101,163,13,.12); color: #65a30d; }
+  &.grade-c { background: rgba(217,119,6,.12);  color: #d97706; }
+  &.grade-d { background: rgba(220,38,38,.12);  color: #dc2626; }
+  &.grade-f { background: rgba(127,29,29,.15);  color: #7f1d1d; }
+}
+
+.trend-up   { color: #16a34a; font-weight: 700; }
+.trend-down { color: #dc2626; font-weight: 700; }
+.trend-flat { color: #64748b; font-weight: 700; }
+
+// ── Ranking table ────────────────────────────────────────────────────────────
+
+.scd-table-card {
+  background: #fff;
+  border-radius: 16px;
+  padding: .5rem;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, .06);
+  overflow: hidden;
+}
+
+.scd-row { cursor: pointer; }
+.scd-name-cell { font-weight: 600; color: #1e293b; }
+.scd-composite-cell { font-weight: 800; color: #1e293b; }
+
+.scd-empty-row {
+  text-align: center;
+  color: #94a3b8;
+  padding: 2.5rem 0;
+
+  i { display: block; font-size: 1.5rem; margin-bottom: .5rem; }
+}

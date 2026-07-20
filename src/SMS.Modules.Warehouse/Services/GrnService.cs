@@ -114,7 +114,17 @@ internal sealed class GrnService : IGrnService
 
     public async Task RejectAsync(Guid grnUuid, int rejectedBy, string rejectionReason)
     {
-        await _workflow.RejectByDocumentAsync("GRN", grnUuid, rejectedBy, rejectionReason);
+        try
+        {
+            await _workflow.RejectByDocumentAsync("GRN", grnUuid, rejectedBy, rejectionReason);
+        }
+        catch (NotFoundException)
+        {
+            // GRN has no workflow record — reject directly.
+            // Handles GRNs created before the workflow engine was properly configured
+            // (mirrors the same fallback in ApproveAsync above).
+            await _docStatus.UpdateStatusAsync("GRN", grnUuid, "REJECTED");
+        }
 
         var grn = await _repo.GetByIdAsync(grnUuid);
         if (grn is not null)

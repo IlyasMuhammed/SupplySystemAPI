@@ -5,6 +5,24 @@
   min-height: 100vh;
 }
 
+// ── Grade F warning banner (SC-007) ──────────────────────────────────────────
+.grade-f-banner {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-left: 4px solid #dc2626;
+  border-radius: 12px;
+  padding: .9rem 1.25rem;
+  margin-bottom: 1.5rem;
+  color: #991b1b;
+  font-weight: 600;
+  font-size: .88rem;
+
+  i { font-size: 1.2rem; color: #dc2626; flex-shrink: 0; }
+}
+
 // ── Page Header Card ──────────────────────────────────────────────────────────
 .page-header-card {
   background: white;
