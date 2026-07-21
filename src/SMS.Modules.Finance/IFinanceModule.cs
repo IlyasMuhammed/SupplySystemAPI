@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using SMS.Modules.Finance.Data;
 using SMS.Modules.Finance.Repositories;
 using SMS.Modules.Finance.Services;
+using SMS.Modules.Warehouse.Events;
 using SMS.Shared.Common;
 
 namespace SMS.Modules.Finance;
@@ -40,6 +41,11 @@ public static class FinanceModuleExtensions
         services.AddScoped<ISupplierLedgerService, SupplierLedgerService>();
         services.AddScoped<ISupplierPaymentRepository, SupplierPaymentRepository>();
         services.AddScoped<ISupplierPaymentService,    SupplierPaymentService>();
+
+        // Auto-populate an invoice from a GRN when it's approved (fans out alongside Suppliers'
+        // scorecard-scoring publisher — GrnStatusHandler calls every registered IGrnEventPublisher).
+        services.AddScoped<IInvoiceAutoCreationService, InvoiceAutoCreationService>();
+        services.AddScoped<IGrnEventPublisher, InvoiceAutoCreateGrnEventPublisher>();
 
         // Timeline trace_id resolver
         services.AddScoped<ITraceIdResolver, InvoiceTraceIdResolver>();

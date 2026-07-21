@@ -1,15 +1,32 @@
-import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
+import { Component, EventEmitter, HostListener, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { SidebarModule } from 'primeng/sidebar';
 import { DropdownModule } from 'primeng/dropdown';
 import { FormsModule } from '@angular/forms';
 import { TimelineService, TimelineDetail, TimelineEvent } from '../../services/timeline.service';
+import { isPrimeOverlayClick } from '../prime-overlay.util';
 
 interface FilterOption {
   label: string;
   value: string;
 }
+
+// Event-type suffix (the part after the last "_") this panel understands, used to pick the verb
+// for the actor line ("Submitted by", "Sent by", ...). Anything else falls back to "By".
+const ACTOR_LABELS: Record<string, string> = {
+  CREATED:   'Created by',
+  SUBMITTED: 'Submitted by',
+  SENT:      'Sent by',
+  APPROVED:  'Approved by',
+  REJECTED:  'Rejected by',
+  AWARDED:   'Awarded by',
+  ISSUED:    'Issued by',
+  RECEIVED:  'Received by',
+  PAID:      'Paid by',
+  AMENDED:   'Amended by',
+  CONFIRMED: 'Confirmed by'
+};
 
 // Interface-code prefixes this panel understands; anything else falls back to a neutral colour/label.
 const INTERFACE_META: Record<string, { label: string; color: string; route: string }> = {
@@ -53,6 +70,21 @@ export class TimelinePanelComponent implements OnChanges {
     if (changes['visible'] && this.visible) {
       this.load();
     }
+  }
+
+  // PrimeNG's p-sidebar moves its rendered DOM out of this component's own subtree (for stacking),
+  // so a containment check against this component's host element sees even the sidebar's own trigger
+  // controls as "outside". Query for the sidebar's actual rendered root by its styleClass instead —
+  // confirmed via direct inspection to correctly contain everything the sidebar renders, including
+  // dropdown/calendar overlays it opens. [dismissible] on p-sidebar is off; this replaces it correctly.
+  @HostListener('document:mousedown', ['$event'])
+  onDocumentMouseDown(event: MouseEvent) {
+    if (!this.visible) return;
+    const target = event.target as HTMLElement;
+    const sidebarEl = document.querySelector('.timeline-panel-sidebar');
+    if (sidebarEl?.contains(target)) return;
+    if (isPrimeOverlayClick(target)) return;
+    this.close();
   }
 
   onVisibleChange(v: boolean) {
@@ -129,6 +161,11 @@ export class TimelinePanelComponent implements OnChanges {
       .map(w => w.charAt(0).toUpperCase() + w.slice(1))
       .join(' ');
     return e.notes ? `${humanized} — ${e.notes}` : humanized;
+  }
+
+  actorLabel(eventType: string): string {
+    const suffix = (eventType || '').split('_').pop()?.toUpperCase() ?? '';
+    return ACTOR_LABELS[suffix] ?? 'By';
   }
 
   goToDocument(e: TimelineEvent) {

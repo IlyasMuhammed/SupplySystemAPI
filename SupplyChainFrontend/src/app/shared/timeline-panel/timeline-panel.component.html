@@ -43,6 +43,7 @@
             <span class="tl-time">{{ e.occurredAt | date:'dd MMM yyyy, HH:mm' }}</span>
           </div>
           <div class="tl-event-desc">{{ describeEvent(e) }}</div>
+          <div class="tl-event-by" *ngIf="e.performedByName">{{ actorLabel(e.eventType) }} {{ e.performedByName }}</div>
         </div>
       </div>
 

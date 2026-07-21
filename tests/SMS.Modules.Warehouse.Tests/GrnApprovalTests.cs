@@ -2,6 +2,7 @@ using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.Extensions.Logging.Abstractions;
 using SMS.Modules.Demand.Data;
 using SMS.Modules.Demand.Domain;
 using SMS.Modules.Inventory.Data;
@@ -69,7 +70,7 @@ file static class ApprovalBuild
 
         var publisher = new CapturingGrnEventPublisher();
         var poster    = stockPoster ?? new NullGrnStockPoster();
-        var handler   = new GrnStatusHandler(wh, demand, poster, publisher);
+        var handler   = new GrnStatusHandler(wh, demand, poster, new[] { publisher }, NullLogger<GrnStatusHandler>.Instance);
 
         return (handler, wh, demand, inv, publisher);
     }
@@ -122,7 +123,7 @@ file static class ApprovalBuild
         var uuid = await repo.CreateAsync(new CreateGrnRequest
         {
             PoUuid = po.UUID,
-            WarehouseUuid = Guid.NewGuid(),
+            WarehouseUuid = warehouseUuid ?? Guid.NewGuid(),
             ReceivedAt = DateTime.UtcNow // Changed from ReceivedDate to ReceivedAt
         }, createdBy: 1);
 
@@ -261,6 +262,38 @@ public class GrnStatusHandler_Approve_Event_Tests
 
         publisher.Published.Should().HaveCount(1);
         publisher.Published[0].GrnUuid.Should().Be(grn.UUID);
+    }
+}
+
+// ── Multiple IGrnEventPublisher registrations fan out; one throwing doesn't block the others ──
+
+file sealed class ThrowingGrnEventPublisher : IGrnEventPublisher
+{
+    public Task PublishGrnApprovedAsync(GrnApprovedEvent evt) =>
+        throw new InvalidOperationException("boom");
+}
+
+public class GrnStatusHandler_Approve_MultiPublisher_Tests
+{
+    [Fact]
+    public async Task Approve_Notifies_Every_Registered_Publisher_Even_If_One_Throws()
+    {
+        var po = ApprovalBuild.SentPo(("Item", 5m, 100m));
+        var (_, wh, demand, _, _) = ApprovalBuild.New(db => db.PurchaseOrders.Add(po));
+
+        var publisherA = new CapturingGrnEventPublisher();
+        var publisherB = new CapturingGrnEventPublisher();
+        var handler = new GrnStatusHandler(
+            wh, demand, new NullGrnStockPoster(),
+            new IGrnEventPublisher[] { publisherA, new ThrowingGrnEventPublisher(), publisherB },
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<GrnStatusHandler>.Instance);
+
+        var grn = await ApprovalBuild.PendingGrnAsync(wh, demand, po, qtyAccepted: 5m);
+
+        await handler.UpdateStatusAsync(grn.UUID, "APPROVED");
+
+        publisherA.Published.Should().HaveCount(1);
+        publisherB.Published.Should().HaveCount(1);
     }
 }
 

@@ -56,6 +56,11 @@ public class UpdateGrnLineRequest
     public string? QcResult { get; set; }  // PASS | FAIL | PARTIAL
 }
 
+public class LinkGrnLineProductRequest
+{
+    public Guid ProductUuid { get; set; }
+}
+
 // Formal inspection recording (PENDING_QC status only)
 public class InspectGrnLineRequest
 {

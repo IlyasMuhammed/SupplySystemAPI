@@ -129,10 +129,10 @@ file static class Build
         return poLine;
     }
 
-    internal static TimelineEvent Event(string type, string interfaceCode = "PR") =>
-        new(type, interfaceCode, Guid.NewGuid(), "REF-001", DateTime.UtcNow, 1, null);
+    internal static TimelineEventView Event(string type, string interfaceCode = "PR") =>
+        new(type, interfaceCode, Guid.NewGuid(), "REF-001", DateTime.UtcNow, 1, "User 1", null);
 
-    internal static TimelineDetail Timeline(Guid traceId, params TimelineEvent[] events) => new()
+    internal static TimelineDetail Timeline(Guid traceId, params TimelineEventView[] events) => new()
     {
         TraceId = traceId, ChainRootType = "PR", ChainRootRef = "PR-2026-00001",
         FirstEventAt = DateTime.UtcNow, LastEventAt = DateTime.UtcNow, Events = events.ToList()

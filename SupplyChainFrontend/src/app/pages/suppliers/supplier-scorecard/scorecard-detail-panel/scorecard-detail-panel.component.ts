@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
+import { Component, EventEmitter, HostListener, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { SidebarModule } from 'primeng/sidebar';
@@ -8,6 +8,7 @@ import {
   ScorecardService,
   SupplierScorecardDetailModel
 } from '../../../../services/scorecard.service';
+import { isPrimeOverlayClick } from '../../../../shared/prime-overlay.util';
 
 // Each dimension's max raw points (FSD Section 4.1 / SC-004) — used to normalise the radar chart
 // axes to a common 0-100 scale so dimensions with different maxima (e.g. Price maxes at 15,
@@ -43,6 +44,21 @@ export class ScorecardDetailPanelComponent implements OnChanges {
     if (changes['visible'] && this.visible && this.supplierId) {
       this.load();
     }
+  }
+
+  // PrimeNG's p-sidebar moves its rendered DOM out of this component's own subtree (for stacking),
+  // so a containment check against this component's host element sees even the sidebar's own
+  // content (chart canvases, GRN links, etc.) as "outside". Query for the sidebar's actual rendered
+  // root by its styleClass instead — confirmed via direct inspection to correctly contain everything
+  // the sidebar renders. [dismissible] on p-sidebar is off; this replaces it correctly.
+  @HostListener('document:mousedown', ['$event'])
+  onDocumentMouseDown(event: MouseEvent) {
+    if (!this.visible) return;
+    const target = event.target as HTMLElement;
+    const sidebarEl = document.querySelector('.scorecard-panel-sidebar');
+    if (sidebarEl?.contains(target)) return;
+    if (isPrimeOverlayClick(target)) return;
+    this.close();
   }
 
   onVisibleChange(v: boolean) {

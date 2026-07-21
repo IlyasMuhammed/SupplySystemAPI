@@ -274,3 +274,88 @@ public class SubmitGrn_Partial_Tests
             .WithMessage("*Only DRAFT*");
     }
 }
+
+// ── LinkLineProductAsync: recovers "not linked to a catalogue product" without reject+recreate ────
+
+public class LinkLineProductAsync_Tests
+{
+    [Fact]
+    public async Task Links_Product_While_Still_DRAFT()
+    {
+        var sentPo = GrnBuild.SentPo(lines: [("Kia Sportage", 10m)]);
+        var (repo, wh, _) = GrnBuild.New(db => db.PurchaseOrders.Add(sentPo));
+        var grnUuid  = await repo.CreateAsync(GrnBuild.GrnReq(sentPo.UUID), createdBy: 1);
+        var lineUuid = (await wh.Grns.Include(g => g.Lines).FirstAsync(g => g.UUID == grnUuid)).Lines.First().UUID;
+        var productUuid = Guid.NewGuid();
+
+        await repo.LinkLineProductAsync(grnUuid, lineUuid, productUuid, modifiedBy: 1);
+
+        (await wh.GrnLines.FirstAsync(l => l.UUID == lineUuid)).ProductUuid.Should().Be(productUuid);
+    }
+
+    [Theory]
+    [InlineData("PENDING_QC")]
+    [InlineData("PENDING_FINANCE")]
+    [InlineData("PENDING_APPROVAL")]
+    public async Task Links_Product_While_In_Flight_Past_DRAFT(string status)
+    {
+        var sentPo = GrnBuild.SentPo(lines: [("Kia Sportage", 10m)]);
+        var (repo, wh, _) = GrnBuild.New(db => db.PurchaseOrders.Add(sentPo));
+        var grnUuid  = await repo.CreateAsync(GrnBuild.GrnReq(sentPo.UUID), createdBy: 1);
+        var lineUuid = (await wh.Grns.Include(g => g.Lines).FirstAsync(g => g.UUID == grnUuid)).Lines.First().UUID;
+
+        var grn = await wh.Grns.FirstAsync(g => g.UUID == grnUuid);
+        grn.Status = status;
+        await wh.SaveChangesAsync();
+
+        var productUuid = Guid.NewGuid();
+        await repo.LinkLineProductAsync(grnUuid, lineUuid, productUuid, modifiedBy: 1);
+
+        (await wh.GrnLines.FirstAsync(l => l.UUID == lineUuid)).ProductUuid.Should().Be(productUuid);
+    }
+
+    [Theory]
+    [InlineData("APPROVED")]
+    [InlineData("REJECTED")]
+    public async Task Throws_UnprocessableEntity_Once_Terminal(string status)
+    {
+        var sentPo = GrnBuild.SentPo(lines: [("Kia Sportage", 10m)]);
+        var (repo, wh, _) = GrnBuild.New(db => db.PurchaseOrders.Add(sentPo));
+        var grnUuid  = await repo.CreateAsync(GrnBuild.GrnReq(sentPo.UUID), createdBy: 1);
+        var lineUuid = (await wh.Grns.Include(g => g.Lines).FirstAsync(g => g.UUID == grnUuid)).Lines.First().UUID;
+
+        var grn = await wh.Grns.FirstAsync(g => g.UUID == grnUuid);
+        grn.Status = status;
+        await wh.SaveChangesAsync();
+
+        var act = () => repo.LinkLineProductAsync(grnUuid, lineUuid, Guid.NewGuid(), modifiedBy: 1);
+
+        await act.Should().ThrowAsync<UnprocessableEntityException>();
+    }
+
+    [Fact]
+    public async Task Does_Not_Touch_Quantities_Or_Other_Line_Fields()
+    {
+        var sentPo = GrnBuild.SentPo(lines: [("Kia Sportage", 10m)]);
+        var (repo, wh, _) = GrnBuild.New(db => db.PurchaseOrders.Add(sentPo));
+        var grnUuid  = await repo.CreateAsync(GrnBuild.GrnReq(sentPo.UUID), createdBy: 1);
+        var lineUuid = (await wh.Grns.Include(g => g.Lines).FirstAsync(g => g.UUID == grnUuid)).Lines.First().UUID;
+
+        await repo.UpdateLineAsync(grnUuid, lineUuid, new UpdateGrnLineRequest
+        {
+            QtyReceived = 10m, QtyAccepted = 9m, QtyRejected = 1, RejectionReason = "Damaged"
+        }, modifiedBy: 1);
+
+        var grn = await wh.Grns.FirstAsync(g => g.UUID == grnUuid);
+        grn.Status = "PENDING_APPROVAL";
+        await wh.SaveChangesAsync();
+
+        await repo.LinkLineProductAsync(grnUuid, lineUuid, Guid.NewGuid(), modifiedBy: 1);
+
+        var line = await wh.GrnLines.FirstAsync(l => l.UUID == lineUuid);
+        line.QtyReceived.Should().Be(10m);
+        line.QtyAccepted.Should().Be(9m);
+        line.QtyRejected.Should().Be(1m);
+        line.RejectionReason.Should().Be("Damaged");
+    }
+}

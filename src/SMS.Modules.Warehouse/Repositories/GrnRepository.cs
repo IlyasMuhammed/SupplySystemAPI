@@ -232,6 +232,35 @@ internal sealed class GrnRepository : IGrnRepository
             notes: $"GRN {grn.GrnNumber} line updated: {line.ItemDescription} qty={line.QtyReceived}");
     }
 
+    // Narrow, single-purpose alternative to UpdateLineAsync: only ever touches ProductUuid, nothing
+    // else on the line. Linking a line to its catalogue product doesn't affect quantities, cost, or
+    // any already-recorded QC outcome, so — unlike UpdateLineAsync — this is allowed at any point
+    // before the GRN reaches a terminal state, not just while still DRAFT. This exists because
+    // "Cannot post stock: line not linked to a catalogue product" was otherwise only fixable by
+    // rejecting and recreating the whole GRN once past DRAFT.
+    public async Task LinkLineProductAsync(Guid grnUuid, Guid lineUuid, Guid productUuid, int modifiedBy)
+    {
+        var grn = await _wh.Grns
+            .Include(g => g.Lines)
+            .FirstOrDefaultAsync(g => g.UUID == grnUuid && !g.IsDelete)
+            ?? throw new NotFoundException("GRN", grnUuid);
+
+        if (grn.Status is "APPROVED" or "REJECTED")
+            throw new UnprocessableEntityException(
+                $"GRN lines can no longer be edited once the GRN is {grn.Status}.");
+
+        var line = grn.Lines.FirstOrDefault(l => l.UUID == lineUuid)
+            ?? throw new NotFoundException("GrnLine", lineUuid);
+
+        line.ProductUuid = productUuid;
+        grn.ModifiedBy   = modifiedBy;
+        grn.ModifiedDate = DateTime.UtcNow;
+
+        await _wh.SaveChangesAsync();
+        await _audit.LogAsync(modifiedBy, null, "WAREHOUSE", "UPDATE", "GRN", grn.UUID,
+            notes: $"GRN {grn.GrnNumber} line '{line.ItemDescription}' linked to catalogue product {productUuid}.");
+    }
+
     // ── Record formal inspection result per line (PENDING_QC only) ───────────
 
     public async Task InspectLineAsync(Guid grnUuid, Guid lineUuid, InspectGrnLineRequest req, int inspectedBy)

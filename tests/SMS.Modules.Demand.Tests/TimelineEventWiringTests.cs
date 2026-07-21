@@ -173,7 +173,8 @@ public class PurchaseOrderService_TimelineWiring_Tests
 
         var evt = WiringBuild.CapturedEvent(captured);
         evt.EventType.Should().Be("PO_APPROVED");
-        evt.Notes.Should().Contain("user 5").And.Contain("tier 2").And.Contain("Finance Manager");
+        evt.PerformedBy.Should().Be(5);
+        evt.Notes.Should().Contain("tier 2").And.Contain("Finance Manager");
     }
 
     [Fact]

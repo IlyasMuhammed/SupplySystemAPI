@@ -12,11 +12,13 @@ internal sealed class TimelineService : ITimelineService
     private const int MaxAppendAttempts = 5;
 
     private readonly WorkflowDbContext _db;
+    private readonly IUserQueryService _userQuery;
     private readonly IReadOnlyDictionary<string, ITraceIdResolver> _resolvers;
 
-    public TimelineService(WorkflowDbContext db, IEnumerable<ITraceIdResolver> resolvers)
+    public TimelineService(WorkflowDbContext db, IUserQueryService userQuery, IEnumerable<ITraceIdResolver> resolvers)
     {
         _db = db;
+        _userQuery = userQuery;
         _resolvers = resolvers.ToDictionary(
             r => r.InterfaceCode.ToUpperInvariant(),
             StringComparer.OrdinalIgnoreCase);
@@ -85,7 +87,15 @@ internal sealed class TimelineService : ITimelineService
         var timeline = await _db.DocumentTimelines.AsNoTracking().FirstOrDefaultAsync(t => t.TraceId == traceId);
         if (timeline is null) return null;
 
-        var events = JsonSerializer.Deserialize<List<TimelineEvent>>(timeline.Events) ?? [];
+        var events = (JsonSerializer.Deserialize<List<TimelineEvent>>(timeline.Events) ?? [])
+            .OrderBy(e => e.OccurredAt)
+            .ToList();
+
+        var userIds = events.Where(e => e.PerformedBy.HasValue).Select(e => e.PerformedBy!.Value).Distinct().ToList();
+        var names   = userIds.Count > 0
+            ? (await _userQuery.GetUsersAsync(userIds)).ToDictionary(u => u.UserId, u => u.DisplayName)
+            : new Dictionary<int, string>();
+
         return new TimelineDetail
         {
             TraceId       = timeline.TraceId,
@@ -93,8 +103,23 @@ internal sealed class TimelineService : ITimelineService
             ChainRootRef  = timeline.ChainRootRef,
             FirstEventAt  = timeline.FirstEventAt,
             LastEventAt   = timeline.LastEventAt,
-            Events        = events.OrderBy(e => e.OccurredAt).ToList()
+            Events        = events.Select(e =>
+            {
+                var name = e.PerformedBy.HasValue && names.TryGetValue(e.PerformedBy.Value, out var n) ? n : null;
+                return new TimelineEventView(
+                    e.EventType, e.InterfaceCode, e.DocumentId, e.DocumentNumber, e.OccurredAt,
+                    e.PerformedBy, name, ScrubRawUserId(e.Notes, e.PerformedBy, name));
+            }).ToList()
         };
+    }
+
+    // Some older stored events (pre-dating name resolution) baked a raw "user {id}" reference
+    // straight into Notes text. Scrub it here at read time — rather than backfilling every stored
+    // JSON blob — since the actor is already shown separately once PerformedByName is resolved.
+    private static string? ScrubRawUserId(string? notes, int? performedBy, string? performedByName)
+    {
+        if (notes is null || performedBy is null || performedByName is null) return notes;
+        return notes.Replace($"user {performedBy}", performedByName);
     }
 
     public Task<Guid?> ResolveTraceIdAsync(string interfaceCode, Guid documentId)

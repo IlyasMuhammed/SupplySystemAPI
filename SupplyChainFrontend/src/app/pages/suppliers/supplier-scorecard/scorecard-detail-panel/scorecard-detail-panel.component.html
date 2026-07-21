@@ -1,5 +1,6 @@
 <p-sidebar [visible]="visible" (visibleChange)="onVisibleChange($event)"
-           position="right" styleClass="scorecard-panel-sidebar" [style]="{width:'32rem'}">
+           position="right" styleClass="scorecard-panel-sidebar"
+           [dismissible]="false">
 
   <ng-template pTemplate="header">
     <div class="sc-header">
@@ -30,17 +31,19 @@
       </div>
     </div>
 
-    <div class="sc-section">
-      <div class="sc-section-title">Dimension Breakdown</div>
-      <div class="sc-radar-wrap">
-        <p-chart type="radar" [data]="radarData" [options]="radarOptions" [style]="{height:'260px'}"></p-chart>
+    <div class="sc-charts-row">
+      <div class="sc-section sc-chart-col">
+        <div class="sc-section-title">Dimension Breakdown</div>
+        <div class="sc-radar-wrap">
+          <p-chart type="radar" [data]="radarData" [options]="radarOptions" [style]="{height:'260px'}"></p-chart>
+        </div>
       </div>
-    </div>
 
-    <div class="sc-section" *ngIf="detail.trendHistory.length > 1">
-      <div class="sc-section-title">Composite Score Trend</div>
-      <div class="sc-line-wrap">
-        <p-chart type="line" [data]="lineData" [options]="lineOptions" [style]="{height:'180px'}"></p-chart>
+      <div class="sc-section sc-chart-col" *ngIf="detail.trendHistory.length > 1">
+        <div class="sc-section-title">Composite Score Trend</div>
+        <div class="sc-line-wrap">
+          <p-chart type="line" [data]="lineData" [options]="lineOptions" [style]="{height:'260px'}"></p-chart>
+        </div>
       </div>
     </div>
 

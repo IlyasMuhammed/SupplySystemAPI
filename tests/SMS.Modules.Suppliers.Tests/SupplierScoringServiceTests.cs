@@ -282,3 +282,81 @@ public class ScoreGrnAsync_Tests
         after.WeightedScore.Should().BeLessThan(beforeWeighted);
     }
 }
+
+public class BackfillMissingScoresAsync_Tests
+{
+    [Fact]
+    public async Task Scores_Approved_Grns_That_Have_No_Score_Row_Yet()
+    {
+        var (service, suppliers, warehouse, demand, _) = ScoringBuild.New();
+        var supplierId = Guid.NewGuid();
+        var po = ScoringBuild.SeedPo(demand, supplierId, new DateTime(2026, 6, 1), 10m, 5m);
+        var poLine = po.Lines.Single();
+
+        var unscored1 = ScoringBuild.SeedGrn(warehouse, po.UUID, supplierId, new DateTime(2026, 6, 1),
+            requiresInspection: false, qcPassed: true, deliveryNoteNo: "DN-1", lines: [(poLine.UUID, 10m, 10m, 5m, null)]);
+        var unscored2 = ScoringBuild.SeedGrn(warehouse, po.UUID, supplierId, new DateTime(2026, 6, 2),
+            requiresInspection: false, qcPassed: true, deliveryNoteNo: "DN-2", lines: [(poLine.UUID, 10m, 10m, 5m, null)]);
+
+        var count = await service.BackfillMissingScoresAsync();
+
+        count.Should().Be(2);
+        (await suppliers.GrnScoreDetails.CountAsync(s => s.GrnId == unscored1.UUID)).Should().Be(1);
+        (await suppliers.GrnScoreDetails.CountAsync(s => s.GrnId == unscored2.UUID)).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Does_Not_Rescore_Grns_That_Already_Have_A_Score_Row()
+    {
+        var (service, suppliers, warehouse, demand, _) = ScoringBuild.New();
+        var supplierId = Guid.NewGuid();
+        var po = ScoringBuild.SeedPo(demand, supplierId, new DateTime(2026, 6, 1), 10m, 5m);
+        var poLine = po.Lines.Single();
+
+        var grn = ScoringBuild.SeedGrn(warehouse, po.UUID, supplierId, new DateTime(2026, 6, 1),
+            requiresInspection: false, qcPassed: true, deliveryNoteNo: "DN-1", lines: [(poLine.UUID, 10m, 10m, 5m, null)]);
+        await service.ScoreGrnAsync(grn.UUID);
+
+        var count = await service.BackfillMissingScoresAsync();
+
+        count.Should().Be(0);
+        (await suppliers.GrnScoreDetails.CountAsync(s => s.GrnId == grn.UUID)).Should().Be(1); // still just one row
+    }
+
+    [Fact]
+    public async Task Force_Rescores_Grns_That_Already_Have_A_Score_Row()
+    {
+        var (service, suppliers, warehouse, demand, _) = ScoringBuild.New();
+        var supplierId = Guid.NewGuid();
+        var po = ScoringBuild.SeedPo(demand, supplierId, new DateTime(2026, 6, 1), 10m, 5m);
+        var poLine = po.Lines.Single();
+
+        var grn = ScoringBuild.SeedGrn(warehouse, po.UUID, supplierId, new DateTime(2026, 6, 1),
+            requiresInspection: false, qcPassed: true, deliveryNoteNo: "DN-1", lines: [(poLine.UUID, 10m, 10m, 5m, null)]);
+        await service.ScoreGrnAsync(grn.UUID);
+
+        var count = await service.BackfillMissingScoresAsync(force: true);
+
+        count.Should().Be(1);
+        (await suppliers.GrnScoreDetails.CountAsync(s => s.GrnId == grn.UUID)).Should().Be(1); // rescored in place, not duplicated
+    }
+
+    [Fact]
+    public async Task Ignores_Non_Approved_Grns()
+    {
+        var (service, suppliers, warehouse, demand, _) = ScoringBuild.New();
+        var supplierId = Guid.NewGuid();
+        var po = ScoringBuild.SeedPo(demand, supplierId, new DateTime(2026, 6, 1), 10m, 5m);
+        var poLine = po.Lines.Single();
+
+        var draftGrn = ScoringBuild.SeedGrn(warehouse, po.UUID, supplierId, new DateTime(2026, 6, 1),
+            requiresInspection: false, qcPassed: true, deliveryNoteNo: "DN-1", lines: [(poLine.UUID, 10m, 10m, 5m, null)]);
+        draftGrn.Status = "DRAFT";
+        warehouse.SaveChanges();
+
+        var count = await service.BackfillMissingScoresAsync();
+
+        count.Should().Be(0);
+        (await suppliers.GrnScoreDetails.CountAsync()).Should().Be(0);
+    }
+}

@@ -80,7 +80,11 @@ internal sealed class SupplierScoringService : ISupplierScoringService
                 DocumentationPoints = documentationPoints,
                 TotalRawScore       = totalRaw,
                 WeightedScore       = weighted,
-                ScoredAt            = DateTime.UtcNow
+                // The GRN's own received date, not "now" — this is what buckets the score into a
+                // recalculation period. Using DateTime.UtcNow here would misattribute a GRN scored
+                // late (e.g. via BackfillMissingScoresAsync, weeks after approval) to today's period
+                // instead of the period it actually happened in.
+                ScoredAt            = grn.ReceivedAt
             });
         }
         else
@@ -92,10 +96,39 @@ internal sealed class SupplierScoringService : ISupplierScoringService
             existing.DocumentationPoints = documentationPoints;
             existing.TotalRawScore       = totalRaw;
             existing.WeightedScore       = weighted;
-            existing.ScoredAt            = DateTime.UtcNow;
+            existing.ScoredAt            = grn.ReceivedAt;
         }
 
         await _suppliers.SaveChangesAsync();
+    }
+
+    public async Task<int> BackfillMissingScoresAsync(bool force = false)
+    {
+        var approvedGrnIds = await _warehouse.Grns.AsNoTracking()
+            .Where(g => !g.IsDelete && g.Status == "APPROVED")
+            .Select(g => g.UUID)
+            .ToListAsync();
+
+        List<Guid> toScore;
+        if (force)
+        {
+            // Rescore everything, including GRNs that already have a row — e.g. after a scoring-logic
+            // change, or to correct rows written under a previous (buggy) ScoredAt attribution.
+            toScore = approvedGrnIds;
+        }
+        else
+        {
+            var alreadyScored = await _suppliers.GrnScoreDetails.AsNoTracking()
+                .Where(s => approvedGrnIds.Contains(s.GrnId))
+                .Select(s => s.GrnId)
+                .ToListAsync();
+            toScore = approvedGrnIds.Except(alreadyScored).ToList();
+        }
+
+        foreach (var grnId in toScore)
+            await ScoreGrnAsync(grnId);
+
+        return toScore.Count;
     }
 
     private static decimal WeightedFor(List<ScorecardDimensionWeight> weights, string code, decimal points)

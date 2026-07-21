@@ -20,12 +20,29 @@ file static class TimelineBuild
             .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
             .Options);
 
-    internal static TimelineService NewService(WorkflowDbContext db, IEnumerable<ITraceIdResolver>? resolvers = null) =>
-        new(db, resolvers ?? []);
+    internal static TimelineService NewService(
+        WorkflowDbContext db, IEnumerable<ITraceIdResolver>? resolvers = null, IUserQueryService? userQuery = null) =>
+        new(db, userQuery ?? new StubUserQueryService(), resolvers ?? []);
 
     internal static TimelineEvent Event(
-        string eventType = "PR_CREATED", string interfaceCode = "PR", Guid? documentId = null, DateTime? occurredAt = null) =>
-        new(eventType, interfaceCode, documentId ?? Guid.NewGuid(), "PR-2026-00001", occurredAt ?? DateTime.UtcNow, PerformedBy: 1, Notes: null);
+        string eventType = "PR_CREATED", string interfaceCode = "PR", Guid? documentId = null, DateTime? occurredAt = null,
+        int? performedBy = 1) =>
+        new(eventType, interfaceCode, documentId ?? Guid.NewGuid(), "PR-2026-00001", occurredAt ?? DateTime.UtcNow, performedBy, Notes: null);
+}
+
+// Returns "User {id}" for any id so tests can assert resolution happened without needing a real Auth store.
+file sealed class StubUserQueryService : IUserQueryService
+{
+    public Task<UserIdentity?> GetUserAsync(int userId) =>
+        Task.FromResult<UserIdentity?>(new UserIdentity(userId, $"User {userId}"));
+
+    public Task<IReadOnlyList<UserIdentity>> GetUsersAsync(IReadOnlyList<int> userIds) =>
+        Task.FromResult<IReadOnlyList<UserIdentity>>(userIds.Select(id => new UserIdentity(id, $"User {id}")).ToList());
+
+    public Task<IReadOnlyList<UserIdentity>> GetActiveUsersByRoleAsync(int roleId) =>
+        Task.FromResult<IReadOnlyList<UserIdentity>>([]);
+
+    public Task<bool> IsSystemAdminAsync(int userId) => Task.FromResult(false);
 }
 
 // ── AppendEventAsync ─────────────────────────────────────────────────────────
@@ -217,6 +234,53 @@ public class GetTimelineDetailAsync_Tests
         var detail = await svc.GetTimelineDetailAsync(Guid.NewGuid());
 
         detail.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Resolves_PerformedByName_For_Each_Event_With_A_PerformedBy()
+    {
+        var svc     = TimelineBuild.NewService(TimelineBuild.NewDb());
+        var traceId = Guid.NewGuid();
+
+        await svc.AppendEventAsync(traceId, TimelineBuild.Event("PR_CREATED", performedBy: 7));
+
+        var detail = await svc.GetTimelineDetailAsync(traceId);
+
+        detail!.Events.Single().PerformedBy.Should().Be(7);
+        detail.Events.Single().PerformedByName.Should().Be("User 7");
+    }
+
+    [Fact]
+    public async Task PerformedByName_Is_Null_When_Event_Has_No_PerformedBy()
+    {
+        var svc     = TimelineBuild.NewService(TimelineBuild.NewDb());
+        var traceId = Guid.NewGuid();
+
+        await svc.AppendEventAsync(traceId, TimelineBuild.Event("SYSTEM_EVENT", performedBy: null));
+
+        var detail = await svc.GetTimelineDetailAsync(traceId);
+
+        detail!.Events.Single().PerformedByName.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Old_Notes_Text_Referencing_Raw_User_Id_Is_Replaced_With_Resolved_Name()
+    {
+        var db      = TimelineBuild.NewDb();
+        var svc     = TimelineBuild.NewService(db);
+        var traceId = Guid.NewGuid();
+
+        // Simulates a pre-existing stored event whose Notes baked in a raw "user {id}" reference,
+        // the way PurchaseOrderService.ApproveAsync used to before it was changed to omit it.
+        var staleEvent = new TimelineEvent(
+            "PO_APPROVED", "PO", Guid.NewGuid(), "PO-2026-00001", DateTime.UtcNow,
+            PerformedBy: 2, Notes: "Approved by user 2 at tier 2 (Finance Manager Approval).");
+        await svc.AppendEventAsync(traceId, staleEvent);
+
+        var detail = await svc.GetTimelineDetailAsync(traceId);
+
+        detail!.Events.Single().Notes.Should().Be("Approved by User 2 at tier 2 (Finance Manager Approval).");
+        detail.Events.Single().Notes.Should().NotContain("user 2");
     }
 }
 

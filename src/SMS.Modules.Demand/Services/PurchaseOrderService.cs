@@ -121,9 +121,11 @@ internal sealed class PurchaseOrderService : IPurchaseOrderService
         var po = await _repo.GetByIdAsync(poUuid);
         if (po is not null)
         {
+            // Who approved it is carried on the event's PerformedBy/PerformedByName (resolved
+            // generically for every timeline event) — notes only need the tier-specific detail.
             var notes = tierStep.HasValue
-                ? $"Approved by user {approvedBy} at tier {tierStep} ({tierName})."
-                : $"Approved by user {approvedBy}.";
+                ? $"At tier {tierStep} ({tierName})."
+                : null;
 
             _jobs.Enqueue<ITimelineAppendJob>(j => j.AppendAsync(
                 po.TraceId,

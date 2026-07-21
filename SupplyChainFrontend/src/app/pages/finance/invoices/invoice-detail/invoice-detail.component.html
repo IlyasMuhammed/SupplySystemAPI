@@ -100,16 +100,8 @@
             <div class="match-value">{{ invoice.totalAmount | number:'1.2-2' }}</div>
           </div>
           <div class="match-item">
-            <div class="match-label">PO Value (Matched)</div>
-            <div class="match-value">{{ invoice.matchedPoValue | number:'1.2-2' }}</div>
-          </div>
-          <div class="match-item">
             <div class="match-label">GRN Value (Matched)</div>
             <div class="match-value">{{ invoice.matchedGrnValue | number:'1.2-2' }}</div>
-          </div>
-          <div class="match-item" [class.variance-warn]="invoice.varianceAmount !== 0">
-            <div class="match-label">Variance</div>
-            <div class="match-value">{{ invoice.varianceAmount | number:'1.2-2' }}</div>
           </div>
         </div>
         <p-divider></p-divider>

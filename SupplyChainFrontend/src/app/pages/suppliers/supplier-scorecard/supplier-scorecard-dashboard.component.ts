@@ -131,14 +131,16 @@ export class SupplierScorecardDashboardComponent implements OnInit {
     return order.filter(g => counts.has(g)).map(g => ({ grade: g, count: counts.get(g)! }));
   }
 
+  // A flat (0.0) delta is neither an improvement nor a decline, so it must not win either card —
+  // otherwise the one supplier with any delta data at all (even a flat one) trivially "wins" both.
   get mostImproved(): SupplierScorecardRankingItem | null {
-    const candidates = this.suppliers.filter(s => s.scoreDelta !== null);
+    const candidates = this.suppliers.filter(s => s.scoreDelta !== null && s.scoreDelta > 0);
     if (!candidates.length) return null;
     return candidates.reduce((best, s) => (s.scoreDelta! > best.scoreDelta! ? s : best));
   }
 
   get mostDeclined(): SupplierScorecardRankingItem | null {
-    const candidates = this.suppliers.filter(s => s.scoreDelta !== null);
+    const candidates = this.suppliers.filter(s => s.scoreDelta !== null && s.scoreDelta < 0);
     if (!candidates.length) return null;
     return candidates.reduce((worst, s) => (s.scoreDelta! < worst.scoreDelta! ? s : worst));
   }

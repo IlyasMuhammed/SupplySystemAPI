@@ -20,8 +20,8 @@ file static class ControllerBuild
         LastEventAt   = DateTime.UtcNow,
         Events =
         [
-            new TimelineEvent("PR_CREATED", "PR", Guid.NewGuid(), "PR-2026-00001", DateTime.UtcNow.AddMinutes(-10), 1, null),
-            new TimelineEvent("PR_APPROVED", "PR", Guid.NewGuid(), "PR-2026-00001", DateTime.UtcNow, 2, null)
+            new TimelineEventView("PR_CREATED", "PR", Guid.NewGuid(), "PR-2026-00001", DateTime.UtcNow.AddMinutes(-10), 1, "Alice", null),
+            new TimelineEventView("PR_APPROVED", "PR", Guid.NewGuid(), "PR-2026-00001", DateTime.UtcNow, 2, "Bob", null)
         ]
     };
 }

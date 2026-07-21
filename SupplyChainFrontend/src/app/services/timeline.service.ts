@@ -12,6 +12,7 @@ export interface TimelineEvent {
   documentNumber?: string;
   occurredAt: string;
   performedBy?: number;
+  performedByName?: string;
   notes?: string;
 }
 

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using SMS.Modules.Demand.Data;
 using SMS.Modules.Inventory.Data;
 using SMS.Modules.Warehouse.Data;
@@ -35,7 +36,10 @@ public static class WarehouseModuleExtensions
         // DemandDbContext and InventoryDbContext are registered by their own modules;
         // resolve them here so GrnRepository and EfGrnInventoryPoster can use them.
         services.AddScoped<IGrnStockPoster, EfGrnInventoryPoster>();
-        services.AddScoped<IGrnEventPublisher, NullGrnEventPublisher>();
+        // TryAddScoped, not AddScoped: this is only a fallback. If another module (e.g. Suppliers,
+        // for GRN-approval-triggered scorecard scoring) registers a real IGrnEventPublisher, that
+        // registration must win regardless of which module's Add*Module() runs first in Program.cs.
+        services.TryAddScoped<IGrnEventPublisher, NullGrnEventPublisher>();
         services.AddScoped<IGrnRepository, GrnRepository>();
         services.AddScoped<IGrnService, GrnService>();
         services.AddScoped<ISroRepository, SroRepository>();
