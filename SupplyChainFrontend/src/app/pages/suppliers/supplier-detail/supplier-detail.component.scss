@@ -261,6 +261,39 @@
   display: flex; align-items: center; justify-content: space-between;
 }
 
+// ── Supplier Ledger (SFM-002) ───────────────────────────────────────────────────
+.ledger-balance-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: .875rem;
+  margin-bottom: 1.25rem;
+}
+
+.balance-card {
+  background: #f8fafc;
+  border: 1px solid #f1f5f9;
+  border-radius: 10px;
+  padding: .9rem 1.1rem;
+
+  .cell-label {
+    font-size: .67rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .055em; color: #94a3b8; margin-bottom: .25rem;
+  }
+  .cell-value { font-size: 1.15rem; font-weight: 700; color: #1e293b; }
+
+  &.balance-owed .cell-value { color: #dc2626; }
+}
+
+.ledger-filters {
+  display: flex; align-items: center; gap: .6rem;
+}
+
+.text-right { text-align: right; }
+
+@media (max-width: 768px) {
+  .ledger-balance-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
 .tab-section-title {
   font-size: 1rem; font-weight: 700; color: #1e293b; margin: 0;
 }

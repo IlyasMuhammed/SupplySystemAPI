@@ -1,0 +1,7 @@
+.list-page { padding: 1.5rem; }
+.page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
+.page-title { font-size: 1.5rem; font-weight: 700; display: flex; align-items: center; gap: .5rem; margin: 0; }
+.page-subtitle { color: var(--text-color-secondary); font-size: .875rem; margin: .25rem 0 0; }
+.filter-bar { display: flex; align-items: center; gap: .75rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
+.filter-dropdown { width: 160px; }
+.table-card { background: var(--surface-0); border: 1px solid var(--surface-200); border-radius: .625rem; overflow: hidden; }

@@ -114,7 +114,7 @@ export interface ApiResponse<T = null> {
   providedIn: 'root',
 })
 export class AuthService {
-  private readonly apiUrl = 'https://localhost:51800/api/auth';
+  private readonly apiUrl = 'https://localhost:52800/api/auth';
 
   constructor(private http: HttpClient, private router: Router) {}
 
@@ -137,7 +137,7 @@ export class AuthService {
   }
 
   // ── Role CRUD (ROLE-001) ───────────────────────────────────────────────────
-  private readonly rolesBase = 'https://localhost:51800/api/roles';
+  private readonly rolesBase = 'https://localhost:52800/api/roles';
 
   getRoleList(): Observable<ApiResponse<RoleListItem[]>> {
     return this.http.get<ApiResponse<RoleListItem[]>>(this.rolesBase);

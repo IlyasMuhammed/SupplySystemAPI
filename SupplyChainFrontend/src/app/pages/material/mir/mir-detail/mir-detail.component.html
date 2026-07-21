@@ -43,7 +43,7 @@
             <span class="text-right avail-col la-num" *ngIf="row.availability; else dash">
               {{ row.availability.qtyReserved | number:'1.0-3' }}
             </span>
-            <span class="text-right avail-col la-num" [class.avail-ok]="row.availability?.isAvailable" [class.avail-low]="row.availability && !row.availability?.isAvailable" *ngIf="row.availability; else dash">
+            <span class="text-right avail-col la-num" [class.avail-ok]="row.availability.isAvailable" [class.avail-low]="!row.availability.isAvailable" *ngIf="row.availability; else dash">
               {{ row.availability.qtyAvailable | number:'1.0-3' }}
             </span>
             <ng-template #dash><span class="text-right avail-col la-num avail-loading-cell">—</span></ng-template>

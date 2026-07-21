@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
-const BASE = 'https://localhost:51800/api/finance';
+const BASE = 'https://localhost:52800/api/finance';
 
 export interface ApiResponse<T = null> {
   success: boolean;
@@ -311,6 +311,128 @@ export interface CreditNoteDetailModel {
   createdDate: string;
 }
 
+// ── Supplier Ledger (SFM-002) ─────────────────────────────────────────────────
+
+export interface SupplierLedgerEntryModel {
+  uuid: string;
+  supplierId: string;
+  sequenceNo: number;
+  transactionType: string;
+  referenceType: string;
+  referenceId: string;
+  referenceNo: string;
+  entryDate: string;
+  debitAmount: number;
+  creditAmount: number;
+  balanceAfter: number;
+  narration?: string;
+  createdBy: number;
+  createdDate: string;
+}
+
+export interface SupplierBalanceSummary {
+  supplierId: string;
+  totalDebits: number;
+  totalCredits: number;
+  netBalance: number;
+  availableAdvanceCredit: number;
+}
+
+export interface SupplierLedgerFilter {
+  dateFrom?: string;
+  dateTo?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+// ── Supplier Payments (SFM-003/004/005) ───────────────────────────────────────
+
+export interface CreateSupplierPaymentLineRequest {
+  invoiceUuid: string;
+  allocatedAmount: number;
+  notes?: string;
+}
+
+export interface CreateSupplierPaymentRequest {
+  supplierId: string;
+  supplierName: string;
+  paymentDate: string;
+  paymentMethod: string;   // BANK_TRANSFER | ONLINE_WIRE | CHEQUE | CASH
+  totalAmount: number;
+  bankAccount?: string;
+  chequeNo?: string;
+  chequeDate?: string;
+  notes?: string;
+  paymentType?: string;    // STANDARD | ADVANCE_PAYMENT
+  lines: CreateSupplierPaymentLineRequest[];
+}
+
+export interface SupplierPaymentFilter {
+  supplierId?: string;
+  status?: string;
+  method?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  invoiceUuid?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface SupplierPaymentListItemModel {
+  uuid: string;
+  paymentNumber: string;
+  supplierId: string;
+  supplierName: string;
+  paymentDate: string;
+  paymentMethod: string;
+  totalAmount: number;
+  status: string;          // DRAFT | APPROVED | POSTED | CANCELLED | BOUNCED
+  paymentType: string;
+  lineCount: number;
+}
+
+export interface SupplierPaymentLineModel {
+  uuid: string;
+  invoiceUuid: string;
+  invoiceNumber: string;
+  allocatedAmount: number;
+  outstandingBeforeAllocation: number;
+  notes?: string;
+}
+
+export interface SupplierPaymentDetailModel {
+  uuid: string;
+  paymentNumber: string;
+  supplierId: string;
+  supplierName: string;
+  paymentDate: string;
+  paymentMethod: string;
+  totalAmount: number;
+  bankAccount?: string;
+  chequeNo?: string;
+  chequeDate?: string;
+  status: string;
+  notes?: string;
+  createdBy: number;
+  createdDate: string;
+  approvedBy?: number;
+  approvedAt?: string;
+  postedAt?: string;
+  bouncedAt?: string;
+  paymentType: string;
+  creditNoteUuid?: string;
+  lines: SupplierPaymentLineModel[];
+}
+
+export interface OutstandingInvoiceModel {
+  invoiceUuid: string;
+  invoiceNumber: string;
+  totalAmount: number;
+  outstandingAmount: number;
+  paymentStatus: string;
+  dueDate: string;
+}
+
 // ── Service ───────────────────────────────────────────────────────────────────
 
 @Injectable({ providedIn: 'root' })
@@ -390,7 +512,7 @@ export class FinanceService {
   // ── Credit Notes ──────────────────────────────────────────────────────────
 
   createCreditNote(req: CreateCreditNoteRequest): Observable<ApiResponse<string>> {
-    return this.http.post<ApiResponse<string>>(`https://localhost:51800/api/credit-notes`, req);
+    return this.http.post<ApiResponse<string>>(`https://localhost:52800/api/credit-notes`, req);
   }
 
   getCreditNotes(filter: CreditNoteListFilter): Observable<ApiResponse<PaginatedResponse<CreditNoteListItemModel>>> {
@@ -402,21 +524,21 @@ export class FinanceService {
     if (filter.dateFrom)          params = params.set('dateFrom',          filter.dateFrom);
     if (filter.dateTo)            params = params.set('dateTo',            filter.dateTo);
     return this.http.get<ApiResponse<PaginatedResponse<CreditNoteListItemModel>>>(
-      `https://localhost:51800/api/credit-notes`, { params });
+      `https://localhost:52800/api/credit-notes`, { params });
   }
 
   getCreditNoteById(uuid: string): Observable<ApiResponse<CreditNoteDetailModel>> {
-    return this.http.get<ApiResponse<CreditNoteDetailModel>>(`https://localhost:51800/api/credit-notes/${uuid}`);
+    return this.http.get<ApiResponse<CreditNoteDetailModel>>(`https://localhost:52800/api/credit-notes/${uuid}`);
   }
 
   applyCreditNote(uuid: string, invoiceUuid: string): Observable<ApiResponse<null>> {
-    return this.http.post<ApiResponse<null>>(`https://localhost:51800/api/credit-notes/${uuid}/apply`, { invoiceUuid });
+    return this.http.post<ApiResponse<null>>(`https://localhost:52800/api/credit-notes/${uuid}/apply`, { invoiceUuid });
   }
 
   // ── Debit Notes ───────────────────────────────────────────────────────────
 
   createDebitNote(req: CreateDebitNoteRequest): Observable<ApiResponse<string>> {
-    return this.http.post<ApiResponse<string>>(`https://localhost:51800/api/debit-notes`, req);
+    return this.http.post<ApiResponse<string>>(`https://localhost:52800/api/debit-notes`, req);
   }
 
   getDebitNotes(filter: DebitNoteListFilter): Observable<ApiResponse<PaginatedResponse<DebitNoteListItemModel>>> {
@@ -428,14 +550,77 @@ export class FinanceService {
     if (filter.dateFrom)   params = params.set('dateFrom',   filter.dateFrom);
     if (filter.dateTo)     params = params.set('dateTo',     filter.dateTo);
     return this.http.get<ApiResponse<PaginatedResponse<DebitNoteListItemModel>>>(
-      `https://localhost:51800/api/debit-notes`, { params });
+      `https://localhost:52800/api/debit-notes`, { params });
   }
 
   getDebitNoteById(uuid: string): Observable<ApiResponse<DebitNoteDetailModel>> {
-    return this.http.get<ApiResponse<DebitNoteDetailModel>>(`https://localhost:51800/api/debit-notes/${uuid}`);
+    return this.http.get<ApiResponse<DebitNoteDetailModel>>(`https://localhost:52800/api/debit-notes/${uuid}`);
   }
 
   updateDebitNoteStatus(uuid: string, req: UpdateDebitNoteStatusRequest): Observable<ApiResponse<null>> {
-    return this.http.patch<ApiResponse<null>>(`https://localhost:51800/api/debit-notes/${uuid}/status`, req);
+    return this.http.patch<ApiResponse<null>>(`https://localhost:52800/api/debit-notes/${uuid}/status`, req);
+  }
+
+  // ── Supplier Ledger (SFM-002) ─────────────────────────────────────────────
+
+  getSupplierLedger(supplierId: string, filter: SupplierLedgerFilter = {}): Observable<ApiResponse<PaginatedResponse<SupplierLedgerEntryModel>>> {
+    let params = new HttpParams()
+      .set('page',     filter.page?.toString()     ?? '1')
+      .set('pageSize', filter.pageSize?.toString() ?? '20');
+    if (filter.dateFrom) params = params.set('dateFrom', filter.dateFrom);
+    if (filter.dateTo)   params = params.set('dateTo',   filter.dateTo);
+    return this.http.get<ApiResponse<PaginatedResponse<SupplierLedgerEntryModel>>>(
+      `https://localhost:52800/api/suppliers/${supplierId}/ledger`, { params });
+  }
+
+  getSupplierBalance(supplierId: string): Observable<ApiResponse<SupplierBalanceSummary>> {
+    return this.http.get<ApiResponse<SupplierBalanceSummary>>(
+      `https://localhost:52800/api/suppliers/${supplierId}/balance`);
+  }
+
+  // ── Supplier Payments (SFM-003/004/005) ──────────────────────────────────
+
+  createSupplierPayment(req: CreateSupplierPaymentRequest): Observable<ApiResponse<string>> {
+    return this.http.post<ApiResponse<string>>(`https://localhost:52800/api/supplier-payments`, req);
+  }
+
+  getSupplierPayments(filter: SupplierPaymentFilter = {}): Observable<ApiResponse<PaginatedResponse<SupplierPaymentListItemModel>>> {
+    let params = new HttpParams()
+      .set('page',     filter.page?.toString()     ?? '1')
+      .set('pageSize', filter.pageSize?.toString() ?? '20');
+    if (filter.supplierId)  params = params.set('supplierId',  filter.supplierId);
+    if (filter.status)      params = params.set('status',      filter.status);
+    if (filter.method)      params = params.set('method',      filter.method);
+    if (filter.dateFrom)    params = params.set('dateFrom',    filter.dateFrom);
+    if (filter.dateTo)      params = params.set('dateTo',      filter.dateTo);
+    if (filter.invoiceUuid) params = params.set('invoiceUuid', filter.invoiceUuid);
+    return this.http.get<ApiResponse<PaginatedResponse<SupplierPaymentListItemModel>>>(
+      `https://localhost:52800/api/supplier-payments`, { params });
+  }
+
+  getSupplierPaymentById(uuid: string): Observable<ApiResponse<SupplierPaymentDetailModel>> {
+    return this.http.get<ApiResponse<SupplierPaymentDetailModel>>(
+      `https://localhost:52800/api/supplier-payments/${uuid}`);
+  }
+
+  approveSupplierPayment(uuid: string): Observable<ApiResponse> {
+    return this.http.post<ApiResponse>(`https://localhost:52800/api/supplier-payments/${uuid}/approve`, {});
+  }
+
+  cancelSupplierPayment(uuid: string): Observable<ApiResponse> {
+    return this.http.post<ApiResponse>(`https://localhost:52800/api/supplier-payments/${uuid}/cancel`, {});
+  }
+
+  postSupplierPayment(uuid: string): Observable<ApiResponse> {
+    return this.http.post<ApiResponse>(`https://localhost:52800/api/supplier-payments/${uuid}/post`, {});
+  }
+
+  bounceSupplierPayment(uuid: string): Observable<ApiResponse> {
+    return this.http.post<ApiResponse>(`https://localhost:52800/api/supplier-payments/${uuid}/bounce`, {});
+  }
+
+  getOutstandingInvoices(supplierId: string): Observable<ApiResponse<OutstandingInvoiceModel[]>> {
+    return this.http.get<ApiResponse<OutstandingInvoiceModel[]>>(
+      `https://localhost:52800/api/suppliers/${supplierId}/outstanding-invoices`);
   }
 }

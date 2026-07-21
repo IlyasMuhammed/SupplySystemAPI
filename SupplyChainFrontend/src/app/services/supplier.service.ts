@@ -275,7 +275,7 @@ export interface SupplierCategoryModel {
 
 @Injectable({ providedIn: 'root' })
 export class SupplierService {
-  private readonly baseUrl = 'https://localhost:51800/api/suppliers';
+  private readonly baseUrl = 'https://localhost:52800/api/suppliers';
 
   constructor(private http: HttpClient) {}
 

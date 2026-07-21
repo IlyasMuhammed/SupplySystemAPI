@@ -12,7 +12,7 @@ export interface ApiResponse<T = null> {
   providedIn: 'root'
 })
 export class ApiService {
-  private readonly baseUrl = 'https://localhost:51800/api';
+  private readonly baseUrl = 'https://localhost:52800/api';
 
   constructor(private http: HttpClient) {}
 

@@ -364,7 +364,7 @@ export interface StockAdjustmentResult {
 // ── Service ───────────────────────────────────────────────────────────────────
 @Injectable({ providedIn: 'root' })
 export class InventoryService {
-  private readonly base = 'https://localhost:51800/api';
+  private readonly base = 'https://localhost:52800/api';
 
   constructor(private http: HttpClient) {}
 

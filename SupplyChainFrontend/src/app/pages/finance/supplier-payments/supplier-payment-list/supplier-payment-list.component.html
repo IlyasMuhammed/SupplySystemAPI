@@ -1,21 +1,24 @@
-﻿<div class="list-page">
+<div class="list-page">
   <p-toast></p-toast>
 
   <div class="page-header">
     <div>
-      <h1 class="page-title"><i class="pi pi-credit-card"></i> Payment History (Legacy)</h1>
-      <p class="page-subtitle">Read-only history from the pre-SFM-003 payment flow</p>
+      <h1 class="page-title"><i class="pi pi-credit-card"></i> Payments</h1>
+      <p class="page-subtitle">Multi-invoice supplier payments — allocate, approve, and post to the ledger</p>
     </div>
+    <p-button label="Record Payment" icon="pi pi-plus" severity="warn"
+              routerLink="/portal/pages/finance/payments/create"></p-button>
   </div>
 
   <div class="filter-bar">
-    <p-iconfield>
-      <p-inputicon styleClass="pi pi-search"></p-inputicon>
-      <input pInputText type="text" placeholder="Search PAY#, supplier..."
-             [(ngModel)]="searchText" (ngModelChange)="onSearchChange()" class="search-input" />
-    </p-iconfield>
     <p-dropdown [options]="statusOptions" [(ngModel)]="selectedStatus"
                 (ngModelChange)="onFilterChange()" placeholder="Status" styleClass="filter-dropdown" appendTo="body"></p-dropdown>
+    <p-dropdown [options]="methodOptions" [(ngModel)]="selectedMethod"
+                (ngModelChange)="onFilterChange()" placeholder="Method" styleClass="filter-dropdown" appendTo="body"></p-dropdown>
+    <p-calendar [(ngModel)]="dateFrom" placeholder="From" dateFormat="dd/mm/yy"
+                (ngModelChange)="onFilterChange()" [showIcon]="true" appendTo="body"></p-calendar>
+    <p-calendar [(ngModel)]="dateTo" placeholder="To" dateFormat="dd/mm/yy"
+                (ngModelChange)="onFilterChange()" [showIcon]="true" appendTo="body"></p-calendar>
     <p-button icon="pi pi-refresh" [text]="true" severity="secondary"
               pTooltip="Reset filters" (onClick)="resetFilters()"></p-button>
   </div>
@@ -29,11 +32,11 @@
       <ng-template pTemplate="header">
         <tr>
           <th>Payment #</th>
-          <th>Invoice #</th>
           <th>Supplier</th>
           <th>Payment Date</th>
           <th>Amount</th>
           <th>Method</th>
+          <th>Lines</th>
           <th>Status</th>
           <th class="text-center">Actions</th>
         </tr>
@@ -41,16 +44,16 @@
       <ng-template pTemplate="body" let-p>
         <tr>
           <td class="font-mono font-semibold">{{ p.paymentNumber }}</td>
-          <td class="font-mono">{{ p.invoiceNumber }}</td>
           <td>{{ p.supplierName }}</td>
           <td>{{ p.paymentDate | date:'dd MMM yyyy' }}</td>
-          <td class="font-semibold">{{ p.amountPaid | number:'1.2-2' }}</td>
+          <td class="font-semibold">{{ p.totalAmount | number:'1.2-2' }}</td>
           <td>{{ p.paymentMethod }}</td>
+          <td>{{ p.lineCount }}</td>
           <td><p-tag [value]="p.status" [severity]="getStatusSeverity(p.status)"></p-tag></td>
           <td class="text-center">
             <p-button icon="pi pi-eye" [text]="true" severity="info" size="small"
                       pTooltip="View"
-                      [routerLink]="['/portal/pages/finance/payments-legacy', p.uuid]"></p-button>
+                      [routerLink]="['/portal/pages/finance/payments', p.uuid]"></p-button>
           </td>
         </tr>
       </ng-template>
@@ -60,4 +63,3 @@
     </p-table>
   </div>
 </div>
-

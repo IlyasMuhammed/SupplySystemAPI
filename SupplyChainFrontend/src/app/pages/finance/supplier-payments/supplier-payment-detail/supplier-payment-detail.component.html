@@ -1,0 +1,82 @@
+<div class="detail-page">
+  <p-toast></p-toast>
+  <p-confirmDialog></p-confirmDialog>
+
+  <div class="page-header">
+    <div>
+      <a routerLink="/portal/pages/finance/payments" class="back-link"><i class="pi pi-arrow-left"></i> Payments</a>
+      <h1 class="page-title" *ngIf="payment">
+        <i class="pi pi-credit-card"></i> {{ payment.paymentNumber }}
+        <p-tag [value]="payment.status" [severity]="getStatusSeverity(payment.status)"></p-tag>
+      </h1>
+    </div>
+    <div class="action-bar" *ngIf="payment">
+      <p-button label="Approve" icon="pi pi-check" severity="success" size="small"
+                *ngIf="payment.status === 'DRAFT' && authService.hasPermission('PAYMENT_APPROVE')"
+                [loading]="isActioning" (onClick)="confirmApprove()"></p-button>
+      <p-button label="Post" icon="pi pi-send" severity="warn" size="small"
+                *ngIf="payment.status === 'APPROVED'"
+                [loading]="isActioning" (onClick)="confirmPost()"></p-button>
+      <p-button label="Bounce" icon="pi pi-exclamation-triangle" severity="danger" size="small"
+                *ngIf="payment.status === 'POSTED' && payment.paymentMethod === 'CHEQUE'"
+                [loading]="isActioning" (onClick)="confirmBounce()"></p-button>
+      <p-button label="Cancel" icon="pi pi-times" severity="secondary" [outlined]="true" size="small"
+                *ngIf="payment.status === 'DRAFT' || payment.status === 'APPROVED'"
+                [loading]="isActioning" (onClick)="confirmCancel()"></p-button>
+    </div>
+  </div>
+
+  <ng-container *ngIf="!isLoading && payment; else loadingBlock">
+    <p-card header="Payment Details" class="mb-4">
+      <div class="detail-grid">
+        <div class="detail-item"><span class="label">Supplier</span><span class="value">{{ payment.supplierName }}</span></div>
+        <div class="detail-item"><span class="label">Payment Date</span><span class="value">{{ payment.paymentDate | date:'dd MMM yyyy' }}</span></div>
+        <div class="detail-item"><span class="label">Method</span><span class="value">{{ payment.paymentMethod }}</span></div>
+        <div class="detail-item"><span class="label">Type</span><span class="value">{{ payment.paymentType }}</span></div>
+        <div class="detail-item"><span class="label">Total Amount</span><span class="value font-semibold">{{ payment.totalAmount | number:'1.2-2' }}</span></div>
+        <div class="detail-item" *ngIf="payment.bankAccount"><span class="label">Bank Account</span><span class="value">{{ payment.bankAccount }}</span></div>
+        <div class="detail-item" *ngIf="payment.chequeNo"><span class="label">Cheque No</span><span class="value">{{ payment.chequeNo }}</span></div>
+        <div class="detail-item" *ngIf="payment.chequeDate"><span class="label">Cheque Date</span><span class="value">{{ payment.chequeDate | date:'dd MMM yyyy' }}</span></div>
+        <div class="detail-item full-width" *ngIf="payment.notes"><span class="label">Notes</span><span class="value">{{ payment.notes }}</span></div>
+      </div>
+
+      <p-divider></p-divider>
+
+      <div class="timeline-strip">
+        <div class="timeline-item"><i class="pi pi-plus-circle"></i> Created {{ payment.createdDate | date:'dd MMM yyyy HH:mm' }}</div>
+        <div class="timeline-item" *ngIf="payment.approvedAt"><i class="pi pi-check-circle"></i> Approved {{ payment.approvedAt | date:'dd MMM yyyy HH:mm' }}</div>
+        <div class="timeline-item" *ngIf="payment.postedAt"><i class="pi pi-send"></i> Posted {{ payment.postedAt | date:'dd MMM yyyy HH:mm' }}</div>
+        <div class="timeline-item" *ngIf="payment.bouncedAt"><i class="pi pi-exclamation-triangle"></i> Bounced {{ payment.bouncedAt | date:'dd MMM yyyy HH:mm' }}</div>
+      </div>
+    </p-card>
+
+    <p-card header="Allocated Invoices">
+      <p-table [value]="payment.lines" [tableStyle]="{'min-width':'40rem'}">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Invoice #</th>
+            <th class="text-right">Outstanding Before</th>
+            <th class="text-right">Allocated</th>
+            <th>Notes</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-l>
+          <tr>
+            <td class="font-mono">{{ l.invoiceNumber }}</td>
+            <td class="text-right">{{ l.outstandingBeforeAllocation | number:'1.2-2' }}</td>
+            <td class="text-right font-semibold">{{ l.allocatedAmount | number:'1.2-2' }}</td>
+            <td>{{ l.notes || '—' }}</td>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="emptymessage">
+          <tr><td colspan="4" class="text-center text-secondary" style="padding:2rem">No invoice lines — free-standing payment (e.g. advance).</td></tr>
+        </ng-template>
+      </p-table>
+    </p-card>
+  </ng-container>
+
+  <ng-template #loadingBlock>
+    <div class="loading-block" *ngIf="isLoading">Loading…</div>
+    <div class="loading-block" *ngIf="!isLoading && !payment">Payment not found.</div>
+  </ng-template>
+</div>

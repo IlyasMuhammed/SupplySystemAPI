@@ -450,6 +450,120 @@
         </div>
       </p-tabPanel>
 
+      <!-- ══ TAB 6 · Supplier Ledger (SFM-002) ════════════════════════════ -->
+      <p-tabPanel header="Ledger" leftIcon="pi pi-book">
+        <div class="tab-content">
+
+          <div class="ledger-balance-grid" *ngIf="ledgerBalance">
+            <div class="balance-card">
+              <div class="cell-label">Total Debits</div>
+              <div class="cell-value">{{ ledgerBalance.totalDebits | number:'1.2-2' }}</div>
+            </div>
+            <div class="balance-card">
+              <div class="cell-label">Total Credits</div>
+              <div class="cell-value">{{ ledgerBalance.totalCredits | number:'1.2-2' }}</div>
+            </div>
+            <div class="balance-card" [class.balance-owed]="ledgerBalance.netBalance > 0">
+              <div class="cell-label">Net Balance (Owed)</div>
+              <div class="cell-value">{{ ledgerBalance.netBalance | number:'1.2-2' }}</div>
+            </div>
+            <div class="balance-card">
+              <div class="cell-label">Available Advance Credit</div>
+              <div class="cell-value">{{ ledgerBalance.availableAdvanceCredit | number:'1.2-2' }}</div>
+            </div>
+          </div>
+
+          <div class="tab-toolbar">
+            <span class="tab-section-title">Ledger Entries</span>
+            <div class="ledger-filters">
+              <p-calendar [(ngModel)]="ledgerDateFrom" placeholder="From" dateFormat="dd/mm/yy"
+                          [showIcon]="true" [showClear]="true" appendTo="body"></p-calendar>
+              <p-calendar [(ngModel)]="ledgerDateTo" placeholder="To" dateFormat="dd/mm/yy"
+                          [showIcon]="true" [showClear]="true" appendTo="body"></p-calendar>
+              <p-button label="Apply" icon="pi pi-search" size="small" (onClick)="onLedgerFilterChange()"></p-button>
+            </div>
+          </div>
+
+          <p-table [value]="ledgerEntries" [loading]="isLoadingLedger"
+                   [paginator]="true" [rows]="ledgerPageSize" [totalRecords]="ledgerTotalRecords"
+                   [lazy]="true" (onPage)="onLedgerPageChange($event)" [rowsPerPageOptions]="[20,50,100]"
+                   styleClass="p-datatable-sm" *ngIf="ledgerEntries.length || isLoadingLedger">
+            <ng-template pTemplate="header">
+              <tr>
+                <th>Date</th>
+                <th>Type</th>
+                <th>Reference</th>
+                <th class="text-right">Debit</th>
+                <th class="text-right">Credit</th>
+                <th class="text-right">Balance After</th>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-e>
+              <tr>
+                <td>{{ e.entryDate | date:'dd MMM yyyy, HH:mm' }}</td>
+                <td><p-tag [value]="getLedgerTypeLabel(e.transactionType)" [severity]="getLedgerTypeSeverity(e.transactionType)"></p-tag></td>
+                <td>{{ e.referenceNo || '—' }}</td>
+                <td class="text-right">{{ e.debitAmount ? (e.debitAmount | number:'1.2-2') : '—' }}</td>
+                <td class="text-right">{{ e.creditAmount ? (e.creditAmount | number:'1.2-2') : '—' }}</td>
+                <td class="text-right mono">{{ e.balanceAfter | number:'1.2-2' }}</td>
+              </tr>
+            </ng-template>
+          </p-table>
+
+          <div *ngIf="!ledgerEntries.length && !isLoadingLedger" class="empty-state">
+            <i class="pi pi-book"></i>
+            <p>No ledger entries yet. Entries are created automatically when invoices, credit notes, debit notes, or payments are approved for this supplier.</p>
+          </div>
+
+        </div>
+      </p-tabPanel>
+
+      <!-- ══ TAB 7 · Outstanding Invoices (SFM-003) ═══════════════════════════ -->
+      <p-tabPanel header="Outstanding Invoices" leftIcon="pi pi-file-invoice">
+        <div class="tab-content">
+          <div class="tab-toolbar">
+            <span class="tab-section-title">Outstanding Invoices</span>
+            <p-button label="Record Payment" icon="pi pi-credit-card" size="small"
+                      *ngIf="outstandingInvoices.length"
+                      [routerLink]="['/portal/pages/finance/payments/create']"
+                      [queryParams]="{supplierId: uuid}"></p-button>
+          </div>
+
+          <p-table [value]="outstandingInvoices" [loading]="isLoadingOutstanding" styleClass="p-datatable-sm"
+                   *ngIf="outstandingInvoices.length || isLoadingOutstanding">
+            <ng-template pTemplate="header">
+              <tr>
+                <th>Invoice #</th>
+                <th class="text-right">Total</th>
+                <th class="text-right">Outstanding</th>
+                <th>Due Date</th>
+                <th>Status</th>
+                <th class="text-center">Action</th>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-inv>
+              <tr>
+                <td class="font-mono">{{ inv.invoiceNumber }}</td>
+                <td class="text-right">{{ inv.totalAmount | number:'1.2-2' }}</td>
+                <td class="text-right font-semibold">{{ inv.outstandingAmount | number:'1.2-2' }}</td>
+                <td>{{ inv.dueDate | date:'dd MMM yyyy' }}</td>
+                <td><p-tag [value]="inv.paymentStatus"></p-tag></td>
+                <td class="text-center">
+                  <p-button label="Pay" icon="pi pi-credit-card" size="small" [text]="true"
+                            [routerLink]="['/portal/pages/finance/payments/create']"
+                            [queryParams]="{supplierId: uuid, invoiceUuid: inv.invoiceUuid}"></p-button>
+                </td>
+              </tr>
+            </ng-template>
+          </p-table>
+
+          <div *ngIf="!outstandingInvoices.length && !isLoadingOutstanding" class="empty-state">
+            <i class="pi pi-check-circle"></i>
+            <p>No outstanding invoices for this supplier.</p>
+          </div>
+        </div>
+      </p-tabPanel>
+
     </p-tabView>
   </div>
 </div>

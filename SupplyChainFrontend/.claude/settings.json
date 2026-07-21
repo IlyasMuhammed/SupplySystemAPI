@@ -82,7 +82,9 @@
       "D:\\Supply System\\SupplyChain\\src\\SMS.Modules.Material\\Repositories",
       "D:\\Supply System\\SupplyChain\\tests\\SMS.Modules.Material.Tests",
       "D:\\Supply System\\SupplyChain\\src\\SMS.Modules.Demand\\Domain",
-      "D:\\Supply System\\SupplyChain\\src\\SMS.Modules.Demand\\Data\\Maps"
+      "D:\\Supply System\\SupplyChain\\src\\SMS.Modules.Demand\\Data\\Maps",
+      "D:\\Supply System\\SupplyChain\\src\\SMS.WorkflowEngine\\Models",
+      "D:\\Supply System\\SupplyChain\\src\\SMS.WorkflowEngine\\Services"
     ]
   }
 }

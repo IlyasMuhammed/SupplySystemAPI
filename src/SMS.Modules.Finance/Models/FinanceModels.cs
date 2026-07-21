@@ -331,11 +331,12 @@ public class CreateSupplierPaymentRequest
 
 public class SupplierPaymentFilter
 {
-    public Guid?     SupplierId { get; set; }
-    public string?   Status     { get; set; }
-    public string?   Method     { get; set; }
-    public DateTime? DateFrom   { get; set; }
-    public DateTime? DateTo     { get; set; }
+    public Guid?     SupplierId  { get; set; }
+    public string?   Status      { get; set; }
+    public string?   Method      { get; set; }
+    public DateTime? DateFrom    { get; set; }
+    public DateTime? DateTo      { get; set; }
+    public Guid?     InvoiceUuid { get; set; }
     public int        Page       { get; set; } = 1;
     public int        PageSize   { get; set; } = 20;
 }

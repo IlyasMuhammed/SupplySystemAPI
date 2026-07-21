@@ -31,7 +31,7 @@ export interface NotificationPage {
 
 @Injectable({ providedIn: 'root' })
 export class NotificationService {
-  private readonly BASE = 'https://localhost:51800/api/notifications';
+  private readonly BASE = 'https://localhost:52800/api/notifications';
   private readonly HUB  = 'https://localhost:51800/hubs/notifications';
 
   // ── Reactive state ──────────────────────────────────────────────────────────

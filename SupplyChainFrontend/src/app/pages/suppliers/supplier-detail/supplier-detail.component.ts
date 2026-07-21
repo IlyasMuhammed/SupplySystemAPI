@@ -18,6 +18,8 @@ import { TooltipModule } from 'primeng/tooltip';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { DropdownModule } from 'primeng/dropdown';
 import { MultiSelectModule } from 'primeng/multiselect';
+import { TableModule } from 'primeng/table';
+import { CalendarModule } from 'primeng/calendar';
 import { MessageService, ConfirmationService } from 'primeng/api';
 import {
   SupplierService,
@@ -30,6 +32,12 @@ import {
 import { LookupValuesService, LookupValueModel } from '../../../services/lookup-values.service';
 import { CountriesService, CountryModel } from '../../../services/countries.service';
 import { CitiesService, CityModel } from '../../../services/cities.service';
+import {
+  FinanceService,
+  SupplierLedgerEntryModel,
+  SupplierBalanceSummary,
+  OutstandingInvoiceModel
+} from '../../../services/finance.service';
 
 @Component({
   selector: 'app-supplier-detail',
@@ -39,7 +47,7 @@ import { CitiesService, CityModel } from '../../../services/cities.service';
     ButtonModule, CardModule, TabViewModule, TagModule, ToastModule,
     DialogModule, InputTextModule, TextareaModule, InputNumberModule,
     CheckboxModule, DividerModule, TooltipModule, ConfirmDialogModule,
-    DropdownModule, MultiSelectModule
+    DropdownModule, MultiSelectModule, TableModule, CalendarModule
   ],
   templateUrl: './supplier-detail.component.html',
   styleUrls: ['./supplier-detail.component.scss'],
@@ -105,6 +113,20 @@ export class SupplierDetailComponent implements OnInit {
     { label: 'Other',         value: 'OTHER' }
   ];
 
+  // ── Supplier Ledger (SFM-002) ─────────────────────────────────────────────
+  ledgerEntries: SupplierLedgerEntryModel[] = [];
+  ledgerBalance: SupplierBalanceSummary | null = null;
+  isLoadingLedger = false;
+  ledgerDateFrom: Date | null = null;
+  ledgerDateTo: Date | null = null;
+  ledgerPage = 1;
+  ledgerPageSize = 20;
+  ledgerTotalRecords = 0;
+
+  // ── Outstanding Invoices (SFM-003) ─────────────────────────────────────────
+  outstandingInvoices: OutstandingInvoiceModel[] = [];
+  isLoadingOutstanding = false;
+
   constructor(
     private route: ActivatedRoute,
     private router: Router,
@@ -113,6 +135,7 @@ export class SupplierDetailComponent implements OnInit {
     private lookupService: LookupValuesService,
     private countriesService: CountriesService,
     private citiesService: CitiesService,
+    private financeService: FinanceService,
     private messageService: MessageService,
     private confirmationService: ConfirmationService
   ) {}
@@ -353,6 +376,9 @@ export class SupplierDetailComponent implements OnInit {
           this.loadBankDetail();
           this.loadLookups();
           this.loadScoreSummary();
+          this.loadLedger();
+          this.loadLedgerBalance();
+          this.loadOutstandingInvoices();
         }
       },
       error: () => {
@@ -367,6 +393,80 @@ export class SupplierDetailComponent implements OnInit {
       next: (res) => { this.scoreGrade = res.success ? res.result.grade : null; },
       error: () => { this.scoreGrade = null; }
     });
+  }
+
+  // ── Supplier Ledger (SFM-002) ─────────────────────────────────────────────
+
+  loadLedger(page: number = 1) {
+    this.isLoadingLedger = true;
+    this.ledgerPage = page;
+    this.financeService.getSupplierLedger(this.uuid, {
+      dateFrom: this.ledgerDateFrom ? this.toIsoDate(this.ledgerDateFrom) : undefined,
+      dateTo:   this.ledgerDateTo   ? this.toIsoDate(this.ledgerDateTo)   : undefined,
+      page:     this.ledgerPage,
+      pageSize: this.ledgerPageSize
+    }).subscribe({
+      next: (res) => {
+        this.isLoadingLedger = false;
+        if (res.success) {
+          this.ledgerEntries = res.result.data;
+          this.ledgerTotalRecords = res.result.totalRecords;
+        }
+      },
+      error: () => { this.isLoadingLedger = false; }
+    });
+  }
+
+  loadLedgerBalance() {
+    this.financeService.getSupplierBalance(this.uuid).subscribe({
+      next: (res) => { this.ledgerBalance = res.success ? res.result : null; },
+      error: () => { this.ledgerBalance = null; }
+    });
+  }
+
+  onLedgerPageChange(event: { first: number; rows: number }) {
+    this.ledgerPageSize = event.rows;
+    this.loadLedger(Math.floor(event.first / event.rows) + 1);
+  }
+
+  onLedgerFilterChange() {
+    this.loadLedger(1);
+  }
+
+  // ── Outstanding Invoices (SFM-003) ─────────────────────────────────────────
+
+  loadOutstandingInvoices() {
+    this.isLoadingOutstanding = true;
+    this.financeService.getOutstandingInvoices(this.uuid).subscribe({
+      next: (res) => {
+        this.isLoadingOutstanding = false;
+        this.outstandingInvoices = res.success ? res.result : [];
+      },
+      error: () => { this.isLoadingOutstanding = false; this.outstandingInvoices = []; }
+    });
+  }
+
+  private toIsoDate(d: Date): string {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  getLedgerTypeSeverity(type: string): 'success' | 'danger' | 'warn' | 'info' | 'secondary' {
+    switch (type) {
+      case 'INVOICE_APPROVED':    return 'danger';   // debit — supplier owed
+      case 'CREDIT_NOTE_APPROVED':
+      case 'PAYMENT_POSTED':      return 'success';  // credit — reduces what's owed
+      case 'DEBIT_NOTE_APPROVED': return 'danger';
+      case 'PAYMENT_BOUNCED':     return 'warn';
+      default:                    return 'secondary';
+    }
+  }
+
+  getLedgerTypeLabel(type: string): string {
+    return (type || '')
+      .toLowerCase()
+      .split('_')
+      .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
   }
 
   resolveLookupLabel(options: { label: string; value: string }[], uuid: string | null | undefined): string {

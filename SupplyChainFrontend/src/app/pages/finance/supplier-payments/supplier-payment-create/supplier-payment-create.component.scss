@@ -1,0 +1,26 @@
+.create-page { padding: 1.5rem; max-width: 60rem; }
+.back-link { color: var(--text-color-secondary); font-size: .8rem; text-decoration: none; display: inline-flex; align-items: center; gap: .35rem; margin-bottom: .5rem; }
+.back-link:hover { color: var(--primary-color); }
+.page-header { margin-bottom: 1.5rem; }
+.page-title { font-size: 1.4rem; font-weight: 700; display: flex; align-items: center; gap: .6rem; margin: 0; }
+.mb-4 { margin-bottom: 1rem; }
+
+.field { display: flex; flex-direction: column; gap: .35rem; margin-bottom: 1rem; }
+.field label { font-size: .8rem; font-weight: 600; color: var(--text-color-secondary); }
+.field .req { color: var(--red-500); }
+.full-width { width: 100%; }
+
+.supplier-locked-info { display: flex; align-items: center; gap: .5rem; font-size: 1rem; }
+
+.add-line-row { display: flex; gap: .75rem; align-items: center; margin-bottom: 1rem; }
+.add-line-dropdown { min-width: 280px; }
+.empty-hint { color: var(--text-color-secondary); font-size: .85rem; padding: .75rem 0; }
+
+.totals-row td { border-top: 2px solid var(--surface-300); }
+.locked-total { font-size: 1rem; font-weight: 700; padding: .4rem 0; }
+.locked-total .hint { font-size: .75rem; font-weight: 400; color: var(--text-color-secondary); }
+
+.form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0 1.25rem; }
+.form-grid .field.full-width { grid-column: 1 / -1; }
+
+.form-actions { display: flex; justify-content: flex-end; gap: .75rem; margin-top: 1rem; }

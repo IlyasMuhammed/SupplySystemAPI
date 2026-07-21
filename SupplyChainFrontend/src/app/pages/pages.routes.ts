@@ -53,8 +53,10 @@ import { InvoiceListComponent } from './finance/invoices/invoice-list/invoice-li
 import { InvoiceCreateComponent } from './finance/invoices/invoice-create/invoice-create.component';
 import { InvoiceDetailComponent } from './finance/invoices/invoice-detail/invoice-detail.component';
 import { PaymentListComponent } from './finance/payments/payment-list/payment-list.component';
-import { PaymentCreateComponent } from './finance/payments/payment-create/payment-create.component';
 import { PaymentDetailComponent } from './finance/payments/payment-detail/payment-detail.component';
+import { SupplierPaymentListComponent } from './finance/supplier-payments/supplier-payment-list/supplier-payment-list.component';
+import { SupplierPaymentCreateComponent } from './finance/supplier-payments/supplier-payment-create/supplier-payment-create.component';
+import { SupplierPaymentDetailComponent } from './finance/supplier-payments/supplier-payment-detail/supplier-payment-detail.component';
 import { KpiDashboardComponent } from './reports/kpi-dashboard/kpi-dashboard.component';
 import { SupplierPerformanceComponent } from './reports/supplier-performance/supplier-performance.component';
 import { PoReportsComponent } from './reports/po-reports/po-reports.component';
@@ -128,6 +130,7 @@ const P = {
   INVOICE_PROCESS:      'INVOICE_PROCESS',
   PAYMENT_VIEW:         'PAYMENT_VIEW',
   PAYMENT_PROCESS:      'PAYMENT_PROCESS',
+  PAYMENT_APPROVE:      'PAYMENT_APPROVE',
   DELIVERY_TRACK:       'DELIVERY_TRACK',
   REPORT_VIEW:          'REPORT_VIEW',
   REPORT_EXPORT:        'REPORT_EXPORT',
@@ -275,12 +278,18 @@ export default [
     { path: 'finance/invoices/:uuid', component: InvoiceDetailComponent,
       canActivate: [permissionGuard(P.INVOICE_VIEW, P.INVOICE_PROCESS)] },
 
-    // ── Finance — Payments ────────────────────────────────────────────────────
-    { path: 'finance/payments', component: PaymentListComponent,
+    // ── Finance — Payments (multi-invoice allocation, DRAFT→APPROVED→POSTED) ───
+    { path: 'finance/payments', component: SupplierPaymentListComponent,
       canActivate: [permissionGuard(P.PAYMENT_VIEW, P.PAYMENT_PROCESS)] },
-    { path: 'finance/payments/create', component: PaymentCreateComponent,
+    { path: 'finance/payments/create', component: SupplierPaymentCreateComponent,
       canActivate: [permissionGuard(P.PAYMENT_PROCESS)] },
-    { path: 'finance/payments/:uuid', component: PaymentDetailComponent,
+    { path: 'finance/payments/:uuid', component: SupplierPaymentDetailComponent,
+      canActivate: [permissionGuard(P.PAYMENT_VIEW, P.PAYMENT_PROCESS)] },
+
+    // ── Finance — Payments (legacy, read-only history) ──────────────────────────
+    { path: 'finance/payments-legacy', component: PaymentListComponent,
+      canActivate: [permissionGuard(P.PAYMENT_VIEW, P.PAYMENT_PROCESS)] },
+    { path: 'finance/payments-legacy/:uuid', component: PaymentDetailComponent,
       canActivate: [permissionGuard(P.PAYMENT_VIEW, P.PAYMENT_PROCESS)] },
 
     // ── Reports & Analytics ───────────────────────────────────────────────────

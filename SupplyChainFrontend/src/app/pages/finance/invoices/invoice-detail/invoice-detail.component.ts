@@ -16,7 +16,7 @@ import { InputTextModule } from 'primeng/inputtext';
 import { TextareaModule } from 'primeng/textarea';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { MessageService } from 'primeng/api';
-import { FinanceService, InvoiceDetailModel } from '../../../../services/finance.service';
+import { FinanceService, InvoiceDetailModel, SupplierPaymentListItemModel } from '../../../../services/finance.service';
 import { PdfService } from '../../../../services/pdf.service';
 import { TimelinePanelComponent } from '../../../../shared/timeline-panel/timeline-panel.component';
 
@@ -38,6 +38,9 @@ export class InvoiceDetailComponent implements OnInit {
   invoice: InvoiceDetailModel | null = null;
   isLoading = true;
   showTimeline = false;
+
+  newPayments: SupplierPaymentListItemModel[] = [];
+  isLoadingNewPayments = false;
 
   showApproveDialog = false;
   showRejectDialog  = false;
@@ -78,11 +81,23 @@ export class InvoiceDetailComponent implements OnInit {
       next: (res) => {
         this.isLoading = false;
         this.invoice   = res.success ? res.result : null;
+        if (this.invoice) this.loadNewPayments(this.invoice.uuid);
       },
       error: () => {
         this.isLoading = false;
         this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to load invoice.' });
       }
+    });
+  }
+
+  loadNewPayments(invoiceUuid: string) {
+    this.isLoadingNewPayments = true;
+    this.financeService.getSupplierPayments({ invoiceUuid }).subscribe({
+      next: (res) => {
+        this.isLoadingNewPayments = false;
+        this.newPayments = res.success ? res.result.data : [];
+      },
+      error: () => { this.isLoadingNewPayments = false; this.newPayments = []; }
     });
   }
 

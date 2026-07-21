@@ -19,7 +19,7 @@ export interface ApiResponse<T = null> {
   providedIn: 'root'
 })
 export class CountriesService {
-  private readonly baseUrl = 'https://localhost:51800/api/lookups';
+  private readonly baseUrl = 'https://localhost:52800/api/lookups';
 
   constructor(private http: HttpClient) {}
 

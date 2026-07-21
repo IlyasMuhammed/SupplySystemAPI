@@ -23,7 +23,7 @@ export interface ApiResponse<T = null> {
 
 @Injectable({ providedIn: 'root' })
 export class CurrenciesService {
-  private readonly baseUrl = 'https://localhost:51800/api/lookups';
+  private readonly baseUrl = 'https://localhost:52800/api/lookups';
 
   constructor(private http: HttpClient) {}
 

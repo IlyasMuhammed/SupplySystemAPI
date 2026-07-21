@@ -1,0 +1,15 @@
+.detail-page { padding: 1.5rem; }
+.back-link { color: var(--text-color-secondary); font-size: .8rem; text-decoration: none; display: inline-flex; align-items: center; gap: .35rem; margin-bottom: .5rem; }
+.back-link:hover { color: var(--primary-color); }
+.page-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 1.5rem; flex-wrap: wrap; gap: .75rem; }
+.page-title { font-size: 1.4rem; font-weight: 700; display: flex; align-items: center; gap: .6rem; margin: 0; }
+.action-bar { display: flex; gap: .5rem; flex-wrap: wrap; }
+.mb-4 { margin-bottom: 1rem; }
+.detail-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 1rem; }
+.detail-item { display: flex; flex-direction: column; gap: .2rem; }
+.detail-item.full-width { grid-column: 1 / -1; }
+.detail-item .label { font-size: .75rem; color: var(--text-color-secondary); text-transform: uppercase; letter-spacing: .03em; }
+.detail-item .value { font-size: .95rem; }
+.timeline-strip { display: flex; gap: 1.5rem; flex-wrap: wrap; font-size: .85rem; color: var(--text-color-secondary); }
+.timeline-item { display: flex; align-items: center; gap: .4rem; }
+.loading-block { padding: 3rem; text-align: center; color: var(--text-color-secondary); }

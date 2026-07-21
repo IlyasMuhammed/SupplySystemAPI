@@ -78,7 +78,7 @@ export interface UserListFilter {
   providedIn: 'root'
 })
 export class UserService {
-  private readonly baseUrl = 'https://localhost:51800/api/users';
+  private readonly baseUrl = 'https://localhost:52800/api/users';
 
   constructor(private http: HttpClient) {}
 

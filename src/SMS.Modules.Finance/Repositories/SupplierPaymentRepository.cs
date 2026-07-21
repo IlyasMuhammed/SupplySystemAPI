@@ -118,6 +118,7 @@ internal sealed class SupplierPaymentRepository : ISupplierPaymentRepository
         if (!string.IsNullOrWhiteSpace(filter.Method)) q = q.Where(x => x.PaymentMethod == filter.Method);
         if (filter.DateFrom.HasValue)                 q = q.Where(x => x.PaymentDate >= filter.DateFrom.Value);
         if (filter.DateTo.HasValue)                   q = q.Where(x => x.PaymentDate <= filter.DateTo.Value);
+        if (filter.InvoiceUuid.HasValue)              q = q.Where(x => x.Lines.Any(l => l.InvoiceUuid == filter.InvoiceUuid.Value));
 
         var total    = await q.CountAsync();
         var page     = Math.Max(1, filter.Page);

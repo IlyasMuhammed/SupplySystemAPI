@@ -227,6 +227,9 @@ export class AppMenu implements OnInit {
                               permRequired: ['PAYMENT_PROCESS'] },
                             { label: 'All Payments', icon: 'pi pi-fw pi-list',
                               routerLink: ['/portal/pages/finance/payments'],
+                              permRequired: ['PAYMENT_VIEW', 'PAYMENT_PROCESS'] },
+                            { label: 'Payment History (Legacy)', icon: 'pi pi-fw pi-history',
+                              routerLink: ['/portal/pages/finance/payments-legacy'],
                               permRequired: ['PAYMENT_VIEW', 'PAYMENT_PROCESS'] }
                         ]
                     }
