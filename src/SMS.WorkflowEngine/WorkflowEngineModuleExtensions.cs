@@ -45,6 +45,7 @@ public static class WorkflowEngineModuleExtensions
         services.AddScoped<IDocumentCloneService, DocumentCloneService>();
         services.AddScoped<IWorkflowActionService, WorkflowActionService>();
         services.AddScoped<ITimelineService, TimelineService>();
+        services.AddScoped<IAttachmentService, AttachmentService>();
         services.AddScoped<IWorkflowHistoryService, WorkflowHistoryService>();
         services.AddScoped<IWorkflowInboxService, WorkflowInboxService>();
         services.AddScoped<IWorkflowConfigService, WorkflowConfigService>();

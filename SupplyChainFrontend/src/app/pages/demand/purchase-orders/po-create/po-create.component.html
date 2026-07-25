@@ -212,7 +212,9 @@
               <div class="field">
                 <label>Quantity <span class="required">*</span></label>
                 <p-inputNumber formControlName="quantity" [minFractionDigits]="0" [maxFractionDigits]="4"
-                               [min]="0.0001" [max]="999999" styleClass="w-full"></p-inputNumber>
+                               [min]="0.0001" [max]="999999" [maxlength]="12" [class.p-invalid]="lineIsInvalid(i,'quantity')"
+                               styleClass="w-full"></p-inputNumber>
+                <small class="p-error" *ngIf="lineIsInvalid(i,'quantity')">Must be between 0 and 999,999</small>
               </div>
 
               <!-- Per-line Warehouse override -->

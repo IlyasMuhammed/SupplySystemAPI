@@ -102,7 +102,13 @@ internal sealed class GrnService : IGrnService
         }
 
         var grn = await _repo.GetByIdAsync(grnUuid);
-        if (grn is not null)
+
+        // Only log a GRN_APPROVED timeline event once the workflow is genuinely fully
+        // approved (grn.Status is only flipped by DocumentStatusService at final-step
+        // completion). Under ALL/MAJORITY approval modes a single vote is just one of
+        // several required, and logging here on every partial vote produces one
+        // duplicate "Grn Approved" timeline entry per approver.
+        if (grn is not null && grn.Status == "APPROVED")
         {
             var accepted = grn.Lines.Sum(l => l.QtyAccepted);
             var rejected = grn.Lines.Sum(l => l.QtyRejected);

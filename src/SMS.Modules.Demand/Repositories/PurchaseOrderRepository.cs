@@ -70,7 +70,7 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
             TotalAmount  = poLines.Sum(l => l.LineTotal),
             DeliveryDate = req.DeliveryDate,
             Notes               = req.Notes,
-            BudgetCode          = pr.BudgetCode,
+            BudgetCode          = pr.Lines.OrderBy(l => l.LineNo).FirstOrDefault()?.BudgetCode,
             DeliveryWarehouseId = pr.WarehouseUuid,
             IsActive            = true,
             CreatedBy    = createdBy,
@@ -157,7 +157,7 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
                 TotalAmount  = poLines.Sum(l => l.LineTotal),
                 DeliveryDate = req.DeliveryDate,
                 Notes        = req.Notes,
-                BudgetCode   = pr.BudgetCode,
+                BudgetCode   = group.OrderBy(x => x.PrLine.LineNo).First().PrLine.BudgetCode,
                 IsActive     = true,
                 CreatedBy    = createdBy,
                 CreatedDate  = now,
@@ -269,6 +269,8 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
         }
         else if (req.Lines?.Count > 0)
         {
+            ValidateLineQuantities(req.Lines.Select(l => l.Quantity));
+
             int lineNo = 1;
             foreach (var line in req.Lines)
             {
@@ -322,6 +324,8 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
 
         if (req.Lines is not null)
         {
+            ValidateLineQuantities(req.Lines.Select(l => l.Quantity));
+
             _db.PurchaseOrderLines.RemoveRange(po.Lines);
             int lineNo = 1;
             foreach (var l in req.Lines)
@@ -511,6 +515,22 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    // Frontend p-inputNumber widgets already soft-clamp to this range, but that's only a UI
+    // hint — nothing stopped a pasted value, a race before blur, or a direct API call from
+    // submitting an out-of-range quantity. This is the actual enforcement.
+    private const decimal MaxLineQuantity = 999999m;
+
+    private static void ValidateLineQuantities(IEnumerable<decimal> quantities)
+    {
+        foreach (var qty in quantities)
+        {
+            if (qty <= 0)
+                throw new BadRequestException("Line quantity must be greater than zero.");
+            if (qty > MaxLineQuantity)
+                throw new BadRequestException($"Line quantity must not exceed {MaxLineQuantity:N0}.");
+        }
+    }
 
     private static void ValidateQuotationRequirements(IEnumerable<PrLine> lines)
     {

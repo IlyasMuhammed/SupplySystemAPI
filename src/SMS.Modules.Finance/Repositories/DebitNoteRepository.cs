@@ -66,6 +66,19 @@ internal sealed class DebitNoteRepository : IDebitNoteRepository
         // we rely on supplier contact email that may have been captured at SRO creation time.
         // If the SupplierContactEmail field is populated on the SRO entity, use it; otherwise skip email.
 
+        // Resolve invoice: prefer explicit InvoiceUuid; fall back to SRO's GRN reference
+        Invoice? invoice = null;
+        if (req.InvoiceUuid.HasValue)
+        {
+            invoice = await _fin.Invoices
+                .FirstOrDefaultAsync(i => i.UUID == req.InvoiceUuid.Value && !i.IsDelete);
+        }
+        else if (sro.GrnUuid.HasValue)
+        {
+            invoice = await _fin.Invoices
+                .FirstOrDefaultAsync(i => i.GrnUuid == sro.GrnUuid.Value && !i.IsDelete);
+        }
+
         var dn = new DebitNote
         {
             UUID                 = Guid.NewGuid(),
@@ -78,6 +91,8 @@ internal sealed class DebitNoteRepository : IDebitNoteRepository
             DebitReason          = req.DebitReason,
             DebitReasonDetail    = req.DebitReasonDetail,
             DebitAmount          = req.DebitAmount,
+            InvoiceUuid          = invoice?.UUID,
+            InvoiceNumber        = invoice?.InvoiceNumber,
             Status               = "ISSUED",
             IssuedAt             = now,
             Notes                = req.Notes,
@@ -86,14 +101,37 @@ internal sealed class DebitNoteRepository : IDebitNoteRepository
             CreatedDate          = now
         };
 
+        // Apply to invoice immediately (matching CreditNote's behavior) or carry forward
+        if (invoice is not null && !InvoicePaymentStatus.IsFullyPaid(invoice.PaymentStatus))
+        {
+            invoice.TotalAmount -= dn.DebitAmount;
+            if (invoice.TotalAmount < 0) invoice.TotalAmount = 0;
+            invoice.ModifiedDate = now;
+
+            dn.ApplicationStatus     = "APPLIED_TO_INVOICE";
+            dn.AppliedToInvoiceUuid  = invoice.UUID;
+            dn.AppliedToInvoiceNumber = invoice.InvoiceNumber;
+            dn.AppliedAt             = now;
+        }
+        else
+        {
+            dn.ApplicationStatus   = "CARRIED_FORWARD";
+            dn.CarriedForwardAmount = dn.DebitAmount;
+        }
+
         _fin.DebitNotes.Add(dn);
 
-        // SFM-002 / Addendum 8A: the ledger debit is posted in the SAME SaveChangesAsync as the
+        // SFM-002 / Addendum 8A: the ledger entry is posted in the SAME SaveChangesAsync as the
         // debit note creation (PostEntryAsync performs that save) — if it throws, the debit note
-        // is never persisted either. Do not call _fin.SaveChangesAsync() separately here.
+        // (and any invoice adjustment above) is never persisted either. Do not call
+        // _fin.SaveChangesAsync() separately here.
+        //
+        // Direction: a debit note recovers value FROM the supplier for a return, which reduces
+        // what we owe them — same accounting direction as a credit note, so it's posted as a
+        // ledger credit (not a debit, which would incorrectly increase the balance owed).
         await _ledger.PostEntryAsync(
             dn.SupplierId, "DEBIT_NOTE_APPROVED", "DebitNote", dn.UUID, dn.DebitNoteNumber,
-            debitAmount: dn.DebitAmount, creditAmount: 0m,
+            debitAmount: 0m, creditAmount: dn.DebitAmount,
             narration: $"Debit note {dn.DebitNoteNumber} issued against SRO {dn.SroNumber} — {dn.DebitReason}.",
             createdBy: createdBy);
 
@@ -174,6 +212,41 @@ internal sealed class DebitNoteRepository : IDebitNoteRepository
         await _fin.SaveChangesAsync();
     }
 
+    // ── Apply carried-forward debit to a specified invoice ────────────────────
+
+    public async Task ApplyCarriedForwardAsync(Guid uuid, ApplyDebitNoteRequest req, int userId)
+    {
+        var dn = await _fin.DebitNotes
+            .FirstOrDefaultAsync(x => x.UUID == uuid && x.IsActive && !x.IsDelete)
+            ?? throw new NotFoundException("DebitNote", uuid);
+
+        if (dn.ApplicationStatus != "CARRIED_FORWARD")
+            throw new UnprocessableEntityException(
+                $"Debit note must be in CARRIED_FORWARD status to apply. Current: {dn.ApplicationStatus}.");
+
+        var invoice = await _fin.Invoices
+            .FirstOrDefaultAsync(i => i.UUID == req.InvoiceUuid && !i.IsDelete)
+            ?? throw new NotFoundException("Invoice", req.InvoiceUuid);
+
+        if (InvoicePaymentStatus.IsFullyPaid(invoice.PaymentStatus))
+            throw new UnprocessableEntityException("Cannot apply a debit note to a fully paid invoice.");
+
+        var amountToApply = dn.CarriedForwardAmount ?? dn.DebitAmount;
+
+        invoice.TotalAmount -= amountToApply;
+        if (invoice.TotalAmount < 0) invoice.TotalAmount = 0;
+        invoice.ModifiedDate = DateTime.UtcNow;
+
+        dn.ApplicationStatus      = "APPLIED";
+        dn.AppliedToInvoiceUuid   = invoice.UUID;
+        dn.AppliedToInvoiceNumber = invoice.InvoiceNumber;
+        dn.AppliedAt              = DateTime.UtcNow;
+        dn.ModifiedBy             = userId;
+        dn.ModifiedDate           = DateTime.UtcNow;
+
+        await _fin.SaveChangesAsync();
+    }
+
     // ── List ──────────────────────────────────────────────────────────────────
 
     public async Task<PaginatedResponse<DebitNoteListItemModel>> GetListAsync(DebitNoteListFilter filter)
@@ -201,16 +274,19 @@ internal sealed class DebitNoteRepository : IDebitNoteRepository
             .Take(pageSize)
             .Select(d => new DebitNoteListItemModel
             {
-                UUID            = d.UUID,
-                DebitNoteNumber = d.DebitNoteNumber,
-                SroNumber       = d.SroNumber,
-                SupplierId      = d.SupplierId,
-                SupplierName    = d.SupplierName,
-                DebitReason     = d.DebitReason,
-                DebitAmount     = d.DebitAmount,
-                Status          = d.Status,
-                IssuedAt        = d.IssuedAt,
-                CreatedDate     = d.CreatedDate
+                UUID                   = d.UUID,
+                DebitNoteNumber        = d.DebitNoteNumber,
+                SroNumber              = d.SroNumber,
+                SupplierId             = d.SupplierId,
+                SupplierName           = d.SupplierName,
+                DebitReason            = d.DebitReason,
+                DebitAmount            = d.DebitAmount,
+                InvoiceNumber          = d.InvoiceNumber,
+                ApplicationStatus      = d.ApplicationStatus,
+                AppliedToInvoiceNumber = d.AppliedToInvoiceNumber,
+                Status                 = d.Status,
+                IssuedAt               = d.IssuedAt,
+                CreatedDate            = d.CreatedDate
             })
             .ToListAsync();
 
@@ -238,24 +314,31 @@ internal sealed class DebitNoteRepository : IDebitNoteRepository
 
     private static DebitNoteDetailModel MapToDetail(DebitNote d) => new()
     {
-        UUID                 = d.UUID,
-        DebitNoteNumber      = d.DebitNoteNumber,
-        SroUuid              = d.SroUuid,
-        SroNumber            = d.SroNumber,
-        SupplierId           = d.SupplierId,
-        SupplierName         = d.SupplierName,
-        SupplierContactEmail = d.SupplierContactEmail,
-        DebitReason          = d.DebitReason,
-        DebitReasonDetail    = d.DebitReasonDetail,
-        DebitAmount          = d.DebitAmount,
-        Status               = d.Status,
-        IssuedAt             = d.IssuedAt,
-        AcknowledgedAt       = d.AcknowledgedAt,
-        DisputedAt           = d.DisputedAt,
-        SettledAt            = d.SettledAt,
-        DisputeNotes         = d.DisputeNotes,
-        Notes                = d.Notes,
-        CreatedDate          = d.CreatedDate
+        UUID                   = d.UUID,
+        DebitNoteNumber        = d.DebitNoteNumber,
+        SroUuid                = d.SroUuid,
+        SroNumber              = d.SroNumber,
+        SupplierId             = d.SupplierId,
+        SupplierName           = d.SupplierName,
+        SupplierContactEmail   = d.SupplierContactEmail,
+        DebitReason            = d.DebitReason,
+        DebitReasonDetail      = d.DebitReasonDetail,
+        DebitAmount            = d.DebitAmount,
+        InvoiceUuid            = d.InvoiceUuid,
+        InvoiceNumber          = d.InvoiceNumber,
+        ApplicationStatus      = d.ApplicationStatus,
+        AppliedToInvoiceUuid   = d.AppliedToInvoiceUuid,
+        AppliedToInvoiceNumber = d.AppliedToInvoiceNumber,
+        CarriedForwardAmount   = d.CarriedForwardAmount,
+        AppliedAt              = d.AppliedAt,
+        Status                 = d.Status,
+        IssuedAt               = d.IssuedAt,
+        AcknowledgedAt         = d.AcknowledgedAt,
+        DisputedAt             = d.DisputedAt,
+        SettledAt              = d.SettledAt,
+        DisputeNotes           = d.DisputeNotes,
+        Notes                  = d.Notes,
+        CreatedDate            = d.CreatedDate
     };
 
     private async Task<string> GenerateDebitNoteNumberAsync(int year)

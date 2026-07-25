@@ -216,6 +216,21 @@ export class InvoiceDetailComponent implements OnInit {
     }
   }
 
+  get deductionRows(): { type: string; number: string; reason: string | null; amount: number; date: string }[] {
+    if (!this.invoice) return [];
+    const debits = (this.invoice.debitNotes ?? []).map(d => ({
+      type: 'Debit Note', number: d.debitNoteNumber, reason: d.debitReason, amount: d.debitAmount, date: d.issuedAt || d.createdDate
+    }));
+    const credits = (this.invoice.creditNotes ?? []).map(c => ({
+      type: 'Credit Note', number: c.creditNoteNumber, reason: null, amount: c.creditAmount, date: c.creditDate
+    }));
+    return [...debits, ...credits];
+  }
+
+  get totalDeducted(): number {
+    return this.deductionRows.reduce((s, d) => s + (d.amount || 0), 0);
+  }
+
   canApprove(): boolean { return this.invoice?.matchStatus === 'Matched' || this.invoice?.matchStatus === 'Variance'; }
   canReject(): boolean  { return this.invoice?.matchStatus !== 'Approved' && this.invoice?.matchStatus !== 'Rejected'; }
   canPay(): boolean     { return this.invoice?.matchStatus === 'Approved' && this.invoice?.paymentStatus !== 'Paid'; }

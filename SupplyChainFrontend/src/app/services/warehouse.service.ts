@@ -245,6 +245,7 @@ export interface GrnLineModel {
   uuid: string;
   poLineUuid: string;
   productUuid?: string;
+  productName?: string;
   lineNo: number;
   itemDescription: string;
   unitOfMeasure?: string;
@@ -343,6 +344,12 @@ export class WarehouseService {
 
   updateGrnLine(grnUuid: string, lineUuid: string, req: UpdateGrnLineRequest): Observable<ApiResponse<null>> {
     return this.http.patch<ApiResponse<null>>(`${BASE}/grns/${grnUuid}/lines/${lineUuid}`, req);
+  }
+
+  // Narrow recovery endpoint: links a line to its catalogue product at any point before
+  // the GRN reaches APPROVED/REJECTED — unlike updateGrnLine, not restricted to DRAFT.
+  linkGrnLineProduct(grnUuid: string, lineUuid: string, productUuid: string): Observable<ApiResponse<null>> {
+    return this.http.patch<ApiResponse<null>>(`${BASE}/grns/${grnUuid}/lines/${lineUuid}/product`, { productUuid });
   }
 
   inspectGrnLine(grnUuid: string, lineUuid: string, req: InspectGrnLineRequest): Observable<ApiResponse<null>> {

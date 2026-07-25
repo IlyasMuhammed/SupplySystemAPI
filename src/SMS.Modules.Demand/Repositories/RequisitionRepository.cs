@@ -13,8 +13,26 @@ internal sealed class RequisitionRepository : IRequisitionRepository
 
     public RequisitionRepository(DemandDbContext db) => _db = db;
 
+    // Frontend p-inputNumber widgets already soft-clamp to this range, but that's only a UI
+    // hint — nothing stopped a pasted value, a race before blur, or a direct API call from
+    // submitting an out-of-range quantity. This is the actual enforcement.
+    private const decimal MaxLineQuantity = 999999m;
+
+    private static void ValidateLineQuantities(IEnumerable<decimal> quantities)
+    {
+        foreach (var qty in quantities)
+        {
+            if (qty <= 0)
+                throw new BadRequestException("Line quantity must be greater than zero.");
+            if (qty > MaxLineQuantity)
+                throw new BadRequestException($"Line quantity must not exceed {MaxLineQuantity:N0}.");
+        }
+    }
+
     public async Task<Guid> CreateAsync(CreatePrRequest req, int createdBy)
     {
+        ValidateLineQuantities(req.Lines.Select(l => l.Quantity));
+
         var uuid = Guid.NewGuid();
         var now  = DateTime.UtcNow;
 
@@ -33,6 +51,7 @@ internal sealed class RequisitionRepository : IRequisitionRepository
             RequiresQuotation   = l.RequiresQuotation,
             RequiredDate        = l.RequiredDate,
             LineNotes           = l.LineNotes,
+            BudgetCode          = l.BudgetCode,
             LineStatus          = "OPEN"
         }).ToList();
 
@@ -50,7 +69,6 @@ internal sealed class RequisitionRepository : IRequisitionRepository
             RequiresQuotation = req.RequiresQuotation,
             Justification     = req.Justification,
             EstimatedTotal    = lines.Sum(l => l.LineTotal),
-            BudgetCode        = req.BudgetCode,
             WarehouseUuid     = req.WarehouseUuid,
             Notes             = req.Notes,
             Status            = "DRAFT",
@@ -145,7 +163,6 @@ internal sealed class RequisitionRepository : IRequisitionRepository
             RequiresQuotation = pr.RequiresQuotation,
             Justification     = pr.Justification,
             EstimatedTotal    = pr.EstimatedTotal,
-            BudgetCode        = pr.BudgetCode,
             WarehouseUuid     = pr.WarehouseUuid,
             Status            = pr.Status,
             ApprovedBy        = pr.ApprovedBy,
@@ -171,6 +188,7 @@ internal sealed class RequisitionRepository : IRequisitionRepository
                 LineStatus          = l.LineStatus,
                 RequiredDate        = l.RequiredDate,
                 LineNotes           = l.LineNotes,
+                BudgetCode          = l.BudgetCode,
                 DisbursedQty        = l.DisbursedQty
             }).ToList()
         };
@@ -194,12 +212,13 @@ internal sealed class RequisitionRepository : IRequisitionRepository
         if (req.PrType is not null)            pr.PrType            = req.PrType;
         if (req.RequiresQuotation.HasValue)    pr.RequiresQuotation = req.RequiresQuotation.Value;
         if (req.Justification is not null)     pr.Justification     = req.Justification;
-        if (req.BudgetCode is not null)        pr.BudgetCode        = req.BudgetCode;
         pr.WarehouseUuid = req.ClearWarehouse ? null : req.WarehouseUuid ?? pr.WarehouseUuid;
         if (req.Notes is not null)             pr.Notes             = req.Notes;
 
         if (req.Lines is not null)
         {
+            ValidateLineQuantities(req.Lines.Select(l => l.Quantity));
+
             _db.PrLines.RemoveRange(pr.Lines);
             var newLines = req.Lines.Select((l, i) => new PrLine
             {
@@ -217,6 +236,7 @@ internal sealed class RequisitionRepository : IRequisitionRepository
                 RequiresQuotation     = l.RequiresQuotation,
                 RequiredDate          = l.RequiredDate,
                 LineNotes             = l.LineNotes,
+                BudgetCode            = l.BudgetCode,
                 LineStatus            = "OPEN"
             }).ToList();
             _db.PrLines.AddRange(newLines);

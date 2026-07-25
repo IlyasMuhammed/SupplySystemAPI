@@ -195,6 +195,7 @@ public class GrnLineModel
     public Guid UUID { get; set; }
     public Guid PoLineUuid { get; set; }
     public Guid? ProductUuid { get; set; }
+    public string? ProductName { get; set; }
     public int LineNo { get; set; }
     public string ItemDescription { get; set; } = string.Empty;
     public string? UnitOfMeasure { get; set; }

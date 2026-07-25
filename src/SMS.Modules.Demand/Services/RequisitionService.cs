@@ -73,7 +73,11 @@ internal sealed class RequisitionService : IRequisitionService
         await _workflow.ApproveByDocumentAsync("PR", prUuid, approvedBy, remarks);
 
         var pr = await _repo.GetByIdAsync(prUuid);
-        if (pr is not null)
+
+        // Only log once the workflow is genuinely fully approved — under ALL/MAJORITY
+        // approval modes a single vote is just one of several required, and logging
+        // here on every partial vote produces one duplicate timeline entry per approver.
+        if (pr is not null && pr.Status == "APPROVED")
             _jobs.Enqueue<ITimelineAppendJob>(j => j.AppendAsync(
                 pr.TraceId,
                 new TimelineEvent("PR_APPROVED", "PR", prUuid, pr.PrNumber, DateTime.UtcNow, approvedBy, remarks),

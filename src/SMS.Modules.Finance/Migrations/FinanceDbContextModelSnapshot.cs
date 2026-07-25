@@ -139,6 +139,26 @@ namespace SMS.Modules.Finance.Migrations
                     b.Property<DateTime?>("AcknowledgedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("ApplicationStatus")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)")
+                        .HasDefaultValue("PENDING");
+
+                    b.Property<DateTime?>("AppliedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("AppliedToInvoiceNumber")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid?>("AppliedToInvoiceUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal?>("CarriedForwardAmount")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<int>("CreatedBy")
                         .HasColumnType("int");
 
@@ -168,6 +188,13 @@ namespace SMS.Modules.Finance.Migrations
 
                     b.Property<DateTime?>("DisputedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("InvoiceNumber")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid?>("InvoiceUuid")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<bool>("IsActive")
                         .ValueGeneratedOnAdd()

@@ -66,12 +66,7 @@
                       optionLabel="label" optionValue="value" styleClass="w-full"></p-dropdown>
         </div>
 
-        <!-- Budget Code | Requires Quotation toggle -->
-        <div class="field">
-          <label>Budget Code</label>
-          <input pInputText formControlName="budgetCode" placeholder="e.g. CAPEX-2025"
-                 class="w-full" maxlength="30" />
-        </div>
+        <!-- Requires Quotation toggle -->
         <div class="field">
           <label>&nbsp;</label>
           <div class="gi-toggle">
@@ -148,9 +143,9 @@
               <div class="field">
                 <label>Quantity <span class="required">*</span></label>
                 <p-inputNumber formControlName="quantity" [minFractionDigits]="0" [maxFractionDigits]="4"
-                               [min]="0.0001" [max]="999999" [class.p-invalid]="lineIsInvalid(i,'quantity')"
+                               [min]="0.0001" [max]="999999" [maxlength]="12" [class.p-invalid]="lineIsInvalid(i,'quantity')"
                                styleClass="w-full"></p-inputNumber>
-                <small class="p-error" *ngIf="lineIsInvalid(i,'quantity')">Must be &gt; 0</small>
+                <small class="p-error" *ngIf="lineIsInvalid(i,'quantity')">Must be between 0 and 999,999</small>
               </div>
 
               <!-- Description | Specification -->
@@ -193,6 +188,11 @@
                 <input pInputText formControlName="lineNotes"
                        placeholder="Special instructions…"
                        class="w-full" maxlength="500" />
+              </div>
+              <div class="field">
+                <label>Budget Code</label>
+                <input pInputText formControlName="budgetCode" placeholder="e.g. CAPEX-2025"
+                       class="w-full" maxlength="30" />
               </div>
 
               <!-- Requires Quotation -->

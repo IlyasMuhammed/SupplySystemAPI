@@ -241,8 +241,11 @@ public class CreditDebitNote_LedgerWiring_Tests
     }
 
     [Fact]
-    public async Task Creating_A_DebitNote_Creates_A_Debit_Entry()
+    public async Task Creating_A_DebitNote_Creates_A_Credit_Entry()
     {
+        // A debit note recovers value FROM the supplier for a return, which reduces what we
+        // owe them — the same accounting direction as a credit note (a ledger credit), not a
+        // debit (which would incorrectly increase the balance owed).
         var finDb      = Build.NewFinanceDb();
         var whDb       = Build.NewWarehouseDb();
         var ledger     = new SupplierLedgerService(finDb);
@@ -262,9 +265,9 @@ public class CreditDebitNote_LedgerWiring_Tests
         dnUuid.Should().NotBeEmpty();
 
         var entry = await finDb.SupplierLedgerEntries.SingleAsync(e => e.SupplierId == supplierId);
-        entry.DebitAmount.Should().Be(3000m);
-        entry.CreditAmount.Should().Be(0m);
-        entry.BalanceAfter.Should().Be(3000m);
+        entry.DebitAmount.Should().Be(0m);
+        entry.CreditAmount.Should().Be(3000m);
+        entry.BalanceAfter.Should().Be(-3000m);
         entry.TransactionType.Should().Be("DEBIT_NOTE_APPROVED");
         entry.ReferenceId.Should().Be(dnUuid);
     }
@@ -292,10 +295,12 @@ public class CreditDebitNote_LedgerWiring_Tests
             SroId = debitSro.UUID, DebitReason = "SHORT_SHIPMENT", DebitAmount = 1500m
         }, createdBy: 1);
 
+        // Both a credit note and a debit note reduce what we owe the supplier, so their
+        // amounts combine as credits (5500 total), not offset each other as debit vs credit.
         var balance = await ledger.GetBalanceAsync(supplierId);
-        balance.TotalCredits.Should().Be(4000m);
-        balance.TotalDebits.Should().Be(1500m);
-        balance.NetBalance.Should().Be(-2500m);
-        balance.AvailableAdvanceCredit.Should().Be(2500m);
+        balance.TotalCredits.Should().Be(5500m);
+        balance.TotalDebits.Should().Be(0m);
+        balance.NetBalance.Should().Be(-5500m);
+        balance.AvailableAdvanceCredit.Should().Be(5500m);
     }
 }

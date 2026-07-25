@@ -41,6 +41,8 @@
                   [loading]="isExpectingReplacement" (onClick)="expectReplacement()"></p-button>
         <p-button *ngIf="canCreateDebitNote" label="Raise Debit Note" icon="pi pi-file-edit" severity="danger" [outlined]="true"
                   (onClick)="openDebitNoteDialog()"></p-button>
+        <p-button *ngIf="canCreateCreditNote" label="Raise Credit Note" icon="pi pi-file-edit" severity="success" [outlined]="true"
+                  (onClick)="openCreditNoteDialog()"></p-button>
       </div>
     </div>
 
@@ -313,28 +315,6 @@
                     styleClass="w-full" placeholder="Select resolution..."
                     appendTo="body"></p-dropdown>
       </div>
-      <ng-container *ngIf="resolveType === 'CREDIT'">
-        <div class="form-field">
-          <label>Credit Note Number</label>
-          <input pInputText [(ngModel)]="creditNoteNumber" class="w-full" placeholder="CN-YYYY-NNNNN" />
-        </div>
-        <div class="form-field">
-          <label>Credit Amount</label>
-          <p-inputNumber [(ngModel)]="creditAmount" mode="currency" currency="USD"
-                         [minFractionDigits]="2" styleClass="w-full"></p-inputNumber>
-        </div>
-      </ng-container>
-      <ng-container *ngIf="resolveType === 'DEBIT'">
-        <div class="form-field">
-          <label>Debit Note Number</label>
-          <input pInputText [(ngModel)]="debitNoteNumber" class="w-full" placeholder="DN-YYYY-NNNNN" />
-        </div>
-        <div class="form-field">
-          <label>Debit Amount</label>
-          <p-inputNumber [(ngModel)]="debitAmount" mode="currency" currency="USD"
-                         [minFractionDigits]="2" styleClass="w-full"></p-inputNumber>
-        </div>
-      </ng-container>
       <ng-container *ngIf="resolveType === 'REPLACEMENT'">
         <div class="form-field">
           <label>Replacement PO Reference</label>
@@ -385,6 +365,38 @@
                 [loading]="isCreatingDebitNote"
                 [disabled]="!debitNoteReason || !debitNoteAmount"
                 (onClick)="confirmCreateDebitNote()"></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <!-- Create Credit Note dialog -->
+  <p-dialog header="Raise Credit Note" [(visible)]="showCreditNoteDialog" [modal]="true" [style]="{width:'520px'}">
+    <div class="form-field">
+      <label>Supplier Credit Note No. <span class="req">*</span></label>
+      <input pInputText [(ngModel)]="creditNoteSupplierNo" class="w-full"
+             placeholder="Supplier's own credit note reference" />
+    </div>
+    <div class="form-field">
+      <label>Credit Date <span class="req">*</span></label>
+      <p-calendar [(ngModel)]="creditNoteDate" [showIcon]="true" dateFormat="dd M yy"
+                  styleClass="w-full" placeholder="Select date"></p-calendar>
+    </div>
+    <div class="form-field">
+      <label>Credit Amount <span class="req">*</span></label>
+      <p-inputNumber [(ngModel)]="creditNoteAmount" mode="decimal"
+                     [minFractionDigits]="2" [maxFractionDigits]="2"
+                     [min]="0.01" styleClass="w-full" placeholder="0.00"></p-inputNumber>
+    </div>
+    <div class="form-field">
+      <label>Notes</label>
+      <textarea pTextarea [(ngModel)]="creditNoteNotes" rows="3" class="w-full"
+                placeholder="Internal notes..."></textarea>
+    </div>
+    <ng-template pTemplate="footer">
+      <p-button label="Cancel" [text]="true" severity="secondary" (onClick)="showCreditNoteDialog=false"></p-button>
+      <p-button label="Raise Credit Note" icon="pi pi-file-edit" severity="success"
+                [loading]="isCreatingCreditNote"
+                [disabled]="!creditNoteSupplierNo || !creditNoteDate || !creditNoteAmount"
+                (onClick)="confirmCreateCreditNote()"></p-button>
     </ng-template>
   </p-dialog>
 

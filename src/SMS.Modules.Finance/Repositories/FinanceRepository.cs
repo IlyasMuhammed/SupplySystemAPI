@@ -191,6 +191,43 @@ internal sealed class InvoiceRepository : IInvoiceRepository
 
         if (inv is null) return null;
 
+        var debitNotes = await _db.DebitNotes
+            .Where(d => d.AppliedToInvoiceUuid == inv.UUID && !d.IsDelete)
+            .Select(d => new DebitNoteListItemModel
+            {
+                UUID                   = d.UUID,
+                DebitNoteNumber        = d.DebitNoteNumber,
+                SroNumber              = d.SroNumber,
+                SupplierId             = d.SupplierId,
+                SupplierName           = d.SupplierName,
+                DebitReason            = d.DebitReason,
+                DebitAmount            = d.DebitAmount,
+                InvoiceNumber          = d.InvoiceNumber,
+                ApplicationStatus      = d.ApplicationStatus,
+                AppliedToInvoiceNumber = d.AppliedToInvoiceNumber,
+                Status                 = d.Status,
+                IssuedAt               = d.IssuedAt,
+                CreatedDate            = d.CreatedDate
+            }).ToListAsync();
+
+        var creditNotes = await _db.CreditNotes
+            .Where(c => c.AppliedToInvoiceUuid == inv.UUID && !c.IsDelete)
+            .Select(c => new CreditNoteListItemModel
+            {
+                UUID                   = c.UUID,
+                CreditNoteNumber       = c.CreditNoteNumber,
+                SupplierCreditNoteNo   = c.SupplierCreditNoteNo,
+                SroNumber              = c.SroNumber,
+                SupplierId             = c.SupplierId,
+                SupplierName           = c.SupplierName,
+                InvoiceNumber          = c.InvoiceNumber,
+                CreditDate             = c.CreditDate,
+                CreditAmount           = c.CreditAmount,
+                ApplicationStatus      = c.ApplicationStatus,
+                AppliedToInvoiceNumber = c.AppliedToInvoiceNumber,
+                CreatedDate            = c.CreatedDate
+            }).ToListAsync();
+
         return new InvoiceDetailModel
         {
             UUID              = inv.UUID,
@@ -247,7 +284,9 @@ internal sealed class InvoiceRepository : IInvoiceRepository
                     AmountPaid    = p.AmountPaid,
                     PaymentMethod = p.PaymentMethod,
                     Status        = p.Status
-                }).ToList()
+                }).ToList(),
+            DebitNotes  = debitNotes,
+            CreditNotes = creditNotes
         };
     }
 

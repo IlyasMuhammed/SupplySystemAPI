@@ -24,7 +24,6 @@ internal sealed class PurchaseRequisitionMap : IEntityTypeConfiguration<Purchase
         b.Property(x => x.PrType).HasMaxLength(50);
         b.Property(x => x.Justification).HasMaxLength(1000);
         b.Property(x => x.EstimatedTotal).HasColumnType("decimal(18,2)");
-        b.Property(x => x.BudgetCode).HasMaxLength(50);
         b.Property(x => x.Status).HasMaxLength(20).HasDefaultValue("DRAFT");
         b.Property(x => x.RejectionReason).HasMaxLength(500);
         b.Property(x => x.Notes).HasMaxLength(500);
@@ -55,6 +54,7 @@ internal sealed class PrLineMap : IEntityTypeConfiguration<PrLine>
         b.Property(x => x.LineTotal).HasColumnType("decimal(18,2)");
         b.Property(x => x.QuotationStatus).HasMaxLength(20);
         b.Property(x => x.LineStatus).HasMaxLength(20);
+        b.Property(x => x.BudgetCode).HasMaxLength(50);
         b.Property(x => x.DisbursedQty).HasColumnType("decimal(18,4)").HasDefaultValue(0m);
         b.Property(x => x.DisbursedMirIds).HasColumnType("nvarchar(max)").HasDefaultValue("[]");
 

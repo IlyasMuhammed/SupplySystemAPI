@@ -125,6 +125,8 @@ export interface InvoiceDetailModel {
   createdDate: string;
   lines: InvoiceLineModel[];
   payments: PaymentSummaryModel[];
+  debitNotes: DebitNoteListItemModel[];
+  creditNotes: CreditNoteListItemModel[];
 }
 
 export interface InvoiceFilter {
@@ -203,6 +205,7 @@ export interface CreateDebitNoteRequest {
   debitReason: string;
   debitReasonDetail?: string;
   debitAmount: number;
+  invoiceUuid?: string;
   notes?: string;
 }
 
@@ -229,6 +232,9 @@ export interface DebitNoteListItemModel {
   supplierName: string;
   debitReason: string;
   debitAmount: number;
+  invoiceNumber?: string;
+  applicationStatus: string;
+  appliedToInvoiceNumber?: string;
   status: string;
   issuedAt?: string;
   createdDate: string;

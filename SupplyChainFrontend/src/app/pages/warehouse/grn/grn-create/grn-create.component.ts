@@ -168,6 +168,13 @@ export class GrnCreateComponent implements OnInit {
     this.demandService.getPoById(poUuid).subscribe({
       next: (res) => {
         this.loadingLines = false;
+
+        // Default the GRN's warehouse to the one selected when the PO was created —
+        // the user can still override it manually via the dropdown afterwards.
+        if (res?.result?.deliveryWarehouseId) {
+          this.form.patchValue({ warehouseUuid: res.result.deliveryWarehouseId });
+        }
+
         const lines: PoLineModel[] = res?.result?.lines ?? [];
         const pending = lines.filter(l => l.qtyPending > 0);
         this.lineInputs = pending.map(l => ({

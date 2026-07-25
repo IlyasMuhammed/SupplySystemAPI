@@ -119,6 +119,19 @@ internal class DebitNote
     public string? DebitReasonDetail { get; set; }
     public decimal DebitAmount       { get; set; }
 
+    // Invoice the debit is applied against (auto-resolved from SRO's GRN)
+    public Guid?   InvoiceUuid   { get; set; }
+    public string? InvoiceNumber { get; set; }
+
+    // ApplicationStatus: PENDING | APPLIED_TO_INVOICE | CARRIED_FORWARD | APPLIED
+    public string ApplicationStatus { get; set; } = "PENDING";
+
+    // Populated when carried-forward debit is later applied to a specific invoice
+    public Guid?    AppliedToInvoiceUuid   { get; set; }
+    public string?  AppliedToInvoiceNumber { get; set; }
+    public decimal? CarriedForwardAmount   { get; set; }
+    public DateTime? AppliedAt             { get; set; }
+
     // Status: DRAFT | ISSUED | ACKNOWLEDGED | DISPUTED | SETTLED | WRITTEN_OFF
     public string Status { get; set; } = "ISSUED";
 

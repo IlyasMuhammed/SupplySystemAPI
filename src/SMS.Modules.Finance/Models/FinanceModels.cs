@@ -121,6 +121,8 @@ public class InvoiceDetailModel
     public DateTime CreatedDate       { get; set; }
     public List<InvoiceLineModel>     Lines    { get; set; } = new();
     public List<PaymentListItemModel> Payments { get; set; } = new();
+    public List<DebitNoteListItemModel>  DebitNotes  { get; set; } = new();
+    public List<CreditNoteListItemModel> CreditNotes { get; set; } = new();
 }
 
 public class InvoiceFilter
@@ -208,7 +210,14 @@ public class CreateDebitNoteRequest
     public string  DebitReason         { get; set; } = string.Empty;
     public string? DebitReasonDetail   { get; set; }
     public decimal DebitAmount         { get; set; }
+    // Optional override — if not provided, invoice is auto-resolved via SRO's GRN reference
+    public Guid?   InvoiceUuid         { get; set; }
     public string? Notes               { get; set; }
+}
+
+public class ApplyDebitNoteRequest
+{
+    public Guid InvoiceUuid { get; set; }
 }
 
 public class UpdateDebitNoteStatusRequest
@@ -238,6 +247,9 @@ public class DebitNoteListItemModel
     public string   SupplierName    { get; set; } = string.Empty;
     public string   DebitReason     { get; set; } = string.Empty;
     public decimal  DebitAmount     { get; set; }
+    public string?  InvoiceNumber          { get; set; }
+    public string   ApplicationStatus      { get; set; } = string.Empty;
+    public string?  AppliedToInvoiceNumber { get; set; }
     public string   Status          { get; set; } = string.Empty;
     public DateTime? IssuedAt       { get; set; }
     public DateTime CreatedDate     { get; set; }
@@ -255,6 +267,13 @@ public class DebitNoteDetailModel
     public string   DebitReason          { get; set; } = string.Empty;
     public string?  DebitReasonDetail    { get; set; }
     public decimal  DebitAmount          { get; set; }
+    public Guid?    InvoiceUuid             { get; set; }
+    public string?  InvoiceNumber           { get; set; }
+    public string   ApplicationStatus       { get; set; } = string.Empty;
+    public Guid?    AppliedToInvoiceUuid    { get; set; }
+    public string?  AppliedToInvoiceNumber  { get; set; }
+    public decimal? CarriedForwardAmount    { get; set; }
+    public DateTime? AppliedAt              { get; set; }
     public string   Status               { get; set; } = string.Empty;
     public DateTime? IssuedAt            { get; set; }
     public DateTime? AcknowledgedAt      { get; set; }

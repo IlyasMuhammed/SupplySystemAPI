@@ -35,6 +35,7 @@ export interface CreatePrLineRequest {
   requiresQuotation: boolean;
   requiredDate?: string;
   lineNotes?: string;
+  budgetCode?: string;
 }
 
 export interface CreatePrRequest {
@@ -45,7 +46,6 @@ export interface CreatePrRequest {
   prType?: string;
   requiresQuotation?: boolean;
   justification?: string;
-  budgetCode?: string;
   warehouseUuid?: string;
   notes?: string;
   lines: CreatePrLineRequest[];
@@ -59,7 +59,6 @@ export interface PatchPrRequest {
   prType?: string;
   requiresQuotation?: boolean;
   justification?: string;
-  budgetCode?: string;
   warehouseUuid?: string;
   clearWarehouse?: boolean;
   notes?: string;
@@ -105,6 +104,7 @@ export interface PrLineModel {
   lineStatus?: string;
   requiredDate?: string;
   lineNotes?: string;
+  budgetCode?: string;
   disbursedQty: number;
 }
 
@@ -126,7 +126,6 @@ export interface PrDetailModel {
   requiresQuotation: boolean;
   justification?: string;
   estimatedTotal: number;
-  budgetCode?: string;
   warehouseUuid?: string;
   status: string;
   approvedBy?: number;

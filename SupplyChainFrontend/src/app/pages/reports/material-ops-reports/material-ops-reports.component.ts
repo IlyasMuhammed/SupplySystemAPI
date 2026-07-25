@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TableModule } from 'primeng/table';
@@ -28,7 +28,7 @@ import {
   styleUrls: ['./material-ops-reports.component.scss'],
   providers: [MessageService]
 })
-export class MaterialOpsReportsComponent {
+export class MaterialOpsReportsComponent implements OnInit {
   // Returns
   returns: MaterialReturnReportItem[] = [];
   returnFilter: MaterialReturnReportFilter = {};
@@ -80,6 +80,12 @@ export class MaterialOpsReportsComponent {
 
   constructor(private svc: ReportsService, private msg: MessageService) {}
 
+  ngOnInit(): void {
+    this.loadReturns();
+    this.loadWastage();
+    this.loadReserved();
+  }
+
   // ── Returns ────────────────────────────────────────────────────────────────
 
   get returnTotal(): number { return this.returns.reduce((s, i) => s + i.lineValue, 0); }
@@ -105,7 +111,7 @@ export class MaterialOpsReportsComponent {
     });
   }
 
-  clearReturns(): void { this.returnFilter = {}; this.returns = []; }
+  clearReturns(): void { this.returnFilter = {}; this.loadReturns(); }
 
   // ── Wastage ────────────────────────────────────────────────────────────────
 
@@ -127,7 +133,7 @@ export class MaterialOpsReportsComponent {
     });
   }
 
-  clearWastage(): void { this.wastageFilter = {}; this.wastages = []; }
+  clearWastage(): void { this.wastageFilter = {}; this.loadWastage(); }
 
   // ── Reserved Stock ─────────────────────────────────────────────────────────
 
@@ -157,5 +163,5 @@ export class MaterialOpsReportsComponent {
     });
   }
 
-  clearReserved(): void { this.reservedFilter = {}; this.reserved = []; }
+  clearReserved(): void { this.reservedFilter = {}; this.loadReserved(); }
 }

@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TableModule } from 'primeng/table';
@@ -26,7 +26,7 @@ import {
   styleUrls: ['./stock-reports.component.scss'],
   providers: [MessageService]
 })
-export class StockReportsComponent {
+export class StockReportsComponent implements OnInit {
   // Tab 1 — Stock Movement
   movements: StockMovementItem[] = [];
   movementFilter: StockMovementFilter = {};
@@ -49,6 +49,11 @@ export class StockReportsComponent {
 
   constructor(private svc: ReportsService, private msg: MessageService) {}
 
+  ngOnInit(): void {
+    this.loadMovement();
+    this.loadLedger();
+  }
+
   // ── Movement ───────────────────────────────────────────────────────────────
 
   get totalIn():    number { return this.movements.reduce((s, i) => s + i.quantityIn, 0); }
@@ -70,7 +75,7 @@ export class StockReportsComponent {
     });
   }
 
-  clearMovement(): void { this.movementFilter = {}; this.movements = []; }
+  clearMovement(): void { this.movementFilter = {}; this.loadMovement(); }
 
   // ── Ledger ─────────────────────────────────────────────────────────────────
 
@@ -82,5 +87,5 @@ export class StockReportsComponent {
     });
   }
 
-  clearLedger(): void { this.ledgerFilter = {}; this.ledger = []; }
+  clearLedger(): void { this.ledgerFilter = {}; this.loadLedger(); }
 }

@@ -13,7 +13,6 @@ public class CreatePrRequest
     public string? PrType { get; set; }
     public bool RequiresQuotation { get; set; }
     public string? Justification { get; set; }
-    public string? BudgetCode { get; set; }
     public Guid? WarehouseUuid { get; set; }
     public string? Notes { get; set; }
     public List<CreatePrLineRequest> Lines { get; set; } = [];
@@ -31,6 +30,7 @@ public class CreatePrLineRequest
     public bool RequiresQuotation { get; set; }
     public DateTime? RequiredDate { get; set; }
     public string? LineNotes { get; set; }
+    public string? BudgetCode { get; set; }
 }
 
 public class PatchPrRequest
@@ -42,7 +42,6 @@ public class PatchPrRequest
     public string? PrType { get; set; }
     public bool? RequiresQuotation { get; set; }
     public string? Justification { get; set; }
-    public string? BudgetCode { get; set; }
     public Guid? WarehouseUuid { get; set; }
     public bool ClearWarehouse { get; set; }
     public string? Notes { get; set; }
@@ -122,7 +121,6 @@ public class PrDetailModel
     public bool RequiresQuotation { get; set; }
     public string? Justification { get; set; }
     public decimal EstimatedTotal { get; set; }
-    public string? BudgetCode { get; set; }
     public Guid? WarehouseUuid { get; set; }
     public string Status { get; set; } = string.Empty;
     public int? ApprovedBy { get; set; }
@@ -159,5 +157,6 @@ public class PrLineModel
     public string? LineStatus { get; set; }
     public DateTime? RequiredDate { get; set; }
     public string? LineNotes { get; set; }
+    public string? BudgetCode { get; set; }
     public decimal DisbursedQty { get; set; }
 }

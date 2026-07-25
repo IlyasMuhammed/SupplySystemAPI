@@ -19,7 +19,7 @@ import { MessageService, ConfirmationService } from 'primeng/api';
 import {
   WarehouseService, GrnDetailModel, GrnLineModel, UpdateGrnLineRequest, InspectGrnLineRequest
 } from '../../../../services/warehouse.service';
-import { InventoryService, WarehouseModel } from '../../../../services/inventory.service';
+import { InventoryService, WarehouseModel, ProductListItemModel } from '../../../../services/inventory.service';
 import { ReportsService, AuditLogItemModel } from '../../../../services/reports.service';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { TimelinePanelComponent } from '../../../../shared/timeline-panel/timeline-panel.component';
@@ -61,6 +61,14 @@ export class GrnDetailComponent implements OnInit {
   editingLine: GrnLineModel | null = null;
   lineForm!: FormGroup;
   isSavingLine = false;
+
+  // ── Link catalogue product dialog ─────────────────────────────────────────
+  showLinkProductDialog = false;
+  linkingLine: GrnLineModel | null = null;
+  productOptions: ProductListItemModel[] = [];
+  selectedProductUuid: string | null = null;
+  isSearchingProducts = false;
+  isLinkingProduct = false;
 
   qcResultOptions = [
     { label: 'Pass',    value: 'PASS' },
@@ -231,6 +239,53 @@ export class GrnDetailComponent implements OnInit {
         this.isSavingLine = false;
         this.messageService.add({ severity: 'error', summary: 'Error',
           detail: err?.error?.message || 'Failed to update line.' });
+      }
+    });
+  }
+
+  // ── Link catalogue product (recovery path — allowed any time before a terminal state) ──
+
+  get canLinkProduct(): boolean {
+    return this.grn?.status !== 'APPROVED' && this.grn?.status !== 'REJECTED';
+  }
+
+  openLinkProductDialog(line: GrnLineModel) {
+    this.linkingLine = line;
+    this.selectedProductUuid = null;
+    this.productOptions = [];
+    this.showLinkProductDialog = true;
+    this.searchProducts(line.itemDescription);
+  }
+
+  searchProducts(term: string) {
+    this.isSearchingProducts = true;
+    this.inventoryService.getProducts({ search: term, activeOnly: true, pageSize: 20 }).subscribe({
+      next: (res) => {
+        this.isSearchingProducts = false;
+        this.productOptions = res.success ? res.result.data : [];
+      },
+      error: () => { this.isSearchingProducts = false; }
+    });
+  }
+
+  saveProductLink() {
+    if (!this.grn || !this.linkingLine || !this.selectedProductUuid) return;
+    this.isLinkingProduct = true;
+    this.warehouseService.linkGrnLineProduct(this.grn.uuid, this.linkingLine.uuid, this.selectedProductUuid).subscribe({
+      next: (res) => {
+        this.isLinkingProduct = false;
+        if (res.success) {
+          this.messageService.add({ severity: 'success', summary: 'Linked', detail: 'Catalogue product linked.' });
+          this.showLinkProductDialog = false;
+          this.load();
+        } else {
+          this.messageService.add({ severity: 'error', summary: 'Error', detail: res.message });
+        }
+      },
+      error: (err) => {
+        this.isLinkingProduct = false;
+        this.messageService.add({ severity: 'error', summary: 'Error',
+          detail: err?.error?.message || 'Failed to link product.' });
       }
     });
   }

@@ -56,7 +56,6 @@
           <div class="info-row"><span>Department</span><strong>{{ pr.department || '—' }}</strong></div>
           <div class="info-row"><span>Priority</span><strong>{{ pr.priority || '—' }}</strong></div>
           <div class="info-row"><span>PR Type</span><strong>{{ pr.prType || 'STANDARD' }}</strong></div>
-          <div class="info-row"><span>Budget Code</span><strong>{{ pr.budgetCode || '—' }}</strong></div>
           <div class="info-row"><span>Requires Quotation</span>
             <strong>
               <i class="pi" [class.pi-check-circle]="pr.requiresQuotation"
@@ -102,6 +101,8 @@
             <th class="text-right">Qty</th>
             <th class="text-right">Unit Price</th>
             <th class="text-right">Line Total</th>
+            <th>Budget Code</th>
+            <th>Attachments</th>
             <th>RFQ</th>
             <th>Quot. Status</th>
             <th>Line Status</th>
@@ -122,6 +123,10 @@
             <td class="text-right">{{ line.quantity | number:'1.0-4' }}</td>
             <td class="text-right">{{ line.estimatedUnitPrice | number:'1.2-2' }}</td>
             <td class="text-right font-semibold">{{ line.lineTotal | number:'1.2-2' }}</td>
+            <td>{{ line.budgetCode || '—' }}</td>
+            <td style="min-width:180px">
+              <app-attachment-list interfaceCode="PR_LINE" [documentId]="line.uuid" [compact]="true"></app-attachment-list>
+            </td>
             <td>
               <i class="pi" [class.pi-check-circle]="line.requiresQuotation"
                             [class.pi-minus]="!line.requiresQuotation"

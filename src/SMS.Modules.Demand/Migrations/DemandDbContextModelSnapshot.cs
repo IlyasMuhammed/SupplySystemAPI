@@ -61,6 +61,10 @@ namespace SMS.Modules.Demand.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("BudgetCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
                     b.Property<string>("DisbursedMirIds")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
@@ -350,10 +354,6 @@ namespace SMS.Modules.Demand.Migrations
 
                     b.Property<int?>("ApprovedBy")
                         .HasColumnType("int");
-
-                    b.Property<string>("BudgetCode")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
 
                     b.Property<int>("CreatedBy")
                         .HasColumnType("int");

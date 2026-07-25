@@ -290,6 +290,17 @@
     i { font-size: .7rem; }
   }
 
+  .not-linked-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    color: #e67e22;
+    font-size: .78rem;
+    font-weight: 600;
+    white-space: nowrap;
+    i { font-size: .75rem; }
+  }
+
   .rejection-cell {
     display: flex;
     flex-direction: column;

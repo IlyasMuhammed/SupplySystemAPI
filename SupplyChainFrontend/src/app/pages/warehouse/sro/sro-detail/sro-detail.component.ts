@@ -20,7 +20,7 @@ import {
   ApproveSroRequest, RejectSroRequest, DispatchSroRequest,
   ConfirmReceiptSroRequest, ResolveSroRequest
 } from '../../../../services/warehouse.service';
-import { FinanceService, CreateDebitNoteRequest } from '../../../../services/finance.service';
+import { FinanceService, CreateDebitNoteRequest, CreateCreditNoteRequest } from '../../../../services/finance.service';
 import { ReportsService, AuditLogItemModel } from '../../../../services/reports.service';
 
 @Component({
@@ -64,21 +64,16 @@ export class SroDetailComponent implements OnInit {
   confirmReceiptNotes      = '';
   isConfirmingReceipt      = false;
 
-  // ── Resolve dialog ────────────────────────────────────────────────────────
+  // ── Resolve dialog (Replacement only — Credit/Debit Note have their own real
+  // creation flows further below, which actually post to the ledger and invoice) ──
   showResolveDialog = false;
   resolveType: string = '';
-  creditNoteNumber    = '';
-  creditAmount: number | null = null;
-  debitNoteNumber     = '';
-  debitAmount: number | null = null;
   replacementPoUuid   = '';
   resolveNotes        = '';
   isResolving         = false;
 
   resolveTypeOptions = [
-    { label: 'Credit Note',  value: 'CREDIT' },
-    { label: 'Replacement',  value: 'REPLACEMENT' },
-    { label: 'Debit Note',   value: 'DEBIT' }
+    { label: 'Replacement',  value: 'REPLACEMENT' }
   ];
 
   // ── Audit Trail ───────────────────────────────────────────────────────────
@@ -96,6 +91,14 @@ export class SroDetailComponent implements OnInit {
   debitNoteAmount: number | null = null;
   debitNoteNotes        = '';
   isCreatingDebitNote   = false;
+
+  // ── Create Credit Note dialog ─────────────────────────────────────────────
+  showCreditNoteDialog = false;
+  creditNoteSupplierNo = '';
+  creditNoteDate: Date | null = null;
+  creditNoteAmount: number | null = null;
+  creditNoteNotes       = '';
+  isCreatingCreditNote  = false;
 
   debitReasonOptions = [
     { label: 'Damaged',         value: 'DAMAGED' },
@@ -250,9 +253,7 @@ export class SroDetailComponent implements OnInit {
   // ── Resolve (SUPPLIER_RECEIVED → RESOLVED_*) ──────────────────────────────
 
   openResolveDialog() {
-    this.resolveType = ''; this.creditNoteNumber = ''; this.creditAmount = null;
-    this.debitNoteNumber = ''; this.debitAmount = null;
-    this.replacementPoUuid = ''; this.resolveNotes = '';
+    this.resolveType = ''; this.replacementPoUuid = ''; this.resolveNotes = '';
     this.showResolveDialog = true;
   }
 
@@ -261,10 +262,6 @@ export class SroDetailComponent implements OnInit {
     this.isResolving = true;
     const req: ResolveSroRequest = {
       resolutionType:   this.resolveType,
-      creditNoteNumber: this.creditNoteNumber  || undefined,
-      creditAmount:     this.creditAmount      ?? undefined,
-      debitNoteNumber:  this.debitNoteNumber   || undefined,
-      debitAmount:      this.debitAmount       ?? undefined,
       replacementPoUuid:this.replacementPoUuid || undefined,
       notes:            this.resolveNotes      || undefined
     };
@@ -344,6 +341,42 @@ export class SroDetailComponent implements OnInit {
     });
   }
 
+  // ── Create Credit Note ────────────────────────────────────────────────────
+
+  openCreditNoteDialog() {
+    this.creditNoteSupplierNo = ''; this.creditNoteDate = new Date();
+    this.creditNoteAmount = null; this.creditNoteNotes = '';
+    this.showCreditNoteDialog = true;
+  }
+
+  confirmCreateCreditNote() {
+    if (!this.sro || !this.creditNoteSupplierNo || !this.creditNoteDate || !this.creditNoteAmount) return;
+    this.isCreatingCreditNote = true;
+    const req: CreateCreditNoteRequest = {
+      sroId:                this.sro.uuid,
+      supplierCreditNoteNo: this.creditNoteSupplierNo,
+      creditDate:           this.creditNoteDate.toISOString(),
+      creditAmount:         this.creditNoteAmount,
+      notes:                this.creditNoteNotes || undefined
+    };
+    this.financeService.createCreditNote(req).subscribe({
+      next: (res) => {
+        this.isCreatingCreditNote = false;
+        if (res.success) {
+          this.messageService.add({ severity: 'success', summary: 'Credit Note Created', detail: 'Credit note raised and SRO resolved.' });
+          this.showCreditNoteDialog = false;
+          this.load();
+        } else {
+          this.messageService.add({ severity: 'error', summary: 'Error', detail: res.message });
+        }
+      },
+      error: (err) => {
+        this.isCreatingCreditNote = false;
+        this.messageService.add({ severity: 'error', summary: 'Error', detail: err?.error?.message || 'Failed to create credit note.' });
+      }
+    });
+  }
+
   // ── Status / label helpers ────────────────────────────────────────────────
 
   getStatusSeverity(s: string): 'success' | 'danger' | 'warn' | 'secondary' | 'info' | 'contrast' {
@@ -413,6 +446,9 @@ export class SroDetailComponent implements OnInit {
   get canExpectReplacement():  boolean { return this.sro?.status === 'SUPPLIER_RECEIVED'; }
   get canCreateDebitNote():    boolean {
     return this.sro?.status === 'SUPPLIER_RECEIVED' || this.sro?.status === 'ESCALATED';
+  }
+  get canCreateCreditNote():   boolean {
+    return this.sro?.status === 'SUPPLIER_RECEIVED' || this.sro?.status === 'AWAITING_REPLACEMENT';
   }
   get isSlaOverdue(): boolean {
     if (!this.sro?.slaDeadline) return false;

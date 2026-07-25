@@ -458,7 +458,7 @@ export class PoCreateComponent implements OnInit {
       itemDescription:  ['', Validators.required],
       specification:    [''],
       unitOfMeasure:    ['PC'],
-      quantity:         [1,  [Validators.required, Validators.min(0.0001)]],
+      quantity:         [1,  [Validators.required, Validators.min(0.0001), Validators.max(999999)]],
       unitPrice:        [0,  [Validators.required, Validators.min(0)]],
       warehouseId:      [null],
       warehouseName:    [''],

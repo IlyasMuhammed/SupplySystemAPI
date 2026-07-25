@@ -31,6 +31,7 @@ import { SupplierService, SupplierListItemModel } from '../../../../services/sup
 import { InventoryService } from '../../../../services/inventory.service';
 import { MaterialService, PrLineDisbursement } from '../../../../services/material.service';
 import { TimelinePanelComponent } from '../../../../shared/timeline-panel/timeline-panel.component';
+import { AttachmentListComponent } from '../../../../shared/attachment-list/attachment-list.component';
 
 @Component({
   selector: 'app-pr-detail',
@@ -40,7 +41,7 @@ import { TimelinePanelComponent } from '../../../../shared/timeline-panel/timeli
     ButtonModule, CardModule, TagModule, ToastModule, DialogModule,
     InputTextModule, TextareaModule, InputNumberModule, DropdownModule,
     CalendarModule, DividerModule, TooltipModule, TableModule, ConfirmDialogModule,
-    AutoCompleteModule, SidebarModule, TimelinePanelComponent
+    AutoCompleteModule, SidebarModule, TimelinePanelComponent, AttachmentListComponent
   ],
   templateUrl: './pr-detail.component.html',
   styleUrls: ['./pr-detail.component.scss'],

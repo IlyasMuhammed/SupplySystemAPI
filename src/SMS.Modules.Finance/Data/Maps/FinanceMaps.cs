@@ -82,6 +82,10 @@ internal sealed class DebitNoteMap : IEntityTypeConfiguration<DebitNote>
         b.Property(x => x.DebitReason).HasMaxLength(50).IsRequired();
         b.Property(x => x.DebitReasonDetail).HasMaxLength(500);
         b.Property(x => x.DebitAmount).HasColumnType("decimal(18,2)");
+        b.Property(x => x.InvoiceNumber).HasMaxLength(20);
+        b.Property(x => x.ApplicationStatus).HasMaxLength(30).HasDefaultValue("PENDING");
+        b.Property(x => x.AppliedToInvoiceNumber).HasMaxLength(20);
+        b.Property(x => x.CarriedForwardAmount).HasColumnType("decimal(18,2)");
         b.Property(x => x.Status).HasMaxLength(20).HasDefaultValue("ISSUED");
         b.Property(x => x.DisputeNotes).HasMaxLength(500);
         b.Property(x => x.Notes).HasMaxLength(300);

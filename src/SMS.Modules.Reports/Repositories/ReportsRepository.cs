@@ -1444,11 +1444,13 @@ internal sealed class ReportsRepository : IReportsRepository
     {
         var (from, to) = ParseDates(filter.DateFrom, filter.DateTo);
 
+        // Budget codes now live on each PR line (not the PR header), so estimated spend is
+        // summed per line rather than attributing a whole PR's EstimatedTotal to one code.
         var prs = await _demand.PurchaseRequisitions
             .Where(pr => !pr.IsDelete && pr.Status != "DRAFT" &&
                          (!from.HasValue || pr.CreatedDate >= from) &&
                          (!to.HasValue   || pr.CreatedDate <= to))
-            .Select(pr => new { pr.BudgetCode, pr.Department, pr.EstimatedTotal })
+            .SelectMany(pr => pr.Lines.Select(l => new { l.BudgetCode, pr.Department, EstimatedTotal = l.LineTotal }))
             .ToListAsync();
 
         var pos = await _demand.PurchaseOrders

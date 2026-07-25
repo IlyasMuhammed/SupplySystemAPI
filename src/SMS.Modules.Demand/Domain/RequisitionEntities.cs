@@ -16,7 +16,6 @@ internal class PurchaseRequisition
     public bool RequiresQuotation { get; set; }
     public string? Justification { get; set; }
     public decimal EstimatedTotal { get; set; }
-    public string? BudgetCode { get; set; }
     public Guid? WarehouseUuid { get; set; }
     public string Status { get; set; } = "DRAFT";
     public int? ApprovedBy { get; set; }
@@ -53,6 +52,7 @@ internal class PrLine
     public string? LineStatus { get; set; }
     public DateTime? RequiredDate { get; set; }
     public string? LineNotes { get; set; }
+    public string? BudgetCode { get; set; }
 
     // Disbursement tracking (written only by the MIR-approval handler). NEVER a status/state field —
     // PrLine.LineStatus above remains the sole source of truth for the line's procurement status.

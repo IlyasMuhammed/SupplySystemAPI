@@ -94,6 +94,13 @@ public class GrnService_TimelineWiring_Tests
 
         var svc = new GrnService(grnRepo, workflow.Object, docStatus.Object, jobsMock.Object);
 
+        // Simulate the real IDocumentStatusService flipping the GRN to APPROVED once the
+        // workflow's final step completes — GrnService only logs GRN_APPROVED once this is
+        // true (a single vote under ALL/MAJORITY approval modes is otherwise just partial).
+        var grn = await wh.Grns.SingleAsync(g => g.UUID == grnUuid);
+        grn.Status = "APPROVED";
+        await wh.SaveChangesAsync();
+
         await svc.ApproveAsync(grnUuid, 5);
 
         var evt = WiringBuild.CapturedEvent(captured);

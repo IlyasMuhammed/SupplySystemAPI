@@ -84,6 +84,13 @@ public class RequisitionService_TimelineWiring_Tests
         var (jobsMock, captured) = WiringBuild.MockJobs();
         var svc = new RequisitionService(repo, workflow.Object, jobsMock.Object);
 
+        // Simulate the real IDocumentStatusService flipping the PR to APPROVED once the
+        // workflow's final step completes — RequisitionService only logs PR_APPROVED once this
+        // is true (a single vote under ALL/MAJORITY approval modes is otherwise just partial).
+        var pr = await db.PurchaseRequisitions.SingleAsync(p => p.UUID == uuid);
+        pr.Status = "APPROVED";
+        await db.SaveChangesAsync();
+
         await svc.ApproveAsync(uuid, 2, "ok");
 
         WiringBuild.CapturedEvent(captured).EventType.Should().Be("PR_APPROVED");

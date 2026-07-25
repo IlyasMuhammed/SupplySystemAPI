@@ -189,7 +189,8 @@
         <ng-template pTemplate="header">
           <tr>
             <th>#</th>
-            <th>Description</th>
+            <th>Product</th>
+            <th>Catalogue Link</th>
             <th>UOM</th>
             <th class="text-right">Qty Ordered</th>
             <th class="text-right">Qty Received</th>
@@ -206,7 +207,15 @@
         <ng-template pTemplate="body" let-line>
           <tr [class.has-variance]="line.hasVariance">
             <td>{{ line.lineNo }}</td>
-            <td class="font-semibold">{{ line.itemDescription }}</td>
+            <td class="font-semibold">{{ line.productName || line.itemDescription }}</td>
+            <td>
+              <span *ngIf="line.productUuid" class="text-success"><i class="pi pi-check-circle"></i> Linked</span>
+              <span *ngIf="!line.productUuid" class="not-linked-badge">
+                <i class="pi pi-exclamation-triangle"></i> Not linked
+                <p-button *ngIf="canLinkProduct" label="Link" size="small" [text]="true" severity="warn"
+                          (onClick)="openLinkProductDialog(line)"></p-button>
+              </span>
+            </td>
             <td>{{ line.unitOfMeasure || '—' }}</td>
             <td class="text-right">{{ line.qtyOrdered | number:'1.0-4' }}</td>
             <td class="text-right" [class.text-warn]="line.qtyReceived < line.qtyOrdered">
@@ -310,7 +319,7 @@
                     [class.insp-dirty]="row.isDirty"
                     [class.insp-fail]="line.inspectionResult === 'Fail'">
                   <td class="line-no">{{ line.lineNo }}</td>
-                  <td class="item-desc">{{ line.itemDescription }}</td>
+                  <td class="item-desc">{{ line.productName || line.itemDescription }}</td>
                   <td class="uom">{{ line.unitOfMeasure || '—' }}</td>
                   <td class="text-right font-bold">{{ line.qtyReceived | number:'1.0-4' }}</td>
 
@@ -487,7 +496,7 @@
             [style]="{width:'560px'}" header="Record Receipt Quantities">
     <form [formGroup]="lineForm" *ngIf="editingLine">
       <div class="dialog-line-info">
-        <strong>{{ editingLine.itemDescription }}</strong>
+        <strong>{{ editingLine.productName || editingLine.itemDescription }}</strong>
         <span class="ordered-qty">Ordered: {{ editingLine.qtyOrdered | number:'1.0-4' }} {{ editingLine.unitOfMeasure }}</span>
       </div>
       <div class="dialog-grid">
@@ -541,6 +550,37 @@
       <p-button label="Cancel" severity="secondary" [text]="true" (onClick)="showLineDialog=false"></p-button>
       <p-button label="Save" icon="pi pi-check" severity="warn"
                 [loading]="isSavingLine" (onClick)="saveLineChanges()"></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <!-- ── Link Catalogue Product Dialog ──────────────────────────────────────── -->
+  <p-dialog [(visible)]="showLinkProductDialog" [modal]="true" [closable]="true"
+            [style]="{width:'480px'}" header="Link Catalogue Product">
+    <div class="action-dialog-body" *ngIf="linkingLine">
+      <p class="action-info">
+        This GRN line — <strong>{{ linkingLine.itemDescription }}</strong> — isn't linked to a catalogue
+        product yet, so stock can't be posted for it. Search and select the matching product.
+      </p>
+      <div class="field mt-1">
+        <label>Catalogue Product <span class="required">*</span></label>
+        <p-dropdown [options]="productOptions" [(ngModel)]="selectedProductUuid"
+                    optionLabel="name" optionValue="uuid"
+                    [filter]="true" filterBy="name,sku" [showClear]="true"
+                    [loading]="isSearchingProducts"
+                    placeholder="Search by product name or SKU…"
+                    styleClass="full-width" appendTo="body"
+                    (onFilter)="searchProducts($event.filter)">
+          <ng-template let-p pTemplate="item">
+            <span>{{ p.name }} <span class="text-secondary">({{ p.sku }})</span></span>
+          </ng-template>
+        </p-dropdown>
+      </div>
+    </div>
+    <ng-template pTemplate="footer">
+      <p-button label="Cancel" severity="secondary" [text]="true" (onClick)="showLinkProductDialog=false"></p-button>
+      <p-button label="Link Product" icon="pi pi-link" severity="warn"
+                [loading]="isLinkingProduct" [disabled]="!selectedProductUuid"
+                (onClick)="saveProductLink()"></p-button>
     </ng-template>
   </p-dialog>
 

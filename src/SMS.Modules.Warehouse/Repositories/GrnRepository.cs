@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SMS.Modules.Demand.Data;
+using SMS.Modules.Inventory.Data;
 using SMS.Modules.Warehouse.Data;
 using SMS.Modules.Warehouse.Domain;
 using SMS.Modules.Warehouse.Models;
@@ -13,22 +14,26 @@ internal sealed class GrnRepository : IGrnRepository
 {
     private readonly WarehouseDbContext  _wh;
     private readonly DemandDbContext     _demand;
+    private readonly InventoryDbContext? _inv;
     private readonly IAuditService       _audit;
     private const decimal OverReceiptTolerance = 1.03m;
     private const decimal VarianceThreshold    = 0.05m;
 
-    public GrnRepository(WarehouseDbContext wh, DemandDbContext demand, IAuditService audit)
+    public GrnRepository(WarehouseDbContext wh, DemandDbContext demand, InventoryDbContext inv, IAuditService audit)
     {
         _wh     = wh;
         _demand = demand;
+        _inv    = inv;
         _audit  = audit;
     }
 
-    // Test-only convenience constructor — audit logging is a no-op.
-    public GrnRepository(WarehouseDbContext wh, DemandDbContext demand)
+    // Test-only convenience constructor — audit logging is a no-op; InventoryDbContext is
+    // optional since most GRN tests don't touch product-name resolution.
+    public GrnRepository(WarehouseDbContext wh, DemandDbContext demand, InventoryDbContext? inv = null)
     {
         _wh     = wh;
         _demand = demand;
+        _inv    = inv;
         _audit  = new NoOpAuditService();
     }
 
@@ -418,6 +423,13 @@ internal sealed class GrnRepository : IGrnRepository
 
         if (grn is null) return null;
 
+        var productUuids = grn.Lines.Where(l => l.ProductUuid.HasValue)
+            .Select(l => l.ProductUuid!.Value).Distinct().ToList();
+        var productNames = productUuids.Count > 0 && _inv is not null
+            ? await _inv.Products.Where(p => productUuids.Contains(p.Uuid))
+                .Select(p => new { p.Uuid, p.Name }).ToDictionaryAsync(p => p.Uuid, p => p.Name)
+            : new Dictionary<Guid, string>();
+
         return new GrnDetailModel
         {
             UUID                  = grn.UUID,
@@ -463,6 +475,7 @@ internal sealed class GrnRepository : IGrnRepository
                 UUID             = l.UUID,
                 PoLineUuid       = l.PoLineUuid,
                 ProductUuid      = l.ProductUuid,
+                ProductName      = l.ProductUuid.HasValue && productNames.TryGetValue(l.ProductUuid.Value, out var pn) ? pn : null,
                 LineNo           = l.LineNo,
                 ItemDescription  = l.ItemDescription,
                 UnitOfMeasure    = l.UnitOfMeasure,

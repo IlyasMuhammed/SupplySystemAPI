@@ -1,0 +1,37 @@
+<div class="attachment-list" [class.compact]="compact">
+  <p-toast></p-toast>
+
+  <div class="attachment-header" *ngIf="!compact">
+    <span class="attachment-label"><i class="pi pi-paperclip"></i> {{ label }}</span>
+  </div>
+
+  <div *ngIf="!documentId" class="attachment-hint">
+    Save first to add attachments.
+  </div>
+
+  <ng-container *ngIf="documentId">
+    <div *ngIf="isLoading" class="attachment-hint"><i class="pi pi-spin pi-spinner"></i> Loading…</div>
+
+    <ul class="attachment-items" *ngIf="!isLoading && attachments.length">
+      <li *ngFor="let att of attachments" class="attachment-item">
+        <a [href]="resolveUrl(att.fileUrl)" target="_blank" rel="noopener" class="attachment-file-link">
+          <i class="pi pi-file"></i>
+          <span class="attachment-file-name">{{ att.fileName }}</span>
+        </a>
+        <span class="attachment-file-size" *ngIf="att.fileSize">{{ formatSize(att.fileSize) }}</span>
+        <p-button *ngIf="!readOnly" icon="pi pi-times" [text]="true" severity="danger" size="small"
+                  pTooltip="Remove" (onClick)="remove(att)"></p-button>
+      </li>
+    </ul>
+
+    <div *ngIf="!isLoading && !attachments.length" class="attachment-hint">No attachments.</div>
+
+    <div *ngIf="!readOnly" class="attachment-upload">
+      <label class="attachment-upload-btn" [class.uploading]="isUploading">
+        <i class="pi" [class.pi-upload]="!isUploading" [class.pi-spin]="isUploading" [class.pi-spinner]="isUploading"></i>
+        {{ isUploading ? 'Uploading…' : 'Add Attachment' }}
+        <input type="file" (change)="onFileSelected($event)" [disabled]="isUploading" hidden />
+      </label>
+    </div>
+  </ng-container>
+</div>

@@ -21,8 +21,26 @@ internal sealed class QuotationRepository : IQuotationRepository
 
     public QuotationRepository(DemandDbContext db) => _db = db;
 
+    // Frontend p-inputNumber widgets already soft-clamp to this range, but that's only a UI
+    // hint — nothing stopped a pasted value, a race before blur, or a direct API call from
+    // submitting an out-of-range quantity. This is the actual enforcement.
+    private const decimal MaxLineQuantity = 999999m;
+
+    private static void ValidateLineQuantities(IEnumerable<decimal> quantities)
+    {
+        foreach (var qty in quantities)
+        {
+            if (qty <= 0)
+                throw new BadRequestException("Line quantity must be greater than zero.");
+            if (qty > MaxLineQuantity)
+                throw new BadRequestException($"Line quantity must not exceed {MaxLineQuantity:N0}.");
+        }
+    }
+
     public async Task<Guid> CreateAsync(CreateQuotationRequest req, int createdBy)
     {
+        ValidateLineQuantities(req.Lines.Select(l => l.Quantity));
+
         var uuid = Guid.NewGuid();
         var now  = DateTime.UtcNow;
 
@@ -78,6 +96,8 @@ internal sealed class QuotationRepository : IQuotationRepository
 
         if (req.Lines is not null)
         {
+            ValidateLineQuantities(req.Lines.Select(l => l.Quantity));
+
             _db.QuotationLines.RemoveRange(quotation.Lines);
             quotation.Lines = req.Lines.Select((l, i) => new QuotationLine
             {
