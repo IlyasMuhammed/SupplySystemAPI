@@ -117,7 +117,7 @@ internal sealed class GrnRepository : IGrnRepository
 
         var grn = new Grn
         {
-            UUID               = Guid.NewGuid(),
+            UUID               = req.GrnUuid is { } gid && gid != Guid.Empty ? gid : Guid.NewGuid(),
             TraceId            = po.TraceId,
             GrnNumber          = grnNumber,
             PoUuid             = po.UUID,

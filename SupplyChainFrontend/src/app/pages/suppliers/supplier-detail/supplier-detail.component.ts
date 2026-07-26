@@ -38,6 +38,8 @@ import {
   SupplierBalanceSummary,
   OutstandingInvoiceModel
 } from '../../../services/finance.service';
+import { ReportsService } from '../../../services/reports.service';
+import { TimelineEvent } from '../../../services/timeline.service';
 
 @Component({
   selector: 'app-supplier-detail',
@@ -114,6 +116,10 @@ export class SupplierDetailComponent implements OnInit {
   ];
 
   // ── Supplier Ledger (SFM-002) ─────────────────────────────────────────────
+  // ── Activity Timeline ─────────────────────────────────────────────────────
+  timelineEvents: TimelineEvent[] = [];
+  isLoadingTimeline = false;
+
   ledgerEntries: SupplierLedgerEntryModel[] = [];
   ledgerBalance: SupplierBalanceSummary | null = null;
   isLoadingLedger = false;
@@ -136,6 +142,7 @@ export class SupplierDetailComponent implements OnInit {
     private countriesService: CountriesService,
     private citiesService: CitiesService,
     private financeService: FinanceService,
+    private reportsService: ReportsService,
     private messageService: MessageService,
     private confirmationService: ConfirmationService
   ) {}
@@ -379,6 +386,7 @@ export class SupplierDetailComponent implements OnInit {
           this.loadLedger();
           this.loadLedgerBalance();
           this.loadOutstandingInvoices();
+          this.loadTimeline();
         }
       },
       error: () => {
@@ -393,6 +401,40 @@ export class SupplierDetailComponent implements OnInit {
       next: (res) => { this.scoreGrade = res.success ? res.result.grade : null; },
       error: () => { this.scoreGrade = null; }
     });
+  }
+
+  // ── Activity Timeline ──────────────────────────────────────────────────────
+
+  loadTimeline() {
+    this.isLoadingTimeline = true;
+    this.reportsService.getSupplierTimeline(this.uuid).subscribe({
+      next: (res) => {
+        this.isLoadingTimeline = false;
+        this.timelineEvents = res.success ? res.result : [];
+      },
+      error: () => { this.isLoadingTimeline = false; this.timelineEvents = []; }
+    });
+  }
+
+  private static readonly TIMELINE_ROUTES: Record<string, string> = {
+    PR:          '/portal/pages/demand/requisitions',
+    QUOTATION:   '/portal/pages/demand/quotations',
+    PO:          '/portal/pages/demand/purchase-orders',
+    GRN:         '/portal/pages/warehouse/grn',
+    GRN_QC:      '/portal/pages/warehouse/grn',
+    INVOICE:     '/portal/pages/finance/invoices',
+    MIR_GENERAL: '/portal/pages/material/mir',
+    MIR_PROJECT: '/portal/pages/material/mir'
+  };
+
+  goToTimelineEvent(e: TimelineEvent) {
+    const base = SupplierDetailComponent.TIMELINE_ROUTES[(e.interfaceCode || '').toUpperCase()];
+    if (base) this.router.navigate([base, e.documentId]);
+  }
+
+  timelineEventLabel(e: TimelineEvent): string {
+    const verb = (e.eventType.split('_').pop() || '').toLowerCase();
+    return verb ? verb.charAt(0).toUpperCase() + verb.slice(1) : e.eventType;
   }
 
   // ── Supplier Ledger (SFM-002) ─────────────────────────────────────────────

@@ -182,6 +182,8 @@ public class GetComparison_Tests
             QuoteBuild.VendorResponse(lineUuid, netUnitPrice: 100m, qty: 1m, supplierName: "Cheap Corp"),
             createdBy: 2);
 
+        await repo.OpenBidsAsync(qUuid, openedBy: 99);
+
         var comparison = await repo.GetComparisonAsync(qUuid);
 
         comparison.Should().HaveCount(2);
@@ -203,6 +205,8 @@ public class GetComparison_Tests
             qUuid,
             QuoteBuild.VendorResponse(lineUuid, netUnitPrice: 150m, qty: 1m),
             createdBy: 1);
+
+        await repo.OpenBidsAsync(qUuid, openedBy: 99);
 
         var comparison = await repo.GetComparisonAsync(qUuid);
 
@@ -251,6 +255,8 @@ public class AwardAsync_Tests
             qUuid, QuoteBuild.VendorResponse(lineUuid, 100m), createdBy: 1);
         var response2Uuid = await repo.RecordResponseAsync(
             qUuid, QuoteBuild.VendorResponse(lineUuid, 120m), createdBy: 2);
+
+        await repo.OpenBidsAsync(qUuid, openedBy: 99);
 
         await repo.AwardAsync(qUuid,
             new AwardQuotationRequest { VendorResponseUuid = response1Uuid },
@@ -337,6 +343,8 @@ public class AwardPrWriteback_Tests
             ]
         }, createdBy: 1);
 
+        await repo.OpenBidsAsync(qUuid, openedBy: 99);
+
         await repo.AwardAsync(qUuid,
             new AwardQuotationRequest { VendorResponseUuid = responseUuid },
             awardedBy: 99);
@@ -403,6 +411,8 @@ public class AwardPoWriteback_Tests
             ]
         }, createdBy: 1);
 
+        await repo.OpenBidsAsync(qUuid, openedBy: 99);
+
         await repo.AwardAsync(qUuid,
             new AwardQuotationRequest { VendorResponseUuid = responseUuid },
             awardedBy: 99);
@@ -442,6 +452,8 @@ public class AwardCancelledQuotation_Tests
         var lineUuid = (await db.QuotationLines.FirstAsync()).UUID;
         var responseUuid = await repo.RecordResponseAsync(
             qUuid, QuoteBuild.VendorResponse(lineUuid, 100m), createdBy: 1);
+
+        await repo.OpenBidsAsync(qUuid, openedBy: 99);
 
         await repo.AwardAsync(qUuid,
             new AwardQuotationRequest { VendorResponseUuid = responseUuid },

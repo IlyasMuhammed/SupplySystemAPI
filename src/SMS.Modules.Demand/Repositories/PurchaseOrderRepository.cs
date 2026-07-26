@@ -188,7 +188,7 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
 
         var po = new PurchaseOrder
         {
-            UUID                  = Guid.NewGuid(),
+            UUID                  = req.PoUuid is { } gid && gid != Guid.Empty ? gid : Guid.NewGuid(),
             TraceId               = Guid.NewGuid(),
             PoNumber              = poNumber,
             Title                 = req.Title,
@@ -448,6 +448,7 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
             Title                 = po.Title,
             SupplierId            = po.SupplierId,
             SupplierName          = po.SupplierName,
+            SupplierContactMobile = po.SupplierContactMobile,
             Status                = po.Status,
             TotalAmount           = po.TotalAmount,
             DeliveryDate          = po.DeliveryDate,

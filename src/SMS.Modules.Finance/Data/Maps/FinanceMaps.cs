@@ -116,6 +116,93 @@ internal sealed class SupplierLedgerEntryMap : IEntityTypeConfiguration<Supplier
     }
 }
 
+internal sealed class MasterFinancialLedgerMap : IEntityTypeConfiguration<MasterFinancialLedger>
+{
+    public void Configure(EntityTypeBuilder<MasterFinancialLedger> b)
+    {
+        b.ToTable("master_financial_ledger");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.Id).ValueGeneratedOnAdd();
+        b.Property(x => x.UUID).IsRequired();
+        b.HasIndex(x => x.UUID).IsUnique();
+        // Concurrency guard for MasterFinancialLedgerService's write — a single global sequence
+        // (not scoped per supplier), so any two concurrent writers race for the next value here.
+        b.HasIndex(x => x.SequenceNo).IsUnique();
+        b.Property(x => x.SupplierId).IsRequired();
+        b.HasIndex(x => x.SupplierId);
+        b.Property(x => x.SupplierName).HasMaxLength(200).IsRequired();
+        b.Property(x => x.TransactionType).HasMaxLength(30).IsRequired();
+        b.HasIndex(x => x.TransactionType);
+        b.Property(x => x.ReferenceType).HasMaxLength(30).IsRequired();
+        b.Property(x => x.ReferenceNo).HasMaxLength(30).IsRequired();
+        b.HasIndex(x => x.ReferenceId);
+        b.HasIndex(x => x.EntryDate);
+        b.Property(x => x.DebitAmount).HasColumnType("decimal(18,2)");
+        b.Property(x => x.CreditAmount).HasColumnType("decimal(18,2)");
+        b.Property(x => x.BalanceAfter).HasColumnType("decimal(18,2)");
+        b.Property(x => x.Narration).HasMaxLength(500);
+    }
+}
+
+internal sealed class MasterProductLedgerMap : IEntityTypeConfiguration<MasterProductLedger>
+{
+    public void Configure(EntityTypeBuilder<MasterProductLedger> b)
+    {
+        b.ToTable("master_product_ledger");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.Id).ValueGeneratedOnAdd();
+        b.Property(x => x.LedgerId).IsRequired();
+        b.HasIndex(x => x.LedgerId).IsUnique();
+
+        b.Property(x => x.ProductId).IsRequired();
+        b.HasIndex(x => x.ProductId);
+        b.Property(x => x.ProductCode).HasMaxLength(50).IsRequired();
+        b.Property(x => x.ProductName).HasMaxLength(200).IsRequired();
+        b.HasIndex(x => x.CategoryId);
+        b.Property(x => x.CategoryName).HasMaxLength(200);
+
+        b.Property(x => x.WarehouseId).IsRequired();
+        b.HasIndex(x => x.WarehouseId);
+        b.Property(x => x.WarehouseName).HasMaxLength(200).IsRequired();
+
+        b.HasIndex(x => x.TransactionDate);
+        b.Property(x => x.TransactionType).HasMaxLength(30).IsRequired();
+        b.HasIndex(x => x.TransactionType);
+        b.Property(x => x.ReferenceType).HasMaxLength(30).IsRequired();
+        b.HasIndex(x => x.ReferenceId);
+        b.Property(x => x.ReferenceNumber).HasMaxLength(50).IsRequired();
+
+        b.Property(x => x.UnitCost).HasColumnType("decimal(18,4)");
+        b.Property(x => x.TotalValue).HasColumnType("decimal(18,2)");
+
+        b.Property(x => x.SourceType).HasMaxLength(30).IsRequired();
+        b.Property(x => x.SourceName).HasMaxLength(200);
+        b.Property(x => x.DestinationType).HasMaxLength(30).IsRequired();
+        b.Property(x => x.DestinationName).HasMaxLength(200);
+
+        b.Property(x => x.Notes).HasMaxLength(500);
+    }
+}
+
+internal sealed class DebtWriteOffMap : IEntityTypeConfiguration<DebtWriteOff>
+{
+    public void Configure(EntityTypeBuilder<DebtWriteOff> b)
+    {
+        b.ToTable("debt_write_offs");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.Id).ValueGeneratedOnAdd();
+        b.Property(x => x.UUID).IsRequired();
+        b.HasIndex(x => x.UUID).IsUnique();
+        b.Property(x => x.SupplierId).IsRequired();
+        b.HasIndex(x => x.SupplierId);
+        b.Property(x => x.SupplierName).HasMaxLength(200).IsRequired();
+        b.Property(x => x.Amount).HasColumnType("decimal(18,2)");
+        b.Property(x => x.Reason).HasMaxLength(500).IsRequired();
+        b.Property(x => x.Status).HasMaxLength(20).IsRequired();
+        b.Property(x => x.RejectionReason).HasMaxLength(500);
+    }
+}
+
 internal sealed class SupplierPaymentMap : IEntityTypeConfiguration<SupplierPayment>
 {
     public void Configure(EntityTypeBuilder<SupplierPayment> b)

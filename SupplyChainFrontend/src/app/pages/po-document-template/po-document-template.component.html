@@ -1,0 +1,131 @@
+<div class="card">
+
+  <!-- ── Page Header ──────────────────────────────────────────────────────── -->
+  <div class="md-header">
+    <div class="md-icon"><i class="pi pi-file-edit"></i></div>
+    <div class="md-title-wrap">
+      <h2 class="md-title">Purchase Order Templates</h2>
+      <p class="md-subtitle">Configure the company letterhead, terms &amp; conditions, and signature labels used on Purchase Order PDFs</p>
+    </div>
+  </div>
+
+  <hr class="md-sep" />
+
+  <form [formGroup]="form" (ngSubmit)="save()" class="tpl-body" *ngIf="!isLoading">
+
+    <div class="tpl-section">
+      <h3 class="tpl-section-title"><i class="pi pi-building"></i> Company Letterhead</h3>
+
+      <div class="tpl-logo-row">
+        <div class="tpl-logo-preview">
+          <img *ngIf="logoUrl" [src]="resolveLogoUrl(logoUrl)" alt="Company logo" />
+          <i *ngIf="!logoUrl" class="pi pi-image"></i>
+        </div>
+        <div class="tpl-logo-actions">
+          <label class="tpl-upload-btn" for="logoUpload">
+            <i class="pi pi-upload"></i> {{ logoUrl ? 'Replace Logo' : 'Upload Logo' }}
+          </label>
+          <input id="logoUpload" type="file" accept="image/*" (change)="onLogoSelected($event)" hidden />
+          <small class="dlg-hint" *ngIf="isUploadingLogo">Uploading…</small>
+        </div>
+      </div>
+
+      <div class="tpl-grid">
+        <div class="dlg-field">
+          <label class="dlg-label">Company Name</label>
+          <input pInputText formControlName="companyName" class="w-full" maxlength="200" placeholder="e.g. Acme Supplies Ltd." />
+        </div>
+        <div class="dlg-field">
+          <label class="dlg-label">Tax ID</label>
+          <input pInputText formControlName="companyTaxId" class="w-full" maxlength="50" placeholder="e.g. TIN-000000000" />
+        </div>
+        <div class="dlg-field">
+          <label class="dlg-label">Phone</label>
+          <input pInputText formControlName="companyPhone" class="w-full" maxlength="50" />
+        </div>
+        <div class="dlg-field">
+          <label class="dlg-label">Email</label>
+          <input pInputText formControlName="companyEmail" class="w-full" maxlength="100" />
+        </div>
+        <div class="dlg-field tpl-span-2">
+          <label class="dlg-label">Address</label>
+          <input pInputText formControlName="companyAddress" class="w-full" maxlength="500" />
+        </div>
+      </div>
+    </div>
+
+    <div class="tpl-section">
+      <h3 class="tpl-section-title"><i class="pi pi-file"></i> Letter Body</h3>
+      <p class="dlg-hint tpl-body-hint">
+        Write the letter as free text and insert variables anywhere — they're replaced with live
+        purchase order data when the document is generated. <strong>Line Items Table</strong> and
+        <strong>Signature Block</strong> are structural — wherever you insert them, the actual PO
+        lines table / signature area is rendered there.
+      </p>
+
+      <div class="rte-toolbar">
+        <button type="button" class="rte-btn" pTooltip="Bold" (click)="format('bold')"><i class="pi pi-bold"></i></button>
+        <button type="button" class="rte-btn" pTooltip="Italic" (click)="format('italic')"><i class="pi pi-italic"></i></button>
+        <button type="button" class="rte-btn" pTooltip="Underline" (click)="format('underline')"><i class="pi pi-underline"></i></button>
+        <button type="button" class="rte-btn" pTooltip="Bullet List" (click)="format('insertUnorderedList')"><i class="pi pi-list"></i></button>
+        <span class="rte-sep"></span>
+        <p-dropdown [options]="tokenOptions" [(ngModel)]="selectedTokenToInsert" [ngModelOptions]="{standalone: true}"
+                    optionLabel="label" optionValue="value" placeholder="Insert variable…"
+                    styleClass="rte-token-dropdown" appendTo="body" [filter]="true" filterBy="label"
+                    (onChange)="insertToken()"></p-dropdown>
+      </div>
+
+      <div #editor class="rte-editor" contenteditable="true"></div>
+    </div>
+
+    <div class="tpl-section">
+      <h3 class="tpl-section-title"><i class="pi pi-verified"></i> Signature</h3>
+
+      <div class="tpl-signature-toggle">
+        <p-checkbox formControlName="showSignatureBlock" [binary]="true" inputId="showSigBlock"></p-checkbox>
+        <label for="showSigBlock">Show Prepared By / Approved By / Authorized Signatory lines</label>
+      </div>
+
+      <div class="tpl-grid" *ngIf="f['showSignatureBlock'].value">
+        <div class="dlg-field">
+          <label class="dlg-label">Prepared By</label>
+          <input pInputText formControlName="preparedByLabel" class="w-full" maxlength="100" />
+        </div>
+        <div class="dlg-field">
+          <label class="dlg-label">Approved By</label>
+          <input pInputText formControlName="approvedByLabel" class="w-full" maxlength="100" />
+        </div>
+        <div class="dlg-field">
+          <label class="dlg-label">Authorized Signatory</label>
+          <input pInputText formControlName="authorizedSignatoryLabel" class="w-full" maxlength="100" />
+        </div>
+      </div>
+
+      <div class="dlg-field" *ngIf="!f['showSignatureBlock'].value">
+        <label class="dlg-label">Disclaimer shown instead of signature lines</label>
+        <input pInputText formControlName="signatureDisclaimer" class="w-full" maxlength="500" />
+      </div>
+    </div>
+
+    <div class="tpl-section">
+      <h3 class="tpl-section-title"><i class="pi pi-align-center"></i> Footer</h3>
+      <div class="dlg-field">
+        <label class="dlg-label">Footer Text</label>
+        <input pInputText formControlName="footerText" class="w-full" maxlength="500"
+               placeholder="e.g. This is a system generated document and does not require a signature." />
+      </div>
+    </div>
+
+    <div class="dlg-footer">
+      <p-button label="Save Template" icon="pi pi-check" type="submit" [loading]="isSaving"></p-button>
+    </div>
+
+  </form>
+
+  <div class="md-empty" *ngIf="isLoading">
+    <i class="pi pi-spin pi-spinner md-empty-icon"></i>
+    <p class="md-empty-text">Loading template…</p>
+  </div>
+</div>
+
+<p-toast></p-toast>

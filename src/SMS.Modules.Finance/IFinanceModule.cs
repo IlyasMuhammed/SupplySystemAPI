@@ -39,6 +39,12 @@ public static class FinanceModuleExtensions
         services.AddScoped<ICreditNoteService,    CreditNoteService>();
         services.AddScoped<IDebitNoteService,     DebitNoteService>();
         services.AddScoped<ISupplierLedgerService, SupplierLedgerService>();
+        services.AddScoped<IMasterFinancialLedgerService, MasterFinancialLedgerService>();
+        services.AddScoped<IMasterLedgerQueryService, MasterFinancialLedgerService>();
+        services.AddScoped<IMasterProductLedgerService, MasterProductLedgerService>();
+        services.AddScoped<IMasterProductLedgerQueryService, MasterProductLedgerService>();
+        services.AddScoped<IOpeningBalanceService, OpeningBalanceService>();
+        services.AddScoped<IDebtWriteOffService, DebtWriteOffService>();
         services.AddScoped<ISupplierPaymentRepository, SupplierPaymentRepository>();
         services.AddScoped<ISupplierPaymentService,    SupplierPaymentService>();
 

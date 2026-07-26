@@ -296,7 +296,12 @@ internal sealed class SroRepository : ISroRepository
                             QuantityOut     = line.QtyToReturn,
                             UnitCost        = line.UnitCost ?? 0m,
                             Notes           = $"Supplier return dispatch: {line.ItemDescription}",
-                            CreatedBy       = userId
+                            CreatedBy       = userId,
+                            // FSD Addendum 24 (ML-003): stock leaves this warehouse back to the supplier.
+                            SourceType      = "WAREHOUSE",
+                            SourceName      = warehouse.Name,
+                            DestinationType = "SUPPLIER",
+                            DestinationName = sro.SupplierName
                         }, tx);
                     }
 

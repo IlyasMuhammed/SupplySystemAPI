@@ -43,6 +43,8 @@ file sealed class StubUserQueryService : IUserQueryService
         Task.FromResult<IReadOnlyList<UserIdentity>>([]);
 
     public Task<bool> IsSystemAdminAsync(int userId) => Task.FromResult(false);
+
+    public Task<string?> GetUserEmailAsync(int userId) => Task.FromResult<string?>($"user{userId}@example.com");
 }
 
 // ── AppendEventAsync ─────────────────────────────────────────────────────────

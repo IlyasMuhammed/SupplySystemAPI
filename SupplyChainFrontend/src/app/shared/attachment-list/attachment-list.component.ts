@@ -1,7 +1,9 @@
 import { Component, Input, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
 import { TooltipModule } from 'primeng/tooltip';
+import { InputTextModule } from 'primeng/inputtext';
 import { MessageService } from 'primeng/api';
 import { ToastModule } from 'primeng/toast';
 import { AttachmentService, AttachmentModel } from '../../services/attachment.service';
@@ -9,7 +11,7 @@ import { AttachmentService, AttachmentModel } from '../../services/attachment.se
 @Component({
   selector: 'app-attachment-list',
   standalone: true,
-  imports: [CommonModule, ButtonModule, TooltipModule, ToastModule],
+  imports: [CommonModule, FormsModule, ButtonModule, TooltipModule, InputTextModule, ToastModule],
   templateUrl: './attachment-list.component.html',
   styleUrls: ['./attachment-list.component.scss'],
   providers: [MessageService]
@@ -26,6 +28,9 @@ export class AttachmentListComponent implements OnChanges {
   attachments: AttachmentModel[] = [];
   isLoading = false;
   isUploading = false;
+  uploadingCount = 0;
+  // Optional remark applied to the batch of files picked in a single upload action.
+  pendingNotes = '';
 
   constructor(private attachmentService: AttachmentService, private messageService: MessageService) {}
 
@@ -49,31 +54,50 @@ export class AttachmentListComponent implements OnChanges {
 
   onFileSelected(event: Event) {
     const input = event.target as HTMLInputElement;
-    const file = input.files?.[0];
+    const files = Array.from(input.files ?? []);
     input.value = '';
-    if (!file || !this.documentId) return;
+    if (!files.length || !this.documentId) return;
 
-    if (file.size > 20 * 1024 * 1024) {
-      this.messageService.add({ severity: 'warn', summary: 'Too Large', detail: 'File must be under 20 MB.' });
-      return;
-    }
+    const notes = this.pendingNotes.trim() || undefined;
+    this.pendingNotes = '';
+
+    const tooLarge = files.filter(f => f.size > 20 * 1024 * 1024);
+    const toUpload = files.filter(f => f.size <= 20 * 1024 * 1024);
+    tooLarge.forEach(f =>
+      this.messageService.add({ severity: 'warn', summary: 'Too Large', detail: `${f.name} exceeds 20 MB.` }));
+
+    if (!toUpload.length) return;
 
     this.isUploading = true;
-    this.attachmentService.upload(file, this.interfaceCode, this.documentId).subscribe({
-      next: (res) => {
-        this.isUploading = false;
-        if (res.success) {
-          this.messageService.add({ severity: 'success', summary: 'Uploaded', detail: file.name });
-          this.load();
-        } else {
-          this.messageService.add({ severity: 'error', summary: 'Error', detail: res.message });
+    this.uploadingCount = toUpload.length;
+    let remaining = toUpload.length;
+    let anyFailed = false;
+
+    toUpload.forEach(file => {
+      this.attachmentService.upload(file, this.interfaceCode, this.documentId!, notes).subscribe({
+        next: (res) => {
+          if (!res.success) {
+            anyFailed = true;
+            this.messageService.add({ severity: 'error', summary: 'Error', detail: `${file.name}: ${res.message}` });
+          }
+          this.finishUpload(--remaining, anyFailed);
+        },
+        error: (err) => {
+          anyFailed = true;
+          this.messageService.add({ severity: 'error', summary: 'Error', detail: `${file.name}: ${err?.error?.message || 'Upload failed.'}` });
+          this.finishUpload(--remaining, anyFailed);
         }
-      },
-      error: (err) => {
-        this.isUploading = false;
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: err?.error?.message || 'Upload failed.' });
-      }
+      });
     });
+  }
+
+  private finishUpload(remaining: number, anyFailed: boolean) {
+    if (remaining > 0) return;
+    this.isUploading = false;
+    if (!anyFailed) {
+      this.messageService.add({ severity: 'success', summary: 'Uploaded', detail: `${this.uploadingCount} file${this.uploadingCount > 1 ? 's' : ''} added.` });
+    }
+    this.load();
   }
 
   remove(att: AttachmentModel) {
@@ -94,5 +118,11 @@ export class AttachmentListComponent implements OnChanges {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  formatDate(iso: string): string {
+    return new Date(iso).toLocaleString('en-GB', {
+      day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+    });
   }
 }

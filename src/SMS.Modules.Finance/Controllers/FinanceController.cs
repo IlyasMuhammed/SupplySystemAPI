@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using SMS.Modules.Finance.Models;
 using SMS.Modules.Finance.Services;
+using SMS.Modules.Finance.Services.Exports;
 using SMS.Shared.Authorization;
 using SMS.Shared.Common;
 using SMS.Shared.Constants;
@@ -336,5 +337,169 @@ public class PaymentsController : ControllerBase
         return updated
             ? Ok(ApiResponse.Ok(StaticResponseMessage.recordUpdatedSuccessfully))
             : NotFound(ApiResponse.Fail(StaticResponseMessage.recordNotFound));
+    }
+}
+
+// ── Master Financial Ledger (FSD Addendum 24, ML-002) ──────────────────────────
+
+[ApiController]
+[Route("api/finance/master-ledger")]
+public class MasterLedgerController : ControllerBase
+{
+    private readonly IMasterLedgerQueryService _svc;
+    private readonly IOpeningBalanceService    _openingBalance;
+    private readonly IDebtWriteOffService      _writeOff;
+
+    public MasterLedgerController(
+        IMasterLedgerQueryService svc, IOpeningBalanceService openingBalance, IDebtWriteOffService writeOff)
+    {
+        _svc            = svc;
+        _openingBalance = openingBalance;
+        _writeOff       = writeOff;
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetLedger([FromQuery] MasterLedgerFilter filter)
+    {
+        var result = await _svc.GetLedgerAsync(filter);
+        return Ok(ApiResponse<PaginatedResponse<MasterLedgerEntryModel>>.Ok(result));
+    }
+
+    [HttpGet("summary")]
+    public async Task<IActionResult> GetSummary([FromQuery] MasterLedgerFilter filter)
+    {
+        var result = await _svc.GetSummaryAsync(filter);
+        return Ok(ApiResponse<MasterLedgerSummaryModel>.Ok(result));
+    }
+
+    [HttpGet("balance")]
+    public async Task<IActionResult> GetBalance()
+    {
+        var result = await _svc.GetCurrentBalanceAsync();
+        return Ok(ApiResponse<MasterLedgerBalanceModel>.Ok(result));
+    }
+
+    [HttpGet("export/pdf")]
+    public async Task<IActionResult> ExportPdf([FromQuery] MasterLedgerFilter filter)
+    {
+        filter.Page     = 1;
+        filter.PageSize = 5000;
+        var entries = await _svc.GetLedgerAsync(filter);
+        var summary = await _svc.GetSummaryAsync(filter);
+        var bytes   = MasterLedgerPdfExporter.Export(entries.Data, summary);
+        return File(bytes, "application/pdf", $"master-payables-ledger-{DateTime.UtcNow:yyyyMMdd-HHmmss}.pdf");
+    }
+
+    [HttpGet("export/excel")]
+    public async Task<IActionResult> ExportExcel([FromQuery] MasterLedgerFilter filter)
+    {
+        filter.Page     = 1;
+        filter.PageSize = 5000;
+        var entries = await _svc.GetLedgerAsync(filter);
+        var bytes   = MasterLedgerExcelExporter.Export(entries.Data);
+        return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            $"master-payables-ledger-{DateTime.UtcNow:yyyyMMdd-HHmmss}.xlsx");
+    }
+
+    // ── ML-005: Opening Balance Import (one-time go-live migration) ────────────
+
+    [HttpPost("opening-balance")]
+    [RequirePermission(PermissionCodes.SYSTEM_CONFIGURE)]
+    public async Task<IActionResult> ImportOpeningBalance([FromBody] OpeningBalanceImportRequest req)
+    {
+        var result = await _openingBalance.ImportAsync(req, User.GetUserId());
+        return Ok(ApiResponse<OpeningBalanceImportResult>.Ok(result, "Opening balance imported."));
+    }
+
+    // ── ML-005: Bad Debt Write-off (Finance Manager approval required) ─────────
+
+    [HttpPost("write-off")]
+    [RequirePermission(PermissionCodes.PAYMENT_PROCESS)]
+    public async Task<IActionResult> CreateWriteOff([FromBody] CreateWriteOffRequest req)
+    {
+        var uuid = await _writeOff.CreateAsync(req, User.GetUserId());
+        return Ok(ApiResponse<Guid>.Ok(uuid, StaticResponseMessage.recordCreatedSuccessfully));
+    }
+
+    [HttpGet("write-off/{uuid:guid}")]
+    public async Task<IActionResult> GetWriteOff(Guid uuid)
+    {
+        var result = await _writeOff.GetByIdAsync(uuid);
+        return result is null
+            ? NotFound(ApiResponse.Fail(StaticResponseMessage.recordNotFound))
+            : Ok(ApiResponse<WriteOffModel>.Ok(result));
+    }
+
+    [HttpPost("write-off/{uuid:guid}/approve")]
+    [RequirePermission(PermissionCodes.PAYMENT_APPROVE)]
+    public async Task<IActionResult> ApproveWriteOff(Guid uuid)
+    {
+        var ok = await _writeOff.ApproveAsync(uuid, User.GetUserId());
+        return ok
+            ? Ok(ApiResponse.Ok("Write-off approved and posted to the master ledger."))
+            : NotFound(ApiResponse.Fail(StaticResponseMessage.recordNotFound));
+    }
+
+    [HttpPost("write-off/{uuid:guid}/reject")]
+    [RequirePermission(PermissionCodes.PAYMENT_APPROVE)]
+    public async Task<IActionResult> RejectWriteOff(Guid uuid, [FromBody] RejectWriteOffRequest req)
+    {
+        var ok = await _writeOff.RejectAsync(uuid, req.Reason, User.GetUserId());
+        return ok
+            ? Ok(ApiResponse.Ok("Write-off rejected."))
+            : NotFound(ApiResponse.Fail(StaticResponseMessage.recordNotFound));
+    }
+}
+
+// ── Master Product Ledger (FSD Addendum 24, ML-004) ─────────────────────────────
+
+[ApiController]
+[Route("api/inventory/master-product-ledger")]
+public class MasterProductLedgerController : ControllerBase
+{
+    private readonly IMasterProductLedgerQueryService _svc;
+    public MasterProductLedgerController(IMasterProductLedgerQueryService svc) => _svc = svc;
+
+    [HttpGet]
+    public async Task<IActionResult> GetLedger([FromQuery] MasterProductLedgerFilter filter)
+    {
+        var result = await _svc.GetProductLedgerAsync(filter);
+        return Ok(ApiResponse<PaginatedResponse<MasterProductLedgerEntryModel>>.Ok(result));
+    }
+
+    [HttpGet("summary")]
+    public async Task<IActionResult> GetSummary([FromQuery] MasterProductLedgerFilter filter)
+    {
+        var result = await _svc.GetProductLedgerSummaryAsync(filter);
+        return Ok(ApiResponse<MasterProductLedgerSummaryModel>.Ok(result));
+    }
+
+    [HttpGet("product-journey/{productId:int}")]
+    public async Task<IActionResult> GetProductJourney(int productId)
+    {
+        var result = await _svc.GetProductJourneyAsync(productId);
+        return Ok(ApiResponse<List<MasterProductLedgerEntryModel>>.Ok(result));
+    }
+
+    [HttpGet("export/pdf")]
+    public async Task<IActionResult> ExportPdf([FromQuery] MasterProductLedgerFilter filter)
+    {
+        filter.Page     = 1;
+        filter.PageSize = 5000;
+        var entries = await _svc.GetProductLedgerAsync(filter);
+        var summary = await _svc.GetProductLedgerSummaryAsync(filter);
+        var bytes   = MasterProductLedgerPdfExporter.Export(entries.Data, summary);
+        return File(bytes, "application/pdf", $"master-product-ledger-{DateTime.UtcNow:yyyyMMdd-HHmmss}.pdf");
+    }
+
+    [HttpGet("export/excel")]
+    public async Task<IActionResult> ExportExcel([FromQuery] MasterProductLedgerFilter filter)
+    {
+        filter.Page     = 1;
+        filter.PageSize = 5000;
+        var entries = await _svc.GetProductLedgerAsync(filter);
+        var bytes   = MasterProductLedgerExcelExporter.Export(entries.Data);
+        return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            $"master-product-ledger-{DateTime.UtcNow:yyyyMMdd-HHmmss}.xlsx");
     }
 }

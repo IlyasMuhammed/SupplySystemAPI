@@ -17,6 +17,7 @@ import { MessageService } from 'primeng/api';
 import { WarehouseService, GrnLineReceiveInput } from '../../../../services/warehouse.service';
 import { DemandService, PoSearchItemModel, PoLineModel } from '../../../../services/demand.service';
 import { InventoryService, WarehouseModel } from '../../../../services/inventory.service';
+import { AttachmentListComponent } from '../../../../shared/attachment-list/attachment-list.component';
 
 export interface LineInput {
   poLineUuid: string;
@@ -41,7 +42,7 @@ const RECEIVABLE_STATUSES = new Set(['SENT', 'PARTIALLY_RECEIVED']);
     CommonModule, RouterModule, ReactiveFormsModule, FormsModule,
     ButtonModule, InputTextModule, InputNumberModule, CalendarModule,
     TextareaModule, DropdownModule, AutoCompleteModule, RadioButtonModule,
-    ToastModule, TagModule, TooltipModule
+    ToastModule, TagModule, TooltipModule, AttachmentListComponent
   ],
   templateUrl: './grn-create.component.html',
   styleUrls: ['./grn-create.component.scss'],
@@ -50,6 +51,10 @@ const RECEIVABLE_STATUSES = new Set(['SENT', 'PARTIALLY_RECEIVED']);
 export class GrnCreateComponent implements OnInit {
   form!: FormGroup;
   isSaving = false;
+
+  // Generated once per page load so driver/loader documents uploaded before save can be
+  // linked to the eventual GRN (which is created with this same UUID on submit).
+  readonly grnUuid = crypto.randomUUID();
 
   // Warehouse dropdown
   warehouseOptions: { label: string; value: string }[] = [];
@@ -268,7 +273,8 @@ export class GrnCreateComponent implements OnInit {
       invoiceNo:          v.invoiceNo      || undefined,
       notes:              v.notes          || undefined,
       requiresInspection: this.requiresInspection,
-      lines:              lines.length > 0 ? lines : undefined
+      lines:              lines.length > 0 ? lines : undefined,
+      grnUuid:            this.grnUuid
     }).subscribe({
       next: (res) => {
         this.isSaving = false;

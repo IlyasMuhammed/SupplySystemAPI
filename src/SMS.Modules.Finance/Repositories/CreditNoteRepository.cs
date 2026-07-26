@@ -108,7 +108,7 @@ internal sealed class CreditNoteRepository : ICreditNoteRepository
             creditNote.SupplierId, "CREDIT_NOTE_APPROVED", "CreditNote", creditNote.UUID, creditNote.CreditNoteNumber,
             debitAmount: 0m, creditAmount: creditNote.CreditAmount,
             narration: $"Credit note {creditNote.CreditNoteNumber} issued against SRO {creditNote.SroNumber}.",
-            createdBy: createdBy);
+            createdBy: createdBy, supplierName: creditNote.SupplierName);
 
         // 5. Update SRO — mark as RESOLVED_CREDIT
         sro.Status         = "RESOLVED_CREDIT";

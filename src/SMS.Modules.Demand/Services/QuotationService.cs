@@ -79,6 +79,18 @@ internal sealed class QuotationService : IQuotationService
     public Task<List<VendorResponseModel>> GetComparisonAsync(Guid uuid) =>
         _repo.GetComparisonAsync(uuid);
 
+    public async Task OpenBidsAsync(Guid uuid, int openedBy)
+    {
+        await _repo.OpenBidsAsync(uuid, openedBy);
+
+        var q = await _repo.GetByIdAsync(uuid);
+        if (q is not null)
+            _jobs.Enqueue<ITimelineAppendJob>(j => j.AppendAsync(
+                q.TraceId,
+                new TimelineEvent("QUOTATION_BIDS_OPENED", "QUOTATION", uuid, q.QuotationNumber, DateTime.UtcNow, openedBy, null),
+                "QUOTATION", q.QuotationNumber));
+    }
+
     public async Task AwardAsync(Guid uuid, AwardQuotationRequest req, int awardedBy)
     {
         await _repo.AwardAsync(uuid, req, awardedBy);

@@ -15,6 +15,7 @@ export interface AttachmentModel {
   contentType?: string;
   notes?: string;
   uploadedBy: number;
+  uploadedByName: string;
   uploadedDate: string;
 }
 

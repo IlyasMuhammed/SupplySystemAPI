@@ -259,6 +259,7 @@ public class ConvertValidation_Tests
             SupplierName = "Vendor",
             Lines        = [new VendorResponseLineRequest { QuotationLineUuid = lineUuid, NetUnitPrice = 450m, Quantity = 2m }]
         }, createdBy: 1);
+        await qRepo.OpenBidsAsync(qUuid, openedBy: 99);
         await qRepo.AwardAsync(qUuid, new AwardQuotationRequest { VendorResponseUuid = responseUuid }, awardedBy: 99);
 
         // Conversion should now succeed

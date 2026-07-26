@@ -19,6 +19,7 @@ import { MessageService } from 'primeng/api';
 import { FinanceService, InvoiceDetailModel, SupplierPaymentListItemModel } from '../../../../services/finance.service';
 import { PdfService } from '../../../../services/pdf.service';
 import { TimelinePanelComponent } from '../../../../shared/timeline-panel/timeline-panel.component';
+import { AttachmentListComponent } from '../../../../shared/attachment-list/attachment-list.component';
 
 @Component({
   selector: 'app-invoice-detail',
@@ -28,7 +29,8 @@ import { TimelinePanelComponent } from '../../../../shared/timeline-panel/timeli
     ButtonModule, TagModule, ToastModule,
     CardModule, DialogModule, TableModule,
     TooltipModule, DividerModule,
-    CalendarModule, DropdownModule, InputTextModule, TextareaModule, InputNumberModule, TimelinePanelComponent
+    CalendarModule, DropdownModule, InputTextModule, TextareaModule, InputNumberModule, TimelinePanelComponent,
+    AttachmentListComponent
   ],
   templateUrl: './invoice-detail.component.html',
   styleUrls: ['./invoice-detail.component.scss'],

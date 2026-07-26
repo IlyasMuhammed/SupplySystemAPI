@@ -16,6 +16,7 @@ import { AutoCompleteModule } from 'primeng/autocomplete';
 import { MessageService } from 'primeng/api';
 import { FinanceService, CreateSupplierPaymentRequest, OutstandingInvoiceModel } from '../../../../services/finance.service';
 import { SupplierService, SupplierListItemModel } from '../../../../services/supplier.service';
+import { AttachmentListComponent } from '../../../../shared/attachment-list/attachment-list.component';
 
 export interface PaymentLineInput {
   invoiceUuid: string;
@@ -32,7 +33,7 @@ export interface PaymentLineInput {
     CommonModule, RouterModule, FormsModule,
     ButtonModule, InputTextModule, DropdownModule,
     InputNumberModule, CalendarModule, ToastModule,
-    CardModule, TagModule, TextareaModule, TableModule, AutoCompleteModule
+    CardModule, TagModule, TextareaModule, TableModule, AutoCompleteModule, AttachmentListComponent
   ],
   templateUrl: './supplier-payment-create.component.html',
   styleUrls: ['./supplier-payment-create.component.scss'],
@@ -66,6 +67,10 @@ export class SupplierPaymentCreateComponent implements OnInit {
   manualTotalAmount: number | null = null;
 
   isSaving = false;
+
+  // Client-generated id so payment-evidence attachments uploaded before save can be linked
+  // to this payment via the same DocumentId — becomes the payment's own UUID on save.
+  readonly paymentUuid = crypto.randomUUID();
 
   paymentMethodOptions = [
     { label: 'Bank Transfer', value: 'BANK_TRANSFER' },
@@ -216,6 +221,7 @@ export class SupplierPaymentCreateComponent implements OnInit {
       chequeDate: this.showChequeFields && this.chequeDateVal ? this.chequeDateVal.toISOString() : undefined,
       notes: this.notes.trim() || undefined,
       paymentType: this.paymentType,
+      paymentUuid: this.paymentUuid,
       lines: this.lineInputs.map(l => ({
         invoiceUuid: l.invoiceUuid,
         allocatedAmount: l.allocatedAmount,

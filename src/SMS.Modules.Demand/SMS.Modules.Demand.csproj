@@ -16,12 +16,15 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="AutoMapper" Version="13.0.1" />
+    <PackageReference Include="QuestPDF" Version="2026.7.1" />
+    <PackageReference Include="AngleSharp" Version="1.1.2" />
     <PackageReference Include="xunit" Version="2.9.3" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\SMS.Shared\SMS.Shared.csproj" />
     <ProjectReference Include="..\SMS.WorkflowEngine\SMS.WorkflowEngine.csproj" />
+    <ProjectReference Include="..\SMS.Modules.Lookups\SMS.Modules.Lookups.csproj" />
   </ItemGroup>
 
   <ItemGroup>

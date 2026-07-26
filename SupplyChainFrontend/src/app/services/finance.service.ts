@@ -56,6 +56,9 @@ export interface CreateInvoiceRequest {
   notes?: string;
   attachmentUrl?: string;
   lines?: InvoiceLineRequest[];
+  // Client-generated id so attachments uploaded before save can be linked via the same
+  // DocumentId — becomes the Invoice's own UUID on save.
+  invoiceUuid?: string;
 }
 
 export interface PatchInvoiceRequest {
@@ -370,6 +373,7 @@ export interface CreateSupplierPaymentRequest {
   chequeDate?: string;
   notes?: string;
   paymentType?: string;    // STANDARD | ADVANCE_PAYMENT
+  paymentUuid?: string;    // client-generated id — links pre-save attachment uploads to this payment
   lines: CreateSupplierPaymentLineRequest[];
 }
 
@@ -395,6 +399,7 @@ export interface SupplierPaymentListItemModel {
   status: string;          // DRAFT | APPROVED | POSTED | CANCELLED | BOUNCED
   paymentType: string;
   lineCount: number;
+  attachmentCount: number;
 }
 
 export interface SupplierPaymentLineModel {

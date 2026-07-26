@@ -181,6 +181,16 @@
     padding: .75rem 1.25rem;
   }
 
+  .attachments-card {
+    grid-column: span 2;
+
+    @media (max-width: 700px) { grid-column: span 1; }
+  }
+
+  .attachments-card-body {
+    padding: .9rem 1.25rem 1.1rem;
+  }
+
   .font-mono { font-family: monospace; font-size: .85rem; }
 
   .text-success { color: #27ae60; }

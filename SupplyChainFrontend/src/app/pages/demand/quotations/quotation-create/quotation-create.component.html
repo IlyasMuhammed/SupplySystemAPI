@@ -7,7 +7,7 @@
         <p-button icon="pi pi-arrow-left" [text]="true" severity="secondary"
                   routerLink="/portal/pages/demand/quotations" class="back-btn"></p-button>
         <div>
-          <h1 class="page-title"><i class="pi pi-envelope"></i> New Quotation / RFQ</h1>
+          <h1 class="page-title"><i class="pi pi-envelope"></i> New Quotation Request / RFQ</h1>
           <p class="page-subtitle">Create a request-for-quotation and add the items to be quoted</p>
         </div>
       </div>
@@ -98,6 +98,11 @@
         </div>
 
       </div>
+    </div>
+
+    <!-- ── Attachments ──────────────────────────────────────────────────── -->
+    <div class="form-card">
+      <app-attachment-list interfaceCode="QUOTATION" [documentId]="quotationUuid" label="Attachments"></app-attachment-list>
     </div>
 
     <!-- ── Line Items ───────────────────────────────────────────────────── -->
@@ -202,7 +207,7 @@
     <div class="action-bar">
       <p-button label="Cancel" severity="secondary" [text]="true" type="button"
                 routerLink="/portal/pages/demand/quotations"></p-button>
-      <p-button label="Create Quotation" icon="pi pi-check" type="submit"
+      <p-button label="Create Quotation Request" icon="pi pi-check" type="submit"
                 [loading]="isSubmitting"></p-button>
     </div>
 

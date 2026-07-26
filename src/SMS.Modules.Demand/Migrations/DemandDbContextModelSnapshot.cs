@@ -460,6 +460,12 @@ namespace SMS.Modules.Demand.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<DateTime?>("BidsOpenedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("BidsOpenedBy")
+                        .HasColumnType("int");
+
                     b.Property<string>("CancellationReason")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");

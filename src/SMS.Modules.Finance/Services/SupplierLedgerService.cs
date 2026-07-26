@@ -11,12 +11,17 @@ internal sealed class SupplierLedgerService : ISupplierLedgerService
     private const int MaxAttempts = 5;
 
     private readonly FinanceDbContext _db;
+    private readonly IMasterFinancialLedgerService _masterLedger;
 
-    public SupplierLedgerService(FinanceDbContext db) => _db = db;
+    public SupplierLedgerService(FinanceDbContext db, IMasterFinancialLedgerService? masterLedger = null)
+    {
+        _db           = db;
+        _masterLedger = masterLedger ?? new MasterFinancialLedgerService(db);
+    }
 
     public async Task<SupplierLedgerEntryModel> PostEntryAsync(
         Guid supplierId, string transactionType, string referenceType, Guid referenceId, string referenceNo,
-        decimal debitAmount, decimal creditAmount, string? narration, int createdBy)
+        decimal debitAmount, decimal creditAmount, string? narration, int createdBy, string supplierName = "")
     {
         for (var attempt = 1; attempt <= MaxAttempts; attempt++)
         {
@@ -45,6 +50,12 @@ internal sealed class SupplierLedgerService : ISupplierLedgerService
 
             _db.SupplierLedgerEntries.Add(entry);
 
+            // FSD Addendum 24 (ML-001) — the master ledger row is Added to this SAME DbContext, so
+            // the single SaveChangesAsync call below commits both atomically (or neither, on failure).
+            var masterEntry = await _masterLedger.BuildAndTrackEntryAsync(
+                supplierId, supplierName, transactionType, referenceType, referenceId, referenceNo,
+                debitAmount, creditAmount, narration, createdBy);
+
             try
             {
                 await _db.SaveChangesAsync();
@@ -52,10 +63,12 @@ internal sealed class SupplierLedgerService : ISupplierLedgerService
             }
             catch (DbUpdateException) when (attempt < MaxAttempts)
             {
-                // Another writer committed the same SequenceNo first (unique index conflict on
-                // (SupplierId, SequenceNo)). Detach only this failed entry so any other pending
-                // changes on this DbContext survive the retry.
-                _db.Entry(entry).State = EntityState.Detached;
+                // Another writer committed the same SequenceNo first — either the per-supplier
+                // (SupplierId, SequenceNo) unique index or the master ledger's own global SequenceNo
+                // unique index. Detach both failed entries so any other pending changes on this
+                // DbContext survive the retry, and re-read both "last row" values fresh above.
+                _db.Entry(entry).State       = EntityState.Detached;
+                _db.Entry(masterEntry).State = EntityState.Detached;
             }
         }
 

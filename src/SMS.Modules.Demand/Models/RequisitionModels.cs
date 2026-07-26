@@ -16,6 +16,9 @@ public class CreatePrRequest
     public Guid? WarehouseUuid { get; set; }
     public string? Notes { get; set; }
     public List<CreatePrLineRequest> Lines { get; set; } = [];
+    // Client-generated id so attachments uploaded before save can be linked via the same
+    // DocumentId — becomes the PR's own UUID on save.
+    public Guid? PrUuid { get; set; }
 }
 
 public class CreatePrLineRequest

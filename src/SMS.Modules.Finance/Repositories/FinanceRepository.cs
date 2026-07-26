@@ -64,7 +64,7 @@ internal sealed class InvoiceRepository : IInvoiceRepository
 
         var e = new Invoice
         {
-            UUID              = Guid.NewGuid(),
+            UUID              = req.InvoiceUuid is { } gid && gid != Guid.Empty ? gid : Guid.NewGuid(),
             TraceId           = po.TraceId,
             InvoiceNumber     = invoiceNumber,
             SupplierInvoiceNo = req.SupplierInvoiceNo?.Trim(),
@@ -337,7 +337,8 @@ internal sealed class InvoiceRepository : IInvoiceRepository
         await _ledger.PostEntryAsync(
             inv.SupplierId, "INVOICE_APPROVED", "Invoice", inv.UUID, inv.InvoiceNumber,
             debitAmount: inv.TotalAmount, creditAmount: 0m,
-            narration: $"Invoice {inv.InvoiceNumber} approved.", createdBy: approvedBy);
+            narration: $"Invoice {inv.InvoiceNumber} approved.", createdBy: approvedBy,
+            supplierName: inv.SupplierName);
 
         // Update PO line QtyInvoiced — prefer invoice lines (precise), fall back to GRN lines
         var po = await _demand.PurchaseOrders

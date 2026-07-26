@@ -92,6 +92,11 @@
         </div>
       </p-card>
 
+      <!-- Attachments -->
+      <p-card header="Attachments">
+        <app-attachment-list interfaceCode="INVOICE" [documentId]="invoice.uuid" [compact]="true"></app-attachment-list>
+      </p-card>
+
       <!-- 3-way matching -->
       <p-card header="3-Way Match">
         <div class="match-grid">

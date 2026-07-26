@@ -137,6 +137,9 @@
         </div>
       </div>
 
+      <app-attachment-list interfaceCode="SUPPLIER_PAYMENT" [documentId]="paymentUuid"
+                            label="Payment Evidence"></app-attachment-list>
+
       <div class="form-actions">
         <p-button label="Cancel" severity="secondary" [outlined]="true" routerLink="/portal/pages/finance/payments"></p-button>
         <p-button label="Record Payment" icon="pi pi-check" [loading]="isSaving" (onClick)="save()"></p-button>

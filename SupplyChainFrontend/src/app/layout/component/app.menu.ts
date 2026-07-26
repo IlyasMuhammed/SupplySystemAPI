@@ -59,7 +59,7 @@ export class AppMenu implements OnInit {
                         label: 'Quotations (RFQ)',
                         icon: 'pi pi-fw pi-envelope',
                         items: [
-                            { label: 'New Quotation', icon: 'pi pi-fw pi-plus',
+                            { label: 'New Quotation Request', icon: 'pi pi-fw pi-plus',
                               routerLink: ['/portal/pages/demand/quotations/create'],
                               permRequired: ['RFQ_CREATE', 'RFQ_MANAGE'] },
                             { label: 'All Quotations', icon: 'pi pi-fw pi-list',
@@ -167,6 +167,12 @@ export class AppMenu implements OnInit {
                         icon: 'pi pi-fw pi-bell',
                         routerLink: ['/portal/pages/inventory/reorder-alerts'],
                         permRequired: ['REORDER_MANAGE', 'INVENTORY_VIEW']
+                    },
+                    {
+                        label: 'Master Product Ledger',
+                        icon: 'pi pi-fw pi-sitemap',
+                        routerLink: ['/portal/pages/inventory/master-product-ledger'],
+                        permRequired: ['INVENTORY_VIEW', 'STOCK_MANAGE']
                     }
                 ]
             },
@@ -232,7 +238,10 @@ export class AppMenu implements OnInit {
                               routerLink: ['/portal/pages/finance/payments-legacy'],
                               permRequired: ['PAYMENT_VIEW', 'PAYMENT_PROCESS'] }
                         ]
-                    }
+                    },
+                    { label: 'Master Payables Ledger', icon: 'pi pi-fw pi-book',
+                      routerLink: ['/portal/pages/finance/master-ledger'],
+                      permRequired: ['PAYMENT_VIEW', 'INVOICE_VIEW'] }
                 ]
             },
 
@@ -366,7 +375,7 @@ export class AppMenu implements OnInit {
                         ]
                     },
                     {
-                        label: 'System',
+                        label: 'Settings',
                         icon: 'pi pi-fw pi-cog',
                         items: [
                             { label: 'Lookup Types', icon: 'pi pi-fw pi-tags',
@@ -374,6 +383,9 @@ export class AppMenu implements OnInit {
                               permRequired: ['SYSTEM_CONFIGURE'] },
                             { label: 'Lookup Values', icon: 'pi pi-fw pi-tag',
                               routerLink: ['/portal/pages/lookup-values/lookup-values-list'],
+                              permRequired: ['SYSTEM_CONFIGURE'] },
+                            { label: 'Purchase Order Templates', icon: 'pi pi-fw pi-file-edit',
+                              routerLink: ['/portal/pages/po-document-template'],
                               permRequired: ['SYSTEM_CONFIGURE'] }
                         ]
                     },

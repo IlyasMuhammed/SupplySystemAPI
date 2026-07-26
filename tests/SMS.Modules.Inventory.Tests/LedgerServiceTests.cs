@@ -295,7 +295,7 @@ public class GrnReceipt_Integration_Tests
             SupplierId    = Guid.NewGuid(),
             SupplierName  = "Test Supplier",
             WarehouseUuid = warehouseUuid,
-            ReceivedDate  = DateTime.UtcNow,
+            ReceivedAt    = DateTime.UtcNow,
             Status        = "PENDING_APPROVAL",
             ReceivedBy    = 1,
             CreatedBy     = 1,

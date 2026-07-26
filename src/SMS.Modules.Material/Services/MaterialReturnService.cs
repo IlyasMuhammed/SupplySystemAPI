@@ -213,7 +213,7 @@ internal sealed class MaterialReturnService : IMaterialReturnService
     public async Task PostAsync(Guid uuid, int postedBy)
     {
         var ret = await _db.MaterialReturns
-            .Include(r => r.MIR)
+            .Include(r => r.MIR).ThenInclude(m => m.Project)
             .Include(r => r.Lines)
             .FirstOrDefaultAsync(r => r.UUID == uuid)
             ?? throw new NotFoundException("Return Voucher", uuid);
@@ -224,6 +224,10 @@ internal sealed class MaterialReturnService : IMaterialReturnService
 
         var mir = ret.MIR;
         var now = DateTime.UtcNow;
+
+        // FSD Addendum 24 (ML-003) — a return flows FROM wherever the material was issued to.
+        var sourceType = mir.ProjectId.HasValue ? "PROJECT" : "DEPARTMENT";
+        var sourceName = mir.ProjectId.HasValue ? mir.Project?.ProjectName : mir.Department;
 
         // Share a single SQL connection across both DbContexts to avoid MSDTC escalation.
         var strategy = _db.Database.CreateExecutionStrategy();
@@ -249,6 +253,11 @@ internal sealed class MaterialReturnService : IMaterialReturnService
                     invItem.QtyOnHand  += line.ReturnedQty;
                     invItem.LastUpdated = now;
 
+                    var warehouseName = await _inv.Warehouses
+                        .Where(w => w.Id == invItem.WarehouseId)
+                        .Select(w => w.Name)
+                        .FirstOrDefaultAsync() ?? string.Empty;
+
                     // Inventory ledger: MATERIAL_RETURN (QuantityIn — stock flows back in)
                     await _ledger.CreateEntryAsync(new LedgerEntryCommand
                     {
@@ -261,7 +270,13 @@ internal sealed class MaterialReturnService : IMaterialReturnService
                         QuantityIn      = line.ReturnedQty,
                         UnitCost        = invItem.UnitCost ?? line.UnitCost,
                         Notes           = line.Reason,
-                        CreatedBy       = postedBy
+                        CreatedBy       = postedBy,
+                        // FSD Addendum 24 (ML-003): material flows back from the project/department
+                        // into this warehouse.
+                        SourceType      = sourceType,
+                        SourceName      = sourceName,
+                        DestinationType = "WAREHOUSE",
+                        DestinationName = warehouseName
                     });
 
                     // Cost ledger: RETURN with negative quantity (credit to project/department)

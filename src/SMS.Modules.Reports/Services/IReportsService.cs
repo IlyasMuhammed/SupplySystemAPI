@@ -1,5 +1,6 @@
 using SMS.Modules.Reports.Models;
 using SMS.Shared.Pagination;
+using SMS.WorkflowEngine.Models;
 
 namespace SMS.Modules.Reports.Services;
 
@@ -29,6 +30,7 @@ public interface IReportsService
     Task<List<BudgetUtilizationItem>>                GetBudgetUtilizationAsync(ReportDateFilter filter);
     Task<PaginatedResponse<AuditLogItemModel>>       GetAuditTrailAsync(AuditLogFilter filter);
     Task<List<UserActivityItem>>                     GetUserActivityAsync(ReportDateFilter filter);
+    Task<List<TimelineEventView>>                    GetSupplierTimelineAsync(Guid supplierId);
 
     // ── Material Reports ──────────────────────────────────────────────────────
     Task<List<MaterialIssueRegisterItem>>     GetMaterialIssueRegisterAsync(MaterialIssueRegisterFilter filter);

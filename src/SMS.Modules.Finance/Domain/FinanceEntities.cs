@@ -178,6 +178,104 @@ internal class SupplierLedgerEntry
     public DateTime CreatedDate     { get; set; }
 }
 
+// FSD Addendum 24 (ML-001) — organization-wide mirror of every SupplierLedgerEntry, written in the
+// SAME SaveChangesAsync call as its per-supplier counterpart (see ISupplierLedgerService.PostEntryAsync)
+// so the two never drift. SequenceNo is a single global sequence (not scoped per supplier) — its
+// unique index is the concurrency guard: two concurrent writers for DIFFERENT suppliers still race
+// for the next SequenceNo/BalanceAfter here, and the loser's unique-index violation triggers a retry.
+internal class MasterFinancialLedger
+{
+    public int      Id              { get; set; }
+    public Guid     UUID            { get; set; }
+    public int      SequenceNo      { get; set; }
+
+    public Guid     SupplierId      { get; set; }
+    // Denormalised at write time so the Master Payables Ledger screen (ML-002) never needs a
+    // join back to Suppliers to render or filter by supplier name.
+    public string   SupplierName    { get; set; } = string.Empty;
+
+    // One of the 11 FSD Section 2.2 types: INVOICE_APPROVED | PAYMENT | CREDIT_NOTE | DEBIT_NOTE |
+    // ADVANCE_PAYMENT | ADVANCE_ADJUSTMENT | RETENTION_HOLD | RETENTION_RELEASE |
+    // CHEQUE_BOUNCE_REVERSAL | BAD_DEBT_WRITEOFF | OPENING_BALANCE
+    public string   TransactionType { get; set; } = string.Empty;
+    public string   ReferenceType   { get; set; } = string.Empty;
+    public Guid     ReferenceId     { get; set; }
+    public string   ReferenceNo     { get; set; } = string.Empty;
+
+    public DateTime EntryDate       { get; set; }
+    public decimal  DebitAmount     { get; set; }
+    public decimal  CreditAmount    { get; set; }
+    // Organization-level running balance — NOT the same value as the per-supplier BalanceAfter.
+    public decimal  BalanceAfter    { get; set; }
+    public string?  Narration       { get; set; }
+
+    public int      CreatedBy       { get; set; }
+    public DateTime CreatedDate     { get; set; }
+}
+
+// FSD Addendum 24 (ML-003) — organization-wide product movement ledger, mirroring every
+// InventoryLedgerEntry (owned by SMS.Modules.Inventory) in the SAME ambient transaction — see
+// MasterProductLedgerService.PostMovementAsync and InventoryLedgerService.CreateEntryAsync.
+// Enriched with source/destination context that Inventory itself can't resolve (Supplier,
+// Project, Department names live in other modules), supplied by the calling module.
+internal class MasterProductLedger
+{
+    public int      Id              { get; set; }
+    public Guid     LedgerId        { get; set; }
+
+    public int      ProductId       { get; set; }
+    public string   ProductCode     { get; set; } = string.Empty;
+    public string   ProductName     { get; set; } = string.Empty;
+    public int?     CategoryId      { get; set; }
+    public string?  CategoryName    { get; set; }
+
+    public int      WarehouseId     { get; set; }
+    public string   WarehouseName   { get; set; } = string.Empty;
+
+    public DateTime TransactionDate { get; set; }
+    // One of the 10 FSD Section 3.2 types: GRN_RECEIPT | MATERIAL_ISSUE | MATERIAL_RETURN |
+    // TRANSFER_OUT | TRANSFER_IN | RETURN_DISPATCH | STOCK_ADJUSTMENT | ...
+    public string   TransactionType { get; set; } = string.Empty;
+    public string   ReferenceType   { get; set; } = string.Empty;
+    public Guid     ReferenceId     { get; set; }
+    public string   ReferenceNumber { get; set; } = string.Empty;
+
+    public decimal? QuantityIn      { get; set; }
+    public decimal? QuantityOut     { get; set; }
+    public decimal  UnitCost        { get; set; }
+    public decimal  TotalValue      { get; set; }  // (QuantityIn ?? QuantityOut ?? 0) * UnitCost
+
+    // SUPPLIER | WAREHOUSE | PROJECT | DEPARTMENT | ADJUSTMENT | ...
+    public string   SourceType      { get; set; } = string.Empty;
+    public string?  SourceName      { get; set; }
+    public string   DestinationType { get; set; } = string.Empty;
+    public string?  DestinationName { get; set; }
+
+    public string?  Notes           { get; set; }
+    public int      CreatedBy       { get; set; }
+    public DateTime CreatedDate     { get; set; }
+}
+
+// FSD Addendum 24 (ML-005) — bad debt write-off request. Split into a create + approve step
+// (rather than posting the master-ledger credit immediately) because the FSD requires Finance
+// Manager approval before the write-off actually reduces the payable balance.
+internal class DebtWriteOff
+{
+    public int       Id           { get; set; }
+    public Guid      UUID         { get; set; }
+    public Guid      SupplierId   { get; set; }
+    public string    SupplierName { get; set; } = string.Empty;
+    public decimal   Amount       { get; set; }
+    public string    Reason       { get; set; } = string.Empty;
+    // PENDING_APPROVAL | APPROVED | REJECTED
+    public string    Status       { get; set; } = "PENDING_APPROVAL";
+    public int        CreatedBy    { get; set; }
+    public DateTime   CreatedDate  { get; set; }
+    public int?        ApprovedBy   { get; set; }
+    public DateTime?   ApprovedAt   { get; set; }
+    public string?     RejectionReason { get; set; }
+}
+
 // Multi-invoice supplier payment header (SFM-003). Distinct from the existing single-invoice
 // Payment entity — a SupplierPayment can allocate its TotalAmount across several invoices via
 // SupplierPaymentLines, or be created unallocated (an advance) with zero lines.

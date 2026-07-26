@@ -28,6 +28,10 @@ public class CreateGrnRequest
     // Optional: pre-fill received quantities at creation time
     public List<GrnLineReceiveInput>? Lines { get; set; }
     public DateTime ReceivedDate { get; internal set; }
+    // Client-generated id so driver/loader document attachments uploaded before save (see
+    // grn-create.component.ts) can be linked to this GRN via the same DocumentId — becomes the
+    // GRN's own UUID on save.
+    public Guid? GrnUuid { get; set; }
 }
 
 public class PatchGrnRequest

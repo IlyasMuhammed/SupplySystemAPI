@@ -23,6 +23,7 @@ import { InventoryService, WarehouseModel, ProductListItemModel } from '../../..
 import { ReportsService, AuditLogItemModel } from '../../../../services/reports.service';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { TimelinePanelComponent } from '../../../../shared/timeline-panel/timeline-panel.component';
+import { AttachmentListComponent } from '../../../../shared/attachment-list/attachment-list.component';
 
 export interface InspectionRowState {
   lineUuid: string;
@@ -43,7 +44,7 @@ export interface InspectionRowState {
     ButtonModule, TagModule, ToastModule, TableModule, DialogModule,
     InputTextModule, InputNumberModule, ToggleButtonModule,
     TextareaModule, TooltipModule, DropdownModule, CalendarModule, ConfirmDialogModule, ProgressSpinnerModule,
-    TimelinePanelComponent
+    TimelinePanelComponent, AttachmentListComponent
   ],
   templateUrl: './grn-detail.component.html',
   styleUrls: ['./grn-detail.component.scss'],

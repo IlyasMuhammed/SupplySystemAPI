@@ -41,7 +41,7 @@ internal sealed class QuotationRepository : IQuotationRepository
     {
         ValidateLineQuantities(req.Lines.Select(l => l.Quantity));
 
-        var uuid = Guid.NewGuid();
+        var uuid = req.QuotationUuid is { } gid && gid != Guid.Empty ? gid : Guid.NewGuid();
         var now  = DateTime.UtcNow;
 
         var lines = req.Lines.Select((l, i) => new QuotationLine
@@ -193,6 +193,8 @@ internal sealed class QuotationRepository : IQuotationRepository
             CancellationReason = q.CancellationReason,
             CreatedBy          = q.CreatedBy,
             CreatedDate        = q.CreatedDate,
+            BidsOpenedAt       = q.BidsOpenedAt,
+            BidsOpenedBy       = q.BidsOpenedBy,
             Lines = q.Lines.Select(l => new QuotationLineModel
             {
                 UUID             = l.UUID,
@@ -292,6 +294,10 @@ internal sealed class QuotationRepository : IQuotationRepository
             .FirstOrDefaultAsync(q => q.UUID == uuid && !q.IsDelete)
             ?? throw new NotFoundException("Quotation", uuid);
 
+        if (quotation.BidsOpenedAt is null)
+            throw new UnprocessableEntityException(
+                "Bids are sealed until they are opened. Use Open Bids once the RFQ deadline has passed.");
+
         var responses = await _db.VendorResponses
             .Include(r => r.Lines)
                 .ThenInclude(l => l.QuotationLine)
@@ -325,6 +331,34 @@ internal sealed class QuotationRepository : IQuotationRepository
         }).ToList();
     }
 
+    // Breaks the seal: makes vendor pricing readable via GetComparisonAsync/AwardAsync. Does
+    // not touch quotation.Status — SENT covers both "awaiting bids" and "bids open/awardable".
+    public async Task OpenBidsAsync(Guid uuid, int openedBy)
+    {
+        var quotation = await _db.Quotations
+            .FirstOrDefaultAsync(q => q.UUID == uuid && !q.IsDelete)
+            ?? throw new NotFoundException("Quotation", uuid);
+
+        if (quotation.Status != "SENT")
+            throw new UnprocessableEntityException(
+                $"Bids can only be opened for a SENT quotation. Current status: {quotation.Status}.");
+
+        if (quotation.BidsOpenedAt is not null)
+            throw new UnprocessableEntityException("Bids have already been opened for this quotation.");
+
+        var hasResponses = await _db.VendorResponses.AnyAsync(r => r.QuotationId == quotation.Id);
+        if (!hasResponses)
+            throw new UnprocessableEntityException(
+                "No vendor responses have been submitted yet. At least one response is required to open bids.");
+
+        quotation.BidsOpenedAt = DateTime.UtcNow;
+        quotation.BidsOpenedBy = openedBy;
+        quotation.ModifiedBy   = openedBy;
+        quotation.ModifiedDate = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync();
+    }
+
     public async Task AwardAsync(Guid uuid, AwardQuotationRequest req, int awardedBy)
     {
         var quotation = await _db.Quotations
@@ -333,6 +367,13 @@ internal sealed class QuotationRepository : IQuotationRepository
             ?? throw new NotFoundException("Quotation", uuid);
 
         AssertTransition(quotation.Status, "AWARDED");
+
+        // AwardAsync queries VendorResponses directly rather than going through
+        // GetComparisonAsync, so it needs its own seal check — otherwise a caller could award
+        // (and thus implicitly learn/act on pricing) without ever opening bids.
+        if (quotation.BidsOpenedAt is null)
+            throw new UnprocessableEntityException(
+                "Bids are sealed until they are opened. Use Open Bids before awarding.");
 
         var hasResponses = await _db.VendorResponses.AnyAsync(r => r.QuotationId == quotation.Id);
         if (!hasResponses)

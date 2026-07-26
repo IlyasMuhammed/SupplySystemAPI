@@ -14,6 +14,7 @@ import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { MessageService, ConfirmationService } from 'primeng/api';
 import { FinanceService, SupplierPaymentDetailModel } from '../../../../services/finance.service';
 import { AuthService } from '../../../service/auth.service';
+import { AttachmentListComponent } from '../../../../shared/attachment-list/attachment-list.component';
 
 @Component({
   selector: 'app-supplier-payment-detail',
@@ -22,7 +23,7 @@ import { AuthService } from '../../../service/auth.service';
     CommonModule, RouterModule, FormsModule,
     ButtonModule, TagModule, ToastModule,
     CardModule, TableModule, DividerModule,
-    TooltipModule, ConfirmDialogModule
+    TooltipModule, ConfirmDialogModule, AttachmentListComponent
   ],
   templateUrl: './supplier-payment-detail.component.html',
   styleUrls: ['./supplier-payment-detail.component.scss'],

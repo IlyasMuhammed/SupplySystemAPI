@@ -166,6 +166,11 @@
                       placeholder="Any delivery observations…" class="w-full"></textarea>
           </div>
 
+          <div class="field col-span-3">
+            <label><i class="pi pi-paperclip"></i> Driver/Loader Documents (signed delivery challan, etc.)</label>
+            <app-attachment-list interfaceCode="GRN" [documentId]="grnUuid" [compact]="true"></app-attachment-list>
+          </div>
+
         </div>
       </div>
     </div>

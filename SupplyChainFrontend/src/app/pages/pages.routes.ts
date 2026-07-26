@@ -27,6 +27,7 @@ import { LookupTypesListComponent } from './lookup-types/lookup-types-list/looku
 import { LookupTypesCreateComponent } from './lookup-types/lookup-types-create/lookup-types-create.component';
 import { CurrenciesComponent } from './currencies/currencies.component';
 import { PaymentTermsComponent } from './payment-terms/payment-terms.component';
+import { PoDocumentTemplateComponent } from './po-document-template/po-document-template.component';
 import { permissionGuard } from './gaurds/permission.guard';
 import { ProductListComponent } from './inventory/products/product-list/product-list.component';
 import { ProductCreateComponent } from './inventory/products/product-create/product-create.component';
@@ -34,6 +35,7 @@ import { ProductDetailComponent } from './inventory/products/product-detail/prod
 import { WarehouseListComponent } from './inventory/warehouses/warehouse-list/warehouse-list.component';
 import { WarehouseDetailComponent } from './inventory/warehouses/warehouse-detail/warehouse-detail.component';
 import { StockAdjustmentsComponent } from './inventory/stock-adjustments/stock-adjustments.component';
+import { MasterProductLedgerComponent } from './inventory/master-product-ledger/master-product-ledger.component';
 import { ReorderAlertsComponent } from './inventory/reorder-alerts/reorder-alerts.component';
 import { CategoryListComponent } from './inventory/categories/category-list.component';
 import { ProfileComponent } from './profile/profile.component';
@@ -56,6 +58,7 @@ import { PaymentListComponent } from './finance/payments/payment-list/payment-li
 import { PaymentDetailComponent } from './finance/payments/payment-detail/payment-detail.component';
 import { SupplierPaymentListComponent } from './finance/supplier-payments/supplier-payment-list/supplier-payment-list.component';
 import { SupplierPaymentCreateComponent } from './finance/supplier-payments/supplier-payment-create/supplier-payment-create.component';
+import { MasterLedgerComponent } from './finance/master-ledger/master-ledger.component';
 import { SupplierPaymentDetailComponent } from './finance/supplier-payments/supplier-payment-detail/supplier-payment-detail.component';
 import { KpiDashboardComponent } from './reports/kpi-dashboard/kpi-dashboard.component';
 import { SupplierPerformanceComponent } from './reports/supplier-performance/supplier-performance.component';
@@ -184,6 +187,8 @@ export default [
       canActivate: [permissionGuard(P.SYSTEM_CONFIGURE)] },
     { path: 'payment-terms', component: PaymentTermsComponent,
       canActivate: [permissionGuard(P.SYSTEM_CONFIGURE)] },
+    { path: 'po-document-template', component: PoDocumentTemplateComponent,
+      canActivate: [permissionGuard(P.SYSTEM_CONFIGURE)] },
 
     // ── Inventory — Products ──────────────────────────────────────────────────
     { path: 'inventory/products', component: ProductListComponent,
@@ -198,6 +203,8 @@ export default [
       canActivate: [permissionGuard(P.INVENTORY_VIEW, P.STOCK_MANAGE)] },
     { path: 'inventory/stock-adjustments', component: StockAdjustmentsComponent,
       canActivate: [permissionGuard(P.STOCK_ADJUST)] },
+    { path: 'inventory/master-product-ledger', component: MasterProductLedgerComponent,
+      canActivate: [permissionGuard(P.INVENTORY_VIEW, P.STOCK_MANAGE)] },
     { path: 'inventory/reorder-alerts', component: ReorderAlertsComponent,
       canActivate: [permissionGuard(P.REORDER_MANAGE, P.INVENTORY_VIEW)] },
     { path: 'inventory/categories', component: CategoryListComponent,
@@ -291,6 +298,10 @@ export default [
       canActivate: [permissionGuard(P.PAYMENT_VIEW, P.PAYMENT_PROCESS)] },
     { path: 'finance/payments-legacy/:uuid', component: PaymentDetailComponent,
       canActivate: [permissionGuard(P.PAYMENT_VIEW, P.PAYMENT_PROCESS)] },
+
+    // ── Finance — Master Payables Ledger (FSD Addendum 24, ML-002) ──────────────
+    { path: 'finance/master-ledger', component: MasterLedgerComponent,
+      canActivate: [permissionGuard(P.PAYMENT_VIEW, P.INVOICE_VIEW)] },
 
     // ── Reports & Analytics ───────────────────────────────────────────────────
     { path: 'reports/kpi-dashboard', component: KpiDashboardComponent,

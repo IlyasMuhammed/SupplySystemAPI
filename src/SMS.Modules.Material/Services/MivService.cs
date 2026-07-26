@@ -522,6 +522,25 @@ internal sealed class MivService : IMivService
         // Cache for site warehouse InventoryItems (avoids duplicate-add for same product)
         var siteItemCache = new Dictionary<int, InventoryItem>();
 
+        // FSD Addendum 24 (ML-003) — resolved once per posting, reused across every line.
+        var warehouseNameCache = new Dictionary<int, string>();
+        async Task<string> WarehouseNameAsync(int warehouseId)
+        {
+            if (!warehouseNameCache.TryGetValue(warehouseId, out var name))
+            {
+                name = await _inv.Warehouses.Where(w => w.Id == warehouseId)
+                    .Select(w => w.Name).FirstOrDefaultAsync() ?? string.Empty;
+                warehouseNameCache[warehouseId] = name;
+            }
+            return name;
+        }
+        // Destination when material issues straight to a project/department (no site warehouse).
+        var issueDestinationType = mir.ProjectId.HasValue ? "PROJECT" : "DEPARTMENT";
+        var issueDestinationName = mir.ProjectId.HasValue ? mir.Project?.ProjectName : mir.Department;
+        var siteWarehouseName    = siteWarehouseIntId.HasValue
+            ? await WarehouseNameAsync(siteWarehouseIntId.Value)
+            : null;
+
         // Counter for MCR number generation within this posting (avoids per-line DB query)
         var mcrYear  = DateTime.UtcNow.Year;
         var mcrCount = await _db.MaterialConsumptions
@@ -545,6 +564,7 @@ internal sealed class MivService : IMivService
         foreach (var line in miv.Lines)
         {
             int lineProductId = 0;
+            int mainWarehouseIdForLine = 0;
 
             if (line.BatchSerials.Count > 0)
             {
@@ -567,6 +587,7 @@ internal sealed class MivService : IMivService
                     invItem.QtyReserved = Math.Max(0, invItem.QtyReserved - bs.IssuedQty);
                     invItem.LastUpdated = now;
                     lineProductId       = invItem.ProductId;
+                    mainWarehouseIdForLine = invItem.WarehouseId;
 
                     // Effect 7: one ledger entry per batch/serial consumed
                     // When a site warehouse is configured, the main-warehouse entry becomes TRANSFER_OUT
@@ -588,7 +609,13 @@ internal sealed class MivService : IMivService
                         QuantityOut     = bs.IssuedQty,
                         UnitCost        = bs.UnitCost,
                         Notes           = notes,
-                        CreatedBy       = postedBy
+                        CreatedBy       = postedBy,
+                        // FSD Addendum 24 (ML-003): straight issue goes to the project/department;
+                        // when a site warehouse exists, this leg only goes as far as that warehouse.
+                        SourceType      = "WAREHOUSE",
+                        SourceName      = await WarehouseNameAsync(invItem.WarehouseId),
+                        DestinationType = siteWarehouseIntId.HasValue ? "WAREHOUSE" : issueDestinationType,
+                        DestinationName = siteWarehouseIntId.HasValue ? siteWarehouseName : issueDestinationName
                     });
                 }
             }
@@ -608,6 +635,7 @@ internal sealed class MivService : IMivService
                 invItem.QtyReserved = Math.Max(0, invItem.QtyReserved - line.IssuedQty);
                 invItem.LastUpdated = now;
                 lineProductId       = invItem.ProductId;
+                mainWarehouseIdForLine = invItem.WarehouseId;
 
                 var mainTxType = siteWarehouseIntId.HasValue ? "TRANSFER_OUT" : "MATERIAL_ISSUE";
                 var mainNotes  = siteWarehouseIntId.HasValue
@@ -625,7 +653,12 @@ internal sealed class MivService : IMivService
                     QuantityOut     = line.IssuedQty,
                     UnitCost        = line.UnitCost,
                     Notes           = mainNotes,
-                    CreatedBy       = postedBy
+                    CreatedBy       = postedBy,
+                    // FSD Addendum 24 (ML-003) — see the batch/serial branch above for the rationale.
+                    SourceType      = "WAREHOUSE",
+                    SourceName      = await WarehouseNameAsync(invItem.WarehouseId),
+                    DestinationType = siteWarehouseIntId.HasValue ? "WAREHOUSE" : issueDestinationType,
+                    DestinationName = siteWarehouseIntId.HasValue ? siteWarehouseName : issueDestinationName
                 });
             }
 
@@ -672,7 +705,12 @@ internal sealed class MivService : IMivService
                     QuantityIn      = line.IssuedQty,
                     UnitCost        = line.UnitCost,
                     Notes           = $"Site warehouse receipt: {line.ItemDescription}",
-                    CreatedBy       = postedBy
+                    CreatedBy       = postedBy,
+                    // FSD Addendum 24 (ML-003): the paired end of the same TRANSFER_OUT movement.
+                    SourceType      = "WAREHOUSE",
+                    SourceName      = mainWarehouseIdForLine > 0 ? await WarehouseNameAsync(mainWarehouseIdForLine) : null,
+                    DestinationType = "WAREHOUSE",
+                    DestinationName = siteWarehouseName
                 });
             }
 

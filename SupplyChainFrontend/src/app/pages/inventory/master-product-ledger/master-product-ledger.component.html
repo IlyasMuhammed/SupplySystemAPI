@@ -1,0 +1,164 @@
+<div class="ledger-page">
+  <p-toast></p-toast>
+
+  <div class="page-header">
+    <div>
+      <h1 class="page-title"><i class="pi pi-sitemap"></i> Master Product Ledger</h1>
+      <p class="page-subtitle">Organization-wide product movement history with source &amp; destination visibility</p>
+    </div>
+    <div class="header-actions">
+      <p-button label="Export PDF" icon="pi pi-file-pdf" severity="secondary" [outlined]="true"
+                [loading]="isExportingPdf" (onClick)="exportPdf()"></p-button>
+      <p-button label="Export Excel" icon="pi pi-file-excel" severity="secondary" [outlined]="true"
+                [loading]="isExportingExcel" (onClick)="exportExcel()"></p-button>
+    </div>
+  </div>
+
+  <!-- ── Summary cards ────────────────────────────────────────────────────── -->
+  <div class="summary-grid" *ngIf="summary">
+    <div class="summary-card">
+      <span class="summary-label">Total Receipts (Qty In)</span>
+      <span class="summary-value summary-in">{{ summary.totalReceiptsQty | number:'1.2-2' }}</span>
+    </div>
+    <div class="summary-card">
+      <span class="summary-label">Total Issues (Qty Out)</span>
+      <span class="summary-value summary-out">{{ summary.totalIssuesQty | number:'1.2-2' }}</span>
+    </div>
+    <div class="summary-card">
+      <span class="summary-label">Net Movement</span>
+      <span class="summary-value">{{ summary.netMovement | number:'1.2-2' }}</span>
+    </div>
+    <div class="summary-card">
+      <span class="summary-label">Total Value Moved</span>
+      <span class="summary-value">{{ summary.totalValueMoved | number:'1.2-2' }}</span>
+    </div>
+  </div>
+
+  <!-- ── Filter bar ───────────────────────────────────────────────────────── -->
+  <div class="filter-bar">
+    <p-calendar [(ngModel)]="dateFrom" placeholder="From" dateFormat="dd/mm/yy"
+                [showIcon]="true" [showClear]="true" appendTo="body"></p-calendar>
+    <p-calendar [(ngModel)]="dateTo" placeholder="To" dateFormat="dd/mm/yy"
+                [showIcon]="true" [showClear]="true" appendTo="body"></p-calendar>
+
+    <p-autoComplete [(ngModel)]="selectedProduct" [suggestions]="productSuggestions"
+                     (completeMethod)="searchProducts($event)" field="name"
+                     placeholder="Filter by product…" [minLength]="0" [dropdown]="true"
+                     styleClass="product-autocomplete"></p-autoComplete>
+
+    <p-dropdown [options]="categories" [(ngModel)]="selectedCategoryId" optionLabel="name" optionValue="id"
+                placeholder="Category" [showClear]="true" appendTo="body" styleClass="filter-dropdown"></p-dropdown>
+
+    <p-dropdown [options]="warehouses" [(ngModel)]="selectedWarehouseId" optionLabel="name" optionValue="id"
+                placeholder="Warehouse" [showClear]="true" appendTo="body" styleClass="filter-dropdown"></p-dropdown>
+
+    <p-dropdown [options]="transactionTypeOptions" [(ngModel)]="selectedTransactionType"
+                optionLabel="label" optionValue="value" placeholder="Transaction Type"
+                [showClear]="true" appendTo="body" styleClass="filter-dropdown"></p-dropdown>
+
+    <p-dropdown [options]="partyTypeOptions" [(ngModel)]="selectedSourceType"
+                optionLabel="label" optionValue="value" placeholder="Source Type"
+                [showClear]="true" appendTo="body" styleClass="filter-dropdown"></p-dropdown>
+
+    <p-dropdown [options]="partyTypeOptions" [(ngModel)]="selectedDestinationType"
+                optionLabel="label" optionValue="value" placeholder="Destination Type"
+                [showClear]="true" appendTo="body" styleClass="filter-dropdown"></p-dropdown>
+
+    <p-button label="Apply" icon="pi pi-search" size="small" (onClick)="applyFilters()"></p-button>
+    <p-button icon="pi pi-refresh" [text]="true" severity="secondary" pTooltip="Reset filters" (onClick)="resetFilters()"></p-button>
+
+    <p-button *ngIf="canViewJourney" label="View Journey" icon="pi pi-history"
+              severity="secondary" [outlined]="true" size="small" (onClick)="viewJourney()"></p-button>
+  </div>
+
+  <!-- ── Ledger table ─────────────────────────────────────────────────────── -->
+  <div class="table-card">
+    <p-table [value]="entries" [loading]="isLoading" [lazy]="true"
+             [totalRecords]="totalRecords" [rows]="pageSize"
+             (onLazyLoad)="onPageChange($event)"
+             [paginator]="true" [rowsPerPageOptions]="[20,50,100]"
+             [tableStyle]="{'min-width':'90rem'}">
+      <ng-template pTemplate="header">
+        <tr>
+          <th>Date</th>
+          <th>Product</th>
+          <th>Category</th>
+          <th>Transaction Type</th>
+          <th class="text-right">Qty In</th>
+          <th class="text-right">Qty Out</th>
+          <th class="text-right">Unit Cost</th>
+          <th class="text-right">Total Value</th>
+          <th>Source</th>
+          <th>Destination</th>
+          <th>Reference No</th>
+          <th>Warehouse</th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-e>
+        <tr>
+          <td>{{ e.transactionDate | date:'dd MMM yyyy, HH:mm' }}</td>
+          <td><a class="ref-link" (click)="goToProduct(e)">{{ e.productName }}</a></td>
+          <td>{{ e.categoryName || '—' }}</td>
+          <td><p-tag [value]="getTypeLabel(e.transactionType)" [severity]="getTypeSeverity(e.transactionType)"></p-tag></td>
+          <td class="text-right">{{ e.quantityIn ? (e.quantityIn | number:'1.2-2') : '—' }}</td>
+          <td class="text-right">{{ e.quantityOut ? (e.quantityOut | number:'1.2-2') : '—' }}</td>
+          <td class="text-right">{{ e.unitCost | number:'1.2-2' }}</td>
+          <td class="text-right font-semibold">{{ e.totalValue | number:'1.2-2' }}</td>
+          <td><span class="party-cell">{{ e.sourceType }}<small>{{ e.sourceName }}</small></span></td>
+          <td><span class="party-cell">{{ e.destinationType }}<small>{{ e.destinationName }}</small></span></td>
+          <td>
+            <a *ngIf="canDrillDownReference(e)" class="ref-link" (click)="drillDownReference(e)">{{ e.referenceNumber }}</a>
+            <span *ngIf="!canDrillDownReference(e)">{{ e.referenceNumber }}</span>
+          </td>
+          <td>{{ e.warehouseName }}</td>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="emptymessage">
+        <tr><td colspan="12" class="text-center text-secondary" style="padding:3rem">No ledger entries found.</td></tr>
+      </ng-template>
+    </p-table>
+  </div>
+</div>
+
+<!-- ── Product Journey dialog ──────────────────────────────────────────────── -->
+<p-dialog [(visible)]="showJourneyDialog" [modal]="true" [style]="{width:'820px'}"
+          header="Product Journey" [draggable]="false" [resizable]="false">
+  <div class="journey-header" *ngIf="journeyProductName">
+    <i class="pi pi-box"></i>
+    <strong>{{ journeyProductName }}</strong>
+  </div>
+
+  <div class="journey-loading" *ngIf="isLoadingJourney">
+    <i class="pi pi-spin pi-spinner"></i> Loading journey…
+  </div>
+
+  <ul class="journey-timeline" *ngIf="!isLoadingJourney && journeyEntries.length">
+    <li class="journey-item" *ngFor="let e of journeyEntries">
+      <div class="journey-dot" [ngClass]="{'journey-dot--in': e.quantityIn, 'journey-dot--out': e.quantityOut}"></div>
+      <div class="journey-body">
+        <div class="journey-head">
+          <p-tag [value]="getTypeLabel(e.transactionType)" [severity]="getTypeSeverity(e.transactionType)"></p-tag>
+          <span class="journey-qty" *ngIf="e.quantityIn">+{{ e.quantityIn | number:'1.2-2' }}</span>
+          <span class="journey-qty journey-qty--out" *ngIf="e.quantityOut">-{{ e.quantityOut | number:'1.2-2' }}</span>
+        </div>
+        <div class="journey-route">
+          <span>{{ e.sourceType }}<small *ngIf="e.sourceName"> — {{ e.sourceName }}</small></span>
+          <i class="pi pi-arrow-right"></i>
+          <span>{{ e.destinationType }}<small *ngIf="e.destinationName"> — {{ e.destinationName }}</small></span>
+        </div>
+        <div class="journey-meta">
+          {{ e.transactionDate | date:'dd MMM yyyy, HH:mm' }} &bull; {{ e.warehouseName }}
+          <ng-container *ngIf="canDrillDownReference(e)">
+            &bull; <a class="ref-link" (click)="drillDownReference(e)">{{ e.referenceNumber }}</a>
+          </ng-container>
+          <ng-container *ngIf="!canDrillDownReference(e)"> &bull; {{ e.referenceNumber }}</ng-container>
+        </div>
+      </div>
+    </li>
+  </ul>
+
+  <div class="journey-empty" *ngIf="!isLoadingJourney && !journeyEntries.length">
+    <i class="pi pi-inbox"></i>
+    <p>No movement history recorded for this product yet.</p>
+  </div>
+</p-dialog>

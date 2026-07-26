@@ -133,7 +133,7 @@ internal sealed class DebitNoteRepository : IDebitNoteRepository
             dn.SupplierId, "DEBIT_NOTE_APPROVED", "DebitNote", dn.UUID, dn.DebitNoteNumber,
             debitAmount: 0m, creditAmount: dn.DebitAmount,
             narration: $"Debit note {dn.DebitNoteNumber} issued against SRO {dn.SroNumber} — {dn.DebitReason}.",
-            createdBy: createdBy);
+            createdBy: createdBy, supplierName: dn.SupplierName);
 
         // Mark SRO as resolved via debit note
         sro.Status         = "RESOLVED_DEBIT";

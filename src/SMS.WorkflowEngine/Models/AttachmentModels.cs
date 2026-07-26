@@ -22,5 +22,6 @@ public class AttachmentModel
     public string?  ContentType   { get; set; }
     public string?  Notes         { get; set; }
     public int      UploadedBy    { get; set; }
+    public string   UploadedByName { get; set; } = string.Empty;
     public DateTime UploadedDate  { get; set; }
 }

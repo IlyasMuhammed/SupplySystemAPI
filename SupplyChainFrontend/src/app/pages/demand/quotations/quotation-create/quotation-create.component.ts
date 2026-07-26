@@ -18,6 +18,7 @@ import { MessageService } from 'primeng/api';
 import { Subscription } from 'rxjs';
 import { DemandService, CreateQuotationRequest, PrListItemModel, PoListItemModel } from '../../../../services/demand.service';
 import { InventoryService, ProductListItemModel } from '../../../../services/inventory.service';
+import { AttachmentListComponent } from '../../../../shared/attachment-list/attachment-list.component';
 
 @Component({
   selector: 'app-quotation-create',
@@ -26,7 +27,7 @@ import { InventoryService, ProductListItemModel } from '../../../../services/inv
     CommonModule, RouterModule, ReactiveFormsModule,
     ButtonModule, CardModule, InputTextModule, TextareaModule,
     InputNumberModule, DropdownModule, CalendarModule,
-    DividerModule, ToastModule, TooltipModule, MessageModule, ProgressSpinnerModule
+    DividerModule, ToastModule, TooltipModule, MessageModule, ProgressSpinnerModule, AttachmentListComponent
   ],
   templateUrl: './quotation-create.component.html',
   styleUrls: ['./quotation-create.component.scss'],
@@ -36,6 +37,10 @@ export class QuotationCreateComponent implements OnInit, OnDestroy {
   form!: FormGroup;
   isSubmitting  = false;
   loadingPrLines = false;
+
+  // Generated once per page load so attachments uploaded before save can be linked to the
+  // eventual Quotation (which is created with this same UUID on submit).
+  readonly quotationUuid = crypto.randomUUID();
 
   // ── Product catalogue ─────────────────────────────────────────────────────
   productOptions: { label: string; value: string }[] = [];
@@ -300,7 +305,8 @@ export class QuotationCreateComponent implements OnInit, OnDestroy {
         quantity:         l.quantity,
         requiredDate:     l.requiredDate instanceof Date ? l.requiredDate.toISOString() : l.requiredDate || undefined,
         lineNotes:        l.lineNotes        || undefined
-      }))
+      })),
+      quotationUuid: this.quotationUuid
     };
 
     this.demandService.createQuotation(req).subscribe({

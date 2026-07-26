@@ -1,0 +1,103 @@
+<div class="ledger-page">
+  <p-toast></p-toast>
+
+  <div class="page-header">
+    <div>
+      <h1 class="page-title"><i class="pi pi-book"></i> Master Payables Ledger</h1>
+      <p class="page-subtitle">Organization-wide chronological ledger across every supplier</p>
+    </div>
+    <div class="header-actions">
+      <p-button label="Export PDF" icon="pi pi-file-pdf" severity="secondary" [outlined]="true"
+                [loading]="isExportingPdf" (onClick)="exportPdf()"></p-button>
+      <p-button label="Export Excel" icon="pi pi-file-excel" severity="secondary" [outlined]="true"
+                [loading]="isExportingExcel" (onClick)="exportExcel()"></p-button>
+    </div>
+  </div>
+
+  <!-- ── Summary cards ────────────────────────────────────────────────────── -->
+  <div class="summary-grid" *ngIf="summary">
+    <div class="summary-card">
+      <span class="summary-label">Total Payables</span>
+      <span class="summary-value">{{ summary.totalPayables | number:'1.2-2' }}</span>
+      <span class="summary-hint">Org-level current balance — always unfiltered</span>
+    </div>
+    <div class="summary-card">
+      <span class="summary-label">Total Debits (period)</span>
+      <span class="summary-value summary-debit">{{ summary.totalDebits | number:'1.2-2' }}</span>
+    </div>
+    <div class="summary-card">
+      <span class="summary-label">Total Credits (period)</span>
+      <span class="summary-value summary-credit">{{ summary.totalCredits | number:'1.2-2' }}</span>
+    </div>
+    <div class="summary-card">
+      <span class="summary-label">Net Movement (period)</span>
+      <span class="summary-value">{{ summary.netMovement | number:'1.2-2' }}</span>
+    </div>
+  </div>
+
+  <!-- ── Filter bar ───────────────────────────────────────────────────────── -->
+  <div class="filter-bar">
+    <p-calendar [(ngModel)]="dateFrom" placeholder="From" dateFormat="dd/mm/yy"
+                [showIcon]="true" [showClear]="true" appendTo="body"></p-calendar>
+    <p-calendar [(ngModel)]="dateTo" placeholder="To" dateFormat="dd/mm/yy"
+                [showIcon]="true" [showClear]="true" appendTo="body"></p-calendar>
+
+    <p-autoComplete [(ngModel)]="selectedSupplier" [suggestions]="supplierSuggestions"
+                     (completeMethod)="searchSuppliers($event)" field="supplierName"
+                     placeholder="Filter by supplier…" [minLength]="0" [dropdown]="true"
+                     styleClass="supplier-autocomplete"></p-autoComplete>
+
+    <p-multiSelect [options]="transactionTypeOptions" [(ngModel)]="selectedTransactionTypes"
+                   placeholder="Transaction Type" optionLabel="label" optionValue="value"
+                   [showToggleAll]="false" appendTo="body" styleClass="type-multiselect"></p-multiSelect>
+
+    <p-inputNumber [(ngModel)]="minAmount" placeholder="Min Amount" mode="decimal"
+                   [minFractionDigits]="2" [maxFractionDigits]="2" [min]="0" styleClass="min-amount-input"></p-inputNumber>
+
+    <p-button label="Apply" icon="pi pi-search" size="small" (onClick)="applyFilters()"></p-button>
+    <p-button icon="pi pi-refresh" [text]="true" severity="secondary" pTooltip="Reset filters" (onClick)="resetFilters()"></p-button>
+
+    <p-button *ngIf="canViewPerSupplierLedger" label="View Per-Supplier Ledger" icon="pi pi-user"
+              severity="secondary" [outlined]="true" size="small" (onClick)="viewPerSupplierLedger()"></p-button>
+  </div>
+
+  <!-- ── Ledger table ─────────────────────────────────────────────────────── -->
+  <div class="table-card">
+    <p-table [value]="entries" [loading]="isLoading" [lazy]="true"
+             [totalRecords]="totalRecords" [rows]="pageSize"
+             (onLazyLoad)="onPageChange($event)"
+             [paginator]="true" [rowsPerPageOptions]="[20,50,100]"
+             [tableStyle]="{'min-width':'70rem'}">
+      <ng-template pTemplate="header">
+        <tr>
+          <th>Date</th>
+          <th>Supplier</th>
+          <th>Transaction Type</th>
+          <th>Reference No</th>
+          <th class="text-right">Debit</th>
+          <th class="text-right">Credit</th>
+          <th class="text-right">Balance After</th>
+          <th>Narration</th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-e>
+        <tr>
+          <td>{{ e.entryDate | date:'dd MMM yyyy, HH:mm' }}</td>
+          <td>{{ e.supplierName }}</td>
+          <td><p-tag [value]="getTypeLabel(e.transactionType)" [severity]="getTypeSeverity(e.transactionType)"></p-tag></td>
+          <td>
+            <a *ngIf="canDrillDown(e)" class="ref-link" (click)="drillDown(e)">{{ e.referenceNo }}</a>
+            <span *ngIf="!canDrillDown(e)">{{ e.referenceNo }}</span>
+          </td>
+          <td class="text-right">{{ e.debitAmount ? (e.debitAmount | number:'1.2-2') : '—' }}</td>
+          <td class="text-right">{{ e.creditAmount ? (e.creditAmount | number:'1.2-2') : '—' }}</td>
+          <td class="text-right font-semibold mono">{{ e.balanceAfter | number:'1.2-2' }}</td>
+          <td>{{ e.narration || '—' }}</td>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="emptymessage">
+        <tr><td colspan="8" class="text-center text-secondary" style="padding:3rem">No ledger entries found.</td></tr>
+      </ng-template>
+    </p-table>
+  </div>
+</div>

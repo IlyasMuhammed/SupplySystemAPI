@@ -1,7 +1,8 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { ButtonModule } from 'primeng/button';
 import { TagModule } from 'primeng/tag';
 import { ToastModule } from 'primeng/toast';
@@ -17,6 +18,7 @@ import { DemandService, PoDetailModel } from '../../../../services/demand.servic
 import { WorkflowService, ApprovalDetailDto } from '../../../../services/workflow.service';
 import { SupplierService, EligibleContactModel } from '../../../../services/supplier.service';
 import { TimelinePanelComponent } from '../../../../shared/timeline-panel/timeline-panel.component';
+import { AttachmentListComponent } from '../../../../shared/attachment-list/attachment-list.component';
 
 @Component({
   selector: 'app-po-detail',
@@ -25,13 +27,14 @@ import { TimelinePanelComponent } from '../../../../shared/timeline-panel/timeli
     CommonModule, RouterModule, FormsModule,
     ButtonModule, TagModule, ToastModule,
     TableModule, DividerModule, TooltipModule,
-    ConfirmDialogModule, DialogModule, TextareaModule, DropdownModule, TimelinePanelComponent
+    ConfirmDialogModule, DialogModule, TextareaModule, DropdownModule, TimelinePanelComponent,
+    AttachmentListComponent
   ],
   templateUrl: './po-detail.component.html',
   styleUrls: ['./po-detail.component.scss'],
   providers: [MessageService, ConfirmationService]
 })
-export class PoDetailComponent implements OnInit {
+export class PoDetailComponent implements OnInit, OnDestroy {
   uuid  = '';
   showTimeline = false;
   po: PoDetailModel | null = null;
@@ -40,6 +43,7 @@ export class PoDetailComponent implements OnInit {
   isApproving  = false;
   isRejecting  = false;
   isSending    = false;
+  isDownloadingPdf = false;
 
   showRejectDialog = false;
   rejectReason     = '';
@@ -53,6 +57,11 @@ export class PoDetailComponent implements OnInit {
   approvalDetail: ApprovalDetailDto | null = null;
   isLoadingApproval = false;
 
+  showPreviewDialog = false;
+  isLoadingPreview  = false;
+  previewPdfUrl: SafeResourceUrl | null = null;
+  private previewObjectUrl: string | null = null;
+
   constructor(
     private route: ActivatedRoute,
     private router: Router,
@@ -60,11 +69,16 @@ export class PoDetailComponent implements OnInit {
     private wfService: WorkflowService,
     private supplierService: SupplierService,
     private messageService: MessageService,
-    private confirmationService: ConfirmationService
+    private confirmationService: ConfirmationService,
+    private sanitizer: DomSanitizer
   ) {}
 
   ngOnInit() {
     this.route.params.subscribe(p => { this.uuid = p['uuid']; this.load(); });
+  }
+
+  ngOnDestroy() {
+    this.revokePreviewUrl();
   }
 
   load() {
@@ -126,7 +140,7 @@ export class PoDetailComponent implements OnInit {
     });
   }
 
-  private submitPo() {
+  submitPo() {
     this.isSubmitting = true;
     this.demandService.submitPo(this.uuid).subscribe({
       next: (res: any) => {
@@ -135,6 +149,7 @@ export class PoDetailComponent implements OnInit {
           this.messageService.add({ severity: 'error', summary: 'Error', detail: res.message || 'Failed to submit PO.' });
           return;
         }
+        this.showPreviewDialog = false;
         this.messageService.add({ severity: 'success', summary: 'Submitted', detail: 'Purchase order submitted for approval.' });
         setTimeout(() => this.load(), 800);
       },
@@ -273,6 +288,58 @@ export class PoDetailComponent implements OnInit {
       case 'CANCELLED':           return 'danger';
       default:                    return 'secondary';
     }
+  }
+
+  openPreview() {
+    if (!this.po) return;
+    this.showPreviewDialog = true;
+    this.isLoadingPreview  = true;
+    this.previewPdfUrl     = null;
+    this.demandService.downloadPoPdf(this.uuid).subscribe({
+      next: (blob) => {
+        this.isLoadingPreview = false;
+        this.revokePreviewUrl();
+        this.previewObjectUrl = URL.createObjectURL(blob);
+        this.previewPdfUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.previewObjectUrl);
+      },
+      error: () => {
+        this.isLoadingPreview = false;
+        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to generate PO preview.' });
+      }
+    });
+  }
+
+  closePreview() {
+    this.showPreviewDialog = false;
+    this.revokePreviewUrl();
+    this.previewPdfUrl = null;
+  }
+
+  private revokePreviewUrl() {
+    if (this.previewObjectUrl) {
+      URL.revokeObjectURL(this.previewObjectUrl);
+      this.previewObjectUrl = null;
+    }
+  }
+
+  downloadPdf() {
+    if (!this.po) return;
+    this.isDownloadingPdf = true;
+    this.demandService.downloadPoPdf(this.uuid).subscribe({
+      next: (blob) => {
+        this.isDownloadingPdf = false;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `PO-${this.po?.poNumber || this.uuid}.pdf`;
+        a.click();
+        URL.revokeObjectURL(url);
+      },
+      error: () => {
+        this.isDownloadingPdf = false;
+        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to generate PO PDF.' });
+      }
+    });
   }
 
   get totalAmount(): number {

@@ -1,0 +1,188 @@
+.ledger-page { padding: 1.5rem; }
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.page-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  margin: 0;
+}
+
+.page-subtitle {
+  color: var(--text-color-secondary);
+  font-size: .875rem;
+  margin: .25rem 0 0;
+}
+
+.header-actions {
+  display: flex;
+  gap: .5rem;
+}
+
+// ── Summary cards ──────────────────────────────────────────────────────────────
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.summary-card {
+  background: var(--surface-0);
+  border: 1px solid var(--surface-200);
+  border-radius: .625rem;
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: .25rem;
+}
+
+.summary-label {
+  font-size: .8125rem;
+  color: var(--text-color-secondary);
+  font-weight: 600;
+}
+
+.summary-value {
+  font-size: 1.375rem;
+  font-weight: 700;
+  color: var(--text-color);
+}
+
+.summary-in  { color: var(--green-600, #16a34a); }
+.summary-out { color: var(--orange-600, #ea580c); }
+
+// ── Filter bar ───────────────────────────────────────────────────────────────
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+
+::ng-deep .product-autocomplete input { width: 200px; }
+::ng-deep .filter-dropdown { min-width: 150px; }
+
+.table-card {
+  background: var(--surface-0);
+  border: 1px solid var(--surface-200);
+  border-radius: .625rem;
+  overflow: hidden;
+}
+
+.ref-link {
+  color: var(--primary-color);
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+
+  &:hover { text-decoration: underline; }
+}
+
+.party-cell {
+  display: flex;
+  flex-direction: column;
+  gap: .1rem;
+  font-size: .8125rem;
+  font-weight: 600;
+
+  small {
+    font-weight: 400;
+    color: var(--text-color-secondary);
+    font-size: .75rem;
+  }
+}
+
+// ── Product Journey dialog ────────────────────────────────────────────────────
+.journey-header {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  font-size: 1rem;
+  margin-bottom: 1rem;
+
+  i { color: var(--primary-color); }
+}
+
+.journey-loading, .journey-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2.5rem 1rem;
+  color: var(--text-color-secondary);
+
+  i { font-size: 2rem; margin-bottom: .5rem; }
+}
+
+.journey-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.journey-item {
+  display: flex;
+  gap: .875rem;
+  padding: .875rem 0;
+  border-bottom: 1px solid var(--surface-200);
+
+  &:last-child { border-bottom: none; }
+}
+
+.journey-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--surface-400);
+  margin-top: .45rem;
+  flex-shrink: 0;
+
+  &.journey-dot--in  { background: var(--green-500, #22c55e); }
+  &.journey-dot--out { background: var(--orange-500, #f97316); }
+}
+
+.journey-body { flex: 1; min-width: 0; }
+
+.journey-head {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+
+.journey-qty {
+  font-weight: 700;
+  font-size: .875rem;
+  color: var(--green-600, #16a34a);
+
+  &.journey-qty--out { color: var(--orange-600, #ea580c); }
+}
+
+.journey-route {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  margin-top: .35rem;
+  font-size: .8125rem;
+  font-weight: 600;
+
+  i { color: var(--text-color-secondary); font-size: .7rem; }
+  small { font-weight: 400; color: var(--text-color-secondary); }
+}
+
+.journey-meta {
+  margin-top: .3rem;
+  font-size: .75rem;
+  color: var(--text-color-secondary);
+}

@@ -204,10 +204,54 @@
           </table>
         </div>
 
+        <!-- Supporting documents -->
+        <div class="sp-attachments">
+          <h3 class="sp-section-title">
+            <i class="pi pi-paperclip"></i> Supporting Documents
+          </h3>
+          <p class="sp-grid-hint">
+            Optionally attach spec sheets, certificates, or other supporting documents (max 20 MB each).
+          </p>
+
+          <label class="sp-upload-btn" for="rfqFileUpload">
+            <i class="pi pi-upload"></i> Attach File
+          </label>
+          <input id="rfqFileUpload" type="file" (change)="onFileSelected($event)" hidden />
+
+          <ul class="sp-attachment-list" *ngIf="attachments.length">
+            <li *ngFor="let a of attachments" class="sp-attachment-row">
+              <i class="pi" [ngClass]="a.uploading ? 'pi-spin pi-spinner' : (a.failed ? 'pi-times-circle sp-attach-fail' : 'pi-check-circle sp-attach-ok')"></i>
+              <span>{{ a.name }}</span>
+              <span class="sp-attach-status" *ngIf="a.failed">Upload failed</span>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Validation errors -->
+        <div class="sp-validation-errors" *ngIf="clientValidationErrors.length">
+          <i class="pi pi-exclamation-triangle"></i>
+          <div>
+            <strong>Please fix the following before submitting:</strong>
+            <ul>
+              <li *ngFor="let err of clientValidationErrors">{{ err }}</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Submit failure (transport/server error — not a rejected link) -->
+        <div class="sp-validation-errors" *ngIf="submitError">
+          <i class="pi pi-times-circle"></i>
+          <div>
+            <strong>We couldn't submit your response.</strong>
+            <p style="margin:.25rem 0 0;">{{ submitError }}</p>
+          </div>
+        </div>
+
         <!-- Submit bar -->
         <div class="sp-submit-bar">
           <p class="sp-submit-hint">
-            Once submitted, this form cannot be edited. All fields are optional.
+            Once submitted, this form cannot be edited. Price and delivery days are required for
+            any item you can supply — toggle <strong>Can Supply</strong> off to skip an item.
           </p>
           <p-button
             label="Submit Quotation Response"

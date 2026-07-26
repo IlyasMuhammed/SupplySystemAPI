@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { TimelineEvent } from './timeline.service';
 
 const BASE = 'https://localhost:52800/api/reports';
 
@@ -515,6 +516,10 @@ export class ReportsService {
 
   getUserActivity(filter: ReportDateFilter = {}): Observable<ApiResponse<UserActivityItem[]>> {
     return this.http.get<ApiResponse<UserActivityItem[]>>(`${BASE}/user-activity`, { params: this.params(filter) });
+  }
+
+  getSupplierTimeline(supplierId: string): Observable<ApiResponse<TimelineEvent[]>> {
+    return this.http.get<ApiResponse<TimelineEvent[]>>(`${BASE}/supplier-timeline/${supplierId}`);
   }
 
   // ── Material Reports ──────────────────────────────────────────────────────

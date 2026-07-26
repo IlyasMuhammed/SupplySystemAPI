@@ -32,6 +32,14 @@
                   (onClick)="openSendDialog()"></p-button>
         <p-button *ngIf="canRespond" label="Record Response" icon="pi pi-reply"
                   severity="secondary" (onClick)="openResponseDialog()"></p-button>
+        <span *ngIf="isSealed"
+              [pTooltip]="hasResponses ? 'Pricing stays hidden from everyone, including admins, until bids are opened.' : 'No vendor responses have been submitted yet. At least one response is required to open bids.'"
+              tooltipPosition="top" class="sealed-indicator">
+          <i class="pi pi-lock"></i>
+          {{ quotation.submittedResponseCount }} quotation(s) received &bull; bids sealed
+        </span>
+        <p-button *ngIf="canOpenBids" label="Open Bids" icon="pi pi-lock-open"
+                  severity="warn" (onClick)="openBidsDialog()"></p-button>
         <span *ngIf="canAward"
               [pTooltip]="hasResponses ? '' : 'No vendor responses have been submitted yet. At least one response is required to compare and award.'"
               tooltipPosition="top"
@@ -81,6 +89,11 @@
             <span>Cancellation Reason</span><strong>{{ quotation.cancellationReason }}</strong>
           </div>
         </div>
+      </div>
+
+      <div class="info-card">
+        <h3>Attachments</h3>
+        <app-attachment-list interfaceCode="QUOTATION" [documentId]="quotation.uuid" [compact]="true"></app-attachment-list>
       </div>
     </div>
 
@@ -167,11 +180,12 @@
                 </span>
               </td>
               <td>
-                <span *ngIf="link.consumedAt" class="al-activity-badge al-submitted">
-                  <i class="pi pi-check-square"></i> Submitted
+                <span *ngIf="link.consumedAt" class="al-activity-badge al-submitted"
+                      pTooltip="Pricing stays sealed until bids are opened" tooltipPosition="top">
+                  <i class="pi pi-check-square"></i> Submitted {{ link.consumedAt | date:'dd MMM HH:mm' }}
                 </span>
                 <span *ngIf="!link.consumedAt && link.firstOpenedAt" class="al-activity-badge al-viewed">
-                  <i class="pi pi-eye"></i> Viewed
+                  <i class="pi pi-eye"></i> Viewed {{ link.firstOpenedAt | date:'dd MMM HH:mm' }}
                 </span>
                 <span *ngIf="!link.consumedAt && !link.firstOpenedAt" class="al-activity-badge al-unseen">
                   <i class="pi pi-minus-circle"></i> Unseen
@@ -552,7 +566,7 @@
   <!-- COMPARISON & AWARD DIALOG                                                 -->
   <!-- ══════════════════════════════════════════════════════════════════════════ -->
   <p-dialog [(visible)]="showComparisonDialog" [modal]="true"
-            [style]="{width:'860px'}" [draggable]="false" [resizable]="false"
+            [style]="{width:'96vw', maxWidth:'1400px'}" [draggable]="false" [resizable]="false"
             styleClass="sdlg">
 
     <ng-template pTemplate="header">
@@ -561,7 +575,7 @@
         <div class="sdlg-header-text">
           <div class="sdlg-title">Vendor Comparison &amp; Award</div>
           <div class="sdlg-subtitle" *ngIf="quotation">
-            {{ quotation.quotationNumber }} &bull; Ranked by total amount · lowest first
+            {{ quotation.quotationNumber }} &bull; {{ comparison.length }} response(s)
           </div>
         </div>
       </div>
@@ -574,55 +588,79 @@
         <span>Loading responses…</span>
       </div>
 
-      <ng-container *ngIf="!isLoadingComparison">
-        <div *ngFor="let r of comparison; let i = index"
-             class="cmp-card" [class.cmp-card--best]="i === 0">
-          <div class="cmp-card-header">
-            <div class="cmp-vendor">
-              <span class="cmp-rank" [class.cmp-rank--gold]="i === 0">#{{ i + 1 }}</span>
-              <div class="cmp-vendor-name">
-                <strong>{{ r.supplierName }}</strong>
-                <p-tag [value]="r.status" [severity]="getResponseSeverity(r.status)"></p-tag>
-              </div>
-            </div>
-            <div class="cmp-right">
-              <div class="cmp-total">
-                <span class="cmp-total-label">Total</span>
-                <span class="cmp-total-amount">{{ r.totalAmount | number:'1.2-2' }}</span>
-              </div>
-              <p-button *ngIf="r.status === 'PENDING'" label="Award" icon="pi pi-trophy"
-                        size="small" severity="success"
-                        (onClick)="awardResponse(r.uuid)" [loading]="isActioning"></p-button>
-            </div>
-          </div>
-          <p-table [value]="r.lines" styleClass="sdlg-table compact-table"
-                   [tableStyle]="{'min-width':'30rem'}">
-            <ng-template pTemplate="header">
-              <tr>
-                <th>Item</th>
-                <th class="text-right">Qty</th>
-                <th class="text-right">Unit Price</th>
-                <th class="text-right">Total</th>
-                <th>Lead Days</th>
-              </tr>
-            </ng-template>
-            <ng-template pTemplate="body" let-line>
-              <tr>
-                <td>{{ line.itemDescription }}</td>
-                <td class="text-right">{{ line.quantity | number:'1.0-4' }}</td>
-                <td class="text-right">{{ line.netUnitPrice | number:'1.2-2' }}</td>
-                <td class="text-right font-semibold">{{ line.lineTotal | number:'1.2-2' }}</td>
-                <td>{{ line.leadTimeDays ?? '—' }}</td>
-              </tr>
-            </ng-template>
-          </p-table>
+      <ng-container *ngIf="!isLoadingComparison && comparison.length">
+        <!-- Filter bar -->
+        <div class="cmp-filter-bar">
+          <span class="p-input-icon-left cmp-search">
+            <i class="pi pi-search"></i>
+            <input pInputText type="text" [(ngModel)]="comparisonSearch"
+                   placeholder="Filter by supplier name…" />
+          </span>
+          <p-dropdown [options]="comparisonSortOptions" [(ngModel)]="comparisonSortBy"
+                      optionLabel="label" optionValue="value" styleClass="cmp-sort"
+                      appendTo="body"></p-dropdown>
         </div>
 
-        <div *ngIf="comparison.length === 0" class="sdlg-empty">
-          <i class="pi pi-inbox"></i>
-          <span>No responses recorded yet</span>
+        <!-- One row per supplier response, one column per line item -->
+        <div class="cmp-table-wrap">
+          <table class="cmp-table">
+            <thead>
+              <tr>
+                <th class="cmp-table-supplier-col">Supplier</th>
+                <th *ngFor="let line of comparisonLines" class="cmp-table-item-col">{{ line.itemDescription }}</th>
+                <th class="cmp-table-total-col">Total</th>
+                <th class="cmp-table-action-col"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let r of filteredComparison" [class.cmp-table-row--best]="r.totalAmount === lowestTotalAmount">
+                <td class="cmp-table-supplier-cell">
+                  <div class="cmp-supplier-name">
+                    <i class="pi pi-star-fill cmp-best-icon" *ngIf="r.totalAmount === lowestTotalAmount" pTooltip="Lowest total"></i>
+                    <strong>{{ r.supplierName }}</strong>
+                  </div>
+                  <p-tag [value]="r.status" [severity]="getResponseSeverity(r.status)"></p-tag>
+                </td>
+                <td *ngFor="let line of comparisonLines" class="cmp-table-cell">
+                  <ng-container *ngIf="cellFor(r, line.uuid) as cell; else noBid">
+                    <div class="cmp-cell-price">{{ cell.netUnitPrice | number:'1.2-2' }}</div>
+                    <div class="cmp-cell-meta">
+                      {{ cell.leadTimeDays ?? '—' }} {{ cell.leadTimeDays ? 'days' : '' }}
+                    </div>
+                  </ng-container>
+                  <ng-template #noBid><span class="cmp-no-bid">—</span></ng-template>
+                </td>
+                <td class="cmp-table-total-cell">
+                  <div class="cmp-cell-total" [class.cmp-cell-total--best]="r.totalAmount === lowestTotalAmount">
+                    {{ r.totalAmount | number:'1.2-2' }}
+                  </div>
+                </td>
+                <td class="cmp-table-action-cell">
+                  <p-button *ngIf="r.status === 'PENDING'" label="Award" icon="pi pi-trophy"
+                            size="small" severity="success"
+                            (onClick)="awardResponse(r.uuid)" [loading]="isActioning"></p-button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="cmp-attachments-strip" *ngFor="let r of filteredComparison">
+          <app-attachment-list interfaceCode="RFQ_RESPONSE" [documentId]="r.uuid"
+                                [readOnly]="true" [compact]="true"
+                                [label]="r.supplierName + ' — Attachments'"></app-attachment-list>
+        </div>
+
+        <div *ngIf="filteredComparison.length === 0" class="sdlg-empty">
+          <i class="pi pi-filter-slash"></i>
+          <span>No suppliers match your filter.</span>
         </div>
       </ng-container>
+
+      <div *ngIf="!isLoadingComparison && comparison.length === 0" class="sdlg-empty">
+        <i class="pi pi-inbox"></i>
+        <span>No responses recorded yet</span>
+      </div>
     </div>
 
     <ng-template pTemplate="footer">
@@ -630,6 +668,48 @@
         <div class="sdlg-footer-btns">
           <p-button label="Close" severity="secondary" [text]="true"
                     (onClick)="showComparisonDialog = false"></p-button>
+        </div>
+      </div>
+    </ng-template>
+  </p-dialog>
+
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <!-- OPEN BIDS DIALOG                                                          -->
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <p-dialog [(visible)]="showOpenBidsDialog" [modal]="true"
+            [style]="{width:'480px'}" [draggable]="false" [resizable]="false"
+            styleClass="sdlg">
+
+    <ng-template pTemplate="header">
+      <div class="sdlg-header">
+        <div class="sdlg-header-icon sdlg-icon-amber"><i class="pi pi-lock-open"></i></div>
+        <div class="sdlg-header-text">
+          <div class="sdlg-title">Open Bids</div>
+          <div class="sdlg-subtitle" *ngIf="quotation">
+            {{ quotation.quotationNumber }} &bull; {{ quotation.submittedResponseCount }} response(s) received
+          </div>
+        </div>
+      </div>
+    </ng-template>
+
+    <div class="sdlg-body">
+      <div class="sdlg-warn-banner">
+        <i class="pi pi-exclamation-triangle"></i>
+        <span>Vendor pricing is sealed and hidden from everyone, including admins, until bids are opened. This cannot be undone — once opened, pricing stays visible for the rest of this RFQ's lifecycle.</span>
+      </div>
+      <div class="sdlg-warn-banner" *ngIf="openBidsEarly">
+        <i class="pi pi-clock"></i>
+        <span>The RFQ due date ({{ quotation?.dueDate | date:'dd MMM yyyy' }}) hasn't passed yet. Bids are normally opened after the deadline so all suppliers have a fair chance to respond.</span>
+      </div>
+    </div>
+
+    <ng-template pTemplate="footer">
+      <div class="sdlg-footer">
+        <div class="sdlg-footer-btns">
+          <p-button label="Go Back" severity="secondary" [text]="true"
+                    (onClick)="showOpenBidsDialog = false"></p-button>
+          <p-button label="Open Bids" severity="warn" icon="pi pi-lock-open"
+                    (onClick)="confirmOpenBids()" [loading]="isOpeningBids"></p-button>
         </div>
       </div>
     </ng-template>

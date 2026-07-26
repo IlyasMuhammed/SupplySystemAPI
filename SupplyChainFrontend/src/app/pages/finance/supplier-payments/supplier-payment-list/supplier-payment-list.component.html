@@ -37,6 +37,7 @@
           <th>Amount</th>
           <th>Method</th>
           <th>Lines</th>
+          <th class="text-center">Attachments</th>
           <th>Status</th>
           <th class="text-center">Actions</th>
         </tr>
@@ -49,6 +50,12 @@
           <td class="font-semibold">{{ p.totalAmount | number:'1.2-2' }}</td>
           <td>{{ p.paymentMethod }}</td>
           <td>{{ p.lineCount }}</td>
+          <td class="text-center">
+            <span class="attachment-badge" *ngIf="p.attachmentCount" pTooltip="Attachments">
+              <i class="pi pi-paperclip"></i> {{ p.attachmentCount }}
+            </span>
+            <span class="text-secondary" *ngIf="!p.attachmentCount">—</span>
+          </td>
           <td><p-tag [value]="p.status" [severity]="getStatusSeverity(p.status)"></p-tag></td>
           <td class="text-center">
             <p-button icon="pi pi-eye" [text]="true" severity="info" size="small"
@@ -58,7 +65,7 @@
         </tr>
       </ng-template>
       <ng-template pTemplate="emptymessage">
-        <tr><td colspan="8" class="text-center text-secondary" style="padding:3rem">No payments found.</td></tr>
+        <tr><td colspan="9" class="text-center text-secondary" style="padding:3rem">No payments found.</td></tr>
       </ng-template>
     </p-table>
   </div>

@@ -22,6 +22,7 @@ import {
   DemandService,
   QuotationDetailModel,
   VendorResponseModel,
+  VendorResponseLineModel,
   SendWithLinkRequest,
   RecordVendorResponseRequest,
   VendorResponseLineRequest,
@@ -35,6 +36,7 @@ import {
   EligibleContactModel
 } from '../../../../services/supplier.service';
 import { TimelinePanelComponent } from '../../../../shared/timeline-panel/timeline-panel.component';
+import { AttachmentListComponent } from '../../../../shared/attachment-list/attachment-list.component';
 
 interface SendSupplierRow {
   supplierId: string;
@@ -58,7 +60,7 @@ function emptyRow(): SendSupplierRow {
     ButtonModule, CardModule, TagModule, ToastModule, DialogModule,
     InputTextModule, InputNumberModule, TextareaModule, TableModule,
     CalendarModule, DividerModule, TooltipModule, ConfirmDialogModule,
-    AutoCompleteModule, DropdownModule, TimelinePanelComponent
+    AutoCompleteModule, DropdownModule, TimelinePanelComponent, AttachmentListComponent
   ],
   templateUrl: './quotation-detail.component.html',
   styleUrls: ['./quotation-detail.component.scss'],
@@ -107,10 +109,24 @@ export class QuotationDetailComponent implements OnInit, OnDestroy {
   showCancelDialog = false;
   cancelReason     = '';
 
+  // ── Open Bids (sealed-bid reveal) ─────────────────────────────────────────
+  showOpenBidsDialog = false;
+  isOpeningBids      = false;
+
   // ── Comparison ────────────────────────────────────────────────────────────
   showComparisonDialog = false;
   comparison: VendorResponseModel[] = [];
   isLoadingComparison  = false;
+
+  // Side-by-side matrix filters — supplier search + sort, applied client-side over `comparison`.
+  comparisonSearch = '';
+  comparisonSortBy: 'total_asc' | 'total_desc' | 'leadtime_asc' | 'leadtime_desc' = 'total_asc';
+  comparisonSortOptions = [
+    { label: 'Total: Low to High',       value: 'total_asc' },
+    { label: 'Total: High to Low',       value: 'total_desc' },
+    { label: 'Delivery: Fastest First',  value: 'leadtime_asc' },
+    { label: 'Delivery: Slowest First',  value: 'leadtime_desc' }
+  ];
 
   // ── Convert to PO ─────────────────────────────────────────────────────────
   showConvertToPoDialog = false;
@@ -191,8 +207,13 @@ export class QuotationDetailComponent implements OnInit, OnDestroy {
   get canEdit():         boolean { return this.quotation?.status === 'DRAFT'; }
   get canSend():         boolean { return this.quotation?.status === 'DRAFT'; }
   get canRespond():      boolean { return this.quotation?.status === 'SENT'; }
-  get canAward():        boolean { return this.quotation?.status === 'SENT'; }
   get hasResponses():    boolean { return (this.quotation?.submittedResponseCount ?? 0) > 0; }
+  get isSealed():        boolean { return this.quotation?.status === 'SENT' && !this.quotation?.bidsOpenedAt; }
+  get canOpenBids():     boolean { return this.isSealed && this.hasResponses; }
+  get canAward():        boolean { return this.quotation?.status === 'SENT' && !!this.quotation?.bidsOpenedAt; }
+  get openBidsEarly():   boolean {
+    return !!this.quotation?.dueDate && new Date(this.quotation.dueDate) > new Date();
+  }
   get canCancel():       boolean { return ['DRAFT','SENT'].includes(this.quotation?.status ?? ''); }
   get canConvertToPo():  boolean { return this.quotation?.status === 'AWARDED'; }
   get filledSupplierCount(): number { return this.sendRows.filter(r => r.supplierName.trim()).length; }
@@ -457,6 +478,25 @@ export class QuotationDetailComponent implements OnInit, OnDestroy {
     });
   }
 
+  // ── Open Bids (sealed-bid reveal) ─────────────────────────────────────────
+  openBidsDialog() { this.showOpenBidsDialog = true; }
+
+  confirmOpenBids() {
+    this.isOpeningBids = true;
+    this.demandService.openBids(this.uuid).subscribe({
+      next: () => {
+        this.isOpeningBids = false;
+        this.showOpenBidsDialog = false;
+        this.messageService.add({ severity: 'success', summary: 'Bids Opened', detail: 'Vendor pricing is now visible.' });
+        this.load();
+      },
+      error: (e) => {
+        this.isOpeningBids = false;
+        this.messageService.add({ severity: 'error', summary: 'Error', detail: e?.error?.message ?? 'Failed to open bids.' });
+      }
+    });
+  }
+
   // ── Comparison & Award ────────────────────────────────────────────────────
   openComparison() {
     this.isLoadingComparison = true;
@@ -465,6 +505,38 @@ export class QuotationDetailComponent implements OnInit, OnDestroy {
       next: (res) => { this.isLoadingComparison = false; this.comparison = res.result ?? []; },
       error: () => { this.isLoadingComparison = false; this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to load comparison.' }); }
     });
+  }
+
+  // Row list for the matrix — driven by the quotation's own lines (always complete and correctly
+  // ordered) rather than any single response's lines, since a response may be missing a line.
+  get comparisonLines(): { uuid: string; itemDescription: string }[] {
+    return (this.quotation?.lines ?? []).map(l => ({ uuid: l.uuid, itemDescription: l.itemDescription }));
+  }
+
+  private avgLeadDays(r: VendorResponseModel): number {
+    const days = r.lines.map(l => l.leadTimeDays).filter((d): d is number => d != null && d > 0);
+    return days.length ? days.reduce((s, d) => s + d, 0) / days.length : Number.MAX_SAFE_INTEGER;
+  }
+
+  get filteredComparison(): VendorResponseModel[] {
+    const q = this.comparisonSearch.trim().toLowerCase();
+    let rows = q ? this.comparison.filter(r => r.supplierName.toLowerCase().includes(q)) : [...this.comparison];
+
+    switch (this.comparisonSortBy) {
+      case 'total_desc':    rows.sort((a, b) => b.totalAmount - a.totalAmount); break;
+      case 'leadtime_asc':  rows.sort((a, b) => this.avgLeadDays(a) - this.avgLeadDays(b)); break;
+      case 'leadtime_desc': rows.sort((a, b) => this.avgLeadDays(b) - this.avgLeadDays(a)); break;
+      default:              rows.sort((a, b) => a.totalAmount - b.totalAmount); // total_asc
+    }
+    return rows;
+  }
+
+  get lowestTotalAmount(): number | null {
+    return this.comparison.length ? Math.min(...this.comparison.map(r => r.totalAmount)) : null;
+  }
+
+  cellFor(response: VendorResponseModel, lineUuid: string): VendorResponseLineModel | undefined {
+    return response.lines.find(l => l.quotationLineUuid === lineUuid);
   }
 
   awardResponse(responseUuid: string) {

@@ -26,6 +26,8 @@ using SMS.WorkflowEngine;
 using Swashbuckle.AspNetCore.SwaggerUI;
 using System.Text;
 
+QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // ── CORS ─────────────────────────────────────────────────────────────────────

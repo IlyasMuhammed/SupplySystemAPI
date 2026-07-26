@@ -10,6 +10,9 @@ public class CreateQuotationRequest
     public DateTime? DueDate { get; set; }
     public string? Notes { get; set; }
     public List<CreateQuotationLineRequest> Lines { get; set; } = [];
+    // Client-generated id so attachments uploaded before save can be linked via the same
+    // DocumentId — becomes the Quotation's own UUID on save.
+    public Guid? QuotationUuid { get; set; }
 }
 
 public class CreateQuotationLineRequest
@@ -141,6 +144,8 @@ public class QuotationDetailModel
     public int CreatedBy { get; set; }
     public DateTime CreatedDate { get; set; }
     public int SubmittedResponseCount { get; set; }
+    public DateTime? BidsOpenedAt { get; set; }
+    public int?      BidsOpenedBy { get; set; }
     public List<QuotationLineModel> Lines { get; set; } = [];
     public List<QuotationInvitedSupplierModel> InvitedSuppliers { get; set; } = [];
 }
@@ -216,12 +221,17 @@ public class RfqSubmitRequest
 {
     public List<RfqSubmitLineRequest> Lines { get; set; } = [];
     public string? Notes { get; set; }
+    // Client-generated id (see rfq-page.component.ts) so attachments uploaded before
+    // submission can be linked to this response via the same DocumentId.
+    public Guid? ResponseUuid { get; set; }
 }
 
 public class RfqSubmitLineRequest
 {
     public Guid LineUuid { get; set; }
-    // String types intentional — no validation by design (FSD §5.2)
+    // String types on the wire (form inputs) — parsed and validated by
+    // RfqSubmissionService.HandleSubmissionAsync when CanSupply is true. Superseded FSD §5.2's
+    // "no validation by design" — the automated RFQ workflow now requires instant validation.
     public string UnitPrice { get; set; } = string.Empty;
     public string DeliveryDays { get; set; } = string.Empty;
     public bool CanSupply { get; set; } = true;
@@ -230,11 +240,12 @@ public class RfqSubmitLineRequest
 
 public class RfqSubmitResult
 {
-    public string Status { get; set; } = string.Empty;  // SUBMITTED | CONSUMED | EXPIRED | INVALID
+    public string Status { get; set; } = string.Empty;  // SUBMITTED | CONSUMED | EXPIRED | INVALID | VALIDATION_ERROR
     public Guid? ResponseUuid { get; set; }
     public string? QuotationNumber { get; set; }
     public string? SupplierName { get; set; }
     public DateTime? SubmittedAt { get; set; }
+    public List<string>? ValidationErrors { get; set; }
 }
 
 public class VendorResponseLineModel

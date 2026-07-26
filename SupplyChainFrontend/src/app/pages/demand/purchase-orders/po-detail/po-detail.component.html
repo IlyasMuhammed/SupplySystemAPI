@@ -27,6 +27,8 @@
         <ng-container *ngIf="po.status === 'DRAFT'">
           <p-button label="Edit" icon="pi pi-pencil" severity="secondary"
                     [routerLink]="['/portal/pages/demand/purchase-orders', uuid, 'edit']"></p-button>
+          <p-button label="Preview" icon="pi pi-eye" severity="secondary" [outlined]="true"
+                    (onClick)="openPreview()"></p-button>
           <p-button label="Submit for Approval" icon="pi pi-send"
                     [loading]="isSubmitting" (onClick)="confirmSubmit()"></p-button>
         </ng-container>
@@ -40,6 +42,9 @@
           <p-button label="Send to Supplier" icon="pi pi-send" severity="warn"
                     [loading]="isSending" (onClick)="confirmSend()"></p-button>
         </ng-container>
+
+        <p-button label="Download PDF" icon="pi pi-file-pdf" severity="secondary" [outlined]="true"
+                  [loading]="isDownloadingPdf" (onClick)="downloadPdf()"></p-button>
 
         <p-button icon="pi pi-history" [text]="true" severity="secondary"
                   pTooltip="View Timeline" (onClick)="showTimeline = true"></p-button>
@@ -114,6 +119,15 @@
             <i class="pi pi-arrow-right pr-arrow"></i>
           </a>
         </div>
+      </div>
+
+      <!-- Attachments -->
+      <div class="info-card">
+        <div class="ic-head">
+          <div class="ic-icon ic-icon--indigo"><i class="pi pi-paperclip"></i></div>
+          <span class="ic-title">Attachments</span>
+        </div>
+        <app-attachment-list interfaceCode="PO" [documentId]="po.uuid" [compact]="true"></app-attachment-list>
       </div>
 
     </div>
@@ -372,6 +386,38 @@
         <p-button label="Cancel" severity="secondary" [text]="true" (onClick)="showRejectDialog=false"></p-button>
         <p-button label="Reject PO" icon="pi pi-times-circle" severity="danger"
                   [disabled]="!rejectReason.trim()" [loading]="isRejecting" (onClick)="submitReject()"></p-button>
+      </div>
+    </div>
+  </ng-template>
+</p-dialog>
+
+<!-- ── Preview dialog ────────────────────────────────────────────────────────── -->
+<p-dialog [(visible)]="showPreviewDialog" [modal]="true" [style]="{width:'90vw', maxWidth:'900px', height:'90vh'}"
+          [draggable]="false" [resizable]="false" styleClass="sdlg sdlg-preview" (onHide)="closePreview()">
+  <ng-template pTemplate="header">
+    <div class="sdlg-header">
+      <div class="sdlg-header-icon sdlg-icon-blue"><i class="pi pi-eye"></i></div>
+      <div class="sdlg-header-text">
+        <div class="sdlg-title">Purchase Order Preview</div>
+        <div class="sdlg-subtitle" *ngIf="po">{{ po.poNumber }} &bull; {{ po.supplierName }}</div>
+      </div>
+    </div>
+  </ng-template>
+
+  <div class="sdlg-preview-body">
+    <div *ngIf="isLoadingPreview" class="sdlg-loading">
+      <i class="pi pi-spin pi-spinner"></i>
+      <span>Generating preview…</span>
+    </div>
+    <iframe *ngIf="!isLoadingPreview && previewPdfUrl" [src]="previewPdfUrl" class="sdlg-preview-frame"></iframe>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <div class="sdlg-footer">
+      <div class="sdlg-footer-btns">
+        <p-button label="Close" severity="secondary" [text]="true" (onClick)="closePreview()"></p-button>
+        <p-button label="Save and Submit" icon="pi pi-send"
+                  [loading]="isSubmitting" (onClick)="submitPo()"></p-button>
       </div>
     </div>
   </ng-template>

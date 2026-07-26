@@ -13,6 +13,7 @@ using SMS.Modules.Warehouse.Data;
 using SMS.Shared.Common;
 using SMS.Shared.Exceptions;
 using SMS.Shared.Pagination;
+using SMS.WorkflowEngine.Models;
 using SMS.WorkflowEngine.Services;
 
 namespace SMS.Modules.Reports.Repositories;
@@ -1482,6 +1483,35 @@ internal sealed class ReportsRepository : IReportsRepository
         })
         .OrderByDescending(x => x.ActualSpend)
         .ToList();
+    }
+
+    // ── Supplier Activity Timeline ────────────────────────────────────────────
+    // Merges the trace-chain timelines (PR→PO→GRN→Invoice already share one TraceId — see
+    // PurchaseOrderRepository/FinanceRepository) of every PO and Invoice belonging to a supplier
+    // into one chronological feed for the Supplier Detail "Activity Timeline" tab.
+
+    public async Task<List<TimelineEventView>> GetSupplierTimelineAsync(Guid supplierId)
+    {
+        var poTraceIds = await _demand.PurchaseOrders
+            .Where(p => p.SupplierId == supplierId)
+            .Select(p => p.TraceId)
+            .ToListAsync();
+
+        var invoiceTraceIds = await _finance.Invoices
+            .Where(i => i.SupplierId == supplierId)
+            .Select(i => i.TraceId)
+            .ToListAsync();
+
+        var traceIds = poTraceIds.Concat(invoiceTraceIds).Distinct().ToList();
+
+        var events = new List<TimelineEventView>();
+        foreach (var traceId in traceIds)
+        {
+            var detail = await _timeline.GetTimelineDetailAsync(traceId);
+            if (detail is not null) events.AddRange(detail.Events);
+        }
+
+        return events.OrderByDescending(e => e.OccurredAt).ToList();
     }
 
     // ── Audit Trail ───────────────────────────────────────────────────────────

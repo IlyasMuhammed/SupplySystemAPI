@@ -15,6 +15,9 @@ public class CreatePoRequest
     public string? Notes { get; set; }
     public string? InternalNotes { get; set; }
     public string? BudgetCode { get; set; }
+    // Client-generated id so attachments uploaded before save can be linked via the same
+    // DocumentId — becomes the PO's own UUID on save.
+    public Guid? PoUuid { get; set; }
 }
 
 public class CreatePoLineRequest
@@ -87,6 +90,7 @@ public class PoDetailModel
     public string? Title { get; set; }
     public Guid SupplierId { get; set; }
     public string SupplierName { get; set; } = string.Empty;
+    public string? SupplierContactMobile { get; set; }
     public string Status { get; set; } = string.Empty;
     public decimal TotalAmount { get; set; }
     public DateTime? DeliveryDate { get; set; }

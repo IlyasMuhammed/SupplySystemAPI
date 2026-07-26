@@ -44,6 +44,9 @@ public class CreateInvoiceRequest
     public string? Notes             { get; set; }
     public string? AttachmentUrl     { get; set; }
     public List<InvoiceLineRequest>? Lines { get; set; }
+    // Client-generated id so attachments uploaded before save can be linked via the same
+    // DocumentId — becomes the Invoice's own UUID on save.
+    public Guid? InvoiceUuid { get; set; }
 }
 
 public class PatchInvoiceRequest
@@ -321,6 +324,158 @@ public class SupplierBalanceSummary
     public decimal AvailableAdvanceCredit { get; set; }
 }
 
+// ── Master Financial Ledger (FSD Addendum 24, ML-002) ─────────────────────────
+
+public class MasterLedgerEntryModel
+{
+    public Guid     Uuid            { get; set; }
+    public int       SequenceNo      { get; set; }
+    public Guid      SupplierId      { get; set; }
+    public string    SupplierName    { get; set; } = string.Empty;
+    public string    TransactionType { get; set; } = string.Empty;
+    public string    ReferenceType   { get; set; } = string.Empty;
+    public Guid      ReferenceId     { get; set; }
+    public string    ReferenceNo     { get; set; } = string.Empty;
+    public DateTime  EntryDate       { get; set; }
+    public decimal   DebitAmount     { get; set; }
+    public decimal   CreditAmount    { get; set; }
+    public decimal   BalanceAfter    { get; set; }
+    public string?   Narration       { get; set; }
+    public int       CreatedBy       { get; set; }
+    public DateTime  CreatedDate     { get; set; }
+}
+
+public class MasterLedgerFilter
+{
+    public DateTime?     DateFrom         { get; set; }
+    public DateTime?     DateTo           { get; set; }
+    public Guid?         SupplierId       { get; set; }
+    public List<string>? TransactionTypes { get; set; }
+    public decimal?      MinAmount        { get; set; }
+    public int           Page             { get; set; } = 1;
+    public int           PageSize         { get; set; } = 20;
+}
+
+public class MasterLedgerSummaryModel
+{
+    // Current organization-wide balance — always the latest entry's BalanceAfter across the WHOLE
+    // table, regardless of any filter applied (per ML-002 acceptance criteria). The other three
+    // fields DO respect the filter, since they describe "the filtered period".
+    public decimal TotalPayables { get; set; }
+    public decimal TotalDebits   { get; set; }
+    public decimal TotalCredits  { get; set; }
+    public decimal NetMovement   { get; set; }
+}
+
+public class MasterLedgerBalanceModel
+{
+    public decimal  Balance { get; set; }
+    public DateTime AsOf    { get; set; }
+}
+
+// ── Master Product Ledger (FSD Addendum 24, ML-004) ────────────────────────────
+
+public class MasterProductLedgerEntryModel
+{
+    public Guid     LedgerId        { get; set; }
+    public int      ProductId       { get; set; }
+    public string   ProductCode     { get; set; } = string.Empty;
+    public string   ProductName     { get; set; } = string.Empty;
+    public int?     CategoryId      { get; set; }
+    public string?  CategoryName    { get; set; }
+    public int      WarehouseId     { get; set; }
+    public string   WarehouseName   { get; set; } = string.Empty;
+    public DateTime TransactionDate { get; set; }
+    public string   TransactionType { get; set; } = string.Empty;
+    public string   ReferenceType   { get; set; } = string.Empty;
+    public Guid     ReferenceId     { get; set; }
+    public string   ReferenceNumber { get; set; } = string.Empty;
+    public decimal? QuantityIn      { get; set; }
+    public decimal? QuantityOut     { get; set; }
+    public decimal  UnitCost        { get; set; }
+    public decimal  TotalValue      { get; set; }
+    public string   SourceType      { get; set; } = string.Empty;
+    public string?  SourceName      { get; set; }
+    public string   DestinationType { get; set; } = string.Empty;
+    public string?  DestinationName { get; set; }
+    public string?  Notes           { get; set; }
+    public int      CreatedBy       { get; set; }
+    public DateTime CreatedDate     { get; set; }
+}
+
+public class MasterProductLedgerFilter
+{
+    public DateTime? DateFrom        { get; set; }
+    public DateTime? DateTo          { get; set; }
+    public int?       ProductId       { get; set; }
+    public int?       CategoryId      { get; set; }
+    public int?       WarehouseId     { get; set; }
+    public string?    TransactionType { get; set; }
+    public string?    SourceType      { get; set; }
+    public string?    DestinationType { get; set; }
+    public int        Page            { get; set; } = 1;
+    public int        PageSize        { get; set; } = 20;
+}
+
+public class MasterProductLedgerSummaryModel
+{
+    public decimal TotalReceiptsQty { get; set; }
+    public decimal TotalIssuesQty   { get; set; }
+    public decimal NetMovement      { get; set; }
+    public decimal TotalValueMoved  { get; set; }
+}
+
+// ── ML-005: Opening Balance Import ──────────────────────────────────────────────
+
+public class OpeningBalanceImportRequest
+{
+    public List<OpeningBalanceLineRequest> Suppliers { get; set; } = [];
+}
+
+public class OpeningBalanceLineRequest
+{
+    public Guid    SupplierId   { get; set; }
+    public string  SupplierName { get; set; } = string.Empty;
+    public decimal Amount       { get; set; }
+}
+
+public class OpeningBalanceImportResult
+{
+    public int      EntriesCreated  { get; set; }
+    public decimal  TotalImported   { get; set; }
+    public decimal  MasterBalanceAfter { get; set; }
+}
+
+// ── ML-005: Bad Debt Write-off ──────────────────────────────────────────────────
+
+public class CreateWriteOffRequest
+{
+    public Guid    SupplierId   { get; set; }
+    public string  SupplierName { get; set; } = string.Empty;
+    public decimal Amount       { get; set; }
+    public string  Reason       { get; set; } = string.Empty;
+}
+
+public class RejectWriteOffRequest
+{
+    public string Reason { get; set; } = string.Empty;
+}
+
+public class WriteOffModel
+{
+    public Guid      Uuid            { get; set; }
+    public Guid      SupplierId      { get; set; }
+    public string    SupplierName    { get; set; } = string.Empty;
+    public decimal   Amount          { get; set; }
+    public string    Reason          { get; set; } = string.Empty;
+    public string    Status          { get; set; } = string.Empty;
+    public int       CreatedBy       { get; set; }
+    public DateTime  CreatedDate     { get; set; }
+    public int?      ApprovedBy      { get; set; }
+    public DateTime? ApprovedAt      { get; set; }
+    public string?   RejectionReason { get; set; }
+}
+
 // ── Supplier Payment models (SFM-003) ─────────────────────────────────────────
 
 public class CreateSupplierPaymentLineRequest
@@ -345,6 +500,9 @@ public class CreateSupplierPaymentRequest
     public string   PaymentType   { get; set; } = "STANDARD";
     // Required when PaymentType == PURCHASE_RETURN_SETTLEMENT.
     public Guid?    CreditNoteUuid { get; set; }
+    // Client-generated id so payment-evidence attachments uploaded before save can be linked
+    // to this payment via the same DocumentId (see supplier-payment-create.component.ts).
+    public Guid?    PaymentUuid    { get; set; }
     public List<CreateSupplierPaymentLineRequest> Lines { get; set; } = [];
 }
 
@@ -372,6 +530,7 @@ public class SupplierPaymentListItemModel
     public string   Status        { get; set; } = string.Empty;
     public string   PaymentType   { get; set; } = string.Empty;
     public int      LineCount     { get; set; }
+    public int      AttachmentCount { get; set; }
 }
 
 public class SupplierPaymentLineModel

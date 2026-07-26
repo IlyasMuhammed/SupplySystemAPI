@@ -1,6 +1,7 @@
 using SMS.Modules.Reports.Domain;
 using SMS.Modules.Reports.Models;
 using SMS.Shared.Pagination;
+using SMS.WorkflowEngine.Models;
 
 namespace SMS.Modules.Reports.Repositories;
 
@@ -28,6 +29,7 @@ public interface IReportsRepository
     Task<SupplierSpendAnalysisResponse>              GetSupplierSpendAnalysisAsync(SupplierSpendFilter filter);
     Task<DeliveryHeatmapResponse?>                   GetDeliveryPerformanceHeatmapAsync(Guid supplierId, int year);
     Task<List<BudgetUtilizationItem>>                GetBudgetUtilizationAsync(ReportDateFilter filter);
+    Task<List<TimelineEventView>>                    GetSupplierTimelineAsync(Guid supplierId);
     Task<PaginatedResponse<AuditLogItemModel>>       GetAuditTrailAsync(AuditLogFilter filter);
     Task<List<UserActivityItem>>                     GetUserActivityAsync(ReportDateFilter filter);
     Task                                             AddAuditLogAsync(AuditLog log);

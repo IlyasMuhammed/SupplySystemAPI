@@ -189,6 +189,24 @@
   border-left: 3px solid #3b82f6;
 }
 
+.sp-validation-errors {
+  display: flex;
+  gap: .6rem;
+  align-items: flex-start;
+  margin-top: 1.25rem;
+  padding: .8rem 1rem;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  color: #991b1b;
+  font-size: .85rem;
+
+  i { font-size: 1rem; margin-top: .1rem; }
+
+  ul { margin: .35rem 0 0; padding-left: 1.1rem; }
+  li { margin-bottom: .15rem; }
+}
+
 .sp-table-wrap {
   overflow-x: auto;
   border-radius: 12px;
@@ -266,6 +284,54 @@
   &--price  { width: 110px; }
   &--days   { width: 88px; }
   &--remarks { min-width: 140px; }
+}
+
+// ── Supporting documents ─────────────────────────────────────────────────────
+
+.sp-attachments {
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid #f1f5f9;
+}
+
+.sp-upload-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  font-size: .82rem;
+  font-weight: 600;
+  color: #1d4ed8;
+  border: 1px solid #1d4ed8;
+  border-radius: 8px;
+  padding: .5rem 1rem;
+  cursor: pointer;
+
+  &:hover { background: #eff6ff; }
+}
+
+.sp-attachment-list {
+  list-style: none;
+  margin: .9rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+}
+
+.sp-attachment-row {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  font-size: .85rem;
+  color: #1e293b;
+}
+
+.sp-attach-ok   { color: #16a34a; }
+.sp-attach-fail { color: #dc2626; }
+
+.sp-attach-status {
+  font-size: .78rem;
+  color: #dc2626;
 }
 
 // ── Submit bar ────────────────────────────────────────────────────────────────

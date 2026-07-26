@@ -174,6 +174,13 @@
         <h3><i class="pi pi-file-edit"></i> Notes</h3>
         <p class="notes-text">{{ grn.notes }}</p>
       </div>
+
+      <div class="info-card attachments-card">
+        <h3><i class="pi pi-paperclip"></i> Driver / Loader Documents</h3>
+        <div class="attachments-card-body">
+          <app-attachment-list interfaceCode="GRN" [documentId]="grn.uuid" [compact]="true"></app-attachment-list>
+        </div>
+      </div>
     </div>
 
     <!-- ── Lines table ─────────────────────────────────────────────────────── -->

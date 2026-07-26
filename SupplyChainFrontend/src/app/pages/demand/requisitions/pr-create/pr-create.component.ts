@@ -16,6 +16,7 @@ import { TooltipModule } from 'primeng/tooltip';
 import { MessageService } from 'primeng/api';
 import { DemandService, CreatePrRequest } from '../../../../services/demand.service';
 import { InventoryService, ProductListItemModel } from '../../../../services/inventory.service';
+import { AttachmentListComponent } from '../../../../shared/attachment-list/attachment-list.component';
 
 @Component({
   selector: 'app-pr-create',
@@ -24,7 +25,7 @@ import { InventoryService, ProductListItemModel } from '../../../../services/inv
     CommonModule, RouterModule, ReactiveFormsModule,
     ButtonModule, CardModule, InputTextModule, TextareaModule,
     InputNumberModule, CheckboxModule, DropdownModule,
-    CalendarModule, DividerModule, ToastModule, TooltipModule
+    CalendarModule, DividerModule, ToastModule, TooltipModule, AttachmentListComponent
   ],
   templateUrl: './pr-create.component.html',
   styleUrls: ['./pr-create.component.scss'],
@@ -33,6 +34,10 @@ import { InventoryService, ProductListItemModel } from '../../../../services/inv
 export class PrCreateComponent implements OnInit {
   form!: FormGroup;
   isSubmitting = false;
+
+  // Generated once per page load so attachments uploaded before save can be linked to the
+  // eventual PR (which is created with this same UUID on submit).
+  readonly prUuid = crypto.randomUUID();
 
   productOptions: { label: string; value: string }[] = [];
   private productsMap = new Map<string, ProductListItemModel>();
@@ -228,7 +233,8 @@ export class PrCreateComponent implements OnInit {
         requiredDate:       l.requiredDate instanceof Date ? l.requiredDate.toISOString() : l.requiredDate || undefined,
         lineNotes:          l.lineNotes        || undefined,
         budgetCode:         l.budgetCode       || undefined
-      }))
+      })),
+      prUuid: this.prUuid
     };
 
     this.demandService.createPr(req).subscribe({

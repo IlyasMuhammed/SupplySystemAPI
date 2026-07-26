@@ -177,7 +177,7 @@ public class InvoiceApproval_LedgerWiring_Tests
         failingLedger
             .Setup(l => l.PostEntryAsync(
                 It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Guid>(), It.IsAny<string>(),
-                It.IsAny<decimal>(), It.IsAny<decimal>(), It.IsAny<string?>(), It.IsAny<int>()))
+                It.IsAny<decimal>(), It.IsAny<decimal>(), It.IsAny<string?>(), It.IsAny<int>(), It.IsAny<string>()))
             .ThrowsAsync(new InvalidOperationException("Simulated ledger failure"));
 
         var repo = new InvoiceRepository(finDb, demandDb, whDb, failingLedger.Object);

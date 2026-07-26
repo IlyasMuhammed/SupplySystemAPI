@@ -19,6 +19,7 @@ import { DemandService, CreatePoRequest, VendorResponseModel } from '../../../..
 import { SupplierService, SupplierScoreSummaryModel } from '../../../../services/supplier.service';
 import { InventoryService, ProductListItemModel, WarehouseModel } from '../../../../services/inventory.service';
 import { AuthService } from '../../../service/auth.service';
+import { AttachmentListComponent } from '../../../../shared/attachment-list/attachment-list.component';
 
 @Component({
   selector: 'app-po-create',
@@ -27,7 +28,7 @@ import { AuthService } from '../../../service/auth.service';
     CommonModule, RouterModule, ReactiveFormsModule, FormsModule,
     ButtonModule, InputTextModule, TextareaModule, InputNumberModule,
     DropdownModule, CalendarModule, DividerModule, ToastModule, TooltipModule,
-    DialogModule
+    DialogModule, AttachmentListComponent
   ],
   templateUrl: './po-create.component.html',
   styleUrls: ['./po-create.component.scss'],
@@ -36,6 +37,10 @@ import { AuthService } from '../../../service/auth.service';
 export class PoCreateComponent implements OnInit {
   form!: FormGroup;
   isSubmitting = false;
+
+  // Generated once per page load so attachments uploaded before save can be linked to the
+  // eventual PO (which is created with this same UUID on submit).
+  readonly poUuid = crypto.randomUUID();
 
   supplierOptions: { label: string; value: string }[] = [];
   loadingSuppliers = false;
@@ -504,7 +509,8 @@ export class PoCreateComponent implements OnInit {
         warehouseName:    l.warehouseName    || undefined,
         requiredDate:     l.requiredDate instanceof Date ? l.requiredDate.toISOString() : l.requiredDate || undefined,
         lineNotes:        l.lineNotes        || undefined
-      }))
+      })),
+      poUuid: this.poUuid
     };
 
     this.demandService.createPo(req).subscribe({

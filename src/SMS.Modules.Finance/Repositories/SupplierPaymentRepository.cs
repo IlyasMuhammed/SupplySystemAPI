@@ -6,6 +6,7 @@ using SMS.Modules.Finance.Services;
 using SMS.Shared.Common;
 using SMS.Shared.Exceptions;
 using SMS.Shared.Pagination;
+using SMS.WorkflowEngine.Services;
 
 namespace SMS.Modules.Finance.Repositories;
 
@@ -14,12 +15,16 @@ internal sealed class SupplierPaymentRepository : ISupplierPaymentRepository
     private readonly FinanceDbContext       _fin;
     private readonly ISupplierLedgerService _ledger;
     private readonly INotificationService   _notif;
+    private readonly IAttachmentService?    _attachments;
 
-    public SupplierPaymentRepository(FinanceDbContext fin, ISupplierLedgerService ledger, INotificationService notif)
+    public SupplierPaymentRepository(
+        FinanceDbContext fin, ISupplierLedgerService ledger, INotificationService notif,
+        IAttachmentService? attachments = null)
     {
-        _fin    = fin;
-        _ledger = ledger;
-        _notif  = notif;
+        _fin         = fin;
+        _ledger      = ledger;
+        _notif       = notif;
+        _attachments = attachments;
     }
 
     // ── Create ────────────────────────────────────────────────────────────────
@@ -48,7 +53,7 @@ internal sealed class SupplierPaymentRepository : ISupplierPaymentRepository
 
         var payment = new SupplierPayment
         {
-            UUID          = Guid.NewGuid(),
+            UUID          = req.PaymentUuid is { } pid && pid != Guid.Empty ? pid : Guid.NewGuid(),
             PaymentNumber = paymentNumber,
             SupplierId    = req.SupplierId,
             SupplierName  = req.SupplierName,
@@ -142,6 +147,13 @@ internal sealed class SupplierPaymentRepository : ISupplierPaymentRepository
                 LineCount     = x.Lines.Count
             })
             .ToListAsync();
+
+        if (_attachments is not null && data.Count > 0)
+        {
+            var counts = await _attachments.GetCountsByDocumentIdsAsync("SUPPLIER_PAYMENT", data.Select(d => d.UUID));
+            foreach (var item in data)
+                item.AttachmentCount = counts.GetValueOrDefault(item.UUID);
+        }
 
         return new PaginatedResponse<SupplierPaymentListItemModel>
         {
@@ -299,7 +311,8 @@ internal sealed class SupplierPaymentRepository : ISupplierPaymentRepository
         await _ledger.PostEntryAsync(
             payment.SupplierId, "PAYMENT_POSTED", "SupplierPayment", payment.UUID, payment.PaymentNumber,
             debitAmount: 0m, creditAmount: payment.TotalAmount,
-            narration: $"Payment {payment.PaymentNumber} posted.", createdBy: postedBy);
+            narration: $"Payment {payment.PaymentNumber} posted.", createdBy: postedBy,
+            supplierName: payment.SupplierName);
 
         // Alerts fire only after the atomic save above has genuinely succeeded.
         foreach (var invoice in overpaidInvoices)
@@ -352,7 +365,7 @@ internal sealed class SupplierPaymentRepository : ISupplierPaymentRepository
         await _ledger.PostEntryAsync(
             payment.SupplierId, "PAYMENT_BOUNCED", "SupplierPayment", payment.UUID, payment.PaymentNumber,
             debitAmount: payment.TotalAmount, creditAmount: 0m,
-            narration: "Cheque bounced", createdBy: bouncedBy);
+            narration: "Cheque bounced", createdBy: bouncedBy, supplierName: payment.SupplierName);
 
         return true;
     }

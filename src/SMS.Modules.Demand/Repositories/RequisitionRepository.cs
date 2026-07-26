@@ -33,7 +33,7 @@ internal sealed class RequisitionRepository : IRequisitionRepository
     {
         ValidateLineQuantities(req.Lines.Select(l => l.Quantity));
 
-        var uuid = Guid.NewGuid();
+        var uuid = req.PrUuid is { } gid && gid != Guid.Empty ? gid : Guid.NewGuid();
         var now  = DateTime.UtcNow;
 
         var lines = req.Lines.Select((l, i) => new PrLine

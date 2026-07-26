@@ -5,3 +5,15 @@
 .filter-bar { display: flex; align-items: center; gap: .75rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
 .filter-dropdown { width: 160px; }
 .table-card { background: var(--surface-0); border: 1px solid var(--surface-200); border-radius: .625rem; overflow: hidden; }
+
+.attachment-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  font-size: .8125rem;
+  font-weight: 600;
+  color: var(--primary-color);
+  background: var(--primary-50, #eef2ff);
+  padding: .15rem .55rem;
+  border-radius: 1rem;
+}

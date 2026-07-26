@@ -49,6 +49,9 @@ export interface CreatePrRequest {
   warehouseUuid?: string;
   notes?: string;
   lines: CreatePrLineRequest[];
+  // Client-generated id so attachments uploaded before save can be linked via the same
+  // DocumentId — becomes the PR's own UUID on save.
+  prUuid?: string;
 }
 
 export interface PatchPrRequest {
@@ -180,6 +183,9 @@ export interface CreateQuotationRequest {
   dueDate?: string;
   notes?: string;
   lines: CreateQuotationLineRequest[];
+  // Client-generated id so attachments uploaded before save can be linked via the same
+  // DocumentId — becomes the Quotation's own UUID on save.
+  quotationUuid?: string;
 }
 
 export interface PatchQuotationRequest {
@@ -332,6 +338,8 @@ export interface QuotationDetailModel {
   createdBy: number;
   createdDate: string;
   submittedResponseCount: number;
+  bidsOpenedAt?: string;
+  bidsOpenedBy?: number;
   lines: QuotationLineModel[];
   invitedSuppliers: QuotationInvitedSupplierModel[];
 }
@@ -366,6 +374,9 @@ export interface CreatePoRequest {
   notes?: string;
   internalNotes?: string;
   budgetCode?: string;
+  // Client-generated id so attachments uploaded before save can be linked via the same
+  // DocumentId — becomes the PO's own UUID on save.
+  poUuid?: string;
 }
 
 export interface PatchPoRequest {
@@ -545,6 +556,10 @@ export class DemandService {
     return this.http.get<ApiResponse<VendorResponseModel[]>>(`${BASE}/quotations/${uuid}/comparison`);
   }
 
+  openBids(uuid: string): Observable<ApiResponse<null>> {
+    return this.http.post<ApiResponse<null>>(`${BASE}/quotations/${uuid}/open-bids`, {});
+  }
+
   awardQuotation(uuid: string, req: AwardQuotationRequest): Observable<ApiResponse<null>> {
     return this.http.post<ApiResponse<null>>(`${BASE}/quotations/${uuid}/award`, req);
   }
@@ -609,6 +624,10 @@ export class DemandService {
 
   sendPo(uuid: string, supplierContactMobile?: string): Observable<ApiResponse<null>> {
     return this.http.post<ApiResponse<null>>(`${BASE}/purchase-orders/${uuid}/send`, { supplierContactMobile: supplierContactMobile ?? null });
+  }
+
+  downloadPoPdf(uuid: string): Observable<Blob> {
+    return this.http.get(`${BASE}/purchase-orders/${uuid}/pdf`, { responseType: 'blob' });
   }
 
   patchQuotation(uuid: string, req: PatchQuotationRequest): Observable<ApiResponse<null>> {

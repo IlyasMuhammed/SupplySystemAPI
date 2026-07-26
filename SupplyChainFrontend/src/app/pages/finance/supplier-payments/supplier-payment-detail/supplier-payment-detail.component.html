@@ -73,6 +73,11 @@
         </ng-template>
       </p-table>
     </p-card>
+
+    <p-card header="Payment Evidence">
+      <app-attachment-list interfaceCode="SUPPLIER_PAYMENT" [documentId]="payment.uuid"
+                            [readOnly]="payment.status === 'CANCELLED'"></app-attachment-list>
+    </p-card>
   </ng-container>
 
   <ng-template #loadingBlock>

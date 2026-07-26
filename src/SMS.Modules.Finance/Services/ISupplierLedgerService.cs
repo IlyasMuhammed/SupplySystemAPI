@@ -17,9 +17,14 @@ public interface ISupplierLedgerService
     /// commit both together, and its retry-on-conflict path leaves those other tracked changes
     /// alone (only the losing ledger-entry attempt is detached and retried).
     /// </summary>
+    /// <param name="supplierName">
+    /// Denormalised onto the FSD Addendum 24 (ML-001) master ledger entry written alongside this one
+    /// in the same transaction, so the Master Payables Ledger screen never needs a join back to
+    /// Suppliers. Defaults to "" for callers that don't care about the master ledger's display value.
+    /// </param>
     Task<SupplierLedgerEntryModel> PostEntryAsync(
         Guid supplierId, string transactionType, string referenceType, Guid referenceId, string referenceNo,
-        decimal debitAmount, decimal creditAmount, string? narration, int createdBy);
+        decimal debitAmount, decimal creditAmount, string? narration, int createdBy, string supplierName = "");
 
     /// <summary>Paginated ledger entries for a supplier, newest first, optionally filtered by entry date range.</summary>
     Task<PaginatedResponse<SupplierLedgerEntryModel>> GetLedgerAsync(Guid supplierId, SupplierLedgerFilter filter);

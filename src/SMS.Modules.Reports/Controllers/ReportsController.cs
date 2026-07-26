@@ -5,6 +5,7 @@ using SMS.Modules.Reports.Services.Exports;
 using SMS.Shared.Authorization;
 using SMS.Shared.Constants;
 using SMS.Shared.Pagination;
+using SMS.WorkflowEngine.Models;
 
 namespace SMS.Modules.Reports.Controllers;
 
@@ -240,6 +241,13 @@ public class ReportsController : ControllerBase
     {
         var result = await _svc.GetUserActivityAsync(filter);
         return Ok(ApiResponse<List<UserActivityItem>>.Ok(result));
+    }
+
+    [HttpGet("supplier-timeline/{supplierId:guid}")]
+    public async Task<IActionResult> GetSupplierTimeline(Guid supplierId)
+    {
+        var result = await _svc.GetSupplierTimelineAsync(supplierId);
+        return Ok(ApiResponse<List<TimelineEventView>>.Ok(result));
     }
 
     // ── Material Reports ──────────────────────────────────────────────────────

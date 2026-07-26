@@ -260,7 +260,7 @@ public class PostAsync_Tests
         failingLedger
             .Setup(l => l.PostEntryAsync(
                 It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Guid>(), It.IsAny<string>(),
-                It.IsAny<decimal>(), It.IsAny<decimal>(), It.IsAny<string?>(), It.IsAny<int>()))
+                It.IsAny<decimal>(), It.IsAny<decimal>(), It.IsAny<string?>(), It.IsAny<int>(), It.IsAny<string>()))
             .ThrowsAsync(new InvalidOperationException("Simulated failure after invoice updates were tracked"));
 
         var repo = new SupplierPaymentRepository(db, failingLedger.Object, new Mock<INotificationService>().Object);

@@ -14,6 +14,12 @@ internal class Quotation
     public string? Notes { get; set; }
     public string? CancellationReason { get; set; }
 
+    // Sealed-bid: VendorResponse pricing (via GetComparisonAsync) and AwardAsync are both
+    // blocked until this is set via OpenBidsAsync — bids stay hidden from everyone, including
+    // admins, until an explicit "Open Bids" action.
+    public DateTime? BidsOpenedAt { get; set; }
+    public int?      BidsOpenedBy { get; set; }
+
     public bool IsActive { get; set; } = true;
     public bool IsDelete { get; set; }
     public int CreatedBy { get; set; }

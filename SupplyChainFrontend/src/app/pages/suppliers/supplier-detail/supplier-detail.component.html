@@ -564,6 +564,48 @@
         </div>
       </p-tabPanel>
 
+      <!-- ══ TAB 8 · Activity Timeline ═════════════════════════════════════════ -->
+      <p-tabPanel header="Activity Timeline" leftIcon="pi pi-history">
+        <div class="tab-content">
+          <div class="tab-toolbar">
+            <span class="tab-section-title">Workflow History</span>
+          </div>
+
+          <p class="text-secondary" style="margin:0 0 1rem;font-size:.85rem;">
+            Merged lifecycle history across this supplier's purchase orders and invoices
+            (each PO's chain already includes its own PR, GRN, and Invoice events).
+          </p>
+
+          <ul class="timeline-feed" *ngIf="timelineEvents.length">
+            <li class="timeline-feed-item" *ngFor="let e of timelineEvents" (click)="goToTimelineEvent(e)">
+              <div class="timeline-feed-dot"></div>
+              <div class="timeline-feed-body">
+                <div class="timeline-feed-head">
+                  <span class="timeline-feed-doc">{{ e.documentNumber || e.documentId }}</span>
+                  <p-tag [value]="e.interfaceCode" severity="secondary"></p-tag>
+                  <span class="timeline-feed-event">{{ timelineEventLabel(e) }}</span>
+                </div>
+                <div class="timeline-feed-meta">
+                  {{ e.occurredAt | date:'dd MMM yyyy, HH:mm' }}
+                  <ng-container *ngIf="e.performedByName">&bull; {{ e.performedByName }}</ng-container>
+                </div>
+                <div class="timeline-feed-notes" *ngIf="e.notes">{{ e.notes }}</div>
+              </div>
+            </li>
+          </ul>
+
+          <div *ngIf="!timelineEvents.length && !isLoadingTimeline" class="empty-state">
+            <i class="pi pi-history"></i>
+            <p>No workflow activity recorded yet for this supplier.</p>
+          </div>
+
+          <div *ngIf="isLoadingTimeline" class="empty-state">
+            <i class="pi pi-spin pi-spinner"></i>
+            <p>Loading timeline…</p>
+          </div>
+        </div>
+      </p-tabPanel>
+
     </p-tabView>
   </div>
 </div>
