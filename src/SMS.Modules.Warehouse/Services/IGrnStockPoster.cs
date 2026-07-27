@@ -36,7 +36,7 @@ internal sealed class EfGrnInventoryPoster : IGrnStockPoster
         var unlinked = grn.Lines.Where(l =>
         {
             if (l.ProductUuid.HasValue) return false;
-            var qty = grn.RequiresInspection
+            var qty = l.RequiresInspection
                 ? l.QtyAccepted
                 : Math.Max(0m, l.QtyReceived - l.QtyRejected);
             return qty > 0;
@@ -57,7 +57,7 @@ internal sealed class EfGrnInventoryPoster : IGrnStockPoster
 
             foreach (var line in grn.Lines.Where(l => l.ProductUuid.HasValue))
             {
-                var effectiveQty = grn.RequiresInspection
+                var effectiveQty = line.RequiresInspection
                     ? line.QtyAccepted
                     : Math.Max(0m, line.QtyReceived - line.QtyRejected);
 

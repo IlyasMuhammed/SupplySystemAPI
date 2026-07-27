@@ -189,6 +189,12 @@
 
   &:hover { background: var(--surface-100, #f1f5f9); color: var(--primary-color); }
   i { font-size: 0.85rem; }
+
+  &.rte-btn--glyph {
+    font-size: 0.85rem;
+    font-family: Georgia, 'Times New Roman', serif;
+    b, i, u { font-family: inherit; }
+  }
 }
 
 .rte-sep {

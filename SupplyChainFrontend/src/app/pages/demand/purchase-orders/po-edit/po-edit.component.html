@@ -53,13 +53,8 @@
 
         <div class="field">
           <label>Delivery Date</label>
-          <p-calendar formControlName="deliveryDate" dateFormat="dd/mm/yy"
+          <p-calendar formControlName="deliveryDate" dateFormat="dd/mm/yy" [minDate]="minDate"
                       [showIcon]="true" styleClass="w-full"></p-calendar>
-        </div>
-
-        <div class="field">
-          <label>Budget Code</label>
-          <input pInputText formControlName="budgetCode" placeholder="e.g. CAPEX-2025" class="w-full" maxlength="30" />
         </div>
 
         <div class="field col-span-2">
@@ -157,8 +152,13 @@
               </div>
               <div class="field">
                 <label>Required Date</label>
-                <p-calendar formControlName="requiredDate" dateFormat="dd/mm/yy"
+                <p-calendar formControlName="requiredDate" dateFormat="dd/mm/yy" [minDate]="minDate"
                             [showIcon]="true" styleClass="w-full" appendTo="body"></p-calendar>
+              </div>
+              <div class="field">
+                <label>Budget Code</label>
+                <input pInputText formControlName="budgetCode" placeholder="e.g. CAPEX-2025"
+                       class="w-full" maxlength="30" />
               </div>
 
               <!-- Notes — full width -->
@@ -180,6 +180,12 @@
                             styleClass="w-full line-warehouse-dd"
                             (onChange)="onLineWarehouseChange(i, $event)">
                 </p-dropdown>
+              </div>
+
+              <!-- Inspection requirement -->
+              <div class="field full line-inspection-toggle">
+                <p-checkbox formControlName="requiresInspection" [binary]="true" [inputId]="'requiresInspection-' + i"></p-checkbox>
+                <label [for]="'requiresInspection-' + i">Requires inspection at GRN</label>
               </div>
 
             </div>

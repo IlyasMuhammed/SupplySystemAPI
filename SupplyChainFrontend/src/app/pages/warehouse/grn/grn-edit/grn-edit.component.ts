@@ -9,7 +9,6 @@ import { InputTextModule } from 'primeng/inputtext';
 import { CalendarModule } from 'primeng/calendar';
 import { DropdownModule } from 'primeng/dropdown';
 import { TextareaModule } from 'primeng/textarea';
-import { RadioButtonModule } from 'primeng/radiobutton';
 import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
 import { WarehouseService, GrnDetailModel, PatchGrnRequest } from '../../../../services/warehouse.service';
@@ -21,7 +20,7 @@ import { InventoryService, WarehouseModel } from '../../../../services/inventory
   imports: [
     CommonModule, RouterModule, ReactiveFormsModule, FormsModule,
     ButtonModule, InputTextModule, CalendarModule,
-    DropdownModule, TextareaModule, RadioButtonModule, ToastModule
+    DropdownModule, TextareaModule, ToastModule
   ],
   templateUrl: './grn-edit.component.html',
   styleUrls: ['./grn-edit.component.scss'],
@@ -31,7 +30,6 @@ export class GrnEditComponent implements OnInit {
   uuid = '';
   grn: GrnDetailModel | null = null;
   form!: FormGroup;
-  requiresInspection = true;
   isLoading = true;
   isSubmitting = false;
   warehouseOptions: { label: string; value: string }[] = [];
@@ -99,7 +97,6 @@ export class GrnEditComponent implements OnInit {
           setTimeout(() => this.router.navigate(['/portal/pages/warehouse/grn', this.uuid]), 1500);
           return;
         }
-        this.requiresInspection = this.grn.requiresInspection;
         this.lineProductUuids = (this.grn.lines ?? []).map(l => l.productUuid ?? null);
         this.form.patchValue({
           warehouseUuid:  this.grn.warehouseUuid  ?? '',
@@ -129,8 +126,7 @@ export class GrnEditComponent implements OnInit {
       vehicleNo:          v.vehicleNo      || undefined,
       driverName:         v.driverName     || undefined,
       invoiceNo:          v.invoiceNo      || undefined,
-      notes:              v.notes          || undefined,
-      requiresInspection: this.requiresInspection
+      notes:              v.notes          || undefined
     };
 
     // Save any product links that changed on individual lines

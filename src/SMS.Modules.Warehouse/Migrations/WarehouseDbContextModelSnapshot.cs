@@ -262,6 +262,11 @@ namespace SMS.Modules.Warehouse.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<bool>("RequiresInspection")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
                     b.Property<string>("SerialNumber")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");

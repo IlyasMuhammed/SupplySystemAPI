@@ -43,7 +43,6 @@ internal sealed class PoCloneHandler : IDocumentCloneHandler
             TotalAmount  = source.TotalAmount,
             DeliveryDate = source.DeliveryDate,
             Notes        = source.Notes,
-            BudgetCode   = source.BudgetCode,
             IsActive     = true,
             CreatedBy    = source.CreatedBy,
             CreatedDate  = now,
@@ -60,7 +59,8 @@ internal sealed class PoCloneHandler : IDocumentCloneHandler
                 UnitPrice        = l.UnitPrice,
                 LineTotal        = l.LineTotal,
                 RequiredDate     = l.RequiredDate,
-                LineNotes        = l.LineNotes
+                LineNotes        = l.LineNotes,
+                BudgetCode       = l.BudgetCode
             }).ToList(),
             PrLinks = source.PrLinks.Select(link => new PurchaseOrderPrLink
             {

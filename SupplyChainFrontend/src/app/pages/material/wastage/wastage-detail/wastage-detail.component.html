@@ -2,31 +2,62 @@
   <p-toast></p-toast>
 
   <!-- Approve Dialog -->
-  <p-dialog header="Approve Wastage" [(visible)]="showApproveDialog" [modal]="true" [style]="{width:'450px'}">
-    <div class="dialog-body">
-      <p class="dialog-hint">Approving this wastage will post a cost charge to the originating project or department. This action cannot be undone.</p>
-      <div class="input-group">
+  <p-dialog [(visible)]="showApproveDialog" [modal]="true" [style]="{width:'460px'}"
+            [draggable]="false" [resizable]="false" styleClass="sdlg">
+    <ng-template pTemplate="header">
+      <div class="sdlg-header">
+        <div class="sdlg-header-icon sdlg-icon-green"><i class="pi pi-check-circle"></i></div>
+        <div class="sdlg-header-text">
+          <div class="sdlg-title">Approve Wastage</div>
+          <div class="sdlg-subtitle" *ngIf="wastage">{{ wastage.wastageNo }}</div>
+        </div>
+      </div>
+    </ng-template>
+    <div class="sdlg-body">
+      <div class="sdlg-warn-banner">
+        <i class="pi pi-exclamation-triangle"></i>
+        <span>Approving this wastage will post a cost charge to the originating project or department. This action cannot be undone.</span>
+      </div>
+      <div class="sdlg-field">
         <label>Approval Notes (optional)</label>
-        <textarea pTextarea [(ngModel)]="approvalNotes" rows="3" placeholder="Any additional notes..."></textarea>
+        <textarea pTextarea [(ngModel)]="approvalNotes" rows="3" class="w-full" placeholder="Any additional notes..."></textarea>
       </div>
     </div>
     <ng-template pTemplate="footer">
-      <p-button label="Cancel" severity="secondary" [outlined]="true" (onClick)="showApproveDialog=false"></p-button>
-      <p-button label="Confirm Approval" severity="success" icon="pi pi-check" (onClick)="confirmApprove()"></p-button>
+      <div class="sdlg-footer">
+        <div class="sdlg-footer-btns">
+          <p-button label="Cancel" severity="secondary" [text]="true" (onClick)="showApproveDialog=false"></p-button>
+          <p-button label="Confirm Approval" severity="success" icon="pi pi-check" (onClick)="confirmApprove()"></p-button>
+        </div>
+      </div>
     </ng-template>
   </p-dialog>
 
   <!-- Reject Dialog -->
-  <p-dialog header="Reject Wastage" [(visible)]="showRejectDialog" [modal]="true" [style]="{width:'450px'}">
-    <div class="dialog-body">
-      <div class="input-group">
-        <label>Rejection Reason <span class="required">*</span></label>
-        <textarea pTextarea [(ngModel)]="rejectionReason" rows="3" placeholder="Explain why this wastage is being rejected..."></textarea>
+  <p-dialog [(visible)]="showRejectDialog" [modal]="true" [style]="{width:'460px'}"
+            [draggable]="false" [resizable]="false" styleClass="sdlg">
+    <ng-template pTemplate="header">
+      <div class="sdlg-header">
+        <div class="sdlg-header-icon sdlg-icon-red"><i class="pi pi-times-circle"></i></div>
+        <div class="sdlg-header-text">
+          <div class="sdlg-title">Reject Wastage</div>
+          <div class="sdlg-subtitle" *ngIf="wastage">{{ wastage.wastageNo }}</div>
+        </div>
+      </div>
+    </ng-template>
+    <div class="sdlg-body">
+      <div class="sdlg-field">
+        <label>Rejection Reason <span class="sdlg-required">*</span></label>
+        <textarea pTextarea [(ngModel)]="rejectionReason" rows="3" class="w-full" placeholder="Explain why this wastage is being rejected..."></textarea>
       </div>
     </div>
     <ng-template pTemplate="footer">
-      <p-button label="Cancel" severity="secondary" [outlined]="true" (onClick)="showRejectDialog=false"></p-button>
-      <p-button label="Reject" severity="danger" icon="pi pi-times" (onClick)="confirmReject()"></p-button>
+      <div class="sdlg-footer">
+        <div class="sdlg-footer-btns">
+          <p-button label="Cancel" severity="secondary" [text]="true" (onClick)="showRejectDialog=false"></p-button>
+          <p-button label="Reject" severity="danger" icon="pi pi-times" (onClick)="confirmReject()"></p-button>
+        </div>
+      </div>
     </ng-template>
   </p-dialog>
 

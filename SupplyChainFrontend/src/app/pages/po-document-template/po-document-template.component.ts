@@ -15,13 +15,11 @@ import {
 import { AttachmentService } from '../../services/attachment.service';
 
 const DEFAULT_BODY_HTML =
-  '<p>To: {{SupplierName}}<br>Contact: {{SupplierMobile}}</p>' +
   '<p><strong>SUBJECT: Purchase Order {{PoNumber}}</strong></p>' +
   '<p>Dear Sir/Madam,</p>' +
   '<p>Please find below our Purchase Order {{PoNumber}} dated {{PoDate}}, to be delivered by {{DeliveryDate}}. ' +
   'Kindly acknowledge receipt and confirm your acceptance of the order details below.</p>' +
   '{{LineItemsTable}}' +
-  '<p>Grand Total: {{TotalAmount}}</p>' +
   '{{SignatureBlock}}';
 
 @Component({
@@ -118,7 +116,7 @@ export class PoDocumentTemplateComponent implements OnInit {
 
   // ── Rich-text toolbar ──────────────────────────────────────────────────────
 
-  format(command: 'bold' | 'italic' | 'underline' | 'insertUnorderedList') {
+  format(command: 'bold' | 'italic' | 'underline' | 'insertUnorderedList' | 'justifyLeft' | 'justifyCenter' | 'justifyRight') {
     this.editorRef.nativeElement.focus();
     document.execCommand(command, false);
   }

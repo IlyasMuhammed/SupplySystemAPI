@@ -28,6 +28,7 @@ public static class SuppliersModuleExtensions
         services.AddSingleton<IPhoneNumberValidationService, PhoneNumberValidationService>();
         services.AddScoped<ISuppliersService, SuppliersService>();
         services.AddScoped<ISupplierRatingJob, SupplierRatingJob>();
+        services.AddScoped<ISupplierContactLookupService, SupplierContactLookupService>();
         services.AddScoped<IScorecardRepository, ScorecardRepository>();
         services.AddScoped<IScorecardService, ScorecardService>();
         services.AddScoped<ScorecardDataSeeder>();

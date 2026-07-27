@@ -48,6 +48,7 @@ internal sealed class GrnLineMap : IEntityTypeConfiguration<GrnLine>
         b.Property(x => x.UUID).IsRequired();
         b.HasIndex(x => x.UUID).IsUnique();
         b.Property(x => x.PoLineUuid).IsRequired();
+        b.Property(x => x.RequiresInspection).HasDefaultValue(true);
         b.Property(x => x.ItemDescription).HasMaxLength(300).IsRequired();
         b.Property(x => x.UnitOfMeasure).HasMaxLength(20);
         b.Property(x => x.QtyOrdered).HasColumnType("decimal(18,4)");

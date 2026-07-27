@@ -23,7 +23,6 @@ internal sealed class PurchaseOrderMap : IEntityTypeConfiguration<PurchaseOrder>
         b.Property(x => x.TotalAmount).HasColumnType("decimal(18,2)");
         b.Property(x => x.Notes).HasMaxLength(500);
         b.Property(x => x.InternalNotes).HasMaxLength(2000);
-        b.Property(x => x.BudgetCode).HasMaxLength(50);
         b.Property(x => x.DeliveryWarehouseName).HasMaxLength(150);
         b.Property(x => x.SupplierContactMobile).HasMaxLength(20);
         b.Property(x => x.IsActive).HasDefaultValue(true);
@@ -57,7 +56,9 @@ internal sealed class PurchaseOrderLineMap : IEntityTypeConfiguration<PurchaseOr
         b.Property(x => x.LineTotal).HasColumnType("decimal(18,2)");
         b.Property(x => x.QtyReceived).HasColumnType("decimal(18,4)").HasDefaultValue(0m);
         b.Property(x => x.QtyInvoiced).HasColumnType("decimal(18,4)").HasDefaultValue(0m);
+        b.Property(x => x.BudgetCode).HasMaxLength(50);
         b.Property(x => x.WarehouseName).HasMaxLength(150);
+        b.Property(x => x.RequiresInspection).HasDefaultValue(true);
     }
 }
 

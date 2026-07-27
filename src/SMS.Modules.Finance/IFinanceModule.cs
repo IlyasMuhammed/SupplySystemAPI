@@ -47,6 +47,7 @@ public static class FinanceModuleExtensions
         services.AddScoped<IDebtWriteOffService, DebtWriteOffService>();
         services.AddScoped<ISupplierPaymentRepository, SupplierPaymentRepository>();
         services.AddScoped<ISupplierPaymentService,    SupplierPaymentService>();
+        services.AddScoped<IInvoiceDocumentService,    InvoiceDocumentService>();
 
         // Auto-populate an invoice from a GRN when it's approved (fans out alongside Suppliers'
         // scorecard-scoring publisher — GrnStatusHandler calls every registered IGrnEventPublisher).

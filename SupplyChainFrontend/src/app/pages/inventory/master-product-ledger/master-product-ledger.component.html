@@ -122,43 +122,50 @@
 
 <!-- ── Product Journey dialog ──────────────────────────────────────────────── -->
 <p-dialog [(visible)]="showJourneyDialog" [modal]="true" [style]="{width:'820px'}"
-          header="Product Journey" [draggable]="false" [resizable]="false">
-  <div class="journey-header" *ngIf="journeyProductName">
-    <i class="pi pi-box"></i>
-    <strong>{{ journeyProductName }}</strong>
-  </div>
-
-  <div class="journey-loading" *ngIf="isLoadingJourney">
-    <i class="pi pi-spin pi-spinner"></i> Loading journey…
-  </div>
-
-  <ul class="journey-timeline" *ngIf="!isLoadingJourney && journeyEntries.length">
-    <li class="journey-item" *ngFor="let e of journeyEntries">
-      <div class="journey-dot" [ngClass]="{'journey-dot--in': e.quantityIn, 'journey-dot--out': e.quantityOut}"></div>
-      <div class="journey-body">
-        <div class="journey-head">
-          <p-tag [value]="getTypeLabel(e.transactionType)" [severity]="getTypeSeverity(e.transactionType)"></p-tag>
-          <span class="journey-qty" *ngIf="e.quantityIn">+{{ e.quantityIn | number:'1.2-2' }}</span>
-          <span class="journey-qty journey-qty--out" *ngIf="e.quantityOut">-{{ e.quantityOut | number:'1.2-2' }}</span>
-        </div>
-        <div class="journey-route">
-          <span>{{ e.sourceType }}<small *ngIf="e.sourceName"> — {{ e.sourceName }}</small></span>
-          <i class="pi pi-arrow-right"></i>
-          <span>{{ e.destinationType }}<small *ngIf="e.destinationName"> — {{ e.destinationName }}</small></span>
-        </div>
-        <div class="journey-meta">
-          {{ e.transactionDate | date:'dd MMM yyyy, HH:mm' }} &bull; {{ e.warehouseName }}
-          <ng-container *ngIf="canDrillDownReference(e)">
-            &bull; <a class="ref-link" (click)="drillDownReference(e)">{{ e.referenceNumber }}</a>
-          </ng-container>
-          <ng-container *ngIf="!canDrillDownReference(e)"> &bull; {{ e.referenceNumber }}</ng-container>
-        </div>
+          [draggable]="false" [resizable]="false" styleClass="sdlg">
+  <ng-template pTemplate="header">
+    <div class="sdlg-header">
+      <div class="sdlg-header-icon sdlg-icon-blue"><i class="pi pi-box"></i></div>
+      <div class="sdlg-header-text">
+        <div class="sdlg-title">Product Journey</div>
+        <div class="sdlg-subtitle" *ngIf="journeyProductName">{{ journeyProductName }}</div>
       </div>
-    </li>
-  </ul>
+    </div>
+  </ng-template>
 
-  <div class="journey-empty" *ngIf="!isLoadingJourney && !journeyEntries.length">
-    <i class="pi pi-inbox"></i>
-    <p>No movement history recorded for this product yet.</p>
+  <div class="sdlg-body">
+    <div class="sdlg-loading" *ngIf="isLoadingJourney">
+      <i class="pi pi-spin pi-spinner"></i> Loading journey…
+    </div>
+
+    <ul class="journey-timeline" *ngIf="!isLoadingJourney && journeyEntries.length">
+      <li class="journey-item" *ngFor="let e of journeyEntries">
+        <div class="journey-dot" [ngClass]="{'journey-dot--in': e.quantityIn, 'journey-dot--out': e.quantityOut}"></div>
+        <div class="journey-body">
+          <div class="journey-head">
+            <p-tag [value]="getTypeLabel(e.transactionType)" [severity]="getTypeSeverity(e.transactionType)"></p-tag>
+            <span class="journey-qty" *ngIf="e.quantityIn">+{{ e.quantityIn | number:'1.2-2' }}</span>
+            <span class="journey-qty journey-qty--out" *ngIf="e.quantityOut">-{{ e.quantityOut | number:'1.2-2' }}</span>
+          </div>
+          <div class="journey-route">
+            <span>{{ e.sourceType }}<small *ngIf="e.sourceName"> — {{ e.sourceName }}</small></span>
+            <i class="pi pi-arrow-right"></i>
+            <span>{{ e.destinationType }}<small *ngIf="e.destinationName"> — {{ e.destinationName }}</small></span>
+          </div>
+          <div class="journey-meta">
+            {{ e.transactionDate | date:'dd MMM yyyy, HH:mm' }} &bull; {{ e.warehouseName }}
+            <ng-container *ngIf="canDrillDownReference(e)">
+              &bull; <a class="ref-link" (click)="drillDownReference(e)">{{ e.referenceNumber }}</a>
+            </ng-container>
+            <ng-container *ngIf="!canDrillDownReference(e)"> &bull; {{ e.referenceNumber }}</ng-container>
+          </div>
+        </div>
+      </li>
+    </ul>
+
+    <div class="sdlg-empty" *ngIf="!isLoadingJourney && !journeyEntries.length">
+      <i class="pi pi-inbox"></i>
+      <p>No movement history recorded for this product yet.</p>
+    </div>
   </div>
 </p-dialog>

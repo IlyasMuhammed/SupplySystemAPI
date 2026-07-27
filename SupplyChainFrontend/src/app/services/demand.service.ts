@@ -174,6 +174,7 @@ export interface CreateQuotationLineRequest {
   quantity: number;
   requiredDate?: string;
   lineNotes?: string;
+  budgetCode?: string;
 }
 
 export interface CreateQuotationRequest {
@@ -279,6 +280,7 @@ export interface QuotationLineModel {
   unitOfMeasure?: string;
   quantity: number;
   requiredDate?: string;
+  budgetCode?: string;
 }
 
 export interface QuotationInvitedSupplierModel {
@@ -321,6 +323,7 @@ export interface RfqAccessLinkModel {
   expiresAt: string;
   emailSentAt?: string;
   whatsAppSentAt?: string;
+  whatsAppStatus?: string;
   firstOpenedAt?: string;
   consumedAt?: string;
 }
@@ -358,8 +361,10 @@ export interface CreatePoLineRequest {
   unitPrice: number;
   requiredDate?: string;
   lineNotes?: string;
+  budgetCode?: string;
   warehouseId?: string;
   warehouseName?: string;
+  requiresInspection?: boolean;
 }
 
 export interface CreatePoRequest {
@@ -373,7 +378,6 @@ export interface CreatePoRequest {
   title?: string;
   notes?: string;
   internalNotes?: string;
-  budgetCode?: string;
   // Client-generated id so attachments uploaded before save can be linked via the same
   // DocumentId — becomes the PO's own UUID on save.
   poUuid?: string;
@@ -387,7 +391,6 @@ export interface PatchPoRequest {
   deliveryWarehouseId?: string;
   deliveryWarehouseName?: string;
   notes?: string;
-  budgetCode?: string;
   lines?: CreatePoLineRequest[];
 }
 
@@ -440,10 +443,12 @@ export interface PoLineModel {
   qtyPendingInvoice: number;
   requiredDate?: string;
   lineNotes?: string;
+  budgetCode?: string;
   warehouseId?: string;
   warehouseName?: string;
   effectiveWarehouseId?: string;
   effectiveWarehouseName?: string;
+  requiresInspection: boolean;
 }
 
 export interface PoDetailModel {
@@ -458,7 +463,6 @@ export interface PoDetailModel {
   deliveryWarehouseId?: string;
   deliveryWarehouseName?: string;
   notes?: string;
-  budgetCode?: string;
   createdBy: number;
   createdDate: string;
   lines: PoLineModel[];

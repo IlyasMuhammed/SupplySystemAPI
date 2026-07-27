@@ -17,15 +17,18 @@ namespace SMS.Modules.Finance.Controllers;
 [Route("api/finance/invoices")]
 public class InvoicesController : ControllerBase
 {
-    private readonly IInvoiceService      _svc;
-    private readonly IWebHostEnvironment  _env;
-    private readonly INotificationService _notif;
+    private readonly IInvoiceService         _svc;
+    private readonly IInvoiceDocumentService _documentSvc;
+    private readonly IWebHostEnvironment     _env;
+    private readonly INotificationService    _notif;
 
-    public InvoicesController(IInvoiceService svc, IWebHostEnvironment env, INotificationService notif)
+    public InvoicesController(
+        IInvoiceService svc, IInvoiceDocumentService documentSvc, IWebHostEnvironment env, INotificationService notif)
     {
-        _svc   = svc;
-        _env   = env;
-        _notif = notif;
+        _svc         = svc;
+        _documentSvc = documentSvc;
+        _env         = env;
+        _notif       = notif;
     }
 
     [HttpPost]
@@ -56,6 +59,13 @@ public class InvoicesController : ControllerBase
         return detail is null
             ? NotFound(ApiResponse.Fail(StaticResponseMessage.recordNotFound))
             : Ok(ApiResponse<InvoiceDetailModel>.Ok(detail));
+    }
+
+    [HttpGet("{uuid:guid}/pdf")]
+    public async Task<IActionResult> DownloadPdf(Guid uuid)
+    {
+        var bytes = await _documentSvc.GeneratePdfAsync(uuid);
+        return File(bytes, "application/pdf", $"Invoice-{uuid}.pdf");
     }
 
     [HttpPatch("{uuid:guid}")]

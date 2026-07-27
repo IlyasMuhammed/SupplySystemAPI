@@ -582,6 +582,7 @@ export class GrnDetailComponent implements OnInit {
       case 'Pass':        return 'Pass';
       case 'Fail':        return 'Fail';
       case 'PartialPass': return 'Partial Pass';
+      case 'NotRequired': return 'Not Required';
       default:            return '—';
     }
   }
@@ -589,6 +590,13 @@ export class GrnDetailComponent implements OnInit {
   get canInspect(): boolean {
     const s = this.grn?.status;
     return (s === 'PENDING_QC' || s === 'PENDING_APPROVAL') && (this.grn?.requiresInspection ?? false);
+  }
+
+  // Inspection requirement is decided per-line at PO creation — a GRN can mix lines that need
+  // formal QC with lines that don't, so the editable inspection controls must be gated per row,
+  // not just by the document-level canInspect flag.
+  canInspectLine(line: GrnLineModel): boolean {
+    return this.canInspect && line.requiresInspection;
   }
 
   // ── Status helpers ────────────────────────────────────────────────────────

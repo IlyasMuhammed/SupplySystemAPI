@@ -45,6 +45,7 @@ internal class QuotationLine
     public string? UnitOfMeasure { get; set; }
     public decimal Quantity { get; set; }
     public DateTime? RequiredDate { get; set; }
+    public string? BudgetCode { get; set; }
 
     public Quotation Quotation { get; set; } = null!;
     public ICollection<VendorResponseLine> ResponseLines { get; set; } = new List<VendorResponseLine>();
@@ -116,7 +117,10 @@ internal class RfqAccessLink
     public string? PortalLinkUrl         { get; set; }  // full portal URL with embedded raw token
     public DateTime? EmailSentAt         { get; set; }  // set after successful email dispatch
     public string? ContactMobileNumber   { get; set; }  // verified contact mobile (E.164) — WhatsApp target
-    public DateTime? WhatsAppSentAt      { get; set; }  // set after successful WhatsApp dispatch
+    public DateTime? WhatsAppSentAt      { get; set; }  // set once the provider accepted the send request (NOT delivery confirmation)
+    public string? WhatsAppProviderMessageId { get; set; }  // Twilio SID — correlates the async status callback back to this link
+    public string? WhatsAppStatus        { get; set; }  // QUEUED | SENT | DELIVERED | READ | FAILED | UNDELIVERED — updated by the Twilio status callback webhook
+    public DateTime? WhatsAppStatusUpdatedAt { get; set; }
 
     public Quotation Quotation { get; set; } = null!;
 }

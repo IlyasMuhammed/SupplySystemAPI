@@ -14,7 +14,6 @@ public class CreatePoRequest
     public string? Title { get; set; }
     public string? Notes { get; set; }
     public string? InternalNotes { get; set; }
-    public string? BudgetCode { get; set; }
     // Client-generated id so attachments uploaded before save can be linked via the same
     // DocumentId — becomes the PO's own UUID on save.
     public Guid? PoUuid { get; set; }
@@ -31,8 +30,10 @@ public class CreatePoLineRequest
     public decimal UnitPrice { get; set; }
     public DateTime? RequiredDate { get; set; }
     public string? LineNotes { get; set; }
+    public string? BudgetCode { get; set; }
     public Guid? WarehouseId { get; set; }
     public string? WarehouseName { get; set; }
+    public bool RequiresInspection { get; set; } = true;
 }
 
 public class SendPoRequest
@@ -49,7 +50,6 @@ public class PatchPoRequest
     public Guid? DeliveryWarehouseId { get; set; }
     public string? DeliveryWarehouseName { get; set; }
     public string? Notes { get; set; }
-    public string? BudgetCode { get; set; }
     public List<CreatePoLineRequest>? Lines { get; set; }
 }
 
@@ -98,7 +98,6 @@ public class PoDetailModel
     public string? DeliveryWarehouseName { get; set; }
     public string? Notes { get; set; }
     public string? InternalNotes { get; set; }
-    public string? BudgetCode { get; set; }
     public int CreatedBy { get; set; }
     public DateTime CreatedDate { get; set; }
     public List<PoLineModel> Lines { get; set; } = new();
@@ -134,8 +133,10 @@ public class PoLineModel
     public decimal QtyPendingInvoice => QtyReceived - QtyInvoiced;
     public DateTime? RequiredDate { get; set; }
     public string? LineNotes { get; set; }
+    public string? BudgetCode { get; set; }
     public Guid? WarehouseId { get; set; }
     public string? WarehouseName { get; set; }
     public Guid? EffectiveWarehouseId { get; set; }
     public string? EffectiveWarehouseName { get; set; }
+    public bool RequiresInspection { get; set; } = true;
 }

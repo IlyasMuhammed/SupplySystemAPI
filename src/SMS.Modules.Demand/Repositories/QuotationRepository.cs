@@ -54,7 +54,8 @@ internal sealed class QuotationRepository : IQuotationRepository
             Specification     = l.Specification,
             UnitOfMeasure     = l.UnitOfMeasure,
             Quantity          = l.Quantity,
-            RequiredDate      = l.RequiredDate
+            RequiredDate      = l.RequiredDate,
+            BudgetCode        = l.BudgetCode
         }).ToList();
 
         var quotation = new Quotation
@@ -109,7 +110,8 @@ internal sealed class QuotationRepository : IQuotationRepository
                 Specification    = l.Specification,
                 UnitOfMeasure    = l.UnitOfMeasure,
                 Quantity         = l.Quantity,
-                RequiredDate     = l.RequiredDate
+                RequiredDate     = l.RequiredDate,
+                BudgetCode       = l.BudgetCode
             }).ToList();
         }
 
@@ -205,7 +207,8 @@ internal sealed class QuotationRepository : IQuotationRepository
                 Specification    = l.Specification,
                 UnitOfMeasure    = l.UnitOfMeasure,
                 Quantity         = l.Quantity,
-                RequiredDate     = l.RequiredDate
+                RequiredDate     = l.RequiredDate,
+                BudgetCode       = l.BudgetCode
             }).ToList(),
             InvitedSuppliers = q.InvitedSuppliers.Select(s => new QuotationInvitedSupplierModel
             {
@@ -503,6 +506,7 @@ internal sealed class QuotationRepository : IQuotationRepository
             ExpiresAt      = l.ExpiresAt,
             EmailSentAt    = l.EmailSentAt,
             WhatsAppSentAt = l.WhatsAppSentAt,
+            WhatsAppStatus = l.WhatsAppStatus,
             FirstOpenedAt  = l.FirstOpenedAt,
             ConsumedAt     = l.ConsumedAt
         }).ToList();

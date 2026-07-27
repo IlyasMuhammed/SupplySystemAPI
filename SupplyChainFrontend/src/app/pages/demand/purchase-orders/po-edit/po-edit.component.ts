@@ -12,6 +12,7 @@ import { DividerModule } from 'primeng/divider';
 import { ToastModule } from 'primeng/toast';
 import { TooltipModule } from 'primeng/tooltip';
 import { AutoCompleteModule } from 'primeng/autocomplete';
+import { CheckboxModule } from 'primeng/checkbox';
 import { MessageService } from 'primeng/api';
 import { DemandService, PatchPoRequest } from '../../../../services/demand.service';
 import { SupplierService, SupplierListItemModel } from '../../../../services/supplier.service';
@@ -24,7 +25,7 @@ import { InventoryService, ProductListItemModel, WarehouseModel } from '../../..
     CommonModule, RouterModule, ReactiveFormsModule, FormsModule,
     ButtonModule, InputTextModule, TextareaModule, InputNumberModule,
     DropdownModule, CalendarModule, DividerModule, ToastModule,
-    TooltipModule, AutoCompleteModule
+    TooltipModule, AutoCompleteModule, CheckboxModule
   ],
   templateUrl: './po-edit.component.html',
   styleUrls: ['./po-edit.component.scss'],
@@ -35,6 +36,7 @@ export class PoEditComponent implements OnInit {
   form!: FormGroup;
   isLoading = true;
   isSubmitting = false;
+  minDate = new Date();
 
   supplierSuggestions: SupplierListItemModel[] = [];
   supplierAuto: any = null;
@@ -47,14 +49,17 @@ export class PoEditComponent implements OnInit {
   private warehousesMap = new Map<string, string>();
   loadingWarehouses = false;
 
+  // UOM options from FSD Section 6.5 — kept identical across every line-item form (PR/Quotation/PO)
+  // so a value copied from one document's lines always matches an option in the next.
   uomOptions = [
-    { label: 'PC',   value: 'PC' },
-    { label: 'BOX',  value: 'BOX' },
-    { label: 'KG',   value: 'KG' },
-    { label: 'L',    value: 'L' },
-    { label: 'M',    value: 'M' },
-    { label: 'SET',  value: 'SET' },
-    { label: 'UNIT', value: 'UNIT' }
+    { label: 'Each (EA)',    value: 'EA'   },
+    { label: 'Kilogram (KG)', value: 'KG'  },
+    { label: 'Litre (LTR)',  value: 'LTR'  },
+    { label: 'Box (BOX)',    value: 'BOX'  },
+    { label: 'Set (SET)',    value: 'SET'  },
+    { label: 'Meter (MTR)',  value: 'MTR'  },
+    { label: 'Packet (PKT)', value: 'PKT'  },
+    { label: 'Pair (PAIR)',  value: 'PAIR' }
   ];
 
   constructor(
@@ -116,7 +121,7 @@ export class PoEditComponent implements OnInit {
     this.lines.at(i).patchValue({
       itemDescription: p.name,
       specification:   (p as any).description ?? '',
-      unitOfMeasure:   p.uomCode ?? 'PC',
+      unitOfMeasure:   p.uomCode ?? null,
       unitPrice:       p.unitCost ?? 0
     });
   }
@@ -129,7 +134,6 @@ export class PoEditComponent implements OnInit {
       deliveryDate:          [null],
       deliveryWarehouseId:   [null],
       deliveryWarehouseName: [''],
-      budgetCode:            [''],
       notes:                 [''],
       lines:                 this.fb.array([this.newLine()])
     });
@@ -142,13 +146,15 @@ export class PoEditComponent implements OnInit {
       productId:       [null],
       itemDescription: ['', Validators.required],
       specification:   [''],
-      unitOfMeasure:   ['PC'],
+      unitOfMeasure:   [null],
       quantity:        [1,  [Validators.required, Validators.min(0.0001), Validators.max(999999)]],
       unitPrice:       [0,  [Validators.required, Validators.min(0)]],
       warehouseId:     [null],
       warehouseName:   [''],
       requiredDate:    [null],
-      lineNotes:       ['']
+      lineNotes:       [''],
+      budgetCode:      [''],
+      requiresInspection: [true]
     });
   }
 
@@ -215,13 +221,15 @@ export class PoEditComponent implements OnInit {
           productId:       [l.productUuid ?? null],
           itemDescription: [l.itemDescription, Validators.required],
           specification:   [l.specification ?? ''],
-          unitOfMeasure:   [l.unitOfMeasure ?? 'PC'],
+          unitOfMeasure:   [l.unitOfMeasure ?? null],
           quantity:        [l.quantity, [Validators.required, Validators.min(0.0001), Validators.max(999999)]],
           unitPrice:       [l.unitPrice, [Validators.required, Validators.min(0)]],
           warehouseId:     [l.warehouseId ?? null],
           warehouseName:   [l.warehouseName ?? ''],
           requiredDate:    [l.requiredDate ? new Date(l.requiredDate) : null],
-          lineNotes:       [l.lineNotes ?? '']
+          lineNotes:       [l.lineNotes ?? ''],
+          budgetCode:      [l.budgetCode ?? ''],
+          requiresInspection: [l.requiresInspection ?? true]
         })));
         if (!this.lines.length) this.lines.push(this.newLine());
 
@@ -233,7 +241,6 @@ export class PoEditComponent implements OnInit {
           deliveryDate:          po.deliveryDate ? new Date(po.deliveryDate) : null,
           deliveryWarehouseId:   po.deliveryWarehouseId ?? null,
           deliveryWarehouseName: po.deliveryWarehouseName ?? '',
-          budgetCode:            po.budgetCode ?? '',
           notes:                 po.notes ?? ''
         });
       },
@@ -255,7 +262,6 @@ export class PoEditComponent implements OnInit {
       deliveryDate:          v.deliveryDate instanceof Date ? v.deliveryDate.toISOString() : v.deliveryDate || undefined,
       deliveryWarehouseId:   v.deliveryWarehouseId   || undefined,
       deliveryWarehouseName: v.deliveryWarehouseName || undefined,
-      budgetCode:            v.budgetCode            || undefined,
       notes:                 v.notes                 || undefined,
       lines: v.lines.map((l: any) => ({
         productUuid:     l.productId       || undefined,
@@ -267,7 +273,9 @@ export class PoEditComponent implements OnInit {
         warehouseId:     l.warehouseId     || undefined,
         warehouseName:   l.warehouseName   || undefined,
         requiredDate:    l.requiredDate instanceof Date ? l.requiredDate.toISOString() : l.requiredDate || undefined,
-        lineNotes:       l.lineNotes       || undefined
+        lineNotes:       l.lineNotes       || undefined,
+        budgetCode:      l.budgetCode      || undefined,
+        requiresInspection: l.requiresInspection
       }))
     };
 

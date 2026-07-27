@@ -50,7 +50,7 @@
         </div>
         <div class="field">
           <label>Requested Date <span class="required">*</span></label>
-          <p-calendar formControlName="requestedDate" dateFormat="dd/mm/yy"
+          <p-calendar formControlName="requestedDate" dateFormat="dd/mm/yy" [minDate]="minDate"
                       [showIcon]="true" placeholder="Select date"
                       [class.p-invalid]="isInvalid('requestedDate')"
                       styleClass="w-full" appendTo="body"></p-calendar>
@@ -183,7 +183,7 @@
               </div>
               <div class="field">
                 <label>Required Date</label>
-                <p-calendar formControlName="requiredDate" dateFormat="dd/mm/yy"
+                <p-calendar formControlName="requiredDate" dateFormat="dd/mm/yy" [minDate]="minDate"
                             [showIcon]="true" placeholder="When is this needed?"
                             styleClass="w-full" appendTo="body"></p-calendar>
               </div>

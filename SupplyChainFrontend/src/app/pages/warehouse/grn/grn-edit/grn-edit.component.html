@@ -96,43 +96,6 @@
       </div>
     </div>
 
-    <!-- ── Inspection Requirement ────────────────────────────────────────────── -->
-    <div class="form-card">
-      <h3 class="section-title"><i class="pi pi-search"></i> Inspection Requirement</h3>
-      <p class="section-hint">
-        Choose whether a formal inspection is required for this receipt.
-        This choice locks once the GRN is submitted for approval.
-      </p>
-      <hr class="section-divider" />
-
-      <div class="inspection-radio-group">
-        <div class="inspection-radio-option">
-          <p-radioButton name="requiresInspection" [value]="true"
-                         [(ngModel)]="requiresInspection"
-                         [ngModelOptions]="{standalone: true}"
-                         inputId="insp-yes">
-          </p-radioButton>
-          <label for="insp-yes" class="insp-label insp-yes">
-            <i class="pi pi-check-circle"></i>
-            <span>Yes — Inspection Required</span>
-            <small>QC team will record accepted/rejected quantities and results</small>
-          </label>
-        </div>
-        <div class="inspection-radio-option">
-          <p-radioButton name="requiresInspection" [value]="false"
-                         [(ngModel)]="requiresInspection"
-                         [ngModelOptions]="{standalone: true}"
-                         inputId="insp-no">
-          </p-radioButton>
-          <label for="insp-no" class="insp-label insp-no">
-            <i class="pi pi-times-circle"></i>
-            <span>No — Skip Formal Inspection</span>
-            <small>Accepted qty = received qty; manual rejection still permitted</small>
-          </label>
-        </div>
-      </div>
-    </div>
-
     <!-- ── Receipt Lines ─────────────────────────────────────────────────────── -->
     <div class="form-card" *ngIf="grn?.lines?.length">
       <h3 class="section-title"><i class="pi pi-list"></i> Receipt Lines</h3>

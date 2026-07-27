@@ -37,6 +37,7 @@ public static class DemandModuleExtensions
         services.AddScoped<IPurchaseOrderRepository, PurchaseOrderRepository>();
         services.AddScoped<IPurchaseOrderService, PurchaseOrderService>();
         services.AddScoped<IPoDocumentService, PoDocumentService>();
+        services.AddScoped<IWhatsAppStatusUpdateHandler, DemandWhatsAppStatusHandler>();
 
         // Workflow engine handlers
         services.AddScoped<IDocumentStatusHandler, PrStatusHandler>();

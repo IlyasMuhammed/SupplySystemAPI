@@ -183,11 +183,14 @@ internal sealed class SupplierScoringService : ISupplierScoringService
 
     private static decimal ScoreQuality(Grn grn)
     {
-        if (!grn.RequiresInspection) return 20m; // default: inspection not required for this GRN
-        if (grn.Lines.Count == 0) return 20m;
+        // Only lines that actually required inspection count toward this dimension — a GRN mixing
+        // inspected and skip-inspection lines shouldn't be penalised (or credited) for lines that
+        // were never subject to QC.
+        var inspectableLines = grn.Lines.Where(l => l.RequiresInspection).ToList();
+        if (inspectableLines.Count == 0) return 20m; // default: no lines on this GRN required inspection
 
-        var passCount = grn.Lines.Count(l => string.Equals(l.InspectionResult, "Pass", StringComparison.OrdinalIgnoreCase));
-        var pct = (decimal)passCount / grn.Lines.Count * 100m;
+        var passCount = inspectableLines.Count(l => string.Equals(l.InspectionResult, "Pass", StringComparison.OrdinalIgnoreCase));
+        var pct = (decimal)passCount / inspectableLines.Count * 100m;
         return pct switch
         {
             >= 100m => 25m,

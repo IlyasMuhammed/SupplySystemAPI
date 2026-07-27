@@ -85,10 +85,6 @@
             <strong>{{ po.deliveryDate ? (po.deliveryDate | date:'dd MMM yyyy') : '—' }}</strong>
           </div>
           <div class="meta-row">
-            <span><i class="pi pi-tag"></i> Budget Code</span>
-            <strong>{{ po.budgetCode || '—' }}</strong>
-          </div>
-          <div class="meta-row">
             <span><i class="pi pi-clock"></i> Created</span>
             <strong>{{ po.createdDate | date:'dd MMM yyyy' }}</strong>
           </div>
@@ -221,6 +217,7 @@
               <th class="col-num-r">Pending</th>
               <th class="col-num-r">Unit Price</th>
               <th class="col-num-r">Total</th>
+              <th>Budget Code</th>
             </tr>
           </thead>
           <tbody>
@@ -262,12 +259,14 @@
               </td>
               <td class="col-num-r price-cell">{{ line.unitPrice | number:'1.2-2' }}</td>
               <td class="col-num-r total-cell">{{ line.lineTotal | number:'1.2-2' }}</td>
+              <td>{{ line.budgetCode || '—' }}</td>
             </tr>
           </tbody>
           <tfoot>
             <tr class="po-total-row">
               <td colspan="8" class="total-label-cell">Order Total</td>
               <td class="total-amount-cell">{{ totalAmount | number:'1.2-2' }}</td>
+              <td></td>
             </tr>
           </tfoot>
         </table>

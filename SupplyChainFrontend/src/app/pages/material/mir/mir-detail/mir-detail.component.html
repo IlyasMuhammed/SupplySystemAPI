@@ -123,7 +123,7 @@
         </div>
         <div class="edit-field">
           <label class="dialog-label">Required By</label>
-          <p-calendar [(ngModel)]="editData.requiredDate" dateFormat="dd/mm/yy"
+          <p-calendar [(ngModel)]="editData.requiredDate" dateFormat="dd/mm/yy" [minDate]="minDate"
                       [showIcon]="true" appendTo="body" styleClass="w-full"></p-calendar>
         </div>
         <div class="edit-field full-edit-field">

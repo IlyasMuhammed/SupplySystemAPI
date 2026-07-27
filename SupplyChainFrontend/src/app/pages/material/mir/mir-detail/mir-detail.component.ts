@@ -70,6 +70,7 @@ export class MirDetailComponent implements OnInit {
   mir: MirDetail | null = null;
   isLoading  = true;
   actionBusy = false;
+  minDate = new Date();
 
   showRejectDialog  = false;
   showApproveDialog = false;

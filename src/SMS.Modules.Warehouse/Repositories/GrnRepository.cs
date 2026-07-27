@@ -94,24 +94,35 @@ internal sealed class GrnRepository : IGrnRepository
             var qtyReceived = lineInput?.QtyReceived ?? 0;
             var qtyOrdered  = pending;
 
+            // Inspection requirement is decided at PO creation, not here — when the PO line
+            // doesn't require it, the line is auto-accepted in full and never enters QC.
+            var requiresInspection = poLine.RequiresInspection;
+            var qtyAccepted = requiresInspection ? lineInput?.QtyAccepted ?? 0 : qtyReceived;
+            var qtyRejected = requiresInspection ? lineInput?.QtyRejected ?? 0 : 0;
+
             lines.Add(new GrnLine
             {
-                UUID            = Guid.NewGuid(),
-                PoLineUuid      = poLine.UUID,
-                ProductUuid     = poLine.ProductUuid,
-                LineNo          = lineNo++,
-                ItemDescription = poLine.ItemDescription,
-                UnitOfMeasure   = poLine.UnitOfMeasure,
-                QtyOrdered      = qtyOrdered,
-                QtyReceived     = qtyReceived,
-                QtyAccepted     = lineInput?.QtyAccepted ?? 0,
-                QtyRejected     = lineInput?.QtyRejected ?? 0,
-                RejectionReason = lineInput?.RejectionReason,
-                BatchNumber     = lineInput?.BatchNumber,
-                ExpiryDate      = lineInput?.ExpiryDate,
-                UnitCost        = poLine.UnitPrice,
-                HasVariance     = qtyReceived > 0 && qtyOrdered > 0 &&
-                                  Math.Abs(qtyReceived - qtyOrdered) / qtyOrdered > VarianceThreshold
+                UUID               = Guid.NewGuid(),
+                PoLineUuid         = poLine.UUID,
+                RequiresInspection = requiresInspection,
+                ProductUuid        = poLine.ProductUuid,
+                LineNo             = lineNo++,
+                ItemDescription    = poLine.ItemDescription,
+                UnitOfMeasure      = poLine.UnitOfMeasure,
+                QtyOrdered         = qtyOrdered,
+                QtyReceived        = qtyReceived,
+                QtyAccepted        = qtyAccepted,
+                QtyRejected        = qtyRejected,
+                RejectionReason    = requiresInspection ? lineInput?.RejectionReason : null,
+                BatchNumber        = lineInput?.BatchNumber,
+                ExpiryDate         = lineInput?.ExpiryDate,
+                UnitCost           = poLine.UnitPrice,
+                // Lines that skip inspection are trivially "complete" from the start — this keeps
+                // them out of the QC officer's pending-inspection queue on GRNs that mix both kinds
+                // of lines (see InspectLineAsync's allInspected check).
+                InspectionResult   = requiresInspection ? null : "NotRequired",
+                HasVariance        = qtyReceived > 0 && qtyOrdered > 0 &&
+                                     Math.Abs(qtyReceived - qtyOrdered) / qtyOrdered > VarianceThreshold
             });
         }
 
@@ -131,7 +142,9 @@ internal sealed class GrnRepository : IGrnRepository
             DriverName         = req.DriverName,
             InvoiceNo          = req.InvoiceNo,
             Notes              = req.Notes,
-            RequiresInspection = req.RequiresInspection,
+            // Document-level flag derived from its lines — true if any line requires inspection —
+            // so the workflow can route the whole GRN through QC when at least one line needs it.
+            RequiresInspection = lines.Any(l => l.RequiresInspection),
             Status             = "DRAFT",
             ReceivedBy         = createdBy,
             IsActive           = true,
@@ -166,7 +179,6 @@ internal sealed class GrnRepository : IGrnRepository
         if (req.DriverName     is not null)  grn.DriverName         = req.DriverName;
         if (req.InvoiceNo      is not null)  grn.InvoiceNo          = req.InvoiceNo;
         if (req.Notes          is not null)  grn.Notes              = req.Notes;
-        if (req.RequiresInspection.HasValue) grn.RequiresInspection = req.RequiresInspection.Value;
 
         grn.ModifiedBy   = modifiedBy;
         grn.ModifiedDate = DateTime.UtcNow;
@@ -281,6 +293,10 @@ internal sealed class GrnRepository : IGrnRepository
 
         var line = grn.Lines.FirstOrDefault(l => l.UUID == lineUuid)
             ?? throw new NotFoundException("GrnLine", lineUuid);
+
+        if (!line.RequiresInspection)
+            throw new UnprocessableEntityException(
+                $"'{line.ItemDescription}' does not require inspection (decided at PO creation) and cannot be formally inspected.");
 
         // Resolve accepted/rejected quantities based on result, then validate.
         decimal accepted;
@@ -474,6 +490,7 @@ internal sealed class GrnRepository : IGrnRepository
             {
                 UUID             = l.UUID,
                 PoLineUuid       = l.PoLineUuid,
+                RequiresInspection = l.RequiresInspection,
                 ProductUuid      = l.ProductUuid,
                 ProductName      = l.ProductUuid.HasValue && productNames.TryGetValue(l.ProductUuid.Value, out var pn) ? pn : null,
                 LineNo           = l.LineNo,

@@ -37,6 +37,7 @@ export class QuotationCreateComponent implements OnInit, OnDestroy {
   form!: FormGroup;
   isSubmitting  = false;
   loadingPrLines = false;
+  minDate = new Date();
 
   // Generated once per page load so attachments uploaded before save can be linked to the
   // eventual Quotation (which is created with this same UUID on submit).
@@ -63,14 +64,17 @@ export class QuotationCreateComponent implements OnInit, OnDestroy {
     { label: 'Linked to Purchase Order',       value: 'PO' }
   ];
 
+  // UOM options from FSD Section 6.5 — kept identical across every line-item form (PR/Quotation/PO)
+  // so a value copied from one document's lines always matches an option in the next.
   uomOptions = [
-    { label: 'PC',   value: 'PC' },
-    { label: 'BOX',  value: 'BOX' },
-    { label: 'KG',   value: 'KG' },
-    { label: 'L',    value: 'L' },
-    { label: 'M',    value: 'M' },
-    { label: 'SET',  value: 'SET' },
-    { label: 'UNIT', value: 'UNIT' }
+    { label: 'Each (EA)',    value: 'EA'   },
+    { label: 'Kilogram (KG)', value: 'KG'  },
+    { label: 'Litre (LTR)',  value: 'LTR'  },
+    { label: 'Box (BOX)',    value: 'BOX'  },
+    { label: 'Set (SET)',    value: 'SET'  },
+    { label: 'Meter (MTR)',  value: 'MTR'  },
+    { label: 'Packet (PKT)', value: 'PKT'  },
+    { label: 'Pair (PAIR)',  value: 'PAIR' }
   ];
 
   private subs = new Subscription();
@@ -133,7 +137,7 @@ export class QuotationCreateComponent implements OnInit, OnDestroy {
     this.lines.at(i).patchValue({
       itemDescription: p.name,
       specification:   (p as any).description ?? '',
-      unitOfMeasure:   p.uomCode ?? 'PC'
+      unitOfMeasure:   p.uomCode ?? null
     });
   }
 
@@ -190,10 +194,11 @@ export class QuotationCreateComponent implements OnInit, OnDestroy {
             productId:        [line.productId   ?? null],
             itemDescription:  [line.itemDescription, Validators.required],
             specification:    [line.specification   ?? ''],
-            unitOfMeasure:    [line.unitOfMeasure   ?? 'PC'],
+            unitOfMeasure:    [line.unitOfMeasure   ?? null],
             quantity:         [line.quantity, [Validators.required, Validators.min(0.0001), Validators.max(999999)]],
             requiredDate:     [line.requiredDate ? new Date(line.requiredDate) : null],
-            lineNotes:        [line.lineNotes    ?? '']
+            lineNotes:        [line.lineNotes    ?? ''],
+            budgetCode:       [line.budgetCode   ?? '']
           }));
         }
 
@@ -267,10 +272,11 @@ export class QuotationCreateComponent implements OnInit, OnDestroy {
       productId:        [null],
       itemDescription:  ['', Validators.required],
       specification:    [''],
-      unitOfMeasure:    ['PC'],
+      unitOfMeasure:    [null],
       quantity:         [1, [Validators.required, Validators.min(0.0001), Validators.max(999999)]],
       requiredDate:     [null],
-      lineNotes:        ['']
+      lineNotes:        [''],
+      budgetCode:       ['']
     });
   }
 
@@ -304,7 +310,8 @@ export class QuotationCreateComponent implements OnInit, OnDestroy {
         unitOfMeasure:    l.unitOfMeasure    || undefined,
         quantity:         l.quantity,
         requiredDate:     l.requiredDate instanceof Date ? l.requiredDate.toISOString() : l.requiredDate || undefined,
-        lineNotes:        l.lineNotes        || undefined
+        lineNotes:        l.lineNotes        || undefined,
+        budgetCode:       l.budgetCode       || undefined
       })),
       quotationUuid: this.quotationUuid
     };

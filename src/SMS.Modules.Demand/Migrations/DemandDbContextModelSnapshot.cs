@@ -148,10 +148,6 @@ namespace SMS.Modules.Demand.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("BudgetCode")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
                     b.Property<int>("CreatedBy")
                         .HasColumnType("int");
 
@@ -250,6 +246,10 @@ namespace SMS.Modules.Demand.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("BudgetCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
                     b.Property<string>("ItemDescription")
                         .IsRequired()
                         .HasMaxLength(300)
@@ -285,6 +285,11 @@ namespace SMS.Modules.Demand.Migrations
 
                     b.Property<DateTime?>("RequiredDate")
                         .HasColumnType("datetime2");
+
+                    b.Property<bool>("RequiresInspection")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
 
                     b.Property<Guid?>("SourcePrLineUuid")
                         .HasColumnType("uniqueidentifier");
@@ -580,6 +585,10 @@ namespace SMS.Modules.Demand.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("BudgetCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
                     b.Property<string>("ItemDescription")
                         .IsRequired()
                         .HasMaxLength(300)
@@ -695,7 +704,18 @@ namespace SMS.Modules.Demand.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("nvarchar(64)");
 
+                    b.Property<string>("WhatsAppProviderMessageId")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<DateTime?>("WhatsAppSentAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("WhatsAppStatus")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime?>("WhatsAppStatusUpdatedAt")
                         .HasColumnType("datetime2");
 
                     b.HasKey("Id");
@@ -704,6 +724,8 @@ namespace SMS.Modules.Demand.Migrations
 
                     b.HasIndex("TokenHash")
                         .IsUnique();
+
+                    b.HasIndex("WhatsAppProviderMessageId");
 
                     b.ToTable("rfq_access_links", "demand");
                 });

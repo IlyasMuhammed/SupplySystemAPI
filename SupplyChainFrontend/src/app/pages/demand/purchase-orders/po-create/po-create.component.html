@@ -144,7 +144,7 @@
         </div>
         <div class="field">
           <label>Delivery Date</label>
-          <p-calendar formControlName="deliveryDate" dateFormat="dd/mm/yy"
+          <p-calendar formControlName="deliveryDate" dateFormat="dd/mm/yy" [minDate]="minDate"
                       [showIcon]="true" styleClass="w-full" appendTo="body"></p-calendar>
         </div>
 
@@ -163,13 +163,8 @@
           <small class="hint" *ngIf="headerWarehouseName">Lines without a per-line override will be received at <strong>{{ headerWarehouseName }}</strong>.</small>
         </div>
 
-        <!-- Budget Code | Notes -->
-        <div class="field">
-          <label>Budget Code</label>
-          <input pInputText formControlName="budgetCode" placeholder="e.g. CAPEX-2025"
-                 class="w-full" maxlength="30" />
-        </div>
-        <div class="field">
+        <!-- Notes -->
+        <div class="field full">
           <label>Notes</label>
           <textarea pTextarea formControlName="notes" rows="2" class="w-full"
                     maxlength="1000" placeholder="Any special instructions…"></textarea>
@@ -267,7 +262,7 @@
               <!-- Required Date | Line Notes -->
               <div class="field">
                 <label>Required Date</label>
-                <p-calendar formControlName="requiredDate" dateFormat="dd/mm/yy"
+                <p-calendar formControlName="requiredDate" dateFormat="dd/mm/yy" [minDate]="minDate"
                             [showIcon]="true" styleClass="w-full" appendTo="body"></p-calendar>
               </div>
               <div class="field">
@@ -275,6 +270,17 @@
                 <input pInputText formControlName="lineNotes"
                        placeholder="Special instructions…"
                        class="w-full" maxlength="500" />
+              </div>
+              <div class="field">
+                <label>Budget Code</label>
+                <input pInputText formControlName="budgetCode" placeholder="e.g. CAPEX-2025"
+                       class="w-full" maxlength="30" />
+              </div>
+
+              <!-- Inspection requirement -->
+              <div class="field full line-inspection-toggle">
+                <p-checkbox formControlName="requiresInspection" [binary]="true" [inputId]="'requiresInspection-' + i"></p-checkbox>
+                <label [for]="'requiresInspection-' + i">Requires inspection at GRN</label>
               </div>
 
             </div>

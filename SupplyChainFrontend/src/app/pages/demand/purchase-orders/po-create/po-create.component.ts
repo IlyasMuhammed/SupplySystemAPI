@@ -12,6 +12,7 @@ import { DividerModule } from 'primeng/divider';
 import { ToastModule } from 'primeng/toast';
 import { TooltipModule } from 'primeng/tooltip';
 import { DialogModule } from 'primeng/dialog';
+import { CheckboxModule } from 'primeng/checkbox';
 import { MessageService } from 'primeng/api';
 import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
@@ -28,7 +29,7 @@ import { AttachmentListComponent } from '../../../../shared/attachment-list/atta
     CommonModule, RouterModule, ReactiveFormsModule, FormsModule,
     ButtonModule, InputTextModule, TextareaModule, InputNumberModule,
     DropdownModule, CalendarModule, DividerModule, ToastModule, TooltipModule,
-    DialogModule, AttachmentListComponent
+    DialogModule, CheckboxModule, AttachmentListComponent
   ],
   templateUrl: './po-create.component.html',
   styleUrls: ['./po-create.component.scss'],
@@ -37,6 +38,7 @@ import { AttachmentListComponent } from '../../../../shared/attachment-list/atta
 export class PoCreateComponent implements OnInit {
   form!: FormGroup;
   isSubmitting = false;
+  minDate = new Date();
 
   // Generated once per page load so attachments uploaded before save can be linked to the
   // eventual PO (which is created with this same UUID on submit).
@@ -83,14 +85,17 @@ export class PoCreateComponent implements OnInit {
   showUnlockDialog      = false;
   private unlockAuditNote = '';
 
+  // UOM options from FSD Section 6.5 — kept identical across every line-item form (PR/Quotation/PO)
+  // so a value copied from one document's lines always matches an option in the next.
   uomOptions = [
-    { label: 'PC',   value: 'PC' },
-    { label: 'BOX',  value: 'BOX' },
-    { label: 'KG',   value: 'KG' },
-    { label: 'L',    value: 'L' },
-    { label: 'M',    value: 'M' },
-    { label: 'SET',  value: 'SET' },
-    { label: 'UNIT', value: 'UNIT' }
+    { label: 'Each (EA)',    value: 'EA'   },
+    { label: 'Kilogram (KG)', value: 'KG'  },
+    { label: 'Litre (LTR)',  value: 'LTR'  },
+    { label: 'Box (BOX)',    value: 'BOX'  },
+    { label: 'Set (SET)',    value: 'SET'  },
+    { label: 'Meter (MTR)',  value: 'MTR'  },
+    { label: 'Packet (PKT)', value: 'PKT'  },
+    { label: 'Pair (PAIR)',  value: 'PAIR' }
   ];
 
   constructor(
@@ -291,7 +296,7 @@ export class PoCreateComponent implements OnInit {
     this.lines.at(i).patchValue({
       itemDescription: p.name,
       specification:   (p as any).description ?? '',
-      unitOfMeasure:   p.uomCode ?? 'PC',
+      unitOfMeasure:   p.uomCode ?? null,
       unitPrice:       p.unitCost ?? 0
     });
   }
@@ -314,10 +319,11 @@ export class PoCreateComponent implements OnInit {
             productId:        line.productId       ?? null,
             itemDescription:  line.itemDescription,
             specification:    line.specification   ?? '',
-            unitOfMeasure:    line.unitOfMeasure   ?? 'PC',
+            unitOfMeasure:    line.unitOfMeasure   ?? null,
             quantity:         line.quantity,
             unitPrice:        line.estimatedUnitPrice ?? 0,
-            lineNotes:        line.lineNotes        ?? ''
+            lineNotes:        line.lineNotes        ?? '',
+            budgetCode:       line.budgetCode       ?? ''
           });
           this.lines.push(group);
         }
@@ -363,10 +369,11 @@ export class PoCreateComponent implements OnInit {
           group.patchValue({
             itemDescription: line.itemDescription,
             specification:   line.specification ?? '',
-            unitOfMeasure:   line.unitOfMeasure ?? 'PC',
+            unitOfMeasure:   line.unitOfMeasure ?? null,
             quantity:        line.quantity,
             unitPrice:       priceMap.get(line.uuid) ?? 0,
-            lineNotes:       ''
+            lineNotes:       '',
+            budgetCode:      line.budgetCode ?? ''
           });
           this.lines.push(group);
         }
@@ -393,8 +400,8 @@ export class PoCreateComponent implements OnInit {
     while (this.lines.length > 1) this.lines.removeAt(this.lines.length - 1);
     this.lines.at(0).reset({
       sourcePrLineUuid: null, productId: null, itemDescription: '',
-      specification: '', unitOfMeasure: 'PC', quantity: 1,
-      unitPrice: 0, requiredDate: null, lineNotes: ''
+      specification: '', unitOfMeasure: null, quantity: 1,
+      unitPrice: 0, requiredDate: null, lineNotes: '', budgetCode: ''
     });
     this.clearSupplierLock();
   }
@@ -448,7 +455,6 @@ export class PoCreateComponent implements OnInit {
       deliveryDate:          [null],
       deliveryWarehouseId:   [null],
       deliveryWarehouseName: [''],
-      budgetCode:            [''],
       notes:                 [''],
       lines:                 this.fb.array([this.newLine()])
     });
@@ -462,13 +468,15 @@ export class PoCreateComponent implements OnInit {
       productId:        [null],
       itemDescription:  ['', Validators.required],
       specification:    [''],
-      unitOfMeasure:    ['PC'],
+      unitOfMeasure:    [null],
       quantity:         [1,  [Validators.required, Validators.min(0.0001), Validators.max(999999)]],
       unitPrice:        [0,  [Validators.required, Validators.min(0)]],
       warehouseId:      [null],
       warehouseName:    [''],
       requiredDate:     [null],
-      lineNotes:        ['']
+      lineNotes:        [''],
+      budgetCode:       [''],
+      requiresInspection: [true]
     });
   }
 
@@ -494,7 +502,6 @@ export class PoCreateComponent implements OnInit {
       deliveryDate:          v.deliveryDate instanceof Date ? v.deliveryDate.toISOString() : v.deliveryDate || undefined,
       deliveryWarehouseId:   v.deliveryWarehouseId  || undefined,
       deliveryWarehouseName: v.deliveryWarehouseName || undefined,
-      budgetCode:            v.budgetCode           || undefined,
       notes:                 v.notes                || undefined,
       internalNotes:         this.unlockAuditNote   || undefined,
       lines: v.lines.map((l: any) => ({
@@ -508,7 +515,9 @@ export class PoCreateComponent implements OnInit {
         warehouseId:      l.warehouseId      || undefined,
         warehouseName:    l.warehouseName    || undefined,
         requiredDate:     l.requiredDate instanceof Date ? l.requiredDate.toISOString() : l.requiredDate || undefined,
-        lineNotes:        l.lineNotes        || undefined
+        lineNotes:        l.lineNotes        || undefined,
+        budgetCode:       l.budgetCode       || undefined,
+        requiresInspection: l.requiresInspection
       })),
       poUuid: this.poUuid
     };

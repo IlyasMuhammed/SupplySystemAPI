@@ -17,7 +17,6 @@ import { TextareaModule } from 'primeng/textarea';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { MessageService } from 'primeng/api';
 import { FinanceService, InvoiceDetailModel, SupplierPaymentListItemModel } from '../../../../services/finance.service';
-import { PdfService } from '../../../../services/pdf.service';
 import { TimelinePanelComponent } from '../../../../shared/timeline-panel/timeline-panel.component';
 import { AttachmentListComponent } from '../../../../shared/attachment-list/attachment-list.component';
 
@@ -65,10 +64,11 @@ export class InvoiceDetailComponent implements OnInit {
     { label: 'Online',        value: 'Online' }
   ];
 
+  isDownloadingPdf = false;
+
   constructor(
     private financeService: FinanceService,
     private messageService: MessageService,
-    private pdfService: PdfService,
     private route: ActivatedRoute
   ) {}
 
@@ -239,6 +239,22 @@ export class InvoiceDetailComponent implements OnInit {
   canEdit(): boolean    { return this.invoice?.matchStatus !== 'Approved' && this.invoice?.matchStatus !== 'Rejected'; }
 
   downloadPdf(): void {
-    if (this.invoice) this.pdfService.downloadInvoice(this.invoice);
+    if (!this.invoice) return;
+    this.isDownloadingPdf = true;
+    this.financeService.downloadInvoicePdf(this.invoice.uuid).subscribe({
+      next: (blob) => {
+        this.isDownloadingPdf = false;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Invoice-${this.invoice?.invoiceNumber || this.invoice?.uuid}.pdf`;
+        a.click();
+        URL.revokeObjectURL(url);
+      },
+      error: () => {
+        this.isDownloadingPdf = false;
+        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to generate invoice PDF.' });
+      }
+    });
   }
 }

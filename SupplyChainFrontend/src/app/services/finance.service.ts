@@ -473,6 +473,10 @@ export class FinanceService {
     return this.http.get<ApiResponse<InvoiceDetailModel>>(`${BASE}/invoices/${uuid}`);
   }
 
+  downloadInvoicePdf(uuid: string): Observable<Blob> {
+    return this.http.get(`${BASE}/invoices/${uuid}/pdf`, { responseType: 'blob' });
+  }
+
   patchInvoice(uuid: string, req: PatchInvoiceRequest): Observable<ApiResponse> {
     return this.http.patch<ApiResponse>(`${BASE}/invoices/${uuid}`, req);
   }

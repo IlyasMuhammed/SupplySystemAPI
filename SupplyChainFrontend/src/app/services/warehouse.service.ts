@@ -15,7 +15,6 @@ export interface PatchGrnRequest {
   driverName?: string;
   invoiceNo?: string;
   notes?: string;
-  requiresInspection?: boolean;
 }
 
 export interface GrnLineReceiveInput {
@@ -37,7 +36,6 @@ export interface CreateGrnRequest {
   driverName?: string;
   invoiceNo?: string;
   notes?: string;
-  requiresInspection?: boolean;
   lines?: GrnLineReceiveInput[];
   // Client-generated id so driver/loader document attachments uploaded before save
   // can be linked via the same DocumentId — becomes the GRN's own UUID on save.
@@ -247,6 +245,7 @@ export interface InspectGrnLineRequest {
 export interface GrnLineModel {
   uuid: string;
   poLineUuid: string;
+  requiresInspection: boolean;
   productUuid?: string;
   productName?: string;
   lineNo: number;

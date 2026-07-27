@@ -312,12 +312,20 @@
   }
 
   .rejection-cell {
+    vertical-align: middle;
+  }
+
+  .rejection-stack {
     display: flex;
     flex-direction: column;
     gap: .25rem;
-    justify-content: center;
     align-items: flex-start;
-    height: 100%;
+  }
+
+  .rejection-empty {
+    display: block;
+    width: 100%;
+    text-align: center;
   }
 
   .rejection-badge {

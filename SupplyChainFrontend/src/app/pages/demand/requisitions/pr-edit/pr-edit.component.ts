@@ -34,6 +34,7 @@ export class PrEditComponent implements OnInit {
   form!: FormGroup;
   isLoading = true;
   isSubmitting = false;
+  minDate = new Date();
 
   productOptions: { label: string; value: string }[] = [];
   private productsMap = new Map<string, ProductListItemModel>();

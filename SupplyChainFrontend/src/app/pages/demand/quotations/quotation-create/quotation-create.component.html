@@ -46,7 +46,7 @@
         </div>
         <div class="field">
           <label>Response Due Date</label>
-          <p-calendar formControlName="dueDate" dateFormat="dd/mm/yy"
+          <p-calendar formControlName="dueDate" dateFormat="dd/mm/yy" [minDate]="minDate"
                       [showIcon]="true" placeholder="Deadline for vendor responses"
                       styleClass="w-full" appendTo="body"></p-calendar>
         </div>
@@ -173,9 +173,14 @@
               </div>
               <div class="field">
                 <label>Required By Date</label>
-                <p-calendar formControlName="requiredDate" dateFormat="dd/mm/yy"
+                <p-calendar formControlName="requiredDate" dateFormat="dd/mm/yy" [minDate]="minDate"
                             [showIcon]="true" placeholder="When is this needed?"
                             styleClass="w-full" appendTo="body"></p-calendar>
+              </div>
+              <div class="field">
+                <label>Budget Code</label>
+                <input pInputText formControlName="budgetCode" placeholder="e.g. CAPEX-2025"
+                       class="w-full" maxlength="30" />
               </div>
 
               <!-- Notes — full width -->

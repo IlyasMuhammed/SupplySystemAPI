@@ -33,7 +33,7 @@
         <p-button label="Upload Attachment" icon="pi pi-upload" severity="secondary"
                   (onClick)="showUploadDialog=true"></p-button>
         <p-button label="Download PDF" icon="pi pi-file-pdf" severity="secondary" [outlined]="true"
-                  (onClick)="downloadPdf()"></p-button>
+                  [loading]="isDownloadingPdf" (onClick)="downloadPdf()"></p-button>
         <p-button icon="pi pi-history" [text]="true" severity="secondary"
                   pTooltip="View Timeline" (onClick)="showTimeline = true"></p-button>
         <p-button label="Back" icon="pi pi-arrow-left" [text]="true" severity="secondary"
@@ -248,57 +248,95 @@
   </ng-container>
 
   <!-- Approve dialog -->
-  <p-dialog [(visible)]="showApproveDialog" header="Approve Invoice" [modal]="true" [style]="{width:'400px'}">
-    <div class="py-2">
-      <label class="field-label">Notes (optional)</label>
-      <input pInputText class="w-full" [(ngModel)]="approveNotes" />
+  <p-dialog [(visible)]="showApproveDialog" [modal]="true" [style]="{width:'420px'}"
+            [draggable]="false" [resizable]="false" styleClass="sdlg">
+    <ng-template pTemplate="header">
+      <div class="sdlg-header">
+        <div class="sdlg-header-icon sdlg-icon-green"><i class="pi pi-check-circle"></i></div>
+        <div class="sdlg-header-text">
+          <div class="sdlg-title">Approve Invoice</div>
+          <div class="sdlg-subtitle" *ngIf="invoice">{{ invoice.invoiceNumber }}</div>
+        </div>
+      </div>
+    </ng-template>
+    <div class="sdlg-body">
+      <div class="sdlg-field">
+        <label>Notes (optional)</label>
+        <input pInputText class="w-full" [(ngModel)]="approveNotes" />
+      </div>
     </div>
     <ng-template pTemplate="footer">
-      <div class="flex justify-end gap-3">
-        <p-button label="Cancel" [text]="true" severity="secondary" (onClick)="showApproveDialog=false"></p-button>
-        <p-button label="Approve" icon="pi pi-check" severity="success" [loading]="isSaving" (onClick)="approve()"></p-button>
+      <div class="sdlg-footer">
+        <div class="sdlg-footer-btns">
+          <p-button label="Cancel" [text]="true" severity="secondary" (onClick)="showApproveDialog=false"></p-button>
+          <p-button label="Approve" icon="pi pi-check" severity="success" [loading]="isSaving" (onClick)="approve()"></p-button>
+        </div>
       </div>
     </ng-template>
   </p-dialog>
 
   <!-- Reject dialog -->
-  <p-dialog [(visible)]="showRejectDialog" header="Reject Invoice" [modal]="true" [style]="{width:'400px'}">
-    <div class="py-2">
-      <label class="field-label">Reason <span class="req">*</span></label>
-      <input pInputText class="w-full" [(ngModel)]="rejectReason" placeholder="Enter rejection reason" />
+  <p-dialog [(visible)]="showRejectDialog" [modal]="true" [style]="{width:'420px'}"
+            [draggable]="false" [resizable]="false" styleClass="sdlg">
+    <ng-template pTemplate="header">
+      <div class="sdlg-header">
+        <div class="sdlg-header-icon sdlg-icon-red"><i class="pi pi-times-circle"></i></div>
+        <div class="sdlg-header-text">
+          <div class="sdlg-title">Reject Invoice</div>
+          <div class="sdlg-subtitle" *ngIf="invoice">{{ invoice.invoiceNumber }}</div>
+        </div>
+      </div>
+    </ng-template>
+    <div class="sdlg-body">
+      <div class="sdlg-field">
+        <label>Reason <span class="sdlg-required">*</span></label>
+        <input pInputText class="w-full" [(ngModel)]="rejectReason" placeholder="Enter rejection reason" />
+      </div>
     </div>
     <ng-template pTemplate="footer">
-      <div class="flex justify-end gap-3">
-        <p-button label="Cancel" [text]="true" severity="secondary" (onClick)="showRejectDialog=false"></p-button>
-        <p-button label="Reject" icon="pi pi-times" severity="danger" [loading]="isSaving" (onClick)="reject()"></p-button>
+      <div class="sdlg-footer">
+        <div class="sdlg-footer-btns">
+          <p-button label="Cancel" [text]="true" severity="secondary" (onClick)="showRejectDialog=false"></p-button>
+          <p-button label="Reject" icon="pi pi-times" severity="danger" [loading]="isSaving" (onClick)="reject()"></p-button>
+        </div>
       </div>
     </ng-template>
   </p-dialog>
 
   <!-- Edit dialog -->
-  <p-dialog [(visible)]="showEditDialog" header="Edit Invoice" [modal]="true" [style]="{width:'480px'}" [draggable]="false">
-    <div class="flex flex-col gap-4 py-2">
+  <p-dialog [(visible)]="showEditDialog" [modal]="true" [style]="{width:'500px'}"
+            [draggable]="false" [resizable]="false" styleClass="sdlg">
+    <ng-template pTemplate="header">
+      <div class="sdlg-header">
+        <div class="sdlg-header-icon sdlg-icon-purple"><i class="pi pi-pencil"></i></div>
+        <div class="sdlg-header-text">
+          <div class="sdlg-title">Edit Invoice</div>
+          <div class="sdlg-subtitle" *ngIf="invoice">{{ invoice.invoiceNumber }}</div>
+        </div>
+      </div>
+    </ng-template>
+    <div class="sdlg-body">
 
-      <div class="edit-field">
+      <div class="sdlg-field">
         <label>Supplier Invoice No.</label>
         <input pInputText class="w-full" [(ngModel)]="editForm.supplierInvoiceNo"
                placeholder="e.g. INV-2025-001" />
       </div>
 
-      <div class="edit-field">
+      <div class="sdlg-field">
         <label>Due Date</label>
         <p-calendar [(ngModel)]="editForm.dueDate" dateFormat="dd M yy"
                     [showIcon]="true" styleClass="w-full" appendTo="body"></p-calendar>
       </div>
 
-      <div class="edit-field">
+      <div class="sdlg-field">
         <label>Payment Method</label>
         <p-dropdown [options]="paymentMethodOptions" [(ngModel)]="editForm.paymentMethod"
                     placeholder="Select method" [showClear]="true"
                     styleClass="w-full" appendTo="body"></p-dropdown>
       </div>
 
-      <div class="edit-field">
+      <div class="sdlg-field">
         <label>Tax Amount</label>
         <p-inputNumber [(ngModel)]="editForm.taxAmount" mode="decimal"
                        [minFractionDigits]="2" [maxFractionDigits]="2"
@@ -309,7 +347,7 @@
         </small>
       </div>
 
-      <div class="edit-field">
+      <div class="sdlg-field">
         <label>Notes</label>
         <textarea pTextarea [(ngModel)]="editForm.notes" rows="3" class="w-full"
                   placeholder="Internal notes or remarks..."></textarea>
@@ -317,16 +355,28 @@
 
     </div>
     <ng-template pTemplate="footer">
-      <div class="flex justify-end gap-3">
-        <p-button label="Cancel" [text]="true" severity="secondary" (onClick)="showEditDialog=false"></p-button>
-        <p-button label="Save Changes" icon="pi pi-save" [loading]="isSaving" (onClick)="saveEdit()"></p-button>
+      <div class="sdlg-footer">
+        <div class="sdlg-footer-btns">
+          <p-button label="Cancel" [text]="true" severity="secondary" (onClick)="showEditDialog=false"></p-button>
+          <p-button label="Save Changes" icon="pi pi-save" [loading]="isSaving" (onClick)="saveEdit()"></p-button>
+        </div>
       </div>
     </ng-template>
   </p-dialog>
 
   <!-- Upload dialog -->
-  <p-dialog [(visible)]="showUploadDialog" header="Upload Attachment" [modal]="true" [style]="{width:'400px'}">
-    <div class="flex flex-col gap-4 py-2">
+  <p-dialog [(visible)]="showUploadDialog" [modal]="true" [style]="{width:'420px'}"
+            [draggable]="false" [resizable]="false" styleClass="sdlg">
+    <ng-template pTemplate="header">
+      <div class="sdlg-header">
+        <div class="sdlg-header-icon sdlg-icon-blue"><i class="pi pi-upload"></i></div>
+        <div class="sdlg-header-text">
+          <div class="sdlg-title">Upload Attachment</div>
+          <div class="sdlg-subtitle" *ngIf="invoice">{{ invoice.invoiceNumber }}</div>
+        </div>
+      </div>
+    </ng-template>
+    <div class="sdlg-body">
       <div class="file-drop-zone" (click)="attachFileInput.click()">
         <i class="pi pi-upload file-drop-icon"></i>
         <p class="file-drop-label">{{ selectedFile ? selectedFile.name : 'Click to select a file' }}</p>
@@ -335,10 +385,12 @@
       <input #attachFileInput type="file" hidden (change)="onFileSelected($event)" />
     </div>
     <ng-template pTemplate="footer">
-      <div class="flex justify-end gap-3">
-        <p-button label="Cancel" [text]="true" severity="secondary" (onClick)="showUploadDialog=false"></p-button>
-        <p-button label="Upload" icon="pi pi-check" [loading]="isUploading"
-                  [disabled]="!selectedFile" (onClick)="uploadAttachment()"></p-button>
+      <div class="sdlg-footer">
+        <div class="sdlg-footer-btns">
+          <p-button label="Cancel" [text]="true" severity="secondary" (onClick)="showUploadDialog=false"></p-button>
+          <p-button label="Upload" icon="pi pi-check" [loading]="isUploading"
+                    [disabled]="!selectedFile" (onClick)="uploadAttachment()"></p-button>
+        </div>
       </div>
     </ng-template>
   </p-dialog>

@@ -32,19 +32,23 @@ export class QuotationEditComponent implements OnInit {
   form!: FormGroup;
   isLoading = true;
   isSubmitting = false;
+  minDate = new Date();
 
   productOptions: { label: string; value: string }[] = [];
   private productsMap = new Map<string, ProductListItemModel>();
   loadingProducts = false;
 
+  // UOM options from FSD Section 6.5 — kept identical across every line-item form (PR/Quotation/PO)
+  // so a value copied from one document's lines always matches an option in the next.
   uomOptions = [
-    { label: 'PC',   value: 'PC' },
-    { label: 'BOX',  value: 'BOX' },
-    { label: 'KG',   value: 'KG' },
-    { label: 'L',    value: 'L' },
-    { label: 'M',    value: 'M' },
-    { label: 'SET',  value: 'SET' },
-    { label: 'UNIT', value: 'UNIT' }
+    { label: 'Each (EA)',    value: 'EA'   },
+    { label: 'Kilogram (KG)', value: 'KG'  },
+    { label: 'Litre (LTR)',  value: 'LTR'  },
+    { label: 'Box (BOX)',    value: 'BOX'  },
+    { label: 'Set (SET)',    value: 'SET'  },
+    { label: 'Meter (MTR)',  value: 'MTR'  },
+    { label: 'Packet (PKT)', value: 'PKT'  },
+    { label: 'Pair (PAIR)',  value: 'PAIR' }
   ];
 
   constructor(
@@ -86,7 +90,7 @@ export class QuotationEditComponent implements OnInit {
     this.lines.at(i).patchValue({
       itemDescription: p.name,
       specification:   (p as any).description ?? '',
-      unitOfMeasure:   p.uomCode ?? 'PC'
+      unitOfMeasure:   p.uomCode ?? null
     });
   }
 
@@ -106,10 +110,11 @@ export class QuotationEditComponent implements OnInit {
       productId:       [null],
       itemDescription: ['', Validators.required],
       specification:   [''],
-      unitOfMeasure:   ['PC'],
+      unitOfMeasure:   [null],
       quantity:        [1, [Validators.required, Validators.min(0.0001), Validators.max(999999)]],
       requiredDate:    [null],
-      lineNotes:       ['']
+      lineNotes:       [''],
+      budgetCode:      ['']
     });
   }
 
@@ -137,10 +142,11 @@ export class QuotationEditComponent implements OnInit {
           productId:       [(l as any).productId ?? null],
           itemDescription: [l.itemDescription, Validators.required],
           specification:   [l.specification ?? ''],
-          unitOfMeasure:   [l.unitOfMeasure ?? 'PC'],
+          unitOfMeasure:   [l.unitOfMeasure ?? null],
           quantity:        [l.quantity, [Validators.required, Validators.min(0.0001), Validators.max(999999)]],
           requiredDate:    [l.requiredDate ? new Date(l.requiredDate) : null],
-          lineNotes:       [(l as any).lineNotes ?? '']
+          lineNotes:       [(l as any).lineNotes ?? ''],
+          budgetCode:      [(l as any).budgetCode ?? '']
         })));
         if (!this.lines.length) this.lines.push(this.newLine());
 
@@ -172,7 +178,8 @@ export class QuotationEditComponent implements OnInit {
         unitOfMeasure:   l.unitOfMeasure   || undefined,
         quantity:        l.quantity,
         requiredDate:    l.requiredDate instanceof Date ? l.requiredDate.toISOString() : l.requiredDate || undefined,
-        lineNotes:       l.lineNotes        || undefined
+        lineNotes:       l.lineNotes        || undefined,
+        budgetCode:      l.budgetCode       || undefined
       }))
     };
 

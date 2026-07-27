@@ -34,6 +34,7 @@ import { AttachmentListComponent } from '../../../../shared/attachment-list/atta
 export class PrCreateComponent implements OnInit {
   form!: FormGroup;
   isSubmitting = false;
+  minDate = new Date();
 
   // Generated once per page load so attachments uploaded before save can be linked to the
   // eventual PR (which is created with this same UUID on submit).

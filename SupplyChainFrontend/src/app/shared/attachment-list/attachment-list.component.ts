@@ -4,17 +4,18 @@ import { FormsModule } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
 import { TooltipModule } from 'primeng/tooltip';
 import { InputTextModule } from 'primeng/inputtext';
-import { MessageService } from 'primeng/api';
+import { MessageService, ConfirmationService } from 'primeng/api';
 import { ToastModule } from 'primeng/toast';
+import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { AttachmentService, AttachmentModel } from '../../services/attachment.service';
 
 @Component({
   selector: 'app-attachment-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, ButtonModule, TooltipModule, InputTextModule, ToastModule],
+  imports: [CommonModule, FormsModule, ButtonModule, TooltipModule, InputTextModule, ToastModule, ConfirmDialogModule],
   templateUrl: './attachment-list.component.html',
   styleUrls: ['./attachment-list.component.scss'],
-  providers: [MessageService]
+  providers: [MessageService, ConfirmationService]
 })
 export class AttachmentListComponent implements OnChanges {
   // Document this attachment list belongs to. When documentId is empty, the list renders a
@@ -32,7 +33,11 @@ export class AttachmentListComponent implements OnChanges {
   // Optional remark applied to the batch of files picked in a single upload action.
   pendingNotes = '';
 
-  constructor(private attachmentService: AttachmentService, private messageService: MessageService) {}
+  constructor(
+    private attachmentService: AttachmentService,
+    private messageService: MessageService,
+    private confirmationService: ConfirmationService
+  ) {}
 
   ngOnChanges(changes: SimpleChanges) {
     if (changes['documentId'] && this.documentId) {
@@ -101,12 +106,22 @@ export class AttachmentListComponent implements OnChanges {
   }
 
   remove(att: AttachmentModel) {
-    this.attachmentService.deleteAttachment(att.uuid).subscribe({
-      next: () => {
-        this.attachments = this.attachments.filter(a => a.uuid !== att.uuid);
-      },
-      error: (err) => {
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: err?.error?.message || 'Failed to remove attachment.' });
+    this.confirmationService.confirm({
+      message: `Remove <strong>${att.fileName}</strong>? This action cannot be undone.`,
+      header: 'Remove Attachment',
+      icon: 'pi pi-exclamation-triangle',
+      acceptLabel: 'Remove',
+      acceptButtonStyleClass: 'p-button-danger',
+      rejectLabel: 'Cancel',
+      accept: () => {
+        this.attachmentService.deleteAttachment(att.uuid).subscribe({
+          next: () => {
+            this.attachments = this.attachments.filter(a => a.uuid !== att.uuid);
+          },
+          error: (err) => {
+            this.messageService.add({ severity: 'error', summary: 'Error', detail: err?.error?.message || 'Failed to remove attachment.' });
+          }
+        });
       }
     });
   }

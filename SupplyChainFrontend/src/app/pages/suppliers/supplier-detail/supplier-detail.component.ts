@@ -793,9 +793,12 @@ export class SupplierDetailComponent implements OnInit {
 
   deleteDocument(doc: DocumentModel) {
     this.confirmationService.confirm({
-      message: `Remove document "${doc.fileName}"?`,
-      header: 'Confirm Delete',
-      icon: 'pi pi-trash',
+      message: `Remove <strong>${doc.fileName}</strong>? This action cannot be undone.`,
+      header: 'Remove Document',
+      icon: 'pi pi-exclamation-triangle',
+      acceptLabel: 'Remove',
+      acceptButtonStyleClass: 'p-button-danger',
+      rejectLabel: 'Cancel',
       accept: () => {
         this.supplierService.softDeleteDocument(this.uuid, doc.id).subscribe({
           next: (res) => {

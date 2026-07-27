@@ -59,6 +59,7 @@ export class MirCreateComponent implements OnInit {
   department     = '';
   maintenanceRef = '';
   requiredDate: Date | null = null;
+  minDate = new Date();
   priority       = 'MEDIUM';
   purpose        = '';
   notes          = '';

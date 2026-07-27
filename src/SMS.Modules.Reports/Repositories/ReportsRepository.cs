@@ -1454,11 +1454,12 @@ internal sealed class ReportsRepository : IReportsRepository
             .SelectMany(pr => pr.Lines.Select(l => new { l.BudgetCode, pr.Department, EstimatedTotal = l.LineTotal }))
             .ToListAsync();
 
+        // Budget codes now live on each PO line too (not the PO header) — mirrors the PR side.
         var pos = await _demand.PurchaseOrders
             .Where(po => !po.IsDelete && po.Status != "DRAFT" && po.Status != "CANCELLED" &&
                          (!from.HasValue || po.CreatedDate >= from) &&
                          (!to.HasValue   || po.CreatedDate <= to))
-            .Select(po => new { po.BudgetCode, po.TotalAmount })
+            .SelectMany(po => po.Lines.Select(l => new { po.Id, l.BudgetCode, l.LineTotal }))
             .ToListAsync();
 
         var allBudgetCodes = prs.Select(p => p.BudgetCode ?? "–")
@@ -1469,12 +1470,12 @@ internal sealed class ReportsRepository : IReportsRepository
             var prGroup   = prs.Where(p => (p.BudgetCode ?? "–") == code).ToList();
             var poGroup   = pos.Where(p => (p.BudgetCode ?? "–") == code).ToList();
             var estimated = prGroup.Sum(p => p.EstimatedTotal);
-            var actual    = poGroup.Sum(p => p.TotalAmount);
+            var actual    = poGroup.Sum(p => p.LineTotal);
             var variance  = actual - estimated;
             return new BudgetUtilizationItem {
                 BudgetCode      = code,
                 Department      = prGroup.FirstOrDefault()?.Department,
-                PoCount         = poGroup.Count,
+                PoCount         = poGroup.Select(p => p.Id).Distinct().Count(),
                 EstimatedAmount = estimated,
                 ActualSpend     = actual,
                 VarianceAmount  = variance,

@@ -9,7 +9,6 @@ import { CalendarModule } from 'primeng/calendar';
 import { TextareaModule } from 'primeng/textarea';
 import { DropdownModule } from 'primeng/dropdown';
 import { AutoCompleteModule } from 'primeng/autocomplete';
-import { RadioButtonModule } from 'primeng/radiobutton';
 import { ToastModule } from 'primeng/toast';
 import { TagModule } from 'primeng/tag';
 import { TooltipModule } from 'primeng/tooltip';
@@ -24,6 +23,7 @@ export interface LineInput {
   itemDescription: string;
   specification?: string;
   unitOfMeasure?: string;
+  requiresInspection: boolean;
   qtyOrdered: number;
   qtyReceived: number;
   qtyAccepted: number;
@@ -41,7 +41,7 @@ const RECEIVABLE_STATUSES = new Set(['SENT', 'PARTIALLY_RECEIVED']);
   imports: [
     CommonModule, RouterModule, ReactiveFormsModule, FormsModule,
     ButtonModule, InputTextModule, InputNumberModule, CalendarModule,
-    TextareaModule, DropdownModule, AutoCompleteModule, RadioButtonModule,
+    TextareaModule, DropdownModule, AutoCompleteModule,
     ToastModule, TagModule, TooltipModule, AttachmentListComponent
   ],
   templateUrl: './grn-create.component.html',
@@ -65,9 +65,6 @@ export class GrnCreateComponent implements OnInit {
   selectedPo: PoSearchItemModel | null = null;
   poTouched = false;
   poWarning: string | null = null;
-
-  // Inspection flag — per-GRN, set at create time, locks once submitted
-  requiresInspection = true;
 
   // Line quantities — loaded after PO is selected
   lineInputs: LineInput[] = [];
@@ -183,17 +180,18 @@ export class GrnCreateComponent implements OnInit {
         const lines: PoLineModel[] = res?.result?.lines ?? [];
         const pending = lines.filter(l => l.qtyPending > 0);
         this.lineInputs = pending.map(l => ({
-          poLineUuid:      l.uuid,
-          itemDescription: l.itemDescription,
-          specification:   l.specification,
-          unitOfMeasure:   l.unitOfMeasure,
-          qtyOrdered:      l.qtyPending,
-          qtyReceived:     l.qtyPending,
-          qtyAccepted:     l.qtyPending,
-          qtyRejected:     0,
-          rejectionReason: null,
-          batchNumber:     '',
-          expiryDate:      null
+          poLineUuid:         l.uuid,
+          itemDescription:    l.itemDescription,
+          specification:      l.specification,
+          unitOfMeasure:      l.unitOfMeasure,
+          requiresInspection: l.requiresInspection,
+          qtyOrdered:         l.qtyPending,
+          qtyReceived:        l.qtyPending,
+          qtyAccepted:        l.qtyPending,
+          qtyRejected:        0,
+          rejectionReason:    null,
+          batchNumber:        '',
+          expiryDate:         null
         }));
         if (pending.length === 0)
           this.messageService.add({ severity: 'info', summary: 'Fully Received', detail: 'All PO lines are already fully received.' });
@@ -212,17 +210,6 @@ export class GrnCreateComponent implements OnInit {
   onQtyRejectedChange(line: LineInput) {
     line.qtyAccepted = Math.max(0, line.qtyReceived - (line.qtyRejected || 0));
     if (!(line.qtyRejected > 0)) line.rejectionReason = null;
-  }
-
-  onRequiresInspectionChange() {
-    if (!this.requiresInspection) {
-      // No-inspection path: auto-set accepted = received, rejected = 0
-      this.lineInputs.forEach(l => {
-        l.qtyAccepted     = l.qtyReceived;
-        l.qtyRejected     = 0;
-        l.rejectionReason = null;
-      });
-    }
   }
 
   // ── Computed ───────────────────────────────────────────────────────────────
@@ -272,7 +259,6 @@ export class GrnCreateComponent implements OnInit {
       driverName:         v.driverName     || undefined,
       invoiceNo:          v.invoiceNo      || undefined,
       notes:              v.notes          || undefined,
-      requiresInspection: this.requiresInspection,
       lines:              lines.length > 0 ? lines : undefined,
       grnUuid:            this.grnUuid
     }).subscribe({

@@ -24,6 +24,7 @@ public class CreateQuotationLineRequest
     public string? UnitOfMeasure { get; set; }
     public decimal Quantity { get; set; }
     public DateTime? RequiredDate { get; set; }
+    public string? BudgetCode { get; set; }
 }
 
 public class SendQuotationRequest
@@ -161,6 +162,7 @@ public class QuotationLineModel
     public string? UnitOfMeasure { get; set; }
     public decimal Quantity { get; set; }
     public DateTime? RequiredDate { get; set; }
+    public string? BudgetCode { get; set; }
 }
 
 public class QuotationInvitedSupplierModel
@@ -273,6 +275,7 @@ public class RfqAccessLinkModel
     public DateTime  ExpiresAt      { get; set; }
     public DateTime? EmailSentAt    { get; set; }
     public DateTime? WhatsAppSentAt { get; set; }
+    public string?   WhatsAppStatus { get; set; }
     public DateTime? FirstOpenedAt  { get; set; }
     public DateTime? ConsumedAt     { get; set; }
 }

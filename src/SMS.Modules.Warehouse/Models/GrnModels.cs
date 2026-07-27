@@ -24,7 +24,6 @@ public class CreateGrnRequest
     public string? DriverName { get; set; }
     public string? InvoiceNo { get; set; }
     public string? Notes { get; set; }
-    public bool RequiresInspection { get; set; } = true;
     // Optional: pre-fill received quantities at creation time
     public List<GrnLineReceiveInput>? Lines { get; set; }
     public DateTime ReceivedDate { get; internal set; }
@@ -43,7 +42,6 @@ public class PatchGrnRequest
     public string? DriverName { get; set; }
     public string? InvoiceNo { get; set; }
     public string? Notes { get; set; }
-    public bool? RequiresInspection { get; set; }
 }
 
 public class UpdateGrnLineRequest
@@ -198,6 +196,7 @@ public class GrnLineModel
 {
     public Guid UUID { get; set; }
     public Guid PoLineUuid { get; set; }
+    public bool RequiresInspection { get; set; }
     public Guid? ProductUuid { get; set; }
     public string? ProductName { get; set; }
     public int LineNo { get; set; }

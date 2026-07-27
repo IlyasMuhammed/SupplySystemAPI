@@ -64,10 +64,14 @@
       </p>
 
       <div class="rte-toolbar">
-        <button type="button" class="rte-btn" pTooltip="Bold" (click)="format('bold')"><i class="pi pi-bold"></i></button>
-        <button type="button" class="rte-btn" pTooltip="Italic" (click)="format('italic')"><i class="pi pi-italic"></i></button>
-        <button type="button" class="rte-btn" pTooltip="Underline" (click)="format('underline')"><i class="pi pi-underline"></i></button>
+        <button type="button" class="rte-btn rte-btn--glyph" pTooltip="Bold" (click)="format('bold')"><b>B</b></button>
+        <button type="button" class="rte-btn rte-btn--glyph" pTooltip="Italic" (click)="format('italic')"><i>I</i></button>
+        <button type="button" class="rte-btn rte-btn--glyph" pTooltip="Underline" (click)="format('underline')"><u>U</u></button>
         <button type="button" class="rte-btn" pTooltip="Bullet List" (click)="format('insertUnorderedList')"><i class="pi pi-list"></i></button>
+        <span class="rte-sep"></span>
+        <button type="button" class="rte-btn" pTooltip="Align Left" (click)="format('justifyLeft')"><i class="pi pi-align-left"></i></button>
+        <button type="button" class="rte-btn" pTooltip="Align Center" (click)="format('justifyCenter')"><i class="pi pi-align-center"></i></button>
+        <button type="button" class="rte-btn" pTooltip="Align Right" (click)="format('justifyRight')"><i class="pi pi-align-right"></i></button>
         <span class="rte-sep"></span>
         <p-dropdown [options]="tokenOptions" [(ngModel)]="selectedTokenToInsert" [ngModelOptions]="{standalone: true}"
                     optionLabel="label" optionValue="value" placeholder="Insert variable…"

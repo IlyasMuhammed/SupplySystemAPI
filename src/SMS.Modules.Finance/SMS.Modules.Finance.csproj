@@ -25,6 +25,7 @@
     <ProjectReference Include="..\SMS.Shared\SMS.Shared.csproj" />
     <ProjectReference Include="..\SMS.Modules.Demand\SMS.Modules.Demand.csproj" />
     <ProjectReference Include="..\SMS.Modules.Warehouse\SMS.Modules.Warehouse.csproj" />
+    <ProjectReference Include="..\SMS.Modules.Lookups\SMS.Modules.Lookups.csproj" />
   </ItemGroup>
 
   <ItemGroup>

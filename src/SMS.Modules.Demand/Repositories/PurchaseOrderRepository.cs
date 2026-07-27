@@ -53,7 +53,8 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
                 Quantity         = prLine.Quantity,
                 UnitPrice        = prLine.EstimatedUnitPrice,
                 LineTotal        = prLine.LineTotal,
-                RequiredDate     = prLine.RequiredDate
+                RequiredDate     = prLine.RequiredDate,
+                BudgetCode       = prLine.BudgetCode
             });
             prLine.LineStatus = "FULLY_CONVERTED";
         }
@@ -70,7 +71,6 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
             TotalAmount  = poLines.Sum(l => l.LineTotal),
             DeliveryDate = req.DeliveryDate,
             Notes               = req.Notes,
-            BudgetCode          = pr.Lines.OrderBy(l => l.LineNo).FirstOrDefault()?.BudgetCode,
             DeliveryWarehouseId = pr.WarehouseUuid,
             IsActive            = true,
             CreatedBy    = createdBy,
@@ -140,7 +140,8 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
                     Quantity         = prLine.Quantity,
                     UnitPrice        = prLine.EstimatedUnitPrice,
                     LineTotal        = prLine.LineTotal,
-                    RequiredDate     = prLine.RequiredDate
+                    RequiredDate     = prLine.RequiredDate,
+                    BudgetCode       = prLine.BudgetCode
                 });
                 prLine.LineStatus = "FULLY_CONVERTED";
             }
@@ -157,7 +158,6 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
                 TotalAmount  = poLines.Sum(l => l.LineTotal),
                 DeliveryDate = req.DeliveryDate,
                 Notes        = req.Notes,
-                BudgetCode   = group.OrderBy(x => x.PrLine.LineNo).First().PrLine.BudgetCode,
                 IsActive     = true,
                 CreatedBy    = createdBy,
                 CreatedDate  = now,
@@ -200,7 +200,6 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
             DeliveryWarehouseName = req.DeliveryWarehouseName,
             Notes                 = req.Notes,
             InternalNotes         = req.InternalNotes,
-            BudgetCode            = req.BudgetCode,
             IsActive              = true,
             CreatedBy             = createdBy,
             CreatedDate           = now
@@ -255,7 +254,8 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
                         Quantity         = prLine.Quantity,
                         UnitPrice        = prLine.EstimatedUnitPrice,
                         LineTotal        = prLine.LineTotal,
-                        RequiredDate     = prLine.RequiredDate
+                        RequiredDate     = prLine.RequiredDate,
+                        BudgetCode       = prLine.BudgetCode
                     });
                     prLine.LineStatus = "FULLY_CONVERTED";
                 }
@@ -288,8 +288,10 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
                     LineTotal        = line.Quantity * line.UnitPrice,
                     RequiredDate     = line.RequiredDate,
                     LineNotes        = line.LineNotes,
+                    BudgetCode       = line.BudgetCode,
                     WarehouseId      = line.WarehouseId,
-                    WarehouseName    = line.WarehouseName
+                    WarehouseName    = line.WarehouseName,
+                    RequiresInspection = line.RequiresInspection
                 });
             }
         }
@@ -320,7 +322,6 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
         if (req.DeliveryWarehouseId.HasValue)      po.DeliveryWarehouseId   = req.DeliveryWarehouseId;
         if (req.DeliveryWarehouseName is not null) po.DeliveryWarehouseName = req.DeliveryWarehouseName;
         if (req.Notes is not null)                 po.Notes                 = req.Notes;
-        if (req.BudgetCode is not null)            po.BudgetCode            = req.BudgetCode;
 
         if (req.Lines is not null)
         {
@@ -344,8 +345,10 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
                     LineTotal        = l.Quantity * l.UnitPrice,
                     RequiredDate     = l.RequiredDate,
                     LineNotes        = l.LineNotes,
+                    BudgetCode       = l.BudgetCode,
                     WarehouseId      = l.WarehouseId,
-                    WarehouseName    = l.WarehouseName
+                    WarehouseName    = l.WarehouseName,
+                    RequiresInspection = l.RequiresInspection
                 });
             }
             po.TotalAmount = po.Lines.Sum(l => l.Quantity * l.UnitPrice);
@@ -456,7 +459,6 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
             DeliveryWarehouseName = po.DeliveryWarehouseName,
             Notes                 = po.Notes,
             InternalNotes         = po.InternalNotes,
-            BudgetCode            = po.BudgetCode,
             CreatedBy             = po.CreatedBy,
             CreatedDate           = po.CreatedDate,
             LinkedPrUuids         = po.PrLinks.Select(l => l.PrUuid).ToList(),
@@ -476,10 +478,12 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
                 QtyInvoiced           = l.QtyInvoiced,
                 RequiredDate          = l.RequiredDate,
                 LineNotes             = l.LineNotes,
+                BudgetCode            = l.BudgetCode,
                 WarehouseId           = l.WarehouseId,
                 WarehouseName         = l.WarehouseName,
                 EffectiveWarehouseId  = l.EffectiveWarehouseId,
-                EffectiveWarehouseName = l.EffectiveWarehouseName
+                EffectiveWarehouseName = l.EffectiveWarehouseName,
+                RequiresInspection    = l.RequiresInspection
             }).ToList()
         };
     }

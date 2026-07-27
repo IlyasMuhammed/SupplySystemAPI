@@ -172,6 +172,7 @@ export class QuotationDetailComponent implements OnInit, OnDestroy {
         if (res.success && res.result) {
           this.quotation = res.result;
           if (res.result.status !== 'SENT') this.stopPolling();
+          this.loadAccessLinks();
         }
       },
       error: () => {}
@@ -188,6 +189,12 @@ export class QuotationDetailComponent implements OnInit, OnDestroy {
           this.startPolling();
         } else {
           this.stopPolling();
+        }
+        // Auto-load so who-submitted / when is visible immediately — pricing itself stays
+        // sealed regardless (access links never carry line prices), so this is safe to show
+        // without any "open bids" action.
+        if (this.quotation?.status === 'SENT' || this.quotation?.status === 'AWARDED') {
+          this.loadAccessLinks();
         }
       },
       error: () => { this.isLoading = false; this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to load quotation.' }); }
@@ -663,6 +670,49 @@ export class QuotationDetailComponent implements OnInit, OnDestroy {
       case 'EXPIRED':  return 'secondary';
       case 'REVOKED':  return 'danger';
       default:         return 'secondary';
+    }
+  }
+
+  // WhatsAppSentAt only means "the provider accepted the send request" — whatsAppStatus carries
+  // the real outcome once Twilio's async status callback updates it (see WhatsAppWebhookController
+  // in SMS.Modules.Notifications). Undefined/SENT/QUEUED means still in flight, not confirmed yet.
+  waStatusClass(status?: string): string {
+    switch (status) {
+      case 'DELIVERED':
+      case 'READ':        return 'al-sent-wa';
+      case 'FAILED':
+      case 'UNDELIVERED': return 'al-sent-wa-failed';
+      default:            return 'al-sent-wa-pending';
+    }
+  }
+
+  waStatusIcon(status?: string): string {
+    switch (status) {
+      case 'DELIVERED':
+      case 'READ':        return 'pi pi-check-circle';
+      case 'FAILED':
+      case 'UNDELIVERED': return 'pi pi-times-circle';
+      default:            return 'pi pi-clock';
+    }
+  }
+
+  waStatusLabel(status?: string): string {
+    switch (status) {
+      case 'DELIVERED':   return 'Delivered';
+      case 'READ':        return 'Read';
+      case 'FAILED':      return 'Failed';
+      case 'UNDELIVERED': return 'Undelivered';
+      default:            return 'Sending…';
+    }
+  }
+
+  waStatusTooltip(status?: string): string {
+    switch (status) {
+      case 'DELIVERED':
+      case 'READ':        return 'Confirmed delivered by WhatsApp.';
+      case 'FAILED':
+      case 'UNDELIVERED': return 'WhatsApp reported this message could not be delivered — the recipient may not have opted in yet, or the number may be invalid.';
+      default:            return 'Accepted by the provider, but delivery is not confirmed yet.';
     }
   }
 

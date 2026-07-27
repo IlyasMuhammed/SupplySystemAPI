@@ -54,6 +54,7 @@ internal sealed class QuotationLineMap : IEntityTypeConfiguration<QuotationLine>
         b.Property(x => x.Specification).HasMaxLength(500);
         b.Property(x => x.UnitOfMeasure).HasMaxLength(20);
         b.Property(x => x.Quantity).HasColumnType("decimal(18,4)");
+        b.Property(x => x.BudgetCode).HasMaxLength(50);
 
         b.HasOne(x => x.Quotation)
          .WithMany(x => x.Lines)
@@ -152,6 +153,9 @@ internal sealed class RfqAccessLinkMap : IEntityTypeConfiguration<RfqAccessLink>
         b.Property(x => x.SupplierEmail).HasMaxLength(254);
         b.Property(x => x.PortalLinkUrl).HasMaxLength(1000);
         b.Property(x => x.ContactMobileNumber).HasMaxLength(20);  // E.164 max 15 digits + prefix
+        b.Property(x => x.WhatsAppProviderMessageId).HasMaxLength(100);
+        b.Property(x => x.WhatsAppStatus).HasMaxLength(20);
+        b.HasIndex(x => x.WhatsAppProviderMessageId);
 
         b.HasOne(x => x.Quotation)
          .WithMany()

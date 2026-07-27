@@ -175,73 +175,10 @@
       </div>
     </div>
 
-    <!-- ── Step 3 — Inspection Requirement ────────────────────────────── -->
-    <div class="section-card">
-      <div class="section-card-head">
-        <div class="sc-step">3</div>
-        <div class="sc-icon-wrap"><i class="pi pi-search"></i></div>
-        <span class="sc-title">Inspection Requirement</span>
-        <span class="sc-hint">indicate whether a formal quality inspection is required</span>
-      </div>
-      <div class="section-card-body">
-
-        <div class="inspection-radio-group">
-
-          <div class="inspection-radio-option insp-yes-option">
-            <p-radioButton
-              name="requiresInspection"
-              [value]="true"
-              [(ngModel)]="requiresInspection"
-              [ngModelOptions]="{standalone: true}"
-              inputId="insp-yes"
-              (onClick)="onRequiresInspectionChange()">
-            </p-radioButton>
-            <label for="insp-yes" class="insp-label">
-              <div class="insp-icon-wrap insp-yes">
-                <i class="pi pi-check-circle"></i>
-              </div>
-              <div class="insp-text">
-                <span class="insp-title">Yes — Inspection Required</span>
-                <small>QC team will record accepted / rejected quantities and results</small>
-              </div>
-            </label>
-          </div>
-
-          <div class="inspection-radio-option insp-no-option">
-            <p-radioButton
-              name="requiresInspection"
-              [value]="false"
-              [(ngModel)]="requiresInspection"
-              [ngModelOptions]="{standalone: true}"
-              inputId="insp-no"
-              (onClick)="onRequiresInspectionChange()">
-            </p-radioButton>
-            <label for="insp-no" class="insp-label">
-              <div class="insp-icon-wrap insp-no">
-                <i class="pi pi-times-circle"></i>
-              </div>
-              <div class="insp-text">
-                <span class="insp-title">No — Skip Formal Inspection</span>
-                <small>Accepted qty = received qty; manual rejection still permitted</small>
-              </div>
-            </label>
-          </div>
-
-        </div>
-
-        <div *ngIf="!requiresInspection" class="no-inspection-banner">
-          <i class="pi pi-info-circle"></i>
-          <span>Formal inspection skipped. Accepted quantities will equal received quantities.
-            Manual rejection for visual defects is still permitted.</span>
-        </div>
-
-      </div>
-    </div>
-
-    <!-- ── Step 4 — Received Quantities ───────────────────────────────── -->
+    <!-- ── Step 3 — Received Quantities ───────────────────────────────── -->
     <div class="section-card" *ngIf="selectedPo">
       <div class="section-card-head">
-        <div class="sc-step">4</div>
+        <div class="sc-step">3</div>
         <div class="sc-icon-wrap"><i class="pi pi-list"></i></div>
         <span class="sc-title">Received Quantities</span>
         <span class="sc-spacer"></span>
@@ -267,7 +204,7 @@
               <col style="width:95px">
               <col style="width:130px">
               <col style="width:100px">
-              <col *ngIf="requiresInspection" style="width:190px">
+              <col style="width:190px">
               <col style="width:110px">
               <col style="width:145px">
               <col style="width:40px">
@@ -280,7 +217,7 @@
                 <th class="qty-col">Pending</th>
                 <th class="qty-col qty-received-header">Qty Received <span class="req">*</span></th>
                 <th class="qty-col">Accepted</th>
-                <th *ngIf="requiresInspection">Rejection</th>
+                <th>Rejection</th>
                 <th>Batch No.</th>
                 <th>Expiry Date</th>
                 <th></th>
@@ -293,6 +230,9 @@
                 <td class="item-desc">
                   <span class="desc-text">{{ line.itemDescription }}</span>
                   <small *ngIf="line.specification" class="spec-text">{{ line.specification }}</small>
+                  <small *ngIf="!line.requiresInspection" class="no-inspection-tag">
+                    <i class="pi pi-times-circle"></i> No inspection required
+                  </small>
                 </td>
                 <td class="uom">{{ line.unitOfMeasure || '—' }}</td>
                 <td class="qty-ordered">{{ line.qtyOrdered | number:'1.0-4' }}</td>
@@ -311,26 +251,31 @@
                     {{ line.qtyAccepted | number:'1.0-4' }}
                   </span>
                 </td>
-                <td class="rejection-col" *ngIf="requiresInspection">
-                  <p-inputNumber
-                    [(ngModel)]="line.qtyRejected"
-                    [ngModelOptions]="{standalone: true}"
-                    [minFractionDigits]="0" [maxFractionDigits]="4"
-                    [min]="0"
-                    styleClass="qty-field"
-                    (onInput)="onQtyRejectedChange(line)">
-                  </p-inputNumber>
-                  <div class="rejection-reason-wrap" *ngIf="(line.qtyRejected || 0) > 0">
-                    <p-dropdown
-                      [(ngModel)]="line.rejectionReason"
+                <td class="rejection-col">
+                  <ng-container *ngIf="line.requiresInspection; else noRejectionInput">
+                    <p-inputNumber
+                      [(ngModel)]="line.qtyRejected"
                       [ngModelOptions]="{standalone: true}"
-                      [options]="rejectionReasonOptions"
-                      [showClear]="true"
-                      placeholder="Select reason…"
-                      styleClass="reason-field"
-                      appendTo="body">
-                    </p-dropdown>
-                  </div>
+                      [minFractionDigits]="0" [maxFractionDigits]="4"
+                      [min]="0"
+                      styleClass="qty-field"
+                      (onInput)="onQtyRejectedChange(line)">
+                    </p-inputNumber>
+                    <div class="rejection-reason-wrap" *ngIf="(line.qtyRejected || 0) > 0">
+                      <p-dropdown
+                        [(ngModel)]="line.rejectionReason"
+                        [ngModelOptions]="{standalone: true}"
+                        [options]="rejectionReasonOptions"
+                        [showClear]="true"
+                        placeholder="Select reason…"
+                        styleClass="reason-field"
+                        appendTo="body">
+                      </p-dropdown>
+                    </div>
+                  </ng-container>
+                  <ng-template #noRejectionInput>
+                    <span class="text-secondary">—</span>
+                  </ng-template>
                 </td>
                 <td class="batch-col">
                   <input pInputText

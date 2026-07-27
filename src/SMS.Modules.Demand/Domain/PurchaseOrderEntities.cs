@@ -14,7 +14,6 @@ internal class PurchaseOrder
     public DateTime? DeliveryDate { get; set; }
     public string? Notes { get; set; }
     public string? InternalNotes { get; set; }
-    public string? BudgetCode { get; set; }
     public Guid? DeliveryWarehouseId { get; set; }
     public string? DeliveryWarehouseName { get; set; }
     public string? SupplierContactMobile { get; set; }  // verified E.164 mobile captured at Send time
@@ -46,8 +45,12 @@ internal class PurchaseOrderLine
     public decimal QtyInvoiced { get; set; }   // cumulative qty invoiced across all approved invoices
     public DateTime? RequiredDate { get; set; }
     public string? LineNotes { get; set; }
+    public string? BudgetCode { get; set; }
     public Guid? WarehouseId { get; set; }     // per-line override; null means use PO header DeliveryWarehouseId
     public string? WarehouseName { get; set; }
+    // Decided at PO creation; inherited by the GRN line when goods are received — QC is
+    // skipped entirely for lines where this is false.
+    public bool RequiresInspection { get; set; } = true;
     public PurchaseOrder PurchaseOrder { get; set; } = null!;
 
     [System.ComponentModel.DataAnnotations.Schema.NotMapped]

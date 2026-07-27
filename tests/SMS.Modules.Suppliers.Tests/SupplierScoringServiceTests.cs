@@ -71,6 +71,7 @@ file static class ScoringBuild
             Lines = lines.Select((l, i) => new GrnLine
             {
                 UUID = Guid.NewGuid(), LineNo = i + 1, PoLineUuid = l.PoLineUuid, ItemDescription = "Item",
+                RequiresInspection = requiresInspection,
                 QtyOrdered = l.QtyOrdered, QtyReceived = l.QtyAccepted, QtyAccepted = l.QtyAccepted,
                 UnitCost = l.UnitCost, InspectionResult = l.InspectionResult
             }).ToList()

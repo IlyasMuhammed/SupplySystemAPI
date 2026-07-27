@@ -36,19 +36,18 @@ internal sealed class PoDocumentTemplateRepository : IPoDocumentTemplateReposito
             .FirstOrDefaultAsync();
     }
 
-    // Sensible starting point shown the first time an org opens the template editor — mirrors
-    // the structure of the sample vessel-acceptance-letter reference doc (To block, subject line,
-    // greeting, body paragraph, items table, signature block) using the token syntax the editor
-    // supports. The "To" block is plain body text here (not auto-generated) — the org can freely
-    // move, restyle, or remove it.
+    // Sensible starting point shown the first time an org opens the template editor. The
+    // letterhead, "To"/"Dated" block, line-items table (with its own Grand Total row), and
+    // signature block are all rendered automatically from live PO data — this default only
+    // covers the narrative portion the org actually needs to author: subject, greeting, and an
+    // opening paragraph. {{LineItemsTable}} / {{SignatureBlock}} mark where those fixed sections
+    // are spliced in.
     public const string DefaultBodyHtml =
-        "<p>To: {{SupplierName}}<br>Contact: {{SupplierMobile}}</p>" +
         "<p><strong>SUBJECT: Purchase Order {{PoNumber}}</strong></p>" +
         "<p>Dear Sir/Madam,</p>" +
         "<p>Please find below our Purchase Order {{PoNumber}} dated {{PoDate}}, to be delivered by {{DeliveryDate}}. " +
         "Kindly acknowledge receipt and confirm your acceptance of the order details below.</p>" +
         "{{LineItemsTable}}" +
-        "<p>Grand Total: {{TotalAmount}}</p>" +
         "{{SignatureBlock}}";
 
     public const string DefaultFooterText = "This is a system generated document and does not require a signature.";

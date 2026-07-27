@@ -57,7 +57,7 @@
 
         <div class="form-field">
           <label>Required By Date</label>
-          <p-calendar [(ngModel)]="requiredDate" dateFormat="dd/mm/yy"
+          <p-calendar [(ngModel)]="requiredDate" dateFormat="dd/mm/yy" [minDate]="minDate"
                       [showIcon]="true" placeholder="Select date" styleClass="w-full"></p-calendar>
         </div>
       </div>

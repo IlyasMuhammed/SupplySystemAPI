@@ -819,7 +819,9 @@
   i { font-size: .72rem; }
 
   &.al-sent-email { background: #eff6ff; color: #1d4ed8; }
-  &.al-sent-wa    { background: #f0fdf4; color: #15803d; }
+  &.al-sent-wa         { background: #f0fdf4; color: #15803d; }
+  &.al-sent-wa-pending { background: #fffbeb; color: #b45309; }
+  &.al-sent-wa-failed  { background: #fef2f2; color: #b91c1c; }
 }
 
 .al-pending-badge {
