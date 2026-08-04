@@ -19,6 +19,7 @@ public class CreateQuotationLineRequest
 {
     public Guid? SourcePrLineUuid { get; set; }
     public Guid? SourcePoLineUuid { get; set; }
+    public Guid? ProductId { get; set; }
     public string ItemDescription { get; set; } = string.Empty;
     public string? Specification { get; set; }
     public string? UnitOfMeasure { get; set; }
@@ -157,6 +158,7 @@ public class QuotationLineModel
     public int LineNo { get; set; }
     public Guid? SourcePrLineUuid { get; set; }
     public Guid? SourcePoLineUuid { get; set; }
+    public Guid? ProductId { get; set; }
     public string ItemDescription { get; set; } = string.Empty;
     public string? Specification { get; set; }
     public string? UnitOfMeasure { get; set; }

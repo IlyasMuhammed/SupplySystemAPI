@@ -77,7 +77,7 @@
       <ng-template pTemplate="body" let-row>
         <tr>
           <td class="text-sm font-mono">{{ row.timestamp | date:'dd MMM yyyy, HH:mm' }}</td>
-          <td class="font-semibold">{{ row.userName || ('User #' + row.userId) }}</td>
+          <td class="font-semibold">{{ row.userName || 'Unknown user' }}</td>
           <td class="text-center"><p-tag [value]="row.module" severity="info" /></td>
           <td class="text-center">
             <p-tag [value]="row.action"

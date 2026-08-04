@@ -10,6 +10,14 @@ public static class PermissionCodes
     public const string SYSTEM_CONFIGURE   = "SYSTEM_CONFIGURE";
     public const string USER_MANAGE        = "USER_MANAGE";
     public const string AUDIT_LOG_VIEW     = "AUDIT_LOG_VIEW";
+    // Adding new Countries/Cities specifically — appends to the shared global catalog without the
+    // ability to rename/delete existing entries (which stays SYSTEM_CONFIGURE-only, since that can
+    // break every other organization relying on the current name/code).
+    public const string LOCATION_MANAGE    = "LOCATION_MANAGE";
+    // Reserved exclusively for the platform System Admin role — gates api/system/* (Organizations,
+    // Feature Configuration). Distinct from SYSTEM_CONFIGURE, which other admin screens use and
+    // which tenant-scoped admin roles may eventually also hold.
+    public const string PLATFORM_SUPER_ADMIN = "PLATFORM_SUPER_ADMIN";
 
     // ── Suppliers ─────────────────────────────────────────────────────────────
     public const string SUPPLIER_VIEW      = "SUPPLIER_VIEW";
@@ -32,6 +40,9 @@ public static class PermissionCodes
     public const string PO_EDIT            = "PO_EDIT";
     public const string PO_APPROVE         = "PO_APPROVE";
     public const string PO_CANCEL          = "PO_CANCEL";
+    // Editing this org's own PO letterhead/branding — distinct from SYSTEM_CONFIGURE, which gates
+    // genuinely global reference data (Lookup Types/Values) shared across every organization.
+    public const string PO_TEMPLATE_MANAGE = "PO_TEMPLATE_MANAGE";
 
     // ── Requisitions ──────────────────────────────────────────────────────────
     public const string REQUISITION_CREATE    = "REQUISITION_CREATE";
@@ -63,6 +74,10 @@ public static class PermissionCodes
     public const string GRN_APPROVE         = "GRN_APPROVE";          // Inventory Manager
     public const string GRN_FINANCE_APPROVE = "GRN_FINANCE_APPROVE";  // Finance Officer
 
+    // ── Material Management (Projects, MIR, MIV, Wastage, Returns, Cost Ledger) ─
+    public const string MATERIAL_VIEW   = "MATERIAL_VIEW";
+    public const string MATERIAL_MANAGE = "MATERIAL_MANAGE";
+
     // ── Finance ───────────────────────────────────────────────────────────────
     public const string INVOICE_VIEW       = "INVOICE_VIEW";
     public const string INVOICE_PROCESS    = "INVOICE_PROCESS";
@@ -85,16 +100,17 @@ public static class PermissionCodes
     // ── All codes (used by System Admin seed) ─────────────────────────────────
     public static readonly IReadOnlyList<string> All =
     [
-        SYSTEM_CONFIGURE, USER_MANAGE, AUDIT_LOG_VIEW,
+        SYSTEM_CONFIGURE, USER_MANAGE, AUDIT_LOG_VIEW, PLATFORM_SUPER_ADMIN, LOCATION_MANAGE,
         SUPPLIER_VIEW, SUPPLIER_CREATE, SUPPLIER_EDIT, SUPPLIER_MANAGE,
         RFQ_VIEW, RFQ_CREATE, RFQ_MANAGE,
         CONTRACT_VIEW, CONTRACT_MANAGE,
-        PO_VIEW, PO_CREATE, PO_EDIT, PO_APPROVE, PO_CANCEL,
+        PO_VIEW, PO_CREATE, PO_EDIT, PO_APPROVE, PO_CANCEL, PO_TEMPLATE_MANAGE,
         REQUISITION_CREATE, REQUISITION_VIEW_OWN, REQUISITION_VIEW_ALL, REQUISITION_APPROVE,
         BUDGET_VIEW, BUDGET_MANAGE, BUDGET_MONITOR,
         INVENTORY_VIEW, STOCK_MANAGE, STOCK_ADJUST, REORDER_MANAGE,
         WAREHOUSE_TRANSFER, GOODS_RECEIVE, PUTAWAY, PICKING, DISPATCH, STOCK_LOCATION_UPDATE,
         GRN_QC_CONFIRM, GRN_APPROVE, GRN_FINANCE_APPROVE,
+        MATERIAL_VIEW, MATERIAL_MANAGE,
         INVOICE_VIEW, INVOICE_PROCESS, PAYMENT_VIEW, PAYMENT_PROCESS, PAYMENT_APPROVE, RECONCILIATION,
         DELIVERY_TRACK,
         REPORT_VIEW, REPORT_EXPORT,

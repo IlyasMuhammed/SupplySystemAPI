@@ -16,7 +16,8 @@ internal sealed class PurchaseRequisitionMap : IEntityTypeConfiguration<Purchase
         b.Property(x => x.TraceId).IsRequired().ValueGeneratedOnAdd().HasDefaultValueSql("NEWSEQUENTIALID()");
         b.HasIndex(x => x.TraceId);
         b.Property(x => x.PrNumber).HasMaxLength(20).IsRequired();
-        b.HasIndex(x => x.PrNumber).IsUnique();
+        // Composite, not global — each org generates its own PR number sequence.
+        b.HasIndex(x => new { x.OrganizationId, x.PrNumber }).IsUnique();
 
         b.Property(x => x.PrTitle).HasMaxLength(200).IsRequired();
         b.Property(x => x.Department).HasMaxLength(100);
@@ -28,6 +29,8 @@ internal sealed class PurchaseRequisitionMap : IEntityTypeConfiguration<Purchase
         b.Property(x => x.RejectionReason).HasMaxLength(500);
         b.Property(x => x.Notes).HasMaxLength(500);
         b.Property(x => x.IsActive).HasDefaultValue(true);
+        b.Property(x => x.OrganizationId).IsRequired();
+        b.HasIndex(x => x.OrganizationId);
 
         b.HasMany(x => x.Lines)
          .WithOne(x => x.PurchaseRequisition)
@@ -57,6 +60,8 @@ internal sealed class PrLineMap : IEntityTypeConfiguration<PrLine>
         b.Property(x => x.BudgetCode).HasMaxLength(50);
         b.Property(x => x.DisbursedQty).HasColumnType("decimal(18,4)").HasDefaultValue(0m);
         b.Property(x => x.DisbursedMirIds).HasColumnType("nvarchar(max)").HasDefaultValue("[]");
+        b.Property(x => x.OrganizationId).IsRequired();
+        b.HasIndex(x => x.OrganizationId);
 
         b.HasOne(x => x.PurchaseRequisition)
          .WithMany(x => x.Lines)

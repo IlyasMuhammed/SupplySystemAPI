@@ -50,6 +50,7 @@ internal sealed class QuotationRepository : IQuotationRepository
             LineNo            = i + 1,
             SourcePrLineUuid  = l.SourcePrLineUuid,
             SourcePoLineUuid  = l.SourcePoLineUuid,
+            ProductId         = l.ProductId,
             ItemDescription   = l.ItemDescription,
             Specification     = l.Specification,
             UnitOfMeasure     = l.UnitOfMeasure,
@@ -106,6 +107,7 @@ internal sealed class QuotationRepository : IQuotationRepository
                 LineNo           = i + 1,
                 SourcePrLineUuid = l.SourcePrLineUuid,
                 SourcePoLineUuid = l.SourcePoLineUuid,
+                ProductId        = l.ProductId,
                 ItemDescription  = l.ItemDescription,
                 Specification    = l.Specification,
                 UnitOfMeasure    = l.UnitOfMeasure,
@@ -203,6 +205,7 @@ internal sealed class QuotationRepository : IQuotationRepository
                 LineNo           = l.LineNo,
                 SourcePrLineUuid = l.SourcePrLineUuid,
                 SourcePoLineUuid = l.SourcePoLineUuid,
+                ProductId        = l.ProductId,
                 ItemDescription  = l.ItemDescription,
                 Specification    = l.Specification,
                 UnitOfMeasure    = l.UnitOfMeasure,
@@ -252,8 +255,7 @@ internal sealed class QuotationRepository : IQuotationRepository
 
         var lineMap = quotation.Lines.ToDictionary(l => l.UUID, l => l.Id);
 
-        var responseUuid  = Guid.NewGuid();
-        var now           = DateTime.UtcNow;
+        var now = DateTime.UtcNow;
 
         var responseLines = req.Lines.Select(l =>
         {
@@ -272,6 +274,21 @@ internal sealed class QuotationRepository : IQuotationRepository
             };
         }).ToList();
 
+        // A supplier can only have one response per quotation — once recorded it's final, so a
+        // second attempt for the same supplier is rejected rather than silently overwriting
+        // whatever pricing was already captured for them. Ad-hoc suppliers typed by name only
+        // (not picked from the catalog) all share the placeholder SupplierId, so they're
+        // deduped by name instead — the only identity available for them.
+        var nameNorm = req.SupplierName.Trim();
+        var alreadyResponded = req.SupplierId != Guid.Empty
+            ? await _db.VendorResponses.AnyAsync(r => r.QuotationId == quotation.Id && r.SupplierId == req.SupplierId)
+            : await _db.VendorResponses.AnyAsync(r => r.QuotationId == quotation.Id
+                && r.SupplierId == Guid.Empty && r.SupplierName.ToLower() == nameNorm.ToLower());
+        if (alreadyResponded)
+            throw new UnprocessableEntityException(
+                $"'{req.SupplierName}' has already submitted a response for this quotation.");
+
+        var responseUuid = Guid.NewGuid();
         _db.VendorResponses.Add(new VendorResponse
         {
             UUID         = responseUuid,

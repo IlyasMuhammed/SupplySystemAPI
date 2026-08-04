@@ -18,7 +18,7 @@ file static class TimelineBuild
         new(new DbContextOptionsBuilder<WorkflowDbContext>()
             .UseInMemoryDatabase(dbName ?? Guid.NewGuid().ToString())
             .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
-            .Options);
+            .Options, new StaticTenantContext());
 
     internal static TimelineService NewService(
         WorkflowDbContext db, IEnumerable<ITraceIdResolver>? resolvers = null, IUserQueryService? userQuery = null) =>
@@ -44,7 +44,11 @@ file sealed class StubUserQueryService : IUserQueryService
 
     public Task<bool> IsSystemAdminAsync(int userId) => Task.FromResult(false);
 
+    public Task<bool> IsOrgAdminAsync(int userId) => Task.FromResult(false);
+
     public Task<string?> GetUserEmailAsync(int userId) => Task.FromResult<string?>($"user{userId}@example.com");
+
+    public Task<int?> GetFirstSystemAdminUserIdAsync() => Task.FromResult<int?>(null);
 }
 
 // ── AppendEventAsync ─────────────────────────────────────────────────────────

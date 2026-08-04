@@ -1,10 +1,13 @@
+using SMS.Shared.Common;
+
 namespace SMS.Modules.Demand.Domain;
 
-internal class PurchaseRequisition
+internal class PurchaseRequisition : ITenantScopedEntity
 {
     public int Id { get; set; }
     public Guid UUID { get; set; }
     public Guid TraceId { get; set; }
+    public Guid OrganizationId { get; set; }
 
     public string PrNumber { get; set; } = string.Empty;
     public string PrTitle { get; set; } = string.Empty;
@@ -33,10 +36,11 @@ internal class PurchaseRequisition
     public ICollection<PrLine> Lines { get; set; } = new List<PrLine>();
 }
 
-internal class PrLine
+internal class PrLine : ITenantScopedEntity
 {
     public int Id { get; set; }
     public Guid UUID { get; set; }
+    public Guid OrganizationId { get; set; }
     public int PurchaseRequisitionId { get; set; }
     public int LineNo { get; set; }
     public Guid? ProductId { get; set; }

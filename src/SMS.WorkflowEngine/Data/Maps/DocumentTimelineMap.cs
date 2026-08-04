@@ -24,5 +24,7 @@ internal sealed class DocumentTimelineMap : IEntityTypeConfiguration<DocumentTim
         b.Property(x => x.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
 
         b.Property(x => x.RowVersion).IsRowVersion();
+        b.Property(x => x.OrganizationId).IsRequired();
+        b.HasIndex(x => x.OrganizationId);
     }
 }

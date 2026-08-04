@@ -11,6 +11,7 @@ namespace SMS.Modules.Demand.Controllers;
 
 [ApiController]
 [Route("api/purchase-orders")]
+[RequiresFeature("MODULE_DEMAND")]
 public class PurchaseOrdersController : ControllerBase
 {
     private readonly IPurchaseOrderService _service;

@@ -1,12 +1,15 @@
 using Microsoft.AspNetCore.Mvc;
 using SMS.Modules.Material.Models;
 using SMS.Modules.Material.Services;
+using SMS.Shared.Authorization;
 using SMS.Shared.Pagination;
 
 namespace SMS.Modules.Material.Controllers;
 
 [ApiController]
 [Route("api/purchase-requisitions")]
+[RequiresFeature("MODULE_MIR")]
+[RequirePermission(PermissionCodes.MATERIAL_VIEW)]
 public class PurchaseRequisitionSearchController : ControllerBase
 {
     private readonly IPrLookupService _service;

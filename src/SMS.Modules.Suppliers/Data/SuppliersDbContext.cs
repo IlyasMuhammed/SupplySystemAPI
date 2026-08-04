@@ -1,11 +1,16 @@
 using Microsoft.EntityFrameworkCore;
 using SMS.Modules.Suppliers.Domain;
+using SMS.Shared.Common;
 
 namespace SMS.Modules.Suppliers.Data;
 
-internal sealed class SuppliersDbContext : DbContext
+internal sealed class SuppliersDbContext : DbContext, ITenantScopedDbContext
 {
-    public SuppliersDbContext(DbContextOptions<SuppliersDbContext> options) : base(options) { }
+    private readonly ITenantContext _tenantContext;
+    public ITenantContext TenantContext => _tenantContext;
+
+    public SuppliersDbContext(DbContextOptions<SuppliersDbContext> options, ITenantContext tenantContext) : base(options) =>
+        _tenantContext = tenantContext;
 
     internal DbSet<Supplier> Suppliers => Set<Supplier>();
     internal DbSet<SupplierTypeMapping> SupplierTypeMappings => Set<SupplierTypeMapping>();
@@ -24,5 +29,18 @@ internal sealed class SuppliersDbContext : DbContext
     {
         modelBuilder.HasDefaultSchema("suppliers");
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(SuppliersDbContext).Assembly);
+        modelBuilder.ApplyTenantQueryFilters(this);
+    }
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        this.StampTenantScopedEntities(_tenantContext);
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        this.StampTenantScopedEntities(_tenantContext);
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
     }
 }

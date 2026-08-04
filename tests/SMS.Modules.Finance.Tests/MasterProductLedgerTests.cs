@@ -12,7 +12,7 @@ file static class Build
     internal static FinanceDbContext NewFinanceDb(string? dbName = null) =>
         new(new DbContextOptionsBuilder<FinanceDbContext>()
             .UseInMemoryDatabase(dbName ?? Guid.NewGuid().ToString())
-            .Options);
+            .Options, new StaticTenantContext());
 }
 
 // ── ML-003: MasterProductLedgerService.PostMovementAsync ────────────────────

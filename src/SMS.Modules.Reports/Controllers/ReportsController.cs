@@ -11,6 +11,7 @@ namespace SMS.Modules.Reports.Controllers;
 
 [ApiController]
 [Route("api/reports")]
+[RequiresFeature("MODULE_REPORTS")]
 public class ReportsController : ControllerBase
 {
     private readonly IReportsService _svc;

@@ -16,7 +16,8 @@ internal sealed class InvoiceMap : IEntityTypeConfiguration<Invoice>
         b.Property(x => x.TraceId).IsRequired().ValueGeneratedOnAdd().HasDefaultValueSql("NEWSEQUENTIALID()");
         b.HasIndex(x => x.TraceId);
         b.Property(x => x.InvoiceNumber).HasMaxLength(20).IsRequired();
-        b.HasIndex(x => x.InvoiceNumber).IsUnique();
+        // Composite, not global — each org generates its own invoice number sequence.
+        b.HasIndex(x => new { x.OrganizationId, x.InvoiceNumber }).IsUnique();
         b.Property(x => x.SupplierInvoiceNo).HasMaxLength(50);
         b.Property(x => x.SupplierName).HasMaxLength(200).IsRequired();
         b.Property(x => x.PoNumber).HasMaxLength(20).IsRequired();
@@ -35,6 +36,8 @@ internal sealed class InvoiceMap : IEntityTypeConfiguration<Invoice>
         b.Property(x => x.Notes).HasMaxLength(300);
         b.Property(x => x.AttachmentUrl).HasMaxLength(500);
         b.Property(x => x.IsActive).HasDefaultValue(true);
+        b.Property(x => x.OrganizationId).IsRequired();
+        b.HasIndex(x => x.OrganizationId);
 
         b.HasMany(x => x.Lines)
          .WithOne(x => x.Invoice)
@@ -62,6 +65,8 @@ internal sealed class InvoiceLineMap : IEntityTypeConfiguration<InvoiceLine>
         b.Property(x => x.QtyInvoiced).HasColumnType("decimal(18,4)");
         b.Property(x => x.UnitPrice).HasColumnType("decimal(18,2)");
         b.Property(x => x.LineTotal).HasColumnType("decimal(18,2)");
+        b.Property(x => x.OrganizationId).IsRequired();
+        b.HasIndex(x => x.OrganizationId);
     }
 }
 
@@ -75,7 +80,8 @@ internal sealed class DebitNoteMap : IEntityTypeConfiguration<DebitNote>
         b.Property(x => x.UUID).IsRequired();
         b.HasIndex(x => x.UUID).IsUnique();
         b.Property(x => x.DebitNoteNumber).HasMaxLength(20).IsRequired();
-        b.HasIndex(x => x.DebitNoteNumber).IsUnique();
+        // Composite, not global — each org generates its own debit note number sequence.
+        b.HasIndex(x => new { x.OrganizationId, x.DebitNoteNumber }).IsUnique();
         b.Property(x => x.SroNumber).HasMaxLength(25).IsRequired();
         b.Property(x => x.SupplierName).HasMaxLength(200).IsRequired();
         b.Property(x => x.SupplierContactEmail).HasMaxLength(200);
@@ -90,6 +96,8 @@ internal sealed class DebitNoteMap : IEntityTypeConfiguration<DebitNote>
         b.Property(x => x.DisputeNotes).HasMaxLength(500);
         b.Property(x => x.Notes).HasMaxLength(300);
         b.Property(x => x.IsActive).HasDefaultValue(true);
+        b.Property(x => x.OrganizationId).IsRequired();
+        b.HasIndex(x => x.OrganizationId);
     }
 }
 
@@ -113,6 +121,8 @@ internal sealed class SupplierLedgerEntryMap : IEntityTypeConfiguration<Supplier
         b.Property(x => x.CreditAmount).HasColumnType("decimal(18,2)");
         b.Property(x => x.BalanceAfter).HasColumnType("decimal(18,2)");
         b.Property(x => x.Narration).HasMaxLength(500);
+        b.Property(x => x.OrganizationId).IsRequired();
+        b.HasIndex(x => x.OrganizationId);
     }
 }
 
@@ -125,9 +135,10 @@ internal sealed class MasterFinancialLedgerMap : IEntityTypeConfiguration<Master
         b.Property(x => x.Id).ValueGeneratedOnAdd();
         b.Property(x => x.UUID).IsRequired();
         b.HasIndex(x => x.UUID).IsUnique();
-        // Concurrency guard for MasterFinancialLedgerService's write — a single global sequence
-        // (not scoped per supplier), so any two concurrent writers race for the next value here.
-        b.HasIndex(x => x.SequenceNo).IsUnique();
+        // Concurrency guard for MasterFinancialLedgerService's write — one sequence per org (not
+        // scoped per supplier, but not global across the whole platform either), so any two
+        // concurrent writers within the same org race for the next value here.
+        b.HasIndex(x => new { x.OrganizationId, x.SequenceNo }).IsUnique();
         b.Property(x => x.SupplierId).IsRequired();
         b.HasIndex(x => x.SupplierId);
         b.Property(x => x.SupplierName).HasMaxLength(200).IsRequired();
@@ -141,6 +152,8 @@ internal sealed class MasterFinancialLedgerMap : IEntityTypeConfiguration<Master
         b.Property(x => x.CreditAmount).HasColumnType("decimal(18,2)");
         b.Property(x => x.BalanceAfter).HasColumnType("decimal(18,2)");
         b.Property(x => x.Narration).HasMaxLength(500);
+        b.Property(x => x.OrganizationId).IsRequired();
+        b.HasIndex(x => x.OrganizationId);
     }
 }
 
@@ -181,6 +194,8 @@ internal sealed class MasterProductLedgerMap : IEntityTypeConfiguration<MasterPr
         b.Property(x => x.DestinationName).HasMaxLength(200);
 
         b.Property(x => x.Notes).HasMaxLength(500);
+        b.Property(x => x.OrganizationId).IsRequired();
+        b.HasIndex(x => x.OrganizationId);
     }
 }
 
@@ -200,6 +215,8 @@ internal sealed class DebtWriteOffMap : IEntityTypeConfiguration<DebtWriteOff>
         b.Property(x => x.Reason).HasMaxLength(500).IsRequired();
         b.Property(x => x.Status).HasMaxLength(20).IsRequired();
         b.Property(x => x.RejectionReason).HasMaxLength(500);
+        b.Property(x => x.OrganizationId).IsRequired();
+        b.HasIndex(x => x.OrganizationId);
     }
 }
 
@@ -212,8 +229,11 @@ internal sealed class SupplierPaymentMap : IEntityTypeConfiguration<SupplierPaym
         b.Property(x => x.Id).ValueGeneratedOnAdd();
         b.Property(x => x.UUID).IsRequired();
         b.HasIndex(x => x.UUID).IsUnique();
+        b.Property(x => x.TraceId).IsRequired().ValueGeneratedOnAdd().HasDefaultValueSql("NEWSEQUENTIALID()");
+        b.HasIndex(x => x.TraceId);
         b.Property(x => x.PaymentNumber).HasMaxLength(20).IsRequired();
-        b.HasIndex(x => x.PaymentNumber).IsUnique();
+        // Composite, not global — each org generates its own supplier-payment number sequence.
+        b.HasIndex(x => new { x.OrganizationId, x.PaymentNumber }).IsUnique();
         b.Property(x => x.SupplierId).IsRequired();
         b.HasIndex(x => x.SupplierId);
         b.Property(x => x.SupplierName).HasMaxLength(200).IsRequired();
@@ -224,6 +244,8 @@ internal sealed class SupplierPaymentMap : IEntityTypeConfiguration<SupplierPaym
         b.Property(x => x.Status).HasMaxLength(20).HasDefaultValue("DRAFT");
         b.Property(x => x.Notes).HasMaxLength(300);
         b.Property(x => x.PaymentType).HasMaxLength(30).HasDefaultValue("STANDARD");
+        b.Property(x => x.OrganizationId).IsRequired();
+        b.HasIndex(x => x.OrganizationId);
 
         b.HasMany(x => x.Lines)
          .WithOne(x => x.SupplierPayment)
@@ -246,6 +268,8 @@ internal sealed class SupplierAdvancePaymentMap : IEntityTypeConfiguration<Suppl
         b.Property(x => x.SupplierPaymentUuid).IsRequired();
         b.Property(x => x.OriginalAmount).HasColumnType("decimal(18,2)");
         b.Property(x => x.AvailableBalance).HasColumnType("decimal(18,2)");
+        b.Property(x => x.OrganizationId).IsRequired();
+        b.HasIndex(x => x.OrganizationId);
     }
 }
 
@@ -264,6 +288,8 @@ internal sealed class SupplierPaymentLineMap : IEntityTypeConfiguration<Supplier
         b.Property(x => x.AllocatedAmount).HasColumnType("decimal(18,2)");
         b.Property(x => x.OutstandingBeforeAllocation).HasColumnType("decimal(18,2)");
         b.Property(x => x.Notes).HasMaxLength(300);
+        b.Property(x => x.OrganizationId).IsRequired();
+        b.HasIndex(x => x.OrganizationId);
     }
 }
 
@@ -277,7 +303,8 @@ internal sealed class CreditNoteMap : IEntityTypeConfiguration<CreditNote>
         b.Property(x => x.UUID).IsRequired();
         b.HasIndex(x => x.UUID).IsUnique();
         b.Property(x => x.CreditNoteNumber).HasMaxLength(20).IsRequired();
-        b.HasIndex(x => x.CreditNoteNumber).IsUnique();
+        // Composite, not global — each org generates its own credit note number sequence.
+        b.HasIndex(x => new { x.OrganizationId, x.CreditNoteNumber }).IsUnique();
         b.Property(x => x.SupplierCreditNoteNo).HasMaxLength(100).IsRequired();
         b.Property(x => x.SroNumber).HasMaxLength(25).IsRequired();
         b.Property(x => x.SupplierName).HasMaxLength(200).IsRequired();
@@ -288,6 +315,8 @@ internal sealed class CreditNoteMap : IEntityTypeConfiguration<CreditNote>
         b.Property(x => x.CarriedForwardAmount).HasColumnType("decimal(18,2)");
         b.Property(x => x.Notes).HasMaxLength(300);
         b.Property(x => x.IsActive).HasDefaultValue(true);
+        b.Property(x => x.OrganizationId).IsRequired();
+        b.HasIndex(x => x.OrganizationId);
     }
 }
 
@@ -301,7 +330,8 @@ internal sealed class PaymentMap : IEntityTypeConfiguration<Payment>
         b.Property(x => x.UUID).IsRequired();
         b.HasIndex(x => x.UUID).IsUnique();
         b.Property(x => x.PaymentNumber).HasMaxLength(20).IsRequired();
-        b.HasIndex(x => x.PaymentNumber).IsUnique();
+        // Composite, not global — each org generates its own payment number sequence.
+        b.HasIndex(x => new { x.OrganizationId, x.PaymentNumber }).IsUnique();
         b.Property(x => x.SupplierName).HasMaxLength(200).IsRequired();
         b.Property(x => x.AmountPaid).HasColumnType("decimal(18,2)");
         b.Property(x => x.PaymentMethod).HasMaxLength(50).IsRequired();
@@ -311,5 +341,7 @@ internal sealed class PaymentMap : IEntityTypeConfiguration<Payment>
         b.Property(x => x.Status).HasMaxLength(20).HasDefaultValue("Pending");
         b.Property(x => x.Notes).HasMaxLength(200);
         b.Property(x => x.IsActive).HasDefaultValue(true);
+        b.Property(x => x.OrganizationId).IsRequired();
+        b.HasIndex(x => x.OrganizationId);
     }
 }

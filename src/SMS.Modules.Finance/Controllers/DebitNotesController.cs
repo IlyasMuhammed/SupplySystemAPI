@@ -10,6 +10,7 @@ namespace SMS.Modules.Finance.Controllers;
 
 [ApiController]
 [Route("api/debit-notes")]
+[RequiresFeature("MODULE_FINANCE")]
 public class DebitNotesController : ControllerBase
 {
     private readonly IDebitNoteService _service;

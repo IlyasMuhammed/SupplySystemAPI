@@ -54,7 +54,7 @@
 
     <!-- Meta Info -->
     <div class="meta-row">
-      <div class="meta-item"><span class="meta-label">Initiated by</span><span class="meta-value">{{ detail.initiatedByName || ('#' + detail.initiatedBy) }}</span></div>
+      <div class="meta-item"><span class="meta-label">Initiated by</span><span class="meta-value">{{ detail.initiatedByName || 'Unknown user' }}</span></div>
       <div class="meta-item"><span class="meta-label">Initiated at</span><span class="meta-value">{{ detail.initiatedAt | date:'dd MMM yyyy HH:mm' }}</span></div>
       <div class="meta-item" *ngIf="detail.slaDeadline">
         <span class="meta-label">Overall SLA</span>
@@ -153,7 +153,7 @@
                     <i [class]="getAuditIcon(entry.action)"></i> {{ entry.action }}
                   </span>
                 </td>
-                <td>{{ entry.performedByName || ('#' + entry.performedBy) }}</td>
+                <td>{{ entry.performedByName || 'Unknown user' }}</td>
                 <td class="text-secondary">{{ entry.performedAt | date:'dd MMM yy HH:mm' }}</td>
                 <td class="text-secondary">{{ entry.fromStatus ?? '—' }}</td>
                 <td class="text-secondary">{{ entry.toStatus   ?? '—' }}</td>

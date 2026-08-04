@@ -24,5 +24,7 @@ internal sealed class DocumentAttachmentMap : IEntityTypeConfiguration<DocumentA
         b.Property(x => x.Notes).HasMaxLength(300);
         b.Property(x => x.IsDelete).HasDefaultValue(false);
         b.Property(x => x.UploadedDate).HasDefaultValueSql("GETUTCDATE()");
+        b.Property(x => x.OrganizationId).IsRequired();
+        b.HasIndex(x => x.OrganizationId);
     }
 }

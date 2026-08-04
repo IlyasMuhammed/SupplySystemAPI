@@ -16,6 +16,7 @@ using SMS.Modules.Warehouse.Events;
 using SMS.Modules.Warehouse.Models;
 using SMS.Modules.Warehouse.Repositories;
 using SMS.Modules.Warehouse.Services;
+using SMS.Shared.Common;
 using Xunit;
 
 namespace SMS.Modules.Warehouse.Tests;
@@ -49,10 +50,11 @@ file static class ApprovalBuild
         IGrnStockPoster?            stockPoster   = null)
     {
         var dbName = Guid.NewGuid().ToString();
+        var tenantContext = new StaticTenantContext();
 
         var demandOpts = new DbContextOptionsBuilder<DemandDbContext>()
             .UseInMemoryDatabase(dbName).Options;
-        var demand = new DemandDbContext(demandOpts);
+        var demand = new DemandDbContext(demandOpts, tenantContext);
         seedDemand?.Invoke(demand);
         demand.SaveChanges();
 
@@ -60,13 +62,13 @@ file static class ApprovalBuild
             .UseInMemoryDatabase(dbName)
             .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
             .Options;
-        var inv = new InventoryDbContext(invOpts);
+        var inv = new InventoryDbContext(invOpts, tenantContext);
         seedInventory?.Invoke(inv);
         inv.SaveChanges();
 
         var whOpts = new DbContextOptionsBuilder<WarehouseDbContext>()
             .UseInMemoryDatabase(dbName).Options;
-        var wh = new WarehouseDbContext(whOpts);
+        var wh = new WarehouseDbContext(whOpts, tenantContext);
 
         var publisher = new CapturingGrnEventPublisher();
         var poster    = stockPoster ?? new NullGrnStockPoster();

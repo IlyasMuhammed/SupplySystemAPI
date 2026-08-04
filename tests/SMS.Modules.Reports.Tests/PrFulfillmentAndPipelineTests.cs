@@ -28,11 +28,12 @@ file static class Build
         NewRepo(string? dbName = null)
     {
         var name = dbName ?? Guid.NewGuid().ToString();
+        var tenantContext = new StaticTenantContext();
 
-        var demand    = new DemandDbContext(new DbContextOptionsBuilder<DemandDbContext>().UseInMemoryDatabase(name).Options);
-        var warehouse = new WarehouseDbContext(new DbContextOptionsBuilder<WarehouseDbContext>().UseInMemoryDatabase(name).Options);
-        var finance   = new FinanceDbContext(new DbContextOptionsBuilder<FinanceDbContext>().UseInMemoryDatabase(name).Options);
-        var material  = new MaterialDbContext(new DbContextOptionsBuilder<MaterialDbContext>().UseInMemoryDatabase(name).Options);
+        var demand    = new DemandDbContext(new DbContextOptionsBuilder<DemandDbContext>().UseInMemoryDatabase(name).Options, tenantContext);
+        var warehouse = new WarehouseDbContext(new DbContextOptionsBuilder<WarehouseDbContext>().UseInMemoryDatabase(name).Options, tenantContext);
+        var finance   = new FinanceDbContext(new DbContextOptionsBuilder<FinanceDbContext>().UseInMemoryDatabase(name).Options, tenantContext);
+        var material  = new MaterialDbContext(new DbContextOptionsBuilder<MaterialDbContext>().UseInMemoryDatabase(name).Options, tenantContext);
         var timeline  = new Mock<ITimelineService>();
         // Default: no timeline exists, forcing callers to exercise the FK fallback unless a test overrides this.
         timeline.Setup(t => t.GetTimelineDetailAsync(It.IsAny<Guid>())).ReturnsAsync((TimelineDetail?)null);
@@ -42,13 +43,13 @@ file static class Build
             .ReturnsAsync((IReadOnlyList<int> ids) => (IReadOnlyList<UserIdentity>)ids.Select(id => new UserIdentity(id, $"User {id}")).ToList());
 
         var repo = new ReportsRepository(
-            db:        new ReportsDbContext(new DbContextOptionsBuilder<ReportsDbContext>().UseInMemoryDatabase(name).Options),
+            db:        new ReportsDbContext(new DbContextOptionsBuilder<ReportsDbContext>().UseInMemoryDatabase(name).Options, tenantContext),
             demand:    demand,
             warehouse: warehouse,
-            inventory: new InventoryDbContext(new DbContextOptionsBuilder<InventoryDbContext>().UseInMemoryDatabase(name).Options),
+            inventory: new InventoryDbContext(new DbContextOptionsBuilder<InventoryDbContext>().UseInMemoryDatabase(name).Options, tenantContext),
             finance:   finance,
-            logistics: new LogisticsDbContext(new DbContextOptionsBuilder<LogisticsDbContext>().UseInMemoryDatabase(name).Options),
-            suppliers: new SuppliersDbContext(new DbContextOptionsBuilder<SuppliersDbContext>().UseInMemoryDatabase(name).Options),
+            logistics: new LogisticsDbContext(new DbContextOptionsBuilder<LogisticsDbContext>().UseInMemoryDatabase(name).Options, tenantContext),
+            suppliers: new SuppliersDbContext(new DbContextOptionsBuilder<SuppliersDbContext>().UseInMemoryDatabase(name).Options, tenantContext),
             material:  material,
             userQuery: userQuery.Object,
             timeline:  timeline.Object);

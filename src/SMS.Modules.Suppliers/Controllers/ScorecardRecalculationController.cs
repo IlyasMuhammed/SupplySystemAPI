@@ -8,6 +8,7 @@ namespace SMS.Modules.Suppliers.Controllers;
 
 [ApiController]
 [Route("api/supplier-scorecard")]
+[RequiresFeature("SCREEN_SUPPLIER_SCORECARD")]
 public class ScorecardRecalculationController : ControllerBase
 {
     private readonly IScorecardRecalculationService _svc;

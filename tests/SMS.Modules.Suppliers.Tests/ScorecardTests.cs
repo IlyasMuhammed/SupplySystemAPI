@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using SMS.Modules.Suppliers.Data;
 using SMS.Modules.Suppliers.Models;
 using SMS.Modules.Suppliers.Repositories;
+using SMS.Shared.Common;
 using SMS.Shared.Exceptions;
 using Xunit;
 
@@ -13,7 +14,7 @@ file static class Build
     internal static SuppliersDbContext NewDb() =>
         new(new DbContextOptionsBuilder<SuppliersDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
-            .Options);
+            .Options, new StaticTenantContext());
 }
 
 public class ScorecardDataSeeder_Tests

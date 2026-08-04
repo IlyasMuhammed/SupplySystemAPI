@@ -367,6 +367,7 @@ export class PoCreateComponent implements OnInit {
         for (const line of detail.result.lines) {
           const group = this.newLine();
           group.patchValue({
+            productId:       line.productId ?? null,
             itemDescription: line.itemDescription,
             specification:   line.specification ?? '',
             unitOfMeasure:   line.unitOfMeasure ?? null,

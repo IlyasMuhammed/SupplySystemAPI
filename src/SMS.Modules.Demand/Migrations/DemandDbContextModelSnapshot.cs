@@ -36,6 +36,9 @@ namespace SMS.Modules.Demand.Migrations
                         .HasMaxLength(300)
                         .HasColumnType("nvarchar(300)");
 
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<decimal>("Quantity")
                         .HasColumnType("decimal(18,4)");
 
@@ -46,6 +49,8 @@ namespace SMS.Modules.Demand.Migrations
                         .HasColumnType("decimal(18,2)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("UUID")
                         .IsUnique();
@@ -97,6 +102,9 @@ namespace SMS.Modules.Demand.Migrations
                     b.Property<decimal>("LineTotal")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid?>("PreferredSupplierId")
                         .HasColumnType("uniqueidentifier");
 
@@ -131,6 +139,8 @@ namespace SMS.Modules.Demand.Migrations
                         .HasColumnType("nvarchar(20)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("PurchaseRequisitionId");
 
@@ -186,6 +196,9 @@ namespace SMS.Modules.Demand.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("PoNumber")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -227,12 +240,14 @@ namespace SMS.Modules.Demand.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("PoNumber")
-                        .IsUnique();
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("TraceId");
 
                     b.HasIndex("UUID")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "PoNumber")
                         .IsUnique();
 
                     b.ToTable("purchase_orders", "demand");
@@ -263,6 +278,9 @@ namespace SMS.Modules.Demand.Migrations
 
                     b.Property<decimal>("LineTotal")
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid?>("ProductUuid")
                         .HasColumnType("uniqueidentifier");
@@ -317,6 +335,8 @@ namespace SMS.Modules.Demand.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("OrganizationId");
+
                     b.HasIndex("PurchaseOrderId");
 
                     b.HasIndex("UUID")
@@ -333,6 +353,9 @@ namespace SMS.Modules.Demand.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("PrUuid")
                         .HasColumnType("uniqueidentifier");
 
@@ -340,6 +363,8 @@ namespace SMS.Modules.Demand.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("PurchaseOrderId");
 
@@ -395,6 +420,9 @@ namespace SMS.Modules.Demand.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("PrNumber")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -446,12 +474,14 @@ namespace SMS.Modules.Demand.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("PrNumber")
-                        .IsUnique();
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("TraceId");
 
                     b.HasIndex("UUID")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "PrNumber")
                         .IsUnique();
 
                     b.ToTable("purchase_requisitions", "demand");
@@ -502,6 +532,9 @@ namespace SMS.Modules.Demand.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("QuotationNumber")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -537,12 +570,14 @@ namespace SMS.Modules.Demand.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("QuotationNumber")
-                        .IsUnique();
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("TraceId");
 
                     b.HasIndex("UUID")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "QuotationNumber")
                         .IsUnique();
 
                     b.ToTable("quotations", "demand");
@@ -559,6 +594,9 @@ namespace SMS.Modules.Demand.Migrations
                     b.Property<DateTime>("InvitedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<int>("QuotationId")
                         .HasColumnType("int");
 
@@ -571,6 +609,8 @@ namespace SMS.Modules.Demand.Migrations
                         .HasColumnType("nvarchar(200)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("QuotationId");
 
@@ -596,6 +636,12 @@ namespace SMS.Modules.Demand.Migrations
 
                     b.Property<int>("LineNo")
                         .HasColumnType("int");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("ProductId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal>("Quantity")
                         .HasColumnType("decimal(18,4)");
@@ -624,6 +670,8 @@ namespace SMS.Modules.Demand.Migrations
                         .HasColumnType("nvarchar(20)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("QuotationId");
 
@@ -675,6 +723,9 @@ namespace SMS.Modules.Demand.Migrations
                     b.Property<DateTime>("GeneratedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("PortalLinkUrl")
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
@@ -720,6 +771,8 @@ namespace SMS.Modules.Demand.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("OrganizationId");
+
                     b.HasIndex("QuotationId");
 
                     b.HasIndex("TokenHash")
@@ -747,6 +800,9 @@ namespace SMS.Modules.Demand.Migrations
                     b.Property<string>("Notes")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("QuotationId")
                         .HasColumnType("int");
@@ -777,6 +833,8 @@ namespace SMS.Modules.Demand.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("OrganizationId");
+
                     b.HasIndex("QuotationId");
 
                     b.HasIndex("UUID")
@@ -806,6 +864,9 @@ namespace SMS.Modules.Demand.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<decimal>("Quantity")
                         .HasColumnType("decimal(18,4)");
 
@@ -819,6 +880,8 @@ namespace SMS.Modules.Demand.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("QuotationLineId");
 

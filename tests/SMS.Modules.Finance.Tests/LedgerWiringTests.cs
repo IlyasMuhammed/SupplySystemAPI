@@ -20,17 +20,17 @@ file static class Build
     internal static FinanceDbContext NewFinanceDb(string? dbName = null) =>
         new(new DbContextOptionsBuilder<FinanceDbContext>()
             .UseInMemoryDatabase(dbName ?? Guid.NewGuid().ToString())
-            .Options);
+            .Options, new StaticTenantContext());
 
     internal static DemandDbContext NewDemandDb(string? dbName = null) =>
         new(new DbContextOptionsBuilder<DemandDbContext>()
             .UseInMemoryDatabase(dbName ?? Guid.NewGuid().ToString())
-            .Options);
+            .Options, new StaticTenantContext());
 
     internal static WarehouseDbContext NewWarehouseDb(string? dbName = null) =>
         new(new DbContextOptionsBuilder<WarehouseDbContext>()
             .UseInMemoryDatabase(dbName ?? Guid.NewGuid().ToString())
-            .Options);
+            .Options, new StaticTenantContext());
 
     internal static Invoice SeedInvoice(FinanceDbContext db, Guid supplierId, decimal totalAmount, string invoiceNumber = "INV-2026-00001")
     {

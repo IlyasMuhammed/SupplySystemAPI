@@ -8,6 +8,7 @@ namespace SMS.Modules.Suppliers.Controllers;
 
 [ApiController]
 [Route("api/admin/scorecard-weights")]
+[RequiresFeature("SCREEN_SUPPLIER_SCORECARD")]
 public class ScorecardWeightsController : ControllerBase
 {
     private readonly IScorecardService _svc;

@@ -56,6 +56,7 @@ public static class FinanceModuleExtensions
 
         // Timeline trace_id resolver
         services.AddScoped<ITraceIdResolver, InvoiceTraceIdResolver>();
+        services.AddScoped<ITraceIdResolver, SupplierPaymentTraceIdResolver>();
 
         return services;
     }

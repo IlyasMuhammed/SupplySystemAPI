@@ -1,9 +1,12 @@
+using SMS.Shared.Common;
+
 namespace SMS.WorkflowEngine.Domain;
 
-internal class DocumentTimeline
+internal class DocumentTimeline : ITenantScopedEntity
 {
     public int      Id            { get; set; }
     public Guid     TraceId       { get; set; }
+    public Guid     OrganizationId { get; set; }
 
     /// <summary>JSON-serialized array of TimelineEvent, ordered by insertion (append-only).</summary>
     public string   Events        { get; set; } = "[]";

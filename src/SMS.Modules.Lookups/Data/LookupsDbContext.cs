@@ -1,11 +1,16 @@
 using Microsoft.EntityFrameworkCore;
 using SMS.Modules.Lookups.Domain;
+using SMS.Shared.Common;
 
 namespace SMS.Modules.Lookups.Data;
 
-internal sealed class LookupsDbContext : DbContext
+internal sealed class LookupsDbContext : DbContext, ITenantScopedDbContext
 {
-    public LookupsDbContext(DbContextOptions<LookupsDbContext> options) : base(options) { }
+    private readonly ITenantContext _tenantContext;
+    public ITenantContext TenantContext => _tenantContext;
+
+    public LookupsDbContext(DbContextOptions<LookupsDbContext> options, ITenantContext tenantContext) : base(options) =>
+        _tenantContext = tenantContext;
 
     internal DbSet<City> Cities => Set<City>();
     internal DbSet<Country> Countries => Set<Country>();
@@ -20,5 +25,18 @@ internal sealed class LookupsDbContext : DbContext
     {
         modelBuilder.HasDefaultSchema("lookups");
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(LookupsDbContext).Assembly);
+        modelBuilder.ApplyTenantQueryFilters(this);
+    }
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        this.StampTenantScopedEntities(_tenantContext);
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        this.StampTenantScopedEntities(_tenantContext);
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
     }
 }

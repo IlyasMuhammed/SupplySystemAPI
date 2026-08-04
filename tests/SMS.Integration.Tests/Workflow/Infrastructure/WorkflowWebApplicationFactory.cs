@@ -43,7 +43,7 @@ public sealed class WorkflowWebApplicationFactory
         var authOpts = new DbContextOptionsBuilder<AuthDbContext>()
             .UseSqlServer(_sql.GetConnectionString())
             .Options;
-        await using var authDb = new AuthDbContext(authOpts);
+        await using var authDb = new AuthDbContext(authOpts, new StaticTenantContext());
         await authDb.Database.MigrateAsync();
 
         // Build host (triggers ConfigureWebHost + UseAuthModule seeder + UseLookupsModule seeder).

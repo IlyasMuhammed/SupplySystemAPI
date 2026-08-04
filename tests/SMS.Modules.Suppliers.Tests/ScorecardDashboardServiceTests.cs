@@ -5,6 +5,7 @@ using SMS.Modules.Suppliers.Domain;
 using SMS.Modules.Suppliers.Services;
 using SMS.Modules.Warehouse.Data;
 using SMS.Modules.Warehouse.Domain;
+using SMS.Shared.Common;
 using Xunit;
 
 namespace SMS.Modules.Suppliers.Tests;
@@ -14,8 +15,9 @@ file static class DashboardBuild
     internal static (ScorecardDashboardService Service, SuppliersDbContext Suppliers, WarehouseDbContext Warehouse) New()
     {
         var name = Guid.NewGuid().ToString();
-        var suppliers = new SuppliersDbContext(new DbContextOptionsBuilder<SuppliersDbContext>().UseInMemoryDatabase(name).Options);
-        var warehouse = new WarehouseDbContext(new DbContextOptionsBuilder<WarehouseDbContext>().UseInMemoryDatabase(name).Options);
+        var tenantContext = new StaticTenantContext();
+        var suppliers = new SuppliersDbContext(new DbContextOptionsBuilder<SuppliersDbContext>().UseInMemoryDatabase(name).Options, tenantContext);
+        var warehouse = new WarehouseDbContext(new DbContextOptionsBuilder<WarehouseDbContext>().UseInMemoryDatabase(name).Options, tenantContext);
         return (new ScorecardDashboardService(suppliers, warehouse), suppliers, warehouse);
     }
 

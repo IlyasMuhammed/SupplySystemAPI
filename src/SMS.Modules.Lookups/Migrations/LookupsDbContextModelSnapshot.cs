@@ -161,9 +161,17 @@ namespace SMS.Modules.Lookups.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(true);
 
+                    b.Property<bool>("IsGlobal")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
                     b.Property<string>("Notes")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid?>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("SortOrder")
                         .ValueGeneratedOnAdd()
@@ -174,6 +182,8 @@ namespace SMS.Modules.Lookups.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("TypeId");
 
@@ -261,6 +271,9 @@ namespace SMS.Modules.Lookups.Migrations
                     b.Property<DateTime?>("ModifiedDate")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("PreparedByLabel")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
@@ -275,6 +288,8 @@ namespace SMS.Modules.Lookups.Migrations
                         .HasColumnType("nvarchar(500)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
 
                     b.ToTable("PoDocumentTemplates", "lookups");
                 });

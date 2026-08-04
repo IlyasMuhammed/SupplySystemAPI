@@ -32,8 +32,14 @@ internal sealed class StubUserQueryService : IUserQueryService
     public Task<bool> IsSystemAdminAsync(int userId)
         => Task.FromResult(false);
 
+    public Task<bool> IsOrgAdminAsync(int userId)
+        => Task.FromResult(false);
+
     public Task<string?> GetUserEmailAsync(int userId)
         => Task.FromResult<string?>(null);
+
+    public Task<int?> GetFirstSystemAdminUserIdAsync()
+        => Task.FromResult<int?>(null);
 }
 
 internal sealed class StubOrgChartService : IOrgChartService

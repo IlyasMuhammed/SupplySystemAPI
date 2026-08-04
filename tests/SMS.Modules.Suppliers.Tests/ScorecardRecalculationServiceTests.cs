@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using SMS.Modules.Suppliers.Data;
 using SMS.Modules.Suppliers.Domain;
 using SMS.Modules.Suppliers.Services;
+using SMS.Shared.Common;
 using Xunit;
 
 namespace SMS.Modules.Suppliers.Tests;
@@ -12,7 +13,7 @@ file static class RecalcBuild
     internal static SuppliersDbContext NewDb() =>
         new(new DbContextOptionsBuilder<SuppliersDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
-            .Options);
+            .Options, new StaticTenantContext());
 
     internal static Supplier SeedSupplier(SuppliersDbContext db, bool isActive = true)
     {

@@ -197,7 +197,7 @@
           <tr *ngFor="let entry of auditTrail">
             <td style="white-space:nowrap;color:#64748b;font-size:.82rem">{{ entry.timestamp | date:'dd MMM yy HH:mm' }}</td>
             <td><p-tag [value]="entry.action" [severity]="getAuditActionSeverity(entry.action)" styleClass="tag-xs"></p-tag></td>
-            <td style="font-size:.85rem">{{ entry.userName || ('User #' + entry.userId) }}</td>
+            <td style="font-size:.85rem">{{ entry.userName || 'Unknown user' }}</td>
             <td style="font-size:.82rem;color:#64748b">{{ entry.fieldChanged || '—' }}</td>
             <td style="font-size:.82rem;color:#64748b">{{ entry.oldValue || '—' }}</td>
             <td style="font-size:.82rem;color:#64748b">{{ entry.newValue || '—' }}</td>

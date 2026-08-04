@@ -9,6 +9,7 @@ using SMS.Modules.Suppliers.Data;
 using SMS.Modules.Suppliers.Services;
 using SMS.Modules.Warehouse.Data;
 using SMS.Modules.Warehouse.Domain;
+using SMS.Shared.Common;
 using Xunit;
 
 namespace SMS.Modules.Suppliers.Tests;
@@ -19,11 +20,12 @@ file static class ScoringBuild
                       DemandDbContext Demand, FinanceDbContext Finance) New()
     {
         var name = Guid.NewGuid().ToString();
+        var tenantContext = new StaticTenantContext();
 
-        var suppliers = new SuppliersDbContext(new DbContextOptionsBuilder<SuppliersDbContext>().UseInMemoryDatabase(name).Options);
-        var warehouse = new WarehouseDbContext(new DbContextOptionsBuilder<WarehouseDbContext>().UseInMemoryDatabase(name).Options);
-        var demand    = new DemandDbContext(new DbContextOptionsBuilder<DemandDbContext>().UseInMemoryDatabase(name).Options);
-        var finance   = new FinanceDbContext(new DbContextOptionsBuilder<FinanceDbContext>().UseInMemoryDatabase(name).Options);
+        var suppliers = new SuppliersDbContext(new DbContextOptionsBuilder<SuppliersDbContext>().UseInMemoryDatabase(name).Options, tenantContext);
+        var warehouse = new WarehouseDbContext(new DbContextOptionsBuilder<WarehouseDbContext>().UseInMemoryDatabase(name).Options, tenantContext);
+        var demand    = new DemandDbContext(new DbContextOptionsBuilder<DemandDbContext>().UseInMemoryDatabase(name).Options, tenantContext);
+        var finance   = new FinanceDbContext(new DbContextOptionsBuilder<FinanceDbContext>().UseInMemoryDatabase(name).Options, tenantContext);
 
         new ScorecardDataSeeder(suppliers).SeedAsync().GetAwaiter().GetResult();
 

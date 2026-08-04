@@ -36,6 +36,7 @@ const INTERFACE_META: Record<string, { label: string; color: string; route: stri
   GRN:          { label: 'GRN',                               color: '#22c55e', route: '/portal/pages/warehouse/grn' },
   GRN_QC:       { label: 'GRN (QC)',                          color: '#22c55e', route: '/portal/pages/warehouse/grn' },
   INVOICE:      { label: 'Invoice',                           color: '#f59e0b', route: '/portal/pages/finance/invoices' },
+  SUPPLIER_PAYMENT: { label: 'Supplier Payment',              color: '#10b981', route: '/portal/pages/finance/payments' },
   MIR_GENERAL:  { label: 'Material Issue Request',            color: '#8b5cf6', route: '/portal/pages/material/mir' },
   MIR_PROJECT:  { label: 'Material Issue Request (Project)',  color: '#8b5cf6', route: '/portal/pages/material/mir' }
 };

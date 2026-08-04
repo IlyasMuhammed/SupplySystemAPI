@@ -16,7 +16,8 @@ internal sealed class GrnMap : IEntityTypeConfiguration<Grn>
         b.Property(x => x.TraceId).IsRequired().ValueGeneratedOnAdd().HasDefaultValueSql("NEWSEQUENTIALID()");
         b.HasIndex(x => x.TraceId);
         b.Property(x => x.GrnNumber).HasMaxLength(20).IsRequired();
-        b.HasIndex(x => x.GrnNumber).IsUnique();
+        // Composite, not global — each org generates its own GRN number sequence.
+        b.HasIndex(x => new { x.OrganizationId, x.GrnNumber }).IsUnique();
         b.Property(x => x.PoNumber).HasMaxLength(20).IsRequired();
         b.Property(x => x.SupplierName).HasMaxLength(200).IsRequired();
         b.Property(x => x.Status).HasMaxLength(20).HasDefaultValue("DRAFT");
@@ -30,6 +31,8 @@ internal sealed class GrnMap : IEntityTypeConfiguration<Grn>
         b.Property(x => x.RequiresInspection).HasDefaultValue(true);
         b.Property(x => x.RejectionReason).HasMaxLength(500);
         b.Property(x => x.IsActive).HasDefaultValue(true);
+        b.Property(x => x.OrganizationId).IsRequired();
+        b.HasIndex(x => x.OrganizationId);
 
         b.HasMany(x => x.Lines)
          .WithOne(x => x.Grn)
@@ -62,6 +65,8 @@ internal sealed class GrnLineMap : IEntityTypeConfiguration<GrnLine>
         b.Property(x => x.QcResult).HasMaxLength(20);
         b.Property(x => x.InspectionResult).HasMaxLength(15);
         b.Property(x => x.InspectorRemarks).HasMaxLength(500);
+        b.Property(x => x.OrganizationId).IsRequired();
+        b.HasIndex(x => x.OrganizationId);
     }
 }
 
@@ -75,7 +80,8 @@ internal sealed class SupplierReturnOrderMap : IEntityTypeConfiguration<Supplier
         b.Property(x => x.UUID).IsRequired();
         b.HasIndex(x => x.UUID).IsUnique();
         b.Property(x => x.ReturnNumber).HasMaxLength(25).IsRequired();
-        b.HasIndex(x => x.ReturnNumber).IsUnique();
+        // Composite, not global — each org generates its own SRO number sequence.
+        b.HasIndex(x => new { x.OrganizationId, x.ReturnNumber }).IsUnique();
         b.Property(x => x.SroType).HasMaxLength(30).HasDefaultValue("POST_RECEIPT_DEFECT");
         b.Property(x => x.SupplierName).HasMaxLength(200).IsRequired();
         b.Property(x => x.GrnNumber).HasMaxLength(25);
@@ -92,6 +98,8 @@ internal sealed class SupplierReturnOrderMap : IEntityTypeConfiguration<Supplier
         b.Property(x => x.SlaDeadline);
         b.Property(x => x.Notes).HasMaxLength(500);
         b.Property(x => x.IsActive).HasDefaultValue(true);
+        b.Property(x => x.OrganizationId).IsRequired();
+        b.HasIndex(x => x.OrganizationId);
 
         b.HasOne(x => x.Grn)
          .WithMany(x => x.ReturnOrders)
@@ -122,5 +130,7 @@ internal sealed class SupplierReturnOrderLineMap : IEntityTypeConfiguration<Supp
         b.Property(x => x.ReturnReasonDetail).HasMaxLength(500);
         b.Property(x => x.Condition).HasMaxLength(200);
         b.Property(x => x.UnitCost).HasColumnType("decimal(18,2)");
+        b.Property(x => x.OrganizationId).IsRequired();
+        b.HasIndex(x => x.OrganizationId);
     }
 }

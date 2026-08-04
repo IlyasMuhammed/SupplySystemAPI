@@ -24,20 +24,21 @@ file static class Build
     internal static InventoryDbContext NewInventoryDb(string? dbName = null) =>
         new(new DbContextOptionsBuilder<InventoryDbContext>()
             .UseInMemoryDatabase(dbName ?? Guid.NewGuid().ToString())
-            .Options);
+            .Options, new StaticTenantContext());
 
     internal static ReportsRepository NewRepo(InventoryDbContext inventory)
     {
         var dbName = Guid.NewGuid().ToString();
+        var tenantContext = new StaticTenantContext();
         return new ReportsRepository(
-            db:         new ReportsDbContext(new DbContextOptionsBuilder<ReportsDbContext>().UseInMemoryDatabase(dbName).Options),
-            demand:     new DemandDbContext(new DbContextOptionsBuilder<DemandDbContext>().UseInMemoryDatabase(dbName).Options),
-            warehouse:  new WarehouseDbContext(new DbContextOptionsBuilder<WarehouseDbContext>().UseInMemoryDatabase(dbName).Options),
+            db:         new ReportsDbContext(new DbContextOptionsBuilder<ReportsDbContext>().UseInMemoryDatabase(dbName).Options, tenantContext),
+            demand:     new DemandDbContext(new DbContextOptionsBuilder<DemandDbContext>().UseInMemoryDatabase(dbName).Options, tenantContext),
+            warehouse:  new WarehouseDbContext(new DbContextOptionsBuilder<WarehouseDbContext>().UseInMemoryDatabase(dbName).Options, tenantContext),
             inventory:  inventory,
-            finance:    new FinanceDbContext(new DbContextOptionsBuilder<FinanceDbContext>().UseInMemoryDatabase(dbName).Options),
-            logistics:  new LogisticsDbContext(new DbContextOptionsBuilder<LogisticsDbContext>().UseInMemoryDatabase(dbName).Options),
-            suppliers:  new SuppliersDbContext(new DbContextOptionsBuilder<SuppliersDbContext>().UseInMemoryDatabase(dbName).Options),
-            material:   new MaterialDbContext(new DbContextOptionsBuilder<MaterialDbContext>().UseInMemoryDatabase(dbName).Options),
+            finance:    new FinanceDbContext(new DbContextOptionsBuilder<FinanceDbContext>().UseInMemoryDatabase(dbName).Options, tenantContext),
+            logistics:  new LogisticsDbContext(new DbContextOptionsBuilder<LogisticsDbContext>().UseInMemoryDatabase(dbName).Options, tenantContext),
+            suppliers:  new SuppliersDbContext(new DbContextOptionsBuilder<SuppliersDbContext>().UseInMemoryDatabase(dbName).Options, tenantContext),
+            material:   new MaterialDbContext(new DbContextOptionsBuilder<MaterialDbContext>().UseInMemoryDatabase(dbName).Options, tenantContext),
             userQuery:  new Mock<IUserQueryService>().Object,
             timeline:   new Mock<ITimelineService>().Object);
     }

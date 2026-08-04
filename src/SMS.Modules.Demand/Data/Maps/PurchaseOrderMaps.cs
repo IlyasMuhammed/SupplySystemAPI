@@ -16,7 +16,8 @@ internal sealed class PurchaseOrderMap : IEntityTypeConfiguration<PurchaseOrder>
         b.Property(x => x.TraceId).IsRequired().ValueGeneratedOnAdd().HasDefaultValueSql("NEWSEQUENTIALID()");
         b.HasIndex(x => x.TraceId);
         b.Property(x => x.PoNumber).HasMaxLength(20).IsRequired();
-        b.HasIndex(x => x.PoNumber).IsUnique();
+        // Composite, not global — each org generates its own PO number sequence.
+        b.HasIndex(x => new { x.OrganizationId, x.PoNumber }).IsUnique();
         b.Property(x => x.Title).HasMaxLength(200);
         b.Property(x => x.SupplierName).HasMaxLength(200).IsRequired();
         b.Property(x => x.Status).HasMaxLength(20).HasDefaultValue("DRAFT");
@@ -26,6 +27,8 @@ internal sealed class PurchaseOrderMap : IEntityTypeConfiguration<PurchaseOrder>
         b.Property(x => x.DeliveryWarehouseName).HasMaxLength(150);
         b.Property(x => x.SupplierContactMobile).HasMaxLength(20);
         b.Property(x => x.IsActive).HasDefaultValue(true);
+        b.Property(x => x.OrganizationId).IsRequired();
+        b.HasIndex(x => x.OrganizationId);
 
         b.HasMany(x => x.Lines)
          .WithOne(x => x.PurchaseOrder)
@@ -59,6 +62,8 @@ internal sealed class PurchaseOrderLineMap : IEntityTypeConfiguration<PurchaseOr
         b.Property(x => x.BudgetCode).HasMaxLength(50);
         b.Property(x => x.WarehouseName).HasMaxLength(150);
         b.Property(x => x.RequiresInspection).HasDefaultValue(true);
+        b.Property(x => x.OrganizationId).IsRequired();
+        b.HasIndex(x => x.OrganizationId);
     }
 }
 
@@ -70,5 +75,7 @@ internal sealed class PurchaseOrderPrLinkMap : IEntityTypeConfiguration<Purchase
         b.HasKey(x => x.Id);
         b.Property(x => x.Id).ValueGeneratedOnAdd();
         b.Property(x => x.PrUuid).IsRequired();
+        b.Property(x => x.OrganizationId).IsRequired();
+        b.HasIndex(x => x.OrganizationId);
     }
 }

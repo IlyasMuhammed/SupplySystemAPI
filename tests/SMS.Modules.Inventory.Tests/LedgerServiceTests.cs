@@ -8,6 +8,7 @@ using SMS.Modules.Inventory.Models;
 using SMS.Modules.Inventory.Services;
 using SMS.Modules.Warehouse.Domain;
 using SMS.Modules.Warehouse.Services;
+using SMS.Shared.Common;
 using InventoryWarehouse = SMS.Modules.Inventory.Domain.Warehouse;
 using Xunit;
 
@@ -22,7 +23,7 @@ file static class LedgerBuild
         var opts = new DbContextOptionsBuilder<InventoryDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
-        var db      = new InventoryDbContext(opts);
+        var db      = new InventoryDbContext(opts, new StaticTenantContext());
         var logger  = NullLogger<InventoryLedgerService>.Instance;
         var service = new InventoryLedgerService(db, logger);
         return (service, db);
@@ -270,7 +271,7 @@ public class GrnReceipt_Integration_Tests
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
             .Options;
-        var inv    = new InventoryDbContext(invOpts);
+        var inv    = new InventoryDbContext(invOpts, new StaticTenantContext());
         var ledger = new InventoryLedgerService(inv, NullLogger<InventoryLedgerService>.Instance);
 
         inv.Products.Add(new Product

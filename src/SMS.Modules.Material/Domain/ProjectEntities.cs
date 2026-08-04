@@ -1,9 +1,12 @@
+using SMS.Shared.Common;
+
 namespace SMS.Modules.Material.Domain;
 
-internal class Project
+internal class Project : ITenantScopedEntity
 {
     public int      Id               { get; set; }
     public Guid     UUID             { get; set; }
+    public Guid     OrganizationId   { get; set; }
     public string   ProjectCode      { get; set; } = string.Empty;
     public string   ProjectName      { get; set; } = string.Empty;
     public int      ProjectManagerId { get; set; }
@@ -19,11 +22,12 @@ internal class Project
     public DateTime? ModifiedDate    { get; set; }
 }
 
-internal class MaterialIssueRequest
+internal class MaterialIssueRequest : ITenantScopedEntity
 {
     public int      Id             { get; set; }
     public Guid     UUID           { get; set; }
     public Guid     TraceId        { get; set; }
+    public Guid     OrganizationId { get; set; }
     public string   RequestNo      { get; set; } = string.Empty;
     public string   RequestType    { get; set; } = string.Empty;
     public int?     ProjectId      { get; set; }
@@ -51,10 +55,11 @@ internal class MaterialIssueRequest
     public ICollection<MaterialIssueRequestDetail> Lines { get; set; } = new List<MaterialIssueRequestDetail>();
 }
 
-internal class MaterialIssueRequestDetail
+internal class MaterialIssueRequestDetail : ITenantScopedEntity
 {
     public int      Id                     { get; set; }
     public Guid     UUID                   { get; set; }
+    public Guid     OrganizationId         { get; set; }
     public int      MaterialIssueRequestId { get; set; }
     public int      LineNo                 { get; set; }
     public Guid     ProductUuid            { get; set; }

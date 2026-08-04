@@ -82,6 +82,8 @@ internal sealed class LookupValueMap : IEntityTypeConfiguration<LookupValue>
         b.Property(x => x.Notes).HasMaxLength(500);
         b.Property(x => x.IsActive).HasDefaultValue(true);
         b.Property(x => x.SortOrder).HasDefaultValue(0);
+        b.Property(x => x.IsGlobal).HasDefaultValue(true);
+        b.HasIndex(x => x.OrganizationId);
 
         b.HasOne(x => x.Type)
          .WithMany(x => x.Values)
@@ -110,5 +112,7 @@ internal sealed class PoDocumentTemplateMap : IEntityTypeConfiguration<PoDocumen
         b.Property(x => x.FooterText).HasMaxLength(500);
         b.Property(x => x.ShowSignatureBlock).HasDefaultValue(true);
         b.Property(x => x.IsActive).HasDefaultValue(true);
+        b.Property(x => x.OrganizationId).IsRequired();
+        b.HasIndex(x => x.OrganizationId);
     }
 }

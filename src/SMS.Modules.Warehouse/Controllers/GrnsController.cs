@@ -12,6 +12,7 @@ namespace SMS.Modules.Warehouse.Controllers;
 [ApiController]
 [Route("api/grns")]
 [Authorize]
+[RequiresFeature("MODULE_WAREHOUSE")]
 public class GrnsController : ControllerBase
 {
     private readonly IGrnService          _service;

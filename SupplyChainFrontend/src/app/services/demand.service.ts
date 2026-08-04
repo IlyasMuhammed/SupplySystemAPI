@@ -275,6 +275,7 @@ export interface QuotationLineModel {
   lineNo: number;
   sourcePrLineUuid?: string;
   sourcePoLineUuid?: string;
+  productId?: string;
   itemDescription: string;
   specification?: string;
   unitOfMeasure?: string;

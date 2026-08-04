@@ -12,6 +12,7 @@ using SMS.Modules.Material.Domain;
 using SMS.Modules.Material.Models;
 using SMS.Modules.Material.Repositories;
 using SMS.Modules.Material.Services;
+using SMS.Shared.Common;
 using SMS.Shared.Exceptions;
 using Xunit;
 
@@ -23,14 +24,15 @@ file static class Build
 {
     internal static (MirRepository repo, MaterialDbContext material, DemandDbContext demand, InventoryDbContext inventory) NewMirRepo()
     {
+        var tenantContext = new StaticTenantContext();
         var material = new MaterialDbContext(new DbContextOptionsBuilder<MaterialDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
-            .Options);
+            .Options, tenantContext);
         var demand = new DemandDbContext(new DbContextOptionsBuilder<DemandDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, tenantContext);
         var inventory = new InventoryDbContext(new DbContextOptionsBuilder<InventoryDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, tenantContext);
 
         return (new MirRepository(material, inventory, demand, NullLogger<MirRepository>.Instance), material, demand, inventory);
     }
@@ -97,14 +99,15 @@ file static class Build
 
     internal static (MirRepository repo, MaterialDbContext material, DemandDbContext demand, InventoryDbContext inventory, RecordingLogger<MirRepository> logger) NewMirRepoWithLogger()
     {
+        var tenantContext = new StaticTenantContext();
         var material = new MaterialDbContext(new DbContextOptionsBuilder<MaterialDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
-            .Options);
+            .Options, tenantContext);
         var demand = new DemandDbContext(new DbContextOptionsBuilder<DemandDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, tenantContext);
         var inventory = new InventoryDbContext(new DbContextOptionsBuilder<InventoryDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, tenantContext);
         var logger = new RecordingLogger<MirRepository>();
 
         return (new MirRepository(material, inventory, demand, logger), material, demand, inventory, logger);

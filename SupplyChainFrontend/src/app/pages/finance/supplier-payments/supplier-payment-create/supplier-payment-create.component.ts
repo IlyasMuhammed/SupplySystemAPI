@@ -8,11 +8,9 @@ import { DropdownModule } from 'primeng/dropdown';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { CalendarModule } from 'primeng/calendar';
 import { ToastModule } from 'primeng/toast';
-import { CardModule } from 'primeng/card';
 import { TagModule } from 'primeng/tag';
 import { TextareaModule } from 'primeng/textarea';
 import { TableModule } from 'primeng/table';
-import { AutoCompleteModule } from 'primeng/autocomplete';
 import { MessageService } from 'primeng/api';
 import { FinanceService, CreateSupplierPaymentRequest, OutstandingInvoiceModel } from '../../../../services/finance.service';
 import { SupplierService, SupplierListItemModel } from '../../../../services/supplier.service';
@@ -33,7 +31,7 @@ export interface PaymentLineInput {
     CommonModule, RouterModule, FormsModule,
     ButtonModule, InputTextModule, DropdownModule,
     InputNumberModule, CalendarModule, ToastModule,
-    CardModule, TagModule, TextareaModule, TableModule, AutoCompleteModule, AttachmentListComponent
+    TagModule, TextareaModule, TableModule, AttachmentListComponent
   ],
   templateUrl: './supplier-payment-create.component.html',
   styleUrls: ['./supplier-payment-create.component.scss'],
@@ -44,8 +42,8 @@ export class SupplierPaymentCreateComponent implements OnInit {
   supplierLocked = false;
   selectedSupplierId = '';
   selectedSupplierName = '';
-  supplierAuto: SupplierListItemModel | null = null;
-  supplierSuggestions: SupplierListItemModel[] = [];
+  supplierOptions: { label: string; value: string }[] = [];
+  loadingSuppliers = false;
   supplierTouched = false;
 
   // Outstanding invoices for the chosen supplier
@@ -120,27 +118,33 @@ export class SupplierPaymentCreateComponent implements OnInit {
         error: () => { this.selectedSupplierName = ''; }
       });
       this.loadOutstandingInvoices(supplierId, invoiceUuid ?? undefined);
+    } else {
+      this.loadSuppliers();
     }
   }
 
   // ── Supplier picker (only used when not locked via query params) ──────────
 
-  searchSuppliers(event: any) {
-    const q = (event.query as string ?? '').trim();
-    this.supplierService.getSuppliers({ search: q || undefined, pageSize: 20 }).subscribe({
-      next: (res) => { this.supplierSuggestions = res.success ? res.result.data : []; },
-      error: () => { this.supplierSuggestions = []; }
+  private loadSuppliers() {
+    this.loadingSuppliers = true;
+    this.supplierService.getSuppliers({ status: 'ACTIVE', pageSize: 500 }).subscribe({
+      next: (res) => {
+        this.loadingSuppliers = false;
+        const data = res.success ? res.result.data : [];
+        this.supplierOptions = data.map((s: SupplierListItemModel) => ({ label: s.supplierName, value: s.uuid }));
+      },
+      error: () => { this.loadingSuppliers = false; this.supplierOptions = []; }
     });
   }
 
-  onSupplierSelect(event: any) {
-    const s: SupplierListItemModel = event.value ?? event;
-    if (s && typeof s === 'object') {
-      this.selectedSupplierId = s.uuid;
-      this.selectedSupplierName = s.supplierName;
-      this.lineInputs = [];
-      this.loadOutstandingInvoices(s.uuid);
-    }
+  onSupplierChange(event: any) {
+    const uuid = event.value as string;
+    const s = this.supplierOptions.find(o => o.value === uuid);
+    if (!s) { this.onSupplierClear(); return; }
+    this.selectedSupplierId = uuid;
+    this.selectedSupplierName = s.label;
+    this.lineInputs = [];
+    this.loadOutstandingInvoices(uuid);
   }
 
   onSupplierClear() {

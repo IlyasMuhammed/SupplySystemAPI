@@ -10,7 +10,7 @@ namespace SMS.Modules.Lookups.Controllers;
 
 [ApiController]
 [Route("api/po-document-template")]
-[RequirePermission(PermissionCodes.SYSTEM_CONFIGURE)]
+[RequirePermission(PermissionCodes.PO_TEMPLATE_MANAGE)]
 public class PoDocumentTemplateController : ControllerBase
 {
     private readonly IPoDocumentTemplateService _service;

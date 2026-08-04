@@ -1,3 +1,5 @@
+using SMS.Shared.Common;
+
 namespace SMS.Modules.Lookups.Domain;
 
 internal class City
@@ -49,7 +51,11 @@ internal class LookupType
     public ICollection<LookupValue> Values { get; set; } = new List<LookupValue>();
 }
 
-internal class LookupValue
+// Either a global reference row (IsGlobal=true, OrganizationId=null — the seeded catalog, e.g.
+// currencies/UOMs) or a tenant-owned custom row (IsGlobal=false, OrganizationId set). LookupType
+// itself stays global/shared in all cases — the distinguishing signal is per-row provenance, not
+// which LookupType a value hangs off.
+internal class LookupValue : IGloballyExemptTenantScopedEntity
 {
     public Guid Id { get; set; }
     public Guid TypeId { get; set; }
@@ -57,6 +63,8 @@ internal class LookupValue
     public string? Notes { get; set; }
     public bool IsActive { get; set; } = true;
     public int SortOrder { get; set; }
+    public bool IsGlobal { get; set; } = true;
+    public Guid? OrganizationId { get; set; }
 
     public LookupType Type { get; set; } = null!;
 }
@@ -65,9 +73,10 @@ internal class LookupValue
 // the Purchase Order PDF. Lives in Lookups (small admin-configurable master data, same home as
 // Countries/Currencies/Payment Terms) rather than Demand, since Demand -> Lookups is a safe
 // reference direction (Lookups has no dependency back on Demand), avoiding a circular reference.
-internal class PoDocumentTemplate
+internal class PoDocumentTemplate : ITenantScopedEntity
 {
     public Guid Id { get; set; }
+    public Guid OrganizationId { get; set; }
     public string? CompanyName { get; set; }
     public string? CompanyAddress { get; set; }
     public string? CompanyLogoUrl { get; set; }

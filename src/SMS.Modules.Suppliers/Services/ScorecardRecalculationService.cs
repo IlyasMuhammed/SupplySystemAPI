@@ -47,6 +47,14 @@ internal sealed class ScorecardRecalculationService : IScorecardRecalculationSer
 
         if (scores.Count == 0) return false; // zero GRNs in the period -> no snapshot
 
+        // Explicit, not auto-stamped: this runs from RecalculateAllAsync via a Hangfire recurring
+        // job (ScorecardRecalculationJob) with no HttpContext, so the ambient ITenantContext can't
+        // know which org this supplier belongs to — it must be looked up and copied explicitly.
+        var supplierOrgId = await _db.Suppliers
+            .Where(s => s.UUID == supplierId)
+            .Select(s => s.OrganizationId)
+            .FirstAsync();
+
         var composite = Math.Round(scores.Average(s => s.WeightedScore), 2);
         var grade     = ScorecardGradeCalculator.GradeFor(composite);
 
@@ -66,6 +74,7 @@ internal sealed class ScorecardRecalculationService : IScorecardRecalculationSer
             _db.SupplierScoreSnapshots.Add(new SupplierScoreSnapshot
             {
                 UUID               = Guid.NewGuid(),
+                OrganizationId     = supplierOrgId,
                 SupplierId         = supplierId,
                 PeriodStart        = periodStart,
                 PeriodEnd          = periodEnd,

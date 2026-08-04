@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using SMS.Modules.Finance.Data;
 using SMS.Modules.Finance.Models;
 using SMS.Modules.Finance.Services;
+using SMS.Shared.Common;
 using Xunit;
 
 namespace SMS.Modules.Finance.Tests;
@@ -12,7 +13,7 @@ file static class Build
     internal static FinanceDbContext NewDb(string? dbName = null) =>
         new(new DbContextOptionsBuilder<FinanceDbContext>()
             .UseInMemoryDatabase(dbName ?? Guid.NewGuid().ToString())
-            .Options);
+            .Options, new StaticTenantContext());
 
     internal static SupplierLedgerService NewService(FinanceDbContext db) => new(db);
 }

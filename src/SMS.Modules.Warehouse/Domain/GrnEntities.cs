@@ -1,10 +1,13 @@
+using SMS.Shared.Common;
+
 namespace SMS.Modules.Warehouse.Domain;
 
-internal class Grn
+internal class Grn : ITenantScopedEntity
 {
     public int Id { get; set; }
     public Guid UUID { get; set; }
     public Guid TraceId { get; set; }
+    public Guid OrganizationId { get; set; }
     public string GrnNumber { get; set; } = string.Empty;
     public Guid PoUuid { get; set; }
     public string PoNumber { get; set; } = string.Empty;
@@ -58,10 +61,11 @@ internal class Grn
     public ICollection<SupplierReturnOrder> ReturnOrders { get; set; } = new List<SupplierReturnOrder>();
 }
 
-internal class SupplierReturnOrder
+internal class SupplierReturnOrder : ITenantScopedEntity
 {
     public int Id { get; set; }
     public Guid UUID { get; set; }
+    public Guid OrganizationId { get; set; }
 
     // SRO number (SRO-YYYY-NNNNN)
     public string ReturnNumber { get; set; } = string.Empty;
@@ -124,10 +128,11 @@ internal class SupplierReturnOrder
     public ICollection<SupplierReturnOrderLine> Lines { get; set; } = new List<SupplierReturnOrderLine>();
 }
 
-internal class SupplierReturnOrderLine
+internal class SupplierReturnOrderLine : ITenantScopedEntity
 {
     public int Id { get; set; }
     public Guid UUID { get; set; }
+    public Guid OrganizationId { get; set; }
     public int ReturnOrderId { get; set; }
     public SupplierReturnOrder ReturnOrder { get; set; } = null!;
 
@@ -149,10 +154,11 @@ internal class SupplierReturnOrderLine
     public decimal? UnitCost { get; set; }
 }
 
-internal class GrnLine
+internal class GrnLine : ITenantScopedEntity
 {
     public int Id { get; set; }
     public Guid UUID { get; set; }
+    public Guid OrganizationId { get; set; }
     public int GrnId { get; set; }
     public Guid PoLineUuid { get; set; }   // UUID ref to purchase_order_lines — no FK (cross-module safe)
     // Inherited from the source PO line at GRN creation — decided at PO time, not editable here.

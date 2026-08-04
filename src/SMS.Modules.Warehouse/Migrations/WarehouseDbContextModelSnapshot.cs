@@ -102,6 +102,9 @@ namespace SMS.Modules.Warehouse.Migrations
                         .HasMaxLength(300)
                         .HasColumnType("nvarchar(300)");
 
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("PoNumber")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -179,12 +182,14 @@ namespace SMS.Modules.Warehouse.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("GrnNumber")
-                        .IsUnique();
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("TraceId");
 
                     b.HasIndex("UUID")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "GrnNumber")
                         .IsUnique();
 
                     b.ToTable("grns", "warehouse");
@@ -236,6 +241,9 @@ namespace SMS.Modules.Warehouse.Migrations
                     b.Property<int>("LineNo")
                         .HasColumnType("int");
 
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("PoLineUuid")
                         .HasColumnType("uniqueidentifier");
 
@@ -284,6 +292,8 @@ namespace SMS.Modules.Warehouse.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("GrnId");
+
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("UUID")
                         .IsUnique();
@@ -346,6 +356,9 @@ namespace SMS.Modules.Warehouse.Migrations
                     b.Property<string>("Notes")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("OriginalPoNumber")
                         .HasMaxLength(25)
@@ -420,10 +433,12 @@ namespace SMS.Modules.Warehouse.Migrations
 
                     b.HasIndex("GrnId");
 
-                    b.HasIndex("ReturnNumber")
-                        .IsUnique();
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("UUID")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "ReturnNumber")
                         .IsUnique();
 
                     b.ToTable("supplier_return_orders", "warehouse");
@@ -451,6 +466,9 @@ namespace SMS.Modules.Warehouse.Migrations
 
                     b.Property<int>("LineNo")
                         .HasColumnType("int");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid?>("PoLineUuid")
                         .HasColumnType("uniqueidentifier");
@@ -486,6 +504,8 @@ namespace SMS.Modules.Warehouse.Migrations
                         .HasColumnType("nvarchar(20)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("ReturnOrderId");
 

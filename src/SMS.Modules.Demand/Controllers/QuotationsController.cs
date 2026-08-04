@@ -10,6 +10,7 @@ namespace SMS.Modules.Demand.Controllers;
 
 [ApiController]
 [Route("api/quotations")]
+[RequiresFeature("MODULE_DEMAND")]
 public class QuotationsController : ControllerBase
 {
     private readonly IQuotationService _service;

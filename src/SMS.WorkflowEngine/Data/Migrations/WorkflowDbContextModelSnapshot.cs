@@ -95,6 +95,9 @@ namespace SMS.WorkflowEngine.Data.Migrations
                     b.Property<DateTime?>("ModifiedDate")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("Remarks")
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
@@ -123,6 +126,8 @@ namespace SMS.WorkflowEngine.Data.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("InterfaceCode");
+
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("Status");
 
@@ -213,6 +218,9 @@ namespace SMS.WorkflowEngine.Data.Migrations
                     b.Property<DateTime?>("ModifiedDate")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("ResolvedApproverName")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
@@ -244,6 +252,8 @@ namespace SMS.WorkflowEngine.Data.Migrations
                         .HasDefaultValueSql("NEWSEQUENTIALID()");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("ApprovalId", "StepNumber")
                         .HasDatabaseName("IX_DocumentApprovalSteps_ApprovalId_StepNumber");
@@ -293,6 +303,9 @@ namespace SMS.WorkflowEngine.Data.Migrations
                         .HasMaxLength(300)
                         .HasColumnType("nvarchar(300)");
 
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("UUID")
                         .HasColumnType("uniqueidentifier");
 
@@ -305,6 +318,8 @@ namespace SMS.WorkflowEngine.Data.Migrations
                         .HasDefaultValueSql("GETUTCDATE()");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("UUID")
                         .IsUnique();
@@ -345,6 +360,9 @@ namespace SMS.WorkflowEngine.Data.Migrations
                     b.Property<DateTime>("LastEventAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
                         .IsRequired()
@@ -355,6 +373,8 @@ namespace SMS.WorkflowEngine.Data.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("TraceId")
                         .IsUnique();
@@ -394,6 +414,9 @@ namespace SMS.WorkflowEngine.Data.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<DateTime>("PerformedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
@@ -424,6 +447,8 @@ namespace SMS.WorkflowEngine.Data.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ApprovalId");
+
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("ApprovalId", "PerformedAt")
                         .HasDatabaseName("IX_WorkflowAuditLog_ApprovalId_PerformedAt");
@@ -502,6 +527,9 @@ namespace SMS.WorkflowEngine.Data.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<bool>("RequiresSequentialApproval")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
@@ -523,6 +551,8 @@ namespace SMS.WorkflowEngine.Data.Migrations
                         .HasDefaultValue(1);
 
                     b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("UUID")
                         .IsUnique()
@@ -573,6 +603,9 @@ namespace SMS.WorkflowEngine.Data.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("Type")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -585,13 +618,15 @@ namespace SMS.WorkflowEngine.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Name")
-                        .IsUnique()
-                        .HasDatabaseName("UX_WorkflowGroups_Name");
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("UUID")
                         .IsUnique()
                         .HasDatabaseName("UX_WorkflowGroups_UUID");
+
+                    b.HasIndex("OrganizationId", "Name")
+                        .IsUnique()
+                        .HasDatabaseName("UX_WorkflowGroups_Org_Name");
 
                     b.HasIndex("Type", "IsActive")
                         .HasDatabaseName("IX_WorkflowGroups_Type_IsActive");
@@ -623,6 +658,9 @@ namespace SMS.WorkflowEngine.Data.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(true);
 
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<int?>("RemovedBy")
                         .HasColumnType("int");
 
@@ -640,6 +678,8 @@ namespace SMS.WorkflowEngine.Data.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("GroupId");
+
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("UserId");
 
@@ -725,6 +765,9 @@ namespace SMS.WorkflowEngine.Data.Migrations
                     b.Property<DateTime?>("ModifiedDate")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("SkipCondition")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
@@ -757,6 +800,8 @@ namespace SMS.WorkflowEngine.Data.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("DefinitionId");
+
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("DefinitionId", "StepNumber")
                         .IsUnique()

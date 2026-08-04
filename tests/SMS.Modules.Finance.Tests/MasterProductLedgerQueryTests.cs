@@ -13,7 +13,7 @@ file static class Build
     internal static FinanceDbContext NewFinanceDb(string? dbName = null) =>
         new(new DbContextOptionsBuilder<FinanceDbContext>()
             .UseInMemoryDatabase(dbName ?? Guid.NewGuid().ToString())
-            .Options);
+            .Options, new StaticTenantContext());
 
     internal static Task PostAsync(
         MasterProductLedgerService svc, int productId, int warehouseId, string transactionType,

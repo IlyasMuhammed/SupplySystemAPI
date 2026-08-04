@@ -6,6 +6,7 @@ using SMS.Modules.Demand.Domain;
 using SMS.Modules.Demand.Models;
 using SMS.Modules.Demand.Repositories;
 using SMS.Shared.Authorization;
+using SMS.Shared.Common;
 using SMS.Shared.Exceptions;
 using Xunit;
 
@@ -20,7 +21,7 @@ file static class QuoteBuild
         var opts = new DbContextOptionsBuilder<DemandDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
-        var db = new DemandDbContext(opts);
+        var db = new DemandDbContext(opts, new StaticTenantContext());
         seed?.Invoke(db);
         db.SaveChanges();
         return (new QuotationRepository(db), db);

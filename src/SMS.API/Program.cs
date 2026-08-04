@@ -7,6 +7,8 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
 using SMS.API.Middleware;
 using Microsoft.AspNetCore.Authorization;
+using SMS.Shared.Authorization;
+using SMS.Shared.Middleware;
 using SMS.Modules.Auth;
 using SMS.Modules.Auth.Authorization;
 using SMS.Modules.Demand;
@@ -19,6 +21,7 @@ using SMS.Modules.Notifications.Hubs;
 using SMS.Modules.Procurement;
 using SMS.Modules.Reports;
 using SMS.Modules.Suppliers;
+using SMS.Modules.Tenancy;
 using SMS.Modules.Warehouse;
 using SMS.Modules.Material;
 using SMS.Shared.Common;
@@ -47,6 +50,9 @@ var appSettingsSection = builder.Configuration.GetSection("AppSettings");
 builder.Services.Configure<AppSettings>(appSettingsSection);
 var appSettings = appSettingsSection.Get<AppSettings>()!;
 
+// ── Multi-tenancy (MT-003) — registered once, before any module ─────────────
+builder.Services.AddTenantContext();
+
 // ── Controllers ───────────────────────────────────────────────────────────────
 builder.Services.AddControllers(options =>
 {
@@ -60,6 +66,9 @@ builder.Services.AddControllers(options =>
         .RequireAuthenticatedUser()
         .Build();
     options.Filters.Add(new Microsoft.AspNetCore.Mvc.Authorization.AuthorizeFilter(authPolicy));
+
+    // MT-004 — enforces [RequiresFeature] at the API level, not just in the UI.
+    options.Filters.Add<FeatureAuthorizationFilter>();
 });
 builder.Services.AddSignalR();
 builder.Services.AddNotificationsModule(builder.Configuration);
@@ -116,6 +125,7 @@ builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProv
 
 // ── Module registrations ──────────────────────────────────────────────────────
 builder.Services.AddAuthModule(builder.Configuration);
+builder.Services.AddTenancyModule(builder.Configuration);
 builder.Services.AddLookupsModule(builder.Configuration);
 builder.Services.AddSuppliersModule(builder.Configuration);
 builder.Services.AddInventoryModule(builder.Configuration);
@@ -216,6 +226,11 @@ builder.Services.AddSwaggerGen(s =>
 // ─────────────────────────────────────────────────────────────────────────────
 var app = builder.Build();
 
+// Lets every Hangfire background job resolve the ambient ITenantContext to the org that actually
+// enqueued it, instead of a hardcoded default — see TenantPropagatingJobFilter for why this exists.
+GlobalJobFilters.Filters.Add(new SMS.API.Infrastructure.TenantPropagatingJobFilter(
+    app.Services.GetRequiredService<IHttpContextAccessor>()));
+
 app.UseMiddleware<GlobalExceptionMiddleware>();
 app.UseMiddleware<RequestLoggingMiddleware>();
 
@@ -226,6 +241,7 @@ app.UseCors("CorsPolicy");
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseMiddleware<TenantMiddleware>(); // MT-004 — 401s a deactivated org's requests
 
 app.UseSwagger();
 app.UseSwaggerUI(c =>
@@ -248,6 +264,7 @@ app.UseHangfireDashboard("/hangfire", new DashboardOptions
 });
 
 app.UseAuthModule();           // registers Hangfire jobs + seeds permissions/roles
+app.UseTenancyModule();        // migrates tenant schema + seeds org/feature catalog
 app.UseLookupsModule();        // seeds lookup types and values
 app.UseWorkflowEngineModule(); // migrates workflow schema + seeds default PR/PO/GRN definitions
 app.UseDemandModule();         // registers RFQ link expiry sweep (daily Hangfire job)

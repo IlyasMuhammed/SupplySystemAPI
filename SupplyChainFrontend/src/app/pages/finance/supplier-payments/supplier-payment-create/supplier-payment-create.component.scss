@@ -1,26 +1,145 @@
-.create-page { padding: 1.5rem; max-width: 60rem; }
-.back-link { color: var(--text-color-secondary); font-size: .8rem; text-decoration: none; display: inline-flex; align-items: center; gap: .35rem; margin-bottom: .5rem; }
-.back-link:hover { color: var(--primary-color); }
-.page-header { margin-bottom: 1.5rem; }
-.page-title { font-size: 1.4rem; font-weight: 700; display: flex; align-items: center; gap: .6rem; margin: 0; }
-.mb-4 { margin-bottom: 1rem; }
+.create-page {
+  padding: 2rem;
+  min-height: 100vh;
+}
 
-.field { display: flex; flex-direction: column; gap: .35rem; margin-bottom: 1rem; }
-.field label { font-size: .8rem; font-weight: 600; color: var(--text-color-secondary); }
-.field .req { color: var(--red-500); }
+// ── Header — same boxed pattern as other create pages, tightened vertically ───
+.page-header {
+  margin-bottom: 1.25rem;
+
+  .header-content {
+    background: white;
+    padding: 1rem 2rem;
+    border-radius: 16px;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, .08);
+  }
+  .header-left { display: flex; align-items: center; gap: 1rem; }
+}
+.page-title {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #2c3e50;
+  margin: 0 0 .2rem;
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  i { color: #10b981; }
+}
+.page-subtitle { color: #7f8c8d; margin: 0; font-size: .9rem; }
+
+// ── Panels — same corner/shadow language as the app's other form cards,
+//    just with tighter vertical padding so the page doesn't run long ─────────
+.panel {
+  background: white;
+  border-radius: 16px;
+  padding: 1.25rem 2rem 1.5rem;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .07);
+  margin-bottom: 1rem;
+}
+
+// ── Section headers — same icon-badge pattern as PO Create, sized down a bit ──
+.gi-header {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  padding-bottom: .75rem;
+  margin-bottom: .85rem;
+  border-bottom: 1px solid #f1f5f9;
+
+  .gi-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    flex-shrink: 0;
+    background: linear-gradient(135deg, #10b981, #059669);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, .28);
+    i { font-size: .95rem; color: #fff; }
+
+    &.teal {
+      background: linear-gradient(135deg, #0891b2, #06b6d4);
+      box-shadow: 0 4px 12px rgba(8, 145, 178, .28);
+    }
+  }
+
+  .gi-text {
+    .gi-title { font-size: .95rem; font-weight: 700; color: #0f172a; line-height: 1.2; }
+    .gi-sub   { font-size: .78rem; color: #94a3b8; margin-top: .15rem; }
+  }
+}
+
+// ── Fields ───────────────────────────────────────────────────────────────────
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: .35rem;
+  margin-bottom: .75rem;
+
+  label { font-size: .88rem; font-weight: 600; color: #495057; display: flex; align-items: center; gap: .35rem; }
+  .req  { color: #e74c3c; }
+}
 .full-width { width: 100%; }
+.font-semibold { font-weight: 600; }
 
-.supplier-locked-info { display: flex; align-items: center; gap: .5rem; font-size: 1rem; }
+.supplier-locked-info {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  font-size: 1rem;
+  color: #2c3e50;
+  i { color: #10b981; }
+}
 
-.add-line-row { display: flex; gap: .75rem; align-items: center; margin-bottom: 1rem; }
+// ── Outstanding invoices ───────────────────────────────────────────────────────
+.add-line-row { display: flex; gap: .875rem; align-items: center; margin-bottom: .85rem; }
 .add-line-dropdown { min-width: 280px; }
-.empty-hint { color: var(--text-color-secondary); font-size: .85rem; padding: .75rem 0; }
+.empty-hint { color: #7f8c8d; font-size: .9rem; padding: .3rem 0; }
 
-.totals-row td { border-top: 2px solid var(--surface-300); }
-.locked-total { font-size: 1rem; font-weight: 700; padding: .4rem 0; }
-.locked-total .hint { font-size: .75rem; font-weight: 400; color: var(--text-color-secondary); }
+.text-right  { text-align: right; }
+.text-center { text-align: center; }
+.font-mono   { font-family: 'SFMono-Regular', Consolas, monospace; font-size: .9rem; }
+.font-bold   { font-weight: 700; }
 
-.form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0 1.25rem; }
+.totals-row td { border-top: 2px solid #f1f5f9; }
+.locked-total { font-size: 1rem; font-weight: 700; color: #2c3e50; padding: .4rem 0; }
+.locked-total .hint { font-size: .78rem; font-weight: 400; color: #7f8c8d; }
+
+// ── Payment details grid ───────────────────────────────────────────────────────
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0 1.25rem;
+}
 .form-grid .field.full-width { grid-column: 1 / -1; }
 
-.form-actions { display: flex; justify-content: flex-end; gap: .75rem; margin-top: 1rem; }
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: .875rem;
+  margin-top: .5rem;
+  padding-top: .85rem;
+  border-top: 1px solid #f1f5f9;
+}
+
+// ── Table cells — same density as the app's other data tables ─────────────────
+::ng-deep .create-page {
+  .p-datatable .p-datatable-thead > tr > th {
+    padding: .5rem .75rem;
+    font-size: .78rem;
+    background: #f8fafc;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+  }
+  .p-datatable .p-datatable-tbody > tr > td {
+    padding: .45rem .75rem;
+    font-size: .88rem;
+  }
+  .p-datatable .p-datatable-tfoot > tr > td {
+    padding: .5rem .75rem;
+  }
+
+  app-attachment-list { display: block; margin-top: .85rem; }
+}

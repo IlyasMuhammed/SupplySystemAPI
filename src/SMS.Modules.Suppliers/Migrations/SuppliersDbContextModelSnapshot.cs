@@ -40,6 +40,9 @@ namespace SMS.Modules.Suppliers.Migrations
                     b.Property<Guid>("GrnId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<decimal>("PricePoints")
                         .HasColumnType("decimal(5,2)");
 
@@ -65,6 +68,8 @@ namespace SMS.Modules.Suppliers.Migrations
 
                     b.HasIndex("GrnId")
                         .IsUnique();
+
+                    b.HasIndex("OrganizationId");
 
                     b.ToTable("GrnScoreDetails", "suppliers");
                 });
@@ -98,12 +103,17 @@ namespace SMS.Modules.Suppliers.Migrations
                     b.Property<DateTime?>("ModifiedDate")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<decimal>("WeightPercentage")
                         .HasColumnType("decimal(5,2)");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("DimensionCode")
+                    b.HasIndex("OrganizationId");
+
+                    b.HasIndex("OrganizationId", "DimensionCode")
                         .IsUnique();
 
                     b.ToTable("ScorecardDimensionWeights", "suppliers");
@@ -186,6 +196,9 @@ namespace SMS.Modules.Suppliers.Migrations
 
                     b.Property<DateTime?>("OnboardingDate")
                         .HasColumnType("datetime2");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Phone")
                         .HasMaxLength(20)
@@ -275,10 +288,12 @@ namespace SMS.Modules.Suppliers.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("SupplierCode")
-                        .IsUnique();
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("UUID")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "SupplierCode")
                         .IsUnique();
 
                     b.ToTable("Suppliers", "suppliers");
@@ -314,6 +329,9 @@ namespace SMS.Modules.Suppliers.Migrations
                     b.Property<int>("CreatedBy")
                         .HasColumnType("int");
 
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<int>("SupplierId")
                         .HasColumnType("int");
 
@@ -324,6 +342,8 @@ namespace SMS.Modules.Suppliers.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("SupplierId")
                         .IsUnique();
@@ -342,7 +362,12 @@ namespace SMS.Modules.Suppliers.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
 
                     b.ToTable("SupplierCategories", "suppliers");
                 });
@@ -372,6 +397,9 @@ namespace SMS.Modules.Suppliers.Migrations
                     b.Property<bool>("IsPrimary")
                         .HasColumnType("bit");
 
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("Phone")
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
@@ -384,6 +412,8 @@ namespace SMS.Modules.Suppliers.Migrations
                         .HasColumnType("nvarchar(100)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("SupplierId");
 
@@ -417,6 +447,9 @@ namespace SMS.Modules.Suppliers.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(true);
 
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<int>("SupplierId")
                         .HasColumnType("int");
 
@@ -427,6 +460,8 @@ namespace SMS.Modules.Suppliers.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("SupplierId");
 
@@ -457,10 +492,15 @@ namespace SMS.Modules.Suppliers.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<int>("SupplierId")
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("SupplierId", "LookupValueId")
                         .IsUnique();
@@ -502,6 +542,9 @@ namespace SMS.Modules.Suppliers.Migrations
                     b.Property<DateTime?>("ModifiedDate")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<DateTime>("PeriodEnd")
                         .HasColumnType("datetime2");
 
@@ -532,6 +575,8 @@ namespace SMS.Modules.Suppliers.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("OrganizationId");
+
                     b.HasIndex("UUID")
                         .IsUnique();
 
@@ -559,7 +604,12 @@ namespace SMS.Modules.Suppliers.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
 
                     b.ToTable("SupplierTypes", "suppliers");
                 });
@@ -588,10 +638,15 @@ namespace SMS.Modules.Suppliers.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<int>("SupplierId")
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("SupplierId", "LookupValueId")
                         .IsUnique();

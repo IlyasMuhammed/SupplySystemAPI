@@ -93,6 +93,9 @@ namespace SMS.Modules.Finance.Migrations
                         .HasMaxLength(300)
                         .HasColumnType("nvarchar(300)");
 
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("SroNumber")
                         .IsRequired()
                         .HasMaxLength(25)
@@ -119,10 +122,12 @@ namespace SMS.Modules.Finance.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CreditNoteNumber")
-                        .IsUnique();
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("UUID")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "CreditNoteNumber")
                         .IsUnique();
 
                     b.ToTable("credit_notes", "finance");
@@ -217,6 +222,9 @@ namespace SMS.Modules.Finance.Migrations
                         .HasMaxLength(300)
                         .HasColumnType("nvarchar(300)");
 
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<DateTime?>("SettledAt")
                         .HasColumnType("datetime2");
 
@@ -252,10 +260,12 @@ namespace SMS.Modules.Finance.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("DebitNoteNumber")
-                        .IsUnique();
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("UUID")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "DebitNoteNumber")
                         .IsUnique();
 
                     b.ToTable("debit_notes", "finance");
@@ -284,6 +294,9 @@ namespace SMS.Modules.Finance.Migrations
                     b.Property<DateTime>("CreatedDate")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("Reason")
                         .IsRequired()
                         .HasMaxLength(500)
@@ -310,6 +323,8 @@ namespace SMS.Modules.Finance.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("SupplierId");
 
@@ -399,6 +414,9 @@ namespace SMS.Modules.Finance.Migrations
                         .HasMaxLength(300)
                         .HasColumnType("nvarchar(300)");
 
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<decimal>("PaidAmount")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("decimal(18,2)")
@@ -460,12 +478,14 @@ namespace SMS.Modules.Finance.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("InvoiceNumber")
-                        .IsUnique();
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("TraceId");
 
                     b.HasIndex("UUID")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "InvoiceNumber")
                         .IsUnique();
 
                     b.ToTable("invoices", "finance");
@@ -496,6 +516,9 @@ namespace SMS.Modules.Finance.Migrations
                     b.Property<decimal>("LineTotal")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("PoLineUuid")
                         .HasColumnType("uniqueidentifier");
 
@@ -515,6 +538,8 @@ namespace SMS.Modules.Finance.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("InvoiceId");
+
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("UUID")
                         .IsUnique();
@@ -552,6 +577,9 @@ namespace SMS.Modules.Finance.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("ReferenceId")
                         .HasColumnType("uniqueidentifier");
 
@@ -588,16 +616,18 @@ namespace SMS.Modules.Finance.Migrations
 
                     b.HasIndex("EntryDate");
 
-                    b.HasIndex("ReferenceId");
+                    b.HasIndex("OrganizationId");
 
-                    b.HasIndex("SequenceNo")
-                        .IsUnique();
+                    b.HasIndex("ReferenceId");
 
                     b.HasIndex("SupplierId");
 
                     b.HasIndex("TransactionType");
 
                     b.HasIndex("UUID")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "SequenceNo")
                         .IsUnique();
 
                     b.ToTable("master_financial_ledger", "finance");
@@ -639,6 +669,9 @@ namespace SMS.Modules.Finance.Migrations
                     b.Property<string>("Notes")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("ProductCode")
                         .IsRequired()
@@ -710,6 +743,8 @@ namespace SMS.Modules.Finance.Migrations
                     b.HasIndex("LedgerId")
                         .IsUnique();
 
+                    b.HasIndex("OrganizationId");
+
                     b.HasIndex("ProductId");
 
                     b.HasIndex("ReferenceId");
@@ -770,6 +805,9 @@ namespace SMS.Modules.Finance.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<DateTime>("PaymentDate")
                         .HasColumnType("datetime2");
 
@@ -811,10 +849,12 @@ namespace SMS.Modules.Finance.Migrations
 
                     b.HasIndex("InvoiceId");
 
-                    b.HasIndex("PaymentNumber")
-                        .IsUnique();
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("UUID")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "PaymentNumber")
                         .IsUnique();
 
                     b.ToTable("payments", "finance");
@@ -834,6 +874,9 @@ namespace SMS.Modules.Finance.Migrations
                     b.Property<DateTime>("CreatedDate")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<decimal>("OriginalAmount")
                         .HasColumnType("decimal(18,2)");
 
@@ -847,6 +890,8 @@ namespace SMS.Modules.Finance.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("SupplierId");
 
@@ -886,6 +931,9 @@ namespace SMS.Modules.Finance.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("ReferenceId")
                         .HasColumnType("uniqueidentifier");
 
@@ -914,6 +962,8 @@ namespace SMS.Modules.Finance.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("UUID")
                         .IsUnique();
@@ -973,6 +1023,9 @@ namespace SMS.Modules.Finance.Migrations
                         .HasMaxLength(300)
                         .HasColumnType("nvarchar(300)");
 
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<DateTime>("PaymentDate")
                         .HasColumnType("datetime2");
 
@@ -1014,17 +1067,26 @@ namespace SMS.Modules.Finance.Migrations
                     b.Property<decimal>("TotalAmount")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<Guid>("TraceId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasDefaultValueSql("NEWSEQUENTIALID()");
+
                     b.Property<Guid>("UUID")
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("PaymentNumber")
-                        .IsUnique();
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("SupplierId");
 
+                    b.HasIndex("TraceId");
+
                     b.HasIndex("UUID")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "PaymentNumber")
                         .IsUnique();
 
                     b.ToTable("supplier_payments", "finance");
@@ -1053,6 +1115,9 @@ namespace SMS.Modules.Finance.Migrations
                         .HasMaxLength(300)
                         .HasColumnType("nvarchar(300)");
 
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<decimal>("OutstandingBeforeAllocation")
                         .HasColumnType("decimal(18,2)");
 
@@ -1065,6 +1130,8 @@ namespace SMS.Modules.Finance.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("InvoiceUuid");
+
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("SupplierPaymentId");
 

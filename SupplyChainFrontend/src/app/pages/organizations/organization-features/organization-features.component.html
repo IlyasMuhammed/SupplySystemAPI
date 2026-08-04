@@ -1,0 +1,57 @@
+<div class="card">
+
+  <!-- ── Page Header ──────────────────────────────────────────────────────── -->
+  <div class="md-header">
+    <p-button icon="pi pi-arrow-left" [text]="true" severity="secondary"
+              routerLink="/portal/pages/organizations"></p-button>
+    <div class="md-icon"><i class="pi pi-sliders-h"></i></div>
+    <div class="md-title-wrap">
+      <h2 class="md-title">{{ org?.orgName || 'Manage Features' }}</h2>
+      <p class="md-subtitle" *ngIf="org">
+        <span class="font-mono">{{ org.orgCode }}</span> &bull;
+        <p-tag [value]="org.plan" [severity]="planSeverity(org.plan)"></p-tag>
+      </p>
+    </div>
+    <p-button label="Reset to Plan Defaults" icon="pi pi-refresh" severity="secondary" [outlined]="true"
+              [loading]="isApplyingTemplate" (onClick)="confirmApplyPlanTemplate()"></p-button>
+  </div>
+
+  <hr class="md-sep" />
+
+  <div *ngIf="isLoading" class="md-empty">
+    <i class="pi pi-spin pi-spinner md-empty-icon"></i>
+    <p class="md-empty-text">Loading features…</p>
+  </div>
+
+  <div class="features-body" *ngIf="!isLoading">
+    <div class="feature-group" *ngFor="let group of groupedFeatures">
+      <h3 class="feature-group-title">{{ categoryLabel(group.category) }}</h3>
+
+      <div class="feature-row" *ngFor="let f of group.items">
+        <div class="feature-checkbox">
+          <p-checkbox [(ngModel)]="f.isEnabled" [binary]="true"
+                      [disabled]="savingCode === f.featureCode"
+                      (onChange)="onToggle(f, f.isEnabled)"></p-checkbox>
+        </div>
+        <div class="feature-info">
+          <div class="feature-name-row">
+            <span class="feature-name">{{ f.featureName }}</span>
+            <span class="core-badge" *ngIf="f.isCore" pTooltip="Core feature — always enabled" tooltipPosition="top">
+              <i class="pi pi-lock"></i> Core
+            </span>
+            <span class="feature-code">{{ f.featureCode }}</span>
+          </div>
+          <p class="feature-description" *ngIf="f.description">{{ f.description }}</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="md-empty" *ngIf="!groupedFeatures.length">
+      <i class="pi pi-inbox md-empty-icon"></i>
+      <p class="md-empty-text">No features found</p>
+    </div>
+  </div>
+</div>
+
+<p-confirmDialog [style]="{width:'460px'}"></p-confirmDialog>
+<p-toast></p-toast>

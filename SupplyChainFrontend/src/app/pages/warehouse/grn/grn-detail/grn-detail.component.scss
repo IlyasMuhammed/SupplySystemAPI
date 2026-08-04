@@ -239,13 +239,13 @@
   // Override p-table header inside lines-card
   ::ng-deep .lines-card {
     .p-datatable .p-datatable-thead > tr > th {
-      background: #fef9f0;
+      background: #f7e6cc;
       color: #7f5538;
       font-size: .78rem;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: .04em;
-      border-bottom: 2px solid #f5ebe0;
+      border-bottom: 2px solid #ecd4a8;
       padding: .65rem .85rem;
     }
 
@@ -431,13 +431,14 @@
   }
 
   .insp-table {
-    width: 1270px;
+    width: 100%;
+    min-width: 1050px;
     table-layout: fixed;
     border-collapse: collapse;
     font-size: .83rem;
 
     th {
-      background: #fef9f0;
+      background: #f7e6cc;
       color: #7f5538;
       font-size: .73rem;
       font-weight: 700;
@@ -445,7 +446,7 @@
       letter-spacing: .04em;
       padding: .55rem .65rem;
       text-align: left;
-      border-bottom: 2px solid #f5ebe0;
+      border-bottom: 2px solid #ecd4a8;
       white-space: nowrap;
     }
 
@@ -532,8 +533,8 @@
     align-items: center;
     justify-content: space-between;
     padding: 1rem 1.5rem;
-    border-bottom: 2px solid #fef9f0;
-    background: #fef9f0;
+    border-bottom: 2px solid #ecd4a8;
+    background: #f7e6cc;
 
     h3 { margin: 0; font-size: 1rem; font-weight: 600; color: #2c3e50; display: flex; align-items: center; gap: .5rem; }
   }
@@ -544,7 +545,7 @@
     font-size: .85rem;
 
     thead th {
-      background: #fef9f0;
+      background: #f7e6cc;
       color: #7f5538;
       font-weight: 700;
       font-size: .75rem;
@@ -552,7 +553,7 @@
       letter-spacing: .05em;
       padding: .6rem 1rem;
       text-align: left;
-      border-bottom: 2px solid #f5ebe0;
+      border-bottom: 2px solid #ecd4a8;
     }
 
     tbody td {

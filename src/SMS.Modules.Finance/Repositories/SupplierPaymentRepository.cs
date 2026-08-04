@@ -178,6 +178,7 @@ internal sealed class SupplierPaymentRepository : ISupplierPaymentRepository
         return new SupplierPaymentDetailModel
         {
             UUID          = p.UUID,
+            TraceId       = p.TraceId,
             PaymentNumber = p.PaymentNumber,
             SupplierId    = p.SupplierId,
             SupplierName  = p.SupplierName,

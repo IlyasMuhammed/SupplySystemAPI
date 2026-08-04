@@ -12,11 +12,14 @@ internal sealed class ScorecardDimensionWeightMap : IEntityTypeConfiguration<Sco
         b.HasKey(x => x.Id);
         b.Property(x => x.Id).ValueGeneratedOnAdd();
         b.Property(x => x.DimensionCode).HasMaxLength(30).IsRequired();
-        b.HasIndex(x => x.DimensionCode).IsUnique();
+        // Composite, not global — every org has its own 5-row set of dimension weights.
+        b.HasIndex(x => new { x.OrganizationId, x.DimensionCode }).IsUnique();
         b.Property(x => x.DimensionName).HasMaxLength(100).IsRequired();
         b.Property(x => x.WeightPercentage).HasColumnType("decimal(5,2)");
         b.Property(x => x.MaxPoints).HasColumnType("decimal(5,2)");
         b.Property(x => x.IsActive).HasDefaultValue(true);
+        b.Property(x => x.OrganizationId).IsRequired();
+        b.HasIndex(x => x.OrganizationId);
     }
 }
 
@@ -39,6 +42,8 @@ internal sealed class SupplierScoreSnapshotMap : IEntityTypeConfiguration<Suppli
         b.Property(x => x.TotalScore).HasColumnType("decimal(5,2)");
         b.Property(x => x.Grade).HasMaxLength(2).IsRequired();
         b.Property(x => x.Trend).HasMaxLength(12);
+        b.Property(x => x.OrganizationId).IsRequired();
+        b.HasIndex(x => x.OrganizationId);
     }
 }
 
@@ -60,5 +65,7 @@ internal sealed class GrnScoreDetailMap : IEntityTypeConfiguration<GrnScoreDetai
         b.Property(x => x.TotalRawScore).HasColumnType("decimal(5,2)");
         b.Property(x => x.WeightedScore).HasColumnType("decimal(5,2)");
         b.Property(x => x.ScoredAt).IsRequired();
+        b.Property(x => x.OrganizationId).IsRequired();
+        b.HasIndex(x => x.OrganizationId);
     }
 }

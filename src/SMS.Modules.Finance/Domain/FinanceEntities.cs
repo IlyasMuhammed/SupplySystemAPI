@@ -1,10 +1,13 @@
+using SMS.Shared.Common;
+
 namespace SMS.Modules.Finance.Domain;
 
-internal class Invoice
+internal class Invoice : ITenantScopedEntity
 {
     public int     Id                  { get; set; }
     public Guid    UUID                { get; set; }
     public Guid    TraceId             { get; set; }
+    public Guid    OrganizationId      { get; set; }
     public string  InvoiceNumber       { get; set; } = string.Empty;
     public string? SupplierInvoiceNo   { get; set; }
     public Guid    SupplierId          { get; set; }
@@ -53,10 +56,11 @@ internal class Invoice
     public ICollection<Payment>     Payments { get; set; } = new List<Payment>();
 }
 
-internal class InvoiceLine
+internal class InvoiceLine : ITenantScopedEntity
 {
     public int     Id              { get; set; }
     public Guid    UUID            { get; set; }
+    public Guid    OrganizationId  { get; set; }
     public int     InvoiceId       { get; set; }
     public Guid?   GrnLineUuid     { get; set; }  // UUID ref to warehouse.grn_lines — no FK
     public Guid    PoLineUuid      { get; set; }  // UUID ref to demand.purchase_order_lines — no FK
@@ -69,10 +73,11 @@ internal class InvoiceLine
     public Invoice Invoice         { get; set; } = null!;
 }
 
-internal class Payment
+internal class Payment : ITenantScopedEntity
 {
     public int     Id              { get; set; }
     public Guid    UUID            { get; set; }
+    public Guid    OrganizationId  { get; set; }
     public string  PaymentNumber   { get; set; } = string.Empty;
     public int     InvoiceId       { get; set; }
     public Guid    InvoiceUuid     { get; set; }
@@ -99,10 +104,11 @@ internal class Payment
     public Invoice Invoice { get; set; } = null!;
 }
 
-internal class DebitNote
+internal class DebitNote : ITenantScopedEntity
 {
     public int    Id                  { get; set; }
     public Guid   UUID                { get; set; }
+    public Guid   OrganizationId      { get; set; }
     public string DebitNoteNumber     { get; set; } = string.Empty;   // DN-YYYY-NNNNN
 
     // SRO reference
@@ -154,10 +160,11 @@ internal class DebitNote
 // previous entry (by SequenceNo) at post time — never stored/updated anywhere else. SequenceNo
 // carries a unique (SupplierId, SequenceNo) index that doubles as the concurrency guard for
 // PostEntryAsync: a losing concurrent writer hits a unique-index violation and retries.
-internal class SupplierLedgerEntry
+internal class SupplierLedgerEntry : ITenantScopedEntity
 {
     public int      Id              { get; set; }
     public Guid     UUID            { get; set; }
+    public Guid     OrganizationId  { get; set; }
     public Guid     SupplierId      { get; set; }
     public int      SequenceNo      { get; set; }
 
@@ -183,10 +190,11 @@ internal class SupplierLedgerEntry
 // so the two never drift. SequenceNo is a single global sequence (not scoped per supplier) — its
 // unique index is the concurrency guard: two concurrent writers for DIFFERENT suppliers still race
 // for the next SequenceNo/BalanceAfter here, and the loser's unique-index violation triggers a retry.
-internal class MasterFinancialLedger
+internal class MasterFinancialLedger : ITenantScopedEntity
 {
     public int      Id              { get; set; }
     public Guid     UUID            { get; set; }
+    public Guid     OrganizationId  { get; set; }
     public int      SequenceNo      { get; set; }
 
     public Guid     SupplierId      { get; set; }
@@ -218,10 +226,11 @@ internal class MasterFinancialLedger
 // MasterProductLedgerService.PostMovementAsync and InventoryLedgerService.CreateEntryAsync.
 // Enriched with source/destination context that Inventory itself can't resolve (Supplier,
 // Project, Department names live in other modules), supplied by the calling module.
-internal class MasterProductLedger
+internal class MasterProductLedger : ITenantScopedEntity
 {
     public int      Id              { get; set; }
     public Guid     LedgerId        { get; set; }
+    public Guid     OrganizationId  { get; set; }
 
     public int      ProductId       { get; set; }
     public string   ProductCode     { get; set; } = string.Empty;
@@ -259,10 +268,11 @@ internal class MasterProductLedger
 // FSD Addendum 24 (ML-005) — bad debt write-off request. Split into a create + approve step
 // (rather than posting the master-ledger credit immediately) because the FSD requires Finance
 // Manager approval before the write-off actually reduces the payable balance.
-internal class DebtWriteOff
+internal class DebtWriteOff : ITenantScopedEntity
 {
     public int       Id           { get; set; }
     public Guid      UUID         { get; set; }
+    public Guid      OrganizationId { get; set; }
     public Guid      SupplierId   { get; set; }
     public string    SupplierName { get; set; } = string.Empty;
     public decimal   Amount       { get; set; }
@@ -279,10 +289,12 @@ internal class DebtWriteOff
 // Multi-invoice supplier payment header (SFM-003). Distinct from the existing single-invoice
 // Payment entity — a SupplierPayment can allocate its TotalAmount across several invoices via
 // SupplierPaymentLines, or be created unallocated (an advance) with zero lines.
-internal class SupplierPayment
+internal class SupplierPayment : ITenantScopedEntity
 {
     public int      Id            { get; set; }
     public Guid     UUID          { get; set; }
+    public Guid     TraceId       { get; set; }   // Document Timeline chain root — see SupplierPaymentTraceIdResolver
+    public Guid     OrganizationId { get; set; }
     public string   PaymentNumber { get; set; } = string.Empty;   // SPAY-YYYY-NNNNN
 
     public Guid     SupplierId    { get; set; }
@@ -324,10 +336,11 @@ internal class SupplierPayment
 
 // Created when an ADVANCE_PAYMENT-type SupplierPayment is posted — tracks the unallocated
 // balance available to offset against future invoices for the supplier.
-internal class SupplierAdvancePayment
+internal class SupplierAdvancePayment : ITenantScopedEntity
 {
     public int      Id                   { get; set; }
     public Guid     UUID                 { get; set; }
+    public Guid     OrganizationId       { get; set; }
     public Guid     SupplierId           { get; set; }
     public Guid     SupplierPaymentUuid  { get; set; }
     public decimal  OriginalAmount       { get; set; }
@@ -335,10 +348,11 @@ internal class SupplierAdvancePayment
     public DateTime CreatedDate          { get; set; }
 }
 
-internal class SupplierPaymentLine
+internal class SupplierPaymentLine : ITenantScopedEntity
 {
     public int      Id                          { get; set; }
     public Guid     UUID                        { get; set; }
+    public Guid     OrganizationId              { get; set; }
     public int      SupplierPaymentId            { get; set; }
 
     public Guid     InvoiceUuid                 { get; set; }
@@ -351,10 +365,11 @@ internal class SupplierPaymentLine
     public SupplierPayment SupplierPayment { get; set; } = null!;
 }
 
-internal class CreditNote
+internal class CreditNote : ITenantScopedEntity
 {
     public int    Id                     { get; set; }
     public Guid   UUID                   { get; set; }
+    public Guid   OrganizationId         { get; set; }
     public string CreditNoteNumber       { get; set; } = string.Empty;   // CN-YYYY-NNNNN
     public string SupplierCreditNoteNo   { get; set; } = string.Empty;   // supplier's own number (required)
 

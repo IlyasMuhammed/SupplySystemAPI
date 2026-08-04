@@ -1,5 +1,7 @@
 using FluentAssertions;
+using Hangfire;
 using Microsoft.EntityFrameworkCore;
+using Moq;
 using SMS.Modules.Demand.Data;
 using SMS.Modules.Demand.Domain;
 using SMS.Modules.Finance.Data;
@@ -7,6 +9,7 @@ using SMS.Modules.Finance.Repositories;
 using SMS.Modules.Finance.Services;
 using SMS.Modules.Warehouse.Data;
 using SMS.Modules.Warehouse.Domain;
+using SMS.Shared.Common;
 using Xunit;
 
 namespace SMS.Modules.Finance.Tests;
@@ -17,19 +20,20 @@ file static class Build
         Action<DemandDbContext>? seedDemand = null)
     {
         var finance = new FinanceDbContext(new DbContextOptionsBuilder<FinanceDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, new StaticTenantContext());
 
         var demand = new DemandDbContext(new DbContextOptionsBuilder<DemandDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, new StaticTenantContext());
         seedDemand?.Invoke(demand);
         demand.SaveChanges();
 
         var wh = new WarehouseDbContext(new DbContextOptionsBuilder<WarehouseDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, new StaticTenantContext());
 
         var ledger = new SupplierLedgerService(finance);
         var invoiceRepo = new InvoiceRepository(finance, demand, wh, ledger);
-        var svc = new InvoiceAutoCreationService(wh, finance, invoiceRepo);
+        var jobs = new Mock<IBackgroundJobClient>().Object;
+        var svc = new InvoiceAutoCreationService(wh, finance, invoiceRepo, jobs);
 
         return (svc, finance, wh);
     }

@@ -60,7 +60,7 @@
 
       <div class="rev-body">
         <div class="rev-meta">
-          <span><i class="pi pi-user"></i> Initiated by #{{ rev.initiatedBy }}</span>
+          <span><i class="pi pi-user"></i> Initiated by {{ rev.initiatedByName || 'Unknown user' }}</span>
           <span><i class="pi pi-list"></i> {{ rev.totalSteps }} step{{ rev.totalSteps !== 1 ? 's' : '' }}</span>
           <span *ngIf="rev.remarks"><i class="pi pi-comment"></i> {{ rev.remarks }}</span>
         </div>

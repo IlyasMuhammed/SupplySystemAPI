@@ -33,6 +33,8 @@ internal sealed class AuthDataSeeder
         ("Configure System",              PermissionCodes.SYSTEM_CONFIGURE,      "Configure system-wide settings and integrations"),
         ("Manage Users",                  PermissionCodes.USER_MANAGE,           "Create, update and deactivate user accounts"),
         ("View Audit Logs",               PermissionCodes.AUDIT_LOG_VIEW,        "Access full application audit trail"),
+        ("Platform Super Admin",          PermissionCodes.PLATFORM_SUPER_ADMIN,  "Manage tenant organizations and platform-wide feature configuration"),
+        ("Manage Locations",              PermissionCodes.LOCATION_MANAGE,       "Add new countries and cities to the shared location catalog"),
 
         ("View Suppliers",                PermissionCodes.SUPPLIER_VIEW,         "Read supplier records"),
         ("Create Suppliers",              PermissionCodes.SUPPLIER_CREATE,       "Add new suppliers to the system"),
@@ -51,6 +53,7 @@ internal sealed class AuthDataSeeder
         ("Edit Purchase Orders",          PermissionCodes.PO_EDIT,               "Amend draft purchase orders"),
         ("Approve Purchase Orders",       PermissionCodes.PO_APPROVE,            "Authorise POs within budget limits"),
         ("Cancel Purchase Orders",        PermissionCodes.PO_CANCEL,             "Cancel or reject purchase orders"),
+        ("Manage PO Document Template",   PermissionCodes.PO_TEMPLATE_MANAGE,    "Edit this organization's PO letterhead/branding template"),
 
         ("Create Requisitions",           PermissionCodes.REQUISITION_CREATE,    "Raise purchase requisitions"),
         ("View Own Requisitions",         PermissionCodes.REQUISITION_VIEW_OWN,  "View requisitions created by the user"),
@@ -90,6 +93,9 @@ internal sealed class AuthDataSeeder
         ("QC Confirm GRN",                PermissionCodes.GRN_QC_CONFIRM,        "Quality-control sign-off on goods receipt notes"),
         ("Approve GRN",                   PermissionCodes.GRN_APPROVE,           "Final inventory manager approval of GRNs"),
         ("Finance Approve GRN",           PermissionCodes.GRN_FINANCE_APPROVE,   "Finance sign-off on GRN value"),
+
+        ("View Material Management",      PermissionCodes.MATERIAL_VIEW,         "Read projects, material issue requests/vouchers, wastage, returns, and cost ledgers"),
+        ("Manage Material Management",    PermissionCodes.MATERIAL_MANAGE,       "Create/update projects, issue and post MIRs/MIVs, approve wastage, and process returns"),
     ];
 
     private async Task SeedPermissionsAsync()
@@ -115,6 +121,7 @@ internal sealed class AuthDataSeeder
         ((int)EnumRole.Requester,          "Requester",            "REQUESTER",            "Limited — raise purchase requisitions, view own order status"),
         ((int)EnumRole.Auditor,            "Read-Only / Auditor",  "AUDITOR",              "View only — view all records, export reports, no data modification"),
         ((int)EnumRole.FinanceManager,     "Finance Manager",      "FINANCE_MANAGER",      "Managerial — approve supplier payments, manage budgets, all Finance Officer permissions"),
+        ((int)EnumRole.OrgAdmin,           "Organization Admin",   "ORG_ADMIN",            "Full owner/operator of a tenant organization — every task in the app except platform-wide administration"),
     ];
 
     private async Task SeedRolesAsync()
@@ -124,7 +131,14 @@ internal sealed class AuthDataSeeder
             var role = await _db.Roles.FindAsync(id);
             if (role == null)
             {
-                _db.Roles.Add(new Role { RoleID = id, Name = name, RoleCode = code, Description = desc, IsActive = true });
+                // The built-in catalog is global (IsGlobal=true, OrganizationId=null) — usable and
+                // assignable by every organization. Org-owned custom roles (IsGlobal=false) are
+                // only ever created at runtime via RolesController, never seeded here.
+                _db.Roles.Add(new Role
+                {
+                    RoleID = id, Name = name, RoleCode = code, Description = desc, IsActive = true,
+                    IsGlobal = true, OrganizationId = null
+                });
             }
             else if (string.IsNullOrEmpty(role.RoleCode))
             {
@@ -226,6 +240,26 @@ internal sealed class AuthDataSeeder
             PermissionCodes.REPORT_VIEW,    PermissionCodes.REPORT_EXPORT,
             PermissionCodes.GRN_FINANCE_APPROVE,
         ],
+
+        // Org Admin is the full owner/operator of their own tenant: every business permission in
+        // the catalog (requisitions, RFQs, POs, inventory, warehouse, finance, material management,
+        // workflow configuration, reports, user/role management, location catalog, PO branding —
+        // all of it), so there's no blockage managing their org's users or any task in the app.
+        // This is safe to grant broadly because every one of these permissions gates data that's
+        // already properly tenant-scoped (WorkflowDefinition/WorkflowStep/WorkflowGroup included —
+        // an Org Admin configuring "their" workflow can only ever see/edit their own org's rows).
+        // Excludes ONLY SYSTEM_CONFIGURE/PLATFORM_SUPER_ADMIN — the two codes that reach genuinely
+        // cross-tenant surfaces (api/system/* platform administration, and shared global reference
+        // data like Lookup Types/Currencies/editing existing Countries-and-Cities that every OTHER
+        // organization also relies on). Granting either would let one org's admin affect every
+        // other org. Uses .Except(...) rather than an explicit list so any future permission code
+        // added to the catalog automatically flows to every existing Org Admin too — no seeder edit
+        // required, satisfying "all necessary permissions granted on creation" for orgs that
+        // already exist (this seeder is additive/idempotent — it re-runs and fills the gap on the
+        // API's next startup, for every org's Org Admin at once, since they all share this one role).
+        [(int)EnumRole.OrgAdmin] = PermissionCodes.All
+            .Except([PermissionCodes.SYSTEM_CONFIGURE, PermissionCodes.PLATFORM_SUPER_ADMIN])
+            .ToArray(),
     };
 
     private async Task SeedRolePermissionsAsync()
@@ -247,7 +281,8 @@ internal sealed class AuthDataSeeder
                     {
                         RoleID = roleId,
                         PermissionID = permId,
-                        IsAllowed = true
+                        IsAllowed = true,
+                        OrganizationId = TenantDefaults.ScmDemoOrganizationId
                     });
                 }
             }

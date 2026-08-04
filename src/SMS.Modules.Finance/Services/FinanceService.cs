@@ -99,15 +99,65 @@ internal sealed class PaymentService : IPaymentService
 internal sealed class SupplierPaymentService : ISupplierPaymentService
 {
     private readonly ISupplierPaymentRepository _repo;
-    public SupplierPaymentService(ISupplierPaymentRepository repo) => _repo = repo;
+    private readonly IBackgroundJobClient _jobs;
+    public SupplierPaymentService(ISupplierPaymentRepository repo, IBackgroundJobClient jobs)
+    {
+        _repo = repo;
+        _jobs = jobs;
+    }
 
-    public Task<Guid>                                           CreateAsync(CreateSupplierPaymentRequest req, int createdBy) => _repo.CreateAsync(req, createdBy);
-    public Task<PaginatedResponse<SupplierPaymentListItemModel>> GetListAsync(SupplierPaymentFilter filter)                   => _repo.GetListAsync(filter);
-    public Task<SupplierPaymentDetailModel?>                    GetByUuidAsync(Guid uuid)                                    => _repo.GetByUuidAsync(uuid);
-    public Task<bool>                                           ApproveAsync(Guid uuid, int approvedBy)                      => _repo.ApproveAsync(uuid, approvedBy);
-    public Task<bool>                                           CancelAsync(Guid uuid, int cancelledBy)                      => _repo.CancelAsync(uuid, cancelledBy);
-    public Task<bool>                                           PostAsync(Guid uuid, int postedBy)                          => _repo.PostAsync(uuid, postedBy);
-    public Task<bool>                                           BounceAsync(Guid uuid, int bouncedBy)                       => _repo.BounceAsync(uuid, bouncedBy);
+    public async Task<Guid> CreateAsync(CreateSupplierPaymentRequest req, int createdBy)
+    {
+        var uuid = await _repo.CreateAsync(req, createdBy);
+        await AppendTimelineEventAsync(uuid, "PAYMENT_CREATED", createdBy);
+        return uuid;
+    }
+
+    public Task<PaginatedResponse<SupplierPaymentListItemModel>> GetListAsync(SupplierPaymentFilter filter) => _repo.GetListAsync(filter);
+    public Task<SupplierPaymentDetailModel?>                    GetByUuidAsync(Guid uuid)                   => _repo.GetByUuidAsync(uuid);
+
+    public async Task<bool> ApproveAsync(Guid uuid, int approvedBy)
+    {
+        var ok = await _repo.ApproveAsync(uuid, approvedBy);
+        if (ok) await AppendTimelineEventAsync(uuid, "PAYMENT_APPROVED", approvedBy);
+        return ok;
+    }
+
+    public async Task<bool> CancelAsync(Guid uuid, int cancelledBy)
+    {
+        var ok = await _repo.CancelAsync(uuid, cancelledBy);
+        if (ok) await AppendTimelineEventAsync(uuid, "PAYMENT_CANCELLED", cancelledBy);
+        return ok;
+    }
+
+    public async Task<bool> PostAsync(Guid uuid, int postedBy)
+    {
+        var ok = await _repo.PostAsync(uuid, postedBy);
+        if (ok) await AppendTimelineEventAsync(uuid, "PAYMENT_POSTED", postedBy);
+        return ok;
+    }
+
+    public async Task<bool> BounceAsync(Guid uuid, int bouncedBy)
+    {
+        var ok = await _repo.BounceAsync(uuid, bouncedBy);
+        if (ok) await AppendTimelineEventAsync(uuid, "PAYMENT_BOUNCED", bouncedBy);
+        return ok;
+    }
+
+    // Re-reads the payment so the event carries its current amount/status snapshot and the
+    // DB-generated TraceId (ValueGeneratedOnAdd — not known until after the first SaveChanges).
+    private async Task AppendTimelineEventAsync(Guid uuid, string eventType, int actorId)
+    {
+        var payment = await _repo.GetByUuidAsync(uuid);
+        if (payment is null) return;
+
+        var notes = $"Amount: {payment.TotalAmount:F2}, Method: {payment.PaymentMethod}, Status: {payment.Status}.";
+        _jobs.Enqueue<ITimelineAppendJob>(j => j.AppendAsync(
+            payment.TraceId,
+            new TimelineEvent(eventType, "SUPPLIER_PAYMENT", uuid, payment.PaymentNumber, DateTime.UtcNow, actorId, notes),
+            "SUPPLIER_PAYMENT", payment.PaymentNumber));
+    }
+
     public Task<List<OutstandingInvoiceModel>>                  GetOutstandingInvoicesAsync(Guid supplierId)                 => _repo.GetOutstandingInvoicesAsync(supplierId);
     public Task<SupplierAgingModel>                              GetSupplierAgingAsync(Guid supplierId)                      => _repo.GetSupplierAgingAsync(supplierId);
     public Task<CrossSupplierAgingReport>                        GetCrossSupplierAgingAsync()                                => _repo.GetCrossSupplierAgingAsync();

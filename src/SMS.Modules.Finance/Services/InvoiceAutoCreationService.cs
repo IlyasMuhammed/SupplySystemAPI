@@ -1,8 +1,11 @@
+using Hangfire;
 using Microsoft.EntityFrameworkCore;
 using SMS.Modules.Finance.Data;
 using SMS.Modules.Finance.Models;
 using SMS.Modules.Finance.Repositories;
 using SMS.Modules.Warehouse.Data;
+using SMS.WorkflowEngine.Jobs;
+using SMS.WorkflowEngine.Models;
 
 namespace SMS.Modules.Finance.Services;
 
@@ -15,17 +18,25 @@ internal interface IInvoiceAutoCreationService
 // invoice from the GRN's accepted quantities and PO-derived unit costs so AP has a starting point
 // instead of a blank form — SupplierInvoiceNo/DueDate/tax are left for the AP team to correct once
 // the supplier's actual paper invoice arrives (PatchAsync).
+//
+// Calls IInvoiceRepository directly rather than IInvoiceService — this is the actual creation path
+// for the overwhelming majority of invoices (manual entry is rare), so the INVOICE_RECEIVED timeline
+// event has to be enqueued here too, not just in InvoiceService.CreateAsync, or auto-created invoices
+// would silently never get a timeline entry for their own creation.
 internal sealed class InvoiceAutoCreationService : IInvoiceAutoCreationService
 {
     private readonly WarehouseDbContext _warehouse;
     private readonly FinanceDbContext   _db;
     private readonly IInvoiceRepository _invoices;
+    private readonly IBackgroundJobClient _jobs;
 
-    public InvoiceAutoCreationService(WarehouseDbContext warehouse, FinanceDbContext db, IInvoiceRepository invoices)
+    public InvoiceAutoCreationService(
+        WarehouseDbContext warehouse, FinanceDbContext db, IInvoiceRepository invoices, IBackgroundJobClient jobs)
     {
         _warehouse = warehouse;
         _db        = db;
         _invoices  = invoices;
+        _jobs      = jobs;
     }
 
     // Safe to call more than once for the same GRN — a pre-existing invoice for it is a no-op,
@@ -80,6 +91,16 @@ internal sealed class InvoiceAutoCreationService : IInvoiceAutoCreationService
 
         // CreatedBy 0: system-generated, mirrors the "actor tracked in workflow audit log"
         // convention GrnStatusHandler already uses for the stock-posting side of GRN approval.
-        await _invoices.CreateAsync(req, createdBy: 0);
+        var uuid = await _invoices.CreateAsync(req, createdBy: 0);
+
+        var inv = await _invoices.GetByUuidAsync(uuid);
+        if (inv is not null)
+        {
+            var notes = $"Amount: {inv.TotalAmount:F2} {inv.Currency}, Match status: {inv.MatchStatus}.";
+            _jobs.Enqueue<ITimelineAppendJob>(j => j.AppendAsync(
+                inv.TraceId,
+                new TimelineEvent("INVOICE_RECEIVED", "INVOICE", uuid, inv.InvoiceNumber, DateTime.UtcNow, 0, notes),
+                "INVOICE", inv.InvoiceNumber));
+        }
     }
 }

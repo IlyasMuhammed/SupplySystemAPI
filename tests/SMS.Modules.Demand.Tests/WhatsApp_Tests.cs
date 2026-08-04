@@ -26,7 +26,7 @@ file static class WhatsAppBuild
     internal static DemandDbContext DemandDb() =>
         new(new DbContextOptionsBuilder<DemandDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
-            .Options);
+            .Options, new StaticTenantContext());
 
     internal static WhatsAppNotificationService Service(
         IWhatsAppProvider provider, NotificationsDbContext db) =>

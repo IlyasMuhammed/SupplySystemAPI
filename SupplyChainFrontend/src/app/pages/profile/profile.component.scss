@@ -280,13 +280,6 @@
   transition: opacity .15s, color .15s;
 }
 
-// ── User ID ───────────────────────────────────────────────────────────────────
-.sidebar-user-id {
-  display: flex; flex-direction: column; gap: .15rem; text-align: left;
-  .uid-label { font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #94a3b8; }
-  .uid-value { font-size: .78rem; font-family: monospace; color: #6c63ff; word-break: break-all; }
-}
-
 // ══════════════════════════════════════════════════════════════════════════════
 // RIGHT CONTENT
 // ══════════════════════════════════════════════════════════════════════════════

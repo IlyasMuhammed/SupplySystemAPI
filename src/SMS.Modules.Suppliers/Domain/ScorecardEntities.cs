@@ -1,8 +1,10 @@
+using SMS.Shared.Common;
+
 namespace SMS.Modules.Suppliers.Domain;
 
 // FSD Section 5.4 — configurable scoring weights per dimension. Exactly 5 rows (DELIVERY, QUANTITY,
 // QUALITY, PRICE, DOCUMENTATION), seeded once and only ever updated in place via PUT /api/admin/scorecard-weights.
-internal class ScorecardDimensionWeight
+internal class ScorecardDimensionWeight : ITenantScopedEntity
 {
     public int      Id               { get; set; }
     public string   DimensionCode    { get; set; } = string.Empty; // DELIVERY | QUANTITY | QUALITY | PRICE | DOCUMENTATION
@@ -11,12 +13,13 @@ internal class ScorecardDimensionWeight
     public decimal  MaxPoints        { get; set; }
     public bool     IsActive         { get; set; } = true;
     public DateTime? ModifiedDate    { get; set; }
+    public Guid     OrganizationId   { get; set; }
 }
 
 // FSD Section 5.3 — periodic rolled-up supplier score, one row per supplier per scored period.
 // A given (SupplierId, PeriodStart, PeriodEnd) is overwritten in place on re-recalculation (SC-005),
 // so this is "current snapshot per period", not a strictly append-only history.
-internal class SupplierScoreSnapshot
+internal class SupplierScoreSnapshot : ITenantScopedEntity
 {
     public int      Id                 { get; set; }
     public Guid     UUID               { get; set; }
@@ -38,10 +41,11 @@ internal class SupplierScoreSnapshot
     public DateTime CreatedDate        { get; set; }
     public int?      ModifiedBy        { get; set; }
     public DateTime? ModifiedDate      { get; set; }
+    public Guid     OrganizationId     { get; set; }
 }
 
 // Per-GRN raw dimension scores — the input rows that SupplierScoreSnapshots are rolled up from.
-internal class GrnScoreDetail
+internal class GrnScoreDetail : ITenantScopedEntity
 {
     public int      Id                  { get; set; } // grn_score_id
     public Guid     GrnId               { get; set; }
@@ -54,4 +58,5 @@ internal class GrnScoreDetail
     public decimal  TotalRawScore       { get; set; }
     public decimal  WeightedScore       { get; set; }
     public DateTime ScoredAt            { get; set; }
+    public Guid     OrganizationId      { get; set; }
 }

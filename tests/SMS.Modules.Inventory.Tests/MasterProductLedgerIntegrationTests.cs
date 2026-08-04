@@ -29,8 +29,9 @@ file static class Build
         var finOpts = new DbContextOptionsBuilder<FinanceDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
 
-        var inv = new InventoryDbContext(invOpts);
-        var fin = new FinanceDbContext(finOpts);
+        var tenantContext = new StaticTenantContext();
+        var inv = new InventoryDbContext(invOpts, tenantContext);
+        var fin = new FinanceDbContext(finOpts, tenantContext);
         var masterLedgerSvc = masterLedger ?? new MasterProductLedgerService(fin);
         var service = new InventoryLedgerService(inv, NullLogger<InventoryLedgerService>.Instance, masterLedgerSvc);
         return (service, inv, fin);
@@ -120,7 +121,7 @@ public class MasterProductLedger_Integration_Tests
     {
         var invOpts = new DbContextOptionsBuilder<InventoryDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
-        var inv = new InventoryDbContext(invOpts);
+        var inv = new InventoryDbContext(invOpts, new StaticTenantContext());
 
         var failingMaster = new Mock<IMasterProductLedgerService>();
         failingMaster
@@ -211,7 +212,8 @@ public class MasterProductLedger_GrnBusinessAction_Atomicity_Tests
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.InMemoryEventId.TransactionIgnoredWarning))
             .Options;
-        var inv = new InventoryDbContext(invOpts);
+        var tenantContext = new StaticTenantContext();
+        var inv = new InventoryDbContext(invOpts, tenantContext);
 
         var failingMaster = new Mock<IMasterProductLedgerService>();
         failingMaster
@@ -260,7 +262,7 @@ public class MasterProductLedger_GrnBusinessAction_Atomicity_Tests
 
         // Fresh context against the same in-memory database — proves nothing was actually
         // persisted: no InventoryLedgerEntry, and the InventoryItem's QtyOnHand never moved.
-        var verifyInv = new InventoryDbContext(invOpts);
+        var verifyInv = new InventoryDbContext(invOpts, tenantContext);
         (await verifyInv.InventoryLedgerEntries.AnyAsync()).Should().BeFalse();
         var item = await verifyInv.InventoryItems.FirstOrDefaultAsync(i => i.ProductId == product.Id);
         (item is null || item.QtyOnHand == 0m).Should().BeTrue();

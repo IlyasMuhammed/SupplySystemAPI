@@ -14,12 +14,15 @@ internal sealed class ProjectMap : IEntityTypeConfiguration<Project>
         b.Property(x => x.UUID).IsRequired();
         b.HasIndex(x => x.UUID).IsUnique();
         b.Property(x => x.ProjectCode).HasMaxLength(30).IsRequired();
-        b.HasIndex(x => x.ProjectCode).IsUnique();
+        // Composite, not global — each org assigns its own project codes.
+        b.HasIndex(x => new { x.OrganizationId, x.ProjectCode }).IsUnique();
         b.Property(x => x.ProjectName).HasMaxLength(200).IsRequired();
         b.Property(x => x.Status).HasMaxLength(20).HasDefaultValue("ACTIVE");
         b.Property(x => x.BudgetAmount).HasColumnType("decimal(18,2)");
         b.Property(x => x.Description).HasMaxLength(1000);
         b.Property(x => x.IsActive).HasDefaultValue(true);
+        b.Property(x => x.OrganizationId).IsRequired();
+        b.HasIndex(x => x.OrganizationId);
     }
 }
 
@@ -35,7 +38,8 @@ internal sealed class MaterialIssueRequestMap : IEntityTypeConfiguration<Materia
         b.Property(x => x.TraceId).IsRequired().ValueGeneratedOnAdd().HasDefaultValueSql("NEWSEQUENTIALID()");
         b.HasIndex(x => x.TraceId);
         b.Property(x => x.RequestNo).HasMaxLength(20).IsRequired();
-        b.HasIndex(x => x.RequestNo).IsUnique();
+        // Composite, not global — each org generates its own MIR request number sequence.
+        b.HasIndex(x => new { x.OrganizationId, x.RequestNo }).IsUnique();
         b.Property(x => x.RequestType).HasMaxLength(20).IsRequired();
         b.Property(x => x.Department).HasMaxLength(100);
         b.Property(x => x.MaintenanceRef).HasMaxLength(100);
@@ -47,6 +51,8 @@ internal sealed class MaterialIssueRequestMap : IEntityTypeConfiguration<Materia
         b.Property(x => x.ApproverRemarks).HasMaxLength(500);
         b.Property(x => x.Notes).HasMaxLength(1000);
         b.Property(x => x.IsActive).HasDefaultValue(true);
+        b.Property(x => x.OrganizationId).IsRequired();
+        b.HasIndex(x => x.OrganizationId);
 
         b.HasOne(x => x.Project)
          .WithMany()
@@ -84,6 +90,8 @@ internal sealed class MaterialIssueRequestDetailMap : IEntityTypeConfiguration<M
         b.Property(x => x.IssuedQty).HasColumnType("decimal(18,4)").HasDefaultValue(0m);
         b.Property(x => x.PendingQty).HasColumnType("decimal(18,4)").HasDefaultValue(0m);
         b.Property(x => x.LineStatus).HasMaxLength(20).HasDefaultValue("PENDING");
+        b.Property(x => x.OrganizationId).IsRequired();
+        b.HasIndex(x => x.OrganizationId);
 
         b.HasOne(x => x.MaterialIssueRequest)
          .WithMany(x => x.Lines)

@@ -71,6 +71,10 @@ internal sealed class SupplierScoringService : ISupplierScoringService
         {
             _suppliers.GrnScoreDetails.Add(new GrnScoreDetail
             {
+                // Explicit, not auto-stamped: ScoreGrnAsync runs as a Hangfire background job (see
+                // SupplierScoringGrnEventPublisher) with no HttpContext, so the ambient
+                // ITenantContext can't know which org this GRN belongs to.
+                OrganizationId      = grn.OrganizationId,
                 GrnId               = grn.UUID,
                 SupplierId          = grn.SupplierId,
                 DeliveryPoints      = deliveryPoints,

@@ -13,6 +13,7 @@ using SMS.Modules.Material.Data;
 using SMS.Modules.Material.Models;
 using SMS.Modules.Material.Repositories;
 using SMS.Modules.Material.Services;
+using SMS.Shared.Common;
 using SMS.WorkflowEngine.Models;
 using SMS.WorkflowEngine.Services;
 using Xunit;
@@ -25,14 +26,15 @@ file static class WiringBuild
 {
     internal static (MirRepository repo, MaterialDbContext material, InventoryDbContext inventory) NewMirRepo()
     {
+        var tenantContext = new StaticTenantContext();
         var material = new MaterialDbContext(new DbContextOptionsBuilder<MaterialDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
-            .Options);
+            .Options, tenantContext);
         var demand = new DemandDbContext(new DbContextOptionsBuilder<DemandDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, tenantContext);
         var inventory = new InventoryDbContext(new DbContextOptionsBuilder<InventoryDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, tenantContext);
 
         return (new MirRepository(material, inventory, demand, NullLogger<MirRepository>.Instance), material, inventory);
     }

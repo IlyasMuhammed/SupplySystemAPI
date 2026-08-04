@@ -63,8 +63,11 @@ public static class WorkflowEngineModuleExtensions
         services.AddMediatR(cfg =>
             cfg.RegisterServicesFromAssembly(typeof(WorkflowEngineModuleExtensions).Assembly));
 
-        // Seeder (scoped so it can resolve WorkflowDbContext)
+        // Seeder (scoped so it can resolve WorkflowDbContext) — also registered as the
+        // cross-module IWorkflowSeedingService so SMS.Modules.Tenancy can seed a new org's default
+        // workflows at creation time (MT-006) without a project reference to WorkflowEngine.
         services.AddScoped<WorkflowDefinitionSeeder>();
+        services.AddScoped<IWorkflowSeedingService>(sp => sp.GetRequiredService<WorkflowDefinitionSeeder>());
 
         return services;
     }

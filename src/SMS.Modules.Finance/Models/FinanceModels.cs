@@ -546,6 +546,7 @@ public class SupplierPaymentLineModel
 public class SupplierPaymentDetailModel
 {
     public Guid     UUID          { get; set; }
+    public Guid     TraceId       { get; set; }
     public string   PaymentNumber { get; set; } = string.Empty;
     public Guid     SupplierId    { get; set; }
     public string   SupplierName  { get; set; } = string.Empty;

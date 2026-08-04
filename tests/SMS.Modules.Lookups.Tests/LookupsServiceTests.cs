@@ -21,7 +21,7 @@ file static class Helpers
         var options = new DbContextOptionsBuilder<LookupsDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
-        var db = new LookupsDbContext(options);
+        var db = new LookupsDbContext(options, new StaticTenantContext());
         seed?.Invoke(db);
         db.SaveChanges();
 
@@ -184,7 +184,7 @@ public class LookupsServiceTests
         var options = new DbContextOptionsBuilder<LookupsDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
-        var db = new LookupsDbContext(options);
+        var db = new LookupsDbContext(options, new StaticTenantContext());
         var seeder = new LookupsDataSeeder(db);
 
         await seeder.SeedAsync();

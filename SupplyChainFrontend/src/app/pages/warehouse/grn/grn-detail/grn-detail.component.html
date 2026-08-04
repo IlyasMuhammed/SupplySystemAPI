@@ -292,17 +292,17 @@
       <div class="insp-table-wrap">
         <table class="insp-table">
           <colgroup>
-            <col style="width:36px">
-            <col style="width:200px">
-            <col style="width:60px">
-            <col style="width:90px">
-            <col style="width:140px">
-            <col style="width:100px">
-            <col style="width:100px">
-            <col style="width:155px">
-            <col style="width:175px">
-            <col style="width:130px">
+            <col style="width:32px">
+            <col style="width:170px">
+            <col style="width:50px">
+            <col style="width:75px">
+            <col style="width:125px">
             <col style="width:80px">
+            <col style="width:80px">
+            <col style="width:130px">
+            <col style="width:140px">
+            <col style="width:105px">
+            <col style="width:60px">
           </colgroup>
           <thead>
             <tr>
@@ -477,7 +477,7 @@
           <tr *ngFor="let entry of auditTrail">
             <td style="white-space:nowrap;font-size:.82rem;color:#64748b">{{ entry.timestamp | date:'dd MMM yy HH:mm' }}</td>
             <td><p-tag [value]="entry.action" [severity]="getAuditActionSeverity(entry.action)"></p-tag></td>
-            <td style="font-size:.85rem">{{ entry.userName || ('User #' + entry.userId) }}</td>
+            <td style="font-size:.85rem">{{ entry.userName || 'Unknown user' }}</td>
             <td style="font-size:.82rem;color:#64748b">{{ entry.fieldChanged || '—' }}</td>
             <td style="font-size:.82rem;color:#64748b">{{ entry.oldValue || '—' }}</td>
             <td style="font-size:.82rem;color:#64748b">{{ entry.newValue || '—' }}</td>

@@ -7,6 +7,7 @@ using SMS.Modules.Demand.Domain;
 using SMS.Modules.Material.Data;
 using SMS.Modules.Material.Domain;
 using SMS.Modules.Material.Services;
+using SMS.Shared.Common;
 using SMS.WorkflowEngine.Events;
 using Xunit;
 
@@ -20,13 +21,13 @@ file static class DisbursementBuild
         new(new DbContextOptionsBuilder<DemandDbContext>()
             .UseInMemoryDatabase(dbName)
             .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
-            .Options);
+            .Options, new StaticTenantContext());
 
     internal static MaterialDbContext NewMaterialDb(string dbName) =>
         new(new DbContextOptionsBuilder<MaterialDbContext>()
             .UseInMemoryDatabase(dbName)
             .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
-            .Options);
+            .Options, new StaticTenantContext());
 
     internal static (MaterialDbContext material, DemandDbContext demand, MirPrLineDisbursementHandler handler) NewHandler()
     {

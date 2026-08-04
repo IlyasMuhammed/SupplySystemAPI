@@ -9,6 +9,7 @@ namespace SMS.Modules.Suppliers.Controllers;
 
 [ApiController]
 [Route("api/supplier-scorecard")]
+[RequiresFeature("SCREEN_SUPPLIER_SCORECARD")]
 public class ScorecardDashboardController : ControllerBase
 {
     private readonly IScorecardDashboardService _svc;

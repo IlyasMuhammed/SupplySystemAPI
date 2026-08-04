@@ -22,12 +22,17 @@ file static class Helpers
 {
     internal const string TestSecret = "test-secret-key-must-be-at-least-32-bytes!";
 
-    internal static (AuthService svc, AuthDbContext db) Build(Action<AuthDbContext>? seed = null)
+    internal static (AuthService svc, AuthDbContext db) Build(
+        Action<AuthDbContext>? seed = null, bool organizationActive = true, bool isSuperAdmin = false)
     {
         var options = new DbContextOptionsBuilder<AuthDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
-        var db = new AuthDbContext(options);
+        // AuthService's methods under test here (login, refresh, accept-invite, ...) all
+        // correspond to anonymous endpoints — in production TenantContext bypasses the query
+        // filter whenever there's no authenticated HttpContext.User (see TenantContext.cs), so
+        // IsSuperAdmin=true here replicates that same "no tenant known yet" reality for these tests.
+        var db = new AuthDbContext(options, new StaticTenantContext { IsSuperAdmin = true });
         seed?.Invoke(db);
         db.SaveChanges();
 
@@ -36,7 +41,13 @@ file static class Helpers
         var settings = Options.Create(new AppSettings { Secret = TestSecret });
         var tokenSvc = new TokenService(settings);
         var emailMock = new Mock<IEmailService>();
-        var svc = new AuthService(repo, emailMock.Object, settings, tokenSvc, hasher);
+        var orgStatusMock = new Mock<IOrganizationStatusService>();
+        orgStatusMock.Setup(x => x.IsOrganizationActiveAsync(It.IsAny<Guid>())).ReturnsAsync(organizationActive);
+        // MT-007: SuperAdminUsers table membership, mocked directly rather than via a real Tenancy
+        // DbContext — AuthService only ever calls through the ISuperAdminService seam.
+        var superAdminMock = new Mock<ISuperAdminService>();
+        superAdminMock.Setup(x => x.IsSuperAdminAsync(It.IsAny<int>())).ReturnsAsync(isSuperAdmin);
+        var svc = new AuthService(repo, emailMock.Object, settings, tokenSvc, hasher, orgStatusMock.Object, superAdminMock.Object);
         return (svc, db);
     }
 
@@ -224,6 +235,30 @@ public class LoginAsync_Should
 
         db.UserSessions.First().ExpiresAt.Should().BeCloseTo(before.AddDays(7), TimeSpan.FromSeconds(5));
     }
+
+    [Fact]
+    public async Task Throw_UnauthorizedException_when_users_organization_is_deactivated()
+    {
+        var user = Helpers.ActiveUser();
+        user.OrganizationId = Guid.NewGuid();
+        var (svc, _) = Helpers.Build(db => db.UserAccounts.Add(user), organizationActive: false);
+
+        var act = () => svc.LoginAsync(new LoginRequestModel { Email = "alice@example.com", Password = "P@ssword1" });
+        await act.Should().ThrowAsync<UnauthorizedException>();
+    }
+
+    [Fact]
+    public async Task Succeed_when_users_organization_is_active()
+    {
+        var user = Helpers.ActiveUser();
+        user.OrganizationId = Guid.NewGuid();
+        var (svc, _) = Helpers.Build(db => db.UserAccounts.Add(user), organizationActive: true);
+
+        var result = await svc.LoginAsync(new LoginRequestModel { Email = "alice@example.com", Password = "P@ssword1" });
+
+        result.AccessToken.Should().NotBeNullOrWhiteSpace();
+    }
+
 }
 
 // ── AuthService.RefreshAsync ──────────────────────────────────────────────────
@@ -334,6 +369,78 @@ public class LogoutAsync_Should
     }
 }
 
+// ── AuthService.AcceptInviteAsync ─────────────────────────────────────────────
+
+public class AcceptInviteAsync_Should
+{
+    private static UserAccount InvitedUser(string token, DateTime? expiresAt = null) => new()
+    {
+        UserID = 1,
+        Email = "orgadmin@example.com",
+        FirstName = "Org",
+        RoleID = (int)EnumRole.OrgAdmin,
+        OrganizationId = Guid.NewGuid(),
+        IsActive = false,
+        IsDelete = false,
+        Password = "unusable",
+        InviteToken = token,
+        InviteTokenExpiresAt = expiresAt ?? DateTime.UtcNow.AddDays(7),
+        CreatedDate = DateTime.UtcNow
+    };
+
+    [Fact]
+    public async Task Activates_user_and_sets_password_for_valid_token()
+    {
+        var (svc, db) = Helpers.Build(db => db.UserAccounts.Add(InvitedUser("good-token")));
+
+        await svc.AcceptInviteAsync("good-token", "NewP@ssword1");
+
+        var user = db.UserAccounts.First();
+        user.IsActive.Should().BeTrue();
+        user.InviteToken.Should().BeNull();
+        user.InviteTokenExpiresAt.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task New_password_can_be_used_to_log_in_afterward()
+    {
+        var (svc, _) = Helpers.Build(db => db.UserAccounts.Add(InvitedUser("good-token")));
+        await svc.AcceptInviteAsync("good-token", "NewP@ssword1");
+
+        var result = await svc.LoginAsync(new LoginRequestModel { Email = "orgadmin@example.com", Password = "NewP@ssword1" });
+
+        result.AccessToken.Should().NotBeNullOrWhiteSpace();
+    }
+
+    [Fact]
+    public async Task Throw_BadRequestException_for_unknown_token()
+    {
+        var (svc, _) = Helpers.Build(db => db.UserAccounts.Add(InvitedUser("good-token")));
+
+        var act = () => svc.AcceptInviteAsync("wrong-token", "NewP@ssword1");
+        await act.Should().ThrowAsync<BadRequestException>();
+    }
+
+    [Fact]
+    public async Task Throw_BadRequestException_for_expired_token()
+    {
+        var (svc, _) = Helpers.Build(db => db.UserAccounts.Add(InvitedUser("expired-token", DateTime.UtcNow.AddDays(-1))));
+
+        var act = () => svc.AcceptInviteAsync("expired-token", "NewP@ssword1");
+        await act.Should().ThrowAsync<BadRequestException>();
+    }
+
+    [Fact]
+    public async Task Expired_token_does_not_activate_the_account()
+    {
+        var (svc, db) = Helpers.Build(db => db.UserAccounts.Add(InvitedUser("expired-token", DateTime.UtcNow.AddDays(-1))));
+
+        try { await svc.AcceptInviteAsync("expired-token", "NewP@ssword1"); } catch { }
+
+        db.UserAccounts.First().IsActive.Should().BeFalse();
+    }
+}
+
 // ── TokenService ──────────────────────────────────────────────────────────────
 
 public class TokenService_Should
@@ -382,7 +489,7 @@ public class TokenService_Should
     {
         var svc = CreateSut();
         var user = new UserAccount { UserID = 42, Email = "u@test.com", RoleID = 1 };
-        var token = svc.GenerateAccessToken(user, "Admin", new[] { "po.read" });
+        var token = svc.GenerateAccessToken(user, "Admin", new[] { "po.read" }, isSuperAdmin: false);
 
         var parsed = new JwtSecurityTokenHandler().ReadJwtToken(token);
         parsed.Claims.Should().Contain(c => c.Type == JwtRegisteredClaimNames.Sub && c.Value == "42");
@@ -394,7 +501,7 @@ public class TokenService_Should
     {
         var svc = CreateSut();
         var user = new UserAccount { UserID = 1, Email = "u@test.com", RoleID = 1 };
-        var token = svc.GenerateAccessToken(user, "Manager", new[] { "po.read", "po.create" });
+        var token = svc.GenerateAccessToken(user, "Manager", new[] { "po.read", "po.create" }, isSuperAdmin: false);
 
         var parsed = new JwtSecurityTokenHandler().ReadJwtToken(token);
         parsed.Claims.Count(c => c.Type == "permission").Should().Be(2);
@@ -407,10 +514,26 @@ public class TokenService_Should
         var user = new UserAccount { UserID = 1, Email = "u@test.com", RoleID = 1 };
         var before = DateTime.UtcNow;
 
-        var token = svc.GenerateAccessToken(user, "User", Array.Empty<string>());
+        var token = svc.GenerateAccessToken(user, "User", Array.Empty<string>(), isSuperAdmin: false);
 
         var parsed = new JwtSecurityTokenHandler().ReadJwtToken(token);
         parsed.ValidTo.Should().BeCloseTo(before.AddMinutes(15), TimeSpan.FromSeconds(5));
+    }
+
+    // MT-007 — is_super_admin is now a plain passed-in bool (SuperAdminUsers table membership,
+    // resolved by the caller), not derived from the permission list.
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void GenerateAccessToken_is_super_admin_claim_reflects_the_passed_flag(bool isSuperAdmin)
+    {
+        var svc = CreateSut();
+        var user = new UserAccount { UserID = 1, Email = "u@test.com", RoleID = 1 };
+
+        var token = svc.GenerateAccessToken(user, "User", Array.Empty<string>(), isSuperAdmin);
+
+        var parsed = new JwtSecurityTokenHandler().ReadJwtToken(token);
+        parsed.Claims.Should().Contain(c => c.Type == "is_super_admin" && c.Value == (isSuperAdmin ? "true" : "false"));
     }
 }
 
@@ -423,7 +546,7 @@ public class SessionCleanupJob_Should
         var options = new DbContextOptionsBuilder<AuthDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
-        return new AuthDbContext(options);
+        return new AuthDbContext(options, new StaticTenantContext());
     }
 
     private static UserAccount SeedUser(AuthDbContext db)

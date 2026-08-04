@@ -2,6 +2,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable, tap } from 'rxjs';
 import { Router } from '@angular/router';
+import { TenantService } from './tenant.service';
 
 export interface LoginRequest {
   email: string;
@@ -19,6 +20,9 @@ export interface RoleListItem {
   roleCode: string;
   description?: string;
   isActive: boolean;
+  // Shared catalog role (every org can assign it, only a Super Admin can edit it) vs. an
+  // org-owned custom role (private to and editable only by the org that created it).
+  isGlobal: boolean;
   activeUserCount: number;
   permissionCount: number;
 }
@@ -41,6 +45,7 @@ export interface RoleDetail {
   roleCode: string;
   description?: string;
   isActive: boolean;
+  isGlobal: boolean;
   activeUserCount: number;
   permissionGroups: PermissionGroup[];
 }
@@ -116,7 +121,7 @@ export interface ApiResponse<T = null> {
 export class AuthService {
   private readonly apiUrl = 'https://localhost:52800/api/auth';
 
-  constructor(private http: HttpClient, private router: Router) {}
+  constructor(private http: HttpClient, private router: Router, private tenantService: TenantService) {}
 
   login(email: string, password: string, roleId?: number): Observable<ApiResponse<LoginResponse>> {
     const body: Record<string, unknown> = { email, password };
@@ -177,6 +182,12 @@ export class AuthService {
 
   resetPassword(email: string, password: string, verificationCode: string): Observable<ApiResponse> {
     return this.http.post<ApiResponse>(`${this.apiUrl}/reset-password`, { email, password, verificationCode });
+  }
+
+  // Org admin invite acceptance (MT-002) — sets the initial password for a newly-created org's
+  // Admin user, invited via email at organization-creation time.
+  acceptInvite(token: string, newPassword: string): Observable<ApiResponse> {
+    return this.http.post<ApiResponse>(`${this.apiUrl}/accept-invite`, { token, newPassword });
   }
 
   refresh(): Observable<ApiResponse<{ accessToken: string; refreshToken: string; expiresIn: number }>> {
@@ -285,6 +296,9 @@ export class AuthService {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('userData');
+    // Stale enabled-features/role data must not leak into the next login (MT-005) — e.g. the same
+    // user signing into a different org whose feature set differs from the one just left.
+    this.tenantService.clear();
     this.router.navigate(['/auth/login']);
   }
 }

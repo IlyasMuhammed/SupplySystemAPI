@@ -8,6 +8,7 @@ using SMS.Modules.Demand.Data;
 using SMS.Modules.Demand.Models;
 using SMS.Modules.Demand.Repositories;
 using SMS.Modules.Demand.Services;
+using SMS.Shared.Common;
 using SMS.WorkflowEngine.Models;
 using SMS.WorkflowEngine.Services;
 using Xunit;
@@ -19,7 +20,7 @@ namespace SMS.Modules.Demand.Tests;
 file static class WiringBuild
 {
     internal static DemandDbContext NewDb() =>
-        new(new DbContextOptionsBuilder<DemandDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
+        new(new DbContextOptionsBuilder<DemandDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, new StaticTenantContext());
 
     // Captures every Job handed to IBackgroundJobClient.Create — this is the real interface
     // member the Enqueue<T>() extension method delegates to, so mocking Create is how we

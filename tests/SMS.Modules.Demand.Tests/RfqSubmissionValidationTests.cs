@@ -10,6 +10,7 @@ using SMS.Modules.Demand.Data;
 using SMS.Modules.Demand.Domain;
 using SMS.Modules.Demand.Models;
 using SMS.Modules.Demand.Services;
+using SMS.Shared.Common;
 using Xunit;
 
 namespace SMS.Modules.Demand.Tests;
@@ -32,7 +33,7 @@ file static class RfqSubmissionBuild
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
             .Options;
-        var db = new DemandDbContext(opts);
+        var db = new DemandDbContext(opts, new StaticTenantContext());
 
         var supplierId = Guid.NewGuid();
         var line1Uuid  = Guid.NewGuid();

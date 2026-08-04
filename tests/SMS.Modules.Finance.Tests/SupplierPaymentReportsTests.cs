@@ -16,7 +16,7 @@ file static class Build
     internal static FinanceDbContext NewFinanceDb(string? dbName = null) =>
         new(new DbContextOptionsBuilder<FinanceDbContext>()
             .UseInMemoryDatabase(dbName ?? Guid.NewGuid().ToString())
-            .Options);
+            .Options, new StaticTenantContext());
 
     internal static SupplierPaymentRepository NewRepo(FinanceDbContext db) =>
         new(db, new SupplierLedgerService(db), new Mock<INotificationService>().Object);

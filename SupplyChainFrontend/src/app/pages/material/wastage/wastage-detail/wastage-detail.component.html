@@ -140,7 +140,7 @@
         </div>
         <div class="detail-cell">
           <span class="cell-label">Recorded By</span>
-          <span class="cell-val">User #{{ wastage.recordedBy }}</span>
+          <span class="cell-val">{{ wastage.recordedByName || 'Unknown user' }}</span>
         </div>
       </div>
     </div>
@@ -159,7 +159,7 @@
       <div class="detail-grid">
         <div class="detail-cell">
           <span class="cell-label">Approved By</span>
-          <span class="cell-val">User #{{ wastage.approvedBy }}</span>
+          <span class="cell-val">{{ wastage.approvedByName || 'Unknown user' }}</span>
         </div>
         <div class="detail-cell">
           <span class="cell-label">Approved At</span>
@@ -177,7 +177,7 @@
       <div class="detail-grid">
         <div class="detail-cell">
           <span class="cell-label">Rejected By</span>
-          <span class="cell-val">User #{{ wastage.rejectedBy }}</span>
+          <span class="cell-val">{{ wastage.rejectedByName || 'Unknown user' }}</span>
         </div>
         <div class="detail-cell">
           <span class="cell-label">Rejected At</span>

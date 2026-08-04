@@ -16,13 +16,16 @@ internal sealed class QuotationMap : IEntityTypeConfiguration<Quotation>
         b.Property(x => x.TraceId).IsRequired().ValueGeneratedOnAdd().HasDefaultValueSql("NEWSEQUENTIALID()");
         b.HasIndex(x => x.TraceId);
         b.Property(x => x.QuotationNumber).HasMaxLength(20).IsRequired();
-        b.HasIndex(x => x.QuotationNumber).IsUnique();
+        // Composite, not global — each org generates its own quotation number sequence.
+        b.HasIndex(x => new { x.OrganizationId, x.QuotationNumber }).IsUnique();
         b.Property(x => x.Title).HasMaxLength(200).IsRequired();
         b.Property(x => x.SourceType).HasMaxLength(20).IsRequired();
         b.Property(x => x.Status).HasMaxLength(20).HasDefaultValue("DRAFT");
         b.Property(x => x.Notes).HasMaxLength(500);
         b.Property(x => x.CancellationReason).HasMaxLength(500);
         b.Property(x => x.IsActive).HasDefaultValue(true);
+        b.Property(x => x.OrganizationId).IsRequired();
+        b.HasIndex(x => x.OrganizationId);
 
         b.HasMany(x => x.Lines)
          .WithOne(x => x.Quotation)
@@ -55,6 +58,8 @@ internal sealed class QuotationLineMap : IEntityTypeConfiguration<QuotationLine>
         b.Property(x => x.UnitOfMeasure).HasMaxLength(20);
         b.Property(x => x.Quantity).HasColumnType("decimal(18,4)");
         b.Property(x => x.BudgetCode).HasMaxLength(50);
+        b.Property(x => x.OrganizationId).IsRequired();
+        b.HasIndex(x => x.OrganizationId);
 
         b.HasOne(x => x.Quotation)
          .WithMany(x => x.Lines)
@@ -83,6 +88,8 @@ internal sealed class VendorResponseMap : IEntityTypeConfiguration<VendorRespons
         b.Property(x => x.Status).HasMaxLength(20).HasDefaultValue("PENDING");
         b.Property(x => x.TotalAmount).HasColumnType("decimal(18,2)");
         b.Property(x => x.Notes).HasMaxLength(500);
+        b.Property(x => x.OrganizationId).IsRequired();
+        b.HasIndex(x => x.OrganizationId);
 
         b.HasOne(x => x.Quotation)
          .WithMany(x => x.VendorResponses)
@@ -109,6 +116,8 @@ internal sealed class VendorResponseLineMap : IEntityTypeConfiguration<VendorRes
         b.Property(x => x.Quantity).HasColumnType("decimal(18,4)");
         b.Property(x => x.LineTotal).HasColumnType("decimal(18,2)");
         b.Property(x => x.Notes).HasMaxLength(500);
+        b.Property(x => x.OrganizationId).IsRequired();
+        b.HasIndex(x => x.OrganizationId);
 
         b.HasOne(x => x.VendorResponse)
          .WithMany(x => x.Lines)
@@ -130,6 +139,8 @@ internal sealed class QuotationInvitedSupplierMap : IEntityTypeConfiguration<Quo
         b.HasKey(x => x.Id);
         b.Property(x => x.Id).ValueGeneratedOnAdd();
         b.Property(x => x.SupplierName).HasMaxLength(200).IsRequired();
+        b.Property(x => x.OrganizationId).IsRequired();
+        b.HasIndex(x => x.OrganizationId);
 
         b.HasOne(x => x.Quotation)
          .WithMany(x => x.InvitedSuppliers)
@@ -156,6 +167,8 @@ internal sealed class RfqAccessLinkMap : IEntityTypeConfiguration<RfqAccessLink>
         b.Property(x => x.WhatsAppProviderMessageId).HasMaxLength(100);
         b.Property(x => x.WhatsAppStatus).HasMaxLength(20);
         b.HasIndex(x => x.WhatsAppProviderMessageId);
+        b.Property(x => x.OrganizationId).IsRequired();
+        b.HasIndex(x => x.OrganizationId);
 
         b.HasOne(x => x.Quotation)
          .WithMany()
@@ -176,5 +189,7 @@ internal sealed class PoLineMap : IEntityTypeConfiguration<PoLine>
         b.Property(x => x.ItemDescription).HasMaxLength(300).IsRequired();
         b.Property(x => x.Quantity).HasColumnType("decimal(18,4)");
         b.Property(x => x.UnitPrice).HasColumnType("decimal(18,2)");
+        b.Property(x => x.OrganizationId).IsRequired();
+        b.HasIndex(x => x.OrganizationId);
     }
 }

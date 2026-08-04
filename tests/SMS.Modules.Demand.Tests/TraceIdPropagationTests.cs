@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using SMS.Modules.Demand.Data;
 using SMS.Modules.Demand.Models;
 using SMS.Modules.Demand.Repositories;
+using SMS.Shared.Common;
 using Xunit;
 
 namespace SMS.Modules.Demand.Tests;
@@ -13,7 +14,7 @@ namespace SMS.Modules.Demand.Tests;
 file static class TraceBuild
 {
     internal static DemandDbContext NewDb() =>
-        new(new DbContextOptionsBuilder<DemandDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
+        new(new DbContextOptionsBuilder<DemandDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, new StaticTenantContext());
 
     internal static RequisitionRepository PrRepo(DemandDbContext db) => new(db);
     internal static QuotationRepository QuotationRepo(DemandDbContext db) => new(db);

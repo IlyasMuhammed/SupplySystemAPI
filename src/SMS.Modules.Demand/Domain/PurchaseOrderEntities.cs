@@ -1,10 +1,13 @@
+using SMS.Shared.Common;
+
 namespace SMS.Modules.Demand.Domain;
 
-internal class PurchaseOrder
+internal class PurchaseOrder : ITenantScopedEntity
 {
     public int Id { get; set; }
     public Guid UUID { get; set; }
     public Guid TraceId { get; set; }
+    public Guid OrganizationId { get; set; }
     public string PoNumber { get; set; } = string.Empty;
     public string? Title { get; set; }
     public Guid SupplierId { get; set; }
@@ -27,10 +30,11 @@ internal class PurchaseOrder
     public ICollection<PurchaseOrderPrLink> PrLinks { get; set; } = new List<PurchaseOrderPrLink>();
 }
 
-internal class PurchaseOrderLine
+internal class PurchaseOrderLine : ITenantScopedEntity
 {
     public int Id { get; set; }
     public Guid UUID { get; set; }
+    public Guid OrganizationId { get; set; }
     public int PurchaseOrderId { get; set; }
     public int LineNo { get; set; }
     public Guid? SourcePrLineUuid { get; set; } // UUID reference to pr_lines — no FK (cross-module safe)
@@ -60,9 +64,10 @@ internal class PurchaseOrderLine
     public string? EffectiveWarehouseName => WarehouseName ?? PurchaseOrder?.DeliveryWarehouseName;
 }
 
-internal class PurchaseOrderPrLink
+internal class PurchaseOrderPrLink : ITenantScopedEntity
 {
     public int Id { get; set; }
+    public Guid OrganizationId { get; set; }
     public int PurchaseOrderId { get; set; }
     public Guid PrUuid { get; set; } // UUID reference to purchase_requisitions — no FK
     public PurchaseOrder PurchaseOrder { get; set; } = null!;

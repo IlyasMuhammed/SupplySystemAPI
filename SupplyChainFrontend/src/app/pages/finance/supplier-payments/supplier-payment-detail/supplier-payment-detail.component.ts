@@ -6,15 +6,14 @@ import { Observable } from 'rxjs';
 import { ButtonModule } from 'primeng/button';
 import { TagModule } from 'primeng/tag';
 import { ToastModule } from 'primeng/toast';
-import { CardModule } from 'primeng/card';
 import { TableModule } from 'primeng/table';
-import { DividerModule } from 'primeng/divider';
 import { TooltipModule } from 'primeng/tooltip';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { MessageService, ConfirmationService } from 'primeng/api';
 import { FinanceService, SupplierPaymentDetailModel } from '../../../../services/finance.service';
 import { AuthService } from '../../../service/auth.service';
 import { AttachmentListComponent } from '../../../../shared/attachment-list/attachment-list.component';
+import { TimelinePanelComponent } from '../../../../shared/timeline-panel/timeline-panel.component';
 
 @Component({
   selector: 'app-supplier-payment-detail',
@@ -22,8 +21,7 @@ import { AttachmentListComponent } from '../../../../shared/attachment-list/atta
   imports: [
     CommonModule, RouterModule, FormsModule,
     ButtonModule, TagModule, ToastModule,
-    CardModule, TableModule, DividerModule,
-    TooltipModule, ConfirmDialogModule, AttachmentListComponent
+    TableModule, TooltipModule, ConfirmDialogModule, AttachmentListComponent, TimelinePanelComponent
   ],
   templateUrl: './supplier-payment-detail.component.html',
   styleUrls: ['./supplier-payment-detail.component.scss'],
@@ -33,6 +31,7 @@ export class SupplierPaymentDetailComponent implements OnInit {
   payment: SupplierPaymentDetailModel | null = null;
   isLoading  = true;
   isActioning = false;
+  showTimeline = false;
 
   constructor(
     private financeService: FinanceService,

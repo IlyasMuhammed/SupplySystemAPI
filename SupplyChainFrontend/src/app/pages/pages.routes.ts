@@ -28,6 +28,8 @@ import { LookupTypesCreateComponent } from './lookup-types/lookup-types-create/l
 import { CurrenciesComponent } from './currencies/currencies.component';
 import { PaymentTermsComponent } from './payment-terms/payment-terms.component';
 import { PoDocumentTemplateComponent } from './po-document-template/po-document-template.component';
+import { OrganizationsListComponent } from './organizations/organizations-list/organizations-list.component';
+import { OrganizationFeaturesComponent } from './organizations/organization-features/organization-features.component';
 import { permissionGuard } from './gaurds/permission.guard';
 import { ProductListComponent } from './inventory/products/product-list/product-list.component';
 import { ProductCreateComponent } from './inventory/products/product-create/product-create.component';
@@ -103,8 +105,10 @@ import { ConsumptionRegisterComponent } from './material/consumption-register/co
 // Permission code constants (mirrors PermissionCodes.cs)
 const P = {
   SYSTEM_CONFIGURE:     'SYSTEM_CONFIGURE',
+  PLATFORM_SUPER_ADMIN: 'PLATFORM_SUPER_ADMIN',
   USER_MANAGE:          'USER_MANAGE',
   AUDIT_LOG_VIEW:       'AUDIT_LOG_VIEW',
+  LOCATION_MANAGE:      'LOCATION_MANAGE',
   SUPPLIER_VIEW:        'SUPPLIER_VIEW',
   SUPPLIER_CREATE:      'SUPPLIER_CREATE',
   SUPPLIER_EDIT:        'SUPPLIER_EDIT',
@@ -116,6 +120,7 @@ const P = {
   PO_CREATE:            'PO_CREATE',
   PO_EDIT:              'PO_EDIT',
   PO_APPROVE:           'PO_APPROVE',
+  PO_TEMPLATE_MANAGE:   'PO_TEMPLATE_MANAGE',
   REQUISITION_CREATE:   'REQUISITION_CREATE',
   REQUISITION_VIEW_OWN: 'REQUISITION_VIEW_OWN',
   REQUISITION_VIEW_ALL: 'REQUISITION_VIEW_ALL',
@@ -129,6 +134,8 @@ const P = {
   GRN_QC_CONFIRM:       'GRN_QC_CONFIRM',
   GRN_APPROVE:          'GRN_APPROVE',
   GRN_FINANCE_APPROVE:  'GRN_FINANCE_APPROVE',
+  MATERIAL_VIEW:        'MATERIAL_VIEW',
+  MATERIAL_MANAGE:      'MATERIAL_MANAGE',
   INVOICE_VIEW:         'INVOICE_VIEW',
   INVOICE_PROCESS:      'INVOICE_PROCESS',
   PAYMENT_VIEW:         'PAYMENT_VIEW',
@@ -150,7 +157,7 @@ export default [
     { path: 'user', component: CustomerComponent,
       canActivate: [permissionGuard(P.USER_MANAGE)] },
     { path: 'admin/roles', component: RolesComponent,
-      canActivate: [permissionGuard(P.SYSTEM_CONFIGURE)] },
+      canActivate: [permissionGuard(P.USER_MANAGE)] },
 
     // ── Suppliers ─────────────────────────────────────────────────────────────
     { path: 'suppliers/supplier-list', component: SupplierListComponent,
@@ -163,18 +170,21 @@ export default [
       canActivate: [permissionGuard(P.SUPPLIER_VIEW, P.SUPPLIER_EDIT, P.SUPPLIER_MANAGE)] },
 
     // ── Master Data (System Admin only) ───────────────────────────────────────
+    // Cities/Countries specifically also admit LOCATION_MANAGE — adding new entries to the shared
+    // catalog is assignable more broadly; editing/deleting existing ones still needs SYSTEM_CONFIGURE
+    // (enforced server-side even though the same edit-capable route is reachable by either).
     { path: 'cities/cities-list', component: CitiesListComponent,
-      canActivate: [permissionGuard(P.SYSTEM_CONFIGURE)] },
+      canActivate: [permissionGuard(P.SYSTEM_CONFIGURE, P.LOCATION_MANAGE)] },
     { path: 'cities/cities-create', component: CitiesCreateComponent,
-      canActivate: [permissionGuard(P.SYSTEM_CONFIGURE)] },
+      canActivate: [permissionGuard(P.SYSTEM_CONFIGURE, P.LOCATION_MANAGE)] },
     { path: 'cities/cities-create/:id', component: CitiesCreateComponent,
-      canActivate: [permissionGuard(P.SYSTEM_CONFIGURE)] },
+      canActivate: [permissionGuard(P.SYSTEM_CONFIGURE, P.LOCATION_MANAGE)] },
     { path: 'countries', component: CountriesListComponent,
-      canActivate: [permissionGuard(P.SYSTEM_CONFIGURE)] },
+      canActivate: [permissionGuard(P.SYSTEM_CONFIGURE, P.LOCATION_MANAGE)] },
     { path: 'countries/countries-create', component: CountriesCreateComponent,
-      canActivate: [permissionGuard(P.SYSTEM_CONFIGURE)] },
+      canActivate: [permissionGuard(P.SYSTEM_CONFIGURE, P.LOCATION_MANAGE)] },
     { path: 'countries/countries-create/:id', component: CountriesCreateComponent,
-      canActivate: [permissionGuard(P.SYSTEM_CONFIGURE)] },
+      canActivate: [permissionGuard(P.SYSTEM_CONFIGURE, P.LOCATION_MANAGE)] },
     { path: 'lookup-values/lookup-values-list', component: LookupValuesListComponent,
       canActivate: [permissionGuard(P.SYSTEM_CONFIGURE)] },
     { path: 'lookup-values/lookup-values-create', component: LookupValuesCreateComponent,
@@ -188,7 +198,11 @@ export default [
     { path: 'payment-terms', component: PaymentTermsComponent,
       canActivate: [permissionGuard(P.SYSTEM_CONFIGURE)] },
     { path: 'po-document-template', component: PoDocumentTemplateComponent,
-      canActivate: [permissionGuard(P.SYSTEM_CONFIGURE)] },
+      canActivate: [permissionGuard(P.PO_TEMPLATE_MANAGE)] },
+    { path: 'organizations', component: OrganizationsListComponent,
+      canActivate: [permissionGuard(P.PLATFORM_SUPER_ADMIN)] },
+    { path: 'organizations/:id/features', component: OrganizationFeaturesComponent,
+      canActivate: [permissionGuard(P.PLATFORM_SUPER_ADMIN)] },
 
     // ── Inventory — Products ──────────────────────────────────────────────────
     { path: 'inventory/products', component: ProductListComponent,
@@ -352,38 +366,56 @@ export default [
     { path: 'documents/:id/history', component: DocumentHistoryComponent },
 
     // ── Material — Projects ───────────────────────────────────────────────────
-    { path: 'material/projects',       component: ProjectListComponent },
-    { path: 'material/projects/new',   component: ProjectCreateComponent },
-    { path: 'material/projects/:uuid/edit', component: ProjectCreateComponent },
-    { path: 'material/projects/:uuid', component: ProjectDetailComponent },
+    { path: 'material/projects', component: ProjectListComponent,
+      canActivate: [permissionGuard(P.MATERIAL_VIEW, P.MATERIAL_MANAGE)] },
+    { path: 'material/projects/new', component: ProjectCreateComponent,
+      canActivate: [permissionGuard(P.MATERIAL_MANAGE)] },
+    { path: 'material/projects/:uuid/edit', component: ProjectCreateComponent,
+      canActivate: [permissionGuard(P.MATERIAL_MANAGE)] },
+    { path: 'material/projects/:uuid', component: ProjectDetailComponent,
+      canActivate: [permissionGuard(P.MATERIAL_VIEW, P.MATERIAL_MANAGE)] },
 
     // ── Material — Material Issue Requests ────────────────────────────────────
-    { path: 'material/mir',        component: MirListComponent },
-    { path: 'material/mir/create', component: MirCreateComponent },
-    { path: 'material/mir/:uuid',  component: MirDetailComponent },
+    { path: 'material/mir', component: MirListComponent,
+      canActivate: [permissionGuard(P.MATERIAL_VIEW, P.MATERIAL_MANAGE)] },
+    { path: 'material/mir/create', component: MirCreateComponent,
+      canActivate: [permissionGuard(P.MATERIAL_MANAGE)] },
+    { path: 'material/mir/:uuid', component: MirDetailComponent,
+      canActivate: [permissionGuard(P.MATERIAL_VIEW, P.MATERIAL_MANAGE)] },
 
     // ── Material — Material Issue Vouchers ────────────────────────────────────
-    { path: 'material/miv',        component: MivListComponent },
-    { path: 'material/miv/create', component: MivCreateComponent },
-    { path: 'material/miv/:uuid',  component: MivDetailComponent },
+    { path: 'material/miv', component: MivListComponent,
+      canActivate: [permissionGuard(P.MATERIAL_VIEW, P.MATERIAL_MANAGE)] },
+    { path: 'material/miv/create', component: MivCreateComponent,
+      canActivate: [permissionGuard(P.MATERIAL_MANAGE)] },
+    { path: 'material/miv/:uuid', component: MivDetailComponent,
+      canActivate: [permissionGuard(P.MATERIAL_VIEW, P.MATERIAL_MANAGE)] },
 
     // ── Material — Batch / Serial Trace ───────────────────────────────────────
-    { path: 'material/batch-serial/trace', component: BatchSerialTraceComponent },
+    { path: 'material/batch-serial/trace', component: BatchSerialTraceComponent,
+      canActivate: [permissionGuard(P.MATERIAL_VIEW, P.MATERIAL_MANAGE)] },
 
     // ── Material — Department Cost Ledger ─────────────────────────────────────
-    { path: 'material/cost-ledger/departments', component: DepartmentCostLedgerComponent },
+    { path: 'material/cost-ledger/departments', component: DepartmentCostLedgerComponent,
+      canActivate: [permissionGuard(P.MATERIAL_VIEW, P.MATERIAL_MANAGE)] },
 
     // ── Material — Returns ────────────────────────────────────────────────────
-    { path: 'material/returns',        component: ReturnListComponent },
-    { path: 'material/returns/create', component: ReturnCreateComponent },
-    { path: 'material/returns/:uuid',  component: ReturnDetailComponent },
+    { path: 'material/returns', component: ReturnListComponent,
+      canActivate: [permissionGuard(P.MATERIAL_VIEW, P.MATERIAL_MANAGE)] },
+    { path: 'material/returns/create', component: ReturnCreateComponent,
+      canActivate: [permissionGuard(P.MATERIAL_MANAGE)] },
+    { path: 'material/returns/:uuid', component: ReturnDetailComponent,
+      canActivate: [permissionGuard(P.MATERIAL_VIEW, P.MATERIAL_MANAGE)] },
 
     // ── Material — Wastage ────────────────────────────────────────────────────
-    { path: 'material/wastage',       component: WastageListComponent },
-    { path: 'material/wastage/:uuid', component: WastageDetailComponent },
+    { path: 'material/wastage', component: WastageListComponent,
+      canActivate: [permissionGuard(P.MATERIAL_VIEW, P.MATERIAL_MANAGE)] },
+    { path: 'material/wastage/:uuid', component: WastageDetailComponent,
+      canActivate: [permissionGuard(P.MATERIAL_VIEW, P.MATERIAL_MANAGE)] },
 
     // ── Material — Consumption Register ──────────────────────────────────────
-    { path: 'material/consumption-register', component: ConsumptionRegisterComponent },
+    { path: 'material/consumption-register', component: ConsumptionRegisterComponent,
+      canActivate: [permissionGuard(P.MATERIAL_VIEW, P.MATERIAL_MANAGE)] },
 
     { path: '**', redirectTo: '/notfound' }
 ] as Routes;

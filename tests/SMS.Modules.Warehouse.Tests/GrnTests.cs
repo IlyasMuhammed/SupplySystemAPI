@@ -8,6 +8,7 @@ using SMS.Modules.Warehouse.Events;
 using SMS.Modules.Warehouse.Models;
 using SMS.Modules.Warehouse.Repositories;
 using SMS.Modules.Warehouse.Services;
+using SMS.Shared.Common;
 using SMS.Shared.Exceptions;
 using Xunit;
 
@@ -21,16 +22,17 @@ file static class GrnBuild
         Action<DemandDbContext>? seedDemand = null)
     {
         var dbName = Guid.NewGuid().ToString();
+        var tenantContext = new StaticTenantContext();
 
         var demandOpts = new DbContextOptionsBuilder<DemandDbContext>()
             .UseInMemoryDatabase(dbName).Options;
-        var demand = new DemandDbContext(demandOpts);
+        var demand = new DemandDbContext(demandOpts, tenantContext);
         seedDemand?.Invoke(demand);
         demand.SaveChanges();
 
         var whOpts = new DbContextOptionsBuilder<WarehouseDbContext>()
             .UseInMemoryDatabase(dbName).Options;
-        var wh = new WarehouseDbContext(whOpts);
+        var wh = new WarehouseDbContext(whOpts, tenantContext);
 
         var repo = new GrnRepository(wh, demand);
         return (repo, wh, demand);

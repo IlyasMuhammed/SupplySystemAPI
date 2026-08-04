@@ -55,6 +55,21 @@ internal sealed class UserQueryService : IUserQueryService
         await _db.UserAccounts.AnyAsync(u =>
             u.UserID == userId && u.RoleID == (int)EnumRole.SystemAdmin && u.IsActive && !u.IsDelete);
 
+    public async Task<bool> IsOrgAdminAsync(int userId) =>
+        await _db.UserAccounts.AnyAsync(u =>
+            u.UserID == userId && u.RoleID == (int)EnumRole.OrgAdmin && u.IsActive && !u.IsDelete);
+
+    public async Task<int?> GetFirstSystemAdminUserIdAsync()
+    {
+        var userId = await _db.UserAccounts
+            .Where(u => u.RoleID == (int)EnumRole.SystemAdmin && u.IsActive && !u.IsDelete)
+            .OrderBy(u => u.CreatedDate)
+            .Select(u => (int?)u.UserID)
+            .FirstOrDefaultAsync();
+
+        return userId;
+    }
+
     private static string BuildName(string firstName, string? lastName)
         => string.IsNullOrWhiteSpace(lastName)
             ? firstName

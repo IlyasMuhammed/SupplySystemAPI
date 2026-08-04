@@ -58,6 +58,9 @@ namespace SMS.Modules.Material.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<int>("PostedBy")
                         .HasColumnType("int");
 
@@ -99,6 +102,8 @@ namespace SMS.Modules.Material.Migrations
                     b.HasIndex("Department");
 
                     b.HasIndex("MirId");
+
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("PostedDate");
 
@@ -152,6 +157,9 @@ namespace SMS.Modules.Material.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("ProductUuid")
                         .HasColumnType("uniqueidentifier");
 
@@ -169,18 +177,20 @@ namespace SMS.Modules.Material.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ConsumptionNo")
-                        .IsUnique();
-
                     b.HasIndex("MirId");
 
                     b.HasIndex("MivLineId");
+
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("ProductUuid");
 
                     b.HasIndex("SourceType");
 
                     b.HasIndex("UUID")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "ConsumptionNo")
                         .IsUnique();
 
                     b.ToTable("material_consumption", "material");
@@ -239,6 +249,9 @@ namespace SMS.Modules.Material.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("Priority")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
@@ -290,14 +303,16 @@ namespace SMS.Modules.Material.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ProjectId");
+                    b.HasIndex("OrganizationId");
 
-                    b.HasIndex("RequestNo")
-                        .IsUnique();
+                    b.HasIndex("ProjectId");
 
                     b.HasIndex("TraceId");
 
                     b.HasIndex("UUID")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "RequestNo")
                         .IsUnique();
 
                     b.ToTable("material_issue_requests", "material");
@@ -341,6 +356,9 @@ namespace SMS.Modules.Material.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<decimal>("PendingQty")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("decimal(18,4)")
@@ -379,6 +397,8 @@ namespace SMS.Modules.Material.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("MaterialIssueRequestId");
+
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("PrLineId");
 
@@ -421,6 +441,9 @@ namespace SMS.Modules.Material.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<int?>("PostedBy")
                         .HasColumnType("int");
 
@@ -440,12 +463,14 @@ namespace SMS.Modules.Material.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("IssueNo")
-                        .IsUnique();
-
                     b.HasIndex("MirId");
 
+                    b.HasIndex("OrganizationId");
+
                     b.HasIndex("UUID")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "IssueNo")
                         .IsUnique();
 
                     b.ToTable("material_issue_vouchers", "material");
@@ -483,6 +508,9 @@ namespace SMS.Modules.Material.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("ProductUuid")
                         .HasColumnType("uniqueidentifier");
 
@@ -501,6 +529,8 @@ namespace SMS.Modules.Material.Migrations
                     b.HasIndex("MirLineId");
 
                     b.HasIndex("MivId");
+
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("UUID")
                         .IsUnique();
@@ -532,6 +562,9 @@ namespace SMS.Modules.Material.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<int?>("PostedBy")
                         .HasColumnType("int");
 
@@ -560,12 +593,14 @@ namespace SMS.Modules.Material.Migrations
 
                     b.HasIndex("MivId");
 
-                    b.HasIndex("ReturnNo")
-                        .IsUnique();
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("Status");
 
                     b.HasIndex("UUID")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "ReturnNo")
                         .IsUnique();
 
                     b.ToTable("material_return", "material");
@@ -602,6 +637,9 @@ namespace SMS.Modules.Material.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("ProductUuid")
                         .HasColumnType("uniqueidentifier");
 
@@ -628,6 +666,8 @@ namespace SMS.Modules.Material.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("MivLineId");
+
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("ProductUuid");
 
@@ -662,6 +702,9 @@ namespace SMS.Modules.Material.Migrations
                     b.Property<int>("MirId")
                         .HasColumnType("int");
 
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<int>("StepNumber")
                         .HasColumnType("int");
 
@@ -674,6 +717,8 @@ namespace SMS.Modules.Material.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("LineId");
+
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("UUID")
                         .IsUnique();
@@ -707,6 +752,9 @@ namespace SMS.Modules.Material.Migrations
                     b.Property<int>("MivLineId")
                         .HasColumnType("int");
 
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("SerialNumber")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
@@ -722,6 +770,8 @@ namespace SMS.Modules.Material.Migrations
                     b.HasIndex("InventoryItemId");
 
                     b.HasIndex("MivLineId");
+
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("UUID")
                         .IsUnique();
@@ -767,6 +817,9 @@ namespace SMS.Modules.Material.Migrations
                     b.Property<DateTime?>("ModifiedDate")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("ProjectCode")
                         .IsRequired()
                         .HasMaxLength(30)
@@ -795,10 +848,12 @@ namespace SMS.Modules.Material.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ProjectCode")
-                        .IsUnique();
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("UUID")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "ProjectCode")
                         .IsUnique();
 
                     b.ToTable("projects", "material");
@@ -829,6 +884,9 @@ namespace SMS.Modules.Material.Migrations
                     b.Property<string>("Notes")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("PostedBy")
                         .HasColumnType("int");
@@ -873,6 +931,8 @@ namespace SMS.Modules.Material.Migrations
 
                     b.HasIndex("MirId");
 
+                    b.HasIndex("OrganizationId");
+
                     b.HasIndex("PostedDate");
 
                     b.HasIndex("ProductUuid");
@@ -910,6 +970,9 @@ namespace SMS.Modules.Material.Migrations
                     b.Property<int>("MirLineId")
                         .HasColumnType("int");
 
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("ProductUuid")
                         .HasColumnType("uniqueidentifier");
 
@@ -940,6 +1003,8 @@ namespace SMS.Modules.Material.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("MirLineId");
+
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("UUID")
                         .IsUnique();
@@ -985,6 +1050,9 @@ namespace SMS.Modules.Material.Migrations
                     b.Property<string>("Notes")
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("ProductUuid")
                         .HasColumnType("uniqueidentifier");
@@ -1044,6 +1112,8 @@ namespace SMS.Modules.Material.Migrations
 
                     b.HasIndex("MivLineId");
 
+                    b.HasIndex("OrganizationId");
+
                     b.HasIndex("ProductUuid");
 
                     b.HasIndex("Status");
@@ -1051,7 +1121,7 @@ namespace SMS.Modules.Material.Migrations
                     b.HasIndex("UUID")
                         .IsUnique();
 
-                    b.HasIndex("WastageNo")
+                    b.HasIndex("OrganizationId", "WastageNo")
                         .IsUnique();
 
                     b.ToTable("wastage", "material");

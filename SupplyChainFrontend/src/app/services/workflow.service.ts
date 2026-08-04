@@ -277,6 +277,7 @@ export interface DocumentApprovalHistoryItem {
   totalSteps: number;
   currentStepNumber: number;
   initiatedBy: number;
+  initiatedByName: string | null;
   initiatedAt: string;
   completedAt: string | null;
   remarks: string | null;

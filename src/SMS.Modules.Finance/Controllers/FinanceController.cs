@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using SMS.Modules.Finance.Models;
 using SMS.Modules.Finance.Services;
 using SMS.Modules.Finance.Services.Exports;
+using SMS.Modules.Lookups.Services;
 using SMS.Shared.Authorization;
 using SMS.Shared.Common;
 using SMS.Shared.Constants;
@@ -15,6 +16,7 @@ namespace SMS.Modules.Finance.Controllers;
 
 [ApiController]
 [Route("api/finance/invoices")]
+[RequiresFeature("MODULE_FINANCE")]
 public class InvoicesController : ControllerBase
 {
     private readonly IInvoiceService         _svc;
@@ -154,6 +156,7 @@ public class InvoicesController : ControllerBase
 
 [ApiController]
 [Route("api/suppliers/{supplierId:guid}")]
+[RequiresFeature("MODULE_FINANCE")]
 public class SupplierLedgerController : ControllerBase
 {
     private readonly ISupplierLedgerService _svc;
@@ -178,6 +181,7 @@ public class SupplierLedgerController : ControllerBase
 
 [ApiController]
 [Route("api/supplier-payments")]
+[RequiresFeature("MODULE_FINANCE")]
 public class SupplierPaymentsController : ControllerBase
 {
     private readonly ISupplierPaymentService _svc;
@@ -312,6 +316,7 @@ public class SupplierPaymentsController : ControllerBase
 
 [ApiController]
 [Route("api/finance/payments")]
+[RequiresFeature("MODULE_FINANCE")]
 public class PaymentsController : ControllerBase
 {
     private readonly IPaymentService _svc;
@@ -354,18 +359,37 @@ public class PaymentsController : ControllerBase
 
 [ApiController]
 [Route("api/finance/master-ledger")]
+[RequiresFeature("FEATURE_MASTER_LEDGERS")]
 public class MasterLedgerController : ControllerBase
 {
     private readonly IMasterLedgerQueryService _svc;
     private readonly IOpeningBalanceService    _openingBalance;
     private readonly IDebtWriteOffService      _writeOff;
+    private readonly IPoDocumentTemplateService _templateService;
+    private readonly IWebHostEnvironment        _env;
 
     public MasterLedgerController(
-        IMasterLedgerQueryService svc, IOpeningBalanceService openingBalance, IDebtWriteOffService writeOff)
+        IMasterLedgerQueryService svc, IOpeningBalanceService openingBalance, IDebtWriteOffService writeOff,
+        IPoDocumentTemplateService templateService, IWebHostEnvironment env)
     {
-        _svc            = svc;
-        _openingBalance = openingBalance;
-        _writeOff       = writeOff;
+        _svc             = svc;
+        _openingBalance  = openingBalance;
+        _writeOff        = writeOff;
+        _templateService = templateService;
+        _env             = env;
+    }
+
+    // Logo is stored as a web-relative URL by the generic attachment upload endpoint — resolve
+    // straight off disk, same as PoDocumentService/InvoiceDocumentService.
+    private byte[]? TryLoadLogoBytes(string? logoUrl)
+    {
+        if (string.IsNullOrWhiteSpace(logoUrl)) return null;
+
+        var relative = logoUrl.TrimStart('/').Replace('/', Path.DirectorySeparatorChar);
+        var webRoot  = _env.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+        var fullPath = Path.Combine(webRoot, relative);
+
+        return System.IO.File.Exists(fullPath) ? System.IO.File.ReadAllBytes(fullPath) : null;
     }
 
     [HttpGet]
@@ -394,9 +418,11 @@ public class MasterLedgerController : ControllerBase
     {
         filter.Page     = 1;
         filter.PageSize = 5000;
-        var entries = await _svc.GetLedgerAsync(filter);
-        var summary = await _svc.GetSummaryAsync(filter);
-        var bytes   = MasterLedgerPdfExporter.Export(entries.Data, summary);
+        var entries  = await _svc.GetLedgerAsync(filter);
+        var summary  = await _svc.GetSummaryAsync(filter);
+        var template = await _templateService.GetActiveAsync();
+        var logoBytes = TryLoadLogoBytes(template?.CompanyLogoUrl);
+        var bytes    = MasterLedgerPdfExporter.Export(entries.Data, summary, template, logoBytes, filter.DateFrom, filter.DateTo);
         return File(bytes, "application/pdf", $"master-payables-ledger-{DateTime.UtcNow:yyyyMMdd-HHmmss}.pdf");
     }
 
@@ -465,6 +491,7 @@ public class MasterLedgerController : ControllerBase
 
 [ApiController]
 [Route("api/inventory/master-product-ledger")]
+[RequiresFeature("FEATURE_MASTER_LEDGERS")]
 public class MasterProductLedgerController : ControllerBase
 {
     private readonly IMasterProductLedgerQueryService _svc;

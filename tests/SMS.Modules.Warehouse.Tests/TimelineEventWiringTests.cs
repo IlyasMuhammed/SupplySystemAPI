@@ -26,11 +26,12 @@ file static class WiringBuild
         Action<DemandDbContext>? seedDemand = null)
     {
         var dbName = Guid.NewGuid().ToString();
-        var demand = new DemandDbContext(new DbContextOptionsBuilder<DemandDbContext>().UseInMemoryDatabase(dbName).Options);
+        var tenantContext = new StaticTenantContext();
+        var demand = new DemandDbContext(new DbContextOptionsBuilder<DemandDbContext>().UseInMemoryDatabase(dbName).Options, tenantContext);
         seedDemand?.Invoke(demand);
         demand.SaveChanges();
 
-        var wh = new WarehouseDbContext(new DbContextOptionsBuilder<WarehouseDbContext>().UseInMemoryDatabase(dbName).Options);
+        var wh = new WarehouseDbContext(new DbContextOptionsBuilder<WarehouseDbContext>().UseInMemoryDatabase(dbName).Options, tenantContext);
         return (new GrnRepository(wh, demand), wh, demand);
     }
 

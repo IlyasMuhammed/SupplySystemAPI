@@ -24,7 +24,7 @@ internal static class DbFactory
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
             .Options;
-        var db = new WorkflowDbContext(opts);
+        var db = new WorkflowDbContext(opts, new StaticTenantContext());
         seed?.Invoke(db);
         db.SaveChanges();
         return db;

@@ -1,3 +1,5 @@
+using SMS.Shared.Common;
+
 namespace SMS.WorkflowEngine.Domain;
 
 /// <summary>
@@ -5,10 +7,11 @@ namespace SMS.WorkflowEngine.Domain;
 /// convention as DocumentTimeline. The actual file bytes live in SMS.FileStore blob storage;
 /// this row only tracks metadata + the URL returned by POST /api/files/upload.
 /// </summary>
-internal class DocumentAttachment
+internal class DocumentAttachment : ITenantScopedEntity
 {
     public int      Id            { get; set; }
     public Guid     UUID          { get; set; }
+    public Guid     OrganizationId { get; set; }
 
     /// <summary>Interface code of the owning document/line, e.g. "PR_LINE", "GRN", "SUPPLIER_QUOTATION".</summary>
     public string   InterfaceCode { get; set; } = string.Empty;

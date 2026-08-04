@@ -6,6 +6,7 @@ using SMS.Modules.Demand.Domain;
 using SMS.Modules.Material.Data;
 using SMS.Modules.Material.Domain;
 using SMS.Modules.Material.Services;
+using SMS.Shared.Common;
 using SMS.Shared.Exceptions;
 using Xunit;
 
@@ -17,10 +18,11 @@ file static class DrillDownBuild
 {
     internal static (PrLookupService service, MaterialDbContext material, DemandDbContext demand) NewService()
     {
+        var tenantContext = new StaticTenantContext();
         var material = new MaterialDbContext(new DbContextOptionsBuilder<MaterialDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, tenantContext);
         var demand = new DemandDbContext(new DbContextOptionsBuilder<DemandDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, tenantContext);
 
         return (new PrLookupService(demand, material), material, demand);
     }

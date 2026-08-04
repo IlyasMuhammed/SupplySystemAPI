@@ -5,6 +5,7 @@ using SMS.Modules.Suppliers.Domain;
 using SMS.Modules.Suppliers.Models;
 using SMS.Modules.Suppliers.Repositories;
 using SMS.Modules.Suppliers.Services;
+using SMS.Shared.Common;
 using SMS.Shared.Exceptions;
 using Xunit;
 
@@ -27,7 +28,7 @@ file static class Build
         var opts = new DbContextOptionsBuilder<SuppliersDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
-        var db = new SuppliersDbContext(opts);
+        var db = new SuppliersDbContext(opts, new StaticTenantContext());
         seed?.Invoke(db);
         db.SaveChanges();
         return (new SuppliersRepository(db, new FakeEncryption()), db);

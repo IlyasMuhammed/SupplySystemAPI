@@ -58,7 +58,7 @@
       </ng-template>
       <ng-template pTemplate="body" let-row>
         <tr>
-          <td class="font-semibold">{{ row.userName || ('User #' + row.userId) }}</td>
+          <td class="font-semibold">{{ row.userName || 'Unknown user' }}</td>
           <td class="text-right font-bold">{{ row.totalActions }}</td>
           <td class="text-right text-green-600">{{ row.createCount }}</td>
           <td class="text-right text-blue-500">{{ row.updateCount }}</td>

@@ -1,10 +1,13 @@
+using SMS.Shared.Common;
+
 namespace SMS.Modules.Demand.Domain;
 
-internal class Quotation
+internal class Quotation : ITenantScopedEntity
 {
     public int Id { get; set; }
     public Guid UUID { get; set; }
     public Guid TraceId { get; set; }
+    public Guid OrganizationId { get; set; }
     public string QuotationNumber { get; set; } = string.Empty;
     public string Title { get; set; } = string.Empty;
     public string SourceType { get; set; } = string.Empty; // PR | PO | STANDALONE
@@ -32,14 +35,16 @@ internal class Quotation
     public ICollection<QuotationInvitedSupplier> InvitedSuppliers { get; set; } = new List<QuotationInvitedSupplier>();
 }
 
-internal class QuotationLine
+internal class QuotationLine : ITenantScopedEntity
 {
     public int Id { get; set; }
     public Guid UUID { get; set; }
+    public Guid OrganizationId { get; set; }
     public int QuotationId { get; set; }
     public int LineNo { get; set; }
     public Guid? SourcePrLineUuid { get; set; } // UUID reference to pr_lines (no FK — cross-module)
     public Guid? SourcePoLineUuid { get; set; } // UUID reference to po_lines (no FK — cross-module)
+    public Guid? ProductId { get; set; } // UUID reference to inventory Products (no FK — cross-module)
     public string ItemDescription { get; set; } = string.Empty;
     public string? Specification { get; set; }
     public string? UnitOfMeasure { get; set; }
@@ -51,10 +56,11 @@ internal class QuotationLine
     public ICollection<VendorResponseLine> ResponseLines { get; set; } = new List<VendorResponseLine>();
 }
 
-internal class VendorResponse
+internal class VendorResponse : ITenantScopedEntity
 {
     public int Id { get; set; }
     public Guid UUID { get; set; }
+    public Guid OrganizationId { get; set; }
     public int QuotationId { get; set; }
     public Guid SupplierId { get; set; }
     public string SupplierName { get; set; } = string.Empty;
@@ -69,10 +75,11 @@ internal class VendorResponse
     public ICollection<VendorResponseLine> Lines { get; set; } = new List<VendorResponseLine>();
 }
 
-internal class VendorResponseLine
+internal class VendorResponseLine : ITenantScopedEntity
 {
     public int Id { get; set; }
     public Guid UUID { get; set; }
+    public Guid OrganizationId { get; set; }
     public int VendorResponseId { get; set; }
     public int QuotationLineId { get; set; }
     public decimal NetUnitPrice { get; set; }
@@ -85,9 +92,10 @@ internal class VendorResponseLine
     public QuotationLine QuotationLine { get; set; } = null!;
 }
 
-internal class QuotationInvitedSupplier
+internal class QuotationInvitedSupplier : ITenantScopedEntity
 {
     public int Id { get; set; }
+    public Guid OrganizationId { get; set; }
     public int QuotationId { get; set; }
     public Guid SupplierId { get; set; }
     public string SupplierName { get; set; } = string.Empty;
@@ -96,9 +104,10 @@ internal class QuotationInvitedSupplier
     public Quotation Quotation { get; set; } = null!;
 }
 
-internal class RfqAccessLink
+internal class RfqAccessLink : ITenantScopedEntity
 {
     public int Id { get; set; }
+    public Guid OrganizationId { get; set; }
     public int QuotationId { get; set; }
     public Guid SupplierId { get; set; }
     public int ContactId { get; set; }        // cross-module ref to supplier contact — no FK
@@ -125,11 +134,13 @@ internal class RfqAccessLink
     public Quotation Quotation { get; set; } = null!;
 }
 
-// Stub entity for PO module price writeback. Superseded when PO module is implemented.
-internal class PoLine
+// Stub entity for PO module price writeback (still live — read in QuotationRepository for
+// repeat-purchase price lookups; verified before scoping, not dead code despite the comment).
+internal class PoLine : ITenantScopedEntity
 {
     public int Id { get; set; }
     public Guid UUID { get; set; }
+    public Guid OrganizationId { get; set; }
     public string ItemDescription { get; set; } = string.Empty;
     public decimal Quantity { get; set; }
     public decimal UnitPrice { get; set; }

@@ -893,9 +893,12 @@ export interface WastageDetail {
   reason: string;
   status: string;
   recordedBy: number;
+  recordedByName?: string;
   approvedBy?: number;
+  approvedByName?: string;
   approvedAt?: string;
   rejectedBy?: number;
+  rejectedByName?: string;
   rejectedAt?: string;
   rejectionReason?: string;
   notes?: string;
