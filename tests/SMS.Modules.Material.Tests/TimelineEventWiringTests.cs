@@ -41,7 +41,12 @@ file static class WiringBuild
 
     internal static Product SeedProduct(InventoryDbContext db, Guid uuid)
     {
-        var product = new Product { Uuid = uuid, Sku = "SKU-001", Name = "Lenovo Laptop", UomCode = "PC", UnitCost = 1000m, IsActive = true };
+        var product = new Product { Uuid = uuid, Sku = "SKU-001", Name = "Lenovo Laptop", UomCode = "PC", IsActive = true };
+        product.Variants.Add(new ProductVariant
+        {
+            Uuid = Guid.NewGuid(), Sku = "SKU-001-DEFAULT", VariantName = "Lenovo Laptop",
+            PurchasePrice = 1000m, IsDefault = true, IsActive = true, CreatedDate = DateTime.UtcNow
+        });
         db.Products.Add(product);
         db.SaveChanges();
         return product;

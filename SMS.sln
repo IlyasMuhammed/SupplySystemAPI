@@ -65,6 +65,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SMS.Modules.Tenancy", "src\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SMS.Modules.Tenancy.Tests", "tests\SMS.Modules.Tenancy.Tests\SMS.Modules.Tenancy.Tests.csproj", "{993A1932-BAB0-4B1C-8C05-F71EEF714DB3}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SMS.Modules.Inventory.Tests", "tests\SMS.Modules.Inventory.Tests\SMS.Modules.Inventory.Tests.csproj", "{CD30370A-642F-4419-8A24-022522A3635B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -423,6 +425,18 @@ Global
 		{993A1932-BAB0-4B1C-8C05-F71EEF714DB3}.Release|x64.Build.0 = Release|Any CPU
 		{993A1932-BAB0-4B1C-8C05-F71EEF714DB3}.Release|x86.ActiveCfg = Release|Any CPU
 		{993A1932-BAB0-4B1C-8C05-F71EEF714DB3}.Release|x86.Build.0 = Release|Any CPU
+		{CD30370A-642F-4419-8A24-022522A3635B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CD30370A-642F-4419-8A24-022522A3635B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CD30370A-642F-4419-8A24-022522A3635B}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{CD30370A-642F-4419-8A24-022522A3635B}.Debug|x64.Build.0 = Debug|Any CPU
+		{CD30370A-642F-4419-8A24-022522A3635B}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{CD30370A-642F-4419-8A24-022522A3635B}.Debug|x86.Build.0 = Debug|Any CPU
+		{CD30370A-642F-4419-8A24-022522A3635B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CD30370A-642F-4419-8A24-022522A3635B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CD30370A-642F-4419-8A24-022522A3635B}.Release|x64.ActiveCfg = Release|Any CPU
+		{CD30370A-642F-4419-8A24-022522A3635B}.Release|x64.Build.0 = Release|Any CPU
+		{CD30370A-642F-4419-8A24-022522A3635B}.Release|x86.ActiveCfg = Release|Any CPU
+		{CD30370A-642F-4419-8A24-022522A3635B}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -457,5 +471,6 @@ Global
 		{31DA1FFD-4041-4E04-BDA8-22EB28868E2D} = {F0000002-0000-0000-0000-000000000002}
 		{BA891C32-9E94-49EA-88A4-BA1681A576C1} = {F0000001-0000-0000-0000-000000000001}
 		{993A1932-BAB0-4B1C-8C05-F71EEF714DB3} = {F0000002-0000-0000-0000-000000000002}
+		{CD30370A-642F-4419-8A24-022522A3635B} = {F0000002-0000-0000-0000-000000000002}
 	EndGlobalSection
 EndGlobal

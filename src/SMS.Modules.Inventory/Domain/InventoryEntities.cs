@@ -44,15 +44,10 @@ internal class Product : ITenantScopedEntity
     public int? SubCategoryId { get; set; }
     public string? Brand { get; set; }
     public string? UomCode { get; set; }
-    // Pricing / costs
-    public decimal? UnitCost { get; set; }       // standard_cost
-    public decimal? UnitPrice { get; set; }       // sales_price
-    public decimal? LastPurchasePrice { get; set; }
     // Physical attributes
     public decimal? WeightKg { get; set; }
     public string? Dimensions { get; set; }
     public int? ShelfLifeDays { get; set; }
-    public string? Barcode { get; set; }
     // Tracking flags
     public bool IsBatchTracked      { get; set; }
     public bool IsSerialTracked     { get; set; }
@@ -77,6 +72,35 @@ internal class Product : ITenantScopedEntity
     public ProductCategory? Category { get; set; }
     public ProductSubCategory? SubCategory { get; set; }
     public ICollection<InventoryItem> InventoryItems { get; set; } = new List<InventoryItem>();
+    public ICollection<ProductVariant> Variants { get; set; } = new List<ProductVariant>();
+}
+
+// FSD Addendum 26 (PV-001) — the actual purchasable/stockable unit. Product is now a parent
+// container (family); every variant carries its own SKU, barcode, and pricing. A product with no
+// real variants (e.g. Cement) still gets exactly one auto-created is_default=true variant, so
+// every downstream module can always transact against a variant_id, never a bare product_id.
+internal class ProductVariant : ITenantScopedEntity
+{
+    public int      Id             { get; set; }
+    public Guid     Uuid           { get; set; } = Guid.NewGuid();
+    public int      ProductId      { get; set; }
+    public Guid     OrganizationId { get; set; }
+    public string   Sku            { get; set; } = string.Empty;
+    public string   VariantName    { get; set; } = string.Empty;
+    public string?  Barcode        { get; set; }
+    public decimal  PurchasePrice  { get; set; }
+    public decimal? SellingPrice   { get; set; }
+    public decimal? LastPurchasePrice { get; set; }
+    public decimal? WeightKg       { get; set; }
+    public string?  Dimensions     { get; set; }
+    public bool     IsDefault      { get; set; }
+    public bool     IsActive       { get; set; } = true;
+    public decimal? ReorderPoint   { get; set; }
+    public int?     SortOrder      { get; set; }
+    public DateTime CreatedDate    { get; set; } = DateTime.UtcNow;
+    public int      CreatedBy      { get; set; }
+
+    public Product Product { get; set; } = null!;
 }
 
 internal class Warehouse : ITenantScopedEntity

@@ -279,7 +279,7 @@ internal sealed class InventoryRepository : IInventoryRepository
                 p.Name.ToLower().Contains(search) ||
                 p.Sku.ToLower().Contains(search)  ||
                 (p.ShortName != null && p.ShortName.ToLower().Contains(search)) ||
-                (p.Barcode   != null && p.Barcode.ToLower().Contains(search)));
+                p.Variants.Any(v => v.Barcode != null && v.Barcode.ToLower().Contains(search)));
         }
 
         var total = await query.CountAsync();
@@ -304,11 +304,11 @@ internal sealed class InventoryRepository : IInventoryRepository
                 SubCategoryId   = p.SubCategoryId,
                 SubCategoryName = p.SubCategory != null ? p.SubCategory.Name : null,
                 UomCode         = p.UomCode,
-                UnitCost        = p.UnitCost,
                 Status          = p.Status,
                 IsBatchTracked  = p.IsBatchTracked,
                 IsSerialTracked = p.IsSerialTracked,
-                CreatedDate     = p.CreatedDate
+                CreatedDate     = p.CreatedDate,
+                VariantCount    = p.Variants.Count
             })
             .ToListAsync();
 
@@ -340,13 +340,9 @@ internal sealed class InventoryRepository : IInventoryRepository
                 SubCategoryId       = p.SubCategoryId,
                 SubCategoryName     = p.SubCategory != null ? p.SubCategory.Name : null,
                 UomCode             = p.UomCode,
-                UnitCost            = p.UnitCost,
-                UnitPrice           = p.UnitPrice,
-                LastPurchasePrice   = p.LastPurchasePrice,
                 WeightKg            = p.WeightKg,
                 Dimensions          = p.Dimensions,
                 ShelfLifeDays       = p.ShelfLifeDays,
-                Barcode             = p.Barcode,
                 IsBatchTracked      = p.IsBatchTracked,
                 IsSerialTracked     = p.IsSerialTracked,
                 ReorderPoint        = p.ReorderPoint,
@@ -360,7 +356,27 @@ internal sealed class InventoryRepository : IInventoryRepository
                 Status              = p.Status,
                 CreatedDate         = p.CreatedDate,
                 UpdatedDate         = p.UpdatedDate,
-                CreatedBy           = p.CreatedBy
+                CreatedBy           = p.CreatedBy,
+                VariantCount        = p.Variants.Count,
+                Variants = p.Variants
+                    .OrderBy(v => v.SortOrder ?? 0).ThenBy(v => v.Id)
+                    .Select(v => new ProductVariantModel
+                    {
+                        Uuid              = v.Uuid,
+                        Sku               = v.Sku,
+                        VariantName       = v.VariantName,
+                        Barcode           = v.Barcode,
+                        PurchasePrice     = v.PurchasePrice,
+                        SellingPrice      = v.SellingPrice,
+                        LastPurchasePrice = v.LastPurchasePrice,
+                        WeightKg          = v.WeightKg,
+                        Dimensions        = v.Dimensions,
+                        IsDefault         = v.IsDefault,
+                        IsActive          = v.IsActive,
+                        ReorderPoint      = v.ReorderPoint,
+                        SortOrder         = v.SortOrder,
+                        CreatedDate       = v.CreatedDate
+                    }).ToList()
             })
             .FirstOrDefaultAsync();
     }
@@ -395,13 +411,9 @@ internal sealed class InventoryRepository : IInventoryRepository
             SubCategoryId       = req.SubCategoryId,
             Brand               = req.Brand,
             UomCode             = req.UomCode,
-            UnitCost            = req.UnitCost,
-            UnitPrice           = req.UnitPrice,
-            LastPurchasePrice   = req.LastPurchasePrice,
             WeightKg            = req.WeightKg,
             Dimensions          = req.Dimensions,
             ShelfLifeDays       = req.ShelfLifeDays,
-            Barcode             = req.Barcode,
             IsBatchTracked      = req.IsBatchTracked,
             IsSerialTracked     = req.IsSerialTracked,
             ReorderPoint        = req.ReorderPoint,
@@ -418,9 +430,90 @@ internal sealed class InventoryRepository : IInventoryRepository
             CreatedBy           = userId
         };
 
+        entity.Variants = await BuildVariantsAsync(req, sku, userId);
+
         _db.Products.Add(entity);
         await _db.SaveChangesAsync();
         return (entity.Id, entity.Sku);
+    }
+
+    // PV-001 — every product must end up with at least one variant, and exactly one of them
+    // is_default=true (FSD Addendum 26 §1.2/§3.1). Explicit Variants win when supplied (e.g. the
+    // Dell Latitude's two SKUs); otherwise a single default variant is auto-created from
+    // PurchasePrice/SellingPrice/Barcode on the request, so simple products (e.g. Cement) never
+    // need the caller to think about variants at all — same code path either way downstream.
+    private async Task<List<ProductVariant>> BuildVariantsAsync(CreateProductRequest req, string productSku, int userId)
+    {
+        var now = DateTime.UtcNow;
+
+        if (req.Variants is { Count: > 0 })
+        {
+            var defaultCount = req.Variants.Count(v => v.IsDefault);
+            if (defaultCount != 1)
+                throw new BadRequestException("Exactly one variant must be marked as the default (is_default=true).");
+
+            var variants = new List<ProductVariant>();
+            for (var i = 0; i < req.Variants.Count; i++)
+            {
+                var v = req.Variants[i];
+                if (string.IsNullOrWhiteSpace(v.VariantName))
+                    throw new BadRequestException("Each variant requires a variant name.");
+
+                var variantSku = string.IsNullOrWhiteSpace(v.Sku) ? $"{productSku}-{i + 1}" : v.Sku.Trim();
+
+                if (await _db.ProductVariants.AnyAsync(x => x.Sku == variantSku))
+                    throw new ConflictException($"A variant with SKU '{variantSku}' already exists.");
+                if (!string.IsNullOrWhiteSpace(v.Barcode) && await _db.ProductVariants.AnyAsync(x => x.Barcode == v.Barcode))
+                    throw new ConflictException($"A variant with barcode '{v.Barcode}' already exists.");
+
+                variants.Add(new ProductVariant
+                {
+                    Sku           = variantSku,
+                    VariantName   = v.VariantName.Trim(),
+                    Barcode       = v.Barcode,
+                    PurchasePrice = v.PurchasePrice,
+                    SellingPrice  = v.SellingPrice,
+                    WeightKg      = v.Weight,
+                    Dimensions    = v.Dimensions,
+                    IsDefault     = v.IsDefault,
+                    IsActive      = true,
+                    ReorderPoint  = v.ReorderPoint,
+                    SortOrder     = v.SortOrder ?? i,
+                    CreatedDate   = now,
+                    CreatedBy     = userId
+                });
+            }
+            return variants;
+        }
+
+        // No explicit variants — auto-create the single default (FSD §1.2, "backward compatibility").
+        if (!req.PurchasePrice.HasValue)
+            throw new BadRequestException("PurchasePrice is required when no variants are specified.");
+
+        var defaultSku = $"{productSku}-DEFAULT";
+        if (await _db.ProductVariants.AnyAsync(x => x.Sku == defaultSku))
+            throw new ConflictException($"A variant with SKU '{defaultSku}' already exists.");
+        if (!string.IsNullOrWhiteSpace(req.Barcode) && await _db.ProductVariants.AnyAsync(x => x.Barcode == req.Barcode))
+            throw new ConflictException($"A variant with barcode '{req.Barcode}' already exists.");
+
+        return
+        [
+            new ProductVariant
+            {
+                Sku           = defaultSku,
+                VariantName   = req.Name.Trim(),
+                Barcode       = req.Barcode,
+                PurchasePrice = req.PurchasePrice.Value,
+                SellingPrice  = req.SellingPrice,
+                WeightKg      = req.WeightKg,
+                Dimensions    = req.Dimensions,
+                IsDefault     = true,
+                IsActive      = true,
+                SortOrder     = 0,
+                CreatedDate   = now,
+                CreatedBy     = userId
+            }
+        ];
     }
 
     public async Task<bool> PatchProductAsync(int id, PatchProductRequest req)
@@ -441,13 +534,9 @@ internal sealed class InventoryRepository : IInventoryRepository
         if (req.SubCategoryId     .HasValue)   entity.SubCategoryId     = req.SubCategoryId;
         if (req.Brand             is not null) entity.Brand             = req.Brand;
         if (req.UomCode           is not null) entity.UomCode           = req.UomCode;
-        if (req.UnitCost          .HasValue)   entity.UnitCost          = req.UnitCost;
-        if (req.UnitPrice         .HasValue)   entity.UnitPrice         = req.UnitPrice;
-        if (req.LastPurchasePrice .HasValue)   entity.LastPurchasePrice = req.LastPurchasePrice;
         if (req.WeightKg          .HasValue)   entity.WeightKg          = req.WeightKg;
         if (req.Dimensions        is not null) entity.Dimensions        = req.Dimensions;
         if (req.ShelfLifeDays     .HasValue)   entity.ShelfLifeDays     = req.ShelfLifeDays;
-        if (req.Barcode           is not null) entity.Barcode           = req.Barcode;
         if (req.IsBatchTracked    .HasValue)   entity.IsBatchTracked    = req.IsBatchTracked.Value;
         if (req.IsSerialTracked   .HasValue)   entity.IsSerialTracked   = req.IsSerialTracked.Value;
         if (req.ReorderPoint      .HasValue)   entity.ReorderPoint      = req.ReorderPoint;

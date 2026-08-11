@@ -409,6 +409,7 @@ internal sealed class MirRepository : IMirRepository
     {
         var productUuids  = inputs.Select(l => l.ProductUuid).Distinct().ToList();
         var products      = await _inv.Products
+            .Include(p => p.Variants)
             .Where(p => productUuids.Contains(p.Uuid) && p.IsActive)
             .ToListAsync();
 
@@ -445,6 +446,11 @@ internal sealed class MirRepository : IMirRepository
                     distinctTraceIds.Add(resolution.TraceId);
             }
 
+            // PV-001 — Product no longer carries its own price; the default variant's
+            // PurchasePrice is the FSD-aligned stand-in until MIR itself moves to variant_id
+            // (FSD Addendum 26 §7.4, a later task).
+            var defaultVariantPrice = product.Variants.FirstOrDefault(v => v.IsDefault)?.PurchasePrice ?? 0m;
+
             lines.Add(new MaterialIssueRequestDetail
             {
                 UUID               = Guid.NewGuid(),
@@ -453,8 +459,8 @@ internal sealed class MirRepository : IMirRepository
                 ItemDescription    = product.Name,
                 UnitOfMeasure      = product.UomCode,
                 RequestedQty       = l.RequestedQty,
-                UnitCost           = product.UnitCost ?? 0m,
-                EstimatedLineValue = l.RequestedQty * (product.UnitCost ?? 0m),
+                UnitCost           = defaultVariantPrice,
+                EstimatedLineValue = l.RequestedQty * defaultVariantPrice,
                 WarehouseId        = l.WarehouseId,
                 WarehouseName      = l.WarehouseId.HasValue && warehouseNames.TryGetValue(l.WarehouseId.Value, out var wn) ? wn : null,
                 Purpose            = l.Purpose,

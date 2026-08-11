@@ -15,6 +15,7 @@ internal sealed class InventoryDbContext : DbContext, ITenantScopedDbContext
     internal DbSet<ProductCategory> ProductCategories => Set<ProductCategory>();
     internal DbSet<ProductSubCategory> ProductSubCategories => Set<ProductSubCategory>();
     internal DbSet<Product> Products => Set<Product>();
+    internal DbSet<ProductVariant> ProductVariants => Set<ProductVariant>();
     internal DbSet<Warehouse> Warehouses => Set<Warehouse>();
     internal DbSet<Zone> Zones => Set<Zone>();
     internal DbSet<Rack> Racks => Set<Rack>();

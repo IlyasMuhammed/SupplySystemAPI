@@ -39,15 +39,20 @@ file static class Build
 
     internal static Product SeedProduct(InventoryDbContext db, Guid uuid, string name = "Lenovo Laptop")
     {
+        var sku = $"SKU-{uuid:N}"[..10];
         var product = new Product
         {
             Uuid     = uuid,
-            Sku      = $"SKU-{uuid:N}"[..10],
+            Sku      = sku,
             Name     = name,
             UomCode  = "PC",
-            UnitCost = 1000m,
             IsActive = true
         };
+        product.Variants.Add(new ProductVariant
+        {
+            Uuid = Guid.NewGuid(), Sku = $"{sku}-DEFAULT", VariantName = name,
+            PurchasePrice = 1000m, IsDefault = true, IsActive = true, CreatedDate = DateTime.UtcNow
+        });
         db.Products.Add(product);
         db.SaveChanges();
         return product;

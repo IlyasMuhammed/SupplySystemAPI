@@ -52,12 +52,8 @@ internal sealed class ProductMap : IEntityTypeConfiguration<Product>
         b.Property(x => x.Description).HasMaxLength(2000);
         b.Property(x => x.Brand).HasMaxLength(100);
         b.Property(x => x.UomCode).HasMaxLength(20);
-        b.Property(x => x.UnitCost).HasColumnType("decimal(18,4)");
-        b.Property(x => x.UnitPrice).HasColumnType("decimal(18,4)");
-        b.Property(x => x.LastPurchasePrice).HasColumnType("decimal(18,4)");
         b.Property(x => x.WeightKg).HasColumnType("decimal(18,4)");
         b.Property(x => x.Dimensions).HasMaxLength(50);
-        b.Property(x => x.Barcode).HasMaxLength(50);
         b.Property(x => x.ReorderPoint).HasColumnType("decimal(18,4)");
         b.Property(x => x.ReorderQty).HasColumnType("decimal(18,4)");
         b.Property(x => x.MinStockLevel).HasColumnType("decimal(18,4)");
@@ -74,6 +70,41 @@ internal sealed class ProductMap : IEntityTypeConfiguration<Product>
             .HasForeignKey(x => x.CategoryId).OnDelete(DeleteBehavior.SetNull);
         b.HasOne(x => x.SubCategory).WithMany(x => x.Products)
             .HasForeignKey(x => x.SubCategoryId).OnDelete(DeleteBehavior.SetNull);
+    }
+}
+
+internal sealed class ProductVariantMap : IEntityTypeConfiguration<ProductVariant>
+{
+    public void Configure(EntityTypeBuilder<ProductVariant> b)
+    {
+        b.ToTable("ProductVariants");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.Id).UseIdentityColumn();
+        b.Property(x => x.Uuid).IsRequired();
+        b.HasIndex(x => x.Uuid).IsUnique();
+
+        b.Property(x => x.Sku).HasMaxLength(50).IsRequired();
+        b.Property(x => x.VariantName).HasMaxLength(200).IsRequired();
+        b.Property(x => x.Barcode).HasMaxLength(50);
+        b.Property(x => x.PurchasePrice).HasColumnType("decimal(18,4)").IsRequired();
+        b.Property(x => x.SellingPrice).HasColumnType("decimal(18,4)");
+        b.Property(x => x.LastPurchasePrice).HasColumnType("decimal(18,4)");
+        b.Property(x => x.WeightKg).HasColumnType("decimal(18,4)");
+        b.Property(x => x.Dimensions).HasMaxLength(100);
+        b.Property(x => x.ReorderPoint).HasColumnType("decimal(18,4)");
+        b.Property(x => x.IsDefault).IsRequired();
+        b.Property(x => x.IsActive).HasDefaultValue(true);
+
+        // Composite, not global — each org curates its own SKU/barcode catalog. Barcode is
+        // nullable, so the unique index is filtered to only non-null values (a NULL barcode
+        // must not collide with another NULL barcode).
+        b.HasIndex(x => new { x.OrganizationId, x.Sku }).IsUnique();
+        b.HasIndex(x => new { x.OrganizationId, x.Barcode }).IsUnique().HasFilter("[Barcode] IS NOT NULL");
+        b.Property(x => x.OrganizationId).IsRequired();
+        b.HasIndex(x => x.ProductId);
+
+        b.HasOne(x => x.Product).WithMany(x => x.Variants)
+            .HasForeignKey(x => x.ProductId).OnDelete(DeleteBehavior.Cascade);
     }
 }
 
