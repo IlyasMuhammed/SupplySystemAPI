@@ -2,8 +2,9 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { ApiResponse, PaginatedResponse } from './demand.service';
+import { environment } from '../../environments/environment';
 
-const BASE = 'https://localhost:52800/api';
+const BASE = environment.apiUrl;
 
 // ── Projects ──────────────────────────────────────────────────────────────────
 
@@ -59,7 +60,7 @@ export interface ProjectDetail {
 // ── Material Issue Requests ───────────────────────────────────────────────────
 
 export interface CreateMirLineRequest {
-  productUuid: string;
+  variantUuid: string;
   requestedQty: number;
   warehouseId?: number;
   purpose?: string;
@@ -123,7 +124,10 @@ export interface MirListItem {
 export interface MirLine {
   uuid: string;
   lineNo: number;
-  productUuid: string;
+  variantUuid: string;
+  variantSku?: string;
+  variantName?: string;
+  productName?: string;
   itemDescription: string;
   unitOfMeasure?: string;
   requestedQty: number;
@@ -202,7 +206,7 @@ export interface MirWorkflowRejectRequest {
 
 export interface MirLineAvailability {
   lineUuid: string;
-  productUuid: string;
+  variantUuid: string;
   itemDescription: string;
   requestedQty: number;
   latestApprovedQty?: number;
@@ -356,17 +360,17 @@ export class MaterialService {
 
   // Batch / Serial
 
-  getAvailableBatches(productUuid: string, warehouseUuid?: string): Observable<ApiResponse<AvailableBatchesResponse>> {
+  getAvailableBatches(variantUuid: string, warehouseUuid?: string): Observable<ApiResponse<AvailableBatchesResponse>> {
     let params = new HttpParams();
     if (warehouseUuid) params = params.set('warehouseUuid', warehouseUuid);
     return this.http.get<ApiResponse<AvailableBatchesResponse>>(
-      `${BASE}/batch-serials/available/${productUuid}`, { params }
+      `${BASE}/batch-serials/available/${variantUuid}`, { params }
     );
   }
 
-  traceBatchSerial(reference: string, productUuid?: string): Observable<ApiResponse<ChainOfCustodyResponse>> {
+  traceBatchSerial(reference: string, variantUuid?: string): Observable<ApiResponse<ChainOfCustodyResponse>> {
     let params = new HttpParams().set('reference', reference);
-    if (productUuid) params = params.set('productUuid', productUuid);
+    if (variantUuid) params = params.set('variantUuid', variantUuid);
     return this.http.get<ApiResponse<ChainOfCustodyResponse>>(`${BASE}/batch-serials/trace`, { params });
   }
 
@@ -485,7 +489,7 @@ export class MaterialService {
 
 export interface MirLineIssuable {
   lineUuid: string;
-  productUuid: string;
+  variantUuid: string;
   itemDescription: string;
   unitOfMeasure?: string;
   requestedQty: number;
@@ -567,7 +571,7 @@ export interface MivLineBatchSerial {
 export interface MivLine {
   uuid: string;
   mirLineUuid: string;
-  productUuid: string;
+  variantUuid: string;
   itemDescription: string;
   unitOfMeasure?: string;
   issuedQty: number;
@@ -619,9 +623,10 @@ export interface AvailableSerialRow {
 }
 
 export interface AvailableBatchesResponse {
-  productUuid: string;
+  variantUuid: string;
+  variantSku: string;
+  variantName: string;
   productName: string;
-  productSku: string;
   isBatchTracked: boolean;
   isSerialTracked: boolean;
   batches: AvailableBatchRow[];
@@ -662,9 +667,9 @@ export interface IssueEventInfo {
 export interface ChainOfCustodyResponse {
   referenceType: string;
   reference: string;
-  productUuid?: string;
+  variantUuid?: string;
+  variantSku?: string;
   productName?: string;
-  productSku?: string;
   grnReceipt?: GrnReceiptInfo;
   currentLocation?: InventoryLocationInfo;
   issueEvents: IssueEventInfo[];

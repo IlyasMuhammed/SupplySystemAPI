@@ -32,10 +32,10 @@ internal sealed class EfGrnInventoryPoster : IGrnStockPoster
             .FirstOrDefaultAsync(w => w.Uuid == grn.WarehouseUuid.Value);
         if (warehouse is null) return;
 
-        // Validate: any line with effective qty > 0 must be linked to a catalogue product
+        // Validate: any line with effective qty > 0 must be linked to a catalogue product variant
         var unlinked = grn.Lines.Where(l =>
         {
-            if (l.ProductUuid.HasValue) return false;
+            if (l.VariantUuid.HasValue) return false;
             var qty = l.RequiresInspection
                 ? l.QtyAccepted
                 : Math.Max(0m, l.QtyReceived - l.QtyRejected);
@@ -46,8 +46,8 @@ internal sealed class EfGrnInventoryPoster : IGrnStockPoster
         {
             var items = string.Join(", ", unlinked.Select(l => $"'{l.ItemDescription}'"));
             throw new SMS.Shared.Exceptions.UnprocessableEntityException(
-                $"Cannot post stock: the following lines are not linked to a catalogue product — {items}. " +
-                "Edit the GRN to select the matching product for each line before approving.");
+                $"Cannot post stock: the following lines are not linked to a catalogue product variant — {items}. " +
+                "Edit the GRN to select the matching product/variant for each line before approving.");
         }
 
         var strategy = _inv.Database.CreateExecutionStrategy();
@@ -55,7 +55,7 @@ internal sealed class EfGrnInventoryPoster : IGrnStockPoster
         {
             await using var tx = await _inv.Database.BeginTransactionAsync();
 
-            foreach (var line in grn.Lines.Where(l => l.ProductUuid.HasValue))
+            foreach (var line in grn.Lines.Where(l => l.VariantUuid.HasValue))
             {
                 var effectiveQty = line.RequiresInspection
                     ? line.QtyAccepted
@@ -63,37 +63,41 @@ internal sealed class EfGrnInventoryPoster : IGrnStockPoster
 
                 if (effectiveQty <= 0) continue;
 
-                var product = await _inv.Products
-                    .FirstOrDefaultAsync(p => p.Uuid == line.ProductUuid!.Value);
-                if (product is null) continue;
+                // PV-005 — stock is tracked per variant per warehouse now, not collapsed to the
+                // parent product. Batch/serial tracking flags still live on the parent Product
+                // (not per-variant), so those checks read through variant.Product.
+                var variant = await _inv.ProductVariants.Include(v => v.Product)
+                    .FirstOrDefaultAsync(v => v.Uuid == line.VariantUuid!.Value);
+                if (variant is null) continue;
+                var product = variant.Product;
 
                 // Look up the correct InventoryItem row for this GRN line.
-                // For batch-tracked products, each batch gets its own row (key: ProductId+WarehouseId+BatchNumber).
-                // For serial-tracked products, each serial gets its own row (key: ProductId+WarehouseId+SerialNumber).
-                // For non-tracked products, a single row per product/warehouse is used.
+                // For batch-tracked products, each batch gets its own row (key: VariantId+WarehouseId+BatchNumber).
+                // For serial-tracked products, each serial gets its own row (key: VariantId+WarehouseId+SerialNumber).
+                // For non-tracked products, a single row per variant/warehouse is used.
                 InventoryItem? item;
                 if (product.IsBatchTracked && !string.IsNullOrWhiteSpace(line.BatchNumber))
                 {
                     var batchNo = line.BatchNumber;
                     item = _inv.InventoryItems.Local
-                               .FirstOrDefault(i => i.ProductId == product.Id && i.WarehouseId == warehouse.Id && i.BatchNumber == batchNo)
+                               .FirstOrDefault(i => i.VariantId == variant.Id && i.WarehouseId == warehouse.Id && i.BatchNumber == batchNo)
                            ?? await _inv.InventoryItems
-                               .FirstOrDefaultAsync(i => i.ProductId == product.Id && i.WarehouseId == warehouse.Id && i.BatchNumber == batchNo);
+                               .FirstOrDefaultAsync(i => i.VariantId == variant.Id && i.WarehouseId == warehouse.Id && i.BatchNumber == batchNo);
                 }
                 else if (product.IsSerialTracked && !string.IsNullOrWhiteSpace(line.SerialNumber))
                 {
                     var serial = line.SerialNumber;
                     item = _inv.InventoryItems.Local
-                               .FirstOrDefault(i => i.ProductId == product.Id && i.WarehouseId == warehouse.Id && i.SerialNumber == serial)
+                               .FirstOrDefault(i => i.VariantId == variant.Id && i.WarehouseId == warehouse.Id && i.SerialNumber == serial)
                            ?? await _inv.InventoryItems
-                               .FirstOrDefaultAsync(i => i.ProductId == product.Id && i.WarehouseId == warehouse.Id && i.SerialNumber == serial);
+                               .FirstOrDefaultAsync(i => i.VariantId == variant.Id && i.WarehouseId == warehouse.Id && i.SerialNumber == serial);
                 }
                 else
                 {
                     item = _inv.InventoryItems.Local
-                               .FirstOrDefault(i => i.ProductId == product.Id && i.WarehouseId == warehouse.Id && i.BatchNumber == null && i.SerialNumber == null)
+                               .FirstOrDefault(i => i.VariantId == variant.Id && i.WarehouseId == warehouse.Id && i.BatchNumber == null && i.SerialNumber == null)
                            ?? await _inv.InventoryItems
-                               .FirstOrDefaultAsync(i => i.ProductId == product.Id && i.WarehouseId == warehouse.Id && i.BatchNumber == null && i.SerialNumber == null);
+                               .FirstOrDefaultAsync(i => i.VariantId == variant.Id && i.WarehouseId == warehouse.Id && i.BatchNumber == null && i.SerialNumber == null);
                 }
 
                 if (item is null)
@@ -101,7 +105,7 @@ internal sealed class EfGrnInventoryPoster : IGrnStockPoster
                     item = new InventoryItem
                     {
                         Uuid         = Guid.NewGuid(),
-                        ProductId    = product.Id,
+                        VariantId    = variant.Id,
                         WarehouseId  = warehouse.Id,
                         BatchNumber  = product.IsBatchTracked  ? line.BatchNumber  : null,
                         SerialNumber = product.IsSerialTracked ? line.SerialNumber : null,
@@ -122,7 +126,7 @@ internal sealed class EfGrnInventoryPoster : IGrnStockPoster
 
                 await _ledger.CreateEntryAsync(new LedgerEntryCommand
                 {
-                    ProductId       = product.Id,
+                    VariantId       = variant.Id,
                     WarehouseId     = warehouse.Id,
                     TransactionType = "GRN_RECEIPT",
                     ReferenceType   = "GRN",

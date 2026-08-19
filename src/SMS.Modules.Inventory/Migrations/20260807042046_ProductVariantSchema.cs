@@ -20,48 +20,58 @@ namespace SMS.Modules.Inventory.Migrations
             // abridged table list — 4 tables below aren't in the FSD text but have real FKs into
             // the listed tables and would block the deletes otherwise: payments, StockAdjustments,
             // supplier_return_orders, supplier_return_order_lines).
+            //
+            // Each DELETE is existence-checked: on an already-populated database (where every
+            // referenced module's schema was migrated long before this one ran) that's a no-op
+            // guard, but on a genuinely fresh database — where Program.cs's own module startup
+            // order runs UseInventoryModule() *before* UseWarehouseModule/UseFinanceModule/
+            // UseMaterialModule — the warehouse/finance/material tables referenced here don't exist
+            // yet at all, and an unguarded DELETE fails the whole migration outright (confirmed the
+            // hard way). There's nothing to wipe on a fresh database anyway (that's the entire
+            // premise of this migration per the comment above), so skipping cleanly is correct
+            // there, not just convenient.
             migrationBuilder.Sql(@"
                 -- Material module
-                DELETE FROM material.miv_line_batch_serials;
-                DELETE FROM material.material_return_detail;
-                DELETE FROM material.wastage;
-                DELETE FROM material.material_consumption;
-                DELETE FROM material.material_return;
-                DELETE FROM material.material_issue_voucher_lines;
-                DELETE FROM material.material_issue_vouchers;
-                DELETE FROM material.project_cost_ledger;
-                DELETE FROM material.department_cost_ledger;
-                DELETE FROM material.stock_reservations;
-                DELETE FROM material.mir_line_approvals;
-                DELETE FROM material.material_issue_request_lines;
-                DELETE FROM material.material_issue_requests;
+                IF OBJECT_ID(N'material.miv_line_batch_serials', N'U') IS NOT NULL DELETE FROM material.miv_line_batch_serials;
+                IF OBJECT_ID(N'material.material_return_detail', N'U') IS NOT NULL DELETE FROM material.material_return_detail;
+                IF OBJECT_ID(N'material.wastage', N'U') IS NOT NULL DELETE FROM material.wastage;
+                IF OBJECT_ID(N'material.material_consumption', N'U') IS NOT NULL DELETE FROM material.material_consumption;
+                IF OBJECT_ID(N'material.material_return', N'U') IS NOT NULL DELETE FROM material.material_return;
+                IF OBJECT_ID(N'material.material_issue_voucher_lines', N'U') IS NOT NULL DELETE FROM material.material_issue_voucher_lines;
+                IF OBJECT_ID(N'material.material_issue_vouchers', N'U') IS NOT NULL DELETE FROM material.material_issue_vouchers;
+                IF OBJECT_ID(N'material.project_cost_ledger', N'U') IS NOT NULL DELETE FROM material.project_cost_ledger;
+                IF OBJECT_ID(N'material.department_cost_ledger', N'U') IS NOT NULL DELETE FROM material.department_cost_ledger;
+                IF OBJECT_ID(N'material.stock_reservations', N'U') IS NOT NULL DELETE FROM material.stock_reservations;
+                IF OBJECT_ID(N'material.mir_line_approvals', N'U') IS NOT NULL DELETE FROM material.mir_line_approvals;
+                IF OBJECT_ID(N'material.material_issue_request_lines', N'U') IS NOT NULL DELETE FROM material.material_issue_request_lines;
+                IF OBJECT_ID(N'material.material_issue_requests', N'U') IS NOT NULL DELETE FROM material.material_issue_requests;
 
                 -- Finance module
-                DELETE FROM finance.payments;
-                DELETE FROM finance.supplier_payment_lines;
-                DELETE FROM finance.supplier_payments;
-                DELETE FROM finance.invoice_lines;
-                DELETE FROM finance.invoices;
-                DELETE FROM finance.supplier_ledger_entries;
-                DELETE FROM finance.master_product_ledger;
-                DELETE FROM finance.master_financial_ledger;
+                IF OBJECT_ID(N'finance.payments', N'U') IS NOT NULL DELETE FROM finance.payments;
+                IF OBJECT_ID(N'finance.supplier_payment_lines', N'U') IS NOT NULL DELETE FROM finance.supplier_payment_lines;
+                IF OBJECT_ID(N'finance.supplier_payments', N'U') IS NOT NULL DELETE FROM finance.supplier_payments;
+                IF OBJECT_ID(N'finance.invoice_lines', N'U') IS NOT NULL DELETE FROM finance.invoice_lines;
+                IF OBJECT_ID(N'finance.invoices', N'U') IS NOT NULL DELETE FROM finance.invoices;
+                IF OBJECT_ID(N'finance.supplier_ledger_entries', N'U') IS NOT NULL DELETE FROM finance.supplier_ledger_entries;
+                IF OBJECT_ID(N'finance.master_product_ledger', N'U') IS NOT NULL DELETE FROM finance.master_product_ledger;
+                IF OBJECT_ID(N'finance.master_financial_ledger', N'U') IS NOT NULL DELETE FROM finance.master_financial_ledger;
 
                 -- Warehouse module
-                DELETE FROM warehouse.supplier_return_order_lines;
-                DELETE FROM warehouse.supplier_return_orders;
-                DELETE FROM warehouse.grn_lines;
-                DELETE FROM warehouse.grns;
+                IF OBJECT_ID(N'warehouse.supplier_return_order_lines', N'U') IS NOT NULL DELETE FROM warehouse.supplier_return_order_lines;
+                IF OBJECT_ID(N'warehouse.supplier_return_orders', N'U') IS NOT NULL DELETE FROM warehouse.supplier_return_orders;
+                IF OBJECT_ID(N'warehouse.grn_lines', N'U') IS NOT NULL DELETE FROM warehouse.grn_lines;
+                IF OBJECT_ID(N'warehouse.grns', N'U') IS NOT NULL DELETE FROM warehouse.grns;
 
                 -- Demand module
-                DELETE FROM demand.purchase_order_pr_links;
-                DELETE FROM demand.purchase_order_lines;
-                DELETE FROM demand.purchase_orders;
+                IF OBJECT_ID(N'demand.purchase_order_pr_links', N'U') IS NOT NULL DELETE FROM demand.purchase_order_pr_links;
+                IF OBJECT_ID(N'demand.purchase_order_lines', N'U') IS NOT NULL DELETE FROM demand.purchase_order_lines;
+                IF OBJECT_ID(N'demand.purchase_orders', N'U') IS NOT NULL DELETE FROM demand.purchase_orders;
 
                 -- Inventory module (Products itself last — everything above references it)
-                DELETE FROM inventory.StockAdjustments;
-                DELETE FROM inventory.InventoryLedgerEntries;
-                DELETE FROM inventory.InventoryItems;
-                DELETE FROM inventory.Products;
+                IF OBJECT_ID(N'inventory.StockAdjustments', N'U') IS NOT NULL DELETE FROM inventory.StockAdjustments;
+                IF OBJECT_ID(N'inventory.InventoryLedgerEntries', N'U') IS NOT NULL DELETE FROM inventory.InventoryLedgerEntries;
+                IF OBJECT_ID(N'inventory.InventoryItems', N'U') IS NOT NULL DELETE FROM inventory.InventoryItems;
+                IF OBJECT_ID(N'inventory.Products', N'U') IS NOT NULL DELETE FROM inventory.Products;
             ");
 
             migrationBuilder.DropColumn(

@@ -58,6 +58,7 @@
               <tr>
                 <th pSortableColumn="mirNo">MIR No <p-sortIcon field="mirNo" /></th>
                 <th pSortableColumn="productName">Item <p-sortIcon field="productName" /></th>
+                <th>SKU</th>
                 <th>UoM</th>
                 <th class="text-right">Issued</th>
                 <th class="text-right">Consumed</th>
@@ -70,6 +71,7 @@
               <tr>
                 <td><span class="ref-no">{{ row.mirNo }}</span></td>
                 <td>{{ row.productName }}</td>
+                <td><span class="mono">{{ row.sku ?? '—' }}</span></td>
                 <td>{{ row.unitOfMeasure ?? '—' }}</td>
                 <td class="text-right">{{ row.issuedQty | number:'1.2-2' }}</td>
                 <td class="text-right consumed-cell">{{ row.consumedQty | number:'1.2-2' }}</td>
@@ -81,11 +83,11 @@
               </tr>
             </ng-template>
             <ng-template pTemplate="emptymessage">
-              <tr><td colspan="8" class="empty-msg">No data. Run the report with filters.</td></tr>
+              <tr><td colspan="9" class="empty-msg">No data. Run the report with filters.</td></tr>
             </ng-template>
             <ng-template pTemplate="footer">
               <tr *ngIf="consumptions.length > 0">
-                <td colspan="3" class="total-label">Grand Total</td>
+                <td colspan="4" class="total-label">Grand Total</td>
                 <td class="text-right amount">{{ totalIssued | number:'1.2-2' }}</td>
                 <td class="text-right amount consumed-cell">{{ totalConsumed | number:'1.2-2' }}</td>
                 <td class="text-right amount">{{ totalBalance | number:'1.2-2' }}</td>
@@ -132,6 +134,7 @@
               <tr>
                 <th pSortableColumn="projectCode">Project <p-sortIcon field="projectCode" /></th>
                 <th>Item</th>
+                <th>SKU</th>
                 <th>Type</th>
                 <th>Reference</th>
                 <th pSortableColumn="postedDate">Date <p-sortIcon field="postedDate" /></th>
@@ -143,7 +146,11 @@
             <ng-template pTemplate="body" let-row>
               <tr>
                 <td><span class="project-code">{{ row.projectCode }}</span><br><span class="project-name">{{ row.projectName }}</span></td>
-                <td>{{ row.itemDescription }}</td>
+                <td>
+                  {{ row.productName || row.itemDescription }}
+                  <span *ngIf="row.variantName" class="text-secondary"> ({{ row.variantName }})</span>
+                </td>
+                <td><span class="mono">{{ row.sku ?? '—' }}</span></td>
                 <td><p-tag [value]="row.transactionType" [severity]="row.transactionType === 'ISSUE' ? 'info' : row.transactionType === 'RETURN' ? 'warn' : 'danger'" /></td>
                 <td><span class="ref-no secondary">{{ row.referenceNumber }}</span></td>
                 <td>{{ row.postedDate | date:'dd MMM yyyy' }}</td>
@@ -153,11 +160,11 @@
               </tr>
             </ng-template>
             <ng-template pTemplate="emptymessage">
-              <tr><td colspan="8" class="empty-msg">No project cost entries found.</td></tr>
+              <tr><td colspan="9" class="empty-msg">No project cost entries found.</td></tr>
             </ng-template>
             <ng-template pTemplate="footer">
               <tr *ngIf="projectItems.length > 0">
-                <td colspan="7" class="total-label">Grand Total</td>
+                <td colspan="8" class="total-label">Grand Total</td>
                 <td class="text-right amount total">{{ projectTotal | number:'1.2-2' }}</td>
               </tr>
             </ng-template>
@@ -205,6 +212,7 @@
                 <th pSortableColumn="department">Department <p-sortIcon field="department" /></th>
                 <th>Cost Center</th>
                 <th>Item</th>
+                <th>SKU</th>
                 <th>Type</th>
                 <th>Reference</th>
                 <th pSortableColumn="postedDate">Date <p-sortIcon field="postedDate" /></th>
@@ -216,7 +224,11 @@
               <tr>
                 <td><strong>{{ row.department }}</strong></td>
                 <td>{{ row.costCenter ?? '—' }}</td>
-                <td>{{ row.itemDescription }}</td>
+                <td>
+                  {{ row.productName || row.itemDescription }}
+                  <span *ngIf="row.variantName" class="text-secondary"> ({{ row.variantName }})</span>
+                </td>
+                <td><span class="mono">{{ row.sku ?? '—' }}</span></td>
                 <td><p-tag [value]="row.transactionType" [severity]="row.transactionType === 'ISSUE' ? 'info' : row.transactionType === 'RETURN' ? 'warn' : 'danger'" /></td>
                 <td><span class="ref-no secondary">{{ row.referenceNumber }}</span></td>
                 <td>{{ row.postedDate | date:'dd MMM yyyy' }}</td>
@@ -225,11 +237,11 @@
               </tr>
             </ng-template>
             <ng-template pTemplate="emptymessage">
-              <tr><td colspan="8" class="empty-msg">No department cost entries found.</td></tr>
+              <tr><td colspan="9" class="empty-msg">No department cost entries found.</td></tr>
             </ng-template>
             <ng-template pTemplate="footer">
               <tr *ngIf="deptItems.length > 0">
-                <td colspan="7" class="total-label">Grand Total</td>
+                <td colspan="8" class="total-label">Grand Total</td>
                 <td class="text-right amount total">{{ deptTotal | number:'1.2-2' }}</td>
               </tr>
             </ng-template>

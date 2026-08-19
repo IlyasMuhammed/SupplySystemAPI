@@ -1,8 +1,9 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../environments/environment';
 
-const BASE = 'https://localhost:52800/api/finance';
+const BASE = `${environment.apiUrl}/finance`;
 
 export interface ApiResponse<T = null> {
   success: boolean;
@@ -521,13 +522,15 @@ export class FinanceService {
 
   resolveFileUrl(url: string): string {
     if (!url) return '';
-    return url.startsWith('/') ? `https://localhost:51800${url}` : url;
+    // Was hardcoded to a different port (51800) than the actual API (52800/Azure) — no host was
+    // ever listening there, so resolved file links were silently broken in every environment.
+    return url.startsWith('/') ? `${environment.apiOrigin}${url}` : url;
   }
 
   // ── Credit Notes ──────────────────────────────────────────────────────────
 
   createCreditNote(req: CreateCreditNoteRequest): Observable<ApiResponse<string>> {
-    return this.http.post<ApiResponse<string>>(`https://localhost:52800/api/credit-notes`, req);
+    return this.http.post<ApiResponse<string>>(`${environment.apiUrl}/credit-notes`, req);
   }
 
   getCreditNotes(filter: CreditNoteListFilter): Observable<ApiResponse<PaginatedResponse<CreditNoteListItemModel>>> {
@@ -539,21 +542,21 @@ export class FinanceService {
     if (filter.dateFrom)          params = params.set('dateFrom',          filter.dateFrom);
     if (filter.dateTo)            params = params.set('dateTo',            filter.dateTo);
     return this.http.get<ApiResponse<PaginatedResponse<CreditNoteListItemModel>>>(
-      `https://localhost:52800/api/credit-notes`, { params });
+      `${environment.apiUrl}/credit-notes`, { params });
   }
 
   getCreditNoteById(uuid: string): Observable<ApiResponse<CreditNoteDetailModel>> {
-    return this.http.get<ApiResponse<CreditNoteDetailModel>>(`https://localhost:52800/api/credit-notes/${uuid}`);
+    return this.http.get<ApiResponse<CreditNoteDetailModel>>(`${environment.apiUrl}/credit-notes/${uuid}`);
   }
 
   applyCreditNote(uuid: string, invoiceUuid: string): Observable<ApiResponse<null>> {
-    return this.http.post<ApiResponse<null>>(`https://localhost:52800/api/credit-notes/${uuid}/apply`, { invoiceUuid });
+    return this.http.post<ApiResponse<null>>(`${environment.apiUrl}/credit-notes/${uuid}/apply`, { invoiceUuid });
   }
 
   // ── Debit Notes ───────────────────────────────────────────────────────────
 
   createDebitNote(req: CreateDebitNoteRequest): Observable<ApiResponse<string>> {
-    return this.http.post<ApiResponse<string>>(`https://localhost:52800/api/debit-notes`, req);
+    return this.http.post<ApiResponse<string>>(`${environment.apiUrl}/debit-notes`, req);
   }
 
   getDebitNotes(filter: DebitNoteListFilter): Observable<ApiResponse<PaginatedResponse<DebitNoteListItemModel>>> {
@@ -565,15 +568,15 @@ export class FinanceService {
     if (filter.dateFrom)   params = params.set('dateFrom',   filter.dateFrom);
     if (filter.dateTo)     params = params.set('dateTo',     filter.dateTo);
     return this.http.get<ApiResponse<PaginatedResponse<DebitNoteListItemModel>>>(
-      `https://localhost:52800/api/debit-notes`, { params });
+      `${environment.apiUrl}/debit-notes`, { params });
   }
 
   getDebitNoteById(uuid: string): Observable<ApiResponse<DebitNoteDetailModel>> {
-    return this.http.get<ApiResponse<DebitNoteDetailModel>>(`https://localhost:52800/api/debit-notes/${uuid}`);
+    return this.http.get<ApiResponse<DebitNoteDetailModel>>(`${environment.apiUrl}/debit-notes/${uuid}`);
   }
 
   updateDebitNoteStatus(uuid: string, req: UpdateDebitNoteStatusRequest): Observable<ApiResponse<null>> {
-    return this.http.patch<ApiResponse<null>>(`https://localhost:52800/api/debit-notes/${uuid}/status`, req);
+    return this.http.patch<ApiResponse<null>>(`${environment.apiUrl}/debit-notes/${uuid}/status`, req);
   }
 
   // ── Supplier Ledger (SFM-002) ─────────────────────────────────────────────
@@ -585,18 +588,18 @@ export class FinanceService {
     if (filter.dateFrom) params = params.set('dateFrom', filter.dateFrom);
     if (filter.dateTo)   params = params.set('dateTo',   filter.dateTo);
     return this.http.get<ApiResponse<PaginatedResponse<SupplierLedgerEntryModel>>>(
-      `https://localhost:52800/api/suppliers/${supplierId}/ledger`, { params });
+      `${environment.apiUrl}/suppliers/${supplierId}/ledger`, { params });
   }
 
   getSupplierBalance(supplierId: string): Observable<ApiResponse<SupplierBalanceSummary>> {
     return this.http.get<ApiResponse<SupplierBalanceSummary>>(
-      `https://localhost:52800/api/suppliers/${supplierId}/balance`);
+      `${environment.apiUrl}/suppliers/${supplierId}/balance`);
   }
 
   // ── Supplier Payments (SFM-003/004/005) ──────────────────────────────────
 
   createSupplierPayment(req: CreateSupplierPaymentRequest): Observable<ApiResponse<string>> {
-    return this.http.post<ApiResponse<string>>(`https://localhost:52800/api/supplier-payments`, req);
+    return this.http.post<ApiResponse<string>>(`${environment.apiUrl}/supplier-payments`, req);
   }
 
   getSupplierPayments(filter: SupplierPaymentFilter = {}): Observable<ApiResponse<PaginatedResponse<SupplierPaymentListItemModel>>> {
@@ -610,32 +613,32 @@ export class FinanceService {
     if (filter.dateTo)      params = params.set('dateTo',      filter.dateTo);
     if (filter.invoiceUuid) params = params.set('invoiceUuid', filter.invoiceUuid);
     return this.http.get<ApiResponse<PaginatedResponse<SupplierPaymentListItemModel>>>(
-      `https://localhost:52800/api/supplier-payments`, { params });
+      `${environment.apiUrl}/supplier-payments`, { params });
   }
 
   getSupplierPaymentById(uuid: string): Observable<ApiResponse<SupplierPaymentDetailModel>> {
     return this.http.get<ApiResponse<SupplierPaymentDetailModel>>(
-      `https://localhost:52800/api/supplier-payments/${uuid}`);
+      `${environment.apiUrl}/supplier-payments/${uuid}`);
   }
 
   approveSupplierPayment(uuid: string): Observable<ApiResponse> {
-    return this.http.post<ApiResponse>(`https://localhost:52800/api/supplier-payments/${uuid}/approve`, {});
+    return this.http.post<ApiResponse>(`${environment.apiUrl}/supplier-payments/${uuid}/approve`, {});
   }
 
   cancelSupplierPayment(uuid: string): Observable<ApiResponse> {
-    return this.http.post<ApiResponse>(`https://localhost:52800/api/supplier-payments/${uuid}/cancel`, {});
+    return this.http.post<ApiResponse>(`${environment.apiUrl}/supplier-payments/${uuid}/cancel`, {});
   }
 
   postSupplierPayment(uuid: string): Observable<ApiResponse> {
-    return this.http.post<ApiResponse>(`https://localhost:52800/api/supplier-payments/${uuid}/post`, {});
+    return this.http.post<ApiResponse>(`${environment.apiUrl}/supplier-payments/${uuid}/post`, {});
   }
 
   bounceSupplierPayment(uuid: string): Observable<ApiResponse> {
-    return this.http.post<ApiResponse>(`https://localhost:52800/api/supplier-payments/${uuid}/bounce`, {});
+    return this.http.post<ApiResponse>(`${environment.apiUrl}/supplier-payments/${uuid}/bounce`, {});
   }
 
   getOutstandingInvoices(supplierId: string): Observable<ApiResponse<OutstandingInvoiceModel[]>> {
     return this.http.get<ApiResponse<OutstandingInvoiceModel[]>>(
-      `https://localhost:52800/api/suppliers/${supplierId}/outstanding-invoices`);
+      `${environment.apiUrl}/suppliers/${supplierId}/outstanding-invoices`);
   }
 }

@@ -91,14 +91,14 @@
         <div class="line-fields">
           <div class="form-field product-col">
             <label>Product <span class="required">*</span></label>
-            <p-dropdown [options]="productOptions" [(ngModel)]="line.productUuid"
-                        optionLabel="label" optionValue="value"
-                        [filter]="true" placeholder="Select product..."
-                        (ngModelChange)="onProductChange(i, $event)"
-                        styleClass="w-full"></p-dropdown>
+            <app-product-variant-picker
+              [products]="products"
+              [required]="true"
+              (selectionChange)="onVariantSelected(i, $event)">
+            </app-product-variant-picker>
 
             <!-- Warehouse picker — shown after product is selected -->
-            <div class="warehouse-picker" *ngIf="line.productUuid">
+            <div class="warehouse-picker" *ngIf="line.variantUuid">
               <div class="stock-loading" *ngIf="line.isLoadingStock">
                 <i class="pi pi-spin pi-spinner"></i> Checking stock...
               </div>
@@ -121,7 +121,7 @@
             </div>
 
             <!-- Link to Purchase Requisition — shown after product is selected -->
-            <div class="pr-link-section" *ngIf="line.productUuid">
+            <div class="pr-link-section" *ngIf="line.variantUuid">
               <label class="sub-label">Link to Purchase Requisition (optional)</label>
 
               <div class="pr-link-badge" *ngIf="line.prLineId">
@@ -164,7 +164,7 @@
 
           <div class="form-field est-field">
             <label>Est. Value</label>
-            <div class="est-value">{{ getEstimatedLineValue(line.productUuid, line.requestedQty) | number:'1.2-2' }}</div>
+            <div class="est-value">{{ getEstimatedLineValue(line.unitCost, line.requestedQty) | number:'1.2-2' }}</div>
           </div>
 
           <div class="form-field">

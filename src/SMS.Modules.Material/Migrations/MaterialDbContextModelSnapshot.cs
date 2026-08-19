@@ -367,9 +367,6 @@ namespace SMS.Modules.Material.Migrations
                     b.Property<int?>("PrLineId")
                         .HasColumnType("int");
 
-                    b.Property<Guid>("ProductUuid")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<string>("Purpose")
                         .HasMaxLength(300)
                         .HasColumnType("nvarchar(300)");
@@ -386,6 +383,9 @@ namespace SMS.Modules.Material.Migrations
                     b.Property<string>("UnitOfMeasure")
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid>("VariantUuid")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<int?>("WarehouseId")
                         .HasColumnType("int");
@@ -511,9 +511,6 @@ namespace SMS.Modules.Material.Migrations
                     b.Property<Guid>("OrganizationId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid>("ProductUuid")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<Guid>("UUID")
                         .HasColumnType("uniqueidentifier");
 
@@ -523,6 +520,9 @@ namespace SMS.Modules.Material.Migrations
                     b.Property<string>("UnitOfMeasure")
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid>("VariantUuid")
+                        .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
 
@@ -973,9 +973,6 @@ namespace SMS.Modules.Material.Migrations
                     b.Property<Guid>("OrganizationId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid>("ProductUuid")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<string>("ReleaseReason")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
@@ -995,6 +992,9 @@ namespace SMS.Modules.Material.Migrations
                         .HasColumnType("nvarchar(30)");
 
                     b.Property<Guid>("UUID")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("VariantUuid")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("WarehouseId")

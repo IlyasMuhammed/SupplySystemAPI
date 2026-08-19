@@ -105,7 +105,7 @@ internal sealed class GrnRepository : IGrnRepository
                 UUID               = Guid.NewGuid(),
                 PoLineUuid         = poLine.UUID,
                 RequiresInspection = requiresInspection,
-                ProductUuid        = poLine.ProductUuid,
+                VariantUuid        = poLine.VariantUuid,
                 LineNo             = lineNo++,
                 ItemDescription    = poLine.ItemDescription,
                 UnitOfMeasure      = poLine.UnitOfMeasure,
@@ -228,7 +228,7 @@ internal sealed class GrnRepository : IGrnRepository
             throw new BadRequestException(
                 $"Quantity received ({req.QtyReceived}) exceeds over-receipt tolerance of 3% above ordered quantity ({line.QtyOrdered}).");
 
-        if (req.ProductUuid.HasValue) line.ProductUuid = req.ProductUuid.Value;
+        if (req.VariantUuid.HasValue) line.VariantUuid = req.VariantUuid.Value;
         line.QtyReceived     = req.QtyReceived;
         line.QtyAccepted     = req.QtyAccepted;
         line.QtyRejected     = req.QtyRejected;
@@ -249,13 +249,13 @@ internal sealed class GrnRepository : IGrnRepository
             notes: $"GRN {grn.GrnNumber} line updated: {line.ItemDescription} qty={line.QtyReceived}");
     }
 
-    // Narrow, single-purpose alternative to UpdateLineAsync: only ever touches ProductUuid, nothing
-    // else on the line. Linking a line to its catalogue product doesn't affect quantities, cost, or
+    // Narrow, single-purpose alternative to UpdateLineAsync: only ever touches VariantUuid, nothing
+    // else on the line. Linking a line to its catalogue variant doesn't affect quantities, cost, or
     // any already-recorded QC outcome, so — unlike UpdateLineAsync — this is allowed at any point
     // before the GRN reaches a terminal state, not just while still DRAFT. This exists because
-    // "Cannot post stock: line not linked to a catalogue product" was otherwise only fixable by
-    // rejecting and recreating the whole GRN once past DRAFT.
-    public async Task LinkLineProductAsync(Guid grnUuid, Guid lineUuid, Guid productUuid, int modifiedBy)
+    // "Cannot post stock: line not linked to a catalogue product variant" was otherwise only
+    // fixable by rejecting and recreating the whole GRN once past DRAFT.
+    public async Task LinkLineVariantAsync(Guid grnUuid, Guid lineUuid, Guid variantUuid, int modifiedBy)
     {
         var grn = await _wh.Grns
             .Include(g => g.Lines)
@@ -269,13 +269,13 @@ internal sealed class GrnRepository : IGrnRepository
         var line = grn.Lines.FirstOrDefault(l => l.UUID == lineUuid)
             ?? throw new NotFoundException("GrnLine", lineUuid);
 
-        line.ProductUuid = productUuid;
+        line.VariantUuid = variantUuid;
         grn.ModifiedBy   = modifiedBy;
         grn.ModifiedDate = DateTime.UtcNow;
 
         await _wh.SaveChangesAsync();
         await _audit.LogAsync(modifiedBy, null, "WAREHOUSE", "UPDATE", "GRN", grn.UUID,
-            notes: $"GRN {grn.GrnNumber} line '{line.ItemDescription}' linked to catalogue product {productUuid}.");
+            notes: $"GRN {grn.GrnNumber} line '{line.ItemDescription}' linked to catalogue variant {variantUuid}.");
     }
 
     // ── Record formal inspection result per line (PENDING_QC only) ───────────
@@ -439,12 +439,17 @@ internal sealed class GrnRepository : IGrnRepository
 
         if (grn is null) return null;
 
-        var productUuids = grn.Lines.Where(l => l.ProductUuid.HasValue)
-            .Select(l => l.ProductUuid!.Value).Distinct().ToList();
-        var productNames = productUuids.Count > 0 && _inv is not null
-            ? await _inv.Products.Where(p => productUuids.Contains(p.Uuid))
-                .Select(p => new { p.Uuid, p.Name }).ToDictionaryAsync(p => p.Uuid, p => p.Name)
-            : new Dictionary<Guid, string>();
+        var variantUuids = grn.Lines.Where(l => l.VariantUuid.HasValue)
+            .Select(l => l.VariantUuid!.Value).Distinct().ToList();
+        var variantInfo = new Dictionary<Guid, (string Sku, string VariantName, string ProductName, Guid ProductUuid)>();
+        if (variantUuids.Count > 0 && _inv is not null)
+        {
+            var rows = await _inv.ProductVariants.Where(v => variantUuids.Contains(v.Uuid))
+                .Select(v => new { v.Uuid, v.Sku, v.VariantName, ProductName = v.Product.Name, ProductUuid = v.Product.Uuid })
+                .ToListAsync();
+            foreach (var r in rows)
+                variantInfo[r.Uuid] = (r.Sku, r.VariantName, r.ProductName, r.ProductUuid);
+        }
 
         return new GrnDetailModel
         {
@@ -486,13 +491,19 @@ internal sealed class GrnRepository : IGrnRepository
             IsPartialReceipt       = grn.IsPartialReceipt,
             CreatedBy              = grn.CreatedBy,
             CreatedDate            = grn.CreatedDate,
-            Lines = grn.Lines.Select(l => new GrnLineModel
+            Lines = grn.Lines.Select(l =>
             {
+                var vi = l.VariantUuid.HasValue && variantInfo.TryGetValue(l.VariantUuid.Value, out var info) ? info : ((string, string, string, Guid)?)null;
+                return new GrnLineModel
+                {
                 UUID             = l.UUID,
                 PoLineUuid       = l.PoLineUuid,
                 RequiresInspection = l.RequiresInspection,
-                ProductUuid      = l.ProductUuid,
-                ProductName      = l.ProductUuid.HasValue && productNames.TryGetValue(l.ProductUuid.Value, out var pn) ? pn : null,
+                VariantUuid      = l.VariantUuid,
+                ProductUuid      = vi?.Item4,
+                VariantSku       = vi?.Item1,
+                VariantName      = vi?.Item2,
+                ProductName      = vi?.Item3,
                 LineNo           = l.LineNo,
                 ItemDescription  = l.ItemDescription,
                 UnitOfMeasure    = l.UnitOfMeasure,
@@ -511,6 +522,7 @@ internal sealed class GrnRepository : IGrnRepository
                 InspectorRemarks = l.InspectorRemarks,
                 InspectedBy      = l.InspectedBy,
                 InspectedAt      = l.InspectedAt
+                };
             }).ToList()
         };
     }

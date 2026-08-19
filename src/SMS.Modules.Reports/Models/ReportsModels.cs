@@ -153,8 +153,11 @@ public class StockLevelSummaryFilter
 
 public class StockLevelSummaryItem
 {
+    // PV-005 — ProductCode already holds the variant's own SKU (one row per variant per
+    // warehouse). PV-008 adds VariantName alongside it/ProductName (the parent product's name).
     public string   ProductCode       { get; set; } = string.Empty;
     public string   ProductName       { get; set; } = string.Empty;
+    public string?  VariantName       { get; set; }
     public string?  Category          { get; set; }
     public string?  SubCategory       { get; set; }
     public string?  Warehouse         { get; set; }

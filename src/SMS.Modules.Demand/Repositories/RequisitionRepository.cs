@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using SMS.Modules.Demand.Data;
 using SMS.Modules.Demand.Domain;
 using SMS.Modules.Demand.Models;
+using SMS.Modules.Inventory.Data;
 using SMS.Shared.Exceptions;
 using SMS.Shared.Pagination;
 
@@ -10,8 +11,32 @@ namespace SMS.Modules.Demand.Repositories;
 internal sealed class RequisitionRepository : IRequisitionRepository
 {
     private readonly DemandDbContext _db;
+    // Optional: null in older unit tests that construct this repository directly without an
+    // Inventory context — those tests don't exercise variant resolution. Production DI always
+    // supplies the real InventoryDbContext since it's registered by the Inventory module.
+    // Mirrors PurchaseOrderRepository's identical pattern.
+    private readonly InventoryDbContext? _inv;
 
-    public RequisitionRepository(DemandDbContext db) => _db = db;
+    public RequisitionRepository(DemandDbContext db, InventoryDbContext? inv = null)
+    {
+        _db  = db;
+        _inv = inv;
+    }
+
+    private sealed record VariantDisplayInfo(string Sku, string VariantName, string ProductName, Guid ProductUuid);
+
+    private async Task<Dictionary<Guid, VariantDisplayInfo>> ResolveVariantDisplayInfoAsync(IEnumerable<Guid> variantUuids)
+    {
+        var ids = variantUuids.Distinct().ToList();
+        if (_inv is null || ids.Count == 0) return new Dictionary<Guid, VariantDisplayInfo>();
+
+        var rows = await _inv.ProductVariants
+            .Where(v => ids.Contains(v.Uuid))
+            .Select(v => new { v.Uuid, v.Sku, v.VariantName, ProductName = v.Product.Name, ProductUuid = v.Product.Uuid })
+            .ToListAsync();
+
+        return rows.ToDictionary(r => r.Uuid, r => new VariantDisplayInfo(r.Sku, r.VariantName, r.ProductName, r.ProductUuid));
+    }
 
     // Frontend p-inputNumber widgets already soft-clamp to this range, but that's only a UI
     // hint — nothing stopped a pasted value, a race before blur, or a direct API call from
@@ -148,6 +173,9 @@ internal sealed class RequisitionRepository : IRequisitionRepository
         // Check if there is an awarded quotation linked to this PR
         var linkedAwardedQuotation = await ResolveLinkedAwardedQuotationAsync(pr.UUID);
 
+        var variantInfo = await ResolveVariantDisplayInfoAsync(
+            pr.Lines.Where(l => l.ProductId.HasValue).Select(l => l.ProductId!.Value));
+
         return new PrDetailModel
         {
             UUID                    = pr.UUID,
@@ -171,11 +199,18 @@ internal sealed class RequisitionRepository : IRequisitionRepository
             Notes             = pr.Notes,
             CreatedDate       = pr.CreatedDate,
             CreatedBy         = pr.CreatedBy,
-            Lines             = pr.Lines.Select(l => new PrLineModel
+            Lines             = pr.Lines.Select(l =>
+            {
+                var vi = l.ProductId.HasValue && variantInfo.TryGetValue(l.ProductId.Value, out var info) ? info : null;
+                return new PrLineModel
             {
                 UUID                = l.UUID,
                 LineNo              = l.LineNo,
                 ProductId           = l.ProductId,
+                ProductUuid         = vi?.ProductUuid,
+                VariantSku          = vi?.Sku,
+                VariantName         = vi?.VariantName,
+                ProductName         = vi?.ProductName,
                 ItemDescription     = l.ItemDescription,
                 Specification       = l.Specification,
                 UnitOfMeasure       = l.UnitOfMeasure,
@@ -190,6 +225,7 @@ internal sealed class RequisitionRepository : IRequisitionRepository
                 LineNotes           = l.LineNotes,
                 BudgetCode          = l.BudgetCode,
                 DisbursedQty        = l.DisbursedQty
+                };
             }).ToList()
         };
     }

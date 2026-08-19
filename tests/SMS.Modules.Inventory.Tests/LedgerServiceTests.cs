@@ -29,7 +29,7 @@ file static class LedgerBuild
         return (service, db);
     }
 
-    internal static async Task<(Product product, InventoryWarehouse warehouse)> SeedAsync(InventoryDbContext db)
+    internal static async Task<(ProductVariant variant, InventoryWarehouse warehouse)> SeedAsync(InventoryDbContext db)
     {
         var product = new Product
         {
@@ -44,7 +44,35 @@ file static class LedgerBuild
         db.Products.Add(product);
         db.Warehouses.Add(warehouse);
         await db.SaveChangesAsync();
-        return (product, warehouse);
+
+        var variant = new ProductVariant
+        {
+            Uuid = Guid.NewGuid(), ProductId = product.Id, Sku = "TEST-001-DEFAULT",
+            VariantName = "Default", PurchasePrice = 0m, IsDefault = true, IsActive = true, CreatedBy = 1
+        };
+        db.ProductVariants.Add(variant);
+        await db.SaveChangesAsync();
+        return (variant, warehouse);
+    }
+
+    internal static async Task<ProductVariant> SeedOtherVariantAsync(InventoryDbContext db)
+    {
+        var product = new Product
+        {
+            Uuid = Guid.NewGuid(), Sku = "OTHER-001", Name = "Other Product",
+            Status = "ACTIVE", IsActive = true, CreatedBy = 1
+        };
+        db.Products.Add(product);
+        await db.SaveChangesAsync();
+
+        var variant = new ProductVariant
+        {
+            Uuid = Guid.NewGuid(), ProductId = product.Id, Sku = "OTHER-001-DEFAULT",
+            VariantName = "Default", PurchasePrice = 0m, IsDefault = true, IsActive = true, CreatedBy = 1
+        };
+        db.ProductVariants.Add(variant);
+        await db.SaveChangesAsync();
+        return variant;
     }
 }
 
@@ -56,11 +84,11 @@ public class CreateEntry_QuantityIn_Tests
     public async Task CreateEntry_WithQuantityIn_BalanceIsIncremented()
     {
         var (service, db) = LedgerBuild.New();
-        var (product, warehouse) = await LedgerBuild.SeedAsync(db);
+        var (variant, warehouse) = await LedgerBuild.SeedAsync(db);
 
         await service.CreateEntryAsync(new LedgerEntryCommand
         {
-            ProductId       = product.Id,
+            VariantId       = variant.Id,
             WarehouseId     = warehouse.Id,
             TransactionType = "GRN_RECEIPT",
             ReferenceType   = "GRN",
@@ -72,7 +100,7 @@ public class CreateEntry_QuantityIn_Tests
         });
         await db.SaveChangesAsync();
 
-        var balance = await service.GetCurrentBalanceAsync(product.Id, warehouse.Id);
+        var balance = await service.GetCurrentBalanceAsync(variant.Id, warehouse.Id);
         balance.Should().Be(10m);
     }
 }
@@ -85,12 +113,12 @@ public class CreateEntry_QuantityOut_Tests
     public async Task CreateEntry_WithQuantityOut_BalanceIsDecremented()
     {
         var (service, db) = LedgerBuild.New();
-        var (product, warehouse) = await LedgerBuild.SeedAsync(db);
+        var (variant, warehouse) = await LedgerBuild.SeedAsync(db);
 
         // Seed initial balance of 20 directly
         db.InventoryLedgerEntries.Add(new InventoryLedgerEntry
         {
-            LedgerId        = Guid.NewGuid(), ProductId = product.Id, WarehouseId = warehouse.Id,
+            LedgerId        = Guid.NewGuid(), VariantId = variant.Id, WarehouseId = warehouse.Id,
             TransactionDate = DateTime.UtcNow, TransactionType = "GRN_RECEIPT",
             ReferenceType   = "GRN", ReferenceId = Guid.NewGuid(), ReferenceNumber = "GRN-2026-00001",
             QuantityIn      = 20m, BalanceAfter = 20m, UnitCost = 50m, TransactionValue = 1000m,
@@ -100,7 +128,7 @@ public class CreateEntry_QuantityOut_Tests
 
         await service.CreateEntryAsync(new LedgerEntryCommand
         {
-            ProductId       = product.Id,
+            VariantId       = variant.Id,
             WarehouseId     = warehouse.Id,
             TransactionType = "RETURN_DISPATCH",
             ReferenceType   = "SRO",
@@ -112,7 +140,7 @@ public class CreateEntry_QuantityOut_Tests
         });
         await db.SaveChangesAsync();
 
-        var balance = await service.GetCurrentBalanceAsync(product.Id, warehouse.Id);
+        var balance = await service.GetCurrentBalanceAsync(variant.Id, warehouse.Id);
         balance.Should().Be(15m);
     }
 }
@@ -125,11 +153,11 @@ public class CreateEntry_BothQty_Tests
     public async Task CreateEntry_WithBothQuantities_ThrowsArgumentException()
     {
         var (service, db) = LedgerBuild.New();
-        var (product, warehouse) = await LedgerBuild.SeedAsync(db);
+        var (variant, warehouse) = await LedgerBuild.SeedAsync(db);
 
         var act = () => service.CreateEntryAsync(new LedgerEntryCommand
         {
-            ProductId = product.Id, WarehouseId = warehouse.Id,
+            VariantId = variant.Id, WarehouseId = warehouse.Id,
             TransactionType = "TEST", ReferenceType = "TEST",
             ReferenceId = Guid.NewGuid(), ReferenceNumber = "TEST",
             QuantityIn = 10m, QuantityOut = 5m, UnitCost = 1m, CreatedBy = 1
@@ -147,11 +175,11 @@ public class CreateEntry_NoQty_Tests
     public async Task CreateEntry_WithNoQuantity_ThrowsArgumentException()
     {
         var (service, db) = LedgerBuild.New();
-        var (product, warehouse) = await LedgerBuild.SeedAsync(db);
+        var (variant, warehouse) = await LedgerBuild.SeedAsync(db);
 
         var act = () => service.CreateEntryAsync(new LedgerEntryCommand
         {
-            ProductId = product.Id, WarehouseId = warehouse.Id,
+            VariantId = variant.Id, WarehouseId = warehouse.Id,
             TransactionType = "TEST", ReferenceType = "TEST",
             ReferenceId = Guid.NewGuid(), ReferenceNumber = "TEST",
             UnitCost = 1m, CreatedBy = 1
@@ -169,9 +197,9 @@ public class GetCurrentBalance_NoEntries_Tests
     public async Task GetCurrentBalance_ReturnsZero_WhenNoEntries()
     {
         var (service, db) = LedgerBuild.New();
-        var (product, warehouse) = await LedgerBuild.SeedAsync(db);
+        var (variant, warehouse) = await LedgerBuild.SeedAsync(db);
 
-        var balance = await service.GetCurrentBalanceAsync(product.Id, warehouse.Id);
+        var balance = await service.GetCurrentBalanceAsync(variant.Id, warehouse.Id);
         balance.Should().Be(0m);
     }
 }
@@ -184,33 +212,27 @@ public class GetCurrentBalance_CorrectScope_Tests
     public async Task GetCurrentBalance_ReturnsLatestBalance_ForCorrectProductWarehouse()
     {
         var (service, db) = LedgerBuild.New();
-        var (product, warehouse) = await LedgerBuild.SeedAsync(db);
+        var (variant, warehouse) = await LedgerBuild.SeedAsync(db);
 
-        var otherProduct = new Product
-        {
-            Uuid = Guid.NewGuid(), Sku = "OTHER-001", Name = "Other Product",
-            Status = "ACTIVE", IsActive = true, CreatedBy = 1
-        };
-        db.Products.Add(otherProduct);
-        await db.SaveChangesAsync();
+        var otherVariant = await LedgerBuild.SeedOtherVariantAsync(db);
 
         await service.CreateEntryAsync(new LedgerEntryCommand
         {
-            ProductId = product.Id, WarehouseId = warehouse.Id,
+            VariantId = variant.Id, WarehouseId = warehouse.Id,
             TransactionType = "GRN_RECEIPT", ReferenceType = "GRN",
             ReferenceId = Guid.NewGuid(), ReferenceNumber = "GRN-001",
             QuantityIn = 50m, UnitCost = 10m, CreatedBy = 1
         });
         await service.CreateEntryAsync(new LedgerEntryCommand
         {
-            ProductId = otherProduct.Id, WarehouseId = warehouse.Id,
+            VariantId = otherVariant.Id, WarehouseId = warehouse.Id,
             TransactionType = "GRN_RECEIPT", ReferenceType = "GRN",
             ReferenceId = Guid.NewGuid(), ReferenceNumber = "GRN-001",
             QuantityIn = 200m, UnitCost = 5m, CreatedBy = 1
         });
         await db.SaveChangesAsync();
 
-        var balance = await service.GetCurrentBalanceAsync(product.Id, warehouse.Id);
+        var balance = await service.GetCurrentBalanceAsync(variant.Id, warehouse.Id);
         balance.Should().Be(50m);
     }
 }
@@ -223,11 +245,11 @@ public class SequentialEntries_Tests
     public async Task SequentialEntries_MaintainRunningBalance()
     {
         var (service, db) = LedgerBuild.New();
-        var (product, warehouse) = await LedgerBuild.SeedAsync(db);
+        var (variant, warehouse) = await LedgerBuild.SeedAsync(db);
 
         await service.CreateEntryAsync(new LedgerEntryCommand
         {
-            ProductId = product.Id, WarehouseId = warehouse.Id,
+            VariantId = variant.Id, WarehouseId = warehouse.Id,
             TransactionType = "GRN_RECEIPT", ReferenceType = "GRN",
             ReferenceId = Guid.NewGuid(), ReferenceNumber = "GRN-001",
             QuantityIn = 100m, UnitCost = 10m, CreatedBy = 1
@@ -236,7 +258,7 @@ public class SequentialEntries_Tests
 
         await service.CreateEntryAsync(new LedgerEntryCommand
         {
-            ProductId = product.Id, WarehouseId = warehouse.Id,
+            VariantId = variant.Id, WarehouseId = warehouse.Id,
             TransactionType = "RETURN_DISPATCH", ReferenceType = "SRO",
             ReferenceId = Guid.NewGuid(), ReferenceNumber = "SRO-001",
             QuantityOut = 30m, UnitCost = 10m, CreatedBy = 1
@@ -245,14 +267,14 @@ public class SequentialEntries_Tests
 
         await service.CreateEntryAsync(new LedgerEntryCommand
         {
-            ProductId = product.Id, WarehouseId = warehouse.Id,
+            VariantId = variant.Id, WarehouseId = warehouse.Id,
             TransactionType = "GRN_RECEIPT", ReferenceType = "GRN",
             ReferenceId = Guid.NewGuid(), ReferenceNumber = "GRN-002",
             QuantityIn = 50m, UnitCost = 10m, CreatedBy = 1
         });
         await db.SaveChangesAsync();
 
-        var balance = await service.GetCurrentBalanceAsync(product.Id, warehouse.Id);
+        var balance = await service.GetCurrentBalanceAsync(variant.Id, warehouse.Id);
         balance.Should().Be(120m); // 100 - 30 + 50
     }
 }
@@ -265,6 +287,7 @@ public class GrnReceipt_Integration_Tests
     public async Task PostToInventory_CreatesGrnReceiptLedgerEntry()
     {
         var productUuid   = Guid.NewGuid();
+        var variantUuid   = Guid.NewGuid();
         var warehouseUuid = Guid.NewGuid();
 
         var invOpts = new DbContextOptionsBuilder<InventoryDbContext>()
@@ -274,15 +297,23 @@ public class GrnReceipt_Integration_Tests
         var inv    = new InventoryDbContext(invOpts, new StaticTenantContext());
         var ledger = new InventoryLedgerService(inv, NullLogger<InventoryLedgerService>.Instance);
 
-        inv.Products.Add(new Product
+        var product = new Product
         {
             Uuid = productUuid, Sku = "PROD-001", Name = "Test Product",
             Status = "ACTIVE", IsActive = true, CreatedBy = 1
-        });
+        };
+        inv.Products.Add(product);
         inv.Warehouses.Add(new InventoryWarehouse
         {
             Uuid = warehouseUuid, Code = "WH1", Name = "Main WH",
             IsActive = true, CreatedBy = 1
+        });
+        await inv.SaveChangesAsync();
+
+        inv.ProductVariants.Add(new ProductVariant
+        {
+            Uuid = variantUuid, ProductId = product.Id, Sku = "PROD-001-DEFAULT",
+            VariantName = "Default", PurchasePrice = 10m, IsDefault = true, IsActive = true, CreatedBy = 1
         });
         await inv.SaveChangesAsync();
 
@@ -307,7 +338,7 @@ public class GrnReceipt_Integration_Tests
                 {
                     UUID            = Guid.NewGuid(),
                     PoLineUuid      = Guid.NewGuid(),
-                    ProductUuid     = productUuid,
+                    VariantUuid     = variantUuid,
                     LineNo          = 1,
                     ItemDescription = "Test Product",
                     UnitOfMeasure   = "EA",
@@ -339,12 +370,12 @@ public class StockAdjustment_Integration_Tests
     public async Task NegativeAdjustment_CreatesStockAdjustmentEntry_WithQuantityOut()
     {
         var (service, db) = LedgerBuild.New();
-        var (product, warehouse) = await LedgerBuild.SeedAsync(db);
+        var (variant, warehouse) = await LedgerBuild.SeedAsync(db);
 
         // Create initial inventory balance via service
         await service.CreateEntryAsync(new LedgerEntryCommand
         {
-            ProductId = product.Id, WarehouseId = warehouse.Id,
+            VariantId = variant.Id, WarehouseId = warehouse.Id,
             TransactionType = "GRN_RECEIPT", ReferenceType = "GRN",
             ReferenceId = Guid.NewGuid(), ReferenceNumber = "GRN-001",
             QuantityIn = 100m, UnitCost = 10m, CreatedBy = 1
@@ -354,7 +385,7 @@ public class StockAdjustment_Integration_Tests
         // Negative adjustment: 100 - 15 = 85
         await service.CreateEntryAsync(new LedgerEntryCommand
         {
-            ProductId       = product.Id,
+            VariantId       = variant.Id,
             WarehouseId     = warehouse.Id,
             TransactionType = "STOCK_ADJUSTMENT",
             ReferenceType   = "ADJUSTMENT",

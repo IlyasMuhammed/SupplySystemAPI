@@ -14,6 +14,7 @@ internal class ProductCategory : ITenantScopedEntity
 
     public ICollection<ProductSubCategory> SubCategories { get; set; } = new List<ProductSubCategory>();
     public ICollection<Product> Products { get; set; } = new List<Product>();
+    public ICollection<CategoryAttribute> CategoryAttributes { get; set; } = new List<CategoryAttribute>();
 }
 
 internal class ProductSubCategory : ITenantScopedEntity
@@ -71,7 +72,6 @@ internal class Product : ITenantScopedEntity
 
     public ProductCategory? Category { get; set; }
     public ProductSubCategory? SubCategory { get; set; }
-    public ICollection<InventoryItem> InventoryItems { get; set; } = new List<InventoryItem>();
     public ICollection<ProductVariant> Variants { get; set; } = new List<ProductVariant>();
 }
 
@@ -101,6 +101,97 @@ internal class ProductVariant : ITenantScopedEntity
     public int      CreatedBy      { get; set; }
 
     public Product Product { get; set; } = null!;
+    public ICollection<VariantAttributeValue> AttributeValues { get; set; } = new List<VariantAttributeValue>();
+    // PV-005 — stock is tracked per variant per warehouse, not per parent product.
+    public ICollection<InventoryItem> InventoryItems { get; set; } = new List<InventoryItem>();
+}
+
+// FSD Addendum 26 (PV-002) — RAM/CPU/Color/Size/... are never columns; every attribute a
+// category needs is metadata defined here once per org, then linked to whichever categories
+// use it via CategoryAttribute, and stored per-variant via VariantAttributeValue. Adding a new
+// attribute for a new industry is an Admin action, not a schema change.
+internal class AttributeDefinition : ITenantScopedEntity
+{
+    public int      Id              { get; set; }
+    public Guid     Uuid            { get; set; } = Guid.NewGuid();
+    public Guid     OrganizationId  { get; set; }
+    public string   AttributeName   { get; set; } = string.Empty;  // internal name, e.g. "cpu"
+    public string   DisplayName     { get; set; } = string.Empty;  // user-visible label, e.g. "CPU"
+    // TEXT | NUMBER | DECIMAL | DATE | BOOLEAN | DROPDOWN | MULTI_SELECT
+    public string   DataType        { get; set; } = string.Empty;
+    // TEXTBOX | NUMBERBOX | DATEPICKER | TOGGLE | DROPDOWN | MULTI_SELECT | TEXTAREA
+    public string   ControlType     { get; set; } = string.Empty;
+    // JSON array of allowed values — required when DataType is DROPDOWN/MULTI_SELECT.
+    public string?  DropdownOptions { get; set; }
+    public string?  DefaultValue    { get; set; }
+    public string?  ValidationRegex { get; set; }
+    public bool     IsRequired      { get; set; }
+    public bool     IsSearchable    { get; set; }
+    public bool     IsFilterable    { get; set; }
+    public int      SortOrder       { get; set; }
+    public bool     IsActive        { get; set; } = true;
+
+    public ICollection<CategoryAttribute> CategoryAttributes { get; set; } = new List<CategoryAttribute>();
+    public ICollection<VariantAttributeValue> VariantValues { get; set; } = new List<VariantAttributeValue>();
+}
+
+// Links an AttributeDefinition to a ProductCategory — which categories show which attributes on
+// the dynamic form, with a per-category is_required override and its own display order.
+internal class CategoryAttribute : ITenantScopedEntity
+{
+    public int  Id             { get; set; }
+    public int  CategoryId     { get; set; }
+    public int  AttributeId    { get; set; }
+    public Guid OrganizationId { get; set; }
+    // Overrides AttributeDefinition.IsRequired for this specific category (e.g. Color is
+    // optional globally but required for Garments).
+    public bool IsRequired     { get; set; }
+    public int  DisplayOrder   { get; set; }
+
+    public ProductCategory      Category  { get; set; } = null!;
+    public AttributeDefinition  Attribute { get; set; } = null!;
+}
+
+// The actual value a specific variant has for a specific attribute — always stored as text;
+// the application layer parses/validates against AttributeDefinition.DataType.
+internal class VariantAttributeValue : ITenantScopedEntity
+{
+    public int    Id             { get; set; }
+    public int    VariantId      { get; set; }
+    public int    AttributeId    { get; set; }
+    public Guid   OrganizationId { get; set; }
+    public string Value          { get; set; } = string.Empty;
+
+    public ProductVariant       Variant   { get; set; } = null!;
+    public AttributeDefinition  Attribute { get; set; } = null!;
+}
+
+// FSD §8 (PV-006) — denormalised, one row per variant, kept in sync by
+// IProductSearchIndexService via Hangfire whenever a variant or its attribute values change.
+// SearchableText is the concatenation of product name + variant name + sku + barcode + every
+// searchable attribute value, and carries the SQL Server Full-Text index used by product search.
+internal class ProductSearchIndex : ITenantScopedEntity
+{
+    public int     Id             { get; set; }
+    public int     VariantId      { get; set; }
+    public int     ProductId      { get; set; }
+    public Guid    OrganizationId { get; set; }
+    public string  ProductName    { get; set; } = string.Empty;
+    public string  ProductCode    { get; set; } = string.Empty;  // parent product's own SKU
+    public string  Sku            { get; set; } = string.Empty;  // variant SKU
+    public string? Barcode        { get; set; }
+    public string  VariantName    { get; set; } = string.Empty;
+    public string? CategoryName   { get; set; }
+    public string? Brand          { get; set; }
+    public string  SearchableText { get; set; } = string.Empty;
+    // Not in the FSD's literal column list, but required to keep RebuildAllAsync's "active
+    // variants only" contract enforceable at query time without re-joining ProductVariants on
+    // every search request.
+    public bool     IsActive      { get; set; } = true;
+    public DateTime UpdatedDate   { get; set; } = DateTime.UtcNow;
+
+    public ProductVariant Variant { get; set; } = null!;
+    public Product        Product { get; set; } = null!;
 }
 
 internal class Warehouse : ITenantScopedEntity
@@ -185,12 +276,14 @@ internal class Bin : ITenantScopedEntity
     public ICollection<InventoryItem> InventoryItems { get; set; } = new List<InventoryItem>();
 }
 
+// PV-005 — stock is now tracked per variant per warehouse, not per (parent) product. Every
+// row keys off ProductVariant, never Product directly.
 internal class InventoryItem : ITenantScopedEntity
 {
     public int Id { get; set; }
     public Guid Uuid { get; set; } = Guid.NewGuid();
     public Guid OrganizationId { get; set; }
-    public int ProductId { get; set; }
+    public int VariantId { get; set; }
     public int WarehouseId { get; set; }
     public int? ZoneId { get; set; }
     public int? BinId { get; set; }
@@ -212,7 +305,7 @@ internal class InventoryItem : ITenantScopedEntity
     public decimal? ReorderPoint { get; set; }
     public DateTime LastUpdated { get; set; } = DateTime.UtcNow;
 
-    public Product Product { get; set; } = null!;
+    public ProductVariant Variant { get; set; } = null!;
     public Warehouse Warehouse { get; set; } = null!;
     public Zone? Zone { get; set; }
     public Bin? Bin { get; set; }
@@ -223,7 +316,7 @@ internal class InventoryLedgerEntry : ITenantScopedEntity
 {
     public Guid LedgerId { get; set; }
     public Guid OrganizationId { get; set; }
-    public int ProductId { get; set; }
+    public int VariantId { get; set; }
     public int WarehouseId { get; set; }
     public DateTime TransactionDate { get; set; }
     public string TransactionType { get; set; } = string.Empty;  // GRN_RECEIPT | STOCK_ADJUSTMENT | RETURN_DISPATCH
@@ -239,7 +332,7 @@ internal class InventoryLedgerEntry : ITenantScopedEntity
     public int CreatedBy { get; set; }
     public DateTime CreatedAt { get; set; }
 
-    public Product Product { get; set; } = null!;
+    public ProductVariant Variant { get; set; } = null!;
     public Warehouse Warehouse { get; set; } = null!;
 }
 
@@ -251,7 +344,7 @@ internal class StockAdjustment : ITenantScopedEntity
     public string? AdjNumber { get; set; }       // ADJ-YYYY-NNNNN
     public int InventoryItemId { get; set; }
     // Denormalised for easy querying (set at creation time from InventoryItem)
-    public int ProductId { get; set; }
+    public int VariantId { get; set; }
     public int WarehouseId { get; set; }
     // Adjustment type: Write-off | Damage | Count | Transfer
     public string? AdjType { get; set; }

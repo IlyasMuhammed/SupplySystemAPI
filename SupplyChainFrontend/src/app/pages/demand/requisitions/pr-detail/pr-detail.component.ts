@@ -28,7 +28,6 @@ import {
   PrLineVendorAssignment
 } from '../../../../services/demand.service';
 import { SupplierService, SupplierListItemModel } from '../../../../services/supplier.service';
-import { InventoryService } from '../../../../services/inventory.service';
 import { MaterialService, PrLineDisbursement } from '../../../../services/material.service';
 import { TimelinePanelComponent } from '../../../../shared/timeline-panel/timeline-panel.component';
 import { AttachmentListComponent } from '../../../../shared/attachment-list/attachment-list.component';
@@ -73,9 +72,6 @@ export class PrDetailComponent implements OnInit {
   // ── Supplier autocomplete ─────────────────────────────────────────────────
   supplierSuggestions: SupplierListItemModel[] = [];
 
-  // ── Product name lookup ───────────────────────────────────────────────────
-  productsMap: Map<string, string> = new Map();
-
   // ── Disbursement drill-down panel ─────────────────────────────────────────
   showDisbursementPanel   = false;
   disbursementLine: PrLineModel | null = null;
@@ -90,29 +86,27 @@ export class PrDetailComponent implements OnInit {
     private router: Router,
     private demandService: DemandService,
     private supplierService: SupplierService,
-    private inventoryService: InventoryService,
     private materialService: MaterialService,
     private messageService: MessageService,
     private confirmationService: ConfirmationService
   ) {}
 
   ngOnInit() {
-    this.inventoryService.getProducts({ pageSize: 1000 }).subscribe({
-      next: res => {
-        if (res.success) {
-          res.result.data.forEach(p => this.productsMap.set(p.uuid, p.name));
-        }
-      }
-    });
     this.route.params.subscribe(p => {
       this.uuid = p['uuid'];
       this.load();
     });
   }
 
-  getProductName(productId?: string | null): string | null {
-    if (!productId) return null;
-    return this.productsMap.get(productId) ?? null;
+  // Was getProductName(line.productId) looking up a Product-uuid-keyed map — broken once
+  // line.productId started holding the selected *variant's* uuid (PV-004), since that never
+  // matches a product's own uuid. The backend now resolves productName/variantName directly on
+  // each line (batch-resolved cross-module), so use those instead of a client-side lookup.
+  lineDisplayName(line: { productName?: string; variantName?: string; itemDescription: string }): string {
+    if (line.productName && line.variantName && line.variantName !== 'Default') {
+      return `${line.productName} (${line.variantName})`;
+    }
+    return line.productName || line.itemDescription;
   }
 
   load() {

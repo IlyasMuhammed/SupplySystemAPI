@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using SMS.Modules.Demand.Data;
 using SMS.Modules.Demand.Domain;
 using SMS.Modules.Demand.Models;
+using SMS.Modules.Inventory.Data;
 using SMS.Shared.Exceptions;
 using SMS.Shared.Pagination;
 
@@ -12,11 +13,16 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
 {
     private readonly DemandDbContext _db;
     private readonly ILogger<PurchaseOrderRepository> _logger;
+    // Optional: null in older unit tests that construct this repository directly without an
+    // Inventory context — those tests don't exercise variant resolution. Production DI always
+    // supplies the real InventoryDbContext since it's registered by the Inventory module.
+    private readonly InventoryDbContext? _inv;
 
-    public PurchaseOrderRepository(DemandDbContext db, ILogger<PurchaseOrderRepository> logger)
+    public PurchaseOrderRepository(DemandDbContext db, ILogger<PurchaseOrderRepository> logger, InventoryDbContext? inv = null)
     {
         _db     = db;
         _logger = logger;
+        _inv    = inv;
     }
 
     // ── Single-vendor conversion: all PR lines → one PO ──────────────────────
@@ -37,6 +43,9 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
         var now      = DateTime.UtcNow;
         var poNumber = await GeneratePoNumberAsync(now.Year);
 
+        var defaultVariants = await ResolveDefaultVariantUuidsAsync(
+            pr.Lines.Where(l => l.ProductId.HasValue).Select(l => l.ProductId!.Value));
+
         var poLines = new List<PurchaseOrderLine>();
         int lineNo  = 1;
         foreach (var prLine in pr.Lines.OrderBy(l => l.LineNo))
@@ -46,7 +55,7 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
                 UUID             = Guid.NewGuid(),
                 LineNo           = lineNo++,
                 SourcePrLineUuid = prLine.UUID,
-                ProductUuid      = prLine.ProductId,
+                VariantUuid      = prLine.ProductId.HasValue && defaultVariants.TryGetValue(prLine.ProductId.Value, out var vUuid) ? vUuid : null,
                 ItemDescription  = prLine.ItemDescription,
                 Specification    = prLine.Specification,
                 UnitOfMeasure    = prLine.UnitOfMeasure,
@@ -120,6 +129,9 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
         var poUuids    = new List<Guid>();
         int poIndex    = 0;
 
+        var defaultVariants = await ResolveDefaultVariantUuidsAsync(
+            assignments.Where(a => a.PrLine.ProductId.HasValue).Select(a => a.PrLine.ProductId!.Value));
+
         foreach (var group in grouped)
         {
             var firstAssignment = group.First().Assignment;
@@ -133,7 +145,7 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
                     UUID             = Guid.NewGuid(),
                     LineNo           = lineNo++,
                     SourcePrLineUuid = prLine.UUID,
-                    ProductUuid      = prLine.ProductId,
+                    VariantUuid      = prLine.ProductId.HasValue && defaultVariants.TryGetValue(prLine.ProductId.Value, out var vUuid) ? vUuid : null,
                     ItemDescription  = prLine.ItemDescription,
                     Specification    = prLine.Specification,
                     UnitOfMeasure    = prLine.UnitOfMeasure,
@@ -237,6 +249,9 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
             foreach (var pr in prs)
                 ValidateQuotationRequirements(pr.Lines);
 
+            var defaultVariants = await ResolveDefaultVariantUuidsAsync(
+                prs.SelectMany(p => p.Lines).Where(l => l.ProductId.HasValue).Select(l => l.ProductId!.Value));
+
             int lineNo = 1;
             foreach (var pr in prs)
             {
@@ -247,7 +262,7 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
                         UUID             = Guid.NewGuid(),
                         LineNo           = lineNo++,
                         SourcePrLineUuid = prLine.UUID,
-                        ProductUuid      = prLine.ProductId,
+                        VariantUuid      = prLine.ProductId.HasValue && defaultVariants.TryGetValue(prLine.ProductId.Value, out var vUuid) ? vUuid : null,
                         ItemDescription  = prLine.ItemDescription,
                         Specification    = prLine.Specification,
                         UnitOfMeasure    = prLine.UnitOfMeasure,
@@ -271,21 +286,25 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
         {
             ValidateLineQuantities(req.Lines.Select(l => l.Quantity));
 
+            var variantPrices = await ResolveVariantPricesAsync(
+                req.Lines.Where(l => l.VariantUuid.HasValue).Select(l => l.VariantUuid!.Value));
+
             int lineNo = 1;
             foreach (var line in req.Lines)
             {
+                var unitPrice = ResolveLineUnitPrice(line.UnitPrice, line.VariantUuid, variantPrices);
                 po.Lines.Add(new PurchaseOrderLine
                 {
                     UUID             = Guid.NewGuid(),
                     LineNo           = lineNo++,
                     SourcePrLineUuid = line.SourcePrLineUuid,
-                    ProductUuid      = line.ProductUuid,
+                    VariantUuid      = line.VariantUuid,
                     ItemDescription  = line.ItemDescription,
                     Specification    = line.Specification,
                     UnitOfMeasure    = line.UnitOfMeasure,
                     Quantity         = line.Quantity,
-                    UnitPrice        = line.UnitPrice,
-                    LineTotal        = line.Quantity * line.UnitPrice,
+                    UnitPrice        = unitPrice,
+                    LineTotal        = line.Quantity * unitPrice,
                     RequiredDate     = line.RequiredDate,
                     LineNotes        = line.LineNotes,
                     BudgetCode       = line.BudgetCode,
@@ -327,22 +346,26 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
         {
             ValidateLineQuantities(req.Lines.Select(l => l.Quantity));
 
+            var variantPrices = await ResolveVariantPricesAsync(
+                req.Lines.Where(l => l.VariantUuid.HasValue).Select(l => l.VariantUuid!.Value));
+
             _db.PurchaseOrderLines.RemoveRange(po.Lines);
             int lineNo = 1;
             foreach (var l in req.Lines)
             {
+                var unitPrice = ResolveLineUnitPrice(l.UnitPrice, l.VariantUuid, variantPrices);
                 po.Lines.Add(new PurchaseOrderLine
                 {
                     UUID             = Guid.NewGuid(),
                     LineNo           = lineNo++,
                     SourcePrLineUuid = l.SourcePrLineUuid,
-                    ProductUuid      = l.ProductUuid,
+                    VariantUuid      = l.VariantUuid,
                     ItemDescription  = l.ItemDescription,
                     Specification    = l.Specification,
                     UnitOfMeasure    = l.UnitOfMeasure,
                     Quantity         = l.Quantity,
-                    UnitPrice        = l.UnitPrice,
-                    LineTotal        = l.Quantity * l.UnitPrice,
+                    UnitPrice        = unitPrice,
+                    LineTotal        = l.Quantity * unitPrice,
                     RequiredDate     = l.RequiredDate,
                     LineNotes        = l.LineNotes,
                     BudgetCode       = l.BudgetCode,
@@ -351,7 +374,7 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
                     RequiresInspection = l.RequiresInspection
                 });
             }
-            po.TotalAmount = po.Lines.Sum(l => l.Quantity * l.UnitPrice);
+            po.TotalAmount = po.Lines.Sum(l => l.LineTotal);
         }
 
         po.ModifiedBy   = modifiedBy;
@@ -443,6 +466,9 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
 
         if (po is null) return null;
 
+        var variantInfo = await ResolveVariantDisplayInfoAsync(
+            po.Lines.Where(l => l.VariantUuid.HasValue).Select(l => l.VariantUuid!.Value));
+
         return new PoDetailModel
         {
             UUID                  = po.UUID,
@@ -462,28 +488,36 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
             CreatedBy             = po.CreatedBy,
             CreatedDate           = po.CreatedDate,
             LinkedPrUuids         = po.PrLinks.Select(l => l.PrUuid).ToList(),
-            Lines = po.Lines.Select(l => new PoLineModel
+            Lines = po.Lines.Select(l =>
             {
-                UUID                  = l.UUID,
-                LineNo                = l.LineNo,
-                SourcePrLineUuid      = l.SourcePrLineUuid,
-                ProductUuid           = l.ProductUuid,
-                ItemDescription       = l.ItemDescription,
-                Specification         = l.Specification,
-                UnitOfMeasure         = l.UnitOfMeasure,
-                Quantity              = l.Quantity,
-                UnitPrice             = l.UnitPrice,
-                LineTotal             = l.LineTotal,
-                QtyReceived           = l.QtyReceived,
-                QtyInvoiced           = l.QtyInvoiced,
-                RequiredDate          = l.RequiredDate,
-                LineNotes             = l.LineNotes,
-                BudgetCode            = l.BudgetCode,
-                WarehouseId           = l.WarehouseId,
-                WarehouseName         = l.WarehouseName,
-                EffectiveWarehouseId  = l.EffectiveWarehouseId,
-                EffectiveWarehouseName = l.EffectiveWarehouseName,
-                RequiresInspection    = l.RequiresInspection
+                var vi = l.VariantUuid.HasValue && variantInfo.TryGetValue(l.VariantUuid.Value, out var info) ? info : null;
+                return new PoLineModel
+                {
+                    UUID                  = l.UUID,
+                    LineNo                = l.LineNo,
+                    SourcePrLineUuid      = l.SourcePrLineUuid,
+                    VariantUuid           = l.VariantUuid,
+                    ProductUuid           = vi?.ProductUuid,
+                    VariantSku            = vi?.Sku,
+                    VariantName           = vi?.VariantName,
+                    ProductName           = vi?.ProductName,
+                    ItemDescription       = l.ItemDescription,
+                    Specification         = l.Specification,
+                    UnitOfMeasure         = l.UnitOfMeasure,
+                    Quantity              = l.Quantity,
+                    UnitPrice             = l.UnitPrice,
+                    LineTotal             = l.LineTotal,
+                    QtyReceived           = l.QtyReceived,
+                    QtyInvoiced           = l.QtyInvoiced,
+                    RequiredDate          = l.RequiredDate,
+                    LineNotes             = l.LineNotes,
+                    BudgetCode            = l.BudgetCode,
+                    WarehouseId           = l.WarehouseId,
+                    WarehouseName         = l.WarehouseName,
+                    EffectiveWarehouseId  = l.EffectiveWarehouseId,
+                    EffectiveWarehouseName = l.EffectiveWarehouseName,
+                    RequiresInspection    = l.RequiresInspection
+                };
             }).ToList()
         };
     }
@@ -535,6 +569,55 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
             if (qty > MaxLineQuantity)
                 throw new BadRequestException($"Line quantity must not exceed {MaxLineQuantity:N0}.");
         }
+    }
+
+    // PV-004 — a PR line only ever references a Product; converting it into a PO line requires a
+    // specific ProductVariant. Every product has exactly one is_default=true variant (auto-created
+    // by PV-001, even for single-SKU products like Cement), so conversion always resolves cleanly.
+    private async Task<Dictionary<Guid, Guid>> ResolveDefaultVariantUuidsAsync(IEnumerable<Guid> productUuids)
+    {
+        var ids = productUuids.Distinct().ToList();
+        if (_inv is null || ids.Count == 0) return new Dictionary<Guid, Guid>();
+
+        return await _inv.ProductVariants
+            .Where(v => v.IsDefault && ids.Contains(v.Product.Uuid))
+            .Select(v => new { ProductUuid = v.Product.Uuid, v.Uuid })
+            .ToDictionaryAsync(x => x.ProductUuid, x => x.Uuid);
+    }
+
+    private async Task<Dictionary<Guid, decimal>> ResolveVariantPricesAsync(IEnumerable<Guid> variantUuids)
+    {
+        var ids = variantUuids.Distinct().ToList();
+        if (_inv is null || ids.Count == 0) return new Dictionary<Guid, decimal>();
+
+        return await _inv.ProductVariants
+            .Where(v => ids.Contains(v.Uuid))
+            .Select(v => new { v.Uuid, v.PurchasePrice })
+            .ToDictionaryAsync(x => x.Uuid, x => x.PurchasePrice);
+    }
+
+    // Unit_price defaults from ProductVariant.purchase_price when the caller doesn't supply one —
+    // an explicit 0 or positive price from the caller always wins over the catalogue default.
+    private static decimal ResolveLineUnitPrice(decimal requestedUnitPrice, Guid? variantUuid, Dictionary<Guid, decimal> variantPrices)
+    {
+        if (requestedUnitPrice > 0) return requestedUnitPrice;
+        if (variantUuid.HasValue && variantPrices.TryGetValue(variantUuid.Value, out var price)) return price;
+        return requestedUnitPrice;
+    }
+
+    private sealed record VariantDisplayInfo(string Sku, string VariantName, string ProductName, Guid ProductUuid);
+
+    private async Task<Dictionary<Guid, VariantDisplayInfo>> ResolveVariantDisplayInfoAsync(IEnumerable<Guid> variantUuids)
+    {
+        var ids = variantUuids.Distinct().ToList();
+        if (_inv is null || ids.Count == 0) return new Dictionary<Guid, VariantDisplayInfo>();
+
+        var rows = await _inv.ProductVariants
+            .Where(v => ids.Contains(v.Uuid))
+            .Select(v => new { v.Uuid, v.Sku, v.VariantName, ProductName = v.Product.Name, ProductUuid = v.Product.Uuid })
+            .ToListAsync();
+
+        return rows.ToDictionary(r => r.Uuid, r => new VariantDisplayInfo(r.Sku, r.VariantName, r.ProductName, r.ProductUuid));
     }
 
     private static void ValidateQuotationRequirements(IEnumerable<PrLine> lines)

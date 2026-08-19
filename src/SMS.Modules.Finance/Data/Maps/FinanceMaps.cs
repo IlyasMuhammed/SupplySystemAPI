@@ -167,10 +167,12 @@ internal sealed class MasterProductLedgerMap : IEntityTypeConfiguration<MasterPr
         b.Property(x => x.LedgerId).IsRequired();
         b.HasIndex(x => x.LedgerId).IsUnique();
 
-        b.Property(x => x.ProductId).IsRequired();
-        b.HasIndex(x => x.ProductId);
+        b.Property(x => x.VariantId).IsRequired();
+        b.HasIndex(x => x.VariantId);
         b.Property(x => x.ProductCode).HasMaxLength(50).IsRequired();
         b.Property(x => x.ProductName).HasMaxLength(200).IsRequired();
+        b.Property(x => x.VariantName).HasMaxLength(200);
+        b.Property(x => x.Sku).HasMaxLength(50);
         b.HasIndex(x => x.CategoryId);
         b.Property(x => x.CategoryName).HasMaxLength(200);
 

@@ -85,7 +85,7 @@ public class MirService_TimelineWiring_Tests
             RequestType = "DEPARTMENT",
             Department  = "IT",
             Priority    = "MEDIUM",
-            Lines       = [new CreateMirLineRequest { ProductUuid = product.Uuid, RequestedQty = 2m }]
+            Lines       = [new CreateMirLineRequest { VariantUuid = product.Variants.First().Uuid, RequestedQty = 2m }]
         }, createdBy: 1);
 
         // Proves the business action completed successfully — the timeline write is a

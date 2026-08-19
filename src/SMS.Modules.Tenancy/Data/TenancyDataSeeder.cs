@@ -124,7 +124,15 @@ internal sealed class TenancyDataSeeder
 
         _db.Organizations.Add(new Organization
         {
-            Id          = Guid.NewGuid(),
+            // A real Organization row must exist at this well-known id, not a random one — it's
+            // the hardcoded fallback TenantContext.OrganizationId resolves to for any caller with
+            // no HttpContext (startup-time seeding, Hangfire jobs with no captured origin org), so
+            // on a genuinely fresh database a random id here left every such fallback pointing at
+            // a nonexistent org, which the login-time org-active check then (correctly) treats as
+            // deactivated. Confirmed only by seeding a truly empty database from scratch — SMS_Dev
+            // was seeded once, long enough ago, that its own SCM-DEMO row already happened to carry
+            // this id from whatever version of this method ran at the time.
+            Id          = TenantDefaults.ScmDemoOrganizationId,
             OrgCode     = DemoOrgCode,
             OrgName     = "Supply Chain Demo",
             Plan        = TenancyFeatureCatalog.PlanEnterprise,

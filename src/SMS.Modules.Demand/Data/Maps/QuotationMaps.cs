@@ -116,6 +116,7 @@ internal sealed class VendorResponseLineMap : IEntityTypeConfiguration<VendorRes
         b.Property(x => x.Quantity).HasColumnType("decimal(18,4)");
         b.Property(x => x.LineTotal).HasColumnType("decimal(18,2)");
         b.Property(x => x.Notes).HasMaxLength(500);
+        b.Property(x => x.CanSupply).IsRequired().HasDefaultValue(true);
         b.Property(x => x.OrganizationId).IsRequired();
         b.HasIndex(x => x.OrganizationId);
 

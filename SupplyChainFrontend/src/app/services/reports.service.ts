@@ -2,8 +2,9 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { TimelineEvent } from './timeline.service';
+import { environment } from '../../environments/environment';
 
-const BASE = 'https://localhost:52800/api/reports';
+const BASE = `${environment.apiUrl}/reports`;
 
 export interface ApiResponse<T = null> {
   success: boolean;
@@ -315,11 +316,17 @@ export interface MaterialIssueRegisterItem {
   lineCount:   number;
   notes:       string | null;
   createdDate: string;
+  // PV-008 — every line's product+variant description, joined (e.g. "Dell Latitude 5450 (i7 /
+  // 16GB / 512GB); OPC Cement 50kg").
+  itemsSummary: string;
 }
 
 export interface MaterialConsumptionReportItem {
   productName:   string;
   productUuid:   string;
+  // PV-008 — resolved from ProductVariant alongside the existing productName.
+  variantName:   string;
+  sku:           string | null;
   unitOfMeasure: string | null;
   mirNo:         string;
   mirUuid:       string;
@@ -337,6 +344,10 @@ export interface ProjectConsumptionItem {
   projectName:     string;
   itemDescription: string;
   productUuid:     string;
+  // PV-008 — resolved from ProductVariant.
+  productName:     string;
+  variantName:     string;
+  sku:             string | null;
   transactionType: string;
   referenceNumber: string;
   quantity:        number;
@@ -350,6 +361,10 @@ export interface DepartmentConsumptionItem {
   costCenter:      string | null;
   itemDescription: string;
   productUuid:     string;
+  // PV-008 — resolved from ProductVariant.
+  productName:     string;
+  variantName:     string;
+  sku:             string | null;
   transactionType: string;
   referenceNumber: string;
   quantity:        number;
@@ -364,6 +379,7 @@ export interface StockMovementItem {
   productName:     string;
   productUuid:     string;
   sku:             string | null;
+  variantName:     string | null;
   warehouseName:   string;
   quantityIn:      number;
   quantityOut:     number;
@@ -380,6 +396,8 @@ export interface StockLedgerItem {
   transactionType: string;
   productName:     string;
   productUuid:     string;
+  sku:             string | null;
+  variantName:     string | null;
   warehouseName:   string;
   quantityIn:      number;
   quantityOut:     number;
@@ -397,6 +415,10 @@ export interface MaterialReturnReportItem {
   returnDate:      string;
   itemDescription: string;
   productUuid:     string;
+  // PV-008 — resolved from ProductVariant.
+  productName:     string;
+  variantName:     string;
+  sku:             string | null;
   unitOfMeasure:   string | null;
   returnedQty:     number;
   condition:       string;
@@ -411,6 +433,10 @@ export interface WastageReportItem {
   sourceType:      string;
   itemDescription: string;
   productUuid:     string;
+  // PV-008 — resolved from ProductVariant.
+  productName:     string;
+  variantName:     string;
+  sku:             string | null;
   unitOfMeasure:   string | null;
   wastedQty:       number;
   unitCost:        number;
@@ -430,6 +456,7 @@ export interface ReservedStockItem {
   productUuid:     string;
   productName:     string;
   sku:             string | null;
+  variantName:     string | null;
   warehouseName:   string;
   reservedQty:     number;
   status:          string;

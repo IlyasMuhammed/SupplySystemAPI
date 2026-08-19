@@ -16,6 +16,7 @@ import { DividerModule } from 'primeng/divider';
 import { TooltipModule } from 'primeng/tooltip';
 import { AutoCompleteModule } from 'primeng/autocomplete';
 import { DropdownModule } from 'primeng/dropdown';
+import { CheckboxModule } from 'primeng/checkbox';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { MessageService, ConfirmationService } from 'primeng/api';
 import {
@@ -60,7 +61,7 @@ function emptyRow(): SendSupplierRow {
     ButtonModule, CardModule, TagModule, ToastModule, DialogModule,
     InputTextModule, InputNumberModule, TextareaModule, TableModule,
     CalendarModule, DividerModule, TooltipModule, ConfirmDialogModule,
-    AutoCompleteModule, DropdownModule, TimelinePanelComponent, AttachmentListComponent
+    AutoCompleteModule, DropdownModule, CheckboxModule, TimelinePanelComponent, AttachmentListComponent
   ],
   templateUrl: './quotation-detail.component.html',
   styleUrls: ['./quotation-detail.component.scss'],
@@ -103,7 +104,7 @@ export class QuotationDetailComponent implements OnInit, OnDestroy {
   responseSupplierName = '';
   responseDate: Date | null = null;
   responseNotes        = '';
-  responseLines: { quotationLineUuid: string; lineNo: number; itemDescription: string; specification: string; unitOfMeasure: string; requiredDate: string; netUnitPrice: number; quantity: number; leadTimeDays: number | null; notes: string }[] = [];
+  responseLines: { quotationLineUuid: string; lineNo: number; itemDescription: string; specification: string; unitOfMeasure: string; requiredDate: string; netUnitPrice: number; quantity: number; leadTimeDays: number | null; notes: string; canSupply: boolean }[] = [];
 
   // ── Cancel dialog ─────────────────────────────────────────────────────────
   showCancelDialog = false;
@@ -234,9 +235,26 @@ export class QuotationDetailComponent implements OnInit, OnDestroy {
     );
   }
 
+  // Whether at least one selected supplier can actually be sent to — used to gate the Send
+  // button instead of sendContactsValid, which required *every* row to have an email. That
+  // blocked the whole batch outright whenever "Load All Suppliers" pulled in any supplier
+  // without contact details (common with test/dummy supplier records), even though suppliers
+  // lacking a usable email are already excluded from the actual request in confirmSend().
+  get hasAnySendableSupplier(): boolean {
+    return this.sendRows.some(r =>
+      r.supplierName.trim() && !r.isLoadingContacts && !!r.selectedContact?.email
+    );
+  }
+
+  get skippedSupplierCount(): number {
+    return this.sendRows.filter(r =>
+      r.supplierName.trim() && !r.isLoadingContacts && !r.selectedContact?.email
+    ).length;
+  }
+
   // ── Supplier autocomplete ─────────────────────────────────────────────────
   searchSuppliers(event: any) {
-    this.supplierService.getSuppliers({ search: event.query, page: 1, pageSize: 10 }).subscribe({
+    this.supplierService.getSuppliers({ search: event.query, status: 'ACTIVE', page: 1, pageSize: 10 }).subscribe({
       next: (res) => { this.supplierSuggestions = res.result?.data ?? []; },
       error: () => { this.supplierSuggestions = []; }
     });
@@ -266,7 +284,7 @@ export class QuotationDetailComponent implements OnInit, OnDestroy {
   trackByIndex(index: number) { return index; }
 
   searchSuppliersSend(event: any, index: number) {
-    this.supplierService.getSuppliers({ search: event.query, page: 1, pageSize: 10 }).subscribe({
+    this.supplierService.getSuppliers({ search: event.query, status: 'ACTIVE', page: 1, pageSize: 10 }).subscribe({
       next: (res) => {
         const all = res.result?.data ?? [];
         this.sendSuggestions[index] = all.filter(s =>
@@ -308,7 +326,7 @@ export class QuotationDetailComponent implements OnInit, OnDestroy {
     }
 
     this.isLoadingAllSuppliers = true;
-    this.supplierService.getSuppliers({ search: '', page: 1, pageSize: 1000 }).subscribe({
+    this.supplierService.getSuppliers({ search: '', status: 'ACTIVE', page: 1, pageSize: 1000 }).subscribe({
       next: (res) => {
         const all = res.result?.data ?? [];
         if (all.length === 0) {
@@ -409,6 +427,14 @@ export class QuotationDetailComponent implements OnInit, OnDestroy {
   confirmSend() {
     const valid = this.sendRows.filter(r => r.supplierName.trim() && r.selectedContact?.email);
     if (!valid.length) return;
+    const skipped = this.skippedSupplierCount;
+    if (skipped > 0) {
+      this.messageService.add({
+        severity: 'warn', summary: 'Some Suppliers Skipped',
+        detail: `${skipped} supplier${skipped !== 1 ? 's' : ''} skipped — no contact with a valid email address.`,
+        life: 10000
+      });
+    }
     this.isActioning = true;
     const req: SendWithLinkRequest = {
       suppliers: valid.map(r => ({
@@ -457,7 +483,8 @@ export class QuotationDetailComponent implements OnInit, OnDestroy {
       netUnitPrice:      0,
       quantity:          l.quantity,
       leadTimeDays:      null,
-      notes:             ''
+      notes:             '',
+      canSupply:         true
     }));
     this.showResponseDialog = true;
     setTimeout(() => { this.responseDate = new Date(); }, 50);
@@ -476,7 +503,8 @@ export class QuotationDetailComponent implements OnInit, OnDestroy {
         netUnitPrice:      l.netUnitPrice,
         quantity:          l.quantity,
         leadTimeDays:      l.leadTimeDays ?? undefined,
-        notes:             l.notes || undefined
+        notes:             l.notes || undefined,
+        canSupply:         l.canSupply
       }) as VendorResponseLineRequest)
     };
     this.demandService.recordVendorResponse(this.uuid, req).subscribe({
@@ -597,18 +625,20 @@ export class QuotationDetailComponent implements OnInit, OnDestroy {
       supplierId:   this.awardedResponse.supplierId,
       supplierName: this.awardedResponse.supplierName,
       title:        `PO from ${this.quotation.quotationNumber}`,
-      lines: this.awardedResponse.lines.map(rl => {
-        const ql = qLines.find(l => l.uuid === rl.quotationLineUuid);
-        return {
-          itemDescription: rl.itemDescription,
-          specification:   ql?.specification,
-          unitOfMeasure:   ql?.unitOfMeasure,
-          quantity:        rl.quantity,
-          unitPrice:       rl.netUnitPrice,
-          requiredDate:    ql?.requiredDate,
-          lineNotes:       rl.notes
-        };
-      })
+      lines: this.awardedResponse.lines
+        .filter(rl => rl.canSupply)
+        .map(rl => {
+          const ql = qLines.find(l => l.uuid === rl.quotationLineUuid);
+          return {
+            itemDescription: rl.itemDescription,
+            specification:   ql?.specification,
+            unitOfMeasure:   ql?.unitOfMeasure,
+            quantity:        rl.quantity,
+            unitPrice:       rl.netUnitPrice,
+            requiredDate:    ql?.requiredDate,
+            lineNotes:       rl.notes
+          };
+        })
     };
     this.demandService.createPo(req).subscribe({
       next: (res) => {

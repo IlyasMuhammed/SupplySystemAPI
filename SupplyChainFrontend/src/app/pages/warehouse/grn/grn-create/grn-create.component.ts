@@ -16,6 +16,7 @@ import { MessageService } from 'primeng/api';
 import { WarehouseService, GrnLineReceiveInput } from '../../../../services/warehouse.service';
 import { DemandService, PoSearchItemModel, PoLineModel } from '../../../../services/demand.service';
 import { InventoryService, WarehouseModel } from '../../../../services/inventory.service';
+import { HttpErrorResponse } from '@angular/common/http';
 import { AttachmentListComponent } from '../../../../shared/attachment-list/attachment-list.component';
 
 export interface LineInput {
@@ -31,6 +32,15 @@ export interface LineInput {
   rejectionReason?: string | null;
   batchNumber?: string;
   expiryDate?: Date | null;
+  // PV-004 — the variant this line is expected to receive, inherited from the PO line, plus
+  // scratch state for the barcode-scan verification widget (never sent to the API — the GRN
+  // line's variant is always inherited server-side from the PO line, this is a receiving-clerk
+  // visual check only).
+  variantUuid?: string;
+  variantSku?: string;
+  scanInput?: string;
+  scanStatus?: 'match' | 'mismatch' | 'not_found' | null;
+  scanMessage?: string;
 }
 
 const RECEIVABLE_STATUSES = new Set(['SENT', 'PARTIALLY_RECEIVED']);
@@ -191,7 +201,12 @@ export class GrnCreateComponent implements OnInit {
           qtyRejected:        0,
           rejectionReason:    null,
           batchNumber:        '',
-          expiryDate:         null
+          expiryDate:         null,
+          variantUuid:        l.variantUuid,
+          variantSku:         l.variantSku,
+          scanInput:          '',
+          scanStatus:         null,
+          scanMessage:        undefined
         }));
         if (pending.length === 0)
           this.messageService.add({ severity: 'info', summary: 'Fully Received', detail: 'All PO lines are already fully received.' });
@@ -199,6 +214,34 @@ export class GrnCreateComponent implements OnInit {
       error: () => {
         this.loadingLines = false;
         this.messageService.add({ severity: 'warn', summary: 'Warning', detail: 'Could not load PO lines. You can still create the GRN.' });
+      }
+    });
+  }
+
+  // PV-004 — barcode scan resolves to a specific variant and is checked against this line's
+  // expected variant (inherited from the PO line). A mismatch is only a warning — the clerk can
+  // still proceed; nothing here changes what actually gets submitted, since the GRN line's variant
+  // is always inherited server-side from the PO line, never from the scan.
+  onBarcodeScan(line: LineInput) {
+    const code = (line.scanInput ?? '').trim();
+    if (!code) { line.scanStatus = null; line.scanMessage = undefined; return; }
+
+    this.inventoryService.getVariantByBarcode(code).subscribe({
+      next: (res) => {
+        const variant = res.result;
+        if (!variant) { line.scanStatus = 'not_found'; line.scanMessage = 'Barcode not recognised.'; return; }
+        if (line.variantUuid && variant.uuid === line.variantUuid) {
+          line.scanStatus = 'match';
+          line.scanMessage = `Matches ${variant.productName} — ${variant.variantName}`;
+        } else {
+          line.scanStatus = 'mismatch';
+          line.scanMessage = `Scanned ${variant.productName} — ${variant.variantName} (${variant.sku}), ` +
+            `expected ${line.itemDescription}${line.variantSku ? ' (' + line.variantSku + ')' : ''}.`;
+        }
+      },
+      error: (err: HttpErrorResponse) => {
+        line.scanStatus = 'not_found';
+        line.scanMessage = err.status === 404 ? 'Barcode not recognised.' : 'Lookup failed.';
       }
     });
   }

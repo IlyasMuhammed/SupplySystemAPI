@@ -11,7 +11,7 @@ internal class StockReservation : ITenantScopedEntity
     public int       MirLineId       { get; set; }
     // Cross-schema reference — stored as plain int (no EF navigation to inventory schema)
     public int       InventoryItemId { get; set; }
-    public Guid      ProductUuid     { get; set; }   // denormalised from InventoryItem
+    public Guid      VariantUuid     { get; set; }   // denormalised from InventoryItem
     public int       WarehouseId     { get; set; }   // denormalised from InventoryItem
     public decimal   ReservedQty     { get; set; }
     public string    Status          { get; set; } = "ACTIVE";  // ACTIVE | RELEASED | CONSUMED | FLAGGED

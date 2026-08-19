@@ -22,7 +22,7 @@ file static class Build
         int categoryId = 1, DateTime? at = null) =>
         svc.PostMovementAsync(new ProductMovementContext
         {
-            ProductId       = productId,
+            VariantId       = productId,
             ProductCode     = $"P-{productId}",
             ProductName     = $"Product {productId}",
             CategoryId      = categoryId,
@@ -70,10 +70,10 @@ public class MasterProductLedgerQuery_Tests
         await Build.PostAsync(svc, 1, 10, "GRN_RECEIPT", "SUPPLIER", "Lenovo", "WAREHOUSE", "Main WH", qtyIn: 100m);
         await Build.PostAsync(svc, 2, 10, "GRN_RECEIPT", "SUPPLIER", "Dell", "WAREHOUSE", "Main WH", qtyIn: 50m);
 
-        var result = await svc.GetProductLedgerAsync(new MasterProductLedgerFilter { ProductId = 1, PageSize = 50 });
+        var result = await svc.GetProductLedgerAsync(new MasterProductLedgerFilter { VariantId = 1, PageSize = 50 });
 
         result.Data.Should().ContainSingle();
-        result.Data[0].ProductId.Should().Be(1);
+        result.Data[0].VariantId.Should().Be(1);
     }
 
     [Fact]
@@ -103,7 +103,7 @@ public class MasterProductLedgerQuery_Tests
         await Build.PostAsync(svc, 1, 10, "MATERIAL_ISSUE", "WAREHOUSE", "Main WH", "PROJECT", "Tower A", qtyOut: 20m, unitCost: 500m);
         await Build.PostAsync(svc, 1, 10, "MATERIAL_ISSUE", "WAREHOUSE", "Main WH", "PROJECT", "Tower A", qtyOut: 5m, unitCost: 500m);
 
-        var summary = await svc.GetProductLedgerSummaryAsync(new MasterProductLedgerFilter { ProductId = 1 });
+        var summary = await svc.GetProductLedgerSummaryAsync(new MasterProductLedgerFilter { VariantId = 1 });
 
         summary.TotalReceiptsQty.Should().Be(100m);
         summary.TotalIssuesQty.Should().Be(25m);
@@ -146,6 +146,6 @@ public class MasterProductLedgerQuery_Tests
         var journey = await svc.GetProductJourneyAsync(1);
 
         journey.Should().ContainSingle();
-        journey[0].ProductId.Should().Be(1);
+        journey[0].VariantId.Should().Be(1);
     }
 }

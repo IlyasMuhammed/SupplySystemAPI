@@ -49,8 +49,8 @@ internal sealed class GrnService : IGrnService
     public Task UpdateLineAsync(Guid grnUuid, Guid lineUuid, UpdateGrnLineRequest req, int modifiedBy) =>
         _repo.UpdateLineAsync(grnUuid, lineUuid, req, modifiedBy);
 
-    public Task LinkLineProductAsync(Guid grnUuid, Guid lineUuid, Guid productUuid, int modifiedBy) =>
-        _repo.LinkLineProductAsync(grnUuid, lineUuid, productUuid, modifiedBy);
+    public Task LinkLineVariantAsync(Guid grnUuid, Guid lineUuid, Guid variantUuid, int modifiedBy) =>
+        _repo.LinkLineVariantAsync(grnUuid, lineUuid, variantUuid, modifiedBy);
 
     public Task InspectLineAsync(Guid grnUuid, Guid lineUuid, InspectGrnLineRequest req, int inspectedBy) =>
         _repo.InspectLineAsync(grnUuid, lineUuid, req, inspectedBy);

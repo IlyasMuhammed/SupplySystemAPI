@@ -21,6 +21,7 @@ import { SupplierService, SupplierScoreSummaryModel } from '../../../../services
 import { InventoryService, ProductListItemModel, WarehouseModel } from '../../../../services/inventory.service';
 import { AuthService } from '../../../service/auth.service';
 import { AttachmentListComponent } from '../../../../shared/attachment-list/attachment-list.component';
+import { ProductVariantPickerComponent, VariantPickerSelection } from '../../../../shared/product-variant-picker/product-variant-picker.component';
 
 @Component({
   selector: 'app-po-create',
@@ -29,7 +30,7 @@ import { AttachmentListComponent } from '../../../../shared/attachment-list/atta
     CommonModule, RouterModule, ReactiveFormsModule, FormsModule,
     ButtonModule, InputTextModule, TextareaModule, InputNumberModule,
     DropdownModule, CalendarModule, DividerModule, ToastModule, TooltipModule,
-    DialogModule, CheckboxModule, AttachmentListComponent
+    DialogModule, CheckboxModule, AttachmentListComponent, ProductVariantPickerComponent
   ],
   templateUrl: './po-create.component.html',
   styleUrls: ['./po-create.component.scss'],
@@ -52,8 +53,7 @@ export class PoCreateComponent implements OnInit {
   supplierGradeWarning: { severity: 'danger' | 'warn'; text: string } | null = null;
   private supplierGradeWarningDismissed = false;
 
-  productOptions: { label: string; value: string }[] = [];
-  private productsMap = new Map<string, ProductListItemModel>();
+  products: ProductListItemModel[] = [];
   loadingProducts = false;
 
   prOptions: { label: string; value: string }[] = [];
@@ -177,15 +177,9 @@ export class PoCreateComponent implements OnInit {
     this.inventoryService.getProducts({ activeOnly: true, pageSize: 500 }).subscribe({
       next: res => {
         this.loadingProducts = false;
-        const data = res?.result?.data ?? [];
-        this.productsMap.clear();
-        this.productOptions = data.map(p => {
-          this.productsMap.set(p.uuid, p);
-          return { label: p.name, value: p.uuid };
-        });
-        if (this.prefillProductId && this.productsMap.has(this.prefillProductId)) {
-          this.lines.at(0).patchValue({ productId: this.prefillProductId });
-          this.onProductChange(0);
+        this.products = res?.result?.data ?? [];
+        if (this.prefillProductId && this.products.some(p => p.uuid === this.prefillProductId)) {
+          this.lines.at(0).patchValue({ productUuid: this.prefillProductId });
           if (this.prefillQty) {
             this.lines.at(0).patchValue({ quantity: this.prefillQty });
           }
@@ -288,17 +282,26 @@ export class PoCreateComponent implements OnInit {
     return this.headerWarehouseName ? `Default: ${this.headerWarehouseName}` : 'Same as PO default…';
   }
 
-  onProductChange(i: number) {
-    const uuid = this.lines.at(i).get('productId')?.value;
-    if (!uuid) return;
-    const p = this.productsMap.get(uuid);
-    if (!p) return;
-    this.lines.at(i).patchValue({
-      itemDescription: p.name,
-      specification:   (p as any).description ?? '',
-      unitOfMeasure:   p.uomCode ?? null,
-      unitPrice:       p.unitCost ?? 0
+  // PV-004 — fires on every product OR variant change from the two-level picker. Item
+  // description/UoM/price only get overwritten once a specific variant is actually resolved
+  // (auto-selected for single-variant products, or explicitly picked for multi-variant ones) —
+  // not on every intermediate product-only selection, so the user isn't fighting a half-filled row.
+  onLineVariantSelected(i: number, sel: VariantPickerSelection) {
+    const line = this.lines.at(i);
+    line.patchValue({
+      productUuid: sel.productUuid,
+      variantUuid: sel.variantUuid
     });
+    if (sel.variantUuid) {
+      const label = sel.variantName && sel.variantName !== 'Default'
+        ? `${sel.productName} — ${sel.variantName}`
+        : (sel.productName ?? '');
+      line.patchValue({
+        itemDescription: label,
+        unitOfMeasure:   sel.uomCode ?? line.get('unitOfMeasure')?.value ?? null,
+        unitPrice:       sel.purchasePrice ?? 0
+      });
+    }
   }
 
   onPrSelect(uuid: string | null) {
@@ -316,7 +319,7 @@ export class PoCreateComponent implements OnInit {
           const group = this.newLine();
           group.patchValue({
             sourcePrLineUuid: line.uuid,
-            productId:        line.productId       ?? null,
+            productUuid:      line.productId       ?? null,
             itemDescription:  line.itemDescription,
             specification:    line.specification   ?? '',
             unitOfMeasure:    line.unitOfMeasure   ?? null,
@@ -367,7 +370,7 @@ export class PoCreateComponent implements OnInit {
         for (const line of detail.result.lines) {
           const group = this.newLine();
           group.patchValue({
-            productId:       line.productId ?? null,
+            productUuid:     line.productId ?? null,
             itemDescription: line.itemDescription,
             specification:   line.specification ?? '',
             unitOfMeasure:   line.unitOfMeasure ?? null,
@@ -400,7 +403,7 @@ export class PoCreateComponent implements OnInit {
     this.importSource = null;
     while (this.lines.length > 1) this.lines.removeAt(this.lines.length - 1);
     this.lines.at(0).reset({
-      sourcePrLineUuid: null, productId: null, itemDescription: '',
+      sourcePrLineUuid: null, productUuid: null, variantUuid: null, itemDescription: '',
       specification: '', unitOfMeasure: null, quantity: 1,
       unitPrice: 0, requiredDate: null, lineNotes: '', budgetCode: ''
     });
@@ -466,7 +469,8 @@ export class PoCreateComponent implements OnInit {
   newLine(): FormGroup {
     return this.fb.group({
       sourcePrLineUuid: [null],
-      productId:        [null],
+      productUuid:      [null],
+      variantUuid:      [null],
       itemDescription:  ['', Validators.required],
       specification:    [''],
       unitOfMeasure:    [null],
@@ -507,7 +511,7 @@ export class PoCreateComponent implements OnInit {
       internalNotes:         this.unlockAuditNote   || undefined,
       lines: v.lines.map((l: any) => ({
         sourcePrLineUuid: l.sourcePrLineUuid || undefined,
-        productUuid:      l.productId        || undefined,
+        variantUuid:      l.variantUuid      || undefined,
         itemDescription:  l.itemDescription,
         specification:    l.specification    || undefined,
         unitOfMeasure:    l.unitOfMeasure    || undefined,

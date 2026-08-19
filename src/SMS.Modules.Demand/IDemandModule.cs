@@ -49,6 +49,9 @@ public static class DemandModuleExtensions
         services.AddScoped<ITraceIdResolver, QuotationTraceIdResolver>();
         services.AddScoped<ITraceIdResolver, PoTraceIdResolver>();
 
+        // PV-007 — lets Inventory ask "has this variant ever been transacted" cross-module
+        services.AddScoped<IVariantReferenceChecker, PoLineVariantReferenceChecker>();
+
         return services;
     }
 

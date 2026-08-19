@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../environments/environment';
 
 export interface UserRole {
   id: number;
@@ -78,7 +79,7 @@ export interface UserListFilter {
   providedIn: 'root'
 })
 export class UserService {
-  private readonly baseUrl = 'https://localhost:52800/api/users';
+  private readonly baseUrl = `${environment.apiUrl}/users`;
 
   constructor(private http: HttpClient) {}
 

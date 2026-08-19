@@ -22,11 +22,20 @@ import {
   MirLineAvailability, MirStockAvailabilityResponse, MivListItem,
   PatchMirRequest, PrLineSearchResult
 } from '../../../../services/material.service';
-import { InventoryService, ProductStockModel } from '../../../../services/inventory.service';
+import { InventoryService, ProductListItemModel, ProductStockModel } from '../../../../services/inventory.service';
 import { TimelinePanelComponent } from '../../../../shared/timeline-panel/timeline-panel.component';
+import { ProductVariantPickerComponent, VariantPickerSelection } from '../../../../shared/product-variant-picker/product-variant-picker.component';
 
 interface EditMirLine {
+  // Populated for newly added lines (via the two-level picker); left blank for lines that
+  // already existed on the MIR, since MirLineModel only denormalises VariantUuid/ProductName
+  // and doesn't carry the parent product's own uuid back to the client (PV-005).
   productUuid:         string;
+  productName:         string;
+  variantUuid:         string;
+  variantName:         string;
+  unitCost:            number;
+  isExisting:          boolean;
   requestedQty:        number;
   purpose:             string;
   notes:               string;
@@ -58,7 +67,7 @@ interface LineApprovalRow {
     ButtonModule, TagModule, ToastModule, DialogModule,
     InputTextModule, InputNumberModule, TextareaModule, TableModule,
     ConfirmDialogModule, ProgressSpinnerModule, TooltipModule,
-    DropdownModule, CalendarModule, TimelinePanelComponent
+    DropdownModule, CalendarModule, TimelinePanelComponent, ProductVariantPickerComponent
   ],
   templateUrl: './mir-detail.component.html',
   styleUrls: ['./mir-detail.component.scss'],
@@ -86,7 +95,7 @@ export class MirDetailComponent implements OnInit {
   // ── Edit Dialog ────────────────────────────────────────────────────────────
   showEditDialog = false;
   isEditing      = false;
-  editProductOptions: { label: string; value: string }[] = [];
+  editProducts: ProductListItemModel[] = [];
   editProjectOptions: { label: string; value: string }[] = [];
   isLoadingEditData = false;
   private _editProductIdByUuid = new Map<string, number>();
@@ -288,7 +297,12 @@ export class MirDetailComponent implements OnInit {
       notes:          this.mir.notes          ?? ''
     };
     this.editLines = this.mir.lines.map(l => ({
-      productUuid:         l.productUuid,
+      productUuid:         '',
+      productName:         l.productName ?? '',
+      variantUuid:         l.variantUuid,
+      variantName:         l.variantName ?? '',
+      unitCost:            l.unitCost,
+      isExisting:          true,
       requestedQty:        l.requestedQty,
       purpose:             l.purpose ?? '',
       notes:               l.notes   ?? '',
@@ -297,14 +311,14 @@ export class MirDetailComponent implements OnInit {
       maxQty:              null,
       isLoadingStock:      false,
       prLineId:            l.prLineId ?? null,
-      prLineLabel:         null,
+      prLineLabel:         l.prLineId ? 'Linked PR' : null,
       prSearchResults:     [],
       showPrResults:       false,
       isFetchingPr:        false,
       prFetchAttempted:    false
     }));
 
-    if (this.editProductOptions.length === 0 || this.editProjectOptions.length === 0) {
+    if (this.editProducts.length === 0 || this.editProjectOptions.length === 0) {
       this.isLoadingEditData = true;
       forkJoin({
         products: this.inventoryService.getProducts({ activeOnly: true, pageSize: 500 }),
@@ -313,11 +327,8 @@ export class MirDetailComponent implements OnInit {
         next: ({ products, projects }) => {
           this.isLoadingEditData = false;
           if (products.success && products.result) {
-            this.editProductOptions = products.result.data.map(p => ({
-              label: `${p.sku} — ${p.name}`,
-              value: p.uuid
-            }));
-            products.result.data.forEach(p => this._editProductIdByUuid.set(p.uuid, p.id));
+            this.editProducts = products.result.data;
+            this.editProducts.forEach(p => this._editProductIdByUuid.set(p.uuid, p.id));
           }
           if (projects.success && projects.result) {
             this.editProjectOptions = (projects.result.data ?? []).map(p => ({
@@ -325,15 +336,8 @@ export class MirDetailComponent implements OnInit {
               value: p.uuid
             }));
           }
-          this.editLines.forEach((_, i) => {
-            if (this.editLines[i].productUuid) this.onEditProductChange(i, this.editLines[i].productUuid, false);
-          });
         },
         error: () => { this.isLoadingEditData = false; }
-      });
-    } else {
-      this.editLines.forEach((_, i) => {
-        if (this.editLines[i].productUuid) this.onEditProductChange(i, this.editLines[i].productUuid, false);
       });
     }
 
@@ -342,25 +346,28 @@ export class MirDetailComponent implements OnInit {
 
   addEditLine() {
     this.editLines.push({
-      productUuid: '', requestedQty: 1, purpose: '', notes: '',
+      productUuid: '', productName: '', variantUuid: '', variantName: '', unitCost: 0, isExisting: false,
+      requestedQty: 1, purpose: '', notes: '',
       stockItems: [], selectedWarehouseId: null, maxQty: null, isLoadingStock: false,
       prLineId: null, prLineLabel: null, prSearchResults: [], showPrResults: false,
       isFetchingPr: false, prFetchAttempted: false
     });
   }
 
-  onEditProductChange(i: number, uuid: string, resetWarehouse = true) {
+  // New lines only — existing lines' product/variant is fixed (see EditMirLine comment above).
+  onEditVariantSelected(i: number, sel: VariantPickerSelection) {
     const line = this.editLines[i];
+    line.productUuid = sel.productUuid ?? '';
+    line.productName = sel.productName ?? '';
+    line.variantUuid = sel.variantUuid ?? '';
+    line.variantName = sel.variantName ?? '';
+    line.unitCost     = sel.purchasePrice ?? 0;
     line.stockItems = [];
-    line.maxQty     = null;
-    if (resetWarehouse) {
-      line.selectedWarehouseId = null;
-      this.clearEditPrLine(i);
-    } else if (line.prLineId) {
-      this.resolveEditPrLineLabel(i);
-    }
+    line.selectedWarehouseId = null;
+    line.maxQty = null;
+    this.clearEditPrLine(i);
 
-    const productId = this._editProductIdByUuid.get(uuid);
+    const productId = line.productUuid ? this._editProductIdByUuid.get(line.productUuid) : undefined;
     if (!productId) return;
 
     line.isLoadingStock = true;
@@ -369,9 +376,6 @@ export class MirDetailComponent implements OnInit {
         line.isLoadingStock = false;
         if (res.success && res.result) {
           line.stockItems = res.result.filter(s => s.qtyAvailable > 0);
-          if (line.selectedWarehouseId) {
-            this.onEditWarehouseChange(i, line.selectedWarehouseId);
-          }
         }
       },
       error: () => { line.isLoadingStock = false; }
@@ -379,18 +383,6 @@ export class MirDetailComponent implements OnInit {
   }
 
   // ── Link to Purchase Requisition (Fetch button) ─────────────────────────────
-
-  private resolveEditPrLineLabel(i: number) {
-    const line = this.editLines[i];
-    if (!line.prLineId || !line.productUuid) return;
-    this.materialService.searchPrLines(line.productUuid, 'APPROVED').subscribe({
-      next: (res) => {
-        const match = res.success && res.result ? res.result.find(r => r.prLineId === line.prLineId) : undefined;
-        line.prLineLabel = match ? match.prNumber : 'Linked PR';
-      },
-      error: () => { line.prLineLabel = 'Linked PR'; }
-    });
-  }
 
   fetchEditPrLines(i: number) {
     const line = this.editLines[i];
@@ -457,7 +449,7 @@ export class MirDetailComponent implements OnInit {
   }
 
   saveEdit() {
-    const invalid = this.editLines.filter(l => !l.productUuid || l.requestedQty <= 0);
+    const invalid = this.editLines.filter(l => !l.variantUuid || l.requestedQty <= 0);
     if (invalid.length > 0) {
       this.messageService.add({ severity: 'warn', summary: 'Validation', detail: 'All lines must have a product and quantity > 0.' });
       return;
@@ -472,7 +464,7 @@ export class MirDetailComponent implements OnInit {
       purpose:        this.editData.purpose    || undefined,
       notes:          this.editData.notes      || undefined,
       lines:          this.editLines.map(l => ({
-        productUuid:  l.productUuid,
+        variantUuid:  l.variantUuid,
         requestedQty: l.requestedQty,
         warehouseId:  l.selectedWarehouseId ?? undefined,
         purpose:      l.purpose || undefined,

@@ -69,7 +69,7 @@ file static class DisbursementBuild
         {
             UUID            = Guid.NewGuid(),
             LineNo          = 1,
-            ProductUuid     = Guid.NewGuid(),
+            VariantUuid     = Guid.NewGuid(),
             ItemDescription = "Lenovo Laptop",
             RequestedQty    = approvedQty,
             PrLineId        = prLineId

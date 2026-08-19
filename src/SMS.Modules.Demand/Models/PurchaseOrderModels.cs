@@ -22,7 +22,7 @@ public class CreatePoRequest
 public class CreatePoLineRequest
 {
     public Guid? SourcePrLineUuid { get; set; }
-    public Guid? ProductUuid { get; set; }
+    public Guid? VariantUuid { get; set; }
     public string ItemDescription { get; set; } = string.Empty;
     public string? Specification { get; set; }
     public string? UnitOfMeasure { get; set; }
@@ -120,7 +120,11 @@ public class PoLineModel
     public Guid UUID { get; set; }
     public int LineNo { get; set; }
     public Guid? SourcePrLineUuid { get; set; }
+    public Guid? VariantUuid { get; set; }
     public Guid? ProductUuid { get; set; }
+    public string? VariantSku { get; set; }
+    public string? VariantName { get; set; }
+    public string? ProductName { get; set; }
     public string ItemDescription { get; set; } = string.Empty;
     public string? Specification { get; set; }
     public string? UnitOfMeasure { get; set; }

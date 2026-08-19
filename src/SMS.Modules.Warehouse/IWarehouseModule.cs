@@ -54,6 +54,9 @@ public static class WarehouseModuleExtensions
         services.AddScoped<ITraceIdResolver, GrnTraceIdResolver>();
         services.AddScoped<ITraceIdResolver, GrnQcTraceIdResolver>();
 
+        // PV-007 — lets Inventory ask "has this variant ever been transacted" cross-module
+        services.AddScoped<IVariantReferenceChecker, GrnLineVariantReferenceChecker>();
+
         return services;
     }
 }

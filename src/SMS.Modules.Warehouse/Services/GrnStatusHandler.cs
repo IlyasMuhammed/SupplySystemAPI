@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SMS.Modules.Demand.Data;
+using SMS.Modules.Inventory.Data;
 using SMS.Modules.Warehouse.Data;
 using SMS.Modules.Warehouse.Events;
 using SMS.Shared.Common;
@@ -14,6 +15,7 @@ internal sealed class GrnStatusHandler : IDocumentStatusHandler
 
     private readonly WarehouseDbContext             _wh;
     private readonly DemandDbContext                _demand;
+    private readonly InventoryDbContext             _inv;
     private readonly IGrnStockPoster                _stockPoster;
     private readonly IEnumerable<IGrnEventPublisher> _eventPublishers;
     private readonly ILogger<GrnStatusHandler>       _logger;
@@ -21,12 +23,14 @@ internal sealed class GrnStatusHandler : IDocumentStatusHandler
     public GrnStatusHandler(
         WarehouseDbContext wh,
         DemandDbContext demand,
+        InventoryDbContext inv,
         IGrnStockPoster stockPoster,
         IEnumerable<IGrnEventPublisher> eventPublishers,
         ILogger<GrnStatusHandler> logger)
     {
         _wh              = wh;
         _demand          = demand;
+        _inv             = inv;
         _stockPoster     = stockPoster;
         _eventPublishers = eventPublishers;
         _logger          = logger;
@@ -89,6 +93,28 @@ internal sealed class GrnStatusHandler : IDocumentStatusHandler
 
         // Post stock — if this throws, GRN remains PENDING_APPROVAL
         await _stockPoster.PostToInventoryAsync(grn, 0 /* actor tracked in workflow audit log */);
+
+        // PV-004 — the accepted unit price on each received line becomes the variant's new
+        // last-purchase-price, used elsewhere (reorder pickers, cost rollups) as the most
+        // recent known cost. Only lines with both a resolved variant and a recorded cost apply.
+        var variantUuids = grn.Lines
+            .Where(l => l.VariantUuid.HasValue && l.UnitCost.HasValue)
+            .Select(l => l.VariantUuid!.Value)
+            .Distinct()
+            .ToList();
+        if (variantUuids.Count > 0)
+        {
+            var variants = await _inv.ProductVariants
+                .Where(v => variantUuids.Contains(v.Uuid))
+                .ToListAsync();
+            foreach (var grnLine in grn.Lines.Where(l => l.VariantUuid.HasValue && l.UnitCost.HasValue))
+            {
+                var variant = variants.FirstOrDefault(v => v.Uuid == grnLine.VariantUuid!.Value);
+                if (variant is not null)
+                    variant.LastPurchasePrice = grnLine.UnitCost!.Value;
+            }
+            await _inv.SaveChangesAsync();
+        }
 
         // Update PO line cumulative quantities and PO status
         var po = await _demand.PurchaseOrders

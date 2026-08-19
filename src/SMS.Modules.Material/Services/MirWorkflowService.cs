@@ -136,7 +136,7 @@ internal sealed class MirWorkflowService : IMirWorkflowService
 
             if (input.ApprovedQty > 0)
             {
-                var snapshots = await _stock.GetAvailabilityAsync(line.ProductUuid, warehouseUuid);
+                var snapshots = await _stock.GetAvailabilityAsync(line.VariantUuid, warehouseUuid);
                 var totalAvail = snapshots.Sum(s => s.QtyAvailable);
 
                 if (totalAvail < input.ApprovedQty)
@@ -231,8 +231,8 @@ internal sealed class MirWorkflowService : IMirWorkflowService
             ? mir.Project?.SiteWarehouseId
             : null;
 
-        var productUuids  = mir.Lines.Select(l => l.ProductUuid).Distinct().ToList();
-        var allSnapshots  = await _stock.GetAvailabilityForProductsAsync(productUuids, warehouseUuid);
+        var variantUuids  = mir.Lines.Select(l => l.VariantUuid).Distinct().ToList();
+        var allSnapshots  = await _stock.GetAvailabilityForVariantsAsync(variantUuids, warehouseUuid);
 
         // Latest approved qty per line
         var lineIds     = mir.Lines.Select(l => l.Id).ToList();
@@ -242,9 +242,9 @@ internal sealed class MirWorkflowService : IMirWorkflowService
             .Select(g => new { LineId = g.Key, ApprovedQty = g.OrderByDescending(a => a.StepNumber).First().ApprovedQty })
             .ToDictionaryAsync(x => x.LineId, x => x.ApprovedQty);
 
-        // Snapshot lookup per product (aggregate when no warehouse filter)
-        var snapshotByProduct = allSnapshots
-            .GroupBy(s => s.ProductUuid)
+        // Snapshot lookup per variant (aggregate when no warehouse filter)
+        var snapshotByVariant = allSnapshots
+            .GroupBy(s => s.VariantUuid)
             .ToDictionary(g => g.Key, g => g.ToList());
 
         string? commonWarehouseName = null;
@@ -253,7 +253,7 @@ internal sealed class MirWorkflowService : IMirWorkflowService
 
         var lines = mir.Lines.OrderBy(l => l.LineNo).Select(l =>
         {
-            var snaps     = snapshotByProduct.TryGetValue(l.ProductUuid, out var s) ? s : [];
+            var snaps     = snapshotByVariant.TryGetValue(l.VariantUuid, out var s) ? s : [];
             var onHand    = snaps.Sum(x => x.QtyOnHand);
             var reserved  = snaps.Sum(x => x.QtyReserved);
             var available = snaps.Sum(x => x.QtyAvailable);
@@ -264,7 +264,7 @@ internal sealed class MirWorkflowService : IMirWorkflowService
             return new MirLineAvailabilityModel
             {
                 LineUuid          = l.UUID,
-                ProductUuid       = l.ProductUuid,
+                VariantUuid       = l.VariantUuid,
                 ItemDescription   = l.ItemDescription,
                 RequestedQty      = l.RequestedQty,
                 LatestApprovedQty = latestQty,
@@ -321,7 +321,7 @@ internal sealed class MirWorkflowService : IMirWorkflowService
                 MirId           = mirId,
                 MirLineId       = lineId,
                 InventoryItemId = snap.InventoryItemId,
-                ProductUuid     = snap.ProductUuid,
+                VariantUuid     = snap.VariantUuid,
                 WarehouseId     = snap.WarehouseId,
                 ReservedQty     = input.ApprovedQty,
                 Status          = "ACTIVE",

@@ -29,6 +29,11 @@ internal sealed class WorkflowDefinitionSeeder : IWorkflowSeedingService
         var scmDemoOrgId = TenantDefaults.ScmDemoOrganizationId;
 
         await SeedIfMissingAsync(scmDemoOrgId, "PR",  BuildPrDefinition);
+
+        // PO migration: replace a legacy definition seeded before per-tier SkipCondition value
+        // thresholds existed — under the old shape every tier was mandatory, so Finance/GM/Board
+        // approval was always required regardless of order value.
+        await MigratePoWorkflowAsync(scmDemoOrgId);
         await SeedIfMissingAsync(scmDemoOrgId, "PO",  BuildPoDefinition);
 
         // GRN has two separate workflows: GRN_QC (quality check) and GRN (final IM approval).
@@ -110,6 +115,29 @@ internal sealed class WorkflowDefinitionSeeder : IWorkflowSeedingService
             _db.WorkflowDefinitions.Add(BuildGrnImDefinition(organizationId, now));
         }
 
+        await _db.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Deactivates a PO definition seeded before steps 2–4 carried a value-based SkipCondition
+    /// (mirrors <see cref="MigrateGrnWorkflowAsync"/> for the equivalent legacy-GRN case). Under
+    /// the old shape, Finance/GM/Board approval was unconditionally required for every PO — the
+    /// "always four mandatory steps" symptom — instead of being skipped below their thresholds.
+    /// In-flight approvals already resolved against the old definition are untouched; only future
+    /// submissions pick up the corrected, conditional 4-tier definition.
+    /// </summary>
+    private async Task MigratePoWorkflowAsync(Guid organizationId)
+    {
+        var active = await _db.WorkflowDefinitions
+            .Include(d => d.Steps)
+            .FirstOrDefaultAsync(d => d.OrganizationId == organizationId && d.InterfaceCode == "PO" && d.IsActive);
+
+        if (active is null) return; // nothing seeded yet — SeedIfMissingAsync will create the correct one
+
+        bool isLegacy = active.Steps.Any(s => s.StepNumber >= 2 && string.IsNullOrWhiteSpace(s.SkipCondition));
+        if (!isLegacy) return;
+
+        active.IsActive = false;
         await _db.SaveChangesAsync();
     }
 

@@ -109,7 +109,7 @@ export class MivCreateComponent implements OnInit {
 
   loadBatchData(line: IssueLine) {
     line.batchLoading = true;
-    this.materialService.getAvailableBatches(line.productUuid).subscribe({
+    this.materialService.getAvailableBatches(line.variantUuid).subscribe({
       next: (res) => {
         line.batchLoading = false;
         if (res.success && res.result) {

@@ -327,7 +327,7 @@ interface StatusBand {
           <ul class="item-list">
             <li *ngFor="let a of reorderAlerts.slice(0,4); let last = last"
                 class="item-row" [class.item-last]="last"
-                (click)="go('/portal/pages/inventory/reorder-alerts')">
+                (click)="go('/portal/pages/inventory/products/' + a.productId)">
               <div class="item-main">
                 <p class="item-title">{{ a.productName }}</p>
                 <p class="item-sub">{{ a.warehouseName }}</p>

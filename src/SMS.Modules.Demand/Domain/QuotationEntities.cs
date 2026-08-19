@@ -44,7 +44,9 @@ internal class QuotationLine : ITenantScopedEntity
     public int LineNo { get; set; }
     public Guid? SourcePrLineUuid { get; set; } // UUID reference to pr_lines (no FK — cross-module)
     public Guid? SourcePoLineUuid { get; set; } // UUID reference to po_lines (no FK — cross-module)
-    public Guid? ProductId { get; set; } // UUID reference to inventory Products (no FK — cross-module)
+    // Holds the selected ProductVariant's Uuid (cross-module, no FK) — named ProductId from before
+    // PV-001 introduced variants; kept as-is rather than renamed (see PrLine's identical field).
+    public Guid? ProductId { get; set; }
     public string ItemDescription { get; set; } = string.Empty;
     public string? Specification { get; set; }
     public string? UnitOfMeasure { get; set; }
@@ -87,6 +89,10 @@ internal class VendorResponseLine : ITenantScopedEntity
     public decimal LineTotal { get; set; }
     public int? LeadTimeDays { get; set; }
     public string? Notes { get; set; }
+    // False when the supplier explicitly declined this line (RFQ portal "I can supply this"
+    // unchecked, or omitted the line entirely) — NetUnitPrice/LineTotal are 0 in that case and
+    // must not be read as a genuine free-of-charge bid.
+    public bool CanSupply { get; set; } = true;
 
     public VendorResponse VendorResponse { get; set; } = null!;
     public QuotationLine QuotationLine { get; set; } = null!;

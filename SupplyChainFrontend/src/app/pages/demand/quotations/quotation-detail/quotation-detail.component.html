@@ -369,17 +369,18 @@
     <ng-template pTemplate="footer">
       <div class="sdlg-footer">
         <span class="sdlg-count-pill" *ngIf="filledSupplierCount > 0"
-              [class.pill-valid]="sendContactsValid">
-          <i class="pi" [class.pi-users]="sendContactsValid" [class.pi-hourglass]="!sendContactsValid"></i>
+              [class.pill-valid]="hasAnySendableSupplier">
+          <i class="pi" [class.pi-users]="hasAnySendableSupplier" [class.pi-hourglass]="!hasAnySendableSupplier"></i>
           {{ filledSupplierCount }} supplier{{ filledSupplierCount !== 1 ? 's' : '' }} selected
+          <ng-container *ngIf="skippedSupplierCount > 0">({{ skippedSupplierCount }} will be skipped — no email)</ng-container>
         </span>
         <div class="sdlg-footer-btns">
           <p-button label="Cancel" severity="secondary" [text]="true"
                     (onClick)="showSendDialog = false"></p-button>
           <p-button label="Send Invitations" icon="pi pi-send"
                     (onClick)="confirmSend()" [loading]="isActioning"
-                    [disabled]="!sendContactsValid"
-                    pTooltip="{{ sendContactsValid ? '' : 'Every supplier must have a contact with a valid email address before sending.' }}"
+                    [disabled]="!hasAnySendableSupplier"
+                    pTooltip="{{ hasAnySendableSupplier ? (skippedSupplierCount > 0 ? skippedSupplierCount + ' supplier(s) without a valid email will be skipped.' : '') : 'At least one supplier must have a contact with a valid email address before sending.' }}"
                     tooltipPosition="top"></p-button>
         </div>
       </div>
@@ -507,8 +508,15 @@
             </div>
           </div>
 
+          <!-- Can-supply toggle — unchecking disables pricing/lead-time for this line -->
+          <div class="resp-cansupply-row">
+            <p-checkbox [(ngModel)]="responseLines[i].canSupply" [binary]="true"
+                        [inputId]="'cansupply-' + i"></p-checkbox>
+            <label [for]="'cansupply-' + i">Supplier can supply this item</label>
+          </div>
+
           <!-- Input fields row -->
-          <div class="resp-line-inputs">
+          <div class="resp-line-inputs" *ngIf="line.canSupply">
 
             <div class="resp-input-group">
               <label>Quantity</label>
@@ -544,6 +552,10 @@
               </span>
             </div>
 
+          </div>
+
+          <div class="resp-cannot-supply-note" *ngIf="!line.canSupply">
+            <i class="pi pi-ban"></i> Marked as unable to supply — no price will be recorded for this line.
           </div>
         </div>
       </div>
@@ -624,10 +636,15 @@
                 </td>
                 <td *ngFor="let line of comparisonLines" class="cmp-table-cell">
                   <ng-container *ngIf="cellFor(r, line.uuid) as cell; else noBid">
-                    <div class="cmp-cell-price">{{ cell.netUnitPrice | number:'1.2-2' }}</div>
-                    <div class="cmp-cell-meta">
-                      {{ cell.leadTimeDays ?? '—' }} {{ cell.leadTimeDays ? 'days' : '' }}
+                    <div class="cmp-cell-cannot-supply" *ngIf="!cell.canSupply" pTooltip="Supplier indicated they cannot supply this item">
+                      <i class="pi pi-ban"></i> Cannot Supply
                     </div>
+                    <ng-container *ngIf="cell.canSupply">
+                      <div class="cmp-cell-price">{{ cell.netUnitPrice | number:'1.2-2' }}</div>
+                      <div class="cmp-cell-meta">
+                        {{ cell.leadTimeDays ?? '—' }} {{ cell.leadTimeDays ? 'days' : '' }}
+                      </div>
+                    </ng-container>
                   </ng-container>
                   <ng-template #noBid><span class="cmp-no-bid">—</span></ng-template>
                 </td>
@@ -823,10 +840,15 @@
           </ng-template>
           <ng-template pTemplate="body" let-line>
             <tr>
-              <td class="font-semibold">{{ line.itemDescription }}</td>
+              <td class="font-semibold">
+                {{ line.itemDescription }}
+                <span class="cmp-cell-cannot-supply" *ngIf="!line.canSupply" style="margin-left:.5rem">
+                  <i class="pi pi-ban"></i> Cannot Supply — excluded from PO
+                </span>
+              </td>
               <td class="text-right">{{ line.quantity | number:'1.0-4' }}</td>
-              <td class="text-right">{{ line.netUnitPrice | number:'1.2-2' }}</td>
-              <td class="text-right font-semibold">{{ line.lineTotal | number:'1.2-2' }}</td>
+              <td class="text-right">{{ line.canSupply ? (line.netUnitPrice | number:'1.2-2') : '—' }}</td>
+              <td class="text-right font-semibold">{{ line.canSupply ? (line.lineTotal | number:'1.2-2') : '—' }}</td>
             </tr>
           </ng-template>
           <ng-template pTemplate="footer">

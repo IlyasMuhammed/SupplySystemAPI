@@ -53,7 +53,7 @@ internal sealed class MaterialIssueVoucherLineMap : IEntityTypeConfiguration<Mat
         b.HasIndex(x => x.UUID).IsUnique();
 
         b.Property(x => x.InventoryItemId).IsRequired();
-        b.Property(x => x.ProductUuid).IsRequired();
+        b.Property(x => x.VariantUuid).IsRequired();
         b.Property(x => x.ItemDescription).HasMaxLength(300).IsRequired();
         b.Property(x => x.UnitOfMeasure).HasMaxLength(20);
         b.Property(x => x.IssuedQty).HasColumnType("decimal(18,4)").IsRequired();

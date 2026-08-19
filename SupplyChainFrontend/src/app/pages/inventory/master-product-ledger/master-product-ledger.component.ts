@@ -5,7 +5,6 @@ import { FormsModule } from '@angular/forms';
 import { TableModule, TableLazyLoadEvent } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
 import { CalendarModule } from 'primeng/calendar';
-import { AutoCompleteModule } from 'primeng/autocomplete';
 import { DropdownModule } from 'primeng/dropdown';
 import { TagModule } from 'primeng/tag';
 import { TooltipModule } from 'primeng/tooltip';
@@ -16,6 +15,7 @@ import {
   MasterProductLedgerService, MasterProductLedgerEntryModel, MasterProductLedgerFilter, MasterProductLedgerSummaryModel
 } from '../../../services/master-product-ledger.service';
 import { InventoryService, ProductListItemModel, CategoryModel, WarehouseModel } from '../../../services/inventory.service';
+import { ProductVariantPickerComponent, VariantPickerSelection } from '../../../shared/product-variant-picker/product-variant-picker.component';
 
 const TRANSACTION_TYPE_OPTIONS = [
   { label: 'GRN Receipt',       value: 'GRN_RECEIPT' },
@@ -48,8 +48,8 @@ const REFERENCE_ROUTES: Record<string, string> = {
   standalone: true,
   imports: [
     CommonModule, RouterModule, FormsModule,
-    TableModule, ButtonModule, CalendarModule, AutoCompleteModule, DropdownModule,
-    TagModule, TooltipModule, DialogModule, ToastModule
+    TableModule, ButtonModule, CalendarModule, DropdownModule,
+    TagModule, TooltipModule, DialogModule, ToastModule, ProductVariantPickerComponent
   ],
   templateUrl: './master-product-ledger.component.html',
   styleUrls: ['./master-product-ledger.component.scss'],
@@ -75,8 +75,10 @@ export class MasterProductLedgerComponent implements OnInit {
   selectedSourceType: string | null = null;
   selectedDestinationType: string | null = null;
 
-  selectedProduct: ProductListItemModel | null = null;
-  productSuggestions: ProductListItemModel[] = [];
+  products: ProductListItemModel[] = [];
+  selectedVariantId: number | null = null;
+  selectedProductName = '';
+  selectedVariantName = '';
   categories: CategoryModel[] = [];
   selectedCategoryId: number | null = null;
   warehouses: WarehouseModel[] = [];
@@ -102,15 +104,24 @@ export class MasterProductLedgerComponent implements OnInit {
     this.inventoryService.getWarehouses().subscribe({
       next: (res) => { this.warehouses = res.success ? res.result : []; }
     });
+    this.inventoryService.getProducts({ activeOnly: true, pageSize: 500 }).subscribe({
+      next: (res) => { this.products = res.success ? res.result.data : []; }
+    });
     this.load();
     this.loadSummary();
+  }
+
+  onVariantSelected(sel: VariantPickerSelection): void {
+    this.selectedVariantId   = sel.variantId;
+    this.selectedProductName = sel.productName ?? '';
+    this.selectedVariantName = sel.variantName ?? '';
   }
 
   private buildFilter(): MasterProductLedgerFilter {
     return {
       dateFrom: this.dateFrom ? this.toIsoDate(this.dateFrom) : undefined,
       dateTo:   this.dateTo   ? this.toIsoDate(this.dateTo)   : undefined,
-      productId: this.selectedProduct?.id,
+      variantId: this.selectedVariantId ?? undefined,
       categoryId: this.selectedCategoryId ?? undefined,
       warehouseId: this.selectedWarehouseId ?? undefined,
       transactionType: this.selectedTransactionType ?? undefined,
@@ -168,7 +179,9 @@ export class MasterProductLedgerComponent implements OnInit {
     this.selectedTransactionType = null;
     this.selectedSourceType = null;
     this.selectedDestinationType = null;
-    this.selectedProduct = null;
+    this.selectedVariantId = null;
+    this.selectedProductName = '';
+    this.selectedVariantName = '';
     this.selectedCategoryId = null;
     this.selectedWarehouseId = null;
     this.page = 1;
@@ -176,27 +189,21 @@ export class MasterProductLedgerComponent implements OnInit {
     this.loadSummary();
   }
 
-  searchProducts(event: any) {
-    const q = (event.query as string ?? '').trim();
-    this.inventoryService.getProducts({ search: q || undefined, pageSize: 20 }).subscribe({
-      next: (res) => { this.productSuggestions = res.success ? res.result.data : []; },
-      error: () => { this.productSuggestions = []; }
-    });
-  }
-
   // ── Product Journey ────────────────────────────────────────────────────────
 
   get canViewJourney(): boolean {
-    return !!this.selectedProduct;
+    return !!this.selectedVariantId;
   }
 
   viewJourney() {
-    if (!this.selectedProduct) return;
-    this.journeyProductName = this.selectedProduct.name;
+    if (!this.selectedVariantId) return;
+    this.journeyProductName = this.selectedVariantName
+      ? `${this.selectedProductName} (${this.selectedVariantName})`
+      : this.selectedProductName;
     this.showJourneyDialog = true;
     this.isLoadingJourney = true;
     this.journeyEntries = [];
-    this.ledgerService.getProductJourney(this.selectedProduct.id).subscribe({
+    this.ledgerService.getProductJourney(this.selectedVariantId).subscribe({
       next: (res) => {
         this.isLoadingJourney = false;
         this.journeyEntries = res.success ? res.result : [];
@@ -217,10 +224,6 @@ export class MasterProductLedgerComponent implements OnInit {
   drillDownReference(e: MasterProductLedgerEntryModel) {
     const base = REFERENCE_ROUTES[e.referenceType];
     if (base) this.router.navigate([base, e.referenceId]);
-  }
-
-  goToProduct(e: MasterProductLedgerEntryModel) {
-    this.router.navigate(['/portal/pages/inventory/products', e.productId]);
   }
 
   // ── Export ───────────────────────────────────────────────────────────────

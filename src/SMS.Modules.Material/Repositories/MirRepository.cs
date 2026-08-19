@@ -170,6 +170,8 @@ internal sealed class MirRepository : IMirRepository
             ? await _demand.PrLines.Where(l => prLineIds.Contains(l.Id)).ToDictionaryAsync(l => l.Id, l => l.UUID)
             : new Dictionary<int, Guid>();
 
+        var variantInfo = await ResolveVariantDisplayInfoAsync(mir.Lines.Select(l => l.VariantUuid));
+
         return new MirDetailModel
         {
             UUID            = mir.UUID,
@@ -193,11 +195,17 @@ internal sealed class MirRepository : IMirRepository
             Notes           = mir.Notes,
             CreatedBy       = mir.CreatedBy,
             CreatedDate     = mir.CreatedDate,
-            Lines           = mir.Lines.OrderBy(l => l.LineNo).Select(l => new MirLineModel
+            Lines           = mir.Lines.OrderBy(l => l.LineNo).Select(l =>
             {
+                var vi = variantInfo.GetValueOrDefault(l.VariantUuid);
+                return new MirLineModel
+                {
                 UUID               = l.UUID,
                 LineNo             = l.LineNo,
-                ProductUuid        = l.ProductUuid,
+                VariantUuid        = l.VariantUuid,
+                VariantSku         = vi?.Sku,
+                VariantName        = vi?.VariantName,
+                ProductName        = vi?.ProductName,
                 ItemDescription    = l.ItemDescription,
                 UnitOfMeasure      = l.UnitOfMeasure,
                 RequestedQty       = l.RequestedQty,
@@ -207,6 +215,7 @@ internal sealed class MirRepository : IMirRepository
                 WarehouseName      = l.WarehouseName,
                 PrLineId           = l.PrLineId.HasValue && prLineUuidsById.TryGetValue(l.PrLineId.Value, out var prUuid) ? prUuid : null,
                 LatestApprovedQty  = latestQtys.TryGetValue(l.Id, out var aq) ? aq : null
+                };
             }).ToList()
         };
     }
@@ -407,10 +416,10 @@ internal sealed class MirRepository : IMirRepository
     // pr_line_id-linked line (TL-006), or null when no line links to a PR at all.
     private async Task<(List<MaterialIssueRequestDetail> Lines, Guid? InheritedTraceId)> BuildLinesAsync(List<CreateMirLineRequest> inputs)
     {
-        var productUuids  = inputs.Select(l => l.ProductUuid).Distinct().ToList();
-        var products      = await _inv.Products
-            .Include(p => p.Variants)
-            .Where(p => productUuids.Contains(p.Uuid) && p.IsActive)
+        var variantUuids  = inputs.Select(l => l.VariantUuid).Distinct().ToList();
+        var variants      = await _inv.ProductVariants
+            .Include(v => v.Product)
+            .Where(v => variantUuids.Contains(v.Uuid) && v.IsActive)
             .ToListAsync();
 
         var warehouseIds  = inputs.Where(l => l.WarehouseId.HasValue).Select(l => l.WarehouseId!.Value).Distinct().ToList();
@@ -432,8 +441,8 @@ internal sealed class MirRepository : IMirRepository
         int lineNo = 1;
         foreach (var l in inputs)
         {
-            var product = products.FirstOrDefault(p => p.Uuid == l.ProductUuid)
-                ?? throw new NotFoundException($"Product '{l.ProductUuid}' not found or inactive.");
+            var variant = variants.FirstOrDefault(v => v.Uuid == l.VariantUuid)
+                ?? throw new NotFoundException($"Variant '{l.VariantUuid}' not found or inactive.");
 
             int? prLineId = null;
             if (l.PrLineId.HasValue)
@@ -446,21 +455,22 @@ internal sealed class MirRepository : IMirRepository
                     distinctTraceIds.Add(resolution.TraceId);
             }
 
-            // PV-001 — Product no longer carries its own price; the default variant's
-            // PurchasePrice is the FSD-aligned stand-in until MIR itself moves to variant_id
-            // (FSD Addendum 26 §7.4, a later task).
-            var defaultVariantPrice = product.Variants.FirstOrDefault(v => v.IsDefault)?.PurchasePrice ?? 0m;
+            // PV-005 — MIR lines reference a specific variant now, so its own PurchasePrice is
+            // the line's unit cost — no more falling back to "the product's default variant".
+            var itemDescription = variant.IsDefault
+                ? variant.Product.Name
+                : $"{variant.Product.Name} ({variant.VariantName})";
 
             lines.Add(new MaterialIssueRequestDetail
             {
                 UUID               = Guid.NewGuid(),
                 LineNo             = lineNo++,
-                ProductUuid        = l.ProductUuid,
-                ItemDescription    = product.Name,
-                UnitOfMeasure      = product.UomCode,
+                VariantUuid        = l.VariantUuid,
+                ItemDescription    = itemDescription,
+                UnitOfMeasure      = variant.Product.UomCode,
                 RequestedQty       = l.RequestedQty,
-                UnitCost           = defaultVariantPrice,
-                EstimatedLineValue = l.RequestedQty * defaultVariantPrice,
+                UnitCost           = variant.PurchasePrice,
+                EstimatedLineValue = l.RequestedQty * variant.PurchasePrice,
                 WarehouseId        = l.WarehouseId,
                 WarehouseName      = l.WarehouseId.HasValue && warehouseNames.TryGetValue(l.WarehouseId.Value, out var wn) ? wn : null,
                 Purpose            = l.Purpose,
@@ -497,6 +507,21 @@ internal sealed class MirRepository : IMirRepository
                 $"pr_line_id '{notApproved.UUID}' does not reference an APPROVED purchase requisition. Current status: {notApproved.Status}.");
 
         return prLines.ToDictionary(l => l.UUID, l => new PrLineResolution(l.Id, l.TraceId));
+    }
+
+    private sealed record VariantDisplayInfo(string Sku, string VariantName, string ProductName);
+
+    private async Task<Dictionary<Guid, VariantDisplayInfo>> ResolveVariantDisplayInfoAsync(IEnumerable<Guid> variantUuids)
+    {
+        var ids = variantUuids.Distinct().ToList();
+        if (ids.Count == 0) return new Dictionary<Guid, VariantDisplayInfo>();
+
+        var rows = await _inv.ProductVariants
+            .Where(v => ids.Contains(v.Uuid))
+            .Select(v => new { v.Uuid, v.Sku, v.VariantName, ProductName = v.Product.Name })
+            .ToListAsync();
+
+        return rows.ToDictionary(r => r.Uuid, r => new VariantDisplayInfo(r.Sku, r.VariantName, r.ProductName));
     }
 
     private async Task<string> GenerateRequestNoAsync(int year)

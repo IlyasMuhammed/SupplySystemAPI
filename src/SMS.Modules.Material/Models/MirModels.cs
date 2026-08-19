@@ -19,7 +19,7 @@ public class CreateMirRequest
 
 public class CreateMirLineRequest
 {
-    public Guid    ProductUuid  { get; set; }
+    public Guid    VariantUuid  { get; set; }
     public decimal RequestedQty { get; set; }
     public int?    WarehouseId  { get; set; }
     public string? Purpose      { get; set; }
@@ -118,7 +118,10 @@ public class MirLineModel
 {
     public Guid    UUID               { get; set; }
     public int     LineNo             { get; set; }
-    public Guid    ProductUuid        { get; set; }
+    public Guid    VariantUuid        { get; set; }
+    public string? VariantSku         { get; set; }
+    public string? VariantName        { get; set; }
+    public string? ProductName        { get; set; }
     public string  ItemDescription    { get; set; } = string.Empty;
     public string? UnitOfMeasure      { get; set; }
     public decimal RequestedQty       { get; set; }
@@ -165,7 +168,7 @@ public class MirWorkflowRejectRequest
 public class MirLineAvailabilityModel
 {
     public Guid     LineUuid           { get; set; }
-    public Guid     ProductUuid        { get; set; }
+    public Guid     VariantUuid        { get; set; }
     public string   ItemDescription    { get; set; } = string.Empty;
     public decimal  RequestedQty       { get; set; }
     public decimal? LatestApprovedQty  { get; set; }

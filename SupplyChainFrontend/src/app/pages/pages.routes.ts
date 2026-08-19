@@ -40,6 +40,7 @@ import { StockAdjustmentsComponent } from './inventory/stock-adjustments/stock-a
 import { MasterProductLedgerComponent } from './inventory/master-product-ledger/master-product-ledger.component';
 import { ReorderAlertsComponent } from './inventory/reorder-alerts/reorder-alerts.component';
 import { CategoryListComponent } from './inventory/categories/category-list.component';
+import { CategoryAttributesConfigComponent } from './inventory/category-attributes-config/category-attributes-config.component';
 import { ProfileComponent } from './profile/profile.component';
 import { GrnListComponent } from './warehouse/grn/grn-list/grn-list.component';
 import { GrnCreateComponent } from './warehouse/grn/grn-create/grn-create.component';
@@ -223,6 +224,8 @@ export default [
       canActivate: [permissionGuard(P.REORDER_MANAGE, P.INVENTORY_VIEW)] },
     { path: 'inventory/categories', component: CategoryListComponent,
       canActivate: [permissionGuard(P.INVENTORY_VIEW, P.STOCK_MANAGE)] },
+    { path: 'inventory/categories/:id/attributes', component: CategoryAttributesConfigComponent,
+      canActivate: [permissionGuard(P.STOCK_MANAGE)] },
     { path: 'inventory/sub-categories', component: SubCategoryListComponent,
       canActivate: [permissionGuard(P.INVENTORY_VIEW, P.STOCK_MANAGE)] },
 

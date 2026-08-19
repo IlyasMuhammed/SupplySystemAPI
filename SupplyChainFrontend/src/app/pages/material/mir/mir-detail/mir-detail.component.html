@@ -147,14 +147,22 @@
         <div class="edit-line-fields">
           <div class="edit-field">
             <label class="dialog-label">Product <span class="required">*</span></label>
-            <p-dropdown [options]="editProductOptions" [(ngModel)]="line.productUuid"
-                        optionLabel="label" optionValue="value"
-                        [filter]="true" placeholder="Select product..."
-                        (ngModelChange)="onEditProductChange(i, $event)"
-                        styleClass="w-full"></p-dropdown>
 
-            <!-- Warehouse picker -->
-            <div class="edit-warehouse-section" *ngIf="line.productUuid">
+            <!-- Existing lines: product/variant is fixed once created -->
+            <div class="existing-line-product" *ngIf="line.isExisting">
+              <i class="pi pi-box"></i> {{ line.productName }}<span *ngIf="line.variantName"> — {{ line.variantName }}</span>
+            </div>
+
+            <!-- New lines: two-level product/variant picker (identical to PO/MIR create) -->
+            <app-product-variant-picker
+              *ngIf="!line.isExisting"
+              [products]="editProducts"
+              [required]="true"
+              (selectionChange)="onEditVariantSelected(i, $event)">
+            </app-product-variant-picker>
+
+            <!-- Warehouse picker — new lines only, since stock preview needs a resolved product -->
+            <div class="edit-warehouse-section" *ngIf="!line.isExisting && line.variantUuid">
               <div class="edit-stock-loading" *ngIf="line.isLoadingStock">
                 <i class="pi pi-spin pi-spinner"></i> Checking stock...
               </div>
@@ -176,8 +184,8 @@
               </ng-container>
             </div>
 
-            <!-- Link to Purchase Requisition — shown after product is selected -->
-            <div class="pr-link-section" *ngIf="line.productUuid">
+            <!-- Link to Purchase Requisition — new lines get the full fetch UI -->
+            <div class="pr-link-section" *ngIf="!line.isExisting && line.variantUuid">
               <label class="edit-sub-label">Link to Purchase Requisition (optional)</label>
 
               <div class="pr-link-badge" *ngIf="line.prLineId">
@@ -205,6 +213,17 @@
                   <i class="pi pi-info-circle"></i>
                   No approved PRs with remaining undisbursed quantity found for this product
                 </div>
+              </div>
+            </div>
+
+            <!-- Existing lines: already-linked PR shown read-only (can still be cleared) -->
+            <div class="pr-link-section" *ngIf="line.isExisting && line.prLineId">
+              <label class="edit-sub-label">Linked Purchase Requisition</label>
+              <div class="pr-link-badge">
+                <span class="pr-badge"><i class="pi pi-link"></i> {{ line.prLineLabel ?? 'Linked PR' }}</span>
+                <button type="button" class="pr-clear-btn" (click)="clearEditPrLine(i)" title="Clear PR link">
+                  <i class="pi pi-times"></i>
+                </button>
               </div>
             </div>
           </div>

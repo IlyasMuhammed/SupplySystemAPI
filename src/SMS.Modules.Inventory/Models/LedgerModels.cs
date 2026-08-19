@@ -2,7 +2,7 @@ namespace SMS.Modules.Inventory.Models;
 
 public class LedgerEntryCommand
 {
-    public int ProductId { get; set; }
+    public int VariantId { get; set; }
     public int WarehouseId { get; set; }
     public string TransactionType { get; set; } = string.Empty;
     public string ReferenceType { get; set; } = string.Empty;
@@ -28,9 +28,9 @@ public class LedgerEntryCommand
 public class InventoryLedgerEntryDto
 {
     public Guid LedgerId { get; set; }
-    public int ProductId { get; set; }
+    public int VariantId { get; set; }
     public string ProductName { get; set; } = string.Empty;
-    public string ProductSku { get; set; } = string.Empty;
+    public string VariantSku { get; set; } = string.Empty;
     public int WarehouseId { get; set; }
     public string WarehouseName { get; set; } = string.Empty;
     public DateTime TransactionDate { get; set; }
@@ -50,7 +50,7 @@ public class InventoryLedgerEntryDto
 
 public class LedgerFilterDto
 {
-    public int? ProductId { get; set; }
+    public int? VariantId { get; set; }
     public int? WarehouseId { get; set; }
     public DateTime? From { get; set; }
     public DateTime? To { get; set; }

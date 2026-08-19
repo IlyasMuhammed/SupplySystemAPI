@@ -26,9 +26,11 @@ internal sealed class MasterProductLedgerService : IMasterProductLedgerService, 
         var entry = new MasterProductLedger
         {
             LedgerId        = Guid.NewGuid(),
-            ProductId       = context.ProductId,
+            VariantId       = context.VariantId,
             ProductCode     = context.ProductCode,
             ProductName     = context.ProductName,
+            VariantName     = context.VariantName,
+            Sku             = context.Sku,
             CategoryId      = context.CategoryId,
             CategoryName    = context.CategoryName,
             WarehouseId     = context.WarehouseId,
@@ -75,7 +77,7 @@ internal sealed class MasterProductLedgerService : IMasterProductLedgerService, 
 
         if (filter.DateFrom.HasValue)    q = q.Where(e => e.TransactionDate >= filter.DateFrom.Value);
         if (filter.DateTo.HasValue)      q = q.Where(e => e.TransactionDate <= filter.DateTo.Value);
-        if (filter.ProductId.HasValue)   q = q.Where(e => e.ProductId == filter.ProductId.Value);
+        if (filter.VariantId.HasValue)   q = q.Where(e => e.VariantId == filter.VariantId.Value);
         if (filter.CategoryId.HasValue)  q = q.Where(e => e.CategoryId == filter.CategoryId.Value);
         if (filter.WarehouseId.HasValue) q = q.Where(e => e.WarehouseId == filter.WarehouseId.Value);
         if (!string.IsNullOrWhiteSpace(filter.TransactionType)) q = q.Where(e => e.TransactionType == filter.TransactionType);
@@ -127,10 +129,10 @@ internal sealed class MasterProductLedgerService : IMasterProductLedgerService, 
         };
     }
 
-    public async Task<List<MasterProductLedgerEntryModel>> GetProductJourneyAsync(int productId)
+    public async Task<List<MasterProductLedgerEntryModel>> GetProductJourneyAsync(int variantId)
     {
         var entities = await _db.MasterProductLedgers
-            .Where(e => e.ProductId == productId)
+            .Where(e => e.VariantId == variantId)
             .OrderBy(e => e.TransactionDate)
             .ThenBy(e => e.Id)
             .ToListAsync();
@@ -141,9 +143,11 @@ internal sealed class MasterProductLedgerService : IMasterProductLedgerService, 
     private static MasterProductLedgerEntryModel ToModel(MasterProductLedger e) => new()
     {
         LedgerId        = e.LedgerId,
-        ProductId       = e.ProductId,
+        VariantId       = e.VariantId,
         ProductCode     = e.ProductCode,
         ProductName     = e.ProductName,
+        VariantName     = e.VariantName,
+        Sku             = e.Sku,
         CategoryId      = e.CategoryId,
         CategoryName    = e.CategoryName,
         WarehouseId     = e.WarehouseId,

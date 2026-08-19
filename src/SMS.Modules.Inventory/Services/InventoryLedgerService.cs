@@ -31,7 +31,7 @@ internal sealed class InventoryLedgerService : IInventoryLedgerService
             throw new ArgumentException("Exactly one of QuantityIn or QuantityOut must be set.", nameof(cmd));
 
         var prevBalance = await _db.InventoryLedgerEntries
-            .Where(e => e.ProductId == cmd.ProductId && e.WarehouseId == cmd.WarehouseId)
+            .Where(e => e.VariantId == cmd.VariantId && e.WarehouseId == cmd.WarehouseId)
             .OrderByDescending(e => e.CreatedAt)
             .ThenByDescending(e => e.LedgerId)
             .Select(e => (decimal?)e.BalanceAfter)
@@ -45,7 +45,7 @@ internal sealed class InventoryLedgerService : IInventoryLedgerService
         _db.InventoryLedgerEntries.Add(new InventoryLedgerEntry
         {
             LedgerId         = Guid.NewGuid(),
-            ProductId        = cmd.ProductId,
+            VariantId        = cmd.VariantId,
             WarehouseId      = cmd.WarehouseId,
             TransactionDate  = DateTime.UtcNow,
             TransactionType  = cmd.TransactionType,
@@ -63,8 +63,8 @@ internal sealed class InventoryLedgerService : IInventoryLedgerService
         });
 
         _logger.LogInformation(
-            "Ledger entry queued: product_id={ProductId} warehouse_id={WarehouseId} transaction_type={TransactionType} balance_after={BalanceAfter}",
-            cmd.ProductId, cmd.WarehouseId, cmd.TransactionType, balanceAfter);
+            "Ledger entry queued: variant_id={VariantId} warehouse_id={WarehouseId} transaction_type={TransactionType} balance_after={BalanceAfter}",
+            cmd.VariantId, cmd.WarehouseId, cmd.TransactionType, balanceAfter);
 
         // FSD Addendum 24 (ML-003) — mirror into the master product ledger within the SAME ambient
         // transaction. Only when the caller supplied source/destination context (callers not yet
@@ -72,13 +72,14 @@ internal sealed class InventoryLedgerService : IInventoryLedgerService
         if (_masterProductLedger is not null
             && !string.IsNullOrWhiteSpace(cmd.SourceType) && !string.IsNullOrWhiteSpace(cmd.DestinationType))
         {
-            var product = await _db.Products.AsNoTracking()
-                .FirstOrDefaultAsync(p => p.Id == cmd.ProductId);
+            var variant = await _db.ProductVariants.AsNoTracking()
+                .Include(v => v.Product)
+                .FirstOrDefaultAsync(v => v.Id == cmd.VariantId);
             var warehouse = await _db.Warehouses.AsNoTracking()
                 .FirstOrDefaultAsync(w => w.Id == cmd.WarehouseId);
 
             string? categoryName = null;
-            if (product?.CategoryId is int categoryId)
+            if (variant?.Product.CategoryId is int categoryId)
                 categoryName = await _db.ProductCategories.AsNoTracking()
                     .Where(c => c.Id == categoryId)
                     .Select(c => c.Name)
@@ -89,12 +90,22 @@ internal sealed class InventoryLedgerService : IInventoryLedgerService
             // which enlist _db into a cross-DbContext transaction without threading it as a param).
             var ambientTransaction = transaction ?? _db.Database.CurrentTransaction;
 
+            // PV-005 — ProductName is denormalised as "{Product} ({Variant})" for single-variant
+            // (default) products the variant name is omitted, since it's typically just "Default"
+            // and adds no information.
+            var productName = variant is null ? string.Empty
+                : variant.IsDefault ? variant.Product.Name
+                : $"{variant.Product.Name} ({variant.VariantName})";
+
             await _masterProductLedger.PostMovementAsync(new ProductMovementContext
             {
-                ProductId       = cmd.ProductId,
-                ProductCode     = product?.Sku  ?? string.Empty,
-                ProductName     = product?.Name ?? string.Empty,
-                CategoryId      = product?.CategoryId,
+                VariantId       = cmd.VariantId,
+                ProductCode     = variant?.Sku ?? string.Empty,
+                ProductName     = productName,
+                // PV-008 — distinct fields alongside the folded ProductCode/ProductName above.
+                VariantName     = variant?.VariantName,
+                Sku             = variant?.Sku,
+                CategoryId      = variant?.Product.CategoryId,
                 CategoryName    = categoryName,
                 WarehouseId     = cmd.WarehouseId,
                 WarehouseName   = warehouse?.Name ?? string.Empty,
@@ -119,10 +130,10 @@ internal sealed class InventoryLedgerService : IInventoryLedgerService
         // the write isn't durable until the caller's own SaveChangesAsync + CommitAsync complete.
     }
 
-    public async Task<decimal> GetCurrentBalanceAsync(int productId, int warehouseId)
+    public async Task<decimal> GetCurrentBalanceAsync(int variantId, int warehouseId)
     {
         return await _db.InventoryLedgerEntries
-            .Where(e => e.ProductId == productId && e.WarehouseId == warehouseId)
+            .Where(e => e.VariantId == variantId && e.WarehouseId == warehouseId)
             .OrderByDescending(e => e.CreatedAt)
             .ThenByDescending(e => e.LedgerId)
             .Select(e => (decimal?)e.BalanceAfter)
@@ -133,12 +144,12 @@ internal sealed class InventoryLedgerService : IInventoryLedgerService
     {
         var query =
             from entry     in _db.InventoryLedgerEntries
-            join product   in _db.Products   on entry.ProductId   equals product.Id
+            join variant   in _db.ProductVariants on entry.VariantId equals variant.Id
             join warehouse in _db.Warehouses on entry.WarehouseId equals warehouse.Id
-            select new { entry, product, warehouse };
+            select new { entry, variant, warehouse };
 
-        if (filter.ProductId.HasValue)
-            query = query.Where(x => x.entry.ProductId == filter.ProductId.Value);
+        if (filter.VariantId.HasValue)
+            query = query.Where(x => x.entry.VariantId == filter.VariantId.Value);
 
         if (filter.WarehouseId.HasValue)
             query = query.Where(x => x.entry.WarehouseId == filter.WarehouseId.Value);
@@ -163,9 +174,9 @@ internal sealed class InventoryLedgerService : IInventoryLedgerService
             .Select(x => new InventoryLedgerEntryDto
             {
                 LedgerId         = x.entry.LedgerId,
-                ProductId        = x.entry.ProductId,
-                ProductName      = x.product.Name,
-                ProductSku       = x.product.Sku,
+                VariantId        = x.entry.VariantId,
+                ProductName      = x.variant.Product.Name,
+                VariantSku       = x.variant.Sku,
                 WarehouseId      = x.entry.WarehouseId,
                 WarehouseName    = x.warehouse.Name,
                 TransactionDate  = x.entry.TransactionDate,
@@ -194,8 +205,8 @@ internal sealed class InventoryLedgerService : IInventoryLedgerService
             .FirstOrDefaultAsync();
 
         decimal currentBalance = 0m;
-        if (filter.ProductId.HasValue && filter.WarehouseId.HasValue)
-            currentBalance = await GetCurrentBalanceAsync(filter.ProductId.Value, filter.WarehouseId.Value);
+        if (filter.VariantId.HasValue && filter.WarehouseId.HasValue)
+            currentBalance = await GetCurrentBalanceAsync(filter.VariantId.Value, filter.WarehouseId.Value);
 
         return new LedgerPagedResult
         {

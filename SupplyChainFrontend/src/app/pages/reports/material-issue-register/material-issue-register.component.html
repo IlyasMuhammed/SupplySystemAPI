@@ -71,6 +71,7 @@
           <th pSortableColumn="issueNo">Issue No <p-sortIcon field="issueNo" /></th>
           <th pSortableColumn="mirNo">MIR No <p-sortIcon field="mirNo" /></th>
           <th>Request Type</th>
+          <th>Items</th>
           <th>Issued To</th>
           <th pSortableColumn="issueDate">Issue Date <p-sortIcon field="issueDate" /></th>
           <th>Status</th>
@@ -83,6 +84,7 @@
           <td><span class="ref-no">{{ row.issueNo }}</span></td>
           <td><span class="ref-no secondary">{{ row.mirNo }}</span></td>
           <td>{{ row.requestType }}</td>
+          <td class="items-summary" pTooltip="{{ row.itemsSummary }}" tooltipPosition="top">{{ row.itemsSummary || '—' }}</td>
           <td>{{ row.issuedTo ?? '—' }}</td>
           <td>{{ row.issueDate | date:'dd MMM yyyy' }}</td>
           <td><p-tag [value]="row.status" [severity]="getStatusSeverity(row.status)" /></td>
@@ -91,11 +93,11 @@
         </tr>
       </ng-template>
       <ng-template pTemplate="emptymessage">
-        <tr><td colspan="8" class="empty-msg">No vouchers found. Adjust filters and run the report.</td></tr>
+        <tr><td colspan="9" class="empty-msg">No vouchers found. Adjust filters and run the report.</td></tr>
       </ng-template>
       <ng-template pTemplate="footer">
         <tr *ngIf="items.length > 0">
-          <td colspan="7" class="total-label">Grand Total</td>
+          <td colspan="8" class="total-label">Grand Total</td>
           <td class="text-right amount total">{{ totalValue | number:'1.2-2' }}</td>
         </tr>
       </ng-template>

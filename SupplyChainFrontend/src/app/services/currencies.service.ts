@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../environments/environment';
 
 export interface CurrencyModel {
   id: string;
@@ -23,7 +24,7 @@ export interface ApiResponse<T = null> {
 
 @Injectable({ providedIn: 'root' })
 export class CurrenciesService {
-  private readonly baseUrl = 'https://localhost:52800/api/lookups';
+  private readonly baseUrl = `${environment.apiUrl}/lookups`;
 
   constructor(private http: HttpClient) {}
 

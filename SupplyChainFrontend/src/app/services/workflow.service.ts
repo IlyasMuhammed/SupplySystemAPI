@@ -2,8 +2,9 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { ApiResponse, PaginatedResponse } from './demand.service';
+import { environment } from '../../environments/environment';
 
-const BASE = 'https://localhost:52800/api/workflow';
+const BASE = `${environment.apiUrl}/workflow`;
 
 // ── Inbox ─────────────────────────────────────────────────────────────────────
 

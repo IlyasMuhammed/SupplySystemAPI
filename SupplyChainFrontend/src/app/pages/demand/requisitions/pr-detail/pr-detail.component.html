@@ -117,11 +117,7 @@
           <tr>
             <td>{{ line.lineNo }}</td>
             <td>
-              <div class="font-semibold">{{ getProductName(line.productId) || line.itemDescription }}</div>
-              <div class="text-secondary" style="font-size:.78rem;margin-top:.1rem;"
-                   *ngIf="getProductName(line.productId) && getProductName(line.productId) !== line.itemDescription">
-                {{ line.itemDescription }}
-              </div>
+              <div class="font-semibold">{{ lineDisplayName(line) }}</div>
             </td>
             <td class="text-secondary">{{ line.specification || '—' }}</td>
             <td>{{ line.unitOfMeasure || '—' }}</td>

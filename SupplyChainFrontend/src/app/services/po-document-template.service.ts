@@ -2,8 +2,9 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { ApiResponse } from './demand.service';
+import { environment } from '../../environments/environment';
 
-const BASE = 'https://localhost:52800/api/po-document-template';
+const BASE = `${environment.apiUrl}/po-document-template`;
 
 export interface PoDocumentTemplateModel {
   id: string;

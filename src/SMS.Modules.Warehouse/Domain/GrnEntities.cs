@@ -163,7 +163,9 @@ internal class GrnLine : ITenantScopedEntity
     public Guid PoLineUuid { get; set; }   // UUID ref to purchase_order_lines — no FK (cross-module safe)
     // Inherited from the source PO line at GRN creation — decided at PO time, not editable here.
     public bool RequiresInspection { get; set; } = true;
-    public Guid? ProductUuid { get; set; }
+    // PV-004 — inherited from the source PO line's VariantUuid at GRN creation; manual/recovery
+    // linking (LinkLineVariantAsync) can also set it directly on unlinked lines.
+    public Guid? VariantUuid { get; set; }
     public int LineNo { get; set; }
     public string ItemDescription { get; set; } = string.Empty;
     public string? UnitOfMeasure { get; set; }

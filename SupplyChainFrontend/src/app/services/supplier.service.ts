@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../environments/environment';
 
 // ── Shared response wrapper ───────────────────────────────────────────────────
 
@@ -275,7 +276,7 @@ export interface SupplierCategoryModel {
 
 @Injectable({ providedIn: 'root' })
 export class SupplierService {
-  private readonly baseUrl = 'https://localhost:52800/api/suppliers';
+  private readonly baseUrl = `${environment.apiUrl}/suppliers`;
 
   constructor(private http: HttpClient) {}
 

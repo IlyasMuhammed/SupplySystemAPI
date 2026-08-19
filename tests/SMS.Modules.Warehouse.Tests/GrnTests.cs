@@ -290,9 +290,9 @@ public class LinkLineProductAsync_Tests
         var lineUuid = (await wh.Grns.Include(g => g.Lines).FirstAsync(g => g.UUID == grnUuid)).Lines.First().UUID;
         var productUuid = Guid.NewGuid();
 
-        await repo.LinkLineProductAsync(grnUuid, lineUuid, productUuid, modifiedBy: 1);
+        await repo.LinkLineVariantAsync(grnUuid, lineUuid, productUuid, modifiedBy: 1);
 
-        (await wh.GrnLines.FirstAsync(l => l.UUID == lineUuid)).ProductUuid.Should().Be(productUuid);
+        (await wh.GrnLines.FirstAsync(l => l.UUID == lineUuid)).VariantUuid.Should().Be(productUuid);
     }
 
     [Theory]
@@ -311,9 +311,9 @@ public class LinkLineProductAsync_Tests
         await wh.SaveChangesAsync();
 
         var productUuid = Guid.NewGuid();
-        await repo.LinkLineProductAsync(grnUuid, lineUuid, productUuid, modifiedBy: 1);
+        await repo.LinkLineVariantAsync(grnUuid, lineUuid, productUuid, modifiedBy: 1);
 
-        (await wh.GrnLines.FirstAsync(l => l.UUID == lineUuid)).ProductUuid.Should().Be(productUuid);
+        (await wh.GrnLines.FirstAsync(l => l.UUID == lineUuid)).VariantUuid.Should().Be(productUuid);
     }
 
     [Theory]
@@ -330,7 +330,7 @@ public class LinkLineProductAsync_Tests
         grn.Status = status;
         await wh.SaveChangesAsync();
 
-        var act = () => repo.LinkLineProductAsync(grnUuid, lineUuid, Guid.NewGuid(), modifiedBy: 1);
+        var act = () => repo.LinkLineVariantAsync(grnUuid, lineUuid, Guid.NewGuid(), modifiedBy: 1);
 
         await act.Should().ThrowAsync<UnprocessableEntityException>();
     }
@@ -352,7 +352,7 @@ public class LinkLineProductAsync_Tests
         grn.Status = "PENDING_APPROVAL";
         await wh.SaveChangesAsync();
 
-        await repo.LinkLineProductAsync(grnUuid, lineUuid, Guid.NewGuid(), modifiedBy: 1);
+        await repo.LinkLineVariantAsync(grnUuid, lineUuid, Guid.NewGuid(), modifiedBy: 1);
 
         var line = await wh.GrnLines.FirstAsync(l => l.UUID == lineUuid);
         line.QtyReceived.Should().Be(10m);

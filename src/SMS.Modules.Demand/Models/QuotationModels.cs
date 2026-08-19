@@ -55,6 +55,10 @@ public class VendorResponseLineRequest
     public decimal Quantity { get; set; }
     public int? LeadTimeDays { get; set; }
     public string? Notes { get; set; }
+    // Lets an admin recording a response on a supplier's behalf (phone/email) capture the same
+    // "cannot supply this line" decline the RFQ portal supports natively. Defaults true so
+    // existing callers that never set it keep today's behavior.
+    public bool CanSupply { get; set; } = true;
 }
 
 public class AwardQuotationRequest
@@ -158,7 +162,14 @@ public class QuotationLineModel
     public int LineNo { get; set; }
     public Guid? SourcePrLineUuid { get; set; }
     public Guid? SourcePoLineUuid { get; set; }
+    // Holds the selected ProductVariant's Uuid (see QuotationLine entity's comment).
     public Guid? ProductId { get; set; }
+    // Resolved display fields — batch-resolved cross-module from InventoryDbContext, same
+    // pattern as PrLineModel/PoLineModel.
+    public Guid? ProductUuid { get; set; }
+    public string? VariantSku { get; set; }
+    public string? VariantName { get; set; }
+    public string? ProductName { get; set; }
     public string ItemDescription { get; set; } = string.Empty;
     public string? Specification { get; set; }
     public string? UnitOfMeasure { get; set; }
@@ -262,6 +273,7 @@ public class VendorResponseLineModel
     public decimal LineTotal { get; set; }
     public int? LeadTimeDays { get; set; }
     public string? Notes { get; set; }
+    public bool CanSupply { get; set; } = true;
 }
 
 

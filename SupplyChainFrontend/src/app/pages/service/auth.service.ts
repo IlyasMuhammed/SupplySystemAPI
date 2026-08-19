@@ -3,6 +3,7 @@ import { Injectable } from '@angular/core';
 import { Observable, tap } from 'rxjs';
 import { Router } from '@angular/router';
 import { TenantService } from './tenant.service';
+import { environment } from '../../../environments/environment';
 
 export interface LoginRequest {
   email: string;
@@ -119,7 +120,7 @@ export interface ApiResponse<T = null> {
   providedIn: 'root',
 })
 export class AuthService {
-  private readonly apiUrl = 'https://localhost:52800/api/auth';
+  private readonly apiUrl = `${environment.apiUrl}/auth`;
 
   constructor(private http: HttpClient, private router: Router, private tenantService: TenantService) {}
 
@@ -142,7 +143,7 @@ export class AuthService {
   }
 
   // ── Role CRUD (ROLE-001) ───────────────────────────────────────────────────
-  private readonly rolesBase = 'https://localhost:52800/api/roles';
+  private readonly rolesBase = `${environment.apiUrl}/roles`;
 
   getRoleList(): Observable<ApiResponse<RoleListItem[]>> {
     return this.http.get<ApiResponse<RoleListItem[]>>(this.rolesBase);

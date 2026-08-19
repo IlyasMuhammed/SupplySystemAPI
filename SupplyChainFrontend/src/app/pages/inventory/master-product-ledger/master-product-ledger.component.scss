@@ -1,4 +1,6 @@
 .ledger-page { padding: 1.5rem; }
+.mono { font-family: monospace; font-size: .875rem; }
+.text-secondary { color: var(--text-color-secondary, #64748b); font-size: .8125rem; }
 
 .page-header {
   display: flex;

@@ -97,7 +97,7 @@ file static class Build
 
     internal static CreateMirLineRequest Line(Guid productUuid, decimal qty = 2m, Guid? prLineId = null) => new()
     {
-        ProductUuid  = productUuid,
+        VariantUuid  = productUuid,
         RequestedQty = qty,
         PrLineId     = prLineId
     };
@@ -148,8 +148,9 @@ public class Mir_TraceId_Tests
     {
         var (repo, material, _, inventory) = Build.NewMirRepo();
         var product = Build.SeedProduct(inventory, Guid.NewGuid());
+        var variant = product.Variants.First();
 
-        var uuid = await repo.CreateAsync(Build.DeptRequest(Build.Line(product.Uuid)), createdBy: 1);
+        var uuid = await repo.CreateAsync(Build.DeptRequest(Build.Line(variant.Uuid)), createdBy: 1);
 
         var mir = await material.MaterialIssueRequests.FirstAsync(m => m.UUID == uuid);
         mir.TraceId.Should().NotBe(Guid.Empty);
@@ -160,7 +161,8 @@ public class Mir_TraceId_Tests
     {
         var (repo, _, _, inventory) = Build.NewMirRepo();
         var product = Build.SeedProduct(inventory, Guid.NewGuid());
-        var uuid = await repo.CreateAsync(Build.DeptRequest(Build.Line(product.Uuid)), createdBy: 1);
+        var variant = product.Variants.First();
+        var uuid = await repo.CreateAsync(Build.DeptRequest(Build.Line(variant.Uuid)), createdBy: 1);
 
         var detail = await repo.GetByUuidAsync(uuid);
 
@@ -175,9 +177,10 @@ public class Mir_TraceId_Tests
     {
         var (repo, material, demand, inventory) = Build.NewMirRepo();
         var product = Build.SeedProduct(inventory, Guid.NewGuid());
+        var variant = product.Variants.First();
         var (pr, prLine) = Build.SeedPrLine(demand, product.Uuid);
 
-        var uuid = await repo.CreateAsync(Build.DeptRequest(Build.Line(product.Uuid, prLineId: prLine.UUID)), createdBy: 1);
+        var uuid = await repo.CreateAsync(Build.DeptRequest(Build.Line(variant.Uuid, prLineId: prLine.UUID)), createdBy: 1);
 
         var mir = await material.MaterialIssueRequests.FirstAsync(m => m.UUID == uuid);
         mir.TraceId.Should().Be(pr.TraceId);
@@ -188,8 +191,9 @@ public class Mir_TraceId_Tests
     {
         var (repo, material, _, inventory) = Build.NewMirRepo();
         var product = Build.SeedProduct(inventory, Guid.NewGuid());
+        var variant = product.Variants.First();
 
-        var uuid = await repo.CreateAsync(Build.DeptRequest(Build.Line(product.Uuid, prLineId: null)), createdBy: 1);
+        var uuid = await repo.CreateAsync(Build.DeptRequest(Build.Line(variant.Uuid, prLineId: null)), createdBy: 1);
 
         var mir = await material.MaterialIssueRequests.FirstAsync(m => m.UUID == uuid);
         mir.TraceId.Should().NotBe(Guid.Empty);
@@ -200,10 +204,11 @@ public class Mir_TraceId_Tests
     {
         var (repo, material, demand, inventory) = Build.NewMirRepo();
         var product = Build.SeedProduct(inventory, Guid.NewGuid());
+        var variant = product.Variants.First();
         var (pr, prLine) = Build.SeedPrLine(demand, product.Uuid, qty: 100m);
 
-        var uuid1 = await repo.CreateAsync(Build.DeptRequest(Build.Line(product.Uuid, qty: 1m, prLineId: prLine.UUID)), createdBy: 1);
-        var uuid2 = await repo.CreateAsync(Build.DeptRequest(Build.Line(product.Uuid, qty: 1m, prLineId: prLine.UUID)), createdBy: 1);
+        var uuid1 = await repo.CreateAsync(Build.DeptRequest(Build.Line(variant.Uuid, qty: 1m, prLineId: prLine.UUID)), createdBy: 1);
+        var uuid2 = await repo.CreateAsync(Build.DeptRequest(Build.Line(variant.Uuid, qty: 1m, prLineId: prLine.UUID)), createdBy: 1);
 
         var mir1 = await material.MaterialIssueRequests.FirstAsync(m => m.UUID == uuid1);
         var mir2 = await material.MaterialIssueRequests.FirstAsync(m => m.UUID == uuid2);
@@ -217,12 +222,14 @@ public class Mir_TraceId_Tests
         var (repo, material, demand, inventory, logger) = Build.NewMirRepoWithLogger();
         var product1 = Build.SeedProduct(inventory, Guid.NewGuid(), "Lenovo Laptop");
         var product2 = Build.SeedProduct(inventory, Guid.NewGuid(), "Dell Monitor");
+        var variant1 = product1.Variants.First();
+        var variant2 = product2.Variants.First();
         var (pr1, prLine1) = Build.SeedPrLine(demand, product1.Uuid, itemDescription: "Lenovo Laptop");
         var (pr2, prLine2) = Build.SeedPrLine(demand, product2.Uuid, itemDescription: "Dell Monitor");
 
         var req = Build.DeptRequest(
-            Build.Line(product1.Uuid, qty: 1m, prLineId: prLine1.UUID),
-            Build.Line(product2.Uuid, qty: 1m, prLineId: prLine2.UUID));
+            Build.Line(variant1.Uuid, qty: 1m, prLineId: prLine1.UUID),
+            Build.Line(variant2.Uuid, qty: 1m, prLineId: prLine2.UUID));
 
         var uuid = await repo.CreateAsync(req, createdBy: 1);
 
@@ -242,9 +249,10 @@ public class MirLine_PrLineId_Tests
     {
         var (repo, material, demand, inventory) = Build.NewMirRepo();
         var product = Build.SeedProduct(inventory, Guid.NewGuid());
+        var variant = product.Variants.First();
         var (_, prLine) = Build.SeedPrLine(demand, product.Uuid);
 
-        var uuid = await repo.CreateAsync(Build.DeptRequest(Build.Line(product.Uuid, prLineId: prLine.UUID)), createdBy: 1);
+        var uuid = await repo.CreateAsync(Build.DeptRequest(Build.Line(variant.Uuid, prLineId: prLine.UUID)), createdBy: 1);
 
         var mir = await material.MaterialIssueRequests.Include(m => m.Lines).FirstAsync(m => m.UUID == uuid);
         mir.Lines.Single().PrLineId.Should().Be(prLine.Id);
@@ -255,9 +263,10 @@ public class MirLine_PrLineId_Tests
     {
         var (repo, _, demand, inventory) = Build.NewMirRepo();
         var product = Build.SeedProduct(inventory, Guid.NewGuid());
+        var variant = product.Variants.First();
         var (_, prLine) = Build.SeedPrLine(demand, product.Uuid, prStatus: "DRAFT");
 
-        var act = () => repo.CreateAsync(Build.DeptRequest(Build.Line(product.Uuid, prLineId: prLine.UUID)), createdBy: 1);
+        var act = () => repo.CreateAsync(Build.DeptRequest(Build.Line(variant.Uuid, prLineId: prLine.UUID)), createdBy: 1);
 
         await act.Should().ThrowAsync<BadRequestException>()
             .WithMessage("*APPROVED*");
@@ -268,8 +277,9 @@ public class MirLine_PrLineId_Tests
     {
         var (repo, _, _, inventory) = Build.NewMirRepo();
         var product = Build.SeedProduct(inventory, Guid.NewGuid());
+        var variant = product.Variants.First();
 
-        var act = () => repo.CreateAsync(Build.DeptRequest(Build.Line(product.Uuid, prLineId: Guid.NewGuid())), createdBy: 1);
+        var act = () => repo.CreateAsync(Build.DeptRequest(Build.Line(variant.Uuid, prLineId: Guid.NewGuid())), createdBy: 1);
 
         await act.Should().ThrowAsync<BadRequestException>();
     }
@@ -279,8 +289,9 @@ public class MirLine_PrLineId_Tests
     {
         var (repo, material, _, inventory) = Build.NewMirRepo();
         var product = Build.SeedProduct(inventory, Guid.NewGuid());
+        var variant = product.Variants.First();
 
-        var uuid = await repo.CreateAsync(Build.DeptRequest(Build.Line(product.Uuid, prLineId: null)), createdBy: 1);
+        var uuid = await repo.CreateAsync(Build.DeptRequest(Build.Line(variant.Uuid, prLineId: null)), createdBy: 1);
 
         var mir = await material.MaterialIssueRequests.Include(m => m.Lines).FirstAsync(m => m.UUID == uuid);
         mir.Lines.Single().PrLineId.Should().BeNull();
@@ -291,15 +302,16 @@ public class MirLine_PrLineId_Tests
     {
         var (repo, material, demand, inventory) = Build.NewMirRepo();
         var product = Build.SeedProduct(inventory, Guid.NewGuid());
+        var variant = product.Variants.First();
         var (_, prLine) = Build.SeedPrLine(demand, product.Uuid);
 
-        var uuid = await repo.CreateAsync(Build.DeptRequest(Build.Line(product.Uuid)), createdBy: 1);
+        var uuid = await repo.CreateAsync(Build.DeptRequest(Build.Line(variant.Uuid)), createdBy: 1);
 
         var mir = await material.MaterialIssueRequests.FirstAsync(m => m.UUID == uuid);
         mir.Status = "PENDING_APPROVAL";
         await material.SaveChangesAsync();
 
-        var patchReq = new PatchMirRequest { Lines = [Build.Line(product.Uuid, prLineId: prLine.UUID)] };
+        var patchReq = new PatchMirRequest { Lines = [Build.Line(variant.Uuid, prLineId: prLine.UUID)] };
 
         var act = () => repo.PatchAsync(uuid, patchReq, modifiedBy: 1);
 
@@ -312,11 +324,12 @@ public class MirLine_PrLineId_Tests
     {
         var (repo, material, demand, inventory) = Build.NewMirRepo();
         var product = Build.SeedProduct(inventory, Guid.NewGuid());
+        var variant = product.Variants.First();
         var (_, prLine) = Build.SeedPrLine(demand, product.Uuid);
 
-        var uuid = await repo.CreateAsync(Build.DeptRequest(Build.Line(product.Uuid, prLineId: prLine.UUID)), createdBy: 1);
+        var uuid = await repo.CreateAsync(Build.DeptRequest(Build.Line(variant.Uuid, prLineId: prLine.UUID)), createdBy: 1);
 
-        await repo.PatchAsync(uuid, new PatchMirRequest { Lines = [Build.Line(product.Uuid, prLineId: null)] }, modifiedBy: 1);
+        await repo.PatchAsync(uuid, new PatchMirRequest { Lines = [Build.Line(variant.Uuid, prLineId: null)] }, modifiedBy: 1);
 
         var mir = await material.MaterialIssueRequests.Include(m => m.Lines).FirstAsync(m => m.UUID == uuid);
         mir.Lines.Single().PrLineId.Should().BeNull();
@@ -367,7 +380,7 @@ public class PrLookupService_Tests
                 {
                     UUID            = Guid.NewGuid(),
                     LineNo          = 1,
-                    ProductUuid     = productUuid,
+                    VariantUuid     = productUuid,
                     ItemDescription = "Lenovo Laptop",
                     RequestedQty    = 10m,
                     PrLineId        = line.Id
@@ -405,7 +418,7 @@ public class PrLookupService_Tests
                 {
                     UUID            = Guid.NewGuid(),
                     LineNo          = 1,
-                    ProductUuid     = productUuid,
+                    VariantUuid     = productUuid,
                     ItemDescription = "Lenovo Laptop",
                     RequestedQty    = 4m,
                     PrLineId        = line.Id
@@ -444,7 +457,7 @@ public class PrLookupService_Tests
                 {
                     UUID            = Guid.NewGuid(),
                     LineNo          = 1,
-                    ProductUuid     = productUuid,
+                    VariantUuid     = productUuid,
                     ItemDescription = "Lenovo Laptop",
                     RequestedQty    = 10m,
                     PrLineId        = line.Id

@@ -378,9 +378,12 @@ public class MasterLedgerBalanceModel
 public class MasterProductLedgerEntryModel
 {
     public Guid     LedgerId        { get; set; }
-    public int      ProductId       { get; set; }
+    public int      VariantId       { get; set; }
     public string   ProductCode     { get; set; } = string.Empty;
     public string   ProductName     { get; set; } = string.Empty;
+    // PV-008 — distinct alongside ProductCode/ProductName (see MasterProductLedger entity).
+    public string?  VariantName     { get; set; }
+    public string?  Sku             { get; set; }
     public int?     CategoryId      { get; set; }
     public string?  CategoryName    { get; set; }
     public int      WarehouseId     { get; set; }
@@ -407,7 +410,7 @@ public class MasterProductLedgerFilter
 {
     public DateTime? DateFrom        { get; set; }
     public DateTime? DateTo          { get; set; }
-    public int?       ProductId       { get; set; }
+    public int?       VariantId       { get; set; }
     public int?       CategoryId      { get; set; }
     public int?       WarehouseId     { get; set; }
     public string?    TransactionType { get; set; }

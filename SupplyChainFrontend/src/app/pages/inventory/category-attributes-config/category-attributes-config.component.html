@@ -1,0 +1,121 @@
+<div class="cac-page">
+  <p-toast></p-toast>
+  <p-confirmDialog></p-confirmDialog>
+
+  <div class="cac-header">
+    <div class="cac-header-left">
+      <a [routerLink]="['/portal/pages/inventory/categories']" class="cac-back"><i class="pi pi-arrow-left"></i> Categories</a>
+      <h1 class="cac-title">
+        <i class="pi pi-sliders-h"></i> Configure Attributes
+        <span class="cac-cat-name" *ngIf="category">— {{ category.name }}</span>
+      </h1>
+      <p class="cac-subtitle">Choose which attributes appear on the dynamic product form for this category, and in what order.</p>
+    </div>
+    <div class="cac-header-actions">
+      <p-button label="New Attribute" icon="pi pi-plus" severity="secondary" [outlined]="true"
+                (onClick)="openNewAttributeDialog()"></p-button>
+      <p-button label="Save" icon="pi pi-check" [loading]="isSaving" (onClick)="save()"></p-button>
+    </div>
+  </div>
+
+  <div class="cac-loading" *ngIf="isLoading"><i class="pi pi-spin pi-spinner"></i> Loading…</div>
+
+  <div class="cac-body" *ngIf="!isLoading">
+
+    <!-- Available / Linked pick list -->
+    <div class="cac-panel">
+      <div class="cac-panel-hdr"><i class="pi pi-list"></i> Attributes</div>
+      <p-pickList
+        [source]="source" [target]="target"
+        sourceHeader="Available Attributes" targetHeader="Linked to this Category (drag to reorder)"
+        [dragdrop]="true" [responsive]="true"
+        filterBy="displayName"
+        sourceFilterPlaceholder="Search available…" targetFilterPlaceholder="Search linked…"
+        breakpoint="960px"
+        (onMoveToTarget)="refreshPreview()" (onMoveToSource)="refreshPreview()"
+        (onMoveAllToTarget)="refreshPreview()" (onMoveAllToSource)="refreshPreview()"
+        (onTargetReorder)="refreshPreview()" (onSourceReorder)="refreshPreview()">
+        <ng-template let-item pTemplate="item">
+          <div class="cac-item" [class.cac-item--linked]="target.includes(item)">
+            <div class="cac-item-main">
+              <span class="cac-item-name">{{ item.displayName }}</span>
+              <p-tag [value]="item.dataType" severity="secondary" styleClass="cac-type-tag"></p-tag>
+            </div>
+            <div class="cac-item-toggle" *ngIf="target.includes(item)" (click)="$event.stopPropagation()">
+              <p-toggleswitch [(ngModel)]="item.linkedRequired" (click)="$event.stopPropagation()"
+                              (ngModelChange)="refreshPreview()"></p-toggleswitch>
+              <span class="cac-toggle-label">Required</span>
+            </div>
+            <button type="button" class="cac-item-delete" pTooltip="Delete attribute from catalog" tooltipPosition="top"
+                    (click)="confirmDeleteAttribute(item, $event)">
+              <i class="pi pi-trash"></i>
+            </button>
+          </div>
+        </ng-template>
+      </p-pickList>
+    </div>
+
+    <!-- Live preview -->
+    <div class="cac-panel cac-preview">
+      <div class="cac-panel-hdr"><i class="pi pi-eye"></i> Live Preview</div>
+      <p class="cac-preview-hint">Exactly what end users will see on the product/variant form for this category.</p>
+      <app-dynamic-attribute-form [attributes]="previewAttributes"></app-dynamic-attribute-form>
+    </div>
+
+  </div>
+
+  <!-- New Attribute dialog — creates a catalog-level AttributeDefinition. It only appears in
+       "Available Attributes" afterwards; it still needs to be dragged into "Linked" + Saved
+       to actually apply to this category. -->
+  <p-dialog [(visible)]="showNewAttributeDialog" [modal]="true" [style]="{width:'480px'}"
+            [draggable]="false" [resizable]="false" header="New Attribute">
+    <div class="cac-na-form">
+
+      <div class="cac-na-field">
+        <label>Display Name <span class="cac-na-required">*</span></label>
+        <input pInputText [(ngModel)]="newAttribute.displayName"
+               (ngModelChange)="onDisplayNameChange()"
+               placeholder="e.g. Weight, Material, Warranty Period" class="w-full" maxlength="100" />
+      </div>
+
+      <div class="cac-na-field">
+        <label>Internal Key <span class="cac-na-required">*</span></label>
+        <input pInputText [(ngModel)]="newAttribute.attributeName"
+               (ngModelChange)="onAttributeNameEdited()"
+               placeholder="e.g. weight" class="w-full" maxlength="100" />
+        <small class="cac-na-hint">Auto-generated from the display name; must be unique across the whole catalog.</small>
+      </div>
+
+      <div class="cac-na-field">
+        <label>Field Type <span class="cac-na-required">*</span></label>
+        <p-dropdown [options]="fieldTypeOptions" [(ngModel)]="newAttribute.fieldType"
+                    optionLabel="label" styleClass="w-full" appendTo="body"></p-dropdown>
+      </div>
+
+      <div class="cac-na-field" *ngIf="newAttribute.fieldType.hasOptions">
+        <label>Options <span class="cac-na-required">*</span></label>
+        <textarea pTextarea [(ngModel)]="newAttribute.dropdownOptionsText" rows="2"
+                  placeholder="Comma-separated, e.g. Small, Medium, Large" class="w-full"></textarea>
+      </div>
+
+      <div class="cac-na-toggles">
+        <div class="cac-na-toggle-row">
+          <p-toggleswitch [(ngModel)]="newAttribute.isRequired"></p-toggleswitch>
+          <span>Required by default when linked to a category</span>
+        </div>
+        <div class="cac-na-toggle-row">
+          <p-toggleswitch [(ngModel)]="newAttribute.isSearchable"></p-toggleswitch>
+          <span>Searchable / filterable</span>
+        </div>
+      </div>
+
+    </div>
+
+    <ng-template pTemplate="footer">
+      <p-button label="Cancel" severity="secondary" [text]="true"
+                (onClick)="showNewAttributeDialog = false"></p-button>
+      <p-button label="Create Attribute" icon="pi pi-check" [loading]="isCreatingAttribute"
+                [disabled]="!newAttributeCanSave" (onClick)="submitNewAttribute()"></p-button>
+    </ng-template>
+  </p-dialog>
+</div>

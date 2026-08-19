@@ -24,6 +24,7 @@ import { ReportsService, AuditLogItemModel } from '../../../../services/reports.
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { TimelinePanelComponent } from '../../../../shared/timeline-panel/timeline-panel.component';
 import { AttachmentListComponent } from '../../../../shared/attachment-list/attachment-list.component';
+import { ProductVariantPickerComponent, VariantPickerSelection } from '../../../../shared/product-variant-picker/product-variant-picker.component';
 
 export interface InspectionRowState {
   lineUuid: string;
@@ -44,13 +45,24 @@ export interface InspectionRowState {
     ButtonModule, TagModule, ToastModule, TableModule, DialogModule,
     InputTextModule, InputNumberModule, ToggleButtonModule,
     TextareaModule, TooltipModule, DropdownModule, CalendarModule, ConfirmDialogModule, ProgressSpinnerModule,
-    TimelinePanelComponent, AttachmentListComponent
+    TimelinePanelComponent, AttachmentListComponent, ProductVariantPickerComponent
   ],
   templateUrl: './grn-detail.component.html',
   styleUrls: ['./grn-detail.component.scss'],
   providers: [MessageService, ConfirmationService]
 })
 export class GrnDetailComponent implements OnInit {
+  // Was `line.productName || line.itemDescription` throughout this template — since
+  // itemDescription already carries the full "Product — Variant" text (inherited from the PO
+  // line at GRN creation), preferring the bare productName actively hid the variant whenever one
+  // was linked. Prefer productName + variantName explicitly instead, so the variant always shows.
+  lineDisplayName(line: { productName?: string; variantName?: string; itemDescription: string }): string {
+    if (line.productName && line.variantName && line.variantName !== 'Default') {
+      return `${line.productName} (${line.variantName})`;
+    }
+    return line.productName || line.itemDescription;
+  }
+
   uuid = '';
   showTimeline = false;
   grn: GrnDetailModel | null = null;
@@ -63,12 +75,12 @@ export class GrnDetailComponent implements OnInit {
   lineForm!: FormGroup;
   isSavingLine = false;
 
-  // ── Link catalogue product dialog ─────────────────────────────────────────
+  // ── Link catalogue product/variant dialog ─────────────────────────────────
   showLinkProductDialog = false;
   linkingLine: GrnLineModel | null = null;
-  productOptions: ProductListItemModel[] = [];
-  selectedProductUuid: string | null = null;
-  isSearchingProducts = false;
+  products: ProductListItemModel[] = [];
+  selectedVariantUuid: string | null = null;
+  isLoadingProducts = false;
   isLinkingProduct = false;
 
   qcResultOptions = [
@@ -244,7 +256,7 @@ export class GrnDetailComponent implements OnInit {
     });
   }
 
-  // ── Link catalogue product (recovery path — allowed any time before a terminal state) ──
+  // ── Link catalogue product/variant (recovery path — any time before a terminal state) ──
 
   get canLinkProduct(): boolean {
     return this.grn?.status !== 'APPROVED' && this.grn?.status !== 'REJECTED';
@@ -252,31 +264,29 @@ export class GrnDetailComponent implements OnInit {
 
   openLinkProductDialog(line: GrnLineModel) {
     this.linkingLine = line;
-    this.selectedProductUuid = null;
-    this.productOptions = [];
+    this.selectedVariantUuid = null;
     this.showLinkProductDialog = true;
-    this.searchProducts(line.itemDescription);
+    if (this.products.length === 0) {
+      this.isLoadingProducts = true;
+      this.inventoryService.getProducts({ activeOnly: true, pageSize: 500 }).subscribe({
+        next: (res) => { this.isLoadingProducts = false; this.products = res.success ? res.result.data : []; },
+        error: () => { this.isLoadingProducts = false; }
+      });
+    }
   }
 
-  searchProducts(term: string) {
-    this.isSearchingProducts = true;
-    this.inventoryService.getProducts({ search: term, activeOnly: true, pageSize: 20 }).subscribe({
-      next: (res) => {
-        this.isSearchingProducts = false;
-        this.productOptions = res.success ? res.result.data : [];
-      },
-      error: () => { this.isSearchingProducts = false; }
-    });
+  onLinkVariantSelected(sel: VariantPickerSelection) {
+    this.selectedVariantUuid = sel.variantUuid;
   }
 
   saveProductLink() {
-    if (!this.grn || !this.linkingLine || !this.selectedProductUuid) return;
+    if (!this.grn || !this.linkingLine || !this.selectedVariantUuid) return;
     this.isLinkingProduct = true;
-    this.warehouseService.linkGrnLineProduct(this.grn.uuid, this.linkingLine.uuid, this.selectedProductUuid).subscribe({
+    this.warehouseService.linkGrnLineVariant(this.grn.uuid, this.linkingLine.uuid, this.selectedVariantUuid).subscribe({
       next: (res) => {
         this.isLinkingProduct = false;
         if (res.success) {
-          this.messageService.add({ severity: 'success', summary: 'Linked', detail: 'Catalogue product linked.' });
+          this.messageService.add({ severity: 'success', summary: 'Linked', detail: 'Catalogue variant linked.' });
           this.showLinkProductDialog = false;
           this.load();
         } else {
@@ -286,7 +296,7 @@ export class GrnDetailComponent implements OnInit {
       error: (err) => {
         this.isLinkingProduct = false;
         this.messageService.add({ severity: 'error', summary: 'Error',
-          detail: err?.error?.message || 'Failed to link product.' });
+          detail: err?.error?.message || 'Failed to link variant.' });
       }
     });
   }

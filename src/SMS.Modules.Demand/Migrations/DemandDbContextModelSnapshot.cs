@@ -282,9 +282,6 @@ namespace SMS.Modules.Demand.Migrations
                     b.Property<Guid>("OrganizationId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid?>("ProductUuid")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<int>("PurchaseOrderId")
                         .HasColumnType("int");
 
@@ -325,6 +322,9 @@ namespace SMS.Modules.Demand.Migrations
 
                     b.Property<decimal>("UnitPrice")
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid?>("VariantUuid")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid?>("WarehouseId")
                         .HasColumnType("uniqueidentifier");
@@ -850,6 +850,11 @@ namespace SMS.Modules.Demand.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("CanSupply")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
 
                     b.Property<int?>("LeadTimeDays")
                         .HasColumnType("int");

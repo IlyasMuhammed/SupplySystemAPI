@@ -7,6 +7,7 @@ import { InputTextModule } from 'primeng/inputtext';
 import { TagModule } from 'primeng/tag';
 import { ToastModule } from 'primeng/toast';
 import { DropdownModule } from 'primeng/dropdown';
+import { TooltipModule } from 'primeng/tooltip';
 import { MessageService } from 'primeng/api';
 import {
   ReportsService,
@@ -17,7 +18,7 @@ import {
 @Component({
   selector: 'app-material-issue-register',
   standalone: true,
-  imports: [CommonModule, FormsModule, TableModule, ButtonModule, InputTextModule, TagModule, ToastModule, DropdownModule],
+  imports: [CommonModule, FormsModule, TableModule, ButtonModule, InputTextModule, TagModule, ToastModule, DropdownModule, TooltipModule],
   templateUrl: './material-issue-register.component.html',
   styleUrls: ['./material-issue-register.component.scss'],
   providers: [MessageService]

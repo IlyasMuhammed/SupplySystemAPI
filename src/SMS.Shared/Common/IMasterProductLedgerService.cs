@@ -23,9 +23,15 @@ public interface IMasterProductLedgerService
 /// <summary>Everything needed to record one product stock movement in the master product ledger.</summary>
 public class ProductMovementContext
 {
-    public int      ProductId       { get; set; }
+    // PV-005 — stock movements are recorded per variant now. ProductCode/ProductName stay
+    // denormalised display fields (ProductCode holds the variant's SKU; ProductName holds the
+    // parent product's name, plus the variant's name in parentheses for non-default variants).
+    public int      VariantId       { get; set; }
     public string   ProductCode     { get; set; } = string.Empty;
     public string   ProductName     { get; set; } = string.Empty;
+    // PV-008 — distinct VariantName/Sku alongside ProductCode/ProductName.
+    public string?  VariantName     { get; set; }
+    public string?  Sku             { get; set; }
     public int?     CategoryId      { get; set; }
     public string?  CategoryName    { get; set; }
     public int      WarehouseId     { get; set; }

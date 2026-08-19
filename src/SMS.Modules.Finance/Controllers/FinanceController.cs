@@ -511,10 +511,10 @@ public class MasterProductLedgerController : ControllerBase
         return Ok(ApiResponse<MasterProductLedgerSummaryModel>.Ok(result));
     }
 
-    [HttpGet("product-journey/{productId:int}")]
-    public async Task<IActionResult> GetProductJourney(int productId)
+    [HttpGet("variant-journey/{variantId:int}")]
+    public async Task<IActionResult> GetProductJourney(int variantId)
     {
-        var result = await _svc.GetProductJourneyAsync(productId);
+        var result = await _svc.GetProductJourneyAsync(variantId);
         return Ok(ApiResponse<List<MasterProductLedgerEntryModel>>.Ok(result));
     }
 

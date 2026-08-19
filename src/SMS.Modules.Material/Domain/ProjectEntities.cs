@@ -62,7 +62,7 @@ internal class MaterialIssueRequestDetail : ITenantScopedEntity
     public Guid     OrganizationId         { get; set; }
     public int      MaterialIssueRequestId { get; set; }
     public int      LineNo                 { get; set; }
-    public Guid     ProductUuid            { get; set; }
+    public Guid     VariantUuid            { get; set; }
     public string   ItemDescription        { get; set; } = string.Empty;
     public string?  UnitOfMeasure          { get; set; }
     public decimal  RequestedQty           { get; set; }

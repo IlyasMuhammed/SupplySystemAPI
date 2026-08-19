@@ -2,8 +2,9 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { ApiResponse, PaginatedResponse } from './demand.service';
+import { environment } from '../../environments/environment';
 
-const BASE = 'https://localhost:52800/api/finance/master-ledger';
+const BASE = `${environment.apiUrl}/finance/master-ledger`;
 
 export interface MasterLedgerEntryModel {
   uuid: string;

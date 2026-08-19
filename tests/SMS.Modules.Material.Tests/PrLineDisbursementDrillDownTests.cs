@@ -54,7 +54,7 @@ file static class DrillDownBuild
     {
         var line = new MaterialIssueRequestDetail
         {
-            UUID = Guid.NewGuid(), LineNo = 1, ProductUuid = Guid.NewGuid(),
+            UUID = Guid.NewGuid(), LineNo = 1, VariantUuid = Guid.NewGuid(),
             ItemDescription = "Lenovo Laptop", RequestedQty = approvedQty, PrLineId = prLineId
         };
         var mir = new MaterialIssueRequest

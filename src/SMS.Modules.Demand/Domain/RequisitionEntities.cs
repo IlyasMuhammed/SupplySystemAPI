@@ -43,6 +43,9 @@ internal class PrLine : ITenantScopedEntity
     public Guid OrganizationId { get; set; }
     public int PurchaseRequisitionId { get; set; }
     public int LineNo { get; set; }
+    // Holds the selected ProductVariant's Uuid (cross-module, no FK) — named ProductId from before
+    // PV-001 introduced variants; kept as-is rather than renamed, since renaming a live column
+    // needs a migration and every consumer updated in lockstep for no behavioral gain.
     public Guid? ProductId { get; set; }
     public string ItemDescription { get; set; } = string.Empty;
     public string? Specification { get; set; }

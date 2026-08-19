@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../environments/environment';
 
 // ── Shared response wrappers ──────────────────────────────────────────────────
 export interface ApiResponse<T = null> {
@@ -87,21 +88,19 @@ export interface ProductListItemModel {
   subCategoryId?: number;
   subCategoryName?: string;
   uomCode?: string;
-  unitCost?: number;
   status: string;
   isBatchTracked: boolean;
   isSerialTracked: boolean;
   createdDate: string;
+  variantCount: number;
+  defaultVariantPurchasePrice?: number;
 }
 
 export interface ProductDetailModel extends ProductListItemModel {
   description?: string;
-  unitPrice?: number;             // sales_price
-  lastPurchasePrice?: number;
   weightKg?: number;
   dimensions?: string;
   shelfLifeDays?: number;
-  barcode?: string;
   reorderPoint?: number;
   reorderQty?: number;
   minStockLevel?: number;
@@ -112,6 +111,61 @@ export interface ProductDetailModel extends ProductListItemModel {
   imageUrl?: string;
   updatedDate?: string;
   createdBy: number;
+  variants: ProductVariantModel[];
+}
+
+// ── Product Variants (FSD Addendum 26 / PV-001) ────────────────────────────────
+export interface ProductVariantModel {
+  id: number;
+  uuid: string;
+  sku: string;
+  variantName: string;
+  barcode?: string;
+  purchasePrice: number;
+  sellingPrice?: number;
+  lastPurchasePrice?: number;
+  weightKg?: number;
+  dimensions?: string;
+  isDefault: boolean;
+  isActive: boolean;
+  reorderPoint?: number;
+  sortOrder?: number;
+  createdDate: string;
+}
+
+export interface CreateProductVariantRequest {
+  sku?: string;
+  variantName: string;
+  barcode?: string;
+  purchasePrice: number;
+  sellingPrice?: number;
+  weight?: number;
+  dimensions?: string;
+  isDefault: boolean;
+  reorderPoint?: number;
+  sortOrder?: number;
+}
+
+// PV-007 — variant CRUD on an existing product.
+export interface CreateVariantResult {
+  uuid: string;
+  sku: string;
+}
+
+export interface VariantDeleteResult {
+  softDeleted: boolean;
+}
+
+// PV-004 — GRN barcode scan resolves straight to the matching variant + its parent product.
+export interface VariantLookupModel {
+  uuid: string;
+  sku: string;
+  variantName: string;
+  barcode?: string;
+  purchasePrice: number;
+  productId: number;
+  productUuid: string;
+  productName: string;
 }
 
 export interface ProductListFilter {
@@ -132,13 +186,9 @@ export interface CreateProductRequest {
   subCategoryId?: number;
   brand?: string;
   uomCode?: string;
-  unitCost?: number;
-  unitPrice?: number;
-  lastPurchasePrice?: number;
   weightKg?: number;
   dimensions?: string;
   shelfLifeDays?: number;
-  barcode?: string;
   isBatchTracked?: boolean;
   isSerialTracked?: boolean;
   reorderPoint?: number;
@@ -149,6 +199,14 @@ export interface CreateProductRequest {
   preferredSupplierId?: number;
   notes?: string;
   imageUrl?: string;
+
+  // Variant seeding (PV-001) — supply Variants for a multi-SKU product (exactly one
+  // isDefault=true), or omit it and supply purchasePrice for a single auto-created default
+  // variant (simple products, e.g. Cement).
+  variants?: CreateProductVariantRequest[];
+  purchasePrice?: number;
+  sellingPrice?: number;
+  barcode?: string;
 }
 
 export interface PatchProductRequest {
@@ -159,13 +217,9 @@ export interface PatchProductRequest {
   subCategoryId?: number;
   brand?: string;
   uomCode?: string;
-  unitCost?: number;
-  unitPrice?: number;
-  lastPurchasePrice?: number;
   weightKg?: number;
   dimensions?: string;
   shelfLifeDays?: number;
-  barcode?: string;
   isBatchTracked?: boolean;
   isSerialTracked?: boolean;
   reorderPoint?: number;
@@ -177,6 +231,102 @@ export interface PatchProductRequest {
   notes?: string;
   imageUrl?: string;
   status?: string;
+}
+
+// ── Dynamic Attributes (FSD Addendum 26 §4) ─────────────────────────────────────
+export interface AttributeDefinitionModel {
+  uuid: string;
+  attributeName: string;
+  displayName: string;
+  dataType: 'TEXT' | 'NUMBER' | 'DECIMAL' | 'DATE' | 'BOOLEAN' | 'DROPDOWN' | 'MULTI_SELECT';
+  controlType: 'TEXTBOX' | 'NUMBERBOX' | 'DATEPICKER' | 'TOGGLE' | 'DROPDOWN' | 'MULTI_SELECT' | 'TEXTAREA';
+  dropdownOptions?: string[];
+  defaultValue?: string;
+  validationRegex?: string;
+  isRequired: boolean;
+  isSearchable: boolean;
+  isFilterable: boolean;
+  sortOrder: number;
+  isActive: boolean;
+}
+
+export interface CreateAttributeDefinitionRequest {
+  attributeName: string;
+  displayName: string;
+  dataType: string;
+  controlType: string;
+  dropdownOptions?: string[];
+  defaultValue?: string;
+  validationRegex?: string;
+  isRequired?: boolean;
+  isSearchable?: boolean;
+  isFilterable?: boolean;
+  sortOrder?: number;
+}
+
+export interface UpdateAttributeDefinitionRequest {
+  displayName?: string;
+  controlType?: string;
+  dropdownOptions?: string[];
+  defaultValue?: string;
+  validationRegex?: string;
+  isRequired?: boolean;
+  isSearchable?: boolean;
+  isFilterable?: boolean;
+  sortOrder?: number;
+  isActive?: boolean;
+}
+
+export interface AttributeDeleteConflictResult {
+  referencedCategoryCount: number;
+  referencedVariantValueCount: number;
+}
+
+export interface CategoryAttributeModel {
+  categoryId: number;
+  attributeUuid: string;
+  attributeName: string;
+  displayName: string;
+  dataType: AttributeDefinitionModel['dataType'];
+  controlType: AttributeDefinitionModel['controlType'];
+  dropdownOptions?: string[];
+  validationRegex?: string;
+  isRequired: boolean;
+  isSearchable: boolean;
+  displayOrder: number;
+}
+
+export interface CreateCategoryAttributeRequest {
+  attributeUuid: string;
+  isRequired?: boolean;
+  displayOrder: number;
+}
+
+export interface CategoryAttributeOrderItem {
+  attributeUuid: string;
+  isRequired: boolean;
+  displayOrder: number;
+}
+
+export interface SetCategoryAttributesRequest {
+  attributes: CategoryAttributeOrderItem[];
+}
+
+export interface VariantAttributeValueModel {
+  attributeUuid: string;
+  attributeName: string;
+  displayName: string;
+  dataType: AttributeDefinitionModel['dataType'];
+  value: string;
+}
+
+export interface VariantAttributeValueInput {
+  attributeUuid: string;
+  value: string;
+}
+
+export interface SetVariantAttributeValuesRequest {
+  values: VariantAttributeValueInput[];
 }
 
 // ── Warehouses ────────────────────────────────────────────────────────────────
@@ -248,9 +398,12 @@ export interface UpdateBinRequest   { code?: string; description?: string; }
 // ── Stock ─────────────────────────────────────────────────────────────────────
 export interface StockLevelModel {
   inventoryItemId: number;
+  variantId: number;
+  variantUuid: string;
+  variantSku: string;
+  variantName: string;
   productId: number;
   productUuid: string;
-  productSku: string;
   productName: string;
   categoryName?: string;
   uomCode?: string;
@@ -290,9 +443,12 @@ export interface ProductStockModel {
 }
 
 export interface ReorderAlertModel {
+  variantId: number;
+  variantUuid: string;
+  variantSku: string;
+  variantName: string;
   productId: number;
   productUuid: string;
-  productSku: string;
   productName: string;
   categoryName?: string;
   warehouseId: number;
@@ -304,14 +460,35 @@ export interface ReorderAlertModel {
   reorderQty?: number;
 }
 
+// PV-005 — product-level rollup across every one of its variants' stock. Computed on the fly,
+// never stored.
+export interface VariantStockSummaryItem {
+  variantUuid: string;
+  sku: string;
+  variantName: string;
+  onHand: number;
+  reserved: number;
+  available: number;
+}
+
+export interface ProductStockSummaryModel {
+  productId: number;
+  productUuid: string;
+  totalOnHand: number;
+  totalReserved: number;
+  totalAvailable: number;
+  variants: VariantStockSummaryItem[];
+}
+
 // ── Adjustments ───────────────────────────────────────────────────────────────
 export interface StockAdjustmentModel {
   id: number;
   uuid: string;
   adjNumber?: string;
   inventoryItemId: number;
-  productId: number;
-  productSku: string;
+  variantId: number;
+  variantSku: string;
+  variantName: string;
   productName: string;
   warehouseId: number;
   warehouseName: string;
@@ -332,7 +509,7 @@ export interface StockAdjustmentModel {
 }
 
 export interface AdjustmentListFilter {
-  productId?: number;
+  variantId?: number;
   warehouseId?: number;
   status?: string;
   adjType?: string;
@@ -341,7 +518,7 @@ export interface AdjustmentListFilter {
 }
 
 export interface CreateAdjustmentRequest {
-  productId: number;
+  variantId: number;
   warehouseId: number;
   adjType?: string;
   reason?: string;
@@ -364,7 +541,7 @@ export interface StockAdjustmentResult {
 // ── Service ───────────────────────────────────────────────────────────────────
 @Injectable({ providedIn: 'root' })
 export class InventoryService {
-  private readonly base = 'https://localhost:52800/api';
+  private readonly base = environment.apiUrl;
 
   constructor(private http: HttpClient) {}
 
@@ -420,6 +597,11 @@ export class InventoryService {
   getProductById(id: number): Observable<ApiResponse<ProductDetailModel>> {
     return this.http.get<ApiResponse<ProductDetailModel>>(`${this.base}/products/${id}`);
   }
+  // PV-004 — GRN barcode scan. Unmatched barcodes 404; callers should handle via the error channel.
+  getVariantByBarcode(barcode: string): Observable<ApiResponse<VariantLookupModel>> {
+    const params = new HttpParams().set('barcode', barcode);
+    return this.http.get<ApiResponse<VariantLookupModel>>(`${this.base}/variants/lookup`, { params });
+  }
   createProduct(data: CreateProductRequest): Observable<ApiResponse<{ id: number; sku: string }>> {
     return this.http.post<ApiResponse<{ id: number; sku: string }>>(`${this.base}/products`, data);
   }
@@ -431,6 +613,23 @@ export class InventoryService {
   }
   getProductStock(id: number): Observable<ApiResponse<ProductStockModel[]>> {
     return this.http.get<ApiResponse<ProductStockModel[]>>(`${this.base}/products/${id}/stock`);
+  }
+  // PV-005 — aggregated on-hand/reserved/available across every variant of the product.
+  getProductStockSummary(id: number): Observable<ApiResponse<ProductStockSummaryModel>> {
+    return this.http.get<ApiResponse<ProductStockSummaryModel>>(`${this.base}/products/${id}/stock-summary`);
+  }
+
+  // PV-007 — variant CRUD on an existing product.
+  addVariant(productId: number, data: CreateProductVariantRequest): Observable<ApiResponse<CreateVariantResult>> {
+    return this.http.post<ApiResponse<CreateVariantResult>>(`${this.base}/products/${productId}/variants`, data);
+  }
+  updateVariant(variantUuid: string, data: CreateProductVariantRequest): Observable<ApiResponse> {
+    return this.http.patch<ApiResponse>(`${this.base}/variants/${variantUuid}`, data);
+  }
+  // Soft-deletes (is_active=false) if the variant has ever been transacted; hard-deletes
+  // otherwise — result.softDeleted tells the caller which happened.
+  deleteVariant(variantUuid: string): Observable<ApiResponse<VariantDeleteResult>> {
+    return this.http.delete<ApiResponse<VariantDeleteResult>>(`${this.base}/variants/${variantUuid}`);
   }
 
   // Warehouses
@@ -509,7 +708,7 @@ export class InventoryService {
   // Stock adjustments
   getAdjustments(filter: AdjustmentListFilter = {}): Observable<ApiResponse<PaginatedResponse<StockAdjustmentModel>>> {
     let params = new HttpParams();
-    if (filter.productId)   params = params.set('productId',   String(filter.productId));
+    if (filter.variantId)   params = params.set('variantId',   String(filter.variantId));
     if (filter.warehouseId) params = params.set('warehouseId', String(filter.warehouseId));
     if (filter.status)      params = params.set('status',      filter.status);
     if (filter.adjType)     params = params.set('adjType',     filter.adjType);
@@ -525,5 +724,37 @@ export class InventoryService {
   }
   rejectAdjustment(uuid: string, data: RejectAdjustmentRequest): Observable<ApiResponse> {
     return this.http.post<ApiResponse>(`${this.base}/stock-adjustments/${uuid}/reject`, data);
+  }
+
+  // Dynamic Attributes
+  getAttributes(): Observable<ApiResponse<AttributeDefinitionModel[]>> {
+    return this.http.get<ApiResponse<AttributeDefinitionModel[]>>(`${this.base}/attributes`);
+  }
+  createAttribute(data: CreateAttributeDefinitionRequest): Observable<ApiResponse<string>> {
+    return this.http.post<ApiResponse<string>>(`${this.base}/attributes`, data);
+  }
+  updateAttribute(uuid: string, data: UpdateAttributeDefinitionRequest): Observable<ApiResponse> {
+    return this.http.put<ApiResponse>(`${this.base}/attributes/${uuid}`, data);
+  }
+  deleteAttribute(uuid: string): Observable<ApiResponse<AttributeDeleteConflictResult>> {
+    return this.http.delete<ApiResponse<AttributeDeleteConflictResult>>(`${this.base}/attributes/${uuid}`);
+  }
+  getCategoryAttributes(categoryId: number): Observable<ApiResponse<CategoryAttributeModel[]>> {
+    return this.http.get<ApiResponse<CategoryAttributeModel[]>>(`${this.base}/categories/${categoryId}/attributes`);
+  }
+  linkCategoryAttribute(categoryId: number, data: CreateCategoryAttributeRequest): Observable<ApiResponse> {
+    return this.http.post<ApiResponse>(`${this.base}/categories/${categoryId}/attributes`, data);
+  }
+  unlinkCategoryAttribute(categoryId: number, attributeUuid: string): Observable<ApiResponse> {
+    return this.http.delete<ApiResponse>(`${this.base}/categories/${categoryId}/attributes/${attributeUuid}`);
+  }
+  setCategoryAttributes(categoryId: number, data: SetCategoryAttributesRequest): Observable<ApiResponse<CategoryAttributeModel[]>> {
+    return this.http.put<ApiResponse<CategoryAttributeModel[]>>(`${this.base}/categories/${categoryId}/attributes`, data);
+  }
+  getVariantAttributeValues(variantUuid: string): Observable<ApiResponse<VariantAttributeValueModel[]>> {
+    return this.http.get<ApiResponse<VariantAttributeValueModel[]>>(`${this.base}/variants/${variantUuid}/attributes`);
+  }
+  setVariantAttributeValues(variantUuid: string, data: SetVariantAttributeValuesRequest): Observable<ApiResponse> {
+    return this.http.put<ApiResponse>(`${this.base}/variants/${variantUuid}/attributes`, data);
   }
 }

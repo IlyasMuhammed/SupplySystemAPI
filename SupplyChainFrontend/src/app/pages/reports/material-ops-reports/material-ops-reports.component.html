@@ -55,6 +55,7 @@
                 <th pSortableColumn="returnDate">Date <p-sortIcon field="returnDate" /></th>
                 <th>Status</th>
                 <th>Item</th>
+                <th>SKU</th>
                 <th>UoM</th>
                 <th>Condition</th>
                 <th>Reason</th>
@@ -70,7 +71,11 @@
                 <td><span class="ref-no secondary">{{ row.mirNo }}</span></td>
                 <td>{{ row.returnDate | date:'dd MMM yyyy' }}</td>
                 <td><p-tag [value]="row.status" [severity]="getReturnStatusSeverity(row.status)" /></td>
-                <td>{{ row.itemDescription }}</td>
+                <td>
+                  {{ row.productName || row.itemDescription }}
+                  <span *ngIf="row.variantName" class="text-secondary"> ({{ row.variantName }})</span>
+                </td>
+                <td><span class="mono">{{ row.sku ?? '—' }}</span></td>
                 <td>{{ row.unitOfMeasure ?? '—' }}</td>
                 <td><p-tag [value]="row.condition" [severity]="getConditionSeverity(row.condition)" /></td>
                 <td>{{ row.reason ?? '—' }}</td>
@@ -80,11 +85,11 @@
               </tr>
             </ng-template>
             <ng-template pTemplate="emptymessage">
-              <tr><td colspan="12" class="empty-msg">No return entries found.</td></tr>
+              <tr><td colspan="13" class="empty-msg">No return entries found.</td></tr>
             </ng-template>
             <ng-template pTemplate="footer">
               <tr *ngIf="returns.length > 0">
-                <td colspan="11" class="total-label">Grand Total</td>
+                <td colspan="12" class="total-label">Grand Total</td>
                 <td class="text-right amount total">{{ returnTotal | number:'1.2-2' }}</td>
               </tr>
             </ng-template>
@@ -132,6 +137,7 @@
                 <th pSortableColumn="wastageNo">Wastage No <p-sortIcon field="wastageNo" /></th>
                 <th>Source</th>
                 <th>Item</th>
+                <th>SKU</th>
                 <th>UoM</th>
                 <th>Reason</th>
                 <th pSortableColumn="createdDate">Created <p-sortIcon field="createdDate" /></th>
@@ -146,7 +152,11 @@
               <tr>
                 <td><span class="ref-no">{{ row.wastageNo }}</span></td>
                 <td>{{ row.sourceType }}</td>
-                <td>{{ row.itemDescription }}</td>
+                <td>
+                  {{ row.productName || row.itemDescription }}
+                  <span *ngIf="row.variantName" class="text-secondary"> ({{ row.variantName }})</span>
+                </td>
+                <td><span class="mono">{{ row.sku ?? '—' }}</span></td>
                 <td>{{ row.unitOfMeasure ?? '—' }}</td>
                 <td>{{ row.reason }}</td>
                 <td>{{ row.createdDate | date:'dd MMM yyyy' }}</td>
@@ -158,11 +168,11 @@
               </tr>
             </ng-template>
             <ng-template pTemplate="emptymessage">
-              <tr><td colspan="11" class="empty-msg">No wastage records found.</td></tr>
+              <tr><td colspan="12" class="empty-msg">No wastage records found.</td></tr>
             </ng-template>
             <ng-template pTemplate="footer">
               <tr *ngIf="wastages.length > 0">
-                <td colspan="10" class="total-label">Total Wastage Amount</td>
+                <td colspan="11" class="total-label">Total Wastage Amount</td>
                 <td class="text-right amount wastage-cell">{{ wastageTotal | number:'1.2-2' }}</td>
               </tr>
             </ng-template>
@@ -221,7 +231,10 @@
               <tr [class.row-flagged]="row.isFlagged">
                 <td><span class="ref-no">{{ row.mirNo }}</span></td>
                 <td>{{ row.requestType }}</td>
-                <td><strong>{{ row.productName }}</strong></td>
+                <td>
+                  <strong>{{ row.productName }}</strong>
+                  <span *ngIf="row.variantName" class="text-secondary"> ({{ row.variantName }})</span>
+                </td>
                 <td><span class="mono">{{ row.sku ?? '—' }}</span></td>
                 <td>{{ row.warehouseName }}</td>
                 <td class="text-right">{{ row.reservedQty | number:'1.2-2' }}</td>

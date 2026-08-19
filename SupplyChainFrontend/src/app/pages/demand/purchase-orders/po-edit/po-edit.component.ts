@@ -17,6 +17,7 @@ import { MessageService } from 'primeng/api';
 import { DemandService, PatchPoRequest } from '../../../../services/demand.service';
 import { SupplierService, SupplierListItemModel } from '../../../../services/supplier.service';
 import { InventoryService, ProductListItemModel, WarehouseModel } from '../../../../services/inventory.service';
+import { ProductVariantPickerComponent, VariantPickerSelection } from '../../../../shared/product-variant-picker/product-variant-picker.component';
 
 @Component({
   selector: 'app-po-edit',
@@ -25,7 +26,7 @@ import { InventoryService, ProductListItemModel, WarehouseModel } from '../../..
     CommonModule, RouterModule, ReactiveFormsModule, FormsModule,
     ButtonModule, InputTextModule, TextareaModule, InputNumberModule,
     DropdownModule, CalendarModule, DividerModule, ToastModule,
-    TooltipModule, AutoCompleteModule, CheckboxModule
+    TooltipModule, AutoCompleteModule, CheckboxModule, ProductVariantPickerComponent
   ],
   templateUrl: './po-edit.component.html',
   styleUrls: ['./po-edit.component.scss'],
@@ -41,8 +42,7 @@ export class PoEditComponent implements OnInit {
   supplierSuggestions: SupplierListItemModel[] = [];
   supplierAuto: any = null;
 
-  productOptions: { label: string; value: string }[] = [];
-  private productsMap = new Map<string, ProductListItemModel>();
+  products: ProductListItemModel[] = [];
   loadingProducts = false;
 
   warehouseOptions: { label: string; value: string }[] = [];
@@ -102,28 +102,30 @@ export class PoEditComponent implements OnInit {
     this.inventoryService.getProducts({ activeOnly: true, pageSize: 500 }).subscribe({
       next: res => {
         this.loadingProducts = false;
-        const data = res?.result?.data ?? [];
-        this.productsMap.clear();
-        this.productOptions = data.map(p => {
-          this.productsMap.set(p.uuid, p);
-          return { label: p.name, value: p.uuid };
-        });
+        this.products = res?.result?.data ?? [];
       },
       error: () => { this.loadingProducts = false; }
     });
   }
 
-  onProductChange(i: number) {
-    const uuid = this.lines.at(i).get('productId')?.value;
-    if (!uuid) return;
-    const p = this.productsMap.get(uuid);
-    if (!p) return;
-    this.lines.at(i).patchValue({
-      itemDescription: p.name,
-      specification:   (p as any).description ?? '',
-      unitOfMeasure:   p.uomCode ?? null,
-      unitPrice:       p.unitCost ?? 0
+  // PV-004 — see po-create.component.ts's identical handler for why description/UoM/price only
+  // get overwritten once a specific variant is actually resolved.
+  onLineVariantSelected(i: number, sel: VariantPickerSelection) {
+    const line = this.lines.at(i);
+    line.patchValue({
+      productUuid: sel.productUuid,
+      variantUuid: sel.variantUuid
     });
+    if (sel.variantUuid) {
+      const label = sel.variantName && sel.variantName !== 'Default'
+        ? `${sel.productName} — ${sel.variantName}`
+        : (sel.productName ?? '');
+      line.patchValue({
+        itemDescription: label,
+        unitOfMeasure:   sel.uomCode ?? line.get('unitOfMeasure')?.value ?? null,
+        unitPrice:       sel.purchasePrice ?? 0
+      });
+    }
   }
 
   private buildForm() {
@@ -143,7 +145,8 @@ export class PoEditComponent implements OnInit {
 
   newLine(): FormGroup {
     return this.fb.group({
-      productId:       [null],
+      productUuid:     [null],
+      variantUuid:     [null],
       itemDescription: ['', Validators.required],
       specification:   [''],
       unitOfMeasure:   [null],
@@ -218,7 +221,8 @@ export class PoEditComponent implements OnInit {
 
         while (this.lines.length) this.lines.removeAt(0);
         (po.lines ?? []).forEach(l => this.lines.push(this.fb.group({
-          productId:       [l.productUuid ?? null],
+          productUuid:     [l.productUuid ?? null],
+          variantUuid:     [l.variantUuid ?? null],
           itemDescription: [l.itemDescription, Validators.required],
           specification:   [l.specification ?? ''],
           unitOfMeasure:   [l.unitOfMeasure ?? null],
@@ -264,7 +268,7 @@ export class PoEditComponent implements OnInit {
       deliveryWarehouseName: v.deliveryWarehouseName || undefined,
       notes:                 v.notes                 || undefined,
       lines: v.lines.map((l: any) => ({
-        productUuid:     l.productId       || undefined,
+        variantUuid:     l.variantUuid     || undefined,
         itemDescription: l.itemDescription,
         specification:   l.specification   || undefined,
         unitOfMeasure:   l.unitOfMeasure   || undefined,

@@ -12,7 +12,8 @@ import { TextareaModule } from 'primeng/textarea';
 import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
 import { WarehouseService, GrnDetailModel, PatchGrnRequest } from '../../../../services/warehouse.service';
-import { InventoryService, WarehouseModel } from '../../../../services/inventory.service';
+import { InventoryService, WarehouseModel, ProductListItemModel } from '../../../../services/inventory.service';
+import { ProductVariantPickerComponent, VariantPickerSelection } from '../../../../shared/product-variant-picker/product-variant-picker.component';
 
 @Component({
   selector: 'app-grn-edit',
@@ -20,7 +21,7 @@ import { InventoryService, WarehouseModel } from '../../../../services/inventory
   imports: [
     CommonModule, RouterModule, ReactiveFormsModule, FormsModule,
     ButtonModule, InputTextModule, CalendarModule,
-    DropdownModule, TextareaModule, ToastModule
+    DropdownModule, TextareaModule, ToastModule, ProductVariantPickerComponent
   ],
   templateUrl: './grn-edit.component.html',
   styleUrls: ['./grn-edit.component.scss'],
@@ -33,8 +34,10 @@ export class GrnEditComponent implements OnInit {
   isLoading = true;
   isSubmitting = false;
   warehouseOptions: { label: string; value: string }[] = [];
-  productOptions: { label: string; value: string }[] = [];
-  lineProductUuids: (string | null)[] = [];
+  products: ProductListItemModel[] = [];
+  // Per-line current selection (product + resolved variant), seeded from the loaded GRN and
+  // updated as the user re-links lines via the two-level picker.
+  lineSelections: (VariantPickerSelection | null)[] = [];
 
   constructor(
     private route: ActivatedRoute,
@@ -55,16 +58,10 @@ export class GrnEditComponent implements OnInit {
       error: () => {}
     });
     // Deliberately not filtered to activeOnly: a line already linked to a product that has since
-    // been deactivated must still show that product here, or the dropdown looks blank/broken even
-    // though the link is genuinely still in place. Inactive products are labelled, not hidden.
+    // been deactivated must still show that product here, or the picker looks blank/broken even
+    // though the link is genuinely still in place.
     this.inventoryService.getProducts({ pageSize: 500 }).subscribe({
-      next: res => {
-        const data = res?.result?.data ?? [];
-        this.productOptions = data.map(p => ({
-          label: p.status === 'ACTIVE' ? p.name : `${p.name} (Inactive)`,
-          value: p.uuid
-        }));
-      },
+      next: res => { this.products = res?.result?.data ?? []; },
       error: () => {}
     });
     this.route.params.subscribe(p => { this.uuid = p['uuid']; this.load(); });
@@ -97,7 +94,16 @@ export class GrnEditComponent implements OnInit {
           setTimeout(() => this.router.navigate(['/portal/pages/warehouse/grn', this.uuid]), 1500);
           return;
         }
-        this.lineProductUuids = (this.grn.lines ?? []).map(l => l.productUuid ?? null);
+        this.lineSelections = (this.grn.lines ?? []).map(l => l.variantUuid ? {
+          productUuid:   l.productUuid ?? null,
+          productName:   l.productName ?? null,
+          variantId:     null,
+          variantUuid:   l.variantUuid,
+          variantSku:    l.variantSku ?? null,
+          variantName:   l.variantName ?? null,
+          purchasePrice: null,
+          uomCode:       null
+        } : null);
         this.form.patchValue({
           warehouseUuid:  this.grn.warehouseUuid  ?? '',
           receivedAt:     new Date(this.grn.receivedAt),
@@ -115,6 +121,10 @@ export class GrnEditComponent implements OnInit {
     });
   }
 
+  onLineVariantSelected(i: number, sel: VariantPickerSelection) {
+    this.lineSelections[i] = sel.variantUuid ? sel : null;
+  }
+
   onSubmit() {
     if (this.form.invalid) { this.form.markAllAsTouched(); return; }
     this.isSubmitting = true;
@@ -129,13 +139,13 @@ export class GrnEditComponent implements OnInit {
       notes:              v.notes          || undefined
     };
 
-    // Save any product links that changed on individual lines
+    // Save any variant links that changed on individual lines
     const lineUpdates = (this.grn?.lines ?? [])
       .map((line, i) => {
-        const newUuid = this.lineProductUuids[i];
-        if (newUuid && newUuid !== line.productUuid) {
+        const newVariantUuid = this.lineSelections[i]?.variantUuid ?? null;
+        if (newVariantUuid && newVariantUuid !== line.variantUuid) {
           return this.warehouseService.updateGrnLine(this.uuid, line.uuid, {
-            productUuid:     newUuid,
+            variantUuid:     newVariantUuid,
             qtyReceived:     line.qtyReceived,
             qtyAccepted:     line.qtyAccepted,
             qtyRejected:     line.qtyRejected,

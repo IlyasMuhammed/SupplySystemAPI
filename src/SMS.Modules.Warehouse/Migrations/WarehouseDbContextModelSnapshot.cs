@@ -247,9 +247,6 @@ namespace SMS.Modules.Warehouse.Migrations
                     b.Property<Guid>("PoLineUuid")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid?>("ProductUuid")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<string>("QcResult")
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
@@ -288,6 +285,9 @@ namespace SMS.Modules.Warehouse.Migrations
                     b.Property<string>("UnitOfMeasure")
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid?>("VariantUuid")
+                        .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
 

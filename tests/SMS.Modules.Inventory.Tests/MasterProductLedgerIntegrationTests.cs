@@ -37,7 +37,7 @@ file static class Build
         return (service, inv, fin);
     }
 
-    internal static async Task<(Product product, InventoryWarehouse warehouse)> SeedAsync(InventoryDbContext db)
+    internal static async Task<(Product product, ProductVariant variant, InventoryWarehouse warehouse)> SeedAsync(InventoryDbContext db)
     {
         var product = new Product
         {
@@ -52,7 +52,15 @@ file static class Build
         db.Products.Add(product);
         db.Warehouses.Add(warehouse);
         await db.SaveChangesAsync();
-        return (product, warehouse);
+
+        var variant = new ProductVariant
+        {
+            Uuid = Guid.NewGuid(), ProductId = product.Id, Sku = "LAPTOP-001-DEFAULT",
+            VariantName = "Default", PurchasePrice = 500m, IsDefault = true, IsActive = true, CreatedBy = 1
+        };
+        db.ProductVariants.Add(variant);
+        await db.SaveChangesAsync();
+        return (product, variant, warehouse);
     }
 }
 
@@ -62,11 +70,11 @@ public class MasterProductLedger_Integration_Tests
     public async Task CreateEntryAsync_With_SourceDestination_Writes_Both_The_InventoryEntry_And_MasterProductEntry()
     {
         var (service, inv, fin) = Build.New();
-        var (product, warehouse) = await Build.SeedAsync(inv);
+        var (product, variant, warehouse) = await Build.SeedAsync(inv);
 
         await service.CreateEntryAsync(new LedgerEntryCommand
         {
-            ProductId       = product.Id,
+            VariantId       = variant.Id,
             WarehouseId     = warehouse.Id,
             TransactionType = "GRN_RECEIPT",
             ReferenceType   = "GRN",
@@ -85,7 +93,7 @@ public class MasterProductLedger_Integration_Tests
         (await inv.InventoryLedgerEntries.CountAsync()).Should().Be(1);
 
         var master = await fin.MasterProductLedgers.SingleAsync();
-        master.ProductCode.Should().Be("LAPTOP-001");
+        master.ProductCode.Should().Be(variant.Sku);
         master.ProductName.Should().Be("Business Laptop");
         master.WarehouseName.Should().Be("Main Warehouse");
         master.SourceType.Should().Be("SUPPLIER");
@@ -100,11 +108,11 @@ public class MasterProductLedger_Integration_Tests
     public async Task CreateEntryAsync_Without_SourceDestination_Skips_The_Master_Write()
     {
         var (service, inv, fin) = Build.New();
-        var (product, warehouse) = await Build.SeedAsync(inv);
+        var (product, variant, warehouse) = await Build.SeedAsync(inv);
 
         await service.CreateEntryAsync(new LedgerEntryCommand
         {
-            ProductId = product.Id, WarehouseId = warehouse.Id,
+            VariantId = variant.Id, WarehouseId = warehouse.Id,
             TransactionType = "GRN_RECEIPT", ReferenceType = "GRN",
             ReferenceId = Guid.NewGuid(), ReferenceNumber = "GRN-1",
             QuantityIn = 10m, UnitCost = 5m, CreatedBy = 1
@@ -129,11 +137,11 @@ public class MasterProductLedger_Integration_Tests
             .ThrowsAsync(new InvalidOperationException("Simulated master product ledger failure"));
 
         var service = new InventoryLedgerService(inv, NullLogger<InventoryLedgerService>.Instance, failingMaster.Object);
-        var (product, warehouse) = await Build.SeedAsync(inv);
+        var (product, variant, warehouse) = await Build.SeedAsync(inv);
 
         var act = async () => await service.CreateEntryAsync(new LedgerEntryCommand
         {
-            ProductId = product.Id, WarehouseId = warehouse.Id,
+            VariantId = variant.Id, WarehouseId = warehouse.Id,
             TransactionType = "GRN_RECEIPT", ReferenceType = "GRN",
             ReferenceId = Guid.NewGuid(), ReferenceNumber = "GRN-1",
             QuantityIn = 10m, UnitCost = 5m, CreatedBy = 1,
@@ -153,11 +161,11 @@ public class MasterProductLedger_Integration_Tests
     public async Task MaterialIssue_To_Project_Writes_Correct_Source_And_Destination()
     {
         var (service, inv, fin) = Build.New();
-        var (product, warehouse) = await Build.SeedAsync(inv);
+        var (product, variant, warehouse) = await Build.SeedAsync(inv);
 
         await service.CreateEntryAsync(new LedgerEntryCommand
         {
-            ProductId = product.Id, WarehouseId = warehouse.Id,
+            VariantId = variant.Id, WarehouseId = warehouse.Id,
             TransactionType = "MATERIAL_ISSUE", ReferenceType = "MIV",
             ReferenceId = Guid.NewGuid(), ReferenceNumber = "MIV-2026-00001",
             QuantityOut = 20m, UnitCost = 15m, CreatedBy = 1,
@@ -179,11 +187,11 @@ public class MasterProductLedger_Integration_Tests
     public async Task MaterialReturn_From_Project_Writes_Correct_Source_And_Destination()
     {
         var (service, inv, fin) = Build.New();
-        var (product, warehouse) = await Build.SeedAsync(inv);
+        var (product, variant, warehouse) = await Build.SeedAsync(inv);
 
         await service.CreateEntryAsync(new LedgerEntryCommand
         {
-            ProductId = product.Id, WarehouseId = warehouse.Id,
+            VariantId = variant.Id, WarehouseId = warehouse.Id,
             TransactionType = "MATERIAL_RETURN", ReferenceType = "RETURN_VOUCHER",
             ReferenceId = Guid.NewGuid(), ReferenceNumber = "MRV-2026-00001",
             QuantityIn = 10m, UnitCost = 15m, CreatedBy = 1,
@@ -221,7 +229,15 @@ public class MasterProductLedger_GrnBusinessAction_Atomicity_Tests
             .ThrowsAsync(new InvalidOperationException("Simulated master product ledger failure"));
 
         var ledger = new InventoryLedgerService(inv, NullLogger<InventoryLedgerService>.Instance, failingMaster.Object);
-        var (product, warehouse) = await Build.SeedAsync(inv);
+        var (product, _, warehouse) = await Build.SeedAsync(inv);
+        var variantUuid = Guid.NewGuid();
+        var grnVariant = new ProductVariant
+        {
+            Uuid = variantUuid, ProductId = product.Id, Sku = "LAPTOP-001-GRN",
+            VariantName = "GRN Variant", PurchasePrice = 500m, IsDefault = false, IsActive = true, CreatedBy = 1
+        };
+        inv.ProductVariants.Add(grnVariant);
+        await inv.SaveChangesAsync();
 
         var poster = new SMS.Modules.Warehouse.Services.EfGrnInventoryPoster(inv, ledger);
         var grn = new SMS.Modules.Warehouse.Domain.Grn
@@ -244,7 +260,7 @@ public class MasterProductLedger_GrnBusinessAction_Atomicity_Tests
                 {
                     UUID            = Guid.NewGuid(),
                     PoLineUuid      = Guid.NewGuid(),
-                    ProductUuid     = product.Uuid,
+                    VariantUuid     = variantUuid,
                     LineNo          = 1,
                     ItemDescription = "Business Laptop",
                     UnitOfMeasure   = "EA",
@@ -264,7 +280,7 @@ public class MasterProductLedger_GrnBusinessAction_Atomicity_Tests
         // persisted: no InventoryLedgerEntry, and the InventoryItem's QtyOnHand never moved.
         var verifyInv = new InventoryDbContext(invOpts, tenantContext);
         (await verifyInv.InventoryLedgerEntries.AnyAsync()).Should().BeFalse();
-        var item = await verifyInv.InventoryItems.FirstOrDefaultAsync(i => i.ProductId == product.Id);
+        var item = await verifyInv.InventoryItems.FirstOrDefaultAsync(i => i.VariantId == grnVariant.Id);
         (item is null || item.QtyOnHand == 0m).Should().BeTrue();
     }
 }

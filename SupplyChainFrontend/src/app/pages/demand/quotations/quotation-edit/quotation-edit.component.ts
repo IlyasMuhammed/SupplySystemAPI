@@ -14,6 +14,7 @@ import { TooltipModule } from 'primeng/tooltip';
 import { MessageService } from 'primeng/api';
 import { DemandService, PatchQuotationRequest } from '../../../../services/demand.service';
 import { InventoryService, ProductListItemModel } from '../../../../services/inventory.service';
+import { ProductVariantPickerComponent, VariantPickerSelection } from '../../../../shared/product-variant-picker/product-variant-picker.component';
 
 @Component({
   selector: 'app-quotation-edit',
@@ -21,7 +22,8 @@ import { InventoryService, ProductListItemModel } from '../../../../services/inv
   imports: [
     CommonModule, RouterModule, ReactiveFormsModule,
     ButtonModule, InputTextModule, TextareaModule, InputNumberModule,
-    DropdownModule, CalendarModule, DividerModule, ToastModule, TooltipModule
+    DropdownModule, CalendarModule, DividerModule, ToastModule, TooltipModule,
+    ProductVariantPickerComponent
   ],
   templateUrl: './quotation-edit.component.html',
   styleUrls: ['./quotation-edit.component.scss'],
@@ -34,8 +36,7 @@ export class QuotationEditComponent implements OnInit {
   isSubmitting = false;
   minDate = new Date();
 
-  productOptions: { label: string; value: string }[] = [];
-  private productsMap = new Map<string, ProductListItemModel>();
+  products: ProductListItemModel[] = [];
   loadingProducts = false;
 
   // UOM options from FSD Section 6.5 — kept identical across every line-item form (PR/Quotation/PO)
@@ -71,27 +72,29 @@ export class QuotationEditComponent implements OnInit {
     this.inventoryService.getProducts({ activeOnly: true, pageSize: 500 }).subscribe({
       next: res => {
         this.loadingProducts = false;
-        const data = res?.result?.data ?? [];
-        this.productsMap.clear();
-        this.productOptions = data.map(p => {
-          this.productsMap.set(p.uuid, p);
-          return { label: p.name, value: p.uuid };
-        });
+        this.products = res?.result?.data ?? [];
       },
       error: () => { this.loadingProducts = false; }
     });
   }
 
-  onProductChange(i: number) {
-    const uuid = this.lines.at(i).get('productId')?.value;
-    if (!uuid) return;
-    const p = this.productsMap.get(uuid);
-    if (!p) return;
-    this.lines.at(i).patchValue({
-      itemDescription: p.name,
-      specification:   (p as any).description ?? '',
-      unitOfMeasure:   p.uomCode ?? null
+  // PV-004 — mirrors po-create.component.ts's onLineVariantSelected (no price field on
+  // Quotation lines).
+  onLineVariantSelected(i: number, sel: VariantPickerSelection) {
+    const line = this.lines.at(i);
+    line.patchValue({
+      productUuid: sel.productUuid,
+      variantUuid: sel.variantUuid
     });
+    if (sel.variantUuid) {
+      const label = sel.variantName && sel.variantName !== 'Default'
+        ? `${sel.productName} — ${sel.variantName}`
+        : (sel.productName ?? '');
+      line.patchValue({
+        itemDescription: label,
+        unitOfMeasure:   sel.uomCode ?? line.get('unitOfMeasure')?.value ?? null
+      });
+    }
   }
 
   private buildForm() {
@@ -107,7 +110,8 @@ export class QuotationEditComponent implements OnInit {
 
   newLine(): FormGroup {
     return this.fb.group({
-      productId:       [null],
+      productUuid:     [null],
+      variantUuid:     [null],
       itemDescription: ['', Validators.required],
       specification:   [''],
       unitOfMeasure:   [null],
@@ -139,7 +143,8 @@ export class QuotationEditComponent implements OnInit {
 
         while (this.lines.length) this.lines.removeAt(0);
         (q.lines ?? []).forEach(l => this.lines.push(this.fb.group({
-          productId:       [(l as any).productId ?? null],
+          productUuid:     [(l as any).productUuid ?? null],
+          variantUuid:     [(l as any).productId ?? null],
           itemDescription: [l.itemDescription, Validators.required],
           specification:   [l.specification ?? ''],
           unitOfMeasure:   [l.unitOfMeasure ?? null],
@@ -172,7 +177,7 @@ export class QuotationEditComponent implements OnInit {
       dueDate: v.dueDate instanceof Date ? v.dueDate.toISOString() : v.dueDate || undefined,
       notes:   v.notes || undefined,
       lines: v.lines.map((l: any) => ({
-        productId:       l.productId       || undefined,
+        productId:       l.variantUuid     || undefined,
         itemDescription: l.itemDescription,
         specification:   l.specification   || undefined,
         unitOfMeasure:   l.unitOfMeasure   || undefined,

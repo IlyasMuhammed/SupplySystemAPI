@@ -232,9 +232,14 @@ internal class MasterProductLedger : ITenantScopedEntity
     public Guid     LedgerId        { get; set; }
     public Guid     OrganizationId  { get; set; }
 
-    public int      ProductId       { get; set; }
+    public int      VariantId       { get; set; }
     public string   ProductCode     { get; set; } = string.Empty;
     public string   ProductName     { get; set; } = string.Empty;
+    // PV-008 — distinct VariantName/Sku alongside ProductCode/ProductName, which stayed as
+    // denormalised folded strings from PV-005 (ProductCode = variant's sku, ProductName =
+    // "{Product} ({Variant})" for non-default variants) rather than genuinely separate fields.
+    public string?  VariantName     { get; set; }
+    public string?  Sku             { get; set; }
     public int?     CategoryId      { get; set; }
     public string?  CategoryName    { get; set; }
 

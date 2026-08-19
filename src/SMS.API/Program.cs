@@ -34,13 +34,17 @@ QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
 var builder = WebApplication.CreateBuilder(args);
 
 // ── CORS ─────────────────────────────────────────────────────────────────────
+// Any localhost/127.0.0.1 origin, any port — not a fixed allow-list — since the Angular dev
+// server's port varies by machine/run (ng serve auto-increments off 4200 when it's taken) and
+// this API is reachable from developer machines calling a shared deployed backend (Azure), not
+// just via a local API instance where the port would be stable. Still requires a valid bearer
+// token for anything beyond the unauthenticated endpoints; this only widens which browser origins
+// may attempt the call.
 builder.Services.AddCors(options =>
     options.AddPolicy("CorsPolicy", p => p
-        .WithOrigins(
-            "http://localhost:3000",
-            "http://localhost:5173",
-            "http://localhost:64592",
-            "http://localhost:4200")
+        .SetIsOriginAllowed(origin =>
+            Uri.TryCreate(origin, UriKind.Absolute, out var uri) &&
+            (uri.Host == "localhost" || uri.Host == "127.0.0.1"))
         .AllowAnyMethod()
         .AllowAnyHeader()
         .AllowCredentials()));

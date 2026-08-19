@@ -235,17 +235,21 @@ public class GetSupplierSpendAnalysisAsync_Tests
     {
         var poLineUuid = Guid.NewGuid();
         var productUuid = Guid.NewGuid();
+        var variantUuid = Guid.NewGuid();
 
         if (!inventory.ProductCategories.Any(c => c.Id == categoryId))
             inventory.ProductCategories.Add(new ProductCategory { Id = categoryId, Name = categoryName, Code = categoryName.ToUpper(), IsActive = true, CreatedDate = DateTime.UtcNow });
-        inventory.Products.Add(new Product { Uuid = productUuid, Sku = $"SKU-{Guid.NewGuid():N}"[..8], Name = "Item", CategoryId = categoryId, Status = "ACTIVE", IsActive = true, CreatedBy = 1, CreatedDate = DateTime.UtcNow });
+        var product = new Product { Uuid = productUuid, Sku = $"SKU-{Guid.NewGuid():N}"[..8], Name = "Item", CategoryId = categoryId, Status = "ACTIVE", IsActive = true, CreatedBy = 1, CreatedDate = DateTime.UtcNow };
+        inventory.Products.Add(product);
+        inventory.SaveChanges();
+        inventory.ProductVariants.Add(new ProductVariant { Uuid = variantUuid, ProductId = product.Id, Sku = product.Sku + "-DEFAULT", VariantName = "Default", PurchasePrice = amount, IsDefault = true, IsActive = true, CreatedBy = 1, CreatedDate = DateTime.UtcNow });
         inventory.SaveChanges();
 
         var po = new PurchaseOrder
         {
             UUID = Guid.NewGuid(), TraceId = Guid.NewGuid(), PoNumber = "PO-X", SupplierId = supplierId, SupplierName = supplierName,
             Status = "RECEIVED", TotalAmount = amount, CreatedBy = 1, CreatedDate = DateTime.UtcNow,
-            Lines = [new PurchaseOrderLine { UUID = poLineUuid, LineNo = 1, ItemDescription = "Item", Quantity = 1, UnitPrice = amount, LineTotal = amount, ProductUuid = productUuid }]
+            Lines = [new PurchaseOrderLine { UUID = poLineUuid, LineNo = 1, ItemDescription = "Item", Quantity = 1, UnitPrice = amount, LineTotal = amount, VariantUuid = variantUuid }]
         };
         demand.PurchaseOrders.Add(po);
         demand.SaveChanges();

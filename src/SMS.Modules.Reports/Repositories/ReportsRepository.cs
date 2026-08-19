@@ -231,7 +231,7 @@ internal sealed class ReportsRepository : IReportsRepository
 
         // Server-side COUNT instead of loading all rows — fixes the previous full-table scan
         var reorderCount = await _inventory.InventoryItems
-            .Where(i => i.Product != null && i.QtyOnHand <= i.Product.ReorderPoint)
+            .Where(i => i.Variant != null && i.QtyOnHand <= i.Variant.ReorderPoint)
             .CountAsync();
 
         var accuracy = totalItems > 0
@@ -444,7 +444,7 @@ internal sealed class ReportsRepository : IReportsRepository
     public async Task<List<StockLevelItem>> GetStockLevelsAsync(ReportDateFilter filter)
     {
         var items = await _inventory.InventoryItems
-            .Include(i => i.Product)
+            .Include(i => i.Variant).ThenInclude(v => v.Product)
             .Include(i => i.Warehouse)
             .Where(i => i.QtyOnHand > 0)
             .ToListAsync();
@@ -453,15 +453,15 @@ internal sealed class ReportsRepository : IReportsRepository
         {
             var s = filter.Search.ToLower();
             items = items.Where(i =>
-                (i.Product?.Name.ToLower().Contains(s) == true) ||
-                (i.Product?.Sku?.ToLower().Contains(s) == true)).ToList();
+                (i.Variant?.Product.Name.ToLower().Contains(s) == true) ||
+                (i.Variant?.Sku?.ToLower().Contains(s) == true)).ToList();
         }
 
         return items.Select(i => {
             var avail = i.QtyOnHand - i.QtyReserved;
             return new StockLevelItem {
-                ProductName   = i.Product?.Name ?? "–",
-                Sku           = i.Product?.Sku,
+                ProductName   = i.Variant?.Product.Name ?? "–",
+                Sku           = i.Variant?.Sku,
                 WarehouseName = i.Warehouse?.Name,
                 QtyOnHand     = i.QtyOnHand,
                 QtyReserved   = i.QtyReserved,
@@ -479,14 +479,14 @@ internal sealed class ReportsRepository : IReportsRepository
     public async Task<StockLevelSummaryReport> GetStockLevelSummaryAsync(StockLevelSummaryFilter filter)
     {
         var query = _inventory.InventoryItems
-            .Include(i => i.Product).ThenInclude(p => p.Category)
-            .Include(i => i.Product).ThenInclude(p => p.SubCategory)
+            .Include(i => i.Variant).ThenInclude(v => v.Product).ThenInclude(p => p.Category)
+            .Include(i => i.Variant).ThenInclude(v => v.Product).ThenInclude(p => p.SubCategory)
             .Include(i => i.Warehouse)
             .AsQueryable();
 
         if (filter.WarehouseId.HasValue)   query = query.Where(i => i.WarehouseId == filter.WarehouseId.Value);
-        if (filter.CategoryId.HasValue)    query = query.Where(i => i.Product.CategoryId == filter.CategoryId.Value);
-        if (filter.SubCategoryId.HasValue) query = query.Where(i => i.Product.SubCategoryId == filter.SubCategoryId.Value);
+        if (filter.CategoryId.HasValue)    query = query.Where(i => i.Variant.Product.CategoryId == filter.CategoryId.Value);
+        if (filter.SubCategoryId.HasValue) query = query.Where(i => i.Variant.Product.SubCategoryId == filter.SubCategoryId.Value);
 
         var items = await query.ToListAsync();
 
@@ -494,8 +494,8 @@ internal sealed class ReportsRepository : IReportsRepository
         {
             var s = filter.Search.ToLower();
             items = items.Where(i =>
-                (i.Product?.Name.ToLower().Contains(s) == true) ||
-                (i.Product?.Sku?.ToLower().Contains(s) == true)).ToList();
+                (i.Variant?.Product.Name.ToLower().Contains(s) == true) ||
+                (i.Variant?.Sku?.ToLower().Contains(s) == true)).ToList();
         }
 
         var rows = items.Select(i =>
@@ -503,14 +503,15 @@ internal sealed class ReportsRepository : IReportsRepository
             var available    = i.QtyOnHand - i.QtyReserved;
             if (available < 0) available = 0;
             var unitCost     = i.UnitCost ?? 0m;
-            var reorderPoint = i.Product?.ReorderPoint;
+            var reorderPoint = i.Variant?.ReorderPoint;
 
             return new StockLevelSummaryItem
             {
-                ProductCode       = i.Product?.Sku ?? string.Empty,
-                ProductName       = i.Product?.Name ?? "–",
-                Category          = i.Product?.Category?.Name,
-                SubCategory       = i.Product?.SubCategory?.Name,
+                ProductCode       = i.Variant?.Sku ?? string.Empty,
+                ProductName       = i.Variant?.Product.Name ?? "–",
+                VariantName       = i.Variant?.VariantName,
+                Category          = i.Variant?.Product.Category?.Name,
+                SubCategory       = i.Variant?.Product.SubCategory?.Name,
                 Warehouse         = i.Warehouse?.Name,
                 QtyOnHand         = i.QtyOnHand,
                 QtyReserved       = i.QtyReserved,
@@ -796,20 +797,20 @@ internal sealed class ReportsRepository : IReportsRepository
     public async Task<List<ReorderAlertItem>> GetReorderAlertsAsync()
     {
         var items = await _inventory.InventoryItems
-            .Include(i => i.Product)
+            .Include(i => i.Variant).ThenInclude(v => v.Product)
             .Include(i => i.Warehouse)
             .ToListAsync();
 
         return items
-            .Where(i => i.Product != null && i.QtyOnHand <= i.Product.ReorderPoint)
+            .Where(i => i.Variant != null && i.QtyOnHand <= i.Variant.ReorderPoint)
             .Select(i => new ReorderAlertItem {
-                ProductName   = i.Product!.Name,
-                Sku           = i.Product.Sku,
+                ProductName   = i.Variant!.Product.Name,
+                Sku           = i.Variant.Sku,
                 WarehouseName = i.Warehouse?.Name,
                 QtyOnHand     = i.QtyOnHand,
-                ReorderPoint  = i.Product.ReorderPoint ?? 0m,
-                ReorderQty    = i.Product.ReorderQty   ?? 0m,
-                Shortfall     = (i.Product.ReorderPoint ?? 0m) - i.QtyOnHand
+                ReorderPoint  = i.Variant.ReorderPoint ?? 0m,
+                ReorderQty    = i.Variant.Product.ReorderQty ?? 0m,
+                Shortfall     = (i.Variant.ReorderPoint ?? 0m) - i.QtyOnHand
             })
             .OrderByDescending(x => x.Shortfall)
             .ToList();
@@ -828,7 +829,7 @@ internal sealed class ReportsRepository : IReportsRepository
             .GroupBy(i => i.Warehouse?.Name ?? "Unassigned")
             .Select(g => new InventoryValuationItem {
                 WarehouseName = g.Key,
-                ProductCount  = g.Select(i => i.ProductId).Distinct().Count(),
+                ProductCount  = g.Select(i => i.VariantId).Distinct().Count(),
                 TotalQty      = g.Sum(i => i.QtyOnHand),
                 TotalValue    = g.Sum(i => i.QtyOnHand * (i.UnitCost ?? 0m))
             })
@@ -1323,14 +1324,20 @@ internal sealed class ReportsRepository : IReportsRepository
         var grandTotal = supplierTotals.Sum(s => s.TotalInvoiced);
         var top5Sum     = supplierTotals.Take(5).Sum(s => s.TotalInvoiced);
 
-        // Category breakdown: InvoiceLine -> PurchaseOrderLine -> Product -> Category/SubCategory
+        // Category breakdown: InvoiceLine -> PurchaseOrderLine -> ProductVariant -> Product -> Category/SubCategory
         var poLineUuids = lines.Select(l => l.PoLineUuid).Distinct().ToList();
-        var poLineProducts = await _demand.PurchaseOrderLines.AsNoTracking()
+        var poLineVariants = await _demand.PurchaseOrderLines.AsNoTracking()
             .Where(pl => poLineUuids.Contains(pl.UUID))
-            .Select(pl => new { pl.UUID, pl.ProductUuid })
-            .ToDictionaryAsync(pl => pl.UUID, pl => pl.ProductUuid);
+            .Select(pl => new { pl.UUID, pl.VariantUuid })
+            .ToDictionaryAsync(pl => pl.UUID, pl => pl.VariantUuid);
 
-        var productUuids = poLineProducts.Values.Where(p => p.HasValue).Select(p => p!.Value).Distinct().ToList();
+        var variantUuids = poLineVariants.Values.Where(v => v.HasValue).Select(v => v!.Value).Distinct().ToList();
+        var variantToProductUuid = await _inventory.ProductVariants.AsNoTracking()
+            .Where(v => variantUuids.Contains(v.Uuid))
+            .Select(v => new { v.Uuid, ProductUuid = v.Product.Uuid })
+            .ToDictionaryAsync(v => v.Uuid, v => v.ProductUuid);
+
+        var productUuids = variantToProductUuid.Values.Distinct().ToList();
         var products = await _inventory.Products.AsNoTracking()
             .Where(p => productUuids.Contains(p.Uuid))
             .Select(p => new { p.Uuid, p.CategoryId, p.SubCategoryId })
@@ -1349,8 +1356,9 @@ internal sealed class ReportsRepository : IReportsRepository
             {
                 string  category    = "Uncategorised";
                 string? subCategory = null;
-                if (poLineProducts.TryGetValue(l.PoLineUuid, out var productUuid) && productUuid.HasValue
-                    && products.TryGetValue(productUuid.Value, out var product))
+                if (poLineVariants.TryGetValue(l.PoLineUuid, out var variantUuid) && variantUuid.HasValue
+                    && variantToProductUuid.TryGetValue(variantUuid.Value, out var productUuid)
+                    && products.TryGetValue(productUuid, out var product))
                 {
                     if (product.CategoryId.HasValue && categoryNames.TryGetValue(product.CategoryId.Value, out var catName))
                         category = catName;
@@ -1657,7 +1665,8 @@ internal sealed class ReportsRepository : IReportsRepository
             TotalValue  = v.TotalValue,
             LineCount   = v.Lines.Count,
             Notes       = v.Notes,
-            CreatedDate = v.CreatedDate
+            CreatedDate = v.CreatedDate,
+            ItemsSummary = string.Join("; ", v.Lines.Select(l => l.ItemDescription))
         }).ToList();
     }
 
@@ -1696,14 +1705,19 @@ internal sealed class ReportsRepository : IReportsRepository
         var consumedByLineId = consumptions.GroupBy(c => c.MivLineId)
             .ToDictionary(g => g.Key, g => g.Sum(c => c.ConsumedQty));
 
+        var variantDisplay = await ResolveVariantDisplayAsync(mivLines.Select(l => l.VariantUuid));
+
         return mivLines.Select(l =>
         {
             var consumed = consumedByLineId.GetValueOrDefault(l.Id, 0m);
             var balance  = l.IssuedQty - consumed;
+            variantDisplay.TryGetValue(l.VariantUuid, out var display);
             return new MaterialConsumptionReportItem
             {
                 ProductName   = l.ItemDescription,
-                ProductUuid   = l.ProductUuid,
+                ProductUuid   = l.VariantUuid,
+                VariantName   = display.VariantName ?? string.Empty,
+                Sku           = display.Sku,
                 UnitOfMeasure = l.UnitOfMeasure,
                 MirNo         = l.MaterialIssueVoucher.MaterialIssueRequest.RequestNo,
                 MirUuid       = l.MaterialIssueVoucher.MaterialIssueRequest.UUID,
@@ -1744,19 +1758,27 @@ internal sealed class ReportsRepository : IReportsRepository
         }
 
         var data = await query.OrderByDescending(l => l.PostedDate).ToListAsync();
-        return data.Select(l => new ProjectConsumptionItem
+        var variantDisplay = await ResolveVariantDisplayAsync(data.Select(l => l.ProductUuid));
+        return data.Select(l =>
         {
-            ProjectUuid     = l.Project.UUID,
-            ProjectCode     = l.Project.ProjectCode,
-            ProjectName     = l.Project.ProjectName,
-            ItemDescription = l.ItemDescription,
-            ProductUuid     = l.ProductUuid,
-            TransactionType = l.TransactionType,
-            ReferenceNumber = l.ReferenceNumber,
-            Quantity        = l.Quantity,
-            UnitCost        = l.UnitCost,
-            Amount          = l.Amount,
-            PostedDate      = l.PostedDate
+            variantDisplay.TryGetValue(l.ProductUuid, out var display);
+            return new ProjectConsumptionItem
+            {
+                ProjectUuid     = l.Project.UUID,
+                ProjectCode     = l.Project.ProjectCode,
+                ProjectName     = l.Project.ProjectName,
+                ItemDescription = l.ItemDescription,
+                ProductUuid     = l.ProductUuid,
+                ProductName     = display.ProductName ?? string.Empty,
+                VariantName     = display.VariantName ?? string.Empty,
+                Sku             = display.Sku,
+                TransactionType = l.TransactionType,
+                ReferenceNumber = l.ReferenceNumber,
+                Quantity        = l.Quantity,
+                UnitCost        = l.UnitCost,
+                Amount          = l.Amount,
+                PostedDate      = l.PostedDate
+            };
         }).ToList();
     }
 
@@ -1781,18 +1803,26 @@ internal sealed class ReportsRepository : IReportsRepository
         }
 
         var data = await query.OrderByDescending(l => l.PostedDate).ToListAsync();
-        return data.Select(l => new DepartmentConsumptionItem
+        var variantDisplay = await ResolveVariantDisplayAsync(data.Select(l => l.ProductUuid));
+        return data.Select(l =>
         {
-            Department      = l.Department,
-            CostCenter      = l.CostCenter,
-            ItemDescription = l.ItemDescription,
-            ProductUuid     = l.ProductUuid,
-            TransactionType = l.TransactionType,
-            ReferenceNumber = l.ReferenceNumber,
-            Quantity        = l.Quantity,
-            UnitCost        = l.UnitCost,
-            Amount          = l.Amount,
-            PostedDate      = l.PostedDate
+            variantDisplay.TryGetValue(l.ProductUuid, out var display);
+            return new DepartmentConsumptionItem
+            {
+                Department      = l.Department,
+                CostCenter      = l.CostCenter,
+                ItemDescription = l.ItemDescription,
+                ProductUuid     = l.ProductUuid,
+                ProductName     = display.ProductName ?? string.Empty,
+                VariantName     = display.VariantName ?? string.Empty,
+                Sku             = display.Sku,
+                TransactionType = l.TransactionType,
+                ReferenceNumber = l.ReferenceNumber,
+                Quantity        = l.Quantity,
+                UnitCost        = l.UnitCost,
+                Amount          = l.Amount,
+                PostedDate      = l.PostedDate
+            };
         }).ToList();
     }
 
@@ -1803,7 +1833,7 @@ internal sealed class ReportsRepository : IReportsRepository
         var (from, to) = ParseDates(filter.DateFrom, filter.DateTo);
 
         var query = _inventory.InventoryLedgerEntries
-            .Include(e => e.Product)
+            .Include(e => e.Variant).ThenInclude(v => v.Product)
             .Include(e => e.Warehouse)
             .AsQueryable();
 
@@ -1812,14 +1842,14 @@ internal sealed class ReportsRepository : IReportsRepository
         if (!string.IsNullOrWhiteSpace(filter.TransactionType))
             query = query.Where(e => e.TransactionType == filter.TransactionType);
         if (!string.IsNullOrWhiteSpace(filter.ProductUuid) && Guid.TryParse(filter.ProductUuid, out var prodGuid))
-            query = query.Where(e => e.Product.Uuid == prodGuid);
+            query = query.Where(e => e.Variant.Uuid == prodGuid);
         if (!string.IsNullOrWhiteSpace(filter.WarehouseId) && Guid.TryParse(filter.WarehouseId, out var whGuid))
             query = query.Where(e => e.Warehouse.Uuid == whGuid);
         if (!string.IsNullOrWhiteSpace(filter.Search))
         {
             var s = filter.Search.ToLower();
-            query = query.Where(e => e.Product.Name.ToLower().Contains(s) ||
-                                     (e.Product.Sku != null && e.Product.Sku.ToLower().Contains(s)));
+            query = query.Where(e => e.Variant.Product.Name.ToLower().Contains(s) ||
+                                     (e.Variant.Sku != null && e.Variant.Sku.ToLower().Contains(s)));
         }
 
         var data = await query.OrderByDescending(e => e.TransactionDate).ToListAsync();
@@ -1827,9 +1857,10 @@ internal sealed class ReportsRepository : IReportsRepository
         {
             LedgerUuid      = e.LedgerId,
             TransactionType = e.TransactionType,
-            ProductName     = e.Product?.Name ?? "–",
-            ProductUuid     = e.Product?.Uuid ?? Guid.Empty,
-            Sku             = e.Product?.Sku,
+            ProductName     = e.Variant?.Product.Name ?? "–",
+            ProductUuid     = e.Variant?.Uuid ?? Guid.Empty,
+            Sku             = e.Variant?.Sku,
+            VariantName     = e.Variant?.VariantName,
             WarehouseName   = e.Warehouse?.Name ?? "–",
             QuantityIn      = e.QuantityIn ?? 0m,
             QuantityOut     = e.QuantityOut ?? 0m,
@@ -1848,12 +1879,12 @@ internal sealed class ReportsRepository : IReportsRepository
         var (from, to) = ParseDates(filter.DateFrom, filter.DateTo);
 
         var query = _inventory.InventoryLedgerEntries
-            .Include(e => e.Product)
+            .Include(e => e.Variant).ThenInclude(v => v.Product)
             .Include(e => e.Warehouse)
             .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(filter.ProductUuid) && Guid.TryParse(filter.ProductUuid, out var prodGuid))
-            query = query.Where(e => e.Product.Uuid == prodGuid);
+            query = query.Where(e => e.Variant.Uuid == prodGuid);
         if (!string.IsNullOrWhiteSpace(filter.WarehouseId) && Guid.TryParse(filter.WarehouseId, out var whGuid))
             query = query.Where(e => e.Warehouse.Uuid == whGuid);
 
@@ -1870,8 +1901,10 @@ internal sealed class ReportsRepository : IReportsRepository
                 LedgerUuid      = e.LedgerId,
                 TransactionDate = e.TransactionDate,
                 TransactionType = e.TransactionType,
-                ProductName     = e.Product?.Name ?? "–",
-                ProductUuid     = e.Product?.Uuid ?? Guid.Empty,
+                ProductName     = e.Variant?.Product.Name ?? "–",
+                ProductUuid     = e.Variant?.Uuid ?? Guid.Empty,
+                Sku             = e.Variant?.Sku,
+                VariantName     = e.Variant?.VariantName,
                 WarehouseName   = e.Warehouse?.Name ?? "–",
                 QuantityIn      = e.QuantityIn ?? 0m,
                 QuantityOut     = e.QuantityOut ?? 0m,
@@ -1907,6 +1940,9 @@ internal sealed class ReportsRepository : IReportsRepository
         }
 
         var data = await query.OrderByDescending(r => r.ReturnDate).ToListAsync();
+        var variantDisplay = await ResolveVariantDisplayAsync(
+            data.SelectMany(r => r.Lines).Select(l => l.ProductUuid));
+
         var result = new List<MaterialReturnReportItem>();
         foreach (var ret in data)
         {
@@ -1914,6 +1950,7 @@ internal sealed class ReportsRepository : IReportsRepository
             {
                 if (!string.IsNullOrWhiteSpace(filter.Condition) && line.Condition != filter.Condition)
                     continue;
+                variantDisplay.TryGetValue(line.ProductUuid, out var display);
                 result.Add(new MaterialReturnReportItem
                 {
                     ReturnUuid      = ret.UUID,
@@ -1924,6 +1961,9 @@ internal sealed class ReportsRepository : IReportsRepository
                     ReturnDate      = ret.ReturnDate,
                     ItemDescription = line.ItemDescription,
                     ProductUuid     = line.ProductUuid,
+                    ProductName     = display.ProductName ?? string.Empty,
+                    VariantName     = display.VariantName ?? string.Empty,
+                    Sku             = display.Sku,
                     UnitOfMeasure   = line.UnitOfMeasure,
                     ReturnedQty     = line.ReturnedQty,
                     Condition       = line.Condition,
@@ -1958,22 +1998,30 @@ internal sealed class ReportsRepository : IReportsRepository
         }
 
         var data = await query.OrderByDescending(w => w.CreatedDate).ToListAsync();
-        return data.Select(w => new WastageReportItem
+        var variantDisplay = await ResolveVariantDisplayAsync(data.Select(w => w.ProductUuid));
+        return data.Select(w =>
         {
-            WastageUuid     = w.UUID,
-            WastageNo       = w.WastageNo,
-            SourceType      = w.SourceType,
-            ItemDescription = w.ItemDescription,
-            ProductUuid     = w.ProductUuid,
-            UnitOfMeasure   = w.UnitOfMeasure,
-            WastedQty       = w.WastedQty,
-            UnitCost        = w.UnitCost,
-            Amount          = w.Amount,
-            Reason          = w.Reason,
-            Status          = w.Status,
-            ApprovedBy      = w.ApprovedBy,
-            ApprovedAt      = w.ApprovedAt,
-            CreatedDate     = w.CreatedDate
+            variantDisplay.TryGetValue(w.ProductUuid, out var display);
+            return new WastageReportItem
+            {
+                WastageUuid     = w.UUID,
+                WastageNo       = w.WastageNo,
+                SourceType      = w.SourceType,
+                ItemDescription = w.ItemDescription,
+                ProductUuid     = w.ProductUuid,
+                ProductName     = display.ProductName ?? string.Empty,
+                VariantName     = display.VariantName ?? string.Empty,
+                Sku             = display.Sku,
+                UnitOfMeasure   = w.UnitOfMeasure,
+                WastedQty       = w.WastedQty,
+                UnitCost        = w.UnitCost,
+                Amount          = w.Amount,
+                Reason          = w.Reason,
+                Status          = w.Status,
+                ApprovedBy      = w.ApprovedBy,
+                ApprovedAt      = w.ApprovedAt,
+                CreatedDate     = w.CreatedDate
+            };
         }).ToList();
     }
 
@@ -1999,7 +2047,7 @@ internal sealed class ReportsRepository : IReportsRepository
         // Resolve product names and warehouse names from inventory in one batch
         var inventoryItemIds = reservations.Select(r => r.InventoryItemId).Distinct().ToList();
         var invItems = await _inventory.InventoryItems
-            .Include(i => i.Product)
+            .Include(i => i.Variant).ThenInclude(v => v.Product)
             .Include(i => i.Warehouse)
             .Where(i => inventoryItemIds.Contains(i.Id))
             .ToListAsync();
@@ -2015,9 +2063,10 @@ internal sealed class ReportsRepository : IReportsRepository
                 MirNo           = r.MaterialIssueRequest.RequestNo,
                 MirUuid         = r.MaterialIssueRequest.UUID,
                 RequestType     = r.MaterialIssueRequest.RequestType,
-                ProductUuid     = r.ProductUuid,
-                ProductName     = inv?.Product?.Name ?? "–",
-                Sku             = inv?.Product?.Sku,
+                ProductUuid     = r.VariantUuid,
+                ProductName     = inv?.Variant?.Product.Name ?? "–",
+                Sku             = inv?.Variant?.Sku,
+                VariantName     = inv?.Variant?.VariantName,
                 WarehouseName   = inv?.Warehouse?.Name ?? "–",
                 ReservedQty     = r.ReservedQty,
                 Status          = r.Status,
@@ -2029,6 +2078,27 @@ internal sealed class ReportsRepository : IReportsRepository
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    // PV-008 — batch-resolves display info (parent product name, variant name, sku) for report
+    // rows built from Material-module tables that only carry a bare variant uuid (no FK,
+    // cross-module-safe by design — see ProjectCostLedger/DepartmentCostLedger/Wastage/etc.'s
+    // "ProductUuid" columns, which have held variant uuids since PV-005). Rows whose variant has
+    // since been hard-deleted (PV-007) simply don't get a dictionary entry — callers fall back
+    // to whatever denormalised text (ItemDescription) they already had.
+    private async Task<Dictionary<Guid, (string ProductName, string VariantName, string Sku)>> ResolveVariantDisplayAsync(
+        IEnumerable<Guid> variantUuids)
+    {
+        var uuids = variantUuids.Where(u => u != Guid.Empty).Distinct().ToList();
+        if (uuids.Count == 0) return new();
+
+        var rows = await _inventory.ProductVariants
+            .Include(v => v.Product)
+            .Where(v => uuids.Contains(v.Uuid))
+            .Select(v => new { v.Uuid, ProductName = v.Product.Name, v.VariantName, v.Sku })
+            .ToListAsync();
+
+        return rows.ToDictionary(r => r.Uuid, r => (r.ProductName, r.VariantName, r.Sku));
+    }
 
     private static (DateTime? from, DateTime? to) ParseDates(string? from, string? to)
     {

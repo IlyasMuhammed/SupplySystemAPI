@@ -678,9 +678,6 @@ namespace SMS.Modules.Finance.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
-                    b.Property<int>("ProductId")
-                        .HasColumnType("int");
-
                     b.Property<string>("ProductName")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -705,6 +702,10 @@ namespace SMS.Modules.Finance.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");
 
+                    b.Property<string>("Sku")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
                     b.Property<string>("SourceName")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
@@ -728,6 +729,13 @@ namespace SMS.Modules.Finance.Migrations
                     b.Property<decimal>("UnitCost")
                         .HasColumnType("decimal(18,4)");
 
+                    b.Property<int>("VariantId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("VariantName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
                     b.Property<int>("WarehouseId")
                         .HasColumnType("int");
 
@@ -745,13 +753,13 @@ namespace SMS.Modules.Finance.Migrations
 
                     b.HasIndex("OrganizationId");
 
-                    b.HasIndex("ProductId");
-
                     b.HasIndex("ReferenceId");
 
                     b.HasIndex("TransactionDate");
 
                     b.HasIndex("TransactionType");
+
+                    b.HasIndex("VariantId");
 
                     b.HasIndex("WarehouseId");
 

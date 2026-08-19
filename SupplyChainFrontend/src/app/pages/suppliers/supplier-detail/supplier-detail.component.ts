@@ -1,4 +1,5 @@
 import { Component, OnInit } from '@angular/core';
+import { environment } from '../../../../environments/environment';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators, FormsModule } from '@angular/forms';
@@ -518,7 +519,7 @@ export class SupplierDetailComponent implements OnInit {
 
   resolveDocUrl(url: string): string {
     if (!url) return '';
-    return url.startsWith('/') ? `https://localhost:51800${url}` : url;
+    return url.startsWith('/') ? `${environment.apiOrigin}${url}` : url;
   }
 
   private loadBankDetail() {

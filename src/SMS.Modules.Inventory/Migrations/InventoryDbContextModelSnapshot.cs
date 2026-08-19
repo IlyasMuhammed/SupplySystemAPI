@@ -23,6 +23,85 @@ namespace SMS.Modules.Inventory.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("SMS.Modules.Inventory.Domain.AttributeDefinition", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AttributeName")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("ControlType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("DataType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("DefaultValue")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("DropdownOptions")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("IsFilterable")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<bool>("IsRequired")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<bool>("IsSearchable")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("Uuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ValidationRegex")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Uuid")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "AttributeName")
+                        .IsUnique();
+
+                    b.ToTable("AttributeDefinitions", "inventory");
+                });
+
             modelBuilder.Entity("SMS.Modules.Inventory.Domain.Bin", b =>
                 {
                     b.Property<int>("Id")
@@ -68,6 +147,41 @@ namespace SMS.Modules.Inventory.Migrations
                     b.ToTable("Bins", "inventory");
                 });
 
+            modelBuilder.Entity("SMS.Modules.Inventory.Domain.CategoryAttribute", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AttributeId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CategoryId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsRequired")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AttributeId");
+
+                    b.HasIndex("CategoryId");
+
+                    b.HasIndex("OrganizationId", "CategoryId", "AttributeId")
+                        .IsUnique();
+
+                    b.ToTable("CategoryAttributes", "inventory");
+                });
+
             modelBuilder.Entity("SMS.Modules.Inventory.Domain.InventoryItem", b =>
                 {
                     b.Property<int>("Id")
@@ -95,9 +209,6 @@ namespace SMS.Modules.Inventory.Migrations
                     b.Property<Guid>("OrganizationId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<int>("ProductId")
-                        .HasColumnType("int");
-
                     b.Property<decimal>("QtyOnHand")
                         .HasColumnType("decimal(18,4)");
 
@@ -124,6 +235,9 @@ namespace SMS.Modules.Inventory.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
+                    b.Property<int>("VariantId")
+                        .HasColumnType("int");
+
                     b.Property<int>("WarehouseId")
                         .HasColumnType("int");
 
@@ -143,9 +257,12 @@ namespace SMS.Modules.Inventory.Migrations
 
                     b.HasIndex("ZoneId");
 
-                    b.HasIndex("ProductId", "WarehouseId");
+                    b.HasIndex("VariantId", "WarehouseId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_InventoryItems_VariantId_WarehouseId")
+                        .HasFilter("[BatchNumber] IS NULL AND [SerialNumber] IS NULL");
 
-                    b.HasIndex("ProductId", "WarehouseId", "BatchNumber", "SerialNumber")
+                    b.HasIndex("VariantId", "WarehouseId", "BatchNumber", "SerialNumber")
                         .IsUnique()
                         .HasFilter("[BatchNumber] IS NOT NULL AND [SerialNumber] IS NOT NULL");
 
@@ -174,9 +291,6 @@ namespace SMS.Modules.Inventory.Migrations
 
                     b.Property<Guid>("OrganizationId")
                         .HasColumnType("uniqueidentifier");
-
-                    b.Property<int>("ProductId")
-                        .HasColumnType("int");
 
                     b.Property<decimal?>("QuantityIn")
                         .HasColumnType("decimal(18,4)");
@@ -213,6 +327,9 @@ namespace SMS.Modules.Inventory.Migrations
                     b.Property<decimal>("UnitCost")
                         .HasColumnType("decimal(18,4)");
 
+                    b.Property<int>("VariantId")
+                        .HasColumnType("int");
+
                     b.Property<int>("WarehouseId")
                         .HasColumnType("int");
 
@@ -222,7 +339,7 @@ namespace SMS.Modules.Inventory.Migrations
 
                     b.HasIndex("WarehouseId");
 
-                    b.HasIndex("ProductId", "WarehouseId", "CreatedAt");
+                    b.HasIndex("VariantId", "WarehouseId", "CreatedAt");
 
                     b.ToTable("InventoryLedgerEntries", "inventory");
                 });
@@ -391,6 +508,81 @@ namespace SMS.Modules.Inventory.Migrations
                         .IsUnique();
 
                     b.ToTable("ProductCategories", "inventory");
+                });
+
+            modelBuilder.Entity("SMS.Modules.Inventory.Domain.ProductSearchIndex", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Barcode")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Brand")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("CategoryName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ProductCode")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<int>("ProductId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ProductName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("SearchableText")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Sku")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("UpdatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("VariantId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("VariantName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("VariantId");
+
+                    b.HasIndex("OrganizationId", "VariantId")
+                        .IsUnique();
+
+                    b.ToTable("ProductSearchIndex", "inventory");
                 });
 
             modelBuilder.Entity("SMS.Modules.Inventory.Domain.ProductSubCategory", b =>
@@ -624,9 +816,6 @@ namespace SMS.Modules.Inventory.Migrations
                     b.Property<Guid>("OrganizationId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<int>("ProductId")
-                        .HasColumnType("int");
-
                     b.Property<decimal>("QtyAdjusted")
                         .HasColumnType("decimal(18,4)");
 
@@ -665,6 +854,9 @@ namespace SMS.Modules.Inventory.Migrations
                     b.Property<Guid>("Uuid")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<int>("VariantId")
+                        .HasColumnType("int");
+
                     b.Property<int>("WarehouseId")
                         .HasColumnType("int");
 
@@ -682,6 +874,38 @@ namespace SMS.Modules.Inventory.Migrations
                         .HasFilter("[AdjNumber] IS NOT NULL");
 
                     b.ToTable("StockAdjustments", "inventory");
+                });
+
+            modelBuilder.Entity("SMS.Modules.Inventory.Domain.VariantAttributeValue", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AttributeId")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("VariantId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AttributeId");
+
+                    b.HasIndex("VariantId", "AttributeId")
+                        .IsUnique();
+
+                    b.ToTable("VariantAttributeValues", "inventory");
                 });
 
             modelBuilder.Entity("SMS.Modules.Inventory.Domain.Warehouse", b =>
@@ -824,6 +1048,25 @@ namespace SMS.Modules.Inventory.Migrations
                     b.Navigation("Zone");
                 });
 
+            modelBuilder.Entity("SMS.Modules.Inventory.Domain.CategoryAttribute", b =>
+                {
+                    b.HasOne("SMS.Modules.Inventory.Domain.AttributeDefinition", "Attribute")
+                        .WithMany("CategoryAttributes")
+                        .HasForeignKey("AttributeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SMS.Modules.Inventory.Domain.ProductCategory", "Category")
+                        .WithMany("CategoryAttributes")
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Attribute");
+
+                    b.Navigation("Category");
+                });
+
             modelBuilder.Entity("SMS.Modules.Inventory.Domain.InventoryItem", b =>
                 {
                     b.HasOne("SMS.Modules.Inventory.Domain.Bin", "Bin")
@@ -831,9 +1074,9 @@ namespace SMS.Modules.Inventory.Migrations
                         .HasForeignKey("BinId")
                         .OnDelete(DeleteBehavior.SetNull);
 
-                    b.HasOne("SMS.Modules.Inventory.Domain.Product", "Product")
+                    b.HasOne("SMS.Modules.Inventory.Domain.ProductVariant", "Variant")
                         .WithMany("InventoryItems")
-                        .HasForeignKey("ProductId")
+                        .HasForeignKey("VariantId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
@@ -850,7 +1093,7 @@ namespace SMS.Modules.Inventory.Migrations
 
                     b.Navigation("Bin");
 
-                    b.Navigation("Product");
+                    b.Navigation("Variant");
 
                     b.Navigation("Warehouse");
 
@@ -859,9 +1102,9 @@ namespace SMS.Modules.Inventory.Migrations
 
             modelBuilder.Entity("SMS.Modules.Inventory.Domain.InventoryLedgerEntry", b =>
                 {
-                    b.HasOne("SMS.Modules.Inventory.Domain.Product", "Product")
+                    b.HasOne("SMS.Modules.Inventory.Domain.ProductVariant", "Variant")
                         .WithMany()
-                        .HasForeignKey("ProductId")
+                        .HasForeignKey("VariantId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
@@ -871,7 +1114,7 @@ namespace SMS.Modules.Inventory.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.Navigation("Product");
+                    b.Navigation("Variant");
 
                     b.Navigation("Warehouse");
                 });
@@ -891,6 +1134,25 @@ namespace SMS.Modules.Inventory.Migrations
                     b.Navigation("Category");
 
                     b.Navigation("SubCategory");
+                });
+
+            modelBuilder.Entity("SMS.Modules.Inventory.Domain.ProductSearchIndex", b =>
+                {
+                    b.HasOne("SMS.Modules.Inventory.Domain.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SMS.Modules.Inventory.Domain.ProductVariant", "Variant")
+                        .WithMany()
+                        .HasForeignKey("VariantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Product");
+
+                    b.Navigation("Variant");
                 });
 
             modelBuilder.Entity("SMS.Modules.Inventory.Domain.ProductSubCategory", b =>
@@ -948,6 +1210,25 @@ namespace SMS.Modules.Inventory.Migrations
                     b.Navigation("InventoryItem");
                 });
 
+            modelBuilder.Entity("SMS.Modules.Inventory.Domain.VariantAttributeValue", b =>
+                {
+                    b.HasOne("SMS.Modules.Inventory.Domain.AttributeDefinition", "Attribute")
+                        .WithMany("VariantValues")
+                        .HasForeignKey("AttributeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SMS.Modules.Inventory.Domain.ProductVariant", "Variant")
+                        .WithMany("AttributeValues")
+                        .HasForeignKey("VariantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Attribute");
+
+                    b.Navigation("Variant");
+                });
+
             modelBuilder.Entity("SMS.Modules.Inventory.Domain.Zone", b =>
                 {
                     b.HasOne("SMS.Modules.Inventory.Domain.Warehouse", "Warehouse")
@@ -957,6 +1238,13 @@ namespace SMS.Modules.Inventory.Migrations
                         .IsRequired();
 
                     b.Navigation("Warehouse");
+                });
+
+            modelBuilder.Entity("SMS.Modules.Inventory.Domain.AttributeDefinition", b =>
+                {
+                    b.Navigation("CategoryAttributes");
+
+                    b.Navigation("VariantValues");
                 });
 
             modelBuilder.Entity("SMS.Modules.Inventory.Domain.Bin", b =>
@@ -971,13 +1259,13 @@ namespace SMS.Modules.Inventory.Migrations
 
             modelBuilder.Entity("SMS.Modules.Inventory.Domain.Product", b =>
                 {
-                    b.Navigation("InventoryItems");
-
                     b.Navigation("Variants");
                 });
 
             modelBuilder.Entity("SMS.Modules.Inventory.Domain.ProductCategory", b =>
                 {
+                    b.Navigation("CategoryAttributes");
+
                     b.Navigation("Products");
 
                     b.Navigation("SubCategories");
@@ -986,6 +1274,13 @@ namespace SMS.Modules.Inventory.Migrations
             modelBuilder.Entity("SMS.Modules.Inventory.Domain.ProductSubCategory", b =>
                 {
                     b.Navigation("Products");
+                });
+
+            modelBuilder.Entity("SMS.Modules.Inventory.Domain.ProductVariant", b =>
+                {
+                    b.Navigation("AttributeValues");
+
+                    b.Navigation("InventoryItems");
                 });
 
             modelBuilder.Entity("SMS.Modules.Inventory.Domain.Rack", b =>

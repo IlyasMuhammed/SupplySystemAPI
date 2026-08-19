@@ -2,14 +2,18 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { ApiResponse, PaginatedResponse } from './demand.service';
+import { environment } from '../../environments/environment';
 
-const BASE = 'https://localhost:52800/api/inventory/master-product-ledger';
+const BASE = `${environment.apiUrl}/inventory/master-product-ledger`;
 
 export interface MasterProductLedgerEntryModel {
   ledgerId: string;
-  productId: number;
+  variantId: number;
   productCode: string;
   productName: string;
+  // PV-008 — distinct fields alongside the folded productCode/productName above.
+  variantName?: string;
+  sku?: string;
   categoryId?: number;
   categoryName?: string;
   warehouseId: number;
@@ -35,7 +39,7 @@ export interface MasterProductLedgerEntryModel {
 export interface MasterProductLedgerFilter {
   dateFrom?: string;
   dateTo?: string;
-  productId?: number;
+  variantId?: number;
   categoryId?: number;
   warehouseId?: number;
   transactionType?: string;
@@ -60,7 +64,7 @@ export class MasterProductLedgerService {
     let params = new HttpParams();
     if (filter.dateFrom)        params = params.set('dateFrom', filter.dateFrom);
     if (filter.dateTo)          params = params.set('dateTo', filter.dateTo);
-    if (filter.productId != null)   params = params.set('productId', filter.productId);
+    if (filter.variantId != null)   params = params.set('variantId', filter.variantId);
     if (filter.categoryId != null)  params = params.set('categoryId', filter.categoryId);
     if (filter.warehouseId != null) params = params.set('warehouseId', filter.warehouseId);
     if (filter.transactionType) params = params.set('transactionType', filter.transactionType);
@@ -79,8 +83,8 @@ export class MasterProductLedgerService {
     return this.http.get<ApiResponse<MasterProductLedgerSummaryModel>>(`${BASE}/summary`, { params: this.buildParams(filter) });
   }
 
-  getProductJourney(productId: number): Observable<ApiResponse<MasterProductLedgerEntryModel[]>> {
-    return this.http.get<ApiResponse<MasterProductLedgerEntryModel[]>>(`${BASE}/product-journey/${productId}`);
+  getProductJourney(variantId: number): Observable<ApiResponse<MasterProductLedgerEntryModel[]>> {
+    return this.http.get<ApiResponse<MasterProductLedgerEntryModel[]>>(`${BASE}/variant-journey/${variantId}`);
   }
 
   exportPdf(filter: MasterProductLedgerFilter): Observable<Blob> {

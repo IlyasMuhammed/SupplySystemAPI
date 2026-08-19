@@ -67,25 +67,36 @@ file static class Build
         return w;
     }
 
-    internal static Product SeedProduct(
+    // Returns the auto-created default variant's Id — PV-005 tracks stock per variant, so every
+    // seeded product needs one to hang an InventoryItem off. ReorderPoint moves to the variant.
+    internal static (Product Product, int VariantId) SeedProduct(
         InventoryDbContext db, string sku, string name, int? categoryId = null, int? subCategoryId = null, decimal? reorderPoint = null)
     {
         var p = new Product
         {
             Uuid = Guid.NewGuid(), Sku = sku, Name = name, CategoryId = categoryId, SubCategoryId = subCategoryId,
-            ReorderPoint = reorderPoint, Status = "ACTIVE", IsActive = true, CreatedDate = DateTime.UtcNow, CreatedBy = 1
+            Status = "ACTIVE", IsActive = true, CreatedDate = DateTime.UtcNow, CreatedBy = 1
         };
         db.Products.Add(p);
         db.SaveChanges();
-        return p;
+
+        var v = new ProductVariant
+        {
+            Uuid = Guid.NewGuid(), ProductId = p.Id, Sku = sku + "-DEFAULT", VariantName = "Default",
+            PurchasePrice = 0m, ReorderPoint = reorderPoint, IsDefault = true, IsActive = true,
+            CreatedDate = DateTime.UtcNow, CreatedBy = 1
+        };
+        db.ProductVariants.Add(v);
+        db.SaveChanges();
+        return (p, v.Id);
     }
 
     internal static InventoryItem SeedInventoryItem(
-        InventoryDbContext db, int productId, int warehouseId, decimal qtyOnHand, decimal qtyReserved, decimal? unitCost)
+        InventoryDbContext db, int variantId, int warehouseId, decimal qtyOnHand, decimal qtyReserved, decimal? unitCost)
     {
         var i = new InventoryItem
         {
-            Uuid = Guid.NewGuid(), ProductId = productId, WarehouseId = warehouseId,
+            Uuid = Guid.NewGuid(), VariantId = variantId, WarehouseId = warehouseId,
             QtyOnHand = qtyOnHand, QtyReserved = qtyReserved, UnitCost = unitCost, LastUpdated = DateTime.UtcNow
         };
         db.InventoryItems.Add(i);
@@ -101,8 +112,8 @@ public class GetStockLevelSummaryAsync_Tests
     {
         var db = Build.NewInventoryDb();
         var wh = Build.SeedWarehouse(db, "Main Warehouse");
-        var product = Build.SeedProduct(db, "SKU-001", "Widget");
-        Build.SeedInventoryItem(db, product.Id, wh.Id, qtyOnHand: 100m, qtyReserved: 30m, unitCost: 25m);
+        var (_, variantId) = Build.SeedProduct(db, "SKU-001", "Widget");
+        Build.SeedInventoryItem(db, variantId, wh.Id, qtyOnHand: 100m, qtyReserved: 30m, unitCost: 25m);
 
         var repo = Build.NewRepo(db);
         var result = await repo.GetStockLevelSummaryAsync(new StockLevelSummaryFilter());
@@ -111,7 +122,7 @@ public class GetStockLevelSummaryAsync_Tests
         row.QtyOnHand.Should().Be(100m);
         row.QtyReserved.Should().Be(30m);
         row.QtyAvailable.Should().Be(70m);
-        row.ProductCode.Should().Be("SKU-001");
+        row.ProductCode.Should().Be("SKU-001-DEFAULT");
         row.Warehouse.Should().Be("Main Warehouse");
     }
 
@@ -121,10 +132,10 @@ public class GetStockLevelSummaryAsync_Tests
         var db = Build.NewInventoryDb();
         var whA = Build.SeedWarehouse(db, "Warehouse A");
         var whB = Build.SeedWarehouse(db, "Warehouse B");
-        var productA = Build.SeedProduct(db, "SKU-A", "Product A");
-        var productB = Build.SeedProduct(db, "SKU-B", "Product B");
-        Build.SeedInventoryItem(db, productA.Id, whA.Id, 50m, 0m, 10m);
-        Build.SeedInventoryItem(db, productB.Id, whB.Id, 60m, 0m, 10m);
+        var (_, variantA) = Build.SeedProduct(db, "SKU-A", "Product A");
+        var (_, variantB) = Build.SeedProduct(db, "SKU-B", "Product B");
+        Build.SeedInventoryItem(db, variantA, whA.Id, 50m, 0m, 10m);
+        Build.SeedInventoryItem(db, variantB, whB.Id, 60m, 0m, 10m);
 
         var repo = Build.NewRepo(db);
         var result = await repo.GetStockLevelSummaryAsync(new StockLevelSummaryFilter { WarehouseId = whA.Id });
@@ -141,18 +152,18 @@ public class GetStockLevelSummaryAsync_Tests
         var catA = Build.SeedCategory(db, "Electronics");
         var catB = Build.SeedCategory(db, "Furniture");
         var subA = Build.SeedSubCategory(db, catA.Id, "Cables");
-        var productA = Build.SeedProduct(db, "SKU-A", "Cable", catA.Id, subA.Id);
-        var productB = Build.SeedProduct(db, "SKU-B", "Chair", catB.Id);
-        Build.SeedInventoryItem(db, productA.Id, wh.Id, 10m, 0m, 5m);
-        Build.SeedInventoryItem(db, productB.Id, wh.Id, 20m, 0m, 5m);
+        var (_, variantA) = Build.SeedProduct(db, "SKU-A", "Cable", catA.Id, subA.Id);
+        var (_, variantB) = Build.SeedProduct(db, "SKU-B", "Chair", catB.Id);
+        Build.SeedInventoryItem(db, variantA, wh.Id, 10m, 0m, 5m);
+        Build.SeedInventoryItem(db, variantB, wh.Id, 20m, 0m, 5m);
 
         var repo = Build.NewRepo(db);
 
         var byCategory = await repo.GetStockLevelSummaryAsync(new StockLevelSummaryFilter { CategoryId = catA.Id });
-        byCategory.Items.Should().ContainSingle(i => i.ProductCode == "SKU-A");
+        byCategory.Items.Should().ContainSingle(i => i.ProductCode == "SKU-A-DEFAULT");
 
         var bySubCategory = await repo.GetStockLevelSummaryAsync(new StockLevelSummaryFilter { SubCategoryId = subA.Id });
-        bySubCategory.Items.Should().ContainSingle(i => i.ProductCode == "SKU-A");
+        bySubCategory.Items.Should().ContainSingle(i => i.ProductCode == "SKU-A-DEFAULT");
     }
 
     [Fact]
@@ -160,16 +171,16 @@ public class GetStockLevelSummaryAsync_Tests
     {
         var db = Build.NewInventoryDb();
         var wh = Build.SeedWarehouse(db, "Main");
-        var product = Build.SeedProduct(db, "WID-100", "Blue Widget");
+        var (_, variantId) = Build.SeedProduct(db, "WID-100", "Blue Widget");
         Build.SeedProduct(db, "OTH-200", "Other Item");
-        Build.SeedInventoryItem(db, product.Id, wh.Id, 10m, 0m, 5m);
+        Build.SeedInventoryItem(db, variantId, wh.Id, 10m, 0m, 5m);
 
         var repo = Build.NewRepo(db);
         var byName = await repo.GetStockLevelSummaryAsync(new StockLevelSummaryFilter { Search = "widget" });
-        byName.Items.Should().ContainSingle(i => i.ProductCode == "WID-100");
+        byName.Items.Should().ContainSingle(i => i.ProductCode == "WID-100-DEFAULT");
 
         var byCode = await repo.GetStockLevelSummaryAsync(new StockLevelSummaryFilter { Search = "wid-100" });
-        byCode.Items.Should().ContainSingle(i => i.ProductCode == "WID-100");
+        byCode.Items.Should().ContainSingle(i => i.ProductCode == "WID-100-DEFAULT");
     }
 
     [Fact]
@@ -177,8 +188,8 @@ public class GetStockLevelSummaryAsync_Tests
     {
         var db = Build.NewInventoryDb();
         var wh = Build.SeedWarehouse(db, "Main");
-        var product = Build.SeedProduct(db, "SKU-X", "X");
-        Build.SeedInventoryItem(db, product.Id, wh.Id, qtyOnHand: 40m, qtyReserved: 0m, unitCost: 12.5m);
+        var (_, variantId) = Build.SeedProduct(db, "SKU-X", "X");
+        Build.SeedInventoryItem(db, variantId, wh.Id, qtyOnHand: 40m, qtyReserved: 0m, unitCost: 12.5m);
 
         var repo = Build.NewRepo(db);
         var result = await repo.GetStockLevelSummaryAsync(new StockLevelSummaryFilter());
@@ -191,12 +202,12 @@ public class GetStockLevelSummaryAsync_Tests
     {
         var db = Build.NewInventoryDb();
         var wh = Build.SeedWarehouse(db, "Main");
-        var p1 = Build.SeedProduct(db, "SKU-1", "One");
-        var p2 = Build.SeedProduct(db, "SKU-2", "Two");
-        var p3 = Build.SeedProduct(db, "SKU-3", "Three");
-        Build.SeedInventoryItem(db, p1.Id, wh.Id, 10m, 0m, 10m);  // 100
-        Build.SeedInventoryItem(db, p2.Id, wh.Id, 20m, 0m, 5m);   // 100
-        Build.SeedInventoryItem(db, p3.Id, wh.Id, 5m, 0m, 4m);    // 20
+        var (_, v1) = Build.SeedProduct(db, "SKU-1", "One");
+        var (_, v2) = Build.SeedProduct(db, "SKU-2", "Two");
+        var (_, v3) = Build.SeedProduct(db, "SKU-3", "Three");
+        Build.SeedInventoryItem(db, v1, wh.Id, 10m, 0m, 10m);  // 100
+        Build.SeedInventoryItem(db, v2, wh.Id, 20m, 0m, 5m);   // 100
+        Build.SeedInventoryItem(db, v3, wh.Id, 5m, 0m, 4m);    // 20
 
         var repo = Build.NewRepo(db);
         var result = await repo.GetStockLevelSummaryAsync(new StockLevelSummaryFilter());
@@ -210,18 +221,18 @@ public class GetStockLevelSummaryAsync_Tests
     {
         var db = Build.NewInventoryDb();
         var wh = Build.SeedWarehouse(db, "Main");
-        var lowStock  = Build.SeedProduct(db, "SKU-LOW", "Low Stock Item", reorderPoint: 50m);
-        var highStock = Build.SeedProduct(db, "SKU-HIGH", "High Stock Item", reorderPoint: 50m);
+        var (_, lowStockVariant)  = Build.SeedProduct(db, "SKU-LOW", "Low Stock Item", reorderPoint: 50m);
+        var (_, highStockVariant) = Build.SeedProduct(db, "SKU-HIGH", "High Stock Item", reorderPoint: 50m);
         // available = 20 - 0 = 20 <= reorderPoint 50 -> below reorder level
-        Build.SeedInventoryItem(db, lowStock.Id, wh.Id, qtyOnHand: 20m, qtyReserved: 0m, unitCost: 1m);
+        Build.SeedInventoryItem(db, lowStockVariant, wh.Id, qtyOnHand: 20m, qtyReserved: 0m, unitCost: 1m);
         // available = 100 - 0 = 100 > reorderPoint 50 -> not below
-        Build.SeedInventoryItem(db, highStock.Id, wh.Id, qtyOnHand: 100m, qtyReserved: 0m, unitCost: 1m);
+        Build.SeedInventoryItem(db, highStockVariant, wh.Id, qtyOnHand: 100m, qtyReserved: 0m, unitCost: 1m);
 
         var repo = Build.NewRepo(db);
         var result = await repo.GetStockLevelSummaryAsync(new StockLevelSummaryFilter());
 
-        result.Items.Single(i => i.ProductCode == "SKU-LOW").BelowReorderLevel.Should().BeTrue();
-        result.Items.Single(i => i.ProductCode == "SKU-HIGH").BelowReorderLevel.Should().BeFalse();
+        result.Items.Single(i => i.ProductCode == "SKU-LOW-DEFAULT").BelowReorderLevel.Should().BeTrue();
+        result.Items.Single(i => i.ProductCode == "SKU-HIGH-DEFAULT").BelowReorderLevel.Should().BeFalse();
     }
 
     [Fact]
@@ -229,8 +240,8 @@ public class GetStockLevelSummaryAsync_Tests
     {
         var db = Build.NewInventoryDb();
         var wh = Build.SeedWarehouse(db, "Main");
-        var product = Build.SeedProduct(db, "SKU-NONE", "No Reorder Point", reorderPoint: null);
-        Build.SeedInventoryItem(db, product.Id, wh.Id, qtyOnHand: 0m, qtyReserved: 0m, unitCost: 1m);
+        var (_, variantId) = Build.SeedProduct(db, "SKU-NONE", "No Reorder Point", reorderPoint: null);
+        Build.SeedInventoryItem(db, variantId, wh.Id, qtyOnHand: 0m, qtyReserved: 0m, unitCost: 1m);
 
         var repo = Build.NewRepo(db);
         var result = await repo.GetStockLevelSummaryAsync(new StockLevelSummaryFilter());
@@ -246,8 +257,8 @@ public class GetStockLevelSummaryAsync_Tests
         var wh = Build.SeedWarehouse(db, "Main");
         var cat = Build.SeedCategory(db, "Electronics");
         var sub = Build.SeedSubCategory(db, cat.Id, "Cables");
-        var product = Build.SeedProduct(db, "SKU-1", "Cable", cat.Id, sub.Id);
-        Build.SeedInventoryItem(db, product.Id, wh.Id, 10m, 0m, 1m);
+        var (_, variantId) = Build.SeedProduct(db, "SKU-1", "Cable", cat.Id, sub.Id);
+        Build.SeedInventoryItem(db, variantId, wh.Id, 10m, 0m, 1m);
 
         var repo = Build.NewRepo(db);
         var result = await repo.GetStockLevelSummaryAsync(new StockLevelSummaryFilter());

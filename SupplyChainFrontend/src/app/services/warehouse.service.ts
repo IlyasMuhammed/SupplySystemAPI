@@ -2,8 +2,9 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { ApiResponse, PaginatedResponse } from './demand.service';
+import { environment } from '../../environments/environment';
 
-const BASE = 'https://localhost:52800/api';
+const BASE = environment.apiUrl;
 
 // ── Request models ────────────────────────────────────────────────────────────
 
@@ -43,7 +44,7 @@ export interface CreateGrnRequest {
 }
 
 export interface UpdateGrnLineRequest {
-  productUuid?: string;
+  variantUuid?: string;
   qtyReceived: number;
   qtyAccepted: number;
   qtyRejected: number;
@@ -246,7 +247,10 @@ export interface GrnLineModel {
   uuid: string;
   poLineUuid: string;
   requiresInspection: boolean;
+  variantUuid?: string;
   productUuid?: string;
+  variantSku?: string;
+  variantName?: string;
   productName?: string;
   lineNo: number;
   itemDescription: string;
@@ -348,10 +352,10 @@ export class WarehouseService {
     return this.http.patch<ApiResponse<null>>(`${BASE}/grns/${grnUuid}/lines/${lineUuid}`, req);
   }
 
-  // Narrow recovery endpoint: links a line to its catalogue product at any point before
+  // Narrow recovery endpoint: links a line to its catalogue variant at any point before
   // the GRN reaches APPROVED/REJECTED — unlike updateGrnLine, not restricted to DRAFT.
-  linkGrnLineProduct(grnUuid: string, lineUuid: string, productUuid: string): Observable<ApiResponse<null>> {
-    return this.http.patch<ApiResponse<null>>(`${BASE}/grns/${grnUuid}/lines/${lineUuid}/product`, { productUuid });
+  linkGrnLineVariant(grnUuid: string, lineUuid: string, variantUuid: string): Observable<ApiResponse<null>> {
+    return this.http.patch<ApiResponse<null>>(`${BASE}/grns/${grnUuid}/lines/${lineUuid}/variant`, { variantUuid });
   }
 
   inspectGrnLine(grnUuid: string, lineUuid: string, req: InspectGrnLineRequest): Observable<ApiResponse<null>> {

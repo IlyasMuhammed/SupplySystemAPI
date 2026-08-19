@@ -15,6 +15,7 @@ import { TooltipModule } from 'primeng/tooltip';
 import { MessageService } from 'primeng/api';
 import { DemandService, PatchPrRequest } from '../../../../services/demand.service';
 import { InventoryService, ProductListItemModel } from '../../../../services/inventory.service';
+import { ProductVariantPickerComponent, VariantPickerSelection } from '../../../../shared/product-variant-picker/product-variant-picker.component';
 
 @Component({
   selector: 'app-pr-edit',
@@ -23,7 +24,8 @@ import { InventoryService, ProductListItemModel } from '../../../../services/inv
     CommonModule, RouterModule, ReactiveFormsModule,
     ButtonModule, InputTextModule, TextareaModule,
     InputNumberModule, CheckboxModule, DropdownModule,
-    CalendarModule, DividerModule, ToastModule, TooltipModule
+    CalendarModule, DividerModule, ToastModule, TooltipModule,
+    ProductVariantPickerComponent
   ],
   templateUrl: './pr-edit.component.html',
   styleUrls: ['./pr-edit.component.scss'],
@@ -36,8 +38,7 @@ export class PrEditComponent implements OnInit {
   isSubmitting = false;
   minDate = new Date();
 
-  productOptions: { label: string; value: string }[] = [];
-  private productsMap = new Map<string, ProductListItemModel>();
+  products: ProductListItemModel[] = [];
   loadingProducts = false;
   warehouseOptions: { label: string; value: string }[] = [];
 
@@ -100,28 +101,29 @@ export class PrEditComponent implements OnInit {
     this.inventoryService.getProducts({ activeOnly: true, pageSize: 500 }).subscribe({
       next: res => {
         this.loadingProducts = false;
-        const data = res?.result?.data ?? [];
-        this.productsMap.clear();
-        this.productOptions = data.map(p => {
-          this.productsMap.set(p.uuid, p);
-          return { label: p.name, value: p.uuid };
-        });
+        this.products = res?.result?.data ?? [];
       },
       error: () => { this.loadingProducts = false; }
     });
   }
 
-  onProductChange(i: number) {
-    const uuid = this.lines.at(i).get('productId')?.value;
-    if (!uuid) return;
-    const p = this.productsMap.get(uuid);
-    if (!p) return;
-    this.lines.at(i).patchValue({
-      itemDescription:    p.name,
-      specification:      (p as any).description ?? '',
-      unitOfMeasure:      p.uomCode || null,
-      estimatedUnitPrice: p.unitCost ?? 0
+  // PV-004 — mirrors po-create.component.ts's onLineVariantSelected exactly.
+  onLineVariantSelected(i: number, sel: VariantPickerSelection) {
+    const line = this.lines.at(i);
+    line.patchValue({
+      productUuid: sel.productUuid,
+      variantUuid: sel.variantUuid
     });
+    if (sel.variantUuid) {
+      const label = sel.variantName && sel.variantName !== 'Default'
+        ? `${sel.productName} — ${sel.variantName}`
+        : (sel.productName ?? '');
+      line.patchValue({
+        itemDescription:    label,
+        unitOfMeasure:      sel.uomCode ?? line.get('unitOfMeasure')?.value ?? null,
+        estimatedUnitPrice: sel.purchasePrice ?? 0
+      });
+    }
   }
 
   private buildForm() {
@@ -143,7 +145,8 @@ export class PrEditComponent implements OnInit {
 
   newLine(): FormGroup {
     return this.fb.group({
-      productId:          [null],
+      productUuid:        [null],
+      variantUuid:        [null],
       itemDescription:    ['', Validators.required],
       specification:      [''],
       unitOfMeasure:      [null],
@@ -182,7 +185,8 @@ export class PrEditComponent implements OnInit {
 
         while (this.lines.length) this.lines.removeAt(0);
         (pr.lines ?? []).forEach(l => this.lines.push(this.fb.group({
-          productId:          [l.productId ?? null],
+          productUuid:        [l.productUuid ?? null],
+          variantUuid:        [l.productId ?? null],
           itemDescription:    [l.itemDescription, Validators.required],
           specification:      [l.specification ?? ''],
           unitOfMeasure:      [l.unitOfMeasure ?? null],
@@ -230,7 +234,7 @@ export class PrEditComponent implements OnInit {
       clearWarehouse:    !v.warehouseUuid,
       notes:             v.notes        || undefined,
       lines: v.lines.map((l: any) => ({
-        productId:          l.productId          || undefined,
+        productId:          l.variantUuid        || undefined,
         itemDescription:    l.itemDescription,
         specification:      l.specification      || undefined,
         unitOfMeasure:      l.unitOfMeasure      || undefined,

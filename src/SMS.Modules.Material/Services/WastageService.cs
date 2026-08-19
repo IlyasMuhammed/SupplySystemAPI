@@ -54,7 +54,7 @@ internal sealed class WastageService : IWastageService
             SourceUuid      = null,
             MivLineId       = mivLine.Id,
             MirId           = mir.Id,
-            ProductUuid     = mivLine.ProductUuid,
+            ProductUuid     = mivLine.VariantUuid,
             ItemDescription = mivLine.ItemDescription,
             UnitOfMeasure   = mivLine.UnitOfMeasure,
             WastedQty       = req.WastedQty,
@@ -121,7 +121,8 @@ internal sealed class WastageService : IWastageService
             UnitCost        = wastage.UnitCost,
             PostedDate      = now,
             PostedBy        = approvedBy,
-            Notes           = wastage.Reason
+            // PV-008 — include what was wasted (product + variant), not just why.
+            Notes           = $"Wastage {wastage.WastageNo}: {wastage.ItemDescription} ({wastage.Reason})"
         });
 
         wastage.Status     = "APPROVED";

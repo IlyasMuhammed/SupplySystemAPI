@@ -41,10 +41,10 @@
     <p-calendar [(ngModel)]="dateTo" placeholder="To" dateFormat="dd/mm/yy"
                 [showIcon]="true" [showClear]="true" appendTo="body"></p-calendar>
 
-    <p-autoComplete [(ngModel)]="selectedProduct" [suggestions]="productSuggestions"
-                     (completeMethod)="searchProducts($event)" field="name"
-                     placeholder="Filter by product…" [minLength]="0" [dropdown]="true"
-                     styleClass="product-autocomplete"></p-autoComplete>
+    <app-product-variant-picker
+      [products]="products"
+      (selectionChange)="onVariantSelected($event)">
+    </app-product-variant-picker>
 
     <p-dropdown [options]="categories" [(ngModel)]="selectedCategoryId" optionLabel="name" optionValue="id"
                 placeholder="Category" [showClear]="true" appendTo="body" styleClass="filter-dropdown"></p-dropdown>
@@ -82,6 +82,7 @@
         <tr>
           <th>Date</th>
           <th>Product</th>
+          <th>SKU</th>
           <th>Category</th>
           <th>Transaction Type</th>
           <th class="text-right">Qty In</th>
@@ -97,7 +98,11 @@
       <ng-template pTemplate="body" let-e>
         <tr>
           <td>{{ e.transactionDate | date:'dd MMM yyyy, HH:mm' }}</td>
-          <td><a class="ref-link" (click)="goToProduct(e)">{{ e.productName }}</a></td>
+          <td>
+            {{ e.productName }}
+            <span *ngIf="e.variantName" class="text-secondary"> ({{ e.variantName }})</span>
+          </td>
+          <td><span class="mono">{{ e.sku ?? e.productCode ?? '—' }}</span></td>
           <td>{{ e.categoryName || '—' }}</td>
           <td><p-tag [value]="getTypeLabel(e.transactionType)" [severity]="getTypeSeverity(e.transactionType)"></p-tag></td>
           <td class="text-right">{{ e.quantityIn ? (e.quantityIn | number:'1.2-2') : '—' }}</td>
@@ -114,7 +119,7 @@
         </tr>
       </ng-template>
       <ng-template pTemplate="emptymessage">
-        <tr><td colspan="12" class="text-center text-secondary" style="padding:3rem">No ledger entries found.</td></tr>
+        <tr><td colspan="13" class="text-center text-secondary" style="padding:3rem">No ledger entries found.</td></tr>
       </ng-template>
     </p-table>
   </div>

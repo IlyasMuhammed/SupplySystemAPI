@@ -64,17 +64,17 @@ internal sealed class MivService : IMivService
             .Select(g => new { LineId = g.Key, Qty = g.OrderByDescending(a => a.StepNumber).First().ApprovedQty })
             .ToDictionaryAsync(x => x.LineId, x => x.Qty);
 
-        var productUuids = mir.Lines.Select(l => l.ProductUuid).Distinct().ToList();
+        var variantUuids = mir.Lines.Select(l => l.VariantUuid).Distinct().ToList();
 
         var unitCosts = await _inv.InventoryItems
-            .Where(i => productUuids.Contains(i.Product.Uuid))
-            .GroupBy(i => i.Product.Uuid)
-            .Select(g => new { ProductUuid = g.Key, UnitCost = g.Max(i => (decimal?)i.UnitCost) ?? 0m })
-            .ToDictionaryAsync(x => x.ProductUuid, x => x.UnitCost);
+            .Where(i => variantUuids.Contains(i.Variant.Uuid))
+            .GroupBy(i => i.Variant.Uuid)
+            .Select(g => new { VariantUuid = g.Key, UnitCost = g.Max(i => (decimal?)i.UnitCost) ?? 0m })
+            .ToDictionaryAsync(x => x.VariantUuid, x => x.UnitCost);
 
-        var trackingFlags = await _inv.Products
-            .Where(p => productUuids.Contains(p.Uuid))
-            .Select(p => new { p.Uuid, p.IsBatchTracked, p.IsSerialTracked })
+        var trackingFlags = await _inv.ProductVariants
+            .Where(v => variantUuids.Contains(v.Uuid))
+            .Select(v => new { v.Uuid, v.Product.IsBatchTracked, v.Product.IsSerialTracked })
             .ToDictionaryAsync(x => x.Uuid, x => (x.IsBatchTracked, x.IsSerialTracked));
 
         var lines = mir.Lines
@@ -84,12 +84,12 @@ internal sealed class MivService : IMivService
             {
                 var approved = approvedQtys.TryGetValue(l.Id, out var aq) ? aq : 0m;
                 var pending  = Math.Max(0, approved - l.IssuedQty);
-                var unitCost = unitCosts.TryGetValue(l.ProductUuid, out var uc) ? uc : l.UnitCost;
-                var flags    = trackingFlags.TryGetValue(l.ProductUuid, out var tf) ? tf : default;
+                var unitCost = unitCosts.TryGetValue(l.VariantUuid, out var uc) ? uc : l.UnitCost;
+                var flags    = trackingFlags.TryGetValue(l.VariantUuid, out var tf) ? tf : default;
                 return new MirLineIssuableModel
                 {
                     LineUuid         = l.UUID,
-                    ProductUuid      = l.ProductUuid,
+                    VariantUuid      = l.VariantUuid,
                     ItemDescription  = l.ItemDescription,
                     UnitOfMeasure    = l.UnitOfMeasure,
                     RequestedQty     = l.RequestedQty,
@@ -144,22 +144,22 @@ internal sealed class MivService : IMivService
             .Where(r => r.MirId == mir.Id && r.Status == "ACTIVE")
             .ToDictionaryAsync(r => r.MirLineId, r => r);
 
-        var productUuids = mir.Lines.Select(l => l.ProductUuid).Distinct().ToList();
+        var variantUuids = mir.Lines.Select(l => l.VariantUuid).Distinct().ToList();
 
-        // Unit cost and tracking flags — load by product UUID, covering all batch/serial rows
+        // Unit cost and tracking flags — load by variant UUID, covering all batch/serial rows
         var invItems = await _inv.InventoryItems
-            .Where(i => productUuids.Contains(i.Product.Uuid))
-            .Select(i => new { i.Id, ProductUuid = i.Product.Uuid, i.UnitCost,
+            .Where(i => variantUuids.Contains(i.Variant.Uuid))
+            .Select(i => new { i.Id, VariantUuid = i.Variant.Uuid, i.UnitCost,
                                i.BatchNumber, i.SerialNumber, i.ExpiryDate })
             .ToListAsync();
-        var unitCostByProduct = invItems
-            .GroupBy(i => i.ProductUuid)
+        var unitCostByVariant = invItems
+            .GroupBy(i => i.VariantUuid)
             .ToDictionary(g => g.Key, g => g.Max(x => x.UnitCost) ?? 0m);
         var invItemById = invItems.ToDictionary(i => i.Id);
 
-        var trackingFlagsCreate = await _inv.Products
-            .Where(p => productUuids.Contains(p.Uuid))
-            .Select(p => new { p.Uuid, p.IsBatchTracked, p.IsSerialTracked })
+        var trackingFlagsCreate = await _inv.ProductVariants
+            .Where(v => variantUuids.Contains(v.Uuid))
+            .Select(v => new { v.Uuid, v.Product.IsBatchTracked, v.Product.IsSerialTracked })
             .ToDictionaryAsync(x => x.Uuid, x => (x.IsBatchTracked, x.IsSerialTracked));
 
         // Check for serials already claimed in another DRAFT MIV (double-selection prevention)
@@ -204,8 +204,8 @@ internal sealed class MivService : IMivService
                 throw new UnprocessableEntityException(
                     $"Line '{mirLine.ItemDescription}': issued qty {input.IssuedQty} exceeds reservation {res.ReservedQty}.");
 
-            var unitCost = unitCostByProduct.TryGetValue(mirLine.ProductUuid, out var uc) ? uc : mirLine.UnitCost;
-            var flags    = trackingFlagsCreate.TryGetValue(mirLine.ProductUuid, out var tf) ? tf : default;
+            var unitCost = unitCostByVariant.TryGetValue(mirLine.VariantUuid, out var uc) ? uc : mirLine.UnitCost;
+            var flags    = trackingFlagsCreate.TryGetValue(mirLine.VariantUuid, out var tf) ? tf : default;
 
             // ── Batch/serial sub-row construction ──────────────────────────────────
             var batchSerials = new List<MivLineBatchSerial>();
@@ -273,7 +273,7 @@ internal sealed class MivService : IMivService
                 UUID            = Guid.NewGuid(),
                 MirLineId       = mirLine.Id,
                 InventoryItemId = lineInvItemId,
-                ProductUuid     = mirLine.ProductUuid,
+                VariantUuid     = mirLine.VariantUuid,
                 ItemDescription = mirLine.ItemDescription,
                 UnitOfMeasure   = mirLine.UnitOfMeasure,
                 IssuedQty       = input.IssuedQty,
@@ -378,7 +378,7 @@ internal sealed class MivService : IMivService
                 {
                     UUID            = l.UUID,
                     MirLineUuid     = lineUuidMap.TryGetValue(l.MirLineId, out var lu) ? lu : Guid.Empty,
-                    ProductUuid     = l.ProductUuid,
+                    VariantUuid     = l.VariantUuid,
                     ItemDescription = l.ItemDescription,
                     UnitOfMeasure   = l.UnitOfMeasure,
                     IssuedQty       = l.IssuedQty,
@@ -511,11 +511,11 @@ internal sealed class MivService : IMivService
                 .FirstOrDefaultAsync();
         }
 
-        // Direct-consumption product set
-        var productUuids        = miv.Lines.Select(l => l.ProductUuid).Distinct().ToList();
-        var directConsumptionSet = (await _inv.Products
-            .Where(p => productUuids.Contains(p.Uuid) && p.IsDirectConsumption)
-            .Select(p => p.Uuid)
+        // Direct-consumption variant set (IsDirectConsumption still lives on the parent Product)
+        var mivVariantUuids       = miv.Lines.Select(l => l.VariantUuid).Distinct().ToList();
+        var directConsumptionSet = (await _inv.ProductVariants
+            .Where(v => mivVariantUuids.Contains(v.Uuid) && v.Product.IsDirectConsumption)
+            .Select(v => v.Uuid)
             .ToListAsync())
             .ToHashSet();
 
@@ -563,7 +563,7 @@ internal sealed class MivService : IMivService
 
         foreach (var line in miv.Lines)
         {
-            int lineProductId = 0;
+            int lineVariantId = 0;
             int mainWarehouseIdForLine = 0;
 
             if (line.BatchSerials.Count > 0)
@@ -586,7 +586,7 @@ internal sealed class MivService : IMivService
                     invItem.QtyOnHand  -= bs.IssuedQty;
                     invItem.QtyReserved = Math.Max(0, invItem.QtyReserved - bs.IssuedQty);
                     invItem.LastUpdated = now;
-                    lineProductId       = invItem.ProductId;
+                    lineVariantId       = invItem.VariantId;
                     mainWarehouseIdForLine = invItem.WarehouseId;
 
                     // Effect 7: one ledger entry per batch/serial consumed
@@ -600,7 +600,7 @@ internal sealed class MivService : IMivService
 
                     await _ledger.CreateEntryAsync(new LedgerEntryCommand
                     {
-                        ProductId       = invItem.ProductId,
+                        VariantId       = invItem.VariantId,
                         WarehouseId     = invItem.WarehouseId,
                         TransactionType = mainTxType,
                         ReferenceType   = "MIV",
@@ -634,7 +634,7 @@ internal sealed class MivService : IMivService
                 invItem.QtyOnHand  -= line.IssuedQty;
                 invItem.QtyReserved = Math.Max(0, invItem.QtyReserved - line.IssuedQty);
                 invItem.LastUpdated = now;
-                lineProductId       = invItem.ProductId;
+                lineVariantId       = invItem.VariantId;
                 mainWarehouseIdForLine = invItem.WarehouseId;
 
                 var mainTxType = siteWarehouseIntId.HasValue ? "TRANSFER_OUT" : "MATERIAL_ISSUE";
@@ -644,7 +644,7 @@ internal sealed class MivService : IMivService
 
                 await _ledger.CreateEntryAsync(new LedgerEntryCommand
                 {
-                    ProductId       = invItem.ProductId,
+                    VariantId       = invItem.VariantId,
                     WarehouseId     = invItem.WarehouseId,
                     TransactionType = mainTxType,
                     ReferenceType   = "MIV",
@@ -665,12 +665,12 @@ internal sealed class MivService : IMivService
             // ── Effect (site warehouse TRANSFER_IN) ──────────────────────────────
             // When the MIR's project has a site warehouse, write a TRANSFER_IN entry
             // and increment the site warehouse InventoryItem QtyOnHand.
-            if (siteWarehouseIntId.HasValue && lineProductId > 0)
+            if (siteWarehouseIntId.HasValue && lineVariantId > 0)
             {
-                if (!siteItemCache.TryGetValue(lineProductId, out var siteItem))
+                if (!siteItemCache.TryGetValue(lineVariantId, out var siteItem))
                 {
                     siteItem = await _inv.InventoryItems.FirstOrDefaultAsync(i =>
-                        i.ProductId   == lineProductId &&
+                        i.VariantId   == lineVariantId &&
                         i.WarehouseId == siteWarehouseIntId.Value &&
                         i.BatchNumber  == null &&
                         i.SerialNumber == null);
@@ -679,7 +679,7 @@ internal sealed class MivService : IMivService
                     {
                         siteItem = new InventoryItem
                         {
-                            ProductId   = lineProductId,
+                            VariantId   = lineVariantId,
                             WarehouseId = siteWarehouseIntId.Value,
                             QtyOnHand   = 0,
                             QtyReserved = 0,
@@ -688,7 +688,7 @@ internal sealed class MivService : IMivService
                         };
                         _inv.InventoryItems.Add(siteItem);
                     }
-                    siteItemCache[lineProductId] = siteItem;
+                    siteItemCache[lineVariantId] = siteItem;
                 }
 
                 siteItem.QtyOnHand  += line.IssuedQty;
@@ -696,7 +696,7 @@ internal sealed class MivService : IMivService
 
                 await _ledger.CreateEntryAsync(new LedgerEntryCommand
                 {
-                    ProductId       = lineProductId,
+                    VariantId       = lineVariantId,
                     WarehouseId     = siteWarehouseIntId.Value,
                     TransactionType = "TRANSFER_IN",
                     ReferenceType   = "MIV",
@@ -717,7 +717,7 @@ internal sealed class MivService : IMivService
             // ── Effect (direct consumption auto-record) ──────────────────────────
             // When the product is flagged IsDirectConsumption, auto-create a MaterialConsumption
             // so the item shows balance = 0 immediately after issue (no manual step required).
-            if (directConsumptionSet.Contains(line.ProductUuid))
+            if (directConsumptionSet.Contains(line.VariantUuid))
             {
                 mcrCount++;
                 _db.MaterialConsumptions.Add(new Domain.MaterialConsumption
@@ -726,7 +726,7 @@ internal sealed class MivService : IMivService
                     ConsumptionNo   = $"MCR-{mcrYear}-{mcrCount:D5}",
                     MivLineId       = line.Id,
                     MirId           = mir.Id,
-                    ProductUuid     = line.ProductUuid,
+                    ProductUuid     = line.VariantUuid,
                     ItemDescription = line.ItemDescription,
                     UnitOfMeasure   = line.UnitOfMeasure,
                     ConsumedQty     = line.IssuedQty,
@@ -766,7 +766,7 @@ internal sealed class MivService : IMivService
                 ProjectId       = mir.ProjectId,
                 MirId           = mir.Id,
                 Department      = mir.Department,
-                ProductUuid     = line.ProductUuid,
+                ProductUuid     = line.VariantUuid,
                 ItemDescription = line.ItemDescription,
                 TransactionType = "ISSUE",
                 ReferenceType   = "MIV",

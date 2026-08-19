@@ -363,6 +363,25 @@
   }
 
   .remove-col { text-align: center; }
+
+  .scan-col {
+    padding: .3rem .4rem;
+    .scan-field {
+      width: 100%; padding: .38rem .45rem; font-size: .83rem;
+      box-sizing: border-box; border-radius: 8px;
+      border: 1.5px solid #e2e8f0; background: #fafbff;
+      transition: border-color .18s;
+      &:hover { border-color: #c4b5fd; }
+      &:focus { border-color: #6c63ff; outline: none; }
+    }
+    .scan-status {
+      display: flex; align-items: flex-start; gap: .3rem;
+      margin-top: .3rem; font-size: .72rem; line-height: 1.3;
+    }
+    .scan-match { color: #16a34a; }
+    .scan-mismatch { color: #d97706; }
+    .scan-not-found { color: #dc2626; }
+  }
 }
 
 // ── Table footer totals ───────────────────────────────────────────────────────

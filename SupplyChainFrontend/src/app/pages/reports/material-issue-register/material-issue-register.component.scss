@@ -17,6 +17,9 @@
 }
 
 .filter-card { }
+.items-summary {
+  max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 .filter-row  { display: flex; align-items: flex-end; gap: 1rem; flex-wrap: wrap; }
 .filter-group { display: flex; flex-direction: column; gap: .35rem; flex: 1; min-width: 160px; label { font-size: .85rem; font-weight: 600; color: var(--text-color); } }
 .filter-input { width: 100%; }

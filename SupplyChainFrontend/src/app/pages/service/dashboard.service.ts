@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../../environments/environment';
 
 export interface ApiResponse<T = null> {
   success: boolean;
@@ -71,7 +72,7 @@ export interface RevenueStreamData {
   providedIn: 'root'
 })
 export class DashboardService {
-  private readonly baseUrl = 'https://localhost:52800/api';
+  private readonly baseUrl = environment.apiUrl;
 
   constructor(private http: HttpClient) {}
 

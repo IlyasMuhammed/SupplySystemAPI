@@ -129,18 +129,15 @@
           <div class="line-body">
             <div class="line-grid">
 
-              <!-- Product — full width -->
+              <!-- Product → Variant (PV-004 two-level picker) — full width -->
               <div class="field full">
                 <label>Product</label>
-                <p-dropdown formControlName="productId" [options]="productOptions"
-                            optionLabel="label" optionValue="value"
-                            placeholder="Search and select a product…"
-                            [filter]="true" filterBy="label"
-                            filterPlaceholder="Search product…"
-                            [loading]="loadingProducts"
-                            [showClear]="true"
-                            styleClass="w-full"
-                            (onChange)="onProductChange(i)"></p-dropdown>
+                <app-product-variant-picker
+                  [products]="products"
+                  [productUuid]="line.get('productUuid')?.value"
+                  [variantUuid]="line.get('variantUuid')?.value"
+                  (selectionChange)="onLineVariantSelected(i, $event)">
+                </app-product-variant-picker>
                 <small style="font-size:.75rem;color:#94a3b8;">Selecting a product auto-fills the fields below.</small>
               </div>
 

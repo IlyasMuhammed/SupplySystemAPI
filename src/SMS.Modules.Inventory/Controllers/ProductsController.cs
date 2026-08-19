@@ -183,6 +183,20 @@ public class ProductsController : ControllerBase
         return Ok(ApiResponse<PaginatedResponse<ProductListItemModel>>.Ok(result));
     }
 
+    // PV-006 — full-text search (SQL Server FREETEXT against the denormalised
+    // ProductSearchIndex): product name, variant name, sku, barcode, and searchable attribute
+    // values. Empty/omitted q returns a paginated list of every active variant.
+    [HttpGet("api/products/search")]
+    public async Task<IActionResult> SearchProducts(
+        [FromQuery] string? q,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20)
+    {
+        var filter = new ProductSearchFilter { Query = q, Page = page, PageSize = pageSize };
+        var result = await _service.SearchProductsAsync(filter);
+        return Ok(ApiResponse<PaginatedResponse<ProductSearchResultItem>>.Ok(result));
+    }
+
     [HttpGet("api/products/{id:int}")]
  //   [RequirePermission(PermissionCodes.INVENTORY_VIEW)]
     public async Task<IActionResult> GetProduct(int id)
@@ -239,5 +253,97 @@ public class ProductsController : ControllerBase
     {
         var stock = await _service.GetProductStockAsync(id);
         return Ok(ApiResponse<List<ProductStockModel>>.Ok(stock));
+    }
+
+    // PV-005 — SUM(qty_on_hand)/SUM(qty_reserved)/SUM(qty_available) across every variant of
+    // this product, computed on the fly.
+    [HttpGet("api/products/{id:int}/stock-summary")]
+    public async Task<IActionResult> GetProductStockSummary(int id)
+    {
+        var summary = await _service.GetProductStockSummaryAsync(id);
+        if (summary is null) return NotFound(ApiResponse.Fail(StaticResponseMessage.recordNotFound));
+        return Ok(ApiResponse<ProductStockSummaryModel>.Ok(summary));
+    }
+
+    // ── Variants (PV-004) ─────────────────────────────────────────────────────
+
+    // GRN barcode scan: resolves a scanned code straight to its variant, product, and price.
+    [HttpGet("api/variants/lookup")]
+    public async Task<IActionResult> LookupVariantByBarcode([FromQuery] string barcode)
+    {
+        if (string.IsNullOrWhiteSpace(barcode))
+            return BadRequest(ApiResponse.Fail("Barcode is required."));
+        var variant = await _service.GetVariantByBarcodeAsync(barcode);
+        if (variant is null) return NotFound(ApiResponse.Fail(StaticResponseMessage.recordNotFound));
+        return Ok(ApiResponse<VariantLookupModel>.Ok(variant));
+    }
+
+    // ── Variant CRUD (PV-007) ────────────────────────────────────────────────
+
+    [HttpPost("api/products/{id:int}/variants")]
+    public async Task<IActionResult> CreateVariant(int id, [FromBody] CreateProductVariantRequest req)
+    {
+        if (string.IsNullOrWhiteSpace(req.VariantName))
+            return BadRequest(ApiResponse.Fail("Variant name is required."));
+        try
+        {
+            var result = await _service.CreateVariantAsync(id, req, User.GetUserId());
+            if (result is null) return NotFound(ApiResponse.Fail(StaticResponseMessage.recordNotFound));
+            return Ok(ApiResponse<CreateVariantResult>.Ok(result, StaticResponseMessage.recordCreatedSuccessfully));
+        }
+        catch (ConflictException ex)
+        {
+            return Conflict(ApiResponse.Fail(ex.Message));
+        }
+        catch (BadRequestException ex)
+        {
+            return BadRequest(ApiResponse.Fail(ex.Message));
+        }
+    }
+
+    [HttpPatch("api/variants/{uuid:guid}")]
+    public async Task<IActionResult> UpdateVariant(Guid uuid, [FromBody] CreateProductVariantRequest req)
+    {
+        if (string.IsNullOrWhiteSpace(req.VariantName))
+            return BadRequest(ApiResponse.Fail("Variant name is required."));
+        try
+        {
+            var updated = await _service.UpdateVariantAsync(uuid, req);
+            if (!updated) return NotFound(ApiResponse.Fail(StaticResponseMessage.recordNotFound));
+            return Ok(ApiResponse.Ok(StaticResponseMessage.recordUpdatedSuccessfully));
+        }
+        catch (ConflictException ex)
+        {
+            return Conflict(ApiResponse.Fail(ex.Message));
+        }
+        catch (BadRequestException ex)
+        {
+            return BadRequest(ApiResponse.Fail(ex.Message));
+        }
+    }
+
+    // Soft-deletes (is_active=false) if the variant has ever been transacted (any PO/GRN/MIR
+    // line, or a local inventory/ledger/adjustment row); hard-deletes the row otherwise.
+    [HttpDelete("api/variants/{uuid:guid}")]
+    public async Task<IActionResult> DeleteVariant(Guid uuid)
+    {
+        var result = await _service.DeleteVariantAsync(uuid);
+        if (!result.Found) return NotFound(ApiResponse.Fail(StaticResponseMessage.recordNotFound));
+
+        var message = result.SoftDeleted
+            ? "Variant has been transacted — deactivated instead of deleted."
+            : StaticResponseMessage.recordDeletedSuccessfully;
+        return Ok(ApiResponse<object>.Ok(new { softDeleted = result.SoftDeleted }, message));
+    }
+
+    // PV-006 — admin-triggered full rebuild of ProductSearchIndex (initial population, or
+    // recovery after a bulk data change). Runs inline rather than via Hangfire, matching the
+    // existing supplier-scorecard "recalculate" admin-action convention.
+    [HttpPost("api/products/search-index/rebuild")]
+    [RequirePermission(PermissionCodes.SYSTEM_CONFIGURE)]
+    public async Task<IActionResult> RebuildSearchIndex()
+    {
+        await _service.RebuildSearchIndexAsync();
+        return Ok(ApiResponse.Ok("Product search index rebuild completed."));
     }
 }

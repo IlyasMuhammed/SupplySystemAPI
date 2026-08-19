@@ -27,7 +27,7 @@ public class MasterProductLedgerService_PostMovementAsync_Tests
 
         await svc.PostMovementAsync(new ProductMovementContext
         {
-            ProductId       = 1,
+            VariantId       =1,
             ProductCode     = "LAPTOP-001",
             ProductName     = "Business Laptop",
             CategoryName    = "IT Equipment",
@@ -63,7 +63,7 @@ public class MasterProductLedgerService_PostMovementAsync_Tests
 
         await svc.PostMovementAsync(new ProductMovementContext
         {
-            ProductId       = 2,
+            VariantId       =2,
             ProductCode     = "CEMENT-050",
             ProductName     = "Cement 50kg",
             WarehouseId     = 10,
@@ -98,7 +98,7 @@ public class MasterProductLedgerService_PostMovementAsync_Tests
 
         await svc.PostMovementAsync(new ProductMovementContext
         {
-            ProductId       = 2,
+            VariantId       =2,
             ProductCode     = "CEMENT-050",
             ProductName     = "Cement 50kg",
             WarehouseId     = 10,
@@ -131,7 +131,7 @@ public class MasterProductLedgerService_PostMovementAsync_Tests
 
         await svc.PostMovementAsync(new ProductMovementContext
         {
-            ProductId = 1, ProductCode = "X", ProductName = "X", WarehouseId = 1, WarehouseName = "WH",
+            VariantId = 1, ProductCode = "X", ProductName = "X", WarehouseId = 1, WarehouseName = "WH",
             TransactionType = "STOCK_ADJUSTMENT", ReferenceType = "ADJUSTMENT", ReferenceId = Guid.NewGuid(),
             ReferenceNumber = "ADJ-1", QuantityOut = 7m, UnitCost = 12.5m,
             SourceType = "WAREHOUSE", SourceName = "WH", DestinationType = "ADJUSTMENT", DestinationName = "Stock Adjustment",
@@ -160,7 +160,7 @@ public class MasterProductLedgerService_PostMovementAsync_Tests
 
         await svc.PostMovementAsync(new ProductMovementContext
         {
-            ProductId = 1, ProductCode = "X", ProductName = "X", WarehouseId = 1, WarehouseName = "WH",
+            VariantId = 1, ProductCode = "X", ProductName = "X", WarehouseId = 1, WarehouseName = "WH",
             TransactionType = transactionType, ReferenceType = "REF", ReferenceId = Guid.NewGuid(),
             ReferenceNumber = "REF-1", QuantityIn = 1m, UnitCost = 1m,
             SourceType = sourceType, SourceName = "Source", DestinationType = destinationType, DestinationName = "Destination",

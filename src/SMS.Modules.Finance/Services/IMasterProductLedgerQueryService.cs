@@ -18,9 +18,9 @@ public interface IMasterProductLedgerQueryService
     Task<MasterProductLedgerSummaryModel> GetProductLedgerSummaryAsync(MasterProductLedgerFilter filter);
 
     /// <summary>
-    /// Every movement for one product across ALL warehouses, chronological (oldest first) — the
+    /// Every movement for one variant across ALL warehouses, chronological (oldest first) — the
     /// "Product Journey" view. Unlike GetProductLedgerAsync this is not paginated and ignores every
-    /// filter except the product itself, by design (a journey is the product's complete history).
+    /// filter except the variant itself, by design (a journey is that variant's complete history).
     /// </summary>
-    Task<List<MasterProductLedgerEntryModel>> GetProductJourneyAsync(int productId);
+    Task<List<MasterProductLedgerEntryModel>> GetProductJourneyAsync(int variantId);
 }

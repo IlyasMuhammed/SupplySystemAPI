@@ -1,8 +1,9 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../environments/environment';
 
-const BASE = 'https://localhost:52800/api/logistics';
+const BASE = `${environment.apiUrl}/logistics`;
 
 export interface ApiResponse<T = null> {
   success: boolean;
@@ -223,6 +224,6 @@ export class LogisticsService {
 
   resolveFileUrl(url: string): string {
     if (!url) return '';
-    return url.startsWith('/') ? `https://localhost:51800${url}` : url;
+    return url.startsWith('/') ? `${environment.apiOrigin}${url}` : url;
   }
 }

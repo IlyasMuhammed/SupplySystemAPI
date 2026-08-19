@@ -51,7 +51,7 @@ internal sealed class PoCloneHandler : IDocumentCloneHandler
                 UUID             = Guid.NewGuid(),
                 LineNo           = i + 1,
                 SourcePrLineUuid = l.SourcePrLineUuid,
-                ProductUuid      = l.ProductUuid,
+                VariantUuid      = l.VariantUuid,
                 ItemDescription  = l.ItemDescription,
                 Specification    = l.Specification,
                 UnitOfMeasure    = l.UnitOfMeasure,

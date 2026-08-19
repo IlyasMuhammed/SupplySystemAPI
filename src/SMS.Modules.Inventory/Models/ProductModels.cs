@@ -105,6 +105,10 @@ public class ProductListItemModel
     public bool IsSerialTracked { get; set; }
     public DateTime CreatedDate { get; set; }
     public int VariantCount { get; set; }
+    // Convenience rollup for pickers elsewhere in the app (PO/PR/MIR/SRO line entry, stock
+    // adjustments) that need a price to pre-fill as soon as a product is selected — sourced from
+    // the product's default variant, since Product itself no longer carries its own price (PV-001).
+    public decimal? DefaultVariantPurchasePrice { get; set; }
 }
 
 public class ProductDetailModel : ProductListItemModel
@@ -130,6 +134,7 @@ public class ProductDetailModel : ProductListItemModel
 
 public class ProductVariantModel
 {
+    public int Id { get; set; }
     public Guid Uuid { get; set; }
     public string Sku { get; set; } = string.Empty;
     public string VariantName { get; set; } = string.Empty;
@@ -146,6 +151,69 @@ public class ProductVariantModel
     public DateTime CreatedDate { get; set; }
 }
 
+// PV-004 — resolves a scanned barcode straight to its variant during GRN receiving, along with
+// enough context (product + price) for the UI to display a match/mismatch against the PO line.
+public class VariantLookupModel
+{
+    public Guid Uuid { get; set; }
+    public string Sku { get; set; } = string.Empty;
+    public string VariantName { get; set; } = string.Empty;
+    public string? Barcode { get; set; }
+    public decimal PurchasePrice { get; set; }
+    public int ProductId { get; set; }
+    public Guid ProductUuid { get; set; }
+    public string ProductName { get; set; } = string.Empty;
+}
+
+// PV-005 — product-level rollup across every one of its variants' stock. Computed on the fly
+// (SUM across InventoryItem rows joined through ProductVariant), never stored.
+public class ProductStockSummaryModel
+{
+    public int ProductId { get; set; }
+    public Guid ProductUuid { get; set; }
+    public decimal TotalOnHand { get; set; }
+    public decimal TotalReserved { get; set; }
+    public decimal TotalAvailable { get; set; }
+    public List<VariantStockSummaryItem> Variants { get; set; } = [];
+}
+
+public class VariantStockSummaryItem
+{
+    public Guid VariantUuid { get; set; }
+    public string Sku { get; set; } = string.Empty;
+    public string VariantName { get; set; } = string.Empty;
+    public decimal OnHand { get; set; }
+    public decimal Reserved { get; set; }
+    public decimal Available { get; set; }
+}
+
+// PV-006 — full-text search result row. MatchedTerms lists which of the query's words were
+// actually found in this row's display fields (product/variant name, sku, barcode, attribute
+// values) — a lightweight stand-in for character-offset highlighting.
+public class ProductSearchResultItem
+{
+    public Guid VariantUuid { get; set; }
+    public string Sku { get; set; } = string.Empty;
+    public string VariantName { get; set; } = string.Empty;
+    public string? Barcode { get; set; }
+    public decimal PurchasePrice { get; set; }
+    public int ProductId { get; set; }
+    public Guid ProductUuid { get; set; }
+    public string ProductName { get; set; } = string.Empty;
+    public string? ProductCode { get; set; }
+    public string? CategoryName { get; set; }
+    public string? Brand { get; set; }
+    public List<string> MatchedTerms { get; set; } = [];
+    public List<VariantAttributeValueModel> Attributes { get; set; } = [];
+}
+
+public class ProductSearchFilter
+{
+    public string? Query { get; set; }
+    public int Page { get; set; } = 1;
+    public int PageSize { get; set; } = 20;
+}
+
 public class CreateProductVariantRequest
 {
     public string? Sku { get; set; }
@@ -158,6 +226,33 @@ public class CreateProductVariantRequest
     public bool IsDefault { get; set; }
     public decimal? ReorderPoint { get; set; }
     public int? SortOrder { get; set; }
+}
+
+// PV-007 — result of adding a variant to an existing product.
+public class CreateVariantResult
+{
+    public Guid Uuid { get; set; }
+    public string Sku { get; set; } = string.Empty;
+}
+
+// PV-007 — outcome of a variant delete request: whether it existed, was blocked because it's
+// the product's only remaining variant, or was actually removed (soft or hard, per the caller's
+// own transacted-check — this enum doesn't distinguish which).
+public enum VariantDeleteOutcome
+{
+    NotFound,
+    IsLastVariant,
+    Deleted
+}
+
+// PV-007 — what the caller (frontend) actually needs to know after a delete request: whether it
+// happened, and whether the variant was soft-deleted (still exists, is_active=false, because
+// it's been transacted) or hard-deleted (row removed entirely). "Blocked" (only variant left on
+// the product) surfaces as an UnprocessableEntityException instead — see InventoryService.
+public class VariantDeleteResult
+{
+    public bool Found { get; set; }
+    public bool SoftDeleted { get; set; }
 }
 
 public class ProductListFilter

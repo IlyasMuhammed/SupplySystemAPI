@@ -19,6 +19,7 @@ import { Subscription } from 'rxjs';
 import { DemandService, CreateQuotationRequest, PrListItemModel, PoListItemModel } from '../../../../services/demand.service';
 import { InventoryService, ProductListItemModel } from '../../../../services/inventory.service';
 import { AttachmentListComponent } from '../../../../shared/attachment-list/attachment-list.component';
+import { ProductVariantPickerComponent, VariantPickerSelection } from '../../../../shared/product-variant-picker/product-variant-picker.component';
 
 @Component({
   selector: 'app-quotation-create',
@@ -27,7 +28,8 @@ import { AttachmentListComponent } from '../../../../shared/attachment-list/atta
     CommonModule, RouterModule, ReactiveFormsModule,
     ButtonModule, CardModule, InputTextModule, TextareaModule,
     InputNumberModule, DropdownModule, CalendarModule,
-    DividerModule, ToastModule, TooltipModule, MessageModule, ProgressSpinnerModule, AttachmentListComponent
+    DividerModule, ToastModule, TooltipModule, MessageModule, ProgressSpinnerModule, AttachmentListComponent,
+    ProductVariantPickerComponent
   ],
   templateUrl: './quotation-create.component.html',
   styleUrls: ['./quotation-create.component.scss'],
@@ -44,8 +46,7 @@ export class QuotationCreateComponent implements OnInit, OnDestroy {
   readonly quotationUuid = crypto.randomUUID();
 
   // ── Product catalogue ─────────────────────────────────────────────────────
-  productOptions: { label: string; value: string }[] = [];
-  private productsMap = new Map<string, ProductListItemModel>();
+  products: ProductListItemModel[] = [];
   loadingProducts = false;
 
   // ── PR dropdown ───────────────────────────────────────────────────────────
@@ -118,27 +119,29 @@ export class QuotationCreateComponent implements OnInit, OnDestroy {
     this.inventoryService.getProducts({ activeOnly: true, pageSize: 500 }).subscribe({
       next: res => {
         this.loadingProducts = false;
-        const data = res?.result?.data ?? [];
-        this.productsMap.clear();
-        this.productOptions = data.map(p => {
-          this.productsMap.set(p.uuid, p);
-          return { label: p.name, value: p.uuid };
-        });
+        this.products = res?.result?.data ?? [];
       },
       error: () => { this.loadingProducts = false; }
     });
   }
 
-  onProductChange(i: number) {
-    const uuid = this.lines.at(i).get('productId')?.value;
-    if (!uuid) return;
-    const p = this.productsMap.get(uuid);
-    if (!p) return;
-    this.lines.at(i).patchValue({
-      itemDescription: p.name,
-      specification:   (p as any).description ?? '',
-      unitOfMeasure:   p.uomCode ?? null
+  // PV-004 — mirrors po-create.component.ts's onLineVariantSelected (no price field on
+  // Quotation lines — RFQ stage carries no pricing, suppliers quote it in their response).
+  onLineVariantSelected(i: number, sel: VariantPickerSelection) {
+    const line = this.lines.at(i);
+    line.patchValue({
+      productUuid: sel.productUuid,
+      variantUuid: sel.variantUuid
     });
+    if (sel.variantUuid) {
+      const label = sel.variantName && sel.variantName !== 'Default'
+        ? `${sel.productName} — ${sel.variantName}`
+        : (sel.productName ?? '');
+      line.patchValue({
+        itemDescription: label,
+        unitOfMeasure:   sel.uomCode ?? line.get('unitOfMeasure')?.value ?? null
+      });
+    }
   }
 
   // ── PR dropdown ───────────────────────────────────────────────────────────
@@ -191,7 +194,8 @@ export class QuotationCreateComponent implements OnInit, OnDestroy {
         for (const line of pr.lines) {
           this.lines.push(this.fb.group({
             sourcePrLineUuid: [line.uuid],
-            productId:        [line.productId   ?? null],
+            productUuid:      [line.productUuid ?? null],
+            variantUuid:      [line.productId   ?? null],
             itemDescription:  [line.itemDescription, Validators.required],
             specification:    [line.specification   ?? ''],
             unitOfMeasure:    [line.unitOfMeasure   ?? null],
@@ -269,7 +273,8 @@ export class QuotationCreateComponent implements OnInit, OnDestroy {
   newLine(): FormGroup {
     return this.fb.group({
       sourcePrLineUuid: [null],
-      productId:        [null],
+      productUuid:      [null],
+      variantUuid:      [null],
       itemDescription:  ['', Validators.required],
       specification:    [''],
       unitOfMeasure:    [null],
@@ -304,7 +309,7 @@ export class QuotationCreateComponent implements OnInit, OnDestroy {
       notes:      v.notes || undefined,
       lines: v.lines.map((l: any) => ({
         sourcePrLineUuid: l.sourcePrLineUuid || undefined,
-        productId:        l.productId        || undefined,
+        productId:        l.variantUuid      || undefined,
         itemDescription:  l.itemDescription,
         specification:    l.specification    || undefined,
         unitOfMeasure:    l.unitOfMeasure    || undefined,

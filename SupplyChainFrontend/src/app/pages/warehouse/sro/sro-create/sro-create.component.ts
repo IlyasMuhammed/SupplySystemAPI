@@ -157,7 +157,7 @@ export class SroCreateComponent implements OnInit {
       productUuid:     product.uuid,
       itemDescription: product.name,
       unitOfMeasure:   product.uomCode || '',
-      unitCost:        product.unitCost ?? null
+      unitCost:        product.defaultVariantPurchasePrice ?? null
     });
   }
 

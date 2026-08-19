@@ -69,7 +69,10 @@
               <tr>
                 <td>{{ row.transactionDate | date:'dd MMM yyyy' }}</td>
                 <td><p-tag [value]="row.transactionType" [severity]="getTxSeverity(row.transactionType)" /></td>
-                <td><strong>{{ row.productName }}</strong></td>
+                <td>
+                  <strong>{{ row.productName }}</strong>
+                  <span *ngIf="row.variantName" class="text-secondary"> ({{ row.variantName }})</span>
+                </td>
                 <td><span class="mono">{{ row.sku ?? '—' }}</span></td>
                 <td>{{ row.warehouseName }}</td>
                 <td><span class="mono">{{ row.batchNumber ?? '—' }}</span></td>
@@ -128,6 +131,7 @@
                 <th>Date</th>
                 <th>Type</th>
                 <th>Product</th>
+                <th>SKU</th>
                 <th>Warehouse</th>
                 <th class="text-right">In</th>
                 <th class="text-right">Out</th>
@@ -140,7 +144,11 @@
               <tr>
                 <td>{{ row.transactionDate | date:'dd MMM yyyy HH:mm' }}</td>
                 <td><p-tag [value]="row.transactionType" [severity]="getTxSeverity(row.transactionType)" /></td>
-                <td>{{ row.productName }}</td>
+                <td>
+                  {{ row.productName }}
+                  <span *ngIf="row.variantName" class="text-secondary"> ({{ row.variantName }})</span>
+                </td>
+                <td><span class="mono">{{ row.sku ?? '—' }}</span></td>
                 <td>{{ row.warehouseName }}</td>
                 <td class="text-right in-cell">{{ row.quantityIn > 0 ? (row.quantityIn | number:'1.2-2') : '' }}</td>
                 <td class="text-right out-cell">{{ row.quantityOut > 0 ? (row.quantityOut | number:'1.2-2') : '' }}</td>
@@ -150,7 +158,7 @@
               </tr>
             </ng-template>
             <ng-template pTemplate="emptymessage">
-              <tr><td colspan="9" class="empty-msg">No stock ledger records found.</td></tr>
+              <tr><td colspan="10" class="empty-msg">No stock ledger records found.</td></tr>
             </ng-template>
           </p-table>
         </div>

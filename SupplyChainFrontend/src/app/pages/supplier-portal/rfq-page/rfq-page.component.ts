@@ -6,6 +6,7 @@ import { FormsModule } from '@angular/forms';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { CheckboxModule } from 'primeng/checkbox';
 import { ButtonModule } from 'primeng/button';
+import { environment } from '../../../../environments/environment';
 
 // ── API shapes ────────────────────────────────────────────────────────────────
 
@@ -78,7 +79,7 @@ interface RfqLineRow extends RfqPublicLine {
   styleUrls: ['./rfq-page.component.scss']
 })
 export class RfqPageComponent implements OnInit {
-  private readonly BASE = 'https://localhost:52800';
+  private readonly BASE = environment.apiOrigin;
   private token = '';
   // Generated once per page load so attachments uploaded before submit can be linked
   // to the eventual VendorResponse (which is created with this same UUID on submit).

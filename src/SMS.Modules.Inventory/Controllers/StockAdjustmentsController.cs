@@ -28,8 +28,8 @@ public class StockAdjustmentsController : ControllerBase
   //  [RequirePermission(PermissionCodes.STOCK_ADJUST)]
     public async Task<IActionResult> CreateAdjustment([FromBody] CreateAdjustmentRequest req)
     {
-        if (req.ProductId <= 0 || req.WarehouseId <= 0)
-            return BadRequest(ApiResponse.Fail("ProductId and WarehouseId are required."));
+        if (req.VariantId <= 0 || req.WarehouseId <= 0)
+            return BadRequest(ApiResponse.Fail("VariantId and WarehouseId are required."));
         if (req.QtyAdjusted == 0)
             return BadRequest(ApiResponse.Fail("QtyAdjusted must be non-zero."));
         try

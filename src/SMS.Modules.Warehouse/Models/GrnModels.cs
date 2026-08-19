@@ -46,7 +46,7 @@ public class PatchGrnRequest
 
 public class UpdateGrnLineRequest
 {
-    public Guid? ProductUuid { get; set; }
+    public Guid? VariantUuid { get; set; }
     public decimal QtyReceived { get; set; }
     public decimal QtyAccepted { get; set; }
     public decimal QtyRejected { get; set; }
@@ -58,9 +58,9 @@ public class UpdateGrnLineRequest
     public string? QcResult { get; set; }  // PASS | FAIL | PARTIAL
 }
 
-public class LinkGrnLineProductRequest
+public class LinkGrnLineVariantRequest
 {
-    public Guid ProductUuid { get; set; }
+    public Guid VariantUuid { get; set; }
 }
 
 // Formal inspection recording (PENDING_QC status only)
@@ -197,7 +197,10 @@ public class GrnLineModel
     public Guid UUID { get; set; }
     public Guid PoLineUuid { get; set; }
     public bool RequiresInspection { get; set; }
+    public Guid? VariantUuid { get; set; }
     public Guid? ProductUuid { get; set; }
+    public string? VariantSku { get; set; }
+    public string? VariantName { get; set; }
     public string? ProductName { get; set; }
     public int LineNo { get; set; }
     public string ItemDescription { get; set; } = string.Empty;

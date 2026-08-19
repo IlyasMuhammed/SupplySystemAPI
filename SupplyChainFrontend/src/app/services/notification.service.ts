@@ -4,6 +4,7 @@ import { Router } from '@angular/router';
 import { Observable, Subject, firstValueFrom } from 'rxjs';
 import * as signalR from '@microsoft/signalr';
 import { AuthService } from '../pages/service/auth.service';
+import { environment } from '../../environments/environment';
 
 export interface NotificationDto {
   uuid:           string;
@@ -31,8 +32,12 @@ export interface NotificationPage {
 
 @Injectable({ providedIn: 'root' })
 export class NotificationService {
-  private readonly BASE = 'https://localhost:52800/api/notifications';
-  private readonly HUB  = 'https://localhost:51800/hubs/notifications';
+  private readonly BASE = `${environment.apiUrl}/notifications`;
+  // Was hardcoded to a different port (51800) than the actual API (52800/Azure) — the SignalR hub
+  // is mapped on the same host as everything else (Program.cs: MapHub<NotificationHub> on the
+  // default pipeline), so nothing was ever listening on 51800 and real-time notifications were
+  // silently failing to connect.
+  private readonly HUB  = `${environment.apiOrigin}/hubs/notifications`;
 
   // ── Reactive state ──────────────────────────────────────────────────────────
   readonly notifications = signal<NotificationDto[]>([]);

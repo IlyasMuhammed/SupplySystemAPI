@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../environments/environment';
 
 export interface LookupValue {
   value: any;
@@ -40,7 +41,7 @@ export interface ApiResponse<T = null> {
   providedIn: 'root'
 })
 export class LookupValuesService {
-  private readonly baseUrl = 'https://localhost:52800/api/lookups';
+  private readonly baseUrl = `${environment.apiUrl}/lookups`;
 
   constructor(private http: HttpClient) {}
 

@@ -38,7 +38,9 @@ internal class PurchaseOrderLine : ITenantScopedEntity
     public int PurchaseOrderId { get; set; }
     public int LineNo { get; set; }
     public Guid? SourcePrLineUuid { get; set; } // UUID reference to pr_lines — no FK (cross-module safe)
-    public Guid? ProductUuid { get; set; }       // UUID reference to inventory products — no FK (cross-module safe)
+    // PV-004 — references a ProductVariant, not a Product; every transactable line is priced
+    // and received against a specific variant (SKU/barcode/price), even for single-variant products.
+    public Guid? VariantUuid { get; set; }
     public string ItemDescription { get; set; } = string.Empty;
     public string? Specification { get; set; }
     public string? UnitOfMeasure { get; set; }

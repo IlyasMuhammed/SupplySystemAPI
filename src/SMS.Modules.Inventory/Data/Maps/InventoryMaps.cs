@@ -108,6 +108,107 @@ internal sealed class ProductVariantMap : IEntityTypeConfiguration<ProductVarian
     }
 }
 
+internal sealed class AttributeDefinitionMap : IEntityTypeConfiguration<AttributeDefinition>
+{
+    public void Configure(EntityTypeBuilder<AttributeDefinition> b)
+    {
+        b.ToTable("AttributeDefinitions");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.Id).UseIdentityColumn();
+        b.Property(x => x.Uuid).IsRequired();
+        b.HasIndex(x => x.Uuid).IsUnique();
+
+        b.Property(x => x.AttributeName).HasMaxLength(50).IsRequired();
+        b.Property(x => x.DisplayName).HasMaxLength(100).IsRequired();
+        b.Property(x => x.DataType).HasMaxLength(20).IsRequired();
+        b.Property(x => x.ControlType).HasMaxLength(20).IsRequired();
+        b.Property(x => x.DropdownOptions).HasColumnType("nvarchar(max)");
+        b.Property(x => x.DefaultValue).HasMaxLength(200);
+        b.Property(x => x.ValidationRegex).HasMaxLength(200);
+        b.Property(x => x.IsRequired).HasDefaultValue(false);
+        b.Property(x => x.IsSearchable).HasDefaultValue(false);
+        b.Property(x => x.IsFilterable).HasDefaultValue(false);
+        b.Property(x => x.IsActive).HasDefaultValue(true);
+
+        // Composite, not global — each org defines its own attribute catalog.
+        b.HasIndex(x => new { x.OrganizationId, x.AttributeName }).IsUnique();
+        b.Property(x => x.OrganizationId).IsRequired();
+    }
+}
+
+internal sealed class CategoryAttributeMap : IEntityTypeConfiguration<CategoryAttribute>
+{
+    public void Configure(EntityTypeBuilder<CategoryAttribute> b)
+    {
+        b.ToTable("CategoryAttributes");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.Id).UseIdentityColumn();
+        b.Property(x => x.OrganizationId).IsRequired();
+
+        // One link per (category, attribute) pair per org.
+        b.HasIndex(x => new { x.OrganizationId, x.CategoryId, x.AttributeId }).IsUnique();
+
+        b.HasOne(x => x.Category).WithMany(x => x.CategoryAttributes)
+            .HasForeignKey(x => x.CategoryId).OnDelete(DeleteBehavior.Cascade);
+        b.HasOne(x => x.Attribute).WithMany(x => x.CategoryAttributes)
+            .HasForeignKey(x => x.AttributeId).OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+internal sealed class VariantAttributeValueMap : IEntityTypeConfiguration<VariantAttributeValue>
+{
+    public void Configure(EntityTypeBuilder<VariantAttributeValue> b)
+    {
+        b.ToTable("VariantAttributeValues");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.Id).UseIdentityColumn();
+        b.Property(x => x.Value).HasMaxLength(500).IsRequired();
+        b.Property(x => x.OrganizationId).IsRequired();
+
+        // One value per (variant, attribute) pair — re-saving the same attribute updates it.
+        b.HasIndex(x => new { x.VariantId, x.AttributeId }).IsUnique();
+
+        b.HasOne(x => x.Variant).WithMany(x => x.AttributeValues)
+            .HasForeignKey(x => x.VariantId).OnDelete(DeleteBehavior.Cascade);
+        b.HasOne(x => x.Attribute).WithMany(x => x.VariantValues)
+            .HasForeignKey(x => x.AttributeId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+internal sealed class ProductSearchIndexMap : IEntityTypeConfiguration<ProductSearchIndex>
+{
+    public void Configure(EntityTypeBuilder<ProductSearchIndex> b)
+    {
+        b.ToTable("ProductSearchIndex");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.Id).UseIdentityColumn();
+        b.Property(x => x.ProductName).HasMaxLength(200).IsRequired();
+        b.Property(x => x.ProductCode).HasMaxLength(30).IsRequired();
+        b.Property(x => x.Sku).HasMaxLength(50).IsRequired();
+        b.Property(x => x.Barcode).HasMaxLength(50);
+        b.Property(x => x.VariantName).HasMaxLength(200).IsRequired();
+        b.Property(x => x.CategoryName).HasMaxLength(200);
+        b.Property(x => x.Brand).HasMaxLength(100);
+        // The SQL Server Full-Text index lives on this column — created via raw SQL in the
+        // migration (EF Core has no fluent API for FULLTEXT INDEX).
+        b.Property(x => x.SearchableText).HasColumnType("nvarchar(max)").IsRequired();
+        b.Property(x => x.IsActive).HasDefaultValue(true);
+        b.Property(x => x.OrganizationId).IsRequired();
+        b.HasIndex(x => x.OrganizationId);
+
+        // One row per variant — RebuildForVariantAsync upserts against this.
+        b.HasIndex(x => new { x.OrganizationId, x.VariantId }).IsUnique();
+
+        // Cascades via VariantId only — Product already cascades to ProductVariant, so a second
+        // cascade path through ProductId here would give SQL Server two ways to reach this row
+        // from the same Product delete, which it rejects (Cascade Paths error).
+        b.HasOne(x => x.Variant).WithMany()
+            .HasForeignKey(x => x.VariantId).OnDelete(DeleteBehavior.Cascade);
+        b.HasOne(x => x.Product).WithMany()
+            .HasForeignKey(x => x.ProductId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
 internal sealed class WarehouseMap : IEntityTypeConfiguration<Warehouse>
 {
     public void Configure(EntityTypeBuilder<Warehouse> b)
@@ -224,20 +325,26 @@ internal sealed class InventoryItemMap : IEntityTypeConfiguration<InventoryItem>
         b.HasIndex(x => x.Uuid).IsUnique();
         b.Property(x => x.OrganizationId).IsRequired();
         b.HasIndex(x => x.OrganizationId);
-        b.HasOne(x => x.Product).WithMany(x => x.InventoryItems)
-            .HasForeignKey(x => x.ProductId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.Variant).WithMany(x => x.InventoryItems)
+            .HasForeignKey(x => x.VariantId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.Warehouse).WithMany(x => x.InventoryItems)
             .HasForeignKey(x => x.WarehouseId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.Zone).WithMany()
             .HasForeignKey(x => x.ZoneId).OnDelete(DeleteBehavior.SetNull);
         b.HasOne(x => x.Bin).WithMany(x => x.InventoryItems)
             .HasForeignKey(x => x.BinId).OnDelete(DeleteBehavior.SetNull);
-        // Non-unique composite for query performance
-        b.HasIndex(x => new { x.ProductId, x.WarehouseId });
-        // True uniqueness is enforced at the batch/serial level:
-        // (product, warehouse, batch, serial) — NULLs treated as equal in SQL Server unique constraints,
-        // so non-tracked items get exactly one row per product/warehouse.
-        b.HasIndex(x => new { x.ProductId, x.WarehouseId, x.BatchNumber, x.SerialNumber }).IsUnique();
+        // Non-unique composite for query performance (summing across batches, etc.)
+        b.HasIndex(x => new { x.VariantId, x.WarehouseId })
+            .HasDatabaseName("IX_InventoryItems_VariantId_WarehouseId_Lookup");
+        // PV-005 — exactly one non-tracked row per variant per warehouse. Filtered (not a plain
+        // composite unique) so batch/serial-tracked variants can still hold multiple rows per
+        // variant+warehouse, one per batch/serial — see the composite unique below.
+        b.HasIndex(x => new { x.VariantId, x.WarehouseId })
+            .IsUnique()
+            .HasDatabaseName("IX_InventoryItems_VariantId_WarehouseId")
+            .HasFilter("[BatchNumber] IS NULL AND [SerialNumber] IS NULL");
+        // Uniqueness among tracked rows: (variant, warehouse, batch, serial).
+        b.HasIndex(x => new { x.VariantId, x.WarehouseId, x.BatchNumber, x.SerialNumber }).IsUnique();
     }
 }
 
@@ -259,11 +366,11 @@ internal sealed class InventoryLedgerEntryMap : IEntityTypeConfiguration<Invento
         b.Property(x => x.TransactionValue).HasColumnType("decimal(18,4)");
         b.Property(x => x.Notes).HasMaxLength(500);
         b.Property(x => x.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
-        b.HasIndex(x => new { x.ProductId, x.WarehouseId, x.CreatedAt });
+        b.HasIndex(x => new { x.VariantId, x.WarehouseId, x.CreatedAt });
         b.Property(x => x.OrganizationId).IsRequired();
         b.HasIndex(x => x.OrganizationId);
-        b.HasOne(x => x.Product).WithMany()
-            .HasForeignKey(x => x.ProductId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.Variant).WithMany()
+            .HasForeignKey(x => x.VariantId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.Warehouse).WithMany()
             .HasForeignKey(x => x.WarehouseId).OnDelete(DeleteBehavior.Restrict);
     }

@@ -51,6 +51,9 @@ public static class MaterialModuleExtensions
         services.AddScoped<ITraceIdResolver, MirProjectTraceIdResolver>();
         services.AddScoped<ITraceIdResolver, MirGeneralTraceIdResolver>();
 
+        // PV-007 — lets Inventory ask "has this variant ever been transacted" cross-module
+        services.AddScoped<IVariantReferenceChecker, MirLineVariantReferenceChecker>();
+
         // PR-line disbursement tracking on MIR approval (registered manually — MediatR's assembly
         // scan in AddWorkflowEngineModule only covers the WorkflowEngine assembly itself).
         services.AddScoped<INotificationHandler<DocumentApprovedEvent>, MirPrLineDisbursementHandler>();

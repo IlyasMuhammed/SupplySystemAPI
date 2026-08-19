@@ -66,7 +66,7 @@ internal sealed class MaterialReturnService : IMaterialReturnService
                 return new ReturnableLineModel
                 {
                     LineUuid        = l.UUID,
-                    ProductUuid     = l.ProductUuid,
+                    ProductUuid     = l.VariantUuid,
                     ItemDescription = l.ItemDescription,
                     UnitOfMeasure   = l.UnitOfMeasure,
                     IssuedQty       = l.IssuedQty,
@@ -161,7 +161,7 @@ internal sealed class MaterialReturnService : IMaterialReturnService
                 UUID            = Guid.NewGuid(),
                 MivLineId       = mivLine.Id,
                 InventoryItemId = invItemId,
-                ProductUuid     = mivLine.ProductUuid,
+                ProductUuid     = mivLine.VariantUuid,
                 ItemDescription = mivLine.ItemDescription,
                 UnitOfMeasure   = mivLine.UnitOfMeasure,
                 ReturnedQty     = input.ReturnedQty,
@@ -261,7 +261,7 @@ internal sealed class MaterialReturnService : IMaterialReturnService
                     // Inventory ledger: MATERIAL_RETURN (QuantityIn — stock flows back in)
                     await _ledger.CreateEntryAsync(new LedgerEntryCommand
                     {
-                        ProductId       = invItem.ProductId,
+                        VariantId       = invItem.VariantId,
                         WarehouseId     = invItem.WarehouseId,
                         TransactionType = "MATERIAL_RETURN",
                         ReferenceType   = "RETURN_VOUCHER",
@@ -296,7 +296,9 @@ internal sealed class MaterialReturnService : IMaterialReturnService
                         UnitCost        = line.UnitCost,
                         PostedDate      = now,
                         PostedBy        = postedBy,
-                        Notes           = line.Reason
+                        // PV-008 — include what was returned (product + variant), not just why.
+                        Notes           = $"Return via {ret.ReturnNo}: {line.ItemDescription}" +
+                                          (string.IsNullOrWhiteSpace(line.Reason) ? "" : $" ({line.Reason})")
                     });
                 }
                 else  // DAMAGED — auto-create wastage for supervisor approval

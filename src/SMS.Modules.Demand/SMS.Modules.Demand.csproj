@@ -25,6 +25,7 @@
     <ProjectReference Include="..\SMS.Shared\SMS.Shared.csproj" />
     <ProjectReference Include="..\SMS.WorkflowEngine\SMS.WorkflowEngine.csproj" />
     <ProjectReference Include="..\SMS.Modules.Lookups\SMS.Modules.Lookups.csproj" />
+    <ProjectReference Include="..\SMS.Modules.Inventory\SMS.Modules.Inventory.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -67,6 +68,9 @@
     </AssemblyAttribute>
     <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
       <_Parameter1>SMS.Modules.Suppliers.Tests</_Parameter1>
+    </AssemblyAttribute>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>SMS.Integration.Tests</_Parameter1>
     </AssemblyAttribute>
   </ItemGroup>
 

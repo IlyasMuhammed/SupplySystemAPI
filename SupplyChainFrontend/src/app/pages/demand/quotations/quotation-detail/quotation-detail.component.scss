@@ -532,6 +532,30 @@
   padding: .18rem .55rem; border-radius: 6px;
 }
 
+.resp-cansupply-row {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  margin-bottom: .75rem;
+  font-size: .82rem;
+  color: #475569;
+
+  label { cursor: pointer; }
+}
+
+.resp-cannot-supply-note {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  font-size: .8rem;
+  font-weight: 600;
+  color: #e11d48;
+  background: #fef2f2;
+  border: 1px solid #fecdd3;
+  border-radius: 8px;
+  padding: .5rem .75rem;
+}
+
 .resp-req-date {
   display: flex; align-items: center; gap: .3rem;
   font-size: .72rem; color: #64748b;
@@ -751,6 +775,20 @@
 .cmp-cell-price { font-weight: 700; color: #0f172a; }
 .cmp-cell-meta  { font-size: .74rem; color: #94a3b8; margin-top: .1rem; }
 .cmp-no-bid     { color: #cbd5e1; }
+
+.cmp-cell-cannot-supply {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  font-size: .74rem;
+  font-weight: 700;
+  color: #e11d48;
+  background: #fef2f2;
+  border: 1px solid #fecdd3;
+  border-radius: 4px;
+  padding: .2rem .45rem;
+  white-space: nowrap;
+}
 
 .cmp-table-total-col, .cmp-table-total-cell { min-width: 110px; }
 

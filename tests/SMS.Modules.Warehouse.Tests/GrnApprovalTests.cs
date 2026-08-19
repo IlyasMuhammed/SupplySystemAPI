@@ -72,7 +72,7 @@ file static class ApprovalBuild
 
         var publisher = new CapturingGrnEventPublisher();
         var poster    = stockPoster ?? new NullGrnStockPoster();
-        var handler   = new GrnStatusHandler(wh, demand, poster, new[] { publisher }, NullLogger<GrnStatusHandler>.Instance);
+        var handler   = new GrnStatusHandler(wh, demand, inv, poster, new[] { publisher }, NullLogger<GrnStatusHandler>.Instance);
 
         return (handler, wh, demand, inv, publisher);
     }
@@ -135,7 +135,7 @@ file static class ApprovalBuild
         if (productUuid.HasValue)
         {
             var grnLine = await wh.GrnLines.FirstAsync(l => l.UUID == line.UUID);
-            grnLine.ProductUuid = productUuid.Value;
+            grnLine.VariantUuid = productUuid.Value;
         }
 
         await repo.UpdateLineAsync(uuid, line.UUID, new UpdateGrnLineRequest
@@ -281,12 +281,12 @@ public class GrnStatusHandler_Approve_MultiPublisher_Tests
     public async Task Approve_Notifies_Every_Registered_Publisher_Even_If_One_Throws()
     {
         var po = ApprovalBuild.SentPo(("Item", 5m, 100m));
-        var (_, wh, demand, _, _) = ApprovalBuild.New(db => db.PurchaseOrders.Add(po));
+        var (_, wh, demand, inv, _) = ApprovalBuild.New(db => db.PurchaseOrders.Add(po));
 
         var publisherA = new CapturingGrnEventPublisher();
         var publisherB = new CapturingGrnEventPublisher();
         var handler = new GrnStatusHandler(
-            wh, demand, new NullGrnStockPoster(),
+            wh, demand, inv, new NullGrnStockPoster(),
             new IGrnEventPublisher[] { publisherA, new ThrowingGrnEventPublisher(), publisherB },
             Microsoft.Extensions.Logging.Abstractions.NullLogger<GrnStatusHandler>.Instance);
 
@@ -330,6 +330,7 @@ public class EfGrnInventoryPoster_Tests
     public async Task Approve_Increments_InventoryItem_QtyOnHand()
     {
         var productUuid   = Guid.NewGuid();
+        var variantUuid   = Guid.NewGuid();
         var warehouseUuid = Guid.NewGuid();
 
         var po = ApprovalBuild.SentPo(("Laptop", 10m, 1_000m));
@@ -337,15 +338,22 @@ public class EfGrnInventoryPoster_Tests
             seedDemand: db => db.PurchaseOrders.Add(po),
             seedInventory: db =>
             {
-                db.Products.Add(new Product
+                var product = new Product
                 {
                     Uuid = productUuid, Sku = "LAP-001", Name = "Laptop",
                     Status = "ACTIVE", IsActive = true, CreatedBy = 1
-                });
+                };
+                db.Products.Add(product);
                 db.Warehouses.Add(new InventoryWarehouse
                 {
                     Uuid = warehouseUuid, Code = "WH1", Name = "Main WH",
                     IsActive = true, CreatedBy = 1
+                });
+                db.SaveChanges();
+                db.ProductVariants.Add(new ProductVariant
+                {
+                    Uuid = variantUuid, ProductId = product.Id, Sku = "LAP-001-DEFAULT",
+                    VariantName = "Default", PurchasePrice = 1_000m, IsDefault = true, IsActive = true, CreatedBy = 1
                 });
             });
 
@@ -353,17 +361,76 @@ public class EfGrnInventoryPoster_Tests
             wh, demand, po,
             qtyAccepted:   10m,
             warehouseUuid: warehouseUuid,
-            productUuid:   productUuid);
+            productUuid:   variantUuid);
 
         var efPoster = new EfGrnInventoryPoster(inv, new NullInventoryLedgerService());
         await efPoster.PostToInventoryAsync(grn, approvedBy: 1);
 
-        var product   = await inv.Products.FirstAsync(p => p.Uuid == productUuid);
+        var variant   = await inv.ProductVariants.FirstAsync(v => v.Uuid == variantUuid);
         var warehouse = await inv.Warehouses.FirstAsync(w => w.Uuid == warehouseUuid);
         var item      = await inv.InventoryItems
-            .FirstOrDefaultAsync(i => i.ProductId == product.Id && i.WarehouseId == warehouse.Id);
+            .FirstOrDefaultAsync(i => i.VariantId == variant.Id && i.WarehouseId == warehouse.Id);
 
         item.Should().NotBeNull();
         item!.QtyOnHand.Should().Be(10m);
+    }
+}
+
+// ── PV-004 — GRN approval updates ProductVariant.LastPurchasePrice from accepted unit cost ──
+
+public class GrnApproval_LastPurchasePrice_Tests
+{
+    [Fact]
+    public async Task Approve_Updates_Variant_LastPurchasePrice_To_Accepted_Unit_Cost()
+    {
+        var variantUuid = Guid.NewGuid();
+
+        var po = ApprovalBuild.SentPo(("Dell i7", 5m, 135_000m));
+        var (handler, wh, demand, inv, _) = ApprovalBuild.New(
+            db => db.PurchaseOrders.Add(po),
+            seedInventory: db =>
+            {
+                var product = new Product
+                {
+                    Uuid = Guid.NewGuid(), Sku = "DELL-5450", Name = "Dell Latitude 5450",
+                    Status = "ACTIVE", IsActive = true, CreatedBy = 1
+                };
+                db.Products.Add(product);
+                db.SaveChanges();
+                db.ProductVariants.Add(new ProductVariant
+                {
+                    Uuid = variantUuid, ProductId = product.Id, Sku = "DELL-5450-I7-16-512",
+                    VariantName = "i7 / 16GB / 512GB", PurchasePrice = 135_000m,
+                    LastPurchasePrice = null, IsDefault = false, IsActive = true, CreatedBy = 1
+                });
+            },
+            stockPoster: new NullGrnStockPoster());
+
+        var grn = await ApprovalBuild.PendingGrnAsync(
+            wh, demand, po, qtyAccepted: 5m, productUuid: variantUuid);
+
+        await handler.UpdateStatusAsync(grn.UUID, "APPROVED");
+
+        var variant = await inv.ProductVariants.FirstAsync(v => v.Uuid == variantUuid);
+        variant.LastPurchasePrice.Should().Be(135_000m);
+    }
+
+    [Fact]
+    public async Task Approve_Does_Not_Touch_LastPurchasePrice_For_Lines_Without_A_Resolved_Variant()
+    {
+        var po = ApprovalBuild.SentPo(("Unlinked item", 5m, 100m));
+        var (handler, wh, demand, inv, _) = ApprovalBuild.New(
+            db => db.PurchaseOrders.Add(po),
+            stockPoster: new NullGrnStockPoster());
+
+        // No variant link on this line (productUuid: null) — approval must not throw and must
+        // simply skip the price update for it.
+        var grn = await ApprovalBuild.PendingGrnAsync(wh, demand, po, qtyAccepted: 5m);
+
+        var act = async () => await handler.UpdateStatusAsync(grn.UUID, "APPROVED");
+        await act.Should().NotThrowAsync();
+
+        var dbGrn = await wh.Grns.FirstAsync(g => g.UUID == grn.UUID);
+        dbGrn.Status.Should().Be("APPROVED");
     }
 }

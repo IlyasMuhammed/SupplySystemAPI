@@ -43,6 +43,8 @@
 .amount { font-weight: 600; font-family: monospace; }
 .credit { color: #16a34a; }
 .total  { color: #6366f1; }
+.mono   { font-family: monospace; font-size: .875rem; }
+.text-secondary { color: var(--text-color-secondary); font-size: .8125rem; }
 .total-label { font-weight: 700; text-align: right; }
 .consumed-cell { color: #0d9488; font-weight: 600; }
 .empty-msg { text-align: center; padding: 3rem; color: var(--text-color-secondary); font-style: italic; }

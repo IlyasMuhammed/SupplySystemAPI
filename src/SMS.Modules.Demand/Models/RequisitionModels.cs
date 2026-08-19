@@ -23,6 +23,7 @@ public class CreatePrRequest
 
 public class CreatePrLineRequest
 {
+    // The selected ProductVariant's Uuid, not Product's — see PrLine entity's comment.
     public Guid? ProductId { get; set; }
     public string ItemDescription { get; set; } = string.Empty;
     public string? Specification { get; set; }
@@ -147,7 +148,15 @@ public class PrLineModel
 {
     public Guid UUID { get; set; }
     public int LineNo { get; set; }
+    // Holds the selected ProductVariant's Uuid (see PrLine entity's comment).
     public Guid? ProductId { get; set; }
+    // Resolved display fields — the parent product's own Uuid/name plus the variant's sku/name,
+    // batch-resolved cross-module from InventoryDbContext. Null if ProductId is unset or the
+    // variant no longer exists.
+    public Guid? ProductUuid { get; set; }
+    public string? VariantSku { get; set; }
+    public string? VariantName { get; set; }
+    public string? ProductName { get; set; }
     public string ItemDescription { get; set; } = string.Empty;
     public string? Specification { get; set; }
     public string? UnitOfMeasure { get; set; }

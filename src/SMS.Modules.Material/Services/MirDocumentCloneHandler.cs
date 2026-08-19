@@ -49,7 +49,7 @@ internal abstract class MirCloneHandlerBase : IDocumentCloneHandler
             {
                 UUID               = Guid.NewGuid(),
                 LineNo             = i + 1,
-                ProductUuid        = l.ProductUuid,
+                VariantUuid        = l.VariantUuid,
                 ItemDescription    = l.ItemDescription,
                 UnitOfMeasure      = l.UnitOfMeasure,
                 RequestedQty       = l.RequestedQty,

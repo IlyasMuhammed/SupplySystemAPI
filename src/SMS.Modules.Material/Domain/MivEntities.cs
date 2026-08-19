@@ -32,7 +32,7 @@ internal class MaterialIssueVoucherLine : ITenantScopedEntity
     public int      MirLineId       { get; set; }
     // Denormalised from StockReservation — needed for atomic inventory update
     public int      InventoryItemId { get; set; }
-    public Guid     ProductUuid     { get; set; }
+    public Guid     VariantUuid     { get; set; }
     public string   ItemDescription { get; set; } = string.Empty;
     public string?  UnitOfMeasure   { get; set; }
     public decimal  IssuedQty       { get; set; }

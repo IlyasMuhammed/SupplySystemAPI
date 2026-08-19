@@ -17,6 +17,7 @@ import { MessageService } from 'primeng/api';
 import { DemandService, CreatePrRequest } from '../../../../services/demand.service';
 import { InventoryService, ProductListItemModel } from '../../../../services/inventory.service';
 import { AttachmentListComponent } from '../../../../shared/attachment-list/attachment-list.component';
+import { ProductVariantPickerComponent, VariantPickerSelection } from '../../../../shared/product-variant-picker/product-variant-picker.component';
 
 @Component({
   selector: 'app-pr-create',
@@ -25,7 +26,8 @@ import { AttachmentListComponent } from '../../../../shared/attachment-list/atta
     CommonModule, RouterModule, ReactiveFormsModule,
     ButtonModule, CardModule, InputTextModule, TextareaModule,
     InputNumberModule, CheckboxModule, DropdownModule,
-    CalendarModule, DividerModule, ToastModule, TooltipModule, AttachmentListComponent
+    CalendarModule, DividerModule, ToastModule, TooltipModule, AttachmentListComponent,
+    ProductVariantPickerComponent
   ],
   templateUrl: './pr-create.component.html',
   styleUrls: ['./pr-create.component.scss'],
@@ -40,8 +42,7 @@ export class PrCreateComponent implements OnInit {
   // eventual PR (which is created with this same UUID on submit).
   readonly prUuid = crypto.randomUUID();
 
-  productOptions: { label: string; value: string }[] = [];
-  private productsMap = new Map<string, ProductListItemModel>();
+  products: ProductListItemModel[] = [];
   loadingProducts = false;
   warehouseOptions: { label: string; value: string }[] = [];
 
@@ -131,15 +132,9 @@ export class PrCreateComponent implements OnInit {
     this.inventoryService.getProducts({ activeOnly: true, pageSize: 500 }).subscribe({
       next: res => {
         this.loadingProducts = false;
-        const data = res?.result?.data ?? [];
-        this.productsMap.clear();
-        this.productOptions = data.map(p => {
-          this.productsMap.set(p.uuid, p);
-          return { label: p.name, value: p.uuid };
-        });
-        if (this.prefillProductId && this.productsMap.has(this.prefillProductId)) {
-          this.lines.at(0).patchValue({ productId: this.prefillProductId });
-          this.onProductChange(0);
+        this.products = res?.result?.data ?? [];
+        if (this.prefillProductId && this.products.some(p => p.uuid === this.prefillProductId)) {
+          this.lines.at(0).patchValue({ productUuid: this.prefillProductId });
           if (this.prefillQty) {
             this.lines.at(0).patchValue({ quantity: this.prefillQty });
           }
@@ -149,17 +144,26 @@ export class PrCreateComponent implements OnInit {
     });
   }
 
-  onProductChange(i: number) {
-    const uuid = this.lines.at(i).get('productId')?.value;
-    if (!uuid) return;
-    const p = this.productsMap.get(uuid);
-    if (!p) return;
-    this.lines.at(i).patchValue({
-      itemDescription:    p.name,
-      specification:      (p as any).description ?? '',
-      unitOfMeasure:      p.uomCode || null,
-      estimatedUnitPrice: p.unitCost ?? 0
+  // PV-004 — fires on every product OR variant change from the two-level picker. Item
+  // description/UoM/price only get overwritten once a specific variant is actually resolved
+  // (auto-selected for single-variant products, or explicitly picked for multi-variant ones) —
+  // mirrors po-create.component.ts's onLineVariantSelected exactly.
+  onLineVariantSelected(i: number, sel: VariantPickerSelection) {
+    const line = this.lines.at(i);
+    line.patchValue({
+      productUuid: sel.productUuid,
+      variantUuid: sel.variantUuid
     });
+    if (sel.variantUuid) {
+      const label = sel.variantName && sel.variantName !== 'Default'
+        ? `${sel.productName} — ${sel.variantName}`
+        : (sel.productName ?? '');
+      line.patchValue({
+        itemDescription:    label,
+        unitOfMeasure:      sel.uomCode ?? line.get('unitOfMeasure')?.value ?? null,
+        estimatedUnitPrice: sel.purchasePrice ?? 0
+      });
+    }
   }
 
   private buildForm() {
@@ -181,7 +185,8 @@ export class PrCreateComponent implements OnInit {
 
   newLine(): FormGroup {
     return this.fb.group({
-      productId:          [null],
+      productUuid:        [null],
+      variantUuid:        [null],
       itemDescription:    ['', Validators.required],
       specification:      [''],
       unitOfMeasure:      [null],
@@ -224,7 +229,7 @@ export class PrCreateComponent implements OnInit {
       warehouseUuid:     v.warehouseUuid || undefined,
       notes:             v.notes        || undefined,
       lines: v.lines.map((l: any) => ({
-        productId:          l.productId       || undefined,
+        productId:          l.variantUuid     || undefined,
         itemDescription:    l.itemDescription,
         specification:      l.specification   || undefined,
         unitOfMeasure:      l.unitOfMeasure   || undefined,

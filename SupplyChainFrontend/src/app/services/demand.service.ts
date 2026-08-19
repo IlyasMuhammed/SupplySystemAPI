@@ -1,8 +1,9 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../environments/environment';
 
-const BASE = 'https://localhost:52800/api';
+const BASE = environment.apiUrl;
 
 // ── Shared wrappers ───────────────────────────────────────────────────────────
 
@@ -94,7 +95,13 @@ export interface PrListItemModel {
 export interface PrLineModel {
   uuid: string;
   lineNo: number;
+  // Holds the selected variant's uuid (legacy field name, predates PV-001 variants).
   productId?: string;
+  // Resolved display fields — batch-resolved server-side, absent if productId is unset.
+  productUuid?: string;
+  variantSku?: string;
+  variantName?: string;
+  productName?: string;
   itemDescription: string;
   specification?: string;
   unitOfMeasure?: string;
@@ -236,6 +243,7 @@ export interface VendorResponseLineRequest {
   quantity: number;
   leadTimeDays?: number;
   notes?: string;
+  canSupply: boolean;
 }
 
 export interface RecordVendorResponseRequest {
@@ -275,7 +283,13 @@ export interface QuotationLineModel {
   lineNo: number;
   sourcePrLineUuid?: string;
   sourcePoLineUuid?: string;
+  // Holds the selected variant's uuid (legacy field name, predates PV-001 variants).
   productId?: string;
+  // Resolved display fields — batch-resolved server-side, absent if productId is unset.
+  productUuid?: string;
+  variantSku?: string;
+  variantName?: string;
+  productName?: string;
   itemDescription: string;
   specification?: string;
   unitOfMeasure?: string;
@@ -299,6 +313,7 @@ export interface VendorResponseLineModel {
   lineTotal: number;
   leadTimeDays?: number;
   notes?: string;
+  canSupply: boolean;
 }
 
 export interface VendorResponseModel {
@@ -354,7 +369,7 @@ export interface QuotationDetailModel {
 
 export interface CreatePoLineRequest {
   sourcePrLineUuid?: string;
-  productUuid?: string;
+  variantUuid?: string;
   itemDescription: string;
   specification?: string;
   unitOfMeasure?: string;
@@ -431,7 +446,11 @@ export interface PoLineModel {
   uuid: string;
   lineNo: number;
   sourcePrLineUuid?: string;
+  variantUuid?: string;
   productUuid?: string;
+  variantSku?: string;
+  variantName?: string;
+  productName?: string;
   itemDescription: string;
   specification?: string;
   unitOfMeasure?: string;

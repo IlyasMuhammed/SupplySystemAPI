@@ -18,7 +18,7 @@ internal sealed class StockReservationMap : IEntityTypeConfiguration<StockReserv
         b.Property(x => x.MirId).IsRequired();
         b.Property(x => x.MirLineId).IsRequired();
         b.Property(x => x.InventoryItemId).IsRequired();
-        b.Property(x => x.ProductUuid).IsRequired();
+        b.Property(x => x.VariantUuid).IsRequired();
         b.Property(x => x.WarehouseId).IsRequired();
         b.Property(x => x.ReservedQty).HasColumnType("decimal(18,4)").IsRequired();
         b.Property(x => x.Status).HasMaxLength(30).IsRequired();

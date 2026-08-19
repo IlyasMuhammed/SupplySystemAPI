@@ -70,15 +70,15 @@ public class GrnsController : ControllerBase
         return Ok(ApiResponse.Ok(StaticResponseMessage.recordUpdatedSuccessfully));
     }
 
-    // Narrower than UpdateGrnLine: only sets the catalogue product link, and — unlike UpdateGrnLine —
+    // Narrower than UpdateGrnLine: only sets the catalogue variant link, and — unlike UpdateGrnLine —
     // works any time before the GRN reaches a terminal state (APPROVED/REJECTED), not just DRAFT.
-    // Recovery path for "Cannot post stock: line not linked to a catalogue product" without needing
-    // to reject and recreate the whole GRN.
-    [HttpPatch("{grnUuid:guid}/lines/{lineUuid:guid}/product")]
-    public async Task<IActionResult> LinkGrnLineProduct(Guid grnUuid, Guid lineUuid, [FromBody] LinkGrnLineProductRequest req)
+    // Recovery path for "Cannot post stock: line not linked to a catalogue product variant" without
+    // needing to reject and recreate the whole GRN.
+    [HttpPatch("{grnUuid:guid}/lines/{lineUuid:guid}/variant")]
+    public async Task<IActionResult> LinkGrnLineVariant(Guid grnUuid, Guid lineUuid, [FromBody] LinkGrnLineVariantRequest req)
     {
-        await _service.LinkLineProductAsync(grnUuid, lineUuid, req.ProductUuid, User.GetUserId());
-        return Ok(ApiResponse.Ok("Catalogue product linked."));
+        await _service.LinkLineVariantAsync(grnUuid, lineUuid, req.VariantUuid, User.GetUserId());
+        return Ok(ApiResponse.Ok("Catalogue variant linked."));
     }
 
     [HttpPost("{grnUuid:guid}/lines/{lineUuid:guid}/inspect")]

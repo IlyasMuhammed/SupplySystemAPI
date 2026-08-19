@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, signal } from '@angular/core';
 import { tap } from 'rxjs';
 import { ApiResponse } from './auth.service';
+import { environment } from '../../../environments/environment';
 
 // Mirrors SMS.Modules.Tenancy.Models.CurrentTenantModel (GET /api/tenant/current, MT-004).
 export interface CurrentTenant {
@@ -27,7 +28,7 @@ const ORG_ADMIN_ROLE_NAME = 'Organization Admin';
   providedIn: 'root',
 })
 export class TenantService {
-  private readonly apiUrl = 'https://localhost:52800/api/tenant';
+  private readonly apiUrl = `${environment.apiUrl}/tenant`;
 
   readonly tenant = signal<CurrentTenant | null>(null);
 

@@ -13,10 +13,15 @@ import { DividerModule } from 'primeng/divider';
 import { MessageService } from 'primeng/api';
 import { forkJoin } from 'rxjs';
 import { MaterialService, CreateMirRequest, PrLineSearchResult } from '../../../../services/material.service';
-import { InventoryService, ProductStockModel } from '../../../../services/inventory.service';
+import { InventoryService, ProductListItemModel, ProductStockModel } from '../../../../services/inventory.service';
+import { ProductVariantPickerComponent, VariantPickerSelection } from '../../../../shared/product-variant-picker/product-variant-picker.component';
 
 interface MirLine {
   productUuid: string;
+  productName: string;
+  variantUuid: string;
+  variantName: string;
+  unitCost: number;
   requestedQty: number;
   purpose: string;
   notes: string;
@@ -39,7 +44,7 @@ interface MirLine {
     CommonModule, RouterModule, FormsModule,
     ButtonModule, InputTextModule, InputNumberModule,
     DropdownModule, CalendarModule, TextareaModule,
-    ToastModule, DividerModule
+    ToastModule, DividerModule, ProductVariantPickerComponent
   ],
   templateUrl: './mir-create.component.html',
   styleUrls: ['./mir-create.component.scss'],
@@ -50,7 +55,7 @@ export class MirCreateComponent implements OnInit {
   isLoading = true;
 
   projectOptions: { label: string; value: string }[] = [];
-  productOptions: { label: string; value: string; uom?: string; cost?: number }[] = [];
+  products: ProductListItemModel[] = [];
 
   private _productIdByUuid = new Map<string, number>();
 
@@ -100,13 +105,8 @@ export class MirCreateComponent implements OnInit {
           }));
         }
         if (products.success && products.result) {
-          this.productOptions = (products.result.data ?? []).map(p => ({
-            label: `${p.sku} — ${p.name}`,
-            value: p.uuid,
-            uom:  p.uomCode ?? undefined,
-            cost: p.unitCost ?? undefined
-          }));
-          products.result.data.forEach(p => this._productIdByUuid.set(p.uuid, p.id));
+          this.products = products.result.data ?? [];
+          this.products.forEach(p => this._productIdByUuid.set(p.uuid, p.id));
         }
       },
       error: () => {
@@ -118,7 +118,8 @@ export class MirCreateComponent implements OnInit {
 
   newLine(): MirLine {
     return {
-      productUuid: '', requestedQty: 1, purpose: '', notes: '',
+      productUuid: '', productName: '', variantUuid: '', variantName: '', unitCost: 0,
+      requestedQty: 1, purpose: '', notes: '',
       stockItems: [], selectedWarehouseId: null, maxQty: null, isLoadingStock: false,
       prLineId: null, prLineLabel: null, prSearchResults: [], showPrResults: false,
       isFetchingPr: false, prFetchAttempted: false
@@ -133,14 +134,20 @@ export class MirCreateComponent implements OnInit {
     if (this.lines.length > 1) this.lines.splice(i, 1);
   }
 
-  onProductChange(i: number, uuid: string) {
+  // Two-level product → variant picker (PV-005, identical pattern to the PO line form).
+  onVariantSelected(i: number, sel: VariantPickerSelection) {
     const line = this.lines[i];
+    line.productUuid  = sel.productUuid ?? '';
+    line.productName  = sel.productName ?? '';
+    line.variantUuid  = sel.variantUuid ?? '';
+    line.variantName  = sel.variantName ?? '';
+    line.unitCost     = sel.purchasePrice ?? 0;
     line.stockItems = [];
     line.selectedWarehouseId = null;
     line.maxQty = null;
     this.clearPrLine(i);
 
-    const productId = this._productIdByUuid.get(uuid);
+    const productId = line.productUuid ? this._productIdByUuid.get(line.productUuid) : undefined;
     if (!productId) return;
 
     line.isLoadingStock = true;
@@ -217,13 +224,12 @@ export class MirCreateComponent implements OnInit {
     }));
   }
 
-  getEstimatedLineValue(productUuid: string, qty: number): number {
-    const opt = this.productOptions.find(p => p.value === productUuid);
-    return opt?.cost ? opt.cost * qty : 0;
+  getEstimatedLineValue(unitCost: number, qty: number): number {
+    return unitCost ? unitCost * qty : 0;
   }
 
   getTotalEstimated(): number {
-    return this.lines.reduce((sum, l) => sum + this.getEstimatedLineValue(l.productUuid, l.requestedQty), 0);
+    return this.lines.reduce((sum, l) => sum + this.getEstimatedLineValue(l.unitCost, l.requestedQty), 0);
   }
 
   onSubmit() {
@@ -236,9 +242,9 @@ export class MirCreateComponent implements OnInit {
     if (this.requestType === 'MAINTENANCE' && !this.maintenanceRef.trim()) {
       this.messageService.add({ severity: 'warn', summary: 'Validation', detail: 'Maintenance reference is required.' }); return;
     }
-    const invalidLines = this.lines.filter(l => !l.productUuid || l.requestedQty <= 0);
+    const invalidLines = this.lines.filter(l => !l.variantUuid || l.requestedQty <= 0);
     if (invalidLines.length > 0) {
-      this.messageService.add({ severity: 'warn', summary: 'Validation', detail: 'All lines must have a product and quantity > 0.' }); return;
+      this.messageService.add({ severity: 'warn', summary: 'Validation', detail: 'All lines must have a product/variant and quantity > 0.' }); return;
     }
     const unselectedWarehouse = this.lines.filter(l => l.stockItems.length > 0 && !l.selectedWarehouseId);
     if (unselectedWarehouse.length > 0) {
@@ -256,7 +262,7 @@ export class MirCreateComponent implements OnInit {
       purpose:        this.purpose || undefined,
       notes:          this.notes   || undefined,
       lines:          this.lines.map(l => ({
-        productUuid:  l.productUuid,
+        variantUuid:  l.variantUuid,
         requestedQty: l.requestedQty,
         warehouseId:  l.selectedWarehouseId ?? undefined,
         purpose:      l.purpose  || undefined,

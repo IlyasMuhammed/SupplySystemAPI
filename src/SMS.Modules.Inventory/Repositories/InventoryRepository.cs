@@ -1,3 +1,6 @@
+using System.Globalization;
+using System.Text.Json;
+using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using SMS.Modules.Inventory.Data;
 using SMS.Modules.Inventory.Domain;
@@ -308,7 +311,11 @@ internal sealed class InventoryRepository : IInventoryRepository
                 IsBatchTracked  = p.IsBatchTracked,
                 IsSerialTracked = p.IsSerialTracked,
                 CreatedDate     = p.CreatedDate,
-                VariantCount    = p.Variants.Count
+                VariantCount    = p.Variants.Count,
+                DefaultVariantPurchasePrice = p.Variants
+                    .Where(v => v.IsDefault)
+                    .Select(v => (decimal?)v.PurchasePrice)
+                    .FirstOrDefault()
             })
             .ToListAsync();
 
@@ -358,10 +365,15 @@ internal sealed class InventoryRepository : IInventoryRepository
                 UpdatedDate         = p.UpdatedDate,
                 CreatedBy           = p.CreatedBy,
                 VariantCount        = p.Variants.Count,
+                DefaultVariantPurchasePrice = p.Variants
+                    .Where(v => v.IsDefault)
+                    .Select(v => (decimal?)v.PurchasePrice)
+                    .FirstOrDefault(),
                 Variants = p.Variants
                     .OrderBy(v => v.SortOrder ?? 0).ThenBy(v => v.Id)
                     .Select(v => new ProductVariantModel
                     {
+                        Id                = v.Id,
                         Uuid              = v.Uuid,
                         Sku               = v.Sku,
                         VariantName       = v.VariantName,
@@ -379,6 +391,130 @@ internal sealed class InventoryRepository : IInventoryRepository
                     }).ToList()
             })
             .FirstOrDefaultAsync();
+    }
+
+    // PV-004 — GRN barcode scan resolves straight to a variant (not a bare product), since price
+    // and receiving are always variant-scoped once PV-001 is in place.
+    public async Task<VariantLookupModel?> GetVariantByBarcodeAsync(string barcode)
+    {
+        if (string.IsNullOrWhiteSpace(barcode)) return null;
+
+        return await _db.ProductVariants
+            .Where(v => v.Barcode == barcode && v.IsActive)
+            .Select(v => new VariantLookupModel
+            {
+                Uuid          = v.Uuid,
+                Sku           = v.Sku,
+                VariantName   = v.VariantName,
+                Barcode       = v.Barcode,
+                PurchasePrice = v.PurchasePrice,
+                ProductId     = v.ProductId,
+                ProductUuid   = v.Product.Uuid,
+                ProductName   = v.Product.Name
+            })
+            .FirstOrDefaultAsync();
+    }
+
+    // PV-006 — full-text search against the denormalised ProductSearchIndex (kept current by
+    // IProductSearchIndexService). FREETEXT does natural-language word matching, so a
+    // multi-word query like "Dell i7" matches rows containing both words in any order/form.
+    // Empty query -> unfiltered, paginated list of every active variant.
+    public async Task<PaginatedResponse<ProductSearchResultItem>> SearchProductsAsync(ProductSearchFilter filter)
+    {
+        var query = _db.ProductSearchIndexEntries.Where(x => x.IsActive).AsQueryable();
+
+        var hasQuery = !string.IsNullOrWhiteSpace(filter.Query);
+        if (hasQuery)
+            query = query.Where(x => EF.Functions.FreeText(x.SearchableText, filter.Query!));
+
+        var total    = await query.CountAsync();
+        var page     = filter.Page < 1 ? 1 : filter.Page;
+        var pageSize = filter.PageSize < 1 ? 20 : filter.PageSize;
+
+        var rows = await query
+            .OrderBy(x => x.ProductName).ThenBy(x => x.VariantName)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(x => new
+            {
+                x.VariantId, x.ProductId, x.ProductName, x.ProductCode, x.Sku,
+                x.Barcode, x.VariantName, x.CategoryName, x.Brand
+            })
+            .ToListAsync();
+
+        var variantIds = rows.Select(r => r.VariantId).ToList();
+
+        // Uuid/price aren't denormalised into the index — resolved here in one batch instead of
+        // widening the index with columns that only ever matter to the handful of result rows
+        // actually returned.
+        var variantExtras = await _db.ProductVariants
+            .Where(v => variantIds.Contains(v.Id))
+            .Select(v => new { v.Id, v.Uuid, v.PurchasePrice, ProductUuid = v.Product.Uuid })
+            .ToDictionaryAsync(v => v.Id);
+
+        var attributesByVariant = (await _db.VariantAttributeValues
+            .Where(av => variantIds.Contains(av.VariantId) && av.Attribute.IsSearchable)
+            .Select(av => new
+            {
+                av.VariantId, av.Attribute.Uuid, av.Attribute.AttributeName,
+                av.Attribute.DisplayName, av.Attribute.DataType, av.Value
+            })
+            .ToListAsync())
+            .GroupBy(a => a.VariantId)
+            .ToDictionary(g => g.Key, g => g.Select(a => new VariantAttributeValueModel
+            {
+                AttributeUuid = a.Uuid,
+                AttributeName = a.AttributeName,
+                DisplayName   = a.DisplayName,
+                DataType      = a.DataType,
+                Value         = a.Value
+            }).ToList());
+
+        var queryTerms = hasQuery
+            ? filter.Query!.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            : [];
+
+        var items = rows
+            .Where(r => variantExtras.ContainsKey(r.VariantId))  // drop rows whose variant has since been deleted
+            .Select(r =>
+            {
+                var extra = variantExtras[r.VariantId];
+                var attrs = attributesByVariant.TryGetValue(r.VariantId, out var a) ? a : [];
+                var haystack = string.Join(" ", new[] { r.ProductName, r.VariantName, r.Sku, r.Barcode }
+                    .Concat(attrs.Select(x => x.Value))
+                    .Where(s => !string.IsNullOrEmpty(s)));
+                var matchedTerms = queryTerms
+                    .Where(t => haystack.Contains(t, StringComparison.OrdinalIgnoreCase))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                return new ProductSearchResultItem
+                {
+                    VariantUuid   = extra.Uuid,
+                    Sku           = r.Sku,
+                    VariantName   = r.VariantName,
+                    Barcode       = r.Barcode,
+                    PurchasePrice = extra.PurchasePrice,
+                    ProductId     = r.ProductId,
+                    ProductUuid   = extra.ProductUuid,
+                    ProductName   = r.ProductName,
+                    ProductCode   = r.ProductCode,
+                    CategoryName  = r.CategoryName,
+                    Brand         = r.Brand,
+                    MatchedTerms  = matchedTerms,
+                    Attributes    = attrs
+                };
+            })
+            .ToList();
+
+        return new PaginatedResponse<ProductSearchResultItem>
+        {
+            Data         = items,
+            TotalRecords = total,
+            Page         = page,
+            PageSize     = pageSize,
+            TotalPages   = (int)Math.Ceiling((double)total / pageSize)
+        };
     }
 
     public async Task<(int id, string sku)> CreateProductAsync(CreateProductRequest req, int userId)
@@ -569,6 +705,140 @@ internal sealed class InventoryRepository : IInventoryRepository
     public async Task<bool> SkuExistsAsync(string sku)
     {
         return await _db.Products.AnyAsync(p => p.Sku == sku);
+    }
+
+    // ── Variants (PV-007) ────────────────────────────────────────────────────
+
+    public async Task<(Guid uuid, int id, string sku)?> CreateVariantAsync(int productId, CreateProductVariantRequest req, int userId)
+    {
+        var product = await _db.Products.FindAsync(productId);
+        if (product is null) return null;
+
+        if (string.IsNullOrWhiteSpace(req.VariantName))
+            throw new BadRequestException("Variant name is required.");
+
+        var existingCount = await _db.ProductVariants.CountAsync(v => v.ProductId == productId);
+        var variantSku = string.IsNullOrWhiteSpace(req.Sku) ? $"{product.Sku}-{existingCount + 1}" : req.Sku.Trim();
+
+        if (await _db.ProductVariants.AnyAsync(x => x.Sku == variantSku))
+            throw new ConflictException($"A variant with SKU '{variantSku}' already exists.");
+        if (!string.IsNullOrWhiteSpace(req.Barcode) && await _db.ProductVariants.AnyAsync(x => x.Barcode == req.Barcode))
+            throw new ConflictException($"A variant with barcode '{req.Barcode}' already exists.");
+
+        // Only one is_default=true per product — setting this one unsets whichever variant
+        // currently holds it (FSD §3.1).
+        if (req.IsDefault)
+            await UnsetExistingDefaultAsync(productId);
+
+        var variant = new ProductVariant
+        {
+            ProductId     = productId,
+            Sku           = variantSku,
+            VariantName   = req.VariantName.Trim(),
+            Barcode       = req.Barcode,
+            PurchasePrice = req.PurchasePrice,
+            SellingPrice  = req.SellingPrice,
+            WeightKg      = req.Weight,
+            Dimensions    = req.Dimensions,
+            IsDefault     = req.IsDefault,
+            IsActive      = true,
+            ReorderPoint  = req.ReorderPoint,
+            SortOrder     = req.SortOrder ?? existingCount,
+            CreatedDate   = DateTime.UtcNow,
+            CreatedBy     = userId
+        };
+        _db.ProductVariants.Add(variant);
+        await _db.SaveChangesAsync();
+        return (variant.Uuid, variant.Id, variant.Sku);
+    }
+
+    public async Task<int?> UpdateVariantAsync(Guid variantUuid, CreateProductVariantRequest req)
+    {
+        var variant = await _db.ProductVariants.FirstOrDefaultAsync(v => v.Uuid == variantUuid);
+        if (variant is null) return null;
+
+        if (string.IsNullOrWhiteSpace(req.VariantName))
+            throw new BadRequestException("Variant name is required.");
+
+        var newSku = string.IsNullOrWhiteSpace(req.Sku) ? variant.Sku : req.Sku.Trim();
+        if (newSku != variant.Sku && await _db.ProductVariants.AnyAsync(x => x.Sku == newSku && x.Id != variant.Id))
+            throw new ConflictException($"A variant with SKU '{newSku}' already exists.");
+
+        var newBarcode = string.IsNullOrWhiteSpace(req.Barcode) ? null : req.Barcode.Trim();
+        if (newBarcode is not null && newBarcode != variant.Barcode &&
+            await _db.ProductVariants.AnyAsync(x => x.Barcode == newBarcode && x.Id != variant.Id))
+            throw new ConflictException($"A variant with barcode '{newBarcode}' already exists.");
+
+        if (req.IsDefault && !variant.IsDefault)
+            await UnsetExistingDefaultAsync(variant.ProductId, exceptVariantId: variant.Id);
+
+        variant.Sku           = newSku;
+        variant.VariantName   = req.VariantName.Trim();
+        variant.Barcode       = newBarcode;
+        variant.PurchasePrice = req.PurchasePrice;
+        variant.SellingPrice  = req.SellingPrice;
+        variant.WeightKg      = req.Weight;
+        variant.Dimensions    = req.Dimensions;
+        variant.IsDefault     = req.IsDefault;
+        variant.ReorderPoint  = req.ReorderPoint;
+        variant.SortOrder     = req.SortOrder ?? variant.SortOrder;
+
+        await _db.SaveChangesAsync();
+        return variant.Id;
+    }
+
+    private async Task UnsetExistingDefaultAsync(int productId, int? exceptVariantId = null)
+    {
+        var currentDefaults = await _db.ProductVariants
+            .Where(v => v.ProductId == productId && v.IsDefault && v.Id != exceptVariantId)
+            .ToListAsync();
+        foreach (var v in currentDefaults) v.IsDefault = false;
+    }
+
+    public async Task<bool> VariantHasLocalReferencesAsync(Guid variantUuid)
+    {
+        var variant = await _db.ProductVariants.FirstOrDefaultAsync(v => v.Uuid == variantUuid);
+        if (variant is null) return false;
+
+        return await _db.InventoryItems.AnyAsync(i => i.VariantId == variant.Id)
+            || await _db.InventoryLedgerEntries.AnyAsync(l => l.VariantId == variant.Id)
+            || await _db.StockAdjustments.AnyAsync(a => a.VariantId == variant.Id);
+    }
+
+    public async Task<(VariantDeleteOutcome outcome, int? variantId)> DeleteVariantAsync(Guid variantUuid, bool softDelete)
+    {
+        var variant = await _db.ProductVariants.FirstOrDefaultAsync(v => v.Uuid == variantUuid);
+        if (variant is null) return (VariantDeleteOutcome.NotFound, null);
+
+        var otherActiveVariants = await _db.ProductVariants
+            .Where(v => v.ProductId == variant.ProductId && v.Id != variant.Id && v.IsActive)
+            .ToListAsync();
+        if (otherActiveVariants.Count == 0)
+            return (VariantDeleteOutcome.IsLastVariant, variant.Id);
+
+        var wasDefault  = variant.IsDefault;
+        var variantId   = variant.Id;
+
+        if (softDelete)
+        {
+            variant.IsActive = false;
+            variant.IsDefault = false;
+        }
+        else
+        {
+            _db.ProductVariants.Remove(variant);
+        }
+
+        // Deleting the default variant must not leave the product with zero defaults — promote
+        // the next remaining active variant (FSD §3.1's "exactly one default" invariant).
+        if (wasDefault)
+        {
+            var promoted = otherActiveVariants.OrderBy(v => v.SortOrder ?? int.MaxValue).ThenBy(v => v.Id).First();
+            promoted.IsDefault = true;
+        }
+
+        await _db.SaveChangesAsync();
+        return (VariantDeleteOutcome.Deleted, variantId);
     }
 
     // ── Warehouses ────────────────────────────────────────────────────────────
@@ -979,7 +1249,8 @@ internal sealed class InventoryRepository : IInventoryRepository
     {
         var query =
             from item     in _db.InventoryItems
-            join product  in _db.Products          on item.ProductId     equals product.Id
+            join variant  in _db.ProductVariants   on item.VariantId     equals variant.Id
+            join product  in _db.Products          on variant.ProductId  equals product.Id
             join category in _db.ProductCategories on product.CategoryId equals category.Id into catGroup
             from category in catGroup.DefaultIfEmpty()
             join bin      in _db.Bins              on item.BinId         equals bin.Id      into binGroup
@@ -988,6 +1259,7 @@ internal sealed class InventoryRepository : IInventoryRepository
             select new
             {
                 item,
+                variant,
                 product,
                 category,
                 bin,
@@ -1002,9 +1274,9 @@ internal sealed class InventoryRepository : IInventoryRepository
 
         if (filter.BelowReorderOnly)
             query = query.Where(x =>
-                (x.item.ReorderPoint != null || x.product.ReorderPoint != null) &&
+                (x.item.ReorderPoint != null || x.variant.ReorderPoint != null) &&
                 (x.item.QtyOnHand - x.item.QtyReserved) <=
-                    (x.item.ReorderPoint ?? x.product.ReorderPoint ?? 0));
+                    (x.item.ReorderPoint ?? x.variant.ReorderPoint ?? 0));
 
         var total = await query.CountAsync();
 
@@ -1018,9 +1290,12 @@ internal sealed class InventoryRepository : IInventoryRepository
             .Select(x => new
             {
                 x.item.Id,
-                x.item.ProductId,
+                x.item.VariantId,
+                VariantUuid        = x.variant.Uuid,
+                VariantSku         = x.variant.Sku,
+                VariantName        = x.variant.VariantName,
+                ProductId          = x.product.Id,
                 ProductUuid        = x.product.Uuid,
-                ProductSku         = x.product.Sku,
                 ProductName        = x.product.Name,
                 CategoryName       = x.category != null ? x.category.Name : (string?)null,
                 UomCode            = x.product.UomCode,
@@ -1035,7 +1310,7 @@ internal sealed class InventoryRepository : IInventoryRepository
                 x.item.QtyReserved,
                 x.item.QtyOnOrder,
                 x.item.ReorderPoint,
-                ProductReorderPoint = x.product.ReorderPoint,
+                VariantReorderPoint = x.variant.ReorderPoint,
                 x.item.LastUpdated
             })
             .ToListAsync();
@@ -1043,7 +1318,7 @@ internal sealed class InventoryRepository : IInventoryRepository
         var items = rows.Select(x =>
         {
             var qtyAvailable     = x.QtyOnHand - x.QtyReserved;
-            var effectiveReorder = x.ReorderPoint ?? x.ProductReorderPoint;
+            var effectiveReorder = x.ReorderPoint ?? x.VariantReorderPoint;
             var isBelowReorder   = effectiveReorder.HasValue && qtyAvailable <= effectiveReorder.Value;
 
             var pathParts = new List<string>();
@@ -1056,9 +1331,12 @@ internal sealed class InventoryRepository : IInventoryRepository
             return new StockLevelModel
             {
                 InventoryItemId = x.Id,
+                VariantId       = x.VariantId,
+                VariantUuid     = x.VariantUuid,
+                VariantSku      = x.VariantSku,
+                VariantName     = x.VariantName,
                 ProductId       = x.ProductId,
                 ProductUuid     = x.ProductUuid,
-                ProductSku      = x.ProductSku,
                 ProductName     = x.ProductName,
                 CategoryName    = x.CategoryName,
                 UomCode         = x.UomCode,
@@ -1092,8 +1370,11 @@ internal sealed class InventoryRepository : IInventoryRepository
 
     public async Task<List<ProductStockModel>> GetProductStockAsync(int productId)
     {
+        // Aggregated by row across every variant of the product — this is per-warehouse/per-bin
+        // detail (each InventoryItem row, e.g. one per batch), not summed. For a single set of
+        // SUM(qty_on_hand)/SUM(qty_reserved)/SUM(qty_available) figures see GetProductStockSummaryAsync.
         return await _db.InventoryItems
-            .Where(i => i.ProductId == productId)
+            .Where(i => i.Variant.ProductId == productId)
             .Select(i => new ProductStockModel
             {
                 WarehouseId   = i.WarehouseId,
@@ -1112,19 +1393,75 @@ internal sealed class InventoryRepository : IInventoryRepository
             .ToListAsync();
     }
 
+    // PV-005 — product-level rollup: SUM(qty_on_hand)/SUM(qty_reserved)/SUM(qty_available) across
+    // every InventoryItem row for every variant of this product, computed on the fly (never stored).
+    public async Task<ProductStockSummaryModel?> GetProductStockSummaryAsync(int productId)
+    {
+        var product = await _db.Products.AsNoTracking()
+            .Where(p => p.Id == productId)
+            .Select(p => new { p.Id, p.Uuid })
+            .FirstOrDefaultAsync();
+        if (product is null) return null;
+
+        var variantTotals = await _db.InventoryItems
+            .Where(i => i.Variant.ProductId == productId)
+            .GroupBy(i => i.VariantId)
+            .Select(g => new
+            {
+                VariantId = g.Key,
+                OnHand    = g.Sum(i => i.QtyOnHand),
+                Reserved  = g.Sum(i => i.QtyReserved)
+            })
+            .ToListAsync();
+
+        var variantIds = variantTotals.Select(v => v.VariantId).ToList();
+        var variantInfo = await _db.ProductVariants.AsNoTracking()
+            .Where(v => variantIds.Contains(v.Id))
+            .Select(v => new { v.Id, v.Uuid, v.Sku, v.VariantName })
+            .ToDictionaryAsync(v => v.Id);
+
+        var variants = variantTotals.Select(v =>
+        {
+            var info = variantInfo.GetValueOrDefault(v.VariantId);
+            return new VariantStockSummaryItem
+            {
+                VariantUuid = info?.Uuid ?? Guid.Empty,
+                Sku         = info?.Sku ?? string.Empty,
+                VariantName = info?.VariantName ?? string.Empty,
+                OnHand      = v.OnHand,
+                Reserved    = v.Reserved,
+                Available   = v.OnHand - v.Reserved
+            };
+        }).ToList();
+
+        return new ProductStockSummaryModel
+        {
+            ProductId      = product.Id,
+            ProductUuid    = product.Uuid,
+            TotalOnHand    = variants.Sum(v => v.OnHand),
+            TotalReserved  = variants.Sum(v => v.Reserved),
+            TotalAvailable = variants.Sum(v => v.Available),
+            Variants       = variants
+        };
+    }
+
     public async Task<List<ReorderAlertModel>> GetReorderAlertsAsync()
     {
         var rows = await (
             from item      in _db.InventoryItems
-            join product   in _db.Products          on item.ProductId    equals product.Id
+            join variant   in _db.ProductVariants   on item.VariantId    equals variant.Id
+            join product   in _db.Products          on variant.ProductId equals product.Id
             join warehouse in _db.Warehouses        on item.WarehouseId  equals warehouse.Id
             join category  in _db.ProductCategories on product.CategoryId equals category.Id into catGroup
             from category  in catGroup.DefaultIfEmpty()
             select new
             {
-                item.ProductId,
+                item.VariantId,
+                VariantUuid         = variant.Uuid,
+                VariantSku          = variant.Sku,
+                VariantName         = variant.VariantName,
+                ProductId           = product.Id,
                 ProductUuid         = product.Uuid,
-                ProductSku          = product.Sku,
                 ProductName         = product.Name,
                 CategoryName        = category != null ? category.Name : (string?)null,
                 item.WarehouseId,
@@ -1133,7 +1470,7 @@ internal sealed class InventoryRepository : IInventoryRepository
                 item.QtyOnHand,
                 item.QtyReserved,
                 ItemReorderPoint    = item.ReorderPoint,
-                ProductReorderPoint = product.ReorderPoint,
+                VariantReorderPoint = variant.ReorderPoint,
                 ProductReorderQty   = product.ReorderQty
             }
         ).ToListAsync();
@@ -1141,9 +1478,12 @@ internal sealed class InventoryRepository : IInventoryRepository
         return rows
             .Select(x => new
             {
+                x.VariantId,
+                x.VariantUuid,
+                x.VariantSku,
+                x.VariantName,
                 x.ProductId,
                 x.ProductUuid,
-                x.ProductSku,
                 x.ProductName,
                 x.CategoryName,
                 x.WarehouseId,
@@ -1152,16 +1492,19 @@ internal sealed class InventoryRepository : IInventoryRepository
                 x.QtyOnHand,
                 x.QtyReserved,
                 x.ProductReorderQty,
-                EffectiveReorderPoint = x.ItemReorderPoint ?? x.ProductReorderPoint
+                EffectiveReorderPoint = x.ItemReorderPoint ?? x.VariantReorderPoint
             })
             .Where(x => x.EffectiveReorderPoint.HasValue
                      && x.EffectiveReorderPoint.Value > 0
                      && (x.QtyOnHand - x.QtyReserved) <= x.EffectiveReorderPoint.Value)
             .Select(x => new ReorderAlertModel
             {
+                VariantId     = x.VariantId,
+                VariantUuid   = x.VariantUuid,
+                VariantSku    = x.VariantSku,
+                VariantName   = x.VariantName,
                 ProductId     = x.ProductId,
                 ProductUuid   = x.ProductUuid,
-                ProductSku    = x.ProductSku,
                 ProductName   = x.ProductName,
                 CategoryName  = x.CategoryName,
                 WarehouseId   = x.WarehouseId,
@@ -1194,12 +1537,12 @@ internal sealed class InventoryRepository : IInventoryRepository
         var query =
             from adj     in _db.StockAdjustments
             join item    in _db.InventoryItems on adj.InventoryItemId equals item.Id
-            join product in _db.Products       on item.ProductId      equals product.Id
+            join variant in _db.ProductVariants on item.VariantId      equals variant.Id
             join wh      in _db.Warehouses     on item.WarehouseId    equals wh.Id
-            select new { adj, item, product, wh };
+            select new { adj, item, variant, wh };
 
-        if (filter.ProductId.HasValue)
-            query = query.Where(x => x.item.ProductId == filter.ProductId.Value);
+        if (filter.VariantId.HasValue)
+            query = query.Where(x => x.item.VariantId == filter.VariantId.Value);
 
         if (filter.WarehouseId.HasValue)
             query = query.Where(x => x.item.WarehouseId == filter.WarehouseId.Value);
@@ -1225,9 +1568,10 @@ internal sealed class InventoryRepository : IInventoryRepository
                 Uuid            = x.adj.Uuid,
                 AdjNumber       = x.adj.AdjNumber,
                 InventoryItemId = x.adj.InventoryItemId,
-                ProductId       = x.item.ProductId,
-                ProductSku      = x.product.Sku,
-                ProductName     = x.product.Name,
+                VariantId       = x.item.VariantId,
+                VariantSku      = x.variant.Sku,
+                VariantName     = x.variant.VariantName,
+                ProductName     = x.variant.Product.Name,
                 WarehouseId     = x.item.WarehouseId,
                 WarehouseName   = x.wh.Name,
                 AdjType         = x.adj.AdjType,
@@ -1271,13 +1615,13 @@ internal sealed class InventoryRepository : IInventoryRepository
                 .FirstOrDefaultAsync() ?? string.Empty;
 
             var item = await _db.InventoryItems
-                .FirstOrDefaultAsync(i => i.ProductId == req.ProductId && i.WarehouseId == req.WarehouseId);
+                .FirstOrDefaultAsync(i => i.VariantId == req.VariantId && i.WarehouseId == req.WarehouseId);
 
             if (item == null)
             {
                 item = new InventoryItem
                 {
-                    ProductId   = req.ProductId,
+                    VariantId   = req.VariantId,
                     WarehouseId = req.WarehouseId,
                     QtyOnHand   = 0m,
                     QtyReserved = 0m,
@@ -1314,7 +1658,7 @@ internal sealed class InventoryRepository : IInventoryRepository
             {
                 await _ledger.CreateEntryAsync(new LedgerEntryCommand
                 {
-                    ProductId       = req.ProductId,
+                    VariantId       = req.VariantId,
                     WarehouseId     = req.WarehouseId,
                     TransactionType = "STOCK_ADJUSTMENT",
                     ReferenceType   = "ADJUSTMENT",
@@ -1339,7 +1683,7 @@ internal sealed class InventoryRepository : IInventoryRepository
             {
                 AdjNumber       = adjNumber,
                 InventoryItemId = item.Id,
-                ProductId       = req.ProductId,
+                VariantId       = req.VariantId,
                 WarehouseId     = req.WarehouseId,
                 AdjType         = req.AdjType,
                 Reason          = req.Reason,
@@ -1404,7 +1748,7 @@ internal sealed class InventoryRepository : IInventoryRepository
 
             await _ledger.CreateEntryAsync(new LedgerEntryCommand
             {
-                ProductId       = adjustment.ProductId,
+                VariantId       = adjustment.VariantId,
                 WarehouseId     = adjustment.WarehouseId,
                 TransactionType = "STOCK_ADJUSTMENT",
                 ReferenceType   = "ADJUSTMENT",
@@ -1447,6 +1791,384 @@ internal sealed class InventoryRepository : IInventoryRepository
         await _db.SaveChangesAsync();
         return true;
     }
+
+    // ── Dynamic Attributes (FSD Addendum 26 §4) ──────────────────────────────────
+
+    private static readonly HashSet<string> ValidDataTypes =
+        ["TEXT", "NUMBER", "DECIMAL", "DATE", "BOOLEAN", "DROPDOWN", "MULTI_SELECT"];
+
+    private static readonly HashSet<string> ValidControlTypes =
+        ["TEXTBOX", "NUMBERBOX", "DATEPICKER", "TOGGLE", "DROPDOWN", "MULTI_SELECT", "TEXTAREA"];
+
+    public async Task<List<AttributeDefinitionModel>> GetAttributesAsync()
+    {
+        var attributes = await _db.AttributeDefinitions
+            .OrderBy(a => a.SortOrder).ThenBy(a => a.DisplayName)
+            .ToListAsync();
+
+        return attributes.Select(ToAttributeModel).ToList();
+    }
+
+    public async Task<Guid> CreateAttributeAsync(CreateAttributeDefinitionRequest req)
+    {
+        var name = req.AttributeName?.Trim().ToLowerInvariant() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(name))
+            throw new BadRequestException("Attribute name is required.");
+        if (string.IsNullOrWhiteSpace(req.DisplayName))
+            throw new BadRequestException("Display name is required.");
+        if (!ValidDataTypes.Contains(req.DataType))
+            throw new BadRequestException($"Invalid data type '{req.DataType}'. Must be one of: {string.Join(", ", ValidDataTypes)}.");
+        if (!ValidControlTypes.Contains(req.ControlType))
+            throw new BadRequestException($"Invalid control type '{req.ControlType}'. Must be one of: {string.Join(", ", ValidControlTypes)}.");
+
+        var isChoiceType = req.DataType is "DROPDOWN" or "MULTI_SELECT";
+        if (isChoiceType && (req.DropdownOptions is null || req.DropdownOptions.Count == 0))
+            throw new BadRequestException("dropdown_options is required when data_type is DROPDOWN or MULTI_SELECT.");
+
+        if (await _db.AttributeDefinitions.AnyAsync(a => a.AttributeName == name))
+            throw new ConflictException($"An attribute named '{name}' already exists.");
+
+        var entity = new AttributeDefinition
+        {
+            Uuid            = Guid.NewGuid(),
+            AttributeName   = name,
+            DisplayName     = req.DisplayName.Trim(),
+            DataType        = req.DataType,
+            ControlType     = req.ControlType,
+            DropdownOptions = isChoiceType ? JsonSerializer.Serialize(req.DropdownOptions) : null,
+            DefaultValue    = req.DefaultValue,
+            ValidationRegex = req.ValidationRegex,
+            IsRequired      = req.IsRequired,
+            IsSearchable    = req.IsSearchable,
+            IsFilterable    = req.IsFilterable,
+            SortOrder       = req.SortOrder,
+            IsActive        = true
+        };
+
+        _db.AttributeDefinitions.Add(entity);
+        await _db.SaveChangesAsync();
+        return entity.Uuid;
+    }
+
+    public async Task<bool> UpdateAttributeAsync(Guid uuid, UpdateAttributeDefinitionRequest req)
+    {
+        var entity = await _db.AttributeDefinitions.FirstOrDefaultAsync(a => a.Uuid == uuid);
+        if (entity == null) return false;
+
+        if (req.ControlType is not null)
+        {
+            if (!ValidControlTypes.Contains(req.ControlType))
+                throw new BadRequestException($"Invalid control type '{req.ControlType}'. Must be one of: {string.Join(", ", ValidControlTypes)}.");
+            entity.ControlType = req.ControlType;
+        }
+
+        var isChoiceType = entity.DataType is "DROPDOWN" or "MULTI_SELECT";
+        if (req.DropdownOptions is not null)
+        {
+            if (isChoiceType && req.DropdownOptions.Count == 0)
+                throw new BadRequestException("dropdown_options cannot be empty for a DROPDOWN/MULTI_SELECT attribute.");
+            entity.DropdownOptions = JsonSerializer.Serialize(req.DropdownOptions);
+        }
+
+        if (req.DisplayName       is not null) entity.DisplayName     = req.DisplayName.Trim();
+        if (req.DefaultValue      is not null) entity.DefaultValue    = req.DefaultValue;
+        if (req.ValidationRegex   is not null) entity.ValidationRegex = req.ValidationRegex;
+        if (req.IsRequired    .HasValue)        entity.IsRequired     = req.IsRequired.Value;
+        if (req.IsSearchable  .HasValue)        entity.IsSearchable   = req.IsSearchable.Value;
+        if (req.IsFilterable  .HasValue)        entity.IsFilterable   = req.IsFilterable.Value;
+        if (req.SortOrder     .HasValue)        entity.SortOrder      = req.SortOrder.Value;
+        if (req.IsActive      .HasValue)        entity.IsActive       = req.IsActive.Value;
+
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    // Hard-deletes when unused, otherwise soft-deactivates and reports what's still referencing
+    // it — same two-tier contract as DeleteCategoryAsync above (ProductModels.CategoryDeleteResult).
+    // A category link or a recorded variant value both make a hard delete unsafe: the former
+    // would silently strip a field off every product form for that category, the latter would
+    // orphan historical variant data.
+    public async Task<AttributeDeleteResult> DeleteAttributeAsync(Guid uuid)
+    {
+        var entity = await _db.AttributeDefinitions.FirstOrDefaultAsync(a => a.Uuid == uuid);
+        if (entity == null) return new AttributeDeleteResult { Deleted = false };
+
+        var categoryCount = await _db.CategoryAttributes.CountAsync(ca => ca.AttributeId == entity.Id);
+        var variantValueCount = await _db.VariantAttributeValues.CountAsync(v => v.AttributeId == entity.Id);
+
+        if (categoryCount > 0 || variantValueCount > 0)
+            return new AttributeDeleteResult
+            {
+                Deleted                     = false,
+                ReferencedCategoryCount     = categoryCount,
+                ReferencedVariantValueCount = variantValueCount
+            };
+
+        _db.AttributeDefinitions.Remove(entity);
+        await _db.SaveChangesAsync();
+        return new AttributeDeleteResult { Deleted = true };
+    }
+
+    public async Task<List<CategoryAttributeModel>> GetCategoryAttributesAsync(int categoryId)
+    {
+        var raw = await _db.CategoryAttributes
+            .Where(ca => ca.CategoryId == categoryId)
+            .OrderBy(ca => ca.DisplayOrder)
+            .Select(ca => new
+            {
+                ca.CategoryId,
+                AttributeUuid = ca.Attribute.Uuid,
+                ca.Attribute.AttributeName,
+                ca.Attribute.DisplayName,
+                ca.Attribute.DataType,
+                ca.Attribute.ControlType,
+                ca.Attribute.DropdownOptions,
+                ca.Attribute.ValidationRegex,
+                ca.IsRequired,
+                ca.Attribute.IsSearchable,
+                ca.DisplayOrder
+            })
+            .ToListAsync();
+
+        return raw.Select(x => new CategoryAttributeModel
+        {
+            CategoryId      = x.CategoryId,
+            AttributeUuid   = x.AttributeUuid,
+            AttributeName   = x.AttributeName,
+            DisplayName     = x.DisplayName,
+            DataType        = x.DataType,
+            ControlType     = x.ControlType,
+            DropdownOptions = ParseDropdownOptions(x.DropdownOptions),
+            ValidationRegex = x.ValidationRegex,
+            IsRequired      = x.IsRequired,
+            IsSearchable    = x.IsSearchable,
+            DisplayOrder    = x.DisplayOrder
+        }).ToList();
+    }
+
+    public async Task<bool> LinkCategoryAttributeAsync(int categoryId, CreateCategoryAttributeRequest req)
+    {
+        if (!await CategoryExistsAsync(categoryId))
+            throw new NotFoundException("Category", categoryId);
+
+        var attribute = await _db.AttributeDefinitions.FirstOrDefaultAsync(a => a.Uuid == req.AttributeUuid)
+            ?? throw new NotFoundException("Attribute", req.AttributeUuid);
+
+        if (await _db.CategoryAttributes.AnyAsync(ca => ca.CategoryId == categoryId && ca.AttributeId == attribute.Id))
+            throw new ConflictException($"Attribute '{attribute.DisplayName}' is already linked to this category.");
+
+        _db.CategoryAttributes.Add(new CategoryAttribute
+        {
+            CategoryId   = categoryId,
+            AttributeId  = attribute.Id,
+            IsRequired   = req.IsRequired ?? attribute.IsRequired,
+            DisplayOrder = req.DisplayOrder
+        });
+
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> UnlinkCategoryAttributeAsync(int categoryId, Guid attributeUuid)
+    {
+        var link = await _db.CategoryAttributes
+            .FirstOrDefaultAsync(ca => ca.CategoryId == categoryId && ca.Attribute.Uuid == attributeUuid);
+        if (link == null) return false;
+
+        _db.CategoryAttributes.Remove(link);
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    // Configure Attributes admin screen's Save button — replaces the category's entire attribute
+    // set (links, unlinks, reorders, and required-overrides) in one atomic write, rather than
+    // requiring the frontend to diff and issue individual POST/DELETE calls.
+    public async Task<List<CategoryAttributeModel>> SetCategoryAttributesAsync(int categoryId, SetCategoryAttributesRequest req)
+    {
+        if (!await CategoryExistsAsync(categoryId))
+            throw new NotFoundException("Category", categoryId);
+
+        var attributeUuids = req.Attributes.Select(a => a.AttributeUuid).Distinct().ToList();
+        var attributes = await _db.AttributeDefinitions
+            .Where(a => attributeUuids.Contains(a.Uuid))
+            .ToDictionaryAsync(a => a.Uuid);
+
+        foreach (var item in req.Attributes)
+        {
+            if (!attributes.ContainsKey(item.AttributeUuid))
+                throw new NotFoundException("Attribute", item.AttributeUuid);
+        }
+
+        var existingLinks = await _db.CategoryAttributes
+            .Where(ca => ca.CategoryId == categoryId)
+            .ToListAsync();
+
+        var keepIds = req.Attributes.Select(a => attributes[a.AttributeUuid].Id).ToHashSet();
+        var toRemove = existingLinks.Where(l => !keepIds.Contains(l.AttributeId)).ToList();
+        if (toRemove.Count > 0) _db.CategoryAttributes.RemoveRange(toRemove);
+
+        foreach (var item in req.Attributes)
+        {
+            var attributeId = attributes[item.AttributeUuid].Id;
+            var existing = existingLinks.FirstOrDefault(l => l.AttributeId == attributeId);
+            if (existing is not null)
+            {
+                existing.IsRequired   = item.IsRequired;
+                existing.DisplayOrder = item.DisplayOrder;
+            }
+            else
+            {
+                _db.CategoryAttributes.Add(new CategoryAttribute
+                {
+                    CategoryId   = categoryId,
+                    AttributeId  = attributeId,
+                    IsRequired   = item.IsRequired,
+                    DisplayOrder = item.DisplayOrder
+                });
+            }
+        }
+
+        await _db.SaveChangesAsync();
+        return await GetCategoryAttributesAsync(categoryId);
+    }
+
+    public async Task<List<VariantAttributeValueModel>> GetVariantAttributeValuesAsync(Guid variantUuid)
+    {
+        return await _db.VariantAttributeValues
+            .Where(v => v.Variant.Uuid == variantUuid)
+            .Select(v => new VariantAttributeValueModel
+            {
+                AttributeUuid = v.Attribute.Uuid,
+                AttributeName = v.Attribute.AttributeName,
+                DisplayName   = v.Attribute.DisplayName,
+                DataType      = v.Attribute.DataType,
+                Value         = v.Value
+            })
+            .ToListAsync();
+    }
+
+    public async Task<int?> SetVariantAttributeValuesAsync(Guid variantUuid, SetVariantAttributeValuesRequest req)
+    {
+        var variant = await _db.ProductVariants.FirstOrDefaultAsync(v => v.Uuid == variantUuid);
+        if (variant == null) return null;
+
+        var attributeUuids = req.Values.Select(v => v.AttributeUuid).Distinct().ToList();
+        var attributes = await _db.AttributeDefinitions
+            .Where(a => attributeUuids.Contains(a.Uuid))
+            .ToDictionaryAsync(a => a.Uuid);
+
+        // Validate every submitted value before writing any of them — a bad value anywhere in
+        // the batch must leave the variant's existing attribute values untouched.
+        foreach (var input in req.Values)
+        {
+            if (!attributes.TryGetValue(input.AttributeUuid, out var attr))
+                throw new NotFoundException("Attribute", input.AttributeUuid);
+            ValidateValue(attr, input.Value);
+        }
+
+        var existing = await _db.VariantAttributeValues
+            .Where(v => v.VariantId == variant.Id)
+            .ToListAsync();
+
+        foreach (var input in req.Values)
+        {
+            var attr = attributes[input.AttributeUuid];
+            var row  = existing.FirstOrDefault(v => v.AttributeId == attr.Id);
+            if (row is null)
+            {
+                _db.VariantAttributeValues.Add(new VariantAttributeValue
+                {
+                    VariantId   = variant.Id,
+                    AttributeId = attr.Id,
+                    Value       = input.Value
+                });
+            }
+            else
+            {
+                row.Value = input.Value;
+            }
+        }
+
+        await _db.SaveChangesAsync();
+        return variant.Id;
+    }
+
+    // Validates a submitted value against its attribute's data_type, dropdown_options, and
+    // validation_regex (FSD §6 "Validation config" — enforced server-side, not just client-side).
+    private static void ValidateValue(AttributeDefinition attr, string value)
+    {
+        switch (attr.DataType)
+        {
+            case "NUMBER":
+                if (!int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out _))
+                    throw new BadRequestException($"Value '{value}' for '{attr.DisplayName}' must be a whole number.");
+                break;
+
+            case "DECIMAL":
+                if (!decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out _))
+                    throw new BadRequestException($"Value '{value}' for '{attr.DisplayName}' must be a valid decimal.");
+                break;
+
+            case "BOOLEAN":
+                if (!bool.TryParse(value, out _))
+                    throw new BadRequestException($"Value '{value}' for '{attr.DisplayName}' must be true or false.");
+                break;
+
+            case "DATE":
+                if (!DateTime.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.None, out _))
+                    throw new BadRequestException($"Value '{value}' for '{attr.DisplayName}' must be a valid date.");
+                break;
+
+            case "DROPDOWN":
+            {
+                var options = ParseDropdownOptions(attr.DropdownOptions);
+                if (!options.Contains(value))
+                    throw new BadRequestException($"Value '{value}' is not a valid option for '{attr.DisplayName}'.");
+                break;
+            }
+
+            case "MULTI_SELECT":
+            {
+                var options = ParseDropdownOptions(attr.DropdownOptions);
+                List<string> selected;
+                try { selected = JsonSerializer.Deserialize<List<string>>(value) ?? []; }
+                catch (JsonException) { throw new BadRequestException($"Value for '{attr.DisplayName}' must be a JSON array of strings."); }
+
+                var invalid = selected.Except(options).ToList();
+                if (invalid.Count > 0)
+                    throw new BadRequestException($"Value(s) '{string.Join(", ", invalid)}' are not valid options for '{attr.DisplayName}'.");
+                break;
+            }
+
+            // TEXT — no type-shape check beyond the regex below.
+        }
+
+        if (!string.IsNullOrWhiteSpace(attr.ValidationRegex) && !Regex.IsMatch(value, attr.ValidationRegex))
+            throw new BadRequestException($"Value '{value}' for '{attr.DisplayName}' does not match the required format.");
+    }
+
+    private static List<string> ParseDropdownOptions(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return [];
+        return JsonSerializer.Deserialize<List<string>>(json) ?? [];
+    }
+
+    private static AttributeDefinitionModel ToAttributeModel(AttributeDefinition a) => new()
+    {
+        Uuid            = a.Uuid,
+        AttributeName   = a.AttributeName,
+        DisplayName     = a.DisplayName,
+        DataType        = a.DataType,
+        ControlType     = a.ControlType,
+        DropdownOptions = ParseDropdownOptions(a.DropdownOptions),
+        DefaultValue    = a.DefaultValue,
+        ValidationRegex = a.ValidationRegex,
+        IsRequired      = a.IsRequired,
+        IsSearchable    = a.IsSearchable,
+        IsFilterable    = a.IsFilterable,
+        SortOrder       = a.SortOrder,
+        IsActive        = a.IsActive
+    };
 
     // ── Private helpers ───────────────────────────────────────────────────────
 

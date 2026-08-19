@@ -274,12 +274,14 @@ internal sealed class SroRepository : ISroRepository
 
                     foreach (var line in sro.Lines.Where(l => l.ProductUuid.HasValue && l.QtyToReturn > 0))
                     {
-                        var product = await _inv.Products
-                            .FirstOrDefaultAsync(p => p.Uuid == line.ProductUuid!.Value);
-                        if (product is null) continue;
+                        // SRO lines are still product-scoped (out of PV-005's explicit scope), so a
+                        // multi-variant product dispatches from its default variant's stock.
+                        var variant = await _inv.ProductVariants
+                            .FirstOrDefaultAsync(v => v.Product.Uuid == line.ProductUuid!.Value && v.IsDefault);
+                        if (variant is null) continue;
 
                         var item = await _inv.InventoryItems
-                            .FirstOrDefaultAsync(i => i.ProductId == product.Id && i.WarehouseId == warehouse.Id);
+                            .FirstOrDefaultAsync(i => i.VariantId == variant.Id && i.WarehouseId == warehouse.Id);
                         if (item is null) continue;
 
                         item.QtyOnHand  -= line.QtyToReturn;
@@ -287,7 +289,7 @@ internal sealed class SroRepository : ISroRepository
 
                         await _ledger.CreateEntryAsync(new LedgerEntryCommand
                         {
-                            ProductId       = product.Id,
+                            VariantId       = variant.Id,
                             WarehouseId     = warehouse.Id,
                             TransactionType = "RETURN_DISPATCH",
                             ReferenceType   = "SRO",

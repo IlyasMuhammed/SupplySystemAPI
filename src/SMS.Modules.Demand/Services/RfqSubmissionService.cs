@@ -86,9 +86,14 @@ internal sealed class RfqSubmissionService : IRfqSubmissionService
         {
             submittedByUuid.TryGetValue(ql.UUID, out var sub);
 
+            // A missing line is treated the same as an explicit CanSupply=false decline.
+            var canSupply = sub?.CanSupply ?? false;
+
             decimal.TryParse(sub?.UnitPrice, NumberStyles.Any,
                 CultureInfo.InvariantCulture, out var unitPrice);
             int.TryParse(sub?.DeliveryDays, out var leadDays);
+
+            if (!canSupply) { unitPrice = 0; leadDays = 0; }
 
             return new VendorResponseLine
             {
@@ -98,7 +103,8 @@ internal sealed class RfqSubmissionService : IRfqSubmissionService
                 Quantity        = ql.Quantity,
                 LineTotal       = unitPrice * ql.Quantity,
                 LeadTimeDays    = leadDays > 0 ? leadDays : null,
-                Notes           = sub?.Remarks
+                Notes           = sub?.Remarks,
+                CanSupply       = canSupply
             };
         }).ToList();
 

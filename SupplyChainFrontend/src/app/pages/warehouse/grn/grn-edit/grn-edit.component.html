@@ -100,7 +100,7 @@
     <div class="form-card" *ngIf="grn?.lines?.length">
       <h3 class="section-title"><i class="pi pi-list"></i> Receipt Lines</h3>
       <p class="lines-hint">
-        Link each line to a catalogue product. Lines without a product link cannot have stock posted on approval.
+        Link each line to a catalogue product variant. Lines without a variant link cannot have stock posted on approval.
       </p>
       <hr class="section-divider" />
 
@@ -123,25 +123,18 @@
           </div>
           <div class="line-product">
             <label class="product-label">
-              <i class="pi pi-box"></i> Catalogue Product
+              <i class="pi pi-box"></i> Catalogue Product / Variant
               <span class="unlinked-badge"
-                    *ngIf="!lineProductUuids[i] && line.qtyReceived > 0">
+                    *ngIf="!lineSelections[i] && line.qtyReceived > 0">
                 <i class="pi pi-exclamation-triangle"></i> Required for stock posting
               </span>
             </label>
-            <p-dropdown
-              [options]="productOptions"
-              [(ngModel)]="lineProductUuids[i]"
-              [ngModelOptions]="{standalone: true}"
-              optionLabel="label"
-              optionValue="value"
-              [filter]="true"
-              filterBy="label"
-              [showClear]="true"
-              placeholder="— Select catalogue product —"
-              styleClass="product-dropdown"
-              appendTo="body">
-            </p-dropdown>
+            <app-product-variant-picker
+              [products]="products"
+              [productUuid]="lineSelections[i]?.productUuid ?? null"
+              [variantUuid]="lineSelections[i]?.variantUuid ?? null"
+              (selectionChange)="onLineVariantSelected(i, $event)">
+            </app-product-variant-picker>
           </div>
         </div>
       </div>

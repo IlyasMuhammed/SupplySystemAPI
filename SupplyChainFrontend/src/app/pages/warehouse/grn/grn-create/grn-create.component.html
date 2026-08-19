@@ -200,6 +200,7 @@
             <colgroup>
               <col style="width:36px">
               <col style="width:200px">
+              <col style="width:150px">
               <col style="width:60px">
               <col style="width:95px">
               <col style="width:130px">
@@ -213,6 +214,7 @@
               <tr>
                 <th>#</th>
                 <th>Item Description</th>
+                <th>Barcode Scan</th>
                 <th>UOM</th>
                 <th class="qty-col">Pending</th>
                 <th class="qty-col qty-received-header">Qty Received <span class="req">*</span></th>
@@ -232,6 +234,24 @@
                   <small *ngIf="line.specification" class="spec-text">{{ line.specification }}</small>
                   <small *ngIf="!line.requiresInspection" class="no-inspection-tag">
                     <i class="pi pi-times-circle"></i> No inspection required
+                  </small>
+                </td>
+                <td class="scan-col">
+                  <input pInputText
+                         [(ngModel)]="line.scanInput"
+                         [ngModelOptions]="{standalone: true}"
+                         placeholder="Scan or type barcode…"
+                         class="scan-field"
+                         (keydown.enter)="onBarcodeScan(line)"
+                         (blur)="onBarcodeScan(line)" />
+                  <small class="scan-status scan-match" *ngIf="line.scanStatus === 'match'">
+                    <i class="pi pi-check-circle"></i> {{ line.scanMessage }}
+                  </small>
+                  <small class="scan-status scan-mismatch" *ngIf="line.scanStatus === 'mismatch'">
+                    <i class="pi pi-exclamation-triangle"></i> {{ line.scanMessage }}
+                  </small>
+                  <small class="scan-status scan-not-found" *ngIf="line.scanStatus === 'not_found'">
+                    <i class="pi pi-times-circle"></i> {{ line.scanMessage }}
                   </small>
                 </td>
                 <td class="uom">{{ line.unitOfMeasure || '—' }}</td>
