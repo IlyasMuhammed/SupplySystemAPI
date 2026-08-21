@@ -54,6 +54,7 @@ export class MivDetailComponent implements OnInit {
       header: 'Confirm Post',
       icon: 'pi pi-exclamation-triangle',
       acceptButtonStyleClass: 'p-button-danger',
+      rejectButtonStyleClass: 'p-button-text',
       accept: () => this.doPost()
     });
   }
@@ -81,6 +82,8 @@ export class MivDetailComponent implements OnInit {
       message: 'Cancel this draft voucher?',
       header: 'Confirm Cancel',
       icon: 'pi pi-question-circle',
+      acceptButtonStyleClass: 'p-button-danger',
+      rejectButtonStyleClass: 'p-button-text',
       accept: () => this.doCancel()
     });
   }

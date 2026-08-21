@@ -122,6 +122,8 @@ export class WorkflowListComponent implements OnInit {
       message: `Are you sure you want to ${action} "${def.name}"?`,
       header: `${action.charAt(0).toUpperCase() + action.slice(1)} Workflow`,
       icon: 'pi pi-exclamation-triangle',
+      acceptButtonStyleClass: def.isActive ? 'p-button-danger' : 'p-button-success',
+      rejectButtonStyleClass: 'p-button-text',
       accept: () => this.toggleActive(def)
     });
   }

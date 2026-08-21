@@ -562,6 +562,8 @@ export class SupplierDetailComponent implements OnInit {
       message: 'Approve this supplier and set status to ACTIVE?',
       header: 'Confirm Approval',
       icon: 'pi pi-check-circle',
+      acceptButtonStyleClass: 'p-button-success',
+      rejectButtonStyleClass: 'p-button-text',
       accept: () => {
         this.isActioning = true;
         this.supplierService.approveSupplier(this.uuid).subscribe({
@@ -800,6 +802,7 @@ export class SupplierDetailComponent implements OnInit {
       acceptLabel: 'Remove',
       acceptButtonStyleClass: 'p-button-danger',
       rejectLabel: 'Cancel',
+      rejectButtonStyleClass: 'p-button-text',
       accept: () => {
         this.supplierService.softDeleteDocument(this.uuid, doc.id).subscribe({
           next: (res) => {

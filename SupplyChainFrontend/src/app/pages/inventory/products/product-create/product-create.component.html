@@ -94,6 +94,29 @@
           </textarea>
         </div>
 
+        <div class="field col-span-3">
+          <label class="field-label">Product Image
+            <span class="field-hint">(optional)</span>
+          </label>
+          <div class="product-image-upload">
+            <div class="product-image-preview" *ngIf="f['imageUrl'].value">
+              <img [src]="resolveImageUrl(f['imageUrl'].value)" alt="Product image" />
+              <p-button icon="pi pi-times" severity="danger" [text]="true" [rounded]="true"
+                        pTooltip="Remove image" (onClick)="removeImage()"></p-button>
+            </div>
+            <div class="product-image-placeholder" *ngIf="!f['imageUrl'].value">
+              <i class="pi pi-image"></i>
+            </div>
+            <div class="product-image-actions">
+              <input type="file" #imageInput accept="image/*" hidden (change)="onImageSelected($event)" />
+              <p-button [label]="f['imageUrl'].value ? 'Change Picture' : 'Upload Picture'" icon="pi pi-upload"
+                        severity="secondary" [outlined]="true" [loading]="isUploadingImage"
+                        (onClick)="imageInput.click()"></p-button>
+              <small class="text-gray-400">Upload a picture of the product (JPG, PNG).</small>
+            </div>
+          </div>
+        </div>
+
       </div>
     </p-card>
 
@@ -198,7 +221,7 @@
             [minFractionDigits]="2"
             [maxFractionDigits]="4"
             [min]="0"
-            [max]="9999999"
+            [max]="100000000"
             styleClass="w-full"
             [class.ng-invalid]="f['purchasePrice'].invalid && f['purchasePrice'].touched">
           </p-inputnumber>
@@ -216,7 +239,7 @@
             [minFractionDigits]="2"
             [maxFractionDigits]="4"
             [min]="0"
-            [max]="9999999"
+            [max]="100000000"
             styleClass="w-full">
           </p-inputnumber>
         </div>
@@ -232,6 +255,69 @@
         </div>
 
       </div>
+    </p-card>
+
+    <!-- SECTION 3b: Additional Variants — the Pricing card above becomes the default variant;
+         anything added here creates alongside it in the same request. -->
+    <p-card styleClass="mb-4" *ngIf="!isEditMode">
+      <ng-template pTemplate="header">
+        <div class="card-section-header">
+          <i class="pi pi-th-large"></i> Additional Variants
+        </div>
+      </ng-template>
+
+      <p class="section-hint">
+        Optional. Add extra SKUs (sizes, colors, configurations…) for this product now, or skip this
+        and add them later from the product's own page.
+      </p>
+
+      <div formArrayName="variants">
+        <div class="variant-card" *ngFor="let variant of variants.controls; let i = index" [formGroupName]="i">
+          <div class="variant-card-header">
+            <span class="variant-card-title">Variant {{ i + 2 }}</span>
+            <p-button icon="pi pi-trash" severity="danger" [text]="true" [rounded]="true"
+                      pTooltip="Remove variant" (onClick)="removeVariant(i)"></p-button>
+          </div>
+
+          <div class="form-grid form-grid--3">
+            <div class="field col-span-2">
+              <label class="field-label">Variant Name <span class="req">*</span></label>
+              <input pInputText formControlName="variantName"
+                     placeholder="e.g. Red / Large" class="w-full" maxlength="200"
+                     [class.ng-invalid]="variant.get('variantName')?.invalid && variant.get('variantName')?.touched" />
+            </div>
+            <div class="field">
+              <label class="field-label">SKU
+                <span class="field-hint">(auto-generated if blank)</span>
+              </label>
+              <input pInputText formControlName="sku" placeholder="e.g. PRD-00123-2" class="w-full" maxlength="50" />
+            </div>
+            <div class="field">
+              <label class="field-label">Purchase Price <span class="req">*</span></label>
+              <p-inputnumber formControlName="purchasePrice" placeholder="0.00" mode="decimal"
+                             [minFractionDigits]="2" [maxFractionDigits]="4" [min]="0" [max]="100000000"
+                             styleClass="w-full"></p-inputnumber>
+            </div>
+            <div class="field">
+              <label class="field-label">Selling Price</label>
+              <p-inputnumber formControlName="sellingPrice" placeholder="0.00" mode="decimal"
+                             [minFractionDigits]="2" [maxFractionDigits]="4" [min]="0" [max]="100000000"
+                             styleClass="w-full"></p-inputnumber>
+            </div>
+            <div class="field">
+              <label class="field-label">Barcode</label>
+              <input pInputText formControlName="barcode" placeholder="e.g. 8901234567890" class="w-full" maxlength="50" />
+            </div>
+            <div class="field">
+              <label class="field-label">Reorder Point</label>
+              <p-inputnumber formControlName="reorderPoint" placeholder="0" [min]="0" [showButtons]="false" styleClass="w-full"></p-inputnumber>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p-button label="Add Variant" icon="pi pi-plus" severity="secondary" [outlined]="true"
+                type="button" (onClick)="addVariant()"></p-button>
     </p-card>
 
     <!-- Read-only pricing summary in edit mode — no endpoint yet to patch an existing variant -->
@@ -479,18 +565,6 @@
             styleClass="w-full">
           </p-dropdown>
           <small class="text-gray-400">Optional. Select the default supplier for this product.</small>
-        </div>
-
-        <div class="field">
-          <label class="field-label">Image URL
-            <span class="field-hint">(optional)</span>
-          </label>
-          <input
-            pInputText
-            formControlName="imageUrl"
-            placeholder="https://example.com/image.png"
-            class="w-full"
-            maxlength="500" />
         </div>
 
         <div class="field col-span-2">

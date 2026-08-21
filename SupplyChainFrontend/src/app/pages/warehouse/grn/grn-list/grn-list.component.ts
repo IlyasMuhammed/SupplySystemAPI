@@ -107,6 +107,7 @@ export class GrnListComponent implements OnInit {
       header: 'Delete GRN',
       icon: 'pi pi-exclamation-triangle',
       acceptButtonStyleClass: 'p-button-danger',
+      rejectButtonStyleClass: 'p-button-text',
       accept: () => this.deleteGrn(grn)
     });
   }

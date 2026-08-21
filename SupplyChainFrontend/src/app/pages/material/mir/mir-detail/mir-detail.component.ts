@@ -512,6 +512,8 @@ export class MirDetailComponent implements OnInit {
       message: 'Cancel this Material Issue Request? Any active stock reservations will be released.',
       header: 'Confirm Cancel',
       icon: 'pi pi-exclamation-triangle',
+      acceptButtonStyleClass: 'p-button-danger',
+      rejectButtonStyleClass: 'p-button-text',
       accept: () => {
         this.actionBusy = true;
         this.materialService.cancelMir(this.uuid).subscribe({

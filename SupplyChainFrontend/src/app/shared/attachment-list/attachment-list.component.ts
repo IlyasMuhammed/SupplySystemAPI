@@ -113,6 +113,7 @@ export class AttachmentListComponent implements OnChanges {
       acceptLabel: 'Remove',
       acceptButtonStyleClass: 'p-button-danger',
       rejectLabel: 'Cancel',
+      rejectButtonStyleClass: 'p-button-text',
       accept: () => {
         this.attachmentService.deleteAttachment(att.uuid).subscribe({
           next: () => {

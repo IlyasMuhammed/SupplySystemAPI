@@ -478,6 +478,7 @@ export class ProductDetailComponent implements OnInit {
       header: 'Confirm Delete',
       icon: 'pi pi-exclamation-triangle',
       acceptButtonStyleClass: 'p-button-danger',
+      rejectButtonStyleClass: 'p-button-text',
       accept: () => {
         this.inventoryService.deleteVariant(variant.uuid).subscribe({
           next: (res) => {
@@ -511,6 +512,7 @@ export class ProductDetailComponent implements OnInit {
       header: 'Confirm Deactivation',
       icon: 'pi pi-exclamation-triangle',
       acceptButtonStyleClass: 'p-button-danger',
+      rejectButtonStyleClass: 'p-button-text',
       accept: () => {
         this.inventoryService.deleteProduct(this.productId).subscribe({
           next: (res) => {

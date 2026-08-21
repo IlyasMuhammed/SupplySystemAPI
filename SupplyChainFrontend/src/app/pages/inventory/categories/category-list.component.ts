@@ -227,6 +227,7 @@ export class CategoryListComponent implements OnInit {
       acceptLabel: 'Delete',
       acceptButtonStyleClass: 'p-button-danger',
       rejectLabel: 'Cancel',
+      rejectButtonStyleClass: 'p-button-text',
       accept: () => {
         this.inventoryService.deleteCategory(cat.id).subscribe({
           next: (res) => {
@@ -372,6 +373,7 @@ export class CategoryListComponent implements OnInit {
       acceptLabel: 'Delete',
       acceptButtonStyleClass: 'p-button-danger',
       rejectLabel: 'Cancel',
+      rejectButtonStyleClass: 'p-button-text',
       accept: () => {
         this.inventoryService.deleteSubCategory(sub.id).subscribe({
           next: (res) => {

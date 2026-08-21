@@ -319,7 +319,8 @@ export class PoCreateComponent implements OnInit {
           const group = this.newLine();
           group.patchValue({
             sourcePrLineUuid: line.uuid,
-            productUuid:      line.productId       ?? null,
+            productUuid:      line.productUuid     ?? null,
+            variantUuid:      line.productId        ?? null,
             itemDescription:  line.itemDescription,
             specification:    line.specification   ?? '',
             unitOfMeasure:    line.unitOfMeasure   ?? null,
@@ -370,7 +371,8 @@ export class PoCreateComponent implements OnInit {
         for (const line of detail.result.lines) {
           const group = this.newLine();
           group.patchValue({
-            productUuid:     line.productId ?? null,
+            productUuid:     line.productUuid ?? null,
+            variantUuid:     line.productId    ?? null,
             itemDescription: line.itemDescription,
             specification:   line.specification ?? '',
             unitOfMeasure:   line.unitOfMeasure ?? null,
@@ -401,12 +403,12 @@ export class PoCreateComponent implements OnInit {
     this.selectedPrUuid = null;
     this.selectedQuotationUuid = null;
     this.importSource = null;
-    while (this.lines.length > 1) this.lines.removeAt(this.lines.length - 1);
-    this.lines.at(0).reset({
-      sourcePrLineUuid: null, productUuid: null, variantUuid: null, itemDescription: '',
-      specification: '', unitOfMeasure: null, quantity: 1,
-      unitPrice: 0, requiredDate: null, lineNotes: '', budgetCode: ''
-    });
+    // Rebuild line 0 from newLine() rather than FormGroup.reset(partialValue) — reset() sets any
+    // control OMITTED from the passed value to null (not to newLine()'s defaults), which silently
+    // nulled out requiresInspection (a non-nullable bool server-side) and caused a JSON
+    // deserialization error on submit whenever this ran with neither a PR nor quotation selected.
+    while (this.lines.length) this.lines.removeAt(0);
+    this.lines.push(this.newLine());
     this.clearSupplierLock();
   }
 

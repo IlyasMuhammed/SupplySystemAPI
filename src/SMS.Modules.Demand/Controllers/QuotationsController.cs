@@ -24,6 +24,22 @@ public class QuotationsController : ControllerBase
 
     private string Ip => HttpContext.Connection.RemoteIpAddress?.ToString() ?? "";
 
+    // The Origin the admin's browser was actually running on when it made this call — always
+    // correct for whatever environment/domain is currently live, unlike AppSettings:BaseUrl which
+    // has to be kept in sync by hand. Falls back to Referer's scheme+host for the rare client that
+    // omits Origin (SendWithLinkAsync falls back to config if this is also unavailable).
+    private string? RequestOrigin
+    {
+        get
+        {
+            var origin = Request.Headers.Origin.FirstOrDefault();
+            if (!string.IsNullOrWhiteSpace(origin)) return origin;
+
+            var referer = Request.Headers.Referer.FirstOrDefault();
+            return Uri.TryCreate(referer, UriKind.Absolute, out var uri) ? uri.GetLeftPart(UriPartial.Authority) : null;
+        }
+    }
+
     [HttpPost]
     [RequirePermission(PermissionCodes.RFQ_CREATE)]
     public async Task<IActionResult> CreateQuotation([FromBody] CreateQuotationRequest req)
@@ -113,7 +129,7 @@ public class QuotationsController : ControllerBase
     [RequirePermission(PermissionCodes.RFQ_MANAGE)]
     public async Task<IActionResult> SendWithLink(Guid uuid, [FromBody] SendWithLinkRequest req)
     {
-        var result = await _service.SendWithLinkAsync(uuid, req, User.GetUserId());
+        var result = await _service.SendWithLinkAsync(uuid, req, User.GetUserId(), RequestOrigin);
         await _audit.LogAsync(User.GetUserId(), null, "Demand", "SEND", "Quotation", uuid, Ip);
         return Ok(ApiResponse<SendWithLinkResult>.Ok(result, "RFQ sent. Access links generated."));
     }

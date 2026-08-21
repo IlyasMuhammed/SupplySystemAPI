@@ -116,6 +116,8 @@ export class PaymentTermsComponent implements OnInit {
       message: `Delete payment term "${term.name}"?`,
       header: 'Confirm Delete',
       icon: 'pi pi-exclamation-triangle',
+      acceptButtonStyleClass: 'p-button-danger',
+      rejectButtonStyleClass: 'p-button-text',
       accept: () => {
         this.service.delete(term.id).subscribe({
           next: () => {

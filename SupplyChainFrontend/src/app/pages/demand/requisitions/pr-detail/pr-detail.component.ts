@@ -189,6 +189,7 @@ export class PrDetailComponent implements OnInit {
       message: 'Submit this requisition for approval?',
       header: 'Submit Requisition',
       icon: 'pi pi-send',
+      rejectButtonStyleClass: 'p-button-text',
       accept: () => {
         this.isActioning = true;
         this.demandService.submitPr(this.uuid).subscribe({
@@ -206,6 +207,8 @@ export class PrDetailComponent implements OnInit {
       message: 'Approve this requisition?',
       header: 'Approve Requisition',
       icon: 'pi pi-check-circle',
+      acceptButtonStyleClass: 'p-button-success',
+      rejectButtonStyleClass: 'p-button-text',
       accept: () => {
         this.isActioning = true;
         this.demandService.approvePr(this.uuid).subscribe({

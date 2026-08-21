@@ -578,7 +578,16 @@ export class QuotationDetailComponent implements OnInit, OnDestroy {
     this.isActioning = true;
     const req: AwardQuotationRequest = { vendorResponseUuid: responseUuid };
     this.demandService.awardQuotation(this.uuid, req).subscribe({
-      next: () => { this.isActioning = false; this.showComparisonDialog = false; this.messageService.add({ severity: 'success', summary: 'Awarded', detail: 'Quotation awarded.' }); this.load(); },
+      next: () => {
+        this.isActioning = false;
+        this.showComparisonDialog = false;
+        this.messageService.add({ severity: 'success', summary: 'Awarded', detail: 'Quotation awarded.' });
+        // Drop the pre-award comparison snapshot (still shows every response as PENDING) so
+        // openConvertToPoDialog()'s "reuse cached comparison" fast path doesn't find zero AWARDED
+        // rows and disable the dialog's Create PO button until a full page reload re-fetches it.
+        this.comparison = [];
+        this.load();
+      },
       error: (e) => { this.isActioning = false; this.messageService.add({ severity: 'error', summary: 'Error', detail: e?.error?.message ?? 'Award failed.' }); }
     });
   }

@@ -15,7 +15,7 @@ public interface IQuotationService
     Task OpenBidsAsync(Guid uuid, int openedBy);
     Task AwardAsync(Guid uuid, AwardQuotationRequest req, int awardedBy);
     Task CancelAsync(Guid uuid, string reason, int modifiedBy);
-    Task<SendWithLinkResult> SendWithLinkAsync(Guid uuid, SendWithLinkRequest req, int createdBy);
+    Task<SendWithLinkResult> SendWithLinkAsync(Guid uuid, SendWithLinkRequest req, int createdBy, string? requestOrigin = null);
     Task<List<RfqAccessLinkModel>> GetAccessLinksAsync(Guid quotationUuid);
     Task ResendLinkAsync(Guid quotationUuid, int linkId);
 }

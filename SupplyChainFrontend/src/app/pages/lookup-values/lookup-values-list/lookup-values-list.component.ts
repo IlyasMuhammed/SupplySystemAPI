@@ -51,6 +51,8 @@ export class LookupValuesListComponent implements OnInit {
       message: `Are you sure you want to delete "${(lookupValue as any).value}"?`,
       header: 'Confirm',
       icon: 'pi pi-exclamation-triangle',
+      acceptButtonStyleClass: 'p-button-danger',
+      rejectButtonStyleClass: 'p-button-text',
       accept: () => {
         this.deletingIds.add(lookupValue.id);
         this.lookupValuesService.deleteLookupValue(lookupValue.id).subscribe({

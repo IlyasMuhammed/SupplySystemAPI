@@ -489,6 +489,7 @@ export class GrnDetailComponent implements OnInit {
       header: 'Delete GRN',
       icon: 'pi pi-exclamation-triangle',
       acceptButtonStyleClass: 'p-button-danger',
+      rejectButtonStyleClass: 'p-button-text',
       accept: () => this.deleteGrn()
     });
   }
@@ -638,6 +639,15 @@ export class GrnDetailComponent implements OnInit {
   get canEdit():          boolean { return this.grn?.status === 'DRAFT'; }
   get canSubmit():        boolean { return this.grn?.status === 'DRAFT'; }
   get canQcConfirm():     boolean { return this.grn?.status === 'PENDING_QC'; }
+  // Any line still requiring inspection with no saved result (or a locally-edited-but-unsaved
+  // row) would otherwise get silently auto-passed at full received quantity by the backend's
+  // fallback — block the button so that can't happen from a forgotten "Save" click.
+  get hasUninspectedLines(): boolean {
+    if (!this.grn) return false;
+    const unsavedLine = this.grn.lines.some(l => l.requiresInspection && !l.inspectionResult);
+    const unsavedEdit = this.inspectionRows.some(r => r.isDirty);
+    return unsavedLine || unsavedEdit;
+  }
   get canQcReject():      boolean { return this.grn?.status === 'PENDING_QC'; }
   get canFinanceApprove():boolean { return this.grn?.status === 'PENDING_FINANCE'; }
   get canFinanceReject(): boolean { return this.grn?.status === 'PENDING_FINANCE'; }

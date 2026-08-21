@@ -297,6 +297,7 @@ export class StockAdjustmentsComponent implements OnInit {
       header: 'Confirm Approval',
       icon: 'pi pi-check-circle',
       acceptButtonStyleClass: 'p-button-success',
+      rejectButtonStyleClass: 'p-button-text',
       accept: () => {
         this.isActioning = true;
         this.inventoryService.approveAdjustment(uuid).subscribe({

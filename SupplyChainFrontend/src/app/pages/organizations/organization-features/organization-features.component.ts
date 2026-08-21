@@ -130,6 +130,7 @@ export class OrganizationFeaturesComponent implements OnInit {
       acceptLabel: 'Reset',
       acceptButtonStyleClass: 'p-button-danger',
       rejectLabel: 'Cancel',
+      rejectButtonStyleClass: 'p-button-text',
       accept: () => {
         this.isApplyingTemplate = true;
         this.orgsService.applyPlanTemplate(this.orgId).subscribe({

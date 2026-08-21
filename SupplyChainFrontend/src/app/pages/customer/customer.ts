@@ -391,6 +391,7 @@ export class CustomerComponent implements OnInit {
             acceptLabel: 'Delete',
             acceptButtonStyleClass: 'p-button-danger',
             rejectLabel: 'Cancel',
+            rejectButtonStyleClass: 'p-button-text',
             accept: () => {
                 this.userService.deleteUser(user.userID).subscribe({
                     next: (res) => {
@@ -417,6 +418,7 @@ export class CustomerComponent implements OnInit {
             acceptLabel: 'Reset',
             acceptButtonStyleClass: 'p-button-warning',
             rejectLabel: 'Cancel',
+            rejectButtonStyleClass: 'p-button-text',
             accept: () => {
                 this.resetForUser = user;
                 this.userService.resetPassword(user.userID).subscribe({

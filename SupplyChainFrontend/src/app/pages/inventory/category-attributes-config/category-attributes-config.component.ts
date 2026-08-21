@@ -284,6 +284,7 @@ export class CategoryAttributesConfigComponent implements OnInit {
       acceptLabel: 'Delete',
       acceptButtonStyleClass: 'p-button-danger',
       rejectLabel: 'Cancel',
+      rejectButtonStyleClass: 'p-button-text',
       accept: () => {
         this.inventoryService.deleteAttribute(item.uuid).subscribe({
           next: () => {

@@ -136,6 +136,7 @@ export class PoDetailComponent implements OnInit, OnDestroy {
       acceptLabel: 'Submit',
       rejectLabel: 'Cancel',
       acceptButtonStyleClass: 'p-button-primary',
+      rejectButtonStyleClass: 'p-button-text',
       accept: () => this.submitPo()
     });
   }
@@ -168,6 +169,7 @@ export class PoDetailComponent implements OnInit, OnDestroy {
       acceptLabel: 'Approve',
       rejectLabel: 'Cancel',
       acceptButtonStyleClass: 'p-button-success',
+      rejectButtonStyleClass: 'p-button-text',
       accept: () => this.approvePo()
     });
   }

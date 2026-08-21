@@ -398,6 +398,8 @@ export class WarehouseDetailComponent implements OnInit {
       message: `Deactivate ${label}? This cannot be undone unless re-activated via admin.`,
       header: 'Confirm Deactivation',
       icon: 'pi pi-exclamation-triangle',
+      acceptButtonStyleClass: 'p-button-danger',
+      rejectButtonStyleClass: 'p-button-text',
       accept: () => this.doDeactivate(level, id)
     });
   }

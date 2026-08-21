@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { ReactiveFormsModule, FormBuilder, FormGroup, FormArray, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
@@ -11,17 +11,20 @@ import { DropdownModule } from 'primeng/dropdown';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { DividerModule } from 'primeng/divider';
 import { CheckboxModule } from 'primeng/checkbox';
+import { TooltipModule } from 'primeng/tooltip';
 import { MessageService } from 'primeng/api';
 import { catchError, of } from 'rxjs';
 import {
   InventoryService,
   CategoryModel,
   CreateProductRequest,
+  CreateProductVariantRequest,
   PatchProductRequest,
   ProductVariantModel,
   VariantAttributeValueInput
 } from '../../../../services/inventory.service';
 import { SupplierService } from '../../../../services/supplier.service';
+import { AttachmentService } from '../../../../services/attachment.service';
 import { DynamicAttributeFormComponent } from '../../../../shared/dynamic-attribute-form/dynamic-attribute-form.component';
 
 // UOM options from FSD Section 6.5 — static, no API call needed
@@ -42,7 +45,7 @@ const UOM_OPTIONS = [
   imports: [
     CommonModule, ReactiveFormsModule,
     ButtonModule, InputTextModule, TextareaModule, CardModule, ToastModule,
-    DropdownModule, InputNumberModule, DividerModule, CheckboxModule,
+    DropdownModule, InputNumberModule, DividerModule, CheckboxModule, TooltipModule,
     DynamicAttributeFormComponent
   ],
   templateUrl: './product-create.component.html',
@@ -78,12 +81,19 @@ export class ProductCreateComponent implements OnInit {
   attributeValues: VariantAttributeValueInput[] = [];
   attributesValid = true;
 
+  // Product image — uploaded through the generic attachments endpoint (same pattern as the PO
+  // document template's logo upload). documentId only needs to exist long enough to correlate
+  // this upload with its resulting fileUrl; the product itself only ever stores the URL string.
+  private readonly imageUploadDocId = crypto.randomUUID();
+  isUploadingImage = false;
+
   constructor(
     private fb: FormBuilder,
     private route: ActivatedRoute,
     private router: Router,
     private inventoryService: InventoryService,
     private supplierService: SupplierService,
+    private attachmentService: AttachmentService,
     private messageService: MessageService
   ) {}
 
@@ -141,8 +151,36 @@ export class ProductCreateComponent implements OnInit {
       // Supplier & Notes
       preferredSupplierId: [null],
       notes:               [''],
-      imageUrl:            ['']
+      imageUrl:            [''],
+
+      // Additional variants (PV-001) — the Purchase Price/Selling Price/Barcode fields above
+      // become the default variant automatically; anything added here rides alongside it in the
+      // same create request, so a multi-SKU product (sizes, colors) never needs a second trip to
+      // the product-detail "Add Variant" screen just to get its first extra SKU in.
+      variants:            this.fb.array([])
     });
+  }
+
+  get variants(): FormArray { return this.productForm.get('variants') as FormArray; }
+
+  private newVariant(): FormGroup {
+    return this.fb.group({
+      variantName:   ['', [Validators.required, Validators.maxLength(200)]],
+      sku:           [''],
+      purchasePrice: [null, [Validators.required, Validators.min(0), Validators.max(100000000)]],
+      sellingPrice:  [null, [Validators.min(0), Validators.max(100000000)]],
+      barcode:       [''],
+      weight:        [null, Validators.min(0)],
+      reorderPoint:  [null, Validators.min(0)]
+    });
+  }
+
+  addVariant(): void {
+    this.variants.push(this.newVariant());
+  }
+
+  removeVariant(i: number): void {
+    this.variants.removeAt(i);
   }
 
   private loadSuppliers(): void {
@@ -179,6 +217,46 @@ export class ProductCreateComponent implements OnInit {
     this.subCategoryOptions = cat
       ? cat.subCategories.filter(s => s.isActive).map(s => ({ label: s.name, value: s.id }))
       : [];
+  }
+
+  // ── Product image ────────────────────────────────────────────────────────
+  onImageSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+
+    this.isUploadingImage = true;
+    this.attachmentService.upload(file, 'PRODUCT_IMAGE', this.imageUploadDocId).subscribe({
+      next: (res) => {
+        if (!res.success) {
+          this.isUploadingImage = false;
+          this.messageService.add({ severity: 'error', summary: 'Error', detail: res.message || 'Image upload failed.' });
+          return;
+        }
+        this.attachmentService.getAttachments('PRODUCT_IMAGE', this.imageUploadDocId).subscribe({
+          next: (listRes) => {
+            this.isUploadingImage = false;
+            const latest = (listRes.result ?? []).sort((a, b) =>
+              new Date(b.uploadedDate).getTime() - new Date(a.uploadedDate).getTime())[0];
+            if (latest) this.productForm.patchValue({ imageUrl: latest.fileUrl });
+          },
+          error: () => { this.isUploadingImage = false; }
+        });
+      },
+      error: () => {
+        this.isUploadingImage = false;
+        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Image upload failed.' });
+      }
+    });
+  }
+
+  removeImage(): void {
+    this.productForm.patchValue({ imageUrl: '' });
+  }
+
+  resolveImageUrl(url: string): string {
+    return this.attachmentService.resolveUrl(url);
   }
 
   private loadProduct(id: number): void {
@@ -292,6 +370,38 @@ export class ProductCreateComponent implements OnInit {
         }
       });
     } else {
+      // Additional variants added on this page ride alongside the default one — the backend
+      // treats "variants supplied" and "scalar purchasePrice" as mutually exclusive (explicit
+      // Variants[] wins entirely when present), so once there's at least one extra variant the
+      // top-level Purchase Price/Selling Price/Barcode fields get folded into variant #1
+      // (isDefault=true) instead of being sent as scalars.
+      const extraVariants = this.variants.value as Array<{
+        variantName: string; sku: string; purchasePrice: number; sellingPrice: number | null;
+        barcode: string; weight: number | null; reorderPoint: number | null;
+      }>;
+      const variantsPayload: CreateProductVariantRequest[] | undefined = extraVariants.length > 0
+        ? [
+            {
+              variantName:   raw.name,
+              sku:           raw.sku || undefined,
+              purchasePrice: raw.purchasePrice,
+              sellingPrice:  raw.sellingPrice ?? undefined,
+              barcode:       raw.barcode || undefined,
+              isDefault:     true
+            },
+            ...extraVariants.map(v => ({
+              variantName:   v.variantName,
+              sku:           v.sku || undefined,
+              purchasePrice: v.purchasePrice,
+              sellingPrice:  v.sellingPrice ?? undefined,
+              barcode:       v.barcode || undefined,
+              weight:        v.weight ?? undefined,
+              reorderPoint:  v.reorderPoint ?? undefined,
+              isDefault:     false
+            }))
+          ]
+        : undefined;
+
       const payload: CreateProductRequest = {
         name:                raw.name,
         sku:                 raw.sku                 || undefined,
@@ -301,9 +411,10 @@ export class ProductCreateComponent implements OnInit {
         subCategoryId:       raw.subCategoryId       ?? undefined,
         brand:               raw.brand               || undefined,
         uomCode:             raw.uomCode             ?? undefined,
-        purchasePrice:       raw.purchasePrice        ?? undefined,
-        sellingPrice:        raw.sellingPrice         ?? undefined,
-        barcode:             raw.barcode             || undefined,
+        purchasePrice:       variantsPayload ? undefined : (raw.purchasePrice ?? undefined),
+        sellingPrice:        variantsPayload ? undefined : (raw.sellingPrice  ?? undefined),
+        barcode:             variantsPayload ? undefined : (raw.barcode      || undefined),
+        variants:            variantsPayload,
         weightKg:            raw.weightKg            ?? undefined,
         dimensions:          raw.dimensions          || undefined,
         shelfLifeDays:       raw.shelfLifeDays       ?? undefined,

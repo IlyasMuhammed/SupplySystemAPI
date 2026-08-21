@@ -71,6 +71,8 @@ export class CountriesListComponent implements OnInit {
       message: `Are you sure you want to delete ${country.name}?`,
       header: 'Confirm Delete',
       icon: 'pi pi-exclamation-triangle',
+      acceptButtonStyleClass: 'p-button-danger',
+      rejectButtonStyleClass: 'p-button-text',
       accept: () => {
         this.countriesService.deleteCountry(country.id).subscribe({
           next: () => {

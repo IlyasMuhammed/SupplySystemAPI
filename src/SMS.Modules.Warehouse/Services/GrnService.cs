@@ -81,8 +81,29 @@ internal sealed class GrnService : IGrnService
 
     // QC confirm: advances the current GRN_QC workflow step.
     // When the final QC step is approved, GrnQcStatusHandler auto-submits to the GRN approval workflow.
-    public Task QcConfirmAsync(Guid grnUuid, QcConfirmRequest req, int confirmedBy) =>
-        _workflow.ApproveByDocumentAsync("GRN_QC", grnUuid, confirmedBy, req.QcNotes);
+    //
+    // Blocks up front if any line still requiring inspection has no recorded result. Without this,
+    // GrnQcStatusHandler's own fallback (any line with InspectionResult == null gets silently
+    // stamped QtyAccepted = QtyReceived / "Pass") would auto-accept a line the inspector typed a
+    // rejection into on screen but never actually saved via "Save" on that row — the goods look
+    // fully accepted, and the auto-generated invoice bills the supplier for the full quantity
+    // instead of only what QC actually passed.
+    public async Task QcConfirmAsync(Guid grnUuid, QcConfirmRequest req, int confirmedBy)
+    {
+        var grn = await _repo.GetByIdAsync(grnUuid)
+            ?? throw new NotFoundException("GRN", grnUuid);
+
+        var uninspected = grn.Lines
+            .Where(l => l.RequiresInspection && string.IsNullOrEmpty(l.InspectionResult))
+            .ToList();
+        if (uninspected.Count > 0)
+            throw new UnprocessableEntityException(
+                "Cannot confirm QC — inspection has not been saved for: " +
+                string.Join(", ", uninspected.Select(l => l.ItemDescription)) +
+                ". Record and save the inspection result for each line before confirming.");
+
+        await _workflow.ApproveByDocumentAsync("GRN_QC", grnUuid, confirmedBy, req.QcNotes);
+    }
 
     // QC reject: rejects the GRN_QC workflow, which sets GRN status to REJECTED.
     public Task QcRejectAsync(Guid grnUuid, QcRejectRequest req, int rejectedBy) =>

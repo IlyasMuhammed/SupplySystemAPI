@@ -272,6 +272,7 @@ export class RolesComponent implements OnInit {
       acceptLabel: 'Deactivate',
       acceptButtonStyleClass: 'p-button-warning',
       rejectLabel: 'Cancel',
+      rejectButtonStyleClass: 'p-button-text',
       accept: () => this.doDeactivate(role)
     });
   }

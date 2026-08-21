@@ -217,6 +217,7 @@ export class OrganizationsListComponent implements OnInit {
       acceptLabel: 'Activate',
       acceptButtonStyleClass: 'p-button-success',
       rejectLabel: 'Cancel',
+      rejectButtonStyleClass: 'p-button-text',
       accept: () => {
         this.service.patchStatus(org.id, true).subscribe({
           next: () => {
@@ -239,6 +240,7 @@ export class OrganizationsListComponent implements OnInit {
       acceptLabel: 'Deactivate',
       acceptButtonStyleClass: 'p-button-danger',
       rejectLabel: 'Cancel',
+      rejectButtonStyleClass: 'p-button-text',
       accept: () => {
         this.service.deactivate(org.id).subscribe({
           next: () => {

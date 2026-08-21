@@ -48,8 +48,8 @@
 
         <!-- PENDING_QC: QC Confirm + QC Reject -->
         <p-button *ngIf="canQcConfirm" label="QC Confirm" icon="pi pi-check-circle"
-                  severity="success"
-                  pTooltip="Goods passed quality inspection"
+                  severity="success" [disabled]="hasUninspectedLines"
+                  [pTooltip]="hasUninspectedLines ? 'Save the inspection result for every line before confirming QC' : 'Goods passed quality inspection'"
                   (onClick)="openQcConfirmDialog()"></p-button>
         <p-button *ngIf="canQcReject" label="QC Reject" icon="pi pi-times-circle"
                   severity="danger"

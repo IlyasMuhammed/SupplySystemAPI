@@ -1,5 +1,5 @@
 export const environment = {
   production: true,
-  apiUrl: ' https://localhost:52800/api',
-  apiOrigin: ' https://localhost:52800'
+  apiUrl: 'https://supplychainapi-h8gwc6cnbbg7gtb9.southeastasia-01.azurewebsites.net/api',
+  apiOrigin: 'https://supplychainapi-h8gwc6cnbbg7gtb9.southeastasia-01.azurewebsites.net'
 };

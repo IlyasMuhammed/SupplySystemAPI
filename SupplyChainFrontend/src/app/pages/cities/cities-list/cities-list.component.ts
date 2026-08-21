@@ -68,6 +68,8 @@ export class CitiesListComponent implements OnInit {
       message: `Are you sure you want to delete ${city.name}?`,
       header: 'Confirm Delete',
       icon: 'pi pi-exclamation-triangle',
+      acceptButtonStyleClass: 'p-button-danger',
+      rejectButtonStyleClass: 'p-button-text',
       accept: () => {
         this.citiesService.deleteCity(city.id).subscribe({
           next: () => {

@@ -122,6 +122,8 @@ export class ProjectDetailComponent implements OnInit {
       message: 'Are you sure you want to delete this project?',
       header: 'Confirm Delete',
       icon: 'pi pi-exclamation-triangle',
+      acceptButtonStyleClass: 'p-button-danger',
+      rejectButtonStyleClass: 'p-button-text',
       accept: () => {
         this.materialService.deleteProject(this.uuid).subscribe({
           next: () => {

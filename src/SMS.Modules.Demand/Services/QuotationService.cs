@@ -107,8 +107,14 @@ internal sealed class QuotationService : IQuotationService
         _repo.CancelAsync(uuid, reason, modifiedBy);
 
     public async Task<SendWithLinkResult> SendWithLinkAsync(
-        Guid uuid, SendWithLinkRequest req, int createdBy)
+        Guid uuid, SendWithLinkRequest req, int createdBy, string? requestOrigin = null)
     {
+        // Prefer the Origin the admin's own browser was actually running on when they clicked
+        // Send — that's always right, even across environments (dev/staging/prod/custom domain),
+        // unlike AppSettings:BaseUrl which has to be manually kept in sync and silently goes
+        // stale (the exact bug this replaces — RFQ emails linking back to localhost in prod).
+        var baseUrl = !string.IsNullOrWhiteSpace(requestOrigin) ? requestOrigin.TrimEnd('/') : _portalBase;
+
         var (quotationId, dueDate) = await _repo.SendWithLinkAsync(uuid, req, createdBy);
 
         var links           = new List<GeneratedLinkModel>();
@@ -119,9 +125,9 @@ internal sealed class QuotationService : IQuotationService
         {
             var (rawToken, linkId, expiresAt) = await _tokenSvc.GenerateTokenAsync(
                 quotationId, pair.SupplierId, pair.ContactId, dueDate, createdBy,
-                pair.SupplierEmail, _portalBase, pair.ContactMobileNumber);
+                pair.SupplierEmail, baseUrl, pair.ContactMobileNumber);
 
-            var linkUrl = $"{_portalBase}/supplier-portal/rfq/{rawToken}";
+            var linkUrl = $"{baseUrl}/supplier-portal/rfq/{rawToken}";
 
             try
             {

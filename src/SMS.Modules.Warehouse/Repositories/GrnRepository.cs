@@ -335,6 +335,14 @@ internal sealed class GrnRepository : IGrnRepository
         line.InspectedBy      = inspectedBy;
         line.InspectedAt      = DateTime.UtcNow;
 
+        // HasVariance was only ever set at receiving time (QtyReceived vs QtyOrdered) and never
+        // recomputed here — a line received exactly as ordered but then partially/fully rejected
+        // at QC showed no variance at all, even though the accepted quantity now genuinely differs
+        // from what was ordered. A rejection is a variance in its own right, independent of the
+        // receiving-time percentage threshold.
+        line.HasVariance = rejected > 0 ||
+            (line.QtyOrdered > 0 && Math.Abs(line.QtyReceived - line.QtyOrdered) / line.QtyOrdered > VarianceThreshold);
+
         // Transition InspectionCompletedAt when the last uninspected line is recorded
         var allInspected = grn.Lines.All(l => l.InspectionResult is not null);
         if (allInspected && grn.InspectionCompletedAt is null)
