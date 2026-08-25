@@ -142,8 +142,8 @@
     margin-bottom: .4rem; cursor: pointer;
 
     i { font-size: .82rem; color: #6c63ff; flex-shrink: 0; }
-    span { flex: 1; }
-    .pr-arrow { margin-left: auto; color: #a78bfa; font-size: .72rem; }
+    span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pr-arrow { margin-left: auto; color: #a78bfa; font-size: .72rem; flex-shrink: 0; }
 
     &:last-child { margin-bottom: 0; }
     &:hover {
@@ -300,6 +300,11 @@
   }
 
   // Item description
+  .line-desc-row { display: flex; align-items: center; gap: .6rem; }
+  .line-thumb {
+    width: 34px; height: 34px; object-fit: cover; border-radius: 7px;
+    border: 1px solid #e5e7eb; flex-shrink: 0;
+  }
   .line-desc { font-weight: 600; color: #0f172a; }
   .line-spec { font-size: .75rem; color: #94a3b8; margin-top: .15rem; }
 

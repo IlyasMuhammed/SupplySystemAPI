@@ -252,6 +252,7 @@ export interface GrnLineModel {
   variantSku?: string;
   variantName?: string;
   productName?: string;
+  productImageUrl?: string;
   lineNo: number;
   itemDescription: string;
   unitOfMeasure?: string;

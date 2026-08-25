@@ -304,6 +304,12 @@
 
 // Core dialog shell
 .p-confirmdialog {
+  // Applies to every confirm dialog app-wide (Submit for Approval on PO/PR, Delete/Deactivate
+  // confirms, etc.) — without this, PrimeNG auto-sizes the dialog to its message length, so a
+  // short confirm (PO's "Submit PO ... for approval?") renders visibly smaller than a longer one
+  // on another page even though they're the same kind of action. This keeps every confirm dialog
+  // at least as wide as that PO reference size, regardless of message length.
+  min-width: 420px !important;
   border-radius: 20px !important;
   box-shadow: 0 24px 80px rgba(0, 0, 0, .18) !important;
   border: none !important;

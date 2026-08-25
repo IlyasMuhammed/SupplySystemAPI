@@ -2,9 +2,12 @@
   <p-toast></p-toast>
 
   <div class="page-header">
-    <div>
-      <h1 class="page-title"><i class="pi pi-sitemap"></i> Master Product Ledger</h1>
-      <p class="page-subtitle">Organization-wide product movement history with source &amp; destination visibility</p>
+    <div class="header-left">
+      <div class="header-icon"><i class="pi pi-sitemap"></i></div>
+      <div>
+        <h1 class="page-title">Master Product Ledger</h1>
+        <p class="page-subtitle">Organization-wide product movement history with source &amp; destination visibility</p>
+      </div>
     </div>
     <div class="header-actions">
       <p-button label="Export PDF" icon="pi pi-file-pdf" severity="secondary" [outlined]="true"
@@ -16,59 +19,93 @@
 
   <!-- ── Summary cards ────────────────────────────────────────────────────── -->
   <div class="summary-grid" *ngIf="summary">
-    <div class="summary-card">
-      <span class="summary-label">Total Receipts (Qty In)</span>
-      <span class="summary-value summary-in">{{ summary.totalReceiptsQty | number:'1.2-2' }}</span>
+    <div class="summary-card in">
+      <div class="summary-icon"><i class="pi pi-arrow-down-left"></i></div>
+      <div class="summary-content">
+        <span class="summary-value">{{ summary.totalReceiptsQty | number:'1.2-2' }}</span>
+        <span class="summary-label">Total Receipts (Qty In)</span>
+      </div>
     </div>
-    <div class="summary-card">
-      <span class="summary-label">Total Issues (Qty Out)</span>
-      <span class="summary-value summary-out">{{ summary.totalIssuesQty | number:'1.2-2' }}</span>
+    <div class="summary-card out">
+      <div class="summary-icon"><i class="pi pi-arrow-up-right"></i></div>
+      <div class="summary-content">
+        <span class="summary-value">{{ summary.totalIssuesQty | number:'1.2-2' }}</span>
+        <span class="summary-label">Total Issues (Qty Out)</span>
+      </div>
     </div>
-    <div class="summary-card">
-      <span class="summary-label">Net Movement</span>
-      <span class="summary-value">{{ summary.netMovement | number:'1.2-2' }}</span>
+    <div class="summary-card net">
+      <div class="summary-icon"><i class="pi pi-sync"></i></div>
+      <div class="summary-content">
+        <span class="summary-value">{{ summary.netMovement | number:'1.2-2' }}</span>
+        <span class="summary-label">Net Movement</span>
+      </div>
     </div>
-    <div class="summary-card">
-      <span class="summary-label">Total Value Moved</span>
-      <span class="summary-value">{{ summary.totalValueMoved | number:'1.2-2' }}</span>
+    <div class="summary-card value">
+      <div class="summary-icon"><i class="pi pi-wallet"></i></div>
+      <div class="summary-content">
+        <span class="summary-value">{{ summary.totalValueMoved | number:'1.2-2' }}</span>
+        <span class="summary-label">Total Value Moved</span>
+      </div>
     </div>
   </div>
 
-  <!-- ── Filter bar ───────────────────────────────────────────────────────── -->
-  <div class="filter-bar">
-    <p-calendar [(ngModel)]="dateFrom" placeholder="From" dateFormat="dd/mm/yy"
-                [showIcon]="true" [showClear]="true" appendTo="body"></p-calendar>
-    <p-calendar [(ngModel)]="dateTo" placeholder="To" dateFormat="dd/mm/yy"
-                [showIcon]="true" [showClear]="true" appendTo="body"></p-calendar>
+  <!-- ── Filter panel ─────────────────────────────────────────────────────── -->
+  <div class="filter-panel">
+    <div class="filter-grid">
+      <div class="filter-field">
+        <label>From</label>
+        <p-calendar [(ngModel)]="dateFrom" placeholder="Any date" dateFormat="dd/mm/yy"
+                    [showIcon]="true" [showClear]="true" appendTo="body" styleClass="w-full"></p-calendar>
+      </div>
+      <div class="filter-field">
+        <label>To</label>
+        <p-calendar [(ngModel)]="dateTo" placeholder="Any date" dateFormat="dd/mm/yy"
+                    [showIcon]="true" [showClear]="true" appendTo="body" styleClass="w-full"></p-calendar>
+      </div>
+      <div class="filter-field">
+        <label>Product / Variant</label>
+        <app-product-variant-picker
+          [products]="products"
+          (selectionChange)="onVariantSelected($event)">
+        </app-product-variant-picker>
+      </div>
+      <div class="filter-field">
+        <label>Category</label>
+        <p-dropdown [options]="categories" [(ngModel)]="selectedCategoryId" optionLabel="name" optionValue="id"
+                    placeholder="All categories" [showClear]="true" appendTo="body" styleClass="w-full"></p-dropdown>
+      </div>
+      <div class="filter-field">
+        <label>Warehouse</label>
+        <p-dropdown [options]="warehouses" [(ngModel)]="selectedWarehouseId" optionLabel="name" optionValue="id"
+                    placeholder="All warehouses" [showClear]="true" appendTo="body" styleClass="w-full"></p-dropdown>
+      </div>
+      <div class="filter-field">
+        <label>Transaction Type</label>
+        <p-dropdown [options]="transactionTypeOptions" [(ngModel)]="selectedTransactionType"
+                    optionLabel="label" optionValue="value" placeholder="All types"
+                    [showClear]="true" appendTo="body" styleClass="w-full"></p-dropdown>
+      </div>
+      <div class="filter-field">
+        <label>Source Type</label>
+        <p-dropdown [options]="partyTypeOptions" [(ngModel)]="selectedSourceType"
+                    optionLabel="label" optionValue="value" placeholder="Any source"
+                    [showClear]="true" appendTo="body" styleClass="w-full"></p-dropdown>
+      </div>
+      <div class="filter-field">
+        <label>Destination Type</label>
+        <p-dropdown [options]="partyTypeOptions" [(ngModel)]="selectedDestinationType"
+                    optionLabel="label" optionValue="value" placeholder="Any destination"
+                    [showClear]="true" appendTo="body" styleClass="w-full"></p-dropdown>
+      </div>
+    </div>
 
-    <app-product-variant-picker
-      [products]="products"
-      (selectionChange)="onVariantSelected($event)">
-    </app-product-variant-picker>
-
-    <p-dropdown [options]="categories" [(ngModel)]="selectedCategoryId" optionLabel="name" optionValue="id"
-                placeholder="Category" [showClear]="true" appendTo="body" styleClass="filter-dropdown"></p-dropdown>
-
-    <p-dropdown [options]="warehouses" [(ngModel)]="selectedWarehouseId" optionLabel="name" optionValue="id"
-                placeholder="Warehouse" [showClear]="true" appendTo="body" styleClass="filter-dropdown"></p-dropdown>
-
-    <p-dropdown [options]="transactionTypeOptions" [(ngModel)]="selectedTransactionType"
-                optionLabel="label" optionValue="value" placeholder="Transaction Type"
-                [showClear]="true" appendTo="body" styleClass="filter-dropdown"></p-dropdown>
-
-    <p-dropdown [options]="partyTypeOptions" [(ngModel)]="selectedSourceType"
-                optionLabel="label" optionValue="value" placeholder="Source Type"
-                [showClear]="true" appendTo="body" styleClass="filter-dropdown"></p-dropdown>
-
-    <p-dropdown [options]="partyTypeOptions" [(ngModel)]="selectedDestinationType"
-                optionLabel="label" optionValue="value" placeholder="Destination Type"
-                [showClear]="true" appendTo="body" styleClass="filter-dropdown"></p-dropdown>
-
-    <p-button label="Apply" icon="pi pi-search" size="small" (onClick)="applyFilters()"></p-button>
-    <p-button icon="pi pi-refresh" [text]="true" severity="secondary" pTooltip="Reset filters" (onClick)="resetFilters()"></p-button>
-
-    <p-button *ngIf="canViewJourney" label="View Journey" icon="pi pi-history"
-              severity="secondary" [outlined]="true" size="small" (onClick)="viewJourney()"></p-button>
+    <div class="filter-actions">
+      <p-button *ngIf="canViewJourney" label="View Journey" icon="pi pi-history"
+                severity="secondary" [outlined]="true" size="small" (onClick)="viewJourney()"></p-button>
+      <p-button label="Reset" icon="pi pi-refresh" [text]="true" severity="secondary" size="small"
+                (onClick)="resetFilters()"></p-button>
+      <p-button label="Apply Filters" icon="pi pi-search" size="small" (onClick)="applyFilters()"></p-button>
+    </div>
   </div>
 
   <!-- ── Ledger table ─────────────────────────────────────────────────────── -->
@@ -77,49 +114,65 @@
              [totalRecords]="totalRecords" [rows]="pageSize"
              (onLazyLoad)="onPageChange($event)"
              [paginator]="true" [rowsPerPageOptions]="[20,50,100]"
-             [tableStyle]="{'min-width':'90rem'}">
+             [tableStyle]="{'min-width':'62rem'}">
       <ng-template pTemplate="header">
         <tr>
           <th>Date</th>
           <th>Product</th>
-          <th>SKU</th>
-          <th>Category</th>
-          <th>Transaction Type</th>
-          <th class="text-right">Qty In</th>
-          <th class="text-right">Qty Out</th>
-          <th class="text-right">Unit Cost</th>
-          <th class="text-right">Total Value</th>
-          <th>Source</th>
-          <th>Destination</th>
-          <th>Reference No</th>
+          <th>Type</th>
+          <th class="text-right">Quantity</th>
+          <th>Movement</th>
           <th>Warehouse</th>
+          <th>Reference</th>
+          <th class="text-right">Value</th>
         </tr>
       </ng-template>
       <ng-template pTemplate="body" let-e>
         <tr>
-          <td>{{ e.transactionDate | date:'dd MMM yyyy, HH:mm' }}</td>
-          <td>
-            {{ e.productName }}
-            <span *ngIf="e.variantName" class="text-secondary"> ({{ e.variantName }})</span>
+          <td class="date-cell">
+            {{ e.transactionDate | date:'dd MMM yyyy' }}
+            <small>{{ e.transactionDate | date:'HH:mm' }}</small>
           </td>
-          <td><span class="mono">{{ e.sku ?? e.productCode ?? '—' }}</span></td>
-          <td>{{ e.categoryName || '—' }}</td>
+          <td>
+            <div class="product-cell">
+              <span class="product-name">
+                {{ e.productName }}
+                <span *ngIf="e.variantName" class="text-secondary"> ({{ e.variantName }})</span>
+              </span>
+              <span class="mono sku-chip">{{ e.sku ?? e.productCode ?? '—' }}</span>
+            </div>
+          </td>
           <td><p-tag [value]="getTypeLabel(e.transactionType)" [severity]="getTypeSeverity(e.transactionType)"></p-tag></td>
-          <td class="text-right">{{ e.quantityIn ? (e.quantityIn | number:'1.2-2') : '—' }}</td>
-          <td class="text-right">{{ e.quantityOut ? (e.quantityOut | number:'1.2-2') : '—' }}</td>
-          <td class="text-right">{{ e.unitCost | number:'1.2-2' }}</td>
-          <td class="text-right font-semibold">{{ e.totalValue | number:'1.2-2' }}</td>
-          <td><span class="party-cell">{{ e.sourceType }}<small>{{ e.sourceName }}</small></span></td>
-          <td><span class="party-cell">{{ e.destinationType }}<small>{{ e.destinationName }}</small></span></td>
+          <td class="text-right">
+            <span class="qty-value" [class.qty-in]="e.quantityIn" [class.qty-out]="e.quantityOut">
+              <ng-container *ngIf="e.quantityIn">+{{ e.quantityIn | number:'1.2-2' }}</ng-container>
+              <ng-container *ngIf="!e.quantityIn && e.quantityOut">-{{ e.quantityOut | number:'1.2-2' }}</ng-container>
+              <ng-container *ngIf="!e.quantityIn && !e.quantityOut">—</ng-container>
+            </span>
+          </td>
+          <td>
+            <span class="movement-cell">
+              <span class="movement-types">{{ e.sourceType }} <i class="pi pi-arrow-right"></i> {{ e.destinationType }}</span>
+              <small *ngIf="e.sourceName || e.destinationName">
+                {{ e.sourceName || '—' }} <i class="pi pi-arrow-right"></i> {{ e.destinationName || '—' }}
+              </small>
+            </span>
+          </td>
+          <td>{{ e.warehouseName }}</td>
           <td>
             <a *ngIf="canDrillDownReference(e)" class="ref-link" (click)="drillDownReference(e)">{{ e.referenceNumber }}</a>
             <span *ngIf="!canDrillDownReference(e)">{{ e.referenceNumber }}</span>
           </td>
-          <td>{{ e.warehouseName }}</td>
+          <td class="text-right">
+            <span class="value-cell">
+              <span class="font-semibold">{{ e.totalValue | number:'1.2-2' }}</span>
+              <small>&#64;{{ e.unitCost | number:'1.2-2' }}/unit</small>
+            </span>
+          </td>
         </tr>
       </ng-template>
       <ng-template pTemplate="emptymessage">
-        <tr><td colspan="13" class="text-center text-secondary" style="padding:3rem">No ledger entries found.</td></tr>
+        <tr><td colspan="8" class="text-center text-secondary" style="padding:3rem">No ledger entries found.</td></tr>
       </ng-template>
     </p-table>
   </div>

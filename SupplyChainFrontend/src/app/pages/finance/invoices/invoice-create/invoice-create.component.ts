@@ -112,7 +112,7 @@ export class InvoiceCreateComponent implements OnInit {
   ) {}
 
   ngOnInit() {
-    this.supplierService.getSuppliers({ pageSize: 200 }).subscribe(res => {
+    this.supplierService.getSuppliers({ status: 'ACTIVE', pageSize: 200 }).subscribe(res => {
       if (res.success && res.result)
         this.supplierOptions = res.result.data.map(s => ({ label: s.supplierName, value: s.uuid }));
     });

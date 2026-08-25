@@ -24,6 +24,7 @@ import { ReportsService, AuditLogItemModel } from '../../../../services/reports.
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { TimelinePanelComponent } from '../../../../shared/timeline-panel/timeline-panel.component';
 import { AttachmentListComponent } from '../../../../shared/attachment-list/attachment-list.component';
+import { AttachmentService } from '../../../../services/attachment.service';
 import { ProductVariantPickerComponent, VariantPickerSelection } from '../../../../shared/product-variant-picker/product-variant-picker.component';
 
 export interface InspectionRowState {
@@ -152,8 +153,13 @@ export class GrnDetailComponent implements OnInit {
     private reportsService: ReportsService,
     private messageService: MessageService,
     private confirmationService: ConfirmationService,
-    private fb: FormBuilder
+    private fb: FormBuilder,
+    private attachmentService: AttachmentService
   ) {}
+
+  resolveImageUrl(url: string): string {
+    return this.attachmentService.resolveUrl(url);
+  }
 
   ngOnInit() {
     this.inventoryService.getWarehouses().subscribe({

@@ -469,6 +469,16 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
         var variantInfo = await ResolveVariantDisplayInfoAsync(
             po.Lines.Where(l => l.VariantUuid.HasValue).Select(l => l.VariantUuid!.Value));
 
+        // PurchaseOrderPrLink stores only the PR's UUID (no FK), so its number/title has to be
+        // batch-resolved separately rather than left for the caller to fake from array position.
+        var prUuids = po.PrLinks.Select(l => l.PrUuid).ToList();
+        var prInfo = prUuids.Count == 0
+            ? new Dictionary<Guid, (string PrNumber, string PrTitle)>()
+            : await _db.PurchaseRequisitions
+                .Where(pr => prUuids.Contains(pr.UUID))
+                .Select(pr => new { pr.UUID, pr.PrNumber, pr.PrTitle })
+                .ToDictionaryAsync(x => x.UUID, x => (x.PrNumber, x.PrTitle));
+
         return new PoDetailModel
         {
             UUID                  = po.UUID,
@@ -487,7 +497,11 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
             InternalNotes         = po.InternalNotes,
             CreatedBy             = po.CreatedBy,
             CreatedDate           = po.CreatedDate,
-            LinkedPrUuids         = po.PrLinks.Select(l => l.PrUuid).ToList(),
+            LinkedPrUuids         = po.PrLinks.Select(l =>
+            {
+                var info = prInfo.TryGetValue(l.PrUuid, out var found) ? found : (PrNumber: string.Empty, PrTitle: string.Empty);
+                return new LinkedPrModel { Uuid = l.PrUuid, PrNumber = info.PrNumber, PrTitle = info.PrTitle };
+            }).ToList(),
             Lines = po.Lines.Select(l =>
             {
                 var vi = l.VariantUuid.HasValue && variantInfo.TryGetValue(l.VariantUuid.Value, out var info) ? info : null;
@@ -501,6 +515,7 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
                     VariantSku            = vi?.Sku,
                     VariantName           = vi?.VariantName,
                     ProductName           = vi?.ProductName,
+                    ProductImageUrl       = vi?.ImageUrl,
                     ItemDescription       = l.ItemDescription,
                     Specification         = l.Specification,
                     UnitOfMeasure         = l.UnitOfMeasure,
@@ -605,7 +620,7 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
         return requestedUnitPrice;
     }
 
-    private sealed record VariantDisplayInfo(string Sku, string VariantName, string ProductName, Guid ProductUuid);
+    private sealed record VariantDisplayInfo(string Sku, string VariantName, string ProductName, Guid ProductUuid, string? ImageUrl);
 
     private async Task<Dictionary<Guid, VariantDisplayInfo>> ResolveVariantDisplayInfoAsync(IEnumerable<Guid> variantUuids)
     {
@@ -614,10 +629,10 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
 
         var rows = await _inv.ProductVariants
             .Where(v => ids.Contains(v.Uuid))
-            .Select(v => new { v.Uuid, v.Sku, v.VariantName, ProductName = v.Product.Name, ProductUuid = v.Product.Uuid })
+            .Select(v => new { v.Uuid, v.Sku, v.VariantName, ProductName = v.Product.Name, ProductUuid = v.Product.Uuid, ImageUrl = v.Product.ImageUrl })
             .ToListAsync();
 
-        return rows.ToDictionary(r => r.Uuid, r => new VariantDisplayInfo(r.Sku, r.VariantName, r.ProductName, r.ProductUuid));
+        return rows.ToDictionary(r => r.Uuid, r => new VariantDisplayInfo(r.Sku, r.VariantName, r.ProductName, r.ProductUuid, r.ImageUrl));
     }
 
     private static void ValidateQuotationRequirements(IEnumerable<PrLine> lines)

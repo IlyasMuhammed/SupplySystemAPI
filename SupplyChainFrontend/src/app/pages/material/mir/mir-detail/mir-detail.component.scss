@@ -1,5 +1,11 @@
 .mir-detail-page { padding: 1.5rem; }
 
+.line-desc-row { display: flex; align-items: center; gap: .6rem; }
+.line-thumb {
+  width: 34px; height: 34px; object-fit: cover; border-radius: 7px;
+  border: 1px solid #e5e7eb; flex-shrink: 0;
+}
+
 .page-header {
   display: flex; align-items: center; justify-content: space-between;
   background: var(--surface-card); border-radius: 12px;

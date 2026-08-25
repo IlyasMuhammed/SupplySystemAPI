@@ -171,4 +171,75 @@
     .attachment-meta, .attachment-notes { padding-left: 2.1rem; }
     .attachment-upload-btn { padding: .45rem; font-size: .78rem; }
   }
+
+  // ── Single-line mode ──────────────────────────────────────────────────────
+  .attachment-inline-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .5rem;
+  }
+
+  .attachment-inline-label {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    font-size: .82rem;
+    font-weight: 600;
+    color: #64748b;
+    flex-shrink: 0;
+
+    i { color: #6c63ff; font-size: .78rem; }
+  }
+
+  .attachment-inline-loading { color: #6c63ff; font-size: .8rem; }
+
+  .attachment-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    padding: .3rem .6rem;
+    border-radius: 999px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    font-size: .78rem;
+    max-width: 220px;
+  }
+
+  .attachment-chip-name {
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    color: #374151;
+    text-decoration: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+
+    i { color: #6c63ff; font-size: .72rem; flex-shrink: 0; }
+    &:hover { color: #6c63ff; text-decoration: underline; }
+  }
+
+  .attachment-chip-remove {
+    color: #cbd5e1;
+    font-size: .68rem;
+    cursor: pointer;
+    flex-shrink: 0;
+
+    &:hover { color: #ef4444; }
+  }
+
+  .attachment-chip--add {
+    border: 1.5px dashed #c4b5fd;
+    background: transparent;
+    color: #6c63ff;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+
+    &:hover { background: #f5f3ff; border-color: #6c63ff; }
+    &.uploading { opacity: .7; pointer-events: none; }
+    i { font-size: .74rem; }
+  }
 }

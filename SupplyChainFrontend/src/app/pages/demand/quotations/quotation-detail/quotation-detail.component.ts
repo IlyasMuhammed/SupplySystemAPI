@@ -38,6 +38,7 @@ import {
 } from '../../../../services/supplier.service';
 import { TimelinePanelComponent } from '../../../../shared/timeline-panel/timeline-panel.component';
 import { AttachmentListComponent } from '../../../../shared/attachment-list/attachment-list.component';
+import { AttachmentService } from '../../../../services/attachment.service';
 
 interface SendSupplierRow {
   supplierId: string;
@@ -144,8 +145,14 @@ export class QuotationDetailComponent implements OnInit, OnDestroy {
     private router: Router,
     private demandService: DemandService,
     private supplierService: SupplierService,
-    private messageService: MessageService
+    private messageService: MessageService,
+    private attachmentService: AttachmentService,
+    private confirmationService: ConfirmationService
   ) {}
+
+  resolveImageUrl(url: string): string {
+    return this.attachmentService.resolveUrl(url);
+  }
 
   ngOnInit() {
     this.route.params.subscribe(p => { this.uuid = p['uuid']; this.load(); });
@@ -553,6 +560,57 @@ export class QuotationDetailComponent implements OnInit, OnDestroy {
     return days.length ? days.reduce((s, d) => s + d, 0) / days.length : Number.MAX_SAFE_INTEGER;
   }
 
+  // Rounded average lead time for display — '—' when the supplier gave no lead times at all.
+  avgLeadTimeFor(r: VendorResponseModel): number | null {
+    const avg = this.avgLeadDays(r);
+    return avg === Number.MAX_SAFE_INTEGER ? null : Math.round(avg);
+  }
+
+  // How many of the quotation's line items this supplier can actually supply — the single most
+  // decision-relevant fact after price, and previously only visible by scanning every cell.
+  coverageFor(r: VendorResponseModel): { supplied: number; total: number } {
+    const total = this.comparisonLines.length;
+    const supplied = this.comparisonLines.filter(line => this.cellFor(r, line.uuid)?.canSupply).length;
+    return { supplied, total };
+  }
+
+  hasFullCoverage(r: VendorResponseModel): boolean {
+    const { supplied, total } = this.coverageFor(r);
+    return total > 0 && supplied === total;
+  }
+
+  get fastestAvgLeadTime(): number | null {
+    if (!this.comparison.length) return null;
+    const times = this.comparison.map(r => this.avgLeadDays(r)).filter(d => d !== Number.MAX_SAFE_INTEGER);
+    return times.length ? Math.min(...times) : null;
+  }
+
+  isFastestSupplier(r: VendorResponseModel): boolean {
+    const t = this.avgLeadTimeFor(r);
+    return t !== null && this.fastestAvgLeadTime !== null && t === this.fastestAvgLeadTime;
+  }
+
+  // Best (lowest) price quoted for a given line item, among suppliers who can actually supply it —
+  // lets the matrix highlight the winner per item, not just the overall total.
+  bestPriceForLine(lineUuid: string): number | null {
+    const prices = this.comparison
+      .map(r => this.cellFor(r, lineUuid))
+      .filter((c): c is VendorResponseLineModel => !!c && c.canSupply)
+      .map(c => c.netUnitPrice);
+    return prices.length ? Math.min(...prices) : null;
+  }
+
+  isBestPriceCell(r: VendorResponseModel, lineUuid: string): boolean {
+    const cell = this.cellFor(r, lineUuid);
+    if (!cell?.canSupply) return false;
+    const best = this.bestPriceForLine(lineUuid);
+    return best !== null && cell.netUnitPrice === best;
+  }
+
+  rankOf(r: VendorResponseModel): number {
+    return this.filteredComparison.findIndex(x => x.uuid === r.uuid) + 1;
+  }
+
   get filteredComparison(): VendorResponseModel[] {
     const q = this.comparisonSearch.trim().toLowerCase();
     let rows = q ? this.comparison.filter(r => r.supplierName.toLowerCase().includes(q)) : [...this.comparison];
@@ -572,6 +630,28 @@ export class QuotationDetailComponent implements OnInit, OnDestroy {
 
   cellFor(response: VendorResponseModel, lineUuid: string): VendorResponseLineModel | undefined {
     return response.lines.find(l => l.quotationLineUuid === lineUuid);
+  }
+
+  confirmAward(r: VendorResponseModel) {
+    const { supplied, total } = this.coverageFor(r);
+    const coverageWarning = supplied < total
+      ? `<br><br><span style="color:#dc2626;font-weight:600;">Note: this supplier can only supply ${supplied} of ${total} line items.</span>`
+      : '';
+    this.confirmationService.confirm({
+      header: 'Award Quotation',
+      message: `Award this quotation to <strong>${r.supplierName}</strong> for a total of ` +
+        `<strong>${this.formatCurrency(r.totalAmount)}</strong>? This cannot be undone.${coverageWarning}`,
+      icon: 'pi pi-trophy',
+      acceptLabel: 'Award',
+      acceptButtonStyleClass: 'p-button-success',
+      rejectLabel: 'Cancel',
+      rejectButtonStyleClass: 'p-button-text',
+      accept: () => this.awardResponse(r.uuid)
+    });
+  }
+
+  private formatCurrency(v: number): string {
+    return v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
   awardResponse(responseUuid: string) {

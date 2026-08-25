@@ -19,6 +19,7 @@ import { WorkflowService, ApprovalDetailDto } from '../../../../services/workflo
 import { SupplierService, EligibleContactModel } from '../../../../services/supplier.service';
 import { TimelinePanelComponent } from '../../../../shared/timeline-panel/timeline-panel.component';
 import { AttachmentListComponent } from '../../../../shared/attachment-list/attachment-list.component';
+import { AttachmentService } from '../../../../services/attachment.service';
 
 @Component({
   selector: 'app-po-detail',
@@ -70,8 +71,13 @@ export class PoDetailComponent implements OnInit, OnDestroy {
     private supplierService: SupplierService,
     private messageService: MessageService,
     private confirmationService: ConfirmationService,
-    private sanitizer: DomSanitizer
+    private sanitizer: DomSanitizer,
+    private attachmentService: AttachmentService
   ) {}
+
+  resolveImageUrl(url: string): string {
+    return this.attachmentService.resolveUrl(url);
+  }
 
   ngOnInit() {
     this.route.params.subscribe(p => { this.uuid = p['uuid']; this.load(); });

@@ -8,9 +8,11 @@
       <div class="header-left">
         <p-button icon="pi pi-arrow-left" [text]="true" severity="secondary"
                   (onClick)="goBack()" styleClass="mr-2 back-btn"></p-button>
+        <img *ngIf="product?.imageUrl" [src]="resolveImageUrl(product!.imageUrl!)"
+             alt="Product image" class="product-thumb" />
         <div>
           <h1 class="page-title">
-            <i class="pi pi-box"></i>
+            <i class="pi pi-box" *ngIf="!product?.imageUrl"></i>
             {{ product?.name || 'Loading...' }}
           </h1>
           <p class="page-subtitle" *ngIf="product">
@@ -94,6 +96,25 @@
             <div class="detail-cell span-full" *ngIf="product.description">
               <div class="cell-label">Description</div>
               <div class="cell-value muted" style="font-size:.875rem;font-weight:400;line-height:1.6;">{{ product.description }}</div>
+            </div>
+            <div class="detail-cell span-full">
+              <div class="cell-label">Product Image</div>
+              <div class="product-image-manage">
+                <img *ngIf="product.imageUrl" [src]="resolveImageUrl(product.imageUrl)"
+                     alt="Product image" class="product-detail-image" />
+                <div class="product-image-placeholder" *ngIf="!product.imageUrl">
+                  <i class="pi pi-image"></i>
+                </div>
+                <div class="product-image-actions">
+                  <input type="file" #detailImageInput accept="image/*" hidden (change)="onImageSelected($event)" />
+                  <p-button [label]="product.imageUrl ? 'Change Picture' : 'Upload Picture'" icon="pi pi-upload"
+                            severity="secondary" [outlined]="true" size="small" [loading]="isUploadingImage"
+                            (onClick)="detailImageInput.click()"></p-button>
+                  <p-button *ngIf="product.imageUrl" label="Remove" icon="pi pi-trash"
+                            severity="danger" [outlined]="true" size="small" [loading]="isUploadingImage"
+                            (onClick)="removeImage()"></p-button>
+                </div>
+              </div>
             </div>
           </div>
         </div>

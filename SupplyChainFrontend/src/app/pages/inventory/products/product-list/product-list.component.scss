@@ -148,6 +148,28 @@
     }
   }
 
+  .product-list-thumb {
+    width: 36px;
+    height: 36px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+    display: block;
+  }
+
+  .product-list-thumb-placeholder {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    border: 1px dashed #d1d5db;
+    color: #cbd5e1;
+    font-size: 0.9rem;
+    background: #f8fafc;
+  }
+
   .sku-chip {
     display: inline-block;
     background: linear-gradient(135deg, #e8f4fd 0%, #dbeafe 100%);

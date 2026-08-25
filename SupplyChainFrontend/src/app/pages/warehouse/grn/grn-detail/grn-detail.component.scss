@@ -275,6 +275,12 @@
   .font-semibold  { font-weight: 600; }
   .mt-3 { margin-top: 1.5rem; }
 
+  .line-desc-row { display: flex; align-items: center; gap: .6rem; min-width: 0; }
+  .line-thumb {
+    width: 34px; height: 34px; object-fit: cover; border-radius: 7px;
+    border: 1px solid #e5e7eb; flex-shrink: 0;
+  }
+
   .qc-badge {
     display: inline-flex;
     align-items: center;
@@ -464,7 +470,10 @@
     tr:hover td   { background: #fef9f0; }
 
     .line-no    { font-weight: 700; color: #aaa; }
-    .item-desc  { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .item-desc  {
+      font-weight: 600;
+      .line-desc-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+    }
     .uom        { color: #7f8c8d; font-size: .78rem; }
     .text-right { text-align: right; }
     .font-bold  { font-weight: 700; }

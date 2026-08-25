@@ -202,6 +202,7 @@ public class GrnLineModel
     public string? VariantSku { get; set; }
     public string? VariantName { get; set; }
     public string? ProductName { get; set; }
+    public string? ProductImageUrl { get; set; }
     public int LineNo { get; set; }
     public string ItemDescription { get; set; } = string.Empty;
     public string? UnitOfMeasure { get; set; }

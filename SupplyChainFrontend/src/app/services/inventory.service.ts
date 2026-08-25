@@ -94,6 +94,7 @@ export interface ProductListItemModel {
   createdDate: string;
   variantCount: number;
   defaultVariantPurchasePrice?: number;
+  imageUrl?: string;
 }
 
 export interface ProductDetailModel extends ProductListItemModel {
@@ -108,7 +109,6 @@ export interface ProductDetailModel extends ProductListItemModel {
   leadTimeDays?: number;
   preferredSupplierId?: number;
   notes?: string;
-  imageUrl?: string;
   updatedDate?: string;
   createdBy: number;
   variants: ProductVariantModel[];
@@ -442,6 +442,17 @@ export interface ProductStockModel {
   lastUpdated: string;
 }
 
+// One row per warehouse for a single variant (bins summed) — see getVariantStock().
+export interface VariantWarehouseStockModel {
+  warehouseId: number;
+  warehouseUuid: string;
+  warehouseCode: string;
+  warehouseName: string;
+  qtyOnHand: number;
+  qtyReserved: number;
+  qtyAvailable: number;
+}
+
 export interface ReorderAlertModel {
   variantId: number;
   variantUuid: string;
@@ -613,6 +624,11 @@ export class InventoryService {
   }
   getProductStock(id: number): Observable<ApiResponse<ProductStockModel[]>> {
     return this.http.get<ApiResponse<ProductStockModel[]>>(`${this.base}/products/${id}/stock`);
+  }
+  // Aggregated per-warehouse availability for ONE variant (bins summed) — use this for pickers
+  // that need "how much of this variant is here", not getProductStock (per-bin, every variant).
+  getVariantStock(variantUuid: string): Observable<ApiResponse<VariantWarehouseStockModel[]>> {
+    return this.http.get<ApiResponse<VariantWarehouseStockModel[]>>(`${this.base}/variants/${variantUuid}/stock`);
   }
   // PV-005 — aggregated on-hand/reserved/available across every variant of the product.
   getProductStockSummary(id: number): Observable<ApiResponse<ProductStockSummaryModel>> {

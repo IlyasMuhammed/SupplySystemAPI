@@ -31,6 +31,7 @@ import { SupplierService, SupplierListItemModel } from '../../../../services/sup
 import { MaterialService, PrLineDisbursement } from '../../../../services/material.service';
 import { TimelinePanelComponent } from '../../../../shared/timeline-panel/timeline-panel.component';
 import { AttachmentListComponent } from '../../../../shared/attachment-list/attachment-list.component';
+import { AttachmentService } from '../../../../services/attachment.service';
 
 @Component({
   selector: 'app-pr-detail',
@@ -88,8 +89,13 @@ export class PrDetailComponent implements OnInit {
     private supplierService: SupplierService,
     private materialService: MaterialService,
     private messageService: MessageService,
-    private confirmationService: ConfirmationService
+    private confirmationService: ConfirmationService,
+    private attachmentService: AttachmentService
   ) {}
+
+  resolveImageUrl(url: string): string {
+    return this.attachmentService.resolveUrl(url);
+  }
 
   ngOnInit() {
     this.route.params.subscribe(p => {
@@ -242,7 +248,7 @@ export class PrDetailComponent implements OnInit {
   }
 
   searchSuppliers(event: any) {
-    this.supplierService.getSuppliers({ search: event.query, page: 1, pageSize: 10 }).subscribe({
+    this.supplierService.getSuppliers({ search: event.query, status: 'ACTIVE', page: 1, pageSize: 10 }).subscribe({
       next: (res) => { this.supplierSuggestions = res.result?.data ?? []; },
       error: () => { this.supplierSuggestions = []; }
     });

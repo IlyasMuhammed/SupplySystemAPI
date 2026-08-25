@@ -409,7 +409,13 @@
         <ng-template pTemplate="body" let-line>
           <tr>
             <td>{{ line.lineNo }}</td>
-            <td>{{ line.itemDescription }}</td>
+            <td>
+              <div class="line-desc-row">
+                <img *ngIf="line.productImageUrl" [src]="resolveImageUrl(line.productImageUrl)"
+                     alt="" class="line-thumb" />
+                <span>{{ line.itemDescription }}</span>
+              </div>
+            </td>
             <td>{{ line.unitOfMeasure || '—' }}</td>
             <td>{{ line.warehouseName || '—' }}</td>
             <td class="text-right">{{ line.requestedQty | number:'1.0-3' }}</td>

@@ -23,7 +23,7 @@ internal sealed class RequisitionRepository : IRequisitionRepository
         _inv = inv;
     }
 
-    private sealed record VariantDisplayInfo(string Sku, string VariantName, string ProductName, Guid ProductUuid);
+    private sealed record VariantDisplayInfo(string Sku, string VariantName, string ProductName, Guid ProductUuid, string? ImageUrl);
 
     private async Task<Dictionary<Guid, VariantDisplayInfo>> ResolveVariantDisplayInfoAsync(IEnumerable<Guid> variantUuids)
     {
@@ -32,10 +32,10 @@ internal sealed class RequisitionRepository : IRequisitionRepository
 
         var rows = await _inv.ProductVariants
             .Where(v => ids.Contains(v.Uuid))
-            .Select(v => new { v.Uuid, v.Sku, v.VariantName, ProductName = v.Product.Name, ProductUuid = v.Product.Uuid })
+            .Select(v => new { v.Uuid, v.Sku, v.VariantName, ProductName = v.Product.Name, ProductUuid = v.Product.Uuid, ImageUrl = v.Product.ImageUrl })
             .ToListAsync();
 
-        return rows.ToDictionary(r => r.Uuid, r => new VariantDisplayInfo(r.Sku, r.VariantName, r.ProductName, r.ProductUuid));
+        return rows.ToDictionary(r => r.Uuid, r => new VariantDisplayInfo(r.Sku, r.VariantName, r.ProductName, r.ProductUuid, r.ImageUrl));
     }
 
     // Frontend p-inputNumber widgets already soft-clamp to this range, but that's only a UI
@@ -211,6 +211,7 @@ internal sealed class RequisitionRepository : IRequisitionRepository
                 VariantSku          = vi?.Sku,
                 VariantName         = vi?.VariantName,
                 ProductName         = vi?.ProductName,
+                ProductImageUrl     = vi?.ImageUrl,
                 ItemDescription     = l.ItemDescription,
                 Specification       = l.Specification,
                 UnitOfMeasure       = l.UnitOfMeasure,

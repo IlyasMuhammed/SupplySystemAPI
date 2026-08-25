@@ -101,7 +101,18 @@ public class PoDetailModel
     public int CreatedBy { get; set; }
     public DateTime CreatedDate { get; set; }
     public List<PoLineModel> Lines { get; set; } = new();
-    public List<Guid> LinkedPrUuids { get; set; } = new();
+    public List<LinkedPrModel> LinkedPrUuids { get; set; } = new();
+}
+
+// PurchaseOrderPrLink stores only the PR's UUID (no FK — see PurchaseOrderPrLink.PrUuid), so the
+// number/title shown on the PO's References panel has to be batch-resolved and carried here
+// rather than left for the frontend to fake from array position (which produced "Requisition 1",
+// "Requisition 2" labels instead of the requisition's actual number/title).
+public class LinkedPrModel
+{
+    public Guid Uuid { get; set; }
+    public string PrNumber { get; set; } = string.Empty;
+    public string PrTitle { get; set; } = string.Empty;
 }
 
 public class PoSearchItemModel
@@ -125,6 +136,7 @@ public class PoLineModel
     public string? VariantSku { get; set; }
     public string? VariantName { get; set; }
     public string? ProductName { get; set; }
+    public string? ProductImageUrl { get; set; }
     public string ItemDescription { get; set; } = string.Empty;
     public string? Specification { get; set; }
     public string? UnitOfMeasure { get; set; }

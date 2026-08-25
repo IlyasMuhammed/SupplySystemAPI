@@ -102,6 +102,7 @@ export interface PrLineModel {
   variantSku?: string;
   variantName?: string;
   productName?: string;
+  productImageUrl?: string;
   itemDescription: string;
   specification?: string;
   unitOfMeasure?: string;
@@ -290,6 +291,7 @@ export interface QuotationLineModel {
   variantSku?: string;
   variantName?: string;
   productName?: string;
+  productImageUrl?: string;
   itemDescription: string;
   specification?: string;
   unitOfMeasure?: string;
@@ -451,6 +453,7 @@ export interface PoLineModel {
   variantSku?: string;
   variantName?: string;
   productName?: string;
+  productImageUrl?: string;
   itemDescription: string;
   specification?: string;
   unitOfMeasure?: string;
@@ -486,7 +489,13 @@ export interface PoDetailModel {
   createdBy: number;
   createdDate: string;
   lines: PoLineModel[];
-  linkedPrUuids: string[];
+  linkedPrUuids: LinkedPrModel[];
+}
+
+export interface LinkedPrModel {
+  uuid: string;
+  prNumber: string;
+  prTitle: string;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

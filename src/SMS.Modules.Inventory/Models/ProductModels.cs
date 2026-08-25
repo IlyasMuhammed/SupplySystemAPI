@@ -109,6 +109,10 @@ public class ProductListItemModel
     // adjustments) that need a price to pre-fill as soon as a product is selected — sourced from
     // the product's default variant, since Product itself no longer carries its own price (PV-001).
     public decimal? DefaultVariantPurchasePrice { get; set; }
+    // Carried on the list projection too (not just ProductDetailModel) so the product list page
+    // and every product/variant picker (PO/PR/Quotation/MIR line entry) can show a thumbnail
+    // without a second round trip per row.
+    public string? ImageUrl { get; set; }
 }
 
 public class ProductDetailModel : ProductListItemModel
@@ -124,7 +128,6 @@ public class ProductDetailModel : ProductListItemModel
     public int? LeadTimeDays { get; set; }
     public int? PreferredSupplierId { get; set; }
     public string? Notes { get; set; }
-    public string? ImageUrl { get; set; }
     public DateTime? UpdatedDate { get; set; }
     public int CreatedBy { get; set; }
     public List<ProductVariantModel> Variants { get; set; } = [];

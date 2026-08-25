@@ -184,7 +184,7 @@ export class ProductCreateComponent implements OnInit {
   }
 
   private loadSuppliers(): void {
-    this.supplierService.getSuppliers({ pageSize: 500 })
+    this.supplierService.getSuppliers({ status: 'ACTIVE', pageSize: 500 })
       .pipe(catchError(() => of(null)))
       .subscribe(res => {
         if (res?.result?.data) {
@@ -244,9 +244,10 @@ export class ProductCreateComponent implements OnInit {
           error: () => { this.isUploadingImage = false; }
         });
       },
-      error: () => {
+      error: (err) => {
         this.isUploadingImage = false;
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Image upload failed.' });
+        const detail = err.error?.message || (err.status ? `Image upload failed (HTTP ${err.status}).` : 'Image upload failed.');
+        this.messageService.add({ severity: 'error', summary: 'Error', detail, life: 8000 });
       }
     });
   }

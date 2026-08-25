@@ -66,7 +66,14 @@
                       optionLabel="label" optionValue="value" styleClass="w-full"></p-dropdown>
         </div>
 
-        <!-- Requires Quotation toggle -->
+        <!-- Delivery Warehouse (left) | Requires Quotation (right) — same row -->
+        <div class="field">
+          <label>Delivery Warehouse <span style="color:#94a3b8;font-weight:400;">(optional)</span></label>
+          <p-dropdown formControlName="warehouseUuid" [options]="warehouseOptions"
+                      optionLabel="label" optionValue="value"
+                      placeholder="Select delivery warehouse" styleClass="w-full"></p-dropdown>
+        </div>
+
         <div class="field">
           <label>&nbsp;</label>
           <div class="gi-toggle">
@@ -76,14 +83,6 @@
               <span class="gi-toggle-hint">Formal RFQ needed before PO conversion</span>
             </label>
           </div>
-        </div>
-
-        <!-- Delivery Warehouse -->
-        <div class="field full">
-          <label>Delivery Warehouse <span style="color:#94a3b8;font-weight:400;">(optional)</span></label>
-          <p-dropdown formControlName="warehouseUuid" [options]="warehouseOptions"
-                      optionLabel="label" optionValue="value"
-                      placeholder="Select delivery warehouse" styleClass="w-full"></p-dropdown>
         </div>
 
         <!-- Justification | Notes -->
@@ -98,12 +97,12 @@
                     placeholder="Any additional notes…" class="w-full" maxlength="500"></textarea>
         </div>
 
-      </div>
-    </div>
+        <!-- Attachments — single line, no longer its own separate card -->
+        <div class="field full">
+          <app-attachment-list interfaceCode="PR" [documentId]="prUuid" label="Attachments" [inline]="true"></app-attachment-list>
+        </div>
 
-    <!-- ── Attachments card ────────────────────────────────────────────── -->
-    <div class="form-card">
-      <app-attachment-list interfaceCode="PR" [documentId]="prUuid" label="Attachments"></app-attachment-list>
+      </div>
     </div>
 
     <!-- ── Lines card ──────────────────────────────────────────────────── -->

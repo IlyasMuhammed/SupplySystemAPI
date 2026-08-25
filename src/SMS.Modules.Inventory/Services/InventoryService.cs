@@ -233,6 +233,9 @@ internal sealed class InventoryService : IInventoryService
     public Task<List<ProductStockModel>> GetProductStockAsync(int productId)
         => _repo.GetProductStockAsync(productId);
 
+    public Task<List<VariantWarehouseStockModel>> GetVariantStockByWarehouseAsync(Guid variantUuid)
+        => _repo.GetVariantStockByWarehouseAsync(variantUuid);
+
     public Task<ProductStockSummaryModel?> GetProductStockSummaryAsync(int productId)
         => _repo.GetProductStockSummaryAsync(productId);
 

@@ -24,6 +24,11 @@ export class AttachmentListComponent implements OnChanges {
   @Input() documentId?: string | null;
   @Input() readOnly = false;
   @Input() compact = false;
+  // True single-line layout: no header, no notes field, files shown as small removable chips
+  // next to the upload button — for forms where the attachment section shouldn't eat vertical
+  // space (e.g. PR create's General Information card). Distinct from `compact`, which still keeps
+  // the full stacked card-per-file layout, just smaller — existing `[compact]` usages are untouched.
+  @Input() inline = false;
   @Input() label = 'Attachments';
 
   attachments: AttachmentModel[] = [];
@@ -89,7 +94,12 @@ export class AttachmentListComponent implements OnChanges {
         },
         error: (err) => {
           anyFailed = true;
-          this.messageService.add({ severity: 'error', summary: 'Error', detail: `${file.name}: ${err?.error?.message || 'Upload failed.'}` });
+          // status 0 means the request never got a response from the server (network drop, CORS
+          // rejection, timeout, …) — err.error is then the raw browser error, not a server message.
+          const reason = err?.status === 0
+            ? 'Network error — check your connection and try again.'
+            : (err?.error?.message || 'Upload failed.');
+          this.messageService.add({ severity: 'error', summary: 'Error', detail: `${file.name}: ${reason}` });
           this.finishUpload(--remaining, anyFailed);
         }
       });

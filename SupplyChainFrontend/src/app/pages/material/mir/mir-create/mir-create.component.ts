@@ -13,7 +13,7 @@ import { DividerModule } from 'primeng/divider';
 import { MessageService } from 'primeng/api';
 import { forkJoin } from 'rxjs';
 import { MaterialService, CreateMirRequest, PrLineSearchResult } from '../../../../services/material.service';
-import { InventoryService, ProductListItemModel, ProductStockModel } from '../../../../services/inventory.service';
+import { InventoryService, ProductListItemModel, VariantWarehouseStockModel } from '../../../../services/inventory.service';
 import { ProductVariantPickerComponent, VariantPickerSelection } from '../../../../shared/product-variant-picker/product-variant-picker.component';
 
 interface MirLine {
@@ -25,7 +25,7 @@ interface MirLine {
   requestedQty: number;
   purpose: string;
   notes: string;
-  stockItems: ProductStockModel[];
+  stockItems: VariantWarehouseStockModel[];
   selectedWarehouseId: number | null;
   maxQty: number | null;
   isLoadingStock: boolean;
@@ -56,8 +56,6 @@ export class MirCreateComponent implements OnInit {
 
   projectOptions: { label: string; value: string }[] = [];
   products: ProductListItemModel[] = [];
-
-  private _productIdByUuid = new Map<string, number>();
 
   requestType    = 'PROJECT';
   projectUuid    = '';
@@ -106,7 +104,6 @@ export class MirCreateComponent implements OnInit {
         }
         if (products.success && products.result) {
           this.products = products.result.data ?? [];
-          this.products.forEach(p => this._productIdByUuid.set(p.uuid, p.id));
         }
       },
       error: () => {
@@ -147,11 +144,13 @@ export class MirCreateComponent implements OnInit {
     line.maxQty = null;
     this.clearPrLine(i);
 
-    const productId = line.productUuid ? this._productIdByUuid.get(line.productUuid) : undefined;
-    if (!productId) return;
+    if (!line.variantUuid) return;
 
     line.isLoadingStock = true;
-    this.inventoryService.getProductStock(productId).subscribe({
+    // Per-warehouse availability for THIS variant specifically (bins summed) — getProductStock
+    // returns one row per bin across every variant of the product, which showed as multiple,
+    // seemingly-duplicate entries for the same warehouse.
+    this.inventoryService.getVariantStock(line.variantUuid).subscribe({
       next: (res) => {
         line.isLoadingStock = false;
         if (res.success && res.result) {

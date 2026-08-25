@@ -206,6 +206,7 @@ internal sealed class MirRepository : IMirRepository
                 VariantSku         = vi?.Sku,
                 VariantName        = vi?.VariantName,
                 ProductName        = vi?.ProductName,
+                ProductImageUrl    = vi?.ImageUrl,
                 ItemDescription    = l.ItemDescription,
                 UnitOfMeasure      = l.UnitOfMeasure,
                 RequestedQty       = l.RequestedQty,
@@ -509,7 +510,7 @@ internal sealed class MirRepository : IMirRepository
         return prLines.ToDictionary(l => l.UUID, l => new PrLineResolution(l.Id, l.TraceId));
     }
 
-    private sealed record VariantDisplayInfo(string Sku, string VariantName, string ProductName);
+    private sealed record VariantDisplayInfo(string Sku, string VariantName, string ProductName, string? ImageUrl);
 
     private async Task<Dictionary<Guid, VariantDisplayInfo>> ResolveVariantDisplayInfoAsync(IEnumerable<Guid> variantUuids)
     {
@@ -518,10 +519,10 @@ internal sealed class MirRepository : IMirRepository
 
         var rows = await _inv.ProductVariants
             .Where(v => ids.Contains(v.Uuid))
-            .Select(v => new { v.Uuid, v.Sku, v.VariantName, ProductName = v.Product.Name })
+            .Select(v => new { v.Uuid, v.Sku, v.VariantName, ProductName = v.Product.Name, ImageUrl = v.Product.ImageUrl })
             .ToListAsync();
 
-        return rows.ToDictionary(r => r.Uuid, r => new VariantDisplayInfo(r.Sku, r.VariantName, r.ProductName));
+        return rows.ToDictionary(r => r.Uuid, r => new VariantDisplayInfo(r.Sku, r.VariantName, r.ProductName, r.ImageUrl));
     }
 
     private async Task<string> GenerateRequestNoAsync(int year)

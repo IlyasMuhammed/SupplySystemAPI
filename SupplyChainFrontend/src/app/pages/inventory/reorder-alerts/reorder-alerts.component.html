@@ -3,63 +3,58 @@
 
   <!-- ── Page Header ─────────────────────────────────────────────────────── -->
   <div class="page-header">
-    <div class="header-content">
-      <div class="header-left">
-        <h1 class="page-title">
-          <i class="pi pi-exclamation-triangle"></i>
-          Reorder Alerts
-        </h1>
+    <div class="header-left">
+      <div class="header-icon">
+        <i class="pi pi-exclamation-triangle"></i>
+      </div>
+      <div>
+        <h1 class="page-title">Reorder Alerts</h1>
         <p class="page-subtitle">Products at or below their reorder point — action required</p>
       </div>
-      <div class="header-right">
-        <p-button
-          label="Refresh"
-          icon="pi pi-refresh"
-          severity="secondary"
-          [outlined]="true"
-          [loading]="isLoading"
-          (onClick)="loadAlerts()">
-        </p-button>
-      </div>
     </div>
+    <p-button
+      label="Refresh"
+      icon="pi pi-refresh"
+      severity="secondary"
+      [outlined]="true"
+      [loading]="isLoading"
+      (onClick)="loadAlerts()">
+    </p-button>
   </div>
 
-  <!-- ── Stats Row ───────────────────────────────────────────────────────── -->
+  <!-- ── Stats Row (click to filter) ─────────────────────────────────────── -->
   <div class="stats-grid">
 
-    <div class="stat-card total">
-      <div class="stat-icon">
-        <i class="pi pi-list"></i>
-      </div>
+    <button type="button" class="stat-card total" [class.active]="urgencyFilter === 'all'"
+            (click)="setUrgencyFilter('all')">
+      <div class="stat-icon"><i class="pi pi-list"></i></div>
       <div class="stat-content">
         <h3>{{ alerts.length }}</h3>
         <p>Total Alerts</p>
       </div>
-    </div>
+    </button>
 
-    <div class="stat-card critical">
-      <div class="stat-icon">
-        <i class="pi pi-times-circle"></i>
-      </div>
+    <button type="button" class="stat-card critical" [class.active]="urgencyFilter === 'critical'"
+            [disabled]="criticalCount === 0" (click)="setUrgencyFilter('critical')">
+      <div class="stat-icon"><i class="pi pi-times-circle"></i></div>
       <div class="stat-content">
         <h3>{{ criticalCount }}</h3>
         <p>Out of Stock</p>
       </div>
-    </div>
+    </button>
 
-    <div class="stat-card low">
-      <div class="stat-icon">
-        <i class="pi pi-exclamation-circle"></i>
-      </div>
+    <button type="button" class="stat-card low" [class.active]="urgencyFilter === 'low'"
+            [disabled]="lowCount === 0" (click)="setUrgencyFilter('low')">
+      <div class="stat-icon"><i class="pi pi-exclamation-circle"></i></div>
       <div class="stat-content">
         <h3>{{ lowCount }}</h3>
         <p>Low Stock</p>
       </div>
-    </div>
+    </button>
 
   </div>
 
-  <!-- ── Search Bar ──────────────────────────────────────────────────────── -->
+  <!-- ── Toolbar: Search ─────────────────────────────────────────────────── -->
   <div class="toolbar-row">
     <div class="search-wrapper">
       <i class="pi pi-search search-icon"></i>
@@ -68,41 +63,44 @@
         type="text"
         [(ngModel)]="searchText"
         (ngModelChange)="onSearchChange()"
-        placeholder="Search by product name, category or warehouse..."
+        placeholder="Search by product, SKU, category or warehouse..."
         class="search-input" />
       <button
         *ngIf="searchText"
+        type="button"
         class="search-clear"
         (click)="searchText = ''"
         pTooltip="Clear search">
         <i class="pi pi-times"></i>
       </button>
     </div>
-    <span class="result-count" *ngIf="searchText">
-      {{ filteredAlerts.length }} of {{ alerts.length }} shown
+    <span class="result-count" *ngIf="!isLoading">
+      Showing <strong>{{ filteredAlerts.length }}</strong> of {{ alerts.length }}
     </span>
   </div>
 
   <!-- ── Loading State ───────────────────────────────────────────────────── -->
   <div *ngIf="isLoading" class="loading-state">
     <i class="pi pi-spin pi-spinner"></i>
-    <p>Loading reorder alerts...</p>
+    <p>Loading reorder alerts…</p>
   </div>
 
   <!-- ── Empty / All Clear State ────────────────────────────────────────── -->
   <div *ngIf="!isLoading && alerts.length === 0" class="all-clear-state">
-    <div class="all-clear-icon">
-      <i class="pi pi-check-circle"></i>
-    </div>
-    <h3>All products are adequately stocked!</h3>
+    <div class="state-icon-circle success"><i class="pi pi-check-circle"></i></div>
+    <h3>All products are adequately stocked</h3>
     <p>No products are at or below their reorder point. Great job keeping inventory healthy.</p>
   </div>
 
   <!-- ── No Search Results ───────────────────────────────────────────────── -->
   <div *ngIf="!isLoading && alerts.length > 0 && filteredAlerts.length === 0" class="no-results-state">
-    <i class="pi pi-search"></i>
-    <p>No alerts match your search "<strong>{{ searchText }}</strong>"</p>
-    <p-button label="Clear Search" [text]="true" (onClick)="searchText = ''"></p-button>
+    <div class="state-icon-circle neutral"><i class="pi pi-search"></i></div>
+    <h3>No matching alerts</h3>
+    <p>Nothing matches "<strong>{{ searchText }}</strong>"{{ urgencyFilter !== 'all' ? ' in this filter' : '' }}.</p>
+    <div class="state-actions">
+      <p-button *ngIf="searchText" label="Clear Search" [text]="true" (onClick)="searchText = ''"></p-button>
+      <p-button *ngIf="urgencyFilter !== 'all'" label="Clear Filter" [text]="true" (onClick)="setUrgencyFilter('all')"></p-button>
+    </div>
   </div>
 
   <!-- ── Alert Cards Grid ────────────────────────────────────────────────── -->
@@ -114,48 +112,46 @@
          [class.urgency-low]="getUrgencyLevel(alert) === 'low'"
          [class.urgency-normal]="getUrgencyLevel(alert) === 'normal'">
 
-      <!-- Urgency bar -->
-      <div class="urgency-bar"></div>
-
       <div class="alert-card-body">
 
         <!-- Header row: SKU + urgency tag -->
         <div class="alert-header">
           <span class="sku-chip">{{ alert.variantSku }}</span>
-          <p-tag
-            [value]="getUrgencyLabel(alert)"
-            [severity]="getUrgencySeverity(alert)">
-          </p-tag>
+          <p-tag [value]="getUrgencyLabel(alert)" [severity]="getUrgencySeverity(alert)"></p-tag>
         </div>
 
         <!-- Product name -->
-        <h4 class="product-name" pTooltip="{{ alert.productName }}">
-          {{ alert.productName }}
-        </h4>
+        <h4 class="product-name" [pTooltip]="alert.productName">{{ alert.productName }}</h4>
+        <p class="variant-name" *ngIf="alert.variantName && alert.variantName !== alert.productName">
+          {{ alert.variantName }}
+        </p>
 
-        <!-- Category -->
-        <div class="category-row" *ngIf="alert.categoryName">
-          <span class="category-badge">
-            <i class="pi pi-tag"></i>
-            {{ alert.categoryName }}
+        <!-- Category + Warehouse -->
+        <div class="meta-row">
+          <span class="meta-chip" *ngIf="alert.categoryName">
+            <i class="pi pi-tag"></i>{{ alert.categoryName }}
+          </span>
+          <span class="meta-chip">
+            <i class="pi pi-building"></i>{{ alert.warehouseName }}
           </span>
         </div>
 
-        <!-- Warehouse -->
-        <div class="warehouse-row">
-          <i class="pi pi-building"></i>
-          <span>{{ alert.warehouseName }}</span>
+        <!-- Stock level gauge -->
+        <div class="gauge-block">
+          <div class="gauge-labels">
+            <span>Available vs. reorder point</span>
+            <span class="gauge-pct">{{ stockGaugePct(alert) }}%</span>
+          </div>
+          <div class="gauge-track">
+            <div class="gauge-fill" [style.width.%]="stockGaugePct(alert)"></div>
+          </div>
         </div>
-
-        <div class="divider-line"></div>
 
         <!-- Stock metrics -->
         <div class="metrics-row">
           <div class="metric">
             <span class="metric-label">On Hand</span>
-            <span class="metric-value" [class.text-danger]="alert.qtyOnHand <= 0">
-              {{ alert.qtyOnHand }}
-            </span>
+            <span class="metric-value" [class.text-danger]="alert.qtyOnHand <= 0">{{ alert.qtyOnHand }}</span>
           </div>
           <div class="metric">
             <span class="metric-label">Available</span>
@@ -166,7 +162,7 @@
             </span>
           </div>
           <div class="metric">
-            <span class="metric-label">Reorder Point</span>
+            <span class="metric-label">Reorder At</span>
             <span class="metric-value text-info">{{ alert.reorderPoint }}</span>
           </div>
         </div>
@@ -196,11 +192,12 @@
             (onClick)="openAdjustmentDialog(alert)">
           </p-button>
           <p-button
-            label="View Product"
             icon="pi pi-external-link"
             size="small"
             severity="secondary"
             [text]="true"
+            pTooltip="View Product"
+            tooltipPosition="top"
             (onClick)="viewProduct(alert.productId)">
           </p-button>
         </div>
@@ -244,8 +241,6 @@
       <span class="dialog-alert-value text-info">{{ selectedAlert.reorderPoint }}</span>
     </div>
   </div>
-
-  <div class="divider-line mb-4"></div>
 
   <form [formGroup]="adjustmentForm">
 

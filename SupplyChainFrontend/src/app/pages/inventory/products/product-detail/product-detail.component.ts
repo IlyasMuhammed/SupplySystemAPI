@@ -33,6 +33,7 @@ import {
   VariantAttributeValueInput
 } from '../../../../services/inventory.service';
 import { DynamicAttributeFormComponent } from '../../../../shared/dynamic-attribute-form/dynamic-attribute-form.component';
+import { AttachmentService } from '../../../../services/attachment.service';
 
 @Component({
   selector: 'app-product-detail',
@@ -103,8 +104,74 @@ export class ProductDetailComponent implements OnInit {
     private fb: FormBuilder,
     private inventoryService: InventoryService,
     private messageService: MessageService,
-    private confirmationService: ConfirmationService
+    private confirmationService: ConfirmationService,
+    private attachmentService: AttachmentService
   ) {}
+
+  resolveImageUrl(url: string): string {
+    return this.attachmentService.resolveUrl(url);
+  }
+
+  // ── Product image — manage directly from the detail page ───────────────────
+  isUploadingImage = false;
+
+  onImageSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file || !this.product) return;
+
+    this.isUploadingImage = true;
+    this.attachmentService.upload(file, 'PRODUCT_IMAGE', this.product.uuid).subscribe({
+      next: (res) => {
+        if (!res.success) {
+          this.isUploadingImage = false;
+          this.messageService.add({ severity: 'error', summary: 'Error', detail: res.message || 'Image upload failed.' });
+          return;
+        }
+        this.attachmentService.getAttachments('PRODUCT_IMAGE', this.product!.uuid).subscribe({
+          next: (listRes) => {
+            const latest = (listRes.result ?? []).sort((a, b) =>
+              new Date(b.uploadedDate).getTime() - new Date(a.uploadedDate).getTime())[0];
+            if (latest) {
+              this.saveImageUrl(latest.fileUrl);
+            } else {
+              this.isUploadingImage = false;
+            }
+          },
+          error: () => { this.isUploadingImage = false; }
+        });
+      },
+      error: (err) => {
+        this.isUploadingImage = false;
+        const detail = err.error?.message || (err.status ? `Image upload failed (HTTP ${err.status}).` : 'Image upload failed.');
+        this.messageService.add({ severity: 'error', summary: 'Error', detail, life: 8000 });
+      }
+    });
+  }
+
+  removeImage(): void {
+    this.saveImageUrl('');
+  }
+
+  private saveImageUrl(imageUrl: string): void {
+    if (!this.product) return;
+    this.inventoryService.patchProduct(this.productId, { imageUrl }).subscribe({
+      next: (res) => {
+        this.isUploadingImage = false;
+        if (res.success) {
+          this.product!.imageUrl = imageUrl || undefined;
+          this.messageService.add({ severity: 'success', summary: 'Saved', detail: imageUrl ? 'Product picture updated.' : 'Product picture removed.' });
+        } else {
+          this.messageService.add({ severity: 'error', summary: 'Error', detail: res.message || 'Failed to save picture.' });
+        }
+      },
+      error: (err) => {
+        this.isUploadingImage = false;
+        this.messageService.add({ severity: 'error', summary: 'Error', detail: err.error?.message || 'Failed to save picture.' });
+      }
+    });
+  }
 
   ngOnInit() {
     this.productId = +this.route.snapshot.paramMap.get('id')!;

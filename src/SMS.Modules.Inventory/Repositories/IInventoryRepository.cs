@@ -66,6 +66,7 @@ internal interface IInventoryRepository
     // ── Stock levels ──────────────────────────────────────────────────────────
     Task<PaginatedResponse<StockLevelModel>> GetWarehouseStockAsync(int warehouseId, StockLevelFilter filter);
     Task<List<ProductStockModel>> GetProductStockAsync(int productId);
+    Task<List<VariantWarehouseStockModel>> GetVariantStockByWarehouseAsync(Guid variantUuid);
     Task<ProductStockSummaryModel?> GetProductStockSummaryAsync(int productId);
     Task<List<ReorderAlertModel>> GetReorderAlertsAsync();
     Task<bool> MoveBinAsync(int inventoryItemId, int binId);

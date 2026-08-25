@@ -61,6 +61,12 @@
     }
   }
 
+  .line-desc-row { display: flex; align-items: center; gap: .6rem; }
+  .line-thumb {
+    width: 34px; height: 34px; object-fit: cover; border-radius: 7px;
+    border: 1px solid #e5e7eb; flex-shrink: 0;
+  }
+
   .source-badge {
     background: #f0edff; color: #6c63ff; padding: .2rem .6rem;
     border-radius: 20px; font-size: .8rem; font-weight: 600;
@@ -687,6 +693,135 @@
   i { font-size: 1.8rem; color: #cbd5e1; }
 }
 
+// ── Comparison summary cards (ranked "who should win" view) ────────────────────
+
+.cmp-cards {
+  display: grid;
+  gap: .75rem;
+  margin-bottom: 1.25rem;
+}
+
+.cmp-card {
+  display: flex;
+  align-items: stretch;
+  gap: .9rem;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: .9rem 1.1rem;
+
+  &--best {
+    border-color: #86efac;
+    background: rgba(34, 197, 94, .05);
+  }
+
+  &--awarded {
+    border-color: #fbbf24;
+    background: rgba(251, 191, 36, .07);
+  }
+}
+
+.cmp-card-rank {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  flex-shrink: 0;
+  font-size: .8rem;
+  font-weight: 800;
+  color: #94a3b8;
+}
+
+.cmp-card-main { flex: 1; min-width: 0; }
+
+.cmp-card-head {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  flex-wrap: wrap;
+  margin-bottom: .4rem;
+
+  .cmp-card-name { font-size: .95rem; color: #0f172a; }
+}
+
+.cmp-card-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .4rem;
+  margin-bottom: .55rem;
+}
+
+.cmp-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  font-size: .7rem;
+  font-weight: 700;
+  padding: .15rem .5rem;
+  border-radius: 20px;
+
+  i { font-size: .65rem; }
+
+  &--price { color: #15803d; background: #dcfce7; }
+  &--fast  { color: #b45309; background: #fef3c7; }
+  &--full  { color: #1d4ed8; background: #dbeafe; }
+}
+
+.cmp-card-stats {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.cmp-stat {
+  display: flex;
+  flex-direction: column;
+  gap: .1rem;
+}
+
+.cmp-stat-label {
+  font-size: .68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+  color: #94a3b8;
+}
+
+.cmp-stat-value {
+  font-size: .95rem;
+  font-weight: 700;
+  color: #0f172a;
+
+  &--best { color: #16a34a; }
+  &--warn { color: #dc2626; }
+}
+
+.cmp-card-action {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.cmp-awarded-check {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  font-size: .82rem;
+  font-weight: 700;
+  color: #b45309;
+
+  i { font-size: .95rem; }
+}
+
+.cmp-table-heading {
+  font-size: .78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: #94a3b8;
+  margin-bottom: .5rem;
+}
+
 // ── Comparison matrix (side-by-side) ────────────────────────────────────────────
 
 .cmp-filter-bar {
@@ -770,9 +905,20 @@
 
 .cmp-table-item-col { min-width: 140px; }
 
-.cmp-table-cell { vertical-align: middle; }
+.cmp-table-cell {
+  vertical-align: middle;
 
-.cmp-cell-price { font-weight: 700; color: #0f172a; }
+  &--best { background: rgba(34, 197, 94, .08); }
+}
+
+.cmp-cell-price {
+  font-weight: 700;
+  color: #0f172a;
+  display: inline-flex;
+  align-items: center;
+  gap: .25rem;
+}
+.cmp-cell-best-icon { color: #16a34a; font-size: .78rem; }
 .cmp-cell-meta  { font-size: .74rem; color: #94a3b8; margin-top: .1rem; }
 .cmp-no-bid     { color: #cbd5e1; }
 
@@ -800,12 +946,24 @@
   &--best { color: #16a34a; }
 }
 
-.cmp-table-action-col, .cmp-table-action-cell { min-width: 100px; }
+.cmp-attachments {
+  margin-top: .5rem;
+  padding: .5rem .75rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
 
-.cmp-attachments-strip {
-  margin-top: .75rem;
-  padding-top: .5rem;
-  border-top: 1px dashed #e2e8f0;
+  &:not(:last-of-type) { margin-bottom: .4rem; }
+
+  summary {
+    font-size: .82rem;
+    font-weight: 600;
+    color: #475569;
+    cursor: pointer;
+
+    &:hover { color: #0f172a; }
+  }
+
+  app-attachment-list { display: block; margin-top: .5rem; }
 }
 
 // ── Other Dialogs ─────────────────────────────────────────────────────────────

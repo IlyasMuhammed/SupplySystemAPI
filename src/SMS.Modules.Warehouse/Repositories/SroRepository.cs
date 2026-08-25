@@ -78,6 +78,36 @@ internal sealed class SroRepository : ISroRepository
             poNumber = po?.PoNumber;
         }
 
+        // Guard against returning more than was actually received/ordered. The frontend caps this
+        // too, but the API is the source of truth — SROs aren't only created through that one form.
+        var grnLineUuids = req.Lines.Where(l => l.GrnLineUuid.HasValue).Select(l => l.GrnLineUuid!.Value).Distinct().ToList();
+        var grnLineCaps = grnLineUuids.Count == 0
+            ? new Dictionary<Guid, decimal>()
+            : await _wh.GrnLines
+                .Where(gl => grnLineUuids.Contains(gl.UUID))
+                .ToDictionaryAsync(gl => gl.UUID, gl => gl.QtyAccepted > 0 ? gl.QtyAccepted : gl.QtyReceived);
+
+        var poLineUuids = req.Lines.Where(l => l.PoLineUuid.HasValue).Select(l => l.PoLineUuid!.Value).Distinct().ToList();
+        var poLineCaps = poLineUuids.Count == 0
+            ? new Dictionary<Guid, decimal>()
+            : await _demand.PurchaseOrderLines
+                .Where(pl => poLineUuids.Contains(pl.UUID))
+                .ToDictionaryAsync(pl => pl.UUID, pl => pl.Quantity);
+
+        foreach (var l in req.Lines)
+        {
+            if (l.QtyToReturn <= 0)
+                throw new BadRequestException($"Return quantity for '{l.ItemDescription}' must be greater than zero.");
+
+            if (l.GrnLineUuid.HasValue && grnLineCaps.TryGetValue(l.GrnLineUuid.Value, out var grnCap) && l.QtyToReturn > grnCap)
+                throw new BadRequestException(
+                    $"Return quantity for '{l.ItemDescription}' ({l.QtyToReturn}) exceeds the quantity received on the linked GRN ({grnCap}).");
+
+            if (l.PoLineUuid.HasValue && poLineCaps.TryGetValue(l.PoLineUuid.Value, out var poCap) && l.QtyToReturn > poCap)
+                throw new BadRequestException(
+                    $"Return quantity for '{l.ItemDescription}' ({l.QtyToReturn}) exceeds the quantity ordered on the linked PO ({poCap}).");
+        }
+
         int lineNo = 1;
         var sro = new SupplierReturnOrder
         {

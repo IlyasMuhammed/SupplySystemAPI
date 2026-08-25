@@ -312,6 +312,7 @@ internal sealed class InventoryRepository : IInventoryRepository
                 IsSerialTracked = p.IsSerialTracked,
                 CreatedDate     = p.CreatedDate,
                 VariantCount    = p.Variants.Count,
+                ImageUrl        = p.ImageUrl,
                 DefaultVariantPurchasePrice = p.Variants
                     .Where(v => v.IsDefault)
                     .Select(v => (decimal?)v.PurchasePrice)
@@ -1388,6 +1389,29 @@ internal sealed class InventoryRepository : IInventoryRepository
                 QtyAvailable  = i.QtyOnHand - i.QtyReserved,
                 QtyOnOrder    = i.QtyOnOrder,
                 LastUpdated   = i.LastUpdated
+            })
+            .OrderBy(x => x.WarehouseName)
+            .ToListAsync();
+    }
+
+    // One row per warehouse for a single variant, bins summed together — for pickers that need
+    // "how much of THIS variant is available in THIS warehouse" (e.g. MIR line creation), where
+    // GetProductStockAsync's per-bin/per-variant detail rows would otherwise show as multiple,
+    // seemingly-duplicate entries for the same warehouse.
+    public async Task<List<VariantWarehouseStockModel>> GetVariantStockByWarehouseAsync(Guid variantUuid)
+    {
+        return await _db.InventoryItems
+            .Where(i => i.Variant.Uuid == variantUuid)
+            .GroupBy(i => new { i.WarehouseId, i.Warehouse.Uuid, i.Warehouse.Code, i.Warehouse.Name })
+            .Select(g => new VariantWarehouseStockModel
+            {
+                WarehouseId   = g.Key.WarehouseId,
+                WarehouseUuid = g.Key.Uuid,
+                WarehouseCode = g.Key.Code,
+                WarehouseName = g.Key.Name,
+                QtyOnHand     = g.Sum(i => i.QtyOnHand),
+                QtyReserved   = g.Sum(i => i.QtyReserved),
+                QtyAvailable  = g.Sum(i => i.QtyOnHand - i.QtyReserved)
             })
             .OrderBy(x => x.WarehouseName)
             .ToListAsync();

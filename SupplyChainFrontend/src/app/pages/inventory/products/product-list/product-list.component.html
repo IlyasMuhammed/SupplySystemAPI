@@ -114,6 +114,7 @@
 
       <ng-template pTemplate="header">
         <tr>
+          <th style="width: 56px"></th>
           <th style="width: 130px">SKU</th>
           <th>Name</th>
           <th>Category</th>
@@ -127,6 +128,13 @@
 
       <ng-template pTemplate="body" let-product>
         <tr class="product-row">
+          <td>
+            <img *ngIf="product.imageUrl" [src]="resolveImageUrl(product.imageUrl)"
+                 alt="" class="product-list-thumb" />
+            <div *ngIf="!product.imageUrl" class="product-list-thumb-placeholder">
+              <i class="pi pi-image"></i>
+            </div>
+          </td>
           <td>
             <span class="sku-chip">{{ product.sku || '—' }}</span>
           </td>
@@ -185,7 +193,7 @@
 
       <ng-template pTemplate="emptymessage">
         <tr>
-          <td colspan="8" class="empty-state">
+          <td colspan="9" class="empty-state">
             <i class="pi pi-inbox empty-icon"></i>
             <p class="empty-title">No products found.</p>
             <p class="empty-subtitle">Try adjusting your filters or add a new product.</p>
@@ -202,7 +210,7 @@
 
       <ng-template pTemplate="loadingbody">
         <tr *ngFor="let i of [1,2,3,4,5]">
-          <td colspan="8"><div class="skeleton-row"></div></td>
+          <td colspan="9"><div class="skeleton-row"></div></td>
         </tr>
       </ng-template>
 

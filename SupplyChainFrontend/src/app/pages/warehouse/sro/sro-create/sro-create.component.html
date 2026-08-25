@@ -178,8 +178,15 @@
 
               <div class="form-field">
                 <label>Qty to Return <span class="req">*</span></label>
-                <p-inputNumber formControlName="qtyToReturn" [min]="1"
+                <p-inputNumber formControlName="qtyToReturn" [min]="1" [max]="lineMaxQty[i]"
+                               (onInput)="onQtyInput($event, i)"
                                styleClass="w-full"></p-inputNumber>
+                <small class="field-hint" *ngIf="linesSource !== 'manual' && lineMaxQty[i] < Infinity">
+                  Max {{ lineMaxQty[i] }} ({{ linesSource === 'grn' ? 'qty received' : 'qty ordered' }})
+                </small>
+                <small class="error" *ngIf="line.get('qtyToReturn')?.errors?.['max']">
+                  Cannot exceed {{ lineMaxQty[i] }}.
+                </small>
               </div>
 
               <div class="form-field">
@@ -213,7 +220,7 @@
       <p-button label="Cancel" [outlined]="true" severity="secondary" type="button"
                 routerLink="/portal/pages/warehouse/sro"></p-button>
       <p-button label="Create Return Order" icon="pi pi-save"
-                [loading]="isSubmitting" type="submit"></p-button>
+                [loading]="isSubmitting" [disabled]="form.invalid" type="submit"></p-button>
     </div>
 
   </form>

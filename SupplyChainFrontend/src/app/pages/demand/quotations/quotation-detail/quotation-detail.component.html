@@ -110,7 +110,13 @@
         <ng-template pTemplate="body" let-line>
           <tr>
             <td>{{ line.lineNo }}</td>
-            <td class="font-semibold">{{ line.itemDescription }}</td>
+            <td class="font-semibold">
+              <div class="line-desc-row">
+                <img *ngIf="line.productImageUrl" [src]="resolveImageUrl(line.productImageUrl)"
+                     alt="" class="line-thumb" />
+                <span>{{ line.itemDescription }}</span>
+              </div>
+            </td>
             <td class="text-secondary">{{ line.specification || '—' }}</td>
             <td>{{ line.unitOfMeasure || '—' }}</td>
             <td class="text-right">{{ line.quantity | number:'1.0-4' }}</td>
@@ -602,6 +608,59 @@
       </div>
 
       <ng-container *ngIf="!isLoadingComparison && comparison.length">
+
+        <!-- Ranked summary cards — the "who should win" view, before the line-by-line detail -->
+        <div class="cmp-cards">
+          <div class="cmp-card" *ngFor="let r of filteredComparison"
+               [class.cmp-card--best]="r.totalAmount === lowestTotalAmount"
+               [class.cmp-card--awarded]="r.status === 'AWARDED'">
+            <div class="cmp-card-rank">#{{ rankOf(r) }}</div>
+            <div class="cmp-card-main">
+              <div class="cmp-card-head">
+                <strong class="cmp-card-name">{{ r.supplierName }}</strong>
+                <p-tag [value]="r.status" [severity]="getResponseSeverity(r.status)"></p-tag>
+              </div>
+              <div class="cmp-card-badges">
+                <span class="cmp-badge cmp-badge--price" *ngIf="r.totalAmount === lowestTotalAmount">
+                  <i class="pi pi-tag"></i> Lowest Price
+                </span>
+                <span class="cmp-badge cmp-badge--fast" *ngIf="isFastestSupplier(r)">
+                  <i class="pi pi-bolt"></i> Fastest Delivery
+                </span>
+                <span class="cmp-badge cmp-badge--full" *ngIf="hasFullCoverage(r)">
+                  <i class="pi pi-check-circle"></i> Full Coverage
+                </span>
+              </div>
+              <div class="cmp-card-stats">
+                <div class="cmp-stat">
+                  <span class="cmp-stat-label">Total</span>
+                  <span class="cmp-stat-value" [class.cmp-stat-value--best]="r.totalAmount === lowestTotalAmount">
+                    {{ r.totalAmount | number:'1.2-2' }}
+                  </span>
+                </div>
+                <div class="cmp-stat">
+                  <span class="cmp-stat-label">Coverage</span>
+                  <span class="cmp-stat-value" [class.cmp-stat-value--warn]="!hasFullCoverage(r)">
+                    {{ coverageFor(r).supplied }} / {{ coverageFor(r).total }} items
+                  </span>
+                </div>
+                <div class="cmp-stat">
+                  <span class="cmp-stat-label">Avg. Lead Time</span>
+                  <span class="cmp-stat-value">{{ avgLeadTimeFor(r) ?? '—' }}{{ avgLeadTimeFor(r) ? ' days' : '' }}</span>
+                </div>
+              </div>
+            </div>
+            <div class="cmp-card-action">
+              <p-button *ngIf="r.status === 'PENDING'" label="Award" icon="pi pi-trophy"
+                        size="small" severity="success"
+                        (onClick)="confirmAward(r)" [loading]="isActioning"></p-button>
+              <span class="cmp-awarded-check" *ngIf="r.status === 'AWARDED'">
+                <i class="pi pi-check-circle"></i> Awarded
+              </span>
+            </div>
+          </div>
+        </div>
+
         <!-- Filter bar -->
         <div class="cmp-filter-bar">
           <span class="p-input-icon-left cmp-search">
@@ -614,7 +673,8 @@
                       appendTo="body"></p-dropdown>
         </div>
 
-        <!-- One row per supplier response, one column per line item -->
+        <!-- Line-item detail — one row per supplier response, one column per line item -->
+        <div class="cmp-table-heading">Line-Item Breakdown</div>
         <div class="cmp-table-wrap">
           <table class="cmp-table">
             <thead>
@@ -622,7 +682,6 @@
                 <th class="cmp-table-supplier-col">Supplier</th>
                 <th *ngFor="let line of comparisonLines" class="cmp-table-item-col">{{ line.itemDescription }}</th>
                 <th class="cmp-table-total-col">Total</th>
-                <th class="cmp-table-action-col"></th>
               </tr>
             </thead>
             <tbody>
@@ -632,15 +691,18 @@
                     <i class="pi pi-star-fill cmp-best-icon" *ngIf="r.totalAmount === lowestTotalAmount" pTooltip="Lowest total"></i>
                     <strong>{{ r.supplierName }}</strong>
                   </div>
-                  <p-tag [value]="r.status" [severity]="getResponseSeverity(r.status)"></p-tag>
                 </td>
-                <td *ngFor="let line of comparisonLines" class="cmp-table-cell">
+                <td *ngFor="let line of comparisonLines" class="cmp-table-cell"
+                    [class.cmp-table-cell--best]="isBestPriceCell(r, line.uuid)">
                   <ng-container *ngIf="cellFor(r, line.uuid) as cell; else noBid">
                     <div class="cmp-cell-cannot-supply" *ngIf="!cell.canSupply" pTooltip="Supplier indicated they cannot supply this item">
                       <i class="pi pi-ban"></i> Cannot Supply
                     </div>
                     <ng-container *ngIf="cell.canSupply">
-                      <div class="cmp-cell-price">{{ cell.netUnitPrice | number:'1.2-2' }}</div>
+                      <div class="cmp-cell-price">
+                        {{ cell.netUnitPrice | number:'1.2-2' }}
+                        <i class="pi pi-check-circle cmp-cell-best-icon" *ngIf="isBestPriceCell(r, line.uuid)" pTooltip="Best price for this item"></i>
+                      </div>
                       <div class="cmp-cell-meta">
                         {{ cell.leadTimeDays ?? '—' }} {{ cell.leadTimeDays ? 'days' : '' }}
                       </div>
@@ -653,21 +715,17 @@
                     {{ r.totalAmount | number:'1.2-2' }}
                   </div>
                 </td>
-                <td class="cmp-table-action-cell">
-                  <p-button *ngIf="r.status === 'PENDING'" label="Award" icon="pi pi-trophy"
-                            size="small" severity="success"
-                            (onClick)="awardResponse(r.uuid)" [loading]="isActioning"></p-button>
-                </td>
               </tr>
             </tbody>
           </table>
         </div>
 
-        <div class="cmp-attachments-strip" *ngFor="let r of filteredComparison">
+        <!-- Attachments — collapsed by default to keep the dialog scannable -->
+        <details class="cmp-attachments" *ngFor="let r of filteredComparison">
+          <summary>{{ r.supplierName }} — Attachments</summary>
           <app-attachment-list interfaceCode="RFQ_RESPONSE" [documentId]="r.uuid"
-                                [readOnly]="true" [compact]="true"
-                                [label]="r.supplierName + ' — Attachments'"></app-attachment-list>
-        </div>
+                                [readOnly]="true" [compact]="true"></app-attachment-list>
+        </details>
 
         <div *ngIf="filteredComparison.length === 0" class="sdlg-empty">
           <i class="pi pi-filter-slash"></i>

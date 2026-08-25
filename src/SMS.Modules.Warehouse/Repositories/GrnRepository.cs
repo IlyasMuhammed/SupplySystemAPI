@@ -449,14 +449,14 @@ internal sealed class GrnRepository : IGrnRepository
 
         var variantUuids = grn.Lines.Where(l => l.VariantUuid.HasValue)
             .Select(l => l.VariantUuid!.Value).Distinct().ToList();
-        var variantInfo = new Dictionary<Guid, (string Sku, string VariantName, string ProductName, Guid ProductUuid)>();
+        var variantInfo = new Dictionary<Guid, (string Sku, string VariantName, string ProductName, Guid ProductUuid, string? ImageUrl)>();
         if (variantUuids.Count > 0 && _inv is not null)
         {
             var rows = await _inv.ProductVariants.Where(v => variantUuids.Contains(v.Uuid))
-                .Select(v => new { v.Uuid, v.Sku, v.VariantName, ProductName = v.Product.Name, ProductUuid = v.Product.Uuid })
+                .Select(v => new { v.Uuid, v.Sku, v.VariantName, ProductName = v.Product.Name, ProductUuid = v.Product.Uuid, ImageUrl = v.Product.ImageUrl })
                 .ToListAsync();
             foreach (var r in rows)
-                variantInfo[r.Uuid] = (r.Sku, r.VariantName, r.ProductName, r.ProductUuid);
+                variantInfo[r.Uuid] = (r.Sku, r.VariantName, r.ProductName, r.ProductUuid, r.ImageUrl);
         }
 
         return new GrnDetailModel
@@ -501,7 +501,7 @@ internal sealed class GrnRepository : IGrnRepository
             CreatedDate            = grn.CreatedDate,
             Lines = grn.Lines.Select(l =>
             {
-                var vi = l.VariantUuid.HasValue && variantInfo.TryGetValue(l.VariantUuid.Value, out var info) ? info : ((string, string, string, Guid)?)null;
+                var vi = l.VariantUuid.HasValue && variantInfo.TryGetValue(l.VariantUuid.Value, out var info) ? info : ((string, string, string, Guid, string?)?)null;
                 return new GrnLineModel
                 {
                 UUID             = l.UUID,
@@ -512,6 +512,7 @@ internal sealed class GrnRepository : IGrnRepository
                 VariantSku       = vi?.Item1,
                 VariantName      = vi?.Item2,
                 ProductName      = vi?.Item3,
+                ProductImageUrl  = vi?.Item5,
                 LineNo           = l.LineNo,
                 ItemDescription  = l.ItemDescription,
                 UnitOfMeasure    = l.UnitOfMeasure,

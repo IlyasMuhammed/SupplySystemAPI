@@ -18,6 +18,7 @@ import {
   ProductListItemModel,
   ProductListFilter
 } from '../../../../services/inventory.service';
+import { AttachmentService } from '../../../../services/attachment.service';
 
 @Component({
   selector: 'app-product-list',
@@ -64,8 +65,13 @@ export class ProductListComponent implements OnInit {
     private inventoryService: InventoryService,
     private messageService: MessageService,
     private confirmationService: ConfirmationService,
-    private router: Router
+    private router: Router,
+    private attachmentService: AttachmentService
   ) {}
+
+  resolveImageUrl(url: string): string {
+    return this.attachmentService.resolveUrl(url);
+  }
 
   ngOnInit(): void {
     this.loadCategories();

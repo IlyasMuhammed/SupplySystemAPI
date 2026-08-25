@@ -52,6 +52,7 @@ export class ReorderAlertsComponent implements OnInit {
   alerts: ReorderAlertModel[] = [];
   isLoading = true;
   searchText = '';
+  urgencyFilter: 'all' | UrgencyLevel = 'all';
 
   private searchTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -117,14 +118,24 @@ export class ReorderAlertsComponent implements OnInit {
 
   // ── Filtered alerts ────────────────────────────────────────────────────────
   get filteredAlerts(): ReorderAlertModel[] {
-    if (!this.searchText.trim()) { return this.alerts; }
-    const s = this.searchText.toLowerCase();
-    return this.alerts.filter(a =>
-      a.productName.toLowerCase().includes(s) ||
-      a.variantSku.toLowerCase().includes(s) ||
-      (a.categoryName?.toLowerCase().includes(s) ?? false) ||
-      a.warehouseName.toLowerCase().includes(s)
-    );
+    let list = this.alerts;
+    if (this.urgencyFilter !== 'all') {
+      list = list.filter(a => this.getUrgencyLevel(a) === this.urgencyFilter);
+    }
+    const s = this.searchText.trim().toLowerCase();
+    if (s) {
+      list = list.filter(a =>
+        a.productName.toLowerCase().includes(s) ||
+        a.variantSku.toLowerCase().includes(s) ||
+        (a.categoryName?.toLowerCase().includes(s) ?? false) ||
+        a.warehouseName.toLowerCase().includes(s)
+      );
+    }
+    return list;
+  }
+
+  setUrgencyFilter(level: 'all' | UrgencyLevel): void {
+    this.urgencyFilter = this.urgencyFilter === level ? 'all' : level;
   }
 
   // ── Computed counts ────────────────────────────────────────────────────────
@@ -134,6 +145,12 @@ export class ReorderAlertsComponent implements OnInit {
 
   get lowCount(): number {
     return this.alerts.filter(a => a.qtyAvailable > 0 && a.qtyAvailable <= a.reorderPoint * 0.5).length;
+  }
+
+  // ── Stock-level gauge (visual % of reorder point currently on hand) ────────
+  stockGaugePct(alert: ReorderAlertModel): number {
+    if (alert.reorderPoint <= 0) return alert.qtyAvailable > 0 ? 100 : 0;
+    return Math.max(0, Math.min(100, Math.round((alert.qtyAvailable / alert.reorderPoint) * 100)));
   }
 
   // ── Search with debounce ───────────────────────────────────────────────────

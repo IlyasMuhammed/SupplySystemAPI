@@ -33,6 +33,8 @@ import { DemandService, PoDetailModel } from '../../../../services/demand.servic
   providers: [MessageService]
 })
 export class SroCreateComponent implements OnInit {
+  readonly Infinity = Infinity;
+
   form!: FormGroup;
   isSubmitting    = false;
   isLoadingLines  = false;
@@ -46,6 +48,9 @@ export class SroCreateComponent implements OnInit {
   // Product autocomplete state — one entry per line
   lineProductSelections: (ProductListItemModel | null)[] = [];
   productSuggestions: ProductListItemModel[] = [];
+  // Max returnable qty per line — the GRN's accepted/received qty, or the PO's ordered qty.
+  // Infinity for manual lines, where there's no source document to cap against.
+  lineMaxQty: number[] = [];
 
   sroTypeOptions = [
     { label: 'Post-Receipt Defect', value: 'POST_RECEIPT_DEFECT' },
@@ -88,6 +93,7 @@ export class SroCreateComponent implements OnInit {
       lines:              this.fb.array([this.newLine()])
     });
     this.lineProductSelections = [null];
+    this.lineMaxQty = [Infinity];
     this.loadSuppliers();
     this.loadGrns();
     this.loadPos();
@@ -97,7 +103,7 @@ export class SroCreateComponent implements OnInit {
   // ── Dropdown loaders ──────────────────────────────────────────────────────
 
   loadSuppliers() {
-    this.supplierService.getSuppliers({ pageSize: 200 }).subscribe({
+    this.supplierService.getSuppliers({ status: 'ACTIVE', pageSize: 200 }).subscribe({
       next: (res) => {
         if (res.success && res.result?.data) {
           this.suppliers = res.result.data.map(s => ({ label: s.supplierName, value: s.uuid }));
@@ -161,6 +167,17 @@ export class SroCreateComponent implements OnInit {
     });
   }
 
+  // p-inputNumber's own [max] only clamps on blur/Enter/Tab — while the user is actively typing,
+  // it lets the raw keystrokes through unclamped (Validators.max still blocks submit, but the
+  // field itself doesn't visibly stop them). Clamp live on every keystroke instead.
+  onQtyInput(event: { value: string | number | null }, i: number) {
+    const max = this.lineMaxQty[i];
+    const value = typeof event.value === 'string' ? parseFloat(event.value) : event.value;
+    if (value != null && !isNaN(value) && max < Infinity && value > max) {
+      this.linesArray.at(i).get('qtyToReturn')?.setValue(max);
+    }
+  }
+
   onProductInputChange(value: any, i: number) {
     if (typeof value === 'string') {
       this.linesArray.at(i).patchValue({ itemDescription: value, productUuid: '' });
@@ -214,19 +231,22 @@ export class SroCreateComponent implements OnInit {
     }
     while (this.linesArray.length) this.linesArray.removeAt(0);
     this.lineProductSelections = [];
+    this.lineMaxQty = [];
     receivedLines.forEach(l => {
+      const maxQty = l.qtyAccepted > 0 ? l.qtyAccepted : l.qtyReceived;
       this.linesArray.push(this.fb.group({
         grnLineUuid:     [l.uuid],
         productUuid:     [l.productUuid || ''],
         itemDescription: [l.itemDescription, Validators.required],
         unitOfMeasure:   [l.unitOfMeasure || ''],
-        qtyToReturn:     [l.qtyAccepted > 0 ? l.qtyAccepted : l.qtyReceived,
-                          [Validators.required, Validators.min(1)]],
+        qtyToReturn:     [maxQty,
+                          [Validators.required, Validators.min(1), Validators.max(maxQty)]],
         returnReason:    [this.mapGrnReason(l.rejectionReason), Validators.required],
         condition:       [''],
         unitCost:        [l.unitCost ?? null]
       }));
       this.lineProductSelections.push({ name: l.itemDescription } as any);
+      this.lineMaxQty.push(maxQty);
     });
     this.linesSource = 'grn';
   }
@@ -267,18 +287,20 @@ export class SroCreateComponent implements OnInit {
     }
     while (this.linesArray.length) this.linesArray.removeAt(0);
     this.lineProductSelections = [];
+    this.lineMaxQty = [];
     po.lines.forEach(l => {
       this.linesArray.push(this.fb.group({
         grnLineUuid:     [''],
         productUuid:     [''],
         itemDescription: [l.itemDescription, Validators.required],
         unitOfMeasure:   [l.unitOfMeasure || ''],
-        qtyToReturn:     [l.quantity, [Validators.required, Validators.min(1)]],
+        qtyToReturn:     [l.quantity, [Validators.required, Validators.min(1), Validators.max(l.quantity)]],
         returnReason:    ['DAMAGED', Validators.required],
         condition:       [''],
         unitCost:        [l.unitPrice ?? null]
       }));
       this.lineProductSelections.push({ name: l.itemDescription } as any);
+      this.lineMaxQty.push(l.quantity);
     });
     this.linesSource = 'po';
   }
@@ -300,6 +322,7 @@ export class SroCreateComponent implements OnInit {
     while (this.linesArray.length) this.linesArray.removeAt(0);
     this.linesArray.push(this.newLine());
     this.lineProductSelections = [null];
+    this.lineMaxQty = [Infinity];
     this.linesSource = 'manual';
   }
 
@@ -321,12 +344,14 @@ export class SroCreateComponent implements OnInit {
   addLine() {
     this.linesArray.push(this.newLine());
     this.lineProductSelections.push(null);
+    this.lineMaxQty.push(Infinity);
   }
 
   removeLine(i: number) {
     if (this.linesArray.length > 1) {
       this.linesArray.removeAt(i);
       this.lineProductSelections.splice(i, 1);
+      this.lineMaxQty.splice(i, 1);
     }
   }
 

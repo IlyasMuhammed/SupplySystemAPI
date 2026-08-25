@@ -107,11 +107,12 @@
             Linked Requisitions
             <span class="pr-count-badge">{{ po.linkedPrUuids.length }}</span>
           </div>
-          <a *ngFor="let prId of po.linkedPrUuids; let i = index"
-             [routerLink]="['/portal/pages/demand/requisitions', prId]"
-             class="pr-view-btn">
+          <a *ngFor="let pr of po.linkedPrUuids"
+             [routerLink]="['/portal/pages/demand/requisitions', pr.uuid]"
+             class="pr-view-btn"
+             [pTooltip]="pr.prTitle" tooltipPosition="top">
             <i class="pi pi-file-edit"></i>
-            <span>Requisition {{ i + 1 }}</span>
+            <span>{{ pr.prNumber }}<ng-container *ngIf="pr.prTitle"> — {{ pr.prTitle }}</ng-container></span>
             <i class="pi pi-arrow-right pr-arrow"></i>
           </a>
         </div>
@@ -226,8 +227,14 @@
                 <span class="line-num-badge">{{ line.lineNo }}</span>
               </td>
               <td>
-                <div class="line-desc">{{ line.itemDescription }}</div>
-                <div class="line-spec" *ngIf="line.specification">{{ line.specification }}</div>
+                <div class="line-desc-row">
+                  <img *ngIf="line.productImageUrl" [src]="resolveImageUrl(line.productImageUrl)"
+                       alt="" class="line-thumb" />
+                  <div>
+                    <div class="line-desc">{{ line.itemDescription }}</div>
+                    <div class="line-spec" *ngIf="line.specification">{{ line.specification }}</div>
+                  </div>
+                </div>
               </td>
               <td class="col-uom">
                 <span class="uom-pill" *ngIf="line.unitOfMeasure">{{ line.unitOfMeasure }}</span>

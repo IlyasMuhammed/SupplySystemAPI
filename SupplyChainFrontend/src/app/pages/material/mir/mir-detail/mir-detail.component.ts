@@ -22,7 +22,8 @@ import {
   MirLineAvailability, MirStockAvailabilityResponse, MivListItem,
   PatchMirRequest, PrLineSearchResult
 } from '../../../../services/material.service';
-import { InventoryService, ProductListItemModel, ProductStockModel } from '../../../../services/inventory.service';
+import { InventoryService, ProductListItemModel, VariantWarehouseStockModel } from '../../../../services/inventory.service';
+import { AttachmentService } from '../../../../services/attachment.service';
 import { TimelinePanelComponent } from '../../../../shared/timeline-panel/timeline-panel.component';
 import { ProductVariantPickerComponent, VariantPickerSelection } from '../../../../shared/product-variant-picker/product-variant-picker.component';
 
@@ -39,7 +40,7 @@ interface EditMirLine {
   requestedQty:        number;
   purpose:             string;
   notes:               string;
-  stockItems:          ProductStockModel[];
+  stockItems:          VariantWarehouseStockModel[];
   selectedWarehouseId: number | null;
   maxQty:              number | null;
   isLoadingStock:      boolean;
@@ -98,7 +99,6 @@ export class MirDetailComponent implements OnInit {
   editProducts: ProductListItemModel[] = [];
   editProjectOptions: { label: string; value: string }[] = [];
   isLoadingEditData = false;
-  private _editProductIdByUuid = new Map<string, number>();
 
   editData = {
     requestType:    '',
@@ -126,8 +126,13 @@ export class MirDetailComponent implements OnInit {
     private materialService: MaterialService,
     private inventoryService: InventoryService,
     private messageService: MessageService,
-    private confirmationService: ConfirmationService
+    private confirmationService: ConfirmationService,
+    private attachmentService: AttachmentService
   ) {}
+
+  resolveImageUrl(url: string): string {
+    return this.attachmentService.resolveUrl(url);
+  }
 
   ngOnInit() {
     this.uuid = this.route.snapshot.paramMap.get('uuid')!;
@@ -328,7 +333,6 @@ export class MirDetailComponent implements OnInit {
           this.isLoadingEditData = false;
           if (products.success && products.result) {
             this.editProducts = products.result.data;
-            this.editProducts.forEach(p => this._editProductIdByUuid.set(p.uuid, p.id));
           }
           if (projects.success && projects.result) {
             this.editProjectOptions = (projects.result.data ?? []).map(p => ({
@@ -367,11 +371,13 @@ export class MirDetailComponent implements OnInit {
     line.maxQty = null;
     this.clearEditPrLine(i);
 
-    const productId = line.productUuid ? this._editProductIdByUuid.get(line.productUuid) : undefined;
-    if (!productId) return;
+    if (!line.variantUuid) return;
 
     line.isLoadingStock = true;
-    this.inventoryService.getProductStock(productId).subscribe({
+    // Per-warehouse availability for THIS variant specifically (bins summed) — getProductStock
+    // returns one row per bin across every variant of the product, which showed as multiple,
+    // seemingly-duplicate entries for the same warehouse.
+    this.inventoryService.getVariantStock(line.variantUuid).subscribe({
       next: (res) => {
         line.isLoadingStock = false;
         if (res.success && res.result) {

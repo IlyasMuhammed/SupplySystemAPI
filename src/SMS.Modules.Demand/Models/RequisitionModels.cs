@@ -157,6 +157,7 @@ public class PrLineModel
     public string? VariantSku { get; set; }
     public string? VariantName { get; set; }
     public string? ProductName { get; set; }
+    public string? ProductImageUrl { get; set; }
     public string ItemDescription { get; set; } = string.Empty;
     public string? Specification { get; set; }
     public string? UnitOfMeasure { get; set; }

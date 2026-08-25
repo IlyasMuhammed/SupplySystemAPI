@@ -1,8 +1,8 @@
-<div class="attachment-list" [class.compact]="compact">
+<div class="attachment-list" [class.compact]="compact" [class.inline]="inline">
   <p-toast></p-toast>
   <p-confirmDialog [style]="{width:'420px'}"></p-confirmDialog>
 
-  <div class="attachment-header" *ngIf="!compact">
+  <div class="attachment-header" *ngIf="!compact && !inline">
     <div class="ah-icon"><i class="pi pi-paperclip"></i></div>
     <span class="attachment-label">{{ label }}</span>
     <span class="attachment-count-badge" *ngIf="attachments.length">{{ attachments.length }}</span>
@@ -13,40 +13,67 @@
   </div>
 
   <ng-container *ngIf="documentId">
-    <div *ngIf="isLoading" class="attachment-hint"><i class="pi pi-spin pi-spinner"></i> Loading…</div>
 
-    <ul class="attachment-items" *ngIf="!isLoading && attachments.length">
-      <li *ngFor="let att of attachments" class="attachment-item">
-        <div class="attachment-item-row">
-          <div class="attachment-file-icon"><i class="pi pi-file"></i></div>
-          <a [href]="resolveUrl(att.fileUrl)" target="_blank" rel="noopener" class="attachment-file-link">
-            <span class="attachment-file-name">{{ att.fileName }}</span>
-            <span class="attachment-file-size" *ngIf="att.fileSize">{{ formatSize(att.fileSize) }}</span>
-          </a>
-          <p-button *ngIf="!readOnly" icon="pi pi-times" [text]="true" severity="danger" size="small"
-                    pTooltip="Remove" (onClick)="remove(att)"></p-button>
-        </div>
-        <div class="attachment-meta">
-          <span class="attachment-meta-item"><i class="pi pi-user"></i> {{ att.uploadedByName }}</span>
-          <span class="attachment-meta-item"><i class="pi pi-clock"></i> {{ formatDate(att.uploadedDate) }}</span>
-        </div>
-        <div class="attachment-notes" *ngIf="att.notes"><i class="pi pi-comment"></i> {{ att.notes }}</div>
-      </li>
-    </ul>
+    <!-- ── Single-line mode — no notes field, files as small removable chips ─── -->
+    <div class="attachment-inline-row" *ngIf="inline">
+      <span class="attachment-inline-label" *ngIf="label">
+        <i class="pi pi-paperclip"></i>{{ label }}
+      </span>
 
-    <div *ngIf="!isLoading && !attachments.length" class="attachment-hint">
-      <i class="pi pi-inbox"></i> No attachments yet.
-    </div>
-
-    <div *ngIf="!readOnly" class="attachment-upload">
-      <input pInputText type="text" class="attachment-notes-input" [(ngModel)]="pendingNotes"
-             [ngModelOptions]="{standalone: true}" placeholder="Remarks/notes for this upload (optional)"
-             [disabled]="isUploading" />
-      <label class="attachment-upload-btn" [class.uploading]="isUploading">
+      <label class="attachment-chip attachment-chip--add" *ngIf="!readOnly" [class.uploading]="isUploading">
         <i class="pi" [class.pi-upload]="!isUploading" [class.pi-spin]="isUploading" [class.pi-spinner]="isUploading"></i>
-        {{ isUploading ? 'Uploading…' : 'Add Attachment(s)' }}
+        {{ isUploading ? 'Uploading…' : 'Add Attachment' }}
         <input type="file" multiple (change)="onFileSelected($event)" [disabled]="isUploading" hidden />
       </label>
+
+      <i class="pi pi-spin pi-spinner attachment-inline-loading" *ngIf="isLoading"></i>
+
+      <div class="attachment-chip" *ngFor="let att of attachments">
+        <a [href]="resolveUrl(att.fileUrl)" target="_blank" rel="noopener" class="attachment-chip-name" [pTooltip]="att.fileName">
+          <i class="pi pi-file"></i>{{ att.fileName }}
+        </a>
+        <i class="pi pi-times attachment-chip-remove" *ngIf="!readOnly" (click)="remove(att)" pTooltip="Remove"></i>
+      </div>
     </div>
+
+    <!-- ── Default (card list) mode ─────────────────────────────────────────── -->
+    <ng-container *ngIf="!inline">
+      <div *ngIf="isLoading" class="attachment-hint"><i class="pi pi-spin pi-spinner"></i> Loading…</div>
+
+      <ul class="attachment-items" *ngIf="!isLoading && attachments.length">
+        <li *ngFor="let att of attachments" class="attachment-item">
+          <div class="attachment-item-row">
+            <div class="attachment-file-icon"><i class="pi pi-file"></i></div>
+            <a [href]="resolveUrl(att.fileUrl)" target="_blank" rel="noopener" class="attachment-file-link">
+              <span class="attachment-file-name">{{ att.fileName }}</span>
+              <span class="attachment-file-size" *ngIf="att.fileSize">{{ formatSize(att.fileSize) }}</span>
+            </a>
+            <p-button *ngIf="!readOnly" icon="pi pi-times" [text]="true" severity="danger" size="small"
+                      pTooltip="Remove" (onClick)="remove(att)"></p-button>
+          </div>
+          <div class="attachment-meta">
+            <span class="attachment-meta-item"><i class="pi pi-user"></i> {{ att.uploadedByName }}</span>
+            <span class="attachment-meta-item"><i class="pi pi-clock"></i> {{ formatDate(att.uploadedDate) }}</span>
+          </div>
+          <div class="attachment-notes" *ngIf="att.notes"><i class="pi pi-comment"></i> {{ att.notes }}</div>
+        </li>
+      </ul>
+
+      <div *ngIf="!isLoading && !attachments.length" class="attachment-hint">
+        <i class="pi pi-inbox"></i> No attachments yet.
+      </div>
+
+      <div *ngIf="!readOnly" class="attachment-upload">
+        <input pInputText type="text" class="attachment-notes-input" [(ngModel)]="pendingNotes"
+               [ngModelOptions]="{standalone: true}" placeholder="Remarks/notes for this upload (optional)"
+               [disabled]="isUploading" />
+        <label class="attachment-upload-btn" [class.uploading]="isUploading">
+          <i class="pi" [class.pi-upload]="!isUploading" [class.pi-spin]="isUploading" [class.pi-spinner]="isUploading"></i>
+          {{ isUploading ? 'Uploading…' : 'Add Attachment(s)' }}
+          <input type="file" multiple (change)="onFileSelected($event)" [disabled]="isUploading" hidden />
+        </label>
+      </div>
+    </ng-container>
+
   </ng-container>
 </div>

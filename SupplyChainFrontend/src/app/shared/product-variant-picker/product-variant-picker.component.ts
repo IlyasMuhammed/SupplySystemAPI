@@ -7,6 +7,7 @@ import {
   ProductListItemModel,
   ProductVariantModel
 } from '../../services/inventory.service';
+import { AttachmentService } from '../../services/attachment.service';
 
 export interface VariantPickerSelection {
   productUuid: string | null;
@@ -30,36 +31,48 @@ export interface VariantPickerSelection {
   imports: [CommonModule, FormsModule, DropdownModule],
   template: `
 <div class="pvp-wrap">
-  <p-dropdown
-    [options]="productOptions"
-    [(ngModel)]="selectedProductUuid"
-    (onChange)="onProductChange()"
-    optionLabel="label" optionValue="value"
-    [filter]="true" filterBy="label"
-    placeholder="Select product…"
-    [showClear]="!required"
-    styleClass="w-full"
-    appendTo="body">
-  </p-dropdown>
+  <div class="pvp-row">
+    <img *ngIf="selectedProduct?.imageUrl" [src]="resolveImageUrl(selectedProduct!.imageUrl!)"
+         alt="" class="pvp-thumb" />
+    <div class="pvp-fields">
+      <p-dropdown
+        [options]="productOptions"
+        [(ngModel)]="selectedProductUuid"
+        (onChange)="onProductChange()"
+        optionLabel="label" optionValue="value"
+        [filter]="true" filterBy="label"
+        placeholder="Select product…"
+        [showClear]="!required"
+        styleClass="w-full"
+        appendTo="body">
+      </p-dropdown>
 
-  <p-dropdown
-    *ngIf="showVariantDropdown"
-    [options]="variantOptions"
-    [(ngModel)]="selectedVariantUuid"
-    (onChange)="onVariantChange()"
-    optionLabel="label" optionValue="value"
-    placeholder="Select variant…"
-    styleClass="w-full pvp-variant"
-    appendTo="body">
-  </p-dropdown>
+      <p-dropdown
+        *ngIf="showVariantDropdown"
+        [options]="variantOptions"
+        [(ngModel)]="selectedVariantUuid"
+        (onChange)="onVariantChange()"
+        optionLabel="label" optionValue="value"
+        placeholder="Select variant…"
+        styleClass="w-full pvp-variant"
+        appendTo="body">
+      </p-dropdown>
 
-  <div class="pvp-single-variant" *ngIf="!showVariantDropdown && singleVariant as v">
-    <i class="pi pi-tag"></i> {{ v.variantName }} <span class="pvp-sku">({{ v.sku }})</span>
+      <div class="pvp-single-variant" *ngIf="!showVariantDropdown && singleVariant as v">
+        <i class="pi pi-tag"></i> {{ v.variantName }} <span class="pvp-sku">({{ v.sku }})</span>
+      </div>
+    </div>
   </div>
 </div>
   `,
   styles: [`
     .pvp-wrap { display: flex; flex-direction: column; gap: .4rem; }
+    .pvp-row { display: flex; align-items: flex-start; gap: .6rem; }
+    .pvp-fields { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .4rem; }
+    .pvp-thumb {
+      width: 38px; height: 38px; object-fit: cover; border-radius: 8px;
+      border: 1px solid #e5e7eb; flex-shrink: 0; margin-top: .1rem;
+    }
     .pvp-variant { margin-top: 0; }
     .pvp-single-variant {
       font-size: .8rem; color: #64748b; display: flex; align-items: center; gap: .35rem;
@@ -86,7 +99,18 @@ export class ProductVariantPickerComponent implements OnChanges {
 
   private productsById = new Map<string, ProductListItemModel>();
 
-  constructor(private inventoryService: InventoryService) {}
+  get selectedProduct(): ProductListItemModel | null {
+    return this.selectedProductUuid ? this.productsById.get(this.selectedProductUuid) ?? null : null;
+  }
+
+  constructor(
+    private inventoryService: InventoryService,
+    private attachmentService: AttachmentService
+  ) {}
+
+  resolveImageUrl(url: string): string {
+    return this.attachmentService.resolveUrl(url);
+  }
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['products']) {

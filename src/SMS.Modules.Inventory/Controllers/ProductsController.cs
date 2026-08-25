@@ -265,6 +265,16 @@ public class ProductsController : ControllerBase
         return Ok(ApiResponse<ProductStockSummaryModel>.Ok(summary));
     }
 
+    // One row per warehouse for a single variant (bins summed) — for pickers like MIR line
+    // creation that need "how much of THIS variant is available in THIS warehouse", where
+    // GetProductStock's per-bin/per-variant rows would otherwise look like duplicate warehouses.
+    [HttpGet("api/variants/{variantUuid:guid}/stock")]
+    public async Task<IActionResult> GetVariantStock(Guid variantUuid)
+    {
+        var stock = await _service.GetVariantStockByWarehouseAsync(variantUuid);
+        return Ok(ApiResponse<List<VariantWarehouseStockModel>>.Ok(stock));
+    }
+
     // ── Variants (PV-004) ─────────────────────────────────────────────────────
 
     // GRN barcode scan: resolves a scanned code straight to its variant, product, and price.

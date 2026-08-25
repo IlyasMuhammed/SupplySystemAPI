@@ -146,6 +146,21 @@ public class ProductStockModel
     public DateTime LastUpdated { get; set; }
 }
 
+// One row per warehouse for a single variant — bins within the same warehouse are summed
+// together, unlike ProductStockModel/GetProductStockAsync which is per-bin, per-variant detail
+// (intentionally, for the product-detail stock table). Used wherever a picker needs "how much of
+// THIS variant is available in THIS warehouse" as one clean figure — e.g. MIR line creation.
+public class VariantWarehouseStockModel
+{
+    public int WarehouseId { get; set; }
+    public Guid WarehouseUuid { get; set; }
+    public string WarehouseCode { get; set; } = string.Empty;
+    public string WarehouseName { get; set; } = string.Empty;
+    public decimal QtyOnHand { get; set; }
+    public decimal QtyReserved { get; set; }
+    public decimal QtyAvailable { get; set; }
+}
+
 public class ReorderAlertModel
 {
     public int VariantId { get; set; }

@@ -128,6 +128,7 @@ export interface MirLine {
   variantSku?: string;
   variantName?: string;
   productName?: string;
+  productImageUrl?: string;
   itemDescription: string;
   unitOfMeasure?: string;
   requestedQty: number;
