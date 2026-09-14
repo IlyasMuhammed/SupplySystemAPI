@@ -239,13 +239,13 @@
 
       <div class="sdlg-field">
         <label>Supplier <span class="sdlg-required">*</span></label>
-        <p-autoComplete
+        <p-autoComplete #convertSupplierAc
           [(ngModel)]="convertSupplierAuto"
           [suggestions]="supplierSuggestions"
           field="supplierName"
           [minLength]="0"
           (completeMethod)="searchSuppliers($event)"
-          (onFocus)="searchSuppliers({query: ''})"
+          (onFocus)="convertSupplierAc.search($event, '', 'focus')"
           (ngModelChange)="onConvertSupplierChange($event)"
           placeholder="Search or type supplier name…"
           styleClass="w-full"
@@ -311,13 +311,13 @@
             <span class="sdlg-row-num">{{ i + 1 }}</span>
             <span class="sdlg-split-desc">{{ a.itemDescription }}</span>
           </div>
-          <p-autoComplete
+          <p-autoComplete #splitSupplierAc
             [(ngModel)]="splitSupplierAuto[i]"
             [suggestions]="supplierSuggestions"
             field="supplierName"
             [minLength]="0"
             (completeMethod)="searchSuppliers($event)"
-            (onFocus)="searchSuppliers({query: ''})"
+            (onFocus)="splitSupplierAc.search($event, '', 'focus')"
             (ngModelChange)="onSplitSupplierChange($event, i)"
             placeholder="Search or type supplier…"
             styleClass="w-full"

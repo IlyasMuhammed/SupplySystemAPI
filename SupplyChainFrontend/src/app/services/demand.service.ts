@@ -377,6 +377,8 @@ export interface CreatePoLineRequest {
   unitOfMeasure?: string;
   quantity: number;
   unitPrice: number;
+  // RC-004 — accepted volume-discount suggestion, stored for reference only.
+  lineDiscountPct?: number;
   requiredDate?: string;
   lineNotes?: string;
   budgetCode?: string;

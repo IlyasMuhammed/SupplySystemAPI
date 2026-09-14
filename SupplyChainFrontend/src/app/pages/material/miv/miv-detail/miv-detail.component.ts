@@ -7,7 +7,6 @@ import { ToastModule } from 'primeng/toast';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { MessageService, ConfirmationService } from 'primeng/api';
 import { MaterialService, MivDetail } from '../../../../services/material.service';
-import { downloadMivPdf } from '../miv-pdf.util';
 
 @Component({
   selector: 'app-miv-detail',
@@ -25,6 +24,7 @@ export class MivDetailComponent implements OnInit {
   isLoading  = true;
   isPosting  = false;
   isCancelling = false;
+  isDownloadingPdf = false;
 
   constructor(
     private route:           ActivatedRoute,
@@ -108,7 +108,22 @@ export class MivDetailComponent implements OnInit {
 
   downloadPdf() {
     if (!this.miv) return;
-    downloadMivPdf(this.miv);
+    this.isDownloadingPdf = true;
+    this.materialService.downloadMivPdf(this.miv.uuid).subscribe({
+      next: (blob) => {
+        this.isDownloadingPdf = false;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `MIV-${this.miv?.issueNo || this.miv?.uuid}.pdf`;
+        a.click();
+        URL.revokeObjectURL(url);
+      },
+      error: () => {
+        this.isDownloadingPdf = false;
+        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to generate MIV PDF.' });
+      }
+    });
   }
 
   getStatusSeverity(s: string): 'success' | 'danger' | 'warn' | 'secondary' | 'info' | 'contrast' {

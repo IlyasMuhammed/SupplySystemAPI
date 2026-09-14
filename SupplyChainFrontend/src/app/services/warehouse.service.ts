@@ -170,6 +170,7 @@ export interface SroListItemModel {
   originalPoNumber?: string;
   status: string;
   returnReason: string;
+  returnReasonDetail?: string;
   rmaNumber?: string;
   dispatchDate?: string;
   createdDate: string;
@@ -204,6 +205,10 @@ export interface SroDetailModel {
   createdBy: number;
   createdDate: string;
   lines: SroLineModel[];
+  // REQ-3.x — populated from the latest acknowledged portal link, if any.
+  acknowledgedAt?: string;
+  acknowledgmentRemarks?: string;
+  ackReceivedDate?: string;
 }
 
 // ── GRN Filter ────────────────────────────────────────────────────────────────

@@ -28,14 +28,14 @@
 
         <div class="field col-span-2">
           <label>Supplier Name <span class="required">*</span></label>
-          <p-autoComplete
+          <p-autoComplete #poSupplierAc
             [(ngModel)]="supplierAuto"
             [ngModelOptions]="{standalone: true}"
             [suggestions]="supplierSuggestions"
             field="supplierName"
             [minLength]="0"
             (completeMethod)="searchSuppliers($event)"
-            (onFocus)="searchSuppliers({query: ''})"
+            (onFocus)="poSupplierAc.search($event, '', 'focus')"
             (ngModelChange)="onSupplierChange($event)"
             placeholder="Search or type supplier name..."
             styleClass="w-full"

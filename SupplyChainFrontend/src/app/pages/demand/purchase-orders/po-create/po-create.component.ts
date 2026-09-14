@@ -22,6 +22,7 @@ import { InventoryService, ProductListItemModel, WarehouseModel } from '../../..
 import { AuthService } from '../../../service/auth.service';
 import { AttachmentListComponent } from '../../../../shared/attachment-list/attachment-list.component';
 import { ProductVariantPickerComponent, VariantPickerSelection } from '../../../../shared/product-variant-picker/product-variant-picker.component';
+import { RateCardService, DiscountTierDto } from '../../../../services/rate-card.service';
 
 @Component({
   selector: 'app-po-create',
@@ -106,7 +107,8 @@ export class PoCreateComponent implements OnInit {
     private messageService: MessageService,
     private router: Router,
     private authService: AuthService,
-    private route: ActivatedRoute
+    private route: ActivatedRoute,
+    private rateCardService: RateCardService
   ) { this.buildForm(); }
 
   get isProcurementManager(): boolean {
@@ -221,6 +223,7 @@ export class PoCreateComponent implements OnInit {
     const name = this.suppliersMap.get(event.value) ?? '';
     this.form.patchValue({ supplierName: name });
     this.checkSupplierGrade(event.value, name);
+    for (let i = 0; i < this.lines.length; i++) this.checkDiscountSuggestion(i);
   }
 
   // SC-007 — non-blocking grade check. Grade F -> red warning, Grade D -> softer amber warning,
@@ -302,6 +305,60 @@ export class PoCreateComponent implements OnInit {
         unitPrice:       sel.purchasePrice ?? 0
       });
     }
+    this.checkDiscountSuggestion(i);
+  }
+
+  onQuantityBlur(i: number) {
+    this.checkDiscountSuggestion(i);
+  }
+
+  // RC-004 — advisory-only volume-discount suggestion, from the variant+supplier's rate card
+  // (reuses RC-001's active-rate lookup — no new backend interface needed for this direction).
+  // Never blocks PO creation; a failed/absent lookup is silently ignored, same convention as
+  // checkSupplierGrade above.
+  private checkDiscountSuggestion(i: number) {
+    const line        = this.lines.at(i);
+    const variantUuid = line.get('variantUuid')?.value;
+    const quantity    = line.get('quantity')?.value;
+    const supplierId  = this.form.get('supplierId')?.value;
+    if (!variantUuid || !supplierId || !quantity) return;
+
+    this.rateCardService.getActiveRate(variantUuid, supplierId).subscribe({
+      next: (res) => {
+        if (!res.success || !res.result?.discountTiers) return;
+
+        let tiers: DiscountTierDto[];
+        try { tiers = JSON.parse(res.result.discountTiers); } catch { return; }
+
+        const match = tiers.find(t => quantity >= t.qtyFrom && (t.qtyTo == null || quantity <= t.qtyTo));
+        if (!match || match.discountPct <= 0) return;
+
+        const current = line.get('lineDiscountPct')?.value;
+        if (current === match.discountPct) return; // already applied for this line
+
+        const rangeLabel = match.qtyTo != null ? `${match.qtyFrom}+ to ${match.qtyTo}` : `${match.qtyFrom}+`;
+        this.messageService.add({
+          key: 'discount-suggestion',
+          severity: 'info',
+          summary: 'Volume Discount Available',
+          detail: `${match.discountPct}% off for ${rangeLabel} units. Apply?`,
+          sticky: true,
+          data: { lineIndex: i, discountPct: match.discountPct }
+        });
+      },
+      error: () => { /* advisory only — a failed lookup must never block PO creation */ }
+    });
+  }
+
+  applyDiscountSuggestion(message: any) {
+    const { lineIndex, discountPct } = message.data;
+    this.lines.at(lineIndex).patchValue({ lineDiscountPct: discountPct });
+    this.messageService.clear('discount-suggestion');
+    this.messageService.add({ severity: 'success', summary: 'Applied', detail: `${discountPct}% discount applied to the line.`, life: 2500 });
+  }
+
+  dismissDiscountSuggestion() {
+    this.messageService.clear('discount-suggestion');
   }
 
   onPrSelect(uuid: string | null) {
@@ -478,6 +535,7 @@ export class PoCreateComponent implements OnInit {
       unitOfMeasure:    [null],
       quantity:         [1,  [Validators.required, Validators.min(0.0001), Validators.max(999999)]],
       unitPrice:        [0,  [Validators.required, Validators.min(0)]],
+      lineDiscountPct:  [null],
       warehouseId:      [null],
       warehouseName:    [''],
       requiredDate:     [null],
@@ -519,6 +577,7 @@ export class PoCreateComponent implements OnInit {
         unitOfMeasure:    l.unitOfMeasure    || undefined,
         quantity:         l.quantity,
         unitPrice:        l.unitPrice,
+        lineDiscountPct:  l.lineDiscountPct  ?? undefined,
         warehouseId:      l.warehouseId      || undefined,
         warehouseName:    l.warehouseName    || undefined,
         requiredDate:     l.requiredDate instanceof Date ? l.requiredDate.toISOString() : l.requiredDate || undefined,

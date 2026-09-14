@@ -241,7 +241,9 @@ export class SroCreateComponent implements OnInit {
         unitOfMeasure:   [l.unitOfMeasure || ''],
         qtyToReturn:     [maxQty,
                           [Validators.required, Validators.min(1), Validators.max(maxQty)]],
-        returnReason:    [this.mapGrnReason(l.rejectionReason), Validators.required],
+        returnReason:       [this.mapGrnReason(l.rejectionReason), Validators.required],
+        // Keep the inspector's actual note — the category above is only a best-effort guess.
+        returnReasonDetail: [l.rejectionReason || ''],
         condition:       [''],
         unitCost:        [l.unitCost ?? null]
       }));
@@ -249,6 +251,30 @@ export class SroCreateComponent implements OnInit {
       this.lineMaxQty.push(maxQty);
     });
     this.linesSource = 'grn';
+
+    // The header-level Return Reason defaults to 'Damaged' and stays there unless the user
+    // remembers to also change it — meanwhile every line above got a real, GRN-derived reason.
+    // Sync the header to the most common per-line reason, and the header detail to the actual
+    // inspector notes, so the SRO list (which only shows these two header fields) reflects what
+    // actually happened instead of the untouched default.
+    const distinctNotes = [...new Set(receivedLines.map(l => l.rejectionReason).filter((n): n is string => !!n))];
+    this.form.patchValue({
+      returnReason: this.mostCommonReason(receivedLines),
+      returnReasonDetail: distinctNotes.join('; ')
+    });
+  }
+
+  private mostCommonReason(lines: GrnDetailModel['lines']): string {
+    const counts = new Map<string, number>();
+    for (const l of lines) {
+      const reason = this.mapGrnReason(l.rejectionReason);
+      counts.set(reason, (counts.get(reason) ?? 0) + 1);
+    }
+    let best = 'OTHER', bestCount = 0;
+    for (const [reason, count] of counts) {
+      if (count > bestCount) { best = reason; bestCount = count; }
+    }
+    return best;
   }
 
   // ── PO selected → fetch lines ─────────────────────────────────────────────
@@ -307,15 +333,23 @@ export class SroCreateComponent implements OnInit {
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
+  // QC rejection notes are free text typed by an inspector (e.g. "cracked screen", "torn box",
+  // "customer ordered blue, got red") — not one of our fixed reason codes. Matching against a
+  // narrow keyword set and defaulting anything unmatched to DAMAGED meant almost every note that
+  // didn't literally contain the word "damage" got mislabeled as Damaged. Default to OTHER
+  // instead — an honest "couldn't classify" rather than a specific, often wrong, claim.
   private mapGrnReason(reason?: string): string {
-    if (!reason) return 'DAMAGED';
+    if (!reason) return 'OTHER';
     const r = reason.toLowerCase();
-    if (r.includes('wrong item'))  return 'WRONG_ITEM';
-    if (r.includes('expiry'))      return 'SHORT_EXPIRY';
-    if (r.includes('over'))        return 'WRONG_QTY';
-    if (r.includes('defect'))      return 'DEFECTIVE';
-    if (r.includes('damage'))      return 'DAMAGED';
-    return 'DAMAGED';
+    if (r.includes('wrong item') || r.includes('incorrect item'))    return 'WRONG_ITEM';
+    if (r.includes('expiry') || r.includes('expired'))               return 'SHORT_EXPIRY';
+    if (r.includes('over') || r.includes('excess') || r.includes('extra')) return 'WRONG_QTY';
+    if (r.includes('duplicate'))                                      return 'DUPLICATE';
+    if (r.includes('spec') || r.includes('mismatch'))                 return 'SPEC_MISMATCH';
+    if (r.includes('quality') || r.includes('fail'))                  return 'QUALITY_FAIL';
+    if (r.includes('defect') || r.includes('broken') || r.includes('crack')) return 'DEFECTIVE';
+    if (r.includes('damage') || r.includes('torn') || r.includes('dent') || r.includes('leak')) return 'DAMAGED';
+    return 'OTHER';
   }
 
   resetToManualLine() {
@@ -371,14 +405,15 @@ export class SroCreateComponent implements OnInit {
       returnReasonDetail: v.returnReasonDetail  || undefined,
       notes:              v.notes               || undefined,
       lines: (v.lines as any[]).map(l => ({
-        grnLineUuid:     l.grnLineUuid     || undefined,
-        productUuid:     l.productUuid     || undefined,
-        itemDescription: l.itemDescription,
-        unitOfMeasure:   l.unitOfMeasure   || undefined,
-        qtyToReturn:     l.qtyToReturn,
-        returnReason:    l.returnReason,
-        condition:       l.condition       || undefined,
-        unitCost:        l.unitCost        ?? undefined
+        grnLineUuid:        l.grnLineUuid        || undefined,
+        productUuid:        l.productUuid        || undefined,
+        itemDescription:    l.itemDescription,
+        unitOfMeasure:      l.unitOfMeasure       || undefined,
+        qtyToReturn:        l.qtyToReturn,
+        returnReason:       l.returnReason,
+        returnReasonDetail: l.returnReasonDetail  || undefined,
+        condition:          l.condition           || undefined,
+        unitCost:           l.unitCost            ?? undefined
       }))
     };
     this.warehouseService.createSro(req).subscribe({

@@ -18,6 +18,8 @@ export interface UserListItem {
   role?: UserRole;
   createdDate: string;
   lastLoginAt?: string;
+  supplierType: string;
+  supplierIds: string[];
 }
 
 export interface UserDetail {
@@ -34,6 +36,8 @@ export interface UserDetail {
   createdDate: string;
   lastLoginAt?: string;
   temporaryPassword?: string;
+  supplierType: string;
+  supplierIds: string[];
 }
 
 export interface CreateUserRequest {
@@ -44,6 +48,8 @@ export interface CreateUserRequest {
   address?: string;
   department?: string;
   roleID: number;
+  supplierType: string;
+  supplierIds?: string[];
 }
 
 export interface PatchUserRequest {
@@ -51,6 +57,8 @@ export interface PatchUserRequest {
   lastName?: string;
   department?: string;
   isActive?: boolean;
+  supplierType?: string;
+  supplierIds?: string[];
 }
 
 export interface UserListResult {
@@ -71,6 +79,7 @@ export interface UserListFilter {
   status?: string;
   department?: string;
   search?: string;
+  supplierType?: string;
   page?: number;
   pageSize?: number;
 }
@@ -89,6 +98,7 @@ export class UserService {
     if (filter?.status) params = params.set('status', filter.status);
     if (filter?.department) params = params.set('department', filter.department);
     if (filter?.search) params = params.set('search', filter.search);
+    if (filter?.supplierType) params = params.set('supplierType', filter.supplierType);
     if (filter?.page) params = params.set('page', filter.page.toString());
     if (filter?.pageSize) params = params.set('pageSize', filter.pageSize.toString());
     return this.http.get<ApiResponse<any>>(this.baseUrl, { params });

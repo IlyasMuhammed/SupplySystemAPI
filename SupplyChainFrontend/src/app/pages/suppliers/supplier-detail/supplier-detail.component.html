@@ -290,10 +290,14 @@
               <div class="ac-icon"><i class="pi pi-pause-circle"></i></div>
               <div class="ac-label">Suspend Supplier</div>
             </button>
+            <button *ngIf="canDelete()" class="action-card reject" (click)="deleteSupplier()">
+              <div class="ac-icon"><i class="pi pi-trash"></i></div>
+              <div class="ac-label">Delete Supplier</div>
+            </button>
           </div>
 
           <div class="no-actions-hint"
-               *ngIf="!canApprove() && !canReject() && !canBlacklist() && !canSuspend()">
+               *ngIf="!canApprove() && !canReject() && !canBlacklist() && !canSuspend() && !canDelete()">
             <i class="pi pi-lock"></i>
             No status actions are available for the current status.
           </div>

@@ -1,0 +1,47 @@
+<p-toast></p-toast>
+
+<div class="card">
+
+  <!-- ── Page Header ──────────────────────────────────────────────────────── -->
+  <div class="md-header">
+    <div class="md-icon"><i class="pi pi-link"></i></div>
+    <div class="md-title-wrap">
+      <h2 class="md-title">Portal Settings</h2>
+      <p class="md-subtitle">Configure the supplier-facing acknowledgment portal for your organization</p>
+    </div>
+  </div>
+
+  <hr class="md-sep" />
+
+  <!-- ── Settings Form ─────────────────────────────────────────────────────── -->
+  <form [formGroup]="form" (ngSubmit)="save()" class="settings-body" *ngIf="!isLoading">
+    <div class="dlg-field">
+      <label class="dlg-label" for="ackLinkExpiryDays">
+        <i class="pi pi-clock dlg-field-icon"></i>
+        Acknowledgment Link Expiry (days) <span class="req">*</span>
+      </label>
+      <p-inputNumber
+        inputId="ackLinkExpiryDays"
+        formControlName="ackLinkExpiryDays"
+        [min]="minDays" [max]="maxDays"
+        [showButtons]="true"
+        styleClass="expiry-field">
+      </p-inputNumber>
+      <small class="dlg-hint">
+        How long a supplier's return-order acknowledgment link stays valid after dispatch ({{ minDays }}–{{ maxDays }} days).
+      </small>
+      <small class="dlg-error" *ngIf="f['ackLinkExpiryDays'].touched && f['ackLinkExpiryDays'].errors">
+        Enter a value between {{ minDays }} and {{ maxDays }} days.
+      </small>
+    </div>
+
+    <div class="settings-footer">
+      <p-button type="submit" label="Save Changes" icon="pi pi-check" [loading]="isSaving" [disabled]="isSaving"></p-button>
+    </div>
+  </form>
+
+  <div class="settings-loading" *ngIf="isLoading">
+    <i class="pi pi-spin pi-spinner"></i>
+  </div>
+
+</div>

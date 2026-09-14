@@ -333,6 +333,10 @@ export class SupplierService {
     return this.http.post<ApiResponse>(`${this.baseUrl}/${uuid}/reject`, data);
   }
 
+  deleteSupplier(uuid: string): Observable<ApiResponse> {
+    return this.http.delete<ApiResponse>(`${this.baseUrl}/${uuid}`);
+  }
+
   blacklistSupplier(uuid: string, data: BlacklistSupplierRequest): Observable<ApiResponse> {
     return this.http.post<ApiResponse>(`${this.baseUrl}/${uuid}/blacklist`, data);
   }

@@ -261,7 +261,7 @@ export class QuotationDetailComponent implements OnInit, OnDestroy {
 
   // ── Supplier autocomplete ─────────────────────────────────────────────────
   searchSuppliers(event: any) {
-    this.supplierService.getSuppliers({ search: event.query, status: 'ACTIVE', page: 1, pageSize: 10 }).subscribe({
+    this.supplierService.getSuppliers({ search: event.query, status: 'ACTIVE', page: 1, pageSize: 50 }).subscribe({
       next: (res) => { this.supplierSuggestions = res.result?.data ?? []; },
       error: () => { this.supplierSuggestions = []; }
     });
@@ -291,7 +291,7 @@ export class QuotationDetailComponent implements OnInit, OnDestroy {
   trackByIndex(index: number) { return index; }
 
   searchSuppliersSend(event: any, index: number) {
-    this.supplierService.getSuppliers({ search: event.query, status: 'ACTIVE', page: 1, pageSize: 10 }).subscribe({
+    this.supplierService.getSuppliers({ search: event.query, status: 'ACTIVE', page: 1, pageSize: 50 }).subscribe({
       next: (res) => {
         const all = res.result?.data ?? [];
         this.sendSuggestions[index] = all.filter(s =>

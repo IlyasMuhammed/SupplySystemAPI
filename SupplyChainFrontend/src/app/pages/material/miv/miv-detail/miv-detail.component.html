@@ -34,7 +34,7 @@
         </ng-container>
         <p-button *ngIf="miv.status === 'POSTED'"
                   label="Download PDF" icon="pi pi-file-pdf" severity="danger" [outlined]="true"
-                  (onClick)="downloadPdf()"></p-button>
+                  [loading]="isDownloadingPdf" [disabled]="isDownloadingPdf" (onClick)="downloadPdf()"></p-button>
         <p-button label="Back to MIV List" icon="pi pi-arrow-left" severity="secondary" [outlined]="true"
                   routerLink="/portal/pages/material/miv"></p-button>
       </div>

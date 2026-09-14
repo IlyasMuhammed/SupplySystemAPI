@@ -1,0 +1,254 @@
+.rate-cards-page {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+
+  .page-title {
+    font-size: 1.3rem;
+    font-weight: 700;
+    margin: 0 0 0.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+
+    i { color: var(--primary-color); }
+  }
+
+  .page-subtitle {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--text-color-secondary);
+  }
+}
+
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.supplier-dropdown {
+  min-width: 280px;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 3rem 1rem;
+  color: var(--text-color-secondary);
+
+  i { font-size: 2.5rem; color: var(--surface-400); }
+  p { margin: 0; font-size: 0.9rem; }
+}
+
+.empty-cell {
+  text-align: center;
+  padding: 2rem;
+  color: var(--text-color-secondary);
+}
+
+.product-cell {
+  display: flex;
+  flex-direction: column;
+
+  .product-name { font-weight: 600; }
+  .variant-name { font-size: 0.78rem; color: var(--text-color-secondary); }
+}
+
+.font-mono { font-family: 'Courier New', monospace; font-size: 0.85rem; }
+
+.cell-input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.text-center { text-align: center; }
+
+// ── Last PO Price comparison highlighting ────────────────────────────────────
+.po-price-match {
+  background: #f0fdf4;
+  color: #166534;
+  font-weight: 600;
+}
+
+.po-price-mismatch {
+  background: #fffbeb;
+  color: #b45309;
+  font-weight: 600;
+}
+
+.po-price-none {
+  background: #f8fafc;
+  color: var(--text-color-secondary);
+}
+
+.reason-hint {
+  margin: 0 0 0.75rem;
+  font-size: 0.85rem;
+  color: var(--text-color-secondary);
+}
+
+.reason-textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+// ── RC-003: Product Comparison View ──────────────────────────────────────────
+
+.comparison-row {
+  cursor: pointer;
+
+  &:hover { background: var(--surface-100); }
+}
+
+.lowest-row {
+  background: #f0fdf4;
+
+  &:hover { background: #dcfce7; }
+}
+
+.lowest-label {
+  color: #166534;
+  font-weight: 700;
+}
+
+.preferred-star {
+  color: #f59e0b;
+  margin-left: 0.4rem;
+  font-size: 0.8rem;
+}
+
+// ── RC-005: Bulk Rate Adjustment ─────────────────────────────────────────────
+
+.bulk-hint {
+  margin: 0 0 1rem;
+  font-size: 0.85rem;
+  color: var(--text-color-secondary);
+}
+
+.bulk-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+
+  label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-color-secondary);
+  }
+
+  input, textarea {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .req { color: #dc2626; }
+}
+
+.bulk-summary {
+  margin-bottom: 0.9rem;
+  padding: 0.7rem 0.9rem;
+  background: #f8fafc;
+  border-radius: 8px;
+  border-left: 3px solid #6c63ff;
+  font-size: 0.88rem;
+}
+
+.bulk-preview-row { background: #fffbeb; }
+
+.bulk-new-rate { font-weight: 700; color: #1e293b; }
+
+.impact-positive { color: #b45309; font-weight: 700; }
+.impact-negative { color: #16a34a; font-weight: 700; }
+
+.bulk-history-loading {
+  display: flex;
+  justify-content: center;
+  padding: 1.5rem;
+  color: var(--text-color-secondary);
+}
+
+.bulk-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  max-height: 26rem;
+  overflow-y: auto;
+}
+
+.bulk-history-row {
+  border: 1px solid #eef0f4;
+  border-radius: 8px;
+  padding: 0.7rem 0.9rem;
+}
+
+.bulk-history-main {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.bulk-history-count {
+  font-weight: 500;
+  color: var(--text-color-secondary);
+  font-size: 0.82rem;
+}
+
+.bulk-history-meta {
+  font-size: 0.78rem;
+  color: var(--text-color-secondary);
+  margin-top: 0.25rem;
+}
+
+.bulk-history-reason { font-style: italic; }
+
+.bulk-history-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+
+.bulk-empty-inline {
+  font-size: 0.82rem;
+  color: var(--text-color-secondary);
+  text-align: center;
+  padding: 0.8rem 0;
+}
+
+// ── RC-006: Excel Import / Copy from Supplier ────────────────────────────────
+
+.import-file-name {
+  margin: 0.75rem 0 0;
+  font-size: 0.85rem;
+  color: var(--text-color-secondary);
+}
+
+.import-error-msg {
+  margin-top: 0.25rem;
+  font-size: 0.76rem;
+  color: #b91c1c;
+}
+
+// ── RC-007: Stale Rate Alerts ─────────────────────────────────────────────────
+
+.review-due-badge {
+  margin-left: 0.5rem;
+  font-size: 0.68rem;
+}

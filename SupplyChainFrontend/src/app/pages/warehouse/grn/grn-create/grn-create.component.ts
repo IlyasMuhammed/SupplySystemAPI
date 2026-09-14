@@ -120,15 +120,6 @@ export class GrnCreateComponent implements OnInit {
 
   // ── PO search ──────────────────────────────────────────────────────────────
 
-  onPoFocus() {
-    if (this.selectedPo) return;
-    // Pre-populate with receivable POs on focus when nothing is selected yet
-    this.demandService.searchPosForGrn(undefined, true).subscribe({
-      next: (res) => { this.poSuggestions = res.result ?? []; },
-      error:  ()  => { this.poSuggestions = []; }
-    });
-  }
-
   searchPos(event: any) {
     const q = (event.query as string ?? '').trim();
     if (q.length === 0) {

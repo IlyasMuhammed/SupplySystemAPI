@@ -17,6 +17,7 @@ import { SupplierListComponent } from './suppliers/supplier-list/supplier-list.c
 import { SupplierCreateComponent } from './suppliers/supplier-create/supplier-create.component';
 import { SupplierDetailComponent } from './suppliers/supplier-detail/supplier-detail.component';
 import { SupplierScorecardDashboardComponent } from './suppliers/supplier-scorecard/supplier-scorecard-dashboard.component';
+import { RateCardsComponent } from './suppliers/rate-cards/rate-cards.component';
 import { CitiesListComponent } from './cities/cities-list/cities-list.component';
 import { CitiesCreateComponent } from './cities/cities-create/cities-create.component';
 import { CountriesListComponent } from './countries/countries-list/countries-list.component';
@@ -28,6 +29,7 @@ import { LookupTypesCreateComponent } from './lookup-types/lookup-types-create/l
 import { CurrenciesComponent } from './currencies/currencies.component';
 import { PaymentTermsComponent } from './payment-terms/payment-terms.component';
 import { PoDocumentTemplateComponent } from './po-document-template/po-document-template.component';
+import { PortalSettingsComponent } from './portal-settings/portal-settings.component';
 import { OrganizationsListComponent } from './organizations/organizations-list/organizations-list.component';
 import { OrganizationFeaturesComponent } from './organizations/organization-features/organization-features.component';
 import { permissionGuard } from './gaurds/permission.guard';
@@ -163,6 +165,8 @@ export default [
     // ── Suppliers ─────────────────────────────────────────────────────────────
     { path: 'suppliers/supplier-list', component: SupplierListComponent,
       canActivate: [permissionGuard(P.SUPPLIER_VIEW, P.SUPPLIER_CREATE, P.SUPPLIER_EDIT, P.SUPPLIER_MANAGE)] },
+    { path: 'suppliers/rate-cards', component: RateCardsComponent,
+      canActivate: [permissionGuard(P.SUPPLIER_MANAGE)] },
     { path: 'suppliers/supplier-create', component: SupplierCreateComponent,
       canActivate: [permissionGuard(P.SUPPLIER_CREATE, P.SUPPLIER_MANAGE)] },
     { path: 'suppliers/supplier-detail/:uuid', component: SupplierDetailComponent,
@@ -197,6 +201,8 @@ export default [
     { path: 'currencies', component: CurrenciesComponent,
       canActivate: [permissionGuard(P.SYSTEM_CONFIGURE)] },
     { path: 'payment-terms', component: PaymentTermsComponent,
+      canActivate: [permissionGuard(P.SYSTEM_CONFIGURE)] },
+    { path: 'portal-settings', component: PortalSettingsComponent,
       canActivate: [permissionGuard(P.SYSTEM_CONFIGURE)] },
     { path: 'po-document-template', component: PoDocumentTemplateComponent,
       canActivate: [permissionGuard(P.PO_TEMPLATE_MANAGE)] },

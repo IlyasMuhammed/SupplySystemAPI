@@ -14,7 +14,6 @@ import { IconFieldModule } from 'primeng/iconfield';
 import { MessageService } from 'primeng/api';
 import { TableLazyLoadEvent } from 'primeng/table';
 import { MaterialService, MivListItem, MivListFilter } from '../../../../services/material.service';
-import { downloadMivPdf } from '../miv-pdf.util';
 
 @Component({
   selector: 'app-miv-list',
@@ -104,12 +103,15 @@ export class MivListComponent implements OnInit {
     if (this.downloadingUuids.has(miv.uuid)) return;
     this.downloadingUuids.add(miv.uuid);
 
-    this.materialService.getMiv(miv.uuid).subscribe({
-      next: (res) => {
+    this.materialService.downloadMivPdf(miv.uuid).subscribe({
+      next: (blob) => {
         this.downloadingUuids.delete(miv.uuid);
-        if (res.success && res.result) {
-          downloadMivPdf(res.result);
-        }
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `MIV-${miv.issueNo || miv.uuid}.pdf`;
+        a.click();
+        URL.revokeObjectURL(url);
       },
       error: () => {
         this.downloadingUuids.delete(miv.uuid);

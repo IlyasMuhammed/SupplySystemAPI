@@ -248,7 +248,7 @@ export class PrDetailComponent implements OnInit {
   }
 
   searchSuppliers(event: any) {
-    this.supplierService.getSuppliers({ search: event.query, status: 'ACTIVE', page: 1, pageSize: 10 }).subscribe({
+    this.supplierService.getSuppliers({ search: event.query, status: 'ACTIVE', page: 1, pageSize: 50 }).subscribe({
       next: (res) => { this.supplierSuggestions = res.result?.data ?? []; },
       error: () => { this.supplierSuggestions = []; }
     });

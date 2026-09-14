@@ -553,6 +553,37 @@ export class SupplierDetailComponent implements OnInit {
   canApprove()   { return ['PENDING', 'SUSPENDED'].includes(this.supplier?.status ?? ''); }
   canReject()    { return this.supplier?.status === 'PENDING'; }
   canBlacklist() { return ['ACTIVE', 'SUSPENDED'].includes(this.supplier?.status ?? ''); }
+  canDelete()    { return ['PENDING', 'REJECTED'].includes(this.supplier?.status ?? ''); }
+
+  // ── Delete ────────────────────────────────────────────────────────────────
+
+  deleteSupplier() {
+    this.confirmationService.confirm({
+      message: `Delete supplier "${this.supplier?.supplierName}"? This cannot be undone.`,
+      header: 'Confirm Delete',
+      icon: 'pi pi-exclamation-triangle',
+      acceptButtonStyleClass: 'p-button-danger',
+      rejectButtonStyleClass: 'p-button-text',
+      accept: () => {
+        this.isActioning = true;
+        this.supplierService.deleteSupplier(this.uuid).subscribe({
+          next: (res) => {
+            this.isActioning = false;
+            if (res.success) {
+              this.messageService.add({ severity: 'success', summary: 'Deleted', detail: 'Supplier deleted.' });
+              this.router.navigate(['/portal/pages/suppliers/supplier-list']);
+            } else {
+              this.messageService.add({ severity: 'error', summary: 'Error', detail: res.message });
+            }
+          },
+          error: (err) => {
+            this.isActioning = false;
+            this.messageService.add({ severity: 'error', summary: 'Error', detail: err.error?.message || 'Delete failed.' });
+          }
+        });
+      }
+    });
+  }
   canSuspend()   { return this.supplier?.status === 'ACTIVE'; }
 
   // ── Approve ───────────────────────────────────────────────────────────────

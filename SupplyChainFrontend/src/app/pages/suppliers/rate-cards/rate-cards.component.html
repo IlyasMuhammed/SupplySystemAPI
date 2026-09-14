@@ -1,0 +1,487 @@
+<p-toast></p-toast>
+
+<div class="rate-cards-page">
+
+  <div class="page-header">
+    <div>
+      <h1 class="page-title"><i class="pi pi-tags"></i> Supplier Rate Cards</h1>
+      <p class="page-subtitle">Review and edit supplier rates, compared against last purchase order prices.</p>
+    </div>
+    <p-selectButton [options]="viewModeOptions" [(ngModel)]="viewMode"
+                     optionLabel="label" optionValue="value"></p-selectButton>
+  </div>
+
+  <!-- ── Supplier View (RC-002) ─────────────────────────────────────────── -->
+  <ng-container *ngIf="viewMode === 'supplier'">
+
+  <div class="filter-bar">
+    <p-dropdown
+      [options]="supplierOptions"
+      [(ngModel)]="selectedSupplierId"
+      (onChange)="onSupplierChange()"
+      optionLabel="label" optionValue="value"
+      placeholder="Select a supplier"
+      [filter]="true" filterBy="label"
+      styleClass="supplier-dropdown">
+    </p-dropdown>
+
+    <p-iconfield *ngIf="selectedSupplierId">
+      <p-inputicon styleClass="pi pi-search" />
+      <input pInputText type="text" [(ngModel)]="searchText" (input)="onSearchInput()"
+             placeholder="Search product, SKU, or vendor part no…" />
+    </p-iconfield>
+
+    <p-button *ngIf="selectedSupplierId" label="Bulk Adjust" icon="pi pi-percentage"
+              [disabled]="selectedRows.length === 0" (onClick)="openBulkDialog()"></p-button>
+    <p-button *ngIf="selectedSupplierId" label="Bulk History" icon="pi pi-history"
+              severity="secondary" [outlined]="true" (onClick)="showBulkHistoryDialog = true"></p-button>
+    <p-button *ngIf="selectedSupplierId" label="Export to Excel" icon="pi pi-file-excel"
+              severity="secondary" [outlined]="true" (onClick)="exportRateCards()"></p-button>
+    <p-button *ngIf="selectedSupplierId" label="Import" icon="pi pi-upload"
+              severity="secondary" [outlined]="true" (onClick)="openImportDialog()"></p-button>
+    <p-button *ngIf="selectedSupplierId" label="Copy from Supplier" icon="pi pi-copy"
+              severity="secondary" [outlined]="true" (onClick)="openCopyDialog()"></p-button>
+  </div>
+
+  <div class="empty-state" *ngIf="!selectedSupplierId">
+    <i class="pi pi-tags"></i>
+    <p>Select a supplier above to view and edit their rate cards.</p>
+  </div>
+
+  <p-contextMenu #cm [model]="contextMenuItems"></p-contextMenu>
+
+  <p-table
+    *ngIf="selectedSupplierId"
+    [value]="visibleRows"
+    [loading]="isLoading"
+    editMode="cell"
+    dataKey="uuid"
+    [(selection)]="selectedRows"
+    selectionMode="multiple"
+    [lazy]="true"
+    [paginator]="true"
+    [rows]="pageSize"
+    [totalRecords]="totalRecords"
+    [rowsPerPageOptions]="[10, 20, 50]"
+    [showCurrentPageReport]="true"
+    currentPageReportTemplate="Showing {first} to {last} of {totalRecords} rate cards"
+    [customSort]="true"
+    (onLazyLoad)="onLazyLoad($event)"
+    (onSort)="onLazyLoad($event)"
+    (onEditComplete)="onEditComplete($event)"
+    (onEditCancel)="onEditCancel($event)"
+    responsiveLayout="scroll">
+
+    <ng-template pTemplate="header">
+      <tr>
+        <th class="text-center"><p-tableHeaderCheckbox></p-tableHeaderCheckbox></th>
+        <th pSortableColumn="productName">Product / Variant <p-sortIcon field="productName"></p-sortIcon></th>
+        <th pSortableColumn="sku">SKU <p-sortIcon field="sku"></p-sortIcon></th>
+        <th>Vendor Part No</th>
+        <th pSortableColumn="vendorUnitCost">Rate <p-sortIcon field="vendorUnitCost"></p-sortIcon></th>
+        <th>Currency</th>
+        <th>Last PO Price</th>
+        <th pSortableColumn="leadTimeDays">Lead Days <p-sortIcon field="leadTimeDays"></p-sortIcon></th>
+        <th>Min Qty</th>
+        <th class="text-center">Preferred</th>
+        <th pSortableColumn="effectiveFrom">Effective From <p-sortIcon field="effectiveFrom"></p-sortIcon></th>
+        <th pSortableColumn="effectiveTo">Effective To <p-sortIcon field="effectiveTo"></p-sortIcon></th>
+        <th>Status</th>
+        <th></th>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="body" let-row>
+      <tr (contextmenu)="onRowContextMenu($event, row, cm)">
+        <td class="text-center"><p-tableCheckbox [value]="row"></p-tableCheckbox></td>
+        <td>
+          <div class="product-cell">
+            <span class="product-name">{{ row.productName }}</span>
+            <span class="variant-name" *ngIf="row.variantName">{{ row.variantName }}</span>
+          </div>
+        </td>
+        <td class="font-mono">{{ row.sku }}</td>
+        <td>{{ row.vendorPartNo || '—' }}</td>
+
+        <td [pEditableColumn]="row.vendorUnitCost" pEditableColumnField="vendorUnitCost" (click)="startEdit(row)">
+          <p-cellEditor>
+            <ng-template pTemplate="input">
+              <input pInputText type="number" step="0.01" [(ngModel)]="row.vendorUnitCost" class="cell-input" />
+            </ng-template>
+            <ng-template pTemplate="output">
+              {{ row.vendorUnitCost | number:'1.2-2' }}
+              <p-tag *ngIf="row.status === 'STALE'" value="Review Due" severity="warn"
+                     styleClass="review-due-badge" pTooltip="Rate hasn't been reviewed recently — right-click to mark as reviewed."></p-tag>
+            </ng-template>
+          </p-cellEditor>
+        </td>
+
+        <td>{{ currencyCode(row.currencyId) }}</td>
+
+        <td [ngClass]="lastPoPriceClass(row)">
+          <ng-container *ngIf="row.lastPoPrice != null; else noPo">{{ row.lastPoPrice | number:'1.2-2' }}</ng-container>
+          <ng-template #noPo>—</ng-template>
+        </td>
+
+        <td [pEditableColumn]="row.leadTimeDays" pEditableColumnField="leadTimeDays" (click)="startEdit(row)">
+          <p-cellEditor>
+            <ng-template pTemplate="input">
+              <input pInputText type="number" [(ngModel)]="row.leadTimeDays" class="cell-input" />
+            </ng-template>
+            <ng-template pTemplate="output">{{ row.leadTimeDays ?? '—' }}</ng-template>
+          </p-cellEditor>
+        </td>
+
+        <td [pEditableColumn]="row.minOrderQty" pEditableColumnField="minOrderQty" (click)="startEdit(row)">
+          <p-cellEditor>
+            <ng-template pTemplate="input">
+              <input pInputText type="number" [(ngModel)]="row.minOrderQty" class="cell-input" />
+            </ng-template>
+            <ng-template pTemplate="output">{{ row.minOrderQty ?? '—' }}</ng-template>
+          </p-cellEditor>
+        </td>
+
+        <td class="text-center">
+          <p-button
+            [icon]="row.isPreferred ? 'pi pi-star-fill' : 'pi pi-star'"
+            [text]="true"
+            [severity]="row.isPreferred ? 'warn' : 'secondary'"
+            pTooltip="Preferred supplier for this item"
+            (onClick)="togglePreferred(row)">
+          </p-button>
+        </td>
+
+        <td>{{ row.effectiveFrom | date:'dd MMM yyyy' }}</td>
+        <td>{{ row.effectiveTo ? (row.effectiveTo | date:'dd MMM yyyy') : '—' }}</td>
+        <td><p-tag [value]="row.status" [severity]="statusSeverity(row.status)"></p-tag></td>
+        <td>
+          <p-button icon="pi pi-pencil" [text]="true" severity="secondary"
+                    pTooltip="Full edit (discount tiers, history, PO reference)"
+                    (onClick)="openEditPanel(row.uuid)"></p-button>
+        </td>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="emptymessage">
+      <tr>
+        <td colspan="13" class="empty-cell">No rate cards found for this supplier.</td>
+      </tr>
+    </ng-template>
+  </p-table>
+
+  </ng-container>
+
+  <!-- ── Product Comparison View (RC-003) ──────────────────────────────────── -->
+  <ng-container *ngIf="viewMode === 'product'">
+
+  <div class="filter-bar">
+    <app-product-variant-picker (selectionChange)="onVariantSelected($event)"></app-product-variant-picker>
+    <p-button *ngIf="selectedVariantUuid" label="Export to Excel" icon="pi pi-file-excel"
+              severity="secondary" [outlined]="true" (onClick)="exportComparison()"></p-button>
+  </div>
+
+  <div class="empty-state" *ngIf="!selectedVariantUuid">
+    <i class="pi pi-sitemap"></i>
+    <p>Select a product/variant above to compare every supplier's rate for it.</p>
+  </div>
+
+  <p-table *ngIf="selectedVariantUuid" [value]="comparisonRows" [loading]="isLoadingComparison"
+           dataKey="uuid" responsiveLayout="scroll">
+    <ng-template pTemplate="header">
+      <tr>
+        <th>Supplier Name</th>
+        <th>Vendor Part No</th>
+        <th>Rate</th>
+        <th>Rate vs Lowest</th>
+        <th>Lead Days</th>
+        <th>Min Qty</th>
+        <th>Last PO Date</th>
+        <th>Scorecard Grade</th>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="body" let-row>
+      <tr class="comparison-row" [class.lowest-row]="isLowest(row)" (click)="onComparisonRowClick(row)">
+        <td>
+          {{ row.supplierName }}
+          <i class="pi pi-star-fill preferred-star" *ngIf="row.isPreferred" pTooltip="Preferred supplier"></i>
+        </td>
+        <td>{{ row.vendorPartNo || '—' }}</td>
+        <td>{{ row.vendorUnitCost | number:'1.2-2' }}</td>
+        <td [class.lowest-label]="isLowest(row)">{{ ratePremiumLabel(row) }}</td>
+        <td>{{ row.leadTimeDays ?? '—' }}</td>
+        <td>{{ row.minOrderQty ?? '—' }}</td>
+        <td>{{ row.lastPoDate ? (row.lastPoDate | date:'dd MMM yyyy') : '—' }}</td>
+        <td>
+          <p-tag *ngIf="row.scorecardGrade; else noGrade" [value]="row.scorecardGrade" [severity]="gradeSeverity(row.scorecardGrade)"></p-tag>
+          <ng-template #noGrade>—</ng-template>
+        </td>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="emptymessage">
+      <tr>
+        <td colspan="8" class="empty-cell">No suppliers have an active rate card for this variant.</td>
+      </tr>
+    </ng-template>
+  </p-table>
+
+  </ng-container>
+
+  <p-dialog
+    header="Change Reason Required"
+    [(visible)]="showReasonDialog"
+    [modal]="true"
+    [closable]="false"
+    [style]="{ width: '420px' }">
+    <p class="reason-hint">This rate change is greater than 10%. Please provide a reason before saving.</p>
+    <textarea pTextarea [(ngModel)]="changeReason" rows="3" class="reason-textarea"
+              placeholder="e.g. Vendor price increase, new quotation…"></textarea>
+    <ng-template pTemplate="footer">
+      <p-button label="Cancel" severity="secondary" [outlined]="true" (onClick)="cancelReasonDialog()"></p-button>
+      <p-button label="Save" [disabled]="!changeReason.trim()" (onClick)="confirmReasonAndSave()"></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <app-rate-edit-panel
+    [variantSupplierUuid]="editPanelUuid"
+    [(visible)]="showEditPanel"
+    (saved)="onEditPanelSaved()">
+  </app-rate-edit-panel>
+
+  <!-- ── RC-005: Bulk Adjust dialog (setup + mandatory preview steps) ────────── -->
+  <p-dialog
+    [header]="bulkStep === 'setup' ? 'Bulk Rate Adjustment' : 'Preview Changes'"
+    [(visible)]="showBulkDialog"
+    [modal]="true"
+    [style]="{ width: bulkStep === 'setup' ? '420px' : '680px' }">
+
+    <ng-container *ngIf="bulkStep === 'setup'">
+      <p class="bulk-hint">{{ selectedRows.length }} rate(s) selected.</p>
+      <div class="bulk-field">
+        <label>Method</label>
+        <p-selectButton [options]="bulkMethodOptions" [(ngModel)]="bulkMethod"
+                         optionLabel="label" optionValue="value"></p-selectButton>
+      </div>
+      <div class="bulk-field">
+        <label>{{ bulkMethod === 'PERCENTAGE' ? 'Percentage (e.g. 5 or -5)' : 'Fixed Amount (e.g. 500 or -500)' }}</label>
+        <input pInputText type="number" step="0.01" [(ngModel)]="bulkValue" />
+      </div>
+      <div class="bulk-field">
+        <label>Change Reason <span class="req">*</span></label>
+        <textarea pTextarea rows="3" [(ngModel)]="bulkChangeReason"
+                  placeholder="Required for all bulk adjustments…"></textarea>
+      </div>
+    </ng-container>
+
+    <ng-container *ngIf="bulkStep === 'preview'">
+      <div class="bulk-summary">
+        {{ bulkPreviewRows.length }} rate(s) will change, total impact:
+        <strong [class.impact-positive]="bulkTotalImpact > 0" [class.impact-negative]="bulkTotalImpact < 0">
+          {{ bulkTotalImpact > 0 ? '+' : '' }}{{ bulkTotalImpact | number:'1.2-2' }}
+        </strong> across all rates.
+      </div>
+      <p-table [value]="bulkPreviewRows" dataKey="variantSupplierId" [scrollable]="true" scrollHeight="320px">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Product / Variant</th>
+            <th>Current Rate</th>
+            <th>New Rate</th>
+            <th>Difference</th>
+            <th>Diff %</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-row>
+          <tr class="bulk-preview-row">
+            <td>{{ row.productName }} <span class="variant-name" *ngIf="row.variantName">— {{ row.variantName }}</span></td>
+            <td>{{ row.currentRate | number:'1.2-2' }}</td>
+            <td class="bulk-new-rate">{{ row.newRate | number:'1.2-2' }}</td>
+            <td [class.impact-positive]="row.difference > 0" [class.impact-negative]="row.difference < 0">
+              {{ row.difference > 0 ? '+' : '' }}{{ row.difference | number:'1.2-2' }}
+            </td>
+            <td [class.impact-positive]="row.diffPct > 0" [class.impact-negative]="row.diffPct < 0">
+              {{ row.diffPct > 0 ? '+' : '' }}{{ row.diffPct | number:'1.1-1' }}%
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </ng-container>
+
+    <ng-template pTemplate="footer">
+      <ng-container *ngIf="bulkStep === 'setup'">
+        <p-button label="Cancel" severity="secondary" [outlined]="true" (onClick)="closeBulkDialog()"></p-button>
+        <p-button label="Preview" icon="pi pi-eye" [loading]="isBulkPreviewing"
+                  [disabled]="!canPreviewBulk" (onClick)="previewBulkAdjust()"></p-button>
+      </ng-container>
+      <ng-container *ngIf="bulkStep === 'preview'">
+        <p-button label="Back" severity="secondary" [outlined]="true" (onClick)="backToBulkSetup()"></p-button>
+        <p-button label="Confirm" icon="pi pi-check" [loading]="isBulkConfirming" (onClick)="confirmBulkAdjust()"></p-button>
+      </ng-container>
+    </ng-template>
+  </p-dialog>
+
+  <!-- ── RC-005: Recent Bulk Adjustments / Undo ──────────────────────────────── -->
+  <p-dialog header="Recent Bulk Adjustments" [(visible)]="showBulkHistoryDialog" [modal]="true" [style]="{ width: '640px' }">
+    <div class="bulk-history-loading" *ngIf="isLoadingBulkHistory"><i class="pi pi-spin pi-spinner"></i></div>
+    <div class="bulk-history-list" *ngIf="!isLoadingBulkHistory">
+      <div class="bulk-history-row" *ngFor="let op of recentBulkOps">
+        <div class="bulk-history-main">
+          <span class="bulk-history-method">{{ op.method === 'PERCENTAGE' ? (op.value > 0 ? '+' : '') + op.value + '%' : (op.value > 0 ? '+' : '') + (op.value | number:'1.2-2') }}</span>
+          <span class="bulk-history-count">{{ op.affectedCount }} rate(s)</span>
+          <span class="bulk-history-impact" [class.impact-positive]="op.totalImpactAmount > 0" [class.impact-negative]="op.totalImpactAmount < 0">
+            {{ op.totalImpactAmount > 0 ? '+' : '' }}{{ op.totalImpactAmount | number:'1.2-2' }}
+          </span>
+        </div>
+        <div class="bulk-history-meta">
+          {{ op.performedByName || 'Unknown user' }} · {{ op.performedAt | date:'dd MMM yyyy, h:mm a' }}
+          <span class="bulk-history-reason" *ngIf="op.changeReason">— "{{ op.changeReason }}"</span>
+        </div>
+        <div class="bulk-history-actions">
+          <p-tag *ngIf="op.isUndone" value="Undone" severity="secondary"></p-tag>
+          <p-tag *ngIf="!op.isUndone && !isWithinUndoWindow(op)" value="Undo window expired" severity="secondary"></p-tag>
+          <p-button *ngIf="canUndo(op)" label="Undo" icon="pi pi-undo" size="small" severity="danger" [outlined]="true"
+                    (onClick)="confirmUndo(op)"></p-button>
+        </div>
+      </div>
+      <div class="bulk-empty-inline" *ngIf="!recentBulkOps.length">No bulk adjustments in the last 24 hours.</div>
+    </div>
+  </p-dialog>
+
+  <!-- ── RC-006: Import dialog (file select → diff preview → confirm) ───────── -->
+  <p-dialog
+    [header]="importStep === 'select' ? 'Import Rate Card from Excel' : 'Import Preview'"
+    [(visible)]="showImportDialog"
+    [modal]="true"
+    [style]="{ width: importStep === 'select' ? '460px' : '760px' }">
+
+    <ng-container *ngIf="importStep === 'select'">
+      <p class="bulk-hint">Select an Excel file exported from this screen (or matching its column layout) to preview changes before applying them.</p>
+      <p-fileUpload
+        mode="basic"
+        chooseLabel="Choose Excel File"
+        accept=".xlsx"
+        [auto]="false"
+        [multiple]="false"
+        (onSelect)="onImportFileSelect($event)">
+      </p-fileUpload>
+      <p class="import-file-name" *ngIf="importFile">{{ importFile.name }}</p>
+    </ng-container>
+
+    <ng-container *ngIf="importStep === 'preview'">
+      <div class="bulk-summary">
+        {{ importValidRowCount }} valid row(s) will be applied
+        <span *ngIf="importErrorRowCount"> — {{ importErrorRowCount }} row(s) have errors and will be skipped</span>.
+      </div>
+      <p-table [value]="importPreviewRows" dataKey="row" [scrollable]="true" scrollHeight="360px">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Row</th>
+            <th>SKU</th>
+            <th>Product</th>
+            <th>Current Rate</th>
+            <th>Imported Rate</th>
+            <th>Status</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-row>
+          <tr [class.bulk-preview-row]="row.rateChanged || row.newRecord">
+            <td>{{ row.row }}</td>
+            <td class="font-mono">{{ row.sku }}</td>
+            <td>{{ row.productName || '—' }}</td>
+            <td>{{ row.currentRate != null ? (row.currentRate | number:'1.2-2') : '—' }}</td>
+            <td>{{ row.importedRate != null ? (row.importedRate | number:'1.2-2') : '—' }}</td>
+            <td>
+              <p-tag [value]="importRowStatus(row).label" [severity]="importRowStatus(row).severity"></p-tag>
+              <div class="import-error-msg" *ngIf="row.error">{{ row.error }}</div>
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </ng-container>
+
+    <ng-template pTemplate="footer">
+      <ng-container *ngIf="importStep === 'select'">
+        <p-button label="Cancel" severity="secondary" [outlined]="true" (onClick)="closeImportDialog()"></p-button>
+        <p-button label="Preview" icon="pi pi-eye" [loading]="isImportPreviewing"
+                  [disabled]="!importFile" (onClick)="previewImport()"></p-button>
+      </ng-container>
+      <ng-container *ngIf="importStep === 'preview'">
+        <p-button label="Back" severity="secondary" [outlined]="true" (onClick)="backToImportSelect()"></p-button>
+        <p-button label="Confirm Import" icon="pi pi-check" [loading]="isImportConfirming"
+                  [disabled]="importValidRowCount === 0" (onClick)="confirmImport()"></p-button>
+      </ng-container>
+    </ng-template>
+  </p-dialog>
+
+  <!-- ── RC-006: Copy from Supplier dialog (setup → preview → confirm) ──────── -->
+  <p-dialog
+    [header]="copyStep === 'setup' ? 'Copy Rates from Supplier' : 'Copy Preview'"
+    [(visible)]="showCopyDialog"
+    [modal]="true"
+    [style]="{ width: copyStep === 'setup' ? '420px' : '760px' }">
+
+    <ng-container *ngIf="copyStep === 'setup'">
+      <div class="bulk-field">
+        <label>Source Supplier</label>
+        <p-dropdown
+          [options]="copySourceSupplierOptions"
+          [(ngModel)]="copySourceSupplierId"
+          optionLabel="label" optionValue="value"
+          placeholder="Select a supplier to copy rates from"
+          [filter]="true" filterBy="label"
+          styleClass="supplier-dropdown">
+        </p-dropdown>
+      </div>
+      <div class="bulk-field">
+        <label>Adjustment % (e.g. 5 or -3)</label>
+        <input pInputText type="number" step="0.01" [(ngModel)]="copyAdjustmentPct" />
+      </div>
+    </ng-container>
+
+    <ng-container *ngIf="copyStep === 'preview'">
+      <div class="bulk-summary">
+        {{ copyCreateCount }} rate(s) will be created
+        <span *ngIf="copySkipCount"> — {{ copySkipCount }} skipped (target already linked)</span>.
+      </div>
+      <p-table [value]="copyPreviewRows" dataKey="variantSupplierId" [scrollable]="true" scrollHeight="360px">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Product / Variant</th>
+            <th>SKU</th>
+            <th>Source Rate</th>
+            <th>Adjusted Rate</th>
+            <th>Status</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-row>
+          <tr [class.bulk-preview-row]="!row.willSkip">
+            <td>{{ row.productName }} <span class="variant-name" *ngIf="row.variantName">— {{ row.variantName }}</span></td>
+            <td class="font-mono">{{ row.sku }}</td>
+            <td>{{ row.sourceRate | number:'1.2-2' }}</td>
+            <td class="bulk-new-rate">{{ row.adjustedRate | number:'1.2-2' }}</td>
+            <td>
+              <p-tag *ngIf="row.willSkip" value="Skipped" severity="secondary" pTooltip="{{ row.skipReason }}"></p-tag>
+              <p-tag *ngIf="!row.willSkip" value="Will Create" severity="success"></p-tag>
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </ng-container>
+
+    <ng-template pTemplate="footer">
+      <ng-container *ngIf="copyStep === 'setup'">
+        <p-button label="Cancel" severity="secondary" [outlined]="true" (onClick)="closeCopyDialog()"></p-button>
+        <p-button label="Preview" icon="pi pi-eye" [loading]="isCopyPreviewing"
+                  [disabled]="!canPreviewCopy" (onClick)="previewCopy()"></p-button>
+      </ng-container>
+      <ng-container *ngIf="copyStep === 'preview'">
+        <p-button label="Back" severity="secondary" [outlined]="true" (onClick)="backToCopySetup()"></p-button>
+        <p-button label="Confirm" icon="pi pi-check" [loading]="isCopyConfirming"
+                  [disabled]="copyCreateCount === 0" (onClick)="confirmCopy()"></p-button>
+      </ng-container>
+    </ng-template>
+  </p-dialog>
+
+  <p-confirmDialog></p-confirmDialog>
+
+</div>

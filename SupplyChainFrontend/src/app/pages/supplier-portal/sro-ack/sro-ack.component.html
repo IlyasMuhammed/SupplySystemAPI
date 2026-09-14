@@ -1,0 +1,206 @@
+<!-- ── Loading ──────────────────────────────────────────────────────────────── -->
+<div class="sp-shell">
+
+  <ng-container *ngIf="loading">
+    <div class="sp-center-state">
+      <p-progressSpinner strokeWidth="4" styleClass="sp-spinner"></p-progressSpinner>
+      <p class="sp-state-caption">Loading your return order…</p>
+    </div>
+  </ng-container>
+
+  <!-- ── Blocking states ────────────────────────────────────────────────────── -->
+
+  <ng-container *ngIf="!loading && status === 'CONSUMED' && !ackResult">
+    <div class="sp-message-card sp-message-card--consumed">
+      <div class="sp-msg-icon">
+        <i class="pi pi-check-circle"></i>
+      </div>
+      <h2 class="sp-msg-title">Already Acknowledged</h2>
+      <p class="sp-msg-body">
+        You have already confirmed receipt for this return order.
+        If you need to make changes, please contact your procurement representative.
+      </p>
+    </div>
+  </ng-container>
+
+  <ng-container *ngIf="!loading && status === 'EXPIRED'">
+    <div class="sp-message-card sp-message-card--expired">
+      <div class="sp-msg-icon">
+        <i class="pi pi-clock"></i>
+      </div>
+      <h2 class="sp-msg-title">Link Expired</h2>
+      <p class="sp-msg-body">
+        This link has expired. Please contact your procurement team to request a new link.
+      </p>
+    </div>
+  </ng-container>
+
+  <ng-container *ngIf="!loading && status === 'INVALID'">
+    <div class="sp-message-card sp-message-card--invalid">
+      <div class="sp-msg-icon">
+        <i class="pi pi-ban"></i>
+      </div>
+      <h2 class="sp-msg-title">Invalid Link</h2>
+      <p class="sp-msg-body">
+        This link is invalid or has already been used. Please contact your procurement team.
+      </p>
+    </div>
+  </ng-container>
+
+  <!-- ── Acknowledged — thank-you card ───────────────────────────────────────── -->
+
+  <ng-container *ngIf="!loading && ackResult?.status === 'ACKNOWLEDGED'">
+    <div class="sp-message-card sp-message-card--submitted">
+      <div class="sp-msg-icon">
+        <i class="pi pi-send"></i>
+      </div>
+      <h2 class="sp-msg-title">Receipt Confirmed</h2>
+      <p class="sp-msg-body">
+        Thank you. Your acknowledgment for return order
+        <strong>{{ ackResult?.sroNumber }}</strong> has been recorded on
+        {{ formatDate(ackResult?.acknowledgedAt) }}.
+      </p>
+    </div>
+  </ng-container>
+
+  <!-- ── Valid: acknowledgment form ───────────────────────────────────────────── -->
+
+  <ng-container *ngIf="!loading && status === 'VALID' && payload && !ackResult">
+
+    <!-- Brand header bar -->
+    <header class="sp-topbar">
+      <div class="sp-brand">
+        <i class="pi pi-reply sp-brand-icon"></i>
+        <div>
+          <div class="sp-brand-title">Return Order Acknowledgment</div>
+          <div class="sp-brand-sub">Supplier Confirmation Portal</div>
+        </div>
+      </div>
+      <div class="sp-rfq-number">{{ payload.sroNumber }}</div>
+    </header>
+
+    <div class="sp-content">
+
+      <!-- ── Dispatch details card ───────────────────────────────────────── -->
+      <section class="sp-card sp-header-card">
+        <h3 class="sp-section-title">
+          <i class="pi pi-truck"></i> Dispatch Details
+        </h3>
+
+        <div class="sp-meta-grid">
+          <div class="sp-meta-item">
+            <span class="sp-meta-label">Return Number</span>
+            <span class="sp-meta-value sp-rfq-badge">{{ payload.sroNumber }}</span>
+          </div>
+          <div class="sp-meta-item">
+            <span class="sp-meta-label">Supplier</span>
+            <span class="sp-meta-value">{{ payload.supplierName }}</span>
+          </div>
+          <div class="sp-meta-item">
+            <span class="sp-meta-label">RMA Number</span>
+            <span class="sp-meta-value">{{ payload.rmaNumber ?? '—' }}</span>
+          </div>
+          <div class="sp-meta-item">
+            <span class="sp-meta-label">Dispatch Date</span>
+            <span class="sp-meta-value">{{ formatDate(payload.dispatchDate) }}</span>
+          </div>
+          <div class="sp-meta-item">
+            <span class="sp-meta-label">Carrier</span>
+            <span class="sp-meta-value">{{ payload.dispatchCarrier ?? '—' }}</span>
+          </div>
+          <div class="sp-meta-item">
+            <span class="sp-meta-label">Tracking Reference</span>
+            <span class="sp-meta-value">{{ payload.dispatchTrackingRef ?? '—' }}</span>
+          </div>
+          <div class="sp-meta-item">
+            <span class="sp-meta-label">Link Expires</span>
+            <span class="sp-meta-value sp-closing-date">
+              <i class="pi pi-calendar"></i>
+              {{ formatDate(payload.expiresAt) }}
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Item grid (read-only) ───────────────────────────────────────── -->
+      <section class="sp-card">
+        <h3 class="sp-section-title">
+          <i class="pi pi-list"></i> Items Being Returned
+        </h3>
+
+        <div class="sp-table-wrap">
+          <table class="sp-table">
+            <thead>
+              <tr>
+                <th class="sp-th sp-th--num">#</th>
+                <th class="sp-th sp-th--desc">Item Description</th>
+                <th class="sp-th sp-th--uom">UOM</th>
+                <th class="sp-th sp-th--qty">Qty</th>
+                <th class="sp-th sp-th--remarks">Condition</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let line of payload.lines" class="sp-tr">
+                <td class="sp-td sp-td--num">{{ line.lineNo }}</td>
+                <td class="sp-td sp-td--desc">{{ line.itemDescription }}</td>
+                <td class="sp-td sp-td--uom">{{ line.unitOfMeasure ?? '—' }}</td>
+                <td class="sp-td sp-td--qty">{{ line.qtyToReturn }}</td>
+                <td class="sp-td">{{ line.condition ?? '—' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Acknowledgment form -->
+        <div class="sp-attachments">
+          <h3 class="sp-section-title">
+            <i class="pi pi-check-square"></i> Confirm Receipt
+          </h3>
+          <p class="sp-grid-hint">
+            Please confirm you have received the items above. Remarks and received date are optional.
+          </p>
+
+          <div class="sp-ack-fields">
+            <div class="sp-ack-field">
+              <label class="sp-meta-label" for="receivedDate">Date Received</label>
+              <input id="receivedDate" type="date" class="sp-input" [(ngModel)]="receivedDate" name="receivedDate" />
+            </div>
+            <div class="sp-ack-field sp-ack-field--full">
+              <label class="sp-meta-label" for="remarks">Remarks (optional)</label>
+              <textarea id="remarks" class="sp-input sp-textarea" rows="3"
+                        placeholder="Any comments about the condition of the returned items…"
+                        [(ngModel)]="remarks" name="remarks"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- Submit failure (transport/server error — not a rejected link) -->
+        <div class="sp-validation-errors" *ngIf="submitError">
+          <i class="pi pi-times-circle"></i>
+          <div>
+            <strong>We couldn't record your acknowledgment.</strong>
+            <p style="margin:.25rem 0 0;">{{ submitError }}</p>
+          </div>
+        </div>
+
+        <!-- Submit bar -->
+        <div class="sp-submit-bar">
+          <p class="sp-submit-hint">
+            Once confirmed, this cannot be undone. Contact your procurement representative if you need to make changes afterward.
+          </p>
+          <p-button
+            label="Confirm Receipt"
+            icon="pi pi-check"
+            [loading]="acknowledging"
+            [disabled]="acknowledging"
+            styleClass="sp-submit-btn"
+            (onClick)="acknowledge()">
+          </p-button>
+        </div>
+
+      </section>
+
+    </div><!-- /sp-content -->
+  </ng-container>
+
+</div><!-- /sp-shell -->

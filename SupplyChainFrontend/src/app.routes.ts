@@ -9,6 +9,7 @@ import { authGuard } from './app/pages/gaurds/auth.guard';
 import { noAuthGuard } from './app/pages/gaurds/no-auth.guard';
 import { AccessDeniedComponent } from './app/pages/access-denied/access-denied.component';
 import { RfqPageComponent } from './app/pages/supplier-portal/rfq-page/rfq-page.component';
+import { SroAckComponent } from './app/pages/supplier-portal/sro-ack/sro-ack.component';
 
 export const appRoutes: Routes = [
     {
@@ -24,6 +25,7 @@ export const appRoutes: Routes = [
         ]
     },
     { path: 'supplier-portal/rfq/:token', component: RfqPageComponent },
+    { path: 'supplier-portal/sro-ack/:token', component: SroAckComponent },
     { path: 'activation/:token', component: ActivationComponent },
     { path: 'sign-up', component: SignUp, canActivate: [noAuthGuard] },
     { path: 'forgot-password', component: ForgotPassword, canActivate: [noAuthGuard] },

@@ -153,7 +153,7 @@ export class MasterLedgerComponent implements OnInit {
 
   searchSuppliers(event: any) {
     const q = (event.query as string ?? '').trim();
-    this.supplierService.getSuppliers({ search: q || undefined, pageSize: 20 }).subscribe({
+    this.supplierService.getSuppliers({ search: q || undefined, pageSize: 50 }).subscribe({
       next: (res) => { this.supplierSuggestions = res.success ? res.result.data : []; },
       error: () => { this.supplierSuggestions = []; }
     });

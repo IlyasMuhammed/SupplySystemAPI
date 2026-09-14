@@ -78,7 +78,9 @@
             <span *ngIf="!sro.products" class="text-color-secondary" style="font-size:.85rem;">—</span>
           </td>
           <td><p-tag [value]="getStatusLabel(sro.status)" [severity]="getStatusSeverity(sro.status)"></p-tag></td>
-          <td>{{ getReasonLabel(sro.returnReason) }}</td>
+          <td>
+            <span [pTooltip]="sro.returnReasonDetail" tooltipPosition="top">{{ getReasonLabel(sro.returnReason) }}</span>
+          </td>
           <td>{{ sro.createdDate | date:'dd MMM yyyy' }}</td>
           <td class="text-center">
             <p-button icon="pi pi-eye" [text]="true" severity="info" size="small"

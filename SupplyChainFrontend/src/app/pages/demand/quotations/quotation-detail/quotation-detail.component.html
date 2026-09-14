@@ -271,13 +271,13 @@
           <div class="sdlg-row-main">
             <span class="sdlg-row-num">{{ i + 1 }}</span>
             <div class="sdlg-row-field">
-              <p-autoComplete
+              <p-autoComplete #sendSupplierAc
                 [(ngModel)]="sendSupplierAuto[i]"
                 [suggestions]="sendSuggestions[i]"
                 field="supplierName"
                 [minLength]="0"
                 (completeMethod)="searchSuppliersSend($event, i)"
-                (onFocus)="searchSuppliersSend({query: ''}, i)"
+                (onFocus)="sendSupplierAc.search($event, '', 'focus')"
                 (ngModelChange)="onSendSupplierChange($event, i)"
                 placeholder="Search or type supplier name…"
                 styleClass="w-full"
@@ -464,13 +464,13 @@
       <div class="sdlg-form-grid">
         <div class="sdlg-field">
           <label>Supplier Name <span class="sdlg-required">*</span></label>
-          <p-autoComplete
+          <p-autoComplete #responseSupplierAc
             [(ngModel)]="responseSupplierAuto"
             [suggestions]="supplierSuggestions"
             field="supplierName"
             [minLength]="0"
             (completeMethod)="searchSuppliers($event)"
-            (onFocus)="searchSuppliers({query: ''})"
+            (onFocus)="responseSupplierAc.search($event, '', 'focus')"
             (ngModelChange)="onResponseSupplierChange($event)"
             placeholder="Search or type supplier name…"
             styleClass="w-full"

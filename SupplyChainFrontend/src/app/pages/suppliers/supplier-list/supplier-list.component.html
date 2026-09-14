@@ -1,5 +1,6 @@
 ﻿<div class="supplier-list-page">
   <p-toast></p-toast>
+  <p-confirmDialog></p-confirmDialog>
 
   <div class="page-header">
     <div class="header-content">
@@ -100,6 +101,15 @@
               [text]="true"
               pTooltip="View Details"
               [routerLink]="['/portal/pages/suppliers/supplier-detail', supplier.uuid]">
+            </p-button>
+            <p-button
+              *ngIf="canDelete(supplier)"
+              icon="pi pi-trash"
+              size="small"
+              severity="danger"
+              [text]="true"
+              pTooltip="Delete Supplier"
+              (onClick)="confirmDelete(supplier)">
             </p-button>
           </td>
         </tr>

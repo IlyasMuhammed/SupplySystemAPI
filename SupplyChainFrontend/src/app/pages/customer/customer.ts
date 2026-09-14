@@ -12,6 +12,7 @@ import { DropdownModule } from 'primeng/dropdown';
 import { IconFieldModule } from 'primeng/iconfield';
 import { InputIconModule } from 'primeng/inputicon';
 import { InputTextModule } from 'primeng/inputtext';
+import { MultiSelectModule } from 'primeng/multiselect';
 import { RippleModule } from 'primeng/ripple';
 import { Table, TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
@@ -19,6 +20,7 @@ import { ToastModule } from 'primeng/toast';
 import { TooltipModule } from 'primeng/tooltip';
 import { UserListItem, UserService, CreateUserRequest } from '../../services/user.service';
 import { AuthService } from '../service/auth.service';
+import { SupplierService } from '../../services/supplier.service';
 
 @Component({
     selector: 'app-customer',
@@ -28,7 +30,7 @@ import { AuthService } from '../service/auth.service';
         TableModule, ButtonModule, RippleModule, ToastModule,
         InputTextModule, DialogModule, InputIconModule, IconFieldModule,
         ConfirmDialogModule, TagModule, CheckboxModule, DividerModule,
-        DropdownModule, TooltipModule
+        DropdownModule, TooltipModule, MultiSelectModule
     ],
     templateUrl: './customer.html',
     styleUrls: ['./customer.scss'],
@@ -43,16 +45,26 @@ export class CustomerComponent implements OnInit {
     searchText = '';
     selectedRoleFilter: number | null = null;
     selectedStatusFilter: string | null = null;
+    selectedSupplierTypeFilter: string | null = null;
     roleFilterOptions: { label: string; value: number }[] = [];
     readonly statusFilterOptions = [
         { label: 'Active',   value: 'active' },
         { label: 'Inactive', value: 'inactive' }
+    ];
+    // Shared by the create/edit dialog dropdowns and the grid filter.
+    readonly supplierTypeOptions = [
+        { label: 'Internal', value: 'INTERNAL' },
+        { label: 'External', value: 'EXTERNAL' }
     ];
 
     // Available roles for create/edit (built dynamically from users)
     availableRoles: { label: string; value: number }[] = [
         { label: 'System Admin', value: 1 }
     ];
+
+    // REQ-2.x — supplier options for the "Assigned Suppliers" multi-select, shown only for
+    // supplierType="EXTERNAL" users.
+    supplierOptions: { label: string; value: string }[] = [];
 
     // Pagination
     first = 0;
@@ -102,6 +114,7 @@ export class CustomerComponent implements OnInit {
     constructor(
         private userService: UserService,
         private authService: AuthService,
+        private supplierService: SupplierService,
         private messageService: MessageService,
         private confirmationService: ConfirmationService,
         private fb: FormBuilder
@@ -156,7 +169,9 @@ export class CustomerComponent implements OnInit {
                 Validators.pattern(this.PHONE_PATTERN)
             ]],
             department: [null, [Validators.required]],
-            roleID:     [null,  [Validators.required]]
+            roleID:     [null,  [Validators.required]],
+            supplierType: [null, [Validators.required]],
+            assignedSupplierIds: [[]]
         });
 
         this.editForm = this.fb.group({
@@ -173,11 +188,25 @@ export class CustomerComponent implements OnInit {
             ]],
             department: [null],
             isActive:   [true],
-            roleID:     [null]
+            roleID:     [null],
+            supplierType: [null, [Validators.required]],
+            assignedSupplierIds: [[]]
         });
 
         this.loadRoles();
+        this.loadSuppliers();
         this.loadUsers();
+    }
+
+    loadSuppliers() {
+        this.supplierService.getSuppliers({ status: 'ACTIVE', pageSize: 500 }).subscribe({
+            next: (res) => {
+                if (res.success && res.result?.data) {
+                    this.supplierOptions = res.result.data.map(s => ({ label: s.supplierName, value: s.uuid }));
+                }
+            },
+            error: () => {}
+        });
     }
 
     loadRoles() {
@@ -206,9 +235,10 @@ export class CustomerComponent implements OnInit {
         this.isLoading = true;
         const page = Math.floor(this.first / this.rows) + 1;
         this.userService.getUsers({
-            search:   this.searchText           || undefined,
-            roleId:   this.selectedRoleFilter   ?? undefined,
-            status:   this.selectedStatusFilter ?? undefined,
+            search:       this.searchText               || undefined,
+            roleId:       this.selectedRoleFilter        ?? undefined,
+            status:       this.selectedStatusFilter      ?? undefined,
+            supplierType: this.selectedSupplierTypeFilter ?? undefined,
             page,
             pageSize: this.rows
         }).subscribe({
@@ -256,6 +286,7 @@ export class CustomerComponent implements OnInit {
         this.searchText          = '';
         this.selectedRoleFilter  = null;
         this.selectedStatusFilter = null;
+        this.selectedSupplierTypeFilter = null;
         this.first               = 0;
         this.loadUsers();
     }
@@ -284,7 +315,9 @@ export class CustomerComponent implements OnInit {
             email:      '',
             phone:      '',
             department: null,
-            roleID:     null
+            roleID:     null,
+            supplierType: null,
+            assignedSupplierIds: []
         });
         this.showCreateDialog = true;
     }
@@ -299,7 +332,9 @@ export class CustomerComponent implements OnInit {
             email:      raw.email.trim(),
             phone:      raw.phone?.trim()      || undefined,
             department: raw.department?.trim() || undefined,
-            roleID:     raw.roleID
+            roleID:     raw.roleID,
+            supplierType: raw.supplierType,
+            supplierIds: raw.supplierType === 'EXTERNAL' ? raw.assignedSupplierIds : undefined
         };
         this.userService.createUser(payload).subscribe({
             next: (res) => {
@@ -330,7 +365,9 @@ export class CustomerComponent implements OnInit {
             lastName:   user.lastName   || '',
             department: user.department || null,
             isActive:   user.isActive,
-            roleID:     user.role?.id   ?? null
+            roleID:     user.role?.id   ?? null,
+            supplierType: user.supplierType,
+            assignedSupplierIds: user.supplierIds ?? []
         });
         this.showEditDialog = true;
     }
@@ -344,7 +381,9 @@ export class CustomerComponent implements OnInit {
             firstName:  raw.firstName.trim(),
             lastName:   raw.lastName?.trim()   || undefined,
             department: raw.department?.trim() || undefined,
-            isActive:   !!raw.isActive
+            isActive:   !!raw.isActive,
+            supplierType: raw.supplierType,
+            supplierIds: raw.supplierType === 'EXTERNAL' ? raw.assignedSupplierIds : []
         }).subscribe({
             next: (res) => {
                 if (!res.success) {

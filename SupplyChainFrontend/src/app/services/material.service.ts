@@ -308,6 +308,10 @@ export class MaterialService {
     return this.http.post<ApiResponse<null>>(`${BASE}/material-issue-requests/${uuid}/cancel`, {});
   }
 
+  downloadMirPdf(uuid: string): Observable<Blob> {
+    return this.http.get(`${BASE}/material-issue-requests/${uuid}/pdf`, { responseType: 'blob' });
+  }
+
   getMirStockAvailability(uuid: string): Observable<ApiResponse<MirStockAvailabilityResponse>> {
     return this.http.get<ApiResponse<MirStockAvailabilityResponse>>(
       `${BASE}/material-issue-requests/${uuid}/workflow/stock-availability`
@@ -357,6 +361,10 @@ export class MaterialService {
 
   cancelMiv(uuid: string): Observable<ApiResponse<null>> {
     return this.http.post<ApiResponse<null>>(`${BASE}/material-issue-vouchers/${uuid}/cancel`, {});
+  }
+
+  downloadMivPdf(uuid: string): Observable<Blob> {
+    return this.http.get(`${BASE}/material-issue-vouchers/${uuid}/pdf`, { responseType: 'blob' });
   }
 
   // Batch / Serial

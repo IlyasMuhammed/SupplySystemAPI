@@ -278,19 +278,22 @@
                   (onClick)="openEdit()"></p-button>
         <p-button label="Submit for Approval" icon="pi pi-send" severity="contrast"
                   *ngIf="mir.status === 'DRAFT'"
-                  [loading]="actionBusy" (onClick)="submit()"></p-button>
+                  [loading]="submitting" [disabled]="submitting" (onClick)="submit()"></p-button>
         <p-button label="Approve Step" icon="pi pi-check" severity="success"
                   *ngIf="mir.status === 'PENDING_APPROVAL'"
-                  [loading]="actionBusy" (onClick)="openApprove()"></p-button>
+                  [loading]="approving" [disabled]="approving" (onClick)="openApprove()"></p-button>
         <p-button label="Reject" icon="pi pi-times" severity="danger" [outlined]="true"
                   *ngIf="mir.status === 'PENDING_APPROVAL'"
-                  [loading]="actionBusy" (onClick)="openReject()"></p-button>
+                  [loading]="rejecting" [disabled]="rejecting" (onClick)="openReject()"></p-button>
         <p-button label="Create Issue Voucher" icon="pi pi-receipt" severity="info"
                   *ngIf="mir.status === 'APPROVED' || mir.status === 'PARTIALLY_APPROVED' || mir.status === 'PARTIALLY_ISSUED'"
                   (onClick)="createIssueVoucher()"></p-button>
         <p-button label="Cancel" icon="pi pi-ban" severity="danger" [outlined]="true"
                   *ngIf="mir.status === 'DRAFT' || mir.status === 'PENDING_APPROVAL' || mir.status === 'APPROVED' || mir.status === 'PARTIALLY_APPROVED'"
-                  [loading]="actionBusy" (onClick)="cancel()"></p-button>
+                  [loading]="cancelling" [disabled]="cancelling" (onClick)="cancel()"></p-button>
+
+        <p-button label="Download PDF" icon="pi pi-file-pdf" severity="secondary" [outlined]="true"
+                  [loading]="isDownloadingPdf" (onClick)="downloadPdf()"></p-button>
 
         <p-button icon="pi pi-history" [text]="true" severity="secondary"
                   pTooltip="View Timeline" (onClick)="showTimeline = true"></p-button>

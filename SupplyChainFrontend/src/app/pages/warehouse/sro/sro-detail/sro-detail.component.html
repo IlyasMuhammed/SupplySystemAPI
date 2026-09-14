@@ -117,6 +117,26 @@
         </div>
       </div>
 
+      <div class="info-card" *ngIf="sro.dispatchDate">
+        <div class="info-section-title">Supplier Acknowledgment</div>
+        <div class="info-row">
+          <span class="info-label">Status</span>
+          <span class="info-value">{{ sro.acknowledgedAt ? 'Acknowledged' : 'Pending' }}</span>
+        </div>
+        <div class="info-row" *ngIf="sro.acknowledgedAt">
+          <span class="info-label">Acknowledged At</span>
+          <span class="info-value">{{ sro.acknowledgedAt | date:'dd MMM yyyy HH:mm' }}</span>
+        </div>
+        <div class="info-row" *ngIf="sro.ackReceivedDate">
+          <span class="info-label">Received Date</span>
+          <span class="info-value">{{ sro.ackReceivedDate | date:'dd MMM yyyy' }}</span>
+        </div>
+        <div class="info-row" *ngIf="sro.acknowledgmentRemarks">
+          <span class="info-label">Remarks</span>
+          <span class="info-value">{{ sro.acknowledgmentRemarks }}</span>
+        </div>
+      </div>
+
       <div class="info-card" *ngIf="sro.resolutionType">
         <div class="info-section-title">Resolution</div>
         <div class="info-row">
@@ -154,7 +174,9 @@
             <td>{{ line.itemDescription }}</td>
             <td>{{ line.unitOfMeasure || '—' }}</td>
             <td class="text-right font-semibold">{{ line.qtyToReturn }}</td>
-            <td>{{ getReasonLabel(line.returnReason) }}</td>
+            <td>
+              <span [pTooltip]="line.returnReasonDetail" tooltipPosition="top">{{ getReasonLabel(line.returnReason) }}</span>
+            </td>
             <td>{{ line.condition || '—' }}</td>
             <td class="text-right font-mono">{{ line.unitCost != null ? (line.unitCost | number:'1.2-2') : '—' }}</td>
           </tr>

@@ -111,7 +111,10 @@ export class AppMenu {
                         { label: 'Supplier Scorecard', icon: 'pi pi-fw pi-star',
                           routerLink: ['/portal/pages/suppliers/supplier-scorecard'],
                           featureCode: 'SCREEN_SUPPLIER_SCORECARD',
-                          permRequired: ['SUPPLIER_VIEW', 'SUPPLIER_EDIT', 'SUPPLIER_MANAGE'] }
+                          permRequired: ['SUPPLIER_VIEW', 'SUPPLIER_EDIT', 'SUPPLIER_MANAGE'] },
+                        { label: 'Rate Cards', icon: 'pi pi-fw pi-tags',
+                          routerLink: ['/portal/pages/suppliers/rate-cards'],
+                          permRequired: ['SUPPLIER_MANAGE'] }
                     ]
                 }
             ]
@@ -427,7 +430,10 @@ export class AppMenu {
                         { label: 'Purchase Order Templates', icon: 'pi pi-fw pi-file-edit',
                           routerLink: ['/portal/pages/po-document-template'],
                           featureCode: 'SCREEN_PO_DOCUMENT_TEMPLATE',
-                          permRequired: ['PO_TEMPLATE_MANAGE'] }
+                          permRequired: ['PO_TEMPLATE_MANAGE'] },
+                        { label: 'Portal Settings', icon: 'pi pi-fw pi-link',
+                          routerLink: ['/portal/pages/portal-settings'],
+                          permRequired: ['SYSTEM_CONFIGURE'] }
                     ]
                 },
                 {

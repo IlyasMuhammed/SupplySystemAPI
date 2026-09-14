@@ -1,0 +1,210 @@
+<p-toast></p-toast>
+
+<p-sidebar [visible]="visible" (visibleChange)="onVisibleChange($event)"
+           position="right" styleClass="rate-edit-panel-sidebar"
+           [dismissible]="false">
+
+  <ng-template pTemplate="header">
+    <div class="rep-header">
+      <i class="pi pi-tags"></i>
+      <span class="rep-title">Edit Rate Card</span>
+    </div>
+  </ng-template>
+
+  <div *ngIf="isLoading" class="rep-loading">
+    <i class="pi pi-spin pi-spinner"></i>
+    <span>Loading rate card…</span>
+  </div>
+
+  <div *ngIf="!isLoading && loadFailed" class="rep-empty">
+    <i class="pi pi-info-circle"></i>
+    <span>Failed to load this rate card.</span>
+  </div>
+
+  <div class="rep-body" *ngIf="!isLoading && !loadFailed && detail">
+
+    <div class="rep-subject">
+      <div class="rep-product">{{ detail.productName }}</div>
+      <div class="rep-sku">SKU {{ detail.variantSku }}</div>
+      <div class="rep-reviewed-row">
+        <span class="rep-reviewed-meta" *ngIf="detail.lastReviewedAt; else neverReviewed">
+          Last reviewed {{ detail.lastReviewedAt | date:'dd MMM yyyy, h:mm a' }}
+          <span *ngIf="detail.lastReviewedByName"> by {{ detail.lastReviewedByName }}</span>
+        </span>
+        <ng-template #neverReviewed><span class="rep-reviewed-meta">Never reviewed</span></ng-template>
+        <p-button label="Mark as Reviewed" icon="pi pi-check-circle" size="small" [outlined]="true"
+                  [loading]="isMarkingReviewed" (onClick)="markReviewed()"></p-button>
+      </div>
+    </div>
+
+    <!-- ── Section 1: Rate Details ─────────────────────────────────────── -->
+    <section class="rep-section">
+      <h3 class="rep-section-title"><i class="pi pi-dollar"></i> Rate Details</h3>
+      <div class="rep-grid">
+        <div class="rep-field">
+          <label>Vendor Unit Cost</label>
+          <input pInputText type="number" step="0.01" [(ngModel)]="form.vendorUnitCost" />
+        </div>
+        <div class="rep-field">
+          <label>Currency</label>
+          <p-dropdown [options]="currencyOptions" [(ngModel)]="form.currencyId"
+                      optionLabel="label" optionValue="value" appendTo="body"></p-dropdown>
+        </div>
+        <div class="rep-field">
+          <label>Effective From</label>
+          <p-calendar [(ngModel)]="form.effectiveFrom" dateFormat="dd M yy" appendTo="body"></p-calendar>
+        </div>
+        <div class="rep-field">
+          <label>Effective To</label>
+          <p-calendar [(ngModel)]="form.effectiveTo" dateFormat="dd M yy" [showButtonBar]="true" appendTo="body"></p-calendar>
+        </div>
+        <div class="rep-field rep-field--full">
+          <label>Quotation Reference</label>
+          <input pInputText type="text" [(ngModel)]="form.quotationRef" />
+        </div>
+        <div class="rep-field rep-field--full" *ngIf="needsChangeReason">
+          <label class="rep-required">Change Reason <span>*</span></label>
+          <textarea pTextarea rows="2" [(ngModel)]="form.changeReason"
+                    placeholder="Required — this rate change exceeds 10%."></textarea>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Section 2: Order Terms ──────────────────────────────────────── -->
+    <section class="rep-section">
+      <h3 class="rep-section-title"><i class="pi pi-truck"></i> Order Terms</h3>
+      <div class="rep-grid">
+        <div class="rep-field">
+          <label>Lead Time (days)</label>
+          <input pInputText type="number" [(ngModel)]="form.leadTimeDays" />
+        </div>
+        <div class="rep-field">
+          <label>Min Order Qty</label>
+          <input pInputText type="number" [(ngModel)]="form.minOrderQty" />
+        </div>
+        <div class="rep-field">
+          <label>Min Order Value</label>
+          <input pInputText type="number" step="0.01" [(ngModel)]="form.minOrderValue" />
+        </div>
+        <div class="rep-field">
+          <label>Vendor Part No</label>
+          <input pInputText type="text" [(ngModel)]="form.vendorPartNo" />
+        </div>
+        <div class="rep-field rep-field--full rep-field--row">
+          <label>Preferred Supplier for this item</label>
+          <p-inputSwitch [(ngModel)]="form.isPreferred"></p-inputSwitch>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Section 3: Discount Tiers ────────────────────────────────────── -->
+    <section class="rep-section">
+      <h3 class="rep-section-title"><i class="pi pi-percentage"></i> Discount Tiers</h3>
+
+      <div class="rep-tier-row rep-tier-header">
+        <span>Qty From</span><span>Qty To</span><span>Discount %</span><span></span>
+      </div>
+      <div class="rep-tier-row" *ngFor="let t of tiers; let i = index">
+        <input pInputText type="number" [(ngModel)]="t.qtyFrom" (ngModelChange)="validateTiers()" />
+        <input pInputText type="number" [(ngModel)]="t.qtyTo" (ngModelChange)="validateTiers()" placeholder="∞" />
+        <input pInputText type="number" step="0.1" [(ngModel)]="t.discountPct" (ngModelChange)="validateTiers()" />
+        <p-button icon="pi pi-trash" [text]="true" severity="danger" (onClick)="removeTier(i)"></p-button>
+      </div>
+
+      <p-button label="Add Row" icon="pi pi-plus" [text]="true" size="small" (onClick)="addTier()"></p-button>
+
+      <div class="rep-tier-error" *ngIf="tierError">
+        <i class="pi pi-exclamation-triangle"></i> {{ tierError }}
+      </div>
+
+      <div class="rep-tier-preview" *ngIf="tierPreview.length">
+        <div class="rep-tier-preview-title">Preview at {{ form.vendorUnitCost | number:'1.2-2' }} base</div>
+        <div class="rep-tier-preview-row" *ngFor="let p of tierPreview">
+          <span class="rep-tier-preview-range">{{ p.label }} units:</span>
+          <span class="rep-tier-preview-price">{{ p.price | number:'1.2-2' }}/unit</span>
+          <span class="rep-tier-preview-pct">({{ p.discountPct }}% off)</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Section 4: Notes ─────────────────────────────────────────────── -->
+    <section class="rep-section">
+      <h3 class="rep-section-title"><i class="pi pi-file-edit"></i> Notes</h3>
+      <textarea pTextarea rows="3" [(ngModel)]="form.notes" placeholder="Internal notes about this rate…"></textarea>
+      <div class="rep-notes-meta" *ngIf="detail.notesUpdatedAt">
+        Last updated {{ detail.notesUpdatedAt | date:'dd MMM yyyy, h:mm a' }}
+        <span *ngIf="detail.notesUpdatedByName"> by {{ detail.notesUpdatedByName }}</span>
+      </div>
+      <div class="rep-notes-save">
+        <p-button label="Save Notes" size="small" [outlined]="true" [loading]="isSaving" (onClick)="save()"></p-button>
+      </div>
+    </section>
+
+    <!-- ── Section 5: Rate History ──────────────────────────────────────── -->
+    <section class="rep-section">
+      <h3 class="rep-section-title"><i class="pi pi-history"></i> Rate History</h3>
+
+      <div class="rep-history-loading" *ngIf="isLoadingHistory">
+        <i class="pi pi-spin pi-spinner"></i>
+      </div>
+
+      <div class="rep-timeline" *ngIf="!isLoadingHistory">
+        <div class="rep-timeline-entry" *ngFor="let h of history">
+          <div class="rep-avatar">{{ initials(h.changedByName) }}</div>
+          <div class="rep-timeline-content">
+            <div class="rep-timeline-top">
+              <span class="rep-timeline-actor">{{ h.changedByName || 'Unknown user' }}</span>
+              <span class="rep-timeline-date">{{ h.changedAt | date:'dd MMM yyyy, h:mm a' }}</span>
+            </div>
+            <div class="rep-timeline-change">
+              <strong>{{ fieldLabel(h.fieldChanged) }}</strong>:
+              <span class="rep-old-value">{{ h.oldValue || '—' }}</span>
+              <i class="pi pi-arrow-right"></i>
+              <span class="rep-new-value">{{ h.newValue || '—' }}</span>
+            </div>
+            <div class="rep-timeline-reason" *ngIf="h.changeReason">"{{ h.changeReason }}"</div>
+          </div>
+        </div>
+        <div class="rep-empty-inline" *ngIf="!history.length">No changes recorded yet.</div>
+      </div>
+    </section>
+
+    <!-- ── Section 6: PO Reference ──────────────────────────────────────── -->
+    <section class="rep-section">
+      <h3 class="rep-section-title"><i class="pi pi-shopping-cart"></i> PO Reference</h3>
+
+      <ng-container *ngIf="detail.poReference; else noPo">
+        <div class="rep-po-row" (click)="goToLastPo()">
+          <div class="rep-po-cell">
+            <span class="rep-meta-label">Last PO</span>
+            <span class="rep-meta-value rep-po-link">{{ detail.poReference.lastPoNumber }}</span>
+          </div>
+          <div class="rep-po-cell">
+            <span class="rep-meta-label">Date</span>
+            <span class="rep-meta-value">{{ detail.poReference.lastPoDate | date:'dd MMM yyyy' }}</span>
+          </div>
+          <div class="rep-po-cell">
+            <span class="rep-meta-label">Price</span>
+            <span class="rep-meta-value">{{ detail.poReference.lastPoPrice | number:'1.2-2' }}</span>
+          </div>
+          <div class="rep-po-cell">
+            <span class="rep-meta-label">POs (12 mo)</span>
+            <span class="rep-meta-value">{{ detail.poReference.poCountLast12Months }}</span>
+          </div>
+        </div>
+      </ng-container>
+      <ng-template #noPo>
+        <div class="rep-empty-inline">No purchase orders yet for this supplier + item.</div>
+      </ng-template>
+    </section>
+
+  </div>
+
+  <ng-template pTemplate="footer">
+    <div class="rep-footer" *ngIf="detail">
+      <p-button label="Cancel" severity="secondary" [outlined]="true" (onClick)="close()"></p-button>
+      <p-button label="Save" icon="pi pi-check" [loading]="isSaving" (onClick)="save()"></p-button>
+    </div>
+  </ng-template>
+
+</p-sidebar>

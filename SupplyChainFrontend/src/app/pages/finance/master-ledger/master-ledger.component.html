@@ -42,8 +42,9 @@
     <p-calendar [(ngModel)]="dateTo" placeholder="To" dateFormat="dd/mm/yy"
                 [showIcon]="true" [showClear]="true" appendTo="body"></p-calendar>
 
-    <p-autoComplete [(ngModel)]="selectedSupplier" [suggestions]="supplierSuggestions"
-                     (completeMethod)="searchSuppliers($event)" field="supplierName"
+    <p-autoComplete #ledgerSupplierAc [(ngModel)]="selectedSupplier" [suggestions]="supplierSuggestions"
+                     (completeMethod)="searchSuppliers($event)"
+                     (onFocus)="ledgerSupplierAc.search($event, '', 'focus')" field="supplierName"
                      placeholder="Filter by supplier…" [minLength]="0" [dropdown]="true"
                      styleClass="supplier-autocomplete"></p-autoComplete>
 

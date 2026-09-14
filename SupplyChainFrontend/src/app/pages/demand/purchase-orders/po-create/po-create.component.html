@@ -1,6 +1,24 @@
 <div class="po-create-page">
   <p-toast></p-toast>
 
+  <!-- RC-004 — actionable volume-discount suggestion, kept separate from the default toast (key)
+       so its custom "Apply" button doesn't affect ordinary notifications. -->
+  <p-toast key="discount-suggestion" position="top-center">
+    <ng-template let-message pTemplate="message">
+      <div class="discount-toast">
+        <i class="pi pi-percentage"></i>
+        <div class="discount-toast-body">
+          <div class="discount-toast-title">{{ message.summary }}</div>
+          <div class="discount-toast-detail">{{ message.detail }}</div>
+        </div>
+        <div class="discount-toast-actions">
+          <p-button label="Apply" size="small" (onClick)="applyDiscountSuggestion(message)"></p-button>
+          <p-button label="Dismiss" size="small" [text]="true" severity="secondary" (onClick)="dismissDiscountSuggestion()"></p-button>
+        </div>
+      </div>
+    </ng-template>
+  </p-toast>
+
   <div class="page-header">
     <div class="header-content">
       <div class="header-left">
@@ -212,6 +230,7 @@
                 <label>Quantity <span class="required">*</span></label>
                 <p-inputNumber formControlName="quantity" [minFractionDigits]="0" [maxFractionDigits]="4"
                                [min]="0.0001" [max]="999999" [maxlength]="12" [class.p-invalid]="lineIsInvalid(i,'quantity')"
+                               (onBlur)="onQuantityBlur(i)"
                                styleClass="w-full"></p-inputNumber>
                 <small class="p-error" *ngIf="lineIsInvalid(i,'quantity')">Must be between 0 and 999,999</small>
               </div>

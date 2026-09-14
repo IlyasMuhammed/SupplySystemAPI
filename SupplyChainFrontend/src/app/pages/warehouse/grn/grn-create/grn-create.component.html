@@ -34,7 +34,7 @@
 
         <div class="field">
           <label><i class="pi pi-search"></i> Search Purchase Order <span class="req">*</span></label>
-          <p-autoComplete
+          <p-autoComplete #poAc
             [(ngModel)]="poAuto"
             [ngModelOptions]="{standalone: true}"
             [suggestions]="poSuggestions"
@@ -43,7 +43,7 @@
             (completeMethod)="searchPos($event)"
             (onSelect)="onPoSelect($event)"
             (onClear)="onPoClear()"
-            (onFocus)="onPoFocus()"
+            (onFocus)="!selectedPo && poAc.search($event, '', 'focus')"
             placeholder="Focus to browse receivable POs, or type to search…"
             styleClass="full-width"
             inputStyleClass="full-width"

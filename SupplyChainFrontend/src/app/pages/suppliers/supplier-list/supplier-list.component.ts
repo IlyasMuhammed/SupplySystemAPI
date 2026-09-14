@@ -12,7 +12,8 @@ import { TagModule } from 'primeng/tag';
 import { TooltipModule } from 'primeng/tooltip';
 import { ToastModule } from 'primeng/toast';
 import { DropdownModule } from 'primeng/dropdown';
-import { MessageService } from 'primeng/api';
+import { ConfirmDialogModule } from 'primeng/confirmdialog';
+import { MessageService, ConfirmationService } from 'primeng/api';
 import {
   SupplierService,
   SupplierListItemModel,
@@ -26,11 +27,12 @@ import {
     CommonModule, RouterModule, FormsModule,
     TableModule, ButtonModule, ToolbarModule,
     InputTextModule, InputIconModule, IconFieldModule,
-    TagModule, TooltipModule, ToastModule, DropdownModule
+    TagModule, TooltipModule, ToastModule, DropdownModule,
+    ConfirmDialogModule
   ],
   templateUrl: './supplier-list.component.html',
   styleUrls: ['./supplier-list.component.scss'],
-  providers: [MessageService]
+  providers: [MessageService, ConfirmationService]
 })
 export class SupplierListComponent implements OnInit {
   suppliers: SupplierListItemModel[] = [];
@@ -57,7 +59,8 @@ export class SupplierListComponent implements OnInit {
 
   constructor(
     private supplierService: SupplierService,
-    private messageService: MessageService
+    private messageService: MessageService,
+    private confirmationService: ConfirmationService
   ) {}
 
   get activeSuppliersCount(): number {
@@ -125,6 +128,35 @@ export class SupplierListComponent implements OnInit {
     this.selectedCountry = '';
     this.currentPage = 1;
     this.loadSuppliers();
+  }
+
+  canDelete(supplier: SupplierListItemModel): boolean {
+    return supplier.status === 'PENDING' || supplier.status === 'REJECTED';
+  }
+
+  confirmDelete(supplier: SupplierListItemModel) {
+    this.confirmationService.confirm({
+      message: `Delete supplier "${supplier.supplierName}"? This cannot be undone.`,
+      header: 'Confirm Delete',
+      icon: 'pi pi-exclamation-triangle',
+      acceptButtonStyleClass: 'p-button-danger',
+      rejectButtonStyleClass: 'p-button-text',
+      accept: () => {
+        this.supplierService.deleteSupplier(supplier.uuid).subscribe({
+          next: (res) => {
+            if (res.success) {
+              this.messageService.add({ severity: 'success', summary: 'Deleted', detail: 'Supplier deleted.' });
+              this.loadSuppliers();
+            } else {
+              this.messageService.add({ severity: 'error', summary: 'Error', detail: res.message || 'Delete failed.' });
+            }
+          },
+          error: (err) => {
+            this.messageService.add({ severity: 'error', summary: 'Error', detail: err?.error?.message || 'Delete failed.' });
+          }
+        });
+      }
+    });
   }
 
   getStatusSeverity(status: string | undefined): 'success' | 'danger' | 'warn' | 'secondary' | 'info' | 'contrast' {

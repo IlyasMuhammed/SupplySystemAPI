@@ -79,7 +79,11 @@ export class MirDetailComponent implements OnInit {
   showTimeline = false;
   mir: MirDetail | null = null;
   isLoading  = true;
-  actionBusy = false;
+  submitting = false;
+  approving  = false;
+  rejecting  = false;
+  cancelling = false;
+  isDownloadingPdf = false;
   minDate = new Date();
 
   showRejectDialog  = false;
@@ -166,15 +170,15 @@ export class MirDetailComponent implements OnInit {
   }
 
   submit() {
-    this.actionBusy = true;
+    this.submitting = true;
     this.materialService.submitMir(this.uuid).subscribe({
       next: () => {
-        this.actionBusy = false;
+        this.submitting = false;
         this.messageService.add({ severity: 'success', summary: 'Submitted', detail: 'MIR submitted for approval.' });
         this.load();
       },
       error: (err: any) => {
-        this.actionBusy = false;
+        this.submitting = false;
         this.messageService.add({ severity: 'error', summary: 'Error', detail: err?.error?.message ?? 'Submit failed.' });
       }
     });
@@ -238,7 +242,7 @@ export class MirDetailComponent implements OnInit {
       return;
     }
     this.showApproveDialog = false;
-    this.actionBusy = true;
+    this.approving = true;
     const lineApprovals: MirLineApprovalInput[] = this.lineApprovalRows.map(r => ({
       lineUuid:    r.line.uuid,
       approvedQty: r.approvedQty
@@ -249,12 +253,12 @@ export class MirDetailComponent implements OnInit {
       lineApprovals
     }).subscribe({
       next: () => {
-        this.actionBusy = false;
+        this.approving = false;
         this.messageService.add({ severity: 'success', summary: 'Approved', detail: 'Approval step recorded.' });
         this.load();
       },
       error: (err: any) => {
-        this.actionBusy = false;
+        this.approving = false;
         this.messageService.add({ severity: 'error', summary: 'Error', detail: err?.error?.message ?? 'Approve failed.' });
       }
     });
@@ -272,18 +276,18 @@ export class MirDetailComponent implements OnInit {
       return;
     }
     this.showRejectDialog = false;
-    this.actionBusy = true;
+    this.rejecting = true;
     this.materialService.workflowRejectMir(this.uuid, {
       approvalUUID: this.mir.activeApprovalUuid,
       reason:       this.rejectReason
     }).subscribe({
       next: () => {
-        this.actionBusy = false;
+        this.rejecting = false;
         this.messageService.add({ severity: 'info', summary: 'Rejected', detail: 'MIR rejected.' });
         this.load();
       },
       error: (err: any) => {
-        this.actionBusy = false;
+        this.rejecting = false;
         this.messageService.add({ severity: 'error', summary: 'Error', detail: err?.error?.message ?? 'Reject failed.' });
       }
     });
@@ -498,6 +502,26 @@ export class MirDetailComponent implements OnInit {
     });
   }
 
+  downloadPdf() {
+    if (!this.mir) return;
+    this.isDownloadingPdf = true;
+    this.materialService.downloadMirPdf(this.uuid).subscribe({
+      next: (blob) => {
+        this.isDownloadingPdf = false;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `MIR-${this.mir?.requestNo || this.uuid}.pdf`;
+        a.click();
+        URL.revokeObjectURL(url);
+      },
+      error: () => {
+        this.isDownloadingPdf = false;
+        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to generate MIR PDF.' });
+      }
+    });
+  }
+
   createIssueVoucher() {
     this.router.navigate(['/portal/pages/material/miv/create'], {
       queryParams: { mirUuid: this.uuid }
@@ -521,10 +545,10 @@ export class MirDetailComponent implements OnInit {
       acceptButtonStyleClass: 'p-button-danger',
       rejectButtonStyleClass: 'p-button-text',
       accept: () => {
-        this.actionBusy = true;
+        this.cancelling = true;
         this.materialService.cancelMir(this.uuid).subscribe({
-          next: () => { this.actionBusy = false; this.messageService.add({ severity: 'info', summary: 'Cancelled', detail: 'MIR cancelled and stock reservations released.' }); this.load(); },
-          error: (err: any) => { this.actionBusy = false; this.messageService.add({ severity: 'error', summary: 'Error', detail: err?.error?.message ?? 'Cancel failed.' }); }
+          next: () => { this.cancelling = false; this.messageService.add({ severity: 'info', summary: 'Cancelled', detail: 'MIR cancelled and stock reservations released.' }); this.load(); },
+          error: (err: any) => { this.cancelling = false; this.messageService.add({ severity: 'error', summary: 'Error', detail: err?.error?.message ?? 'Cancel failed.' }); }
         });
       }
     });
