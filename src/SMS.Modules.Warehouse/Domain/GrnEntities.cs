@@ -154,6 +154,35 @@ internal class SupplierReturnOrderLine : ITenantScopedEntity
     public decimal? UnitCost { get; set; }
 }
 
+// REQ-3.x — login-free supplier acknowledgment link, issued on dispatch. Modeled directly on
+// SMS.Modules.Demand's RfqAccessLink (same proven token/expiry/single-use design for the same
+// class of problem: a login-free, token-in-URL, single-use public flow for a supplier).
+internal class SroAcknowledgmentLink : ITenantScopedEntity
+{
+    public int Id { get; set; }
+    public Guid OrganizationId { get; set; }
+    public int ReturnOrderId { get; set; }
+    public SupplierReturnOrder ReturnOrder { get; set; } = null!;
+    public Guid SupplierId { get; set; }   // cross-module ref — no FK, same as RfqAccessLink.SupplierId
+    public string TokenHash { get; set; } = string.Empty;   // SHA-256 hex (64 chars), unique index
+    public string Status { get; set; } = "PENDING";          // PENDING | ACCESSED | EXPIRED | CONSUMED
+    public DateTime GeneratedAt { get; set; }
+    public DateTime ExpiresAt { get; set; }
+    public DateTime? FirstOpenedAt { get; set; }   // set once on first valid open; never overwritten
+    public DateTime? ConsumedAt { get; set; }       // set when the supplier acknowledges receipt
+    public string? ConsumedIp { get; set; }
+    public int AccessCount { get; set; }
+    public int CreatedBy { get; set; }              // staff who dispatched
+
+    public string? SupplierEmail { get; set; }
+    public string? PortalLinkUrl { get; set; }
+    public DateTime? EmailSentAt { get; set; }
+
+    // Recorded on acknowledgment (T3.1's "ack remarks/received date")
+    public string? AckRemarks { get; set; }
+    public DateTime? AckReceivedDate { get; set; }
+}
+
 internal class GrnLine : ITenantScopedEntity
 {
     public int Id { get; set; }

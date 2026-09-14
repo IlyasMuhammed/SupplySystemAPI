@@ -38,6 +38,7 @@ public static class AuthModuleExtensions
         services.AddScoped<IUserQueryService, UserQueryService>();
         services.AddScoped<IOrgChartService, OrgChartService>();
         services.AddScoped<IOrgUserProvisioningService, OrgUserProvisioningService>();
+        services.AddScoped<IUserSupplierAccessService, UserSupplierAccessService>();
         services.AddScoped<SessionCleanupJob>();
         services.AddScoped<AuthDataSeeder>();
         services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();

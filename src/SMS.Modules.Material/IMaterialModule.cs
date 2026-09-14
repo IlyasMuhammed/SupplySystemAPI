@@ -31,7 +31,9 @@ public static class MaterialModuleExtensions
         services.AddScoped<IProjectService, ProjectService>();
         services.AddScoped<IMirService, MirService>();
         services.AddScoped<IMirWorkflowService, MirWorkflowService>();
+        services.AddScoped<IMirDocumentService, MirDocumentService>();
         services.AddScoped<IMivService, MivService>();
+        services.AddScoped<IMivDocumentService, MivDocumentService>();
         services.AddScoped<IChainOfCustodyService, ChainOfCustodyService>();
         services.AddScoped<ICostAllocationService, CostAllocationService>();
         services.AddScoped<IMaterialReturnService, MaterialReturnService>();

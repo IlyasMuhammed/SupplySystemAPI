@@ -301,6 +301,89 @@ namespace SMS.Modules.Warehouse.Migrations
                     b.ToTable("grn_lines", "warehouse");
                 });
 
+            modelBuilder.Entity("SMS.Modules.Warehouse.Domain.SroAcknowledgmentLink", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AccessCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
+                    b.Property<DateTime?>("AckReceivedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("AckRemarks")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime?>("ConsumedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ConsumedIp")
+                        .HasMaxLength(45)
+                        .HasColumnType("nvarchar(45)");
+
+                    b.Property<int>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("EmailSentAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("FirstOpenedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("GeneratedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("PortalLinkUrl")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int>("ReturnOrderId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("PENDING");
+
+                    b.Property<string>("SupplierEmail")
+                        .HasMaxLength(254)
+                        .HasColumnType("nvarchar(254)");
+
+                    b.Property<Guid>("SupplierId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.HasIndex("ReturnOrderId");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.ToTable("sro_acknowledgment_links", "warehouse");
+                });
+
             modelBuilder.Entity("SMS.Modules.Warehouse.Domain.SupplierReturnOrder", b =>
                 {
                     b.Property<int>("Id")
@@ -524,6 +607,17 @@ namespace SMS.Modules.Warehouse.Migrations
                         .IsRequired();
 
                     b.Navigation("Grn");
+                });
+
+            modelBuilder.Entity("SMS.Modules.Warehouse.Domain.SroAcknowledgmentLink", b =>
+                {
+                    b.HasOne("SMS.Modules.Warehouse.Domain.SupplierReturnOrder", "ReturnOrder")
+                        .WithMany()
+                        .HasForeignKey("ReturnOrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ReturnOrder");
                 });
 
             modelBuilder.Entity("SMS.Modules.Warehouse.Domain.SupplierReturnOrder", b =>

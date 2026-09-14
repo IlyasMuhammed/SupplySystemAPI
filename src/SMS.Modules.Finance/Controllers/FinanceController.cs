@@ -163,6 +163,7 @@ public class SupplierLedgerController : ControllerBase
     public SupplierLedgerController(ISupplierLedgerService svc) => _svc = svc;
 
     [HttpGet("ledger")]
+    [RequiresSupplierAccess("supplierId")]
     public async Task<IActionResult> GetLedger(Guid supplierId, [FromQuery] SupplierLedgerFilter filter)
     {
         var result = await _svc.GetLedgerAsync(supplierId, filter);
@@ -170,6 +171,7 @@ public class SupplierLedgerController : ControllerBase
     }
 
     [HttpGet("balance")]
+    [RequiresSupplierAccess("supplierId")]
     public async Task<IActionResult> GetBalance(Guid supplierId)
     {
         var result = await _svc.GetBalanceAsync(supplierId);
@@ -256,6 +258,7 @@ public class SupplierPaymentsController : ControllerBase
     // (api/suppliers/{id}/ledger, api/suppliers/{id}/balance) despite this controller's
     // own [Route] prefix being api/supplier-payments.
     [HttpGet("/api/suppliers/{supplierId:guid}/outstanding-invoices")]
+    [RequiresSupplierAccess("supplierId")]
     public async Task<IActionResult> GetOutstandingInvoices(Guid supplierId)
     {
         var result = await _svc.GetOutstandingInvoicesAsync(supplierId);
@@ -264,6 +267,7 @@ public class SupplierPaymentsController : ControllerBase
 
     // SFM-006 — per-supplier aging breakdown.
     [HttpGet("/api/suppliers/{supplierId:guid}/aging")]
+    [RequiresSupplierAccess("supplierId")]
     public async Task<IActionResult> GetSupplierAging(Guid supplierId)
     {
         var result = await _svc.GetSupplierAgingAsync(supplierId);
@@ -291,6 +295,7 @@ public class SupplierPaymentsController : ControllerBase
     // exposed as a report — reuses ISupplierLedgerService.GetLedgerAsync directly so this report's
     // balance can never drift from GET /api/suppliers/{id}/balance.
     [HttpGet("/api/reports/supplier-ledger")]
+    [RequiresSupplierAccess("supplierId")]
     public async Task<IActionResult> GetSupplierLedgerReport([FromQuery] Guid supplierId, [FromQuery] SupplierLedgerFilter filter)
     {
         var result = await _ledgerSvc.GetLedgerAsync(supplierId, filter);

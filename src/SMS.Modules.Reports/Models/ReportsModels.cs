@@ -498,6 +498,25 @@ public class BudgetUtilizationItem
     public double   VariancePercent  { get; set; }
 }
 
+// ── Stale Rates (RC-007, FSD Addendum 28) ───────────────────────────────────────
+
+public class StaleRatesReportFilter
+{
+    public Guid? SupplierId    { get; set; }
+    // Overrides RateCard:StaleThresholdDays for this report call only; default 180 if unset.
+    public int?  ThresholdDays { get; set; }
+}
+
+public class StaleRatesReportItem
+{
+    public Guid     SupplierId          { get; set; }
+    public string   SupplierName        { get; set; } = string.Empty;
+    public int      StaleCount          { get; set; }
+    // Null when every stale row for this supplier has never been reviewed at all.
+    public DateTime? OldestReviewDate   { get; set; }
+    public double    AvgDaysSinceReview { get; set; }
+}
+
 // ── Audit Trail ───────────────────────────────────────────────────────────────
 
 public class AuditLogFilter

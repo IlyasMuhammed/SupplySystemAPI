@@ -73,6 +73,10 @@ builder.Services.AddControllers(options =>
 
     // MT-004 — enforces [RequiresFeature] at the API level, not just in the UI.
     options.Filters.Add<FeatureAuthorizationFilter>();
+
+    // REQ-2.x — enforces [RequiresSupplierAccess] at the API level: direct-ID/URL access to a
+    // supplier the caller isn't mapped to is a 403, not just a hidden picker entry.
+    options.Filters.Add<SupplierAccessAuthorizationFilter>();
 });
 builder.Services.AddSignalR();
 builder.Services.AddNotificationsModule(builder.Configuration);
@@ -112,6 +116,18 @@ builder.Services.AddHangfireServer();
 builder.Services.AddRateLimiter(opts =>
 {
     opts.AddPolicy("rfq-portal-per-ip", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit          = 30,
+                Window               = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit           = 0
+            }));
+    // REQ-3.x — same throttle profile as the RFQ portal, kept as its own named policy so the two
+    // features' rate limits can be tuned independently later.
+    opts.AddPolicy("sro-portal-per-ip", httpContext =>
         RateLimitPartition.GetFixedWindowLimiter(
             partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
             factory: _ => new FixedWindowRateLimiterOptions

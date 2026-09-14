@@ -14,8 +14,13 @@ namespace SMS.Modules.Material.Controllers;
 public class MivController : ControllerBase
 {
     private readonly IMivService _service;
+    private readonly IMivDocumentService _documentSvc;
 
-    public MivController(IMivService service) => _service = service;
+    public MivController(IMivService service, IMivDocumentService documentSvc)
+    {
+        _service     = service;
+        _documentSvc = documentSvc;
+    }
 
     /// <summary>Returns the approved lines of a MIR that still have pending qty to issue.</summary>
     [HttpGet("mir-issuable/{mirUuid:guid}")]
@@ -52,6 +57,15 @@ public class MivController : ControllerBase
         var result = await _service.GetByUuidAsync(uuid)
             ?? throw new NotFoundException("MIV", uuid);
         return Ok(ApiResponse<MivDetailModel>.Ok(result));
+    }
+
+    /// <summary>Downloads the MIV as a PDF document.</summary>
+    [HttpGet("{uuid:guid}/pdf")]
+    [RequirePermission(PermissionCodes.MATERIAL_VIEW)]
+    public async Task<IActionResult> DownloadPdf(Guid uuid)
+    {
+        var bytes = await _documentSvc.GeneratePdfAsync(uuid);
+        return File(bytes, "application/pdf", $"MIV-{uuid}.pdf");
     }
 
     /// <summary>Posts a DRAFT MIV — fires all 7 atomic effects.</summary>

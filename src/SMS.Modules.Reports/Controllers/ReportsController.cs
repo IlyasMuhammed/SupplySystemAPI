@@ -228,6 +228,16 @@ public class ReportsController : ControllerBase
         return Ok(ApiResponse<List<BudgetUtilizationItem>>.Ok(result));
     }
 
+    // ── Stale Rates (RC-007, FSD Addendum 28) ───────────────────────────────────
+
+    [HttpGet("stale-rates")]
+    [RequirePermission(PermissionCodes.REPORT_VIEW)]
+    public async Task<IActionResult> GetStaleRatesReport([FromQuery] StaleRatesReportFilter filter)
+    {
+        var result = await _svc.GetStaleRatesReportAsync(filter);
+        return Ok(ApiResponse<List<StaleRatesReportItem>>.Ok(result));
+    }
+
     // ── Audit & Activity ─────────────────────────────────────────────────────
 
     [HttpGet("audit-trail")]

@@ -11,6 +11,7 @@ internal sealed class TenancyDbContext : DbContext
     internal DbSet<FeatureDefinition> FeatureDefinitions => Set<FeatureDefinition>();
     internal DbSet<OrganizationFeature> OrganizationFeatures => Set<OrganizationFeature>();
     internal DbSet<PlanFeatureTemplate> PlanFeatureTemplates => Set<PlanFeatureTemplate>();
+    internal DbSet<OrganizationSettings> OrganizationSettings => Set<OrganizationSettings>();
     internal DbSet<SuperAdminUser> SuperAdminUsers => Set<SuperAdminUser>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

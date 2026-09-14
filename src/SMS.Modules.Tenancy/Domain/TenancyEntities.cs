@@ -1,3 +1,5 @@
+using SMS.Shared.Common;
+
 namespace SMS.Modules.Tenancy.Domain;
 
 // Plan tiers: BASIC | STANDARD | ENTERPRISE — validated as a string, not an enum, so new tiers
@@ -15,6 +17,9 @@ internal class Organization
     public string? Address { get; set; }
     public string? Country { get; set; }
     public string? TimeZone { get; set; }
+    // Unenforced scalar FK -> Lookups.Currency.Id — Tenancy and Lookups don't share a DbContext,
+    // same reasoning as Supplier.PreferredCurrency (resolved at the app layer only when needed).
+    public Guid? BaseCurrency { get; set; }
     public int CreatedBy { get; set; }
     public DateTime CreatedDate { get; set; }
     public int? ModifiedBy { get; set; }
@@ -59,6 +64,20 @@ internal class PlanFeatureTemplate
     public string Plan { get; set; } = string.Empty;
     public Guid FeatureDefinitionId { get; set; }
     public bool IsEnabledByDefault { get; set; }
+}
+
+// REQ-4.x — per-organization operational settings, 1:1 with Organization. Deliberately a
+// separate table from Organization (tenant-profile record) and OrganizationFeature (seed-driven
+// boolean flags) — this holds admin-tunable numeric/text knobs instead, starting with the
+// supplier acknowledgment-link expiry. Keyed by OrganizationId itself (no separate Id) since it's
+// always a single row per org, not a collection.
+internal class OrganizationSettings
+{
+    public Guid OrganizationId { get; set; }
+    public int AckLinkExpiryDays { get; set; } = OrganizationSettingsDefaults.AckLinkExpiryDefaultDays;
+    public int? ModifiedBy { get; set; }
+    public DateTime? ModifiedDate { get; set; }
+    public Organization Organization { get; set; } = null!;
 }
 
 // MT-007 — the authoritative record of platform Super Admins. Deliberately has no OrganizationId:

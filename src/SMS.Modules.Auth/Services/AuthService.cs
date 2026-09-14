@@ -228,6 +228,7 @@ internal sealed class AuthService : IAuthService
             Address    = dto.Address,
             Department = dto.Department,
             RoleID     = dto.RoleID,
+            SupplierType = dto.SupplierType,
             IsActive   = true,
             IsDelete   = false,
             CreatedBy  = createdByUserId,
@@ -235,7 +236,7 @@ internal sealed class AuthService : IAuthService
         };
         user.Password = _hasher.HashPassword(user, tempPassword);
 
-        var detail = await _repo.CreateUserAsync(user);
+        var detail = await _repo.CreateUserAsync(user, dto.SupplierIds, createdByUserId);
         detail.TemporaryPassword = tempPassword;
 
         BackgroundJob.Enqueue(() =>
@@ -254,11 +255,11 @@ internal sealed class AuthService : IAuthService
         return detail;
     }
 
-    public async Task PatchUserAsync(int userId, PatchUserRequest dto)
+    public async Task PatchUserAsync(int userId, PatchUserRequest dto, int patchedBy)
     {
         var existing = await _repo.GetUserDetailAsync(userId);
         if (existing == null) throw new NotFoundException(StaticResponseMessage.accountNotFound);
-        await _repo.PatchUserAsync(userId, dto);
+        await _repo.PatchUserAsync(userId, dto, patchedBy);
     }
 
     public async Task AssignRoleAsync(int userId, int newRoleId)

@@ -19,7 +19,7 @@ public interface IAuthService
     Task<UserDetailModel> AdminCreateUserAsync(CreateUserRequest dto, int createdByUserId);
     Task<PaginatedResponse<UserListItemModel>> GetUsersAsync(UserListFilter filter);
     Task<UserDetailModel> GetUserDetailAsync(int userId);
-    Task PatchUserAsync(int userId, PatchUserRequest dto);
+    Task PatchUserAsync(int userId, PatchUserRequest dto, int patchedBy);
     Task AssignRoleAsync(int userId, int newRoleId);
     Task AdminResetPasswordAsync(int userId);
     Task SoftDeleteUserAsync(int userId);

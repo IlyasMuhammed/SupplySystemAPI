@@ -61,6 +61,19 @@ internal sealed class PlanFeatureTemplateMap : IEntityTypeConfiguration<PlanFeat
     }
 }
 
+internal sealed class OrganizationSettingsMap : IEntityTypeConfiguration<OrganizationSettings>
+{
+    public void Configure(EntityTypeBuilder<OrganizationSettings> b)
+    {
+        b.ToTable("OrganizationSettings");
+        b.HasKey(x => x.OrganizationId);
+        b.Property(x => x.AckLinkExpiryDays).IsRequired();
+        b.HasOne(x => x.Organization).WithOne()
+            .HasForeignKey<OrganizationSettings>(x => x.OrganizationId)
+            .OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
 internal sealed class SuperAdminUserMap : IEntityTypeConfiguration<SuperAdminUser>
 {
     public void Configure(EntityTypeBuilder<SuperAdminUser> b)

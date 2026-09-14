@@ -32,6 +32,7 @@ internal sealed class ReportsService : IReportsService
     public Task<SupplierSpendAnalysisResponse>                GetSupplierSpendAnalysisAsync(SupplierSpendFilter filter)         => _repo.GetSupplierSpendAnalysisAsync(filter);
     public Task<DeliveryHeatmapResponse?>                     GetDeliveryPerformanceHeatmapAsync(Guid supplierId, int year)     => _repo.GetDeliveryPerformanceHeatmapAsync(supplierId, year);
     public Task<List<BudgetUtilizationItem>>                GetBudgetUtilizationAsync(ReportDateFilter filter)   => _repo.GetBudgetUtilizationAsync(filter);
+    public Task<List<StaleRatesReportItem>>                 GetStaleRatesReportAsync(StaleRatesReportFilter filter) => _repo.GetStaleRatesReportAsync(filter);
     public Task<PaginatedResponse<AuditLogItemModel>>       GetAuditTrailAsync(AuditLogFilter filter)            => _repo.GetAuditTrailAsync(filter);
     public Task<List<UserActivityItem>>                     GetUserActivityAsync(ReportDateFilter filter)        => _repo.GetUserActivityAsync(filter);
     public Task<List<TimelineEventView>>                    GetSupplierTimelineAsync(Guid supplierId)            => _repo.GetSupplierTimelineAsync(supplierId);

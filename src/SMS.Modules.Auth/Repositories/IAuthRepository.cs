@@ -38,13 +38,17 @@ internal interface IAuthRepository
     // ── User management ───────────────────────────────────────────────────────
     Task UpdateProfilePictureAsync(int userId, string? pictureUrl);
     Task<bool> EmailExistsAsync(string email);
-    Task<UserDetailModel> CreateUserAsync(UserAccount user);
+    Task<UserDetailModel> CreateUserAsync(UserAccount user, List<Guid>? supplierIds, int createdBy);
     Task<PaginatedResponse<UserListItemModel>> GetUsersFilteredAsync(UserListFilter filter);
     Task<UserDetailModel?> GetUserDetailAsync(int userId);
-    Task PatchUserAsync(int userId, PatchUserRequest dto);
+    Task PatchUserAsync(int userId, PatchUserRequest dto, int patchedBy);
     Task AssignRoleAsync(int userId, int newRoleId);
     Task RevokeAllUserSessionsAsync(int userId);
     Task SoftDeleteAsync(int userId);
+
+    // ── User↔Supplier access mapping (REQ-2.x) ───────────────────────────────────
+    Task<List<Guid>> GetUserSupplierIdsAsync(int userId);
+    Task SaveUserSupplierAccessAsync(int userId, List<Guid> supplierIds, int assignedBy);
 
     // ── Role CRUD ─────────────────────────────────────────────────────────────
     Task<List<RoleListItemModel>> GetRolesAsync();

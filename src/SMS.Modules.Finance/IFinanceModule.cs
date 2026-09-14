@@ -30,6 +30,7 @@ public static class FinanceModuleExtensions
             options.UseSqlServer(connString, sql =>
                 sql.EnableRetryOnFailure(3, TimeSpan.FromMilliseconds(500), null)));
 
+        services.AddScoped<ISupplierReferenceChecker, FinanceSupplierReferenceChecker>();
         services.AddScoped<IInvoiceRepository,    InvoiceRepository>();
         services.AddScoped<IPaymentRepository,    PaymentRepository>();
         services.AddScoped<ICreditNoteRepository, CreditNoteRepository>();

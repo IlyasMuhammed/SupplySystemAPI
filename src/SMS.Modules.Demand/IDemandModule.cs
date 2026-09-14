@@ -35,6 +35,7 @@ public static class DemandModuleExtensions
         services.AddScoped<PoWhatsAppDispatchJob>();
         services.AddScoped<IQuotationService, QuotationService>();
         services.AddScoped<IPurchaseOrderRepository, PurchaseOrderRepository>();
+        services.AddScoped<IPurchaseOrderPriceLookupService, PurchaseOrderPriceLookupService>();
         services.AddScoped<IPurchaseOrderService, PurchaseOrderService>();
         services.AddScoped<IPoDocumentService, PoDocumentService>();
         services.AddScoped<IWhatsAppStatusUpdateHandler, DemandWhatsAppStatusHandler>();
@@ -51,6 +52,7 @@ public static class DemandModuleExtensions
 
         // PV-007 — lets Inventory ask "has this variant ever been transacted" cross-module
         services.AddScoped<IVariantReferenceChecker, PoLineVariantReferenceChecker>();
+        services.AddScoped<ISupplierReferenceChecker, DemandSupplierReferenceChecker>();
 
         return services;
     }

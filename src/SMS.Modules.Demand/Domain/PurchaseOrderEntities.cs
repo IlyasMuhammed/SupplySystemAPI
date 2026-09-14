@@ -47,6 +47,9 @@ internal class PurchaseOrderLine : ITenantScopedEntity
     public decimal Quantity { get; set; }
     public decimal UnitPrice { get; set; }
     public decimal LineTotal { get; set; }
+    // RC-004 — set when a volume-discount suggestion (from the variant+supplier's rate card) is
+    // accepted at PO creation. Stored for reference only — does not change LineTotal's calculation.
+    public decimal? LineDiscountPct { get; set; }
     public decimal QtyReceived { get; set; }   // cumulative qty received across all GRNs
     public decimal QtyInvoiced { get; set; }   // cumulative qty invoiced across all approved invoices
     public DateTime? RequiredDate { get; set; }

@@ -263,6 +263,13 @@ namespace SMS.Modules.Auth.Data.Migrations
                     b.Property<int?>("SupervisorId")
                         .HasColumnType("int");
 
+                    b.Property<string>("SupplierType")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("INTERNAL");
+
                     b.Property<DateTime?>("UpdateDate")
                         .HasColumnType("datetime2");
 
@@ -349,6 +356,39 @@ namespace SMS.Modules.Auth.Data.Migrations
                     b.HasIndex("UserID");
 
                     b.ToTable("UserSessions", "auth");
+                });
+
+            modelBuilder.Entity("SMS.Modules.Auth.Domain.UserSupplierAccess", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("AssignedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("AssignedBy")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("SupplierId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("UserID")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.HasIndex("UserID", "SupplierId")
+                        .IsUnique();
+
+                    b.ToTable("UserSupplierAccess", "auth");
                 });
 
             modelBuilder.Entity("SMS.Modules.Auth.Domain.Department", b =>

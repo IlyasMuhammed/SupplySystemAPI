@@ -40,6 +40,7 @@ internal sealed class UserAccountMap : IEntityTypeConfiguration<UserAccount>
         builder.HasIndex(x => x.OrganizationId);
         builder.Property(x => x.InviteToken).HasMaxLength(64);
         builder.Property(x => x.InviteTokenExpiresAt);
+        builder.Property(x => x.SupplierType).HasMaxLength(20).HasDefaultValue("INTERNAL").IsRequired();
     }
 }
 
@@ -135,6 +136,20 @@ internal sealed class UserPermissionMap : IEntityTypeConfiguration<UserPermissio
         builder.ToTable("UserPermissions");
         builder.HasKey(x => x.UserPermissionID);
         builder.Property(x => x.UserPermissionID).ValueGeneratedOnAdd();
+        builder.Property(x => x.OrganizationId).IsRequired();
+        builder.HasIndex(x => x.OrganizationId);
+    }
+}
+
+internal sealed class UserSupplierAccessMap : IEntityTypeConfiguration<UserSupplierAccess>
+{
+    public void Configure(EntityTypeBuilder<UserSupplierAccess> builder)
+    {
+        builder.ToTable("UserSupplierAccess");
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.Id).ValueGeneratedOnAdd();
+        builder.Property(x => x.AssignedAt).IsRequired();
+        builder.HasIndex(x => new { x.UserID, x.SupplierId }).IsUnique();
         builder.Property(x => x.OrganizationId).IsRequired();
         builder.HasIndex(x => x.OrganizationId);
     }

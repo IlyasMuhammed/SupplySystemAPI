@@ -14,8 +14,13 @@ namespace SMS.Modules.Material.Controllers;
 public class MaterialIssueRequestsController : ControllerBase
 {
     private readonly IMirService _service;
+    private readonly IMirDocumentService _documentSvc;
 
-    public MaterialIssueRequestsController(IMirService service) => _service = service;
+    public MaterialIssueRequestsController(IMirService service, IMirDocumentService documentSvc)
+    {
+        _service     = service;
+        _documentSvc = documentSvc;
+    }
 
     [HttpPost]
     [RequirePermission(PermissionCodes.MATERIAL_MANAGE)]
@@ -48,6 +53,14 @@ public class MaterialIssueRequestsController : ControllerBase
     {
         await _service.PatchAsync(uuid, req, User.GetUserId());
         return Ok(ApiResponse.Ok("Material Issue Request updated successfully."));
+    }
+
+    [HttpGet("{uuid:guid}/pdf")]
+    [RequirePermission(PermissionCodes.MATERIAL_VIEW)]
+    public async Task<IActionResult> DownloadPdf(Guid uuid)
+    {
+        var bytes = await _documentSvc.GeneratePdfAsync(uuid);
+        return File(bytes, "application/pdf", $"MIR-{uuid}.pdf");
     }
 
     [HttpDelete("{uuid:guid}")]

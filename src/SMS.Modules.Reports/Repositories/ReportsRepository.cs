@@ -30,6 +30,7 @@ internal sealed class ReportsRepository : IReportsRepository
     private readonly MaterialDbContext  _material;
     private readonly IUserQueryService  _userQuery;
     private readonly ITimelineService   _timeline;
+    private readonly IUserSupplierAccessService _supplierAccess;
 
     public ReportsRepository(
         ReportsDbContext   db,
@@ -41,7 +42,8 @@ internal sealed class ReportsRepository : IReportsRepository
         SuppliersDbContext suppliers,
         MaterialDbContext  material,
         IUserQueryService  userQuery,
-        ITimelineService   timeline)
+        ITimelineService   timeline,
+        IUserSupplierAccessService supplierAccess)
     {
         _db        = db;
         _demand    = demand;
@@ -53,6 +55,7 @@ internal sealed class ReportsRepository : IReportsRepository
         _material  = material;
         _userQuery = userQuery;
         _timeline  = timeline;
+        _supplierAccess = supplierAccess;
     }
 
     // ── KPI Dashboard ─────────────────────────────────────────────────────────
@@ -1057,6 +1060,13 @@ internal sealed class ReportsRepository : IReportsRepository
         if (filter.SupplierId.HasValue) poQuery = poQuery.Where(po => po.SupplierId == filter.SupplierId.Value);
         if (!string.IsNullOrWhiteSpace(filter.PoStatus)) poQuery = poQuery.Where(po => po.Status == filter.PoStatus);
 
+        // REQ-2.x — restrict to the caller's mapped suppliers when applicable.
+        if (await _supplierAccess.IsRestrictedAsync())
+        {
+            var allowedIds = await _supplierAccess.GetAllowedSupplierIdsAsync();
+            poQuery = poQuery.Where(po => allowedIds.Contains(po.SupplierId));
+        }
+
         var pos = await poQuery.Include(po => po.Lines).ToListAsync();
         if (pos.Count == 0) return new SupplierOrdersReport();
 
@@ -1151,8 +1161,18 @@ internal sealed class ReportsRepository : IReportsRepository
         if (supplierIds.Count < 2 || supplierIds.Count > 5)
             throw new BadRequestException("Supplier comparison requires between 2 and 5 supplier IDs.");
 
-        var suppliers = await _suppliers.Suppliers.AsNoTracking()
-            .Where(s => !s.IsDelete && supplierIds.Contains(s.UUID))
+        var suppliersQuery = _suppliers.Suppliers.AsNoTracking()
+            .Where(s => !s.IsDelete && supplierIds.Contains(s.UUID));
+
+        // REQ-2.x — a restricted caller comparing a mix of allowed/disallowed ids just silently
+        // loses the disallowed ones, the same as an unknown/deleted id already does below.
+        if (await _supplierAccess.IsRestrictedAsync())
+        {
+            var allowedIds = await _supplierAccess.GetAllowedSupplierIdsAsync();
+            suppliersQuery = suppliersQuery.Where(s => allowedIds.Contains(s.UUID));
+        }
+
+        var suppliers = await suppliersQuery
             .Select(s => new { s.UUID, s.SupplierName })
             .ToListAsync();
 
@@ -1233,6 +1253,12 @@ internal sealed class ReportsRepository : IReportsRepository
         if (to.HasValue)   query = query.Where(l => l.Grn.ReceivedAt < to.Value);
         if (filter.SupplierId.HasValue) query = query.Where(l => l.Grn.SupplierId == filter.SupplierId.Value);
 
+        if (await _supplierAccess.IsRestrictedAsync())
+        {
+            var allowedIds = await _supplierAccess.GetAllowedSupplierIdsAsync();
+            query = query.Where(l => allowedIds.Contains(l.Grn.SupplierId));
+        }
+
         var lines = await query
             .Select(l => new { l.Grn.SupplierId, l.Grn.SupplierName, l.Grn.ReceivedAt, l.InspectionResult })
             .ToListAsync();
@@ -1305,6 +1331,12 @@ internal sealed class ReportsRepository : IReportsRepository
         var query = _finance.InvoiceLines.AsNoTracking().Where(il => !il.Invoice.IsDelete);
         if (from.HasValue) query = query.Where(il => il.Invoice.InvoiceDate >= from.Value);
         if (to.HasValue)   query = query.Where(il => il.Invoice.InvoiceDate < to.Value);
+
+        if (await _supplierAccess.IsRestrictedAsync())
+        {
+            var allowedIds = await _supplierAccess.GetAllowedSupplierIdsAsync();
+            query = query.Where(il => allowedIds.Contains(il.Invoice.SupplierId));
+        }
 
         var lines = await query
             .Select(il => new { il.Invoice.SupplierId, il.Invoice.SupplierName, il.LineTotal, il.PoLineUuid })
@@ -1390,6 +1422,8 @@ internal sealed class ReportsRepository : IReportsRepository
 
     public async Task<DeliveryHeatmapResponse?> GetDeliveryPerformanceHeatmapAsync(Guid supplierId, int year)
     {
+        if (!await _supplierAccess.CanAccessSupplierAsync(supplierId)) return null;
+
         var supplier = await _suppliers.Suppliers.AsNoTracking()
             .Where(s => s.UUID == supplierId && !s.IsDelete)
             .Select(s => new { s.SupplierName })
@@ -1494,6 +1528,56 @@ internal sealed class ReportsRepository : IReportsRepository
         .ToList();
     }
 
+    // ── Stale Rates (RC-007, FSD Addendum 28) ───────────────────────────────────
+    // Same stale predicate VariantSupplierService's job/badge use — see StaleRateAlertJob for the
+    // Hangfire side of this same detection. _inventory/_suppliers are already-injected DbContexts
+    // (InternalsVisibleTo grants access to their internal entities), same pattern every other
+    // cross-module report in this file already relies on.
+
+    public async Task<List<StaleRatesReportItem>> GetStaleRatesReportAsync(StaleRatesReportFilter filter)
+    {
+        var thresholdDays = filter.ThresholdDays ?? 180;
+        var cutoff = DateTime.UtcNow.Date.AddDays(-thresholdDays);
+        var today  = DateTime.UtcNow.Date;
+
+        var query = _inventory.VariantSuppliers
+            .Where(x => x.IsActive && (x.LastReviewedAt == null || x.LastReviewedAt < cutoff));
+
+        if (filter.SupplierId.HasValue)
+            query = query.Where(x => x.SupplierId == filter.SupplierId.Value);
+
+        var rows = await query
+            .Select(x => new { x.SupplierId, x.LastReviewedAt })
+            .ToListAsync();
+
+        if (rows.Count == 0) return [];
+
+        var supplierIds = rows.Select(r => r.SupplierId).Distinct().ToList();
+        var names = await _suppliers.Suppliers
+            .Where(s => supplierIds.Contains(s.UUID))
+            .ToDictionaryAsync(s => s.UUID, s => s.SupplierName);
+
+        return rows.GroupBy(r => r.SupplierId).Select(g =>
+        {
+            // Never-reviewed rows still count toward StaleCount but are excluded from the date
+            // aggregates — there's no real review date to anchor "oldest"/"average" to.
+            var reviewed = g.Where(x => x.LastReviewedAt.HasValue).ToList();
+            var oldest   = reviewed.Count > 0 ? reviewed.Min(x => x.LastReviewedAt!.Value) : (DateTime?)null;
+            var avgDays  = reviewed.Count > 0 ? reviewed.Average(x => (today - x.LastReviewedAt!.Value.Date).TotalDays) : 0;
+
+            return new StaleRatesReportItem
+            {
+                SupplierId          = g.Key,
+                SupplierName        = names.TryGetValue(g.Key, out var n) ? n : "(unknown supplier)",
+                StaleCount          = g.Count(),
+                OldestReviewDate    = oldest,
+                AvgDaysSinceReview  = Math.Round(avgDays, 1)
+            };
+        })
+        .OrderByDescending(r => r.StaleCount)
+        .ToList();
+    }
+
     // ── Supplier Activity Timeline ────────────────────────────────────────────
     // Merges the trace-chain timelines (PR→PO→GRN→Invoice already share one TraceId — see
     // PurchaseOrderRepository/FinanceRepository) of every PO and Invoice belonging to a supplier
@@ -1501,6 +1585,8 @@ internal sealed class ReportsRepository : IReportsRepository
 
     public async Task<List<TimelineEventView>> GetSupplierTimelineAsync(Guid supplierId)
     {
+        if (!await _supplierAccess.CanAccessSupplierAsync(supplierId)) return [];
+
         var poTraceIds = await _demand.PurchaseOrders
             .Where(p => p.SupplierId == supplierId)
             .Select(p => p.TraceId)

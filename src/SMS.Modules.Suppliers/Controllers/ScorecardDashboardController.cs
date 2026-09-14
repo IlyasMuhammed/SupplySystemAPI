@@ -26,6 +26,7 @@ public class ScorecardDashboardController : ControllerBase
 
     [HttpGet("{supplierId:guid}")]
     [RequirePermission(PermissionCodes.SUPPLIER_VIEW)]
+    [RequiresSupplierAccess("supplierId")]
     public async Task<IActionResult> GetSupplierDetail(Guid supplierId)
     {
         var detail = await _svc.GetSupplierDetailAsync(supplierId);
@@ -39,6 +40,7 @@ public class ScorecardDashboardController : ControllerBase
     // controller's own [Route] prefix being api/supplier-scorecard.
     [HttpGet("/api/suppliers/{supplierId:guid}/score-summary")]
     [RequirePermission(PermissionCodes.SUPPLIER_VIEW)]
+    [RequiresSupplierAccess("supplierId")]
     public async Task<IActionResult> GetScoreSummary(Guid supplierId)
     {
         var result = await _svc.GetScoreSummaryAsync(supplierId);

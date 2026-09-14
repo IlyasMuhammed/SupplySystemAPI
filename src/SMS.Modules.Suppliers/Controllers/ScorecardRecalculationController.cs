@@ -48,6 +48,7 @@ public class ScorecardRecalculationController : ControllerBase
     // Admin-triggered single-supplier recalculation, same period resolution as RecalculateAll.
     [HttpPost("{supplierId:guid}/recalculate")]
     [RequirePermission(PermissionCodes.SYSTEM_CONFIGURE)]
+    [RequiresSupplierAccess("supplierId")]
     public async Task<IActionResult> RecalculateSupplier(Guid supplierId, [FromQuery] string? periodStart = null, [FromQuery] string? periodEnd = null)
     {
         var (start, end) = ResolvePeriod(periodStart, periodEnd);

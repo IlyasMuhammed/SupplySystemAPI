@@ -50,6 +50,11 @@ internal class UserAccount : ITenantScopedEntity
     // already-active account). Cleared once the invite is accepted.
     public string? InviteToken { get; set; }
     public DateTime? InviteTokenExpiresAt { get; set; }
+
+    // REQ-1.x — distinguishes internal staff accounts from external (supplier-side) accounts.
+    // "INTERNAL" | "EXTERNAL", following the same plain-string-with-app-level-validation
+    // convention as Supplier.Status rather than a mapped enum type.
+    public string SupplierType { get; set; } = "INTERNAL";
 }
 
 internal class Department : ITenantScopedEntity
@@ -116,5 +121,20 @@ internal class UserPermission : ITenantScopedEntity
     public int UserID { get; set; }
     public int PermissionID { get; set; }
     public bool IsAllowed { get; set; }
+    public Guid OrganizationId { get; set; }
+}
+
+// REQ-2.x — many-to-many User↔Supplier access mapping. Only meaningful for a
+// UserAccount.SupplierType="EXTERNAL" user; restricts which suppliers that user can see once at
+// least one mapping exists (see IUserSupplierAccessService for the fail-open default).
+internal class UserSupplierAccess : ITenantScopedEntity
+{
+    public int Id { get; set; }
+    public int UserID { get; set; }
+    // SMS.Modules.Suppliers.Domain.Supplier.UUID — no cross-schema FK, same pattern as
+    // RfqAccessLink.SupplierId in SMS.Modules.Demand.
+    public Guid SupplierId { get; set; }
+    public int AssignedBy { get; set; }
+    public DateTime AssignedAt { get; set; }
     public Guid OrganizationId { get; set; }
 }

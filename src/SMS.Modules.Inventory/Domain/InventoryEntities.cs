@@ -106,6 +106,95 @@ internal class ProductVariant : ITenantScopedEntity
     public ICollection<InventoryItem> InventoryItems { get; set; } = new List<InventoryItem>();
 }
 
+// RC-001 (FSD Addendum 28) — a supplier's quoted rate for one variant, with validity dates and
+// discount tiers. SupplierId is an unenforced scalar FK -> Suppliers.Supplier.UUID (Inventory and
+// Suppliers don't share a DbContext, same convention as Supplier.PreferredCurrency -> Lookups).
+internal class VariantSupplier : ITenantScopedEntity
+{
+    public int      Id             { get; set; }
+    public Guid     Uuid           { get; set; } = Guid.NewGuid();
+    public Guid     OrganizationId { get; set; }
+    public int      VariantId      { get; set; }
+    public Guid     SupplierId     { get; set; }
+
+    public decimal  VendorUnitCost { get; set; }
+    public int?     LeadTimeDays   { get; set; }
+    public bool     IsActive       { get; set; } = true;
+    // RC-002 — the supplier's own part/catalog number for this item (distinct from our SKU).
+    public string?  VendorPartNo   { get; set; }
+    // RC-002 — at most one preferred supplier per variant, enforced in
+    // VariantSupplierService.SetPreferredAsync (clears every other row for the same VariantId).
+    public bool     IsPreferred    { get; set; }
+
+    // ── RC-001's 9 new fields ────────────────────────────────────────────────
+    public DateTime  EffectiveFrom   { get; set; } = DateTime.UtcNow.Date;
+    public DateTime? EffectiveTo     { get; set; }
+    public Guid      CurrencyId      { get; set; }
+    public decimal?  MinOrderValue   { get; set; }
+    // RC-004 — minimum order QUANTITY, distinct from MinOrderValue (a monetary threshold).
+    public int?      MinOrderQty     { get; set; }
+    // JSON array of {qtyFrom, qtyTo, discountPct} — mirrors AttributeDefinition.DropdownOptions'
+    // nvarchar(max)-JSON-column convention.
+    public string?   DiscountTiers   { get; set; }
+    public string?   QuotationRef    { get; set; }
+    public string?   Notes           { get; set; }
+    public DateTime? LastReviewedAt  { get; set; }
+    public int?      LastReviewedBy  { get; set; }
+    // RC-007 — set once the daily expiry sweep has sent its one-time "Rate Expiring" notification
+    // for this row, so the job never re-notifies the same expiring rate on a later run.
+    public DateTime? ExpiryNotifiedAt { get; set; }
+
+    public int       CreatedBy    { get; set; }
+    public DateTime  CreatedDate  { get; set; } = DateTime.UtcNow;
+    public int?      ModifiedBy   { get; set; }
+    public DateTime? ModifiedDate { get; set; }
+
+    public ProductVariant Variant { get; set; } = null!;
+}
+
+// RC-001 — automatic field-level audit trail for VariantSupplier, written to the SAME DbContext
+// as the rate row it describes so one SaveChangesAsync() commits both atomically.
+internal class SupplierRateHistory : ITenantScopedEntity
+{
+    public int       Id                { get; set; }
+    public Guid      OrganizationId    { get; set; }
+    public int       VariantSupplierId { get; set; }
+    public string    FieldChanged      { get; set; } = string.Empty;
+    public string?   OldValue          { get; set; }
+    public string?   NewValue          { get; set; }
+    public string?   ChangeReason      { get; set; }
+    public int       ChangedBy         { get; set; }
+    public DateTime  ChangedAt         { get; set; } = DateTime.UtcNow;
+
+    // RC-005 — set only on rows a bulk-adjust confirm creates (never on ordinary single-row edits,
+    // never on an undo's own reversal rows), so undo can find exactly what it created via one query.
+    // Modeled as a navigation (not just a scalar FK) so EF Core fixes up the newly-generated
+    // BulkRateOperation.Id onto these rows within the SAME SaveChangesAsync() call — the bulk op
+    // row and its history rows are inserted together, id and all, no second round trip needed.
+    public int?      BulkOperationId   { get; set; }
+    public BulkRateOperation? BulkOperation { get; set; }
+
+    public VariantSupplier VariantSupplier { get; set; } = null!;
+}
+
+// RC-005 — logs one bulk rate-adjustment operation (percentage or fixed-amount, applied to N
+// VariantSupplier rows at once), for the "undo within 24 hours" feature. Same DbContext as
+// VariantSupplier/SupplierRateHistory so confirm/undo each commit atomically in one SaveChanges.
+internal class BulkRateOperation : ITenantScopedEntity
+{
+    public int      Id                { get; set; }
+    public Guid     Uuid              { get; set; } = Guid.NewGuid();
+    public Guid     OrganizationId    { get; set; }
+    public string   Method            { get; set; } = string.Empty; // PERCENTAGE | FIXED
+    public decimal  Value             { get; set; }
+    public int      AffectedCount     { get; set; }
+    public decimal  TotalImpactAmount { get; set; }
+    public string   ChangeReason      { get; set; } = string.Empty;
+    public int      PerformedBy       { get; set; }
+    public DateTime PerformedAt       { get; set; } = DateTime.UtcNow;
+    public bool     IsUndone          { get; set; }
+}
+
 // FSD Addendum 26 (PV-002) — RAM/CPU/Color/Size/... are never columns; every attribute a
 // category needs is metadata defined here once per org, then linked to whichever categories
 // use it via CategoryAttribute, and stored per-variant via VariantAttributeValue. Adding a new

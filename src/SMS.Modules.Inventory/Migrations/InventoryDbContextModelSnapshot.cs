@@ -147,6 +147,58 @@ namespace SMS.Modules.Inventory.Migrations
                     b.ToTable("Bins", "inventory");
                 });
 
+            modelBuilder.Entity("SMS.Modules.Inventory.Domain.BulkRateOperation", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AffectedCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ChangeReason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("IsUndone")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Method")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("PerformedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("PerformedBy")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("TotalImpactAmount")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<Guid>("Uuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Value")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Uuid")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "PerformedAt");
+
+                    b.ToTable("BulkRateOperations", "inventory");
+                });
+
             modelBuilder.Entity("SMS.Modules.Inventory.Domain.CategoryAttribute", b =>
                 {
                     b.Property<int>("Id")
@@ -876,6 +928,55 @@ namespace SMS.Modules.Inventory.Migrations
                     b.ToTable("StockAdjustments", "inventory");
                 });
 
+            modelBuilder.Entity("SMS.Modules.Inventory.Domain.SupplierRateHistory", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("BulkOperationId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ChangeReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime>("ChangedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("ChangedBy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("FieldChanged")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("NewValue")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("OldValue")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("VariantSupplierId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BulkOperationId");
+
+                    b.HasIndex("VariantSupplierId");
+
+                    b.ToTable("SupplierRateHistory", "inventory");
+                });
+
             modelBuilder.Entity("SMS.Modules.Inventory.Domain.VariantAttributeValue", b =>
                 {
                     b.Property<int>("Id")
@@ -906,6 +1007,105 @@ namespace SMS.Modules.Inventory.Migrations
                         .IsUnique();
 
                     b.ToTable("VariantAttributeValues", "inventory");
+                });
+
+            modelBuilder.Entity("SMS.Modules.Inventory.Domain.VariantSupplier", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CurrencyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("DiscountTiers")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("EffectiveFrom")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("EffectiveTo")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ExpiryNotifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("IsPreferred")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<DateTime?>("LastReviewedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastReviewedBy")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("LeadTimeDays")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("MinOrderQty")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("MinOrderValue")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<int?>("ModifiedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ModifiedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("QuotationRef")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid>("SupplierId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("Uuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("VariantId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("VendorPartNo")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<decimal>("VendorUnitCost")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Uuid")
+                        .IsUnique();
+
+                    b.HasIndex("VariantId");
+
+                    b.HasIndex("OrganizationId", "VariantId", "SupplierId");
+
+                    b.ToTable("VariantSuppliers", "inventory");
                 });
 
             modelBuilder.Entity("SMS.Modules.Inventory.Domain.Warehouse", b =>
@@ -1210,6 +1410,24 @@ namespace SMS.Modules.Inventory.Migrations
                     b.Navigation("InventoryItem");
                 });
 
+            modelBuilder.Entity("SMS.Modules.Inventory.Domain.SupplierRateHistory", b =>
+                {
+                    b.HasOne("SMS.Modules.Inventory.Domain.BulkRateOperation", "BulkOperation")
+                        .WithMany()
+                        .HasForeignKey("BulkOperationId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("SMS.Modules.Inventory.Domain.VariantSupplier", "VariantSupplier")
+                        .WithMany()
+                        .HasForeignKey("VariantSupplierId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("BulkOperation");
+
+                    b.Navigation("VariantSupplier");
+                });
+
             modelBuilder.Entity("SMS.Modules.Inventory.Domain.VariantAttributeValue", b =>
                 {
                     b.HasOne("SMS.Modules.Inventory.Domain.AttributeDefinition", "Attribute")
@@ -1225,6 +1443,17 @@ namespace SMS.Modules.Inventory.Migrations
                         .IsRequired();
 
                     b.Navigation("Attribute");
+
+                    b.Navigation("Variant");
+                });
+
+            modelBuilder.Entity("SMS.Modules.Inventory.Domain.VariantSupplier", b =>
+                {
+                    b.HasOne("SMS.Modules.Inventory.Domain.ProductVariant", "Variant")
+                        .WithMany()
+                        .HasForeignKey("VariantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("Variant");
                 });

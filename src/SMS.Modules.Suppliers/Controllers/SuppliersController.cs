@@ -64,6 +64,7 @@ public class SuppliersController : ControllerBase
 
     [HttpGet("{uuid:guid}")]
    // [RequirePermission(PermissionCodes.SUPPLIER_VIEW)]
+    [RequiresSupplierAccess]
     public async Task<IActionResult> GetSupplierById(Guid uuid)
     {
         var detail = await _service.GetSupplierByIdAsync(uuid);
@@ -74,6 +75,7 @@ public class SuppliersController : ControllerBase
 
     [HttpPatch("{uuid:guid}")]
    // [RequirePermission(PermissionCodes.SUPPLIER_EDIT)]
+    [RequiresSupplierAccess]
     public async Task<IActionResult> PatchSupplier(Guid uuid, [FromBody] PatchSupplierRequest req)
     {
         var userId = User.GetUserId();
@@ -85,6 +87,7 @@ public class SuppliersController : ControllerBase
 
     [HttpPost("{uuid:guid}/contacts")]
    // [RequirePermission(PermissionCodes.SUPPLIER_EDIT)]
+    [RequiresSupplierAccess]
     public async Task<IActionResult> AddContact(Guid uuid, [FromBody] AddContactRequest req)
     {
         var contactId = await _service.AddContactAsync(uuid, req);
@@ -93,6 +96,7 @@ public class SuppliersController : ControllerBase
 
     [HttpPatch("{uuid:guid}/contacts/{contactId:int}")]
     [RequirePermission(PermissionCodes.SUPPLIER_EDIT)]
+    [RequiresSupplierAccess]
     public async Task<IActionResult> UpdateContact(Guid uuid, int contactId, [FromBody] PatchContactRequest req)
     {
         var updated = await _service.UpdateContactAsync(uuid, contactId, req);
@@ -103,6 +107,7 @@ public class SuppliersController : ControllerBase
 
     [HttpGet("{uuid:guid}/contacts/eligible")]
     [RequirePermission(PermissionCodes.RFQ_CREATE)]
+    [RequiresSupplierAccess]
     public async Task<IActionResult> GetEligibleContacts(Guid uuid)
     {
         var result = await _service.GetEligibleContactsAsync(uuid);
@@ -115,6 +120,7 @@ public class SuppliersController : ControllerBase
 
     [HttpPost("{uuid:guid}/approve")]
    // [RequirePermission(PermissionCodes.SUPPLIER_MANAGE)]
+    [RequiresSupplierAccess]
     public async Task<IActionResult> ApproveSupplier(Guid uuid)
     {
         var userId = User.GetUserId();
@@ -126,6 +132,7 @@ public class SuppliersController : ControllerBase
 
     [HttpPost("{uuid:guid}/reject")]
    //[RequirePermission(PermissionCodes.SUPPLIER_MANAGE)]
+    [RequiresSupplierAccess]
     public async Task<IActionResult> RejectSupplier(Guid uuid, [FromBody] RejectSupplierRequest req)
     {
         var userId = User.GetUserId();
@@ -137,6 +144,7 @@ public class SuppliersController : ControllerBase
 
     [HttpPost("{uuid:guid}/blacklist")]
    //[RequirePermission(PermissionCodes.SUPPLIER_MANAGE)]
+    [RequiresSupplierAccess]
     public async Task<IActionResult> BlacklistSupplier(Guid uuid, [FromBody] BlacklistSupplierRequest req)
     {
         var userId = User.GetUserId();
@@ -146,6 +154,7 @@ public class SuppliersController : ControllerBase
 
     [HttpPost("{uuid:guid}/suspend")]
     //[RequirePermission(PermissionCodes.SUPPLIER_MANAGE)]
+    [RequiresSupplierAccess]
     public async Task<IActionResult> SuspendSupplier(Guid uuid, [FromBody] SuspendSupplierRequest req)
     {
         var userId = User.GetUserId();
@@ -153,10 +162,22 @@ public class SuppliersController : ControllerBase
         return Ok(ApiResponse.Ok("Supplier suspended."));
     }
 
+    [HttpDelete("{uuid:guid}")]
+    //[RequirePermission(PermissionCodes.SUPPLIER_MANAGE)]
+    [RequiresSupplierAccess]
+    public async Task<IActionResult> DeleteSupplier(Guid uuid)
+    {
+        var deleted = await _service.DeleteSupplierAsync(uuid, User.GetUserId());
+        return deleted
+            ? Ok(ApiResponse.Ok(StaticResponseMessage.recordDeletedSuccessfully))
+            : NotFound(ApiResponse.Fail(StaticResponseMessage.recordNotFound));
+    }
+
     // ── Bank details ──────────────────────────────────────────────────────────
 
     [HttpPost("{uuid:guid}/bank-details")]
    // [RequirePermission(PermissionCodes.SUPPLIER_MANAGE)]
+    [RequiresSupplierAccess]
     public async Task<IActionResult> UpsertBankDetail(Guid uuid, [FromBody] UpsertBankDetailRequest req)
     {
         var userId = User.GetUserId();
@@ -165,6 +186,7 @@ public class SuppliersController : ControllerBase
     }
 
     [HttpGet("{uuid:guid}/bank-details")]
+    [RequiresSupplierAccess]
     public async Task<IActionResult> GetBankDetail(Guid uuid)
     {
         if (!User.HasPermission(PermissionCodes.SUPPLIER_MANAGE) &&
@@ -181,6 +203,7 @@ public class SuppliersController : ControllerBase
 
     [HttpPost("{uuid:guid}/documents")]
    // [RequirePermission(PermissionCodes.SUPPLIER_EDIT)]
+    [RequiresSupplierAccess]
     public async Task<IActionResult> AttachDocument(Guid uuid, [FromBody] AttachDocumentRequest req)
     {
         var userId = User.GetUserId();
@@ -191,6 +214,7 @@ public class SuppliersController : ControllerBase
     [HttpPost("{uuid:guid}/documents/upload")]
     [Consumes("multipart/form-data")]
    // [RequirePermission(PermissionCodes.SUPPLIER_EDIT)]
+    [RequiresSupplierAccess]
     public async Task<IActionResult> UploadDocument(Guid uuid, IFormFile file, [FromForm] string? documentType)
     {
         if (file == null || file.Length == 0)
@@ -225,6 +249,7 @@ public class SuppliersController : ControllerBase
 
     [HttpGet("{uuid:guid}/documents")]
     //[RequirePermission(PermissionCodes.SUPPLIER_VIEW)]
+    [RequiresSupplierAccess]
     public async Task<IActionResult> GetDocuments(Guid uuid)
     {
         var docs = await _service.GetDocumentsAsync(uuid);
@@ -233,6 +258,7 @@ public class SuppliersController : ControllerBase
 
     [HttpDelete("{uuid:guid}/documents/{docId:int}")]
     //[RequirePermission(PermissionCodes.SUPPLIER_EDIT)]
+    [RequiresSupplierAccess]
     public async Task<IActionResult> SoftDeleteDocument(Guid uuid, int docId)
     {
         var deleted = await _service.SoftDeleteDocumentAsync(uuid, docId);

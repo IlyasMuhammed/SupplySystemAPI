@@ -108,6 +108,80 @@ internal sealed class ProductVariantMap : IEntityTypeConfiguration<ProductVarian
     }
 }
 
+internal sealed class VariantSupplierMap : IEntityTypeConfiguration<VariantSupplier>
+{
+    public void Configure(EntityTypeBuilder<VariantSupplier> b)
+    {
+        b.ToTable("VariantSuppliers");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.Id).UseIdentityColumn();
+        b.Property(x => x.Uuid).IsRequired();
+        b.HasIndex(x => x.Uuid).IsUnique();
+
+        b.Property(x => x.VendorUnitCost).HasColumnType("decimal(18,4)").IsRequired();
+        b.Property(x => x.MinOrderValue).HasColumnType("decimal(18,4)");
+        b.Property(x => x.DiscountTiers).HasColumnType("nvarchar(max)");
+        b.Property(x => x.QuotationRef).HasMaxLength(100);
+        b.Property(x => x.Notes).HasMaxLength(500);
+        b.Property(x => x.EffectiveFrom).IsRequired();
+        b.Property(x => x.CurrencyId).IsRequired();
+        b.Property(x => x.IsActive).HasDefaultValue(true);
+        b.Property(x => x.VendorPartNo).HasMaxLength(100);
+        b.Property(x => x.IsPreferred).HasDefaultValue(false);
+
+        b.Property(x => x.OrganizationId).IsRequired();
+        b.HasIndex(x => new { x.OrganizationId, x.VariantId, x.SupplierId });
+
+        b.HasOne(x => x.Variant).WithMany()
+            .HasForeignKey(x => x.VariantId).OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+internal sealed class SupplierRateHistoryMap : IEntityTypeConfiguration<SupplierRateHistory>
+{
+    public void Configure(EntityTypeBuilder<SupplierRateHistory> b)
+    {
+        b.ToTable("SupplierRateHistory");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.Id).UseIdentityColumn();
+
+        b.Property(x => x.FieldChanged).HasMaxLength(100).IsRequired();
+        b.Property(x => x.OldValue).HasMaxLength(500);
+        b.Property(x => x.NewValue).HasMaxLength(500);
+        b.Property(x => x.ChangeReason).HasMaxLength(500);
+
+        b.Property(x => x.OrganizationId).IsRequired();
+        b.HasIndex(x => x.VariantSupplierId);
+        b.HasIndex(x => x.BulkOperationId);
+
+        b.HasOne(x => x.VariantSupplier).WithMany()
+            .HasForeignKey(x => x.VariantSupplierId).OnDelete(DeleteBehavior.Cascade);
+
+        b.HasOne(x => x.BulkOperation).WithMany()
+            .HasForeignKey(x => x.BulkOperationId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+internal sealed class BulkRateOperationMap : IEntityTypeConfiguration<BulkRateOperation>
+{
+    public void Configure(EntityTypeBuilder<BulkRateOperation> b)
+    {
+        b.ToTable("BulkRateOperations");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.Id).UseIdentityColumn();
+        b.Property(x => x.Uuid).IsRequired();
+        b.HasIndex(x => x.Uuid).IsUnique();
+
+        b.Property(x => x.Method).HasMaxLength(20).IsRequired();
+        b.Property(x => x.Value).HasColumnType("decimal(18,4)");
+        b.Property(x => x.TotalImpactAmount).HasColumnType("decimal(18,4)");
+        b.Property(x => x.ChangeReason).HasMaxLength(500).IsRequired();
+
+        b.Property(x => x.OrganizationId).IsRequired();
+        b.HasIndex(x => new { x.OrganizationId, x.PerformedAt });
+    }
+}
+
 internal sealed class AttributeDefinitionMap : IEntityTypeConfiguration<AttributeDefinition>
 {
     public void Configure(EntityTypeBuilder<AttributeDefinition> b)

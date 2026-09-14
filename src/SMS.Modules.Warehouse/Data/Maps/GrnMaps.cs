@@ -134,3 +134,28 @@ internal sealed class SupplierReturnOrderLineMap : IEntityTypeConfiguration<Supp
         b.HasIndex(x => x.OrganizationId);
     }
 }
+
+internal sealed class SroAcknowledgmentLinkMap : IEntityTypeConfiguration<SroAcknowledgmentLink>
+{
+    public void Configure(EntityTypeBuilder<SroAcknowledgmentLink> b)
+    {
+        b.ToTable("sro_acknowledgment_links");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.Id).ValueGeneratedOnAdd();
+        b.Property(x => x.TokenHash).HasMaxLength(64).IsRequired();
+        b.HasIndex(x => x.TokenHash).IsUnique();
+        b.Property(x => x.Status).HasMaxLength(20).HasDefaultValue("PENDING");
+        b.Property(x => x.AccessCount).HasDefaultValue(0);
+        b.Property(x => x.ConsumedIp).HasMaxLength(45);   // IPv6 max length
+        b.Property(x => x.SupplierEmail).HasMaxLength(254);
+        b.Property(x => x.PortalLinkUrl).HasMaxLength(1000);
+        b.Property(x => x.AckRemarks).HasMaxLength(1000);
+        b.Property(x => x.OrganizationId).IsRequired();
+        b.HasIndex(x => x.OrganizationId);
+
+        b.HasOne(x => x.ReturnOrder)
+         .WithMany()
+         .HasForeignKey(x => x.ReturnOrderId)
+         .OnDelete(DeleteBehavior.Cascade);
+    }
+}

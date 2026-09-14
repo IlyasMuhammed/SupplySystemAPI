@@ -22,6 +22,21 @@ public class SrosController : ControllerBase
         _notif   = notif;
     }
 
+    // REQ-3.x — same pattern as QuotationsController.RequestOrigin: the browser's actual Origin is
+    // more reliable than a static config value that has to be kept in sync by hand. Falls back to
+    // Referer's scheme+host; DispatchAsync itself falls back to AppSettings:BaseUrl if this is null too.
+    private string? RequestOrigin
+    {
+        get
+        {
+            var origin = Request.Headers.Origin.FirstOrDefault();
+            if (!string.IsNullOrWhiteSpace(origin)) return origin;
+
+            var referer = Request.Headers.Referer.FirstOrDefault();
+            return Uri.TryCreate(referer, UriKind.Absolute, out var uri) ? uri.GetLeftPart(UriPartial.Authority) : null;
+        }
+    }
+
     [HttpPost]
     public async Task<IActionResult> CreateSro([FromBody] CreateSroRequest req)
     {
@@ -87,7 +102,7 @@ public class SrosController : ControllerBase
     [HttpPost("{uuid:guid}/dispatch")]
     public async Task<IActionResult> DispatchSro(Guid uuid, [FromBody] DispatchSroRequest req)
     {
-        await _service.DispatchAsync(uuid, req, User.GetUserId());
+        await _service.DispatchAsync(uuid, req, User.GetUserId(), RequestOrigin);
         var sro     = await _service.GetByIdAsync(uuid);
         var actorId = User.GetUserId();
         if (sro is not null)

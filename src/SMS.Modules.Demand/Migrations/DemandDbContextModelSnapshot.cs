@@ -270,6 +270,9 @@ namespace SMS.Modules.Demand.Migrations
                         .HasMaxLength(300)
                         .HasColumnType("nvarchar(300)");
 
+                    b.Property<decimal?>("LineDiscountPct")
+                        .HasColumnType("decimal(5,2)");
+
                     b.Property<int>("LineNo")
                         .HasColumnType("int");
 

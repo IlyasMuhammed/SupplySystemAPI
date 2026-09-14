@@ -1,3 +1,4 @@
+using Hangfire;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -6,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using SMS.Modules.Inventory.Data;
 using SMS.Modules.Inventory.Repositories;
 using SMS.Modules.Inventory.Services;
+using SMS.Shared.Common;
 
 namespace SMS.Modules.Inventory;
 
@@ -21,6 +23,13 @@ public static class InventoryModuleExtensions
 
         var seeder = scope.ServiceProvider.GetRequiredService<InventoryDataSeeder>();
         seeder.SeedAsync().GetAwaiter().GetResult();
+
+        // RC-007 — stale-rate alerting (monthly) and rate-expiry warnings (daily), same
+        // RecurringJob.AddOrUpdate registration pattern as ScorecardRecalculationJob (Suppliers).
+        RecurringJob.AddOrUpdate<StaleRateAlertJob>(
+            "stale-rate-alert", job => job.RunAsync(), Cron.Monthly());
+        RecurringJob.AddOrUpdate<RateExpiryNotificationJob>(
+            "rate-expiry-notification", job => job.RunAsync(), Cron.Daily());
 
         return app;
     }
@@ -42,7 +51,11 @@ public static class InventoryModuleExtensions
         services.AddScoped<IStockAvailabilityService, StockAvailabilityService>();
         services.AddScoped<IBatchSerialService, BatchSerialService>();
         services.AddScoped<IProductSearchIndexService, ProductSearchIndexService>();
+        services.AddScoped<IVariantSupplierService, VariantSupplierService>();
+        services.AddScoped<IVariantSupplierResolver, VariantSupplierResolver>();
         services.AddScoped<InventoryDataSeeder>();
+        services.AddScoped<StaleRateAlertJob>();
+        services.AddScoped<RateExpiryNotificationJob>();
 
         return services;
     }

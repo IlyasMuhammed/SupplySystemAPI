@@ -83,6 +83,7 @@ internal sealed class TenancyRepository : ITenancyRepository
                 Address       = o.Address,
                 Country       = o.Country,
                 TimeZone      = o.TimeZone,
+                BaseCurrency  = o.BaseCurrency,
                 CreatedBy     = o.CreatedBy,
                 CreatedDate   = o.CreatedDate,
                 ModifiedBy    = o.ModifiedBy,
@@ -125,6 +126,7 @@ internal sealed class TenancyRepository : ITenancyRepository
                 Address      = req.Address,
                 Country      = req.Country,
                 TimeZone     = req.TimeZone,
+                BaseCurrency = req.BaseCurrency,
                 CreatedBy    = createdBy,
                 CreatedDate  = now
             };
@@ -184,6 +186,7 @@ internal sealed class TenancyRepository : ITenancyRepository
         org.Address      = req.Address;
         org.Country      = req.Country;
         org.TimeZone     = req.TimeZone;
+        org.BaseCurrency = req.BaseCurrency;
         org.ModifiedBy   = modifiedBy;
         org.ModifiedDate = DateTime.UtcNow;
 

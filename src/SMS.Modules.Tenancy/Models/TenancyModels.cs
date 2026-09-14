@@ -12,6 +12,7 @@ public class CreateOrganizationRequest
     public string? Address { get; set; }
     public string? Country { get; set; }
     public string? TimeZone { get; set; }
+    public Guid? BaseCurrency { get; set; }
 
     // Initial Admin user, created atomically with the organization — receives an email
     // invitation to set their own password (see IOrgUserProvisioningService).
@@ -37,6 +38,23 @@ public class UpdateOrganizationRequest
     public string? Address { get; set; }
     public string? Country { get; set; }
     public string? TimeZone { get; set; }
+    public Guid? BaseCurrency { get; set; }
+}
+
+// ── Organization settings (REQ-4.x) ─────────────────────────────────────────
+
+public class OrganizationSettingsModel
+{
+    public int AckLinkExpiryDays { get; set; }
+}
+
+public class UpdateOrganizationSettingsRequest
+{
+    [System.ComponentModel.DataAnnotations.Range(
+        SMS.Shared.Common.OrganizationSettingsDefaults.AckLinkExpiryMinDays,
+        SMS.Shared.Common.OrganizationSettingsDefaults.AckLinkExpiryMaxDays,
+        ErrorMessage = "Acknowledgment link expiry must be between {1} and {2} days.")]
+    public int AckLinkExpiryDays { get; set; }
 }
 
 public class PatchOrganizationStatusRequest
@@ -81,6 +99,7 @@ public class OrganizationDetailModel
     public string? Address { get; set; }
     public string? Country { get; set; }
     public string? TimeZone { get; set; }
+    public Guid? BaseCurrency { get; set; }
     public int CreatedBy { get; set; }
     public DateTime CreatedDate { get; set; }
     public int? ModifiedBy { get; set; }

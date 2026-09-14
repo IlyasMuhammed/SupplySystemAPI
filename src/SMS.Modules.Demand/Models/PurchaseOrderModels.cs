@@ -28,6 +28,8 @@ public class CreatePoLineRequest
     public string? UnitOfMeasure { get; set; }
     public decimal Quantity { get; set; }
     public decimal UnitPrice { get; set; }
+    // RC-004 — accepted volume-discount suggestion, stored for reference only.
+    public decimal? LineDiscountPct { get; set; }
     public DateTime? RequiredDate { get; set; }
     public string? LineNotes { get; set; }
     public string? BudgetCode { get; set; }
@@ -142,6 +144,7 @@ public class PoLineModel
     public string? UnitOfMeasure { get; set; }
     public decimal Quantity { get; set; }
     public decimal UnitPrice { get; set; }
+    public decimal? LineDiscountPct { get; set; }
     public decimal LineTotal { get; set; }
     public decimal QtyReceived { get; set; }
     public decimal QtyInvoiced { get; set; }

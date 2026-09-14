@@ -16,6 +16,7 @@ internal sealed class WarehouseDbContext : DbContext, ITenantScopedDbContext
     internal DbSet<GrnLine>               GrnLines              => Set<GrnLine>();
     internal DbSet<SupplierReturnOrder>   SupplierReturnOrders  => Set<SupplierReturnOrder>();
     internal DbSet<SupplierReturnOrderLine> SupplierReturnOrderLines => Set<SupplierReturnOrderLine>();
+    internal DbSet<SroAcknowledgmentLink> SroAcknowledgmentLinks => Set<SroAcknowledgmentLink>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

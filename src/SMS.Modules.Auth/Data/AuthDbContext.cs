@@ -19,6 +19,7 @@ internal sealed class AuthDbContext : DbContext, ITenantScopedDbContext
     internal DbSet<RolePermission> RolePermissions => Set<RolePermission>();
     internal DbSet<UserPermission> UserPermissions => Set<UserPermission>();
     internal DbSet<UserSession>   UserSessions   => Set<UserSession>();
+    internal DbSet<UserSupplierAccess> UserSupplierAccess => Set<UserSupplierAccess>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

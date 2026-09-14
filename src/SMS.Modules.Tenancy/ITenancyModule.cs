@@ -29,6 +29,8 @@ public static class TenancyModuleExtensions
         services.AddScoped<IOrganizationStatusService, OrganizationStatusService>();
         services.AddScoped<ISuperAdminService, SuperAdminService>();
         services.AddScoped<ITenantSnapshotProvider, TenantSnapshotProvider>();
+        services.AddScoped<IOrganizationSettingsService, OrganizationSettingsService>();
+        services.AddScoped<IOrganizationCurrencyService, OrganizationCurrencyService>();
         services.AddScoped<TenancyDataSeeder>();
 
         return services;

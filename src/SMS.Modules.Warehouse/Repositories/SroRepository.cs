@@ -1,5 +1,6 @@
 using Hangfire;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using SMS.Modules.Demand.Data;
 using SMS.Modules.Inventory.Data;
 using SMS.Modules.Inventory.Models;
@@ -22,6 +23,10 @@ internal sealed class SroRepository : ISroRepository
     private readonly IInventoryLedgerService _ledger;
     private readonly IBackgroundJobClient    _jobs;
     private readonly IAuditService           _audit;
+    private readonly IUserSupplierAccessService _supplierAccess;
+    private readonly ISupplierContactLookupService _supplierContact;
+    private readonly ISroAckTokenService     _ackToken;
+    private readonly string                  _portalBase;
 
     public SroRepository(
         WarehouseDbContext wh,
@@ -29,7 +34,11 @@ internal sealed class SroRepository : ISroRepository
         InventoryDbContext inv,
         IInventoryLedgerService ledger,
         IBackgroundJobClient jobs,
-        IAuditService audit)
+        IAuditService audit,
+        IUserSupplierAccessService supplierAccess,
+        ISupplierContactLookupService supplierContact,
+        ISroAckTokenService ackToken,
+        IConfiguration config)
     {
         _wh     = wh;
         _demand = demand;
@@ -37,6 +46,10 @@ internal sealed class SroRepository : ISroRepository
         _ledger = ledger;
         _jobs   = jobs;
         _audit  = audit;
+        _supplierAccess = supplierAccess;
+        _supplierContact = supplierContact;
+        _ackToken = ackToken;
+        _portalBase = (config["AppSettings:BaseUrl"] ?? "http://localhost:4200").TrimEnd('/');
     }
 
     // ── Create manual SRO ─────────────────────────────────────────────────────
@@ -180,6 +193,14 @@ internal sealed class SroRepository : ISroRepository
                 (s.GrnNumber != null && s.GrnNumber.ToLower().Contains(term)));
         }
 
+        // REQ-2.x — an external user restricted to specific suppliers only sees their own return
+        // orders/dispatches (see IUserSupplierAccessService for the fail-open default).
+        if (await _supplierAccess.IsRestrictedAsync())
+        {
+            var allowedIds = await _supplierAccess.GetAllowedSupplierIdsAsync();
+            query = query.Where(s => allowedIds.Contains(s.SupplierId));
+        }
+
         var total    = await query.CountAsync();
         var page     = Math.Max(1, filter.Page);
         var pageSize = Math.Clamp(filter.PageSize, 1, 100);
@@ -201,6 +222,7 @@ internal sealed class SroRepository : ISroRepository
                 OriginalPoNumber = s.OriginalPoNumber,
                 Status           = s.Status,
                 ReturnReason     = s.ReturnReason,
+                ReturnReasonDetail = s.ReturnReasonDetail,
                 RmaNumber        = s.RmaNumber,
                 DispatchDate     = s.DispatchDate,
                 CreatedDate      = s.CreatedDate,
@@ -231,7 +253,13 @@ internal sealed class SroRepository : ISroRepository
 
         if (sro is null) return null;
 
-        return MapToDetail(sro);
+        // REQ-3.x — surface the supplier's portal acknowledgment, if any, on the internal view.
+        var ackLink = await _wh.SroAcknowledgmentLinks
+            .Where(l => l.ReturnOrderId == sro.Id && l.ConsumedAt != null)
+            .OrderByDescending(l => l.ConsumedAt)
+            .FirstOrDefaultAsync();
+
+        return MapToDetail(sro, ackLink);
     }
 
     // ── Approve (DRAFT → APPROVED) ────────────────────────────────────────────
@@ -281,7 +309,7 @@ internal sealed class SroRepository : ISroRepository
 
     // ── Dispatch (APPROVED → DISPATCHED) ─────────────────────────────────────
 
-    public async Task DispatchAsync(Guid uuid, DispatchSroRequest req, int userId)
+    public async Task DispatchAsync(Guid uuid, DispatchSroRequest req, int userId, string? requestOrigin)
     {
         var sro = await FindAsync(uuid);
 
@@ -365,6 +393,20 @@ internal sealed class SroRepository : ISroRepository
         _jobs.Schedule<ISroEscalationJob>(
             j => j.EscalateIfOverdue(sro.UUID),
             TimeSpan.FromDays(14));
+
+        // 5. REQ-3.x — generate the login-free supplier acknowledgment link and enqueue its email.
+        // Best-effort: a failure here must not undo the dispatch that already committed above.
+        try
+        {
+            var contact    = await _supplierContact.GetContactInfoAsync(sro.SupplierId);
+            var baseUrl    = !string.IsNullOrWhiteSpace(requestOrigin) ? requestOrigin.TrimEnd('/') : _portalBase;
+            var (_, linkId, _) = await _ackToken.GenerateTokenAsync(sro.Id, sro.SupplierId, userId, contact?.Email, baseUrl, sro.OrganizationId);
+            _jobs.Enqueue<ISroAcknowledgmentEmailJob>(j => j.SendAsync(linkId));
+        }
+        catch
+        {
+            // Dispatch itself already succeeded — the acknowledgment link is a best-effort add-on.
+        }
     }
 
     // Reverses POLine.QtyReceived for each SRO line that traces back to a GRN line,
@@ -544,7 +586,7 @@ internal sealed class SroRepository : ISroRepository
             ?? throw new NotFoundException("SupplierReturnOrder", uuid);
     }
 
-    private static SroDetailModel MapToDetail(SupplierReturnOrder sro) => new()
+    private static SroDetailModel MapToDetail(SupplierReturnOrder sro, SroAcknowledgmentLink? ackLink = null) => new()
     {
         UUID             = sro.UUID,
         SroNumber        = sro.ReturnNumber,
@@ -571,6 +613,9 @@ internal sealed class SroRepository : ISroRepository
         Notes            = sro.Notes,
         CreatedBy        = sro.CreatedBy,
         CreatedDate      = sro.CreatedDate,
+        AcknowledgedAt        = ackLink?.ConsumedAt,
+        AcknowledgmentRemarks = ackLink?.AckRemarks,
+        AckReceivedDate       = ackLink?.AckReceivedDate,
         Lines = sro.Lines.Select(l => new SroLineModel
         {
             UUID              = l.UUID,

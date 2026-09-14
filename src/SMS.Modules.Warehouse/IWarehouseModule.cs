@@ -46,6 +46,12 @@ public static class WarehouseModuleExtensions
         services.AddScoped<ISroService, SroService>();
         services.AddScoped<ISroEscalationJob, SroEscalationJob>();
 
+        // REQ-3.x — supplier acknowledgment portal
+        services.AddScoped<ISroAckTokenService, SroAckTokenService>();
+        services.AddScoped<ISroAckValidationService, SroAckValidationService>();
+        services.AddScoped<ISroAckSubmissionService, SroAckSubmissionService>();
+        services.AddScoped<ISroAcknowledgmentEmailJob, SroAcknowledgmentEmailJob>();
+
         // Workflow engine status handlers
         services.AddScoped<IDocumentStatusHandler, GrnStatusHandler>();
         services.AddScoped<IDocumentStatusHandler, GrnQcStatusHandler>();
@@ -56,6 +62,7 @@ public static class WarehouseModuleExtensions
 
         // PV-007 — lets Inventory ask "has this variant ever been transacted" cross-module
         services.AddScoped<IVariantReferenceChecker, GrnLineVariantReferenceChecker>();
+        services.AddScoped<ISupplierReferenceChecker, WarehouseSupplierReferenceChecker>();
 
         return services;
     }

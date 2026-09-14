@@ -29,6 +29,8 @@ public static class SuppliersModuleExtensions
         services.AddScoped<ISuppliersService, SuppliersService>();
         services.AddScoped<ISupplierRatingJob, SupplierRatingJob>();
         services.AddScoped<ISupplierContactLookupService, SupplierContactLookupService>();
+        services.AddScoped<ISupplierNameLookupService, SupplierNameLookupService>();
+        services.AddScoped<ISupplierScoreLookupService, SupplierScoreLookupService>();
         services.AddScoped<IScorecardRepository, ScorecardRepository>();
         services.AddScoped<IScorecardService, ScorecardService>();
         services.AddScoped<ScorecardDataSeeder>();

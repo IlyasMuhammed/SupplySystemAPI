@@ -74,6 +74,9 @@ namespace SMS.Modules.Tenancy.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<Guid?>("BaseCurrency")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("ContactEmail")
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)");
@@ -163,6 +166,25 @@ namespace SMS.Modules.Tenancy.Migrations
                     b.ToTable("OrganizationFeatures", "tenant");
                 });
 
+            modelBuilder.Entity("SMS.Modules.Tenancy.Domain.OrganizationSettings", b =>
+                {
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("AckLinkExpiryDays")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ModifiedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ModifiedDate")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("OrganizationId");
+
+                    b.ToTable("OrganizationSettings", "tenant");
+                });
+
             modelBuilder.Entity("SMS.Modules.Tenancy.Domain.PlanFeatureTemplate", b =>
                 {
                     b.Property<Guid>("Id")
@@ -201,6 +223,17 @@ namespace SMS.Modules.Tenancy.Migrations
                     b.HasKey("UserId");
 
                     b.ToTable("SuperAdminUsers", "tenant");
+                });
+
+            modelBuilder.Entity("SMS.Modules.Tenancy.Domain.OrganizationSettings", b =>
+                {
+                    b.HasOne("SMS.Modules.Tenancy.Domain.Organization", "Organization")
+                        .WithOne()
+                        .HasForeignKey("SMS.Modules.Tenancy.Domain.OrganizationSettings", "OrganizationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Organization");
                 });
 #pragma warning restore 612, 618
         }

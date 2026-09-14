@@ -119,6 +119,10 @@ public class CreateUserRequest
     public string? Address { get; set; }
     public string? Department { get; set; }
     public int RoleID { get; set; }
+    // REQ-1.x — "INTERNAL" | "EXTERNAL", required.
+    public string SupplierType { get; set; } = string.Empty;
+    // REQ-2.x — suppliers this user may see, meaningful only when SupplierType="EXTERNAL".
+    public List<Guid>? SupplierIds { get; set; }
 }
 
 public class UserListFilter
@@ -127,6 +131,7 @@ public class UserListFilter
     public string? Status { get; set; }   // "active" | "inactive"
     public string? Department { get; set; }
     public string? Search { get; set; }   // partial match on name / email
+    public string? SupplierType { get; set; }   // "INTERNAL" | "EXTERNAL"
     public int Page { get; set; } = 1;
     public int PageSize { get; set; } = 20;
 }
@@ -142,6 +147,8 @@ public class UserListItemModel
     public DropDownVM? Role { get; set; }
     public DateTime CreatedDate { get; set; }
     public DateTime? LastLoginAt { get; set; }
+    public string SupplierType { get; set; } = string.Empty;
+    public List<Guid> SupplierIds { get; set; } = [];
 }
 
 public class UserDetailModel
@@ -159,6 +166,8 @@ public class UserDetailModel
     public DateTime CreatedDate { get; set; }
     public DateTime? LastLoginAt { get; set; }
     public string? TemporaryPassword { get; set; }  // only populated on create
+    public string SupplierType { get; set; } = string.Empty;
+    public List<Guid> SupplierIds { get; set; } = [];
 }
 
 public class PatchUserRequest
@@ -167,6 +176,12 @@ public class PatchUserRequest
     public string? LastName { get; set; }
     public string? Department { get; set; }
     public bool? IsActive { get; set; }
+    // REQ-1.x — "INTERNAL" | "EXTERNAL". Nullable per this DTO's existing partial-patch
+    // contract (null = don't touch); validated against the 2 allowed values when supplied.
+    public string? SupplierType { get; set; }
+    // REQ-2.x — null = don't touch (partial-patch contract); a non-null list (including empty)
+    // fully replaces the user's mapped suppliers.
+    public List<Guid>? SupplierIds { get; set; }
 }
 
 public class AssignRoleRequest

@@ -335,10 +335,13 @@ internal sealed class AuthRepository : IAuthRepository
             .AnyAsync(u => u.Email == normalized);
     }
 
-    public async Task<UserDetailModel> CreateUserAsync(UserAccount user)
+    public async Task<UserDetailModel> CreateUserAsync(UserAccount user, List<Guid>? supplierIds, int createdBy)
     {
         _db.UserAccounts.Add(user);
         await _db.SaveChangesAsync();
+
+        if (supplierIds is { Count: > 0 })
+            await SaveUserSupplierAccessAsync(user.UserID, supplierIds, createdBy);
 
         var role = await _db.Roles.FindAsync(user.RoleID);
         return new UserDetailModel
@@ -352,8 +355,38 @@ internal sealed class AuthRepository : IAuthRepository
             Department = user.Department,
             IsActive = user.IsActive,
             CreatedDate = user.CreatedDate,
-            Role = new DropDownVM { ID = user.RoleID, Value = role?.Name ?? string.Empty }
+            Role = new DropDownVM { ID = user.RoleID, Value = role?.Name ?? string.Empty },
+            SupplierType = user.SupplierType,
+            SupplierIds = supplierIds ?? []
         };
+    }
+
+    // ── User↔Supplier access mapping (REQ-2.x) ───────────────────────────────────
+
+    public async Task<List<Guid>> GetUserSupplierIdsAsync(int userId) =>
+        await _db.UserSupplierAccess.Where(m => m.UserID == userId).Select(m => m.SupplierId).ToListAsync();
+
+    // True full replace — deletes every existing mapping for this user and inserts the new set,
+    // so a supplier dropped from the incoming list actually loses access immediately. Deliberately
+    // not the SaveUserPermissions "merge, never delete" pattern (see file header comment there).
+    public async Task SaveUserSupplierAccessAsync(int userId, List<Guid> supplierIds, int assignedBy)
+    {
+        var existing = await _db.UserSupplierAccess.Where(m => m.UserID == userId).ToListAsync();
+        _db.UserSupplierAccess.RemoveRange(existing);
+
+        var now = DateTime.UtcNow;
+        foreach (var supplierId in supplierIds.Distinct())
+        {
+            _db.UserSupplierAccess.Add(new UserSupplierAccess
+            {
+                UserID = userId,
+                SupplierId = supplierId,
+                AssignedBy = assignedBy,
+                AssignedAt = now
+            });
+        }
+
+        await _db.SaveChangesAsync();
     }
 
     public async Task<PaginatedResponse<UserListItemModel>> GetUsersFilteredAsync(UserListFilter filter)
@@ -374,6 +407,9 @@ internal sealed class AuthRepository : IAuthRepository
         if (!string.IsNullOrWhiteSpace(filter.Department))
             query = query.Where(u => u.Department != null &&
                                      u.Department.Contains(filter.Department));
+
+        if (!string.IsNullOrWhiteSpace(filter.SupplierType))
+            query = query.Where(u => u.SupplierType == filter.SupplierType);
 
         if (!string.IsNullOrWhiteSpace(filter.Search))
         {
@@ -397,9 +433,15 @@ internal sealed class AuthRepository : IAuthRepository
             .Select(u => new
             {
                 u.UserID, u.FirstName, u.LastName, u.Email,
-                u.Department, u.IsActive, u.RoleID, u.CreatedDate, u.LastLoginAt
+                u.Department, u.IsActive, u.RoleID, u.CreatedDate, u.LastLoginAt, u.SupplierType
             })
             .ToListAsync();
+
+        var userIds = items.Select(u => u.UserID).ToList();
+        var supplierIdsByUser = await _db.UserSupplierAccess
+            .Where(m => userIds.Contains(m.UserID))
+            .GroupBy(m => m.UserID)
+            .ToDictionaryAsync(g => g.Key, g => g.Select(m => m.SupplierId).ToList());
 
         var result = items.Select(u => new UserListItemModel
         {
@@ -411,6 +453,8 @@ internal sealed class AuthRepository : IAuthRepository
             IsActive   = u.IsActive,
             CreatedDate = u.CreatedDate,
             LastLoginAt = u.LastLoginAt,
+            SupplierType = u.SupplierType,
+            SupplierIds = supplierIdsByUser.GetValueOrDefault(u.UserID, []),
             Role = new DropDownVM
             {
                 ID    = u.RoleID,
@@ -449,11 +493,13 @@ internal sealed class AuthRepository : IAuthRepository
             IsActive   = u.IsActive,
             CreatedDate = u.CreatedDate,
             LastLoginAt = u.LastLoginAt,
-            Role = new DropDownVM { ID = u.RoleID, Value = role?.Name ?? string.Empty }
+            Role = new DropDownVM { ID = u.RoleID, Value = role?.Name ?? string.Empty },
+            SupplierType = u.SupplierType,
+            SupplierIds = await GetUserSupplierIdsAsync(u.UserID)
         };
     }
 
-    public async Task PatchUserAsync(int userId, PatchUserRequest dto)
+    public async Task PatchUserAsync(int userId, PatchUserRequest dto, int patchedBy)
     {
         var u = await _db.UserAccounts.FindAsync(userId);
         if (u == null) return;
@@ -462,9 +508,18 @@ internal sealed class AuthRepository : IAuthRepository
         if (dto.LastName  is not null) u.LastName    = dto.LastName;
         if (dto.Department is not null) u.Department = dto.Department;
         if (dto.IsActive.HasValue)     u.IsActive    = dto.IsActive.Value;
+        if (!string.IsNullOrWhiteSpace(dto.SupplierType))
+        {
+            if (dto.SupplierType != "INTERNAL" && dto.SupplierType != "EXTERNAL")
+                throw new BadRequestException("Supplier Type must be Internal or External.");
+            u.SupplierType = dto.SupplierType;
+        }
         u.UpdateDate = DateTime.UtcNow;
 
         await _db.SaveChangesAsync();
+
+        if (dto.SupplierIds is not null)
+            await SaveUserSupplierAccessAsync(userId, dto.SupplierIds, patchedBy);
     }
 
     public async Task AssignRoleAsync(int userId, int newRoleId)

@@ -28,6 +28,7 @@ public interface IReportsService
     Task<SupplierSpendAnalysisResponse>              GetSupplierSpendAnalysisAsync(SupplierSpendFilter filter);
     Task<DeliveryHeatmapResponse?>                   GetDeliveryPerformanceHeatmapAsync(Guid supplierId, int year);
     Task<List<BudgetUtilizationItem>>                GetBudgetUtilizationAsync(ReportDateFilter filter);
+    Task<List<StaleRatesReportItem>>                 GetStaleRatesReportAsync(StaleRatesReportFilter filter);
     Task<PaginatedResponse<AuditLogItemModel>>       GetAuditTrailAsync(AuditLogFilter filter);
     Task<List<UserActivityItem>>                     GetUserActivityAsync(ReportDateFilter filter);
     Task<List<TimelineEventView>>                    GetSupplierTimelineAsync(Guid supplierId);

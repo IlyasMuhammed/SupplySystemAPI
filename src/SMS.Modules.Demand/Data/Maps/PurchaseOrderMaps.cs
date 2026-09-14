@@ -57,6 +57,7 @@ internal sealed class PurchaseOrderLineMap : IEntityTypeConfiguration<PurchaseOr
         b.Property(x => x.Quantity).HasColumnType("decimal(18,4)");
         b.Property(x => x.UnitPrice).HasColumnType("decimal(18,2)");
         b.Property(x => x.LineTotal).HasColumnType("decimal(18,2)");
+        b.Property(x => x.LineDiscountPct).HasColumnType("decimal(5,2)");
         b.Property(x => x.QtyReceived).HasColumnType("decimal(18,4)").HasDefaultValue(0m);
         b.Property(x => x.QtyInvoiced).HasColumnType("decimal(18,4)").HasDefaultValue(0m);
         b.Property(x => x.BudgetCode).HasMaxLength(50);
