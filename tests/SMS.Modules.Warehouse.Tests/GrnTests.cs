@@ -102,6 +102,41 @@ public class CreateGrn_DraftPo_Tests
     }
 }
 
+// ── A29-P5-05 §4.3 scenario 4: drop-ship PO → 422, "no warehouse stock impact" ─────────
+
+public class CreateGrn_DropShipPo_Tests
+{
+    [Theory]
+    [InlineData("SENT")]
+    [InlineData("PARTIALLY_RECEIVED")]
+    [InlineData("DRAFT")]
+    public async Task Throws_UnprocessableEntity_For_A_Drop_Ship_PO_Whatever_Its_Status(string status)
+    {
+        var po = GrnBuild.SentPo(status: status);
+        po.Source = "DROP_SHIP";
+        var (repo, wh, _) = GrnBuild.New(db => db.PurchaseOrders.Add(po));
+
+        var act = () => repo.CreateAsync(GrnBuild.GrnReq(po.UUID), createdBy: 1);
+
+        await act.Should().ThrowAsync<UnprocessableEntityException>().WithMessage("*drop-ship*");
+        (await wh.Grns.CountAsync()).Should().Be(0);
+    }
+
+    [Theory]
+    [InlineData("MANUAL")]
+    [InlineData("BACK_TO_BACK")]
+    public async Task Any_Other_PO_Source_Is_Received_Normally(string source)
+    {
+        var po = GrnBuild.SentPo();
+        po.Source = source;
+        var (repo, wh, _) = GrnBuild.New(db => db.PurchaseOrders.Add(po));
+
+        var grnUuid = await repo.CreateAsync(GrnBuild.GrnReq(po.UUID), createdBy: 1);
+
+        (await wh.Grns.CountAsync(g => g.UUID == grnUuid)).Should().Be(1);
+    }
+}
+
 // ── WAR-001-TC-2: Sent PO → GRN created, lines pre-filled ────────────────────
 
 public class CreateGrn_SentPo_Tests

@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using SMS.Modules.Inventory.Data;
 using SMS.Modules.Inventory.Domain;
@@ -30,6 +31,7 @@ internal sealed class StockReservationService : IStockReservationService
         Guid sourceUuid,
         IReadOnlyList<ReservationRequest> requests,
         int userId,
+        DateTime? expiresAt = null,
         CancellationToken ct = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sourceType);
@@ -109,7 +111,8 @@ internal sealed class StockReservationService : IStockReservationService
                     SourceLineUuid  = request.SourceLineUuid,
                     Status          = StockReservation.StatusActive,
                     ReservedAt      = now,
-                    ReservedBy      = userId
+                    ReservedBy      = userId,
+                    ExpiresAt       = expiresAt
                 });
 
                 item.QtyReserved += quantity;
@@ -238,6 +241,88 @@ internal sealed class StockReservationService : IStockReservationService
         return give;
     }
 
+    public async Task<decimal> TransferLineAsync(
+        string fromSourceType, Guid fromSourceUuid, Guid fromSourceLineUuid,
+        string toSourceType, Guid toSourceUuid, Guid? toSourceLineUuid,
+        decimal quantity, int userId, CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(fromSourceType);
+        ArgumentException.ThrowIfNullOrWhiteSpace(toSourceType);
+
+        if (quantity <= 0) return 0m;
+
+        var held = await _db.StockReservations
+            .Where(r => r.SourceType == fromSourceType
+                     && r.SourceUuid == fromSourceUuid
+                     && r.SourceLineUuid == fromSourceLineUuid
+                     && r.Status == StockReservation.StatusActive
+                     && r.ReservedQty > 0)
+            .Include(r => r.InventoryItem)
+            .ToListAsync(ct);
+
+        if (held.Count == 0) return 0m;
+
+        // Same order the pick list walks them (GetAllocationsAsync), so a partial hand-over takes
+        // the soonest-expiring batch first, exactly as issuing the order directly would have.
+        held = held
+            .OrderBy(r => r.InventoryItem!.ExpiryDate.HasValue ? 0 : 1)
+            .ThenBy(r => r.InventoryItem!.ExpiryDate)
+            .ThenBy(r => r.InventoryItemId)
+            .ToList();
+
+        var now       = DateTime.UtcNow;
+        var remaining = quantity;
+        var moved     = 0m;
+
+        await InTransactionAsync(async () =>
+        {
+            foreach (var reservation in held)
+            {
+                if (remaining <= 0) break;
+
+                var take = Math.Min(remaining, reservation.ReservedQty);
+
+                if (take == reservation.ReservedQty)
+                {
+                    // The whole row changes hands: same stock, same age, new owner.
+                    reservation.SourceType          = toSourceType;
+                    reservation.SourceUuid          = toSourceUuid;
+                    reservation.SourceLineUuid      = toSourceLineUuid;
+                    reservation.ExpiresAt           = null;
+                    reservation.ExpiryWarningSentAt = null;
+                }
+                else
+                {
+                    reservation.ReservedQty -= take;
+
+                    _db.StockReservations.Add(new StockReservation
+                    {
+                        UUID            = Guid.NewGuid(),
+                        OrganizationId  = reservation.OrganizationId,
+                        InventoryItemId = reservation.InventoryItemId,
+                        VariantUuid     = reservation.VariantUuid,
+                        WarehouseId     = reservation.WarehouseId,
+                        ReservedQty     = take,
+                        SourceType      = toSourceType,
+                        SourceUuid      = toSourceUuid,
+                        SourceLineUuid  = toSourceLineUuid,
+                        Status          = StockReservation.StatusActive,
+                        ReservedAt      = now,
+                        ReservedBy      = userId
+                    });
+                }
+
+                remaining -= take;
+                moved     += take;
+            }
+
+            // The counter is untouched on purpose: the units are exactly as reserved as before.
+            await _db.SaveChangesAsync(ct);
+        }, ct);
+
+        return moved;
+    }
+
     public async Task<IReadOnlyList<ReservationSummary>> GetBySourceAsync(
         string sourceType, Guid sourceUuid, CancellationToken ct = default) =>
         await _db.StockReservations
@@ -318,6 +403,57 @@ internal sealed class StockReservationService : IStockReservationService
             })
             .ToList();
     }
+
+    // ── A29-P4-05 §4.4/§5.1 — expiry sweep support ──────────────────────────────
+    // IgnoreQueryFilters explicitly, not the ambient tenant filter: a bare recurring job has no
+    // HttpContext and so no real organization to filter to, same reasoning as
+    // DocumentNumberGenerator's design-time-equivalent read. The caller groups the result by
+    // OrganizationId itself before doing anything tenant-sensitive with it.
+
+    public Task<IReadOnlyList<ExpiringReservation>> GetExpiredAsync(string sourceType, CancellationToken ct = default) =>
+        QueryExpiring(sourceType, r => r.ExpiresAt < DateTime.UtcNow, ct);
+
+    public Task<IReadOnlyList<ExpiringReservation>> GetExpiringWithinAsync(
+        string sourceType, TimeSpan within, CancellationToken ct = default)
+    {
+        var now = DateTime.UtcNow;
+        var horizon = now.Add(within);
+        return QueryExpiring(sourceType,
+            r => r.ExpiresAt >= now && r.ExpiresAt <= horizon && r.ExpiryWarningSentAt == null, ct);
+    }
+
+    private async Task<IReadOnlyList<ExpiringReservation>> QueryExpiring(
+        string sourceType, Expression<Func<StockReservation, bool>> extra, CancellationToken ct)
+    {
+        return await _db.StockReservations.IgnoreQueryFilters()
+            .Where(r => r.SourceType == sourceType && r.Status == StockReservation.StatusActive && r.ExpiresAt != null)
+            .Where(extra)
+            .Select(r => new ExpiringReservation(
+                r.UUID, r.OrganizationId, r.SourceType, r.SourceUuid, r.SourceLineUuid,
+                r.VariantUuid, r.ReservedQty, r.ExpiresAt!.Value))
+            .ToListAsync(ct);
+    }
+
+    public async Task MarkExpiryWarningSentAsync(IReadOnlyList<Guid> reservationUuids, CancellationToken ct = default)
+    {
+        if (reservationUuids.Count == 0) return;
+
+        var now = DateTime.UtcNow;
+        var rows = await _db.StockReservations.IgnoreQueryFilters()
+            .Where(r => reservationUuids.Contains(r.UUID))
+            .ToListAsync(ct);
+
+        foreach (var row in rows) row.ExpiryWarningSentAt = now;
+        await _db.SaveChangesAsync(ct);
+    }
+
+    public async Task<ExpiringReservation?> GetByUuidAsync(Guid reservationUuid, CancellationToken ct = default) =>
+        await _db.StockReservations.IgnoreQueryFilters()
+            .Where(r => r.UUID == reservationUuid && r.ExpiresAt != null)
+            .Select(r => new ExpiringReservation(
+                r.UUID, r.OrganizationId, r.SourceType, r.SourceUuid, r.SourceLineUuid,
+                r.VariantUuid, r.ReservedQty, r.ExpiresAt!.Value))
+            .FirstOrDefaultAsync(ct);
 
     // ── Allocation ────────────────────────────────────────────────────────────
 

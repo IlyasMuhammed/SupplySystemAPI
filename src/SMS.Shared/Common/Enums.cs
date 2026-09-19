@@ -17,6 +17,11 @@ public enum EnumRole
     // genuinely cross-tenant surfaces. USER_MANAGE is still global in Auth today (no per-org data
     // scoping yet) — a known, documented gap.
     OrgAdmin           = 10,
+    // A29-P3-01 — owns sale order administration & configuration (FSD §3.1): the Deputy Director /
+    // Director of Supply, not IT/Super Admin. SystemAdmin and OrgAdmin keep SALE_ORDER_CONFIG_READ
+    // through their blanket grants but are deliberately denied SALE_ORDER_CONFIG_WRITE, which only
+    // this role carries (see AuthDataSeeder.RolePermissionSeed).
+    SupplyDeptAdmin    = 11,
 }
 
 public enum EnumStatus

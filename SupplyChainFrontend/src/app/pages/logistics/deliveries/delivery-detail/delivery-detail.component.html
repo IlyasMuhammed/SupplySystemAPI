@@ -24,13 +24,30 @@
         </h1>
         <p class="page-subtitle">
           {{ formatStatus(d.direction) }} · {{ d.sourceType }}
-          <span *ngIf="d.sourceNumber" class="font-mono">{{ d.sourceNumber }}</span>
+          <!-- A sale-order delivery links back to its order, where the rest of the fulfilment is. -->
+          <a *ngIf="d.saleOrderUuid; else plainSource" class="font-mono source-link"
+             [routerLink]="['/portal/pages/sales/orders', d.saleOrderUuid]"
+             data-testid="sale-order-link">{{ d.sourceNumber }}</a>
+          <ng-template #plainSource>
+            <span *ngIf="d.sourceNumber" class="font-mono">{{ d.sourceNumber }}</span>
+          </ng-template>
+          <span *ngIf="d.deliveryMode" class="mode-chip" [class.mode-pickup]="isSelfPickup" data-testid="delivery-mode">
+            <i class="pi" [ngClass]="isSelfPickup ? 'pi-shopping-cart' : 'pi-truck'"></i>
+            {{ isSelfPickup ? 'Customer collects' : 'Ship to customer' }}
+          </span>
         </p>
       </div>
 
       <div class="header-actions">
         <p-button icon="pi pi-history" label="Timeline" [text]="true" severity="secondary"
                   (onClick)="timelineVisible = true"></p-button>
+
+        <p-button *ngIf="canDownloadGatePass" label="Gate pass" icon="pi pi-file-pdf" [text]="true"
+                  severity="secondary" (onClick)="openGatePass()" data-testid="action-gate-pass"></p-button>
+
+        <p-button *ngIf="canRecordPickup" label="Record collection" icon="pi pi-user-plus" severity="success"
+                  [disabled]="isSubmitting" (onClick)="openPickupDialog()"
+                  data-testid="action-record-pickup"></p-button>
 
         <p-button *ngIf="canOpenPackStation" label="Pack station" icon="pi pi-box"
                   severity="secondary" [outlined]="true"
@@ -70,6 +87,17 @@
         <ng-container *ngIf="d.statusBeforeHold">
           Resuming returns it to <strong>{{ formatStatus(d.statusBeforeHold) }}</strong>.
         </ng-container>
+      </span>
+    </div>
+
+    <!-- Who walked out with the goods. This is what the gate pass and any later dispute rest on. -->
+    <div class="collected-banner" *ngIf="isCollected" data-testid="collected-banner">
+      <i class="pi pi-check-circle"></i>
+      <span>
+        Collected by <strong>{{ d.pickupPersonName }}</strong>
+        ({{ d.pickupPersonIdType }} {{ d.pickupPersonIdNumber }})
+        on {{ d.pickedUpAt | date:'dd MMM yyyy HH:mm' }}<ng-container *ngIf="d.pickupAuthorization">
+        · authorization: {{ d.pickupAuthorization }}</ng-container>.
       </span>
     </div>
 
@@ -197,6 +225,47 @@
       <p-button label="Confirm" icon="pi pi-check"
                 [disabled]="!reasonText.trim() || isSubmitting"
                 (onClick)="confirmReason()" data-testid="reason-confirm"></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <!-- ── Self-pickup collection (A29 §8.2) ───────────────────────────────────── -->
+
+  <p-dialog header="Record the collection" [(visible)]="pickupDialogVisible" [modal]="true"
+            [style]="{width:'34rem'}" [draggable]="false" data-testid="pickup-dialog">
+    <p class="dialog-hint">
+      The customer is collecting. If the stock has not been issued yet, this issues it; the delivery
+      is then marked as delivered and the gate pass names the collector.
+    </p>
+
+    <label for="pickup-name" class="dialog-label">Collected by</label>
+    <input pInputText id="pickup-name" [(ngModel)]="pickup.pickupPersonName" class="w-full"
+           placeholder="Full name as on the ID" data-testid="pickup-name" />
+
+    <div class="dialog-row two-col">
+      <div>
+        <label for="pickup-id-type" class="dialog-label">ID type</label>
+        <p-dropdown inputId="pickup-id-type" [options]="idTypes" optionLabel="label" optionValue="code"
+                    [(ngModel)]="pickup.pickupPersonIdType" appendTo="body" styleClass="w-full"
+                    data-testid="pickup-id-type"></p-dropdown>
+      </div>
+      <div>
+        <label for="pickup-id-number" class="dialog-label">ID number</label>
+        <input pInputText id="pickup-id-number" [(ngModel)]="pickup.pickupPersonIdNumber" class="w-full"
+               data-testid="pickup-id-number" />
+      </div>
+    </div>
+
+    <div class="dialog-row">
+      <label for="pickup-authorization" class="dialog-label">Authorization</label>
+      <textarea pTextarea id="pickup-authorization" [(ngModel)]="pickup.pickupAuthorization" rows="2"
+                class="w-full" placeholder="Only if someone other than the customer is collecting — the letter or the person authorising them."
+                data-testid="pickup-authorization"></textarea>
+    </div>
+
+    <ng-template pTemplate="footer">
+      <p-button label="Back" [text]="true" severity="secondary" (onClick)="pickupDialogVisible = false"></p-button>
+      <p-button label="Hand over" icon="pi pi-check" severity="success" [disabled]="!canSubmitPickup"
+                (onClick)="submitPickup()" data-testid="pickup-confirm"></p-button>
     </ng-template>
   </p-dialog>
 

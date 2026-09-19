@@ -101,6 +101,10 @@ public static class LogisticsModuleExtensions
         services.AddScoped<IAddressNormalizer,  AddressNormalizer>();
         services.AddScoped<IDocumentNumberGenerator, DocumentNumberGenerator>();
         services.AddScoped<IDeliveryService,    DeliveryService>();
+        services.AddScoped<ISaleOrderDeliveryService, SaleOrderDeliveryService>();
+        // A29-P7-04 — what Finance reads to bill a delivery. Contract in SMS.Shared, so Finance
+        // needs no reference to Logistics.
+        services.AddScoped<IDeliveryFulfillmentReader, DeliveryFulfillmentReader>();
         services.AddScoped<IPickListRepository, PickListRepository>();
         services.AddScoped<IPickListService,    PickListService>();
         services.AddScoped<IGoodsIssueRepository, GoodsIssueRepository>();

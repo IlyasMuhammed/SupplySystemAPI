@@ -376,7 +376,9 @@ namespace SMS.WorkflowEngine.Data.Migrations
 
                     b.HasIndex("OrganizationId");
 
-                    b.HasIndex("TraceId")
+                    b.HasIndex("TraceId");
+
+                    b.HasIndex("OrganizationId", "TraceId")
                         .IsUnique();
 
                     b.ToTable("document_timelines", "workflow_schema");

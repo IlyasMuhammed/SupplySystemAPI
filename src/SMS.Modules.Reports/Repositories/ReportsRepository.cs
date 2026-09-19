@@ -982,7 +982,7 @@ internal sealed class ReportsRepository : IReportsRepository
     {
         var (from, to) = ParseDates(filter.DateFrom, filter.DateTo);
 
-        var suppliersQuery = _suppliers.Suppliers.AsNoTracking().Where(s => !s.IsDelete).AsQueryable();
+        var suppliersQuery = _suppliers.BusinessPartners.AsNoTracking().Where(s => !s.IsDelete).AsQueryable();
         if (!string.IsNullOrWhiteSpace(filter.SupplierStatus))
             suppliersQuery = suppliersQuery.Where(s => s.Status == filter.SupplierStatus);
         if (filter.SupplierCategory.HasValue)
@@ -1164,7 +1164,7 @@ internal sealed class ReportsRepository : IReportsRepository
         if (supplierIds.Count < 2 || supplierIds.Count > 5)
             throw new BadRequestException("Supplier comparison requires between 2 and 5 supplier IDs.");
 
-        var suppliersQuery = _suppliers.Suppliers.AsNoTracking()
+        var suppliersQuery = _suppliers.BusinessPartners.AsNoTracking()
             .Where(s => !s.IsDelete && supplierIds.Contains(s.UUID));
 
         // REQ-2.x — a restricted caller comparing a mix of allowed/disallowed ids just silently
@@ -1430,7 +1430,7 @@ internal sealed class ReportsRepository : IReportsRepository
     {
         if (!await _supplierAccess.CanAccessSupplierAsync(supplierId)) return null;
 
-        var supplier = await _suppliers.Suppliers.AsNoTracking()
+        var supplier = await _suppliers.BusinessPartners.AsNoTracking()
             .Where(s => s.UUID == supplierId && !s.IsDelete)
             .Select(s => new { s.SupplierName })
             .FirstOrDefaultAsync();
@@ -1559,7 +1559,7 @@ internal sealed class ReportsRepository : IReportsRepository
         if (rows.Count == 0) return [];
 
         var supplierIds = rows.Select(r => r.SupplierId).Distinct().ToList();
-        var names = await _suppliers.Suppliers
+        var names = await _suppliers.BusinessPartners
             .Where(s => supplierIds.Contains(s.UUID))
             .ToDictionaryAsync(s => s.UUID, s => s.SupplierName);
 

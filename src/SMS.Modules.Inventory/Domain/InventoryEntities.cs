@@ -100,6 +100,13 @@ internal class ProductVariant : ITenantScopedEntity
     public DateTime CreatedDate    { get; set; } = DateTime.UtcNow;
     public int      CreatedBy      { get; set; }
 
+    // A29-P2-01 §2.1 — the vendor to preselect on a new PO line for this variant. Unenforced
+    // scalar FK -> suppliers.BusinessPartners.UUID (IsVendor must be true), same cross-module
+    // convention as VariantSupplier.SupplierId below: Inventory and Suppliers don't share a
+    // DbContext, so this is validated in the service layer, not a physical FK.
+    public Guid?    DefaultSupplierId { get; set; }
+    public int?     LeadTimeDays      { get; set; }
+
     public Product Product { get; set; } = null!;
     public ICollection<VariantAttributeValue> AttributeValues { get; set; } = new List<VariantAttributeValue>();
     // PV-005 — stock is tracked per variant per warehouse, not per parent product.
@@ -150,6 +157,45 @@ internal class VariantSupplier : ITenantScopedEntity
     public DateTime? ModifiedDate { get; set; }
 
     public ProductVariant Variant { get; set; } = null!;
+}
+
+// A29-P2-02 §2.2 — a unit price for a variant, optionally scoped to one partner (PartnerId null =
+// an org-wide list price) and to a quantity band. Several rules can be active for the same variant
+// at once (different PriceType, partner, quantity band, or date range); which one wins for a given
+// sale/purchase is a later pricing-resolution task's job, not this table's. PartnerId is an
+// unenforced scalar FK -> suppliers.BusinessPartners.UUID, same cross-module convention as
+// VariantSupplier.SupplierId above.
+internal class PricingRule : ITenantScopedEntity
+{
+    public int       Id             { get; set; }
+    public Guid      Uuid           { get; set; } = Guid.NewGuid();
+    public Guid      OrganizationId { get; set; }
+    public int       VariantId      { get; set; }
+    public Guid?     PartnerId      { get; set; }
+    public string    PriceType      { get; set; } = PricingRuleType.Selling;
+    public decimal?  MinQty         { get; set; }
+    public decimal?  MaxQty         { get; set; }
+    public decimal   UnitPrice      { get; set; }
+    public Guid      CurrencyId     { get; set; }
+    public DateTime  EffectiveFrom  { get; set; } = DateTime.UtcNow.Date;
+    public DateTime? EffectiveTo    { get; set; }
+    public bool      IsActive       { get; set; } = true;
+
+    public int       CreatedBy      { get; set; }
+    public DateTime  CreatedDate    { get; set; } = DateTime.UtcNow;
+
+    public ProductVariant Variant { get; set; } = null!;
+}
+
+// The fixed set §2.2 names for PricingRule.PriceType — a plain string discriminator with no
+// derived behaviour (unlike PartnerType's flag-derived combinations), so it follows
+// ReservationSourceType's convention rather than the Code-attribute enum one.
+internal static class PricingRuleType
+{
+    public const string Selling     = "SELLING";
+    public const string Cost        = "COST";
+    public const string Promotional = "PROMOTIONAL";
+    public const string Contract    = "CONTRACT";
 }
 
 // RC-001 — automatic field-level audit trail for VariantSupplier, written to the SAME DbContext

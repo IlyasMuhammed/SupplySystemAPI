@@ -207,6 +207,25 @@ public class DeliveriesController : ControllerBase
     }
 
     /// <summary>
+    /// The customer collects a self-pickup delivery (A29 §8.2). Records who took the goods and what
+    /// ID they showed, issues the stock if the store had not already, and marks the delivery
+    /// <c>DELIVERED</c>. The gate pass then names the collector.
+    /// </summary>
+    /// <remarks>
+    /// Only for a delivery whose mode is <c>SELF_PICKUP</c>; a shipped delivery is proved delivered
+    /// by its consignment. The delivery must be packed, staged or already issued.
+    /// </remarks>
+    [RequirePermission(PermissionCodes.DISPATCH)]
+    [HttpPost("{uuid:guid}/pickup")]
+    public async Task<IActionResult> RecordPickup(Guid uuid, [FromBody] RecordPickupRequest req)
+    {
+        var result = await _svc.RecordPickupAsync(uuid, req, User.GetUserId());
+        return result is null
+            ? NotFound(ApiResponse.Fail(StaticResponseMessage.recordNotFound))
+            : Ok(ApiResponse<PickupResultModel>.Ok(result, "Collection recorded. Delivery marked as delivered."));
+    }
+
+    /// <summary>
     /// The packing list — what is in each carton, batch by batch. Travels with the goods.
     /// </summary>
     [RequirePermission(PermissionCodes.DELIVERY_VIEW)]
@@ -222,7 +241,8 @@ public class DeliveriesController : ControllerBase
     /// </summary>
     /// <remarks>
     /// Counts and identifies packages; it does not itemise their contents. Available once the
-    /// delivery is staged at the dock.
+    /// delivery is staged at the dock. For a self-pickup delivery it is the collection pass
+    /// instead: the items and quantities the customer is carrying out, and who collected them.
     /// </remarks>
     [RequirePermission(PermissionCodes.DELIVERY_VIEW)]
     [HttpGet("{uuid:guid}/gate-pass")]

@@ -23,6 +23,7 @@ public class VocabularyTests
     [InlineData("MIV",      false)] // MIV posts on POSTED
     [InlineData("TRANSFER", true)]  // nothing else posts it
     [InlineData("MANUAL",   true)]  // nothing else posts it
+    [InlineData("SALE_ORDER", true)] // confirming an order only reserves — the delivery's issue is the movement
     public void Source_type_declares_whether_it_posts_goods_issue(string sourceCode, bool expected) =>
         DeliverySourceTypeInfo
             .PostsGoodsIssue(LogisticsCode.Parse<DeliverySourceType>(sourceCode))
@@ -48,6 +49,7 @@ public class VocabularyTests
     [InlineData("SRO",      "OUTBOUND")]
     [InlineData("MIV",      "OUTBOUND")]
     [InlineData("TRANSFER", "TRANSFER")]
+    [InlineData("SALE_ORDER", "OUTBOUND")]
     public void Source_type_implies_a_direction(string sourceCode, string expectedDirection)
     {
         var source = LogisticsCode.Parse<DeliverySourceType>(sourceCode);
@@ -114,6 +116,8 @@ public class VocabularyTests
     {
         AssertCodesRoundTrip<DeliveryDirection>();
         AssertCodesRoundTrip<DeliverySourceType>();
+        AssertCodesRoundTrip<DeliveryMode>();
+        AssertCodesRoundTrip<PickupIdType>();
         AssertCodesRoundTrip<DeliveryStatus>();
         AssertCodesRoundTrip<DeliveryPriority>();
         AssertCodesRoundTrip<PickListStatus>();
@@ -165,7 +169,8 @@ public class VocabularyTests
 
         string[] covered =
         [
-            nameof(DeliveryDirection), nameof(DeliverySourceType), nameof(DeliveryStatus),
+            nameof(DeliveryDirection), nameof(DeliverySourceType), nameof(DeliveryMode), nameof(PickupIdType),
+            nameof(DeliveryStatus),
             nameof(DeliveryPriority), nameof(PickListStatus), nameof(PickShortReason),
             nameof(ShipmentStatus), nameof(ShipmentMode),
             nameof(FreightTerms), nameof(PackageType), nameof(StopType),
@@ -208,6 +213,7 @@ public class VocabularyTests
         AssertConstantsMatch<ShipmentStatus>(typeof(LogisticsStatuses.Shipment));
         AssertConstantsMatch<DeliveryDirection>(typeof(LogisticsStatuses.Direction));
         AssertConstantsMatch<DeliverySourceType>(typeof(LogisticsStatuses.SourceType));
+        AssertConstantsMatch<DeliveryMode>(typeof(LogisticsStatuses.DeliveryMode));
         AssertConstantsMatch<TrackingMilestone>(typeof(LogisticsStatuses.Milestone));
         AssertConstantsMatch<CarrierCommandStatus>(typeof(LogisticsStatuses.CarrierCommand));
     }
@@ -255,6 +261,7 @@ public class VocabularyTests
         // member must not change what is already in the database.
         LogisticsCode.Of(DeliveryStatus.PendingApproval).Should().Be("PENDING_APPROVAL");
         LogisticsCode.Of(DeliverySourceType.Po).Should().Be("PO");
+        LogisticsCode.Of(DeliverySourceType.SaleOrder).Should().Be("SALE_ORDER");
         LogisticsCode.Of(ShipmentMode.Ltl).Should().Be("LTL");
         LogisticsCode.Of(ShipmentStatus.Booking).Should().Be("BOOKING");
         LogisticsCode.Of(DeliveryExceptionType.CodMismatch).Should().Be("COD_MISMATCH");

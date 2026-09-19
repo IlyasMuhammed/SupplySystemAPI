@@ -342,4 +342,215 @@ public class DeliveryReleaseTests
         freed.Should().Be(0);
         h.Reservations.RemainingAvailable(variantUuid).Should().Be(500m);
     }
+
+    // ── Sale-order deliveries (A29-P6-03) ─────────────────────────────────────
+    //
+    // The order already holds its stock under SALES_ORDER. Releasing the delivery that ships it
+    // must take that hold over — reserving again would either fail (nothing free) or hold the
+    // same units twice — and only what the order does not hold comes from free stock.
+
+    private static readonly Guid Central = Guid.NewGuid();
+    private static readonly Guid North   = Guid.NewGuid();
+
+    private sealed record OrderDelivery(Guid DeliveryUuid, Guid OrderUuid, Guid OrderLineUuid, Guid VariantUuid);
+
+    /// <summary>
+    /// An order holding <paramref name="held"/> units in <paramref name="holdIn"/>, with
+    /// <paramref name="free"/> more on the shelf, and a draft delivery for
+    /// <paramref name="deliveryQty"/> of it shipping from <paramref name="shipFrom"/>.
+    /// </summary>
+    private static async Task<OrderDelivery> NewSaleOrderDelivery(
+        Harness h, decimal held = 100m, decimal free = 0m, decimal deliveryQty = 100m,
+        Guid? holdIn = null, Guid? shipFrom = null, bool shipFromUnspecified = false)
+    {
+        var variantUuid   = Guid.NewGuid();
+        var orderUuid     = Guid.NewGuid();
+        var orderLineUuid = Guid.NewGuid();
+        var warehouse     = holdIn ?? Central;
+
+        h.Reservations.SetLayout(variantUuid,
+            (new FakeStockReservationService.StockLocation(warehouse, "Central"), held + free));
+        (await h.Reservations.ReserveAsync(ReservationSourceType.SalesOrder, orderUuid,
+            [new ReservationRequest(variantUuid, warehouse, held, orderLineUuid)], User)).Succeeded.Should().BeTrue();
+
+        var uuid = await h.Deliveries.CreateAsync(new CreateDeliveryRequest
+        {
+            SourceType = "SALE_ORDER", SourceUuid = orderUuid, SourceNumber = "SO-2026-00042",
+            ShipFromWarehouseUuid = shipFromUnspecified ? null : shipFrom ?? Central,
+            Lines = [new CreateDeliveryLineRequest { ItemDescription = "4mm cable", QtyOrdered = deliveryQty, VariantUuid = variantUuid }]
+        }, User);
+
+        var delivery = await h.Db.DeliveryOrders.Include(d => d.Lines).SingleAsync(d => d.UUID == uuid);
+        delivery.SaleOrderUuid = orderUuid;
+        delivery.DeliveryMode  = "SHIP";
+        delivery.Lines.Single().SoLineUuid = orderLineUuid;
+        await h.Db.SaveChangesAsync();
+        h.Db.ChangeTracker.Clear();
+
+        return new OrderDelivery(uuid, orderUuid, orderLineUuid, variantUuid);
+    }
+
+    [Fact]
+    public async Task Releasing_a_sale_order_delivery_takes_over_the_orders_hold_instead_of_reserving_again()
+    {
+        var h = NewHarness();
+        var d = await NewSaleOrderDelivery(h, held: 100m, free: 0m, deliveryQty: 100m);
+
+        (await h.Release.ReleaseAsync(d.DeliveryUuid, null, User)).Should().BeTrue();
+
+        (await StatusOf(h, d.DeliveryUuid)).Should().Be("RELEASED");
+        h.Reservations.ActiveFor(d.DeliveryUuid).Should().Be(100m);
+        h.Reservations.ActiveFor(d.OrderUuid).Should().Be(0m, "the hold changed hands");
+        h.Reservations.ReserveCallCount.Should().Be(1, "only the order's own reservation — nothing was reserved twice");
+        h.Reservations.RemainingAvailable(d.VariantUuid).Should().Be(0m);
+    }
+
+    [Fact]
+    public async Task A_partial_delivery_takes_only_its_share_of_the_hold()
+    {
+        var h = NewHarness();
+        var d = await NewSaleOrderDelivery(h, held: 100m, deliveryQty: 40m);
+
+        await h.Release.ReleaseAsync(d.DeliveryUuid, null, User);
+
+        h.Reservations.ActiveFor(d.DeliveryUuid).Should().Be(40m);
+        h.Reservations.ActiveFor(d.OrderUuid).Should().Be(60m, "still held for the next delivery");
+    }
+
+    [Fact]
+    public async Task What_the_order_does_not_hold_comes_from_free_stock()
+    {
+        // A back-to-back balance: the order held 60 at confirmation and the other 40 has since
+        // arrived on a GRN that nobody reserved.
+        var h = NewHarness();
+        var d = await NewSaleOrderDelivery(h, held: 60m, free: 40m, deliveryQty: 100m);
+
+        await h.Release.ReleaseAsync(d.DeliveryUuid, null, User);
+
+        h.Reservations.ActiveFor(d.DeliveryUuid).Should().Be(100m);
+        h.Reservations.ActiveFor(d.OrderUuid).Should().Be(0m);
+        h.Reservations.RemainingAvailable(d.VariantUuid).Should().Be(0m);
+        h.Reservations.ReserveCallCount.Should().Be(2, "the order's, plus one for the 40 from free stock");
+    }
+
+    [Fact]
+    public async Task When_free_stock_cannot_cover_the_balance_nothing_changes_hands()
+    {
+        // All-or-nothing still holds: a refused release leaves the order's hold exactly as it was.
+        var h = NewHarness();
+        var d = await NewSaleOrderDelivery(h, held: 60m, free: 30m, deliveryQty: 100m);
+
+        var act = async () => await h.Release.ReleaseAsync(d.DeliveryUuid, null, User);
+
+        (await act.Should().ThrowAsync<ConflictException>())
+            .WithMessage("*not enough stock*")
+            .WithMessage("*needed 40*")
+            .WithMessage("*30 available*");
+
+        (await StatusOf(h, d.DeliveryUuid)).Should().Be("DRAFT");
+        h.Reservations.ActiveFor(d.DeliveryUuid).Should().Be(0m);
+        h.Reservations.ActiveFor(d.OrderUuid).Should().Be(60m, "untouched");
+    }
+
+    [Fact]
+    public async Task Availability_counts_the_orders_own_hold()
+    {
+        // Without this the preview would say "0 available" for stock that is held precisely for
+        // this delivery, and a SPLIT release would backorder the whole thing.
+        var h = NewHarness();
+        var d = await NewSaleOrderDelivery(h, held: 100m, free: 0m, deliveryQty: 100m);
+
+        var result = await h.Release.GetAvailabilityAsync(d.DeliveryUuid);
+
+        result!.RequiresStock.Should().BeTrue();
+        result.Lines.Single().QtyAvailable.Should().Be(100m);
+        result.Lines.Single().Shortfall.Should().Be(0m);
+        result.Lines.Single().WarehouseName.Should().NotBeNullOrWhiteSpace();
+        result.CanReleaseInFull.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Splitting_a_sale_order_delivery_ships_what_the_order_holds_and_backorders_the_rest()
+    {
+        var h = NewHarness();
+        var d = await NewSaleOrderDelivery(h, held: 60m, free: 0m, deliveryQty: 100m);
+
+        await h.Release.ReleaseAsync(d.DeliveryUuid, new ReleaseDeliveryRequest { OnShortage = ShortageAction.Split }, User);
+
+        var released = await h.Db.DeliveryOrders.Include(x => x.Lines).AsNoTracking().SingleAsync(x => x.UUID == d.DeliveryUuid);
+        released.Status.Should().Be("RELEASED");
+        released.Lines.Single().QtyOrdered.Should().Be(60m);
+        h.Reservations.ActiveFor(d.DeliveryUuid).Should().Be(60m);
+        h.Reservations.ActiveFor(d.OrderUuid).Should().Be(0m);
+
+        var backorder = await h.Db.DeliveryOrders.Include(x => x.Lines).AsNoTracking().SingleAsync(x => x.UUID != d.DeliveryUuid);
+        backorder.Status.Should().Be("DRAFT");
+        backorder.SaleOrderUuid.Should().Be(d.OrderUuid);
+        backorder.Lines.Single().QtyOrdered.Should().Be(40m);
+        backorder.Lines.Single().SoLineUuid.Should().Be(d.OrderLineUuid);
+    }
+
+    [Fact]
+    public async Task Cancelling_a_released_sale_order_delivery_returns_the_hold_to_the_order()
+    {
+        // The customer's order still stands; its stock goes back to the order, not to whoever
+        // asks next.
+        var h = NewHarness();
+        var d = await NewSaleOrderDelivery(h, held: 100m, deliveryQty: 100m);
+        await h.Release.ReleaseAsync(d.DeliveryUuid, null, User);
+        h.Reservations.ActiveFor(d.OrderUuid).Should().Be(0m);
+
+        await h.Status.CancelAsync(d.DeliveryUuid, new DeliveryReasonRequest { Reason = "Truck broke down" }, User);
+
+        h.Reservations.ActiveFor(d.DeliveryUuid).Should().Be(0m);
+        h.Reservations.ActiveFor(d.OrderUuid).Should().Be(100m, "back with the order");
+        h.Reservations.RemainingAvailable(d.VariantUuid).Should().Be(0m, "never became free stock");
+    }
+
+    [Fact]
+    public async Task Short_closing_before_issue_returns_the_unshipped_balance_to_the_order()
+    {
+        var h = NewHarness();
+        var d = await NewSaleOrderDelivery(h, held: 100m, deliveryQty: 100m);
+        await h.Release.ReleaseAsync(d.DeliveryUuid, null, User);
+
+        var delivery = await h.Db.DeliveryOrders.SingleAsync(x => x.UUID == d.DeliveryUuid);
+        delivery.Status = "PICKED";
+        await h.Db.SaveChangesAsync();
+        h.Db.ChangeTracker.Clear();
+
+        await h.Status.ShortCloseAsync(d.DeliveryUuid, new DeliveryReasonRequest { Reason = "Customer took less" }, User);
+
+        h.Reservations.ActiveFor(d.DeliveryUuid).Should().Be(0m);
+        h.Reservations.ActiveFor(d.OrderUuid).Should().Be(100m);
+    }
+
+    [Fact]
+    public async Task A_hold_in_another_warehouse_is_not_taken_over()
+    {
+        // The delivery ships from Central; the order's stock sits in North. A pick list cannot
+        // span buildings, so that hold is neither counted nor moved — and with nothing free in
+        // Central the release is refused, leaving the order's hold where it was.
+        var h = NewHarness();
+        var d = await NewSaleOrderDelivery(h, held: 100m, free: 0m, deliveryQty: 100m, holdIn: North, shipFrom: Central);
+
+        (await h.Release.GetAvailabilityAsync(d.DeliveryUuid))!.Lines.Single().QtyAvailable.Should().Be(0m);
+
+        var act = async () => await h.Release.ReleaseAsync(d.DeliveryUuid, null, User);
+        await act.Should().ThrowAsync<ConflictException>();
+
+        h.Reservations.ActiveFor(d.OrderUuid).Should().Be(100m);
+    }
+
+    [Fact]
+    public async Task A_delivery_that_names_no_warehouse_takes_the_hold_wherever_it_is()
+    {
+        var h = NewHarness();
+        var d = await NewSaleOrderDelivery(h, held: 100m, deliveryQty: 100m, holdIn: North, shipFromUnspecified: true);
+
+        await h.Release.ReleaseAsync(d.DeliveryUuid, null, User);
+
+        h.Reservations.ActiveFor(d.DeliveryUuid).Should().Be(100m);
+        h.Reservations.ActiveFor(d.OrderUuid).Should().Be(0m);
+    }
 }

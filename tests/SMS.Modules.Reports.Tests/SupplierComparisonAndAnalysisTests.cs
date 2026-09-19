@@ -54,14 +54,14 @@ file static class Build
         return (repo, demand, warehouse, finance, suppliers, inventory);
     }
 
-    internal static Supplier SeedSupplier(SuppliersDbContext db, string name)
+    internal static BusinessPartner SeedSupplier(SuppliersDbContext db, string name)
     {
-        var s = new Supplier
+        var s = new BusinessPartner
         {
             UUID = Guid.NewGuid(), SupplierName = name, SupplierCode = $"SUP-{Guid.NewGuid():N}"[..10],
             Status = "APPROVED", IsActive = true, CreatedBy = 1, CreatedDate = DateTime.UtcNow
         };
-        db.Suppliers.Add(s);
+        db.BusinessPartners.Add(s);
         db.SaveChanges();
         return s;
     }

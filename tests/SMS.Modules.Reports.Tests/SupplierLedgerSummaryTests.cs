@@ -46,9 +46,9 @@ file static class Build
         return (repo, finance, suppliers);
     }
 
-    internal static Supplier SeedSupplier(SuppliersDbContext db, string name, string code, string status = "APPROVED")
+    internal static BusinessPartner SeedSupplier(SuppliersDbContext db, string name, string code, string status = "APPROVED")
     {
-        var s = new Supplier
+        var s = new BusinessPartner
         {
             UUID         = Guid.NewGuid(),
             SupplierName = name,
@@ -58,7 +58,7 @@ file static class Build
             CreatedBy    = 1,
             CreatedDate  = DateTime.UtcNow
         };
-        db.Suppliers.Add(s);
+        db.BusinessPartners.Add(s);
         db.SaveChanges();
         return s;
     }

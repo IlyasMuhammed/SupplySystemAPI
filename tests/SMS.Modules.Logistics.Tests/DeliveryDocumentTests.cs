@@ -2,8 +2,10 @@ using FluentAssertions;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Primitives;
 using Moq;
+using SMS.Modules.Demand.Services;
 using SMS.Modules.Logistics.Data;
 using SMS.Modules.Logistics.Models;
 using SMS.Modules.Logistics.Repositories;
@@ -35,7 +37,7 @@ public class DeliveryDocumentTests
 
     private static Harness NewHarness(PoDocumentTemplateModel? template = null)
     {
-        var (db, tenant, _) = LogisticsTestDb.New();
+        var (db, tenant, dbName) = LogisticsTestDb.New();
         var reservations = new FakeStockReservationService();
         var numbers      = new DocumentNumberGenerator(db, tenant);
 
@@ -45,7 +47,9 @@ public class DeliveryDocumentTests
         var release    = new DeliveryReleaseRepository(db, reservations, numbers);
         var status     = new DeliveryStatusRepository(db, reservations);
         var pickLists  = new PickListRepository(db, reservations, numbers);
-        var goodsIssue = new GoodsIssueRepository(db, reservations, new FakeGoodsIssuePoster(reservations));
+        var goodsIssue = new GoodsIssueRepository(
+            db, LogisticsTestDb.Demand(dbName, tenant), reservations, new FakeGoodsIssuePoster(reservations),
+            new Mock<ISaleOrderFulfillmentService>().Object, NullLogger<GoodsIssueRepository>.Instance);
 
         var deliveryService = new DeliveryService(deliveries, null!, status, release, goodsIssue);
 
@@ -57,38 +61,6 @@ public class DeliveryDocumentTests
 
         return new Harness(db, deliveries, release, pickLists, packages, goodsIssue,
                            documents, reservations);
-    }
-
-    /// <summary>
-    /// A web host environment with a web root that does not exist — so the logo is simply absent,
-    /// which is the state a fresh deployment is in and the one the document must survive.
-    /// </summary>
-    private sealed class StubEnvironment : IWebHostEnvironment
-    {
-        public string          WebRootPath          { get; set; } = Path.Combine(Path.GetTempPath(), "no-such-webroot");
-        public IFileProvider   WebRootFileProvider   { get; set; } = new NullFileProvider();
-        public string          ApplicationName       { get; set; } = "Tests";
-        public IFileProvider   ContentRootFileProvider { get; set; } = new NullFileProvider();
-        public string          ContentRootPath       { get; set; } = Path.GetTempPath();
-        public string          EnvironmentName       { get; set; } = "Test";
-    }
-
-    private sealed class NullFileProvider : IFileProvider
-    {
-        public IDirectoryContents GetDirectoryContents(string subpath) => NotFoundDirectoryContents.Singleton;
-        public IFileInfo GetFileInfo(string subpath) => new NotFoundFileInfo(subpath);
-        public IChangeToken Watch(string filter) => NullChangeToken.Singleton;
-    }
-
-    private sealed class NullChangeToken : IChangeToken
-    {
-        internal static readonly NullChangeToken Singleton = new();
-        public bool HasChanged => false;
-        public bool ActiveChangeCallbacks => false;
-        public IDisposable RegisterChangeCallback(Action<object?> callback, object? state) =>
-            new Noop();
-
-        private sealed class Noop : IDisposable { public void Dispose() { } }
     }
 
     // ── Fixtures ──────────────────────────────────────────────────────────────
@@ -415,6 +387,93 @@ public class DeliveryDocumentTests
         gatePass.Should().NotEqual(packingList);
     }
 
+    // ── Collection gate pass (A29-P6-04 §8.3) ─────────────────────────────────
+
+    /// <summary>A self-pickup sale-order delivery, staged at the counter.</summary>
+    private static async Task<Guid> SelfPickupStaged(Harness h)
+    {
+        var variantUuid = Guid.NewGuid();
+        h.Reservations.SetAvailable(variantUuid, 1000m);
+
+        var uuid = await h.Deliveries.CreateAsync(new CreateDeliveryRequest
+        {
+            SourceType = "SALE_ORDER", SourceUuid = Guid.NewGuid(), SourceNumber = "SO-2026-00042",
+            ShipFromWarehouseUuid = CentralUuid,
+            ShipFromAddress = new AddressRequest
+            {
+                ContactName = "Central Warehouse", Line1 = "12 Dock Road", CityName = "Karachi", CountryName = "Pakistan"
+            },
+            Lines = [new CreateDeliveryLineRequest
+            {
+                ItemDescription = "Dell Latitude 5450 (DELL-5450-I7)", UnitOfMeasure = "Piece",
+                QtyOrdered = 3m, VariantUuid = variantUuid
+            }]
+        }, User);
+
+        var delivery = await h.Db.DeliveryOrders.SingleAsync(d => d.UUID == uuid);
+        delivery.DeliveryMode = "SELF_PICKUP";
+        await h.Db.SaveChangesAsync();
+        h.Db.ChangeTracker.Clear();
+
+        await h.Release.ReleaseAsync(uuid, null, User);
+        var pickList = await h.PickLists.GenerateAsync(uuid, null, User);
+        var pickLine = (await h.PickLists.GetByUuidAsync(pickList))!.Lines.Single();
+        await h.PickLists.ConfirmAsync(pickList, new ConfirmPickRequest
+        {
+            Lines = [new ConfirmPickLineRequest { LineUuid = pickLine.UUID, QtyPicked = 3m }]
+        }, Picker);
+        var packLine = (await h.Packages.GetForDeliveryAsync(uuid))!.Lines.Single();
+        await h.Packages.PackAsync(uuid, new PackRequest
+        {
+            Contents = [new PackContentRequest { DeliveryLineUuid = packLine.DeliveryLineUuid, Qty = 3m }]
+        }, User);
+        await h.GoodsIssue.StageAsync(uuid, User);
+        h.Db.ChangeTracker.Clear();
+
+        return uuid;
+    }
+
+    [Fact]
+    public async Task A_self_pickup_delivery_gets_a_collection_pass_before_and_after_the_customer_collects()
+    {
+        // Printed before collection it carries ruled blanks for the gate; printed after, it names
+        // the collector. Both are valid documents, and both must render.
+        var h = NewHarness();
+        var uuid = await SelfPickupStaged(h);
+
+        var (before, beforeName) = await h.Documents.GenerateGatePassAsync(uuid);
+        ShouldBeAPdf(before);
+        beforeName.Should().StartWith("GatePass-");
+
+        await h.GoodsIssue.RecordPickupAsync(uuid, new RecordPickupRequest
+        {
+            PickupPersonName = "Ahmed Raza", PickupPersonIdType = "CNIC",
+            PickupPersonIdNumber = "35202-1234567-1", PickupAuthorization = "Letter AL-2026-114"
+        }, User);
+
+        var (after, _) = await h.Documents.GenerateGatePassAsync(uuid);
+        ShouldBeAPdf(after);
+        after.Should().NotEqual(before, "the collector's details are now on it");
+    }
+
+    [Fact]
+    public async Task A_collection_pass_itemises_where_a_shipping_pass_does_not()
+    {
+        // Security checks what the customer carries out against the pass, so this is the one gate
+        // pass that lists items — the packing list's body under the gate pass heading.
+        var h = NewHarness();
+        var collection = await SelfPickupStaged(h);
+        var shipping   = await Staged(h);
+
+        var (collectionPass, _) = await h.Documents.GenerateGatePassAsync(collection);
+        var (shippingPass, _)   = await h.Documents.GenerateGatePassAsync(shipping);
+        var (packingList, _)    = await h.Documents.GeneratePackingListAsync(collection);
+
+        ShouldBeAPdf(collectionPass);
+        collectionPass.Should().NotEqual(shippingPass);
+        collectionPass.Should().NotEqual(packingList, "it is a gate pass, not the packing list itself");
+    }
+
     // ── Not found ─────────────────────────────────────────────────────────────
 
     [Fact]
@@ -441,7 +500,9 @@ public class DeliveryDocumentTests
         var release    = new DeliveryReleaseRepository(db, reservations, numbers);
         var status     = new DeliveryStatusRepository(db, reservations);
         var pickLists  = new PickListRepository(db, reservations, numbers);
-        var goodsIssue = new GoodsIssueRepository(db, reservations, new FakeGoodsIssuePoster(reservations));
+        var goodsIssue = new GoodsIssueRepository(
+            db, LogisticsTestDb.Demand(dbName, tenant), reservations, new FakeGoodsIssuePoster(reservations),
+            new Mock<ISaleOrderFulfillmentService>().Object, NullLogger<GoodsIssueRepository>.Instance);
 
         var templates = new Mock<IPoDocumentTemplateService>();
         templates.Setup(t => t.GetActiveAsync()).ReturnsAsync((PoDocumentTemplateModel?)null);
@@ -465,7 +526,9 @@ public class DeliveryDocumentTests
                 otherDeliveries, null!,
                 new DeliveryStatusRepository(otherDb, reservations),
                 new DeliveryReleaseRepository(otherDb, reservations, otherNumbers),
-                new GoodsIssueRepository(otherDb, reservations, new FakeGoodsIssuePoster(reservations))),
+                new GoodsIssueRepository(
+                    otherDb, LogisticsTestDb.Demand(dbName, tenant), reservations, new FakeGoodsIssuePoster(reservations),
+                    new Mock<ISaleOrderFulfillmentService>().Object, NullLogger<GoodsIssueRepository>.Instance)),
             otherPackages, templates.Object, new StubEnvironment());
 
         var act = async () => await other.GeneratePackingListAsync(uuid);

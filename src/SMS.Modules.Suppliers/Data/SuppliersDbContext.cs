@@ -12,7 +12,7 @@ internal sealed class SuppliersDbContext : DbContext, ITenantScopedDbContext
     public SuppliersDbContext(DbContextOptions<SuppliersDbContext> options, ITenantContext tenantContext) : base(options) =>
         _tenantContext = tenantContext;
 
-    internal DbSet<Supplier> Suppliers => Set<Supplier>();
+    internal DbSet<BusinessPartner> BusinessPartners => Set<BusinessPartner>();
     internal DbSet<SupplierTypeMapping> SupplierTypeMappings => Set<SupplierTypeMapping>();
     internal DbSet<SupplierIndustryMapping> SupplierIndustryMappings => Set<SupplierIndustryMapping>();
     internal DbSet<SupplierContact> SupplierContacts => Set<SupplierContact>();
@@ -29,6 +29,13 @@ internal sealed class SuppliersDbContext : DbContext, ITenantScopedDbContext
     {
         modelBuilder.HasDefaultSchema("suppliers");
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(SuppliersDbContext).Assembly);
+
+        // P1-03 asked for "EF config: HasQueryFilter(p => p.OrgId == _orgId)" on BusinessPartner —
+        // ApplyTenantQueryFilters below already does exactly that for every ITenantScopedEntity in
+        // this context, BusinessPartner included, and adds the super-admin bypass
+        // (IsSuperAdmin || OrganizationId == ...) that a hand-written filter here would not have.
+        // A second HasQueryFilter call on the same entity REPLACES the first rather than combining
+        // with it, so writing one by hand here would silently drop that bypass — not adding one.
         modelBuilder.ApplyTenantQueryFilters(this);
         
         // F35 — each of those filters puts WHERE OrganizationId = @org on every query against

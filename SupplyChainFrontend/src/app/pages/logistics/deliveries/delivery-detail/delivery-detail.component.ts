@@ -9,6 +9,8 @@ import { TooltipModule } from 'primeng/tooltip';
 import { ToastModule } from 'primeng/toast';
 import { DialogModule } from 'primeng/dialog';
 import { TextareaModule } from 'primeng/textarea';
+import { DropdownModule } from 'primeng/dropdown';
+import { InputTextModule } from 'primeng/inputtext';
 import { MessageService } from 'primeng/api';
 
 import { TimelinePanelComponent } from '../../../../shared/timeline-panel/timeline-panel.component';
@@ -16,7 +18,9 @@ import { AttachmentListComponent } from '../../../../shared/attachment-list/atta
 import {
   LogisticsService,
   DeliveryDetailModel,
-  DeliveryAvailabilityModel
+  DeliveryAvailabilityModel,
+  RecordPickupRequest,
+  PICKUP_ID_TYPES
 } from '../../../../services/logistics.service';
 import { DELIVERY_STATUS_SEVERITY } from '../delivery-list/delivery-list.component';
 
@@ -25,13 +29,22 @@ type Severity = 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast
 /** The status a delivery must be able to move to for the action to make sense. */
 type ReasonAction = 'hold' | 'cancel' | 'short-close';
 
+/**
+ * Where a self-pickup delivery can be collected from. Mirrors the server: packed goods are staged
+ * and issued by the collection itself; issued goods are simply handed over.
+ */
+const COLLECTABLE_STATUSES = ['PACKED', 'STAGED', 'PENDING_APPROVAL', 'GOODS_ISSUED'];
+
+/** A gate pass exists once the goods are at the dock. Same rule as the server's document service. */
+const GATE_PASS_STATUSES = ['STAGED', 'PENDING_APPROVAL', 'GOODS_ISSUED', 'IN_TRANSIT', 'DELIVERED', 'PARTIALLY_DELIVERED'];
+
 @Component({
   selector: 'app-delivery-detail',
   standalone: true,
   imports: [
     CommonModule, RouterModule, FormsModule,
     TableModule, ButtonModule, TagModule, TooltipModule, ToastModule,
-    DialogModule, TextareaModule,
+    DialogModule, TextareaModule, DropdownModule, InputTextModule,
     TimelinePanelComponent, AttachmentListComponent
   ],
   templateUrl: './delivery-detail.component.html',
@@ -59,6 +72,12 @@ export class DeliveryDetailComponent implements OnInit {
   releaseDialogVisible = false;
   availability: DeliveryAvailabilityModel | null = null;
   isCheckingAvailability = false;
+
+  // ── Self-pickup collection (A29 §8.2) ───────────────────────────────────────
+
+  pickupDialogVisible = false;
+  pickup: RecordPickupRequest = this.emptyPickup();
+  idTypes = PICKUP_ID_TYPES;
 
   constructor(
     private route: ActivatedRoute,
@@ -136,6 +155,22 @@ export class DeliveryDetailComponent implements OnInit {
     return this.delivery?.status === 'ON_HOLD'
         && !!this.delivery?.statusBeforeHold
         && this.canMoveTo(this.delivery.statusBeforeHold);
+  }
+
+  get isSelfPickup(): boolean { return this.delivery?.deliveryMode === 'SELF_PICKUP'; }
+
+  /** The counter's one button: the customer is here for a self-pickup that is ready to hand over. */
+  get canRecordPickup(): boolean {
+    return this.isSelfPickup && COLLECTABLE_STATUSES.includes(this.delivery?.status ?? '');
+  }
+
+  /** Already collected — the pass and the collector's details are the record of it. */
+  get isCollected(): boolean {
+    return this.isSelfPickup && !!this.delivery?.pickedUpAt;
+  }
+
+  get canDownloadGatePass(): boolean {
+    return GATE_PASS_STATUSES.includes(this.delivery?.status ?? '');
   }
 
   // ── Actions ─────────────────────────────────────────────────────────────────
@@ -306,6 +341,77 @@ export class DeliveryDetailComponent implements OnInit {
       case 'cancel':      return 'Delivery cancelled.';
       case 'short-close': return 'Delivery closed short.';
     }
+  }
+
+  // ── Self-pickup collection ──────────────────────────────────────────────────
+
+  private emptyPickup(): RecordPickupRequest {
+    return { pickupPersonName: '', pickupPersonIdType: 'CNIC', pickupPersonIdNumber: '', pickupAuthorization: '' };
+  }
+
+  openPickupDialog() {
+    this.pickup = this.emptyPickup();
+    this.pickupDialogVisible = true;
+  }
+
+  /** Name and ID are what the gate pass has to say; authorization is only for a stand-in collector. */
+  get canSubmitPickup(): boolean {
+    return !!this.pickup.pickupPersonName.trim()
+        && !!this.pickup.pickupPersonIdType
+        && !!this.pickup.pickupPersonIdNumber.trim()
+        && !this.isSubmitting;
+  }
+
+  submitPickup() {
+    if (!this.canSubmitPickup) return;
+    this.isSubmitting = true;
+
+    const body: RecordPickupRequest = {
+      pickupPersonName:     this.pickup.pickupPersonName.trim(),
+      pickupPersonIdType:   this.pickup.pickupPersonIdType,
+      pickupPersonIdNumber: this.pickup.pickupPersonIdNumber.trim(),
+      pickupAuthorization:  this.pickup.pickupAuthorization?.trim() || undefined
+    };
+
+    this.logisticsService.recordPickup(this.uuid, body).subscribe({
+      next: (res) => {
+        this.isSubmitting = false;
+        this.pickupDialogVisible = false;
+        const result = res.result;
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Collected',
+          detail: result?.saleOrderStatus
+            ? `Handed over. The sale order is now ${this.formatStatus(result.saleOrderStatus).toLowerCase()}.`
+            : 'Handed over and marked as delivered.'
+        });
+        this.load();
+      },
+      error: (err) => {
+        this.isSubmitting = false;
+        this.messageService.add({
+          severity: 'error', summary: 'Not allowed',
+          detail: err?.error?.message ?? 'The collection could not be recorded.'
+        });
+      }
+    });
+  }
+
+  openGatePass() {
+    this.logisticsService.downloadGatePass(this.uuid).subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank');
+        // Give the new tab time to take the URL before it is revoked.
+        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      },
+      error: (err) => {
+        this.messageService.add({
+          severity: 'error', summary: 'Not available',
+          detail: err?.error?.message ?? 'The gate pass could not be generated.'
+        });
+      }
+    });
   }
 
   // ── Display ─────────────────────────────────────────────────────────────────

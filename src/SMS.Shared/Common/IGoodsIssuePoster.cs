@@ -18,11 +18,22 @@ public static class GoodsIssueTransactionType
 
     public const string TransferOut = "TRANSFER_OUT";
     public const string TransferIn  = "TRANSFER_IN";
+
+    /// <summary>A29 §12.1 — stock leaving on a sale-order delivery that is shipped to the customer.</summary>
+    public const string SalesShip = "SALES_SHIP";
+
+    /// <summary>A29 §12.1 — stock handed over at the warehouse to a customer collecting a sale order.</summary>
+    public const string SalesHandover = "SALES_HANDOVER";
 }
 
 /// <param name="ToWarehouseUuid">
 /// Set for a transfer, where the same units are received somewhere else. Null for a plain issue,
 /// where the stock simply leaves.
+/// </param>
+/// <param name="TransactionType">
+/// The ledger's transaction type for a plain issue. Null means <see cref="GoodsIssueTransactionType.DeliveryIssue"/>;
+/// a sale-order delivery names <see cref="GoodsIssueTransactionType.SalesShip"/> or
+/// <see cref="GoodsIssueTransactionType.SalesHandover"/>. A transfer always writes its own two types.
 /// </param>
 public sealed record GoodsIssuePosting(
     string  ReferenceType,
@@ -30,7 +41,8 @@ public sealed record GoodsIssuePosting(
     string  ReferenceNumber,
     Guid?   ToWarehouseUuid = null,
     string? DestinationName = null,
-    string? Notes           = null);
+    string? Notes           = null,
+    string? TransactionType = null);
 
 /// <param name="QuantityIn">Non-zero only for a transfer, where the units land somewhere else.</param>
 public sealed record GoodsIssueResult(

@@ -23,6 +23,225 @@ namespace SMS.Modules.Suppliers.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("SMS.Modules.Suppliers.Domain.BusinessPartner", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AddressLine1")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("AddressLine2")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int?>("ApprovedBy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("BlacklistedReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("City")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Country")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal?>("CreditLimit")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("Fax")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("IsCarrier")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<bool>("IsCustomer")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<bool>("IsDelete")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsPreferredSupplier")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsServiceProvider")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<bool>("IsVendor")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<DateTime?>("LastReviewDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LeadTimeDays")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ModifiedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ModifiedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("OnboardingDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("PartnerType")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("VENDOR");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("PostalCode")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid?>("PreferredCurrency")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("PreferredPaymentTerms")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("PrimaryContactEmail")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("PrimaryContactName")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("PrimaryContactPhone")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("PrimaryContactTitle")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("ProvinceState")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<decimal?>("Rating")
+                        .HasColumnType("decimal(3,1)");
+
+                    b.Property<string>("RegistrationNo")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("RejectedReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("ServiceCategories")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("PENDING");
+
+                    b.Property<DateTime?>("StatusChangedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("StatusChangedBy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SupplierCode")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("SupplierName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("SuspendedReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("SuspendedReviewDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("TaxId")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<Guid>("UUID")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("VehicleTypes")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Website")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.HasIndex("UUID")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "SupplierCode")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "PartnerType", "IsActive");
+
+                    b.HasIndex("OrganizationId", "IsVendor", "IsCustomer", "IsCarrier", "IsServiceProvider");
+
+                    b.ToTable("BusinessPartners", "suppliers");
+                });
+
             modelBuilder.Entity("SMS.Modules.Suppliers.Domain.GrnScoreDetail", b =>
                 {
                     b.Property<int>("Id")
@@ -117,186 +336,6 @@ namespace SMS.Modules.Suppliers.Migrations
                         .IsUnique();
 
                     b.ToTable("ScorecardDimensionWeights", "suppliers");
-                });
-
-            modelBuilder.Entity("SMS.Modules.Suppliers.Domain.Supplier", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("AddressLine1")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<string>("AddressLine2")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<int?>("ApprovedBy")
-                        .HasColumnType("int");
-
-                    b.Property<string>("BlacklistedReason")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<string>("City")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("Country")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<int>("CreatedBy")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("CreatedDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<decimal?>("CreditLimit")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<string>("Email")
-                        .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)");
-
-                    b.Property<string>("Fax")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<bool>("IsActive")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(true);
-
-                    b.Property<bool>("IsDelete")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsPreferredSupplier")
-                        .HasColumnType("bit");
-
-                    b.Property<DateTime?>("LastReviewDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int?>("LeadTimeDays")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("ModifiedBy")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("ModifiedDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Notes")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<DateTime?>("OnboardingDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid>("OrganizationId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Phone")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<string>("PostalCode")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<Guid?>("PreferredCurrency")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid?>("PreferredPaymentTerms")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("PrimaryContactEmail")
-                        .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)");
-
-                    b.Property<string>("PrimaryContactName")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("PrimaryContactPhone")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<string>("PrimaryContactTitle")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("ProvinceState")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<decimal?>("Rating")
-                        .HasColumnType("decimal(3,1)");
-
-                    b.Property<string>("RegistrationNo")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<string>("RejectedReason")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
-                        .HasDefaultValue("PENDING");
-
-                    b.Property<DateTime?>("StatusChangedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int?>("StatusChangedBy")
-                        .HasColumnType("int");
-
-                    b.Property<string>("SupplierCode")
-                        .IsRequired()
-                        .HasMaxLength(10)
-                        .HasColumnType("nvarchar(10)");
-
-                    b.Property<string>("SupplierName")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<string>("SuspendedReason")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<DateTime?>("SuspendedReviewDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("TaxId")
-                        .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)");
-
-                    b.Property<Guid>("UUID")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Website")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("OrganizationId");
-
-                    b.HasIndex("UUID")
-                        .IsUnique();
-
-                    b.HasIndex("OrganizationId", "SupplierCode")
-                        .IsUnique();
-
-                    b.ToTable("Suppliers", "suppliers");
                 });
 
             modelBuilder.Entity("SMS.Modules.Suppliers.Domain.SupplierBankDetail", b =>
@@ -656,7 +695,7 @@ namespace SMS.Modules.Suppliers.Migrations
 
             modelBuilder.Entity("SMS.Modules.Suppliers.Domain.SupplierBankDetail", b =>
                 {
-                    b.HasOne("SMS.Modules.Suppliers.Domain.Supplier", "Supplier")
+                    b.HasOne("SMS.Modules.Suppliers.Domain.BusinessPartner", "Supplier")
                         .WithOne("BankDetail")
                         .HasForeignKey("SMS.Modules.Suppliers.Domain.SupplierBankDetail", "SupplierId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -667,7 +706,7 @@ namespace SMS.Modules.Suppliers.Migrations
 
             modelBuilder.Entity("SMS.Modules.Suppliers.Domain.SupplierContact", b =>
                 {
-                    b.HasOne("SMS.Modules.Suppliers.Domain.Supplier", "Supplier")
+                    b.HasOne("SMS.Modules.Suppliers.Domain.BusinessPartner", "Supplier")
                         .WithMany("Contacts")
                         .HasForeignKey("SupplierId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -678,7 +717,7 @@ namespace SMS.Modules.Suppliers.Migrations
 
             modelBuilder.Entity("SMS.Modules.Suppliers.Domain.SupplierDocument", b =>
                 {
-                    b.HasOne("SMS.Modules.Suppliers.Domain.Supplier", "Supplier")
+                    b.HasOne("SMS.Modules.Suppliers.Domain.BusinessPartner", "Supplier")
                         .WithMany("Documents")
                         .HasForeignKey("SupplierId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -689,7 +728,7 @@ namespace SMS.Modules.Suppliers.Migrations
 
             modelBuilder.Entity("SMS.Modules.Suppliers.Domain.SupplierIndustryMapping", b =>
                 {
-                    b.HasOne("SMS.Modules.Suppliers.Domain.Supplier", "Supplier")
+                    b.HasOne("SMS.Modules.Suppliers.Domain.BusinessPartner", "Supplier")
                         .WithMany("IndustryMappings")
                         .HasForeignKey("SupplierId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -700,7 +739,7 @@ namespace SMS.Modules.Suppliers.Migrations
 
             modelBuilder.Entity("SMS.Modules.Suppliers.Domain.SupplierTypeMapping", b =>
                 {
-                    b.HasOne("SMS.Modules.Suppliers.Domain.Supplier", "Supplier")
+                    b.HasOne("SMS.Modules.Suppliers.Domain.BusinessPartner", "Supplier")
                         .WithMany("TypeMappings")
                         .HasForeignKey("SupplierId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -709,7 +748,7 @@ namespace SMS.Modules.Suppliers.Migrations
                     b.Navigation("Supplier");
                 });
 
-            modelBuilder.Entity("SMS.Modules.Suppliers.Domain.Supplier", b =>
+            modelBuilder.Entity("SMS.Modules.Suppliers.Domain.BusinessPartner", b =>
                 {
                     b.Navigation("BankDetail");
 

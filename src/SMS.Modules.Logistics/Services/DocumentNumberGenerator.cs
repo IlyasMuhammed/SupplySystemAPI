@@ -5,24 +5,6 @@ using SMS.Shared.Common;
 
 namespace SMS.Modules.Logistics.Services;
 
-internal interface IDocumentNumberGenerator
-{
-    /// <summary>
-    /// Reserves and returns the next document number for a prefix, e.g. <c>DLV-2026-00001</c>.
-    /// The number is consumed whether or not the caller goes on to save anything.
-    /// </summary>
-    /// <param name="organizationId">
-    /// Whose counter to draw from. Defaults to the ambient tenant. Pass it explicitly from code
-    /// that runs outside a request — a startup job or a migration — where the ambient context is
-    /// not the organization being worked on.
-    /// </param>
-    Task<string> NextAsync(
-        string prefix,
-        DateTime? utcNow = null,
-        Guid? organizationId = null,
-        CancellationToken ct = default);
-}
-
 /// <summary>
 /// Hands out document numbers from a per-(organization, prefix, year) counter.
 /// <para>

@@ -436,4 +436,46 @@ public class GoodsIssuePosterTests
         (await Row(h, id)).QtyReserved.Should().Be(60m);
         (await h.Db.InventoryLedgerEntries.CountAsync()).Should().Be(0);
     }
+
+    // ── The movement kind (A29-P6-03 §12.1) ──────────────────────────────────
+
+    [Theory]
+    [InlineData("SALES_SHIP")]
+    [InlineData("SALES_HANDOVER")]
+    public async Task A_named_transaction_type_is_what_the_ledger_records(string transactionType)
+    {
+        var h  = await NewHarness();
+        var wh = await NewWarehouse(h, "Central");
+        await SeedRow(h, wh, 100m, batch: "B-1");
+
+        var source = Guid.NewGuid();
+        await h.Reservations.ReserveAsync(ReservationSourceType.Delivery, source,
+            [new ReservationRequest(h.VariantUuid, wh, 40m)], User);
+
+        await h.Poster.PostAsync(ReservationSourceType.Delivery, source,
+            Posting() with { TransactionType = transactionType }, User);
+
+        var entry = await h.Db.InventoryLedgerEntries.AsNoTracking().SingleAsync();
+        entry.TransactionType.Should().Be(transactionType);
+        entry.QuantityOut.Should().Be(40m);
+    }
+
+    [Fact]
+    public async Task A_transfer_keeps_its_own_two_transaction_types_whatever_is_named()
+    {
+        var h    = await NewHarness();
+        var from = await NewWarehouse(h, "Central");
+        var to   = await NewWarehouse(h, "North");
+        await SeedRow(h, from, 100m, batch: "B-1");
+
+        var source = Guid.NewGuid();
+        await h.Reservations.ReserveAsync(ReservationSourceType.Delivery, source,
+            [new ReservationRequest(h.VariantUuid, from, 40m)], User);
+
+        await h.Poster.PostAsync(ReservationSourceType.Delivery, source,
+            Posting(to) with { TransactionType = "SALES_SHIP" }, User);
+
+        (await h.Db.InventoryLedgerEntries.AsNoTracking().Select(e => e.TransactionType).ToListAsync())
+            .Should().BeEquivalentTo(["TRANSFER_OUT", "TRANSFER_IN"]);
+    }
 }

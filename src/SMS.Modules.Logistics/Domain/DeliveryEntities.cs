@@ -48,6 +48,39 @@ internal class DeliveryOrder : ITenantScopedEntity
     public bool PostsGoodsIssue =>
         DeliverySourceTypeInfo.PostsGoodsIssue(LogisticsCode.Parse<DeliverySourceType>(SourceType));
 
+    // ── Sale-order fulfilment (A29 §7.1) ──────────────────────────────────────
+    // All null unless the delivery fulfils a sale order. Nothing here is a new table — sale orders
+    // are fulfilled through this same delivery, pick, pack and goods-issue chain.
+
+    /// <summary>
+    /// The sale order this delivery fulfils. Cross-module reference — a bare <c>SaleOrder.UUID</c>
+    /// with no FK, since sale orders live in the Demand module's DbContext. For a SALE_ORDER source
+    /// it duplicates <see cref="SourceUuid"/> on purpose: this column is the one indexed for "every
+    /// delivery of this order", and it does not depend on what the source type means.
+    /// </summary>
+    public Guid? SaleOrderUuid { get; set; }
+
+    /// <summary>SHIP or SELF_PICKUP, copied from the sale order. Null for every other source.</summary>
+    public string? DeliveryMode { get; set; }
+
+    /// <summary>Who collects the goods on a self-pickup, what ID they showed, and on whose authority.</summary>
+    public string? PickupPersonName { get; set; }
+
+    /// <summary>CNIC, License or Passport.</summary>
+    public string? PickupPersonIdType   { get; set; }
+    public string? PickupPersonIdNumber { get; set; }
+
+    /// <summary>The authorization the collector presented — a letter reference or the authorizing person.</summary>
+    public string? PickupAuthorization { get; set; }
+
+    /// <summary>
+    /// When the customer collected, and who handed the goods over. Distinct from
+    /// <see cref="GoodsIssuedAt"/>: the stock can leave the books the day before the customer
+    /// turns up, and the gate pass has to show the moment the goods actually left the building.
+    /// </summary>
+    public DateTime? PickedUpAt { get; set; }
+    public int?      PickedUpBy { get; set; }
+
     // ── Addresses ─────────────────────────────────────────────────────────────
     // Real foreign keys: addresses live in this DbContext, unlike the cross-module references above.
 
@@ -201,6 +234,13 @@ internal class DeliveryOrderLine : ITenantScopedEntity
 
     /// <summary>The PO / SRO / MIV line this came from. Bare UUID, no FK.</summary>
     public Guid? SourceLineUuid { get; set; }
+
+    /// <summary>
+    /// The sale order line this line fulfils — a bare <c>SaleOrderLine.UUID</c>, no FK, null for
+    /// every other source. What lets goods issue credit the right order line, and lets a second
+    /// delivery of the same order see what the first already covered.
+    /// </summary>
+    public Guid? SoLineUuid { get; set; }
 
     /// <summary>Bin to pick from. Bare UUID — bins live in the Inventory module.</summary>
     public Guid? BinUuid { get; set; }

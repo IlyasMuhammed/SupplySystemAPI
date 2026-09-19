@@ -160,6 +160,10 @@ internal sealed class DeliveryReleaseRepository : IDeliveryReleaseRepository
     /// coverable when no one warehouse can actually ship it, and the release would then refuse
     /// something this screen had just said was fine.
     /// </para>
+    /// <para>
+    /// For a sale-order delivery the order's own hold counts as well as free stock: those units
+    /// are not available to anyone else, but they are exactly what this delivery is for.
+    /// </para>
     /// </summary>
     private async Task<Dictionary<Guid, LineCoverage>> CoverageAsync(DeliveryOrder delivery)
     {
@@ -173,6 +177,7 @@ internal sealed class DeliveryReleaseRepository : IDeliveryReleaseRepository
 
         var stock = await _reservations.GetAvailableAsync(
             variantUuids, delivery.ShipFromWarehouseUuid);
+        var handable = await SaleOrderHoldsAsync(delivery);
 
         foreach (var line in delivery.Lines)
         {
@@ -185,13 +190,49 @@ internal sealed class DeliveryReleaseRepository : IDeliveryReleaseRepository
             }
 
             var best = stock.FirstOrDefault(s => s.VariantUuid == variantUuid);
+            var held = handable.GetValueOrDefault(line.UUID);
 
-            coverage[line.UUID] = best is null
+            coverage[line.UUID] = best is null && held.Quantity <= 0
                 ? new LineCoverage(0m, null, "No stock record exists for this item in the requested warehouse.")
-                : new LineCoverage(best.Available, best.WarehouseName, null);
+                : new LineCoverage(
+                    (best?.Available ?? 0m) + held.Quantity,
+                    best?.WarehouseName ?? held.WarehouseName,
+                    null);
         }
 
         return coverage;
+    }
+
+    private readonly record struct OrderHold(decimal Quantity, string? WarehouseName);
+
+    /// <summary>
+    /// What the sale order already holds for each line of this delivery, in the warehouse the
+    /// delivery ships from. Empty for every other kind of delivery.
+    /// <para>
+    /// Scoped to the delivery's warehouse when it names one: a hold sitting elsewhere cannot be
+    /// walked by this pick list, so it is neither counted here nor taken over at release.
+    /// </para>
+    /// </summary>
+    private async Task<Dictionary<Guid, OrderHold>> SaleOrderHoldsAsync(DeliveryOrder delivery)
+    {
+        var holds = new Dictionary<Guid, OrderHold>();
+        if (delivery.SaleOrderUuid is not { } saleOrderUuid) return holds;
+
+        var allocations = await _reservations.GetAllocationsAsync(
+            ReservationSourceType.SalesOrder, saleOrderUuid);
+
+        foreach (var line in delivery.Lines.Where(l => l.SoLineUuid is not null))
+        {
+            var mine = allocations
+                .Where(a => a.SourceLineUuid == line.SoLineUuid
+                         && (delivery.ShipFromWarehouseUuid is null || a.WarehouseUuid == delivery.ShipFromWarehouseUuid))
+                .ToList();
+
+            if (mine.Count > 0)
+                holds[line.UUID] = new OrderHold(mine.Sum(a => a.Quantity), mine[0].WarehouseName);
+        }
+
+        return holds;
     }
 
     // ── Splitting out what cannot be covered ──────────────────────────────────
@@ -243,6 +284,9 @@ internal sealed class DeliveryReleaseRepository : IDeliveryReleaseRepository
             SourceType     = delivery.SourceType,
             SourceUuid     = delivery.SourceUuid,
             SourceNumber   = delivery.SourceNumber,
+            // The balance of a sale-order delivery is still that order's, in the same mode.
+            SaleOrderUuid  = delivery.SaleOrderUuid,
+            DeliveryMode   = delivery.DeliveryMode,
             ShipFromAddressId     = delivery.ShipFromAddressId,
             ShipToAddressId       = delivery.ShipToAddressId,
             ShipFromWarehouseUuid = delivery.ShipFromWarehouseUuid,
@@ -278,6 +322,7 @@ internal sealed class DeliveryReleaseRepository : IDeliveryReleaseRepository
                 // Kept so the balance still points at the same source line — this is what stops
                 // the outstanding quantity being advised twice against a purchase order.
                 SourceLineUuid          = entry.Line.SourceLineUuid,
+                SoLineUuid              = entry.Line.SoLineUuid,
                 UnitValue               = entry.Line.UnitValue,
                 IsHazardous             = entry.Line.IsHazardous,
                 IsFragile               = entry.Line.IsFragile,
@@ -307,6 +352,8 @@ internal sealed class DeliveryReleaseRepository : IDeliveryReleaseRepository
     private async Task ReserveStockAsync(DeliveryOrder delivery, int userId)
     {
         var requests = new List<ReservationRequest>();
+        var takeOver = new List<(DeliveryOrderLine Line, decimal Qty)>();
+        var handable = await SaleOrderHoldsAsync(delivery);
 
         foreach (var line in delivery.Lines.OrderBy(l => l.LineNo))
         {
@@ -318,28 +365,49 @@ internal sealed class DeliveryReleaseRepository : IDeliveryReleaseRepository
                     $"Line {line.LineNo} ({line.ItemDescription}) has no stock item resolved, so " +
                     "its stock cannot be reserved. Set the item on the line before releasing.");
 
-            requests.Add(new ReservationRequest(
-                variantUuid,
-                delivery.ShipFromWarehouseUuid,
-                line.QtyOrdered,
-                line.UUID));
+            // A sale-order line's stock is already held by the order; that part changes hands
+            // rather than being reserved again. Only what the order does not hold — a
+            // back-to-back balance still waiting on its PO — has to come from free stock.
+            var fromOrder = Math.Min(line.QtyOrdered, handable.GetValueOrDefault(line.UUID).Quantity);
+            if (fromOrder > 0) takeOver.Add((line, fromOrder));
+
+            var fresh = line.QtyOrdered - fromOrder;
+            if (fresh > 0)
+                requests.Add(new ReservationRequest(
+                    variantUuid,
+                    delivery.ShipFromWarehouseUuid,
+                    fresh,
+                    line.UUID));
         }
 
-        var result = await _reservations.ReserveAsync(
-            ReservationSourceType.Delivery, delivery.UUID, requests, userId);
-
-        if (result.Succeeded) return;
-
-        // All-or-nothing: nothing was held, so the delivery stays in DRAFT and the message says
-        // exactly which lines are short and by how much.
-        var detail = string.Join(" ", result.Shortfalls.Select(s =>
+        // Fresh stock first: this is the step that can refuse, and refusing before anything has
+        // changed hands keeps the all-or-nothing promise — a refused release leaves the order's
+        // hold exactly as it was.
+        if (requests.Count > 0)
         {
-            var line = delivery.Lines.First(l => l.UUID == s.SourceLineUuid);
-            return $"Line {line.LineNo} ({line.ItemDescription}): needed {s.Requested:0.###}, " +
-                   $"{s.Available:0.###} available.";
-        }));
+            var result = await _reservations.ReserveAsync(
+                ReservationSourceType.Delivery, delivery.UUID, requests, userId);
 
-        throw new ConflictException(
-            $"There is not enough stock to release delivery {delivery.DeliveryNumber}. {detail}");
+            if (!result.Succeeded)
+            {
+                // Nothing was held, so the delivery stays in DRAFT and the message says exactly
+                // which lines are short and by how much.
+                var detail = string.Join(" ", result.Shortfalls.Select(s =>
+                {
+                    var line = delivery.Lines.First(l => l.UUID == s.SourceLineUuid);
+                    return $"Line {line.LineNo} ({line.ItemDescription}): needed {s.Requested:0.###}, " +
+                           $"{s.Available:0.###} available.";
+                }));
+
+                throw new ConflictException(
+                    $"There is not enough stock to release delivery {delivery.DeliveryNumber}. {detail}");
+            }
+        }
+
+        foreach (var (line, qty) in takeOver)
+            await _reservations.TransferLineAsync(
+                ReservationSourceType.SalesOrder, delivery.SaleOrderUuid!.Value, line.SoLineUuid!.Value,
+                ReservationSourceType.Delivery, delivery.UUID, line.UUID,
+                qty, userId);
     }
 }

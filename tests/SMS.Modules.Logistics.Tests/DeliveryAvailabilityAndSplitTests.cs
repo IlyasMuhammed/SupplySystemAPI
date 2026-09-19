@@ -259,6 +259,33 @@ public class DeliveryAvailabilityAndSplitTests
     }
 
     [Fact]
+    public async Task A_split_sale_order_delivery_keeps_its_order_links_and_mode()
+    {
+        // A29-P6-02: the balance is still that sale order's, in the same mode, line by line —
+        // otherwise the outstanding-quantity rule would let the shortfall be delivered twice.
+        var h = NewHarness();
+        var (uuid, _, _) = await NewDelivery(h, ("Cable", 100m, 30m));
+
+        var saleOrderUuid = Guid.NewGuid();
+        var soLineUuid    = Guid.NewGuid();
+        var original = await h.Db.DeliveryOrders.Include(d => d.Lines).SingleAsync(d => d.UUID == uuid);
+        original.SourceType    = "SALE_ORDER";
+        original.SaleOrderUuid = saleOrderUuid;
+        original.DeliveryMode  = "SELF_PICKUP";
+        original.Lines.Single().SoLineUuid = soLineUuid;
+        await h.Db.SaveChangesAsync();
+        h.Db.ChangeTracker.Clear();
+
+        await h.Release.ReleaseAsync(uuid, Split(), User);
+
+        var backorder = await Backorder(h, uuid);
+        backorder.SaleOrderUuid.Should().Be(saleOrderUuid);
+        backorder.DeliveryMode.Should().Be("SELF_PICKUP");
+        backorder.Lines.Single().SoLineUuid.Should().Be(soLineUuid);
+        backorder.Lines.Single().QtyOrdered.Should().Be(70m);
+    }
+
+    [Fact]
     public async Task The_two_documents_together_still_advise_the_original_quantity_and_no_more()
     {
         // The split must not inflate what the source document sees as advised: 30 + 70 = 100.

@@ -604,7 +604,7 @@ internal sealed class AuthRepository : IAuthRepository
             IsAllowed    = rolePerms.FirstOrDefault(rp => rp.PermissionID == p.PermissionID)?.IsAllowed ?? false
         }).ToList();
 
-        var moduleOrder = new[] { "System", "Locations", "Suppliers", "RFQ", "Contracts", "Purchase Orders", "Requisitions", "Budget", "Inventory", "Warehouse", "GRN Approvals", "Material Management", "Finance", "Logistics", "Reports", "Workflow" };
+        var moduleOrder = new[] { "System", "Locations", "Suppliers", "RFQ", "Contracts", "Purchase Orders", "Requisitions", "Budget", "Inventory", "Warehouse", "GRN Approvals", "Material Management", "Finance", "Logistics", "Reports", "Workflow", "Sale Orders", "Sale Order Administration" };
         var groups = items
             .GroupBy(i => GetPermissionModule(i.Code))
             .OrderBy(g => Array.IndexOf(moduleOrder, g.Key) is var idx && idx >= 0 ? idx : 99)
@@ -792,6 +792,9 @@ internal sealed class AuthRepository : IAuthRepository
         var c when c.StartsWith("MATERIAL_")    => "Material Management",
         var c when c.StartsWith("REPORT_")      => "Reports",
         var c when c.StartsWith("WORKFLOW_")    => "Workflow",
+        // Checked before the general SALE_ORDER_ line below so config codes keep their own group.
+        var c when c.StartsWith("SALE_ORDER_CONFIG_") => "Sale Order Administration",
+        var c when c.StartsWith("SALE_ORDER_")  => "Sale Orders",
         _                                       => "Other"
     };
 }

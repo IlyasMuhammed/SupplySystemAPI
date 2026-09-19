@@ -46,7 +46,12 @@ internal static class DeliverySourceTypeInfo
             // A standalone delivery with no source document. Nothing else posts it, and the
             // direction cannot be inferred — an ad-hoc delivery may go either way, so the
             // caller must state it.
-            [DeliverySourceType.Manual] = new(PostsGoodsIssue: true, DefaultDirection: null)
+            [DeliverySourceType.Manual] = new(PostsGoodsIssue: true, DefaultDirection: null),
+
+            // Goods to a customer against a confirmed sale order. Confirming the order only
+            // reserves stock — nothing has left the books — so the delivery's goods issue is the
+            // movement (SALES_SHIP, or SALES_HANDOVER for self-pickup).
+            [DeliverySourceType.SaleOrder] = new(PostsGoodsIssue: true, DeliveryDirection.Outbound)
         };
 
     /// <summary>The rules for a source type. Throws if a source type has no entry.</summary>

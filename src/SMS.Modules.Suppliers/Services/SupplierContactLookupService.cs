@@ -12,7 +12,7 @@ internal sealed class SupplierContactLookupService : ISupplierContactLookupServi
 
     public async Task<SupplierContactInfo?> GetContactInfoAsync(Guid supplierId)
     {
-        var supplier = await _db.Suppliers
+        var supplier = await _db.BusinessPartners
             .FirstOrDefaultAsync(s => s.UUID == supplierId && !s.IsDelete);
 
         if (supplier is null) return null;

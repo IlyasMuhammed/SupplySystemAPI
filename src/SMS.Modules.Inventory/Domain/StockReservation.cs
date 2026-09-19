@@ -60,6 +60,20 @@ internal class StockReservation : ITenantScopedEntity
     public int?      ReleasedBy { get; set; }
     public string?   ReleaseReason { get; set; }
 
+    /// <summary>
+    /// A29-P4-01 §4.4 — set only for holds with a TTL (a sales order's <c>now + reservation_ttl_hours</c>).
+    /// Null for MIR/Delivery holds, which never expire on their own. A29-P4-05's sweep job is what
+    /// actually releases a row once this passes.
+    /// </summary>
+    public DateTime? ExpiresAt { get; set; }
+
+    /// <summary>
+    /// A29-P4-05 §5.1 — set once the sweep has sent its one-time "expiring in 24h" warning for this
+    /// row, mirroring RC-007's ExpiryNotifiedAt on VariantSupplier: a later run must never re-warn
+    /// about the same reservation.
+    /// </summary>
+    public DateTime? ExpiryWarningSentAt { get; set; }
+
     internal const string StatusActive   = "ACTIVE";
     internal const string StatusReleased = "RELEASED";
     internal const string StatusConsumed = "CONSUMED";

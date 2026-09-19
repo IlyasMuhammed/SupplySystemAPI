@@ -16,6 +16,7 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="AutoMapper" Version="13.0.1" />
+    <PackageReference Include="FluentValidation" Version="11.11.0" />
     <PackageReference Include="QuestPDF" Version="2026.7.1" />
     <PackageReference Include="AngleSharp" Version="1.1.2" />
   </ItemGroup>

@@ -26,6 +26,9 @@ public interface IDeliveryService
     /// <summary>Takes the stock off the books — or records that another document already did.</summary>
     Task<GoodsIssueResultModel?> IssueAsync(Guid uuid, int userId);
 
+    /// <summary>A customer collects a self-pickup delivery: who took it, issued if need be, then DELIVERED.</summary>
+    Task<PickupResultModel?> RecordPickupAsync(Guid uuid, RecordPickupRequest req, int userId);
+
     Task<bool> HoldAsync(Guid uuid, DeliveryReasonRequest req, int userId);
     Task<bool> ResumeAsync(Guid uuid, int userId);
     Task<bool> CancelAsync(Guid uuid, DeliveryReasonRequest req, int userId);
@@ -58,6 +61,9 @@ internal sealed class DeliveryService : IDeliveryService
 
     public Task<GoodsIssueResultModel?> IssueAsync(Guid uuid, int userId) =>
         _goodsIssue.IssueAsync(uuid, userId);
+
+    public Task<PickupResultModel?> RecordPickupAsync(Guid uuid, RecordPickupRequest req, int userId) =>
+        _goodsIssue.RecordPickupAsync(uuid, req, userId);
 
     public Task<bool> ReleaseAsync(Guid uuid, ReleaseDeliveryRequest? req, int userId) =>
         _release.ReleaseAsync(uuid, req, userId);

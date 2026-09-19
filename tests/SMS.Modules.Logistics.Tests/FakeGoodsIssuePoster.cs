@@ -29,7 +29,8 @@ internal sealed class FakeGoodsIssuePoster : IGoodsIssuePoster
         Guid?   ToWarehouseUuid,
         string? DestinationName,
         decimal QuantityOut,
-        decimal QuantityIn);
+        decimal QuantityIn,
+        string? TransactionType = null);
 
     private readonly List<Posted> _postings = [];
 
@@ -66,7 +67,9 @@ internal sealed class FakeGoodsIssuePoster : IGoodsIssuePoster
 
         _postings.Add(new Posted(
             sourceType, sourceUuid, posting.ReferenceType, posting.ReferenceNumber,
-            posting.ToWarehouseUuid, posting.DestinationName, outQty, inQty));
+            posting.ToWarehouseUuid, posting.DestinationName, outQty, inQty,
+            isTransfer ? GoodsIssueTransactionType.TransferOut
+                       : posting.TransactionType ?? GoodsIssueTransactionType.DeliveryIssue));
 
         return new GoodsIssueResult(movements, outQty, inQty);
     }

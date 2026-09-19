@@ -6,6 +6,7 @@ using SMS.Shared.Authorization;
 using SMS.Shared.Common;
 using SMS.Shared.Constants;
 using SMS.Shared.Pagination;
+using SMS.WorkflowEngine.Models;
 
 namespace SMS.Modules.Demand.Controllers;
 
@@ -77,6 +78,17 @@ public class PurchaseOrdersController : ControllerBase
             : Ok(ApiResponse<PoDetailModel>.Ok(detail));
     }
 
+    // A29-P5-08 §13.5. Same visibility as the PO itself; a PO raised from a sale order shares its
+    // trace_id, so this includes that order's events.
+    [HttpGet("{uuid:guid}/timeline")]
+    public async Task<IActionResult> GetTimeline(Guid uuid)
+    {
+        var timeline = await _service.GetTimelineAsync(uuid);
+        return timeline is null
+            ? NotFound(ApiResponse.Fail(StaticResponseMessage.recordNotFound))
+            : Ok(ApiResponse<TimelineDetail>.Ok(timeline));
+    }
+
     [HttpGet("{uuid:guid}/pdf")]
     public async Task<IActionResult> DownloadPdf(Guid uuid)
     {
@@ -87,9 +99,33 @@ public class PurchaseOrdersController : ControllerBase
     [HttpPatch("{uuid:guid}")]
     public async Task<IActionResult> UpdatePurchaseOrder(Guid uuid, [FromBody] PatchPoRequest req)
     {
-        await _service.UpdateAsync(uuid, req, User.GetUserId());
-        await _audit.LogAsync(User.GetUserId(), null, "Demand", "UPDATE", "PurchaseOrder", uuid, Ip);
+        var actorId = User.GetUserId();
+        var changes = await _service.UpdateAsync(uuid, req, actorId);
+        await _audit.LogAsync(actorId, null, "Demand", "UPDATE", "PurchaseOrder", uuid, Ip);
+        await LogFieldChangesAsync(actorId, "UPDATE", uuid, changes);
         return Ok(ApiResponse.Ok(StaticResponseMessage.recordUpdatedSuccessfully));
+    }
+
+    // A29-P5-11 §6.2 — "audit log of changes": one row per field the team changed on a PO the system
+    // raised for a sale order, carrying the old and new value. (Empty for any other PO.)
+    private async Task LogFieldChangesAsync(int actorId, string action, Guid uuid, IReadOnlyList<PoFieldChange> changes)
+    {
+        foreach (var change in changes)
+            await _audit.LogAsync(
+                actorId, null, "Demand", action, "PurchaseOrder", uuid, Ip,
+                fieldChanged: change.Field, oldValue: change.OldValue, newValue: change.NewValue);
+    }
+
+    // A29-P5-11 §6.2 — moves part of a line to a new PO for another supplier. DRAFT sale-order POs only.
+    [HttpPost("{uuid:guid}/split")]
+    public async Task<IActionResult> SplitPurchaseOrder(Guid uuid, [FromBody] SplitPoRequest req)
+    {
+        var actorId = User.GetUserId();
+        var result  = await _service.SplitAsync(uuid, req, actorId);
+        await _audit.LogAsync(actorId, null, "Demand", "SPLIT", "PurchaseOrder", uuid, Ip, notes: $"Split to {result.NewPoNumber}");
+        await LogFieldChangesAsync(actorId, "SPLIT", uuid, result.Changes);
+        await _audit.LogAsync(actorId, null, "Demand", "CREATE", "PurchaseOrder", result.NewPoUuid, Ip, notes: $"Split from {result.SourcePoNumber}");
+        return Ok(ApiResponse<SplitPoResult>.Ok(result, "Purchase order split."));
     }
 
     [HttpPost("{uuid:guid}/submit")]

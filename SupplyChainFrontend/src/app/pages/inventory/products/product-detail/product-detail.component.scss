@@ -563,3 +563,77 @@
     color: #475569;
   }
 }
+
+// ── Pricing tab (A29-P2-06) ─────────────────────────────────────────────────
+.pricing-variant-picker {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  margin-bottom: 1.25rem;
+
+  label { font-weight: 600; color: #475569; }
+}
+
+.tab-section-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0;
+  display: flex;
+  align-items: center;
+}
+
+.pricing-preview-card {
+  background: #f8fafc;
+  border: 1px solid #f1f5f9;
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+}
+
+.preview-form-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.preview-result {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+
+  .preview-result-price {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #16a34a;
+
+    .preview-result-currency {
+      font-size: .9rem;
+      font-weight: 600;
+      color: #64748b;
+      margin-left: .4rem;
+    }
+  }
+}
+
+.pricing-rule-form,
+.preview-form-row {
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: .4rem;
+    margin-bottom: 1rem;
+
+    label { font-size: .85rem; font-weight: 600; color: #475569; }
+    .p-error { font-size: .78rem; color: #e74c3c; }
+  }
+
+  .field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+}

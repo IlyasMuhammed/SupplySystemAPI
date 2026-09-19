@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SMS.Modules.Demand.Data;
 using SMS.Modules.Logistics.Data;
 using SMS.Shared.Common;
 
@@ -39,4 +40,9 @@ internal static class LogisticsTestDb
 
     internal static LogisticsDbContext OpenAs(string dbName, Guid organizationId, bool isSuperAdmin = false) =>
         Open(dbName, new StaticTenantContext { OrganizationId = organizationId, IsSuperAdmin = isSuperAdmin });
+
+    // The Demand module's context over the same database — for the repositories that read a sale
+    // order (from-source create) or write one back (goods issue crediting fulfilled_qty).
+    internal static DemandDbContext Demand(string dbName, ITenantContext tenant) =>
+        new(new DbContextOptionsBuilder<DemandDbContext>().UseInMemoryDatabase(dbName).Options, tenant);
 }

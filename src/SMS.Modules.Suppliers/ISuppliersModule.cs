@@ -5,6 +5,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using SMS.Modules.Suppliers.Data;
+using SMS.Modules.Suppliers.Models;
 using SMS.Modules.Suppliers.Repositories;
 using SMS.Modules.Suppliers.Services;
 using SMS.Modules.Warehouse.Events;
@@ -41,6 +42,11 @@ public static class SuppliersModuleExtensions
         services.AddScoped<IScorecardRecalculationService, ScorecardRecalculationService>();
         services.AddScoped<IScorecardDashboardService, ScorecardDashboardService>();
         services.AddScoped<ScorecardRecalculationJob>();
+        // P1-03 — matches SMS.WorkflowEngine's AddTransient<TValidator> pattern.
+        services.AddTransient<BusinessPartnerModelValidator>();
+        // P1-04
+        services.AddScoped<IBusinessPartnerRepository, BusinessPartnerRepository>();
+        services.AddScoped<IBusinessPartnerService, BusinessPartnerService>();
 
         // Replaces Warehouse's NullGrnEventPublisher registration — must run AFTER AddWarehouseModule()
         // in Program.cs for this override to win (last registration for a given service type wins).

@@ -175,7 +175,7 @@ public class PurchaseOrderService_TimelineWiring_Tests
         workflow.Setup(w => w.ApproveByDocumentAsync("PO", poUuid, 5, null)).ReturnsAsync(Guid.NewGuid());
 
         var (jobsMock, captured) = WiringBuild.MockJobs();
-        var svc = new PurchaseOrderService(poRepo, workflow.Object, inbox.Object, jobsMock.Object);
+        var svc = new PurchaseOrderService(poRepo, workflow.Object, inbox.Object, jobsMock.Object, Mock.Of<ITimelineService>());
 
         await svc.ApproveAsync(poUuid, 5);
 
@@ -199,7 +199,7 @@ public class PurchaseOrderService_TimelineWiring_Tests
         var inbox    = new Mock<IWorkflowInboxService>();
         var workflow = new Mock<IWorkflowActionService>();
         var (jobsMock, captured) = WiringBuild.MockJobs();
-        var svc = new PurchaseOrderService(poRepo, workflow.Object, inbox.Object, jobsMock.Object);
+        var svc = new PurchaseOrderService(poRepo, workflow.Object, inbox.Object, jobsMock.Object, Mock.Of<ITimelineService>());
 
         var poUuid = await svc.CreateFromPrAsync(prUuid, new ConvertPrToPoRequest
         {

@@ -23,6 +23,9 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\SMS.Modules.Logistics\SMS.Modules.Logistics.csproj" />
     <ProjectReference Include="..\..\src\SMS.Modules.Demand\SMS.Modules.Demand.csproj" />
+    <!-- A29-P6-07: the fulfilment integration tests run the real reservation ledger and goods-issue
+         poster, not the fakes the unit tests use. -->
+    <ProjectReference Include="..\..\src\SMS.Modules.Inventory\SMS.Modules.Inventory.csproj" />
     <ProjectReference Include="..\..\src\SMS.Shared\SMS.Shared.csproj" />
   </ItemGroup>
 

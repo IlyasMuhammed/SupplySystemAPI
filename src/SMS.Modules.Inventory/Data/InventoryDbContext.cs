@@ -17,6 +17,7 @@ internal sealed class InventoryDbContext : DbContext, ITenantScopedDbContext
     internal DbSet<Product> Products => Set<Product>();
     internal DbSet<ProductVariant> ProductVariants => Set<ProductVariant>();
     internal DbSet<VariantSupplier> VariantSuppliers => Set<VariantSupplier>();
+    internal DbSet<PricingRule> PricingRules => Set<PricingRule>();
     internal DbSet<SupplierRateHistory> SupplierRateHistories => Set<SupplierRateHistory>();
     internal DbSet<BulkRateOperation> BulkRateOperations => Set<BulkRateOperation>();
     internal DbSet<AttributeDefinition> AttributeDefinitions => Set<AttributeDefinition>();

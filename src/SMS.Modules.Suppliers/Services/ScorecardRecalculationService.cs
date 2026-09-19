@@ -24,8 +24,13 @@ internal sealed class ScorecardRecalculationService : IScorecardRecalculationSer
 
         if (supplierIdsWithScores.Count == 0) return 0;
 
-        var activeSupplierIds = await _db.Suppliers
-            .Where(s => !s.IsDelete && s.IsActive && supplierIdsWithScores.Contains(s.UUID))
+        // P1-06 (Addendum 29 §1.7) — supplierIdsWithScores already only contains ids with real
+        // GrnScoreDetails rows, which only a vendor's PO/GRN flow ever creates, so IsVendor is
+        // defensive rather than reachable today. Added anyway: the FSD names this service
+        // explicitly, and the alternative (this being true only by accident of no other row shape
+        // reaching here) is exactly what P1-05's /api/suppliers fix exists to stop relying on.
+        var activeSupplierIds = await _db.BusinessPartners
+            .Where(s => !s.IsDelete && s.IsActive && s.IsVendor && supplierIdsWithScores.Contains(s.UUID))
             .Select(s => s.UUID)
             .ToListAsync();
 
@@ -50,7 +55,7 @@ internal sealed class ScorecardRecalculationService : IScorecardRecalculationSer
         // Explicit, not auto-stamped: this runs from RecalculateAllAsync via a Hangfire recurring
         // job (ScorecardRecalculationJob) with no HttpContext, so the ambient ITenantContext can't
         // know which org this supplier belongs to — it must be looked up and copied explicitly.
-        var supplierOrgId = await _db.Suppliers
+        var supplierOrgId = await _db.BusinessPartners
             .Where(s => s.UUID == supplierId)
             .Select(s => s.OrganizationId)
             .FirstAsync();

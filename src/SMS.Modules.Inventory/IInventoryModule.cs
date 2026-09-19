@@ -62,6 +62,11 @@ public static class InventoryModuleExtensions
         services.AddScoped<IBatchSerialService, BatchSerialService>();
         services.AddScoped<IProductSearchIndexService, ProductSearchIndexService>();
         services.AddScoped<IVariantSupplierService, VariantSupplierService>();
+        // A29-P2-03 — the five-tier sale-price waterfall (§2.3), shared so Demand can price a
+        // sale order line without a project reference to Inventory.
+        services.AddScoped<IPricingService, PricingService>();
+        // A29-P2-04 — CRUD over the PricingRule rows the waterfall above reads.
+        services.AddScoped<IPricingRuleService, PricingRuleService>();
         services.AddScoped<IVariantSupplierResolver, VariantSupplierResolver>();
         services.AddScoped<InventoryDataSeeder>();
         services.AddScoped<StaleRateAlertJob>();

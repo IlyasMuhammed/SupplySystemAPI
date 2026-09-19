@@ -7,6 +7,30 @@ public sealed record DefaultVariantResult(
     string VariantName);
 
 /// <summary>
+/// What a document line needs to say about a variant it references only by id.
+/// </summary>
+/// <param name="IsDefault">
+/// True for the variant that stands in for its product, whose name is then just the product's.
+/// </param>
+public sealed record VariantDescription(
+    Guid    VariantUuid,
+    Guid    ProductUuid,
+    string  Sku,
+    string  VariantName,
+    string  ProductName,
+    bool    IsDefault,
+    string? UomCode)
+{
+    /// <summary>
+    /// "Product (SKU)" for a default variant, "Product - Variant (SKU)" otherwise — the same
+    /// wording Demand writes onto an auto-generated purchase order line.
+    /// </summary>
+    public string DisplayName => IsDefault
+        ? $"{ProductName} ({Sku})"
+        : $"{ProductName} - {VariantName} ({Sku})";
+}
+
+/// <summary>
 /// Resolves a product to the variant that stands in for it.
 /// <para>
 /// Needed because the system is inconsistent about which of the two a document line carries:
@@ -33,4 +57,12 @@ public interface IProductVariantResolver
     /// </summary>
     Task<IReadOnlyDictionary<Guid, DefaultVariantResult>> ResolveDefaultVariantsAsync(
         IReadOnlyList<Guid> productUuids);
+
+    /// <summary>
+    /// Describes variants a document line references only by id — a sale order line carries
+    /// nothing but a <c>VariantUuid</c>, while a delivery line has to be readable on a pick list.
+    /// Unknown or inactive variants are absent from the result.
+    /// </summary>
+    Task<IReadOnlyDictionary<Guid, VariantDescription>> DescribeVariantsAsync(
+        IReadOnlyList<Guid> variantUuids);
 }

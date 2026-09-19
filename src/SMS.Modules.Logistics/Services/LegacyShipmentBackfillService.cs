@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SMS.Modules.Logistics.Data;
 using SMS.Modules.Logistics.Domain;
+using SMS.Shared.Common;
 
 namespace SMS.Modules.Logistics.Services;
 

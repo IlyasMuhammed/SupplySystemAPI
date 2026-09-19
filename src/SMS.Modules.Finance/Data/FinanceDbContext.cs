@@ -24,6 +24,12 @@ internal sealed class FinanceDbContext : DbContext, ITenantScopedDbContext
     internal DbSet<SupplierPayment>     SupplierPayments      => Set<SupplierPayment>();
     internal DbSet<SupplierPaymentLine> SupplierPaymentLines  => Set<SupplierPaymentLine>();
     internal DbSet<SupplierAdvancePayment> SupplierAdvancePayments => Set<SupplierAdvancePayment>();
+    // A29-P7-01/P7-02 — the receivable side.
+    internal DbSet<SalesInvoice>      SalesInvoices      => Set<SalesInvoice>();
+    internal DbSet<SalesInvoiceLine>  SalesInvoiceLines  => Set<SalesInvoiceLine>();
+    internal DbSet<CustomerPayment>   CustomerPayments   => Set<CustomerPayment>();
+    internal DbSet<PaymentAllocation> PaymentAllocations => Set<PaymentAllocation>();
+    internal DbSet<CustomerLedgerEntry> CustomerLedgerEntries => Set<CustomerLedgerEntry>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

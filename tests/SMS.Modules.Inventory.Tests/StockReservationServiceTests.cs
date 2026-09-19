@@ -387,4 +387,153 @@ public class StockReservationServiceTests
         result.Succeeded.Should().BeTrue();
         (await h.Db.StockReservations.CountAsync()).Should().Be(0);
     }
+
+    // ── Handing a hold to another document (A29-P6-03) ────────────────────────
+    //
+    // A sale order holds its stock from confirmation; the delivery that ships it must pick and
+    // issue that same stock. Re-parenting the hold keeps the rows and the counter exactly as they
+    // were — no window for anyone else to take the units, no batch re-chosen.
+
+    private static async Task<List<StockReservation>> ActiveRows(Harness h, string sourceType, Guid sourceUuid) =>
+        await h.Db.StockReservations.AsNoTracking()
+            .Where(r => r.SourceType == sourceType && r.SourceUuid == sourceUuid && r.Status == "ACTIVE")
+            .OrderBy(r => r.Id)
+            .ToListAsync();
+
+    [Fact]
+    public async Task Transferring_a_whole_hold_changes_its_owner_and_leaves_the_counter_alone()
+    {
+        var h = NewHarness();
+        var (variant, warehouse, itemId) = await SeedStock(h, onHand: 500m);
+        var order = Guid.NewGuid(); var orderLine = Guid.NewGuid();
+        var delivery = Guid.NewGuid(); var deliveryLine = Guid.NewGuid();
+
+        await h.Service.ReserveAsync(ReservationSourceType.SalesOrder, order,
+            [new ReservationRequest(variant, warehouse, 120m, orderLine)], User,
+            expiresAt: DateTime.UtcNow.AddHours(48));
+
+        var moved = await h.Service.TransferLineAsync(
+            ReservationSourceType.SalesOrder, order, orderLine,
+            ReservationSourceType.Delivery, delivery, deliveryLine, 120m, User);
+
+        moved.Should().Be(120m);
+        (await ActiveRows(h, ReservationSourceType.SalesOrder, order)).Should().BeEmpty();
+
+        var row = (await ActiveRows(h, ReservationSourceType.Delivery, delivery)).Should().ContainSingle().Subject;
+        row.ReservedQty.Should().Be(120m);
+        row.SourceLineUuid.Should().Be(deliveryLine);
+        row.InventoryItemId.Should().Be(itemId, "the same stock row");
+        row.ExpiresAt.Should().BeNull("a hold that reached a delivery no longer expires");
+
+        (await ReservedOn(h, itemId)).Should().Be(120m, "the units were reserved before and after");
+        await AssertCounterMatchesHolds(h, itemId);
+        (await h.Db.StockReservations.CountAsync()).Should().Be(1, "moved, not copied");
+    }
+
+    [Fact]
+    public async Task Transferring_part_of_a_hold_splits_it()
+    {
+        var h = NewHarness();
+        var (variant, warehouse, itemId) = await SeedStock(h, onHand: 500m);
+        var order = Guid.NewGuid(); var orderLine = Guid.NewGuid();
+        var delivery = Guid.NewGuid(); var deliveryLine = Guid.NewGuid();
+
+        await h.Service.ReserveAsync(ReservationSourceType.SalesOrder, order,
+            [new ReservationRequest(variant, warehouse, 100m, orderLine)], User);
+
+        var moved = await h.Service.TransferLineAsync(
+            ReservationSourceType.SalesOrder, order, orderLine,
+            ReservationSourceType.Delivery, delivery, deliveryLine, 40m, User);
+
+        moved.Should().Be(40m);
+
+        var kept = (await ActiveRows(h, ReservationSourceType.SalesOrder, order)).Should().ContainSingle().Subject;
+        kept.ReservedQty.Should().Be(60m);
+
+        var taken = (await ActiveRows(h, ReservationSourceType.Delivery, delivery)).Should().ContainSingle().Subject;
+        taken.ReservedQty.Should().Be(40m);
+        taken.InventoryItemId.Should().Be(kept.InventoryItemId);
+        taken.ReservedBy.Should().Be(User);
+
+        (await ReservedOn(h, itemId)).Should().Be(100m);
+        await AssertCounterMatchesHolds(h, itemId);
+    }
+
+    [Fact]
+    public async Task Transferring_more_than_is_held_moves_only_what_is_there()
+    {
+        var h = NewHarness();
+        var (variant, warehouse, itemId) = await SeedStock(h, onHand: 500m);
+        var order = Guid.NewGuid(); var orderLine = Guid.NewGuid();
+
+        await h.Service.ReserveAsync(ReservationSourceType.SalesOrder, order,
+            [new ReservationRequest(variant, warehouse, 50m, orderLine)], User);
+
+        var moved = await h.Service.TransferLineAsync(
+            ReservationSourceType.SalesOrder, order, orderLine,
+            ReservationSourceType.Delivery, Guid.NewGuid(), Guid.NewGuid(), 80m, User);
+
+        moved.Should().Be(50m);
+        (await ReservedOn(h, itemId)).Should().Be(50m);
+        await AssertCounterMatchesHolds(h, itemId);
+    }
+
+    [Fact]
+    public async Task Nothing_active_moves_nothing()
+    {
+        var h = NewHarness();
+        var (variant, warehouse, itemId) = await SeedStock(h, onHand: 500m);
+        var order = Guid.NewGuid(); var orderLine = Guid.NewGuid();
+
+        await h.Service.ReserveAsync(ReservationSourceType.SalesOrder, order,
+            [new ReservationRequest(variant, warehouse, 50m, orderLine)], User);
+        await h.Service.ReleaseBySourceAsync(ReservationSourceType.SalesOrder, order, "expired", User);
+
+        (await h.Service.TransferLineAsync(
+            ReservationSourceType.SalesOrder, order, orderLine,
+            ReservationSourceType.Delivery, Guid.NewGuid(), Guid.NewGuid(), 50m, User)).Should().Be(0m);
+        (await h.Service.TransferLineAsync(
+            ReservationSourceType.SalesOrder, order, Guid.NewGuid(),
+            ReservationSourceType.Delivery, Guid.NewGuid(), Guid.NewGuid(), 50m, User)).Should().Be(0m);
+        (await h.Service.TransferLineAsync(
+            ReservationSourceType.SalesOrder, order, orderLine,
+            ReservationSourceType.Delivery, Guid.NewGuid(), Guid.NewGuid(), 0m, User)).Should().Be(0m);
+
+        (await ReservedOn(h, itemId)).Should().Be(0m);
+        await AssertCounterMatchesHolds(h, itemId);
+    }
+
+    [Fact]
+    public async Task A_partial_transfer_hands_over_the_soonest_expiring_batch_first()
+    {
+        // The delivery gets the batch the order would have shipped first, so FEFO survives the
+        // hand-over rather than being re-decided at the dock.
+        var h = NewHarness();
+        var (variant, warehouse, soonId) = await SeedStock(h, onHand: 30m);
+        var soon = await h.Db.InventoryItems.SingleAsync(i => i.Id == soonId);
+        soon.BatchNumber = "B-SOON"; soon.ExpiryDate = new DateTime(2026, 1, 1);
+        h.Db.InventoryItems.Add(new InventoryItem
+        {
+            Uuid = Guid.NewGuid(), VariantId = soon.VariantId, WarehouseId = soon.WarehouseId,
+            BatchNumber = "B-LATE", ExpiryDate = new DateTime(2028, 1, 1), QtyOnHand = 40m
+        });
+        await h.Db.SaveChangesAsync();
+        h.Db.ChangeTracker.Clear();
+
+        var order = Guid.NewGuid(); var orderLine = Guid.NewGuid();
+        await h.Service.ReserveAsync(ReservationSourceType.SalesOrder, order,
+            [new ReservationRequest(variant, warehouse, 50m, orderLine)], User);
+
+        var delivery = Guid.NewGuid();
+        await h.Service.TransferLineAsync(
+            ReservationSourceType.SalesOrder, order, orderLine,
+            ReservationSourceType.Delivery, delivery, Guid.NewGuid(), 30m, User);
+
+        var moved = (await ActiveRows(h, ReservationSourceType.Delivery, delivery)).Should().ContainSingle().Subject;
+        moved.InventoryItemId.Should().Be(soonId, "the soonest-expiring batch moves first");
+        moved.ReservedQty.Should().Be(30m);
+
+        var kept = await ActiveRows(h, ReservationSourceType.SalesOrder, order);
+        kept.Should().ContainSingle().Which.ReservedQty.Should().Be(20m, "the 20 from B-LATE stay with the order");
+    }
 }

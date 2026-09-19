@@ -46,7 +46,8 @@ public class DeliveryFromPoTests
 
         return new Harness(db, demand,
             new DeliveryFromSourceRepository(
-                db, demand, warehouse, material, numbers, addresses, new FakeVariantResolver()),
+                db, demand, warehouse, material, numbers, addresses, new FakeVariantResolver(),
+                new FakeStockReservationService()),
             new DeliveryRepository(db, numbers, addresses));
     }
 

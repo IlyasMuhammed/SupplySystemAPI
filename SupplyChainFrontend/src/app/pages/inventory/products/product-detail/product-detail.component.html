@@ -59,7 +59,7 @@
   </div>
 
   <!-- ── Tab View ─────────────────────────────────────────────────────────── -->
-  <p-tabView *ngIf="!isLoading && product">
+  <p-tabView *ngIf="!isLoading && product" (onChange)="onTabChange($event)">
 
     <!-- TAB 1: Product Info ─────────────────────────────────────────────── -->
     <p-tabPanel header="Product Info" leftIcon="pi pi-box">
@@ -375,8 +375,195 @@
       </div>
     </p-tabPanel>
 
+    <!-- TAB 4: Pricing (A29-P2-06 §2.2) ────────────────────────────────── -->
+    <p-tabPanel header="Pricing" leftIcon="pi pi-dollar">
+      <div class="tab-content" style="padding-top:1.25rem">
+
+        <div class="pricing-variant-picker" *ngIf="product.variants.length > 1">
+          <label>Variant</label>
+          <p-dropdown [options]="product.variants" optionLabel="variantName" optionValue="uuid"
+                      [(ngModel)]="pricingVariantUuid" (onChange)="onPricingVariantChange()"
+                      [style]="{'min-width':'16rem'}">
+            <ng-template let-v pTemplate="item">{{ v.variantName }} ({{ v.sku }})</ng-template>
+            <ng-template let-v pTemplate="selectedItem">{{ v.variantName }} ({{ v.sku }})</ng-template>
+          </p-dropdown>
+        </div>
+
+        <div class="variants-toolbar">
+          <span class="variants-count-label">{{ pricingRules.length }} pricing rule(s)</span>
+          <p-button label="Add Pricing Rule" icon="pi pi-plus" severity="success" size="small"
+                    [disabled]="!pricingVariantUuid"
+                    (onClick)="openAddPriceRuleDialog()">
+          </p-button>
+        </div>
+
+        <p-table [value]="pricingRules" [loading]="isLoadingPricing"
+                 styleClass="p-datatable-sm p-datatable-gridlines" [tableStyle]="{'min-width':'70rem'}">
+          <ng-template pTemplate="header">
+            <tr>
+              <th>Type</th>
+              <th>Partner</th>
+              <th class="text-right">Qty Range</th>
+              <th class="text-right">Unit Price</th>
+              <th>Currency</th>
+              <th>Effective From</th>
+              <th>Effective To</th>
+              <th style="width:100px">Status</th>
+              <th style="width:110px; text-align:center">Actions</th>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="body" let-rule>
+            <tr>
+              <td><p-tag [value]="rule.priceType" [severity]="priceTypeSeverity(rule.priceType)"></p-tag></td>
+              <td>{{ partnerName(rule.partnerUuid) }}</td>
+              <td class="text-right">
+                {{ rule.minQty ?? 0 }}&nbsp;–&nbsp;{{ rule.maxQty ?? '∞' }}
+              </td>
+              <td class="text-right">{{ rule.unitPrice | number:'1.2-2' }}</td>
+              <td>{{ currencyCode(rule.currencyId) }}</td>
+              <td>{{ rule.effectiveFrom | date:'dd MMM yyyy' }}</td>
+              <td>{{ rule.effectiveTo ? (rule.effectiveTo | date:'dd MMM yyyy') : 'Open' }}</td>
+              <td>
+                <p-tag [value]="rule.isActive ? 'Active' : 'Inactive'"
+                       [severity]="rule.isActive ? 'success' : 'secondary'">
+                </p-tag>
+              </td>
+              <td style="text-align:center">
+                <p-button icon="pi pi-pencil" size="small" [text]="true" severity="secondary"
+                          pTooltip="Edit" tooltipPosition="top"
+                          (onClick)="openEditPriceRuleDialog(rule)" styleClass="action-btn">
+                </p-button>
+                <p-button icon="pi pi-trash" size="small" [text]="true" severity="danger"
+                          pTooltip="Delete" tooltipPosition="top"
+                          (onClick)="confirmDeletePriceRule(rule)" styleClass="action-btn">
+                </p-button>
+              </td>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="emptymessage">
+            <tr>
+              <td colspan="9" class="text-center" style="padding:2rem">
+                <span class="text-secondary">No pricing rules for this variant yet — it sells at its own list price.</span>
+              </td>
+            </tr>
+          </ng-template>
+        </p-table>
+
+        <p-divider></p-divider>
+
+        <!-- Price Preview Calculator ─────────────────────────────────────── -->
+        <div class="pricing-preview-card">
+          <h3 class="tab-section-title"><i class="pi pi-calculator mr-2"></i>Price Preview Calculator</h3>
+          <p class="text-secondary" style="margin:.25rem 0 1rem">
+            Shows exactly what §2.3's resolution would pick right now — without creating or changing anything.
+          </p>
+          <form [formGroup]="previewForm" class="preview-form-row">
+            <div class="field">
+              <label>Partner (optional)</label>
+              <p-dropdown [options]="partners" optionLabel="companyName" optionValue="uuid"
+                          formControlName="partnerUuid" [showClear]="true" placeholder="All Partners"
+                          [filter]="true" filterBy="companyName" [style]="{'min-width':'14rem'}">
+              </p-dropdown>
+            </div>
+            <div class="field">
+              <label>Quantity</label>
+              <p-inputNumber formControlName="qty" [min]="0" [showButtons]="false"></p-inputNumber>
+            </div>
+            <div class="field">
+              <label>As Of Date</label>
+              <p-calendar formControlName="date" dateFormat="dd M yy" appendTo="body"></p-calendar>
+            </div>
+            <p-button label="Calculate" icon="pi pi-calculator" [loading]="isCalculatingPreview"
+                      (onClick)="calculatePreview()">
+            </p-button>
+          </form>
+
+          <div class="preview-result" *ngIf="previewResult">
+            <ng-container *ngIf="previewResult.found; else notFound">
+              <div class="preview-result-price">
+                {{ previewResult.unitPrice | number:'1.2-2' }}
+                <span class="preview-result-currency">{{ currencyCode(previewResult.currencyId) || 'base currency' }}</span>
+              </div>
+              <p-tag [value]="tierLabel(previewResult.tier)" severity="info"></p-tag>
+            </ng-container>
+            <ng-template #notFound>
+              <span class="text-secondary">No price could be resolved — the variant has no selling price and no rule matches.</span>
+            </ng-template>
+          </div>
+        </div>
+
+      </div>
+    </p-tabPanel>
+
   </p-tabView>
 </div>
+
+<!-- ── Pricing Rule Dialog (A29-P2-06) ─────────────────────────────────────── -->
+<p-dialog [(visible)]="showPriceRuleDialog" [modal]="true" [style]="{width:'32rem'}"
+          [header]="editingPriceRule ? 'Edit Pricing Rule' : 'Add Pricing Rule'" [draggable]="false">
+  <form [formGroup]="priceRuleForm" *ngIf="showPriceRuleDialog" class="p-fluid pricing-rule-form">
+    <div class="field">
+      <label>Partner</label>
+      <p-dropdown [options]="partners" optionLabel="companyName" optionValue="uuid"
+                  formControlName="partnerUuid" [showClear]="true" placeholder="All Partners (org-wide)"
+                  [filter]="true" filterBy="companyName" [disabled]="!!editingPriceRule">
+      </p-dropdown>
+      <small class="text-secondary" *ngIf="editingPriceRule">Partner cannot be changed after creation.</small>
+    </div>
+
+    <div class="field">
+      <label>Price Type *</label>
+      <p-dropdown [options]="priceTypeOptions" optionLabel="label" optionValue="value"
+                  formControlName="priceType"></p-dropdown>
+      <small class="p-error" *ngIf="prf['priceType'].invalid && prf['priceType'].touched">Price type is required.</small>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label>Min Qty</label>
+        <p-inputNumber formControlName="minQty" [min]="0" placeholder="No minimum"></p-inputNumber>
+      </div>
+      <div class="field">
+        <label>Max Qty</label>
+        <p-inputNumber formControlName="maxQty" [min]="0" placeholder="No maximum"></p-inputNumber>
+      </div>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label>Unit Price *</label>
+        <p-inputNumber formControlName="unitPrice" mode="decimal" [minFractionDigits]="2" [maxFractionDigits]="4" [min]="0"></p-inputNumber>
+        <small class="p-error" *ngIf="prf['unitPrice'].invalid && prf['unitPrice'].touched">Unit price is required.</small>
+      </div>
+      <div class="field">
+        <label>Currency</label>
+        <p-dropdown [options]="currencies" optionLabel="code" optionValue="id"
+                    formControlName="currencyId" placeholder="Org base currency"></p-dropdown>
+      </div>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label>Effective From *</label>
+        <p-calendar formControlName="effectiveFrom" dateFormat="dd M yy" appendTo="body"></p-calendar>
+      </div>
+      <div class="field">
+        <label>Effective To</label>
+        <p-calendar formControlName="effectiveTo" dateFormat="dd M yy" [showButtonBar]="true" appendTo="body"></p-calendar>
+      </div>
+    </div>
+
+    <div class="field" *ngIf="editingPriceRule" style="display:flex;align-items:center;gap:.5rem;">
+      <p-checkbox formControlName="isActive" [binary]="true" inputId="priceRuleActive"></p-checkbox>
+      <label for="priceRuleActive" style="cursor:pointer;margin:0;">Active</label>
+    </div>
+  </form>
+
+  <ng-template pTemplate="footer">
+    <p-button label="Cancel" severity="secondary" [text]="true" (onClick)="showPriceRuleDialog = false"></p-button>
+    <p-button label="Save" icon="pi pi-check" [loading]="isSavingPriceRule" (onClick)="savePriceRule()"></p-button>
+  </ng-template>
+</p-dialog>
 
 
 <!-- ══════════════════════════════════════════════════════════════════════════ -->

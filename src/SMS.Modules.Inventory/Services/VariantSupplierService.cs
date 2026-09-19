@@ -523,6 +523,12 @@ internal sealed class VariantSupplierService : IVariantSupplierService
         .ToList();
     }
 
+    public async Task<Guid?> GetDefaultSupplierIdAsync(Guid variantUuid) =>
+        await _db.ProductVariants.AsNoTracking()
+            .Where(v => v.Uuid == variantUuid)
+            .Select(v => v.DefaultSupplierId)
+            .FirstOrDefaultAsync();
+
     // ── RC-005: Bulk Rate Adjustment ─────────────────────────────────────────
 
     private const int UndoWindowHours = 24;

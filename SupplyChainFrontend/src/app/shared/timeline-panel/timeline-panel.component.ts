@@ -39,7 +39,8 @@ const INTERFACE_META: Record<string, { label: string; color: string; route: stri
   SUPPLIER_PAYMENT: { label: 'Supplier Payment',              color: '#10b981', route: '/portal/pages/finance/payments' },
   MIR_GENERAL:  { label: 'Material Issue Request',            color: '#8b5cf6', route: '/portal/pages/material/mir' },
   MIR_PROJECT:  { label: 'Material Issue Request (Project)',  color: '#8b5cf6', route: '/portal/pages/material/mir' },
-  DELIVERY:     { label: 'Delivery',                          color: '#0ea5e9', route: '/portal/pages/logistics/deliveries' }
+  DELIVERY:     { label: 'Delivery',                          color: '#0ea5e9', route: '/portal/pages/logistics/deliveries' },
+  SO:           { label: 'Sale Order',                        color: '#f97316', route: '/portal/pages/sales/orders' }
 };
 
 @Component({

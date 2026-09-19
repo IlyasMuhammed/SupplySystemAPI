@@ -1,0 +1,113 @@
+<div class="partner-list-page">
+  <p-toast></p-toast>
+  <p-confirmDialog></p-confirmDialog>
+
+  <div class="page-header">
+    <div class="header-content">
+      <div class="header-left">
+        <h1 class="page-title"><i class="pi pi-sitemap"></i> Business Partners</h1>
+        <p class="page-subtitle">Vendors, customers, carriers and service providers — one record per relationship</p>
+      </div>
+      <div class="header-right">
+        <p-button label="New Partner" icon="pi pi-plus" routerLink="/portal/pages/suppliers/partner-create"
+                  data-testid="new-partner"></p-button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Type filter tabs (Addendum 29 §1.6) — pure filter selectors, the table below is the only
+       content; switching tabs re-queries with the matching is_vendor/is_customer/etc. flag. -->
+  <div class="main-card mb-4">
+    <p-tabView [(activeIndex)]="activeTabIndex" (onChange)="onTabChange($event.index)" data-testid="type-tabs">
+      <p-tabPanel *ngFor="let tab of tabOptions" [header]="tab.label" [leftIcon]="tab.icon"></p-tabPanel>
+    </p-tabView>
+
+    <div class="filter-bar">
+      <p-iconfield class="flex-1">
+        <p-inputicon styleClass="pi pi-search" />
+        <input pInputText type="text" [(ngModel)]="searchText" (ngModelChange)="onSearchChange()"
+               placeholder="Search by name or code..." class="w-full" data-testid="search" />
+      </p-iconfield>
+
+      <p-button icon="pi pi-refresh" severity="secondary" [text]="true"
+                pTooltip="Reset filters" (onClick)="resetFilters()"></p-button>
+    </div>
+  </div>
+
+  <div class="main-card">
+    <p-table
+      [value]="partners"
+      [loading]="isLoading"
+      [tableStyle]="{'min-width': '60rem'}"
+      [rows]="pageSize"
+      [paginator]="true"
+      [lazy]="true"
+      [totalRecords]="totalRecords"
+      [rowsPerPageOptions]="[10, 20, 50]"
+      [showCurrentPageReport]="true"
+      currentPageReportTemplate="Showing {first} to {last} of {totalRecords} partners"
+      (onPage)="onPageChange($event)"
+      data-testid="partner-table">
+
+      <ng-template pTemplate="header">
+        <tr>
+          <th>Company Name</th>
+          <th>Code</th>
+          <th>Type</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="body" let-partner>
+        <tr>
+          <td class="font-semibold">{{ partner.companyName }}</td>
+          <td><span class="text-secondary">{{ partner.partnerCode || '—' }}</span></td>
+          <td>
+            <p-tag *ngFor="let t of partnerTypeTags(partner)" [value]="t.label" [severity]="t.severity"
+                   class="type-tag"></p-tag>
+          </td>
+          <td>
+            <p-tag [value]="partner.isActive ? 'Active' : 'Inactive'"
+                   [severity]="partner.isActive ? 'success' : 'secondary'"></p-tag>
+          </td>
+          <td>
+            <p-button
+              icon="pi pi-eye"
+              size="small"
+              [text]="true"
+              pTooltip="View Details"
+              [routerLink]="['/portal/pages/suppliers/partner-detail', partner.uuid]">
+            </p-button>
+            <p-button
+              icon="pi pi-pencil"
+              size="small"
+              [text]="true"
+              pTooltip="Edit"
+              [routerLink]="['/portal/pages/suppliers/partner-edit', partner.uuid]">
+            </p-button>
+            <p-button
+              icon="pi pi-trash"
+              size="small"
+              severity="danger"
+              [text]="true"
+              pTooltip="Delete"
+              (onClick)="confirmDelete(partner)">
+            </p-button>
+          </td>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="5" class="text-center p-8">
+            <i class="pi pi-sitemap text-4xl text-gray-400 block mb-2"></i>
+            <p class="text-gray-500">No business partners found for this filter.
+              <a routerLink="/portal/pages/suppliers/partner-create" class="text-primary">Add one.</a>
+            </p>
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </div>
+</div>

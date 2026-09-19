@@ -12,12 +12,17 @@ import { PoListComponent } from './demand/purchase-orders/po-list/po-list.compon
 import { PoCreateComponent } from './demand/purchase-orders/po-create/po-create.component';
 import { PoDetailComponent } from './demand/purchase-orders/po-detail/po-detail.component';
 import { PoEditComponent } from './demand/purchase-orders/po-edit/po-edit.component';
+import { SaleOrderListComponent } from './sales/sale-orders/sale-order-list/sale-order-list.component';
+import { SaleOrderDetailComponent } from './sales/sale-orders/sale-order-detail/sale-order-detail.component';
 import { CustomerComponent } from './customer/customer';
 import { SupplierListComponent } from './suppliers/supplier-list/supplier-list.component';
 import { SupplierCreateComponent } from './suppliers/supplier-create/supplier-create.component';
 import { SupplierDetailComponent } from './suppliers/supplier-detail/supplier-detail.component';
 import { SupplierScorecardDashboardComponent } from './suppliers/supplier-scorecard/supplier-scorecard-dashboard.component';
 import { RateCardsComponent } from './suppliers/rate-cards/rate-cards.component';
+import { PartnerListComponent } from './suppliers/partner-list/partner-list.component';
+import { PartnerCreateComponent } from './suppliers/partner-create/partner-create.component';
+import { PartnerDetailComponent } from './suppliers/partner-detail/partner-detail.component';
 import { CitiesListComponent } from './cities/cities-list/cities-list.component';
 import { CitiesCreateComponent } from './cities/cities-create/cities-create.component';
 import { CountriesListComponent } from './countries/countries-list/countries-list.component';
@@ -187,6 +192,13 @@ const P = {
   DELIVERY_VIEW:        'DELIVERY_VIEW',
   DELIVERY_CREATE:      'DELIVERY_CREATE',
   DELIVERY_EDIT:        'DELIVERY_EDIT',
+  // Addendum 29 — sale orders (Demand). Fulfilment of an order is delivery work and keeps the
+  // DELIVERY_* codes; these gate the order screens themselves.
+  SALE_ORDER_VIEW:      'SALE_ORDER_VIEW',
+  SALE_ORDER_CREATE:    'SALE_ORDER_CREATE',
+  SALE_ORDER_EDIT:      'SALE_ORDER_EDIT',
+  SALE_ORDER_CONFIRM:   'SALE_ORDER_CONFIRM',
+  SALE_ORDER_CANCEL:    'SALE_ORDER_CANCEL',
   SHIPMENT_BOOK:        'SHIPMENT_BOOK',
   REPORT_VIEW:          'REPORT_VIEW',
   REPORT_EXPORT:        'REPORT_EXPORT',
@@ -215,6 +227,19 @@ export default [
     { path: 'suppliers/supplier-detail/:uuid', component: SupplierDetailComponent,
       canActivate: [permissionGuard(P.SUPPLIER_VIEW, P.SUPPLIER_EDIT, P.SUPPLIER_MANAGE)] },
     { path: 'suppliers/supplier-scorecard', component: SupplierScorecardDashboardComponent,
+      canActivate: [permissionGuard(P.SUPPLIER_VIEW, P.SUPPLIER_EDIT, P.SUPPLIER_MANAGE)] },
+
+    // ── Business Partners (Addendum 29 P1-08) — the new partner-type-aware surface, alongside
+    // the legacy Supplier CRUD above. Reuses the same SUPPLIER_* permission codes: the backend
+    // has no separate PARTNER_* codes yet (PartnersController's [RequirePermission] attributes
+    // are commented out, same as SuppliersController's — see P1-05's task notes).
+    { path: 'suppliers/partner-list', component: PartnerListComponent,
+      canActivate: [permissionGuard(P.SUPPLIER_VIEW, P.SUPPLIER_CREATE, P.SUPPLIER_EDIT, P.SUPPLIER_MANAGE)] },
+    { path: 'suppliers/partner-create', component: PartnerCreateComponent,
+      canActivate: [permissionGuard(P.SUPPLIER_CREATE, P.SUPPLIER_MANAGE)] },
+    { path: 'suppliers/partner-edit/:uuid', component: PartnerCreateComponent,
+      canActivate: [permissionGuard(P.SUPPLIER_EDIT, P.SUPPLIER_MANAGE)] },
+    { path: 'suppliers/partner-detail/:uuid', component: PartnerDetailComponent,
       canActivate: [permissionGuard(P.SUPPLIER_VIEW, P.SUPPLIER_EDIT, P.SUPPLIER_MANAGE)] },
 
     // ── Master Data (System Admin only) ───────────────────────────────────────
@@ -310,6 +335,14 @@ export default [
       canActivate: [permissionGuard(P.PO_EDIT)] },
     { path: 'demand/purchase-orders/:uuid', component: PoDetailComponent,
       canActivate: [permissionGuard(P.PO_VIEW, P.PO_CREATE, P.PO_EDIT, P.PO_APPROVE)] },
+
+    // ── Sales — Sale Orders (Addendum 29 P6-08) ───────────────────────────────
+    // Read-only order screens plus the fulfilment actions (create delivery, list deliveries),
+    // which the server gates on DELIVERY_* — a viewer without those sees the order but not the button.
+    { path: 'sales/orders', component: SaleOrderListComponent,
+      canActivate: [permissionGuard(P.SALE_ORDER_VIEW, P.SALE_ORDER_CREATE, P.SALE_ORDER_EDIT, P.SALE_ORDER_CONFIRM)] },
+    { path: 'sales/orders/:uuid', component: SaleOrderDetailComponent,
+      canActivate: [permissionGuard(P.SALE_ORDER_VIEW, P.SALE_ORDER_CREATE, P.SALE_ORDER_EDIT, P.SALE_ORDER_CONFIRM)] },
 
     // ── Warehouse — GRN ───────────────────────────────────────────────────────
     { path: 'warehouse/grn', component: GrnListComponent,

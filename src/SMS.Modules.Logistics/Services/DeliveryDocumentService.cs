@@ -228,6 +228,11 @@ internal sealed class DeliveryDocumentService : IDeliveryDocumentService
                 "once the goods are staged at the dock — printing one earlier would let them leave " +
                 "before they are ready.");
 
+        // A customer collecting their own order is the one case where the gate pass does itemise
+        // (A29 §8.3): security checks what the customer carries out against it, and the customer
+        // signs for exactly those items. It is the packing list's body under the gate pass's heading.
+        var isCollection = delivery.DeliveryMode == "SELF_PICKUP";
+
         var document = QuestPDF.Fluent.Document.Create(container =>
         {
             container.Page(page =>
@@ -237,12 +242,113 @@ internal sealed class DeliveryDocumentService : IDeliveryDocumentService
                 page.DefaultTextStyle(x => x.FontSize(9.5f).LineHeight(1.35f));
 
                 page.Header().Element(c => ComposeHeader(c, template, delivery, logo, "GATE PASS"));
-                page.Content().Element(c => ComposeGatePassContent(c, template, delivery, packing, live));
+                page.Content().Element(c =>
+                {
+                    if (isCollection) ComposeCollectionContent(c, template, delivery, packing, live);
+                    else              ComposeGatePassContent(c, template, delivery, packing, live);
+                });
                 page.Footer().Element(c => ComposeFooter(c, template, delivery));
             });
         });
 
         return (document.GeneratePdf(), $"GatePass-{delivery.DeliveryNumber}.pdf");
+    }
+
+    // ── Collection gate pass (self-pickup, A29 §8.3) ─────────────────────────
+
+    private static void ComposeCollectionContent(
+        IContainer container,
+        PoDocumentTemplateModel? template,
+        DeliveryDetailModel delivery,
+        DeliveryPackingModel packing,
+        IReadOnlyList<PackageModel> packages)
+    {
+        container.PaddingTop(14).Column(column =>
+        {
+            column.Item().PaddingBottom(10).Background(BrandColorTint).Padding(6)
+                  .Text("CUSTOMER COLLECTION — no carrier. The goods leave with the person named below.")
+                  .FontSize(8.5f).Bold().FontColor(BrandColorDark);
+
+            column.Item().PaddingBottom(14).Row(row =>
+            {
+                row.RelativeItem().Column(col =>
+                {
+                    col.Item().Text("Collect From:").FontSize(8.5f).Bold().FontColor(Colors.Grey.Darken1);
+                    foreach (var line in AddressLines(delivery.ShipFromAddress))
+                        col.Item().PaddingTop(1).Text(line).FontSize(8.5f);
+                });
+
+                row.ConstantItem(20);
+
+                row.RelativeItem().Column(col => ComposeCollectorBlock(col, delivery));
+            });
+
+            column.Item().PaddingBottom(12).Text($"ITEMS COLLECTED ({packages.Count} package{(packages.Count == 1 ? "" : "s")})")
+                  .FontSize(9).Bold().FontColor(BrandColorDark);
+
+            foreach (var package in packages)
+                ComposePackage(column, package);
+
+            ComposeTotals(column, packing, packages);
+
+            if (!string.IsNullOrWhiteSpace(delivery.PickupAuthorization))
+            {
+                column.Item().PaddingBottom(6).Text("AUTHORIZATION PRESENTED").FontSize(9).Bold().FontColor(BrandColorDark);
+                column.Item().PaddingBottom(14).Background(BrandColorTint).Padding(8)
+                      .Text(delivery.PickupAuthorization).FontSize(8.5f);
+            }
+
+            ComposeCollectionSignatureBlock(column, template);
+        });
+    }
+
+    /// <summary>
+    /// Who took the goods, what they showed, and when — or ruled blanks to be filled at the gate
+    /// when the pass is printed before the customer arrives.
+    /// </summary>
+    private static void ComposeCollectorBlock(ColumnDescriptor col, DeliveryDetailModel delivery)
+    {
+        col.Item().Text("Collected By:").FontSize(8.5f).Bold().FontColor(Colors.Grey.Darken1);
+
+        if (delivery.PickedUpAt is null)
+        {
+            foreach (var field in new[] { "Name", "ID Type / No.", "Authorization", "Date & Time" })
+            {
+                col.Item().PaddingTop(6).Text(field).FontSize(8).FontColor(Colors.Grey.Darken1);
+                col.Item().PaddingTop(10).LineHorizontal(0.5f).LineColor(Colors.Grey.Medium);
+            }
+            return;
+        }
+
+        col.Item().PaddingTop(1).Text(delivery.PickupPersonName ?? "-").FontSize(10).Bold();
+        col.Item().PaddingTop(1)
+           .Text($"{Title(delivery.PickupPersonIdType)} {delivery.PickupPersonIdNumber ?? "-"}").FontSize(8.5f);
+        col.Item().PaddingTop(1)
+           .Text($"Collected {delivery.PickedUpAt:dd MMM yyyy HH:mm}").FontSize(8.5f);
+    }
+
+    private static void ComposeCollectionSignatureBlock(ColumnDescriptor column, PoDocumentTemplateModel? template)
+    {
+        var labels = new[] { "Issued By (Store)", "Checked By (Security)", "Collected By (Customer)" };
+
+        column.Item().PaddingTop(40).Row(row =>
+        {
+            for (var i = 0; i < labels.Length; i++)
+            {
+                if (i > 0) row.ConstantItem(24);
+
+                var label = labels[i];
+                row.RelativeItem().Column(col =>
+                {
+                    col.Item().LineHorizontal(0.5f).LineColor(Colors.Grey.Lighten1);
+                    col.Item().PaddingTop(4).Text(label).FontSize(8);
+                });
+            }
+        });
+
+        if (!string.IsNullOrWhiteSpace(template?.SignatureDisclaimer))
+            column.Item().PaddingTop(16).AlignCenter()
+                  .Text(template.SignatureDisclaimer).FontSize(7.5f).Italic();
     }
 
     private static void ComposeGatePassContent(

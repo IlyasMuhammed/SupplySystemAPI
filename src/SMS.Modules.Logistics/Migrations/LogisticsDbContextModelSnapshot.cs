@@ -1775,6 +1775,10 @@ namespace SMS.Modules.Logistics.Migrations
                     b.Property<DateTime>("CreatedDate")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("DeliveryMode")
+                        .HasMaxLength(15)
+                        .HasColumnType("nvarchar(15)");
+
                     b.Property<string>("DeliveryNumber")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -1829,6 +1833,28 @@ namespace SMS.Modules.Logistics.Migrations
                     b.Property<Guid>("OrganizationId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTime?>("PickedUpAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("PickedUpBy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PickupAuthorization")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("PickupPersonIdNumber")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("PickupPersonIdType")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("PickupPersonName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
                     b.Property<string>("Priority")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -1845,6 +1871,9 @@ namespace SMS.Modules.Logistics.Migrations
                         .IsRequired()
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("rowversion");
+
+                    b.Property<Guid?>("SaleOrderUuid")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<int?>("ShipFromAddressId")
                         .HasColumnType("int");
@@ -1898,6 +1927,8 @@ namespace SMS.Modules.Logistics.Migrations
                         .IsUnique();
 
                     b.HasIndex("OrganizationId", "Status");
+
+                    b.HasIndex("SaleOrderUuid", "Status");
 
                     b.HasIndex("OrganizationId", "SourceType", "SourceUuid");
 
@@ -1976,6 +2007,9 @@ namespace SMS.Modules.Logistics.Migrations
                     b.Property<string>("ShortReason")
                         .HasMaxLength(300)
                         .HasColumnType("nvarchar(300)");
+
+                    b.Property<Guid?>("SoLineUuid")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid?>("SourceLineUuid")
                         .HasColumnType("uniqueidentifier");

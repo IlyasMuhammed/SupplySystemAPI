@@ -596,4 +596,165 @@ public class StockAllocationTests
         (await h.Service.ReleaseAllocationAsync(Guid.NewGuid(), 10m, "Unknown", User))
             .Should().Be(0m);
     }
+
+    // ── A29-P4-01 §4.4 — SALES_ORDER is source-agnostic, same as every other source type ──────
+
+    [Fact]
+    public async Task Fefo_allocation_works_identically_for_a_sales_order_source()
+    {
+        // The same defect-fix test as The_batch_that_expires_first_is_taken_first above, run
+        // against SALES_ORDER instead of DELIVERY — proving the allocation logic never special-
+        // cases by source type, exactly as StockReservation's own doc comment says it shouldn't.
+        var h  = await NewHarness();
+        var wh = await NewWarehouse(h, "Central");
+        await SeedRow(h, wh, 50m, batch: "LATE", expiry: new DateTime(2028, 6, 1));
+        await SeedRow(h, wh, 50m, batch: "SOON", expiry: new DateTime(2026, 6, 1));
+        await SeedRow(h, wh, 50m, batch: "MID",  expiry: new DateTime(2027, 6, 1));
+
+        var source = Guid.NewGuid();
+        var result = await h.Service.ReserveAsync(
+            ReservationSourceType.SalesOrder, source,
+            [new ReservationRequest(h.VariantUuid, wh, 120m)], User);
+
+        result.Succeeded.Should().BeTrue();
+        var order = await h.Db.StockReservations.AsNoTracking()
+            .Where(r => r.SourceUuid == source)
+            .OrderBy(r => r.Id)
+            .Select(r => r.InventoryItem!.BatchNumber)
+            .ToListAsync();
+        order.Should().Equal(["SOON", "MID", "LATE"]);
+    }
+
+    [Fact]
+    public async Task A_sales_order_reservation_can_span_several_batches_in_one_warehouse()
+    {
+        var h  = await NewHarness();
+        var wh = await NewWarehouse(h, "Central");
+        await SeedRow(h, wh, 40m, batch: "B-A", expiry: new DateTime(2027, 1, 1));
+        await SeedRow(h, wh, 30m, batch: "B-B", expiry: new DateTime(2026, 1, 1));
+
+        var source = Guid.NewGuid();
+        var result = await h.Service.ReserveAsync(
+            ReservationSourceType.SalesOrder, source,
+            [new ReservationRequest(h.VariantUuid, wh, 60m)], User);
+
+        result.Succeeded.Should().BeTrue();
+        (await Holds(h, source)).Sum(r => r.ReservedQty).Should().Be(60m);
+    }
+
+    [Fact]
+    public async Task A_reservation_with_no_expiry_leaves_expires_at_null()
+    {
+        var h  = await NewHarness();
+        var wh = await NewWarehouse(h, "Central");
+        await SeedRow(h, wh, 10m, batch: "B-1");
+
+        var source = Guid.NewGuid();
+        await h.Service.ReserveAsync(
+            ReservationSourceType.Delivery, source,
+            [new ReservationRequest(h.VariantUuid, wh, 5m)], User);
+
+        (await Holds(h, source)).Single().ExpiresAt.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task A_sales_order_reservation_carries_the_expiry_it_was_given()
+    {
+        var h  = await NewHarness();
+        var wh = await NewWarehouse(h, "Central");
+        await SeedRow(h, wh, 10m, batch: "B-1");
+
+        var expiresAt = DateTime.UtcNow.AddHours(72);
+        var source = Guid.NewGuid();
+        await h.Service.ReserveAsync(
+            ReservationSourceType.SalesOrder, source,
+            [new ReservationRequest(h.VariantUuid, wh, 5m)], User, expiresAt);
+
+        (await Holds(h, source)).Single().ExpiresAt.Should().Be(expiresAt);
+    }
+
+    [Fact]
+    public async Task Every_row_a_multi_batch_sales_order_reservation_creates_carries_the_same_expiry()
+    {
+        var h  = await NewHarness();
+        var wh = await NewWarehouse(h, "Central");
+        await SeedRow(h, wh, 40m, batch: "B-A", expiry: new DateTime(2027, 1, 1));
+        await SeedRow(h, wh, 30m, batch: "B-B", expiry: new DateTime(2026, 1, 1));
+
+        var expiresAt = DateTime.UtcNow.AddHours(72);
+        var source = Guid.NewGuid();
+        await h.Service.ReserveAsync(
+            ReservationSourceType.SalesOrder, source,
+            [new ReservationRequest(h.VariantUuid, wh, 60m)], User, expiresAt);
+
+        (await Holds(h, source)).Should().OnlyContain(r => r.ExpiresAt == expiresAt);
+    }
+
+    [Fact]
+    public async Task A_sales_order_reservation_can_be_released_and_consumed_the_same_as_any_other_source()
+    {
+        var h  = await NewHarness();
+        var wh = await NewWarehouse(h, "Central");
+        var id = await SeedRow(h, wh, 50m, batch: "B-1");
+
+        var source = Guid.NewGuid();
+        await h.Service.ReserveAsync(
+            ReservationSourceType.SalesOrder, source,
+            [new ReservationRequest(h.VariantUuid, wh, 20m)], User, DateTime.UtcNow.AddHours(72));
+
+        (await h.Service.ConsumeBySourceAsync(ReservationSourceType.SalesOrder, source, User)).Should().Be(1);
+        (await ReservedOn(h, id)).Should().Be(0m);
+        (await Holds(h, source)).Single().Status.Should().Be("CONSUMED");
+    }
+
+    // ── A29-P4-08 §4.3/§4.4 — multi-tenant isolation ────────────────────────────
+    // Every other test in this file uses one org per harness, which never actually exercises the
+    // tenant filter — a bug that dropped it would pass all of them just the same. This one shares a
+    // single database between two orgs, the only way to prove GetAvailableAsync/ReserveAsync
+    // (neither of which calls IgnoreQueryFilters) genuinely can't see or touch a variant that
+    // belongs to another organization.
+
+    [Fact]
+    public async Task Availability_and_reservation_never_see_another_organizations_stock()
+    {
+        var dbName = Guid.NewGuid().ToString();
+        var orgA = Guid.NewGuid();
+        var orgB = Guid.NewGuid();
+
+        var dbA = new InventoryDbContext(
+            new DbContextOptionsBuilder<InventoryDbContext>().UseInMemoryDatabase(dbName).Options,
+            new StaticTenantContext { OrganizationId = orgA });
+        var dbB = new InventoryDbContext(
+            new DbContextOptionsBuilder<InventoryDbContext>().UseInMemoryDatabase(dbName).Options,
+            new StaticTenantContext { OrganizationId = orgB });
+
+        var category = new ProductCategory { Name = "Cable", Code = "CABLE-A", IsActive = true };
+        dbA.ProductCategories.Add(category);
+        await dbA.SaveChangesAsync();
+        var product = new Product { Uuid = Guid.NewGuid(), Name = "A-Cable", Sku = "SKU-A", CategoryId = category.Id, IsActive = true };
+        dbA.Products.Add(product);
+        await dbA.SaveChangesAsync();
+        var variant = new ProductVariant { Uuid = Guid.NewGuid(), ProductId = product.Id, Sku = "V-A", VariantName = "Default", IsDefault = true, IsActive = true };
+        dbA.ProductVariants.Add(variant);
+        await dbA.SaveChangesAsync();
+        var warehouse = new Domain.Warehouse { Uuid = Guid.NewGuid(), Name = "WH-A", Code = "WHA", IsActive = true };
+        dbA.Warehouses.Add(warehouse);
+        await dbA.SaveChangesAsync();
+        dbA.InventoryItems.Add(new InventoryItem { Uuid = Guid.NewGuid(), VariantId = variant.Id, WarehouseId = warehouse.Id, QtyOnHand = 100m });
+        await dbA.SaveChangesAsync();
+        dbA.ChangeTracker.Clear();
+
+        var serviceB = new StockReservationService(dbB);
+
+        // Org B asks about org A's own variant uuid — the ambient filter means org B's InventoryItems
+        // query simply never reaches org A's row, not that it reaches it and rejects it.
+        (await serviceB.GetAvailableAsync([variant.Uuid], warehouseUuid: null)).Should().BeEmpty();
+
+        var result = await serviceB.ReserveAsync(
+            ReservationSourceType.SalesOrder, Guid.NewGuid(),
+            [new ReservationRequest(variant.Uuid, null, 10m)], User);
+
+        result.Succeeded.Should().BeFalse("org B has no stock of its own for a variant that only exists under org A");
+        (await dbA.StockReservations.AsNoTracking().CountAsync()).Should().Be(0, "org B's failed attempt must never touch org A's ledger");
+    }
 }

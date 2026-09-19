@@ -97,7 +97,7 @@ internal sealed class GoodsIssuePoster : IGoodsIssuePoster
                     WarehouseId     = item.WarehouseId,
                     TransactionType = isTransfer
                         ? GoodsIssueTransactionType.TransferOut
-                        : GoodsIssueTransactionType.DeliveryIssue,
+                        : posting.TransactionType ?? GoodsIssueTransactionType.DeliveryIssue,
                     ReferenceType   = posting.ReferenceType,
                     ReferenceId     = posting.ReferenceUuid,
                     ReferenceNumber = posting.ReferenceNumber,

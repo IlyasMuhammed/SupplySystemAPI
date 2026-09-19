@@ -1,0 +1,137 @@
+<div class="partner-detail-page">
+  <p-toast></p-toast>
+
+  <!-- ── Page Header ─────────────────────────────────────────────────────── -->
+  <div class="page-header-card">
+    <div class="ph-left">
+      <p-button icon="pi pi-arrow-left" [text]="true" severity="secondary" (onClick)="goBack()"></p-button>
+      <div class="ph-icon-wrap"><i class="pi pi-sitemap"></i></div>
+      <div>
+        <div class="ph-name">
+          {{ partner.companyName || 'Loading…' }}
+          <p-tag *ngFor="let t of capabilityTags()" [value]="t.label" [severity]="t.severity"></p-tag>
+        </div>
+        <div class="ph-sub">
+          <span *ngIf="partner.partnerCode" class="ph-code-chip">{{ partner.partnerCode }}</span>
+          <span *ngIf="partner.partnerType">Type: {{ partner.partnerType }}</span>
+        </div>
+      </div>
+    </div>
+    <div class="ph-actions" *ngIf="!isLoading">
+      <p-button label="Edit" icon="pi pi-pencil" severity="secondary" [outlined]="true"
+                [routerLink]="['/portal/pages/suppliers/partner-edit', uuid]"></p-button>
+    </div>
+  </div>
+
+  <!-- ── Loading ─────────────────────────────────────────────────────────── -->
+  <div class="loading-state" *ngIf="isLoading">
+    <i class="pi pi-spin pi-spinner"></i>
+    <p>Loading business partner…</p>
+  </div>
+
+  <!-- ── Tabs ────────────────────────────────────────────────────────────── -->
+  <p-tabView styleClass="partner-tabs" *ngIf="!isLoading">
+
+    <p-tabPanel header="Overview" leftIcon="pi pi-info-circle">
+      <div class="tab-content">
+        <div class="info-grid">
+          <div class="info-field">
+            <div class="cell-label">Company Name</div>
+            <div class="cell-value">{{ partner.companyName || '—' }}</div>
+          </div>
+          <div class="info-field">
+            <div class="cell-label">Partner Code</div>
+            <div class="cell-value">{{ partner.partnerCode || '—' }}</div>
+          </div>
+          <div class="info-field">
+            <div class="cell-label">Partner Type</div>
+            <div class="cell-value">{{ partner.partnerType || '—' }}</div>
+          </div>
+          <div class="info-field">
+            <div class="cell-label">Status</div>
+            <p-tag [value]="partner.isActive ? 'Active' : 'Inactive'"
+                   [severity]="partner.isActive ? 'success' : 'secondary'"></p-tag>
+          </div>
+          <div class="info-field" *ngIf="partner.isCarrier">
+            <div class="cell-label">Vehicle Types</div>
+            <div class="cell-value">{{ partner.vehicleTypes || '—' }}</div>
+          </div>
+          <div class="info-field" *ngIf="partner.isServiceProvider">
+            <div class="cell-label">Service Categories</div>
+            <div class="cell-value">{{ partner.serviceCategories || '—' }}</div>
+          </div>
+        </div>
+      </div>
+    </p-tabPanel>
+
+    <!-- ══ Ledger — reuses the existing FinanceService supplier-ledger API verbatim ══ -->
+    <p-tabPanel header="Ledger" leftIcon="pi pi-book">
+      <div class="tab-content">
+
+        <div class="ledger-balance-grid" *ngIf="ledgerBalance">
+          <div class="balance-card">
+            <div class="cell-label">Total Debits</div>
+            <div class="cell-value">{{ ledgerBalance.totalDebits | number:'1.2-2' }}</div>
+          </div>
+          <div class="balance-card">
+            <div class="cell-label">Total Credits</div>
+            <div class="cell-value">{{ ledgerBalance.totalCredits | number:'1.2-2' }}</div>
+          </div>
+          <div class="balance-card" [class.balance-owed]="ledgerBalance.netBalance > 0">
+            <div class="cell-label">Net Balance (Owed)</div>
+            <div class="cell-value">{{ ledgerBalance.netBalance | number:'1.2-2' }}</div>
+          </div>
+          <div class="balance-card">
+            <div class="cell-label">Available Advance Credit</div>
+            <div class="cell-value">{{ ledgerBalance.availableAdvanceCredit | number:'1.2-2' }}</div>
+          </div>
+        </div>
+
+        <div class="tab-toolbar">
+          <span class="tab-section-title">Ledger Entries</span>
+          <div class="ledger-filters">
+            <p-calendar [(ngModel)]="ledgerDateFrom" placeholder="From" dateFormat="dd/mm/yy"
+                        [showIcon]="true" [showClear]="true" appendTo="body"></p-calendar>
+            <p-calendar [(ngModel)]="ledgerDateTo" placeholder="To" dateFormat="dd/mm/yy"
+                        [showIcon]="true" [showClear]="true" appendTo="body"></p-calendar>
+            <p-button label="Apply" icon="pi pi-search" size="small" (onClick)="onLedgerFilterChange()"></p-button>
+          </div>
+        </div>
+
+        <p-table [value]="ledgerEntries" [loading]="isLoadingLedger"
+                 [paginator]="true" [rows]="ledgerPageSize" [totalRecords]="ledgerTotalRecords"
+                 [lazy]="true" (onPage)="onLedgerPageChange($event)" [rowsPerPageOptions]="[20,50,100]"
+                 styleClass="p-datatable-sm" *ngIf="ledgerEntries.length || isLoadingLedger"
+                 data-testid="ledger-table">
+          <ng-template pTemplate="header">
+            <tr>
+              <th>Date</th>
+              <th>Type</th>
+              <th>Reference</th>
+              <th class="text-right">Debit</th>
+              <th class="text-right">Credit</th>
+              <th class="text-right">Balance After</th>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="body" let-e>
+            <tr>
+              <td>{{ e.entryDate | date:'dd MMM yyyy, HH:mm' }}</td>
+              <td><p-tag [value]="getLedgerTypeLabel(e.transactionType)" [severity]="getLedgerTypeSeverity(e.transactionType)"></p-tag></td>
+              <td>{{ e.referenceNo || '—' }}</td>
+              <td class="text-right">{{ e.debitAmount ? (e.debitAmount | number:'1.2-2') : '—' }}</td>
+              <td class="text-right">{{ e.creditAmount ? (e.creditAmount | number:'1.2-2') : '—' }}</td>
+              <td class="text-right mono">{{ e.balanceAfter | number:'1.2-2' }}</td>
+            </tr>
+          </ng-template>
+        </p-table>
+
+        <div *ngIf="!ledgerEntries.length && !isLoadingLedger" class="empty-state">
+          <i class="pi pi-book"></i>
+          <p>No ledger entries yet. Entries are created automatically when invoices, credit notes, debit notes, or payments are approved for this partner.</p>
+        </div>
+
+      </div>
+    </p-tabPanel>
+
+  </p-tabView>
+</div>

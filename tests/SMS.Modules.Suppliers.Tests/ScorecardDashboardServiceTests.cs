@@ -21,14 +21,14 @@ file static class DashboardBuild
         return (new ScorecardDashboardService(suppliers, warehouse), suppliers, warehouse);
     }
 
-    internal static Supplier SeedSupplier(SuppliersDbContext db, string name)
+    internal static BusinessPartner SeedSupplier(SuppliersDbContext db, string name)
     {
-        var s = new Supplier
+        var s = new BusinessPartner
         {
             UUID = Guid.NewGuid(), SupplierName = name, SupplierCode = $"SUP-{Guid.NewGuid():N}"[..10],
             Status = "APPROVED", IsActive = true, CreatedBy = 1, CreatedDate = DateTime.UtcNow
         };
-        db.Suppliers.Add(s);
+        db.BusinessPartners.Add(s);
         db.SaveChanges();
         return s;
     }
@@ -70,6 +70,28 @@ public class GetRankingAsync_Tests
         result.Suppliers[0].Rank.Should().Be(1);
         result.Suppliers[1].SupplierName.Should().Be("Low Scorer");
         result.Suppliers[1].Rank.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task Excludes_A_Snapshot_For_A_Partner_That_Is_Not_A_Vendor()
+    {
+        // P1-06 (Addendum 29 §1.7) — a snapshot could not normally exist for a non-vendor in
+        // practice, but the ranking must not surface one if it somehow did.
+        var (svc, db, _) = DashboardBuild.New();
+        var vendor = DashboardBuild.SeedSupplier(db, "Real Vendor");
+        var customer = DashboardBuild.SeedSupplier(db, "Somehow A Customer");
+        customer.IsVendor = false;
+        customer.IsCustomer = true;
+        db.SaveChanges();
+
+        var start = new DateTime(2026, 5, 1);
+        var end   = new DateTime(2026, 8, 1);
+        DashboardBuild.SeedSnapshot(db, vendor.UUID, new DateTime(2026, 7, 1), new DateTime(2026, 8, 1), 80m);
+        DashboardBuild.SeedSnapshot(db, customer.UUID, new DateTime(2026, 7, 1), new DateTime(2026, 8, 1), 95m);
+
+        var result = await svc.GetRankingAsync(start, end);
+
+        result.Suppliers.Should().ContainSingle().Which.SupplierName.Should().Be("Real Vendor");
     }
 
     [Fact]

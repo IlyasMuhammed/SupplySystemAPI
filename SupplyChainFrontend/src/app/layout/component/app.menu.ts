@@ -114,7 +114,13 @@ export class AppMenu {
                           permRequired: ['SUPPLIER_VIEW', 'SUPPLIER_EDIT', 'SUPPLIER_MANAGE'] },
                         { label: 'Rate Cards', icon: 'pi pi-fw pi-tags',
                           routerLink: ['/portal/pages/suppliers/rate-cards'],
-                          permRequired: ['SUPPLIER_MANAGE'] }
+                          permRequired: ['SUPPLIER_MANAGE'] },
+                        { label: 'New Business Partner', icon: 'pi pi-fw pi-plus-circle',
+                          routerLink: ['/portal/pages/suppliers/partner-create'],
+                          permRequired: ['SUPPLIER_CREATE', 'SUPPLIER_MANAGE'] },
+                        { label: 'Business Partners', icon: 'pi pi-fw pi-sitemap',
+                          routerLink: ['/portal/pages/suppliers/partner-list'],
+                          permRequired: ['SUPPLIER_VIEW', 'SUPPLIER_CREATE', 'SUPPLIER_EDIT', 'SUPPLIER_MANAGE'] }
                     ]
                 }
             ]
@@ -203,6 +209,24 @@ export class AppMenu {
                     routerLink: ['/portal/pages/inventory/master-product-ledger'],
                     featureCode: 'FEATURE_MASTER_LEDGERS',
                     permRequired: ['INVENTORY_VIEW', 'STOCK_MANAGE']
+                }
+            ]
+        },
+
+        // ── Sales (Addendum 29) ───────────────────────────────────────────
+        // Sale orders live in the Demand module, so the same feature gate as procurement.
+        {
+            label: 'Sales',
+            featureCode: 'MODULE_DEMAND',
+            items: [
+                {
+                    label: 'Sale Orders',
+                    icon: 'pi pi-fw pi-shopping-bag',
+                    items: [
+                        { label: 'All Sale Orders', icon: 'pi pi-fw pi-list',
+                          routerLink: ['/portal/pages/sales/orders'],
+                          permRequired: ['SALE_ORDER_VIEW', 'SALE_ORDER_CREATE', 'SALE_ORDER_EDIT', 'SALE_ORDER_CONFIRM'] }
+                    ]
                 }
             ]
         },

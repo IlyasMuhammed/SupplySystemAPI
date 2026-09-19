@@ -21,6 +21,10 @@ public interface IVariantSupplierService
     // RC-003 — Product Comparison View.
     Task<List<RateComparisonRowModel>> GetComparisonAsync(Guid variantUuid);
 
+    // A29-P5-02 §2.1/§3.3 — DEFAULT_SUPPLIER mode's own input. Null when the variant has none set,
+    // or the variant doesn't exist (both mean the same thing to a caller: nothing to default to).
+    Task<Guid?> GetDefaultSupplierIdAsync(Guid variantUuid);
+
     // RC-005 — Bulk Rate Adjustment.
     Task<List<BulkAdjustPreviewRowModel>> PreviewBulkAdjustAsync(BulkAdjustRequest req);
     Task<BulkAdjustConfirmResult> ConfirmBulkAdjustAsync(BulkAdjustRequest req, int performedBy);

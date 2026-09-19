@@ -88,6 +88,17 @@ public class StateMachineTests
         Delivery.CanTransition(from, to).Should().BeFalse();
     }
 
+    [Fact]
+    public void Issued_goods_reach_delivered_by_transit_or_by_collection()
+    {
+        // A29 §7.2: a shipped delivery goes GOODS_ISSUED → IN_TRANSIT → DELIVERED; a self-pickup
+        // one has no transit — the customer walks out with it — so GOODS_ISSUED → DELIVERED is
+        // legal. The step it must never skip is the goods issue itself (PACKED → DELIVERED above).
+        Delivery.CanTransition(DeliveryStatus.GoodsIssued, DeliveryStatus.InTransit).Should().BeTrue();
+        Delivery.CanTransition(DeliveryStatus.GoodsIssued, DeliveryStatus.Delivered).Should().BeTrue();
+        Delivery.CanTransition(DeliveryStatus.Staged, DeliveryStatus.Delivered).Should().BeFalse();
+    }
+
     // ── TC-05.4 — hold and resume ─────────────────────────────────────────────
 
     [Theory]

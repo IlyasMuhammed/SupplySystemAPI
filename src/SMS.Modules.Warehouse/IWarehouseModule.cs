@@ -40,6 +40,9 @@ public static class WarehouseModuleExtensions
         // for GRN-approval-triggered scorecard scoring) registers a real IGrnEventPublisher, that
         // registration must win regardless of which module's Add*Module() runs first in Program.cs.
         services.TryAddScoped<IGrnEventPublisher, NullGrnEventPublisher>();
+        // A29-P5-06 §6.4 — reserves received stock for the sale order line a back-to-back PO was
+        // raised for. AddScoped alongside the others: GrnStatusHandler fans out to every publisher.
+        services.AddScoped<IGrnEventPublisher, SaleOrderReservationGrnEventPublisher>();
         services.AddScoped<IGrnRepository, GrnRepository>();
         services.AddScoped<IGrnService, GrnService>();
         services.AddScoped<ISroRepository, SroRepository>();

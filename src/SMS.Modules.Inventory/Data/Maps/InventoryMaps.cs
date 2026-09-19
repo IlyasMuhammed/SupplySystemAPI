@@ -102,6 +102,7 @@ internal sealed class ProductVariantMap : IEntityTypeConfiguration<ProductVarian
         b.HasIndex(x => new { x.OrganizationId, x.Barcode }).IsUnique().HasFilter("[Barcode] IS NOT NULL");
         b.Property(x => x.OrganizationId).IsRequired();
         b.HasIndex(x => x.ProductId);
+        b.HasIndex(x => x.DefaultSupplierId);
 
         b.HasOne(x => x.Product).WithMany(x => x.Variants)
             .HasForeignKey(x => x.ProductId).OnDelete(DeleteBehavior.Cascade);
@@ -131,6 +132,33 @@ internal sealed class VariantSupplierMap : IEntityTypeConfiguration<VariantSuppl
 
         b.Property(x => x.OrganizationId).IsRequired();
         b.HasIndex(x => new { x.OrganizationId, x.VariantId, x.SupplierId });
+
+        b.HasOne(x => x.Variant).WithMany()
+            .HasForeignKey(x => x.VariantId).OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+internal sealed class PricingRuleMap : IEntityTypeConfiguration<PricingRule>
+{
+    public void Configure(EntityTypeBuilder<PricingRule> b)
+    {
+        b.ToTable("PricingRules");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.Id).UseIdentityColumn();
+        b.Property(x => x.Uuid).IsRequired();
+        b.HasIndex(x => x.Uuid).IsUnique();
+
+        b.Property(x => x.PriceType).HasMaxLength(20).IsRequired();
+        b.Property(x => x.MinQty).HasColumnType("decimal(18,4)");
+        b.Property(x => x.MaxQty).HasColumnType("decimal(18,4)");
+        b.Property(x => x.UnitPrice).HasColumnType("decimal(18,4)").IsRequired();
+        b.Property(x => x.CurrencyId).IsRequired();
+        b.Property(x => x.EffectiveFrom).IsRequired();
+        b.Property(x => x.IsActive).HasDefaultValue(true);
+
+        b.Property(x => x.OrganizationId).IsRequired();
+        b.HasIndex(x => new { x.OrganizationId, x.VariantId, x.PartnerId });
+        b.HasIndex(x => x.PartnerId);
 
         b.HasOne(x => x.Variant).WithMany()
             .HasForeignKey(x => x.VariantId).OnDelete(DeleteBehavior.Cascade);

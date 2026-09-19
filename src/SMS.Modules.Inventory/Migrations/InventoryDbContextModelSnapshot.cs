@@ -396,6 +396,74 @@ namespace SMS.Modules.Inventory.Migrations
                     b.ToTable("InventoryLedgerEntries", "inventory");
                 });
 
+            modelBuilder.Entity("SMS.Modules.Inventory.Domain.PricingRule", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CurrencyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("EffectiveFrom")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("EffectiveTo")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<decimal?>("MaxQty")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("MinQty")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("PartnerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("PriceType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<Guid>("Uuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("VariantId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PartnerId");
+
+                    b.HasIndex("Uuid")
+                        .IsUnique();
+
+                    b.HasIndex("VariantId");
+
+                    b.HasIndex("OrganizationId", "VariantId", "PartnerId");
+
+                    b.ToTable("PricingRules", "inventory");
+                });
+
             modelBuilder.Entity("SMS.Modules.Inventory.Domain.Product", b =>
                 {
                     b.Property<int>("Id")
@@ -698,6 +766,9 @@ namespace SMS.Modules.Inventory.Migrations
                     b.Property<DateTime>("CreatedDate")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid?>("DefaultSupplierId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("Dimensions")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
@@ -712,6 +783,9 @@ namespace SMS.Modules.Inventory.Migrations
 
                     b.Property<decimal?>("LastPurchasePrice")
                         .HasColumnType("decimal(18,4)");
+
+                    b.Property<int?>("LeadTimeDays")
+                        .HasColumnType("int");
 
                     b.Property<Guid>("OrganizationId")
                         .HasColumnType("uniqueidentifier");
@@ -748,6 +822,8 @@ namespace SMS.Modules.Inventory.Migrations
                         .HasColumnType("decimal(18,4)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("DefaultSupplierId");
 
                     b.HasIndex("ProductId");
 
@@ -935,6 +1011,12 @@ namespace SMS.Modules.Inventory.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("ExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ExpiryWarningSentAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<DateTime?>("FlaggedAt")
                         .HasColumnType("datetime2");
@@ -1397,6 +1479,17 @@ namespace SMS.Modules.Inventory.Migrations
                     b.Navigation("Variant");
 
                     b.Navigation("Warehouse");
+                });
+
+            modelBuilder.Entity("SMS.Modules.Inventory.Domain.PricingRule", b =>
+                {
+                    b.HasOne("SMS.Modules.Inventory.Domain.ProductVariant", "Variant")
+                        .WithMany()
+                        .HasForeignKey("VariantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Variant");
                 });
 
             modelBuilder.Entity("SMS.Modules.Inventory.Domain.Product", b =>

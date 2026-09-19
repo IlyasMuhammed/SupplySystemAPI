@@ -120,11 +120,17 @@ public interface IStockReservationService
     /// Partially reserving would leave a document promising units it does not have, which is
     /// worse than refusing.
     /// </summary>
+    /// <param name="expiresAt">
+    /// A29-P4-01 §4.4 — when set, every reservation this call creates carries this expiry (e.g.
+    /// a sales order's <c>now + reservation_ttl_hours</c>). Null for holds with no TTL, which is
+    /// every existing caller (MIR, Delivery) and stays their default.
+    /// </param>
     Task<ReservationResult> ReserveAsync(
         string sourceType,
         Guid sourceUuid,
         IReadOnlyList<ReservationRequest> requests,
         int userId,
+        DateTime? expiresAt = null,
         CancellationToken ct = default);
 
     /// <summary>
@@ -182,6 +188,28 @@ public interface IStockReservationService
         Guid reservationUuid, decimal quantity, string reason, int userId,
         CancellationToken ct = default);
 
+    /// <summary>
+    /// Moves up to <paramref name="quantity"/> of one document line's active hold onto another
+    /// document, keeping the exact stock rows — warehouse, bin, batch — and leaving the counter
+    /// untouched. Returns how much changed hands.
+    /// <para>
+    /// A29 §7.3/§7.5: a sale order holds stock from the moment it is confirmed, and the delivery
+    /// that later ships it must pick and issue <em>that</em> stock. Releasing the order's hold and
+    /// reserving afresh for the delivery would open a window in which somebody else takes the
+    /// units, and would re-choose the batch the order was promised. Re-parenting the hold does
+    /// neither. The same call returns the hold to the order when the delivery is cancelled.
+    /// </para>
+    /// <para>
+    /// A row moved whole simply changes owner; a row moved in part is split. Rows that change
+    /// hands lose any expiry — a hold that has reached a delivery is committed, not provisional.
+    /// Moving more than is held moves only what is there; nothing held moves nothing.
+    /// </para>
+    /// </summary>
+    Task<decimal> TransferLineAsync(
+        string fromSourceType, Guid fromSourceUuid, Guid fromSourceLineUuid,
+        string toSourceType, Guid toSourceUuid, Guid? toSourceLineUuid,
+        decimal quantity, int userId, CancellationToken ct = default);
+
     /// <summary>Every reservation held for a source document, whatever its status.</summary>
     Task<IReadOnlyList<ReservationSummary>> GetBySourceAsync(
         string sourceType, Guid sourceUuid, CancellationToken ct = default);
@@ -205,4 +233,43 @@ public interface IStockReservationService
     /// </summary>
     Task<IReadOnlyList<VariantAvailability>> GetAvailableAsync(
         IReadOnlyList<Guid> variantUuids, Guid? warehouseUuid, CancellationToken ct = default);
+
+    /// <summary>
+    /// A29-P4-05 §4.4/§5.1 — active reservations of one source type whose <see cref="ExpiringReservation.ExpiresAt"/>
+    /// has already passed. Runs with no ambient tenant filter (a recurring job has none to apply),
+    /// same as every other bare Hangfire sweep in this codebase — group the result by
+    /// OrganizationId before doing anything tenant-sensitive with it.
+    /// </summary>
+    Task<IReadOnlyList<ExpiringReservation>> GetExpiredAsync(string sourceType, CancellationToken ct = default);
+
+    /// <summary>
+    /// Active reservations of one source type expiring within <paramref name="within"/> from now
+    /// that have not already had <see cref="ExpiringReservation"/>'s warning sent (see
+    /// <see cref="MarkExpiryWarningSentAsync"/>). Same no-ambient-filter caveat as
+    /// <see cref="GetExpiredAsync"/>.
+    /// </summary>
+    Task<IReadOnlyList<ExpiringReservation>> GetExpiringWithinAsync(
+        string sourceType, TimeSpan within, CancellationToken ct = default);
+
+    /// <summary>Marks reservations as warned so a later sweep run never re-sends the same warning.</summary>
+    Task MarkExpiryWarningSentAsync(IReadOnlyList<Guid> reservationUuids, CancellationToken ct = default);
+
+    /// <summary>
+    /// A29-P4-07 §5.1 — one reservation by its own id, for a caller that only has that id (an
+    /// "expiring" email triggered for one specific hold) and needs its source/variant/expiry to
+    /// render one. Null both when the id doesn't exist and when it does but carries no expiry
+    /// (MIR/Delivery holds never do) — <see cref="ExpiringReservation"/> cannot describe either.
+    /// </summary>
+    Task<ExpiringReservation?> GetByUuidAsync(Guid reservationUuid, CancellationToken ct = default);
 }
+
+/// <param name="ExpiresAt">Never null for a row this type is used to describe — both query methods filter to non-null expiries.</param>
+public sealed record ExpiringReservation(
+    Guid     ReservationUuid,
+    Guid     OrganizationId,
+    string   SourceType,
+    Guid     SourceUuid,
+    Guid?    SourceLineUuid,
+    Guid     VariantUuid,
+    decimal  ReservedQty,
+    DateTime ExpiresAt);

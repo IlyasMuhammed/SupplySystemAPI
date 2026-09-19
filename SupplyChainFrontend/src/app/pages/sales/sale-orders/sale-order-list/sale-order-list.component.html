@@ -1,0 +1,74 @@
+<div class="list-page">
+  <p-toast></p-toast>
+
+  <div class="page-header">
+    <div>
+      <h1 class="page-title"><i class="pi pi-shopping-bag"></i> Sale Orders</h1>
+      <p class="page-subtitle">Customer orders and how far each has been fulfilled</p>
+    </div>
+  </div>
+
+  <div class="filter-bar">
+    <p-iconfield>
+      <p-inputicon styleClass="pi pi-search"></p-inputicon>
+      <input pInputText type="text" placeholder="Search SO#..."
+             [(ngModel)]="searchText" (ngModelChange)="onSearchChange()" class="search-input" />
+    </p-iconfield>
+    <p-dropdown [options]="statusOptions" [(ngModel)]="selectedStatus"
+                (ngModelChange)="onFilterChange()" placeholder="Status"
+                styleClass="filter-dropdown" appendTo="body"></p-dropdown>
+    <p-button icon="pi pi-refresh" [text]="true" severity="secondary"
+              pTooltip="Reset filters" (onClick)="resetFilters()"></p-button>
+  </div>
+
+  <div class="table-card">
+    <p-table [value]="orders" [loading]="isLoading" [lazy]="true"
+             [totalRecords]="totalRecords" [rows]="pageSize"
+             (onLazyLoad)="onPageChange($event)"
+             [paginator]="true" [rowsPerPageOptions]="[10,20,50]"
+             [tableStyle]="{'min-width':'60rem'}">
+      <ng-template pTemplate="header">
+        <tr>
+          <th>Order #</th>
+          <th>Order date</th>
+          <th>Expected</th>
+          <th>Mode</th>
+          <th class="text-right">Total</th>
+          <th>Status</th>
+          <th class="text-center">Actions</th>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="body" let-o>
+        <tr>
+          <td class="font-mono font-semibold">{{ o.soNumber }}</td>
+          <td>{{ o.orderDate | date:'dd MMM yyyy' }}</td>
+          <td>{{ o.expectedDeliveryDate ? (o.expectedDeliveryDate | date:'dd MMM yyyy') : '—' }}</td>
+          <td>
+            <span class="mode" [class.mode-pickup]="o.deliveryMode === 'SELF_PICKUP'">
+              <i class="pi" [ngClass]="o.deliveryMode === 'SELF_PICKUP' ? 'pi-shopping-cart' : 'pi-truck'"></i>
+              {{ formatStatus(o.deliveryMode) }}
+            </span>
+          </td>
+          <td class="text-right">{{ o.grandTotal | number:'1.2-2' }}</td>
+          <td>
+            <p-tag [value]="formatStatus(o.status)" [severity]="getStatusSeverity(o.status)"></p-tag>
+          </td>
+          <td class="text-center">
+            <p-button icon="pi pi-eye" [text]="true" severity="info" size="small" pTooltip="View"
+                      [routerLink]="['/portal/pages/sales/orders', o.uuid]"
+                      data-testid="view-order"></p-button>
+          </td>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="7" class="text-center text-secondary" style="padding:3rem">
+            No sale orders found.
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </div>
+</div>

@@ -1,0 +1,206 @@
+<div class="detail-page">
+  <p-toast></p-toast>
+
+  <div class="not-found" *ngIf="notFound" data-testid="not-found">
+    <i class="pi pi-inbox"></i>
+    <h2>Sale order not found</h2>
+    <p>It may have been deleted, or the link may be wrong.</p>
+    <p-button label="Back to sale orders" icon="pi pi-arrow-left" [text]="true"
+              routerLink="/portal/pages/sales/orders"></p-button>
+  </div>
+
+  <div *ngIf="isLoading && !order" class="loading-state" data-testid="loading">
+    <i class="pi pi-spin pi-spinner"></i> Loading…
+  </div>
+
+  <ng-container *ngIf="order as o">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">
+          <i class="pi pi-shopping-bag"></i>
+          <span class="font-mono">{{ o.soNumber }}</span>
+          <p-tag [value]="formatStatus(o.status)" [severity]="getStatusSeverity(o.status)"></p-tag>
+        </h1>
+        <p class="page-subtitle">
+          <span *ngIf="partnerName" data-testid="partner-name">{{ partnerName }}</span>
+          <span *ngIf="!partnerName" class="font-mono">{{ o.partnerId }}</span>
+          · {{ o.deliveryMode === 'SELF_PICKUP' ? 'Customer collects' : 'Ship to customer' }}
+        </p>
+      </div>
+
+      <div class="header-actions">
+        <p-button icon="pi pi-history" label="Timeline" [text]="true" severity="secondary"
+                  (onClick)="timelineVisible = true"></p-button>
+
+        <p-button *ngIf="canCreateDelivery" label="Create delivery" icon="pi pi-truck"
+                  (onClick)="openCreateDialog()" data-testid="action-create-delivery"></p-button>
+      </div>
+    </div>
+
+    <div class="detail-grid">
+      <div class="card">
+        <h3>Order</h3>
+        <dl>
+          <dt>Order date</dt><dd>{{ o.orderDate | date:'dd MMM yyyy' }}</dd>
+          <dt>Expected</dt><dd>{{ o.expectedDeliveryDate ? (o.expectedDeliveryDate | date:'dd MMM yyyy') : '—' }}</dd>
+          <dt>Delivery mode</dt><dd>{{ formatStatus(o.deliveryMode) }}</dd>
+          <dt>Subtotal</dt><dd>{{ o.subtotal | number:'1.2-2' }}</dd>
+          <dt>Tax</dt><dd>{{ o.taxAmount | number:'1.2-2' }}</dd>
+          <dt>Discount</dt><dd>{{ o.discountAmount | number:'1.2-2' }}</dd>
+          <dt>Grand total</dt><dd class="font-semibold">{{ o.grandTotal | number:'1.2-2' }}</dd>
+        </dl>
+        <p class="notes" *ngIf="o.notes">{{ o.notes }}</p>
+      </div>
+
+      <div class="card">
+        <h3>Fulfilment</h3>
+        <div class="progress-figures" data-testid="fulfilment-figures">
+          <span class="big">{{ fulfilledQty | number:'1.0-3' }}</span>
+          <span class="of">of {{ orderedQty | number:'1.0-3' }} delivered</span>
+          <span class="percent">{{ fulfilledPercent }}%</span>
+        </div>
+        <div class="progress-track"><div class="progress-fill" [style.width.%]="fulfilledPercent"></div></div>
+        <p class="muted" *ngIf="deliveries.length">
+          {{ deliveries.length }} deliver{{ deliveries.length === 1 ? 'y' : 'ies' }} raised.
+        </p>
+        <p class="muted" *ngIf="!deliveries.length && !isLoadingDeliveries">No delivery raised yet.</p>
+      </div>
+    </div>
+
+    <p-tabView styleClass="order-tabs">
+
+      <p-tabPanel header="Lines" leftIcon="pi pi-list">
+        <div class="table-card flush">
+          <p-table [value]="o.lines" [tableStyle]="{'min-width':'60rem'}" data-testid="lines-table">
+            <ng-template pTemplate="header">
+              <tr>
+                <th>Item</th>
+                <th>UoM</th>
+                <th class="text-right">Ordered</th>
+                <th class="text-right">Unit price</th>
+                <th class="text-right">Delivered</th>
+                <th class="text-right">Outstanding</th>
+                <th>Mode</th>
+                <th>Status</th>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-line>
+              <tr [class.line-done]="outstanding(line) === 0" [class.line-cancelled]="line.status === 'CANCELLED'">
+                <td>
+                  {{ describe(line) }}
+                  <div class="line-sub" *ngIf="line.variantSku">{{ line.variantSku }}</div>
+                </td>
+                <td>{{ line.unitOfMeasure || '—' }}</td>
+                <td class="text-right">{{ line.quantity | number:'1.0-3' }}</td>
+                <td class="text-right">{{ line.unitPrice | number:'1.2-2' }}</td>
+                <td class="text-right">{{ line.fulfilledQty | number:'1.0-3' }}</td>
+                <td class="text-right">{{ outstanding(line) | number:'1.0-3' }}</td>
+                <td>{{ formatStatus(line.fulfillmentMode) || '—' }}</td>
+                <td><p-tag [value]="formatStatus(line.status)" severity="secondary"></p-tag></td>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="emptymessage">
+              <tr><td colspan="8" class="text-center text-secondary" style="padding:2rem">No lines.</td></tr>
+            </ng-template>
+          </p-table>
+        </div>
+      </p-tabPanel>
+
+      <p-tabPanel header="Deliveries" leftIcon="pi pi-truck">
+        <div class="table-card flush">
+          <p-table [value]="deliveries" [loading]="isLoadingDeliveries"
+                   [tableStyle]="{'min-width':'56rem'}" data-testid="deliveries-table">
+            <ng-template pTemplate="header">
+              <tr>
+                <th>Delivery #</th>
+                <th>Mode</th>
+                <th class="text-center">Lines</th>
+                <th>Requested</th>
+                <th>Created</th>
+                <th>Status</th>
+                <th class="text-center">Actions</th>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-d>
+              <tr>
+                <td class="font-mono font-semibold">{{ d.deliveryNumber }}</td>
+                <td>{{ formatStatus(d.deliveryMode) || '—' }}</td>
+                <td class="text-center">{{ d.lineCount }}</td>
+                <td>{{ d.requestedDate ? (d.requestedDate | date:'dd MMM yyyy') : '—' }}</td>
+                <td>{{ d.createdDate | date:'dd MMM yyyy' }}</td>
+                <td><p-tag [value]="formatStatus(d.status)" [severity]="getDeliverySeverity(d.status)"></p-tag></td>
+                <td class="text-center">
+                  <!-- The delivery's own page is where it is released, picked, packed, issued,
+                       shipped, tracked and collected — one link, not seven. -->
+                  <p-button icon="pi pi-eye" [text]="true" severity="info" size="small" pTooltip="Open delivery"
+                            [routerLink]="['/portal/pages/logistics/deliveries', d.uuid]"
+                            data-testid="open-delivery"></p-button>
+                </td>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="emptymessage">
+              <tr>
+                <td colspan="7" class="text-center text-secondary" style="padding:2rem">
+                  No deliveries raised for this order yet.
+                </td>
+              </tr>
+            </ng-template>
+          </p-table>
+        </div>
+      </p-tabPanel>
+
+    </p-tabView>
+
+    <app-timeline-panel [traceId]="o.traceId" interfaceCode="SO" [(visible)]="timelineVisible"></app-timeline-panel>
+  </ng-container>
+
+  <!-- ── Create delivery ──────────────────────────────────────────────────────── -->
+
+  <p-dialog header="Create a delivery" [(visible)]="createDialogVisible" [modal]="true"
+            [style]="{width:'44rem'}" [draggable]="false" data-testid="create-delivery-dialog">
+    <p class="dialog-hint">
+      Pick the lines and quantities for this delivery. Anything left over can go on a later one.
+    </p>
+
+    <div class="dialog-row">
+      <label class="dialog-label" for="delivery-mode">Delivery mode</label>
+      <p-dropdown inputId="delivery-mode" [options]="modeOptions" [(ngModel)]="deliveryMode"
+                  appendTo="body" styleClass="w-full" data-testid="delivery-mode"></p-dropdown>
+    </div>
+
+    <p-table [value]="choices" styleClass="p-datatable-sm" data-testid="choice-table">
+      <ng-template pTemplate="header">
+        <tr>
+          <th style="width:3rem"></th>
+          <th>Item</th>
+          <th class="text-right" style="width:7rem">Outstanding</th>
+          <th class="text-right" style="width:9rem">This delivery</th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-c>
+        <tr [class.line-excluded]="!c.include">
+          <td><p-checkbox [(ngModel)]="c.include" [binary]="true"></p-checkbox></td>
+          <td>{{ describe(c.line) }}</td>
+          <td class="text-right">{{ c.outstanding | number:'1.0-3' }}</td>
+          <td class="text-right">
+            <p-inputNumber [(ngModel)]="c.qty" [min]="0" [max]="c.outstanding" [disabled]="!c.include"
+                           [minFractionDigits]="0" [maxFractionDigits]="3" inputStyleClass="qty-input"
+                           [showButtons]="false"></p-inputNumber>
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+
+    <div class="dialog-row">
+      <label class="dialog-label" for="delivery-notes">Notes</label>
+      <textarea pTextarea id="delivery-notes" [(ngModel)]="deliveryNotes" rows="2" class="w-full"
+                placeholder="Optional — anything the warehouse should know."></textarea>
+    </div>
+
+    <ng-template pTemplate="footer">
+      <p-button label="Back" [text]="true" severity="secondary" (onClick)="createDialogVisible = false"></p-button>
+      <p-button label="Create delivery" icon="pi pi-check" [disabled]="!canSubmitDelivery"
+                (onClick)="submitDelivery()" data-testid="create-delivery-confirm"></p-button>
+    </ng-template>
+  </p-dialog>
+</div>

@@ -71,7 +71,7 @@ internal sealed class FakeStockReservationService : IStockReservationService
 
     public Task<ReservationResult> ReserveAsync(
         string sourceType, Guid sourceUuid, IReadOnlyList<ReservationRequest> requests,
-        int userId, CancellationToken ct = default)
+        int userId, DateTime? expiresAt = null, CancellationToken ct = default)
     {
         ReserveCallCount++;
 
@@ -215,6 +215,56 @@ internal sealed class FakeStockReservationService : IStockReservationService
             .ToList();
 
         return Task.FromResult(result);
+    }
+
+    /// <summary>
+    /// Logistics never exercises SALES_ORDER expiry sweeping — MIR/Delivery holds carry no TTL —
+    /// so these three exist only to satisfy the interface and always report nothing to do.
+    /// </summary>
+    public Task<IReadOnlyList<ExpiringReservation>> GetExpiredAsync(string sourceType, CancellationToken ct = default) =>
+        Task.FromResult<IReadOnlyList<ExpiringReservation>>([]);
+
+    public Task<IReadOnlyList<ExpiringReservation>> GetExpiringWithinAsync(
+        string sourceType, TimeSpan within, CancellationToken ct = default) =>
+        Task.FromResult<IReadOnlyList<ExpiringReservation>>([]);
+
+    public Task MarkExpiryWarningSentAsync(IReadOnlyList<Guid> reservationUuids, CancellationToken ct = default) =>
+        Task.CompletedTask;
+
+    public Task<ExpiringReservation?> GetByUuidAsync(Guid reservationUuid, CancellationToken ct = default) =>
+        Task.FromResult<ExpiringReservation?>(null);
+
+    public Task<decimal> TransferLineAsync(
+        string fromSourceType, Guid fromSourceUuid, Guid fromSourceLineUuid,
+        string toSourceType, Guid toSourceUuid, Guid? toSourceLineUuid,
+        decimal quantity, int userId, CancellationToken ct = default)
+    {
+        var remaining = quantity;
+        var moved     = 0m;
+
+        foreach (var held in _held.Where(h => h.SourceType == fromSourceType
+                                           && h.SourceUuid == fromSourceUuid
+                                           && h.SourceLineUuid == fromSourceLineUuid
+                                           && h.Status == "ACTIVE").ToList())
+        {
+            if (remaining <= 0) break;
+
+            var take = Math.Min(remaining, held.Qty);
+            held.Qty -= take;
+            if (held.Qty <= 0) held.Status = "TRANSFERRED";
+
+            // The same place on the shelf, now held by the other document. The counter (what
+            // RemainingAvailable reports) is unchanged: the units were reserved before and after.
+            _held.Add(new Held(toSourceType, toSourceUuid, held.VariantUuid, toSourceLineUuid, take)
+            {
+                Location = held.Location
+            });
+
+            remaining -= take;
+            moved     += take;
+        }
+
+        return Task.FromResult(moved);
     }
 
     public Task<IReadOnlyList<ReservationSummary>> GetBySourceAsync(

@@ -333,8 +333,114 @@ public class SchemaTests
     [InlineData("PO", false)]
     [InlineData("TRANSFER", true)]
     [InlineData("MANUAL", true)]
+    [InlineData("SALE_ORDER", true)]
     public void A_delivery_derives_its_posting_rule_from_its_source(string sourceType, bool expected) =>
         new DeliveryOrder { SourceType = sourceType }.PostsGoodsIssue.Should().Be(expected);
+
+    // ── A29-P6-01 — sale-order fulfilment columns ────────────────────────────
+
+    [Theory]
+    [InlineData(nameof(DeliveryOrder.SaleOrderUuid),        null)]
+    [InlineData(nameof(DeliveryOrder.DeliveryMode),         15)]
+    [InlineData(nameof(DeliveryOrder.PickupPersonName),     200)]
+    [InlineData(nameof(DeliveryOrder.PickupPersonIdType),   20)]
+    [InlineData(nameof(DeliveryOrder.PickupPersonIdNumber), 50)]
+    [InlineData(nameof(DeliveryOrder.PickupAuthorization),  500)]
+    [InlineData(nameof(DeliveryOrder.PickedUpAt),           null)]
+    [InlineData(nameof(DeliveryOrder.PickedUpBy),           null)]
+    public void The_sale_order_delivery_columns_are_nullable_so_no_other_delivery_needs_them(
+        string column, int? maxLength)
+    {
+        var property = Model().FindEntityType(typeof(DeliveryOrder))!.FindProperty(column)!;
+
+        property.IsNullable.Should().BeTrue($"{column} is empty on every non-sale-order delivery");
+        property.GetMaxLength().Should().Be(maxLength);
+    }
+
+    [Fact]
+    public void A_delivery_line_can_name_the_sale_order_line_it_fulfils_but_need_not()
+    {
+        Model().FindEntityType(typeof(DeliveryOrderLine))!
+               .FindProperty(nameof(DeliveryOrderLine.SoLineUuid))!
+               .IsNullable.Should().BeTrue();
+    }
+
+    [Fact]
+    public void The_sale_order_references_are_bare_uuids_because_sale_orders_are_in_another_dbcontext()
+    {
+        // Demand owns SaleOrder; a real FK would need Logistics to reference its DbContext. The
+        // existing SourceUuid / SourceLineUuid make the same trade.
+        var model = Model();
+
+        model.FindEntityType(typeof(DeliveryOrder))!.GetForeignKeys()
+             .Should().NotContain(k => k.Properties.Any(p => p.Name == nameof(DeliveryOrder.SaleOrderUuid)));
+        model.FindEntityType(typeof(DeliveryOrderLine))!.GetForeignKeys()
+             .Should().NotContain(k => k.Properties.Any(p => p.Name == nameof(DeliveryOrderLine.SoLineUuid)));
+    }
+
+    [Fact]
+    public void Deliveries_of_a_sale_order_are_indexed_by_order_and_status()
+    {
+        // A29 §17.2 — the lookup behind GET /api/sale-orders/{id}/deliveries.
+        Model().FindEntityType(typeof(DeliveryOrder))!.GetIndexes()
+               .Any(i => !i.IsUnique
+                      && i.Properties.Select(p => p.Name).SequenceEqual(
+                             new[] { nameof(DeliveryOrder.SaleOrderUuid), nameof(DeliveryOrder.Status) }))
+               .Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task A_sale_order_delivery_round_trips_its_fulfilment_fields()
+    {
+        var (db, _, _) = LogisticsTestDb.New();
+        var soUuid   = Guid.NewGuid();
+        var soLine   = Guid.NewGuid();
+
+        var delivery = NewDelivery();
+        delivery.SourceType          = LogisticsCode.Of(DeliverySourceType.SaleOrder);
+        delivery.SaleOrderUuid       = soUuid;
+        delivery.DeliveryMode        = "SELF_PICKUP";
+        delivery.PickupPersonName    = "Ahmed Raza";
+        delivery.PickupPersonIdType  = "CNIC";
+        delivery.PickupPersonIdNumber = "35202-1234567-1";
+        delivery.PickupAuthorization = "Authorization letter AL-2026-114 signed by the customer's procurement lead";
+        var line = NewLine(1);
+        line.SoLineUuid = soLine;
+        delivery.Lines.Add(line);
+        db.DeliveryOrders.Add(delivery);
+        await db.SaveChangesAsync();
+        db.ChangeTracker.Clear();
+
+        var loaded = await db.DeliveryOrders.Include(d => d.Lines).SingleAsync();
+        loaded.SaleOrderUuid.Should().Be(soUuid);
+        loaded.DeliveryMode.Should().Be("SELF_PICKUP");
+        loaded.PickupPersonName.Should().Be("Ahmed Raza");
+        loaded.PickupPersonIdType.Should().Be("CNIC");
+        loaded.PickupPersonIdNumber.Should().Be("35202-1234567-1");
+        loaded.PickupAuthorization.Should().StartWith("Authorization letter");
+        loaded.Lines.Single().SoLineUuid.Should().Be(soLine);
+        loaded.PostsGoodsIssue.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task A_delivery_from_any_other_source_leaves_the_sale_order_fields_empty()
+    {
+        var (db, _, _) = LogisticsTestDb.New();
+        var delivery = NewDelivery();
+        delivery.Lines.Add(NewLine(1));
+        db.DeliveryOrders.Add(delivery);
+        await db.SaveChangesAsync();
+        db.ChangeTracker.Clear();
+
+        var loaded = await db.DeliveryOrders.Include(d => d.Lines).SingleAsync();
+        loaded.SaleOrderUuid.Should().BeNull();
+        loaded.DeliveryMode.Should().BeNull();
+        loaded.PickupPersonName.Should().BeNull();
+        loaded.PickupPersonIdType.Should().BeNull();
+        loaded.PickupPersonIdNumber.Should().BeNull();
+        loaded.PickupAuthorization.Should().BeNull();
+        loaded.Lines.Single().SoLineUuid.Should().BeNull();
+    }
 
     // ── Builders ─────────────────────────────────────────────────────────────
 

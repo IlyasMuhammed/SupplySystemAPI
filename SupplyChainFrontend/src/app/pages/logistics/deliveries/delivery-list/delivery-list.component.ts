@@ -101,7 +101,8 @@ export class DeliveryListComponent implements OnInit, OnDestroy {
     { label: 'Supplier Return',  value: 'SRO' },
     { label: 'Material Issue',   value: 'MIV' },
     { label: 'Warehouse Transfer', value: 'TRANSFER' },
-    { label: 'Manual',           value: 'MANUAL' }
+    { label: 'Manual',           value: 'MANUAL' },
+    { label: 'Sale Order',       value: 'SALE_ORDER' }
   ];
 
   constructor(

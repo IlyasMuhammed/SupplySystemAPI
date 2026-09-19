@@ -59,6 +59,10 @@ public static class FinanceModuleExtensions
         services.AddScoped<IInvoiceAutoCreationService, InvoiceAutoCreationService>();
         services.AddScoped<IGrnEventPublisher, InvoiceAutoCreateGrnEventPublisher>();
 
+        // A29-P7-04 — the receivable side: sale invoices and the customer ledger they write.
+        services.AddScoped<ICustomerLedgerService, CustomerLedgerService>();
+        services.AddScoped<ISalesInvoiceService, SalesInvoiceService>();
+
         // Timeline trace_id resolver
         services.AddScoped<ITraceIdResolver, InvoiceTraceIdResolver>();
         services.AddScoped<ITraceIdResolver, SupplierPaymentTraceIdResolver>();

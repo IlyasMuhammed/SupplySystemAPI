@@ -24,6 +24,11 @@ internal sealed class DemandDbContext : DbContext, ITenantScopedDbContext
     internal DbSet<PurchaseOrderLine>         PurchaseOrderLines        => Set<PurchaseOrderLine>();
     internal DbSet<PurchaseOrderPrLink>       PurchaseOrderPrLinks      => Set<PurchaseOrderPrLink>();
     internal DbSet<RfqAccessLink>             RfqAccessLinks            => Set<RfqAccessLink>();
+    internal DbSet<SaleOrderConfig>           SaleOrderConfigs          => Set<SaleOrderConfig>();
+    internal DbSet<SaleOrderConfigAudit>      SaleOrderConfigAudits     => Set<SaleOrderConfigAudit>();
+    internal DbSet<SaleOrder>                 SaleOrders                => Set<SaleOrder>();
+    internal DbSet<SaleOrderLine>             SaleOrderLines            => Set<SaleOrderLine>();
+    internal DbSet<SaleOrderIntimation>       SaleOrderIntimations      => Set<SaleOrderIntimation>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -19,6 +19,25 @@
   color: var(--yellow-800, #854d0e);
 }
 
+// Collected: green, because it is the end of the story, not a warning.
+.collected-banner {
+  display: flex; align-items: flex-start; gap: .5rem;
+  padding: .75rem 1rem; margin-bottom: 1.25rem; border-radius: .5rem;
+  font-size: .875rem;
+  background: var(--green-50, #f0fdf4);
+  border: 1px solid var(--green-200, #bbf7d0);
+  color: var(--green-800, #166534);
+}
+
+.source-link { color: var(--primary-color); text-decoration: none; }
+.source-link:hover { text-decoration: underline; }
+.mode-chip { display: inline-flex; align-items: center; gap: .3rem; margin-left: .375rem; font-size: .8125rem; }
+.mode-chip i { font-size: .75rem; }
+.mode-chip.mode-pickup i { color: var(--orange-600, #ea580c); }
+
+.dialog-row { margin-top: 1rem; }
+.dialog-row.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+
 .detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr)); gap: 1rem; margin-bottom: 1.25rem; }
 
 .card {

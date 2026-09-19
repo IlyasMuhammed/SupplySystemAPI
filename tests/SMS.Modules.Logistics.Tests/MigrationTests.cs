@@ -192,6 +192,70 @@ public class MigrationTests
         added["IntegrationMode"].Should().Be("MANUAL");
     }
 
+    // ── A29-P6-01 — the sale-order fulfilment columns ────────────────────────
+
+    private static Migration SaleOrderFulfilmentMigration() =>
+        Migrations().Single(m => m.GetType().Name == "AddDeliverySaleOrderFulfilment");
+
+    [Fact]
+    public void The_sale_order_migration_only_adds_nullable_columns_and_one_index()
+    {
+        // 17.3 — "PO and delivery_orders additions are nullable". A NOT NULL column, or one with a
+        // default, would either fail against existing rows or quietly stamp every historic
+        // delivery with a value it never had.
+        var up = SaleOrderFulfilmentMigration().UpOperations;
+
+        var columns = up.OfType<AddColumnOperation>().ToList();
+        columns.Select(c => $"{c.Table}.{c.Name}").Should().BeEquivalentTo(
+        [
+            "delivery_orders.SaleOrderUuid", "delivery_orders.DeliveryMode",
+            "delivery_orders.PickupPersonName", "delivery_orders.PickupPersonIdType",
+            "delivery_orders.PickupPersonIdNumber", "delivery_orders.PickupAuthorization",
+            "delivery_order_lines.SoLineUuid"
+        ]);
+        columns.Should().OnlyContain(c => c.IsNullable && c.DefaultValue == null && c.DefaultValueSql == null);
+
+        up.OfType<CreateIndexOperation>().Should().ContainSingle()
+          .Which.Columns.Should().Equal("SaleOrderUuid", "Status");
+
+        up.Should().HaveCount(columns.Count + 1, "nothing else may ride along in this migration");
+    }
+
+    [Fact]
+    public void Rolling_the_sale_order_migration_back_removes_exactly_what_it_added()
+    {
+        var migration = SaleOrderFulfilmentMigration();
+
+        migration.DownOperations.OfType<DropColumnOperation>().Select(o => $"{o.Table}.{o.Name}")
+                 .Should().BeEquivalentTo(
+                     migration.UpOperations.OfType<AddColumnOperation>().Select(o => $"{o.Table}.{o.Name}"));
+        migration.DownOperations.OfType<DropIndexOperation>().Should().ContainSingle();
+        migration.DownOperations.Should().OnlyContain(o => o is DropColumnOperation || o is DropIndexOperation);
+    }
+
+    [Fact]
+    public void The_sale_order_migration_touches_no_foreign_key_to_another_module()
+    {
+        SaleOrderFulfilmentMigration().UpOperations.OfType<AddForeignKeyOperation>().Should().BeEmpty();
+    }
+
+    [Fact]
+    public void The_pickup_timestamp_migration_adds_two_nullable_columns_and_nothing_else()
+    {
+        // A29-P6-04 — when the customer collected, and who handed over. Nullable: every delivery
+        // that is not a collection, and every collection not yet made, has neither.
+        var migration = Migrations().Single(m => m.GetType().Name == "AddDeliveryPickupTimestamp");
+
+        var added = migration.UpOperations.OfType<AddColumnOperation>().ToList();
+        added.Select(c => $"{c.Table}.{c.Name}").Should().BeEquivalentTo(
+            ["delivery_orders.PickedUpAt", "delivery_orders.PickedUpBy"]);
+        added.Should().OnlyContain(c => c.IsNullable && c.DefaultValue == null && c.DefaultValueSql == null);
+        migration.UpOperations.Should().HaveCount(2);
+
+        migration.DownOperations.OfType<DropColumnOperation>().Select(o => $"{o.Table}.{o.Name}")
+                 .Should().BeEquivalentTo(added.Select(c => $"{c.Table}.{c.Name}"));
+    }
+
     // ── The test that stops the model and the migrations drifting apart ──────
 
     [Fact]

@@ -1,0 +1,107 @@
+<div class="partner-create-page">
+  <p-toast></p-toast>
+
+  <div class="page-header">
+    <div class="header-content">
+      <div class="header-left">
+        <p-button icon="pi pi-arrow-left" [text]="true" severity="secondary" (onClick)="cancel()"></p-button>
+        <div>
+          <h1 class="page-title">
+            <i class="pi pi-sitemap"></i>
+            {{ isEditMode ? 'Edit Business Partner' : 'New Business Partner' }}
+          </h1>
+          <p class="page-subtitle">
+            A vendor, a customer, a carrier, a service provider — or several at once
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <form [formGroup]="partnerForm" (ngSubmit)="save()">
+    <p-card>
+      <div class="form-grid">
+        <div class="form-field full-width">
+          <label for="companyName">Company Name <span class="req">*</span></label>
+          <input pInputText id="companyName" formControlName="companyName" class="w-full"
+                 data-testid="field-company-name" />
+          <small class="p-error" *ngIf="partnerForm.get('companyName')?.invalid && partnerForm.get('companyName')?.touched">
+            Company name is required (2–200 characters).
+          </small>
+        </div>
+
+        <div class="form-field">
+          <label for="partnerCode">Partner Code <span class="req">*</span></label>
+          <input pInputText id="partnerCode" formControlName="partnerCode" class="w-full" maxlength="10"
+                 data-testid="field-partner-code" />
+          <small class="p-error" *ngIf="partnerForm.get('partnerCode')?.invalid && partnerForm.get('partnerCode')?.touched">
+            Partner code is required (up to 10 characters).
+          </small>
+        </div>
+      </div>
+
+      <p-divider></p-divider>
+
+      <!-- Capability flags — §1.2's four booleans. partner_type is computed from these server-side,
+           never entered directly (see BusinessPartnerModelValidator on the backend). -->
+      <div class="form-section-title">Capabilities</div>
+      <p class="field-hint">Select every relationship this partner has with your organization. At least one is required.</p>
+
+      <div class="capability-grid">
+        <div class="capability-field">
+          <p-checkbox formControlName="isVendor" [binary]="true" inputId="isVendor" data-testid="field-is-vendor"></p-checkbox>
+          <label for="isVendor" class="cursor-pointer">
+            <i class="pi pi-truck"></i> Vendor
+            <span class="capability-sub">Supplies goods — can be used on Purchase Orders</span>
+          </label>
+        </div>
+        <div class="capability-field">
+          <p-checkbox formControlName="isCustomer" [binary]="true" inputId="isCustomer" data-testid="field-is-customer"></p-checkbox>
+          <label for="isCustomer" class="cursor-pointer">
+            <i class="pi pi-users"></i> Customer
+            <span class="capability-sub">Purchases from your organization</span>
+          </label>
+        </div>
+        <div class="capability-field">
+          <p-checkbox formControlName="isCarrier" [binary]="true" inputId="isCarrier" data-testid="field-is-carrier"></p-checkbox>
+          <label for="isCarrier" class="cursor-pointer">
+            <i class="pi pi-send"></i> Carrier
+            <span class="capability-sub">Handles shipping and logistics</span>
+          </label>
+        </div>
+        <div class="capability-field">
+          <p-checkbox formControlName="isServiceProvider" [binary]="true" inputId="isServiceProvider" data-testid="field-is-service-provider"></p-checkbox>
+          <label for="isServiceProvider" class="cursor-pointer">
+            <i class="pi pi-wrench"></i> Service Provider
+            <span class="capability-sub">Maintenance, consulting or other services</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Dynamic fields — only the ones relevant to the capabilities just checked. -->
+      <div class="dynamic-fields" *ngIf="partnerForm.get('isCarrier')?.value || partnerForm.get('isServiceProvider')?.value">
+        <p-divider></p-divider>
+
+        <div class="form-field full-width" *ngIf="partnerForm.get('isCarrier')?.value" data-testid="field-vehicle-types-wrap">
+          <label for="vehicleTypes">Vehicle Types</label>
+          <input pInputText id="vehicleTypes" formControlName="vehicleTypes" class="w-full"
+                 placeholder="e.g. Truck, Van, Bike" data-testid="field-vehicle-types" />
+          <small class="field-hint">Comma-separated — shown on the carrier dropdown when booking a shipment.</small>
+        </div>
+
+        <div class="form-field full-width" *ngIf="partnerForm.get('isServiceProvider')?.value" data-testid="field-service-categories-wrap">
+          <label for="serviceCategories">Service Categories</label>
+          <input pInputText id="serviceCategories" formControlName="serviceCategories" class="w-full"
+                 placeholder="e.g. Maintenance, Consulting" data-testid="field-service-categories" />
+          <small class="field-hint">Comma-separated categories of service this provider offers.</small>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <p-button label="Cancel" severity="secondary" [text]="true" type="button" (onClick)="cancel()"></p-button>
+        <p-button [label]="isEditMode ? 'Save Changes' : 'Create Partner'" icon="pi pi-check"
+                  type="submit" [loading]="isSubmitting" data-testid="save-partner"></p-button>
+      </div>
+    </p-card>
+  </form>
+</div>

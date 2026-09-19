@@ -28,8 +28,11 @@ internal sealed class ScorecardDashboardService : IScorecardDashboardService
             return new SupplierScorecardRankingResponse { PeriodStart = periodStart, PeriodEnd = periodEnd };
 
         var supplierIds = snapshots.Select(s => s.SupplierId).Distinct().ToList();
-        var supplierNames = await _db.Suppliers.AsNoTracking()
-            .Where(s => !s.IsDelete && supplierIds.Contains(s.UUID))
+        // P1-06 (Addendum 29 §1.7) — a GRN score snapshot could only ever exist for a real vendor
+        // in practice, but this is the ranking list itself (not a single known-vendor lookup), so
+        // it gets the explicit filter rather than relying on that being true by construction.
+        var supplierNames = await _db.BusinessPartners.AsNoTracking()
+            .Where(s => !s.IsDelete && s.IsVendor && supplierIds.Contains(s.UUID))
             .Select(s => new { s.UUID, s.SupplierName })
             .ToDictionaryAsync(s => s.UUID, s => s.SupplierName);
 
@@ -78,7 +81,7 @@ internal sealed class ScorecardDashboardService : IScorecardDashboardService
 
     public async Task<SupplierScorecardDetailModel?> GetSupplierDetailAsync(Guid supplierId)
     {
-        var supplier = await _db.Suppliers.AsNoTracking()
+        var supplier = await _db.BusinessPartners.AsNoTracking()
             .Where(s => s.UUID == supplierId && !s.IsDelete)
             .Select(s => new { s.SupplierName })
             .FirstOrDefaultAsync();

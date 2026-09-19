@@ -242,9 +242,11 @@ export interface SourceLineSelection {
 }
 
 export interface CreateDeliveryFromSourceRequest {
-  /** PO | SRO | MIV. TRANSFER and MANUAL have no source document — use createDelivery. */
+  /** PO | SRO | MIV | SALE_ORDER. TRANSFER and MANUAL have no source document — use createDelivery. */
   sourceType: string;
   sourceUuid: string;
+  /** SALE_ORDER only: SHIP or SELF_PICKUP. Omit to take the order's own mode. */
+  deliveryMode?: string;
   shipFromWarehouseUuid?: string;
   shipToWarehouseUuid?: string;
   shipFromAddress?: AddressRequest;
@@ -289,6 +291,8 @@ export interface DeliveryLineModel {
   batchNumber?: string;
   serialNumber?: string;
   sourceLineUuid?: string;
+  /** The sale order line this line fulfils. Null unless the delivery is for a sale order. */
+  soLineUuid?: string;
   unitValue?: number;
   isHazardous: boolean;
   isFragile: boolean;
@@ -301,6 +305,8 @@ export interface DeliveryListItemModel {
   direction: string;
   sourceType: string;
   sourceNumber?: string;
+  /** SHIP or SELF_PICKUP for a sale-order delivery; null otherwise. */
+  deliveryMode?: string;
   status: string;
   priority: string;
   requestedDate?: string;
@@ -322,6 +328,16 @@ export interface DeliveryDetailModel {
   sourceNumber?: string;
   /** Derived from the source type — whether this delivery posts the stock movement itself. */
   postsGoodsIssue: boolean;
+  /** Set only when the delivery fulfils a sale order. */
+  saleOrderUuid?: string;
+  /** SHIP or SELF_PICKUP for a sale-order delivery; null otherwise. */
+  deliveryMode?: string;
+  /** Who collected a self-pickup delivery, and when. Null until it has been collected. */
+  pickupPersonName?: string;
+  pickupPersonIdType?: string;
+  pickupPersonIdNumber?: string;
+  pickupAuthorization?: string;
+  pickedUpAt?: string;
   shipFromAddress?: AddressModel;
   shipToAddress?: AddressModel;
   requestedDate?: string;
@@ -339,6 +355,36 @@ export interface DeliveryDetailModel {
   modifiedDate?: string;
   lines: DeliveryLineModel[];
 }
+
+// ── Self-pickup collection (A29 §8.2) ─────────────────────────────────────────
+
+export interface RecordPickupRequest {
+  pickupPersonName: string;
+  /** CNIC, LICENSE or PASSPORT. */
+  pickupPersonIdType: string;
+  pickupPersonIdNumber: string;
+  /** Optional: the letter or person authorising a collector who is not the customer. */
+  pickupAuthorization?: string;
+}
+
+export interface PickupResultModel {
+  deliveryUuid: string;
+  deliveryNumber: string;
+  status: string;
+  pickedUpAt: string;
+  pickupPersonName: string;
+  /** Set when this call issued the stock; null when it had been issued before the customer came. */
+  goodsIssue?: GoodsIssueResultModel;
+  /** What the sale order became — PARTIALLY_FULFILLED or FULFILLED. Null if it could not be updated. */
+  saleOrderStatus?: string;
+}
+
+/** The ID types the server accepts for a collector. */
+export const PICKUP_ID_TYPES: { code: string; label: string }[] = [
+  { code: 'CNIC',     label: 'CNIC' },
+  { code: 'LICENSE',  label: 'Driving licence' },
+  { code: 'PASSPORT', label: 'Passport' }
+];
 
 export interface DeliveryFilter {
   status?: string;
@@ -1991,6 +2037,14 @@ export class LogisticsService {
   goodsIssueDelivery(uuid: string): Observable<ApiResponse<GoodsIssueResultModel>> {
     return this.http.post<ApiResponse<GoodsIssueResultModel>>(
       `${BASE}/deliveries/${uuid}/goods-issue`, {});
+  }
+
+  /**
+   * The customer collects a self-pickup delivery: records who took the goods, issues the stock if
+   * the store had not already, and marks the delivery DELIVERED.
+   */
+  recordPickup(uuid: string, req: RecordPickupRequest): Observable<ApiResponse<PickupResultModel>> {
+    return this.http.post<ApiResponse<PickupResultModel>>(`${BASE}/deliveries/${uuid}/pickup`, req);
   }
 
   // ── Documents ─────────────────────────────────────────────────────────────

@@ -24,6 +24,14 @@ internal sealed class DeliveryOrderMap : IEntityTypeConfiguration<DeliveryOrder>
         b.Property(x => x.Priority).HasMaxLength(20).IsRequired();
         b.Property(x => x.Incoterm).HasMaxLength(10);
 
+        // Sale-order fulfilment. All nullable — every existing delivery, and every non-sale-order
+        // delivery to come, leaves them empty.
+        b.Property(x => x.DeliveryMode).HasMaxLength(15);
+        b.Property(x => x.PickupPersonName).HasMaxLength(200);
+        b.Property(x => x.PickupPersonIdType).HasMaxLength(20);
+        b.Property(x => x.PickupPersonIdNumber).HasMaxLength(50);
+        b.Property(x => x.PickupAuthorization).HasMaxLength(500);
+
         b.Property(x => x.Status).HasMaxLength(30).IsRequired();
         b.Property(x => x.StatusBeforeHold).HasMaxLength(30);
         b.Property(x => x.HoldReason).HasMaxLength(500);
@@ -37,6 +45,8 @@ internal sealed class DeliveryOrderMap : IEntityTypeConfiguration<DeliveryOrder>
         b.HasIndex(x => new { x.OrganizationId, x.Status });
         // "Show me the delivery for this PO" — the lookup every source module makes.
         b.HasIndex(x => new { x.OrganizationId, x.SourceType, x.SourceUuid });
+        // A29 §17.2 — "the deliveries of this sale order, by status".
+        b.HasIndex(x => new { x.SaleOrderUuid, x.Status });
 
         b.HasMany(x => x.Lines)
          .WithOne(x => x.DeliveryOrder)

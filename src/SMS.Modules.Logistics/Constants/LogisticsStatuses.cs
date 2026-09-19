@@ -66,11 +66,18 @@ internal static class LogisticsStatuses
 
     internal static class SourceType
     {
-        internal const string Po       = "PO";
-        internal const string Sro      = "SRO";
-        internal const string Miv      = "MIV";
-        internal const string Transfer = "TRANSFER";
-        internal const string Manual   = "MANUAL";
+        internal const string Po        = "PO";
+        internal const string Sro       = "SRO";
+        internal const string Miv       = "MIV";
+        internal const string Transfer  = "TRANSFER";
+        internal const string Manual    = "MANUAL";
+        internal const string SaleOrder = "SALE_ORDER";
+    }
+
+    internal static class DeliveryMode
+    {
+        internal const string Ship       = "SHIP";
+        internal const string SelfPickup = "SELF_PICKUP";
     }
 
     internal static class Milestone

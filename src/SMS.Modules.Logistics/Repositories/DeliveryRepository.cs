@@ -4,6 +4,7 @@ using SMS.Modules.Logistics.Domain;
 using SMS.Modules.Logistics.Domain.StateMachines;
 using SMS.Modules.Logistics.Models;
 using SMS.Modules.Logistics.Services;
+using SMS.Shared.Common;
 using SMS.Shared.Exceptions;
 using SMS.Shared.Pagination;
 
@@ -13,6 +14,8 @@ internal interface IDeliveryRepository
 {
     Task<Guid> CreateAsync(CreateDeliveryRequest req, int createdBy);
     Task<PaginatedResponse<DeliveryListItemModel>> GetListAsync(DeliveryFilter filter);
+    /// <summary>Every delivery raised for one sale order, oldest first.</summary>
+    Task<IReadOnlyList<DeliveryListItemModel>> GetForSaleOrderAsync(Guid saleOrderUuid);
     Task<DeliveryDetailModel?> GetByUuidAsync(Guid uuid);
     Task<bool> PatchAsync(Guid uuid, PatchDeliveryRequest req, int modifiedBy);
     Task<bool> DeleteAsync(Guid uuid);
@@ -226,22 +229,7 @@ internal sealed class DeliveryRepository : IDeliveryRepository
             .ThenByDescending(x => x.Id)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
-            .Select(x => new DeliveryListItemModel
-            {
-                UUID           = x.UUID,
-                DeliveryNumber = x.DeliveryNumber,
-                Direction      = x.Direction,
-                SourceType     = x.SourceType,
-                SourceNumber   = x.SourceNumber,
-                Status         = x.Status,
-                Priority       = x.Priority,
-                RequestedDate  = x.RequestedDate,
-                PromisedDate   = x.PromisedDate,
-                ShipToCity     = x.ShipToAddress != null ? x.ShipToAddress.CityName : null,
-                LineCount      = x.Lines.Count,
-                LinesUnknown   = x.LinesUnknown,
-                CreatedDate    = x.CreatedDate
-            })
+            .Select(ToListItem)
             .ToListAsync();
 
         return new PaginatedResponse<DeliveryListItemModel>
@@ -253,6 +241,35 @@ internal sealed class DeliveryRepository : IDeliveryRepository
             TotalPages   = (int)Math.Ceiling(total / (double)pageSize)
         };
     }
+
+    public async Task<IReadOnlyList<DeliveryListItemModel>> GetForSaleOrderAsync(Guid saleOrderUuid) =>
+        await _db.DeliveryOrders
+            .Where(x => x.SaleOrderUuid == saleOrderUuid && !x.IsDelete)
+            // Oldest first: the order's fulfilment reads as a history — first shipment, second,
+            // the collection — rather than as a cockpit of what is newest.
+            .OrderBy(x => x.CreatedDate)
+            .ThenBy(x => x.Id)
+            .Select(ToListItem)
+            .ToListAsync();
+
+    private static readonly System.Linq.Expressions.Expression<Func<DeliveryOrder, DeliveryListItemModel>> ToListItem =
+        x => new DeliveryListItemModel
+        {
+            UUID           = x.UUID,
+            DeliveryNumber = x.DeliveryNumber,
+            Direction      = x.Direction,
+            SourceType     = x.SourceType,
+            SourceNumber   = x.SourceNumber,
+            DeliveryMode   = x.DeliveryMode,
+            Status         = x.Status,
+            Priority       = x.Priority,
+            RequestedDate  = x.RequestedDate,
+            PromisedDate   = x.PromisedDate,
+            ShipToCity     = x.ShipToAddress != null ? x.ShipToAddress.CityName : null,
+            LineCount      = x.Lines.Count,
+            LinesUnknown   = x.LinesUnknown,
+            CreatedDate    = x.CreatedDate
+        };
 
     public async Task<DeliveryDetailModel?> GetByUuidAsync(Guid uuid)
     {
@@ -277,6 +294,13 @@ internal sealed class DeliveryRepository : IDeliveryRepository
             SourceUuid       = delivery.SourceUuid,
             SourceNumber     = delivery.SourceNumber,
             PostsGoodsIssue  = delivery.PostsGoodsIssue,
+            SaleOrderUuid    = delivery.SaleOrderUuid,
+            DeliveryMode     = delivery.DeliveryMode,
+            PickupPersonName     = delivery.PickupPersonName,
+            PickupPersonIdType   = delivery.PickupPersonIdType,
+            PickupPersonIdNumber = delivery.PickupPersonIdNumber,
+            PickupAuthorization  = delivery.PickupAuthorization,
+            PickedUpAt           = delivery.PickedUpAt,
             ShipFromAddress  = ToAddressModel(delivery.ShipFromAddress),
             ShipToAddress    = ToAddressModel(delivery.ShipToAddress),
             RequestedDate    = delivery.RequestedDate,
@@ -429,6 +453,7 @@ internal sealed class DeliveryRepository : IDeliveryRepository
         BatchNumber             = l.BatchNumber,
         SerialNumber            = l.SerialNumber,
         SourceLineUuid          = l.SourceLineUuid,
+        SoLineUuid              = l.SoLineUuid,
         UnitValue               = l.UnitValue,
         IsHazardous             = l.IsHazardous,
         IsFragile               = l.IsFragile,

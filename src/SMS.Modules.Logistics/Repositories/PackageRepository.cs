@@ -4,6 +4,7 @@ using SMS.Modules.Logistics.Domain;
 using SMS.Modules.Logistics.Domain.StateMachines;
 using SMS.Modules.Logistics.Models;
 using SMS.Modules.Logistics.Services;
+using SMS.Shared.Common;
 using SMS.Shared.Exceptions;
 
 namespace SMS.Modules.Logistics.Repositories;

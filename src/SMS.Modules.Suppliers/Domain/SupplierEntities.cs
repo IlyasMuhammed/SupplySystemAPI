@@ -2,7 +2,11 @@ using SMS.Shared.Common;
 
 namespace SMS.Modules.Suppliers.Domain;
 
-internal class Supplier : ITenantScopedEntity
+// P1-03 (Addendum 29 §1.2/§1.3) — renamed from Supplier. Deferred out of P1-01 deliberately: this
+// class is `internal`, so the rename is contained entirely to this module and its test project —
+// nothing outside SMS.Modules.Suppliers can reference it directly (see the module's public
+// surface: ISuppliersService/ISuppliersRepository expose only DTOs, never this type).
+internal class BusinessPartner : ITenantScopedEntity
 {
     public int Id { get; set; }
     public Guid UUID { get; set; }
@@ -41,6 +45,21 @@ internal class Supplier : ITenantScopedEntity
     // ── Financial ─────────────────────────────────────────────────────────────
     public decimal? CreditLimit { get; set; }
     public int? LeadTimeDays { get; set; }
+
+    // ── Partner type (P1-02, Addendum 29 §1.2/§1.3) ───────────────────────────
+    // PartnerType is derived from the four flags below, not an independent choice — kept as its
+    // own column because it is what every existing query/report/UI reads, and recomputing it on
+    // every read would be slower than recomputing it on the rare write. Every row created through
+    // the legacy Suppliers path defaults to VENDOR/is_vendor=1 (column defaults, not app code),
+    // which is also how the P1-01 backfill for pre-existing rows is satisfied — SQL Server applies
+    // a column's DEFAULT to existing rows when the column is added as NOT NULL.
+    public string PartnerType       { get; set; } = "VENDOR";
+    public bool   IsVendor          { get; set; } = true;
+    public bool   IsCustomer        { get; set; }
+    public bool   IsCarrier         { get; set; }
+    public bool   IsServiceProvider { get; set; }
+    public string? VehicleTypes      { get; set; }
+    public string? ServiceCategories { get; set; }
 
     // ── Status & workflow ─────────────────────────────────────────────────────
     public string Status { get; set; } = "PENDING";
@@ -86,7 +105,7 @@ internal class SupplierTypeMapping : ITenantScopedEntity
     public string? Notes { get; set; }
     public Guid OrganizationId { get; set; }
 
-    public Supplier Supplier { get; set; } = null!;
+    public BusinessPartner Supplier { get; set; } = null!;
 }
 
 internal class SupplierIndustryMapping : ITenantScopedEntity
@@ -100,7 +119,7 @@ internal class SupplierIndustryMapping : ITenantScopedEntity
     public string? Notes { get; set; }
     public Guid OrganizationId { get; set; }
 
-    public Supplier Supplier { get; set; } = null!;
+    public BusinessPartner Supplier { get; set; } = null!;
 }
 
 internal class SupplierContact : ITenantScopedEntity
@@ -115,7 +134,7 @@ internal class SupplierContact : ITenantScopedEntity
     public bool IsActive { get; set; } = true;
     public Guid OrganizationId { get; set; }
 
-    public Supplier Supplier { get; set; } = null!;
+    public BusinessPartner Supplier { get; set; } = null!;
 }
 
 internal class SupplierDocument : ITenantScopedEntity
@@ -130,7 +149,7 @@ internal class SupplierDocument : ITenantScopedEntity
     public bool IsActive { get; set; } = true;
     public Guid OrganizationId { get; set; }
 
-    public Supplier Supplier { get; set; } = null!;
+    public BusinessPartner Supplier { get; set; } = null!;
 }
 
 internal class SupplierBankDetail : ITenantScopedEntity
@@ -147,7 +166,7 @@ internal class SupplierBankDetail : ITenantScopedEntity
     public DateTime? UpdatedAt { get; set; }
     public Guid OrganizationId { get; set; }
 
-    public Supplier Supplier { get; set; } = null!;
+    public BusinessPartner Supplier { get; set; } = null!;
 }
 
 // ── Legacy-looking entities (verified live — full CRUD via SuppliersController) ─

@@ -105,13 +105,13 @@ internal sealed class SuppliersRepository : ISuppliersRepository
 
     public async Task<Guid> CreateSupplierAsync(CreateSupplierRequest req, int createdBy)
     {
-        if (await _db.Suppliers.AnyAsync(s => s.SupplierCode == req.SupplierCode && !s.IsDelete))
+        if (await _db.BusinessPartners.AnyAsync(s => s.SupplierCode == req.SupplierCode && !s.IsDelete))
             throw new ConflictException($"A supplier with code '{req.SupplierCode}' already exists.");
 
         var uuid = Guid.NewGuid();
         var now = DateTime.UtcNow;
 
-        var supplier = new Supplier
+        var supplier = new BusinessPartner
         {
             UUID = uuid,
             SupplierName = req.SupplierName,
@@ -145,7 +145,7 @@ internal sealed class SuppliersRepository : ISuppliersRepository
             CreatedDate = now
         };
 
-        _db.Suppliers.Add(supplier);
+        _db.BusinessPartners.Add(supplier);
         await _db.SaveChangesAsync();
 
         foreach (var t in req.SupplierTypeIds.DistinctBy(x => x.LookupValueId))
@@ -170,10 +170,15 @@ internal sealed class SuppliersRepository : ISuppliersRepository
 
     public async Task<PaginatedResponse<SupplierListItemModel>> GetSuppliersAsync(SupplierListFilter filter)
     {
-        var query = _db.Suppliers
+        var query = _db.BusinessPartners
             .Include(s => s.TypeMappings)
             .Include(s => s.IndustryMappings)
-            .Where(s => !s.IsDelete)
+            // P1-05 (Addendum 29 §1.7) — /api/suppliers must keep returning only is_vendor=1 rows.
+            // Before P1-02 every row in this table WAS a vendor implicitly; now that
+            // IBusinessPartnerRepository.CreateAsync (P1-04) can create pure customers, carriers
+            // and service providers in the same table, this filter is what keeps that true rather
+            // than it being true by accident of no other row shape existing yet.
+            .Where(s => !s.IsDelete && s.IsVendor)
             .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(filter.Status))
@@ -242,7 +247,7 @@ internal sealed class SuppliersRepository : ISuppliersRepository
 
     public async Task<SupplierDetailModel?> GetSupplierByIdAsync(Guid uuid)
     {
-        var s = await _db.Suppliers
+        var s = await _db.BusinessPartners
             .Include(x => x.TypeMappings)
             .Include(x => x.IndustryMappings)
             .Include(x => x.Contacts)
@@ -285,7 +290,7 @@ internal sealed class SuppliersRepository : ISuppliersRepository
 
     public async Task<bool> PatchSupplierAsync(Guid uuid, PatchSupplierRequest req, int modifiedBy)
     {
-        var s = await _db.Suppliers
+        var s = await _db.BusinessPartners
             .Include(x => x.TypeMappings)
             .Include(x => x.IndustryMappings)
             .FirstOrDefaultAsync(x => x.UUID == uuid && !x.IsDelete);
@@ -349,7 +354,7 @@ internal sealed class SuppliersRepository : ISuppliersRepository
 
     public async Task<int> AddContactAsync(Guid uuid, AddContactRequest req)
     {
-        var s = await _db.Suppliers.FirstOrDefaultAsync(x => x.UUID == uuid && !x.IsDelete)
+        var s = await _db.BusinessPartners.FirstOrDefaultAsync(x => x.UUID == uuid && !x.IsDelete)
             ?? throw new NotFoundException("Supplier", uuid);
 
         var contact = new SupplierContact
@@ -364,7 +369,7 @@ internal sealed class SuppliersRepository : ISuppliersRepository
 
     public async Task<bool> UpdateContactAsync(Guid supplierUuid, int contactId, PatchContactRequest req)
     {
-        var s = await _db.Suppliers.AsNoTracking()
+        var s = await _db.BusinessPartners.AsNoTracking()
             .FirstOrDefaultAsync(x => x.UUID == supplierUuid && !x.IsDelete);
         if (s is null) return false;
 
@@ -382,8 +387,8 @@ internal sealed class SuppliersRepository : ISuppliersRepository
 
     // ── Status state machine ─────────────────────────────────────────────────
 
-    private async Task<Supplier> RequireSupplierAsync(Guid uuid) =>
-        await _db.Suppliers.FirstOrDefaultAsync(x => x.UUID == uuid && !x.IsDelete)
+    private async Task<BusinessPartner> RequireSupplierAsync(Guid uuid) =>
+        await _db.BusinessPartners.FirstOrDefaultAsync(x => x.UUID == uuid && !x.IsDelete)
             ?? throw new NotFoundException("Supplier", uuid);
 
     private static void AssertTransition(string current, string next)
@@ -465,7 +470,7 @@ internal sealed class SuppliersRepository : ISuppliersRepository
 
     public async Task UpsertBankDetailAsync(Guid uuid, UpsertBankDetailRequest req, int userId)
     {
-        var s = await _db.Suppliers
+        var s = await _db.BusinessPartners
             .Include(x => x.BankDetail)
             .FirstOrDefaultAsync(x => x.UUID == uuid && !x.IsDelete)
             ?? throw new NotFoundException("Supplier", uuid);
@@ -520,7 +525,7 @@ internal sealed class SuppliersRepository : ISuppliersRepository
 
     public async Task<int> AttachDocumentAsync(Guid uuid, AttachDocumentRequest req, int userId)
     {
-        var s = await _db.Suppliers.FirstOrDefaultAsync(x => x.UUID == uuid && !x.IsDelete)
+        var s = await _db.BusinessPartners.FirstOrDefaultAsync(x => x.UUID == uuid && !x.IsDelete)
             ?? throw new NotFoundException("Supplier", uuid);
 
         var doc = new SupplierDocument
@@ -540,7 +545,7 @@ internal sealed class SuppliersRepository : ISuppliersRepository
 
     public async Task<List<DocumentModel>> GetDocumentsAsync(Guid uuid)
     {
-        var s = await _db.Suppliers.FirstOrDefaultAsync(x => x.UUID == uuid && !x.IsDelete)
+        var s = await _db.BusinessPartners.FirstOrDefaultAsync(x => x.UUID == uuid && !x.IsDelete)
             ?? throw new NotFoundException("Supplier", uuid);
 
         return await _db.SupplierDocuments
@@ -556,7 +561,7 @@ internal sealed class SuppliersRepository : ISuppliersRepository
 
     public async Task<bool> SoftDeleteDocumentAsync(Guid uuid, int docId)
     {
-        var s = await _db.Suppliers.FirstOrDefaultAsync(x => x.UUID == uuid && !x.IsDelete)
+        var s = await _db.BusinessPartners.FirstOrDefaultAsync(x => x.UUID == uuid && !x.IsDelete)
             ?? throw new NotFoundException("Supplier", uuid);
 
         var doc = await _db.SupplierDocuments
@@ -572,7 +577,7 @@ internal sealed class SuppliersRepository : ISuppliersRepository
 
     public async Task<SupplierContactsRaw?> GetContactsForEligibilityAsync(Guid supplierUuid)
     {
-        var supplier = await _db.Suppliers
+        var supplier = await _db.BusinessPartners
             .AsNoTracking()
             .FirstOrDefaultAsync(s => s.UUID == supplierUuid && !s.IsDelete);
 

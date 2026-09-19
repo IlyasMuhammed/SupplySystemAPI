@@ -210,6 +210,14 @@ internal class GrnLine : ITenantScopedEntity
     public decimal? UnitCost { get; set; }
     public bool HasVariance { get; set; }
     public string? QcResult { get; set; }  // PASS | FAIL | PARTIAL
+
+    // The quantity that actually reaches stock when the GRN is approved: what QC accepted for a line
+    // that needs inspection, otherwise what was delivered less what was rejected. EfGrnInventoryPoster
+    // posts exactly this, and A29-P5-06's auto-reservation reserves exactly this — one definition, so
+    // the two can never disagree about how much stock a receipt created.
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public decimal PostedQty => RequiresInspection ? QtyAccepted : Math.Max(0m, QtyReceived - QtyRejected);
+
     // Formal inspection fields (set during PENDING_QC by QC officer)
     public string? InspectionResult { get; set; }  // Pass | Fail | PartialPass
     public string? InspectorRemarks { get; set; }

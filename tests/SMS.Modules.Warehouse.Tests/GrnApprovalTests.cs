@@ -1,10 +1,16 @@
 using FluentAssertions;
+using Hangfire;
+using Hangfire.Common;
+using Hangfire.States;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 using SMS.Modules.Demand.Data;
 using SMS.Modules.Demand.Domain;
+using SMS.Modules.Demand.Models;
+using SMS.Modules.Demand.Services;
 using SMS.Modules.Inventory.Data;
 using SMS.Modules.Inventory.Domain;
 using SMS.Modules.Inventory.Models;
@@ -432,5 +438,236 @@ public class GrnApproval_LastPurchasePrice_Tests
 
         var dbGrn = await wh.Grns.FirstAsync(g => g.UUID == grn.UUID);
         dbGrn.Status.Should().Be("APPROVED");
+    }
+}
+
+// ── A29-P5-06 §6.4: approving a GRN for a back-to-back PO auto-reserves for the SO line ──
+//
+// End to end through the real chain: GrnStatusHandler → EfGrnInventoryPoster (stock actually
+// lands in InventoryItems) → SaleOrderReservationGrnEventPublisher → SaleOrderGrnLinkService →
+// the real StockReservationService (a hold appears in StockReservations and QtyReserved moves).
+// Only config, email and the Hangfire client are stood in for.
+
+public class GrnApproval_SaleOrderAutoReservation_Tests
+{
+    private sealed record Setup(
+        GrnStatusHandler Handler, WarehouseDbContext Wh, DemandDbContext Demand, InventoryDbContext Inv,
+        PurchaseOrder Po, Guid OrderUuid, Guid LineUuid, Guid VariantUuid, Guid WarehouseUuid,
+        Mock<ISaleOrderEmailService> Email, List<Job> CapturedJobs);
+
+    private static (Mock<IBackgroundJobClient> Mock, List<Job> Captured) MockJobs()
+    {
+        var captured = new List<Job>();
+        var mock = new Mock<IBackgroundJobClient>();
+        mock.Setup(c => c.Create(It.IsAny<Job>(), It.IsAny<IState>()))
+            .Callback<Job, IState>((job, _) => captured.Add(job))
+            .Returns("fake-job-id");
+        return (mock, captured);
+    }
+
+    private static Task<Setup> New(decimal deficit = 40m, decimal poQty = 40m, bool linked = true) =>
+        New(deficit, poQty, linked, link: null);
+
+    private static async Task<Setup> New(decimal deficit, decimal poQty, bool linked, ISaleOrderGrnLinkService? link)
+    {
+        var variantUuid   = Guid.NewGuid();
+        var warehouseUuid = Guid.NewGuid();
+        Guid orderUuid = default, lineUuid = default;
+
+        var po = ApprovalBuild.SentPo(("4mm cable", poQty, 25m));
+        po.Lines.Single().VariantUuid = variantUuid;
+
+        var (_, wh, demand, inv, _) = ApprovalBuild.New(
+            seedDemand: db =>
+            {
+                var order = new SaleOrder
+                {
+                    SoNumber = "SO-2026-00042", PartnerId = Guid.NewGuid(), OrderDate = DateTime.UtcNow.Date,
+                    CurrencyId = Guid.NewGuid(), Status = "CONFIRMED", DeliveryMode = "SELF_PICKUP", CreatedBy = 11,
+                    TraceId = Guid.NewGuid(),
+                    Lines =
+                    {
+                        new SaleOrderLine
+                        {
+                            VariantUuid = variantUuid, Quantity = 100m, UnitPrice = 40m, LineTotal = 4000m,
+                            FulfillmentMode = "BACK_TO_BACK", DeficitQty = deficit, Status = "OPEN"
+                        }
+                    }
+                };
+                db.SaleOrders.Add(order);
+                db.SaveChanges();
+                orderUuid = order.UUID;
+                lineUuid  = order.Lines.Single().UUID;
+
+                if (linked)
+                {
+                    po.Source         = "BACK_TO_BACK";
+                    po.LinkedSoId     = order.Id;
+                    po.LinkedSoLineId = order.Lines.Single().Id;
+                }
+                db.PurchaseOrders.Add(po);
+                db.SaveChanges();
+                if (linked) order.Lines.Single().LinkedPoId = po.Id;
+            },
+            seedInventory: db =>
+            {
+                var product = new Product { Uuid = Guid.NewGuid(), Sku = "CBL", Name = "4mm cable", Status = "ACTIVE", IsActive = true, CreatedBy = 1 };
+                db.Products.Add(product);
+                db.Warehouses.Add(new InventoryWarehouse { Uuid = warehouseUuid, Code = "WH1", Name = "Main WH", IsActive = true, CreatedBy = 1 });
+                db.SaveChanges();
+                db.ProductVariants.Add(new ProductVariant
+                {
+                    Uuid = variantUuid, ProductId = product.Id, Sku = "CBL-4MM", VariantName = "Default",
+                    PurchasePrice = 25m, IsDefault = true, IsActive = true, CreatedBy = 1
+                });
+            });
+
+        var config = new Mock<ISaleOrderConfigService>();
+        config.Setup(c => c.GetConfigAsync()).ReturnsAsync(new SaleOrderConfigModel { ReservationTtlHours = 72 });
+        var email = new Mock<ISaleOrderEmailService>();
+        var (jobs, captured) = MockJobs();
+        link ??= new SaleOrderGrnLinkService(
+            demand, new StockReservationService(inv), config.Object, email.Object, jobs.Object,
+            NullLogger<SaleOrderGrnLinkService>.Instance);
+
+        var handler = new GrnStatusHandler(
+            wh, demand, inv,
+            new EfGrnInventoryPoster(inv, new NullInventoryLedgerService()),
+            new IGrnEventPublisher[] { new SaleOrderReservationGrnEventPublisher(wh, link) },
+            NullLogger<GrnStatusHandler>.Instance);
+
+        return new Setup(handler, wh, demand, inv, po, orderUuid, lineUuid, variantUuid, warehouseUuid, email, captured);
+    }
+
+    private static Task<Grn> Receive(Setup s, decimal qty) =>
+        ApprovalBuild.PendingGrnAsync(s.Wh, s.Demand, s.Po, qtyAccepted: qty, warehouseUuid: s.WarehouseUuid, productUuid: s.VariantUuid);
+
+    private static Task<SaleOrderLine> Line(Setup s) =>
+        s.Demand.SaleOrderLines.AsNoTracking().SingleAsync(l => l.UUID == s.LineUuid);
+
+    [Fact]
+    public async Task Approving_the_grn_reserves_the_received_stock_for_the_sale_order_line()
+    {
+        var s = await New(deficit: 40m, poQty: 40m);
+        var grn = await Receive(s, 40m);
+
+        await s.Handler.UpdateStatusAsync(grn.UUID, "APPROVED");
+
+        (await s.Wh.Grns.AsNoTracking().SingleAsync(g => g.UUID == grn.UUID)).Status.Should().Be("APPROVED");
+
+        var line = await Line(s);
+        line.Status.Should().Be("RESERVED", "§6.4: line OPEN -> RESERVED once fully received");
+        line.DeficitQty.Should().Be(0m);
+
+        var item = await s.Inv.InventoryItems.AsNoTracking().SingleAsync();
+        item.QtyOnHand.Should().Be(40m);
+        item.QtyReserved.Should().Be(40m, "the received stock is held for the order, not free");
+
+        var hold = await s.Inv.StockReservations.AsNoTracking().SingleAsync();
+        hold.SourceType.Should().Be("SALES_ORDER");
+        hold.SourceUuid.Should().Be(s.OrderUuid);
+        hold.SourceLineUuid.Should().Be(s.LineUuid);
+        hold.ReservedQty.Should().Be(40m);
+        hold.Status.Should().Be("ACTIVE");
+        hold.ExpiresAt.Should().NotBeNull("a sale order hold carries the configured TTL");
+    }
+
+    [Fact]
+    public async Task A_partial_grn_reserves_partially_and_the_next_grn_completes_the_line()
+    {
+        var s = await New(deficit: 40m, poQty: 40m);
+
+        var first = await Receive(s, 25m);
+        await s.Handler.UpdateStatusAsync(first.UUID, "APPROVED");
+
+        var afterFirst = await Line(s);
+        afterFirst.Status.Should().Be("OPEN", "§6.4: partial GRN -> partial reservation, line stays OPEN");
+        afterFirst.DeficitQty.Should().Be(15m);
+        (await s.Demand.PurchaseOrders.AsNoTracking().SingleAsync(p => p.UUID == s.Po.UUID)).Status.Should().Be("PARTIALLY_RECEIVED");
+
+        var second = await Receive(s, 15m);
+        await s.Handler.UpdateStatusAsync(second.UUID, "APPROVED");
+
+        var afterSecond = await Line(s);
+        afterSecond.Status.Should().Be("RESERVED");
+        afterSecond.DeficitQty.Should().Be(0m);
+        (await s.Inv.InventoryItems.AsNoTracking().SingleAsync()).QtyReserved.Should().Be(40m);
+        (await s.Inv.StockReservations.AsNoTracking().CountAsync()).Should().Be(2);
+    }
+
+    [Fact]
+    public async Task Only_what_qc_accepted_is_reserved_not_what_was_delivered()
+    {
+        var s = await New(deficit: 40m, poQty: 40m);
+        var grn = await Receive(s, 40m);
+        var grnLine = await s.Wh.GrnLines.SingleAsync(l => l.GrnId == grn.Id);
+        grnLine.QtyAccepted = 30m;
+        grnLine.QtyRejected = 10m;
+        await s.Wh.SaveChangesAsync();
+
+        await s.Handler.UpdateStatusAsync(grn.UUID, "APPROVED");
+
+        (await s.Inv.InventoryItems.AsNoTracking().SingleAsync()).QtyOnHand.Should().Be(30m);
+        var line = await Line(s);
+        line.DeficitQty.Should().Be(10m);
+        line.Status.Should().Be("OPEN");
+    }
+
+    [Fact]
+    public async Task A_grn_for_a_po_no_sale_order_is_waiting_on_reserves_nothing()
+    {
+        var s = await New(linked: false);
+        var grn = await Receive(s, 40m);
+
+        await s.Handler.UpdateStatusAsync(grn.UUID, "APPROVED");
+
+        (await s.Wh.Grns.AsNoTracking().SingleAsync(g => g.UUID == grn.UUID)).Status.Should().Be("APPROVED");
+        (await s.Inv.InventoryItems.AsNoTracking().SingleAsync()).QtyReserved.Should().Be(0m);
+        (await s.Inv.StockReservations.CountAsync()).Should().Be(0);
+        var line = await Line(s);
+        line.Status.Should().Be("OPEN");
+        line.DeficitQty.Should().Be(40m);
+        s.CapturedJobs.Should().BeEmpty();
+        s.Email.Verify(e => e.SendGrnReceivedAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<decimal>(), It.IsAny<decimal>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task The_receipt_and_the_reservation_land_on_the_sale_orders_trace_and_the_creator_is_emailed()
+    {
+        var s = await New(deficit: 40m, poQty: 40m);
+        var grn = await Receive(s, 40m);
+        var order = await s.Demand.SaleOrders.AsNoTracking().SingleAsync(o => o.UUID == s.OrderUuid);
+
+        await s.Handler.UpdateStatusAsync(grn.UUID, "APPROVED");
+
+        var jobs = s.CapturedJobs.Where(j => j.Method.Name == "AppendAsync").ToList();
+        jobs.Should().HaveCount(2);
+        jobs.Should().OnlyContain(j => (Guid)j.Args[0] == order.TraceId && (Guid)j.Args[4] == order.OrganizationId);
+        var events = jobs.Select(j => (SMS.WorkflowEngine.Models.TimelineEvent)j.Args[1]).ToList();
+        events[0].EventType.Should().Be("GRN_FOR_SO_PO");
+        events[0].DocumentId.Should().Be(grn.UUID);
+        events[0].Notes.Should().Be("40 received, 40 reserved for SO-2026-00042");
+        events[1].EventType.Should().Be("SO_STOCK_RESERVED");
+        events[1].Notes.Should().Be($"40 from GRN {grn.GrnNumber}");
+
+        s.Email.Verify(e => e.SendGrnReceivedAsync(s.OrderUuid, grn.GrnNumber, 40m, 40m), Times.Once);
+    }
+
+    [Fact]
+    public async Task A_failure_on_the_sale_order_side_never_unapproves_the_grn_or_unposts_its_stock()
+    {
+        var broken = new Mock<ISaleOrderGrnLinkService>();
+        broken.Setup(l => l.ReserveForGrnAsync(It.IsAny<GrnReceipt>())).ThrowsAsync(new InvalidOperationException("demand db down"));
+        var s = await New(40m, 40m, linked: true, link: broken.Object);
+        var grn = await Receive(s, 40m);
+
+        var act = () => s.Handler.UpdateStatusAsync(grn.UUID, "APPROVED");
+
+        await act.Should().NotThrowAsync();
+        (await s.Wh.Grns.AsNoTracking().SingleAsync(g => g.UUID == grn.UUID)).Status.Should().Be("APPROVED");
+        (await s.Inv.InventoryItems.AsNoTracking().SingleAsync()).QtyOnHand.Should().Be(40m);
+        broken.Verify(l => l.ReserveForGrnAsync(It.Is<GrnReceipt>(r =>
+            r.PoUuid == s.Po.UUID && r.WarehouseUuid == s.WarehouseUuid
+            && r.Lines.Count == 1 && r.Lines[0].VariantUuid == s.VariantUuid && r.Lines[0].PostedQty == 40m)), Times.Once);
     }
 }

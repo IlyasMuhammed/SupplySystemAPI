@@ -15,17 +15,20 @@ internal sealed class PurchaseOrderService : IPurchaseOrderService
     private readonly IWorkflowActionService   _workflow;
     private readonly IWorkflowInboxService    _inbox;
     private readonly IBackgroundJobClient     _jobs;
+    private readonly ITimelineService         _timeline;
 
     public PurchaseOrderService(
         IPurchaseOrderRepository repo,
         IWorkflowActionService   workflow,
         IWorkflowInboxService    inbox,
-        IBackgroundJobClient     jobs)
+        IBackgroundJobClient     jobs,
+        ITimelineService         timeline)
     {
         _repo     = repo;
         _workflow = workflow;
         _inbox    = inbox;
         _jobs     = jobs;
+        _timeline = timeline;
     }
 
     public async Task<Guid> CreateFromPrAsync(Guid prUuid, ConvertPrToPoRequest req, int createdBy)
@@ -50,17 +53,49 @@ internal sealed class PurchaseOrderService : IPurchaseOrderService
         return poUuid;
     }
 
-    public async Task UpdateAsync(Guid uuid, PatchPoRequest req, int modifiedBy)
+    public async Task<IReadOnlyList<PoFieldChange>> UpdateAsync(Guid uuid, PatchPoRequest req, int modifiedBy)
     {
-        await _repo.UpdateAsync(uuid, req, modifiedBy);
+        var changes = await _repo.UpdateAsync(uuid, req, modifiedBy);
 
         var po = await _repo.GetByIdAsync(uuid);
         if (po is not null)
+        {
+            // The timeline says what changed too, for the POs that are audited field by field —
+            // "PO amended" with no detail is what a hand-made PO's edit has always shown.
+            var notes = changes.Count == 0 ? null : Truncate(string.Join("; ", changes.Select(DescribeChange)), 500);
             _jobs.Enqueue<ITimelineAppendJob>(j => j.AppendAsync(
                 po.TraceId,
-                new TimelineEvent("PO_AMENDED", "PO", uuid, po.PoNumber, DateTime.UtcNow, modifiedBy, null),
+                new TimelineEvent("PO_AMENDED", "PO", uuid, po.PoNumber, DateTime.UtcNow, modifiedBy, notes),
                 "PO", po.PoNumber));
+        }
+
+        return changes;
     }
+
+    public async Task<SplitPoResult> SplitAsync(Guid uuid, SplitPoRequest req, int userId)
+    {
+        var result = await _repo.SplitAsync(uuid, req, userId);
+
+        var amended = string.Join("; ", result.Changes.Select(DescribeChange));
+        _jobs.Enqueue<ITimelineAppendJob>(j => j.AppendAsync(
+            result.TraceId,
+            new TimelineEvent("PO_AMENDED", "PO", result.SourcePoUuid, result.SourcePoNumber, DateTime.UtcNow, userId, amended),
+            "PO", result.SourcePoNumber));
+        _jobs.Enqueue<ITimelineAppendJob>(j => j.AppendAsync(
+            result.TraceId,
+            new TimelineEvent("PO_CREATED", "PO", result.NewPoUuid, result.NewPoNumber, DateTime.UtcNow, userId,
+                $"Split from {result.SourcePoNumber}"),
+            "PO", result.NewPoNumber));
+
+        return result;
+    }
+
+    private static string DescribeChange(PoFieldChange c) =>
+        c.OldValue is null ? $"{c.Field}: {c.NewValue}"
+        : c.NewValue is null ? $"{c.Field}: {c.OldValue} removed"
+        : $"{c.Field}: {c.OldValue} → {c.NewValue}";
+
+    private static string Truncate(string s, int max) => s.Length <= max ? s : s[..(max - 1)] + "…";
 
     public async Task SubmitForApprovalAsync(Guid uuid, int userId)
     {
@@ -98,6 +133,28 @@ internal sealed class PurchaseOrderService : IPurchaseOrderService
                 po.TraceId,
                 new TimelineEvent("PO_SENT", "PO", uuid, po.PoNumber, DateTime.UtcNow, modifiedBy, null),
                 "PO", po.PoNumber));
+    }
+
+    // A29-P4-04 §4.5.
+    public async Task CancelAsync(Guid uuid, int userId, string? reason)
+    {
+        await _repo.CancelAsync(uuid, reason, userId);
+
+        var po = await _repo.GetByIdAsync(uuid);
+        if (po is not null)
+            _jobs.Enqueue<ITimelineAppendJob>(j => j.AppendAsync(
+                po.TraceId,
+                new TimelineEvent("PO_CANCELLED", "PO", uuid, po.PoNumber, DateTime.UtcNow, userId, reason),
+                "PO", po.PoNumber));
+    }
+
+    // Through the PO trace-id resolver rather than loading the whole PO just to read one column —
+    // the same route GET /api/timeline/by-document takes, so the two can never disagree on which
+    // trace a PO belongs to.
+    public async Task<TimelineDetail?> GetTimelineAsync(Guid uuid)
+    {
+        var traceId = await _timeline.ResolveTraceIdAsync("PO", uuid);
+        return traceId is null ? null : await _timeline.GetTimelineDetailAsync(traceId.Value);
     }
 
     public Task<PaginatedResponse<PoListItemModel>> GetListAsync(PoListFilter filter) =>

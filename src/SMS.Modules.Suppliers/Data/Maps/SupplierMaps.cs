@@ -4,11 +4,13 @@ using SMS.Modules.Suppliers.Domain;
 
 namespace SMS.Modules.Suppliers.Data.Maps;
 
-internal sealed class SupplierMap : IEntityTypeConfiguration<Supplier>
+internal sealed class BusinessPartnerMap : IEntityTypeConfiguration<BusinessPartner>
 {
-    public void Configure(EntityTypeBuilder<Supplier> b)
+    public void Configure(EntityTypeBuilder<BusinessPartner> b)
     {
-        b.ToTable("Suppliers");
+        // P1-01 (Addendum 29 §1.1) renamed the table; P1-03 renames the C# entity to match
+        // (contained to this module — see the note on the entity class itself).
+        b.ToTable("BusinessPartners");
         b.HasKey(x => x.Id);
         b.Property(x => x.Id).ValueGeneratedOnAdd();
         b.Property(x => x.UUID).IsRequired();
@@ -48,6 +50,20 @@ internal sealed class SupplierMap : IEntityTypeConfiguration<Supplier>
         b.Property(x => x.IsActive).HasDefaultValue(true);
         b.Property(x => x.OrganizationId).IsRequired();
         b.HasIndex(x => x.OrganizationId);
+
+        // P1-02 — every row so far came through the vendor-only legacy path, so the defaults
+        // themselves are the backfill: SQL Server applies a NOT NULL column's DEFAULT to existing
+        // rows at ADD COLUMN time, same as it would to a row inserted a moment before the migration
+        // ran. is_customer/is_carrier/is_service_provider default false for the same reason.
+        b.Property(x => x.PartnerType).HasMaxLength(20).HasDefaultValue("VENDOR");
+        b.Property(x => x.IsVendor).HasDefaultValue(true);
+        b.Property(x => x.IsCustomer).HasDefaultValue(false);
+        b.Property(x => x.IsCarrier).HasDefaultValue(false);
+        b.Property(x => x.IsServiceProvider).HasDefaultValue(false);
+        b.Property(x => x.VehicleTypes).HasMaxLength(500);
+        b.Property(x => x.ServiceCategories).HasMaxLength(500);
+        b.HasIndex(x => new { x.OrganizationId, x.PartnerType, x.IsActive });
+        b.HasIndex(x => new { x.OrganizationId, x.IsVendor, x.IsCustomer, x.IsCarrier, x.IsServiceProvider });
     }
 }
 

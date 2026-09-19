@@ -106,9 +106,12 @@ internal sealed class DeliveryStateMachine : StateMachine<DeliveryStatus>
             ],
 
             // ── Past this line the stock has left the books. Nothing may be cancelled. ──
+            // DELIVERED directly is the self-pickup path (A29 §7.2): the customer collects at the
+            // warehouse, so there is no transit to be in.
             [DeliveryStatus.GoodsIssued] =
             [
-                DeliveryStatus.InTransit
+                DeliveryStatus.InTransit,
+                DeliveryStatus.Delivered
             ],
 
             [DeliveryStatus.InTransit] =

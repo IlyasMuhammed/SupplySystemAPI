@@ -110,10 +110,20 @@ public class SourceLineSelection
 
 public class CreateDeliveryFromSourceRequest
 {
-    /// <summary>PO, SRO, MIV or TRANSFER. MANUAL deliveries use the plain create endpoint.</summary>
+    /// <summary>PO, SRO, MIV or SALE_ORDER. MANUAL and TRANSFER deliveries use the plain create endpoint.</summary>
     public string SourceType { get; set; } = string.Empty;
     public Guid   SourceUuid { get; set; }
 
+    /// <summary>
+    /// SALE_ORDER only: SHIP or SELF_PICKUP. Omit to take the sale order's own mode. Each delivery
+    /// of an order chooses independently — part of an order shipped and the rest collected is
+    /// normal.
+    /// </summary>
+    public string? DeliveryMode { get; set; }
+
+    /// <summary>
+    /// For a SALE_ORDER, omit to ship from the warehouse the order's stock is reserved in.
+    /// </summary>
     public Guid? ShipFromWarehouseUuid { get; set; }
     public Guid? ShipToWarehouseUuid   { get; set; }
 
@@ -127,6 +137,37 @@ public class CreateDeliveryFromSourceRequest
     public string?   Notes         { get; set; }
 
     /// <summary>Optional. Omit to advise every outstanding line in full.</summary>
+    public List<SourceLineSelection>? Lines { get; set; }
+}
+
+/// <summary>
+/// <c>POST /api/sale-orders/{id}/create-delivery</c> (A29 §7.8): a delivery for some or all of a
+/// sale order's outstanding lines. The same options as the generic from-source create, with the
+/// source already known. Every field is optional; an empty body delivers everything outstanding
+/// in the order's own mode.
+/// </summary>
+public class CreateSaleOrderDeliveryRequest
+{
+    /// <summary>SHIP or SELF_PICKUP. Omit to take the sale order's own mode.</summary>
+    public string? DeliveryMode { get; set; }
+
+    /// <summary>Omit to ship from the warehouse the order's stock is reserved in.</summary>
+    public Guid? ShipFromWarehouseUuid { get; set; }
+
+    public AddressRequest? ShipFromAddress { get; set; }
+    /// <summary>Omit to ship to the order's own address (SHIP) or nowhere (SELF_PICKUP).</summary>
+    public AddressRequest? ShipToAddress   { get; set; }
+
+    public DateTime? RequestedDate { get; set; }
+    public DateTime? PromisedDate  { get; set; }
+    public string?   Priority      { get; set; }
+    public string?   Incoterm      { get; set; }
+    public string?   Notes         { get; set; }
+
+    /// <summary>
+    /// Which sale order lines, and how much of each. <c>SourceLineUuid</c> is the sale order
+    /// line's id. Omit to deliver every line's outstanding balance in full.
+    /// </summary>
     public List<SourceLineSelection>? Lines { get; set; }
 }
 
@@ -195,6 +236,41 @@ public class DeliveryAvailabilityModel
     public List<DeliveryAvailabilityLineModel> Lines { get; set; } = [];
 }
 
+/// <summary>
+/// Who collected a self-pickup delivery (A29 §8.2). Recorded at the moment the goods leave the
+/// building, so the gate pass can name them.
+/// </summary>
+public class RecordPickupRequest
+{
+    public string  PickupPersonName     { get; set; } = string.Empty;
+    /// <summary>CNIC, LICENSE or PASSPORT.</summary>
+    public string  PickupPersonIdType   { get; set; } = string.Empty;
+    public string  PickupPersonIdNumber { get; set; } = string.Empty;
+    /// <summary>Optional: the letter or person authorising a collector who is not the customer.</summary>
+    public string? PickupAuthorization  { get; set; }
+}
+
+public class PickupResultModel
+{
+    public Guid     DeliveryUuid   { get; set; }
+    public string   DeliveryNumber { get; set; } = string.Empty;
+    public string   Status         { get; set; } = string.Empty;
+    public DateTime PickedUpAt     { get; set; }
+    public string   PickupPersonName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Set when this call is what took the stock off the books. Null when the goods had already
+    /// been issued before the customer arrived.
+    /// </summary>
+    public GoodsIssueResultModel? GoodsIssue { get; set; }
+
+    /// <summary>
+    /// The sale order's status once this collection was counted — PARTIALLY_FULFILLED or FULFILLED.
+    /// Null when the order could not be updated (logged for reconciliation).
+    /// </summary>
+    public string? SaleOrderStatus { get; set; }
+}
+
 /// <summary>What the goods issue did — and, just as importantly, what it deliberately did not do.</summary>
 public class GoodsIssueResultModel
 {
@@ -251,6 +327,8 @@ public class DeliveryLineModel
     public string? BatchNumber     { get; set; }
     public string? SerialNumber    { get; set; }
     public Guid?   SourceLineUuid  { get; set; }
+    /// <summary>The sale order line this line fulfils. Null unless the delivery is for a sale order.</summary>
+    public Guid?   SoLineUuid      { get; set; }
     public decimal? UnitValue      { get; set; }
     public bool    IsHazardous             { get; set; }
     public bool    IsFragile               { get; set; }
@@ -264,6 +342,8 @@ public class DeliveryListItemModel
     public string    Direction      { get; set; } = string.Empty;
     public string    SourceType     { get; set; } = string.Empty;
     public string?   SourceNumber   { get; set; }
+    /// <summary>SHIP or SELF_PICKUP for a sale-order delivery; null otherwise.</summary>
+    public string?   DeliveryMode   { get; set; }
     public string    Status         { get; set; } = string.Empty;
     public string    Priority       { get; set; } = string.Empty;
     public DateTime? RequestedDate  { get; set; }
@@ -293,6 +373,18 @@ public class DeliveryDetailModel
 
     /// <summary>Derived from the source type, never stored. See <c>DeliverySourceTypeInfo</c>.</summary>
     public bool PostsGoodsIssue { get; set; }
+
+    /// <summary>Set only when the delivery fulfils a sale order.</summary>
+    public Guid?   SaleOrderUuid { get; set; }
+    /// <summary>SHIP or SELF_PICKUP for a sale-order delivery; null otherwise.</summary>
+    public string? DeliveryMode  { get; set; }
+
+    /// <summary>Who collected a self-pickup delivery, and when. Null until it has been collected.</summary>
+    public string?   PickupPersonName     { get; set; }
+    public string?   PickupPersonIdType   { get; set; }
+    public string?   PickupPersonIdNumber { get; set; }
+    public string?   PickupAuthorization  { get; set; }
+    public DateTime? PickedUpAt           { get; set; }
 
     public AddressModel? ShipFromAddress { get; set; }
     public AddressModel? ShipToAddress   { get; set; }

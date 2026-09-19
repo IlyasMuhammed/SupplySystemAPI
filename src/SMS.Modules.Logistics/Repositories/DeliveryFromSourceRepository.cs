@@ -23,7 +23,7 @@ internal interface IDeliveryFromSourceRepository
 /// way. It is the highest-value integration in the plan: a delivered inbound delivery goes on to
 /// pre-fill the GRN, closing the loop back into procurement.
 /// </para>
-/// <para>SRO, MIV and TRANSFER follow in T-12.</para>
+/// <para>SRO, MIV and TRANSFER follow in T-12; SALE_ORDER (A29 §7.3) is the outbound customer delivery.</para>
 /// </summary>
 internal sealed class DeliveryFromSourceRepository : IDeliveryFromSourceRepository
 {
@@ -33,6 +33,24 @@ internal sealed class DeliveryFromSourceRepository : IDeliveryFromSourceReposito
     /// </summary>
     private static readonly string[] AdvisablePoStatuses = ["APPROVED", "SENT", "PARTIALLY_RECEIVED"];
 
+    /// <summary>
+    /// Sale order statuses with goods still to go out. A DRAFT has reserved nothing; FULFILLED
+    /// and beyond have nothing left; CANCELLED never will.
+    /// </summary>
+    private static readonly string[] DeliverableSoStatuses =
+    [
+        Demand.Domain.EnumCode<Demand.Domain.SaleOrderStatus>.Of(Demand.Domain.SaleOrderStatus.Confirmed),
+        Demand.Domain.EnumCode<Demand.Domain.SaleOrderStatus>.Of(Demand.Domain.SaleOrderStatus.PartiallyFulfilled)
+    ];
+
+    private static readonly string CancelledSoLine =
+        Demand.Domain.EnumCode<Demand.Domain.SaleOrderLineStatus>.Of(Demand.Domain.SaleOrderLineStatus.Cancelled);
+
+    private static readonly string DropShipLine =
+        Demand.Domain.EnumCode<Demand.Domain.SaleOrderLineFulfillmentMode>.Of(Demand.Domain.SaleOrderLineFulfillmentMode.DropShip);
+
+    private const string ActiveReservation = "ACTIVE";
+
     private readonly LogisticsDbContext       _db;
     private readonly DemandDbContext          _demand;
     private readonly WarehouseDbContext       _warehouse;
@@ -40,6 +58,7 @@ internal sealed class DeliveryFromSourceRepository : IDeliveryFromSourceReposito
     private readonly IDocumentNumberGenerator _numbers;
     private readonly IAddressNormalizer       _addresses;
     private readonly IProductVariantResolver  _variants;
+    private readonly IStockReservationService _reservations;
 
     public DeliveryFromSourceRepository(
         LogisticsDbContext db,
@@ -48,15 +67,17 @@ internal sealed class DeliveryFromSourceRepository : IDeliveryFromSourceReposito
         MaterialDbContext material,
         IDocumentNumberGenerator numbers,
         IAddressNormalizer addresses,
-        IProductVariantResolver variants)
+        IProductVariantResolver variants,
+        IStockReservationService reservations)
     {
-        _db        = db;
-        _demand    = demand;
-        _warehouse = warehouse;
-        _material  = material;
-        _numbers   = numbers;
-        _addresses = addresses;
-        _variants  = variants;
+        _db           = db;
+        _demand       = demand;
+        _warehouse    = warehouse;
+        _material     = material;
+        _numbers      = numbers;
+        _addresses    = addresses;
+        _variants     = variants;
+        _reservations = reservations;
     }
 
     public async Task<Guid> CreateFromSourceAsync(CreateDeliveryFromSourceRequest req, int createdBy)
@@ -70,9 +91,10 @@ internal sealed class DeliveryFromSourceRepository : IDeliveryFromSourceReposito
 
         return sourceType switch
         {
-            DeliverySourceType.Po  => await CreateFromPurchaseOrderAsync(req, createdBy),
-            DeliverySourceType.Sro => await CreateFromSupplierReturnAsync(req, createdBy),
-            DeliverySourceType.Miv => await CreateFromMaterialIssueAsync(req, createdBy),
+            DeliverySourceType.Po        => await CreateFromPurchaseOrderAsync(req, createdBy),
+            DeliverySourceType.Sro       => await CreateFromSupplierReturnAsync(req, createdBy),
+            DeliverySourceType.Miv       => await CreateFromMaterialIssueAsync(req, createdBy),
+            DeliverySourceType.SaleOrder => await CreateFromSaleOrderAsync(req, createdBy),
 
             // Neither has a source document to read lines from — the caller states the lines.
             DeliverySourceType.Manual or DeliverySourceType.Transfer => throw new BadRequestException(
@@ -339,6 +361,253 @@ internal sealed class DeliveryFromSourceRepository : IDeliveryFromSourceReposito
         await _db.SaveChangesAsync();
 
         return delivery.UUID;
+    }
+
+    // ── Sale order → outbound customer delivery (A29 §7.3) ────────────────────
+
+    /// <summary>
+    /// Turns a confirmed sale order — or the part of it the caller picks — into a delivery to the
+    /// customer. Confirming the order only reserved the stock; this is the document that picks,
+    /// packs and finally issues it, and one order may need several (§7.6).
+    /// </summary>
+    private async Task<Guid> CreateFromSaleOrderAsync(
+        CreateDeliveryFromSourceRequest req, int createdBy)
+    {
+        var so = await _demand.SaleOrders
+            .Include(s => s.Lines)
+            .FirstOrDefaultAsync(s => s.UUID == req.SourceUuid && !s.IsDeleted)
+            ?? throw new NotFoundException("SaleOrder", req.SourceUuid);
+
+        if (!DeliverableSoStatuses.Contains(so.Status))
+            throw new BadRequestException(
+                $"Sale order {so.SoNumber} is {so.Status}, so nothing can be delivered against it. " +
+                $"Deliveries can only be raised for an order that is {string.Join(", ", DeliverableSoStatuses)}.");
+
+        var mode = ResolveDeliveryMode(so, req.DeliveryMode);
+
+        // A drop-ship line never touches this warehouse — the vendor sends it straight to the
+        // customer (§4.3 scenario 4) — and a cancelled line has nothing to send.
+        var deliverable = so.Lines
+            .Where(l => l.Status != CancelledSoLine && l.FulfillmentMode != DropShipLine)
+            .OrderBy(l => l.Id)
+            .ToList();
+
+        var outstanding = await OutstandingBySoLineAsync(so.UUID, deliverable);
+        var selections  = ResolveSaleOrderSelections(req.Lines, deliverable, outstanding);
+
+        if (selections.Count == 0)
+            throw new BadRequestException(
+                $"Sale order {so.SoNumber} has nothing left to deliver — every line is already " +
+                "fulfilled or already on a delivery.");
+
+        var descriptions = await _variants.DescribeVariantsAsync(
+            selections.Select(s => s.Line.VariantUuid).Distinct().ToList());
+
+        var now = DateTime.UtcNow;
+
+        var delivery = new DeliveryOrder
+        {
+            UUID           = Guid.NewGuid(),
+            // Inherited: one trace id spans SO → PO → GRN → reservation → this delivery → invoice.
+            TraceId        = so.TraceId,
+            DeliveryNumber = await _numbers.NextAsync(DocumentNumberPrefix.Delivery, now),
+            Direction      = LogisticsCode.Of(DeliveryDirection.Outbound),
+            SourceType     = LogisticsCode.Of(DeliverySourceType.SaleOrder),
+            SourceUuid     = so.UUID,
+            SourceNumber   = so.SoNumber,
+            SaleOrderUuid  = so.UUID,
+            DeliveryMode   = LogisticsCode.Of(mode),
+            ShipFromWarehouseUuid = req.ShipFromWarehouseUuid
+                                    ?? await WarehouseHoldingAsync(so, selections.Select(s => s.Line.UUID)),
+            ShipToWarehouseUuid   = req.ShipToWarehouseUuid,
+            RequestedDate  = req.RequestedDate ?? so.ExpectedDeliveryDate,
+            PromisedDate   = req.PromisedDate,
+            Priority       = LogisticsCode.Of(ParsePriority(req.Priority)),
+            Incoterm       = Trim(req.Incoterm)?.ToUpperInvariant(),
+            Status         = LogisticsCode.Of(DeliveryStatus.Draft),
+            Notes          = Trim(req.Notes),
+            IsActive       = true,
+            CreatedBy      = createdBy,
+            CreatedDate    = now
+        };
+
+        delivery.ShipFromAddress = await BuildAddressAsync(req.ShipFromAddress, createdBy, now);
+
+        if (req.ShipToAddress is not null)
+            delivery.ShipToAddress = await BuildAddressAsync(req.ShipToAddress, createdBy, now);
+        else if (mode == DeliveryMode.Ship)
+            // The order's own address row (§7.7) — referenced, not copied: address rows are never
+            // edited in place, so the delivery keeps exactly what the order was taken against.
+            delivery.ShipToAddressId = (await ShippingAddressOfAsync(so)).Id;
+
+        var lineNo = 1;
+        foreach (var (soLine, qty) in selections)
+        {
+            descriptions.TryGetValue(soLine.VariantUuid, out var variant);
+
+            delivery.Lines.Add(new DeliveryOrderLine
+            {
+                UUID            = Guid.NewGuid(),
+                LineNo          = lineNo++,
+                VariantUuid     = soLine.VariantUuid,
+                ProductUuid     = variant?.ProductUuid,
+                ItemDescription = DescribeLine(soLine.VariantUuid, variant),
+                UnitOfMeasure   = variant?.UomCode,
+                QtyOrdered      = qty,
+                SourceLineUuid  = soLine.UUID,
+                SoLineUuid      = soLine.UUID,
+                UnitValue       = soLine.UnitPrice,
+                CreatedBy       = createdBy,
+                CreatedDate     = now
+            });
+        }
+
+        _db.DeliveryOrders.Add(delivery);
+        await _db.SaveChangesAsync();
+
+        return delivery.UUID;
+    }
+
+    private static DeliveryMode ResolveDeliveryMode(Demand.Domain.SaleOrder so, string? requested)
+    {
+        if (string.IsNullOrWhiteSpace(requested))
+            return LogisticsCode.TryParse<DeliveryMode>(so.DeliveryMode, out var own)
+                ? own
+                : throw new ConflictException(
+                    $"Sale order {so.SoNumber} has delivery mode '{so.DeliveryMode}', which this module " +
+                    "does not recognise. Correct the order before raising a delivery.");
+
+        return LogisticsCode.TryParse<DeliveryMode>(requested, out var mode)
+            ? mode
+            : throw new BadRequestException(
+                $"'{requested}' is not a valid delivery mode. Valid values: " +
+                $"{string.Join(", ", LogisticsCode.Codes<DeliveryMode>())}.");
+    }
+
+    private async Task<Address> ShippingAddressOfAsync(Demand.Domain.SaleOrder so)
+    {
+        var address = so.ShippingAddressId is { } uuid
+            ? await _db.Addresses.FirstOrDefaultAsync(a => a.UUID == uuid && !a.IsDelete)
+            : null;
+
+        return address ?? throw new BadRequestException(
+            $"Sale order {so.SoNumber} is to be shipped but has no shipping address on file. " +
+            "Add one to the order, or supply ShipToAddress on this request.");
+    }
+
+    /// <summary>
+    /// The warehouse the order's stock is held in, so the delivery picks where the reservation
+    /// actually is. Null when none of the chosen lines is reserved yet (a back-to-back line still
+    /// waiting on its PO), in which case release will choose.
+    /// </summary>
+    private async Task<Guid?> WarehouseHoldingAsync(Demand.Domain.SaleOrder so, IEnumerable<Guid> soLineUuids)
+    {
+        var wanted = soLineUuids.ToHashSet();
+        var holds  = await _reservations.GetBySourceAsync(ReservationSourceType.SalesOrder, so.UUID);
+
+        var warehouses = holds
+            .Where(h => h.Status == ActiveReservation && h.SourceLineUuid is { } line && wanted.Contains(line))
+            .Select(h => h.WarehouseUuid)
+            .Distinct()
+            .ToList();
+
+        return warehouses.Count switch
+        {
+            0 => null,
+            1 => warehouses[0],
+            _ => throw new BadRequestException(
+                $"The chosen lines of sale order {so.SoNumber} are reserved in {warehouses.Count} different " +
+                "warehouses, and one delivery ships from one. Either state ShipFromWarehouseUuid or " +
+                "select only the lines held in a single warehouse.")
+        };
+    }
+
+    private static string DescribeLine(Guid variantUuid, VariantDescription? variant)
+    {
+        var description = variant?.DisplayName ?? $"Variant {variantUuid}";
+        return description.Length > 300 ? description[..300] : description;
+    }
+
+    /// <summary>
+    /// How much of each sale order line may still be put on a delivery:
+    /// <c>Quantity − FulfilledQty − in flight</c>, the same shape as the PO rule below.
+    /// <para>
+    /// <c>FulfilledQty</c> grows at goods issue (§7.5), so a delivery counts as in flight only
+    /// until then: DRAFT through STAGED, PENDING_APPROVAL and ON_HOLD. Once issued, its units are
+    /// in <c>FulfilledQty</c> and counting them again would block the balance; cancelled and
+    /// short-closed deliveries are not going, so their quantity returns to the pool.
+    /// </para>
+    /// </summary>
+    private async Task<Dictionary<Guid, decimal>> OutstandingBySoLineAsync(
+        Guid saleOrderUuid, IEnumerable<Demand.Domain.SaleOrderLine> soLines)
+    {
+        string[] beforeIssue =
+        [
+            LogisticsCode.Of(DeliveryStatus.Draft),
+            LogisticsCode.Of(DeliveryStatus.Released),
+            LogisticsCode.Of(DeliveryStatus.Picking),
+            LogisticsCode.Of(DeliveryStatus.Picked),
+            LogisticsCode.Of(DeliveryStatus.Packed),
+            LogisticsCode.Of(DeliveryStatus.Staged),
+            LogisticsCode.Of(DeliveryStatus.PendingApproval),
+            LogisticsCode.Of(DeliveryStatus.OnHold)
+        ];
+
+        var inFlight = await _db.DeliveryOrderLines
+            .Where(l => l.SoLineUuid != null
+                     && !l.DeliveryOrder.IsDelete
+                     && l.DeliveryOrder.SaleOrderUuid == saleOrderUuid
+                     && beforeIssue.Contains(l.DeliveryOrder.Status))
+            .GroupBy(l => l.SoLineUuid!.Value)
+            .Select(g => new { SoLineUuid = g.Key, Qty = g.Sum(x => x.QtyOrdered) })
+            .ToDictionaryAsync(x => x.SoLineUuid, x => x.Qty);
+
+        return soLines.ToDictionary(
+            line => line.UUID,
+            line => Math.Max(0m, line.Quantity - line.FulfilledQty - inFlight.GetValueOrDefault(line.UUID)));
+    }
+
+    private static List<(Demand.Domain.SaleOrderLine Line, decimal Qty)> ResolveSaleOrderSelections(
+        List<SourceLineSelection>? requested,
+        List<Demand.Domain.SaleOrderLine> soLines,
+        Dictionary<Guid, decimal> outstanding)
+    {
+        if (requested is null || requested.Count == 0)
+            return [.. soLines
+                .Where(l => outstanding.GetValueOrDefault(l.UUID) > 0)
+                .Select(l => (l, outstanding[l.UUID]))];
+
+        var selections = new List<(Demand.Domain.SaleOrderLine, decimal)>();
+
+        foreach (var selection in requested)
+        {
+            var soLine = soLines.FirstOrDefault(l => l.UUID == selection.SourceLineUuid)
+                ?? throw new BadRequestException(
+                    $"Line {selection.SourceLineUuid} does not belong to this sale order, or cannot be " +
+                    "delivered from here (cancelled, or shipped by the vendor directly).");
+
+            // Sale order lines carry no line number; their position in the order is the label.
+            var label     = $"Line {soLines.IndexOf(soLine) + 1} ({soLine.VariantUuid})";
+            var available = outstanding.GetValueOrDefault(soLine.UUID);
+
+            if (available <= 0)
+                throw new BadRequestException(
+                    $"{label} has nothing left to deliver — it is already fulfilled or already on " +
+                    "another delivery.");
+
+            var qty = selection.Qty ?? available;
+
+            if (qty <= 0)
+                throw new BadRequestException($"{label}: quantity must be greater than zero.");
+
+            if (qty > available)
+                throw new BadRequestException(
+                    $"{label}: only {available:0.###} is left to deliver, but {qty:0.###} was requested.");
+
+            selections.Add((soLine, qty));
+        }
+
+        return selections;
     }
 
     /// <summary>

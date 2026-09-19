@@ -150,6 +150,24 @@ public static class PermissionCodes
     public const string WORKFLOW_ADMIN = "WORKFLOW_ADMIN";
     public const string WORKFLOW_VIEW  = "WORKFLOW_VIEW";
 
+    // ── Sale Order Administration (Addendum 29 §3.1-3.2) ─────────────────────
+    /// <summary>Read demand.SaleOrderConfig. Granted broadly — IT/Org Admin get this automatically.</summary>
+    public const string SALE_ORDER_CONFIG_READ  = "SALE_ORDER_CONFIG_READ";
+    /// <summary>
+    /// Change demand.SaleOrderConfig. Deliberately excluded from System Admin's and Org Admin's
+    /// otherwise-blanket grants (see AuthDataSeeder.RolePermissionSeed) — §3.1: "IT Admin / Super
+    /// Admin may VIEW config, may CHANGE it only if they also hold [SUPPLY_DEPT_ADMIN]."
+    /// </summary>
+    public const string SALE_ORDER_CONFIG_WRITE = "SALE_ORDER_CONFIG_WRITE";
+
+    // ── Sale Orders (Addendum 29 §4) ──────────────────────────────────────────
+    public const string SALE_ORDER_VIEW    = "SALE_ORDER_VIEW";
+    public const string SALE_ORDER_CREATE  = "SALE_ORDER_CREATE";
+    public const string SALE_ORDER_EDIT    = "SALE_ORDER_EDIT";
+    /// <summary>Confirming an order — the action that will trigger §4.3's availability check, once that exists.</summary>
+    public const string SALE_ORDER_CONFIRM = "SALE_ORDER_CONFIRM";
+    public const string SALE_ORDER_CANCEL  = "SALE_ORDER_CANCEL";
+
     // ── All codes (used by System Admin seed) ─────────────────────────────────
     public static readonly IReadOnlyList<string> All =
     [
@@ -170,5 +188,7 @@ public static class PermissionCodes
         SHIPPING_RULE_MANAGE, FREIGHT_INVOICE_VIEW, FREIGHT_INVOICE_RECONCILE, POD_CAPTURE,
         REPORT_VIEW, REPORT_EXPORT,
         WORKFLOW_ADMIN, WORKFLOW_VIEW,
+        SALE_ORDER_CONFIG_READ, SALE_ORDER_CONFIG_WRITE,
+        SALE_ORDER_VIEW, SALE_ORDER_CREATE, SALE_ORDER_EDIT, SALE_ORDER_CONFIRM, SALE_ORDER_CANCEL,
     ];
 }

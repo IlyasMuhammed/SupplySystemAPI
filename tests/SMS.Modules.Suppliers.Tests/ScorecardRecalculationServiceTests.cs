@@ -15,14 +15,14 @@ file static class RecalcBuild
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options, new StaticTenantContext());
 
-    internal static Supplier SeedSupplier(SuppliersDbContext db, bool isActive = true)
+    internal static BusinessPartner SeedSupplier(SuppliersDbContext db, bool isActive = true)
     {
-        var s = new Supplier
+        var s = new BusinessPartner
         {
             UUID = Guid.NewGuid(), SupplierName = "Test Supplier", SupplierCode = $"SUP-{Guid.NewGuid():N}"[..10],
             Status = "APPROVED", IsActive = isActive, CreatedBy = 1, CreatedDate = DateTime.UtcNow
         };
-        db.Suppliers.Add(s);
+        db.BusinessPartners.Add(s);
         db.SaveChanges();
         return s;
     }
@@ -193,6 +193,27 @@ public class RecalculateAllAsync_Tests
         (await db.SupplierScoreSnapshots.AnyAsync(s => s.SupplierId == withScores.UUID)).Should().BeTrue();
         (await db.SupplierScoreSnapshots.AnyAsync(s => s.SupplierId == noScores.UUID)).Should().BeFalse();
         (await db.SupplierScoreSnapshots.AnyAsync(s => s.SupplierId == inactiveButScored.UUID)).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Skips_A_Partner_That_Is_Not_A_Vendor_Even_With_A_Scored_Grn()
+    {
+        // P1-06 (Addendum 29 §1.7) — defensive: a real GRN score could not normally exist for a
+        // non-vendor, but recalculation must not act on one if it somehow did.
+        var db = RecalcBuild.NewDb();
+        var notAVendor = RecalcBuild.SeedSupplier(db);
+        notAVendor.IsVendor = false;
+        notAVendor.IsCustomer = true;
+        db.SaveChanges();
+
+        var periodStart = new DateTime(2026, 7, 1);
+        var periodEnd   = new DateTime(2026, 8, 1);
+        RecalcBuild.SeedGrnScore(db, notAVendor.UUID, 80m, periodStart.AddDays(1));
+
+        var svc = new ScorecardRecalculationService(db);
+        var count = await svc.RecalculateAllAsync(periodStart, periodEnd, triggeredBy: 0);
+
+        count.Should().Be(0);
     }
 }
 

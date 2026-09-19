@@ -108,6 +108,15 @@ internal sealed class AuthDataSeeder
 
         ("View Material Management",      PermissionCodes.MATERIAL_VIEW,         "Read projects, material issue requests/vouchers, wastage, returns, and cost ledgers"),
         ("Manage Material Management",    PermissionCodes.MATERIAL_MANAGE,       "Create/update projects, issue and post MIRs/MIVs, approve wastage, and process returns"),
+
+        ("View Sale Order Configuration",   PermissionCodes.SALE_ORDER_CONFIG_READ,  "Read the organization's sale order / auto-PO configuration"),
+        ("Change Sale Order Configuration", PermissionCodes.SALE_ORDER_CONFIG_WRITE, "Change the organization's sale order / auto-PO configuration"),
+
+        ("View Sale Orders",    PermissionCodes.SALE_ORDER_VIEW,    "Read sale order records"),
+        ("Create Sale Orders",  PermissionCodes.SALE_ORDER_CREATE,  "Raise new sale orders"),
+        ("Edit Sale Orders",    PermissionCodes.SALE_ORDER_EDIT,    "Amend a draft sale order"),
+        ("Confirm Sale Orders", PermissionCodes.SALE_ORDER_CONFIRM, "Confirm a sale order for fulfilment"),
+        ("Cancel Sale Orders",  PermissionCodes.SALE_ORDER_CANCEL,  "Cancel a sale order"),
     ];
 
     private async Task SeedPermissionsAsync()
@@ -134,6 +143,7 @@ internal sealed class AuthDataSeeder
         ((int)EnumRole.Auditor,            "Read-Only / Auditor",  "AUDITOR",              "View only — view all records, export reports, no data modification"),
         ((int)EnumRole.FinanceManager,     "Finance Manager",      "FINANCE_MANAGER",      "Managerial — approve supplier payments, manage budgets, all Finance Officer permissions"),
         ((int)EnumRole.OrgAdmin,           "Organization Admin",   "ORG_ADMIN",            "Full owner/operator of a tenant organization — every task in the app except platform-wide administration"),
+        ((int)EnumRole.SupplyDeptAdmin,    "Supply Department Administrator", "SUPPLY_DEPT_ADMIN", "Owns sale order administration & configuration — Deputy Director / Director of Supply (§3.1)"),
     ];
 
     private async Task SeedRolesAsync()
@@ -165,7 +175,12 @@ internal sealed class AuthDataSeeder
 
     private static readonly Dictionary<int, string[]> RolePermissionSeed = new()
     {
-        [(int)EnumRole.SystemAdmin] = PermissionCodes.All.ToArray(),
+        // §3.1: "IT Admin / Super Admin may VIEW config, may CHANGE it only if they also hold
+        // [SUPPLY_DEPT_ADMIN]" — the one deliberate carve-out from System Admin's otherwise-blanket
+        // grant. SALE_ORDER_CONFIG_READ still flows through .All; only WRITE is excluded.
+        [(int)EnumRole.SystemAdmin] = PermissionCodes.All
+            .Except([PermissionCodes.SALE_ORDER_CONFIG_WRITE])
+            .ToArray(),
 
         [(int)EnumRole.ProcurementManager] =
         [
@@ -267,7 +282,7 @@ internal sealed class AuthDataSeeder
         // This is safe to grant broadly because every one of these permissions gates data that's
         // already properly tenant-scoped (WorkflowDefinition/WorkflowStep/WorkflowGroup included —
         // an Org Admin configuring "their" workflow can only ever see/edit their own org's rows).
-        // Excludes ONLY SYSTEM_CONFIGURE/PLATFORM_SUPER_ADMIN — the two codes that reach genuinely
+        // Excludes SYSTEM_CONFIGURE/PLATFORM_SUPER_ADMIN — the two codes that reach genuinely
         // cross-tenant surfaces (api/system/* platform administration, and shared global reference
         // data like Lookup Types/Currencies/editing existing Countries-and-Cities that every OTHER
         // organization also relies on). Granting either would let one org's admin affect every
@@ -276,9 +291,21 @@ internal sealed class AuthDataSeeder
         // required, satisfying "all necessary permissions granted on creation" for orgs that
         // already exist (this seeder is additive/idempotent — it re-runs and fills the gap on the
         // API's next startup, for every org's Org Admin at once, since they all share this one role).
+        // Also excludes SALE_ORDER_CONFIG_WRITE, for the same §3.1 reason SystemAdmin does above —
+        // Org Admin is each tenant's own "Super Admin", and the FSD names that role explicitly.
         [(int)EnumRole.OrgAdmin] = PermissionCodes.All
-            .Except([PermissionCodes.SYSTEM_CONFIGURE, PermissionCodes.PLATFORM_SUPER_ADMIN])
+            .Except([
+                PermissionCodes.SYSTEM_CONFIGURE, PermissionCodes.PLATFORM_SUPER_ADMIN,
+                PermissionCodes.SALE_ORDER_CONFIG_WRITE
+            ])
             .ToArray(),
+
+        // A29-P3-01 §3.1 — the only role that can change sale order configuration.
+        [(int)EnumRole.SupplyDeptAdmin] =
+        [
+            PermissionCodes.SALE_ORDER_CONFIG_READ,
+            PermissionCodes.SALE_ORDER_CONFIG_WRITE,
+        ],
     };
 
     private async Task SeedRolePermissionsAsync()

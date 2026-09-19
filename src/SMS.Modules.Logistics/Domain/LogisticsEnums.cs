@@ -32,11 +32,28 @@ internal enum DeliveryDirection
 // document that posts the stock movement. See DeliverySourceTypeInfo.
 internal enum DeliverySourceType
 {
-    [Code("PO")]       Po,
-    [Code("SRO")]      Sro,
-    [Code("MIV")]      Miv,
-    [Code("TRANSFER")] Transfer,
-    [Code("MANUAL")]   Manual
+    [Code("PO")]         Po,
+    [Code("SRO")]        Sro,
+    [Code("MIV")]        Miv,
+    [Code("TRANSFER")]   Transfer,
+    [Code("MANUAL")]     Manual,
+    [Code("SALE_ORDER")] SaleOrder
+}
+
+// How a sale-order delivery reaches the customer. Mirrors demand.SaleOrders.DeliveryMode, which
+// is where the value is copied from; null on every delivery that is not for a sale order.
+internal enum DeliveryMode
+{
+    [Code("SHIP")]        Ship,
+    [Code("SELF_PICKUP")] SelfPickup
+}
+
+// What the person collecting a self-pickup order showed at the gate (A29 §8.2).
+internal enum PickupIdType
+{
+    [Code("CNIC")]     Cnic,
+    [Code("LICENSE")]  License,
+    [Code("PASSPORT")] Passport
 }
 
 internal enum DeliveryPriority

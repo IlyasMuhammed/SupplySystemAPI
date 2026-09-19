@@ -46,7 +46,8 @@ describe('DeliveryDetailComponent', () => {
 
   async function setup(model: DeliveryDetailModel | null = detail()) {
     service = jasmine.createSpyObj<LogisticsService>('LogisticsService', [
-      'getDeliveryById', 'holdDelivery', 'resumeDelivery', 'cancelDelivery', 'shortCloseDelivery'
+      'getDeliveryById', 'holdDelivery', 'resumeDelivery', 'cancelDelivery', 'shortCloseDelivery',
+      'recordPickup', 'downloadGatePass'
     ]);
     service.getDeliveryById.and.returnValue(
       model ? ok(model) : of({ success: false, message: 'not found', result: null } as any));
@@ -54,6 +55,11 @@ describe('DeliveryDetailComponent', () => {
     service.resumeDelivery.and.returnValue(of({ success: true, message: '' } as any));
     service.cancelDelivery.and.returnValue(of({ success: true, message: '' } as any));
     service.shortCloseDelivery.and.returnValue(of({ success: true, message: '' } as any));
+    service.recordPickup.and.returnValue(of({
+      success: true, message: '',
+      result: { deliveryUuid: UUID, deliveryNumber: 'DLV-2026-00001', status: 'DELIVERED',
+                pickedUpAt: '2026-09-20T10:00:00Z', pickupPersonName: 'Ahmed Raza', saleOrderStatus: 'FULFILLED' }
+    } as any));
 
     await TestBed.resetTestingModule().configureTestingModule({
       imports: [DeliveryDetailComponent],
@@ -294,5 +300,129 @@ describe('DeliveryDetailComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('[data-testid="address-warning"]')).toBeNull();
+  });
+
+  // ── Self-pickup collection (A29-P6-08 §8.2) ────────────────────────────────
+
+  const selfPickup = (overrides: Partial<DeliveryDetailModel> = {}) => detail({
+    sourceType: 'SALE_ORDER', sourceNumber: 'SO-2026-00042', saleOrderUuid: 'so-1',
+    deliveryMode: 'SELF_PICKUP', status: 'STAGED', allowedNextStatuses: ['GOODS_ISSUED', 'ON_HOLD', 'CANCELLED'],
+    ...overrides
+  });
+
+  it('links a sale-order delivery back to its order', async () => {
+    await setup(selfPickup());
+    fixture.detectChanges();
+
+    const link = fixture.nativeElement.querySelector('[data-testid="sale-order-link"]');
+    expect(link).not.toBeNull();
+    expect(link.textContent).toContain('SO-2026-00042');
+    expect(fixture.nativeElement.querySelector('[data-testid="delivery-mode"]').textContent).toContain('Customer collects');
+  });
+
+  it('offers a collection only for a self-pickup that is ready to hand over', async () => {
+    for (const status of ['PACKED', 'STAGED', 'PENDING_APPROVAL', 'GOODS_ISSUED']) {
+      await setup(selfPickup({ status }));
+      fixture.detectChanges();
+      expect(component.canRecordPickup).withContext(status).toBeTrue();
+    }
+
+    for (const status of ['DRAFT', 'RELEASED', 'PICKING', 'PICKED', 'DELIVERED', 'CANCELLED']) {
+      await setup(selfPickup({ status }));
+      fixture.detectChanges();
+      expect(component.canRecordPickup).withContext(status).toBeFalse();
+    }
+
+    // A shipped delivery is proved delivered by its consignment, never collected at the counter.
+    await setup(selfPickup({ deliveryMode: 'SHIP' }));
+    fixture.detectChanges();
+    expect(component.canRecordPickup).toBeFalse();
+    expect(fixture.nativeElement.querySelector('[data-testid="action-record-pickup"]')).toBeNull();
+  });
+
+  it('requires the collector to be named and identified before handing over', async () => {
+    await setup(selfPickup());
+    fixture.detectChanges();
+
+    component.openPickupDialog();
+    expect(component.canSubmitPickup).toBeFalse();
+
+    component.pickup.pickupPersonName = 'Ahmed Raza';
+    expect(component.canSubmitPickup).withContext('no ID number yet').toBeFalse();
+
+    component.pickup.pickupPersonIdNumber = '35202-1234567-1';
+    expect(component.canSubmitPickup).toBeTrue();
+
+    component.pickup.pickupPersonName = '   ';
+    component.submitPickup();
+    expect(service.recordPickup).not.toHaveBeenCalled();
+  });
+
+  it('records the collection, tells the counter what the order became, and reloads', async () => {
+    await setup(selfPickup());
+    fixture.detectChanges();
+    service.getDeliveryById.calls.reset();
+    const messages = fixture.debugElement.injector.get(MessageService);
+    const add = spyOn(messages, 'add');
+
+    component.openPickupDialog();
+    component.pickup = {
+      pickupPersonName: ' Ahmed Raza ', pickupPersonIdType: 'PASSPORT',
+      pickupPersonIdNumber: 'AB1234567 ', pickupAuthorization: '  '
+    };
+    component.submitPickup();
+
+    expect(service.recordPickup).toHaveBeenCalledOnceWith(UUID, {
+      pickupPersonName: 'Ahmed Raza', pickupPersonIdType: 'PASSPORT',
+      pickupPersonIdNumber: 'AB1234567', pickupAuthorization: undefined
+    });
+    expect((add.calls.mostRecent().args[0].detail as string)).toContain('fulfilled');
+    expect(service.getDeliveryById).toHaveBeenCalledTimes(1);
+    expect(component.pickupDialogVisible).toBeFalse();
+  });
+
+  it('shows the server explanation when a collection is refused', async () => {
+    await setup(selfPickup());
+    fixture.detectChanges();
+    const messages = fixture.debugElement.injector.get(MessageService);
+    const add = spyOn(messages, 'add');
+    service.recordPickup.and.returnValue(throwError(() => ({
+      error: { message: 'Delivery DLV-2026-00001 was already collected on 2026-09-20 by Ahmed Raza.' }
+    })));
+
+    component.openPickupDialog();
+    component.pickup.pickupPersonName = 'Somebody';
+    component.pickup.pickupPersonIdNumber = '1';
+    component.submitPickup();
+
+    expect((add.calls.mostRecent().args[0].detail as string)).toContain('already collected');
+    expect(component.isSubmitting).toBeFalse();
+  });
+
+  it('shows who collected once the delivery has been handed over', async () => {
+    await setup(selfPickup({
+      status: 'DELIVERED', allowedNextStatuses: ['CLOSED'],
+      pickupPersonName: 'Ahmed Raza', pickupPersonIdType: 'CNIC', pickupPersonIdNumber: '35202-1234567-1',
+      pickupAuthorization: 'Letter AL-2026-114', pickedUpAt: '2026-09-20T10:00:00Z'
+    }));
+    fixture.detectChanges();
+
+    const banner = fixture.nativeElement.querySelector('[data-testid="collected-banner"]');
+    expect(banner).not.toBeNull();
+    expect(banner.textContent).toContain('Ahmed Raza');
+    expect(banner.textContent).toContain('35202-1234567-1');
+    expect(banner.textContent).toContain('Letter AL-2026-114');
+    expect(component.canRecordPickup).toBeFalse();
+  });
+
+  it('offers the gate pass once the goods are at the dock', async () => {
+    await setup(selfPickup({ status: 'PICKED', allowedNextStatuses: ['PACKED'] }));
+    fixture.detectChanges();
+    expect(component.canDownloadGatePass).toBeFalse();
+
+    await setup(selfPickup({ status: 'STAGED' }));
+    fixture.detectChanges();
+    expect(component.canDownloadGatePass).toBeTrue();
+    expect(fixture.nativeElement.querySelector('[data-testid="action-gate-pass"]')).not.toBeNull();
   });
 });

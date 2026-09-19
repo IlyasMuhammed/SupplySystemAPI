@@ -33,14 +33,7 @@ internal sealed class EfGrnInventoryPoster : IGrnStockPoster
         if (warehouse is null) return;
 
         // Validate: any line with effective qty > 0 must be linked to a catalogue product variant
-        var unlinked = grn.Lines.Where(l =>
-        {
-            if (l.VariantUuid.HasValue) return false;
-            var qty = l.RequiresInspection
-                ? l.QtyAccepted
-                : Math.Max(0m, l.QtyReceived - l.QtyRejected);
-            return qty > 0;
-        }).ToList();
+        var unlinked = grn.Lines.Where(l => !l.VariantUuid.HasValue && l.PostedQty > 0).ToList();
 
         if (unlinked.Count > 0)
         {
@@ -57,9 +50,7 @@ internal sealed class EfGrnInventoryPoster : IGrnStockPoster
 
             foreach (var line in grn.Lines.Where(l => l.VariantUuid.HasValue))
             {
-                var effectiveQty = line.RequiresInspection
-                    ? line.QtyAccepted
-                    : Math.Max(0m, line.QtyReceived - line.QtyRejected);
+                var effectiveQty = line.PostedQty;
 
                 if (effectiveQty <= 0) continue;
 

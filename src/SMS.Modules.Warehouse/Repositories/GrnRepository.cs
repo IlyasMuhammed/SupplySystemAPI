@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SMS.Modules.Demand.Data;
+using SMS.Modules.Demand.Domain;
 using SMS.Modules.Inventory.Data;
 using SMS.Modules.Warehouse.Data;
 using SMS.Modules.Warehouse.Domain;
@@ -53,6 +54,13 @@ internal sealed class GrnRepository : IGrnRepository
             .Include(p => p.Lines.OrderBy(l => l.LineNo))
             .FirstOrDefaultAsync(p => p.UUID == req.PoUuid && !p.IsDelete)
             ?? throw new NotFoundException("PurchaseOrder", req.PoUuid);
+
+        // A29-P5-05 §4.3 scenario 4 — "no warehouse stock impact". A drop-ship PO's vendor ships
+        // directly to the customer, so goods received against it would put stock on the shelf that
+        // never arrived. Checked before status so the reason is the same whatever state the PO is in.
+        if (po.Source == PurchaseOrderSources.DropShip)
+            throw new UnprocessableEntityException(
+                $"Purchase order {po.PoNumber} is a drop-ship order — its vendor ships directly to the customer, so it cannot be received into a warehouse.");
 
         if (po.Status != "SENT" && po.Status != "PARTIALLY_RECEIVED")
             throw new UnprocessableEntityException(

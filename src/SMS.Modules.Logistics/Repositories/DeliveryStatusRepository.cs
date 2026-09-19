@@ -96,7 +96,10 @@ internal sealed class DeliveryStatusRepository : IDeliveryStatusRepository
     public async Task<bool> CancelAsync(Guid uuid, DeliveryReasonRequest req, int userId)
     {
         var reason   = RequireReason(req, "Cancelling a delivery");
-        var delivery = await FindAsync(uuid);
+        var delivery = await _db.DeliveryOrders
+            .Include(d => d.Lines)
+            .FirstOrDefaultAsync(d => d.UUID == uuid && !d.IsDelete);
+
         if (delivery is null) return false;
 
         // The state machine refuses this at or after GOODS_ISSUED: the stock has left the books,
@@ -111,9 +114,7 @@ internal sealed class DeliveryStatusRepository : IDeliveryStatusRepository
         // Give the stock back. A cancelled delivery that keeps its hold makes those units
         // permanently unavailable to everyone else, and nothing would ever point at the cause.
         // Idempotent, so a delivery that never reached RELEASED simply frees nothing.
-        await _reservations.ReleaseBySourceAsync(
-            ReservationSourceType.Delivery, delivery.UUID,
-            $"Delivery {delivery.DeliveryNumber} cancelled: {reason}", userId);
+        await ReturnHoldAsync(delivery, $"Delivery {delivery.DeliveryNumber} cancelled: {reason}", userId);
 
         Touch(delivery, userId);
         await _db.SaveChangesAsync();
@@ -150,13 +151,29 @@ internal sealed class DeliveryStatusRepository : IDeliveryStatusRepository
 
         // The balance is not coming, so whatever is still held for it goes back to available.
         // What was actually issued was consumed at goods issue and is no longer an active hold.
-        await _reservations.ReleaseBySourceAsync(
-            ReservationSourceType.Delivery, delivery.UUID,
-            $"Delivery {delivery.DeliveryNumber} closed short: {reason}", userId);
+        await ReturnHoldAsync(delivery, $"Delivery {delivery.DeliveryNumber} closed short: {reason}", userId);
 
         Touch(delivery, userId);
         await _db.SaveChangesAsync();
         return true;
+    }
+
+    /// <summary>
+    /// Ends the delivery's hold. For a sale-order delivery the stock goes back to the order, whose
+    /// promise to the customer still stands, rather than to the free pool where anyone could take
+    /// it; whatever remains after that — and everything, for any other delivery — is released.
+    /// </summary>
+    private async Task ReturnHoldAsync(DeliveryOrder delivery, string reason, int userId)
+    {
+        if (delivery.SaleOrderUuid is { } saleOrderUuid)
+            foreach (var line in delivery.Lines.Where(l => l.SoLineUuid is not null))
+                await _reservations.TransferLineAsync(
+                    ReservationSourceType.Delivery, delivery.UUID, line.UUID,
+                    ReservationSourceType.SalesOrder, saleOrderUuid, line.SoLineUuid,
+                    line.QtyOrdered, userId);
+
+        await _reservations.ReleaseBySourceAsync(
+            ReservationSourceType.Delivery, delivery.UUID, reason, userId);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

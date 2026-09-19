@@ -18,6 +18,7 @@ import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { DropdownModule } from 'primeng/dropdown';
 import { TableModule } from 'primeng/table';
 import { CheckboxModule } from 'primeng/checkbox';
+import { CalendarModule } from 'primeng/calendar';
 import { MessageService, ConfirmationService } from 'primeng/api';
 import {
   InventoryService,
@@ -34,6 +35,14 @@ import {
 } from '../../../../services/inventory.service';
 import { DynamicAttributeFormComponent } from '../../../../shared/dynamic-attribute-form/dynamic-attribute-form.component';
 import { AttachmentService } from '../../../../services/attachment.service';
+import {
+  PricingRuleService,
+  PricingRuleModel,
+  PriceType,
+  SalePriceResolution
+} from '../../../../services/pricing-rule.service';
+import { CurrenciesService, CurrencyModel } from '../../../../services/currencies.service';
+import { BusinessPartnerService, BusinessPartnerModel } from '../../../../services/business-partner.service';
 
 @Component({
   selector: 'app-product-detail',
@@ -43,7 +52,7 @@ import { AttachmentService } from '../../../../services/attachment.service';
     ButtonModule, CardModule, TabViewModule, TagModule, ToastModule,
     DialogModule, InputTextModule, TextareaModule, InputNumberModule,
     DividerModule, TooltipModule, ConfirmDialogModule, DropdownModule, TableModule,
-    CheckboxModule, DynamicAttributeFormComponent
+    CheckboxModule, CalendarModule, DynamicAttributeFormComponent
   ],
   templateUrl: './product-detail.component.html',
   styleUrls: ['./product-detail.component.scss'],
@@ -98,6 +107,28 @@ export class ProductDetailComponent implements OnInit {
   private variantAttributeValues: VariantAttributeValueInput[] = [];
   private variantAttributesValid = true;
 
+  // ── Pricing tab (A29-P2-06) ───────────────────────────────────────────────
+  pricingVariantUuid: string | null = null;
+  pricingRules: PricingRuleModel[] = [];
+  isLoadingPricing = false;
+  currencies: CurrencyModel[] = [];
+  partners: BusinessPartnerModel[] = [];
+  priceTypeOptions: { label: string; value: PriceType }[] = [
+    { label: 'Selling',     value: 'SELLING' },
+    { label: 'Cost',        value: 'COST' },
+    { label: 'Promotional', value: 'PROMOTIONAL' },
+    { label: 'Contract',    value: 'CONTRACT' }
+  ];
+
+  showPriceRuleDialog = false;
+  priceRuleForm!: FormGroup;
+  isSavingPriceRule = false;
+  editingPriceRule: PricingRuleModel | null = null;
+
+  previewForm!: FormGroup;
+  isCalculatingPreview = false;
+  previewResult: SalePriceResolution | null = null;
+
   constructor(
     private route: ActivatedRoute,
     private router: Router,
@@ -105,7 +136,10 @@ export class ProductDetailComponent implements OnInit {
     private inventoryService: InventoryService,
     private messageService: MessageService,
     private confirmationService: ConfirmationService,
-    private attachmentService: AttachmentService
+    private attachmentService: AttachmentService,
+    private pricingRuleService: PricingRuleService,
+    private currenciesService: CurrenciesService,
+    private businessPartnerService: BusinessPartnerService
   ) {}
 
   resolveImageUrl(url: string): string {
@@ -216,6 +250,24 @@ export class ProductDetailComponent implements OnInit {
       sortOrder:     [null],
       isDefault:     [false]
     });
+
+    this.priceRuleForm = this.fb.group({
+      partnerUuid:   [null],
+      priceType:     ['SELLING', [Validators.required]],
+      minQty:        [null, [Validators.min(0)]],
+      maxQty:        [null, [Validators.min(0)]],
+      unitPrice:     [null, [Validators.required, Validators.min(0)]],
+      currencyId:    [null],
+      effectiveFrom: [new Date(), [Validators.required]],
+      effectiveTo:   [null],
+      isActive:      [true]
+    });
+
+    this.previewForm = this.fb.group({
+      partnerUuid: [null],
+      qty:         [1, [Validators.required, Validators.min(0.0001)]],
+      date:        [new Date()]
+    });
   }
 
   // Adjustment dialog picks a variant directly — dropdown only shown when the product has
@@ -232,6 +284,9 @@ export class ProductDetailComponent implements OnInit {
       next: (res) => {
         if (res.success) {
           this.product = res.result;
+          if (!this.pricingVariantUuid) {
+            this.pricingVariantUuid = this.defaultVariant?.uuid ?? this.product.variants?.[0]?.uuid ?? null;
+          }
           this.loadStock();
         } else {
           this.isLoading = false;
@@ -570,6 +625,198 @@ export class ProductDetailComponent implements OnInit {
       }
     });
   }
+
+  // ── Pricing tab (A29-P2-06 §2.2) ─────────────────────────────────────────
+  // Rules are per-variant, so this tab needs its own variant picker; it defaults to the
+  // product's default variant once the product loads (see loadProduct). Lookups (currencies,
+  // partners) are loaded once, the first time the tab is actually opened, not on every page load.
+  private pricingLookupsLoaded = false;
+
+  onTabChange(event: { index: number }): void {
+    const pricingTabIndex = 4;
+    if (event.index === pricingTabIndex && !this.pricingLookupsLoaded) {
+      this.pricingLookupsLoaded = true;
+      this.currenciesService.getAll().subscribe({
+        next: (res) => { if (res.success) this.currencies = res.result ?? []; },
+        error: () => this.messageService.add({ severity: 'warn', summary: 'Warning', detail: 'Failed to load currencies.' })
+      });
+      this.businessPartnerService.getPartners({ pageSize: 200 }).subscribe({
+        next: (res) => { if (res.success) this.partners = res.result?.data ?? []; },
+        error: () => this.messageService.add({ severity: 'warn', summary: 'Warning', detail: 'Failed to load partners.' })
+      });
+      if (this.pricingVariantUuid) this.loadPricingRules();
+    }
+  }
+
+  onPricingVariantChange(): void {
+    this.loadPricingRules();
+  }
+
+  loadPricingRules(): void {
+    if (!this.pricingVariantUuid) { this.pricingRules = []; return; }
+    this.isLoadingPricing = true;
+    this.pricingRuleService.getRules({ variantUuid: this.pricingVariantUuid, pageSize: 100 }).subscribe({
+      next: (res) => {
+        this.isLoadingPricing = false;
+        if (res.success) this.pricingRules = res.result?.data ?? [];
+      },
+      error: (err) => {
+        this.isLoadingPricing = false;
+        this.messageService.add({ severity: 'error', summary: 'Error', detail: err.error?.message || 'Failed to load pricing rules.' });
+      }
+    });
+  }
+
+  partnerName(uuid?: string | null): string {
+    if (!uuid) return 'All Partners';
+    return this.partners.find(p => p.uuid === uuid)?.companyName ?? uuid;
+  }
+
+  currencyCode(id?: string | null): string {
+    if (!id) return '';
+    const c = this.currencies.find(x => x.id === id);
+    return c?.code ?? c?.name ?? '';
+  }
+
+  priceTypeSeverity(type: string): 'success' | 'info' | 'warn' | 'danger' {
+    switch (type) {
+      case 'CONTRACT':    return 'danger';
+      case 'PROMOTIONAL': return 'warn';
+      case 'SELLING':     return 'success';
+      default:            return 'info'; // COST
+    }
+  }
+
+  openAddPriceRuleDialog(): void {
+    this.editingPriceRule = null;
+    this.priceRuleForm.reset({
+      partnerUuid: null, priceType: 'SELLING', minQty: null, maxQty: null,
+      unitPrice: null, currencyId: this.currencies[0]?.id ?? null,
+      effectiveFrom: new Date(), effectiveTo: null, isActive: true
+    });
+    this.showPriceRuleDialog = true;
+  }
+
+  openEditPriceRuleDialog(rule: PricingRuleModel): void {
+    this.editingPriceRule = rule;
+    this.priceRuleForm.reset({
+      partnerUuid: rule.partnerUuid ?? null,
+      priceType: rule.priceType,
+      minQty: rule.minQty ?? null,
+      maxQty: rule.maxQty ?? null,
+      unitPrice: rule.unitPrice,
+      currencyId: rule.currencyId,
+      effectiveFrom: new Date(rule.effectiveFrom),
+      effectiveTo: rule.effectiveTo ? new Date(rule.effectiveTo) : null,
+      isActive: rule.isActive
+    });
+    this.showPriceRuleDialog = true;
+  }
+
+  savePriceRule(): void {
+    if (this.priceRuleForm.invalid) { this.priceRuleForm.markAllAsTouched(); return; }
+    if (!this.pricingVariantUuid) return;
+    const raw = this.priceRuleForm.value;
+
+    this.isSavingPriceRule = true;
+    const onSuccess = (message: string) => {
+      this.isSavingPriceRule = false;
+      this.showPriceRuleDialog = false;
+      this.messageService.add({ severity: 'success', summary: 'Saved', detail: message });
+      this.loadPricingRules();
+    };
+    const onError = (err: { error?: { message?: string } }) => {
+      this.isSavingPriceRule = false;
+      this.messageService.add({ severity: 'error', summary: 'Error', detail: err?.error?.message || 'Save failed.' });
+    };
+
+    if (this.editingPriceRule) {
+      this.pricingRuleService.updateRule(this.editingPriceRule.uuid, {
+        priceType:     raw.priceType,
+        minQty:        raw.minQty ?? null,
+        maxQty:        raw.maxQty ?? null,
+        unitPrice:     raw.unitPrice,
+        currencyId:    raw.currencyId,
+        effectiveFrom: (raw.effectiveFrom as Date).toISOString(),
+        effectiveTo:   raw.effectiveTo ? (raw.effectiveTo as Date).toISOString() : null,
+        isActive:      raw.isActive
+      }).subscribe({ next: (res) => res.success ? onSuccess('Pricing rule updated.') : onError({ error: { message: res.message } }), error: onError });
+    } else {
+      this.pricingRuleService.createRule({
+        variantUuid:   this.pricingVariantUuid,
+        partnerUuid:   raw.partnerUuid ?? null,
+        priceType:     raw.priceType,
+        minQty:        raw.minQty ?? null,
+        maxQty:        raw.maxQty ?? null,
+        unitPrice:     raw.unitPrice,
+        currencyId:    raw.currencyId ?? null,
+        effectiveFrom: (raw.effectiveFrom as Date).toISOString(),
+        effectiveTo:   raw.effectiveTo ? (raw.effectiveTo as Date).toISOString() : null
+      }).subscribe({ next: (res) => res.success ? onSuccess('Pricing rule created.') : onError({ error: { message: res.message } }), error: onError });
+    }
+  }
+
+  confirmDeletePriceRule(rule: PricingRuleModel): void {
+    this.confirmationService.confirm({
+      message: `Delete this ${rule.priceType} price rule? It will be deactivated, not permanently removed.`,
+      header: 'Confirm Delete',
+      icon: 'pi pi-exclamation-triangle',
+      acceptButtonStyleClass: 'p-button-danger',
+      rejectButtonStyleClass: 'p-button-text',
+      accept: () => {
+        this.pricingRuleService.deleteRule(rule.uuid).subscribe({
+          next: (res) => {
+            if (res.success) {
+              this.messageService.add({ severity: 'success', summary: 'Deleted', detail: 'Pricing rule deactivated.' });
+              this.loadPricingRules();
+            } else {
+              this.messageService.add({ severity: 'error', summary: 'Error', detail: res.message });
+            }
+          },
+          error: (err) => this.messageService.add({ severity: 'error', summary: 'Error', detail: err.error?.message || 'Failed to delete pricing rule.' })
+        });
+      }
+    });
+  }
+
+  // ── Price preview calculator ─────────────────────────────────────────────
+
+  calculatePreview(): void {
+    if (this.previewForm.invalid || !this.pricingVariantUuid) { this.previewForm.markAllAsTouched(); return; }
+    const raw = this.previewForm.value;
+    this.isCalculatingPreview = true;
+    this.previewResult = null;
+    this.pricingRuleService.resolvePrice(
+      this.pricingVariantUuid, raw.partnerUuid ?? null, raw.qty, (raw.date as Date)?.toISOString()
+    ).subscribe({
+      next: (res) => {
+        this.isCalculatingPreview = false;
+        if (res.success) {
+          this.previewResult = res.result;
+        } else {
+          this.messageService.add({ severity: 'error', summary: 'Error', detail: res.message });
+        }
+      },
+      error: (err) => {
+        this.isCalculatingPreview = false;
+        this.messageService.add({ severity: 'error', summary: 'Error', detail: err.error?.message || 'Failed to calculate price.' });
+      }
+    });
+  }
+
+  tierLabel(tier?: string | null): string {
+    switch (tier) {
+      case 'CONTRACT':         return 'Contract';
+      case 'PROMOTIONAL':      return 'Promotional';
+      case 'PARTNER_SELLING':  return 'Partner-Specific Selling';
+      case 'DEFAULT_SELLING':  return 'Default Selling';
+      case 'VARIANT_DEFAULT':  return "Variant's List Price";
+      default:                 return '—';
+    }
+  }
+
+  get prf() { return this.priceRuleForm.controls; }
+  get pvf() { return this.previewForm.controls; }
 
   // ── Deactivate ────────────────────────────────────────────────────────────
 

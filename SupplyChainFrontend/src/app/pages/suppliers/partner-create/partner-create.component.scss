@@ -1,0 +1,119 @@
+.partner-create-page {
+  padding: 2rem;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  min-height: 100vh;
+  max-width: 900px;
+  margin: 0 auto;
+
+  .page-header {
+    margin-bottom: 1.5rem;
+
+    .header-content {
+      background: white;
+      padding: 1.5rem 2rem;
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.8);
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .page-title {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: #2c3e50;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+
+      i { color: #3498db; }
+    }
+
+    .page-subtitle {
+      font-size: 0.95rem;
+      color: #7f8c8d;
+      margin: 0.25rem 0 0 0;
+    }
+  }
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.25rem;
+
+  .full-width { grid-column: 1 / -1; }
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+
+  label { font-weight: 600; color: #2c3e50; font-size: 0.9rem; }
+  .req { color: #e74c3c; }
+}
+
+.form-section-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #2c3e50;
+  margin-bottom: 0.25rem;
+}
+
+.field-hint {
+  color: #7f8c8d;
+  font-size: 0.85rem;
+  margin: 0 0 1rem 0;
+}
+
+.capability-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+.capability-field {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid #ecf0f1;
+  border-radius: 12px;
+
+  label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    font-weight: 600;
+    color: #2c3e50;
+
+    i { margin-right: 0.4rem; color: #3498db; }
+  }
+
+  .capability-sub {
+    font-weight: 400;
+    font-size: 0.8rem;
+    color: #7f8c8d;
+  }
+}
+
+.dynamic-fields { margin-top: 0.5rem; }
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #ecf0f1;
+}
+
+@media (max-width: 768px) {
+  .form-grid, .capability-grid { grid-template-columns: 1fr; }
+}

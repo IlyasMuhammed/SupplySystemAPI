@@ -32,4 +32,22 @@ internal sealed class ProductVariantResolver : IProductVariantResolver
             .GroupBy(m => m.ProductUuid)
             .ToDictionary(g => g.Key, g => g.First());
     }
+
+    public async Task<IReadOnlyDictionary<Guid, VariantDescription>> DescribeVariantsAsync(
+        IReadOnlyList<Guid> variantUuids)
+    {
+        if (variantUuids is null || variantUuids.Count == 0)
+            return new Dictionary<Guid, VariantDescription>();
+
+        var wanted = variantUuids.Where(id => id != Guid.Empty).Distinct().ToList();
+        if (wanted.Count == 0) return new Dictionary<Guid, VariantDescription>();
+
+        var matches = await _db.ProductVariants
+            .Where(v => v.IsActive && wanted.Contains(v.Uuid))
+            .Select(v => new VariantDescription(
+                v.Uuid, v.Product.Uuid, v.Sku, v.VariantName, v.Product.Name, v.IsDefault, v.Product.UomCode))
+            .ToListAsync();
+
+        return matches.ToDictionary(m => m.VariantUuid);
+    }
 }

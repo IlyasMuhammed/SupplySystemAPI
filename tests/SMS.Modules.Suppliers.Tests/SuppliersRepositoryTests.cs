@@ -52,13 +52,13 @@ file static class Build
         return (new SuppliersRepository(db, new FakeEncryption(), new UnrestrictedSupplierAccess()), db);
     }
 
-    internal static Supplier Supplier(SuppliersDbContext db,
+    internal static BusinessPartner Supplier(SuppliersDbContext db,
         string name = "Test Supplier",
         string code = "TST001",
         string status = "PENDING",
         bool isDelete = false)
     {
-        var s = new Supplier
+        var s = new BusinessPartner
         {
             UUID = Guid.NewGuid(),
             SupplierName = name,
@@ -69,7 +69,7 @@ file static class Build
             CreatedBy = 1,
             CreatedDate = DateTime.UtcNow
         };
-        db.Suppliers.Add(s);
+        db.BusinessPartners.Add(s);
         return s;
     }
 }
@@ -202,7 +202,7 @@ public class CreateSupplierAsync_Tests
             IndustryIds = []
         }, createdBy: 1);
 
-        var supplier = await db.Suppliers.SingleAsync();
+        var supplier = await db.BusinessPartners.SingleAsync();
         supplier.Status.Should().Be("PENDING");
         supplier.IsActive.Should().BeTrue();
     }
@@ -238,7 +238,7 @@ public class GetSupplierByIdAsync_Tests
             });
         });
 
-        var supplier = await db.Suppliers.SingleAsync();
+        var supplier = await db.BusinessPartners.SingleAsync();
         var detail = await repo.GetSupplierByIdAsync(supplier.UUID);
 
         detail.Should().NotBeNull();
@@ -256,7 +256,7 @@ public class GetSupplierByIdAsync_Tests
     {
         var (repo, db) = Build.New(ctx => Build.Supplier(ctx, isDelete: true));
 
-        var uuid = (await db.Suppliers.SingleAsync()).UUID;
+        var uuid = (await db.BusinessPartners.SingleAsync()).UUID;
         var result = await repo.GetSupplierByIdAsync(uuid);
 
         result.Should().BeNull();
@@ -275,7 +275,7 @@ public class GetSupplierByIdAsync_Tests
                 { SupplierId = s.Id, ContactName = "Inactive", IsActive = false, IsPrimary = false });
         });
 
-        var uuid = (await db.Suppliers.SingleAsync()).UUID;
+        var uuid = (await db.BusinessPartners.SingleAsync()).UUID;
         var detail = await repo.GetSupplierByIdAsync(uuid);
 
         detail!.Contacts.Should().HaveCount(1)
@@ -391,6 +391,26 @@ public class GetSuppliersAsync_Tests
     }
 
     [Fact]
+    public async Task ExcludesPartnersThatAreNotVendors()
+    {
+        // P1-05 (Addendum 29 §1.7 TC-01) — now that BusinessPartners can hold pure customers,
+        // carriers and service providers (P1-04's IBusinessPartnerRepository.CreateAsync), the
+        // legacy /api/suppliers list must keep excluding them, not include every row in the table.
+        var (repo, _) = Build.New(ctx =>
+        {
+            Build.Supplier(ctx, name: "Real Vendor", code: "VEN001"); // IsVendor defaults true
+            var customerOnly = Build.Supplier(ctx, name: "Customer Only", code: "CUS001");
+            customerOnly.IsVendor = false;
+            customerOnly.IsCustomer = true;
+            customerOnly.PartnerType = "CUSTOMER";
+        });
+
+        var result = await repo.GetSuppliersAsync(new SupplierListFilter());
+
+        result.Data.Should().ContainSingle().Which.SupplierName.Should().Be("Real Vendor");
+    }
+
+    [Fact]
     public async Task SupplierListItem_IncludesTypeAndIndustryIds()
     {
         var typeId = Guid.NewGuid();
@@ -432,7 +452,7 @@ public class PatchSupplierAsync_Tests
                 { SupplierId = s.Id, LookupValueId = oldTypeId, IsPrimary = true, AssignedBy = 1, AssignedAt = DateTime.UtcNow });
         });
 
-        var uuid = (await db.Suppliers.SingleAsync()).UUID;
+        var uuid = (await db.BusinessPartners.SingleAsync()).UUID;
         var patched = await repo.PatchSupplierAsync(uuid, new PatchSupplierRequest
         {
             SupplierTypeIds =
@@ -454,14 +474,14 @@ public class PatchSupplierAsync_Tests
     {
         var (repo, db) = Build.New(ctx => Build.Supplier(ctx, name: "Old Name", code: "UPD001"));
 
-        var uuid = (await db.Suppliers.SingleAsync()).UUID;
+        var uuid = (await db.BusinessPartners.SingleAsync()).UUID;
         await repo.PatchSupplierAsync(uuid, new PatchSupplierRequest
         {
             SupplierName = "New Name",
             City = "Lahore"
         }, modifiedBy: 1);
 
-        var s = await db.Suppliers.SingleAsync();
+        var s = await db.BusinessPartners.SingleAsync();
         s.SupplierName.Should().Be("New Name");
         s.City.Should().Be("Lahore");
         s.SupplierCode.Should().Be("UPD001");  // unchanged
@@ -490,7 +510,7 @@ public class PatchSupplierAsync_Tests
                 { SupplierId = s.Id, LookupValueId = typeId, IsPrimary = true, AssignedBy = 1, AssignedAt = DateTime.UtcNow });
         });
 
-        var uuid = (await db.Suppliers.SingleAsync()).UUID;
+        var uuid = (await db.BusinessPartners.SingleAsync()).UUID;
 
         // Patch with SupplierTypeIds = null (not supplied) — existing mappings must survive
         await repo.PatchSupplierAsync(uuid, new PatchSupplierRequest
@@ -514,7 +534,7 @@ public class AddContactAsync_Tests
     {
         var (repo, db) = Build.New(ctx => Build.Supplier(ctx, code: "CON001"));
 
-        var uuid = (await db.Suppliers.SingleAsync()).UUID;
+        var uuid = (await db.BusinessPartners.SingleAsync()).UUID;
         var contactId = await repo.AddContactAsync(uuid, new AddContactRequest
         {
             ContactName = "Jane Smith",
@@ -552,14 +572,14 @@ public class StatusStateMachine_Tests
     {
         var (repo, db) = Build.New(ctx => Build.Supplier(ctx, code: "APV001", status: "PENDING"));
 
-        var uuid = (await db.Suppliers.SingleAsync()).UUID;
+        var uuid = (await db.BusinessPartners.SingleAsync()).UUID;
         var (success, returnedUuid, id) = await repo.ApproveSupplierAsync(uuid, approvedBy: 42);
 
         success.Should().BeTrue();
         returnedUuid.Should().Be(uuid);
         id.Should().BeGreaterThan(0);
 
-        var s = await db.Suppliers.SingleAsync();
+        var s = await db.BusinessPartners.SingleAsync();
         s.Status.Should().Be("ACTIVE");
         s.ApprovedBy.Should().Be(42);
         s.OnboardingDate.Should().NotBeNull();
@@ -570,12 +590,12 @@ public class StatusStateMachine_Tests
     {
         var (repo, db) = Build.New(ctx => Build.Supplier(ctx, code: "REJ001", status: "PENDING"));
 
-        var uuid = (await db.Suppliers.SingleAsync()).UUID;
+        var uuid = (await db.BusinessPartners.SingleAsync()).UUID;
         var (success, _, _) = await repo.RejectSupplierAsync(uuid, "Credit risk", changedBy: 5);
 
         success.Should().BeTrue();
 
-        var s = await db.Suppliers.SingleAsync();
+        var s = await db.BusinessPartners.SingleAsync();
         s.Status.Should().Be("REJECTED");
         s.RejectedReason.Should().Be("Credit risk");
         s.IsActive.Should().BeFalse();
@@ -586,10 +606,10 @@ public class StatusStateMachine_Tests
     {
         var (repo, db) = Build.New(ctx => Build.Supplier(ctx, code: "BLK001", status: "ACTIVE"));
 
-        var uuid = (await db.Suppliers.SingleAsync()).UUID;
+        var uuid = (await db.BusinessPartners.SingleAsync()).UUID;
         await repo.BlacklistSupplierAsync(uuid, "Fraud detected", changedBy: 1);
 
-        var s = await db.Suppliers.SingleAsync();
+        var s = await db.BusinessPartners.SingleAsync();
         s.Status.Should().Be("BLACKLISTED");
         s.BlacklistedReason.Should().Be("Fraud detected");
         s.IsActive.Should().BeFalse();
@@ -601,10 +621,10 @@ public class StatusStateMachine_Tests
         var reviewDate = DateTime.UtcNow.AddDays(30);
         var (repo, db) = Build.New(ctx => Build.Supplier(ctx, code: "SUS001", status: "ACTIVE"));
 
-        var uuid = (await db.Suppliers.SingleAsync()).UUID;
+        var uuid = (await db.BusinessPartners.SingleAsync()).UUID;
         await repo.SuspendSupplierAsync(uuid, "Payment overdue", reviewDate, changedBy: 3);
 
-        var s = await db.Suppliers.SingleAsync();
+        var s = await db.BusinessPartners.SingleAsync();
         s.Status.Should().Be("SUSPENDED");
         s.SuspendedReason.Should().Be("Payment overdue");
         s.SuspendedReviewDate.Should().BeCloseTo(reviewDate, TimeSpan.FromSeconds(1));
@@ -615,7 +635,7 @@ public class StatusStateMachine_Tests
     {
         var (repo, db) = Build.New(ctx => Build.Supplier(ctx, code: "INV001", status: "REJECTED"));
 
-        var uuid = (await db.Suppliers.SingleAsync()).UUID;
+        var uuid = (await db.BusinessPartners.SingleAsync()).UUID;
         var act = () => repo.ApproveSupplierAsync(uuid, approvedBy: 1);
 
         await act.Should().ThrowAsync<BadRequestException>()
@@ -627,7 +647,7 @@ public class StatusStateMachine_Tests
     {
         var (repo, db) = Build.New(ctx => Build.Supplier(ctx, code: "INV002", status: "PENDING"));
 
-        var uuid = (await db.Suppliers.SingleAsync()).UUID;
+        var uuid = (await db.BusinessPartners.SingleAsync()).UUID;
         var act = () => repo.SuspendSupplierAsync(uuid, "reason", null, changedBy: 1);
 
         await act.Should().ThrowAsync<BadRequestException>()
@@ -639,11 +659,11 @@ public class StatusStateMachine_Tests
     {
         var (repo, db) = Build.New(ctx => Build.Supplier(ctx, code: "SUS002", status: "SUSPENDED"));
 
-        var uuid = (await db.Suppliers.SingleAsync()).UUID;
+        var uuid = (await db.BusinessPartners.SingleAsync()).UUID;
         var (success, _, _) = await repo.ApproveSupplierAsync(uuid, approvedBy: 1);
 
         success.Should().BeTrue();
-        var s = await db.Suppliers.SingleAsync();
+        var s = await db.BusinessPartners.SingleAsync();
         s.Status.Should().Be("ACTIVE");
     }
 }
@@ -657,7 +677,7 @@ public class BankDetail_Tests
     {
         var (repo, db) = Build.New(ctx => Build.Supplier(ctx, code: "BNK001"));
 
-        var uuid = (await db.Suppliers.SingleAsync()).UUID;
+        var uuid = (await db.BusinessPartners.SingleAsync()).UUID;
         await repo.UpsertBankDetailAsync(uuid, new UpsertBankDetailRequest
         {
             BankName      = "Meezan Bank",
@@ -678,7 +698,7 @@ public class BankDetail_Tests
     {
         var (repo, db) = Build.New(ctx => Build.Supplier(ctx, code: "BNK002"));
 
-        var uuid = (await db.Suppliers.SingleAsync()).UUID;
+        var uuid = (await db.BusinessPartners.SingleAsync()).UUID;
         await repo.UpsertBankDetailAsync(uuid, new UpsertBankDetailRequest
         {
             BankName      = "HBL",
@@ -701,7 +721,7 @@ public class BankDetail_Tests
     {
         var (repo, db) = Build.New(ctx => Build.Supplier(ctx, code: "BNK003"));
 
-        var uuid = (await db.Suppliers.SingleAsync()).UUID;
+        var uuid = (await db.BusinessPartners.SingleAsync()).UUID;
         await repo.UpsertBankDetailAsync(uuid, new UpsertBankDetailRequest { BankName = "First Bank" }, userId: 1);
         await repo.UpsertBankDetailAsync(uuid, new UpsertBankDetailRequest { BankName = "Updated Bank" }, userId: 2);
 
@@ -723,7 +743,7 @@ public class Document_Tests
     {
         var (repo, db) = Build.New(ctx => Build.Supplier(ctx, code: "DOC001"));
 
-        var uuid = (await db.Suppliers.SingleAsync()).UUID;
+        var uuid = (await db.BusinessPartners.SingleAsync()).UUID;
         var docId = await repo.AttachDocumentAsync(uuid, new AttachDocumentRequest
         {
             FileName     = "contract.pdf",
@@ -750,7 +770,7 @@ public class Document_Tests
                 { SupplierId = s.Id, FileName = "deleted.pdf",  FileUrl = "url2", UploadedAt = DateTime.UtcNow, UploadedBy = 1, IsActive = false });
         });
 
-        var uuid = (await db.Suppliers.SingleAsync()).UUID;
+        var uuid = (await db.BusinessPartners.SingleAsync()).UUID;
         var docs = await repo.GetDocumentsAsync(uuid);
 
         docs.Should().HaveCount(1);
@@ -772,7 +792,7 @@ public class Document_Tests
             docId = doc.Id;
         });
 
-        var uuid = (await db.Suppliers.SingleAsync()).UUID;
+        var uuid = (await db.BusinessPartners.SingleAsync()).UUID;
         var result = await repo.SoftDeleteDocumentAsync(uuid, docId);
 
         result.Should().BeTrue();
@@ -785,7 +805,7 @@ public class Document_Tests
     {
         var (repo, db) = Build.New(ctx => Build.Supplier(ctx, code: "DOC004"));
 
-        var uuid = (await db.Suppliers.SingleAsync()).UUID;
+        var uuid = (await db.BusinessPartners.SingleAsync()).UUID;
         var result = await repo.SoftDeleteDocumentAsync(uuid, docId: 9999);
 
         result.Should().BeFalse();

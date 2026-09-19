@@ -22,6 +22,7 @@ namespace SMS.Modules.Logistics.Tests;
 internal sealed class FakeVariantResolver : IProductVariantResolver
 {
     private readonly Dictionary<Guid, DefaultVariantResult> _byProduct = [];
+    private readonly Dictionary<Guid, VariantDescription>   _byVariant = [];
 
     internal Guid AddProductWithDefaultVariant()
     {
@@ -29,6 +30,27 @@ internal sealed class FakeVariantResolver : IProductVariantResolver
         _byProduct[productUuid] = new DefaultVariantResult(
             productUuid, Guid.NewGuid(), "SKU-001", "Default");
         return productUuid;
+    }
+
+    /// <summary>A variant a sale order line can point at, as the catalogue would describe it.</summary>
+    internal Guid AddVariant(
+        string sku, string productName, string variantName = "Default", bool isDefault = true, string? uom = "EA")
+    {
+        var variantUuid = Guid.NewGuid();
+        _byVariant[variantUuid] = new VariantDescription(
+            variantUuid, Guid.NewGuid(), sku, variantName, productName, isDefault, uom);
+        return variantUuid;
+    }
+
+    public Task<IReadOnlyDictionary<Guid, VariantDescription>> DescribeVariantsAsync(
+        IReadOnlyList<Guid> variantUuids)
+    {
+        IReadOnlyDictionary<Guid, VariantDescription> found = variantUuids
+            .Where(_byVariant.ContainsKey)
+            .Distinct()
+            .ToDictionary(id => id, id => _byVariant[id]);
+
+        return Task.FromResult(found);
     }
 
     public Task<IReadOnlyDictionary<Guid, DefaultVariantResult>> ResolveDefaultVariantsAsync(
@@ -74,7 +96,8 @@ public class DeliveryFromSroMivTransferTests
         var variants  = new FakeVariantResolver();
 
         return new Harness(db, warehouse, material, variants,
-            new DeliveryFromSourceRepository(db, demand, warehouse, material, numbers, addresses, variants),
+            new DeliveryFromSourceRepository(
+                db, demand, warehouse, material, numbers, addresses, variants, new FakeStockReservationService()),
             new DeliveryRepository(db, numbers, addresses));
     }
 
