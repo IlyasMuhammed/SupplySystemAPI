@@ -1,0 +1,215 @@
+<div class="cod-page">
+  <p-toast></p-toast>
+
+  <div class="page-header">
+    <div>
+      <h1 class="page-title"><i class="pi pi-wallet"></i> Cash on delivery</h1>
+      <p class="page-subtitle">
+        Money carriers collected on our behalf and have not yet passed on. This is a receivable —
+        the opposite of a freight accrual, which is what we owe them.
+      </p>
+    </div>
+
+    <div class="header-actions">
+      <p-button label="Freight accruals" icon="pi pi-book" severity="secondary" [outlined]="true"
+                routerLink="/portal/pages/logistics/settlement/freight-accruals"
+                data-testid="action-accruals"></p-button>
+    </div>
+  </div>
+
+  <!-- ── What is outstanding ─────────────────────────────────────────────────── -->
+
+  <div class="summary" *ngIf="summary as s">
+    <div class="headline">
+      <span class="label">Carriers are holding</span>
+      <span class="value" data-testid="outstanding-total">
+        <ng-container *ngIf="s.currency; else mixed">
+          {{ s.outstandingTotal | number:'1.2-2' }} {{ s.currency }}
+        </ng-container>
+        <!-- No exchange rate exists here, so a single figure across currencies would be a
+             number nobody could defend. -->
+        <ng-template #mixed>
+          <span class="mixed" data-testid="mixed-currency">per currency, below</span>
+        </ng-template>
+      </span>
+      <span class="label">across {{ s.openCount }} consignment(s)</span>
+    </div>
+
+    <table class="by-carrier" *ngIf="s.byCarrier.length" data-testid="by-carrier">
+      <tr *ngFor="let c of s.byCarrier">
+        <td>{{ c.carrierName }}</td>
+        <td class="muted">{{ c.count }}</td>
+        <td class="amount">{{ c.outstanding | number:'1.2-2' }} {{ c.currency }}</td>
+      </tr>
+    </table>
+
+    <!-- Money that should have come in, and nothing saying whether it did. -->
+    <div class="banner warn" *ngIf="s.neverCollected.length" data-testid="never-collected">
+      <i class="pi pi-exclamation-triangle"></i>
+      <div>
+        <strong>
+          {{ s.neverCollected.length }} delivered consignment(s) carried cash nobody has said was
+          collected.
+        </strong>
+        <ul>
+          <li *ngFor="let n of s.neverCollected">
+            <a [routerLink]="['/portal/pages/logistics/consignments', n.consignmentUuid]"
+               class="font-mono link">{{ n.consignmentNumber }}</a>
+            — {{ n.expectedAmount | number:'1.2-2' }} {{ n.currency }}
+            <span class="muted" *ngIf="n.carrierName">· {{ n.carrierName }}</span>
+          </li>
+        </ul>
+        <p class="muted">Ask the carrier before the trail goes cold.</p>
+      </div>
+    </div>
+
+    <div class="warnings" *ngIf="s.warnings.length" data-testid="summary-warnings">
+      <p *ngFor="let w of s.warnings"><i class="pi pi-info-circle"></i> {{ w }}</p>
+    </div>
+  </div>
+
+  <!-- ── The list ────────────────────────────────────────────────────────────── -->
+
+  <div class="filters">
+    <p-select [options]="carrierOptions" [(ngModel)]="filter.carrierUuid" optionLabel="label"
+              optionValue="value" (onChange)="search()" styleClass="filter"
+              data-testid="filter-carrier"></p-select>
+
+    <p-select [options]="statusOptions" [(ngModel)]="filter.status" optionLabel="label"
+              optionValue="value" (onChange)="search()" styleClass="filter"
+              data-testid="filter-status"></p-select>
+  </div>
+
+  <p-table [value]="records" [lazy]="true" (onLazyLoad)="load($event)" [paginator]="true"
+           [rows]="pageSize" [totalRecords]="total" [loading]="isLoading"
+           styleClass="p-datatable-sm" data-testid="cod-table">
+    <ng-template pTemplate="header">
+      <tr>
+        <th>Consignment</th>
+        <th>Carrier</th>
+        <th class="amount">To collect</th>
+        <th class="amount">Carrier took</th>
+        <th class="amount">Reached us</th>
+        <th class="amount">Outstanding</th>
+        <th>Where it stands</th>
+        <th></th>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="body" let-r>
+      <tr data-testid="cod-row">
+        <td>
+          <a [routerLink]="['/portal/pages/logistics/consignments', r.consignmentUuid]"
+             class="font-mono link">{{ r.consignmentNumber }}</a>
+          <div class="muted" *ngIf="r.masterAwb">{{ r.masterAwb }}</div>
+        </td>
+        <td>{{ r.carrierName }}</td>
+        <td class="amount">{{ r.expectedAmount | number:'1.2-2' }} {{ r.currency }}</td>
+        <td class="amount">
+          {{ (r.collectedAmount | number:'1.2-2') || '—' }}
+          <div class="muted" *ngIf="r.collectionReference">{{ r.collectionReference }}</div>
+        </td>
+        <td class="amount">
+          {{ r.remittedAmount | number:'1.2-2' }}
+          <div class="muted" *ngIf="r.remittances.length">
+            {{ r.remittances.length }} payment(s)
+          </div>
+        </td>
+        <td class="amount"><strong>{{ r.outstandingAmount | number:'1.2-2' }}</strong></td>
+        <td>
+          <p-tag [value]="statusLabel(r.status)" [severity]="statusSeverity(r.status)"
+                 data-testid="cod-status"></p-tag>
+
+          <!-- Said on the row rather than buried: a short collection is the customer's
+               underpayment, and a returned consignment probably never carried cash at all. -->
+          <div class="row-warning" *ngFor="let w of r.warnings" data-testid="row-warning">{{ w }}</div>
+
+          <div class="muted" *ngIf="r.writeOffReason">{{ r.writeOffReason }}</div>
+        </td>
+        <td class="text-right">
+          <ng-container *ngIf="canAct(r)">
+            <p-button icon="pi pi-hand-point-up" [text]="true" size="small"
+                      pTooltip="The carrier collected it" (onClick)="open(r, 'collected')"
+                      data-testid="action-collected"></p-button>
+            <p-button icon="pi pi-arrow-down" [text]="true" size="small"
+                      pTooltip="Money reached us" (onClick)="open(r, 'remitted')"
+                      data-testid="action-remitted"></p-button>
+            <p-button icon="pi pi-times-circle" [text]="true" size="small" severity="danger"
+                      pTooltip="Write off the shortfall" (onClick)="open(r, 'write-off')"
+                      data-testid="action-write-off"></p-button>
+          </ng-container>
+        </td>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="emptymessage">
+      <tr>
+        <td colspan="8">
+          <div class="empty-state" data-testid="cod-empty">
+            <i class="pi pi-check-circle"></i>
+            <p>No carrier is holding cash.</p>
+            <p class="muted">Everything collected on delivery has reached us or been written off.</p>
+          </div>
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+
+  <!-- ── Recording what happened ─────────────────────────────────────────────── -->
+
+  <p-dialog [header]="dialogHeader" [(visible)]="dialogVisible" [modal]="true"
+            [style]="{ width: '32rem' }" [draggable]="false" data-testid="cod-dialog">
+    <div class="dialog-body" *ngIf="working as w">
+      <p class="dialog-hint">
+        <span class="font-mono">{{ w.consignmentNumber }}</span> —
+        {{ w.expectedAmount | number:'1.2-2' }} {{ w.currency }} to collect,
+        {{ w.outstandingAmount | number:'1.2-2' }} still outstanding.
+      </p>
+
+      <ng-container *ngIf="action !== 'write-off'">
+        <div class="field-row">
+          <div class="field">
+            <label for="amount">Amount</label>
+            <p-inputNumber inputId="amount" [(ngModel)]="form.amount" mode="decimal"
+                           [minFractionDigits]="2" data-testid="field-amount"></p-inputNumber>
+          </div>
+
+          <div class="field">
+            <label for="when">{{ action === 'remitted' ? 'Received' : 'Collected' }}</label>
+            <p-datepicker inputId="when" [(ngModel)]="form.when" dateFormat="dd M yy"
+                          appendTo="body" data-testid="field-when"></p-datepicker>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="reference">
+            {{ action === 'remitted' ? 'Transfer or batch reference' : "The carrier's receipt" }}
+          </label>
+          <input pInputText id="reference" [(ngModel)]="form.reference"
+                 data-testid="field-reference" />
+        </div>
+      </ng-container>
+
+      <div class="field">
+        <label for="note">{{ action === 'write-off' ? 'Why' : 'Note' }}</label>
+        <textarea pTextarea id="note" [(ngModel)]="form.note" rows="3"
+                  [placeholder]="action === 'write-off'
+                    ? 'Cash written off without a reason is cash nobody can account for'
+                    : ''"
+                  data-testid="field-note"></textarea>
+      </div>
+
+      <p class="validation" *ngIf="validationError" data-testid="validation-error">
+        <i class="pi pi-exclamation-triangle"></i> {{ validationError }}
+      </p>
+    </div>
+
+    <ng-template pTemplate="footer">
+      <p-button label="Cancel" [text]="true" severity="secondary"
+                (onClick)="dialogVisible = false"></p-button>
+      <p-button label="Record" icon="pi pi-check" [disabled]="!canSave || !!validationError"
+                [loading]="isSubmitting" (onClick)="confirm()"
+                data-testid="confirm-cod"></p-button>
+    </ng-template>
+  </p-dialog>
+</div>

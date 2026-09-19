@@ -1,0 +1,275 @@
+<div class="invoice-detail-page">
+  <p-toast></p-toast>
+
+  <div class="not-found" *ngIf="notFound" data-testid="not-found">
+    <i class="pi pi-file"></i>
+    <h2>Bill not found</h2>
+    <p-button label="Back to carrier invoices" icon="pi pi-arrow-left" [text]="true"
+              routerLink="/portal/pages/logistics/settlement/carrier-invoices"></p-button>
+  </div>
+
+  <div *ngIf="isLoading && !invoice" class="loading-state" data-testid="loading">
+    <i class="pi pi-spin pi-spinner"></i> Loading…
+  </div>
+
+  <ng-container *ngIf="invoice as inv">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">
+          <i class="pi pi-file"></i>
+          <span class="font-mono">{{ inv.invoiceNumber }}</span>
+          <p-tag [value]="inv.status" [severity]="statusSeverity(inv.status)"
+                 data-testid="invoice-status"></p-tag>
+        </h1>
+        <p class="page-subtitle">
+          {{ inv.carrierName }} · issued {{ inv.invoiceDate | date:'dd MMM yyyy' }}
+          <span *ngIf="inv.dueDate">· due {{ inv.dueDate | date:'dd MMM yyyy' }}</span>
+        </p>
+      </div>
+
+      <div class="header-actions">
+        <p-button *ngIf="canWork" label="Match lines" icon="pi pi-link" severity="secondary"
+                  [outlined]="true" [loading]="isMatching" (onClick)="runMatching()"
+                  data-testid="action-match"></p-button>
+        <p-button *ngIf="canWork" label="Compare" icon="pi pi-equals" [loading]="isMatching"
+                  (onClick)="runThreeWay()" data-testid="action-three-way"></p-button>
+      </div>
+    </div>
+
+    <div class="banner warn" *ngIf="isWithdrawn" data-testid="banner-withdrawn">
+      <i class="pi pi-ban"></i>
+      <span>
+        This bill was withdrawn{{ inv.cancelReason ? ' — ' + inv.cancelReason : '' }}. It is
+        matched against nothing and compared with nothing.
+      </span>
+    </div>
+
+    <!-- ── The money ───────────────────────────────────────────────────────── -->
+
+    <div class="totals">
+      <div class="total">
+        <span class="label">Billed</span>
+        <span class="value" data-testid="invoice-total">
+          {{ inv.totalAmount | number:'1.2-2' }} {{ inv.currency }}
+        </span>
+      </div>
+
+      <div class="total" *ngIf="threeWay as t">
+        <span class="label">Expected</span>
+        <span class="value">{{ t.expectedTotal | number:'1.2-2' }} {{ inv.currency }}</span>
+      </div>
+
+      <div class="total" *ngIf="threeWay as t" [class.over]="t.varianceTotal > 0"
+           [class.under]="t.varianceTotal < 0">
+        <span class="label">Difference</span>
+        <span class="value" data-testid="variance-total">
+          {{ t.varianceTotal | number:'1.2-2' }} {{ inv.currency }}
+        </span>
+      </div>
+
+      <div class="total" *ngIf="inv.taxAmount">
+        <span class="label">Tax</span>
+        <span class="value">{{ inv.taxAmount | number:'1.2-2' }}</span>
+      </div>
+    </div>
+
+    <!-- ── The comparison ──────────────────────────────────────────────────── -->
+
+    <section class="card" *ngIf="threeWay as t" data-testid="comparison-card">
+      <div class="card-head">
+        <h2 class="card-title">
+          What was expected, and what was billed
+          <p-tag *ngIf="t.isClean" value="Agrees" severity="success"></p-tag>
+        </h2>
+        <span class="muted tolerance" data-testid="tolerance">
+          within {{ t.tolerancePercent }}%<span *ngIf="t.toleranceAmount"> or
+          {{ t.toleranceAmount | number:'1.2-2' }}</span>
+        </span>
+      </div>
+
+      <div class="empty-state" *ngIf="!t.consignments.length" data-testid="nothing-compared">
+        <i class="pi pi-equals"></i>
+        <p>Nothing on this bill is tied to a movement yet.</p>
+        <p class="muted">Match the lines first — until then there is nothing to compare.</p>
+      </div>
+
+      <p-table *ngIf="t.consignments.length" [value]="t.consignments" styleClass="p-datatable-sm"
+               data-testid="comparison-table">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Movement</th>
+            <th class="amount">Quoted</th>
+            <th class="amount">Booked</th>
+            <th class="amount">Billed</th>
+            <th class="amount">Difference</th>
+            <th>Verdict</th>
+            <th>Why</th>
+          </tr>
+        </ng-template>
+
+        <ng-template pTemplate="body" let-c>
+          <tr [class.disputed]="c.outcome === 'OVERCHARGED'" data-testid="comparison-row">
+            <td>
+              <a [routerLink]="['/portal/pages/logistics/consignments', c.consignmentUuid]"
+                 class="font-mono link">{{ c.consignmentNumber }}</a>
+              <div class="muted" *ngIf="c.masterAwb">{{ c.masterAwb }}</div>
+            </td>
+            <td class="amount">{{ (c.quotedAmount | number:'1.2-2') || '—' }}</td>
+            <td class="amount">
+              {{ (c.bookedAmount | number:'1.2-2') || '—' }}
+              <!-- Which figure the bill was measured against, so nobody has to work it out. -->
+              <div class="muted" *ngIf="c.expectedBasis">used: {{ c.expectedBasis | lowercase }}</div>
+            </td>
+            <td class="amount"><strong>{{ c.invoicedAmount | number:'1.2-2' }}</strong></td>
+            <td class="amount">
+              <span *ngIf="c.varianceAmount !== null && c.varianceAmount !== undefined">
+                {{ c.varianceAmount | number:'1.2-2' }}
+                <div class="muted" *ngIf="c.variancePercent">{{ c.variancePercent }}%</div>
+              </span>
+              <span *ngIf="c.varianceAmount === null || c.varianceAmount === undefined">—</span>
+            </td>
+            <td>
+              <p-tag [value]="outcomeLabel(c.outcome)" [severity]="outcomeSeverity(c.outcome)"></p-tag>
+            </td>
+            <td class="why">
+              <strong *ngIf="c.varianceReason">{{ reasonLabel(c.varianceReason) }}.</strong>
+              <span class="muted"> {{ c.varianceNote }}</span>
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+
+      <div class="warnings" *ngIf="t.warnings.length" data-testid="comparison-warnings">
+        <p *ngFor="let w of t.warnings"><i class="pi pi-exclamation-triangle"></i> {{ w }}</p>
+      </div>
+    </section>
+
+    <!-- ── The lines ───────────────────────────────────────────────────────── -->
+
+    <section class="card" data-testid="lines-card">
+      <div class="card-head">
+        <h2 class="card-title">Charges ({{ inv.lineCount }})</h2>
+        <span class="muted" *ngIf="matches as m" data-testid="match-counts">
+          {{ m.matched }} matched · {{ m.unmatched + m.ambiguous }} needing a person ·
+          {{ m.excluded }} set aside
+        </span>
+      </div>
+
+      <p-table [value]="matches?.lines ?? []" styleClass="p-datatable-sm" data-testid="lines-table">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>#</th>
+            <th>Charge</th>
+            <th>Airway bill</th>
+            <th class="amount">Amount</th>
+            <th>Tied to</th>
+            <th></th>
+          </tr>
+        </ng-template>
+
+        <ng-template pTemplate="body" let-l>
+          <tr data-testid="line-row">
+            <td>{{ l.lineNo }}</td>
+            <td>
+              {{ l.description }}
+              <span class="muted" *ngIf="l.chargeCode"> · {{ l.chargeCode }}</span>
+            </td>
+            <td class="font-mono">{{ l.awbNumber || '—' }}</td>
+            <td class="amount">{{ l.amount | number:'1.2-2' }}</td>
+            <td>
+              <p-tag [value]="matchLabel(l.matchStatus)" [severity]="matchSeverity(l.matchStatus)"
+                     data-testid="line-match-status"></p-tag>
+
+              <div *ngIf="l.matchedConsignmentNumber" class="tied">
+                <a [routerLink]="['/portal/pages/logistics/consignments', l.matchedConsignmentUuid]"
+                   class="font-mono link">{{ l.matchedConsignmentNumber }}</a>
+                <span class="muted"> {{ methodLabel(l.matchMethod) }}</span>
+              </div>
+
+              <!-- Why it is ambiguous, why it was set aside, or what a hand match was based on. -->
+              <div class="muted note" *ngIf="l.matchNote">{{ l.matchNote }}</div>
+
+              <div class="duplicate" *ngIf="l.duplicateWarning" data-testid="duplicate-warning">
+                <i class="pi pi-exclamation-triangle"></i> {{ l.duplicateWarning }}
+              </div>
+            </td>
+            <td class="text-right">
+              <p-button *ngIf="canWork && l.matchStatus !== 'MATCHED'" icon="pi pi-link"
+                        [text]="true" size="small" pTooltip="Match by hand"
+                        (onClick)="openLine(l, 'match')" data-testid="action-match-line"></p-button>
+              <p-button *ngIf="canWork && l.matchStatus !== 'EXCLUDED' && l.matchStatus !== 'MATCHED'"
+                        icon="pi pi-eye-slash" [text]="true" size="small" severity="secondary"
+                        pTooltip="Not a movement charge" (onClick)="openLine(l, 'exclude')"
+                        data-testid="action-exclude-line"></p-button>
+              <p-button *ngIf="canWork && (l.matchStatus === 'MATCHED' || l.matchStatus === 'EXCLUDED')"
+                        icon="pi pi-undo" [text]="true" size="small" severity="secondary"
+                        pTooltip="Undo" (onClick)="openLine(l, 'unmatch')"
+                        data-testid="action-unmatch-line"></p-button>
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+
+      <div class="warnings" *ngIf="matches?.warnings?.length" data-testid="match-warnings">
+        <p *ngFor="let w of matches!.warnings"><i class="pi pi-exclamation-triangle"></i> {{ w }}</p>
+      </div>
+    </section>
+  </ng-container>
+
+  <!-- ── Deciding a line ─────────────────────────────────────────────────────── -->
+
+  <p-dialog [header]="dialogHeader" [(visible)]="lineDialogVisible" [modal]="true"
+            [style]="{ width: '36rem' }" [draggable]="false" data-testid="line-dialog">
+    <div class="dialog-body" *ngIf="workingLine as l">
+      <p class="dialog-hint">
+        {{ l.description }} — {{ l.amount | number:'1.2-2' }} {{ l.currency }}
+        <span *ngIf="l.awbNumber">· {{ l.awbNumber }}</span>
+      </p>
+
+      <ng-container *ngIf="lineAction === 'match'">
+        <p class="dialog-hint">
+          Matching by hand is a weaker claim than matching on an airway bill, so say what this one
+          is based on.
+        </p>
+
+        <div class="empty-state small" *ngIf="!candidates.length" data-testid="no-candidates">
+          <p>Nothing this carrier moved looks like a match for these references.</p>
+        </div>
+
+        <div class="candidates" *ngIf="candidates.length">
+          <label *ngFor="let c of candidates" class="candidate"
+                 [class.chosen]="chosenConsignment === c.consignmentUuid"
+                 data-testid="candidate">
+            <input type="radio" name="candidate" [value]="c.consignmentUuid"
+                   [(ngModel)]="chosenConsignment" />
+            <span class="candidate-body">
+              <strong class="font-mono">{{ c.consignmentNumber }}</strong>
+              <span class="muted" *ngIf="c.masterAwb"> · {{ c.masterAwb }}</span>
+              <span class="muted" *ngIf="c.freightCost">
+                · quoted {{ c.freightCost | number:'1.2-2' }} {{ c.freightCurrency }}
+              </span>
+              <span class="reason">{{ c.reason }}</span>
+            </span>
+          </label>
+        </div>
+      </ng-container>
+
+      <p class="dialog-hint" *ngIf="lineAction === 'exclude'">
+        A line that leaves the queue without a reason is a charge nobody ever explained.
+      </p>
+
+      <div class="field">
+        <label for="lineNote">Why</label>
+        <textarea pTextarea id="lineNote" [(ngModel)]="lineNote" rows="3"
+                  data-testid="field-line-note"></textarea>
+      </div>
+    </div>
+
+    <ng-template pTemplate="footer">
+      <p-button label="Cancel" [text]="true" severity="secondary"
+                (onClick)="lineDialogVisible = false"></p-button>
+      <p-button label="Save" icon="pi pi-check" [disabled]="!canDecide" [loading]="isSubmitting"
+                (onClick)="confirmLine()" data-testid="confirm-line"></p-button>
+    </ng-template>
+  </p-dialog>
+</div>

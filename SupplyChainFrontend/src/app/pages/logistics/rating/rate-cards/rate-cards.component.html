@@ -1,0 +1,320 @@
+<div class="rate-cards-page">
+  <p-toast></p-toast>
+
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">
+        <i class="pi pi-book"></i>
+        Rate cards
+      </h1>
+      <p class="page-subtitle">
+        {{ carrier?.name || 'This carrier' }} — the negotiated tariff. It prices carriage when the
+        carrier will not quote, and is what its own quote gets checked against when it will.
+      </p>
+    </div>
+
+    <div class="header-actions">
+      <p-button label="Try a weight" icon="pi pi-calculator" severity="secondary" [outlined]="true"
+                (onClick)="openQuoteDialog()" data-testid="action-try"></p-button>
+      <p-button label="New rate card" icon="pi pi-plus" (onClick)="openCreate()"
+                data-testid="action-new"></p-button>
+    </div>
+  </div>
+
+  <div *ngIf="isLoading" class="loading-state" data-testid="loading">
+    <i class="pi pi-spin pi-spinner"></i> Loading…
+  </div>
+
+  <div class="empty-state" *ngIf="!isLoading && !cards.length" data-testid="no-cards">
+    <i class="pi pi-book"></i>
+    <p>No rate cards for this carrier.</p>
+    <p class="muted">
+      Without one, this carrier can only be priced by its own rate API — and most carriers have none.
+    </p>
+  </div>
+
+  <section class="card" *ngFor="let c of cards" data-testid="rate-card">
+    <div class="card-head">
+      <h2 class="card-title">
+        {{ c.name }}
+        <p-tag [value]="statusOf(c).label" [severity]="statusOf(c).severity"
+               data-testid="card-status"></p-tag>
+        <p-tag *ngIf="c.serviceCode" [value]="c.serviceCode" severity="secondary"></p-tag>
+      </h2>
+
+      <div class="card-head-actions">
+        <p-button icon="pi pi-pencil" [text]="true" size="small" severity="secondary"
+                  pTooltip="Edit" (onClick)="openEdit(c)" data-testid="action-edit"></p-button>
+        <p-button [icon]="c.isActive ? 'pi pi-ban' : 'pi pi-check'" [text]="true" size="small"
+                  severity="secondary" [disabled]="isSubmitting"
+                  [pTooltip]="c.isActive ? 'Switch off' : 'Switch on'"
+                  (onClick)="toggleActive(c)" data-testid="action-toggle"></p-button>
+        <p-button icon="pi pi-trash" [text]="true" size="small" severity="danger"
+                  [disabled]="isSubmitting" pTooltip="Remove" (onClick)="remove(c)"
+                  data-testid="action-remove"></p-button>
+      </div>
+    </div>
+
+    <dl class="terms">
+      <dt>Applies</dt>
+      <dd>
+        {{ c.effectiveFrom | date:'dd MMM yyyy' }} —
+        {{ c.effectiveTo ? (c.effectiveTo | date:'dd MMM yyyy') : 'further notice' }}
+      </dd>
+
+      <dt>Currency</dt>
+      <dd>{{ c.currency }}</dd>
+
+      <dt *ngIf="c.minimumCharge">Minimum charge</dt>
+      <dd *ngIf="c.minimumCharge">{{ c.minimumCharge | number:'1.2-2' }}</dd>
+
+      <dt *ngIf="c.fuelSurchargePercent">Fuel</dt>
+      <dd *ngIf="c.fuelSurchargePercent">{{ c.fuelSurchargePercent }}% of the base rate</dd>
+
+      <dt *ngIf="c.codFeePercent || c.codFeeMinimum">Cash on delivery</dt>
+      <dd *ngIf="c.codFeePercent || c.codFeeMinimum">
+        <span *ngIf="c.codFeePercent">{{ c.codFeePercent }}%</span>
+        <span *ngIf="c.codFeePercent && c.codFeeMinimum">, </span>
+        <span *ngIf="c.codFeeMinimum">minimum {{ c.codFeeMinimum | number:'1.2-2' }}</span>
+      </dd>
+    </dl>
+
+    <div class="lane" *ngFor="let lane of c.lanes" data-testid="rate-card-lane">
+      <h3>{{ laneLabel(lane) }}</h3>
+      <table class="breaks">
+        <tr *ngFor="let b of lane.breaks">
+          <td class="from">from {{ b.fromWeightKg | number:'1.0-3' }} kg</td>
+          <td class="amount">
+            {{ b.amount | number:'1.2-2' }} {{ c.currency }}
+            <span class="muted">{{ basisLabel(b.basis) }}</span>
+          </td>
+        </tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── Editor ──────────────────────────────────────────────────────────────── -->
+
+  <p-dialog [header]="editing ? 'Edit rate card' : 'New rate card'" [(visible)]="dialogVisible"
+            [modal]="true" [style]="{ width: '52rem' }" [draggable]="false"
+            data-testid="card-dialog">
+    <div class="dialog-body">
+      <p class="dialog-hint" *ngIf="editing">
+        Saving replaces the whole tariff. A card is edited as a whole so it never spends a moment
+        with a hole in it.
+      </p>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="cardName">Name</label>
+          <input pInputText id="cardName" [(ngModel)]="form.name"
+                 placeholder="Domestic 2026" data-testid="field-name" />
+        </div>
+
+        <div class="field narrow">
+          <label for="currency">Currency</label>
+          <input pInputText id="currency" [(ngModel)]="form.currency" maxlength="3"
+                 [disabled]="!!editing" data-testid="field-currency" />
+        </div>
+      </div>
+
+      <div class="field" *ngIf="!editing">
+        <label for="service">Service</label>
+        <p-select inputId="service" [options]="serviceOptions" [(ngModel)]="form.serviceCode"
+                  optionLabel="label" optionValue="value" appendTo="body"
+                  data-testid="field-service"></p-select>
+        <small class="field-hint">
+          A card for one service beats the carrier-wide one, which stays as the fallback.
+        </small>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="from">Applies from</label>
+          <p-datepicker inputId="from" [(ngModel)]="form.effectiveFrom" dateFormat="dd M yy"
+                        appendTo="body" data-testid="field-from"></p-datepicker>
+        </div>
+
+        <div class="field">
+          <label for="to">Until</label>
+          <p-datepicker inputId="to" [(ngModel)]="form.effectiveTo" dateFormat="dd M yy"
+                        [showClear]="true" appendTo="body" data-testid="field-to"></p-datepicker>
+          <small class="field-hint">Leave empty for the current card.</small>
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="minimum">Minimum charge</label>
+          <p-inputNumber inputId="minimum" [(ngModel)]="form.minimumCharge" mode="decimal"
+                         [minFractionDigits]="2" data-testid="field-minimum"></p-inputNumber>
+        </div>
+
+        <div class="field">
+          <label for="fuel">Fuel surcharge (%)</label>
+          <p-inputNumber inputId="fuel" [(ngModel)]="form.fuelSurchargePercent" mode="decimal"
+                         [min]="0" [max]="100" data-testid="field-fuel"></p-inputNumber>
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="codPercent">COD fee (%)</label>
+          <p-inputNumber inputId="codPercent" [(ngModel)]="form.codFeePercent" mode="decimal"
+                         [min]="0" [max]="100"></p-inputNumber>
+        </div>
+
+        <div class="field">
+          <label for="codMinimum">COD fee minimum</label>
+          <p-inputNumber inputId="codMinimum" [(ngModel)]="form.codFeeMinimum" mode="decimal"
+                         [minFractionDigits]="2"></p-inputNumber>
+        </div>
+      </div>
+
+      <!-- ── Lanes ─────────────────────────────────────────────────────────── -->
+
+      <div class="lanes-editor">
+        <div class="lanes-head">
+          <h3>Lanes</h3>
+          <p-button label="Add lane" icon="pi pi-plus" [text]="true" size="small"
+                    (onClick)="addLane()" data-testid="action-add-lane"></p-button>
+        </div>
+
+        <p class="field-hint">
+          Leave a lane's criteria empty to price anywhere. The most specific matching lane wins, so
+          a general lane with a handful of exceptions is the usual shape.
+        </p>
+
+        <div class="lane-editor" *ngFor="let lane of lanes; let li = index"
+             data-testid="lane-editor">
+          <div class="lane-editor-head">
+            <input pInputText [(ngModel)]="lane.name" placeholder="Lane name (optional)"
+                   class="lane-name" [attr.data-testid]="'field-lane-name-' + li" />
+            <p-button icon="pi pi-trash" [text]="true" size="small" severity="danger"
+                      [disabled]="lanes.length === 1" pTooltip="Remove lane"
+                      (onClick)="removeLane(li)" data-testid="action-remove-lane"></p-button>
+          </div>
+
+          <div class="lane-criteria">
+            <input pInputText [(ngModel)]="lane.originCountryIso" maxlength="2"
+                   placeholder="From country" />
+            <input pInputText [(ngModel)]="lane.originPostcodePrefix"
+                   placeholder="From postcode starts" />
+            <input pInputText [(ngModel)]="lane.destinationCountryIso" maxlength="2"
+                   placeholder="To country" />
+            <input pInputText [(ngModel)]="lane.destinationPostcodePrefix"
+                   placeholder="To postcode starts" />
+          </div>
+
+          <table class="breaks-editor">
+            <tr *ngFor="let b of lane.breaks; let bi = index" data-testid="break-editor">
+              <td>
+                <p-inputNumber [(ngModel)]="b.fromWeightKg" mode="decimal" [maxFractionDigits]="3"
+                               placeholder="From kg" styleClass="w-small"></p-inputNumber>
+              </td>
+              <td>
+                <p-select [options]="basisOptions" [(ngModel)]="b.basis" optionLabel="label"
+                          optionValue="value" appendTo="body"></p-select>
+              </td>
+              <td>
+                <p-inputNumber [(ngModel)]="b.amount" mode="decimal" [minFractionDigits]="2"
+                               placeholder="Rate" styleClass="w-small"></p-inputNumber>
+              </td>
+              <td>
+                <p-button icon="pi pi-times" [text]="true" size="small" severity="danger"
+                          [disabled]="lane.breaks.length === 1"
+                          (onClick)="removeBreak(lane, bi)"></p-button>
+              </td>
+            </tr>
+          </table>
+
+          <p-button label="Add weight break" icon="pi pi-plus" [text]="true" size="small"
+                    (onClick)="addBreak(lane)" data-testid="action-add-break"></p-button>
+        </div>
+      </div>
+
+      <!-- Said before the round trip rather than after it. -->
+      <p class="validation" *ngIf="validationError" data-testid="validation-error">
+        <i class="pi pi-exclamation-triangle"></i> {{ validationError }}
+      </p>
+    </div>
+
+    <ng-template pTemplate="footer">
+      <p-button label="Cancel" [text]="true" severity="secondary"
+                (onClick)="dialogVisible = false"></p-button>
+      <p-button [label]="editing ? 'Save' : 'Create'" icon="pi pi-check" [disabled]="!canSave"
+                [loading]="isSubmitting" (onClick)="save()" data-testid="confirm-save"></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <!-- ── Dry run ─────────────────────────────────────────────────────────────── -->
+
+  <p-dialog header="Try a weight against these cards" [(visible)]="quoteDialogVisible"
+            [modal]="true" [style]="{ width: '32rem' }" [draggable]="false"
+            data-testid="quote-dialog">
+    <div class="dialog-body">
+      <p class="dialog-hint">
+        Nothing is saved. This is how to check a card does what you meant before a consignment
+        depends on it.
+      </p>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="qWeight">Chargeable weight (kg)</label>
+          <p-inputNumber inputId="qWeight" [(ngModel)]="quoteForm.chargeableWeightKg" mode="decimal"
+                         [maxFractionDigits]="3" data-testid="field-quote-weight"></p-inputNumber>
+        </div>
+
+        <div class="field">
+          <label for="qService">Service</label>
+          <p-select inputId="qService" [options]="serviceOptions" [(ngModel)]="quoteForm.serviceCode"
+                    optionLabel="label" optionValue="value" appendTo="body"></p-select>
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="qFromC">From country</label>
+          <input pInputText id="qFromC" [(ngModel)]="quoteForm.originCountryIso" maxlength="2" />
+        </div>
+        <div class="field">
+          <label for="qFromP">From postcode</label>
+          <input pInputText id="qFromP" [(ngModel)]="quoteForm.originPostcode" />
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="qToC">To country</label>
+          <input pInputText id="qToC" [(ngModel)]="quoteForm.destinationCountryIso" maxlength="2" />
+        </div>
+        <div class="field">
+          <label for="qToP">To postcode</label>
+          <input pInputText id="qToP" [(ngModel)]="quoteForm.destinationPostcode"
+                 data-testid="field-quote-postcode" />
+        </div>
+      </div>
+
+      <div class="quote-result" *ngIf="quoteResult as q" data-testid="quote-result">
+        <ng-container *ngIf="q.status === 'Quoted'; else noPrice">
+          <div class="quote-amount">{{ q.total | number:'1.2-2' }} {{ q.currency }}</div>
+          <p class="muted">{{ q.cardName }}<span *ngIf="q.laneName">, lane {{ q.laneName }}</span></p>
+        </ng-container>
+
+        <!-- Not an empty price: "no price" and "priced at nothing" mean opposite things. -->
+        <ng-template #noPrice>
+          <p class="quote-none" data-testid="quote-none">
+            <i class="pi pi-times-circle"></i> No price. {{ q.explanation }}
+          </p>
+        </ng-template>
+      </div>
+    </div>
+
+    <ng-template pTemplate="footer">
+      <p-button label="Close" [text]="true" severity="secondary"
+                (onClick)="quoteDialogVisible = false"></p-button>
+      <p-button label="Try it" icon="pi pi-calculator" [loading]="isSubmitting"
+                (onClick)="runQuote()" data-testid="confirm-quote"></p-button>
+    </ng-template>
+  </p-dialog>
+</div>

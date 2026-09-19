@@ -16,7 +16,11 @@
       "PowerShell($conn = \"Server=\\(localdb\\)\\\\mssqllocaldb;Database=SMS_Dev;Trusted_Connection=True;\"; $sql = \"SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE, IS_NULLABLE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'demand' AND TABLE_NAME IN \\('purchase_order_lines','pr_lines'\\) AND COLUMN_NAME IN \\('ProductUuid','LineNotes'\\) ORDER BY TABLE_NAME, COLUMN_NAME\"; $sqlConn = New-Object System.Data.SqlClient.SqlConnection\\($conn\\); $sqlConn.Open\\(\\); $cmd = New-Object System.Data.SqlClient.SqlCommand\\($sql, $sqlConn\\); $reader = $cmd.ExecuteReader\\(\\); while \\($reader.Read\\(\\)\\) { Write-Host \"$\\($reader['TABLE_NAME']\\).$\\($reader['COLUMN_NAME']\\) [$\\($reader['DATA_TYPE']\\)] nullable=$\\($reader['IS_NULLABLE']\\)\" }; $sqlConn.Close\\(\\))",
       "PowerShell(Get-ChildItem -Path \"d:\\\\Supply System\\\\SupplyChain-master\\\\SupplyChain-master\\\\SupplyChainFrontend\" -Recurse -Name | Where-Object { $_ -match \"environment\" })",
       "PowerShell(node \"C:\\\\Users\\\\ILYAS~1.QAD\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--Supply-System-SupplyChain-SupplyChainFrontend\\\\cda2f4cf-251c-42e1-815a-8ce7f94feb0f\\\\scratchpad\\\\pw\\\\check-scoring-state.js\")",
-      "PowerShell(node \"C:\\\\Users\\\\ILYAS~1.QAD\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--Supply-System-SupplyChain-SupplyChainFrontend\\\\cda2f4cf-251c-42e1-815a-8ce7f94feb0f\\\\scratchpad\\\\pw\\\\backfill-scoring.js\")"
+      "PowerShell(node \"C:\\\\Users\\\\ILYAS~1.QAD\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--Supply-System-SupplyChain-SupplyChainFrontend\\\\cda2f4cf-251c-42e1-815a-8ce7f94feb0f\\\\scratchpad\\\\pw\\\\backfill-scoring.js\")",
+      "Read(//d/Supply System/SupplyChain/src/SMS.Modules.Tenancy/**)",
+      "Read(//d/Supply System/SupplyChain/src/SMS.Modules.Tenancy/Repositories/**)",
+      "Read(//d/Supply System/SupplyChain/src/SMS.Modules.Inventory/Domain/**)",
+      "Read(//d/Supply System/SupplyChain/src/SMS.Modules.Reports/Models/**)"
     ]
   }
 }

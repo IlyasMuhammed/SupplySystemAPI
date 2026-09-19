@@ -5,6 +5,7 @@ using SMS.Modules.Inventory.Services;
 using SMS.Modules.Material.Data;
 using SMS.Modules.Material.Domain;
 using SMS.Modules.Material.Models;
+using SMS.Shared.Common;
 using SMS.Shared.Exceptions;
 using SMS.WorkflowEngine.Jobs;
 using SMS.WorkflowEngine.Models;
@@ -19,6 +20,7 @@ internal sealed class MirWorkflowService : IMirWorkflowService
     private readonly IWorkflowActionService   _engine;
     private readonly IWorkflowInboxService    _inbox;
     private readonly IStockAvailabilityService _stock;
+    private readonly IStockReservationService _reservations;
     private readonly IBackgroundJobClient     _jobs;
 
     public MirWorkflowService(
@@ -27,6 +29,7 @@ internal sealed class MirWorkflowService : IMirWorkflowService
         IWorkflowActionService   engine,
         IWorkflowInboxService    inbox,
         IStockAvailabilityService stock,
+        IStockReservationService reservations,
         IBackgroundJobClient     jobs)
     {
         _db     = db;
@@ -34,6 +37,7 @@ internal sealed class MirWorkflowService : IMirWorkflowService
         _engine = engine;
         _inbox  = inbox;
         _stock  = stock;
+        _reservations = reservations;
         _jobs   = jobs;
     }
 
@@ -184,7 +188,7 @@ internal sealed class MirWorkflowService : IMirWorkflowService
 
         if (finalStatus is "APPROVED" or "PARTIALLY_APPROVED")
         {
-            await CreateReservationsAsync(mir.Id, lineInputs, bestSnapshots);
+            await CreateReservationsAsync(mir.Id, mirUuid, userId, lineInputs, bestSnapshots);
 
             var interfaceCode = mir.RequestType == "PROJECT" ? "MIR_PROJECT" : "MIR_GENERAL";
             _jobs.Enqueue<ITimelineAppendJob>(j => j.AppendAsync(
@@ -298,6 +302,8 @@ internal sealed class MirWorkflowService : IMirWorkflowService
 
     private async Task CreateReservationsAsync(
         int mirId,
+        Guid mirUuid,
+        int userId,
         List<MirLineApprovalInput> lineInputs,
         Dictionary<Guid, StockAvailabilityDto> bestSnapshots)
     {
@@ -309,35 +315,34 @@ internal sealed class MirWorkflowService : IMirWorkflowService
 
         var now = DateTime.UtcNow;
 
+        // Reservations go through the shared ledger, which owns both the reservation rows and
+        // InventoryItem.QtyReserved and writes them in one transaction. The previous code here
+        // saved the two through separate contexts, so a failure between them left a hold
+        // recorded with no counter behind it.
+        var requests = new List<ReservationRequest>();
+
         foreach (var input in lineInputs)
         {
             if (input.ApprovedQty <= 0) continue;
             if (!bestSnapshots.TryGetValue(input.LineUuid, out var snap)) continue;
-            if (!lineMap.TryGetValue(input.LineUuid, out var lineId)) continue;
+            if (!lineMap.ContainsKey(input.LineUuid)) continue;
 
-            _db.StockReservations.Add(new StockReservation
-            {
-                UUID            = Guid.NewGuid(),
-                MirId           = mirId,
-                MirLineId       = lineId,
-                InventoryItemId = snap.InventoryItemId,
-                VariantUuid     = snap.VariantUuid,
-                WarehouseId     = snap.WarehouseId,
-                ReservedQty     = input.ApprovedQty,
-                Status          = "ACTIVE",
-                ReservedAt      = now
-            });
-
-            // Increment QtyReserved on the InventoryItem (cross-schema write via InventoryDbContext)
-            var item = await _inv.InventoryItems.FindAsync(snap.InventoryItemId);
-            if (item is not null)
-            {
-                item.QtyReserved  += input.ApprovedQty;
-                item.LastUpdated   = now;
-            }
+            requests.Add(new ReservationRequest(
+                snap.VariantUuid, snap.WarehouseUuid, input.ApprovedQty, input.LineUuid));
         }
 
-        await _db.SaveChangesAsync();
-        await _inv.SaveChangesAsync();
+        if (requests.Count == 0) return;
+
+        var result = await _reservations.ReserveAsync(
+            ReservationSourceType.Mir, mirUuid, requests, userId);
+
+        if (!result.Succeeded)
+        {
+            var detail = string.Join(" ", result.Shortfalls.Select(s =>
+                $"{s.Requested:0.###} requested, {s.Available:0.###} available."));
+
+            throw new UnprocessableEntityException(
+                $"Stock is no longer available to reserve for this request. {detail}");
+        }
     }
 }

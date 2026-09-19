@@ -1,0 +1,254 @@
+<div class="delivery-create-page">
+  <p-toast></p-toast>
+
+  <!-- ── Header ──────────────────────────────────────────────────────────────── -->
+  <div class="page-header">
+    <div class="header-left">
+      <div class="header-icon">
+        <i class="pi pi-plus-circle"></i>
+      </div>
+      <div>
+        <div class="title-row">
+          <h1 class="page-title">New Delivery</h1>
+        </div>
+        <p class="page-subtitle">Raise a delivery from a source document, or state its lines by hand</p>
+      </div>
+    </div>
+    <p-button label="Back" icon="pi pi-arrow-left" [text]="true" severity="secondary"
+              routerLink="/portal/pages/logistics/deliveries"></p-button>
+  </div>
+
+  <!-- ── Mode ────────────────────────────────────────────────────────────────── -->
+  <div class="panel">
+    <div class="panel-title">
+      <i class="pi pi-sitemap"></i>
+      <span>How is this delivery raised?</span>
+    </div>
+    <div class="mode-tiles">
+      <button type="button" *ngFor="let m of modeOptions" class="mode-tile"
+              [class.active]="mode === m.value"
+              (click)="mode = m.value; onModeChange()"
+              [attr.data-testid]="'mode-' + m.value">
+        {{ m.label }}
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Body ───────────────────────────────────────────────────────────────── -->
+  <div class="body-grid">
+
+    <!-- Left: source / lines -->
+    <div class="panel">
+
+      <!-- From a source document -->
+      <ng-container *ngIf="mode === 'PO' || mode === 'SRO' || mode === 'MIV'">
+        <div class="panel-title">
+          <i class="pi pi-file"></i>
+          <span>{{ sourceLabel | titlecase }}</span>
+        </div>
+
+        <div class="form-field full-width">
+          <label>Select the {{ sourceLabel }} <span class="req">*</span></label>
+          <p-dropdown [options]="sourceOptions" [(ngModel)]="sourceUuid"
+                      (onChange)="onSourceSelected()"
+                      [placeholder]="isLoadingSources ? 'Loading…' : 'Select ' + sourceLabel"
+                      [filter]="true" [showClear]="true"
+                      styleClass="w-full" appendTo="body"
+                      data-testid="source-select"></p-dropdown>
+          <p class="field-hint" *ngIf="!isLoadingSources && sourceOptions.length === 0">
+            Nothing is in a state that can be advised. A purchase order must be Approved, Sent or
+            Partially Received; a supplier return must be Approved; a material issue must be Posted.
+          </p>
+        </div>
+
+        <div class="preview-block" *ngIf="sourceUuid">
+          <div class="preview-header">
+            <span>What will be advised</span>
+            <span class="muted" *ngIf="!isLoadingPreview">{{ previewLines.length }} line(s), {{ previewTotalQty | number:'1.0-2' }} total qty</span>
+          </div>
+          <p class="muted" *ngIf="isLoadingPreview">Loading…</p>
+          <table class="preview-table" *ngIf="!isLoadingPreview && previewLines.length">
+            <tr *ngFor="let l of previewLines">
+              <td class="desc">{{ l.description }}</td>
+              <td class="qty">{{ l.qty | number:'1.0-2' }} <span class="muted" *ngIf="l.uom">{{ l.uom }}</span></td>
+            </tr>
+          </table>
+          <p class="muted" *ngIf="!isLoadingPreview && !previewLines.length">
+            Nothing outstanding — every line is already received or already on a delivery.
+          </p>
+          <p class="field-hint">
+            Every outstanding line is advised in full. Advising a partial quantity, or only some
+            lines, is not built into this screen yet.
+          </p>
+        </div>
+      </ng-container>
+
+      <!-- Manual / Transfer — lines typed by hand -->
+      <ng-container *ngIf="mode === 'MANUAL' || mode === 'TRANSFER'">
+        <div class="panel-title">
+          <i class="pi pi-list"></i>
+          <span>Lines</span>
+        </div>
+
+        <table class="line-editor">
+          <thead>
+            <tr>
+              <th>Item <span class="req">*</span></th>
+              <th class="col-uom">UoM</th>
+              <th class="col-qty">Qty <span class="req">*</span></th>
+              <th class="col-value">Unit value</th>
+              <th class="col-action"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let line of lines; let i = index">
+              <td><input pInputText class="w-full" [(ngModel)]="line.itemDescription"
+                         placeholder="What is being shipped" maxlength="300" /></td>
+              <td class="col-uom"><input pInputText class="w-full" [(ngModel)]="line.unitOfMeasure"
+                         placeholder="EA" maxlength="20" /></td>
+              <td class="col-qty"><p-inputNumber [(ngModel)]="line.qtyOrdered" [min]="0"
+                         styleClass="w-full"></p-inputNumber></td>
+              <td class="col-value"><p-inputNumber [(ngModel)]="line.unitValue" mode="decimal"
+                         [minFractionDigits]="2" [min]="0" styleClass="w-full"></p-inputNumber></td>
+              <td class="col-action">
+                <p-button icon="pi pi-trash" [text]="true" severity="danger"
+                          (onClick)="removeLine(i)" pTooltip="Remove"></p-button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <p-button label="Add line" icon="pi pi-plus" [text]="true" (onClick)="addLine()"
+                  styleClass="add-line-btn"></p-button>
+      </ng-container>
+
+    </div>
+
+    <!-- Right: details & addresses -->
+    <div class="right-col">
+
+      <div class="panel">
+        <div class="panel-title">
+          <i class="pi pi-info-circle"></i>
+          <span>Details</span>
+        </div>
+        <div class="form-grid">
+
+          <div class="form-field" *ngIf="mode === 'MANUAL'">
+            <label>Direction <span class="req">*</span></label>
+            <p-dropdown [options]="directionOptions" [(ngModel)]="direction"
+                        styleClass="w-full" appendTo="body"></p-dropdown>
+          </div>
+
+          <ng-container *ngIf="mode === 'TRANSFER'">
+            <div class="form-field">
+              <label>From warehouse <span class="req">*</span></label>
+              <p-dropdown [options]="warehouseOptions" [(ngModel)]="shipFromWarehouseUuid"
+                          placeholder="Select warehouse" [filter]="true"
+                          styleClass="w-full" appendTo="body"></p-dropdown>
+            </div>
+            <div class="form-field">
+              <label>To warehouse <span class="req">*</span></label>
+              <p-dropdown [options]="warehouseOptions" [(ngModel)]="shipToWarehouseUuid"
+                          placeholder="Select warehouse" [filter]="true"
+                          styleClass="w-full" appendTo="body"></p-dropdown>
+            </div>
+          </ng-container>
+
+          <div class="form-field">
+            <label>Priority</label>
+            <p-dropdown [options]="priorityOptions" [(ngModel)]="priority"
+                        styleClass="w-full" appendTo="body"></p-dropdown>
+          </div>
+
+          <div class="form-field">
+            <label>Incoterm</label>
+            <input pInputText class="w-full" [(ngModel)]="incoterm" placeholder="e.g. FOB" maxlength="10" />
+          </div>
+
+          <div class="form-field">
+            <label>Requested date</label>
+            <p-calendar [(ngModel)]="requestedDateVal" dateFormat="dd/mm/yy"
+                        styleClass="w-full" [showIcon]="true" appendTo="body"></p-calendar>
+          </div>
+
+          <div class="form-field">
+            <label>Promised date</label>
+            <p-calendar [(ngModel)]="promisedDateVal" dateFormat="dd/mm/yy"
+                        styleClass="w-full" [showIcon]="true" appendTo="body"></p-calendar>
+          </div>
+
+          <div class="form-field full-width">
+            <label>Notes</label>
+            <textarea pTextarea class="w-full" [(ngModel)]="notes" rows="3" maxlength="1000"
+                      placeholder="Optional"></textarea>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="panel" *ngIf="mode !== 'TRANSFER'">
+        <div class="panel-title">
+          <i class="pi pi-map-marker"></i>
+          <span>Ship-to address</span>
+        </div>
+        <p class="field-hint">Optional. Leave blank and the delivery carries none.</p>
+        <div class="form-grid">
+          <div class="form-field full-width">
+            <label>Address line 1</label>
+            <input pInputText class="w-full" [(ngModel)]="shipToAddress.line1" maxlength="200"
+                   data-testid="field-shipto-line1" />
+          </div>
+          <div class="form-field">
+            <label>City</label>
+            <input pInputText class="w-full" [(ngModel)]="shipToAddress.cityName" maxlength="100"
+                   data-testid="field-shipto-city" />
+          </div>
+          <div class="form-field">
+            <label>Country</label>
+            <input pInputText class="w-full" [(ngModel)]="shipToAddress.countryName" maxlength="100"
+                   data-testid="field-shipto-country" />
+          </div>
+        </div>
+
+        <label class="checkbox-row">
+          <input type="checkbox" [(ngModel)]="useShipFromAddress" data-testid="field-shipfrom-toggle" />
+          Different pickup address
+        </label>
+
+        <div class="form-grid" *ngIf="useShipFromAddress">
+          <div class="form-field full-width">
+            <label>Address line 1</label>
+            <input pInputText class="w-full" [(ngModel)]="shipFromAddress.line1" maxlength="200"
+                   data-testid="field-shipfrom-line1" />
+          </div>
+          <div class="form-field">
+            <label>City</label>
+            <input pInputText class="w-full" [(ngModel)]="shipFromAddress.cityName" maxlength="100"
+                   data-testid="field-shipfrom-city" />
+          </div>
+          <div class="form-field">
+            <label>Country</label>
+            <input pInputText class="w-full" [(ngModel)]="shipFromAddress.countryName" maxlength="100"
+                   data-testid="field-shipfrom-country" />
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- ── Validation + actions ───────────────────────────────────────────────── -->
+  <p class="validation-banner" *ngIf="validationError" data-testid="validation-error">
+    <i class="pi pi-exclamation-circle"></i> {{ validationError }}
+  </p>
+
+  <div class="form-actions">
+    <p-button label="Cancel" [text]="true" severity="secondary"
+              routerLink="/portal/pages/logistics/deliveries"></p-button>
+    <p-button label="Create Delivery" icon="pi pi-check" severity="warn"
+              [disabled]="!canSave" [loading]="isSaving" (onClick)="save()"
+              data-testid="save-delivery"></p-button>
+  </div>
+
+</div>

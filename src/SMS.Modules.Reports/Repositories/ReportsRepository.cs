@@ -767,7 +767,10 @@ internal sealed class ReportsRepository : IReportsRepository
 
             var poUuids = poLines.Select(l => l.PoUuid).Distinct().ToList();
             var hasPaidInvoice = await _finance.Invoices
-                .AnyAsync(i => poUuids.Contains(i.PoUuid) && !i.IsDelete && (i.PaymentStatus == "Paid" || i.PaymentStatus == "FULLY_PAID"));
+                // PoUuid is nullable since G10 — a freight bill has no purchase order, so it can
+                // never be the invoice that marks a requisition's line as paid.
+                .AnyAsync(i => i.PoUuid != null && poUuids.Contains(i.PoUuid.Value) && !i.IsDelete
+                            && (i.PaymentStatus == "Paid" || i.PaymentStatus == "FULLY_PAID"));
             if (hasPaidInvoice) rank = Math.Max(rank, 6); // Invoice Paid
         }
 
@@ -1388,7 +1391,10 @@ internal sealed class ReportsRepository : IReportsRepository
             {
                 string  category    = "Uncategorised";
                 string? subCategory = null;
-                if (poLineVariants.TryGetValue(l.PoLineUuid, out var variantUuid) && variantUuid.HasValue
+                // PoLineUuid is nullable since G10 — a freight line charges for carriage, not for
+                // an ordered item, so it has no category to attribute spend to.
+                if (l.PoLineUuid.HasValue
+                    && poLineVariants.TryGetValue(l.PoLineUuid.Value, out var variantUuid) && variantUuid.HasValue
                     && variantToProductUuid.TryGetValue(variantUuid.Value, out var productUuid)
                     && products.TryGetValue(productUuid, out var product))
                 {
@@ -2117,9 +2123,10 @@ internal sealed class ReportsRepository : IReportsRepository
     {
         var (from, to) = ParseDates(filter.DateFrom, filter.DateTo);
 
-        var query = _material.StockReservations
-            .Include(r => r.MaterialIssueRequest)
-            .AsQueryable();
+        // Reads the shared inventory ledger rather than the MIR-only table it replaced, so the
+        // report covers every kind of hold — material issues today, deliveries and sales orders
+        // as they arrive — instead of silently omitting them.
+        var query = _inventory.StockReservations.AsQueryable();
 
         if (from.HasValue) query = query.Where(r => r.ReservedAt >= from.Value);
         if (to.HasValue)   query = query.Where(r => r.ReservedAt <  to.Value);
@@ -2129,6 +2136,21 @@ internal sealed class ReportsRepository : IReportsRepository
             query = query.Where(r => r.Status == "ACTIVE" || r.Status == "FLAGGED");
 
         var reservations = await query.OrderByDescending(r => r.ReservedAt).ToListAsync();
+
+        // The ledger addresses its source by UUID, so the MIR columns this report has always
+        // shown are resolved separately — and only for the rows that actually came from a MIR.
+        var mirUuids = reservations
+            .Where(r => r.SourceType == ReservationSourceType.Mir)
+            .Select(r => r.SourceUuid)
+            .Distinct()
+            .ToList();
+
+        var mirs = mirUuids.Count == 0
+            ? []
+            : await _material.MaterialIssueRequests
+                .Where(m => mirUuids.Contains(m.UUID))
+                .Select(m => new { m.UUID, m.RequestNo, m.RequestType })
+                .ToDictionaryAsync(m => m.UUID, m => m);
 
         // Resolve product names and warehouse names from inventory in one batch
         var inventoryItemIds = reservations.Select(r => r.InventoryItemId).Distinct().ToList();
@@ -2143,12 +2165,20 @@ internal sealed class ReportsRepository : IReportsRepository
         return reservations.Select(r =>
         {
             invMap.TryGetValue(r.InventoryItemId, out var inv);
+
+            // Blank for a hold that did not come from a material issue request — a delivery or,
+            // later, a sales order. SourceType and SourceUuid say what it actually is.
+            var mir = r.SourceType == ReservationSourceType.Mir
+                   && mirs.TryGetValue(r.SourceUuid, out var found) ? found : null;
+
             return new ReservedStockItem
             {
                 ReservationUuid = r.UUID,
-                MirNo           = r.MaterialIssueRequest.RequestNo,
-                MirUuid         = r.MaterialIssueRequest.UUID,
-                RequestType     = r.MaterialIssueRequest.RequestType,
+                SourceType      = r.SourceType,
+                SourceUuid      = r.SourceUuid,
+                MirNo           = mir?.RequestNo ?? string.Empty,
+                MirUuid         = mir is null ? Guid.Empty : mir.UUID,
+                RequestType     = mir?.RequestType ?? string.Empty,
                 ProductUuid     = r.VariantUuid,
                 ProductName     = inv?.Variant?.Product.Name ?? "–",
                 Sku             = inv?.Variant?.Sku,

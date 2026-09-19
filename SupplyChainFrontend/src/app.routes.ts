@@ -10,6 +10,7 @@ import { noAuthGuard } from './app/pages/gaurds/no-auth.guard';
 import { AccessDeniedComponent } from './app/pages/access-denied/access-denied.component';
 import { RfqPageComponent } from './app/pages/supplier-portal/rfq-page/rfq-page.component';
 import { SroAckComponent } from './app/pages/supplier-portal/sro-ack/sro-ack.component';
+import { TrackDeliveryComponent } from './app/pages/track-delivery/track-delivery.component';
 
 export const appRoutes: Routes = [
     {
@@ -24,6 +25,10 @@ export const appRoutes: Routes = [
             { path: '', redirectTo: 'dashboard', pathMatch: 'full' }
         ]
     },
+    // T-62 — a consignee's view of their own delivery. No guard, no layout shell: there is nobody
+    // logged in. The path matches what PublicTrackingService.PathFor issues, so the link the back
+    // end hands out is the link that works.
+    { path: 'track/:token', component: TrackDeliveryComponent },
     { path: 'supplier-portal/rfq/:token', component: RfqPageComponent },
     { path: 'supplier-portal/sro-ack/:token', component: SroAckComponent },
     { path: 'activation/:token', component: ActivationComponent },

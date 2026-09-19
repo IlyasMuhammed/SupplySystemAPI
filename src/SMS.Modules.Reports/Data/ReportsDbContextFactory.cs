@@ -8,8 +8,7 @@ internal sealed class ReportsDbContextFactory : IDesignTimeDbContextFactory<Repo
 {
     public ReportsDbContext CreateDbContext(string[] args)
     {
-        var connString = Environment.GetEnvironmentVariable("SMS_DB_CONNECTION")
-            ?? "Server=(localdb)\\mssqllocaldb;Database=SMS_Dev;Trusted_Connection=True;MultipleActiveResultSets=true";
+        var connString = DesignTimeConnection.Resolve();
 
         var options = new DbContextOptionsBuilder<ReportsDbContext>()
             .UseSqlServer(connString)

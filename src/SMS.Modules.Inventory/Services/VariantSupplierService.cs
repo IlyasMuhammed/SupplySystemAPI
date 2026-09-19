@@ -833,11 +833,24 @@ internal sealed class VariantSupplierService : IVariantSupplierService
         return results;
     }
 
-    public async Task<List<ImportPreviewRowModel>> PreviewImportAsync(Stream file, Guid supplierId)
+    // A new rate card needs a currency and the import file has no column for one, so it comes from
+    // the import dialog, then the organization's base currency. Before this, only the base currency
+    // was consulted — and with none configured (no screen sets it), every row for a product the
+    // supplier had no rate card for was rejected at confirm, after the preview had shown it as a
+    // valid "New Link". For a supplier with no rate cards yet, that meant an import created nothing.
+    private const string NoCurrencyForNewRow =
+        "Choose a currency in the import dialog — this organization has no base currency set, and this row creates a new rate card.";
+
+    private async Task<Guid?> ResolveImportCurrencyAsync(Guid? requested) =>
+        requested ?? await _orgCurrency.GetBaseCurrencyIdAsync(_tenantContext.OrganizationId);
+
+    public async Task<List<ImportPreviewRowModel>> PreviewImportAsync(Stream file, Guid supplierId, Guid? currencyId = null)
     {
         var parsedRows = ParseImportWorkbook(file);
         if (parsedRows.Count == 0)
             throw new BadRequestException("The uploaded file has no data rows.");
+
+        var newRowCurrency = await ResolveImportCurrencyAsync(currencyId);
 
         var skus = parsedRows.Select(r => r.Sku).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         var variants = await _db.ProductVariants
@@ -872,6 +885,18 @@ internal sealed class VariantSupplierService : IVariantSupplierService
             }
 
             var hasExisting = existingByVariantId.TryGetValue(variant.Id, out var currentRate);
+
+            // The same rule confirm applies, shown now rather than discovered after confirming.
+            if (!hasExisting && newRowCurrency is null)
+            {
+                results.Add(new ImportPreviewRowModel
+                {
+                    Row = row.RowNumber, Sku = row.Sku, ProductName = variant.ProductName,
+                    ImportedRate = row.Rate, NewRecord = true, Error = NoCurrencyForNewRow
+                });
+                continue;
+            }
+
             results.Add(new ImportPreviewRowModel
             {
                 Row          = row.RowNumber,
@@ -887,7 +912,7 @@ internal sealed class VariantSupplierService : IVariantSupplierService
         return results;
     }
 
-    public async Task<ImportConfirmResult> ConfirmImportAsync(Stream file, Guid supplierId, int performedBy)
+    public async Task<ImportConfirmResult> ConfirmImportAsync(Stream file, Guid supplierId, int performedBy, Guid? currencyId = null)
     {
         var parsedRows = ParseImportWorkbook(file);
         if (parsedRows.Count == 0)
@@ -905,7 +930,7 @@ internal sealed class VariantSupplierService : IVariantSupplierService
             .ToListAsync();
         var existingByVariantId = existingEntities.ToDictionary(x => x.VariantId);
 
-        var currencyId = await _orgCurrency.GetBaseCurrencyIdAsync(_tenantContext.OrganizationId);
+        var newRowCurrency = await ResolveImportCurrencyAsync(currencyId);
         var now = DateTime.UtcNow;
         const string importReason = "Excel import";
 
@@ -957,12 +982,11 @@ internal sealed class VariantSupplierService : IVariantSupplierService
             }
             else
             {
-                if (currencyId is null)
+                if (newRowCurrency is null)
                 {
                     result.Errors.Add(new ImportRowError
                     {
-                        Row = row.RowNumber, Sku = row.Sku,
-                        Message = "Cannot create a new supplier link — organization has no base currency configured."
+                        Row = row.RowNumber, Sku = row.Sku, Message = NoCurrencyForNewRow
                     });
                     continue;
                 }
@@ -976,7 +1000,7 @@ internal sealed class VariantSupplierService : IVariantSupplierService
                     MinOrderQty    = row.MinQty,
                     EffectiveFrom  = row.EffectiveFrom?.Date ?? now.Date,
                     EffectiveTo    = row.EffectiveTo,
-                    CurrencyId     = currencyId.Value,
+                    CurrencyId     = newRowCurrency.Value,
                     Notes          = row.Notes,
                     CreatedBy      = performedBy,
                     CreatedDate    = now

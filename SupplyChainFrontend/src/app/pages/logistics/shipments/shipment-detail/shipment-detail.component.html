@@ -29,8 +29,6 @@
       <div class="header-actions">
         <p-button label="Update Status" icon="pi pi-sync" severity="warn" [outlined]="true"
                   (onClick)="openStatusDialog()"></p-button>
-        <p-button label="Upload POD" icon="pi pi-upload" severity="info" [outlined]="true"
-                  (onClick)="showPodDialog=true"></p-button>
         <p-button label="Back" icon="pi pi-arrow-left" [text]="true" severity="secondary"
                   routerLink="/portal/pages/logistics/shipments"></p-button>
       </div>
@@ -148,20 +146,15 @@
             <div class="metric-unit">PKR</div>
           </div>
         </div>
+      </div>
 
-        <!-- POD -->
-        <div *ngIf="shipment.proofOfDeliveryUrl" class="pod-block">
-          <i class="pi pi-file-pdf pod-icon"></i>
-          <div>
-            <div class="pod-label">Proof of Delivery</div>
-            <a [href]="resolveUrl(shipment.proofOfDeliveryUrl)" target="_blank" class="link-primary">
-              View Document <i class="pi pi-external-link" style="font-size:.7rem"></i>
-            </a>
-          </div>
+      <!-- Notes -->
+      <div class="detail-card" *ngIf="shipment.notes">
+        <div class="card-header">
+          <i class="pi pi-comment"></i>
+          <span>Notes</span>
         </div>
-
-        <!-- Notes -->
-        <div *ngIf="shipment.notes" class="notes-block">
+        <div class="notes-block">
           <div class="notes-label"><i class="pi pi-info-circle"></i> Notes</div>
           <p class="notes-text">{{ shipment.notes }}</p>
         </div>
@@ -200,37 +193,6 @@
         <div class="sdlg-footer-btns">
           <p-button label="Cancel" [text]="true" severity="secondary" (onClick)="showStatusDialog=false"></p-button>
           <p-button label="Save" icon="pi pi-check" [loading]="isSaving" (onClick)="saveStatus()"></p-button>
-        </div>
-      </div>
-    </ng-template>
-  </p-dialog>
-
-  <!-- ── POD dialog ─────────────────────────────────────────────────────── -->
-  <p-dialog [(visible)]="showPodDialog" [modal]="true" [style]="{width:'440px'}"
-            [draggable]="false" [resizable]="false" styleClass="sdlg">
-    <ng-template pTemplate="header">
-      <div class="sdlg-header">
-        <div class="sdlg-header-icon sdlg-icon-teal"><i class="pi pi-cloud-upload"></i></div>
-        <div class="sdlg-header-text">
-          <div class="sdlg-title">Upload Proof of Delivery</div>
-          <div class="sdlg-subtitle" *ngIf="shipment">{{ shipment.shipmentNumber }}</div>
-        </div>
-      </div>
-    </ng-template>
-    <div class="sdlg-body">
-      <div class="file-drop-zone" (click)="podFileInput.click()">
-        <i class="pi pi-cloud-upload file-drop-icon"></i>
-        <p class="file-drop-label">{{ selectedPodFile ? selectedPodFile.name : 'Click to select a file' }}</p>
-        <p class="file-drop-hint">PDF, JPG or PNG · max 20 MB</p>
-      </div>
-      <input #podFileInput type="file" accept=".pdf,.jpg,.jpeg,.png" hidden (change)="onPodFileSelected($event)" />
-    </div>
-    <ng-template pTemplate="footer">
-      <div class="sdlg-footer">
-        <div class="sdlg-footer-btns">
-          <p-button label="Cancel" [text]="true" severity="secondary" (onClick)="showPodDialog=false"></p-button>
-          <p-button label="Upload" icon="pi pi-check" [loading]="isUploadingPod"
-                    [disabled]="!selectedPodFile" (onClick)="uploadPod()"></p-button>
         </div>
       </div>
     </ng-template>

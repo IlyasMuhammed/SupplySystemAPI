@@ -1,0 +1,82 @@
+<div class="list-page">
+  <p-toast></p-toast>
+
+  <div class="page-header">
+    <div>
+      <h1 class="page-title"><i class="pi pi-list-check"></i> Picking</h1>
+      <p class="page-subtitle">Pick lists waiting to be walked.</p>
+    </div>
+  </div>
+
+  <div class="filters">
+    <span class="p-input-icon-left search">
+      <i class="pi pi-search"></i>
+      <input pInputText type="text" [(ngModel)]="search" (keyup.enter)="applyFilters()"
+             placeholder="Pick list or delivery number" data-testid="filter-search" />
+    </span>
+
+    <p-select [options]="statusOptions" [(ngModel)]="status" optionLabel="label"
+              optionValue="value" (onChange)="applyFilters()" styleClass="status-filter"
+              data-testid="filter-status"></p-select>
+
+    <p-button icon="pi pi-refresh" [text]="true" severity="secondary" (onClick)="load()"
+              pTooltip="Refresh" data-testid="refresh"></p-button>
+  </div>
+
+  <p-table [value]="rows" [lazy]="true" (onLazyLoad)="onLazyLoad($event)"
+           [paginator]="true" [rows]="20" [totalRecords]="totalRecords" [loading]="isLoading"
+           dataKey="uuid" styleClass="p-datatable-sm" data-testid="pick-list-table">
+    <ng-template pTemplate="header">
+      <tr>
+        <th style="width: 11rem">Pick list</th>
+        <th style="width: 11rem">Delivery</th>
+        <th>Warehouse</th>
+        <th style="width: 9rem">Status</th>
+        <th class="text-right" style="width: 6rem">Lines</th>
+        <th style="width: 12rem">Progress</th>
+        <th style="width: 7rem"></th>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="body" let-row>
+      <tr data-testid="pick-list-row">
+        <td><span class="font-mono">{{ row.pickListNumber }}</span></td>
+        <td>
+          <a [routerLink]="['/portal/pages/logistics/deliveries', row.deliveryUuid]"
+             class="font-mono link">{{ row.deliveryNumber }}</a>
+        </td>
+        <td>{{ row.warehouseName || '—' }}</td>
+        <td>
+          <p-tag [value]="formatStatus(row.status)"
+                 [severity]="getStatusSeverity(row.status)"></p-tag>
+        </td>
+        <td class="text-right">{{ row.lineCount }}</td>
+        <td>
+          <div class="progress">
+            <div class="bar"><div class="fill" [style.width.%]="progress(row)"></div></div>
+            <span class="qty">
+              {{ row.qtyPicked | number:'1.0-3' }} / {{ row.qtyToPick | number:'1.0-3' }}
+            </span>
+          </div>
+        </td>
+        <td>
+          <p-button label="Walk" icon="pi pi-arrow-right" iconPos="right" [text]="true"
+                    [routerLink]="['/portal/pages/logistics/picking', row.uuid]"
+                    data-testid="action-walk"></p-button>
+        </td>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="emptymessage">
+      <tr>
+        <td colspan="7" class="empty-state" data-testid="empty">
+          <i class="pi pi-inbox"></i>
+          <p>Nothing to pick.</p>
+          <p class="hint">
+            Pick lists appear here once a released delivery has one generated.
+          </p>
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+</div>

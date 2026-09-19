@@ -252,3 +252,11 @@
   margin-left: 0.5rem;
   font-size: 0.68rem;
 }
+
+// ── Add Rate Card ─────────────────────────────────────────────────────────────
+
+.add-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 1rem;
+}

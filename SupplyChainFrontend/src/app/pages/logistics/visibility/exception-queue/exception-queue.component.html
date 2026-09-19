@@ -1,0 +1,240 @@
+<div class="exception-page">
+  <p-toast></p-toast>
+
+  <div class="page-header">
+    <div>
+      <h1 class="page-title"><i class="pi pi-exclamation-triangle"></i> Delivery exceptions</h1>
+      <p class="page-subtitle">
+        What has gone wrong with a movement, named and owned until it is settled. Worst first,
+        then oldest — the order it should be worked in.
+      </p>
+    </div>
+
+    <div class="header-actions">
+      <p-button label="Proof of delivery" icon="pi pi-verified" severity="secondary" [outlined]="true"
+                routerLink="/portal/pages/logistics/proof-of-delivery"
+                data-testid="action-pod"></p-button>
+    </div>
+  </div>
+
+  <!-- ── What is outstanding ─────────────────────────────────────────────────── -->
+
+  <div class="summary" *ngIf="summary as s">
+    <div class="tiles">
+      <div class="tile">
+        <span class="value" data-testid="tile-open">{{ s.open }}</span>
+        <span class="label">open</span>
+      </div>
+      <div class="tile">
+        <span class="value" data-testid="tile-waiting">{{ s.waiting }}</span>
+        <span class="label">waiting on others</span>
+      </div>
+      <div class="tile" [class.alarm]="s.critical > 0">
+        <span class="value" data-testid="tile-critical">{{ s.critical }}</span>
+        <span class="label">critical</span>
+      </div>
+      <!-- The ones that sit untouched for a week are always the ones nobody owns. -->
+      <div class="tile" [class.alarm]="s.unassigned > 0">
+        <span class="value" data-testid="tile-unassigned">{{ s.unassigned }}</span>
+        <span class="label">nobody owns</span>
+      </div>
+    </div>
+
+    <table class="by-type" *ngIf="s.byType.length" data-testid="by-type">
+      <tr>
+        <th>Kind</th><th>Open</th><th>Critical</th><th>Unowned</th><th>Oldest</th>
+      </tr>
+      <tr *ngFor="let t of s.byType">
+        <td>{{ typeLabel(t.exceptionType) }}</td>
+        <td>{{ t.open }}</td>
+        <td [class.alarm]="t.critical > 0">{{ t.critical }}</td>
+        <td [class.alarm]="t.unassigned > 0">{{ t.unassigned }}</td>
+        <!-- A small count of something a week old is exactly what a total hides. -->
+        <td class="muted">
+          {{ t.oldestHours < 48 ? (t.oldestHours | number:'1.0-0') + ' hours'
+                                : (t.oldestHours / 24 | number:'1.0-0') + ' days' }}
+        </td>
+      </tr>
+    </table>
+
+    <div class="warnings" *ngIf="s.warnings.length" data-testid="summary-warnings">
+      <p *ngFor="let w of s.warnings"><i class="pi pi-info-circle"></i> {{ w }}</p>
+    </div>
+  </div>
+
+  <!-- ── Narrowing it ─────────────────────────────────────────────────────────── -->
+
+  <div class="filters">
+    <p-select [options]="carrierOptions" [(ngModel)]="filter.carrierUuid" (onChange)="search()"
+              placeholder="Every carrier" styleClass="filter" data-testid="filter-carrier"></p-select>
+
+    <p-select [options]="typeOptions" [(ngModel)]="filter.exceptionType" (onChange)="search()"
+              placeholder="Every kind" styleClass="filter" data-testid="filter-type"></p-select>
+
+    <p-select [options]="severityOptions" [(ngModel)]="filter.severity" (onChange)="search()"
+              placeholder="Any severity" styleClass="filter" data-testid="filter-severity"></p-select>
+
+    <p-select [options]="statusOptions" [(ngModel)]="filter.status" (onChange)="search()"
+              placeholder="Still needs work" styleClass="filter" data-testid="filter-status"></p-select>
+
+    <p-select [options]="ownerOptions" [(ngModel)]="filter.unassigned" (onChange)="search()"
+              placeholder="Owned or not" styleClass="filter" data-testid="filter-owner"></p-select>
+  </div>
+
+  <!-- ── The queue ────────────────────────────────────────────────────────────── -->
+
+  <p-table [value]="exceptions" [lazy]="true" (onLazyLoad)="load($event)"
+           [paginator]="true" [rows]="pageSize" [totalRecords]="total" [loading]="isLoading"
+           [rowsPerPageOptions]="[20, 50, 100]" dataKey="uuid"
+           styleClass="p-datatable-sm" data-testid="exception-table">
+
+    <ng-template pTemplate="header">
+      <tr>
+        <th>Consignment</th>
+        <th>What went wrong</th>
+        <th>Severity</th>
+        <th>Open for</th>
+        <th>Owner</th>
+        <th>Status</th>
+        <th class="actions-col"></th>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="body" let-e>
+      <tr [attr.data-testid]="'row-' + e.uuid" [class.stale]="isStale(e)">
+        <td>
+          <a [routerLink]="['/portal/pages/logistics/consignments', e.consignmentUuid]"
+             class="font-mono link">{{ e.consignmentNumber }}</a>
+          <div class="muted" *ngIf="e.carrierName">{{ e.carrierName }}</div>
+          <div class="muted font-mono" *ngIf="e.masterAwb">{{ e.masterAwb }}</div>
+        </td>
+
+        <td>
+          <strong>{{ typeLabel(e.exceptionType) }}</strong>
+          <div class="description">{{ e.description }}</div>
+          <!-- The carrier's own words, kept verbatim. A paraphrase is what gets argued with. -->
+          <div class="muted source">
+            {{ sourceLabel(e.source) }}
+            <span class="font-mono" *ngIf="e.carrierStatus">· {{ e.carrierStatus }}</span>
+          </div>
+        </td>
+
+        <td>
+          <p-tag [value]="e.severity" [severity]="severityTag(e.severity)"
+                 [attr.data-testid]="'severity-' + e.uuid"></p-tag>
+        </td>
+
+        <td [class.alarm]="isStale(e)" [attr.data-testid]="'age-' + e.uuid">
+          {{ age(e) }}
+        </td>
+
+        <td>
+          <span *ngIf="e.assignedToUserId; else nobody" class="font-mono">#{{ e.assignedToUserId }}</span>
+          <ng-template #nobody>
+            <span class="alarm" [attr.data-testid]="'unowned-' + e.uuid">Nobody</span>
+          </ng-template>
+        </td>
+
+        <td>
+          <p-tag [value]="statusLabel(e.status)" [severity]="statusTag(e.status)"></p-tag>
+          <div class="muted resolution" *ngIf="e.resolution">{{ e.resolution }}</div>
+        </td>
+
+        <td class="actions-col">
+          <ng-container *ngIf="isLive(e); else closed">
+            <p-button icon="pi pi-user-edit" severity="secondary" [text]="true"
+                      pTooltip="Who has it, and how much it matters"
+                      (onClick)="open(e, 'assign')"
+                      [attr.data-testid]="'assign-' + e.uuid"></p-button>
+
+            <p-button icon="pi pi-check" severity="success" [text]="true"
+                      pTooltip="Settled — say how"
+                      (onClick)="open(e, 'resolve')"
+                      [attr.data-testid]="'resolve-' + e.uuid"></p-button>
+
+            <!-- Separate from resolving on purpose: counting a mistaken exception as one that was
+                 fixed flatters every figure the carrier scorecard produces. -->
+            <p-button icon="pi pi-times" severity="secondary" [text]="true"
+                      pTooltip="Should not have been raised"
+                      (onClick)="open(e, 'withdraw')"
+                      [attr.data-testid]="'withdraw-' + e.uuid"></p-button>
+          </ng-container>
+
+          <ng-template #closed>
+            <span class="muted">—</span>
+          </ng-template>
+        </td>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="emptymessage">
+      <tr>
+        <td colspan="7" class="empty" data-testid="empty">
+          Nothing needs working. Exceptions raised by a carrier scan appear here within ten minutes.
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+
+  <!-- ── Acting on one ────────────────────────────────────────────────────────── -->
+
+  <p-dialog [(visible)]="dialogVisible" [modal]="true" [style]="{ width: '34rem' }"
+            [header]="dialogHeader" data-testid="exception-dialog">
+
+    <div class="dialog-body" *ngIf="working as w">
+      <p class="context">
+        <span class="font-mono">{{ w.consignmentNumber }}</span>
+        — {{ typeLabel(w.exceptionType) }}
+      </p>
+      <p class="muted quote">{{ w.description }}</p>
+
+      <ng-container *ngIf="action === 'assign'">
+        <label for="owner">Owner (user id)</label>
+        <p-inputNumber inputId="owner" [(ngModel)]="form.assignToUserId" [useGrouping]="false"
+                       [disabled]="form.clearAssignee" data-testid="input-owner"></p-inputNumber>
+
+        <label class="checkbox">
+          <input type="checkbox" [(ngModel)]="form.clearAssignee" data-testid="input-clear-owner" />
+          Hand it back to nobody
+        </label>
+
+        <label for="severity">How much it matters</label>
+        <p-select inputId="severity" [options]="assignableSeverities" [(ngModel)]="form.severity"
+                  data-testid="input-severity"></p-select>
+
+        <label for="status">Where it stands</label>
+        <p-select inputId="status" [options]="assignableStatuses" [(ngModel)]="form.status"
+                  data-testid="input-status"></p-select>
+
+        <p class="muted note">
+          Resolving and withdrawing each need their own reason, so they have their own buttons.
+        </p>
+      </ng-container>
+
+      <ng-container *ngIf="action !== 'assign'">
+        <label for="note">
+          {{ action === 'resolve' ? 'How it was settled' : 'Why it should not have been raised' }}
+        </label>
+        <textarea pTextarea id="note" rows="4" [(ngModel)]="form.note"
+                  data-testid="input-note"></textarea>
+
+        <p class="muted note" *ngIf="action === 'withdraw'">
+          A withdrawn exception is not a resolved one. It is excluded from the carrier scorecard
+          entirely, rather than counted as a problem somebody fixed.
+        </p>
+      </ng-container>
+
+      <p class="validation" *ngIf="validationError" data-testid="validation-error">
+        <i class="pi pi-exclamation-circle"></i> {{ validationError }}
+      </p>
+    </div>
+
+    <ng-template pTemplate="footer">
+      <p-button label="Cancel" severity="secondary" [text]="true"
+                (onClick)="dialogVisible = false"></p-button>
+      <p-button [label]="action === 'withdraw' ? 'Withdraw' : action === 'resolve' ? 'Resolve' : 'Save'"
+                [disabled]="!canSave" [loading]="isSubmitting"
+                (onClick)="confirm()" data-testid="dialog-confirm"></p-button>
+    </ng-template>
+  </p-dialog>
+</div>

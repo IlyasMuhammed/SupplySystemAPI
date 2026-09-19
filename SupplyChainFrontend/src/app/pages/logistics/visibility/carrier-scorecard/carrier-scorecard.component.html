@@ -1,0 +1,199 @@
+<div class="scorecard-page">
+  <p-toast></p-toast>
+
+  <div class="page-header">
+    <div>
+      <h1 class="page-title"><i class="pi pi-chart-bar"></i> Carrier scorecard</h1>
+      <p class="page-subtitle">
+        How each carrier has actually performed, from figures already recorded. There is no single
+        overall score — the sort chooses which question is being asked, and the measures stay
+        beside each other.
+      </p>
+    </div>
+
+    <div class="header-actions">
+      <p-button label="Exceptions" icon="pi pi-exclamation-triangle" severity="secondary" [outlined]="true"
+                routerLink="/portal/pages/logistics/exceptions"
+                data-testid="action-exceptions"></p-button>
+    </div>
+  </div>
+
+  <!-- ── The question ─────────────────────────────────────────────────────────── -->
+
+  <div class="filters">
+    <div class="field">
+      <label for="from">Collected from</label>
+      <p-datePicker inputId="from" [(ngModel)]="filter.from" dateFormat="d MM yy"
+                    (onSelect)="load()" data-testid="filter-from"></p-datePicker>
+    </div>
+
+    <div class="field">
+      <label for="to">to</label>
+      <p-datePicker inputId="to" [(ngModel)]="filter.to" dateFormat="d MM yy"
+                    (onSelect)="load()" data-testid="filter-to"></p-datePicker>
+    </div>
+
+    <div class="field">
+      <label for="carrier">Carrier</label>
+      <p-select inputId="carrier" [options]="carrierOptions" [(ngModel)]="filter.carrierUuid"
+                (onChange)="load()" styleClass="filter" data-testid="filter-carrier"></p-select>
+    </div>
+
+    <div class="field">
+      <label for="sort">Sorted by</label>
+      <p-select inputId="sort" [options]="sortOptions" [(ngModel)]="filter.sortBy"
+                (onChange)="load()" styleClass="filter" data-testid="filter-sort"></p-select>
+    </div>
+  </div>
+
+  <!-- The cohort is what was collected in the window, not what was delivered in it — otherwise
+       last month's figures would change every time somebody looked at them. -->
+  <p class="cohort" *ngIf="scorecard as s" data-testid="cohort">
+    Consignments each carrier <strong>collected</strong> between
+    {{ s.from | date:'d MMM y' }} and {{ s.to | date:'d MMM y' }}, followed to whatever outcome
+    they have now reached.
+  </p>
+
+  <div class="warnings" *ngIf="scorecard?.warnings?.length" data-testid="card-warnings">
+    <p *ngFor="let w of scorecard!.warnings"><i class="pi pi-info-circle"></i> {{ w }}</p>
+  </div>
+
+  <!-- ── The carriers ─────────────────────────────────────────────────────────── -->
+
+  <p-table [value]="carriersOnCard" [loading]="isLoading"
+           styleClass="p-datatable-sm" data-testid="scorecard-table">
+
+    <ng-template pTemplate="header">
+      <tr>
+        <th>Carrier</th>
+        <th>Collected</th>
+        <th>On time</th>
+        <th>Exceptions</th>
+        <th>Evidence</th>
+        <th *ngIf="!billingWithheld">Billing</th>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="body" let-c>
+      <tr [attr.data-testid]="'row-' + (c.carrierUuid ?? c.carrierName)">
+        <td>
+          <strong>{{ c.carrierName }}</strong>
+          <div class="muted" *ngIf="isThinSample(c)" [attr.data-testid]="'thin-' + c.carrierUuid">
+            too few to compare on
+          </div>
+        </td>
+
+        <!-- Outcomes, so a high on-time figure cannot hide what never arrived at all. -->
+        <td>
+          <span class="figure" [attr.data-testid]="'volume-' + c.carrierUuid">{{ c.consignments }}</span>
+          <div class="muted">
+            {{ c.delivered }} delivered<span *ngIf="c.stillMoving"> · {{ c.stillMoving }} moving</span>
+          </div>
+          <div class="muted alarm" *ngIf="c.lost || c.returnedToOrigin"
+               [attr.data-testid]="'bad-outcomes-' + c.carrierUuid">
+            <span *ngIf="c.lost">{{ c.lost }} lost</span>
+            <span *ngIf="c.lost && c.returnedToOrigin"> · </span>
+            <span *ngIf="c.returnedToOrigin">{{ c.returnedToOrigin }} returned</span>
+          </div>
+        </td>
+
+        <td>
+          <p-tag [value]="percent(c.onTimePercent)" [severity]="onTimeTag(c)"
+                 [attr.data-testid]="'ontime-' + c.carrierUuid"></p-tag>
+
+          <!-- A rate without its denominator is a rumour. -->
+          <div class="muted" *ngIf="c.judgeable">{{ outOf(c.onTime, c.judgeable) }}</div>
+
+          <div class="muted" *ngIf="c.averageDaysLate">
+            late by {{ c.averageDaysLate }} day(s) on average
+          </div>
+
+          <!-- Neither on time nor late. Counting these either way would invent the promise they
+               were measured against. -->
+          <div class="muted" *ngIf="c.notJudgeable" [attr.data-testid]="'unjudged-' + c.carrierUuid">
+            {{ c.notJudgeable }} had no ETA
+          </div>
+        </td>
+
+        <td>
+          <p-tag [value]="(c.exceptionsPer100 ?? 0) + ' per 100'" [severity]="exceptionTag(c)"
+                 [attr.data-testid]="'exceptions-' + c.carrierUuid"></p-tag>
+
+          <div class="muted">{{ c.exceptions }} raised · {{ c.stillOpen }} open</div>
+
+          <div class="muted alarm" *ngIf="c.criticalExceptions"
+               [attr.data-testid]="'critical-' + c.carrierUuid">
+            {{ c.criticalExceptions }} critical
+          </div>
+
+          <div class="muted" *ngIf="c.averageHoursToResolve">
+            settled in {{ c.averageHoursToResolve }} hours on average
+          </div>
+
+          <div class="muted alarm" *ngIf="c.stuckNow" [attr.data-testid]="'stuck-' + c.carrierUuid">
+            {{ c.stuckNow }} stuck right now
+          </div>
+        </td>
+
+        <!-- A name and an artefact. The same bar the proof-of-delivery screen uses. -->
+        <td>
+          <p-tag [value]="percent(c.proofCoveragePercent)" [severity]="proofTag(c)"
+                 [attr.data-testid]="'proof-' + c.carrierUuid"></p-tag>
+          <div class="muted" *ngIf="c.delivered">{{ outOf(c.defensible, c.delivered) }}</div>
+        </td>
+
+        <td *ngIf="!billingWithheld">
+          <ng-container *ngIf="c.billing as b">
+            <p-tag [value]="percent(b.accuracyPercent)" [severity]="billingTag(c)"
+                   [attr.data-testid]="'billing-' + c.carrierUuid"></p-tag>
+
+            <div class="muted" *ngIf="b.invoiced">
+              {{ b.invoiced }} billed
+              <span *ngIf="b.overcharged"> · {{ b.overcharged }} over</span>
+              <!-- Not good news either: it usually means a bill still to come. -->
+              <span *ngIf="b.undercharged"> · {{ b.undercharged }} under</span>
+            </div>
+
+            <div class="muted" *ngIf="hasVariance(c)" [attr.data-testid]="'variance-' + c.carrierUuid">
+              <!-- Never summed across currencies: rupees plus dirhams is a number that looks like
+                   money and is not. -->
+              <span *ngFor="let v of b.variance; let last = last">
+                {{ varianceLabel(v.variance, v.currency) }}<span *ngIf="!last"> · </span>
+              </span>
+            </div>
+
+            <div class="muted" *ngIf="b.notYetInvoiced"
+                 [attr.data-testid]="'unbilled-' + c.carrierUuid">
+              {{ b.notYetInvoiced }} not billed yet
+            </div>
+          </ng-container>
+        </td>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="emptymessage">
+      <tr>
+        <td [attr.colspan]="billingWithheld ? 5 : 6" class="empty" data-testid="empty">
+          Nothing was collected by a carrier in this window, so there is nothing to compare.
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+
+  <!-- Per-carrier caveats. On the page rather than in a tooltip: a figure that needs a caveat
+       needs it where the figure is. -->
+  <div class="carrier-warnings" *ngFor="let c of carriersOnCard">
+    <ng-container *ngIf="c.warnings.length">
+      <p class="who">{{ c.carrierName }}</p>
+      <p *ngFor="let w of c.warnings" [attr.data-testid]="'warning-' + c.carrierUuid">
+        <i class="pi pi-info-circle"></i> {{ w }}
+      </p>
+    </ng-container>
+  </div>
+
+  <p class="no-score" data-testid="no-score">
+    <i class="pi pi-info-circle"></i>
+    These are not combined into one number. Doing so would need weights nobody has agreed, and a
+    carrier that is cheap and late would come out wherever those weights put it.
+  </p>
+</div>

@@ -12,10 +12,7 @@ internal sealed class AuthDbContextFactory : IDesignTimeDbContextFactory<AuthDbC
 {
     public AuthDbContext CreateDbContext(string[] args)
     {
-        // Allow CI / developers to override via environment variable
-        var connString =
-            Environment.GetEnvironmentVariable("SMS_DB_CONNECTION")
-            ?? "Server=(localdb)\\mssqllocaldb;Database=SMS_Dev;Trusted_Connection=True;MultipleActiveResultSets=true";
+        var connString = DesignTimeConnection.Resolve();
 
         var options = new DbContextOptionsBuilder<AuthDbContext>()
             .UseSqlServer(connString)

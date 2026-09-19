@@ -81,7 +81,10 @@ public class LoginAsync_Should
 
         result.AccessToken.Should().NotBeNullOrWhiteSpace();
         result.RefreshToken.Should().NotBeNullOrWhiteSpace();
-        result.ExpiresIn.Should().Be(900);
+        // 3600, matching the token's real lifetime. Login and refresh must agree: refresh used to
+        // report 900 for the very same 60-minute token, so a refreshed session was told it had a
+        // quarter of the life it really had.
+        result.ExpiresIn.Should().Be(3600);
     }
 
     [Fact]
@@ -111,14 +114,16 @@ public class LoginAsync_Should
     }
 
     [Fact]
-    public async Task JWT_expires_in_15_minutes()
+    public async Task JWT_expires_in_60_minutes()
     {
+        // Was 15. The lifetime is set by TokenService.AccessTokenMinutes, which is 60; this test
+        // had been asserting a value the code stopped using and was failing because of it.
         var (svc, _) = Helpers.Build(db => db.UserAccounts.Add(Helpers.ActiveUser()));
         var before = DateTime.UtcNow;
         var result = await svc.LoginAsync(new LoginRequestModel { Email = "alice@example.com", Password = "P@ssword1" });
 
         var token = new JwtSecurityTokenHandler().ReadJwtToken(result.AccessToken);
-        token.ValidTo.Should().BeCloseTo(before.AddMinutes(15), TimeSpan.FromSeconds(10));
+        token.ValidTo.Should().BeCloseTo(before.AddMinutes(60), TimeSpan.FromSeconds(10));
     }
 
     [Fact]
@@ -275,7 +280,10 @@ public class RefreshAsync_Should
 
         result.AccessToken.Should().NotBeNullOrWhiteSpace();
         result.RefreshToken.Should().NotBeNullOrWhiteSpace();
-        result.ExpiresIn.Should().Be(900);
+        // 3600, matching the token's real lifetime. Login and refresh must agree: refresh used to
+        // report 900 for the very same 60-minute token, so a refreshed session was told it had a
+        // quarter of the life it really had.
+        result.ExpiresIn.Should().Be(3600);
     }
 
     [Fact]
@@ -508,7 +516,7 @@ public class TokenService_Should
     }
 
     [Fact]
-    public void GenerateAccessToken_expires_in_15_minutes()
+    public void GenerateAccessToken_expires_in_60_minutes()
     {
         var svc = CreateSut();
         var user = new UserAccount { UserID = 1, Email = "u@test.com", RoleID = 1 };
@@ -517,7 +525,34 @@ public class TokenService_Should
         var token = svc.GenerateAccessToken(user, "User", Array.Empty<string>(), isSuperAdmin: false);
 
         var parsed = new JwtSecurityTokenHandler().ReadJwtToken(token);
-        parsed.ValidTo.Should().BeCloseTo(before.AddMinutes(15), TimeSpan.FromSeconds(5));
+        parsed.ValidTo.Should().BeCloseTo(before.AddMinutes(60), TimeSpan.FromSeconds(5));
+    }
+
+    /// <summary>
+    /// The invariant the two hard-coded numbers broke: whatever a response says in
+    /// <c>expiresIn</c>, the token really does last that long, on both paths.
+    /// </summary>
+    [Fact]
+    public async Task Login_and_refresh_both_report_the_tokens_real_lifetime()
+    {
+        var (svc, _) = Helpers.Build(db => db.UserAccounts.Add(Helpers.ActiveUser()));
+        var handler = new JwtSecurityTokenHandler();
+
+        var login = await svc.LoginAsync(
+            new LoginRequestModel { Email = "alice@example.com", Password = "P@ssword1" });
+
+        var loginToken = handler.ReadJwtToken(login.AccessToken);
+        (loginToken.ValidTo - DateTime.UtcNow).TotalSeconds
+            .Should().BeApproximately(login.ExpiresIn, 10);
+
+        var refreshed = await svc.RefreshAsync(login.RefreshToken);
+
+        var refreshedToken = handler.ReadJwtToken(refreshed.AccessToken);
+        (refreshedToken.ValidTo - DateTime.UtcNow).TotalSeconds
+            .Should().BeApproximately(refreshed.ExpiresIn, 10);
+
+        // And they agree with each other — a refreshed session is not shorter-lived than a new one.
+        refreshed.ExpiresIn.Should().Be(login.ExpiresIn);
     }
 
     // MT-007 — is_super_admin is now a plain passed-in bool (SuperAdminUsers table membership,

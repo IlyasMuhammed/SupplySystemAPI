@@ -1,0 +1,84 @@
+.detail-page { padding: 1.5rem; }
+
+.page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
+.page-title { font-size: 1.5rem; font-weight: 700; display: flex; align-items: center; gap: .625rem; margin: 0; flex-wrap: wrap; }
+.page-subtitle { color: var(--text-color-secondary); font-size: .875rem; margin: .25rem 0 0; display: flex; gap: .375rem; }
+.header-actions { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+
+.loading-state, .not-found { text-align: center; padding: 4rem 1rem; color: var(--text-color-secondary); }
+.not-found i { font-size: 2.5rem; display: block; margin-bottom: .75rem; opacity: .6; }
+.not-found h2 { font-size: 1.125rem; font-weight: 600; margin: 0 0 .25rem; color: var(--text-color); }
+
+// Banners — amber for "incomplete", not red: neither state is an error.
+.hold-banner, .lines-unknown-banner {
+  display: flex; align-items: flex-start; gap: .5rem;
+  padding: .75rem 1rem; margin-bottom: 1.25rem; border-radius: .5rem;
+  font-size: .875rem;
+  background: var(--yellow-50, #fefce8);
+  border: 1px solid var(--yellow-200, #fef08a);
+  color: var(--yellow-800, #854d0e);
+}
+
+.detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr)); gap: 1rem; margin-bottom: 1.25rem; }
+
+.card {
+  background: var(--surface-0); border: 1px solid var(--surface-200);
+  border-radius: .625rem; padding: 1.25rem; margin-bottom: 1.25rem;
+}
+.card h3 { font-size: .875rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--text-color-secondary); margin: 0 0 .875rem; }
+
+dl { display: grid; grid-template-columns: auto 1fr; gap: .5rem 1rem; margin: 0; font-size: .875rem; }
+dt { color: var(--text-color-secondary); }
+dd { margin: 0; }
+
+.posts-yes { font-weight: 600; }
+.notes { margin: 1rem 0 0; font-size: .875rem; color: var(--text-color-secondary); font-style: italic; }
+.muted { color: var(--text-color-secondary); font-size: .875rem; margin: 0; }
+
+address { font-style: normal; font-size: .875rem; line-height: 1.6; }
+.contact { font-size: .875rem; margin: .5rem 0 0; }
+
+.address-warning {
+  display: flex; align-items: flex-start; gap: .375rem;
+  margin-top: .75rem; padding: .5rem .625rem; border-radius: .375rem;
+  font-size: .8125rem;
+  background: var(--yellow-50, #fefce8);
+  color: var(--yellow-800, #854d0e);
+}
+
+.table-card {
+  background: var(--surface-0); border: 1px solid var(--surface-200);
+  border-radius: .625rem; padding: 1.25rem; margin-bottom: 1.25rem;
+}
+.table-card h3 { font-size: .875rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--text-color-secondary); margin: 0 0 .875rem; }
+
+.line-flags { display: flex; gap: .375rem; margin-top: .25rem; flex-wrap: wrap; }
+.flag { font-size: .6875rem; font-weight: 600; padding: .0625rem .375rem; border-radius: .25rem; background: var(--surface-200); color: var(--text-color-secondary); }
+.flag.hazard { background: var(--red-100, #fee2e2); color: var(--red-700, #b91c1c); }
+
+td.short { font-weight: 700; color: var(--red-600, #dc2626); }
+.short-reason { font-size: .6875rem; font-weight: 400; color: var(--text-color-secondary); }
+
+.dialog-hint { font-size: .875rem; color: var(--text-color-secondary); margin: 0 0 1rem; }
+.dialog-label { display: block; font-size: .8125rem; font-weight: 600; margin-bottom: .375rem; }
+
+@media (max-width: 640px) {
+  .detail-page { padding: 1rem; }
+  .detail-grid { grid-template-columns: 1fr; }
+  .header-actions { width: 100%; }
+}
+
+// ── Release dialog (T-30) ───────────────────────────────────────────────────
+
+.text-right { text-align: right; }
+
+tr.short-line { background: var(--yellow-50, #fefce8); }
+.line-warning { font-size: .75rem; color: var(--yellow-800, #854d0e); margin-top: .125rem; }
+
+.shortfall-note {
+  display: flex; align-items: flex-start; gap: .5rem;
+  margin-top: .875rem; padding: .625rem .75rem; border-radius: .375rem; font-size: .8125rem;
+  background: var(--yellow-50, #fefce8);
+  border: 1px solid var(--yellow-200, #fef08a);
+  color: var(--yellow-800, #854d0e);
+}

@@ -170,7 +170,7 @@ public class MasterFinancialLedger_PostEntryAsync_Tests
             .ThrowsAsync(new InvalidOperationException("Simulated master ledger failure"));
 
         var ledger = new SupplierLedgerService(finDb, failingMaster.Object);
-        var repo   = new InvoiceRepository(finDb, demandDb, whDb, ledger);
+        var repo   = new InvoiceRepository(finDb, demandDb, whDb, ledger, new FakeSupplierNameLookup());
 
         var act = async () => await repo.ApproveAsync(inv.UUID, "notes", approvedBy: 1);
         await act.Should().ThrowAsync<InvalidOperationException>();
@@ -203,8 +203,8 @@ public class MasterFinancialLedger_PostEntryAsync_Tests
 
         var ledger1 = new SupplierLedgerService(finDb1);
         var ledger2 = new SupplierLedgerService(finDb2);
-        var repo1   = new InvoiceRepository(finDb1, demandDb1, whDb1, ledger1);
-        var repo2   = new InvoiceRepository(finDb2, demandDb2, whDb2, ledger2);
+        var repo1   = new InvoiceRepository(finDb1, demandDb1, whDb1, ledger1, new FakeSupplierNameLookup());
+        var repo2   = new InvoiceRepository(finDb2, demandDb2, whDb2, ledger2, new FakeSupplierNameLookup());
 
         var results = await Task.WhenAll(
             repo1.ApproveAsync(inv1.UUID, null, approvedBy: 1),

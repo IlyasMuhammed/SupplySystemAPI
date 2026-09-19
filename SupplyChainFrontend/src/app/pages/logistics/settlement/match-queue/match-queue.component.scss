@@ -1,0 +1,32 @@
+.queue-page { padding: 1.5rem; max-width: 76rem; }
+
+.page-header {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem;
+  margin-bottom: 1.25rem; flex-wrap: wrap;
+}
+.page-title {
+  font-size: 1.5rem; font-weight: 700; display: flex; align-items: center; gap: .625rem; margin: 0;
+}
+.page-subtitle { color: var(--text-color-secondary); font-size: .875rem; margin: .25rem 0 0; max-width: 46rem; }
+.header-actions { display: flex; align-items: center; gap: .5rem; }
+
+.filters { display: flex; align-items: center; gap: .5rem; margin-bottom: .875rem; flex-wrap: wrap; }
+:host ::ng-deep .filter { min-width: 14rem; }
+
+.page-value {
+  margin-left: auto; font-size: .8125rem; font-weight: 600;
+  color: var(--yellow-900, #713f12); background: var(--yellow-50, #fefce8);
+  padding: .1875rem .5rem; border-radius: var(--border-radius, .375rem);
+}
+
+.muted { color: var(--text-color-secondary); font-size: .75rem; }
+.note { margin-top: .1875rem; max-width: 22rem; }
+.font-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.link { color: var(--primary-color); text-decoration: none; }
+.link:hover { text-decoration: underline; }
+.amount, th.amount { text-align: right; }
+.text-right { text-align: right; }
+
+.empty-state { text-align: center; padding: 2.5rem 1rem; color: var(--text-color-secondary); font-size: .875rem; }
+.empty-state i { font-size: 1.75rem; display: block; margin-bottom: .5rem; opacity: .5; }
+.empty-state p { margin: .25rem 0; }

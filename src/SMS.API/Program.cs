@@ -137,6 +137,36 @@ builder.Services.AddRateLimiter(opts =>
                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
                 QueueLimit           = 0
             }));
+    // T-39 — carrier webhooks. Partitioned by the carrier account in the URL rather than by IP:
+    // a carrier sends every organization's events from a handful of addresses, so a per-IP limit
+    // would throttle legitimate traffic across tenants, while a flood aimed at one account stays
+    // contained to it. Generous, because carriers batch-send after an outage.
+    opts.AddPolicy(SMS.Modules.Logistics.Controllers.CarrierWebhooksController.RateLimitPolicy, httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Request.RouteValues.TryGetValue("accountUuid", out var account)
+                ? account?.ToString() ?? "unknown"
+                : "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit          = 600,
+                Window               = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit           = 0
+            }));
+    // T-62 — the public tracking page. Per IP, because a consignee is one person on one connection
+    // and there is no account to partition by. Tight: the token is 256 bits, so nobody legitimate
+    // needs more than a handful of attempts, and a tight limit is what turns "cannot be guessed"
+    // into "cannot be ground through either".
+    opts.AddPolicy(SMS.Modules.Logistics.Controllers.PublicTrackingController.RateLimitPolicy, httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit          = 30,
+                Window               = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit           = 0
+            }));
     opts.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 });
 
@@ -292,6 +322,7 @@ app.UseInventoryModule();      // ensures inventory schema migrations (ledger ta
 app.UseWarehouseModule();      // ensures warehouse schema migrations (SRO tables) are applied
 app.UseFinanceModule();        // ensures finance schema migrations (credit_notes table) are applied
 app.UseMaterialModule();       // ensures material schema migrations (projects, MIR tables) are applied
+app.UseLogisticsModule();      // ensures logistics schema migrations (delivery/consignment tables) are applied
 
 app.MapControllers();
 app.MapHub<NotificationHub>("/hubs/notifications");

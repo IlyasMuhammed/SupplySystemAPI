@@ -1,0 +1,215 @@
+<div class="shipping-rules-page">
+  <p-toast></p-toast>
+
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">
+        <i class="pi pi-sitemap"></i>
+        Shipping rules
+      </h1>
+      <p class="page-subtitle">
+        Standing decisions about how goods ship. They are tried in order and the first one that
+        matches wins — the rest are never looked at.
+      </p>
+    </div>
+
+    <div class="header-actions">
+      <p-button label="New rule" icon="pi pi-plus" (onClick)="openCreate()"
+                data-testid="action-new"></p-button>
+    </div>
+  </div>
+
+  <div *ngIf="isLoading" class="loading-state" data-testid="loading">
+    <i class="pi pi-spin pi-spinner"></i> Loading…
+  </div>
+
+  <div class="empty-state" *ngIf="!isLoading && !rules.length" data-testid="no-rules">
+    <i class="pi pi-sitemap"></i>
+    <p>No shipping rules.</p>
+    <p class="muted">Until there is one, every consignment has its carrier chosen by hand.</p>
+  </div>
+
+  <!-- A list with no catch-all leaves some consignments unroutable, and the symptom only shows
+       up when somebody tries to apply a rule to one of them. -->
+  <div class="banner warn" *ngIf="missingCatchAll" data-testid="no-catch-all">
+    <i class="pi pi-exclamation-triangle"></i>
+    <span>
+      No rule matches everything. A consignment that fits none of these cannot be routed
+      automatically — add a rule with no conditions at the lowest priority.
+    </span>
+  </div>
+
+  <ol class="rules" *ngIf="rules.length">
+    <li *ngFor="let r of rules" [class.inactive]="!r.isActive" data-testid="rule">
+      <div class="priority">{{ r.priority }}</div>
+
+      <div class="rule-body">
+        <div class="rule-head">
+          <strong>{{ r.name }}</strong>
+          <p-tag *ngIf="!r.isActive" value="Switched off" severity="secondary"
+                 data-testid="rule-inactive"></p-tag>
+        </div>
+
+        <!-- The rule's own sentence, from the server. A list decoded column by column is a list
+             nobody audits. -->
+        <div class="summary" data-testid="rule-summary">{{ r.summary }}</div>
+
+        <div class="description muted" *ngIf="r.description">{{ r.description }}</div>
+      </div>
+
+      <div class="rule-actions">
+        <p-button icon="pi pi-pencil" [text]="true" size="small" severity="secondary"
+                  pTooltip="Edit" (onClick)="openEdit(r)" data-testid="action-edit"></p-button>
+        <p-button [icon]="r.isActive ? 'pi pi-ban' : 'pi pi-check'" [text]="true" size="small"
+                  severity="secondary" [disabled]="isSubmitting"
+                  [pTooltip]="r.isActive ? 'Switch off' : 'Switch on'"
+                  (onClick)="toggleActive(r)" data-testid="action-toggle"></p-button>
+        <p-button icon="pi pi-trash" [text]="true" size="small" severity="danger"
+                  [disabled]="isSubmitting" pTooltip="Remove" (onClick)="remove(r)"
+                  data-testid="action-remove"></p-button>
+      </div>
+    </li>
+  </ol>
+
+  <!-- ── Editor ──────────────────────────────────────────────────────────────── -->
+
+  <p-dialog [header]="editing ? 'Edit rule' : 'New rule'" [(visible)]="dialogVisible"
+            [modal]="true" [style]="{ width: '46rem' }" [draggable]="false"
+            data-testid="rule-dialog">
+    <div class="dialog-body">
+      <div class="field-row">
+        <div class="field">
+          <label for="ruleName">Name</label>
+          <input pInputText id="ruleName" [(ngModel)]="form.name"
+                 placeholder="Light domestic parcels" data-testid="field-name" />
+        </div>
+
+        <div class="field narrow">
+          <label for="priority">Priority</label>
+          <p-inputNumber inputId="priority" [(ngModel)]="form.priority" [min]="0"
+                         data-testid="field-priority"></p-inputNumber>
+          <small class="field-hint">Lowest first.</small>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="description">Note</label>
+        <textarea pTextarea id="description" [(ngModel)]="form.description" rows="2"
+                  placeholder="Why this rule exists"></textarea>
+      </div>
+
+      <!-- ── Conditions ────────────────────────────────────────────────────── -->
+
+      <div class="section">
+        <h3>Applies when</h3>
+        <p class="field-hint">
+          Leave everything empty for a catch-all. Every condition you state must hold.
+        </p>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="minW">Chargeable weight from (kg)</label>
+            <p-inputNumber inputId="minW" [(ngModel)]="form.minChargeableWeightKg" mode="decimal"
+                           [maxFractionDigits]="3" data-testid="field-min-weight"></p-inputNumber>
+          </div>
+          <div class="field">
+            <label for="maxW">up to (kg)</label>
+            <p-inputNumber inputId="maxW" [(ngModel)]="form.maxChargeableWeightKg" mode="decimal"
+                           [maxFractionDigits]="3" data-testid="field-max-weight"></p-inputNumber>
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="oc">From country</label>
+            <input pInputText id="oc" [(ngModel)]="form.originCountryIso" maxlength="2" />
+          </div>
+          <div class="field">
+            <label for="op">From postcode starts</label>
+            <input pInputText id="op" [(ngModel)]="form.originPostcodePrefix" />
+          </div>
+          <div class="field">
+            <label for="dc">To country</label>
+            <input pInputText id="dc" [(ngModel)]="form.destinationCountryIso" maxlength="2"
+                   data-testid="field-dest-country" />
+          </div>
+          <div class="field">
+            <label for="dp">To postcode starts</label>
+            <input pInputText id="dp" [(ngModel)]="form.destinationPostcodePrefix" />
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="minV">Declared value from</label>
+            <p-inputNumber inputId="minV" [(ngModel)]="form.minDeclaredValue" mode="decimal"
+                           [minFractionDigits]="2"></p-inputNumber>
+          </div>
+          <div class="field">
+            <label for="maxV">up to</label>
+            <p-inputNumber inputId="maxV" [(ngModel)]="form.maxDeclaredValue" mode="decimal"
+                           [minFractionDigits]="2"></p-inputNumber>
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="haz">Hazardous goods</label>
+            <p-select inputId="haz" [options]="tristateOptions" [(ngModel)]="form.hazardous"
+                      optionLabel="label" optionValue="value" appendTo="body"
+                      data-testid="field-hazardous"></p-select>
+          </div>
+          <div class="field">
+            <label for="cod">Cash on delivery</label>
+            <p-select inputId="cod" [options]="tristateOptions" [(ngModel)]="form.cod"
+                      optionLabel="label" optionValue="value" appendTo="body"></p-select>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Action ────────────────────────────────────────────────────────── -->
+
+      <div class="section">
+        <h3>Then ship it with</h3>
+        <p class="field-hint">
+          The rule narrows the choice; rates are still compared, so it never needs rewriting when a
+          tariff changes.
+        </p>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="carrier">Carrier</label>
+            <p-select inputId="carrier" [options]="carrierOptions" [(ngModel)]="form.carrierUuid"
+                      optionLabel="label" optionValue="value" appendTo="body"
+                      (onChange)="onCarrierChange()" data-testid="field-carrier"></p-select>
+          </div>
+
+          <div class="field">
+            <label for="ruleService">Service</label>
+            <p-select inputId="ruleService" [options]="serviceOptions" [(ngModel)]="form.serviceCode"
+                      optionLabel="label" optionValue="value" appendTo="body"
+                      [disabled]="!form.carrierUuid" data-testid="field-service"></p-select>
+          </div>
+
+          <div class="field">
+            <label for="strategy">Choose the</label>
+            <p-select inputId="strategy" [options]="strategyOptions" [(ngModel)]="form.strategy"
+                      optionLabel="label" optionValue="value" appendTo="body"
+                      data-testid="field-strategy"></p-select>
+          </div>
+        </div>
+      </div>
+
+      <p class="validation" *ngIf="validationError" data-testid="validation-error">
+        <i class="pi pi-exclamation-triangle"></i> {{ validationError }}
+      </p>
+    </div>
+
+    <ng-template pTemplate="footer">
+      <p-button label="Cancel" [text]="true" severity="secondary"
+                (onClick)="dialogVisible = false"></p-button>
+      <p-button [label]="editing ? 'Save' : 'Create'" icon="pi pi-check" [disabled]="!canSave"
+                [loading]="isSubmitting" (onClick)="save()" data-testid="confirm-save"></p-button>
+    </ng-template>
+  </p-dialog>
+</div>

@@ -112,7 +112,7 @@ public class InvoiceApproval_LedgerWiring_Tests
         var supplierId = Guid.NewGuid();
 
         var inv  = Build.SeedInvoice(finDb, supplierId, 50000m);
-        var repo = new InvoiceRepository(finDb, demandDb, whDb, ledger);
+        var repo = new InvoiceRepository(finDb, demandDb, whDb, ledger, new FakeSupplierNameLookup());
 
         var ok = await repo.ApproveAsync(inv.UUID, null, approvedBy: 1);
 
@@ -136,7 +136,7 @@ public class InvoiceApproval_LedgerWiring_Tests
         var supplierId = Guid.NewGuid();
 
         var inv  = Build.SeedInvoice(finDb, supplierId, 12345.67m);
-        var repo = new InvoiceRepository(finDb, demandDb, whDb, ledger);
+        var repo = new InvoiceRepository(finDb, demandDb, whDb, ledger, new FakeSupplierNameLookup());
 
         await repo.ApproveAsync(inv.UUID, null, approvedBy: 1);
 
@@ -153,7 +153,7 @@ public class InvoiceApproval_LedgerWiring_Tests
         var whDb       = Build.NewWarehouseDb();
         var ledger     = new SupplierLedgerService(finDb);
         var inv        = Build.SeedInvoice(finDb, Guid.NewGuid(), 1000m);
-        var repo       = new InvoiceRepository(finDb, demandDb, whDb, ledger);
+        var repo       = new InvoiceRepository(finDb, demandDb, whDb, ledger, new FakeSupplierNameLookup());
 
         await repo.ApproveAsync(inv.UUID, "Looks good", approvedBy: 7);
 
@@ -180,7 +180,8 @@ public class InvoiceApproval_LedgerWiring_Tests
                 It.IsAny<decimal>(), It.IsAny<decimal>(), It.IsAny<string?>(), It.IsAny<int>(), It.IsAny<string>()))
             .ThrowsAsync(new InvalidOperationException("Simulated ledger failure"));
 
-        var repo = new InvoiceRepository(finDb, demandDb, whDb, failingLedger.Object);
+        var repo = new InvoiceRepository(
+            finDb, demandDb, whDb, failingLedger.Object, new FakeSupplierNameLookup());
 
         var act = async () => await repo.ApproveAsync(inv.UUID, "notes", approvedBy: 1);
         await act.Should().ThrowAsync<InvalidOperationException>();

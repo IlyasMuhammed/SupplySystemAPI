@@ -1,0 +1,49 @@
+.scorecard-page { padding: 1.5rem; max-width: 88rem; }
+
+.page-header {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem;
+  margin-bottom: 1.25rem; flex-wrap: wrap;
+}
+.page-title {
+  font-size: 1.5rem; font-weight: 700; display: flex; align-items: center; gap: .625rem; margin: 0;
+}
+.page-subtitle { color: var(--text-color-secondary); font-size: .875rem; margin: .25rem 0 0; max-width: 48rem; }
+.header-actions { display: flex; align-items: center; gap: .5rem; }
+
+// ── The question ────────────────────────────────────────────────────────────
+
+.filters { display: flex; align-items: flex-end; gap: .875rem; margin-bottom: .875rem; flex-wrap: wrap; }
+.field { display: flex; flex-direction: column; gap: .25rem; }
+.field label { font-size: .75rem; font-weight: 600; color: var(--text-color-secondary); }
+:host ::ng-deep .filter { min-width: 13rem; }
+
+.cohort { font-size: .8125rem; color: var(--text-color-secondary); margin: 0 0 .875rem; max-width: 52rem; }
+
+.warnings { margin-bottom: .875rem; font-size: .8125rem; }
+.warnings p { margin: .25rem 0; color: var(--text-color-secondary); display: flex; gap: .375rem; }
+
+// ── The carriers ────────────────────────────────────────────────────────────
+
+.muted { color: var(--text-color-secondary); font-size: .75rem; margin-top: .1875rem; }
+.alarm { color: var(--red-600, #dc2626); font-weight: 600; }
+.figure { font-size: 1.125rem; font-weight: 700; }
+
+.empty { text-align: center; padding: 2rem 1rem; color: var(--text-color-secondary); font-size: .875rem; }
+
+// A figure that needs a caveat needs it where the figure is, not in a tooltip.
+.carrier-warnings { margin-top: .875rem; font-size: .8125rem; }
+.carrier-warnings .who { font-weight: 600; margin: .625rem 0 .125rem; }
+.carrier-warnings p {
+  margin: .1875rem 0; color: var(--text-color-secondary); display: flex; gap: .375rem;
+}
+
+.no-score {
+  margin-top: 1.25rem; padding: .75rem .875rem; font-size: .8125rem;
+  background: var(--surface-ground); border-radius: var(--border-radius, .5rem);
+  color: var(--text-color-secondary); display: flex; gap: .5rem; align-items: baseline;
+  max-width: 52rem;
+}
+
+@media (max-width: 48rem) {
+  .filters { flex-direction: column; align-items: stretch; }
+}

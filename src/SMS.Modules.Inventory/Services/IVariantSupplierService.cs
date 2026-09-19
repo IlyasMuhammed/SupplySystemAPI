@@ -29,8 +29,10 @@ public interface IVariantSupplierService
 
     // RC-006 — Excel import/export.
     Task<List<RateCardExportRowModel>> GetExportRowsAsync(Guid supplierId);
-    Task<List<ImportPreviewRowModel>> PreviewImportAsync(Stream file, Guid supplierId);
-    Task<ImportConfirmResult> ConfirmImportAsync(Stream file, Guid supplierId, int performedBy);
+    // currencyId: the currency for rows that create a new rate card (the file carries none). Falls
+    // back to the organization's base currency; with neither, those rows are reported as errors.
+    Task<List<ImportPreviewRowModel>> PreviewImportAsync(Stream file, Guid supplierId, Guid? currencyId = null);
+    Task<ImportConfirmResult> ConfirmImportAsync(Stream file, Guid supplierId, int performedBy, Guid? currencyId = null);
 
     // RC-006 — Copy rates between suppliers.
     Task<List<CopyPreviewRowModel>> PreviewCopyAsync(CopyRatesRequest req);

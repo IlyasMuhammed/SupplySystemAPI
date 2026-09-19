@@ -781,7 +781,14 @@ internal sealed class AuthRepository : IAuthRepository
         "WAREHOUSE_TRANSFER" or "GOODS_RECEIVE" or "PUTAWAY" or "PICKING" or "DISPATCH" or "STOCK_LOCATION_UPDATE" => "Warehouse",
         var c when c.StartsWith("GRN_")         => "GRN Approvals",
         "INVOICE_VIEW" or "INVOICE_PROCESS" or "PAYMENT_VIEW" or "PAYMENT_PROCESS" or "RECONCILIATION" => "Finance",
-        "DELIVERY_TRACK"                        => "Logistics",
+        // Every DELIVERY_*, SHIPMENT_*, CARRIER_* and RATE_CARD_* code groups under Logistics. Note
+        // this sits below the Warehouse line above, so DISPATCH and PICKING keep their grouping.
+        var c when c.StartsWith("DELIVERY_")
+                || c.StartsWith("SHIPMENT_")
+                || c.StartsWith("CARRIER_")
+                || c.StartsWith("RATE_CARD_")
+                || c.StartsWith("SHIPPING_RULE_")
+                || c.StartsWith("FREIGHT_")     => "Logistics",
         var c when c.StartsWith("MATERIAL_")    => "Material Management",
         var c when c.StartsWith("REPORT_")      => "Reports",
         var c when c.StartsWith("WORKFLOW_")    => "Workflow",

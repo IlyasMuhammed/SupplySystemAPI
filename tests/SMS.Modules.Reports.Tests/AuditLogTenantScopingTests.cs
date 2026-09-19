@@ -45,7 +45,8 @@ public class AuditLogTenantScopingTests
             suppliers: new SuppliersDbContext(new DbContextOptionsBuilder<SuppliersDbContext>().UseInMemoryDatabase(dbName).Options, tenantContext),
             material:  new MaterialDbContext(new DbContextOptionsBuilder<MaterialDbContext>().UseInMemoryDatabase(dbName).Options, tenantContext),
             userQuery: userQuery.Object,
-            timeline:  Mock.Of<ITimelineService>());
+            timeline:  Mock.Of<ITimelineService>(),
+            supplierAccess: new UnrestrictedSupplierAccess());
 
         return (repo, db);
     }

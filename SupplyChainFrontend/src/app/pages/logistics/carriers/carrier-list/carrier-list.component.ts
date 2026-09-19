@@ -17,6 +17,7 @@ import { InputNumberModule } from 'primeng/inputnumber';
 import { MessageService, ConfirmationService } from 'primeng/api';
 import { TableLazyLoadEvent } from 'primeng/table';
 import { LogisticsService, CarrierListItemModel, CarrierDetailModel, PatchCarrierRequest, CreateCarrierRequest } from '../../../../services/logistics.service';
+import { SupplierService } from '../../../../services/supplier.service';
 
 @Component({
   selector: 'app-carrier-list',
@@ -47,8 +48,12 @@ export class CarrierListComponent implements OnInit {
   isCreating = false;
 
   showEditDialog = false;
-  editCarrier: Partial<CarrierDetailModel & { uuid: string }> = {};
+  editCarrier: Partial<CarrierDetailModel & { uuid: string; supplierId: string | null }> = {};
   isSaving = false;
+
+  supplierOptions: { label: string; value: string | null }[] = [];
+  private activeSupplierOptions: { label: string; value: string }[] = [];
+  private linkedSupplierOption: { label: string; value: string } | null = null;
 
   private searchTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -68,11 +73,54 @@ export class CarrierListComponent implements OnInit {
 
   constructor(
     private logisticsService: LogisticsService,
+    private supplierService: SupplierService,
     private messageService: MessageService,
     private confirmationService: ConfirmationService
   ) {}
 
-  ngOnInit() { this.load(); }
+  ngOnInit() { this.load(); this.loadSuppliers(); }
+
+  // The supplier list endpoint caps pageSize at 100.
+  loadSuppliers() {
+    this.supplierService.getSuppliers({ pageSize: 100 }).subscribe({
+      next: (res) => {
+        this.activeSupplierOptions = (res.result?.data ?? [])
+          .filter(s => s.isActive)
+          .map(s => ({ label: this.supplierLabel(s), value: s.uuid }));
+        this.rebuildSupplierOptions();
+      },
+      error: () => this.messageService.add({ severity: 'warn', summary: 'Suppliers', detail: 'Could not load suppliers for linking.' })
+    });
+  }
+
+  // A linked supplier outside the loaded page (or since deactivated) must still show as linked,
+  // otherwise the dialog would claim "Not linked" for a carrier whose bills are payable.
+  private ensureLinkedSupplierOption(uuid: string | null | undefined) {
+    this.linkedSupplierOption = null;
+    this.rebuildSupplierOptions();
+    if (!uuid || this.activeSupplierOptions.some(o => o.value === uuid)) return;
+    this.supplierService.getSupplierById(uuid).subscribe({
+      next: (res) => {
+        const s = res.result;
+        if (!s || this.editCarrier.supplierId !== uuid) return;
+        this.linkedSupplierOption = {
+          label: this.supplierLabel(s) + (s.isActive ? '' : ' — inactive'),
+          value: s.uuid
+        };
+        this.rebuildSupplierOptions();
+      }
+    });
+  }
+
+  private rebuildSupplierOptions() {
+    const extra = this.linkedSupplierOption && !this.activeSupplierOptions.some(o => o.value === this.linkedSupplierOption!.value)
+      ? [this.linkedSupplierOption] : [];
+    this.supplierOptions = [{ label: '— Not linked —', value: null }, ...extra, ...this.activeSupplierOptions];
+  }
+
+  private supplierLabel(s: { supplierName: string; supplierCode?: string }) {
+    return s.supplierCode ? `${s.supplierName} (${s.supplierCode})` : s.supplierName;
+  }
 
   load() {
     this.isLoading = true;
@@ -112,8 +160,7 @@ export class CarrierListComponent implements OnInit {
 
   openCreate() {
     this.createForm = { name: '', code: '', serviceType: undefined, trackingUrlTemplate: undefined,
-                        contactName: undefined, contactPhone: undefined, contactEmail: undefined,
-                        ratePerKg: undefined };
+                        contactName: undefined, contactPhone: undefined, contactEmail: undefined };
     this.showCreateDialog = true;
   }
 
@@ -146,6 +193,7 @@ export class CarrierListComponent implements OnInit {
       next: (res) => {
         if (res.success && res.result) {
           this.editCarrier   = { ...res.result };
+          this.ensureLinkedSupplierOption(res.result.supplierId);
           this.showEditDialog = true;
         }
       },
@@ -163,8 +211,9 @@ export class CarrierListComponent implements OnInit {
       contactName:         this.editCarrier.contactName,
       contactPhone:        this.editCarrier.contactPhone,
       contactEmail:        this.editCarrier.contactEmail,
-      ratePerKg:           this.editCarrier.ratePerKg,
-      status:              this.editCarrier.status
+      status:              this.editCarrier.status,
+      supplierId:          this.editCarrier.supplierId ?? undefined,
+      clearSupplierLink:   !this.editCarrier.supplierId
     };
     this.logisticsService.patchCarrier(this.editCarrier.uuid, req).subscribe({
       next: () => {

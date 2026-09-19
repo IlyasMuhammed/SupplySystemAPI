@@ -1,0 +1,330 @@
+<div class="detail-page">
+  <p-toast></p-toast>
+
+  <!-- Not found: a real answer, not an empty shell that looks like it is still loading. -->
+  <div class="not-found" *ngIf="notFound" data-testid="not-found">
+    <i class="pi pi-inbox"></i>
+    <h2>Delivery not found</h2>
+    <p>It may have been deleted, or the link may be wrong.</p>
+    <p-button label="Back to deliveries" icon="pi pi-arrow-left" [text]="true"
+              routerLink="/portal/pages/logistics/deliveries"></p-button>
+  </div>
+
+  <div *ngIf="isLoading && !packing" class="loading-state" data-testid="loading">
+    <i class="pi pi-spin pi-spinner"></i> Loading…
+  </div>
+
+  <ng-container *ngIf="packing as p">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">
+          <i class="pi pi-box"></i>
+          <span class="font-mono">{{ p.deliveryNumber }}</span>
+          <p-tag [value]="titleCase(p.status)" [severity]="getStatusSeverity(p.status)"></p-tag>
+        </h1>
+        <p class="page-subtitle">Pack station</p>
+      </div>
+
+      <div class="header-actions">
+        <p-button icon="pi pi-file-pdf" label="Packing list" [text]="true" severity="secondary"
+                  [disabled]="!canPrintPackingList" (onClick)="downloadPackingList()"
+                  pTooltip="Needs at least one carton" [tooltipDisabled]="canPrintPackingList"
+                  data-testid="print-packing-list"></p-button>
+
+        <p-button icon="pi pi-file-pdf" label="Gate pass" [text]="true" severity="secondary"
+                  [disabled]="!canPrintGatePass" (onClick)="downloadGatePass()"
+                  pTooltip="Issued once the goods are staged at the dock"
+                  [tooltipDisabled]="canPrintGatePass" data-testid="print-gate-pass"></p-button>
+
+        <p-button *ngIf="canPack" label="Pack a carton" icon="pi pi-plus" [disabled]="isSubmitting"
+                  (onClick)="openPackDialog()" data-testid="action-pack"></p-button>
+
+        <p-button *ngIf="canStage" label="Stage" icon="pi pi-send" severity="success"
+                  [outlined]="true" [disabled]="isSubmitting" (onClick)="stage()"
+                  data-testid="action-stage"></p-button>
+
+        <p-button *ngIf="canIssue" label="Issue goods" icon="pi pi-check-circle" severity="success"
+                  [disabled]="isSubmitting" (onClick)="issueDialogVisible = true"
+                  data-testid="action-issue"></p-button>
+      </div>
+    </div>
+
+    <!-- Progress, stated as what is still in front of the packer. -->
+    <div class="summary-strip" data-testid="summary">
+      <div class="summary-item">
+        <span class="label">Picked</span>
+        <span class="value">{{ p.qtyPicked | number:'1.0-3' }}</span>
+      </div>
+      <div class="summary-item">
+        <span class="label">Packed</span>
+        <span class="value">{{ p.qtyPacked | number:'1.0-3' }}</span>
+      </div>
+      <div class="summary-item" [class.outstanding]="p.qtyUnpacked > 0">
+        <span class="label">Still to pack</span>
+        <span class="value" data-testid="qty-unpacked">{{ p.qtyUnpacked | number:'1.0-3' }}</span>
+      </div>
+      <div class="summary-item">
+        <span class="label">Cartons</span>
+        <span class="value">{{ livePackages.length }}</span>
+      </div>
+      <div class="summary-item">
+        <span class="label">Gross weight</span>
+        <span class="value">{{ p.totalGrossWeightKg | number:'1.0-3' }} kg</span>
+      </div>
+    </div>
+
+    <div class="banner ready" *ngIf="p.isFullyPacked && canStage" data-testid="banner-ready">
+      <i class="pi pi-check-circle"></i>
+      <span>Everything picked is in a carton. Stage it when it reaches the dock.</span>
+    </div>
+
+    <div class="banner warn" *ngIf="!canPack && !canIssue && !canStage" data-testid="banner-closed">
+      <i class="pi pi-lock"></i>
+      <span>
+        This delivery is {{ titleCase(p.status) }}, so its packing can no longer be changed.
+      </span>
+    </div>
+
+    <!-- What is still on the floor -->
+    <section class="card" *ngIf="p.lines.length">
+      <h2 class="card-title">Lines</h2>
+
+      <p-table [value]="p.lines" dataKey="deliveryLineUuid" styleClass="p-datatable-sm"
+               data-testid="lines-table">
+        <ng-template pTemplate="header">
+          <tr>
+            <th style="width: 4rem">Line</th>
+            <th>Item</th>
+            <th style="width: 6rem">UOM</th>
+            <th class="text-right" style="width: 8rem">Picked</th>
+            <th class="text-right" style="width: 8rem">Packed</th>
+            <th class="text-right" style="width: 9rem">To pack</th>
+          </tr>
+        </ng-template>
+
+        <ng-template pTemplate="body" let-line>
+          <tr>
+            <td>{{ line.lineNo }}</td>
+            <td>{{ line.itemDescription }}</td>
+            <td>{{ line.unitOfMeasure || '—' }}</td>
+            <td class="text-right">{{ line.qtyPicked | number:'1.0-3' }}</td>
+            <td class="text-right">{{ line.qtyPacked | number:'1.0-3' }}</td>
+            <td class="text-right">
+              <span [class.outstanding-qty]="line.qtyToPack > 0">
+                {{ line.qtyToPack | number:'1.0-3' }}
+              </span>
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </section>
+
+    <!-- The cartons themselves -->
+    <section class="card">
+      <h2 class="card-title">Packages ({{ livePackages.length }})</h2>
+
+      <div class="empty-state" *ngIf="!livePackages.length" data-testid="no-packages">
+        <i class="pi pi-box"></i>
+        <p>Nothing packed yet.</p>
+      </div>
+
+      <div class="package" *ngFor="let pkg of livePackages" data-testid="package">
+        <div class="package-head">
+          <div>
+            <span class="font-mono barcode">{{ pkg.packageBarcode }}</span>
+            <p-tag [value]="titleCase(pkg.packageType)" severity="secondary"></p-tag>
+            <span class="package-meta">
+              {{ dimensions(pkg) }}
+              <ng-container *ngIf="pkg.grossWeightKg != null">
+                · {{ pkg.grossWeightKg | number:'1.0-3' }} kg
+              </ng-container>
+              <ng-container *ngIf="pkg.sealNumber">· Seal {{ pkg.sealNumber }}</ng-container>
+            </span>
+            <div class="package-meta" *ngIf="pkg.parentPackageBarcode">
+              <i class="pi pi-arrow-up-right"></i>
+              On pallet <span class="font-mono">{{ pkg.parentPackageBarcode }}</span>
+            </div>
+            <div class="package-meta" *ngIf="pkg.childPackageBarcodes.length">
+              <i class="pi pi-sitemap"></i>
+              Carrying {{ pkg.childPackageBarcodes.length }} package(s)
+            </div>
+          </div>
+
+          <p-button *ngIf="canPack" icon="pi pi-trash" label="Void" severity="danger"
+                    [text]="true" [disabled]="isSubmitting" (onClick)="openVoidDialog(pkg)"
+                    data-testid="action-void"></p-button>
+        </div>
+
+        <table class="contents">
+          <tr *ngFor="let c of pkg.contents">
+            <td class="line-no">{{ c.deliveryLineNo }}</td>
+            <td>{{ c.itemDescription }}</td>
+            <td class="batch">
+              <span *ngIf="c.batchNumber" class="font-mono">{{ c.batchNumber }}</span>
+              <span *ngIf="c.serialNumber" class="font-mono">{{ c.serialNumber }}</span>
+            </td>
+            <td class="text-right">{{ c.qty | number:'1.0-3' }} {{ c.unitOfMeasure }}</td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- Voided cartons stay visible: their barcodes are on real labels somewhere. -->
+      <details class="voided" *ngIf="voidedPackages.length" data-testid="voided-packages">
+        <summary>{{ voidedPackages.length }} voided package(s)</summary>
+        <div class="voided-row" *ngFor="let pkg of voidedPackages">
+          <span class="font-mono">{{ pkg.packageBarcode }}</span>
+          <span class="reason">{{ pkg.voidReason }}</span>
+        </div>
+      </details>
+    </section>
+  </ng-container>
+
+  <!-- ── Pack a carton ──────────────────────────────────────────────────────── -->
+
+  <p-dialog header="Pack a carton" [(visible)]="packDialogVisible" [modal]="true"
+            [style]="{ width: '46rem' }" [draggable]="false" data-testid="pack-dialog">
+    <div class="dialog-body">
+      <div class="field-grid">
+        <div class="field">
+          <label for="barcode">Handling unit</label>
+          <input pInputText id="barcode" [(ngModel)]="draft.packageBarcode"
+                 placeholder="Leave blank to issue one" data-testid="field-barcode" />
+          <small>Enter the number already printed on the carton, or leave blank.</small>
+        </div>
+
+        <div class="field">
+          <label for="type">Type</label>
+          <p-select inputId="type" [options]="packageTypes" [(ngModel)]="draft.packageType"
+                    optionLabel="label" optionValue="value" appendTo="body"></p-select>
+        </div>
+
+        <div class="field">
+          <label for="length">Length (cm)</label>
+          <p-inputNumber inputId="length" [(ngModel)]="draft.lengthCm" [min]="0"
+                         [maxFractionDigits]="2"></p-inputNumber>
+        </div>
+        <div class="field">
+          <label for="width">Width (cm)</label>
+          <p-inputNumber inputId="width" [(ngModel)]="draft.widthCm" [min]="0"
+                         [maxFractionDigits]="2"></p-inputNumber>
+        </div>
+        <div class="field">
+          <label for="height">Height (cm)</label>
+          <p-inputNumber inputId="height" [(ngModel)]="draft.heightCm" [min]="0"
+                         [maxFractionDigits]="2"></p-inputNumber>
+        </div>
+
+        <div class="field">
+          <label for="gross">Gross weight (kg)</label>
+          <p-inputNumber inputId="gross" [(ngModel)]="draft.grossWeightKg" [min]="0"
+                         [maxFractionDigits]="3" data-testid="field-gross"></p-inputNumber>
+        </div>
+        <div class="field">
+          <label for="net">Net weight (kg)</label>
+          <p-inputNumber inputId="net" [(ngModel)]="draft.netWeightKg" [min]="0"
+                         [maxFractionDigits]="3"></p-inputNumber>
+        </div>
+        <div class="field">
+          <label for="seal">Seal number</label>
+          <input pInputText id="seal" [(ngModel)]="draft.sealNumber" />
+        </div>
+
+        <div class="field" *ngIf="palletOptions.length > 1">
+          <label for="pallet">Load onto</label>
+          <p-select inputId="pallet" [options]="palletOptions" [(ngModel)]="draft.parentPackageUuid"
+                    optionLabel="label" optionValue="value" appendTo="body"></p-select>
+        </div>
+      </div>
+
+      <h3 class="dialog-section">Contents</h3>
+
+      <div class="empty-state" *ngIf="!draftLines.length" data-testid="nothing-to-pack">
+        <p>Everything picked is already in a carton.</p>
+      </div>
+
+      <table class="draft-lines" *ngIf="draftLines.length">
+        <tr>
+          <th style="width: 3rem">Ln</th>
+          <th>Item</th>
+          <th style="width: 9rem">Batch</th>
+          <th style="width: 8rem" class="text-right">Available</th>
+          <th style="width: 9rem" class="text-right">Qty</th>
+        </tr>
+        <tr *ngFor="let line of draftLines" data-testid="draft-line">
+          <td>{{ line.lineNo }}</td>
+          <td>{{ line.itemDescription }}</td>
+          <td>
+            <input pInputText [(ngModel)]="line.batchNumber" placeholder="From pick" />
+          </td>
+          <td class="text-right">{{ line.available | number:'1.0-3' }}</td>
+          <td class="text-right">
+            <p-inputNumber [(ngModel)]="line.qty" [min]="0" [max]="line.available"
+                           [maxFractionDigits]="3" data-testid="draft-qty"></p-inputNumber>
+          </td>
+        </tr>
+      </table>
+
+      <div class="inline-warning" *ngIf="overPackedLine as over" data-testid="over-packed">
+        <i class="pi pi-exclamation-triangle"></i>
+        Line {{ over.lineNo }} only has {{ over.available | number:'1.0-3' }} picked and unpacked.
+      </div>
+    </div>
+
+    <ng-template pTemplate="footer">
+      <p-button label="Cancel" [text]="true" severity="secondary"
+                (onClick)="packDialogVisible = false"></p-button>
+      <p-button label="Pack" icon="pi pi-check" [disabled]="!canConfirmPack"
+                [loading]="isSubmitting" (onClick)="confirmPack()"
+                data-testid="confirm-pack"></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <!-- ── Void ───────────────────────────────────────────────────────────────── -->
+
+  <p-dialog header="Void this package" [(visible)]="voidDialogVisible" [modal]="true"
+            [style]="{ width: '30rem' }" [draggable]="false" data-testid="void-dialog">
+    <div class="dialog-body">
+      <p class="dialog-hint">
+        The package keeps its barcode — the label may already be on a real carton — and its
+        contents go back to being unpacked.
+      </p>
+      <div class="field">
+        <label for="void-reason">Reason</label>
+        <textarea pTextarea id="void-reason" [(ngModel)]="voidReason" rows="3"
+                  data-testid="field-void-reason"></textarea>
+      </div>
+    </div>
+
+    <ng-template pTemplate="footer">
+      <p-button label="Cancel" [text]="true" severity="secondary"
+                (onClick)="voidDialogVisible = false"></p-button>
+      <p-button label="Void" icon="pi pi-trash" severity="danger"
+                [disabled]="!voidReason.trim() || isSubmitting" [loading]="isSubmitting"
+                (onClick)="confirmVoid()" data-testid="confirm-void"></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <!-- ── Issue goods ────────────────────────────────────────────────────────── -->
+
+  <p-dialog header="Issue the goods" [(visible)]="issueDialogVisible" [modal]="true"
+            [style]="{ width: '32rem' }" [draggable]="false" data-testid="issue-dialog">
+    <div class="dialog-body">
+      <p class="dialog-hint danger">
+        <i class="pi pi-exclamation-triangle"></i>
+        This is the point of no return. The stock leaves the books and the delivery can no longer
+        be cancelled.
+      </p>
+      <p class="dialog-hint" *ngIf="packing as p">
+        {{ p.qtyPacked | number:'1.0-3' }} in {{ livePackages.length }} package(s) will be issued.
+      </p>
+    </div>
+
+    <ng-template pTemplate="footer">
+      <p-button label="Cancel" [text]="true" severity="secondary"
+                (onClick)="issueDialogVisible = false"></p-button>
+      <p-button label="Issue goods" icon="pi pi-check-circle" severity="success"
+                [disabled]="isSubmitting" [loading]="isSubmitting" (onClick)="confirmIssue()"
+                data-testid="confirm-issue"></p-button>
+    </ng-template>
+  </p-dialog>
+</div>

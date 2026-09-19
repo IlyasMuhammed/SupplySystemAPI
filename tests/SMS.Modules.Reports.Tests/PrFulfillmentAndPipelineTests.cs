@@ -52,7 +52,8 @@ file static class Build
             suppliers: new SuppliersDbContext(new DbContextOptionsBuilder<SuppliersDbContext>().UseInMemoryDatabase(name).Options, tenantContext),
             material:  material,
             userQuery: userQuery.Object,
-            timeline:  timeline.Object);
+            timeline:  timeline.Object,
+            supplierAccess: new UnrestrictedSupplierAccess());
 
         return (repo, demand, warehouse, finance, material, timeline);
     }

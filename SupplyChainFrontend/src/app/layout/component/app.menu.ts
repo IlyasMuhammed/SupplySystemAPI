@@ -213,6 +213,23 @@ export class AppMenu {
             featureCode: 'MODULE_LOGISTICS',
             items: [
                 {
+                    label: 'Deliveries',
+                    icon: 'pi pi-fw pi-truck',
+                    items: [
+                        { label: 'New Delivery', icon: 'pi pi-fw pi-plus',
+                          routerLink: ['/portal/pages/logistics/deliveries/create'],
+                          permRequired: ['DELIVERY_CREATE'] },
+                        { label: 'All Deliveries', icon: 'pi pi-fw pi-list',
+                          routerLink: ['/portal/pages/logistics/deliveries'],
+                          permRequired: ['DELIVERY_VIEW'] },
+                        // The pack station is reached from a delivery — it needs one — so only
+                        // picking earns a menu entry of its own: a picker starts from the queue.
+                        { label: 'Picking', icon: 'pi pi-fw pi-list-check',
+                          routerLink: ['/portal/pages/logistics/picking'],
+                          permRequired: ['PICKING'] }
+                    ]
+                },
+                {
                     label: 'Shipments',
                     icon: 'pi pi-fw pi-send',
                     items: [

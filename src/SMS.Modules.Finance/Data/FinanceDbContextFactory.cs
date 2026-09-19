@@ -8,8 +8,7 @@ internal sealed class FinanceDbContextFactory : IDesignTimeDbContextFactory<Fina
 {
     public FinanceDbContext CreateDbContext(string[] args)
     {
-        var connString = Environment.GetEnvironmentVariable("SMS_DB_CONNECTION")
-            ?? "Server=(localdb)\\mssqllocaldb;Database=SMS_Dev;Trusted_Connection=True;MultipleActiveResultSets=true";
+        var connString = DesignTimeConnection.Resolve();
 
         var options = new DbContextOptionsBuilder<FinanceDbContext>()
             .UseSqlServer(connString)

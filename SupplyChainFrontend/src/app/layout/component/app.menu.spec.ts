@@ -129,6 +129,45 @@ describe('AppMenu filtering (MT-005)', () => {
         expect(labels).toContain('Purchase Orders');
     });
 
+    // ── T-21: the delivery cockpit's menu entry ───────────────────────────────
+
+    it('shows Deliveries to a user with DELIVERY_VIEW in a logistics-enabled org', () => {
+        authService.permissions = ['DELIVERY_VIEW'];
+        tenantService.tenant.set(baseTenant({
+            enabledFeatureCodes: ['MODULE_LOGISTICS'],
+            permissions: authService.permissions
+        }));
+
+        const labels = allLabels(menu.model());
+        expect(labels).toContain('Logistics');
+        expect(labels).toContain('Deliveries');
+        expect(labels).toContain('All Deliveries');
+    });
+
+    it('hides Deliveries from a user who only has the legacy shipment permission', () => {
+        // DELIVERY_TRACK grants the old carrier and shipment screens. The rebuilt cockpit reads
+        // a different model and is granted separately, so it must not come along for the ride.
+        authService.permissions = ['DELIVERY_TRACK'];
+        tenantService.tenant.set(baseTenant({
+            enabledFeatureCodes: ['MODULE_LOGISTICS'],
+            permissions: authService.permissions
+        }));
+
+        const labels = allLabels(menu.model());
+        expect(labels).toContain('Shipments');
+        expect(labels).not.toContain('Deliveries');
+    });
+
+    it('hides Deliveries when the org has no logistics module, whatever the permission', () => {
+        authService.permissions = ['DELIVERY_VIEW'];
+        tenantService.tenant.set(baseTenant({
+            enabledFeatureCodes: [],
+            permissions: authService.permissions
+        }));
+
+        expect(allLabels(menu.model())).not.toContain('Deliveries');
+    });
+
     it('Organization Admin is a real permission holder, not a blanket bypass — sees only what its default grants (USER_MANAGE, PO_TEMPLATE_MANAGE) justify', () => {
         authService.permissions = ['USER_MANAGE', 'PO_TEMPLATE_MANAGE']; // Org Admin's actual defaults
         tenantService.tenant.set(baseTenant({

@@ -434,15 +434,21 @@ namespace SMS.Modules.Finance.Migrations
                         .HasDefaultValue("Unpaid");
 
                     b.Property<string>("PoNumber")
-                        .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
-                    b.Property<Guid>("PoUuid")
+                    b.Property<Guid?>("PoUuid")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("ReceivedDate")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("SourceType")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<Guid?>("SourceUuid")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal>("Subtotal")
                         .HasColumnType("decimal(18,2)");
@@ -488,6 +494,10 @@ namespace SMS.Modules.Finance.Migrations
                     b.HasIndex("OrganizationId", "InvoiceNumber")
                         .IsUnique();
 
+                    b.HasIndex("SourceType", "SourceUuid")
+                        .IsUnique()
+                        .HasFilter("[SourceUuid] IS NOT NULL AND [IsDelete] = 0");
+
                     b.ToTable("invoices", "finance");
                 });
 
@@ -519,7 +529,7 @@ namespace SMS.Modules.Finance.Migrations
                     b.Property<Guid>("OrganizationId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid>("PoLineUuid")
+                    b.Property<Guid?>("PoLineUuid")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal>("QtyInvoiced")

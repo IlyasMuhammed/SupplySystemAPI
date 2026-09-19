@@ -21,7 +21,12 @@ internal sealed class CarrierMap : IEntityTypeConfiguration<Carrier>
         b.Property(x => x.ContactName).HasMaxLength(100);
         b.Property(x => x.ContactPhone).HasMaxLength(20);
         b.Property(x => x.ContactEmail).HasMaxLength(100);
-        b.Property(x => x.RatePerKg).HasColumnType("decimal(18,4)");
+        // Defaulted at the database, which is what backfills every carrier that existed before
+        // these columns did. A carrier we do not know how to talk to is one a person books.
+        b.Property(x => x.ProviderKey).HasMaxLength(50).HasDefaultValue("MANUAL");
+        b.Property(x => x.IntegrationMode).HasMaxLength(20).HasDefaultValue("MANUAL");
+        b.Property(x => x.ScacCode).HasMaxLength(20);
+        b.Property(x => x.DefaultCurrency).HasMaxLength(3).IsFixedLength();
         b.Property(x => x.Status).HasMaxLength(20).HasDefaultValue("Active");
         b.Property(x => x.IsActive).HasDefaultValue(true);
 
@@ -53,7 +58,6 @@ internal sealed class ShipmentMap : IEntityTypeConfiguration<Shipment>
         b.Property(x => x.VolumeCbm).HasColumnType("decimal(18,3)");
         b.Property(x => x.FreightCost).HasColumnType("decimal(18,2)");
         b.Property(x => x.Status).HasMaxLength(20).HasDefaultValue("Preparing");
-        b.Property(x => x.ProofOfDeliveryUrl).HasMaxLength(500);
         b.Property(x => x.Notes).HasMaxLength(300);
         b.Property(x => x.IsActive).HasDefaultValue(true);
     }

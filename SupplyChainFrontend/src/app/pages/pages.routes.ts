@@ -51,8 +51,26 @@ import { GrnEditComponent } from './warehouse/grn/grn-edit/grn-edit.component';
 import { SroListComponent } from './warehouse/sro/sro-list/sro-list.component';
 import { SroCreateComponent } from './warehouse/sro/sro-create/sro-create.component';
 import { SroDetailComponent } from './warehouse/sro/sro-detail/sro-detail.component';
+import { DeliveryListComponent } from './logistics/deliveries/delivery-list/delivery-list.component';
+import { DeliveryCreateComponent } from './logistics/deliveries/delivery-create/delivery-create.component';
+import { DeliveryDetailComponent } from './logistics/deliveries/delivery-detail/delivery-detail.component';
+import { PackStationComponent } from './logistics/deliveries/pack-station/pack-station.component';
+import { PickListQueueComponent } from './logistics/picking/pick-list-queue/pick-list-queue.component';
+import { PickWalkComponent } from './logistics/picking/pick-walk/pick-walk.component';
 import { CarrierListComponent } from './logistics/carriers/carrier-list/carrier-list.component';
 import { CarrierCreateComponent } from './logistics/carriers/carrier-create/carrier-create.component';
+import { CarrierAccountsComponent } from './logistics/carriers/carrier-accounts/carrier-accounts.component';
+import { ConsignmentDetailComponent } from './logistics/consignments/consignment-detail/consignment-detail.component';
+import { CarrierRateCardsComponent } from './logistics/rating/rate-cards/rate-cards.component';
+import { ShippingRulesComponent } from './logistics/rating/shipping-rules/shipping-rules.component';
+import { CarrierInvoicesComponent } from './logistics/settlement/carrier-invoices/carrier-invoices.component';
+import { CarrierInvoiceDetailComponent } from './logistics/settlement/carrier-invoice-detail/carrier-invoice-detail.component';
+import { MatchQueueComponent } from './logistics/settlement/match-queue/match-queue.component';
+import { CodReconciliationComponent } from './logistics/settlement/cod-reconciliation/cod-reconciliation.component';
+import { FreightAccrualsComponent } from './logistics/settlement/freight-accruals/freight-accruals.component';
+import { ExceptionQueueComponent } from './logistics/visibility/exception-queue/exception-queue.component';
+import { ProofOfDeliveryComponent } from './logistics/visibility/proof-of-delivery/proof-of-delivery.component';
+import { CarrierScorecardComponent } from './logistics/visibility/carrier-scorecard/carrier-scorecard.component';
 import { ShipmentListComponent } from './logistics/shipments/shipment-list/shipment-list.component';
 import { ShipmentCreateComponent } from './logistics/shipments/shipment-create/shipment-create.component';
 import { ShipmentDetailComponent } from './logistics/shipments/shipment-detail/shipment-detail.component';
@@ -134,6 +152,27 @@ const P = {
   REORDER_MANAGE:       'REORDER_MANAGE',
   WAREHOUSE_TRANSFER:   'WAREHOUSE_TRANSFER',
   GOODS_RECEIVE:        'GOODS_RECEIVE',
+  // Warehouse execution. Both pre-date the delivery rebuild and gated nothing until it reused
+  // them: PICKING is "pick items to fulfil outbound orders", DISPATCH is "prepare goods for
+  // dispatch". A second delivery-specific pair would mean two switches for one job.
+  PICKING:              'PICKING',
+  DISPATCH:             'DISPATCH',
+  // Carrier configuration. CARRIER_CREDENTIAL_MANAGE is narrower again — it gates the secrets,
+  // and the server enforces it on the credential endpoints regardless of what the UI offers.
+  CARRIER_MANAGE:            'CARRIER_MANAGE',
+  CARRIER_CREDENTIAL_MANAGE: 'CARRIER_CREDENTIAL_MANAGE',
+  // Rating. RATE_CARD_MANAGE and SHIPPING_RULE_MANAGE are separate from viewing rates because
+  // both decide what the company is deemed to pay, and a rule is applied without anybody looking.
+  SHIPMENT_RATE_VIEW:   'SHIPMENT_RATE_VIEW',
+  RATE_CARD_MANAGE:     'RATE_CARD_MANAGE',
+  SHIPPING_RULE_MANAGE: 'SHIPPING_RULE_MANAGE',
+  // Freight settlement. Viewing a bill and deciding what the company accepts it owes are
+  // deliberately separate, and the server enforces the narrower one on every write.
+  FREIGHT_INVOICE_VIEW:      'FREIGHT_INVOICE_VIEW',
+  FREIGHT_INVOICE_RECONCILE: 'FREIGHT_INVOICE_RECONCILE',
+  // Capturing a signature is what drivers and gate staff do, and it is also the act that closes a
+  // movement — so it is separate from DELIVERY_EDIT rather than folded into it.
+  POD_CAPTURE:          'POD_CAPTURE',
   GRN_QC_CONFIRM:       'GRN_QC_CONFIRM',
   GRN_APPROVE:          'GRN_APPROVE',
   GRN_FINANCE_APPROVE:  'GRN_FINANCE_APPROVE',
@@ -145,6 +184,10 @@ const P = {
   PAYMENT_PROCESS:      'PAYMENT_PROCESS',
   PAYMENT_APPROVE:      'PAYMENT_APPROVE',
   DELIVERY_TRACK:       'DELIVERY_TRACK',
+  DELIVERY_VIEW:        'DELIVERY_VIEW',
+  DELIVERY_CREATE:      'DELIVERY_CREATE',
+  DELIVERY_EDIT:        'DELIVERY_EDIT',
+  SHIPMENT_BOOK:        'SHIPMENT_BOOK',
   REPORT_VIEW:          'REPORT_VIEW',
   REPORT_EXPORT:        'REPORT_EXPORT',
   WORKFLOW_ADMIN:       'WORKFLOW_ADMIN',
@@ -286,11 +329,94 @@ export default [
     { path: 'warehouse/sro/:uuid', component: SroDetailComponent,
       canActivate: [permissionGuard(P.GOODS_RECEIVE, P.WAREHOUSE_TRANSFER)] },
 
+    // ── Logistics — Deliveries ────────────────────────────────────────────────
+    // Guarded on DELIVERY_VIEW, not the legacy DELIVERY_TRACK: these screens read the rebuilt
+    // delivery model, and a role granted only the old shipment screens should not inherit them.
+    { path: 'logistics/deliveries', component: DeliveryListComponent,
+      canActivate: [permissionGuard(P.DELIVERY_VIEW)] },
+    // Ahead of the :uuid route below — otherwise the router reads "create" as a UUID and this
+    // never matches.
+    { path: 'logistics/deliveries/create', component: DeliveryCreateComponent,
+      canActivate: [permissionGuard(P.DELIVERY_CREATE)] },
+    { path: 'logistics/deliveries/:uuid', component: DeliveryDetailComponent,
+      canActivate: [permissionGuard(P.DELIVERY_VIEW)] },
+    // The dock screen. Guarded on DISPATCH because everything it does — packing, staging,
+    // issuing — is gated on DISPATCH server-side; a viewer has no business opening it.
+    { path: 'logistics/deliveries/:uuid/pack', component: PackStationComponent,
+      canActivate: [permissionGuard(P.DISPATCH)] },
+
+    // ── Logistics — Picking ───────────────────────────────────────────────────
+    // PICKING, matching the server: confirming a pick writes quantities and hands stock back.
+    { path: 'logistics/picking', component: PickListQueueComponent,
+      canActivate: [permissionGuard(P.PICKING)] },
+    { path: 'logistics/picking/:uuid', component: PickWalkComponent,
+      canActivate: [permissionGuard(P.PICKING)] },
+
     // ── Logistics — Carriers ──────────────────────────────────────────────────
     { path: 'logistics/carriers', component: CarrierListComponent,
       canActivate: [permissionGuard(P.DELIVERY_TRACK)] },
     { path: 'logistics/carriers/create', component: CarrierCreateComponent,
       canActivate: [permissionGuard(P.DELIVERY_TRACK)] },
+    // CARRIER_MANAGE, not DELIVERY_TRACK: this screen decides what money is spent and on whose
+    // contract, and the credential panel inside it is narrower still (CARRIER_CREDENTIAL_MANAGE,
+    // enforced server-side on those endpoints).
+    { path: 'logistics/carriers/:uuid/accounts', component: CarrierAccountsComponent,
+      canActivate: [permissionGuard(P.CARRIER_MANAGE)] },
+
+    // ── Logistics — Rating ────────────────────────────────────────────────────
+    // A tariff decides what carriage is deemed to cost and feeds Phase 4's invoice
+    // reconciliation, so editing one is gated separately from seeing a price. The screen opens on
+    // RATE_CARD_MANAGE because everything on it is editing; reading a card is available through
+    // the consignment screen under SHIPMENT_RATE_VIEW.
+    { path: 'logistics/carriers/:uuid/rate-cards', component: CarrierRateCardsComponent,
+      canActivate: [permissionGuard(P.RATE_CARD_MANAGE)] },
+
+    // A rule is applied without anybody looking at it, which makes changing one a larger act than
+    // choosing a carrier for a single consignment.
+    { path: 'logistics/shipping-rules', component: ShippingRulesComponent,
+      canActivate: [permissionGuard(P.SHIPPING_RULE_MANAGE)] },
+
+    // ── Logistics — Freight settlement ────────────────────────────────────────
+    // FREIGHT_INVOICE_VIEW to open these. Recording a bill, matching a line and running the
+    // comparison are each gated more narrowly server-side (FREIGHT_INVOICE_RECONCILE), so
+    // somebody can see what carriers are charging without deciding what the company accepts.
+    { path: 'logistics/settlement/carrier-invoices', component: CarrierInvoicesComponent,
+      canActivate: [permissionGuard(P.FREIGHT_INVOICE_VIEW)] },
+    { path: 'logistics/settlement/carrier-invoices/:uuid', component: CarrierInvoiceDetailComponent,
+      canActivate: [permissionGuard(P.FREIGHT_INVOICE_VIEW)] },
+    { path: 'logistics/settlement/match-queue', component: MatchQueueComponent,
+      canActivate: [permissionGuard(P.FREIGHT_INVOICE_VIEW)] },
+
+    // Cash a carrier is holding on our behalf, and what we owe carriers — the two sides of the
+    // settlement ledger. Recording a collection, a remittance or a write-back is gated more
+    // narrowly server-side, so a viewer can watch the balance without moving it.
+    { path: 'logistics/settlement/cod', component: CodReconciliationComponent,
+      canActivate: [permissionGuard(P.FREIGHT_INVOICE_VIEW)] },
+    { path: 'logistics/settlement/freight-accruals', component: FreightAccrualsComponent,
+      canActivate: [permissionGuard(P.SHIPMENT_RATE_VIEW)] },
+
+    // ── Logistics — Visibility ────────────────────────────────────────────────
+    // DELIVERY_VIEW opens both. The exception queue is what a despatch desk works from all day, so
+    // walling it behind an edit right would mean nobody sees a problem until somebody who can fix
+    // it happens to look — acting on one is gated DELIVERY_EDIT server-side. The proof-of-delivery
+    // screen is readable the same way and every write on it needs POD_CAPTURE.
+    { path: 'logistics/exceptions', component: ExceptionQueueComponent,
+      canActivate: [permissionGuard(P.DELIVERY_VIEW)] },
+    { path: 'logistics/proof-of-delivery', component: ProofOfDeliveryComponent,
+      canActivate: [permissionGuard(P.DELIVERY_VIEW)] },
+
+    // DELIVERY_VIEW opens the scorecard; the billing column needs FREIGHT_INVOICE_VIEW as well and
+    // the server withholds it without one. Guarding the whole page on the narrower right would
+    // hide on-time and exception figures from the people whose job they are.
+    { path: 'logistics/carrier-scorecard', component: CarrierScorecardComponent,
+      canActivate: [permissionGuard(P.DELIVERY_VIEW)] },
+
+    // ── Logistics — Consignments ──────────────────────────────────────────────
+    // DELIVERY_VIEW to open it: booking, the label and refreshing tracking are each gated more
+    // narrowly server-side (SHIPMENT_BOOK, SHIPMENT_BOOK, DELIVERY_EDIT), so a viewer can watch
+    // a consignment without being able to spend money on it.
+    { path: 'logistics/consignments/:uuid', component: ConsignmentDetailComponent,
+      canActivate: [permissionGuard(P.DELIVERY_VIEW)] },
 
     // ── Logistics — Shipments ─────────────────────────────────────────────────
     { path: 'logistics/shipments', component: ShipmentListComponent,

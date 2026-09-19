@@ -16,15 +16,17 @@ import { CheckboxModule } from 'primeng/checkbox';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { FileUploadModule, FileSelectEvent } from 'primeng/fileupload';
 import { ContextMenuModule } from 'primeng/contextmenu';
+import { CalendarModule } from 'primeng/calendar';
 import { MessageService, ConfirmationService, MenuItem } from 'primeng/api';
 import { SelectButtonModule } from 'primeng/selectbutton';
 import {
   RateCardService, RateCardRow, UpdateRateCardRequest, RateComparisonRow,
   BulkAdjustRequest, BulkAdjustPreviewRow, BulkRateOperation,
-  ImportPreviewRow, CopyRatesRequest, CopyPreviewRow
+  ImportPreviewRow, CopyRatesRequest, CopyPreviewRow, CreateRateCardRequest
 } from '../../../services/rate-card.service';
 import { SupplierService } from '../../../services/supplier.service';
 import { CurrenciesService, CurrencyModel } from '../../../services/currencies.service';
+import { InventoryService, ProductListItemModel } from '../../../services/inventory.service';
 import { ProductVariantPickerComponent, VariantPickerSelection } from '../../../shared/product-variant-picker/product-variant-picker.component';
 import { RateEditPanelComponent } from '../rate-edit-panel/rate-edit-panel.component';
 
@@ -38,7 +40,7 @@ const CHANGE_REASON_THRESHOLD = 0.10;
     TableModule, ButtonModule, InputTextModule, TextareaModule,
     InputIconModule, IconFieldModule, TagModule, TooltipModule,
     ToastModule, DropdownModule, DialogModule, SelectButtonModule,
-    CheckboxModule, ConfirmDialogModule, FileUploadModule, ContextMenuModule,
+    CheckboxModule, ConfirmDialogModule, FileUploadModule, ContextMenuModule, CalendarModule,
     ProductVariantPickerComponent, RateEditPanelComponent
   ],
   templateUrl: './rate-cards.component.html',
@@ -68,6 +70,8 @@ export class RateCardsComponent implements OnInit {
   private searchTimer: ReturnType<typeof setTimeout> | null = null;
 
   currencies: CurrencyModel[] = [];
+  // Shared by both the Product Comparison View's picker and the Add Rate Card dialog's picker.
+  products: ProductListItemModel[] = [];
 
   // Row-level edit state: snapshot taken when a cell is clicked into, so Escape (onEditCancel)
   // can restore it, and so we know the pre-edit rate for the >10% change-reason check.
@@ -110,6 +114,7 @@ export class RateCardsComponent implements OnInit {
   showImportDialog = false;
   importStep: 'select' | 'preview' = 'select';
   importFile: File | null = null;
+  importCurrencyId: string | null = null;
   importPreviewRows: ImportPreviewRow[] = [];
   isImportPreviewing = false;
   isImportConfirming = false;
@@ -129,10 +134,30 @@ export class RateCardsComponent implements OnInit {
   isCopyPreviewing = false;
   isCopyConfirming = false;
 
+  // Add Rate Card — first-time creation of a supplier+variant link. Nothing in this feature ever
+  // called POST /api/rate-cards before; every other screen only ever operated on links that
+  // already existed, so a brand-new supplier had no way to get its first rate card in at all.
+  showAddDialog = false;
+  addPicked: VariantPickerSelection | null = null;
+  addForm = {
+    vendorUnitCost: null as number | null,
+    currencyId: null as string | null,
+    leadTimeDays: null as number | null,
+    minOrderQty: null as number | null,
+    minOrderValue: null as number | null,
+    effectiveFrom: new Date() as Date | null,
+    effectiveTo: null as Date | null,
+    vendorPartNo: '',
+    quotationRef: '',
+    notes: ''
+  };
+  isAdding = false;
+
   constructor(
     private rateCardService: RateCardService,
     private supplierService: SupplierService,
     private currenciesService: CurrenciesService,
+    private inventoryService: InventoryService,
     private messageService: MessageService,
     private confirmationService: ConfirmationService
   ) {}
@@ -147,6 +172,9 @@ export class RateCardsComponent implements OnInit {
     });
     this.currenciesService.getAll().subscribe({
       next: (res) => { if (res.success && res.result) this.currencies = res.result; }
+    });
+    this.inventoryService.getProducts({ activeOnly: true, pageSize: 500 }).subscribe({
+      next: (res) => { if (res.success && res.result) this.products = res.result.data ?? []; }
     });
     this.loadRecentBulkOps();
   }
@@ -598,6 +626,9 @@ export class RateCardsComponent implements OnInit {
     this.importStep = 'select';
     this.importFile = null;
     this.importPreviewRows = [];
+    // Defaulted the same way as Add Rate Card. Only used for products this supplier has no rate
+    // card for yet; without it, and with no organization base currency, those rows cannot be created.
+    this.importCurrencyId = this.importCurrencyId ?? this.currencies[0]?.id ?? null;
     this.showImportDialog = true;
   }
 
@@ -612,7 +643,7 @@ export class RateCardsComponent implements OnInit {
   previewImport() {
     if (!this.importFile || !this.selectedSupplierId) return;
     this.isImportPreviewing = true;
-    this.rateCardService.previewImport(this.importFile, this.selectedSupplierId).subscribe({
+    this.rateCardService.previewImport(this.importFile, this.selectedSupplierId, this.importCurrencyId).subscribe({
       next: (res) => {
         this.isImportPreviewing = false;
         if (res.success && res.result) {
@@ -651,7 +682,7 @@ export class RateCardsComponent implements OnInit {
   confirmImport() {
     if (!this.importFile || !this.selectedSupplierId) return;
     this.isImportConfirming = true;
-    this.rateCardService.confirmImport(this.importFile, this.selectedSupplierId).subscribe({
+    this.rateCardService.confirmImport(this.importFile, this.selectedSupplierId, this.importCurrencyId).subscribe({
       next: (res) => {
         this.isImportConfirming = false;
         if (res.success && res.result) {
@@ -783,6 +814,76 @@ export class RateCardsComponent implements OnInit {
       },
       error: (err) => {
         this.messageService.add({ severity: 'error', summary: 'Error', detail: err.error?.message || 'Failed to mark as reviewed.' });
+      }
+    });
+  }
+
+  // ── Add Rate Card (first-time supplier+variant link creation) ───────────
+
+  openAddDialog() {
+    if (!this.selectedSupplierId) return;
+    this.addPicked = null;
+    this.addForm = {
+      vendorUnitCost: null,
+      currencyId: this.currencies[0]?.id ?? null,
+      leadTimeDays: null,
+      minOrderQty: null,
+      minOrderValue: null,
+      effectiveFrom: new Date(),
+      effectiveTo: null,
+      vendorPartNo: '',
+      quotationRef: '',
+      notes: ''
+    };
+    this.showAddDialog = true;
+  }
+
+  closeAddDialog() {
+    this.showAddDialog = false;
+  }
+
+  onAddVariantSelected(sel: VariantPickerSelection) {
+    this.addPicked = sel;
+  }
+
+  get canSaveAdd(): boolean {
+    return !!this.addPicked?.variantUuid && !!this.addForm.currencyId
+      && this.addForm.vendorUnitCost != null && this.addForm.vendorUnitCost > 0;
+  }
+
+  saveAddRateCard() {
+    if (!this.canSaveAdd || !this.selectedSupplierId) return;
+
+    const req: CreateRateCardRequest = {
+      variantUuid:    this.addPicked!.variantUuid!,
+      supplierUuid:   this.selectedSupplierId,
+      vendorUnitCost: this.addForm.vendorUnitCost!,
+      leadTimeDays:   this.addForm.leadTimeDays,
+      effectiveFrom:  (this.addForm.effectiveFrom ?? new Date()).toISOString(),
+      effectiveTo:    this.addForm.effectiveTo ? this.addForm.effectiveTo.toISOString() : null,
+      currencyId:     this.addForm.currencyId,
+      minOrderValue:  this.addForm.minOrderValue,
+      minOrderQty:    this.addForm.minOrderQty,
+      vendorPartNo:   this.addForm.vendorPartNo || null,
+      quotationRef:   this.addForm.quotationRef || null,
+      notes:          this.addForm.notes || null
+    };
+
+    this.isAdding = true;
+    this.rateCardService.createRateCard(req).subscribe({
+      next: (res) => {
+        this.isAdding = false;
+        if (res.success) {
+          this.messageService.add({ severity: 'success', summary: 'Added', detail: 'Rate card created.' });
+          this.showAddDialog = false;
+          this.load();
+        } else {
+          this.messageService.add({ severity: 'error', summary: 'Error', detail: res.message || 'Failed to create rate card.' });
+        }
+      },
+      error: (err) => {
+        this.isAdding = false;
+        this.messageService.add({ severity: 'error', summary: 'Error', detail: err.error?.message || 'Failed to create rate card.' });
       }
     });
   }

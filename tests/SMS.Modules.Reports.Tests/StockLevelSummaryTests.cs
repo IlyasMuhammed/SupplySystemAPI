@@ -40,7 +40,8 @@ file static class Build
             suppliers:  new SuppliersDbContext(new DbContextOptionsBuilder<SuppliersDbContext>().UseInMemoryDatabase(dbName).Options, tenantContext),
             material:   new MaterialDbContext(new DbContextOptionsBuilder<MaterialDbContext>().UseInMemoryDatabase(dbName).Options, tenantContext),
             userQuery:  new Mock<IUserQueryService>().Object,
-            timeline:   new Mock<ITimelineService>().Object);
+            timeline:   new Mock<ITimelineService>().Object,
+            supplierAccess: new UnrestrictedSupplierAccess());
     }
 
     internal static ProductCategory SeedCategory(InventoryDbContext db, string name)

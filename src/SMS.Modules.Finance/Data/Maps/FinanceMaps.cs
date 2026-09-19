@@ -20,8 +20,17 @@ internal sealed class InvoiceMap : IEntityTypeConfiguration<Invoice>
         b.HasIndex(x => new { x.OrganizationId, x.InvoiceNumber }).IsUnique();
         b.Property(x => x.SupplierInvoiceNo).HasMaxLength(50);
         b.Property(x => x.SupplierName).HasMaxLength(200).IsRequired();
-        b.Property(x => x.PoNumber).HasMaxLength(20).IsRequired();
+        // Optional since G10 — a freight bill is a payable with no purchase order behind it.
+        b.Property(x => x.PoNumber).HasMaxLength(20);
         b.Property(x => x.GrnNumber).HasMaxLength(20);
+
+        // Where a payable raised by another module came from, and the guard that stops a retried
+        // job raising a second one for the same thing.
+        b.Property(x => x.SourceType).HasMaxLength(30);
+        b.HasIndex(x => new { x.SourceType, x.SourceUuid })
+         .IsUnique()
+         .HasFilter("[SourceUuid] IS NOT NULL AND [IsDelete] = 0");
+
         b.Property(x => x.Currency).HasMaxLength(10).HasDefaultValue("PKR");
         b.Property(x => x.Subtotal).HasColumnType("decimal(18,2)");
         b.Property(x => x.TaxAmount).HasColumnType("decimal(18,2)");

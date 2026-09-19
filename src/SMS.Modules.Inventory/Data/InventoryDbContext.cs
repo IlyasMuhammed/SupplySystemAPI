@@ -31,12 +31,18 @@ internal sealed class InventoryDbContext : DbContext, ITenantScopedDbContext
     internal DbSet<InventoryItem> InventoryItems => Set<InventoryItem>();
     internal DbSet<StockAdjustment> StockAdjustments => Set<StockAdjustment>();
     internal DbSet<InventoryLedgerEntry> InventoryLedgerEntries => Set<InventoryLedgerEntry>();
+    // The source-agnostic reservation ledger behind InventoryItem.QtyReserved.
+    internal DbSet<StockReservation> StockReservations => Set<StockReservation>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema("inventory");
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(InventoryDbContext).Assembly);
         modelBuilder.ApplyTenantQueryFilters(this);
+        
+        // F35 — each of those filters puts WHERE OrganizationId = @org on every query against
+        // every one of these tables, and none of them had an index leading with it.
+        modelBuilder.ApplyTenantIndexes();
     }
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)

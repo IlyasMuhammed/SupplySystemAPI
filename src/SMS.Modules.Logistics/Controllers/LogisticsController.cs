@@ -14,6 +14,10 @@ namespace SMS.Modules.Logistics.Controllers;
 [ApiController]
 [Route("api/logistics/carriers")]
 [RequiresFeature("MODULE_LOGISTICS")]
+// Closes a real gap: these endpoints had only the feature gate, so any authenticated user in a
+// logistics-enabled organization could reach them. DELIVERY_TRACK is the code the Angular routes
+// already guard these screens with, so nobody who can reach them today loses access.
+[RequirePermission(PermissionCodes.DELIVERY_TRACK)]
 public class CarriersController : ControllerBase
 {
     private readonly ICarrierService _svc;
@@ -70,9 +74,24 @@ public class CarriersController : ControllerBase
 
 // ── Shipments ─────────────────────────────────────────────────────────────────
 
+/// <summary>
+/// <b>Deprecated.</b> Superseded by <c>api/logistics/deliveries</c> (layer A) and
+/// <c>api/logistics/consignments</c> (layer C).
+/// </summary>
+/// <remarks>
+/// Kept alive because it is the only logistics API the four existing Angular screens use, and
+/// they stay in service until the delivery cockpit ships (T-19). Every row behind it has been
+/// copied into the new model by the T-16 backfill; the legacy table is still the source these
+/// endpoints read, so consignments created through the new API do not appear here.
+/// <para>
+/// <b>Removal:</b> one release after the cockpit ships. The response shape is pinned by
+/// <c>LegacyShipmentContractTests</c> so it cannot drift in the meantime.
+/// </para>
+/// </remarks>
 [ApiController]
 [Route("api/logistics/shipments")]
 [RequiresFeature("MODULE_LOGISTICS")]
+[RequirePermission(PermissionCodes.DELIVERY_TRACK)]
 public class ShipmentsController : ControllerBase
 {
     private readonly IShipmentService  _svc;
@@ -116,33 +135,8 @@ public class ShipmentsController : ControllerBase
             : NotFound(ApiResponse.Fail(StaticResponseMessage.recordNotFound));
     }
 
-    [HttpPost("{uuid:guid}/pod/upload")]
-    [Consumes("multipart/form-data")]
-    public async Task<IActionResult> UploadPod(Guid uuid, IFormFile file)
-    {
-        if (file == null || file.Length == 0)
-            return BadRequest(ApiResponse.Fail("No file was provided."));
-
-        const long maxBytes = 20 * 1024 * 1024;
-        if (file.Length > maxBytes)
-            return BadRequest(ApiResponse.Fail("File size must not exceed 20 MB."));
-
-        var uploadsDir = Path.Combine(
-            _env.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot"),
-            "uploads", "pod");
-        Directory.CreateDirectory(uploadsDir);
-
-        var ext      = Path.GetExtension(file.FileName);
-        var safeName = $"{Guid.NewGuid()}{ext}";
-        var filePath = Path.Combine(uploadsDir, safeName);
-
-        await using (var stream = new FileStream(filePath, FileMode.Create))
-            await file.CopyToAsync(stream);
-
-        var podUrl = $"/uploads/pod/{safeName}";
-        var updated = await _svc.UploadPodAsync(uuid, podUrl, User.GetUserId());
-        return updated
-            ? Ok(ApiResponse<string>.Ok(podUrl, "Proof of delivery uploaded."))
-            : NotFound(ApiResponse.Fail(StaticResponseMessage.recordNotFound));
-    }
+    // The proof-of-delivery upload that lived here was retired with finding F47. It wrote a file
+    // into wwwroot and stored the path in a column, which is a proof only for as long as that
+    // directory survives a redeploy. T-61 replaced it with api/logistics/delivery-proofs, which
+    // stores the bytes, records who took the goods, and is gated by POD_CAPTURE.
 }

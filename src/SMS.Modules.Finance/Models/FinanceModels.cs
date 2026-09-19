@@ -5,7 +5,8 @@ namespace SMS.Modules.Finance.Models;
 public class InvoiceLineRequest
 {
     public Guid?   GrnLineUuid     { get; set; }   // optional: links to a GRN line (3-way match)
-    public Guid    PoLineUuid      { get; set; }   // required: links to PO line for QtyInvoiced tracking
+    // Optional since G10: required for anything ordered, absent on a freight line.
+    public Guid?   PoLineUuid      { get; set; }   // links to PO line for QtyInvoiced tracking
     public string  ItemDescription { get; set; } = string.Empty;
     public string? UnitOfMeasure   { get; set; }
     public decimal QtyInvoiced     { get; set; }
@@ -16,7 +17,7 @@ public class InvoiceLineModel
 {
     public Guid    UUID            { get; set; }
     public Guid?   GrnLineUuid    { get; set; }
-    public Guid    PoLineUuid     { get; set; }
+    public Guid?   PoLineUuid     { get; set; }
     public int     LineNo         { get; set; }
     public string  ItemDescription { get; set; } = string.Empty;
     public string? UnitOfMeasure  { get; set; }
@@ -31,7 +32,9 @@ public class CreateInvoiceRequest
 {
     public string? SupplierInvoiceNo { get; set; }
     public Guid    SupplierId        { get; set; }
-    public Guid    PoUuid            { get; set; }
+    // Optional since G10. Absent means a payable with no purchase order behind it — a carrier's
+    // freight bill is the first of them.
+    public Guid?   PoUuid            { get; set; }
     public Guid?   GrnUuid           { get; set; }
     public DateTime InvoiceDate      { get; set; }
     public DateTime ReceivedDate     { get; set; }
@@ -80,7 +83,8 @@ public class InvoiceListItemModel
     public string   InvoiceNumber     { get; set; } = string.Empty;
     public string?  SupplierInvoiceNo { get; set; }
     public string   SupplierName      { get; set; } = string.Empty;
-    public string   PoNumber          { get; set; } = string.Empty;
+    /// <summary>Null on a payable with no purchase order behind it — a freight bill (G10).</summary>
+    public string?  PoNumber          { get; set; }
     public string?  GrnNumber         { get; set; }
     public DateTime InvoiceDate       { get; set; }
     public DateTime DueDate           { get; set; }
@@ -98,8 +102,9 @@ public class InvoiceDetailModel
     public string?  SupplierInvoiceNo { get; set; }
     public Guid     SupplierId        { get; set; }
     public string   SupplierName      { get; set; } = string.Empty;
-    public Guid     PoUuid            { get; set; }
-    public string   PoNumber          { get; set; } = string.Empty;
+    /// <summary>Null on a payable with no purchase order behind it — a freight bill (G10).</summary>
+    public Guid?    PoUuid            { get; set; }
+    public string?  PoNumber          { get; set; }
     public Guid?    GrnUuid           { get; set; }
     public string?  GrnNumber         { get; set; }
     public DateTime InvoiceDate       { get; set; }

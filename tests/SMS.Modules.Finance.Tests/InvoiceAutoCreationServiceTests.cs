@@ -31,7 +31,7 @@ file static class Build
             .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, new StaticTenantContext());
 
         var ledger = new SupplierLedgerService(finance);
-        var invoiceRepo = new InvoiceRepository(finance, demand, wh, ledger);
+        var invoiceRepo = new InvoiceRepository(finance, demand, wh, ledger, new FakeSupplierNameLookup());
         var jobs = new Mock<IBackgroundJobClient>().Object;
         var svc = new InvoiceAutoCreationService(wh, finance, invoiceRepo, jobs);
 

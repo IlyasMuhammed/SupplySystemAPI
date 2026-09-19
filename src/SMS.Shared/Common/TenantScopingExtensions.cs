@@ -1,5 +1,6 @@
 using System.Reflection;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
 
 namespace SMS.Shared.Common;
 
@@ -72,6 +73,69 @@ public static class TenantScopingExtensions
                     .Invoke(null, [modelBuilder, context]);
             }
         }
+    }
+
+    /// <summary>
+    /// Gives every tenant-scoped table an index that leads with <c>OrganizationId</c>, unless it
+    /// already has one.
+    /// <para>
+    /// <b>Why (finding F35).</b> <see cref="ApplyTenantQueryFilters"/> puts
+    /// <c>WHERE OrganizationId = @org</c> on <em>every</em> query against <em>every</em> one of
+    /// these tables — and not one of them had a supporting index. The integration test
+    /// <c>QueryFilterPerformanceTests</c> was written to catch exactly that and had been failing
+    /// honestly ever since. At today's row counts the optimizer prefers a scan anyway and nothing
+    /// looks wrong; the bill arrives later, on every table at once.
+    /// </para>
+    /// <para>
+    /// <b>Only where one is missing.</b> A table whose own map already declares
+    /// <c>(OrganizationId, DocumentNumber)</c> or similar is covered — SQL Server can seek on a
+    /// leading-column prefix — and a second single-column index there would cost writes and buy
+    /// nothing. The primary key counts too.
+    /// </para>
+    /// <para>
+    /// <b>Done here rather than in ninety maps</b> for the same reason the filters are: the next
+    /// tenant-scoped entity somebody adds gets this without having to remember it.
+    /// </para>
+    /// </summary>
+    public static void ApplyTenantIndexes(this ModelBuilder modelBuilder)
+    {
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        {
+            var clrType = entityType.ClrType;
+
+            var scoped = typeof(ITenantScopedEntity).IsAssignableFrom(clrType)
+                      || typeof(IGloballyExemptTenantScopedEntity).IsAssignableFrom(clrType);
+
+            if (!scoped) continue;
+
+            // Owned types share their owner's table, and a keyless entity is a view or a raw query
+            // — neither has a table of its own to index.
+            if (entityType.IsOwned() || entityType.FindPrimaryKey() is null) continue;
+
+            var organizationId = entityType.FindProperty(nameof(ITenantScopedEntity.OrganizationId));
+
+            if (organizationId is null) continue;
+
+            if (LeadsWithOrganizationId(entityType)) continue;
+
+            entityType.AddIndex(organizationId);
+        }
+    }
+
+    /// <summary>
+    /// Whether any existing index — or the primary key — already starts with <c>OrganizationId</c>.
+    /// The leading column is what matters: SQL Server can seek on a prefix of a composite key, and
+    /// cannot seek on a column buried in the middle of one.
+    /// </summary>
+    private static bool LeadsWithOrganizationId(IMutableEntityType entityType)
+    {
+        static bool Leads(IReadOnlyList<IMutableProperty> properties) =>
+            properties.Count > 0
+         && properties[0].Name == nameof(ITenantScopedEntity.OrganizationId);
+
+        if (entityType.FindPrimaryKey() is { } key && Leads(key.Properties)) return true;
+
+        return entityType.GetIndexes().Any(i => Leads(i.Properties));
     }
 
     private static void ApplyPlainFilter<TEntity, TContext>(ModelBuilder modelBuilder, TContext context)

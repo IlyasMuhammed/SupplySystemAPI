@@ -241,6 +241,13 @@ public class ReservedStockFilter : MaterialReportFilter
 public class ReservedStockItem
 {
     public Guid     ReservationUuid { get; set; }
+
+    /// <summary>MIR, DELIVERY or SALES_ORDER — what is holding the stock.</summary>
+    public string   SourceType      { get; set; } = string.Empty;
+    public Guid     SourceUuid      { get; set; }
+
+    // Added rather than replaced: the existing screen reads these, and they stay populated for
+    // material-issue holds. Blank for any other source, which SourceType identifies.
     public string   MirNo           { get; set; } = string.Empty;
     public Guid     MirUuid         { get; set; }
     public string   RequestType     { get; set; } = string.Empty;

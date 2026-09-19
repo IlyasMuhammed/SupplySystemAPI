@@ -84,6 +84,18 @@ internal sealed class AuthDataSeeder
         ("Reconciliation",                PermissionCodes.RECONCILIATION,        "Perform statement and ledger reconciliation"),
 
         ("Track Deliveries",              PermissionCodes.DELIVERY_TRACK,        "Monitor inbound and outbound delivery status"),
+        ("View Deliveries",               PermissionCodes.DELIVERY_VIEW,         "Open the delivery cockpit and read delivery orders"),
+        ("Create Deliveries",             PermissionCodes.DELIVERY_CREATE,       "Raise deliveries, including from a PO, SRO or material issue"),
+        ("Edit Deliveries",               PermissionCodes.DELIVERY_EDIT,         "Amend, hold, cancel or short-close a delivery"),
+        ("Book Shipments",                PermissionCodes.SHIPMENT_BOOK,         "Commit a consignment to a carrier — this spends money"),
+        ("Manage Carriers",               PermissionCodes.CARRIER_MANAGE,        "Configure carrier accounts and what each may be asked for"),
+        ("Manage Carrier Credentials",    PermissionCodes.CARRIER_CREDENTIAL_MANAGE, "Set the secrets a carrier authenticates with — write only, never readable back"),
+        ("View Shipping Rates",           PermissionCodes.SHIPMENT_RATE_VIEW,    "See what a consignment costs to carry — chargeable weight, and rates as Phase 3 lands"),
+        ("Manage Rate Cards",             PermissionCodes.RATE_CARD_MANAGE,      "Edit negotiated carrier tariffs — this decides what carriage is deemed to cost"),
+        ("Manage Shipping Rules",         PermissionCodes.SHIPPING_RULE_MANAGE,  "Edit the standing rules that route goods to a carrier automatically"),
+        ("View Freight Invoices",         PermissionCodes.FREIGHT_INVOICE_VIEW,  "See carrier bills and what is accrued against them"),
+        ("Reconcile Freight Invoices",    PermissionCodes.FREIGHT_INVOICE_RECONCILE, "Record and settle a carrier's bill — this decides what the company accepts it owes"),
+        ("Capture Proof of Delivery",     PermissionCodes.POD_CAPTURE,           "Record who took the goods and attach the signature, photograph or delivery note"),
 
         ("View Reports",                  PermissionCodes.REPORT_VIEW,           "Access standard reports and dashboards"),
         ("Export Reports",                PermissionCodes.REPORT_EXPORT,         "Download report data to CSV / Excel"),
@@ -165,7 +177,11 @@ internal sealed class AuthDataSeeder
             PermissionCodes.PO_EDIT,          PermissionCodes.PO_APPROVE,    PermissionCodes.PO_CANCEL,
             PermissionCodes.BUDGET_VIEW,      PermissionCodes.BUDGET_MANAGE,
             PermissionCodes.REQUISITION_VIEW_ALL, PermissionCodes.REQUISITION_APPROVE,
-            PermissionCodes.DELIVERY_TRACK,
+            PermissionCodes.DELIVERY_TRACK,   PermissionCodes.DELIVERY_VIEW,
+            PermissionCodes.DELIVERY_CREATE,  PermissionCodes.DELIVERY_EDIT,
+            PermissionCodes.SHIPMENT_BOOK,    PermissionCodes.CARRIER_MANAGE,
+            // Somebody who commits money to a carrier needs to see what it costs first.
+            PermissionCodes.SHIPMENT_RATE_VIEW,
             PermissionCodes.REPORT_VIEW,      PermissionCodes.REPORT_EXPORT,
             PermissionCodes.WORKFLOW_VIEW,
         ],
@@ -177,7 +193,7 @@ internal sealed class AuthDataSeeder
             PermissionCodes.RFQ_VIEW,
             PermissionCodes.PO_VIEW,  PermissionCodes.PO_CREATE,  PermissionCodes.PO_EDIT,
             PermissionCodes.INVENTORY_VIEW,
-            PermissionCodes.DELIVERY_TRACK,
+            PermissionCodes.DELIVERY_TRACK,   PermissionCodes.DELIVERY_VIEW,
             PermissionCodes.REPORT_VIEW,
         ],
 
@@ -198,6 +214,9 @@ internal sealed class AuthDataSeeder
             PermissionCodes.STOCK_LOCATION_UPDATE,
             PermissionCodes.INVENTORY_VIEW,
             PermissionCodes.GRN_QC_CONFIRM,
+            // The role that physically moves the goods works the delivery cockpit.
+            PermissionCodes.DELIVERY_VIEW,  PermissionCodes.DELIVERY_EDIT,
+            PermissionCodes.SHIPMENT_BOOK,
         ],
 
         [(int)EnumRole.FinanceOfficer] =

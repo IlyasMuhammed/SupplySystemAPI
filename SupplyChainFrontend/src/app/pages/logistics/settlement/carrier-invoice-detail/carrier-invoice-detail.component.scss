@@ -1,0 +1,102 @@
+.invoice-detail-page { padding: 1.5rem; max-width: 76rem; }
+
+.page-header {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem;
+  margin-bottom: 1.25rem; flex-wrap: wrap;
+}
+.page-title {
+  font-size: 1.5rem; font-weight: 700; display: flex; align-items: center; gap: .625rem;
+  margin: 0; flex-wrap: wrap;
+}
+.page-subtitle { color: var(--text-color-secondary); font-size: .875rem; margin: .25rem 0 0; }
+.header-actions { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+
+.loading-state, .not-found { text-align: center; padding: 4rem 1rem; color: var(--text-color-secondary); }
+.not-found i { font-size: 2.5rem; display: block; margin-bottom: .75rem; opacity: .6; }
+.not-found h2 { font-size: 1.125rem; font-weight: 600; margin: 0 0 .5rem; color: var(--text-color); }
+
+.muted { color: var(--text-color-secondary); font-size: .75rem; }
+.font-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.link { color: var(--primary-color); text-decoration: none; }
+.link:hover { text-decoration: underline; }
+.amount, th.amount { text-align: right; }
+.text-right { text-align: right; }
+
+.banner {
+  display: flex; align-items: flex-start; gap: .625rem; padding: .75rem .875rem;
+  border-radius: var(--border-radius, .5rem); font-size: .875rem; margin-bottom: 1rem;
+}
+.banner.warn {
+  background: var(--yellow-50, #fefce8); border: 1px solid var(--yellow-200, #fef08a);
+  color: var(--yellow-900, #713f12);
+}
+
+// ── The money ───────────────────────────────────────────────────────────────
+
+.totals {
+  display: flex; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 1rem;
+  background: var(--surface-card); border: 1px solid var(--surface-border);
+  border-radius: var(--border-radius, .5rem); padding: .875rem 1.125rem;
+}
+.total { display: flex; flex-direction: column; gap: .125rem; }
+.total .label { font-size: .75rem; color: var(--text-color-secondary); }
+.total .value { font-size: 1.25rem; font-weight: 700; }
+.total.over  .value { color: var(--red-700, #b91c1c); }
+.total.under .value { color: var(--yellow-800, #854d0e); }
+
+// ── Cards ───────────────────────────────────────────────────────────────────
+
+.card {
+  background: var(--surface-card); border: 1px solid var(--surface-border);
+  border-radius: var(--border-radius, .5rem); padding: 1rem 1.125rem; margin-bottom: 1rem;
+}
+.card-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  margin-bottom: .75rem; flex-wrap: wrap;
+}
+.card-title {
+  font-size: 1rem; font-weight: 600; margin: 0;
+  display: flex; align-items: center; gap: .5rem; flex-wrap: wrap;
+}
+.tolerance { white-space: nowrap; }
+
+.empty-state { text-align: center; padding: 2rem 1rem; color: var(--text-color-secondary); font-size: .875rem; }
+.empty-state.small { padding: 1rem; }
+.empty-state i { font-size: 1.75rem; display: block; margin-bottom: .5rem; opacity: .5; }
+.empty-state p { margin: .25rem 0; }
+
+tr.disputed td { background: var(--red-50, #fef2f2); }
+td.why { font-size: .75rem; max-width: 20rem; }
+
+.tied { margin-top: .1875rem; font-size: .8125rem; }
+.note { margin-top: .1875rem; }
+
+.duplicate {
+  margin-top: .25rem; font-size: .75rem; display: flex; gap: .25rem; align-items: baseline;
+  color: var(--yellow-800, #854d0e);
+}
+
+.warnings { margin-top: .875rem; font-size: .8125rem; }
+.warnings p { margin: .25rem 0; color: var(--yellow-800, #854d0e); display: flex; gap: .375rem; }
+
+// ── Deciding a line ─────────────────────────────────────────────────────────
+
+.dialog-body { display: flex; flex-direction: column; gap: .875rem; }
+.dialog-hint { font-size: .8125rem; color: var(--text-color-secondary); margin: 0; }
+
+.field { display: flex; flex-direction: column; gap: .25rem; }
+.field label { font-size: .8125rem; font-weight: 600; }
+
+.candidates { display: flex; flex-direction: column; gap: .375rem; max-height: 18rem; overflow-y: auto; }
+.candidate {
+  display: flex; gap: .625rem; align-items: flex-start; cursor: pointer;
+  border: 1px solid var(--surface-border); border-radius: var(--border-radius, .5rem);
+  padding: .5rem .625rem;
+}
+.candidate.chosen { border-color: var(--primary-color); background: var(--surface-50); }
+.candidate-body { display: flex; flex-direction: column; gap: .125rem; font-size: .8125rem; }
+.candidate .reason { font-size: .75rem; color: var(--text-color-secondary); }
+
+@media (max-width: 48rem) {
+  .totals { gap: 1rem; }
+}

@@ -1,0 +1,70 @@
+.invoices-page { padding: 1.5rem; max-width: 72rem; }
+
+.page-header {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem;
+  margin-bottom: 1.25rem; flex-wrap: wrap;
+}
+.page-title {
+  font-size: 1.5rem; font-weight: 700; display: flex; align-items: center; gap: .625rem; margin: 0;
+}
+.page-subtitle { color: var(--text-color-secondary); font-size: .875rem; margin: .25rem 0 0; max-width: 44rem; }
+.header-actions { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+
+.filters { display: flex; align-items: center; gap: .5rem; margin-bottom: .875rem; flex-wrap: wrap; }
+.filter-search { flex: 1; min-width: 16rem; }
+:host ::ng-deep .filter { min-width: 12rem; }
+
+.muted { color: var(--text-color-secondary); font-size: .75rem; }
+.font-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.link { color: var(--primary-color); text-decoration: none; }
+.link:hover { text-decoration: underline; }
+.amount, th.amount { text-align: right; }
+.text-right { text-align: right; }
+
+.empty-state { text-align: center; padding: 2.5rem 1rem; color: var(--text-color-secondary); font-size: .875rem; }
+.empty-state i { font-size: 1.75rem; display: block; margin-bottom: .5rem; opacity: .5; }
+.empty-state p { margin: .25rem 0; }
+
+// ── The editor ──────────────────────────────────────────────────────────────
+
+.dialog-body { display: flex; flex-direction: column; gap: .875rem; }
+.dialog-hint { font-size: .8125rem; color: var(--text-color-secondary); margin: 0; }
+
+.field { display: flex; flex-direction: column; gap: .25rem; flex: 1; min-width: 0; }
+.field label { font-size: .8125rem; font-weight: 600; }
+.field.narrow { flex: 0 0 6rem; }
+.field-row { display: flex; gap: .875rem; flex-wrap: wrap; }
+.field-hint { font-size: .75rem; color: var(--text-color-secondary); margin: 0 0 .5rem; }
+
+.lines-editor { border-top: 1px solid var(--surface-200); padding-top: .875rem; }
+.lines-head { display: flex; align-items: center; justify-content: space-between; gap: .75rem; flex-wrap: wrap; }
+.lines-head h3 { font-size: .875rem; font-weight: 600; margin: 0; }
+
+.running-total {
+  font-size: .8125rem; font-weight: 600; color: var(--green-700, #15803d);
+  background: var(--green-50, #f0fdf4); padding: .1875rem .5rem;
+  border-radius: var(--border-radius, .375rem);
+}
+.running-total.off {
+  color: var(--yellow-900, #713f12); background: var(--yellow-50, #fefce8);
+}
+
+.line-editor {
+  border: 1px solid var(--surface-border); border-radius: var(--border-radius, .5rem);
+  padding: .625rem; margin-top: .5rem; background: var(--surface-50);
+}
+.line-row { display: flex; gap: .5rem; align-items: center; }
+.line-row.secondary { margin-top: .5rem; flex-wrap: wrap; }
+.line-row.secondary input { flex: 1; min-width: 8rem; }
+.grow { flex: 1; }
+:host ::ng-deep .w-amount input { width: 9rem; }
+
+.validation {
+  font-size: .8125rem; margin: 0; display: flex; gap: .375rem; align-items: baseline;
+  color: var(--yellow-800, #854d0e);
+}
+
+@media (max-width: 48rem) {
+  .field-row { flex-direction: column; gap: .5rem; }
+  .line-row { flex-wrap: wrap; }
+}

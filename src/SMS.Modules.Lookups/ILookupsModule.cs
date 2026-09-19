@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using SMS.Modules.Lookups.Data;
 using SMS.Modules.Lookups.Repositories;
 using SMS.Modules.Lookups.Services;
+using SMS.Shared.Common;
 
 namespace SMS.Modules.Lookups;
 
@@ -24,6 +25,10 @@ public static class LookupsModuleExtensions
         services.AddScoped<IPoDocumentTemplateRepository, PoDocumentTemplateRepository>();
         services.AddScoped<IPoDocumentTemplateService, PoDocumentTemplateService>();
         services.AddScoped<LookupsDataSeeder>();
+
+        // Shared contract — lets other modules resolve a city from this catalog without a
+        // project reference to Lookups. Consumed by SMS.Modules.Logistics' structured addresses.
+        services.AddScoped<ICityLookupService, CityLookupService>();
 
         return services;
     }

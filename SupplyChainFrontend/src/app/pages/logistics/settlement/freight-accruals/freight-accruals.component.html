@@ -1,0 +1,175 @@
+<div class="accruals-page">
+  <p-toast></p-toast>
+
+  <div class="page-header">
+    <div>
+      <h1 class="page-title"><i class="pi pi-book"></i> Freight accruals</h1>
+      <p class="page-subtitle">
+        What is owed to carriers for movements that have already happened and have not yet been
+        billed. Without it, freight cost lands in the month the invoice is keyed rather than the
+        month the goods moved.
+      </p>
+    </div>
+
+    <div class="header-actions">
+      <p-button label="Cash on delivery" icon="pi pi-wallet" severity="secondary" [outlined]="true"
+                routerLink="/portal/pages/logistics/settlement/cod"
+                data-testid="action-cod"></p-button>
+      <p-button label="Carrier invoices" icon="pi pi-file" severity="secondary" [outlined]="true"
+                routerLink="/portal/pages/logistics/settlement/carrier-invoices"
+                data-testid="action-invoices"></p-button>
+    </div>
+  </div>
+
+  <!-- The date is the first control, because a month-end figure has to be asked for as at month
+       end — a balance struck today cannot be reconciled to a closed period. -->
+  <div class="as-of">
+    <label for="asOf">Balance as at</label>
+    <p-datepicker inputId="asOf" [(ngModel)]="asOf" dateFormat="dd M yy" [showClear]="true"
+                  placeholder="Today" (onSelect)="load()" (onClear)="clearDate()"
+                  data-testid="field-as-of"></p-datepicker>
+
+    <span class="historic" *ngIf="isHistoric" data-testid="historic-note">
+      Showing what was outstanding then, not now.
+    </span>
+
+    <p-button icon="pi pi-refresh" [text]="true" (onClick)="load()" pTooltip="Refresh"
+              data-testid="action-refresh"></p-button>
+  </div>
+
+  <div *ngIf="isLoading && !summary" class="loading-state" data-testid="loading">
+    <i class="pi pi-spin pi-spinner"></i> Loading…
+  </div>
+
+  <ng-container *ngIf="summary as s">
+    <div class="summary">
+      <div class="headline">
+        <span class="label">Owed to carriers</span>
+        <span class="value" data-testid="open-total">
+          <ng-container *ngIf="s.currency; else mixed">
+            {{ s.openTotal | number:'1.2-2' }} {{ s.currency }}
+          </ng-container>
+          <!-- No exchange rate exists here, so a grand total across currencies would be a number
+               nobody could defend. -->
+          <ng-template #mixed>
+            <span class="mixed" data-testid="mixed-currency">per currency, below</span>
+          </ng-template>
+        </span>
+        <span class="label">across {{ s.openCount }} movement(s)</span>
+      </div>
+
+      <table class="by-carrier" *ngIf="s.byCarrier.length" data-testid="by-carrier">
+        <tr *ngFor="let c of s.byCarrier">
+          <td>{{ c.carrierName }}</td>
+          <td class="muted">{{ c.count }}</td>
+          <td class="amount">{{ c.total | number:'1.2-2' }} {{ c.currency }}</td>
+        </tr>
+      </table>
+
+      <div class="empty-state" *ngIf="!s.byCarrier.length" data-testid="nothing-accrued">
+        <i class="pi pi-check-circle"></i>
+        <p>Nothing is outstanding.</p>
+        <p class="muted">Every movement that has happened has been billed or written back.</p>
+      </div>
+
+      <div class="warnings" *ngIf="s.warnings.length" data-testid="summary-warnings">
+        <p *ngFor="let w of s.warnings"><i class="pi pi-info-circle"></i> {{ w }}</p>
+      </div>
+    </div>
+
+    <!-- ── What is missing from the balance ─────────────────────────────────── -->
+
+    <section class="card" *ngIf="s.couldNotAccrue.length" data-testid="could-not-accrue">
+      <div class="card-head">
+        <h2 class="card-title">
+          <i class="pi pi-exclamation-triangle"></i>
+          Moved, never priced ({{ s.couldNotAccrue.length }})
+        </h2>
+      </div>
+
+      <p class="card-hint">
+        These are <strong>not</strong> in the total above, so what is owed is understated by
+        whatever they come to. Accruing them at zero would look correct and be wrong — price each
+        one, then accrue it.
+      </p>
+
+      <p-table [value]="s.couldNotAccrue" styleClass="p-datatable-sm"
+               data-testid="could-not-accrue-table">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Consignment</th>
+            <th>Carrier</th>
+            <th>Airway bill</th>
+            <th>Dispatched</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </ng-template>
+
+        <ng-template pTemplate="body" let-c>
+          <tr data-testid="unaccruable-row">
+            <td>
+              <a [routerLink]="['/portal/pages/logistics/consignments', c.consignmentUuid]"
+                 class="font-mono link">{{ c.consignmentNumber }}</a>
+            </td>
+            <td>{{ c.carrierName || '—' }}</td>
+            <td class="font-mono">{{ c.masterAwb || '—' }}</td>
+            <td>{{ (c.dispatchedAt | date:'dd MMM yyyy') || '—' }}</td>
+            <td>{{ c.status }}</td>
+            <td class="text-right">
+              <p-button label="Accrue" size="small" [text]="true" [disabled]="isSubmitting"
+                        (onClick)="openAccrue(c)" data-testid="action-accrue"></p-button>
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </section>
+  </ng-container>
+
+  <!-- ── Accruing one that was missed ────────────────────────────────────────── -->
+
+  <p-dialog header="Accrue this movement" [(visible)]="accrueDialogVisible" [modal]="true"
+            [style]="{ width: '30rem' }" [draggable]="false" data-testid="accrue-dialog">
+    <div class="dialog-body" *ngIf="accruing as a">
+      <p class="dialog-hint">
+        <span class="font-mono">{{ a.consignmentNumber }}</span> — {{ a.reason }}
+      </p>
+      <p class="dialog-hint">
+        It will accrue at whatever the consignment is priced. If it still has no price, this is
+        refused rather than accrued at nothing — price it on the consignment first.
+      </p>
+    </div>
+
+    <ng-template pTemplate="footer">
+      <p-button label="Cancel" [text]="true" severity="secondary"
+                (onClick)="accrueDialogVisible = false"></p-button>
+      <p-button label="Accrue" icon="pi pi-check" [loading]="isSubmitting"
+                (onClick)="confirmAccrue()" data-testid="confirm-accrue"></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <!-- ── Writing one back ────────────────────────────────────────────────────── -->
+
+  <p-dialog header="Write this accrual back" [(visible)]="reverseDialogVisible" [modal]="true"
+            [style]="{ width: '30rem' }" [draggable]="false" data-testid="reverse-dialog">
+    <div class="dialog-body">
+      <p class="dialog-hint">
+        An accrual that vanishes without a reason is a hole in a ledger nobody can explain later.
+      </p>
+
+      <div class="field">
+        <label for="reverseReason">Why</label>
+        <textarea pTextarea id="reverseReason" [(ngModel)]="reverseReason" rows="3"
+                  data-testid="field-reverse-reason"></textarea>
+      </div>
+    </div>
+
+    <ng-template pTemplate="footer">
+      <p-button label="Keep it" [text]="true" severity="secondary"
+                (onClick)="reverseDialogVisible = false"></p-button>
+      <p-button label="Write back" icon="pi pi-undo" severity="danger" [disabled]="!canReverse"
+                [loading]="isSubmitting" (onClick)="confirmReverse()"
+                data-testid="confirm-reverse"></p-button>
+    </ng-template>
+  </p-dialog>
+</div>

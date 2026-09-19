@@ -12,8 +12,11 @@ internal class Invoice : ITenantScopedEntity
     public string? SupplierInvoiceNo   { get; set; }
     public Guid    SupplierId          { get; set; }
     public string  SupplierName        { get; set; } = string.Empty;
-    public Guid    PoUuid              { get; set; }
-    public string  PoNumber            { get; set; } = string.Empty;
+    // Nullable since G10 (the logistics rebuild): a carrier's freight bill is a payable with no
+    // purchase order behind it. Every invoice raised from a GRN still carries both, and the only
+    // honest alternative — a synthetic PO reference — would be a lie in a column other code reads.
+    public Guid?   PoUuid              { get; set; }
+    public string? PoNumber            { get; set; }
     public Guid?   GrnUuid             { get; set; }
     public string? GrnNumber           { get; set; }
     public DateTime InvoiceDate        { get; set; }
@@ -45,6 +48,21 @@ internal class Invoice : ITenantScopedEntity
     public string? Notes        { get; set; }
     public string? AttachmentUrl { get; set; }
 
+    // ── Raised by another module (G10) ────────────────────────────────────────
+
+    /// <summary>
+    /// What kind of thing produced this payable when it did not come from a purchase order — e.g.
+    /// <c>CARRIER_INVOICE</c>. Null for everything raised the ordinary way.
+    /// </summary>
+    public string? SourceType { get; set; }
+
+    /// <summary>
+    /// That thing's id. Together with <see cref="SourceType"/> it is unique, which is what stops a
+    /// retried job raising a second payable — paying a carrier twice looks exactly as legitimate
+    /// as paying it once.
+    /// </summary>
+    public Guid? SourceUuid { get; set; }
+
     public bool    IsActive      { get; set; } = true;
     public bool    IsDelete      { get; set; }
     public int     CreatedBy     { get; set; }
@@ -63,7 +81,8 @@ internal class InvoiceLine : ITenantScopedEntity
     public Guid    OrganizationId  { get; set; }
     public int     InvoiceId       { get; set; }
     public Guid?   GrnLineUuid     { get; set; }  // UUID ref to warehouse.grn_lines — no FK
-    public Guid    PoLineUuid      { get; set; }  // UUID ref to demand.purchase_order_lines — no FK
+    // Nullable since G10 — a freight line charges for carriage, not for an ordered item.
+    public Guid?   PoLineUuid      { get; set; }  // UUID ref to demand.purchase_order_lines — no FK
     public int     LineNo          { get; set; }
     public string  ItemDescription { get; set; } = string.Empty;
     public string? UnitOfMeasure   { get; set; }

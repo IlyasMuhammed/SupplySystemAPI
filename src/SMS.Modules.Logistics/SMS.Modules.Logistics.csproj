@@ -16,12 +16,24 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="AutoMapper" Version="13.0.1" />
-    <PackageReference Include="xunit" Version="2.9.3" />
+    <!-- Same version SMS.Modules.Suppliers uses, so the solution resolves one copy. -->
+    <PackageReference Include="libphonenumber-csharp" Version="8.13.52" />
+    <!-- Same version Demand and Finance use, so the solution resolves one copy. Referenced
+         explicitly rather than relied on transitively through Material. -->
+    <PackageReference Include="QuestPDF" Version="2026.7.1" />
+    <!-- Same version SMS.Modules.Auth uses. The booking job and its sweep (T-37). -->
+    <PackageReference Include="Hangfire.Core" Version="1.8.14" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\SMS.Shared\SMS.Shared.csproj" />
     <ProjectReference Include="..\SMS.Modules.Demand\SMS.Modules.Demand.csproj" />
+    <!-- Deliveries are raised from documents these modules own: supplier returns (Warehouse) and
+         material issue vouchers (Material). Reading another module's DbContext directly is the
+         established arrangement here — Warehouse injects DemandDbContext the same way. Neither
+         module references Logistics, so there is no cycle. -->
+    <ProjectReference Include="..\SMS.Modules.Warehouse\SMS.Modules.Warehouse.csproj" />
+    <ProjectReference Include="..\SMS.Modules.Material\SMS.Modules.Material.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -34,6 +46,9 @@
     </AssemblyAttribute>
     <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
       <_Parameter1>SMS.Modules.Reports.Tests</_Parameter1>
+    </AssemblyAttribute>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>SMS.Modules.Logistics.Tests</_Parameter1>
     </AssemblyAttribute>
   </ItemGroup>
 

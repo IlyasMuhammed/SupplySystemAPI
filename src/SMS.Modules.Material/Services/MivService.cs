@@ -7,6 +7,7 @@ using SMS.Modules.Inventory.Services;
 using SMS.Modules.Material.Data;
 using SMS.Modules.Material.Domain;
 using SMS.Modules.Material.Models;
+using SMS.Shared.Common;
 using SMS.Shared.Exceptions;
 using SMS.Shared.Pagination;
 using SMS.WorkflowEngine.Jobs;
@@ -28,17 +29,21 @@ internal sealed class MivService : IMivService
     private readonly ICostAllocationService  _cost;
     private readonly IBackgroundJobClient    _jobs;
 
+    private readonly IStockReservationService _reservations;
+
     public MivService(
         MaterialDbContext       db,
         InventoryDbContext      inv,
         IInventoryLedgerService ledger,
         ICostAllocationService  cost,
+        IStockReservationService reservations,
         IBackgroundJobClient    jobs)
     {
         _db     = db;
         _inv    = inv;
         _ledger = ledger;
         _cost   = cost;
+        _reservations = reservations;
         _jobs   = jobs;
     }
 
@@ -584,7 +589,9 @@ internal sealed class MivService : IMivService
                             $": on-hand qty {invItem.QtyOnHand:F4} is less than issued qty {bs.IssuedQty:F4}.");
 
                     invItem.QtyOnHand  -= bs.IssuedQty;
-                    invItem.QtyReserved = Math.Max(0, invItem.QtyReserved - bs.IssuedQty);
+                    // QtyReserved is decremented by the shared reservation ledger when the hold
+                    // is consumed below — it owns that counter, and decrementing here as well
+                    // would take it down twice for one issue.
                     invItem.LastUpdated = now;
                     lineVariantId       = invItem.VariantId;
                     mainWarehouseIdForLine = invItem.WarehouseId;
@@ -632,7 +639,7 @@ internal sealed class MivService : IMivService
                         $"issued qty {line.IssuedQty:F4}. Cannot post.");
 
                 invItem.QtyOnHand  -= line.IssuedQty;
-                invItem.QtyReserved = Math.Max(0, invItem.QtyReserved - line.IssuedQty);
+                // See above: the reservation ledger owns QtyReserved.
                 invItem.LastUpdated = now;
                 lineVariantId       = invItem.VariantId;
                 mainWarehouseIdForLine = invItem.WarehouseId;
@@ -737,18 +744,18 @@ internal sealed class MivService : IMivService
                 });
             }
 
-            // Effect 3: Decrement StockReservation.ReservedQty (all tracking modes)
-            if (reservations.TryGetValue(line.MirLineId, out var res))
-            {
-                res.ReservedQty -= line.IssuedQty;
-                if (res.ReservedQty <= 0)
-                {
-                    res.ReservedQty   = 0;
-                    res.Status        = "CONSUMED";
-                    res.ReleasedAt    = now;
-                    res.ReleaseReason = $"Consumed by MIV {miv.IssueNo}";
-                }
-            }
+            // Effect 3: consume this line's share of the hold (all tracking modes).
+            //
+            // Partial on purpose — a request can be issued across several vouchers, each taking
+            // part of what was reserved and leaving the balance held for the next. The ledger
+            // closes a hold as CONSUMED only once nothing is left of it.
+            //
+            // The ledger also decrements InventoryItem.QtyReserved, which is why this code no
+            // longer does so itself where it reduces QtyOnHand: two decrements for one issue
+            // would understate reserved stock and quietly inflate what looks available.
+            if (mirLineMap.TryGetValue(line.MirLineId, out var reservedLine))
+                await _reservations.ConsumeLineAsync(
+                    ReservationSourceType.Mir, mir.UUID, reservedLine.UUID, line.IssuedQty, postedBy);
 
             // Effects 4 + 5: Update MIRLine issued tracking (all tracking modes)
             if (mirLineMap.TryGetValue(line.MirLineId, out var mirLine))

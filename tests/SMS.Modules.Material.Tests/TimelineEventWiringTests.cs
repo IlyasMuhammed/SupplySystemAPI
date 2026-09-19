@@ -9,6 +9,7 @@ using Moq;
 using SMS.Modules.Demand.Data;
 using SMS.Modules.Inventory.Data;
 using SMS.Modules.Inventory.Domain;
+using SMS.Modules.Inventory.Services;
 using SMS.Modules.Material.Data;
 using SMS.Modules.Material.Models;
 using SMS.Modules.Material.Repositories;
@@ -36,7 +37,7 @@ file static class WiringBuild
         var inventory = new InventoryDbContext(new DbContextOptionsBuilder<InventoryDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, tenantContext);
 
-        return (new MirRepository(material, inventory, demand, NullLogger<MirRepository>.Instance), material, inventory);
+        return (new MirRepository(material, inventory, demand, NullLogger<MirRepository>.Instance, new StockReservationService(inventory)), material, inventory);
     }
 
     internal static Product SeedProduct(InventoryDbContext db, Guid uuid)

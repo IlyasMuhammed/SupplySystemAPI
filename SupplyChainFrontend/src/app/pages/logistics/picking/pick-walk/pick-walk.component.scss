@@ -1,0 +1,134 @@
+.walk-page { padding: 1.5rem; max-width: 60rem; }
+
+.page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
+.page-title { font-size: 1.5rem; font-weight: 700; display: flex; align-items: center; gap: .625rem; margin: 0; flex-wrap: wrap; }
+.page-subtitle { color: var(--text-color-secondary); font-size: .875rem; margin: .25rem 0 0; }
+
+.loading-state, .not-found { text-align: center; padding: 4rem 1rem; color: var(--text-color-secondary); }
+.not-found i { font-size: 2.5rem; display: block; margin-bottom: .75rem; opacity: .6; }
+.not-found h2 { font-size: 1.125rem; font-weight: 600; margin: 0 0 .25rem; color: var(--text-color); }
+
+.font-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.link { color: var(--primary-color); text-decoration: none; }
+.link:hover { text-decoration: underline; }
+
+.progress-strip { display: flex; align-items: center; gap: .75rem; margin-bottom: 1.25rem; }
+.progress-strip .bar { flex: 1; height: .5rem; border-radius: 999px; background: var(--surface-200); overflow: hidden; }
+.progress-strip .fill { height: 100%; background: var(--primary-color); transition: width .2s ease; }
+.progress-strip .count { font-size: .8125rem; color: var(--text-color-secondary); white-space: nowrap; }
+
+// ── The one instruction in front of the picker ──────────────────────────────
+// Deliberately large. This is read at arm's length, in a warehouse, possibly on a handheld.
+
+.current-card {
+  display: flex; gap: 1rem;
+  background: var(--surface-0); border: 2px solid var(--primary-color);
+  border-radius: .75rem; padding: 1.25rem; margin-bottom: 1.25rem;
+}
+.current-card .seq {
+  flex: 0 0 3rem; height: 3rem; border-radius: .5rem;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--primary-color); color: var(--primary-color-text);
+  font-size: 1.25rem; font-weight: 700;
+}
+.current-card .body { flex: 1; min-width: 0; }
+
+.current-card .location {
+  font-size: 1.125rem; font-weight: 700; color: var(--primary-color);
+  display: flex; align-items: center; gap: .375rem;
+}
+.current-card .item { font-size: 1.375rem; font-weight: 600; margin: .375rem 0 .625rem; }
+
+.chips { display: flex; flex-wrap: wrap; gap: .375rem; margin-bottom: .875rem; }
+.chip {
+  font-size: .75rem; padding: .1875rem .5rem; border-radius: 999px;
+  background: var(--surface-100); color: var(--text-color);
+}
+.chip.muted { color: var(--text-color-secondary); }
+
+.take { display: flex; align-items: baseline; gap: .5rem; margin-bottom: 1rem; }
+.take .label { font-size: .75rem; text-transform: uppercase; letter-spacing: .04em; color: var(--text-color-secondary); }
+.take .qty { font-size: 2rem; font-weight: 700; line-height: 1; }
+.take .uom { font-size: 1rem; color: var(--text-color-secondary); }
+
+.confirm-row { display: flex; align-items: flex-end; gap: .75rem; flex-wrap: wrap; }
+.confirm-row .field { min-width: 8rem; }
+.confirm-row .field.grow { flex: 1; min-width: 12rem; }
+
+.field { display: flex; flex-direction: column; gap: .3125rem; margin-top: .75rem; }
+.field label { font-size: .8125rem; font-weight: 600; }
+.field input, .field textarea, .field ::ng-deep .p-select, .field ::ng-deep .p-inputnumber { width: 100%; }
+
+.inline-warning {
+  display: flex; align-items: center; gap: .5rem;
+  margin-top: .875rem; padding: .5rem .75rem; border-radius: .375rem; font-size: .8125rem;
+  background: var(--yellow-50, #fefce8);
+  border: 1px solid var(--yellow-200, #fef08a);
+  color: var(--yellow-800, #854d0e);
+}
+.inline-warning.danger {
+  background: var(--red-50, #fef2f2);
+  border-color: var(--red-200, #fecaca);
+  color: var(--red-800, #991b1b);
+}
+
+// ── Finished ────────────────────────────────────────────────────────────────
+
+.done-card {
+  text-align: center; padding: 2.5rem 1.25rem; margin-bottom: 1.25rem;
+  background: var(--green-50, #f0fdf4);
+  border: 1px solid var(--green-200, #bbf7d0);
+  border-radius: .75rem;
+}
+.done-card i { font-size: 2.5rem; color: var(--green-600, #16a34a); }
+.done-card h2 { font-size: 1.25rem; font-weight: 700; margin: .625rem 0 .25rem; }
+.done-card p { color: var(--text-color-secondary); font-size: .875rem; margin: 0 0 1rem; }
+.done-card.muted {
+  background: var(--surface-50); border-color: var(--surface-200);
+}
+.done-card.muted i { color: var(--text-color-secondary); }
+
+// ── The whole walk ──────────────────────────────────────────────────────────
+
+.card {
+  background: var(--surface-0); border: 1px solid var(--surface-200);
+  border-radius: .625rem; padding: 1.25rem;
+}
+.card-title {
+  font-size: .875rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--text-color-secondary); margin: 0 0 .875rem;
+}
+
+ol.instructions { list-style: none; margin: 0; padding: 0; }
+ol.instructions li {
+  display: flex; align-items: center; gap: .875rem;
+  padding: .625rem .5rem; border-bottom: 1px solid var(--surface-100);
+}
+ol.instructions li:last-child { border-bottom: 0; }
+ol.instructions li.active { background: var(--primary-50, #eef2ff); border-radius: .375rem; }
+// Confirmed lines fade rather than vanish: the picker still needs to find one to correct it.
+ol.instructions li.confirmed .detail { opacity: .6; }
+
+.seq-small {
+  flex: 0 0 1.75rem; height: 1.75rem; border-radius: .375rem;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--surface-200); font-size: .8125rem; font-weight: 600;
+}
+ol.instructions li.confirmed .seq-small { background: var(--green-100, #dcfce7); }
+
+.instructions .detail { flex: 1; min-width: 0; }
+.instructions .where { font-size: .75rem; color: var(--text-color-secondary); }
+.instructions .what { font-size: .875rem; }
+.instructions .batch { font-size: .75rem; color: var(--text-color-secondary); margin-left: .375rem; }
+.instructions .short-note { font-size: .75rem; color: var(--yellow-800, #854d0e); margin-top: .125rem; }
+
+.instructions .numbers { font-size: .875rem; white-space: nowrap; }
+.instructions .numbers .picked { font-weight: 700; }
+.instructions .numbers .of { color: var(--text-color-secondary); }
+
+.instructions .state { display: flex; align-items: center; gap: .25rem; min-width: 5.5rem; justify-content: flex-end; }
+.instructions .state i { color: var(--green-600, #16a34a); }
+.instructions .state i.warn { color: var(--yellow-600, #ca8a04); }
+
+.dialog-body { display: flex; flex-direction: column; gap: 1rem; }
+.dialog-hint { font-size: .875rem; color: var(--text-color-secondary); margin: 0; }

@@ -1,0 +1,96 @@
+.rate-cards-page { padding: 1.5rem; max-width: 60rem; }
+
+.page-header {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem;
+  margin-bottom: 1.25rem; flex-wrap: wrap;
+}
+.page-title {
+  font-size: 1.5rem; font-weight: 700; display: flex; align-items: center; gap: .625rem;
+  margin: 0; flex-wrap: wrap;
+}
+.page-subtitle { color: var(--text-color-secondary); font-size: .875rem; margin: .25rem 0 0; max-width: 42rem; }
+.header-actions { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+
+.loading-state { text-align: center; padding: 3rem 1rem; color: var(--text-color-secondary); }
+.empty-state { text-align: center; padding: 3rem 1rem; color: var(--text-color-secondary); font-size: .875rem; }
+.empty-state i { font-size: 1.75rem; display: block; margin-bottom: .5rem; opacity: .5; }
+.empty-state p { margin: .25rem 0; }
+
+.muted { color: var(--text-color-secondary); }
+
+.card {
+  background: var(--surface-card); border: 1px solid var(--surface-border);
+  border-radius: var(--border-radius, .5rem); padding: 1rem 1.125rem; margin-bottom: 1rem;
+}
+.card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+.card-title {
+  font-size: 1rem; font-weight: 600; margin: 0 0 .75rem;
+  display: flex; align-items: center; gap: .5rem; flex-wrap: wrap;
+}
+.card-head-actions { display: flex; align-items: center; gap: .125rem; }
+
+dl.terms {
+  display: grid; grid-template-columns: auto 1fr; gap: .25rem .875rem;
+  font-size: .8125rem; margin: 0 0 .875rem;
+}
+dl.terms dt { color: var(--text-color-secondary); }
+dl.terms dd { margin: 0; }
+
+.lane { border-top: 1px solid var(--surface-100); padding-top: .625rem; margin-top: .625rem; }
+.lane h3 { font-size: .8125rem; font-weight: 600; margin: 0 0 .375rem; }
+
+table.breaks { width: 100%; font-size: .8125rem; border-collapse: collapse; }
+table.breaks td { padding: .1875rem 0; }
+table.breaks td.from { color: var(--text-color-secondary); width: 10rem; }
+table.breaks td.amount { text-align: right; }
+
+// ── Editor ──────────────────────────────────────────────────────────────────
+
+.dialog-body { display: flex; flex-direction: column; gap: .875rem; }
+.dialog-hint { font-size: .8125rem; color: var(--text-color-secondary); margin: 0; }
+
+.field { display: flex; flex-direction: column; gap: .25rem; flex: 1; min-width: 0; }
+.field label { font-size: .8125rem; font-weight: 600; }
+.field.narrow { flex: 0 0 7rem; }
+.field-row { display: flex; gap: .875rem; flex-wrap: wrap; }
+.field-hint { font-size: .75rem; color: var(--text-color-secondary); }
+
+.lanes-editor { border-top: 1px solid var(--surface-200); padding-top: .875rem; }
+.lanes-head { display: flex; align-items: center; justify-content: space-between; }
+.lanes-head h3 { font-size: .875rem; font-weight: 600; margin: 0; }
+
+.lane-editor {
+  border: 1px solid var(--surface-border); border-radius: var(--border-radius, .5rem);
+  padding: .75rem; margin-top: .625rem; background: var(--surface-50);
+}
+.lane-editor-head { display: flex; align-items: center; gap: .5rem; margin-bottom: .5rem; }
+.lane-name { flex: 1; }
+
+.lane-criteria {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: .5rem; margin-bottom: .625rem;
+}
+
+table.breaks-editor { width: 100%; border-collapse: collapse; }
+table.breaks-editor td { padding: .1875rem .25rem .1875rem 0; }
+:host ::ng-deep .w-small input { width: 7rem; }
+
+.validation {
+  font-size: .8125rem; margin: 0; display: flex; gap: .375rem; align-items: baseline;
+  color: var(--yellow-800, #854d0e);
+}
+
+// ── Dry run ─────────────────────────────────────────────────────────────────
+
+.quote-result {
+  border-top: 1px solid var(--surface-200); padding-top: .75rem; margin-top: .25rem;
+}
+.quote-amount { font-size: 1.5rem; font-weight: 700; }
+.quote-none {
+  font-size: .8125rem; margin: 0; display: flex; gap: .375rem; align-items: baseline;
+  color: var(--text-color-secondary);
+}
+
+@media (max-width: 40rem) {
+  .field-row { flex-direction: column; gap: .5rem; }
+}

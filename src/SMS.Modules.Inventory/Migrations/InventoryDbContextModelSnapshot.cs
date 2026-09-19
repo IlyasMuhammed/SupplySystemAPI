@@ -928,6 +928,82 @@ namespace SMS.Modules.Inventory.Migrations
                     b.ToTable("StockAdjustments", "inventory");
                 });
 
+            modelBuilder.Entity("SMS.Modules.Inventory.Domain.StockReservation", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("FlaggedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("InventoryItemId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsFlagged")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ReleaseReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("ReleasedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ReleasedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("ReservedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("ReservedBy")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("ReservedQty")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<Guid?>("SourceLineUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("SourceType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<Guid>("SourceUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid>("UUID")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("VariantUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("WarehouseId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UUID")
+                        .IsUnique();
+
+                    b.HasIndex("InventoryItemId", "Status");
+
+                    b.HasIndex("OrganizationId", "SourceType", "SourceUuid");
+
+                    b.ToTable("StockReservations", "inventory");
+                });
+
             modelBuilder.Entity("SMS.Modules.Inventory.Domain.SupplierRateHistory", b =>
                 {
                     b.Property<int>("Id")
@@ -972,6 +1048,8 @@ namespace SMS.Modules.Inventory.Migrations
 
                     b.HasIndex("BulkOperationId");
 
+                    b.HasIndex("OrganizationId");
+
                     b.HasIndex("VariantSupplierId");
 
                     b.ToTable("SupplierRateHistory", "inventory");
@@ -1002,6 +1080,8 @@ namespace SMS.Modules.Inventory.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("AttributeId");
+
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("VariantId", "AttributeId")
                         .IsUnique();
@@ -1403,6 +1483,17 @@ namespace SMS.Modules.Inventory.Migrations
                 {
                     b.HasOne("SMS.Modules.Inventory.Domain.InventoryItem", "InventoryItem")
                         .WithMany("Adjustments")
+                        .HasForeignKey("InventoryItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("InventoryItem");
+                });
+
+            modelBuilder.Entity("SMS.Modules.Inventory.Domain.StockReservation", b =>
+                {
+                    b.HasOne("SMS.Modules.Inventory.Domain.InventoryItem", "InventoryItem")
+                        .WithMany()
                         .HasForeignKey("InventoryItemId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();

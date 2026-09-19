@@ -9,6 +9,24 @@ export interface DiscountTierDto {
   discountPct: number;
 }
 
+// First-time creation of a supplier+variant rate link — POST /api/rate-cards. Nothing in the UI
+// called this before; every other Rate Card screen (grid, comparison, import, copy) only ever
+// operated on links that already existed.
+export interface CreateRateCardRequest {
+  variantUuid: string;
+  supplierUuid: string;
+  vendorUnitCost: number;
+  leadTimeDays?: number | null;
+  effectiveFrom?: string | null;
+  effectiveTo?: string | null;
+  currencyId?: string | null;
+  minOrderValue?: number | null;
+  minOrderQty?: number | null;
+  quotationRef?: string | null;
+  notes?: string | null;
+  vendorPartNo?: string | null;
+}
+
 export interface RateCardRow {
   uuid: string;
   variantUuid: string;
@@ -244,6 +262,10 @@ export class RateCardService {
 
   constructor(private http: HttpClient) {}
 
+  createRateCard(req: CreateRateCardRequest): Observable<ApiResponse<string>> {
+    return this.http.post<ApiResponse<string>>(this.baseUrl, req);
+  }
+
   getRateCards(filter: RateCardListFilter): Observable<ApiResponse<PaginatedResponse<RateCardRow>>> {
     let params = new HttpParams().set('supplierId', filter.supplierId);
     if (filter.search)  params = params.set('search', filter.search);
@@ -316,17 +338,20 @@ export class RateCardService {
     return this.http.get(`${this.baseUrl}/export`, { params, responseType: 'blob' });
   }
 
-  previewImport(file: File, supplierId: string): Observable<ApiResponse<ImportPreviewRow[]>> {
+  // currencyId applies to rows that create a new rate card — the Excel file has no currency column.
+  previewImport(file: File, supplierId: string, currencyId?: string | null): Observable<ApiResponse<ImportPreviewRow[]>> {
     const form = new FormData();
     form.append('file', file, file.name);
     form.append('supplierId', supplierId);
+    if (currencyId) form.append('currencyId', currencyId);
     return this.http.post<ApiResponse<ImportPreviewRow[]>>(`${this.baseUrl}/import/preview`, form);
   }
 
-  confirmImport(file: File, supplierId: string): Observable<ApiResponse<ImportConfirmResult>> {
+  confirmImport(file: File, supplierId: string, currencyId?: string | null): Observable<ApiResponse<ImportConfirmResult>> {
     const form = new FormData();
     form.append('file', file, file.name);
     form.append('supplierId', supplierId);
+    if (currencyId) form.append('currencyId', currencyId);
     return this.http.post<ApiResponse<ImportConfirmResult>>(`${this.baseUrl}/import/confirm`, form);
   }
 

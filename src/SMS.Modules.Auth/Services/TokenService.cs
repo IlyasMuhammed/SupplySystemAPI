@@ -12,6 +12,18 @@ namespace SMS.Modules.Auth.Services;
 internal sealed class TokenService : ITokenService
 {
     private const int AccessTokenMinutes = 60;
+
+    /// <summary>
+    /// How long an access token is good for, in seconds — the value <c>expires_in</c> must carry.
+    /// <para>
+    /// Exposed because the login and refresh responses each used to hard-code their own number,
+    /// and they disagreed: login said 3600 while refresh said 900 for the very same 60-minute
+    /// token. A client trusts <c>expires_in</c> to decide when to renew, so one of them was always
+    /// lying. Derived from the lifetime here, the two cannot drift apart again.
+    /// </para>
+    /// </summary>
+    internal const int AccessTokenSeconds = AccessTokenMinutes * 60;
+
     private readonly AppSettings _settings;
 
     public TokenService(IOptions<AppSettings> settings) => _settings = settings.Value;

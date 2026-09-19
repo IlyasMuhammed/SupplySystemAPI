@@ -157,7 +157,7 @@ public class RateCardsController : ControllerBase
 
     [HttpPost("import/preview")]
     [Consumes("multipart/form-data")]
-    public async Task<IActionResult> PreviewImport(IFormFile file, [FromForm] Guid supplierId)
+    public async Task<IActionResult> PreviewImport(IFormFile file, [FromForm] Guid supplierId, [FromForm] Guid? currencyId)
     {
         if (file == null || file.Length == 0)
             return BadRequest(ApiResponse.Fail("No file was provided."));
@@ -165,13 +165,13 @@ public class RateCardsController : ControllerBase
             return BadRequest(ApiResponse.Fail("File size must not exceed 20 MB."));
 
         await using var stream = file.OpenReadStream();
-        var result = await _svc.PreviewImportAsync(stream, supplierId);
+        var result = await _svc.PreviewImportAsync(stream, supplierId, currencyId);
         return Ok(ApiResponse<List<ImportPreviewRowModel>>.Ok(result));
     }
 
     [HttpPost("import/confirm")]
     [Consumes("multipart/form-data")]
-    public async Task<IActionResult> ConfirmImport(IFormFile file, [FromForm] Guid supplierId)
+    public async Task<IActionResult> ConfirmImport(IFormFile file, [FromForm] Guid supplierId, [FromForm] Guid? currencyId)
     {
         if (file == null || file.Length == 0)
             return BadRequest(ApiResponse.Fail("No file was provided."));
@@ -179,7 +179,7 @@ public class RateCardsController : ControllerBase
             return BadRequest(ApiResponse.Fail("File size must not exceed 20 MB."));
 
         await using var stream = file.OpenReadStream();
-        var result = await _svc.ConfirmImportAsync(stream, supplierId, User.GetUserId());
+        var result = await _svc.ConfirmImportAsync(stream, supplierId, User.GetUserId(), currencyId);
         return Ok(ApiResponse<ImportConfirmResult>.Ok(result, StaticResponseMessage.recordUpdatedSuccessfully));
     }
 

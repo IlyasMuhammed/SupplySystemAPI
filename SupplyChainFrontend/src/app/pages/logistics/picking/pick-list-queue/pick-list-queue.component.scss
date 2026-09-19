@@ -1,0 +1,26 @@
+.list-page { padding: 1.5rem; }
+
+.page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
+.page-title { font-size: 1.5rem; font-weight: 700; display: flex; align-items: center; gap: .625rem; margin: 0; }
+.page-subtitle { color: var(--text-color-secondary); font-size: .875rem; margin: .25rem 0 0; }
+
+.filters { display: flex; align-items: center; gap: .625rem; margin-bottom: 1rem; flex-wrap: wrap; }
+.filters .search input { width: 20rem; max-width: 100%; }
+.filters ::ng-deep .status-filter { min-width: 13rem; }
+
+.font-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.text-right { text-align: right; }
+.link { color: var(--primary-color); text-decoration: none; }
+.link:hover { text-decoration: underline; }
+
+// Progress as a bar plus the numbers: the bar is read at a glance across a queue, the numbers
+// are what a supervisor actually asks about.
+.progress { display: flex; align-items: center; gap: .5rem; }
+.progress .bar { flex: 1; height: .375rem; border-radius: 999px; background: var(--surface-200); overflow: hidden; }
+.progress .fill { height: 100%; background: var(--primary-color); transition: width .2s ease; }
+.progress .qty { font-size: .75rem; color: var(--text-color-secondary); white-space: nowrap; }
+
+.empty-state { text-align: center; padding: 3rem 1rem; color: var(--text-color-secondary); }
+.empty-state i { font-size: 2rem; display: block; margin-bottom: .5rem; opacity: .5; }
+.empty-state p { margin: 0; }
+.empty-state .hint { font-size: .8125rem; margin-top: .25rem; }

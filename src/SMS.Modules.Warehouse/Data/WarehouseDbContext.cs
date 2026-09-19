@@ -23,6 +23,10 @@ internal sealed class WarehouseDbContext : DbContext, ITenantScopedDbContext
         modelBuilder.HasDefaultSchema("warehouse");
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(WarehouseDbContext).Assembly);
         modelBuilder.ApplyTenantQueryFilters(this);
+        
+        // F35 — each of those filters puts WHERE OrganizationId = @org on every query against
+        // every one of these tables, and none of them had an index leading with it.
+        modelBuilder.ApplyTenantIndexes();
     }
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)

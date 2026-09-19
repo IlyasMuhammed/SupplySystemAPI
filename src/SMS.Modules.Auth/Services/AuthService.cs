@@ -95,7 +95,7 @@ internal sealed class AuthService : IAuthService
         {
             AccessToken = accessToken,
             RefreshToken = rawRefresh,
-            ExpiresIn = 3600,
+            ExpiresIn = TokenService.AccessTokenSeconds,
             User = new UserWithTokenModel
             {
                 UserId = user.UserID,
@@ -140,7 +140,9 @@ internal sealed class AuthService : IAuthService
         {
             AccessToken = accessToken,
             RefreshToken = rawRefresh,
-            ExpiresIn = 900
+            // Was 900 while the token actually lived 3600 — a refreshed session told the client it
+            // had a quarter of the life it really had.
+            ExpiresIn = TokenService.AccessTokenSeconds
         };
     }
 

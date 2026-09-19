@@ -1,0 +1,65 @@
+<div class="track-page">
+  <main class="card">
+
+    <p class="loading" *ngIf="isLoading" data-testid="loading">Looking up your delivery…</p>
+
+    <!-- One message for every kind of failure, matching the server. Distinguishing "no such link"
+         from "that link was revoked" would confirm which, to somebody guessing. -->
+    <div class="message" *ngIf="notFound" data-testid="not-found">
+      <h1>We could not find that delivery</h1>
+      <p>
+        This link may have expired, or it may have been typed incompletely. Check the link in the
+        message you were sent, or contact whoever sent the goods.
+      </p>
+    </div>
+
+    <div class="message" *ngIf="failed" data-testid="failed">
+      <h1>Something went wrong at our end</h1>
+      <p>Please try again in a few minutes. Your link is fine.</p>
+    </div>
+
+    <ng-container *ngIf="tracking as t">
+      <header class="head">
+        <p class="reference" data-testid="reference">{{ t.reference }}</p>
+
+        <h1 class="status" [class.settled]="isSettled" data-testid="status">{{ t.status }}</h1>
+
+        <p class="carrier" *ngIf="t.carrier" data-testid="carrier">Carried by {{ t.carrier }}</p>
+      </header>
+
+      <!-- The one thing most people open this page to learn. -->
+      <p class="headline" *ngIf="isDelivered && t.deliveredAt" data-testid="delivered-at">
+        Delivered on {{ t.deliveredAt | date:'EEEE d MMMM y' }} at {{ t.deliveredAt | date:'HH:mm' }}.
+      </p>
+
+      <p class="headline" *ngIf="!isSettled && t.estimatedArrival" data-testid="eta">
+        Expected {{ t.estimatedArrival | date:'EEEE d MMMM y' }}.
+      </p>
+
+      <!-- Said plainly rather than left blank: a missing estimate is a fact, not an omission. -->
+      <p class="headline muted" *ngIf="!isSettled && !t.estimatedArrival" data-testid="no-eta">
+        No delivery date has been estimated yet.
+      </p>
+
+      <ol class="timeline" *ngIf="t.events.length" data-testid="timeline">
+        <li *ngFor="let e of t.events" [attr.data-testid]="'event-' + e.occurredAt">
+          <span class="when">{{ e.occurredAt | date:'d MMM, HH:mm' }}</span>
+          <span class="what">{{ e.status }}</span>
+          <span class="where" *ngIf="e.location">{{ e.location }}</span>
+        </li>
+      </ol>
+
+      <p class="muted" *ngIf="!t.events.length" data-testid="no-events">
+        Nothing has been reported against this delivery yet. This page updates as the carrier
+        reports each step.
+      </p>
+
+      <p class="updated" *ngIf="t.lastUpdatedAt" data-testid="updated">
+        Last updated {{ t.lastUpdatedAt | date:'d MMM y, HH:mm' }}.
+      </p>
+    </ng-container>
+
+    <!-- No navigation, no links, no sign-in. Everything on this page is something a stranger's
+         browser loads, and there is deliberately nowhere to go from here. -->
+  </main>
+</div>

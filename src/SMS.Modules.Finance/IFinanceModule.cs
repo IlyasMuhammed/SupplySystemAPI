@@ -50,6 +50,10 @@ public static class FinanceModuleExtensions
         services.AddScoped<ISupplierPaymentService,    SupplierPaymentService>();
         services.AddScoped<IInvoiceDocumentService,    InvoiceDocumentService>();
 
+        // Decision G10 — lets another module raise a payable for something no purchase order sits
+        // behind. The contract is in SMS.Shared, so Logistics needs no reference to Finance.
+        services.AddScoped<ISupplierInvoicePoster, SupplierInvoicePoster>();
+
         // Auto-populate an invoice from a GRN when it's approved (fans out alongside Suppliers'
         // scorecard-scoring publisher — GrnStatusHandler calls every registered IGrnEventPublisher).
         services.AddScoped<IInvoiceAutoCreationService, InvoiceAutoCreationService>();

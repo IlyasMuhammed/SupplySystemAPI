@@ -5,6 +5,7 @@ using SMS.Modules.Inventory.Data;
 using SMS.Modules.Material.Data;
 using SMS.Modules.Material.Domain;
 using SMS.Modules.Material.Models;
+using SMS.Shared.Common;
 using SMS.Shared.Exceptions;
 using SMS.Shared.Pagination;
 
@@ -16,13 +17,15 @@ internal sealed class MirRepository : IMirRepository
     private readonly InventoryDbContext _inv;
     private readonly DemandDbContext    _demand;
     private readonly ILogger<MirRepository> _logger;
+    private readonly IStockReservationService _reservations;
 
-    public MirRepository(MaterialDbContext db, InventoryDbContext inv, DemandDbContext demand, ILogger<MirRepository> logger)
+    public MirRepository(MaterialDbContext db, InventoryDbContext inv, DemandDbContext demand, ILogger<MirRepository> logger, IStockReservationService reservations)
     {
         _db     = db;
         _inv    = inv;
         _demand = demand;
         _logger = logger;
+        _reservations = reservations;
     }
 
     private static readonly HashSet<string> ValidTypes = ["PROJECT", "DEPARTMENT", "MAINTENANCE"];
@@ -372,7 +375,7 @@ internal sealed class MirRepository : IMirRepository
         // Release any active stock reservations when cancelling an approved MIR.
         if (mir.Status is "APPROVED" or "PARTIALLY_APPROVED")
         {
-            await ReleaseReservationsAsync(mir.Id, "MIR Cancelled");
+            await ReleaseReservationsAsync(mir.UUID, "MIR Cancelled", userId);
         }
 
         mir.Status       = "CANCELLED";
@@ -381,33 +384,14 @@ internal sealed class MirRepository : IMirRepository
         await _db.SaveChangesAsync();
     }
 
-    private async Task ReleaseReservationsAsync(int mirId, string reason)
-    {
-        var reservations = await _db.StockReservations
-            .Where(r => r.MirId == mirId && r.Status == "ACTIVE")
-            .ToListAsync();
-
-        if (reservations.Count == 0) return;
-
-        var now = DateTime.UtcNow;
-
-        foreach (var res in reservations)
-        {
-            res.Status        = "RELEASED";
-            res.ReleasedAt    = now;
-            res.ReleaseReason = reason;
-
-            // Decrement QtyReserved on the InventoryItem.
-            var item = await _inv.InventoryItems.FindAsync(res.InventoryItemId);
-            if (item is not null)
-            {
-                item.QtyReserved = Math.Max(0, item.QtyReserved - res.ReservedQty);
-                item.LastUpdated = now;
-            }
-        }
-
-        await _inv.SaveChangesAsync();
-    }
+    /// <summary>
+    /// Frees whatever this request is still holding. Delegated to the shared reservation ledger,
+    /// which decrements <c>InventoryItem.QtyReserved</c> in the same transaction and is
+    /// idempotent, so a request that never reserved anything is a no-op.
+    /// </summary>
+    private async Task ReleaseReservationsAsync(Guid mirUuid, string reason, int userId) =>
+        await _reservations.ReleaseBySourceAsync(
+            ReservationSourceType.Mir, mirUuid, reason, userId);
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 

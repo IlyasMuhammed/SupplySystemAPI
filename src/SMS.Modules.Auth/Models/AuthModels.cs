@@ -18,7 +18,14 @@ public class LoginResponseModel
 {
     public string AccessToken { get; set; } = string.Empty;
     public string RefreshToken { get; set; } = string.Empty;
-    public int ExpiresIn { get; set; } = 900;
+
+    /// <summary>
+    /// Seconds until the access token expires. No default: it is always set from the token's real
+    /// lifetime, and a default of 900 was a number that had stopped being true — a wrong value
+    /// here reads as authoritative, whereas a zero is obviously unset.
+    /// </summary>
+    public int ExpiresIn { get; set; }
+
     public UserWithTokenModel User { get; set; } = null!;
 }
 
@@ -37,7 +44,9 @@ public class RefreshResponseModel
 {
     public string AccessToken { get; set; } = string.Empty;
     public string RefreshToken { get; set; } = string.Empty;
-    public int ExpiresIn { get; set; } = 900;
+
+    /// <summary>Seconds until the access token expires. See <see cref="LoginResponseModel.ExpiresIn"/>.</summary>
+    public int ExpiresIn { get; set; }
 }
 
 public class LogoutRequestModel

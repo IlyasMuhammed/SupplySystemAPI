@@ -1,0 +1,74 @@
+.shipping-rules-page { padding: 1.5rem; max-width: 56rem; }
+
+.page-header {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem;
+  margin-bottom: 1.25rem; flex-wrap: wrap;
+}
+.page-title {
+  font-size: 1.5rem; font-weight: 700; display: flex; align-items: center; gap: .625rem; margin: 0;
+}
+.page-subtitle { color: var(--text-color-secondary); font-size: .875rem; margin: .25rem 0 0; max-width: 40rem; }
+.header-actions { display: flex; align-items: center; gap: .5rem; }
+
+.loading-state { text-align: center; padding: 3rem 1rem; color: var(--text-color-secondary); }
+.empty-state { text-align: center; padding: 3rem 1rem; color: var(--text-color-secondary); font-size: .875rem; }
+.empty-state i { font-size: 1.75rem; display: block; margin-bottom: .5rem; opacity: .5; }
+.empty-state p { margin: .25rem 0; }
+
+.muted { color: var(--text-color-secondary); }
+
+.banner {
+  display: flex; align-items: flex-start; gap: .625rem; padding: .75rem .875rem;
+  border-radius: var(--border-radius, .5rem); font-size: .875rem; margin-bottom: 1rem;
+}
+.banner.warn {
+  background: var(--yellow-50, #fefce8); border: 1px solid var(--yellow-200, #fef08a);
+  color: var(--yellow-900, #713f12);
+}
+
+// ── The list, in the order they are tried ───────────────────────────────────
+
+ol.rules { list-style: none; margin: 0; padding: 0; }
+
+ol.rules li {
+  display: flex; align-items: flex-start; gap: .875rem;
+  background: var(--surface-card); border: 1px solid var(--surface-border);
+  border-left: 3px solid var(--primary-color);
+  border-radius: var(--border-radius, .5rem);
+  padding: .75rem .875rem; margin-bottom: .625rem;
+}
+ol.rules li.inactive { border-left-color: var(--surface-300); opacity: .65; }
+
+.priority {
+  flex: 0 0 2.25rem; text-align: center; font-weight: 700; font-size: .875rem;
+  color: var(--text-color-secondary); padding-top: .125rem;
+}
+
+.rule-body { flex: 1; min-width: 0; }
+.rule-head { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.summary { font-size: .8125rem; margin-top: .1875rem; }
+.description { font-size: .75rem; margin-top: .25rem; font-style: italic; }
+
+.rule-actions { display: flex; align-items: center; gap: .125rem; }
+
+// ── Editor ──────────────────────────────────────────────────────────────────
+
+.dialog-body { display: flex; flex-direction: column; gap: .875rem; }
+
+.field { display: flex; flex-direction: column; gap: .25rem; flex: 1; min-width: 0; }
+.field label { font-size: .8125rem; font-weight: 600; }
+.field.narrow { flex: 0 0 8rem; }
+.field-row { display: flex; gap: .875rem; flex-wrap: wrap; }
+.field-hint { font-size: .75rem; color: var(--text-color-secondary); margin: 0 0 .5rem; }
+
+.section { border-top: 1px solid var(--surface-200); padding-top: .875rem; }
+.section h3 { font-size: .875rem; font-weight: 600; margin: 0 0 .25rem; }
+
+.validation {
+  font-size: .8125rem; margin: 0; display: flex; gap: .375rem; align-items: baseline;
+  color: var(--yellow-800, #854d0e);
+}
+
+@media (max-width: 40rem) {
+  .field-row { flex-direction: column; gap: .5rem; }
+}

@@ -31,7 +31,7 @@ internal static class TenancyFeatureCatalog
         new("MODULE_PROCUREMENT",     "Procurement",              CategoryModule, "Procurement module (placeholder — functionality currently lives under Demand).", false, 40),
         new("MODULE_INVENTORY",       "Inventory",                CategoryModule, "Stock levels, reorder points, and inventory ledgers.",                 false, 50),
         new("MODULE_WAREHOUSE",       "Warehouse",                CategoryModule, "Goods receipt (GRN) and supplier return orders (SRO).",                false, 60),
-        new("MODULE_LOGISTICS",       "Logistics",                CategoryModule, "Carrier and delivery tracking.",                                        false, 70),
+        new("MODULE_LOGISTICS",       "Logistics",                CategoryModule, "Delivery orders, packing, consignments and carrier tracking.",          false, 70),
         new("MODULE_FINANCE",         "Finance",                  CategoryModule, "Invoices, payments, and credit/debit notes.",                           false, 80),
         new("MODULE_REPORTS",         "Reports",                  CategoryModule, "Cross-module reporting and analytics.",                                 false, 90),
         new("MODULE_WORKFLOW_ENGINE", "Workflow Engine",          CategoryModule, "Approval workflow definitions powering PR/PO/GRN.",                     true,  100),

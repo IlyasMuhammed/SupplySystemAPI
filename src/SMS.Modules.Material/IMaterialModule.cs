@@ -40,6 +40,7 @@ public static class MaterialModuleExtensions
         services.AddScoped<IWastageService, WastageService>();
         services.AddScoped<IMaterialConsumptionService, MaterialConsumptionService>();
         services.AddScoped<IPrLookupService, PrLookupService>();
+        services.AddScoped<IMirReservationMigrationService, MirReservationMigrationService>();
 
         // Workflow status handlers (MIR_PROJECT and MIR_GENERAL)
         services.AddScoped<IDocumentStatusHandler, MirProjectStatusHandler>();
@@ -68,6 +69,13 @@ public static class MaterialModuleExtensions
         using var scope = app.ApplicationServices.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<MaterialDbContext>();
         db.Database.Migrate();
+
+        // Carries MIR reservations into the shared inventory ledger. It runs here rather than in
+        // Inventory because this module owns the data being moved, and because Program.cs
+        // migrates Inventory first — so both schemas exist by the time this runs. Idempotent.
+        scope.ServiceProvider.GetRequiredService<IMirReservationMigrationService>()
+             .MigrateAsync().GetAwaiter().GetResult();
+
         return app;
     }
 }

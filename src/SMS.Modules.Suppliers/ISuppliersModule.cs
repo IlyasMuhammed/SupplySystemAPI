@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using SMS.Modules.Suppliers.Data;
 using SMS.Modules.Suppliers.Repositories;
 using SMS.Modules.Suppliers.Services;
@@ -23,7 +24,9 @@ public static class SuppliersModuleExtensions
             options.UseSqlServer(connString, sql => sql.EnableRetryOnFailure(3, TimeSpan.FromMilliseconds(500), null)));
 
         services.AddScoped<ISuppliersRepository, SuppliersRepository>();
-        services.AddScoped<IEncryptionService, AesEncryptionService>();
+        // Shared since F29 — carrier credentials need the same thing. TryAdd because more than one
+        // module now registers it, and they must not fight over which instance wins.
+        services.TryAddScoped<IEncryptionService, AesEncryptionService>();
         services.AddScoped<ISupplierEventPublisher, DefaultSupplierEventPublisher>();
         services.AddSingleton<IPhoneNumberValidationService, PhoneNumberValidationService>();
         services.AddScoped<ISuppliersService, SuppliersService>();

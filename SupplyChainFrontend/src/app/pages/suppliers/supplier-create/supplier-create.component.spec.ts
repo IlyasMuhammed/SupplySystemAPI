@@ -1,13 +1,12 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { SupplierCreateComponent } from './supplier-create.component';
-
-import { ReactiveFormsModule } from '@angular/forms';
-import { HttpClientTestingModule } from '@angular/common/http/testing';
-import { RouterTestingModule } from '@angular/router/testing';
-
-import { SupplierService } from '../../../services/supplier.service';
-
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { provideRouter } from '@angular/router';
+import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { of } from 'rxjs';
+
+import { SupplierCreateComponent } from './supplier-create.component';
+import { SupplierService } from '../../../services/supplier.service';
 
 describe('SupplierCreateComponent', () => {
   let component: SupplierCreateComponent;
@@ -15,13 +14,13 @@ describe('SupplierCreateComponent', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      declarations: [SupplierCreateComponent],
-      imports: [
-        ReactiveFormsModule,
-        HttpClientTestingModule,
-        RouterTestingModule
-      ],
+      // The component is standalone, so it belongs in imports. It was in `declarations`, which is
+      // for components owned by an NgModule — that is what this spec was actually failing on, not
+      // anything about the component itself.
+      imports: [SupplierCreateComponent],
       providers: [
+        provideHttpClient(), provideHttpClientTesting(),
+        provideRouter([]), provideNoopAnimations(),
         {
           provide: SupplierService,
           useValue: {

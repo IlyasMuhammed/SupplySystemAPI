@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
-using Microsoft.Extensions.Configuration;
 using SMS.Shared.Common;
 
 namespace SMS.WorkflowEngine.Data;
@@ -9,13 +8,7 @@ internal sealed class WorkflowDbContextFactory : IDesignTimeDbContextFactory<Wor
 {
     public WorkflowDbContext CreateDbContext(string[] args)
     {
-        var config = new ConfigurationBuilder()
-            .SetBasePath(Path.Combine(Directory.GetCurrentDirectory(), "..", "SMS.API"))
-            .AddJsonFile("appsettings.json", optional: false)
-            .Build();
-
-        var connString = config["Data:mainOrg"]
-            ?? throw new InvalidOperationException("Connection string 'Data:mainOrg' not found.");
+        var connString = DesignTimeConnection.Resolve();
 
         var optionsBuilder = new DbContextOptionsBuilder<WorkflowDbContext>();
         optionsBuilder.UseSqlServer(connString);

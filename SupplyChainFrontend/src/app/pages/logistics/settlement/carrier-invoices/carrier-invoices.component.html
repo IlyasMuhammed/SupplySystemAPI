@@ -1,0 +1,238 @@
+<div class="invoices-page">
+  <p-toast></p-toast>
+
+  <div class="page-header">
+    <div>
+      <h1 class="page-title"><i class="pi pi-file"></i> Carrier invoices</h1>
+      <p class="page-subtitle">
+        What carriers have billed — the third leg of the three-way match, against what was quoted
+        and what the carrier agreed when it accepted the booking.
+      </p>
+    </div>
+
+    <div class="header-actions">
+      <p-button label="Unmatched lines" icon="pi pi-inbox" severity="secondary" [outlined]="true"
+                routerLink="/portal/pages/logistics/settlement/match-queue"
+                data-testid="action-queue"></p-button>
+      <p-button label="Record a bill" icon="pi pi-plus" (onClick)="openCreate()"
+                data-testid="action-new"></p-button>
+    </div>
+  </div>
+
+  <div class="filters">
+    <p-select [options]="carrierOptions" [(ngModel)]="filter.carrierUuid" optionLabel="label"
+              optionValue="value" (onChange)="search()" styleClass="filter"
+              data-testid="filter-carrier"></p-select>
+
+    <p-select [options]="statusOptions" [(ngModel)]="filter.status" optionLabel="label"
+              optionValue="value" (onChange)="search()" styleClass="filter"
+              data-testid="filter-status"></p-select>
+
+    <input pInputText [(ngModel)]="filter.search" (keyup.enter)="search()"
+           placeholder="Invoice number, carrier, or airway bill" class="filter-search"
+           data-testid="filter-search" />
+
+    <p-button icon="pi pi-search" [text]="true" (onClick)="search()"></p-button>
+  </div>
+
+  <p-table [value]="invoices" [lazy]="true" (onLazyLoad)="load($event)" [paginator]="true"
+           [rows]="pageSize" [totalRecords]="total" [loading]="isLoading"
+           styleClass="p-datatable-sm" data-testid="invoice-table">
+    <ng-template pTemplate="header">
+      <tr>
+        <th>Invoice</th>
+        <th>Carrier</th>
+        <th>Issued</th>
+        <th class="amount">Total</th>
+        <th>Lines</th>
+        <th>Status</th>
+        <th></th>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="body" let-i>
+      <tr data-testid="invoice-row">
+        <td>
+          <a [routerLink]="['/portal/pages/logistics/settlement/carrier-invoices', i.uuid]"
+             class="font-mono link">{{ i.invoiceNumber }}</a>
+          <div class="muted" *ngIf="i.source === 'IMPORT'">imported</div>
+        </td>
+        <td>{{ i.carrierName }}</td>
+        <td>
+          {{ i.invoiceDate | date:'dd MMM yyyy' }}
+          <div class="muted" *ngIf="i.dueDate">due {{ i.dueDate | date:'dd MMM' }}</div>
+        </td>
+        <td class="amount">{{ i.totalAmount | number:'1.2-2' }} {{ i.currency }}</td>
+        <td>{{ i.lineCount }}</td>
+        <td>
+          <p-tag [value]="formatStatus(i.status)" [severity]="statusSeverity(i.status)"
+                 data-testid="invoice-status"></p-tag>
+        </td>
+        <td class="text-right">
+          <p-button *ngIf="i.status !== 'CANCELLED'" icon="pi pi-ban" [text]="true" size="small"
+                    severity="danger" pTooltip="Withdraw" (onClick)="openCancel(i)"
+                    data-testid="action-cancel"></p-button>
+        </td>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="emptymessage">
+      <tr>
+        <td colspan="7">
+          <div class="empty-state" data-testid="no-invoices">
+            <i class="pi pi-file"></i>
+            <p>No carrier bills recorded.</p>
+            <p class="muted">Until one is, nothing checks what carriers are charging.</p>
+          </div>
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+
+  <!-- ── Keying a bill ───────────────────────────────────────────────────────── -->
+
+  <p-dialog header="Record a carrier's bill" [(visible)]="dialogVisible" [modal]="true"
+            [style]="{ width: '56rem' }" [draggable]="false" data-testid="invoice-dialog">
+    <div class="dialog-body">
+      <div class="field-row">
+        <div class="field">
+          <label for="carrier">Carrier</label>
+          <p-select inputId="carrier" [options]="carrierPickList" [(ngModel)]="form.carrierUuid"
+                    optionLabel="label" optionValue="value" appendTo="body"
+                    placeholder="Who sent it" data-testid="field-carrier"></p-select>
+        </div>
+
+        <div class="field">
+          <label for="number">Their invoice number</label>
+          <input pInputText id="number" [(ngModel)]="form.invoiceNumber"
+                 data-testid="field-number" />
+        </div>
+
+        <div class="field narrow">
+          <label for="currency">Currency</label>
+          <input pInputText id="currency" [(ngModel)]="form.currency" maxlength="3"
+                 data-testid="field-currency" />
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="issued">Issued</label>
+          <p-datepicker inputId="issued" [(ngModel)]="form.invoiceDate" dateFormat="dd M yy"
+                        appendTo="body" data-testid="field-issued"></p-datepicker>
+        </div>
+
+        <div class="field">
+          <label for="due">Due</label>
+          <p-datepicker inputId="due" [(ngModel)]="form.dueDate" dateFormat="dd M yy"
+                        [showClear]="true" appendTo="body"></p-datepicker>
+        </div>
+
+        <div class="field">
+          <label for="total">Bill total</label>
+          <p-inputNumber inputId="total" [(ngModel)]="form.totalAmount" mode="decimal"
+                         [minFractionDigits]="2" data-testid="field-total"></p-inputNumber>
+        </div>
+
+        <div class="field">
+          <label for="tax">Tax</label>
+          <p-inputNumber inputId="tax" [(ngModel)]="form.taxAmount" mode="decimal"
+                         [minFractionDigits]="2"></p-inputNumber>
+        </div>
+      </div>
+
+      <!-- ── Lines ─────────────────────────────────────────────────────────── -->
+
+      <div class="lines-editor">
+        <div class="lines-head">
+          <h3>Charges</h3>
+
+          <!-- Shown live, because the two having to agree is the rule most often broken. -->
+          <div class="running-total" [class.off]="Math.abs(difference) > 0.01"
+               data-testid="running-total">
+            Lines {{ lineTotal | number:'1.2-2' }}
+            <span *ngIf="Math.abs(difference) > 0.01">
+              · {{ difference > 0 ? 'over' : 'under' }} by
+              {{ Math.abs(difference) | number:'1.2-2' }}
+            </span>
+          </div>
+
+          <p-button label="Add charge" icon="pi pi-plus" [text]="true" size="small"
+                    (onClick)="addLine()" data-testid="action-add-line"></p-button>
+        </div>
+
+        <p class="field-hint">
+          The airway bill is what ties a charge to a movement — put it on every line the carrier
+          gives one for.
+        </p>
+
+        <div class="line-editor" *ngFor="let l of lines; let i = index" data-testid="line-editor">
+          <div class="line-row">
+            <input pInputText [(ngModel)]="l.description" placeholder="What it is for"
+                   class="grow" [attr.data-testid]="'field-line-description-' + i" />
+            <p-inputNumber [(ngModel)]="l.amount" mode="decimal" [minFractionDigits]="2"
+                           placeholder="Amount" styleClass="w-amount"
+                           [attr.data-testid]="'field-line-amount-' + i"></p-inputNumber>
+            <p-button icon="pi pi-trash" [text]="true" size="small" severity="danger"
+                      [disabled]="lines.length === 1" (onClick)="removeLine(i)"
+                      data-testid="action-remove-line"></p-button>
+          </div>
+
+          <div class="line-row secondary">
+            <input pInputText [(ngModel)]="l.awbNumber" placeholder="Airway bill"
+                   [attr.data-testid]="'field-line-awb-' + i" />
+            <input pInputText [(ngModel)]="l.consignmentReference" placeholder="Our reference" />
+            <input pInputText [(ngModel)]="l.chargeCode" placeholder="Charge code" />
+            <input pInputText [(ngModel)]="l.serviceCode" placeholder="Service" />
+            <p-inputNumber [(ngModel)]="l.chargeableWeightKg" mode="decimal"
+                           [maxFractionDigits]="3" placeholder="Weight billed (kg)"
+                           styleClass="w-amount"></p-inputNumber>
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="notes">Note</label>
+        <textarea pTextarea id="notes" [(ngModel)]="form.notes" rows="2"></textarea>
+      </div>
+
+      <p class="validation" *ngIf="validationError" data-testid="validation-error">
+        <i class="pi pi-exclamation-triangle"></i> {{ validationError }}
+      </p>
+    </div>
+
+    <ng-template pTemplate="footer">
+      <p-button label="Cancel" [text]="true" severity="secondary"
+                (onClick)="dialogVisible = false"></p-button>
+      <p-button label="Record" icon="pi pi-check" [disabled]="!canSave" [loading]="isSubmitting"
+                (onClick)="save()" data-testid="confirm-save"></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <!-- ── Withdrawing ─────────────────────────────────────────────────────────── -->
+
+  <p-dialog header="Withdraw this bill" [(visible)]="cancelDialogVisible" [modal]="true"
+            [style]="{ width: '30rem' }" [draggable]="false" data-testid="cancel-dialog">
+    <div class="dialog-body">
+      <p class="dialog-hint">
+        The number stays reserved — the carrier has not reissued it, so recording it again would be
+        a second copy of the same bill rather than a correction.
+      </p>
+
+      <div class="field">
+        <label for="cancelReason">Why</label>
+        <textarea pTextarea id="cancelReason" [(ngModel)]="cancelReason" rows="3"
+                  placeholder="A duplicate, or keyed against the wrong carrier"
+                  data-testid="field-cancel-reason"></textarea>
+      </div>
+    </div>
+
+    <ng-template pTemplate="footer">
+      <p-button label="Keep it" [text]="true" severity="secondary"
+                (onClick)="cancelDialogVisible = false"></p-button>
+      <p-button label="Withdraw" icon="pi pi-ban" severity="danger" [disabled]="!canCancel"
+                [loading]="isSubmitting" (onClick)="confirmCancel()"
+                data-testid="confirm-cancel"></p-button>
+    </ng-template>
+  </p-dialog>
+</div>

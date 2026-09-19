@@ -1,0 +1,226 @@
+<div class="pod-page">
+  <p-toast></p-toast>
+
+  <div class="page-header">
+    <div>
+      <h1 class="page-title"><i class="pi pi-verified"></i> Proof of delivery</h1>
+      <p class="page-subtitle">
+        Who took the goods, when, and the artefacts that show it — stored here, not linked to
+        somewhere nobody controls. The list below is what could not be demonstrated if it were
+        denied.
+      </p>
+    </div>
+
+    <div class="header-actions">
+      <p-button label="Exceptions" icon="pi pi-exclamation-triangle" severity="secondary" [outlined]="true"
+                routerLink="/portal/pages/logistics/exceptions"
+                data-testid="action-exceptions"></p-button>
+    </div>
+  </div>
+
+  <!-- ── Where it stands ──────────────────────────────────────────────────────── -->
+
+  <div class="summary" *ngIf="coverage as c">
+    <div class="tiles">
+      <div class="tile">
+        <span class="value" data-testid="tile-delivered">{{ c.delivered }}</span>
+        <span class="label">delivered</span>
+      </div>
+
+      <!-- A name and an artefact. One of the two is recorded and is not evidence. -->
+      <div class="tile">
+        <span class="value" data-testid="tile-defensible">
+          {{ c.defensible }}<span class="pct" *ngIf="defensiblePercent !== null"> · {{ defensiblePercent }}%</span>
+        </span>
+        <span class="label">can be demonstrated</span>
+      </div>
+
+      <div class="tile" [class.alarm]="c.weak > 0">
+        <span class="value" data-testid="tile-weak">{{ c.weak }}</span>
+        <span class="label">recorded, but thin</span>
+      </div>
+
+      <div class="tile" [class.alarm]="c.withoutProof > 0">
+        <span class="value" data-testid="tile-none">{{ c.withoutProof }}</span>
+        <span class="label">nothing at all</span>
+      </div>
+    </div>
+
+    <div class="warnings" *ngIf="c.warnings.length" data-testid="summary-warnings">
+      <p *ngFor="let w of c.warnings"><i class="pi pi-info-circle"></i> {{ w }}</p>
+    </div>
+  </div>
+
+  <!-- ── The gaps ─────────────────────────────────────────────────────────────── -->
+
+  <p-table [value]="coverage?.gaps ?? []" [loading]="isLoading"
+           styleClass="p-datatable-sm" data-testid="gap-table">
+
+    <ng-template pTemplate="header">
+      <tr>
+        <th>Consignment</th>
+        <th>Carrier</th>
+        <th>Delivered</th>
+        <th>What is missing</th>
+        <th class="actions-col"></th>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="body" let-g>
+      <tr [attr.data-testid]="'row-' + g.consignmentUuid">
+        <td>
+          <a [routerLink]="['/portal/pages/logistics/consignments', g.consignmentUuid]"
+             class="font-mono link">{{ g.consignmentNumber }}</a>
+          <div class="muted font-mono" *ngIf="g.masterAwb">{{ g.masterAwb }}</div>
+        </td>
+
+        <td>{{ g.carrierName ?? '—' }}</td>
+
+        <td class="muted">{{ g.deliveredAt ? (g.deliveredAt | date:'d MMM y') : 'not recorded' }}</td>
+
+        <td>
+          <p-tag [value]="gapLabel(g)" [severity]="gapTag(g)"
+                 [attr.data-testid]="'gap-' + g.consignmentUuid"></p-tag>
+          <div class="gap-detail">{{ g.gap }}</div>
+        </td>
+
+        <td class="actions-col">
+          <p-button *ngIf="needsRecording(g)" label="Record" icon="pi pi-pencil" [text]="true"
+                    pTooltip="Who took the goods, and when"
+                    (onClick)="openCapture(g)"
+                    [attr.data-testid]="'capture-' + g.consignmentUuid"></p-button>
+
+          <p-button *ngIf="!needsRecording(g)" label="Attach" icon="pi pi-paperclip" [text]="true"
+                    pTooltip="Add the signature, a photograph or the delivery note"
+                    (onClick)="openDetail(g)"
+                    [attr.data-testid]="'attach-' + g.consignmentUuid"></p-button>
+        </td>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="emptymessage">
+      <tr>
+        <td colspan="5" class="empty" data-testid="empty">
+          Every delivery can be demonstrated. Carrier scans become proofs within ten minutes of
+          arriving.
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+
+  <!-- ── Recording a handover ─────────────────────────────────────────────────── -->
+
+  <p-dialog [(visible)]="captureVisible" [modal]="true" [style]="{ width: '32rem' }"
+            header="Record the handover" data-testid="capture-dialog">
+
+    <div class="dialog-body" *ngIf="capturing as g">
+      <p class="context"><span class="font-mono">{{ g.consignmentNumber }}</span></p>
+      <p class="muted note">
+        For a carrier we do not poll, this is what marks the consignment delivered — nothing else
+        ever will.
+      </p>
+
+      <label for="receivedBy">Who took the goods</label>
+      <input pInputText id="receivedBy" [(ngModel)]="form.receivedBy" data-testid="input-received-by" />
+
+      <label for="relationship">Their relation to the consignee</label>
+      <input pInputText id="relationship" [(ngModel)]="form.relationship"
+             placeholder="neighbour, security guard, reception" data-testid="input-relationship" />
+      <p class="muted note">The difference between delivered and left with someone.</p>
+
+      <label for="deliveredAt">When</label>
+      <p-datePicker inputId="deliveredAt" [(ngModel)]="form.deliveredAt" [showTime]="true"
+                    dateFormat="d MM yy" data-testid="input-delivered-at"></p-datePicker>
+
+      <label for="location">Where</label>
+      <input pInputText id="location" [(ngModel)]="form.location" data-testid="input-location" />
+
+      <label for="notes">Anything else</label>
+      <textarea pTextarea id="notes" rows="2" [(ngModel)]="form.notes" data-testid="input-notes"></textarea>
+
+      <p class="validation" *ngIf="captureError" data-testid="capture-error">
+        <i class="pi pi-exclamation-circle"></i> {{ captureError }}
+      </p>
+    </div>
+
+    <ng-template pTemplate="footer">
+      <p-button label="Cancel" severity="secondary" [text]="true"
+                (onClick)="captureVisible = false"></p-button>
+      <p-button label="Record" [disabled]="!canCapture" [loading]="isSubmitting"
+                (onClick)="capture()" data-testid="capture-confirm"></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <!-- ── The artefacts ────────────────────────────────────────────────────────── -->
+
+  <p-dialog [(visible)]="detailVisible" [modal]="true" [style]="{ width: '40rem' }"
+            header="Evidence on file" data-testid="detail-dialog">
+
+    <div class="dialog-body" *ngIf="viewing as g">
+      <p class="context"><span class="font-mono">{{ g.consignmentNumber }}</span></p>
+
+      <p class="muted" *ngIf="isLoadingProofs" data-testid="loading-proofs">Loading…</p>
+
+      <div class="proof" *ngFor="let p of proofs" [attr.data-testid]="'proof-' + p.uuid">
+        <div class="proof-head">
+          <div>
+            <strong>{{ p.receivedBy ?? 'Nobody named' }}</strong>
+            <span class="muted" *ngIf="p.relationship"> · {{ p.relationship }}</span>
+            <span class="muted" *ngIf="p.stopSequence"> · stop {{ p.stopSequence }}</span>
+          </div>
+          <p-tag [value]="p.isDefensible ? 'Stands up' : 'Not enough'"
+                 [severity]="p.isDefensible ? 'success' : 'warn'"
+                 [attr.data-testid]="'defensible-' + p.uuid"></p-tag>
+        </div>
+
+        <div class="muted">
+          {{ p.deliveredAt | date:'d MMM y, HH:mm' }}
+          <span *ngIf="p.location"> · {{ p.location }}</span>
+          · {{ sourceLabel(p.source) }}
+        </div>
+
+        <p class="warning" *ngFor="let w of p.warnings" [attr.data-testid]="'proof-warning-' + p.uuid">
+          <i class="pi pi-exclamation-circle"></i> {{ w }}
+        </p>
+
+        <ul class="files" *ngIf="p.files.length" [attr.data-testid]="'files-' + p.uuid">
+          <li *ngFor="let f of p.files">
+            <a href="javascript:void(0)" class="link" (click)="openFile(f.uuid, f.fileName)"
+               [attr.data-testid]="'file-' + f.uuid">{{ kindLabel(f.kind) }}</a>
+            <span class="muted"> · {{ sizeLabel(f.sizeBytes) }} · {{ f.contentType }}</span>
+            <p-button icon="pi pi-trash" severity="secondary" [text]="true"
+                      pTooltip="Uploaded in error"
+                      (onClick)="removeFile(f.uuid)"
+                      [attr.data-testid]="'remove-' + f.uuid"></p-button>
+          </li>
+        </ul>
+
+        <p class="muted" *ngIf="!p.files.length" [attr.data-testid]="'no-files-' + p.uuid">
+          Nothing on file. A name on its own is recorded and is not evidence.
+        </p>
+
+        <div class="upload">
+          <p-select [options]="kindOptions" [(ngModel)]="uploadKind" styleClass="kind"
+                    data-testid="input-kind"></p-select>
+
+          <!-- accept is a convenience; the server checks the bytes against the claimed type. -->
+          <input type="file" accept="image/png,image/jpeg,image/gif,application/pdf"
+                 (change)="onFileSelected($event, p)" [disabled]="isSubmitting"
+                 [attr.data-testid]="'upload-' + p.uuid" />
+        </div>
+      </div>
+
+      <p class="muted" *ngIf="!isLoadingProofs && !proofs.length" data-testid="no-proofs">
+        Nothing has been recorded against this consignment yet.
+      </p>
+
+      <p class="validation" *ngIf="uploadError" data-testid="upload-error">
+        <i class="pi pi-exclamation-circle"></i> {{ uploadError }}
+      </p>
+    </div>
+
+    <ng-template pTemplate="footer">
+      <p-button label="Close" severity="secondary" (onClick)="detailVisible = false"></p-button>
+    </ng-template>
+  </p-dialog>
+</div>

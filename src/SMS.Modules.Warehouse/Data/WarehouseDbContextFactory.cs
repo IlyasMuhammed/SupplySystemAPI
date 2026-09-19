@@ -9,7 +9,7 @@ internal sealed class WarehouseDbContextFactory : IDesignTimeDbContextFactory<Wa
     public WarehouseDbContext CreateDbContext(string[] args)
     {
         var opts = new DbContextOptionsBuilder<WarehouseDbContext>()
-            .UseSqlServer("Server=(localdb)\\mssqllocaldb;Database=SMS_Dev;Trusted_Connection=True;MultipleActiveResultSets=true",
+            .UseSqlServer(DesignTimeConnection.Resolve(),
                 sql => sql.EnableRetryOnFailure(3, TimeSpan.FromMilliseconds(500), null))
             .Options;
 

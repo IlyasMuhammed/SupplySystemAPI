@@ -1,0 +1,279 @@
+<div class="detail-page">
+  <p-toast></p-toast>
+
+  <!-- Not found: a real answer, not an empty shell that looks like it is still loading. -->
+  <div class="not-found" *ngIf="notFound" data-testid="not-found">
+    <i class="pi pi-inbox"></i>
+    <h2>Delivery not found</h2>
+    <p>It may have been deleted, or the link may be wrong.</p>
+    <p-button label="Back to deliveries" icon="pi pi-arrow-left" [text]="true"
+              routerLink="/portal/pages/logistics/deliveries"></p-button>
+  </div>
+
+  <div *ngIf="isLoading && !delivery" class="loading-state" data-testid="loading">
+    <i class="pi pi-spin pi-spinner"></i> Loading…
+  </div>
+
+  <ng-container *ngIf="delivery as d">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">
+          <i class="pi pi-truck"></i>
+          <span class="font-mono">{{ d.deliveryNumber }}</span>
+          <p-tag [value]="formatStatus(d.status)" [severity]="getStatusSeverity(d.status)"></p-tag>
+        </h1>
+        <p class="page-subtitle">
+          {{ formatStatus(d.direction) }} · {{ d.sourceType }}
+          <span *ngIf="d.sourceNumber" class="font-mono">{{ d.sourceNumber }}</span>
+        </p>
+      </div>
+
+      <div class="header-actions">
+        <p-button icon="pi pi-history" label="Timeline" [text]="true" severity="secondary"
+                  (onClick)="timelineVisible = true"></p-button>
+
+        <p-button *ngIf="canOpenPackStation" label="Pack station" icon="pi pi-box"
+                  severity="secondary" [outlined]="true"
+                  [routerLink]="['/portal/pages/logistics/deliveries', uuid, 'pack']"
+                  data-testid="action-pack-station"></p-button>
+
+        <p-button *ngIf="canResume" label="Resume" icon="pi pi-play" severity="success"
+                  [disabled]="isSubmitting" (onClick)="resume()" data-testid="action-resume"></p-button>
+
+        <p-button *ngIf="canRelease" label="Release" icon="pi pi-lock" severity="success"
+                  [disabled]="isSubmitting" (onClick)="openReleaseDialog()"
+                  data-testid="action-release"></p-button>
+
+        <p-button *ngIf="canGeneratePickList" label="Generate pick list" icon="pi pi-list-check"
+                  [disabled]="isSubmitting" (onClick)="generatePickList()"
+                  data-testid="action-generate-pick-list"></p-button>
+
+        <p-button *ngIf="canHold" label="Hold" icon="pi pi-pause" severity="warn" [outlined]="true"
+                  [disabled]="isSubmitting" (onClick)="openReasonDialog('hold')"
+                  data-testid="action-hold"></p-button>
+
+        <p-button *ngIf="canShortClose" label="Short close" icon="pi pi-flag" severity="warn"
+                  [outlined]="true" [disabled]="isSubmitting"
+                  (onClick)="openReasonDialog('short-close')" data-testid="action-short-close"></p-button>
+
+        <p-button *ngIf="canCancel" label="Cancel" icon="pi pi-times" severity="danger"
+                  [outlined]="true" [disabled]="isSubmitting"
+                  (onClick)="openReasonDialog('cancel')" data-testid="action-cancel"></p-button>
+      </div>
+    </div>
+
+    <!-- Held deliveries say where they will go back to, so "Resume" is not a guess. -->
+    <div class="hold-banner" *ngIf="d.status === 'ON_HOLD'" data-testid="hold-banner">
+      <i class="pi pi-pause-circle"></i>
+      <span>
+        On hold<span *ngIf="d.holdReason">: {{ d.holdReason }}</span>.
+        <ng-container *ngIf="d.statusBeforeHold">
+          Resuming returns it to <strong>{{ formatStatus(d.statusBeforeHold) }}</strong>.
+        </ng-container>
+      </span>
+    </div>
+
+    <div class="lines-unknown-banner" *ngIf="d.linesUnknown" data-testid="lines-unknown-banner">
+      <i class="pi pi-exclamation-triangle"></i>
+      <span>
+        Migrated from a legacy shipment. The header is accurate; its lines were never recorded,
+        so this delivery cannot be picked or packed.
+      </span>
+    </div>
+
+    <div class="detail-grid">
+      <div class="card">
+        <h3>Delivery</h3>
+        <dl>
+          <dt>Direction</dt><dd>{{ formatStatus(d.direction) }}</dd>
+          <dt>Source</dt>
+          <dd>{{ d.sourceType }} <span class="font-mono" *ngIf="d.sourceNumber">{{ d.sourceNumber }}</span></dd>
+          <dt>Priority</dt><dd>{{ formatStatus(d.priority) }}</dd>
+          <dt>Incoterm</dt><dd>{{ d.incoterm || '—' }}</dd>
+          <dt>Requested</dt><dd>{{ d.requestedDate ? (d.requestedDate | date:'dd MMM yyyy') : '—' }}</dd>
+          <dt>Promised</dt><dd>{{ d.promisedDate ? (d.promisedDate | date:'dd MMM yyyy') : '—' }}</dd>
+          <dt>Posts stock movement</dt>
+          <dd>
+            <!-- Derived from the source type on the server. Shown because it decides whether
+                 goods issue will move stock or only record the movement. -->
+            <span [class.posts-yes]="d.postsGoodsIssue">{{ d.postsGoodsIssue ? 'Yes' : 'No — the source document does' }}</span>
+          </dd>
+        </dl>
+        <p class="notes" *ngIf="d.notes">{{ d.notes }}</p>
+      </div>
+
+      <div class="card">
+        <h3>Ship to</h3>
+        <ng-container *ngIf="d.shipToAddress as a; else noAddress">
+          <address>
+            {{ a.line1 }}<br *ngIf="a.line2" />{{ a.line2 }}<br />
+            {{ a.cityName }}<span *ngIf="a.postalCode">, {{ a.postalCode }}</span><br />
+            {{ a.countryName }}
+          </address>
+          <p class="contact" *ngIf="a.contactName || a.contactPhoneE164">
+            {{ a.contactName }}
+            <span class="font-mono" *ngIf="a.contactPhoneE164"> {{ a.contactPhoneE164 }}</span>
+          </p>
+          <!-- An address that could not be confirmed cannot be used to book a courier, so say
+               so here rather than at the point of failure. -->
+          <div class="address-warning" *ngIf="a.validationStatus !== 'VALID'" data-testid="address-warning">
+            <i class="pi pi-exclamation-circle"></i>
+            <span>{{ a.validationNotes || 'This address has not been confirmed.' }}</span>
+          </div>
+        </ng-container>
+        <ng-template #noAddress><p class="muted">No delivery address recorded.</p></ng-template>
+      </div>
+    </div>
+
+    <div class="table-card">
+      <h3>Lines</h3>
+      <p-table [value]="d.lines" [tableStyle]="{'min-width':'60rem'}">
+        <ng-template pTemplate="header">
+          <tr>
+            <th style="width:4rem">#</th>
+            <th>Item</th>
+            <th>UoM</th>
+            <th class="text-right">Ordered</th>
+            <th class="text-right">Picked</th>
+            <th class="text-right">Packed</th>
+            <th class="text-right">Delivered</th>
+            <th class="text-right">Short</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-line>
+          <tr>
+            <td>{{ line.lineNo }}</td>
+            <td>
+              {{ line.itemDescription }}
+              <div class="line-flags">
+                <span *ngIf="line.isHazardous" class="flag hazard">Hazardous</span>
+                <span *ngIf="line.isFragile" class="flag">Fragile</span>
+                <span *ngIf="line.isTemperatureControlled" class="flag">Temp. controlled</span>
+              </div>
+            </td>
+            <td>{{ line.unitOfMeasure || '—' }}</td>
+            <td class="text-right">{{ line.qtyOrdered }}</td>
+            <td class="text-right">{{ line.qtyPicked }}</td>
+            <td class="text-right">{{ line.qtyPacked }}</td>
+            <td class="text-right">{{ line.qtyDelivered }}</td>
+            <td class="text-right" [class.short]="isShort(line)">
+              {{ line.qtyShort }}
+              <div class="short-reason" *ngIf="line.shortReason">{{ line.shortReason }}</div>
+            </td>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="emptymessage">
+          <tr>
+            <td colspan="8" class="text-center text-secondary" style="padding:2rem">
+              {{ d.linesUnknown ? 'This delivery was migrated without line detail.' : 'No lines.' }}
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </div>
+
+    <div class="card">
+      <app-attachment-list interfaceCode="DELIVERY" [documentId]="d.uuid"></app-attachment-list>
+    </div>
+
+    <!-- The trace id is already on the detail, so the panel can skip resolving it. -->
+    <app-timeline-panel [traceId]="d.traceId" interfaceCode="DELIVERY"
+                        [(visible)]="timelineVisible"></app-timeline-panel>
+  </ng-container>
+
+  <p-dialog [(visible)]="reasonDialogVisible" [modal]="true" [style]="{width:'32rem'}"
+            [header]="reasonDialogTitle" [draggable]="false">
+    <p class="dialog-hint">{{ reasonDialogHint }}</p>
+    <label for="reason" class="dialog-label">Reason</label>
+    <textarea pTextarea id="reason" [(ngModel)]="reasonText" rows="3"
+              placeholder="Why is this happening? Someone downstream will ask."
+              class="w-full" data-testid="reason-input"></textarea>
+
+    <ng-template pTemplate="footer">
+      <p-button label="Back" [text]="true" severity="secondary"
+                (onClick)="reasonDialogVisible = false"></p-button>
+      <!-- Disabled until a reason is typed: the server requires one, and finding that out via a
+           400 after committing to the action is a poor way to learn it. -->
+      <p-button label="Confirm" icon="pi pi-check"
+                [disabled]="!reasonText.trim() || isSubmitting"
+                (onClick)="confirmReason()" data-testid="reason-confirm"></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <!-- ── Release ────────────────────────────────────────────────────────────── -->
+
+  <p-dialog header="Release this delivery" [(visible)]="releaseDialogVisible" [modal]="true"
+            [style]="{width:'40rem'}" [draggable]="false" data-testid="release-dialog">
+    <p class="dialog-hint">
+      Releasing hard-reserves the stock, so nothing else can promise the same units.
+    </p>
+
+    <div *ngIf="isCheckingAvailability" class="loading-state" data-testid="checking-availability">
+      <i class="pi pi-spin pi-spinner"></i> Checking stock…
+    </div>
+
+    <ng-container *ngIf="!isCheckingAvailability && availability as a">
+      <p class="dialog-hint" *ngIf="!a.requiresStock" data-testid="inbound-note">
+        This is an inbound delivery — the goods are arriving, so there is nothing to reserve.
+      </p>
+
+      <p-table *ngIf="a.lines.length" [value]="a.lines" styleClass="p-datatable-sm"
+               data-testid="availability-table">
+        <ng-template pTemplate="header">
+          <tr>
+            <th style="width:3.5rem">Ln</th>
+            <th>Item</th>
+            <th>Warehouse</th>
+            <th class="text-right" style="width:7rem">Ordered</th>
+            <th class="text-right" style="width:7rem">Available</th>
+            <th class="text-right" style="width:7rem">Short</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-line>
+          <tr [class.short-line]="line.shortfall > 0">
+            <td>{{ line.lineNo }}</td>
+            <td>
+              {{ line.itemDescription }}
+              <div class="line-warning" *ngIf="line.warning">{{ line.warning }}</div>
+            </td>
+            <td>{{ line.warehouseName || '—' }}</td>
+            <td class="text-right">{{ line.qtyOrdered | number:'1.0-3' }}</td>
+            <td class="text-right">{{ line.qtyAvailable | number:'1.0-3' }}</td>
+            <td class="text-right">
+              <strong *ngIf="line.shortfall > 0">{{ line.shortfall | number:'1.0-3' }}</strong>
+              <span *ngIf="line.shortfall <= 0">—</span>
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+
+      <div class="shortfall-note" *ngIf="shortLines.length" data-testid="shortfall-note">
+        <i class="pi pi-exclamation-triangle"></i>
+        <span>
+          {{ shortLines.length }} line(s) cannot be covered in full.
+          <ng-container *ngIf="a.canReleasePartially">
+            Splitting releases what stock covers and moves the balance to a new draft delivery
+            against the same source.
+          </ng-container>
+          <ng-container *ngIf="!a.canReleasePartially">
+            Nothing is available, so there is nothing to split.
+          </ng-container>
+        </span>
+      </div>
+    </ng-container>
+
+    <ng-template pTemplate="footer">
+      <p-button label="Back" [text]="true" severity="secondary"
+                (onClick)="releaseDialogVisible = false"></p-button>
+
+      <!-- Offered only when the server says a split would achieve something. -->
+      <p-button *ngIf="availability?.canReleasePartially" label="Release what is available"
+                icon="pi pi-scissors" severity="warn" [outlined]="true"
+                [disabled]="isSubmitting" (onClick)="release('SPLIT')"
+                data-testid="release-split"></p-button>
+
+      <p-button label="Release" icon="pi pi-check" [disabled]="isSubmitting"
+                (onClick)="release('BLOCK')" data-testid="release-block"></p-button>
+    </ng-template>
+  </p-dialog>
+</div>

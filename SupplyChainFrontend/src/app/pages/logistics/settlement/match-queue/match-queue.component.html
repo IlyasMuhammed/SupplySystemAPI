@@ -1,0 +1,89 @@
+<div class="queue-page">
+  <p-toast></p-toast>
+
+  <div class="page-header">
+    <div>
+      <h1 class="page-title"><i class="pi pi-inbox"></i> Unmatched charges</h1>
+      <p class="page-subtitle">
+        Every charge nobody could tie to a movement, across every bill — largest first, because the
+        biggest unexplained charge is the one worth an hour of somebody's time.
+      </p>
+    </div>
+
+    <div class="header-actions">
+      <p-button label="Carrier invoices" icon="pi pi-file" severity="secondary" [outlined]="true"
+                routerLink="/portal/pages/logistics/settlement/carrier-invoices"
+                data-testid="action-invoices"></p-button>
+    </div>
+  </div>
+
+  <div class="filters">
+    <p-select [options]="carrierOptions" [(ngModel)]="filter.carrierUuid" optionLabel="label"
+              optionValue="value" (onChange)="search()" styleClass="filter"
+              data-testid="filter-carrier"></p-select>
+
+    <p-select [options]="statusOptions" [(ngModel)]="filter.matchStatus" optionLabel="label"
+              optionValue="value" (onChange)="search()" styleClass="filter"
+              data-testid="filter-status"></p-select>
+
+    <span class="page-value" *ngIf="lines.length" data-testid="page-value">
+      {{ pageValue | number:'1.2-2' }} {{ lines[0].currency }} on this page
+    </span>
+  </div>
+
+  <p-table [value]="lines" [lazy]="true" (onLazyLoad)="load($event)" [paginator]="true"
+           [rows]="pageSize" [totalRecords]="total" [loading]="isLoading"
+           styleClass="p-datatable-sm" data-testid="queue-table">
+    <ng-template pTemplate="header">
+      <tr>
+        <th class="amount">Amount</th>
+        <th>Charge</th>
+        <th>Airway bill</th>
+        <th>Bill</th>
+        <th>Carrier</th>
+        <th>Why not</th>
+        <th></th>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="body" let-l>
+      <tr data-testid="queue-row">
+        <td class="amount"><strong>{{ l.amount | number:'1.2-2' }}</strong> {{ l.currency }}</td>
+        <td>
+          {{ l.description }}
+          <span class="muted" *ngIf="l.chargeCode"> · {{ l.chargeCode }}</span>
+        </td>
+        <td class="font-mono">{{ l.awbNumber || '—' }}</td>
+        <td>
+          <a [routerLink]="['/portal/pages/logistics/settlement/carrier-invoices', l.invoiceUuid]"
+             class="font-mono link">{{ l.invoiceNumber }}</a>
+        </td>
+        <td>{{ l.carrierName }}</td>
+        <td>
+          <p-tag [value]="matchLabel(l.matchStatus)" [severity]="matchSeverity(l.matchStatus)"
+                 data-testid="queue-status"></p-tag>
+          <!-- Which kind of nothing it matched, so somebody knows where to start. -->
+          <div class="muted note" *ngIf="l.matchNote">{{ l.matchNote }}</div>
+        </td>
+        <td class="text-right">
+          <p-button icon="pi pi-arrow-right" [text]="true" size="small"
+                    pTooltip="Open the bill and decide"
+                    [routerLink]="['/portal/pages/logistics/settlement/carrier-invoices', l.invoiceUuid]"
+                    data-testid="action-open"></p-button>
+        </td>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="emptymessage">
+      <tr>
+        <td colspan="7">
+          <div class="empty-state" data-testid="queue-empty">
+            <i class="pi pi-check-circle"></i>
+            <p>Nothing is waiting.</p>
+            <p class="muted">Every charge on every bill is tied to a movement or set aside.</p>
+          </div>
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+</div>

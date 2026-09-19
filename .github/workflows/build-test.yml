@@ -1,0 +1,105 @@
+name: Build and test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # Lets you run it by hand from the Actions tab, which is how you check a change to this file
+  # without pushing a commit that pretends to be about something else.
+  workflow_dispatch:
+
+# A second push to the same branch cancels the first. The run that matters is the latest one, and
+# queueing them only delays the feedback the later push is waiting for. `main` is excluded so a
+# merge is never cancelled halfway.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  backend:
+    name: .NET
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          # Every project targets net8.0 and there is no global.json, so the SDK is pinned here
+          # rather than inherited from whatever the runner image happens to ship.
+          dotnet-version: '8.0.x'
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Restore
+        run: dotnet restore SMS.sln
+
+      - name: Build
+        run: dotnet build SMS.sln --configuration Release --no-restore
+
+      # ── What is deliberately not run here ──────────────────────────────────
+      #
+      # SMS.Integration.Tests and SMS.Performance.Tests need a live SQL Server: they read the
+      # Data:mainOrg connection string and assert against a real schema — QueryFilterPerformanceTests
+      # opens a SqlConnection and checks for indexes. A runner has no such database, so including
+      # them would make this workflow permanently red and therefore ignored, which is worse than
+      # not running them. They are excluded by namespace so that every other project, including any
+      # added later, is picked up automatically.
+      #
+      # They still need running somewhere against a real database — see F35.
+      - name: Test
+        run: >
+          dotnet test SMS.sln
+          --configuration Release
+          --no-build
+          --logger "trx;LogFileName=test-results.trx"
+          --filter "FullyQualifiedName!~SMS.Integration.Tests&FullyQualifiedName!~SMS.Performance.Tests"
+
+      - name: Publish test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dotnet-test-results
+          path: '**/TestResults/*.trx'
+          if-no-files-found: ignore
+
+  frontend:
+    name: Angular
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: SupplyChainFrontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          # Angular 19 needs ^18.19.1 || ^20.11.1 || >=22. Node 20 is the conservative choice.
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: SupplyChainFrontend/package-lock.json
+
+      # ci, not install: it installs exactly the lockfile and fails if package.json has drifted
+      # from it, which is the difference between a build that reproduces and one that resembles.
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        # Chrome is preinstalled on the runner image, but karma finds it through CHROME_BIN — left
+        # unset it falls back to guessing at paths, which is how this breaks on an image update.
+        env:
+          CHROME_BIN: /usr/bin/google-chrome
+        run: npm test -- --watch=false --browsers=ChromeHeadless

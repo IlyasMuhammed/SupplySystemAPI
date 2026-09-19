@@ -49,6 +49,16 @@ public static class InventoryModuleExtensions
         services.AddScoped<IInventoryService, InventoryService>();
         services.AddScoped<IInventoryLedgerService, InventoryLedgerService>();
         services.AddScoped<IStockAvailabilityService, StockAvailabilityService>();
+        // Shared contract — lets other modules bridge product-scoped lines (supplier returns) to
+        // the variant that actually holds stock, without a project reference to Inventory.
+        services.AddScoped<IProductVariantResolver, ProductVariantResolver>();
+        // The one place stock is held and released, for every module that needs to — deliveries
+        // now, sales orders later. Keeps the reservation rows and InventoryItem.QtyReserved in
+        // step, which is impossible if each consumer writes its own.
+        services.AddScoped<IStockReservationService, StockReservationService>();
+        // Takes stock off the books against those same holds, so what leaves the ledger is what
+        // was reserved, picked and packed — batch for batch.
+        services.AddScoped<IGoodsIssuePoster, GoodsIssuePoster>();
         services.AddScoped<IBatchSerialService, BatchSerialService>();
         services.AddScoped<IProductSearchIndexService, ProductSearchIndexService>();
         services.AddScoped<IVariantSupplierService, VariantSupplierService>();

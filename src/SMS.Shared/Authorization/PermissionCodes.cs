@@ -87,7 +87,60 @@ public static class PermissionCodes
     public const string RECONCILIATION     = "RECONCILIATION";
 
     // ── Logistics / Delivery ──────────────────────────────────────────────────
-    public const string DELIVERY_TRACK     = "DELIVERY_TRACK";
+    public const string DELIVERY_TRACK     = "DELIVERY_TRACK";   // legacy shipment + carrier screens
+    public const string DELIVERY_VIEW      = "DELIVERY_VIEW";
+    public const string DELIVERY_CREATE    = "DELIVERY_CREATE";
+    public const string DELIVERY_EDIT      = "DELIVERY_EDIT";
+    public const string SHIPMENT_BOOK      = "SHIPMENT_BOOK";    // spending money with a carrier
+    /// <summary>
+    /// Configuring how a carrier is dealt with — its accounts, which contract bookings go out on,
+    /// and what each account may be asked for. Separate from DELIVERY_TRACK, which is reading
+    /// shipments: somebody who watches parcels has no business changing the contracts they ship on.
+    /// </summary>
+    public const string CARRIER_MANAGE     = "CARRIER_MANAGE";
+    /// <summary>
+    /// Setting the secrets a carrier authenticates with. Separate from CARRIER_MANAGE because
+    /// configuring which contract a parcel ships on and holding the keys to a carrier account are
+    /// different levels of trust — and because the smaller the group that can write a credential,
+    /// the shorter the list of people who could have leaked one.
+    /// </summary>
+    public const string CARRIER_CREDENTIAL_MANAGE = "CARRIER_CREDENTIAL_MANAGE";
+    /// <summary>
+    /// Seeing what a consignment costs to carry — chargeable weight now, rates and rate shopping as
+    /// Phase 3 continues. Separate from DELIVERY_VIEW because a picker needs to see the parcel and
+    /// has no business seeing what the company pays to move it.
+    /// </summary>
+    public const string SHIPMENT_RATE_VIEW = "SHIPMENT_RATE_VIEW";
+    /// <summary>
+    /// Editing a negotiated tariff. Separate from viewing rates for the same reason
+    /// <c>CARRIER_MANAGE</c> is separate from <c>DELIVERY_TRACK</c>: changing what the company is
+    /// deemed to pay for carriage is a commercial act, and it flows straight into Phase 4's
+    /// invoice reconciliation.
+    /// </summary>
+    public const string RATE_CARD_MANAGE   = "RATE_CARD_MANAGE";
+    /// <summary>
+    /// Editing the standing decisions that route goods automatically. A rule is applied without
+    /// anybody looking at it, which is precisely why changing one is a larger act than choosing a
+    /// carrier for a single consignment.
+    /// </summary>
+    public const string SHIPPING_RULE_MANAGE = "SHIPPING_RULE_MANAGE";
+    /// <summary>Seeing carrier bills and what is accrued against them.</summary>
+    public const string FREIGHT_INVOICE_VIEW = "FREIGHT_INVOICE_VIEW";
+    /// <summary>
+    /// Recording, correcting and settling a carrier's bill. Separate from viewing one because this
+    /// is the permission that decides what the company accepts it owes.
+    /// </summary>
+    public const string FREIGHT_INVOICE_RECONCILE = "FREIGHT_INVOICE_RECONCILE";
+    /// <summary>
+    /// Recording that goods were handed over, and attaching the evidence. Separate from
+    /// <c>DELIVERY_EDIT</c> because it is the act that closes a movement and, for a manual carrier,
+    /// the only thing that ever marks one delivered — and because the people who capture a signature
+    /// are drivers and gate staff, who have no business editing the delivery itself.
+    /// </summary>
+    public const string POD_CAPTURE = "POD_CAPTURE";
+    // Codes for work that does not exist yet — DELIVERY_RELEASE, DELIVERY_PACK,
+    // DELIVERY_GOODS_ISSUE, SHIPMENT_CANCEL — are added with the features they gate.
+    // Listing them early would put switches in the role editor that grant nothing.
 
     // ── Reports ───────────────────────────────────────────────────────────────
     public const string REPORT_VIEW        = "REPORT_VIEW";
@@ -112,7 +165,9 @@ public static class PermissionCodes
         GRN_QC_CONFIRM, GRN_APPROVE, GRN_FINANCE_APPROVE,
         MATERIAL_VIEW, MATERIAL_MANAGE,
         INVOICE_VIEW, INVOICE_PROCESS, PAYMENT_VIEW, PAYMENT_PROCESS, PAYMENT_APPROVE, RECONCILIATION,
-        DELIVERY_TRACK,
+        DELIVERY_TRACK, DELIVERY_VIEW, DELIVERY_CREATE, DELIVERY_EDIT, SHIPMENT_BOOK,
+        CARRIER_MANAGE, CARRIER_CREDENTIAL_MANAGE, SHIPMENT_RATE_VIEW, RATE_CARD_MANAGE,
+        SHIPPING_RULE_MANAGE, FREIGHT_INVOICE_VIEW, FREIGHT_INVOICE_RECONCILE, POD_CAPTURE,
         REPORT_VIEW, REPORT_EXPORT,
         WORKFLOW_ADMIN, WORKFLOW_VIEW,
     ];

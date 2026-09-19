@@ -7,6 +7,7 @@ using SMS.Modules.Demand.Data;
 using SMS.Modules.Demand.Domain;
 using SMS.Modules.Inventory.Data;
 using SMS.Modules.Inventory.Domain;
+using SMS.Modules.Inventory.Services;
 using SMS.Modules.Material.Data;
 using SMS.Modules.Material.Domain;
 using SMS.Modules.Material.Models;
@@ -34,7 +35,7 @@ file static class Build
         var inventory = new InventoryDbContext(new DbContextOptionsBuilder<InventoryDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, tenantContext);
 
-        return (new MirRepository(material, inventory, demand, NullLogger<MirRepository>.Instance), material, demand, inventory);
+        return (new MirRepository(material, inventory, demand, NullLogger<MirRepository>.Instance, new StockReservationService(inventory)), material, demand, inventory);
     }
 
     internal static Product SeedProduct(InventoryDbContext db, Guid uuid, string name = "Lenovo Laptop")
@@ -115,7 +116,7 @@ file static class Build
             .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, tenantContext);
         var logger = new RecordingLogger<MirRepository>();
 
-        return (new MirRepository(material, inventory, demand, logger), material, demand, inventory, logger);
+        return (new MirRepository(material, inventory, demand, logger, new StockReservationService(inventory)), material, demand, inventory, logger);
     }
 }
 

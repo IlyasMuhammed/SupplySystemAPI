@@ -19,6 +19,24 @@ file sealed class FakeEncryption : IEncryptionService
     public string Decrypt(string ciphertext) => ciphertext.StartsWith("ENC:") ? ciphertext[4..] : ciphertext;
 }
 
+/// <summary>
+/// A user with access to every supplier.
+/// <para>
+/// These tests predate supplier-scoped access and assert the unrestricted view, so this restores
+/// exactly what they were written to check. <b>The restricted path is not covered here</b> — see
+/// the note against F33.
+/// </para>
+/// </summary>
+file sealed class UnrestrictedSupplierAccess : IUserSupplierAccessService
+{
+    public Task<bool> IsRestrictedAsync() => Task.FromResult(false);
+
+    public Task<IReadOnlySet<Guid>> GetAllowedSupplierIdsAsync() =>
+        Task.FromResult<IReadOnlySet<Guid>>(new HashSet<Guid>());
+
+    public Task<bool> CanAccessSupplierAsync(Guid supplierUuid) => Task.FromResult(true);
+}
+
 // ── Test builder ──────────────────────────────────────────────────────────────
 
 file static class Build
@@ -31,7 +49,7 @@ file static class Build
         var db = new SuppliersDbContext(opts, new StaticTenantContext());
         seed?.Invoke(db);
         db.SaveChanges();
-        return (new SuppliersRepository(db, new FakeEncryption()), db);
+        return (new SuppliersRepository(db, new FakeEncryption(), new UnrestrictedSupplierAccess()), db);
     }
 
     internal static Supplier Supplier(SuppliersDbContext db,

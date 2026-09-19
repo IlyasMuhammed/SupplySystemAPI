@@ -5,6 +5,7 @@ using SMS.Modules.Finance.Domain;
 using SMS.Modules.Finance.Models;
 using SMS.Modules.Finance.Services;
 using SMS.Modules.Warehouse.Data;
+using SMS.Shared.Common;
 using SMS.Shared.Exceptions;
 using SMS.Shared.Pagination;
 
@@ -12,25 +13,47 @@ namespace SMS.Modules.Finance.Repositories;
 
 internal sealed class InvoiceRepository : IInvoiceRepository
 {
-    private readonly FinanceDbContext      _db;
-    private readonly DemandDbContext       _demand;
-    private readonly WarehouseDbContext    _warehouse;
-    private readonly ISupplierLedgerService _ledger;
+    private readonly FinanceDbContext            _db;
+    private readonly DemandDbContext             _demand;
+    private readonly WarehouseDbContext          _warehouse;
+    private readonly ISupplierLedgerService      _ledger;
+    private readonly ISupplierNameLookupService  _supplierNames;
 
     public InvoiceRepository(
-        FinanceDbContext db, DemandDbContext demand, WarehouseDbContext warehouse, ISupplierLedgerService ledger)
+        FinanceDbContext db, DemandDbContext demand, WarehouseDbContext warehouse,
+        ISupplierLedgerService ledger, ISupplierNameLookupService supplierNames)
     {
-        _db        = db;
-        _demand    = demand;
-        _warehouse = warehouse;
-        _ledger    = ledger;
+        _db            = db;
+        _demand        = demand;
+        _warehouse     = warehouse;
+        _ledger        = ledger;
+        _supplierNames = supplierNames;
+    }
+
+    /// <summary>
+    /// The supplier's name when there is no purchase order to take it from (G10). Denormalised onto
+    /// the invoice for the same reason the PO path denormalises it: a payable has to stay readable
+    /// after the supplier row changes underneath it.
+    /// </summary>
+    private async Task<string> SupplierNameAsync(Guid supplierId)
+    {
+        var names = await _supplierNames.GetNamesAsync([supplierId]);
+
+        return names.TryGetValue(supplierId, out var name) && !string.IsNullOrWhiteSpace(name)
+            ? name
+            : throw new BadRequestException(
+                "That supplier does not exist, so this invoice would name nobody to pay.");
     }
 
     public async Task<Guid> CreateAsync(CreateInvoiceRequest req, int createdBy)
     {
-        var po = await _demand.PurchaseOrders
-            .FirstOrDefaultAsync(p => p.UUID == req.PoUuid && !p.IsDelete)
-            ?? throw new NotFoundException("PurchaseOrder", req.PoUuid);
+        // Optional since G10. A payable raised from a purchase order still has to find it — a
+        // PoUuid that matches nothing is a mistake, not a freight bill — but an invoice that never
+        // claimed to have one is now legitimate.
+        var po = req.PoUuid is { } poUuid
+            ? await _demand.PurchaseOrders.FirstOrDefaultAsync(p => p.UUID == poUuid && !p.IsDelete)
+                  ?? throw new NotFoundException("PurchaseOrder", poUuid)
+            : null;
 
         // When lines are provided, compute subtotal from them
         var subtotal = req.Lines?.Count > 0
@@ -42,8 +65,10 @@ internal sealed class InvoiceRepository : IInvoiceRepository
         if (totalAmount <= 0)
             throw new BadRequestException("Invoice total must be greater than zero.");
 
-        // 3-way matching values
-        var matchedPoValue  = po.TotalAmount;
+        // 3-way matching values. With no purchase order there is nothing to match against, and
+        // zero is the honest figure — the variance below is then the whole amount, which is what
+        // "nobody ordered this" should look like on a matching screen.
+        var matchedPoValue  = po?.TotalAmount ?? 0m;
         var matchedGrnValue = 0m;
 
         if (req.GrnUuid.HasValue)
@@ -56,8 +81,13 @@ internal sealed class InvoiceRepository : IInvoiceRepository
                 matchedGrnValue = grn.Lines.Sum(l => l.QtyAccepted * (l.UnitCost ?? 0));
         }
 
-        var variance    = totalAmount - matchedPoValue;
-        var matchStatus = DetermineMatchStatus(totalAmount, matchedPoValue, matchedGrnValue, req.GrnUuid.HasValue);
+        // With no purchase order there is nothing to be at variance with. Zero, not the whole
+        // amount — and the match stays Pending rather than claiming a match that never happened,
+        // so an invoice nobody ordered still has to be looked at by a person.
+        var variance    = po is null ? 0m : totalAmount - matchedPoValue;
+        var matchStatus = po is null
+            ? "Pending"
+            : DetermineMatchStatus(totalAmount, matchedPoValue, matchedGrnValue, req.GrnUuid.HasValue);
 
         var now           = DateTime.UtcNow;
         var invoiceNumber = await GenerateInvoiceNumberAsync(now.Year);
@@ -65,13 +95,15 @@ internal sealed class InvoiceRepository : IInvoiceRepository
         var e = new Invoice
         {
             UUID              = req.InvoiceUuid is { } gid && gid != Guid.Empty ? gid : Guid.NewGuid(),
-            TraceId           = po.TraceId,
+            // Its own chain when there is no purchase order to hang off — the document timeline
+            // still needs a root, and sharing one with an unrelated PO would be worse than a new one.
+            TraceId           = po?.TraceId ?? Guid.NewGuid(),
             InvoiceNumber     = invoiceNumber,
             SupplierInvoiceNo = req.SupplierInvoiceNo?.Trim(),
             SupplierId        = req.SupplierId,
-            SupplierName      = po.SupplierName,
-            PoUuid            = po.UUID,
-            PoNumber          = po.PoNumber,
+            SupplierName      = po?.SupplierName ?? await SupplierNameAsync(req.SupplierId),
+            PoUuid            = po?.UUID,
+            PoNumber          = po?.PoNumber,
             GrnUuid           = req.GrnUuid,
             InvoiceDate       = req.InvoiceDate,
             ReceivedDate      = req.ReceivedDate,
@@ -340,17 +372,21 @@ internal sealed class InvoiceRepository : IInvoiceRepository
             narration: $"Invoice {inv.InvoiceNumber} approved.", createdBy: approvedBy,
             supplierName: inv.SupplierName);
 
-        // Update PO line QtyInvoiced — prefer invoice lines (precise), fall back to GRN lines
-        var po = await _demand.PurchaseOrders
-            .Include(p => p.Lines)
-            .FirstOrDefaultAsync(p => p.UUID == inv.PoUuid && !p.IsDelete);
+        // Update PO line QtyInvoiced — prefer invoice lines (precise), fall back to GRN lines.
+        // Skipped entirely for an invoice with no purchase order (G10): there is nothing whose
+        // invoiced quantity this could advance.
+        var po = inv.PoUuid is { } poUuid
+            ? await _demand.PurchaseOrders
+                  .Include(p => p.Lines)
+                  .FirstOrDefaultAsync(p => p.UUID == poUuid && !p.IsDelete)
+            : null;
 
         if (po is not null)
         {
             if (inv.Lines.Count > 0)
             {
                 // Line-level invoicing: use exact QtyInvoiced per PO line
-                foreach (var invLine in inv.Lines)
+                foreach (var invLine in inv.Lines.Where(l => l.PoLineUuid.HasValue))
                 {
                     var poLine = po.Lines.FirstOrDefault(l => l.UUID == invLine.PoLineUuid);
                     if (poLine is not null)

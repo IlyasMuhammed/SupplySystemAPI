@@ -40,7 +40,8 @@ file static class Build
             suppliers: suppliers,
             material:  new MaterialDbContext(new DbContextOptionsBuilder<MaterialDbContext>().UseInMemoryDatabase(name).Options, tenantContext),
             userQuery: new Mock<IUserQueryService>().Object,
-            timeline:  new Mock<ITimelineService>().Object);
+            timeline:  new Mock<ITimelineService>().Object,
+            supplierAccess: new UnrestrictedSupplierAccess());
 
         return (repo, finance, suppliers);
     }

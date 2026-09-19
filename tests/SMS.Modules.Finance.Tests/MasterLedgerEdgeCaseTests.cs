@@ -270,7 +270,7 @@ public class MasterLedger_ChequeBounce_Tests
         var supplierId = Guid.NewGuid();
 
         var inv = Build.SeedInvoice(finDb, supplierId, "Supplier A", 300000m, "INV-2026-00001");
-        var invRepo = new InvoiceRepository(finDb, demandDb, whDb, ledger);
+        var invRepo = new InvoiceRepository(finDb, demandDb, whDb, ledger, new FakeSupplierNameLookup());
         await invRepo.ApproveAsync(inv.UUID, null, approvedBy: 1);
 
         // Pre-payment balance: 300,000 owed.
