@@ -187,6 +187,69 @@ public class DeliveryProofTests
             .WithMessage("*a movement that never happened*");
     }
 
+    // A manual carrier is booked and then silent: BOOKED is where its consignment is when the person
+    // who watched the handover types it in. The test above starts from OUT_FOR_DELIVERY, which no manual
+    // carrier ever reaches — so it passed while the real case was refused.
+
+    [Theory]
+    [InlineData("BOOKED")]
+    [InlineData("LABEL_READY")]
+    [InlineData("PICKUP_REQUESTED")]
+    [InlineData("PICKED_UP")]
+    [InlineData("IN_TRANSIT")]
+    [InlineData("OUT_FOR_DELIVERY")]
+    [InlineData("DELIVERY_ATTEMPTED")]
+    [InlineData("EXCEPTION")]
+    public async Task A_handover_delivers_a_consignment_from_anywhere_the_carrier_can_be(string status)
+    {
+        var h = NewHarness();
+        var consignment = await NewConsignment(h, status: status);
+
+        await h.Proofs.RecordAsync(consignment, Record(), User);
+
+        var stored = await h.Db.Consignments.AsNoTracking().SingleAsync(c => c.UUID == consignment);
+
+        stored.Status.Should().Be("DELIVERED");
+        stored.ActualArrivalAt.Should().Be(T0);
+    }
+
+    [Theory]
+    [InlineData("DRAFT")]
+    [InlineData("RATED")]
+    [InlineData("BOOKING")]
+    [InlineData("BOOKING_FAILED")]
+    [InlineData("CANCELLED")]
+    [InlineData("RETURNED_TO_ORIGIN")]
+    [InlineData("LOST")]
+    public async Task A_handover_is_refused_for_a_consignment_that_never_went_with_a_carrier(string status)
+    {
+        var h = NewHarness();
+        var consignment = await NewConsignment(h, status: status);
+
+        var record = async () => await h.Proofs.RecordAsync(consignment, Record(), User);
+
+        await record.Should().ThrowAsync<ConflictException>().WithMessage($"*{status}*");
+
+        (await h.Db.DeliveryProofs.AnyAsync()).Should().BeFalse("a refused handover leaves no proof behind");
+        (await h.Db.Consignments.AsNoTracking().SingleAsync(c => c.UUID == consignment))
+            .Status.Should().Be(status);
+    }
+
+    [Fact]
+    public async Task A_booked_manual_consignment_can_be_delivered_and_proved_in_one_step()
+    {
+        var h = NewHarness();
+        var carrier = await NewCarrier(h);
+        var consignment = await NewConsignment(h, carrier, status: "BOOKED");
+
+        var proof = await h.Proofs.RecordAsync(consignment, Record(receivedBy: "Gate guard"), User);
+
+        proof.Should().NotBeNull();
+
+        var stored = await h.Proofs.GetForConsignmentAsync(consignment);
+        stored.Should().ContainSingle().Which.ReceivedBy.Should().Be("Gate guard");
+    }
+
     [Fact]
     public async Task A_proof_naming_nobody_is_refused_from_a_person()
     {

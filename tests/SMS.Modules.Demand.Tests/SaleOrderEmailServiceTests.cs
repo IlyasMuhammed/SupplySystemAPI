@@ -37,7 +37,7 @@ public class SaleOrderEmailServiceTests
         return (mock, captured);
     }
 
-    private static Harness NewHarness(int ttlHours = 72)
+    private static Harness NewHarness(int ttlHours = 72, bool emailEnabled = true, string? copyEmails = null)
     {
         var orgId = Guid.NewGuid();
         var db = new DemandDbContext(
@@ -46,7 +46,10 @@ public class SaleOrderEmailServiceTests
 
         var stock = new Mock<IStockReservationService>();
         var config = new Mock<ISaleOrderConfigService>();
-        config.Setup(c => c.GetConfigAsync()).ReturnsAsync(new SaleOrderConfigModel { ReservationTtlHours = ttlHours });
+        config.Setup(c => c.GetConfigAsync()).ReturnsAsync(new SaleOrderConfigModel
+        {
+            ReservationTtlHours = ttlHours, EmailIntimationEnabled = emailEnabled, IntimationCcEmails = copyEmails
+        });
         var orgChart = new Mock<IOrgChartService>();
         var users = new Mock<IUserQueryService>();
         var partnerNames = new Mock<ISupplierNameLookupService>();
@@ -134,6 +137,83 @@ public class SaleOrderEmailServiceTests
 
         var row = await h.Db.SaleOrderIntimations.AsNoTracking().SingleAsync();
         row.Recipients.Should().Contain("creator@x.com").And.Contain("head@x.com");
+    }
+
+    // ── The organization's email settings ──────────────────────────────────────
+
+    [Fact]
+    public async Task SendConfirmation_also_goes_to_the_copy_list_without_repeating_anyone()
+    {
+        var h = NewHarness(copyEmails: "audit@x.com, Creator@x.com, ops@x.com");
+        h.Users.Setup(u => u.GetUserEmailAsync(Creator)).ReturnsAsync("creator@x.com");
+        var orderUuid = await SeedOrder(h, (Guid.NewGuid(), 10m, "IN_STOCK", 0m, 10m, null));
+
+        await h.Service.SendConfirmationAsync(orderUuid);
+
+        var recipients = (await h.Db.SaleOrderIntimations.AsNoTracking().SingleAsync()).Recipients
+            .Split(", ", StringSplitOptions.RemoveEmptyEntries);
+        recipients.Should().BeEquivalentTo(["creator@x.com", "audit@x.com", "ops@x.com"]);
+        recipients.Count(r => r.Equals("creator@x.com", StringComparison.OrdinalIgnoreCase)).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task SendConfirmation_goes_only_to_the_copy_list_when_nobody_else_can_be_found()
+    {
+        var h = NewHarness(copyEmails: "audit@x.com");
+        h.Users.Setup(u => u.GetUserEmailAsync(Creator)).ReturnsAsync((string?)null);
+        var orderUuid = await SeedOrder(h, (Guid.NewGuid(), 10m, "IN_STOCK", 0m, 10m, null));
+
+        await h.Service.SendConfirmationAsync(orderUuid);
+
+        var row = await h.Db.SaleOrderIntimations.AsNoTracking().SingleAsync();
+        row.Recipients.Should().Be("audit@x.com");
+        row.Status.Should().Be("QUEUED");
+    }
+
+    [Fact]
+    public async Task The_copy_list_is_for_the_confirmation_only()
+    {
+        var h = NewHarness(copyEmails: "audit@x.com");
+        h.Users.Setup(u => u.GetUserEmailAsync(Creator)).ReturnsAsync("creator@x.com");
+        var orderUuid = await SeedOrder(h, (Guid.NewGuid(), 10m, "IN_STOCK", 0m, 10m, null));
+        h.Stock.Setup(s => s.GetBySourceAsync(ReservationSourceType.SalesOrder, orderUuid, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new ReservationSummary(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 10m, "ACTIVE", null)]);
+
+        await h.Service.SendReservedAsync(orderUuid);
+
+        (await h.Db.SaleOrderIntimations.AsNoTracking().SingleAsync()).Recipients.Should().Be("creator@x.com");
+    }
+
+    [Fact]
+    public async Task With_email_intimation_off_nothing_is_written_queued_or_sent()
+    {
+        var h = NewHarness(emailEnabled: false, copyEmails: "audit@x.com");
+        h.Users.Setup(u => u.GetUserEmailAsync(Creator)).ReturnsAsync("creator@x.com");
+        var orderUuid = await SeedOrder(h, (Guid.NewGuid(), 10m, "IN_STOCK", 0m, 10m, null));
+        h.Stock.Setup(s => s.GetBySourceAsync(ReservationSourceType.SalesOrder, orderUuid, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new ReservationSummary(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 10m, "ACTIVE", null)]);
+
+        await h.Service.SendConfirmationAsync(orderUuid);
+        await h.Service.SendReservedAsync(orderUuid);
+        await h.Service.SendDropShipAsync(orderUuid);
+        await h.Service.SendGrnReceivedAsync(orderUuid, "GRN-1", 5m, 5m);
+        await h.Service.SendFulfilledAsync(orderUuid, "DO-1", 10m);
+
+        (await h.Db.SaleOrderIntimations.CountAsync()).Should().Be(0);
+        h.CapturedJobs.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Turning_email_intimation_back_on_sends_again()
+    {
+        var h = NewHarness(emailEnabled: true);
+        h.Users.Setup(u => u.GetUserEmailAsync(Creator)).ReturnsAsync("creator@x.com");
+        var orderUuid = await SeedOrder(h, (Guid.NewGuid(), 10m, "IN_STOCK", 0m, 10m, null));
+
+        await h.Service.SendConfirmationAsync(orderUuid);
+
+        (await h.Db.SaleOrderIntimations.CountAsync()).Should().Be(1);
+        h.CapturedJobs.Should().HaveCount(1);
     }
 
     [Fact]

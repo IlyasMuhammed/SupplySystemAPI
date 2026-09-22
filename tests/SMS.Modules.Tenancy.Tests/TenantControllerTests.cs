@@ -70,6 +70,27 @@ public class TenantControllerTests
     }
 
     [Fact]
+    public async Task GetCurrent_ReturnsTheBaseCurrency_WhenOneIsConfigured_AndNullWhenNot()
+    {
+        var withCurrency = Guid.NewGuid();
+        var currencyId = Guid.NewGuid();
+        var configured = NewController(
+            new OrganizationDetailModel { Id = withCurrency, OrgCode = "A", BaseCurrency = currencyId },
+            new List<OrganizationFeatureModel>(), withCurrency, isSuperAdmin: false, roleName: "User", permissions: Array.Empty<string>());
+
+        var withoutCurrency = Guid.NewGuid();
+        var unconfigured = NewController(
+            new OrganizationDetailModel { Id = withoutCurrency, OrgCode = "B", BaseCurrency = null },
+            new List<OrganizationFeatureModel>(), withoutCurrency, isSuperAdmin: false, roleName: "User", permissions: Array.Empty<string>());
+
+        var configuredBody = ((OkObjectResult)await configured.GetCurrent()).Value.Should().BeOfType<ApiResponse<CurrentTenantModel>>().Subject;
+        var unconfiguredBody = ((OkObjectResult)await unconfigured.GetCurrent()).Value.Should().BeOfType<ApiResponse<CurrentTenantModel>>().Subject;
+
+        configuredBody.Result!.BaseCurrency.Should().Be(currencyId);
+        unconfiguredBody.Result!.BaseCurrency.Should().BeNull();
+    }
+
+    [Fact]
     public async Task GetCurrent_OrganizationNotFound_ReturnsNotFound()
     {
         var orgId = Guid.NewGuid();

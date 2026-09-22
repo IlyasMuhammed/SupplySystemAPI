@@ -75,6 +75,54 @@ export interface SaleOrderFilter {
   pageSize?: number;
 }
 
+/** One line of a create or update. The unit price is not sent: the server resolves it from the pricing rules. */
+export interface SaleOrderLineRequest {
+  variantUuid: string;
+  quantity: number;
+  discountPercent: number;
+  taxPercent: number;
+}
+
+/** POST /api/sale-orders. The order is created as a DRAFT. */
+export interface CreateSaleOrderRequest {
+  partnerId: string;
+  orderDate?: string;
+  expectedDeliveryDate?: string;
+  /** The organization's base currency when omitted. */
+  currencyId?: string;
+  /** SHIP | SELF_PICKUP */
+  deliveryMode: string;
+  /** Required for SHIP; a logistics address uuid. */
+  shippingAddressId?: string;
+  intimationDepartmentId?: number;
+  notes?: string;
+  lines: SaleOrderLineRequest[];
+}
+
+/**
+ * PUT /api/sale-orders/{id}, a DRAFT only. The customer cannot be changed, and every field here replaces
+ * what the order has: an omitted currency falls back to the organization's, and omitted lines are gone.
+ */
+export interface UpdateSaleOrderRequest {
+  expectedDeliveryDate?: string;
+  currencyId?: string;
+  deliveryMode: string;
+  shippingAddressId?: string;
+  intimationDepartmentId?: number;
+  notes?: string;
+  lines: SaleOrderLineRequest[];
+}
+
+/** What confirming the order would find for one line right now. Reserves nothing. */
+export interface SaleOrderLineAvailabilityModel {
+  variantUuid: string;
+  orderedQty: number;
+  availableQty: number;
+  deficitQty: number;
+  warehouseUuid?: string;
+  warehouseName?: string;
+}
+
 /**
  * POST /api/sale-orders/{id}/create-delivery. Every field is optional; an empty body delivers
  * everything outstanding in the order's own mode. `lines[].sourceLineUuid` is the sale order
@@ -93,11 +141,23 @@ export interface CreateSaleOrderDeliveryRequest {
   lines?: SourceLineSelection[];
 }
 
+/** What a new order starts as, from the organization's sale order settings (§8.1). */
+export interface SaleOrderDefaultsModel {
+  /** SHIP | SELF_PICKUP */
+  deliveryMode: string;
+  /** False when every order has to be shipped. */
+  selfPickupEnabled: boolean;
+}
+
 @Injectable({ providedIn: 'root' })
 export class SaleOrderService {
   private readonly baseUrl = `${environment.apiUrl}/sale-orders`;
 
   constructor(private http: HttpClient) {}
+
+  getDefaults(): Observable<ApiResponse<SaleOrderDefaultsModel>> {
+    return this.http.get<ApiResponse<SaleOrderDefaultsModel>>(`${this.baseUrl}/defaults`);
+  }
 
   getSaleOrders(filter: SaleOrderFilter = {}): Observable<ApiResponse<PaginatedResponse<SaleOrderModel>>> {
     let params = new HttpParams();
@@ -113,6 +173,31 @@ export class SaleOrderService {
 
   getSaleOrderById(uuid: string): Observable<ApiResponse<SaleOrderModel>> {
     return this.http.get<ApiResponse<SaleOrderModel>>(`${this.baseUrl}/${uuid}`);
+  }
+
+  /** Creates a DRAFT order. Returns its uuid. */
+  createSaleOrder(req: CreateSaleOrderRequest): Observable<ApiResponse<string>> {
+    return this.http.post<ApiResponse<string>>(this.baseUrl, req);
+  }
+
+  /** Replaces a DRAFT order's details and lines. */
+  updateSaleOrder(uuid: string, req: UpdateSaleOrderRequest): Observable<ApiResponse> {
+    return this.http.put<ApiResponse>(`${this.baseUrl}/${uuid}`, req);
+  }
+
+  /** DRAFT to CONFIRMED: reserves what stock there is and raises purchase orders for the rest. */
+  confirmSaleOrder(uuid: string): Observable<ApiResponse> {
+    return this.http.post<ApiResponse>(`${this.baseUrl}/${uuid}/confirm`, {});
+  }
+
+  /** Cancels the order, releasing its reservations and cancelling its draft purchase orders. */
+  cancelSaleOrder(uuid: string, reason?: string): Observable<ApiResponse> {
+    return this.http.post<ApiResponse>(`${this.baseUrl}/${uuid}/cancel`, { reason: reason || null });
+  }
+
+  /** A preview of what confirming would find, line by line. Changes nothing. */
+  getAvailability(uuid: string): Observable<ApiResponse<SaleOrderLineAvailabilityModel[]>> {
+    return this.http.get<ApiResponse<SaleOrderLineAvailabilityModel[]>>(`${this.baseUrl}/${uuid}/availability`);
   }
 
   /** Every delivery raised for the order, oldest first. 404 when the order does not exist. */

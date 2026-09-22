@@ -69,6 +69,27 @@ public class AttachmentsController : ControllerBase
         return Ok(ApiResponse<Guid>.Ok(uuid, "Attachment uploaded."));
     }
 
+    /// <summary>
+    /// A document the system generated and filed (see <see cref="IAttachmentService.StoreGeneratedAsync"/>).
+    /// Read through here rather than as a static file, so it is only ever served to a signed-in user of
+    /// the organization that owns it — and only to one holding the permission the filing module named.
+    /// </summary>
+    [HttpGet("{uuid:guid}/content")]
+    public async Task<IActionResult> GetContent(Guid uuid)
+    {
+        var file = await _svc.GetContentAsync(uuid);
+        if (file is null)
+            return NotFound(ApiResponse.Fail("Attachment not found."));
+
+        if (file.RequiredPermission is not null && !User.HasPermission(file.RequiredPermission))
+            return StatusCode(StatusCodes.Status403Forbidden, ApiResponse.Fail("You do not have permission to open this document."));
+
+        // Sensitive and regenerable: never left in a shared cache, never sniffed into another type.
+        Response.Headers.CacheControl = "private, no-store";
+        Response.Headers["X-Content-Type-Options"] = "nosniff";
+        return File(file.Content, file.ContentType, file.FileName);
+    }
+
     // GET /api/attachments?interface={code}&documentId={id}
     [HttpGet]
     public async Task<IActionResult> GetByDocument(

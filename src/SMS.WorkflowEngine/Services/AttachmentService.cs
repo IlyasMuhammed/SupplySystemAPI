@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using Microsoft.EntityFrameworkCore;
 using SMS.Shared.Common;
 using SMS.Shared.Exceptions;
@@ -44,6 +45,100 @@ internal sealed class AttachmentService : IAttachmentService
         _db.DocumentAttachments.Add(entity);
         await _db.SaveChangesAsync();
         return entity.UUID;
+    }
+
+    /// <summary>The same ceiling the upload endpoint applies.</summary>
+    internal const int MaxGeneratedBytes = 20 * 1024 * 1024;
+
+    public async Task<StoredAttachment> StoreGeneratedAsync(GeneratedAttachmentRequest req, int uploadedBy)
+    {
+        ArgumentNullException.ThrowIfNull(req);
+
+        if (string.IsNullOrWhiteSpace(req.InterfaceCode))
+            throw new BadRequestException("InterfaceCode is required.");
+        if (req.InterfaceCode.Length > 30)
+            throw new BadRequestException("InterfaceCode is longer than 30 characters.");
+        if (req.DocumentId == Guid.Empty)
+            throw new BadRequestException("DocumentId is required.");
+
+        var fileName = SafeFileName(req.FileName);
+
+        // Only PDFs, and only if the bytes really are one: this is served back from our own origin,
+        // so a file that claims to be a PDF and is a web page is script running in a user's session.
+        if (!string.Equals(req.ContentType, "application/pdf", StringComparison.OrdinalIgnoreCase))
+            throw new BadRequestException("Only application/pdf documents can be filed this way.");
+        if (req.Content is null || req.Content.Length == 0)
+            throw new BadRequestException("The document is empty.");
+        if (req.Content.Length > MaxGeneratedBytes)
+            throw new BadRequestException("The document is larger than 20 MB.");
+        if (!req.Content.AsSpan().StartsWith("%PDF-"u8))
+            throw new BadRequestException("The document is not a PDF.");
+        if (req.Notes is { Length: > 300 })
+            throw new BadRequestException("Notes are longer than 300 characters.");
+        if (req.RequiredPermission is { Length: > 100 })
+            throw new BadRequestException("RequiredPermission is longer than 100 characters.");
+
+        var sha256 = Convert.ToHexString(SHA256.HashData(req.Content)).ToLowerInvariant();
+
+        var existing = await (
+            from attachment in _db.DocumentAttachments
+            join file in _db.DocumentAttachmentContents on attachment.Id equals file.DocumentAttachmentId
+            where attachment.InterfaceCode == req.InterfaceCode
+               && attachment.DocumentId    == req.DocumentId
+               && !attachment.IsDelete
+               && file.Sha256 == sha256
+            select attachment.UUID).FirstOrDefaultAsync();
+
+        if (existing != Guid.Empty)
+            return new StoredAttachment(existing, AlreadyStored: true);
+
+        var uuid = Guid.NewGuid();
+        var entity = new DocumentAttachment
+        {
+            UUID          = uuid,
+            InterfaceCode = req.InterfaceCode,
+            DocumentId    = req.DocumentId,
+            FileName      = fileName,
+            FileUrl       = $"/api/attachments/{uuid}/content",
+            FileSize      = req.Content.Length,
+            ContentType   = "application/pdf",
+            Notes         = req.Notes,
+            UploadedBy    = uploadedBy,
+            UploadedDate  = DateTime.UtcNow
+        };
+
+        _db.DocumentAttachments.Add(entity);
+        _db.DocumentAttachmentContents.Add(new DocumentAttachmentContent
+        {
+            DocumentAttachment = entity,
+            Content            = req.Content,
+            Sha256             = sha256,
+            RequiredPermission = req.RequiredPermission
+        });
+
+        await _db.SaveChangesAsync();
+        return new StoredAttachment(uuid, AlreadyStored: false);
+    }
+
+    public async Task<AttachmentContent?> GetContentAsync(Guid uuid) =>
+        await (
+            from attachment in _db.DocumentAttachments
+            join file in _db.DocumentAttachmentContents on attachment.Id equals file.DocumentAttachmentId
+            where attachment.UUID == uuid && !attachment.IsDelete
+            select new AttachmentContent(
+                file.Content, attachment.FileName, attachment.ContentType ?? "application/octet-stream", file.RequiredPermission))
+        .FirstOrDefaultAsync();
+
+    /// <summary>Built by the filing module, but still made safe to put in a header and on a disk.</summary>
+    private static string SafeFileName(string? name)
+    {
+        var leaf = Path.GetFileName((name ?? string.Empty).Trim());
+        var cleaned = new string(leaf.Where(c => !char.IsControl(c) && Array.IndexOf(Path.GetInvalidFileNameChars(), c) < 0).ToArray());
+
+        if (string.IsNullOrWhiteSpace(cleaned))
+            throw new BadRequestException("FileName is required.");
+
+        return cleaned.Length <= 255 ? cleaned : cleaned[..255];
     }
 
     public async Task<List<AttachmentModel>> GetByDocumentAsync(string interfaceCode, Guid documentId)

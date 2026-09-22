@@ -139,6 +139,35 @@ export class AttachmentListComponent implements OnChanges {
 
   resolveUrl(url: string): string { return this.attachmentService.resolveUrl(url); }
 
+  // An uploaded file is a public static url and opens as a plain link. A generated document is served
+  // by the API behind the caller's token, which a link cannot carry: it has no href to fall back to
+  // (a middle-click would only open an "unauthorized" page), and is fetched and shown here instead.
+  hrefFor(att: AttachmentModel): string | null {
+    return this.attachmentService.isApiUrl(att.fileUrl) ? null : this.resolveUrl(att.fileUrl);
+  }
+
+  open(att: AttachmentModel, event: Event) {
+    if (!this.attachmentService.isApiUrl(att.fileUrl)) return;
+
+    event.preventDefault();
+    this.attachmentService.download(att.fileUrl).subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(new Blob([blob], { type: att.contentType || blob.type }));
+        window.open(url, '_blank', 'noopener');
+        // The new tab has the bytes by now; do not keep them alive for the life of this page.
+        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      },
+      error: (err) => {
+        const detail = err?.status === 403
+          ? 'You do not have permission to open this document.'
+          : err?.status === 404
+            ? 'This document is no longer available.'
+            : 'The document could not be opened. Try again.';
+        this.messageService.add({ severity: 'error', summary: 'Error', detail });
+      }
+    });
+  }
+
   formatSize(bytes?: number): string {
     if (!bytes) return '';
     if (bytes < 1024) return `${bytes} B`;

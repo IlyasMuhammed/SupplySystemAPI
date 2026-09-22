@@ -29,8 +29,14 @@
       </div>
 
       <div class="header-actions">
-        <p-button icon="pi pi-history" label="Timeline" [text]="true" severity="secondary"
-                  (onClick)="timelineVisible = true"></p-button>
+        <p-button *ngIf="canEdit" label="Edit" icon="pi pi-pencil" [text]="true" severity="secondary"
+                  [routerLink]="['/portal/pages/sales/orders', o.uuid, 'edit']" data-testid="action-edit"></p-button>
+
+        <p-button *ngIf="canCancel" label="Cancel order" icon="pi pi-times-circle" severity="danger" [outlined]="true"
+                  (onClick)="openCancelDialog()" data-testid="action-cancel"></p-button>
+
+        <p-button *ngIf="canConfirm" label="Confirm order" icon="pi pi-check-circle"
+                  (onClick)="openConfirmDialog()" data-testid="action-confirm"></p-button>
 
         <p-button *ngIf="canCreateDelivery" label="Create delivery" icon="pi pi-truck"
                   (onClick)="openCreateDialog()" data-testid="action-create-delivery"></p-button>
@@ -44,6 +50,10 @@
           <dt>Order date</dt><dd>{{ o.orderDate | date:'dd MMM yyyy' }}</dd>
           <dt>Expected</dt><dd>{{ o.expectedDeliveryDate ? (o.expectedDeliveryDate | date:'dd MMM yyyy') : '—' }}</dd>
           <dt>Delivery mode</dt><dd>{{ formatStatus(o.deliveryMode) }}</dd>
+          <ng-container *ngIf="o.deliveryMode === 'SHIP'">
+            <dt>Ship to</dt>
+            <dd data-testid="ship-to">{{ shipTo ? formatAddress(shipTo) : (o.shippingAddressId ? 'Address on file' : '—') }}</dd>
+          </ng-container>
           <dt>Subtotal</dt><dd>{{ o.subtotal | number:'1.2-2' }}</dd>
           <dt>Tax</dt><dd>{{ o.taxAmount | number:'1.2-2' }}</dd>
           <dt>Discount</dt><dd>{{ o.discountAmount | number:'1.2-2' }}</dd>
@@ -63,21 +73,25 @@
         <p class="muted" *ngIf="deliveries.length">
           {{ deliveries.length }} deliver{{ deliveries.length === 1 ? 'y' : 'ies' }} raised.
         </p>
-        <p class="muted" *ngIf="!deliveries.length && !isLoadingDeliveries">No delivery raised yet.</p>
+        <p class="muted" *ngIf="!deliveries.length && !isLoadingDeliveries && canViewDeliveries">No delivery raised yet.</p>
       </div>
     </div>
 
-    <p-tabView styleClass="order-tabs">
+    <p-tabView styleClass="order-tabs" [(activeIndex)]="activeTab" (onChange)="onTabChange($event)">
 
+      <!-- ── Lines ─────────────────────────────────────────────────────────────── -->
       <p-tabPanel header="Lines" leftIcon="pi pi-list">
         <div class="table-card flush">
-          <p-table [value]="o.lines" [tableStyle]="{'min-width':'60rem'}" data-testid="lines-table">
+          <p-table [value]="o.lines" [tableStyle]="{'min-width':'68rem'}" data-testid="lines-table">
             <ng-template pTemplate="header">
               <tr>
                 <th>Item</th>
                 <th>UoM</th>
                 <th class="text-right">Ordered</th>
                 <th class="text-right">Unit price</th>
+                <th class="text-right">Disc %</th>
+                <th class="text-right">Tax %</th>
+                <th class="text-right">Total</th>
                 <th class="text-right">Delivered</th>
                 <th class="text-right">Outstanding</th>
                 <th>Mode</th>
@@ -93,6 +107,9 @@
                 <td>{{ line.unitOfMeasure || '—' }}</td>
                 <td class="text-right">{{ line.quantity | number:'1.0-3' }}</td>
                 <td class="text-right">{{ line.unitPrice | number:'1.2-2' }}</td>
+                <td class="text-right">{{ line.discountPercent | number:'1.0-2' }}</td>
+                <td class="text-right">{{ line.taxPercent | number:'1.0-2' }}</td>
+                <td class="text-right">{{ line.lineTotal | number:'1.2-2' }}</td>
                 <td class="text-right">{{ line.fulfilledQty | number:'1.0-3' }}</td>
                 <td class="text-right">{{ outstanding(line) | number:'1.0-3' }}</td>
                 <td>{{ formatStatus(line.fulfillmentMode) || '—' }}</td>
@@ -100,14 +117,19 @@
               </tr>
             </ng-template>
             <ng-template pTemplate="emptymessage">
-              <tr><td colspan="8" class="text-center text-secondary" style="padding:2rem">No lines.</td></tr>
+              <tr><td colspan="11" class="text-center text-secondary" style="padding:2rem">No lines.</td></tr>
             </ng-template>
           </p-table>
         </div>
       </p-tabPanel>
 
+      <!-- ── Deliveries ────────────────────────────────────────────────────────── -->
       <p-tabPanel header="Deliveries" leftIcon="pi pi-truck">
-        <div class="table-card flush">
+        <p class="no-access" *ngIf="!canViewDeliveries" data-testid="deliveries-no-access">
+          <i class="pi pi-lock"></i> You do not have permission to see deliveries.
+        </p>
+
+        <div class="table-card flush" *ngIf="canViewDeliveries">
           <p-table [value]="deliveries" [loading]="isLoadingDeliveries"
                    [tableStyle]="{'min-width':'56rem'}" data-testid="deliveries-table">
             <ng-template pTemplate="header">
@@ -149,10 +171,201 @@
         </div>
       </p-tabPanel>
 
-    </p-tabView>
+      <!-- ── Invoices ──────────────────────────────────────────────────────────── -->
+      <p-tabPanel header="Invoices" leftIcon="pi pi-file">
+        <p class="no-access" *ngIf="!canViewInvoices" data-testid="invoices-no-access">
+          <i class="pi pi-lock"></i> You do not have permission to see invoices.
+        </p>
 
-    <app-timeline-panel [traceId]="o.traceId" interfaceCode="SO" [(visible)]="timelineVisible"></app-timeline-panel>
+        <ng-container *ngIf="canViewInvoices">
+          <div class="totals-strip" *ngIf="invoiceTotals.length" data-testid="invoice-totals">
+            <div class="total-chip" *ngFor="let t of invoiceTotals">
+              <span class="chip-label">Invoiced</span><strong>{{ t.invoiced | number:'1.2-2' }}</strong>
+              <span class="chip-label">Paid</span><strong>{{ t.paid | number:'1.2-2' }}</strong>
+              <span class="chip-label">Balance due</span><strong>{{ t.balance | number:'1.2-2' }}</strong>
+              <span class="chip-currency">{{ t.currencyCode }}</span>
+            </div>
+          </div>
+
+          <div class="table-card flush">
+            <p-table [value]="invoices" [loading]="isLoadingInvoices"
+                     [tableStyle]="{'min-width':'62rem'}" data-testid="invoices-table">
+              <ng-template pTemplate="header">
+                <tr>
+                  <th>Invoice #</th>
+                  <th>Delivery</th>
+                  <th>Invoice date</th>
+                  <th>Due</th>
+                  <th class="text-right">Total</th>
+                  <th class="text-right">Paid</th>
+                  <th class="text-right">Balance</th>
+                  <th>Status</th>
+                  <th class="text-center">PDF</th>
+                </tr>
+              </ng-template>
+              <ng-template pTemplate="body" let-inv>
+                <tr>
+                  <td class="font-mono font-semibold">
+                    <a class="source-link" [routerLink]="['/portal/pages/finance/sales-invoices', inv.uuid]"
+                       data-testid="invoice-link">{{ inv.invoiceNumber }}</a>
+                  </td>
+                  <td class="font-mono">{{ inv.deliveryNumber || '—' }}</td>
+                  <td>{{ inv.invoiceDate | date:'dd MMM yyyy' }}</td>
+                  <td>{{ inv.dueDate | date:'dd MMM yyyy' }}</td>
+                  <td class="text-right">{{ inv.grandTotal | number:'1.2-2' }} <span class="cur">{{ inv.currencyCode }}</span></td>
+                  <td class="text-right">{{ inv.amountPaid | number:'1.2-2' }}</td>
+                  <td class="text-right">{{ inv.balanceDue | number:'1.2-2' }}</td>
+                  <td><p-tag [value]="formatStatus(inv.status)" [severity]="getInvoiceSeverity(inv.status)"></p-tag></td>
+                  <td class="text-center">
+                    <p-button icon="pi pi-file-pdf" [text]="true" severity="secondary" size="small"
+                              pTooltip="Open the invoice PDF" [disabled]="inv.status === 'DRAFT'"
+                              (onClick)="downloadInvoicePdf(inv)" data-testid="invoice-pdf"></p-button>
+                  </td>
+                </tr>
+              </ng-template>
+              <ng-template pTemplate="emptymessage">
+                <tr>
+                  <td colspan="9" class="text-center text-secondary" style="padding:2rem">
+                    {{ invoicesFailed ? 'The invoices could not be loaded.' : 'Nothing has been invoiced for this order yet.' }}
+                  </td>
+                </tr>
+              </ng-template>
+            </p-table>
+          </div>
+        </ng-container>
+      </p-tabPanel>
+
+      <!-- ── Payments ──────────────────────────────────────────────────────────── -->
+      <p-tabPanel header="Payments" leftIcon="pi pi-wallet">
+        <p class="no-access" *ngIf="!canViewInvoices" data-testid="payments-no-access">
+          <i class="pi pi-lock"></i> You do not have permission to see payments against invoices.
+        </p>
+
+        <ng-container *ngIf="canViewInvoices">
+          <p class="muted" *ngIf="invoicesFailed && payments.length">Some invoices could not be read, so this list may be incomplete.</p>
+
+          <div class="table-card flush">
+            <p-table [value]="payments" [loading]="isLoadingInvoices"
+                     [tableStyle]="{'min-width':'52rem'}" data-testid="payments-table">
+              <ng-template pTemplate="header">
+                <tr>
+                  <th>Payment #</th>
+                  <th>Date</th>
+                  <th>Method</th>
+                  <th>Applied to</th>
+                  <th class="text-right">Amount applied</th>
+                  <th>Status</th>
+                </tr>
+              </ng-template>
+              <ng-template pTemplate="body" let-p>
+                <tr>
+                  <td class="font-mono font-semibold">
+                    <a *ngIf="canViewPayments; else plainPayment" class="source-link"
+                       [routerLink]="['/portal/pages/finance/customer-payments', p.paymentUuid]"
+                       data-testid="payment-link">{{ p.paymentNumber }}</a>
+                    <ng-template #plainPayment>{{ p.paymentNumber }}</ng-template>
+                  </td>
+                  <td>{{ p.paymentDate | date:'dd MMM yyyy' }}</td>
+                  <td>{{ formatStatus(p.paymentMethod) }}</td>
+                  <td class="font-mono">{{ p.invoiceNumber }}</td>
+                  <td class="text-right">{{ p.allocatedAmount | number:'1.2-2' }} <span class="cur">{{ p.currencyCode }}</span></td>
+                  <td><p-tag [value]="formatStatus(p.paymentStatus)" [severity]="getPaymentSeverity(p.paymentStatus)"></p-tag></td>
+                </tr>
+              </ng-template>
+              <ng-template pTemplate="emptymessage">
+                <tr>
+                  <td colspan="6" class="text-center text-secondary" style="padding:2rem">
+                    {{ invoicesFailed ? 'The payments could not be loaded.' : 'No payment has been applied to this order\'s invoices yet.' }}
+                  </td>
+                </tr>
+              </ng-template>
+            </p-table>
+          </div>
+        </ng-container>
+      </p-tabPanel>
+
+      <!-- ── Timeline ──────────────────────────────────────────────────────────── -->
+      <p-tabPanel header="Timeline" leftIcon="pi pi-history">
+        <!-- Rendered when the tab is first opened, so the page does not fetch it for a reader who never looks. -->
+        <ng-template pTemplate="content">
+          <app-timeline-panel [traceId]="o.traceId" interfaceCode="SO" [inline]="true"></app-timeline-panel>
+        </ng-template>
+      </p-tabPanel>
+
+    </p-tabView>
   </ng-container>
+
+  <!-- ── Confirm ───────────────────────────────────────────────────────────────── -->
+
+  <p-dialog header="Confirm this order" [(visible)]="confirmDialogVisible" [modal]="true"
+            [style]="{width:'46rem'}" [draggable]="false" data-testid="confirm-dialog">
+    <p class="dialog-hint">
+      Confirming reserves the stock there is, and raises purchase orders for whatever is short. The customer is told.
+    </p>
+
+    <div *ngIf="isLoadingAvailability" class="dialog-loading" data-testid="availability-loading">
+      <i class="pi pi-spin pi-spinner"></i> Checking stock…
+    </div>
+
+    <p class="dialog-warning" *ngIf="availabilityFailed" data-testid="availability-failed">
+      <i class="pi pi-info-circle"></i> Stock could not be checked just now. You can still confirm the order.
+    </p>
+
+    <p-table *ngIf="!isLoadingAvailability && availability.length" [value]="availability"
+             styleClass="p-datatable-sm" data-testid="availability-table">
+      <ng-template pTemplate="header">
+        <tr>
+          <th>Item</th>
+          <th class="text-right">Ordered</th>
+          <th class="text-right">In stock</th>
+          <th class="text-right">Short</th>
+          <th>Warehouse</th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-a>
+        <tr [class.line-short]="a.deficitQty > 0">
+          <td>{{ a.description }}</td>
+          <td class="text-right">{{ a.orderedQty | number:'1.0-3' }}</td>
+          <td class="text-right">{{ a.availableQty | number:'1.0-3' }}</td>
+          <td class="text-right">{{ a.deficitQty | number:'1.0-3' }}</td>
+          <td>{{ a.warehouseName || '—' }}</td>
+        </tr>
+      </ng-template>
+    </p-table>
+
+    <p class="dialog-warning" *ngIf="shortfalls.length" data-testid="shortfall-note">
+      <i class="pi pi-exclamation-triangle"></i>
+      {{ shortfalls.length }} line{{ shortfalls.length === 1 ? ' is' : 's are' }} short. A purchase order will be raised
+      for what is missing.
+    </p>
+
+    <ng-template pTemplate="footer">
+      <p-button label="Back" [text]="true" severity="secondary" (onClick)="confirmDialogVisible = false"></p-button>
+      <p-button label="Confirm order" icon="pi pi-check" [disabled]="isConfirming" [loading]="isConfirming"
+                (onClick)="confirmOrder()" data-testid="confirm-order"></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <!-- ── Cancel ────────────────────────────────────────────────────────────────── -->
+
+  <p-dialog header="Cancel this order" [(visible)]="cancelDialogVisible" [modal]="true"
+            [style]="{width:'34rem'}" [draggable]="false" data-testid="cancel-dialog">
+    <p class="dialog-hint">
+      Its reservations are released and its draft purchase orders are cancelled. This cannot be undone.
+    </p>
+
+    <div class="dialog-row">
+      <label class="dialog-label" for="cancel-reason">Reason</label>
+      <textarea pTextarea id="cancel-reason" [(ngModel)]="cancelReason" rows="3" class="w-full"
+                placeholder="Optional — why the order is being cancelled." data-testid="cancel-reason"></textarea>
+    </div>
+
+    <ng-template pTemplate="footer">
+      <p-button label="Keep the order" [text]="true" severity="secondary" (onClick)="cancelDialogVisible = false"></p-button>
+      <p-button label="Cancel order" icon="pi pi-times" severity="danger" [disabled]="isCancelling" [loading]="isCancelling"
+                (onClick)="cancelOrder()" data-testid="cancel-order"></p-button>
+    </ng-template>
+  </p-dialog>
 
   <!-- ── Create delivery ──────────────────────────────────────────────────────── -->
 

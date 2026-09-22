@@ -4,6 +4,7 @@ using SMS.Modules.Logistics.Services;
 using SMS.Shared.Authorization;
 using SMS.Shared.Constants;
 using SMS.Shared.Pagination;
+using SMS.WorkflowEngine.Models;
 
 namespace SMS.Modules.Logistics.Controllers;
 
@@ -25,17 +26,20 @@ public class DeliveriesController : ControllerBase
     private readonly IPickListService         _pickLists;
     private readonly IPackageService          _packages;
     private readonly IDeliveryDocumentService _documents;
+    private readonly IGatePassArchive         _gatePasses;
 
     public DeliveriesController(
         IDeliveryService svc,
         IPickListService pickLists,
         IPackageService packages,
-        IDeliveryDocumentService documents)
+        IDeliveryDocumentService documents,
+        IGatePassArchive gatePasses)
     {
-        _svc       = svc;
-        _pickLists = pickLists;
-        _packages  = packages;
-        _documents = documents;
+        _svc        = svc;
+        _pickLists  = pickLists;
+        _packages   = packages;
+        _documents  = documents;
+        _gatePasses = gatePasses;
     }
 
     [RequirePermission(PermissionCodes.DELIVERY_CREATE)]
@@ -219,10 +223,20 @@ public class DeliveriesController : ControllerBase
     [HttpPost("{uuid:guid}/pickup")]
     public async Task<IActionResult> RecordPickup(Guid uuid, [FromBody] RecordPickupRequest req)
     {
-        var result = await _svc.RecordPickupAsync(uuid, req, User.GetUserId());
-        return result is null
-            ? NotFound(ApiResponse.Fail(StaticResponseMessage.recordNotFound))
-            : Ok(ApiResponse<PickupResultModel>.Ok(result, "Collection recorded. Delivery marked as delivered."));
+        var userId = User.GetUserId();
+        var result = await _svc.RecordPickupAsync(uuid, req, userId);
+        if (result is null)
+            return NotFound(ApiResponse.Fail(StaticResponseMessage.recordNotFound));
+
+        // The gate pass names the collector, so it is filed now, once the collection is on record.
+        // Best-effort: the goods have left and the delivery is delivered whether or not this works.
+        var filed = await _gatePasses.TryFileCollectionPassAsync(uuid, userId);
+
+        return Ok(ApiResponse<PickupResultModel>.Ok(
+            result,
+            filed is null
+                ? "Collection recorded. Delivery marked as delivered. The gate pass could not be filed as an attachment; file it from the delivery."
+                : "Collection recorded. Delivery marked as delivered. The gate pass is filed on the delivery."));
     }
 
     /// <summary>
@@ -250,6 +264,21 @@ public class DeliveriesController : ControllerBase
     {
         var (content, fileName) = await _documents.GenerateGatePassAsync(uuid);
         return File(content, "application/pdf", fileName);
+    }
+
+    /// <summary>
+    /// Files the delivery's gate pass as it stands now as an attachment on the delivery — for a
+    /// collection recorded before filing existed, or one whose automatic filing failed. Refused until
+    /// the goods are staged, as the gate pass is. Each filing is kept.
+    /// </summary>
+    [RequirePermission(PermissionCodes.DELIVERY_EDIT)]
+    [HttpPost("{uuid:guid}/gate-pass/attach")]
+    public async Task<IActionResult> AttachGatePass(Guid uuid)
+    {
+        var stored = await _gatePasses.FileGatePassAsync(uuid, User.GetUserId());
+        return Ok(ApiResponse<StoredAttachment>.Ok(
+            stored,
+            stored.AlreadyStored ? "That gate pass is already on file." : "Gate pass filed as an attachment."));
     }
 
     /// <summary>Pauses a delivery, remembering the status to resume to.</summary>

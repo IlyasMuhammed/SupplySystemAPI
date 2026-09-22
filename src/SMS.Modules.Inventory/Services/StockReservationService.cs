@@ -604,12 +604,17 @@ internal sealed class StockReservationService : IStockReservationService
     /// <summary>
     /// Runs the write inside a transaction under the context's execution strategy, which is
     /// required because the DbContext is configured with retry-on-failure.
+    /// <para>
+    /// When the caller has already begun a transaction on this context, the write joins it and the
+    /// caller commits. A material issue voucher posts its stock movement and consumes its hold in
+    /// one transaction, and a second BEGIN on the same connection is an error, not a nested scope.
+    /// </para>
     /// </summary>
     private async Task InTransactionAsync(Func<Task> work, CancellationToken ct)
     {
         // The in-memory provider used by tests supports neither transactions nor an execution
         // strategy; the write itself is still exercised.
-        if (!_db.Database.IsRelational())
+        if (!_db.Database.IsRelational() || _db.Database.CurrentTransaction is not null)
         {
             await work();
             return;

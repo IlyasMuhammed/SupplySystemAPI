@@ -305,6 +305,48 @@ public class AvailabilityCheckServiceTests
         (await h.DemandDb.SaleOrderLines.AsNoTracking().SingleAsync()).FulfillmentMode.Should().Be("IN_STOCK");
     }
 
+    // ── A line that was buy-to-order from the start ──────────────────────────
+    // The organization's default fulfilment is BACK_TO_BACK, so SaleOrderService marks new lines that way.
+
+    [Fact]
+    public async Task A_line_marked_back_to_back_is_bought_in_full_whatever_the_shelves_hold()
+    {
+        var h = NewHarness();
+        var (variant, _) = await SeedStock(h, onHand: 100m); // plenty on hand: it is still bought
+        var orderUuid = await SeedSaleOrder(h, (variant, 10m));
+        var line = await h.DemandDb.SaleOrderLines.SingleAsync();
+        line.FulfillmentMode = "BACK_TO_BACK";
+        await h.DemandDb.SaveChangesAsync();
+        h.DemandDb.ChangeTracker.Clear();
+
+        var reserved = await h.Service.CheckAndReserveAsync(orderUuid, User);
+        await h.DemandDb.SaveChangesAsync();
+
+        reserved.Should().BeEmpty();
+        var result = await h.DemandDb.SaleOrderLines.AsNoTracking().SingleAsync();
+        result.FulfillmentMode.Should().Be("BACK_TO_BACK");
+        result.DeficitQty.Should().Be(10m, "the whole line is what has to be bought");
+        result.AvailableQtyAtConfirm.Should().Be(100m, "what was on the shelf is still recorded");
+        result.Status.Should().Be("OPEN");
+        (await h.InventoryDb.StockReservations.CountAsync()).Should().Be(0, "nothing is taken from stock");
+    }
+
+    [Fact]
+    public async Task A_line_with_no_mode_is_still_decided_by_the_stock()
+    {
+        var h = NewHarness();
+        var (variant, _) = await SeedStock(h, onHand: 100m);
+        var orderUuid = await SeedSaleOrder(h, (variant, 10m));
+
+        await h.Service.CheckAndReserveAsync(orderUuid, User);
+        await h.DemandDb.SaveChangesAsync();
+
+        var result = await h.DemandDb.SaleOrderLines.AsNoTracking().SingleAsync();
+        result.FulfillmentMode.Should().Be("IN_STOCK");
+        result.DeficitQty.Should().Be(0m);
+        (await h.InventoryDb.StockReservations.CountAsync()).Should().Be(1);
+    }
+
     // ── Multi-line orders ────────────────────────────────────────────────────
 
     [Fact]

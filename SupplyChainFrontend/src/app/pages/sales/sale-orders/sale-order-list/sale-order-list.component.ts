@@ -12,8 +12,13 @@ import { TooltipModule } from 'primeng/tooltip';
 import { ToastModule } from 'primeng/toast';
 import { DropdownModule } from 'primeng/dropdown';
 import { MessageService } from 'primeng/api';
+import { forkJoin, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 
 import { SaleOrderService, SaleOrderModel, SaleOrderFilter } from '../../../../services/sale-order.service';
+import { BusinessPartnerService } from '../../../../services/business-partner.service';
+import { AuthService } from '../../../service/auth.service';
+import { formatCode } from '../../../../shared/format-code';
 
 type Severity = 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast';
 
@@ -28,14 +33,7 @@ export const SALE_ORDER_STATUS_SEVERITY: Record<string, Severity> = {
   CANCELLED:           'danger'
 };
 
-/** Turns PARTIALLY_FULFILLED into "Partially Fulfilled". */
-export function formatCode(code?: string | null): string {
-  if (!code) return '';
-  return code
-    .split('_')
-    .map(word => word.charAt(0) + word.slice(1).toLowerCase())
-    .join(' ');
-}
+export { formatCode };
 
 @Component({
   selector: 'app-sale-order-list',
@@ -59,6 +57,10 @@ export class SaleOrderListComponent implements OnInit, OnDestroy {
   searchText     = '';
   selectedStatus = '';
 
+  /** Customer names by partner id, asked for once each. An id with no name yet, or none to be had, shows as a dash. */
+  customerNames: Record<string, string> = {};
+  private askedFor = new Set<string>();
+
   private searchTimer: ReturnType<typeof setTimeout> | null = null;
 
   statusOptions = [
@@ -74,8 +76,21 @@ export class SaleOrderListComponent implements OnInit, OnDestroy {
 
   constructor(
     private saleOrderService: SaleOrderService,
+    private partnerService: BusinessPartnerService,
+    public authService: AuthService,
     private messageService: MessageService
   ) {}
+
+  get canCreate(): boolean { return this.authService.hasPermission('SALE_ORDER_CREATE'); }
+
+  /** Only a draft can be edited, and only by someone allowed to. */
+  canEdit(order: SaleOrderModel): boolean {
+    return order.status === 'DRAFT' && this.authService.hasPermission('SALE_ORDER_EDIT');
+  }
+
+  customerName(order: SaleOrderModel): string {
+    return this.customerNames[order.partnerId] ?? '—';
+  }
 
   ngOnInit() {
     // The lazy table fires (onLazyLoad) once as it initialises — that is the first load.
@@ -101,6 +116,7 @@ export class SaleOrderListComponent implements OnInit, OnDestroy {
         if (res.success && res.result) {
           this.orders       = res.result.data ?? [];
           this.totalRecords = res.result.totalRecords ?? 0;
+          this.loadCustomerNames(this.orders);
         } else {
           this.orders = [];
           this.totalRecords = 0;
@@ -112,6 +128,20 @@ export class SaleOrderListComponent implements OnInit, OnDestroy {
         this.totalRecords = 0;
         this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to load sale orders.' });
       }
+    });
+  }
+
+  /** One lookup per customer on the page that has not been looked up yet; a failed one leaves a dash and is not retried. */
+  private loadCustomerNames(orders: SaleOrderModel[]) {
+    const wanted = [...new Set(orders.map(o => o.partnerId).filter(id => !!id && !this.askedFor.has(id)))];
+    if (wanted.length === 0) return;
+    wanted.forEach(id => this.askedFor.add(id));
+
+    forkJoin(wanted.map(id => this.partnerService.getPartnerById(id).pipe(catchError(() => of(null))))).subscribe(results => {
+      results.forEach((res, i) => {
+        const name = res?.result?.companyName;
+        if (name) this.customerNames[wanted[i]] = name;
+      });
     });
   }
 

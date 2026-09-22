@@ -7,6 +7,11 @@
   }
 }
 
+// Inline, in a tab: a readable column rather than the full width of the page.
+.tl-inline {
+  max-width: 44rem;
+}
+
 .tl-header {
   display: flex;
   align-items: center;

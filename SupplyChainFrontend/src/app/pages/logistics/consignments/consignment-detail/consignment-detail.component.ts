@@ -26,10 +26,25 @@ import {
   ConsignmentWeightModel,
   RateShopResultModel,
   RateShopOptionModel,
+  RecordProofRequest,
   ShippingRuleDecisionModel
 } from '../../../../services/logistics.service';
+import { AuthService } from '../../../service/auth.service';
 
 type Severity = 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast';
+
+/**
+ * Where a consignment can be when a person records that the goods were handed over.
+ *
+ * BOOKED is the one that matters: a carrier booked by hand is silent — nothing scans it — so it is still
+ * BOOKED when somebody who watched the handover types it in. Mirrors the server, which refuses anything
+ * from which there is no legal route to DELIVERED (a draft, or a consignment already cancelled, lost or
+ * returned); the server stays the authority.
+ */
+const HANDOVER_STATUSES = [
+  'BOOKED', 'LABEL_READY', 'PICKUP_REQUESTED', 'PICKED_UP', 'IN_TRANSIT',
+  'OUT_FOR_DELIVERY', 'DELIVERY_ATTEMPTED', 'EXCEPTION'
+];
 
 export const SHIPMENT_STATUS_SEVERITY: Record<string, Severity> = {
   DRAFT: 'secondary', RATED: 'info', BOOKING: 'warn', BOOKED: 'success',
@@ -108,10 +123,17 @@ export class ConsignmentDetailComponent implements OnInit, OnDestroy {
   manualRateDialogVisible = false;
   manualRateForm = { amount: null as number | null, currency: 'PKR', note: '' };
 
+  handoverDialogVisible = false;
+  handoverForm = this.emptyHandover();
+
+  /** A handover cannot have happened in the future; the server refuses it, the picker does not offer it. */
+  today = new Date();
+
   constructor(
     private route: ActivatedRoute,
     private logisticsService: LogisticsService,
-    private messageService: MessageService
+    private messageService: MessageService,
+    private authService: AuthService
   ) {}
 
   ngOnInit() {
@@ -371,6 +393,60 @@ export class ConsignmentDetailComponent implements OnInit, OnDestroy {
       error: (err) => {
         this.isSubmitting = false;
         this.fail(err, 'The consignment could not be booked.');
+      }
+    });
+  }
+
+  // ── Recording the handover ──────────────────────────────────────────────────
+  //
+  // The only way a manually booked consignment ever reaches DELIVERED, and with it the delivery, the
+  // sale order and the invoice behind it. An API carrier's scan usually gets there first.
+
+  /** Booked or on its way, and somebody who may record a proof is looking at it. */
+  get canRecordHandover(): boolean {
+    return !this.isSubmitting
+        && HANDOVER_STATUSES.includes(this.consignment?.status ?? '')
+        && this.authService.hasPermission('POD_CAPTURE');
+  }
+
+  private emptyHandover() {
+    return { receivedBy: '', relationship: '', deliveredAt: null as Date | null, notes: '' };
+  }
+
+  openHandoverDialog() {
+    this.handoverForm = this.emptyHandover();
+    // Fresh each time: a page left open all afternoon would otherwise stop offering the last hours.
+    this.today = new Date();
+    this.handoverDialogVisible = true;
+  }
+
+  /** A proof naming nobody is a proof of nothing; the server refuses it, so the button waits. */
+  get canSaveHandover(): boolean {
+    return !this.isSubmitting && !!this.handoverForm.receivedBy.trim();
+  }
+
+  confirmHandover() {
+    if (!this.canSaveHandover) return;
+    this.isSubmitting = true;
+
+    const body: RecordProofRequest = {
+      receivedBy:   this.handoverForm.receivedBy.trim(),
+      relationship: this.handoverForm.relationship.trim() || undefined,
+      // Left out when not given: the server then stamps the moment it was recorded.
+      deliveredAt:  this.handoverForm.deliveredAt?.toISOString(),
+      notes:        this.handoverForm.notes.trim() || undefined
+    };
+
+    this.logisticsService.recordProof(this.uuid, body).subscribe({
+      next: () => {
+        this.isSubmitting = false;
+        this.handoverDialogVisible = false;
+        this.ok('Handover recorded. The consignment is delivered, and its delivery follows.');
+        this.load();
+      },
+      error: (err) => {
+        this.isSubmitting = false;
+        this.fail(err, 'The handover could not be recorded.');
       }
     });
   }

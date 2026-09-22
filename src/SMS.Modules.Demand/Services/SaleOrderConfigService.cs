@@ -3,6 +3,7 @@ using SMS.Modules.Demand.Data;
 using SMS.Modules.Demand.Domain;
 using SMS.Modules.Demand.Models;
 using SMS.Shared.Common;
+using SMS.Shared.Exceptions;
 using SMS.Shared.Pagination;
 
 namespace SMS.Modules.Demand.Services;
@@ -11,11 +12,13 @@ internal sealed class SaleOrderConfigService : ISaleOrderConfigService
 {
     private readonly DemandDbContext _db;
     private readonly IUserQueryService _userQuery;
+    private readonly IOrgChartService _orgChart;
 
-    public SaleOrderConfigService(DemandDbContext db, IUserQueryService userQuery)
+    public SaleOrderConfigService(DemandDbContext db, IUserQueryService userQuery, IOrgChartService orgChart)
     {
         _db        = db;
         _userQuery = userQuery;
+        _orgChart  = orgChart;
     }
 
     public async Task<SaleOrderConfigModel> GetConfigAsync()
@@ -26,8 +29,21 @@ internal sealed class SaleOrderConfigService : ISaleOrderConfigService
 
     public async Task<SaleOrderConfigModel> UpdateConfigAsync(UpdateSaleOrderConfigRequest req, int updatedBy)
     {
+        // Refused before anything is read or created, so a bad request leaves no trace.
+        if (SaleOrderConfigRules.Problem(req) is { } problem)
+            throw new BadRequestException(problem);
+
         var entity = await GetOrCreateAsync();
         var now = DateTime.UtcNow;
+
+        // Only a department newly chosen has to exist: one saved earlier and since removed must not
+        // make every later save of the other settings fail.
+        if (req.IntimationDepartmentId is { } departmentId && departmentId != entity.IntimationDepartmentId
+            && !(await _orgChart.GetDepartmentsAsync()).Any(d => d.DepartmentId == departmentId))
+            throw new BadRequestException("The notification department does not exist in this organization.");
+
+        // Stored as one tidy comma separated line, whatever way it was typed.
+        var copyEmails = SaleOrderConfigRules.NormalizeEmails(req.IntimationCcEmails);
 
         void CaptureChange(string field, string? oldValue, string? newValue)
         {
@@ -53,7 +69,7 @@ internal sealed class SaleOrderConfigService : ISaleOrderConfigService
         CaptureChange(nameof(SaleOrderConfig.PartialFulfillmentAllowed), entity.PartialFulfillmentAllowed.ToString(), req.PartialFulfillmentAllowed.ToString());
         CaptureChange(nameof(SaleOrderConfig.EmailIntimationEnabled), entity.EmailIntimationEnabled.ToString(), req.EmailIntimationEnabled.ToString());
         CaptureChange(nameof(SaleOrderConfig.IntimationDepartmentId), entity.IntimationDepartmentId?.ToString(), req.IntimationDepartmentId?.ToString());
-        CaptureChange(nameof(SaleOrderConfig.IntimationCcEmails), entity.IntimationCcEmails, req.IntimationCcEmails);
+        CaptureChange(nameof(SaleOrderConfig.IntimationCcEmails), entity.IntimationCcEmails, copyEmails);
         CaptureChange(nameof(SaleOrderConfig.ShipmentRequiredDefault), entity.ShipmentRequiredDefault.ToString(), req.ShipmentRequiredDefault.ToString());
 
         entity.AutoPoEnabled             = req.AutoPoEnabled;
@@ -66,7 +82,7 @@ internal sealed class SaleOrderConfigService : ISaleOrderConfigService
         entity.PartialFulfillmentAllowed = req.PartialFulfillmentAllowed;
         entity.EmailIntimationEnabled    = req.EmailIntimationEnabled;
         entity.IntimationDepartmentId    = req.IntimationDepartmentId;
-        entity.IntimationCcEmails        = req.IntimationCcEmails;
+        entity.IntimationCcEmails        = copyEmails;
         entity.ShipmentRequiredDefault   = req.ShipmentRequiredDefault;
         entity.UpdatedBy                 = updatedBy;
         entity.UpdatedAt                 = now;

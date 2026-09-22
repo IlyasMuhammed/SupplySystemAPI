@@ -417,7 +417,9 @@ public sealed class ProcurementToIssueCycleTests : IClassFixture<ProcurementCycl
             FirstName = "Placeholder",
             LastName  = "Approver",
             Email     = email,
-            RoleID    = roleId
+            RoleID    = roleId,
+            // POST /api/users has required this since REQ-2.x: INTERNAL for staff, EXTERNAL for a supplier's own user.
+            SupplierType = "INTERNAL"
         });
         resp.StatusCode.Should().Be(HttpStatusCode.Created,
             $"placeholder user create failed for role {roleId}: {await resp.Content.ReadAsStringAsync()}");

@@ -182,6 +182,8 @@ public class CurrentTenantModel
     public string OrgCode { get; set; } = string.Empty;
     public string OrgName { get; set; } = string.Empty;
     public string Plan { get; set; } = string.Empty;
+    /// <summary>The organization's base currency (a lookups.Currencies id); null when none is configured.</summary>
+    public Guid? BaseCurrency { get; set; }
     public List<string> EnabledFeatureCodes { get; set; } = new();
     public bool IsSuperAdmin { get; set; }
     public string RoleName { get; set; } = string.Empty;

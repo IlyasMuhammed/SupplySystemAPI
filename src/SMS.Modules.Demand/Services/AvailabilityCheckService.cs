@@ -23,9 +23,9 @@ namespace SMS.Modules.Demand.Services;
 // Out of scope, same as this task's own literal wording: back-to-back PO creation (§Section 6 —
 // BACK_TO_BACK and SPLIT's deficit only ever becomes a DeficitQty number here, never a PO),
 // vendor selection for that PO (§3.3's BEST_MATCH — TC-06), drop-ship PO creation, and every §5
-// email. A line only takes the DROP_SHIP path if something upstream already set
-// FulfillmentMode = DROP_SHIP before confirm — no API in this addendum yet lets a caller request
-// that, so the branch is real but currently unreachable in practice.
+// email. A line only takes the DROP_SHIP or BACK_TO_BACK path unasked if something upstream already
+// set its FulfillmentMode before confirm: SaleOrderService does, when the organization's default
+// fulfilment (SaleOrderConfig.DefaultFulfillmentMode) is one of those.
 internal sealed class AvailabilityCheckService : IAvailabilityCheckService
 {
     private readonly DemandDbContext _db;
@@ -46,7 +46,8 @@ internal sealed class AvailabilityCheckService : IAvailabilityCheckService
 
         var config    = await _config.GetConfigAsync();
         var expiresAt = DateTime.UtcNow.AddHours(config.ReservationTtlHours);
-        var dropShipCode = EnumCode<SaleOrderLineFulfillmentMode>.Of(SaleOrderLineFulfillmentMode.DropShip);
+        var dropShipCode   = EnumCode<SaleOrderLineFulfillmentMode>.Of(SaleOrderLineFulfillmentMode.DropShip);
+        var backToBackCode = EnumCode<SaleOrderLineFulfillmentMode>.Of(SaleOrderLineFulfillmentMode.BackToBack);
 
         var variantUuids = order.Lines.Select(l => l.VariantUuid).Distinct().ToList();
         var available = await _stock.GetAvailableAsync(variantUuids, warehouseUuid: null);
@@ -68,6 +69,15 @@ internal sealed class AvailabilityCheckService : IAvailabilityCheckService
             byVariant.TryGetValue(line.VariantUuid, out var availability);
             var availableQty = availability?.Available ?? 0m;
             line.AvailableQtyAtConfirm = availableQty;
+
+            // A line that was made buy-to-order from the start (the organization's default fulfilment is
+            // BACK_TO_BACK) is bought whatever the shelves hold: nothing is reserved, all of it is the deficit.
+            if (line.FulfillmentMode == backToBackCode)
+            {
+                line.DeficitQty = line.Quantity;
+                line.Status     = EnumCode<SaleOrderLineStatus>.Of(SaleOrderLineStatus.Open);
+                continue;
+            }
 
             if (availableQty >= line.Quantity)
             {

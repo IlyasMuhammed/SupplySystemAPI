@@ -1,0 +1,51 @@
+<div class="allocation-editor">
+  <div class="summary" data-testid="allocation-summary">
+    <span><span class="label">Available</span> <strong data-testid="available">{{ available | number:'1.2-2' }}</strong> <span class="cur">{{ currencyCode }}</span></span>
+    <span><span class="label">Applied</span> <strong data-testid="applied">{{ total | number:'1.2-2' }}</strong></span>
+    <span><span class="label">Stays on account</span> <strong data-testid="remaining" [class.negative]="remaining < 0">{{ remaining | number:'1.2-2' }}</strong></span>
+
+    <span class="tools">
+      <p-button label="Oldest first" icon="pi pi-sort-amount-up" [text]="true" size="small"
+                [disabled]="!rows.length || available <= 0" (onClick)="fillOldestFirst()" data-testid="fill-oldest"></p-button>
+      <p-button label="Clear" icon="pi pi-times" [text]="true" severity="secondary" size="small"
+                [disabled]="total === 0" (onClick)="clear()" data-testid="clear"></p-button>
+    </span>
+  </div>
+
+  <p class="problem" *ngIf="problem" data-testid="allocation-problem"><i class="pi pi-exclamation-triangle"></i> {{ problem }}</p>
+
+  <div class="empty" *ngIf="!rows.length" data-testid="no-open-invoices">
+    <i class="pi pi-inbox"></i> This customer has no unpaid {{ currencyCode }} invoice to apply it to.
+  </div>
+
+  <table class="allocation-table" *ngIf="rows.length" data-testid="allocation-table">
+    <thead>
+      <tr>
+        <th>Invoice #</th>
+        <th>Invoice date</th>
+        <th>Due</th>
+        <th>Status</th>
+        <th class="right">Balance due</th>
+        <th class="right">Apply</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let inv of rows" data-testid="allocation-row" [class.row-problem]="rowProblem(inv)">
+        <td class="mono">{{ inv.invoiceNumber }}</td>
+        <td>{{ inv.invoiceDate | date:'dd MMM yyyy' }}</td>
+        <td>{{ inv.dueDate | date:'dd MMM yyyy' }}</td>
+        <td><p-tag [value]="formatStatus(inv.status)" [severity]="getStatusSeverity(inv.status)"></p-tag></td>
+        <td class="right">{{ inv.balanceDue | number:'1.2-2' }}</td>
+        <td class="right">
+          <p-inputNumber [ngModel]="amountOf(inv)" (ngModelChange)="setAmount(inv, $event)"
+                         [min]="0" [minFractionDigits]="0" [maxFractionDigits]="2" [showButtons]="false"
+                         inputStyleClass="amount-input" data-testid="amount"></p-inputNumber>
+        </td>
+        <td class="right">
+          <p-button label="Full" [text]="true" size="small" (onClick)="payInFull(inv)" data-testid="pay-full"></p-button>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>

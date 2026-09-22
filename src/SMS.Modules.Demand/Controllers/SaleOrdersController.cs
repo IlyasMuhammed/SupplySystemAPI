@@ -40,6 +40,11 @@ public class SaleOrdersController : ControllerBase
             : NotFound(ApiResponse.Fail(StaticResponseMessage.recordNotFound));
     }
 
+    [HttpGet("defaults")]
+    [RequirePermission(PermissionCodes.SALE_ORDER_VIEW)]
+    public async Task<IActionResult> GetDefaults() =>
+        Ok(ApiResponse<SaleOrderDefaultsModel>.Ok(await _service.GetDefaultsAsync()));
+
     [HttpGet("{uuid:guid}")]
     [RequirePermission(PermissionCodes.SALE_ORDER_VIEW)]
     public async Task<IActionResult> GetById(Guid uuid)

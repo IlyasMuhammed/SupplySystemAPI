@@ -45,6 +45,31 @@ tr.line-excluded td { color: var(--text-color-secondary); }
 
 .text-right { text-align: right; }
 
+.source-link { color: var(--primary-color); text-decoration: none; }
+.source-link:hover { text-decoration: underline; }
+
+.no-access { color: var(--text-color-secondary); font-size: .875rem; padding: 1.25rem; margin: 0; }
+.no-access i { margin-right: .375rem; }
+.cur { color: var(--text-color-secondary); font-size: .75rem; margin-left: .125rem; }
+
+// What the order's invoices come to: one chip per currency, the figures the tab is read for.
+.totals-strip { display: flex; flex-wrap: wrap; gap: .75rem; margin-bottom: 1rem; }
+.total-chip {
+  display: flex; align-items: baseline; gap: .375rem; flex-wrap: wrap;
+  background: var(--surface-50, #f8fafc); border: 1px solid var(--surface-200); border-radius: .5rem; padding: .625rem .875rem;
+  font-size: .875rem;
+}
+.total-chip .chip-label { color: var(--text-color-secondary); margin-left: .5rem; }
+.total-chip .chip-label:first-child { margin-left: 0; }
+.total-chip .chip-currency { margin-left: .5rem; font-size: .75rem; color: var(--text-color-secondary); }
+
+.dialog-loading { color: var(--text-color-secondary); font-size: .875rem; padding: 1rem 0; }
+.dialog-warning {
+  font-size: .8125rem; color: var(--orange-700, #c2410c); margin: .875rem 0 0;
+  display: flex; align-items: flex-start; gap: .5rem;
+}
+tr.line-short td { background: var(--orange-50, #fff7ed); }
+
 .dialog-hint { font-size: .875rem; color: var(--text-color-secondary); margin: 0 0 1rem; }
 .dialog-label { display: block; font-size: .8125rem; font-weight: 600; margin-bottom: .375rem; }
 .dialog-row { margin: 1rem 0; }

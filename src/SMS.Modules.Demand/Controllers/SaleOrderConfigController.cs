@@ -18,8 +18,13 @@ namespace SMS.Modules.Demand.Controllers;
 public class SaleOrderConfigController : ControllerBase
 {
     private readonly ISaleOrderConfigService _service;
+    private readonly IOrgChartService _orgChart;
 
-    public SaleOrderConfigController(ISaleOrderConfigService service) => _service = service;
+    public SaleOrderConfigController(ISaleOrderConfigService service, IOrgChartService orgChart)
+    {
+        _service  = service;
+        _orgChart = orgChart;
+    }
 
     [HttpGet]
     [RequirePermission(PermissionCodes.SALE_ORDER_CONFIG_READ)]
@@ -35,6 +40,15 @@ public class SaleOrderConfigController : ControllerBase
     {
         var result = await _service.UpdateConfigAsync(req, User.GetUserId());
         return Ok(ApiResponse<SaleOrderConfigModel>.Ok(result, StaticResponseMessage.recordUpdatedSuccessfully));
+    }
+
+    // The intimation department is picked from the organization's departments.
+    [HttpGet("departments")]
+    [RequirePermission(PermissionCodes.SALE_ORDER_CONFIG_READ)]
+    public async Task<IActionResult> GetDepartments()
+    {
+        var result = await _orgChart.GetDepartmentsAsync();
+        return Ok(ApiResponse<IReadOnlyList<DepartmentSummary>>.Ok(result));
     }
 
     [HttpGet("audit")]

@@ -1,14 +1,5 @@
-<p-sidebar [visible]="visible" (visibleChange)="onVisibleChange($event)"
-           position="right" styleClass="timeline-panel-sidebar" [style]="{width:'28rem'}"
-           [dismissible]="false">
-
-  <ng-template pTemplate="header">
-    <div class="tl-header">
-      <i class="pi pi-history"></i>
-      <span class="tl-title">Document Timeline</span>
-    </div>
-  </ng-template>
-
+<!-- The timeline itself: shown in the sidebar, or inline where the panel is placed. -->
+<ng-template #timelineBody>
   <div *ngIf="isLoading" class="tl-loading">
     <i class="pi pi-spin pi-spinner"></i>
     <span>Loading timeline...</span>
@@ -53,5 +44,25 @@
       </div>
     </div>
   </ng-container>
+</ng-template>
 
-</p-sidebar>
+<div *ngIf="inline; else sidebarMode" class="tl-inline" data-testid="timeline-inline">
+  <ng-container *ngTemplateOutlet="timelineBody"></ng-container>
+</div>
+
+<ng-template #sidebarMode>
+  <p-sidebar [visible]="visible" (visibleChange)="onVisibleChange($event)"
+             position="right" styleClass="timeline-panel-sidebar" [style]="{width:'28rem'}"
+             [dismissible]="false">
+
+    <ng-template pTemplate="header">
+      <div class="tl-header">
+        <i class="pi pi-history"></i>
+        <span class="tl-title">Document Timeline</span>
+      </div>
+    </ng-template>
+
+    <ng-container *ngTemplateOutlet="timelineBody"></ng-container>
+
+  </p-sidebar>
+</ng-template>

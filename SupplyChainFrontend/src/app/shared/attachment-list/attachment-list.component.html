@@ -29,7 +29,8 @@
       <i class="pi pi-spin pi-spinner attachment-inline-loading" *ngIf="isLoading"></i>
 
       <div class="attachment-chip" *ngFor="let att of attachments">
-        <a [href]="resolveUrl(att.fileUrl)" target="_blank" rel="noopener" class="attachment-chip-name" [pTooltip]="att.fileName">
+        <a [attr.href]="hrefFor(att)" target="_blank" rel="noopener" class="attachment-chip-name" [pTooltip]="att.fileName"
+           (click)="open(att, $event)" (keydown.enter)="open(att, $event)" tabindex="0">
           <i class="pi pi-file"></i>{{ att.fileName }}
         </a>
         <i class="pi pi-times attachment-chip-remove" *ngIf="!readOnly" (click)="remove(att)" pTooltip="Remove"></i>
@@ -44,7 +45,8 @@
         <li *ngFor="let att of attachments" class="attachment-item">
           <div class="attachment-item-row">
             <div class="attachment-file-icon"><i class="pi pi-file"></i></div>
-            <a [href]="resolveUrl(att.fileUrl)" target="_blank" rel="noopener" class="attachment-file-link">
+            <a [attr.href]="hrefFor(att)" target="_blank" rel="noopener" class="attachment-file-link"
+               (click)="open(att, $event)" (keydown.enter)="open(att, $event)" tabindex="0">
               <span class="attachment-file-name">{{ att.fileName }}</span>
               <span class="attachment-file-size" *ngIf="att.fileSize">{{ formatSize(att.fileSize) }}</span>
             </a>

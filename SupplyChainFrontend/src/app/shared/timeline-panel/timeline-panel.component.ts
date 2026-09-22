@@ -1,4 +1,4 @@
-import { Component, EventEmitter, HostListener, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
+import { Component, EventEmitter, HostListener, Input, OnChanges, OnInit, Output, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { SidebarModule } from 'primeng/sidebar';
@@ -50,7 +50,7 @@ const INTERFACE_META: Record<string, { label: string; color: string; route: stri
   templateUrl: './timeline-panel.component.html',
   styleUrls: ['./timeline-panel.component.scss']
 })
-export class TimelinePanelComponent implements OnChanges {
+export class TimelinePanelComponent implements OnInit, OnChanges {
   // Primary usage: a document's own id + interface code (each of the 6 detail screens calls by-document).
   @Input() documentId?: string;
   @Input() interfaceCode?: string;
@@ -59,6 +59,11 @@ export class TimelinePanelComponent implements OnChanges {
 
   @Input() visible = false;
   @Output() visibleChange = new EventEmitter<boolean>();
+
+  // Inline: the timeline itself, laid out where the panel is placed (a tab, say), with no sidebar around it.
+  // It loads when it is created and again if the trace or document it is showing changes; `visible` means
+  // nothing to it.
+  @Input() inline = false;
 
   isLoading  = false;
   loadFailed = false;
@@ -69,7 +74,17 @@ export class TimelinePanelComponent implements OnChanges {
 
   constructor(private timelineService: TimelineService, private router: Router) {}
 
+  ngOnInit() {
+    if (this.inline) this.load();
+  }
+
   ngOnChanges(changes: SimpleChanges) {
+    if (this.inline) {
+      const moved = ['traceId', 'documentId', 'interfaceCode'].some(k => changes[k] && !changes[k].firstChange);
+      if (moved) this.load();
+      return;
+    }
+
     if (changes['visible'] && this.visible) {
       this.load();
     }
@@ -82,7 +97,7 @@ export class TimelinePanelComponent implements OnChanges {
   // dropdown/calendar overlays it opens. [dismissible] on p-sidebar is off; this replaces it correctly.
   @HostListener('document:mousedown', ['$event'])
   onDocumentMouseDown(event: MouseEvent) {
-    if (!this.visible) return;
+    if (this.inline || !this.visible) return;
     const target = event.target as HTMLElement;
     const sidebarEl = document.querySelector('.timeline-panel-sidebar');
     if (sidebarEl?.contains(target)) return;

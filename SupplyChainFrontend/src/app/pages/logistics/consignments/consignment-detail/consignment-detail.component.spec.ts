@@ -18,6 +18,7 @@ import {
   RateShopOptionModel,
   ShippingRuleDecisionModel
 } from '../../../../services/logistics.service';
+import { AuthService } from '../../../service/auth.service';
 
 const UUID = '11111111-1111-1111-1111-111111111111';
 
@@ -165,7 +166,7 @@ describe('ConsignmentDetailComponent', () => {
       'resolveConsignmentBooking', 'downloadConsignmentLabel', 'refreshConsignmentTracking',
       'getConsignmentRate', 'getChargeableWeight', 'rateConsignment', 'setManualRate',
       'clearConsignmentRate', 'shopRates', 'acceptRate',
-      'evaluateShippingRules', 'applyShippingRule'
+      'evaluateShippingRules', 'applyShippingRule', 'recordProof'
     ]);
 
     service.getConsignmentById.and.returnValue(
@@ -191,6 +192,7 @@ describe('ConsignmentDetailComponent', () => {
     service.acceptRate.and.returnValue(ok(rate({ source: 'RATE_CARD', freightCost: 750 })));
     service.evaluateShippingRules.and.returnValue(ok(decision()));
     service.applyShippingRule.and.returnValue(ok(rate({ source: 'RATE_CARD', freightCost: 750 })));
+    service.recordProof.and.returnValue(ok('proof-1'));
 
     await TestBed.resetTestingModule().configureTestingModule({
       imports: [ConsignmentDetailComponent],
@@ -447,6 +449,136 @@ describe('ConsignmentDetailComponent', () => {
     expect(service.bookConsignmentManually).toHaveBeenCalledWith(UUID, jasmine.objectContaining({
       awb: 'AWB-123'
     }));
+  });
+
+  // ── Recording the handover ────────────────────────────────────────────────
+  //
+  // A manual carrier is booked and then silent, so its consignment is BOOKED when somebody types the
+  // handover in. Until this existed there was no way to get it delivered — and so no way to invoice it.
+
+  describe('handover', () => {
+    const button = () => fixture.nativeElement.querySelector('[data-testid="action-handover"]');
+
+    /** Whether the signed-in user may record a proof, without touching the token in storage. */
+    function mayRecordProofs(allowed: boolean) {
+      spyOn(TestBed.inject(AuthService), 'hasPermission')
+        .and.callFake((code: string) => allowed && code === 'POD_CAPTURE');
+    }
+
+    it('is offered for a booked manual consignment, which is where it stays until a person says otherwise', async () => {
+      await setup(consignment({ integrationMode: 'MANUAL', status: 'BOOKED' }), booking({ masterAwb: 'AWB-1' }));
+      mayRecordProofs(true);
+      fixture.detectChanges();
+
+      expect(component.canRecordHandover).toBeTrue();
+      expect(button()).not.toBeNull();
+    });
+
+    it('is offered anywhere between booked and out for delivery, for any carrier', async () => {
+      for (const status of ['BOOKED', 'LABEL_READY', 'PICKUP_REQUESTED', 'PICKED_UP', 'IN_TRANSIT',
+                            'OUT_FOR_DELIVERY', 'DELIVERY_ATTEMPTED', 'EXCEPTION']) {
+        await setup(consignment({ status }));
+        mayRecordProofs(true);
+        fixture.detectChanges();
+        expect(component.canRecordHandover).withContext(status).toBeTrue();
+      }
+    });
+
+    it('is not offered for a consignment that has not gone with a carrier, or is already finished', async () => {
+      for (const status of ['DRAFT', 'RATED', 'BOOKING', 'BOOKING_FAILED', 'DELIVERED',
+                            'CANCELLED', 'RETURNED_TO_ORIGIN', 'LOST']) {
+        await setup(consignment({ status }));
+        mayRecordProofs(true);
+        fixture.detectChanges();
+        expect(component.canRecordHandover).withContext(status).toBeFalse();
+      }
+    });
+
+    it('is not offered to someone who may not record a proof of delivery', async () => {
+      await setup(consignment({ status: 'BOOKED' }));
+      mayRecordProofs(false);
+      fixture.detectChanges();
+
+      expect(component.canRecordHandover).toBeFalse();
+      expect(button()).toBeNull();
+    });
+
+    it('will not save until somebody is named as having taken the goods', async () => {
+      await setup(consignment({ status: 'BOOKED' }));
+      mayRecordProofs(true);
+      fixture.detectChanges();
+
+      component.openHandoverDialog();
+      expect(component.handoverDialogVisible).toBeTrue();
+      expect(component.canSaveHandover).toBeFalse();
+
+      component.handoverForm.receivedBy = '   ';
+      expect(component.canSaveHandover).withContext('blanks are nobody').toBeFalse();
+
+      component.confirmHandover();
+      expect(service.recordProof).not.toHaveBeenCalled();
+
+      component.handoverForm.receivedBy = 'Gate guard';
+      expect(component.canSaveHandover).toBeTrue();
+    });
+
+    it('records the proof, then reloads to show what the consignment became', async () => {
+      await setup(consignment({ status: 'BOOKED' }));
+      mayRecordProofs(true);
+      fixture.detectChanges();
+      service.getConsignmentById.calls.reset();
+      const add = spyOn(fixture.debugElement.injector.get(MessageService), 'add');
+
+      component.openHandoverDialog();
+      component.handoverForm = {
+        receivedBy: '  Gate guard ', relationship: ' Security ',
+        deliveredAt: new Date('2026-09-21T10:30:00Z'), notes: '  Left at the front desk. '
+      };
+      component.confirmHandover();
+
+      expect(service.recordProof).toHaveBeenCalledOnceWith(UUID, {
+        receivedBy: 'Gate guard', relationship: 'Security',
+        deliveredAt: '2026-09-21T10:30:00.000Z', notes: 'Left at the front desk.'
+      });
+      expect(component.handoverDialogVisible).toBeFalse();
+      expect(component.isSubmitting).toBeFalse();
+      expect(service.getConsignmentById).toHaveBeenCalledTimes(1);
+      expect(add.calls.mostRecent().args[0].severity).toBe('success');
+    });
+
+    it('leaves the time and the optional fields out when they were not given', async () => {
+      // The server stamps the moment it was recorded; an empty string would be a field, not an absence.
+      await setup(consignment({ status: 'BOOKED' }));
+      mayRecordProofs(true);
+      fixture.detectChanges();
+
+      component.openHandoverDialog();
+      component.handoverForm.receivedBy = 'Customer';
+      component.confirmHandover();
+
+      expect(service.recordProof).toHaveBeenCalledOnceWith(UUID, {
+        receivedBy: 'Customer', relationship: undefined, deliveredAt: undefined, notes: undefined
+      });
+    });
+
+    it('shows the servers reason when the handover is refused, and keeps the dialog open', async () => {
+      await setup(consignment({ status: 'BOOKED' }));
+      mayRecordProofs(true);
+      fixture.detectChanges();
+      const add = spyOn(fixture.debugElement.injector.get(MessageService), 'add');
+      service.recordProof.and.returnValue(throwError(() => ({
+        error: { message: 'This consignment already has a proof of delivery.' }
+      })));
+
+      component.openHandoverDialog();
+      component.handoverForm.receivedBy = 'Customer';
+      component.confirmHandover();
+
+      expect(add.calls.mostRecent().args[0].severity).toBe('error');
+      expect(add.calls.mostRecent().args[0].detail).toContain('already has a proof');
+      expect(component.handoverDialogVisible).toBeTrue();
+      expect(component.isSubmitting).toBeFalse();
+    });
   });
 
   // ── Label ─────────────────────────────────────────────────────────────────

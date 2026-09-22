@@ -1,5 +1,6 @@
 using SMS.Modules.Lookups.Models;
 using SMS.Modules.Lookups.Repositories;
+using SMS.Shared.Exceptions;
 
 namespace SMS.Modules.Lookups.Services;
 
@@ -35,8 +36,20 @@ internal sealed class PoDocumentTemplateService : IPoDocumentTemplateService
         return template;
     }
 
-    public Task<Guid> UpsertAsync(UpsertPoDocumentTemplateRequest req, int userId) =>
-        _repo.UpsertAsync(req, userId);
+    internal const int MaxBankDetailsLength = 1000;
+
+    public Task<Guid> UpsertAsync(UpsertPoDocumentTemplateRequest req, int userId)
+    {
+        ArgumentNullException.ThrowIfNull(req);
+
+        // Blank means "none", and a value the column cannot hold is refused here with a message
+        // rather than surfacing as a database error.
+        req.BankDetails = string.IsNullOrWhiteSpace(req.BankDetails) ? null : req.BankDetails.Trim();
+        if (req.BankDetails is { Length: > MaxBankDetailsLength })
+            throw new BadRequestException($"The bank details are longer than {MaxBankDetailsLength} characters.");
+
+        return _repo.UpsertAsync(req, userId);
+    }
 
     public IReadOnlyList<PoDocumentTokenModel> GetAvailableTokens() => AvailableTokens;
 

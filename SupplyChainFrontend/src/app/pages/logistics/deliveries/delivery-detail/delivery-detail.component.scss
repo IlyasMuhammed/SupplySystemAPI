@@ -65,6 +65,10 @@ address { font-style: normal; font-size: .875rem; line-height: 1.6; }
   color: var(--yellow-800, #854d0e);
 }
 
+.consignment-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .625rem; }
+.consignment-list li { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; font-size: .875rem; }
+.follow-note { margin-top: .875rem; }
+
 .table-card {
   background: var(--surface-0); border: 1px solid var(--surface-200);
   border-radius: .625rem; padding: 1.25rem; margin-bottom: 1.25rem;

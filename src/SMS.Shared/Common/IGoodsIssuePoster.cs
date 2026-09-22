@@ -1,10 +1,15 @@
 namespace SMS.Shared.Common;
 
 /// <summary>
-/// The inventory transaction types this poster writes.
+/// The inventory transaction types of stock leaving, transferring and — for sales — returning or passing
+/// through the books, named in one place.
 /// <para>
 /// Free-form strings in the ledger, as everywhere else in the system — nothing enumerates them —
-/// but named here so the two sides of a transfer cannot drift apart.
+/// but named here so the two sides of a transfer cannot drift apart, and so a sales movement is spelled
+/// one way by whoever writes it and whoever reports on it. The poster writes the issue and transfer
+/// types; of the four sales kinds of A29 §12.1, it writes <see cref="SalesShip"/> and
+/// <see cref="SalesHandover"/>, while <see cref="SalesReturn"/> and <see cref="DropShipVirtual"/> are
+/// for the writers of a customer return and a drop-ship receipt to use.
 /// </para>
 /// </summary>
 public static class GoodsIssueTransactionType
@@ -24,6 +29,18 @@ public static class GoodsIssueTransactionType
 
     /// <summary>A29 §12.1 — stock handed over at the warehouse to a customer collecting a sale order.</summary>
     public const string SalesHandover = "SALES_HANDOVER";
+
+    /// <summary>
+    /// A29 §12.1 — stock coming <b>in</b>: a customer's return received back into a warehouse. The one
+    /// sales kind that adds to stock, so it is never the type of an issue.
+    /// </summary>
+    public const string SalesReturn = "SALES_RETURN";
+
+    /// <summary>
+    /// A29 §12.1 — a drop-ship's virtual receipt and dispatch: the vendor sends the goods straight to the
+    /// customer, so the movement is recorded for the trail but no warehouse stock moves.
+    /// </summary>
+    public const string DropShipVirtual = "DROP_SHIP_VIRTUAL";
 }
 
 /// <param name="ToWarehouseUuid">

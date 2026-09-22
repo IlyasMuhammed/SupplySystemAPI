@@ -2,8 +2,8 @@ using System.Security.Cryptography;
 using Microsoft.EntityFrameworkCore;
 using SMS.Modules.Logistics.Data;
 using SMS.Modules.Logistics.Domain;
-using SMS.Modules.Logistics.Domain.StateMachines;
 using SMS.Modules.Logistics.Models;
+using SMS.Modules.Logistics.Services;
 using SMS.Shared.Exceptions;
 
 namespace SMS.Modules.Logistics.Visibility;
@@ -71,14 +71,18 @@ internal sealed class DeliveryProofService : IDeliveryProofService
             ["application/pdf"] = "pdf"
         };
 
-    private static readonly ShipmentStateMachine Machine = ShipmentStateMachine.Instance;
-
     private static readonly string Delivered = LogisticsCode.Of(ShipmentStatus.Delivered);
     private static readonly string Manual    = LogisticsCode.Of(ProofSource.Manual);
     private static readonly string Carrier   = LogisticsCode.Of(ProofSource.Carrier);
 
-    private readonly LogisticsDbContext _db;
-    public DeliveryProofService(LogisticsDbContext db) => _db = db;
+    private readonly LogisticsDbContext        _db;
+    private readonly IDeliveryProgressService? _progress;
+
+    public DeliveryProofService(LogisticsDbContext db, IDeliveryProgressService? progress = null)
+    {
+        _db       = db;
+        _progress = progress;
+    }
 
     // ── Recording one by hand ─────────────────────────────────────────────────
 
@@ -136,14 +140,26 @@ internal sealed class DeliveryProofService : IDeliveryProofService
 
         await _db.SaveChangesAsync(ct);
 
+        // The person who typed this in is waiting to see the delivery become DELIVERED, so it is not
+        // left to the sweep. Once the proof is saved this cannot fail the call — see the interface.
+        if (_progress is not null)
+            await _progress.SyncAsync(consignmentUuid, userId, ct);
+
         return proof.UUID;
     }
 
     /// <summary>
-    /// Moves the consignment to DELIVERED where the machine allows it.
+    /// Moves the consignment to DELIVERED where a legal route to it exists.
     /// <para>
-    /// This is the only thing that ever will for a manual carrier — nothing polls a van driver. For
-    /// an API carrier the scan usually gets there first, in which case the status is already
+    /// This is the only thing that ever will for a manual carrier — nothing polls a van driver. That
+    /// carrier is booked and then silent, so the consignment is BOOKED when the handover is typed in,
+    /// and the machine has no edge from there to DELIVERED. The route is walked exactly as it is for
+    /// an API carrier's scan that skips ahead (<see cref="Couriers.Tracking.TrackingEventRecorder"/>):
+    /// the shortest legal path through the carrier-driven statuses must exist. The steps in between
+    /// are not stored as statuses — nobody reported them.
+    /// </para>
+    /// <para>
+    /// For an API carrier the scan usually gets there first, in which case the status is already
     /// DELIVERED and nothing happens: a self-transition is illegal by design, and re-stamping the
     /// arrival time would overwrite the carrier's account with ours.
     /// </para>
@@ -158,11 +174,13 @@ internal sealed class DeliveryProofService : IDeliveryProofService
             return;
         }
 
-        if (!Machine.CanTransition(current, ShipmentStatus.Delivered))
+        // Not yet booked, or already cancelled, returned or lost: there is no route, and a proof
+        // against a movement that never happened is worse than none.
+        if (Couriers.Tracking.TrackingEventRecorder.PathBetween(current, ShipmentStatus.Delivered) is null)
             throw new ConflictException(
                 $"A consignment that is {consignment.Status} cannot be recorded as delivered. "
-              + "Cancel or resolve it first — a proof against a movement that never happened is worse "
-              + "than none.");
+              + "Book it first, or cancel or resolve it — a proof against a movement that never "
+              + "happened is worse than none.");
 
         consignment.Status          = Delivered;
         consignment.ActualArrivalAt = deliveredAt;

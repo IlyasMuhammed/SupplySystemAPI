@@ -6,6 +6,8 @@
       <h1 class="page-title"><i class="pi pi-shopping-bag"></i> Sale Orders</h1>
       <p class="page-subtitle">Customer orders and how far each has been fulfilled</p>
     </div>
+    <p-button *ngIf="canCreate" label="New sale order" icon="pi pi-plus"
+              routerLink="/portal/pages/sales/orders/new" data-testid="new-order"></p-button>
   </div>
 
   <div class="filter-bar">
@@ -26,10 +28,11 @@
              [totalRecords]="totalRecords" [rows]="pageSize"
              (onLazyLoad)="onPageChange($event)"
              [paginator]="true" [rowsPerPageOptions]="[10,20,50]"
-             [tableStyle]="{'min-width':'60rem'}">
+             [tableStyle]="{'min-width':'64rem'}">
       <ng-template pTemplate="header">
         <tr>
           <th>Order #</th>
+          <th>Customer</th>
           <th>Order date</th>
           <th>Expected</th>
           <th>Mode</th>
@@ -42,6 +45,7 @@
       <ng-template pTemplate="body" let-o>
         <tr>
           <td class="font-mono font-semibold">{{ o.soNumber }}</td>
+          <td data-testid="customer">{{ customerName(o) }}</td>
           <td>{{ o.orderDate | date:'dd MMM yyyy' }}</td>
           <td>{{ o.expectedDeliveryDate ? (o.expectedDeliveryDate | date:'dd MMM yyyy') : '—' }}</td>
           <td>
@@ -58,13 +62,16 @@
             <p-button icon="pi pi-eye" [text]="true" severity="info" size="small" pTooltip="View"
                       [routerLink]="['/portal/pages/sales/orders', o.uuid]"
                       data-testid="view-order"></p-button>
+            <p-button *ngIf="canEdit(o)" icon="pi pi-pencil" [text]="true" severity="secondary" size="small" pTooltip="Edit draft"
+                      [routerLink]="['/portal/pages/sales/orders', o.uuid, 'edit']"
+                      data-testid="edit-order"></p-button>
           </td>
         </tr>
       </ng-template>
 
       <ng-template pTemplate="emptymessage">
         <tr>
-          <td colspan="7" class="text-center text-secondary" style="padding:3rem">
+          <td colspan="8" class="text-center text-secondary" style="padding:3rem">
             No sale orders found.
           </td>
         </tr>

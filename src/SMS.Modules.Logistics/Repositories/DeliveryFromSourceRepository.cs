@@ -400,6 +400,8 @@ internal sealed class DeliveryFromSourceRepository : IDeliveryFromSourceReposito
                 $"Sale order {so.SoNumber} has nothing left to deliver — every line is already " +
                 "fulfilled or already on a delivery.");
 
+        await EnsurePartialFulfilmentAllowedAsync(so, deliverable, selections);
+
         var descriptions = await _variants.DescribeVariantsAsync(
             selections.Select(s => s.Line.VariantUuid).Distinct().ToList());
 
@@ -466,6 +468,34 @@ internal sealed class DeliveryFromSourceRepository : IDeliveryFromSourceReposito
         await _db.SaveChangesAsync();
 
         return delivery.UUID;
+    }
+
+    /// <summary>
+    /// §7.6 — one order into many deliveries is what the organization's "allow partial fulfilment"
+    /// setting permits. With it off, a delivery has to carry every line in full for everything still
+    /// owed: the order goes out in one piece, or waits until it can.
+    /// </summary>
+    private async Task EnsurePartialFulfilmentAllowedAsync(
+        Demand.Domain.SaleOrder so,
+        List<Demand.Domain.SaleOrderLine> deliverable,
+        List<(Demand.Domain.SaleOrderLine Line, decimal Qty)> selections)
+    {
+        var config = await _demand.SaleOrderConfigs.AsNoTracking().FirstOrDefaultAsync();
+        if (config is null || config.PartialFulfillmentAllowed) return;
+
+        var chosen = selections.ToDictionary(s => s.Line.UUID, s => s.Qty);
+
+        var notCovered = deliverable
+            .Select((line, index) => (Label: $"Line {index + 1}", Owed: line.Quantity - line.FulfilledQty, line.UUID))
+            .Where(x => x.Owed > 0 && chosen.GetValueOrDefault(x.UUID) < x.Owed)
+            .Select(x => x.Label)
+            .ToList();
+
+        if (notCovered.Count > 0)
+            throw new BadRequestException(
+                $"Partial fulfilment is switched off for this organization, so sale order {so.SoNumber} has to go " +
+                $"out in one delivery that covers everything still owed. This delivery does not cover " +
+                $"{string.Join(", ", notCovered)} in full.");
     }
 
     private static DeliveryMode ResolveDeliveryMode(Demand.Domain.SaleOrder so, string? requested)

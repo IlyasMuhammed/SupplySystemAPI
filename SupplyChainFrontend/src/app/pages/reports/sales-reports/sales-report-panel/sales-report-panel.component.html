@@ -1,0 +1,115 @@
+<section class="panel" [attr.data-report]="definition.key">
+  <p-toast></p-toast>
+
+  <header class="panel-head">
+    <div>
+      <h2 class="panel-title">
+        <span class="code">{{ definition.code }}</span>
+        <i [class]="definition.icon"></i>
+        {{ definition.title }}
+      </h2>
+      <p class="panel-note" data-testid="note">{{ definition.note }}</p>
+    </div>
+  </header>
+
+  <!-- ── Filters ───────────────────────────────────────────────────────────────── -->
+  <form class="filters" (ngSubmit)="run()" data-testid="filters">
+    <div class="filter" *ngFor="let f of definition.filters" [attr.data-filter]="f.id" [ngSwitch]="f.kind">
+      <label>{{ f.label }} <span class="required" *ngIf="f.required">*</span></label>
+
+      <p-calendar *ngSwitchCase="'dateFrom'" [(ngModel)]="values[f.id]" [ngModelOptions]="{standalone: true}" dateFormat="dd/mm/yy"
+                  [showIcon]="true" [showClear]="true" placeholder="Any" appendTo="body" styleClass="control"></p-calendar>
+      <p-calendar *ngSwitchCase="'dateTo'" [(ngModel)]="values[f.id]" [ngModelOptions]="{standalone: true}" dateFormat="dd/mm/yy"
+                  [showIcon]="true" [showClear]="true" placeholder="Any" appendTo="body" styleClass="control"></p-calendar>
+      <p-calendar *ngSwitchCase="'asOf'" [(ngModel)]="values[f.id]" [ngModelOptions]="{standalone: true}" dateFormat="dd/mm/yy"
+                  [showIcon]="true" [showClear]="true" placeholder="Today" appendTo="body" styleClass="control"></p-calendar>
+
+      <p-autoComplete *ngSwitchCase="'customer'" [(ngModel)]="values[f.id]" [ngModelOptions]="{standalone: true}"
+                      [suggestions]="customerSuggestions" field="companyName" (completeMethod)="searchCustomers($event)"
+                      [minLength]="1" [dropdown]="true" [showClear]="true" [forceSelection]="true"
+                      placeholder="All customers" appendTo="body" styleClass="control" inputStyleClass="control"></p-autoComplete>
+
+      <p-dropdown *ngSwitchCase="'select'" [(ngModel)]="values[f.id]" [ngModelOptions]="{standalone: true}"
+                  [options]="optionsOf(f)" appendTo="body" styleClass="control"></p-dropdown>
+
+      <p-dropdown *ngSwitchCase="'warehouse'" [(ngModel)]="values[f.id]" [ngModelOptions]="{standalone: true}"
+                  [options]="optionsOf(f)" appendTo="body" styleClass="control"></p-dropdown>
+
+      <p-dropdown *ngSwitchCase="'product'" [ngModel]="values[f.id]" (ngModelChange)="onProductChange($event)"
+                  [ngModelOptions]="{standalone: true}" [options]="productOptions" [filter]="true" [showClear]="true"
+                  placeholder="Choose a product" appendTo="body" styleClass="control"></p-dropdown>
+
+      <p-dropdown *ngSwitchCase="'variant'" [(ngModel)]="values[f.id]" [ngModelOptions]="{standalone: true}"
+                  [options]="variantOptions" [disabled]="!variantOptions.length" placeholder="All variants"
+                  appendTo="body" styleClass="control"></p-dropdown>
+    </div>
+
+    <div class="run-actions">
+      <p-button type="submit" label="Run report" icon="pi pi-play" [loading]="isLoading" data-testid="run"></p-button>
+      <p-button *ngIf="canExport" label="PDF" icon="pi pi-file-pdf" [outlined]="true" severity="secondary"
+                [loading]="exporting === 'pdf'" [disabled]="!!exporting" (onClick)="export('pdf')"
+                pTooltip="Download the whole report as a PDF" data-testid="export-pdf"></p-button>
+      <p-button *ngIf="canExport" label="Excel" icon="pi pi-file-excel" [outlined]="true" severity="secondary"
+                [loading]="exporting === 'excel'" [disabled]="!!exporting" (onClick)="export('excel')"
+                pTooltip="Download the whole report as a workbook" data-testid="export-excel"></p-button>
+    </div>
+  </form>
+
+  <!-- ── Results ───────────────────────────────────────────────────────────────── -->
+  <div class="state" *ngIf="isLoading && !report" data-testid="loading">
+    <i class="pi pi-spin pi-spinner"></i> Running the report…
+  </div>
+
+  <div class="state" *ngIf="!isLoading && !report" data-testid="not-run">
+    <i class="pi pi-filter"></i> {{ problem() || 'Set the filters and run the report.' }}
+  </div>
+
+  <ng-container *ngIf="report">
+    <p class="generated" data-testid="generated">
+      <span *ngIf="report.companyName">{{ report.companyName }} · </span>Generated {{ generatedAt | date:'dd MMM yyyy, HH:mm' }}
+    </p>
+
+    <div class="charts" *ngIf="charts.length" data-testid="charts">
+      <div class="chart-card" *ngFor="let c of charts" data-testid="chart-card">
+        <h3>{{ c.title }}</h3>
+        <small *ngIf="c.subtitle">{{ c.subtitle }}</small>
+        <p-chart [type]="c.type" [data]="c.data" [options]="c.options" height="20rem" data-testid="chart"></p-chart>
+      </div>
+    </div>
+
+    <div class="section" *ngFor="let s of sections" [attr.data-section]="s.id">
+      <h3 class="section-title">{{ s.title }}</h3>
+
+      <div class="table-card">
+        <p-table [value]="rowsOf(s)" [lazy]="!!s.paged" [lazyLoadOnInit]="false" [paginator]="!!s.paged"
+                 [totalRecords]="s.paged ? report.totalRecords : rowsOf(s).length" [rows]="s.paged ? pageSize : rowsOf(s).length || 10"
+                 [first]="s.paged ? (page - 1) * pageSize : 0" [rowsPerPageOptions]="[10,20,50,100]"
+                 [loading]="!!s.paged && isLoading" (onLazyLoad)="onPageChange($event)"
+                 [tableStyle]="{'min-width': (s.columns.length * 7) + 'rem'}">
+          <ng-template pTemplate="header">
+            <tr>
+              <th *ngFor="let col of s.columns" [class.text-right]="isNumber(col)">{{ headerOf(col) }}</th>
+            </tr>
+          </ng-template>
+
+          <ng-template pTemplate="body" let-row>
+            <tr data-testid="row">
+              <td *ngFor="let col of s.columns" [class.text-right]="isNumber(col)" [attr.data-col]="col.field">
+                <p-tag *ngIf="col.kind === 'tag' && row[col.field]; else plain" [value]="cell(row, col)" [severity]="severity(row, col)"></p-tag>
+                <ng-template #plain>{{ cell(row, col) }}</ng-template>
+              </td>
+            </tr>
+          </ng-template>
+
+          <ng-template pTemplate="emptymessage">
+            <tr>
+              <td [attr.colspan]="s.columns.length" class="text-center text-secondary" style="padding:2.5rem">
+                Nothing matches these filters.
+              </td>
+            </tr>
+          </ng-template>
+        </p-table>
+      </div>
+    </div>
+  </ng-container>
+</section>

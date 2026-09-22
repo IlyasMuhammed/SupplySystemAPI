@@ -117,6 +117,14 @@ internal sealed class AuthDataSeeder
         ("Edit Sale Orders",    PermissionCodes.SALE_ORDER_EDIT,    "Amend a draft sale order"),
         ("Confirm Sale Orders", PermissionCodes.SALE_ORDER_CONFIRM, "Confirm a sale order for fulfilment"),
         ("Cancel Sale Orders",  PermissionCodes.SALE_ORDER_CANCEL,  "Cancel a sale order"),
+
+        ("View Sales Invoices",     PermissionCodes.SALES_INVOICE_VIEW,     "Read and print sales invoices"),
+        ("Manage Sales Invoices",   PermissionCodes.SALES_INVOICE_MANAGE,   "Raise a sales invoice from a delivery, amend or delete a draft, and issue it — issuing books the receivable"),
+        ("View Customer Payments",  PermissionCodes.CUSTOMER_PAYMENT_VIEW,  "Read money received from customers and how it was applied"),
+        ("Record Customer Payments", PermissionCodes.CUSTOMER_PAYMENT_RECORD, "Record a customer's payment and apply it to their invoices — this is what settles them"),
+        ("View Customer Ledger",    PermissionCodes.CUSTOMER_LEDGER_VIEW,   "Read a customer's receivables ledger"),
+
+        ("View Product Ledger",     PermissionCodes.PRODUCT_LEDGER_VIEW,    "Read what a product variant cost, its stock value and weighted-average cost, and the product profitability report"),
     ];
 
     private async Task SeedPermissionsAsync()
@@ -238,6 +246,9 @@ internal sealed class AuthDataSeeder
         [
             PermissionCodes.INVOICE_VIEW,   PermissionCodes.INVOICE_PROCESS,
             PermissionCodes.PAYMENT_VIEW,   PermissionCodes.PAYMENT_PROCESS,
+            PermissionCodes.SALES_INVOICE_VIEW,    PermissionCodes.SALES_INVOICE_MANAGE,
+            PermissionCodes.CUSTOMER_PAYMENT_VIEW, PermissionCodes.CUSTOMER_PAYMENT_RECORD,
+            PermissionCodes.CUSTOMER_LEDGER_VIEW,  PermissionCodes.PRODUCT_LEDGER_VIEW,
             PermissionCodes.RECONCILIATION,
             PermissionCodes.BUDGET_VIEW,    PermissionCodes.BUDGET_MONITOR,
             PermissionCodes.REPORT_VIEW,    PermissionCodes.REPORT_EXPORT,
@@ -260,6 +271,8 @@ internal sealed class AuthDataSeeder
             PermissionCodes.REQUISITION_VIEW_ALL,
             PermissionCodes.INVENTORY_VIEW,
             PermissionCodes.INVOICE_VIEW,   PermissionCodes.PAYMENT_VIEW,
+            PermissionCodes.SALES_INVOICE_VIEW, PermissionCodes.CUSTOMER_PAYMENT_VIEW, PermissionCodes.CUSTOMER_LEDGER_VIEW,
+            PermissionCodes.PRODUCT_LEDGER_VIEW,
             PermissionCodes.AUDIT_LOG_VIEW,
             PermissionCodes.REPORT_VIEW,    PermissionCodes.REPORT_EXPORT,
             PermissionCodes.WORKFLOW_VIEW,
@@ -269,6 +282,9 @@ internal sealed class AuthDataSeeder
         [
             PermissionCodes.INVOICE_VIEW,   PermissionCodes.INVOICE_PROCESS,
             PermissionCodes.PAYMENT_VIEW,   PermissionCodes.PAYMENT_PROCESS, PermissionCodes.PAYMENT_APPROVE,
+            PermissionCodes.SALES_INVOICE_VIEW,    PermissionCodes.SALES_INVOICE_MANAGE,
+            PermissionCodes.CUSTOMER_PAYMENT_VIEW, PermissionCodes.CUSTOMER_PAYMENT_RECORD,
+            PermissionCodes.CUSTOMER_LEDGER_VIEW,  PermissionCodes.PRODUCT_LEDGER_VIEW,
             PermissionCodes.RECONCILIATION,
             PermissionCodes.BUDGET_VIEW,    PermissionCodes.BUDGET_MANAGE,
             PermissionCodes.REPORT_VIEW,    PermissionCodes.REPORT_EXPORT,

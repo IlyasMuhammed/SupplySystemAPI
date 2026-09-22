@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using SMS.Modules.Logistics.Services;
 using SMS.Shared.Common;
 
 namespace SMS.Modules.Logistics.Visibility;
@@ -25,15 +26,17 @@ internal sealed class DeliveryExceptionSweepJob
 
     private readonly IDeliveryExceptionService          _exceptions;
     private readonly IDeliveryProofService              _proofs;
+    private readonly IDeliveryProgressService           _progress;
     private readonly ITenantContext                     _tenant;
     private readonly ILogger<DeliveryExceptionSweepJob> _log;
 
     public DeliveryExceptionSweepJob(
         IDeliveryExceptionService exceptions, IDeliveryProofService proofs,
-        ITenantContext tenant, ILogger<DeliveryExceptionSweepJob> log)
+        IDeliveryProgressService progress, ITenantContext tenant, ILogger<DeliveryExceptionSweepJob> log)
     {
         _exceptions = exceptions;
         _proofs     = proofs;
+        _progress   = progress;
         _tenant     = tenant;
         _log        = log;
     }
@@ -50,11 +53,15 @@ internal sealed class DeliveryExceptionSweepJob
         // API-carrier delivery is evidenced without anybody typing anything.
         var proofs = await _proofs.SweepFromTrackingAsync(SystemUserId);
 
-        if (fromCarrier > 0 || fromSilence > 0 || proofs > 0)
+        // And the delivery itself: what the carrier says has happened to the parcel happens to the
+        // order it was raised for, which is what lets the sale order move and the customer be invoiced.
+        var advanced = await _progress.SweepAsync(SystemUserId);
+
+        if (fromCarrier > 0 || fromSilence > 0 || proofs > 0 || advanced > 0)
             _log.LogInformation(
                 "Raised {FromCarrier} delivery exception(s) from carrier events and {FromSilence} "
-              + "from consignments gone quiet, and recorded {Proofs} proof(s) of delivery, for "
-              + "{Organization}.",
-                fromCarrier, fromSilence, proofs, _tenant.OrganizationId);
+              + "from consignments gone quiet, recorded {Proofs} proof(s) of delivery, and moved "
+              + "{Advanced} delivery order(s) along with their consignments, for {Organization}.",
+                fromCarrier, fromSilence, proofs, advanced, _tenant.OrganizationId);
     }
 }

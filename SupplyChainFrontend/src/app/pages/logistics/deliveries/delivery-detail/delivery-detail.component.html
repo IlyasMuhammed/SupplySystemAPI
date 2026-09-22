@@ -45,6 +45,14 @@
         <p-button *ngIf="canDownloadGatePass" label="Gate pass" icon="pi pi-file-pdf" [text]="true"
                   severity="secondary" (onClick)="openGatePass()" data-testid="action-gate-pass"></p-button>
 
+        <p-button *ngIf="canCreateInvoice" label="Create invoice" icon="pi pi-file" severity="success"
+                  [disabled]="isSubmitting" (onClick)="createInvoice()"
+                  data-testid="action-create-invoice"></p-button>
+
+        <p-button *ngIf="canCreateConsignment" label="Create consignment" icon="pi pi-send"
+                  severity="success" [outlined]="true" [disabled]="isSubmitting"
+                  (onClick)="openConsignmentDialog()" data-testid="action-create-consignment"></p-button>
+
         <p-button *ngIf="canRecordPickup" label="Record collection" icon="pi pi-user-plus" severity="success"
                   [disabled]="isSubmitting" (onClick)="openPickupDialog()"
                   data-testid="action-record-pickup"></p-button>
@@ -151,6 +159,33 @@
         </ng-container>
         <ng-template #noAddress><p class="muted">No delivery address recorded.</p></ng-template>
       </div>
+    </div>
+
+    <!-- The carrier's side of this delivery. The delivery is moved by its consignment, so this is
+         where a shipped delivery is followed once the goods have left. -->
+    <div class="card shipment-card" *ngIf="d.consignments?.length || canCreateConsignment"
+         data-testid="shipment-card">
+      <h3>Shipment</h3>
+
+      <ul class="consignment-list" *ngIf="d.consignments?.length; else noConsignment">
+        <li *ngFor="let c of d.consignments" data-testid="consignment-row">
+          <a class="font-mono source-link" [routerLink]="['/portal/pages/logistics/consignments', c.consignmentUuid]"
+             data-testid="consignment-link">{{ c.consignmentNumber }}</a>
+          <p-tag [value]="formatStatus(c.status)" [severity]="getShipmentSeverity(c.status)"></p-tag>
+          <span class="muted" *ngIf="c.carrierName">{{ c.carrierName }}</span>
+          <span class="muted font-mono" *ngIf="c.masterAwb">AWB {{ c.masterAwb }}</span>
+        </li>
+      </ul>
+      <ng-template #noConsignment>
+        <p class="muted" data-testid="no-consignment">
+          Not handed to a carrier yet. Create a consignment to book one and follow the parcel from here.
+        </p>
+      </ng-template>
+
+      <p class="muted follow-note" *ngIf="followsConsignment" data-testid="follows-consignment">
+        This delivery follows its consignment: it becomes In transit when the carrier collects the
+        parcel, and Delivered when the handover is recorded.
+      </p>
     </div>
 
     <div class="table-card">
@@ -266,6 +301,34 @@
       <p-button label="Back" [text]="true" severity="secondary" (onClick)="pickupDialogVisible = false"></p-button>
       <p-button label="Hand over" icon="pi pi-check" severity="success" [disabled]="!canSubmitPickup"
                 (onClick)="submitPickup()" data-testid="pickup-confirm"></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <!-- ── Consignment ────────────────────────────────────────────────────────── -->
+
+  <p-dialog header="Create a consignment" [(visible)]="consignmentDialogVisible" [modal]="true"
+            [style]="{width:'32rem'}" [draggable]="false" data-testid="consignment-dialog">
+    <p class="dialog-hint">
+      A consignment is the carrier's side of this delivery. Create it, then book the carrier, print
+      the label and follow the parcel from its page.
+    </p>
+
+    <label for="consignment-carrier" class="dialog-label">Carrier</label>
+    <p-dropdown inputId="consignment-carrier" [options]="carriers" optionLabel="name" optionValue="uuid"
+                [(ngModel)]="consignment.carrierUuid" [showClear]="true" placeholder="Choose later"
+                appendTo="body" styleClass="w-full" data-testid="consignment-carrier"></p-dropdown>
+
+    <div class="dialog-row">
+      <label for="consignment-notes" class="dialog-label">Notes</label>
+      <textarea pTextarea id="consignment-notes" [(ngModel)]="consignment.notes" rows="2" class="w-full"
+                placeholder="Anything the carrier or the driver should know."
+                data-testid="consignment-notes"></textarea>
+    </div>
+
+    <ng-template pTemplate="footer">
+      <p-button label="Back" [text]="true" severity="secondary" (onClick)="consignmentDialogVisible = false"></p-button>
+      <p-button label="Create" icon="pi pi-check" severity="success" [disabled]="isSubmitting"
+                (onClick)="submitConsignment()" data-testid="consignment-confirm"></p-button>
     </ng-template>
   </p-dialog>
 

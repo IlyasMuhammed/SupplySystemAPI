@@ -49,6 +49,12 @@ internal sealed class SalesInvoiceMap : IEntityTypeConfiguration<SalesInvoice>
         b.Property(x => x.Notes).HasMaxLength(500);
         b.Property(x => x.IsActive).HasDefaultValue(true);
 
+        // Optimistic concurrency without a new column: every writer that changes an invoice sets
+        // ModifiedDate to a fresh value, so a save made from a stale read matches no row and fails
+        // rather than overwriting. Payments, allocations, issue, the overdue sweep and edits all
+        // change balances or status and all bump it — a writer that forgot to would be the one gap.
+        b.Property(x => x.ModifiedDate).IsConcurrencyToken();
+
         b.Property(x => x.OrganizationId).IsRequired();
         b.HasIndex(x => x.OrganizationId);
 

@@ -1,0 +1,269 @@
+<div class="form-page">
+  <p-toast></p-toast>
+
+  <div class="page-header">
+    <p-button icon="pi pi-arrow-left" [text]="true" severity="secondary" [routerLink]="backLink"
+              pTooltip="Back" data-testid="back"></p-button>
+    <div>
+      <h1 class="page-title">
+        <i class="pi" [ngClass]="isEdit ? 'pi-pencil' : 'pi-plus-circle'"></i>
+        <ng-container *ngIf="!isEdit">New sale order</ng-container>
+        <ng-container *ngIf="isEdit">Edit <span class="font-mono">{{ order?.soNumber }}</span></ng-container>
+      </h1>
+      <p class="page-subtitle">
+        <ng-container *ngIf="!isEdit">The order is saved as a draft. Confirming it, which reserves stock, is a separate step.</ng-container>
+        <ng-container *ngIf="isEdit">Only a draft can be changed. Saving re-prices every line.</ng-container>
+      </p>
+    </div>
+  </div>
+
+  <div class="state-card" *ngIf="isLoading" data-testid="loading"><i class="pi pi-spin pi-spinner"></i> Loading…</div>
+
+  <div class="state-card" *ngIf="notFound" data-testid="not-found">
+    <i class="pi pi-inbox"></i>
+    <h2>Sale order not found</h2>
+    <p-button label="Back to sale orders" icon="pi pi-arrow-left" [text]="true" routerLink="/portal/pages/sales/orders"></p-button>
+  </div>
+
+  <div class="state-card" *ngIf="notEditable" data-testid="not-editable">
+    <i class="pi pi-lock"></i>
+    <h2>{{ order?.soNumber }} can no longer be edited</h2>
+    <p>Only a draft can be changed, and this order has been confirmed or closed.</p>
+    <p-button label="Open the order" icon="pi pi-arrow-right" [text]="true"
+              [routerLink]="['/portal/pages/sales/orders', uuid]"></p-button>
+  </div>
+
+  <form *ngIf="!isLoading && !notFound && !notEditable" [formGroup]="form" (ngSubmit)="save()" novalidate>
+
+    <!-- ── Customer and delivery ─────────────────────────────────────────────── -->
+    <div class="form-card">
+      <div class="card-head">
+        <div class="card-icon"><i class="pi pi-user"></i></div>
+        <div>
+          <div class="card-title">Customer &amp; delivery</div>
+          <div class="card-sub">Who the order is for and how the goods reach them</div>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="field full">
+          <label>Customer <span class="required">*</span></label>
+          <p-autoComplete formControlName="customer" [suggestions]="customerSuggestions" field="companyName"
+                          (completeMethod)="searchCustomers($event)" (onSelect)="onCustomerSelected($event.value)"
+                          (onClear)="onCustomerCleared()" [minLength]="1" [dropdown]="true"
+                          placeholder="Search customers by name…" styleClass="w-full" inputStyleClass="w-full"
+                          appendTo="body" data-testid="customer"></p-autoComplete>
+          <small class="p-error" *ngIf="form.get('customer')?.invalid && form.get('customer')?.touched" data-testid="customer-error">
+            Choose the customer from the list.
+          </small>
+          <small class="hint" *ngIf="isEdit">The customer cannot be changed on an order that already exists.</small>
+        </div>
+
+        <div class="field full">
+          <label>Delivery <span class="required">*</span></label>
+          <p-selectButton [options]="modeOptions" formControlName="deliveryMode" optionLabel="label" optionValue="value"
+                          optionDisabled="disabled" [allowEmpty]="false" (onChange)="onModeChange()" data-testid="delivery-mode"></p-selectButton>
+          <small class="hint" *ngIf="pickupOff" data-testid="pickup-off">
+            Customer pickup is switched off for this organization, so orders are shipped.
+          </small>
+        </div>
+
+        <div class="field full" *ngIf="isShip" data-testid="address-field">
+          <label>Shipping address <span class="required">*</span></label>
+          <div class="address-row">
+            <p-dropdown [options]="addressOptions" formControlName="shippingAddressId" optionLabel="label" optionValue="value"
+                        [filter]="true" filterBy="label" [loading]="isLoadingAddresses" [showClear]="true"
+                        [placeholder]="customer ? 'Choose where it ships to…' : 'Choose the customer first'"
+                        styleClass="w-full" appendTo="body" data-testid="address"></p-dropdown>
+            <p-button label="New address" icon="pi pi-plus" [outlined]="true" [disabled]="!canAddAddress"
+                      (onClick)="openAddressDialog()" pTooltip="Save another address for this customer"
+                      data-testid="new-address"></p-button>
+          </div>
+          <small class="p-error" *ngIf="form.get('shippingAddressId')?.invalid && form.get('shippingAddressId')?.touched" data-testid="address-error">
+            A shipped order needs a shipping address.
+          </small>
+          <small class="hint" *ngIf="customer && !isLoadingAddresses && !addresses.length">
+            This customer has no saved address yet. Add one to ship to.
+          </small>
+        </div>
+
+        <div class="field">
+          <label>Expected delivery</label>
+          <p-calendar formControlName="expectedDeliveryDate" dateFormat="dd/mm/yy" [minDate]="minDate"
+                      [showIcon]="true" [showClear]="true" styleClass="w-full" appendTo="body"></p-calendar>
+        </div>
+
+        <div class="field" data-testid="currency-field">
+          <label>Currency <span class="required">*</span></label>
+          <p-dropdown [options]="currencyOptions" formControlName="currencyId" optionLabel="label" optionValue="value"
+                      [filter]="true" filterBy="label" [loading]="isLoadingCurrencies"
+                      placeholder="Choose the currency" styleClass="w-full" appendTo="body" data-testid="currency"></p-dropdown>
+          <small class="p-error" *ngIf="form.get('currencyId')?.invalid && form.get('currencyId')?.touched" data-testid="currency-error">
+            Choose the currency.
+          </small>
+          <small class="hint" *ngIf="noBaseCurrency && !isEdit" data-testid="currency-hint">
+            This organization has no default currency, so choose one for each order.
+          </small>
+        </div>
+
+        <div class="field full">
+          <label>Notes</label>
+          <textarea pTextarea formControlName="notes" rows="2" class="w-full" maxlength="2000"
+                    placeholder="Optional — anything the customer or the warehouse should know."></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Line items ────────────────────────────────────────────────────────── -->
+    <div class="form-card">
+      <div class="card-head">
+        <div class="card-icon"><i class="pi pi-list"></i></div>
+        <div class="grow">
+          <div class="card-title">Line items</div>
+          <div class="card-sub">Prices come from the pricing rules for this customer; the figures here are a preview</div>
+        </div>
+        <p-button label="Add line" icon="pi pi-plus" [outlined]="true" size="small" (onClick)="addLine()"
+                  data-testid="add-line"></p-button>
+      </div>
+
+      <small class="p-error" *ngIf="lines.length === 0" data-testid="no-lines">Add at least one line.</small>
+
+      <div formArrayName="lines" class="lines">
+        <div class="line-card" *ngFor="let line of lines.controls; let i = index" [formGroupName]="i" data-testid="line">
+          <div class="line-index">{{ i + 1 }}</div>
+
+          <div class="line-item">
+            <label>Item</label>
+            <ng-container *ngIf="lineControl(i, 'pickerOpen').value; else fixedItem">
+              <app-product-variant-picker [products]="products"
+                                          [productUuid]="lineControl(i, 'productUuid').value"
+                                          [variantUuid]="lineControl(i, 'variantUuid').value"
+                                          (selectionChange)="onLineVariantSelected(i, $event)"></app-product-variant-picker>
+            </ng-container>
+            <ng-template #fixedItem>
+              <div class="fixed-item">
+                <div>
+                  <div data-testid="line-label">{{ lineControl(i, 'label').value }}</div>
+                  <div class="line-sub" *ngIf="lineControl(i, 'sku').value">{{ lineControl(i, 'sku').value }}</div>
+                </div>
+                <p-button label="Change" [text]="true" size="small" (onClick)="changeLineItem(i)" data-testid="change-item"></p-button>
+              </div>
+            </ng-template>
+            <small class="p-error" *ngIf="lineIsInvalid(i, 'variantUuid')">Choose an item.</small>
+          </div>
+
+          <div class="line-field">
+            <label>Quantity <span class="required">*</span></label>
+            <p-inputNumber formControlName="quantity" [minFractionDigits]="0" [maxFractionDigits]="4"
+                           [min]="0.0001" [max]="999999" [class.p-invalid]="lineIsInvalid(i, 'quantity')"
+                           (onBlur)="refreshPrice(i)" styleClass="w-full" inputStyleClass="w-full"
+                           data-testid="quantity"></p-inputNumber>
+            <small class="p-error" *ngIf="lineIsInvalid(i, 'quantity')">Above zero.</small>
+          </div>
+
+          <div class="line-field">
+            <label>Discount %</label>
+            <p-inputNumber formControlName="discountPercent" [minFractionDigits]="0" [maxFractionDigits]="2"
+                           [min]="0" [max]="100" styleClass="w-full" inputStyleClass="w-full" data-testid="discount"></p-inputNumber>
+          </div>
+
+          <div class="line-field">
+            <label>Tax %</label>
+            <p-inputNumber formControlName="taxPercent" [minFractionDigits]="0" [maxFractionDigits]="2"
+                           [min]="0" [max]="1000" styleClass="w-full" inputStyleClass="w-full" data-testid="tax"></p-inputNumber>
+          </div>
+
+          <div class="line-price" data-testid="price">
+            <ng-container [ngSwitch]="lineControl(i, 'priceState').value">
+              <span *ngSwitchCase="'found'">
+                <span class="price">{{ lineControl(i, 'unitPrice').value | number:'1.2-2' }}</span>
+                <span class="per">each</span>
+                <span class="total" *ngIf="lineTotal(i) !== null">= {{ lineTotal(i) | number:'1.2-2' }}</span>
+              </span>
+              <span *ngSwitchCase="'loading'" class="muted"><i class="pi pi-spin pi-spinner"></i></span>
+              <span *ngSwitchCase="'missing'" class="warn" data-testid="price-missing">
+                <i class="pi pi-exclamation-triangle"></i> No price rule applies. Saving will be refused.
+              </span>
+              <span *ngSwitchCase="'unavailable'" class="muted">Priced when saved</span>
+              <span *ngSwitchDefault class="muted">—</span>
+            </ng-container>
+          </div>
+
+          <p-button icon="pi pi-trash" [text]="true" severity="danger" size="small" (onClick)="removeLine(i)"
+                    pTooltip="Remove the line" data-testid="remove-line"></p-button>
+        </div>
+      </div>
+
+      <div class="totals" *ngIf="lines.length">
+        <div>
+          <span class="totals-label">Estimated total</span>
+          <strong data-testid="estimated-total">{{ estimatedTotal | number:'1.2-2' }}</strong>
+        </div>
+        <small class="hint" *ngIf="unpricedLines">
+          {{ unpricedLines }} line{{ unpricedLines === 1 ? ' has' : 's have' }} no price to preview, so the total is only set when the order is saved.
+        </small>
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <p-button label="Cancel" [text]="true" severity="secondary" [routerLink]="backLink" data-testid="cancel"></p-button>
+      <p-button type="submit" [label]="isEdit ? 'Save changes' : 'Save draft'" icon="pi pi-check"
+                [loading]="isSaving" [disabled]="isSaving" data-testid="save"></p-button>
+    </div>
+  </form>
+
+  <!-- ── New address ───────────────────────────────────────────────────────────── -->
+  <p-dialog header="New shipping address" [(visible)]="addressDialogVisible" [modal]="true"
+            [style]="{width:'40rem'}" [draggable]="false" data-testid="address-dialog">
+    <p class="dialog-hint" *ngIf="customer">Saved for {{ customer.companyName }}.</p>
+
+    <form [formGroup]="addressForm" class="address-grid" (ngSubmit)="saveAddress()" novalidate>
+      <div class="field full">
+        <label>Address line 1 <span class="required">*</span></label>
+        <input pInputText formControlName="line1" class="w-full" data-testid="addr-line1" />
+        <small class="p-error" *ngIf="addressForm.get('line1')?.invalid && addressForm.get('line1')?.touched">Required.</small>
+      </div>
+      <div class="field full">
+        <label>Address line 2</label>
+        <input pInputText formControlName="line2" class="w-full" />
+      </div>
+      <div class="field">
+        <label>City <span class="required">*</span></label>
+        <input pInputText formControlName="cityName" class="w-full" data-testid="addr-city" />
+        <small class="p-error" *ngIf="addressForm.get('cityName')?.invalid && addressForm.get('cityName')?.touched">Required.</small>
+      </div>
+      <div class="field">
+        <label>Postal code</label>
+        <input pInputText formControlName="postalCode" class="w-full" />
+      </div>
+      <div class="field">
+        <label>State / province</label>
+        <input pInputText formControlName="state" class="w-full" />
+      </div>
+      <div class="field">
+        <label>Country <span class="required">*</span></label>
+        <input pInputText formControlName="countryName" class="w-full" data-testid="addr-country" />
+        <small class="p-error" *ngIf="addressForm.get('countryName')?.invalid && addressForm.get('countryName')?.touched">Required.</small>
+      </div>
+      <div class="field">
+        <label>Contact name</label>
+        <input pInputText formControlName="contactName" class="w-full" />
+      </div>
+      <div class="field">
+        <label>Contact phone</label>
+        <input pInputText formControlName="contactPhone" class="w-full" />
+      </div>
+      <div class="field full">
+        <label>Contact email</label>
+        <input pInputText formControlName="contactEmail" class="w-full" />
+        <small class="p-error" *ngIf="addressForm.get('contactEmail')?.invalid && addressForm.get('contactEmail')?.touched">Not a valid email.</small>
+      </div>
+    </form>
+
+    <ng-template pTemplate="footer">
+      <p-button label="Back" [text]="true" severity="secondary" (onClick)="addressDialogVisible = false"></p-button>
+      <p-button label="Save address" icon="pi pi-check" [loading]="isSavingAddress" [disabled]="isSavingAddress"
+                (onClick)="saveAddress()" data-testid="save-address"></p-button>
+    </ng-template>
+  </p-dialog>
+</div>

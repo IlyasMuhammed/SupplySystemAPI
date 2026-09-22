@@ -1,0 +1,311 @@
+<p-toast></p-toast>
+
+<div class="settings-page">
+
+  <!-- ── Header ───────────────────────────────────────────────────────────── -->
+  <div class="page-header">
+    <div class="page-icon"><i class="pi pi-sliders-h"></i></div>
+    <div class="grow">
+      <h1 class="page-title">
+        Sale Order Settings
+        <p-tag *ngIf="config && !canEdit" value="View only" severity="secondary" icon="pi pi-lock" data-testid="view-only"></p-tag>
+      </h1>
+      <p class="page-subtitle">How sale orders are filled, when purchase orders are raised for shortfalls, and who is told.</p>
+    </div>
+    <div class="last-changed" *ngIf="config" data-testid="last-changed">
+      <ng-container *ngIf="config.updatedAt; else neverChanged">Last changed {{ config.updatedAt | date:'medium' }}</ng-container>
+      <ng-template #neverChanged>Still on the default settings</ng-template>
+    </div>
+  </div>
+
+  <!-- ── Loading and failure ──────────────────────────────────────────────── -->
+  <div class="state-card" *ngIf="isLoading" data-testid="loading">
+    <i class="pi pi-spin pi-spinner"></i>
+    <p>Loading the settings…</p>
+  </div>
+
+  <div class="state-card" *ngIf="loadFailed" data-testid="load-failed">
+    <i class="pi pi-exclamation-triangle"></i>
+    <h2>The settings could not be loaded</h2>
+    <p>Check your connection and try again.</p>
+    <p-button label="Try again" icon="pi pi-refresh" (onClick)="load()" data-testid="retry"></p-button>
+  </div>
+
+  <ng-container *ngIf="config && !isLoading">
+
+    <p-message *ngIf="!canEdit" severity="info" styleClass="read-only-note" data-testid="read-only-note">
+      You can see these settings but not change them. Only the Supply Department Administrator can.
+    </p-message>
+
+    <p-tabView styleClass="settings-tabs" [(activeIndex)]="activeTab" (onChange)="onTabChange($event)">
+
+      <!-- ══ Settings ═══════════════════════════════════════════════════════ -->
+      <p-tabPanel header="Settings" leftIcon="pi pi-sliders-h">
+        <form [formGroup]="form" (ngSubmit)="reviewAndSave()" novalidate data-testid="settings-form">
+
+          <!-- Shared pieces -->
+          <ng-template #switchRow let-name="name" let-label="label" let-hint="hint">
+            <div class="switch-row">
+              <div class="switch-text">
+                <label class="switch-label" [attr.for]="name">{{ label }}</label>
+                <span class="hint">{{ hint }}</span>
+              </div>
+              <p-toggleswitch [inputId]="name" [formControlName]="name" [attr.data-testid]="name"></p-toggleswitch>
+            </div>
+          </ng-template>
+
+          <ng-template #choiceGroup let-name="name" let-options="options" let-blocked="blocked">
+            <div class="choices" role="radiogroup">
+              <label *ngFor="let opt of options" class="choice"
+                     [class.selected]="form.get(name)?.value === opt.value"
+                     [class.disabled]="form.get(name)?.disabled || (blocked && blocked(opt))"
+                     [class.caution]="opt.caution">
+                <input type="radio" [formControlName]="name" [value]="opt.value"
+                       [attr.disabled]="blocked && blocked(opt) ? '' : null"
+                       [attr.data-testid]="name + '-' + opt.value" />
+                <span class="choice-body">
+                  <span class="choice-title">
+                    {{ opt.label }}
+                    <span class="badge recommended" *ngIf="opt.recommended">Recommended</span>
+                    <span class="badge caution" *ngIf="opt.caution">No human review</span>
+                  </span>
+                  <span class="choice-desc">{{ opt.description }}</span>
+                </span>
+              </label>
+            </div>
+          </ng-template>
+
+          <!-- ── Purchasing for shortfalls ─────────────────────────────────── -->
+          <section class="form-card" data-testid="purchasing-card">
+            <div class="card-head">
+              <div class="card-icon"><i class="pi pi-shopping-cart"></i></div>
+              <div class="grow">
+                <div class="card-title">Purchasing for shortfalls</div>
+                <div class="card-sub">What happens when a confirmed sale order needs more stock than the warehouse has.</div>
+              </div>
+            </div>
+
+            <ng-container *ngTemplateOutlet="switchRow; context: {
+              name: 'autoPoEnabled',
+              label: 'Raise purchase orders automatically',
+              hint: 'When stock is short, a purchase order is raised for the shortfall. Turn this off to handle every shortfall by hand.' }">
+            </ng-container>
+
+            <p class="off-note" *ngIf="!autoPoOn" data-testid="auto-po-off-note">
+              <i class="pi pi-info-circle"></i>
+              Automatic purchase orders are off, so the two choices below are not used.
+            </p>
+
+            <div class="group" [class.muted]="!autoPoOn">
+              <div class="group-title">How the supplier is chosen</div>
+              <ng-container *ngTemplateOutlet="choiceGroup; context: { name: 'supplierSelectionMode', options: supplierOptions }"></ng-container>
+            </div>
+
+            <div class="group" [class.muted]="!autoPoOn">
+              <div class="group-title">What happens to the purchase order</div>
+              <ng-container *ngTemplateOutlet="choiceGroup; context: { name: 'autoPoApprovalMode', options: approvalOptions }"></ng-container>
+            </div>
+          </section>
+
+          <!-- ── Fulfilment ────────────────────────────────────────────────── -->
+          <section class="form-card" data-testid="fulfilment-card">
+            <div class="card-head">
+              <div class="card-icon"><i class="pi pi-truck"></i></div>
+              <div class="grow">
+                <div class="card-title">Fulfilment</div>
+                <div class="card-sub">How confirmed orders are filled, and how long stock is held for them.</div>
+              </div>
+            </div>
+
+            <div class="group">
+              <div class="group-title">Default fulfilment</div>
+              <ng-container *ngTemplateOutlet="choiceGroup; context: { name: 'defaultFulfillmentMode', options: fulfilmentOptions, blocked: dropShipBlocked }"></ng-container>
+              <small class="p-error" *ngIf="form.errors?.['dropShipDefault']" data-testid="drop-ship-default-error">
+                Drop ship is the default, so drop shipping has to be turned on below.
+              </small>
+            </div>
+
+            <ng-container *ngTemplateOutlet="switchRow; context: {
+              name: 'dropShipEnabled',
+              label: 'Allow drop shipping',
+              hint: 'The supplier ships straight to the customer, with no warehouse stock involved. Off unless you turn it on.' }">
+            </ng-container>
+            <ng-container *ngTemplateOutlet="switchRow; context: {
+              name: 'selfPickupEnabled',
+              label: 'Allow customer pickup',
+              hint: 'Orders the customer collects instead of having them delivered. When off, every order has to be shipped.' }">
+            </ng-container>
+            <ng-container *ngTemplateOutlet="switchRow; context: {
+              name: 'partialFulfillmentAllowed',
+              label: 'Allow partial fulfilment',
+              hint: 'Deliver what is ready now and the rest later. When off, an order goes out in one delivery covering everything still owed.' }">
+            </ng-container>
+            <ng-container *ngTemplateOutlet="switchRow; context: {
+              name: 'shipmentRequiredDefault',
+              label: 'New orders start as shipped',
+              hint: 'When off, a new order starts as customer pickup unless the order says otherwise.' }">
+            </ng-container>
+            <small class="p-error switch-error" *ngIf="form.errors?.['pickupDefault']" data-testid="pickup-default-error">
+              New orders start as customer pickup, so customer pickup has to be turned on above.
+            </small>
+
+            <div class="field hold-field">
+              <label for="reservationTtlHours">Hold stock for confirmed orders <span class="required">*</span></label>
+              <div class="hold-row">
+                <p-inputNumber inputId="reservationTtlHours" formControlName="reservationTtlHours"
+                               [min]="minHours" [max]="maxHours" [showButtons]="true" [useGrouping]="false"
+                               [maxFractionDigits]="0" suffix=" hours" data-testid="reservationTtlHours"></p-inputNumber>
+                <span class="hold-days" *ngIf="holdInDays" data-testid="hold-days">{{ holdInDays }}</span>
+              </div>
+              <small class="hint">How long stock stays reserved for a confirmed order before it is released. From {{ minHours }} to {{ maxHours }} hours.</small>
+              <small class="p-error" *ngIf="form.get('reservationTtlHours')?.invalid && form.get('reservationTtlHours')?.touched" data-testid="hold-error">
+                Enter a whole number of hours from {{ minHours }} to {{ maxHours }}.
+              </small>
+            </div>
+          </section>
+
+          <!-- ── Notifications ─────────────────────────────────────────────── -->
+          <section class="form-card" data-testid="notifications-card">
+            <div class="card-head">
+              <div class="card-icon"><i class="pi pi-envelope"></i></div>
+              <div class="grow">
+                <div class="card-title">Notifications</div>
+                <div class="card-sub">Who is told about sale orders.</div>
+              </div>
+            </div>
+
+            <ng-container *ngTemplateOutlet="switchRow; context: {
+              name: 'emailIntimationEnabled',
+              label: 'Email about sale orders',
+              hint: 'Turn off to stop every sale order email: the confirmation, and the notices to the people who took the order.' }">
+            </ng-container>
+
+            <div class="field">
+              <label for="intimationDepartmentId">Notification department</label>
+              <p-dropdown inputId="intimationDepartmentId" formControlName="intimationDepartmentId"
+                          [options]="departmentOptions" optionLabel="label" optionValue="value"
+                          [showClear]="true" [filter]="departmentOptions.length > 8" filterBy="label"
+                          placeholder="No department" styleClass="w-full" appendTo="body"
+                          data-testid="intimationDepartmentId"></p-dropdown>
+              <small class="hint">The head of this department is emailed about sale orders, and told when a supplier has to be chosen by hand. New orders use it unless they name another.</small>
+              <small class="hint warn" *ngIf="noDepartments" data-testid="no-departments">
+                No departments are set up for this organization yet, so there is nobody to notify.
+              </small>
+              <small class="hint warn" *ngIf="departmentsFailed" data-testid="departments-failed">
+                The departments could not be loaded. The saved department is kept as it is.
+              </small>
+              <small class="hint warn" *ngIf="chosenDepartmentHasNoHead" data-testid="no-head">
+                This department has no head assigned, so emails sent to it go nowhere.
+              </small>
+            </div>
+
+            <div class="field">
+              <label for="intimationCcEmails">Copy emails to</label>
+              <textarea pTextarea id="intimationCcEmails" formControlName="intimationCcEmails" rows="2" class="w-full"
+                        placeholder="name@company.com, other@company.com" data-testid="intimationCcEmails"></textarea>
+              <small class="hint">Also sent the confirmation email for each sale order. Separate addresses with commas. Up to {{ maxCc }} characters.</small>
+              <small class="p-error" *ngIf="form.get('intimationCcEmails')?.errors?.['invalidEmails'] && form.get('intimationCcEmails')?.touched" data-testid="cc-error">
+                These are not valid email addresses: {{ form.get('intimationCcEmails')?.errors?.['invalidEmails'].join(', ') }}
+              </small>
+              <small class="p-error" *ngIf="form.get('intimationCcEmails')?.errors?.['tooLong'] && form.get('intimationCcEmails')?.touched" data-testid="cc-too-long">
+                Too long. Keep the list within {{ maxCc }} characters.
+              </small>
+            </div>
+          </section>
+
+          <!-- ── Save bar ──────────────────────────────────────────────────── -->
+          <div class="action-bar" *ngIf="canEdit" data-testid="action-bar">
+            <span class="unsaved" *ngIf="dirty" data-testid="unsaved">
+              <i class="pi pi-circle-fill"></i>
+              {{ changes.length }} unsaved {{ changes.length === 1 ? 'change' : 'changes' }}
+            </span>
+            <span class="saved" *ngIf="!dirty" data-testid="all-saved">
+              <i class="pi pi-check"></i> All changes saved
+            </span>
+            <span class="grow"></span>
+            <p-button label="Discard changes" [outlined]="true" severity="secondary"
+                      [disabled]="!dirty || isSaving" (onClick)="discard()" data-testid="discard"></p-button>
+            <p-button type="submit" label="Review and save" icon="pi pi-check"
+                      [disabled]="!dirty || isSaving" data-testid="save"></p-button>
+          </div>
+        </form>
+      </p-tabPanel>
+
+      <!-- ══ History ════════════════════════════════════════════════════════ -->
+      <p-tabPanel header="History" leftIcon="pi pi-history">
+        <div class="form-card flush" data-testid="history">
+          <div class="state-inline" *ngIf="auditFailed" data-testid="audit-failed">
+            <i class="pi pi-exclamation-triangle"></i>
+            The history could not be loaded.
+            <p-button label="Try again" [text]="true" size="small" (onClick)="loadAudit(auditPage)"></p-button>
+          </div>
+
+          <p-table *ngIf="!auditFailed" [value]="audit" [loading]="isLoadingAudit" [tableStyle]="{'min-width': '46rem'}" data-testid="audit-table">
+            <ng-template pTemplate="header">
+              <tr>
+                <th style="width: 13rem">When</th>
+                <th>Setting</th>
+                <th>From</th>
+                <th>To</th>
+                <th style="width: 12rem">Changed by</th>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-row>
+              <tr data-testid="audit-row">
+                <td>{{ row.changedAt | date:'medium' }}</td>
+                <td class="setting-name">{{ auditSetting(row) }}</td>
+                <td class="muted">{{ auditFrom(row) }}</td>
+                <td>{{ auditTo(row) }}</td>
+                <td>{{ auditWho(row) }}</td>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="emptymessage">
+              <tr>
+                <td colspan="5" class="empty" data-testid="audit-empty">
+                  No change has been made yet. The settings are still as they were first set up.
+                </td>
+              </tr>
+            </ng-template>
+          </p-table>
+
+          <p-paginator *ngIf="auditTotal > auditPageSize" [rows]="auditPageSize" [totalRecords]="auditTotal"
+                       [first]="(auditPage - 1) * auditPageSize" (onPageChange)="onAuditPage($event)"
+                       data-testid="audit-paginator"></p-paginator>
+        </div>
+      </p-tabPanel>
+    </p-tabView>
+  </ng-container>
+</div>
+
+<!-- ── Review before saving ─────────────────────────────────────────────────── -->
+<p-dialog header="Review changes" [(visible)]="reviewVisible" [modal]="true" [draggable]="false"
+          [closable]="!isSaving" [style]="{ width: '40rem', maxWidth: '96vw' }" data-testid="review-dialog">
+  <p class="dialog-hint">These apply to your whole organization as soon as you save.</p>
+
+  <table class="review-table" data-testid="review-table">
+    <thead>
+      <tr><th>Setting</th><th>From</th><th>To</th></tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let c of reviewChanges" data-testid="review-row">
+        <td class="setting-name">{{ c.label }}</td>
+        <td class="muted">{{ c.from }}</td>
+        <td><strong>{{ c.to }}</strong></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <ul class="impact-list" *ngIf="reviewNotes.length" data-testid="review-notes">
+    <li *ngFor="let n of reviewNotes" [class.warn]="n.severity === 'warn'">
+      <i class="pi" [ngClass]="n.severity === 'warn' ? 'pi-exclamation-triangle' : 'pi-info-circle'"></i>
+      <span>{{ n.text }}</span>
+    </li>
+  </ul>
+
+  <ng-template pTemplate="footer">
+    <p-button label="Keep editing" [text]="true" severity="secondary" [disabled]="isSaving"
+              (onClick)="reviewVisible = false" data-testid="review-cancel"></p-button>
+    <p-button label="Save changes" icon="pi pi-check" [loading]="isSaving" [disabled]="isSaving"
+              (onClick)="confirmSave()" data-testid="review-confirm"></p-button>
+  </ng-template>
+</p-dialog>

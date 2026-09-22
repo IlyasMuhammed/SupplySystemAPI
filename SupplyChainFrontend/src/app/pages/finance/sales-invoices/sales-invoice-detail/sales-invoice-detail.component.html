@@ -1,0 +1,226 @@
+<div class="detail-page">
+  <p-toast></p-toast>
+
+  <div class="not-found" *ngIf="notFound" data-testid="not-found">
+    <i class="pi pi-inbox"></i>
+    <h2>Sales invoice not found</h2>
+    <p>It may have been deleted, or the link may be wrong.</p>
+    <p-button label="Back to sales invoices" icon="pi pi-arrow-left" [text]="true"
+              routerLink="/portal/pages/finance/sales-invoices"></p-button>
+  </div>
+
+  <div *ngIf="isLoading && !invoice" class="loading-state" data-testid="loading">
+    <i class="pi pi-spin pi-spinner"></i> Loading…
+  </div>
+
+  <ng-container *ngIf="invoice as inv">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">
+          <i class="pi pi-file"></i>
+          <span class="font-mono">{{ inv.invoiceNumber }}</span>
+          <p-tag [value]="formatStatus(inv.status)" [severity]="getStatusSeverity(inv.status)"></p-tag>
+        </h1>
+        <p class="page-subtitle">
+          <a *ngIf="canViewLedger; else plainCustomer" [routerLink]="['/portal/pages/finance/customer-ledger', inv.partnerId]"
+             class="source-link" data-testid="customer-link">{{ inv.partnerName }}</a>
+          <ng-template #plainCustomer><span data-testid="customer-name">{{ inv.partnerName }}</span></ng-template>
+        </p>
+      </div>
+
+      <div class="header-actions">
+        <p-button label="View PDF" icon="pi pi-file-pdf" [text]="true" severity="secondary"
+                  (onClick)="pdfVisible = true" data-testid="action-pdf"></p-button>
+
+        <p-button *ngIf="canFilePdf" label="File PDF copy" icon="pi pi-paperclip" [text]="true" severity="secondary"
+                  [disabled]="isFiling" [loading]="isFiling" (onClick)="filePdf()" data-testid="action-file-pdf"></p-button>
+
+        <p-button *ngIf="canEdit" label="Edit" icon="pi pi-pencil" [text]="true" severity="secondary"
+                  (onClick)="openEditDialog()" data-testid="action-edit"></p-button>
+
+        <p-button *ngIf="canDelete" label="Delete draft" icon="pi pi-trash" severity="danger" [outlined]="true"
+                  (onClick)="openDeleteDialog()" data-testid="action-delete"></p-button>
+
+        <p-button *ngIf="canRecordPayment" label="Record payment" icon="pi pi-wallet" severity="success"
+                  [outlined]="true" [routerLink]="['/portal/pages/finance/customer-payments/new']"
+                  [queryParams]="{ partnerId: inv.partnerId, invoiceUuid: inv.uuid }"
+                  data-testid="action-record-payment"></p-button>
+
+        <p-button *ngIf="canIssue" label="Issue invoice" icon="pi pi-send"
+                  (onClick)="openIssueDialog()" data-testid="action-issue"></p-button>
+      </div>
+    </div>
+
+    <div class="detail-grid">
+      <div class="card">
+        <h3>Invoice</h3>
+        <dl>
+          <dt>Sale order</dt>
+          <dd>
+            <a *ngIf="canViewOrder; else plainOrder" class="font-mono source-link"
+               [routerLink]="['/portal/pages/sales/orders', inv.saleOrderUuid]" data-testid="order-link">{{ inv.saleOrderNumber }}</a>
+            <ng-template #plainOrder><span class="font-mono">{{ inv.saleOrderNumber }}</span></ng-template>
+          </dd>
+          <dt>Delivery</dt>
+          <dd>
+            <ng-container *ngIf="inv.deliveryUuid && inv.deliveryNumber; else noDelivery">
+              <a *ngIf="canViewDelivery; else plainDelivery" class="font-mono source-link"
+                 [routerLink]="['/portal/pages/logistics/deliveries', inv.deliveryUuid]" data-testid="delivery-link">{{ inv.deliveryNumber }}</a>
+              <ng-template #plainDelivery><span class="font-mono">{{ inv.deliveryNumber }}</span></ng-template>
+            </ng-container>
+            <ng-template #noDelivery>—</ng-template>
+          </dd>
+          <dt>Invoice date</dt><dd>{{ inv.invoiceDate | date:'dd MMM yyyy' }}</dd>
+          <dt>Due date</dt><dd data-testid="due-date">{{ inv.dueDate | date:'dd MMM yyyy' }}</dd>
+          <dt>Created</dt><dd>{{ inv.createdDate | date:'dd MMM yyyy, HH:mm' }}</dd>
+        </dl>
+        <p class="notes" *ngIf="inv.notes" data-testid="notes">{{ inv.notes }}</p>
+      </div>
+
+      <div class="card">
+        <h3>Amounts <span class="cur">{{ inv.currencyCode }}</span></h3>
+        <dl>
+          <dt>Subtotal</dt><dd>{{ inv.subtotal | number:'1.2-2' }}</dd>
+          <dt>Discount</dt><dd>{{ inv.discountAmount | number:'1.2-2' }}</dd>
+          <dt>Tax</dt><dd>{{ inv.taxAmount | number:'1.2-2' }}</dd>
+          <dt>Grand total</dt><dd class="font-semibold" data-testid="grand-total">{{ inv.grandTotal | number:'1.2-2' }}</dd>
+          <dt>Paid</dt><dd data-testid="amount-paid">{{ inv.amountPaid | number:'1.2-2' }}</dd>
+          <dt>Balance due</dt>
+          <dd class="font-semibold" [class.balance-owing]="inv.balanceDue > 0" data-testid="balance-due">{{ inv.balanceDue | number:'1.2-2' }}</dd>
+        </dl>
+      </div>
+    </div>
+
+    <div class="card block">
+      <h3>Lines</h3>
+      <div class="table-card flush">
+        <p-table [value]="inv.lines" [tableStyle]="{'min-width':'52rem'}" data-testid="lines-table">
+          <ng-template pTemplate="header">
+            <tr>
+              <th style="width:3.5rem">#</th>
+              <th>Description</th>
+              <th class="text-right">Qty</th>
+              <th class="text-right">Unit price</th>
+              <th class="text-right">Disc %</th>
+              <th class="text-right">Tax %</th>
+              <th class="text-right">Total</th>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="body" let-l>
+            <tr>
+              <td>{{ l.lineNo }}</td>
+              <td>{{ l.description }}</td>
+              <td class="text-right">{{ l.quantity | number:'1.0-4' }}</td>
+              <td class="text-right">{{ l.unitPrice | number:'1.2-2' }}</td>
+              <td class="text-right">{{ l.discountPercent | number:'1.0-2' }}</td>
+              <td class="text-right">{{ l.taxPercent | number:'1.0-2' }}</td>
+              <td class="text-right">{{ l.lineTotal | number:'1.2-2' }}</td>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="emptymessage">
+            <tr><td colspan="7" class="text-center text-secondary" style="padding:2rem">No lines.</td></tr>
+          </ng-template>
+        </p-table>
+      </div>
+    </div>
+
+    <div class="card block">
+      <h3>Payments applied</h3>
+      <div class="table-card flush">
+        <p-table [value]="inv.payments" [tableStyle]="{'min-width':'44rem'}" data-testid="payments-table">
+          <ng-template pTemplate="header">
+            <tr>
+              <th>Payment #</th>
+              <th>Date</th>
+              <th>Method</th>
+              <th class="text-right">Applied</th>
+              <th>Status</th>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="body" let-p>
+            <tr>
+              <td class="font-mono font-semibold">
+                <a *ngIf="canViewPayments; else plainPayment" class="source-link"
+                   [routerLink]="['/portal/pages/finance/customer-payments', p.paymentUuid]" data-testid="payment-link">{{ p.paymentNumber }}</a>
+                <ng-template #plainPayment>{{ p.paymentNumber }}</ng-template>
+              </td>
+              <td>{{ p.paymentDate | date:'dd MMM yyyy' }}</td>
+              <td>{{ formatStatus(p.paymentMethod) }}</td>
+              <td class="text-right">{{ p.allocatedAmount | number:'1.2-2' }} <span class="cur">{{ inv.currencyCode }}</span></td>
+              <td><p-tag [value]="formatStatus(p.paymentStatus)" [severity]="getPaymentSeverity(p)"></p-tag></td>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="emptymessage">
+            <tr>
+              <td colspan="5" class="text-center text-secondary" style="padding:2rem">
+                No payment has been applied to this invoice yet.
+              </td>
+            </tr>
+          </ng-template>
+        </p-table>
+      </div>
+    </div>
+
+    <div class="card block" *ngIf="!isDraft" data-testid="filed-copies">
+      <!-- The copies filed when the invoice was issued, and after: what the customer was actually sent. -->
+      <app-attachment-list interfaceCode="SALES_INVOICE" [documentId]="inv.uuid" [readOnly]="true"
+                           label="Filed copies"></app-attachment-list>
+    </div>
+  </ng-container>
+
+  <app-sales-invoice-pdf-dialog [(visible)]="pdfVisible" [invoiceUuid]="invoice?.uuid ?? null"
+                                [invoiceNumber]="invoice?.invoiceNumber ?? ''"></app-sales-invoice-pdf-dialog>
+
+  <!-- ── Edit ──────────────────────────────────────────────────────────────────── -->
+  <p-dialog header="Edit this draft" [(visible)]="editVisible" [modal]="true"
+            [style]="{width:'32rem'}" [draggable]="false" data-testid="edit-dialog">
+    <p class="dialog-hint">Only the due date and notes can change: the lines are what was delivered, at the order's prices.</p>
+
+    <div class="dialog-row">
+      <label class="dialog-label" for="edit-due">Due date</label>
+      <p-calendar inputId="edit-due" [(ngModel)]="editDueDate" [minDate]="editMinDate" dateFormat="dd/mm/yy"
+                  [showIcon]="true" styleClass="w-full" appendTo="body" data-testid="edit-due"></p-calendar>
+    </div>
+
+    <div class="dialog-row">
+      <label class="dialog-label" for="edit-notes">Notes</label>
+      <textarea pTextarea id="edit-notes" [(ngModel)]="editNotes" rows="3" maxlength="500" class="w-full"
+                data-testid="edit-notes"></textarea>
+    </div>
+
+    <ng-template pTemplate="footer">
+      <p-button label="Back" [text]="true" severity="secondary" (onClick)="editVisible = false"></p-button>
+      <p-button label="Save" icon="pi pi-check" [disabled]="!canSaveEdit" [loading]="isSaving"
+                (onClick)="saveEdit()" data-testid="save-edit"></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <!-- ── Issue ─────────────────────────────────────────────────────────────────── -->
+  <p-dialog header="Issue this invoice" [(visible)]="issueVisible" [modal]="true"
+            [style]="{width:'32rem'}" [draggable]="false" data-testid="issue-dialog">
+    <p class="dialog-hint" *ngIf="invoice as inv">
+      Issuing books {{ inv.grandTotal | number:'1.2-2' }} {{ inv.currencyCode }} on {{ inv.partnerName }}'s ledger and
+      files the PDF. An issued invoice can no longer be edited or deleted.
+    </p>
+
+    <ng-template pTemplate="footer">
+      <p-button label="Back" [text]="true" severity="secondary" (onClick)="issueVisible = false"></p-button>
+      <p-button label="Issue invoice" icon="pi pi-send" [disabled]="isIssuing" [loading]="isIssuing"
+                (onClick)="issue()" data-testid="confirm-issue"></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <!-- ── Delete ────────────────────────────────────────────────────────────────── -->
+  <p-dialog header="Delete this draft" [(visible)]="deleteVisible" [modal]="true"
+            [style]="{width:'30rem'}" [draggable]="false" data-testid="delete-dialog">
+    <p class="dialog-hint">
+      The draft is removed and its delivery can be invoiced again. The invoice number is not reused.
+    </p>
+
+    <ng-template pTemplate="footer">
+      <p-button label="Keep it" [text]="true" severity="secondary" (onClick)="deleteVisible = false"></p-button>
+      <p-button label="Delete draft" icon="pi pi-trash" severity="danger" [disabled]="isDeleting" [loading]="isDeleting"
+                (onClick)="deleteDraft()" data-testid="confirm-delete"></p-button>
+    </ng-template>
+  </p-dialog>
+</div>

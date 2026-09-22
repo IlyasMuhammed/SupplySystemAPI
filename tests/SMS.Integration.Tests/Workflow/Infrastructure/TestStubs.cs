@@ -46,6 +46,7 @@ internal sealed class StubOrgChartService : IOrgChartService
 {
     public Task<UserIdentity?> GetSupervisorAsync(int userId)      => Task.FromResult<UserIdentity?>(null);
     public Task<UserIdentity?> GetDepartmentHeadAsync(int deptId)  => Task.FromResult<UserIdentity?>(null);
+    public Task<IReadOnlyList<DepartmentSummary>> GetDepartmentsAsync() => Task.FromResult<IReadOnlyList<DepartmentSummary>>([]);
 }
 
 // ── Notification stub ─────────────────────────────────────────────────────────

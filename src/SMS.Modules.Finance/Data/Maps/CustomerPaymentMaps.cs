@@ -33,6 +33,12 @@ internal sealed class CustomerPaymentMap : IEntityTypeConfiguration<CustomerPaym
         b.Property(x => x.Notes).HasMaxLength(500);
         b.Property(x => x.Status).HasMaxLength(20).IsRequired().HasDefaultValue(CustomerPaymentStatuses.Received);
 
+        // A payment's unallocated remainder is derived from its allocations, so two requests to
+        // apply it at once would each see the whole remainder. Whoever applies (or later reverses) a
+        // payment sets ModifiedDate to a fresh value, and a stale writer then fails instead of
+        // applying the same money twice.
+        b.Property(x => x.ModifiedDate).IsConcurrencyToken();
+
         b.Property(x => x.OrganizationId).IsRequired();
         b.HasIndex(x => x.OrganizationId);
 

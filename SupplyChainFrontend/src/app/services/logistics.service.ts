@@ -351,9 +351,20 @@ export interface DeliveryDetailModel {
   notes?: string;
   /** Straight from the server's state machine — drive buttons from this, never a local list. */
   allowedNextStatuses: string[];
+  /** The consignments carrying this delivery, oldest first. Empty until one is created. */
+  consignments: DeliveryConsignmentModel[];
   createdDate: string;
   modifiedDate?: string;
   lines: DeliveryLineModel[];
+}
+
+/** A consignment as the delivery sees it — enough to name it, link to it and show where it is. */
+export interface DeliveryConsignmentModel {
+  consignmentUuid: string;
+  consignmentNumber: string;
+  status: string;
+  carrierName?: string;
+  masterAwb?: string;
 }
 
 // ── Self-pickup collection (A29 §8.2) ─────────────────────────────────────────
@@ -557,6 +568,48 @@ export interface SetCarrierCredentialRequest {
  * There is deliberately no value and no masked preview — a mask still discloses length and shape.
  * A credential that cannot be read back can only be replaced, which is the correct affordance.
  */
+// ── Which adapter a carrier books through ─────────────────────────────────────
+
+/** One credential an adapter reads from its account — what to enter, never a value. */
+export interface CourierCredentialSpecModel {
+  key: string;
+  description: string;
+  required: boolean;
+  isSecret: boolean;
+}
+
+/** A courier adapter this deployment has, and what it can do. */
+export interface CourierProviderModel {
+  key: string;
+  displayName: string;
+  supportsBooking: boolean;
+  supportsRating: boolean;
+  supportsTracking: boolean;
+  supportsLabels: boolean;
+  supportsCancellation: boolean;
+  supportsCod: boolean;
+  supportsMultiPiece: boolean;
+  /** What to add under the account's credentials before this adapter can book. */
+  credentials: CourierCredentialSpecModel[];
+}
+
+export interface CarrierIntegrationModel {
+  carrierUuid: string;
+  carrierName: string;
+  /** MANUAL or API. */
+  integrationMode: string;
+  providerKey?: string;
+  providerDisplayName?: string;
+  /** Set when the carrier names an adapter nothing registers. */
+  warning?: string;
+}
+
+export interface SetCarrierIntegrationRequest {
+  integrationMode: string;
+  /** Required for API; ignored for MANUAL. */
+  providerKey?: string;
+}
+
 export interface CarrierCredentialModel {
   uuid: string;
   key: string;
@@ -1914,6 +1967,23 @@ export class LogisticsService {
   getCarrierAccounts(carrierUuid: string): Observable<ApiResponse<CarrierAccountModel[]>> {
     return this.http.get<ApiResponse<CarrierAccountModel[]>>(
       `${BASE}/carrier-accounts/by-carrier/${carrierUuid}`);
+  }
+
+  /** The courier adapters this deployment has, and the credentials each reads. */
+  getCourierProviders(): Observable<ApiResponse<CourierProviderModel[]>> {
+    return this.http.get<ApiResponse<CourierProviderModel[]>>(`${BASE}/carrier-accounts/providers`);
+  }
+
+  getCarrierIntegration(carrierUuid: string): Observable<ApiResponse<CarrierIntegrationModel>> {
+    return this.http.get<ApiResponse<CarrierIntegrationModel>>(
+      `${BASE}/carrier-accounts/by-carrier/${carrierUuid}/integration`);
+  }
+
+  setCarrierIntegration(
+    carrierUuid: string, req: SetCarrierIntegrationRequest
+  ): Observable<ApiResponse<CarrierIntegrationModel>> {
+    return this.http.put<ApiResponse<CarrierIntegrationModel>>(
+      `${BASE}/carrier-accounts/by-carrier/${carrierUuid}/integration`, req);
   }
 
   getCarrierAccountById(uuid: string): Observable<ApiResponse<CarrierAccountModel>> {

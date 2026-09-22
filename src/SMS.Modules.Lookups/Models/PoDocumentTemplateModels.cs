@@ -16,6 +16,8 @@ public class PoDocumentTemplateModel
     public string? ApprovedByLabel { get; set; }
     public string? AuthorizedSignatoryLabel { get; set; }
     public string? FooterText { get; set; }
+    /// <summary>The company's bank details for sales invoices — up to 1,000 characters, several lines.</summary>
+    public string? BankDetails { get; set; }
     public DateTime? ModifiedDate { get; set; }
 }
 
@@ -34,6 +36,8 @@ public class UpsertPoDocumentTemplateRequest
     public string? ApprovedByLabel { get; set; }
     public string? AuthorizedSignatoryLabel { get; set; }
     public string? FooterText { get; set; }
+    /// <summary>Where a customer should pay: printed on sales invoices. Blank clears it. At most 1,000 characters.</summary>
+    public string? BankDetails { get; set; }
 }
 
 // Metadata for the frontend's "Insert Variable" picker — no live data, just token names/descriptions.

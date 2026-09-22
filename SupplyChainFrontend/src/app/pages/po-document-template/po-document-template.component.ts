@@ -66,6 +66,7 @@ export class PoDocumentTemplateComponent implements OnInit {
       approvedByLabel: ['Approved By', [Validators.maxLength(100)]],
       authorizedSignatoryLabel: ['Authorized Signatory', [Validators.maxLength(100)]],
       footerText: ['This is a system generated document and does not require a signature.', [Validators.maxLength(500)]],
+      bankDetails: ['', [Validators.maxLength(1000)]],
     });
     this.loadTokens();
     this.load();
@@ -100,6 +101,7 @@ export class PoDocumentTemplateComponent implements OnInit {
           approvedByLabel: t?.approvedByLabel ?? 'Approved By',
           authorizedSignatoryLabel: t?.authorizedSignatoryLabel ?? 'Authorized Signatory',
           footerText: t?.footerText ?? 'This is a system generated document and does not require a signature.',
+          bankDetails: t?.bankDetails ?? '',
         });
         // contenteditable content is set imperatively once (not via Angular binding) so the
         // cursor position isn't reset on every change-detection pass while the user types.

@@ -85,3 +85,56 @@ public class CarrierAccountModel
     public string?  Notes       { get; set; }
     public DateTime CreatedDate { get; set; }
 }
+
+// ── Which adapter a carrier books through ─────────────────────────────────────
+//
+// Deliberately not on CarrierDetailModel: the legacy carrier screens read that, and a contract test
+// holds it to the shape they were built against. Provider configuration is a separate surface.
+
+public class SetCarrierIntegrationRequest
+{
+    /// <summary>MANUAL (a person books it and keys in the airway bill) or API (an adapter books it).</summary>
+    public string  IntegrationMode { get; set; } = string.Empty;
+
+    /// <summary>Required for API, and one of <c>GET carrier-accounts/providers</c>. Ignored for MANUAL.</summary>
+    public string? ProviderKey     { get; set; }
+}
+
+public class CarrierIntegrationModel
+{
+    public Guid    CarrierUuid         { get; set; }
+    public string  CarrierName         { get; set; } = string.Empty;
+    public string  IntegrationMode     { get; set; } = string.Empty;
+    public string? ProviderKey         { get; set; }
+    public string? ProviderDisplayName { get; set; }
+
+    /// <summary>Set when the carrier names an adapter nothing registers — what the screen is opened to fix.</summary>
+    public string? Warning { get; set; }
+}
+
+/// <summary>One credential an adapter reads from its account. Never a value — only what to enter.</summary>
+public class CourierCredentialModel
+{
+    public string Key         { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public bool   Required    { get; set; }
+    public bool   IsSecret    { get; set; }
+}
+
+/// <summary>A courier adapter this deployment has, and what it can do.</summary>
+public class CourierProviderModel
+{
+    public string Key         { get; set; } = string.Empty;
+    public string DisplayName { get; set; } = string.Empty;
+
+    public bool SupportsBooking      { get; set; }
+    public bool SupportsRating       { get; set; }
+    public bool SupportsTracking     { get; set; }
+    public bool SupportsLabels       { get; set; }
+    public bool SupportsCancellation { get; set; }
+    public bool SupportsCod          { get; set; }
+    public bool SupportsMultiPiece   { get; set; }
+
+    /// <summary>What to add under the account's credentials before this adapter can book.</summary>
+    public List<CourierCredentialModel> Credentials { get; set; } = [];
+}

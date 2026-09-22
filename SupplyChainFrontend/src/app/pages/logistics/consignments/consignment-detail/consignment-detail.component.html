@@ -39,6 +39,10 @@
                   [disabled]="isSubmitting" (onClick)="openManualDialog()"
                   data-testid="action-book-manual"></p-button>
 
+        <p-button *ngIf="canRecordHandover" label="Record handover" icon="pi pi-check-circle"
+                  severity="success" [outlined]="true" [disabled]="isSubmitting"
+                  (onClick)="openHandoverDialog()" data-testid="action-handover"></p-button>
+
         <p-button *ngIf="canRate" label="Price it" icon="pi pi-calculator"
                   severity="secondary" [outlined]="true" [loading]="isRating"
                   (onClick)="rateNow()" data-testid="action-rate"></p-button>
@@ -651,6 +655,53 @@
       <p-button label="Save" icon="pi pi-check" [disabled]="!canSaveManual"
                 [loading]="isSubmitting" (onClick)="confirmManual()"
                 data-testid="confirm-manual"></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <!-- ── Handover ────────────────────────────────────────────────────────────── -->
+
+  <p-dialog header="Record the handover" [(visible)]="handoverDialogVisible" [modal]="true"
+            [style]="{ width: '32rem' }" [draggable]="false" data-testid="handover-dialog">
+    <div class="dialog-body">
+      <p class="dialog-hint">
+        The goods reached the customer. This marks the consignment delivered, and its delivery, the
+        sale order and the invoice behind it follow. Record it only once somebody has actually taken
+        the parcel — it cannot be taken back.
+      </p>
+
+      <div class="field">
+        <label for="received-by">Received by</label>
+        <input pInputText id="received-by" [(ngModel)]="handoverForm.receivedBy"
+               placeholder="Who signed for it" data-testid="field-received-by" />
+      </div>
+
+      <div class="field">
+        <label for="relationship">Relationship to the customer</label>
+        <input pInputText id="relationship" [(ngModel)]="handoverForm.relationship"
+               placeholder="Customer, receptionist, security…" data-testid="field-relationship" />
+      </div>
+
+      <div class="field">
+        <label for="delivered-at">Handed over at</label>
+        <p-datepicker inputId="delivered-at" [(ngModel)]="handoverForm.deliveredAt" [showTime]="true"
+                      dateFormat="dd M yy" [maxDate]="today" [showClear]="true" appendTo="body"
+                      data-testid="field-delivered-at"></p-datepicker>
+        <small class="field-hint">Leave empty to use the time you record it.</small>
+      </div>
+
+      <div class="field">
+        <label for="handover-notes">Notes</label>
+        <textarea pTextarea id="handover-notes" [(ngModel)]="handoverForm.notes" rows="2"
+                  class="w-full" data-testid="field-handover-notes"></textarea>
+      </div>
+    </div>
+
+    <ng-template pTemplate="footer">
+      <p-button label="Cancel" [text]="true" severity="secondary"
+                (onClick)="handoverDialogVisible = false"></p-button>
+      <p-button label="Record handover" icon="pi pi-check" severity="success"
+                [disabled]="!canSaveHandover" [loading]="isSubmitting" (onClick)="confirmHandover()"
+                data-testid="confirm-handover"></p-button>
     </ng-template>
   </p-dialog>
 

@@ -110,6 +110,7 @@ internal sealed class PoDocumentTemplateMap : IEntityTypeConfiguration<PoDocumen
         b.Property(x => x.ApprovedByLabel).HasMaxLength(100);
         b.Property(x => x.AuthorizedSignatoryLabel).HasMaxLength(100);
         b.Property(x => x.FooterText).HasMaxLength(500);
+        b.Property(x => x.BankDetails).HasMaxLength(1000);
         b.Property(x => x.ShowSignatureBlock).HasDefaultValue(true);
         b.Property(x => x.IsActive).HasDefaultValue(true);
         b.Property(x => x.OrganizationId).IsRequired();

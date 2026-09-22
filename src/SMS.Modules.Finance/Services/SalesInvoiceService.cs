@@ -6,9 +6,11 @@ using SMS.Modules.Demand.Domain;
 using SMS.Modules.Demand.Services;
 using SMS.Modules.Finance.Data;
 using SMS.Modules.Finance.Domain;
+using SMS.Modules.Finance.Models;
 using SMS.Modules.Lookups.Services;
 using SMS.Shared.Common;
 using SMS.Shared.Exceptions;
+using SMS.Shared.Pagination;
 using SMS.WorkflowEngine.Jobs;
 using SMS.WorkflowEngine.Models;
 
@@ -33,6 +35,7 @@ internal sealed class SalesInvoiceService : ISalesInvoiceService
     private readonly DemandDbContext               _demand;
     private readonly IDeliveryFulfillmentReader    _deliveries;
     private readonly ICustomerLedgerService        _ledger;
+    private readonly IProductLedgerWriter          _productLedger;
     private readonly ISupplierNameLookupService    _partnerNames;
     private readonly ILookupsService               _lookups;
     private readonly IBackgroundJobClient          _jobs;
@@ -41,18 +44,20 @@ internal sealed class SalesInvoiceService : ISalesInvoiceService
 
     public SalesInvoiceService(
         FinanceDbContext db, DemandDbContext demand, IDeliveryFulfillmentReader deliveries,
-        ICustomerLedgerService ledger, ISupplierNameLookupService partnerNames, ILookupsService lookups,
+        ICustomerLedgerService ledger, IProductLedgerWriter productLedger,
+        ISupplierNameLookupService partnerNames, ILookupsService lookups,
         IBackgroundJobClient jobs, ILogger<SalesInvoiceService> log, TimeProvider? clock = null)
     {
-        _db           = db;
-        _demand       = demand;
-        _deliveries   = deliveries;
-        _ledger       = ledger;
-        _partnerNames = partnerNames;
-        _lookups      = lookups;
-        _jobs         = jobs;
-        _log          = log;
-        _clock        = clock ?? TimeProvider.System;
+        _db            = db;
+        _demand        = demand;
+        _deliveries    = deliveries;
+        _ledger        = ledger;
+        _productLedger = productLedger;
+        _partnerNames  = partnerNames;
+        _lookups       = lookups;
+        _jobs          = jobs;
+        _log           = log;
+        _clock         = clock ?? TimeProvider.System;
     }
 
     // ── Create ───────────────────────────────────────────────────────────────
@@ -153,12 +158,13 @@ internal sealed class SalesInvoiceService : ISalesInvoiceService
                 await _db.SaveChangesAsync();
                 return ToCreated(invoice, alreadyExisted: false);
             }
-            catch (DbUpdateException) when (attempt < MaxAttempts)
+            catch (DbUpdateException)
             {
                 // Either another caller took the same invoice number, or another caller invoiced this
                 // very delivery first. Forget what failed; the next pass re-checks the second, and
                 // re-reads the highest number for the first.
                 DetachAdded();
+                if (attempt >= MaxAttempts) throw;
 
                 var raced = await LiveInvoiceForAsync(deliveryUuid);
                 if (raced is not null) return ToCreated(raced, alreadyExisted: true);
@@ -237,6 +243,7 @@ internal sealed class SalesInvoiceService : ISalesInvoiceService
     {
         SalesInvoice issued = null!;
         CustomerLedgerEntry entry = null!;
+        var costOfSales = new List<ProductLedgerEntry>();
 
         for (var attempt = 1; attempt <= MaxAttempts; attempt++)
         {
@@ -266,17 +273,23 @@ internal sealed class SalesInvoiceService : ISalesInvoiceService
                     + (invoice.DeliveryNumber is null ? "" : $" (delivery {invoice.DeliveryNumber})"),
                 now, userId));
 
+            // §11.2 — what the goods cost is booked in the same unit of work too, one SALE entry per line.
+            await TrackCostOfSalesAsync(invoice, now, userId, entry, costOfSales);
+
             try
             {
                 await _db.SaveChangesAsync();
                 issued = invoice;
                 break;
             }
-            catch (DbUpdateException) when (attempt < MaxAttempts)
+            catch (DbUpdateException)
             {
-                // Another writer took this customer's next SequenceNo first. Detach everything so the
-                // next pass re-reads the invoice's status and the ledger's last row afresh.
-                DetachAll(invoice, entry);
+                // Another writer took this customer's next SequenceNo — or one of these variants' — first.
+                // Detach everything so the next pass re-reads the invoice's status and the ledgers' last
+                // rows afresh, and re-costs the sale at whatever the average has become — and so a final
+                // failure leaves neither the half-issued invoice nor any of its entries tracked.
+                DetachAll(invoice, entry, costOfSales);
+                if (attempt >= MaxAttempts) throw;
             }
         }
 
@@ -284,6 +297,39 @@ internal sealed class SalesInvoiceService : ISalesInvoiceService
         RecordOnTimeline(issued, userId);
 
         return new SalesInvoiceIssued(issued.UUID, issued.InvoiceNumber, issued.Status, issued.GrandTotal, entry.RunningBalance);
+    }
+
+    /// <summary>
+    /// §11.2/§11.3 — the cost side of the sale: an OUT entry on the product ledger for each invoice line,
+    /// costed at the variant's weighted-average cost <b>as it stands</b>, never at the selling price. The
+    /// entries are only tracked, so the caller's single save commits them with the status change and the
+    /// customer's debit. The ledger holds the stock or the invoice is not issued: a sale it cannot cost
+    /// would book revenue with no cost of sales behind it.
+    /// </summary>
+    private async Task TrackCostOfSalesAsync(
+        SalesInvoice invoice, DateTime now, int userId, CustomerLedgerEntry customerEntry, List<ProductLedgerEntry> tracked)
+    {
+        try
+        {
+            foreach (var line in invoice.Lines.OrderBy(l => l.LineNo))
+                tracked.Add(await _productLedger.TrackEntryAsync(new ProductLedgerPosting(
+                    line.VariantUuid, ProductLedgerEntryTypes.Sale, ProductLedgerDirections.Out, line.Quantity, UnitCost: null,
+                    "SalesInvoice", invoice.UUID, invoice.InvoiceNumber, userId,
+                    PartnerId: invoice.PartnerId,
+                    Narration: Truncate(
+                        $"Invoice {invoice.InvoiceNumber} line {line.LineNo}: {line.Quantity:0.####} sold at {line.UnitPrice:0.####}", 500),
+                    EntryDate: now)));
+        }
+        catch (Exception ex)
+        {
+            // Whatever was tracked so far — the invoice's new status, the customer's debit, the earlier
+            // lines' entries — must not wait on the context for some later save to commit half of it.
+            DetachAll(invoice, customerEntry, tracked);
+
+            if (ex is ConflictException)
+                throw new ConflictException($"Sales invoice {invoice.InvoiceNumber} cannot be issued: {ex.Message}");
+            throw;
+        }
     }
 
     /// <summary>
@@ -332,6 +378,209 @@ internal sealed class SalesInvoiceService : ISalesInvoiceService
         var orgId    = invoice.OrganizationId;
 
         _jobs.Enqueue<ITimelineAppendJob>(j => j.AppendAsync(traceId, evt, "SO", soNumber, orgId));
+    }
+
+    // ── Read, edit, delete ───────────────────────────────────────────────────
+
+    public async Task<SalesInvoiceDetailModel?> GetAsync(Guid invoiceUuid)
+    {
+        var invoice = await _db.SalesInvoices.AsNoTracking()
+            .Include(i => i.Lines)
+            .FirstOrDefaultAsync(i => i.UUID == invoiceUuid && !i.IsDelete);
+
+        if (invoice is null) return null;
+
+        // Every payment applied to this invoice, oldest first — including one that has since bounced
+        // or been reversed, whose status says so, rather than quietly dropping it from the history.
+        var payments = await (
+            from allocation in _db.PaymentAllocations.AsNoTracking()
+            join payment in _db.CustomerPayments.AsNoTracking() on allocation.CustomerPaymentId equals payment.Id
+            where allocation.SalesInvoiceId == invoice.Id
+            orderby allocation.AllocatedAt, allocation.Id
+            select new SalesInvoicePaymentModel
+            {
+                AllocationUuid  = allocation.UUID,
+                PaymentUuid     = payment.UUID,
+                PaymentNumber   = payment.PaymentNumber,
+                PaymentDate     = payment.PaymentDate,
+                PaymentMethod   = payment.PaymentMethod,
+                PaymentStatus   = payment.Status,
+                AllocatedAmount = allocation.AllocatedAmount,
+                AllocatedAt     = allocation.AllocatedAt,
+                AllocatedBy     = allocation.AllocatedBy
+            }).ToListAsync();
+
+        var detail = new SalesInvoiceDetailModel
+        {
+            TraceId        = invoice.TraceId,
+            Subtotal       = invoice.Subtotal,
+            DiscountAmount = invoice.DiscountAmount,
+            TaxAmount      = invoice.TaxAmount,
+            Notes          = invoice.Notes,
+            CreatedBy      = invoice.CreatedBy,
+            CreatedDate    = invoice.CreatedDate,
+            ModifiedBy     = invoice.ModifiedBy,
+            ModifiedDate   = invoice.ModifiedDate,
+            Lines = [.. invoice.Lines.OrderBy(l => l.LineNo).Select(l => new SalesInvoiceLineModel
+            {
+                LineNo          = l.LineNo,
+                SoLineUuid      = l.SoLineUuid,
+                VariantUuid     = l.VariantUuid,
+                Description     = l.Description,
+                Quantity        = l.Quantity,
+                UnitPrice       = l.UnitPrice,
+                DiscountPercent = l.DiscountPercent,
+                TaxPercent      = l.TaxPercent,
+                LineTotal       = l.LineTotal
+            })],
+            Payments = payments
+        };
+        FillHeader(detail, invoice);
+        return detail;
+    }
+
+    public async Task<PaginatedResponse<SalesInvoiceListItemModel>> ListAsync(SalesInvoiceFilter filter)
+    {
+        ArgumentNullException.ThrowIfNull(filter);
+
+        var (start, endExclusive) = DayRange.Of(filter.DateFrom, filter.DateTo, "invoice list");
+
+        var status = filter.Status?.Trim().ToUpperInvariant();
+        if (!string.IsNullOrEmpty(status) && !SalesInvoiceStatuses.All.Contains(status))
+            throw new BadRequestException(
+                $"'{filter.Status}' is not an invoice status. Valid: {string.Join(", ", SalesInvoiceStatuses.All)}.");
+
+        var query = _db.SalesInvoices.AsNoTracking().Where(i => !i.IsDelete);
+
+        if (filter.PartnerId is { } partner)         query = query.Where(i => i.PartnerId == partner);
+        if (filter.SaleOrderUuid is { } saleOrder)   query = query.Where(i => i.SaleOrderUuid == saleOrder);
+        if (!string.IsNullOrEmpty(status))           query = query.Where(i => i.Status == status);
+        if (start is { } from)                       query = query.Where(i => i.InvoiceDate >= from);
+        if (endExclusive is { } end)                 query = query.Where(i => i.InvoiceDate < end);
+
+        if (!string.IsNullOrWhiteSpace(filter.Search))
+        {
+            var s = filter.Search.Trim().ToLower();
+            query = query.Where(i => i.InvoiceNumber.ToLower().Contains(s)
+                                  || i.PartnerName.ToLower().Contains(s)
+                                  || i.SaleOrderNumber.ToLower().Contains(s)
+                                  || (i.DeliveryNumber != null && i.DeliveryNumber.ToLower().Contains(s)));
+        }
+
+        var total = await query.CountAsync();
+        var (page, pageSize) = PagedResults.Clamp(filter.Page, filter.PageSize);
+
+        var items = await query
+            .OrderByDescending(i => i.InvoiceDate).ThenByDescending(i => i.Id)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(i => new SalesInvoiceListItemModel
+            {
+                Uuid            = i.UUID,
+                InvoiceNumber   = i.InvoiceNumber,
+                SaleOrderUuid   = i.SaleOrderUuid,
+                SaleOrderNumber = i.SaleOrderNumber,
+                DeliveryUuid    = i.DeliveryUuid,
+                DeliveryNumber  = i.DeliveryNumber,
+                PartnerId       = i.PartnerId,
+                PartnerName     = i.PartnerName,
+                InvoiceDate     = i.InvoiceDate,
+                DueDate         = i.DueDate,
+                GrandTotal      = i.GrandTotal,
+                AmountPaid      = i.AmountPaid,
+                BalanceDue      = i.BalanceDue,
+                Status          = i.Status,
+                CurrencyCode    = i.CurrencyCode
+            })
+            .ToListAsync();
+
+        return PagedResults.Of(items, total, page, pageSize);
+    }
+
+    public async Task UpdateAsync(Guid invoiceUuid, UpdateSalesInvoiceRequest request, int userId)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var invoice = await _db.SalesInvoices.FirstOrDefaultAsync(i => i.UUID == invoiceUuid && !i.IsDelete)
+            ?? throw new NotFoundException("SalesInvoice", invoiceUuid);
+
+        if (invoice.Status != SalesInvoiceStatuses.Draft)
+            throw new ConflictException(
+                $"Sales invoice {invoice.InvoiceNumber} is {invoice.Status}. Only a DRAFT can be edited.");
+
+        var dueDate = request.DueDate.Date;
+        if (dueDate < invoice.InvoiceDate.Date)
+            throw new BadRequestException(
+                $"The due date {dueDate:dd MMM yyyy} is before the invoice date {invoice.InvoiceDate:dd MMM yyyy}.");
+
+        var notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim();
+        if (notes is { Length: > 500 })
+            throw new BadRequestException("The notes are longer than 500 characters.");
+
+        invoice.DueDate      = dueDate;
+        invoice.Notes        = notes;
+        invoice.ModifiedBy   = userId;
+        invoice.ModifiedDate = _clock.GetUtcNow().UtcDateTime;
+
+        await SaveEditAsync(invoice);
+    }
+
+    public async Task DeleteAsync(Guid invoiceUuid, int userId)
+    {
+        var invoice = await _db.SalesInvoices.FirstOrDefaultAsync(i => i.UUID == invoiceUuid && !i.IsDelete)
+            ?? throw new NotFoundException("SalesInvoice", invoiceUuid);
+
+        if (invoice.Status != SalesInvoiceStatuses.Draft)
+            throw new ConflictException(
+                $"Sales invoice {invoice.InvoiceNumber} is {invoice.Status}. Only a DRAFT can be deleted — " +
+                "an issued invoice has a receivable booked against it.");
+
+        // Soft: the number stays used and the row stays for the audit trail, but the invoice no longer
+        // counts against its delivery (the unique index and the quantity check both skip deleted rows),
+        // so the delivery can be invoiced afresh.
+        invoice.IsDelete     = true;
+        invoice.IsActive     = false;
+        invoice.ModifiedBy   = userId;
+        invoice.ModifiedDate = _clock.GetUtcNow().UtcDateTime;
+
+        await SaveEditAsync(invoice);
+    }
+
+    /// <summary>
+    /// A draft is edited or deleted from a read that may be stale — somebody issuing it at the same
+    /// moment, say. The save then matches no row, and that is reported as what it is, not as a fault.
+    /// </summary>
+    private async Task SaveEditAsync(SalesInvoice invoice)
+    {
+        try
+        {
+            await _db.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            _db.Entry(invoice).State = EntityState.Detached;
+            throw new ConflictException(
+                $"Sales invoice {invoice.InvoiceNumber} was changed by someone else while you were working on it. Reload it and try again.");
+        }
+    }
+
+    private static void FillHeader(SalesInvoiceListItemModel model, SalesInvoice i)
+    {
+        model.Uuid            = i.UUID;
+        model.InvoiceNumber   = i.InvoiceNumber;
+        model.SaleOrderUuid   = i.SaleOrderUuid;
+        model.SaleOrderNumber = i.SaleOrderNumber;
+        model.DeliveryUuid    = i.DeliveryUuid;
+        model.DeliveryNumber  = i.DeliveryNumber;
+        model.PartnerId       = i.PartnerId;
+        model.PartnerName     = i.PartnerName;
+        model.InvoiceDate     = i.InvoiceDate;
+        model.DueDate         = i.DueDate;
+        model.GrandTotal      = i.GrandTotal;
+        model.AmountPaid      = i.AmountPaid;
+        model.BalanceDue      = i.BalanceDue;
+        model.Status          = i.Status;
+        model.CurrencyCode    = i.CurrencyCode;
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
@@ -393,8 +642,9 @@ internal sealed class SalesInvoiceService : ISalesInvoiceService
             e.State = EntityState.Detached;
     }
 
-    private void DetachAll(SalesInvoice invoice, CustomerLedgerEntry entry)
+    private void DetachAll(SalesInvoice invoice, CustomerLedgerEntry entry, IEnumerable<ProductLedgerEntry> costOfSales)
     {
+        foreach (var cost in costOfSales) _db.Entry(cost).State = EntityState.Detached;
         _db.Entry(entry).State = EntityState.Detached;
         foreach (var line in invoice.Lines) _db.Entry(line).State = EntityState.Detached;
         _db.Entry(invoice).State = EntityState.Detached;

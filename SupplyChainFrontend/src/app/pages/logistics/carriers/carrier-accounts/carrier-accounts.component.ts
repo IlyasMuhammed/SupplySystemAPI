@@ -19,6 +19,8 @@ import {
   CarrierAccountModel,
   CarrierCredentialModel,
   CarrierDetailModel,
+  CarrierIntegrationModel,
+  CourierProviderModel,
   CARRIER_CAPABILITIES
 } from '../../../../services/logistics.service';
 
@@ -55,6 +57,17 @@ export class CarrierAccountsComponent implements OnInit {
   isSubmitting = false;
 
   capabilityMeta = CARRIER_CAPABILITIES;
+
+  // ── How this carrier is booked ──────────────────────────────────────────────
+
+  integration: CarrierIntegrationModel | null = null;
+  providers: CourierProviderModel[] = [];
+  integrationForm = { mode: 'MANUAL', providerKey: null as string | null };
+
+  modeOptions = [
+    { label: 'Manual — a person books it and keys in the airway bill', value: 'MANUAL' },
+    { label: 'API — an adapter books it with the carrier', value: 'API' }
+  ];
 
   /** Credentials per account, loaded on demand when a panel is opened. */
   credentials: Record<string, CarrierCredentialModel[]> = {};
@@ -93,12 +106,86 @@ export class CarrierAccountsComponent implements OnInit {
         this.carrier = res.result ?? null;
         this.notFound = !this.carrier;
         this.loadAccounts();
+        if (this.carrier) this.loadIntegration();
       },
       error: (err) => {
         this.isLoading = false;
         this.carrier = null;
         this.notFound = err?.status === 404;
         if (!this.notFound) this.fail(err, 'Failed to load the carrier.');
+      }
+    });
+  }
+
+  // ── Which adapter books this carrier ────────────────────────────────────────
+
+  /**
+   * Both reads are side panels: a failure to load either must not take the accounts down with it, and
+   * the card simply stays empty. The carrier row is what the screen is really about.
+   */
+  private loadIntegration() {
+    this.logisticsService.getCarrierIntegration(this.carrierUuid).subscribe({
+      next: (res) => {
+        this.integration = res.result ?? null;
+        this.integrationForm = {
+          mode: this.integration?.integrationMode === 'API' ? 'API' : 'MANUAL',
+          providerKey: this.integration?.integrationMode === 'API' ? this.integration.providerKey ?? null : null
+        };
+      },
+      error: () => this.integration = null
+    });
+
+    if (this.providers.length) return;
+
+    this.logisticsService.getCourierProviders().subscribe({
+      next: (res) => this.providers = res.result ?? [],
+      error: () => this.providers = []
+    });
+  }
+
+  get providerOptions() {
+    return this.providers.map(p => ({ label: p.displayName, value: p.key }));
+  }
+
+  /** The adapter picked in the form, so the credentials it will need can be listed before anything is saved. */
+  get selectedProvider(): CourierProviderModel | null {
+    return this.integrationForm.mode === 'API'
+      ? this.providers.find(p => p.key === this.integrationForm.providerKey) ?? null
+      : null;
+  }
+
+  /** Something to save: a real change, and an adapter named when an adapter is what was asked for. */
+  get canSaveIntegration(): boolean {
+    if (this.isSubmitting || !this.integration) return false;
+
+    if (this.integrationForm.mode === 'API' && !this.integrationForm.providerKey) return false;
+
+    const wasApi = this.integration.integrationMode === 'API';
+    const isApi  = this.integrationForm.mode === 'API';
+
+    return wasApi !== isApi
+        || (isApi && this.integration.providerKey !== this.integrationForm.providerKey);
+  }
+
+  saveIntegration() {
+    if (!this.canSaveIntegration) return;
+    this.isSubmitting = true;
+
+    this.logisticsService.setCarrierIntegration(this.carrierUuid, {
+      integrationMode: this.integrationForm.mode,
+      providerKey: this.integrationForm.mode === 'API' ? this.integrationForm.providerKey ?? undefined : undefined
+    }).subscribe({
+      next: (res) => {
+        this.isSubmitting = false;
+        this.integration = res.result ?? this.integration;
+        this.ok('Integration saved.');
+        // The accounts panel says which adapter each account resolves to, and it just changed.
+        this.loadAccounts();
+      },
+      error: (err) => {
+        this.isSubmitting = false;
+        // The server explains — "2 consignment(s) are booked through …" — and that is the answer.
+        this.fail(err, 'The integration could not be changed.');
       }
     });
   }

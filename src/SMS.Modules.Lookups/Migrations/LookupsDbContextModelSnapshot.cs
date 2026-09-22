@@ -223,6 +223,10 @@ namespace SMS.Modules.Lookups.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<string>("BankDetails")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
                     b.Property<string>("BodyHtml")
                         .HasColumnType("nvarchar(max)");
 

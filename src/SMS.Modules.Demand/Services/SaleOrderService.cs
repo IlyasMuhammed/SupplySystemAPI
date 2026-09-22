@@ -56,8 +56,9 @@ internal sealed class SaleOrderService : ISaleOrderService
     {
         if (req.PartnerId == Guid.Empty)
             throw new BadRequestException("A sale order must be for a partner.");
-        if (!EnumCode<DeliveryMode>.TryParse(req.DeliveryMode, out var deliveryMode))
-            throw new BadRequestException($"'{req.DeliveryMode}' is not a valid delivery mode.");
+
+        var config       = await ReadConfigAsync();
+        var deliveryMode = ResolveDeliveryMode(req.DeliveryMode, config, existing: null);
         if (deliveryMode == DeliveryMode.Ship && req.ShippingAddressId is null)
             throw new BadRequestException("A shipping address is required when the delivery mode is SHIP.");
         if (req.Lines.Count == 0)
@@ -83,16 +84,20 @@ internal sealed class SaleOrderService : ISaleOrderService
             ExpectedDeliveryDate   = req.ExpectedDeliveryDate,
             CurrencyId             = currencyId,
             Status                 = EnumCode<SaleOrderStatus>.Of(SaleOrderStatus.Draft),
-            DeliveryMode           = req.DeliveryMode,
+            // An order that is collected needs no shipment (§5.2), so the two always agree.
+            RequiresShipment       = deliveryMode == DeliveryMode.Ship,
+            DeliveryMode           = EnumCode<DeliveryMode>.Of(deliveryMode),
             ShippingAddressId      = req.ShippingAddressId,
-            IntimationDepartmentId = req.IntimationDepartmentId,
+            // The organization's notification department unless the order names another.
+            IntimationDepartmentId = req.IntimationDepartmentId ?? config.IntimationDepartmentId,
             Notes                  = req.Notes,
             CreatedBy              = createdBy,
             CreatedDate            = DateTime.UtcNow
         };
 
+        var lineMode = DefaultLineMode(config, deliveryMode);
         foreach (var lineReq in req.Lines)
-            order.Lines.Add(await BuildLineAsync(lineReq, req.PartnerId, orderDate));
+            order.Lines.Add(await BuildLineAsync(lineReq, req.PartnerId, orderDate, lineMode));
 
         ApplyTotals(order);
 
@@ -115,8 +120,8 @@ internal sealed class SaleOrderService : ISaleOrderService
         if (order.Status != EnumCode<SaleOrderStatus>.Of(SaleOrderStatus.Draft))
             throw new BadRequestException("Only a DRAFT sale order can be updated.");
 
-        if (!EnumCode<DeliveryMode>.TryParse(req.DeliveryMode, out var deliveryMode))
-            throw new BadRequestException($"'{req.DeliveryMode}' is not a valid delivery mode.");
+        var config       = await ReadConfigAsync();
+        var deliveryMode = ResolveDeliveryMode(req.DeliveryMode, config, existing: order.DeliveryMode);
         if (deliveryMode == DeliveryMode.Ship && req.ShippingAddressId is null)
             throw new BadRequestException("A shipping address is required when the delivery mode is SHIP.");
         if (req.Lines.Count == 0)
@@ -129,9 +134,10 @@ internal sealed class SaleOrderService : ISaleOrderService
 
         order.ExpectedDeliveryDate   = req.ExpectedDeliveryDate;
         order.CurrencyId             = currencyId;
-        order.DeliveryMode           = req.DeliveryMode;
+        order.RequiresShipment       = deliveryMode == DeliveryMode.Ship;
+        order.DeliveryMode           = EnumCode<DeliveryMode>.Of(deliveryMode);
         order.ShippingAddressId      = req.ShippingAddressId;
-        order.IntimationDepartmentId = req.IntimationDepartmentId;
+        order.IntimationDepartmentId = req.IntimationDepartmentId ?? config.IntimationDepartmentId;
         order.Notes                  = req.Notes;
         order.ModifiedBy             = modifiedBy;
         order.ModifiedDate           = DateTime.UtcNow;
@@ -141,8 +147,9 @@ internal sealed class SaleOrderService : ISaleOrderService
         // quantities anyway, so there is nothing an in-place per-line update would save.
         _db.SaleOrderLines.RemoveRange(order.Lines);
         order.Lines.Clear();
+        var lineMode = DefaultLineMode(config, deliveryMode);
         foreach (var lineReq in req.Lines)
-            order.Lines.Add(await BuildLineAsync(lineReq, order.PartnerId, order.OrderDate));
+            order.Lines.Add(await BuildLineAsync(lineReq, order.PartnerId, order.OrderDate, lineMode));
 
         ApplyTotals(order);
 
@@ -227,6 +234,11 @@ internal sealed class SaleOrderService : ISaleOrderService
 
         if (order.Status != EnumCode<SaleOrderStatus>.Of(SaleOrderStatus.Draft))
             throw new BadRequestException("Only a DRAFT sale order can be confirmed.");
+
+        // A draft taken while customer pickup was on must not be confirmed once it is off (§8.1).
+        if (order.DeliveryMode == EnumCode<DeliveryMode>.Of(DeliveryMode.SelfPickup) && !(await ReadConfigAsync()).SelfPickupEnabled)
+            throw new BadRequestException(
+                "Customer pickup is switched off for this organization. Change the order to be shipped before confirming it.");
 
         var reservations = await _availabilityCheck.CheckAndReserveAsync(uuid, userId);
 
@@ -363,7 +375,8 @@ internal sealed class SaleOrderService : ISaleOrderService
 
     // §4.2 — "unit_price (resolved selling price)": never trust a client-supplied price, always
     // resolve it through the same §2.3 waterfall a real sale would use.
-    private async Task<SaleOrderLine> BuildLineAsync(CreateSaleOrderLineRequest lineReq, Guid partnerId, DateTime orderDate)
+    private async Task<SaleOrderLine> BuildLineAsync(
+        CreateSaleOrderLineRequest lineReq, Guid partnerId, DateTime orderDate, string? fulfillmentMode)
     {
         if (lineReq.VariantUuid == Guid.Empty)
             throw new BadRequestException("Every sale order line needs a variant.");
@@ -382,10 +395,63 @@ internal sealed class SaleOrderService : ISaleOrderService
             UnitPrice       = unitPrice,
             DiscountPercent = lineReq.DiscountPercent,
             TaxPercent      = lineReq.TaxPercent,
+            FulfillmentMode = fulfillmentMode,
             Status          = EnumCode<SaleOrderLineStatus>.Of(SaleOrderLineStatus.Open)
         };
         line.LineTotal = ComputeLineTotal(line);
         return line;
+    }
+
+    // The policy, or the defaults a new organization gets when nobody has opened it yet. Read without
+    // creating the row: taking an order should not be what first writes the settings.
+    private async Task<SaleOrderConfig> ReadConfigAsync() =>
+        await _db.SaleOrderConfigs.AsNoTracking().FirstOrDefaultAsync() ?? new SaleOrderConfig();
+
+    // §8.1 — "shipment_required_default=0 makes new SOs default to SELF_PICKUP (overridable)" and
+    // "self_pickup_enabled=0 forces SHIP". A mode the request leaves out is the default; an order
+    // being edited keeps the mode it has.
+    private static DeliveryMode DefaultDeliveryMode(SaleOrderConfig config) =>
+        config.ShipmentRequiredDefault || !config.SelfPickupEnabled ? DeliveryMode.Ship : DeliveryMode.SelfPickup;
+
+    private static DeliveryMode ResolveDeliveryMode(string? requested, SaleOrderConfig config, string? existing)
+    {
+        DeliveryMode mode;
+        if (!string.IsNullOrWhiteSpace(requested))
+        {
+            if (!EnumCode<DeliveryMode>.TryParse(requested, out mode))
+                throw new BadRequestException($"'{requested}' is not a valid delivery mode.");
+        }
+        else if (existing is null || !EnumCode<DeliveryMode>.TryParse(existing, out mode))
+        {
+            mode = DefaultDeliveryMode(config);
+        }
+
+        if (mode == DeliveryMode.SelfPickup && !config.SelfPickupEnabled)
+            throw new BadRequestException(
+                "Customer pickup is switched off for this organization, so this order has to be shipped.");
+
+        return mode;
+    }
+
+    // What a new line is taken to be, until confirming the order works out what it really is. IN_STOCK
+    // is "let the stock decide" and so leaves the mode empty. Drop ship needs somewhere to ship to,
+    // which only a shipped order has, and an organization that has drop shipping off cannot have it.
+    private static string? DefaultLineMode(SaleOrderConfig config, DeliveryMode orderMode) => config.DefaultFulfillmentMode switch
+    {
+        FulfillmentModes.BackToBack => EnumCode<SaleOrderLineFulfillmentMode>.Of(SaleOrderLineFulfillmentMode.BackToBack),
+        FulfillmentModes.DropShip when config.DropShipEnabled && orderMode == DeliveryMode.Ship
+            => EnumCode<SaleOrderLineFulfillmentMode>.Of(SaleOrderLineFulfillmentMode.DropShip),
+        _ => null
+    };
+
+    public async Task<SaleOrderDefaultsModel> GetDefaultsAsync()
+    {
+        var config = await ReadConfigAsync();
+        return new SaleOrderDefaultsModel
+        {
+            DeliveryMode      = EnumCode<DeliveryMode>.Of(DefaultDeliveryMode(config)),
+            SelfPickupEnabled = config.SelfPickupEnabled
+        };
     }
 
     // §4.2 — "line_total = qty * price * (1 - disc%) * (1 + tax%)."

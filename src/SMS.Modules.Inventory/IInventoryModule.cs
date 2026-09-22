@@ -59,6 +59,9 @@ public static class InventoryModuleExtensions
         // Takes stock off the books against those same holds, so what leaves the ledger is what
         // was reserved, picked and packed — batch for batch.
         services.AddScoped<IGoodsIssuePoster, GoodsIssuePoster>();
+        // Where a warehouse is, for modules that keep only its UUID — Logistics uses it to tell a
+        // carrier where to collect a delivery from.
+        services.AddScoped<IWarehouseDirectory, WarehouseDirectory>();
         services.AddScoped<IBatchSerialService, BatchSerialService>();
         services.AddScoped<IProductSearchIndexService, ProductSearchIndexService>();
         services.AddScoped<IVariantSupplierService, VariantSupplierService>();

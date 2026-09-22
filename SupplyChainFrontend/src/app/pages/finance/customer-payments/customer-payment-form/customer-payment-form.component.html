@@ -1,0 +1,162 @@
+<div class="form-page">
+  <p-toast></p-toast>
+
+  <div class="page-header">
+    <p-button icon="pi pi-arrow-left" [text]="true" severity="secondary"
+              routerLink="/portal/pages/finance/customer-payments" pTooltip="Back" data-testid="back"></p-button>
+    <div>
+      <h1 class="page-title"><i class="pi pi-wallet"></i> Record a payment</h1>
+      <p class="page-subtitle">Money received from a customer. All of it is credited to their account; you choose which invoices it pays.</p>
+    </div>
+  </div>
+
+  <form [formGroup]="form" (ngSubmit)="save()" novalidate>
+
+    <!-- ── The payment ───────────────────────────────────────────────────────── -->
+    <div class="form-card">
+      <div class="card-head">
+        <div class="card-icon"><i class="pi pi-wallet"></i></div>
+        <div>
+          <div class="card-title">Payment</div>
+          <div class="card-sub">Who paid, how, and how much</div>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="field full">
+          <label>Customer <span class="required">*</span></label>
+          <p-autoComplete formControlName="customer" [suggestions]="customerSuggestions" field="companyName"
+                          (completeMethod)="searchCustomers($event)" (onSelect)="onCustomerSelected($event.value)"
+                          (onClear)="onCustomerCleared()" [minLength]="1" [dropdown]="true"
+                          placeholder="Search customers by name…" styleClass="w-full" inputStyleClass="w-full"
+                          appendTo="body" data-testid="customer"></p-autoComplete>
+          <small class="p-error" *ngIf="form.get('customer')?.invalid && form.get('customer')?.touched" data-testid="customer-error">
+            Choose the customer from the list.
+          </small>
+        </div>
+
+        <div class="field full">
+          <label>Method <span class="required">*</span></label>
+          <p-selectButton [options]="methodOptions" formControlName="method" optionLabel="label" optionValue="value"
+                          [allowEmpty]="false" (onChange)="onMethodChange()" data-testid="method"></p-selectButton>
+        </div>
+
+        <div class="field">
+          <label>Amount received <span class="required">*</span></label>
+          <p-inputNumber formControlName="amount" [min]="0" [minFractionDigits]="2" [maxFractionDigits]="2"
+                         styleClass="w-full" inputStyleClass="w-full" data-testid="amount"></p-inputNumber>
+          <small class="p-error" *ngIf="form.get('amount')?.invalid && form.get('amount')?.touched" data-testid="amount-error">
+            Enter the amount, above zero.
+          </small>
+        </div>
+
+        <div class="field">
+          <label>Currency <span class="required">*</span></label>
+          <p-dropdown [options]="currencyOptions" formControlName="currencyCode" optionLabel="label" optionValue="value"
+                      [filter]="true" filterBy="label" placeholder="The currency it arrived in"
+                      (onChange)="onCurrencyChange()" styleClass="w-full" appendTo="body" data-testid="currency"></p-dropdown>
+          <small class="p-error" *ngIf="form.get('currencyCode')?.invalid && form.get('currencyCode')?.touched" data-testid="currency-error">
+            Choose the currency.
+          </small>
+        </div>
+
+        <div class="field">
+          <label>Date received <span class="required">*</span></label>
+          <p-calendar formControlName="paymentDate" dateFormat="dd/mm/yy" [maxDate]="maxDate"
+                      [showIcon]="true" styleClass="w-full" appendTo="body" data-testid="payment-date"></p-calendar>
+        </div>
+
+        <div class="field" *ngIf="isCheque" data-testid="cheque-field">
+          <label>Cheque number <span class="required">*</span></label>
+          <input pInputText formControlName="chequeNumber" maxlength="30" class="w-full" data-testid="cheque-number" />
+          <small class="p-error" *ngIf="form.get('chequeNumber')?.invalid && form.get('chequeNumber')?.touched" data-testid="cheque-error">
+            A cheque needs its number, so a returned cheque can be matched to this receipt.
+          </small>
+        </div>
+
+        <div class="field">
+          <label>Bank reference</label>
+          <input pInputText formControlName="bankReference" maxlength="100" class="w-full" data-testid="bank-reference" />
+        </div>
+
+        <div class="field full">
+          <label>Notes</label>
+          <textarea pTextarea formControlName="notes" rows="2" maxlength="500" class="w-full"
+                    placeholder="Optional — anything worth knowing about this receipt."></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Where it goes ─────────────────────────────────────────────────────── -->
+    <div class="form-card">
+      <div class="card-head">
+        <div class="card-icon"><i class="pi pi-list"></i></div>
+        <div class="grow">
+          <div class="card-title">Apply to invoices</div>
+          <div class="card-sub">Only the customer's unpaid invoices in the payment's currency can be paid</div>
+        </div>
+        <p-selectButton [options]="modeOptions" [ngModel]="mode" (ngModelChange)="setMode($event)"
+                        [ngModelOptions]="{standalone: true}" optionLabel="label" optionValue="value"
+                        [allowEmpty]="false" data-testid="mode"></p-selectButton>
+      </div>
+
+      <p class="hint" *ngIf="!customer" data-testid="choose-customer">Choose the customer to see what they owe.</p>
+
+      <div class="hint" *ngIf="customer && isLoadingInvoices" data-testid="loading-invoices">
+        <i class="pi pi-spin pi-spinner"></i> Loading their invoices…
+      </div>
+
+      <p class="hint" *ngIf="customer && !isLoadingInvoices && !currencyCode" data-testid="choose-currency">
+        Choose the currency to see which of their invoices it can pay.
+      </p>
+
+      <p class="hint warn" *ngIf="otherCurrencyCount" data-testid="other-currency">
+        <i class="pi pi-info-circle"></i>
+        {{ otherCurrencyCount }} of their unpaid invoice{{ otherCurrencyCount === 1 ? ' is' : 's are' }} in another currency and cannot be paid with {{ currencyCode }}.
+      </p>
+
+      <p class="hint warn" *ngIf="truncated" data-testid="truncated">
+        <i class="pi pi-info-circle"></i>
+        This customer has more unpaid invoices than can be listed at once. The most recent are shown; oldest-first
+        payment still covers all of them.
+      </p>
+
+      <ng-container *ngIf="customer && currencyCode && !isLoadingInvoices">
+        <!-- Left to the server: what it would do, so nobody is surprised by where the money went. -->
+        <div *ngIf="mode === 'FIFO'" data-testid="fifo-preview">
+          <p class="hint" *ngIf="!amount">Enter the amount to see how it would be applied.</p>
+
+          <table class="preview-table" *ngIf="fifoRows.length" data-testid="fifo-table">
+            <thead>
+              <tr><th>Invoice #</th><th>Invoice date</th><th class="right">Balance due</th><th class="right">This payment pays</th></tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let r of fifoRows" data-testid="fifo-row">
+                <td class="mono">{{ r.invoice.invoiceNumber }}</td>
+                <td>{{ r.invoice.invoiceDate | date:'dd MMM yyyy' }}</td>
+                <td class="right">{{ r.invoice.balanceDue | number:'1.2-2' }}</td>
+                <td class="right">{{ r.amount | number:'1.2-2' }}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <p class="hint" *ngIf="amount && !fifoRows.length" data-testid="fifo-none">
+            There is no unpaid {{ currencyCode }} invoice to apply it to. The whole amount will be held on the customer's account.
+          </p>
+          <p class="hint" *ngIf="fifoRows.length && amount > fifoApplied" data-testid="fifo-remainder">
+            {{ amount - fifoApplied | number:'1.2-2' }} {{ currencyCode }} is more than they owe and will be held on the customer's account.
+          </p>
+        </div>
+
+        <app-payment-allocation-editor *ngIf="mode === 'MANUAL'"
+            [invoices]="matching" [available]="amount" [currencyCode]="currencyCode" [(amounts)]="amounts"
+            data-testid="allocation-editor"></app-payment-allocation-editor>
+      </ng-container>
+    </div>
+
+    <div class="form-actions">
+      <p-button label="Cancel" [text]="true" severity="secondary" routerLink="/portal/pages/finance/customer-payments" data-testid="cancel"></p-button>
+      <p-button type="submit" label="Record payment" icon="pi pi-check" [loading]="isSaving" [disabled]="isSaving" data-testid="save"></p-button>
+    </div>
+  </form>
+</div>

@@ -19,6 +19,10 @@ public static class FinanceModuleExtensions
         using var scope = app.ApplicationServices.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<FinanceDbContext>();
         db.Database.Migrate();
+
+        // A29-P7-07 — daily; see InvoiceOverdueJob for what it does and why it needs no tenant.
+        InvoiceOverdueJob.Schedule();
+
         return app;
     }
 
@@ -61,7 +65,21 @@ public static class FinanceModuleExtensions
 
         // A29-P7-04 — the receivable side: sale invoices and the customer ledger they write.
         services.AddScoped<ICustomerLedgerService, CustomerLedgerService>();
+        // The public, read-only face of the same service — the same split the master ledger has —
+        // so an endpoint or a report can ask what a customer owes without being able to post to it.
+        services.AddScoped<ICustomerLedgerQueryService, CustomerLedgerService>();
         services.AddScoped<ISalesInvoiceService, SalesInvoiceService>();
+        services.AddScoped<ISalesInvoiceDocumentService, SalesInvoiceDocumentService>();
+        services.AddScoped<ISalesInvoiceDocumentArchive, SalesInvoiceDocumentArchive>();
+        services.AddScoped<ICustomerPaymentService, CustomerPaymentService>();
+        services.AddScoped<InvoiceOverdueJob>();
+
+        // A29-P8-02 — the per-variant product ledger. Finance's own code takes the writer, which can also
+        // track an entry without saving; every other module takes the public contract.
+        services.AddScoped<IProductLedgerWriter, ProductLedgerService>();
+        services.AddScoped<IProductLedgerService>(sp => sp.GetRequiredService<IProductLedgerWriter>());
+        // A29-P8-05 — the read side: a variant's history and summary, and product profitability.
+        services.AddScoped<IProductLedgerQueryService, ProductLedgerQueryService>();
 
         // Timeline trace_id resolver
         services.AddScoped<ITraceIdResolver, InvoiceTraceIdResolver>();

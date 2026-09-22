@@ -168,6 +168,30 @@ public static class PermissionCodes
     public const string SALE_ORDER_CONFIRM = "SALE_ORDER_CONFIRM";
     public const string SALE_ORDER_CANCEL  = "SALE_ORDER_CANCEL";
 
+    // ── Receivables (Addendum 29 §9–§10) ──────────────────────────────────────
+    // Deliberately not INVOICE_* / PAYMENT_*: those are seeded and described as the supplier side —
+    // approving and executing what the company pays out. Being allowed to pay a supplier is not the
+    // same trust as being allowed to record that a customer has paid, and a receipt that is not real
+    // is a way of making a debt disappear.
+    /// <summary>Reading sales invoices and printing them.</summary>
+    public const string SALES_INVOICE_VIEW    = "SALES_INVOICE_VIEW";
+    /// <summary>Raising a sales invoice from a delivery, amending or deleting a draft, and issuing it — issuing books the receivable.</summary>
+    public const string SALES_INVOICE_MANAGE  = "SALES_INVOICE_MANAGE";
+    /// <summary>Reading customer payments and how they were applied.</summary>
+    public const string CUSTOMER_PAYMENT_VIEW = "CUSTOMER_PAYMENT_VIEW";
+    /// <summary>Recording money received from a customer and applying it to their invoices — which is what settles them.</summary>
+    public const string CUSTOMER_PAYMENT_RECORD = "CUSTOMER_PAYMENT_RECORD";
+    /// <summary>Reading a customer's receivables ledger — what they owe, entry by entry.</summary>
+    public const string CUSTOMER_LEDGER_VIEW  = "CUSTOMER_LEDGER_VIEW";
+
+    // ── Product ledger (Addendum 29 §11) ──────────────────────────────────────
+    /// <summary>
+    /// Reading a variant's cost history, its stock value and weighted-average cost, and the product
+    /// profitability report. Cost and margin, not stock levels, so it is not <c>INVENTORY_VIEW</c>: being
+    /// allowed to see what is on the shelf is not being allowed to see what it cost and what it earned.
+    /// </summary>
+    public const string PRODUCT_LEDGER_VIEW   = "PRODUCT_LEDGER_VIEW";
+
     // ── All codes (used by System Admin seed) ─────────────────────────────────
     public static readonly IReadOnlyList<string> All =
     [
@@ -190,5 +214,7 @@ public static class PermissionCodes
         WORKFLOW_ADMIN, WORKFLOW_VIEW,
         SALE_ORDER_CONFIG_READ, SALE_ORDER_CONFIG_WRITE,
         SALE_ORDER_VIEW, SALE_ORDER_CREATE, SALE_ORDER_EDIT, SALE_ORDER_CONFIRM, SALE_ORDER_CANCEL,
+        SALES_INVOICE_VIEW, SALES_INVOICE_MANAGE, CUSTOMER_PAYMENT_VIEW, CUSTOMER_PAYMENT_RECORD, CUSTOMER_LEDGER_VIEW,
+        PRODUCT_LEDGER_VIEW,
     ];
 }

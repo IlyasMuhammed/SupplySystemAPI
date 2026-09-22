@@ -109,7 +109,8 @@ public class FulfillmentIntegrationTests
         var config = new Mock<ISaleOrderConfigService>();
         config.Setup(c => c.GetConfigAsync()).ReturnsAsync(new SaleOrderConfigModel
         {
-            ReservationTtlHours = 72, SelfPickupEnabled = true, DropShipEnabled = false, AutoPoEnabled = false
+            ReservationTtlHours = 72, SelfPickupEnabled = true, DropShipEnabled = false, AutoPoEnabled = false,
+            EmailIntimationEnabled = true
         });
         var users = new Mock<IUserQueryService>();
         users.Setup(u => u.GetUserEmailAsync(Sales)).ReturnsAsync("sales@example.com");

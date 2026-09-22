@@ -125,6 +125,9 @@
     overflow: hidden;
     flex: 1;
     min-width: 0;
+    // A generated document has no href (it is fetched with the caller's token), so the pointer has
+    // to be asked for rather than inherited from the link.
+    cursor: pointer;
 
     &:hover .attachment-file-name { color: #6c63ff; text-decoration: underline; }
   }
@@ -216,6 +219,7 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     min-width: 0;
+    cursor: pointer;
 
     i { color: #6c63ff; font-size: .72rem; flex-shrink: 0; }
     &:hover { color: #6c63ff; text-decoration: underline; }

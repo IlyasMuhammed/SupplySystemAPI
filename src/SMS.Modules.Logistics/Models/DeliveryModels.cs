@@ -402,10 +402,26 @@ public class DeliveryDetailModel
     /// <summary>The statuses this delivery may legally move to next, straight from the state machine.</summary>
     public List<string> AllowedNextStatuses { get; set; } = [];
 
+    /// <summary>
+    /// The consignments carrying this delivery, oldest first. Lets the page link to the carrier side
+    /// of the movement and stop offering to create one that already exists.
+    /// </summary>
+    public List<DeliveryConsignmentModel> Consignments { get; set; } = [];
+
     public DateTime  CreatedDate  { get; set; }
     public DateTime? ModifiedDate { get; set; }
 
     public List<DeliveryLineModel> Lines { get; set; } = [];
+}
+
+/// <summary>A consignment as the delivery sees it — enough to name it, link to it and show where it is.</summary>
+public class DeliveryConsignmentModel
+{
+    public Guid    ConsignmentUuid   { get; set; }
+    public string  ConsignmentNumber { get; set; } = string.Empty;
+    public string  Status            { get; set; } = string.Empty;
+    public string? CarrierName       { get; set; }
+    public string? MasterAwb         { get; set; }
 }
 
 public class DeliveryFilter

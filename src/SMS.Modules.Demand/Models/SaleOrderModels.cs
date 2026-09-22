@@ -40,6 +40,15 @@ public class UpdateSaleOrderRequest
     public List<CreateSaleOrderLineRequest> Lines { get; set; } = [];
 }
 
+/// <summary>What a new sale order starts as, so a form can open on it and offer only what is allowed.</summary>
+public class SaleOrderDefaultsModel
+{
+    /// <summary>SHIP or SELF_PICKUP.</summary>
+    public string DeliveryMode      { get; set; } = string.Empty;
+    /// <summary>False when every order has to be shipped.</summary>
+    public bool   SelfPickupEnabled { get; set; }
+}
+
 public class SaleOrderListFilter
 {
     public string? Status        { get; set; }

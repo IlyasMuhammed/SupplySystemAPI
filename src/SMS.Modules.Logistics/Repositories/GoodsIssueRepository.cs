@@ -327,28 +327,8 @@ internal sealed class GoodsIssueRepository : IGoodsIssueRepository
     /// and never allowed to fail it: the customer has the goods whatever the order's bookkeeping
     /// does next, and a notification-side error is logged for someone to reconcile.
     /// </summary>
-    private async Task<FulfillmentResult?> NotifySaleOrderAsync(DeliveryOrder delivery, int userId)
-    {
-        if (delivery.SaleOrderUuid is not { } saleOrderUuid) return null;
-
-        try
-        {
-            var lines = delivery.Lines
-                .Where(l => l.SoLineUuid is not null)
-                .Select(l => new DeliveredLine(l.SoLineUuid!.Value, l.QtyDelivered))
-                .ToList();
-
-            return await _fulfillment.RecordDeliveryCompletedAsync(
-                new DeliveryCompletion(saleOrderUuid, delivery.UUID, delivery.DeliveryNumber, lines, userId));
-        }
-        catch (Exception ex)
-        {
-            _log.LogError(ex,
-                "Delivery {Delivery} was delivered but sale order {So} could not be updated; reconcile its status by hand.",
-                delivery.DeliveryNumber, saleOrderUuid);
-            return null;
-        }
-    }
+    private Task<FulfillmentResult?> NotifySaleOrderAsync(DeliveryOrder delivery, int userId) =>
+        SaleOrderDeliveryNotifier.NotifyDeliveredAsync(_fulfillment, _log, delivery, userId);
 
     private static string Require(string? value, string what) =>
         string.IsNullOrWhiteSpace(value)

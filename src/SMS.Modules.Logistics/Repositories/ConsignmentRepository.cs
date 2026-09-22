@@ -33,11 +33,14 @@ internal sealed class ConsignmentRepository : IConsignmentRepository
 
     private readonly LogisticsDbContext       _db;
     private readonly IDocumentNumberGenerator _numbers;
+    private readonly IConsignmentShipFrom?    _shipFrom;
 
-    public ConsignmentRepository(LogisticsDbContext db, IDocumentNumberGenerator numbers)
+    public ConsignmentRepository(
+        LogisticsDbContext db, IDocumentNumberGenerator numbers, IConsignmentShipFrom? shipFrom = null)
     {
-        _db      = db;
-        _numbers = numbers;
+        _db       = db;
+        _numbers  = numbers;
+        _shipFrom = shipFrom;
     }
 
     public async Task<Guid> CreateAsync(CreateConsignmentRequest req, int createdBy)
@@ -115,6 +118,13 @@ internal sealed class ConsignmentRepository : IConsignmentRepository
         });
 
         await _db.SaveChangesAsync();
+
+        // The moment the consignment knows what it is carrying is the moment it can know where from,
+        // so rating and shipping rules — which read the consignment's own address — see it too, and not
+        // only the booking. Creating a consignment goes through here for each delivery it is given.
+        if (_shipFrom is not null && await _shipFrom.EnsureAsync(consignment, userId))
+            await _db.SaveChangesAsync();
+
         return true;
     }
 

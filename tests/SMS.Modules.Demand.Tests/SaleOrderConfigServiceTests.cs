@@ -17,7 +17,7 @@ public class SaleOrderConfigServiceTests
 
     private sealed record Harness(DemandDbContext Db, SaleOrderConfigService Service, Guid OrgId, string DbName);
 
-    private static Harness NewHarness()
+    private static Harness NewHarness(params int[] departmentIds)
     {
         var dbName = Guid.NewGuid().ToString();
         var tenant = new StaticTenantContext { OrganizationId = Guid.NewGuid() };
@@ -28,7 +28,11 @@ public class SaleOrderConfigServiceTests
         userQuery.Setup(u => u.GetUsersAsync(It.IsAny<IReadOnlyList<int>>()))
             .ReturnsAsync((IReadOnlyList<int> ids) => ids.Select(id => new UserIdentity(id, $"User {id}")).ToList());
 
-        return new Harness(db, new SaleOrderConfigService(db, userQuery.Object), tenant.OrganizationId, dbName);
+        var orgChart = new Mock<IOrgChartService>();
+        orgChart.Setup(o => o.GetDepartmentsAsync()).ReturnsAsync(
+            (IReadOnlyList<DepartmentSummary>)departmentIds.Select(id => new DepartmentSummary(id, $"Dept {id}", null, true)).ToList());
+
+        return new Harness(db, new SaleOrderConfigService(db, userQuery.Object, orgChart.Object), tenant.OrganizationId, dbName);
     }
 
     private static UpdateSaleOrderConfigRequest ValidUpdate() => new()
@@ -182,6 +186,135 @@ public class SaleOrderConfigServiceTests
         page.TotalRecords.Should().Be(0);
     }
 
+    // ── What a policy has to satisfy ───────────────────────────────────────────
+
+    public static IEnumerable<object[]> InvalidPolicies()
+    {
+        yield return new object[] { "an unknown supplier mode", (Action<UpdateSaleOrderConfigRequest>)(r => r.SupplierSelectionMode = "CHEAPEST"), "not a supplier selection mode" };
+        yield return new object[] { "an unknown approval mode", (Action<UpdateSaleOrderConfigRequest>)(r => r.AutoPoApprovalMode = "SKIP"), "not a purchase order approval mode" };
+        yield return new object[] { "an unknown fulfilment mode", (Action<UpdateSaleOrderConfigRequest>)(r => r.DefaultFulfillmentMode = "SPLIT"), "not a fulfilment mode" };
+        yield return new object[] { "a lower case mode", (Action<UpdateSaleOrderConfigRequest>)(r => r.SupplierSelectionMode = "best_match"), "not a supplier selection mode" };
+        yield return new object[] { "no hold", (Action<UpdateSaleOrderConfigRequest>)(r => r.ReservationTtlHours = 0), "from 1 to 8760" };
+        yield return new object[] { "a negative hold", (Action<UpdateSaleOrderConfigRequest>)(r => r.ReservationTtlHours = -3), "from 1 to 8760" };
+        yield return new object[] { "a hold over a year", (Action<UpdateSaleOrderConfigRequest>)(r => r.ReservationTtlHours = 8761), "from 1 to 8760" };
+        yield return new object[] { "an address that is not one", (Action<UpdateSaleOrderConfigRequest>)(r => r.IntimationCcEmails = "good@x.com, nope"), "nope" };
+        yield return new object[] { "a copy list too long", (Action<UpdateSaleOrderConfigRequest>)(r => r.IntimationCcEmails = string.Join(", ", Enumerable.Range(0, 60).Select(i => $"person{i}@example.com"))), "too long" };
+        yield return new object[] { "drop ship as the default with drop shipping off", (Action<UpdateSaleOrderConfigRequest>)(r => { r.DefaultFulfillmentMode = FulfillmentModes.DropShip; r.DropShipEnabled = false; }), "drop shipping is switched off" };
+        yield return new object[] { "pickup as the default with pickup off", (Action<UpdateSaleOrderConfigRequest>)(r => { r.ShipmentRequiredDefault = false; r.SelfPickupEnabled = false; }), "customer pickup is switched off" };
+    }
+
+    [Theory]
+    [MemberData(nameof(InvalidPolicies))]
+    public async Task A_policy_that_cannot_work_is_refused_saying_why_and_leaves_no_trace(
+        string _, Action<UpdateSaleOrderConfigRequest> break_, string reason)
+    {
+        var h = NewHarness();
+        var req = ValidUpdate();
+        break_(req);
+
+        var act = () => h.Service.UpdateConfigAsync(req, User);
+
+        (await act.Should().ThrowAsync<SMS.Shared.Exceptions.BadRequestException>()).Which.Message.Should().Contain(reason);
+        (await h.Db.SaleOrderConfigs.CountAsync()).Should().Be(0, "a refused request must not even create the row");
+        (await h.Db.SaleOrderConfigAudits.CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task A_refused_save_leaves_the_saved_policy_as_it_was()
+    {
+        var h = NewHarness();
+        var good = ValidUpdate();
+        good.ReservationTtlHours = 48;
+        await h.Service.UpdateConfigAsync(good, User);
+        var bad = ValidUpdate();
+        bad.ReservationTtlHours = 0;
+
+        var act = () => h.Service.UpdateConfigAsync(bad, User);
+
+        await act.Should().ThrowAsync<SMS.Shared.Exceptions.BadRequestException>();
+        (await h.Service.GetConfigAsync()).ReservationTtlHours.Should().Be(48);
+    }
+
+    [Fact]
+    public async Task The_edges_of_what_is_allowed_are_allowed()
+    {
+        var h = NewHarness();
+
+        foreach (var hours in new[] { 1, 8760 })
+        {
+            var req = ValidUpdate();
+            req.ReservationTtlHours = hours;
+            (await h.Service.UpdateConfigAsync(req, User)).ReservationTtlHours.Should().Be(hours);
+        }
+
+        var dropShip = ValidUpdate();
+        dropShip.DefaultFulfillmentMode = FulfillmentModes.DropShip;
+        dropShip.DropShipEnabled = true;
+        (await h.Service.UpdateConfigAsync(dropShip, User)).DefaultFulfillmentMode.Should().Be(FulfillmentModes.DropShip);
+    }
+
+    [Fact]
+    public async Task The_copy_list_is_stored_as_one_tidy_line_and_recorded_that_way()
+    {
+        var h = NewHarness();
+        var req = ValidUpdate();
+        req.IntimationCcEmails = " a@x.com;b@x.com  A@X.com,, c@x.com ";
+
+        var saved = await h.Service.UpdateConfigAsync(req, User);
+
+        saved.IntimationCcEmails.Should().Be("a@x.com, b@x.com, c@x.com");
+        var audit = await h.Db.SaleOrderConfigAudits.SingleAsync();
+        audit.FieldChanged.Should().Be(nameof(SaleOrderConfig.IntimationCcEmails));
+        audit.OldValue.Should().BeNull();
+        audit.NewValue.Should().Be("a@x.com, b@x.com, c@x.com");
+    }
+
+    [Fact]
+    public async Task An_empty_copy_list_is_stored_as_none_and_is_not_a_change_from_none()
+    {
+        var h = NewHarness();
+        var req = ValidUpdate();
+        req.IntimationCcEmails = "   ";
+
+        var saved = await h.Service.UpdateConfigAsync(req, User);
+
+        saved.IntimationCcEmails.Should().BeNull();
+        (await h.Db.SaleOrderConfigAudits.CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task A_notification_department_has_to_be_one_the_organization_has()
+    {
+        var h = NewHarness(departmentIds: [3, 4]);
+        var req = ValidUpdate();
+
+        req.IntimationDepartmentId = 4;
+        (await h.Service.UpdateConfigAsync(req, User)).IntimationDepartmentId.Should().Be(4);
+
+        req.IntimationDepartmentId = 99;
+        var act = () => h.Service.UpdateConfigAsync(req, User);
+
+        (await act.Should().ThrowAsync<SMS.Shared.Exceptions.BadRequestException>()).Which.Message.Should().Contain("department does not exist");
+        (await h.Service.GetConfigAsync()).IntimationDepartmentId.Should().Be(4);
+    }
+
+    [Fact]
+    public async Task A_department_saved_earlier_and_since_removed_does_not_stop_other_settings_being_saved()
+    {
+        // The saved policy names department 3, and the organization has no departments any more.
+        var h = NewHarness();
+        h.Db.SaleOrderConfigs.Add(new SaleOrderConfig { IntimationDepartmentId = 3, OrganizationId = h.OrgId });
+        await h.Db.SaveChangesAsync();
+        var req = ValidUpdate();
+        req.IntimationDepartmentId = 3;
+        req.ReservationTtlHours = 96;
+
+        var saved = await h.Service.UpdateConfigAsync(req, User);
+
+        saved.ReservationTtlHours.Should().Be(96);
+        saved.IntimationDepartmentId.Should().Be(3);
+    }
+
     [Fact]
     public async Task Each_org_gets_its_own_config_row()
     {
@@ -193,7 +326,7 @@ public class SaleOrderConfigServiceTests
             new DbContextOptionsBuilder<DemandDbContext>().UseInMemoryDatabase(h.DbName).Options, otherOrg);
         var otherUserQuery = new Mock<IUserQueryService>();
         otherUserQuery.Setup(u => u.GetUsersAsync(It.IsAny<IReadOnlyList<int>>())).ReturnsAsync([]);
-        var otherService = new SaleOrderConfigService(otherDb, otherUserQuery.Object);
+        var otherService = new SaleOrderConfigService(otherDb, otherUserQuery.Object, Mock.Of<IOrgChartService>());
 
         var otherOrgConfig = await otherService.GetConfigAsync();
 

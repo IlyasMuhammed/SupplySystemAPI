@@ -31,6 +31,7 @@ internal sealed class PoDocumentTemplateRepository : IPoDocumentTemplateReposito
                 ApprovedByLabel          = t.ApprovedByLabel,
                 AuthorizedSignatoryLabel = t.AuthorizedSignatoryLabel,
                 FooterText               = t.FooterText,
+                BankDetails              = t.BankDetails,
                 ModifiedDate             = t.ModifiedDate
             })
             .FirstOrDefaultAsync();
@@ -85,6 +86,7 @@ internal sealed class PoDocumentTemplateRepository : IPoDocumentTemplateReposito
         existing.ApprovedByLabel          = req.ApprovedByLabel;
         existing.AuthorizedSignatoryLabel = req.AuthorizedSignatoryLabel;
         existing.FooterText               = req.FooterText;
+        existing.BankDetails              = req.BankDetails;
         existing.ModifiedBy               = userId;
         existing.ModifiedDate             = now;
 

@@ -46,8 +46,10 @@ internal static class CourierBookingRequestFactory
         var shipFrom = consignment.ShipFromAddress
             ?? SingleAddress(deliveries.Select(d => d.ShipFromAddress), "ship-from", consignment.ConsignmentNumber)
             ?? throw new BadRequestException(
-                "A carrier needs to know where to collect from. Set the ship-from address on the " +
-                "consignment or its delivery.");
+                "A carrier needs to know where to collect from, and this consignment has no ship-from " +
+                "address. Give the delivery's ship-from warehouse an address, city and country under " +
+                "Inventory → Warehouses; or, if the deliveries leave from more than one warehouse, split " +
+                "them across consignments.");
 
         // Top-level handling units only. A carton inside a pallet travels inside the pallet, and
         // declaring both would have the carrier expect — and bill for — one more piece than arrives.

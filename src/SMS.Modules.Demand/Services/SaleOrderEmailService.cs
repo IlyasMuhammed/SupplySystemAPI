@@ -55,9 +55,12 @@ internal sealed class SaleOrderEmailService : ISaleOrderEmailService
 
             var subject = $"[SMS] Sale Order {order.SoNumber} Confirmed - Availability Summary";
             var body    = SaleOrderEmailTemplates.Confirmation(order, partnerName, rows);
-            var recipients = JoinRecipients(
+            // §5.1 — the confirmation goes to the intimation department and the copy list too.
+            var copies = SaleOrderConfigRules.ParseEmails((await _config.GetConfigAsync()).IntimationCcEmails);
+            var recipients = JoinRecipients([
                 await ResolveDeptHeadEmailAsync(order.IntimationDepartmentId),
-                await ResolveUserEmailAsync(order.CreatedBy));
+                await ResolveUserEmailAsync(order.CreatedBy),
+                .. copies]);
 
             await QueueAndDispatchAsync(order.Id, SaleOrderIntimationEventType.SoConfirmed, recipients, subject, body);
         }
@@ -315,6 +318,9 @@ internal sealed class SaleOrderEmailService : ISaleOrderEmailService
     private async Task QueueAndDispatchAsync(
         int saleOrderId, SaleOrderIntimationEventType eventType, string recipients, string subject, string bodyHtml)
     {
+        // Email intimation is one switch for all seven events: with it off, nothing is logged, queued or sent.
+        if (!(await _config.GetConfigAsync()).EmailIntimationEnabled) return;
+
         var intimation = new SaleOrderIntimation
         {
             SaleOrderId = saleOrderId,

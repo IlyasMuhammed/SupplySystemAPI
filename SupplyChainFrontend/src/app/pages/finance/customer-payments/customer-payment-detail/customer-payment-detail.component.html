@@ -1,0 +1,132 @@
+<div class="detail-page">
+  <p-toast></p-toast>
+
+  <div class="not-found" *ngIf="notFound" data-testid="not-found">
+    <i class="pi pi-inbox"></i>
+    <h2>Customer payment not found</h2>
+    <p>It may have been deleted, or the link may be wrong.</p>
+    <p-button label="Back to customer payments" icon="pi pi-arrow-left" [text]="true"
+              routerLink="/portal/pages/finance/customer-payments"></p-button>
+  </div>
+
+  <div *ngIf="isLoading && !payment" class="loading-state" data-testid="loading">
+    <i class="pi pi-spin pi-spinner"></i> Loading…
+  </div>
+
+  <ng-container *ngIf="payment as p">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">
+          <i class="pi pi-wallet"></i>
+          <span class="font-mono">{{ p.paymentNumber }}</span>
+          <p-tag [value]="formatStatus(p.status)" [severity]="getStatusSeverity(p.status)"></p-tag>
+        </h1>
+        <p class="page-subtitle">
+          <a *ngIf="canViewLedger; else plainCustomer" [routerLink]="['/portal/pages/finance/customer-ledger', p.partnerId]"
+             class="source-link" data-testid="customer-link">{{ p.partnerName }}</a>
+          <ng-template #plainCustomer><span data-testid="customer-name">{{ p.partnerName }}</span></ng-template>
+        </p>
+      </div>
+    </div>
+
+    <div class="detail-grid">
+      <div class="card">
+        <h3>Payment</h3>
+        <dl>
+          <dt>Received</dt><dd>{{ p.paymentDate | date:'dd MMM yyyy' }}</dd>
+          <dt>Method</dt><dd data-testid="method">{{ formatStatus(p.paymentMethod) }}</dd>
+          <dt *ngIf="p.chequeNumber">Cheque #</dt><dd *ngIf="p.chequeNumber" class="font-mono" data-testid="cheque-number">{{ p.chequeNumber }}</dd>
+          <dt *ngIf="p.bankReference">Bank reference</dt><dd *ngIf="p.bankReference" class="font-mono" data-testid="bank-reference">{{ p.bankReference }}</dd>
+          <dt>Recorded</dt><dd>{{ p.createdDate | date:'dd MMM yyyy, HH:mm' }}</dd>
+        </dl>
+        <p class="notes" *ngIf="p.notes" data-testid="notes">{{ p.notes }}</p>
+      </div>
+
+      <div class="card">
+        <h3>Amounts <span class="cur">{{ p.currencyCode }}</span></h3>
+        <dl>
+          <dt>Received</dt><dd class="font-semibold" data-testid="amount">{{ p.amount | number:'1.2-2' }}</dd>
+          <dt>Applied to invoices</dt><dd data-testid="allocated">{{ p.allocatedAmount | number:'1.2-2' }}</dd>
+          <dt>Held on account</dt>
+          <dd class="font-semibold" [class.on-account]="p.unallocatedAmount > 0" data-testid="unallocated">{{ p.unallocatedAmount | number:'1.2-2' }}</dd>
+        </dl>
+        <p class="muted" *ngIf="isHistoryOnly" data-testid="history-note">
+          This payment is {{ formatStatus(p.status) }}, so none of it is applied to an invoice or held on account any more.
+          The lines below are what it was applied to before.
+        </p>
+      </div>
+    </div>
+
+    <div class="card block">
+      <h3>Applied to</h3>
+      <div class="table-card flush">
+        <p-table [value]="p.allocations" [tableStyle]="{'min-width':'44rem'}" data-testid="allocations-table">
+          <ng-template pTemplate="header">
+            <tr>
+              <th>Invoice #</th>
+              <th>Applied on</th>
+              <th class="text-right">Amount applied</th>
+              <th class="text-right">Invoice balance now</th>
+              <th>Invoice status</th>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="body" let-a>
+            <tr [class.history]="isHistoryOnly">
+              <td class="font-mono font-semibold">
+                <a *ngIf="canViewInvoices; else plainInvoice" class="source-link"
+                   [routerLink]="['/portal/pages/finance/sales-invoices', a.invoiceUuid]" data-testid="invoice-link">{{ a.invoiceNumber }}</a>
+                <ng-template #plainInvoice>{{ a.invoiceNumber }}</ng-template>
+              </td>
+              <td>{{ a.allocatedAt | date:'dd MMM yyyy, HH:mm' }}</td>
+              <td class="text-right">{{ a.allocatedAmount | number:'1.2-2' }} <span class="cur">{{ p.currencyCode }}</span></td>
+              <td class="text-right">{{ a.invoiceBalanceDue | number:'1.2-2' }}</td>
+              <td><p-tag [value]="formatStatus(a.invoiceStatus)" [severity]="getInvoiceSeverity(a.invoiceStatus)"></p-tag></td>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="emptymessage">
+            <tr>
+              <td colspan="5" class="text-center text-secondary" style="padding:2rem">
+                This payment has not been applied to any invoice.
+              </td>
+            </tr>
+          </ng-template>
+        </p-table>
+      </div>
+    </div>
+
+    <!-- ── Apply what is left ──────────────────────────────────────────────────── -->
+    <div class="card block" *ngIf="canApply" data-testid="apply-panel">
+      <h3>Apply what is left</h3>
+      <p class="muted top">
+        {{ p.unallocatedAmount | number:'1.2-2' }} {{ p.currencyCode }} of this payment is held on the customer's account.
+        Apply it to their unpaid {{ p.currencyCode }} invoices, oldest first or the ones you choose. Applying it does not change
+        what the customer owes: the whole payment was credited to their ledger when it was recorded.
+      </p>
+
+      <div class="apply-actions">
+        <p-button label="Apply oldest first" icon="pi pi-sort-amount-up" [disabled]="isApplying" [loading]="isApplying"
+                  (onClick)="applyOldestFirst()" data-testid="apply-oldest"></p-button>
+      </div>
+
+      <ng-container *ngIf="canChooseInvoices">
+        <div class="hint" *ngIf="isLoadingInvoices" data-testid="loading-invoices">
+          <i class="pi pi-spin pi-spinner"></i> Loading their invoices…
+        </div>
+        <p class="hint warn" *ngIf="invoicesFailed" data-testid="invoices-failed">
+          <i class="pi pi-info-circle"></i> Their invoices could not be loaded. You can still apply it oldest first.
+        </p>
+
+        <ng-container *ngIf="!isLoadingInvoices && !invoicesFailed">
+          <h4>Or choose the invoices</h4>
+          <app-payment-allocation-editor [invoices]="openInvoices" [available]="p.unallocatedAmount"
+                                         [currencyCode]="p.currencyCode" [(amounts)]="amounts"
+                                         data-testid="allocation-editor"></app-payment-allocation-editor>
+          <div class="apply-actions">
+            <p-button label="Apply these amounts" icon="pi pi-check" [disabled]="!canApplyChosen"
+                      (onClick)="applyChosen()" data-testid="apply-chosen"></p-button>
+          </div>
+        </ng-container>
+      </ng-container>
+    </div>
+  </ng-container>
+</div>

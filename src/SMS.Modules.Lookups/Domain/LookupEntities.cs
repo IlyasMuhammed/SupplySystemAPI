@@ -94,6 +94,10 @@ internal class PoDocumentTemplate : ITenantScopedEntity
     public string? ApprovedByLabel { get; set; }
     public string? AuthorizedSignatoryLabel { get; set; }
     public string? FooterText { get; set; }
+    // The company's own account, as it should be printed on a sales invoice so a customer knows where
+    // to pay: free text, several lines (bank, account title, account number, IBAN, SWIFT, branch),
+    // because banks and countries do not agree on which of those exist. Only sales invoices print it.
+    public string? BankDetails { get; set; }
     public bool IsActive { get; set; } = true;
     public int CreatedBy { get; set; }
     public DateTime CreatedDate { get; set; }

@@ -315,7 +315,33 @@ export class AppMenu {
                 { label: 'Master Payables Ledger', icon: 'pi pi-fw pi-book',
                   routerLink: ['/portal/pages/finance/master-ledger'],
                   featureCode: 'FEATURE_MASTER_LEDGERS',
-                  permRequired: ['PAYMENT_VIEW', 'INVOICE_VIEW'] }
+                  permRequired: ['PAYMENT_VIEW', 'INVOICE_VIEW'] },
+
+                // ── Receivables (Addendum 29): what customers are billed and what they pay ──
+                {
+                    label: 'Sales Invoices',
+                    icon: 'pi pi-fw pi-file',
+                    routerLink: ['/portal/pages/finance/sales-invoices'],
+                    permRequired: ['SALES_INVOICE_VIEW', 'SALES_INVOICE_MANAGE']
+                },
+                {
+                    label: 'Customer Payments',
+                    icon: 'pi pi-fw pi-wallet',
+                    items: [
+                        { label: 'Record Payment', icon: 'pi pi-fw pi-plus',
+                          routerLink: ['/portal/pages/finance/customer-payments/new'],
+                          permRequired: ['CUSTOMER_PAYMENT_RECORD'] },
+                        { label: 'All Customer Payments', icon: 'pi pi-fw pi-list',
+                          routerLink: ['/portal/pages/finance/customer-payments'],
+                          permRequired: ['CUSTOMER_PAYMENT_VIEW', 'CUSTOMER_PAYMENT_RECORD'] }
+                    ]
+                },
+                {
+                    label: 'Customer Ledger',
+                    icon: 'pi pi-fw pi-book',
+                    routerLink: ['/portal/pages/finance/customer-ledger'],
+                    permRequired: ['CUSTOMER_LEDGER_VIEW']
+                }
             ]
         },
 
@@ -367,6 +393,15 @@ export class AppMenu {
                     items: [
                         { label: 'Invoice Aging & Payments', icon: 'pi pi-fw pi-file-invoice',
                           routerLink: ['/portal/pages/reports/finance-reports'],
+                          permRequired: ['REPORT_VIEW', 'REPORT_EXPORT'] }
+                    ]
+                },
+                {
+                    label: 'Sales',
+                    icon: 'pi pi-fw pi-shopping-bag',
+                    items: [
+                        { label: 'Sales Reports', icon: 'pi pi-fw pi-chart-bar',
+                          routerLink: ['/portal/pages/reports/sales-reports'],
                           permRequired: ['REPORT_VIEW', 'REPORT_EXPORT'] }
                     ]
                 },
@@ -472,6 +507,10 @@ export class AppMenu {
                           routerLink: ['/portal/pages/po-document-template'],
                           featureCode: 'SCREEN_PO_DOCUMENT_TEMPLATE',
                           permRequired: ['PO_TEMPLATE_MANAGE'] },
+                        { label: 'Sale Order Settings', icon: 'pi pi-fw pi-sliders-h',
+                          routerLink: ['/portal/pages/sale-order-settings'],
+                          featureCode: 'MODULE_DEMAND',
+                          permRequired: ['SALE_ORDER_CONFIG_READ'] },
                         { label: 'Portal Settings', icon: 'pi pi-fw pi-link',
                           routerLink: ['/portal/pages/portal-settings'],
                           permRequired: ['SYSTEM_CONFIGURE'] }

@@ -19,4 +19,7 @@ public interface ISaleOrderService
     Task<bool> CancelAsync(Guid uuid, int userId, string? reason);
     Task<TimelineDetail?> GetTimelineAsync(Guid uuid);
     Task<IReadOnlyList<SaleOrderLineAvailabilityModel>?> GetAvailabilityAsync(Guid uuid);
+
+    /// <summary>What a new order starts as, from the organization's sale order settings (§8.1).</summary>
+    Task<SaleOrderDefaultsModel> GetDefaultsAsync();
 }

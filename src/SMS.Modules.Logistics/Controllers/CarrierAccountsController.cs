@@ -22,12 +22,48 @@ public class CarrierAccountsController : ControllerBase
 {
     private readonly ICarrierAccountService    _svc;
     private readonly ICarrierCredentialService _credentials;
+    private readonly ICarrierIntegrationService _integration;
 
     public CarrierAccountsController(
-        ICarrierAccountService svc, ICarrierCredentialService credentials)
+        ICarrierAccountService svc, ICarrierCredentialService credentials, ICarrierIntegrationService integration)
     {
         _svc         = svc;
         _credentials = credentials;
+        _integration = integration;
+    }
+
+    /// <summary>
+    /// The courier adapters this deployment has and the credentials each reads — so an account can be set up
+    /// from the screen, and the keys to enter are known before a booking is refused for lacking them.
+    /// </summary>
+    [RequirePermission(PermissionCodes.CARRIER_MANAGE)]
+    [HttpGet("providers")]
+    public IActionResult GetProviders() =>
+        Ok(ApiResponse<IReadOnlyList<CourierProviderModel>>.Ok(_integration.GetProviders()));
+
+    /// <summary>Which adapter a carrier books through. Kept off the carrier's own detail — see the model.</summary>
+    [RequirePermission(PermissionCodes.CARRIER_MANAGE)]
+    [HttpGet("by-carrier/{carrierUuid:guid}/integration")]
+    public async Task<IActionResult> GetIntegration(Guid carrierUuid)
+    {
+        var integration = await _integration.GetAsync(carrierUuid);
+        return integration is null
+            ? NotFound(ApiResponse.Fail(StaticResponseMessage.recordNotFound))
+            : Ok(ApiResponse<CarrierIntegrationModel>.Ok(integration));
+    }
+
+    /// <summary>
+    /// Points a carrier at MANUAL booking or at an adapter. Refused while consignments are on the road
+    /// through the current one: their tracking would be asked of a system that never heard of them.
+    /// </summary>
+    [RequirePermission(PermissionCodes.CARRIER_MANAGE)]
+    [HttpPut("by-carrier/{carrierUuid:guid}/integration")]
+    public async Task<IActionResult> SetIntegration(Guid carrierUuid, [FromBody] SetCarrierIntegrationRequest req)
+    {
+        var integration = await _integration.SetAsync(carrierUuid, req, User.GetUserId());
+        return integration is null
+            ? NotFound(ApiResponse.Fail(StaticResponseMessage.recordNotFound))
+            : Ok(ApiResponse<CarrierIntegrationModel>.Ok(integration, StaticResponseMessage.recordUpdatedSuccessfully));
     }
 
     [RequirePermission(PermissionCodes.CARRIER_MANAGE)]

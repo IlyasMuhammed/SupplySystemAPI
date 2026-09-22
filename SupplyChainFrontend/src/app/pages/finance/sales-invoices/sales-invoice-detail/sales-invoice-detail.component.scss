@@ -1,0 +1,45 @@
+.detail-page { padding: 1.5rem; }
+
+.page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
+.page-title { font-size: 1.5rem; font-weight: 700; display: flex; align-items: center; gap: .625rem; margin: 0; flex-wrap: wrap; }
+.page-subtitle { color: var(--text-color-secondary); font-size: .875rem; margin: .25rem 0 0; display: flex; gap: .375rem; }
+.header-actions { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+
+.source-link { color: var(--primary-color); text-decoration: none; }
+.source-link:hover { text-decoration: underline; }
+
+.loading-state, .not-found { text-align: center; padding: 4rem 1rem; color: var(--text-color-secondary); }
+.not-found i { font-size: 2.5rem; display: block; margin-bottom: .75rem; opacity: .6; }
+.not-found h2 { font-size: 1.125rem; font-weight: 600; margin: 0 0 .25rem; color: var(--text-color); }
+
+.detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr)); gap: 1rem; margin-bottom: 1rem; }
+
+.card {
+  background: var(--surface-0); border: 1px solid var(--surface-200);
+  border-radius: .625rem; padding: 1.25rem;
+}
+.card.block { margin-bottom: 1rem; }
+.card h3 { font-size: .875rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--text-color-secondary); margin: 0 0 .875rem; }
+.card h3 .cur { text-transform: none; letter-spacing: 0; margin-left: .375rem; }
+
+dl { display: grid; grid-template-columns: auto 1fr; gap: .5rem 1rem; margin: 0; font-size: .875rem; }
+dt { color: var(--text-color-secondary); }
+dd { margin: 0; }
+.balance-owing { color: var(--orange-700, #c2410c); }
+
+.notes { margin: 1rem 0 0; font-size: .875rem; color: var(--text-color-secondary); font-style: italic; }
+
+.table-card.flush { padding: 0; border: 0; }
+.text-right { text-align: right; }
+.cur { color: var(--text-color-secondary); font-size: .75rem; margin-left: .125rem; }
+
+.dialog-hint { font-size: .875rem; color: var(--text-color-secondary); margin: 0 0 1rem; }
+.dialog-label { display: block; font-size: .8125rem; font-weight: 600; margin-bottom: .375rem; }
+.dialog-row { margin: 1rem 0; }
+.w-full { width: 100%; }
+
+@media (max-width: 640px) {
+  .detail-page { padding: 1rem; }
+  .detail-grid { grid-template-columns: 1fr; }
+  .header-actions { width: 100%; }
+}

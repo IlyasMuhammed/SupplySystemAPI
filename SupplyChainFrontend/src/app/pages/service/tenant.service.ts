@@ -10,6 +10,8 @@ export interface CurrentTenant {
   orgCode: string;
   orgName: string;
   plan: string;
+  /** The organization's base currency (a lookups currency id); null when none is configured. */
+  baseCurrency?: string | null;
   enabledFeatureCodes: string[];
   isSuperAdmin: boolean;
   roleName: string;

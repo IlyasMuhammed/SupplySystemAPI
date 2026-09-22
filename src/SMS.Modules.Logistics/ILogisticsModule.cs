@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using SMS.Modules.Logistics.Couriers;
 using SMS.Modules.Logistics.Couriers.Booking;
+using SMS.Modules.Logistics.Couriers.Dhl;
 using SMS.Modules.Logistics.Couriers.Labels;
 using SMS.Modules.Logistics.Couriers.Tracking;
 using SMS.Modules.Logistics.Couriers.Manual;
@@ -99,6 +100,7 @@ public static class LogisticsModuleExtensions
         services.AddScoped<ICarrierService,     CarrierService>();
         services.AddScoped<IShipmentService,    ShipmentService>();
         services.AddScoped<IAddressNormalizer,  AddressNormalizer>();
+        services.AddScoped<IAddressBookService, AddressBookService>();
         services.AddScoped<IDocumentNumberGenerator, DocumentNumberGenerator>();
         services.AddScoped<IDeliveryService,    DeliveryService>();
         services.AddScoped<ISaleOrderDeliveryService, SaleOrderDeliveryService>();
@@ -111,6 +113,8 @@ public static class LogisticsModuleExtensions
         services.AddScoped<IPackageRepository,  PackageRepository>();
         services.AddScoped<IPackageService,     PackageService>();
         services.AddScoped<IDeliveryDocumentService, DeliveryDocumentService>();
+        // A29-P7-09 — the gate pass kept on file as an attachment on the delivery.
+        services.AddScoped<IGatePassArchive, GatePassArchive>();
 
         // Courier integration (Phase 2). Adapters register themselves as ICourierProvider and the
         // registry resolves them by Carrier.ProviderKey — adding a carrier is a registration, not
@@ -123,9 +127,19 @@ public static class LogisticsModuleExtensions
         // a deployment with no manual carrier is not a deployment anybody wants.
         services.AddSingleton<ICourierProvider, ManualCourierProvider>();
 
+        // DHL Express through its MyDHL API. Inert until a carrier is pointed at DHL_EXPRESS and its
+        // account holds the credentials, so registering it costs nothing where it is not used. Calls go
+        // out through a named client, because a singleton must not hold one HttpClient for ever.
+        services.AddHttpClient(DhlExpressCourierProvider.HttpClientName, client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(60);
+        });
+        services.AddSingleton<ICourierProvider, DhlExpressCourierProvider>();
+
         // Which account a booking goes out on, and what that account may be asked for.
         services.AddScoped<ICarrierAccountRepository, CarrierAccountRepository>();
         services.AddScoped<ICarrierAccountService,    CarrierAccountService>();
+        services.AddScoped<ICarrierIntegrationService, CarrierIntegrationService>();
         services.AddScoped<ICarrierAccountResolver,   CarrierAccountResolver>();
 
         // The named products a carrier sells. Carries the dim divisor, so rating (Phase 3) starts
@@ -190,6 +204,10 @@ public static class LogisticsModuleExtensions
         // Proof that goods reached somebody (T-61) — the artefacts stored, not a URL somebody typed
         // into the legacy table and hoped would still resolve (F47).
         services.AddScoped<IDeliveryProofService, DeliveryProofService>();
+        services.AddScoped<IDeliveryProgressService, DeliveryProgressService>();
+        // Where a consignment is collected from, taken from its deliveries' warehouse when nobody
+        // has typed an address — so a carrier can be booked for a delivery that only names a warehouse.
+        services.AddScoped<IConsignmentShipFrom, ConsignmentShipFrom>();
 
         // How each carrier has actually performed (T-63). Reads only — every figure it reports was
         // already stored by the task that had to store it.

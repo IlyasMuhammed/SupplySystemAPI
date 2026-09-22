@@ -673,8 +673,10 @@ public class AutoPurchaseOrderServiceTests
         var partnerNames = new Mock<ISupplierNameLookupService>();
         partnerNames.Setup(p => p.GetNamesAsync(It.IsAny<IReadOnlyList<Guid>>())).ReturnsAsync(new Dictionary<Guid, string>());
         var (emailJobs, _) = MockJobs();
+        var emailConfig = new Mock<ISaleOrderConfigService>();
+        emailConfig.Setup(c => c.GetConfigAsync()).ReturnsAsync(new SaleOrderConfigModel { EmailIntimationEnabled = true });
         var emailService = new SaleOrderEmailService(
-            h.Db, Mock.Of<IStockReservationService>(), Mock.Of<ISaleOrderConfigService>(), Mock.Of<IOrgChartService>(),
+            h.Db, Mock.Of<IStockReservationService>(), emailConfig.Object, Mock.Of<IOrgChartService>(),
             users.Object, partnerNames.Object, emailJobs.Object, NullLogger<SaleOrderEmailService>.Instance);
 
         await emailService.SendPoApprovedAsync(result.PoUuid);

@@ -1,0 +1,40 @@
+.ledger-page { padding: 1.5rem; }
+
+.page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; gap: 1rem; flex-wrap: wrap; }
+.page-title { font-size: 1.5rem; font-weight: 700; display: flex; align-items: center; gap: .5rem; margin: 0; }
+.page-subtitle { color: var(--text-color-secondary); font-size: .875rem; margin: .25rem 0 0; }
+
+.filter-bar { display: flex; align-items: center; gap: .75rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
+:host ::ng-deep .customer-box { width: 22rem; max-width: 100%; }
+:host ::ng-deep .customer-input { width: 100%; }
+:host ::ng-deep .date-filter { width: 10.5rem; }
+
+.empty-state { text-align: center; padding: 4rem 1rem; color: var(--text-color-secondary); }
+.empty-state i { font-size: 2.5rem; display: block; margin-bottom: .75rem; opacity: .6; }
+.empty-state h2 { font-size: 1.125rem; font-weight: 600; margin: 0 0 .25rem; color: var(--text-color); }
+
+.balance-card {
+  display: inline-flex; flex-direction: column; gap: .25rem; margin-bottom: 1.25rem;
+  background: var(--surface-0); border: 1px solid var(--surface-200); border-radius: .625rem; padding: 1rem 1.5rem;
+}
+.balance-label { font-size: .8125rem; color: var(--text-color-secondary); }
+.balance-figure { font-size: 1.75rem; font-weight: 700; }
+.balance-figure.owed { color: var(--orange-700, #c2410c); }
+.balance-figure.credit, .credit { color: var(--green-700, #15803d); }
+.balance-note { font-size: .8125rem; color: var(--text-color-secondary); }
+
+.mixed-note { margin: 0 0 1rem; font-size: .8125rem; color: var(--orange-700, #c2410c); display: flex; gap: .5rem; align-items: flex-start; }
+
+.table-card { background: var(--surface-0); border: 1px solid var(--surface-200); border-radius: .625rem; overflow: hidden; }
+
+.source-link { color: var(--primary-color); text-decoration: none; }
+.source-link:hover { text-decoration: underline; }
+.narration { max-width: 22rem; color: var(--text-color-secondary); font-size: .8125rem; }
+.muted { color: var(--text-color-secondary); }
+.text-right { text-align: right; }
+.cur { color: var(--text-color-secondary); font-size: .75rem; margin-left: .125rem; }
+
+@media (max-width: 640px) {
+  .ledger-page { padding: 1rem; }
+  :host ::ng-deep .customer-box, :host ::ng-deep .date-filter { width: 100%; }
+}

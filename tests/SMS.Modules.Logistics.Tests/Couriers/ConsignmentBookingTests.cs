@@ -13,6 +13,7 @@ using SMS.Modules.Logistics.Data;
 using SMS.Modules.Logistics.Domain;
 using SMS.Modules.Logistics.Models;
 using SMS.Modules.Logistics.Repositories;
+using SMS.Modules.Logistics.Services;
 using SMS.Shared.Authorization;
 using SMS.Shared.Common;
 using SMS.Shared.Exceptions;
@@ -64,7 +65,7 @@ public class ConsignmentBookingTests
     private static (ConsignmentBookingService booking, CarrierAccountRepository accounts, CarrierCredentialVault vault,
                     ConsignmentBookingSweepJob sweep) Build(
         LogisticsDbContext db, ITenantContext tenant, CourierProviderRegistry registry,
-        IConsignmentBookingScheduler scheduler, IConfiguration config)
+        IConsignmentBookingScheduler scheduler, IConfiguration config, IConsignmentShipFrom? shipFrom = null)
     {
         var vault    = new CarrierCredentialVault(db, TestEncryption.New());
         var resolver = new CarrierAccountResolver(db, registry, vault);
@@ -72,14 +73,15 @@ public class ConsignmentBookingTests
         var labels   = new ConsignmentLabelService(db, resolver, config);
 
         return (new ConsignmentBookingService(db, resolver, ledger, registry, scheduler, labels, config,
-                                              NullLogger<ConsignmentBookingService>.Instance),
+                                              NullLogger<ConsignmentBookingService>.Instance, shipFrom),
                 new CarrierAccountRepository(db, registry),
                 vault,
                 new ConsignmentBookingSweepJob(db, ledger, registry, scheduler, NullLogger<ConsignmentBookingSweepJob>.Instance));
     }
 
     private static Harness NewHarness(
-        bool deduplicates = false, bool cod = true, bool multiPiece = true, int? callTimeoutSeconds = null)
+        bool deduplicates = false, bool cod = true, bool multiPiece = true, int? callTimeoutSeconds = null,
+        IWarehouseDirectory? warehouses = null)
     {
         var (db, tenant, dbName) = LogisticsTestDb.New();
         var carrier   = new ScriptedCourierProvider("SCRIPTED", deduplicates, cod, multiPiece);
@@ -90,7 +92,12 @@ public class ConsignmentBookingTests
             ["Logistics:Booking:CarrierCallTimeoutSeconds"] = callTimeoutSeconds?.ToString()
         }).Build();
 
-        var (booking, accounts, vault, sweep) = Build(db, tenant, registry, scheduler, config);
+        IConsignmentShipFrom? shipFrom = warehouses is null
+            ? null
+            : new ConsignmentShipFrom(db, warehouses, new AddressNormalizer(new FakeCityLookup()),
+                                      NullLogger<ConsignmentShipFrom>.Instance);
+
+        var (booking, accounts, vault, sweep) = Build(db, tenant, registry, scheduler, config, shipFrom);
 
         return new Harness
         {
@@ -104,7 +111,8 @@ public class ConsignmentBookingTests
     /// <summary>A packed, addressed consignment on an API carrier with one default account.</summary>
     private static async Task<Seeded> Seed(
         Harness h, int packages = 1, string? integrationMode = "API", bool account = true,
-        decimal? codAmount = null, string? trackingTemplate = null)
+        decimal? codAmount = null, string? trackingTemplate = null,
+        bool shipFromAddress = true, Guid? shipFromWarehouse = null)
     {
         var carrier = new Carrier
         {
@@ -131,7 +139,8 @@ public class ConsignmentBookingTests
             Direction  = LogisticsCode.Of(DeliveryDirection.Outbound),
             SourceType = LogisticsCode.Of(DeliverySourceType.Manual),
             SourceNumber    = "PO-2026-00042",
-            ShipFromAddress = Address("Plot 1, SITE", "Karachi"),
+            ShipFromAddress = shipFromAddress ? Address("Plot 1, SITE", "Karachi") : null,
+            ShipFromWarehouseUuid = shipFromWarehouse,
             ShipToAddress   = Address("Road 2, Gulberg", "Lahore"),
             CreatedBy = User, CreatedDate = T0
         };
@@ -188,6 +197,64 @@ public class ConsignmentBookingTests
 
     private static Task<Consignment> Reload(Harness h, Guid uuid) =>
         h.Db.Consignments.AsNoTracking().IgnoreQueryFilters().SingleAsync(c => c.UUID == uuid);
+
+    // ── Where the parcel is collected from ────────────────────────────────────
+    //
+    // Most deliveries name the warehouse they leave from and carry no address of their own, and nothing in
+    // the app lets a person type one. Without this, such a delivery could never be booked.
+
+    private static readonly Guid FaisalabadWarehouse = Guid.NewGuid();
+
+    private static ConsignmentShipFromTests.FakeWarehouses Warehouses() =>
+        new ConsignmentShipFromTests.FakeWarehouses().With(FaisalabadWarehouse);
+
+    [Fact]
+    public async Task A_delivery_that_only_names_its_warehouse_is_booked_from_that_warehouses_address()
+    {
+        var h = NewHarness(warehouses: Warehouses());
+        var s = await Seed(h, shipFromAddress: false, shipFromWarehouse: FaisalabadWarehouse);
+
+        var status = await Request(h, s.Consignment);
+        status.Status.Should().Be("BOOKING");
+
+        var c = await h.Db.Consignments.AsNoTracking().IgnoreQueryFilters()
+            .Include(x => x.ShipFromAddress).SingleAsync(x => x.UUID == s.Consignment);
+        c.ShipFromAddress!.CityName.Should().Be("Faisalabad", "it is saved before the job runs, so the job sends what was checked");
+
+        await Run(h, s.Consignment, T0.AddSeconds(5));
+
+        var sent = h.Carrier.Calls.Should().ContainSingle().Subject;
+        sent.ShipFrom.Line1.Should().Be("Gulberg Road");
+        sent.ShipFrom.City.Should().Be("Faisalabad");
+        sent.ShipFrom.CountryIsoCode.Should().Be("PK", "the normaliser resolves the country from its name");
+    }
+
+    [Fact]
+    public async Task A_delivery_with_no_address_and_no_usable_warehouse_is_refused_with_what_to_fix()
+    {
+        var h = NewHarness(warehouses: Warehouses());
+        var s = await Seed(h, shipFromAddress: false, shipFromWarehouse: Guid.NewGuid());
+
+        var act = async () => await h.Booking.RequestBookingAsync(s.Consignment, new BookConsignmentRequest(), User);
+
+        (await act.Should().ThrowAsync<BadRequestException>())
+            .WithMessage("*ship-from warehouse*Inventory*Warehouses*");
+
+        h.Scheduler.Enqueued.Should().BeEmpty("nothing was booked");
+        (await Reload(h, s.Consignment)).Status.Should().Be("DRAFT");
+    }
+
+    [Fact]
+    public async Task A_delivery_that_already_has_its_own_ship_from_address_is_booked_exactly_as_before()
+    {
+        var h = NewHarness(warehouses: Warehouses());
+        var s = await Seed(h, shipFromAddress: true, shipFromWarehouse: FaisalabadWarehouse);
+
+        await Request(h, s.Consignment);
+        await Run(h, s.Consignment, T0.AddSeconds(5));
+
+        h.Carrier.Calls.Should().ContainSingle().Which.ShipFrom.City.Should().Be("Karachi");
+    }
 
     // ── Requesting ────────────────────────────────────────────────────────────
 

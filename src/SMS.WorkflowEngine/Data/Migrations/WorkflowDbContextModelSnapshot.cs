@@ -329,6 +329,45 @@ namespace SMS.WorkflowEngine.Data.Migrations
                     b.ToTable("document_attachments", "workflow_schema");
                 });
 
+            modelBuilder.Entity("SMS.WorkflowEngine.Domain.DocumentAttachmentContent", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<byte[]>("Content")
+                        .IsRequired()
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<int>("DocumentAttachmentId")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("RequiredPermission")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Sha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("char(64)")
+                        .IsFixedLength();
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DocumentAttachmentId")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId");
+
+                    b.ToTable("document_attachment_contents", "workflow_schema");
+                });
+
             modelBuilder.Entity("SMS.WorkflowEngine.Domain.DocumentTimeline", b =>
                 {
                     b.Property<int>("Id")
@@ -821,6 +860,17 @@ namespace SMS.WorkflowEngine.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Approval");
+                });
+
+            modelBuilder.Entity("SMS.WorkflowEngine.Domain.DocumentAttachmentContent", b =>
+                {
+                    b.HasOne("SMS.WorkflowEngine.Domain.DocumentAttachment", "DocumentAttachment")
+                        .WithOne()
+                        .HasForeignKey("SMS.WorkflowEngine.Domain.DocumentAttachmentContent", "DocumentAttachmentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("DocumentAttachment");
                 });
 
             modelBuilder.Entity("SMS.WorkflowEngine.Domain.WorkflowAuditLog", b =>

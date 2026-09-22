@@ -145,9 +145,16 @@ internal sealed class MivService : IMivService
             .Select(g => new { LineId = g.Key, Qty = g.OrderByDescending(a => a.StepNumber).First().ApprovedQty })
             .ToDictionaryAsync(x => x.LineId, x => x.Qty);
 
-        var reservations = await _db.StockReservations
-            .Where(r => r.MirId == mir.Id && r.Status == "ACTIVE")
-            .ToDictionaryAsync(r => r.MirLineId, r => r);
+        // What MIR approval is holding, from the shared reservation ledger (the material schema's own table
+        // stopped being written when reservations moved there). By MIR line, each line's holds in the order
+        // the ledger will consume them when a voucher posts.
+        var holdsByLine = (await _inv.StockReservations
+                .Where(r => r.SourceType == ReservationSourceType.Mir && r.SourceUuid == mir.UUID
+                         && r.Status == "ACTIVE" && r.SourceLineUuid != null)
+                .OrderBy(r => r.Id)
+                .ToListAsync())
+            .GroupBy(r => r.SourceLineUuid!.Value)
+            .ToDictionary(g => g.Key, g => g.Select(r => new MirLineHolds.Held(r.InventoryItemId, r.ReservedQty)).ToList());
 
         var variantUuids = mir.Lines.Select(l => l.VariantUuid).Distinct().ToList();
 
@@ -201,13 +208,16 @@ internal sealed class MivService : IMivService
                     $"Line '{mirLine.ItemDescription}': issued qty {input.IssuedQty} exceeds " +
                     $"remaining pending qty {pendingQty} (approved: {approvedQty}, already issued: {mirLine.IssuedQty}).");
 
-            if (!reservations.TryGetValue(mirLine.Id, out var res) || res.ReservedQty <= 0)
+            holdsByLine.TryGetValue(mirLine.UUID, out var lineHolds);
+            var reservedQty = lineHolds is null ? 0m : MirLineHolds.Total(lineHolds);
+
+            if (reservedQty <= 0)
                 throw new UnprocessableEntityException(
                     $"Line '{mirLine.ItemDescription}': no active stock reservation found.");
 
-            if (input.IssuedQty > res.ReservedQty)
+            if (input.IssuedQty > reservedQty)
                 throw new UnprocessableEntityException(
-                    $"Line '{mirLine.ItemDescription}': issued qty {input.IssuedQty} exceeds reservation {res.ReservedQty}.");
+                    $"Line '{mirLine.ItemDescription}': issued qty {input.IssuedQty} exceeds reservation {reservedQty}.");
 
             var unitCost = unitCostByVariant.TryGetValue(mirLine.VariantUuid, out var uc) ? uc : mirLine.UnitCost;
             var flags    = trackingFlagsCreate.TryGetValue(mirLine.VariantUuid, out var tf) ? tf : default;
@@ -269,9 +279,20 @@ internal sealed class MivService : IMivService
                 }
             }
 
-            // For batch/serial tracked lines, InventoryItemId = 0 (sentinel — see BatchSerials).
-            // For non-tracked lines, InventoryItemId = the reservation's inventory item.
-            var lineInvItemId = batchSerials.Count > 0 ? 0 : res.InventoryItemId;
+            // A line with no batch or serial chosen issues from the stock its hold sits on. When the quantity
+            // spans holds on more than one stock row, that is a row of BatchSerials for each — the posting
+            // branch already issues from one row at a time — taken in the order the ledger consumes the holds,
+            // so the units that leave a shelf are the ones the ledger stops holding there.
+            var sources = MirLineHolds.Take(lineHolds!, input.IssuedQty);
+            if (batchSerials.Count == 0 && sources.Count > 1)
+                batchSerials.AddRange(sources.Select(s => new MivLineBatchSerial
+                {
+                    UUID = Guid.NewGuid(), InventoryItemId = s.InventoryItemId, IssuedQty = s.Quantity, UnitCost = unitCost
+                }));
+
+            // For batch/serial (or multi-row) lines, InventoryItemId = 0 (sentinel — see BatchSerials).
+            // Otherwise, InventoryItemId = the inventory item the hold is on.
+            var lineInvItemId = batchSerials.Count > 0 ? 0 : sources[0].InventoryItemId;
 
             var voucherLine = new MaterialIssueVoucherLine
             {
@@ -485,11 +506,6 @@ internal sealed class MivService : IMivService
 
         var mir        = miv.MaterialIssueRequest;
         var mirLineIds = miv.Lines.Select(l => l.MirLineId).ToList();
-
-        // Pre-load StockReservations (effect 3)
-        var reservations = await _db.StockReservations
-            .Where(r => mirLineIds.Contains(r.MirLineId) && r.Status == "ACTIVE")
-            .ToDictionaryAsync(r => r.MirLineId, r => r);
 
         // Pre-load MIRLines (effects 4, 5) — same entities tracked in mir.Lines
         var mirLineMap = mir.Lines

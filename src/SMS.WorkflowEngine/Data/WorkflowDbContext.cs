@@ -21,6 +21,7 @@ internal sealed class WorkflowDbContext : DbContext, ITenantScopedDbContext
     internal DbSet<WorkflowGroupMember>  WorkflowGroupMembers  => Set<WorkflowGroupMember>();
     internal DbSet<DocumentTimeline>     DocumentTimelines     => Set<DocumentTimeline>();
     internal DbSet<DocumentAttachment>   DocumentAttachments   => Set<DocumentAttachment>();
+    internal DbSet<DocumentAttachmentContent> DocumentAttachmentContents => Set<DocumentAttachmentContent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

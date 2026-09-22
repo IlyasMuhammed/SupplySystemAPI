@@ -1,0 +1,27 @@
+.allocation-editor { display: flex; flex-direction: column; gap: .75rem; }
+
+.summary { display: flex; align-items: baseline; gap: 1.5rem; flex-wrap: wrap; font-size: .875rem; }
+.summary .label { color: var(--text-color-secondary); margin-right: .25rem; }
+.summary .cur { color: var(--text-color-secondary); font-size: .75rem; }
+.summary .negative { color: var(--red-500, #ef4444); }
+.summary .tools { margin-left: auto; display: flex; gap: .25rem; }
+
+.problem { margin: 0; color: var(--red-600, #dc2626); font-size: .8125rem; display: flex; gap: .5rem; align-items: flex-start; }
+.empty { color: var(--text-color-secondary); font-size: .875rem; padding: 1.25rem; text-align: center; border: 1px dashed var(--surface-300); border-radius: .5rem; }
+.empty i { margin-right: .375rem; }
+
+.allocation-table { width: 100%; border-collapse: collapse; font-size: .875rem; }
+.allocation-table th {
+  text-align: left; font-weight: 600; font-size: .75rem; text-transform: uppercase; letter-spacing: .03em;
+  color: var(--text-color-secondary); padding: .5rem .625rem; border-bottom: 1px solid var(--surface-200);
+}
+.allocation-table td { padding: .5rem .625rem; border-bottom: 1px solid var(--surface-100, #f1f5f9); vertical-align: middle; }
+.allocation-table .right { text-align: right; }
+.allocation-table .mono { font-family: monospace; font-weight: 600; }
+.allocation-table tr.row-problem td { background: var(--red-50, #fef2f2); }
+:host ::ng-deep .amount-input { width: 8rem; text-align: right; }
+
+@media (max-width: 640px) {
+  .allocation-table { display: block; overflow-x: auto; }
+  .summary .tools { margin-left: 0; }
+}

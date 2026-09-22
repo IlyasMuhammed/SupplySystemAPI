@@ -201,6 +201,10 @@ internal sealed class GoodsIssuePoster : IGoodsIssuePoster
     /// <summary>
     /// Mirrors <c>StockReservationService.InTransactionAsync</c>: the in-memory provider used by
     /// tests has no transactions, and wrapping there throws rather than protecting anything.
+    /// <para>
+    /// The transaction runs under the context's execution strategy because the DbContext is
+    /// configured with retry-on-failure, which refuses a transaction the caller began itself.
+    /// </para>
     /// </summary>
     private async Task InTransactionAsync(Func<Task> work, CancellationToken ct)
     {
@@ -210,8 +214,13 @@ internal sealed class GoodsIssuePoster : IGoodsIssuePoster
             return;
         }
 
-        await using var transaction = await _db.Database.BeginTransactionAsync(ct);
-        await work();
-        await transaction.CommitAsync(ct);
+        var strategy = _db.Database.CreateExecutionStrategy();
+
+        await strategy.ExecuteAsync(async () =>
+        {
+            await using var transaction = await _db.Database.BeginTransactionAsync(ct);
+            await work();
+            await transaction.CommitAsync(ct);
+        });
     }
 }

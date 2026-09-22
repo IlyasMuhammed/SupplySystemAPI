@@ -1,0 +1,103 @@
+<div class="ledger-page">
+  <p-toast></p-toast>
+
+  <div class="page-header">
+    <div>
+      <h1 class="page-title"><i class="pi pi-book"></i> Customer Ledger</h1>
+      <p class="page-subtitle">What a customer owes, entry by entry: invoices raise it, payments bring it down</p>
+    </div>
+    <p-button *ngIf="partnerId && canRecordPayment" label="Record payment" icon="pi pi-wallet" severity="success" [outlined]="true"
+              routerLink="/portal/pages/finance/customer-payments/new" [queryParams]="{ partnerId: partnerId }"
+              data-testid="record-payment"></p-button>
+  </div>
+
+  <div class="filter-bar">
+    <p-autoComplete [(ngModel)]="customer" [suggestions]="customerSuggestions" field="companyName"
+                    (completeMethod)="searchCustomers($event)" (onSelect)="onCustomerSelected($event.value)"
+                    [minLength]="1" [dropdown]="true" placeholder="Search customers by name…"
+                    styleClass="customer-box" inputStyleClass="customer-input" appendTo="body"
+                    data-testid="customer"></p-autoComplete>
+    <ng-container *ngIf="partnerId">
+      <p-calendar [(ngModel)]="dateFrom" (ngModelChange)="onFilterChange()" placeholder="From" dateFormat="dd/mm/yy"
+                  [showIcon]="true" [showClear]="true" styleClass="date-filter" appendTo="body"
+                  data-testid="date-from"></p-calendar>
+      <p-calendar [(ngModel)]="dateTo" (ngModelChange)="onFilterChange()" placeholder="To" dateFormat="dd/mm/yy"
+                  [showIcon]="true" [showClear]="true" styleClass="date-filter" appendTo="body"
+                  data-testid="date-to"></p-calendar>
+      <p-button icon="pi pi-refresh" [text]="true" severity="secondary" pTooltip="Reset dates"
+                (onClick)="resetFilters()"></p-button>
+    </ng-container>
+  </div>
+
+  <div class="empty-state" *ngIf="!partnerId" data-testid="choose-customer">
+    <i class="pi pi-user"></i>
+    <h2>Choose a customer</h2>
+    <p>Search for the customer above to see their ledger.</p>
+  </div>
+
+  <ng-container *ngIf="partnerId">
+    <div class="balance-card" *ngIf="balance !== null" data-testid="balance-card">
+      <div class="balance-label">Balance<span *ngIf="balanceAsOf"> after the entry of {{ balanceAsOf | date:'dd MMM yyyy' }}</span></div>
+      <div class="balance-figure" [class.owed]="balance > 0" [class.credit]="balance < 0" data-testid="balance">
+        {{ absBalance | number:'1.2-2' }}
+        <span class="cur">{{ balanceCurrency }}</span>
+      </div>
+      <div class="balance-note" data-testid="balance-note">{{ balanceLabel }}</div>
+    </div>
+
+    <p class="mixed-note" *ngIf="mixedCurrencies" data-testid="mixed-currency-note">
+      <i class="pi pi-exclamation-triangle"></i>
+      These entries are in more than one currency. The running balance adds them together without converting, so read
+      it with that in mind.
+    </p>
+
+    <div class="table-card">
+      <!-- Loaded when the customer or the dates change, not by the table on creation: it is reused from one customer to the next. -->
+      <p-table [value]="entries" [loading]="isLoading" [lazy]="true" [lazyLoadOnInit]="false"
+               [totalRecords]="totalRecords" [rows]="pageSize"
+               (onLazyLoad)="onPageChange($event)"
+               [paginator]="true" [rowsPerPageOptions]="[20,50,100]"
+               [tableStyle]="{'min-width':'64rem'}">
+        <ng-template pTemplate="header">
+          <tr>
+            <th style="width:4rem">#</th>
+            <th>Date</th>
+            <th>Type</th>
+            <th>Reference</th>
+            <th>Narration</th>
+            <th class="text-right">Debit</th>
+            <th class="text-right">Credit</th>
+            <th class="text-right">Balance</th>
+          </tr>
+        </ng-template>
+
+        <ng-template pTemplate="body" let-e>
+          <tr data-testid="entry">
+            <td class="muted">{{ e.sequenceNo }}</td>
+            <td>{{ e.entryDate | date:'dd MMM yyyy' }}</td>
+            <td><p-tag [value]="formatStatus(e.entryType)" [severity]="getEntrySeverity(e.entryType)"></p-tag></td>
+            <td class="font-mono">
+              <a *ngIf="referenceLink(e) as link; else plainReference" class="source-link"
+                 [routerLink]="link" data-testid="reference-link">{{ e.referenceNumber }}</a>
+              <ng-template #plainReference>{{ e.referenceNumber || '—' }}</ng-template>
+            </td>
+            <td class="narration">{{ e.narration || '' }}</td>
+            <td class="text-right" data-testid="debit">{{ e.debitAmount ? (e.debitAmount | number:'1.2-2') : '' }}</td>
+            <td class="text-right" data-testid="credit">{{ e.creditAmount ? (e.creditAmount | number:'1.2-2') : '' }}</td>
+            <td class="text-right font-semibold" [class.credit]="e.runningBalance < 0" data-testid="running-balance">
+              {{ e.runningBalance | number:'1.2-2' }} <span class="cur">{{ e.currencyCode }}</span>
+            </td>
+          </tr>
+        </ng-template>
+
+        <ng-template pTemplate="emptymessage">
+          <tr>
+            <td colspan="8" class="text-center text-secondary" style="padding:3rem">
+              No ledger entries{{ dateFrom || dateTo ? ' in this date range' : ' yet' }}.
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </div>
+  </ng-container>
+</div>

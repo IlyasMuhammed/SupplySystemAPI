@@ -8,8 +8,8 @@ namespace SMS.Modules.Finance.Domain;
 // a per-partner SequenceNo whose unique index doubles as the concurrency guard for the writer — with
 // the §10 vocabulary (entry_type, running_balance) in place of the supplier one.
 //
-// Nothing here posts entries yet: the invoice, payment and credit-note flows that write them come
-// with their own tasks, in the same transaction as the business action (§9.5).
+// Entries are written by CustomerLedgerService: the invoice and payment flows join their own
+// transaction to it (§9.5), and anything else appends through it. Nothing else touches this table.
 
 /// <summary>§10's closed vocabulary of ledger entry kinds, persisted as-is.</summary>
 internal static class CustomerLedgerEntryTypes

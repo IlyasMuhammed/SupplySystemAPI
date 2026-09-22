@@ -5,7 +5,7 @@
     <div class="md-icon"><i class="pi pi-file-edit"></i></div>
     <div class="md-title-wrap">
       <h2 class="md-title">Purchase Order Templates</h2>
-      <p class="md-subtitle">Configure the company letterhead, terms &amp; conditions, and signature labels used on Purchase Order PDFs</p>
+      <p class="md-subtitle">Configure the company letterhead, terms &amp; conditions, signature labels and bank details used on Purchase Order and sales invoice PDFs</p>
     </div>
   </div>
 
@@ -51,6 +51,21 @@
           <label class="dlg-label">Address</label>
           <input pInputText formControlName="companyAddress" class="w-full" maxlength="500" />
         </div>
+      </div>
+    </div>
+
+    <div class="tpl-section">
+      <h3 class="tpl-section-title"><i class="pi pi-wallet"></i> Bank Details</h3>
+      <p class="dlg-hint tpl-body-hint">
+        Printed on <strong>sales invoices</strong> so customers know where to pay: bank, branch, account
+        title, account number, IBAN, SWIFT &mdash; whatever your bank uses, one item per line. Leave it
+        blank to print none.
+      </p>
+      <div class="dlg-field">
+        <label class="dlg-label">Bank Details</label>
+        <textarea pTextarea formControlName="bankDetails" rows="5" maxlength="1000" class="w-full"
+                  placeholder="Habib Bank Ltd, Korangi Branch&#10;Account title: Acme Supplies Ltd.&#10;Account no: 0123456789&#10;IBAN: PK00 HABB 0000 0000 0000 0000"></textarea>
+        <small class="dlg-hint">{{ (f['bankDetails'].value || '').length }} / 1000</small>
       </div>
     </div>
 

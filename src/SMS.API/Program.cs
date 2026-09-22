@@ -320,7 +320,7 @@ app.UseWorkflowEngineModule(); // migrates workflow schema + seeds default PR/PO
 app.UseDemandModule();         // registers RFQ link expiry sweep (daily Hangfire job)
 app.UseInventoryModule();      // ensures inventory schema migrations (ledger table, etc.) are applied
 app.UseWarehouseModule();      // ensures warehouse schema migrations (SRO tables) are applied
-app.UseFinanceModule();        // ensures finance schema migrations (credit_notes table) are applied
+app.UseFinanceModule();        // ensures finance schema migrations are applied; registers sales-invoice overdue sweep (daily Hangfire job)
 app.UseMaterialModule();       // ensures material schema migrations (projects, MIR tables) are applied
 app.UseLogisticsModule();      // ensures logistics schema migrations (delivery/consignment tables) are applied
 

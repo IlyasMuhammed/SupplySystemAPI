@@ -11,7 +11,9 @@ import {
   LogisticsService,
   CarrierAccountModel,
   CarrierCredentialModel,
-  CarrierDetailModel
+  CarrierDetailModel,
+  CarrierIntegrationModel,
+  CourierProviderModel
 } from '../../../../services/logistics.service';
 
 const CARRIER = '11111111-1111-1111-1111-111111111111';
@@ -69,6 +71,31 @@ function ok<T>(result: T) {
   return of({ success: true, message: '', result } as any);
 }
 
+function integration(overrides: Partial<CarrierIntegrationModel> = {}): CarrierIntegrationModel {
+  return {
+    carrierUuid: CARRIER, carrierName: 'Simcourier',
+    integrationMode: 'MANUAL', providerKey: 'MANUAL', providerDisplayName: 'Manual',
+    ...overrides
+  };
+}
+
+const DHL: CourierProviderModel = {
+  key: 'DHL_EXPRESS', displayName: 'DHL Express (MyDHL API)',
+  supportsBooking: true, supportsRating: true, supportsTracking: true, supportsLabels: false,
+  supportsCancellation: false, supportsCod: false, supportsMultiPiece: true,
+  credentials: [
+    { key: 'ApiKey', description: 'The MyDHL API key DHL gave you.', required: true, isSecret: true },
+    { key: 'AccountNumber', description: 'Your shipper account number.', required: true, isSecret: false },
+    { key: 'Environment', description: 'TEST or LIVE.', required: false, isSecret: false }
+  ]
+};
+
+const SIMULATOR: CourierProviderModel = {
+  key: 'SIMULATOR', displayName: 'Simulator',
+  supportsBooking: true, supportsRating: true, supportsTracking: true, supportsLabels: true,
+  supportsCancellation: true, supportsCod: true, supportsMultiPiece: true, credentials: []
+};
+
 describe('CarrierAccountsComponent', () => {
   let fixture: ComponentFixture<CarrierAccountsComponent>;
   let component: CarrierAccountsComponent;
@@ -76,12 +103,20 @@ describe('CarrierAccountsComponent', () => {
 
   async function setup(
     accounts: CarrierAccountModel[] = [account()],
-    detail: CarrierDetailModel | null = carrier()) {
+    detail: CarrierDetailModel | null = carrier(),
+    current: CarrierIntegrationModel = integration()) {
     service = jasmine.createSpyObj<LogisticsService>('LogisticsService', [
       'getCarrierById', 'getCarrierAccounts', 'createCarrierAccount', 'patchCarrierAccount',
       'deleteCarrierAccount', 'getCarrierCredentials', 'setCarrierCredential',
-      'removeCarrierCredential'
+      'removeCarrierCredential', 'getCarrierIntegration', 'getCourierProviders', 'setCarrierIntegration'
     ]);
+
+    service.getCarrierIntegration.and.returnValue(ok(current));
+    service.getCourierProviders.and.returnValue(ok([DHL, SIMULATOR]));
+    service.setCarrierIntegration.and.callFake((_uuid, req) => ok(integration({
+      integrationMode: req.integrationMode, providerKey: req.providerKey ?? 'MANUAL',
+      providerDisplayName: req.providerKey === 'DHL_EXPRESS' ? DHL.displayName : 'Manual'
+    })));
 
     service.getCarrierById.and.returnValue(
       detail ? ok(detail) : of({ success: false, message: 'not found', result: null } as any));
@@ -117,6 +152,172 @@ describe('CarrierAccountsComponent', () => {
     expect(service.getCarrierAccounts).toHaveBeenCalledOnceWith(CARRIER);
     expect(component.accounts.length).toBe(1);
     expect(component.isLoading).toBeFalse();
+  });
+
+  // ── How this carrier is booked ────────────────────────────────────────────
+  //
+  // Until this card existed nothing could set a carrier's integration mode or adapter: pointing a
+  // carrier at DHL meant a hand-written SQL update against the shared database.
+
+  describe('integration', () => {
+    const card = () => fixture.nativeElement.querySelector('[data-testid="integration"]');
+    const hints = () => fixture.nativeElement.querySelector('[data-testid="credential-hints"]');
+
+    it('loads the carriers integration and the adapters on offer', async () => {
+      await setup();
+      fixture.detectChanges();
+
+      expect(service.getCarrierIntegration).toHaveBeenCalledOnceWith(CARRIER);
+      expect(service.getCourierProviders).toHaveBeenCalledTimes(1);
+      expect(component.providers.map(p => p.key)).toEqual(['DHL_EXPRESS', 'SIMULATOR']);
+      expect(card()).not.toBeNull();
+    });
+
+    it('shows a manual carrier as manual, with no adapter to choose', async () => {
+      await setup();
+      fixture.detectChanges();
+
+      expect(component.integrationForm).toEqual({ mode: 'MANUAL', providerKey: null });
+      expect(component.selectedProvider).toBeNull();
+      expect(hints()).toBeNull();
+    });
+
+    it('shows an API carrier with its adapter selected', async () => {
+      await setup([account()], carrier(), integration({ integrationMode: 'API', providerKey: 'DHL_EXPRESS' }));
+      fixture.detectChanges();
+
+      expect(component.integrationForm).toEqual({ mode: 'API', providerKey: 'DHL_EXPRESS' });
+      expect(component.selectedProvider?.key).toBe('DHL_EXPRESS');
+    });
+
+    it('lists what the chosen adapter needs before anything is saved, marking secrets and what is required', async () => {
+      await setup();
+      fixture.detectChanges();
+
+      component.integrationForm = { mode: 'API', providerKey: 'DHL_EXPRESS' };
+      fixture.detectChanges();
+
+      const text = hints().textContent;
+      expect(text).toContain('DHL Express (MyDHL API)');
+      expect(text).toContain('ApiKey');
+      expect(text).toContain('AccountNumber');
+
+      const apiKey = fixture.nativeElement.querySelector('[data-testid="hint-ApiKey"]').textContent;
+      expect(apiKey).toContain('required');
+      expect(apiKey).toContain('secret');
+
+      const environment = fixture.nativeElement.querySelector('[data-testid="hint-Environment"]').textContent;
+      expect(environment).not.toContain('required');
+    });
+
+    it('warns that an adapter which cannot cancel leaves cancelling to the carrier', async () => {
+      await setup();
+      fixture.detectChanges();
+
+      component.integrationForm = { mode: 'API', providerKey: 'DHL_EXPRESS' };
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('[data-testid="no-cancel-hint"]')).not.toBeNull();
+
+      component.integrationForm = { mode: 'API', providerKey: 'SIMULATOR' };
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('[data-testid="no-cancel-hint"]')).toBeNull();
+    });
+
+    it('offers to save only a real change, and only once an adapter is named for API', async () => {
+      await setup();
+      fixture.detectChanges();
+
+      expect(component.canSaveIntegration).withContext('nothing changed').toBeFalse();
+
+      component.integrationForm = { mode: 'API', providerKey: null };
+      expect(component.canSaveIntegration).withContext('API with no adapter').toBeFalse();
+
+      component.integrationForm = { mode: 'API', providerKey: 'DHL_EXPRESS' };
+      expect(component.canSaveIntegration).toBeTrue();
+
+      component.integrationForm = { mode: 'MANUAL', providerKey: 'DHL_EXPRESS' };
+      expect(component.canSaveIntegration).withContext('back where it started').toBeFalse();
+    });
+
+    it('sees a change of adapter as a change even when the mode stays API', async () => {
+      await setup([account()], carrier(), integration({ integrationMode: 'API', providerKey: 'SIMULATOR' }));
+      fixture.detectChanges();
+
+      expect(component.canSaveIntegration).toBeFalse();
+
+      component.integrationForm = { mode: 'API', providerKey: 'DHL_EXPRESS' };
+      expect(component.canSaveIntegration).toBeTrue();
+    });
+
+    it('saves the adapter, refreshes the accounts that resolve through it, and says so', async () => {
+      await setup();
+      fixture.detectChanges();
+      service.getCarrierAccounts.calls.reset();
+      const add = spyOn(fixture.debugElement.injector.get(MessageService), 'add');
+
+      component.integrationForm = { mode: 'API', providerKey: 'DHL_EXPRESS' };
+      component.saveIntegration();
+
+      expect(service.setCarrierIntegration).toHaveBeenCalledOnceWith(CARRIER, {
+        integrationMode: 'API', providerKey: 'DHL_EXPRESS'
+      });
+      expect(component.integration?.providerKey).toBe('DHL_EXPRESS');
+      expect(service.getCarrierAccounts).toHaveBeenCalledTimes(1);
+      expect(add.calls.mostRecent().args[0].severity).toBe('success');
+      expect(component.isSubmitting).toBeFalse();
+    });
+
+    it('sends no adapter with MANUAL, whatever was left selected', async () => {
+      await setup([account()], carrier(), integration({ integrationMode: 'API', providerKey: 'DHL_EXPRESS' }));
+      fixture.detectChanges();
+
+      component.integrationForm = { mode: 'MANUAL', providerKey: 'DHL_EXPRESS' };
+      component.saveIntegration();
+
+      expect(service.setCarrierIntegration).toHaveBeenCalledOnceWith(CARRIER, {
+        integrationMode: 'MANUAL', providerKey: undefined
+      });
+    });
+
+    it('shows the servers reason when a change is refused, and keeps the form as it was', async () => {
+      await setup();
+      fixture.detectChanges();
+      const add = spyOn(fixture.debugElement.injector.get(MessageService), 'add');
+      service.setCarrierIntegration.and.returnValue(throwError(() => ({
+        error: { message: 'Simcourier has 2 consignment(s) booked or being booked through Manual.' }
+      })));
+
+      component.integrationForm = { mode: 'API', providerKey: 'DHL_EXPRESS' };
+      component.saveIntegration();
+
+      expect(add.calls.mostRecent().args[0].severity).toBe('error');
+      expect(add.calls.mostRecent().args[0].detail).toContain('2 consignment(s)');
+      expect(component.integration?.integrationMode).toBe('MANUAL');
+      expect(component.isSubmitting).toBeFalse();
+    });
+
+    it('shows the servers warning when the carrier names an adapter nothing registers', async () => {
+      await setup([account()], carrier(), integration({
+        integrationMode: 'API', providerKey: 'GHOST', providerDisplayName: undefined,
+        warning: "No courier adapter is registered as 'GHOST', so nothing can be booked through this carrier."
+      }));
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('[data-testid="integration-warning"]').textContent)
+        .toContain('GHOST');
+    });
+
+    it('still shows the accounts when the integration panel cannot be loaded', async () => {
+      await setup();
+      service.getCarrierIntegration.and.returnValue(throwError(() => ({ status: 500 })));
+      service.getCourierProviders.and.returnValue(throwError(() => ({ status: 500 })));
+      fixture.detectChanges();
+
+      expect(component.accounts.length).toBe(1);
+      expect(component.integration).toBeNull();
+      expect(card()).toBeNull();
+      expect(component.canSaveIntegration).toBeFalse();
+    });
   });
 
   it('shows not found for a 404 but not for a failed request', async () => {

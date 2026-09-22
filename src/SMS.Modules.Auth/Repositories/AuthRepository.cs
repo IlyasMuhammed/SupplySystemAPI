@@ -781,6 +781,9 @@ internal sealed class AuthRepository : IAuthRepository
         "WAREHOUSE_TRANSFER" or "GOODS_RECEIVE" or "PUTAWAY" or "PICKING" or "DISPATCH" or "STOCK_LOCATION_UPDATE" => "Warehouse",
         var c when c.StartsWith("GRN_")         => "GRN Approvals",
         "INVOICE_VIEW" or "INVOICE_PROCESS" or "PAYMENT_VIEW" or "PAYMENT_PROCESS" or "RECONCILIATION" => "Finance",
+        // A29 §9–§10 receivables: sits with the rest of Finance in the role editor.
+        var c when c.StartsWith("SALES_INVOICE_") || c.StartsWith("CUSTOMER_PAYMENT_") || c.StartsWith("CUSTOMER_LEDGER_")
+                || c.StartsWith("PRODUCT_LEDGER_") => "Finance",
         // Every DELIVERY_*, SHIPMENT_*, CARRIER_* and RATE_CARD_* code groups under Logistics. Note
         // this sits below the Warehouse line above, so DISPATCH and PICKING keep their grouping.
         var c when c.StartsWith("DELIVERY_")

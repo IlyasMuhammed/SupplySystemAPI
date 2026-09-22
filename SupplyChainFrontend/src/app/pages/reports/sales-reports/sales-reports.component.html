@@ -1,0 +1,55 @@
+<div class="reports-page">
+  <div class="page-header">
+    <div>
+      <h1 class="page-title"><i class="pi pi-chart-bar"></i> Sales Reports</h1>
+      <p class="page-subtitle">
+        Orders, receivables, sales, fulfilment and margin. Every figure is kept per currency, and every report can be
+        downloaded whole as a PDF or an Excel workbook.
+      </p>
+    </div>
+  </div>
+
+  <div class="cards" data-testid="cards">
+    <button type="button" class="report-card" *ngFor="let r of reports"
+            [class.selected]="selected?.key === r.key || denied?.key === r.key"
+            [class.locked]="!canView(r)" [disabled]="!canView(r)"
+            [pTooltip]="canView(r) ? '' : lockedHint(r)" tooltipPosition="bottom"
+            (click)="open(r)" [attr.data-testid]="'card-' + r.key">
+      <span class="card-top">
+        <span class="card-code">{{ r.code }}</span>
+        <i class="pi pi-lock" *ngIf="!canView(r)" data-testid="lock"></i>
+        <i [class]="r.icon" *ngIf="canView(r)"></i>
+      </span>
+      <span class="card-title">{{ r.title }}</span>
+      <span class="card-desc">{{ r.description }}</span>
+    </button>
+  </div>
+
+  <div #panelAnchor class="panel-anchor">
+    <div class="empty" *ngIf="!availableCount" data-testid="none-available">
+      <i class="pi pi-lock"></i>
+      <h2>No sales report is open to you</h2>
+      <p>Each report needs the reports permission and the permission for the books it is made of.</p>
+    </div>
+
+    <div class="empty" *ngIf="availableCount && !selected && !denied && !unknownKey" data-testid="choose">
+      <i class="pi pi-arrow-up"></i>
+      <h2>Choose a report</h2>
+      <p>Pick one above to set its filters and run it.</p>
+    </div>
+
+    <div class="empty" *ngIf="unknownKey" data-testid="unknown">
+      <i class="pi pi-inbox"></i>
+      <h2>There is no report called "{{ unknownKey }}"</h2>
+      <p>Choose one of the reports above.</p>
+    </div>
+
+    <div class="empty" *ngIf="denied" data-testid="denied">
+      <i class="pi pi-lock"></i>
+      <h2>{{ denied.title }} is not open to you</h2>
+      <p>It needs {{ missing(denied).join(', ') }}.</p>
+    </div>
+
+    <app-sales-report-panel *ngIf="selected" [definition]="selected"></app-sales-report-panel>
+  </div>
+</div>

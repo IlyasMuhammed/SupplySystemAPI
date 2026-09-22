@@ -24,6 +24,25 @@
 .empty-state p { margin: 0; }
 .empty-state .hint { font-size: .8125rem; margin-top: .375rem; }
 
+// ── How this carrier is booked ──────────────────────────────────────────────
+
+.integration {
+  background: var(--surface-0); border: 1px solid var(--surface-200);
+  border-radius: .625rem; padding: 1.125rem 1.25rem; margin-bottom: 1rem;
+}
+.integration h2 { font-size: 1.0625rem; font-weight: 700; margin: 0 0 .875rem; }
+.integration-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: .875rem; }
+.integration-actions { display: flex; justify-content: flex-end; margin-top: .875rem; }
+
+.credential-hints { margin-top: .875rem; font-size: .875rem; }
+.credential-hints ul { margin: .375rem 0 0; padding-left: 1.125rem; display: grid; gap: .375rem; }
+.credential-hints .hint { color: var(--text-color-secondary); margin: 0; }
+.credential-hints .tag {
+  font-size: .6875rem; font-weight: 600; padding: .0625rem .375rem; margin-left: .375rem;
+  border-radius: .25rem; background: var(--surface-200); color: var(--text-color-secondary);
+}
+.credential-hints .tag.required { background: var(--yellow-100, #fef9c3); color: var(--yellow-800, #854d0e); }
+
 // ── One account ─────────────────────────────────────────────────────────────
 
 .account {

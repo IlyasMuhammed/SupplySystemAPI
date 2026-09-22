@@ -39,6 +39,7 @@ public class TenantController : ControllerBase
             OrgCode             = org.OrgCode,
             OrgName             = org.OrgName,
             Plan                = org.Plan,
+            BaseCurrency        = org.BaseCurrency,
             EnabledFeatureCodes = features.Where(f => f.IsEnabled).Select(f => f.FeatureCode).ToList(),
             IsSuperAdmin        = _tenantContext.IsSuperAdmin,
             RoleName            = User.GetRoleName(),

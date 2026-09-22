@@ -249,6 +249,7 @@ namespace SMS.Modules.Finance.Migrations
                         .HasColumnType("int");
 
                     b.Property<DateTime?>("ModifiedDate")
+                        .IsConcurrencyToken()
                         .HasColumnType("datetime2");
 
                     b.Property<string>("Notes")
@@ -1092,6 +1093,98 @@ namespace SMS.Modules.Finance.Migrations
                     b.ToTable("payment_allocations", "finance");
                 });
 
+            modelBuilder.Entity("SMS.Modules.Finance.Domain.ProductLedgerEntry", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Direction")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("nvarchar(3)");
+
+                    b.Property<DateTime>("EntryDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("EntryType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Narration")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("PartnerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ProductUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<Guid>("ReferenceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ReferenceNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("ReferenceType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<decimal>("RunningQty")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("RunningValue")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("SequenceNo")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("TotalCost")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid>("UUID")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("UnitCost")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<Guid>("VariantUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UUID")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "ProductUuid", "EntryDate");
+
+                    b.HasIndex("OrganizationId", "VariantUuid", "EntryDate");
+
+                    b.HasIndex("OrganizationId", "VariantUuid", "SequenceNo")
+                        .IsUnique();
+
+                    b.ToTable("product_ledger", "finance");
+                });
+
             modelBuilder.Entity("SMS.Modules.Finance.Domain.SalesInvoice", b =>
                 {
                     b.Property<int>("Id")
@@ -1157,6 +1250,7 @@ namespace SMS.Modules.Finance.Migrations
                         .HasColumnType("int");
 
                     b.Property<DateTime?>("ModifiedDate")
+                        .IsConcurrencyToken()
                         .HasColumnType("datetime2");
 
                     b.Property<string>("Notes")

@@ -46,4 +46,17 @@ export class AttachmentService {
     if (!url) return '';
     return url.startsWith('/') ? `${BASE}${url}` : url;
   }
+
+  /**
+   * A document the system generated and filed (an issued invoice's PDF, a gate pass) is served by the
+   * API behind the caller's token, not as a public static file: its url is under /api/. A link cannot
+   * carry the token, so it has to be fetched and opened as a blob (see download).
+   */
+  isApiUrl(url: string | undefined | null): boolean {
+    return !!url && url.startsWith('/api/');
+  }
+
+  download(url: string): Observable<Blob> {
+    return this.http.get(this.resolveUrl(url), { responseType: 'blob' });
+  }
 }

@@ -1,13 +1,15 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
-import { provideRouter, ActivatedRoute } from '@angular/router';
+import { provideRouter, ActivatedRoute, Router } from '@angular/router';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { MessageService } from 'primeng/api';
 import { of, throwError } from 'rxjs';
 
 import { DeliveryDetailComponent } from './delivery-detail.component';
 import { LogisticsService, DeliveryDetailModel } from '../../../../services/logistics.service';
+import { SalesInvoiceService } from '../../../../services/sales-invoice.service';
+import { AuthService } from '../../../service/auth.service';
 
 const UUID = '11111111-1111-1111-1111-111111111111';
 
@@ -23,6 +25,7 @@ function detail(overrides: Partial<DeliveryDetailModel> = {}): DeliveryDetailMod
     status: 'DRAFT',
     linesUnknown: false,
     allowedNextStatuses: ['RELEASED', 'CANCELLED'],
+    consignments: [],
     createdDate: '2026-09-01T00:00:00Z',
     lines: [
       {
@@ -43,12 +46,29 @@ describe('DeliveryDetailComponent', () => {
   let fixture: ComponentFixture<DeliveryDetailComponent>;
   let component: DeliveryDetailComponent;
   let service: jasmine.SpyObj<LogisticsService>;
+  let invoices: jasmine.SpyObj<SalesInvoiceService>;
+  let permissions: string[] = [];
+
+  const auth = { hasPermission: (code: string) => permissions.includes(code) } as unknown as AuthService;
+
+  beforeEach(() => { permissions = []; });
 
   async function setup(model: DeliveryDetailModel | null = detail()) {
+    invoices = jasmine.createSpyObj<SalesInvoiceService>('SalesInvoiceService', ['createFromDelivery']);
+    invoices.createFromDelivery.and.returnValue(of({
+      success: true, message: 'Record created successfully.',
+      result: { invoiceUuid: 'new-invoice', invoiceNumber: 'SINV-20260921-0001', grandTotal: 1000, currencyCode: 'PKR', alreadyExisted: false }
+    } as any));
+
     service = jasmine.createSpyObj<LogisticsService>('LogisticsService', [
       'getDeliveryById', 'holdDelivery', 'resumeDelivery', 'cancelDelivery', 'shortCloseDelivery',
-      'recordPickup', 'downloadGatePass'
+      'recordPickup', 'downloadGatePass', 'getActiveCarriers', 'createConsignment'
     ]);
+    service.getActiveCarriers.and.returnValue(of({
+      success: true, message: '',
+      result: [{ uuid: 'carrier-1', name: 'Beta Road', code: 'BETA', status: 'ACTIVE', isActive: true }]
+    } as any));
+    service.createConsignment.and.returnValue(of({ success: true, message: '', result: 'new-consignment' } as any));
     service.getDeliveryById.and.returnValue(
       model ? ok(model) : of({ success: false, message: 'not found', result: null } as any));
     service.holdDelivery.and.returnValue(of({ success: true, message: '' } as any));
@@ -67,6 +87,8 @@ describe('DeliveryDetailComponent', () => {
         provideHttpClient(), provideHttpClientTesting(), provideRouter([]),
         provideNoopAnimations(), MessageService,
         { provide: LogisticsService, useValue: service },
+        { provide: SalesInvoiceService, useValue: invoices },
+        { provide: AuthService, useValue: auth },
         { provide: ActivatedRoute, useValue: { snapshot: { paramMap: new Map([['uuid', UUID]]) } } }
       ]
     }).compileComponents();
@@ -424,5 +446,295 @@ describe('DeliveryDetailComponent', () => {
     fixture.detectChanges();
     expect(component.canDownloadGatePass).toBeTrue();
     expect(fixture.nativeElement.querySelector('[data-testid="action-gate-pass"]')).not.toBeNull();
+  });
+
+  // ── Invoicing (A29 §9) ─────────────────────────────────────────────────────
+
+  describe('create invoice', () => {
+    const saleOrderDelivery = (overrides: Partial<DeliveryDetailModel> = {}) =>
+      detail({ sourceType: 'SALE_ORDER', saleOrderUuid: 'so-1', sourceNumber: 'SO-2026-00042', status: 'DELIVERED', allowedNextStatuses: [], ...overrides });
+
+    const button = () => fixture.nativeElement.querySelector('[data-testid="action-create-invoice"]');
+
+    beforeEach(() => { permissions = ['SALES_INVOICE_MANAGE']; });
+
+    it('offers an invoice for a sale-order delivery that has reached the customer', async () => {
+      await setup(saleOrderDelivery());
+      fixture.detectChanges();
+
+      expect(component.canCreateInvoice).toBeTrue();
+      expect(button()).not.toBeNull();
+    });
+
+    it('offers it for a closed delivery too, which the server also bills', async () => {
+      await setup(saleOrderDelivery({ status: 'CLOSED' }));
+      fixture.detectChanges();
+
+      expect(component.canCreateInvoice).toBeTrue();
+    });
+
+    it('does not offer it before the goods have reached the customer', async () => {
+      for (const status of ['DRAFT', 'PICKED', 'GOODS_ISSUED', 'IN_TRANSIT', 'PARTIALLY_DELIVERED', 'CANCELLED']) {
+        await setup(saleOrderDelivery({ status }));
+        fixture.detectChanges();
+        expect(component.canCreateInvoice).withContext(status).toBeFalse();
+      }
+      expect(button()).toBeNull();
+    });
+
+    it('does not offer it for a delivery that is not for a sale order', async () => {
+      await setup(saleOrderDelivery({ saleOrderUuid: undefined, sourceType: 'PO' }));
+      fixture.detectChanges();
+
+      expect(component.canCreateInvoice).toBeFalse();
+      expect(button()).toBeNull();
+    });
+
+    it('does not offer it to someone who may not raise invoices', async () => {
+      permissions = ['DELIVERY_VIEW'];
+      await setup(saleOrderDelivery());
+      fixture.detectChanges();
+
+      expect(component.canCreateInvoice).toBeFalse();
+      expect(button()).toBeNull();
+    });
+
+    it('raises the invoice for this delivery and opens it', async () => {
+      await setup(saleOrderDelivery());
+      fixture.detectChanges();
+      const navigate = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
+
+      component.createInvoice();
+
+      expect(invoices.createFromDelivery).toHaveBeenCalledOnceWith(UUID);
+      expect(navigate).toHaveBeenCalledWith(['/portal/pages/finance/sales-invoices', 'new-invoice']);
+      expect(component.isSubmitting).toBeFalse();
+    });
+
+    it('says so, without alarm, and opens the invoice it already had', async () => {
+      await setup(saleOrderDelivery());
+      fixture.detectChanges();
+      const navigate = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
+      const add = spyOn(fixture.debugElement.injector.get(MessageService), 'add');
+      invoices.createFromDelivery.and.returnValue(of({
+        success: true, message: 'An invoice already exists for this delivery: SINV-20260920-0001.',
+        result: { invoiceUuid: 'existing', invoiceNumber: 'SINV-20260920-0001', grandTotal: 1, currencyCode: 'PKR', alreadyExisted: true }
+      } as any));
+
+      component.createInvoice();
+
+      expect(add.calls.mostRecent().args[0].severity).toBe('info');
+      expect(add.calls.mostRecent().args[0].detail).toContain('SINV-20260920-0001');
+      expect(navigate).toHaveBeenCalledWith(['/portal/pages/finance/sales-invoices', 'existing']);
+    });
+
+    it('shows the servers reason when the invoice is refused, and stays', async () => {
+      await setup(saleOrderDelivery());
+      fixture.detectChanges();
+      const navigate = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
+      const add = spyOn(fixture.debugElement.injector.get(MessageService), 'add');
+      invoices.createFromDelivery.and.returnValue(throwError(() => ({
+        error: { message: 'Nothing was delivered on DLV-2026-00001, so there is nothing to invoice.' }
+      })));
+
+      component.createInvoice();
+
+      expect(add.calls.mostRecent().args[0].severity).toBe('error');
+      expect(add.calls.mostRecent().args[0].detail).toContain('nothing to invoice');
+      expect(navigate).not.toHaveBeenCalled();
+      expect(component.isSubmitting).toBeFalse();
+    });
+
+    it('will not raise an invoice it should not offer', async () => {
+      await setup(saleOrderDelivery({ status: 'IN_TRANSIT' }));
+      fixture.detectChanges();
+
+      component.createInvoice();
+
+      expect(invoices.createFromDelivery).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── Handing a shipped delivery to a carrier ────────────────────────────────
+  //
+  // Until this existed a "Ship to customer" delivery ended at Goods Issued: nothing in the UI could
+  // create the consignment that carries it, so the carrier, the tracking and the proof of delivery
+  // that move it on had nowhere to start.
+
+  describe('consignment', () => {
+    beforeEach(() => { permissions = ['DELIVERY_EDIT']; });
+
+    const shipped = (overrides: Partial<DeliveryDetailModel> = {}) => detail({
+      sourceType: 'SALE_ORDER', sourceNumber: 'SO-2026-00002', saleOrderUuid: 'so-2',
+      deliveryMode: 'SHIP', status: 'GOODS_ISSUED', allowedNextStatuses: ['IN_TRANSIT'],
+      ...overrides
+    });
+
+    const button = () => fixture.nativeElement.querySelector('[data-testid="action-create-consignment"]');
+
+    it('offers to create one for an outbound delivery that is boxed or issued and has none', async () => {
+      for (const status of ['PACKED', 'STAGED', 'PENDING_APPROVAL', 'GOODS_ISSUED']) {
+        await setup(shipped({ status }));
+        fixture.detectChanges();
+        expect(component.canCreateConsignment).withContext(status).toBeTrue();
+      }
+
+      await setup(shipped());
+      fixture.detectChanges();
+      expect(button()).not.toBeNull();
+      expect(fixture.nativeElement.querySelector('[data-testid="no-consignment"]')).not.toBeNull();
+    });
+
+    it('does not offer it before the goods are boxed, or once they have reached the customer', async () => {
+      for (const status of ['DRAFT', 'RELEASED', 'PICKING', 'PICKED', 'IN_TRANSIT', 'DELIVERED', 'CANCELLED']) {
+        await setup(shipped({ status }));
+        fixture.detectChanges();
+        expect(component.canCreateConsignment).withContext(status).toBeFalse();
+      }
+    });
+
+    it('never offers one for a collection, which does not travel', async () => {
+      await setup(shipped({ deliveryMode: 'SELF_PICKUP' }));
+      fixture.detectChanges();
+
+      expect(component.canCreateConsignment).toBeFalse();
+      expect(button()).toBeNull();
+    });
+
+    it('does not offer one for inbound or transfer movements', async () => {
+      for (const direction of ['INBOUND', 'TRANSFER']) {
+        await setup(shipped({ direction }));
+        fixture.detectChanges();
+        expect(component.canCreateConsignment).withContext(direction).toBeFalse();
+      }
+    });
+
+    it('does not offer it to someone who may not edit deliveries', async () => {
+      permissions = ['DELIVERY_VIEW'];
+      await setup(shipped());
+      fixture.detectChanges();
+
+      expect(component.canCreateConsignment).toBeFalse();
+      expect(button()).toBeNull();
+    });
+
+    it('stops offering it once the delivery has a consignment, and shows that one instead', async () => {
+      await setup(shipped({
+        consignments: [{
+          consignmentUuid: 'cn-1', consignmentNumber: 'CN-2026-00007', status: 'BOOKED',
+          carrierName: 'Beta Road', masterAwb: 'AWB-778'
+        }]
+      }));
+      fixture.detectChanges();
+
+      expect(component.canCreateConsignment).toBeFalse();
+      expect(button()).toBeNull();
+
+      const row = fixture.nativeElement.querySelector('[data-testid="consignment-row"]');
+      expect(row.textContent).toContain('CN-2026-00007');
+      expect(row.textContent).toContain('Booked');
+      expect(row.textContent).toContain('Beta Road');
+      expect(row.textContent).toContain('AWB-778');
+
+      const link = fixture.nativeElement.querySelector('[data-testid="consignment-link"]');
+      expect(link.getAttribute('href')).toContain('/logistics/consignments/cn-1');
+    });
+
+    it('explains that an issued delivery follows its consignment', async () => {
+      const carried = [{ consignmentUuid: 'cn-1', consignmentNumber: 'CN-2026-00007', status: 'IN_TRANSIT' }];
+
+      await setup(shipped({ consignments: carried }));
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('[data-testid="follows-consignment"]')).not.toBeNull();
+
+      await setup(shipped({ status: 'DELIVERED', allowedNextStatuses: ['CLOSED'], consignments: carried }));
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('[data-testid="follows-consignment"]')).toBeNull();
+    });
+
+    it('shows no shipment card for a delivery that never travels and has none', async () => {
+      await setup(shipped({ deliveryMode: 'SELF_PICKUP' }));
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('[data-testid="shipment-card"]')).toBeNull();
+    });
+
+    it('loads the carriers once, and offers the dialog even if they cannot be loaded', async () => {
+      await setup(shipped());
+      fixture.detectChanges();
+
+      component.openConsignmentDialog();
+      expect(component.consignmentDialogVisible).toBeTrue();
+      expect(component.carriers.map(c => c.name)).toEqual(['Beta Road']);
+
+      component.openConsignmentDialog();
+      expect(service.getActiveCarriers).toHaveBeenCalledTimes(1);
+
+      await setup(shipped());
+      fixture.detectChanges();
+      service.getActiveCarriers.and.returnValue(throwError(() => ({ status: 500 })));
+
+      component.openConsignmentDialog();
+      expect(component.consignmentDialogVisible).toBeTrue();
+      expect(component.carriers).toEqual([]);
+    });
+
+    it('creates the consignment for this delivery and opens it', async () => {
+      await setup(shipped());
+      fixture.detectChanges();
+      const navigate = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
+
+      component.openConsignmentDialog();
+      component.consignment = { carrierUuid: 'carrier-1', notes: '  Call the gate first.  ' };
+      component.submitConsignment();
+
+      expect(service.createConsignment).toHaveBeenCalledOnceWith({
+        deliveryUuids: [UUID], carrierUuid: 'carrier-1', notes: 'Call the gate first.'
+      });
+      expect(navigate).toHaveBeenCalledWith(['/portal/pages/logistics/consignments', 'new-consignment']);
+      expect(component.consignmentDialogVisible).toBeFalse();
+      expect(component.isSubmitting).toBeFalse();
+    });
+
+    it('lets the carrier be chosen later, sending neither a carrier nor an empty note', async () => {
+      await setup(shipped());
+      fixture.detectChanges();
+      spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
+
+      component.openConsignmentDialog();
+      component.submitConsignment();
+
+      expect(service.createConsignment).toHaveBeenCalledOnceWith({
+        deliveryUuids: [UUID], carrierUuid: undefined, notes: undefined
+      });
+    });
+
+    it('shows the servers reason when the consignment is refused, and stays', async () => {
+      await setup(shipped());
+      fixture.detectChanges();
+      const navigate = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
+      const add = spyOn(fixture.debugElement.injector.get(MessageService), 'add');
+      service.createConsignment.and.returnValue(throwError(() => ({
+        error: { message: 'Carrier not found.' }
+      })));
+
+      component.openConsignmentDialog();
+      component.submitConsignment();
+
+      expect(add.calls.mostRecent().args[0].severity).toBe('error');
+      expect(add.calls.mostRecent().args[0].detail).toContain('Carrier not found');
+      expect(navigate).not.toHaveBeenCalled();
+      expect(component.consignmentDialogVisible).toBeTrue();
+      expect(component.isSubmitting).toBeFalse();
+    });
+
+    it('will not create one it should not offer', async () => {
+      await setup(shipped({ status: 'DELIVERED', allowedNextStatuses: ['CLOSED'] }));
+      fixture.detectChanges();
+
+      component.submitConsignment();
+
+      expect(service.createConsignment).not.toHaveBeenCalled();
+    });
   });
 });

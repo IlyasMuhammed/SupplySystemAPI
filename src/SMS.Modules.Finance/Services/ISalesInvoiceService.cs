@@ -1,3 +1,7 @@
+using SMS.Modules.Finance.Models;
+using SMS.Shared.Pagination;
+using SMS.WorkflowEngine.Models;
+
 namespace SMS.Modules.Finance.Services;
 
 /// <param name="AlreadyExisted">
@@ -44,4 +48,51 @@ public interface ISalesInvoiceService
     /// brought up to date, and <c>SO_INVOICED</c> is recorded on the order's timeline.
     /// </summary>
     Task<SalesInvoiceIssued> IssueAsync(Guid invoiceUuid, int userId);
+
+    /// <summary>One invoice with its lines and the payments applied to it, or <c>null</c> if there is none.</summary>
+    Task<SalesInvoiceDetailModel?> GetAsync(Guid invoiceUuid);
+
+    /// <summary>A page of invoices, newest first.</summary>
+    Task<PaginatedResponse<SalesInvoiceListItemModel>> ListAsync(SalesInvoiceFilter filter);
+
+    /// <summary>
+    /// Changes a DRAFT's due date and notes. Nothing else about an invoice is editable: its lines and
+    /// amounts are what was delivered at what the order priced it. Refused once issued.
+    /// </summary>
+    Task UpdateAsync(Guid invoiceUuid, UpdateSalesInvoiceRequest request, int userId);
+
+    /// <summary>
+    /// Deletes a DRAFT, which frees its delivery to be invoiced again. The invoice number is not
+    /// reused. An issued invoice has a receivable booked against it and cannot be deleted.
+    /// </summary>
+    Task DeleteAsync(Guid invoiceUuid, int userId);
+}
+
+/// <summary>
+/// Keeps an invoice's PDF on file as an attachment on the invoice (A29 §9.1) — the copy that shows what
+/// the customer was actually sent, for whoever opens the invoice later. Stored in the database and read
+/// back only through the authenticated attachment endpoint, gated by <c>SALES_INVOICE_VIEW</c>.
+/// </summary>
+public interface ISalesInvoiceDocumentArchive
+{
+    /// <summary>
+    /// Files the PDF of an invoice that has just been issued. <b>Never throws</b>: the invoice is
+    /// issued and the receivable booked whether or not this works, so a failure is logged and
+    /// reported as <c>null</c>, and the PDF can be filed afterwards with <see cref="FilePdfAsync"/>.
+    /// </summary>
+    Task<Guid?> TryFileIssuedPdfAsync(Guid invoiceUuid, int userId);
+
+    /// <summary>
+    /// Files the invoice's PDF as it stands now — after a payment, say, or for an invoice issued
+    /// before filing existed. Refused for a draft, which is not yet what a customer is sent. Each
+    /// filing is kept: a later one does not replace an earlier one.
+    /// </summary>
+    Task<StoredAttachment> FilePdfAsync(Guid invoiceUuid, int userId);
+}
+
+/// <summary>Renders an invoice as a PDF for the customer (A29 §9.1).</summary>
+public interface ISalesInvoiceDocumentService
+{
+    /// <summary>The invoice as a PDF, named after its number. Any invoice that exists can be printed; a draft is marked as one.</summary>
+    Task<SalesInvoicePdf> GeneratePdfAsync(Guid invoiceUuid);
 }

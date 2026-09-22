@@ -1,0 +1,45 @@
+.form-page { padding: 1.5rem; max-width: 64rem; }
+
+.page-header { display: flex; align-items: flex-start; gap: .5rem; margin-bottom: 1.25rem; }
+.page-title { font-size: 1.5rem; font-weight: 700; display: flex; align-items: center; gap: .625rem; margin: 0; flex-wrap: wrap; }
+.page-subtitle { color: var(--text-color-secondary); font-size: .875rem; margin: .25rem 0 0; }
+
+.form-card {
+  background: var(--surface-0); border: 1px solid var(--surface-200);
+  border-radius: .625rem; padding: 1.25rem; margin-bottom: 1rem;
+}
+.card-head { display: flex; align-items: center; gap: .875rem; margin-bottom: 1.125rem; flex-wrap: wrap; }
+.card-head .grow { flex: 1; min-width: 12rem; }
+.card-icon {
+  width: 2.25rem; height: 2.25rem; border-radius: .5rem; background: var(--primary-50, #f4f3ff);
+  color: var(--primary-color, #6c63ff); display: flex; align-items: center; justify-content: center;
+}
+.card-title { font-weight: 700; }
+.card-sub { font-size: .8125rem; color: var(--text-color-secondary); }
+
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem 1.25rem; }
+.field { display: flex; flex-direction: column; gap: .375rem; min-width: 0; }
+.field.full { grid-column: 1 / -1; }
+.field label { font-size: .8125rem; font-weight: 600; }
+.required { color: var(--red-500, #ef4444); }
+.p-error { color: var(--red-500, #ef4444); font-size: .8125rem; }
+.w-full { width: 100%; }
+
+.hint { color: var(--text-color-secondary); font-size: .875rem; margin: .25rem 0 .75rem; }
+.hint.warn { color: var(--orange-700, #c2410c); display: flex; gap: .5rem; align-items: flex-start; }
+
+.preview-table { width: 100%; border-collapse: collapse; font-size: .875rem; margin-bottom: .5rem; }
+.preview-table th {
+  text-align: left; font-weight: 600; font-size: .75rem; text-transform: uppercase; letter-spacing: .03em;
+  color: var(--text-color-secondary); padding: .5rem .625rem; border-bottom: 1px solid var(--surface-200);
+}
+.preview-table td { padding: .5rem .625rem; border-bottom: 1px solid var(--surface-100, #f1f5f9); }
+.preview-table .right { text-align: right; }
+.preview-table .mono { font-family: monospace; font-weight: 600; }
+
+.form-actions { display: flex; justify-content: flex-end; gap: .625rem; margin-top: 1rem; }
+
+@media (max-width: 640px) {
+  .form-page { padding: 1rem; }
+  .grid { grid-template-columns: 1fr; }
+}

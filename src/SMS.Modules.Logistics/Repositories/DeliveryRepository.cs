@@ -284,6 +284,20 @@ internal sealed class DeliveryRepository : IDeliveryRepository
 
         var status = LogisticsCode.Parse<DeliveryStatus>(delivery.Status);
 
+        var consignments = await _db.ConsignmentDeliveries.AsNoTracking()
+            .Where(l => l.DeliveryOrderId == delivery.Id && !l.Consignment.IsDelete)
+            .OrderBy(l => l.Consignment.CreatedDate)
+            .ThenBy(l => l.Id)
+            .Select(l => new DeliveryConsignmentModel
+            {
+                ConsignmentUuid   = l.Consignment.UUID,
+                ConsignmentNumber = l.Consignment.ConsignmentNumber,
+                Status            = l.Consignment.Status,
+                CarrierName       = l.Consignment.CarrierName,
+                MasterAwb         = l.Consignment.MasterAwb
+            })
+            .ToListAsync();
+
         return new DeliveryDetailModel
         {
             UUID             = delivery.UUID,
@@ -315,6 +329,7 @@ internal sealed class DeliveryRepository : IDeliveryRepository
             // Straight from the state machine, so the UI never has to hardcode which buttons are
             // enabled and cannot drift from what the server will actually accept.
             AllowedNextStatuses = [.. DeliveryStateMachine.Instance.From(status).Select(LogisticsCode.Of)],
+            Consignments     = consignments,
             CreatedDate      = delivery.CreatedDate,
             ModifiedDate     = delivery.ModifiedDate,
             Lines            = [.. delivery.Lines.OrderBy(l => l.LineNo).Select(ToLineModel)]

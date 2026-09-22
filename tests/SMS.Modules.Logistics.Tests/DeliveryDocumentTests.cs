@@ -13,6 +13,8 @@ using SMS.Modules.Logistics.Services;
 using SMS.Modules.Lookups.Models;
 using SMS.Modules.Lookups.Services;
 using SMS.Shared.Exceptions;
+using SMS.WorkflowEngine.Models;
+using SMS.WorkflowEngine.Services;
 using Xunit;
 
 namespace SMS.Modules.Logistics.Tests;
@@ -472,6 +474,58 @@ public class DeliveryDocumentTests
         ShouldBeAPdf(collectionPass);
         collectionPass.Should().NotEqual(shippingPass);
         collectionPass.Should().NotEqual(packingList, "it is a gate pass, not the packing list itself");
+    }
+
+    // ── Filed as an attachment on the delivery (A29-P7-09, §8.3) ──────────────
+
+    private static (GatePassArchive Archive, Func<GeneratedAttachmentRequest?> Filed) ArchiveOver(Harness h)
+    {
+        GeneratedAttachmentRequest? filed = null;
+        var attachments = new Mock<IAttachmentService>();
+        attachments.Setup(a => a.StoreGeneratedAsync(It.IsAny<GeneratedAttachmentRequest>(), It.IsAny<int>()))
+                   .Callback<GeneratedAttachmentRequest, int>((r, _) => filed = r)
+                   .ReturnsAsync(new StoredAttachment(Guid.NewGuid(), false));
+
+        return (new GatePassArchive(h.Documents, attachments.Object, NullLogger<GatePassArchive>.Instance), () => filed);
+    }
+
+    [Fact]
+    public async Task The_real_collection_pass_is_what_gets_filed_once_the_customer_has_collected()
+    {
+        var h = NewHarness();
+        var uuid = await SelfPickupStaged(h);
+        await h.GoodsIssue.RecordPickupAsync(uuid, new RecordPickupRequest
+        {
+            PickupPersonName = "Ahmed Raza", PickupPersonIdType = "CNIC",
+            PickupPersonIdNumber = "35202-1234567-1", PickupAuthorization = "Letter AL-2026-114"
+        }, User);
+        var (archive, filed) = ArchiveOver(h);
+
+        var attachment = await archive.TryFileCollectionPassAsync(uuid, User);
+
+        attachment.Should().NotBeNull();
+        var request = filed()!;
+        ShouldBeAPdf(request.Content);
+        request.FileName.Should().StartWith("GatePass-DLV-");
+        (request.InterfaceCode, request.DocumentId, request.ContentType, request.RequiredPermission)
+            .Should().Be(("DELIVERY", uuid, "application/pdf", "DELIVERY_VIEW"));
+        request.Notes.Should().Contain("Collection gate pass");
+    }
+
+    [Fact]
+    public async Task A_delivery_still_being_packed_cannot_have_its_pass_filed_early()
+    {
+        // The gate pass's own rule — nothing is at the barrier before staging — applies to filing it too.
+        var h = NewHarness();
+        var uuid = await Packed(h);
+        var (archive, filed) = ArchiveOver(h);
+
+        var explicitly = async () => await archive.FileGatePassAsync(uuid, User);
+        var afterwards = await archive.TryFileCollectionPassAsync(uuid, User);
+
+        (await explicitly.Should().ThrowAsync<ConflictException>()).WithMessage("*staged*");
+        afterwards.Should().BeNull("best-effort filing reports the refusal rather than throwing it");
+        filed().Should().BeNull("nothing was filed");
     }
 
     // ── Not found ─────────────────────────────────────────────────────────────

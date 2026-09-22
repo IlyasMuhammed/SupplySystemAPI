@@ -8,6 +8,7 @@ using SMS.Modules.Logistics.Domain;
 using SMS.Modules.Logistics.Domain.StateMachines;
 using SMS.Modules.Logistics.Models;
 using SMS.Modules.Logistics.Repositories;
+using SMS.Modules.Logistics.Services;
 using SMS.Shared.Exceptions;
 
 namespace SMS.Modules.Logistics.Couriers.Booking;
@@ -105,12 +106,14 @@ internal sealed class ConsignmentBookingService : IConsignmentBookingService, IC
     private readonly IConsignmentBookingScheduler _scheduler;
     private readonly IConsignmentLabelStore       _labels;
     private readonly ILogger<ConsignmentBookingService> _logger;
+    private readonly IConsignmentShipFrom?        _shipFrom;
     private readonly TimeSpan                     _callTimeout;
 
     public ConsignmentBookingService(
         LogisticsDbContext db, ICarrierAccountResolver resolver, ICarrierCommandLedger ledger,
         ICourierProviderRegistry registry, IConsignmentBookingScheduler scheduler, IConsignmentLabelStore labels,
-        IConfiguration configuration, ILogger<ConsignmentBookingService> logger)
+        IConfiguration configuration, ILogger<ConsignmentBookingService> logger,
+        IConsignmentShipFrom? shipFrom = null)
     {
         _db        = db;
         _resolver  = resolver;
@@ -119,6 +122,7 @@ internal sealed class ConsignmentBookingService : IConsignmentBookingService, IC
         _scheduler = scheduler;
         _labels    = labels;
         _logger    = logger;
+        _shipFrom  = shipFrom;
 
         // The call must give up well before the ledger's lease runs out. Otherwise a slow but
         // healthy call is declared unknown — and possibly retried — while it is still running.
@@ -177,6 +181,12 @@ internal sealed class ConsignmentBookingService : IConsignmentBookingService, IC
         consignment.CarrierServiceCode = serviceCode;
 
         var key = $"{consignment.ConsignmentNumber}-{Guid.NewGuid():N}";
+
+        // A consignment created before its warehouse had an address, or by hand, may still have nowhere
+        // to be collected from. Fill it in now, so what is saved below is what the job will send — and
+        // so a warehouse that cannot supply one is reported by the request below, not by a carrier.
+        if (_shipFrom is not null)
+            await _shipFrom.EnsureAsync(consignment, userId);
 
         // Built now only to refuse early; the job builds it again from what is saved below.
         CourierBookingRequestFactory.Build(consignment, resolved, key);

@@ -17,12 +17,17 @@ import { TimelinePanelComponent } from '../../../../shared/timeline-panel/timeli
 import { AttachmentListComponent } from '../../../../shared/attachment-list/attachment-list.component';
 import {
   LogisticsService,
+  CarrierListItemModel,
+  CreateConsignmentRequest,
   DeliveryDetailModel,
   DeliveryAvailabilityModel,
   RecordPickupRequest,
   PICKUP_ID_TYPES
 } from '../../../../services/logistics.service';
+import { SalesInvoiceService } from '../../../../services/sales-invoice.service';
+import { AuthService } from '../../../service/auth.service';
 import { DELIVERY_STATUS_SEVERITY } from '../delivery-list/delivery-list.component';
+import { SHIPMENT_STATUS_SEVERITY } from '../../consignments/consignment-detail/consignment-detail.component';
 
 type Severity = 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast';
 
@@ -35,8 +40,18 @@ type ReasonAction = 'hold' | 'cancel' | 'short-close';
  */
 const COLLECTABLE_STATUSES = ['PACKED', 'STAGED', 'PENDING_APPROVAL', 'GOODS_ISSUED'];
 
+/** Goods that have reached the customer can be invoiced. Same rule as the server's invoicing service. */
+const INVOICEABLE_STATUSES = ['DELIVERED', 'CLOSED'];
+
 /** A gate pass exists once the goods are at the dock. Same rule as the server's document service. */
 const GATE_PASS_STATUSES = ['STAGED', 'PENDING_APPROVAL', 'GOODS_ISSUED', 'IN_TRANSIT', 'DELIVERED', 'PARTIALLY_DELIVERED'];
+
+/**
+ * Where a carrier can be booked for a delivery: once it is boxed, so the consignment has weights and
+ * dimensions to rate and label, up to the moment it is handed over. After that the consignment
+ * already exists, and the delivery follows it.
+ */
+const CONSIGNABLE_STATUSES = ['PACKED', 'STAGED', 'PENDING_APPROVAL', 'GOODS_ISSUED'];
 
 @Component({
   selector: 'app-delivery-detail',
@@ -79,10 +94,18 @@ export class DeliveryDetailComponent implements OnInit {
   pickup: RecordPickupRequest = this.emptyPickup();
   idTypes = PICKUP_ID_TYPES;
 
+  // ── Handing the delivery to a carrier ───────────────────────────────────────
+
+  consignmentDialogVisible = false;
+  carriers: CarrierListItemModel[] = [];
+  consignment = this.emptyConsignment();
+
   constructor(
     private route: ActivatedRoute,
     private router: Router,
     private logisticsService: LogisticsService,
+    private invoiceService: SalesInvoiceService,
+    public authService: AuthService,
     private messageService: MessageService
   ) {}
 
@@ -171,6 +194,61 @@ export class DeliveryDetailComponent implements OnInit {
 
   get canDownloadGatePass(): boolean {
     return GATE_PASS_STATUSES.includes(this.delivery?.status ?? '');
+  }
+
+  /**
+   * An outbound delivery that a carrier will move and that has none yet. A collection never travels,
+   * so it never gets one; and once a consignment exists this is the wrong button — the delivery
+   * already follows it. The server's create is gated by DELIVERY_EDIT; asking here as well spares
+   * everyone else a button that ends in a refusal.
+   */
+  get canCreateConsignment(): boolean {
+    const d = this.delivery;
+    return !!d
+        && d.direction === 'OUTBOUND'
+        && !this.isSelfPickup
+        && CONSIGNABLE_STATUSES.includes(d.status)
+        && !d.consignments?.length
+        && this.authService.hasPermission('DELIVERY_EDIT');
+  }
+
+  /** The delivery is moved by its consignment: say so, so a page that does not change is not a mystery. */
+  get followsConsignment(): boolean {
+    return !!this.delivery?.consignments?.length
+        && ['GOODS_ISSUED', 'IN_TRANSIT'].includes(this.delivery.status);
+  }
+
+  /** A sale-order delivery that has reached the customer, for someone who may raise invoices. */
+  get canCreateInvoice(): boolean {
+    return !!this.delivery?.saleOrderUuid
+        && INVOICEABLE_STATUSES.includes(this.delivery.status)
+        && this.authService.hasPermission('SALES_INVOICE_MANAGE');
+  }
+
+  /** Raises a draft invoice for the delivery, or opens the one it already has. */
+  createInvoice() {
+    if (!this.canCreateInvoice || this.isSubmitting) return;
+    this.isSubmitting = true;
+
+    this.invoiceService.createFromDelivery(this.uuid).subscribe({
+      next: (res) => {
+        this.isSubmitting = false;
+        const created = res.result;
+        this.messageService.add({
+          severity: created?.alreadyExisted ? 'info' : 'success',
+          summary: created?.alreadyExisted ? 'Already invoiced' : 'Invoice created',
+          detail: res.message || 'Draft invoice raised.'
+        });
+        if (created?.invoiceUuid) this.router.navigate(['/portal/pages/finance/sales-invoices', created.invoiceUuid]);
+      },
+      error: (err) => {
+        this.isSubmitting = false;
+        this.messageService.add({
+          severity: 'error', summary: 'Not created',
+          detail: err?.error?.message ?? 'The invoice could not be created.'
+        });
+      }
+    });
   }
 
   // ── Actions ─────────────────────────────────────────────────────────────────
@@ -397,6 +475,59 @@ export class DeliveryDetailComponent implements OnInit {
     });
   }
 
+  // ── Handing the delivery to a carrier ───────────────────────────────────────
+
+  private emptyConsignment() {
+    return { carrierUuid: null as string | null, notes: '' };
+  }
+
+  openConsignmentDialog() {
+    this.consignment = this.emptyConsignment();
+    this.consignmentDialogVisible = true;
+
+    // Only the first time: the list of active carriers does not change while a page is open, and
+    // the dialog is usable without it — a carrier can be chosen later, when the parcel is rated.
+    if (this.carriers.length) return;
+
+    this.logisticsService.getActiveCarriers().subscribe({
+      next: (res) => this.carriers = res.result ?? [],
+      error: () => this.carriers = []
+    });
+  }
+
+  submitConsignment() {
+    if (!this.canCreateConsignment || this.isSubmitting) return;
+    this.isSubmitting = true;
+
+    const body: CreateConsignmentRequest = {
+      deliveryUuids: [this.uuid],
+      carrierUuid: this.consignment.carrierUuid || undefined,
+      notes: this.consignment.notes.trim() || undefined
+    };
+
+    this.logisticsService.createConsignment(body).subscribe({
+      next: (res) => {
+        this.isSubmitting = false;
+        this.consignmentDialogVisible = false;
+        this.messageService.add({
+          severity: 'success', summary: 'Consignment created',
+          detail: 'Book the carrier and follow the parcel from its page.'
+        });
+
+        // Straight to the consignment: booking, the label and tracking all live there.
+        if (res.result) this.router.navigate(['/portal/pages/logistics/consignments', res.result]);
+        else this.load();
+      },
+      error: (err) => {
+        this.isSubmitting = false;
+        this.messageService.add({
+          severity: 'error', summary: 'Not created',
+          detail: err?.error?.message ?? 'The consignment could not be created.'
+        });
+      }
+    });
+  }
+
   openGatePass() {
     this.logisticsService.downloadGatePass(this.uuid).subscribe({
       next: (blob) => {
@@ -418,6 +549,10 @@ export class DeliveryDetailComponent implements OnInit {
 
   getStatusSeverity(status: string): Severity {
     return DELIVERY_STATUS_SEVERITY[status] ?? 'secondary';
+  }
+
+  getShipmentSeverity(status: string): Severity {
+    return SHIPMENT_STATUS_SEVERITY[status] ?? 'secondary';
   }
 
   formatStatus(status: string): string {

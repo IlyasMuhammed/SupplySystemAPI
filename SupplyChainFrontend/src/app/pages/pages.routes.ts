@@ -14,6 +14,7 @@ import { PoDetailComponent } from './demand/purchase-orders/po-detail/po-detail.
 import { PoEditComponent } from './demand/purchase-orders/po-edit/po-edit.component';
 import { SaleOrderListComponent } from './sales/sale-orders/sale-order-list/sale-order-list.component';
 import { SaleOrderDetailComponent } from './sales/sale-orders/sale-order-detail/sale-order-detail.component';
+import { SaleOrderFormComponent } from './sales/sale-orders/sale-order-form/sale-order-form.component';
 import { CustomerComponent } from './customer/customer';
 import { SupplierListComponent } from './suppliers/supplier-list/supplier-list.component';
 import { SupplierCreateComponent } from './suppliers/supplier-create/supplier-create.component';
@@ -35,6 +36,7 @@ import { CurrenciesComponent } from './currencies/currencies.component';
 import { PaymentTermsComponent } from './payment-terms/payment-terms.component';
 import { PoDocumentTemplateComponent } from './po-document-template/po-document-template.component';
 import { PortalSettingsComponent } from './portal-settings/portal-settings.component';
+import { SaleOrderSettingsComponent } from './sale-order-settings/sale-order-settings.component';
 import { OrganizationsListComponent } from './organizations/organizations-list/organizations-list.component';
 import { OrganizationFeaturesComponent } from './organizations/organization-features/organization-features.component';
 import { permissionGuard } from './gaurds/permission.guard';
@@ -87,6 +89,12 @@ import { PaymentDetailComponent } from './finance/payments/payment-detail/paymen
 import { SupplierPaymentListComponent } from './finance/supplier-payments/supplier-payment-list/supplier-payment-list.component';
 import { SupplierPaymentCreateComponent } from './finance/supplier-payments/supplier-payment-create/supplier-payment-create.component';
 import { MasterLedgerComponent } from './finance/master-ledger/master-ledger.component';
+import { SalesInvoiceListComponent } from './finance/sales-invoices/sales-invoice-list/sales-invoice-list.component';
+import { SalesInvoiceDetailComponent } from './finance/sales-invoices/sales-invoice-detail/sales-invoice-detail.component';
+import { CustomerPaymentListComponent } from './finance/customer-payments/customer-payment-list/customer-payment-list.component';
+import { CustomerPaymentFormComponent } from './finance/customer-payments/customer-payment-form/customer-payment-form.component';
+import { CustomerPaymentDetailComponent } from './finance/customer-payments/customer-payment-detail/customer-payment-detail.component';
+import { CustomerLedgerComponent } from './finance/customer-ledger/customer-ledger.component';
 import { SupplierPaymentDetailComponent } from './finance/supplier-payments/supplier-payment-detail/supplier-payment-detail.component';
 import { KpiDashboardComponent } from './reports/kpi-dashboard/kpi-dashboard.component';
 import { SupplierPerformanceComponent } from './reports/supplier-performance/supplier-performance.component';
@@ -96,6 +104,7 @@ import { InventoryReportsComponent } from './reports/inventory-reports/inventory
 import { GrnVarianceComponent } from './reports/grn-variance/grn-variance.component';
 import { ShipmentTrackerComponent } from './reports/shipment-tracker/shipment-tracker.component';
 import { FinanceReportsComponent } from './reports/finance-reports/finance-reports.component';
+import { SalesReportsComponent } from './reports/sales-reports/sales-reports.component';
 import { AuditTrailComponent } from './reports/audit-trail/audit-trail.component';
 import { UserActivityComponent } from './reports/user-activity/user-activity.component';
 import { MaterialIssueRegisterComponent } from './reports/material-issue-register/material-issue-register.component';
@@ -147,6 +156,7 @@ const P = {
   PO_EDIT:              'PO_EDIT',
   PO_APPROVE:           'PO_APPROVE',
   PO_TEMPLATE_MANAGE:   'PO_TEMPLATE_MANAGE',
+  SALE_ORDER_CONFIG_READ: 'SALE_ORDER_CONFIG_READ',
   REQUISITION_CREATE:   'REQUISITION_CREATE',
   REQUISITION_VIEW_OWN: 'REQUISITION_VIEW_OWN',
   REQUISITION_VIEW_ALL: 'REQUISITION_VIEW_ALL',
@@ -199,6 +209,12 @@ const P = {
   SALE_ORDER_EDIT:      'SALE_ORDER_EDIT',
   SALE_ORDER_CONFIRM:   'SALE_ORDER_CONFIRM',
   SALE_ORDER_CANCEL:    'SALE_ORDER_CANCEL',
+  // Addendum 29 — receivables (Finance). Separate from INVOICE_* and PAYMENT_*, which are the supplier side.
+  SALES_INVOICE_VIEW:      'SALES_INVOICE_VIEW',
+  SALES_INVOICE_MANAGE:    'SALES_INVOICE_MANAGE',
+  CUSTOMER_PAYMENT_VIEW:   'CUSTOMER_PAYMENT_VIEW',
+  CUSTOMER_PAYMENT_RECORD: 'CUSTOMER_PAYMENT_RECORD',
+  CUSTOMER_LEDGER_VIEW:    'CUSTOMER_LEDGER_VIEW',
   SHIPMENT_BOOK:        'SHIPMENT_BOOK',
   REPORT_VIEW:          'REPORT_VIEW',
   REPORT_EXPORT:        'REPORT_EXPORT',
@@ -272,6 +288,8 @@ export default [
       canActivate: [permissionGuard(P.SYSTEM_CONFIGURE)] },
     { path: 'portal-settings', component: PortalSettingsComponent,
       canActivate: [permissionGuard(P.SYSTEM_CONFIGURE)] },
+    { path: 'sale-order-settings', component: SaleOrderSettingsComponent,
+      canActivate: [permissionGuard(P.SALE_ORDER_CONFIG_READ)] },
     { path: 'po-document-template', component: PoDocumentTemplateComponent,
       canActivate: [permissionGuard(P.PO_TEMPLATE_MANAGE)] },
     { path: 'organizations', component: OrganizationsListComponent,
@@ -336,11 +354,17 @@ export default [
     { path: 'demand/purchase-orders/:uuid', component: PoDetailComponent,
       canActivate: [permissionGuard(P.PO_VIEW, P.PO_CREATE, P.PO_EDIT, P.PO_APPROVE)] },
 
-    // ── Sales — Sale Orders (Addendum 29 P6-08) ───────────────────────────────
-    // Read-only order screens plus the fulfilment actions (create delivery, list deliveries),
-    // which the server gates on DELIVERY_* — a viewer without those sees the order but not the button.
+    // ── Sales — Sale Orders (Addendum 29 P6-08, P9-07) ────────────────────────
+    // The list, the create/edit form and the detail page with its actions (confirm, cancel, create
+    // delivery). The server gates each action on its own permission — SALE_ORDER_*, DELIVERY_*,
+    // SALES_INVOICE_VIEW — so a viewer without one sees the order but not the button or the tab's data.
+    // "new" comes before ":uuid", or it would be taken for an order's id.
     { path: 'sales/orders', component: SaleOrderListComponent,
       canActivate: [permissionGuard(P.SALE_ORDER_VIEW, P.SALE_ORDER_CREATE, P.SALE_ORDER_EDIT, P.SALE_ORDER_CONFIRM)] },
+    { path: 'sales/orders/new', component: SaleOrderFormComponent,
+      canActivate: [permissionGuard(P.SALE_ORDER_CREATE)] },
+    { path: 'sales/orders/:uuid/edit', component: SaleOrderFormComponent,
+      canActivate: [permissionGuard(P.SALE_ORDER_EDIT)] },
     { path: 'sales/orders/:uuid', component: SaleOrderDetailComponent,
       canActivate: [permissionGuard(P.SALE_ORDER_VIEW, P.SALE_ORDER_CREATE, P.SALE_ORDER_EDIT, P.SALE_ORDER_CONFIRM)] },
 
@@ -485,6 +509,26 @@ export default [
     { path: 'finance/master-ledger', component: MasterLedgerComponent,
       canActivate: [permissionGuard(P.PAYMENT_VIEW, P.INVOICE_VIEW)] },
 
+    // ── Finance — Receivables (Addendum 29 P9-08) ──────────────────────────────
+    // What customers are billed and what they pay: sales invoices, customer payments, the customer ledger.
+    // The server gates every action on its own SALES_INVOICE_* / CUSTOMER_* permission; a route admits
+    // whoever can read or record, and each page hides what its user may not do.
+    { path: 'finance/sales-invoices', component: SalesInvoiceListComponent,
+      canActivate: [permissionGuard(P.SALES_INVOICE_VIEW, P.SALES_INVOICE_MANAGE)] },
+    { path: 'finance/sales-invoices/:uuid', component: SalesInvoiceDetailComponent,
+      canActivate: [permissionGuard(P.SALES_INVOICE_VIEW, P.SALES_INVOICE_MANAGE)] },
+    // "new" comes before ":uuid", or it would be taken for a payment's id.
+    { path: 'finance/customer-payments', component: CustomerPaymentListComponent,
+      canActivate: [permissionGuard(P.CUSTOMER_PAYMENT_VIEW, P.CUSTOMER_PAYMENT_RECORD)] },
+    { path: 'finance/customer-payments/new', component: CustomerPaymentFormComponent,
+      canActivate: [permissionGuard(P.CUSTOMER_PAYMENT_RECORD)] },
+    { path: 'finance/customer-payments/:uuid', component: CustomerPaymentDetailComponent,
+      canActivate: [permissionGuard(P.CUSTOMER_PAYMENT_VIEW, P.CUSTOMER_PAYMENT_RECORD)] },
+    { path: 'finance/customer-ledger', component: CustomerLedgerComponent,
+      canActivate: [permissionGuard(P.CUSTOMER_LEDGER_VIEW)] },
+    { path: 'finance/customer-ledger/:partnerId', component: CustomerLedgerComponent,
+      canActivate: [permissionGuard(P.CUSTOMER_LEDGER_VIEW)] },
+
     // ── Reports & Analytics ───────────────────────────────────────────────────
     { path: 'reports/kpi-dashboard', component: KpiDashboardComponent,
       canActivate: [permissionGuard(P.REPORT_VIEW, P.REPORT_EXPORT)] },
@@ -501,6 +545,12 @@ export default [
     { path: 'reports/shipment-tracker', component: ShipmentTrackerComponent,
       canActivate: [permissionGuard(P.REPORT_VIEW, P.REPORT_EXPORT)] },
     { path: 'reports/finance-reports', component: FinanceReportsComponent,
+      canActivate: [permissionGuard(P.REPORT_VIEW, P.REPORT_EXPORT)] },
+    // Addendum 29 P9-09 — the ten sales reports on one dashboard. Each report needs the reports permission
+    // and the permission for the books it is made of; the page shows the ones this user may open.
+    { path: 'reports/sales-reports', component: SalesReportsComponent,
+      canActivate: [permissionGuard(P.REPORT_VIEW, P.REPORT_EXPORT)] },
+    { path: 'reports/sales-reports/:report', component: SalesReportsComponent,
       canActivate: [permissionGuard(P.REPORT_VIEW, P.REPORT_EXPORT)] },
     { path: 'reports/audit-trail', component: AuditTrailComponent,
       canActivate: [permissionGuard(P.AUDIT_LOG_VIEW, P.REPORT_VIEW)] },

@@ -11,6 +11,7 @@ using SMS.Modules.Demand.Domain;
 using SMS.Modules.Demand.Services;
 using SMS.Modules.Finance.Data;
 using SMS.Modules.Finance.Domain;
+using SMS.Modules.Finance.Models;
 using SMS.Modules.Finance.Services;
 using SMS.Modules.Lookups.Models;
 using SMS.Modules.Lookups.Services;
@@ -36,33 +37,6 @@ public class SalesInvoiceServiceTests
     {
         public DateTime Now { get; set; } = Today;
         public override DateTimeOffset GetUtcNow() => new(DateTime.SpecifyKind(Now, DateTimeKind.Utc));
-    }
-
-    /// <summary>Fires once, on the first save that adds a sales invoice or a ledger entry, and simulates a losing writer.</summary>
-    private sealed class LoseTheRaceOnce : SaveChangesInterceptor
-    {
-        private readonly Func<Task> _theWinnerCommitsFirst;
-        private readonly Func<DbContext, bool> _applies;
-        public bool Fired { get; private set; }
-
-        public LoseTheRaceOnce(Func<DbContext, bool> applies, Func<Task> theWinnerCommitsFirst)
-        {
-            _applies = applies;
-            _theWinnerCommitsFirst = theWinnerCommitsFirst;
-        }
-
-        public override async ValueTask<InterceptionResult<int>> SavingChangesAsync(
-            DbContextEventData eventData, InterceptionResult<int> result, CancellationToken ct = default)
-        {
-            if (!Fired && eventData.Context is { } db && _applies(db))
-            {
-                Fired = true;
-                await _theWinnerCommitsFirst();
-                throw new DbUpdateException("simulated unique index violation — another writer committed first");
-            }
-
-            return await base.SavingChangesAsync(eventData, result, ct);
-        }
     }
 
     /// <summary>Records what each save contained, to prove two things went in one unit of work.</summary>
@@ -125,7 +99,7 @@ public class SalesInvoiceServiceTests
                  .Callback<Job, IState>((job, _) => jobs.Add(job)).Returns("fake-job-id");
 
         var service = new SalesInvoiceService(
-            db, demand, reader.Object, new CustomerLedgerService(db), names.Object, lookups.Object,
+            db, demand, reader.Object, new CustomerLedgerService(db), new NoProductLedger(), names.Object, lookups.Object,
             jobClient.Object, NullLogger<SalesInvoiceService>.Instance, clock);
 
         return new Harness
@@ -622,6 +596,42 @@ public class SalesInvoiceServiceTests
         (await Load(h, created.InvoiceUuid)).PartnerName.Should().Be("(unknown customer)");
     }
 
+    [Fact]
+    public async Task Deleting_a_draft_frees_its_delivery_and_its_quantities_to_be_invoiced_afresh_under_a_new_number()
+    {
+        var h        = NewHarness();
+        var order    = await SeedOrder(h, "FULFILLED", null, new SoLineSpec(100m, 40m, Fulfilled: 100m));
+        var delivery = SeedDelivery(h, order);
+
+        var first = await h.Service.CreateFromFulfillmentAsync(delivery, User);
+        await h.Service.DeleteAsync(first.InvoiceUuid, User);
+        var second = await h.Service.CreateFromFulfillmentAsync(delivery, User);
+
+        second.AlreadyExisted.Should().BeFalse("the deleted draft no longer counts against its delivery");
+        second.InvoiceUuid.Should().NotBe(first.InvoiceUuid);
+        second.InvoiceNumber.Should().Be("SINV-20260920-0002", "the deleted invoice keeps its number");
+        (await Load(h, second.InvoiceUuid)).Lines.Single().Quantity.Should().Be(100m, "the full quantity is billable again");
+    }
+
+    [Fact]
+    public async Task A_draft_edited_before_it_is_issued_keeps_its_due_date_through_issue_and_the_ledger_is_unaffected_by_the_edit()
+    {
+        var h       = NewHarness();
+        var partner = Guid.NewGuid();
+        var order   = await SeedOrder(h, "FULFILLED", partner, new SoLineSpec(100m, 40m, Fulfilled: 100m));
+        var invoice = await Draft(h, order);
+
+        await h.Service.UpdateAsync(invoice, new UpdateSalesInvoiceRequest { DueDate = new DateTime(2026, 11, 15), Notes = "Net 55" }, User);
+        (await Ledger(h)).Should().BeEmpty("a draft books nothing, edited or not");
+
+        var issued = await h.Service.IssueAsync(invoice, User);
+
+        issued.Status.Should().Be("ISSUED");
+        var stored = await Load(h, invoice);
+        (stored.DueDate, stored.Notes, stored.Status).Should().Be((new DateTime(2026, 11, 15), "Net 55", "ISSUED"));
+        (await Ledger(h)).Should().ContainSingle().Which.DebitAmount.Should().Be(4000m);
+    }
+
     // ── Issue: the receivable ────────────────────────────────────────────────
 
     private static async Task<Guid> Draft(Harness h, SaleOrder order, string deliveryNumber = "DLV-2026-00001", decimal qty = 100m, int line = 0) =>
@@ -693,18 +703,25 @@ public class SalesInvoiceServiceTests
         (await Ledger(h)).Should().BeEmpty("and booked no receivable");
         h.Jobs.Should().BeEmpty();
         failing.Jobs.Should().BeEmpty("no SO_INVOICED for an invoice that was never issued");
+        failing.Db.ChangeTracker.Entries().Where(e => e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
+            .Should().BeEmpty("nothing is left on the context for a later save to commit half of");
     }
 
-    private sealed class AlwaysFail : SaveChangesInterceptor
+    [Fact]
+    public async Task A_persistent_failure_creating_an_invoice_is_surfaced_and_leaves_nothing_tracked()
     {
-        public int Attempts { get; private set; }
+        var seed  = NewHarness();
+        var order = await SeedOrder(seed);
+        var refusing = new AlwaysFail();
+        var h = NewHarness(seed.OrgId, seed.DbName, refusing);
+        var delivery = SeedDelivery(h, order);
 
-        public override ValueTask<InterceptionResult<int>> SavingChangesAsync(
-            DbContextEventData eventData, InterceptionResult<int> result, CancellationToken ct = default)
-        {
-            Attempts++;
-            throw new DbUpdateException("the database is refusing writes");
-        }
+        var act = async () => await h.Service.CreateFromFulfillmentAsync(delivery, User);
+
+        (await act.Should().ThrowAsync<DbUpdateException>()).WithMessage("*refusing writes*");
+        refusing.Attempts.Should().Be(5);
+        h.Db.ChangeTracker.Entries().Where(e => e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted).Should().BeEmpty();
+        (await seed.Db.SalesInvoices.CountAsync()).Should().Be(0);
     }
 
     [Fact]
@@ -896,6 +913,53 @@ public class SalesInvoiceServiceTests
         (await Ledger(h)).Should().ContainSingle();
         h.Jobs.Should().Contain(j => j.Method.Name == "AppendAsync", "the event is still recorded");
         (await h.Demand.SaleOrderLines.AsNoTracking().SingleAsync()).InvoicedQty.Should().Be(0m, "logged for reconciliation");
+    }
+
+    // ── Issued, then paid (P7-04 + P7-05 together) ───────────────────────────
+
+    private static CustomerPaymentService PaymentsOn(Harness h) =>
+        new(h.Db, new CustomerLedgerService(h.Db), h.Names.Object, h.Lookups.Object, h.Clock);
+
+    [Fact]
+    public async Task An_invoice_issued_here_is_paid_down_to_nothing_by_a_payment_and_the_ledger_nets_to_zero()
+    {
+        var h       = NewHarness();
+        var partner = Guid.NewGuid();
+        var order   = await SeedOrder(h, "FULFILLED", partner, new SoLineSpec(100m, 40m, Discount: 10m, Tax: 5m));
+        var invoice = await Draft(h, order);
+        await h.Service.IssueAsync(invoice, User);
+
+        var paid = await PaymentsOn(h).RecordPaymentAsync(partner, 3780m, "BANK_TRANSFER",
+            new CustomerPaymentDetails("PKR", BankReference: "TRX-1"), User);
+
+        paid.Allocations.Should().ContainSingle().Which.Should().Be(
+            new AppliedPaymentAllocation(invoice, "SINV-20260920-0001", 3780m, 0m, "PAID"));
+        paid.PartnerBalance.Should().Be(0m);
+
+        var stored = await Load(h, invoice);
+        (stored.Status, stored.AmountPaid, stored.BalanceDue).Should().Be(("PAID", 3780m, 0m));
+
+        (await Ledger(h)).Select(e => (e.SequenceNo, e.EntryType, e.DebitAmount, e.CreditAmount, e.RunningBalance)).Should().Equal(
+            (1, "INVOICE", 3780m, 0m, 3780m),
+            (2, "PAYMENT", 0m, 3780m, 0m));
+    }
+
+    [Fact]
+    public async Task A_draft_invoice_has_no_receivable_so_a_payment_cannot_pay_it_until_it_is_issued()
+    {
+        var h       = NewHarness();
+        var partner = Guid.NewGuid();
+        var order   = await SeedOrder(h, "FULFILLED", partner, new SoLineSpec(100m, 40m, Fulfilled: 100m));
+        var invoice = await Draft(h, order);
+
+        var beforeIssue = await PaymentsOn(h).RecordPaymentAsync(partner, 1000m, "CASH", new CustomerPaymentDetails("PKR"), User);
+        beforeIssue.Allocations.Should().BeEmpty("nothing to pay down yet — the money is held on account");
+        (await Load(h, invoice)).AmountPaid.Should().Be(0m);
+
+        await h.Service.IssueAsync(invoice, User);
+
+        var afterIssue = await PaymentsOn(h).RecordPaymentAsync(partner, 1000m, "CASH", new CustomerPaymentDetails("PKR"), User);
+        afterIssue.Allocations.Should().ContainSingle().Which.InvoiceStatus.Should().Be("PARTIALLY_PAID");
     }
 
     // ── Tenancy ──────────────────────────────────────────────────────────────

@@ -21,6 +21,8 @@ export interface PoDocumentTemplateModel {
   approvedByLabel?: string;
   authorizedSignatoryLabel?: string;
   footerText?: string;
+  /** The company's bank details, printed on sales invoices so customers know where to pay. */
+  bankDetails?: string;
   modifiedDate?: string;
 }
 
@@ -38,6 +40,8 @@ export interface UpsertPoDocumentTemplateRequest {
   approvedByLabel?: string;
   authorizedSignatoryLabel?: string;
   footerText?: string;
+  /** Up to 1,000 characters, one item per line. Blank clears it. */
+  bankDetails?: string;
 }
 
 export interface PoDocumentTokenModel {

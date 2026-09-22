@@ -648,4 +648,148 @@ public class DeliveryFromSaleOrderTests
 
         (await Stored(h, uuid)).ShipFromWarehouseUuid.Should().BeNull();
     }
+
+    // ── "Allow partial fulfilment" off (§7.6, the sale order settings) ────────
+
+    private static async Task SetPartialFulfilment(Harness h, bool allowed)
+    {
+        var config = await h.Demand.SaleOrderConfigs.SingleOrDefaultAsync();
+        if (config is null) h.Demand.SaleOrderConfigs.Add(config = new SaleOrderConfig());
+        config.PartialFulfillmentAllowed = allowed;
+        await h.Demand.SaveChangesAsync();
+        h.Demand.ChangeTracker.Clear();
+    }
+
+    [Fact]
+    public async Task With_partial_fulfilment_off_a_delivery_of_everything_still_owed_goes_ahead()
+    {
+        var h  = NewHarness();
+        await SetPartialFulfilment(h, false);
+        var so = await SeedOrder(h, addressUuid: (await SeedAddress(h)).UUID,
+            lines:
+            [
+                new L(h.Variants.AddVariant("CAB-4MM", "4mm cable"), 100m),
+                new L(h.Variants.AddVariant("JB-01", "Junction box"), 40m)
+            ]);
+
+        var detail = await h.Deliveries.GetByUuidAsync(await h.Repo.CreateFromSourceAsync(Request(so.UUID), User));
+
+        detail!.Lines.Select(l => l.QtyOrdered).Should().BeEquivalentTo([100m, 40m]);
+    }
+
+    [Fact]
+    public async Task With_partial_fulfilment_off_naming_every_line_in_full_is_the_same_as_naming_none()
+    {
+        var h  = NewHarness();
+        await SetPartialFulfilment(h, false);
+        var so = await SeedOrder(h, addressUuid: (await SeedAddress(h)).UUID);
+        var request = Request(so.UUID);
+        request.Lines = [Pick(so.Lines.Single(), 100m)];
+
+        var detail = await h.Deliveries.GetByUuidAsync(await h.Repo.CreateFromSourceAsync(request, User));
+
+        detail!.Lines.Single().QtyOrdered.Should().Be(100m);
+    }
+
+    [Fact]
+    public async Task With_partial_fulfilment_off_part_of_a_line_is_refused_and_no_delivery_is_made()
+    {
+        var h  = NewHarness();
+        await SetPartialFulfilment(h, false);
+        var so = await SeedOrder(h, addressUuid: (await SeedAddress(h)).UUID);
+        var request = Request(so.UUID);
+        request.Lines = [Pick(so.Lines.Single(), 40m)];
+
+        var act = async () => await h.Repo.CreateFromSourceAsync(request, User);
+
+        (await act.Should().ThrowAsync<BadRequestException>())
+            .WithMessage("*Partial fulfilment is switched off*one delivery*Line 1*");
+        (await h.Db.DeliveryOrders.CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task With_partial_fulfilment_off_leaving_a_line_out_is_refused_naming_it()
+    {
+        var h  = NewHarness();
+        await SetPartialFulfilment(h, false);
+        var so = await SeedOrder(h, addressUuid: (await SeedAddress(h)).UUID,
+            lines:
+            [
+                new L(h.Variants.AddVariant("CAB-4MM", "4mm cable"), 100m),
+                new L(h.Variants.AddVariant("JB-01", "Junction box"), 40m)
+            ]);
+        var request = Request(so.UUID);
+        request.Lines = [Pick(so.Lines.OrderBy(l => l.Id).First())];
+
+        var act = async () => await h.Repo.CreateFromSourceAsync(request, User);
+
+        var thrown = await act.Should().ThrowAsync<BadRequestException>();
+        thrown.Which.Message.Should().Contain("Line 2").And.NotContain("Line 1");
+    }
+
+    [Fact]
+    public async Task With_partial_fulfilment_off_what_is_already_fulfilled_is_not_owed_again()
+    {
+        var h  = NewHarness();
+        await SetPartialFulfilment(h, false);
+        var so = await SeedOrder(h, "PARTIALLY_FULFILLED", addressUuid: (await SeedAddress(h)).UUID,
+            lines: [new L(h.Variants.AddVariant("CAB-4MM", "4mm cable"), 100m, Fulfilled: 60m, Status: "PARTIALLY_FULFILLED")]);
+
+        var detail = await h.Deliveries.GetByUuidAsync(await h.Repo.CreateFromSourceAsync(Request(so.UUID), User));
+
+        detail!.Lines.Single().QtyOrdered.Should().Be(40m);
+    }
+
+    [Fact]
+    public async Task With_partial_fulfilment_off_a_vendor_shipped_or_cancelled_line_is_not_this_deliverys_to_carry()
+    {
+        var h  = NewHarness();
+        await SetPartialFulfilment(h, false);
+        var so = await SeedOrder(h, addressUuid: (await SeedAddress(h)).UUID,
+            lines:
+            [
+                new L(h.Variants.AddVariant("CAB-4MM", "4mm cable"), 100m),
+                new L(h.Variants.AddVariant("GEN-50", "Generator"), 2m, Status: "OPEN", Mode: "DROP_SHIP"),
+                new L(h.Variants.AddVariant("OLD-1", "Dropped item"), 5m, Status: "CANCELLED")
+            ]);
+
+        var detail = await h.Deliveries.GetByUuidAsync(await h.Repo.CreateFromSourceAsync(Request(so.UUID), User));
+
+        detail!.Lines.Should().ContainSingle().Which.QtyOrdered.Should().Be(100m);
+    }
+
+    [Fact]
+    public async Task Turning_partial_fulfilment_off_part_way_stops_a_second_delivery_that_cannot_cover_it_all()
+    {
+        var h  = NewHarness();
+        await SetPartialFulfilment(h, true);
+        var so = await SeedOrder(h, addressUuid: (await SeedAddress(h)).UUID);
+        var first = Request(so.UUID);
+        first.Lines = [Pick(so.Lines.Single(), 40m)];
+        await h.Repo.CreateFromSourceAsync(first, User);
+
+        await SetPartialFulfilment(h, false);
+        var act = async () => await h.Repo.CreateFromSourceAsync(Request(so.UUID), User);
+
+        (await act.Should().ThrowAsync<BadRequestException>()).WithMessage("*Partial fulfilment is switched off*Line 1*");
+    }
+
+    [Fact]
+    public async Task With_partial_fulfilment_on_or_never_set_an_order_still_goes_out_in_parts()
+    {
+        var withoutSetting = NewHarness();
+        var soA = await SeedOrder(withoutSetting, addressUuid: (await SeedAddress(withoutSetting)).UUID);
+        var partA = Request(soA.UUID);
+        partA.Lines = [Pick(soA.Lines.Single(), 40m)];
+        (await withoutSetting.Deliveries.GetByUuidAsync(await withoutSetting.Repo.CreateFromSourceAsync(partA, User)))!
+            .Lines.Single().QtyOrdered.Should().Be(40m);
+
+        var allowed = NewHarness();
+        await SetPartialFulfilment(allowed, true);
+        var soB = await SeedOrder(allowed, addressUuid: (await SeedAddress(allowed)).UUID);
+        var partB = Request(soB.UUID);
+        partB.Lines = [Pick(soB.Lines.Single(), 40m)];
+        (await allowed.Deliveries.GetByUuidAsync(await allowed.Repo.CreateFromSourceAsync(partB, User)))!
+            .Lines.Single().QtyOrdered.Should().Be(40m);
+    }
 }

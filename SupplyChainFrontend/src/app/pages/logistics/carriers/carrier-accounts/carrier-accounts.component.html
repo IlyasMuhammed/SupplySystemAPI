@@ -35,6 +35,56 @@
       </div>
     </div>
 
+    <!-- ── How this carrier is booked ───────────────────────────────────────── -->
+
+    <section class="integration" *ngIf="integration as i" data-testid="integration">
+      <h2>How this carrier is booked</h2>
+
+      <div class="integration-fields">
+        <div class="field">
+          <label for="integration-mode">Booking</label>
+          <p-select inputId="integration-mode" [options]="modeOptions" optionLabel="label" optionValue="value"
+                    [(ngModel)]="integrationForm.mode" appendTo="body" styleClass="w-full"
+                    data-testid="integration-mode"></p-select>
+        </div>
+
+        <div class="field" *ngIf="integrationForm.mode === 'API'">
+          <label for="integration-provider">Adapter</label>
+          <p-select inputId="integration-provider" [options]="providerOptions" optionLabel="label" optionValue="value"
+                    [(ngModel)]="integrationForm.providerKey" placeholder="Choose an adapter" appendTo="body"
+                    styleClass="w-full" data-testid="integration-provider"></p-select>
+        </div>
+      </div>
+
+      <!-- What the chosen adapter needs, before anything is saved — not after a booking is refused for it. -->
+      <div class="credential-hints" *ngIf="selectedProvider as p" data-testid="credential-hints">
+        <p class="hint">
+          Add these under an account's credentials for <strong>{{ p.displayName }}</strong> to book:
+        </p>
+        <ul>
+          <li *ngFor="let c of p.credentials" [attr.data-testid]="'hint-' + c.key">
+            <span class="font-mono">{{ c.key }}</span>
+            <span class="tag required" *ngIf="c.required">required</span>
+            <span class="tag secret" *ngIf="c.isSecret">secret</span>
+            <span class="hint"> — {{ c.description }}</span>
+          </li>
+        </ul>
+        <p class="hint" *ngIf="!p.supportsCancellation" data-testid="no-cancel-hint">
+          {{ p.displayName }} cannot cancel a booking through its API: a cancellation there is done with the
+          carrier, then here.
+        </p>
+      </div>
+
+      <div class="banner warn" *ngIf="i.warning" data-testid="integration-warning">
+        <i class="pi pi-exclamation-triangle"></i><span>{{ i.warning }}</span>
+      </div>
+
+      <div class="integration-actions">
+        <p-button label="Save" icon="pi pi-check" [disabled]="!canSaveIntegration" [loading]="isSubmitting"
+                  (onClick)="saveIntegration()" data-testid="save-integration"></p-button>
+      </div>
+    </section>
+
     <div class="banner warn" *ngIf="hasBrokenProvider" data-testid="provider-warning">
       <i class="pi pi-exclamation-triangle"></i>
       <span>
