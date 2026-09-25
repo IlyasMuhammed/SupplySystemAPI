@@ -154,21 +154,38 @@ internal sealed class AuthDataSeeder
         ((int)EnumRole.SupplyDeptAdmin,    "Supply Department Administrator", "SUPPLY_DEPT_ADMIN", "Owns sale order administration & configuration — Deputy Director / Director of Supply (§3.1)"),
     ];
 
+    // Matched by RoleCode, not RoleID: RoleID carries no DB identity (RoleMap.ValueGeneratedNever)
+    // and the same integer space is shared with org-created custom roles, which take
+    // MAX(RoleID)+1 (AuthRepository.CreateRoleAsync). A custom or test role can end up sitting on a
+    // built-in role's intended id before this ever runs — SUPPLY_DEPT_ADMIN's id 11 collided with a
+    // hand-created "Test Role" in exactly this way, silently granting that unrelated role
+    // SALE_ORDER_CONFIG_WRITE the next time the seeder ran — so code, not position, decides whether
+    // a built-in role already exists, and SeedRolePermissionsAsync below resolves the real RoleID
+    // the same way rather than trusting RoleSeed's literal id.
     private async Task SeedRolesAsync()
     {
+        var existing = await _db.Roles.IgnoreQueryFilters().ToListAsync();
+
         foreach (var (id, name, code, desc) in RoleSeed)
         {
-            var role = await _db.Roles.FindAsync(id);
-            if (role == null)
+            var role = existing.FirstOrDefault(r => r.RoleCode == code)
+                // A pre-RoleCode row (migration AddRoleCodeAndIsActive) sitting at the seed's own
+                // id, waiting to be named — the only case where position still means identity.
+                ?? existing.FirstOrDefault(r => r.RoleID == id && string.IsNullOrEmpty(r.RoleCode));
+
+            if (role is null)
             {
                 // The built-in catalog is global (IsGlobal=true, OrganizationId=null) — usable and
                 // assignable by every organization. Org-owned custom roles (IsGlobal=false) are
                 // only ever created at runtime via RolesController, never seeded here.
-                _db.Roles.Add(new Role
+                var newId = existing.Any(r => r.RoleID == id) ? existing.Max(r => r.RoleID) + 1 : id;
+                role = new Role
                 {
-                    RoleID = id, Name = name, RoleCode = code, Description = desc, IsActive = true,
+                    RoleID = newId, Name = name, RoleCode = code, Description = desc, IsActive = true,
                     IsGlobal = true, OrganizationId = null
-                });
+                };
+                _db.Roles.Add(role);
+                existing.Add(role);
             }
             else if (string.IsNullOrEmpty(role.RoleCode))
             {
@@ -330,8 +347,20 @@ internal sealed class AuthDataSeeder
         var permLookup = await _db.Permissions
             .ToDictionaryAsync(p => p.Code, p => p.PermissionID);
 
-        foreach (var (roleId, codes) in RolePermissionSeed)
+        // RolePermissionSeed's keys are RoleSeed's own literal ids — a fixed label for "which
+        // built-in role", not necessarily that role's real RoleID in this database (see
+        // SeedRolesAsync's remarks). Resolved here via RoleCode so a permission always reaches the
+        // role that was actually seeded under that code, never whatever else happens to hold the id.
+        var codeBySeedId = RoleSeed.ToDictionary(r => r.Id, r => r.Code);
+        var roleIdByCode = await _db.Roles.IgnoreQueryFilters()
+            .Where(r => codeBySeedId.Values.Contains(r.RoleCode))
+            .ToDictionaryAsync(r => r.RoleCode, r => r.RoleID);
+
+        foreach (var (seedId, codes) in RolePermissionSeed)
         {
+            if (!codeBySeedId.TryGetValue(seedId, out var roleCode) || !roleIdByCode.TryGetValue(roleCode, out var roleId))
+                continue; // the role this seed entry names was never created — nothing to grant it
+
             foreach (var code in codes)
             {
                 if (!permLookup.TryGetValue(code, out var permId)) continue;

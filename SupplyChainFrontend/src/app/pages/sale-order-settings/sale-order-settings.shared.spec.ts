@@ -164,7 +164,7 @@ describe('sale order settings: what changed', () => {
 
     expect(changes).toEqual([
       { key: 'autoPoEnabled',      label: 'Automatic purchase orders', from: 'On',               to: 'Off' },
-      { key: 'autoPoApprovalMode', label: 'Purchase order approval',   from: 'Send for approval', to: 'Approve automatically' },
+      { key: 'autoPoApprovalMode', label: 'Purchase order approval',   from: 'Send for approval', to: 'Approve and send automatically' },
       { key: 'dropShipEnabled',    label: 'Drop shipping',             from: 'Off',              to: 'On' },
       { key: 'reservationTtlHours', label: 'Reservation hold',         from: '3 days',           to: '4 days' }
     ]);

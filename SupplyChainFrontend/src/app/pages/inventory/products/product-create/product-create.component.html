@@ -313,6 +313,32 @@
               <p-inputnumber formControlName="reorderPoint" placeholder="0" [min]="0" [showButtons]="false" styleClass="w-full"></p-inputnumber>
             </div>
           </div>
+
+          <div class="field">
+            <label class="field-label">Available For</label>
+            <div style="display:flex; flex-wrap:wrap; gap:1rem; padding-top:0.375rem">
+              <div style="display:flex; align-items:center; gap:0.5rem">
+                <p-checkbox formControlName="isAvailableForRetail" [binary]="true" [inputId]="'variantRetail' + i"></p-checkbox>
+                <label [for]="'variantRetail' + i" class="field-label field-label--inline">Retailer</label>
+              </div>
+              <div style="display:flex; align-items:center; gap:0.5rem">
+                <p-checkbox formControlName="isAvailableForPos" [binary]="true" [inputId]="'variantPos' + i"></p-checkbox>
+                <label [for]="'variantPos' + i" class="field-label field-label--inline">POS (Point of Sale)</label>
+              </div>
+              <div style="display:flex; align-items:center; gap:0.5rem">
+                <p-checkbox formControlName="isAvailableForMirMiv" [binary]="true" [inputId]="'variantMirMiv' + i"></p-checkbox>
+                <label [for]="'variantMirMiv' + i" class="field-label field-label--inline">MIR/MIV</label>
+              </div>
+              <div style="display:flex; align-items:center; gap:0.5rem">
+                <p-checkbox formControlName="isAvailableForProduction" [binary]="true" [inputId]="'variantProduction' + i"></p-checkbox>
+                <label [for]="'variantProduction' + i" class="field-label field-label--inline">Production</label>
+              </div>
+              <div style="display:flex; align-items:center; gap:0.5rem">
+                <p-checkbox formControlName="isAvailableForServices" [binary]="true" [inputId]="'variantServices' + i"></p-checkbox>
+                <label [for]="'variantServices' + i" class="field-label field-label--inline">Services</label>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 

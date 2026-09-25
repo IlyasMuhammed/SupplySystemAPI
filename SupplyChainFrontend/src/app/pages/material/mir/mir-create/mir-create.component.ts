@@ -92,7 +92,7 @@ export class MirCreateComponent implements OnInit {
   ngOnInit() {
     forkJoin({
       projects: this.materialService.getProjects({ status: 'ACTIVE', pageSize: 200 }),
-      products: this.inventoryService.getProducts({ activeOnly: true, pageSize: 500 })
+      products: this.inventoryService.getProducts({ activeOnly: true, pageSize: 500, availableFor: 'MIR_MIV' })
     }).subscribe({
       next: ({ projects, products }) => {
         this.isLoading = false;

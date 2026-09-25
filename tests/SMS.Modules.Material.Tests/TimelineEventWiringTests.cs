@@ -46,7 +46,8 @@ file static class WiringBuild
         product.Variants.Add(new ProductVariant
         {
             Uuid = Guid.NewGuid(), Sku = "SKU-001-DEFAULT", VariantName = "Lenovo Laptop",
-            PurchasePrice = 1000m, IsDefault = true, IsActive = true, CreatedDate = DateTime.UtcNow
+            PurchasePrice = 1000m, IsDefault = true, IsActive = true, CreatedDate = DateTime.UtcNow,
+            IsAvailableForMirMiv = true
         });
         db.Products.Add(product);
         db.SaveChanges();

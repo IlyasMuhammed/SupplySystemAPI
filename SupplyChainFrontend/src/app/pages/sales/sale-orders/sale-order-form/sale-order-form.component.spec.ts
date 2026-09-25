@@ -173,7 +173,7 @@ describe('SaleOrderFormComponent', () => {
     expect(component.isShip).toBeTrue();
     expect(component.lines.length).toBe(1);
     expect(sales.getSaleOrderById).not.toHaveBeenCalled();
-    expect(inventory.getProducts).toHaveBeenCalledOnceWith({ activeOnly: true, pageSize: 500 });
+    expect(inventory.getProducts).toHaveBeenCalledOnceWith({ activeOnly: true, pageSize: 500, availableFor: 'RETAIL' });
     expect(fixture.nativeElement.textContent).toContain('New sale order');
     expect(query('save')!.textContent).toContain('Save draft');
   });

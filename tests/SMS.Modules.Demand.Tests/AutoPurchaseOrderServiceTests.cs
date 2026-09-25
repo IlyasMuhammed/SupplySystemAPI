@@ -243,12 +243,13 @@ public class AutoPurchaseOrderServiceTests
     public async Task A_drop_ship_po_follows_the_configured_approval_mode_like_any_other()
     {
         var h = NewHarness(AutoPoApprovalModes.AutoSend);
+        SetUpSend(h);
         var (_, lineUuid) = await SeedOrder(h, fulfillmentMode: "DROP_SHIP");
 
         var result = await h.Service.CreateFromSODeficitAsync(lineUuid, h.SupplierId, 40m, 25m, Creator);
 
         result.Source.Should().Be("DROP_SHIP");
-        result.Status.Should().Be("APPROVED");
+        result.Status.Should().Be("SENT");
     }
 
     [Fact]
@@ -367,17 +368,61 @@ public class AutoPurchaseOrderServiceTests
         h.PurchaseOrders.Verify(p => p.SubmitForApprovalAsync(It.IsAny<Guid>(), It.IsAny<int>()), Times.Never);
     }
 
+    // §3.4 — "AUTO_SEND ... sent immediately." Approving it is only half of that: the same Send a
+    // human would otherwise have to press is pressed here on the org's behalf, so the PO leaves this
+    // method already SENT, not waiting in APPROVED for someone to notice it.
+    private static void SetUpSend(Harness h) =>
+        h.PurchaseOrders.Setup(p => p.SendAsync(It.IsAny<Guid>(), It.IsAny<string?>(), It.IsAny<int>()))
+            .Returns(async (Guid uuid, string? _, int _) =>
+            {
+                var po = await h.Db.PurchaseOrders.FirstAsync(x => x.UUID == uuid);
+                po.Status = "SENT";
+                await h.Db.SaveChangesAsync();
+            });
+
     [Fact]
-    public async Task Auto_send_mode_creates_an_approved_po_without_going_through_the_workflow()
+    public async Task Auto_send_mode_creates_the_po_approved_then_sends_it_without_going_through_the_workflow()
     {
         var h = NewHarness(AutoPoApprovalModes.AutoSend);
+        SetUpSend(h);
+        var (_, lineUuid) = await SeedOrder(h);
+
+        var result = await h.Service.CreateFromSODeficitAsync(lineUuid, h.SupplierId, 40m, 25m, Creator);
+
+        result.Status.Should().Be("SENT");
+        (await LoadPo(h, result.PoUuid)).Status.Should().Be("SENT");
+        h.PurchaseOrders.Verify(p => p.SubmitForApprovalAsync(It.IsAny<Guid>(), It.IsAny<int>()), Times.Never);
+        // No contact mobile: nothing upstream of an auto-selected supplier ever captures one, and
+        // the WhatsApp channel Send optionally triggers needs a person to have typed it in.
+        h.PurchaseOrders.Verify(p => p.SendAsync(result.PoUuid, null, Creator), Times.Once);
+    }
+
+    [Fact]
+    public async Task Auto_send_never_submits_for_approval_first()
+    {
+        var h = NewHarness(AutoPoApprovalModes.AutoSend);
+        SetUpSend(h);
+        var (_, lineUuid) = await SeedOrder(h);
+
+        await h.Service.CreateFromSODeficitAsync(lineUuid, h.SupplierId, 40m, 25m, Creator);
+
+        // Send requires APPROVED (PurchaseOrderRepository.SendAsync) — going through Submit first
+        // would have moved the PO to PENDING_APPROVAL and made the send that follows fail.
+        h.PurchaseOrders.Verify(p => p.SubmitForApprovalAsync(It.IsAny<Guid>(), It.IsAny<int>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task A_send_that_fails_leaves_the_po_approved_rather_than_losing_it()
+    {
+        var h = NewHarness(AutoPoApprovalModes.AutoSend);
+        h.PurchaseOrders.Setup(p => p.SendAsync(It.IsAny<Guid>(), It.IsAny<string?>(), It.IsAny<int>()))
+            .ThrowsAsync(new UnprocessableEntityException("Only APPROVED purchase orders can be sent."));
         var (_, lineUuid) = await SeedOrder(h);
 
         var result = await h.Service.CreateFromSODeficitAsync(lineUuid, h.SupplierId, 40m, 25m, Creator);
 
         result.Status.Should().Be("APPROVED");
         (await LoadPo(h, result.PoUuid)).Status.Should().Be("APPROVED");
-        h.PurchaseOrders.Verify(p => p.SubmitForApprovalAsync(It.IsAny<Guid>(), It.IsAny<int>()), Times.Never);
     }
 
     [Fact]

@@ -128,6 +128,12 @@ export interface ProductVariantModel {
   dimensions?: string;
   isDefault: boolean;
   isActive: boolean;
+  /** Which channels/documents this variant may be used from. Independent, not mutually exclusive. */
+  isAvailableForRetail: boolean;
+  isAvailableForPos: boolean;
+  isAvailableForMirMiv: boolean;
+  isAvailableForProduction: boolean;
+  isAvailableForServices: boolean;
   reorderPoint?: number;
   sortOrder?: number;
   createdDate: string;
@@ -142,6 +148,11 @@ export interface CreateProductVariantRequest {
   weight?: number;
   dimensions?: string;
   isDefault: boolean;
+  isAvailableForRetail: boolean;
+  isAvailableForPos: boolean;
+  isAvailableForMirMiv: boolean;
+  isAvailableForProduction: boolean;
+  isAvailableForServices: boolean;
   reorderPoint?: number;
   sortOrder?: number;
 }
@@ -168,10 +179,15 @@ export interface VariantLookupModel {
   productName: string;
 }
 
+/** SMS.Shared.Common.VariantAvailabilityChannel's values. */
+export type VariantAvailabilityChannel = 'RETAIL' | 'POS' | 'MIR_MIV' | 'PRODUCTION' | 'SERVICES';
+
 export interface ProductListFilter {
   categoryId?: number;
   status?: string;
   search?: string;
+  /** Only products with at least one active variant checked for this channel. */
+  availableFor?: VariantAvailabilityChannel;
   activeOnly?: boolean;
   page?: number;
   pageSize?: number;
@@ -600,6 +616,7 @@ export class InventoryService {
     if (filter.categoryId)        params = params.set('categoryId',  String(filter.categoryId));
     if (filter.status)            params = params.set('status',       filter.status);
     if (filter.search)            params = params.set('search',       filter.search);
+    if (filter.availableFor)      params = params.set('availableFor', filter.availableFor);
     if (filter.activeOnly != null) params = params.set('activeOnly', String(filter.activeOnly));
     params = params.set('page',     String(filter.page     ?? 1));
     params = params.set('pageSize', String(filter.pageSize ?? 20));

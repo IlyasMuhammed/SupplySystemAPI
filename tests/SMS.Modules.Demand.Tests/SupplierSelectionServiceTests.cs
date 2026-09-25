@@ -20,7 +20,8 @@ public class SupplierSelectionServiceTests
 
     private sealed record Harness(
         SupplierSelectionService Service, Mock<ISaleOrderConfigService> Config,
-        Mock<IVariantSupplierService> Rates, Mock<IOrgChartService> OrgChart, Mock<INotificationService> Notifications);
+        Mock<IVariantSupplierService> Rates, Mock<IOrgChartService> OrgChart, Mock<INotificationService> Notifications,
+        Mock<IProductVariantResolver> Variants);
 
     private static Harness NewHarness(string mode, int? intimationDepartmentId = DeptId)
     {
@@ -32,12 +33,29 @@ public class SupplierSelectionServiceTests
         var rates = new Mock<IVariantSupplierService>();
         var orgChart = new Mock<IOrgChartService>();
         var notifications = new Mock<INotificationService>();
+        var variants = new Mock<IProductVariantResolver>();
+        // No name set up by default — the fallback-to-id path, exercised on its own below.
+        variants.Setup(v => v.DescribeVariantsAsync(It.IsAny<IReadOnlyList<Guid>>()))
+            .ReturnsAsync(new Dictionary<Guid, VariantDescription>());
 
         var service = new SupplierSelectionService(
-            config.Object, rates.Object, orgChart.Object, notifications.Object,
+            config.Object, rates.Object, orgChart.Object, notifications.Object, variants.Object,
             NullLogger<SupplierSelectionService>.Instance);
 
-        return new Harness(service, config, rates, orgChart, notifications);
+        return new Harness(service, config, rates, orgChart, notifications, variants);
+    }
+
+    // "Product (SKU)" — IProductVariantResolver's own DisplayName for a default variant, so a test
+    // that names a product this way exercises the real computed property, not a stand-in for it.
+    private static string DisplayNameOf(string productName, string sku) => $"{productName} ({sku})";
+
+    private static void NameAs(Harness h, Guid variantUuid, string productName, string sku = "SKU-1")
+    {
+        h.Variants.Setup(v => v.DescribeVariantsAsync(It.Is<IReadOnlyList<Guid>>(ids => ids.Contains(variantUuid))))
+            .ReturnsAsync(new Dictionary<Guid, VariantDescription>
+            {
+                [variantUuid] = new(variantUuid, Guid.NewGuid(), sku, "Default", productName, true, "Piece")
+            });
     }
 
     private static RateComparisonRowModel Candidate(
@@ -209,18 +227,50 @@ public class SupplierSelectionServiceTests
     }
 
     [Fact]
-    public async Task No_notification_is_sent_when_the_org_has_no_intimation_department_configured()
+    public async Task The_notification_names_the_product_it_is_about_rather_than_its_id()
     {
-        var h = NewHarness(SupplierSelectionModes.Manual, intimationDepartmentId: null);
+        var h = NewHarness(SupplierSelectionModes.Manual);
+        h.OrgChart.Setup(o => o.GetDepartmentHeadAsync(DeptId)).ReturnsAsync(new UserIdentity(77, "Head"));
+        var variant = Guid.NewGuid();
+        NameAs(h, variant, "4mm Cable", "CAB-4MM");
 
-        await h.Service.SelectAsync(Guid.NewGuid(), 5m, User);
+        await h.Service.SelectAsync(variant, 5m, User);
 
-        h.OrgChart.Verify(o => o.GetDepartmentHeadAsync(It.IsAny<int>()), Times.Never);
-        h.Notifications.Verify(n => n.TryCreateAsync(It.IsAny<NotificationRequest>()), Times.Never);
+        h.Notifications.Verify(n => n.TryCreateAsync(It.Is<NotificationRequest>(r =>
+            r.Message.Contains(DisplayNameOf("4mm Cable", "CAB-4MM")) && !r.Message.Contains(variant.ToString()))), Times.Once);
     }
 
     [Fact]
-    public async Task No_notification_is_sent_when_the_department_has_no_head()
+    public async Task A_variant_the_resolver_does_not_know_falls_back_to_its_id_rather_than_dropping_the_notification()
+    {
+        var h = NewHarness(SupplierSelectionModes.Manual);
+        h.OrgChart.Setup(o => o.GetDepartmentHeadAsync(DeptId)).ReturnsAsync(new UserIdentity(77, "Head"));
+        var variant = Guid.NewGuid();
+        // No NameAs call: the default harness resolver already returns nothing for it.
+
+        await h.Service.SelectAsync(variant, 5m, User);
+
+        h.Notifications.Verify(n => n.TryCreateAsync(It.Is<NotificationRequest>(
+            r => r.Message.Contains(variant.ToString()))), Times.Once);
+    }
+
+    [Fact]
+    public async Task With_no_intimation_department_the_person_who_confirmed_the_order_is_told_instead()
+    {
+        var h = NewHarness(SupplierSelectionModes.Manual, intimationDepartmentId: null);
+        var variant = Guid.NewGuid();
+
+        await h.Service.SelectAsync(variant, 5m, User);
+
+        h.OrgChart.Verify(o => o.GetDepartmentHeadAsync(It.IsAny<int>()), Times.Never);
+        h.Notifications.Verify(n => n.TryCreateAsync(It.Is<NotificationRequest>(r =>
+            r.UserId == User && r.Type == "SUPPLIER_SELECTION_MANUAL" && r.SendEmail == true &&
+            r.CreatedBy == User && r.Message.Contains(variant.ToString()))), Times.Once,
+            "nobody must be left with no idea a line needs a supplier chosen by hand");
+    }
+
+    [Fact]
+    public async Task With_a_department_that_has_no_head_the_person_who_confirmed_the_order_is_told_instead()
     {
         var h = NewHarness(SupplierSelectionModes.Manual);
         h.OrgChart.Setup(o => o.GetDepartmentHeadAsync(DeptId)).ReturnsAsync((UserIdentity?)null);
@@ -228,7 +278,19 @@ public class SupplierSelectionServiceTests
         var act = () => h.Service.SelectAsync(Guid.NewGuid(), 5m, User);
 
         await act.Should().NotThrowAsync();
-        h.Notifications.Verify(n => n.TryCreateAsync(It.IsAny<NotificationRequest>()), Times.Never);
+        h.Notifications.Verify(n => n.TryCreateAsync(It.Is<NotificationRequest>(r => r.UserId == User)), Times.Once);
+    }
+
+    [Fact]
+    public async Task With_a_department_head_the_head_is_told_not_the_person_who_confirmed_the_order()
+    {
+        var h = NewHarness(SupplierSelectionModes.Manual);
+        h.OrgChart.Setup(o => o.GetDepartmentHeadAsync(DeptId)).ReturnsAsync(new UserIdentity(77, "Head"));
+
+        await h.Service.SelectAsync(Guid.NewGuid(), 5m, User);
+
+        h.Notifications.Verify(n => n.TryCreateAsync(It.Is<NotificationRequest>(r => r.UserId == 77)), Times.Once);
+        h.Notifications.Verify(n => n.TryCreateAsync(It.Is<NotificationRequest>(r => r.UserId == User)), Times.Never);
     }
 
     [Fact]

@@ -43,6 +43,7 @@ import {
 } from '../../../../services/pricing-rule.service';
 import { CurrenciesService, CurrencyModel } from '../../../../services/currencies.service';
 import { BusinessPartnerService, BusinessPartnerModel } from '../../../../services/business-partner.service';
+import { SupplierService } from '../../../../services/supplier.service';
 
 @Component({
   selector: 'app-product-detail',
@@ -76,6 +77,7 @@ export class ProductDetailComponent implements OnInit {
   categoryOptions: { label: string; value: number | null }[] = [];
   subCategoryOptions: { label: string; value: number | null }[] = [];
   isLoadingLookups = false;
+  supplierOptions: { label: string; value: number }[] = [];
 
   uomOptions: { label: string; value: string }[] = [
     { label: 'Piece (PCS)',      value: 'PCS' },
@@ -139,7 +141,8 @@ export class ProductDetailComponent implements OnInit {
     private attachmentService: AttachmentService,
     private pricingRuleService: PricingRuleService,
     private currenciesService: CurrenciesService,
-    private businessPartnerService: BusinessPartnerService
+    private businessPartnerService: BusinessPartnerService,
+    private supplierService: SupplierService
   ) {}
 
   resolveImageUrl(url: string): string {
@@ -227,7 +230,8 @@ export class ProductDetailComponent implements OnInit {
       reorderPoint:   [null, [Validators.min(0)]],
       reorderQty:     [null, [Validators.min(0)]],
       minStockLevel:  [null, [Validators.min(0)]],
-      maxStockLevel:  [null, [Validators.min(0)]]
+      maxStockLevel:  [null, [Validators.min(0)]],
+      preferredSupplierId: [null]
     });
 
     this.adjustmentForm = this.fb.group({
@@ -248,7 +252,12 @@ export class ProductDetailComponent implements OnInit {
       dimensions:    [''],
       reorderPoint:  [null, [Validators.min(0)]],
       sortOrder:     [null],
-      isDefault:     [false]
+      isDefault:     [false],
+      isAvailableForRetail:     [false],
+      isAvailableForPos:        [false],
+      isAvailableForMirMiv:     [false],
+      isAvailableForProduction: [false],
+      isAvailableForServices:   [false]
     });
 
     this.priceRuleForm = this.fb.group({
@@ -368,10 +377,26 @@ export class ProductDetailComponent implements OnInit {
       reorderPoint:   this.product.reorderPoint    ?? null,
       reorderQty:     this.product.reorderQty      ?? null,
       minStockLevel:  this.product.minStockLevel   ?? null,
-      maxStockLevel:  this.product.maxStockLevel   ?? null
+      maxStockLevel:  this.product.maxStockLevel   ?? null,
+      preferredSupplierId: this.product.preferredSupplierId ?? null
     });
     this.loadLookups().then(() => {
+      this.loadSuppliers();
       this.showEditDialog = true;
+    });
+  }
+
+  private loadSuppliers() {
+    if (this.supplierOptions.length > 0) return;
+    this.supplierService.getSuppliers({ status: 'ACTIVE', pageSize: 500 }).subscribe({
+      next: (res) => {
+        if (res.success) {
+          this.supplierOptions = res.result.data.map(s => ({ label: s.supplierName, value: s.id }));
+        }
+      },
+      error: () => {
+        this.messageService.add({ severity: 'warn', summary: 'Warning', detail: 'Failed to load suppliers.' });
+      }
     });
   }
 
@@ -394,7 +419,8 @@ export class ProductDetailComponent implements OnInit {
       reorderPoint:  raw.reorderPoint  ?? undefined,
       reorderQty:    raw.reorderQty    ?? undefined,
       minStockLevel: raw.minStockLevel ?? undefined,
-      maxStockLevel: raw.maxStockLevel ?? undefined
+      maxStockLevel: raw.maxStockLevel ?? undefined,
+      preferredSupplierId: raw.preferredSupplierId ?? undefined
     };
     this.isSaving = true;
     this.inventoryService.patchProduct(this.productId, payload).subscribe({
@@ -487,7 +513,9 @@ export class ProductDetailComponent implements OnInit {
     this.variantAttributesValid = true;
     this.variantForm.reset({
       sku: '', variantName: '', purchasePrice: null, sellingPrice: null,
-      barcode: '', weight: null, dimensions: '', reorderPoint: null, sortOrder: null, isDefault: false
+      barcode: '', weight: null, dimensions: '', reorderPoint: null, sortOrder: null, isDefault: false,
+      isAvailableForRetail: false, isAvailableForPos: false, isAvailableForMirMiv: false,
+      isAvailableForProduction: false, isAvailableForServices: false
     });
     this.showVariantDialog = true;
   }
@@ -506,7 +534,12 @@ export class ProductDetailComponent implements OnInit {
       dimensions: variant.dimensions ?? '',
       reorderPoint: variant.reorderPoint ?? null,
       sortOrder: variant.sortOrder ?? null,
-      isDefault: variant.isDefault
+      isDefault: variant.isDefault,
+      isAvailableForRetail: variant.isAvailableForRetail,
+      isAvailableForPos: variant.isAvailableForPos,
+      isAvailableForMirMiv: variant.isAvailableForMirMiv,
+      isAvailableForProduction: variant.isAvailableForProduction,
+      isAvailableForServices: variant.isAvailableForServices
     });
     this.showVariantDialog = true;
   }
@@ -535,6 +568,11 @@ export class ProductDetailComponent implements OnInit {
       weight:        raw.weight ?? undefined,
       dimensions:    raw.dimensions || undefined,
       isDefault:     !!raw.isDefault,
+      isAvailableForRetail:     !!raw.isAvailableForRetail,
+      isAvailableForPos:        !!raw.isAvailableForPos,
+      isAvailableForMirMiv:     !!raw.isAvailableForMirMiv,
+      isAvailableForProduction: !!raw.isAvailableForProduction,
+      isAvailableForServices:   !!raw.isAvailableForServices,
       reorderPoint:  raw.reorderPoint ?? undefined,
       sortOrder:     raw.sortOrder ?? undefined
     };

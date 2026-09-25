@@ -109,8 +109,14 @@ public sealed class MaterialIssueVoucherTests : IClassFixture<ProcurementCycleWe
             new SMS.Modules.Suppliers.Models.CreateSupplierRequest { SupplierName = $"MIV Supplier {tag}", SupplierCode = $"S{tag}" });
 
         var name    = $"MIV Bolt {tag}";
-        var created = await PostAsync<System.Text.Json.JsonElement>("/api/products",
-            new CreateProductRequest { Name = name, PurchasePrice = 10m, SellingPrice = 12m });
+        // Explicit variant, not the top-level PurchasePrice/SellingPrice fallback: the auto-created
+        // default variant that fallback builds starts unchecked for every channel, and this product
+        // is about to be issued on an MIR.
+        var created = await PostAsync<System.Text.Json.JsonElement>("/api/products", new CreateProductRequest
+        {
+            Name = name,
+            Variants = [new CreateProductVariantRequest { VariantName = name, PurchasePrice = 10m, SellingPrice = 12m, IsDefault = true, IsAvailableForMirMiv = true }]
+        });
         var productId = created.GetProperty("id").GetInt32();
         var variant   = (await GetAsync<ProductDetailModel>($"/api/products/{productId}")).Variants.Single();
 

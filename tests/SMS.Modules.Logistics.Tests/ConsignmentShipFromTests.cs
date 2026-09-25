@@ -46,18 +46,41 @@ public class ConsignmentShipFromTests
     }
 
     private sealed record Harness(
-        LogisticsDbContext Db, FakeWarehouses Warehouses, ConsignmentShipFrom ShipFrom,
-        StaticTenantContext Tenant);
+        LogisticsDbContext Db, FakeWarehouses Warehouses, FakeStockReservationService Reservations,
+        ConsignmentShipFrom ShipFrom, StaticTenantContext Tenant);
 
     private static Harness NewHarness()
     {
         var (db, tenant, _) = LogisticsTestDb.New();
-        var warehouses = new FakeWarehouses().With(Faisalabad);
+        var warehouses   = new FakeWarehouses().With(Faisalabad);
+        var reservations = new FakeStockReservationService();
 
         var shipFrom = new ConsignmentShipFrom(
-            db, warehouses, new AddressNormalizer(new FakeCityLookup()), NullLogger<ConsignmentShipFrom>.Instance);
+            db, warehouses, reservations, new AddressNormalizer(new FakeCityLookup()),
+            NullLogger<ConsignmentShipFrom>.Instance);
 
-        return new Harness(db, warehouses, shipFrom, tenant);
+        return new Harness(db, warehouses, reservations, shipFrom, tenant);
+    }
+
+    /// <summary>
+    /// Stands in for a delivery's own reservation — active or already consumed, exactly as a real
+    /// delivery's hold is by the time a consignment exists and goods issue has closed it.
+    /// </summary>
+    private static async Task SeedReservation(
+        Harness h, Guid deliveryUuid, Guid warehouseUuid, string warehouseName = "Some Warehouse",
+        bool consumed = true)
+    {
+        var variantUuid = Guid.NewGuid();
+        var location = new FakeStockReservationService.StockLocation(warehouseUuid, warehouseName);
+
+        h.Reservations.SetLayout(variantUuid, (location, 5m));
+
+        await h.Reservations.ReserveAsync(
+            ReservationSourceType.Delivery, deliveryUuid,
+            [new ReservationRequest(variantUuid, warehouseUuid, 5m)], User);
+
+        if (consumed)
+            await h.Reservations.ConsumeBySourceAsync(ReservationSourceType.Delivery, deliveryUuid, User);
     }
 
     private static async Task<Guid> NewDelivery(
@@ -264,13 +287,130 @@ public class ConsignmentShipFromTests
     // ── When it has to say no ─────────────────────────────────────────────────
 
     [Fact]
-    public async Task A_delivery_that_names_no_warehouse_cannot_supply_one()
+    public async Task A_delivery_with_no_warehouse_on_its_header_and_no_reservation_cannot_supply_one()
     {
         var h = NewHarness();
         var consignment = await NewConsignment(h, [await NewDelivery(h, warehouse: null)]);
 
         (await h.ShipFrom.EnsureAsync(consignment, User)).Should().BeFalse();
         consignment.ShipFromAddress.Should().BeNull();
+    }
+
+    // ── Falling back to the delivery's own reservation ────────────────────────
+    //
+    // Most sale-order deliveries never had ShipFromWarehouseUuid populated on the header — 20 of 24 real
+    // deliveries checked in production had it blank — even though real stock moved for a real warehouse.
+    // The delivery's own reservation is where that truth actually lives.
+
+    [Fact]
+    public async Task A_blank_header_falls_back_to_the_deliverys_own_consumed_reservation()
+    {
+        // CONSUMED is the normal state here: goods issue has already closed the hold by the time a
+        // consignment exists, and this is still the truest record of where the stock came from.
+        var h = NewHarness();
+        var delivery = await NewDelivery(h, warehouse: null);
+        await SeedReservation(h, delivery, Faisalabad, "Faisalabad", consumed: true);
+
+        var consignment = await NewConsignment(h, [delivery]);
+
+        (await h.ShipFrom.EnsureAsync(consignment, User)).Should().BeTrue();
+        await h.Db.SaveChangesAsync();
+
+        var stored = await h.Db.Consignments.AsNoTracking().Include(c => c.ShipFromAddress)
+            .SingleAsync(c => c.UUID == consignment.UUID);
+
+        stored.ShipFromAddress!.CityName.Should().Be("Faisalabad");
+    }
+
+    [Fact]
+    public async Task An_active_not_yet_consumed_reservation_works_the_same_way()
+    {
+        var h = NewHarness();
+        var delivery = await NewDelivery(h, warehouse: null);
+        await SeedReservation(h, delivery, Faisalabad, "Faisalabad", consumed: false);
+
+        var consignment = await NewConsignment(h, [delivery]);
+
+        (await h.ShipFrom.EnsureAsync(consignment, User)).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task The_headers_own_warehouse_is_used_without_even_looking_at_reservations()
+    {
+        var h = NewHarness();
+        var delivery = await NewDelivery(h, Faisalabad);
+        // A reservation naming a different warehouse must never override what the header states.
+        await SeedReservation(h, delivery, Guid.NewGuid(), "Somewhere Else");
+
+        var consignment = await NewConsignment(h, [delivery]);
+
+        (await h.ShipFrom.EnsureAsync(consignment, User)).Should().BeTrue();
+        await h.Db.SaveChangesAsync();
+
+        (await h.Db.Consignments.AsNoTracking().Include(c => c.ShipFromAddress).SingleAsync(c => c.UUID == consignment.UUID))
+            .ShipFromAddress!.CityName.Should().Be("Faisalabad");
+    }
+
+    [Fact]
+    public async Task Two_deliveries_that_each_fall_back_to_the_same_warehouse_still_share_one_address()
+    {
+        var h = NewHarness();
+        var first  = await NewDelivery(h, warehouse: null);
+        var second = await NewDelivery(h, warehouse: null);
+        await SeedReservation(h, first, Faisalabad, "Faisalabad");
+        await SeedReservation(h, second, Faisalabad, "Faisalabad");
+
+        var consignment = await NewConsignment(h, [first, second]);
+
+        (await h.ShipFrom.EnsureAsync(consignment, User)).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Falling_back_for_one_delivery_and_reading_the_header_for_another_still_has_to_agree()
+    {
+        var h = NewHarness();
+        h.Warehouses.With(Lahore, "Ferozepur Road", "Lahore");
+
+        var fromHeader      = await NewDelivery(h, Lahore);
+        var fromReservation = await NewDelivery(h, warehouse: null);
+        await SeedReservation(h, fromReservation, Faisalabad, "Faisalabad");
+
+        var consignment = await NewConsignment(h, [fromHeader, fromReservation]);
+
+        (await h.ShipFrom.EnsureAsync(consignment, User)).Should().BeFalse(
+            "Lahore from the header and Faisalabad from the reservation are still two different warehouses");
+    }
+
+    [Fact]
+    public async Task A_reservation_split_across_two_warehouses_on_one_delivery_is_treated_as_no_answer()
+    {
+        var h = NewHarness();
+        var delivery = await NewDelivery(h, warehouse: null);
+
+        var variantUuid = Guid.NewGuid();
+        h.Reservations.SetLayout(variantUuid,
+            (new FakeStockReservationService.StockLocation(Faisalabad, "Faisalabad"), 3m),
+            (new FakeStockReservationService.StockLocation(Lahore, "Lahore"), 2m));
+        await h.Reservations.ReserveAsync(
+            ReservationSourceType.Delivery, delivery,
+            [new ReservationRequest(variantUuid, null, 5m)], User);
+
+        var consignment = await NewConsignment(h, [delivery]);
+
+        (await h.ShipFrom.EnsureAsync(consignment, User)).Should().BeFalse();
+        consignment.ShipFromAddress.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task A_delivery_with_a_reservation_for_a_warehouse_that_no_longer_exists_cannot_supply_one()
+    {
+        var h = NewHarness();
+        var delivery = await NewDelivery(h, warehouse: null);
+        await SeedReservation(h, delivery, Guid.NewGuid(), "Deleted Warehouse");
+
+        var consignment = await NewConsignment(h, [delivery]);
+
+        (await h.ShipFrom.EnsureAsync(consignment, User)).Should().BeFalse();
     }
 
     [Fact]

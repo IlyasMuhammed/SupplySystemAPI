@@ -13,16 +13,18 @@ internal sealed class SupplierSelectionService : ISupplierSelectionService
     private readonly IVariantSupplierService _rates;
     private readonly IOrgChartService _orgChart;
     private readonly INotificationService _notifications;
+    private readonly IProductVariantResolver _variants;
     private readonly ILogger<SupplierSelectionService> _log;
 
     public SupplierSelectionService(
         ISaleOrderConfigService config, IVariantSupplierService rates, IOrgChartService orgChart,
-        INotificationService notifications, ILogger<SupplierSelectionService> log)
+        INotificationService notifications, IProductVariantResolver variants, ILogger<SupplierSelectionService> log)
     {
         _config        = config;
         _rates         = rates;
         _orgChart      = orgChart;
         _notifications = notifications;
+        _variants      = variants;
         _log           = log;
     }
 
@@ -126,24 +128,31 @@ internal sealed class SupplierSelectionService : ISupplierSelectionService
 
     // §3.3 — "MANUAL: no auto-PO; create a notification/task for the supply team." No dedicated
     // task-tracking table exists anywhere in this codebase, so this is a real notification through
-    // the same pipeline A29-P4-07 uses, to the same "intimation department" SaleOrderConfig already
-    // carries — there is no separate "supply team" concept to resolve instead. Silently does nothing
-    // if the org has no intimation department configured or it has no head: never throws, since a
+    // the same pipeline A29-P4-07 uses, to the intimation department when the organization has one
+    // configured with a head — and to whoever confirmed the sale order otherwise, so a line stuck
+    // needing a manual supplier is never something nobody was ever told about. Never throws: a
     // failed notification must not be the reason a caller can't finish confirming a sale order.
     private async Task NotifySupplyTeamAsync(
         SaleOrderConfigModel config, Guid variantUuid, decimal quantity, int userId, string reason)
     {
         try
         {
-            if (config.IntimationDepartmentId is not { } deptId) return;
-            var head = await _orgChart.GetDepartmentHeadAsync(deptId);
-            if (head is null) return;
+            var head = config.IntimationDepartmentId is { } deptId
+                ? await _orgChart.GetDepartmentHeadAsync(deptId)
+                : null;
+            var recipientId = head?.UserId ?? userId;
+
+            // Named for the reader, not the database — an id means nothing to whoever has to act
+            // on this. Falls back to the id only if the variant cannot be resolved (deleted since,
+            // or the resolver has nothing for it), so the notification is never simply dropped.
+            var described = await _variants.DescribeVariantsAsync([variantUuid]);
+            var itemName = described.TryGetValue(variantUuid, out var variant) ? variant.DisplayName : variantUuid.ToString();
 
             await _notifications.TryCreateAsync(new NotificationRequest(
-                UserId:    head.UserId,
+                UserId:    recipientId,
                 Type:      "SUPPLIER_SELECTION_MANUAL",
                 Title:     "Supplier Selection Needed",
-                Message:   $"No supplier could be auto-selected for variant {variantUuid} (qty {quantity:0.####}). {reason}",
+                Message:   $"No supplier could be auto-selected for {itemName} (qty {quantity:0.####}). {reason}",
                 Category:  "Demand",
                 CreatedBy: userId,
                 SendEmail: true));

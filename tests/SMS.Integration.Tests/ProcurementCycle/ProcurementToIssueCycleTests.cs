@@ -109,9 +109,10 @@ public sealed class ProcurementToIssueCycleTests : IClassFixture<ProcurementCycl
             CategoryId = categoryId,
             Variants =
             [
-                new CreateProductVariantRequest { Sku = "DELL-5450-I5-8-256",  VariantName = "i5 / 8GB / 256GB",  PurchasePrice = 85000m,  IsDefault = true,  SortOrder = 1 },
-                new CreateProductVariantRequest { Sku = "DELL-5450-I5-16-512", VariantName = "i5 / 16GB / 512GB", PurchasePrice = 95000m,  IsDefault = false, SortOrder = 2 },
-                new CreateProductVariantRequest { Sku = "DELL-5450-I7-16-512", VariantName = "i7 / 16GB / 512GB", PurchasePrice = 135000m, IsDefault = false, SortOrder = 3 },
+                // MIR/MIV-eligible: STEP 5 below issues Dell stock through an MIR.
+                new CreateProductVariantRequest { Sku = "DELL-5450-I5-8-256",  VariantName = "i5 / 8GB / 256GB",  PurchasePrice = 85000m,  IsDefault = true,  SortOrder = 1, IsAvailableForMirMiv = true },
+                new CreateProductVariantRequest { Sku = "DELL-5450-I5-16-512", VariantName = "i5 / 16GB / 512GB", PurchasePrice = 95000m,  IsDefault = false, SortOrder = 2, IsAvailableForMirMiv = true },
+                new CreateProductVariantRequest { Sku = "DELL-5450-I7-16-512", VariantName = "i7 / 16GB / 512GB", PurchasePrice = 135000m, IsDefault = false, SortOrder = 3, IsAvailableForMirMiv = true },
             ]
         });
         createProductResp.StatusCode.Should().Be(HttpStatusCode.OK,
@@ -347,6 +348,15 @@ public sealed class ProcurementToIssueCycleTests : IClassFixture<ProcurementCycl
         cementDetail.Variants.Should().HaveCount(1, "a simple product auto-creates exactly one default variant");
         var cementVariant = cementDetail.Variants.Single();
         cementVariant.IsDefault.Should().BeTrue();
+
+        // The auto-created default variant starts checked for no channel — STEP 8 below issues it
+        // through an MIR, same real step a person would take via the variant's edit dialog.
+        var cementPatchResp = await _client.PatchAsJsonAsync($"/api/variants/{cementVariant.Uuid}", new CreateProductVariantRequest
+        {
+            Sku = cementVariant.Sku, VariantName = cementVariant.VariantName, PurchasePrice = cementVariant.PurchasePrice,
+            SellingPrice = cementVariant.SellingPrice, IsDefault = cementVariant.IsDefault, IsAvailableForMirMiv = true
+        });
+        cementPatchResp.StatusCode.Should().Be(HttpStatusCode.OK);
 
         // PO — kept under PV-009's own PO tiering thresholds (<10,000) so only the always-live
         // PROCUREMENT_MANAGER tier fires, proving the cycle completes with no variant-picker/

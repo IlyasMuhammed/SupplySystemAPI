@@ -429,6 +429,12 @@ internal sealed class MirRepository : IMirRepository
             var variant = variants.FirstOrDefault(v => v.Uuid == l.VariantUuid)
                 ?? throw new NotFoundException($"Variant '{l.VariantUuid}' not found or inactive.");
 
+            if (!variant.IsAvailableForMirMiv)
+            {
+                var name = variant.IsDefault ? variant.Product.Name : $"{variant.Product.Name} ({variant.VariantName})";
+                throw new BadRequestException($"'{name}' is not available for MIR/MIV.");
+            }
+
             int? prLineId = null;
             if (l.PrLineId.HasValue)
             {

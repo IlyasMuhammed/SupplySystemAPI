@@ -15,6 +15,14 @@ namespace SMS.Modules.Logistics.Services;
 /// leaves from — and a warehouse has an address. So when a consignment has no ship-from address of its
 /// own, one is built from that warehouse.
 /// </para>
+/// <para>
+/// <b>The delivery's own <c>ShipFromWarehouseUuid</c> is not always populated</b> — most deliveries
+/// raised from a sale order predate this being load-bearing, and the field that was meant to carry it
+/// can come back blank even though real stock moved for a real warehouse. Where that happens, the
+/// delivery's own reservation says where the stock actually came from, active or already consumed —
+/// consumed is the normal state by the time a consignment exists, since goods issue closes the hold —
+/// and that is the truth a carrier needs, not a second guess.
+/// </para>
 /// </summary>
 internal interface IConsignmentShipFrom
 {
@@ -35,17 +43,19 @@ internal sealed class ConsignmentShipFrom : IConsignmentShipFrom
 {
     private readonly LogisticsDbContext               _db;
     private readonly IWarehouseDirectory              _warehouses;
+    private readonly IStockReservationService         _reservations;
     private readonly IAddressNormalizer               _addresses;
     private readonly ILogger<ConsignmentShipFrom>     _log;
 
     public ConsignmentShipFrom(
-        LogisticsDbContext db, IWarehouseDirectory warehouses, IAddressNormalizer addresses,
-        ILogger<ConsignmentShipFrom> log)
+        LogisticsDbContext db, IWarehouseDirectory warehouses, IStockReservationService reservations,
+        IAddressNormalizer addresses, ILogger<ConsignmentShipFrom> log)
     {
-        _db         = db;
-        _warehouses = warehouses;
-        _addresses  = addresses;
-        _log        = log;
+        _db           = db;
+        _warehouses   = warehouses;
+        _reservations = reservations;
+        _addresses    = addresses;
+        _log          = log;
     }
 
     public async Task<bool> EnsureAsync(Consignment consignment, int userId, CancellationToken ct = default)
@@ -60,23 +70,34 @@ internal sealed class ConsignmentShipFrom : IConsignmentShipFrom
             var leaving = await _db.ConsignmentDeliveries
                 .AsNoTracking()
                 .Where(l => l.ConsignmentId == consignment.Id && !l.DeliveryOrder.IsDelete)
-                .Select(l => new { l.DeliveryOrder.ShipFromAddressId, l.DeliveryOrder.ShipFromWarehouseUuid })
+                .Select(l => new
+                {
+                    l.DeliveryOrder.UUID,
+                    l.DeliveryOrder.ShipFromAddressId,
+                    l.DeliveryOrder.ShipFromWarehouseUuid
+                })
                 .ToListAsync(ct);
 
             // A delivery with its own address is the better answer: it is where this delivery was
             // said to leave from, and the booking takes it from there.
             if (leaving.Any(l => l.ShipFromAddressId is not null)) return true;
 
-            var warehouseUuids = leaving
-                .Where(l => l.ShipFromWarehouseUuid is not null)
-                .Select(l => l.ShipFromWarehouseUuid!.Value)
-                .Distinct()
-                .ToList();
+            var warehouseUuids = new HashSet<Guid>();
 
-            // One consignment has one collection point. Two warehouses would mean guessing which.
+            foreach (var delivery in leaving)
+            {
+                var warehouseUuid = delivery.ShipFromWarehouseUuid
+                    ?? await WarehouseFromReservationAsync(delivery.UUID, ct);
+
+                if (warehouseUuid is { } found) warehouseUuids.Add(found);
+            }
+
+            // One consignment has one collection point. Two warehouses would mean guessing which —
+            // and a delivery that supplied neither a header value nor a resolvable reservation
+            // simply contributes nothing, which is what makes this a HashSet rather than a list.
             if (warehouseUuids.Count != 1) return false;
 
-            var warehouse = await _warehouses.FindAsync(warehouseUuids[0], ct);
+            var warehouse = await _warehouses.FindAsync(warehouseUuids.Single(), ct);
 
             if (warehouse is null
              || string.IsNullOrWhiteSpace(warehouse.Address)
@@ -113,6 +134,22 @@ internal sealed class ConsignmentShipFrom : IConsignmentShipFrom
                 consignment.ConsignmentNumber);
             return false;
         }
+    }
+
+    /// <summary>
+    /// The warehouse a delivery's own reservation names, when there is exactly one. Every status
+    /// counts, not only active — by the time a consignment exists the hold is usually CONSUMED,
+    /// goods issue having already closed it, and that is still the truest record of where the
+    /// stock came from. Two warehouses on one delivery's holds (which release does not allow, but
+    /// nothing enforces it can never happen) is treated the same as none: silence, not a guess.
+    /// </summary>
+    private async Task<Guid?> WarehouseFromReservationAsync(Guid deliveryUuid, CancellationToken ct)
+    {
+        var held = await _reservations.GetBySourceAsync(ReservationSourceType.Delivery, deliveryUuid, ct);
+
+        var warehouses = held.Select(r => r.WarehouseUuid).Distinct().ToList();
+
+        return warehouses.Count == 1 ? warehouses[0] : null;
     }
 
     private static string? Trim(string? value) =>

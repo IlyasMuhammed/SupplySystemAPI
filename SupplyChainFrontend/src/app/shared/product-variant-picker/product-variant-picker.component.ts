@@ -5,9 +5,19 @@ import { DropdownModule } from 'primeng/dropdown';
 import {
   InventoryService,
   ProductListItemModel,
-  ProductVariantModel
+  ProductVariantModel,
+  VariantAvailabilityChannel
 } from '../../services/inventory.service';
 import { AttachmentService } from '../../services/attachment.service';
+
+/** Which ProductVariantModel flag each channel reads, for filtering the variant dropdown by it. */
+const CHANNEL_FLAG: Record<VariantAvailabilityChannel, keyof ProductVariantModel> = {
+  RETAIL:     'isAvailableForRetail',
+  POS:        'isAvailableForPos',
+  MIR_MIV:    'isAvailableForMirMiv',
+  PRODUCTION: 'isAvailableForProduction',
+  SERVICES:   'isAvailableForServices'
+};
 
 export interface VariantPickerSelection {
   productUuid: string | null;
@@ -86,6 +96,10 @@ export class ProductVariantPickerComponent implements OnChanges {
   @Input() productUuid: string | null = null;
   @Input() variantUuid: string | null = null;
   @Input() required = false;
+  /** Restricts the variant dropdown to variants checked for this channel. The product list (Step 1)
+   *  is expected to already be filtered the same way by whoever loaded it — this only guards Step 2,
+   *  since one product can have both eligible and ineligible variants. */
+  @Input() channel: VariantAvailabilityChannel | null = null;
   @Output() selectionChange = new EventEmitter<VariantPickerSelection>();
 
   selectedProductUuid: string | null = null;
@@ -161,7 +175,8 @@ export class ProductVariantPickerComponent implements OnChanges {
 
     this.inventoryService.getProductById(product.id).subscribe({
       next: res => {
-        this.variants = res?.result?.variants ?? [];
+        const all = res?.result?.variants ?? [];
+        this.variants = this.channel ? all.filter(v => !!v[CHANNEL_FLAG[this.channel!]]) : all;
         const activeVariants = this.variants.filter(v => v.isActive);
 
         if (activeVariants.length <= 1) {

@@ -83,7 +83,8 @@ internal sealed class AutoPurchaseOrderService : IAutoPurchaseOrderService
         if (!names.TryGetValue(supplierId, out var supplierName))
             throw new NotFoundException("Supplier", supplierId);
 
-        // §3.4 — DRAFT_ONLY: PO DRAFT, no workflow. AUTO_SEND: PO APPROVED, no human review.
+        // §3.4 — DRAFT_ONLY: PO DRAFT, no workflow. AUTO_SEND: PO APPROVED then sent immediately,
+        // no human review — TrySendAsync below is what actually sends it once it exists.
         // REQUIRE_WORKFLOW: created as DRAFT and then genuinely submitted below, because
         // PENDING_APPROVAL with no approval record behind it would be a PO nobody can approve.
         // Anything unrecognised gets the safest treatment: a DRAFT nothing has been sent from.
@@ -140,6 +141,12 @@ internal sealed class AutoPurchaseOrderService : IAutoPurchaseOrderService
 
         var status = submit ? await TrySubmitForApprovalAsync(created.Uuid, userId, created.PoNumber) : initialStatus;
 
+        // §3.4 — "AUTO_SEND ... sent immediately." APPROVED alone still left it waiting for someone
+        // to press the same Send button a REQUIRE_WORKFLOW or DRAFT_ONLY PO needs — this is that
+        // button, pressed on the org's behalf the moment the PO exists.
+        if (config.AutoPoApprovalMode == AutoPoApprovalModes.AutoSend)
+            status = await TrySendAsync(created.Uuid, userId, created.PoNumber);
+
         // §6.3.1 — appended to the sale order's own trace, since the PO carries its trace id. The
         // organization goes to the job explicitly (§13.7), taken from the sale order itself rather
         // than the ambient tenant: this service runs inside AutoPoCreationJob, a Hangfire job with no
@@ -173,6 +180,27 @@ internal sealed class AutoPurchaseOrderService : IAutoPurchaseOrderService
             _log.LogError(ex,
                 "Auto-created PO {PoNumber} could not be submitted for approval and was left as a DRAFT.", poNumber);
             return "DRAFT";
+        }
+    }
+
+    // The PO is already APPROVED by now, so a failure here (SendAsync's own precondition, in a
+    // race) must not lose it — it stays APPROVED for the team to send themselves, same defensive
+    // shape as TrySubmitForApprovalAsync above. No supplier contact mobile is passed: the WhatsApp
+    // channel Send optionally triggers needs one typed in by a person, which nothing upstream of an
+    // auto-selected supplier ever captures.
+    private async Task<string> TrySendAsync(Guid poUuid, int userId, string poNumber)
+    {
+        try
+        {
+            await _purchaseOrders.SendAsync(poUuid, null, userId);
+            return await _db.PurchaseOrders.AsNoTracking()
+                .Where(p => p.UUID == poUuid).Select(p => p.Status).FirstAsync();
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex,
+                "Auto-created PO {PoNumber} could not be sent automatically and was left as APPROVED.", poNumber);
+            return "APPROVED";
         }
     }
 }

@@ -52,7 +52,8 @@ file static class Build
         product.Variants.Add(new ProductVariant
         {
             Uuid = Guid.NewGuid(), Sku = $"{sku}-DEFAULT", VariantName = name,
-            PurchasePrice = 1000m, IsDefault = true, IsActive = true, CreatedDate = DateTime.UtcNow
+            PurchasePrice = 1000m, IsDefault = true, IsActive = true, CreatedDate = DateTime.UtcNow,
+            IsAvailableForMirMiv = true
         });
         db.Products.Add(product);
         db.SaveChanges();

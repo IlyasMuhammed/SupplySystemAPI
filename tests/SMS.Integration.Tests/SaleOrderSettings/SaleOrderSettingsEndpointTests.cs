@@ -211,8 +211,9 @@ public sealed class SaleOrderSettingsEndpointTests : IClassFixture<ProcurementCy
         refusedOrder.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         (await refusedOrder.Content.ReadAsStringAsync()).Should().Contain("Customer pickup is switched off");
 
-        // With pickup back on, the same order gets past that rule and stops at the next one (no price for
-        // an item that does not exist), which shows it was the setting, and only the setting, refusing it.
+        // With pickup back on, the same order gets past that rule and stops at the next one (no
+        // channel availability for an item that does not exist), which shows it was the setting,
+        // and only the setting, refusing it the first time.
         await supply.PutAsJsonAsync(Config, Policy(
             autoPoEnabled: false, supplierSelectionMode: "MANUAL", autoPoApprovalMode: "DRAFT_ONLY",
             dropShipEnabled: true, selfPickupEnabled: true, defaultFulfillmentMode: "BACK_TO_BACK",
@@ -220,7 +221,7 @@ public sealed class SaleOrderSettingsEndpointTests : IClassFixture<ProcurementCy
             shipmentRequiredDefault: true));
         var later = await _admin.PostAsJsonAsync("/api/sale-orders", collected);
         later.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-        (await later.Content.ReadAsStringAsync()).Should().NotContain("Customer pickup is switched off").And.Contain("sale price");
+        (await later.Content.ReadAsStringAsync()).Should().NotContain("Customer pickup is switched off").And.Contain("not available for retail sale");
     }
 
     [Fact]

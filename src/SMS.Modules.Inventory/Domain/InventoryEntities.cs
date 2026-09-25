@@ -95,6 +95,17 @@ internal class ProductVariant : ITenantScopedEntity
     public string?  Dimensions     { get; set; }
     public bool     IsDefault      { get; set; }
     public bool     IsActive       { get; set; } = true;
+
+    // Which channels/documents this variant may be used from. Independent flags, not a single
+    // type: a variant can serve several at once (e.g. sold at retail and consumed on a production
+    // order). Unchecked by default — a variant claims a channel only once someone has verified it
+    // belongs there, never automatically for the whole existing catalog when this was added.
+    public bool     IsAvailableForRetail     { get; set; }
+    public bool     IsAvailableForPos        { get; set; }
+    public bool     IsAvailableForMirMiv     { get; set; }
+    public bool     IsAvailableForProduction { get; set; }
+    public bool     IsAvailableForServices   { get; set; }
+
     public decimal? ReorderPoint   { get; set; }
     public int?     SortOrder      { get; set; }
     public DateTime CreatedDate    { get; set; } = DateTime.UtcNow;

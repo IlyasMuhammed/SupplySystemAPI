@@ -162,7 +162,7 @@ export class SaleOrderFormComponent implements OnInit {
       }
     });
 
-    this.inventoryService.getProducts({ activeOnly: true, pageSize: 500 }).subscribe({
+    this.inventoryService.getProducts({ activeOnly: true, pageSize: 500, availableFor: 'RETAIL' }).subscribe({
       next: (res) => { this.products = res.result?.data ?? []; },
       error: () => this.messageService.add({ severity: 'error', summary: 'Error', detail: 'The product list could not be loaded.' })
     });

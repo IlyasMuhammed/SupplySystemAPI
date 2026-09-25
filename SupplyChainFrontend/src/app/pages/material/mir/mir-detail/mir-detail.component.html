@@ -158,6 +158,7 @@
               *ngIf="!line.isExisting"
               [products]="editProducts"
               [required]="true"
+              channel="MIR_MIV"
               (selectionChange)="onEditVariantSelected(i, $event)">
             </app-product-variant-picker>
 

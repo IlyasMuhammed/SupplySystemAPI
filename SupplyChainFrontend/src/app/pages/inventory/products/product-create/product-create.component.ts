@@ -171,7 +171,12 @@ export class ProductCreateComponent implements OnInit {
       sellingPrice:  [null, [Validators.min(0), Validators.max(100000000)]],
       barcode:       [''],
       weight:        [null, Validators.min(0)],
-      reorderPoint:  [null, Validators.min(0)]
+      reorderPoint:  [null, Validators.min(0)],
+      isAvailableForRetail:     [false],
+      isAvailableForPos:        [false],
+      isAvailableForMirMiv:     [false],
+      isAvailableForProduction: [false],
+      isAvailableForServices:   [false]
     });
   }
 
@@ -379,7 +384,12 @@ export class ProductCreateComponent implements OnInit {
       const extraVariants = this.variants.value as Array<{
         variantName: string; sku: string; purchasePrice: number; sellingPrice: number | null;
         barcode: string; weight: number | null; reorderPoint: number | null;
+        isAvailableForRetail: boolean; isAvailableForPos: boolean; isAvailableForMirMiv: boolean;
+        isAvailableForProduction: boolean; isAvailableForServices: boolean;
       }>;
+      // The product-level form has no channel checkboxes of its own, so the variant synthesized
+      // from it starts available nowhere — same as any other freshly created variant, editable
+      // afterwards from the product's own Variants tab.
       const variantsPayload: CreateProductVariantRequest[] | undefined = extraVariants.length > 0
         ? [
             {
@@ -388,7 +398,9 @@ export class ProductCreateComponent implements OnInit {
               purchasePrice: raw.purchasePrice,
               sellingPrice:  raw.sellingPrice ?? undefined,
               barcode:       raw.barcode || undefined,
-              isDefault:     true
+              isDefault:     true,
+              isAvailableForRetail: false, isAvailableForPos: false, isAvailableForMirMiv: false,
+              isAvailableForProduction: false, isAvailableForServices: false
             },
             ...extraVariants.map(v => ({
               variantName:   v.variantName,
@@ -398,7 +410,12 @@ export class ProductCreateComponent implements OnInit {
               barcode:       v.barcode || undefined,
               weight:        v.weight ?? undefined,
               reorderPoint:  v.reorderPoint ?? undefined,
-              isDefault:     false
+              isDefault:     false,
+              isAvailableForRetail:     !!v.isAvailableForRetail,
+              isAvailableForPos:        !!v.isAvailableForPos,
+              isAvailableForMirMiv:     !!v.isAvailableForMirMiv,
+              isAvailableForProduction: !!v.isAvailableForProduction,
+              isAvailableForServices:   !!v.isAvailableForServices
             }))
           ]
         : undefined;

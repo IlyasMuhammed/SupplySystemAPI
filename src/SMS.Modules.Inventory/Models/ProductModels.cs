@@ -149,6 +149,11 @@ public class ProductVariantModel
     public string? Dimensions { get; set; }
     public bool IsDefault { get; set; }
     public bool IsActive { get; set; }
+    public bool IsAvailableForRetail { get; set; }
+    public bool IsAvailableForPos { get; set; }
+    public bool IsAvailableForMirMiv { get; set; }
+    public bool IsAvailableForProduction { get; set; }
+    public bool IsAvailableForServices { get; set; }
     public decimal? ReorderPoint { get; set; }
     public int? SortOrder { get; set; }
     public DateTime CreatedDate { get; set; }
@@ -227,6 +232,11 @@ public class CreateProductVariantRequest
     public decimal? Weight { get; set; }
     public string? Dimensions { get; set; }
     public bool IsDefault { get; set; }
+    public bool IsAvailableForRetail { get; set; }
+    public bool IsAvailableForPos { get; set; }
+    public bool IsAvailableForMirMiv { get; set; }
+    public bool IsAvailableForProduction { get; set; }
+    public bool IsAvailableForServices { get; set; }
     public decimal? ReorderPoint { get; set; }
     public int? SortOrder { get; set; }
 }
@@ -264,6 +274,9 @@ public class ProductListFilter
     public string? Status { get; set; }
     public string? Search { get; set; }
     public bool ActiveOnly { get; set; } = true;
+    // A SMS.Shared.Common.VariantAvailabilityChannel value — only products with at least one
+    // active variant checked for that channel are returned. Null/omitted means no such filtering.
+    public string? AvailableFor { get; set; }
     public int Page { get; set; } = 1;
     public int PageSize { get; set; } = 20;
 }

@@ -138,6 +138,7 @@
               <app-product-variant-picker [products]="products"
                                           [productUuid]="lineControl(i, 'productUuid').value"
                                           [variantUuid]="lineControl(i, 'variantUuid').value"
+                                          channel="RETAIL"
                                           (selectionChange)="onLineVariantSelected(i, $event)"></app-product-variant-picker>
             </ng-container>
             <ng-template #fixedItem>

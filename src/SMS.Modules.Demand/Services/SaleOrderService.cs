@@ -27,18 +27,21 @@ internal sealed class SaleOrderService : ISaleOrderService
     private readonly IPurchaseOrderService _purchaseOrders;
     private readonly ISaleOrderEmailService _emailService;
     private readonly IProductVariantResolver? _variants;
+    private readonly IVariantAvailabilityService? _availability;
 
-    // The resolver is optional the way InventoryLedgerService's master ledger is: production DI
-    // always supplies it (Inventory registers it), and a line read without one simply carries no
-    // description rather than failing.
+    // Both are optional the way InventoryLedgerService's master ledger is: production DI always
+    // supplies them (Inventory registers both), and a caller without one gets the same behaviour
+    // this codebase already had before either existed — no description, no channel check — rather
+    // than failing.
     public SaleOrderService(
         DemandDbContext db, ITenantContext tenantContext, IOrganizationCurrencyService orgCurrency,
         IDocumentNumberGenerator numberGenerator, IPricingService pricing, IStockReservationService stock,
         ITimelineService timeline, IBackgroundJobClient jobs, IAvailabilityCheckService availabilityCheck,
         IPurchaseOrderService purchaseOrders, ISaleOrderEmailService emailService,
-        IProductVariantResolver? variants = null)
+        IProductVariantResolver? variants = null, IVariantAvailabilityService? availability = null)
     {
         _variants           = variants;
+        _availability       = availability;
         _db                 = db;
         _tenantContext      = tenantContext;
         _orgCurrency        = orgCurrency;
@@ -382,6 +385,14 @@ internal sealed class SaleOrderService : ISaleOrderService
             throw new BadRequestException("Every sale order line needs a variant.");
         if (lineReq.Quantity <= 0)
             throw new BadRequestException("Every sale order line's quantity must be greater than zero.");
+
+        if (_availability is not null)
+        {
+            var availability = await _availability.GetAvailabilityAsync(lineReq.VariantUuid);
+            if (availability is null || !availability.IsAvailableForRetail)
+                throw new BadRequestException(
+                    $"{availability?.DisplayName ?? lineReq.VariantUuid.ToString()} is not available for retail sale.");
+        }
 
         var resolution = await _pricing.ResolveSalePriceAsync(lineReq.VariantUuid, partnerId, lineReq.Quantity, orderDate);
         if (!resolution.Found || resolution.UnitPrice is not { } unitPrice)

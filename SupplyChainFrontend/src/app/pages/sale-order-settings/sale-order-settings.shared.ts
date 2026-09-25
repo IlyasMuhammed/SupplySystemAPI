@@ -61,8 +61,8 @@ export const APPROVAL_MODE_OPTIONS: ChoiceOption[] = [
     description: 'Left as a draft for the team to review and change, then submit or send themselves.'
   },
   {
-    value: 'AUTO_SEND', label: 'Approve automatically', caution: true,
-    description: 'Approved with no human review. Use it only when you trust the supplier selection above.'
+    value: 'AUTO_SEND', label: 'Approve and send automatically', caution: true,
+    description: 'Approved and sent to the supplier immediately, with no human review. Use it only when you trust the supplier selection above.'
   }
 ];
 
@@ -291,7 +291,7 @@ export function impactNotes(before: SettingsValue, after: SettingsValue): Impact
       && (before.autoPoApprovalMode !== 'AUTO_SEND' || !before.autoPoEnabled)) {
     notes.push({
       severity: 'warn',
-      text: 'Purchase orders raised for shortfalls will be approved with no human review.'
+      text: 'Purchase orders raised for shortfalls will be approved and sent to the supplier immediately, with no human review.'
     });
   }
   if (before.autoPoEnabled && !after.autoPoEnabled) {

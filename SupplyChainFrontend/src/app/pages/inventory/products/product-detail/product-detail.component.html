@@ -222,7 +222,7 @@
           </p-button>
         </div>
 
-        <p-table [value]="product.variants" styleClass="p-datatable-sm p-datatable-gridlines" [tableStyle]="{'min-width':'60rem'}">
+        <p-table [value]="product.variants" styleClass="p-datatable-sm p-datatable-gridlines" [tableStyle]="{'min-width':'72rem'}">
           <ng-template pTemplate="header">
             <tr>
               <th>SKU</th>
@@ -230,6 +230,7 @@
               <th class="text-right">Purchase Price</th>
               <th class="text-right">Selling Price</th>
               <th>Barcode</th>
+              <th style="width:180px">Available For</th>
               <th style="width:100px">Default</th>
               <th style="width:100px">Status</th>
               <th style="width:110px; text-align:center">Actions</th>
@@ -242,6 +243,17 @@
               <td class="text-right">{{ variant.purchasePrice | number:'1.2-2' }}</td>
               <td class="text-right">{{ variant.sellingPrice != null ? (variant.sellingPrice | number:'1.2-2') : '—' }}</td>
               <td>{{ variant.barcode || '—' }}</td>
+              <td data-testid="variant-channel-tags">
+                <div style="display:flex; flex-wrap:wrap; gap:0.25rem">
+                  <span *ngIf="!variant.isAvailableForRetail && !variant.isAvailableForPos && !variant.isAvailableForMirMiv && !variant.isAvailableForProduction && !variant.isAvailableForServices"
+                        class="muted">—</span>
+                  <p-tag *ngIf="variant.isAvailableForRetail" value="Retail" severity="secondary"></p-tag>
+                  <p-tag *ngIf="variant.isAvailableForPos" value="POS" severity="secondary"></p-tag>
+                  <p-tag *ngIf="variant.isAvailableForMirMiv" value="MIR/MIV" severity="secondary"></p-tag>
+                  <p-tag *ngIf="variant.isAvailableForProduction" value="Production" severity="secondary"></p-tag>
+                  <p-tag *ngIf="variant.isAvailableForServices" value="Services" severity="secondary"></p-tag>
+                </div>
+              </td>
               <td>
                 <p-tag *ngIf="variant.isDefault" value="Default" severity="info"></p-tag>
               </td>
@@ -660,6 +672,14 @@
                             placeholder="Select UOM" [showClear]="true"
                             styleClass="w-full" appendTo="body"></p-dropdown>
               </div>
+              <div class="ef-field">
+                <label class="ef-label">Preferred Supplier</label>
+                <p-dropdown [options]="supplierOptions" formControlName="preferredSupplierId"
+                            optionLabel="label" optionValue="value"
+                            placeholder="Select supplier" [filter]="true" filterBy="label"
+                            [showClear]="true"
+                            styleClass="w-full" appendTo="body"></p-dropdown>
+              </div>
             </div>
           </div>
         </div>
@@ -914,6 +934,32 @@
       <div class="adj-field" style="flex-direction:row; align-items:center; gap:0.5rem; justify-content:flex-start; padding-top:1.4rem">
         <p-checkbox formControlName="isDefault" [binary]="true" inputId="variantIsDefault"></p-checkbox>
         <label for="variantIsDefault" class="adj-label" style="margin:0">Set as default variant</label>
+      </div>
+    </div>
+
+    <div class="adj-field">
+      <label class="adj-label">Available For</label>
+      <div style="display:flex; flex-wrap:wrap; gap:1rem; padding-top:0.375rem" data-testid="variant-channels">
+        <div style="display:flex; align-items:center; gap:0.5rem">
+          <p-checkbox formControlName="isAvailableForRetail" [binary]="true" inputId="variantAvailableRetail"></p-checkbox>
+          <label for="variantAvailableRetail" class="adj-label" style="margin:0">Retailer</label>
+        </div>
+        <div style="display:flex; align-items:center; gap:0.5rem">
+          <p-checkbox formControlName="isAvailableForPos" [binary]="true" inputId="variantAvailablePos"></p-checkbox>
+          <label for="variantAvailablePos" class="adj-label" style="margin:0">POS (Point of Sale)</label>
+        </div>
+        <div style="display:flex; align-items:center; gap:0.5rem">
+          <p-checkbox formControlName="isAvailableForMirMiv" [binary]="true" inputId="variantAvailableMirMiv"></p-checkbox>
+          <label for="variantAvailableMirMiv" class="adj-label" style="margin:0">MIR/MIV</label>
+        </div>
+        <div style="display:flex; align-items:center; gap:0.5rem">
+          <p-checkbox formControlName="isAvailableForProduction" [binary]="true" inputId="variantAvailableProduction"></p-checkbox>
+          <label for="variantAvailableProduction" class="adj-label" style="margin:0">Production</label>
+        </div>
+        <div style="display:flex; align-items:center; gap:0.5rem">
+          <p-checkbox formControlName="isAvailableForServices" [binary]="true" inputId="variantAvailableServices"></p-checkbox>
+          <label for="variantAvailableServices" class="adj-label" style="margin:0">Services</label>
+        </div>
       </div>
     </div>
 

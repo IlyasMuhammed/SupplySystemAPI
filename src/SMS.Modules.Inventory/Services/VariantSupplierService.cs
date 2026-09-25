@@ -471,8 +471,16 @@ internal sealed class VariantSupplierService : IVariantSupplierService
         target.ModifiedBy   = modifiedBy;
         target.ModifiedDate = now;
 
-        // Single SaveChangesAsync — clears every other supplier's preferred flag for this variant
-        // and sets this one, atomically.
+        // §3.3's DEFAULT_SUPPLIER auto-PO mode reads ProductVariant.DefaultSupplierId
+        // (GetDefaultSupplierIdAsync, A29-P5-02) — this is the only place a variant's default
+        // supplier is ever actually chosen, so it is kept in step with whichever rate is preferred
+        // here rather than left as a column nothing writes.
+        var variant = await _db.ProductVariants.FirstOrDefaultAsync(v => v.Id == target.VariantId);
+        if (variant is not null)
+            variant.DefaultSupplierId = target.SupplierId;
+
+        // Single SaveChangesAsync — clears every other supplier's preferred flag for this variant,
+        // sets this one, and updates the variant's default supplier, atomically.
         await _db.SaveChangesAsync();
         return true;
     }

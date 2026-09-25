@@ -330,7 +330,7 @@ export class MirDetailComponent implements OnInit {
     if (this.editProducts.length === 0 || this.editProjectOptions.length === 0) {
       this.isLoadingEditData = true;
       forkJoin({
-        products: this.inventoryService.getProducts({ activeOnly: true, pageSize: 500 }),
+        products: this.inventoryService.getProducts({ activeOnly: true, pageSize: 500, availableFor: 'MIR_MIV' }),
         projects: this.materialService.getProjects({ status: 'ACTIVE', pageSize: 200 })
       }).subscribe({
         next: ({ products, projects }) => {

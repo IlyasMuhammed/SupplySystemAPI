@@ -94,7 +94,7 @@ public class ConsignmentBookingTests
 
         IConsignmentShipFrom? shipFrom = warehouses is null
             ? null
-            : new ConsignmentShipFrom(db, warehouses, new AddressNormalizer(new FakeCityLookup()),
+            : new ConsignmentShipFrom(db, warehouses, new FakeStockReservationService(), new AddressNormalizer(new FakeCityLookup()),
                                       NullLogger<ConsignmentShipFrom>.Instance);
 
         var (booking, accounts, vault, sweep) = Build(db, tenant, registry, scheduler, config, shipFrom);

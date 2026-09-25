@@ -6,6 +6,7 @@ using SMS.Modules.Inventory.Data;
 using SMS.Modules.Inventory.Domain;
 using SMS.Modules.Inventory.Models;
 using SMS.Modules.Inventory.Services;
+using SMS.Shared.Common;
 using SMS.Shared.Exceptions;
 using SMS.Shared.Pagination;
 
@@ -275,6 +276,19 @@ internal sealed class InventoryRepository : IInventoryRepository
         if (!string.IsNullOrWhiteSpace(filter.Status))
             query = query.Where(p => p.Status == filter.Status);
 
+        if (!string.IsNullOrWhiteSpace(filter.AvailableFor))
+        {
+            query = filter.AvailableFor switch
+            {
+                VariantAvailabilityChannel.Retail     => query.Where(p => p.Variants.Any(v => v.IsActive && v.IsAvailableForRetail)),
+                VariantAvailabilityChannel.Pos        => query.Where(p => p.Variants.Any(v => v.IsActive && v.IsAvailableForPos)),
+                VariantAvailabilityChannel.MirMiv     => query.Where(p => p.Variants.Any(v => v.IsActive && v.IsAvailableForMirMiv)),
+                VariantAvailabilityChannel.Production => query.Where(p => p.Variants.Any(v => v.IsActive && v.IsAvailableForProduction)),
+                VariantAvailabilityChannel.Services   => query.Where(p => p.Variants.Any(v => v.IsActive && v.IsAvailableForServices)),
+                _ => throw new BadRequestException($"'{filter.AvailableFor}' is not a recognised availability channel.")
+            };
+        }
+
         if (!string.IsNullOrWhiteSpace(filter.Search))
         {
             var search = filter.Search.ToLower();
@@ -386,6 +400,11 @@ internal sealed class InventoryRepository : IInventoryRepository
                         Dimensions        = v.Dimensions,
                         IsDefault         = v.IsDefault,
                         IsActive          = v.IsActive,
+                        IsAvailableForRetail     = v.IsAvailableForRetail,
+                        IsAvailableForPos        = v.IsAvailableForPos,
+                        IsAvailableForMirMiv     = v.IsAvailableForMirMiv,
+                        IsAvailableForProduction = v.IsAvailableForProduction,
+                        IsAvailableForServices   = v.IsAvailableForServices,
                         ReorderPoint      = v.ReorderPoint,
                         SortOrder         = v.SortOrder,
                         CreatedDate       = v.CreatedDate
@@ -614,6 +633,11 @@ internal sealed class InventoryRepository : IInventoryRepository
                     Dimensions    = v.Dimensions,
                     IsDefault     = v.IsDefault,
                     IsActive      = true,
+                    IsAvailableForRetail     = v.IsAvailableForRetail,
+                    IsAvailableForPos        = v.IsAvailableForPos,
+                    IsAvailableForMirMiv     = v.IsAvailableForMirMiv,
+                    IsAvailableForProduction = v.IsAvailableForProduction,
+                    IsAvailableForServices   = v.IsAvailableForServices,
                     ReorderPoint  = v.ReorderPoint,
                     SortOrder     = v.SortOrder ?? i,
                     CreatedDate   = now,
@@ -743,6 +767,11 @@ internal sealed class InventoryRepository : IInventoryRepository
             Dimensions    = req.Dimensions,
             IsDefault     = req.IsDefault,
             IsActive      = true,
+            IsAvailableForRetail     = req.IsAvailableForRetail,
+            IsAvailableForPos        = req.IsAvailableForPos,
+            IsAvailableForMirMiv     = req.IsAvailableForMirMiv,
+            IsAvailableForProduction = req.IsAvailableForProduction,
+            IsAvailableForServices   = req.IsAvailableForServices,
             ReorderPoint  = req.ReorderPoint,
             SortOrder     = req.SortOrder ?? existingCount,
             CreatedDate   = DateTime.UtcNow,
@@ -781,6 +810,11 @@ internal sealed class InventoryRepository : IInventoryRepository
         variant.WeightKg      = req.Weight;
         variant.Dimensions    = req.Dimensions;
         variant.IsDefault     = req.IsDefault;
+        variant.IsAvailableForRetail     = req.IsAvailableForRetail;
+        variant.IsAvailableForPos        = req.IsAvailableForPos;
+        variant.IsAvailableForMirMiv     = req.IsAvailableForMirMiv;
+        variant.IsAvailableForProduction = req.IsAvailableForProduction;
+        variant.IsAvailableForServices   = req.IsAvailableForServices;
         variant.ReorderPoint  = req.ReorderPoint;
         variant.SortOrder     = req.SortOrder ?? variant.SortOrder;
 

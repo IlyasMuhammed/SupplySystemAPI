@@ -52,6 +52,9 @@ public static class InventoryModuleExtensions
         // Shared contract — lets other modules bridge product-scoped lines (supplier returns) to
         // the variant that actually holds stock, without a project reference to Inventory.
         services.AddScoped<IProductVariantResolver, ProductVariantResolver>();
+        // The "Available For" checkboxes on a variant, for a module (Demand's sale orders) that
+        // has to refuse selling one that was never marked available for that channel.
+        services.AddScoped<IVariantAvailabilityService, VariantAvailabilityService>();
         // The one place stock is held and released, for every module that needs to — deliveries
         // now, sales orders later. Keeps the reservation rows and InventoryItem.QtyReserved in
         // step, which is impossible if each consumer writes its own.

@@ -94,6 +94,11 @@ internal sealed class ProductVariantMap : IEntityTypeConfiguration<ProductVarian
         b.Property(x => x.ReorderPoint).HasColumnType("decimal(18,4)");
         b.Property(x => x.IsDefault).IsRequired();
         b.Property(x => x.IsActive).HasDefaultValue(true);
+        b.Property(x => x.IsAvailableForRetail).HasDefaultValue(false);
+        b.Property(x => x.IsAvailableForPos).HasDefaultValue(false);
+        b.Property(x => x.IsAvailableForMirMiv).HasDefaultValue(false);
+        b.Property(x => x.IsAvailableForProduction).HasDefaultValue(false);
+        b.Property(x => x.IsAvailableForServices).HasDefaultValue(false);
 
         // Composite, not global — each org curates its own SKU/barcode catalog. Barcode is
         // nullable, so the unique index is filtered to only non-null values (a NULL barcode

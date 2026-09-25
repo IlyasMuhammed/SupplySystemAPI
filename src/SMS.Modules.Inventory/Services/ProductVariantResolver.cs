@@ -51,3 +51,22 @@ internal sealed class ProductVariantResolver : IProductVariantResolver
         return matches.ToDictionary(m => m.VariantUuid);
     }
 }
+
+// Implements the SMS.Shared contract for the "Available For" checkboxes on ProductVariant, so a
+// module that never references Inventory (Demand's sale orders) can still refuse a variant that
+// was not checked for the channel it is being sold through.
+internal sealed class VariantAvailabilityService : IVariantAvailabilityService
+{
+    private readonly InventoryDbContext _db;
+
+    public VariantAvailabilityService(InventoryDbContext db) => _db = db;
+
+    public async Task<VariantChannelAvailability?> GetAvailabilityAsync(Guid variantUuid) =>
+        await _db.ProductVariants
+            .Where(v => v.Uuid == variantUuid && v.IsActive)
+            .Select(v => new VariantChannelAvailability(
+                v.IsDefault ? $"{v.Product.Name} ({v.Sku})" : $"{v.Product.Name} - {v.VariantName} ({v.Sku})",
+                v.IsAvailableForRetail, v.IsAvailableForPos, v.IsAvailableForMirMiv,
+                v.IsAvailableForProduction, v.IsAvailableForServices))
+            .FirstOrDefaultAsync();
+}

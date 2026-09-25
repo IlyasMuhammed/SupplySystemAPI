@@ -166,6 +166,7 @@ public class ProductsController : ControllerBase
         [FromQuery] int? categoryId,
         [FromQuery] string? status,
         [FromQuery] string? search,
+        [FromQuery] string? availableFor,
         [FromQuery] bool activeOnly = true,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20)
@@ -175,6 +176,7 @@ public class ProductsController : ControllerBase
             CategoryId = categoryId,
             Status = status,
             Search = search,
+            AvailableFor = availableFor,
             ActiveOnly = activeOnly,
             Page = page,
             PageSize = pageSize

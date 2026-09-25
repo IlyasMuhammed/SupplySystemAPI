@@ -165,7 +165,8 @@ public class SaleOrderBackToBackAcceptanceTests
             var email = new SaleOrderEmailService(
                 s.Demand, stock, config.Object, orgChart.Object, users.Object, names.Object, s.Jobs, NullLogger<SaleOrderEmailService>.Instance);
             var selection = new SupplierSelectionService(
-                config.Object, s.Rates.Object, orgChart.Object, s.Notifications.Object, NullLogger<SupplierSelectionService>.Instance);
+                config.Object, s.Rates.Object, orgChart.Object, s.Notifications.Object, Mock.Of<IProductVariantResolver>(),
+                NullLogger<SupplierSelectionService>.Instance);
             var autoPo = new AutoPurchaseOrderService(
                 s.Demand, poRepo, s.PurchaseOrders, config.Object, names.Object, s.Jobs, NullLogger<AutoPurchaseOrderService>.Instance);
             s.AutoPoJob = new AutoPoCreationJob(
