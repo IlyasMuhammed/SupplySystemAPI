@@ -91,6 +91,9 @@ export interface ProductListItemModel {
   status: string;
   isBatchTracked: boolean;
   isSerialTracked: boolean;
+  /** A30 §6 — see shared/product-classification.ts for the codes. */
+  productType?: string;
+  supplyMethod?: string;
   createdDate: string;
   variantCount: number;
   defaultVariantPurchasePrice?: number;
@@ -108,6 +111,12 @@ export interface ProductDetailModel extends ProductListItemModel {
   maxStockLevel?: number;
   leadTimeDays?: number;
   preferredSupplierId?: number;
+  isSaleable?: boolean;
+  isPurchasable?: boolean;
+  isStockable?: boolean;
+  isManufacturable?: boolean;
+  defaultProductionWarehouseId?: number;
+  defaultProductionWarehouseName?: string;
   notes?: string;
   updatedDate?: string;
   createdBy: number;
@@ -188,6 +197,9 @@ export interface ProductListFilter {
   search?: string;
   /** Only products with at least one active variant checked for this channel. */
   availableFor?: VariantAvailabilityChannel;
+  /** A30 §6 — product type / supply method codes. */
+  productType?: string;
+  supplyMethod?: string;
   activeOnly?: boolean;
   page?: number;
   pageSize?: number;
@@ -215,6 +227,14 @@ export interface CreateProductRequest {
   preferredSupplierId?: number;
   notes?: string;
   imageUrl?: string;
+
+  // A30 §6 — omitted: a purchased, saleable, stockable stock item.
+  productType?: string;
+  supplyMethod?: string;
+  isSaleable?: boolean;
+  isPurchasable?: boolean;
+  isStockable?: boolean;
+  defaultProductionWarehouseId?: number;
 
   // Variant seeding (PV-001) — supply Variants for a multi-SKU product (exactly one
   // isDefault=true), or omit it and supply purchasePrice for a single auto-created default
@@ -247,6 +267,25 @@ export interface PatchProductRequest {
   notes?: string;
   imageUrl?: string;
   status?: string;
+  // A30 §6 — overlaid on the current classification and validated as a whole on the server.
+  productType?: string;
+  supplyMethod?: string;
+  isSaleable?: boolean;
+  isPurchasable?: boolean;
+  isStockable?: boolean;
+  defaultProductionWarehouseId?: number;
+}
+
+// A30 §28.1 — PATCH /api/products/{id}/manufacturing-config. Flags left out are re-defaulted from
+// the new type on the server.
+export interface ManufacturingConfigRequest {
+  productType: string;
+  supplyMethod: string;
+  isSaleable?: boolean;
+  isPurchasable?: boolean;
+  isStockable?: boolean;
+  defaultProductionWarehouseId?: number;
+  leadTimeDays?: number;
 }
 
 // ── Dynamic Attributes (FSD Addendum 26 §4) ─────────────────────────────────────
@@ -617,6 +656,8 @@ export class InventoryService {
     if (filter.status)            params = params.set('status',       filter.status);
     if (filter.search)            params = params.set('search',       filter.search);
     if (filter.availableFor)      params = params.set('availableFor', filter.availableFor);
+    if (filter.productType)       params = params.set('productType',  filter.productType);
+    if (filter.supplyMethod)      params = params.set('supplyMethod', filter.supplyMethod);
     if (filter.activeOnly != null) params = params.set('activeOnly', String(filter.activeOnly));
     params = params.set('page',     String(filter.page     ?? 1));
     params = params.set('pageSize', String(filter.pageSize ?? 20));
@@ -635,6 +676,15 @@ export class InventoryService {
   }
   patchProduct(id: number, data: PatchProductRequest): Observable<ApiResponse> {
     return this.http.patch<ApiResponse>(`${this.base}/products/${id}`, data);
+  }
+  setManufacturingConfig(id: number, data: ManufacturingConfigRequest): Observable<ApiResponse> {
+    return this.http.patch<ApiResponse>(`${this.base}/products/${id}/manufacturing-config`, data);
+  }
+  /** Products a bill of materials or production order can be raised for (supply method MANUFACTURE). */
+  getManufacturableProducts(search?: string, page = 1, pageSize = 50): Observable<ApiResponse<PaginatedResponse<ProductListItemModel>>> {
+    let params = new HttpParams().set('page', String(page)).set('pageSize', String(pageSize));
+    if (search) params = params.set('search', search);
+    return this.http.get<ApiResponse<PaginatedResponse<ProductListItemModel>>>(`${this.base}/products/manufacturable`, { params });
   }
   deleteProduct(id: number): Observable<ApiResponse> {
     return this.http.delete<ApiResponse>(`${this.base}/products/${id}`);

@@ -289,6 +289,22 @@ internal sealed class InventoryRepository : IInventoryRepository
             };
         }
 
+        if (!string.IsNullOrWhiteSpace(filter.ProductType))
+        {
+            var productType = ProductClassificationRules.Normalise(filter.ProductType);
+            if (!ProductType.IsKnown(productType))
+                throw new BadRequestException($"'{filter.ProductType}' is not a product type.");
+            query = query.Where(p => p.ProductType == productType);
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.SupplyMethod))
+        {
+            var supplyMethod = ProductClassificationRules.Normalise(filter.SupplyMethod);
+            if (!SupplyMethod.IsKnown(supplyMethod))
+                throw new BadRequestException($"'{filter.SupplyMethod}' is not a supply method.");
+            query = query.Where(p => p.SupplyMethod == supplyMethod);
+        }
+
         if (!string.IsNullOrWhiteSpace(filter.Search))
         {
             var search = filter.Search.ToLower();
@@ -324,6 +340,8 @@ internal sealed class InventoryRepository : IInventoryRepository
                 Status          = p.Status,
                 IsBatchTracked  = p.IsBatchTracked,
                 IsSerialTracked = p.IsSerialTracked,
+                ProductType     = p.ProductType,
+                SupplyMethod    = p.SupplyMethod,
                 CreatedDate     = p.CreatedDate,
                 VariantCount    = p.Variants.Count,
                 ImageUrl        = p.ImageUrl,
@@ -373,6 +391,14 @@ internal sealed class InventoryRepository : IInventoryRepository
                 MaxStockLevel       = p.MaxStockLevel,
                 LeadTimeDays        = p.LeadTimeDays,
                 PreferredSupplierId = p.PreferredSupplierId,
+                ProductType         = p.ProductType,
+                SupplyMethod        = p.SupplyMethod,
+                IsSaleable          = p.IsSaleable,
+                IsPurchasable       = p.IsPurchasable,
+                IsStockable         = p.IsStockable,
+                IsManufacturable    = p.IsManufacturable,
+                DefaultProductionWarehouseId   = p.DefaultProductionWarehouseId,
+                DefaultProductionWarehouseName = p.DefaultProductionWarehouse != null ? p.DefaultProductionWarehouse.Name : null,
                 Notes               = p.Notes,
                 ImageUrl            = p.ImageUrl,
                 Status              = p.Status,
@@ -557,6 +583,10 @@ internal sealed class InventoryRepository : IInventoryRepository
             sku = req.Sku;
         }
 
+        var classification = await ResolveClassificationAsync(
+            req.ProductType, req.SupplyMethod, req.IsSaleable, req.IsPurchasable, req.IsStockable,
+            req.DefaultProductionWarehouseId, current: null, redefaultFlags: true);
+
         var entity = new Product
         {
             Sku                 = sku,
@@ -578,6 +608,13 @@ internal sealed class InventoryRepository : IInventoryRepository
             MaxStockLevel       = req.MaxStockLevel,
             LeadTimeDays        = req.LeadTimeDays,
             PreferredSupplierId = req.PreferredSupplierId,
+            ProductType         = classification.ProductType,
+            SupplyMethod        = classification.SupplyMethod,
+            IsSaleable          = classification.IsSaleable,
+            IsPurchasable       = classification.IsPurchasable,
+            IsStockable         = classification.IsStockable,
+            IsManufacturable    = classification.SupplyMethod == SupplyMethod.Manufacture,
+            DefaultProductionWarehouseId = classification.DefaultProductionWarehouseId,
             Notes               = req.Notes,
             ImageUrl            = req.ImageUrl,
             Status              = "ACTIVE",
@@ -586,11 +623,102 @@ internal sealed class InventoryRepository : IInventoryRepository
             CreatedBy           = userId
         };
 
-        entity.Variants = await BuildVariantsAsync(req, sku, userId);
+        entity.Variants = await BuildVariantsAsync(req, sku, userId, classification.ProductType);
 
         _db.Products.Add(entity);
         await _db.SaveChangesAsync();
         return (entity.Id, entity.Sku);
+    }
+
+    // ── Manufacturing classification (A30 §6) ─────────────────────────────────
+
+    private sealed record Classification(
+        string ProductType, string SupplyMethod,
+        bool IsSaleable, bool IsPurchasable, bool IsStockable,
+        int? DefaultProductionWarehouseId);
+
+    private static Classification Current(Product p) =>
+        new(p.ProductType, p.SupplyMethod, p.IsSaleable, p.IsPurchasable, p.IsStockable, p.DefaultProductionWarehouseId);
+
+    /// <summary>
+    /// Overlays what the request sent on what the product has, fills the gaps and validates the
+    /// whole. <paramref name="redefaultFlags"/> decides where an unsent flag comes from: the new
+    /// type's §6.1 row (create, manufacturing-config) or the product's current value (patch).
+    /// </summary>
+    private async Task<Classification> ResolveClassificationAsync(
+        string? productTypeCode, string? supplyMethodCode,
+        bool? isSaleable, bool? isPurchasable, bool? isStockable,
+        int? defaultProductionWarehouseId, Classification? current, bool redefaultFlags)
+    {
+        var productType = string.IsNullOrWhiteSpace(productTypeCode)
+            ? current?.ProductType ?? ProductType.StockItem
+            : ProductClassificationRules.Normalise(productTypeCode);
+
+        if (!ProductType.IsKnown(productType))
+            throw new BadRequestException(ProductClassificationRules.Problem(productType, SupplyMethod.Purchase, false)!);
+
+        var supplyMethod = string.IsNullOrWhiteSpace(supplyMethodCode)
+            ? current?.SupplyMethod ?? ProductTypeRules.DefaultSupplyMethod(productType)
+            : ProductClassificationRules.Normalise(supplyMethodCode);
+
+        var defaults = ProductTypeRules.For(productType);
+        var saleable    = isSaleable    ?? (redefaultFlags || current is null ? defaults.CanSell     : current.IsSaleable);
+        var purchasable = isPurchasable ?? (redefaultFlags || current is null ? defaults.CanPurchase : current.IsPurchasable);
+        var stockable   = isStockable   ?? (redefaultFlags || current is null ? defaults.CanStock    : current.IsStockable);
+
+        if (ProductClassificationRules.Problem(productType, supplyMethod, stockable) is { } problem)
+            throw new BadRequestException(problem);
+
+        var warehouseId = defaultProductionWarehouseId ?? current?.DefaultProductionWarehouseId;
+        if (defaultProductionWarehouseId.HasValue &&
+            !await _db.Warehouses.AnyAsync(w => w.Id == defaultProductionWarehouseId.Value && w.IsActive))
+            throw new BadRequestException($"Warehouse {defaultProductionWarehouseId.Value} does not exist or is inactive, so it cannot be the default production warehouse.");
+
+        return new Classification(productType, supplyMethod, saleable, purchasable, stockable, warehouseId);
+    }
+
+    /// <summary>
+    /// Writes a resolved classification onto an existing product. Refused while a variant is
+    /// available for production and the new type cannot be a BOM input — the variant flag would
+    /// otherwise contradict the product it belongs to.
+    /// </summary>
+    private async Task ApplyClassificationAsync(Product entity, Classification resolved)
+    {
+        if (!ProductTypeRules.For(resolved.ProductType).CanBeBomInput &&
+            await _db.ProductVariants.AnyAsync(v => v.ProductId == entity.Id && v.IsAvailableForProduction))
+        {
+            throw new BadRequestException(
+                $"'{entity.Name}' cannot become a {ProductClassificationRules.Describe(resolved.ProductType)} " +
+                "while one of its variants is available for production. Untick that on the variant first.");
+        }
+
+        entity.ProductType      = resolved.ProductType;
+        entity.SupplyMethod     = resolved.SupplyMethod;
+        entity.IsSaleable       = resolved.IsSaleable;
+        entity.IsPurchasable    = resolved.IsPurchasable;
+        entity.IsStockable      = resolved.IsStockable;
+        entity.IsManufacturable = resolved.SupplyMethod == SupplyMethod.Manufacture;
+        entity.DefaultProductionWarehouseId = resolved.DefaultProductionWarehouseId;
+    }
+
+    public async Task<bool> SetManufacturingConfigAsync(int id, ManufacturingConfigRequest req)
+    {
+        var entity = await _db.Products.FindAsync(id);
+        if (entity == null) return false;
+
+        if (string.IsNullOrWhiteSpace(req.ProductType) || string.IsNullOrWhiteSpace(req.SupplyMethod))
+            throw new BadRequestException("Product type and supply method are both required.");
+
+        var resolved = await ResolveClassificationAsync(
+            req.ProductType, req.SupplyMethod, req.IsSaleable, req.IsPurchasable, req.IsStockable,
+            req.DefaultProductionWarehouseId, Current(entity), redefaultFlags: true);
+
+        await ApplyClassificationAsync(entity, resolved);
+        if (req.LeadTimeDays.HasValue) entity.LeadTimeDays = req.LeadTimeDays;
+
+        entity.UpdatedDate = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        return true;
     }
 
     // PV-001 — every product must end up with at least one variant, and exactly one of them
@@ -598,7 +726,8 @@ internal sealed class InventoryRepository : IInventoryRepository
     // Dell Latitude's two SKUs); otherwise a single default variant is auto-created from
     // PurchasePrice/SellingPrice/Barcode on the request, so simple products (e.g. Cement) never
     // need the caller to think about variants at all — same code path either way downstream.
-    private async Task<List<ProductVariant>> BuildVariantsAsync(CreateProductRequest req, string productSku, int userId)
+    private async Task<List<ProductVariant>> BuildVariantsAsync(
+        CreateProductRequest req, string productSku, int userId, string productType)
     {
         var now = DateTime.UtcNow;
 
@@ -614,6 +743,9 @@ internal sealed class InventoryRepository : IInventoryRepository
                 var v = req.Variants[i];
                 if (string.IsNullOrWhiteSpace(v.VariantName))
                     throw new BadRequestException("Each variant requires a variant name.");
+                if (v.IsAvailableForProduction &&
+                    ProductClassificationRules.ProductionInputProblem(productType, req.Name.Trim()) is { } problem)
+                    throw new BadRequestException(problem);
 
                 var variantSku = string.IsNullOrWhiteSpace(v.Sku) ? $"{productSku}-{i + 1}" : v.Sku.Trim();
 
@@ -710,6 +842,16 @@ internal sealed class InventoryRepository : IInventoryRepository
         if (req.ImageUrl          is not null) entity.ImageUrl          = req.ImageUrl;
         if (req.Status            is not null) entity.Status            = req.Status;
 
+        if (req.ProductType is not null || req.SupplyMethod is not null ||
+            req.IsSaleable.HasValue || req.IsPurchasable.HasValue || req.IsStockable.HasValue ||
+            req.DefaultProductionWarehouseId.HasValue)
+        {
+            var resolved = await ResolveClassificationAsync(
+                req.ProductType, req.SupplyMethod, req.IsSaleable, req.IsPurchasable, req.IsStockable,
+                req.DefaultProductionWarehouseId, Current(entity), redefaultFlags: false);
+            await ApplyClassificationAsync(entity, resolved);
+        }
+
         entity.UpdatedDate = DateTime.UtcNow;
         await _db.SaveChangesAsync();
         return true;
@@ -741,6 +883,9 @@ internal sealed class InventoryRepository : IInventoryRepository
 
         if (string.IsNullOrWhiteSpace(req.VariantName))
             throw new BadRequestException("Variant name is required.");
+        if (req.IsAvailableForProduction &&
+            ProductClassificationRules.ProductionInputProblem(product.ProductType, product.Name) is { } problem)
+            throw new BadRequestException(problem);
 
         var existingCount = await _db.ProductVariants.CountAsync(v => v.ProductId == productId);
         var variantSku = string.IsNullOrWhiteSpace(req.Sku) ? $"{product.Sku}-{existingCount + 1}" : req.Sku.Trim();
@@ -784,11 +929,14 @@ internal sealed class InventoryRepository : IInventoryRepository
 
     public async Task<int?> UpdateVariantAsync(Guid variantUuid, CreateProductVariantRequest req)
     {
-        var variant = await _db.ProductVariants.FirstOrDefaultAsync(v => v.Uuid == variantUuid);
+        var variant = await _db.ProductVariants.Include(v => v.Product).FirstOrDefaultAsync(v => v.Uuid == variantUuid);
         if (variant is null) return null;
 
         if (string.IsNullOrWhiteSpace(req.VariantName))
             throw new BadRequestException("Variant name is required.");
+        if (req.IsAvailableForProduction &&
+            ProductClassificationRules.ProductionInputProblem(variant.Product.ProductType, variant.Product.Name) is { } problem)
+            throw new BadRequestException(problem);
 
         var newSku = string.IsNullOrWhiteSpace(req.Sku) ? variant.Sku : req.Sku.Trim();
         if (newSku != variant.Sku && await _db.ProductVariants.AnyAsync(x => x.Sku == newSku && x.Id != variant.Id))

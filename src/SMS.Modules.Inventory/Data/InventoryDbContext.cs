@@ -34,6 +34,12 @@ internal sealed class InventoryDbContext : DbContext, ITenantScopedDbContext
     internal DbSet<InventoryLedgerEntry> InventoryLedgerEntries => Set<InventoryLedgerEntry>();
     // The source-agnostic reservation ledger behind InventoryItem.QtyReserved.
     internal DbSet<StockReservation> StockReservations => Set<StockReservation>();
+    // A30 §14 — the allocation engine: who is asking, what is on its way, who was given what, and
+    // in what order the organization wants that decided.
+    internal DbSet<AllocationDemand> AllocationDemands => Set<AllocationDemand>();
+    internal DbSet<AllocationSupply> AllocationSupplies => Set<AllocationSupply>();
+    internal DbSet<AllocationRecord> AllocationRecords => Set<AllocationRecord>();
+    internal DbSet<AllocationRule> AllocationRules => Set<AllocationRule>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

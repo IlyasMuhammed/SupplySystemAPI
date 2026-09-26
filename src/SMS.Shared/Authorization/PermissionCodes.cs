@@ -192,6 +192,63 @@ public static class PermissionCodes
     /// </summary>
     public const string PRODUCT_LEDGER_VIEW   = "PRODUCT_LEDGER_VIEW";
 
+    // ── Allocation engine (Addendum 30 §14, §25) ──────────────────────────────
+    // The rest of Addendum 30's codes (BOM_*, PROD_*, MI_*, QI_*, FGR_*, SUPPLY_*, PROD_LEDGER_VIEW)
+    // arrive with the phases that build what they gate, as the delivery codes above did.
+    /// <summary>Reading who holds which stock, open demands, incoming supply and availability.</summary>
+    public const string ALLOCATION_VIEW  = "ALLOCATION_VIEW";
+    /// <summary>Registering a demand or expected supply and running the engine by hand.</summary>
+    public const string ALLOCATION_RUN   = "ALLOCATION_RUN";
+    /// <summary>Releasing or moving a firm/reserved allocation from one demand to another, and editing the priority rules — this decides who gets scarce stock.</summary>
+    public const string ALLOCATION_ADMIN = "ALLOCATION_ADMIN";
+
+    // ── Bills of materials (Addendum 30 §9.2) ─────────────────────────────────
+    public const string BOM_VIEW     = "BOM_VIEW";
+    public const string BOM_CREATE   = "BOM_CREATE";
+    /// <summary>Changing a DRAFT or REJECTED recipe in place, or deleting it.</summary>
+    public const string BOM_EDIT     = "BOM_EDIT";
+    public const string BOM_SUBMIT   = "BOM_SUBMIT";
+    /// <summary>Approving or rejecting a submitted recipe. Never the person who submitted it (four eyes).</summary>
+    public const string BOM_APPROVE  = "BOM_APPROVE";
+    /// <summary>Making an approved recipe the one production uses — retires the previous one.</summary>
+    public const string BOM_ACTIVATE = "BOM_ACTIVATE";
+    public const string BOM_OBSOLETE = "BOM_OBSOLETE";
+    /// <summary>Moving an unreleased production order onto a newer recipe (§8.3).</summary>
+    public const string BOM_ADMIN    = "BOM_ADMIN";
+
+    // ── Production orders, material issue and supply requirements (Addendum 30 §25) ──
+    public const string PROD_VIEW     = "PROD_VIEW";
+    public const string PROD_CREATE   = "PROD_CREATE";
+    /// <summary>Planning (releasing) an order: exploding its recipe, holding materials, raising supply.</summary>
+    public const string PROD_PLAN     = "PROD_PLAN";
+    public const string PROD_START    = "PROD_START";
+    /// <summary>Reporting output and marking production complete.</summary>
+    public const string PROD_REPORT   = "PROD_REPORT";
+    public const string PROD_CANCEL   = "PROD_CANCEL";
+    /// <summary>The production manager: issues beyond the requirement and other calls a supervisor makes.</summary>
+    public const string PROD_MANAGER  = "PROD_MANAGER";
+    public const string MI_CREATE     = "MI_CREATE";
+    /// <summary>Confirming an issue is what moves the stock.</summary>
+    public const string MI_CONFIRM    = "MI_CONFIRM";
+    public const string MI_REVERSE    = "MI_REVERSE";
+    public const string SUPPLY_VIEW   = "SUPPLY_VIEW";
+    public const string SUPPLY_CREATE = "SUPPLY_CREATE";
+    public const string SUPPLY_CANCEL = "SUPPLY_CANCEL";
+
+    // ── Quality inspection and finished goods receipt (Addendum 30 §18, §19, §25) ──
+    /// <summary>Reading an inspection or a receipt, and creating one — recording a decision is the narrower QI_APPROVE.</summary>
+    public const string QI_CREATE  = "QI_CREATE";
+    /// <summary>Recording the pass/reject/hold/rework decision. Separate from creating one so the inspector need not be who logged it (§18.4 separation of duties).</summary>
+    public const string QI_APPROVE = "QI_APPROVE";
+    public const string FGR_CREATE  = "FGR_CREATE";
+    /// <summary>Confirming a receipt is what credits inventory and completes the production order.</summary>
+    public const string FGR_CONFIRM = "FGR_CONFIRM";
+
+    // ── Production ledger (Addendum 30 §19A, §25) — a read of MI/FGR/SR history already gated by
+    // PROD_VIEW; this is the narrower cross-order and summary view, kept apart from
+    // PRODUCT_LEDGER_VIEW (Finance's cost/margin ledger — a different book entirely).
+    public const string PROD_LEDGER_VIEW = "PROD_LEDGER_VIEW";
+
     // ── All codes (used by System Admin seed) ─────────────────────────────────
     public static readonly IReadOnlyList<string> All =
     [
@@ -216,5 +273,10 @@ public static class PermissionCodes
         SALE_ORDER_VIEW, SALE_ORDER_CREATE, SALE_ORDER_EDIT, SALE_ORDER_CONFIRM, SALE_ORDER_CANCEL,
         SALES_INVOICE_VIEW, SALES_INVOICE_MANAGE, CUSTOMER_PAYMENT_VIEW, CUSTOMER_PAYMENT_RECORD, CUSTOMER_LEDGER_VIEW,
         PRODUCT_LEDGER_VIEW,
+        ALLOCATION_VIEW, ALLOCATION_RUN, ALLOCATION_ADMIN,
+        BOM_VIEW, BOM_CREATE, BOM_EDIT, BOM_SUBMIT, BOM_APPROVE, BOM_ACTIVATE, BOM_OBSOLETE, BOM_ADMIN,
+        PROD_VIEW, PROD_CREATE, PROD_PLAN, PROD_START, PROD_REPORT, PROD_CANCEL, PROD_MANAGER,
+        MI_CREATE, MI_CONFIRM, MI_REVERSE, SUPPLY_VIEW, SUPPLY_CREATE, SUPPLY_CANCEL,
+        QI_CREATE, QI_APPROVE, FGR_CREATE, FGR_CONFIRM, PROD_LEDGER_VIEW,
     ];
 }

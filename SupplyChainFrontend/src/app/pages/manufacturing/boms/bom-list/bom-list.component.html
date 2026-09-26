@@ -1,0 +1,59 @@
+<p-toast></p-toast>
+
+<div class="bom-page">
+  <div class="page-header">
+    <div class="page-icon"><i class="pi pi-sitemap"></i></div>
+    <div class="grow">
+      <h1 class="page-title">Bills of Materials</h1>
+      <p class="page-subtitle">How each manufactured product is made: its inputs, per unit, by version.</p>
+    </div>
+    <p-button *ngIf="canCreate" label="New BOM" icon="pi pi-plus" [routerLink]="['/portal/pages/manufacturing/boms/new']" data-testid="new"></p-button>
+  </div>
+
+  <div class="form-card filters">
+    <p-iconfield iconPosition="left" class="grow">
+      <p-inputicon styleClass="pi pi-search"></p-inputicon>
+      <input pInputText type="text" [(ngModel)]="filter.search" (ngModelChange)="onSearchChange()"
+             placeholder="Search by BOM number, product name or SKU" class="w-full" data-testid="search" />
+    </p-iconfield>
+    <p-dropdown [options]="statusOptions" [(ngModel)]="filter.status" optionLabel="label" optionValue="value"
+                (onChange)="onFilterChange()" styleClass="status-filter" appendTo="body" data-testid="status"></p-dropdown>
+    <p-button icon="pi pi-filter-slash" [text]="true" severity="secondary" pTooltip="Clear filters" (onClick)="resetFilters()"></p-button>
+  </div>
+
+  <div class="form-card flush">
+    <p-table [value]="boms" [lazy]="true" (onLazyLoad)="onPageChange($event)" [paginator]="true" [rows]="pageSize"
+             [totalRecords]="totalRecords" [loading]="isLoading" [rowsPerPageOptions]="[20, 50, 100]"
+             styleClass="p-datatable-sm" dataKey="uuid" data-testid="boms">
+      <ng-template pTemplate="header">
+        <tr>
+          <th>BOM</th><th>Product</th><th>Variant</th><th class="num">Version</th><th>Status</th>
+          <th class="num">Base qty</th><th class="num">Lines</th><th>Warehouse</th><th>Effective</th><th>Updated</th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-b>
+        <tr [routerLink]="['/portal/pages/manufacturing/boms', b.uuid]" class="row-link" [class.active-row]="b.status === 'ACTIVE'"
+            [attr.data-testid]="'bom-' + b.bomNumber">
+          <td class="mono">{{ b.bomNumber }}</td>
+          <td><div class="ref">{{ b.productName }}</div><div class="sub">{{ b.productSku }}</div></td>
+          <td>{{ b.variantName || '—' }}</td>
+          <td class="num">v{{ b.version }}</td>
+          <td><p-tag [value]="b.status" [severity]="severity(b.status)"></p-tag></td>
+          <td class="num">{{ b.baseQuantity | number:'1.0-4' }} {{ b.baseUom }}</td>
+          <td class="num">{{ b.lineCount }}</td>
+          <td>{{ b.warehouseName || 'Any' }}</td>
+          <td>
+            <ng-container *ngIf="b.effectiveFrom || b.effectiveTo; else always">
+              {{ b.effectiveFrom ? (b.effectiveFrom | date:'mediumDate') : '…' }} – {{ b.effectiveTo ? (b.effectiveTo | date:'mediumDate') : '…' }}
+            </ng-container>
+            <ng-template #always><span class="sub">No limit</span></ng-template>
+          </td>
+          <td>{{ b.updatedAt | date:'short' }}</td>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="emptymessage">
+        <tr><td colspan="10" class="empty">No bills of materials yet.</td></tr>
+      </ng-template>
+    </p-table>
+  </div>
+</div>

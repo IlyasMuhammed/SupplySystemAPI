@@ -1,0 +1,46 @@
+<p-toast></p-toast>
+
+<div class="bom-page">
+  <div class="page-header">
+    <div class="page-icon"><i class="pi pi-exclamation-triangle"></i></div>
+    <div class="grow">
+      <h1 class="page-title">Material Shortages</h1>
+      <p class="page-subtitle">Every critical requirement across open production orders that nothing yet covers, most urgent first.</p>
+    </div>
+    <p-button icon="pi pi-refresh" [text]="true" severity="secondary" (onClick)="load()" pTooltip="Refresh"></p-button>
+  </div>
+
+  <div class="form-card flush">
+    <p-table [value]="shortages" [loading]="isLoading" styleClass="p-datatable-sm" dataKey="requirementUuid" data-testid="shortages">
+      <ng-template pTemplate="header">
+        <tr>
+          <th>Order</th><th>Material</th><th class="num">Required</th><th class="num">Held</th><th class="num">Shortage</th>
+          <th>Priority</th><th>Required by</th><th>Warehouse</th><th>Supply raised</th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-s>
+        <tr [attr.data-testid]="'shortage-' + s.requirementUuid">
+          <td><a class="mono" [routerLink]="['/portal/pages/manufacturing/production-orders', s.productionOrderUuid]">{{ s.productionNumber }}</a>
+              <div class="sub">{{ s.outputProductName }}</div></td>
+          <td><div class="ref">{{ s.materialName }}</div><div class="sub mono">{{ s.materialSku }}</div></td>
+          <td class="num">{{ s.requiredQuantity | number:'1.0-4' }} {{ s.uom }}</td>
+          <td class="num">{{ (s.reservedQuantity + s.plannedQuantity) | number:'1.0-4' }}</td>
+          <td class="num critical">{{ s.shortageQuantity | number:'1.0-4' }}</td>
+          <td>{{ priorityLabel(s.priority) }}</td>
+          <td>{{ s.requiredDate | date:'mediumDate' }}</td>
+          <td>{{ s.warehouseName }}</td>
+          <td>
+            <ng-container *ngIf="s.supplyNumber; else none">
+              <p-tag [value]="s.supplyStatus" [severity]="s.supplyStatus === 'FULFILLED' ? 'success' : 'warn'"></p-tag>
+              <span class="sub"> {{ s.supplySourceReference || s.supplyNumber }}</span>
+            </ng-container>
+            <ng-template #none><span class="sub">Nothing raised yet</span></ng-template>
+          </td>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="emptymessage">
+        <tr><td colspan="9" class="empty">Nothing is short right now.</td></tr>
+      </ng-template>
+    </p-table>
+  </div>
+</div>

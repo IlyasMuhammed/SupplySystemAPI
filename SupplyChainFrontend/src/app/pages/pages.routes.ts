@@ -37,6 +37,15 @@ import { PaymentTermsComponent } from './payment-terms/payment-terms.component';
 import { PoDocumentTemplateComponent } from './po-document-template/po-document-template.component';
 import { PortalSettingsComponent } from './portal-settings/portal-settings.component';
 import { SaleOrderSettingsComponent } from './sale-order-settings/sale-order-settings.component';
+import { AllocationsComponent } from './inventory/allocations/allocations.component';
+import { BomListComponent } from './manufacturing/boms/bom-list/bom-list.component';
+import { BomFormComponent } from './manufacturing/boms/bom-form/bom-form.component';
+import { BomDetailComponent } from './manufacturing/boms/bom-detail/bom-detail.component';
+import { ProductionOrderListComponent } from './manufacturing/production-orders/production-order-list/production-order-list.component';
+import { ProductionOrderFormComponent } from './manufacturing/production-orders/production-order-form/production-order-form.component';
+import { ProductionOrderDetailComponent } from './manufacturing/production-orders/production-order-detail/production-order-detail.component';
+import { ShortagesComponent } from './manufacturing/shortages/shortages.component';
+import { ManufacturingReportsComponent } from './reports/manufacturing-reports/manufacturing-reports.component';
 import { OrganizationsListComponent } from './organizations/organizations-list/organizations-list.component';
 import { OrganizationFeaturesComponent } from './organizations/organization-features/organization-features.component';
 import { permissionGuard } from './gaurds/permission.guard';
@@ -157,6 +166,13 @@ const P = {
   PO_APPROVE:           'PO_APPROVE',
   PO_TEMPLATE_MANAGE:   'PO_TEMPLATE_MANAGE',
   SALE_ORDER_CONFIG_READ: 'SALE_ORDER_CONFIG_READ',
+  ALLOCATION_VIEW:      'ALLOCATION_VIEW',
+  BOM_VIEW:             'BOM_VIEW',
+  BOM_CREATE:           'BOM_CREATE',
+  BOM_EDIT:             'BOM_EDIT',
+  PROD_VIEW:            'PROD_VIEW',
+  PROD_CREATE:          'PROD_CREATE',
+  PROD_LEDGER_VIEW:     'PROD_LEDGER_VIEW',
   REQUISITION_CREATE:   'REQUISITION_CREATE',
   REQUISITION_VIEW_OWN: 'REQUISITION_VIEW_OWN',
   REQUISITION_VIEW_ALL: 'REQUISITION_VIEW_ALL',
@@ -304,6 +320,32 @@ export default [
       canActivate: [permissionGuard(P.STOCK_MANAGE)] },
     { path: 'inventory/products/:id', component: ProductDetailComponent,
       canActivate: [permissionGuard(P.INVENTORY_VIEW, P.STOCK_MANAGE)] },
+    // A30 §29.4 — the allocation dashboard.
+    { path: 'inventory/allocations', component: AllocationsComponent,
+      canActivate: [permissionGuard(P.ALLOCATION_VIEW)] },
+
+    // ── Manufacturing — Bills of Materials (A30 §29.2) ────────────────────────
+    { path: 'manufacturing/boms', component: BomListComponent,
+      canActivate: [permissionGuard(P.BOM_VIEW)] },
+    { path: 'manufacturing/boms/new', component: BomFormComponent,
+      canActivate: [permissionGuard(P.BOM_CREATE)] },
+    { path: 'manufacturing/boms/:uuid', component: BomDetailComponent,
+      canActivate: [permissionGuard(P.BOM_VIEW)] },
+    { path: 'manufacturing/boms/:uuid/edit', component: BomFormComponent,
+      canActivate: [permissionGuard(P.BOM_EDIT)] },
+
+    // ── Manufacturing — Production Orders (A30 §29.3) ─────────────────────────
+    // "new" and "shortages" ahead of ":uuid", or the router reads either for an order's id.
+    { path: 'manufacturing/production-orders', component: ProductionOrderListComponent,
+      canActivate: [permissionGuard(P.PROD_VIEW)] },
+    { path: 'manufacturing/production-orders/new', component: ProductionOrderFormComponent,
+      canActivate: [permissionGuard(P.PROD_CREATE)] },
+    { path: 'manufacturing/shortages', component: ShortagesComponent,
+      canActivate: [permissionGuard(P.PROD_VIEW)] },
+    { path: 'manufacturing/production-orders/:uuid', component: ProductionOrderDetailComponent,
+      canActivate: [permissionGuard(P.PROD_VIEW)] },
+    { path: 'reports/manufacturing', component: ManufacturingReportsComponent,
+      canActivate: [permissionGuard(P.PROD_LEDGER_VIEW)] },
     { path: 'inventory/warehouses', component: WarehouseListComponent,
       canActivate: [permissionGuard(P.INVENTORY_VIEW, P.STOCK_MANAGE)] },
     { path: 'inventory/warehouses/:id', component: WarehouseDetailComponent,

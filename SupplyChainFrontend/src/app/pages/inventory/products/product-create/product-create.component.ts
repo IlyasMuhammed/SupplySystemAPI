@@ -24,6 +24,9 @@ import {
   VariantAttributeValueInput
 } from '../../../../services/inventory.service';
 import { SupplierService } from '../../../../services/supplier.service';
+import {
+  PRODUCT_TYPE_OPTIONS, SUPPLY_METHOD_OPTIONS, SupplyMethodCode, classificationDefaults, isSupplyMethodAllowed, productTypeOption
+} from '../../../../shared/product-classification';
 import { AttachmentService } from '../../../../services/attachment.service';
 import { DynamicAttributeFormComponent } from '../../../../shared/dynamic-attribute-form/dynamic-attribute-form.component';
 
@@ -64,6 +67,34 @@ export class ProductCreateComponent implements OnInit {
   categoryOptions: { label: string; value: number }[] = [];
   subCategoryOptions: { label: string; value: number }[] = [];
   supplierOptions: { label: string; value: number }[] = [];
+
+  // A30 §6 — manufacturing classification.
+  readonly productTypeOptions = PRODUCT_TYPE_OPTIONS;
+  readonly supplyMethodOptions = SUPPLY_METHOD_OPTIONS;
+  warehouseOptions: { label: string; value: number }[] = [];
+
+  get productTypeHint(): string {
+    return productTypeOption(this.productForm?.get('productType')?.value)?.description ?? '';
+  }
+
+  get isManufactured(): boolean {
+    return this.productForm?.get('supplyMethod')?.value === 'MANUFACTURE';
+  }
+
+  supplyMethodDisabled(method: SupplyMethodCode): boolean {
+    return !isSupplyMethodAllowed(this.productForm?.get('productType')?.value, method);
+  }
+
+  /** A new type brings its own defaults (§6.1); the user can still change them afterwards. */
+  onProductTypeChange(): void {
+    const defaults = classificationDefaults(this.productForm.get('productType')?.value);
+    this.productForm.patchValue({
+      supplyMethod: defaults.supplyMethod,
+      isSaleable: defaults.isSaleable,
+      isPurchasable: defaults.isPurchasable,
+      isStockable: defaults.isStockable
+    });
+  }
 
   // Static from FSD — no API required
   readonly uomOptions = UOM_OPTIONS;
@@ -107,6 +138,7 @@ export class ProductCreateComponent implements OnInit {
     this.initForm();
     this.loadCategories();
     this.loadSuppliers();
+    this.loadWarehouses();
 
     if (this.isEditMode && this.productId != null) {
       this.loadProduct(this.productId);
@@ -140,6 +172,14 @@ export class ProductCreateComponent implements OnInit {
       // Tracking
       isBatchTracked:      [false],
       isSerialTracked:     [false],
+
+      // Manufacturing classification (A30 §6) — the same defaults the server applies when omitted.
+      productType:         ['STOCK_ITEM'],
+      supplyMethod:        ['PURCHASE'],
+      isSaleable:          [true],
+      isPurchasable:       [true],
+      isStockable:         [true],
+      defaultProductionWarehouseId: [null],
 
       // Stock Parameters
       reorderPoint:        [null, Validators.min(0)],
@@ -194,6 +234,16 @@ export class ProductCreateComponent implements OnInit {
       .subscribe(res => {
         if (res?.result?.data) {
           this.supplierOptions = res.result.data.map(s => ({ label: s.supplierName, value: s.id }));
+        }
+      });
+  }
+
+  private loadWarehouses(): void {
+    this.inventoryService.getWarehouses()
+      .pipe(catchError(() => of(null)))
+      .subscribe(res => {
+        if (res?.result) {
+          this.warehouseOptions = res.result.filter(w => w.isActive !== false).map(w => ({ label: w.name, value: w.id }));
         }
       });
   }
@@ -288,6 +338,12 @@ export class ProductCreateComponent implements OnInit {
             shelfLifeDays:       p.shelfLifeDays       ?? null,
             isBatchTracked:      p.isBatchTracked      ?? false,
             isSerialTracked:     p.isSerialTracked     ?? false,
+            productType:         p.productType         ?? 'STOCK_ITEM',
+            supplyMethod:        p.supplyMethod        ?? 'PURCHASE',
+            isSaleable:          p.isSaleable          ?? true,
+            isPurchasable:       p.isPurchasable       ?? true,
+            isStockable:         p.isStockable         ?? true,
+            defaultProductionWarehouseId: p.defaultProductionWarehouseId ?? null,
             reorderPoint:        p.reorderPoint        ?? null,
             reorderQty:          p.reorderQty          ?? null,
             minStockLevel:       p.minStockLevel       ?? null,
@@ -346,6 +402,12 @@ export class ProductCreateComponent implements OnInit {
         shelfLifeDays:       raw.shelfLifeDays       ?? undefined,
         isBatchTracked:      raw.isBatchTracked,
         isSerialTracked:     raw.isSerialTracked,
+        productType:         raw.productType,
+        supplyMethod:        raw.supplyMethod,
+        isSaleable:          !!raw.isSaleable,
+        isPurchasable:       !!raw.isPurchasable,
+        isStockable:         !!raw.isStockable,
+        defaultProductionWarehouseId: raw.defaultProductionWarehouseId ?? undefined,
         reorderPoint:        raw.reorderPoint        ?? undefined,
         reorderQty:          raw.reorderQty          ?? undefined,
         minStockLevel:       raw.minStockLevel       ?? undefined,
@@ -438,6 +500,12 @@ export class ProductCreateComponent implements OnInit {
         shelfLifeDays:       raw.shelfLifeDays       ?? undefined,
         isBatchTracked:      raw.isBatchTracked      ?? false,
         isSerialTracked:     raw.isSerialTracked      ?? false,
+        productType:         raw.productType,
+        supplyMethod:        raw.supplyMethod,
+        isSaleable:          !!raw.isSaleable,
+        isPurchasable:       !!raw.isPurchasable,
+        isStockable:         !!raw.isStockable,
+        defaultProductionWarehouseId: raw.defaultProductionWarehouseId ?? undefined,
         reorderPoint:        raw.reorderPoint        ?? undefined,
         reorderQty:          raw.reorderQty          ?? undefined,
         minStockLevel:       raw.minStockLevel       ?? undefined,

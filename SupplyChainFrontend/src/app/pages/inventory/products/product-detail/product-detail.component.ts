@@ -44,6 +44,10 @@ import {
 import { CurrenciesService, CurrencyModel } from '../../../../services/currencies.service';
 import { BusinessPartnerService, BusinessPartnerModel } from '../../../../services/business-partner.service';
 import { SupplierService } from '../../../../services/supplier.service';
+import {
+  PRODUCT_TYPE_OPTIONS, SUPPLY_METHOD_OPTIONS, SupplyMethodCode, classificationDefaults, isSupplyMethodAllowed,
+  productTypeLabel, productTypeOption, supplyMethodLabel
+} from '../../../../shared/product-classification';
 
 @Component({
   selector: 'app-product-detail',
@@ -78,6 +82,35 @@ export class ProductDetailComponent implements OnInit {
   subCategoryOptions: { label: string; value: number | null }[] = [];
   isLoadingLookups = false;
   supplierOptions: { label: string; value: number }[] = [];
+
+  // A30 §6 — manufacturing classification.
+  readonly productTypeOptions = PRODUCT_TYPE_OPTIONS;
+  readonly supplyMethodOptions = SUPPLY_METHOD_OPTIONS;
+  // warehouseOptions (declared with the adjustment dialog below) is shared with the edit dialog.
+  readonly productTypeLabel = productTypeLabel;
+  readonly supplyMethodLabel = supplyMethodLabel;
+
+  get productTypeHint(): string {
+    return productTypeOption(this.editForm?.get('productType')?.value)?.description ?? '';
+  }
+
+  get editIsManufactured(): boolean {
+    return this.editForm?.get('supplyMethod')?.value === 'MANUFACTURE';
+  }
+
+  supplyMethodDisabled(method: SupplyMethodCode): boolean {
+    return !isSupplyMethodAllowed(this.editForm?.get('productType')?.value, method);
+  }
+
+  onProductTypeChange(): void {
+    const defaults = classificationDefaults(this.editForm.get('productType')?.value);
+    this.editForm.patchValue({
+      supplyMethod: defaults.supplyMethod,
+      isSaleable: defaults.isSaleable,
+      isPurchasable: defaults.isPurchasable,
+      isStockable: defaults.isStockable
+    });
+  }
 
   uomOptions: { label: string; value: string }[] = [
     { label: 'Piece (PCS)',      value: 'PCS' },
@@ -231,7 +264,13 @@ export class ProductDetailComponent implements OnInit {
       reorderQty:     [null, [Validators.min(0)]],
       minStockLevel:  [null, [Validators.min(0)]],
       maxStockLevel:  [null, [Validators.min(0)]],
-      preferredSupplierId: [null]
+      preferredSupplierId: [null],
+      productType:    ['STOCK_ITEM'],
+      supplyMethod:   ['PURCHASE'],
+      isSaleable:     [true],
+      isPurchasable:  [true],
+      isStockable:    [true],
+      defaultProductionWarehouseId: [null]
     });
 
     this.adjustmentForm = this.fb.group({
@@ -378,11 +417,34 @@ export class ProductDetailComponent implements OnInit {
       reorderQty:     this.product.reorderQty      ?? null,
       minStockLevel:  this.product.minStockLevel   ?? null,
       maxStockLevel:  this.product.maxStockLevel   ?? null,
-      preferredSupplierId: this.product.preferredSupplierId ?? null
+      preferredSupplierId: this.product.preferredSupplierId ?? null,
+      productType:    this.product.productType     ?? 'STOCK_ITEM',
+      supplyMethod:   this.product.supplyMethod    ?? 'PURCHASE',
+      isSaleable:     this.product.isSaleable      ?? true,
+      isPurchasable:  this.product.isPurchasable   ?? true,
+      isStockable:    this.product.isStockable     ?? true,
+      defaultProductionWarehouseId: this.product.defaultProductionWarehouseId ?? null
     });
     this.loadLookups().then(() => {
       this.loadSuppliers();
+      this.loadWarehouses();
       this.showEditDialog = true;
+    });
+  }
+
+  private loadWarehouses() {
+    if (this.warehouseOptions.length > 0) return;
+    this.inventoryService.getWarehouses().subscribe({
+      next: (res) => {
+        if (res.success) {
+          this.warehouseOptions = (res.result ?? [])
+            .filter((w: WarehouseModel) => w.isActive)
+            .map((w: WarehouseModel) => ({ label: `${w.code} – ${w.name}`, value: w.id }));
+        }
+      },
+      error: () => {
+        this.messageService.add({ severity: 'warn', summary: 'Warning', detail: 'Failed to load warehouses.' });
+      }
     });
   }
 
@@ -420,7 +482,13 @@ export class ProductDetailComponent implements OnInit {
       reorderQty:    raw.reorderQty    ?? undefined,
       minStockLevel: raw.minStockLevel ?? undefined,
       maxStockLevel: raw.maxStockLevel ?? undefined,
-      preferredSupplierId: raw.preferredSupplierId ?? undefined
+      preferredSupplierId: raw.preferredSupplierId ?? undefined,
+      productType:   raw.productType,
+      supplyMethod:  raw.supplyMethod,
+      isSaleable:    !!raw.isSaleable,
+      isPurchasable: !!raw.isPurchasable,
+      isStockable:   !!raw.isStockable,
+      defaultProductionWarehouseId: raw.defaultProductionWarehouseId ?? undefined
     };
     this.isSaving = true;
     this.inventoryService.patchProduct(this.productId, payload).subscribe({

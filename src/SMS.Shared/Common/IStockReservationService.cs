@@ -14,6 +14,19 @@ public static class ReservationSourceType
 
     /// <summary>Sales order. Not in use yet; the ledger is shaped for it so it needs no schema change.</summary>
     public const string SalesOrder = "SALES_ORDER";
+
+    /// <summary>
+    /// A30 M10 — production order: materials held for a production order's own issue (Phase 3).
+    /// A string column, so this is the whole migration.
+    /// </summary>
+    public const string ProductionOrder = "PRODUCTION_ORDER";
+
+    /// <summary>
+    /// A30 §14 — a hold made by the allocation engine on behalf of a registered demand. Source
+    /// uuid is the demand's registry uuid, source line uuid the allocation record's, so the engine
+    /// owns and can find its own rows without colliding with the documents' own holds.
+    /// </summary>
+    public const string Allocation = "ALLOCATION";
 }
 
 /// <summary>One line of stock to hold.</summary>

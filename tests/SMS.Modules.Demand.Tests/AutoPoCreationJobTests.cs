@@ -6,6 +6,8 @@ using SMS.Modules.Demand.Data;
 using SMS.Modules.Demand.Domain;
 using SMS.Modules.Demand.Models;
 using SMS.Modules.Demand.Services;
+using SMS.Modules.Inventory.Data;
+using SMS.Modules.Inventory.Domain;
 using SMS.Shared.Common;
 using Xunit;
 
@@ -171,5 +173,99 @@ public class AutoPoCreationJobTests
         await h.Job.CreateForDeficitAsync(Guid.NewGuid(), lineUuid, User);
 
         h.Selection.Verify(s => s.SelectAsync(It.IsAny<Guid>(), It.IsAny<decimal>(), It.IsAny<int>()), Times.Never);
+    }
+
+    // ── A30 Phase 4 Track C / decision D1 — a manufactured product's deficit ───────
+
+    private sealed record ManufacturingHarness(
+        AutoPoCreationJob Job, InventoryDbContext Inventory, Mock<ISaleOrderManufacturingService> Manufacturing,
+        Mock<ISupplierSelectionService> Selection, Mock<IAutoPurchaseOrderService> AutoPo);
+
+    private static ManufacturingHarness NewManufacturingHarness(DemandDbContext db)
+    {
+        var config = new Mock<ISaleOrderConfigService>();
+        config.Setup(c => c.GetConfigAsync()).ReturnsAsync(new SaleOrderConfigModel { AutoPoEnabled = true });
+        var selection = new Mock<ISupplierSelectionService>();
+        var autoPo = new Mock<IAutoPurchaseOrderService>();
+        var email = new Mock<ISaleOrderEmailService>();
+        var manufacturing = new Mock<ISaleOrderManufacturingService>();
+        var inventory = new InventoryDbContext(
+            new DbContextOptionsBuilder<InventoryDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,
+            new StaticTenantContext());
+
+        var job = new AutoPoCreationJob(
+            db, config.Object, selection.Object, autoPo.Object, email.Object, NullLogger<AutoPoCreationJob>.Instance,
+            inventory, manufacturing.Object);
+        return new ManufacturingHarness(job, inventory, manufacturing, selection, autoPo);
+    }
+
+    private static Guid SeedVariant(InventoryDbContext inv, string supplyMethod)
+    {
+        var product = new Product
+        {
+            Uuid = Guid.NewGuid(), Sku = $"SKU-{Guid.NewGuid():N}"[..12], Name = "Test Product",
+            SupplyMethod = supplyMethod, ProductType = ProductType.FinishedGood, IsActive = true, CreatedBy = 1
+        };
+        var variant = new ProductVariant { Uuid = Guid.NewGuid(), Sku = $"{product.Sku}-1", VariantName = "Default", IsDefault = true, IsActive = true, CreatedBy = 1 };
+        product.Variants.Add(variant);
+        inv.Products.Add(product);
+        inv.SaveChanges();
+        return variant.Uuid;
+    }
+
+    [Fact]
+    public async Task A_manufactured_products_deficit_goes_to_the_manufacturing_service_not_a_purchase_order()
+    {
+        var db = new DemandDbContext(
+            new DbContextOptionsBuilder<DemandDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,
+            new StaticTenantContext { OrganizationId = Guid.NewGuid() });
+        var h = NewManufacturingHarness(db);
+        var variant = SeedVariant(h.Inventory, SupplyMethod.Manufacture);
+
+        var order = new SaleOrder
+        {
+            SoNumber = "SO-2026-00099", PartnerId = Guid.NewGuid(), OrderDate = DateTime.UtcNow.Date, CurrencyId = Guid.NewGuid(),
+            Status = "CONFIRMED", DeliveryMode = "SELF_PICKUP", CreatedBy = 1,
+            Lines = { new SaleOrderLine { VariantUuid = variant, Quantity = 30m, UnitPrice = 40m, LineTotal = 1200m, FulfillmentMode = "BACK_TO_BACK", DeficitQty = 30m, Status = "OPEN" } }
+        };
+        db.SaleOrders.Add(order);
+        await db.SaveChangesAsync();
+        var lineUuid = order.Lines.Single().UUID;
+
+        await h.Job.CreateForDeficitAsync(order.UUID, lineUuid, User);
+
+        h.Manufacturing.Verify(m => m.FulfillDeficitAsync(order.UUID, lineUuid, 30m, User, It.IsAny<CancellationToken>()), Times.Once);
+        h.Selection.Verify(s => s.SelectAsync(It.IsAny<Guid>(), It.IsAny<decimal>(), It.IsAny<int>()), Times.Never);
+        h.AutoPo.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task A_purchased_products_deficit_still_goes_through_the_ordinary_auto_po_path()
+    {
+        var db = new DemandDbContext(
+            new DbContextOptionsBuilder<DemandDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,
+            new StaticTenantContext { OrganizationId = Guid.NewGuid() });
+        var h = NewManufacturingHarness(db);
+        var variant = SeedVariant(h.Inventory, SupplyMethod.Purchase);
+        h.Selection.Setup(s => s.SelectAsync(It.IsAny<Guid>(), It.IsAny<decimal>(), It.IsAny<int>()))
+            .ReturnsAsync(new SupplierSelectionResult(false, Guid.NewGuid(), "TechSupply", 25m, "BEST_MATCH", "best"));
+        h.AutoPo.Setup(a => a.CreateFromSODeficitAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<decimal>(), It.IsAny<decimal>(), It.IsAny<int>()))
+            .ReturnsAsync(new AutoPurchaseOrderResult(Guid.NewGuid(), "PO-2026-00001", "DRAFT", "BACK_TO_BACK", false));
+
+        var order = new SaleOrder
+        {
+            SoNumber = "SO-2026-00098", PartnerId = Guid.NewGuid(), OrderDate = DateTime.UtcNow.Date, CurrencyId = Guid.NewGuid(),
+            Status = "CONFIRMED", DeliveryMode = "SELF_PICKUP", CreatedBy = 1,
+            Lines = { new SaleOrderLine { VariantUuid = variant, Quantity = 30m, UnitPrice = 40m, LineTotal = 1200m, FulfillmentMode = "BACK_TO_BACK", DeficitQty = 30m, Status = "OPEN" } }
+        };
+        db.SaleOrders.Add(order);
+        await db.SaveChangesAsync();
+        var lineUuid = order.Lines.Single().UUID;
+
+        await h.Job.CreateForDeficitAsync(order.UUID, lineUuid, User);
+
+        h.Manufacturing.VerifyNoOtherCalls();
+        h.Selection.Verify(s => s.SelectAsync(variant, 30m, User), Times.Once);
+        h.AutoPo.Verify(a => a.CreateFromSODeficitAsync(lineUuid, It.IsAny<Guid>(), 30m, 25m, User), Times.Once);
     }
 }

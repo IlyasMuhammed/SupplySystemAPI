@@ -237,6 +237,9 @@ public class VariantChannelAvailabilityTests
             .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, new StaticTenantContext());
         var repo = new InventoryRepository(db, new Mock<IInventoryLedgerService>().Object);
         var product = await VariantCrudBuild.SeedHpEliteBookAsync(db);
+        // A30 §6: only a product whose type can be a BOM input may have a production variant.
+        product.ProductType = SMS.Shared.Common.ProductType.Component;
+        await db.SaveChangesAsync();
         await repo.CreateVariantAsync(product.Id, new CreateProductVariantRequest
         {
             Sku = "HP-EB-850-I7-32-1T", VariantName = "i7 / 32GB / 1TB", PurchasePrice = 195000m,

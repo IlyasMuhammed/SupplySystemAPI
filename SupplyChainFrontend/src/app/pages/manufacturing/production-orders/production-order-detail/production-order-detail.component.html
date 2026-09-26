@@ -1,0 +1,383 @@
+<p-toast></p-toast>
+<p-confirmDialog></p-confirmDialog>
+
+<div class="bom-page">
+  <div class="state-card" *ngIf="isLoading" data-testid="loading"><i class="pi pi-spin pi-spinner"></i><p>Loading…</p></div>
+
+  <div class="state-card" *ngIf="loadFailed && !isLoading" data-testid="load-failed">
+    <i class="pi pi-exclamation-triangle"></i>
+    <h2>This production order could not be loaded</h2>
+    <p-button label="Try again" icon="pi pi-refresh" (onClick)="load()"></p-button>
+  </div>
+
+  <ng-container *ngIf="order && !isLoading">
+    <div class="page-header">
+      <p-button icon="pi pi-arrow-left" [text]="true" severity="secondary" [routerLink]="['/portal/pages/manufacturing/production-orders']"></p-button>
+      <div class="page-icon"><i class="pi pi-cog"></i></div>
+      <div class="grow">
+        <h1 class="page-title">
+          <span class="mono">{{ order.productionNumber }}</span>
+          <p-tag [value]="order.status" [severity]="severity(order.status)" data-testid="status"></p-tag>
+          <p-tag [value]="order.materialReadiness | titlecase" [severity]="readinessSeverity(order.materialReadiness)"></p-tag>
+        </h1>
+        <p class="page-subtitle">
+          {{ order.plannedQuantity | number:'1.0-4' }} × {{ order.productName }} <span class="sub">({{ order.productSku }})</span>
+          <span *ngIf="order.variantName"> — {{ order.variantName }}</span>
+          · {{ order.warehouseName }} · {{ priorityLabel(order.priority) }} priority · from {{ order.bomNumber }} v{{ order.bomVersion }}
+        </p>
+      </div>
+      <div class="header-actions" data-testid="actions">
+        <p-button *ngIf="canPlan"     label="Plan"          icon="pi pi-play-circle" [loading]="busy" (onClick)="plan()" data-testid="plan"></p-button>
+        <p-button *ngIf="canStart"    label="Start"         icon="pi pi-forward"     [loading]="busy" (onClick)="start()" data-testid="start"></p-button>
+        <p-button *ngIf="canReport"   label="Report output" icon="pi pi-inbox"       severity="secondary" [outlined]="true" [disabled]="busy" (onClick)="openReport()" data-testid="report-output"></p-button>
+        <p-button *ngIf="canComplete" label="Complete"      icon="pi pi-check"       [loading]="busy" (onClick)="complete()" data-testid="complete"></p-button>
+        <p-button *ngIf="canIssue"    label="Issue material" icon="pi pi-send"       severity="secondary" [outlined]="true" [disabled]="busy" (onClick)="openIssue()" data-testid="issue"></p-button>
+        <p-button *ngIf="canCancel"   label="Cancel"        icon="pi pi-ban"         severity="danger" [outlined]="true" [disabled]="busy" (onClick)="openCancel()" data-testid="cancel"></p-button>
+      </div>
+    </div>
+
+    <p-message *ngIf="order.status === 'MATERIAL_PENDING'" severity="warn" styleClass="note">
+      Waiting on materials — see the Materials tab for what is short and what was raised to cover it.
+    </p-message>
+    <p-message *ngIf="order.status === 'CANCELLED'" severity="secondary" styleClass="note">
+      Cancelled. Whatever was held for it was released and its open supply requirements were cancelled.
+    </p-message>
+
+    <div class="stat-grid" data-testid="stats">
+      <div class="stat accent"><span class="stat-label">Planned</span><span class="stat-value">{{ order.plannedQuantity | number:'1.0-4' }}</span></div>
+      <div class="stat"><span class="stat-label">Produced</span><span class="stat-value">{{ order.producedQuantity | number:'1.0-4' }}</span></div>
+      <div class="stat" [class.danger]="order.shortMaterialCount > 0" [class.success]="order.shortMaterialCount === 0">
+        <span class="stat-label">Materials short</span><span class="stat-value">{{ order.shortMaterialCount }} / {{ order.materialCount }}</span>
+      </div>
+      <div class="stat"><span class="stat-label">Required</span><span class="stat-value" style="font-size:1rem">{{ order.requiredDate | date:'mediumDate' }}</span></div>
+    </div>
+
+    <p-tabView [activeIndex]="activeTab" (onChange)="onTabChange($event.index)">
+
+      <!-- ══ Materials ═══════════════════════════════════════════════════════ -->
+      <p-tabPanel [header]="'Materials (' + order.materials.length + ')'" leftIcon="pi pi-list">
+        <div class="form-card flush">
+          <p-table [value]="order.materials" styleClass="p-datatable-sm" dataKey="uuid" data-testid="materials">
+            <ng-template pTemplate="header">
+              <tr>
+                <th>Material</th><th class="num">Required</th><th class="num">Reserved</th><th class="num">Planned</th>
+                <th class="num">Issued</th><th class="num">Returned</th><th class="num">Shortage</th><th>Status</th><th>Critical</th><th>Warehouse</th>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-m>
+              <tr [attr.data-testid]="'material-' + m.sequence" [class.short-row]="m.status !== 'CANCELLED' && !m.isCovered">
+                <td><div class="ref">{{ m.materialProductName }} – {{ m.materialVariantName }}</div><div class="sub mono">{{ m.materialSku }}</div></td>
+                <td class="num">{{ m.requiredQuantity | number:'1.0-4' }} {{ m.uom }}</td>
+                <td class="num">{{ m.reservedQuantity | number:'1.0-4' }}</td>
+                <td class="num">{{ m.plannedQuantity | number:'1.0-4' }}</td>
+                <td class="num">{{ m.issuedQuantity | number:'1.0-4' }}</td>
+                <td class="num">{{ m.returnedQuantity | number:'1.0-4' }}</td>
+                <td class="num"><span [class.critical]="m.shortageQuantity > 0">{{ m.shortageQuantity | number:'1.0-4' }}</span></td>
+                <td>{{ m.status | titlecase }}</td>
+                <td><i class="pi" [class.pi-check-circle]="m.isCritical" [class.pi-minus-circle]="!m.isCritical"></i></td>
+                <td>{{ m.warehouseName }}</td>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="emptymessage">
+              <tr><td colspan="10" class="empty">Not planned yet — plan the order to explode its recipe.</td></tr>
+            </ng-template>
+          </p-table>
+        </div>
+      </p-tabPanel>
+
+      <!-- ══ Supply requirements ═════════════════════════════════════════════ -->
+      <p-tabPanel [header]="'Supply (' + order.supplyRequirements.length + ')'" leftIcon="pi pi-truck">
+        <div class="form-card flush">
+          <p-table [value]="order.supplyRequirements" styleClass="p-datatable-sm" dataKey="uuid" data-testid="supply">
+            <ng-template pTemplate="header">
+              <tr><th>Requirement</th><th>Material</th><th class="num">Required</th><th class="num">Outstanding</th><th>Method</th><th>Status</th><th>Raised as</th></tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-s>
+              <tr>
+                <td class="mono">{{ s.supplyNumber }}</td>
+                <td><div class="ref">{{ s.productName }}</div><div class="sub mono">{{ s.materialSku }}</div></td>
+                <td class="num">{{ s.quantityRequired | number:'1.0-4' }}</td>
+                <td class="num"><span [class.critical]="s.quantityOutstanding > 0">{{ s.quantityOutstanding | number:'1.0-4' }}</span></td>
+                <td>{{ s.supplyMethod | titlecase }}</td>
+                <td><p-tag [value]="s.status" [severity]="s.status === 'FULFILLED' ? 'success' : s.status === 'CANCELLED' ? 'danger' : 'warn'"></p-tag></td>
+                <td>{{ s.supplySourceReference || (s.supplySourceType ? (s.supplySourceType | titlecase) : '—') }}</td>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="emptymessage">
+              <tr><td colspan="7" class="empty">Nothing has been short so far.</td></tr>
+            </ng-template>
+          </p-table>
+        </div>
+      </p-tabPanel>
+
+      <!-- ══ Issues ══════════════════════════════════════════════════════════ -->
+      <p-tabPanel [header]="'Issues (' + order.issues.length + ')'" leftIcon="pi pi-send">
+        <div class="form-card flush">
+          <p-table [value]="order.issues" styleClass="p-datatable-sm" dataKey="uuid" data-testid="issues">
+            <ng-template pTemplate="header">
+              <tr><th>Issue</th><th>Type</th><th class="num">Quantity</th><th>Status</th><th>Created</th><th class="actions">Actions</th></tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-i>
+              <tr>
+                <td class="mono">{{ i.issueNumber }}</td>
+                <td>{{ i.issueType | titlecase }}</td>
+                <td class="num">{{ i.totalQuantity | number:'1.0-4' }}</td>
+                <td><p-tag [value]="i.status" [severity]="i.status === 'CONFIRMED' ? 'success' : i.status === 'REVERSED' ? 'danger' : 'secondary'"></p-tag></td>
+                <td>{{ i.createdAt | date:'short' }}</td>
+                <td class="actions">
+                  <p-button *ngIf="canConfirm(i.status)" label="Confirm" size="small" [outlined]="true" (onClick)="confirmIssueRow(i.uuid)"></p-button>
+                  <p-button *ngIf="canReverse(i.status)" label="Reverse" size="small" severity="danger" [outlined]="true" (onClick)="openReverse(i.uuid)"></p-button>
+                </td>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="emptymessage">
+              <tr><td colspan="6" class="empty">No material has moved for this order yet.</td></tr>
+            </ng-template>
+          </p-table>
+        </div>
+      </p-tabPanel>
+
+      <!-- ══ Quality & finished goods ═════════════════════════════════════════ -->
+      <p-tabPanel header="Quality & FGR" leftIcon="pi pi-verified">
+        <div class="header-actions" style="margin-bottom: 1rem" data-testid="qi-fgr-actions">
+          <p-button *ngIf="canInspect" label="Record inspection" icon="pi pi-check-square" [disabled]="busy" (onClick)="openQi()" data-testid="open-qi"></p-button>
+          <p-button *ngIf="canReceive" label="Receive finished goods" icon="pi pi-box" severity="secondary" [outlined]="true" [disabled]="busy" (onClick)="openFgr()" data-testid="open-fgr"></p-button>
+        </div>
+
+        <div class="state-card" *ngIf="isLoadingQi"><i class="pi pi-spin pi-spinner"></i><p>Loading…</p></div>
+        <p class="hint" *ngIf="!isLoadingQi && !qi && order.status !== 'QUALITY_INSPECTION'">Nothing to inspect until the order reaches quality inspection.</p>
+        <p class="hint" *ngIf="!isLoadingQi && !qi && order.status === 'QUALITY_INSPECTION'">Not inspected yet.</p>
+
+        <div class="form-card" *ngIf="qi" data-testid="qi-summary">
+          <div class="card-head">
+            <div class="card-icon"><i class="pi pi-verified"></i></div>
+            <div class="grow">
+              <div class="card-title">{{ qi.inspectionNumber }} <p-tag [value]="qi.overallResult | titlecase" [severity]="qiResultSeverity(qi.overallResult)" styleClass="ml-1"></p-tag></div>
+              <div class="card-sub">Inspected {{ qi.inspectedAt | date:'medium' }} by user #{{ qi.inspectedBy }}</div>
+            </div>
+          </div>
+          <div class="stat-grid">
+            <div class="stat success"><span class="stat-label">Accepted</span><span class="stat-value">{{ qi.acceptedQuantity | number:'1.0-4' }}</span></div>
+            <div class="stat danger"><span class="stat-label">Rejected</span><span class="stat-value">{{ qi.rejectedQuantity | number:'1.0-4' }}</span></div>
+            <div class="stat warn"><span class="stat-label">Hold</span><span class="stat-value">{{ qi.holdQuantity | number:'1.0-4' }}</span></div>
+            <div class="stat"><span class="stat-label">Rework</span><span class="stat-value">{{ qi.reworkQuantity | number:'1.0-4' }}</span></div>
+            <div class="stat accent"><span class="stat-label">Left to receive</span><span class="stat-value">{{ qi.outstandingForFgr | number:'1.0-4' }}</span></div>
+          </div>
+          <p-table [value]="qi.lines" styleClass="p-datatable-sm">
+            <ng-template pTemplate="header"><tr><th>Check</th><th>Result</th><th class="num">Quantity</th><th>Defect</th><th>Notes</th></tr></ng-template>
+            <ng-template pTemplate="body" let-l>
+              <tr>
+                <td>{{ l.checkName }}</td>
+                <td>{{ l.result | titlecase }}</td>
+                <td class="num">{{ l.quantityChecked | number:'1.0-4' }}</td>
+                <td>{{ l.defectCode || '—' }}</td>
+                <td class="sub">{{ l.notes || '' }}</td>
+              </tr>
+            </ng-template>
+          </p-table>
+        </div>
+
+        <div class="form-card flush" *ngIf="!isLoadingFgrs && fgrs.length > 0" data-testid="fgrs">
+          <p-table [value]="fgrs" styleClass="p-datatable-sm">
+            <ng-template pTemplate="header"><tr><th>Receipt</th><th class="num">Quantity</th><th>Warehouse</th><th>Status</th><th>Received</th><th class="actions">Actions</th></tr></ng-template>
+            <ng-template pTemplate="body" let-f>
+              <tr>
+                <td class="mono">{{ f.fgrNumber }}</td>
+                <td class="num">{{ f.totalQuantity | number:'1.0-4' }}</td>
+                <td>{{ f.warehouseName }}</td>
+                <td><p-tag [value]="f.status" [severity]="f.status === 'CONFIRMED' ? 'success' : 'secondary'"></p-tag></td>
+                <td>{{ f.receivedAt | date:'short' }}</td>
+                <td class="actions">
+                  <p-button *ngIf="canConfirmFgr(f.status)" label="Confirm" size="small" [outlined]="true" (onClick)="confirmFgrRow(f.uuid)"></p-button>
+                </td>
+              </tr>
+            </ng-template>
+          </p-table>
+        </div>
+      </p-tabPanel>
+
+      <!-- ══ Production ledger ═══════════════════════════════════════════════ -->
+      <p-tabPanel header="Ledger" leftIcon="pi pi-book">
+        <div class="state-card" *ngIf="isLoadingLedger"><i class="pi pi-spin pi-spinner"></i><p>Loading…</p></div>
+        <ng-container *ngIf="ledger && !isLoadingLedger">
+          <div class="stat-grid" data-testid="ledger-summary">
+            <div class="stat"><span class="stat-label">Materials consumed</span><span class="stat-value">{{ ledger.summary.materialsConsumedCount }}</span></div>
+            <div class="stat success"><span class="stat-label">Finished goods</span><span class="stat-value">{{ ledger.summary.finishedGoodsQuantity | number:'1.0-4' }}</span></div>
+            <div class="stat danger"><span class="stat-label">Scrap</span><span class="stat-value">{{ ledger.summary.scrapQuantity | number:'1.0-4' }}</span></div>
+            <div class="stat accent"><span class="stat-label">Yield</span><span class="stat-value">{{ ledger.summary.yieldPercent !== null && ledger.summary.yieldPercent !== undefined ? (ledger.summary.yieldPercent + '%') : '—' }}</span></div>
+          </div>
+          <div class="form-card flush">
+            <p-table [value]="ledger.entries" styleClass="p-datatable-sm" data-testid="ledger-entries">
+              <ng-template pTemplate="header"><tr><th>Date</th><th>Type</th><th>Product</th><th class="num">Qty</th><th>UOM</th><th>Warehouse</th><th>Source</th></tr></ng-template>
+              <ng-template pTemplate="body" let-e>
+                <tr>
+                  <td>{{ e.transactionDate | date:'short' }}</td>
+                  <td><span [class.critical]="e.entryType === 'DEBIT'" [style.color]="e.entryType === 'CREDIT' ? 'var(--green-600, #16a34a)' : null">{{ e.entryType }}</span></td>
+                  <td>{{ e.productName }} <span class="sub" *ngIf="e.variantName && e.variantName !== 'Default'">– {{ e.variantName }}</span></td>
+                  <td class="num">{{ e.quantity | number:'1.0-4' }}</td>
+                  <td>{{ e.uom }}</td>
+                  <td>{{ e.warehouseName }}</td>
+                  <td>{{ e.sourceDocumentNumber }}</td>
+                </tr>
+              </ng-template>
+              <ng-template pTemplate="emptymessage"><tr><td colspan="7" class="empty">Nothing recorded yet.</td></tr></ng-template>
+            </p-table>
+          </div>
+        </ng-container>
+      </p-tabPanel>
+
+      <!-- ══ Child orders (chained manufacturing) ═══════════════════════════ -->
+      <p-tabPanel *ngIf="order.childOrders.length > 0" [header]="'Child orders (' + order.childOrders.length + ')'" leftIcon="pi pi-sitemap">
+        <div class="form-card flush">
+          <p-table [value]="order.childOrders" styleClass="p-datatable-sm" dataKey="uuid">
+            <ng-template pTemplate="header">
+              <tr><th>Order</th><th>Product</th><th class="num">Qty</th><th>Status</th></tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-c>
+              <tr>
+                <td><a class="mono" [routerLink]="['/portal/pages/manufacturing/production-orders', c.uuid]">{{ c.productionNumber }}</a></td>
+                <td>{{ c.productName }}</td>
+                <td class="num">{{ c.plannedQuantity | number:'1.0-4' }}</td>
+                <td><p-tag [value]="c.status" [severity]="severity(c.status)"></p-tag></td>
+              </tr>
+            </ng-template>
+          </p-table>
+        </div>
+      </p-tabPanel>
+    </p-tabView>
+  </ng-container>
+</div>
+
+<!-- ══ Report output dialog ═══════════════════════════════════════════════ -->
+<p-dialog header="Report output" [(visible)]="reportVisible" [modal]="true" [style]="{ width: '26rem' }" data-testid="report-dialog">
+  <p class="dialog-lead">Add to the produced quantity. It cannot take the total past what was planned.</p>
+  <div class="field">
+    <label>Quantity</label>
+    <p-inputnumber [(ngModel)]="reportQuantity" [min]="0" [minFractionDigits]="0" [maxFractionDigits]="4" styleClass="w-full" data-testid="report-qty"></p-inputnumber>
+  </div>
+  <div class="field" style="margin-top: .75rem">
+    <label>Notes</label>
+    <textarea pTextarea rows="2" [(ngModel)]="reportNotes" class="w-full"></textarea>
+  </div>
+  <ng-template pTemplate="footer">
+    <p-button label="Cancel" severity="secondary" [text]="true" (onClick)="reportVisible = false"></p-button>
+    <p-button label="Report" icon="pi pi-check" [loading]="busy" [disabled]="!reportQuantity || reportQuantity <= 0" (onClick)="confirmReport()" data-testid="confirm-report"></p-button>
+  </ng-template>
+</p-dialog>
+
+<!-- ══ Cancel dialog ═══════════════════════════════════════════════════════ -->
+<p-dialog header="Cancel this production order" [(visible)]="cancelVisible" [modal]="true" [style]="{ width: '28rem' }" data-testid="cancel-dialog">
+  <p class="dialog-lead">Whatever is held for it is released and its open supply requirements are cancelled. This cannot be undone.</p>
+  <textarea pTextarea rows="3" [(ngModel)]="cancelReason" class="w-full" placeholder="Reason" data-testid="cancel-reason"></textarea>
+  <ng-template pTemplate="footer">
+    <p-button label="Keep it" severity="secondary" [text]="true" (onClick)="cancelVisible = false"></p-button>
+    <p-button label="Cancel order" icon="pi pi-ban" severity="danger" [loading]="busy" [disabled]="!cancelReason.trim()" (onClick)="confirmCancel()" data-testid="confirm-cancel"></p-button>
+  </ng-template>
+</p-dialog>
+
+<!-- ══ Reverse issue dialog ═══════════════════════════════════════════════ -->
+<p-dialog header="Reverse this issue" [(visible)]="reverseVisible" [modal]="true" [style]="{ width: '28rem' }">
+  <p class="dialog-lead">Gives the stock back and rolls back what was issued. The original hold on it is not reinstated — a later planning run picks up any shortage this reopens.</p>
+  <textarea pTextarea rows="3" [(ngModel)]="reverseReason" class="w-full" placeholder="Reason" data-testid="reverse-reason"></textarea>
+  <ng-template pTemplate="footer">
+    <p-button label="Keep it" severity="secondary" [text]="true" (onClick)="reverseVisible = false"></p-button>
+    <p-button label="Reverse" icon="pi pi-undo" severity="danger" [loading]="busy" [disabled]="!reverseReason.trim()" (onClick)="confirmReverse()" data-testid="confirm-reverse"></p-button>
+  </ng-template>
+</p-dialog>
+
+<!-- ══ Issue material dialog ═══════════════════════════════════════════════ -->
+<p-dialog header="Issue material" [(visible)]="issueVisible" [modal]="true" [style]="{ width: '40rem' }" data-testid="issue-dialog">
+  <div class="field">
+    <label>Type</label>
+    <p-dropdown [options]="[
+        { label: 'Standard — what was held', value: 'STANDARD' },
+        { label: 'Additional — beyond the requirement', value: 'ADDITIONAL', disabled: !canManage },
+        { label: 'Return — unused material back to stock', value: 'RETURN' },
+        { label: 'Scrap — issued material lost on the floor', value: 'SCRAP' }
+      ]" [(ngModel)]="issueType" optionLabel="label" optionValue="value" styleClass="w-full" appendTo="body" data-testid="issue-type"></p-dropdown>
+    <span class="hint" *ngIf="issueType === 'ADDITIONAL' && !canManage">Needs the production manager permission.</span>
+    <span class="hint">Substituting a different material for one on the recipe is available through the API but not yet from this screen.</span>
+  </div>
+
+  <div class="form-card flush" style="margin-top: 1rem">
+    <p-table [value]="issueLines" styleClass="p-datatable-sm">
+      <ng-template pTemplate="header">
+        <tr><th>Material</th><th class="num" style="width:9rem">Quantity</th></tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-l>
+        <tr>
+          <td>{{ l.materialName }}</td>
+          <td class="num"><p-inputnumber [(ngModel)]="l.quantity" [ngModelOptions]="{standalone: true}" [min]="0" [minFractionDigits]="0" [maxFractionDigits]="4" styleClass="w-full"></p-inputnumber></td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </div>
+  <p class="hint" style="margin-top:.5rem">Leave a line at zero to skip it.</p>
+
+  <div class="field" style="margin-top: .75rem">
+    <label class="check"><input type="checkbox" [(ngModel)]="issueConfirmNow" [ngModelOptions]="{standalone: true}" /> Confirm now (posts the stock movement immediately)</label>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <p-button label="Cancel" severity="secondary" [text]="true" (onClick)="issueVisible = false"></p-button>
+    <p-button label="Issue" icon="pi pi-send" [loading]="busy" [disabled]="!issueLinesValid" (onClick)="confirmIssueDialog()" data-testid="confirm-issue"></p-button>
+  </ng-template>
+</p-dialog>
+
+<!-- ══ Quality inspection dialog ═══════════════════════════════════════════ -->
+<p-dialog header="Record quality inspection" [(visible)]="qiVisible" [modal]="true" [style]="{ width: '42rem' }" data-testid="qi-dialog">
+  <p class="dialog-lead">Taken once, against everything this order produced ({{ order?.producedQuantity | number:'1.0-4' }}). Each check's whole quantity goes to one outcome.</p>
+
+  <div class="form-card flush">
+    <p-table [value]="qiLines" styleClass="p-datatable-sm">
+      <ng-template pTemplate="header">
+        <tr><th>Check</th><th style="width:9rem">Result</th><th class="num" style="width:8rem">Quantity</th><th style="width:3rem"></th></tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-l>
+        <tr>
+          <td><input pInputText [(ngModel)]="l.checkName" [ngModelOptions]="{standalone: true}" class="w-full" placeholder="e.g. Visual inspection" /></td>
+          <td>
+            <p-dropdown [options]="[
+                { label: 'Pass', value: 'PASS' }, { label: 'Fail', value: 'FAIL' },
+                { label: 'Hold', value: 'HOLD' }, { label: 'Rework', value: 'REWORK' }
+              ]" [(ngModel)]="l.result" [ngModelOptions]="{standalone: true}" optionLabel="label" optionValue="value" styleClass="w-full" appendTo="body"></p-dropdown>
+          </td>
+          <td class="num"><p-inputnumber [(ngModel)]="l.quantityChecked" [ngModelOptions]="{standalone: true}" [min]="0" [minFractionDigits]="0" [maxFractionDigits]="4" styleClass="w-full"></p-inputnumber></td>
+          <td><p-button icon="pi pi-trash" [text]="true" severity="danger" (onClick)="removeQiLine(qiLines.indexOf(l))"></p-button></td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </div>
+  <div style="margin-top:.5rem; display:flex; justify-content:space-between; align-items:center">
+    <p-button label="Add check" icon="pi pi-plus" severity="secondary" [outlined]="true" size="small" (onClick)="addQiLine()"></p-button>
+    <span class="hint" [class.p-error]="qiCheckedTotal !== (order?.producedQuantity ?? -1)">
+      Checked {{ qiCheckedTotal | number:'1.0-4' }} of {{ order?.producedQuantity | number:'1.0-4' }} produced
+    </span>
+  </div>
+
+  <div class="field" style="margin-top: .75rem">
+    <label>Notes</label>
+    <textarea pTextarea rows="2" [(ngModel)]="qiNotes" class="w-full"></textarea>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <p-button label="Cancel" severity="secondary" [text]="true" (onClick)="qiVisible = false"></p-button>
+    <p-button label="Record" icon="pi pi-check" [loading]="busy" [disabled]="!qiLinesValid" (onClick)="confirmQi()" data-testid="confirm-qi"></p-button>
+  </ng-template>
+</p-dialog>
+
+<!-- ══ Finished goods receipt dialog ════════════════════════════════════════ -->
+<p-dialog header="Receive finished goods" [(visible)]="fgrVisible" [modal]="true" [style]="{ width: '28rem' }" data-testid="fgr-dialog">
+  <p class="dialog-lead">Into {{ order?.warehouseName }}. Up to {{ qi?.outstandingForFgr | number:'1.0-4' }} accepted quantity is left to receive.</p>
+  <div class="field">
+    <label>Quantity</label>
+    <p-inputnumber [(ngModel)]="fgrQuantity" [min]="0" [max]="qi?.outstandingForFgr ?? undefined" [minFractionDigits]="0" [maxFractionDigits]="4" styleClass="w-full" data-testid="fgr-qty"></p-inputnumber>
+  </div>
+  <div class="field" style="margin-top: .75rem">
+    <label class="check"><input type="checkbox" [(ngModel)]="fgrConfirmNow" [ngModelOptions]="{standalone: true}" /> Confirm now (credits inventory immediately)</label>
+  </div>
+  <ng-template pTemplate="footer">
+    <p-button label="Cancel" severity="secondary" [text]="true" (onClick)="fgrVisible = false"></p-button>
+    <p-button label="Receive" icon="pi pi-box" [loading]="busy" [disabled]="!fgrQuantity || fgrQuantity <= 0" (onClick)="confirmFgrDialog()" data-testid="confirm-fgr"></p-button>
+  </ng-template>
+</p-dialog>

@@ -1,0 +1,4 @@
+@use '../production-shared' as *;
+
+:host ::ng-deep .note { display: block; margin-bottom: 1rem; }
+.short-row td:first-child { box-shadow: inset 3px 0 0 var(--red-500, #ef4444); }

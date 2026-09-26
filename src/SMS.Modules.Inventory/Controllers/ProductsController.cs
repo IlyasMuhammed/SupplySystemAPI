@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using SMS.Modules.Inventory.Models;
 using SMS.Modules.Inventory.Services;
 using SMS.Shared.Authorization;
+using SMS.Shared.Common;
 using SMS.Shared.Constants;
 using SMS.Shared.Exceptions;
 using SMS.Shared.Pagination;
@@ -167,6 +168,8 @@ public class ProductsController : ControllerBase
         [FromQuery] string? status,
         [FromQuery] string? search,
         [FromQuery] string? availableFor,
+        [FromQuery] string? productType,
+        [FromQuery] string? supplyMethod,
         [FromQuery] bool activeOnly = true,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20)
@@ -177,12 +180,42 @@ public class ProductsController : ControllerBase
             Status = status,
             Search = search,
             AvailableFor = availableFor,
+            ProductType = productType,
+            SupplyMethod = supplyMethod,
             ActiveOnly = activeOnly,
             Page = page,
             PageSize = pageSize
         };
         var result = await _service.GetProductsAsync(filter);
         return Ok(ApiResponse<PaginatedResponse<ProductListItemModel>>.Ok(result));
+    }
+
+    // A30 §28.1 — the products a bill of materials or production order can be raised for.
+    [HttpGet("api/products/manufacturable")]
+    public async Task<IActionResult> GetManufacturableProducts(
+        [FromQuery] string? search,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50)
+    {
+        var filter = new ProductListFilter
+        {
+            SupplyMethod = SupplyMethod.Manufacture,
+            Search = search,
+            ActiveOnly = true,
+            Page = page,
+            PageSize = pageSize
+        };
+        var result = await _service.GetProductsAsync(filter);
+        return Ok(ApiResponse<PaginatedResponse<ProductListItemModel>>.Ok(result));
+    }
+
+    // A30 §28.1 — set product type, supply method and the manufacturing flags in one call.
+    [HttpPatch("api/products/{id:int}/manufacturing-config")]
+    public async Task<IActionResult> SetManufacturingConfig(int id, [FromBody] ManufacturingConfigRequest req)
+    {
+        var updated = await _service.SetManufacturingConfigAsync(id, req);
+        if (!updated) return NotFound(ApiResponse.Fail(StaticResponseMessage.recordNotFound));
+        return Ok(ApiResponse.Ok(StaticResponseMessage.recordUpdatedSuccessfully));
     }
 
     // PV-006 — full-text search (SQL Server FREETEXT against the denormalised

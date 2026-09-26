@@ -59,6 +59,9 @@ public static class InventoryModuleExtensions
         // now, sales orders later. Keeps the reservation rows and InventoryItem.QtyReserved in
         // step, which is impossible if each consumer writes its own.
         services.AddScoped<IStockReservationService, StockReservationService>();
+        // A30 §14 — decides which demand gets scarce stock, on hand or expected. Reserved
+        // allocations are holds through the reservation service above, so nothing else changes.
+        services.AddScoped<IAllocationEngine, AllocationEngine>();
         // Takes stock off the books against those same holds, so what leaves the ledger is what
         // was reserved, picked and packed — batch for batch.
         services.AddScoped<IGoodsIssuePoster, GoodsIssuePoster>();

@@ -61,6 +61,16 @@ internal class Product : ITenantScopedEntity
     public int? LeadTimeDays { get; set; }
     // Supplier
     public int? PreferredSupplierId { get; set; }
+    // Manufacturing classification (A30 §6). Codes from SMS.Shared.Common.ProductType /
+    // SupplyMethod. IsManufacturable is derived (SupplyMethod == MANUFACTURE) and stored so the
+    // BOM and production pickers can filter on it without knowing the rule.
+    public string ProductType      { get; set; } = SMS.Shared.Common.ProductType.StockItem;
+    public string SupplyMethod     { get; set; } = SMS.Shared.Common.SupplyMethod.Purchase;
+    public bool   IsSaleable       { get; set; } = true;
+    public bool   IsPurchasable    { get; set; } = true;
+    public bool   IsStockable      { get; set; } = true;
+    public bool   IsManufacturable { get; set; }
+    public int?   DefaultProductionWarehouseId { get; set; }
     // Meta
     public string Status { get; set; } = "ACTIVE";
     public bool IsActive { get; set; } = true;
@@ -72,6 +82,7 @@ internal class Product : ITenantScopedEntity
 
     public ProductCategory? Category { get; set; }
     public ProductSubCategory? SubCategory { get; set; }
+    public Warehouse? DefaultProductionWarehouse { get; set; }
     public ICollection<ProductVariant> Variants { get; set; } = new List<ProductVariant>();
 }
 
@@ -450,6 +461,13 @@ internal class InventoryItem : ITenantScopedEntity
     // Legacy
     public decimal? ReorderPoint { get; set; }
     public DateTime LastUpdated { get; set; } = DateTime.UtcNow;
+
+    /// <summary>
+    /// Lost-update guard on the counters. Every writer reads a row, changes a quantity and saves;
+    /// two doing that at once used to both succeed, the second silently overwriting the first.
+    /// Now the second fails the version check and has to reread (see StockReservationService).
+    /// </summary>
+    public byte[] RowVersion { get; set; } = [];
 
     public ProductVariant Variant { get; set; } = null!;
     public Warehouse Warehouse { get; set; } = null!;

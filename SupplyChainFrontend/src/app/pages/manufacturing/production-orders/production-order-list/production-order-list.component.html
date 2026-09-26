@@ -1,0 +1,56 @@
+<p-toast></p-toast>
+
+<div class="bom-page">
+  <div class="page-header">
+    <div class="page-icon"><i class="pi pi-cog"></i></div>
+    <div class="grow">
+      <h1 class="page-title">Production Orders</h1>
+      <p class="page-subtitle">What is being made, from which recipe, and whether the floor has what it needs.</p>
+    </div>
+    <p-button *ngIf="canCreate" label="New order" icon="pi pi-plus" [routerLink]="['/portal/pages/manufacturing/production-orders/new']" data-testid="new"></p-button>
+  </div>
+
+  <div class="form-card filters">
+    <p-iconfield iconPosition="left" class="grow">
+      <p-inputicon styleClass="pi pi-search"></p-inputicon>
+      <input pInputText type="text" [(ngModel)]="filter.search" (ngModelChange)="onSearchChange()"
+             placeholder="Search by order number, product or reference" class="w-full" data-testid="search" />
+    </p-iconfield>
+    <p-dropdown [options]="statusOptions" [(ngModel)]="filter.status" optionLabel="label" optionValue="value"
+                (onChange)="onFilterChange()" styleClass="status-filter" appendTo="body" data-testid="status"></p-dropdown>
+    <p-dropdown [options]="priorityOptions" [(ngModel)]="filter.priority" optionLabel="label" optionValue="value"
+                (onChange)="onFilterChange()" styleClass="status-filter" appendTo="body" data-testid="priority"></p-dropdown>
+    <p-button icon="pi pi-filter-slash" [text]="true" severity="secondary" pTooltip="Clear filters" (onClick)="resetFilters()"></p-button>
+  </div>
+
+  <div class="form-card flush">
+    <p-table [value]="orders" [lazy]="true" (onLazyLoad)="onPageChange($event)" [paginator]="true" [rows]="pageSize"
+             [totalRecords]="totalRecords" [loading]="isLoading" [rowsPerPageOptions]="[20, 50, 100]"
+             styleClass="p-datatable-sm" dataKey="uuid" data-testid="orders">
+      <ng-template pTemplate="header">
+        <tr>
+          <th>Order</th><th>Product</th><th>Warehouse</th><th class="num">Qty</th><th>Priority</th>
+          <th>Status</th><th>Readiness</th><th class="num">Short</th><th>Required</th><th>Updated</th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-o>
+        <tr [routerLink]="['/portal/pages/manufacturing/production-orders', o.uuid]" class="row-link"
+            [attr.data-testid]="'order-' + o.productionNumber">
+          <td class="mono">{{ o.productionNumber }}</td>
+          <td><div class="ref">{{ o.productName }}</div><div class="sub">{{ o.productSku }}</div></td>
+          <td>{{ o.warehouseName }}</td>
+          <td class="num">{{ o.plannedQuantity | number:'1.0-4' }}</td>
+          <td>{{ priorityLabel(o.priority) }}</td>
+          <td><p-tag [value]="o.status" [severity]="severity(o.status)"></p-tag></td>
+          <td>{{ o.materialReadiness | titlecase }}</td>
+          <td class="num"><span [class.critical]="o.shortMaterialCount > 0">{{ o.shortMaterialCount }}</span> / {{ o.materialCount }}</td>
+          <td>{{ o.requiredDate | date:'mediumDate' }}</td>
+          <td>{{ o.updatedAt | date:'short' }}</td>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="emptymessage">
+        <tr><td colspan="10" class="empty">No production orders yet.</td></tr>
+      </ng-template>
+    </p-table>
+  </div>
+</div>

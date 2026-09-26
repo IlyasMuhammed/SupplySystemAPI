@@ -24,6 +24,7 @@ internal interface IInventoryRepository
     Task<ProductDetailModel?> GetProductByIdAsync(int id);
     Task<(int id, string sku)> CreateProductAsync(CreateProductRequest req, int userId);
     Task<bool> PatchProductAsync(int id, PatchProductRequest req);
+    Task<bool> SetManufacturingConfigAsync(int id, ManufacturingConfigRequest req);
     Task<bool> SoftDeleteProductAsync(int id);
     Task<bool> SkuExistsAsync(string sku);
     Task<VariantLookupModel?> GetVariantByBarcodeAsync(string barcode);

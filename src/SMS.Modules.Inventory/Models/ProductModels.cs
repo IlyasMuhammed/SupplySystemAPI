@@ -103,6 +103,9 @@ public class ProductListItemModel
     public string Status { get; set; } = string.Empty;
     public bool IsBatchTracked { get; set; }
     public bool IsSerialTracked { get; set; }
+    // A30 §6 — SMS.Shared.Common.ProductType / SupplyMethod codes.
+    public string ProductType { get; set; } = string.Empty;
+    public string SupplyMethod { get; set; } = string.Empty;
     public DateTime CreatedDate { get; set; }
     public int VariantCount { get; set; }
     // Convenience rollup for pickers elsewhere in the app (PO/PR/MIR/SRO line entry, stock
@@ -127,6 +130,12 @@ public class ProductDetailModel : ProductListItemModel
     public decimal? MaxStockLevel { get; set; }
     public int? LeadTimeDays { get; set; }
     public int? PreferredSupplierId { get; set; }
+    public bool IsSaleable { get; set; }
+    public bool IsPurchasable { get; set; }
+    public bool IsStockable { get; set; }
+    public bool IsManufacturable { get; set; }
+    public int? DefaultProductionWarehouseId { get; set; }
+    public string? DefaultProductionWarehouseName { get; set; }
     public string? Notes { get; set; }
     public DateTime? UpdatedDate { get; set; }
     public int CreatedBy { get; set; }
@@ -277,6 +286,9 @@ public class ProductListFilter
     // A SMS.Shared.Common.VariantAvailabilityChannel value — only products with at least one
     // active variant checked for that channel are returned. Null/omitted means no such filtering.
     public string? AvailableFor { get; set; }
+    // A30 §6 — SMS.Shared.Common.ProductType / SupplyMethod codes. Null/omitted means no filtering.
+    public string? ProductType { get; set; }
+    public string? SupplyMethod { get; set; }
     public int Page { get; set; } = 1;
     public int PageSize { get; set; } = 20;
 }
@@ -306,6 +318,17 @@ public class CreateProductRequest
     public int? PreferredSupplierId { get; set; }
     public string? Notes { get; set; }
     public string? ImageUrl { get; set; }
+
+    // ── Manufacturing classification (A30 §6) ───────────────────────────────────
+    // Omitted → STOCK_ITEM supplied by PURCHASE, saleable/purchasable/stockable; the same
+    // defaults every product that existed before these fields carries. Flags left null take the
+    // §6.1 defaults for the chosen type.
+    public string? ProductType { get; set; }
+    public string? SupplyMethod { get; set; }
+    public bool? IsSaleable { get; set; }
+    public bool? IsPurchasable { get; set; }
+    public bool? IsStockable { get; set; }
+    public int? DefaultProductionWarehouseId { get; set; }
 
     // ── Variant seeding (PV-001) ────────────────────────────────────────────────
     // If Variants is supplied (non-empty), those exact variants are created and exactly one
@@ -340,4 +363,26 @@ public class PatchProductRequest
     public string? Notes { get; set; }
     public string? ImageUrl { get; set; }
     public string? Status { get; set; }
+    // A30 §6 — overlaid on the current classification and validated as a whole, so a type change
+    // that needs a different supply method must send both.
+    public string? ProductType { get; set; }
+    public string? SupplyMethod { get; set; }
+    public bool? IsSaleable { get; set; }
+    public bool? IsPurchasable { get; set; }
+    public bool? IsStockable { get; set; }
+    public int? DefaultProductionWarehouseId { get; set; }
+}
+
+// A30 §28.1 — PATCH /api/products/{id}/manufacturing-config. Type and supply method are required;
+// a flag left null is re-defaulted from the new type's §6.1 row rather than kept from the old one,
+// because the old flags were chosen for the old type.
+public class ManufacturingConfigRequest
+{
+    public string ProductType { get; set; } = string.Empty;
+    public string SupplyMethod { get; set; } = string.Empty;
+    public bool? IsSaleable { get; set; }
+    public bool? IsPurchasable { get; set; }
+    public bool? IsStockable { get; set; }
+    public int? DefaultProductionWarehouseId { get; set; }
+    public int? LeadTimeDays { get; set; }
 }

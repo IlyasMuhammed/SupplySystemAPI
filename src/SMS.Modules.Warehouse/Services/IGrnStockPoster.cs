@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.Extensions.Logging;
 using SMS.Modules.Demand.Data;
 using SMS.Modules.Inventory.Data;
 using SMS.Modules.Inventory.Domain;
@@ -22,6 +23,8 @@ internal sealed class EfGrnInventoryPoster : IGrnStockPoster
     private readonly IInventoryLedgerService _ledger;
     private readonly IProductLedgerService? _productLedger;
     private readonly DemandDbContext? _demand;
+    private readonly IAllocationEngine? _allocation;
+    private readonly ILogger<EfGrnInventoryPoster>? _logger;
 
     /// <param name="productLedger">
     /// A29 §11.2 — when given, each received line is also booked as a PURCHASE on the per-variant product
@@ -29,17 +32,56 @@ internal sealed class EfGrnInventoryPoster : IGrnStockPoster
     /// product ledger in <see cref="InventoryLedgerService"/>, so a caller without Finance still posts stock.
     /// </param>
     /// <param name="demand">Where the purchase order line's price is read from; needed with <paramref name="productLedger"/>.</param>
+    /// <param name="allocation">
+    /// A30 §15 — when given, each receipt is booked against the expected supply registered for its purchase
+    /// order line and the engine re-runs for the variant, so waiting demands get the stock by the rules.
+    /// </param>
     public EfGrnInventoryPoster(
         InventoryDbContext inv, IInventoryLedgerService ledger,
-        IProductLedgerService? productLedger = null, DemandDbContext? demand = null)
+        IProductLedgerService? productLedger = null, DemandDbContext? demand = null,
+        IAllocationEngine? allocation = null, ILogger<EfGrnInventoryPoster>? logger = null)
     {
         _inv           = inv;
         _ledger        = ledger;
         _productLedger = productLedger;
         _demand        = demand;
+        _allocation    = allocation;
+        _logger        = logger;
     }
 
     public async Task PostToInventoryAsync(Grn grn, int approvedBy)
+    {
+        await PostStockAsync(grn, approvedBy);
+        await AllocateReceiptsAsync(grn, approvedBy);
+    }
+
+    /// <summary>
+    /// After the stock is committed, never inside that transaction: the stock is on the books whether or
+    /// not allocation runs, and a failure here must not fail the approval — retrying it would post the
+    /// stock twice. Allocation is eventually consistent; the next run for the variant catches up.
+    /// </summary>
+    private async Task AllocateReceiptsAsync(Grn grn, int approvedBy)
+    {
+        if (_allocation is null || !grn.WarehouseUuid.HasValue) return;
+
+        var received = grn.Lines.Where(l => l.VariantUuid.HasValue && l.PostedQty > 0).ToList();
+        if (received.Count == 0) return;
+
+        try
+        {
+            foreach (var line in received)
+                await _allocation.SupplyReceivedAsync(AllocationSupplyType.PurchaseOrder, line.PoLineUuid, null, line.PostedQty);
+
+            foreach (var variantUuid in received.Select(l => l.VariantUuid!.Value).Distinct())
+                await _allocation.AllocateAsync(variantUuid, grn.WarehouseUuid.Value, approvedBy);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger?.LogWarning(ex, "GRN {GrnNumber}: stock was posted but the allocation run failed.", grn.GrnNumber);
+        }
+    }
+
+    private async Task PostStockAsync(Grn grn, int approvedBy)
     {
         if (!grn.WarehouseUuid.HasValue) return;
 

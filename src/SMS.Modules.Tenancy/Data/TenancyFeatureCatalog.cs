@@ -19,7 +19,9 @@ internal static class TenancyFeatureCatalog
     // pair the ticket specifies, written as a list so a second pair later needs no algorithm change.
     internal static readonly IReadOnlyList<(string Dependent, string RequiredBy)> Dependencies =
     [
-        ("MODULE_MIR", "MODULE_INVENTORY")
+        ("MODULE_MIR", "MODULE_INVENTORY"),
+        // A30 §37.3 / OQ-9 — "Manufacturing Mode" is a per-tenant toggle; it makes and consumes stock.
+        ("MODULE_MANUFACTURING", "MODULE_INVENTORY")
     ];
 
     internal static readonly IReadOnlyList<Entry> Catalog = new List<Entry>
@@ -36,6 +38,7 @@ internal static class TenancyFeatureCatalog
         new("MODULE_REPORTS",         "Reports",                  CategoryModule, "Cross-module reporting and analytics.",                                 false, 90),
         new("MODULE_WORKFLOW_ENGINE", "Workflow Engine",          CategoryModule, "Approval workflow definitions powering PR/PO/GRN.",                     true,  100),
         new("MODULE_MIR",             "Material Issue & Projects", CategoryModule, "Projects, material issue requests, MIV, wastage, and returns.",       false, 110),
+        new("MODULE_MANUFACTURING",   "Manufacturing",            CategoryModule, "Bills of materials, production orders, material issue to the floor, quality inspection and finished goods receipt.", false, 115),
         new("MODULE_NOTIFICATIONS",   "Notifications",            CategoryModule, "In-app and email/WhatsApp notification delivery.",                     false, 120),
 
         // SCREEN_* — notable individually-permissioned screens.
@@ -63,7 +66,7 @@ internal static class TenancyFeatureCatalog
     // the matrix self-corrects the moment a new FeatureDefinition is added to the catalog above.
     private static readonly HashSet<string> BasicExclusions = new(StringComparer.OrdinalIgnoreCase)
     {
-        "MODULE_FINANCE", "MODULE_MIR", "MODULE_LOGISTICS", "MODULE_NOTIFICATIONS", "MODULE_PROCUREMENT",
+        "MODULE_FINANCE", "MODULE_MIR", "MODULE_MANUFACTURING", "MODULE_LOGISTICS", "MODULE_NOTIFICATIONS", "MODULE_PROCUREMENT",
         "SCREEN_SUPPLIER_SCORECARD", "SCREEN_AUDIT_LOG", "SCREEN_PO_DOCUMENT_TEMPLATE",
         "SCREEN_WORKFLOW_CONFIG", "SCREEN_BUDGET_MONITOR", "FEATURE_WHATSAPP", "FEATURE_MASTER_LEDGERS"
     };

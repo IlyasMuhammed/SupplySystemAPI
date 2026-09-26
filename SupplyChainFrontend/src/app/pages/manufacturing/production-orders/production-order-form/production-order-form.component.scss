@@ -1,0 +1,5 @@
+@use '../production-shared' as *;
+
+.span-3 { grid-column: 1 / -1; }
+.check { display: flex; align-items: center; gap: .5rem; font-weight: 500; cursor: pointer; margin-top: .45rem; }
+.form-actions { display: flex; justify-content: flex-end; gap: .5rem; margin-top: .5rem; }

@@ -1,0 +1,304 @@
+<p-toast></p-toast>
+
+<div class="allocations-page">
+
+  <!-- ── Header ───────────────────────────────────────────────────────────── -->
+  <div class="page-header">
+    <div class="page-icon"><i class="pi pi-share-alt"></i></div>
+    <div class="grow">
+      <h1 class="page-title">Allocations</h1>
+      <p class="page-subtitle">Who gets scarce stock: what is on hand, what is expected, who is asking, and who has been given what.</p>
+    </div>
+  </div>
+
+  <p-tabView [activeIndex]="activeTab" (onChange)="onTabChange($event.index)">
+
+    <!-- ══ Dashboard ══════════════════════════════════════════════════════ -->
+    <p-tabPanel header="Dashboard" leftIcon="pi pi-chart-bar">
+
+      <div class="form-card">
+        <div class="picker-row">
+          <div class="picker-field">
+            <label>Product and variant</label>
+            <app-product-variant-picker
+              [products]="products"
+              (selectionChange)="onSelection($event)">
+            </app-product-variant-picker>
+            <span class="hint" *ngIf="isLoadingCatalog">Loading the catalogue…</span>
+          </div>
+          <div class="picker-field warehouse">
+            <label for="warehouse">Warehouse</label>
+            <p-dropdown inputId="warehouse" [options]="warehouseOptions" [(ngModel)]="selectedWarehouseUuid"
+                        optionLabel="label" optionValue="value" styleClass="w-full" appendTo="body"
+                        (onChange)="onWarehouseChange()" data-testid="warehouse"></p-dropdown>
+          </div>
+          <div class="picker-actions">
+            <p-button *ngIf="canRun" label="Register demand" icon="pi pi-plus" severity="secondary" [outlined]="true"
+                      [disabled]="!variantUuid" (onClick)="openRegister()" data-testid="register"></p-button>
+            <p-button *ngIf="canRun" label="Run allocation" icon="pi pi-play" [loading]="isRunning"
+                      [disabled]="!variantUuid" (onClick)="run()" data-testid="run"></p-button>
+          </div>
+        </div>
+      </div>
+
+      <div class="state-card" *ngIf="!variantUuid" data-testid="pick-first">
+        <i class="pi pi-search"></i>
+        <h2>Pick a product to begin</h2>
+        <p>Availability, demands and allocations are shown per product variant.</p>
+      </div>
+
+      <div class="state-card" *ngIf="variantUuid && isLoading" data-testid="loading">
+        <i class="pi pi-spin pi-spinner"></i>
+        <p>Loading…</p>
+      </div>
+
+      <div class="state-card" *ngIf="variantUuid && loadFailed && !isLoading" data-testid="load-failed">
+        <i class="pi pi-exclamation-triangle"></i>
+        <h2>This could not be loaded</h2>
+        <p-button label="Try again" icon="pi pi-refresh" (onClick)="refresh()"></p-button>
+      </div>
+
+      <ng-container *ngIf="variantUuid && !isLoading && !loadFailed">
+
+        <!-- Availability -->
+        <div class="stat-grid" *ngIf="availability" data-testid="availability">
+          <div class="stat"><span class="stat-label">On hand</span><span class="stat-value">{{ availability.onHand | number:'1.0-4' }}</span></div>
+          <div class="stat"><span class="stat-label">Reserved</span><span class="stat-value">{{ availability.reserved | number:'1.0-4' }}</span></div>
+          <div class="stat accent"><span class="stat-label">Available</span><span class="stat-value">{{ availability.available | number:'1.0-4' }}</span></div>
+          <div class="stat"><span class="stat-label">Incoming</span><span class="stat-value">{{ availability.incoming | number:'1.0-4' }}</span></div>
+          <div class="stat"><span class="stat-label">Open demand</span><span class="stat-value">{{ availability.openDemand | number:'1.0-4' }}</span></div>
+          <div class="stat" [class.danger]="availability.unallocated > 0"><span class="stat-label">Not covered</span><span class="stat-value">{{ availability.unallocated | number:'1.0-4' }}</span></div>
+        </div>
+
+        <p-message *ngIf="lastRun" severity="info" styleClass="run-note" data-testid="last-run">
+          Last run: {{ lastRun.demandsEvaluated }} demand(s) evaluated — held {{ lastRun.quantityReserved }}, planned {{ lastRun.quantityPlanned }}, short {{ lastRun.shortage }}.
+        </p-message>
+
+        <!-- Demands -->
+        <div class="form-card flush">
+          <div class="card-head padded">
+            <div class="card-icon"><i class="pi pi-inbox"></i></div>
+            <div><div class="card-title">Open demands</div><div class="card-sub">In the order the rules rank them is how a run serves them.</div></div>
+          </div>
+          <p-table [value]="demands" styleClass="p-datatable-sm" dataKey="uuid" data-testid="demands">
+            <ng-template pTemplate="header">
+              <tr>
+                <th>Demand</th><th>Priority</th><th>Required</th><th>Warehouse</th>
+                <th class="num">Required</th><th class="num">Held</th><th class="num">Planned</th><th class="num">Consumed</th><th class="num">Short</th>
+                <th>Status</th><th *ngIf="canAdmin"></th>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-d>
+              <tr [attr.data-testid]="'demand-' + d.reference">
+                <td><div class="ref">{{ d.reference }}</div><div class="sub">{{ demandTypeLabel(d.demandType) }}</div></td>
+                <td><p-tag [value]="priorityLabel(d.priority)" [severity]="prioritySeverity(d.priority)"></p-tag></td>
+                <td>{{ d.requiredDate | date:'mediumDate' }}</td>
+                <td>{{ warehouseName(d.warehouseUuid) }}</td>
+                <td class="num">{{ d.requiredQty | number:'1.0-4' }}</td>
+                <td class="num">{{ d.reservedQty | number:'1.0-4' }}</td>
+                <td class="num">{{ d.plannedQty | number:'1.0-4' }}</td>
+                <td class="num">{{ d.consumedQty | number:'1.0-4' }}</td>
+                <td class="num" [class.short]="d.shortage > 0">{{ d.shortage | number:'1.0-4' }}</td>
+                <td><p-tag [value]="d.status" [severity]="statusSeverity(d.status)"></p-tag></td>
+                <td *ngIf="canAdmin" class="actions">
+                  <p-button *ngIf="d.status === 'OPEN'" icon="pi pi-times" [text]="true" severity="danger" size="small"
+                            pTooltip="Cancel this demand and free its stock" (onClick)="openCancel(d)"></p-button>
+                </td>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="emptymessage">
+              <tr><td colspan="11" class="empty">Nothing is asking for this variant.</td></tr>
+            </ng-template>
+          </p-table>
+        </div>
+
+        <!-- Allocations -->
+        <div class="form-card flush">
+          <div class="card-head padded">
+            <div class="card-icon"><i class="pi pi-lock"></i></div>
+            <div><div class="card-title">Allocations</div><div class="card-sub">{{ allocationsTotal }} record(s). A hold is real stock set aside; a plan leans on supply that has not arrived.</div></div>
+          </div>
+          <p-table [value]="allocations" styleClass="p-datatable-sm" dataKey="uuid" data-testid="allocations">
+            <ng-template pTemplate="header">
+              <tr>
+                <th>Demand</th><th>Kind</th><th>Warehouse</th><th>From</th>
+                <th class="num">Allocated</th><th class="num">Consumed</th><th>Required</th><th>Status</th><th>When</th>
+                <th *ngIf="canAdmin"></th>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-a>
+              <tr [attr.data-testid]="'allocation-' + a.uuid">
+                <td><div class="ref">{{ a.demandReference }}</div><div class="sub">{{ demandTypeLabel(a.demandType) }}</div></td>
+                <td><p-tag [value]="a.allocationType" [severity]="kindSeverity(a.allocationType)"></p-tag></td>
+                <td>{{ warehouseName(a.warehouseUuid) }}</td>
+                <td>{{ a.supplyType === 'ON_HAND' ? 'On hand' : (a.supplyReference || a.supplyType) }}</td>
+                <td class="num">{{ a.allocatedQty | number:'1.0-4' }}</td>
+                <td class="num">{{ a.consumedQty | number:'1.0-4' }}</td>
+                <td>{{ a.requiredDate | date:'mediumDate' }}</td>
+                <td>
+                  <p-tag [value]="a.status" [severity]="statusSeverity(a.status)"></p-tag>
+                  <div class="sub" *ngIf="a.releaseReason">{{ a.releaseReason }}</div>
+                </td>
+                <td>{{ a.allocatedAt | date:'short' }}</td>
+                <td *ngIf="canAdmin" class="actions">
+                  <ng-container *ngIf="a.status === 'ACTIVE'">
+                    <p-button icon="pi pi-arrow-right-arrow-left" [text]="true" size="small"
+                              pTooltip="Move to another demand" (onClick)="openMove(a)" [attr.data-testid]="'move-' + a.uuid"></p-button>
+                    <p-button icon="pi pi-unlock" [text]="true" severity="danger" size="small"
+                              pTooltip="Release" (onClick)="openRelease(a)" [attr.data-testid]="'release-' + a.uuid"></p-button>
+                  </ng-container>
+                </td>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="emptymessage">
+              <tr><td colspan="10" class="empty">No allocations for this variant yet.</td></tr>
+            </ng-template>
+          </p-table>
+        </div>
+
+      </ng-container>
+    </p-tabPanel>
+
+    <!-- ══ Rules ══════════════════════════════════════════════════════════ -->
+    <p-tabPanel header="Priority rules" leftIcon="pi pi-sort-amount-down">
+      <div class="form-card">
+        <div class="card-head">
+          <div class="card-icon"><i class="pi pi-sort-amount-down"></i></div>
+          <div>
+            <div class="card-title">How competing demands are ranked</div>
+            <div class="card-sub">Rules are applied in order; the first that tells two demands apart decides. No rules means the built-in defaults: business priority, then required date, then customer orders before production, then oldest first.</div>
+          </div>
+        </div>
+
+        <div class="state-card" *ngIf="isLoadingRules" data-testid="rules-loading"><i class="pi pi-spin pi-spinner"></i><p>Loading the rules…</p></div>
+
+        <ng-container *ngIf="!isLoadingRules">
+          <p-message *ngIf="!canAdmin" severity="info" styleClass="read-only-note">You can see the rules but not change them.</p-message>
+
+          <p-table [value]="rulesDraft" styleClass="p-datatable-sm" data-testid="rules">
+            <ng-template pTemplate="header">
+              <tr><th style="width:5rem">Order</th><th>Name</th><th>Sort by</th><th>Direction</th><th>Only for</th><th>Active</th><th *ngIf="canAdmin"></th></tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-r let-i="rowIndex">
+              <tr>
+                <td><p-inputnumber [(ngModel)]="r.priorityOrder" [min]="1" [disabled]="!canAdmin" [showButtons]="false" styleClass="w-full"></p-inputnumber></td>
+                <td><input pInputText [(ngModel)]="r.ruleName" [disabled]="!canAdmin" class="w-full" placeholder="Rule name" /></td>
+                <td><p-dropdown [options]="sortFieldOptions" [(ngModel)]="r.sortField" optionLabel="label" optionValue="value" [disabled]="!canAdmin" styleClass="w-full" appendTo="body"></p-dropdown></td>
+                <td><p-dropdown [options]="directionOptions" [(ngModel)]="r.sortDirection" optionLabel="label" optionValue="value" [disabled]="!canAdmin" styleClass="w-full" appendTo="body"></p-dropdown></td>
+                <td><p-dropdown [options]="demandTypeOptions" [(ngModel)]="r.demandTypeFilter" optionLabel="label" optionValue="value" [showClear]="true" placeholder="Every kind" [disabled]="!canAdmin" styleClass="w-full" appendTo="body"></p-dropdown></td>
+                <td><p-toggleswitch [(ngModel)]="r.isActive" [disabled]="!canAdmin"></p-toggleswitch></td>
+                <td *ngIf="canAdmin" class="actions"><p-button icon="pi pi-trash" [text]="true" severity="danger" size="small" (onClick)="removeRule(i)"></p-button></td>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="emptymessage">
+              <tr><td colspan="7" class="empty">Using the built-in default rules.</td></tr>
+            </ng-template>
+          </p-table>
+
+          <div class="rules-actions" *ngIf="canAdmin">
+            <p-button label="Add rule" icon="pi pi-plus" severity="secondary" [outlined]="true" (onClick)="addRule()" data-testid="add-rule"></p-button>
+            <p-button label="Use defaults" icon="pi pi-undo" severity="secondary" [text]="true" (onClick)="resetRules()" [disabled]="rulesDraft.length === 0"></p-button>
+            <span class="grow"></span>
+            <p-button label="Save rules" icon="pi pi-check" [loading]="isSavingRules" [disabled]="!rulesValid" (onClick)="saveRules()" data-testid="save-rules"></p-button>
+          </div>
+        </ng-container>
+      </div>
+    </p-tabPanel>
+
+  </p-tabView>
+</div>
+
+<!-- ── Release ──────────────────────────────────────────────────────────────── -->
+<p-dialog header="Release this allocation" [visible]="releaseTarget !== null" (visibleChange)="!$event && (releaseTarget = null)"
+          [modal]="true" [style]="{ width: '30rem' }" data-testid="release-dialog">
+  <ng-container *ngIf="releaseTarget as a">
+    <p class="dialog-lead">{{ a.allocatedQty - a.consumedQty | number:'1.0-4' }} held for <strong>{{ a.demandReference }}</strong> goes back to being available for everyone.</p>
+    <div class="field">
+      <label for="releaseReason">Reason <span class="required">*</span></label>
+      <textarea pTextarea id="releaseReason" rows="3" [(ngModel)]="releaseReason" class="w-full" data-testid="release-reason"></textarea>
+    </div>
+  </ng-container>
+  <ng-template pTemplate="footer">
+    <p-button label="Keep it" severity="secondary" [text]="true" (onClick)="releaseTarget = null"></p-button>
+    <p-button label="Release" icon="pi pi-unlock" severity="danger" [loading]="isSaving" [disabled]="!releaseReason.trim()" (onClick)="confirmRelease()" data-testid="confirm-release"></p-button>
+  </ng-template>
+</p-dialog>
+
+<!-- ── Move ─────────────────────────────────────────────────────────────────── -->
+<p-dialog header="Move to another demand" [visible]="moveTarget !== null" (visibleChange)="!$event && (moveTarget = null)"
+          [modal]="true" [style]="{ width: '34rem' }" data-testid="move-dialog">
+  <form [formGroup]="moveForm" *ngIf="moveTarget as a">
+    <p class="dialog-lead">Taken from <strong>{{ a.demandReference }}</strong> ({{ a.allocatedQty - a.consumedQty | number:'1.0-4' }} left). A run never undoes this; only another move does.</p>
+    <div class="field">
+      <label for="toDemand">Give to <span class="required">*</span></label>
+      <p-dropdown inputId="toDemand" [options]="moveTargets" formControlName="toDemandUuid" optionLabel="label" optionValue="value"
+                  placeholder="Choose a demand that is short" styleClass="w-full" appendTo="body" data-testid="move-target"></p-dropdown>
+      <span class="hint" *ngIf="moveTargets.length === 0">No other open demand for this variant is short.</span>
+    </div>
+    <div class="field">
+      <label for="moveQty">Quantity <span class="required">*</span></label>
+      <p-inputnumber inputId="moveQty" formControlName="quantity" [min]="0" [max]="a.allocatedQty - a.consumedQty" [minFractionDigits]="0" [maxFractionDigits]="4" styleClass="w-full"></p-inputnumber>
+    </div>
+    <div class="field">
+      <label for="moveReason">Reason <span class="required">*</span></label>
+      <textarea pTextarea id="moveReason" rows="3" formControlName="reason" class="w-full" data-testid="move-reason"></textarea>
+    </div>
+  </form>
+  <ng-template pTemplate="footer">
+    <p-button label="Cancel" severity="secondary" [text]="true" (onClick)="moveTarget = null"></p-button>
+    <p-button label="Move" icon="pi pi-arrow-right-arrow-left" [loading]="isSaving" [disabled]="moveForm.invalid" (onClick)="confirmMove()" data-testid="confirm-move"></p-button>
+  </ng-template>
+</p-dialog>
+
+<!-- ── Cancel a demand ──────────────────────────────────────────────────────── -->
+<p-dialog header="Cancel this demand" [visible]="cancelTarget !== null" (visibleChange)="!$event && (cancelTarget = null)"
+          [modal]="true" [style]="{ width: '30rem' }" data-testid="cancel-dialog">
+  <ng-container *ngIf="cancelTarget as d">
+    <p class="dialog-lead"><strong>{{ d.reference }}</strong> stops asking for stock and everything held or planned for it is freed.</p>
+    <div class="field">
+      <label for="cancelReason">Reason <span class="required">*</span></label>
+      <textarea pTextarea id="cancelReason" rows="3" [(ngModel)]="cancelReason" class="w-full" data-testid="cancel-reason"></textarea>
+    </div>
+  </ng-container>
+  <ng-template pTemplate="footer">
+    <p-button label="Keep it" severity="secondary" [text]="true" (onClick)="cancelTarget = null"></p-button>
+    <p-button label="Cancel demand" icon="pi pi-times" severity="danger" [loading]="isSaving" [disabled]="!cancelReason.trim()" (onClick)="confirmCancel()" data-testid="confirm-cancel"></p-button>
+  </ng-template>
+</p-dialog>
+
+<!-- ── Register a demand ────────────────────────────────────────────────────── -->
+<p-dialog header="Register a demand" [(visible)]="registerVisible" [modal]="true" [style]="{ width: '34rem' }" data-testid="register-dialog">
+  <form [formGroup]="registerForm">
+    <p class="dialog-lead">For <strong>{{ selection?.productName }}</strong><span *ngIf="selection?.variantName"> — {{ selection?.variantName }}</span>. The engine runs straight after.</p>
+    <div class="two-col">
+      <div class="field">
+        <label for="regType">Kind <span class="required">*</span></label>
+        <p-dropdown inputId="regType" [options]="demandTypeOptions" formControlName="demandType" optionLabel="label" optionValue="value" styleClass="w-full" appendTo="body"></p-dropdown>
+      </div>
+      <div class="field">
+        <label for="regRef">Reference <span class="required">*</span></label>
+        <input pInputText id="regRef" formControlName="reference" class="w-full" placeholder="e.g. SO-2026-00012" data-testid="register-reference" />
+      </div>
+      <div class="field">
+        <label for="regQty">Quantity <span class="required">*</span></label>
+        <p-inputnumber inputId="regQty" formControlName="requiredQty" [min]="0" [minFractionDigits]="0" [maxFractionDigits]="4" styleClass="w-full"></p-inputnumber>
+      </div>
+      <div class="field">
+        <label for="regDate">Required by <span class="required">*</span></label>
+        <p-calendar inputId="regDate" formControlName="requiredDate" dateFormat="yy-mm-dd" [showIcon]="true" appendTo="body" styleClass="w-full"></p-calendar>
+      </div>
+      <div class="field">
+        <label for="regPriority">Priority</label>
+        <p-dropdown inputId="regPriority" [options]="priorityOptions" formControlName="priority" optionLabel="label" optionValue="value" styleClass="w-full" appendTo="body"></p-dropdown>
+      </div>
+      <div class="field">
+        <label for="regWarehouse">Warehouse</label>
+        <p-dropdown inputId="regWarehouse" [options]="warehouseOptions" formControlName="warehouseUuid" optionLabel="label" optionValue="value" styleClass="w-full" appendTo="body"></p-dropdown>
+      </div>
+    </div>
+  </form>
+  <ng-template pTemplate="footer">
+    <p-button label="Cancel" severity="secondary" [text]="true" (onClick)="registerVisible = false"></p-button>
+    <p-button label="Register and run" icon="pi pi-check" [loading]="isSaving" [disabled]="registerForm.invalid" (onClick)="confirmRegister()" data-testid="confirm-register"></p-button>
+  </ng-template>
+</p-dialog>

@@ -40,6 +40,18 @@ internal sealed class StockReservationService : IStockReservationService
         if (requests.Count == 0)
             return new ReservationResult(true, []);
 
+        return await RetryOnConcurrencyAsync(
+            () => ReserveOnceAsync(sourceType, sourceUuid, requests, userId, expiresAt, ct), ct);
+    }
+
+    private async Task<ReservationResult> ReserveOnceAsync(
+        string sourceType,
+        Guid sourceUuid,
+        IReadOnlyList<ReservationRequest> requests,
+        int userId,
+        DateTime? expiresAt,
+        CancellationToken ct)
+    {
         var lines = new List<ReservationLineResult>();
         var plan  = new List<(InventoryItem Item, decimal Quantity, ReservationRequest Request)>();
 
@@ -140,6 +152,14 @@ internal sealed class StockReservationService : IStockReservationService
     {
         if (quantity <= 0) return 0m;
 
+        return await RetryOnConcurrencyAsync(
+            () => ConsumeLineOnceAsync(sourceType, sourceUuid, sourceLineUuid, quantity, userId, ct), ct);
+    }
+
+    private async Task<decimal> ConsumeLineOnceAsync(
+        string sourceType, Guid sourceUuid, Guid sourceLineUuid, decimal quantity,
+        int userId, CancellationToken ct)
+    {
         var held = await _db.StockReservations
             .Where(r => r.SourceType == sourceType
                      && r.SourceUuid == sourceUuid
@@ -200,6 +220,13 @@ internal sealed class StockReservationService : IStockReservationService
     {
         if (quantity <= 0) return 0m;
 
+        return await RetryOnConcurrencyAsync(
+            () => ReleaseAllocationOnceAsync(reservationUuid, quantity, reason, userId, ct), ct);
+    }
+
+    private async Task<decimal> ReleaseAllocationOnceAsync(
+        Guid reservationUuid, decimal quantity, string reason, int userId, CancellationToken ct)
+    {
         var held = await _db.StockReservations
             .FirstOrDefaultAsync(r => r.UUID == reservationUuid
                                    && r.Status == StockReservation.StatusActive, ct);
@@ -559,7 +586,11 @@ internal sealed class StockReservationService : IStockReservationService
     /// Releasing and consuming differ only in what the audit trail says: both end the hold and
     /// both decrement the counter by the same amount.
     /// </summary>
-    private async Task<int> CloseAsync(
+    private Task<int> CloseAsync(
+        string sourceType, Guid sourceUuid, string status, string reason, int userId, CancellationToken ct) =>
+        RetryOnConcurrencyAsync(() => CloseOnceAsync(sourceType, sourceUuid, status, reason, userId, ct), ct);
+
+    private async Task<int> CloseOnceAsync(
         string sourceType, Guid sourceUuid, string status, string reason, int userId, CancellationToken ct)
     {
         var held = await _db.StockReservations
@@ -628,6 +659,57 @@ internal sealed class StockReservationService : IStockReservationService
             await work();
             await tx.CommitAsync(ct);
         });
+    }
+
+    // ── Lost-update guard ─────────────────────────────────────────────────────
+
+    private const int MaxAttempts = 3;
+
+    /// <summary>
+    /// Re-runs an operation whose commit lost a race on <see cref="InventoryItem.RowVersion"/>.
+    /// <para>
+    /// Two callers that read the same counter cannot both commit: the second fails the version
+    /// check instead of overwriting the first. Before the token, the counter was read and then
+    /// written under READ COMMITTED, so two documents confirmed at the same moment could each be
+    /// promised the last unit. On failure everything this service loaded is forgotten and the
+    /// operation runs again from its own queries, so it re-plans against what is really free now
+    /// — which may be a refusal, and that is the correct answer.
+    /// </para>
+    /// <para>
+    /// Only when this service began the transaction. Inside a caller's transaction the whole unit
+    /// of work rolls back with the caller, and the exception reaches the API as a 409 for the
+    /// client to retry.
+    /// </para>
+    /// </summary>
+    private async Task<T> RetryOnConcurrencyAsync<T>(Func<Task<T>> operation, CancellationToken ct)
+    {
+        var ownsTransaction = _db.Database.IsRelational() && _db.Database.CurrentTransaction is null;
+
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                return await operation();
+            }
+            catch (DbUpdateConcurrencyException) when (ownsTransaction && attempt < MaxAttempts)
+            {
+                ForgetStockState();
+                await Task.Delay(TimeSpan.FromMilliseconds(Random.Shared.Next(20, 60) * attempt), ct);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Detaches every stock row and hold this context is tracking, so the next attempt's queries
+    /// return fresh rows instead of the stale instances identity resolution would hand back.
+    /// </summary>
+    private void ForgetStockState()
+    {
+        foreach (var entry in _db.ChangeTracker.Entries().ToList())
+        {
+            if (entry.Entity is InventoryItem or StockReservation)
+                entry.State = EntityState.Detached;
+        }
     }
 
     private async Task<List<InventoryItem>> CandidatesAsync(ReservationRequest request, CancellationToken ct)

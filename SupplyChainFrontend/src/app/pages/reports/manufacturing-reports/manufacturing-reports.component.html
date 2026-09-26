@@ -1,0 +1,297 @@
+<div class="report-page">
+  <p-toast />
+
+  <div class="page-header">
+    <div class="header-left">
+      <div class="header-icon icon-indigo"><i class="pi pi-cog"></i></div>
+      <div>
+        <h2 class="page-title">Manufacturing Reports</h2>
+        <p class="page-subtitle">Production efficiency · Quality &amp; scrap · Material issues · Finished goods · Ledger reconciliation · Chained manufacturing</p>
+      </div>
+    </div>
+  </div>
+
+  <p-tabView>
+
+    <!-- ── Tab 1: Production Efficiency ────────────────────────────────────── -->
+    <p-tabPanel header="Production Efficiency">
+      <div class="tab-content">
+        <div class="card filter-card">
+          <div class="filter-row">
+            <div class="filter-group">
+              <label>From Date</label>
+              <input pInputText type="date" [(ngModel)]="efficiencyFilter.dateFrom" class="filter-input" />
+            </div>
+            <div class="filter-group">
+              <label>To Date</label>
+              <input pInputText type="date" [(ngModel)]="efficiencyFilter.dateTo" class="filter-input" />
+            </div>
+            <div class="filter-actions">
+              <button pButton label="Run" icon="pi pi-play" (click)="loadEfficiency()" [loading]="isLoadingEfficiency" class="p-button-primary"></button>
+              <button pButton icon="pi pi-times" (click)="clearEfficiency()" class="p-button-outlined p-button-secondary"></button>
+            </div>
+          </div>
+        </div>
+
+        <div class="summary-row" *ngIf="efficiency">
+          <div class="summary-card"><span class="s-label">Total Orders</span><span class="s-val">{{ efficiency.totalOrders }}</span></div>
+          <div class="summary-card"><span class="s-label">Planned Qty</span><span class="s-val">{{ efficiency.totalPlannedQuantity | number:'1.0-2' }}</span></div>
+          <div class="summary-card"><span class="s-label">Produced Qty</span><span class="s-val">{{ efficiency.totalProducedQuantity | number:'1.0-2' }}</span></div>
+          <div class="summary-card"><span class="s-label">Accepted Qty</span><span class="s-val">{{ efficiency.totalAcceptedQuantity | number:'1.0-2' }}</span></div>
+          <div class="summary-card"><span class="s-label">Rejected Qty</span><span class="s-val">{{ efficiency.totalRejectedQuantity | number:'1.0-2' }}</span></div>
+          <div class="summary-card"><span class="s-label">Yield</span><span class="s-val">{{ efficiency.overallYieldPercent != null ? (efficiency.overallYieldPercent + '%') : '—' }}</span></div>
+          <div class="summary-card"><span class="s-label">On-Time Completion</span><span class="s-val">{{ efficiency.onTimeCompletionPercent != null ? (efficiency.onTimeCompletionPercent + '%') : '—' }}</span></div>
+          <div class="summary-card"><span class="s-label">Avg Cycle Days</span><span class="s-val">{{ efficiency.averageCycleDays != null ? efficiency.averageCycleDays : '—' }}</span></div>
+        </div>
+
+        <div class="card" *ngIf="efficiency">
+          <p-table [value]="statusBreakdown" styleClass="p-datatable-sm">
+            <ng-template pTemplate="header"><tr><th>Status</th><th class="text-right">Orders</th></tr></ng-template>
+            <ng-template pTemplate="body" let-row>
+              <tr><td>{{ row.status }}</td><td class="text-right">{{ row.count }}</td></tr>
+            </ng-template>
+            <ng-template pTemplate="emptymessage"><tr><td colspan="2" class="empty-msg">No production orders in range.</td></tr></ng-template>
+          </p-table>
+        </div>
+      </div>
+    </p-tabPanel>
+
+    <!-- ── Tab 2: Quality & Scrap ──────────────────────────────────────────── -->
+    <p-tabPanel header="Quality & Scrap">
+      <div class="tab-content">
+        <div class="card filter-card">
+          <div class="filter-row">
+            <div class="filter-group">
+              <label>From Date</label>
+              <input pInputText type="date" [(ngModel)]="qualityScrapFilter.dateFrom" class="filter-input" />
+            </div>
+            <div class="filter-group">
+              <label>To Date</label>
+              <input pInputText type="date" [(ngModel)]="qualityScrapFilter.dateTo" class="filter-input" />
+            </div>
+            <div class="filter-actions">
+              <button pButton label="Run" icon="pi pi-play" (click)="loadQualityScrap()" [loading]="isLoadingQualityScrap" class="p-button-primary"></button>
+              <button pButton icon="pi pi-times" (click)="clearQualityScrap()" class="p-button-outlined p-button-secondary"></button>
+            </div>
+          </div>
+        </div>
+
+        <div class="summary-row" *ngIf="qualityScrap">
+          <div class="summary-card"><span class="s-label">Inspections</span><span class="s-val">{{ qualityScrap.totalInspections }}</span></div>
+          <div class="summary-card"><span class="s-label">Inspected Qty</span><span class="s-val">{{ qualityScrap.totalInspectedQty | number:'1.0-2' }}</span></div>
+          <div class="summary-card"><span class="s-label">Accepted Qty</span><span class="s-val">{{ qualityScrap.totalAcceptedQty | number:'1.0-2' }}</span></div>
+          <div class="summary-card"><span class="s-label">Rejected Qty</span><span class="s-val">{{ qualityScrap.totalRejectedQty | number:'1.0-2' }}</span></div>
+          <div class="summary-card"><span class="s-label">Acceptance Rate</span><span class="s-val">{{ qualityScrap.acceptanceRatePercent != null ? (qualityScrap.acceptanceRatePercent + '%') : '—' }}</span></div>
+          <div class="summary-card"><span class="s-label">Rejection Rate</span><span class="s-val flagged">{{ qualityScrap.rejectionRatePercent != null ? (qualityScrap.rejectionRatePercent + '%') : '—' }}</span></div>
+        </div>
+
+        <div class="card" *ngIf="qualityScrap">
+          <p-table [value]="qualityScrap.byProduct" styleClass="p-datatable-sm">
+            <ng-template pTemplate="header">
+              <tr><th>Product</th><th class="text-right">Inspected</th><th class="text-right">Rejected</th><th class="text-right">Rejection Rate</th></tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-row>
+              <tr>
+                <td>{{ row.productName }}</td>
+                <td class="text-right">{{ row.inspectedQty | number:'1.0-2' }}</td>
+                <td class="text-right">{{ row.rejectedQty | number:'1.0-2' }}</td>
+                <td class="text-right">{{ row.rejectionRatePercent != null ? (row.rejectionRatePercent + '%') : '—' }}</td>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="emptymessage"><tr><td colspan="4" class="empty-msg">No inspections in range.</td></tr></ng-template>
+          </p-table>
+        </div>
+      </div>
+    </p-tabPanel>
+
+    <!-- ── Tab 3: Material Issues ──────────────────────────────────────────── -->
+    <p-tabPanel header="Material Issues">
+      <div class="tab-content">
+        <div class="card filter-card">
+          <div class="filter-row">
+            <div class="filter-group">
+              <label>From Date</label>
+              <input pInputText type="date" [(ngModel)]="issuesFilter.dateFrom" class="filter-input" />
+            </div>
+            <div class="filter-group">
+              <label>To Date</label>
+              <input pInputText type="date" [(ngModel)]="issuesFilter.dateTo" class="filter-input" />
+            </div>
+            <div class="filter-group">
+              <label>Status</label>
+              <p-dropdown [options]="issueStatusOptions" [(ngModel)]="issuesFilter.status" optionLabel="label" optionValue="value" class="filter-input" />
+            </div>
+            <div class="filter-actions">
+              <button pButton label="Run" icon="pi pi-play" (click)="loadIssues()" [loading]="isLoadingIssues" class="p-button-primary"></button>
+              <button pButton icon="pi pi-times" (click)="clearIssues()" class="p-button-outlined p-button-secondary"></button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <p-table [value]="issues" [loading]="isLoadingIssues" [paginator]="true" [rows]="20" styleClass="p-datatable-sm">
+            <ng-template pTemplate="header">
+              <tr>
+                <th>Issue No</th><th>Production No</th><th>Product</th><th>Warehouse</th><th>Type</th><th>Status</th>
+                <th class="text-right">Qty</th><th class="text-right">Lines</th><th>Created</th>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-row>
+              <tr>
+                <td><span class="ref-no">{{ row.issueNumber }}</span></td>
+                <td><span class="ref-no secondary">{{ row.productionNumber }}</span></td>
+                <td>{{ row.outputProductName }}</td>
+                <td>{{ row.warehouseName }}</td>
+                <td>{{ row.issueType }}</td>
+                <td><p-tag [value]="row.status" [severity]="getIssueStatusSeverity(row.status)" /></td>
+                <td class="text-right">{{ row.totalQuantity | number:'1.0-2' }}</td>
+                <td class="text-right">{{ row.lineCount }}</td>
+                <td>{{ row.createdAt | date:'dd MMM yyyy' }}</td>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="emptymessage"><tr><td colspan="9" class="empty-msg">No material issues found.</td></tr></ng-template>
+          </p-table>
+        </div>
+      </div>
+    </p-tabPanel>
+
+    <!-- ── Tab 4: Finished Goods Receipts ───────────────────────────────────── -->
+    <p-tabPanel header="Finished Goods Receipts">
+      <div class="tab-content">
+        <div class="card filter-card">
+          <div class="filter-row">
+            <div class="filter-group">
+              <label>From Date</label>
+              <input pInputText type="date" [(ngModel)]="fgrFilter.dateFrom" class="filter-input" />
+            </div>
+            <div class="filter-group">
+              <label>To Date</label>
+              <input pInputText type="date" [(ngModel)]="fgrFilter.dateTo" class="filter-input" />
+            </div>
+            <div class="filter-group">
+              <label>Status</label>
+              <p-dropdown [options]="fgrStatusOptions" [(ngModel)]="fgrFilter.status" optionLabel="label" optionValue="value" class="filter-input" />
+            </div>
+            <div class="filter-actions">
+              <button pButton label="Run" icon="pi pi-play" (click)="loadFgrs()" [loading]="isLoadingFgr" class="p-button-primary"></button>
+              <button pButton icon="pi pi-times" (click)="clearFgrs()" class="p-button-outlined p-button-secondary"></button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <p-table [value]="fgrs" [loading]="isLoadingFgr" [paginator]="true" [rows]="20" styleClass="p-datatable-sm">
+            <ng-template pTemplate="header">
+              <tr><th>FGR No</th><th>Production No</th><th>Product</th><th>Warehouse</th><th>Status</th><th class="text-right">Qty</th><th>Received</th></tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-row>
+              <tr>
+                <td><span class="ref-no">{{ row.fgrNumber }}</span></td>
+                <td><span class="ref-no secondary">{{ row.productionNumber }}</span></td>
+                <td>{{ row.productName }}</td>
+                <td>{{ row.warehouseName }}</td>
+                <td><p-tag [value]="row.status" [severity]="getFgrStatusSeverity(row.status)" /></td>
+                <td class="text-right">{{ row.totalQuantity | number:'1.0-2' }}</td>
+                <td>{{ row.receivedAt | date:'dd MMM yyyy' }}</td>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="emptymessage"><tr><td colspan="7" class="empty-msg">No finished goods receipts found.</td></tr></ng-template>
+          </p-table>
+        </div>
+      </div>
+    </p-tabPanel>
+
+    <!-- ── Tab 5: Ledger Reconciliation ─────────────────────────────────────── -->
+    <p-tabPanel header="Ledger Reconciliation">
+      <div class="tab-content">
+        <div class="card filter-card">
+          <div class="filter-row">
+            <div class="filter-group">
+              <label>From Date</label>
+              <input pInputText type="date" [(ngModel)]="reconciliationFilter.dateFrom" class="filter-input" />
+            </div>
+            <div class="filter-group">
+              <label>To Date</label>
+              <input pInputText type="date" [(ngModel)]="reconciliationFilter.dateTo" class="filter-input" />
+            </div>
+            <div class="filter-actions">
+              <button pButton label="Run" icon="pi pi-play" (click)="loadReconciliation()" [loading]="isLoadingReconciliation" class="p-button-primary"></button>
+              <button pButton icon="pi pi-times" (click)="clearReconciliation()" class="p-button-outlined p-button-secondary"></button>
+            </div>
+          </div>
+        </div>
+
+        <div class="summary-row" *ngIf="reconciliation">
+          <div class="summary-card"><span class="s-label">Orders Checked</span><span class="s-val">{{ reconciliation.totalOrdersChecked }}</span></div>
+          <div class="summary-card"><span class="s-label">Flagged</span><span class="s-val" [class.flagged]="reconciliation.flaggedCount > 0">{{ reconciliation.flaggedCount }}</span></div>
+        </div>
+
+        <div class="card" *ngIf="reconciliation">
+          <p-table [value]="reconciliation.flagged" styleClass="p-datatable-sm">
+            <ng-template pTemplate="header">
+              <tr><th>Production No</th><th>Status</th><th class="text-right">Accepted</th><th class="text-right">FGR Credited</th><th class="text-right">Rejected</th><th>Reason</th></tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-row>
+              <tr class="row-flagged">
+                <td><span class="ref-no">{{ row.productionNumber }}</span></td>
+                <td>{{ row.status }}</td>
+                <td class="text-right">{{ row.acceptedQuantity | number:'1.0-2' }}</td>
+                <td class="text-right">{{ row.finishedGoodsCredited | number:'1.0-2' }}</td>
+                <td class="text-right">{{ row.rejectedQuantity | number:'1.0-2' }}</td>
+                <td class="reason-cell">{{ row.reason }}</td>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="emptymessage"><tr><td colspan="6" class="empty-msg">Nothing flagged — every checked order ties out.</td></tr></ng-template>
+          </p-table>
+        </div>
+      </div>
+    </p-tabPanel>
+
+    <!-- ── Tab 6: Chained Manufacturing ─────────────────────────────────────── -->
+    <p-tabPanel header="Chained Manufacturing">
+      <div class="tab-content">
+        <div class="card filter-card">
+          <div class="filter-row">
+            <div class="filter-group" style="flex: 2;">
+              <label>Production Order UUID</label>
+              <input pInputText type="text" [(ngModel)]="chainedOrderUuid" placeholder="Any order in the chain" class="filter-input" />
+            </div>
+            <div class="filter-actions">
+              <button pButton label="Load Chain" icon="pi pi-sitemap" (click)="loadChained()" [loading]="isLoadingChained" class="p-button-primary"></button>
+            </div>
+          </div>
+        </div>
+
+        <div class="summary-row" *ngIf="chained">
+          <div class="summary-card"><span class="s-label">Root Order</span><span class="s-val">{{ chained.rootProductionNumber }}</span></div>
+          <div class="summary-card"><span class="s-label">Orders in Chain</span><span class="s-val">{{ chained.totalOrdersInChain }}</span></div>
+          <div class="summary-card"><span class="s-label">Max Depth</span><span class="s-val">{{ chained.maxDepth }}</span></div>
+          <div class="summary-card"><span class="s-label">Total Cycle Days</span><span class="s-val">{{ chained.totalCycleDays != null ? chained.totalCycleDays : 'In progress' }}</span></div>
+        </div>
+
+        <div class="card" *ngIf="chained">
+          <p-table [value]="chainedRows" styleClass="p-datatable-sm">
+            <ng-template pTemplate="header">
+              <tr><th>Production No</th><th>Product</th><th class="text-right">Planned</th><th class="text-right">Accepted</th><th>Status</th><th class="text-right">Cycle Days</th></tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-row>
+              <tr>
+                <td [style.paddingLeft.px]="row.depth * 24 + 12">
+                  <i *ngIf="row.depth > 0" class="pi pi-arrow-right-down chain-arrow"></i>
+                  <span class="ref-no">{{ row.node.productionNumber }}</span>
+                </td>
+                <td>{{ row.node.productName }}</td>
+                <td class="text-right">{{ row.node.plannedQuantity | number:'1.0-2' }}</td>
+                <td class="text-right">{{ row.node.acceptedQuantity | number:'1.0-2' }}</td>
+                <td>{{ row.node.status }}</td>
+                <td class="text-right">{{ row.node.cycleDays != null ? row.node.cycleDays : '—' }}</td>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="emptymessage"><tr><td colspan="6" class="empty-msg">No chain loaded.</td></tr></ng-template>
+          </p-table>
+        </div>
+      </div>
+    </p-tabPanel>
+
+  </p-tabView>
+</div>

@@ -42,6 +42,34 @@ public static class MaterialModuleExtensions
         services.AddScoped<IPrLookupService, PrLookupService>();
         services.AddScoped<IMirReservationMigrationService, MirReservationMigrationService>();
 
+        // A30 §7–§9 — bills of materials. Numbers come from Logistics' IDocumentNumberGenerator.
+        services.AddScoped<IBomRepository, BomRepository>();
+        services.AddScoped<IBomService, BomService>();
+        services.AddScoped<IBomCostService, BomCostService>();
+
+        // A30 §11–§13, §16 — production orders, their materials, supply requirements and floor issues.
+        services.AddScoped<IProductionOrderRepository, ProductionOrderRepository>();
+        // Registered as itself too: ISupplyRequirementEngine resolves the concrete class for the one
+        // internal-entity method (CreateChildForSupplyAsync) the public interface cannot carry — see
+        // that method's doc comment. Both resolve to the same scoped instance.
+        services.AddScoped<ProductionOrderService>();
+        services.AddScoped<IProductionOrderService>(sp => sp.GetRequiredService<ProductionOrderService>());
+        // Phase 4 Track C — Sales reaches this for a manufactured product's own deficit, with no
+        // project reference to this module at all.
+        services.AddScoped<IProductionDemandService>(sp => sp.GetRequiredService<ProductionOrderService>());
+        services.AddScoped<ISupplyRequirementEngine, SupplyRequirementEngine>();
+        services.AddScoped<IProductionMaterialIssueService, ProductionMaterialIssueService>();
+        // Told after every allocation run (A30-P3-08); resolved by IAllocationEngine's IEnumerable<IAllocationRunListener>.
+        services.AddScoped<IAllocationRunListener, ProductionReadinessListener>();
+
+        // A30 §18-19A — quality inspection, finished goods receipt, and the ledger read over both.
+        services.AddScoped<IQualityInspectionService, QualityInspectionService>();
+        services.AddScoped<IFinishedGoodsReceiptService, FinishedGoodsReceiptService>();
+        services.AddScoped<IProductionLedgerService, ProductionLedgerService>();
+
+        // A30-P5-01 — the ten manufacturing-lifecycle notifications (FSD §30).
+        services.AddScoped<IManufacturingNotificationService, ManufacturingNotificationService>();
+
         // Workflow status handlers (MIR_PROJECT and MIR_GENERAL)
         services.AddScoped<IDocumentStatusHandler, MirProjectStatusHandler>();
         services.AddScoped<IDocumentStatusHandler, MirGeneralStatusHandler>();
@@ -53,6 +81,9 @@ public static class MaterialModuleExtensions
         // Timeline trace_id resolvers
         services.AddScoped<ITraceIdResolver, MirProjectTraceIdResolver>();
         services.AddScoped<ITraceIdResolver, MirGeneralTraceIdResolver>();
+        services.AddScoped<ITraceIdResolver, BomTraceIdResolver>();
+        services.AddScoped<ITraceIdResolver, ProdTraceIdResolver>();
+        services.AddScoped<ITraceIdResolver, SrTraceIdResolver>();
 
         // PV-007 — lets Inventory ask "has this variant ever been transacted" cross-module
         services.AddScoped<IVariantReferenceChecker, MirLineVariantReferenceChecker>();

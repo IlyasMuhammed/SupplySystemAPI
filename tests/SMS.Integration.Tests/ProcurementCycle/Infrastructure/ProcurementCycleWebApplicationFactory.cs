@@ -274,6 +274,19 @@ public sealed class ProcurementCycleWebApplicationFactory : WebApplicationFactor
         return (T)Convert.ChangeType(result!, typeof(T));
     }
 
+    // Same shape as QueryScalarAsync, for a statement with no result — e.g. A30-P4-21's own
+    // second-user password fixup (BOM approval's four-eyes rule is an identity check, not a
+    // permission one, so it needs a genuinely different login, not just the admin override).
+    public async Task ExecuteNonQueryAsync(string sql, Action<SqlCommand>? configure = null)
+    {
+        await using var conn = new SqlConnection(DbConnectionString);
+        await conn.OpenAsync();
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = sql;
+        configure?.Invoke(cmd);
+        await cmd.ExecuteNonQueryAsync();
+    }
+
     public new async Task DisposeAsync()
     {
         Dispose(); // tears down the WebApplicationFactory host

@@ -65,6 +65,11 @@ public static class DemandModuleExtensions
         services.AddScoped<ISaleOrderService, SaleOrderService>();
         // A29-P4-05 — hourly sweep releasing expired SALES_ORDER reservations, §4.4/§5.1.
         services.AddScoped<ReservationExpirySweepJob>();
+        // A30 Phase 4 Track C / decision D1 — a manufactured product's own deficit flow, and the
+        // listener that re-parents a hold the shared allocation engine makes for it onto the sale
+        // order line the delivery pipeline already reads from.
+        services.AddScoped<ISaleOrderManufacturingService, SaleOrderManufacturingService>();
+        services.AddScoped<IAllocationRunListener, SaleOrderFulfillmentListener>();
 
         // Workflow engine handlers
         services.AddScoped<IDocumentStatusHandler, PrStatusHandler>();

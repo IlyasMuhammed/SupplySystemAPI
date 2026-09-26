@@ -61,6 +61,12 @@ internal sealed class ProductMap : IEntityTypeConfiguration<Product>
         b.Property(x => x.Status).HasMaxLength(20).IsRequired();
         b.Property(x => x.Notes).HasMaxLength(300);
         b.Property(x => x.ImageUrl).HasMaxLength(500);
+        // No HasDefaultValue on the bools: a CLR false would then be dropped from the INSERT and
+        // the database's default (true) would win. The entity initialisers carry the defaults;
+        // the migration's DEFAULT constraints only exist to fill rows that predate the columns.
+        b.Property(x => x.ProductType).HasMaxLength(20).IsRequired();
+        b.Property(x => x.SupplyMethod).HasMaxLength(20).IsRequired();
+        b.HasIndex(x => new { x.OrganizationId, x.SupplyMethod });
         b.HasIndex(x => x.Uuid).IsUnique();
         // Composite, not global — each org curates its own SKU catalog.
         b.HasIndex(x => new { x.OrganizationId, x.Sku }).IsUnique();
@@ -70,6 +76,8 @@ internal sealed class ProductMap : IEntityTypeConfiguration<Product>
             .HasForeignKey(x => x.CategoryId).OnDelete(DeleteBehavior.SetNull);
         b.HasOne(x => x.SubCategory).WithMany(x => x.Products)
             .HasForeignKey(x => x.SubCategoryId).OnDelete(DeleteBehavior.SetNull);
+        b.HasOne(x => x.DefaultProductionWarehouse).WithMany()
+            .HasForeignKey(x => x.DefaultProductionWarehouseId).OnDelete(DeleteBehavior.SetNull);
     }
 }
 
@@ -429,6 +437,7 @@ internal sealed class InventoryItemMap : IEntityTypeConfiguration<InventoryItem>
         b.Property(x => x.BatchNumber).HasMaxLength(50);
         b.Property(x => x.SerialNumber).HasMaxLength(50);
         b.Property(x => x.ValuationMethod).HasMaxLength(20);
+        b.Property(x => x.RowVersion).IsRowVersion();
         b.HasIndex(x => x.Uuid).IsUnique();
         b.Property(x => x.OrganizationId).IsRequired();
         b.HasIndex(x => x.OrganizationId);

@@ -26,6 +26,19 @@ internal sealed class MaterialDbContext : DbContext, ITenantScopedDbContext
     internal DbSet<MaterialReturnDetail>       MaterialReturnDetails       => Set<MaterialReturnDetail>();
     internal DbSet<Wastage>                    Wastages                    => Set<Wastage>();
     internal DbSet<MaterialConsumption>        MaterialConsumptions        => Set<MaterialConsumption>();
+    // A30 §7 — bills of materials.
+    internal DbSet<BillOfMaterial>             BillsOfMaterials            => Set<BillOfMaterial>();
+    internal DbSet<BillOfMaterialLine>         BillOfMaterialLines         => Set<BillOfMaterialLine>();
+    // A30 §11–§13, §16 — production orders, what they need, what is short, and what moved to the floor.
+    internal DbSet<ProductionOrder>               ProductionOrders               => Set<ProductionOrder>();
+    internal DbSet<ProductionMaterialRequirement> ProductionMaterialRequirements => Set<ProductionMaterialRequirement>();
+    internal DbSet<SupplyRequirement>             SupplyRequirements             => Set<SupplyRequirement>();
+    internal DbSet<ProductionMaterialIssue>       ProductionMaterialIssues       => Set<ProductionMaterialIssue>();
+    internal DbSet<ProductionMaterialIssueLine>   ProductionMaterialIssueLines   => Set<ProductionMaterialIssueLine>();
+    // A30 §18-19 — quality inspection and finished goods receipt.
+    internal DbSet<QualityInspection>             QualityInspections             => Set<QualityInspection>();
+    internal DbSet<QualityInspectionLine>         QualityInspectionLines         => Set<QualityInspectionLine>();
+    internal DbSet<FinishedGoodsReceipt>          FinishedGoodsReceipts          => Set<FinishedGoodsReceipt>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

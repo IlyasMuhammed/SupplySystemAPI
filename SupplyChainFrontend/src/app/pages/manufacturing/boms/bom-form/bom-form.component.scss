@@ -1,0 +1,27 @@
+@use '../bom-shared' as *;
+
+.span-3 { grid-column: 1 / -1; }
+.date-pair { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+
+.line-card {
+  display: flex; gap: .75rem; align-items: flex-start;
+  border: 1px solid var(--surface-200); border-radius: .5rem; padding: .875rem; margin-top: .75rem;
+  background: var(--surface-50, #fafafa);
+}
+.line-num {
+  width: 1.75rem; height: 1.75rem; border-radius: 50%; flex-shrink: 0;
+  background: var(--primary-color); color: #fff; font-size: .8rem; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; margin-top: 1.5rem;
+}
+.line-grid {
+  flex: 1; min-width: 0;
+  display: grid; grid-template-columns: minmax(16rem, 2fr) repeat(4, minmax(7rem, 1fr)) auto; gap: .75rem; align-items: start;
+  .material { grid-column: span 1; }
+  .span-all { grid-column: 1 / -1; }
+  .check { display: flex; align-items: center; gap: .5rem; font-weight: 500; cursor: pointer; margin-top: .45rem; i { color: var(--text-color-secondary); } }
+}
+@media (max-width: 1100px) {
+  .line-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); .material { grid-column: 1 / -1; } }
+}
+
+.form-actions { display: flex; justify-content: flex-end; gap: .5rem; margin-top: .5rem; }

@@ -3,6 +3,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SMS.Modules.Demand.Data;
 using SMS.Modules.Demand.Domain;
+using SMS.Modules.Inventory.Data;
+using SMS.Shared.Common;
 
 namespace SMS.Modules.Demand.Services;
 
@@ -28,24 +30,36 @@ internal sealed class AutoPoCreationJob : IAutoPoCreationJob
     private readonly IAutoPurchaseOrderService _autoPo;
     private readonly ISaleOrderEmailService _email;
     private readonly ILogger<AutoPoCreationJob> _log;
+    // A30 Phase 4 Track C / decision D1 — both optional the way PurchaseOrderRepository's own
+    // InventoryDbContext is: production DI always supplies them (Inventory and Material both
+    // register theirs), and a caller without either (this class's own pre-A30 unit tests) gets
+    // exactly the old behaviour — no supply-method check, every deficit is a purchase — rather
+    // than a null-reference failure.
+    private readonly InventoryDbContext? _inv;
+    private readonly ISaleOrderManufacturingService? _manufacturing;
 
     public AutoPoCreationJob(
         DemandDbContext db, ISaleOrderConfigService config, ISupplierSelectionService selection,
-        IAutoPurchaseOrderService autoPo, ISaleOrderEmailService email, ILogger<AutoPoCreationJob> log)
+        IAutoPurchaseOrderService autoPo, ISaleOrderEmailService email, ILogger<AutoPoCreationJob> log,
+        InventoryDbContext? inv = null, ISaleOrderManufacturingService? manufacturing = null)
     {
-        _db        = db;
-        _config    = config;
-        _selection = selection;
-        _autoPo    = autoPo;
-        _email     = email;
-        _log       = log;
+        _db            = db;
+        _config        = config;
+        _selection     = selection;
+        _autoPo        = autoPo;
+        _email         = email;
+        _log           = log;
+        _inv           = inv;
+        _manufacturing = manufacturing;
     }
 
     [AutomaticRetry(Attempts = 3)]
     public async Task CreateForDeficitAsync(Guid saleOrderUuid, Guid saleOrderLineUuid, int userId)
     {
         // §3.3 — "when auto_po_enabled and stock is short". Off means the supply team raises POs
-        // themselves; nothing here.
+        // themselves; nothing here. The same flag gates the manufacturing path below — there is no
+        // separate "auto-manufacture" setting, and turning auto off should mean the same thing
+        // regardless of how the product is supplied: the supply/production team handles it by hand.
         var config = await _config.GetConfigAsync();
         if (!config.AutoPoEnabled)
         {
@@ -66,6 +80,20 @@ internal sealed class AutoPoCreationJob : IAutoPoCreationJob
         // a GRN reserved against it, in between.
         var deficit = line.DeficitQty ?? 0m;
         if (deficit <= 0m) return;
+
+        // A30 decision D1 — a manufactured product's deficit becomes a production order, never a
+        // purchase order. AvailabilityCheckService does not know the difference (it only ever asks
+        // "is there enough on the shelf"), so this is the one place that has to.
+        if (_inv is not null && _manufacturing is not null)
+        {
+            var supplyMethod = await _inv.ProductVariants.AsNoTracking()
+                .Where(v => v.Uuid == line.VariantUuid).Select(v => v.Product.SupplyMethod).FirstOrDefaultAsync();
+            if (supplyMethod == SupplyMethod.Manufacture)
+            {
+                await _manufacturing.FulfillDeficitAsync(saleOrderUuid, saleOrderLineUuid, deficit, userId);
+                return;
+            }
+        }
 
         var choice = await _selection.SelectAsync(line.VariantUuid, deficit, userId);
         if (choice.RequiresManualSelection || choice.SupplierId is not { } supplierId || choice.UnitPrice is not { } price)

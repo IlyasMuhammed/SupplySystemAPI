@@ -125,6 +125,39 @@ internal sealed class AuthDataSeeder
         ("View Customer Ledger",    PermissionCodes.CUSTOMER_LEDGER_VIEW,   "Read a customer's receivables ledger"),
 
         ("View Product Ledger",     PermissionCodes.PRODUCT_LEDGER_VIEW,    "Read what a product variant cost, its stock value and weighted-average cost, and the product profitability report"),
+
+        ("View Allocations",        PermissionCodes.ALLOCATION_VIEW,  "Read which demand holds which stock, open demands, expected supply and availability"),
+        ("Run Allocation",          PermissionCodes.ALLOCATION_RUN,   "Register demands and expected supply, and run the allocation engine by hand"),
+        ("Administer Allocations",  PermissionCodes.ALLOCATION_ADMIN, "Release or move a firm allocation between demands and edit the priority rules — this decides who gets scarce stock"),
+
+        ("View Bills of Materials",     PermissionCodes.BOM_VIEW,     "Read recipes, their versions and what each version changed"),
+        ("Create Bills of Materials",   PermissionCodes.BOM_CREATE,   "Draft a new recipe or a new version of one"),
+        ("Edit Bills of Materials",     PermissionCodes.BOM_EDIT,     "Change or delete a recipe that is still a draft"),
+        ("Submit Bills of Materials",   PermissionCodes.BOM_SUBMIT,   "Send a draft recipe for approval"),
+        ("Approve Bills of Materials",  PermissionCodes.BOM_APPROVE,  "Approve or reject a submitted recipe — never one's own submission"),
+        ("Activate Bills of Materials", PermissionCodes.BOM_ACTIVATE, "Make an approved recipe the one production uses; retires the previous one"),
+        ("Obsolete Bills of Materials", PermissionCodes.BOM_OBSOLETE, "Retire a recipe so no new production order uses it"),
+        ("Administer Bills of Materials", PermissionCodes.BOM_ADMIN,  "Move an unreleased production order onto a newer recipe"),
+
+        ("View Production Orders",      PermissionCodes.PROD_VIEW,     "Read production orders, their material requirements, shortages and issues"),
+        ("Create Production Orders",    PermissionCodes.PROD_CREATE,   "Raise and amend draft production orders"),
+        ("Plan Production Orders",      PermissionCodes.PROD_PLAN,     "Release an order: explode its recipe, hold materials and raise supply for shortages"),
+        ("Start Production",            PermissionCodes.PROD_START,    "Start an order whose materials are ready"),
+        ("Report Production Output",    PermissionCodes.PROD_REPORT,   "Report quantities produced and mark production complete"),
+        ("Cancel Production Orders",    PermissionCodes.PROD_CANCEL,   "Cancel an order and free what was held for it"),
+        ("Manage Production",           PermissionCodes.PROD_MANAGER,  "Production manager decisions, including issuing beyond the requirement"),
+        ("Create Material Issues",      PermissionCodes.MI_CREATE,     "Draft an issue of materials to the production floor, or a return from it"),
+        ("Confirm Material Issues",     PermissionCodes.MI_CONFIRM,    "Confirm an issue — this moves the stock"),
+        ("Reverse Material Issues",     PermissionCodes.MI_REVERSE,    "Undo a confirmed issue, putting the stock back"),
+        ("View Supply Requirements",    PermissionCodes.SUPPLY_VIEW,   "Read what is short and what was raised to cover it"),
+        ("Create Supply Requirements",  PermissionCodes.SUPPLY_CREATE, "Raise a supply requirement by hand"),
+        ("Cancel Supply Requirements",  PermissionCodes.SUPPLY_CANCEL, "Cancel a supply requirement"),
+
+        ("Record Quality Inspections",  PermissionCodes.QI_CREATE,     "Log an inspection of produced output and read one back"),
+        ("Decide Quality Inspections",  PermissionCodes.QI_APPROVE,    "Record the pass/reject/hold/rework decision — never the person who ran production"),
+        ("Create Finished Goods Receipts", PermissionCodes.FGR_CREATE,  "Draft a receipt of accepted production output into inventory"),
+        ("Confirm Finished Goods Receipts", PermissionCodes.FGR_CONFIRM, "Confirm a receipt — credits inventory and completes the production order"),
+        ("View Production Ledger",      PermissionCodes.PROD_LEDGER_VIEW, "Read the debit/credit history of material consumed and goods produced, across production orders"),
     ];
 
     private async Task SeedPermissionsAsync()
@@ -222,6 +255,10 @@ internal sealed class AuthDataSeeder
             PermissionCodes.SHIPMENT_BOOK,    PermissionCodes.CARRIER_MANAGE,
             // Somebody who commits money to a carrier needs to see what it costs first.
             PermissionCodes.SHIPMENT_RATE_VIEW,
+            // A30 — what a manufactured product needs, so the buyer knows what to source, and
+            // the shortages that turn into purchase orders.
+            PermissionCodes.BOM_VIEW, PermissionCodes.PROD_VIEW,
+            PermissionCodes.SUPPLY_VIEW, PermissionCodes.SUPPLY_CREATE, PermissionCodes.SUPPLY_CANCEL,
             PermissionCodes.REPORT_VIEW,      PermissionCodes.REPORT_EXPORT,
             PermissionCodes.WORKFLOW_VIEW,
         ],
@@ -244,6 +281,16 @@ internal sealed class AuthDataSeeder
             PermissionCodes.WAREHOUSE_TRANSFER,
             PermissionCodes.GOODS_RECEIVE,  PermissionCodes.PUTAWAY,
             PermissionCodes.GRN_APPROVE,
+            // A30 §25 — the Inventory Manager owns who gets scarce stock and how things are made.
+            PermissionCodes.ALLOCATION_VIEW, PermissionCodes.ALLOCATION_RUN, PermissionCodes.ALLOCATION_ADMIN,
+            PermissionCodes.BOM_VIEW, PermissionCodes.BOM_CREATE, PermissionCodes.BOM_EDIT, PermissionCodes.BOM_SUBMIT,
+            PermissionCodes.BOM_APPROVE, PermissionCodes.BOM_ACTIVATE, PermissionCodes.BOM_OBSOLETE, PermissionCodes.BOM_ADMIN,
+            PermissionCodes.PROD_VIEW, PermissionCodes.PROD_CREATE, PermissionCodes.PROD_PLAN, PermissionCodes.PROD_START,
+            PermissionCodes.PROD_REPORT, PermissionCodes.PROD_CANCEL, PermissionCodes.PROD_MANAGER,
+            PermissionCodes.MI_CREATE, PermissionCodes.MI_CONFIRM, PermissionCodes.MI_REVERSE,
+            PermissionCodes.SUPPLY_VIEW, PermissionCodes.SUPPLY_CREATE, PermissionCodes.SUPPLY_CANCEL,
+            PermissionCodes.QI_CREATE, PermissionCodes.QI_APPROVE, PermissionCodes.FGR_CREATE, PermissionCodes.FGR_CONFIRM,
+            PermissionCodes.PROD_LEDGER_VIEW,
             PermissionCodes.REPORT_VIEW,
         ],
 
@@ -257,6 +304,13 @@ internal sealed class AuthDataSeeder
             // The role that physically moves the goods works the delivery cockpit.
             PermissionCodes.DELIVERY_VIEW,  PermissionCodes.DELIVERY_EDIT,
             PermissionCodes.SHIPMENT_BOOK,
+            PermissionCodes.ALLOCATION_VIEW, PermissionCodes.BOM_VIEW,
+            // The floor: sees the orders, starts them, reports output, moves the materials.
+            PermissionCodes.PROD_VIEW, PermissionCodes.PROD_START, PermissionCodes.PROD_REPORT,
+            PermissionCodes.MI_CREATE, PermissionCodes.MI_CONFIRM,
+            // Recording what a check found, and receiving the accepted output — the decision
+            // (QI_APPROVE) stays with whoever supervises the floor, same separation as production.
+            PermissionCodes.QI_CREATE, PermissionCodes.FGR_CREATE, PermissionCodes.FGR_CONFIRM,
         ],
 
         [(int)EnumRole.FinanceOfficer] =
@@ -290,6 +344,8 @@ internal sealed class AuthDataSeeder
             PermissionCodes.INVOICE_VIEW,   PermissionCodes.PAYMENT_VIEW,
             PermissionCodes.SALES_INVOICE_VIEW, PermissionCodes.CUSTOMER_PAYMENT_VIEW, PermissionCodes.CUSTOMER_LEDGER_VIEW,
             PermissionCodes.PRODUCT_LEDGER_VIEW,
+            PermissionCodes.ALLOCATION_VIEW, PermissionCodes.BOM_VIEW, PermissionCodes.PROD_VIEW, PermissionCodes.SUPPLY_VIEW,
+            PermissionCodes.PROD_LEDGER_VIEW,
             PermissionCodes.AUDIT_LOG_VIEW,
             PermissionCodes.REPORT_VIEW,    PermissionCodes.REPORT_EXPORT,
             PermissionCodes.WORKFLOW_VIEW,

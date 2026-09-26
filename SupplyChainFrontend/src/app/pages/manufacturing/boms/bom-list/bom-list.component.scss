@@ -1,0 +1,6 @@
+@use '../bom-shared' as *;
+
+.filters { display: flex; gap: .75rem; align-items: center; }
+:host ::ng-deep .status-filter { min-width: 11rem; }
+.row-link { cursor: pointer; }
+.active-row td:first-child { box-shadow: inset 3px 0 0 var(--green-500, #22c55e); }

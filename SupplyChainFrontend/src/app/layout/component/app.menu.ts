@@ -150,6 +150,16 @@ export class AppMenu {
                     ]
                 },
                 {
+                    label: 'Allocations',
+                    icon: 'pi pi-fw pi-share-alt',
+                    featureCode: 'MODULE_INVENTORY',
+                    items: [
+                        { label: 'Allocation Dashboard', icon: 'pi pi-fw pi-chart-bar',
+                          routerLink: ['/portal/pages/inventory/allocations'],
+                          permRequired: ['ALLOCATION_VIEW'] }
+                    ]
+                },
+                {
                     label: 'Warehouses',
                     icon: 'pi pi-fw pi-warehouse',
                     featureCode: 'MODULE_INVENTORY',
@@ -533,6 +543,50 @@ export class AppMenu {
         },
 
         // ── Material Management ───────────────────────────────────────────
+        // ── Manufacturing (Addendum 30) ────────────────────────────────────
+        {
+            label: 'Manufacturing',
+            featureCode: 'MODULE_MANUFACTURING',
+            items: [
+                {
+                    label: 'Bills of Materials',
+                    icon: 'pi pi-fw pi-sitemap',
+                    items: [
+                        { label: 'New BOM', icon: 'pi pi-fw pi-plus',
+                          routerLink: ['/portal/pages/manufacturing/boms/new'],
+                          permRequired: ['BOM_CREATE'] },
+                        { label: 'All BOMs', icon: 'pi pi-fw pi-list',
+                          routerLink: ['/portal/pages/manufacturing/boms'],
+                          permRequired: ['BOM_VIEW'] }
+                    ]
+                },
+                {
+                    label: 'Production Orders',
+                    icon: 'pi pi-fw pi-cog',
+                    items: [
+                        { label: 'New Order', icon: 'pi pi-fw pi-plus',
+                          routerLink: ['/portal/pages/manufacturing/production-orders/new'],
+                          permRequired: ['PROD_CREATE'] },
+                        { label: 'All Orders', icon: 'pi pi-fw pi-list',
+                          routerLink: ['/portal/pages/manufacturing/production-orders'],
+                          permRequired: ['PROD_VIEW'] },
+                        { label: 'Shortages', icon: 'pi pi-fw pi-exclamation-triangle',
+                          routerLink: ['/portal/pages/manufacturing/shortages'],
+                          permRequired: ['PROD_VIEW'] }
+                    ]
+                },
+                {
+                    label: 'Reports',
+                    icon: 'pi pi-fw pi-chart-bar',
+                    items: [
+                        { label: 'Manufacturing Reports', icon: 'pi pi-fw pi-chart-line',
+                          routerLink: ['/portal/pages/reports/manufacturing'],
+                          permRequired: ['PROD_LEDGER_VIEW'] }
+                    ]
+                }
+            ]
+        },
+
         {
             label: 'Material Management',
             featureCode: 'MODULE_MIR',

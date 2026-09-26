@@ -28,6 +28,7 @@ public static class ReportsModuleExtensions
         services.AddScoped<IFulfilmentReportService, FulfilmentReportService>();
         services.AddScoped<IMarginAnalysisReportService, MarginAnalysisReportService>();
         services.AddScoped<IProductLedgerReportService, ProductLedgerReportService>();
+        services.AddScoped<IManufacturingReportService, ManufacturingReportService>();
         services.AddScoped<IAuditService,      AuditService>();
 
         return services;

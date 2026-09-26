@@ -140,6 +140,36 @@
           </div>
         </div>
 
+        <!-- Manufacturing card (A30 §6) -->
+        <div class="info-card" data-testid="manufacturing-card">
+          <div class="info-card-header">
+            <i class="pi pi-cog"></i><span>Manufacturing</span>
+          </div>
+          <div class="info-card-body cols-3">
+            <div class="detail-cell">
+              <div class="cell-label">Product Type</div>
+              <div class="cell-value">{{ productTypeLabel(product.productType) }}</div>
+            </div>
+            <div class="detail-cell">
+              <div class="cell-label">Supply Method</div>
+              <div class="cell-value">{{ supplyMethodLabel(product.supplyMethod) }}</div>
+            </div>
+            <div class="detail-cell">
+              <div class="cell-label">Default Production Warehouse</div>
+              <div class="cell-value {{ !product.defaultProductionWarehouseName ? 'muted' : '' }}">{{ product.defaultProductionWarehouseName || '—' }}</div>
+            </div>
+            <div class="detail-cell span-full">
+              <div class="cell-label">Capabilities</div>
+              <div class="cell-value" style="display:flex; gap:.4rem; flex-wrap:wrap;">
+                <p-tag [value]="product.isSaleable ? 'Sellable' : 'Not sold'" [severity]="product.isSaleable ? 'success' : 'secondary'"></p-tag>
+                <p-tag [value]="product.isPurchasable ? 'Purchasable' : 'Not purchased'" [severity]="product.isPurchasable ? 'info' : 'secondary'"></p-tag>
+                <p-tag [value]="product.isStockable ? 'Held in stock' : 'Not stocked'" [severity]="product.isStockable ? 'info' : 'secondary'"></p-tag>
+                <p-tag *ngIf="product.isManufacturable" value="Manufactured here" severity="warn"></p-tag>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Pricing card — sourced from the default variant (PV-001: pricing moved off Product) -->
         <div class="info-card">
           <div class="info-card-header">
@@ -679,6 +709,52 @@
                             placeholder="Select supplier" [filter]="true" filterBy="label"
                             [showClear]="true"
                             styleClass="w-full" appendTo="body"></p-dropdown>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section: Manufacturing (A30 §6) -->
+        <div class="edit-section">
+          <div class="edit-section-header">
+            <i class="pi pi-cog"></i><span>Manufacturing</span>
+          </div>
+          <div class="edit-section-body">
+            <div class="ef-grid ef-grid-3">
+              <div class="ef-field">
+                <label class="ef-label">Product Type</label>
+                <p-dropdown [options]="productTypeOptions" formControlName="productType"
+                            optionLabel="label" optionValue="value"
+                            styleClass="w-full" appendTo="body"
+                            (onChange)="onProductTypeChange()"></p-dropdown>
+                <small class="ef-hint">{{ productTypeHint }}</small>
+              </div>
+              <div class="ef-field">
+                <label class="ef-label">Supply Method</label>
+                <p-dropdown [options]="supplyMethodOptions" formControlName="supplyMethod"
+                            optionLabel="label" optionValue="value"
+                            styleClass="w-full" appendTo="body"></p-dropdown>
+                <small class="ef-error" *ngIf="supplyMethodDisabled(ef['supplyMethod'].value)">
+                  Not valid for the chosen product type.
+                </small>
+              </div>
+              <div class="ef-field" *ngIf="editIsManufactured">
+                <label class="ef-label">Default Production Warehouse</label>
+                <p-dropdown [options]="warehouseOptions" formControlName="defaultProductionWarehouseId"
+                            optionLabel="label" optionValue="value"
+                            placeholder="Select warehouse" [showClear]="true"
+                            styleClass="w-full" appendTo="body"></p-dropdown>
+              </div>
+              <div class="ef-field ef-span-3" style="display:flex; gap:1.5rem; flex-wrap:wrap; align-items:center;">
+                <label style="display:flex; align-items:center; gap:.5rem;">
+                  <p-checkbox formControlName="isSaleable" [binary]="true" inputId="editIsSaleable"></p-checkbox> Can be sold
+                </label>
+                <label style="display:flex; align-items:center; gap:.5rem;">
+                  <p-checkbox formControlName="isPurchasable" [binary]="true" inputId="editIsPurchasable"></p-checkbox> Can be purchased
+                </label>
+                <label style="display:flex; align-items:center; gap:.5rem;">
+                  <p-checkbox formControlName="isStockable" [binary]="true" inputId="editIsStockable"></p-checkbox> Held in stock
+                </label>
               </div>
             </div>
           </div>

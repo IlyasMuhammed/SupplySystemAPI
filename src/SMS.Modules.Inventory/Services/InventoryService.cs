@@ -84,6 +84,10 @@ internal sealed class InventoryService : IInventoryService
         return ok;
     }
 
+    // Classification is not part of the search index, so no reindex here.
+    public Task<bool> SetManufacturingConfigAsync(int id, ManufacturingConfigRequest req)
+        => _repo.SetManufacturingConfigAsync(id, req);
+
     public Task<bool> SoftDeleteProductAsync(int id)
         => _repo.SoftDeleteProductAsync(id);
 
