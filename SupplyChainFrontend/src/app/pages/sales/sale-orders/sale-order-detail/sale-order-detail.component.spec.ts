@@ -15,13 +15,14 @@ import {
 import { AddressService } from '../../../../services/address.service';
 import { TimelineService } from '../../../../services/timeline.service';
 import { AddressModel, DeliveryListItemModel } from '../../../../services/logistics.service';
+import { ProductionOrderService, ProductionOrderListItem } from '../../../../services/production-order.service';
 import { AuthService } from '../../../service/auth.service';
 
 const UUID = '11111111-1111-1111-1111-111111111111';
 
 const ALL_PERMISSIONS = [
   'SALE_ORDER_VIEW', 'SALE_ORDER_EDIT', 'SALE_ORDER_CONFIRM', 'SALE_ORDER_CANCEL',
-  'DELIVERY_VIEW', 'DELIVERY_CREATE', 'SALES_INVOICE_VIEW'
+  'DELIVERY_VIEW', 'DELIVERY_CREATE', 'SALES_INVOICE_VIEW', 'PROD_VIEW'
 ];
 
 function line(overrides: Partial<SaleOrderLineModel> = {}): SaleOrderLineModel {
@@ -98,6 +99,7 @@ describe('SaleOrderDetailComponent', () => {
   let invoices: jasmine.SpyObj<SalesInvoiceService>;
   let addresses: jasmine.SpyObj<AddressService>;
   let timeline: jasmine.SpyObj<TimelineService>;
+  let productionOrders: jasmine.SpyObj<ProductionOrderService>;
   let router: Router;
   let permissions: string[];
 
@@ -134,6 +136,9 @@ describe('SaleOrderDetailComponent', () => {
       events: [{ eventType: 'SO_CREATED', interfaceCode: 'SO', documentId: UUID, documentNumber: 'SO-2026-00042', occurredAt: '2026-09-01T00:00:00Z' }]
     }));
 
+    productionOrders = jasmine.createSpyObj<ProductionOrderService>('ProductionOrderService', ['getList']);
+    productionOrders.getList.and.returnValue(page<ProductionOrderListItem>([]));
+
     await TestBed.resetTestingModule().configureTestingModule({
       imports: [SaleOrderDetailComponent],
       providers: [
@@ -143,6 +148,7 @@ describe('SaleOrderDetailComponent', () => {
         { provide: SalesInvoiceService, useValue: invoices },
         { provide: AddressService, useValue: addresses },
         { provide: TimelineService, useValue: timeline },
+        { provide: ProductionOrderService, useValue: productionOrders },
         { provide: AuthService, useValue: auth },
         { provide: ActivatedRoute, useValue: { snapshot: { paramMap: new Map([['uuid', UUID]]) } } }
       ]
@@ -473,6 +479,15 @@ describe('SaleOrderDetailComponent', () => {
 
     expect(component.canCreateDelivery).toBeFalse();
     expect(query('action-create-delivery')).toBeNull();
+  });
+
+  it('will not offer a delivery for a line nothing has been reserved for yet, and says why', async () => {
+    await setup(order({ status: 'CONFIRMED', lines: [line({ status: 'OPEN' })] }));
+    fixture.detectChanges();
+
+    expect(component.canCreateDelivery).withContext('nothing is available to send yet').toBeFalse();
+    expect(query('action-create-delivery')).toBeNull();
+    expect(query('delivery-unavailable-hint')).not.toBeNull();
   });
 
   it('proposes every deliverable line in full, leaving out what cannot go', async () => {
@@ -841,11 +856,11 @@ describe('SaleOrderDetailComponent', () => {
 
   // ── Tabs present ───────────────────────────────────────────────────────────
 
-  it('has the five tabs in order', async () => {
+  it('has the six tabs in order', async () => {
     await setup();
     fixture.detectChanges();
 
     const headers = Array.from(fixture.nativeElement.querySelectorAll('.p-tablist [role="tab"]')).map((e: any) => e.textContent.trim());
-    expect(headers).toEqual(['Lines', 'Deliveries', 'Invoices', 'Payments', 'Timeline']);
+    expect(headers).toEqual(['Lines', 'Deliveries', 'Invoices', 'Payments', 'Timeline', 'Production']);
   });
 });

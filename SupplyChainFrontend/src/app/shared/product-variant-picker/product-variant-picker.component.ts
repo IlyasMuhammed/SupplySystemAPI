@@ -28,6 +28,9 @@ export interface VariantPickerSelection {
   variantName: string | null;
   purchasePrice: number | null;
   uomCode: string | null;
+  /** A31-C1 — the picked variant's own sale order quantity limits. Undefined/0 on either side = unconstrained. */
+  saleOrderMinQty?: number | null;
+  saleOrderMaxQty?: number | null;
 }
 
 // PV-004 §7.1/7.2 — two-level picker: Step 1 searchable product dropdown (product name + SKU),
@@ -220,7 +223,9 @@ export class ProductVariantPickerComponent implements OnChanges {
       variantSku:    variant?.sku ?? null,
       variantName:   variant?.variantName ?? null,
       purchasePrice: variant?.purchasePrice ?? null,
-      uomCode:       product?.uomCode ?? null
+      uomCode:       product?.uomCode ?? null,
+      saleOrderMinQty: variant?.saleOrderMinQty ?? null,
+      saleOrderMaxQty: variant?.saleOrderMaxQty ?? null
     });
   }
 }

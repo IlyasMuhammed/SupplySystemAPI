@@ -447,7 +447,11 @@ export class SaleOrderFormComponent implements OnInit {
       discountPercent: [0, [Validators.min(0), Validators.max(100)]],
       taxPercent:      [0, [Validators.min(0), Validators.max(1000)]],
       unitPrice:       [null as number | null],
-      priceState:      ['none' as PriceState]
+      priceState:      ['none' as PriceState],
+      // A31-C1 — UI-only, carried from the picked variant, never submitted; drives the inline
+      // min/max quantity check below (the server enforces the same rule regardless).
+      saleOrderMinQty: [null as number | null],
+      saleOrderMaxQty: [null as number | null]
     });
   }
 
@@ -477,10 +481,29 @@ export class SaleOrderFormComponent implements OnInit {
       label: sel.variantName && sel.variantName !== 'Default' ? `${sel.productName} — ${sel.variantName}` : (sel.productName ?? ''),
       sku: sel.variantSku ?? '',
       unitPrice: null,
-      priceState: 'none'
+      priceState: 'none',
+      saleOrderMinQty: sel.saleOrderMinQty,
+      saleOrderMaxQty: sel.saleOrderMaxQty
     });
     line.get('variantUuid')?.markAsTouched();
     this.refreshPrice(i);
+  }
+
+  /** A31-C1/§3.7 — conditional: a side only applies when it is set AND > 0. Null when the line's quantity is within range (or has no limits configured). */
+  lineQtyLimitError(i: number): string | null {
+    const line = this.lines.at(i);
+    const qty = line.get('quantity')?.value as number | null;
+    const min = line.get('saleOrderMinQty')?.value as number | null;
+    const max = line.get('saleOrderMaxQty')?.value as number | null;
+    if (qty == null) return null;
+    if (min != null && min > 0 && qty < min) return `Minimum order quantity for this item is ${min}.`;
+    if (max != null && max > 0 && qty > max) return `Maximum order quantity for this item is ${max}.`;
+    return null;
+  }
+
+  /** Gates the Save button — the server enforces this too, but there is no point round-tripping a request we already know it will refuse. */
+  hasLineQtyLimitErrors(): boolean {
+    return this.lines.controls.some((_, i) => this.lineQtyLimitError(i) !== null);
   }
 
   changeLineItem(i: number) {

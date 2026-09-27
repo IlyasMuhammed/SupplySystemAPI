@@ -10,6 +10,7 @@ import { DialogModule } from 'primeng/dialog';
 import { InputTextModule } from 'primeng/inputtext';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { ToggleButtonModule } from 'primeng/togglebutton';
+import { MessageModule } from 'primeng/message';
 import { TextareaModule } from 'primeng/textarea';
 import { TooltipModule } from 'primeng/tooltip';
 import { DropdownModule } from 'primeng/dropdown';
@@ -26,6 +27,9 @@ import { TimelinePanelComponent } from '../../../../shared/timeline-panel/timeli
 import { AttachmentListComponent } from '../../../../shared/attachment-list/attachment-list.component';
 import { AttachmentService } from '../../../../services/attachment.service';
 import { ProductVariantPickerComponent, VariantPickerSelection } from '../../../../shared/product-variant-picker/product-variant-picker.component';
+import { AllocationService, AllocationRunResult } from '../../../../services/allocation.service';
+import { AuthService } from '../../../service/auth.service';
+import { firstValueFrom } from 'rxjs';
 
 export interface InspectionRowState {
   lineUuid: string;
@@ -43,7 +47,7 @@ export interface InspectionRowState {
   standalone: true,
   imports: [
     CommonModule, RouterModule, FormsModule, ReactiveFormsModule,
-    ButtonModule, TagModule, ToastModule, TableModule, DialogModule,
+    ButtonModule, TagModule, ToastModule, TableModule, DialogModule, MessageModule,
     InputTextModule, InputNumberModule, ToggleButtonModule,
     TextareaModule, TooltipModule, DropdownModule, CalendarModule, ConfirmDialogModule, ProgressSpinnerModule,
     TimelinePanelComponent, AttachmentListComponent, ProductVariantPickerComponent
@@ -145,12 +149,24 @@ export class GrnDetailComponent implements OnInit {
   isLoadingAudit = false;
   showAuditTrail = false;
 
+  // ── A31 C10 §12.3 Location 3 — a receipt no longer runs allocation by itself, so an approved
+  // GRN prompts for it here, scoped to the variants this GRN actually received. Deliberately no
+  // "already ran" flag hiding the button — running allocation again is harmless (it only ever
+  // evaluates open demand against what's actually on the shelf), and hiding it based on in-memory
+  // state that vanishes on a reload was itself the bug users kept tripping over. The button always
+  // stays; what changes is the result panel underneath it, which shows what actually happened.
+  isRunningAllocation = false;
+  lastAllocationResults: (AllocationRunResult & { materialName: string })[] | null = null;
+  lastAllocationFailures: { materialName: string; message: string }[] = [];
+
   constructor(
     private route: ActivatedRoute,
     private router: Router,
     private warehouseService: WarehouseService,
     private inventoryService: InventoryService,
     private reportsService: ReportsService,
+    private allocationService: AllocationService,
+    private authService: AuthService,
     private messageService: MessageService,
     private confirmationService: ConfirmationService,
     private fb: FormBuilder,
@@ -180,6 +196,8 @@ export class GrnDetailComponent implements OnInit {
 
   load() {
     this.isLoading = true;
+    this.lastAllocationResults = null;
+    this.lastAllocationFailures = [];
     this.warehouseService.getGrnById(this.uuid).subscribe({
       next: (res) => {
         this.isLoading = false;
@@ -191,6 +209,70 @@ export class GrnDetailComponent implements OnInit {
         this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to load GRN.' });
       }
     });
+  }
+
+  // ── A31 C10 — run allocation for this receipt ────────────────────────────────
+
+  get canRunAllocation(): boolean {
+    return this.grn?.status === 'APPROVED' && this.authService.hasPermission('ALLOCATION_RUN');
+  }
+
+  private get receivedVariantUuids(): string[] {
+    if (!this.grn) return [];
+    return [...new Set(this.grn.lines.filter(l => l.variantUuid && l.qtyAccepted > 0).map(l => l.variantUuid!))];
+  }
+
+  private materialNameFor(variantUuid: string): string {
+    const line = this.grn?.lines.find(l => l.variantUuid === variantUuid);
+    return line ? this.lineDisplayName(line) : variantUuid;
+  }
+
+  async runAllocation(): Promise<void> {
+    if (!this.grn || this.isRunningAllocation) return;
+    const variants = this.receivedVariantUuids;
+    if (variants.length === 0) return;
+
+    this.isRunningAllocation = true;
+    this.lastAllocationResults = null;
+    this.lastAllocationFailures = [];
+
+    // Sequential, not one HTTP call per variant fired in parallel — running them all at once
+    // against the same warehouse invites exactly the kind of transient contention (lock waits,
+    // concurrency-retry exhaustion) that showed up as "1 of 2 completed; the rest failed" with no
+    // way to tell why. A GRN has few enough lines that this costs nothing perceptible.
+    const results: (AllocationRunResult & { materialName: string })[] = [];
+    const failures: { materialName: string; message: string }[] = [];
+    for (const v of variants) {
+      try {
+        const res = await firstValueFrom(this.allocationService.run(v, this.grn.warehouseUuid));
+        if (res.result) results.push({ ...res.result, materialName: this.materialNameFor(v) });
+      } catch (err: any) {
+        failures.push({ materialName: this.materialNameFor(v), message: err?.error?.message || err?.message || 'Unknown error' });
+      }
+    }
+
+    this.isRunningAllocation = false;
+    this.lastAllocationResults = results;
+    this.lastAllocationFailures = failures;
+
+    // The result panel below the button is the real, checkable answer to "did this do anything" —
+    // this toast is just the short version of the same numbers.
+    const reserved = results.reduce((s, r) => s + r.quantityReserved, 0);
+    const stillShort = results.reduce((s, r) => s + r.shortage, 0);
+
+    if (failures.length === 0) {
+      if (reserved > 0) {
+        this.messageService.add({ severity: 'success', summary: 'Allocation run', detail: `Reserved ${reserved} unit${reserved === 1 ? '' : 's'} across ${results.length} material${results.length === 1 ? '' : 's'}.${stillShort > 0 ? ` ${stillShort} still short — nothing available yet.` : ''}` });
+      } else {
+        // A "successful" run that reserved nothing is not obviously good news — say so plainly
+        // instead of a generic "success" that reads as "it worked" when nothing actually moved.
+        this.messageService.add({ severity: 'info', summary: 'Nothing to reserve', detail: `Allocation ran for ${results.length} material${results.length === 1 ? '' : 's'} but held nothing — see the details below for why (no open demand, or stock already spoken for elsewhere).` });
+      }
+    } else {
+      const names = failures.map(f => f.materialName);
+      const detail = `${results.length} of ${variants.length} allocation runs completed. Failed: ${names.join(', ')} — ${failures[0].message}`;
+      this.messageService.add({ severity: 'warn', summary: results.length > 0 ? 'Partly done' : 'Not done', detail, sticky: true });
+    }
   }
 
   getWarehouseName(uuid?: string | null): string {

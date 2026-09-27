@@ -195,6 +195,87 @@
         </div>
 
       </div>
+
+      <!-- A31-C2 — Manufacturing & Supply, merged into Classification (was its own tab/card). -->
+      <p-divider align="left" type="solid" styleClass="section-divider">
+        <span class="section-divider-label"><i class="pi pi-cog"></i> Manufacturing &amp; Supply</span>
+      </p-divider>
+
+      <p class="section-hint">What kind of thing this is and how it is obtained when it runs short. The type sets sensible defaults; adjust them if this product is an exception.</p>
+
+      <div class="form-grid form-grid--2">
+
+        <div class="field">
+          <label class="field-label">Product Type</label>
+          <p-dropdown
+            [options]="productTypeOptions"
+            formControlName="productType"
+            optionLabel="label"
+            optionValue="value"
+            styleClass="w-full"
+            appendTo="body"
+            inputId="productType"
+            (onChange)="onProductTypeChange()">
+          </p-dropdown>
+          <small class="text-gray-400 field-hint-block">{{ productTypeHint }}</small>
+        </div>
+
+        <div class="field">
+          <label class="field-label">Supply Method</label>
+          <p-dropdown
+            [options]="supplyMethodOptions"
+            formControlName="supplyMethod"
+            optionLabel="label"
+            optionValue="value"
+            optionDisabled="disabled"
+            styleClass="w-full"
+            appendTo="body"
+            inputId="supplyMethod">
+            <ng-template let-opt pTemplate="item">
+              <div [class.opacity-50]="supplyMethodDisabled(opt.value)">
+                <div>{{ opt.label }}</div>
+                <small class="text-gray-400">{{ opt.description }}</small>
+              </div>
+            </ng-template>
+          </p-dropdown>
+          <small class="text-gray-400 field-hint-block" *ngIf="supplyMethodDisabled(productForm.get('supplyMethod')?.value)">
+            This supply method is not valid for the chosen product type.
+          </small>
+        </div>
+
+        <div class="field field--checkbox">
+          <p-checkbox formControlName="isSaleable" [binary]="true" inputId="isSaleable"></p-checkbox>
+          <label for="isSaleable" class="field-label field-label--inline">Can be sold</label>
+        </div>
+
+        <div class="field field--checkbox">
+          <p-checkbox formControlName="isPurchasable" [binary]="true" inputId="isPurchasable"></p-checkbox>
+          <label for="isPurchasable" class="field-label field-label--inline">Can be purchased</label>
+        </div>
+
+        <div class="field field--checkbox">
+          <p-checkbox formControlName="isStockable" [binary]="true" inputId="isStockable"></p-checkbox>
+          <label for="isStockable" class="field-label field-label--inline">Held in stock</label>
+          <small class="text-gray-400 field-hint-block">A service cannot be held in stock.</small>
+        </div>
+
+        <div class="field" *ngIf="isManufactured">
+          <label class="field-label">Default Production Warehouse</label>
+          <p-dropdown
+            [options]="warehouseOptions"
+            formControlName="defaultProductionWarehouseId"
+            optionLabel="label"
+            optionValue="value"
+            placeholder="Select warehouse"
+            [showClear]="true"
+            styleClass="w-full"
+            appendTo="body"
+            inputId="defaultProductionWarehouseId">
+          </p-dropdown>
+          <small class="text-gray-400 field-hint-block">Where production orders for this product are made unless told otherwise.</small>
+        </div>
+
+      </div>
     </p-card>
 
     <!-- SECTION 3: Pricing (default variant) -->
@@ -254,6 +335,43 @@
             class="w-full" />
         </div>
 
+        <div class="field">
+          <label class="field-label">Sale Order Min Qty</label>
+          <p-inputnumber formControlName="saleOrderMinQty" placeholder="Leave empty for no limit" [min]="0" [showButtons]="false" styleClass="w-full"></p-inputnumber>
+        </div>
+
+        <div class="field">
+          <label class="field-label">Sale Order Max Qty</label>
+          <p-inputnumber formControlName="saleOrderMaxQty" placeholder="Leave empty for no limit" [min]="0" [showButtons]="false" styleClass="w-full"></p-inputnumber>
+        </div>
+
+      </div>
+
+      <div class="field">
+        <label class="field-label">Available For</label>
+        <div style="display:flex; flex-wrap:wrap; gap:1rem; padding-top:0.375rem">
+          <div style="display:flex; align-items:center; gap:0.5rem">
+            <p-checkbox formControlName="isAvailableForRetail" [binary]="true" inputId="defaultVariantRetail"></p-checkbox>
+            <label for="defaultVariantRetail" class="field-label field-label--inline">Retailer</label>
+          </div>
+          <div style="display:flex; align-items:center; gap:0.5rem">
+            <p-checkbox formControlName="isAvailableForPos" [binary]="true" inputId="defaultVariantPos"></p-checkbox>
+            <label for="defaultVariantPos" class="field-label field-label--inline">POS (Point of Sale)</label>
+          </div>
+          <div style="display:flex; align-items:center; gap:0.5rem">
+            <p-checkbox formControlName="isAvailableForMirMiv" [binary]="true" inputId="defaultVariantMirMiv"></p-checkbox>
+            <label for="defaultVariantMirMiv" class="field-label field-label--inline">MIR/MIV</label>
+          </div>
+          <div style="display:flex; align-items:center; gap:0.5rem">
+            <p-checkbox formControlName="isAvailableForProduction" [binary]="true" inputId="defaultVariantProduction"></p-checkbox>
+            <label for="defaultVariantProduction" class="field-label field-label--inline">Production</label>
+          </div>
+          <div style="display:flex; align-items:center; gap:0.5rem">
+            <p-checkbox formControlName="isAvailableForServices" [binary]="true" inputId="defaultVariantServices"></p-checkbox>
+            <label for="defaultVariantServices" class="field-label field-label--inline">Services</label>
+          </div>
+        </div>
+        <small class="text-gray-400 field-hint-block">Which channels this product can be used from — e.g. check "Production" so it can be picked as a Bill of Materials ingredient, or "Retailer" so it can be sold on a sale order.</small>
       </div>
     </p-card>
 
@@ -311,6 +429,14 @@
             <div class="field">
               <label class="field-label">Reorder Point</label>
               <p-inputnumber formControlName="reorderPoint" placeholder="0" [min]="0" [showButtons]="false" styleClass="w-full"></p-inputnumber>
+            </div>
+            <div class="field">
+              <label class="field-label">Sale Order Min Qty</label>
+              <p-inputnumber formControlName="saleOrderMinQty" placeholder="Leave empty for no limit" [min]="0" [showButtons]="false" styleClass="w-full"></p-inputnumber>
+            </div>
+            <div class="field">
+              <label class="field-label">Sale Order Max Qty</label>
+              <p-inputnumber formControlName="saleOrderMaxQty" placeholder="Leave empty for no limit" [min]="0" [showButtons]="false" styleClass="w-full"></p-inputnumber>
             </div>
           </div>
 
@@ -470,91 +596,6 @@
             Enable Serial Number Tracking
           </label>
           <small class="text-gray-400 field-hint-block">Track each unit by a unique serial number.</small>
-        </div>
-
-      </div>
-    </p-card>
-
-    <!-- SECTION 5b: Manufacturing (A30 §6) -->
-    <p-card styleClass="mb-4">
-      <ng-template pTemplate="header">
-        <div class="card-section-header">
-          <i class="pi pi-cog"></i> Manufacturing
-        </div>
-      </ng-template>
-
-      <p class="section-hint">What kind of thing this is and how it is obtained when it runs short. The type sets sensible defaults; adjust them if this product is an exception.</p>
-
-      <div class="form-grid form-grid--2">
-
-        <div class="field">
-          <label class="field-label">Product Type</label>
-          <p-dropdown
-            [options]="productTypeOptions"
-            formControlName="productType"
-            optionLabel="label"
-            optionValue="value"
-            styleClass="w-full"
-            appendTo="body"
-            inputId="productType"
-            (onChange)="onProductTypeChange()">
-          </p-dropdown>
-          <small class="text-gray-400 field-hint-block">{{ productTypeHint }}</small>
-        </div>
-
-        <div class="field">
-          <label class="field-label">Supply Method</label>
-          <p-dropdown
-            [options]="supplyMethodOptions"
-            formControlName="supplyMethod"
-            optionLabel="label"
-            optionValue="value"
-            optionDisabled="disabled"
-            styleClass="w-full"
-            appendTo="body"
-            inputId="supplyMethod">
-            <ng-template let-opt pTemplate="item">
-              <div [class.opacity-50]="supplyMethodDisabled(opt.value)">
-                <div>{{ opt.label }}</div>
-                <small class="text-gray-400">{{ opt.description }}</small>
-              </div>
-            </ng-template>
-          </p-dropdown>
-          <small class="text-gray-400 field-hint-block" *ngIf="supplyMethodDisabled(productForm.get('supplyMethod')?.value)">
-            This supply method is not valid for the chosen product type.
-          </small>
-        </div>
-
-        <div class="field field--checkbox">
-          <p-checkbox formControlName="isSaleable" [binary]="true" inputId="isSaleable"></p-checkbox>
-          <label for="isSaleable" class="field-label field-label--inline">Can be sold</label>
-        </div>
-
-        <div class="field field--checkbox">
-          <p-checkbox formControlName="isPurchasable" [binary]="true" inputId="isPurchasable"></p-checkbox>
-          <label for="isPurchasable" class="field-label field-label--inline">Can be purchased</label>
-        </div>
-
-        <div class="field field--checkbox">
-          <p-checkbox formControlName="isStockable" [binary]="true" inputId="isStockable"></p-checkbox>
-          <label for="isStockable" class="field-label field-label--inline">Held in stock</label>
-          <small class="text-gray-400 field-hint-block">A service cannot be held in stock.</small>
-        </div>
-
-        <div class="field" *ngIf="isManufactured">
-          <label class="field-label">Default Production Warehouse</label>
-          <p-dropdown
-            [options]="warehouseOptions"
-            formControlName="defaultProductionWarehouseId"
-            optionLabel="label"
-            optionValue="value"
-            placeholder="Select warehouse"
-            [showClear]="true"
-            styleClass="w-full"
-            appendTo="body"
-            inputId="defaultProductionWarehouseId">
-          </p-dropdown>
-          <small class="text-gray-400 field-hint-block">Where production orders for this product are made unless told otherwise.</small>
         </div>
 
       </div>

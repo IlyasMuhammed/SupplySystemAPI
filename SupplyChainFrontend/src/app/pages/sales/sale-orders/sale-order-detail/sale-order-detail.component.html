@@ -40,6 +40,12 @@
 
         <p-button *ngIf="canCreateDelivery" label="Create delivery" icon="pi pi-truck"
                   (onClick)="openCreateDialog()" data-testid="action-create-delivery"></p-button>
+
+        <span *ngIf="!canCreateDelivery && hasUnavailableLines" class="delivery-unavailable-hint"
+              pTooltip="Nothing on this order is available to deliver yet — it's still waiting on production or purchase."
+              data-testid="delivery-unavailable-hint">
+          <i class="pi pi-info-circle"></i> Not ready to deliver
+        </span>
       </div>
     </div>
 
@@ -290,6 +296,50 @@
         <ng-template pTemplate="content">
           <app-timeline-panel [traceId]="o.traceId" interfaceCode="SO" [inline]="true"></app-timeline-panel>
         </ng-template>
+      </p-tabPanel>
+
+      <!-- ══ Production orders (A31 C7/PD-06) ═══════════════════════════════════ -->
+      <p-tabPanel header="Production" leftIcon="pi pi-cog">
+        <p class="no-access" *ngIf="!canViewProduction" data-testid="production-no-access">
+          <i class="pi pi-lock"></i> You do not have permission to see production orders.
+        </p>
+
+        <div class="table-card flush" *ngIf="canViewProduction">
+          <p-table [value]="productionOrders" [loading]="isLoadingProductionOrders"
+                   [tableStyle]="{'min-width':'50rem'}" data-testid="production-orders-table">
+            <ng-template pTemplate="header">
+              <tr>
+                <th>Order #</th>
+                <th>Product</th>
+                <th class="text-right">Planned</th>
+                <th>Required</th>
+                <th>Status</th>
+                <th class="text-center">Actions</th>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-p>
+              <tr>
+                <td class="font-mono font-semibold">{{ p.productionNumber }}</td>
+                <td>{{ p.productName }} <span class="muted" *ngIf="p.variantName">— {{ p.variantName }}</span></td>
+                <td class="text-right">{{ p.plannedQuantity | number:'1.0-4' }}</td>
+                <td>{{ p.requiredDate | date:'dd MMM yyyy' }}</td>
+                <td><p-tag [value]="p.status" [severity]="productionSeverity(p.status)"></p-tag></td>
+                <td class="text-center">
+                  <p-button icon="pi pi-eye" [text]="true" severity="info" size="small" pTooltip="Open production order"
+                            [routerLink]="['/portal/pages/manufacturing/production-orders', p.uuid]"
+                            data-testid="open-production-order"></p-button>
+                </td>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="emptymessage">
+              <tr>
+                <td colspan="6" class="text-center text-secondary" style="padding:2rem">
+                  No production order raised from this sale order.
+                </td>
+              </tr>
+            </ng-template>
+          </p-table>
+        </div>
       </p-tabPanel>
 
     </p-tabView>

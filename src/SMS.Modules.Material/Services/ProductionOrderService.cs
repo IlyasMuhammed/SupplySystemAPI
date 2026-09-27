@@ -94,6 +94,20 @@ internal sealed class ProductionOrderService : IProductionOrderService, IProduct
     public Task<PaginatedResponse<ProductionOrderListItemModel>> GetListAsync(ProductionOrderListFilter filter) => _repo.GetListAsync(filter);
     public Task<ProductionOrderDetailModel?> GetByUuidAsync(Guid uuid) => _repo.GetByUuidAsync(uuid);
     public Task<IReadOnlyList<ProductionMaterialModel>> GetMaterialsAsync(Guid uuid) => _repo.GetMaterialsAsync(uuid);
+
+    public async Task<IReadOnlyList<AllocationRunResult>> RunAllocationAsync(Guid uuid, int userId, CancellationToken ct = default)
+    {
+        var materials = await _repo.GetMaterialsAsync(uuid);
+        var pairs = materials
+            .Select(m => (m.MaterialVariantUuid, m.WarehouseUuid))
+            .Distinct()
+            .ToList();
+
+        var results = new List<AllocationRunResult>(pairs.Count);
+        foreach (var (variantUuid, warehouseUuid) in pairs)
+            results.Add(await _engine.AllocateAsync(variantUuid, warehouseUuid, userId, ct));
+        return results;
+    }
     public Task<ProductionReadinessModel?> GetReadinessAsync(Guid uuid) => _repo.GetReadinessAsync(uuid);
     public Task<IReadOnlyList<MaterialShortageModel>> GetShortagesAsync(Guid? warehouseUuid) => _repo.GetShortagesAsync(warehouseUuid);
     public Task<PaginatedResponse<SupplyRequirementModel>> GetSupplyRequirementsAsync(SupplyRequirementListFilter filter) => _repo.GetSupplyRequirementsAsync(filter);
@@ -150,7 +164,9 @@ internal sealed class ProductionOrderService : IProductionOrderService, IProduct
                 ScrapAllowance      = scrap,
                 RequiredQuantity    = decimal.Round(net + scrap, 6),
                 Uom                 = line.Uom,
-                WarehouseUuid       = line.WarehouseUuid ?? po.WarehouseUuid,
+                // A31-C6/BR-C6-01 — BOM lines no longer carry their own warehouse override; every
+                // material requirement sources from the production order's own warehouse.
+                WarehouseUuid       = po.WarehouseUuid,
                 IsCritical          = line.IsCritical,
                 Status              = PmrStatus.Pending,
                 RequiredDate        = materialRequiredDate,

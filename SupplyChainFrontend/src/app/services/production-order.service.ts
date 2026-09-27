@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { ApiResponse, PaginatedResponse } from './inventory.service';
+import { AllocationRunResult } from './allocation.service';
 import { environment } from '../../environments/environment';
 
 // A30 §11–§13, §16 / §28.3–§28.7 — production orders, their materials, supply requirements and
@@ -99,6 +100,8 @@ export interface ProductionOrderListFilter {
   dateTo?: string;
   search?: string;
   openOnly?: boolean;
+  /** A31 C7/PD-06 — production orders raised directly from a sale order line (sourceType SALES_ORDER, sourceUuid = that order's own uuid). */
+  sourceUuid?: string;
   page?: number;
   pageSize?: number;
 }
@@ -470,6 +473,7 @@ export class ProductionOrderService {
     if (filter.dateTo)      params = params.set('dateTo', filter.dateTo);
     if (filter.search)      params = params.set('search', filter.search);
     if (filter.openOnly)    params = params.set('openOnly', 'true');
+    if (filter.sourceUuid)  params = params.set('sourceUuid', filter.sourceUuid);
     if (filter.page)        params = params.set('page', String(filter.page));
     if (filter.pageSize)    params = params.set('pageSize', String(filter.pageSize));
     return this.http.get<ApiResponse<PaginatedResponse<ProductionOrderListItem>>>(this.base, { params });
@@ -505,6 +509,11 @@ export class ProductionOrderService {
 
   getMaterials(uuid: string): Observable<ApiResponse<ProductionMaterial[]>> {
     return this.http.get<ApiResponse<ProductionMaterial[]>>(`${this.base}/${uuid}/materials`);
+  }
+
+  /** A31 C10 — a GRN receipt no longer runs allocation by itself; this checks/reserves availability for every distinct material variant/warehouse this order uses. */
+  runAllocation(uuid: string): Observable<ApiResponse<AllocationRunResult[]>> {
+    return this.http.post<ApiResponse<AllocationRunResult[]>>(`${this.base}/${uuid}/run-allocation`, {});
   }
 
   getReadiness(uuid: string): Observable<ApiResponse<ProductionReadiness>> {

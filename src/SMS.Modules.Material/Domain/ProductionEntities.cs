@@ -235,6 +235,24 @@ internal class SupplyRequirement : ITenantScopedEntity
 }
 
 /// <summary>
+/// A31 C9 §11.5 / the user's own explicit ask — a marker that someone already placed a purchase for
+/// this variant's shortage outside the system (phone, email, an existing supplier arrangement), so
+/// the Purchase Required dashboard stops offering "Create Purchase Order" for it. One row per variant;
+/// deleted (not soft-closed) once the aggregation finds nothing short for it any more, so the table
+/// never accumulates stale rows for shortages that were since resolved.
+/// </summary>
+internal class PurchaseRequiredAcknowledgement : ITenantScopedEntity
+{
+    public int       Id             { get; set; }
+    public Guid      Uuid           { get; set; } = Guid.NewGuid();
+    public Guid      OrganizationId { get; set; }
+    public Guid      VariantUuid    { get; set; }
+    public string?   Notes          { get; set; }
+    public int       AcknowledgedBy { get; set; }
+    public DateTime  AcknowledgedAt { get; set; } = DateTime.UtcNow;
+}
+
+/// <summary>
 /// Materials moving between stock and the production floor for one order (A30 §16). Named so it
 /// cannot be confused with the project-site material issue request/voucher this module already has.
 /// </summary>

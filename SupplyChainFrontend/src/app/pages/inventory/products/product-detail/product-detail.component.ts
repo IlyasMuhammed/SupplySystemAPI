@@ -48,6 +48,7 @@ import {
   PRODUCT_TYPE_OPTIONS, SUPPLY_METHOD_OPTIONS, SupplyMethodCode, classificationDefaults, isSupplyMethodAllowed,
   productTypeLabel, productTypeOption, supplyMethodLabel
 } from '../../../../shared/product-classification';
+import { BomManagerComponent } from './bom-manager/bom-manager.component';
 
 @Component({
   selector: 'app-product-detail',
@@ -57,7 +58,7 @@ import {
     ButtonModule, CardModule, TabViewModule, TagModule, ToastModule,
     DialogModule, InputTextModule, TextareaModule, InputNumberModule,
     DividerModule, TooltipModule, ConfirmDialogModule, DropdownModule, TableModule,
-    CheckboxModule, CalendarModule, DynamicAttributeFormComponent
+    CheckboxModule, CalendarModule, DynamicAttributeFormComponent, BomManagerComponent
   ],
   templateUrl: './product-detail.component.html',
   styleUrls: ['./product-detail.component.scss'],
@@ -296,7 +297,9 @@ export class ProductDetailComponent implements OnInit {
       isAvailableForPos:        [false],
       isAvailableForMirMiv:     [false],
       isAvailableForProduction: [false],
-      isAvailableForServices:   [false]
+      isAvailableForServices:   [false],
+      saleOrderMinQty: [null, [Validators.min(0)]],
+      saleOrderMaxQty: [null, [Validators.min(0)]]
     });
 
     this.priceRuleForm = this.fb.group({
@@ -583,7 +586,8 @@ export class ProductDetailComponent implements OnInit {
       sku: '', variantName: '', purchasePrice: null, sellingPrice: null,
       barcode: '', weight: null, dimensions: '', reorderPoint: null, sortOrder: null, isDefault: false,
       isAvailableForRetail: false, isAvailableForPos: false, isAvailableForMirMiv: false,
-      isAvailableForProduction: false, isAvailableForServices: false
+      isAvailableForProduction: false, isAvailableForServices: false,
+      saleOrderMinQty: null, saleOrderMaxQty: null
     });
     this.showVariantDialog = true;
   }
@@ -607,7 +611,9 @@ export class ProductDetailComponent implements OnInit {
       isAvailableForPos: variant.isAvailableForPos,
       isAvailableForMirMiv: variant.isAvailableForMirMiv,
       isAvailableForProduction: variant.isAvailableForProduction,
-      isAvailableForServices: variant.isAvailableForServices
+      isAvailableForServices: variant.isAvailableForServices,
+      saleOrderMinQty: variant.saleOrderMinQty ?? null,
+      saleOrderMaxQty: variant.saleOrderMaxQty ?? null
     });
     this.showVariantDialog = true;
   }
@@ -627,6 +633,11 @@ export class ProductDetailComponent implements OnInit {
       return;
     }
     const raw = this.variantForm.value;
+    // A31-BR-C1-05 — mirrors the server's own check, so the dialog can refuse this before a round trip.
+    if (raw.saleOrderMinQty > 0 && raw.saleOrderMaxQty > 0 && raw.saleOrderMinQty > raw.saleOrderMaxQty) {
+      this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Sale order maximum quantity must be greater than or equal to the minimum.' });
+      return;
+    }
     const payload: CreateProductVariantRequest = {
       sku:           raw.sku || undefined,
       variantName:   raw.variantName,
@@ -642,7 +653,9 @@ export class ProductDetailComponent implements OnInit {
       isAvailableForProduction: !!raw.isAvailableForProduction,
       isAvailableForServices:   !!raw.isAvailableForServices,
       reorderPoint:  raw.reorderPoint ?? undefined,
-      sortOrder:     raw.sortOrder ?? undefined
+      sortOrder:     raw.sortOrder ?? undefined,
+      saleOrderMinQty: raw.saleOrderMinQty ?? undefined,
+      saleOrderMaxQty: raw.saleOrderMaxQty ?? undefined
     };
 
     this.isSavingVariant = true;

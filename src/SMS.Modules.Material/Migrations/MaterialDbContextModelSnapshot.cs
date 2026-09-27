@@ -126,9 +126,6 @@ namespace SMS.Modules.Material.Migrations
                     b.Property<int>("Version")
                         .HasColumnType("int");
 
-                    b.Property<Guid?>("WarehouseUuid")
-                        .HasColumnType("uniqueidentifier");
-
                     b.HasKey("Id");
 
                     b.HasIndex("OrganizationId");
@@ -196,9 +193,6 @@ namespace SMS.Modules.Material.Migrations
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
-
-                    b.Property<Guid?>("WarehouseUuid")
-                        .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
 
@@ -1575,6 +1569,44 @@ namespace SMS.Modules.Material.Migrations
                     b.HasIndex("ProjectId", "PostedDate");
 
                     b.ToTable("project_cost_ledger", "material");
+                });
+
+            modelBuilder.Entity("SMS.Modules.Material.Domain.PurchaseRequiredAcknowledgement", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("AcknowledgedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("AcknowledgedBy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("Uuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("VariantUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Uuid")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "VariantUuid")
+                        .IsUnique();
+
+                    b.ToTable("purchase_required_acknowledgements", "material");
                 });
 
             modelBuilder.Entity("SMS.Modules.Material.Domain.QualityInspection", b =>

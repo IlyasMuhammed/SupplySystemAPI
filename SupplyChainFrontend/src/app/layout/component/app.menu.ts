@@ -548,18 +548,8 @@ export class AppMenu {
             label: 'Manufacturing',
             featureCode: 'MODULE_MANUFACTURING',
             items: [
-                {
-                    label: 'Bills of Materials',
-                    icon: 'pi pi-fw pi-sitemap',
-                    items: [
-                        { label: 'New BOM', icon: 'pi pi-fw pi-plus',
-                          routerLink: ['/portal/pages/manufacturing/boms/new'],
-                          permRequired: ['BOM_CREATE'] },
-                        { label: 'All BOMs', icon: 'pi pi-fw pi-list',
-                          routerLink: ['/portal/pages/manufacturing/boms'],
-                          permRequired: ['BOM_VIEW'] }
-                    ]
-                },
+                // A31-C4/A31-PB-09 — "Bills of Materials" removed from the nav; BOM management is
+                // now inline on each product's own "Bill of Materials" tab.
                 {
                     label: 'Production Orders',
                     icon: 'pi pi-fw pi-cog',
@@ -572,7 +562,12 @@ export class AppMenu {
                           permRequired: ['PROD_VIEW'] },
                         { label: 'Shortages', icon: 'pi pi-fw pi-exclamation-triangle',
                           routerLink: ['/portal/pages/manufacturing/shortages'],
-                          permRequired: ['PROD_VIEW'] }
+                          permRequired: ['PROD_VIEW'] },
+                        // A31 C9 — consolidated per-product view; replaces raising a purchase order
+                        // per shortage from the (read-only) Shortages page above.
+                        { label: 'Purchase Required', icon: 'pi pi-fw pi-shopping-cart',
+                          routerLink: ['/portal/pages/manufacturing/purchase-required'],
+                          permRequired: ['SUPPLY_VIEW'] }
                     ]
                 },
                 {

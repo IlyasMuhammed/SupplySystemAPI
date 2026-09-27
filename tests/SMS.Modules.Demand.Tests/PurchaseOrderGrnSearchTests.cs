@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 using SMS.Modules.Demand.Data;
 using SMS.Modules.Demand.Domain;
 using SMS.Modules.Demand.Repositories;
@@ -28,7 +29,7 @@ public class PurchaseOrderGrnSearchTests
             });
         await db.SaveChangesAsync();
 
-        return new PurchaseOrderRepository(db, NullLogger<PurchaseOrderRepository>.Instance);
+        return new PurchaseOrderRepository(db, NullLogger<PurchaseOrderRepository>.Instance, Mock.Of<IDocumentNumberGenerator>());
     }
 
     [Fact]

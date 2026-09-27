@@ -37,6 +37,7 @@ public class ProductionOrderTests
         public IProductionOrderService     Orders         { get; }
         public IProductionMaterialIssueService Issues     { get; }
         public IAllocationEngine           Engine         { get; }
+        public IPurchaseRequiredService    PurchaseRequired { get; }
         public Mock<IPurchaseOrderService> PurchaseOrders { get; } = new();
         public Mock<IManufacturingNotificationService> Notify { get; } = new();
         public Guid Plant { get; }
@@ -88,18 +89,21 @@ public class ProductionOrderTests
             services.AddSingleton<IInventoryLedgerService, InventoryLedgerService>();
             services.AddSingleton<IStockReservationService, StockReservationService>();
             services.AddSingleton<IAllocationRunListener, ProductionReadinessListener>();
+            services.AddSingleton<IAllocationReceiptListener, ProductionReadinessListener>();
             services.AddSingleton<IAllocationEngine, AllocationEngine>();
             services.AddSingleton<IProductionOrderRepository, ProductionOrderRepository>();
             services.AddSingleton<ProductionOrderService>();
             services.AddSingleton<IProductionOrderService>(sp => sp.GetRequiredService<ProductionOrderService>());
             services.AddSingleton<ISupplyRequirementEngine, SupplyRequirementEngine>();
             services.AddSingleton<IProductionMaterialIssueService, ProductionMaterialIssueService>();
+            services.AddSingleton<IPurchaseRequiredService, PurchaseRequiredService>();
             var provider = services.BuildServiceProvider();
 
             Boms      = new BomRepository(Material, Inventory, numbers.Object);
             Orders    = provider.GetRequiredService<IProductionOrderService>();
             Issues    = provider.GetRequiredService<IProductionMaterialIssueService>();
             Engine    = provider.GetRequiredService<IAllocationEngine>();
+            PurchaseRequired = provider.GetRequiredService<IPurchaseRequiredService>();
         }
 
         /// <summary>A manufactured finished good, or a raw material when <paramref name="manufactured"/> is false.</summary>
@@ -136,7 +140,7 @@ public class ProductionOrderTests
         {
             var uuid = await Boms.CreateAsync(new CreateBomRequest
             {
-                ProductUuid = product, BaseQuantity = baseQty, WarehouseUuid = Plant,
+                ProductUuid = product, BaseQuantity = baseQty,
                 Lines = lines.Select(l => new BomLineRequest { MaterialVariantUuid = l.Variant, Quantity = l.Qty, ScrapPercentage = l.Scrap, IsCritical = l.Critical }).ToList()
             }, Author);
             await Boms.SubmitAsync(uuid, Author);
@@ -217,11 +221,8 @@ public class ProductionOrderTests
 
         var poUuid     = Guid.NewGuid();
         var poLineUuid = Guid.NewGuid();
-        h.PurchaseOrders.Setup(p => p.CreateAsync(It.IsAny<CreatePoRequest>(), It.IsAny<int>())).ReturnsAsync(poUuid);
-        h.PurchaseOrders.Setup(p => p.GetByIdAsync(poUuid)).ReturnsAsync(new PoDetailModel
-        {
-            UUID = poUuid, PoNumber = "PO-2026-00099", Lines = [new PoLineModel { UUID = poLineUuid, Quantity = 15, UnitPrice = 4m }]
-        });
+        h.PurchaseOrders.Setup(p => p.AddOrIncreaseProductionLineAsync(It.IsAny<CreatePoRequest>(), It.IsAny<int>()))
+            .ReturnsAsync(new PoConsolidationResult(poUuid, "PO-2026-00099", poLineUuid, 15m, true));
 
         var uuid   = await h.Orders.CreateAsync(Order(shirt, 20, h.Plant), Author);
         var detail = await h.Orders.GetByUuidAsync(uuid);
@@ -237,7 +238,7 @@ public class ProductionOrderTests
         supply.Status.Should().Be(SupplyRequirementStatus.Ordered);
         supply.SupplySourceReference.Should().Be("PO-2026-00099");
 
-        h.PurchaseOrders.Verify(p => p.CreateAsync(
+        h.PurchaseOrders.Verify(p => p.AddOrIncreaseProductionLineAsync(
             It.Is<CreatePoRequest>(r => r.SupplierId == supplierId && r.Lines!.Single().Quantity == 15), Author), Times.Once);
     }
 
@@ -289,16 +290,14 @@ public class ProductionOrderTests
 
         var poUuid     = Guid.NewGuid();
         var poLineUuid = Guid.NewGuid();
-        h.PurchaseOrders.Setup(p => p.CreateAsync(It.IsAny<CreatePoRequest>(), It.IsAny<int>())).ReturnsAsync(poUuid);
-        h.PurchaseOrders.Setup(p => p.GetByIdAsync(poUuid)).ReturnsAsync(new PoDetailModel
-        {
-            UUID = poUuid, PoNumber = "PO-2026-00050", Lines = [new PoLineModel { UUID = poLineUuid, Quantity = 20 }]
-        });
+        h.PurchaseOrders.Setup(p => p.AddOrIncreaseProductionLineAsync(It.IsAny<CreatePoRequest>(), It.IsAny<int>()))
+            .ReturnsAsync(new PoConsolidationResult(poUuid, "PO-2026-00050", poLineUuid, 20m, true));
 
         var uuid = await h.Orders.CreateAsync(Order(shirt, 20, h.Plant), Author);
         (await h.Orders.GetByUuidAsync(uuid))!.Status.Should().Be(ProductionOrderStatus.MaterialPending);
 
-        // The GRN poster's own job (proven in GrnAllocationTriggerTests): book the receipt, re-run allocation.
+        // The GRN poster's own job (proven in GrnAllocationTriggerTests): book the receipt. A31 C10 —
+        // it no longer re-runs allocation itself, so that is done separately here.
         h.Stock(plainV, h.Plant, 20);
         await h.Engine.SupplyReceivedAsync(AllocationSupplyType.PurchaseOrder, poUuid, poLineUuid, 20);
         await h.Engine.AllocateAsync(plainV, null, Author);
@@ -309,6 +308,69 @@ public class ProductionOrderTests
 
         var supply = (await h.Orders.GetSupplyRequirementsForOrderAsync(uuid)).Single();
         supply.Status.Should().Be(SupplyRequirementStatus.Fulfilled);
+    }
+
+    /// <summary>
+    /// A31-PD-08 — the supply requirement's own fulfilment bookkeeping must not wait for someone to
+    /// separately run allocation (A31 C10 made that manual): booking the receipt alone is enough.
+    /// The production order's readiness, which genuinely does need a hold, stays untouched until then.
+    /// </summary>
+    [Fact]
+    public async Task Booking_a_receipt_alone_fulfils_the_supply_requirement_without_an_allocation_run()
+    {
+        var h = new Harness();
+        var (shirt, _)  = h.Product("Printed T-Shirt", manufactured: true);
+        var (_, plainV) = h.Product("Plain T-Shirt", manufactured: false, defaultSupplier: Guid.NewGuid());
+        await h.ActiveBomAsync(shirt, 1m, (plainV, 1m, 0m, true));
+
+        var poUuid     = Guid.NewGuid();
+        var poLineUuid = Guid.NewGuid();
+        h.PurchaseOrders.Setup(p => p.AddOrIncreaseProductionLineAsync(It.IsAny<CreatePoRequest>(), It.IsAny<int>()))
+            .ReturnsAsync(new PoConsolidationResult(poUuid, "PO-2026-00052", poLineUuid, 20m, true));
+
+        var uuid = await h.Orders.CreateAsync(Order(shirt, 20, h.Plant), Author);
+        h.Stock(plainV, h.Plant, 20);
+
+        await h.Engine.SupplyReceivedAsync(AllocationSupplyType.PurchaseOrder, poUuid, poLineUuid, 20);
+
+        var supply = (await h.Orders.GetSupplyRequirementsForOrderAsync(uuid)).Single();
+        supply.Status.Should().Be(SupplyRequirementStatus.Fulfilled, "the receipt listener syncs this immediately, without needing an allocation run");
+        supply.QuantityReceived.Should().Be(20);
+
+        // Nobody has run allocation yet, so the order itself is still waiting — the stock is on the
+        // shelf but not yet held for this order's own material requirement.
+        (await h.Orders.GetByUuidAsync(uuid))!.Status.Should().Be(ProductionOrderStatus.MaterialPending);
+    }
+
+    /// <summary>A31 C10 — the GRN poster only books the receipt now; this order-scoped convenience is
+    /// what actually hands the stock to the waiting material requirement.</summary>
+    [Fact]
+    public async Task Running_allocation_for_the_order_covers_every_distinct_material_variant_and_warehouse()
+    {
+        var h = new Harness();
+        var (shirt, _)  = h.Product("Printed T-Shirt", manufactured: true);
+        var (_, plainV) = h.Product("Plain T-Shirt", manufactured: false, defaultSupplier: Guid.NewGuid());
+        await h.ActiveBomAsync(shirt, 1m, (plainV, 1m, 0m, true));
+
+        var poUuid     = Guid.NewGuid();
+        var poLineUuid = Guid.NewGuid();
+        h.PurchaseOrders.Setup(p => p.AddOrIncreaseProductionLineAsync(It.IsAny<CreatePoRequest>(), It.IsAny<int>()))
+            .ReturnsAsync(new PoConsolidationResult(poUuid, "PO-2026-00051", poLineUuid, 20m, true));
+
+        var uuid = await h.Orders.CreateAsync(Order(shirt, 20, h.Plant), Author);
+        (await h.Orders.GetByUuidAsync(uuid))!.Status.Should().Be(ProductionOrderStatus.MaterialPending);
+
+        // Booking the receipt no longer runs allocation by itself (A31 C10).
+        h.Stock(plainV, h.Plant, 20);
+        await h.Engine.SupplyReceivedAsync(AllocationSupplyType.PurchaseOrder, poUuid, poLineUuid, 20);
+        (await h.Orders.GetByUuidAsync(uuid))!.Status.Should().Be(ProductionOrderStatus.MaterialPending, "nobody has run allocation yet");
+
+        var results = await h.Orders.RunAllocationAsync(uuid, Author);
+
+        results.Should().ContainSingle(r => r.VariantUuid == plainV && r.WarehouseUuid == h.Plant);
+        var detail = await h.Orders.GetByUuidAsync(uuid);
+        detail!.Status.Should().Be(ProductionOrderStatus.Ready);
+        detail.Materials.Single().ReservedQuantity.Should().Be(20);
     }
 
     // ── Execution (§17, T-PR08..10) ────────────────────────────────────────────
@@ -352,8 +414,8 @@ public class ProductionOrderTests
         await h.ActiveBomAsync(shirt, 1m, (plainV, 1m, 0m, true));
         h.Stock(plainV, h.Plant, 5);
 
-        h.PurchaseOrders.Setup(p => p.CreateAsync(It.IsAny<CreatePoRequest>(), It.IsAny<int>())).ReturnsAsync(Guid.NewGuid());
-        h.PurchaseOrders.Setup(p => p.GetByIdAsync(It.IsAny<Guid>())).ReturnsAsync((Guid u) => new PoDetailModel { UUID = u, PoNumber = "PO-X", Lines = [new PoLineModel { UUID = Guid.NewGuid() }] });
+        h.PurchaseOrders.Setup(p => p.AddOrIncreaseProductionLineAsync(It.IsAny<CreatePoRequest>(), It.IsAny<int>()))
+            .ReturnsAsync((CreatePoRequest r, int _) => new PoConsolidationResult(Guid.NewGuid(), "PO-X", Guid.NewGuid(), r.Lines!.Single().Quantity, true));
 
         var uuid = await h.Orders.CreateAsync(Order(shirt, 20, h.Plant), Author);
         h.Item(plainV, h.Plant).QtyReserved.Should().Be(5);
@@ -484,8 +546,8 @@ public class ProductionOrderTests
         var (_, plainV) = h.Product("Plain T-Shirt", manufactured: false, defaultSupplier: Guid.NewGuid());
         await h.ActiveBomAsync(shirt, 1m, (plainV, 1m, 0m, true));
         h.Stock(plainV, h.Plant, 5);
-        h.PurchaseOrders.Setup(p => p.CreateAsync(It.IsAny<CreatePoRequest>(), It.IsAny<int>())).ReturnsAsync(Guid.NewGuid());
-        h.PurchaseOrders.Setup(p => p.GetByIdAsync(It.IsAny<Guid>())).ReturnsAsync((Guid u) => new PoDetailModel { UUID = u, PoNumber = "PO-X", Lines = [new PoLineModel { UUID = Guid.NewGuid() }] });
+        h.PurchaseOrders.Setup(p => p.AddOrIncreaseProductionLineAsync(It.IsAny<CreatePoRequest>(), It.IsAny<int>()))
+            .ReturnsAsync((CreatePoRequest r, int _) => new PoConsolidationResult(Guid.NewGuid(), "PO-X", Guid.NewGuid(), r.Lines!.Single().Quantity, true));
 
         var uuid = await h.Orders.CreateAsync(Order(shirt, 20, h.Plant), Author);
 
@@ -515,5 +577,245 @@ public class ProductionOrderTests
 
         await h.Orders.CancelSupplyRequirementAsync(uuid, new CancelSupplyRequirementRequest { Reason = "No longer needed." }, Author);
         (await h.Orders.GetSupplyRequirementAsync(uuid))!.Status.Should().Be(SupplyRequirementStatus.Cancelled);
+    }
+
+    // ── A31-C7 — Production Order <-> Sale Order reference (reused Source* fields) ──────────────
+
+    [Fact]
+    public async Task A_production_order_sourced_from_a_sale_order_carries_its_uuid_and_line_uuid_in_the_response()
+    {
+        var h = new Harness();
+        var (shirt, _) = h.Product("Printed T-Shirt", manufactured: true);
+        var (_, plainV) = h.Product("Plain T-Shirt", manufactured: false);
+        await h.ActiveBomAsync(shirt, 1m, (plainV, 1m, 0m, true));
+
+        var saleOrderUuid = Guid.NewGuid();
+        var saleOrderLineUuid = Guid.NewGuid();
+        var uuid = await h.Orders.CreateAsync(new CreateProductionOrderRequest
+        {
+            ProductUuid = shirt, PlannedQuantity = 5, WarehouseUuid = h.Plant, RequiredDate = Today.AddDays(3),
+            SourceType = ProductionSourceType.SalesOrder, SourceUuid = saleOrderUuid, SourceLineUuid = saleOrderLineUuid,
+            SourceReference = "SO-2026-00042", Plan = false
+        }, Author);
+
+        var detail = await h.Orders.GetByUuidAsync(uuid);
+        detail!.SourceType.Should().Be(ProductionSourceType.SalesOrder);
+        detail.SourceUuid.Should().Be(saleOrderUuid);
+        detail.SourceLineUuid.Should().Be(saleOrderLineUuid);
+        detail.SourceReference.Should().Be("SO-2026-00042");
+    }
+
+    [Fact]
+    public async Task Filtering_the_list_by_source_uuid_finds_only_orders_from_that_sale_order()
+    {
+        var h = new Harness();
+        var (shirt, _) = h.Product("Printed T-Shirt", manufactured: true);
+        var (_, plainV) = h.Product("Plain T-Shirt", manufactured: false);
+        await h.ActiveBomAsync(shirt, 1m, (plainV, 1m, 0m, true));
+
+        var saleOrderUuid = Guid.NewGuid();
+        var matching = await h.Orders.CreateAsync(new CreateProductionOrderRequest
+        {
+            ProductUuid = shirt, PlannedQuantity = 5, WarehouseUuid = h.Plant, RequiredDate = Today.AddDays(3),
+            SourceType = ProductionSourceType.SalesOrder, SourceUuid = saleOrderUuid, SourceReference = "SO-2026-00042", Plan = false
+        }, Author);
+        await h.Orders.CreateAsync(new CreateProductionOrderRequest
+        {
+            ProductUuid = shirt, PlannedQuantity = 3, WarehouseUuid = h.Plant, RequiredDate = Today.AddDays(3), Plan = false
+        }, Author);
+
+        var page = await h.Orders.GetListAsync(new ProductionOrderListFilter { SourceUuid = saleOrderUuid });
+
+        page.Data.Should().ContainSingle().Which.UUID.Should().Be(matching);
+    }
+
+    // ── Purchase Required dashboard (A31 C9) ────────────────────────────────────
+
+    [Fact]
+    public async Task Two_orders_short_of_the_same_material_are_aggregated_into_one_line()
+    {
+        var h = new Harness();
+        var (shirtA, _) = h.Product("Printed T-Shirt A", manufactured: true);
+        var (shirtB, _) = h.Product("Printed T-Shirt B", manufactured: true);
+        var (_, plainV) = h.Product("Plain T-Shirt", manufactured: false); // no default supplier — Tier 3, no auto-PO
+        await h.ActiveBomAsync(shirtA, 1m, (plainV, 1m, 0m, true));
+        await h.ActiveBomAsync(shirtB, 1m, (plainV, 1m, 0m, true));
+
+        await h.Orders.CreateAsync(Order(shirtA, 10, h.Plant), Author); // needs 10 plain shirts, none in stock
+        await h.Orders.CreateAsync(Order(shirtB, 6, h.Plant), Author);  // needs 6 more of the same variant
+
+        var lines = await h.PurchaseRequired.GetListAsync(new PurchaseRequiredListFilter());
+
+        var line = lines.Should().ContainSingle(l => l.VariantUuid == plainV).Subject;
+        line.TotalShortageQty.Should().Be(16);
+        line.AffectedPoCount.Should().Be(2);
+        line.PendingPoNumber.Should().BeNull("no default supplier and no purchase history — Tier 3 leaves a note, no PO");
+        line.IsAcknowledgedManually.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task A_shortage_with_a_default_supplier_surfaces_the_auto_created_draft_po()
+    {
+        var h = new Harness();
+        var supplierId = Guid.NewGuid();
+        var (shirt, _)  = h.Product("Printed T-Shirt", manufactured: true);
+        var (_, plainV) = h.Product("Plain T-Shirt", manufactured: false, defaultSupplier: supplierId);
+        await h.ActiveBomAsync(shirt, 1m, (plainV, 1m, 0m, true));
+
+        h.PurchaseOrders.Setup(p => p.AddOrIncreaseProductionLineAsync(It.IsAny<CreatePoRequest>(), It.IsAny<int>()))
+            .ReturnsAsync(new PoConsolidationResult(Guid.NewGuid(), "PO-2026-00060", Guid.NewGuid(), 8m, true));
+
+        await h.Orders.CreateAsync(Order(shirt, 8, h.Plant), Author);
+
+        var line = (await h.PurchaseRequired.GetListAsync(new PurchaseRequiredListFilter())).Single(l => l.VariantUuid == plainV);
+        line.DefaultSupplierId.Should().Be(supplierId);
+        line.DefaultSupplierName.Should().Be("Acme Supplies");
+        line.PendingPoNumber.Should().Be("PO-2026-00060");
+    }
+
+    // A real bug, found live: create PO → send → receive GRN in full, then "Create Purchase Order"
+    // lit back up on the dashboard for the same material. Cause: A31 C10 made allocation a separate,
+    // manual step, so ProductionMaterialRequirement.ShortageQuantity stays stale (still positive)
+    // until someone runs it — and the dashboard was reading that stale field, not the supply
+    // requirement's own (correctly up to date) Fulfilled status.
+    [Fact]
+    public async Task A_fully_received_shortage_drops_off_the_dashboard_even_if_allocation_has_not_caught_up()
+    {
+        var h = new Harness();
+        var supplierId = Guid.NewGuid();
+        var (shirt, _)  = h.Product("Printed T-Shirt", manufactured: true);
+        var (_, plainV) = h.Product("Plain T-Shirt", manufactured: false, defaultSupplier: supplierId);
+        await h.ActiveBomAsync(shirt, 1m, (plainV, 1m, 0m, true));
+
+        var poUuid = Guid.NewGuid();
+        var poLineUuid = Guid.NewGuid();
+        h.PurchaseOrders.Setup(p => p.AddOrIncreaseProductionLineAsync(It.IsAny<CreatePoRequest>(), It.IsAny<int>()))
+            .ReturnsAsync(new PoConsolidationResult(poUuid, "PO-2026-00061", poLineUuid, 8m, true));
+
+        var prodUuid = await h.Orders.CreateAsync(Order(shirt, 8, h.Plant), Author);
+        (await h.PurchaseRequired.GetListAsync(new PurchaseRequiredListFilter()))
+            .Should().Contain(l => l.VariantUuid == plainV, "not yet received");
+
+        // The GRN books the receipt in full. A31 C10 — no automatic allocation run follows, so
+        // ShortageQuantity on the PMR is still whatever it was before the goods arrived.
+        await h.Engine.SupplyReceivedAsync(AllocationSupplyType.PurchaseOrder, poUuid, poLineUuid, 8);
+
+        var srs = await h.Orders.GetSupplyRequirementsForOrderAsync(prodUuid);
+        srs.Single().Status.Should().Be(SupplyRequirementStatus.Fulfilled, "the receipt listener syncs this immediately, independent of any allocation run");
+
+        var lines = await h.PurchaseRequired.GetListAsync(new PurchaseRequiredListFilter());
+        lines.Should().NotContain(l => l.VariantUuid == plainV,
+            "the purchase has already been fully received — what's left is an allocation problem, not a purchasing one");
+    }
+
+    [Fact]
+    public async Task GetAffectedOrders_returns_only_the_orders_short_of_that_variant()
+    {
+        var h = new Harness();
+        var (shirtA, _) = h.Product("Printed T-Shirt A", manufactured: true);
+        var (shirtB, _) = h.Product("Printed T-Shirt B", manufactured: true);
+        var (_, plainV) = h.Product("Plain T-Shirt", manufactured: false);
+        var (_, otherV) = h.Product("Other Fabric", manufactured: false);
+        await h.ActiveBomAsync(shirtA, 1m, (plainV, 1m, 0m, true));
+        await h.ActiveBomAsync(shirtB, 1m, (otherV, 1m, 0m, true));
+
+        var uuidA = await h.Orders.CreateAsync(Order(shirtA, 4, h.Plant), Author);
+        await h.Orders.CreateAsync(Order(shirtB, 9, h.Plant), Author);
+
+        var affected = await h.PurchaseRequired.GetAffectedOrdersAsync(plainV);
+
+        affected.Should().ContainSingle().Which.ProductionOrderUuid.Should().Be(uuidA);
+        affected.Single().ShortageQuantity.Should().Be(4);
+    }
+
+    [Fact]
+    public async Task Creating_a_purchase_order_from_the_dashboard_links_every_shortage_so_it_stops_needing_one()
+    {
+        var h = new Harness();
+        var supplierId = Guid.NewGuid();
+        // No default supplier on the variant — PC-06's own automatic Tier 3 leaves this unlinked
+        // ("no PO, a note on the SR"), so this proves the dashboard's own manual create really is
+        // what links it, not something the automatic engine already did underneath it.
+        var (shirtA, _) = h.Product("Printed T-Shirt A", manufactured: true);
+        var (shirtB, _) = h.Product("Printed T-Shirt B", manufactured: true);
+        var (_, plainV) = h.Product("Plain T-Shirt", manufactured: false);
+        await h.ActiveBomAsync(shirtA, 1m, (plainV, 1m, 0m, true));
+        await h.ActiveBomAsync(shirtB, 1m, (plainV, 1m, 0m, true));
+
+        await h.Orders.CreateAsync(Order(shirtA, 4, h.Plant), Author);
+        await h.Orders.CreateAsync(Order(shirtB, 6, h.Plant), Author);
+
+        var before = (await h.PurchaseRequired.GetListAsync(new PurchaseRequiredListFilter())).Single(l => l.VariantUuid == plainV);
+        before.PendingPoNumber.Should().BeNull("nothing has been purchased yet");
+        before.TotalShortageQty.Should().Be(10);
+
+        h.PurchaseOrders.Setup(p => p.AddOrIncreaseProductionLineAsync(It.IsAny<CreatePoRequest>(), It.IsAny<int>()))
+            .ReturnsAsync(new PoConsolidationResult(Guid.NewGuid(), "PO-2026-00070", Guid.NewGuid(), 10m, true));
+
+        var poUuid = await h.PurchaseRequired.CreatePurchaseOrderAsync(plainV, new CreatePurchaseRequiredPoRequest
+        {
+            SupplierId = supplierId, SupplierName = "Chosen By Procurement", Quantity = 10, UnitPrice = 4m,
+            RequiredDate = Today.AddDays(3)
+        }, Author);
+
+        poUuid.Should().NotBeEmpty();
+        var after = (await h.PurchaseRequired.GetListAsync(new PurchaseRequiredListFilter())).Single(l => l.VariantUuid == plainV);
+        after.PendingPoNumber.Should().Be("PO-2026-00070", "the button-hide condition the dashboard checks");
+
+        // Both shortages' own supply requirements — not just the dashboard's derived view — must
+        // show the link too, since a production order's own Supply tab reads these directly.
+        var srsA = await h.Orders.GetSupplyRequirementsForOrderAsync((await h.Orders.GetListAsync(new ProductionOrderListFilter { ProductUuid = shirtA })).Data.Single().UUID);
+        srsA.Single().SupplySourceReference.Should().Be("PO-2026-00070");
+        srsA.Single().Status.Should().Be(SupplyRequirementStatus.Ordered);
+    }
+
+    [Fact]
+    public async Task Acknowledging_a_shortage_marks_it_and_clearing_removes_the_marker()
+    {
+        var h = new Harness();
+        var (shirt, _)  = h.Product("Printed T-Shirt", manufactured: true);
+        var (_, plainV) = h.Product("Plain T-Shirt", manufactured: false);
+        await h.ActiveBomAsync(shirt, 1m, (plainV, 1m, 0m, true));
+        await h.Orders.CreateAsync(Order(shirt, 5, h.Plant), Author);
+
+        await h.PurchaseRequired.AcknowledgeAsync(plainV, new AcknowledgePurchaseRequiredRequest { Notes = "Placed by phone with Acme" }, Author);
+
+        var line = (await h.PurchaseRequired.GetListAsync(new PurchaseRequiredListFilter())).Single(l => l.VariantUuid == plainV);
+        line.IsAcknowledgedManually.Should().BeTrue();
+        line.AcknowledgedNotes.Should().Be("Placed by phone with Acme");
+
+        // A second acknowledgement updates the same marker rather than duplicating it.
+        await h.PurchaseRequired.AcknowledgeAsync(plainV, new AcknowledgePurchaseRequiredRequest { Notes = "Updated note" }, Author);
+        (await h.PurchaseRequired.GetListAsync(new PurchaseRequiredListFilter()))
+            .Single(l => l.VariantUuid == plainV).AcknowledgedNotes.Should().Be("Updated note");
+
+        await h.PurchaseRequired.ClearAcknowledgementAsync(plainV);
+        (await h.PurchaseRequired.GetListAsync(new PurchaseRequiredListFilter()))
+            .Single(l => l.VariantUuid == plainV).IsAcknowledgedManually.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Filtering_by_minimum_shortage_and_supplier_narrows_the_list()
+    {
+        var h = new Harness();
+        var supplierId = Guid.NewGuid();
+        var (shirtA, _) = h.Product("Printed T-Shirt A", manufactured: true);
+        var (shirtB, _) = h.Product("Printed T-Shirt B", manufactured: true);
+        var (_, suppliedV)   = h.Product("Plain T-Shirt", manufactured: false, defaultSupplier: supplierId);
+        var (_, unsuppliedV) = h.Product("Odd Fabric", manufactured: false);
+        await h.ActiveBomAsync(shirtA, 1m, (suppliedV, 1m, 0m, true));
+        await h.ActiveBomAsync(shirtB, 1m, (unsuppliedV, 1m, 0m, true));
+
+        h.PurchaseOrders.Setup(p => p.AddOrIncreaseProductionLineAsync(It.IsAny<CreatePoRequest>(), It.IsAny<int>()))
+            .ReturnsAsync(new PoConsolidationResult(Guid.NewGuid(), "PO-2026-00061", Guid.NewGuid(), 2m, true));
+
+        await h.Orders.CreateAsync(Order(shirtA, 2, h.Plant), Author);
+        await h.Orders.CreateAsync(Order(shirtB, 20, h.Plant), Author);
+
+        (await h.PurchaseRequired.GetListAsync(new PurchaseRequiredListFilter { SupplierId = supplierId }))
+            .Should().ContainSingle(l => l.VariantUuid == suppliedV);
+
+        (await h.PurchaseRequired.GetListAsync(new PurchaseRequiredListFilter { MinShortageQty = 10 }))
+            .Should().ContainSingle(l => l.VariantUuid == unsuppliedV);
     }
 }

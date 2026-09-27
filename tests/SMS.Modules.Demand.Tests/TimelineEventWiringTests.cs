@@ -46,6 +46,15 @@ file static class WiringBuild
 
     internal static TimelineEvent CapturedEvent(List<Job> captured) =>
         (TimelineEvent)captured.Single(j => j.Method.Name == "AppendAsync").Args[1];
+
+    internal static IDocumentNumberGenerator MockNumbers()
+    {
+        var seq = 0;
+        var numbers = new Mock<IDocumentNumberGenerator>();
+        numbers.Setup(n => n.NextAsync(It.IsAny<string>(), It.IsAny<DateTime?>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => $"PO-2026-{(++seq):D5}");
+        return numbers.Object;
+    }
 }
 
 // ── PR events (Created, Submitted, Approved, Rejected) ──────────────────────────
@@ -148,7 +157,7 @@ public class PurchaseOrderService_TimelineWiring_Tests
         pr.Status = "APPROVED";
         await db.SaveChangesAsync();
 
-        var poRepo = new PurchaseOrderRepository(db, Microsoft.Extensions.Logging.Abstractions.NullLogger<PurchaseOrderRepository>.Instance);
+        var poRepo = new PurchaseOrderRepository(db, Microsoft.Extensions.Logging.Abstractions.NullLogger<PurchaseOrderRepository>.Instance, WiringBuild.MockNumbers());
         var poUuid = await poRepo.CreateFromPrAsync(prUuid, new ConvertPrToPoRequest
         {
             SupplierId   = Guid.NewGuid(),
@@ -195,7 +204,7 @@ public class PurchaseOrderService_TimelineWiring_Tests
         pr.Status  = "APPROVED";
         await db.SaveChangesAsync();
 
-        var poRepo = new PurchaseOrderRepository(db, Microsoft.Extensions.Logging.Abstractions.NullLogger<PurchaseOrderRepository>.Instance);
+        var poRepo = new PurchaseOrderRepository(db, Microsoft.Extensions.Logging.Abstractions.NullLogger<PurchaseOrderRepository>.Instance, WiringBuild.MockNumbers());
         var inbox    = new Mock<IWorkflowInboxService>();
         var workflow = new Mock<IWorkflowActionService>();
         var (jobsMock, captured) = WiringBuild.MockJobs();

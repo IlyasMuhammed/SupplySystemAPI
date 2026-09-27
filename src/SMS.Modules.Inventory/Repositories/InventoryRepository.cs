@@ -433,6 +433,8 @@ internal sealed class InventoryRepository : IInventoryRepository
                         IsAvailableForServices   = v.IsAvailableForServices,
                         ReorderPoint      = v.ReorderPoint,
                         SortOrder         = v.SortOrder,
+                        SaleOrderMinQty   = v.SaleOrderMinQty,
+                        SaleOrderMaxQty   = v.SaleOrderMaxQty,
                         CreatedDate       = v.CreatedDate
                     }).ToList()
             })
@@ -743,6 +745,7 @@ internal sealed class InventoryRepository : IInventoryRepository
                 var v = req.Variants[i];
                 if (string.IsNullOrWhiteSpace(v.VariantName))
                     throw new BadRequestException("Each variant requires a variant name.");
+                ValidateSaleOrderQtyLimits(v.SaleOrderMinQty, v.SaleOrderMaxQty);
                 if (v.IsAvailableForProduction &&
                     ProductClassificationRules.ProductionInputProblem(productType, req.Name.Trim()) is { } problem)
                     throw new BadRequestException(problem);
@@ -772,6 +775,8 @@ internal sealed class InventoryRepository : IInventoryRepository
                     IsAvailableForServices   = v.IsAvailableForServices,
                     ReorderPoint  = v.ReorderPoint,
                     SortOrder     = v.SortOrder ?? i,
+                    SaleOrderMinQty = v.SaleOrderMinQty,
+                    SaleOrderMaxQty = v.SaleOrderMaxQty,
                     CreatedDate   = now,
                     CreatedBy     = userId
                 });
@@ -883,6 +888,7 @@ internal sealed class InventoryRepository : IInventoryRepository
 
         if (string.IsNullOrWhiteSpace(req.VariantName))
             throw new BadRequestException("Variant name is required.");
+        ValidateSaleOrderQtyLimits(req.SaleOrderMinQty, req.SaleOrderMaxQty);
         if (req.IsAvailableForProduction &&
             ProductClassificationRules.ProductionInputProblem(product.ProductType, product.Name) is { } problem)
             throw new BadRequestException(problem);
@@ -919,6 +925,8 @@ internal sealed class InventoryRepository : IInventoryRepository
             IsAvailableForServices   = req.IsAvailableForServices,
             ReorderPoint  = req.ReorderPoint,
             SortOrder     = req.SortOrder ?? existingCount,
+            SaleOrderMinQty = req.SaleOrderMinQty,
+            SaleOrderMaxQty = req.SaleOrderMaxQty,
             CreatedDate   = DateTime.UtcNow,
             CreatedBy     = userId
         };
@@ -934,6 +942,7 @@ internal sealed class InventoryRepository : IInventoryRepository
 
         if (string.IsNullOrWhiteSpace(req.VariantName))
             throw new BadRequestException("Variant name is required.");
+        ValidateSaleOrderQtyLimits(req.SaleOrderMinQty, req.SaleOrderMaxQty);
         if (req.IsAvailableForProduction &&
             ProductClassificationRules.ProductionInputProblem(variant.Product.ProductType, variant.Product.Name) is { } problem)
             throw new BadRequestException(problem);
@@ -965,9 +974,21 @@ internal sealed class InventoryRepository : IInventoryRepository
         variant.IsAvailableForServices   = req.IsAvailableForServices;
         variant.ReorderPoint  = req.ReorderPoint;
         variant.SortOrder     = req.SortOrder ?? variant.SortOrder;
+        variant.SaleOrderMinQty = req.SaleOrderMinQty;
+        variant.SaleOrderMaxQty = req.SaleOrderMaxQty;
 
         await _db.SaveChangesAsync();
         return variant.Id;
+    }
+
+    // A31-BR-C1-05 — both must be non-negative, and min must not exceed max, but only once both
+    // sides are actually set: a NULL or 0 on either side means that side has no limit (A31 §3.1).
+    private static void ValidateSaleOrderQtyLimits(decimal? min, decimal? max)
+    {
+        if (min is < 0 || max is < 0)
+            throw new BadRequestException("Sale order min/max quantity cannot be negative.");
+        if (min is > 0 && max is > 0 && min > max)
+            throw new BadRequestException("Sale order minimum quantity must be less than or equal to the maximum.");
     }
 
     private async Task UnsetExistingDefaultAsync(int productId, int? exceptVariantId = null)

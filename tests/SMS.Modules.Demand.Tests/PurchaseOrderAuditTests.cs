@@ -37,7 +37,10 @@ public class PurchaseOrderAuditTests
         var db = new DemandDbContext(
             new DbContextOptionsBuilder<DemandDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,
             new StaticTenantContext { OrganizationId = Guid.NewGuid() });
-        var repo = new PurchaseOrderRepository(db, NullLogger<PurchaseOrderRepository>.Instance);
+        var numbers = new Mock<IDocumentNumberGenerator>();
+        numbers.Setup(n => n.NextAsync(It.IsAny<string>(), It.IsAny<DateTime?>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync("PO-2026-00001");
+        var repo = new PurchaseOrderRepository(db, NullLogger<PurchaseOrderRepository>.Instance, numbers.Object);
 
         var variant = Guid.NewGuid();
         var order = new SaleOrder

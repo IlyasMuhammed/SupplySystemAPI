@@ -401,6 +401,9 @@ export interface CreatePoRequest {
   // Client-generated id so attachments uploaded before save can be linked via the same
   // DocumentId — becomes the PO's own UUID on save.
   poUuid?: string;
+  // A31-C3/C9 — one of the backend's PurchaseOrderSources values (e.g. "PRODUCTION"). Defaults to
+  // MANUAL server-side when left unset, matching every caller before this addendum.
+  source?: string;
 }
 
 export interface PatchPoRequest {

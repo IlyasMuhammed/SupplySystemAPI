@@ -4,6 +4,7 @@ using SMS.Modules.Demand.Data;
 using SMS.Modules.Demand.Domain;
 using SMS.Modules.Demand.Models;
 using SMS.Modules.Inventory.Data;
+using SMS.Shared.Common;
 using SMS.Shared.Exceptions;
 using SMS.Shared.Pagination;
 
@@ -13,16 +14,19 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
 {
     private readonly DemandDbContext _db;
     private readonly ILogger<PurchaseOrderRepository> _logger;
+    private readonly IDocumentNumberGenerator _numbers;
     // Optional: null in older unit tests that construct this repository directly without an
     // Inventory context — those tests don't exercise variant resolution. Production DI always
     // supplies the real InventoryDbContext since it's registered by the Inventory module.
     private readonly InventoryDbContext? _inv;
 
-    public PurchaseOrderRepository(DemandDbContext db, ILogger<PurchaseOrderRepository> logger, InventoryDbContext? inv = null)
+    public PurchaseOrderRepository(
+        DemandDbContext db, ILogger<PurchaseOrderRepository> logger, IDocumentNumberGenerator numbers, InventoryDbContext? inv = null)
     {
-        _db     = db;
-        _logger = logger;
-        _inv    = inv;
+        _db      = db;
+        _logger  = logger;
+        _numbers = numbers;
+        _inv     = inv;
     }
 
     // ── Single-vendor conversion: all PR lines → one PO ──────────────────────
@@ -41,7 +45,7 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
         ValidateQuotationRequirements(pr.Lines);
 
         var now      = DateTime.UtcNow;
-        var poNumber = await GeneratePoNumberAsync(now.Year);
+        var poNumber = await GeneratePoNumberAsync(now);
 
         var defaultVariants = await ResolveDefaultVariantUuidsAsync(
             pr.Lines.Where(l => l.ProductId.HasValue).Select(l => l.ProductId!.Value));
@@ -125,7 +129,7 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
 
         var grouped    = assignments.GroupBy(x => x.Assignment.SupplierId).ToList();
         var now        = DateTime.UtcNow;
-        var poNumbers  = await GeneratePoNumbersAsync(now.Year, grouped.Count);
+        var poNumbers  = await GeneratePoNumbersAsync(now, grouped.Count);
         var poUuids    = new List<Guid>();
         int poIndex    = 0;
 
@@ -196,7 +200,7 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
     public async Task<Guid> CreateAsync(CreatePoRequest req, int createdBy)
     {
         var now      = DateTime.UtcNow;
-        var poNumber = await GeneratePoNumberAsync(now.Year);
+        var poNumber = await GeneratePoNumberAsync(now);
 
         var po = new PurchaseOrder
         {
@@ -207,6 +211,7 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
             SupplierId            = req.SupplierId,
             SupplierName          = req.SupplierName,
             Status                = "DRAFT",
+            Source                = string.IsNullOrWhiteSpace(req.Source) ? PurchaseOrderSources.Manual : req.Source.Trim().ToUpperInvariant(),
             DeliveryDate          = req.DeliveryDate,
             DeliveryWarehouseId   = req.DeliveryWarehouseId,
             DeliveryWarehouseName = req.DeliveryWarehouseName,
@@ -322,6 +327,89 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
         return po.UUID;
     }
 
+    // ── A31-C3/BR-C3-07 — consolidate onto an existing PRODUCTION-sourced draft ──
+
+    /// <summary>
+    /// One line, from the caller (the one shortage being acted on). Appends it to whatever open
+    /// PRODUCTION-sourced Draft PO already exists for this supplier — bumping a matching variant's
+    /// own line in place (same UUID, so an earlier shortage's own SupplySourceLineUuid link stays
+    /// valid) or adding a new one — rather than raising a second PO for the same supplier every time
+    /// a new shortage happens to need one. Falls back to <see cref="CreateAsync"/> when nothing open
+    /// exists yet. Deliberately never touches <see cref="UpdateAsync"/>'s own Lines-replace path:
+    /// that regenerates every line's UUID on every save, which would silently orphan any other
+    /// shortage's own link to a line still on the same PO.
+    /// </summary>
+    public async Task<PoConsolidationResult> AddOrIncreaseProductionLineAsync(CreatePoRequest req, int createdBy)
+    {
+        var newLine = req.Lines?.SingleOrDefault()
+            ?? throw new BadRequestException("Exactly one line is expected when consolidating onto a production draft.");
+        ValidateLineQuantities([newLine.Quantity]);
+
+        var existing = await _db.PurchaseOrders.Include(p => p.Lines)
+            .Where(p => p.SupplierId == req.SupplierId && p.Source == PurchaseOrderSources.Production &&
+                        p.Status == "DRAFT" && !p.IsDelete)
+            .OrderByDescending(p => p.CreatedDate)
+            .FirstOrDefaultAsync();
+
+        if (existing is null)
+        {
+            var createReq = new CreatePoRequest
+            {
+                SupplierId = req.SupplierId, SupplierName = req.SupplierName, Lines = [newLine],
+                DeliveryDate = req.DeliveryDate, DeliveryWarehouseId = req.DeliveryWarehouseId,
+                DeliveryWarehouseName = req.DeliveryWarehouseName, Title = req.Title, Notes = req.Notes,
+                Source = PurchaseOrderSources.Production
+            };
+            var poUuid = await CreateAsync(createReq, createdBy);
+            var created = await _db.PurchaseOrders.Include(p => p.Lines).FirstAsync(p => p.UUID == poUuid);
+            var createdLine = created.Lines.Single();
+            return new PoConsolidationResult(created.UUID, created.PoNumber, createdLine.UUID, createdLine.Quantity, IsNewPo: true);
+        }
+
+        var matching = existing.Lines.FirstOrDefault(l => l.VariantUuid == newLine.VariantUuid);
+        if (matching is not null)
+        {
+            matching.Quantity += newLine.Quantity;
+            matching.LineTotal = matching.Quantity * matching.UnitPrice;
+        }
+        else
+        {
+            matching = new PurchaseOrderLine
+            {
+                UUID             = Guid.NewGuid(),
+                LineNo           = existing.Lines.Count + 1,
+                VariantUuid      = newLine.VariantUuid,
+                ItemDescription  = newLine.ItemDescription,
+                UnitOfMeasure    = newLine.UnitOfMeasure,
+                Quantity         = newLine.Quantity,
+                UnitPrice        = newLine.UnitPrice,
+                LineTotal        = newLine.Quantity * newLine.UnitPrice,
+                RequiredDate     = newLine.RequiredDate,
+                WarehouseId      = newLine.WarehouseId,
+                WarehouseName    = newLine.WarehouseName,
+                RequiresInspection = newLine.RequiresInspection
+            };
+            existing.Lines.Add(matching);
+        }
+        existing.TotalAmount   = existing.Lines.Sum(l => l.LineTotal);
+        existing.ModifiedBy    = createdBy;
+        existing.ModifiedDate  = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        return new PoConsolidationResult(existing.UUID, existing.PoNumber, matching.UUID, matching.Quantity, IsNewPo: false);
+    }
+
+    // A31-C3 §5.4 tier 2 — Draft doesn't count as "used" (it may never be sent), Cancelled/Rejected
+    // don't either (the order never actually happened).
+    public async Task<Guid?> GetLastSupplierForVariantAsync(Guid variantUuid)
+    {
+        var excludedStatuses = new[] { "DRAFT", "CANCELLED", "REJECTED" };
+        return await _db.PurchaseOrderLines.AsNoTracking()
+            .Where(l => l.VariantUuid == variantUuid && !l.PurchaseOrder.IsDelete && !excludedStatuses.Contains(l.PurchaseOrder.Status))
+            .OrderByDescending(l => l.PurchaseOrder.CreatedDate)
+            .Select(l => (Guid?)l.PurchaseOrder.SupplierId)
+            .FirstOrDefaultAsync();
+    }
+
     // ── A29-P5-03 §6.1/§6.3 — PO generated from a sale order line's deficit ──
 
     // Always exactly one line, for that variant — §6.2's later edits (extra items, splits) happen on
@@ -332,7 +420,7 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
         ValidateLineQuantities([spec.Quantity]);
 
         var now      = DateTime.UtcNow;
-        var poNumber = await GeneratePoNumberAsync(now.Year);
+        var poNumber = await GeneratePoNumberAsync(now);
 
         // _inv is null only in older unit tests that build this repository without an Inventory
         // context; production DI always supplies it. Without it the line falls back to a generic
@@ -523,7 +611,7 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
             throw new BadRequestException("The price must not be negative.");
 
         var now      = DateTime.UtcNow;
-        var poNumber = await GeneratePoNumberAsync(now.Year);
+        var poNumber = await GeneratePoNumberAsync(now);
         var oldQty   = line.Quantity;
 
         var newPo = new PurchaseOrder
@@ -1032,23 +1120,21 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
                 $"The following lines require an awarded quotation before conversion: {string.Join(", ", blockers)}");
     }
 
-    private async Task<string> GeneratePoNumberAsync(int year)
-    {
-        var yearStart = new DateTime(year, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-        var yearEnd   = yearStart.AddYears(1);
-        var count     = await _db.PurchaseOrders
-            .CountAsync(p => p.CreatedDate >= yearStart && p.CreatedDate < yearEnd);
-        return $"PO-{year}-{(count + 1):D5}";
-    }
+    /// <summary>
+    /// A31 hotfix — this used to be <c>COUNT(*) + 1</c>, which two concurrent callers can both read
+    /// before either commits, handing out the same number twice (confirmed live: two real purchase
+    /// orders sharing "PO-2026-00033", one from the automatic Supply Requirement engine and one from
+    /// a person, created close enough together to race). <see cref="IDocumentNumberGenerator"/> is
+    /// the shared, already-safe counter this codebase's own Sale Order numbering already uses for
+    /// exactly this reason (see its own doc comment) — reused here instead of fixing the same bug
+    /// a second time.
+    /// </summary>
+    private Task<string> GeneratePoNumberAsync(DateTime utcNow) => _numbers.NextAsync("PO", utcNow);
 
-    private async Task<string[]> GeneratePoNumbersAsync(int year, int n)
+    private async Task<string[]> GeneratePoNumbersAsync(DateTime utcNow, int n)
     {
-        var yearStart = new DateTime(year, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-        var yearEnd   = yearStart.AddYears(1);
-        var existing  = await _db.PurchaseOrders
-            .CountAsync(p => p.CreatedDate >= yearStart && p.CreatedDate < yearEnd);
-        return Enumerable.Range(1, n)
-            .Select(i => $"PO-{year}-{(existing + i):D5}")
-            .ToArray();
+        var numbers = new string[n];
+        for (var i = 0; i < n; i++) numbers[i] = await _numbers.NextAsync("PO", utcNow);
+        return numbers;
     }
 }

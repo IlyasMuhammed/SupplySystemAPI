@@ -9,6 +9,12 @@ public interface IPurchaseOrderService
     Task<Guid> CreateFromPrAsync(Guid prUuid, ConvertPrToPoRequest req, int createdBy);
     Task<List<Guid>> CreateFromPrSplitAsync(Guid prUuid, ConvertPrSplitRequest req, int createdBy);
     Task<Guid> CreateAsync(CreatePoRequest req, int createdBy);
+    // A31-C3/BR-C3-07 — appends to an existing open PRODUCTION-sourced Draft PO for this supplier
+    // when one exists, rather than raising a duplicate; creates fresh otherwise.
+    Task<PoConsolidationResult> AddOrIncreaseProductionLineAsync(CreatePoRequest req, int createdBy);
+    // A31-C3 §5.4 tier 2 — the supplier of the most recent non-Draft, non-dead PO line for this
+    // variant, or null when this variant has never actually been bought before.
+    Task<Guid?> GetLastSupplierForVariantAsync(Guid variantUuid);
     // A29-P5-11 §6.2 — returns what changed field by field for a PO the system raised for a sale
     // order (empty for any other), which is what the controller writes to the audit log.
     Task<IReadOnlyList<PoFieldChange>> UpdateAsync(Guid uuid, PatchPoRequest req, int modifiedBy);

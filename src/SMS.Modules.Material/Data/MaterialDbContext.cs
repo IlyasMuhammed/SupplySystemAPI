@@ -33,6 +33,8 @@ internal sealed class MaterialDbContext : DbContext, ITenantScopedDbContext
     internal DbSet<ProductionOrder>               ProductionOrders               => Set<ProductionOrder>();
     internal DbSet<ProductionMaterialRequirement> ProductionMaterialRequirements => Set<ProductionMaterialRequirement>();
     internal DbSet<SupplyRequirement>             SupplyRequirements             => Set<SupplyRequirement>();
+    // A31 C9 — "already handled manually" markers on the Purchase Required dashboard.
+    internal DbSet<PurchaseRequiredAcknowledgement> PurchaseRequiredAcknowledgements => Set<PurchaseRequiredAcknowledgement>();
     internal DbSet<ProductionMaterialIssue>       ProductionMaterialIssues       => Set<ProductionMaterialIssue>();
     internal DbSet<ProductionMaterialIssueLine>   ProductionMaterialIssueLines   => Set<ProductionMaterialIssueLine>();
     // A30 §18-19 — quality inspection and finished goods receipt.

@@ -406,6 +406,24 @@
   padding: 1.125rem 1.5rem;
 }
 
+// A31-C2 — the sub-section divider between a section's own fields and its merged-in
+// "Manufacturing & Supply" group (was a separate card/section).
+.section-divider {
+  margin: 1.25rem 0 1rem 0;
+}
+.section-divider-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #475569;
+
+  i { font-size: 0.875rem; color: #6c63ff; }
+}
+
 // ── Edit form grid & fields ────────────────────────────────────────────────────
 .ef-grid {
   display: grid;

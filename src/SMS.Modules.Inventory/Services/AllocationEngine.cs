@@ -39,15 +39,18 @@ internal sealed class AllocationEngine : IAllocationEngine
 
     private readonly InventoryDbContext        _db;
     private readonly IStockReservationService  _reservations;
-    private readonly IReadOnlyList<IAllocationRunListener> _listeners;
+    private readonly IReadOnlyList<IAllocationRunListener>     _listeners;
+    private readonly IReadOnlyList<IAllocationReceiptListener> _receiptListeners;
 
     public AllocationEngine(
         InventoryDbContext db, IStockReservationService reservations,
-        IEnumerable<IAllocationRunListener>? listeners = null)
+        IEnumerable<IAllocationRunListener>? listeners = null,
+        IEnumerable<IAllocationReceiptListener>? receiptListeners = null)
     {
-        _db           = db;
-        _reservations = reservations;
-        _listeners    = listeners?.ToList() ?? [];
+        _db               = db;
+        _reservations     = reservations;
+        _listeners        = listeners?.ToList() ?? [];
+        _receiptListeners = receiptListeners?.ToList() ?? [];
     }
 
     // ── Demands ───────────────────────────────────────────────────────────────
@@ -212,10 +215,15 @@ internal sealed class AllocationEngine : IAllocationEngine
     /// leaning on the supply are dropped: after a receipt the stock is real and the next run holds
     /// it by the rules, after a cancellation there is nothing to plan against.
     /// </summary>
-    private Task<bool> CloseSupplyAsync(
-        string supplyType, Guid supplyUuid, Guid? supplyLineUuid, decimal? receivedQty, string reason, CancellationToken ct) =>
-        RetryOnConcurrencyAsync(() => InTransactionAsync(async () =>
+    private async Task<bool> CloseSupplyAsync(
+        string supplyType, Guid supplyUuid, Guid? supplyLineUuid, decimal? receivedQty, string reason, CancellationToken ct)
+    {
+        var touchedVariants = new List<Guid>();
+
+        var closed = await RetryOnConcurrencyAsync(() => InTransactionAsync(async () =>
         {
+            touchedVariants.Clear();
+
             // A purchase order registers its line as the supply; a goods receipt knows only the line.
             // Matching on either id lets both sides speak their own language.
             var rows = await _db.AllocationSupplies.Include(s => s.Allocations)
@@ -258,8 +266,19 @@ internal sealed class AllocationEngine : IAllocationEngine
             }
 
             await _db.SaveChangesAsync(ct);
+            touchedVariants.AddRange(rows.Select(r => r.VariantUuid).Distinct());
             return true;
         }, ct), ct);
+
+        // After the commit, same reasoning as AllocateAsync's own listeners: a receipt listener's
+        // failure must not undo the receipt, and it must see what was actually committed.
+        if (closed)
+            foreach (var listener in _receiptListeners)
+                foreach (var variantUuid in touchedVariants)
+                    await listener.OnSupplyClosedAsync(variantUuid, ct);
+
+        return closed;
+    }
 
     // ── Allocation ────────────────────────────────────────────────────────────
 

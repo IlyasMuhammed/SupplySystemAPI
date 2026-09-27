@@ -1,3 +1,4 @@
+using SMS.Modules.Demand.Models;
 using SMS.Modules.Material.Domain;
 using SMS.Modules.Material.Models;
 
@@ -23,4 +24,18 @@ internal interface ISupplyRequirementEngine
     Task<Guid> CreateManualAsync(CreateSupplyRequirementRequest req, int userId, CancellationToken ct = default);
 
     Task CancelAsync(Guid uuid, string reason, int userId, CancellationToken ct = default);
+
+    /// <summary>
+    /// A31 C9 — the Purchase Required dashboard's own "Create Purchase Order" action: the same
+    /// consolidate-onto-an-open-Draft-PO-for-this-supplier mechanism <see cref="EnsureForShortageAsync"/>
+    /// uses automatically (<c>ActPurchaseAsync</c>), but with a person's own chosen supplier, quantity,
+    /// price and required-by date instead of auto-resolved ones. Links every live purchase-method
+    /// supply requirement for the variant to the resulting PO line (so it stops showing as needing a
+    /// purchase, on this dashboard and everywhere else a supply requirement's own status is read) and
+    /// registers the line's cumulative expected supply. A variant with no open requirement to link
+    /// still gets its PO — nothing here refuses a person's own purchase — it just links nothing.
+    /// </summary>
+    Task<PoConsolidationResult> CreatePurchaseOrderForShortagesAsync(
+        Guid variantUuid, Guid supplierId, string supplierName, decimal quantity, decimal unitPrice,
+        DateTime requiredDate, string? notes, int userId, CancellationToken ct = default);
 }

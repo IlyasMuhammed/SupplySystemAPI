@@ -78,7 +78,11 @@ public class AutoPurchaseOrderServiceTests
 
         var purchaseOrders = new Mock<IPurchaseOrderService>();
         var (jobsMock, captured) = MockJobs();
-        var repo = new PurchaseOrderRepository(db, NullLogger<PurchaseOrderRepository>.Instance, inventoryDb);
+        var numbers = new Mock<IDocumentNumberGenerator>();
+        var poSeq = 0;
+        numbers.Setup(n => n.NextAsync(It.IsAny<string>(), It.IsAny<DateTime?>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => $"PO-2026-{(++poSeq):D5}");
+        var repo = new PurchaseOrderRepository(db, NullLogger<PurchaseOrderRepository>.Instance, numbers.Object, inventoryDb);
 
         var service = new AutoPurchaseOrderService(
             db, repo, purchaseOrders.Object, config.Object, names.Object, jobsMock.Object,

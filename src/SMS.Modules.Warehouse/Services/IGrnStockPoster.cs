@@ -33,8 +33,11 @@ internal sealed class EfGrnInventoryPoster : IGrnStockPoster
     /// </param>
     /// <param name="demand">Where the purchase order line's price is read from; needed with <paramref name="productLedger"/>.</param>
     /// <param name="allocation">
-    /// A30 §15 — when given, each receipt is booked against the expected supply registered for its purchase
-    /// order line and the engine re-runs for the variant, so waiting demands get the stock by the rules.
+    /// A30 §15 / A31 C10 — when given, each receipt is booked against the expected supply registered for its
+    /// purchase order line. The allocation *run* itself is no longer triggered automatically here: A31 makes
+    /// allocation an explicit, permission-gated action (allocation dashboard, production-order "run allocation",
+    /// or the GRN detail page), so a receipt updates supply bookkeeping immediately but stock is only handed
+    /// out to waiting demands when someone (or a listener) runs allocation for the variant.
     /// </param>
     public EfGrnInventoryPoster(
         InventoryDbContext inv, IInventoryLedgerService ledger,
@@ -52,15 +55,18 @@ internal sealed class EfGrnInventoryPoster : IGrnStockPoster
     public async Task PostToInventoryAsync(Grn grn, int approvedBy)
     {
         await PostStockAsync(grn, approvedBy);
-        await AllocateReceiptsAsync(grn, approvedBy);
+        await RegisterReceiptsAsync(grn);
     }
 
     /// <summary>
     /// After the stock is committed, never inside that transaction: the stock is on the books whether or
-    /// not allocation runs, and a failure here must not fail the approval — retrying it would post the
-    /// stock twice. Allocation is eventually consistent; the next run for the variant catches up.
+    /// not this succeeds, and a failure here must not fail the approval — retrying it would post the stock
+    /// twice. A31 C10: this only books the receipt against expected supply (so shortages/SR fulfillment see
+    /// it right away); it deliberately does NOT run allocation for the variant. Handing the received stock
+    /// to waiting demands is now a separate, explicit action — see the allocation dashboard, the production
+    /// order's "run allocation" endpoint, or the GRN detail page's allocation prompt.
     /// </summary>
-    private async Task AllocateReceiptsAsync(Grn grn, int approvedBy)
+    private async Task RegisterReceiptsAsync(Grn grn)
     {
         if (_allocation is null || !grn.WarehouseUuid.HasValue) return;
 
@@ -71,13 +77,10 @@ internal sealed class EfGrnInventoryPoster : IGrnStockPoster
         {
             foreach (var line in received)
                 await _allocation.SupplyReceivedAsync(AllocationSupplyType.PurchaseOrder, line.PoLineUuid, null, line.PostedQty);
-
-            foreach (var variantUuid in received.Select(l => l.VariantUuid!.Value).Distinct())
-                await _allocation.AllocateAsync(variantUuid, grn.WarehouseUuid.Value, approvedBy);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _logger?.LogWarning(ex, "GRN {GrnNumber}: stock was posted but the allocation run failed.", grn.GrnNumber);
+            _logger?.LogWarning(ex, "GRN {GrnNumber}: stock was posted but registering the receipt against expected supply failed.", grn.GrnNumber);
         }
     }
 

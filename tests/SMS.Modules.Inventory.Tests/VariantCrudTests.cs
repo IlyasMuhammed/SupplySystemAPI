@@ -112,6 +112,87 @@ public class CreateVariantAsyncTests
     }
 }
 
+// A31-C1/BR-C1-05 — sale order min/max quantity, validated on both create and update.
+public class SaleOrderQtyLimitValidationTests
+{
+    [Fact]
+    public async Task MinGreaterThanMax_IsRefusedOnCreate()
+    {
+        var (repo, db) = VariantCrudBuild.NewRepo();
+        var product = await VariantCrudBuild.SeedHpEliteBookAsync(db);
+
+        var act = () => repo.CreateVariantAsync(product.Id, new CreateProductVariantRequest
+        {
+            VariantName = "Bad Limits", PurchasePrice = 1m, SaleOrderMinQty = 100, SaleOrderMaxQty = 10
+        }, userId: 1);
+
+        await act.Should().ThrowAsync<BadRequestException>()
+            .WithMessage("*minimum quantity must be less than or equal to the maximum*");
+    }
+
+    [Fact]
+    public async Task NegativeMinOrMax_IsRefusedOnCreate()
+    {
+        var (repo, db) = VariantCrudBuild.NewRepo();
+        var product = await VariantCrudBuild.SeedHpEliteBookAsync(db);
+
+        var act = () => repo.CreateVariantAsync(product.Id, new CreateProductVariantRequest
+        {
+            VariantName = "Negative", PurchasePrice = 1m, SaleOrderMinQty = -5
+        }, userId: 1);
+
+        await act.Should().ThrowAsync<BadRequestException>().WithMessage("*cannot be negative*");
+    }
+
+    [Fact]
+    public async Task MinLessThanOrEqualToMax_IsAccepted()
+    {
+        var (repo, db) = VariantCrudBuild.NewRepo();
+        var product = await VariantCrudBuild.SeedHpEliteBookAsync(db);
+
+        var result = await repo.CreateVariantAsync(product.Id, new CreateProductVariantRequest
+        {
+            VariantName = "Good Limits", PurchasePrice = 1m, SaleOrderMinQty = 10, SaleOrderMaxQty = 100
+        }, userId: 1);
+
+        result.Should().NotBeNull();
+        var saved = await db.ProductVariants.SingleAsync(v => v.Uuid == result!.Value.uuid);
+        saved.SaleOrderMinQty.Should().Be(10);
+        saved.SaleOrderMaxQty.Should().Be(100);
+    }
+
+    [Fact]
+    public async Task ZeroOnBothSides_IsAccepted_MeaningNoLimit()
+    {
+        var (repo, db) = VariantCrudBuild.NewRepo();
+        var product = await VariantCrudBuild.SeedHpEliteBookAsync(db);
+
+        var result = await repo.CreateVariantAsync(product.Id, new CreateProductVariantRequest
+        {
+            VariantName = "No Limit", PurchasePrice = 1m, SaleOrderMinQty = 0, SaleOrderMaxQty = 0
+        }, userId: 1);
+
+        result.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task MinGreaterThanMax_IsRefusedOnUpdate()
+    {
+        var (repo, db) = VariantCrudBuild.NewRepo();
+        var product = await VariantCrudBuild.SeedHpEliteBookAsync(db);
+        var variant = product.Variants.Single();
+
+        var act = () => repo.UpdateVariantAsync(variant.Uuid, new CreateProductVariantRequest
+        {
+            VariantName = variant.VariantName, PurchasePrice = variant.PurchasePrice,
+            SaleOrderMinQty = 50, SaleOrderMaxQty = 5
+        });
+
+        await act.Should().ThrowAsync<BadRequestException>()
+            .WithMessage("*minimum quantity must be less than or equal to the maximum*");
+    }
+}
+
 public class DefaultVariantToggleTests
 {
     [Fact]

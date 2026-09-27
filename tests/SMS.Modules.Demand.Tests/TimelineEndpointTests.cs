@@ -90,7 +90,7 @@ public class TimelineEndpointTests
         var db = new DemandDbContext(
             new DbContextOptionsBuilder<DemandDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,
             new StaticTenantContext());
-        return new(new PurchaseOrderRepository(db, NullLogger<PurchaseOrderRepository>.Instance),
+        return new(new PurchaseOrderRepository(db, NullLogger<PurchaseOrderRepository>.Instance, Mock.Of<IDocumentNumberGenerator>()),
             Mock.Of<IWorkflowActionService>(), Mock.Of<IWorkflowInboxService>(), Mock.Of<IBackgroundJobClient>(), timeline.Object);
     }
 

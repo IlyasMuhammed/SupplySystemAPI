@@ -119,8 +119,8 @@
           </div>
         </div>
 
-        <!-- Classification card -->
-        <div class="info-card">
+        <!-- Classification card (A31-C2 — Manufacturing & Supply merged in below, was its own card) -->
+        <div class="info-card" data-testid="manufacturing-card">
           <div class="info-card-header">
             <i class="pi pi-tags"></i><span>Classification</span>
           </div>
@@ -138,13 +138,10 @@
               <div class="cell-value {{ !product.uomCode ? 'muted' : '' }}">{{ product.uomCode || '—' }}</div>
             </div>
           </div>
-        </div>
 
-        <!-- Manufacturing card (A30 §6) -->
-        <div class="info-card" data-testid="manufacturing-card">
-          <div class="info-card-header">
-            <i class="pi pi-cog"></i><span>Manufacturing</span>
-          </div>
+          <p-divider align="left" type="solid" styleClass="section-divider">
+            <span class="section-divider-label"><i class="pi pi-cog"></i> Manufacturing &amp; Supply</span>
+          </p-divider>
           <div class="info-card-body cols-3">
             <div class="detail-cell">
               <div class="cell-label">Product Type</div>
@@ -537,6 +534,18 @@
       </div>
     </p-tabPanel>
 
+    <!-- TAB: Bill of Materials (A31-C4) — inline, replaces the standalone BOM module UI -->
+    <p-tabPanel header="Bill of Materials" leftIcon="pi pi-sitemap" *ngIf="product.isManufacturable" data-testid="bom-tab">
+      <div class="tab-content" style="padding-top:1.25rem">
+        <app-bom-manager
+          [productUuid]="product.uuid"
+          [productName]="product.name"
+          [productUomCode]="product.uomCode ?? null"
+          [isManufacturable]="product.isManufacturable">
+        </app-bom-manager>
+      </div>
+    </p-tabPanel>
+
   </p-tabView>
 </div>
 
@@ -711,15 +720,11 @@
                             styleClass="w-full" appendTo="body"></p-dropdown>
               </div>
             </div>
-          </div>
-        </div>
 
-        <!-- Section: Manufacturing (A30 §6) -->
-        <div class="edit-section">
-          <div class="edit-section-header">
-            <i class="pi pi-cog"></i><span>Manufacturing</span>
-          </div>
-          <div class="edit-section-body">
+            <!-- A31-C2 — Manufacturing & Supply, merged into Classification (was its own section). -->
+            <p-divider align="left" type="solid" styleClass="section-divider">
+              <span class="section-divider-label"><i class="pi pi-cog"></i> Manufacturing &amp; Supply</span>
+            </p-divider>
             <div class="ef-grid ef-grid-3">
               <div class="ef-field">
                 <label class="ef-label">Product Type</label>
@@ -988,6 +993,20 @@
       <div class="adj-field">
         <label class="adj-label">Reorder Point</label>
         <p-inputnumber formControlName="reorderPoint" [min]="0" styleClass="w-full"></p-inputnumber>
+      </div>
+    </div>
+
+    <!-- A31-C1 — a sale order line for this variant is refused outside this range; leave either blank for no limit. -->
+    <div class="adj-row-2">
+      <div class="adj-field">
+        <label class="adj-label">Sale Order Min Qty</label>
+        <p-inputnumber formControlName="saleOrderMinQty" mode="decimal" [minFractionDigits]="0" [maxFractionDigits]="4"
+                       [min]="0" placeholder="Leave empty for no limit" styleClass="w-full"></p-inputnumber>
+      </div>
+      <div class="adj-field">
+        <label class="adj-label">Sale Order Max Qty</label>
+        <p-inputnumber formControlName="saleOrderMaxQty" mode="decimal" [minFractionDigits]="0" [maxFractionDigits]="4"
+                       [min]="0" placeholder="Leave empty for no limit" styleClass="w-full"></p-inputnumber>
       </div>
     </div>
 

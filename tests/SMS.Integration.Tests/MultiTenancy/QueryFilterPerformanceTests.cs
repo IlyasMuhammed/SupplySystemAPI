@@ -42,6 +42,8 @@ public class QueryFilterPerformanceTests : IClassFixture<WebApplicationFactory<P
     [InlineData("finance", "invoices")]
     [InlineData("workflow_schema", "workflow_definitions")]
     [InlineData("auth", "UserAccounts")]
+    // A31-PF-02 — the one new tenant-scoped table this addendum added (C9's "handled manually" marker).
+    [InlineData("material", "purchase_required_acknowledgements")]
     public async Task TenantScopedTable_HasASupportingIndexOnOrganizationId(string schema, string table)
     {
         await using var conn = new SqlConnection(_connectionString);

@@ -14,6 +14,45 @@
     p { color: #7f8c8d; margin-top: 1rem; }
   }
 
+  // ── Allocation banner (A31 C10) ───────────────────────────────────────────────
+  ::ng-deep .note { display: block; margin-bottom: 1rem; }
+  .allocation-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    width: 100%;
+  }
+
+  .allocation-results {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,.04);
+
+    &.allocation-results-error {
+      border-color: #fecaca;
+      background: #fef2f2;
+      color: #991b1b;
+      font-size: .875rem;
+    }
+  }
+  .allocation-results-title {
+    display: flex; align-items: center; gap: .5rem;
+    font-weight: 700; font-size: .85rem; margin-bottom: .625rem; color: #374151;
+  }
+  .allocation-results-table {
+    width: 100%; border-collapse: collapse; font-size: .85rem;
+    th { text-align: left; color: #6b7280; font-weight: 600; padding: .4rem .6rem; border-bottom: 1px solid #e5e7eb; }
+    td { padding: .4rem .6rem; border-bottom: 1px solid #f3f4f6; }
+    .num { text-align: right; font-variant-numeric: tabular-nums; }
+    .zero { color: #9ca3af; }
+    .warn-cell { color: #b45309; font-weight: 700; }
+  }
+  .allocation-results-hint { margin: .75rem 0 0; font-size: .8rem; color: #92400e; }
+
   // ── Page header ─────────────────────────────────────────────────────────────
   .page-header {
     display: flex;

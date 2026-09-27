@@ -27,6 +27,7 @@ import {
 } from '../../../../services/sales-invoice.service';
 import { AddressService } from '../../../../services/address.service';
 import { AddressModel, DeliveryListItemModel, SourceLineSelection } from '../../../../services/logistics.service';
+import { ProductionOrderService, ProductionOrderListItem, productionStatusSeverity } from '../../../../services/production-order.service';
 import { AuthService } from '../../../service/auth.service';
 import { DELIVERY_STATUS_SEVERITY } from '../../../logistics/deliveries/delivery-list/delivery-list.component';
 import { SALE_ORDER_STATUS_SEVERITY, formatCode } from '../sale-order-list/sale-order-list.component';
@@ -99,6 +100,12 @@ export class SaleOrderDetailComponent implements OnInit {
   deliveries: DeliveryListItemModel[] = [];
   isLoadingDeliveries = false;
 
+  // A31 C7/PD-06 — manufactured lines raise their own production order(s); shown here so the link
+  // works both ways (the production order already shows "From sale order ...").
+  productionOrders: ProductionOrderListItem[] = [];
+  isLoadingProductionOrders = false;
+  readonly productionSeverity = productionStatusSeverity;
+
   // Invoices and payments come from the same two calls, made when either tab is first opened.
   invoices: SalesInvoiceListItemModel[] = [];
   payments: OrderPaymentRow[] = [];
@@ -139,6 +146,7 @@ export class SaleOrderDetailComponent implements OnInit {
     private partnerService: BusinessPartnerService,
     private invoiceService: SalesInvoiceService,
     private addressService: AddressService,
+    private productionOrderService: ProductionOrderService,
     public authService: AuthService,
     private messageService: MessageService
   ) {}
@@ -162,6 +170,7 @@ export class SaleOrderDetailComponent implements OnInit {
           this.loadPartnerName(res.result.partnerId);
           this.loadShipTo(res.result);
           this.loadDeliveries();
+          this.loadProductionOrders();
           // Whatever the order did just now may have changed what has been billed.
           this.invoicesRequested = false;
           if (this.activeTab === TAB_INVOICES || this.activeTab === TAB_PAYMENTS) this.ensureInvoicesLoaded();
@@ -214,6 +223,22 @@ export class SaleOrderDetailComponent implements OnInit {
         this.isLoadingDeliveries = false;
         this.deliveries = [];
         this.messageService.add({ severity: 'error', summary: 'Error', detail: "Failed to load the order's deliveries." });
+      }
+    });
+  }
+
+  loadProductionOrders() {
+    if (!this.canViewProduction) { this.productionOrders = []; return; }
+
+    this.isLoadingProductionOrders = true;
+    this.productionOrderService.getList({ sourceUuid: this.uuid, pageSize: 100 }).subscribe({
+      next: (res) => {
+        this.isLoadingProductionOrders = false;
+        this.productionOrders = res.result?.data ?? [];
+      },
+      error: () => {
+        this.isLoadingProductionOrders = false;
+        this.productionOrders = [];
       }
     });
   }
@@ -294,6 +319,7 @@ export class SaleOrderDetailComponent implements OnInit {
   // ── What this user may do, and what the order allows ────────────────────────
 
   get canViewDeliveries(): boolean { return this.authService.hasPermission('DELIVERY_VIEW'); }
+  get canViewProduction(): boolean { return this.authService.hasPermission('PROD_VIEW'); }
   get canViewInvoices(): boolean   { return this.authService.hasPermission('SALES_INVOICE_VIEW'); }
   get canViewPayments(): boolean   { return this.authService.hasPermission('CUSTOMER_PAYMENT_VIEW'); }
 
@@ -317,12 +343,21 @@ export class SaleOrderDetailComponent implements OnInit {
   }
 
   /**
-   * Lines a delivery can carry: not cancelled, not shipped by the vendor directly, and with
-   * something still to send. The server applies the same rule; this only decides what to offer.
+   * Lines a delivery can carry: not cancelled, not shipped by the vendor directly, something still
+   * to send, and — critically — actually available to send. A line's own status stays OPEN until
+   * stock is actually held for it (SaleOrderFulfillmentListener moves it to RESERVED once production
+   * or a GRN covers it); offering an OPEN line here would let someone draft a delivery for goods that
+   * have not been manufactured or received yet, which the warehouse could never actually pick.
    */
   get deliverableLines(): SaleOrderLineModel[] {
     return (this.order?.lines ?? []).filter(l =>
-      l.status !== 'CANCELLED' && l.fulfillmentMode !== 'DROP_SHIP' && this.outstanding(l) > 0);
+      l.status !== 'CANCELLED' && l.status !== 'OPEN' && l.fulfillmentMode !== 'DROP_SHIP' && this.outstanding(l) > 0);
+  }
+
+  /** Whether anything is outstanding but not yet available — shown so "no delivery button" doesn't read as a bug. */
+  get hasUnavailableLines(): boolean {
+    return (this.order?.lines ?? []).some(l =>
+      l.status === 'OPEN' && l.fulfillmentMode !== 'DROP_SHIP' && this.outstanding(l) > 0);
   }
 
   get canCreateDelivery(): boolean {

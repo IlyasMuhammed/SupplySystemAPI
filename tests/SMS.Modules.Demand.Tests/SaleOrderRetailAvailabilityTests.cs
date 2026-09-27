@@ -51,10 +51,10 @@ public class SaleOrderRetailAvailabilityTests
         pricing.Setup(p => p.ResolveSalePriceAsync(variantUuid, It.IsAny<Guid?>(), It.IsAny<decimal>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new SalePriceResolution(true, 100m, Currency, PriceResolutionTier.DefaultSelling, null));
 
-    private static CreateSaleOrderRequest Order(Guid variantUuid) => new()
+    private static CreateSaleOrderRequest Order(Guid variantUuid, decimal quantity = 1) => new()
     {
         PartnerId = Guid.NewGuid(), CurrencyId = Currency, DeliveryMode = "SELF_PICKUP",
-        Lines = [new CreateSaleOrderLineRequest { VariantUuid = variantUuid, Quantity = 1 }]
+        Lines = [new CreateSaleOrderLineRequest { VariantUuid = variantUuid, Quantity = quantity }]
     };
 
     [Fact]
@@ -129,5 +129,93 @@ public class SaleOrderRetailAvailabilityTests
         (await act.Should().ThrowAsync<BadRequestException>()).Which.Message.Should().Contain("not available for retail sale");
         h.Pricing.Verify(p => p.ResolveSalePriceAsync(
             It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<decimal>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    // ── A31-C1 — Sale Order Quantity Limits ─────────────────────────────────────
+
+    [Fact]
+    public async Task ALineBelowTheVariantsMinimumQuantity_IsRefused()
+    {
+        var h = NewHarness();
+        var variant = Guid.NewGuid();
+        SetupPrice(h.Pricing, variant);
+        h.Availability.Setup(a => a.GetAvailabilityAsync(variant))
+            .ReturnsAsync(new VariantChannelAvailability("Cement Bag (CEM-1)", true, false, false, false, false, SaleOrderMinQty: 10));
+
+        var act = () => h.Service.CreateAsync(Order(variant, 5), User);
+
+        var thrown = await act.Should().ThrowAsync<BadRequestException>();
+        thrown.Which.Message.Should().Contain("below the minimum order quantity of 10");
+    }
+
+    [Fact]
+    public async Task ALineAboveTheVariantsMaximumQuantity_IsRefused()
+    {
+        var h = NewHarness();
+        var variant = Guid.NewGuid();
+        SetupPrice(h.Pricing, variant);
+        h.Availability.Setup(a => a.GetAvailabilityAsync(variant))
+            .ReturnsAsync(new VariantChannelAvailability("Cement Bag (CEM-1)", true, false, false, false, false, SaleOrderMaxQty: 100));
+
+        var act = () => h.Service.CreateAsync(Order(variant, 150), User);
+
+        var thrown = await act.Should().ThrowAsync<BadRequestException>();
+        thrown.Which.Message.Should().Contain("exceeds the maximum order quantity of 100");
+    }
+
+    [Fact]
+    public async Task ALineWithinTheVariantsMinMaxRange_IsAccepted()
+    {
+        var h = NewHarness();
+        var variant = Guid.NewGuid();
+        SetupPrice(h.Pricing, variant);
+        h.Availability.Setup(a => a.GetAvailabilityAsync(variant))
+            .ReturnsAsync(new VariantChannelAvailability("Cement Bag (CEM-1)", true, false, false, false, false, SaleOrderMinQty: 10, SaleOrderMaxQty: 100));
+
+        var uuid = await h.Service.CreateAsync(Order(variant, 50), User);
+
+        uuid.Should().NotBe(Guid.Empty);
+    }
+
+    [Fact]
+    public async Task ALineForAVariantWithNullLimits_AcceptsAnyQuantity()
+    {
+        var h = NewHarness();
+        var variant = Guid.NewGuid();
+        SetupPrice(h.Pricing, variant);
+        h.Availability.Setup(a => a.GetAvailabilityAsync(variant))
+            .ReturnsAsync(new VariantChannelAvailability("Cement Bag (CEM-1)", true, false, false, false, false, null, null));
+
+        var uuid = await h.Service.CreateAsync(Order(variant, 999999), User);
+
+        uuid.Should().NotBe(Guid.Empty);
+    }
+
+    [Fact]
+    public async Task ALineForAVariantWithZeroLimits_AcceptsAnyQuantity()
+    {
+        var h = NewHarness();
+        var variant = Guid.NewGuid();
+        SetupPrice(h.Pricing, variant);
+        h.Availability.Setup(a => a.GetAvailabilityAsync(variant))
+            .ReturnsAsync(new VariantChannelAvailability("Cement Bag (CEM-1)", true, false, false, false, false, 0m, 0m));
+
+        var uuid = await h.Service.CreateAsync(Order(variant, 999999), User);
+
+        uuid.Should().NotBe(Guid.Empty);
+    }
+
+    [Fact]
+    public async Task AMinimumOnlyConfigured_DoesNotEnforceAMaximum()
+    {
+        var h = NewHarness();
+        var variant = Guid.NewGuid();
+        SetupPrice(h.Pricing, variant);
+        h.Availability.Setup(a => a.GetAvailabilityAsync(variant))
+            .ReturnsAsync(new VariantChannelAvailability("Cement Bag (CEM-1)", true, false, false, false, false, SaleOrderMinQty: 10));
+
+        var uuid = await h.Service.CreateAsync(Order(variant, 100000), User);
+
+        uuid.Should().NotBe(Guid.Empty);
     }
 }

@@ -58,9 +58,14 @@ public static class MaterialModuleExtensions
         // project reference to this module at all.
         services.AddScoped<IProductionDemandService>(sp => sp.GetRequiredService<ProductionOrderService>());
         services.AddScoped<ISupplyRequirementEngine, SupplyRequirementEngine>();
+        // A31 C9 — Consolidated Purchase Required dashboard.
+        services.AddScoped<IPurchaseRequiredService, PurchaseRequiredService>();
         services.AddScoped<IProductionMaterialIssueService, ProductionMaterialIssueService>();
         // Told after every allocation run (A30-P3-08); resolved by IAllocationEngine's IEnumerable<IAllocationRunListener>.
         services.AddScoped<IAllocationRunListener, ProductionReadinessListener>();
+        // A31 C10 §12.2 Step 1 — told immediately when a receipt closes expected supply, so a supply
+        // requirement's fulfilment status does not wait for someone to separately run allocation.
+        services.AddScoped<IAllocationReceiptListener, ProductionReadinessListener>();
 
         // A30 §18-19A — quality inspection, finished goods receipt, and the ledger read over both.
         services.AddScoped<IQualityInspectionService, QualityInspectionService>();

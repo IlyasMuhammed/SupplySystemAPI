@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 using SMS.Modules.Demand.Data;
 using SMS.Modules.Demand.Models;
 using SMS.Modules.Demand.Repositories;
@@ -22,7 +23,16 @@ file static class PoBuild
         var db = new DemandDbContext(opts, new StaticTenantContext());
         seed?.Invoke(db);
         db.SaveChanges();
-        return (new PurchaseOrderRepository(db, NullLogger<PurchaseOrderRepository>.Instance), db);
+        return (new PurchaseOrderRepository(db, NullLogger<PurchaseOrderRepository>.Instance, MockNumbers()), db);
+    }
+
+    private static IDocumentNumberGenerator MockNumbers()
+    {
+        var seq = 0;
+        var numbers = new Mock<IDocumentNumberGenerator>();
+        numbers.Setup(n => n.NextAsync(It.IsAny<string>(), It.IsAny<DateTime?>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => $"PO-2026-{(++seq):D5}");
+        return numbers.Object;
     }
 
     // Creates an approved PR and returns its UUID + lines in LineNo order.
@@ -154,6 +164,33 @@ public class ConvertSplit_Tests
         pos.Should().HaveCount(3);
         foreach (var po in pos)
             po.Lines.Should().HaveCount(1, "each vendor gets exactly their assigned line");
+        pos.Select(p => p.PoNumber).Distinct().Should().HaveCount(3, "three POs created in one call must not share a number");
+    }
+
+    // A real bug, found live: two purchase orders both numbered "PO-2026-00033" (one auto-raised by
+    // the Supply Requirement engine, one created by a person, close enough in time to race). Root
+    // cause was GeneratePoNumberAsync computing COUNT(*) + 1 — two callers can read the same count
+    // before either commits. Fixed by delegating to the shared IDocumentNumberGenerator (the same
+    // safe counter Sale Order numbering already used) instead of reimplementing numbering here.
+    [Fact]
+    public async Task PO_numbering_goes_through_the_shared_safe_generator_not_a_local_count()
+    {
+        var opts = new DbContextOptionsBuilder<DemandDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
+        var db = new DemandDbContext(opts, new StaticTenantContext());
+        var numbers = new Mock<IDocumentNumberGenerator>();
+        numbers.Setup(n => n.NextAsync("PO", It.IsAny<DateTime?>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync("PO-2026-00099");
+        var repo = new PurchaseOrderRepository(db, NullLogger<PurchaseOrderRepository>.Instance, numbers.Object);
+
+        var poUuid = await repo.CreateAsync(new CreatePoRequest
+        {
+            SupplierId = Guid.NewGuid(), SupplierName = "Vendor",
+            Lines = [new CreatePoLineRequest { ItemDescription = "Cable", UnitOfMeasure = "PC", Quantity = 10m, UnitPrice = 5m }]
+        }, createdBy: 1);
+
+        var po = await db.PurchaseOrders.SingleAsync(p => p.UUID == poUuid);
+        po.PoNumber.Should().Be("PO-2026-00099", "the number came from the injected generator, not a local COUNT(*)");
+        numbers.Verify(n => n.NextAsync("PO", It.IsAny<DateTime?>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]

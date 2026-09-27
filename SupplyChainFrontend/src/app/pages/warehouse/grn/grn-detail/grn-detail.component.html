@@ -81,6 +81,41 @@
       </div>
     </div>
 
+    <!-- ── A31 C10 §12.3 — a receipt no longer runs allocation by itself ────── -->
+    <p-message *ngIf="canRunAllocation" severity="warn" styleClass="note" data-testid="allocation-banner">
+      <div class="allocation-banner">
+        <span>Stock received. Run allocation to distribute it to pending demands — safe to run again any time, it only ever evaluates what's still owed against what's actually on the shelf.</span>
+        <p-button label="Run Allocation" icon="pi pi-sync" size="small" [loading]="isRunningAllocation"
+                  (onClick)="runAllocation()" data-testid="run-allocation"></p-button>
+      </div>
+    </p-message>
+
+    <!-- What the last run in this session actually did — the checkable answer to "is this working". -->
+    <div class="allocation-results" *ngIf="lastAllocationResults && lastAllocationResults.length > 0" data-testid="allocation-results">
+      <div class="allocation-results-title"><i class="pi pi-list-check"></i> Last allocation run</div>
+      <table class="allocation-results-table">
+        <thead>
+          <tr><th>Material</th><th>Demands checked</th><th>Reserved</th><th>Planned (awaiting supply)</th><th>Still short</th></tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let r of lastAllocationResults">
+            <td>{{ r.materialName }}</td>
+            <td class="num">{{ r.demandsEvaluated }}</td>
+            <td class="num" [class.zero]="r.quantityReserved === 0">{{ r.quantityReserved }}</td>
+            <td class="num">{{ r.quantityPlanned }}</td>
+            <td class="num" [class.warn-cell]="r.shortage > 0">{{ r.shortage }}</td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="allocation-results-hint" *ngIf="lastAllocationResults[0].demandsEvaluated === 0">
+        No open demand was found for this material at all — nothing was waiting on it, so there was nothing to reserve.
+      </p>
+    </div>
+    <div class="allocation-results allocation-results-error" *ngIf="lastAllocationFailures.length > 0" data-testid="allocation-failures">
+      <div class="allocation-results-title"><i class="pi pi-exclamation-triangle"></i> Failed to run</div>
+      <div *ngFor="let f of lastAllocationFailures">{{ f.materialName }} — {{ f.message }}</div>
+    </div>
+
     <!-- ── Info cards ──────────────────────────────────────────────────────── -->
     <div class="info-grid">
       <div class="info-card">

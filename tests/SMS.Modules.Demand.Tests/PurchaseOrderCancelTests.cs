@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 using SMS.Modules.Demand.Data;
 using SMS.Modules.Demand.Models;
 using SMS.Modules.Demand.Repositories;
@@ -19,7 +20,10 @@ public class PurchaseOrderCancelTests
         var db = new DemandDbContext(
             new DbContextOptionsBuilder<DemandDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,
             new StaticTenantContext());
-        var repo = new PurchaseOrderRepository(db, NullLogger<PurchaseOrderRepository>.Instance);
+        var numbers = new Mock<IDocumentNumberGenerator>();
+        numbers.Setup(n => n.NextAsync(It.IsAny<string>(), It.IsAny<DateTime?>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync("PO-2026-00001");
+        var repo = new PurchaseOrderRepository(db, NullLogger<PurchaseOrderRepository>.Instance, numbers.Object);
 
         var poUuid = await repo.CreateAsync(new CreatePoRequest
         {

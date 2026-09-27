@@ -165,6 +165,8 @@ public class ProductVariantModel
     public bool IsAvailableForServices { get; set; }
     public decimal? ReorderPoint { get; set; }
     public int? SortOrder { get; set; }
+    public decimal? SaleOrderMinQty { get; set; }
+    public decimal? SaleOrderMaxQty { get; set; }
     public DateTime CreatedDate { get; set; }
 }
 
@@ -248,6 +250,9 @@ public class CreateProductVariantRequest
     public bool IsAvailableForServices { get; set; }
     public decimal? ReorderPoint { get; set; }
     public int? SortOrder { get; set; }
+    // A31-C1 — see ProductVariant.SaleOrderMinQty/MaxQty. NULL or 0 on either side = unconstrained.
+    public decimal? SaleOrderMinQty { get; set; }
+    public decimal? SaleOrderMaxQty { get; set; }
 }
 
 // PV-007 — result of adding a variant to an existing product.

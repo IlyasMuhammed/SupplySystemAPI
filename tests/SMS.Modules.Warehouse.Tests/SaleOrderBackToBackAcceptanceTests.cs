@@ -158,7 +158,11 @@ public class SaleOrderBackToBackAcceptanceTests
             s.Rates.Setup(r => r.GetComparisonAsync(s.Variant))
                 .ReturnsAsync(new List<RateComparisonRowModel> { Row(s.SupplierA, "TechSupply Co.", 25m, "A", 5) });
 
-            var poRepo = new PurchaseOrderRepository(s.Demand, NullLogger<PurchaseOrderRepository>.Instance, s.Inv);
+            var poNumbers = new Mock<IDocumentNumberGenerator>();
+            var poSeq = 0;
+            poNumbers.Setup(n => n.NextAsync(It.IsAny<string>(), It.IsAny<DateTime?>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(() => $"PO-2026-{(++poSeq):D5}");
+            var poRepo = new PurchaseOrderRepository(s.Demand, NullLogger<PurchaseOrderRepository>.Instance, poNumbers.Object, s.Inv);
             s.PurchaseOrders = new PurchaseOrderService(
                 poRepo, s.Workflow.Object, Mock.Of<IWorkflowInboxService>(), s.Jobs, Mock.Of<ITimelineService>());
 

@@ -25,6 +25,14 @@
           <span *ngIf="order.variantName"> — {{ order.variantName }}</span>
           · {{ order.warehouseName }} · {{ priorityLabel(order.priority) }} priority · from {{ order.bomNumber }} v{{ order.bomVersion }}
         </p>
+        <p class="page-subtitle" data-testid="source-line">
+          <ng-container *ngIf="order.sourceType === 'SALES_ORDER' && order.sourceUuid; else notFromSale">
+            From sale order <a class="mono" [routerLink]="['/portal/pages/sales/orders', order.sourceUuid]">{{ order.sourceReference || order.sourceUuid }}</a>
+          </ng-container>
+          <ng-template #notFromSale>
+            <span class="sub">{{ order.sourceType === 'MANUAL' ? 'Directly created' : (order.sourceReference || (order.sourceType | titlecase)) }}</span>
+          </ng-template>
+        </p>
       </div>
       <div class="header-actions" data-testid="actions">
         <p-button *ngIf="canPlan"     label="Plan"          icon="pi pi-play-circle" [loading]="busy" (onClick)="plan()" data-testid="plan"></p-button>
@@ -56,33 +64,72 @@
 
       <!-- ══ Materials ═══════════════════════════════════════════════════════ -->
       <p-tabPanel [header]="'Materials (' + order.materials.length + ')'" leftIcon="pi pi-list">
-        <div class="form-card flush">
-          <p-table [value]="order.materials" styleClass="p-datatable-sm" dataKey="uuid" data-testid="materials">
+        <div class="header-actions" style="margin-bottom: 1rem" *ngIf="order.materials.length > 0">
+          <p-button *ngIf="canRunAllocation" label="Run allocation" icon="pi pi-sync" size="small" severity="secondary" [outlined]="true"
+                    [loading]="isRunningAllocation" (onClick)="runAllocationForOrder()" pTooltip="Check availability for every material on this order"
+                    data-testid="run-allocation-order"></p-button>
+        </div>
+
+        <!-- ── Available: a real hold already covers the outstanding quantity ─────── -->
+        <h3 class="section-title">Available <span class="sub">({{ availableMaterials.length }})</span></h3>
+        <div class="form-card flush" style="margin-bottom: 1.5rem">
+          <p-table [value]="availableMaterials" styleClass="p-datatable-sm" dataKey="uuid" data-testid="materials-available">
             <ng-template pTemplate="header">
               <tr>
-                <th>Material</th><th class="num">Required</th><th class="num">Reserved</th><th class="num">Planned</th>
-                <th class="num">Issued</th><th class="num">Returned</th><th class="num">Shortage</th><th>Status</th><th>Critical</th><th>Warehouse</th>
+                <th>Material</th><th class="num">Required</th><th class="num">Reserved</th>
+                <th class="num">Issued</th><th>Status</th><th>Critical</th><th>Warehouse</th>
               </tr>
             </ng-template>
             <ng-template pTemplate="body" let-m>
-              <tr [attr.data-testid]="'material-' + m.sequence" [class.short-row]="m.status !== 'CANCELLED' && !m.isCovered">
+              <tr [attr.data-testid]="'material-available-' + m.sequence">
                 <td><div class="ref">{{ m.materialProductName }} – {{ m.materialVariantName }}</div><div class="sub mono">{{ m.materialSku }}</div></td>
                 <td class="num">{{ m.requiredQuantity | number:'1.0-4' }} {{ m.uom }}</td>
                 <td class="num">{{ m.reservedQuantity | number:'1.0-4' }}</td>
-                <td class="num">{{ m.plannedQuantity | number:'1.0-4' }}</td>
                 <td class="num">{{ m.issuedQuantity | number:'1.0-4' }}</td>
-                <td class="num">{{ m.returnedQuantity | number:'1.0-4' }}</td>
-                <td class="num"><span [class.critical]="m.shortageQuantity > 0">{{ m.shortageQuantity | number:'1.0-4' }}</span></td>
-                <td>{{ m.status | titlecase }}</td>
+                <td><p-tag [value]="m.status | titlecase" severity="success"></p-tag></td>
                 <td><i class="pi" [class.pi-check-circle]="m.isCritical" [class.pi-minus-circle]="!m.isCritical"></i></td>
                 <td>{{ m.warehouseName }}</td>
               </tr>
             </ng-template>
             <ng-template pTemplate="emptymessage">
-              <tr><td colspan="10" class="empty">Not planned yet — plan the order to explode its recipe.</td></tr>
+              <tr><td colspan="7" class="empty">Nothing is fully held yet.</td></tr>
             </ng-template>
           </p-table>
         </div>
+
+        <!-- ── Shortage: nothing (held or planned) covers the outstanding quantity yet ──── -->
+        <h3 class="section-title">Shortage <span class="sub">({{ shortageMaterials.length }})</span></h3>
+        <div class="form-card flush">
+          <p-table [value]="shortageMaterials" styleClass="p-datatable-sm" dataKey="uuid" data-testid="materials-shortage">
+            <ng-template pTemplate="header">
+              <tr>
+                <th>Material</th><th class="num">Required</th><th class="num">Planned</th>
+                <th class="num">Shortage</th><th>Status</th><th>Critical</th><th>Warehouse</th><th class="actions">Actions</th>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-m>
+              <tr [attr.data-testid]="'material-shortage-' + m.sequence" class="short-row">
+                <td><div class="ref">{{ m.materialProductName }} – {{ m.materialVariantName }}</div><div class="sub mono">{{ m.materialSku }}</div></td>
+                <td class="num">{{ m.requiredQuantity | number:'1.0-4' }} {{ m.uom }}</td>
+                <td class="num">{{ m.plannedQuantity | number:'1.0-4' }}</td>
+                <td class="num"><span [class.critical]="m.shortageQuantity > 0">{{ m.shortageQuantity | number:'1.0-4' }}</span></td>
+                <td><p-tag [value]="m.status | titlecase" severity="warn"></p-tag></td>
+                <td><i class="pi" [class.pi-check-circle]="m.isCritical" [class.pi-minus-circle]="!m.isCritical"></i></td>
+                <td>{{ m.warehouseName }}</td>
+                <td class="actions">
+                  <p-button *ngIf="canRunAllocation" label="Check" icon="pi pi-sync" size="small" [outlined]="true"
+                            [loading]="runningRowUuid === m.uuid" (onClick)="runAllocationForRow(m)"
+                            pTooltip="Run allocation for this material's variant/warehouse" data-testid="run-allocation-row"></p-button>
+                </td>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="emptymessage">
+              <tr><td colspan="8" class="empty">Nothing short right now.</td></tr>
+            </ng-template>
+          </p-table>
+        </div>
+
+        <p class="hint" *ngIf="order.materials.length === 0">Not planned yet — plan the order to explode its recipe.</p>
       </p-tabPanel>
 
       <!-- ══ Supply requirements ═════════════════════════════════════════════ -->

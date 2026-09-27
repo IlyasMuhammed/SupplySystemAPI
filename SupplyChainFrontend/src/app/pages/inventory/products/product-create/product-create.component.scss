@@ -208,6 +208,20 @@
   color: #2c3e50;
 }
 
+// A31-C2 — the sub-section divider between a card's own fields and its merged-in
+// "Manufacturing & Supply" group (was a separate card/tab).
+.section-divider {
+  margin: 1.5rem 0 1.25rem 0;
+}
+.section-divider-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-color-secondary);
+}
+
 // ── Responsive ───────────────────────────────────────────────────────────────
 @media (max-width: 1024px) {
   .product-create-page {

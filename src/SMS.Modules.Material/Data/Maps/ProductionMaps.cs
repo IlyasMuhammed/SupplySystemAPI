@@ -108,6 +108,22 @@ internal sealed class SupplyRequirementMap : IEntityTypeConfiguration<SupplyRequ
     }
 }
 
+internal sealed class PurchaseRequiredAcknowledgementMap : IEntityTypeConfiguration<PurchaseRequiredAcknowledgement>
+{
+    public void Configure(EntityTypeBuilder<PurchaseRequiredAcknowledgement> b)
+    {
+        b.ToTable("purchase_required_acknowledgements");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.Id).ValueGeneratedOnAdd();
+        b.Property(x => x.Uuid).IsRequired();
+        b.HasIndex(x => x.Uuid).IsUnique();
+        b.Property(x => x.Notes).HasMaxLength(500);
+        b.Property(x => x.OrganizationId).IsRequired();
+        // One live acknowledgement per variant — a second "handled manually" click updates it, not duplicates it.
+        b.HasIndex(x => new { x.OrganizationId, x.VariantUuid }).IsUnique();
+    }
+}
+
 internal sealed class ProductionMaterialIssueMap : IEntityTypeConfiguration<ProductionMaterialIssue>
 {
     public void Configure(EntityTypeBuilder<ProductionMaterialIssue> b)

@@ -14,7 +14,6 @@ public class BomLineRequest
     public bool     IsCritical           { get; set; } = true;
     public Guid?    AlternateVariantUuid { get; set; }
     public string?  Notes                { get; set; }
-    public Guid?    WarehouseUuid        { get; set; }
     public int?     Sequence             { get; set; }
 }
 
@@ -25,9 +24,9 @@ public class CreateBomRequest
     public decimal   BaseQuantity       { get; set; } = 1m;
     /// <summary>Defaults to the product's unit of measure.</summary>
     public string?   BaseUom            { get; set; }
+    /// <summary>A31-C5 — defaults to today (BomRepository.CreateAsync) when left null.</summary>
     public DateTime? EffectiveFrom      { get; set; }
     public DateTime? EffectiveTo        { get; set; }
-    public Guid?     WarehouseUuid      { get; set; }
     public string?   Notes              { get; set; }
     public List<BomLineRequest> Lines   { get; set; } = [];
 }
@@ -40,8 +39,6 @@ public class UpdateBomRequest
     public DateTime? EffectiveFrom { get; set; }
     public DateTime? EffectiveTo   { get; set; }
     public bool      ClearEffectiveDates { get; set; }
-    public Guid?     WarehouseUuid { get; set; }
-    public bool      ClearWarehouse { get; set; }
     public string?   Notes         { get; set; }
     public List<BomLineRequest>? Lines { get; set; }
 }
@@ -84,8 +81,6 @@ public class BomListItemModel
     public string    BaseUom            { get; set; } = string.Empty;
     public DateTime? EffectiveFrom      { get; set; }
     public DateTime? EffectiveTo        { get; set; }
-    public Guid?     WarehouseUuid      { get; set; }
-    public string?   WarehouseName      { get; set; }
     public int       LineCount          { get; set; }
     public DateTime  CreatedAt          { get; set; }
     public DateTime  UpdatedAt          { get; set; }
@@ -113,8 +108,6 @@ public class BomLineModel
     public Guid?    AlternateVariantUuid { get; set; }
     public string?  AlternateVariantName { get; set; }
     public string?  Notes                { get; set; }
-    public Guid?    WarehouseUuid        { get; set; }
-    public string?  WarehouseName        { get; set; }
 }
 
 public class BomDetailModel : BomListItemModel

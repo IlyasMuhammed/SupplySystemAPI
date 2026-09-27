@@ -145,6 +145,9 @@ export interface ProductVariantModel {
   isAvailableForServices: boolean;
   reorderPoint?: number;
   sortOrder?: number;
+  /** A31-C1 — a sale order line for this variant is refused outside this range. Undefined/0 on either side = unconstrained. */
+  saleOrderMinQty?: number;
+  saleOrderMaxQty?: number;
   createdDate: string;
 }
 
@@ -164,6 +167,9 @@ export interface CreateProductVariantRequest {
   isAvailableForServices: boolean;
   reorderPoint?: number;
   sortOrder?: number;
+  /** A31-C1 — a sale order line for this variant is refused outside this range. Undefined/0 on either side = unconstrained. */
+  saleOrderMinQty?: number;
+  saleOrderMaxQty?: number;
 }
 
 // PV-007 — variant CRUD on an existing product.

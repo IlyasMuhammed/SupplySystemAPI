@@ -243,6 +243,18 @@ public interface IAllocationRunListener
     Task OnAllocationRunAsync(AllocationRunResult result, int userId, CancellationToken ct = default);
 }
 
+/// <summary>
+/// A31 C10 §12.2 Step 1 — told after a receipt (or cancellation) against expected supply commits,
+/// independent of whether or when allocation is next run for the variant. Booking the receipt and
+/// running allocation are now two separate actions (a receipt no longer runs the engine by itself),
+/// but bookkeeping that only depends on the receipt itself — a supply requirement's received
+/// quantity and fulfilment status, for one — must not wait for someone to run allocation.
+/// </summary>
+public interface IAllocationReceiptListener
+{
+    Task OnSupplyClosedAsync(Guid variantUuid, CancellationToken ct = default);
+}
+
 // ── The engine ────────────────────────────────────────────────────────────────
 
 /// <summary>

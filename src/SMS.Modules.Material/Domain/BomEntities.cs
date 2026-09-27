@@ -44,8 +44,6 @@ internal class BillOfMaterial : ITenantScopedEntity
     /// <summary>How many units of output the line quantities are for. Usually 1.</summary>
     public decimal   BaseQuantity       { get; set; } = 1m;
     public string    BaseUom            { get; set; } = string.Empty;
-    /// <summary>Optional: only used when producing in this warehouse (inventory.Warehouses.Uuid).</summary>
-    public Guid?     WarehouseUuid      { get; set; }
     public string?   Notes              { get; set; }
     public int       CreatedBy          { get; set; }
     public DateTime  CreatedAt          { get; set; } = DateTime.UtcNow;
@@ -85,7 +83,6 @@ internal class BillOfMaterialLine : ITenantScopedEntity
     public bool     IsCritical           { get; set; } = true;
     public Guid?    AlternateVariantUuid { get; set; }
     public string?  Notes                { get; set; }
-    public Guid?    WarehouseUuid        { get; set; }
 
     public BillOfMaterial Bom { get; set; } = null!;
 }

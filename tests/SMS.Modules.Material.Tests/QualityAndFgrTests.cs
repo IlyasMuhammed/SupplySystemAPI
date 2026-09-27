@@ -92,6 +92,7 @@ public class QualityAndFgrTests
             services.AddSingleton<IInventoryLedgerService, InventoryLedgerService>();
             services.AddSingleton<IStockReservationService, StockReservationService>();
             services.AddSingleton<IAllocationRunListener, ProductionReadinessListener>();
+            services.AddSingleton<IAllocationReceiptListener, ProductionReadinessListener>();
             services.AddSingleton<IAllocationEngine, AllocationEngine>();
             services.AddSingleton<IProductionOrderRepository, ProductionOrderRepository>();
             services.AddSingleton<ProductionOrderService>();
@@ -144,7 +145,7 @@ public class QualityAndFgrTests
         {
             var uuid = await Boms.CreateAsync(new CreateBomRequest
             {
-                ProductUuid = product, BaseQuantity = baseQty, WarehouseUuid = Plant,
+                ProductUuid = product, BaseQuantity = baseQty,
                 Lines = lines.Select(l => new BomLineRequest { MaterialVariantUuid = l.Variant, Quantity = l.Qty, ScrapPercentage = l.Scrap, IsCritical = l.Critical }).ToList()
             }, Author);
             await Boms.SubmitAsync(uuid, Author);

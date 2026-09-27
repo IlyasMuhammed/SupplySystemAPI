@@ -53,6 +53,17 @@ internal sealed class PurchaseOrderService : IPurchaseOrderService
         return poUuid;
     }
 
+    public async Task<PoConsolidationResult> AddOrIncreaseProductionLineAsync(CreatePoRequest req, int createdBy)
+    {
+        var result = await _repo.AddOrIncreaseProductionLineAsync(req, createdBy);
+        // Only a genuinely new PO gets its own "PO_CREATED" timeline entry; an appended line on an
+        // existing draft is that PO's own story continuing, not a new document being born.
+        if (result.IsNewPo) await EnqueuePoCreatedAsync(result.PoUuid, createdBy);
+        return result;
+    }
+
+    public Task<Guid?> GetLastSupplierForVariantAsync(Guid variantUuid) => _repo.GetLastSupplierForVariantAsync(variantUuid);
+
     public async Task<IReadOnlyList<PoFieldChange>> UpdateAsync(Guid uuid, PatchPoRequest req, int modifiedBy)
     {
         var changes = await _repo.UpdateAsync(uuid, req, modifiedBy);
@@ -105,6 +116,12 @@ internal sealed class PurchaseOrderService : IPurchaseOrderService
         if (po.Status != "DRAFT")
             throw new UnprocessableEntityException(
                 $"Only DRAFT purchase orders can be submitted for approval. Current status: {po.Status}.");
+        // A31-BR-C3-04 — defensive: SupplierId has been a required field on every PO creation path in
+        // this codebase since before this addendum, so Guid.Empty here would mean a bug elsewhere, not
+        // a real "no supplier chosen yet" state to recover from. Still worth refusing loudly rather
+        // than letting an empty-supplier PO reach a human approver.
+        if (po.SupplierId == Guid.Empty)
+            throw new UnprocessableEntityException("A supplier is required before this purchase order can be submitted.");
 
         await _workflow.SubmitAsync(new SubmitDocumentCommand
         {

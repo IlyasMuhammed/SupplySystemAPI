@@ -100,6 +100,8 @@ internal sealed class ProductVariantMap : IEntityTypeConfiguration<ProductVarian
         b.Property(x => x.WeightKg).HasColumnType("decimal(18,4)");
         b.Property(x => x.Dimensions).HasMaxLength(100);
         b.Property(x => x.ReorderPoint).HasColumnType("decimal(18,4)");
+        b.Property(x => x.SaleOrderMinQty).HasColumnType("decimal(18,4)");
+        b.Property(x => x.SaleOrderMaxQty).HasColumnType("decimal(18,4)");
         b.Property(x => x.IsDefault).IsRequired();
         b.Property(x => x.IsActive).HasDefaultValue(true);
         b.Property(x => x.IsAvailableForRetail).HasDefaultValue(false);

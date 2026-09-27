@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 using SMS.Modules.Demand.Data;
 using SMS.Modules.Demand.Models;
 using SMS.Modules.Demand.Repositories;
@@ -18,7 +19,16 @@ file static class TraceBuild
 
     internal static RequisitionRepository PrRepo(DemandDbContext db) => new(db);
     internal static QuotationRepository QuotationRepo(DemandDbContext db) => new(db);
-    internal static PurchaseOrderRepository PoRepo(DemandDbContext db) => new(db, NullLogger<PurchaseOrderRepository>.Instance);
+    internal static PurchaseOrderRepository PoRepo(DemandDbContext db) => new(db, NullLogger<PurchaseOrderRepository>.Instance, MockNumbers());
+
+    private static IDocumentNumberGenerator MockNumbers()
+    {
+        var seq = 0;
+        var numbers = new Mock<IDocumentNumberGenerator>();
+        numbers.Setup(n => n.NextAsync(It.IsAny<string>(), It.IsAny<DateTime?>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => $"PO-2026-{(++seq):D5}");
+        return numbers.Object;
+    }
 
     internal static async Task<Guid> ApprovedPrAsync(DemandDbContext db, RequisitionRepository repo)
     {

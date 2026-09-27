@@ -1160,6 +1160,12 @@ namespace SMS.Modules.Inventory.Migrations
                     b.Property<decimal?>("ReorderPoint")
                         .HasColumnType("decimal(18,4)");
 
+                    b.Property<decimal?>("SaleOrderMaxQty")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("SaleOrderMinQty")
+                        .HasColumnType("decimal(18,4)");
+
                     b.Property<decimal?>("SellingPrice")
                         .HasColumnType("decimal(18,4)");
 

@@ -143,6 +143,31 @@ public class ManufacturingNotificationServiceTests
     }
 
     [Fact]
+    public async Task Purchase_order_drafted_escalates_away_from_whoever_raised_the_shortage()
+    {
+        var sr = new SupplyRequirement { UUID = Guid.NewGuid(), SupplyNumber = "SR-2026-00002", CreatedBy = Actor };
+        _orgChart.Setup(o => o.GetSupervisorAsync(Actor)).ReturnsAsync(new UserIdentity(Supervisor, "Lead"));
+
+        await _svc.PurchaseOrderDraftCreatedAsync(sr, "PO-2026-00099", isNewPo: true);
+
+        _sent!.UserId.Should().Be(Supervisor);
+        _sent.Type.Should().Be("PO_DRAFT_CREATED");
+        _sent.Message.Should().Contain("PO-2026-00099").And.Contain("SR-2026-00002");
+    }
+
+    [Fact]
+    public async Task Purchase_order_appended_to_says_updated_not_drafted()
+    {
+        var sr = new SupplyRequirement { UUID = Guid.NewGuid(), SupplyNumber = "SR-2026-00003", CreatedBy = Actor };
+        _orgChart.Setup(o => o.GetSupervisorAsync(Actor)).ReturnsAsync(new UserIdentity(Supervisor, "Lead"));
+
+        await _svc.PurchaseOrderDraftCreatedAsync(sr, "PO-2026-00050", isNewPo: false);
+
+        _sent!.Title.Should().Be("Purchase Order Updated");
+        _sent.Message.Should().Contain("updated").And.Contain("PO-2026-00050");
+    }
+
+    [Fact]
     public async Task Allocation_completed_goes_to_the_orders_creator_with_no_escalation()
     {
         await _svc.AllocationCompletedAsync(Order(), "Steel Rod", 25m, "KG");

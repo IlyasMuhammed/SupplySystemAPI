@@ -51,6 +51,9 @@ public class ProductionOrderListFilter
 {
     public string?   Status      { get; set; }
     public Guid?     ProductUuid { get; set; }
+    // A31-C7 §9.5 — reverse navigation: e.g. every production order raised for one sale order
+    // (SourceType=SALES_ORDER, SourceUuid=that order's own uuid), without a dedicated endpoint.
+    public Guid?     SourceUuid  { get; set; }
     public int?      Priority    { get; set; }
     public DateTime? DateFrom    { get; set; }
     public DateTime? DateTo      { get; set; }
@@ -80,6 +83,12 @@ public class ProductionOrderListItemModel
     public Guid      WarehouseUuid           { get; set; }
     public string    WarehouseName           { get; set; } = string.Empty;
     public string    SourceType              { get; set; } = string.Empty;
+    // A31-C7 — the originating document's own uuid/line uuid, e.g. a sale order + line when
+    // SourceType is SALES_ORDER. Already tracked generically for every source type (chained
+    // manufacturing, fulfillment, etc.); this just surfaces it in the response so the UI can link
+    // to it, rather than adding a second, sale-order-specific pair of columns that would duplicate it.
+    public Guid?     SourceUuid              { get; set; }
+    public Guid?     SourceLineUuid          { get; set; }
     public string?   SourceReference         { get; set; }
     public Guid?     ParentProductionOrderUuid { get; set; }
     public string?   ParentProductionNumber  { get; set; }

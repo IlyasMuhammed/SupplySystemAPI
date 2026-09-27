@@ -91,4 +91,18 @@ internal sealed class ManufacturingNotificationService : IManufacturingNotificat
             UserId: parent.CreatedBy, Type: "PROD_CHAINED", Title: "Chained Production Order Created",
             Message: $"{child.ProductionNumber} was automatically raised to cover a shortage of {materialName} on {parent.ProductionNumber}.",
             Category: "Manufacturing", EntityType: "ProductionOrder", EntityUuid: parent.UUID.ToString(), CreatedBy: child.CreatedBy));
+
+    // A31-C3 §5.5 — the FSD asks for a broadcast to every user holding purchase_order_write; no
+    // "every user with permission X" query exists anywhere in this codebase (checked — IOrgChartService
+    // and every other notification here only ever resolve a single recipient), so this follows the
+    // exact same escalate-to-supervisor shape SupplyRequirementCreatedAsync already uses rather than
+    // inventing a new, one-off broadcast mechanism for a single notification.
+    public async Task PurchaseOrderDraftCreatedAsync(SupplyRequirement sr, string poNumber, bool isNewPo) =>
+        await _notifications.TryCreateAsync(new NotificationRequest(
+            UserId: await EscalateAsync(sr.CreatedBy), Type: "PO_DRAFT_CREATED",
+            Title: isNewPo ? "Purchase Order Drafted" : "Purchase Order Updated",
+            Message: isNewPo
+                ? $"{poNumber} was drafted for review — covers supply requirement {sr.SupplyNumber}."
+                : $"{poNumber} was updated to also cover supply requirement {sr.SupplyNumber}.",
+            Category: "Manufacturing", EntityType: "SupplyRequirement", EntityUuid: sr.UUID.ToString(), CreatedBy: sr.CreatedBy));
 }

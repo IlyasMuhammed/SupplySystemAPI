@@ -57,7 +57,7 @@ internal sealed class ProductionOrderRepository : IProductionOrderRepository
         await EnsureWarehouseAsync(warehouse);
         if (req.OutputWarehouseUuid is { } output && output != warehouse) await EnsureWarehouseAsync(output);
 
-        var bom = await ActiveBomAsync(product, variant.Uuid, warehouse);
+        var bom = await ActiveBomAsync(product, variant.Uuid);
         var now = DateTime.UtcNow;
 
         var po = new ProductionOrder
@@ -116,9 +116,9 @@ internal sealed class ProductionOrderRepository : IProductionOrderRepository
         if (req.WarehouseUuid is { } warehouse && warehouse != po.WarehouseUuid)
         {
             await EnsureWarehouseAsync(warehouse);
-            // The recipe may differ per warehouse, so a draft moved elsewhere snapshots again.
+            // Re-snapshot in case the active recipe changed since this draft was created.
             var product = await ManufacturedProductAsync(po.ProductUuid);
-            var bom     = await ActiveBomAsync(product, po.ProductVariantUuid, warehouse);
+            var bom     = await ActiveBomAsync(product, po.ProductVariantUuid);
             po.WarehouseUuid = warehouse;
             po.BomId         = bom.Id;
             po.BomVersion    = bom.Version;
@@ -164,6 +164,7 @@ internal sealed class ProductionOrderRepository : IProductionOrderRepository
         var query = _db.ProductionOrders.AsNoTracking().AsQueryable();
         if (!string.IsNullOrWhiteSpace(filter.Status)) query = query.Where(p => p.Status == filter.Status.ToUpperInvariant());
         if (filter.ProductUuid is { } product)         query = query.Where(p => p.ProductUuid == product);
+        if (filter.SourceUuid is { } sourceUuid)        query = query.Where(p => p.SourceUuid == sourceUuid);
         if (filter.Priority is { } priority)           query = query.Where(p => p.Priority == priority);
         if (filter.DateFrom is { } from)               query = query.Where(p => p.RequiredDate >= from.Date);
         if (filter.DateTo is { } to)                   query = query.Where(p => p.RequiredDate <= to.Date);
@@ -472,23 +473,22 @@ internal sealed class ProductionOrderRepository : IProductionOrderRepository
     }
 
     /// <summary>
-    /// The recipe to snapshot (§11.4): the active one for this exact variant and warehouse, else
-    /// the variant's general one, else the product's for this warehouse, else the product's.
+    /// The recipe to snapshot (§11.4): the active one for this exact variant, else the product's
+    /// general one. A31-C6 removed warehouse from this resolution entirely — warehouse is decided
+    /// by the production order, not by which recipe applies.
     /// </summary>
-    private async Task<BillOfMaterial> ActiveBomAsync(ProductFacts product, Guid variantUuid, Guid warehouseUuid)
+    private async Task<BillOfMaterial> ActiveBomAsync(ProductFacts product, Guid variantUuid)
     {
         var today = DateTime.UtcNow.Date;
         var candidates = await _db.BillsOfMaterials.AsNoTracking()
             .Where(b => b.ProductUuid == product.Uuid && b.Status == BomStatus.Active &&
                         (b.ProductVariantUuid == null || b.ProductVariantUuid == variantUuid) &&
-                        (b.WarehouseUuid == null || b.WarehouseUuid == warehouseUuid) &&
                         (b.EffectiveFrom == null || b.EffectiveFrom <= today) &&
                         (b.EffectiveTo == null || b.EffectiveTo >= today))
             .ToListAsync();
 
         return candidates
             .OrderByDescending(b => b.ProductVariantUuid.HasValue)
-            .ThenByDescending(b => b.WarehouseUuid.HasValue)
             .ThenByDescending(b => b.Version)
             .FirstOrDefault()
             ?? throw new BadRequestException($"No active BOM found for product {product.Name}. Activate a bill of materials first.");
@@ -576,6 +576,8 @@ internal sealed class ProductionOrderRepository : IProductionOrderRepository
         model.WarehouseUuid             = p.WarehouseUuid;
         model.WarehouseName             = names.Warehouses.GetValueOrDefault(p.WarehouseUuid) ?? string.Empty;
         model.SourceType                = p.SourceType;
+        model.SourceUuid                = p.SourceUuid;
+        model.SourceLineUuid            = p.SourceLineUuid;
         model.SourceReference           = p.SourceReference;
         model.ParentProductionOrderUuid = p.Parent?.UUID;
         model.ParentProductionNumber    = p.Parent?.ProductionNumber;

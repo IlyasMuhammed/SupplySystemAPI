@@ -392,6 +392,14 @@ internal sealed class SaleOrderService : ISaleOrderService
             if (availability is null || !availability.IsAvailableForRetail)
                 throw new BadRequestException(
                     $"{availability?.DisplayName ?? lineReq.VariantUuid.ToString()} is not available for retail sale.");
+
+            // A31-C1 — conditional: a NULL or 0 limit on either side means that side is unconstrained.
+            if (availability.SaleOrderMinQty is > 0 && lineReq.Quantity < availability.SaleOrderMinQty)
+                throw new BadRequestException(
+                    $"Quantity {lineReq.Quantity} is below the minimum order quantity of {availability.SaleOrderMinQty} for {availability.DisplayName}.");
+            if (availability.SaleOrderMaxQty is > 0 && lineReq.Quantity > availability.SaleOrderMaxQty)
+                throw new BadRequestException(
+                    $"Quantity {lineReq.Quantity} exceeds the maximum order quantity of {availability.SaleOrderMaxQty} for {availability.DisplayName}.");
         }
 
         var resolution = await _pricing.ResolveSalePriceAsync(lineReq.VariantUuid, partnerId, lineReq.Quantity, orderDate);

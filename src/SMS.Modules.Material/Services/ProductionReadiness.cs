@@ -101,7 +101,7 @@ internal static class ProductionReadiness
 /// supply requirement whose ordered supply the run booked a receipt against is brought up to date.
 /// Never calls the engine back; it only reads the registries the run has already committed.
 /// </summary>
-internal sealed class ProductionReadinessListener : IAllocationRunListener
+internal sealed class ProductionReadinessListener : IAllocationRunListener, IAllocationReceiptListener
 {
     private readonly MaterialDbContext  _db;
     private readonly InventoryDbContext _inv;
@@ -165,6 +165,18 @@ internal sealed class ProductionReadinessListener : IAllocationRunListener
         await _db.SaveChangesAsync(ct);
 
         if (_notify is not null) await NotifyAsync(newlyCovered, newlyReady);
+    }
+
+    /// <summary>
+    /// A31 C10 §12.2 Step 1 — told the moment a receipt (or cancellation) against expected supply
+    /// commits, whether or not anyone has run allocation for the variant since. Keeps a supply
+    /// requirement's received quantity and fulfilment status current immediately, independent of the
+    /// now-separate, explicit allocation step.
+    /// </summary>
+    public async Task OnSupplyClosedAsync(Guid variantUuid, CancellationToken ct = default)
+    {
+        await SyncSupplyRequirementsAsync(variantUuid, ct);
+        await _db.SaveChangesAsync(ct);
     }
 
     private async Task NotifyAsync(List<(ProductionOrder Order, ProductionMaterialRequirement Pmr)> newlyCovered, List<ProductionOrder> newlyReady)

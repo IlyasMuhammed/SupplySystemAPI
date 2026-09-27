@@ -103,6 +103,13 @@ public class ProductionOrdersController : ControllerBase
     public async Task<IActionResult> GetMaterials(Guid uuid) =>
         Ok(ApiResponse<IReadOnlyList<ProductionMaterialModel>>.Ok(await _orders.GetMaterialsAsync(uuid)));
 
+    /// <summary>A31 C10 — GRN receipt no longer runs allocation by itself; this is the "check availability
+    /// now" trigger for the whole order, run over every distinct material variant/warehouse it uses.</summary>
+    [HttpPost("{uuid:guid}/run-allocation")]
+    [RequirePermission(PermissionCodes.ALLOCATION_RUN)]
+    public async Task<IActionResult> RunAllocation(Guid uuid) =>
+        Ok(ApiResponse<IReadOnlyList<AllocationRunResult>>.Ok(await _orders.RunAllocationAsync(uuid, User.GetUserId()), "Allocation run."));
+
     [HttpGet("{uuid:guid}/readiness")]
     [RequirePermission(PermissionCodes.PROD_VIEW)]
     public async Task<IActionResult> GetReadiness(Guid uuid)

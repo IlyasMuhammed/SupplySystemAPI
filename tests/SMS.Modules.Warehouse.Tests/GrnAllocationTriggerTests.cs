@@ -19,9 +19,10 @@ using InventoryWarehouse = SMS.Modules.Inventory.Domain.Warehouse;
 namespace SMS.Modules.Warehouse.Tests;
 
 /// <summary>
-/// A30 §15 (A30-P1-11) — a goods receipt hands the new stock to the allocation engine: the
-/// expected supply it was registered as is booked received, and the engine runs for the variant
-/// so a waiting demand gets the stock by the rules. Nothing about the posting itself changes.
+/// A30 §15 (A30-P1-11) / A31 C10 — a goods receipt hands the new stock to the allocation engine by
+/// booking it against whatever expected supply it was registered as. It deliberately does NOT run the
+/// engine for the variant any more (A31 C10 made that an explicit, separate action) — a waiting demand
+/// only gets the stock once someone runs allocation afterwards. Nothing about the posting itself changes.
 /// </summary>
 public class GrnAllocationTriggerTests
 {
@@ -105,7 +106,7 @@ public class GrnAllocationTriggerTests
     }
 
     [Fact]
-    public async Task A_receipt_runs_the_engine_so_a_waiting_demand_gets_the_stock()
+    public async Task A_receipt_registers_the_stock_but_leaves_allocation_to_a_separate_run()
     {
         var s = await NewAsync();
         var demand = await DemandAsync(s, 6);
@@ -117,10 +118,17 @@ public class GrnAllocationTriggerTests
 
         var item = await ItemAsync(s);
         item.QtyOnHand.Should().Be(10m);
-        item.QtyReserved.Should().Be(6m, "the engine ran after the stock was posted");
-        var after = (await s.Engine.GetDemandAsync(demand.Uuid))!;
-        after.ReservedQty.Should().Be(6);
-        after.Shortage.Should().Be(0);
+        item.QtyReserved.Should().Be(0m, "A31 C10 — a receipt no longer runs allocation by itself");
+        var afterReceipt = (await s.Engine.GetDemandAsync(demand.Uuid))!;
+        afterReceipt.ReservedQty.Should().Be(0);
+        afterReceipt.Shortage.Should().Be(6, "the stock is on the shelf but nobody has run allocation for it yet");
+
+        // The stock only reaches the waiting demand once allocation is explicitly run for the variant
+        // (allocation dashboard, the production order's "run allocation", or a GRN-page prompt).
+        await s.Engine.AllocateAsync(s.VariantUuid, s.WarehouseUuid, User);
+        var afterRun = (await s.Engine.GetDemandAsync(demand.Uuid))!;
+        afterRun.ReservedQty.Should().Be(6);
+        afterRun.Shortage.Should().Be(0);
     }
 
     [Fact]
@@ -138,10 +146,14 @@ public class GrnAllocationTriggerTests
         await new EfGrnInventoryPoster(s.Inv, Mock.Of<IInventoryLedgerService>(), allocation: s.Engine)
             .PostToInventoryAsync(grn, approvedBy: User);
 
-        var after = (await s.Engine.GetDemandAsync(demand.Uuid))!;
-        after.PlannedQty.Should().Be(0);
-        after.ReservedQty.Should().Be(6);
+        var afterReceipt = (await s.Engine.GetDemandAsync(demand.Uuid))!;
+        afterReceipt.PlannedQty.Should().Be(0, "the receipt drops the planned allocation that leaned on this supply");
+        afterReceipt.ReservedQty.Should().Be(0, "A31 C10 — booking the receipt does not itself run allocation");
         (await s.Inv.AllocationSupplies.AsNoTracking().SingleAsync()).Status.Should().Be(AllocationSupplyStatus.Received);
+
+        // Only once allocation is run afterwards does the now-arrived stock actually get held.
+        await s.Engine.AllocateAsync(s.VariantUuid, s.WarehouseUuid, User);
+        (await s.Engine.GetDemandAsync(demand.Uuid))!.ReservedQty.Should().Be(6);
     }
 
     [Fact]

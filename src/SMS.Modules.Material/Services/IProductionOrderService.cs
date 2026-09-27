@@ -1,4 +1,5 @@
 using SMS.Modules.Material.Models;
+using SMS.Shared.Common;
 using SMS.Shared.Pagination;
 
 namespace SMS.Modules.Material.Services;
@@ -15,6 +16,13 @@ public interface IProductionOrderService
     Task<PaginatedResponse<ProductionOrderListItemModel>> GetListAsync(ProductionOrderListFilter filter);
     Task<ProductionOrderDetailModel?> GetByUuidAsync(Guid uuid);
     Task<IReadOnlyList<ProductionMaterialModel>> GetMaterialsAsync(Guid uuid);
+
+    /// <summary>
+    /// A31 C10 — allocation is no longer run automatically on GRN receipt; this is the "run it for this
+    /// order" convenience the production order's own material availability screen calls. Runs the shared
+    /// engine once per distinct (material variant, warehouse) pair the order's materials use.
+    /// </summary>
+    Task<IReadOnlyList<AllocationRunResult>> RunAllocationAsync(Guid uuid, int userId, CancellationToken ct = default);
 
     /// <summary>Explodes the snapshotted recipe into requirements, registers and allocates demand, raises supply for what is short (BR-PR03).</summary>
     Task<ProductionReadinessModel> PlanAsync(Guid uuid, int userId, CancellationToken ct = default);

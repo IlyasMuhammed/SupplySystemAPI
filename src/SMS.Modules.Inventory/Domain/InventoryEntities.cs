@@ -129,6 +129,11 @@ internal class ProductVariant : ITenantScopedEntity
     public Guid?    DefaultSupplierId { get; set; }
     public int?     LeadTimeDays      { get; set; }
 
+    // A31-C1 — a sale order line for this variant is refused outside this range. NULL or 0 on
+    // either side means that side is unconstrained (A31 §3.1's own "conditional enforcement" rule).
+    public decimal? SaleOrderMinQty { get; set; }
+    public decimal? SaleOrderMaxQty { get; set; }
+
     public Product Product { get; set; } = null!;
     public ICollection<VariantAttributeValue> AttributeValues { get; set; } = new List<VariantAttributeValue>();
     // PV-005 — stock is tracked per variant per warehouse, not per parent product.

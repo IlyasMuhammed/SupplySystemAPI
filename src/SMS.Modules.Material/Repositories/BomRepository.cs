@@ -50,8 +50,10 @@ internal sealed class BomRepository : IBomRepository
 
         var product     = await ManufacturedProductAsync(req.ProductUuid);
         var variantUuid = await OutputVariantAsync(product.Id, req.ProductVariantUuid);
-        ValidateHeader(req.BaseQuantity, req.EffectiveFrom, req.EffectiveTo);
-        await EnsureWarehouseAsync(req.WarehouseUuid);
+        // A31-C5 — a new BOM's effective_from defaults to today rather than staying NULL; an
+        // existing BOM with a NULL effective_from is left alone (this only applies at creation).
+        var effectiveFrom = req.EffectiveFrom ?? DateTime.UtcNow.Date;
+        ValidateHeader(req.BaseQuantity, effectiveFrom, req.EffectiveTo);
 
         var lines = await BuildLinesAsync(req.Lines, product.Uuid, product.Name, currentBomId: null);
 
@@ -67,11 +69,10 @@ internal sealed class BomRepository : IBomRepository
             ProductVariantUuid = variantUuid,
             Version            = latest + 1,
             Status             = BomStatus.Draft,
-            EffectiveFrom      = req.EffectiveFrom,
+            EffectiveFrom      = effectiveFrom,
             EffectiveTo        = req.EffectiveTo,
             BaseQuantity       = req.BaseQuantity,
             BaseUom            = Uom(req.BaseUom, product.UomCode),
-            WarehouseUuid      = req.WarehouseUuid,
             Notes              = req.Notes?.Trim(),
             CreatedBy          = userId,
             CreatedAt          = now,
@@ -97,9 +98,6 @@ internal sealed class BomRepository : IBomRepository
         var effectiveTo   = req.ClearEffectiveDates ? null : req.EffectiveTo   ?? bom.EffectiveTo;
         ValidateHeader(baseQuantity, effectiveFrom, effectiveTo);
 
-        var warehouseUuid = req.ClearWarehouse ? null : req.WarehouseUuid ?? bom.WarehouseUuid;
-        await EnsureWarehouseAsync(warehouseUuid);
-
         if (req.Lines is not null)
         {
             var lines = await BuildLinesAsync(req.Lines, bom.ProductUuid, product.Name, bom.Id);
@@ -111,7 +109,6 @@ internal sealed class BomRepository : IBomRepository
         if (!string.IsNullOrWhiteSpace(req.BaseUom)) bom.BaseUom = Uom(req.BaseUom, product.UomCode);
         bom.EffectiveFrom = effectiveFrom;
         bom.EffectiveTo   = effectiveTo;
-        bom.WarehouseUuid = warehouseUuid;
         if (req.Notes is not null) bom.Notes = req.Notes.Trim();
 
         // §9.1 — a rejected recipe goes back to the drawing board the moment it is revised.
@@ -198,11 +195,12 @@ internal sealed class BomRepository : IBomRepository
 
         var now = DateTime.UtcNow;
 
-        // Rule 5/6 — one active recipe per product, variant and warehouse; activating this one retires the other.
+        // Rule 5/6 — one active recipe per product and variant; activating this one retires the
+        // other. A31-C6 removed warehouse from this scope: warehouse is a Production Order concern
+        // now, not a recipe one, so there is no longer a per-warehouse recipe variant to keep separate.
         var superseded = await _db.BillsOfMaterials
             .Where(b => b.Id != bom.Id && b.Status == BomStatus.Active &&
-                        b.ProductUuid == bom.ProductUuid && b.ProductVariantUuid == bom.ProductVariantUuid &&
-                        b.WarehouseUuid == bom.WarehouseUuid)
+                        b.ProductUuid == bom.ProductUuid && b.ProductVariantUuid == bom.ProductVariantUuid)
             .ToListAsync();
         foreach (var previous in superseded)
         {
@@ -267,7 +265,6 @@ internal sealed class BomRepository : IBomRepository
             Status             = BomStatus.Draft,
             BaseQuantity       = source.BaseQuantity,
             BaseUom            = source.BaseUom,
-            WarehouseUuid      = source.WarehouseUuid,
             Notes              = source.Notes,
             CreatedBy          = userId,
             CreatedAt          = now,
@@ -282,8 +279,7 @@ internal sealed class BomRepository : IBomRepository
                 ScrapPercentage      = l.ScrapPercentage,
                 IsCritical           = l.IsCritical,
                 AlternateVariantUuid = l.AlternateVariantUuid,
-                Notes                = l.Notes,
-                WarehouseUuid        = l.WarehouseUuid
+                Notes                = l.Notes
             }).ToList()
         };
 
@@ -311,7 +307,6 @@ internal sealed class BomRepository : IBomRepository
 
         if (left.BaseQuantity != right.BaseQuantity) result.HeaderChanges.Add($"Base quantity {left.BaseQuantity:0.####} → {right.BaseQuantity:0.####}");
         if (left.BaseUom != right.BaseUom)           result.HeaderChanges.Add($"Base UOM {left.BaseUom} → {right.BaseUom}");
-        if (left.WarehouseUuid != right.WarehouseUuid) result.HeaderChanges.Add("Warehouse changed");
         if (left.EffectiveFrom != right.EffectiveFrom || left.EffectiveTo != right.EffectiveTo) result.HeaderChanges.Add("Effective dates changed");
 
         foreach (var (variantUuid, after) in rightLines)
@@ -324,7 +319,6 @@ internal sealed class BomRepository : IBomRepository
             if (before.ScrapPercentage != after.ScrapPercentage)         fields.Add("Scrap %");
             if (before.IsCritical != after.IsCritical)                   fields.Add("Critical");
             if (before.AlternateVariantUuid != after.AlternateVariantUuid) fields.Add("Alternate");
-            if (before.WarehouseUuid != after.WarehouseUuid)             fields.Add("Warehouse");
             if (fields.Count > 0)
                 result.Changed.Add(new BomLineChangeModel
                 {
@@ -476,13 +470,6 @@ internal sealed class BomRepository : IBomRepository
         return variantUuid;
     }
 
-    private async Task EnsureWarehouseAsync(Guid? warehouseUuid)
-    {
-        if (warehouseUuid is null) return;
-        if (!await _inv.Warehouses.AsNoTracking().AnyAsync(w => w.Uuid == warehouseUuid && w.IsActive))
-            throw new BadRequestException($"Warehouse {warehouseUuid} does not exist or is inactive.");
-    }
-
     private sealed record MaterialFacts(Guid Uuid, string Sku, string VariantName, bool IsActive, bool IsAvailableForProduction,
         Guid ProductUuid, string ProductName, string? UomCode);
 
@@ -507,14 +494,6 @@ internal sealed class BomRepository : IBomRepository
                 .Select(v => new MaterialFacts(v.Uuid, v.Sku, v.VariantName, v.IsActive, v.IsAvailableForProduction,
                     v.Product.Uuid, v.Product.Name, v.Product.UomCode))
                 .ToDictionaryAsync(f => f.Uuid);
-
-        var warehouseUuids = requests.Where(l => l.WarehouseUuid.HasValue).Select(l => l.WarehouseUuid!.Value).Distinct().ToList();
-        if (warehouseUuids.Count > 0)
-        {
-            var known = await _inv.Warehouses.AsNoTracking().Where(w => warehouseUuids.Contains(w.Uuid) && w.IsActive).Select(w => w.Uuid).ToListAsync();
-            var missing = warehouseUuids.Except(known).FirstOrDefault();
-            if (missing != Guid.Empty) throw new BadRequestException($"Warehouse {missing} does not exist or is inactive.");
-        }
 
         var lines = new List<BillOfMaterialLine>();
         for (var i = 0; i < requests.Count; i++)
@@ -556,8 +535,7 @@ internal sealed class BomRepository : IBomRepository
                 ScrapPercentage      = req.ScrapPercentage,
                 IsCritical           = req.IsCritical,
                 AlternateVariantUuid = req.AlternateVariantUuid,
-                Notes                = req.Notes?.Trim(),
-                WarehouseUuid        = req.WarehouseUuid
+                Notes                = req.Notes?.Trim()
             });
         }
 
@@ -604,8 +582,7 @@ internal sealed class BomRepository : IBomRepository
 
     private sealed record Names(
         Dictionary<Guid, (string Name, string Sku, string ProductType, string SupplyMethod)> Products,
-        Dictionary<Guid, (string Sku, string VariantName, Guid ProductUuid, string? ImageUrl)> Variants,
-        Dictionary<Guid, string> Warehouses);
+        Dictionary<Guid, (string Sku, string VariantName, Guid ProductUuid, string? ImageUrl)> Variants);
 
     private async Task<Names> NamesAsync(IReadOnlyList<BillOfMaterial> boms)
     {
@@ -615,10 +592,6 @@ internal sealed class BomRepository : IBomRepository
             .Concat(boms.SelectMany(b => b.Lines).Select(l => l.MaterialVariantUuid))
             .Concat(boms.SelectMany(b => b.Lines).Where(l => l.AlternateVariantUuid.HasValue).Select(l => l.AlternateVariantUuid!.Value))
             .Distinct().ToList();
-        var warehouseUuids = boms.Where(b => b.WarehouseUuid.HasValue).Select(b => b.WarehouseUuid!.Value)
-            .Concat(boms.SelectMany(b => b.Lines).Where(l => l.WarehouseUuid.HasValue).Select(l => l.WarehouseUuid!.Value))
-            .Distinct().ToList();
-
         var products = productUuids.Count == 0
             ? new Dictionary<Guid, (string, string, string, string)>()
             : await _inv.Products.AsNoTracking().Where(p => productUuids.Contains(p.Uuid))
@@ -631,12 +604,7 @@ internal sealed class BomRepository : IBomRepository
                 .Select(v => new { v.Uuid, v.Sku, v.VariantName, ProductUuid = v.Product.Uuid, v.Product.ImageUrl })
                 .ToDictionaryAsync(v => v.Uuid, v => (v.Sku, v.VariantName, v.ProductUuid, v.ImageUrl));
 
-        var warehouses = warehouseUuids.Count == 0
-            ? new Dictionary<Guid, string>()
-            : await _inv.Warehouses.AsNoTracking().Where(w => warehouseUuids.Contains(w.Uuid))
-                .ToDictionaryAsync(w => w.Uuid, w => w.Name);
-
-        return new Names(products, variants, warehouses);
+        return new Names(products, variants);
     }
 
     private static T Fill<T>(T model, BillOfMaterial b, Names names) where T : BomListItemModel
@@ -655,8 +623,6 @@ internal sealed class BomRepository : IBomRepository
         model.BaseUom            = b.BaseUom;
         model.EffectiveFrom      = b.EffectiveFrom;
         model.EffectiveTo        = b.EffectiveTo;
-        model.WarehouseUuid      = b.WarehouseUuid;
-        model.WarehouseName      = b.WarehouseUuid is { } w ? names.Warehouses.GetValueOrDefault(w) : null;
         model.LineCount          = b.Lines.Count;
         model.CreatedAt          = b.CreatedAt;
         model.UpdatedAt          = b.UpdatedAt;
@@ -687,9 +653,7 @@ internal sealed class BomRepository : IBomRepository
             IsCritical           = l.IsCritical,
             AlternateVariantUuid = l.AlternateVariantUuid,
             AlternateVariantName = l.AlternateVariantUuid is { } a ? names.Variants.GetValueOrDefault(a).VariantName : null,
-            Notes                = l.Notes,
-            WarehouseUuid        = l.WarehouseUuid,
-            WarehouseName        = l.WarehouseUuid is { } w ? names.Warehouses.GetValueOrDefault(w) : null
+            Notes                = l.Notes
         };
     }
 }

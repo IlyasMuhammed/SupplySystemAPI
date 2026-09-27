@@ -17,6 +17,9 @@ public class CreatePoRequest
     // Client-generated id so attachments uploaded before save can be linked via the same
     // DocumentId — becomes the PO's own UUID on save.
     public Guid? PoUuid { get; set; }
+    // A31-C3 — one of PurchaseOrderSources's own values (e.g. "PRODUCTION"). Defaults to MANUAL
+    // when left null, matching every caller before this addendum.
+    public string? Source { get; set; }
 }
 
 public class CreatePoLineRequest
@@ -42,6 +45,14 @@ public class SendPoRequest
 {
     public string? SupplierContactMobile { get; set; }
 }
+
+/// <summary>
+/// A31-C3/BR-C3-07 — the PO (and specific line) a consolidated create-or-append landed on.
+/// <see cref="LineQuantity"/> is the line's own total after the append/bump — the caller should
+/// register expected supply against this, not just its own new shortage's quantity, so a line two
+/// shortages consolidated onto keeps both accounted for rather than the second overwriting the first.
+/// </summary>
+public sealed record PoConsolidationResult(Guid PoUuid, string PoNumber, Guid LineUuid, decimal LineQuantity, bool IsNewPo);
 
 public class PatchPoRequest
 {

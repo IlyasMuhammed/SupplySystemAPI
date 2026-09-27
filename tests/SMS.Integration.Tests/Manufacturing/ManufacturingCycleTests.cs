@@ -42,6 +42,16 @@ namespace SMS.Integration.Tests.Manufacturing;
 // ledger math itself was already proven directly in Material's own QualityAndFgrTests; what is new
 // here is exercising the same identity through the real HTTP controllers instead of an in-process
 // service call.
+//
+// A31-PF-01 (2026-09-27) — updated for two real, intentional behavior changes made since this test
+// was written, both caught by this test actually breaking when re-run, not by inspection:
+// (1) C3/PC-06's supplier-level PO consolidation means Steel Rod's and Packaging Box's shortages
+// (same default supplier, STEP 2) land on the *same* Draft PO as two lines, not two separate POs —
+// this test now asserts that consolidation explicitly (STEP 5) instead of assuming one-PO-per-material.
+// (2) C10 removed GRN's own automatic allocation run — every GRN receipt below is followed by an
+// explicit RunAllocationAsync/RunAllocationForOrderAsync call, the same ones the real UI (Allocation
+// dashboard, GRN detail page, Material Availability tab) now makes. FGR's own auto-allocation
+// (STEPs 7-8) was deliberately left alone by C10 and needed no change here.
 public sealed class ManufacturingCycleTests : IClassFixture<ProcurementCycleWebApplicationFactory>
 {
     private readonly ProcurementCycleWebApplicationFactory _factory;
@@ -183,7 +193,17 @@ public sealed class ManufacturingCycleTests : IClassFixture<ProcurementCycleWebA
         // ═══════════════════════════════════════════════════════════════════════
         // STEP 5 — RAW MATERIAL PURCHASES: Steel Rod (4, for the chain) and
         // Packaging Box (1), each auto-raised DRAFT via the Supply Requirement
-        // engine, submitted/approved/sent/received exactly like any other PO.
+        // engine. Both share the same supplier (STEP 2), so A31-C3/PC-06's own
+        // consolidation applies here for real: Steel Rod's shortage is planned
+        // first (recursively, underneath the top order's own plan — see the
+        // comment above STEP 4), raising a genuinely new Draft PO; Packaging
+        // Box's shortage is planned second and finds that same still-Draft
+        // PRODUCTION-sourced PO for the same supplier, appending a line to it
+        // instead of raising a second PO. One PO, two lines — proven below,
+        // not assumed — is exactly the "one purchase order per supplier, not
+        // one per shortage" duplicate-PO fix A31 C9's own dashboard exists on
+        // top of (see Phase E's own memory note on PC-06 already narrowing
+        // that problem before C9 was even built).
         // ═══════════════════════════════════════════════════════════════════════
 
         var steelBoltSupplyReqs = await GetAsync<List<SupplyRequirementModel>>($"/api/production-orders/{steelBoltGrandchildUuid}/supply-requirements");
@@ -194,15 +214,27 @@ public sealed class ManufacturingCycleTests : IClassFixture<ProcurementCycleWebA
         var packagingSr = topSupplyReqs.Single(sr => sr.SupplyMethod == SupplyMethod.Purchase);
         var packagingPoUuid = packagingSr.SupplySourceUuid!.Value;
 
-        await SubmitAndFullyApprovePoAsync(steelRodPoUuid);
-        await ReceiveFullyAsync(steelRodPoUuid, warehouse.Uuid, 4);
+        packagingPoUuid.Should().Be(steelRodPoUuid,
+            "Steel Rod and Packaging Box share the same default supplier and Steel Rod's PO was still Draft — PC-06 consolidates onto it rather than raising a second PO");
 
-        await SubmitAndFullyApprovePoAsync(packagingPoUuid);
-        await ReceiveFullyAsync(packagingPoUuid, warehouse.Uuid, 1);
+        var sharedRawMaterialPo = await GetAsync<PoDetailModel>($"/api/purchase-orders/{steelRodPoUuid}");
+        sharedRawMaterialPo.Lines.Should().HaveCount(2, "one line per material, consolidated onto the one PO");
+
+        // The PO is submitted/approved/sent exactly once — it is one document now, not two.
+        await SubmitAndFullyApprovePoAsync(steelRodPoUuid);
+
+        // A31 C10 — a GRN's own receipt no longer runs allocation by itself, so each material is
+        // received, then allocation is explicitly run for it (the same call the Allocation
+        // dashboard's "Run Allocation" button and the GRN detail page's own banner both make).
+        await ReceiveFullyAsync(steelRodPoUuid, steelRod.VariantUuid, warehouse.Uuid, 4);
+        await RunAllocationAsync(steelRod.VariantUuid, warehouse.Uuid);
+
+        await ReceiveFullyAsync(steelRodPoUuid, packaging.VariantUuid, warehouse.Uuid, 1);
+        await RunAllocationAsync(packaging.VariantUuid, warehouse.Uuid);
 
         // ═══════════════════════════════════════════════════════════════════════
-        // STEP 6 — STEEL BOLT (grandchild): now READY (Steel Rod reserved by the
-        // GRN's own allocation run) — issue, start, report, complete, QI, FGR.
+        // STEP 6 — STEEL BOLT (grandchild): now READY (Steel Rod explicitly
+        // allocated above, A31 C10) — issue, start, report, complete, QI, FGR.
         // ═══════════════════════════════════════════════════════════════════════
 
         (await GetAsync<ProductionOrderDetailModel>($"/api/production-orders/{steelBoltGrandchildUuid}")).Status.Should().Be(ProductionOrderStatus.Ready);
@@ -266,8 +298,13 @@ public sealed class ManufacturingCycleTests : IClassFixture<ProcurementCycleWebA
         var standaloneSupplyReqs = await GetAsync<List<SupplyRequirementModel>>($"/api/production-orders/{standaloneUuid}/supply-requirements");
         var standaloneSteelRodSr = standaloneSupplyReqs.Single(sr => sr.SupplyMethod == SupplyMethod.Purchase);
         var standaloneSteelRodPoUuid = standaloneSteelRodSr.SupplySourceUuid!.Value;
+        standaloneSteelRodPoUuid.Should().NotBe(steelRodPoUuid,
+            "STEP 5's own PO is past Draft by now (submitted/approved/sent) — PC-06 only consolidates onto a still-Draft PO, so this shortage gets a genuinely new one");
         await SubmitAndFullyApprovePoAsync(standaloneSteelRodPoUuid);
-        await ReceiveFullyAsync(standaloneSteelRodPoUuid, warehouse.Uuid, 2);
+        await ReceiveFullyAsync(standaloneSteelRodPoUuid, steelRod.VariantUuid, warehouse.Uuid, 2);
+        // A31 C10 — same as STEP 5: the order-scoped convenience endpoint this time, proving that
+        // path too rather than only ever exercising the per-variant one above.
+        await RunAllocationForOrderAsync(standaloneUuid);
 
         (await GetAsync<ProductionOrderDetailModel>($"/api/production-orders/{standaloneUuid}")).Status.Should().Be(ProductionOrderStatus.Ready);
 
@@ -506,10 +543,13 @@ public sealed class ManufacturingCycleTests : IClassFixture<ProcurementCycleWebA
         sendResp.StatusCode.Should().Be(HttpStatusCode.OK, $"PO send failed: {await sendResp.Content.ReadAsStringAsync()}");
     }
 
-    private async Task ReceiveFullyAsync(Guid poUuid, Guid warehouseUuid, decimal quantity)
+    /// <summary>Receives one PO line in full via GRN. Targets the line by <paramref name="variantUuid"/>,
+    /// not position — A31-C3/PC-06 can consolidate more than one shortage's line onto the same PO
+    /// (see STEP 5), so a PO received across several calls is the normal case now, not an edge case.</summary>
+    private async Task ReceiveFullyAsync(Guid poUuid, Guid variantUuid, Guid warehouseUuid, decimal quantity)
     {
         var po = await GetAsync<PoDetailModel>($"/api/purchase-orders/{poUuid}");
-        var line = po.Lines.Single();
+        var line = po.Lines.Single(l => l.VariantUuid == variantUuid);
 
         var grnUuid = await PostAsync<Guid>("/api/grns", new CreateGrnRequest
         {
@@ -522,6 +562,23 @@ public sealed class ManufacturingCycleTests : IClassFixture<ProcurementCycleWebA
 
         var approveResp = await _admin.PostAsJsonAsync($"/api/grns/{grnUuid}/approve", new { Remarks = (string?)null });
         approveResp.StatusCode.Should().Be(HttpStatusCode.OK, $"GRN approve failed: {await approveResp.Content.ReadAsStringAsync()}");
+    }
+
+    /// <summary>A31 C10 — a GRN's own receipt no longer runs allocation by itself; this is the same
+    /// per-variant call the Allocation dashboard's "Run Allocation" button and the GRN detail page's
+    /// own banner both make.</summary>
+    private async Task RunAllocationAsync(Guid variantUuid, Guid warehouseUuid)
+    {
+        var resp = await _admin.PostAsJsonAsync("/api/allocations/run", new { VariantUuid = variantUuid, WarehouseUuid = warehouseUuid });
+        resp.StatusCode.Should().Be(HttpStatusCode.OK, $"allocation run failed: {await resp.Content.ReadAsStringAsync()}");
+    }
+
+    /// <summary>A31-PD-07 — the production-order-scoped convenience: runs allocation once per distinct
+    /// material variant/warehouse the order itself uses.</summary>
+    private async Task RunAllocationForOrderAsync(Guid productionOrderUuid)
+    {
+        var resp = await _admin.PostAsync($"/api/production-orders/{productionOrderUuid}/run-allocation", null);
+        resp.StatusCode.Should().Be(HttpStatusCode.OK, $"order-scoped allocation run failed: {await resp.Content.ReadAsStringAsync()}");
     }
 
     // ── HTTP helpers ──────────────────────────────────────────────────────────────

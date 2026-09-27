@@ -228,10 +228,15 @@ internal sealed class SupplyRequirementEngine : ISupplyRequirementEngine
     {
         var variant = await _inv.ProductVariants.AsNoTracking().Include(v => v.Product)
             .FirstOrDefaultAsync(v => v.Uuid == sr.VariantUuid, ct);
+        if (variant is null) return;
 
-        if (variant?.DefaultSupplierId is not { } supplierId)
+        // A31-C3 §5.4 — tier 1: the variant's own configured default. Tier 2: whoever this variant
+        // was last actually bought from (a real prior purchase, not just a rate card). Tier 3: give up
+        // and leave a note — there is nothing here for a person to act on differently than before.
+        var supplierId = variant.DefaultSupplierId ?? await _purchaseOrders.GetLastSupplierForVariantAsync(sr.VariantUuid);
+        if (supplierId is not { } resolvedSupplierId)
         {
-            sr.Notes     = AppendNote(sr.Notes, "No default supplier is set on this variant; raise the purchase order manually.");
+            sr.Notes     = AppendNote(sr.Notes, "No default supplier is set on this variant, and it has no purchase history; raise the purchase order manually.");
             sr.UpdatedAt = DateTime.UtcNow;
             await _db.SaveChangesAsync(ct);
             return;
@@ -239,15 +244,18 @@ internal sealed class SupplyRequirementEngine : ISupplyRequirementEngine
 
         var warehouseName = await _inv.Warehouses.AsNoTracking()
             .Where(w => w.Uuid == sr.WarehouseUuid).Select(w => w.Name).FirstOrDefaultAsync(ct) ?? string.Empty;
-        var supplierNames = await _supplierNames.GetNamesAsync([supplierId]);
-        var supplierName  = supplierNames.GetValueOrDefault(supplierId, "Unknown supplier");
-        var rate          = await _rates.GetActiveRateAsync(sr.VariantUuid, supplierId, DateOnly.FromDateTime(DateTime.UtcNow));
+        var supplierNames = await _supplierNames.GetNamesAsync([resolvedSupplierId]);
+        var supplierName  = supplierNames.GetValueOrDefault(resolvedSupplierId, "Unknown supplier");
+        var rate          = await _rates.GetActiveRateAsync(sr.VariantUuid, resolvedSupplierId, DateOnly.FromDateTime(DateTime.UtcNow));
         var unitPrice     = rate?.VendorUnitCost ?? variant.LastPurchasePrice ?? variant.PurchasePrice;
         var description   = variant.IsDefault ? variant.Product.Name : $"{variant.Product.Name} – {variant.VariantName}";
 
-        var poUuid = await _purchaseOrders.CreateAsync(new CreatePoRequest
+        // A31-C3/BR-C3-07 — appends to whatever open Draft PO this same mechanism already raised for
+        // this supplier (a new line, or a bumped quantity on a matching one) instead of raising a
+        // second PO every time another shortage happens to need the same supplier.
+        var result = await _purchaseOrders.AddOrIncreaseProductionLineAsync(new CreatePoRequest
         {
-            SupplierId            = supplierId,
+            SupplierId            = resolvedSupplierId,
             SupplierName          = supplierName,
             Lines =
             [
@@ -270,22 +278,99 @@ internal sealed class SupplyRequirementEngine : ISupplyRequirementEngine
             Notes                 = $"Raised automatically for supply requirement {sr.SupplyNumber} ({sr.DemandReference})."
         }, userId);
 
-        var po   = await _purchaseOrders.GetByIdAsync(poUuid);
-        var line = po?.Lines.FirstOrDefault();
-
         sr.SupplySourceType      = SupplySourceType.PurchaseOrder;
-        sr.SupplySourceUuid      = poUuid;
-        sr.SupplySourceLineUuid  = line?.UUID;
-        sr.SupplySourceReference = po?.PoNumber;
+        sr.SupplySourceUuid      = result.PoUuid;
+        sr.SupplySourceLineUuid  = result.LineUuid;
+        sr.SupplySourceReference = result.PoNumber;
         sr.QuantityOrdered       = sr.QuantityRequired;
         sr.Status                = SupplyRequirementStatus.Ordered;
         sr.UpdatedAt             = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);
 
-        if (line is not null)
+        // The line's own total (not just this SR's share of it) — a line two shortages consolidated
+        // onto must register the combined amount, or the second registration would silently overwrite
+        // the first's expected quantity rather than adding to it (AllocationEngine.RegisterSupplyAsync
+        // sets ExpectedQty, it does not accumulate it).
+        await _engine.RegisterSupplyAsync(new AllocationSupplyRegistration(
+            AllocationSupplyType.PurchaseOrder, result.PoUuid, result.LineUuid, result.PoNumber, sr.VariantUuid, sr.WarehouseUuid,
+            result.LineQuantity, sr.RequiredDate), ct);
+
+        if (_notify is not null) await _notify.PurchaseOrderDraftCreatedAsync(sr, result.PoNumber, result.IsNewPo);
+    }
+
+    public async Task<PoConsolidationResult> CreatePurchaseOrderForShortagesAsync(
+        Guid variantUuid, Guid supplierId, string supplierName, decimal quantity, decimal unitPrice,
+        DateTime requiredDate, string? notes, int userId, CancellationToken ct = default)
+    {
+        var variant = await _inv.ProductVariants.AsNoTracking().Include(v => v.Product)
+            .FirstOrDefaultAsync(v => v.Uuid == variantUuid, ct)
+            ?? throw new NotFoundException("Variant", variantUuid);
+
+        // Tracked (not AsNoTracking) — these get updated below, the same fields ActPurchaseAsync sets
+        // for its own single-SR case, so this dashboard-triggered PO stops looking unaddressed
+        // everywhere a supply requirement's own status/reference is read (this dashboard's next
+        // refresh, a production order's own Supply tab, the affected-orders drawer).
+        var openSrs = await _db.SupplyRequirements
+            .Where(s => s.VariantUuid == variantUuid && s.SupplyMethod == SupplyMethod.Purchase &&
+                        SupplyRequirementStatus.LiveStatuses.Contains(s.Status))
+            .ToListAsync(ct);
+
+        var description = variant.IsDefault ? variant.Product.Name : $"{variant.Product.Name} – {variant.VariantName}";
+        // All the open requirements for one variant were already grouped as if they share a delivery
+        // warehouse by this same dashboard's own aggregation (PurchaseRequiredService); carry that
+        // through here rather than resolving one independently.
+        var warehouseUuid = openSrs.Count > 0 ? openSrs[0].WarehouseUuid : (Guid?)null;
+        var warehouseName = warehouseUuid is { } wh
+            ? await _inv.Warehouses.AsNoTracking().Where(w => w.Uuid == wh).Select(w => w.Name).FirstOrDefaultAsync(ct) ?? string.Empty
+            : string.Empty;
+
+        var result = await _purchaseOrders.AddOrIncreaseProductionLineAsync(new CreatePoRequest
+        {
+            SupplierId   = supplierId,
+            SupplierName = supplierName,
+            Lines =
+            [
+                new CreatePoLineRequest
+                {
+                    VariantUuid     = variantUuid,
+                    ItemDescription = description,
+                    UnitOfMeasure   = variant.Product.UomCode,
+                    Quantity        = quantity,
+                    UnitPrice       = unitPrice,
+                    RequiredDate    = requiredDate,
+                    WarehouseId     = warehouseUuid,
+                    WarehouseName   = warehouseUuid.HasValue ? warehouseName : null
+                }
+            ],
+            DeliveryDate          = requiredDate,
+            DeliveryWarehouseId   = warehouseUuid,
+            DeliveryWarehouseName = warehouseUuid.HasValue ? warehouseName : null,
+            Title                 = $"Production supply — {variant.Product.Name}",
+            Notes                 = notes ?? $"Purchase required for production shortage ({openSrs.Count} supply requirement(s))."
+        }, userId);
+
+        var now = DateTime.UtcNow;
+        foreach (var sr in openSrs)
+        {
+            sr.SupplySourceType      = SupplySourceType.PurchaseOrder;
+            sr.SupplySourceUuid      = result.PoUuid;
+            sr.SupplySourceLineUuid  = result.LineUuid;
+            sr.SupplySourceReference = result.PoNumber;
+            sr.QuantityOrdered       = sr.QuantityRequired;
+            sr.Status                = SupplyRequirementStatus.Ordered;
+            sr.UpdatedAt             = now;
+        }
+        if (openSrs.Count > 0) await _db.SaveChangesAsync(ct);
+
+        // Same reasoning as ActPurchaseAsync's own note: the line's post-bump total, not just this
+        // call's own quantity, or a second registration against the same line would silently
+        // overwrite (not add to) whatever expected supply is already registered for it.
+        if (warehouseUuid is { } registerWarehouse)
             await _engine.RegisterSupplyAsync(new AllocationSupplyRegistration(
-                AllocationSupplyType.PurchaseOrder, poUuid, line.UUID, po!.PoNumber, sr.VariantUuid, sr.WarehouseUuid,
-                sr.QuantityRequired, sr.RequiredDate), ct);
+                AllocationSupplyType.PurchaseOrder, result.PoUuid, result.LineUuid, result.PoNumber, variantUuid, registerWarehouse,
+                result.LineQuantity, requiredDate), ct);
+
+        return result;
     }
 
     private async Task ActManufactureAsync(SupplyRequirement sr, int? parentProductionOrderId, int userId, int depth, CancellationToken ct)

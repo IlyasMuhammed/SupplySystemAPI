@@ -25,6 +25,7 @@ import {
 } from '../../../../services/production-order.service';
 import { AuthService } from '../../../service/auth.service';
 import { ApiResponse } from '../../../../services/inventory.service';
+import { AllocationService } from '../../../../services/allocation.service';
 
 /** A30 §29.3 — one production order: its materials, whether they are covered, supply raised for what is short, and floor issues. */
 @Component({
@@ -84,10 +85,16 @@ export class ProductionOrderDetailComponent implements OnInit {
   ledger: ProductionLedger | null = null;
   isLoadingLedger = false;
 
+  // A31 C8/C10 — a GRN receipt no longer runs allocation by itself, so this tab needs its own
+  // trigger to check/reserve availability for this order's own materials.
+  isRunningAllocation = false;
+  runningRowUuid: string | null = null;
+
   constructor(
     private route: ActivatedRoute,
     private router: Router,
     private service: ProductionOrderService,
+    private allocationService: AllocationService,
     private authService: AuthService,
     private messageService: MessageService,
     private confirmationService: ConfirmationService
@@ -171,6 +178,50 @@ export class ProductionOrderDetailComponent implements OnInit {
     this.service.getLedgerForOrder(this.uuid).subscribe({
       next: (res) => { this.isLoadingLedger = false; this.ledger = res.result ?? null; },
       error: () => { this.isLoadingLedger = false; }
+    });
+  }
+
+  // ── Materials tab: Available / Shortage split (A31 C8) ──────────────────────
+  // ProductionMaterialModel already carries IsCovered (a real hold covers the outstanding qty) and
+  // ShortageQuantity (nothing — held or planned — covers it), so the split needs no new endpoint.
+
+  get availableMaterials(): ProductionMaterial[] {
+    return (this.order?.materials ?? []).filter(m => m.status !== 'CANCELLED' && m.isCovered);
+  }
+
+  get shortageMaterials(): ProductionMaterial[] {
+    return (this.order?.materials ?? []).filter(m => m.status !== 'CANCELLED' && !m.isCovered);
+  }
+
+  get canRunAllocation(): boolean {
+    return this.has('ALLOCATION_RUN') && (this.order?.materials.some(m => m.status !== 'CANCELLED') ?? false);
+  }
+
+  /** A31 C10 — checks/reserves availability across every distinct material variant/warehouse this order uses. */
+  runAllocationForOrder(): void {
+    if (!this.canRunAllocation || this.isRunningAllocation) return;
+    this.isRunningAllocation = true;
+    this.service.runAllocation(this.uuid).subscribe({
+      next: () => {
+        this.isRunningAllocation = false;
+        this.messageService.add({ severity: 'success', summary: 'Allocation run', detail: 'Checked availability for this order\'s materials.' });
+        this.load();
+      },
+      error: (err) => { this.isRunningAllocation = false; this.fail(err); }
+    });
+  }
+
+  /** Same run, scoped to just the one material's variant/warehouse — for a single shortage row. */
+  runAllocationForRow(m: ProductionMaterial): void {
+    if (!this.canRunAllocation || this.runningRowUuid) return;
+    this.runningRowUuid = m.uuid;
+    this.allocationService.run(m.materialVariantUuid, m.warehouseUuid).subscribe({
+      next: () => {
+        this.runningRowUuid = null;
+        this.messageService.add({ severity: 'success', summary: 'Allocation run', detail: `Checked availability for ${m.materialProductName}.` });
+        this.load();
+      },
+      error: (err) => { this.runningRowUuid = null; this.fail(err); }
     });
   }
 

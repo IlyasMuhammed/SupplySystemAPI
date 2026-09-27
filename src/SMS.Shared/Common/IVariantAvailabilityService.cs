@@ -17,6 +17,10 @@ public static class VariantAvailabilityChannel
 /// <param name="DisplayName">"Product (SKU)" for a default variant, "Product - Variant (SKU)"
 /// otherwise — the same wording IProductVariantResolver uses, so an error naming a variant reads
 /// the same way everywhere.</param>
+/// <param name="SaleOrderMinQty">A31-C1 — NULL or 0 means unconstrained. Carried here rather than
+/// through a second cross-module call, since a sale order line already resolves this record once
+/// per line for the retail-channel check.</param>
+/// <param name="SaleOrderMaxQty">A31-C1 — same as <see cref="SaleOrderMinQty"/>.</param>
 /// <remarks>Named distinctly from IStockReservationService's own VariantAvailability (that one is
 /// stock quantity; this one is which channels a variant may be sold/issued through) even though
 /// both live in this namespace.</remarks>
@@ -26,7 +30,9 @@ public sealed record VariantChannelAvailability(
     bool   IsAvailableForPos,
     bool   IsAvailableForMirMiv,
     bool   IsAvailableForProduction,
-    bool   IsAvailableForServices)
+    bool   IsAvailableForServices,
+    decimal? SaleOrderMinQty = null,
+    decimal? SaleOrderMaxQty = null)
 {
     public bool ForChannel(string channel) => channel switch
     {

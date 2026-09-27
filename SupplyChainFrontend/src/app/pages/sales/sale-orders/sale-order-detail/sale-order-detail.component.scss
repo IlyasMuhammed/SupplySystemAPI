@@ -5,6 +5,13 @@
 .page-subtitle { color: var(--text-color-secondary); font-size: .875rem; margin: .25rem 0 0; display: flex; gap: .375rem; }
 .header-actions { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
 
+.delivery-unavailable-hint {
+  display: inline-flex; align-items: center; gap: .4rem;
+  font-size: .82rem; color: var(--text-color-secondary, #6b7280);
+  padding: .4rem .7rem; border-radius: 6px; background: var(--surface-100, #f3f4f6);
+  cursor: default;
+}
+
 .loading-state, .not-found { text-align: center; padding: 4rem 1rem; color: var(--text-color-secondary); }
 .not-found i { font-size: 2.5rem; display: block; margin-bottom: .75rem; opacity: .6; }
 .not-found h2 { font-size: 1.125rem; font-weight: 600; margin: 0 0 .25rem; color: var(--text-color); }

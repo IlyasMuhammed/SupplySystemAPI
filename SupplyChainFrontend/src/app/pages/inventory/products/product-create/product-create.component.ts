@@ -164,6 +164,18 @@ export class ProductCreateComponent implements OnInit {
       sellingPrice:        [null, Validators.min(0)],
       barcode:             [''],
 
+      // Default variant's own channel availability + sale order qty limits — unchecked/empty by
+      // default, same as any other variant (a variant claims a channel only once someone has
+      // verified it belongs there), but now settable here instead of only after the fact from the
+      // product's own Variants tab.
+      isAvailableForRetail:     [false],
+      isAvailableForPos:        [false],
+      isAvailableForMirMiv:     [false],
+      isAvailableForProduction: [false],
+      isAvailableForServices:   [false],
+      saleOrderMinQty:     [null, Validators.min(0)],
+      saleOrderMaxQty:     [null, Validators.min(0)],
+
       // Physical Attributes
       weightKg:            [null],
       dimensions:          [''],
@@ -216,7 +228,9 @@ export class ProductCreateComponent implements OnInit {
       isAvailableForPos:        [false],
       isAvailableForMirMiv:     [false],
       isAvailableForProduction: [false],
-      isAvailableForServices:   [false]
+      isAvailableForServices:   [false],
+      saleOrderMinQty: [null, Validators.min(0)],
+      saleOrderMaxQty: [null, Validators.min(0)]
     });
   }
 
@@ -448,12 +462,13 @@ export class ProductCreateComponent implements OnInit {
         barcode: string; weight: number | null; reorderPoint: number | null;
         isAvailableForRetail: boolean; isAvailableForPos: boolean; isAvailableForMirMiv: boolean;
         isAvailableForProduction: boolean; isAvailableForServices: boolean;
+        saleOrderMinQty: number | null; saleOrderMaxQty: number | null;
       }>;
-      // The product-level form has no channel checkboxes of its own, so the variant synthesized
-      // from it starts available nowhere — same as any other freshly created variant, editable
-      // afterwards from the product's own Variants tab.
-      const variantsPayload: CreateProductVariantRequest[] | undefined = extraVariants.length > 0
-        ? [
+      // Always sent as Variants[] (never the scalar Purchase Price/Selling Price/Barcode path) so
+      // the default variant's own channel checkboxes and sale order qty limits above are actually
+      // honored — the backend only reads those from a variant entry, never from the top-level
+      // scalar fields (see CreateProductRequest's own comment: "Variants supplied wins entirely").
+      const variantsPayload: CreateProductVariantRequest[] = [
             {
               variantName:   raw.name,
               sku:           raw.sku || undefined,
@@ -461,8 +476,13 @@ export class ProductCreateComponent implements OnInit {
               sellingPrice:  raw.sellingPrice ?? undefined,
               barcode:       raw.barcode || undefined,
               isDefault:     true,
-              isAvailableForRetail: false, isAvailableForPos: false, isAvailableForMirMiv: false,
-              isAvailableForProduction: false, isAvailableForServices: false
+              isAvailableForRetail:     !!raw.isAvailableForRetail,
+              isAvailableForPos:        !!raw.isAvailableForPos,
+              isAvailableForMirMiv:     !!raw.isAvailableForMirMiv,
+              isAvailableForProduction: !!raw.isAvailableForProduction,
+              isAvailableForServices:   !!raw.isAvailableForServices,
+              saleOrderMinQty: raw.saleOrderMinQty ?? undefined,
+              saleOrderMaxQty: raw.saleOrderMaxQty ?? undefined
             },
             ...extraVariants.map(v => ({
               variantName:   v.variantName,
@@ -477,10 +497,11 @@ export class ProductCreateComponent implements OnInit {
               isAvailableForPos:        !!v.isAvailableForPos,
               isAvailableForMirMiv:     !!v.isAvailableForMirMiv,
               isAvailableForProduction: !!v.isAvailableForProduction,
-              isAvailableForServices:   !!v.isAvailableForServices
+              isAvailableForServices:   !!v.isAvailableForServices,
+              saleOrderMinQty: v.saleOrderMinQty ?? undefined,
+              saleOrderMaxQty: v.saleOrderMaxQty ?? undefined
             }))
-          ]
-        : undefined;
+          ];
 
       const payload: CreateProductRequest = {
         name:                raw.name,
@@ -491,9 +512,6 @@ export class ProductCreateComponent implements OnInit {
         subCategoryId:       raw.subCategoryId       ?? undefined,
         brand:               raw.brand               || undefined,
         uomCode:             raw.uomCode             ?? undefined,
-        purchasePrice:       variantsPayload ? undefined : (raw.purchasePrice ?? undefined),
-        sellingPrice:        variantsPayload ? undefined : (raw.sellingPrice  ?? undefined),
-        barcode:             variantsPayload ? undefined : (raw.barcode      || undefined),
         variants:            variantsPayload,
         weightKg:            raw.weightKg            ?? undefined,
         dimensions:          raw.dimensions          || undefined,

@@ -37,7 +37,6 @@ export interface BomLineRequest {
   isCritical: boolean;
   alternateVariantUuid?: string;
   notes?: string;
-  warehouseUuid?: string;
   sequence?: number;
 }
 
@@ -46,9 +45,9 @@ export interface CreateBomRequest {
   productVariantUuid?: string;
   baseQuantity: number;
   baseUom?: string;
+  /** A31-C5 — defaults to today on the server when left undefined. */
   effectiveFrom?: string;
   effectiveTo?: string;
-  warehouseUuid?: string;
   notes?: string;
   lines: BomLineRequest[];
 }
@@ -59,8 +58,6 @@ export interface UpdateBomRequest {
   effectiveFrom?: string;
   effectiveTo?: string;
   clearEffectiveDates?: boolean;
-  warehouseUuid?: string;
-  clearWarehouse?: boolean;
   notes?: string;
   lines?: BomLineRequest[];
 }
@@ -87,8 +84,6 @@ export interface BomListItem {
   baseUom: string;
   effectiveFrom?: string | null;
   effectiveTo?: string | null;
-  warehouseUuid?: string | null;
-  warehouseName?: string | null;
   lineCount: number;
   createdAt: string;
   updatedAt: string;
@@ -114,8 +109,6 @@ export interface BomLine {
   alternateVariantUuid?: string | null;
   alternateVariantName?: string | null;
   notes?: string | null;
-  warehouseUuid?: string | null;
-  warehouseName?: string | null;
 }
 
 export interface BomDetail extends BomListItem {

@@ -8,6 +8,12 @@ internal interface IPurchaseOrderRepository
     Task<Guid> CreateFromPrAsync(Guid prUuid, ConvertPrToPoRequest req, int createdBy);
     Task<List<Guid>> CreateFromPrSplitAsync(Guid prUuid, ConvertPrSplitRequest req, int createdBy);
     Task<Guid> CreateAsync(CreatePoRequest req, int createdBy);
+    // A31-C3/BR-C3-07 — finds an open (DRAFT) PO this same mechanism already raised for this
+    // supplier and appends to it (a new line, or a bumped quantity on a matching one) instead of
+    // raising a second PO; creates fresh via CreateAsync when none exists yet. req.Lines must have
+    // exactly one line — the one shortage being acted on.
+    Task<PoConsolidationResult> AddOrIncreaseProductionLineAsync(CreatePoRequest req, int createdBy);
+    Task<Guid?> GetLastSupplierForVariantAsync(Guid variantUuid);
     // A29-P5-03 §6.1/§6.3 — a PO generated from one sale order line's deficit. Decides nothing about
     // supplier, price or quantity; the caller already did.
     Task<CreatedPurchaseOrder> CreateFromSaleOrderDeficitAsync(SaleOrderDeficitPo spec, int createdBy);

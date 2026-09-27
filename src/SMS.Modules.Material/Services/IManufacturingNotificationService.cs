@@ -15,4 +15,7 @@ internal interface IManufacturingNotificationService
     Task SupplyRequirementCreatedAsync(SupplyRequirement sr, string productName);
     Task AllocationCompletedAsync(ProductionOrder po, string materialName, decimal quantity, string uom);
     Task ChainedProductionOrderCreatedAsync(ProductionOrder parent, ProductionOrder child, string materialName);
+    // A31-C3 §5.5 — a purchase order the Supply Requirement Engine raised (or appended a line to) for
+    // a purchased shortage. isNewPo distinguishes "a new draft now exists" from "an existing one grew".
+    Task PurchaseOrderDraftCreatedAsync(SupplyRequirement sr, string poNumber, bool isNewPo);
 }

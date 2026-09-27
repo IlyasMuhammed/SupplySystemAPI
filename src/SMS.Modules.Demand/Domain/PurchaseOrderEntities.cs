@@ -56,6 +56,10 @@ internal static class PurchaseOrderSources
     public const string BackToBack = "BACK_TO_BACK";
     public const string DropShip  = "DROP_SHIP";
     public const string Mir       = "MIR";
+    // A31-C3 §5.3 — a Draft PO the manufacturing Supply Requirement Engine raised for a purchased
+    // shortage. Lets consolidation (BR-C3-07) find "an existing draft this mechanism already raised
+    // for this supplier" without guessing from Title/Notes text.
+    public const string Production = "PRODUCTION";
 }
 
 internal class PurchaseOrderLine : ITenantScopedEntity

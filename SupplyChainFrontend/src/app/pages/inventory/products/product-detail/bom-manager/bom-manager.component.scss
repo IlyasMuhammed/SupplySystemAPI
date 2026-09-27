@@ -1,0 +1,330 @@
+// A31-C4 — inline BOM two-panel layout, embedded on the Product form (was a standalone module).
+
+.bom-mandatory-warning {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  border-radius: 6px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #9a3412;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.bom-panels {
+  display: flex;
+  gap: 1.25rem;
+  align-items: flex-start;
+
+  @media (max-width: 900px) {
+    flex-direction: column;
+  }
+}
+
+// ── Panel 1 — list ────────────────────────────────────────────────────────────
+.bom-list-panel {
+  flex: 0 0 35%;
+  min-width: 260px;
+  border: 1px solid var(--surface-200, #e5e7eb);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.bom-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: linear-gradient(90deg, #f8f7ff 0%, #f5f7fa 100%);
+  border-bottom: 1px solid #ede9fe;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.bom-list-empty {
+  padding: 1.5rem 1rem;
+  color: var(--text-color-secondary, #6b7280);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.bom-list-items { padding: 0.4rem; }
+
+.bom-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 0.75rem;
+  border-radius: 6px;
+  cursor: pointer;
+  border-left: 3px solid transparent;
+  margin-bottom: 0.2rem;
+
+  &:hover { background: var(--surface-50, #f9fafb); }
+
+  &.active {
+    background: var(--surface-100, #f3f4f6);
+    border-left-color: #6c63ff;
+  }
+
+  &.is-active-bom { border-left-color: #22c55e; }
+
+  &.new-draft {
+    cursor: default;
+    background: var(--surface-50, #f9fafb);
+    border-left-color: #94a3b8;
+  }
+}
+
+.bom-list-item-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.bom-number { font-weight: 600; font-size: 0.85rem; }
+.bom-version { font-size: 0.72rem; color: var(--text-color-secondary, #6b7280); }
+
+.bom-compare-link {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0.6rem 1rem;
+  border: none;
+  border-top: 1px solid var(--surface-200, #e5e7eb);
+  background: transparent;
+  color: #6c63ff;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover { background: var(--surface-50, #f9fafb); }
+}
+
+// ── Panel 2 — editor ──────────────────────────────────────────────────────────
+.bom-editor-panel {
+  flex: 1 1 65%;
+  min-width: 0;
+  border: 1px solid var(--surface-200, #e5e7eb);
+  border-radius: 8px;
+  padding: 1.25rem;
+  background: #fff;
+}
+
+.bom-empty-state {
+  text-align: center;
+  padding: 3rem 1.5rem;
+  color: var(--text-color-secondary, #6b7280);
+
+  i { font-size: 2.5rem; color: #cbd5e1; margin-bottom: 1rem; display: block; }
+  p { max-width: 360px; margin: 0 auto 1.25rem auto; }
+}
+
+.bom-editor-loading {
+  padding: 2rem;
+  text-align: center;
+  color: var(--text-color-secondary, #6b7280);
+}
+
+.bom-editor-head {
+  margin-bottom: 1.25rem;
+}
+
+.bom-editor-title {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.bom-number-big { color: #1e293b; }
+.bom-version-big { color: var(--text-color-secondary, #6b7280); font-weight: 500; font-size: 0.9rem; }
+
+.bom-warn {
+  margin-top: 0.4rem;
+  font-size: 0.8rem;
+  color: #b45309;
+}
+
+.bom-lines-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 1.5rem 0 0.5rem 0;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.bom-lines { display: flex; flex-direction: column; gap: 0.625rem; }
+
+// One card per component — the material picker (variable height: one dropdown for a single-variant
+// product, two when the product has several, plus an optional thumbnail) gets its own full-width
+// row instead of competing for space with the numeric fields in one cramped grid track. Matches the
+// same card-per-line pattern already used for PO lines (po-edit.component.scss's own .line-card).
+.bom-line-card {
+  background: #fff;
+  border: 1px solid var(--surface-200, #e5e7eb);
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: box-shadow 0.18s;
+
+  &:hover { box-shadow: 0 4px 16px rgba(108, 99, 255, 0.1); }
+}
+
+.bom-line-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.9rem;
+  background: linear-gradient(90deg, #f5f3ff 0%, #f9fafb 100%);
+  border-bottom: 1px solid #ede9fe;
+  border-radius: 10px 10px 0 0;
+}
+
+.bom-line-num {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, #6c63ff, #a78bfa);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.bom-line-title { flex: 1; font-size: 0.8rem; font-weight: 600; color: #374151; }
+
+.bom-line-card-body {
+  padding: 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.bom-line-material {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.bom-line-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+
+  @media (max-width: 640px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.bom-line-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+
+  label { font-size: 0.68rem; color: var(--text-color-secondary, #6b7280); font-weight: 600; text-transform: uppercase; }
+}
+
+.bom-line-critical {
+  justify-content: center;
+  p-checkbox { margin-top: 0.2rem; }
+}
+
+.bom-line-remove {
+  border: none;
+  background: transparent;
+  color: #ef4444;
+  cursor: pointer;
+  padding: 0.3rem;
+  border-radius: 6px;
+  flex-shrink: 0;
+  display: flex;
+
+  &:hover:not(:disabled) { background: #fef2f2; }
+  &:disabled { color: #cbd5e1; cursor: not-allowed; }
+}
+
+.bom-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--surface-200, #e5e7eb);
+}
+
+// ── Shared field-grid classes (same shape as product-detail's own edit form) ──
+.ef-grid { display: grid; gap: 1rem 1.25rem; margin-bottom: 0.5rem; }
+.ef-grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.ef-span-2 { grid-column: span 2; }
+.ef-field { display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; }
+.ef-label { font-size: 0.78rem; font-weight: 600; color: #475569; }
+.req { color: #ef4444; }
+
+@media (max-width: 700px) {
+  .ef-grid-2 { grid-template-columns: 1fr; }
+  .ef-span-2 { grid-column: span 1; }
+}
+
+// ── Dialogs ───────────────────────────────────────────────────────────────────
+.dlg-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+}
+
+.compare-picker {
+  display: flex;
+  align-items: end;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+
+  p-dropdown { flex: 1; }
+}
+
+.compare-section-title {
+  font-weight: 700;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 1rem 0 0.5rem 0;
+
+  &.compare-added { color: #16a34a; }
+  &.compare-removed { color: #dc2626; }
+  &.compare-changed { color: #d97706; }
+}
+
+.compare-line-row {
+  padding: 0.4rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  margin-bottom: 0.25rem;
+
+  &.compare-added { background: #f0fdf4; }
+  &.compare-removed { background: #fef2f2; }
+  &.compare-changed { background: #fffbeb; }
+}
+
+.compare-detail {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--text-color-secondary, #6b7280);
+}
+
+.compare-empty {
+  text-align: center;
+  color: var(--text-color-secondary, #6b7280);
+  padding: 1.5rem;
+}

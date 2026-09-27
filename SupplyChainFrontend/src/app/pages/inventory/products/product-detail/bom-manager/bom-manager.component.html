@@ -1,0 +1,254 @@
+<p-toast></p-toast>
+<p-confirmDialog></p-confirmDialog>
+
+<div class="bom-manager" *ngIf="!isLoadingList; else loading">
+
+  <!-- Mandatory-BOM warning (A31-BR-C4-01) -->
+  <div class="bom-mandatory-warning" *ngIf="needsFirstBom">
+    <i class="pi pi-exclamation-triangle"></i>
+    At least one bill of materials is required for a manufacturing product.
+  </div>
+
+  <div class="bom-panels">
+
+    <!-- ═══ Panel 1 — BOM list (left, ~35%) ═══════════════════════════════ -->
+    <div class="bom-list-panel">
+      <div class="bom-list-header">
+        <span>Bills of Materials</span>
+        <p-button icon="pi pi-plus" label="New BOM" size="small" [text]="true" (onClick)="startNewBom()" data-testid="new-bom"></p-button>
+      </div>
+
+      <div class="bom-list-empty" *ngIf="boms.length === 0 && !isNew">
+        No Bill of Materials defined.
+      </div>
+
+      <div class="bom-list-items" *ngIf="boms.length > 0">
+        <div class="bom-list-item" *ngFor="let b of boms"
+             [class.active]="b.uuid === selectedUuid && !isNew"
+             [class.is-active-bom]="b.status === 'ACTIVE'"
+             (click)="selectBom(b.uuid)" [attr.data-testid]="'bom-row-' + b.uuid">
+          <div class="bom-list-item-main">
+            <span class="bom-number">{{ b.bomNumber }}</span>
+            <span class="bom-version">v{{ b.version }}</span>
+          </div>
+          <p-tag [value]="b.status" [severity]="severity(b.status)" [rounded]="true"></p-tag>
+        </div>
+      </div>
+
+      <div class="bom-list-item new-draft" *ngIf="isNew">
+        <div class="bom-list-item-main">
+          <span class="bom-number">New draft</span>
+        </div>
+        <p-tag value="DRAFT" severity="secondary" [rounded]="true"></p-tag>
+      </div>
+
+      <button type="button" class="bom-compare-link" *ngIf="boms.length > 1 && bom" (click)="openCompare()">
+        <i class="pi pi-code-compare"></i> Compare Versions
+      </button>
+    </div>
+
+    <!-- ═══ Panel 2 — BOM editor/viewer (right, ~65%) ═════════════════════ -->
+    <div class="bom-editor-panel">
+
+      <!-- Empty state: manufacturable product, no BOM yet, not currently drafting one -->
+      <div class="bom-empty-state" *ngIf="boms.length === 0 && !isNew">
+        <i class="pi pi-sitemap"></i>
+        <p>Add a Bill of Materials to define the components required to manufacture this product.</p>
+        <p-button label="Create First BOM" icon="pi pi-plus" (onClick)="startNewBom()"></p-button>
+      </div>
+
+      <div *ngIf="isLoadingDetail" class="bom-editor-loading">Loading…</div>
+
+      <form [formGroup]="form" *ngIf="(bom || isNew) && !isLoadingDetail">
+
+        <div class="bom-editor-head">
+          <div class="bom-editor-title">
+            <span class="bom-number-big">{{ isNew ? 'New Bill of Materials' : bom?.bomNumber }}</span>
+            <span class="bom-version-big" *ngIf="!isNew">v{{ bom?.version }}</span>
+            <p-tag *ngIf="!isNew && bom" [value]="bom.status" [severity]="severity(bom.status)"></p-tag>
+          </div>
+          <div class="bom-warn" *ngIf="!isNew && bom && bom.status !== 'DRAFT' && bom.status !== 'REJECTED'">
+            Read only — {{ bom.status | lowercase }} recipes cannot be edited. Use Create New Version instead.
+          </div>
+        </div>
+
+        <div class="ef-grid ef-grid-2">
+          <div class="ef-field">
+            <label class="ef-label">Base Quantity <span class="req">*</span></label>
+            <p-inputnumber formControlName="baseQuantity" mode="decimal" [minFractionDigits]="0" [maxFractionDigits]="4" [min]="0.0001" styleClass="w-full"></p-inputnumber>
+          </div>
+          <div class="ef-field">
+            <label class="ef-label">Base UOM</label>
+            <input type="text" pInputText formControlName="baseUom" placeholder="Defaults to the product's own" class="w-full" />
+          </div>
+          <div class="ef-field">
+            <label class="ef-label">Effective From</label>
+            <p-calendar formControlName="effectiveFrom" dateFormat="yy-mm-dd" [showIcon]="true" styleClass="w-full" appendTo="body"></p-calendar>
+          </div>
+          <div class="ef-field">
+            <label class="ef-label">Effective To</label>
+            <p-calendar formControlName="effectiveTo" dateFormat="yy-mm-dd" [showIcon]="true" styleClass="w-full" appendTo="body"></p-calendar>
+          </div>
+          <div class="ef-field ef-span-2">
+            <label class="ef-label">Notes</label>
+            <textarea pTextarea formControlName="notes" rows="2" class="w-full"></textarea>
+          </div>
+        </div>
+
+        <!-- Components -->
+        <div class="bom-lines-head">
+          <span>Components</span>
+          <p-button icon="pi pi-plus" label="Add Line" size="small" [text]="true" [disabled]="!canEdit" (onClick)="addLine()" data-testid="add-line"></p-button>
+        </div>
+
+        <small class="p-error" *ngIf="lineProblem" data-testid="line-problem">{{ lineProblem }}</small>
+
+        <div formArrayName="lines" class="bom-lines">
+          <div class="bom-line-card" *ngFor="let line of lines.controls; let i = index" [formGroupName]="i" data-testid="bom-line">
+
+            <div class="bom-line-card-header">
+              <div class="bom-line-num">{{ i + 1 }}</div>
+              <span class="bom-line-title">Component {{ i + 1 }}</span>
+              <button type="button" class="bom-line-remove" [disabled]="!canEdit" (click)="removeLine(i)" pTooltip="Remove line">
+                <i class="pi pi-trash"></i>
+              </button>
+            </div>
+
+            <div class="bom-line-card-body">
+              <div class="bom-line-material">
+                <label class="ef-label">Material <span class="req">*</span></label>
+                <ng-container *ngIf="canEdit; else materialReadOnly">
+                  <app-product-variant-picker [products]="materials" channel="PRODUCTION"
+                                              [productUuid]="line.get('materialProductUuid')?.value"
+                                              [variantUuid]="line.get('materialVariantUuid')?.value"
+                                              (selectionChange)="onMaterialSelected(i, $event)"></app-product-variant-picker>
+                </ng-container>
+                <ng-template #materialReadOnly>
+                  <span>{{ line.get('materialName')?.value }}</span>
+                </ng-template>
+              </div>
+
+              <div class="bom-line-grid">
+                <div class="bom-line-field">
+                  <label>Qty <span class="req">*</span></label>
+                  <p-inputnumber formControlName="quantity" mode="decimal" [minFractionDigits]="0" [maxFractionDigits]="6" [min]="0.000001" styleClass="w-full"></p-inputnumber>
+                </div>
+                <div class="bom-line-field">
+                  <label>UOM</label>
+                  <input type="text" pInputText formControlName="uom" class="w-full" />
+                </div>
+                <div class="bom-line-field">
+                  <label>Scrap %</label>
+                  <p-inputnumber formControlName="scrapPercentage" mode="decimal" [minFractionDigits]="0" [maxFractionDigits]="2" [min]="0" [max]="99.99" styleClass="w-full"></p-inputnumber>
+                </div>
+                <div class="bom-line-field bom-line-critical">
+                  <label>Critical</label>
+                  <p-checkbox formControlName="isCritical" [binary]="true"></p-checkbox>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Workflow actions -->
+        <div class="bom-editor-actions">
+          <ng-container *ngIf="isNew">
+            <p-button label="Cancel" severity="secondary" [text]="true" type="button" (onClick)="cancelNew()"></p-button>
+            <p-button label="Save Draft" icon="pi pi-check" type="button" [loading]="isSaving" [disabled]="!canSave" (onClick)="save()" data-testid="save-bom"></p-button>
+          </ng-container>
+
+          <ng-container *ngIf="!isNew && bom">
+            <ng-container *ngIf="bom.status === 'DRAFT' || bom.status === 'REJECTED'">
+              <p-button label="Delete" severity="danger" [text]="true" type="button" [disabled]="!canDelete || busy" (onClick)="deleteBom()"></p-button>
+              <p-button label="Save" icon="pi pi-check" severity="secondary" type="button" [loading]="isSaving" [disabled]="!canSave" (onClick)="save()"></p-button>
+              <p-button label="Submit for Approval" icon="pi pi-send" type="button" [loading]="busy" [disabled]="!canSubmit" (onClick)="submit()"></p-button>
+            </ng-container>
+
+            <ng-container *ngIf="bom.status === 'SUBMITTED'">
+              <p-button label="Reject" severity="danger" [text]="true" type="button" [disabled]="!canApprove || busy" (onClick)="openReject()"></p-button>
+              <p-button label="Approve" icon="pi pi-check" type="button" [loading]="busy" [disabled]="!canApprove" (onClick)="approve()"></p-button>
+            </ng-container>
+
+            <ng-container *ngIf="bom.status === 'APPROVED'">
+              <p-button label="Create New Version" severity="secondary" [text]="true" type="button" [disabled]="!canVersion || busy" (onClick)="newVersion()"></p-button>
+              <p-button label="Activate" icon="pi pi-check" type="button" [loading]="busy" [disabled]="!canActivate" (onClick)="activate()"></p-button>
+            </ng-container>
+
+            <ng-container *ngIf="bom.status === 'ACTIVE'">
+              <p-button label="Obsolete" severity="danger" [text]="true" type="button" [disabled]="!canObsolete || busy" (onClick)="openObsolete()"></p-button>
+              <p-button label="Create New Version" icon="pi pi-plus" type="button" [loading]="busy" [disabled]="!canVersion" (onClick)="newVersion()"></p-button>
+            </ng-container>
+
+            <ng-container *ngIf="bom.status === 'OBSOLETE'">
+              <p-button label="Create New Version" icon="pi pi-plus" type="button" [loading]="busy" [disabled]="!canVersion" (onClick)="newVersion()"></p-button>
+            </ng-container>
+          </ng-container>
+        </div>
+
+      </form>
+    </div>
+  </div>
+</div>
+
+<ng-template #loading>
+  <div class="bom-editor-loading">Loading bills of materials…</div>
+</ng-template>
+
+<!-- Reject dialog -->
+<p-dialog header="Reject this recipe" [(visible)]="rejectVisible" [modal]="true" [style]="{width:'480px'}">
+  <label class="ef-label">Reason <span class="req">*</span></label>
+  <textarea pTextarea [(ngModel)]="rejectReason" rows="3" style="width:100%"></textarea>
+  <div class="dlg-footer">
+    <p-button label="Cancel" severity="secondary" [text]="true" (onClick)="rejectVisible = false"></p-button>
+    <p-button label="Reject" severity="danger" [disabled]="!rejectReason.trim()" (onClick)="confirmReject()"></p-button>
+  </div>
+</p-dialog>
+
+<!-- Obsolete dialog -->
+<p-dialog header="Make this recipe obsolete" [(visible)]="obsoleteVisible" [modal]="true" [style]="{width:'480px'}">
+  <label class="ef-label">Reason (optional)</label>
+  <textarea pTextarea [(ngModel)]="obsoleteReason" rows="3" style="width:100%"></textarea>
+  <div class="dlg-footer">
+    <p-button label="Cancel" severity="secondary" [text]="true" (onClick)="obsoleteVisible = false"></p-button>
+    <p-button label="Obsolete" severity="danger" (onClick)="confirmObsolete()"></p-button>
+  </div>
+</p-dialog>
+
+<!-- Compare versions modal (A31-C4 §6.5) -->
+<p-dialog header="Compare Versions" [(visible)]="showCompare" [modal]="true" [style]="{width:'900px'}" (onHide)="comparison = null">
+  <div class="compare-picker">
+    <label class="ef-label">Compare against</label>
+    <p-dropdown [options]="compareOptions" [(ngModel)]="compareWith" optionLabel="label" optionValue="value"
+                placeholder="Choose a version" styleClass="w-full" appendTo="body"></p-dropdown>
+    <p-button label="Compare" [loading]="isComparing" [disabled]="!compareWith" (onClick)="compare()"></p-button>
+  </div>
+
+  <div class="compare-result" *ngIf="comparison as c">
+    <div class="compare-headers" *ngIf="c.headerChanges.length > 0">
+      <div class="compare-section-title">Header changes</div>
+      <ul><li *ngFor="let h of c.headerChanges">{{ h }}</li></ul>
+    </div>
+
+    <div class="compare-lines" *ngIf="c.added.length > 0">
+      <div class="compare-section-title compare-added">Added lines</div>
+      <div *ngFor="let l of c.added" class="compare-line-row compare-added">{{ l.materialProductName }} – {{ l.materialVariantName }} ({{ l.quantity }} {{ l.uom }})</div>
+    </div>
+
+    <div class="compare-lines" *ngIf="c.removed.length > 0">
+      <div class="compare-section-title compare-removed">Removed lines</div>
+      <div *ngFor="let l of c.removed" class="compare-line-row compare-removed">{{ l.materialProductName }} – {{ l.materialVariantName }} ({{ l.quantity }} {{ l.uom }})</div>
+    </div>
+
+    <div class="compare-lines" *ngIf="c.changed.length > 0">
+      <div class="compare-section-title compare-changed">Changed lines</div>
+      <div *ngFor="let ch of c.changed" class="compare-line-row compare-changed">
+        {{ ch.materialName }} — {{ ch.fields.join(', ') }}
+        <span class="compare-detail">{{ ch.before.quantity }} {{ ch.before.uom }} → {{ ch.after.quantity }} {{ ch.after.uom }}</span>
+      </div>
+    </div>
+
+    <div class="compare-empty" *ngIf="c.headerChanges.length === 0 && c.added.length === 0 && c.removed.length === 0 && c.changed.length === 0">
+      No differences between these two versions.
+    </div>
+  </div>
+</p-dialog>

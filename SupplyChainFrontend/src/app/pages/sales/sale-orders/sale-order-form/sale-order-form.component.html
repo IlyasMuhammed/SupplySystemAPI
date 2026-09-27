@@ -156,10 +156,13 @@
           <div class="line-field">
             <label>Quantity <span class="required">*</span></label>
             <p-inputNumber formControlName="quantity" [minFractionDigits]="0" [maxFractionDigits]="4"
-                           [min]="0.0001" [max]="999999" [class.p-invalid]="lineIsInvalid(i, 'quantity')"
+                           [min]="0.0001" [max]="999999"
+                           [class.p-invalid]="lineIsInvalid(i, 'quantity') || lineQtyLimitError(i)"
                            (onBlur)="refreshPrice(i)" styleClass="w-full" inputStyleClass="w-full"
                            data-testid="quantity"></p-inputNumber>
             <small class="p-error" *ngIf="lineIsInvalid(i, 'quantity')">Above zero.</small>
+            <!-- A31-C1/§3.7 -->
+            <small class="p-error" *ngIf="!lineIsInvalid(i, 'quantity') && lineQtyLimitError(i) as err" data-testid="qty-limit-error">{{ err }}</small>
           </div>
 
           <div class="line-field">
@@ -209,7 +212,7 @@
     <div class="form-actions">
       <p-button label="Cancel" [text]="true" severity="secondary" [routerLink]="backLink" data-testid="cancel"></p-button>
       <p-button type="submit" [label]="isEdit ? 'Save changes' : 'Save draft'" icon="pi pi-check"
-                [loading]="isSaving" [disabled]="isSaving" data-testid="save"></p-button>
+                [loading]="isSaving" [disabled]="isSaving || hasLineQtyLimitErrors()" data-testid="save"></p-button>
     </div>
   </form>
 

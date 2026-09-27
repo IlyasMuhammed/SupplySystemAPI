@@ -67,6 +67,7 @@ internal sealed class VariantAvailabilityService : IVariantAvailabilityService
             .Select(v => new VariantChannelAvailability(
                 v.IsDefault ? $"{v.Product.Name} ({v.Sku})" : $"{v.Product.Name} - {v.VariantName} ({v.Sku})",
                 v.IsAvailableForRetail, v.IsAvailableForPos, v.IsAvailableForMirMiv,
-                v.IsAvailableForProduction, v.IsAvailableForServices))
+                v.IsAvailableForProduction, v.IsAvailableForServices,
+                v.SaleOrderMinQty, v.SaleOrderMaxQty))
             .FirstOrDefaultAsync();
 }

@@ -106,7 +106,7 @@ public class BomTests
 
         var uuid = await h.Repo.CreateAsync(new CreateBomRequest
         {
-            ProductUuid = shirt, BaseQuantity = 1, WarehouseUuid = h.Plant, Notes = "Screen print, front only.",
+            ProductUuid = shirt, BaseQuantity = 1, Notes = "Screen print, front only.",
             Lines = [Line(plainV, 1), Line(inkV, 0.05m, scrap: 5)]
         }, Author);
 
@@ -116,7 +116,6 @@ public class BomTests
         bom.Status.Should().Be(BomStatus.Draft);
         bom.ProductName.Should().Be("Printed T-Shirt");
         bom.BaseUom.Should().Be("PCS", "defaulted from the product");
-        bom.WarehouseName.Should().Be("Plant");
         bom.Lines.Should().HaveCount(2);
         bom.Lines[0].Sequence.Should().Be(10);
         bom.Lines[0].MaterialProductName.Should().Be("Plain T-Shirt");
