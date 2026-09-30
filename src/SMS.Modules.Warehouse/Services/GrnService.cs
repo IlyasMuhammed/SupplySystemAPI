@@ -79,6 +79,9 @@ internal sealed class GrnService : IGrnService
         });
     }
 
+    public Task MarkAllocationRunAsync(Guid grnUuid, int runBy) =>
+        _repo.MarkAllocationRunAsync(grnUuid, runBy);
+
     // QC confirm: advances the current GRN_QC workflow step.
     // When the final QC step is approved, GrnQcStatusHandler auto-submits to the GRN approval workflow.
     //

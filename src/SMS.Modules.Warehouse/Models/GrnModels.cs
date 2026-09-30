@@ -186,6 +186,8 @@ public class GrnDetailModel
     public bool InspectionComplete { get; set; }
     public int InspectedLineCount { get; set; }
     public int TotalLineCount { get; set; }
+    public DateTime? AllocationRunAt { get; set; }
+    public int?      AllocationRunBy { get; set; }
     public bool IsPartialReceipt { get; set; }
     public int      CreatedBy   { get; set; }
     public DateTime CreatedDate { get; set; }

@@ -65,6 +65,11 @@ export interface DemandAllocationSummary {
   requiredDate: string;
   priority: number;
   status: AllocationDemandStatus;
+  // Only set on the unfiltered dashboard listing (GetDemandsAsync) — null elsewhere.
+  productUuid?: string | null;
+  productName?: string | null;
+  variantName?: string | null;
+  variantSku?: string | null;
 }
 
 export interface AllocationSummary {
@@ -203,10 +208,13 @@ export class AllocationService {
     return this.http.get<ApiResponse<AvailabilityResult>>(`${this.base}/availability`, { params });
   }
 
-  getDemands(variantUuid?: string | null, openOnly = true, demandType?: string): Observable<ApiResponse<DemandAllocationSummary[]>> {
+  getDemands(
+    variantUuid?: string | null, openOnly = true, demandType?: string | null, warehouseUuid?: string | null
+  ): Observable<ApiResponse<DemandAllocationSummary[]>> {
     let params = new HttpParams().set('openOnly', String(openOnly));
-    if (variantUuid) params = params.set('variantUuid', variantUuid);
-    if (demandType)  params = params.set('demandType',  demandType);
+    if (variantUuid)   params = params.set('variantUuid',   variantUuid);
+    if (demandType)    params = params.set('demandType',    demandType);
+    if (warehouseUuid) params = params.set('warehouseUuid', warehouseUuid);
     return this.http.get<ApiResponse<DemandAllocationSummary[]>>(`${this.base}/demands`, { params });
   }
 

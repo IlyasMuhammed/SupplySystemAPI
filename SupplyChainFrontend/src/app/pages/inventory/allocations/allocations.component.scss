@@ -39,7 +39,7 @@
 :host ::ng-deep .read-only-note, :host ::ng-deep .run-note { display: block; margin-bottom: 1rem; }
 
 // ── Picker row ──────────────────────────────────────────────────────────────
-.picker-row { display: grid; grid-template-columns: minmax(0, 2fr) minmax(12rem, 1fr) auto; gap: 1rem; align-items: end; }
+.picker-row { display: grid; grid-template-columns: minmax(0, 2fr) minmax(10rem, 1fr) minmax(10rem, 1fr) auto; gap: 1rem; align-items: end; }
 .picker-field { display: flex; flex-direction: column; gap: .375rem; min-width: 0; label { font-size: .875rem; font-weight: 600; } }
 .picker-actions { display: flex; gap: .5rem; }
 .hint { color: var(--text-color-secondary); font-size: .8125rem; }

@@ -322,6 +322,8 @@ export interface GrnDetailModel {
   inspectionComplete: boolean;
   inspectedLineCount: number;
   totalLineCount: number;
+  allocationRunAt?: string;
+  allocationRunBy?: number;
   isPartialReceipt: boolean;
   createdDate: string;
   lines: GrnLineModel[];
@@ -370,6 +372,12 @@ export class WarehouseService {
 
   submitGrn(uuid: string): Observable<ApiResponse<null>> {
     return this.http.post<ApiResponse<null>>(`${BASE}/grns/${uuid}/submit`, {});
+  }
+
+  // Pure UI marker — records that allocation has been run from this GRN's page, so the button
+  // only needs clicking once. Called after a run finished with no failures.
+  markAllocationRun(uuid: string): Observable<ApiResponse<null>> {
+    return this.http.post<ApiResponse<null>>(`${BASE}/grns/${uuid}/allocation-run`, {});
   }
 
   // ── Multi-level approval workflow ─────────────────────────────────────────

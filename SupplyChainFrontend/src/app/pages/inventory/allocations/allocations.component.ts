@@ -64,9 +64,19 @@ export class AllocationsComponent implements OnInit {
 
   selection: VariantPickerSelection | null = null;
   selectedWarehouseUuid: string | null = null;
+  filterDemandType: string | null = null;
 
-  availability: AvailabilityResult | null = null;
+  // The listing loads every open demand across every variant as soon as the catalogue is ready —
+  // no variant pick required. The picker, warehouse and demand-type dropdowns above it are then
+  // optional filters on that same listing, not a gate in front of it.
   demands: DemandAllocationSummary[] = [];
+  isLoadingDemands = false;
+  demandsLoadFailed = false;
+
+  // The variant-specific deep dive (on-hand/reserved/available and the actual hold records) —
+  // still necessarily per-variant, since "availability" only means something for one variant at
+  // a time. Populated once a variant is picked, or a demand row is inspected.
+  availability: AvailabilityResult | null = null;
   allocations: AllocationSummary[] = [];
   allocationsTotal = 0;
   isLoading = false;
@@ -139,24 +149,74 @@ export class AllocationsComponent implements OnInit {
       if (!products || !warehouses) {
         this.messageService.add({ severity: 'warn', summary: 'Warning', detail: 'Some of the catalogue could not be loaded.' });
       }
+      this.loadDemands();
     });
   }
 
   onSelection(selection: VariantPickerSelection): void {
     this.selection = selection.variantUuid ? selection : null;
     this.lastRun = null;
-    this.refresh();
+    // An explicit pick from the filter row narrows the listing to that variant, same as choosing
+    // a warehouse or demand type does — unlike inspectDemand(), which only opens the detail panel
+    // below without touching what the listing shows.
+    this.loadDemands();
+    this.refreshVariantDetail();
   }
 
   onWarehouseChange(): void {
-    this.refresh();
+    this.loadDemands();
+    this.refreshVariantDetail();
   }
 
-  refresh(): void {
+  onDemandTypeFilterChange(): void {
+    this.loadDemands();
+  }
+
+  clearFilters(): void {
+    this.selection = null;
+    this.selectedWarehouseUuid = null;
+    this.filterDemandType = null;
+    this.lastRun = null;
+    this.loadDemands();
+    this.refreshVariantDetail();
+  }
+
+  /** Opens the availability/allocations panel for one row without narrowing the listing above it. */
+  inspectDemand(d: DemandAllocationSummary): void {
+    if (!d.variantUuid) return;
+    this.selection = {
+      productUuid: d.productUuid ?? null,
+      productName: d.productName ?? null,
+      variantId: null,
+      variantUuid: d.variantUuid,
+      variantSku: d.variantSku ?? null,
+      variantName: d.variantName ?? null,
+      purchasePrice: null,
+      uomCode: null
+    };
+    this.lastRun = null;
+    this.refreshVariantDetail();
+  }
+
+  loadDemands(): void {
+    this.isLoadingDemands = true;
+    this.demandsLoadFailed = false;
+    this.service.getDemands(this.variantUuid, true, this.filterDemandType, this.selectedWarehouseUuid).subscribe({
+      next: (res) => {
+        this.isLoadingDemands = false;
+        this.demands = res.result ?? [];
+      },
+      error: () => {
+        this.isLoadingDemands = false;
+        this.demandsLoadFailed = true;
+      }
+    });
+  }
+
+  refreshVariantDetail(): void {
     const variantUuid = this.variantUuid;
     if (!variantUuid) {
       this.availability = null;
-      this.demands = [];
       this.allocations = [];
       this.allocationsTotal = 0;
       return;
@@ -166,13 +226,11 @@ export class AllocationsComponent implements OnInit {
     this.loadFailed = false;
     forkJoin({
       availability: this.service.getAvailability(variantUuid, this.selectedWarehouseUuid),
-      demands:      this.service.getDemands(variantUuid),
       allocations:  this.service.getAllocations({ variantUuid, warehouseUuid: this.selectedWarehouseUuid ?? undefined, pageSize: 200 })
     }).subscribe({
-      next: ({ availability, demands, allocations }) => {
+      next: ({ availability, allocations }) => {
         this.isLoading = false;
         this.availability = availability.result ?? null;
-        this.demands = demands.result ?? [];
         this.allocations = allocations.result?.items ?? [];
         this.allocationsTotal = allocations.result?.total ?? 0;
       },
@@ -181,6 +239,11 @@ export class AllocationsComponent implements OnInit {
         this.loadFailed = true;
       }
     });
+  }
+
+  private reloadAll(): void {
+    this.loadDemands();
+    this.refreshVariantDetail();
   }
 
   run(): void {
@@ -196,7 +259,7 @@ export class AllocationsComponent implements OnInit {
           severity: 'success', summary: 'Allocation run',
           detail: r ? `${r.demandsEvaluated} demand(s): held ${r.quantityReserved}, planned ${r.quantityPlanned}, short ${r.shortage}.` : 'Done.'
         });
-        this.refresh();
+        this.reloadAll();
       },
       error: (err) => {
         this.isRunning = false;
@@ -220,7 +283,7 @@ export class AllocationsComponent implements OnInit {
         this.isSaving = false;
         this.releaseTarget = null;
         this.messageService.add({ severity: 'success', summary: 'Released', detail: 'The allocation was released.' });
-        this.refresh();
+        this.reloadAll();
       },
       error: (err) => {
         this.isSaving = false;
@@ -245,7 +308,7 @@ export class AllocationsComponent implements OnInit {
         this.isSaving = false;
         this.moveTarget = null;
         this.messageService.add({ severity: 'success', summary: 'Moved', detail: 'The stock now belongs to the other demand.' });
-        this.refresh();
+        this.reloadAll();
       },
       error: (err) => {
         this.isSaving = false;
@@ -269,7 +332,7 @@ export class AllocationsComponent implements OnInit {
         this.isSaving = false;
         this.cancelTarget = null;
         this.messageService.add({ severity: 'success', summary: 'Cancelled', detail: 'The demand was cancelled and its stock freed.' });
-        this.refresh();
+        this.reloadAll();
       },
       error: (err) => {
         this.isSaving = false;
@@ -312,7 +375,7 @@ export class AllocationsComponent implements OnInit {
           severity: 'success', summary: 'Registered',
           detail: d ? `${d.reference}: held ${d.reservedQty}, planned ${d.plannedQty}, short ${d.shortage}.` : 'The demand was registered.'
         });
-        this.refresh();
+        this.reloadAll();
       },
       error: (err) => {
         this.isSaving = false;

@@ -560,11 +560,9 @@ export class AppMenu {
                         { label: 'All Orders', icon: 'pi pi-fw pi-list',
                           routerLink: ['/portal/pages/manufacturing/production-orders'],
                           permRequired: ['PROD_VIEW'] },
-                        { label: 'Shortages', icon: 'pi pi-fw pi-exclamation-triangle',
-                          routerLink: ['/portal/pages/manufacturing/shortages'],
-                          permRequired: ['PROD_VIEW'] },
                         // A31 C9 — consolidated per-product view; replaces raising a purchase order
-                        // per shortage from the (read-only) Shortages page above.
+                        // per shortage from the old read-only Shortages page, whose nav link this
+                        // superseded (the route itself still exists, just no longer linked here).
                         { label: 'Purchase Required', icon: 'pi pi-fw pi-shopping-cart',
                           routerLink: ['/portal/pages/manufacturing/purchase-required'],
                           permRequired: ['SUPPLY_VIEW'] }

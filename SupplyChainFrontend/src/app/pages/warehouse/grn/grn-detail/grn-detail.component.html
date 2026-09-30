@@ -42,8 +42,8 @@
 
         <!-- DRAFT: Submit for QC -->
         <p-button *ngIf="canSubmit" label="Submit for QC" icon="pi pi-send"
-                  severity="info" [loading]="isSubmitting"
-                  pTooltip="Move to PENDING_QC"
+                  severity="info" [loading]="isSubmitting" [disabled]="hasUncheckedLines"
+                  [pTooltip]="hasUncheckedLines ? 'Record a receiving check (Pass/Fail/Partial) for every line before submitting' : 'Move to PENDING_QC'"
                   (onClick)="submitGrn()"></p-button>
 
         <!-- PENDING_QC: QC Confirm + QC Reject -->
@@ -84,10 +84,15 @@
     <!-- ── A31 C10 §12.3 — a receipt no longer runs allocation by itself ────── -->
     <p-message *ngIf="canRunAllocation" severity="warn" styleClass="note" data-testid="allocation-banner">
       <div class="allocation-banner">
-        <span>Stock received. Run allocation to distribute it to pending demands — safe to run again any time, it only ever evaluates what's still owed against what's actually on the shelf.</span>
+        <span>Stock received. Run allocation once to distribute it to pending demands.</span>
         <p-button label="Run Allocation" icon="pi pi-sync" size="small" [loading]="isRunningAllocation"
                   (onClick)="runAllocation()" data-testid="run-allocation"></p-button>
       </div>
+    </p-message>
+
+    <!-- Already run from this page — the button doesn't need clicking again. -->
+    <p-message *ngIf="grn.status === 'APPROVED' && grn.allocationRunAt" severity="success" styleClass="note" data-testid="allocation-done">
+      <span><i class="pi pi-check-circle"></i> Allocation already run for this receipt, on {{ grn.allocationRunAt | date:'dd MMM yyyy, HH:mm' }}.</span>
     </p-message>
 
     <!-- What the last run in this session actually did — the checkable answer to "is this working". -->
@@ -210,20 +215,22 @@
         <p class="notes-text">{{ grn.notes }}</p>
       </div>
 
-      <div class="info-card attachments-card">
-        <h3><i class="pi pi-paperclip"></i> Driver / Loader Documents</h3>
-        <div class="attachments-card-body">
-          <app-attachment-list interfaceCode="GRN" [documentId]="grn.uuid" [compact]="true"></app-attachment-list>
-        </div>
-      </div>
     </div>
 
     <!-- ── Lines table ─────────────────────────────────────────────────────── -->
     <div class="lines-card">
       <div class="lines-header">
-        <h2 class="section-title"><i class="pi pi-list"></i> Receipt Lines</h2>
+        <div class="inspection-title-group">
+          <h2 class="section-title"><i class="pi pi-list"></i> Receipt Lines</h2>
+          <span *ngIf="canEdit" class="inspection-progress-badge"
+                [class.complete]="!hasUncheckedLines"
+                [class.partial]="hasUncheckedLines && checkedLineCount > 0">
+            <i [class]="hasUncheckedLines ? 'pi pi-clock' : 'pi pi-check-circle'"></i>
+            {{ checkedLineCount }} / {{ grn.lines.length }} lines checked
+          </span>
+        </div>
         <p class="lines-hint" *ngIf="canEdit">
-          <i class="pi pi-pencil"></i> Click a line to record quantities
+          <i class="pi pi-pencil"></i> Click a line to record what actually arrived and a Pass/Fail/Partial check — required before this GRN can go to QC. Formal QC inspection happens after submission, below.
         </p>
       </div>
 
@@ -284,7 +291,11 @@
               <span *ngIf="line.qcResult" class="qc-badge" [class]="'qc-' + line.qcResult.toLowerCase()">
                 {{ line.qcResult }}
               </span>
-              <span *ngIf="!line.qcResult" class="text-secondary">—</span>
+              <button *ngIf="!line.qcResult && canEdit" type="button" class="qc-badge qc-pending as-button"
+                      (click)="openLineDialog(line)">
+                <i class="pi pi-exclamation-circle"></i> Not checked
+              </button>
+              <span *ngIf="!line.qcResult && !canEdit" class="text-secondary">—</span>
             </td>
             <td>
               <span *ngIf="line.hasVariance" class="variance-badge">
@@ -496,6 +507,15 @@
       </div>
     </div>
 
+    <!-- Driver / Loader Documents — kept below the lines/inspection a reader ── -->
+    <!-- actually came for, since its list can run long. -->
+    <div class="info-card attachments-card">
+      <h3><i class="pi pi-paperclip"></i> Driver / Loader Documents</h3>
+      <div class="attachments-card-body">
+        <app-attachment-list interfaceCode="GRN" [documentId]="grn.uuid" [compact]="true"></app-attachment-list>
+      </div>
+    </div>
+
     <!-- Audit Trail -->
     <div class="audit-trail-card">
       <div class="audit-trail-header">
@@ -571,9 +591,10 @@
                          [min]="0" styleClass="full-width" placeholder="Qty failing QC"></p-inputNumber>
         </div>
         <div class="field">
-          <label>QC Result</label>
+          <label>QC Result <span class="required">*</span></label>
           <p-dropdown formControlName="qcResult" [options]="qcResultOptions"
                       placeholder="Select result" styleClass="full-width"></p-dropdown>
+          <small class="hint">Your own check on what arrived — the QC department's formal inspection happens later, after this GRN is submitted.</small>
         </div>
         <div class="field">
           <label>Batch Number</label>
@@ -603,7 +624,7 @@
     <ng-template pTemplate="footer">
       <p-button label="Cancel" severity="secondary" [text]="true" (onClick)="showLineDialog=false"></p-button>
       <p-button label="Save" icon="pi pi-check" severity="warn"
-                [loading]="isSavingLine" (onClick)="saveLineChanges()"></p-button>
+                [loading]="isSavingLine" [disabled]="lineForm.invalid" (onClick)="saveLineChanges()"></p-button>
     </ng-template>
   </p-dialog>
 

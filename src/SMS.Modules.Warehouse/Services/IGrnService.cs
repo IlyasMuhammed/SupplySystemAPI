@@ -12,6 +12,7 @@ public interface IGrnService
     Task LinkLineVariantAsync(Guid grnUuid, Guid lineUuid, Guid variantUuid, int modifiedBy);
     Task InspectLineAsync(Guid grnUuid, Guid lineUuid, InspectGrnLineRequest req, int inspectedBy);
     Task SubmitAsync(Guid grnUuid, int modifiedBy);
+    Task MarkAllocationRunAsync(Guid grnUuid, int runBy);
     Task QcConfirmAsync(Guid grnUuid, QcConfirmRequest req, int confirmedBy);
     Task QcRejectAsync(Guid grnUuid, QcRejectRequest req, int rejectedBy);
     Task ApproveAsync(Guid grnUuid, int approvedBy, string? remarks = null);

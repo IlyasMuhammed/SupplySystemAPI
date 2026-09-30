@@ -190,7 +190,9 @@ export class GrnDetailComponent implements OnInit {
       batchNumber:     [''],
       expiryDate:      [null],
       unitCost:        [null],
-      qcResult:        ['PASS']
+      // No silent default — Pass/Fail/Partial has to be a choice the receiving clerk actually
+      // makes, not a value that was already sitting there if they saved without looking at it.
+      qcResult:        [null, Validators.required]
     });
   }
 
@@ -214,7 +216,8 @@ export class GrnDetailComponent implements OnInit {
   // ── A31 C10 — run allocation for this receipt ────────────────────────────────
 
   get canRunAllocation(): boolean {
-    return this.grn?.status === 'APPROVED' && this.authService.hasPermission('ALLOCATION_RUN');
+    return this.grn?.status === 'APPROVED' && !this.grn?.allocationRunAt
+      && this.authService.hasPermission('ALLOCATION_RUN');
   }
 
   private get receivedVariantUuids(): string[] {
@@ -273,6 +276,14 @@ export class GrnDetailComponent implements OnInit {
       const detail = `${results.length} of ${variants.length} allocation runs completed. Failed: ${names.join(', ')} — ${failures[0].message}`;
       this.messageService.add({ severity: 'warn', summary: results.length > 0 ? 'Partly done' : 'Not done', detail, sticky: true });
     }
+
+    // Only record "done" once every variant actually went through — a partial failure leaves
+    // the button up so the user can retry, rather than quietly hiding an unresolved one.
+    if (failures.length === 0) {
+      this.warehouseService.markAllocationRun(this.grn.uuid).subscribe({
+        next: () => { if (this.grn) this.grn.allocationRunAt = new Date().toISOString(); }
+      });
+    }
   }
 
   getWarehouseName(uuid?: string | null): string {
@@ -306,7 +317,7 @@ export class GrnDetailComponent implements OnInit {
       batchNumber:     line.batchNumber     || '',
       expiryDate:      line.expiryDate ? new Date(line.expiryDate) : null,
       unitCost:        line.unitCost        ?? null,
-      qcResult:        line.qcResult        || 'PASS'
+      qcResult:        line.qcResult        || null
     });
     this.showLineDialog = true;
   }
@@ -726,6 +737,14 @@ export class GrnDetailComponent implements OnInit {
 
   get canEdit():          boolean { return this.grn?.status === 'DRAFT'; }
   get canSubmit():        boolean { return this.grn?.status === 'DRAFT'; }
+  // A receiving-time Pass/Fail/Partial per line, distinct from the formal Inspection Results grid
+  // below (which only exists once the GRN reaches PENDING_QC) — this is the one check that's
+  // actually possible before submission, and nothing used to require it, so a GRN could go to QC
+  // with every line still sitting at its untouched default and no one having looked at it.
+  get checkedLineCount(): number { return this.grn?.lines.filter(l => !!l.qcResult).length ?? 0; }
+  get hasUncheckedLines(): boolean {
+    return (this.grn?.lines.some(l => !l.qcResult)) ?? false;
+  }
   get canQcConfirm():     boolean { return this.grn?.status === 'PENDING_QC'; }
   // Any line still requiring inspection with no saved result (or a locally-edited-but-unsaved
   // row) would otherwise get silently auto-passed at full received quantity by the backend's

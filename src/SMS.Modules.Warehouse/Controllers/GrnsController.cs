@@ -104,6 +104,17 @@ public class GrnsController : ControllerBase
         return Ok(ApiResponse.Ok(StaticResponseMessage.recordUpdatedSuccessfully));
     }
 
+    // Pure UI marker — records that someone has run allocation from this GRN's page, so the
+    // button only has to be clicked once instead of resurfacing on every reload. Does not touch
+    // the allocation engine itself; the frontend calls it once its own per-variant run has
+    // finished with no failures.
+    [HttpPost("{uuid:guid}/allocation-run")]
+    public async Task<IActionResult> MarkAllocationRun(Guid uuid)
+    {
+        await _service.MarkAllocationRunAsync(uuid, User.GetUserId());
+        return Ok(ApiResponse.Ok("Allocation run recorded."));
+    }
+
     [HttpPost("{uuid:guid}/qc-confirm")]
     public async Task<IActionResult> QcConfirmGrn(Guid uuid, [FromBody] QcConfirmRequest req)
     {

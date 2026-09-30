@@ -175,7 +175,17 @@ public sealed record DemandAllocationSummary(
     decimal  Shortage,
     DateTime RequiredDate,
     int      Priority,
-    string   Status);
+    string   Status)
+{
+    // Init-only, not positional — GetDemandsAsync fills these in for its own cross-variant
+    // listing (the allocation dashboard's "every open demand" view); every other caller of this
+    // record (a single run's own results, a per-variant lookup already showing the variant
+    // elsewhere on screen) leaves them null rather than pay for a join it doesn't need.
+    public Guid?   ProductUuid { get; init; }
+    public string? ProductName { get; init; }
+    public string? VariantName { get; init; }
+    public string? VariantSku  { get; init; }
+}
 
 public sealed record AllocationSummary(
     Guid      Uuid,
@@ -279,7 +289,8 @@ public interface IAllocationEngine
     Task<DemandAllocationSummary> RegisterDemandAsync(AllocationDemandRegistration demand, int userId, CancellationToken ct = default);
     Task<DemandAllocationSummary?> GetDemandAsync(Guid demandRegistryUuid, CancellationToken ct = default);
     Task<IReadOnlyList<DemandAllocationSummary>> GetDemandsAsync(
-        Guid? variantUuid = null, string? demandType = null, Guid? demandUuid = null, bool openOnly = true, CancellationToken ct = default);
+        Guid? variantUuid = null, string? demandType = null, Guid? demandUuid = null, bool openOnly = true,
+        Guid? warehouseUuid = null, CancellationToken ct = default);
     /// <summary>Releases every allocation the demand holds and closes it. Idempotent.</summary>
     Task CancelDemandAsync(Guid demandRegistryUuid, string reason, int userId, CancellationToken ct = default);
 

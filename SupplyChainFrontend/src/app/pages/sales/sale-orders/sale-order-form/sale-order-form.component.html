@@ -50,7 +50,7 @@
           <label>Customer <span class="required">*</span></label>
           <p-autoComplete formControlName="customer" [suggestions]="customerSuggestions" field="companyName"
                           (completeMethod)="searchCustomers($event)" (onSelect)="onCustomerSelected($event.value)"
-                          (onClear)="onCustomerCleared()" [minLength]="1" [dropdown]="true"
+                          (onClear)="onCustomerCleared()" (onFocus)="onCustomerFieldFocus()" [minLength]="1" [dropdown]="true"
                           placeholder="Search customers by name…" styleClass="w-full" inputStyleClass="w-full"
                           appendTo="body" data-testid="customer"></p-autoComplete>
           <small class="p-error" *ngIf="form.get('customer')?.invalid && form.get('customer')?.touched" data-testid="customer-error">

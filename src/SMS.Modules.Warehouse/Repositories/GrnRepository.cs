@@ -378,6 +378,19 @@ internal sealed class GrnRepository : IGrnRepository
             throw new UnprocessableEntityException(
                 $"Only DRAFT GRNs can be submitted. Current status: {grn.Status}.");
 
+        // The formal Inspection Results grid only exists once the GRN reaches PENDING_QC, so it
+        // can't gate this transition — but nothing else did either, letting a GRN go to QC with
+        // every line still at its untouched receiving default (QtyAccepted == QtyReceived,
+        // QcResult null) and no one having actually looked at what came off the truck. Require a
+        // receiving-time Pass/Fail/Partial on every line first, mirroring QcConfirmAsync's own
+        // "block on what's unrecorded" check for the later formal QC step.
+        var uncheckedLines = grn.Lines.Where(l => string.IsNullOrEmpty(l.QcResult)).ToList();
+        if (uncheckedLines.Count > 0)
+            throw new UnprocessableEntityException(
+                "Cannot submit for QC — a receiving check has not been recorded for: " +
+                string.Join(", ", uncheckedLines.Select(l => l.ItemDescription)) +
+                ". Record Pass/Fail/Partial for each line before submitting.");
+
         grn.IsPartialReceipt = grn.Lines.Any(l => l.QtyReceived < l.QtyOrdered);
         grn.ModifiedBy       = modifiedBy;
         grn.ModifiedDate     = DateTime.UtcNow;
@@ -386,6 +399,19 @@ internal sealed class GrnRepository : IGrnRepository
         await _audit.LogAsync(modifiedBy, null, "WAREHOUSE", "SUBMIT", "GRN", grn.UUID,
             fieldChanged: "Status", oldValue: "DRAFT", newValue: "SUBMITTED",
             notes: $"GRN {grn.GrnNumber} submitted for approval");
+    }
+
+    // Records that allocation has been run from this GRN's page at least once, so the button
+    // stops reappearing on every reload once it's actually been used — it's a UI marker only,
+    // not a gate on the allocation engine itself (which stays safe to call again from anywhere).
+    public async Task MarkAllocationRunAsync(Guid grnUuid, int runBy)
+    {
+        var grn = await _wh.Grns.FirstOrDefaultAsync(g => g.UUID == grnUuid && !g.IsDelete)
+            ?? throw new NotFoundException("GRN", grnUuid);
+
+        grn.AllocationRunAt = DateTime.UtcNow;
+        grn.AllocationRunBy = runBy;
+        await _wh.SaveChangesAsync();
     }
 
     // ── Queries ───────────────────────────────────────────────────────────────
@@ -504,6 +530,8 @@ internal sealed class GrnRepository : IGrnRepository
             InspectionComplete     = grn.Lines.Any() && grn.Lines.All(l => l.InspectionResult is not null),
             InspectedLineCount     = grn.Lines.Count(l => l.InspectionResult is not null),
             TotalLineCount         = grn.Lines.Count,
+            AllocationRunAt        = grn.AllocationRunAt,
+            AllocationRunBy        = grn.AllocationRunBy,
             IsPartialReceipt       = grn.IsPartialReceipt,
             CreatedBy              = grn.CreatedBy,
             CreatedDate            = grn.CreatedDate,

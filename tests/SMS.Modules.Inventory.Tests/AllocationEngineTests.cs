@@ -297,6 +297,34 @@ public class AllocationEngineTests
         await act.Should().NotThrowAsync("cancelling twice is nothing to complain about");
     }
 
+    // ── Allocation dashboard listing — no variant required, product/variant names attached ────
+
+    [Fact]
+    public async Task GetDemandsAsync_with_no_filters_returns_every_open_demand_with_product_and_variant_names()
+    {
+        var h = await NewAsync();
+        await DemandAsync(h, 5, warehouse: h.MainWh, reference: "SO-A");
+        await DemandAsync(h, 3, warehouse: h.SecondWh, reference: "SO-B");
+
+        var all = await h.Engine.GetDemandsAsync();
+
+        all.Should().HaveCount(2);
+        all.Should().OnlyContain(d => d.ProductUuid != null && d.ProductName == "Plain T-Shirt"
+            && d.VariantName == "Default" && d.VariantSku == "TSHIRT-PLAIN-1");
+    }
+
+    [Fact]
+    public async Task GetDemandsAsync_can_narrow_to_one_warehouse_without_naming_a_variant()
+    {
+        var h = await NewAsync();
+        var mainDemand = await DemandAsync(h, 5, warehouse: h.MainWh, reference: "SO-A");
+        await DemandAsync(h, 3, warehouse: h.SecondWh, reference: "SO-B");
+
+        var mainOnly = await h.Engine.GetDemandsAsync(warehouseUuid: h.MainWh);
+
+        mainOnly.Should().ContainSingle(d => d.Uuid == mainDemand.Uuid);
+    }
+
     [Fact]
     public async Task Releasing_one_allocation_frees_exactly_that_much()
     {

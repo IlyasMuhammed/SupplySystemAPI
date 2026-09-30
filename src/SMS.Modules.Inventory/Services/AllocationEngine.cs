@@ -118,16 +118,30 @@ internal sealed class AllocationEngine : IAllocationEngine
 
     public async Task<IReadOnlyList<DemandAllocationSummary>> GetDemandsAsync(
         Guid? variantUuid = null, string? demandType = null, Guid? demandUuid = null, bool openOnly = true,
-        CancellationToken ct = default)
+        Guid? warehouseUuid = null, CancellationToken ct = default)
     {
         var query = _db.AllocationDemands.Include(d => d.Allocations).AsQueryable();
         if (variantUuid is { } v)               query = query.Where(d => d.VariantUuid == v);
         if (!string.IsNullOrWhiteSpace(demandType)) query = query.Where(d => d.DemandType == demandType);
         if (demandUuid is { } du)               query = query.Where(d => d.DemandUuid == du);
+        if (warehouseUuid is { } wh)             query = query.Where(d => d.WarehouseUuid == wh);
         if (openOnly)                           query = query.Where(d => d.Status == AllocationDemandStatus.Open);
 
-        var demands = await query.OrderBy(d => d.RequiredDate).ThenBy(d => d.Id).ToListAsync(ct);
-        return demands.Select(Summary).ToList();
+        var demands  = await query.OrderBy(d => d.RequiredDate).ThenBy(d => d.Id).ToListAsync(ct);
+        var summaries = demands.Select(Summary).ToList();
+
+        // Only this listing needs names — a run's own results and a per-variant lookup already
+        // show the variant elsewhere on screen, so Summary() itself stays a plain in-memory map
+        // with no query in it.
+        var variantUuids = summaries.Select(s => s.VariantUuid).Distinct().ToList();
+        var names = await _db.ProductVariants.AsNoTracking()
+            .Where(v => variantUuids.Contains(v.Uuid))
+            .Select(v => new { v.Uuid, v.Sku, v.VariantName, ProductUuid = v.Product.Uuid, ProductName = v.Product.Name })
+            .ToDictionaryAsync(v => v.Uuid, ct);
+
+        return summaries.Select(s => names.TryGetValue(s.VariantUuid, out var n)
+            ? s with { ProductUuid = n.ProductUuid, ProductName = n.ProductName, VariantName = n.VariantName, VariantSku = n.Sku }
+            : s).ToList();
     }
 
     public Task CancelDemandAsync(Guid demandRegistryUuid, string reason, int userId, CancellationToken ct = default) =>

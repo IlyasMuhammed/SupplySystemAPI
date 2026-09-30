@@ -51,145 +51,47 @@
       </div>
     </div>
 
-    <!-- ── Info cards ──────────────────────────────────────────────────── -->
-    <div class="info-grid">
-
-      <!-- Supplier -->
-      <div class="info-card">
-        <div class="ic-head">
-          <div class="ic-icon"><i class="pi pi-building"></i></div>
-          <span class="ic-title">Supplier</span>
-        </div>
-        <div class="supplier-display">
+    <!-- ── Summary (supplier, financials, references — one compact strip) ─ -->
+    <div class="po-summary-card">
+      <div class="summary-top">
+        <div class="summary-supplier">
           <div class="supplier-avatar">{{ po.supplierName.charAt(0).toUpperCase() }}</div>
           <div class="supplier-meta">
             <div class="supplier-name">{{ po.supplierName }}</div>
-            <div class="supplier-sub">Vendor / Supplier</div>
+            <div class="supplier-sub">Supplier</div>
           </div>
+        </div>
+
+        <div class="summary-stats">
+          <div class="stat-item">
+            <span class="stat-label"><i class="pi pi-calendar"></i> Delivery</span>
+            <span class="stat-value">{{ po.deliveryDate ? (po.deliveryDate | date:'dd MMM yyyy') : '—' }}</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label"><i class="pi pi-clock"></i> Created</span>
+            <span class="stat-value">{{ po.createdDate | date:'dd MMM yyyy' }}</span>
+          </div>
+        </div>
+
+        <div class="summary-total">
+          <span class="total-label">Order Total</span>
+          <span class="total-amount">{{ po.totalAmount | number:'1.2-2' }}</span>
         </div>
       </div>
 
-      <!-- Financials -->
-      <div class="info-card">
-        <div class="ic-head">
-          <div class="ic-icon ic-icon--green"><i class="pi pi-chart-bar"></i></div>
-          <span class="ic-title">Financials &amp; Dates</span>
+      <div class="summary-refs" *ngIf="po.notes || po.linkedPrUuids?.length">
+        <div class="notes-inline" *ngIf="po.notes">
+          <i class="pi pi-align-left"></i>
+          <span>{{ po.notes }}</span>
         </div>
-        <div class="total-hero">
-          <span class="total-hero-label">Order Total</span>
-          <span class="total-hero-amount">{{ po.totalAmount | number:'1.2-2' }}</span>
-        </div>
-        <div class="meta-rows">
-          <div class="meta-row">
-            <span><i class="pi pi-calendar"></i> Delivery Date</span>
-            <strong>{{ po.deliveryDate ? (po.deliveryDate | date:'dd MMM yyyy') : '—' }}</strong>
-          </div>
-          <div class="meta-row">
-            <span><i class="pi pi-clock"></i> Created</span>
-            <strong>{{ po.createdDate | date:'dd MMM yyyy' }}</strong>
-          </div>
-        </div>
-      </div>
-
-      <!-- References -->
-      <div class="info-card" *ngIf="po.linkedPrUuids?.length || po.notes">
-        <div class="ic-head">
-          <div class="ic-icon ic-icon--indigo"><i class="pi pi-link"></i></div>
-          <span class="ic-title">References</span>
-        </div>
-        <div *ngIf="po.notes" class="notes-block">
-          <div class="notes-label">Notes</div>
-          <div class="notes-text">{{ po.notes }}</div>
-        </div>
-        <div *ngIf="po.linkedPrUuids?.length" class="pr-links">
-          <div class="pr-links-label">
-            <i class="pi pi-file-edit"></i>
-            Linked Requisitions
-            <span class="pr-count-badge">{{ po.linkedPrUuids.length }}</span>
-          </div>
+        <div class="pr-links-inline" *ngIf="po.linkedPrUuids?.length">
+          <i class="pi pi-file-edit pr-links-icon" [pTooltip]="'Linked requisitions'"></i>
           <a *ngFor="let pr of po.linkedPrUuids"
              [routerLink]="['/portal/pages/demand/requisitions', pr.uuid]"
-             class="pr-view-btn"
+             class="pr-pill"
              [pTooltip]="pr.prTitle" tooltipPosition="top">
-            <i class="pi pi-file-edit"></i>
-            <span>{{ pr.prNumber }}<ng-container *ngIf="pr.prTitle"> — {{ pr.prTitle }}</ng-container></span>
-            <i class="pi pi-arrow-right pr-arrow"></i>
+            <span>{{ pr.prNumber }}</span>
           </a>
-        </div>
-      </div>
-
-      <!-- Attachments -->
-      <div class="info-card">
-        <div class="ic-head">
-          <div class="ic-icon ic-icon--indigo"><i class="pi pi-paperclip"></i></div>
-          <span class="ic-title">Attachments</span>
-        </div>
-        <app-attachment-list interfaceCode="PO" [documentId]="po.uuid" [compact]="true"></app-attachment-list>
-      </div>
-
-    </div>
-
-    <!-- ── Workflow Approval Progress ──────────────────────────────────── -->
-    <div class="approval-panel" *ngIf="po.status === 'PENDING_APPROVAL'">
-      <div class="approval-panel-head">
-        <div class="ic-icon ic-icon--amber"><i class="pi pi-sitemap"></i></div>
-        <div>
-          <div class="approval-title">Approval Progress</div>
-          <div class="approval-sub">Workflow steps for this purchase order</div>
-        </div>
-      </div>
-
-      <div *ngIf="isLoadingApproval" class="approval-loading">
-        <i class="pi pi-spin pi-spinner"></i> Loading workflow status...
-      </div>
-
-      <div *ngIf="!isLoadingApproval && !approvalDetail" class="approval-no-workflow">
-        <i class="pi pi-exclamation-circle"></i>
-        No active workflow definition found for this PO. Go to
-        <a routerLink="/portal/pages/workflow-admin/workflows/new" class="approval-link">Workflow Admin</a>
-        to set one up.
-      </div>
-
-      <div *ngIf="!isLoadingApproval && approvalDetail" class="approval-steps">
-        <div *ngFor="let step of approvalDetail.steps; let last = last"
-             class="wf-step"
-             [class.wf-step--current]="step.isCurrentStep"
-             [class.wf-step--done]="step.status === 'APPROVED'"
-             [class.wf-step--rejected]="step.status === 'REJECTED'">
-
-          <div class="wf-step-track">
-            <div class="wf-dot">
-              <i *ngIf="step.status === 'APPROVED'" class="pi pi-check"></i>
-              <i *ngIf="step.status === 'REJECTED'" class="pi pi-times"></i>
-              <i *ngIf="step.status === 'SKIPPED'"  class="pi pi-forward"></i>
-              <span *ngIf="!['APPROVED','REJECTED','SKIPPED'].includes(step.status)">{{ step.stepNumber }}</span>
-            </div>
-            <div class="wf-line" *ngIf="!last"></div>
-          </div>
-
-          <div class="wf-step-body">
-            <div class="wf-step-header">
-              <span class="wf-step-name">{{ step.stepName }}</span>
-              <p-tag [value]="step.status" [severity]="getStepSeverity(step.status)" styleClass="wf-badge"></p-tag>
-            </div>
-            <div class="wf-step-meta">
-              <span *ngIf="step.assignedRole" class="wf-meta-chip wf-meta-role">
-                <i class="pi pi-id-card"></i> {{ step.assignedRole }}
-              </span>
-              <span *ngIf="step.resolvedApproverName" class="wf-meta-chip">
-                <i class="pi pi-user"></i> {{ step.resolvedApproverName }}
-              </span>
-              <span *ngIf="step.actedAt" class="wf-meta-chip">
-                <i class="pi pi-clock"></i> {{ step.actedAt | date:'dd MMM yyyy, HH:mm' }}
-              </span>
-              <span *ngIf="step.isCurrentStep && step.dueAt" class="wf-meta-chip wf-meta-due">
-                <i class="pi pi-calendar"></i> Due: {{ step.dueAt | date:'dd MMM yyyy' }}
-              </span>
-            </div>
-            <div class="wf-step-comments" *ngIf="step.comments">
-              <i class="pi pi-comment"></i> {{ step.comments }}
-            </div>
-          </div>
         </div>
       </div>
     </div>
@@ -279,6 +181,81 @@
         </table>
       </div>
 
+    </div>
+
+    <!-- ── Workflow Approval Progress ──────────────────────────────────── -->
+    <div class="approval-panel" *ngIf="po.status === 'PENDING_APPROVAL'">
+      <div class="approval-panel-head">
+        <div class="ic-icon ic-icon--amber"><i class="pi pi-sitemap"></i></div>
+        <div>
+          <div class="approval-title">Approval Progress</div>
+          <div class="approval-sub">Workflow steps for this purchase order</div>
+        </div>
+      </div>
+
+      <div *ngIf="isLoadingApproval" class="approval-loading">
+        <i class="pi pi-spin pi-spinner"></i> Loading workflow status...
+      </div>
+
+      <div *ngIf="!isLoadingApproval && !approvalDetail" class="approval-no-workflow">
+        <i class="pi pi-exclamation-circle"></i>
+        No active workflow definition found for this PO. Go to
+        <a routerLink="/portal/pages/workflow-admin/workflows/new" class="approval-link">Workflow Admin</a>
+        to set one up.
+      </div>
+
+      <div *ngIf="!isLoadingApproval && approvalDetail" class="approval-steps">
+        <div *ngFor="let step of approvalDetail.steps; let last = last"
+             class="wf-step"
+             [class.wf-step--current]="step.isCurrentStep"
+             [class.wf-step--done]="step.status === 'APPROVED'"
+             [class.wf-step--rejected]="step.status === 'REJECTED'">
+
+          <div class="wf-step-track">
+            <div class="wf-dot">
+              <i *ngIf="step.status === 'APPROVED'" class="pi pi-check"></i>
+              <i *ngIf="step.status === 'REJECTED'" class="pi pi-times"></i>
+              <i *ngIf="step.status === 'SKIPPED'"  class="pi pi-forward"></i>
+              <span *ngIf="!['APPROVED','REJECTED','SKIPPED'].includes(step.status)">{{ step.stepNumber }}</span>
+            </div>
+            <div class="wf-line" *ngIf="!last"></div>
+          </div>
+
+          <div class="wf-step-body">
+            <div class="wf-step-header">
+              <span class="wf-step-name">{{ step.stepName }}</span>
+              <p-tag [value]="step.status" [severity]="getStepSeverity(step.status)" styleClass="wf-badge"></p-tag>
+            </div>
+            <div class="wf-step-meta">
+              <span *ngIf="step.assignedRole" class="wf-meta-chip wf-meta-role">
+                <i class="pi pi-id-card"></i> {{ step.assignedRole }}
+              </span>
+              <span *ngIf="step.resolvedApproverName" class="wf-meta-chip">
+                <i class="pi pi-user"></i> {{ step.resolvedApproverName }}
+              </span>
+              <span *ngIf="step.actedAt" class="wf-meta-chip">
+                <i class="pi pi-clock"></i> {{ step.actedAt | date:'dd MMM yyyy, HH:mm' }}
+              </span>
+              <span *ngIf="step.isCurrentStep && step.dueAt" class="wf-meta-chip wf-meta-due">
+                <i class="pi pi-calendar"></i> Due: {{ step.dueAt | date:'dd MMM yyyy' }}
+              </span>
+            </div>
+            <div class="wf-step-comments" *ngIf="step.comments">
+              <i class="pi pi-comment"></i> {{ step.comments }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Attachments — kept below the lines a reader actually came for, since ── -->
+    <!-- its list can run long and used to stretch the short info cards above it. -->
+    <div class="info-card attachments-card">
+      <div class="ic-head">
+        <div class="ic-icon ic-icon--indigo"><i class="pi pi-paperclip"></i></div>
+        <span class="ic-title">Attachments</span>
+      </div>
+      <app-attachment-list interfaceCode="PO" [documentId]="po.uuid" [compact]="true"></app-attachment-list>
     </div>
 
   </ng-container>

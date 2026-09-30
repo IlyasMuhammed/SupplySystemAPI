@@ -288,7 +288,19 @@ export class SaleOrderFormComponent implements OnInit {
   // ── Customer ────────────────────────────────────────────────────────────────
 
   searchCustomers(event: AutoCompleteCompleteEvent) {
-    this.partnerService.getPartners({ isCustomer: true, active: true, search: event.query, pageSize: 20 }).subscribe({
+    this.runCustomerSearch(event.query);
+  }
+
+  // The field only searched on typed input (or the tiny dropdown-arrow icon, easy to miss on a
+  // field that otherwise looks like a plain dropdown) — clicking straight into the box did
+  // nothing and looked exactly like "no customers exist". Loading the current candidates as soon
+  // as the field is focused means any click into it shows something immediately.
+  onCustomerFieldFocus() {
+    if (this.customerSuggestions.length === 0 && !this.customer) this.runCustomerSearch('');
+  }
+
+  private runCustomerSearch(query: string) {
+    this.partnerService.getPartners({ isCustomer: true, active: true, search: query, pageSize: 20 }).subscribe({
       next: (res) => { this.customerSuggestions = res.result?.data ?? []; },
       error: () => { this.customerSuggestions = []; }
     });

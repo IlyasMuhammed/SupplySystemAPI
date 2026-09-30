@@ -101,9 +101,9 @@ public class AllocationsController : ControllerBase
     [RequirePermission(PermissionCodes.ALLOCATION_VIEW)]
     public async Task<IActionResult> GetDemands(
         [FromQuery] Guid? variantUuid, [FromQuery] string? demandType, [FromQuery] Guid? demandUuid,
-        [FromQuery] bool openOnly = true)
+        [FromQuery] bool openOnly = true, [FromQuery] Guid? warehouseUuid = null)
     {
-        var demands = await _engine.GetDemandsAsync(variantUuid, demandType, demandUuid, openOnly);
+        var demands = await _engine.GetDemandsAsync(variantUuid, demandType, demandUuid, openOnly, warehouseUuid);
         return Ok(ApiResponse<IReadOnlyList<DemandAllocationSummary>>.Ok(demands));
     }
 

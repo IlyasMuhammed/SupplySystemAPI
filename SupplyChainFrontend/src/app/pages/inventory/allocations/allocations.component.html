@@ -19,9 +19,11 @@
       <div class="form-card">
         <div class="picker-row">
           <div class="picker-field">
-            <label>Product and variant</label>
+            <label>Filter by product and variant</label>
             <app-product-variant-picker
               [products]="products"
+              [productUuid]="selection?.productUuid ?? null"
+              [variantUuid]="selection?.variantUuid ?? null"
               (selectionChange)="onSelection($event)">
             </app-product-variant-picker>
             <span class="hint" *ngIf="isLoadingCatalog">Loading the catalogue…</span>
@@ -32,7 +34,15 @@
                         optionLabel="label" optionValue="value" styleClass="w-full" appendTo="body"
                         (onChange)="onWarehouseChange()" data-testid="warehouse"></p-dropdown>
           </div>
+          <div class="picker-field demand-type">
+            <label for="demandTypeFilter">Kind of demand</label>
+            <p-dropdown inputId="demandTypeFilter" [options]="demandTypeOptions" [(ngModel)]="filterDemandType"
+                        optionLabel="label" optionValue="value" [showClear]="true" placeholder="Every kind"
+                        styleClass="w-full" appendTo="body" (onChange)="onDemandTypeFilterChange()" data-testid="demand-type-filter"></p-dropdown>
+          </div>
           <div class="picker-actions">
+            <p-button *ngIf="selection || selectedWarehouseUuid || filterDemandType" label="Clear filters" icon="pi pi-filter-slash"
+                      severity="secondary" [text]="true" (onClick)="clearFilters()" data-testid="clear-filters"></p-button>
             <p-button *ngIf="canRun" label="Register demand" icon="pi pi-plus" severity="secondary" [outlined]="true"
                       [disabled]="!variantUuid" (onClick)="openRegister()" data-testid="register"></p-button>
             <p-button *ngIf="canRun" label="Run allocation" icon="pi pi-play" [loading]="isRunning"
@@ -41,10 +51,69 @@
         </div>
       </div>
 
+      <!-- Open allocation requests — every open demand across the catalogue by default; the row
+           above narrows it. Inspecting one opens its own availability/holds panel below without
+           narrowing this listing. -->
+      <div class="form-card flush">
+        <div class="card-head padded">
+          <div class="card-icon"><i class="pi pi-inbox"></i></div>
+          <div><div class="card-title">Open allocation requests</div><div class="card-sub">In the order the rules would serve them. Filter above, or inspect one for its variant's availability and holds.</div></div>
+        </div>
+
+        <div class="state-card" *ngIf="isLoadingDemands" data-testid="demands-loading">
+          <i class="pi pi-spin pi-spinner"></i>
+          <p>Loading…</p>
+        </div>
+
+        <div class="state-card" *ngIf="demandsLoadFailed && !isLoadingDemands" data-testid="demands-load-failed">
+          <i class="pi pi-exclamation-triangle"></i>
+          <h2>This could not be loaded</h2>
+          <p-button label="Try again" icon="pi pi-refresh" (onClick)="loadDemands()"></p-button>
+        </div>
+
+        <p-table *ngIf="!isLoadingDemands && !demandsLoadFailed" [value]="demands" styleClass="p-datatable-sm" dataKey="uuid" data-testid="demands">
+          <ng-template pTemplate="header">
+            <tr>
+              <th>Product</th><th>Demand</th><th>Priority</th><th>Required</th><th>Warehouse</th>
+              <th class="num">Required</th><th class="num">Held</th><th class="num">Planned</th><th class="num">Consumed</th><th class="num">Short</th>
+              <th>Status</th><th></th>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="body" let-d>
+            <tr [attr.data-testid]="'demand-' + d.reference">
+              <td>
+                <div class="ref">{{ d.productName || '—' }}</div>
+                <div class="sub" *ngIf="d.variantName">{{ d.variantName }}<span *ngIf="d.variantSku"> ({{ d.variantSku }})</span></div>
+              </td>
+              <td><div class="ref">{{ d.reference }}</div><div class="sub">{{ demandTypeLabel(d.demandType) }}</div></td>
+              <td><p-tag [value]="priorityLabel(d.priority)" [severity]="prioritySeverity(d.priority)"></p-tag></td>
+              <td>{{ d.requiredDate | date:'mediumDate' }}</td>
+              <td>{{ warehouseName(d.warehouseUuid) }}</td>
+              <td class="num">{{ d.requiredQty | number:'1.0-4' }}</td>
+              <td class="num">{{ d.reservedQty | number:'1.0-4' }}</td>
+              <td class="num">{{ d.plannedQty | number:'1.0-4' }}</td>
+              <td class="num">{{ d.consumedQty | number:'1.0-4' }}</td>
+              <td class="num" [class.short]="d.shortage > 0">{{ d.shortage | number:'1.0-4' }}</td>
+              <td><p-tag [value]="d.status" [severity]="statusSeverity(d.status)"></p-tag></td>
+              <td class="actions">
+                <p-button icon="pi pi-search" [text]="true" size="small"
+                          pTooltip="Inspect this variant's availability and holds" (onClick)="inspectDemand(d)" [attr.data-testid]="'inspect-' + d.reference"></p-button>
+                <p-button *ngIf="canAdmin && d.status === 'OPEN'" icon="pi pi-times" [text]="true" severity="danger" size="small"
+                          pTooltip="Cancel this demand and free its stock" (onClick)="openCancel(d)"></p-button>
+              </td>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="emptymessage">
+            <tr><td colspan="12" class="empty">Nothing open right now.</td></tr>
+          </ng-template>
+        </p-table>
+      </div>
+
+      <!-- Variant detail: availability and allocation holds, once a variant is filtered or inspected -->
       <div class="state-card" *ngIf="!variantUuid" data-testid="pick-first">
         <i class="pi pi-search"></i>
-        <h2>Pick a product to begin</h2>
-        <p>Availability, demands and allocations are shown per product variant.</p>
+        <h2>Pick or inspect a variant</h2>
+        <p>Availability and allocation holds are shown per product variant — filter above or use a row's inspect icon.</p>
       </div>
 
       <div class="state-card" *ngIf="variantUuid && isLoading" data-testid="loading">
@@ -55,7 +124,7 @@
       <div class="state-card" *ngIf="variantUuid && loadFailed && !isLoading" data-testid="load-failed">
         <i class="pi pi-exclamation-triangle"></i>
         <h2>This could not be loaded</h2>
-        <p-button label="Try again" icon="pi pi-refresh" (onClick)="refresh()"></p-button>
+        <p-button label="Try again" icon="pi pi-refresh" (onClick)="refreshVariantDetail()"></p-button>
       </div>
 
       <ng-container *ngIf="variantUuid && !isLoading && !loadFailed">
@@ -73,44 +142,6 @@
         <p-message *ngIf="lastRun" severity="info" styleClass="run-note" data-testid="last-run">
           Last run: {{ lastRun.demandsEvaluated }} demand(s) evaluated — held {{ lastRun.quantityReserved }}, planned {{ lastRun.quantityPlanned }}, short {{ lastRun.shortage }}.
         </p-message>
-
-        <!-- Demands -->
-        <div class="form-card flush">
-          <div class="card-head padded">
-            <div class="card-icon"><i class="pi pi-inbox"></i></div>
-            <div><div class="card-title">Open demands</div><div class="card-sub">In the order the rules rank them is how a run serves them.</div></div>
-          </div>
-          <p-table [value]="demands" styleClass="p-datatable-sm" dataKey="uuid" data-testid="demands">
-            <ng-template pTemplate="header">
-              <tr>
-                <th>Demand</th><th>Priority</th><th>Required</th><th>Warehouse</th>
-                <th class="num">Required</th><th class="num">Held</th><th class="num">Planned</th><th class="num">Consumed</th><th class="num">Short</th>
-                <th>Status</th><th *ngIf="canAdmin"></th>
-              </tr>
-            </ng-template>
-            <ng-template pTemplate="body" let-d>
-              <tr [attr.data-testid]="'demand-' + d.reference">
-                <td><div class="ref">{{ d.reference }}</div><div class="sub">{{ demandTypeLabel(d.demandType) }}</div></td>
-                <td><p-tag [value]="priorityLabel(d.priority)" [severity]="prioritySeverity(d.priority)"></p-tag></td>
-                <td>{{ d.requiredDate | date:'mediumDate' }}</td>
-                <td>{{ warehouseName(d.warehouseUuid) }}</td>
-                <td class="num">{{ d.requiredQty | number:'1.0-4' }}</td>
-                <td class="num">{{ d.reservedQty | number:'1.0-4' }}</td>
-                <td class="num">{{ d.plannedQty | number:'1.0-4' }}</td>
-                <td class="num">{{ d.consumedQty | number:'1.0-4' }}</td>
-                <td class="num" [class.short]="d.shortage > 0">{{ d.shortage | number:'1.0-4' }}</td>
-                <td><p-tag [value]="d.status" [severity]="statusSeverity(d.status)"></p-tag></td>
-                <td *ngIf="canAdmin" class="actions">
-                  <p-button *ngIf="d.status === 'OPEN'" icon="pi pi-times" [text]="true" severity="danger" size="small"
-                            pTooltip="Cancel this demand and free its stock" (onClick)="openCancel(d)"></p-button>
-                </td>
-              </tr>
-            </ng-template>
-            <ng-template pTemplate="emptymessage">
-              <tr><td colspan="11" class="empty">Nothing is asking for this variant.</td></tr>
-            </ng-template>
-          </p-table>
-        </div>
 
         <!-- Allocations -->
         <div class="form-card flush">

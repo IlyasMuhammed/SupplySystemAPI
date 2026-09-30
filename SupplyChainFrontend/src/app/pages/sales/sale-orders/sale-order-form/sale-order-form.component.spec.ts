@@ -274,6 +274,28 @@ describe('SaleOrderFormComponent', () => {
     expect(component.customerSuggestions).toEqual([]);
   });
 
+  // The field only ever searched on typed input (or the small dropdown-arrow icon) — clicking
+  // straight into an empty box did nothing, which read exactly like "no customers exist".
+  it('loads the current candidates as soon as the field is focused, empty query and all', async () => {
+    await setup();
+    fixture.detectChanges();
+
+    component.onCustomerFieldFocus();
+
+    expect(partners.getPartners).toHaveBeenCalledOnceWith({ isCustomer: true, active: true, search: '', pageSize: 20 });
+    expect(component.customerSuggestions.map(c => c.companyName)).toEqual(['Acme Ltd', 'Globex Corp']);
+  });
+
+  it('does not re-search on focus once a customer is already picked', async () => {
+    await setup();
+    fixture.detectChanges();
+    component.form.get('customer')?.setValue({ uuid: 'p1', companyName: 'Acme Ltd' } as any);
+
+    component.onCustomerFieldFocus();
+
+    expect(partners.getPartners).not.toHaveBeenCalled();
+  });
+
   it('refuses to save without a customer, and does not call the server', async () => {
     await setup();
     fixture.detectChanges();

@@ -50,6 +50,13 @@ internal class Grn : ITenantScopedEntity
     public string? Notes { get; set; }
     public bool RequiresInspection { get; set; } = true;
     public DateTime? InspectionCompletedAt { get; set; }
+
+    // Set the first time someone runs allocation from this GRN's page after it's APPROVED — a
+    // pure UI marker (nothing downstream reads it) so "Run Allocation" only has to be clicked
+    // once instead of staying up forever with no record of whether it was ever pressed.
+    public DateTime? AllocationRunAt { get; set; }
+    public int?      AllocationRunBy { get; set; }
+
     public bool IsPartialReceipt { get; set; }
     public bool IsActive { get; set; } = true;
     public bool IsDelete { get; set; }

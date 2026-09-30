@@ -264,7 +264,7 @@ public class SubmitGrn_Partial_Tests
 
         await repo.UpdateLineAsync(grnUuid, line.UUID, new UpdateGrnLineRequest
         {
-            QtyReceived = 6m, QtyAccepted = 6m, QtyRejected = 0
+            QtyReceived = 6m, QtyAccepted = 6m, QtyRejected = 0, QcResult = "PASS"
         }, modifiedBy: 1);
 
         await repo.SubmitAsync(grnUuid, modifiedBy: 1);
@@ -284,7 +284,7 @@ public class SubmitGrn_Partial_Tests
 
         await repo.UpdateLineAsync(grnUuid, line.UUID, new UpdateGrnLineRequest
         {
-            QtyReceived = 10m, QtyAccepted = 10m, QtyRejected = 0
+            QtyReceived = 10m, QtyAccepted = 10m, QtyRejected = 0, QcResult = "PASS"
         }, modifiedBy: 1);
 
         await repo.SubmitAsync(grnUuid, modifiedBy: 1);
@@ -309,6 +309,60 @@ public class SubmitGrn_Partial_Tests
 
         await act.Should().ThrowAsync<UnprocessableEntityException>()
             .WithMessage("*Only DRAFT*");
+    }
+
+    // A receiving-time QC Result is the only quality check that's actually possible before a GRN
+    // reaches PENDING_QC (the formal Inspection Results grid doesn't exist until then) — without
+    // this, a GRN could go to QC with every line still sitting at its untouched default and no
+    // one having looked at what came off the truck.
+    [Fact]
+    public async Task Throws_UnprocessableEntity_When_A_Line_Has_No_QcResult()
+    {
+        var sentPo = GrnBuild.SentPo(lines: [("Laptop", 10m)]);
+        var (repo, wh, _) = GrnBuild.New(db => db.PurchaseOrders.Add(sentPo));
+        var grnUuid = await repo.CreateAsync(GrnBuild.GrnReq(sentPo.UUID), createdBy: 1);
+
+        var act = () => repo.SubmitAsync(grnUuid, modifiedBy: 1);
+
+        await act.Should().ThrowAsync<UnprocessableEntityException>()
+            .WithMessage("*receiving check has not been recorded*");
+    }
+
+    [Fact]
+    public async Task Succeeds_Once_Every_Line_Has_A_QcResult()
+    {
+        var sentPo = GrnBuild.SentPo(lines: [("Laptop", 10m)]);
+        var (repo, wh, _) = GrnBuild.New(db => db.PurchaseOrders.Add(sentPo));
+        var grnUuid = await repo.CreateAsync(GrnBuild.GrnReq(sentPo.UUID), createdBy: 1);
+        var line    = (await wh.Grns.Include(g => g.Lines).FirstAsync(g => g.UUID == grnUuid)).Lines.First();
+
+        await repo.UpdateLineAsync(grnUuid, line.UUID, new UpdateGrnLineRequest
+        {
+            QtyReceived = 10m, QtyAccepted = 10m, QtyRejected = 0, QcResult = "PASS"
+        }, modifiedBy: 1);
+
+        var act = () => repo.SubmitAsync(grnUuid, modifiedBy: 1);
+
+        await act.Should().NotThrowAsync();
+    }
+}
+
+// ── MarkAllocationRunAsync: "Run Allocation" only needs clicking once per GRN ───────────────
+
+public class MarkAllocationRunAsync_Tests
+{
+    [Fact]
+    public async Task Records_who_and_when_allocation_was_run()
+    {
+        var sentPo = GrnBuild.SentPo();
+        var (repo, wh, _) = GrnBuild.New(db => db.PurchaseOrders.Add(sentPo));
+        var grnUuid = await repo.CreateAsync(GrnBuild.GrnReq(sentPo.UUID), createdBy: 1);
+
+        await repo.MarkAllocationRunAsync(grnUuid, runBy: 7);
+
+        var grn = await wh.Grns.FirstAsync(g => g.UUID == grnUuid);
+        grn.AllocationRunBy.Should().Be(7);
+        grn.AllocationRunAt.Should().NotBeNull();
     }
 }
 

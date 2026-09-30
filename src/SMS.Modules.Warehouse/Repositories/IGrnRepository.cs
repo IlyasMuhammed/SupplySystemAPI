@@ -12,6 +12,7 @@ internal interface IGrnRepository
     Task LinkLineVariantAsync(Guid grnUuid, Guid lineUuid, Guid variantUuid, int modifiedBy);
     Task InspectLineAsync(Guid grnUuid, Guid lineUuid, InspectGrnLineRequest req, int inspectedBy);
     Task SubmitAsync(Guid grnUuid, int modifiedBy);
+    Task MarkAllocationRunAsync(Guid grnUuid, int runBy);
     Task<PaginatedResponse<GrnListItemModel>> GetListAsync(GrnListFilter filter);
     Task<GrnDetailModel?> GetByIdAsync(Guid uuid);
 }

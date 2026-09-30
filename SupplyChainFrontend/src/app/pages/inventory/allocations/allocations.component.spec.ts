@@ -100,12 +100,16 @@ describe('AllocationsComponent', () => {
 
   beforeEach(() => { permissions = ['ALLOCATION_VIEW', 'ALLOCATION_RUN', 'ALLOCATION_ADMIN']; });
 
-  it('loads the catalogue and waits for a product to be picked', async () => {
+  it('loads the catalogue and the full open-demand listing immediately, with no product picked', async () => {
     await setup();
 
     expect(inventory.getProducts).toHaveBeenCalledOnceWith({ activeOnly: true, pageSize: 500 });
     expect(inventory.getWarehouses).toHaveBeenCalledTimes(1);
     expect(component.warehouseOptions.map(o => o.label)).toEqual(['All warehouses', 'Main']);
+    expect(service.getDemands).toHaveBeenCalledWith(null, true, null, null);
+    expect(query('demand-SO-2026-00008')).not.toBeNull();
+    expect(query('demand-PROD-2026-00001')).not.toBeNull();
+    // The listing needs no variant — only the availability/holds panel below it does.
     expect(query('pick-first')).not.toBeNull();
     expect(service.getAvailability).not.toHaveBeenCalled();
   });
@@ -115,13 +119,44 @@ describe('AllocationsComponent', () => {
     pickVariant();
 
     expect(service.getAvailability).toHaveBeenCalledWith('v1', null);
-    expect(service.getDemands).toHaveBeenCalledWith('v1');
+    expect(service.getDemands).toHaveBeenCalledWith('v1', true, null, null);
     expect(service.getAllocations).toHaveBeenCalledWith({ variantUuid: 'v1', warehouseUuid: undefined, pageSize: 200 });
     expect(query('availability')!.textContent).toContain('10');
     expect(query('demand-SO-2026-00008')).not.toBeNull();
     expect(query('demand-PROD-2026-00001')!.textContent).toContain('Production material');
     expect(query('allocation-a1')!.textContent).toContain('RESERVED');
     expect(query('allocation-a1')!.textContent).toContain('Main');
+  });
+
+  it('inspecting a demand opens its variant detail without narrowing the listing', async () => {
+    await setup();
+    expect(query('demand-SO-2026-00008')).not.toBeNull();
+    expect(query('demand-PROD-2026-00001')).not.toBeNull();
+
+    (query('inspect-SO-2026-00008')!.querySelector('button') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    expect(service.getAvailability).toHaveBeenCalledWith('v1', null);
+    expect(query('availability')).not.toBeNull();
+    // The listing itself is untouched by inspecting one row.
+    expect(query('demand-SO-2026-00008')).not.toBeNull();
+    expect(query('demand-PROD-2026-00001')).not.toBeNull();
+  });
+
+  it('narrows the listing by demand type and clears back to everything', async () => {
+    await setup();
+
+    component.filterDemandType = 'PRODUCTION_MATERIAL';
+    component.onDemandTypeFilterChange();
+    expect(service.getDemands).toHaveBeenCalledWith(null, true, 'PRODUCTION_MATERIAL', null);
+
+    pickVariant();
+    component.clearFilters();
+
+    expect(component.selection).toBeNull();
+    expect(component.selectedWarehouseUuid).toBeNull();
+    expect(component.filterDemandType).toBeNull();
+    expect(service.getDemands).toHaveBeenCalledWith(null, true, null, null);
   });
 
   it('runs the engine for the variant and warehouse in view, then reloads', async () => {
@@ -225,15 +260,29 @@ describe('AllocationsComponent', () => {
     expect(toasts.calls.mostRecent().args[0].summary).toBe('Saved');
   });
 
-  it('reports a failed load and can try again', async () => {
+  it('reports a failed demand listing and can try again', async () => {
     await setup();
     service.getDemands.and.returnValue(throwError(() => ({ status: 500 })));
+    component.loadDemands();
+    fixture.detectChanges();
+
+    expect(query('demands-load-failed')).not.toBeNull();
+
+    service.getDemands.and.returnValue(ok([]));
+    component.loadDemands();
+    fixture.detectChanges();
+    expect(query('demands-load-failed')).toBeNull();
+  });
+
+  it('reports a failed variant-detail load and can try again', async () => {
+    await setup();
+    service.getAvailability.and.returnValue(throwError(() => ({ status: 500 })));
     pickVariant();
 
     expect(query('load-failed')).not.toBeNull();
 
-    service.getDemands.and.returnValue(ok([]));
-    component.refresh();
+    service.getAvailability.and.returnValue(ok(AVAILABILITY));
+    component.refreshVariantDetail();
     fixture.detectChanges();
     expect(query('load-failed')).toBeNull();
   });
