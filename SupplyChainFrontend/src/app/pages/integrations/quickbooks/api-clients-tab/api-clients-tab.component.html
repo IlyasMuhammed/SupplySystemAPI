@@ -1,0 +1,181 @@
+<p-confirmDialog key="qbo-api-clients" [style]="{ width: '30rem', maxWidth: '96vw' }"></p-confirmDialog>
+
+<div class="state-card" *ngIf="!canManage" data-testid="no-permission">
+  <i class="pi pi-lock big"></i>
+  <h2>API clients need the Manage integrations permission</h2>
+</div>
+
+<ng-container *ngIf="canManage">
+  <section class="form-card">
+    <div class="card-head">
+      <div class="card-icon"><i class="pi pi-key"></i></div>
+      <div class="grow">
+        <div class="card-title">API clients</div>
+        <div class="card-sub">
+          Other systems (a POS, a web shop) can send customers, vendors, items, invoices and bills to QuickBooks through the
+          same checks SCM uses. Each gets a name, what it may do, and a key.
+        </div>
+      </div>
+      <p-button label="New client" icon="pi pi-plus" (onClick)="openCreate()" data-testid="new-client"></p-button>
+    </div>
+
+    <div class="example" data-testid="example-headers">
+      <div class="example-title">How a client calls the gateway</div>
+      <pre>PUT {{ gatewayBaseUrl }}/customers/&#123;your-customer-id&#125;
+{{ exampleHeaders(null) }}
+Content-Type: application/json</pre>
+      <div class="hint">Each client's records are kept apart from SCM's and from other clients', keyed by the client's name and its own ids.</div>
+    </div>
+  </section>
+
+  <div class="state-card" *ngIf="isLoading && !clients.length"><i class="pi pi-spin pi-spinner big"></i><p>Loading…</p></div>
+
+  <div class="state-inline" *ngIf="loadFailed" data-testid="clients-failed">
+    <i class="pi pi-exclamation-triangle"></i> The clients could not be loaded.
+    <p-button label="Try again" [text]="true" size="small" (onClick)="load()"></p-button>
+  </div>
+
+  <div class="state-card" *ngIf="!isLoading && !loadFailed && !clients.length" data-testid="no-clients">
+    <i class="pi pi-key big"></i>
+    <h2>No API clients yet</h2>
+    <p>Create one for each system that should send records to QuickBooks.</p>
+  </div>
+
+  <section class="form-card client" *ngFor="let c of clients" [class.inactive]="!c.isActive" [attr.data-testid]="'client-' + c.id">
+    <div class="card-head tight">
+      <div class="grow">
+        <div class="card-title">
+          {{ c.name }}
+          <p-tag [value]="c.isActive ? 'Active' : 'Deactivated'" [severity]="c.isActive ? 'success' : 'secondary'"></p-tag>
+        </div>
+        <div class="card-sub">Created {{ c.createdAt | date:'d MMM y' }}</div>
+      </div>
+      <div class="card-actions" *ngIf="c.isActive">
+        <p-button label="Issue key" icon="pi pi-key" size="small" (onClick)="openIssue(c)" [attr.data-testid]="'issue-' + c.id"></p-button>
+        <p-button label="Deactivate" icon="pi pi-ban" size="small" severity="danger" [text]="true"
+                  [disabled]="!!busy[c.id]" (onClick)="confirmDeactivate(c)" [attr.data-testid]="'deactivate-' + c.id"></p-button>
+      </div>
+    </div>
+
+    <div class="scopes">
+      <span class="scope" *ngFor="let s of c.scopes" [pTooltip]="scopeText(s)">{{ s }}</span>
+    </div>
+
+    <p-table [value]="c.keys" styleClass="p-datatable-sm" [tableStyle]="{ 'min-width': '40rem' }">
+      <ng-template pTemplate="header">
+        <tr>
+          <th>Key</th>
+          <th>Created</th>
+          <th>Expires</th>
+          <th>Last used</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-k>
+        <tr data-testid="key-row">
+          <td class="mono">{{ k.keyPrefix }}…</td>
+          <td>{{ k.createdAt | date:'d MMM y' }}</td>
+          <td>{{ k.expiresAt ? (k.expiresAt | date:'d MMM y') : 'Never' }}</td>
+          <td>{{ k.lastUsedAt ? (k.lastUsedAt | date:'d MMM y, HH:mm') : 'Never' }}</td>
+          <td><p-tag [value]="keyStatus(k)" [severity]="keySeverity(keyStatus(k))"></p-tag></td>
+          <td class="text-right">
+            <p-button *ngIf="keyStatus(k) === 'Active'" label="Revoke" icon="pi pi-times" size="small" severity="danger" [text]="true"
+                      [disabled]="!!busy[k.id]" (onClick)="confirmRevoke(c, k)" [attr.data-testid]="'revoke-' + k.id"></p-button>
+          </td>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="emptymessage">
+        <tr><td colspan="6" class="empty">No keys. Issue one to let this client call the gateway.</td></tr>
+      </ng-template>
+    </p-table>
+  </section>
+</ng-container>
+
+<!-- ══ New client ════════════════════════════════════════════════════════ -->
+<p-dialog header="New API client" [(visible)]="createVisible" [modal]="true" [draggable]="false" [closable]="!isCreating"
+          [style]="{ width: '34rem', maxWidth: '96vw' }" data-testid="create-dialog">
+  <div class="field">
+    <label for="clientName">Name <span class="required">*</span></label>
+    <input pInputText id="clientName" [(ngModel)]="newName" [maxlength]="maxName" placeholder="e.g. Shop POS" data-testid="client-name" />
+    <small class="hint">Shown on the sync dashboard next to everything it sends.</small>
+  </div>
+
+  <div class="field scope-field">
+    <label>It may</label>
+    <div class="scope-choice" *ngFor="let s of scopes">
+      <p-checkbox [inputId]="'scope-' + s" [value]="s" [(ngModel)]="newScopes" [attr.data-testid]="'scope-' + s"></p-checkbox>
+      <label [for]="'scope-' + s"><span class="mono">{{ s }}</span> <span class="hint">{{ scopeDescription[s] }}</span></label>
+    </div>
+  </div>
+
+  <small class="p-error" *ngIf="createProblem && (newName || newScopes.length)" data-testid="create-problem">{{ createProblem }}</small>
+
+  <ng-template pTemplate="footer">
+    <p-button label="Cancel" [text]="true" severity="secondary" [disabled]="isCreating" (onClick)="createVisible = false"></p-button>
+    <p-button label="Create client" icon="pi pi-check" [loading]="isCreating" [disabled]="!!createProblem || isCreating"
+              (onClick)="create()" data-testid="create-submit"></p-button>
+  </ng-template>
+</p-dialog>
+
+<!-- ══ Issue a key ═══════════════════════════════════════════════════════ -->
+<p-dialog header="Issue a key" [(visible)]="issueVisible" [modal]="true" [draggable]="false" [closable]="!isIssuing"
+          [style]="{ width: '30rem', maxWidth: '96vw' }" data-testid="issue-dialog">
+  <p class="dialog-hint">A new key for <strong>{{ issueFor?.name }}</strong>. Its other keys keep working until you revoke them.</p>
+  <div class="field">
+    <label for="expiresAt">Expires</label>
+    <p-datepicker inputId="expiresAt" [(ngModel)]="issueExpiresAt" [minDate]="minExpiry" [showClear]="true" [showIcon]="true"
+                  dateFormat="dd/mm/yy" placeholder="Never" appendTo="body" styleClass="w-full"></p-datepicker>
+    <small class="hint">Leave empty for a key that works until revoked.</small>
+  </div>
+  <ng-template pTemplate="footer">
+    <p-button label="Cancel" [text]="true" severity="secondary" [disabled]="isIssuing" (onClick)="issueVisible = false"></p-button>
+    <p-button label="Issue key" icon="pi pi-key" [loading]="isIssuing" [disabled]="isIssuing" (onClick)="issue()" data-testid="issue-submit"></p-button>
+  </ng-template>
+</p-dialog>
+
+<!-- ══ The key, once ═════════════════════════════════════════════════════ -->
+<p-dialog header="Copy the key now" [visible]="keyVisible" (visibleChange)="onKeyDialogVisibleChange($event)" [modal]="true"
+          [draggable]="false" [closeOnEscape]="false" [style]="{ width: '38rem', maxWidth: '96vw' }" data-testid="key-dialog">
+  <ng-container *ngIf="issuedKey as k">
+    <div class="note danger">
+      <i class="pi pi-exclamation-triangle"></i>
+      <div class="note-body">
+        <div class="note-title">You will not see this key again</div>
+        It is not stored anywhere it can be read back. Copy it into {{ issuedFor || 'the other system' }} now; if it is lost, issue a new one.
+      </div>
+    </div>
+
+    <div class="field">
+      <label>API key (X-Api-Key)</label>
+      <div class="secret-row">
+        <code class="secret" data-testid="issued-key">{{ k.apiKey }}</code>
+        <p-button [icon]="copied['key'] ? 'pi pi-check' : 'pi pi-copy'" [label]="copied['key'] ? 'Copied' : 'Copy'" size="small"
+                  (onClick)="copy('key', k.apiKey)" data-testid="copy-key"></p-button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Tenant id (X-Tenant-Id)</label>
+      <div class="secret-row">
+        <code class="secret" data-testid="issued-tenant">{{ k.tenantId }}</code>
+        <p-button [icon]="copied['tenant'] ? 'pi pi-check' : 'pi pi-copy'" [label]="copied['tenant'] ? 'Copied' : 'Copy'" size="small"
+                  [outlined]="true" (onClick)="copy('tenant', k.tenantId)" data-testid="copy-tenant"></p-button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Headers to send</label>
+      <pre class="headers" data-testid="issued-headers">{{ exampleHeaders(k.apiKey) }}</pre>
+      <div>
+        <p-button [icon]="copied['headers'] ? 'pi pi-check' : 'pi pi-copy'" [label]="copied['headers'] ? 'Copied' : 'Copy headers'"
+                  size="small" [text]="true" (onClick)="copy('headers', exampleHeaders(k.apiKey))"></p-button>
+      </div>
+      <small class="hint" *ngIf="k.expiresAt">Expires {{ k.expiresAt | date:'d MMM y' }}.</small>
+    </div>
+  </ng-container>
+
+  <ng-template pTemplate="footer">
+    <p-button label="I have copied the key" icon="pi pi-check" (onClick)="closeKey()" data-testid="close-key"></p-button>
+  </ng-template>
+</p-dialog>

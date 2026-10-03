@@ -43,7 +43,8 @@ file static class Build
             MatchedPoValue    = totalAmount,
             MatchedGrnValue   = 0m,
             VarianceAmount    = 0m,
-            MatchStatus       = "Matched",
+            // Only an approved invoice is a payable.
+            MatchStatus       = "Approved",
             PaymentStatus     = "UNPAID",
             IsActive          = true,
             CreatedBy         = 1,

@@ -237,6 +237,50 @@ public class AgingReceivablesReportTests
     }
 
     [Fact]
+    public async Task A_cancelled_invoice_was_owed_until_the_day_it_was_cancelled_and_not_from_that_day()
+    {
+        // SAP alignment (S-7). Reviewer finding: the report filtered on the invoice's status today, so an as-of
+        // day before the cancellation lost an invoice the customer did owe then — and disagreed with R2, whose
+        // ledger still showed the debit standing on that day.
+        var invoice = _w.Invoice(_w.Acme, "SINV-1", D(9, 1), 1000m, dueDate: D(9, 5));
+        _w.Cancel(invoice, new DateTime(2026, 9, 15, 16, 45, 0));
+
+        (await _w.Service().GetAgingReceivablesAsync(On(D(8, 31)))).Invoices.Should().BeEmpty("not issued yet");
+        var before = (await _w.Service().GetAgingReceivablesAsync(On(D(9, 14)))).Invoices.Should().ContainSingle().Subject;
+        (before.InvoiceNumber, before.AmountPaid, before.Outstanding, before.DaysPastDue).Should().Be(("SINV-1", 0m, 1000m, 9));
+        (await _w.Service().GetAgingReceivablesAsync(On(D(9, 15)))).Invoices.Should().BeEmpty("cancelled during that day, so not owed at its end");
+        (await _w.Service().GetAgingReceivablesAsync(On(D(9, 30)))).Invoices.Should().BeEmpty();
+        (await _w.Service().GetAgingReceivablesAsync(On())).Totals.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task On_any_day_the_aging_of_a_cancelled_invoice_agrees_with_the_customers_ledger_balance()
+    {
+        var kept      = _w.Invoice(_w.Acme, "SINV-KEPT", D(9, 1), 400m);
+        var cancelled = _w.Invoice(_w.Acme, "SINV-VOID", D(9, 2), 600m);
+        _w.Payment(_w.Acme, "CPAY-1", D(9, 4), 100m, [(kept, 100m)]);
+        _w.Cancel(cancelled, D(9, 10));
+
+        foreach (var (day, expected) in new[] { (D(9, 1), 400m), (D(9, 3), 1000m), (D(9, 9), 900m), (D(9, 10), 300m), (D(9, 20), 300m) })
+        {
+            var aging  = await _w.Service().GetAgingReceivablesAsync(On(day));
+            var ledger = await _w.Service().GetCustomerLedgerForExportAsync(new CustomerLedgerReportFilter { PartnerId = _w.Acme, DateTo = day });
+
+            aging.Totals.Sum(t => t.Total).Should().Be(expected, $"what Acme owed at the end of {day:dd MMM}");
+            ledger.Summaries.Single().ClosingBalance.Should().Be(expected, "R2 and R3 read the same books");
+        }
+    }
+
+    [Fact]
+    public async Task A_cancelled_invoice_with_no_cancellation_date_on_record_is_not_a_receivable_on_any_day()
+    {
+        // A row cancelled before the date was kept has nothing to place the cancellation on: it stays out, as before.
+        _w.Invoice(_w.Acme, "SINV-1", D(9, 1), 100m, status: "CANCELLED");
+
+        (await _w.Service().GetAgingReceivablesAsync(On(D(9, 2)))).Invoices.Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task A_day_can_be_given_with_any_time_of_day_and_the_report_says_the_day()
     {
         _w.Invoice(_w.Acme, "SINV-1", new DateTime(2026, 9, 5, 15, 0, 0), 100m);

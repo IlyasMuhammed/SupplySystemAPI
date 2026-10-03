@@ -108,7 +108,7 @@ public class LookupsController : ControllerBase
     [HttpPut("currencies/{id:guid}")]
     [RequirePermission(PermissionCodes.SYSTEM_CONFIGURE)]
     public IActionResult UpdateCurrency(Guid id, [FromBody] CreateCurrencyRequest req) =>
-        _service.UpdateCurrency(id, req)
+        _service.UpdateCurrency(id, req, _checkers)
             ? Ok(ApiResponse.Ok(StaticResponseMessage.recordUpdatedSuccessfully))
             : NotFound(ApiResponse.Fail(StaticResponseMessage.recordNotFound));
 
@@ -139,7 +139,7 @@ public class LookupsController : ControllerBase
     [HttpDelete("currencies/{id:guid}")]
     [RequirePermission(PermissionCodes.SYSTEM_CONFIGURE)]
     public IActionResult DeleteCurrency(Guid id) =>
-        _service.DeleteCurrency(id) ? Ok(ApiResponse.Ok(StaticResponseMessage.recordDeletedSuccessfully)) : NotFound(ApiResponse.Fail(StaticResponseMessage.recordNotFound));
+        _service.DeleteCurrency(id, _checkers) ? Ok(ApiResponse.Ok(StaticResponseMessage.recordDeletedSuccessfully)) : NotFound(ApiResponse.Fail(StaticResponseMessage.recordNotFound));
 
     [HttpDelete("payment-terms/{id:guid}")]
     [RequirePermission(PermissionCodes.SYSTEM_CONFIGURE)]

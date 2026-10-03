@@ -47,7 +47,8 @@ file static class Build
             MatchedPoValue    = totalAmount,
             MatchedGrnValue   = 0m,
             VarianceAmount    = 0m,
-            MatchStatus       = "Matched",
+            // Only an approved invoice is a payable.
+            MatchStatus       = "Approved",
             PaymentStatus     = paymentStatus,
             IsActive          = true,
             CreatedBy         = 1,
@@ -417,12 +418,16 @@ public class SupplierPaymentsController_Authorization_Tests
     }
 
     [Fact]
-    public void Cancel_Has_No_Special_Permission_Gate_Beyond_Authentication()
+    public void Cancel_Requires_PAYMENT_PROCESS_Permission()
     {
+        // Cancelling used to need only a sign-in; it is PAYMENT_PROCESS now, as the payment detail page's Cancel
+        // button already was (see Authorization/FinanceControllerPermissionTests for every action).
         var method = typeof(SupplierPaymentsController).GetMethod(nameof(SupplierPaymentsController.Cancel));
 
         method.Should().NotBeNull();
-        var attr = method!.GetCustomAttributes(typeof(RequirePermissionAttribute), inherit: false);
-        attr.Should().BeEmpty();
+        var attr = method!.GetCustomAttributes(typeof(RequirePermissionAttribute), inherit: false)
+            .Cast<RequirePermissionAttribute>()
+            .Should().ContainSingle().Subject;
+        attr.Policy.Should().Be($"Permission:{PermissionCodes.PAYMENT_PROCESS}");
     }
 }

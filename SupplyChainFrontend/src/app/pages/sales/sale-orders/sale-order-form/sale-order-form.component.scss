@@ -39,7 +39,8 @@
 // A line is a card, not a table row: the item picker is two dropdowns tall and needs room.
 .lines { display: flex; flex-direction: column; gap: .75rem; margin-top: .75rem; }
 .line-card {
-  display: grid; grid-template-columns: 2rem minmax(16rem, 2.4fr) repeat(3, minmax(6rem, .9fr)) minmax(9rem, 1.2fr) 2.5rem;
+  // The third small column is the tax: a code dropdown over its rate when the organization has codes.
+  display: grid; grid-template-columns: 2rem minmax(16rem, 2.4fr) repeat(2, minmax(6rem, .9fr)) minmax(9rem, 1.3fr) minmax(9rem, 1.2fr) 2.5rem;
   gap: .75rem 1rem; align-items: start;
   border: 1px solid var(--surface-200); border-radius: .5rem; padding: .875rem; background: var(--surface-50, #fafafa);
 }
@@ -53,6 +54,7 @@
 .line-price .per { color: var(--text-color-secondary); margin: 0 .375rem 0 .25rem; font-size: .75rem; }
 .line-price .total { font-weight: 600; }
 .line-price .muted { color: var(--text-color-secondary); }
+.line-price .note { display: block; color: var(--text-color-secondary); font-size: .75rem; margin-top: .125rem; }
 .line-price .warn { color: var(--orange-700, #c2410c); font-size: .8125rem; display: inline-flex; gap: .375rem; align-items: flex-start; }
 .line-card > p-button { padding-top: 1.5rem; }
 
@@ -63,6 +65,25 @@
 .form-actions { display: flex; justify-content: flex-end; gap: .625rem; margin-top: 1rem; }
 
 .dialog-hint { font-size: .875rem; color: var(--text-color-secondary); margin: 0 0 1rem; }
+
+// ── A32 PD-07: source, quotation picker, customer PO ─────────────────────────
+.form-card > .hint { display: block; margin-top: .5rem; }
+.muted { color: var(--text-color-secondary); font-size: .8125rem; }
+.text-right { text-align: right; }
+.po-warning { color: var(--orange-700, #c2410c); font-size: .8125rem; display: flex; gap: .375rem; align-items: flex-start; flex-wrap: wrap; }
+.quotation-option { display: flex; flex-direction: column; gap: .125rem; }
+.quotation-summary {
+  display: grid; grid-template-columns: auto 1fr; gap: .375rem 1rem; margin: 1rem 0; font-size: .875rem;
+  dt { color: var(--text-color-secondary); }
+  dd { margin: 0; }
+}
+.quotation-lines {
+  width: 100%; border-collapse: collapse; font-size: .875rem; margin-bottom: .5rem;
+  th, td { padding: .5rem .625rem; border-bottom: 1px solid var(--surface-200); }
+  th { font-size: .75rem; text-transform: uppercase; letter-spacing: .03em; color: var(--text-color-secondary); text-align: left; }
+  th.text-right { text-align: right; }
+  tfoot td { border-bottom: 0; }
+}
 .address-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .875rem 1rem; }
 
 @media (max-width: 960px) {

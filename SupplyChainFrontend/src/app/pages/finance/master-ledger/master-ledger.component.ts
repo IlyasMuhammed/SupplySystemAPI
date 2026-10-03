@@ -19,6 +19,7 @@ import { SupplierService, SupplierListItemModel } from '../../../services/suppli
 
 const TRANSACTION_TYPE_OPTIONS = [
   { label: 'Invoice Approved',     value: 'INVOICE_APPROVED' },
+  { label: 'Invoice Reversed',     value: 'INVOICE_REVERSED' },
   { label: 'Payment',              value: 'PAYMENT' },
   { label: 'Credit Note',          value: 'CREDIT_NOTE' },
   { label: 'Debit Note',           value: 'DEBIT_NOTE' },
@@ -223,6 +224,7 @@ export class MasterLedgerComponent implements OnInit {
       case 'OPENING_BALANCE':
         return 'danger'; // debit — increases what's owed
       case 'PAYMENT':
+      case 'INVOICE_REVERSED':
       case 'CREDIT_NOTE':
       case 'DEBIT_NOTE':
       case 'ADVANCE_PAYMENT':

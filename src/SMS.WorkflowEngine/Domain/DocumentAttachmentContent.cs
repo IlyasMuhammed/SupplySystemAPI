@@ -34,8 +34,8 @@ internal class DocumentAttachmentContent : ITenantScopedEntity
 
     /// <summary>
     /// The permission a caller must hold to read the file, named by the module that filed it —
-    /// this service knows nothing of invoices or deliveries. <c>null</c> means any signed-in user of
-    /// the organization.
+    /// this service knows nothing of invoices or deliveries. It is asked for on top of the document type's
+    /// own view permission (<c>AttachmentAccessPolicy</c>); <c>null</c> means that permission alone.
     /// </summary>
     public string? RequiredPermission { get; set; }
 }

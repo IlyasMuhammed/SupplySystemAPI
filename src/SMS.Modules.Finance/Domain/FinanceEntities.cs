@@ -26,6 +26,22 @@ internal class Invoice : ITenantScopedEntity
     public decimal Subtotal            { get; set; }
     public decimal TaxAmount           { get; set; }
     public decimal TotalAmount         { get; set; }
+
+    // ── SAP alignment (docs/finance/SAP-ALIGNMENT-PLAN.md) ──────────────────────
+    /// <summary>The purchase tax code applied to the whole invoice (snapshot). Null = tax entered as an amount.</summary>
+    public Guid?    TaxCodeUuid        { get; set; }
+    public string?  TaxCode            { get; set; }
+    /// <summary>The code's rate at the time — TaxAmount = round(Subtotal × TaxPercent / 100, 2).</summary>
+    public decimal? TaxPercent         { get; set; }
+    /// <summary>1 unit of <see cref="Currency"/> in <see cref="BaseCurrencyCode"/> as of the invoice date, snapshotted at approval.</summary>
+    public decimal? ExchangeRate       { get; set; }
+    public string?  BaseCurrencyCode   { get; set; }
+    public decimal? BaseTotalAmount    { get; set; }
+    /// <summary>Set when an approved invoice was reversed (the ledger got the opposite entry; nothing was edited).</summary>
+    public DateTime? ReversedAt        { get; set; }
+    public int?      ReversedBy        { get; set; }
+    public string?   ReversalReason    { get; set; }
+
     public decimal MatchedPoValue      { get; set; }
     public decimal MatchedGrnValue     { get; set; }
     public decimal VarianceAmount      { get; set; }

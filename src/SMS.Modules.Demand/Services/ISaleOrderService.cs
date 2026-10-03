@@ -22,4 +22,22 @@ public interface ISaleOrderService
 
     /// <summary>What a new order starts as, from the organization's sale order settings (§8.1).</summary>
     Task<SaleOrderDefaultsModel> GetDefaultsAsync();
+
+    // ── A32 C3 (owner FND) ─────────────────────────────────────────────────────
+
+    /// <summary>
+    /// PD-04 — a DRAFT order from an accepted quotation, through the same numbering, delivery-mode, retail
+    /// availability, min/max quantity, tax-code and totals rules as <see cref="CreateAsync"/>; prices are taken as
+    /// quoted. SourceType = FROM_QUOTATION, SourceQuotationId set, SourceInquiryId chained from the quotation
+    /// (BR-C3-03); partner and currency come from the quotation. Commits with ONE SaveChangesAsync, so a quotation
+    /// status change the caller made on the same scoped DemandDbContext commits with it. A quotation that already
+    /// has an order is a 409 (unique index). Throws NotFoundException when the quotation is not in the caller's org.
+    /// </summary>
+    Task<Guid> CreateFromQuotationAsync(CreateSaleOrderFromQuotationCommand cmd, int createdBy);
+
+    /// <summary>PD-05 — set/replace the customer PO reference, date and linked CUSTOMER_PO attachment. False = not found.</summary>
+    Task<bool> UpdateCustomerPoAsync(Guid uuid, UpdateSaleOrderCustomerPoRequest req, int modifiedBy);
+
+    /// <summary>BR-C3-05 — the organization's other orders with this customer PO reference (case-insensitive, trimmed).</summary>
+    Task<IReadOnlyList<CustomerPoDuplicateModel>> FindCustomerPoDuplicatesAsync(string reference, Guid? excludeUuid);
 }

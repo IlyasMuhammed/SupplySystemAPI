@@ -24,4 +24,19 @@ internal static class InvoicePaymentStatus
     }
 
     internal static bool IsFullyPaid(string? status) => status is "Paid" or FullyPaid;
+
+    /// <summary>Settled, in either vocabulary — or more than settled: nothing more can be paid on it.</summary>
+    internal static bool IsSettled(string? status) => IsFullyPaid(status) || status is Overpaid;
+
+    /// <summary>
+    /// The payment status once the money is counted from both flows: what supplier payments posted
+    /// (<paramref name="postedPaid"/>, Invoice.PaidAmount) and legacy single-invoice payments not reversed
+    /// (<paramref name="legacyPaid"/>, which never reach PaidAmount). In the SFM-004 vocabulary as soon as a supplier
+    /// payment is involved; otherwise in the legacy one (Unpaid/Partial/Paid) the legacy flow has always written.
+    /// </summary>
+    internal static string AfterSettlement(decimal postedPaid, decimal legacyPaid, decimal totalAmount)
+    {
+        if (postedPaid > 0m) return Derive(postedPaid + legacyPaid, totalAmount);
+        return legacyPaid >= totalAmount ? "Paid" : legacyPaid > 0m ? "Partial" : "Unpaid";
+    }
 }

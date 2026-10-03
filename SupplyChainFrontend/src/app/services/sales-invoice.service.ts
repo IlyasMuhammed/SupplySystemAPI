@@ -36,6 +36,10 @@ export interface SalesInvoiceLineModel {
   unitPrice: number;
   discountPercent: number;
   taxPercent: number;
+  /** The tax code the sale order line used (a snapshot); null on lines with no code. */
+  taxCodeUuid?: string | null;
+  /** The code's text as it was, e.g. "GST17". */
+  taxCode?: string | null;
   lineTotal: number;
 }
 
@@ -59,9 +63,22 @@ export interface SalesInvoiceDetailModel extends SalesInvoiceListItemModel {
   taxAmount: number;
   notes?: string | null;
   createdDate: string;
+  /** 1 unit of the invoice currency in `baseCurrencyCode` on the invoice date, fixed at issue. Null when no rate was on file. */
+  exchangeRate?: number | null;
+  /** The organization's base currency when the invoice was issued. */
+  baseCurrencyCode?: string | null;
+  /** The grand total in the base currency at `exchangeRate`. */
+  baseGrandTotal?: number | null;
+  /** Set when an issued invoice was cancelled (reversed). */
+  cancelledAt?: string | null;
+  cancelledBy?: number | null;
+  cancellationReason?: string | null;
   lines: SalesInvoiceLineModel[];
   payments: SalesInvoicePaymentModel[];
 }
+
+/** The statuses an issued invoice can be cancelled from, provided nothing has been paid against it. */
+export const CANCELLABLE_INVOICE_STATUSES = ['ISSUED', 'OVERDUE'];
 
 export interface SalesInvoiceFilter {
   partnerId?: string;
@@ -131,6 +148,14 @@ export class SalesInvoiceService {
 
   deleteInvoice(uuid: string): Observable<ApiResponse> {
     return this.http.delete<ApiResponse>(`${this.baseUrl}/${uuid}`);
+  }
+
+  /**
+   * Cancels an issued, unpaid invoice: the customer's ledger is credited, the goods go back on the product
+   * ledger and QuickBooks voids it. The reason is required. Returns the invoice as it now stands.
+   */
+  cancelInvoice(uuid: string, reason: string): Observable<ApiResponse<SalesInvoiceDetailModel>> {
+    return this.http.post<ApiResponse<SalesInvoiceDetailModel>>(`${this.baseUrl}/${uuid}/cancel`, { reason });
   }
 
   /** Files the invoice's PDF as it stands now as an attachment on the invoice. */

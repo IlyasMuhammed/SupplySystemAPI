@@ -56,7 +56,8 @@ internal sealed class InvoiceDocumentService : IInvoiceDocumentService
             });
         });
 
-        return document.GeneratePdf();
+        // QuestPDF garbles bold text when documents render concurrently; the gate serialises renders.
+        return PdfRenderGate.Run(document.GeneratePdf);
     }
 
     private byte[]? TryLoadLogoBytes(string? logoUrl)
@@ -102,6 +103,13 @@ internal sealed class InvoiceDocumentService : IInvoiceDocumentService
             });
 
             column.Item().PaddingTop(16).Text("INVOICE").FontSize(15).Bold().AlignCenter();
+
+            // S-7: a reversed invoice still prints (it is a record), but never as something owed.
+            if (IsReversed(invoice))
+                column.Item().PaddingTop(4).AlignCenter()
+                    .Text($"REVERSED{(invoice.ReversedAt is { } at ? $" on {at:dd MMM yyyy}" : string.Empty)}"
+                        + (string.IsNullOrWhiteSpace(invoice.ReversalReason) ? string.Empty : $" — {invoice.ReversalReason}"))
+                    .FontSize(10).Bold().FontColor(Colors.Red.Darken2);
 
             column.Item().PaddingTop(18).Row(row =>
             {
@@ -162,7 +170,7 @@ internal sealed class InvoiceDocumentService : IInvoiceDocumentService
             {
                 var refRows = new (string Label, string Value)[]
                 {
-                    ("PO Reference",  invoice.PoNumber),
+                    ("PO Reference",  invoice.PoNumber ?? "-"),
                     ("GRN Reference", invoice.GrnNumber ?? "-"),
                     ("Received Date", invoice.ReceivedDate.ToString("dd MMM yyyy")),
                     ("Payment Terms", invoice.PaymentMethod ?? "-"),
@@ -240,16 +248,32 @@ internal sealed class InvoiceDocumentService : IInvoiceDocumentService
         column.Item().PaddingBottom(14).AlignRight().Width(220).Column(col =>
         {
             SummaryRow(col, "Subtotal", $"{invoice.Subtotal:N2} {invoice.Currency}");
-            SummaryRow(col, "Tax Amount", $"{invoice.TaxAmount:N2} {invoice.Currency}");
+            SummaryRow(col, TaxLabel(invoice), $"{invoice.TaxAmount:N2} {invoice.Currency}");
 
             col.Item().PaddingTop(6).BorderTop(1.5f).BorderColor(BrandColor).PaddingTop(6).Row(row =>
             {
-                row.RelativeItem().Text("Amount Due").FontSize(11).Bold();
+                // S-7: a reversed invoice is printed as the record it is, never as something owed.
+                row.RelativeItem().Text(IsReversed(invoice) ? "Total (reversed — nothing is due)" : "Amount Due").FontSize(11).Bold();
                 row.ConstantItem(100).AlignRight().Text($"{invoice.TotalAmount:N2} {invoice.Currency}")
                     .FontSize(12).Bold().FontColor(BrandColorDark);
             });
+
+            // S-5: the base-currency figure snapshotted at approval, when the invoice is in another currency.
+            if (invoice.BaseTotalAmount is { } baseTotal && invoice.ExchangeRate is { } rate
+                && !string.IsNullOrWhiteSpace(invoice.BaseCurrencyCode)
+                && !string.Equals(invoice.BaseCurrencyCode, invoice.Currency, StringComparison.OrdinalIgnoreCase))
+                SummaryRow(col, $"In {invoice.BaseCurrencyCode} @ {rate:0.######}", $"{baseTotal:N2} {invoice.BaseCurrencyCode}", muted: true);
         });
     }
+
+    private static bool IsReversed(InvoiceDetailModel invoice) =>
+        string.Equals(invoice.MatchStatus, InvoiceMatchStatus.Reversed, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>"Tax (GST17 · 17%)" when the tax came from a purchase tax code (S-3); "Tax Amount" when it was entered as an amount.</summary>
+    internal static string TaxLabel(InvoiceDetailModel invoice) =>
+        string.IsNullOrWhiteSpace(invoice.TaxCode)
+            ? "Tax Amount"
+            : $"Tax ({invoice.TaxCode} · {invoice.TaxPercent ?? 0m:0.##}%)";
 
     private static void SummaryRow(ColumnDescriptor col, string label, string value, bool muted = false, string? valueColor = null)
     {

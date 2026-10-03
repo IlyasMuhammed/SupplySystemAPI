@@ -35,6 +35,24 @@ internal sealed class SaleOrderMap : IEntityTypeConfiguration<SaleOrder>
         b.HasIndex(x => new { x.OrganizationId, x.Status, x.OrderDate });
         b.HasIndex(x => new { x.OrganizationId, x.PartnerId });
 
+        // A32 C3 — source linking and the customer's PO (§5.2).
+        b.Property(x => x.SourceType).HasMaxLength(20).IsRequired().HasDefaultValue("MANUAL");
+        b.Property(x => x.CustomerPoReference).HasMaxLength(50);
+        b.Property(x => x.CustomerPoDate).HasColumnType("date");
+        b.HasIndex(x => new { x.OrganizationId, x.CustomerPoReference }).HasFilter("[CustomerPoReference] IS NOT NULL");
+        // Unique, not the spec's plain index: a quotation converts to at most one order (§2.1 "0..1"), and this is what
+        // makes a second, concurrent conversion fail rather than create a twin.
+        b.HasOne<SaleQuotation>()
+         .WithMany()
+         .HasForeignKey(x => x.SourceQuotationId)
+         .OnDelete(DeleteBehavior.NoAction);
+        b.HasIndex(x => x.SourceQuotationId).IsUnique().HasFilter("[SourceQuotationId] IS NOT NULL");
+        b.HasOne<SaleInquiry>()
+         .WithMany()
+         .HasForeignKey(x => x.SourceInquiryId)
+         .OnDelete(DeleteBehavior.NoAction);
+        b.HasIndex(x => x.SourceInquiryId).HasFilter("[SourceInquiryId] IS NOT NULL");
+
         b.HasMany(x => x.Lines)
          .WithOne(x => x.SaleOrder)
          .HasForeignKey(x => x.SaleOrderId)
@@ -56,6 +74,7 @@ internal sealed class SaleOrderLineMap : IEntityTypeConfiguration<SaleOrderLine>
         b.Property(x => x.UnitPrice).HasColumnType("decimal(18,4)");
         b.Property(x => x.DiscountPercent).HasColumnType("decimal(5,2)");
         b.Property(x => x.TaxPercent).HasColumnType("decimal(5,2)");
+        b.Property(x => x.TaxCode).HasMaxLength(20);
         b.Property(x => x.LineTotal).HasColumnType("decimal(18,2)");
         b.Property(x => x.FulfilledQty).HasColumnType("decimal(18,4)");
         b.Property(x => x.InvoicedQty).HasColumnType("decimal(18,4)");

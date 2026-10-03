@@ -252,6 +252,26 @@ internal sealed class ReceivablesReportWorld
         db.SaveChanges();
     }
 
+    /// <summary>
+    /// An issued, unpaid invoice cancelled on <paramref name="cancelledOn"/> the way Finance does it (SAP alignment
+    /// S-7): CANCELLED with nothing left to pay, and a credit note on the customer's ledger that offsets the debit.
+    /// </summary>
+    internal void Cancel(SalesInvoice invoice, DateTime cancelledOn)
+    {
+        using var db = Db(invoice.OrganizationId);
+
+        var stored = db.SalesInvoices.Single(i => i.Id == invoice.Id);
+        stored.Status             = "CANCELLED";
+        stored.BalanceDue         = 0m;
+        stored.CancelledAt        = cancelledOn;
+        stored.CancelledBy        = 1;
+        stored.CancellationReason = "Billed in error";
+
+        db.CustomerLedgerEntries.Add(NewEntry(db, stored.PartnerId, "CREDIT_NOTE", cancelledOn, 0m, stored.GrandTotal, stored.CurrencyCode,
+            stored.InvoiceNumber, "SalesInvoice", stored.UUID, $"Invoice {stored.InvoiceNumber} cancelled", stored.OrganizationId));
+        db.SaveChanges();
+    }
+
     /// <summary>Sets a payment's status without any ledger consequence, for statuses no flow sets yet.</summary>
     internal void SetPaymentStatus(CustomerPayment payment, string status)
     {

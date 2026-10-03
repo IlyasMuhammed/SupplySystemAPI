@@ -1,0 +1,135 @@
+<p-confirmDialog key="qbo-disconnect" [style]="{ width: '30rem', maxWidth: '96vw' }"></p-confirmDialog>
+
+<!-- ── Needs signing in again ──────────────────────────────────────────── -->
+<div class="note danger" *ngIf="mustReconnect" data-testid="reconnect-banner">
+  <i class="pi pi-times-circle"></i>
+  <div class="note-body">
+    <div class="note-title">
+      {{ connection?.status === 'Revoked' ? 'QuickBooks access was revoked' : 'The QuickBooks connection has expired' }}
+    </div>
+    <div>
+      Nothing is being sent to QuickBooks. Sign in to {{ connection?.companyName || 'the same company' }} again to resume;
+      records already linked stay linked.
+    </div>
+    <div class="mono" *ngIf="connection?.lastError">{{ connection?.lastError }}</div>
+    <div class="note-actions" *ngIf="canManage">
+      <p-button label="Reconnect" icon="pi pi-refresh" severity="danger" size="small"
+                [disabled]="!canConnect" [loading]="isConnecting" (onClick)="connect()" data-testid="reconnect"></p-button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Refresh token running out ───────────────────────────────────────── -->
+<div class="note warn" *ngIf="isConnected && connection?.reconnectSoon" data-testid="reconnect-soon-banner">
+  <i class="pi pi-exclamation-triangle"></i>
+  <div class="note-body">
+    <div class="note-title">
+      Reconnect before {{ connection?.refreshTokenExpiresAt ? (connection?.refreshTokenExpiresAt | date:'d MMM y') : 'the connection expires' }}
+    </div>
+    <div>QuickBooks lets a connection run for a limited time. Sign in again before that date or syncing stops.</div>
+    <div class="note-actions" *ngIf="canManage">
+      <p-button label="Reconnect now" icon="pi pi-refresh" severity="warn" size="small"
+                [disabled]="!canConnect" [loading]="isConnecting" (onClick)="connect()" data-testid="reconnect-soon"></p-button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Not connected ════════════════════════════════════════════════════ -->
+<section class="form-card connect-card" *ngIf="showConnect" data-testid="not-connected">
+  <div class="card-head">
+    <div class="card-icon"><i class="pi pi-link"></i></div>
+    <div class="grow">
+      <div class="card-title">Connect your QuickBooks Online company</div>
+      <div class="card-sub">One-way: SCM sends records to QuickBooks. Nothing in QuickBooks is changed until you switch to Live.</div>
+    </div>
+  </div>
+
+  <ul class="explainer">
+    <li><i class="pi pi-users"></i><span><strong>Customers and vendors</strong> from your business partners.</span></li>
+    <li><i class="pi pi-box"></i><span><strong>Items</strong>, one for each product variant.</span></li>
+    <li><i class="pi pi-file"></i><span><strong>Sales invoices</strong> once issued, and <strong>bills</strong> once a supplier invoice is approved.</span></li>
+    <li><i class="pi pi-shield"></i><span>You start in <strong>dry run</strong>: every record is checked and nothing is sent. You match records already in QuickBooks before going Live.</span></li>
+  </ul>
+
+  <div class="note info" *ngIf="connection?.status === 'Connecting'" data-testid="connecting-note">
+    <i class="pi pi-info-circle"></i>
+    <div class="note-body">A connection was started but the QuickBooks sign-in was not finished. Start again below.</div>
+  </div>
+
+  <div class="connect-row">
+    <!--
+      TODO(QBI-27, Intuit brand review): replace this button with Intuit's official "Connect to QuickBooks"
+      button artwork (the C2QB button, "C2QB_green_btn_*" SVG/PNG from Intuit's developer brand guidelines,
+      https://developer.intuit.com/app/developer/qbo/docs/develop/authentication-and-authorization — "Connect to
+      QuickBooks button"). Intuit's app review requires the branded button. Save the asset under /public and use it
+      here; do not hot-link Intuit's servers.
+    -->
+    <button type="button" class="qbo-connect-button" [disabled]="!canConnect" (click)="connect()" data-testid="connect">
+      <i class="pi" [ngClass]="isConnecting ? 'pi-spin pi-spinner' : 'pi-link'"></i>
+      <span>Connect to QuickBooks</span>
+    </button>
+
+    <span class="hint" *ngIf="!appConfigured" data-testid="not-configured">
+      <i class="pi pi-lock"></i>
+      This server has no Intuit app keys configured, so it cannot connect to QuickBooks yet.
+      Ask your system administrator to add the QuickBooks client id and secret.
+    </span>
+    <span class="hint" *ngIf="appConfigured && !canManage" data-testid="no-manage">
+      <i class="pi pi-lock"></i>
+      Only someone with the Manage integrations permission can connect.
+    </span>
+    <span class="hint" *ngIf="appConfigured && canManage">
+      You will sign in to Intuit and choose the company. You come back here afterwards.
+    </span>
+  </div>
+</section>
+
+<!-- ══ Connected (or was) ════════════════════════════════════════════════ -->
+<section class="form-card" *ngIf="!showConnect" data-testid="connected-card">
+  <div class="card-head">
+    <div class="card-icon"><i class="pi pi-building"></i></div>
+    <div class="grow">
+      <div class="card-title company-name" data-testid="company-name">{{ connection?.companyName || 'QuickBooks company' }}</div>
+      <div class="card-sub">{{ statusLabel[connection?.status || ''] || connection?.status }}</div>
+    </div>
+    <div class="tags">
+      <p-tag [value]="connection?.environment || 'Sandbox'" [severity]="connection?.environment === 'Production' ? 'contrast' : 'warn'"
+             data-testid="environment-tag"></p-tag>
+      <p-tag [value]="isLive ? 'Live' : 'Dry run'" [severity]="isLive ? 'success' : 'info'"
+             [icon]="isLive ? 'pi pi-bolt' : 'pi pi-eye'" data-testid="mode-tag"></p-tag>
+    </div>
+  </div>
+
+  <dl class="facts">
+    <div><dt>Realm (company) id</dt><dd class="mono" data-testid="realm-id">{{ connection?.realmId || '—' }}</dd></div>
+    <div><dt>Connected</dt><dd>{{ connection?.connectedAt ? (connection?.connectedAt | date:'d MMM y, HH:mm') : '—' }}</dd></div>
+    <div><dt>Home currency</dt><dd data-testid="home-currency">{{ connection?.homeCurrencyCode || '—' }}</dd></div>
+    <div>
+      <dt>Multicurrency</dt>
+      <dd>{{ connection?.multiCurrencyEnabled == null ? '—' : (connection?.multiCurrencyEnabled ? 'On' : 'Off') }}</dd>
+    </div>
+    <div><dt>Country</dt><dd>{{ connection?.country || '—' }}</dd></div>
+    <div>
+      <dt>Sign-in valid until</dt>
+      <dd>{{ connection?.refreshTokenExpiresAt ? (connection?.refreshTokenExpiresAt | date:'d MMM y') : '—' }}</dd>
+    </div>
+  </dl>
+
+  <div class="note" *ngIf="isConnected && connection?.lastError" data-testid="last-error">
+    <i class="pi pi-info-circle"></i>
+    <div class="note-body"><div class="note-title">Last error</div><div class="mono">{{ connection?.lastError }}</div></div>
+  </div>
+
+  <div class="test-result" *ngIf="lastTest" [class.bad]="!lastTest.ok" data-testid="test-result">
+    <i class="pi" [ngClass]="lastTest.ok ? 'pi-check-circle' : 'pi-times-circle'"></i>
+    {{ lastTest.ok ? ('QuickBooks answered' + (lastTest.companyName ? ' for ' + lastTest.companyName : '') + '.') : lastTest.message }}
+  </div>
+
+  <div class="action-bar">
+    <p-button label="Test connection" icon="pi pi-bolt" [outlined]="true" severity="secondary"
+              [disabled]="!isConnected || isTesting" [loading]="isTesting" (onClick)="test()" data-testid="test"></p-button>
+    <span class="grow"></span>
+    <p-button *ngIf="canManage && isConnected" label="Disconnect" icon="pi pi-power-off" severity="danger" [outlined]="true"
+              [disabled]="isDisconnecting" [loading]="isDisconnecting" (onClick)="confirmDisconnect()" data-testid="disconnect"></p-button>
+  </div>
+</section>

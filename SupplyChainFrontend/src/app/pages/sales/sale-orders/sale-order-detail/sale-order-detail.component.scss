@@ -51,6 +51,7 @@ tr.line-cancelled td { text-decoration: line-through; color: var(--text-color-se
 tr.line-excluded td { color: var(--text-color-secondary); }
 
 .text-right { text-align: right; }
+.tax-code { font-family: monospace; font-weight: 600; }
 
 .source-link { color: var(--primary-color); text-decoration: none; }
 .source-link:hover { text-decoration: underline; }
@@ -81,6 +82,31 @@ tr.line-short td { background: var(--orange-50, #fff7ed); }
 .dialog-label { display: block; font-size: .8125rem; font-weight: 600; margin-bottom: .375rem; }
 .dialog-row { margin: 1rem 0; }
 :host ::ng-deep .qty-input { width: 7rem; text-align: right; }
+
+// ── A32: source & customer PO, delivery indicator, reservations ──────────────
+.card-title-row { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: .875rem; }
+.card-title-row h3 { margin: 0; }
+.card app-attachment-list { display: block; margin-top: 1rem; }
+
+.po-warning {
+  display: flex; align-items: flex-start; gap: .5rem; margin-bottom: 1rem;
+  padding: .75rem 1rem; border-radius: .5rem; font-size: .875rem;
+  background: var(--orange-50, #fff7ed); border: 1px solid var(--orange-200, #fed7aa); color: var(--orange-800, #9a3412);
+}
+.po-warning i { margin-top: .15rem; }
+
+.ind-dot { display: inline-block; width: .75rem; height: .75rem; border-radius: 50%; vertical-align: middle; cursor: help; }
+.ind-green  { background: var(--green-500, #22c55e); }
+.ind-blue   { background: var(--blue-500, #3b82f6); }
+.ind-yellow { background: var(--yellow-500, #eab308); }
+.ind-red    { background: var(--red-500, #ef4444); }
+.ind-grey   { background: var(--surface-400, #9ca3af); }
+
+.line-actions { white-space: nowrap; }
+.line-actions > span + span { margin-left: .375rem; }
+.reserve-bar { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; padding: 1rem 0 0; }
+.reserve-bar .muted { margin: 0; }
+.partial-message { font-size: 1rem; font-weight: 600; margin: 1rem 0 .5rem; }
 
 @media (max-width: 640px) {
   .detail-page { padding: 1rem; }

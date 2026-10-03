@@ -197,14 +197,13 @@ export class RfqPageComponent implements OnInit {
           // A transport/server failure (network drop, 4xx/5xx, rate limit) is NOT the same thing
           // as "this link is invalid" — conflating the two hides the real cause. Surface it plainly
           // instead so it's diagnosable, and let the vendor retry rather than dead-ending them.
-          // GlobalExceptionMiddleware includes the real .NET exception text in result.exceptionMessage
-          // — show it too (this is an internal admin-facing diagnostic page, not customer-facing, so
-          // there's no information-disclosure concern in exposing it here).
+          // This page is public (vendors, no sign-in). The server sends exception text only for its own,
+          // user-facing errors; an unexpected failure comes back as a generic message with a log reference.
           const baseMessage = err?.error?.message
             || (err?.status ? `The server returned an error (HTTP ${err.status}).` : null)
             || 'Could not reach the server. Please check your connection and try again.';
           const detail = err?.error?.result?.exceptionMessage;
-          this.submitError = detail ? `${baseMessage} (${detail})` : baseMessage;
+          this.submitError = detail && detail !== baseMessage ? `${baseMessage} (${detail})` : baseMessage;
         }
       });
   }

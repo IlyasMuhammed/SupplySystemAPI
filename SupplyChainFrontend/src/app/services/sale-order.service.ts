@@ -20,7 +20,12 @@ export interface SaleOrderLineModel {
   quantity: number;
   unitPrice: number;
   discountPercent: number;
+  /** The rate the line is taxed at: its tax code's rate when it was picked, else as typed. */
   taxPercent: number;
+  /** The Finance tax code picked for the line; null on a line taxed by percentage alone. */
+  taxCodeUuid?: string | null;
+  /** The code's text as it was when picked, e.g. "GST17". */
+  taxCode?: string | null;
   lineTotal: number;
   /** Credited at goods issue — what has actually left for the customer. */
   fulfilledQty: number;
@@ -36,6 +41,27 @@ export interface SaleOrderLineModel {
   /** OPEN | RESERVED | PARTIALLY_FULFILLED | FULFILLED | INVOICED | CANCELLED */
   status: string;
   notes?: string;
+  // A32 C4 — computed by the server on the detail read, always present there. Optional in this type only so
+  // fixtures written before A32 still compile.
+  /** Stock the order itself holds for this line right now — what Release frees. */
+  reservedQty?: number;
+  /** What Reserve could still hold: quantity − fulfilled − reserved − held by the order's deliveries. */
+  reservableQty?: number;
+  /** GREEN | BLUE | YELLOW | RED | GREY — see DELIVERY_INDICATORS in sales-preorder.service.ts. */
+  deliveryIndicator?: DeliveryIndicator;
+}
+
+/** A32 §6.3 — computed per line, never stored. */
+export type DeliveryIndicator = 'GREEN' | 'BLUE' | 'YELLOW' | 'RED' | 'GREY';
+
+/** MANUAL | FROM_QUOTATION | PORTAL | INTER_TENANT (A32 §5.4). */
+export type SaleOrderSourceType = 'MANUAL' | 'FROM_QUOTATION' | 'PORTAL' | 'INTER_TENANT';
+
+/** A linked document in the chain inquiry → quotation → sale order. */
+export interface SalesDocumentLink {
+  uuid: string;
+  number: string;
+  status: string;
 }
 
 export interface SaleOrderModel {
@@ -60,6 +86,17 @@ export interface SaleOrderModel {
   notes?: string;
   createdDate: string;
   modifiedDate?: string;
+  // A32 C3 — always sent by the server ('MANUAL' on every order from before A32); optional here so older fixtures compile.
+  sourceType?: SaleOrderSourceType;
+  /** Set when converted from a quotation — link to /pages/sales/quotations/{uuid}. */
+  sourceQuotation?: SalesDocumentLink | null;
+  /** Chained from the quotation's inquiry — link to /pages/sales/inquiries/{uuid}. */
+  sourceInquiry?: SalesDocumentLink | null;
+  customerPoReference?: string | null;
+  /** Date-only, "yyyy-MM-dd…" — read it with the shared date-only helpers. */
+  customerPoDate?: string | null;
+  /** The CUSTOMER_PO attachment (api/attachments) linked as the customer's PO document. */
+  customerPoAttachmentUuid?: string | null;
   /** Empty on list rows; the detail carries them. */
   lines: SaleOrderLineModel[];
 }
@@ -69,18 +106,26 @@ export interface SaleOrderFilter {
   partnerId?: string;
   orderDateFrom?: string;
   orderDateTo?: string;
-  /** SO number, contains. */
+  /** SO number or (A32) customer PO reference, contains. */
   search?: string;
+  /** A32 — MANUAL | FROM_QUOTATION | PORTAL | INTER_TENANT. */
+  sourceType?: SaleOrderSourceType;
   page?: number;
   pageSize?: number;
 }
 
-/** One line of a create or update. The unit price is not sent: the server resolves it from the pricing rules. */
+/**
+ * One line of a create or update. The unit price is not sent: the server resolves it from the pricing rules.
+ * With a `taxCodeUuid` the server taxes the line at the code's own rate (`taxPercent` is then ignored);
+ * without one, at `taxPercent` (0–100). A draft's lines are rebuilt on every update, so the code is sent
+ * back each time.
+ */
 export interface SaleOrderLineRequest {
   variantUuid: string;
   quantity: number;
   discountPercent: number;
   taxPercent: number;
+  taxCodeUuid?: string;
 }
 
 /** POST /api/sale-orders. The order is created as a DRAFT. */
@@ -96,6 +141,15 @@ export interface CreateSaleOrderRequest {
   shippingAddressId?: string;
   intimationDepartmentId?: number;
   notes?: string;
+  /**
+   * A32 — only 'MANUAL' (the default) is accepted here. An order from a quotation is made with
+   * SalesPreorderService.convertQuotationToOrder; PORTAL / INTER_TENANT are not built yet.
+   */
+  sourceType?: 'MANUAL';
+  /** Free text, max 50. A duplicate in the organization is a warning (see checkCustomerPo), never a refusal. */
+  customerPoReference?: string;
+  /** Date-only "yyyy-MM-dd" (shared date-only helpers, no UTC shift). */
+  customerPoDate?: string;
   lines: SaleOrderLineRequest[];
 }
 
@@ -110,7 +164,82 @@ export interface UpdateSaleOrderRequest {
   shippingAddressId?: string;
   intimationDepartmentId?: number;
   notes?: string;
+  /** A32 — editable here while DRAFT; after that through updateCustomerPo. */
+  customerPoReference?: string;
+  customerPoDate?: string;
   lines: SaleOrderLineRequest[];
+}
+
+/**
+ * A32 PD-05 — PUT /api/sale-orders/{id}/customer-po, any status but CANCELLED / CLOSED. Replaces all three.
+ * Upload the PO file first through AttachmentService with interfaceCode 'CUSTOMER_PO' and documentId = the
+ * order's uuid, then send its uuid here; null clears the link (the file stays in the order's attachments).
+ */
+export interface UpdateSaleOrderCustomerPoRequest {
+  customerPoReference?: string | null;
+  customerPoDate?: string | null;
+  customerPoAttachmentUuid?: string | null;
+}
+
+/** A32 BR-C3-05 — another order of this organization already carrying the same customer PO reference. */
+export interface CustomerPoDuplicateModel {
+  uuid: string;
+  soNumber: string;
+  partnerId: string;
+  status: string;
+  orderDate: string;
+}
+
+/** A32 — what one reserve / release call did. */
+export type SaleOrderReservationOutcome =
+  'RESERVED' | 'PARTIAL' | 'NEEDS_CONFIRMATION' | 'NONE_AVAILABLE' | 'RELEASED' | 'SKIPPED';
+
+/** A32 PE-06 — POST /api/sale-orders/{id}/lines/{lineId}/reserve. */
+export interface ReserveSaleOrderLineRequest {
+  /** The line's whole reservableQty when omitted. */
+  quantity?: number;
+  /**
+   * false (default): when less is free than asked, nothing is held and the outcome is NEEDS_CONFIRMATION —
+   * show "Available {availableQty}, required {requestedQty}. Reserve partial?" and retry with true.
+   */
+  allowPartial?: boolean;
+  /** The warehouse with the most free stock when omitted. */
+  warehouseUuid?: string;
+}
+
+/** A32 PE-06 — POST /api/sale-orders/{id}/lines/{lineId}/release. Omit quantity to free everything held. */
+export interface ReleaseSaleOrderLineRequest {
+  quantity?: number;
+  reason?: string;
+}
+
+/** What one reserve / release did, and where the line stands afterwards. */
+export interface SaleOrderLineReservationModel {
+  lineUuid: string;
+  variantUuid: string;
+  outcome: SaleOrderReservationOutcome;
+  /** What the call asked to hold (reserve) or free (release). */
+  requestedQty: number;
+  /** What it actually held or freed. */
+  changedQty: number;
+  /** Free stock in the chosen warehouse when the call ran (reserve). */
+  availableQty: number;
+  warehouseUuid?: string | null;
+  warehouseName?: string | null;
+  reservedQty: number;
+  reservableQty: number;
+  deliveryIndicator: DeliveryIndicator;
+  lineStatus: string;
+  /** Why a line was SKIPPED / not covered, in words. */
+  message?: string | null;
+}
+
+/** A32 PE-06 — POST /api/sale-orders/{id}/reserve-all. allowPartial defaults to true. */
+export interface SaleOrderReserveAllModel {
+  lines: SaleOrderLineReservationModel[];
+  reservedLineCount: number;
+  partialLineCount: number;
+  unchangedLineCount: number;
 }
 
 /** What confirming the order would find for one line right now. Reserves nothing. */
@@ -166,6 +295,7 @@ export class SaleOrderService {
     if (filter.orderDateFrom) params = params.set('orderDateFrom', filter.orderDateFrom);
     if (filter.orderDateTo)   params = params.set('orderDateTo',   filter.orderDateTo);
     if (filter.search)        params = params.set('search',        filter.search);
+    if (filter.sourceType)    params = params.set('sourceType',    filter.sourceType);
     params = params.set('page',     String(filter.page     ?? 1));
     params = params.set('pageSize', String(filter.pageSize ?? 20));
     return this.http.get<ApiResponse<PaginatedResponse<SaleOrderModel>>>(this.baseUrl, { params });
@@ -208,5 +338,37 @@ export class SaleOrderService {
   /** Raises a delivery for the order. Returns the new delivery's uuid. */
   createDelivery(uuid: string, req: CreateSaleOrderDeliveryRequest = {}): Observable<ApiResponse<string>> {
     return this.http.post<ApiResponse<string>>(`${this.baseUrl}/${uuid}/create-delivery`, req);
+  }
+
+  // ── A32 C3 / C4 ──────────────────────────────────────────────────────────────
+
+  /** PD-05 — set / replace the customer PO reference, date and linked CUSTOMER_PO file. SALE_ORDER_EDIT. */
+  updateCustomerPo(uuid: string, req: UpdateSaleOrderCustomerPoRequest): Observable<ApiResponse> {
+    return this.http.put<ApiResponse>(`${this.baseUrl}/${uuid}/customer-po`, req);
+  }
+
+  /**
+   * BR-C3-05 — other orders of this organization with the same customer PO reference (a warning to show, never a
+   * block). Pass excludeUuid when editing an existing order. SALE_ORDER_VIEW / CREATE / EDIT.
+   */
+  checkCustomerPo(reference: string, excludeUuid?: string): Observable<ApiResponse<CustomerPoDuplicateModel[]>> {
+    let params = new HttpParams().set('reference', reference);
+    if (excludeUuid) params = params.set('excludeUuid', excludeUuid);
+    return this.http.get<ApiResponse<CustomerPoDuplicateModel[]>>(`${this.baseUrl}/customer-po-check`, { params });
+  }
+
+  /** PE-06 — hold stock for one line. SALE_ORDER_RESERVE. Always 200 with an outcome unless the line cannot be reserved (400). */
+  reserveLine(uuid: string, lineUuid: string, req: ReserveSaleOrderLineRequest = {}): Observable<ApiResponse<SaleOrderLineReservationModel>> {
+    return this.http.post<ApiResponse<SaleOrderLineReservationModel>>(`${this.baseUrl}/${uuid}/lines/${lineUuid}/reserve`, req);
+  }
+
+  /** PE-06 — give back stock held for one line. SALE_ORDER_RELEASE_RESERVATION. */
+  releaseLine(uuid: string, lineUuid: string, req: ReleaseSaleOrderLineRequest = {}): Observable<ApiResponse<SaleOrderLineReservationModel>> {
+    return this.http.post<ApiResponse<SaleOrderLineReservationModel>>(`${this.baseUrl}/${uuid}/lines/${lineUuid}/release`, req);
+  }
+
+  /** PE-06 — hold stock for every open line. SALE_ORDER_RESERVE. */
+  reserveAll(uuid: string, allowPartial = true): Observable<ApiResponse<SaleOrderReserveAllModel>> {
+    return this.http.post<ApiResponse<SaleOrderReserveAllModel>>(`${this.baseUrl}/${uuid}/reserve-all`, { allowPartial });
   }
 }

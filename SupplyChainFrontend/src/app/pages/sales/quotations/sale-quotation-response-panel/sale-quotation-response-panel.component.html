@@ -1,0 +1,87 @@
+<div class="response-panel">
+  <div class="panel-head">
+    <div>
+      <div class="panel-title">Record customer response</div>
+      <div class="panel-sub">What the customer said to each offered line. Lines you rejected are not answered for.</div>
+    </div>
+  </div>
+
+  <table class="response-table">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Product</th>
+        <th class="text-right">Qty</th>
+        <th class="text-right">Price</th>
+        <th>Response</th>
+      </tr>
+    </thead>
+    <tbody>
+      <ng-container *ngFor="let row of rows">
+        <tr data-testid="response-row">
+          <td class="font-mono">{{ row.label }}</td>
+          <td>{{ row.line.productDescription }}</td>
+          <td class="text-right">{{ row.line.quantity | number:'1.0-4' }} {{ row.line.uomCode }}</td>
+          <td class="text-right">{{ row.line.unitPrice | number:'1.2-4' }}</td>
+          <td class="response-cell">
+            <p-dropdown [options]="responseOptions" [(ngModel)]="row.response" optionLabel="label" optionValue="value"
+                        placeholder="Pending" [disabled]="!canRespond || isBusy" (onChange)="onResponseChange(row)"
+                        styleClass="response-dropdown" appendTo="body" data-testid="response"></p-dropdown>
+          </td>
+        </tr>
+        <tr *ngIf="row.response" class="detail-row">
+          <td></td>
+          <td colspan="4">
+            <div class="detail-fields">
+              <label *ngIf="row.response === 'COUNTER'" class="inline-field">
+                <span>Counter price <span class="required">*</span></span>
+                <p-inputNumber [(ngModel)]="row.counterPrice" [minFractionDigits]="2" [maxFractionDigits]="4" [min]="0"
+                               [disabled]="!canRespond || isBusy" [class.p-invalid]="!!rowError(row)"
+                               inputStyleClass="counter-input" data-testid="counter-price"></p-inputNumber>
+              </label>
+              <label class="inline-field grow">
+                <span>Notes</span>
+                <input pInputText [(ngModel)]="row.notes" maxlength="500" [disabled]="!canRespond || isBusy"
+                       placeholder="What the customer said" class="w-full" data-testid="response-notes" />
+              </label>
+              <label *ngIf="offersCounterAcceptance(row)" class="inline-check">
+                <p-checkbox [(ngModel)]="row.acceptCounterPrice" [binary]="true" [disabled]="!canRespond || isBusy"
+                            data-testid="accept-counter"></p-checkbox>
+                <span>Take the customer's price of {{ row.line.customerCounterPrice | number:'1.2-4' }}</span>
+              </label>
+            </div>
+            <small class="p-error" *ngIf="rowError(row)">{{ rowError(row) }}</small>
+          </td>
+        </tr>
+      </ng-container>
+    </tbody>
+  </table>
+
+  <small class="p-error block" *ngIf="error" data-testid="response-error">{{ error }}</small>
+
+  <div class="panel-actions" *ngIf="canRespond">
+    <p-button label="Save Responses" icon="pi pi-save" [outlined]="true" [disabled]="!canSave" [loading]="isBusy"
+              (onClick)="saveResponses()" data-testid="save-responses"></p-button>
+    <p-button *ngIf="showReject" label="Mark Quotation Rejected" icon="pi pi-times-circle" severity="danger" [outlined]="true"
+              [disabled]="!canMarkRejected || isBusy" (onClick)="openReject()"
+              pTooltip="Every offered line must be rejected by the customer" [tooltipDisabled]="canMarkRejected"
+              data-testid="mark-rejected"></p-button>
+    <p-button *ngIf="showAccept" label="Mark Quotation Accepted" icon="pi pi-check-circle" severity="success"
+              [disabled]="!canMarkAccepted || isBusy" (onClick)="markAccepted()"
+              pTooltip="At least one line must be accepted" [tooltipDisabled]="canMarkAccepted"
+              data-testid="mark-accepted"></p-button>
+  </div>
+</div>
+
+<p-dialog header="Mark quotation rejected" [(visible)]="rejectDialogVisible" [modal]="true" [style]="{ width: '30rem' }"
+          [breakpoints]="{ '640px': '95vw' }" appendTo="body">
+  <p class="dialog-hint">The customer turned down every line. The quotation becomes REJECTED and cannot change after that.</p>
+  <label class="dialog-label" for="reject-reason">Reason (optional)</label>
+  <textarea id="reject-reason" pTextarea [(ngModel)]="rejectReason" rows="3" maxlength="500" class="w-full"
+            data-testid="reject-reason"></textarea>
+  <ng-template pTemplate="footer">
+    <p-button label="Back" [text]="true" severity="secondary" (onClick)="rejectDialogVisible = false"></p-button>
+    <p-button label="Mark Rejected" icon="pi pi-times-circle" severity="danger" (onClick)="confirmReject()"
+              data-testid="confirm-reject"></p-button>
+  </ng-template>
+</p-dialog>

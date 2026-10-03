@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
@@ -6,6 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>SMS.API</RootNamespace>
     <AssemblyName>SMS.API</AssemblyName>
+    <UserSecretsId>ef814193-d15a-421f-9b63-126d80981fce</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
@@ -37,6 +38,7 @@
     <ProjectReference Include="..\SMS.Modules.Notifications\SMS.Modules.Notifications.csproj" />
     <ProjectReference Include="..\SMS.WorkflowEngine\SMS.WorkflowEngine.csproj" />
     <ProjectReference Include="..\SMS.Modules.Material\SMS.Modules.Material.csproj" />
+    <ProjectReference Include="..\SMS.Modules.Integration\SMS.Modules.Integration.csproj" />
   </ItemGroup>
 
 </Project>

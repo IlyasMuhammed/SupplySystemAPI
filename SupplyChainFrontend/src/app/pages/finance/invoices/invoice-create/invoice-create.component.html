@@ -30,10 +30,13 @@
 
       <div class="grid grid-cols-2 gap-4 mt-4">
         <div>
-          <label class="field-label">Purchase Order <span class="req">*</span></label>
+          <label class="field-label">Purchase Order</label>
           <p-dropdown [options]="poOptions" [(ngModel)]="form.poUuid"
-                      placeholder="Select PO" [filter]="true" styleClass="w-full"
-                      (onChange)="onPoChange()"></p-dropdown>
+                      placeholder="Select PO (optional)" [filter]="true" [showClear]="true" styleClass="w-full"
+                      (onChange)="onPoChange()" data-testid="invoice-po"></p-dropdown>
+          <small class="field-hint" *ngIf="!form.poUuid">
+            Leave empty for a bill with no purchase order behind it (a freight bill, say) — it stays Pending until approved.
+          </small>
           <div class="po-status-hint" *ngIf="selectedPoStatus">
             <span class="status-badge"
                   [ngClass]="{'status-received': selectedPoStatus==='RECEIVED',
@@ -185,10 +188,11 @@
 
       <!-- ── Amounts ────────────────────────────────────────────────────────── -->
       <div class="section-header mt-6"><i class="pi pi-dollar"></i> Invoice Amounts</div>
-      <div class="grid grid-cols-3 gap-4">
+      <div class="grid grid-cols-2 gap-4">
         <div>
           <label class="field-label">Currency <span class="req">*</span></label>
-          <p-dropdown [options]="currencyOptions" [(ngModel)]="form.currency" styleClass="w-full"></p-dropdown>
+          <p-dropdown [options]="currencyOptions" [(ngModel)]="form.currency" [filter]="true"
+                      filterBy="label" styleClass="w-full" data-testid="invoice-currency"></p-dropdown>
         </div>
         <div>
           <label class="field-label">
@@ -202,10 +206,26 @@
             {{ linesSubtotal | number:'1.2-2' }}
           </div>
         </div>
+      </div>
+      <div class="grid grid-cols-2 gap-4 mt-4">
         <div>
-          <label class="field-label">Tax Amount</label>
-          <p-inputNumber [(ngModel)]="form.taxAmount" mode="decimal" [minFractionDigits]="2"
-                         [min]="0" [max]="9999999" styleClass="w-full"></p-inputNumber>
+          <label class="field-label">Purchase Tax Code</label>
+          <p-dropdown [options]="taxCodeOptions" [(ngModel)]="form.taxCodeUuid" styleClass="w-full"
+                      placeholder="No tax code — enter the amount" data-testid="invoice-tax-code"></p-dropdown>
+          <small class="field-hint">The default purchase code is pre-selected; choose none to enter the tax by hand.</small>
+        </div>
+        <div>
+          <label class="field-label">
+            Tax Amount
+            <span class="field-hint-inline" *ngIf="selectedTaxCode">
+              ({{ selectedTaxCode.code }} · {{ selectedTaxCode.ratePercent }}% of the subtotal)
+            </span>
+          </label>
+          <p-inputNumber *ngIf="!selectedTaxCode" [(ngModel)]="form.taxAmount" mode="decimal" [minFractionDigits]="2"
+                         [min]="0" [max]="9999999" styleClass="w-full" data-testid="invoice-tax-amount"></p-inputNumber>
+          <div *ngIf="selectedTaxCode" class="computed-amount" data-testid="invoice-tax-computed">
+            {{ taxAmount | number:'1.2-2' }}
+          </div>
         </div>
       </div>
       <div class="total-row mt-3">
@@ -223,7 +243,8 @@
         </div>
         <div>
           <label class="field-label">Notes</label>
-          <input pInputText class="w-full" [(ngModel)]="form.notes" maxlength="500" />
+          <input pInputText class="w-full" [(ngModel)]="form.notes" [maxlength]="notesMax" data-testid="invoice-notes" />
+          <small class="field-hint">{{ (form.notes ?? '').length }} / {{ notesMax }}</small>
         </div>
       </div>
 

@@ -15,12 +15,16 @@ import { DividerModule } from 'primeng/divider';
 import { TooltipModule } from 'primeng/tooltip';
 import { MessageService } from 'primeng/api';
 import {
-  FinanceService, CreateInvoiceRequest, InvoiceLineRequest
+  FinanceService, CreateInvoiceRequest, InvoiceLineRequest, purchaseTaxFor, INVOICE_NOTES_MAX, taxCodeOptionLabel
 } from '../../../../services/finance.service';
+import { FinanceSetupService, TaxCodeModel } from '../../../../services/finance-setup.service';
+import { CurrenciesService } from '../../../../services/currencies.service';
 import { DemandService, PoDetailModel } from '../../../../services/demand.service';
 import { SupplierService } from '../../../../services/supplier.service';
 import { WarehouseService, GrnListItemModel, GrnDetailModel } from '../../../../services/warehouse.service';
+import { TenantService } from '../../../service/tenant.service';
 import { AttachmentListComponent } from '../../../../shared/attachment-list/attachment-list.component';
+import { toDateOnly } from '../../../../shared/date-only';
 
 export interface InvoiceLineInput {
   poLineUuid:      string;
@@ -59,7 +63,7 @@ export class InvoiceCreateComponent implements OnInit {
   form: CreateInvoiceRequest = {
     supplierId: '', poUuid: '',
     invoiceDate: '', receivedDate: '', dueDate: '',
-    currency: 'PKR', subtotal: 0, taxAmount: 0,
+    currency: 'PKR', subtotal: 0, taxAmount: 0, taxCodeUuid: null,
     invoiceUuid: this.invoiceUuid
   };
   invoiceDateVal:  Date | null = null;
@@ -74,18 +78,22 @@ export class InvoiceCreateComponent implements OnInit {
 
   // ── Dropdown option lists ──────────────────────────────────────────────────
   supplierOptions:   { label: string; value: string }[] = [];
-  poOptions:         { label: string; value: string; status?: string }[] = [];
+  poOptions:         { label: string; value: string; status?: string; supplierId?: string }[] = [];
+
+  /** The invoice's notes column holds this many characters; the server refuses more. */
+  readonly notesMax = INVOICE_NOTES_MAX;
   allGrns:           GrnListItemModel[] = [];
   grnMatchingOptions: { label: string; value: string }[] = [];  // for 3-way match field (includes "No GRN")
   grnFetchOptions:    { label: string; value: string }[] = [];  // for fetch dropdown (only real GRNs)
   selectedPoStatus = '';
 
-  currencyOptions = [
-    { label: 'PKR', value: 'PKR' },
-    { label: 'USD', value: 'USD' },
-    { label: 'EUR', value: 'EUR' },
-    { label: 'GBP', value: 'GBP' }
-  ];
+  /** From Lookups (every currency with a code), not a fixed list. PKR until they load. */
+  currencyOptions: { label: string; value: string }[] = [{ label: 'PKR', value: 'PKR' }];
+
+  /** Active codes usable on a purchase (PURCHASE or BOTH), the default first. */
+  taxCodes: TaxCodeModel[] = [];
+  taxCodeOptions: { label: string; value: string | null }[] = [{ label: 'No tax code — enter the amount', value: null }];
+
   paymentMethodOptions = [
     { label: 'Bank Transfer', value: 'Bank Transfer' },
     { label: 'Cheque',        value: 'Cheque' },
@@ -97,13 +105,27 @@ export class InvoiceCreateComponent implements OnInit {
   get linesSubtotal(): number {
     return this.invoiceLines.reduce((s, l) => s + (l.lineTotal || 0), 0);
   }
+  get subtotal(): number {
+    return this.invoiceLines.length > 0 ? this.linesSubtotal : (this.form.subtotal || 0);
+  }
+  /** The chosen purchase tax code, if any. */
+  get selectedTaxCode(): TaxCodeModel | null {
+    return this.taxCodes.find(c => c.uuid === this.form.taxCodeUuid) ?? null;
+  }
+  /** With a code the tax is worked out (and the field is read-only); without one it is whatever was entered. */
+  get taxAmount(): number {
+    const code = this.selectedTaxCode;
+    return code ? purchaseTaxFor(this.subtotal, code.ratePercent) : (this.form.taxAmount || 0);
+  }
   get totalAmount(): number {
-    const sub = this.invoiceLines.length > 0 ? this.linesSubtotal : (this.form.subtotal || 0);
-    return sub + (this.form.taxAmount || 0);
+    return this.subtotal + this.taxAmount;
   }
 
   constructor(
     private financeService: FinanceService,
+    private financeSetupService: FinanceSetupService,
+    private currenciesService: CurrenciesService,
+    private tenantService: TenantService,
     private demandService: DemandService,
     private supplierService: SupplierService,
     private warehouseService: WarehouseService,
@@ -112,6 +134,8 @@ export class InvoiceCreateComponent implements OnInit {
   ) {}
 
   ngOnInit() {
+    this.loadCurrencies();
+    this.loadTaxCodes();
     this.supplierService.getSuppliers({ status: 'ACTIVE', pageSize: 200 }).subscribe(res => {
       if (res.success && res.result)
         this.supplierOptions = res.result.data.map(s => ({ label: s.supplierName, value: s.uuid }));
@@ -121,7 +145,8 @@ export class InvoiceCreateComponent implements OnInit {
         this.poOptions = res.result.data.map((p: any) => ({
           label: `${p.poNumber} — ${p.supplierName} [${p.status}]`,
           value: p.uuid,
-          status: p.status
+          status: p.status,
+          supplierId: p.supplierId
         }));
     });
     this.warehouseService.getGrns({ page: 1, pageSize: 500 }).subscribe(res => {
@@ -132,11 +157,53 @@ export class InvoiceCreateComponent implements OnInit {
     });
   }
 
+  // ── Currency and tax code ─────────────────────────────────────────────────
+
+  /** Every Lookups currency that has a code; the organization's base currency pre-selected when it is one of them. */
+  private loadCurrencies() {
+    this.currenciesService.getAll().subscribe({
+      next: (res) => {
+        const currencies = (res.result ?? []).filter(c => !!c.code?.trim());
+        if (currencies.length === 0) return;
+
+        this.currencyOptions = currencies.map(c => ({ label: `${c.code!.trim()} — ${c.name}`, value: c.code!.trim().toUpperCase() }));
+
+        const baseId = this.tenantService.tenant()?.baseCurrency;
+        const base = currencies.find(c => c.id === baseId)?.code?.trim().toUpperCase();
+        const current = this.form.currency?.toUpperCase();
+        if (base) this.form.currency = base;
+        else if (!this.currencyOptions.some(o => o.value === current)) this.form.currency = this.currencyOptions[0].value;
+      },
+      error: () => this.messageService.add({ severity: 'warn', summary: 'Currencies', detail: 'The currency list could not be loaded; PKR is offered.' })
+    });
+  }
+
+  /** Purchase tax codes (PURCHASE or BOTH, active); the default one pre-selected. */
+  private loadTaxCodes() {
+    this.financeSetupService.getTaxCodes('PURCHASE').subscribe({
+      next: (res) => {
+        this.taxCodes = res.result ?? [];
+        this.taxCodeOptions = [
+          { label: 'No tax code — enter the amount', value: null },
+          ...this.taxCodes.map(c => ({ label: taxCodeOptionLabel(c.code, c.ratePercent, c.name), value: c.uuid }))
+        ];
+        const preferred = this.taxCodes.find(c => c.isDefault);
+        if (preferred && !this.form.taxCodeUuid) this.form.taxCodeUuid = preferred.uuid;
+      },
+      error: () => this.messageService.add({ severity: 'warn', summary: 'Tax codes', detail: 'Tax codes could not be loaded; enter the tax as an amount.' })
+    });
+  }
+
   // ── PO selection ──────────────────────────────────────────────────────────
 
+  /**
+   * The supplier follows the purchase order: the server names the invoice after the PO's supplier but books it
+   * to the supplier sent, so an invoice on another supplier's PO would bill one and name the other.
+   */
   onPoChange() {
     const sel = this.poOptions.find(p => p.value === this.form.poUuid);
     this.selectedPoStatus = sel?.status ?? '';
+    if (sel?.supplierId) this.form.supplierId = sel.supplierId;
     this.form.grnUuid     = undefined;
     this.invoiceLines     = [];
     this.buildGrnOptions();
@@ -253,8 +320,11 @@ export class InvoiceCreateComponent implements OnInit {
     if (!this.form.supplierId) {
       this.messageService.add({ severity: 'warn', summary: 'Validation', detail: 'Supplier is required.' }); return;
     }
-    if (!this.form.poUuid) {
-      this.messageService.add({ severity: 'warn', summary: 'Validation', detail: 'Purchase order is required.' }); return;
+    // The purchase order is optional (G10: a payable nobody ordered, e.g. a freight bill). When there is one it
+    // must be this supplier's — the server books the invoice to the supplier sent but names the PO's.
+    const po = this.form.poUuid ? this.poOptions.find(p => p.value === this.form.poUuid) : undefined;
+    if (po?.supplierId && po.supplierId !== this.form.supplierId) {
+      this.messageService.add({ severity: 'warn', summary: 'Validation', detail: 'The purchase order is for another supplier. Pick that supplier, or another purchase order.' }); return;
     }
     if (!this.invoiceDateVal || !this.receivedDateVal || !this.dueDateVal) {
       this.messageService.add({ severity: 'warn', summary: 'Validation', detail: 'All dates are required.' }); return;
@@ -262,14 +332,27 @@ export class InvoiceCreateComponent implements OnInit {
     if (this.invoiceLines.length === 0 && (this.form.subtotal || 0) <= 0) {
       this.messageService.add({ severity: 'warn', summary: 'Validation', detail: 'Enter a subtotal or add invoice lines.' }); return;
     }
+    if ((this.form.notes ?? '').length > INVOICE_NOTES_MAX) {
+      this.messageService.add({ severity: 'warn', summary: 'Validation', detail: `Notes can be at most ${INVOICE_NOTES_MAX} characters.` }); return;
+    }
 
-    this.form.invoiceDate  = this.invoiceDateVal.toISOString();
-    this.form.receivedDate = this.receivedDateVal.toISOString();
-    this.form.dueDate      = this.dueDateVal.toISOString();
-    if (!this.form.grnUuid) delete (this.form as any).grnUuid;
+    // Built afresh, so a failed save leaves the form as it was typed (the hand-entered tax included).
+    const req: CreateInvoiceRequest = {
+      ...this.form,
+      // The day picked, not its UTC instant: the server reads the invoice date for the exchange rate (S-5).
+      invoiceDate:  toDateOnly(this.invoiceDateVal),
+      receivedDate: toDateOnly(this.receivedDateVal),
+      dueDate:      toDateOnly(this.dueDateVal),
+      // With a code the server works the tax out itself (what is sent is ignored); this is the same figure.
+      taxAmount:    this.taxAmount,
+      taxCodeUuid:  this.form.taxCodeUuid || null
+    };
+    // No PO / no GRN is sent as nothing: '' is not a Guid, and the server would refuse the whole request.
+    if (!req.poUuid) delete req.poUuid;
+    if (!req.grnUuid) delete req.grnUuid;
 
     if (this.invoiceLines.length > 0) {
-      this.form.lines = this.invoiceLines.map(l => ({
+      req.lines = this.invoiceLines.map(l => ({
         grnLineUuid:     l.grnLineUuid || undefined,
         poLineUuid:      l.poLineUuid,
         itemDescription: l.itemDescription,
@@ -278,11 +361,11 @@ export class InvoiceCreateComponent implements OnInit {
         unitPrice:       l.unitPrice
       } as InvoiceLineRequest));
     } else {
-      delete (this.form as any).lines;
+      delete req.lines;
     }
 
     this.isSaving = true;
-    this.financeService.createInvoice(this.form).subscribe({
+    this.financeService.createInvoice(req).subscribe({
       next: (res) => {
         this.isSaving = false;
         this.router.navigate(['/portal/pages/finance/invoices', res.result]);

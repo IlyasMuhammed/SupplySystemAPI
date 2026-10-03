@@ -70,6 +70,16 @@ public static class DemandModuleExtensions
         // order line the delivery pipeline already reads from.
         services.AddScoped<ISaleOrderManufacturingService, SaleOrderManufacturingService>();
         services.AddScoped<IAllocationRunListener, SaleOrderFulfillmentListener>();
+        // A32 — rejection reasons (PA-03/PA-04): CRUD, and the ten seeded per organization when Tenancy creates one.
+        services.AddScoped<IRejectionReasonService, RejectionReasonService>();
+        services.AddScoped<IOrganizationProvisionedHandler, RejectionReasonProvisioningHandler>();
+        // A32 — manual reserve / release on sale order lines (PE-03/PE-06).
+        services.AddScoped<ISaleOrderReservationService, SaleOrderReservationService>();
+        // A32 — sale inquiries (PB-03..PB-07). Must not depend on ISaleQuotationService (that one calls MarkQuotedAsync).
+        services.AddScoped<ISaleInquiryService, SaleInquiryService>();
+        // A32 — sale quotations (PC-03..PC-09) and their daily expiry sweep.
+        services.AddScoped<ISaleQuotationService, SaleQuotationService>();
+        services.AddScoped<QuotationExpiryJob>();
 
         // Workflow engine handlers
         services.AddScoped<IDocumentStatusHandler, PrStatusHandler>();
@@ -85,6 +95,8 @@ public static class DemandModuleExtensions
         // PV-007 — lets Inventory ask "has this variant ever been transacted" cross-module
         services.AddScoped<IVariantReferenceChecker, PoLineVariantReferenceChecker>();
         services.AddScoped<ISupplierReferenceChecker, DemandSupplierReferenceChecker>();
+        // Lookups asks every checker before it deletes a currency or changes its code.
+        services.AddScoped<ILookupReferenceChecker, DemandCurrencyReferenceChecker>();
 
         return services;
     }
@@ -95,6 +107,17 @@ public static class DemandModuleExtensions
         {
             var db = scope.ServiceProvider.GetRequiredService<DemandDbContext>();
             db.Database.Migrate();
+
+            // A32 PA-03 — every existing organization gets whichever of the ten seeded rejection reasons it lacks
+            // (idempotent: a renamed or deactivated reason is never touched). Here, after Demand's own migration,
+            // because the table must exist first; Tenancy migrates earlier, so its organizations are already there.
+            var organizations = scope.ServiceProvider.GetService<IOrganizationDirectory>();
+            if (organizations is not null)
+            {
+                var orgIds = organizations.GetOrganizationIdsAsync().GetAwaiter().GetResult();
+                scope.ServiceProvider.GetRequiredService<IRejectionReasonService>()
+                    .EnsureSeededForAllAsync(orgIds).GetAwaiter().GetResult();
+            }
         }
 
         RecurringJob.AddOrUpdate<RfqLinkExpiryJob>(
@@ -108,6 +131,12 @@ public static class DemandModuleExtensions
             ReservationExpirySweepJob.RecurringJobId,
             job => job.RunAsync(),
             Cron.Hourly);
+
+        // A32-PC-09 — daily at 01:07 UTC: SENT sale quotations past valid_to → EXPIRED (BR-C2-10).
+        RecurringJob.AddOrUpdate<QuotationExpiryJob>(
+            QuotationExpiryJob.RecurringJobId,
+            job => job.RunAsync(),
+            QuotationExpiryJob.Cron);
 
         return app;
     }

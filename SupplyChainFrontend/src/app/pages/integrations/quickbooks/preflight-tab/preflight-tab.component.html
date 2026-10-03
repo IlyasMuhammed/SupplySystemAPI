@@ -1,0 +1,57 @@
+<section class="form-card">
+  <div class="card-head">
+    <div class="card-icon"><i class="pi pi-verified"></i></div>
+    <div class="grow">
+      <div class="card-title">Preflight checks</div>
+      <div class="card-sub">What QuickBooks has to be set up with before SCM can send to it: currency, country, document numbers, tax codes.</div>
+    </div>
+    <p-button [label]="canManage ? 'Refresh from QuickBooks' : 'Run the checks again'" icon="pi pi-refresh"
+              [outlined]="true" [disabled]="isRefreshing || !isConnected" [loading]="isRefreshing"
+              (onClick)="refresh()" data-testid="refresh"></p-button>
+  </div>
+
+  <div class="state-inline" *ngIf="!preflight" data-testid="no-preflight">
+    <i class="pi pi-info-circle"></i>
+    The checks have not been run, or could not be read. Use the button above.
+  </div>
+
+  <ng-container *ngIf="preflight">
+    <div class="note" [ngClass]="passed ? 'success' : 'danger'" data-testid="preflight-summary">
+      <i class="pi" [ngClass]="passed ? 'pi-check-circle' : 'pi-times-circle'"></i>
+      <div class="note-body">
+        <ng-container *ngIf="passed">
+          Every company check passed<span *ngIf="warnCount"> ({{ warnCount }} {{ warnCount === 1 ? 'warning' : 'warnings' }} to read)</span>.
+          Next, set up the mappings.
+        </ng-container>
+        <ng-container *ngIf="!passed">
+          {{ failCount }} {{ failCount === 1 ? 'check fails' : 'checks fail' }}. Fix {{ failCount === 1 ? 'it' : 'them' }} in QuickBooks,
+          then refresh. Nothing can be sent until they pass.
+        </ng-container>
+      </div>
+    </div>
+
+    <ul class="checks" data-testid="checks">
+      <li *ngFor="let c of companyChecks" [ngClass]="'check-' + c.status.toLowerCase()" [attr.data-testid]="'check-' + c.code">
+        <i class="pi" [ngClass]="icon(c)" [attr.aria-label]="c.status"></i>
+        <div class="grow">
+          <div class="check-title">{{ c.title }}</div>
+          <div class="check-message">{{ c.message }}</div>
+        </div>
+      </li>
+    </ul>
+
+    <ng-container *ngIf="progressChecks.length">
+      <div class="group-title">Setup progress</div>
+      <p class="hint">These pass as you finish the later steps: mappings and matching. They block going Live, not the setup.</p>
+      <ul class="checks">
+        <li *ngFor="let c of progressChecks" [ngClass]="'check-' + c.status.toLowerCase()" [attr.data-testid]="'check-' + c.code">
+          <i class="pi" [ngClass]="icon(c)" [attr.aria-label]="c.status"></i>
+          <div class="grow">
+            <div class="check-title">{{ c.title }}</div>
+            <div class="check-message">{{ c.message }}</div>
+          </div>
+        </li>
+      </ul>
+    </ng-container>
+  </ng-container>
+</section>

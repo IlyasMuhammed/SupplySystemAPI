@@ -104,7 +104,7 @@ public class TimelineEndpointTests
         var service = new Mock<ISaleOrderService>();
         service.Setup(s => s.GetTimelineAsync(found)).ReturnsAsync(detail);
         service.Setup(s => s.GetTimelineAsync(It.Is<Guid>(g => g != found))).ReturnsAsync((TimelineDetail?)null);
-        var controller = new SaleOrdersController(service.Object);
+        var controller = new SaleOrdersController(service.Object, Mock.Of<ISaleOrderReservationService>());
 
         (await controller.GetTimeline(found)).Should().BeOfType<OkObjectResult>()
             .Which.Value.Should().BeOfType<ApiResponse<TimelineDetail>>().Which.Result.Should().BeSameAs(detail);

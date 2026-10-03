@@ -1,0 +1,96 @@
+<div class="form-page">
+  <p-toast></p-toast>
+
+  <div class="page-header">
+    <p-button icon="pi pi-arrow-left" [text]="true" severity="secondary" [routerLink]="backLink"></p-button>
+    <div>
+      <h1 class="page-title">
+        <i class="pi pi-file-edit"></i>
+        {{ isEdit ? 'Edit quotation ' + (quotation?.quotationNumber ?? '') : 'New sale quotation' }}
+      </h1>
+      <p class="page-subtitle">{{ isEdit ? 'The header of a draft. Lines are changed on the quotation itself.' : 'Saved as a draft; add its lines next.' }}</p>
+    </div>
+  </div>
+
+  <div class="state-card" *ngIf="notFound" data-testid="not-found">
+    <i class="pi pi-inbox"></i><h2>Sale quotation not found</h2>
+  </div>
+  <div class="state-card" *ngIf="notEditable" data-testid="not-editable">
+    <i class="pi pi-lock"></i><h2>Only a draft can be edited</h2>
+    <p>{{ quotation?.quotationNumber }} has been {{ quotation?.status?.toLowerCase() }}. Copy it into a new draft to change it.</p>
+  </div>
+
+  <form *ngIf="!notFound && !notEditable" [formGroup]="form" (ngSubmit)="save()">
+    <div class="form-card">
+      <div class="grid">
+        <div class="field full">
+          <label>Customer <span class="required">*</span></label>
+          <p-autoComplete formControlName="customer" [suggestions]="customerSuggestions" (completeMethod)="searchCustomers($event)"
+                          optionLabel="companyName" [forceSelection]="true" [dropdown]="true" placeholder="Search customers"
+                          [class.p-invalid]="invalid('customer')" styleClass="w-full" inputStyleClass="w-full"
+                          appendTo="body" data-testid="customer"></p-autoComplete>
+          <small class="p-error" *ngIf="invalid('customer')">Pick a customer from the list.</small>
+        </div>
+
+        <div class="field">
+          <label>Customer reference</label>
+          <input pInputText formControlName="customerReference" maxlength="50" placeholder="Their RFQ or inquiry number"
+                 data-testid="customer-reference" />
+        </div>
+        <div class="field">
+          <label>Reference date</label>
+          <p-calendar formControlName="customerReferenceDate" dateFormat="dd/mm/yy" [showIcon]="true" [showClear]="true"
+                      styleClass="w-full" appendTo="body"></p-calendar>
+        </div>
+
+        <div class="field">
+          <label>Valid from <span class="required">*</span></label>
+          <p-calendar formControlName="validFrom" dateFormat="dd/mm/yy" [showIcon]="true"
+                      styleClass="w-full" appendTo="body" data-testid="valid-from"></p-calendar>
+        </div>
+        <div class="field">
+          <label>Valid to <span class="required">*</span></label>
+          <p-calendar formControlName="validTo" dateFormat="dd/mm/yy" [showIcon]="true"
+                      [class.p-invalid]="invalid('validTo') || form.hasError('validToBeforeFrom')"
+                      styleClass="w-full" appendTo="body" data-testid="valid-to"></p-calendar>
+          <small class="p-error" *ngIf="form.hasError('validToBeforeFrom')">On or after valid from.</small>
+        </div>
+
+        <div class="field">
+          <label>Currency</label>
+          <p-dropdown formControlName="currencyId" [options]="currencyOptions" optionLabel="label" optionValue="value"
+                      placeholder="The organization's base currency" [filter]="true" styleClass="w-full" appendTo="body"
+                      data-testid="currency"></p-dropdown>
+          <small class="hint" *ngIf="currencyLocked">The lines are priced in this currency. Remove them to change it.</small>
+        </div>
+        <div class="field"></div>
+
+        <div class="field">
+          <label>Payment terms</label>
+          <input pInputText formControlName="paymentTerms" maxlength="200" placeholder="e.g. Net 30" />
+        </div>
+        <div class="field">
+          <label>Delivery terms</label>
+          <input pInputText formControlName="deliveryTerms" maxlength="200" placeholder="e.g. FOB Karachi" />
+        </div>
+
+        <div class="field full">
+          <label>Notes to the customer</label>
+          <textarea pTextarea formControlName="notes" rows="3" maxlength="2000"></textarea>
+        </div>
+        <div class="field full">
+          <label>Internal notes</label>
+          <textarea pTextarea formControlName="internalNotes" rows="2" maxlength="2000" placeholder="Not sent to the customer"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <small class="p-error block" *ngIf="error" data-testid="form-error">{{ error }}</small>
+
+    <div class="form-actions">
+      <p-button label="Cancel" [text]="true" severity="secondary" [routerLink]="backLink"></p-button>
+      <p-button type="submit" [label]="isEdit ? 'Save changes' : 'Create draft'" icon="pi pi-check"
+                [loading]="isSaving" [disabled]="isSaving || isLoading" data-testid="save"></p-button>
+    </div>
+  </form>
+</div>

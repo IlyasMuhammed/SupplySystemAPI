@@ -28,20 +28,43 @@ internal sealed class SaleOrderService : ISaleOrderService
     private readonly ISaleOrderEmailService _emailService;
     private readonly IProductVariantResolver? _variants;
     private readonly IVariantAvailabilityService? _availability;
+    private readonly ITaxCodeLookup? _taxCodes;
+    private readonly IExchangeRateProvider? _exchangeRates;
+    private readonly ICurrencyCodeLookup? _currencyCodes;
+    private readonly ISaleOrderInvoiceLookup? _invoices;
+    private readonly IAttachmentService? _attachments;
+    private readonly ISaleOrderDeliveryQuantities? _deliveries;
 
     // Both are optional the way InventoryLedgerService's master ledger is: production DI always
     // supplies them (Inventory registers both), and a caller without one gets the same behaviour
     // this codebase already had before either existed — no description, no channel check — rather
     // than failing.
+    //
+    // SAP alignment (docs/finance/SAP-ALIGNMENT-PLAN.md) — the last four are optional for the same
+    // reason. Finance supplies tax codes, exchange rates and the order's invoices; Lookups the currency
+    // codes. Without them: a line naming a tax code is refused (it cannot be checked), a price quoted in
+    // another currency is taken as it is (the behaviour before rates existed), and an order is cancelled
+    // without asking Finance about invoices.
     public SaleOrderService(
         DemandDbContext db, ITenantContext tenantContext, IOrganizationCurrencyService orgCurrency,
         IDocumentNumberGenerator numberGenerator, IPricingService pricing, IStockReservationService stock,
         ITimelineService timeline, IBackgroundJobClient jobs, IAvailabilityCheckService availabilityCheck,
         IPurchaseOrderService purchaseOrders, ISaleOrderEmailService emailService,
-        IProductVariantResolver? variants = null, IVariantAvailabilityService? availability = null)
+        IProductVariantResolver? variants = null, IVariantAvailabilityService? availability = null,
+        ITaxCodeLookup? taxCodes = null, IExchangeRateProvider? exchangeRates = null,
+        ICurrencyCodeLookup? currencyCodes = null, ISaleOrderInvoiceLookup? invoices = null,
+        IAttachmentService? attachments = null, ISaleOrderDeliveryQuantities? deliveries = null)
     {
+        // A32 — WorkflowEngine's attachment store, to check a linked customer PO file is this order's; and Logistics'
+        // in-flight delivery quantities, for each line's computed held/reservable figures and delivery indicator.
+        _attachments        = attachments;
+        _deliveries         = deliveries;
         _variants           = variants;
         _availability       = availability;
+        _taxCodes           = taxCodes;
+        _exchangeRates      = exchangeRates;
+        _currencyCodes      = currencyCodes;
+        _invoices           = invoices;
         _db                 = db;
         _tenantContext      = tenantContext;
         _orgCurrency        = orgCurrency;
@@ -59,6 +82,11 @@ internal sealed class SaleOrderService : ISaleOrderService
     {
         if (req.PartnerId == Guid.Empty)
             throw new BadRequestException("A sale order must be for a partner.");
+
+        // A32 BR-C3-01/02 — a direct order is MANUAL. One made from a quotation goes through the quotation's own
+        // convert-to-order (which links it back); PORTAL and INTER_TENANT are not built yet (Addendum 33).
+        EnsureDirectSourceType(req.SourceType);
+        var customerPo = NormalizeCustomerPo(req.CustomerPoReference);
 
         var config       = await ReadConfigAsync();
         var deliveryMode = ResolveDeliveryMode(req.DeliveryMode, config, existing: null);
@@ -94,13 +122,17 @@ internal sealed class SaleOrderService : ISaleOrderService
             // The organization's notification department unless the order names another.
             IntimationDepartmentId = req.IntimationDepartmentId ?? config.IntimationDepartmentId,
             Notes                  = req.Notes,
+            SourceType             = EnumCode<SaleOrderSourceType>.Of(SaleOrderSourceType.Manual),
+            CustomerPoReference    = customerPo,
+            CustomerPoDate         = req.CustomerPoDate?.Date,
             CreatedBy              = createdBy,
             CreatedDate            = DateTime.UtcNow
         };
 
         var lineMode = DefaultLineMode(config, deliveryMode);
+        var context  = new LineBuildContext(currencyId, orderDate);
         foreach (var lineReq in req.Lines)
-            order.Lines.Add(await BuildLineAsync(lineReq, req.PartnerId, orderDate, lineMode));
+            order.Lines.Add(await BuildLineAsync(lineReq, req.PartnerId, lineMode, context));
 
         ApplyTotals(order);
 
@@ -142,17 +174,26 @@ internal sealed class SaleOrderService : ISaleOrderService
         order.ShippingAddressId      = req.ShippingAddressId;
         order.IntimationDepartmentId = req.IntimationDepartmentId ?? config.IntimationDepartmentId;
         order.Notes                  = req.Notes;
+        order.CustomerPoReference    = NormalizeCustomerPo(req.CustomerPoReference);
+        order.CustomerPoDate         = req.CustomerPoDate?.Date;
         order.ModifiedBy             = modifiedBy;
         order.ModifiedDate           = DateTime.UtcNow;
 
         // A DRAFT order's lines are wholesale replaced rather than diffed line-by-line — every
         // price on every line needs re-resolving against the (possibly changed) order date and
         // quantities anyway, so there is nothing an in-place per-line update would save.
+        // Every new line is built before the old ones are dropped, so a refused line (an inactive tax
+        // code, a price with no exchange rate) fails the update before any line is touched.
+        var lineMode = DefaultLineMode(config, deliveryMode);
+        var context  = new LineBuildContext(currencyId, order.OrderDate);
+        var rebuilt  = new List<SaleOrderLine>(req.Lines.Count);
+        foreach (var lineReq in req.Lines)
+            rebuilt.Add(await BuildLineAsync(lineReq, order.PartnerId, lineMode, context));
+
         _db.SaleOrderLines.RemoveRange(order.Lines);
         order.Lines.Clear();
-        var lineMode = DefaultLineMode(config, deliveryMode);
-        foreach (var lineReq in req.Lines)
-            order.Lines.Add(await BuildLineAsync(lineReq, order.PartnerId, order.OrderDate, lineMode));
+        foreach (var line in rebuilt)
+            order.Lines.Add(line);
 
         ApplyTotals(order);
 
@@ -169,6 +210,31 @@ internal sealed class SaleOrderService : ISaleOrderService
         if (order is null) return null;
 
         var model = ToModel(order, includeLines: true);
+
+        // A32 C3 — the chain this order came from, as links.
+        if (order.SourceQuotationId is { } quotationId)
+            model.SourceQuotation = await _db.SaleQuotations.IgnoreQueryFilters().AsNoTracking()
+                .Where(q => q.Id == quotationId)
+                .Select(q => new SalesDocumentLinkModel { Uuid = q.UUID, Number = q.QuotationNumber, Status = q.Status })
+                .FirstOrDefaultAsync();
+        if (order.SourceInquiryId is { } inquiryId)
+            model.SourceInquiry = await _db.SaleInquiries.IgnoreQueryFilters().AsNoTracking()
+                .Where(i => i.Id == inquiryId)
+                .Select(i => new SalesDocumentLinkModel { Uuid = i.UUID, Number = i.InquiryNumber, Status = i.Status })
+                .FirstOrDefaultAsync();
+
+        // A32 C4 — what each line holds, read from the ledger (never stored), and the §6.3 indicator from it.
+        if (model.Lines.Count > 0)
+        {
+            var holds = await SaleOrderHolds.ReadAsync(_stock, _deliveries, order.UUID);
+            foreach (var line in order.Lines)
+            {
+                var lineModel = model.Lines.Single(l => l.Uuid == line.UUID);
+                lineModel.ReservedQty       = holds.ReservedFor(line.UUID);
+                lineModel.ReservableQty     = holds.ReservableFor(line);
+                lineModel.DeliveryIndicator = holds.IndicatorFor(order, line);
+            }
+        }
 
         if (_variants is not null && model.Lines.Count > 0)
         {
@@ -201,7 +267,10 @@ internal sealed class SaleOrderService : ISaleOrderService
         if (filter.OrderDateTo is { } to)
             query = query.Where(x => x.OrderDate <= to.Date);
         if (!string.IsNullOrWhiteSpace(filter.Search))
-            query = query.Where(x => x.SoNumber.Contains(filter.Search));
+            query = query.Where(x => x.SoNumber.Contains(filter.Search)
+                                  || (x.CustomerPoReference != null && x.CustomerPoReference.Contains(filter.Search)));
+        if (!string.IsNullOrWhiteSpace(filter.SourceType))
+            query = query.Where(x => x.SourceType == filter.SourceType);
 
         query = query.OrderByDescending(x => x.OrderDate).ThenByDescending(x => x.Id);
 
@@ -292,26 +361,15 @@ internal sealed class SaleOrderService : ISaleOrderService
     // A29-P4-04 §4.5.
     public async Task<bool> CancelAsync(Guid uuid, int userId, string? reason)
     {
-        var order = await _db.SaleOrders.Include(x => x.Lines).FirstOrDefaultAsync(x => x.UUID == uuid);
+        if (!await _db.SaleOrders.AnyAsync(x => x.UUID == uuid)) return false;
+
+        // A32 PE-04 (BR-C4-05) — under the order's hold lock, so no manual reserve can slip in between the release and
+        // the status change; and the holds are released BEFORE the order is saved as cancelled. The ledger is Inventory's
+        // and commits on its own, so the two cannot share one transaction: releasing first means a failed save leaves a
+        // still-open order with nothing held (cancel again — the release is idempotent), never a cancelled order whose
+        // stock stays locked.
+        var order = await SaleOrderHolds.OneChangeAtATimeAsync<SaleOrder?>(_db, uuid, () => CancelHeldAsync(uuid, userId, reason));
         if (order is null) return false;
-
-        var cancelled = EnumCode<SaleOrderStatus>.Of(SaleOrderStatus.Cancelled);
-        var closed    = EnumCode<SaleOrderStatus>.Of(SaleOrderStatus.Closed);
-        var invoiced  = EnumCode<SaleOrderStatus>.Of(SaleOrderStatus.Invoiced);
-        if (order.Status is var s && (s == cancelled || s == closed || s == invoiced))
-            throw new BadRequestException($"A sale order already {order.Status} cannot be cancelled.");
-
-        order.Status       = cancelled;
-        order.ModifiedBy   = userId;
-        order.ModifiedDate = DateTime.UtcNow;
-        await _db.SaveChangesAsync();
-
-        // §4.5 — "cancel (releases reservations)." A no-op for a DRAFT order that was never
-        // confirmed: nothing was ever reserved under its UUID, and ReleaseBySourceAsync is
-        // idempotent regardless.
-        await _stock.ReleaseBySourceAsync(
-            ReservationSourceType.SalesOrder, order.UUID,
-            reason ?? "Sale order cancelled.", userId);
 
         // §4.5 — "cancel linked DRAFT POs." Checked here, not left to PurchaseOrderService.CancelAsync's
         // own guard, so one line's PO having already moved past DRAFT (approved, sent — outside
@@ -336,6 +394,53 @@ internal sealed class SaleOrderService : ISaleOrderService
         _jobs.Enqueue<ISaleOrderEmailJob>(j => j.SendCancellationEmailAsync(order.UUID, reason, userId));
 
         return true;
+    }
+
+    private async Task<SaleOrder?> CancelHeldAsync(Guid uuid, int userId, string? reason)
+    {
+        var order = await _db.SaleOrders.Include(x => x.Lines).FirstOrDefaultAsync(x => x.UUID == uuid);
+        if (order is null) return null;
+
+        var cancelled = EnumCode<SaleOrderStatus>.Of(SaleOrderStatus.Cancelled);
+        var closed    = EnumCode<SaleOrderStatus>.Of(SaleOrderStatus.Closed);
+        var invoiced  = EnumCode<SaleOrderStatus>.Of(SaleOrderStatus.Invoiced);
+        if (order.Status is var s && (s == cancelled || s == closed || s == invoiced))
+            throw new BadRequestException($"A sale order already {order.Status} cannot be cancelled.");
+
+        // SAP alignment (S-7) — reverse, don't edit: an order whose goods have been billed is not cancelled
+        // out from under its invoices, which would leave a receivable (and a cost of sales) for an order
+        // that no longer exists. Finance owns the invoices; each is cancelled (or, a draft, deleted) there.
+        if (_invoices is not null)
+        {
+            var live = await _invoices.GetLiveInvoicesAsync(order.UUID);
+            if (live.Count > 0)
+            {
+                var listed = string.Join(", ", live.Select(i => $"{i.InvoiceNumber} ({i.Status})"));
+                throw new ConflictException(
+                    $"Sale order {order.SoNumber} has sales invoices that still stand: {listed}. Cancel its invoices first " +
+                    "(Finance → Sales Invoices: cancel an issued one, delete a draft), then cancel the order.");
+            }
+        }
+
+        // §4.5 — "cancel (releases reservations)", BR-C4-05 — every ACTIVE SALES_ORDER hold of the order, manual or
+        // not. A no-op for a DRAFT order that was never confirmed, and idempotent regardless.
+        await _stock.ReleaseBySourceAsync(
+            ReservationSourceType.SalesOrder, order.UUID,
+            reason ?? "Sale order cancelled.", userId);
+
+        order.Status       = cancelled;
+        order.ModifiedBy   = userId;
+        order.ModifiedDate = DateTime.UtcNow;
+
+        // A32 — the lines that were only waiting (OPEN) or holding stock (RESERVED, now released) are cancelled with the
+        // order; a line that has shipped anything keeps its fulfilment status, which is history.
+        var open     = EnumCode<SaleOrderLineStatus>.Of(SaleOrderLineStatus.Open);
+        var reserved = EnumCode<SaleOrderLineStatus>.Of(SaleOrderLineStatus.Reserved);
+        foreach (var line in order.Lines.Where(l => l.Status == open || l.Status == reserved))
+            line.Status = EnumCode<SaleOrderLineStatus>.Of(SaleOrderLineStatus.Cancelled);
+
+        await _db.SaveChangesAsync();
+        return order;
     }
 
     public async Task<TimelineDetail?> GetTimelineAsync(Guid uuid)
@@ -376,19 +481,46 @@ internal sealed class SaleOrderService : ISaleOrderService
         }).ToList();
     }
 
+    /// <summary>
+    /// What every line of one order is built against — its currency and date — and what was already
+    /// looked up for an earlier line of it, so ten lines on one tax code ask Finance once.
+    /// </summary>
+    private sealed class LineBuildContext(Guid orderCurrencyId, DateTime orderDate)
+    {
+        public Guid     OrderCurrencyId { get; } = orderCurrencyId;
+        public DateTime OrderDate       { get; } = orderDate;
+        public Dictionary<Guid, TaxCodeInfo?> TaxCodes      { get; } = [];
+        public Dictionary<Guid, string?>      CurrencyCodes { get; } = [];
+
+        /// <summary>The organization's base currency, once a line has needed it; null inside when it has none.</summary>
+        public (Guid? Id, bool Known) BaseCurrency { get; set; }
+    }
+
     // §4.2 — "unit_price (resolved selling price)": never trust a client-supplied price, always
     // resolve it through the same §2.3 waterfall a real sale would use.
+    // A32 PD-04 — a quotation's accepted line keeps the price the customer accepted (quotedUnitPrice, already in the
+    // order's currency, which is the quotation's): only the price resolution is skipped; every other rule still applies.
     private async Task<SaleOrderLine> BuildLineAsync(
-        CreateSaleOrderLineRequest lineReq, Guid partnerId, DateTime orderDate, string? fulfillmentMode)
+        CreateSaleOrderLineRequest lineReq, Guid partnerId, string? fulfillmentMode, LineBuildContext context,
+        decimal? quotedUnitPrice = null)
     {
         if (lineReq.VariantUuid == Guid.Empty)
             throw new BadRequestException("Every sale order line needs a variant.");
         if (lineReq.Quantity <= 0)
             throw new BadRequestException("Every sale order line's quantity must be greater than zero.");
+        // Held to what its decimal(5,2) column can keep, as the tax percentage is: over 100% is a negative line,
+        // below 0 a surcharge no one entered as one, and a third decimal is rounded away after the total was worked.
+        if (lineReq.DiscountPercent is < 0m or > 100m || decimal.Round(lineReq.DiscountPercent, 2) != lineReq.DiscountPercent)
+            throw new BadRequestException(
+                $"A line's discount must be a percentage from 0 to 100 with at most two decimal places; {lineReq.DiscountPercent} is not.");
 
+        var (taxCodeUuid, taxCode, taxPercent) = await ResolveTaxAsync(lineReq, context);
+
+        string? displayName = null;
         if (_availability is not null)
         {
             var availability = await _availability.GetAvailabilityAsync(lineReq.VariantUuid);
+            displayName = availability?.DisplayName;
             if (availability is null || !availability.IsAvailableForRetail)
                 throw new BadRequestException(
                     $"{availability?.DisplayName ?? lineReq.VariantUuid.ToString()} is not available for retail sale.");
@@ -402,10 +534,23 @@ internal sealed class SaleOrderService : ISaleOrderService
                     $"Quantity {lineReq.Quantity} exceeds the maximum order quantity of {availability.SaleOrderMaxQty} for {availability.DisplayName}.");
         }
 
-        var resolution = await _pricing.ResolveSalePriceAsync(lineReq.VariantUuid, partnerId, lineReq.Quantity, orderDate);
-        if (!resolution.Found || resolution.UnitPrice is not { } unitPrice)
-            throw new BadRequestException(
-                $"No sale price could be resolved for variant {lineReq.VariantUuid} — it has no selling price and no pricing rule applies.");
+        decimal unitPrice;
+        if (quotedUnitPrice is { } quoted)
+        {
+            if (quoted < 0m)
+                throw new BadRequestException($"A quoted price cannot be negative; {quoted} is.");
+            unitPrice = quoted;
+        }
+        else
+        {
+            var resolution = await _pricing.ResolveSalePriceAsync(lineReq.VariantUuid, partnerId, lineReq.Quantity, context.OrderDate);
+            if (!resolution.Found || resolution.UnitPrice is not { } resolvedPrice)
+                throw new BadRequestException(
+                    $"No sale price could be resolved for variant {lineReq.VariantUuid} — it has no selling price and no pricing rule applies.");
+
+            unitPrice = await ToOrderCurrencyAsync(
+                resolvedPrice, resolution.CurrencyId, context, displayName ?? lineReq.VariantUuid.ToString());
+        }
 
         var line = new SaleOrderLine
         {
@@ -413,12 +558,123 @@ internal sealed class SaleOrderService : ISaleOrderService
             Quantity        = lineReq.Quantity,
             UnitPrice       = unitPrice,
             DiscountPercent = lineReq.DiscountPercent,
-            TaxPercent      = lineReq.TaxPercent,
+            TaxPercent      = taxPercent,
+            TaxCodeUuid     = taxCodeUuid,
+            TaxCode         = taxCode,
             FulfillmentMode = fulfillmentMode,
             Status          = EnumCode<SaleOrderLineStatus>.Of(SaleOrderLineStatus.Open)
         };
         line.LineTotal = ComputeLineTotal(line);
         return line;
+    }
+
+    /// <summary>
+    /// SAP alignment (S-3) — what the line is taxed at. With a tax code, the code decides: it must be this
+    /// organization's, active, and usable on a sale, and its rate is copied onto the line as a snapshot
+    /// (whatever percentage the caller also sent is ignored — the code is the source of truth, as the
+    /// resolved price is for the unit price). Without one, the percentage as entered, as before tax codes
+    /// existed, held to 0–100 (the column is decimal(5,2)).
+    /// </summary>
+    private async Task<(Guid? Uuid, string? Code, decimal Percent)> ResolveTaxAsync(
+        CreateSaleOrderLineRequest lineReq, LineBuildContext context)
+    {
+        if (lineReq.TaxCodeUuid is not { } codeUuid || codeUuid == Guid.Empty)
+        {
+            if (lineReq.TaxPercent is < 0m or > 100m)
+                throw new BadRequestException(
+                    $"A line's tax percentage must be between 0 and 100; {lineReq.TaxPercent:0.##} is not.");
+            // The column keeps two places: a third would be rounded away on save, after the line's total had
+            // already been worked from it, and every invoice of the order (worked from what was saved) would
+            // then disagree with the order by however much that rounding was worth.
+            if (decimal.Round(lineReq.TaxPercent, 2) != lineReq.TaxPercent)
+                throw new BadRequestException(
+                    $"A line's tax percentage can have at most two decimal places, like 17.25; {lineReq.TaxPercent} has more.");
+            return (null, null, lineReq.TaxPercent);
+        }
+
+        if (_taxCodes is null)
+            throw new BadRequestException(
+                "Tax codes cannot be checked here, so a sale order line cannot name one. Enter the tax percentage instead.");
+
+        if (!context.TaxCodes.TryGetValue(codeUuid, out var code))
+            context.TaxCodes[codeUuid] = code = await _taxCodes.GetAsync(codeUuid);
+
+        if (code is null)
+            throw new BadRequestException(
+                $"Tax code {codeUuid} does not exist in this organization. Pick one of the codes under Settings → Tax Codes.");
+        if (!code.IsActive)
+            throw new BadRequestException(
+                $"Tax code {code.Code} is inactive and cannot be used on a new or edited line. " +
+                "Pick another code, or reactivate it under Settings → Tax Codes.");
+        if (!TaxCodeUsage.Allows(code.Usage, TaxCodeUsage.Sales))
+            throw new BadRequestException(
+                $"Tax code {code.Code} is for {code.Usage.ToLowerInvariant()} only and cannot be used on a sale order line. " +
+                "Pick a code whose usage is SALES or BOTH.");
+
+        return (code.Uuid, code.Code, code.RatePercent);
+    }
+
+    /// <summary>
+    /// A price rule may be quoted in another currency than the order (a USD contract on a PKR order); the
+    /// line is priced in the order's currency, converted at the rate on file for the order date. A price
+    /// with no currency of its own — the variant's own selling price — is in the organization's base
+    /// currency (<see cref="SalePriceResolution.CurrencyId"/>: "a null here means the org's base currency,
+    /// for the caller to resolve"), so on an order in another currency it is converted from the base
+    /// currency like any other; an organization with no base currency set gives it no currency to convert
+    /// from, and it is taken as it is. A price already in the order's currency is taken as it is. Rounded to
+    /// the cent, the way every Finance amount is — the sales invoice line that copies it keeps two places.
+    /// </summary>
+    private async Task<decimal> ToOrderCurrencyAsync(
+        decimal price, Guid? priceCurrencyId, LineBuildContext context, string variantName)
+    {
+        // Without either service there is no rate to convert at: the price is taken as quoted, as it
+        // always was before exchange rates existed. Production supplies both.
+        if (_exchangeRates is null || _currencyCodes is null)
+            return price;
+
+        var fromId = priceCurrencyId ?? await BaseCurrencyAsync(context);
+        if (fromId is not { } from || from == context.OrderCurrencyId)
+            return price;
+
+        var fromCode = await CurrencyCodeAsync(from, context);
+        var toCode   = await CurrencyCodeAsync(context.OrderCurrencyId, context);
+
+        if (fromCode is null || toCode is null)
+            throw new BadRequestException(
+                $"The price of {variantName} is quoted in a different currency from this order, and " +
+                $"{(fromCode is null ? "the price's" : "the order's")} currency has no ISO code in Settings → Currencies, " +
+                "so it cannot be converted. Give the currency its code and try again.");
+
+        if (string.Equals(fromCode, toCode, StringComparison.OrdinalIgnoreCase))
+            return price;
+
+        var quote = await _exchangeRates.GetRateAsync(fromCode, toCode, context.OrderDate);
+        if (quote is null)
+            throw new BadRequestException(
+                $"The price of {variantName} is quoted in {fromCode}, but this order is in {toCode} and there is no " +
+                $"{fromCode} → {toCode} exchange rate on or before {context.OrderDate:dd MMM yyyy}. " +
+                "Add one under Settings → Exchange Rates and try again.");
+
+        return ExchangeRateMath.Convert(price, quote.Rate);
+    }
+
+    /// <summary>The organization's base currency, asked once per order however many lines carry a list price.</summary>
+    private async Task<Guid?> BaseCurrencyAsync(LineBuildContext context)
+    {
+        if (!context.BaseCurrency.Known)
+            context.BaseCurrency = (await _orgCurrency.GetBaseCurrencyIdAsync(_tenantContext.OrganizationId), true);
+        return context.BaseCurrency.Id;
+    }
+
+    private async Task<string?> CurrencyCodeAsync(Guid currencyId, LineBuildContext context)
+    {
+        if (!context.CurrencyCodes.TryGetValue(currencyId, out var code))
+        {
+            code = await _currencyCodes!.GetCodeAsync(currencyId);
+            code = string.IsNullOrWhiteSpace(code) ? null : code.Trim();
+            context.CurrencyCodes[currencyId] = code;
+        }
+        return code;
     }
 
     // The policy, or the defaults a new organization gets when nobody has opened it yet. Read without
@@ -473,6 +729,174 @@ internal sealed class SaleOrderService : ISaleOrderService
         };
     }
 
+    // ── A32 C3 — source linking and the customer's PO ───────────────────────
+
+    /// <summary>
+    /// PD-04 — see <see cref="ISaleOrderService.CreateFromQuotationAsync"/>. The quotation is read from this same scoped
+    /// context, so a status change the caller (SaleQuotationService) already made on it is saved by the one
+    /// SaveChangesAsync below, together with the order. Its status is not checked here: by now the caller has moved it
+    /// to CONVERTED. What stops a second order is the existing-order check plus the unique index on SourceQuotationId.
+    /// </summary>
+    public async Task<Guid> CreateFromQuotationAsync(CreateSaleOrderFromQuotationCommand cmd, int createdBy)
+    {
+        var quotation = await _db.SaleQuotations.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(q => q.UUID == cmd.SourceQuotationUuid && q.OrganizationId == _tenantContext.OrganizationId)
+            ?? throw new NotFoundException("SaleQuotation", cmd.SourceQuotationUuid);
+
+        if (cmd.Lines.Count == 0)
+            throw new BadRequestException("No accepted lines to convert — a sale order needs at least one line.");
+        if (await _db.SaleOrders.IgnoreQueryFilters().AnyAsync(o => o.SourceQuotationId == quotation.Id))
+            throw new ConflictException($"Quotation {quotation.QuotationNumber} has already been converted to a sale order.");
+
+        var customerPo   = NormalizeCustomerPo(cmd.CustomerPoReference);
+        var config       = await ReadConfigAsync();
+        var deliveryMode = ResolveDeliveryMode(cmd.DeliveryMode, config, existing: null);
+        if (deliveryMode == DeliveryMode.Ship && cmd.ShippingAddressId is null)
+            throw new BadRequestException("A shipping address is required when the delivery mode is SHIP.");
+
+        var orderDate = cmd.OrderDate?.Date ?? DateTime.UtcNow.Date;
+        var soNumber  = await _numberGenerator.NextAsync("SO", orderDate);
+
+        var order = new SaleOrder
+        {
+            SoNumber               = soNumber,
+            PartnerId              = quotation.PartnerId,
+            OrderDate              = orderDate,
+            ExpectedDeliveryDate   = cmd.ExpectedDeliveryDate,
+            CurrencyId             = quotation.CurrencyId,
+            Status                 = EnumCode<SaleOrderStatus>.Of(SaleOrderStatus.Draft),
+            RequiresShipment       = deliveryMode == DeliveryMode.Ship,
+            DeliveryMode           = EnumCode<DeliveryMode>.Of(deliveryMode),
+            ShippingAddressId      = cmd.ShippingAddressId,
+            IntimationDepartmentId = cmd.IntimationDepartmentId ?? config.IntimationDepartmentId,
+            Notes                  = cmd.Notes,
+            SourceType             = EnumCode<SaleOrderSourceType>.Of(SaleOrderSourceType.FromQuotation),
+            SourceQuotationId      = quotation.Id,
+            SourceInquiryId        = quotation.SourceInquiryId, // BR-C3-03 — chained from the quotation
+            CustomerPoReference    = customerPo,
+            CustomerPoDate         = cmd.CustomerPoDate?.Date,
+            CreatedBy              = createdBy,
+            CreatedDate            = DateTime.UtcNow
+        };
+
+        var lineMode = DefaultLineMode(config, deliveryMode);
+        var context  = new LineBuildContext(quotation.CurrencyId, orderDate);
+        foreach (var quoted in cmd.Lines)
+        {
+            var lineReq = new CreateSaleOrderLineRequest
+            {
+                VariantUuid = quoted.VariantUuid, Quantity = quoted.Quantity, DiscountPercent = quoted.DiscountPercent,
+                TaxPercent = quoted.TaxPercent, TaxCodeUuid = quoted.TaxCodeUuid
+            };
+            order.Lines.Add(await BuildLineAsync(lineReq, quotation.PartnerId, lineMode, context, quoted.UnitPrice));
+        }
+
+        ApplyTotals(order);
+
+        _db.SaleOrders.Add(order);
+        try
+        {
+            await _db.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is Microsoft.Data.SqlClient.SqlException { Number: 2601 or 2627 })
+        {
+            // The unique index on SourceQuotationId: another conversion of the same quotation won the race.
+            _db.Entry(order).State = EntityState.Detached;
+            throw new ConflictException($"Quotation {quotation.QuotationNumber} has already been converted to a sale order.");
+        }
+
+        _jobs.Enqueue<ITimelineAppendJob>(j => j.AppendAsync(
+            order.TraceId,
+            new TimelineEvent(SaleOrderTimelineEventTypes.SoCreated, "SO", order.UUID, order.SoNumber, DateTime.UtcNow, createdBy,
+                $"From quotation {quotation.QuotationNumber}"),
+            "SO", order.SoNumber));
+
+        return order.UUID;
+    }
+
+    /// <summary>PD-05 — any order but a cancelled or closed one; the linked file must be this order's CUSTOMER_PO upload.</summary>
+    public async Task<bool> UpdateCustomerPoAsync(Guid uuid, UpdateSaleOrderCustomerPoRequest req, int modifiedBy)
+    {
+        var order = await _db.SaleOrders.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(o => o.UUID == uuid && o.OrganizationId == _tenantContext.OrganizationId && !o.IsDeleted);
+        if (order is null) return false;
+
+        if (order.Status == EnumCode<SaleOrderStatus>.Of(SaleOrderStatus.Cancelled)
+            || order.Status == EnumCode<SaleOrderStatus>.Of(SaleOrderStatus.Closed))
+            throw new BadRequestException($"The customer PO of a {order.Status} sale order cannot be changed.");
+
+        var reference = NormalizeCustomerPo(req.CustomerPoReference);
+
+        if (req.CustomerPoAttachmentUuid is { } attachmentUuid)
+        {
+            var file = _attachments is null ? null : await _attachments.FindAsync(attachmentUuid);
+            if (file is null)
+                throw new BadRequestException("That customer PO file was not found. Upload it to this order first, then link it.");
+            if (file.InterfaceCode != CustomerPoInterfaceCode || file.DocumentId != order.UUID)
+                throw new BadRequestException(
+                    $"Only a file uploaded as this order's customer PO ({CustomerPoInterfaceCode}) can be linked as its PO document.");
+        }
+
+        order.CustomerPoReference      = reference;
+        order.CustomerPoDate           = req.CustomerPoDate?.Date;
+        order.CustomerPoAttachmentUuid = req.CustomerPoAttachmentUuid;
+        order.ModifiedBy               = modifiedBy;
+        order.ModifiedDate             = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    /// <summary>BR-C3-05 — the warning, never a refusal: same reference (trimmed, any case) on another of the org's orders.</summary>
+    public async Task<IReadOnlyList<CustomerPoDuplicateModel>> FindCustomerPoDuplicatesAsync(string reference, Guid? excludeUuid)
+    {
+        var normalized = reference?.Trim();
+        if (string.IsNullOrEmpty(normalized)) return [];
+
+        var upper = normalized.ToUpperInvariant();
+        return await _db.SaleOrders.IgnoreQueryFilters().AsNoTracking()
+            .Where(o => o.OrganizationId == _tenantContext.OrganizationId && !o.IsDeleted
+                     && o.CustomerPoReference != null && o.CustomerPoReference.ToUpper() == upper
+                     && (excludeUuid == null || o.UUID != excludeUuid))
+            .OrderBy(o => o.OrderDate).ThenBy(o => o.Id)
+            .Select(o => new CustomerPoDuplicateModel
+            {
+                Uuid = o.UUID, SoNumber = o.SoNumber, PartnerId = o.PartnerId, Status = o.Status, OrderDate = o.OrderDate
+            })
+            .ToListAsync();
+    }
+
+    /// <summary>The generic attachment interface code a customer PO document is uploaded under (documentId = the order).</summary>
+    internal const string CustomerPoInterfaceCode = "CUSTOMER_PO";
+    internal const int CustomerPoReferenceMaxLength = 50;
+
+    private static void EnsureDirectSourceType(string? sourceType)
+    {
+        if (string.IsNullOrWhiteSpace(sourceType)) return;
+        if (!EnumCode<SaleOrderSourceType>.TryParse(sourceType.Trim().ToUpperInvariant(), out var parsed))
+            throw new BadRequestException($"'{sourceType}' is not a sale order source. Use MANUAL.");
+        switch (parsed)
+        {
+            case SaleOrderSourceType.Manual:
+                return;
+            case SaleOrderSourceType.FromQuotation:
+                throw new BadRequestException(
+                    "An order from a quotation is made by converting the accepted quotation (POST /api/sale-quotations/{id}/convert-to-order).");
+            default:
+                throw new BadRequestException($"Sale orders from {sourceType.Trim().ToUpperInvariant()} are not available yet.");
+        }
+    }
+
+    // BR-C3-04 — free text, trimmed, at most 50; blank is none.
+    private static string? NormalizeCustomerPo(string? reference)
+    {
+        var trimmed = reference?.Trim();
+        if (string.IsNullOrEmpty(trimmed)) return null;
+        if (trimmed.Length > CustomerPoReferenceMaxLength)
+            throw new BadRequestException(
+                $"A customer PO reference can be at most {CustomerPoReferenceMaxLength} characters; this one has {trimmed.Length}.");
+        return trimmed;
+    }
+
     // §4.2 — "line_total = qty * price * (1 - disc%) * (1 + tax%)."
     private static decimal ComputeLineTotal(SaleOrderLine line) =>
         Math.Round(
@@ -524,11 +948,16 @@ internal sealed class SaleOrderService : ISaleOrderService
         Notes                  = x.Notes,
         CreatedDate             = x.CreatedDate,
         ModifiedDate            = x.ModifiedDate,
+        SourceType               = x.SourceType,
+        CustomerPoReference      = x.CustomerPoReference,
+        CustomerPoDate           = x.CustomerPoDate,
+        CustomerPoAttachmentUuid = x.CustomerPoAttachmentUuid,
         Lines = includeLines
             ? x.Lines.Select(l => new SaleOrderLineModel
               {
                   Uuid = l.UUID, VariantUuid = l.VariantUuid, Quantity = l.Quantity, UnitPrice = l.UnitPrice,
-                  DiscountPercent = l.DiscountPercent, TaxPercent = l.TaxPercent, LineTotal = l.LineTotal,
+                  DiscountPercent = l.DiscountPercent, TaxPercent = l.TaxPercent,
+                  TaxCodeUuid = l.TaxCodeUuid, TaxCode = l.TaxCode, LineTotal = l.LineTotal,
                   FulfilledQty = l.FulfilledQty, InvoicedQty = l.InvoicedQty, FulfillmentMode = l.FulfillmentMode,
                   AvailableQtyAtConfirm = l.AvailableQtyAtConfirm, DeficitQty = l.DeficitQty,
                   LinkedPoId = l.LinkedPoId, SelectedSupplierId = l.SelectedSupplierId,

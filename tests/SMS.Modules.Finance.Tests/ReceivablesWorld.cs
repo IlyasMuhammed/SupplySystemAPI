@@ -352,7 +352,8 @@ internal static class ReceivablesInvariants
         // ── The ledger agrees with the documents ───────────────────────────────────────────────────
         // What the customer owes is everything billed, less every payment that is still good. A bounced
         // payment is a credit and its offsetting debit, and counts for nothing.
-        var billed   = books.Invoices.Where(i => i.Status != SalesInvoiceStatuses.Draft).Sum(i => i.GrandTotal);
+        // A cancelled invoice (SAP alignment S-7) was billed and then credited back in full, so it nets to nothing.
+        var billed   = books.Invoices.Where(i => i.Status is not (SalesInvoiceStatuses.Draft or SalesInvoiceStatuses.Cancelled)).Sum(i => i.GrandTotal);
         var received = books.Payments.Where(p => p.Status == CustomerPaymentStatuses.Received).Sum(p => p.Amount);
         if (running != billed - received)
             bad.Add($"the ledger balance is {running}, but {billed} billed less {received} received is {billed - received}");
@@ -371,6 +372,15 @@ internal static class ReceivablesInvariants
 
             if (i.AmountPaid != paid)
                 bad.Add($"{i.InvoiceNumber} has {i.AmountPaid} paid, but the payments still good add up to {paid}");
+            if (i.Status == SalesInvoiceStatuses.Cancelled)
+            {
+                // Only an unpaid invoice can be cancelled, and once it is nothing is owed on it.
+                if (i.BalanceDue != 0m || i.AmountPaid != 0m)
+                    bad.Add($"{i.InvoiceNumber} is CANCELLED but has {i.AmountPaid} paid and {i.BalanceDue} owing");
+                if (books.Ledger.Count(e => e.ReferenceId == i.UUID && e.EntryType == CustomerLedgerEntryTypes.CreditNote && e.CreditAmount == i.GrandTotal) != 1)
+                    bad.Add($"{i.InvoiceNumber} is CANCELLED but its ledger has no single credit note for {i.GrandTotal}");
+                continue;
+            }
             if (i.BalanceDue != i.GrandTotal - i.AmountPaid)
                 bad.Add($"{i.InvoiceNumber} owes {i.BalanceDue}, not {i.GrandTotal} less {i.AmountPaid}");
             if (i.AmountPaid < 0m || i.AmountPaid > i.GrandTotal)

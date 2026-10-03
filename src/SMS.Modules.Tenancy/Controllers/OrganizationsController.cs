@@ -11,6 +11,7 @@ namespace SMS.Modules.Tenancy.Controllers;
 [ApiController]
 [Route("api/system/organizations")]
 [RequirePermission(PermissionCodes.PLATFORM_SUPER_ADMIN)]
+[RequireSuperAdmin] // the code alone is carried by roles any organization can hold — see the attribute
 public class OrganizationsController : ControllerBase
 {
     private readonly ITenancyService _svc;

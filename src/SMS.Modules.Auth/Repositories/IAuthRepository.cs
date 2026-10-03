@@ -11,17 +11,27 @@ internal interface IAuthRepository
     UserAccount? AuthenticateUserAccount(LoginVM model);
     UserAccount? FindByEmail(string email);
     int ActivationTokenValidation(string token);
-    int SetPasswordVerification(ForgotPasswordModel dto);
     int CreateUserAccount(UserAccountModel model);
-    int UpdateUserAccount(UserAccount userAccount);
     int UpdatePersonalInformation(UpdatePersonalInfoModel dto);
     int UpdatePasswordInformation(UpdatePasswordModel dto);
-    PaginatedResponse<UserAccountModel> GetAllUsers(int page, int pageSize);
+    PaginatedResponse<UserAccountModel> GetAllUsers(int page, int pageSize, Guid? organizationId);
     int InactiveUser(int userId);
     List<PermissionModel> GetPermissionsByRole(int roleId);
     int SaveRolePermissions(int roleId, List<PermissionModel> permissions);
-    int SaveUserPermissions(int userId, List<PermissionModel> permissions);
+    int SaveUserPermissions(int userId, Guid organizationId, List<PermissionModel> permissions);
     List<PermissionModel> GetUserPermissions(int userId);
+
+    // ── Password reset code (each sets only its own columns) ──────────────────
+    void SetPasswordResetCode(int userId, string code, DateTime expiresAt);
+    void ClearPasswordResetCode(int userId);
+    void CompletePasswordReset(int userId, string newPassword);
+
+    // ── Facts the administration guards decide on ─────────────────────────────
+    Task<Dictionary<int, string>> GetPermissionCodesAsync();
+    Task<Dictionary<int, bool>> GetUserPermissionOverridesAsync(int userId);
+    Task<Dictionary<int, bool>> GetRolePermissionStatesAsync(int roleId);
+    Task<Role?> FindVisibleRoleAsync(int roleId);
+    Task<List<string>> GetGrantedPermissionCodesForRoleAsync(int roleId);
 
     // ── Async methods for login / token / session flows ───────────────────────
     Task<UserAccount?> FindUserForLoginAsync(string email);

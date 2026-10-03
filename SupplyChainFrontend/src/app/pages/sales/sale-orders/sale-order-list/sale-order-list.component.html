@@ -6,14 +6,20 @@
       <h1 class="page-title"><i class="pi pi-shopping-bag"></i> Sale Orders</h1>
       <p class="page-subtitle">Customer orders and how far each has been fulfilled</p>
     </div>
-    <p-button *ngIf="canCreate" label="New sale order" icon="pi pi-plus"
-              routerLink="/portal/pages/sales/orders/new" data-testid="new-order"></p-button>
+    <div class="header-actions">
+      <p-button *ngIf="canCreateFromQuotation" label="From quotation" icon="pi pi-file-import" [outlined]="true"
+                routerLink="/portal/pages/sales/orders/new" [queryParams]="{ source: 'quotation' }"
+                pTooltip="Create the order from a quotation the customer accepted"
+                data-testid="new-order-from-quotation"></p-button>
+      <p-button *ngIf="canCreate" label="New sale order" icon="pi pi-plus"
+                routerLink="/portal/pages/sales/orders/new" data-testid="new-order"></p-button>
+    </div>
   </div>
 
   <div class="filter-bar">
     <p-iconfield>
       <p-inputicon styleClass="pi pi-search"></p-inputicon>
-      <input pInputText type="text" placeholder="Search SO#..."
+      <input pInputText type="text" placeholder="Search SO# or customer PO…"
              [(ngModel)]="searchText" (ngModelChange)="onSearchChange()" class="search-input" />
     </p-iconfield>
     <p-dropdown [options]="statusOptions" [(ngModel)]="selectedStatus"

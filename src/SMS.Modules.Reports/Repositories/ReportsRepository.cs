@@ -261,10 +261,17 @@ internal sealed class ReportsRepository : IReportsRepository
                 .Average()
             : 0.0;
 
-        // Two COUNT queries — both on _finance, run sequentially (same DbContext)
+        // Two COUNT queries — both on _finance, run sequentially (same DbContext). Approving an invoice overwrites its
+        // MatchStatus, so "Matched" alone made every approval lower the rate: an approved (or later reversed) invoice
+        // counts as matched when its net Subtotal was within 5% of what it was matched against (MatchedPoValue — what
+        // it bills at PO prices, SAP alignment item C), the three-way match's own tolerance.
         var invoiceTotal = await _finance.Invoices.CountAsync(i => !i.IsDelete && i.GrnUuid.HasValue);
         var matchedTotal = await _finance.Invoices
-            .CountAsync(i => !i.IsDelete && i.GrnUuid.HasValue && i.MatchStatus == "Matched");
+            .CountAsync(i => !i.IsDelete && i.GrnUuid.HasValue
+                          && (i.MatchStatus == "Matched"
+                              || ((i.MatchStatus == "Approved" || i.MatchStatus == "Reversed")
+                                  && i.MatchedPoValue > 0m
+                                  && Math.Abs(i.VarianceAmount) <= i.MatchedPoValue * 0.05m)));
 
         var matchRate = invoiceTotal > 0
             ? Math.Round((double)matchedTotal / invoiceTotal * 100, 1)
@@ -424,9 +431,11 @@ internal sealed class ReportsRepository : IReportsRepository
             Description  = g.SupplierName
         }));
 
+        // Pending as well: an invoice with no purchase order (a G10 freight bill) has nothing to match against and
+        // stays Pending until a person approves it — it is waiting for approval just as much.
         var pendingInvoices = await _finance.Invoices
             .Where(i => !i.IsDelete && i.ApprovedBy == null &&
-                        (i.MatchStatus == "Matched" || i.MatchStatus == "Variance"))
+                        (i.MatchStatus == "Pending" || i.MatchStatus == "Matched" || i.MatchStatus == "Variance"))
             .Select(i => new { i.UUID, i.InvoiceNumber, i.SupplierName, i.MatchStatus, i.CreatedDate })
             .ToListAsync();
         result.AddRange(pendingInvoices.Select(i => new PendingApprovalItem {
@@ -912,11 +921,17 @@ internal sealed class ReportsRepository : IReportsRepository
 
     public async Task<(List<InvoiceAgingItem> Items, List<InvoiceAgingBucketSummary> Buckets)> GetInvoiceAgingAsync()
     {
-        // "Paid" is the legacy single-invoice Payment flow's fully-paid value; "FULLY_PAID" is
-        // the newer SupplierPayment posting flow's (SFM-004) — both must be excluded here.
-        var invoices = await _finance.Invoices
-            .Where(i => !i.IsDelete && i.PaymentStatus != "Paid" && i.PaymentStatus != "FULLY_PAID")
-            .ToListAsync();
+        // Only an Approved invoice is a payable (item E, the user's decision — the SAP way): not one still
+        // Pending, Matched or Variance, nor a reversed (S-7) or rejected one. "Paid" is the legacy single-invoice
+        // Payment flow's fully-paid value; "FULLY_PAID" is the newer SupplierPayment posting flow's (SFM-004) — both
+        // are excluded, and so is anything else with nothing left owed. Aged on what is still owed (total less paid),
+        // as Finance's own supplier aging (SFM-006) is, so the two reports agree on a part-paid invoice.
+        var invoices = (await _finance.Invoices
+            .Where(i => !i.IsDelete && i.MatchStatus == "Approved"
+                     && i.PaymentStatus != "Paid" && i.PaymentStatus != "FULLY_PAID")
+            .ToListAsync())
+            .Where(i => i.TotalAmount - i.PaidAmount > 0m)
+            .ToList();
 
         var today = DateTime.UtcNow.Date;
         var items = invoices.Select(i => {
@@ -928,6 +943,7 @@ internal sealed class ReportsRepository : IReportsRepository
                 SupplierName      = i.SupplierName,
                 DueDate           = i.DueDate,
                 TotalAmount       = i.TotalAmount,
+                OutstandingAmount = i.TotalAmount - i.PaidAmount,
                 PaymentStatus     = i.PaymentStatus,
                 DaysOverdue       = days > 0 ? days : 0,
                 AgingBucket       = bucket
@@ -939,7 +955,7 @@ internal sealed class ReportsRepository : IReportsRepository
             .Select(g => new InvoiceAgingBucketSummary {
                 Bucket      = g.Key,
                 Count       = g.Count(),
-                TotalAmount = g.Sum(x => x.TotalAmount)
+                TotalAmount = g.Sum(x => x.OutstandingAmount)
             })
             .ToList();
 

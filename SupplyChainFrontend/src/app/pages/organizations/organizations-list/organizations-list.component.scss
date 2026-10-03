@@ -173,6 +173,10 @@
   color: var(--text-color-secondary);
 }
 
+.dlg-hint.warn {
+  color: var(--orange-700, #c2410c);
+}
+
 .dlg-footer {
   display: flex;
   justify-content: flex-end;

@@ -42,7 +42,14 @@ public class CreateInvoiceRequest
     public string  Currency          { get; set; } = "PKR";
     // When Lines are provided, Subtotal is computed from them; otherwise enter manually.
     public decimal Subtotal          { get; set; }
+    /// <summary>The tax as an amount — used only when no <see cref="TaxCodeUuid"/> is given.</summary>
     public decimal TaxAmount         { get; set; }
+    /// <summary>
+    /// SAP alignment (S-3): a purchase tax code (usage PURCHASE or BOTH, active). When given, the server
+    /// computes TaxAmount = round(Subtotal × rate / 100, 2, away from zero), snapshots the code and its rate
+    /// on the invoice, and <b>ignores</b> <see cref="TaxAmount"/>. Null = tax entered as an amount, as before.
+    /// </summary>
+    public Guid?   TaxCodeUuid       { get; set; }
     public string? PaymentMethod     { get; set; }
     public string? Notes             { get; set; }
     public string? AttachmentUrl     { get; set; }
@@ -52,16 +59,33 @@ public class CreateInvoiceRequest
     public Guid? InvoiceUuid { get; set; }
 }
 
+/// <summary>
+/// Null means "leave as it is". Once an invoice is Approved its tax, tax code and match status are
+/// frozen (reverse it instead); once Reversed only Notes and AttachmentUrl may change. See
+/// <c>InvoiceRepository.PatchAsync</c> for every rule.
+/// </summary>
 public class PatchInvoiceRequest
 {
+    /// <summary>What the bill is sent to QuickBooks under. Refused once a payment has been recorded against the invoice.</summary>
     public string?   SupplierInvoiceNo { get; set; }
     public DateTime? DueDate           { get; set; }
     public string?   PaymentMethod     { get; set; }
+    /// <summary>A hand-entered tax amount. Refused while the invoice's tax comes from a tax code (pick another code, or remove it).</summary>
     public decimal?  TaxAmount         { get; set; }
+    /// <summary>A purchase tax code to apply (TaxAmount is then computed and the one sent ignored); <c>Guid.Empty</c> removes the code.</summary>
+    public Guid?     TaxCodeUuid       { get; set; }
+    /// <summary>Pending, Matched or Variance only — approving, rejecting and reversing have their own actions.</summary>
     public string?   MatchStatus       { get; set; }
+    /// <summary>Unpaid or Scheduled only, and only while no payment has been recorded; anything else follows the payments.</summary>
     public string?   PaymentStatus     { get; set; }
     public string?   Notes             { get; set; }
     public string?   AttachmentUrl     { get; set; }
+}
+
+/// <summary>SAP alignment (S-7): reverse an approved, unpaid supplier invoice.</summary>
+public class ReverseInvoiceRequest
+{
+    public string Reason { get; set; } = string.Empty;
 }
 
 public class ApproveInvoiceRequest
@@ -90,6 +114,10 @@ public class InvoiceListItemModel
     public DateTime DueDate           { get; set; }
     public decimal  TotalAmount       { get; set; }
     public string   Currency          { get; set; } = string.Empty;
+    /// <summary>The purchase tax code snapshotted on the invoice; null when the tax was entered as an amount.</summary>
+    public string?  TaxCode           { get; set; }
+    public decimal? TaxPercent        { get; set; }
+    /// <summary>Pending | Matched | Variance | Approved | Rejected | Reversed.</summary>
     public string   MatchStatus       { get; set; } = string.Empty;
     public string   PaymentStatus     { get; set; } = string.Empty;
 }
@@ -114,15 +142,33 @@ public class InvoiceDetailModel
     public decimal  Subtotal          { get; set; }
     public decimal  TaxAmount         { get; set; }
     public decimal  TotalAmount       { get; set; }
+    /// <summary>SAP alignment (S-3) — the purchase tax code and its rate as snapshotted; null when the tax was entered as an amount.</summary>
+    public Guid?    TaxCodeUuid       { get; set; }
+    public string?  TaxCode           { get; set; }
+    public decimal? TaxPercent        { get; set; }
+    /// <summary>
+    /// S-5 — snapshotted at approval: 1 <see cref="Currency"/> = ExchangeRate <see cref="BaseCurrencyCode"/>
+    /// on the invoice date. ExchangeRate and BaseTotalAmount are null when no rate was on file (or before approval).
+    /// </summary>
+    public decimal? ExchangeRate      { get; set; }
+    public string?  BaseCurrencyCode  { get; set; }
+    public decimal? BaseTotalAmount   { get; set; }
+    /// <summary>Three-way match against the PO and GRN values, on the net Subtotal (S-8).</summary>
     public decimal  MatchedPoValue    { get; set; }
     public decimal  MatchedGrnValue   { get; set; }
+    /// <summary>Subtotal − PO value (both net of tax). Zero for an invoice with no purchase order.</summary>
     public decimal  VarianceAmount    { get; set; }
+    /// <summary>Pending | Matched | Variance | Approved | Rejected | Reversed.</summary>
     public string   MatchStatus       { get; set; } = string.Empty;
     public string   PaymentStatus     { get; set; } = string.Empty;
     public decimal  PaidAmount        { get; set; }
     public string?  PaymentMethod     { get; set; }
     public int?     ApprovedBy        { get; set; }
     public DateTime? ApprovedAt       { get; set; }
+    /// <summary>S-7 — set when the approved invoice was reversed (opposite ledger entry; nothing edited).</summary>
+    public DateTime? ReversedAt       { get; set; }
+    public int?     ReversedBy        { get; set; }
+    public string?  ReversalReason    { get; set; }
     public string?  Notes             { get; set; }
     public string?  AttachmentUrl     { get; set; }
     public int      CreatedBy         { get; set; }
@@ -135,6 +181,7 @@ public class InvoiceDetailModel
 
 public class InvoiceFilter
 {
+    /// <summary>Pending | Matched | Variance | Approved | Rejected | Reversed.</summary>
     public string?   MatchStatus   { get; set; }
     public string?   PaymentStatus { get; set; }
     public Guid?     SupplierId    { get; set; }

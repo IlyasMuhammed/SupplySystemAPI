@@ -13,6 +13,7 @@ using SMS.Modules.Auth;
 using SMS.Modules.Auth.Authorization;
 using SMS.Modules.Demand;
 using SMS.Modules.Finance;
+using SMS.Modules.Integration;
 using SMS.Modules.Inventory;
 using SMS.Modules.Logistics;
 using SMS.Modules.Lookups;
@@ -187,6 +188,8 @@ builder.Services.AddFinanceModule(builder.Configuration);
 builder.Services.AddReportsModule(builder.Configuration);
 builder.Services.AddWorkflowEngineModule(builder.Configuration);
 builder.Services.AddMaterialModule(builder.Configuration);
+// Last on purpose: it replaces the NullQuickBooksGateway the modules above TryAdd.
+builder.Services.AddIntegrationModule(builder.Configuration);
 
 // ── JWT Authentication ─────────────────────────────────────────────────────────
 var key = Encoding.ASCII.GetBytes(appSettings.Secret);
@@ -323,6 +326,7 @@ app.UseWarehouseModule();      // ensures warehouse schema migrations (SRO table
 app.UseFinanceModule();        // ensures finance schema migrations are applied; registers sales-invoice overdue sweep (daily Hangfire job)
 app.UseMaterialModule();       // ensures material schema migrations (projects, MIR tables) are applied
 app.UseLogisticsModule();      // ensures logistics schema migrations (delivery/consignment tables) are applied
+app.UseIntegrationModule();    // QuickBooks gateway: integration schema migrations + sync/token jobs
 
 app.MapControllers();
 app.MapHub<NotificationHub>("/hubs/notifications");

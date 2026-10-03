@@ -30,16 +30,16 @@
 
       <div class="action-buttons">
         <p-button label="Approve" icon="pi pi-check" severity="success"
-                  *ngIf="payment.status === 'DRAFT' && authService.hasPermission('PAYMENT_APPROVE')"
+                  *ngIf="canApprove"
                   [loading]="isActioning" (onClick)="confirmApprove()"></p-button>
         <p-button label="Post" icon="pi pi-send" severity="warn"
-                  *ngIf="payment.status === 'APPROVED'"
+                  *ngIf="canPost"
                   [loading]="isActioning" (onClick)="confirmPost()"></p-button>
         <p-button label="Bounce" icon="pi pi-exclamation-triangle" severity="danger" [outlined]="true"
-                  *ngIf="payment.status === 'POSTED' && payment.paymentMethod === 'CHEQUE'"
+                  *ngIf="canBounce"
                   [loading]="isActioning" (onClick)="confirmBounce()"></p-button>
         <p-button label="Cancel" icon="pi pi-times" severity="secondary" [outlined]="true"
-                  *ngIf="payment.status === 'DRAFT' || payment.status === 'APPROVED'"
+                  *ngIf="canCancel"
                   [loading]="isActioning" (onClick)="confirmCancel()"></p-button>
         <p-button icon="pi pi-history" [text]="true" severity="secondary"
                   pTooltip="View Timeline" (onClick)="showTimeline = true"></p-button>

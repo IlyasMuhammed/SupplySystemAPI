@@ -37,15 +37,18 @@ internal sealed class ReservationExpirySweepJob
     private readonly IStockReservationService _stock;
     private readonly INotificationService _notifications;
     private readonly ILogger<ReservationExpirySweepJob> _log;
+    private readonly ISaleOrderDeliveryQuantities? _deliveries;
 
     public ReservationExpirySweepJob(
         DemandDbContext db, IStockReservationService stock,
-        INotificationService notifications, ILogger<ReservationExpirySweepJob> log)
+        INotificationService notifications, ILogger<ReservationExpirySweepJob> log,
+        ISaleOrderDeliveryQuantities? deliveries = null)
     {
         _db            = db;
         _stock         = stock;
         _notifications = notifications;
         _log           = log;
+        _deliveries    = deliveries;
     }
 
     [AutomaticRetry(Attempts = 3)]
@@ -103,8 +106,11 @@ internal sealed class ReservationExpirySweepJob
                     var line = await _db.SaleOrderLines.FirstOrDefaultAsync(l => l.UUID == lineUuid);
                     if (line is null) continue;
 
-                    line.Status     = EnumCode<SaleOrderLineStatus>.Of(SaleOrderLineStatus.Open);
-                    line.DeficitQty = line.Quantity;
+                    // A32 PE-10 — a line can now hold several reservations (manual reserves add their own, each with
+                    // its own expiry), so only what actually lapsed comes off it: its fields are brought in line with
+                    // what the ledger still holds for it, rather than reset as if nothing were left.
+                    var holds = await SaleOrderHolds.ReadAsync(_stock, _deliveries, reservation.SourceUuid);
+                    SaleOrderHolds.Reconcile(line, holds);
 
                     await _db.SaveChangesAsync();
                     released++;

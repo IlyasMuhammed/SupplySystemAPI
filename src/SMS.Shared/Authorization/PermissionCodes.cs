@@ -167,6 +167,25 @@ public static class PermissionCodes
     /// <summary>Confirming an order — the action that will trigger §4.3's availability check, once that exists.</summary>
     public const string SALE_ORDER_CONFIRM = "SALE_ORDER_CONFIRM";
     public const string SALE_ORDER_CANCEL  = "SALE_ORDER_CANCEL";
+    /// <summary>A32 C4 — holding stock against a sale order line by hand (the spec's sales_reserve_inventory).</summary>
+    public const string SALE_ORDER_RESERVE = "SALE_ORDER_RESERVE";
+    /// <summary>A32 C4 — giving a sale order line's held stock back (the spec's sales_release_reservation).</summary>
+    public const string SALE_ORDER_RELEASE_RESERVATION = "SALE_ORDER_RELEASE_RESERVATION";
+
+    // ── Sales pre-order pipeline (Addendum 32) ────────────────────────────────
+    public const string SALE_INQUIRY_VIEW   = "SALE_INQUIRY_VIEW";
+    public const string SALE_INQUIRY_CREATE = "SALE_INQUIRY_CREATE";
+    /// <summary>Editing lines, evaluating them and moving the inquiry through its states.</summary>
+    public const string SALE_INQUIRY_EDIT   = "SALE_INQUIRY_EDIT";
+    public const string SALE_QUOTATION_VIEW   = "SALE_QUOTATION_VIEW";
+    /// <summary>Creating a quotation, on its own or from a reviewed inquiry.</summary>
+    public const string SALE_QUOTATION_CREATE = "SALE_QUOTATION_CREATE";
+    /// <summary>Editing a draft, recording the customer's responses, accepting or rejecting it.</summary>
+    public const string SALE_QUOTATION_EDIT   = "SALE_QUOTATION_EDIT";
+    /// <summary>Sending a quotation to the customer — it then can no longer change.</summary>
+    public const string SALE_QUOTATION_SEND   = "SALE_QUOTATION_SEND";
+    /// <summary>Adding, renaming, reordering and deactivating the organization's rejection reasons.</summary>
+    public const string SALE_REJECTION_REASON_MANAGE = "SALE_REJECTION_REASON_MANAGE";
 
     // ── Receivables (Addendum 29 §9–§10) ──────────────────────────────────────
     // Deliberately not INVOICE_* / PAYMENT_*: those are seeded and described as the supplier side —
@@ -249,6 +268,18 @@ public static class PermissionCodes
     // PRODUCT_LEDGER_VIEW (Finance's cost/margin ledger — a different book entirely).
     public const string PROD_LEDGER_VIEW = "PROD_LEDGER_VIEW";
 
+    // ── Accounting integration — QuickBooks Online (docs/quickbooks/QUICKBOOKS-INTEGRATION-PLAN.md) ──
+    /// <summary>Seeing the connection, mappings, sync dashboard and each record's sync status.</summary>
+    public const string INTEGRATION_VIEW   = "INTEGRATION_VIEW";
+    /// <summary>Connecting and disconnecting a company, changing mappings and settings, issuing API keys, going live.</summary>
+    public const string INTEGRATION_MANAGE = "INTEGRATION_MANAGE";
+    /// <summary>Pushing a record now and retrying a failed one — operational, not configuration.</summary>
+    public const string INTEGRATION_SYNC   = "INTEGRATION_SYNC";
+
+    // ── Finance setup — tax codes and exchange rates (docs/finance/SAP-ALIGNMENT-PLAN.md) ──
+    /// <summary>Creating and changing tax codes and exchange rates. Reading them (for pickers) needs only a sign-in.</summary>
+    public const string FINANCE_SETUP_MANAGE = "FINANCE_SETUP_MANAGE";
+
     // ── All codes (used by System Admin seed) ─────────────────────────────────
     public static readonly IReadOnlyList<string> All =
     [
@@ -271,6 +302,10 @@ public static class PermissionCodes
         WORKFLOW_ADMIN, WORKFLOW_VIEW,
         SALE_ORDER_CONFIG_READ, SALE_ORDER_CONFIG_WRITE,
         SALE_ORDER_VIEW, SALE_ORDER_CREATE, SALE_ORDER_EDIT, SALE_ORDER_CONFIRM, SALE_ORDER_CANCEL,
+        SALE_ORDER_RESERVE, SALE_ORDER_RELEASE_RESERVATION,
+        SALE_INQUIRY_VIEW, SALE_INQUIRY_CREATE, SALE_INQUIRY_EDIT,
+        SALE_QUOTATION_VIEW, SALE_QUOTATION_CREATE, SALE_QUOTATION_EDIT, SALE_QUOTATION_SEND,
+        SALE_REJECTION_REASON_MANAGE,
         SALES_INVOICE_VIEW, SALES_INVOICE_MANAGE, CUSTOMER_PAYMENT_VIEW, CUSTOMER_PAYMENT_RECORD, CUSTOMER_LEDGER_VIEW,
         PRODUCT_LEDGER_VIEW,
         ALLOCATION_VIEW, ALLOCATION_RUN, ALLOCATION_ADMIN,
@@ -278,5 +313,7 @@ public static class PermissionCodes
         PROD_VIEW, PROD_CREATE, PROD_PLAN, PROD_START, PROD_REPORT, PROD_CANCEL, PROD_MANAGER,
         MI_CREATE, MI_CONFIRM, MI_REVERSE, SUPPLY_VIEW, SUPPLY_CREATE, SUPPLY_CANCEL,
         QI_CREATE, QI_APPROVE, FGR_CREATE, FGR_CONFIRM, PROD_LEDGER_VIEW,
+        INTEGRATION_VIEW, INTEGRATION_MANAGE, INTEGRATION_SYNC,
+        FINANCE_SETUP_MANAGE,
     ];
 }

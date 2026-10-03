@@ -506,6 +506,74 @@ namespace SMS.Modules.Finance.Migrations
                     b.ToTable("debt_write_offs", "finance");
                 });
 
+            modelBuilder.Entity("SMS.Modules.Finance.Domain.ExchangeRate", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("EffectiveDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("FromCurrencyCode")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<bool>("IsDelete")
+                        .HasColumnType("bit");
+
+                    b.Property<int?>("ModifiedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ModifiedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Rate")
+                        .HasColumnType("decimal(18,8)");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("MANUAL");
+
+                    b.Property<string>("ToCurrencyCode")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<Guid>("Uuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Uuid")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "FromCurrencyCode", "ToCurrencyCode", "EffectiveDate")
+                        .IsUnique()
+                        .HasFilter("[IsDelete] = 0");
+
+                    b.ToTable("exchange_rates", "finance");
+                });
+
             modelBuilder.Entity("SMS.Modules.Finance.Domain.Invoice", b =>
                 {
                     b.Property<int>("Id")
@@ -524,6 +592,13 @@ namespace SMS.Modules.Finance.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<string>("BaseCurrencyCode")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<decimal?>("BaseTotalAmount")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<int>("CreatedBy")
                         .HasColumnType("int");
 
@@ -539,6 +614,9 @@ namespace SMS.Modules.Finance.Migrations
 
                     b.Property<DateTime>("DueDate")
                         .HasColumnType("datetime2");
+
+                    b.Property<decimal?>("ExchangeRate")
+                        .HasColumnType("decimal(18,8)");
 
                     b.Property<string>("GrnNumber")
                         .HasMaxLength(20)
@@ -615,6 +693,16 @@ namespace SMS.Modules.Finance.Migrations
                     b.Property<DateTime>("ReceivedDate")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("ReversalReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("ReversedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ReversedBy")
+                        .HasColumnType("int");
+
                     b.Property<string>("SourceType")
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");
@@ -639,6 +727,16 @@ namespace SMS.Modules.Finance.Migrations
 
                     b.Property<decimal>("TaxAmount")
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("TaxCode")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid?>("TaxCodeUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal?>("TaxPercent")
+                        .HasColumnType("decimal(5,2)");
 
                     b.Property<decimal>("TotalAmount")
                         .HasColumnType("decimal(18,2)");
@@ -1201,6 +1299,23 @@ namespace SMS.Modules.Finance.Migrations
                     b.Property<decimal>("BalanceDue")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<string>("BaseCurrencyCode")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<decimal?>("BaseGrandTotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("CancellationReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("CancelledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CancelledBy")
+                        .HasColumnType("int");
+
                     b.Property<int>("CreatedBy")
                         .HasColumnType("int");
 
@@ -1226,6 +1341,9 @@ namespace SMS.Modules.Finance.Migrations
 
                     b.Property<DateTime>("DueDate")
                         .HasColumnType("datetime2");
+
+                    b.Property<decimal?>("ExchangeRate")
+                        .HasColumnType("decimal(18,8)");
 
                     b.Property<decimal>("GrandTotal")
                         .HasColumnType("decimal(18,2)");
@@ -1352,6 +1470,13 @@ namespace SMS.Modules.Finance.Migrations
                         .HasColumnType("int");
 
                     b.Property<Guid>("SoLineUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("TaxCode")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid?>("TaxCodeUuid")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal>("TaxPercent")
@@ -1660,6 +1785,77 @@ namespace SMS.Modules.Finance.Migrations
                         .IsUnique();
 
                     b.ToTable("supplier_payment_lines", "finance");
+                });
+
+            modelBuilder.Entity("SMS.Modules.Finance.Domain.TaxCode", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<int>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("IsDefault")
+                        .HasColumnType("bit");
+
+                    b.Property<int?>("ModifiedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ModifiedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("RatePercent")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<string>("Usage")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)")
+                        .HasDefaultValue("BOTH");
+
+                    b.Property<Guid>("Uuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Uuid")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "Code")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "IsActive", "Usage");
+
+                    b.ToTable("tax_codes", "finance");
                 });
 
             modelBuilder.Entity("SMS.Modules.Finance.Domain.InvoiceLine", b =>

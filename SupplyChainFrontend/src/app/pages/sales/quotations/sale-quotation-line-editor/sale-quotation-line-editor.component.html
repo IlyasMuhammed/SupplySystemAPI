@@ -1,0 +1,151 @@
+<form [formGroup]="form" (ngSubmit)="save()" class="line-editor" data-testid="line-editor">
+  <p class="readonly-note" *ngIf="readOnly" data-testid="read-only">
+    <i class="pi pi-lock"></i> This quotation is no longer a draft, so its lines cannot change.
+  </p>
+
+  <div class="field full">
+    <label>Line type</label>
+    <p-selectButton formControlName="lineType" [options]="typeOptions" optionLabel="label" optionValue="value"
+                    optionDisabled="disabled" [allowEmpty]="false" (onChange)="onTypeChange()"
+                    data-testid="line-type"></p-selectButton>
+    <small class="hint" *ngIf="lineType === 'REJECTED'">A line you cannot or will not supply: it carries a reason and no price.</small>
+    <small class="hint" *ngIf="lineType === 'ALTERNATIVE'">Offered in place of one of the rejected lines.</small>
+  </div>
+
+  <div class="grid">
+    <div class="field full" *ngIf="lineType === 'ALTERNATIVE'">
+      <label>Alternative for <span class="required">*</span></label>
+      <p-dropdown formControlName="alternativeForLineUuid" [options]="alternativeForOptions" optionLabel="label" optionValue="value"
+                  placeholder="Choose the rejected line" styleClass="w-full" appendTo="body"
+                  data-testid="alternative-for"></p-dropdown>
+    </div>
+
+    <div class="field full">
+      <label>Item <span class="required" *ngIf="lineType !== 'REJECTED'">*</span></label>
+      <ng-container *ngIf="pickerOpen; else fixedItem">
+        <app-product-variant-picker [products]="products"
+                                    [productUuid]="form.get('productUuid')!.value"
+                                    [variantUuid]="form.get('variantUuid')!.value"
+                                    channel="RETAIL"
+                                    (selectionChange)="onVariantSelected($event)"></app-product-variant-picker>
+      </ng-container>
+      <ng-template #fixedItem>
+        <div class="fixed-item">
+          <div>
+            <div data-testid="item-label">{{ itemLabel }}</div>
+            <div class="line-sub" *ngIf="itemSku">{{ itemSku }}</div>
+          </div>
+          <p-button *ngIf="!readOnly" label="Change" [text]="true" size="small" (onClick)="changeItem()" data-testid="change-item"></p-button>
+        </div>
+      </ng-template>
+      <small class="hint" *ngIf="lineType === 'REJECTED'">Optional on a rejected line — describe it below if it is not in the catalog.</small>
+    </div>
+
+    <div class="field full">
+      <label>Description <span class="required" *ngIf="lineType === 'REJECTED'">*</span></label>
+      <input pInputText formControlName="productDescription" maxlength="500" class="w-full"
+             placeholder="Defaults to the item's name" data-testid="description" />
+    </div>
+
+    <div class="field">
+      <label>Quantity <span class="required" *ngIf="isPriced">*</span></label>
+      <p-inputNumber formControlName="quantity" [minFractionDigits]="0" [maxFractionDigits]="4" [min]="0"
+                     [class.p-invalid]="fieldInvalid('quantity')" (onBlur)="refreshPrice()"
+                     styleClass="w-full" inputStyleClass="w-full" data-testid="quantity"></p-inputNumber>
+    </div>
+
+    <div class="field">
+      <label>UoM</label>
+      <input pInputText formControlName="uomCode" maxlength="20" class="w-full" data-testid="uom" />
+    </div>
+
+    <ng-container *ngIf="isPriced">
+      <div class="field">
+        <label>Unit price</label>
+        <p-inputNumber formControlName="unitPrice" [minFractionDigits]="2" [maxFractionDigits]="4" [min]="0"
+                       styleClass="w-full" inputStyleClass="w-full" data-testid="unit-price"></p-inputNumber>
+        <small class="hint">Blank: priced from the pricing rules when saved.</small>
+      </div>
+
+      <div class="field">
+        <label>Discount %</label>
+        <p-inputNumber formControlName="discountPercent" [minFractionDigits]="0" [maxFractionDigits]="2"
+                       [min]="0" [max]="100" styleClass="w-full" inputStyleClass="w-full" data-testid="discount"></p-inputNumber>
+      </div>
+
+      <!-- SAP alignment (S-3), as on the sale order form: a tax code when the organization has any; its rate is the line's. -->
+      <div class="field" *ngIf="showTaxCodes; else plainTax" data-testid="tax-code-field">
+        <label>Tax code</label>
+        <p-dropdown formControlName="taxCodeUuid" [options]="taxCodeOptions" optionLabel="label" optionValue="value"
+                    [showClear]="true" placeholder="No code — type the %" (onChange)="onTaxCodeChange()"
+                    [class.p-invalid]="hasRetiredTaxCode" styleClass="w-full" appendTo="body" data-testid="tax-code"></p-dropdown>
+        <small class="p-error" *ngIf="hasRetiredTaxCode" data-testid="tax-code-retired">
+          No longer active, so this line cannot be saved on it. Choose another code, or clear it and type the rate.
+        </small>
+        <p-inputNumber formControlName="taxPercent" [minFractionDigits]="0" [maxFractionDigits]="2"
+                       [min]="0" [max]="100" suffix="%" [readonly]="hasTaxCode"
+                       [pTooltip]="hasTaxCode ? 'The rate of the tax code. Clear the code to type a rate.' : ''"
+                       styleClass="w-full" inputStyleClass="w-full" data-testid="tax"></p-inputNumber>
+      </div>
+      <ng-template #plainTax>
+        <div class="field">
+          <label>Tax %</label>
+          <p-inputNumber formControlName="taxPercent" [minFractionDigits]="0" [maxFractionDigits]="2"
+                         [min]="0" [max]="100" [class.p-invalid]="fieldInvalid('taxPercent')"
+                         styleClass="w-full" inputStyleClass="w-full" data-testid="tax"></p-inputNumber>
+        </div>
+      </ng-template>
+
+      <div class="field">
+        <label>Promised delivery</label>
+        <p-calendar formControlName="promisedDeliveryDate" dateFormat="dd/mm/yy" [showIcon]="true" [showClear]="true"
+                    styleClass="w-full" appendTo="body" data-testid="delivery-date"></p-calendar>
+      </div>
+    </ng-container>
+
+    <ng-container *ngIf="lineType === 'REJECTED'">
+      <div class="field full">
+        <label>Rejection reason <span class="required">*</span></label>
+        <p-dropdown formControlName="rejectionReasonUuid" [options]="reasonOptions" optionLabel="label" optionValue="value"
+                    placeholder="Why it cannot be supplied" styleClass="w-full" appendTo="body"
+                    data-testid="rejection-reason"></p-dropdown>
+      </div>
+      <div class="field full">
+        <label>Rejection notes</label>
+        <textarea pTextarea formControlName="rejectionNotes" rows="2" maxlength="500" class="w-full"
+                  data-testid="rejection-notes"></textarea>
+      </div>
+    </ng-container>
+
+    <div class="field full" *ngIf="lineType === 'ALTERNATIVE'">
+      <label>Alternative notes</label>
+      <textarea pTextarea formControlName="alternativeNotes" rows="2" maxlength="500" class="w-full"
+                placeholder="Why this is offered instead" data-testid="alternative-notes"></textarea>
+    </div>
+
+    <div class="field full">
+      <label>Internal line notes</label>
+      <textarea pTextarea formControlName="notes" rows="2" maxlength="1000" class="w-full" data-testid="notes"></textarea>
+    </div>
+  </div>
+
+  <div class="totals" *ngIf="isPriced">
+    <div>
+      <span class="totals-label">Line total</span>
+      <strong data-testid="line-total">{{ lineTotal !== null ? (lineTotal | number:'1.2-2') : '—' }}</strong>
+    </div>
+    <div>
+      <span class="totals-label">Quotation total with this line</span>
+      <strong data-testid="projected-total">{{ projectedGrandTotal | number:'1.2-2' }}</strong>
+      <span class="cur" *ngIf="quotation.currencyCode">{{ quotation.currencyCode }}</span>
+    </div>
+  </div>
+
+  <small class="p-error block" *ngIf="error" data-testid="editor-error">{{ error }}</small>
+
+  <div class="actions">
+    <p-button label="Cancel" [text]="true" severity="secondary" (onClick)="cancel()" data-testid="cancel-line"></p-button>
+    <p-button type="submit" [label]="isEdit ? 'Save line' : 'Add line'" icon="pi pi-check"
+              [loading]="isSaving" [disabled]="isSaving || readOnly" data-testid="save-line"></p-button>
+  </div>
+</form>

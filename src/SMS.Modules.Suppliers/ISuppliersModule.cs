@@ -5,11 +5,13 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using SMS.Modules.Suppliers.Data;
+using SMS.Modules.Suppliers.Integration;
 using SMS.Modules.Suppliers.Models;
 using SMS.Modules.Suppliers.Repositories;
 using SMS.Modules.Suppliers.Services;
 using SMS.Modules.Warehouse.Events;
 using SMS.Shared.Common;
+using SMS.Shared.Integration.QuickBooks;
 
 namespace SMS.Modules.Suppliers;
 
@@ -34,6 +36,8 @@ public static class SuppliersModuleExtensions
         services.AddScoped<ISupplierRatingJob, SupplierRatingJob>();
         services.AddScoped<ISupplierContactLookupService, SupplierContactLookupService>();
         services.AddScoped<ISupplierNameLookupService, SupplierNameLookupService>();
+        // A32 — Demand's sale inquiry/quotation customer check (BR-C1-01/BR-C2-01).
+        services.AddScoped<IPartnerRoleLookup, PartnerRoleLookup>();
         services.AddScoped<ISupplierScoreLookupService, SupplierScoreLookupService>();
         services.AddScoped<IScorecardRepository, ScorecardRepository>();
         services.AddScoped<IScorecardService, ScorecardService>();
@@ -47,10 +51,22 @@ public static class SuppliersModuleExtensions
         // P1-04
         services.AddScoped<IBusinessPartnerRepository, BusinessPartnerRepository>();
         services.AddScoped<IBusinessPartnerService, BusinessPartnerService>();
+        // Lookups asks every checker before it deletes a currency or changes its code.
+        services.AddScoped<ILookupReferenceChecker, SuppliersCurrencyReferenceChecker>();
 
         // Replaces Warehouse's NullGrnEventPublisher registration — must run AFTER AddWarehouseModule()
         // in Program.cs for this override to win (last registration for a given service type wins).
         services.AddScoped<IGrnEventPublisher, SupplierScoringGrnEventPublisher>();
+
+        // QuickBooks — business partners as customers and vendors. TryAdd: in a host without the
+        // Integration module the gateway is the Null one (every call answers Disabled); the Integration
+        // module replaces it with the real gateway. The source is registered once and exposed both as
+        // itself (for the publisher) and as an IQuickBooksSource (for the gateway), one per scope.
+        services.TryAddScoped<IQuickBooksGateway, NullQuickBooksGateway>();
+        services.AddScoped<IPartnerCurrencyCodes, LookupsPartnerCurrencyCodes>();
+        services.AddScoped<PartnerQuickBooksSource>();
+        services.AddScoped<IQuickBooksSource>(sp => sp.GetRequiredService<PartnerQuickBooksSource>());
+        services.AddScoped<PartnerQuickBooksPublisher>();
 
         return services;
     }

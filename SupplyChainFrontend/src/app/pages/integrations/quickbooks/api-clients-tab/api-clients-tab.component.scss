@@ -1,0 +1,28 @@
+.example {
+  margin-top: .25rem; padding: .75rem .875rem; border-radius: .5rem; background: var(--surface-50, #f8fafc);
+  border: 1px solid var(--surface-200);
+  pre { margin: .375rem 0; font-size: .75rem; white-space: pre-wrap; word-break: break-all; }
+}
+.example-title { font-size: .8125rem; font-weight: 700; }
+
+.client.inactive { opacity: .7; }
+.card-title { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.scopes { display: flex; flex-wrap: wrap; gap: .375rem; margin-bottom: .75rem; }
+.scope {
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace); font-size: .75rem;
+  padding: .125rem .5rem; border-radius: 999px; background: var(--primary-50, #eef2ff); color: var(--primary-700, #4338ca);
+}
+
+.field + .field { margin-top: 1rem; }
+.scope-field { gap: .5rem; }
+.scope-choice { display: flex; align-items: center; gap: .5rem; label { font-size: .875rem; cursor: pointer; } }
+
+.secret-row { display: flex; gap: .5rem; align-items: center; }
+.secret {
+  flex: 1; min-width: 0; padding: .5rem .625rem; border-radius: .375rem; background: var(--surface-100, #f3f4f6);
+  font-size: .8125rem; word-break: break-all; user-select: all;
+}
+.headers {
+  margin: 0; padding: .5rem .625rem; border-radius: .375rem; background: var(--surface-100, #f3f4f6);
+  font-size: .75rem; white-space: pre-wrap; word-break: break-all;
+}

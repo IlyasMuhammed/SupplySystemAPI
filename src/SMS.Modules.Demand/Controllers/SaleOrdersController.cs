@@ -16,18 +16,33 @@ namespace SMS.Modules.Demand.Controllers;
 [ApiController]
 [Route("api/sale-orders")]
 [RequiresFeature("MODULE_DEMAND")]
-public class SaleOrdersController : ControllerBase
+public partial class SaleOrdersController : ControllerBase
 {
     private readonly ISaleOrderService _service;
+    private readonly ISaleOrderReservationService _reservations;
 
-    public SaleOrdersController(ISaleOrderService service) => _service = service;
+    public SaleOrdersController(ISaleOrderService service, ISaleOrderReservationService reservations)
+    {
+        _service      = service;
+        _reservations = reservations;
+    }
 
     [HttpPost]
     [RequirePermission(PermissionCodes.SALE_ORDER_CREATE)]
     public async Task<IActionResult> Create([FromBody] CreateSaleOrderRequest req)
     {
         var uuid = await _service.CreateAsync(req, User.GetUserId());
-        return Ok(ApiResponse<Guid>.Ok(uuid, StaticResponseMessage.recordCreatedSuccessfully));
+
+        // A32 BR-C3-05 — a customer PO already on another order is a warning in the message, never a refusal.
+        var message = StaticResponseMessage.recordCreatedSuccessfully;
+        if (!string.IsNullOrWhiteSpace(req.CustomerPoReference))
+        {
+            var duplicates = await _service.FindCustomerPoDuplicatesAsync(req.CustomerPoReference, excludeUuid: uuid);
+            if (duplicates.Count > 0)
+                message += $" Warning: customer PO {req.CustomerPoReference.Trim()} is already on {string.Join(", ", duplicates.Select(d => d.SoNumber))}.";
+        }
+
+        return Ok(ApiResponse<Guid>.Ok(uuid, message));
     }
 
     [HttpPut("{uuid:guid}")]
@@ -102,6 +117,59 @@ public class SaleOrdersController : ControllerBase
         return availability is null
             ? NotFound(ApiResponse.Fail(StaticResponseMessage.recordNotFound))
             : Ok(ApiResponse<IReadOnlyList<SaleOrderLineAvailabilityModel>>.Ok(availability));
+    }
+}
+
+// A32 C3/C4 — the customer's PO and manual reservation (docs/sales-preorder/API-CONTRACT.md §7). The buttons on the
+// order page ask for exactly these permissions; reserve/release are disabled, not hidden, without them (BR-C4-08).
+public partial class SaleOrdersController
+{
+    /// <summary>PD-05 — set or replace the customer PO reference, date and linked CUSTOMER_PO file, at any status but CANCELLED/CLOSED.</summary>
+    [HttpPut("{uuid:guid}/customer-po")]
+    [RequirePermission(PermissionCodes.SALE_ORDER_EDIT)]
+    public async Task<IActionResult> UpdateCustomerPo(Guid uuid, [FromBody] UpdateSaleOrderCustomerPoRequest req) =>
+        await _service.UpdateCustomerPoAsync(uuid, req, User.GetUserId())
+            ? Ok(ApiResponse.Ok(StaticResponseMessage.recordUpdatedSuccessfully))
+            : NotFound(ApiResponse.Fail(StaticResponseMessage.recordNotFound));
+
+    /// <summary>BR-C3-05 — the organization's other orders with this customer PO reference: a warning to show, never a block.</summary>
+    [HttpGet("customer-po-check")]
+    [RequirePermission(PermissionCodes.SALE_ORDER_VIEW, PermissionCodes.SALE_ORDER_CREATE, PermissionCodes.SALE_ORDER_EDIT)]
+    public async Task<IActionResult> CheckCustomerPo([FromQuery] string? reference, [FromQuery] Guid? excludeUuid) =>
+        Ok(ApiResponse<IReadOnlyList<CustomerPoDuplicateModel>>.Ok(
+            await _service.FindCustomerPoDuplicatesAsync(reference ?? string.Empty, excludeUuid)));
+
+    /// <summary>PE-06 — hold stock for one line. Always 200 with an outcome (RESERVED, PARTIAL, NEEDS_CONFIRMATION, NONE_AVAILABLE).</summary>
+    [HttpPost("{uuid:guid}/lines/{lineUuid:guid}/reserve")]
+    [RequirePermission(PermissionCodes.SALE_ORDER_RESERVE)]
+    public async Task<IActionResult> ReserveLine(Guid uuid, Guid lineUuid, [FromBody] ReserveSaleOrderLineRequest? req)
+    {
+        var result = await _reservations.ReserveLineAsync(uuid, lineUuid, req ?? new ReserveSaleOrderLineRequest(), User.GetUserId());
+        return result is null
+            ? NotFound(ApiResponse.Fail(StaticResponseMessage.recordNotFound))
+            : Ok(ApiResponse<SaleOrderLineReservationModel>.Ok(result, result.Message ?? "Reservation updated."));
+    }
+
+    /// <summary>PE-06 — give back stock held for one line (all of it, unless a quantity is given).</summary>
+    [HttpPost("{uuid:guid}/lines/{lineUuid:guid}/release")]
+    [RequirePermission(PermissionCodes.SALE_ORDER_RELEASE_RESERVATION)]
+    public async Task<IActionResult> ReleaseLine(Guid uuid, Guid lineUuid, [FromBody] ReleaseSaleOrderLineRequest? req)
+    {
+        var result = await _reservations.ReleaseLineAsync(uuid, lineUuid, req ?? new ReleaseSaleOrderLineRequest(), User.GetUserId());
+        return result is null
+            ? NotFound(ApiResponse.Fail(StaticResponseMessage.recordNotFound))
+            : Ok(ApiResponse<SaleOrderLineReservationModel>.Ok(result, "Reservation released."));
+    }
+
+    /// <summary>PE-06 — hold stock for every line that can still take it (partial by default).</summary>
+    [HttpPost("{uuid:guid}/reserve-all")]
+    [RequirePermission(PermissionCodes.SALE_ORDER_RESERVE)]
+    public async Task<IActionResult> ReserveAll(Guid uuid, [FromBody] ReserveAllSaleOrderLinesRequest? req)
+    {
+        var result = await _reservations.ReserveAllAsync(uuid, req ?? new ReserveAllSaleOrderLinesRequest(), User.GetUserId());
+        return result is null
+            ? NotFound(ApiResponse.Fail(StaticResponseMessage.recordNotFound))
+            : Ok(ApiResponse<SaleOrderReserveAllModel>.Ok(result, "Reservations updated."));
     }
 }
 

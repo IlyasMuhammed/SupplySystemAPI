@@ -12,9 +12,12 @@ import { TagModule } from 'primeng/tag';
 import { TextareaModule } from 'primeng/textarea';
 import { TableModule } from 'primeng/table';
 import { MessageService } from 'primeng/api';
-import { FinanceService, CreateSupplierPaymentRequest, OutstandingInvoiceModel } from '../../../../services/finance.service';
+import {
+  FinanceService, CreateSupplierPaymentRequest, OutstandingInvoiceModel, ONLY_APPROVED_INVOICES_PAYABLE
+} from '../../../../services/finance.service';
 import { SupplierService, SupplierListItemModel } from '../../../../services/supplier.service';
 import { AttachmentListComponent } from '../../../../shared/attachment-list/attachment-list.component';
+import { toDateOnly } from '../../../../shared/date-only';
 
 export interface PaymentLineInput {
   invoiceUuid: string;
@@ -46,9 +49,10 @@ export class SupplierPaymentCreateComponent implements OnInit {
   loadingSuppliers = false;
   supplierTouched = false;
 
-  // Outstanding invoices for the chosen supplier
+  // Outstanding invoices for the chosen supplier: the server lists approved invoices with something still owed.
   outstandingInvoices: OutstandingInvoiceModel[] = [];
   isLoadingInvoices = false;
+  readonly onlyApprovedHint = ONLY_APPROVED_INVOICES_PAYABLE;
 
   // Allocation lines
   lineInputs: PaymentLineInput[] = [];
@@ -161,13 +165,21 @@ export class SupplierPaymentCreateComponent implements OnInit {
     this.financeService.getOutstandingInvoices(supplierId).subscribe({
       next: (res) => {
         this.isLoadingInvoices = false;
-        this.outstandingInvoices = res.success ? res.result : [];
+        this.outstandingInvoices = res.success ? (res.result ?? []) : [];
         if (preselectInvoiceUuid) {
           const match = this.outstandingInvoices.find(i => i.invoiceUuid === preselectInvoiceUuid);
           if (match) this.addLine(match.invoiceUuid);
+          else this.messageService.add({
+            severity: 'warn', summary: 'Invoice not payable',
+            detail: `That invoice is not open for payment: ${ONLY_APPROVED_INVOICES_PAYABLE.toLowerCase().replace(/\.$/, '')}, and only while something is still owed on them.`
+          });
         }
       },
-      error: () => { this.isLoadingInvoices = false; this.outstandingInvoices = []; }
+      error: () => {
+        this.isLoadingInvoices = false;
+        this.outstandingInvoices = [];
+        this.messageService.add({ severity: 'error', summary: 'Error', detail: "This supplier's outstanding invoices could not be loaded." });
+      }
     });
   }
 
@@ -217,12 +229,13 @@ export class SupplierPaymentCreateComponent implements OnInit {
     const req: CreateSupplierPaymentRequest = {
       supplierId: this.selectedSupplierId,
       supplierName: this.selectedSupplierName,
-      paymentDate: this.paymentDateVal.toISOString(),
+      // The days picked, not their UTC instants: east of UTC, toISOString() is the day before.
+      paymentDate: toDateOnly(this.paymentDateVal),
       paymentMethod: this.paymentMethod,
       totalAmount: this.totalAmount,
       bankAccount: this.showBankField ? this.bankAccount.trim() : undefined,
       chequeNo: this.showChequeFields ? this.chequeNo.trim() : undefined,
-      chequeDate: this.showChequeFields && this.chequeDateVal ? this.chequeDateVal.toISOString() : undefined,
+      chequeDate: this.showChequeFields && this.chequeDateVal ? toDateOnly(this.chequeDateVal) : undefined,
       notes: this.notes.trim() || undefined,
       paymentType: this.paymentType,
       paymentUuid: this.paymentUuid,

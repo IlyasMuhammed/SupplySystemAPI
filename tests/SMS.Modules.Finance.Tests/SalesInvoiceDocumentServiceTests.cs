@@ -428,6 +428,44 @@ public class SalesInvoiceDocumentServiceTests
         text.Should().Contain("Generated").And.Contain("2026-09-21").And.Contain("14:05").And.Contain("UTC");
     }
 
+    // ── SAP alignment (S-3): the tax code on the page ────────────────────────
+
+    [Fact]
+    public async Task A_line_with_a_tax_code_prints_the_code_with_its_rate()
+    {
+        var invoice = Detail();
+        invoice.Lines[0].TaxCodeUuid = Guid.NewGuid();
+        invoice.Lines[0].TaxCode = "GST17";
+        invoice.Lines[0].TaxPercent = 17m;
+
+        var (_, text) = Read(await Service(invoice, Letterhead()).GeneratePdfAsync(InvoiceId));
+
+        text.Should().Contain("GST17").And.Contain("17%");
+        text.Should().Contain("0%", "a line without a code beside coded lines says it is a percentage");
+    }
+
+    [Fact]
+    public async Task An_invoice_with_no_tax_codes_prints_its_tax_column_as_it_always_did()
+    {
+        var (_, text) = Read(await Service(Detail(), Letterhead()).GeneratePdfAsync(InvoiceId));
+
+        text.Should().Contain("Tax %").And.NotContain("·");
+    }
+
+    [Theory]
+    [InlineData("GST17", 17, true, "GST17 · 17%")]
+    [InlineData(" GST17 ", 17, true, "GST17 · 17%")]
+    [InlineData("GST5.5", 5.5, true, "GST5.5 · 5.5%")]
+    [InlineData(null, 17, false, "17")]
+    [InlineData(null, 17, true, "17%")]
+    [InlineData("", 0, false, "0")]
+    public void The_tax_label_is_the_code_and_rate_or_the_rate_alone(string? code, double rate, bool anyCode, string expected)
+    {
+        var line = new SalesInvoiceLineModel { TaxCode = code, TaxPercent = (decimal)rate };
+
+        SalesInvoiceDocumentService.TaxLabel(line, anyCode).Should().Be(expected);
+    }
+
     [Fact]
     public async Task An_unknown_invoice_is_not_found()
     {

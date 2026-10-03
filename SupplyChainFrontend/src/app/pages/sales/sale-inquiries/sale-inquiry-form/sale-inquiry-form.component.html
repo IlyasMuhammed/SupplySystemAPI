@@ -1,0 +1,67 @@
+<div class="form-page">
+  <p-toast></p-toast>
+
+  <div class="page-header">
+    <p-button icon="pi pi-arrow-left" [text]="true" severity="secondary" routerLink="/portal/pages/sales/inquiries"
+              pTooltip="Back" data-testid="back"></p-button>
+    <div>
+      <h1 class="page-title"><i class="pi pi-plus-circle"></i> New sale inquiry</h1>
+      <p class="page-subtitle">Record who asked and when. The requested items are added on the inquiry's Lines tab.</p>
+    </div>
+  </div>
+
+  <div class="form-card">
+    <div class="grid">
+      <div class="field full">
+        <label for="inqCustomer">Customer <span class="required">*</span></label>
+        <p-autoComplete inputId="inqCustomer" [(ngModel)]="draft.customer" [suggestions]="customerSuggestions" field="companyName"
+                        (completeMethod)="searchCustomers($event)" [dropdown]="true" [forceSelection]="true"
+                        placeholder="Search customers by name…" styleClass="w-full" inputStyleClass="w-full"
+                        appendTo="body" data-testid="customer"></p-autoComplete>
+      </div>
+
+      <div class="field">
+        <label for="inqRef">Customer reference</label>
+        <input pInputText id="inqRef" [(ngModel)]="draft.customerReference" [maxlength]="max.customerReference"
+               placeholder="Their RFQ number, email subject…" data-testid="customer-reference" />
+      </div>
+      <div class="field">
+        <label for="inqRefDate">Reference date</label>
+        <p-datepicker inputId="inqRefDate" [(ngModel)]="draft.customerReferenceDate" dateFormat="dd M yy" [showIcon]="true"
+                      [showClear]="true" styleClass="w-full" appendTo="body"></p-datepicker>
+      </div>
+
+      <div class="field">
+        <label for="inqReceived">Received <span class="required">*</span></label>
+        <p-datepicker inputId="inqReceived" [(ngModel)]="draft.receivedDate" dateFormat="dd M yy" [showIcon]="true"
+                      styleClass="w-full" appendTo="body"></p-datepicker>
+      </div>
+      <div class="field">
+        <label for="inqDeadline">Response deadline</label>
+        <p-datepicker inputId="inqDeadline" [(ngModel)]="draft.responseDeadline" dateFormat="dd M yy" [showIcon]="true"
+                      [showClear]="true" [minDate]="draft.receivedDate" styleClass="w-full" appendTo="body"></p-datepicker>
+      </div>
+
+      <div class="field">
+        <label for="inqAssignee">Assigned to</label>
+        <p-select inputId="inqAssignee" [options]="assigneeOptions" [(ngModel)]="draft.assignedToUserId" optionLabel="label"
+                  optionValue="value" [showClear]="true" placeholder="Unassigned" styleClass="w-full" appendTo="body"
+                  data-testid="assignee"></p-select>
+      </div>
+
+      <div class="field full">
+        <label for="inqNotes">Internal notes</label>
+        <textarea pTextarea id="inqNotes" [(ngModel)]="draft.notes" rows="3" [maxlength]="max.headerNotes"></textarea>
+      </div>
+    </div>
+
+    <small class="p-error" *ngIf="submitted && problem" data-testid="problem">{{ problem }}</small>
+    <small class="p-error" *ngIf="saveError" data-testid="save-error">{{ saveError }}</small>
+
+    <div class="form-actions">
+      <p-button label="Cancel" [text]="true" severity="secondary" routerLink="/portal/pages/sales/inquiries"></p-button>
+      <p-button label="Create inquiry" icon="pi pi-check" [loading]="isSaving" [disabled]="isSaving"
+                (onClick)="save()" data-testid="save"></p-button>
+    </div>
+  </div>
+</div>

@@ -140,12 +140,20 @@ public class GeneratedAttachmentTests
         new[] { one, other, gate }.Should().OnlyContain(s => !s.AlreadyStored);
     }
 
+    /// <summary>A filed copy can no longer be removed (see <see cref="AttachmentEndpointAccessTests"/>), but rows removed before that rule remain.</summary>
+    private static async Task MarkDeleted(H h, Guid uuid)
+    {
+        var row = await h.Db.DocumentAttachments.SingleAsync(a => a.UUID == uuid);
+        row.IsDelete = true;
+        await h.Db.SaveChangesAsync();
+    }
+
     [Fact]
     public async Task A_deleted_copy_does_not_count_so_the_document_can_be_filed_again()
     {
         var h = New();
         var first = await h.Service.StoreGeneratedAsync(Request(), Uploader);
-        await h.Service.DeleteAsync(first.Uuid, Uploader);
+        await MarkDeleted(h, first.Uuid);
 
         var again = await h.Service.StoreGeneratedAsync(Request(), Uploader);
 
@@ -247,7 +255,8 @@ public class GeneratedAttachmentTests
 
         file.Should().NotBeNull();
         file!.Content.Should().Equal(Pdf);
-        (file.FileName, file.ContentType, file.RequiredPermission).Should().Be(("SINV-20260920-0001.pdf", "application/pdf", "SALES_INVOICE_VIEW"));
+        (file.FileName, file.ContentType, file.RequiredPermission, file.InterfaceCode)
+            .Should().Be(("SINV-20260920-0001.pdf", "application/pdf", "SALES_INVOICE_VIEW", "SALES_INVOICE"));
     }
 
     [Fact]
@@ -263,7 +272,7 @@ public class GeneratedAttachmentTests
         (await h.Service.GetContentAsync(Guid.NewGuid())).Should().BeNull();
         (await h.Service.GetContentAsync(uploaded)).Should().BeNull("its file is kept elsewhere and served from its own url");
 
-        await h.Service.DeleteAsync(stored.Uuid, Uploader);
+        await MarkDeleted(h, stored.Uuid);
         (await h.Service.GetContentAsync(stored.Uuid)).Should().BeNull("a removed attachment is gone");
     }
 
@@ -297,7 +306,7 @@ public class GeneratedAttachmentTests
     {
         var service = new Mock<IAttachmentService>();
         service.Setup(s => s.GetContentAsync(It.IsAny<Guid>()))
-               .ReturnsAsync(new AttachmentContent(Pdf, "SINV-20260920-0001.pdf", "application/pdf", requiredPermission));
+               .ReturnsAsync(new AttachmentContent(Pdf, "SINV-20260920-0001.pdf", "application/pdf", requiredPermission, "SALES_INVOICE"));
         return service;
     }
 
@@ -328,11 +337,15 @@ public class GeneratedAttachmentTests
     }
 
     [Fact]
-    public async Task A_file_filed_with_no_permission_is_open_to_any_signed_in_user_of_the_organization()
+    public async Task A_file_filed_with_no_permission_is_open_to_whoever_may_see_that_kind_of_document()
     {
-        var controller = Controller(Serving(requiredPermission: null).Object);
+        (await Controller(Serving(requiredPermission: null).Object, "SALES_INVOICE_MANAGE").GetContent(Guid.NewGuid()))
+            .Should().BeOfType<FileContentResult>();
 
-        (await controller.GetContent(Guid.NewGuid())).Should().BeOfType<FileContentResult>();
+        // Before the attachment policy, a sign-in was enough.
+        var refused = (await Controller(Serving(requiredPermission: null).Object).GetContent(Guid.NewGuid()))
+            .Should().BeOfType<ObjectResult>().Subject;
+        refused.StatusCode.Should().Be(StatusCodes.Status403Forbidden);
     }
 
     [Fact]

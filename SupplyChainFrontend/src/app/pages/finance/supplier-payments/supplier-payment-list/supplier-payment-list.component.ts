@@ -11,6 +11,7 @@ import { DropdownModule } from 'primeng/dropdown';
 import { CalendarModule } from 'primeng/calendar';
 import { MessageService } from 'primeng/api';
 import { FinanceService, SupplierPaymentListItemModel, SupplierPaymentFilter } from '../../../../services/finance.service';
+import { AuthService } from '../../../service/auth.service';
 
 @Component({
   selector: 'app-supplier-payment-list',
@@ -55,8 +56,12 @@ export class SupplierPaymentListComponent implements OnInit {
 
   constructor(
     private financeService: FinanceService,
-    private messageService: MessageService
+    private messageService: MessageService,
+    private authService: AuthService
   ) {}
+
+  /** The list admits PAYMENT_VIEW; recording one needs PAYMENT_PROCESS (the create route and the POST). */
+  get canRecordPayment(): boolean { return this.authService.hasPermission('PAYMENT_PROCESS'); }
 
   ngOnInit() { this.load(); }
 

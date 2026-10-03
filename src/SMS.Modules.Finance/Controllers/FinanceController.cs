@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using SMS.Modules.Finance.Models;
@@ -8,6 +8,7 @@ using SMS.Modules.Lookups.Services;
 using SMS.Shared.Authorization;
 using SMS.Shared.Common;
 using SMS.Shared.Constants;
+using SMS.Shared.Files;
 using SMS.Shared.Pagination;
 
 namespace SMS.Modules.Finance.Controllers;
@@ -33,7 +34,12 @@ public class InvoicesController : ControllerBase
         _notif       = notif;
     }
 
+    // Reading a supplier invoice is INVOICE_VIEW; entering, editing, approving, rejecting, reversing it or attaching
+    // to it is INVOICE_PROCESS ("Verify and approve invoices for payment" — Finance Officer, Finance Manager, Org Admin,
+    // System Admin; the Auditor reads only). PAYMENT_APPROVE stays the sign-off on supplier payments.
+
     [HttpPost]
+    [RequirePermission(PermissionCodes.INVOICE_PROCESS)]
     public async Task<IActionResult> Create([FromBody] CreateInvoiceRequest req)
     {
         var uuid    = await _svc.CreateAsync(req, User.GetUserId());
@@ -48,6 +54,7 @@ public class InvoicesController : ControllerBase
     }
 
     [HttpGet]
+    [RequirePermission(PermissionCodes.INVOICE_VIEW)]
     public async Task<IActionResult> GetList([FromQuery] InvoiceFilter filter)
     {
         var result = await _svc.GetListAsync(filter);
@@ -55,6 +62,7 @@ public class InvoicesController : ControllerBase
     }
 
     [HttpGet("{uuid:guid}")]
+    [RequirePermission(PermissionCodes.INVOICE_VIEW)]
     public async Task<IActionResult> GetById(Guid uuid)
     {
         var detail = await _svc.GetByUuidAsync(uuid);
@@ -64,6 +72,7 @@ public class InvoicesController : ControllerBase
     }
 
     [HttpGet("{uuid:guid}/pdf")]
+    [RequirePermission(PermissionCodes.INVOICE_VIEW)]
     public async Task<IActionResult> DownloadPdf(Guid uuid)
     {
         var bytes = await _documentSvc.GeneratePdfAsync(uuid);
@@ -71,6 +80,7 @@ public class InvoicesController : ControllerBase
     }
 
     [HttpPatch("{uuid:guid}")]
+    [RequirePermission(PermissionCodes.INVOICE_PROCESS)]
     public async Task<IActionResult> Patch(Guid uuid, [FromBody] PatchInvoiceRequest req)
     {
         var updated = await _svc.PatchAsync(uuid, req, User.GetUserId());
@@ -80,6 +90,7 @@ public class InvoicesController : ControllerBase
     }
 
     [HttpPost("{uuid:guid}/approve")]
+    [RequirePermission(PermissionCodes.INVOICE_PROCESS)]
     public async Task<IActionResult> Approve(Guid uuid, [FromBody] ApproveInvoiceRequest req)
     {
         var updated = await _svc.ApproveAsync(uuid, req.Notes, User.GetUserId());
@@ -101,6 +112,7 @@ public class InvoicesController : ControllerBase
     }
 
     [HttpPost("{uuid:guid}/reject")]
+    [RequirePermission(PermissionCodes.INVOICE_PROCESS)]
     public async Task<IActionResult> Reject(Guid uuid, [FromBody] RejectInvoiceRequest req)
     {
         var updated = await _svc.RejectAsync(uuid, req.Reason, User.GetUserId());
@@ -121,27 +133,55 @@ public class InvoicesController : ControllerBase
             : NotFound(ApiResponse.Fail(StaticResponseMessage.recordNotFound));
     }
 
+    /// <summary>
+    /// SAP alignment (S-7): reverse an approved, unpaid invoice — the opposite supplier/master ledger entry,
+    /// status Reversed, the purchase order's invoiced quantities rolled back. 409 when it is not approved,
+    /// already reversed, or anything is paid or deducted against it. Returns the invoice as it now stands.
+    /// </summary>
+    [HttpPost("{uuid:guid}/reverse")]
+    [RequirePermission(PermissionCodes.INVOICE_PROCESS)]
+    public async Task<IActionResult> Reverse(Guid uuid, [FromBody] ReverseInvoiceRequest req)
+    {
+        var actorId  = User.GetUserId();
+        var reversed = await _svc.ReverseAsync(uuid, req.Reason, actorId);
+        if (!reversed) return NotFound(ApiResponse.Fail(StaticResponseMessage.recordNotFound));
+
+        var inv = await _svc.GetByUuidAsync(uuid);
+        if (inv is null) return NotFound(ApiResponse.Fail(StaticResponseMessage.recordNotFound));
+
+        await _notif.TryCreateAsync(new NotificationRequest(
+            UserId: inv.CreatedBy, Type: "INVOICE_REVERSED", Title: "Invoice Reversed",
+            Message: $"Invoice {inv.InvoiceNumber} has been reversed. Reason: {inv.ReversalReason}",
+            Category: "Finance", EntityType: "Invoice", EntityUuid: uuid.ToString(),
+            NavigationUrl: $"/portal/pages/finance/invoices/{uuid}",
+            CreatedBy: actorId, SendEmail: true));
+
+        return Ok(ApiResponse<InvoiceDetailModel>.Ok(inv, "Invoice reversed."));
+    }
+
     [HttpPost("{uuid:guid}/attachment/upload")]
+    [RequirePermission(PermissionCodes.INVOICE_PROCESS)]
     [Consumes("multipart/form-data")]
     public async Task<IActionResult> UploadAttachment(Guid uuid, IFormFile file)
     {
         if (file == null || file.Length == 0)
             return BadRequest(ApiResponse.Fail("No file was provided."));
 
-        const long maxBytes = 20 * 1024 * 1024;
-        if (file.Length > maxBytes)
-            return BadRequest(ApiResponse.Fail("File size must not exceed 20 MB."));
+        // The file is served back from this API's own origin, typed by its extension: only the shared allow-list's
+        // extensions are kept (an .html, .svg or .hxt "scan" would be stored cross-site scripting), and the size
+        // ceiling is UploadRules.MaxFileBytes. Checked before anything touches the disk or the invoice.
+        if (UploadRules.Refusal(file.FileName, file.Length, file.ContentType) is { } refusal)
+            return BadRequest(ApiResponse.Fail(refusal));
 
         var uploadsDir = Path.Combine(
             _env.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot"),
             "uploads", "invoices");
         Directory.CreateDirectory(uploadsDir);
 
-        var ext      = Path.GetExtension(file.FileName);
-        var safeName = $"{Guid.NewGuid()}{ext}";
+        var safeName = $"{Guid.NewGuid()}{UploadRules.DiskExtension(file.FileName)}";
         var filePath = Path.Combine(uploadsDir, safeName);
 
-        await using (var stream = new FileStream(filePath, FileMode.Create))
+        await using (var stream = new FileStream(filePath, FileMode.CreateNew))
             await file.CopyToAsync(stream);
 
         var url     = $"/uploads/invoices/{safeName}";
@@ -162,8 +202,14 @@ public class SupplierLedgerController : ControllerBase
     private readonly ISupplierLedgerService _svc;
     public SupplierLedgerController(ISupplierLedgerService svc) => _svc = svc;
 
+    // One supplier's payables. The supplier-detail and partner-detail pages (SUPPLIER_VIEW/EDIT/MANAGE) load the
+    // ledger and balance unconditionally on their Ledger tab, and finance's readers see the same rows on the master
+    // payables ledger — so any of those, or PAYMENT_PROCESS (whoever pays the supplier), may read them.
+
     [HttpGet("ledger")]
     [RequiresSupplierAccess("supplierId")]
+    [RequirePermission(PermissionCodes.SUPPLIER_VIEW, PermissionCodes.SUPPLIER_EDIT, PermissionCodes.SUPPLIER_MANAGE,
+        PermissionCodes.INVOICE_VIEW, PermissionCodes.PAYMENT_VIEW, PermissionCodes.PAYMENT_PROCESS)]
     public async Task<IActionResult> GetLedger(Guid supplierId, [FromQuery] SupplierLedgerFilter filter)
     {
         var result = await _svc.GetLedgerAsync(supplierId, filter);
@@ -172,6 +218,8 @@ public class SupplierLedgerController : ControllerBase
 
     [HttpGet("balance")]
     [RequiresSupplierAccess("supplierId")]
+    [RequirePermission(PermissionCodes.SUPPLIER_VIEW, PermissionCodes.SUPPLIER_EDIT, PermissionCodes.SUPPLIER_MANAGE,
+        PermissionCodes.INVOICE_VIEW, PermissionCodes.PAYMENT_VIEW, PermissionCodes.PAYMENT_PROCESS)]
     public async Task<IActionResult> GetBalance(Guid supplierId)
     {
         var result = await _svc.GetBalanceAsync(supplierId);
@@ -194,7 +242,12 @@ public class SupplierPaymentsController : ControllerBase
         _ledgerSvc = ledgerSvc;
     }
 
+    // Recording, posting, bouncing and cancelling a payment is PAYMENT_PROCESS ("Approve and execute supplier
+    // payments" — Finance Officer and Manager); approving one stays the Finance Manager's PAYMENT_APPROVE. Reading
+    // them is what finance/payments and finance/payments/:uuid admit: PAYMENT_VIEW or PAYMENT_PROCESS.
+
     [HttpPost]
+    [RequirePermission(PermissionCodes.PAYMENT_PROCESS)]
     public async Task<IActionResult> Create([FromBody] CreateSupplierPaymentRequest req)
     {
         var uuid = await _svc.CreateAsync(req, User.GetUserId());
@@ -202,6 +255,7 @@ public class SupplierPaymentsController : ControllerBase
     }
 
     [HttpGet]
+    [RequirePermission(PermissionCodes.PAYMENT_VIEW, PermissionCodes.PAYMENT_PROCESS)]
     public async Task<IActionResult> GetList([FromQuery] SupplierPaymentFilter filter)
     {
         var result = await _svc.GetListAsync(filter);
@@ -209,6 +263,7 @@ public class SupplierPaymentsController : ControllerBase
     }
 
     [HttpGet("{uuid:guid}")]
+    [RequirePermission(PermissionCodes.PAYMENT_VIEW, PermissionCodes.PAYMENT_PROCESS)]
     public async Task<IActionResult> GetById(Guid uuid)
     {
         var detail = await _svc.GetByUuidAsync(uuid);
@@ -228,6 +283,7 @@ public class SupplierPaymentsController : ControllerBase
     }
 
     [HttpPost("{uuid:guid}/cancel")]
+    [RequirePermission(PermissionCodes.PAYMENT_PROCESS)]
     public async Task<IActionResult> Cancel(Guid uuid)
     {
         var updated = await _svc.CancelAsync(uuid, User.GetUserId());
@@ -237,6 +293,7 @@ public class SupplierPaymentsController : ControllerBase
     }
 
     [HttpPost("{uuid:guid}/post")]
+    [RequirePermission(PermissionCodes.PAYMENT_PROCESS)]
     public async Task<IActionResult> Post(Guid uuid)
     {
         var updated = await _svc.PostAsync(uuid, User.GetUserId());
@@ -246,6 +303,7 @@ public class SupplierPaymentsController : ControllerBase
     }
 
     [HttpPost("{uuid:guid}/bounce")]
+    [RequirePermission(PermissionCodes.PAYMENT_PROCESS)]
     public async Task<IActionResult> Bounce(Guid uuid)
     {
         var updated = await _svc.BounceAsync(uuid, User.GetUserId());
@@ -257,8 +315,12 @@ public class SupplierPaymentsController : ControllerBase
     // Absolute route so it lives alongside the SFM-001 supplier-scoped endpoints
     // (api/suppliers/{id}/ledger, api/suppliers/{id}/balance) despite this controller's
     // own [Route] prefix being api/supplier-payments.
+    // One supplier's payables, as SupplierLedgerController's: supplier-detail's Outstanding Invoices tab loads this
+    // for every SUPPLIER_VIEW/EDIT/MANAGE holder, and finance/payments/create (PAYMENT_PROCESS) for the allocation grid.
     [HttpGet("/api/suppliers/{supplierId:guid}/outstanding-invoices")]
     [RequiresSupplierAccess("supplierId")]
+    [RequirePermission(PermissionCodes.SUPPLIER_VIEW, PermissionCodes.SUPPLIER_EDIT, PermissionCodes.SUPPLIER_MANAGE,
+        PermissionCodes.INVOICE_VIEW, PermissionCodes.PAYMENT_VIEW, PermissionCodes.PAYMENT_PROCESS)]
     public async Task<IActionResult> GetOutstandingInvoices(Guid supplierId)
     {
         var result = await _svc.GetOutstandingInvoicesAsync(supplierId);
@@ -268,14 +330,21 @@ public class SupplierPaymentsController : ControllerBase
     // SFM-006 — per-supplier aging breakdown.
     [HttpGet("/api/suppliers/{supplierId:guid}/aging")]
     [RequiresSupplierAccess("supplierId")]
+    [RequirePermission(PermissionCodes.SUPPLIER_VIEW, PermissionCodes.SUPPLIER_EDIT, PermissionCodes.SUPPLIER_MANAGE,
+        PermissionCodes.INVOICE_VIEW, PermissionCodes.PAYMENT_VIEW, PermissionCodes.PAYMENT_PROCESS)]
     public async Task<IActionResult> GetSupplierAging(Guid supplierId)
     {
         var result = await _svc.GetSupplierAgingAsync(supplierId);
         return Ok(ApiResponse<SupplierAgingModel>.Ok(result));
     }
 
+    // Cross-supplier payables reports: finance's readers, and whoever the finance reports page admits
+    // (REPORT_VIEW or REPORT_EXPORT) — it already shows invoice aging and payment summaries to them.
+
     // SFM-006 — cross-supplier aging report, one row per supplier plus a grand total row.
     [HttpGet("/api/reports/supplier-aging")]
+    [RequirePermission(PermissionCodes.PAYMENT_VIEW, PermissionCodes.PAYMENT_PROCESS, PermissionCodes.INVOICE_VIEW,
+        PermissionCodes.REPORT_VIEW, PermissionCodes.REPORT_EXPORT)]
     public async Task<IActionResult> GetCrossSupplierAging()
     {
         var result = await _svc.GetCrossSupplierAgingAsync();
@@ -285,6 +354,8 @@ public class SupplierPaymentsController : ControllerBase
     // ── SFM-007 reports ──────────────────────────────────────────────────────
 
     [HttpGet("/api/reports/supplier-payment-register")]
+    [RequirePermission(PermissionCodes.PAYMENT_VIEW, PermissionCodes.PAYMENT_PROCESS, PermissionCodes.INVOICE_VIEW,
+        PermissionCodes.REPORT_VIEW, PermissionCodes.REPORT_EXPORT)]
     public async Task<IActionResult> GetPaymentRegister([FromQuery] PaymentRegisterFilter filter)
     {
         var result = await _svc.GetPaymentRegisterAsync(filter);
@@ -293,9 +364,12 @@ public class SupplierPaymentsController : ControllerBase
 
     // Chronological per-supplier ledger with running balance (SupplierLedgerEntryModel.BalanceAfter),
     // exposed as a report — reuses ISupplierLedgerService.GetLedgerAsync directly so this report's
-    // balance can never drift from GET /api/suppliers/{id}/balance.
+    // balance can never drift from GET /api/suppliers/{id}/balance. The same rows as GET
+    // /api/suppliers/{id}/ledger, so the same gate: they must not be readable by more people here.
     [HttpGet("/api/reports/supplier-ledger")]
     [RequiresSupplierAccess("supplierId")]
+    [RequirePermission(PermissionCodes.SUPPLIER_VIEW, PermissionCodes.SUPPLIER_EDIT, PermissionCodes.SUPPLIER_MANAGE,
+        PermissionCodes.INVOICE_VIEW, PermissionCodes.PAYMENT_VIEW, PermissionCodes.PAYMENT_PROCESS)]
     public async Task<IActionResult> GetSupplierLedgerReport([FromQuery] Guid supplierId, [FromQuery] SupplierLedgerFilter filter)
     {
         var result = await _ledgerSvc.GetLedgerAsync(supplierId, filter);
@@ -303,6 +377,8 @@ public class SupplierPaymentsController : ControllerBase
     }
 
     [HttpGet("/api/reports/outstanding-payables")]
+    [RequirePermission(PermissionCodes.PAYMENT_VIEW, PermissionCodes.PAYMENT_PROCESS, PermissionCodes.INVOICE_VIEW,
+        PermissionCodes.REPORT_VIEW, PermissionCodes.REPORT_EXPORT)]
     public async Task<IActionResult> GetOutstandingPayables([FromQuery] OutstandingPayablesFilter filter)
     {
         var result = await _svc.GetOutstandingPayablesAsync(filter);
@@ -310,6 +386,8 @@ public class SupplierPaymentsController : ControllerBase
     }
 
     [HttpGet("/api/reports/payment-method-breakdown")]
+    [RequirePermission(PermissionCodes.PAYMENT_VIEW, PermissionCodes.PAYMENT_PROCESS, PermissionCodes.INVOICE_VIEW,
+        PermissionCodes.REPORT_VIEW, PermissionCodes.REPORT_EXPORT)]
     public async Task<IActionResult> GetPaymentMethodBreakdown([FromQuery] PaymentMethodBreakdownFilter filter)
     {
         var result = await _svc.GetPaymentMethodBreakdownAsync(filter);
@@ -327,7 +405,11 @@ public class PaymentsController : ControllerBase
     private readonly IPaymentService _svc;
     public PaymentsController(IPaymentService svc) => _svc = svc;
 
+    // Legacy single-invoice payments: read where finance/payments-legacy(/:uuid) admits (PAYMENT_VIEW or
+    // PAYMENT_PROCESS); recording or changing one is PAYMENT_PROCESS, as for supplier payments.
+
     [HttpPost]
+    [RequirePermission(PermissionCodes.PAYMENT_PROCESS)]
     public async Task<IActionResult> Create([FromBody] CreatePaymentRequest req)
     {
         var uuid = await _svc.CreateAsync(req, User.GetUserId());
@@ -335,6 +417,7 @@ public class PaymentsController : ControllerBase
     }
 
     [HttpGet]
+    [RequirePermission(PermissionCodes.PAYMENT_VIEW, PermissionCodes.PAYMENT_PROCESS)]
     public async Task<IActionResult> GetList([FromQuery] PaymentFilter filter)
     {
         var result = await _svc.GetListAsync(filter);
@@ -342,6 +425,7 @@ public class PaymentsController : ControllerBase
     }
 
     [HttpGet("{uuid:guid}")]
+    [RequirePermission(PermissionCodes.PAYMENT_VIEW, PermissionCodes.PAYMENT_PROCESS)]
     public async Task<IActionResult> GetById(Guid uuid)
     {
         var detail = await _svc.GetByUuidAsync(uuid);
@@ -351,6 +435,7 @@ public class PaymentsController : ControllerBase
     }
 
     [HttpPatch("{uuid:guid}")]
+    [RequirePermission(PermissionCodes.PAYMENT_PROCESS)]
     public async Task<IActionResult> Patch(Guid uuid, [FromBody] PatchPaymentRequest req)
     {
         var updated = await _svc.PatchAsync(uuid, req, User.GetUserId());
@@ -397,7 +482,11 @@ public class MasterLedgerController : ControllerBase
         return System.IO.File.Exists(fullPath) ? System.IO.File.ReadAllBytes(fullPath) : null;
     }
 
+    // Reading the master payables ledger (and exporting it) is what finance/master-ledger admits: PAYMENT_VIEW or
+    // INVOICE_VIEW. The opening-balance import and the write-off actions keep their own, stricter, gates.
+
     [HttpGet]
+    [RequirePermission(PermissionCodes.PAYMENT_VIEW, PermissionCodes.INVOICE_VIEW)]
     public async Task<IActionResult> GetLedger([FromQuery] MasterLedgerFilter filter)
     {
         var result = await _svc.GetLedgerAsync(filter);
@@ -405,6 +494,7 @@ public class MasterLedgerController : ControllerBase
     }
 
     [HttpGet("summary")]
+    [RequirePermission(PermissionCodes.PAYMENT_VIEW, PermissionCodes.INVOICE_VIEW)]
     public async Task<IActionResult> GetSummary([FromQuery] MasterLedgerFilter filter)
     {
         var result = await _svc.GetSummaryAsync(filter);
@@ -412,6 +502,7 @@ public class MasterLedgerController : ControllerBase
     }
 
     [HttpGet("balance")]
+    [RequirePermission(PermissionCodes.PAYMENT_VIEW, PermissionCodes.INVOICE_VIEW)]
     public async Task<IActionResult> GetBalance()
     {
         var result = await _svc.GetCurrentBalanceAsync();
@@ -419,6 +510,7 @@ public class MasterLedgerController : ControllerBase
     }
 
     [HttpGet("export/pdf")]
+    [RequirePermission(PermissionCodes.PAYMENT_VIEW, PermissionCodes.INVOICE_VIEW)]
     public async Task<IActionResult> ExportPdf([FromQuery] MasterLedgerFilter filter)
     {
         filter.Page     = 1;
@@ -432,6 +524,7 @@ public class MasterLedgerController : ControllerBase
     }
 
     [HttpGet("export/excel")]
+    [RequirePermission(PermissionCodes.PAYMENT_VIEW, PermissionCodes.INVOICE_VIEW)]
     public async Task<IActionResult> ExportExcel([FromQuery] MasterLedgerFilter filter)
     {
         filter.Page     = 1;
@@ -462,7 +555,9 @@ public class MasterLedgerController : ControllerBase
         return Ok(ApiResponse<Guid>.Ok(uuid, StaticResponseMessage.recordCreatedSuccessfully));
     }
 
+    // A write-off is a master-ledger posting; read it where the master ledger is read.
     [HttpGet("write-off/{uuid:guid}")]
+    [RequirePermission(PermissionCodes.PAYMENT_VIEW, PermissionCodes.INVOICE_VIEW)]
     public async Task<IActionResult> GetWriteOff(Guid uuid)
     {
         var result = await _writeOff.GetByIdAsync(uuid);
@@ -502,7 +597,10 @@ public class MasterProductLedgerController : ControllerBase
     private readonly IMasterProductLedgerQueryService _svc;
     public MasterProductLedgerController(IMasterProductLedgerQueryService svc) => _svc = svc;
 
+    // Everything here is a read of inventory/master-product-ledger, which admits INVENTORY_VIEW or STOCK_MANAGE.
+
     [HttpGet]
+    [RequirePermission(PermissionCodes.INVENTORY_VIEW, PermissionCodes.STOCK_MANAGE)]
     public async Task<IActionResult> GetLedger([FromQuery] MasterProductLedgerFilter filter)
     {
         var result = await _svc.GetProductLedgerAsync(filter);
@@ -510,6 +608,7 @@ public class MasterProductLedgerController : ControllerBase
     }
 
     [HttpGet("summary")]
+    [RequirePermission(PermissionCodes.INVENTORY_VIEW, PermissionCodes.STOCK_MANAGE)]
     public async Task<IActionResult> GetSummary([FromQuery] MasterProductLedgerFilter filter)
     {
         var result = await _svc.GetProductLedgerSummaryAsync(filter);
@@ -517,6 +616,7 @@ public class MasterProductLedgerController : ControllerBase
     }
 
     [HttpGet("variant-journey/{variantId:int}")]
+    [RequirePermission(PermissionCodes.INVENTORY_VIEW, PermissionCodes.STOCK_MANAGE)]
     public async Task<IActionResult> GetProductJourney(int variantId)
     {
         var result = await _svc.GetProductJourneyAsync(variantId);
@@ -524,6 +624,7 @@ public class MasterProductLedgerController : ControllerBase
     }
 
     [HttpGet("export/pdf")]
+    [RequirePermission(PermissionCodes.INVENTORY_VIEW, PermissionCodes.STOCK_MANAGE)]
     public async Task<IActionResult> ExportPdf([FromQuery] MasterProductLedgerFilter filter)
     {
         filter.Page     = 1;
@@ -535,6 +636,7 @@ public class MasterProductLedgerController : ControllerBase
     }
 
     [HttpGet("export/excel")]
+    [RequirePermission(PermissionCodes.INVENTORY_VIEW, PermissionCodes.STOCK_MANAGE)]
     public async Task<IActionResult> ExportExcel([FromQuery] MasterProductLedgerFilter filter)
     {
         filter.Page     = 1;

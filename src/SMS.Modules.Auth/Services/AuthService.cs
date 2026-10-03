@@ -2,6 +2,7 @@ using Hangfire;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 using System.Security.Cryptography;
+using System.Text;
 using SMS.Modules.Auth.Domain;
 using SMS.Modules.Auth.Models;
 using SMS.Modules.Auth.Repositories;
@@ -26,7 +27,12 @@ internal sealed class AuthService : IAuthService
     private readonly AppSettings _settings;
     private readonly IOrganizationStatusService _orgStatusService;
     private readonly ISuperAdminService _superAdminService;
+    private readonly PasswordResetThrottle _resetThrottle;
 
+    /// <param name="resetThrottle">
+    /// The app-wide reset-code throttle (a singleton — AddAuthModule registers it). Optional so a host or a
+    /// test that builds AuthService by hand still gets a working throttle of its own rather than none.
+    /// </param>
     public AuthService(
         IAuthRepository repo,
         IEmailService emailService,
@@ -34,7 +40,8 @@ internal sealed class AuthService : IAuthService
         ITokenService tokenService,
         IPasswordHasher<UserAccount> hasher,
         IOrganizationStatusService orgStatusService,
-        ISuperAdminService superAdminService)
+        ISuperAdminService superAdminService,
+        PasswordResetThrottle? resetThrottle = null)
     {
         _repo = repo;
         _emailService = emailService;
@@ -43,6 +50,7 @@ internal sealed class AuthService : IAuthService
         _hasher = hasher;
         _orgStatusService = orgStatusService;
         _superAdminService = superAdminService;
+        _resetThrottle = resetThrottle ?? new PasswordResetThrottle();
     }
 
     // ── Login ─────────────────────────────────────────────────────────────────
@@ -214,8 +222,11 @@ internal sealed class AuthService : IAuthService
 
     // ── User management (admin) ───────────────────────────────────────────────
 
-    public async Task<UserDetailModel> AdminCreateUserAsync(CreateUserRequest dto, int createdByUserId)
+    public async Task<UserDetailModel> AdminCreateUserAsync(CreateUserRequest dto, AuthCaller caller)
     {
+        await EnsureRoleAssignableAsync(dto.RoleID, caller);
+
+        var createdByUserId = caller.UserId;
         var normalized = dto.Email.Trim().ToLowerInvariant();
         if (await _repo.EmailExistsAsync(normalized))
             throw new BadRequestException(StaticResponseMessage.accountAlreadyExsistWithThisEmail);
@@ -257,42 +268,127 @@ internal sealed class AuthService : IAuthService
         return detail;
     }
 
-    public async Task PatchUserAsync(int userId, PatchUserRequest dto, int patchedBy)
+    public async Task PatchUserAsync(int userId, PatchUserRequest dto, AuthCaller caller)
     {
-        var existing = await _repo.GetUserDetailAsync(userId);
-        if (existing == null) throw new NotFoundException(StaticResponseMessage.accountNotFound);
-        await _repo.PatchUserAsync(userId, dto, patchedBy);
+        var target = await RequireManageableUserAsync(userId, caller);
+
+        // Your own name and department are yours to edit here; whether your account is active, and which
+        // suppliers you can see, are not — that is how one would widen one's own access.
+        if (IsSelf(target, caller) && (dto.IsActive is not null || dto.SupplierType is not null || dto.SupplierIds is not null))
+            throw new ForbiddenException("You cannot change your own account status or supplier access. Ask another administrator.");
+
+        await _repo.PatchUserAsync(userId, dto, caller.UserId);
     }
 
-    public async Task AssignRoleAsync(int userId, int newRoleId)
+    public async Task AssignRoleAsync(int userId, int newRoleId, AuthCaller caller)
     {
-        var existing = await _repo.GetUserDetailAsync(userId);
-        if (existing == null) throw new NotFoundException(StaticResponseMessage.accountNotFound);
+        var target = await RequireManageableUserAsync(userId, caller);
+        if (IsSelf(target, caller) && !caller.IsSuperAdmin)
+            throw new ForbiddenException("You cannot change your own role. Ask another administrator.");
+        await EnsureRoleAssignableAsync(newRoleId, caller);
 
         await _repo.AssignRoleAsync(userId, newRoleId);
         await _repo.RevokeAllUserSessionsAsync(userId);
     }
 
-    public async Task AdminResetPasswordAsync(int userId)
+    public async Task AdminResetPasswordAsync(int userId, AuthCaller caller)
     {
-        var user = await _repo.FindUserByIdAsync(userId);
-        if (user == null || user.IsDelete) throw new NotFoundException(StaticResponseMessage.accountNotFound);
+        var user = await RequireManageableUserAsync(userId, caller);
 
-        var code = new Random().Next(100000, 999999).ToString();
-        user.PasswordResetToken     = code;
-        user.PasswordResetTokenTime = DateTime.UtcNow.AddMinutes(60);
-        await _repo.SaveAsync(user);
+        // The code goes to the account's own mailbox, so this cannot hand anyone else the account — but it
+        // replaces the one a forgot-password request sent, so it gets a fresh set of attempts like any new code.
+        var code = NewResetCode();
+        _repo.SetPasswordResetCode(user.UserID, code, DateTime.UtcNow.Add(ResetCodeLifetime));
+        _resetThrottle.Clear(user.Email);
 
-        BackgroundJob.Enqueue(() => _emailService.SendPasswordResetEmail(user.Email, code));
+        var email = user.Email;
+        BackgroundJob.Enqueue(() => _emailService.SendPasswordResetEmail(email, code));
     }
 
-    public async Task SoftDeleteUserAsync(int userId)
+    public async Task SoftDeleteUserAsync(int userId, AuthCaller caller)
     {
-        var existing = await _repo.GetUserDetailAsync(userId);
-        if (existing == null) throw new NotFoundException(StaticResponseMessage.accountNotFound);
+        var target = await RequireManageableUserAsync(userId, caller);
+        // Super admins included: the last one deleting themselves leaves nobody to run the platform.
+        if (IsSelf(target, caller))
+            throw new ForbiddenException("You cannot delete your own account.");
 
         await _repo.SoftDeleteAsync(userId);
         await _repo.RevokeAllUserSessionsAsync(userId);
+    }
+
+    // ── Administration guards ─────────────────────────────────────────────────
+    //
+    // Every user and role write above and below goes through these. They do not lean on the tenant query
+    // filter: a super admin bypasses it by design, and so do anonymous requests and background jobs with no
+    // captured organization — "the row came back" is not "the caller may change it".
+
+    /// <summary>
+    /// The target user, if the caller may administer them at all: they exist, are not deleted, are in the
+    /// caller's own organization (a super admin may cross organizations), and are not a platform super admin
+    /// unless the caller is one too. Another organization's user is reported as not found, not forbidden, so
+    /// the answer does not confirm the id exists.
+    /// </summary>
+    private async Task<UserAccount> RequireManageableUserAsync(int userId, AuthCaller caller)
+    {
+        var user = await _repo.FindUserByIdAsync(userId);
+        if (user == null || user.IsDelete || (!caller.IsSuperAdmin && user.OrganizationId != caller.OrganizationId))
+            throw new NotFoundException(StaticResponseMessage.accountNotFound);
+
+        if (!caller.IsSuperAdmin && await _superAdminService.IsSuperAdminAsync(user.UserID))
+            throw new ForbiddenException("This account belongs to a platform super admin; only a super admin can change it.");
+
+        return user;
+    }
+
+    private static bool IsSelf(UserAccount target, AuthCaller caller) => target.UserID == caller.UserId;
+
+    /// <summary>
+    /// Whether the caller may give someone this role. It must be one their organization can see (global, or
+    /// their own), and — unless they are a super admin — it must not carry SYSTEM_CONFIGURE or
+    /// PLATFORM_SUPER_ADMIN: both reach every organization (shared reference data; api/system/organizations),
+    /// and the global System Admin role carries both. Until 2026-10-02 neither was checked, so an Org Admin
+    /// could give themselves System Admin, or another organization's custom role by id, and manage every tenant.
+    /// <para>
+    /// Deliberately NOT "only roles whose permissions you hold": an Org Admin must still be able to appoint
+    /// their Supply Department Administrator, whose SALE_ORDER_CONFIG_WRITE they do not hold themselves.
+    /// </para>
+    /// </summary>
+    private async Task EnsureRoleAssignableAsync(int roleId, AuthCaller caller)
+    {
+        var role = await _repo.FindVisibleRoleAsync(roleId);
+        if (role == null || (!caller.IsSuperAdmin && !role.IsGlobal && role.OrganizationId != caller.OrganizationId))
+            throw new BadRequestException("The selected role does not exist.");
+
+        if (caller.IsSuperAdmin) return;
+
+        var platformCodes = (await _repo.GetGrantedPermissionCodesForRoleAsync(roleId))
+            .Intersect(AuthRepository.SuperAdminOnlyPermissionCodes)
+            .ToList();
+        if (platformCodes.Count > 0)
+            throw new ForbiddenException(
+                $"The role '{role.Name}' carries platform permissions ({string.Join(", ", platformCodes)}); only a super admin can assign it.");
+    }
+
+    /// <summary>
+    /// The strict rule for the legacy api/auth endpoints: a non-super-admin may newly grant only permissions
+    /// they hold themselves, and never a platform one. A permission already granted is left alone (re-saving
+    /// a screen that shows it is not granting it); taking one away is always allowed.
+    /// </summary>
+    private static void EnsureCanGrant(IEnumerable<PermissionModel> changes, IReadOnlyDictionary<int, string> codes,
+        IReadOnlyDictionary<int, bool> current, AuthCaller caller)
+    {
+        if (caller.IsSuperAdmin) return;
+
+        foreach (var change in changes.Where(c => c.IsAllowed))
+        {
+            if (current.TryGetValue(change.PermissionID, out var allowed) && allowed) continue;
+
+            var code = codes[change.PermissionID];
+            if (AuthRepository.SuperAdminOnlyPermissionCodes.Contains(code))
+                throw new ForbiddenException($"Only a super admin can grant {code}.");
+            if (!caller.Holds(code))
+                throw new ForbiddenException($"You cannot grant {code}: you do not hold it yourself.");
+        }
     }
 
     // ── Org admin invite acceptance (MT-002) ──────────────────────────────────
@@ -361,40 +457,152 @@ internal sealed class AuthService : IAuthService
 
     public int ActivationTokenValidation(string token) => _repo.ActivationTokenValidation(token);
 
+    // ── Forgot password (anonymous) ───────────────────────────────────────────
+    //
+    // See PasswordResetThrottle for the limits and why. Both methods answer the same way whether or not the
+    // address has an account; AuthController turns that into one uniform response.
+
+    private static readonly TimeSpan ResetCodeLifetime = TimeSpan.FromMinutes(60);
+
+    /// <summary>Six digits from the OS's cryptographic generator — <c>new Random()</c> is predictable.</summary>
+    private static string NewResetCode() => RandomNumberGenerator.GetInt32(0, 1_000_000).ToString("D6");
+
+    /// <returns>1 when a code was sent; 0 when nothing was (no such active account, or this address has had its
+    /// codes for the hour). The caller must not tell the two apart.</returns>
     public int SendPasswordResetToken(string email)
     {
+        if (string.IsNullOrWhiteSpace(email)) return 0;
+
         var account = _repo.FindByEmail(email);
         if (account == null) return 0;
+        if (!_resetThrottle.TryIssueCode(account.Email)) return 0;
 
-        var code = new Random().Next(100000, 999999).ToString();
-        _repo.UpdateUserAccount(new UserAccount
-        {
-            UserID = account.UserID,
-            PasswordResetToken = code,
-            PasswordResetTokenTime = DateTime.UtcNow.AddMinutes(60)
-        });
+        var code = NewResetCode();
+        _repo.SetPasswordResetCode(account.UserID, code, DateTime.UtcNow.Add(ResetCodeLifetime));
 
-        BackgroundJob.Enqueue(() => _emailService.SendPasswordResetEmail(email, code));
+        var to = account.Email;
+        BackgroundJob.Enqueue(() => _emailService.SendPasswordResetEmail(to, code));
         return 1;
     }
 
-    public int SetPasswordVerification(ForgotPasswordModel dto) => _repo.SetPasswordVerification(dto);
+    /// <returns>
+    /// 1 reset; -1 the right code, but expired; -2 this code has had its <see cref="PasswordResetThrottle.MaxAttemptsPerCode"/>
+    /// guesses and is spent (a new one must be requested); 0 anything else — wrong code, or no such account,
+    /// deliberately indistinguishable.
+    /// </returns>
+    public int SetPasswordVerification(ForgotPasswordModel dto)
+    {
+        var email = dto.Email ?? string.Empty;
 
+        // Reserved before the comparison, so parallel guesses share the five rather than getting five each.
+        var attempt = _resetThrottle.RegisterAttempt(email);
+        var account = string.IsNullOrWhiteSpace(email) ? null : _repo.FindByEmail(email);
+
+        if (attempt > PasswordResetThrottle.MaxAttemptsPerCode)
+        {
+            if (account != null) _repo.ClearPasswordResetCode(account.UserID);
+            return -2;
+        }
+
+        if (account == null || !CodesMatch(account.PasswordResetToken, dto.verificationCode))
+        {
+            if (attempt < PasswordResetThrottle.MaxAttemptsPerCode) return 0;
+
+            // The last allowed guess was wrong: spend the code where it outlives this process — in the database.
+            if (account != null) _repo.ClearPasswordResetCode(account.UserID);
+            return -2;
+        }
+
+        if (account.PasswordResetTokenTime < DateTime.UtcNow) return -1;
+
+        _repo.CompletePasswordReset(account.UserID, dto.Password);
+        _resetThrottle.Clear(email);
+        return 1;
+    }
+
+    /// <summary>Constant-time, so how long a wrong guess takes says nothing about how close it was.</summary>
+    private static bool CodesMatch(string? stored, string? given)
+    {
+        if (string.IsNullOrEmpty(stored) || string.IsNullOrEmpty(given)) return false;
+        return CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(stored), Encoding.UTF8.GetBytes(given.Trim()));
+    }
+
+    // dto.UserID is the signed-in user's own id: AuthController sets it from the token, never the body.
     public int UpdatePersonalInformation(UpdatePersonalInfoModel dto) => _repo.UpdatePersonalInformation(dto);
 
     public int UpdatePasswordInformation(UpdatePasswordModel dto) => _repo.UpdatePasswordInformation(dto);
 
-    public PaginatedResponse<UserAccountModel> GetAllUsers(int page, int pageSize) => _repo.GetAllUsers(page, pageSize);
+    // ── Legacy api/auth user & role administration ────────────────────────────
 
-    public int InactiveUser(int userId) => _repo.InactiveUser(userId);
+    public Task<PaginatedResponse<UserAccountModel>> GetAllUsersAsync(int page, int pageSize, AuthCaller caller)
+    {
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 1, 100);
+        return Task.FromResult(_repo.GetAllUsers(page, pageSize, caller.IsSuperAdmin ? null : caller.OrganizationId));
+    }
 
-    public List<PermissionModel> GetPermissionsByRole(int roleId) => _repo.GetPermissionsByRole(roleId);
+    public async Task DeactivateUserAsync(int userId, AuthCaller caller)
+    {
+        var target = await RequireManageableUserAsync(userId, caller);
+        if (IsSelf(target, caller))
+            throw new ForbiddenException("You cannot deactivate your own account.");
 
-    public int SaveRolePermissions(int roleId, List<PermissionModel> permissions) => _repo.SaveRolePermissions(roleId, permissions);
+        _repo.InactiveUser(userId);
+    }
 
-    public List<PermissionModel> GetUserPermissions(int userId) => _repo.GetUserPermissions(userId);
+    public async Task<List<PermissionModel>> GetPermissionsByRoleAsync(int roleId, AuthCaller caller)
+    {
+        await RequireVisibleRoleAsync(roleId, caller);
+        return _repo.GetPermissionsByRole(roleId);
+    }
 
-    public int SaveUserPermissions(int userId, List<PermissionModel> permissions) => _repo.SaveUserPermissions(userId, permissions);
+    public async Task SaveRolePermissionsAsync(int roleId, List<PermissionModel> permissions, AuthCaller caller)
+    {
+        var role = await RequireVisibleRoleAsync(roleId, caller);
+
+        // The global catalog is shared by every organization: changing it is the platform's call alone. The
+        // PLATFORM_SUPER_ADMIN permission the endpoint requires is not enough — the global System Admin role
+        // carries that code too — so this is the is_super_admin claim (SuperAdminUsers).
+        if (role.IsGlobal && !caller.IsSuperAdmin)
+            throw new ForbiddenException("This role is shared across every organization and can only be changed by a Super Admin.");
+
+        var codes = await _repo.GetPermissionCodesAsync();
+        var known = permissions.Where(p => codes.ContainsKey(p.PermissionID)).ToList();
+        EnsureCanGrant(known, codes, await _repo.GetRolePermissionStatesAsync(roleId), caller);
+
+        _repo.SaveRolePermissions(roleId, known);
+    }
+
+    public async Task<List<PermissionModel>> GetUserPermissionsAsync(int userId, AuthCaller caller)
+    {
+        var user = await _repo.FindUserByIdAsync(userId);
+        if (user == null || user.IsDelete || (!caller.IsSuperAdmin && user.OrganizationId != caller.OrganizationId))
+            throw new NotFoundException(StaticResponseMessage.accountNotFound);
+
+        return _repo.GetUserPermissions(userId);
+    }
+
+    public async Task SaveUserPermissionsAsync(int userId, List<PermissionModel> permissions, AuthCaller caller)
+    {
+        var target = await RequireManageableUserAsync(userId, caller);
+        if (IsSelf(target, caller) && !caller.IsSuperAdmin)
+            throw new ForbiddenException("You cannot change your own permissions. Ask another administrator.");
+
+        var codes = await _repo.GetPermissionCodesAsync();
+        var known = permissions.Where(p => codes.ContainsKey(p.PermissionID)).ToList();
+        EnsureCanGrant(known, codes, await _repo.GetUserPermissionOverridesAsync(userId), caller);
+
+        _repo.SaveUserPermissions(userId, target.OrganizationId, known);
+    }
+
+    /// <summary>A role the caller's organization can see — global or its own; any role for a super admin.</summary>
+    private async Task<Role> RequireVisibleRoleAsync(int roleId, AuthCaller caller)
+    {
+        var role = await _repo.FindVisibleRoleAsync(roleId);
+        if (role == null || (!caller.IsSuperAdmin && !role.IsGlobal && role.OrganizationId != caller.OrganizationId))
+            throw new NotFoundException($"Role {roleId} not found.");
+        return role;
+    }
 
     // ── Role CRUD ─────────────────────────────────────────────────────────────
 

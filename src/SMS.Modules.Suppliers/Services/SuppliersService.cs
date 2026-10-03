@@ -1,3 +1,4 @@
+using SMS.Modules.Suppliers.Integration;
 using SMS.Modules.Suppliers.Models;
 using SMS.Modules.Suppliers.Repositories;
 using SMS.Shared.Common;
@@ -12,18 +13,29 @@ internal sealed class SuppliersService : ISuppliersService
     private readonly ISupplierEventPublisher _events;
     private readonly IPhoneNumberValidationService _phoneValidator;
     private readonly IEnumerable<ISupplierReferenceChecker> _referenceCheckers;
+    private readonly PartnerQuickBooksPublisher? _quickBooks;
 
+    /// <param name="quickBooks">
+    /// Tells the QuickBooks gateway about a partner after each save that changes what it would send.
+    /// Optional so a caller that builds this service by hand needs nothing extra; the module registers it.
+    /// </param>
     public SuppliersService(
         ISuppliersRepository repo,
         ISupplierEventPublisher events,
         IPhoneNumberValidationService phoneValidator,
-        IEnumerable<ISupplierReferenceChecker> referenceCheckers)
+        IEnumerable<ISupplierReferenceChecker> referenceCheckers,
+        PartnerQuickBooksPublisher? quickBooks = null)
     {
         _repo = repo;
         _events = events;
         _phoneValidator = phoneValidator;
         _referenceCheckers = referenceCheckers;
+        _quickBooks = quickBooks;
     }
+
+    /// <summary>After the repository's own save has committed. Never throws (see the publisher).</summary>
+    private Task PublishToQuickBooksAsync(Guid uuid) =>
+        _quickBooks is null ? Task.CompletedTask : _quickBooks.PublishAsync(uuid);
 
     public List<SupplierDropDownEntity> GetSupplierTypes() => _repo.GetSupplierTypes();
     public List<SupplierDropDownEntity> GetCategories() => _repo.GetCategories();
@@ -34,8 +46,12 @@ internal sealed class SuppliersService : ISuppliersService
     public bool DeleteSupplierType(Guid id) => _repo.DeleteSupplierType(id);
     public bool DeleteSupplierCategory(Guid id) => _repo.DeleteSupplierCategory(id);
 
-    public Task<Guid> CreateSupplierAsync(CreateSupplierRequest req, int createdBy) =>
-        _repo.CreateSupplierAsync(req, createdBy);
+    public async Task<Guid> CreateSupplierAsync(CreateSupplierRequest req, int createdBy)
+    {
+        var uuid = await _repo.CreateSupplierAsync(req, createdBy);
+        await PublishToQuickBooksAsync(uuid);
+        return uuid;
+    }
 
     public Task<PaginatedResponse<SupplierListItemModel>> GetSuppliersAsync(SupplierListFilter filter) =>
         _repo.GetSuppliersAsync(filter);
@@ -43,8 +59,12 @@ internal sealed class SuppliersService : ISuppliersService
     public Task<SupplierDetailModel?> GetSupplierByIdAsync(Guid uuid) =>
         _repo.GetSupplierByIdAsync(uuid);
 
-    public Task<bool> PatchSupplierAsync(Guid uuid, PatchSupplierRequest req, int modifiedBy) =>
-        _repo.PatchSupplierAsync(uuid, req, modifiedBy);
+    public async Task<bool> PatchSupplierAsync(Guid uuid, PatchSupplierRequest req, int modifiedBy)
+    {
+        var updated = await _repo.PatchSupplierAsync(uuid, req, modifiedBy);
+        if (updated) await PublishToQuickBooksAsync(uuid);
+        return updated;
+    }
 
     public Task<int> AddContactAsync(Guid uuid, AddContactRequest req) =>
         _repo.AddContactAsync(uuid, req);
@@ -61,14 +81,20 @@ internal sealed class SuppliersService : ISuppliersService
                     "Cannot delete this supplier — it is referenced by an existing purchase order, RFQ response, invoice, payment, GRN, or return order. Reject or blacklist it instead if it should no longer be used.");
         }
 
-        return await _repo.DeleteSupplierAsync(uuid, deletedBy);
+        var deleted = await _repo.DeleteSupplierAsync(uuid, deletedBy);
+        // A deleted partner is sent once more, as inactive, so a record QuickBooks already has is retired.
+        if (deleted) await PublishToQuickBooksAsync(uuid);
+        return deleted;
     }
 
     public async Task<(bool success, Guid uuid, int id)> ApproveSupplierAsync(Guid uuid, int approvedBy)
     {
         var result = await _repo.ApproveSupplierAsync(uuid, approvedBy);
         if (result.success)
+        {
             await _events.PublishSupplierApprovedAsync(result.uuid, result.id);
+            await PublishToQuickBooksAsync(result.uuid);
+        }
         return result;
     }
 
@@ -76,15 +102,24 @@ internal sealed class SuppliersService : ISuppliersService
     {
         var result = await _repo.RejectSupplierAsync(uuid, reason, changedBy);
         if (result.success)
+        {
             await _events.PublishSupplierRejectedAsync(result.uuid, result.id, reason);
+            await PublishToQuickBooksAsync(result.uuid);
+        }
         return result;
     }
 
-    public Task BlacklistSupplierAsync(Guid uuid, string reason, int changedBy) =>
-        _repo.BlacklistSupplierAsync(uuid, reason, changedBy);
+    public async Task BlacklistSupplierAsync(Guid uuid, string reason, int changedBy)
+    {
+        await _repo.BlacklistSupplierAsync(uuid, reason, changedBy);
+        await PublishToQuickBooksAsync(uuid);
+    }
 
-    public Task SuspendSupplierAsync(Guid uuid, string reason, DateTime? reviewDate, int changedBy) =>
-        _repo.SuspendSupplierAsync(uuid, reason, reviewDate, changedBy);
+    public async Task SuspendSupplierAsync(Guid uuid, string reason, DateTime? reviewDate, int changedBy)
+    {
+        await _repo.SuspendSupplierAsync(uuid, reason, reviewDate, changedBy);
+        await PublishToQuickBooksAsync(uuid);
+    }
 
     public Task UpsertBankDetailAsync(Guid uuid, UpsertBankDetailRequest req, int userId) =>
         _repo.UpsertBankDetailAsync(uuid, req, userId);

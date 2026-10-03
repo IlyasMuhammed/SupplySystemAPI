@@ -4,6 +4,7 @@ using SMS.Modules.Finance.Data;
 using SMS.Modules.Finance.Models;
 using SMS.Modules.Finance.Repositories;
 using SMS.Modules.Warehouse.Data;
+using SMS.Shared.Common;
 using SMS.WorkflowEngine.Jobs;
 using SMS.WorkflowEngine.Models;
 
@@ -25,18 +26,31 @@ internal interface IInvoiceAutoCreationService
 // would silently never get a timeline entry for their own creation.
 internal sealed class InvoiceAutoCreationService : IInvoiceAutoCreationService
 {
+    /// <summary>What an auto-invoice is in when the organization's base currency cannot be found (the old fixed value).</summary>
+    internal const string FallbackCurrency = "PKR";
+
     private readonly WarehouseDbContext _warehouse;
     private readonly FinanceDbContext   _db;
     private readonly IInvoiceRepository _invoices;
     private readonly IBackgroundJobClient _jobs;
+    private readonly ITaxCodeLookup?               _taxCodes;
+    private readonly IOrganizationCurrencyService? _orgCurrency;
+    private readonly ICurrencyCodeLookup?          _currencyCodes;
 
+    /// <param name="taxCodes">S-3: the organization's default purchase tax code is applied when one is set. Optional for hand-built harnesses.</param>
+    /// <param name="orgCurrency">With <paramref name="currencyCodes"/>, the organization's base currency — what a PO (which has no currency) is priced in. Optional.</param>
+    /// <param name="currencyCodes">See <paramref name="orgCurrency"/>.</param>
     public InvoiceAutoCreationService(
-        WarehouseDbContext warehouse, FinanceDbContext db, IInvoiceRepository invoices, IBackgroundJobClient jobs)
+        WarehouseDbContext warehouse, FinanceDbContext db, IInvoiceRepository invoices, IBackgroundJobClient jobs,
+        ITaxCodeLookup? taxCodes = null, IOrganizationCurrencyService? orgCurrency = null, ICurrencyCodeLookup? currencyCodes = null)
     {
-        _warehouse = warehouse;
-        _db        = db;
-        _invoices  = invoices;
-        _jobs      = jobs;
+        _warehouse     = warehouse;
+        _db            = db;
+        _invoices      = invoices;
+        _jobs          = jobs;
+        _taxCodes      = taxCodes;
+        _orgCurrency   = orgCurrency;
+        _currencyCodes = currencyCodes;
     }
 
     // Safe to call more than once for the same GRN — a pre-existing invoice for it is a no-op,
@@ -72,6 +86,15 @@ internal sealed class InvoiceAutoCreationService : IInvoiceAutoCreationService
 
         var receivedDate = grn.ReceivedAt.Date;
 
+        // S-3: the organization's default purchase tax code, when it has one — the repository works the
+        // tax out from it. Without one the tax stays 0, as before, for AP to correct (PatchAsync).
+        // Checked here as the repository would check it, so a misconfigured default leaves the invoice with
+        // no code rather than failing (and endlessly retrying) the job.
+        var defaultTaxCode = _taxCodes is null ? null : await _taxCodes.GetDefaultAsync(TaxCodeUsage.Purchase);
+        if (defaultTaxCode is not null
+            && (!defaultTaxCode.IsActive || !TaxCodeUsage.Allows(defaultTaxCode.Usage, TaxCodeUsage.Purchase)))
+            defaultTaxCode = null;
+
         var req = new CreateInvoiceRequest
         {
             SupplierId   = grn.SupplierId,
@@ -83,7 +106,10 @@ internal sealed class InvoiceAutoCreationService : IInvoiceAutoCreationService
             // has no route to resolve it here — 30 days is a placeholder the AP team overrides via
             // PatchAsync once the supplier's real invoice/terms are on hand.
             DueDate      = receivedDate.AddDays(30),
-            Currency     = "PKR",
+            // A purchase order carries no currency: its prices are in the organization's own (base)
+            // currency. PKR, the old fixed value, only when that cannot be found.
+            Currency     = await BaseCurrencyCodeAsync(grn.OrganizationId) ?? FallbackCurrency,
+            TaxCodeUuid  = defaultTaxCode?.Uuid,
             TaxAmount    = 0m,
             Notes        = $"Auto-generated from GRN {grn.GrnNumber} on approval.",
             Lines        = lines
@@ -102,5 +128,17 @@ internal sealed class InvoiceAutoCreationService : IInvoiceAutoCreationService
                 new TimelineEvent("INVOICE_RECEIVED", "INVOICE", uuid, inv.InvoiceNumber, DateTime.UtcNow, 0, notes),
                 "INVOICE", inv.InvoiceNumber));
         }
+    }
+
+    /// <summary>The organization's base currency as an ISO code, or null when it has none or it cannot be found out here.</summary>
+    private async Task<string?> BaseCurrencyCodeAsync(Guid organizationId)
+    {
+        if (_orgCurrency is null || _currencyCodes is null) return null;
+
+        var id = await _orgCurrency.GetBaseCurrencyIdAsync(organizationId);
+        if (id is null) return null;
+
+        var code = (await _currencyCodes.GetCodeAsync(id.Value))?.Trim().ToUpperInvariant();
+        return string.IsNullOrEmpty(code) ? null : code;
     }
 }

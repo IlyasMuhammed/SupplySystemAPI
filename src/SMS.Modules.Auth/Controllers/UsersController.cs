@@ -35,8 +35,7 @@ public class UsersController : ControllerBase
         if (dto.SupplierType != "INTERNAL" && dto.SupplierType != "EXTERNAL")
             return BadRequest(ApiResponse.Fail("Supplier Type must be Internal or External."));
 
-        var createdBy = User.GetUserId();
-        var result = await _authService.AdminCreateUserAsync(dto, createdBy);
+        var result = await _authService.AdminCreateUserAsync(dto, AuthCaller.From(User));
 
         return CreatedAtAction(nameof(GetUser), new { id = result.UserID },
             ApiResponse<UserDetailModel>.Ok(result, StaticResponseMessage.recordCreatedSuccessfully));
@@ -83,7 +82,7 @@ public class UsersController : ControllerBase
     //[RequirePermission(PermissionCodes.USER_MANAGE)]
     public async Task<IActionResult> PatchUser(int id, [FromBody] PatchUserRequest dto)
     {
-        await _authService.PatchUserAsync(id, dto, User.GetUserId());
+        await _authService.PatchUserAsync(id, dto, AuthCaller.From(User));
         return Ok(ApiResponse.Ok(StaticResponseMessage.accountUpdatedSuccessfully));
     }
 
@@ -95,7 +94,7 @@ public class UsersController : ControllerBase
         if (dto.RoleID <= 0)
             return BadRequest(ApiResponse.Fail("A valid RoleID is required."));
 
-        await _authService.AssignRoleAsync(id, dto.RoleID);
+        await _authService.AssignRoleAsync(id, dto.RoleID, AuthCaller.From(User));
         return Ok(ApiResponse.Ok("Role updated and active sessions invalidated."));
     }
 
@@ -104,7 +103,7 @@ public class UsersController : ControllerBase
     //[RequirePermission(PermissionCodes.USER_MANAGE)]
     public async Task<IActionResult> AdminResetPassword(int id)
     {
-        await _authService.AdminResetPasswordAsync(id);
+        await _authService.AdminResetPasswordAsync(id, AuthCaller.From(User));
         return Ok(ApiResponse.Ok(StaticResponseMessage.passwordResetTokenSendToYourAccount));
     }
 
@@ -113,7 +112,7 @@ public class UsersController : ControllerBase
    // [RequirePermission(PermissionCodes.USER_MANAGE)]
     public async Task<IActionResult> DeleteUser(int id)
     {
-        await _authService.SoftDeleteUserAsync(id);
+        await _authService.SoftDeleteUserAsync(id, AuthCaller.From(User));
         return Ok(ApiResponse.Ok(StaticResponseMessage.recordDeletedSuccessfully));
     }
 }

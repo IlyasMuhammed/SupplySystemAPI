@@ -51,7 +51,16 @@ internal sealed class SaleOrderLineValidator : AbstractValidator<SaleOrderLineMo
         RuleFor(x => x.Quantity).GreaterThan(0);
         RuleFor(x => x.UnitPrice).GreaterThanOrEqualTo(0);
         RuleFor(x => x.DiscountPercent).InclusiveBetween(0, 100);
-        RuleFor(x => x.TaxPercent).GreaterThanOrEqualTo(0);
+        // The column is decimal(5,2), and no tax is more than the goods themselves.
+        RuleFor(x => x.TaxPercent).InclusiveBetween(0, 100);
+
+        // SAP alignment (S-3) — the code's text is a snapshot of Finance's 20-character code, and a line
+        // that names a code always carries its text, so the document prints the same thing tomorrow.
+        RuleFor(x => x.TaxCode).MaximumLength(20);
+        RuleFor(x => x.TaxCode)
+            .NotEmpty()
+            .When(x => x.TaxCodeUuid is not null)
+            .WithMessage("A line with a tax code must carry the code's text.");
 
         RuleFor(x => x.Status)
             .Must(s => EnumCode<SaleOrderLineStatus>.TryParse(s, out _))

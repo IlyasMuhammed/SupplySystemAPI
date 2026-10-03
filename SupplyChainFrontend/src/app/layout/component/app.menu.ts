@@ -229,6 +229,15 @@ export class AppMenu {
             label: 'Sales',
             featureCode: 'MODULE_DEMAND',
             items: [
+                // A32-PB-08 — customer inquiries, first step of the pre-order chain; same code as the route.
+                { label: 'Inquiries', icon: 'pi pi-fw pi-inbox',
+                  routerLink: ['/portal/pages/sales/inquiries'],
+                  featureCode: 'MODULE_DEMAND',
+                  permRequired: ['SALE_INQUIRY_VIEW'] },
+                // A32-PC-10 — seller-side quotations (not the procurement RFQ quotations); same code as the route.
+                { label: 'Quotations', icon: 'pi pi-fw pi-file-edit',
+                  routerLink: ['/portal/pages/sales/quotations'],
+                  permRequired: ['SALE_QUOTATION_VIEW'] },
                 {
                     label: 'Sale Orders',
                     icon: 'pi pi-fw pi-shopping-bag',
@@ -304,7 +313,7 @@ export class AppMenu {
                           permRequired: ['INVOICE_PROCESS'] },
                         { label: 'All Invoices', icon: 'pi pi-fw pi-list',
                           routerLink: ['/portal/pages/finance/invoices'],
-                          permRequired: ['INVOICE_VIEW', 'INVOICE_PROCESS'] }
+                          permRequired: ['INVOICE_VIEW'] }
                     ]
                 },
                 {
@@ -521,6 +530,25 @@ export class AppMenu {
                           routerLink: ['/portal/pages/sale-order-settings'],
                           featureCode: 'MODULE_DEMAND',
                           permRequired: ['SALE_ORDER_CONFIG_READ'] },
+                        // A32 C5 — why inquiry/quotation lines are declined; same code as the route.
+                        { label: 'Rejection Reasons', icon: 'pi pi-fw pi-ban',
+                          routerLink: ['/portal/pages/sales/rejection-reasons'],
+                          featureCode: 'MODULE_DEMAND',
+                          permRequired: ['SALE_REJECTION_REASON_MANAGE'] },
+                        // Any one of these, as the routes: FINANCE_SETUP_MANAGE maintains them; INVOICE_VIEW
+                        // opens them read-only for finance viewers. The server gates every write on MANAGE.
+                        { label: 'Tax Codes', icon: 'pi pi-fw pi-percentage',
+                          routerLink: ['/portal/pages/finance-setup/tax-codes'],
+                          featureCode: 'MODULE_FINANCE',
+                          permRequired: ['FINANCE_SETUP_MANAGE', 'INVOICE_VIEW'] },
+                        { label: 'Exchange Rates', icon: 'pi pi-fw pi-arrow-right-arrow-left',
+                          routerLink: ['/portal/pages/finance-setup/exchange-rates'],
+                          featureCode: 'MODULE_FINANCE',
+                          permRequired: ['FINANCE_SETUP_MANAGE', 'INVOICE_VIEW'] },
+                        { label: 'QuickBooks Integration', icon: 'pi pi-fw pi-sync',
+                          routerLink: ['/portal/pages/integrations/quickbooks'],
+                          featureCode: 'MODULE_INTEGRATION',
+                          permRequired: ['INTEGRATION_VIEW'] },
                         { label: 'Portal Settings', icon: 'pi pi-fw pi-link',
                           routerLink: ['/portal/pages/portal-settings'],
                           permRequired: ['SYSTEM_CONFIGURE'] }

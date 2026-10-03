@@ -241,6 +241,8 @@ public class InvoiceAgingItem
     public string   SupplierName     { get; set; } = string.Empty;
     public DateTime DueDate          { get; set; }
     public decimal  TotalAmount      { get; set; }
+    /// <summary>What is still owed on it: TotalAmount less what has been paid — what the invoice is aged on.</summary>
+    public decimal  OutstandingAmount { get; set; }
     public string   PaymentStatus    { get; set; } = string.Empty;
     public int      DaysOverdue      { get; set; }
     public string   AgingBucket      { get; set; } = string.Empty;
@@ -250,6 +252,7 @@ public class InvoiceAgingBucketSummary
 {
     public string  Bucket          { get; set; } = string.Empty;
     public int     Count           { get; set; }
+    /// <summary>The bucket's invoices' OutstandingAmount summed — what is still owed in it.</summary>
     public decimal TotalAmount     { get; set; }
 }
 

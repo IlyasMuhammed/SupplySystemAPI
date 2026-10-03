@@ -1,0 +1,88 @@
+<div class="list-page">
+  <p-toast></p-toast>
+
+  <div class="page-header">
+    <div>
+      <h1 class="page-title"><i class="pi pi-file-edit"></i> Sale Quotations</h1>
+      <p class="page-subtitle">Price proposals sent to customers, and how they answered</p>
+    </div>
+    <p-button *ngIf="canCreate" label="New Quotation" icon="pi pi-plus"
+              [routerLink]="[quotationsRoute, 'new']" data-testid="new-quotation"></p-button>
+  </div>
+
+  <div class="filter-bar">
+    <p-iconfield>
+      <p-inputicon styleClass="pi pi-search"></p-inputicon>
+      <input pInputText type="text" placeholder="Search SQ# or customer ref..."
+             [(ngModel)]="searchText" (ngModelChange)="onSearchChange()" class="search-input" />
+    </p-iconfield>
+    <p-dropdown [options]="statusOptions" [(ngModel)]="selectedStatus"
+                (ngModelChange)="onFilterChange()" placeholder="Status"
+                styleClass="filter-dropdown" appendTo="body"></p-dropdown>
+    <p-autoComplete [(ngModel)]="selectedCustomer" [suggestions]="customerSuggestions"
+                    (completeMethod)="searchCustomers($event)" optionLabel="companyName"
+                    (onSelect)="onFilterChange()" (onClear)="onFilterChange()"
+                    placeholder="Customer" [forceSelection]="true" [showClear]="true"
+                    styleClass="filter-customer" appendTo="body" data-testid="customer-filter"></p-autoComplete>
+    <p-calendar [(ngModel)]="validToFrom" (ngModelChange)="onFilterChange()" dateFormat="dd/mm/yy"
+                placeholder="Valid until from" [showClear]="true" styleClass="filter-date" appendTo="body"></p-calendar>
+    <p-calendar [(ngModel)]="validToTo" (ngModelChange)="onFilterChange()" dateFormat="dd/mm/yy"
+                placeholder="Valid until to" [showClear]="true" styleClass="filter-date" appendTo="body"></p-calendar>
+    <p-button icon="pi pi-refresh" [text]="true" severity="secondary"
+              pTooltip="Reset filters" (onClick)="resetFilters()"></p-button>
+  </div>
+
+  <div class="table-card">
+    <p-table [value]="quotations" [loading]="isLoading" [lazy]="true"
+             [totalRecords]="totalRecords" [rows]="pageSize"
+             (onLazyLoad)="onPageChange($event)"
+             [paginator]="true" [rowsPerPageOptions]="[10,20,50]"
+             [tableStyle]="{'min-width':'64rem'}">
+      <ng-template pTemplate="header">
+        <tr>
+          <th>Quotation #</th>
+          <th>Customer</th>
+          <th>Valid from</th>
+          <th>Valid to</th>
+          <th>Status</th>
+          <th class="text-right">Grand total</th>
+          <th>Source inquiry</th>
+          <th class="text-center">Actions</th>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="body" let-q>
+        <tr>
+          <td class="font-mono font-semibold" data-testid="number">
+            <a [routerLink]="[quotationsRoute, q.uuid]" class="doc-link">{{ q.quotationNumber }}</a>
+          </td>
+          <td data-testid="customer">{{ q.partnerName || '—' }}</td>
+          <td data-testid="valid-from">{{ day(q.validFrom) | date:'dd MMM yyyy' }}</td>
+          <td data-testid="valid-to">{{ day(q.validTo) | date:'dd MMM yyyy' }}</td>
+          <td data-testid="status">
+            <p-tag [value]="formatStatus(q.status)" [severity]="getStatusSeverity(q.status)"></p-tag>
+          </td>
+          <td class="text-right" data-testid="grand-total">
+            {{ q.grandTotal | number:'1.2-2' }} <span class="cur" *ngIf="q.currencyCode">{{ q.currencyCode }}</span>
+          </td>
+          <td data-testid="source-inquiry"><a *ngIf="q.sourceInquiryUuid; else noInquiry" class="doc-link font-mono"
+               [routerLink]="[inquiriesRoute, q.sourceInquiryUuid]">{{ q.sourceInquiryNumber || 'Inquiry' }}</a><ng-template #noInquiry>—</ng-template></td>
+          <td class="text-center">
+            <p-button icon="pi pi-eye" [text]="true" severity="info" size="small" pTooltip="View"
+                      [routerLink]="[quotationsRoute, q.uuid]" data-testid="view-quotation"></p-button>
+            <p-button *ngIf="canEdit(q)" icon="pi pi-pencil" [text]="true" severity="secondary" size="small" pTooltip="Edit draft"
+                      [routerLink]="[quotationsRoute, q.uuid, 'edit']" data-testid="edit-quotation"></p-button>
+          </td>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="8" class="text-center text-secondary" style="padding:3rem">
+            No sale quotations found.
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </div>
+</div>

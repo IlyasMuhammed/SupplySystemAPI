@@ -15,9 +15,10 @@ import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { TooltipModule } from 'primeng/tooltip';
 import { MessageService, ConfirmationService } from 'primeng/api';
 import {
-  OrganizationsService, OrganizationListItemModel, OrgPlan, OrgUserSummary, ORG_ADMIN_ROLE_ID
+  OrganizationsService, OrganizationListItemModel, OrgPlan, OrgUserSummary, ORG_ADMIN_ROLE_ID, baseCurrencyChange
 } from '../../../services/organizations.service';
 import { CountriesService } from '../../../services/countries.service';
+import { CurrenciesService } from '../../../services/currencies.service';
 
 @Component({
   selector: 'app-organizations-list',
@@ -60,10 +61,18 @@ export class OrganizationsListComponent implements OnInit {
   // plain-string `country` field, so no id/name translation is needed on save.
   countryOptions: { label: string; value: string }[] = [];
 
+  // The Lookups currency catalog; the value is the currency id the organization stores. Finance converts
+  // foreign-currency documents into this currency (by its code), so only currencies with a code are offered.
+  currencyOptions: { label: string; value: string }[] = [];
+  // The base currency the organization had when the edit form opened — so emptying the field is sent as
+  // an explicit clear, and leaving it empty sends nothing (the server keeps what it has).
+  originalBaseCurrency: string | null = null;
+
   constructor(
     private fb: FormBuilder,
     private service: OrganizationsService,
     private countriesService: CountriesService,
+    private currenciesService: CurrenciesService,
     private messageService: MessageService,
     private confirmationService: ConfirmationService,
     private router: Router
@@ -79,6 +88,7 @@ export class OrganizationsListComponent implements OnInit {
       address:        ['', [Validators.maxLength(500)]],
       country:        ['', [Validators.maxLength(100)]],
       timeZone:       ['', [Validators.maxLength(50)]],
+      baseCurrency:   [null as string | null],
       // Initial Admin — only collected at creation; the org+admin are created atomically and
       // the admin gets an email invitation to set their own password.
       adminFirstName: ['', [Validators.required, Validators.maxLength(100)]],
@@ -86,7 +96,26 @@ export class OrganizationsListComponent implements OnInit {
       adminEmail:     ['', [Validators.required, Validators.email, Validators.maxLength(150)]]
     });
     this.loadCountries();
+    this.loadCurrencies();
     this.load();
+  }
+
+  private loadCurrencies() {
+    this.currenciesService.getAll().subscribe({
+      next: (res) => {
+        this.currencyOptions = (res.result ?? [])
+          .filter(c => !!c.code?.trim())
+          .map(c => ({ label: `${c.code!.trim().toUpperCase()} — ${c.name}`, value: c.id }))
+          .sort((a, b) => a.label.localeCompare(b.label));
+      },
+      error: () => {}
+    });
+  }
+
+  /** The chosen id is not in the list (a currency since deleted or given no code): shown rather than silently dropped. */
+  get baseCurrencyMissing(): boolean {
+    const id = this.form?.get('baseCurrency')?.value as string | null;
+    return !!id && this.currencyOptions.length > 0 && !this.currencyOptions.some(o => o.value === id);
   }
 
   private loadCountries() {
@@ -117,7 +146,8 @@ export class OrganizationsListComponent implements OnInit {
   openNew() {
     this.isEditing = false;
     this.editId = null;
-    this.form.reset({ plan: 'BASIC' });
+    this.originalBaseCurrency = null;
+    this.form.reset({ plan: 'BASIC', baseCurrency: null });
     this.form.get('orgCode')!.enable();
     this.form.get('plan')!.enable();
     this.form.get('adminFirstName')!.enable();
@@ -132,6 +162,7 @@ export class OrganizationsListComponent implements OnInit {
       next: (res) => {
         const d = res.result;
         if (!d) return;
+        this.originalBaseCurrency = d.baseCurrency ?? null;
         this.form.patchValue({
           orgCode:      d.orgCode,
           orgName:      d.orgName,
@@ -141,6 +172,7 @@ export class OrganizationsListComponent implements OnInit {
           address:      d.address ?? '',
           country:      d.country ?? '',
           timeZone:     d.timeZone ?? '',
+          baseCurrency: d.baseCurrency ?? null,
           adminFirstName: '',
           adminLastName:  '',
           adminEmail:     ''
@@ -189,7 +221,8 @@ export class OrganizationsListComponent implements OnInit {
         contactPhone: v.contactPhone || undefined,
         address:      v.address || undefined,
         country:      v.country || undefined,
-        timeZone:     v.timeZone || undefined
+        timeZone:     v.timeZone || undefined,
+        ...baseCurrencyChange(this.originalBaseCurrency, v.baseCurrency)
       }).subscribe({ next: onNext, error: onError });
     } else {
       this.service.create({
@@ -201,6 +234,7 @@ export class OrganizationsListComponent implements OnInit {
         address:        v.address || undefined,
         country:        v.country || undefined,
         timeZone:       v.timeZone || undefined,
+        baseCurrency:   v.baseCurrency || undefined,
         adminFirstName: v.adminFirstName,
         adminLastName:  v.adminLastName || '',
         adminEmail:     v.adminEmail

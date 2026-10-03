@@ -1,0 +1,126 @@
+<p-confirmDialog key="qbo-match-complete" [style]="{ width: '32rem', maxWidth: '96vw' }"></p-confirmDialog>
+
+<div class="note success" *ngIf="matchingConfirmed" data-testid="matching-confirmed">
+  <i class="pi pi-check-circle"></i>
+  <div class="note-body">
+    Matching was marked complete {{ settings?.matchingConfirmedAt | date:'d MMM y, HH:mm' }}. You can still change decisions;
+    a record linked later is updated in QuickBooks instead of created.
+  </div>
+</div>
+
+<section class="form-card">
+  <div class="card-head">
+    <div class="card-icon"><i class="pi pi-link"></i></div>
+    <div class="grow">
+      <div class="card-title">Match existing QuickBooks records</div>
+      <div class="card-sub">
+        For each SCM record: link it to the QuickBooks record your accountant already has, create a new one, or skip it.
+        Nothing is created or changed in QuickBooks here.
+      </div>
+    </div>
+  </div>
+
+  <div class="match-bar">
+    <p-tabs [value]="kind" (valueChange)="onKindTab($event)" class="kind-tabs" data-testid="kind-tabs">
+      <p-tablist>
+        <p-tab *ngFor="let k of kindOptions" [value]="k.value" [attr.data-testid]="'kind-' + k.value">{{ k.label }}</p-tab>
+      </p-tablist>
+    </p-tabs>
+    <span class="grow"></span>
+    <p-button *ngIf="canManage" label="Scan QuickBooks" icon="pi pi-search" [outlined]="true" [loading]="isScanning"
+              [disabled]="isScanning" (onClick)="scan()" data-testid="scan"></p-button>
+  </div>
+
+  <div class="scan-summary" *ngIf="scans[kind] as s" data-testid="scan-summary">
+    <div><span class="n">{{ s.localCount }}</span> in SCM</div>
+    <div><span class="n">{{ s.remoteCount }}</span> in QuickBooks</div>
+    <div class="exact"><span class="n">{{ s.exact }}</span> exact</div>
+    <div class="probable"><span class="n">{{ s.probable }}</span> probable</div>
+    <div class="none"><span class="n">{{ s.unmatched }}</span> no match</div>
+  </div>
+</section>
+
+<section class="form-card flush">
+  <div class="table-toolbar">
+    <p-selectbutton [options]="confidenceOptions" [ngModel]="confidenceFilter" (ngModelChange)="setConfidenceFilter($event)" optionLabel="label" optionValue="value"
+                    [allowEmpty]="false" size="small" data-testid="confidence-filter"></p-selectbutton>
+    <span class="grow"></span>
+    <p-button *ngIf="canManage" label="Link all exact matches" icon="pi pi-check-square" [text]="true"
+              [disabled]="!exactLinkable" (onClick)="linkAllExact()" data-testid="link-all-exact"></p-button>
+  </div>
+
+  <div class="state-inline" *ngIf="loadFailed" data-testid="candidates-failed">
+    <i class="pi pi-exclamation-triangle"></i> The proposals could not be loaded.
+    <p-button label="Try again" [text]="true" size="small" (onClick)="loadCandidates()"></p-button>
+  </div>
+
+  <p-table *ngIf="!loadFailed" [value]="filtered" [loading]="isLoading" [paginator]="filtered.length > 25" [rows]="25"
+           dataKey="id" [tableStyle]="{ 'min-width': '56rem' }" data-testid="candidates-table">
+    <ng-template pTemplate="header">
+      <tr>
+        <th>SCM record</th>
+        <th>Proposed QuickBooks record</th>
+        <th style="width: 7.5rem">Confidence</th>
+        <th>Why</th>
+        <th style="width: 13rem">Decision</th>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="body" let-c>
+      <tr [class.changed]="isChanged(c)" data-testid="candidate-row">
+        <td>
+          <div class="label">{{ c.localLabel }}</div>
+          <div class="hint" *ngIf="c.sourceSystem && c.sourceSystem !== 'SCM'">From {{ c.sourceSystem }}</div>
+        </td>
+        <td>
+          <ng-container *ngIf="c.remoteId; else noRemote">
+            <div class="label">{{ c.remoteName || '—' }}</div>
+            <div class="mono muted">QuickBooks id {{ c.remoteId }}</div>
+          </ng-container>
+          <ng-template #noRemote><span class="muted">No match found</span></ng-template>
+        </td>
+        <td>
+          <p-tag [value]="c.confidence" [severity]="confidenceOf(c)"></p-tag>
+        </td>
+        <td class="reason">{{ c.reason || '—' }}</td>
+        <td>
+          <p-select [options]="decisionOptions(c)" [ngModel]="draft(c).decision" (ngModelChange)="setDecision(c, $event)"
+                    optionLabel="label" optionValue="value" optionDisabled="disabled" placeholder="Decide…"
+                    [disabled]="!canManage" appendTo="body" styleClass="w-full" [attr.data-testid]="'decision-' + c.id"></p-select>
+        </td>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="emptymessage">
+      <tr><td colspan="5" class="empty" data-testid="candidates-empty">
+        <ng-container *ngIf="confidenceFilter === 'All'; else noneForFilter">
+          No proposals yet for {{ kindPlural }}. Load them on the Initial sync tab, then scan QuickBooks.
+        </ng-container>
+        <ng-template #noneForFilter>No {{ kindPlural }} with this confidence.</ng-template>
+      </td></tr>
+    </ng-template>
+  </p-table>
+
+  <div class="action-bar match-actions" *ngIf="canManage">
+    <span class="unsaved" *ngIf="pendingChanges" data-testid="pending-changes">
+      <i class="pi pi-circle-fill"></i> {{ pendingChanges }} unsaved {{ pendingChanges === 1 ? 'decision' : 'decisions' }}
+    </span>
+    <span class="muted" *ngIf="!pendingChanges && undecided">{{ undecided }} without a decision</span>
+    <span class="grow"></span>
+    <p-button label="Discard" [outlined]="true" severity="secondary" [disabled]="!pendingChanges || isSaving"
+              (onClick)="discard()" data-testid="discard"></p-button>
+    <p-button label="Save decisions" icon="pi pi-check" [loading]="isSaving" [disabled]="!pendingChanges || isSaving"
+              (onClick)="save()" data-testid="save-decisions"></p-button>
+  </div>
+</section>
+
+<section class="form-card" *ngIf="canManage">
+  <div class="card-head tight">
+    <div class="card-icon"><i class="pi pi-flag"></i></div>
+    <div class="grow">
+      <div class="card-title">Done matching?</div>
+      <div class="card-sub">Once customers, vendors and items are all decided, record it. Going Live needs it.</div>
+    </div>
+    <p-button [label]="matchingConfirmed ? 'Marked complete' : 'Mark matching complete'" icon="pi pi-flag-fill"
+              [severity]="matchingConfirmed ? 'secondary' : 'primary'" [outlined]="matchingConfirmed"
+              [loading]="isCompleting" [disabled]="isCompleting" (onClick)="confirmComplete()" data-testid="mark-complete"></p-button>
+  </div>
+</section>

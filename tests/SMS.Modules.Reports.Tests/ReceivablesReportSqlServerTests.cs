@@ -183,6 +183,20 @@ public class ReceivablesReportSqlServerTests
         (await w.Service().GetAgingReceivablesAsync(new AgingReceivablesFilter { AsOf = D(9, 11) })).Invoices.Should().BeEmpty("paid that day");
     }
 
+    [SqlServerFact]
+    public async Task A_cancelled_invoice_ages_until_the_last_tick_before_its_cancellation_on_a_real_datetime2()
+    {
+        await using var harness = await SqlServerHarness.CreateAsync(finance: true);
+        var w = new ReceivablesReportWorld { ContextFactory = org => harness.NewFinanceContext(org) };
+
+        var invoice = w.Invoice(w.Acme, "SINV-1", D(9, 1), 1000m);
+        w.Cancel(invoice, D(9, 11));   // the first tick of the 11th
+
+        (await w.Service().GetAgingReceivablesAsync(new AgingReceivablesFilter { AsOf = D(9, 10) })).Invoices
+            .Should().ContainSingle("still owed at the end of the 10th").Which.Outstanding.Should().Be(1000m);
+        (await w.Service().GetAgingReceivablesAsync(new AgingReceivablesFilter { AsOf = D(9, 11) })).Invoices.Should().BeEmpty("cancelled that day");
+    }
+
     // ── Tenancy ──────────────────────────────────────────────────────────────
 
     [SqlServerFact]

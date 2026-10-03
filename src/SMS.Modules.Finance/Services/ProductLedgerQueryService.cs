@@ -67,7 +67,20 @@ internal sealed class ProductLedgerQueryService : IProductLedgerQueryService
         var last = await entries.OrderByDescending(e => e.SequenceNo).FirstOrDefaultAsync();
         if (last is null) return new ProductLedgerSummaryModel { VariantUuid = variantUuid };
 
+        // SAP alignment (S-7) — a sale its invoice's cancellation took back was never a sale. Cancelling an
+        // invoice brings every SALE it booked back in as a RETURN_IN against the same invoice (same reference
+        // type and id), so a SALE with such a reversal beside it is left out of what was sold and what it cost,
+        // whole — not netted against the return's cost, which is the sale's unit cost to four places and can
+        // be cents off the sale's own total. A return against any other document (a customer returning goods)
+        // is stock coming back, not a sale undone: it moves the stock but leaves what was sold as it was.
+        var reversedInvoices = entries
+            .Where(r => r.EntryType == ProductLedgerEntryTypes.ReturnIn && r.ReferenceType == SalesInvoiceReferenceType)
+            .Select(r => r.ReferenceId);
+
         var totals = await entries
+            .Where(e => !(e.EntryType == ProductLedgerEntryTypes.Sale
+                          && e.ReferenceType == SalesInvoiceReferenceType
+                          && reversedInvoices.Contains(e.ReferenceId)))
             .GroupBy(e => e.EntryType)
             .Select(g => new { EntryType = g.Key, Quantity = g.Sum(x => x.Quantity), Cost = g.Sum(x => x.TotalCost) })
             .ToListAsync();

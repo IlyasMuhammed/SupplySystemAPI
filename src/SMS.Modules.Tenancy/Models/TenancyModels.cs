@@ -38,7 +38,16 @@ public class UpdateOrganizationRequest
     public string? Address { get; set; }
     public string? Country { get; set; }
     public string? TimeZone { get; set; }
+
+    /// <summary>
+    /// A lookups.Currencies id to make the organization's base currency. Null (or absent) leaves the base
+    /// currency as it is — a client that does not deal with it (the profile form before it had a picker)
+    /// must not wipe it. To remove it, send <see cref="ClearBaseCurrency"/> instead.
+    /// </summary>
     public Guid? BaseCurrency { get; set; }
+
+    /// <summary>True removes the base currency. Cannot be combined with a <see cref="BaseCurrency"/>.</summary>
+    public bool ClearBaseCurrency { get; set; }
 }
 
 // ── Organization settings (REQ-4.x) ─────────────────────────────────────────

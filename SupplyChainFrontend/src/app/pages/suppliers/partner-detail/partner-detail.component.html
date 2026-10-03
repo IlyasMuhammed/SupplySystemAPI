@@ -14,6 +14,11 @@
         <div class="ph-sub">
           <span *ngIf="partner.partnerCode" class="ph-code-chip">{{ partner.partnerCode }}</span>
           <span *ngIf="partner.partnerType">Type: {{ partner.partnerType }}</span>
+          <!-- QuickBooks sync state (renders nothing when the integration is off or not connected) -->
+          <app-qbo-sync-badge *ngIf="partner.isCustomer" kind="Customer" [externalId]="partner.uuid || uuid"
+                              label="QuickBooks customer"></app-qbo-sync-badge>
+          <app-qbo-sync-badge *ngIf="partner.isVendor" kind="Vendor" [externalId]="partner.uuid || uuid"
+                              label="QuickBooks vendor"></app-qbo-sync-badge>
         </div>
       </div>
     </div>

@@ -36,6 +36,18 @@ internal class SaleOrder : ITenantScopedEntity
     public int?      ModifiedBy             { get; set; }
     public DateTime? ModifiedDate           { get; set; }
 
+    // A32 C3 (PD-01/PD-03). Every order from before A32 is MANUAL (column default). The two source ids are
+    // real FKs inside Demand; no navigation properties, deliberately — SaleOrderModel's SourceQuotation /
+    // SourceInquiry are {uuid, number, status} links resolved by the service, and AutoMapper would otherwise
+    // try to map the entities onto them.
+    public string    SourceType               { get; set; } = EnumCode<SaleOrderSourceType>.Of(SaleOrderSourceType.Manual);
+    public int?      SourceQuotationId        { get; set; }
+    public int?      SourceInquiryId          { get; set; }
+    public string?   CustomerPoReference      { get; set; }
+    public DateTime? CustomerPoDate           { get; set; }
+    /// <summary>The CUSTOMER_PO file in the generic attachment store (WorkflowEngine document_attachments.UUID).</summary>
+    public Guid?     CustomerPoAttachmentUuid { get; set; }
+
     public ICollection<SaleOrderLine> Lines { get; set; } = new List<SaleOrderLine>();
 }
 
@@ -52,6 +64,10 @@ internal class SaleOrderLine : ITenantScopedEntity
     public decimal  UnitPrice             { get; set; }
     public decimal  DiscountPercent       { get; set; }
     public decimal  TaxPercent            { get; set; }
+    /// <summary>SAP alignment — the tax code picked for this line (Finance master, via ITaxCodeLookup). TaxPercent keeps its rate as a snapshot. Null on lines from before tax codes.</summary>
+    public Guid?    TaxCodeUuid           { get; set; }
+    /// <summary>The code's text as it was when picked — copied onto the sales invoice line.</summary>
+    public string?  TaxCode               { get; set; }
     public decimal  LineTotal             { get; set; }
     public decimal  FulfilledQty          { get; set; }
     public decimal  InvoicedQty           { get; set; }

@@ -31,8 +31,8 @@ public class GrnsController : ControllerBase
         return Ok(ApiResponse<Guid>.Ok(uuid, StaticResponseMessage.recordCreatedSuccessfully));
     }
 
+    // Not [AllowAnonymous]: an anonymous request bypasses the tenant filter and would list every organization's GRNs.
     [HttpGet]
-    [AllowAnonymous]
     public async Task<IActionResult> GetGrns([FromQuery] GrnListFilter filter)
     {
         var result = await _service.GetListAsync(filter);
@@ -40,7 +40,6 @@ public class GrnsController : ControllerBase
     }
 
     [HttpGet("{uuid:guid}")]
-    [AllowAnonymous]
     public async Task<IActionResult> GetGrnById(Guid uuid)
     {
         var detail = await _service.GetByIdAsync(uuid);

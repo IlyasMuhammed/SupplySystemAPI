@@ -52,6 +52,8 @@
         </div>
       </div>
 
+      <small class="field-hint" data-testid="payment-only-approved">{{ onlyApprovedHint }} Each one is listed with what is still owed on it.</small>
+
       <div class="add-line-row">
         <p-dropdown [options]="addableInvoices" optionLabel="invoiceNumber" optionValue="invoiceUuid"
                     [(ngModel)]="selectedInvoiceToAdd" [ngModelOptions]="{standalone: true}"
@@ -65,8 +67,9 @@
                   (onClick)="addLine(selectedInvoiceToAdd)"></p-button>
       </div>
 
-      <div class="empty-hint" *ngIf="!isLoadingInvoices && !outstandingInvoices.length">
-        No outstanding invoices for this supplier. You can still record a free-standing Advance Payment below.
+      <div class="empty-hint" *ngIf="!isLoadingInvoices && !outstandingInvoices.length" data-testid="payment-no-invoices">
+        Nothing to pay on this supplier's invoices. {{ onlyApprovedHint }} Approve an invoice first, or record a
+        free-standing Advance Payment below.
       </div>
 
       <p-table [value]="lineInputs" [tableStyle]="{'min-width':'40rem'}" *ngIf="lineInputs.length">

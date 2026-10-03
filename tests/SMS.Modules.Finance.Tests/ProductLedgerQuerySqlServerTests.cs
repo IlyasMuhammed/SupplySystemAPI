@@ -2,6 +2,7 @@ using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using SMS.Modules.Finance.Models;
 using SMS.Modules.Finance.Services;
+using SMS.Shared.Common;
 using Xunit;
 using Line = SMS.Modules.Finance.Tests.SalesBookSeeder.Line;
 
@@ -93,5 +94,33 @@ public class ProductLedgerQuerySqlServerTests
         (summary.CurrentQuantity, summary.StockValue, summary.WeightedAverageCost, summary.EntryCount).Should().Be((120m, 1500m, 12.5m, 3));
 
         (await svc.GetSummaryAsync(Guid.NewGuid())).EntryCount.Should().Be(0);
+    }
+
+    [FinanceSqlServerFact]
+    public async Task The_summary_leaving_out_a_sale_a_cancellation_reversed_translates_on_sql_server()
+    {
+        await using var h = await FinanceSqlServerHarness.CreateAsync(retryOnFailure: true);
+        var org = Guid.NewGuid();
+        var variants = new FakeVariants();
+        var (variant, _) = variants.New();
+        var cancelledInvoice = Guid.NewGuid();
+
+        await using (var write = h.NewContext(org))
+        {
+            var ledger = new ProductLedgerService(write, variants);
+            await ledger.AppendEntryAsync(Buy(variant, 100m, 10m));
+            await ledger.AppendEntryAsync(Sell(variant, 30m));
+            await ledger.AppendEntryAsync(Sell(variant, 20m) with { ReferenceId = cancelledInvoice, ReferenceNumber = "SINV-20260920-0002" });
+            await ledger.AppendEntryAsync(new ProductLedgerPosting(variant, ProductLedgerEntryTypes.ReturnIn, ProductLedgerDirections.In, 20m, 10m,
+                "SalesInvoice", cancelledInvoice, "SINV-20260920-0002", User));
+            await ledger.AppendEntryAsync(new ProductLedgerPosting(variant, ProductLedgerEntryTypes.ReturnIn, ProductLedgerDirections.In, 5m, 10m,
+                "SalesReturn", Guid.NewGuid(), "SRET-1", User));
+        }
+
+        await using var db = h.NewContext(org);
+        var summary = await new ProductLedgerQueryService(db, variants).GetSummaryAsync(variant);
+
+        (summary.SoldQuantity, summary.CostOfGoodsSold, summary.CurrentQuantity, summary.StockValue, summary.EntryCount)
+            .Should().Be((30m, 300m, 75m, 750m, 5));
     }
 }

@@ -186,7 +186,12 @@ internal sealed class TenancyRepository : ITenancyRepository
         org.Address      = req.Address;
         org.Country      = req.Country;
         org.TimeZone     = req.TimeZone;
-        org.BaseCurrency = req.BaseCurrency;
+        // Only when the request says so: a null BaseCurrency means "not part of this edit", not "remove it"
+        // (it used to wipe the base currency on every profile edit from a form that never sent one).
+        if (req.ClearBaseCurrency)
+            org.BaseCurrency = null;
+        else if (req.BaseCurrency is { } baseCurrency)
+            org.BaseCurrency = baseCurrency;
         org.ModifiedBy   = modifiedBy;
         org.ModifiedDate = DateTime.UtcNow;
 

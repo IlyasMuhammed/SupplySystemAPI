@@ -1,0 +1,11 @@
+.upper { text-transform: uppercase; }
+
+.check-row.inline { margin-bottom: 0; align-items: center; }
+
+.default-mark {
+  display: inline-flex; align-items: center; gap: .375rem; font-size: .8125rem; font-weight: 600;
+  color: var(--yellow-700, #a16207);
+  i { font-size: .75rem; }
+}
+
+:host ::ng-deep .p-selectbutton { flex-wrap: wrap; }

@@ -182,7 +182,10 @@ internal sealed class ReceivablesReportService : IReceivablesReportService
 
         // An invoice is a receivable from the day its ledger entry was posted (issue, not the draft's
         // date), and a payment reduces it from the day the money came in — unless the cheque came back by
-        // then. Drafts, cancelled invoices and credit notes are not receivables at all.
+        // then. Drafts and credit notes are not receivables at all. A cancelled invoice (SAP alignment S-7)
+        // was one until the moment it was cancelled — when its credit note went on the ledger — so it counts
+        // for a day that ended before then, as the customer ledger (R2) does; one cancelled before the date
+        // was recorded has nothing to place it by and stays out.
         var booked = _finance.CustomerLedgerEntries.Where(e =>
             e.EntryType == CustomerLedgerEntryTypes.Invoice && e.ReferenceType == InvoiceReferenceType && e.EntryDate < end);
         var bounces = _finance.CustomerLedgerEntries.Where(e =>
@@ -190,7 +193,8 @@ internal sealed class ReceivablesReportService : IReceivablesReportService
             && e.DebitAmount > 0m && e.EntryDate < end);
 
         var candidates = _finance.SalesInvoices.AsNoTracking()
-            .Where(i => !i.IsDelete && i.Status != SalesInvoiceStatuses.Draft && i.Status != SalesInvoiceStatuses.Cancelled && i.Status != SalesInvoiceStatuses.CreditNote)
+            .Where(i => !i.IsDelete && i.Status != SalesInvoiceStatuses.Draft && i.Status != SalesInvoiceStatuses.CreditNote)
+            .Where(i => i.Status != SalesInvoiceStatuses.Cancelled || (i.CancelledAt != null && i.CancelledAt >= end))
             .Where(i => booked.Any(b => b.ReferenceId == i.UUID));
 
         if (filter.PartnerId is { } only) candidates = candidates.Where(i => i.PartnerId == only);

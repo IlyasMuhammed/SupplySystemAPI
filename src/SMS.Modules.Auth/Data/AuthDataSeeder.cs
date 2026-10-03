@@ -117,6 +117,17 @@ internal sealed class AuthDataSeeder
         ("Edit Sale Orders",    PermissionCodes.SALE_ORDER_EDIT,    "Amend a draft sale order"),
         ("Confirm Sale Orders", PermissionCodes.SALE_ORDER_CONFIRM, "Confirm a sale order for fulfilment"),
         ("Cancel Sale Orders",  PermissionCodes.SALE_ORDER_CANCEL,  "Cancel a sale order"),
+        ("Reserve Stock for Sale Orders", PermissionCodes.SALE_ORDER_RESERVE, "Hold inventory against a confirmed sale order's lines"),
+        ("Release Sale Order Reservations", PermissionCodes.SALE_ORDER_RELEASE_RESERVATION, "Give back inventory held for a sale order's lines"),
+
+        ("View Sale Inquiries",   PermissionCodes.SALE_INQUIRY_VIEW,   "Read customer inquiries and their line evaluations"),
+        ("Create Sale Inquiries", PermissionCodes.SALE_INQUIRY_CREATE, "Record a new customer inquiry"),
+        ("Edit Sale Inquiries",   PermissionCodes.SALE_INQUIRY_EDIT,   "Change inquiry lines, evaluate them, and complete or decline an inquiry"),
+        ("View Sale Quotations",   PermissionCodes.SALE_QUOTATION_VIEW,   "Read quotations sent or to be sent to customers"),
+        ("Create Sale Quotations", PermissionCodes.SALE_QUOTATION_CREATE, "Raise a quotation, on its own or from a reviewed inquiry"),
+        ("Edit Sale Quotations",   PermissionCodes.SALE_QUOTATION_EDIT,   "Change a draft quotation, record the customer's responses, accept or reject it"),
+        ("Send Sale Quotations",   PermissionCodes.SALE_QUOTATION_SEND,   "Send a quotation to the customer — it can no longer be changed"),
+        ("Manage Rejection Reasons", PermissionCodes.SALE_REJECTION_REASON_MANAGE, "Add, rename, reorder and deactivate the reasons inquiry and quotation lines are declined for"),
 
         ("View Sales Invoices",     PermissionCodes.SALES_INVOICE_VIEW,     "Read and print sales invoices"),
         ("Manage Sales Invoices",   PermissionCodes.SALES_INVOICE_MANAGE,   "Raise a sales invoice from a delivery, amend or delete a draft, and issue it — issuing books the receivable"),
@@ -158,6 +169,12 @@ internal sealed class AuthDataSeeder
         ("Create Finished Goods Receipts", PermissionCodes.FGR_CREATE,  "Draft a receipt of accepted production output into inventory"),
         ("Confirm Finished Goods Receipts", PermissionCodes.FGR_CONFIRM, "Confirm a receipt — credits inventory and completes the production order"),
         ("View Production Ledger",      PermissionCodes.PROD_LEDGER_VIEW, "Read the debit/credit history of material consumed and goods produced, across production orders"),
+
+        ("View Accounting Integration",   PermissionCodes.INTEGRATION_VIEW,   "See the QuickBooks connection, mappings, sync dashboard and each record's sync status"),
+        ("Manage Accounting Integration", PermissionCodes.INTEGRATION_MANAGE, "Connect or disconnect QuickBooks, change account/tax mappings, issue API keys and switch syncing live"),
+        ("Run Accounting Sync",           PermissionCodes.INTEGRATION_SYNC,   "Push a record to QuickBooks now and retry one that failed"),
+
+        ("Manage Finance Setup",          PermissionCodes.FINANCE_SETUP_MANAGE, "Create and change tax codes and exchange rates — these decide the tax and conversion every new document uses"),
     ];
 
     private async Task SeedPermissionsAsync()
@@ -292,6 +309,9 @@ internal sealed class AuthDataSeeder
             PermissionCodes.QI_CREATE, PermissionCodes.QI_APPROVE, PermissionCodes.FGR_CREATE, PermissionCodes.FGR_CONFIRM,
             PermissionCodes.PROD_LEDGER_VIEW,
             PermissionCodes.REPORT_VIEW,
+            // A32 §6.5 — the spec's WAREHOUSE_MANAGER: holds and frees stock for sale order lines, so it must be
+            // able to open the order to reach the buttons.
+            PermissionCodes.SALE_ORDER_VIEW, PermissionCodes.SALE_ORDER_RESERVE, PermissionCodes.SALE_ORDER_RELEASE_RESERVATION,
         ],
 
         [(int)EnumRole.WarehouseOperator] =
@@ -324,6 +344,8 @@ internal sealed class AuthDataSeeder
             PermissionCodes.BUDGET_VIEW,    PermissionCodes.BUDGET_MONITOR,
             PermissionCodes.REPORT_VIEW,    PermissionCodes.REPORT_EXPORT,
             PermissionCodes.GRN_FINANCE_APPROVE,
+            // Sees what reached QuickBooks and can push/retry; connecting and mappings stay with management.
+            PermissionCodes.INTEGRATION_VIEW, PermissionCodes.INTEGRATION_SYNC,
         ],
 
         [(int)EnumRole.Requester] =
@@ -349,6 +371,7 @@ internal sealed class AuthDataSeeder
             PermissionCodes.AUDIT_LOG_VIEW,
             PermissionCodes.REPORT_VIEW,    PermissionCodes.REPORT_EXPORT,
             PermissionCodes.WORKFLOW_VIEW,
+            PermissionCodes.INTEGRATION_VIEW,
         ],
 
         [(int)EnumRole.FinanceManager] =
@@ -362,6 +385,10 @@ internal sealed class AuthDataSeeder
             PermissionCodes.BUDGET_VIEW,    PermissionCodes.BUDGET_MANAGE,
             PermissionCodes.REPORT_VIEW,    PermissionCodes.REPORT_EXPORT,
             PermissionCodes.GRN_FINANCE_APPROVE,
+            // Owns the books' side of the QuickBooks connection: mappings, going live, API keys.
+            PermissionCodes.INTEGRATION_VIEW, PermissionCodes.INTEGRATION_MANAGE, PermissionCodes.INTEGRATION_SYNC,
+            // Owns the tax codes and exchange rates every document is priced and converted with.
+            PermissionCodes.FINANCE_SETUP_MANAGE,
         ],
 
         // Org Admin is the full owner/operator of their own tenant: every business permission in

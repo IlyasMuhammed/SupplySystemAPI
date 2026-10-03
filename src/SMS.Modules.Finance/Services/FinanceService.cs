@@ -1,4 +1,5 @@
 using Hangfire;
+using SMS.Modules.Finance.Integration;
 using SMS.Modules.Finance.Models;
 using SMS.Modules.Finance.Repositories;
 using SMS.Shared.Pagination;
@@ -11,11 +12,23 @@ internal sealed class InvoiceService : IInvoiceService
 {
     private readonly IInvoiceRepository _repo;
     private readonly IBackgroundJobClient _jobs;
-    public InvoiceService(IInvoiceRepository repo, IBackgroundJobClient jobs)
+    private readonly BillQuickBooksPublisher? _quickBooks;
+
+    /// <param name="quickBooks">
+    /// Sends an approved supplier invoice to the QuickBooks gateway as a bill, after approval and after an
+    /// edit to one that is approved. Optional so a caller that builds this service by hand needs nothing
+    /// extra; the module registers it.
+    /// </param>
+    public InvoiceService(IInvoiceRepository repo, IBackgroundJobClient jobs, BillQuickBooksPublisher? quickBooks = null)
     {
         _repo = repo;
         _jobs = jobs;
+        _quickBooks = quickBooks;
     }
+
+    /// <summary>After the repository's own save has committed. Never throws (see the publisher).</summary>
+    private Task PublishToQuickBooksAsync(Guid uuid) =>
+        _quickBooks is null ? Task.CompletedTask : _quickBooks.PublishIfApprovedAsync(uuid);
 
     public async Task<Guid> CreateAsync(CreateInvoiceRequest req, int createdBy)
     {
@@ -36,12 +49,22 @@ internal sealed class InvoiceService : IInvoiceService
 
     public Task<PaginatedResponse<InvoiceListItemModel>> GetListAsync(InvoiceFilter filter)                      => _repo.GetListAsync(filter);
     public Task<InvoiceDetailModel?>                   GetByUuidAsync(Guid uuid)                                => _repo.GetByUuidAsync(uuid);
-    public Task<bool>                                  PatchAsync(Guid uuid, PatchInvoiceRequest req, int mod)  => _repo.PatchAsync(uuid, req, mod);
+
+    public async Task<bool> PatchAsync(Guid uuid, PatchInvoiceRequest req, int mod)
+    {
+        var ok = await _repo.PatchAsync(uuid, req, mod);
+        // An edit to an approved invoice's bill fields (or one that approves it outright) goes to QuickBooks;
+        // a payment-status or note-only edit does not.
+        if (ok && BillQuickBooksPublisher.TouchesBill(req)) await PublishToQuickBooksAsync(uuid);
+        return ok;
+    }
 
     public async Task<bool> ApproveAsync(Guid uuid, string? notes, int approvedBy)
     {
         var ok = await _repo.ApproveAsync(uuid, notes, approvedBy);
         if (!ok) return false;
+
+        await PublishToQuickBooksAsync(uuid);
 
         var inv = await _repo.GetByUuidAsync(uuid);
         if (inv is not null)
@@ -57,6 +80,32 @@ internal sealed class InvoiceService : IInvoiceService
     }
 
     public Task<bool>                                  RejectAsync(Guid uuid, string reason, int rejectedBy)    => _repo.RejectAsync(uuid, reason, rejectedBy);
+
+    /// <summary>
+    /// S-7. After the reversal has committed: QuickBooks gets nothing (a reversed invoice is not approved, so
+    /// no publisher or reconciliation sends it again; the gateway cannot void a bill); the bill is flagged for the
+    /// accountant on the sync dashboard and the log says whether it had already gone; the document timeline
+    /// records it.
+    /// </summary>
+    public async Task<bool> ReverseAsync(Guid uuid, string reason, int reversedBy)
+    {
+        var ok = await _repo.ReverseAsync(uuid, reason, reversedBy);
+        if (!ok) return false;
+
+        var inv = await _repo.GetByUuidAsync(uuid);
+        if (inv is null) return true;
+
+        if (_quickBooks is not null) await _quickBooks.NoteReversedAsync(uuid, inv.InvoiceNumber, inv.ReversalReason);
+
+        var notes = $"Amount: {inv.TotalAmount:F2} {inv.Currency}. Reason: {inv.ReversalReason}";
+        _jobs.Enqueue<ITimelineAppendJob>(j => j.AppendAsync(
+            inv.TraceId,
+            new TimelineEvent("INVOICE_REVERSED", "INVOICE", uuid, inv.InvoiceNumber, DateTime.UtcNow, reversedBy, notes),
+            "INVOICE", inv.InvoiceNumber));
+
+        return true;
+    }
+
     public Task<bool>                                  UploadAttachmentAsync(Guid uuid, string url, int mod)    => _repo.UploadAttachmentAsync(uuid, url, mod);
 }
 

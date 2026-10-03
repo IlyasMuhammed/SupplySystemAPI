@@ -130,6 +130,25 @@ describe('SaleOrderListComponent', () => {
     expect(fixture.nativeElement.querySelector('[data-testid="new-order"]')).not.toBeNull();
   });
 
+  // A32 PD-07 — an order can also be made from an accepted sale quotation.
+  it('offers a new order from a quotation only to someone who may create orders and read quotations', async () => {
+    permissions = ['SALE_ORDER_VIEW', 'SALE_ORDER_CREATE'];
+    await setup();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[data-testid="new-order-from-quotation"]')).toBeNull();
+
+    permissions = ['SALE_ORDER_VIEW', 'SALE_QUOTATION_VIEW'];
+    await setup();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[data-testid="new-order-from-quotation"]')).toBeNull();
+
+    permissions = ['SALE_ORDER_VIEW', 'SALE_ORDER_CREATE', 'SALE_QUOTATION_VIEW'];
+    await setup();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[data-testid="new-order-from-quotation"]')).not.toBeNull();
+    expect(component.canCreateFromQuotation).toBeTrue();
+  });
+
   // ── Customers ──────────────────────────────────────────────────────────────
 
   it('names each customer once however many orders they have, and shows a dash until the name is known', async () => {

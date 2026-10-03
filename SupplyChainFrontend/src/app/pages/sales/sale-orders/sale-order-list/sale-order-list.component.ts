@@ -83,6 +83,11 @@ export class SaleOrderListComponent implements OnInit, OnDestroy {
 
   get canCreate(): boolean { return this.authService.hasPermission('SALE_ORDER_CREATE'); }
 
+  /** A32 PD-07 — converting needs SALE_ORDER_CREATE; picking the quotation needs to read quotations. */
+  get canCreateFromQuotation(): boolean {
+    return this.canCreate && this.authService.hasPermission('SALE_QUOTATION_VIEW');
+  }
+
   /** Only a draft can be edited, and only by someone allowed to. */
   canEdit(order: SaleOrderModel): boolean {
     return order.status === 'DRAFT' && this.authService.hasPermission('SALE_ORDER_EDIT');

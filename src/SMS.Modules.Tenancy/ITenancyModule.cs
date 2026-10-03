@@ -31,6 +31,10 @@ public static class TenancyModuleExtensions
         services.AddScoped<ITenantSnapshotProvider, TenantSnapshotProvider>();
         services.AddScoped<IOrganizationSettingsService, OrganizationSettingsService>();
         services.AddScoped<IOrganizationCurrencyService, OrganizationCurrencyService>();
+        // A32 — other modules' startup backfill of per-organization data (Demand's rejection reasons).
+        services.AddScoped<IOrganizationDirectory, OrganizationDirectory>();
+        // Lookups asks every checker before it deletes a currency or changes its code.
+        services.AddScoped<ILookupReferenceChecker, TenancyCurrencyReferenceChecker>();
         services.AddScoped<TenancyDataSeeder>();
 
         return services;

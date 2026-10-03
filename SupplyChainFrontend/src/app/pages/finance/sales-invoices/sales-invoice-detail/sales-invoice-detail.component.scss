@@ -33,6 +33,16 @@ dd { margin: 0; }
 .text-right { text-align: right; }
 .cur { color: var(--text-color-secondary); font-size: .75rem; margin-left: .125rem; }
 
+// SAP alignment (S-7) — a cancelled invoice says so, and why, above everything else.
+.cancelled-banner {
+  display: flex; align-items: flex-start; gap: .75rem; margin-bottom: 1rem; padding: .875rem 1rem;
+  border: 1px solid var(--red-200, #fecaca); background: var(--red-50, #fef2f2); color: var(--red-800, #991b1b);
+  border-radius: .625rem; font-size: .875rem;
+}
+.cancelled-banner > i { margin-top: .125rem; }
+.cancelled-banner .cancel-reason { margin-top: .375rem; white-space: pre-line; }
+.required { color: var(--red-500, #ef4444); }
+
 .dialog-hint { font-size: .875rem; color: var(--text-color-secondary); margin: 0 0 1rem; }
 .dialog-label { display: block; font-size: .8125rem; font-weight: 600; margin-bottom: .375rem; }
 .dialog-row { margin: 1rem 0; }

@@ -1,5 +1,6 @@
 <div class="detail-page">
   <p-toast></p-toast>
+  <p-confirmDialog [style]="{width:'440px'}" [breakpoints]="{'960px':'75vw','640px':'90vw'}"></p-confirmDialog>
 
   <div *ngIf="isLoading" class="loading-state">
     <i class="pi pi-spin pi-spinner" style="font-size:2rem"></i>
@@ -15,29 +16,51 @@
           {{ invoice.invoiceNumber }}
           <p-tag [value]="invoice.matchStatus" [severity]="getMatchSeverity(invoice.matchStatus)" class="ml-2"></p-tag>
           <p-tag [value]="invoice.paymentStatus" [severity]="getPaymentSeverity(invoice.paymentStatus)"></p-tag>
+          <app-qbo-sync-badge kind="Bill" [externalId]="invoice.uuid" label="QuickBooks"></app-qbo-sync-badge>
         </h1>
-        <p class="page-subtitle">{{ invoice.supplierName }} &nbsp;·&nbsp; PO: {{ invoice.poNumber }}
+        <p class="page-subtitle">{{ invoice.supplierName }}<span *ngIf="invoice.poNumber"> &nbsp;·&nbsp; PO: {{ invoice.poNumber }}</span>
           <span *ngIf="invoice.grnNumber"> &nbsp;·&nbsp; GRN: {{ invoice.grnNumber }}</span>
         </p>
       </div>
       <div class="flex gap-2 flex-wrap">
         <p-button *ngIf="canEdit()" label="Edit" icon="pi pi-pencil" severity="secondary"
-                  (onClick)="openEditDialog()"></p-button>
+                  (onClick)="openEditDialog()" data-testid="invoice-edit"></p-button>
         <p-button *ngIf="canApprove()" label="Approve" icon="pi pi-check-circle" severity="success"
-                  (onClick)="showApproveDialog=true"></p-button>
+                  (onClick)="openApproveDialog()" data-testid="invoice-approve"></p-button>
         <p-button *ngIf="canReject()" label="Reject" icon="pi pi-times-circle" severity="danger"
-                  (onClick)="showRejectDialog=true"></p-button>
+                  (onClick)="openRejectDialog()" data-testid="invoice-reject"></p-button>
         <p-button *ngIf="canPay()" label="Record Payment" icon="pi pi-credit-card"
                   [routerLink]="['/portal/pages/finance/payments/create']"
                   [queryParams]="{supplierId: invoice.supplierId, invoiceUuid: invoice.uuid}"></p-button>
-        <p-button label="Upload Attachment" icon="pi pi-upload" severity="secondary"
-                  (onClick)="showUploadDialog=true"></p-button>
+        <span *ngIf="canSeeReverse()" [pTooltip]="reverseBlockedReason ?? undefined" tooltipPosition="bottom">
+          <p-button label="Reverse" icon="pi pi-replay" severity="danger" [outlined]="true"
+                    [disabled]="!!reverseBlockedReason" (onClick)="openReverseDialog()"
+                    data-testid="invoice-reverse"></p-button>
+        </span>
+        <p-button *ngIf="canUpload()" label="Upload Attachment" icon="pi pi-upload" severity="secondary"
+                  (onClick)="showUploadDialog=true" data-testid="invoice-upload"></p-button>
         <p-button label="Download PDF" icon="pi pi-file-pdf" severity="secondary" [outlined]="true"
                   [loading]="isDownloadingPdf" (onClick)="downloadPdf()"></p-button>
         <p-button icon="pi pi-history" [text]="true" severity="secondary"
                   pTooltip="View Timeline" (onClick)="showTimeline = true"></p-button>
         <p-button label="Back" icon="pi pi-arrow-left" [text]="true" severity="secondary"
                   routerLink="/portal/pages/finance/invoices"></p-button>
+      </div>
+    </div>
+
+    <!-- Reversed (S-7): what happened, and what is left for the accountant to do in QuickBooks -->
+    <div *ngIf="invoice.matchStatus === 'Reversed'" class="reversal-banner" data-testid="invoice-reversal">
+      <i class="pi pi-replay"></i>
+      <div>
+        <div class="reversal-title">
+          Reversed<span *ngIf="invoice.reversedAt"> on {{ invoice.reversedAt | date:'dd MMM yyyy HH:mm' }}</span>
+        </div>
+        <div *ngIf="invoice.reversalReason" class="reversal-reason">{{ invoice.reversalReason }}</div>
+        <div class="reversal-note">
+          The supplier ledger received an opposite credit for the approved amount, and the purchase order's invoiced
+          quantities were returned. Nothing on the invoice was changed. If this bill had already reached QuickBooks,
+          void it there by hand — SCM cannot void a bill, and will not send it again.
+        </div>
       </div>
     </div>
 
@@ -77,12 +100,19 @@
             <span>{{ invoice.subtotal | number:'1.2-2' }} {{ invoice.currency }}</span>
           </div>
           <div class="amount-row">
-            <span>Tax</span>
+            <span data-testid="invoice-tax-label">{{ taxLabel }}</span>
             <span>{{ invoice.taxAmount | number:'1.2-2' }} {{ invoice.currency }}</span>
           </div>
           <div class="amount-row total">
             <span>Total</span>
             <span>{{ invoice.totalAmount | number:'1.2-2' }} {{ invoice.currency }}</span>
+          </div>
+          <div class="amount-row base" *ngIf="showBaseTotal" data-testid="invoice-base-total">
+            <span>In {{ invoice.baseCurrencyCode }} &#64; {{ invoice.exchangeRate | number:'1.0-8' }}</span>
+            <span>{{ invoice.baseTotalAmount | number:'1.2-2' }} {{ invoice.baseCurrencyCode }}</span>
+          </div>
+          <div class="amount-row base" *ngIf="missingRate">
+            <span>No {{ invoice.currency }} → {{ invoice.baseCurrencyCode }} rate was on file when it was approved.</span>
           </div>
         </div>
         <div *ngIf="invoice.attachmentUrl" class="mt-3">
@@ -99,15 +129,33 @@
 
       <!-- 3-way matching -->
       <p-card header="3-Way Match">
-        <div class="match-grid">
-          <div class="match-item">
-            <div class="match-label">Invoice Total</div>
-            <div class="match-value">{{ invoice.totalAmount | number:'1.2-2' }}</div>
+        <div data-testid="invoice-match">
+          <div class="match-grid">
+            <div class="match-item">
+              <div class="match-label">Invoice Subtotal (net)</div>
+              <div class="match-value">{{ invoice.subtotal | number:'1.2-2' }}</div>
+            </div>
+            <div class="match-item" *ngIf="invoice.poNumber">
+              <div class="match-label">Expected at PO prices</div>
+              <div class="match-value" data-testid="invoice-match-expected">{{ invoice.matchedPoValue | number:'1.2-2' }}</div>
+            </div>
+            <div class="match-item">
+              <div class="match-label">GRN Value (Matched)</div>
+              <div class="match-value">{{ invoice.matchedGrnValue | number:'1.2-2' }}</div>
+            </div>
+            <div class="match-item" *ngIf="invoice.poNumber">
+              <div class="match-label">Variance vs expected</div>
+              <div class="match-value" data-testid="invoice-match-variance">{{ invoice.varianceAmount | number:'1.2-2' }}</div>
+            </div>
           </div>
-          <div class="match-item">
-            <div class="match-label">GRN Value (Matched)</div>
-            <div class="match-value">{{ invoice.matchedGrnValue | number:'1.2-2' }}</div>
-          </div>
+          <small class="text-secondary" *ngIf="invoice.poNumber">
+            The match is on only what this invoice bills, at the purchase order's prices, so a partial invoice matches
+            its own lines rather than the whole PO. Within 5% on the net subtotal is a match — tax is not part of it.
+            Billing more than was received and not yet invoiced is a Variance.
+          </small>
+          <small class="text-secondary" *ngIf="!invoice.poNumber">
+            No purchase order: there is nothing to match against, so it stays Pending until someone approves it.
+          </small>
         </div>
         <p-divider></p-divider>
         <div *ngIf="invoice.notes" class="notes-block">{{ invoice.notes }}</div>
@@ -183,7 +231,10 @@
           </tr>
         </ng-template>
       </p-table>
-      <div *ngIf="!newPayments.length && !isLoadingNewPayments" class="text-secondary text-sm">No payments recorded yet.</div>
+      <div *ngIf="!newPayments.length && !isLoadingNewPayments && !paymentsUnknown" class="text-secondary text-sm">No payments recorded yet.</div>
+      <div *ngIf="paymentsUnknown && !isLoadingNewPayments" class="text-secondary text-sm" data-testid="invoice-payments-unknown">
+        The payments against this invoice could not be loaded (viewing them needs PAYMENT_VIEW).
+      </div>
     </p-card>
 
     <!-- Legacy payments (pre-SFM-003 flow, read-only history) -->
@@ -262,7 +313,10 @@
     <div class="sdlg-body">
       <div class="sdlg-field">
         <label>Notes (optional)</label>
-        <input pInputText class="w-full" [(ngModel)]="approveNotes" />
+        <input pInputText class="w-full" [(ngModel)]="approveNotes" [maxlength]="notesMax" data-testid="invoice-approve-notes" />
+        <small style="font-size:.78rem;color:var(--text-color-secondary)">
+          {{ approveNotes.length }} / {{ notesMax }} · if given, they replace the invoice's notes.
+        </small>
       </div>
     </div>
     <ng-template pTemplate="footer">
@@ -290,7 +344,9 @@
     <div class="sdlg-body">
       <div class="sdlg-field">
         <label>Reason <span class="sdlg-required">*</span></label>
-        <input pInputText class="w-full" [(ngModel)]="rejectReason" placeholder="Enter rejection reason" />
+        <input pInputText class="w-full" [(ngModel)]="rejectReason" placeholder="Enter rejection reason"
+               [maxlength]="notesMax" data-testid="invoice-reject-reason" />
+        <small style="font-size:.78rem;color:var(--text-color-secondary)">{{ rejectReason.length }} / {{ notesMax }}</small>
       </div>
     </div>
     <ng-template pTemplate="footer">
@@ -317,40 +373,66 @@
     </ng-template>
     <div class="sdlg-body">
 
-      <div class="sdlg-field">
-        <label>Supplier Invoice No.</label>
-        <input pInputText class="w-full" [(ngModel)]="editForm.supplierInvoiceNo"
-               placeholder="e.g. INV-2025-001" />
+      <div class="sdlg-note" *ngIf="invoice?.matchStatus === 'Approved'">
+        Approved: its tax can no longer change — the supplier ledger already holds the total. Reverse the invoice instead.
       </div>
 
-      <div class="sdlg-field">
-        <label>Due Date</label>
-        <p-calendar [(ngModel)]="editForm.dueDate" dateFormat="dd M yy"
-                    [showIcon]="true" styleClass="w-full" appendTo="body"></p-calendar>
+      <div class="sdlg-note" *ngIf="notesOnlyEdit" data-testid="invoice-edit-reversed-note">
+        Reversed: only its notes can still change (an attachment can still be uploaded).
       </div>
 
-      <div class="sdlg-field">
-        <label>Payment Method</label>
-        <p-dropdown [options]="paymentMethodOptions" [(ngModel)]="editForm.paymentMethod"
-                    placeholder="Select method" [showClear]="true"
-                    styleClass="w-full" appendTo="body"></p-dropdown>
-      </div>
+      <ng-container *ngIf="!notesOnlyEdit">
+        <div class="sdlg-field">
+          <label>Supplier Invoice No.</label>
+          <input pInputText class="w-full" [(ngModel)]="editForm.supplierInvoiceNo" maxlength="50"
+                 [disabled]="!canEditSupplierNo()" placeholder="e.g. INV-2025-001" data-testid="invoice-edit-supplier-no" />
+          <small *ngIf="!canEditSupplierNo()" style="font-size:.78rem;color:var(--text-color-secondary)">
+            Payments were made against this number, so it can no longer change.
+          </small>
+        </div>
 
-      <div class="sdlg-field">
-        <label>Tax Amount</label>
-        <p-inputNumber [(ngModel)]="editForm.taxAmount" mode="decimal"
-                       [minFractionDigits]="2" [maxFractionDigits]="2"
-                       [min]="0" styleClass="w-full"
-                       placeholder="0.00"></p-inputNumber>
-        <small style="font-size:.78rem;color:var(--text-color-secondary)">
-          Total will be recalculated as Subtotal + Tax.
-        </small>
-      </div>
+        <div class="sdlg-field">
+          <label>Due Date</label>
+          <p-calendar [(ngModel)]="editForm.dueDate" dateFormat="dd M yy"
+                      [showIcon]="true" styleClass="w-full" appendTo="body" data-testid="invoice-edit-due-date"></p-calendar>
+        </div>
+
+        <div class="sdlg-field">
+          <label>Payment Method</label>
+          <p-dropdown [options]="paymentMethodOptions" [(ngModel)]="editForm.paymentMethod"
+                      placeholder="Select method" [showClear]="true"
+                      styleClass="w-full" appendTo="body" data-testid="invoice-edit-payment-method"></p-dropdown>
+        </div>
+      </ng-container>
+
+      <ng-container *ngIf="canEditTax()">
+        <div class="sdlg-field">
+          <label>Purchase Tax Code</label>
+          <p-dropdown [options]="taxCodeOptions" [(ngModel)]="editForm.taxCodeUuid"
+                      placeholder="No tax code — enter the amount" styleClass="w-full" appendTo="body"
+                      data-testid="invoice-edit-tax-code"></p-dropdown>
+        </div>
+
+        <div class="sdlg-field">
+          <label>Tax Amount</label>
+          <p-inputNumber *ngIf="!editForm.taxCodeUuid" [(ngModel)]="editForm.taxAmount" mode="decimal"
+                         [minFractionDigits]="2" [maxFractionDigits]="2"
+                         [min]="0" styleClass="w-full"
+                         placeholder="0.00" data-testid="invoice-edit-tax-amount"></p-inputNumber>
+          <div *ngIf="editForm.taxCodeUuid" class="computed-amount" data-testid="invoice-edit-tax-computed">
+            {{ editTaxPreview | number:'1.2-2' }} {{ invoice?.currency }}
+          </div>
+          <small style="font-size:.78rem;color:var(--text-color-secondary)">
+            The total moves by the change in tax; a deducted credit or debit note stays deducted.
+          </small>
+        </div>
+      </ng-container>
 
       <div class="sdlg-field">
         <label>Notes</label>
-        <textarea pTextarea [(ngModel)]="editForm.notes" rows="3" class="w-full"
-                  placeholder="Internal notes or remarks..."></textarea>
+        <textarea pTextarea [(ngModel)]="editForm.notes" rows="3" class="w-full" [maxlength]="notesMax"
+                  placeholder="Internal notes or remarks..." data-testid="invoice-edit-notes"></textarea>
+        <small style="font-size:.78rem;color:var(--text-color-secondary)" data-testid="invoice-edit-notes-count">{{ editForm.notes.length }} / {{ notesMax }}</small>
       </div>
 
     </div>
@@ -359,6 +441,43 @@
         <div class="sdlg-footer-btns">
           <p-button label="Cancel" [text]="true" severity="secondary" (onClick)="showEditDialog=false"></p-button>
           <p-button label="Save Changes" icon="pi pi-save" [loading]="isSaving" (onClick)="saveEdit()"></p-button>
+        </div>
+      </div>
+    </ng-template>
+  </p-dialog>
+
+  <!-- Reverse dialog (S-7) -->
+  <p-dialog [(visible)]="showReverseDialog" [modal]="true" [style]="{width:'480px'}"
+            [draggable]="false" [resizable]="false" styleClass="sdlg">
+    <ng-template pTemplate="header">
+      <div class="sdlg-header">
+        <div class="sdlg-header-icon sdlg-icon-red"><i class="pi pi-replay"></i></div>
+        <div class="sdlg-header-text">
+          <div class="sdlg-title">Reverse Invoice</div>
+          <div class="sdlg-subtitle" *ngIf="invoice">{{ invoice.invoiceNumber }}</div>
+        </div>
+      </div>
+    </ng-template>
+    <div class="sdlg-body">
+      <div class="sdlg-note" *ngIf="invoice">
+        {{ invoice.supplierName }}'s ledger is credited with the approved
+        {{ invoice.totalAmount | number:'1.2-2' }} {{ invoice.currency }}, the invoice becomes Reversed and its
+        quantities go back to purchase order {{ invoice.poNumber || '—' }}. Nothing on the invoice is edited, and it
+        cannot be undone. A bill already in QuickBooks has to be voided there by hand.
+      </div>
+      <div class="sdlg-field">
+        <label>Reason <span class="sdlg-required">*</span></label>
+        <textarea pTextarea [(ngModel)]="reverseReason" rows="3" class="w-full" [maxlength]="reversalReasonMax"
+                  placeholder="e.g. Entered twice — the supplier's bill is INV-2026-00042" data-testid="invoice-reverse-reason"></textarea>
+        <small style="font-size:.78rem;color:var(--text-color-secondary)">{{ reverseReason.length }} / {{ reversalReasonMax }}</small>
+      </div>
+    </div>
+    <ng-template pTemplate="footer">
+      <div class="sdlg-footer">
+        <div class="sdlg-footer-btns">
+          <p-button label="Cancel" [text]="true" severity="secondary" (onClick)="showReverseDialog=false"></p-button>
+          <p-button label="Reverse Invoice" icon="pi pi-replay" severity="danger" [loading]="isSaving"
+                    [disabled]="!reverseReason.trim()" (onClick)="confirmReverse()" data-testid="invoice-reverse-confirm"></p-button>
         </div>
       </div>
     </ng-template>

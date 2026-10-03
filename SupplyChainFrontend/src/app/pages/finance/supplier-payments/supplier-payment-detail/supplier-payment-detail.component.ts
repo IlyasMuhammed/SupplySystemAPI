@@ -46,6 +46,17 @@ export class SupplierPaymentDetailComponent implements OnInit {
     if (uuid) this.load(uuid);
   }
 
+  // ── What the server lets whom do: approve needs PAYMENT_APPROVE; post, bounce and cancel PAYMENT_PROCESS ──
+
+  private get status(): string { return this.payment?.status ?? ''; }
+  private can(code: string): boolean { return this.authService.hasPermission(code); }
+
+  get canApprove(): boolean { return this.status === 'DRAFT' && this.can('PAYMENT_APPROVE'); }
+  get canPost(): boolean    { return this.status === 'APPROVED' && this.can('PAYMENT_PROCESS'); }
+  /** A posted cheque only: bouncing reverses its ledger entry and the invoices' paid amounts. */
+  get canBounce(): boolean  { return this.status === 'POSTED' && this.payment?.paymentMethod === 'CHEQUE' && this.can('PAYMENT_PROCESS'); }
+  get canCancel(): boolean  { return (this.status === 'DRAFT' || this.status === 'APPROVED') && this.can('PAYMENT_PROCESS'); }
+
   load(uuid: string) {
     this.isLoading = true;
     this.financeService.getSupplierPaymentById(uuid).subscribe({

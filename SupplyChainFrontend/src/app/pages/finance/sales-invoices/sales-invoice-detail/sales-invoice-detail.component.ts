@@ -14,13 +14,15 @@ import { MessageService } from 'primeng/api';
 
 import { AttachmentListComponent } from '../../../../shared/attachment-list/attachment-list.component';
 import {
-  SalesInvoiceService, SalesInvoiceDetailModel, SalesInvoicePaymentModel, PAYABLE_INVOICE_STATUSES
+  SalesInvoiceService, SalesInvoiceDetailModel, SalesInvoicePaymentModel, SalesInvoiceLineModel,
+  PAYABLE_INVOICE_STATUSES, CANCELLABLE_INVOICE_STATUSES
 } from '../../../../services/sales-invoice.service';
 import { AuthService } from '../../../service/auth.service';
 import { formatCode } from '../../../../shared/format-code';
 import { fromDateOnly, toDateOnly } from '../../../../shared/date-only';
 import { INVOICE_STATUS_SEVERITY, PAYMENT_STATUS_SEVERITY, Severity } from '../../receivables/receivables.shared';
 import { SalesInvoicePdfDialogComponent } from '../sales-invoice-pdf-dialog/sales-invoice-pdf-dialog.component';
+import { QboSyncBadgeComponent } from '../../../../shared/components/qbo-sync-badge/qbo-sync-badge.component';
 
 @Component({
   selector: 'app-sales-invoice-detail',
@@ -28,7 +30,7 @@ import { SalesInvoicePdfDialogComponent } from '../sales-invoice-pdf-dialog/sale
   imports: [
     CommonModule, RouterModule, FormsModule,
     TableModule, ButtonModule, TagModule, TooltipModule, ToastModule, DialogModule, CalendarModule, TextareaModule,
-    AttachmentListComponent, SalesInvoicePdfDialogComponent
+    AttachmentListComponent, SalesInvoicePdfDialogComponent, QboSyncBadgeComponent
   ],
   templateUrl: './sales-invoice-detail.component.html',
   styleUrls: ['./sales-invoice-detail.component.scss'],
@@ -54,6 +56,12 @@ export class SalesInvoiceDetailComponent implements OnInit {
 
   deleteVisible = false;
   isDeleting = false;
+
+  /** SAP alignment (S-7) — cancelling an issued invoice posts the opposite entries; a reason is required. */
+  cancelVisible = false;
+  cancelReason = '';
+  isCancelling = false;
+  readonly maxCancelReason = 500;
 
   isFiling = false;
 
@@ -118,6 +126,40 @@ export class SalesInvoiceDetailComponent implements OnInit {
 
   /** Files the PDF as it stands now, e.g. after a payment. Not for a draft, which is not yet what a customer is sent. */
   get canFilePdf(): boolean { return !!this.invoice && !this.isDraft && this.can('SALES_INVOICE_MANAGE'); }
+
+  /**
+   * An issued (or overdue) invoice nothing has been paid against can be cancelled. A payment that bounced
+   * stays in the history but has given its money back, so it does not stand in the way; the server checks
+   * the same and has the last word.
+   */
+  get canCancel(): boolean {
+    const inv = this.invoice;
+    return !!inv
+        && CANCELLABLE_INVOICE_STATUSES.includes(inv.status)
+        && inv.amountPaid === 0
+        && !(inv.payments ?? []).some(p => p.paymentStatus === 'RECEIVED')
+        && this.can('SALES_INVOICE_MANAGE');
+  }
+
+  get isCancelled(): boolean { return this.invoice?.status === 'CANCELLED'; }
+
+  /** The invoice's value in the organization's base currency, worth showing only when that is another currency. */
+  get showBaseTotal(): boolean {
+    const inv = this.invoice;
+    return !!inv && inv.baseGrandTotal != null && !!inv.baseCurrencyCode
+        && inv.baseCurrencyCode.toUpperCase() !== (inv.currencyCode ?? '').toUpperCase();
+  }
+
+  /**
+   * Issued in a foreign currency when no rate was on file: the server keeps the base currency's code but no rate
+   * and no base total. Say so rather than show nothing. A draft has no snapshot yet, and a legacy invoice (no base
+   * code at all) shows nothing new. Codes are compared ignoring case, as the server compares them.
+   */
+  get missingRate(): boolean {
+    const inv = this.invoice;
+    return !!inv && !this.isDraft && !!inv.baseCurrencyCode && inv.exchangeRate == null
+        && inv.baseCurrencyCode.toUpperCase() !== (inv.currencyCode ?? '').toUpperCase();
+  }
 
   get canViewPayments(): boolean { return this.can('CUSTOMER_PAYMENT_VIEW'); }
   get canViewLedger(): boolean   { return this.can('CUSTOMER_LEDGER_VIEW'); }
@@ -221,6 +263,52 @@ export class SalesInvoiceDetailComponent implements OnInit {
     });
   }
 
+  // ── Cancel an issued invoice ────────────────────────────────────────────────
+
+  openCancelDialog() {
+    if (!this.canCancel) return;
+    this.cancelReason = '';
+    this.cancelVisible = true;
+  }
+
+  get canConfirmCancel(): boolean {
+    const reason = this.cancelReason.trim();
+    return reason.length > 0 && reason.length <= this.maxCancelReason && !this.isCancelling;
+  }
+
+  /** Credits the customer's ledger, takes the goods back on the product ledger and voids it in QuickBooks. */
+  cancelInvoice() {
+    if (!this.canCancel || !this.canConfirmCancel) return;
+    this.isCancelling = true;
+
+    this.invoiceService.cancelInvoice(this.uuid, this.cancelReason.trim()).subscribe({
+      next: (res) => {
+        this.isCancelling = false;
+        this.cancelVisible = false;
+        this.messageService.add({
+          severity: 'success', summary: 'Invoice cancelled',
+          detail: res.message || 'The invoice has been cancelled and its delivery can be invoiced again.'
+        });
+        if (res.result) this.invoice = res.result;
+        this.load();
+      },
+      error: (err) => {
+        this.isCancelling = false;
+        this.messageService.add({
+          severity: 'error', summary: 'Not cancelled', detail: err?.error?.message ?? 'The invoice could not be cancelled.'
+        });
+        // A 409 says the invoice is no longer what this page shows: a payment was applied to it, or it was
+        // cancelled elsewhere, since it was loaded. Catch up, so the page stops offering a cancel the server
+        // will keep refusing. Anything else (a reason the server would not take, say) leaves the dialog open
+        // to try again.
+        if (err?.status === 409) {
+          this.cancelVisible = false;
+          this.load();
+        }
+      }
+    });
+  }
+
   // ── File the PDF ────────────────────────────────────────────────────────────
 
   filePdf() {
@@ -253,4 +341,10 @@ export class SalesInvoiceDetailComponent implements OnInit {
   }
 
   formatStatus(code?: string | null): string { return formatCode(code); }
+
+  /** "GST17 · 17%" for a line on a tax code; the percentage alone for one without. */
+  taxLabel(line: SalesInvoiceLineModel): string {
+    const rate = `${Number(line.taxPercent.toFixed(2))}%`;
+    return line.taxCode ? `${line.taxCode} · ${rate}` : rate;
+  }
 }

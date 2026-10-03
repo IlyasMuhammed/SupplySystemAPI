@@ -1,0 +1,260 @@
+<div class="detail-page">
+  <p-toast></p-toast>
+
+  <div class="not-found" *ngIf="notFound" data-testid="not-found">
+    <i class="pi pi-inbox"></i>
+    <h2>Sale quotation not found</h2>
+    <p>It may belong to another organization, or the link may be wrong.</p>
+    <p-button label="Back to quotations" icon="pi pi-arrow-left" [text]="true" [routerLink]="quotationsRoute"></p-button>
+  </div>
+
+  <div *ngIf="isLoading && !quotation" class="loading-state" data-testid="loading">
+    <i class="pi pi-spin pi-spinner"></i> Loading…
+  </div>
+
+  <ng-container *ngIf="quotation as q">
+    <!-- ── Header (§10.3) ─────────────────────────────────────────────────────── -->
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">
+          <i class="pi pi-file-edit"></i>
+          <span class="font-mono" data-testid="number">{{ q.quotationNumber }}</span>
+          <p-tag [value]="formatStatus(q.status)" [severity]="getStatusSeverity(q.status)" data-testid="status"></p-tag>
+          <span *ngIf="q.sentAt" class="sent-badge" data-testid="sent-badge"
+                [pTooltip]="q.sentByUserName ? 'Sent by ' + q.sentByUserName : ''">
+            <i class="pi pi-send"></i> Sent {{ q.sentAt | date:'dd MMM yyyy, HH:mm' }}
+          </span>
+        </h1>
+        <dl class="header-facts">
+          <div><dt>Customer</dt><dd data-testid="customer">{{ q.partnerName || q.partnerId }}</dd></div>
+          <div><dt>Valid</dt><dd data-testid="validity">{{ day(q.validFrom) | date:'dd MMM yyyy' }} — {{ day(q.validTo) | date:'dd MMM yyyy' }}</dd></div>
+          <div><dt>Currency</dt><dd data-testid="currency">{{ q.currencyCode || '—' }}</dd></div>
+          <div><dt>From inquiry</dt><dd data-testid="source-inquiry"><a *ngIf="q.sourceInquiry; else noInquiry" class="doc-link font-mono"
+                [routerLink]="[inquiriesRoute, q.sourceInquiry.uuid]">{{ q.sourceInquiry.number }}</a><ng-template #noInquiry>—</ng-template></dd></div>
+          <div *ngIf="q.saleOrder"><dt>Sale order</dt><dd data-testid="sale-order"><a class="doc-link font-mono"
+                [routerLink]="[saleOrdersRoute, q.saleOrder.uuid]">{{ q.saleOrder.number }}</a></dd></div>
+        </dl>
+      </div>
+
+      <div class="header-actions">
+        <p-button *ngIf="canEdit" label="Edit header" icon="pi pi-pencil" [text]="true" severity="secondary"
+                  [routerLink]="[quotationsRoute, q.uuid, 'edit']" data-testid="action-edit"></p-button>
+        <p-button *ngIf="canCopy" label="Copy" icon="pi pi-copy" [text]="true" severity="secondary" [loading]="isCopying"
+                  pTooltip="A new draft with the same lines" (onClick)="copy()" data-testid="action-copy"></p-button>
+        <p-button *ngIf="canSend" label="Send to Customer" icon="pi pi-send"
+                  (onClick)="openSendDialog()" data-testid="action-send"></p-button>
+        <p-button *ngIf="canConvert" label="Convert to Sale Order" icon="pi pi-shopping-bag"
+                  (onClick)="openConvertDialog()" data-testid="action-convert"></p-button>
+      </div>
+    </div>
+
+    <p-tabView styleClass="quotation-tabs" [(activeIndex)]="activeTab">
+
+      <!-- ── Details ──────────────────────────────────────────────────────────── -->
+      <p-tabPanel [header]="tabs[0]" leftIcon="pi pi-info-circle">
+        <div class="detail-grid">
+          <div class="card">
+            <h3>Quotation</h3>
+            <dl>
+              <dt>Customer reference</dt><dd>{{ q.customerReference || '—' }}</dd>
+              <dt>Reference date</dt><dd>{{ q.customerReferenceDate ? (day(q.customerReferenceDate) | date:'dd MMM yyyy') : '—' }}</dd>
+              <dt>Valid from</dt><dd>{{ day(q.validFrom) | date:'dd MMM yyyy' }}</dd>
+              <dt>Valid to</dt><dd>{{ day(q.validTo) | date:'dd MMM yyyy' }}</dd>
+              <dt>Currency</dt><dd>{{ q.currencyCode || '—' }}</dd>
+              <dt>Created</dt><dd>{{ q.createdDate | date:'dd MMM yyyy' }}</dd>
+              <dt>Sent</dt><dd>{{ q.sentAt ? (q.sentAt | date:'dd MMM yyyy, HH:mm') : 'Not yet' }}</dd>
+            </dl>
+          </div>
+          <div class="card">
+            <h3>Totals</h3>
+            <dl>
+              <dt>Subtotal</dt><dd>{{ q.subtotal | number:'1.2-2' }}</dd>
+              <dt>Discount</dt><dd>{{ q.discountAmount | number:'1.2-2' }}</dd>
+              <dt>Tax</dt><dd>{{ q.taxAmount | number:'1.2-2' }}</dd>
+              <dt>Grand total</dt><dd class="font-semibold">{{ q.grandTotal | number:'1.2-2' }} {{ q.currencyCode }}</dd>
+            </dl>
+            <p class="notes" *ngIf="q.internalNotes"><strong>Internal:</strong> {{ q.internalNotes }}</p>
+          </div>
+        </div>
+      </p-tabPanel>
+
+      <!-- ── Lines (§10.3, §10.4) ─────────────────────────────────────────────── -->
+      <p-tabPanel [header]="tabs[1]" leftIcon="pi pi-list">
+        <app-sale-quotation-response-panel *ngIf="canRecordResponses" [quotation]="q" (changed)="load()"
+                                           data-testid="response-panel"></app-sale-quotation-response-panel>
+
+        <div class="lines-head" *ngIf="canEdit">
+          <span class="muted">Lines change only while the quotation is a draft.</span>
+          <p-button label="Add Line" icon="pi pi-plus" [outlined]="true" size="small" (onClick)="openAddLine()"
+                    data-testid="add-line"></p-button>
+        </div>
+
+        <div class="table-card flush">
+          <p-table [value]="rows" [tableStyle]="{'min-width':'72rem'}" data-testid="lines-table">
+            <ng-template pTemplate="header">
+              <tr>
+                <th>#</th>
+                <th>Product</th>
+                <th class="text-right">Qty</th>
+                <th class="text-right">Price</th>
+                <th class="text-right">Disc %</th>
+                <th class="text-right">Tax</th>
+                <th class="text-right">Total</th>
+                <th>Delivery</th>
+                <th>Type</th>
+                <th>Response</th>
+                <th *ngIf="canEdit" class="text-center">Actions</th>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-row>
+              <tr data-testid="line-row" [class.line-rejected]="row.line.lineType === 'REJECTED'" [class.line-alt]="row.indent">
+                <td class="font-mono" data-testid="line-label">{{ row.label }}</td>
+                <td class="product-cell">
+                  <div>{{ row.line.productDescription }}</div>
+                  <div class="line-sub" *ngIf="row.line.variantSku">{{ row.line.variantSku }}</div>
+                  <div class="line-note" *ngIf="row.line.lineType === 'REJECTED'">
+                    └ Reason: {{ row.line.rejectionReasonDescription || row.line.rejectionReasonCode || '—' }}<span *ngIf="row.line.rejectionNotes"> — {{ row.line.rejectionNotes }}</span>
+                  </div>
+                  <div class="line-note" *ngIf="row.line.lineType === 'ALTERNATIVE'">└ {{ alternativeText(row.line) }}</div>
+                </td>
+                <ng-container *ngIf="row.line.lineType !== 'REJECTED'; else noFigures">
+                  <td class="text-right" data-testid="line-qty">{{ row.line.quantity | number:'1.0-4' }} {{ row.line.uomCode }}</td>
+                  <td class="text-right">{{ row.line.unitPrice | number:'1.2-4' }}</td>
+                  <td class="text-right">{{ row.line.discountPercent | number:'1.0-2' }}</td>
+                  <td class="text-right" data-testid="line-tax">{{ taxText(row.line) }}</td>
+                  <td class="text-right" data-testid="line-total">{{ row.line.lineTotal | number:'1.2-2' }}</td>
+                  <td>{{ row.line.promisedDeliveryDate ? (day(row.line.promisedDeliveryDate) | date:'dd MMM yyyy') : '—' }}</td>
+                </ng-container>
+                <ng-template #noFigures>
+                  <td class="text-right" data-testid="line-qty">—</td>
+                  <td class="text-right">—</td>
+                  <td class="text-right">—</td>
+                  <td class="text-right" data-testid="line-tax">—</td>
+                  <td class="text-right" data-testid="line-total">—</td>
+                  <td>—</td>
+                </ng-template>
+                <td><span class="type-badge" [ngClass]="'type-' + row.line.lineType.toLowerCase()" data-testid="line-type">{{ typeBadge(row.line) }}</span></td>
+                <td data-testid="line-response">
+                  <ng-container [ngSwitch]="row.line.lineType === 'REJECTED' ? 'NONE' : row.line.customerResponse">
+                    <span *ngSwitchCase="'NONE'">—</span>
+                    <span *ngSwitchCase="'PENDING'" class="muted">Pending</span>
+                    <span *ngSwitchCase="'ACCEPTED'" class="resp-accepted">Accepted</span>
+                    <span *ngSwitchCase="'REJECTED'" class="resp-rejected">Rejected</span>
+                    <span *ngSwitchCase="'COUNTER'" class="resp-counter">Counter {{ row.line.customerCounterPrice | number:'1.2-4' }}</span>
+                  </ng-container>
+                </td>
+                <td *ngIf="canEdit" class="text-center actions-cell">
+                  <p-button icon="pi pi-pencil" [text]="true" severity="secondary" size="small" pTooltip="Edit line"
+                            (onClick)="openEditLine(row.line)" data-testid="edit-line"></p-button>
+                  <span [pTooltip]="deleteBlockedReason(row.line) || ''">
+                    <p-button icon="pi pi-trash" [text]="true" severity="danger" size="small"
+                              [disabled]="!!deleteBlockedReason(row.line)" (onClick)="deleteLine(row.line)"
+                              data-testid="delete-line"></p-button>
+                  </span>
+                </td>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="emptymessage">
+              <tr><td [attr.colspan]="canEdit ? 11 : 10" class="text-center text-secondary" style="padding:2rem">No lines yet.</td></tr>
+            </ng-template>
+          </p-table>
+        </div>
+
+        <div class="totals-footer">
+          <div><span class="totals-label">Subtotal</span><strong data-testid="subtotal">{{ q.subtotal | number:'1.2-2' }}</strong></div>
+          <div *ngIf="q.discountAmount"><span class="totals-label">Discount</span><strong>{{ q.discountAmount | number:'1.2-2' }}</strong></div>
+          <div><span class="totals-label">Tax</span><strong data-testid="tax-total">{{ q.taxAmount | number:'1.2-2' }}</strong></div>
+          <div><span class="totals-label">Grand total</span><strong data-testid="grand-total">{{ q.grandTotal | number:'1.2-2' }} <span class="cur">{{ q.currencyCode }}</span></strong></div>
+        </div>
+      </p-tabPanel>
+
+      <!-- ── Terms ────────────────────────────────────────────────────────────── -->
+      <p-tabPanel [header]="tabs[2]" leftIcon="pi pi-book">
+        <div class="card">
+          <dl>
+            <dt>Payment terms</dt><dd data-testid="payment-terms">{{ q.paymentTerms || '—' }}</dd>
+            <dt>Delivery terms</dt><dd data-testid="delivery-terms">{{ q.deliveryTerms || '—' }}</dd>
+            <dt>Notes to the customer</dt><dd class="pre" data-testid="terms-notes">{{ q.notes || '—' }}</dd>
+          </dl>
+        </div>
+      </p-tabPanel>
+
+      <!-- ── Attachments (A32-PC-14) ──────────────────────────────────────────── -->
+      <p-tabPanel [header]="tabs[3]" leftIcon="pi pi-paperclip">
+        <app-attachment-list [interfaceCode]="attachmentCode" [documentId]="q.uuid" label="Quotation attachments"></app-attachment-list>
+      </p-tabPanel>
+    </p-tabView>
+  </ng-container>
+
+  <!-- ── Line editor (A32-PC-12) ─────────────────────────────────────────────── -->
+  <p-dialog [header]="editingLine ? 'Edit line ' + editingLine.lineNumber : 'Add line'" [(visible)]="lineDialogVisible"
+            [modal]="true" [style]="{ width: '52rem' }" [breakpoints]="{ '960px': '95vw' }" appendTo="body">
+    <app-sale-quotation-line-editor *ngIf="lineDialogVisible && quotation" [quotation]="quotation" [line]="editingLine"
+                                    (saved)="onLineSaved()" (cancelled)="lineDialogVisible = false"></app-sale-quotation-line-editor>
+  </p-dialog>
+
+  <!-- ── Delete line ─────────────────────────────────────────────────────────── -->
+  <p-dialog header="Remove line" [visible]="!!lineToDelete" (visibleChange)="!$event && (lineToDelete = null)"
+            [modal]="true" [style]="{ width: '28rem' }" [breakpoints]="{ '640px': '95vw' }" appendTo="body">
+    <p class="dialog-hint" *ngIf="lineToDelete">Remove line {{ lineToDelete.lineNumber }} ({{ lineToDelete.productDescription }}) from the quotation?</p>
+    <ng-template pTemplate="footer">
+      <p-button label="Keep it" [text]="true" severity="secondary" (onClick)="lineToDelete = null"></p-button>
+      <p-button label="Remove" icon="pi pi-trash" severity="danger" [loading]="isDeleting" (onClick)="confirmDeleteLine()"
+                data-testid="confirm-delete-line"></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <!-- ── Send (A32-PC-14) ────────────────────────────────────────────────────── -->
+  <p-dialog header="Send to customer" [(visible)]="sendDialogVisible" [modal]="true" [style]="{ width: '30rem' }"
+            [breakpoints]="{ '640px': '95vw' }" appendTo="body">
+    <p class="dialog-hint">
+      Once sent, the quotation can no longer be changed — only answered by the customer, or copied into a new draft.
+      Send {{ quotation?.quotationNumber }} to {{ quotation?.partnerName || 'the customer' }}?
+    </p>
+    <ng-template pTemplate="footer">
+      <p-button label="Back" [text]="true" severity="secondary" (onClick)="sendDialogVisible = false"></p-button>
+      <p-button label="Send" icon="pi pi-send" [loading]="isSending" (onClick)="confirmSend()" data-testid="confirm-send"></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <!-- ── Convert (A32-PC-14) ─────────────────────────────────────────────────── -->
+  <p-dialog header="Convert to sale order" [(visible)]="convertDialogVisible" [modal]="true" [style]="{ width: '34rem' }"
+            [breakpoints]="{ '640px': '95vw' }" appendTo="body">
+    <p class="dialog-hint">The accepted lines become a draft sale order at their quoted prices. Countered lines that were not accepted stay behind.</p>
+
+    <div class="dialog-row">
+      <label class="dialog-label" for="po-ref">Customer PO reference</label>
+      <input id="po-ref" pInputText [(ngModel)]="convert.customerPoReference" maxlength="50" class="w-full"
+             placeholder="The customer's purchase order number" data-testid="convert-po-ref" />
+    </div>
+    <div class="dialog-row">
+      <label class="dialog-label">Customer PO date</label>
+      <p-calendar [(ngModel)]="convert.customerPoDate" dateFormat="dd/mm/yy" [showIcon]="true" [showClear]="true"
+                  styleClass="w-full" appendTo="body" data-testid="convert-po-date"></p-calendar>
+    </div>
+    <div class="dialog-row">
+      <label class="dialog-label">Delivery</label>
+      <p-selectButton [options]="modeOptions" [(ngModel)]="convert.deliveryMode" optionLabel="label" optionValue="value"
+                      optionDisabled="disabled" [allowEmpty]="false" data-testid="convert-mode"></p-selectButton>
+    </div>
+    <div class="dialog-row" *ngIf="convert.deliveryMode === 'SHIP'">
+      <label class="dialog-label">Ship to <span class="required">*</span></label>
+      <p-dropdown [options]="addressOptions" [(ngModel)]="convert.shippingAddressId" optionLabel="label" optionValue="value"
+                  [loading]="isLoadingAddresses" placeholder="Choose the customer's address" styleClass="w-full" appendTo="body"
+                  data-testid="convert-address"></p-dropdown>
+      <small class="muted" *ngIf="!isLoadingAddresses && !addressOptions.length">
+        This customer has no address on file. Have them collect, or use the full sale order form to add one.
+      </small>
+    </div>
+
+    <small class="p-error block" *ngIf="convertError" data-testid="convert-error">{{ convertError }}</small>
+
+    <ng-template pTemplate="footer">
+      <a class="full-form-link" [routerLink]="fullConvertLink.path" [queryParams]="fullConvertLink.query"
+         data-testid="convert-full-form">More order options…</a>
+      <p-button label="Back" [text]="true" severity="secondary" (onClick)="convertDialogVisible = false"></p-button>
+      <p-button label="Create sale order" icon="pi pi-shopping-bag" [loading]="isConverting" [disabled]="!canConfirmConvert"
+                (onClick)="confirmConvert()" data-testid="confirm-convert"></p-button>
+    </ng-template>
+  </p-dialog>
+</div>

@@ -1,0 +1,316 @@
+<div class="state-card" *ngIf="isLoading" data-testid="loading">
+  <i class="pi pi-spin pi-spinner big"></i>
+  <p>Loading the mappings…</p>
+</div>
+
+<div class="state-card" *ngIf="loadFailed" data-testid="load-failed">
+  <i class="pi pi-exclamation-triangle big"></i>
+  <h2>The mappings could not be loaded</h2>
+  <p>{{ loadError }}</p>
+  <p-button label="Try again" icon="pi pi-refresh" (onClick)="load()"></p-button>
+</div>
+
+<ng-container *ngIf="!isLoading && !loadFailed">
+
+  <!-- D-8: payments are not synced -->
+  <div class="note info" data-testid="payments-note">
+    <i class="pi pi-info-circle"></i>
+    <div class="note-body">
+      <div class="note-title">Payments are not sent to QuickBooks yet</div>
+      Sales invoices and bills arrive in QuickBooks unpaid. Record customer and supplier payments in QuickBooks
+      yourself, or tell your accountant, until payment sync is added.
+    </div>
+  </div>
+
+  <div class="note warn" *ngIf="!hasReference" data-testid="no-reference">
+    <i class="pi pi-exclamation-triangle"></i>
+    <div class="note-body">
+      <div class="note-title">QuickBooks accounts, tax codes and terms have not been read yet</div>
+      The lists below are empty until they are.
+      <div class="note-actions" *ngIf="canManage">
+        <p-button label="Read them from QuickBooks" icon="pi pi-refresh" size="small" severity="warn"
+                  [loading]="isRefreshingReference" (onClick)="refreshReference()" data-testid="refresh-reference"></p-button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ Settings ═══════════════════════════════════════════════════════ -->
+  <form [formGroup]="form" (ngSubmit)="saveSettings()" novalidate data-testid="settings-form">
+    <section class="form-card">
+      <div class="card-head">
+        <div class="card-icon"><i class="pi pi-book"></i></div>
+        <div class="grow">
+          <div class="card-title">Default accounts</div>
+          <div class="card-sub">Where QuickBooks posts what SCM sends. SCM stays the record of stock and cost.</div>
+        </div>
+        <span class="hint" *ngIf="reference?.fetchedAt">Read from QuickBooks {{ reference?.fetchedAt | date:'d MMM y, HH:mm' }}</span>
+      </div>
+
+      <div class="field-grid">
+        <div class="field">
+          <label for="defaultIncomeAccountId">Income account <span class="required">*</span></label>
+          <p-select inputId="defaultIncomeAccountId" formControlName="defaultIncomeAccountId" [options]="incomeOptions"
+                    optionLabel="label" optionValue="value" placeholder="Choose an income account" [filter]="incomeOptions.length > 8"
+                    [showClear]="true" appendTo="body" styleClass="w-full" data-testid="defaultIncomeAccountId"></p-select>
+          <small class="hint">Items are sold to this account (Income accounts).</small>
+          <small class="p-error" *ngIf="form.get('defaultIncomeAccountId')?.invalid && form.get('defaultIncomeAccountId')?.touched"
+                 data-testid="income-error">Choose the income account.</small>
+        </div>
+
+        <div class="field">
+          <label for="defaultExpenseAccountId">Expense account <span class="required">*</span></label>
+          <p-select inputId="defaultExpenseAccountId" formControlName="defaultExpenseAccountId" [options]="expenseOptions"
+                    optionLabel="label" optionValue="value" placeholder="Choose an expense account" [filter]="expenseOptions.length > 8"
+                    [showClear]="true" appendTo="body" styleClass="w-full" data-testid="defaultExpenseAccountId"></p-select>
+          <small class="hint">Items are bought from this account, and bill lines with no item go here (Expense and Cost of Goods Sold accounts).</small>
+          <small class="p-error" *ngIf="form.get('defaultExpenseAccountId')?.invalid && form.get('defaultExpenseAccountId')?.touched"
+                 data-testid="expense-error">Choose the expense account.</small>
+        </div>
+
+        <div class="field">
+          <label for="freightExpenseAccountId">Freight account</label>
+          <p-select inputId="freightExpenseAccountId" formControlName="freightExpenseAccountId" [options]="freightOptions"
+                    optionLabel="label" optionValue="value" placeholder="Same as the expense account" [filter]="freightOptions.length > 8"
+                    [showClear]="true" appendTo="body" styleClass="w-full" data-testid="freightExpenseAccountId"></p-select>
+          <small class="hint">Carrier bills and freight lines are posted here.</small>
+        </div>
+
+        <div class="field">
+          <label for="discountAccountId">Discount account</label>
+          <p-select inputId="discountAccountId" formControlName="discountAccountId" [options]="discountOptions"
+                    optionLabel="label" optionValue="value" placeholder="Choose a discount account" [filter]="discountOptions.length > 8"
+                    [showClear]="true" appendTo="body" styleClass="w-full" data-testid="discountAccountId"></p-select>
+          <small class="hint">Line and invoice discounts are sent as one discount line on this account. Invoices with a discount are refused without it.</small>
+        </div>
+
+        <div class="field">
+          <label for="defaultPurchaseTaxCodeId">Purchase tax code</label>
+          <p-select inputId="defaultPurchaseTaxCodeId" formControlName="defaultPurchaseTaxCodeId" [options]="purchaseTaxOptions"
+                    optionLabel="label" optionValue="value" placeholder="None" [filter]="purchaseTaxOptions.length > 8"
+                    [showClear]="true" appendTo="body" styleClass="w-full" data-testid="defaultPurchaseTaxCodeId"></p-select>
+          <small class="hint">For supplier invoices with no purchase tax code (older ones, or tax keyed as an amount). Invoices with a code use its mapping below.</small>
+        </div>
+
+        <div class="field">
+          <label for="documentStartDate">Send documents dated from</label>
+          <p-datepicker inputId="documentStartDate" formControlName="documentStartDate" dateFormat="dd/mm/yy"
+                        [showIcon]="true" [showClear]="true" appendTo="body" placeholder="Every date" styleClass="w-full"
+                        data-testid="documentStartDate"></p-datepicker>
+          <small class="hint">Invoices and bills dated before this are never sent — keeps old history out of QuickBooks.</small>
+        </div>
+      </div>
+    </section>
+
+    <section class="form-card">
+      <div class="card-head">
+        <div class="card-icon"><i class="pi pi-sliders-h"></i></div>
+        <div class="grow">
+          <div class="card-title">What is sent</div>
+          <div class="card-sub">Which records go to QuickBooks, and when.</div>
+        </div>
+      </div>
+
+      <div class="field-grid">
+        <div class="field">
+          <label>Items are created as</label>
+          <p-selectbutton formControlName="itemTypeDefault" [options]="itemTypeOptions" optionLabel="label" optionValue="value"
+                          [allowEmpty]="false" data-testid="itemTypeDefault"></p-selectbutton>
+          <small class="hint">QuickBooks does not track SCM stock, so items are non-inventory (or service).</small>
+        </div>
+        <div class="field">
+          <label>Customers, vendors and items sent</label>
+          <p-selectbutton formControlName="partnerScope" [options]="scopeOptions" optionLabel="label" optionValue="value"
+                          [allowEmpty]="false" data-testid="partnerScope"></p-selectbutton>
+          <small class="hint">"Only when used" sends one the first time an invoice or bill needs it, which keeps QuickBooks tidy.</small>
+        </div>
+      </div>
+
+      <div class="group-title">Send automatically when SCM changes</div>
+      <div class="auto-push">
+        <div class="switch-row" *ngFor="let row of autoPushRows">
+          <div class="switch-text">
+            <label class="switch-label" [attr.for]="row.name">{{ row.label }}</label>
+            <span class="hint">{{ row.hint }}</span>
+          </div>
+          <p-toggleswitch [inputId]="row.name" [formControlName]="row.name" [attr.data-testid]="row.name"></p-toggleswitch>
+        </div>
+      </div>
+
+      <div class="action-bar" *ngIf="canManage" data-testid="settings-actions">
+        <span class="unsaved" *ngIf="settingsDirty"><i class="pi pi-circle-fill"></i> Unsaved changes</span>
+        <span class="saved" *ngIf="!settingsDirty"><i class="pi pi-check"></i> Saved</span>
+        <span class="grow"></span>
+        <p-button label="Discard" [outlined]="true" severity="secondary" [disabled]="!settingsDirty || isSavingSettings"
+                  (onClick)="discardSettings()" data-testid="discard-settings"></p-button>
+        <p-button type="submit" label="Save settings" icon="pi pi-check" [loading]="isSavingSettings"
+                  [disabled]="isSavingSettings" data-testid="save-settings"></p-button>
+      </div>
+    </section>
+  </form>
+
+  <!-- ══ Tax: SMS tax codes first, then bare rates (SAP alignment S-11) ═══ -->
+  <section class="form-card flush" data-testid="tax-card">
+    <div class="table-toolbar">
+      <div class="card-icon"><i class="pi pi-percentage"></i></div>
+      <div class="grow">
+        <div class="card-title">Tax codes</div>
+        <div class="card-sub">
+          Invoice and bill lines carry an SMS tax code (Settings → Tax Codes). Map each code to a QuickBooks tax code; a
+          document using an unmapped code is not sent. A code is matched by itself, never by its rate — two codes can share a rate.
+        </div>
+      </div>
+      <span class="unmapped-count" *ngIf="unmappedTaxCount" data-testid="unmapped-tax-count">
+        <i class="pi pi-exclamation-triangle"></i> {{ unmappedTaxCount }} unmapped
+      </span>
+      <p-button *ngIf="canManage && suggestableCount" label="Use suggestions" icon="pi pi-bolt" [text]="true" size="small"
+                pTooltip="Fill each unmapped code with the QuickBooks code its rate is mapped to" tooltipPosition="left"
+                (onClick)="useAllSuggestions()" data-testid="use-all-suggestions"></p-button>
+    </div>
+
+    <p-table [value]="taxCodeRows" [tableStyle]="{ 'min-width': '40rem' }" data-testid="tax-code-table">
+      <ng-template pTemplate="header">
+        <tr>
+          <th style="width: 11rem">SMS tax code</th>
+          <th style="width: 6rem">Rate</th>
+          <th style="width: 9rem">Seen on</th>
+          <th>QuickBooks tax code</th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-row>
+        <tr [class.unmapped]="!row.qboTaxCodeId" data-testid="tax-code-row">
+          <td [attr.data-testid]="'tax-code-cell-' + row.sourceTaxCode">
+            <div class="code">{{ row.sourceTaxCode }}</div>
+            <div class="hint code-name" *ngIf="row.sourceTaxCodeName"
+                 [attr.data-testid]="'tax-code-name-' + row.sourceTaxCode">{{ row.sourceTaxCodeName }}</div>
+            <div class="hint code-usage" *ngIf="taxCodeUsageLabel(row.sourceTaxCodeUsage) as usage"
+                 [attr.data-testid]="'tax-code-usage-' + row.sourceTaxCode">{{ usage }}</div>
+          </td>
+          <td class="muted">{{ formatPercent(row.taxPercent) }}</td>
+          <td class="muted">{{ row.timesSeen ? (row.timesSeen + (row.timesSeen === 1 ? ' line' : ' lines')) : 'Not used yet' }}</td>
+          <td>
+            <p-select [(ngModel)]="row.qboTaxCodeId" [options]="taxCodeOpts" optionLabel="label" optionValue="value"
+                      placeholder="Not mapped" [showClear]="true" [disabled]="!canManage" appendTo="body"
+                      [filter]="taxCodeOpts.length > 8" styleClass="w-full"
+                      [attr.data-testid]="'tax-code-map-' + row.sourceTaxCode"></p-select>
+            <div class="suggestion" *ngIf="!row.qboTaxCodeId && row.suggestedQboTaxCodeId" [attr.data-testid]="'suggestion-' + row.sourceTaxCode">
+              <span class="hint">{{ formatPercent(row.taxPercent) }} is mapped to {{ suggestionLabel(row) }}.</span>
+              <p-button *ngIf="canManage" label="Use it" [text]="true" size="small" (onClick)="useSuggestion(row)"
+                        [attr.data-testid]="'use-suggestion-' + row.sourceTaxCode"></p-button>
+            </div>
+          </td>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="emptymessage">
+        <tr><td colspan="4" class="empty" data-testid="tax-code-empty">
+          No SMS tax code is set up or has been seen on an invoice or bill yet. Codes appear here once they are added in
+          Settings → Tax Codes or reach the gateway on a document, or add one below.
+        </td></tr>
+      </ng-template>
+    </p-table>
+
+    <div class="action-bar table-actions" *ngIf="canManage">
+      <input pInputText type="text" [(ngModel)]="newCode" [maxlength]="maxTaxCodeLength" placeholder="Tax code"
+             class="code-input" data-testid="new-code" />
+      <p-inputNumber [(ngModel)]="newCodeRate" [min]="0" [max]="100" [maxFractionDigits]="4" suffix="%" placeholder="Its rate"
+                     inputStyleClass="rate-input" data-testid="new-code-rate"></p-inputNumber>
+      <p-button label="Add code" icon="pi pi-plus" [text]="true" [disabled]="!newCode.trim() || newCodeRate == null"
+                (onClick)="addCode()" data-testid="add-code"></p-button>
+    </div>
+
+    <div class="sub-table-head">
+      <div class="card-title small">Rates on lines without a tax code</div>
+      <div class="card-sub">
+        Invoices and bills from before tax codes — and other systems — carry only a percentage. Map each rate as well;
+        a supplier invoice with neither a code nor a rate uses the purchase tax code chosen above.
+      </div>
+    </div>
+
+    <p-table [value]="taxRows" [tableStyle]="{ 'min-width': '36rem' }" data-testid="tax-table">
+      <ng-template pTemplate="header">
+        <tr>
+          <th style="width: 8rem">Rate</th>
+          <th style="width: 10rem">Seen on</th>
+          <th>QuickBooks tax code</th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-row>
+        <tr [class.unmapped]="!row.qboTaxCodeId" data-testid="tax-row">
+          <td class="rate">{{ formatPercent(row.taxPercent) }}</td>
+          <td class="muted">{{ row.timesSeen ? (row.timesSeen + (row.timesSeen === 1 ? ' line' : ' lines')) : 'Not used yet' }}</td>
+          <td>
+            <p-select [(ngModel)]="row.qboTaxCodeId" [options]="taxCodeOpts" optionLabel="label" optionValue="value"
+                      placeholder="Not mapped" [showClear]="true" [disabled]="!canManage" appendTo="body"
+                      [filter]="taxCodeOpts.length > 8" styleClass="w-full" [attr.data-testid]="'tax-code-' + row.taxPercent"></p-select>
+          </td>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="emptymessage">
+        <tr><td colspan="3" class="empty" data-testid="tax-empty">
+          No rate without a tax code has been seen on an invoice or bill. Older documents' rates appear here, or add one below.
+        </td></tr>
+      </ng-template>
+    </p-table>
+
+    <div class="action-bar table-actions" *ngIf="canManage">
+      <p-inputNumber [(ngModel)]="newRate" [min]="0" [max]="100" [maxFractionDigits]="4" suffix="%" placeholder="Rate"
+                     inputStyleClass="rate-input" data-testid="new-rate"></p-inputNumber>
+      <p-button label="Add rate" icon="pi pi-plus" [text]="true" [disabled]="newRate == null" (onClick)="addRate()" data-testid="add-rate"></p-button>
+      <span class="grow"></span>
+      <span class="unsaved" *ngIf="taxDirty"><i class="pi pi-circle-fill"></i> Unsaved</span>
+      <p-button label="Save tax mappings" icon="pi pi-check" [loading]="isSavingTax" [disabled]="!taxDirty || isSavingTax"
+                (onClick)="saveTax()" data-testid="save-tax"></p-button>
+    </div>
+  </section>
+
+  <!-- ══ Payment terms ═════════════════════════════════════════════════════ -->
+  <section class="form-card flush" data-testid="terms-card">
+    <div class="table-toolbar">
+      <div class="card-icon"><i class="pi pi-calendar"></i></div>
+      <div class="grow">
+        <div class="card-title">Payment terms</div>
+        <div class="card-sub">A customer's or vendor's payment terms in SCM, as a QuickBooks term. Unmapped terms are simply left off.</div>
+      </div>
+      <p-button *ngIf="canManage" label="Match by due days" icon="pi pi-bolt" [text]="true" size="small"
+                [disabled]="!unmappedTermCount" (onClick)="suggestTerms()" data-testid="suggest-terms"></p-button>
+    </div>
+
+    <div class="state-inline" *ngIf="scmTermsFailed" data-testid="scm-terms-failed">
+      <i class="pi pi-exclamation-triangle"></i>
+      SCM's payment terms could not be loaded, so only the saved mappings are listed.
+    </div>
+
+    <p-table [value]="termRows" [tableStyle]="{ 'min-width': '36rem' }" data-testid="terms-table">
+      <ng-template pTemplate="header">
+        <tr>
+          <th>SCM payment term</th>
+          <th style="width: 8rem">Due days</th>
+          <th>QuickBooks term</th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-row>
+        <tr [class.unmapped]="!row.qboTermId && !row.orphan" data-testid="term-row">
+          <td>
+            {{ row.paymentTermName }}
+            <span class="hint warn" *ngIf="row.orphan"> (no longer in SCM)</span>
+          </td>
+          <td class="muted">{{ row.days ?? '—' }}</td>
+          <td>
+            <p-select [(ngModel)]="row.qboTermId" [options]="termOpts" optionLabel="label" optionValue="value"
+                      placeholder="Not mapped" [showClear]="true" [disabled]="!canManage" appendTo="body"
+                      [filter]="termOpts.length > 8" styleClass="w-full"></p-select>
+          </td>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="emptymessage">
+        <tr><td colspan="3" class="empty">No payment terms are set up in SCM.</td></tr>
+      </ng-template>
+    </p-table>
+
+    <div class="action-bar table-actions" *ngIf="canManage">
+      <span class="grow"></span>
+      <span class="unsaved" *ngIf="termsDirty"><i class="pi pi-circle-fill"></i> Unsaved</span>
+      <p-button label="Save term mappings" icon="pi pi-check" [loading]="isSavingTerms" [disabled]="!termsDirty || isSavingTerms"
+                (onClick)="saveTerms()" data-testid="save-terms"></p-button>
+    </div>
+  </section>
+</ng-container>

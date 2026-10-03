@@ -6,7 +6,7 @@
       <h1 class="page-title"><i class="pi pi-credit-card"></i> Payments</h1>
       <p class="page-subtitle">Multi-invoice supplier payments — allocate, approve, and post to the ledger</p>
     </div>
-    <p-button label="Record Payment" icon="pi pi-plus" severity="warn"
+    <p-button *ngIf="canRecordPayment" label="Record Payment" icon="pi pi-plus" severity="warn"
               routerLink="/portal/pages/finance/payments/create"></p-button>
   </div>
 

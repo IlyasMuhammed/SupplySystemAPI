@@ -106,6 +106,19 @@ public class SalesInvoicesController : ControllerBase
     }
 
     /// <summary>
+    /// SAP alignment (S-7) — cancels an issued, unpaid invoice by posting the opposite entries: a credit on
+    /// the customer's ledger and the goods back on the product ledger, then voids it in QuickBooks. The
+    /// delivery can be invoiced again. A draft is deleted instead; a paid or part-paid invoice is refused (409).
+    /// </summary>
+    [HttpPost("{uuid:guid}/cancel")]
+    [RequirePermission(PermissionCodes.SALES_INVOICE_MANAGE)]
+    public async Task<IActionResult> Cancel(Guid uuid, [FromBody] CancelSalesInvoiceRequest? req)
+    {
+        var detail = await _svc.CancelAsync(uuid, req?.Reason, User.GetUserId());
+        return Ok(ApiResponse<SalesInvoiceDetailModel>.Ok(detail, $"Sales invoice {detail.InvoiceNumber} cancelled."));
+    }
+
+    /// <summary>
     /// Files the invoice's PDF as it stands now as an attachment on the invoice — after a payment, say,
     /// or for an invoice issued before filing existed. Refused for a draft. Each filing is kept.
     /// </summary>

@@ -20,6 +20,7 @@
           <i class="pi pi-file"></i>
           <span class="font-mono">{{ inv.invoiceNumber }}</span>
           <p-tag [value]="formatStatus(inv.status)" [severity]="getStatusSeverity(inv.status)"></p-tag>
+          <app-qbo-sync-badge kind="SalesInvoice" [externalId]="inv.uuid" label="QuickBooks"></app-qbo-sync-badge>
         </h1>
         <p class="page-subtitle">
           <a *ngIf="canViewLedger; else plainCustomer" [routerLink]="['/portal/pages/finance/customer-ledger', inv.partnerId]"
@@ -46,8 +47,23 @@
                   [queryParams]="{ partnerId: inv.partnerId, invoiceUuid: inv.uuid }"
                   data-testid="action-record-payment"></p-button>
 
+        <p-button *ngIf="canCancel" label="Cancel invoice" icon="pi pi-ban" severity="danger" [outlined]="true"
+                  pTooltip="Reverse this invoice: the customer is credited and the goods go back on the ledger"
+                  (onClick)="openCancelDialog()" data-testid="action-cancel"></p-button>
+
         <p-button *ngIf="canIssue" label="Issue invoice" icon="pi pi-send"
                   (onClick)="openIssueDialog()" data-testid="action-issue"></p-button>
+      </div>
+    </div>
+
+    <div class="cancelled-banner" *ngIf="isCancelled" data-testid="cancelled-banner">
+      <i class="pi pi-ban"></i>
+      <div>
+        <strong>This invoice was cancelled</strong>
+        <ng-container *ngIf="inv.cancelledAt"> on {{ inv.cancelledAt | date:'dd MMM yyyy, HH:mm' }}</ng-container>
+        <ng-container *ngIf="inv.cancelledBy != null"> by user #{{ inv.cancelledBy }}</ng-container>.
+        Its receivable was credited back on the customer's ledger and the goods returned to the product ledger.
+        <div *ngIf="inv.cancellationReason" class="cancel-reason" data-testid="cancellation-reason">Reason: {{ inv.cancellationReason }}</div>
       </div>
     </div>
 
@@ -87,6 +103,17 @@
           <dt>Paid</dt><dd data-testid="amount-paid">{{ inv.amountPaid | number:'1.2-2' }}</dd>
           <dt>Balance due</dt>
           <dd class="font-semibold" [class.balance-owing]="inv.balanceDue > 0" data-testid="balance-due">{{ inv.balanceDue | number:'1.2-2' }}</dd>
+          <ng-container *ngIf="showBaseTotal">
+            <dt>In {{ inv.baseCurrencyCode }}</dt>
+            <dd data-testid="base-total">
+              {{ inv.baseGrandTotal | number:'1.2-2' }}
+              <span class="cur">at {{ inv.exchangeRate | number:'1.0-8' }}, fixed when issued</span>
+            </dd>
+          </ng-container>
+          <ng-container *ngIf="missingRate">
+            <dt>In {{ inv.baseCurrencyCode }}</dt>
+            <dd class="cur" data-testid="missing-rate">No {{ inv.currencyCode }} → {{ inv.baseCurrencyCode }} rate was on file when it was issued.</dd>
+          </ng-container>
         </dl>
       </div>
     </div>
@@ -102,7 +129,7 @@
               <th class="text-right">Qty</th>
               <th class="text-right">Unit price</th>
               <th class="text-right">Disc %</th>
-              <th class="text-right">Tax %</th>
+              <th class="text-right">Tax</th>
               <th class="text-right">Total</th>
             </tr>
           </ng-template>
@@ -113,7 +140,7 @@
               <td class="text-right">{{ l.quantity | number:'1.0-4' }}</td>
               <td class="text-right">{{ l.unitPrice | number:'1.2-2' }}</td>
               <td class="text-right">{{ l.discountPercent | number:'1.0-2' }}</td>
-              <td class="text-right">{{ l.taxPercent | number:'1.0-2' }}</td>
+              <td class="text-right" data-testid="line-tax">{{ taxLabel(l) }}</td>
               <td class="text-right">{{ l.lineTotal | number:'1.2-2' }}</td>
             </tr>
           </ng-template>
@@ -207,6 +234,29 @@
       <p-button label="Back" [text]="true" severity="secondary" (onClick)="issueVisible = false"></p-button>
       <p-button label="Issue invoice" icon="pi pi-send" [disabled]="isIssuing" [loading]="isIssuing"
                 (onClick)="issue()" data-testid="confirm-issue"></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <!-- ── Cancel (reverse) an issued invoice ────────────────────────────────────── -->
+  <p-dialog header="Cancel this invoice" [(visible)]="cancelVisible" [modal]="true"
+            [style]="{width:'34rem'}" [draggable]="false" data-testid="cancel-dialog">
+    <p class="dialog-hint" *ngIf="invoice as inv" data-testid="cancel-consequences">
+      {{ inv.grandTotal | number:'1.2-2' }} {{ inv.currencyCode }} is credited back on {{ inv.partnerName }}'s ledger,
+      the goods go back on the product ledger at the cost they went out at, and QuickBooks voids its copy.
+      The invoice stays on file as cancelled and its delivery can be invoiced again. This cannot be undone.
+    </p>
+
+    <div class="dialog-row">
+      <label class="dialog-label" for="cancel-reason">Reason <span class="required">*</span></label>
+      <textarea pTextarea id="cancel-reason" [(ngModel)]="cancelReason" rows="3" [maxlength]="maxCancelReason" class="w-full"
+                placeholder="Why the invoice is being cancelled — kept on the invoice and on the customer's ledger."
+                data-testid="cancel-reason"></textarea>
+    </div>
+
+    <ng-template pTemplate="footer">
+      <p-button label="Keep the invoice" [text]="true" severity="secondary" (onClick)="cancelVisible = false"></p-button>
+      <p-button label="Cancel invoice" icon="pi pi-ban" severity="danger" [disabled]="!canConfirmCancel" [loading]="isCancelling"
+                (onClick)="cancelInvoice()" data-testid="confirm-cancel"></p-button>
     </ng-template>
   </p-dialog>
 

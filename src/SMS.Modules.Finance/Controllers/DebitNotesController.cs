@@ -17,7 +17,12 @@ public class DebitNotesController : ControllerBase
 
     public DebitNotesController(IDebitNoteService service) => _service = service;
 
+    // As CreditNotesController: a debit note cuts what is owed on a supplier invoice — INVOICE_PROCESS to change
+    // one, INVOICE_VIEW to read one — and raising one also admits GOODS_RECEIVE and WAREHOUSE_TRANSFER, because
+    // the SRO detail page (guarded by exactly those) resolves a supplier return with it.
+
     [HttpPost]
+    [RequirePermission(PermissionCodes.INVOICE_PROCESS, PermissionCodes.GOODS_RECEIVE, PermissionCodes.WAREHOUSE_TRANSFER)]
     public async Task<IActionResult> CreateDebitNote([FromBody] CreateDebitNoteRequest req)
     {
         if (string.IsNullOrWhiteSpace(req.DebitReason))
@@ -30,6 +35,7 @@ public class DebitNotesController : ControllerBase
     }
 
     [HttpGet]
+    [RequirePermission(PermissionCodes.INVOICE_VIEW)]
     public async Task<IActionResult> GetDebitNotes([FromQuery] DebitNoteListFilter filter)
     {
         var result = await _service.GetListAsync(filter);
@@ -37,6 +43,7 @@ public class DebitNotesController : ControllerBase
     }
 
     [HttpGet("{uuid:guid}")]
+    [RequirePermission(PermissionCodes.INVOICE_VIEW)]
     public async Task<IActionResult> GetDebitNoteById(Guid uuid)
     {
         var detail = await _service.GetByIdAsync(uuid);
@@ -46,6 +53,7 @@ public class DebitNotesController : ControllerBase
     }
 
     [HttpPatch("{uuid:guid}/status")]
+    [RequirePermission(PermissionCodes.INVOICE_PROCESS)]
     public async Task<IActionResult> UpdateStatus(Guid uuid, [FromBody] UpdateDebitNoteStatusRequest req)
     {
         if (string.IsNullOrWhiteSpace(req.NewStatus))
@@ -56,6 +64,7 @@ public class DebitNotesController : ControllerBase
     }
 
     [HttpPost("{uuid:guid}/apply")]
+    [RequirePermission(PermissionCodes.INVOICE_PROCESS)]
     public async Task<IActionResult> ApplyCarriedForward(Guid uuid, [FromBody] ApplyDebitNoteRequest req)
     {
         await _service.ApplyCarriedForwardAsync(uuid, req, User.GetUserId());

@@ -62,6 +62,7 @@ public class ReceivablesHttpTests : IAsyncLifetime
         _invoices.Setup(s => s.ListAsync(It.IsAny<SalesInvoiceFilter>())).ReturnsAsync(new PaginatedResponse<SalesInvoiceListItemModel>());
         _invoices.Setup(s => s.CreateFromFulfillmentAsync(It.IsAny<Guid>(), It.IsAny<int>())).ReturnsAsync(new SalesInvoiceCreated(Id, "SINV-20260920-0001", 100m, "PKR", false));
         _invoices.Setup(s => s.IssueAsync(It.IsAny<Guid>(), It.IsAny<int>())).ReturnsAsync(new SalesInvoiceIssued(Id, "SINV-20260920-0001", "ISSUED", 100m, 100m));
+        _invoices.Setup(s => s.CancelAsync(It.IsAny<Guid>(), It.IsAny<string?>(), It.IsAny<int>())).ReturnsAsync(new SalesInvoiceDetailModel { Uuid = Id, InvoiceNumber = "SINV-20260920-0001", Status = "CANCELLED" });
         _archive.Setup(a => a.TryFileIssuedPdfAsync(It.IsAny<Guid>(), It.IsAny<int>())).ReturnsAsync((Guid?)Id);
         _archive.Setup(a => a.FilePdfAsync(It.IsAny<Guid>(), It.IsAny<int>())).ReturnsAsync(new StoredAttachment(Id, false));
         _documents.Setup(d => d.GeneratePdfAsync(It.IsAny<Guid>())).ReturnsAsync(new SalesInvoicePdf("SINV-20260920-0001.pdf", "%PDF-1.7 test"u8.ToArray()));
@@ -191,6 +192,7 @@ public class ReceivablesHttpTests : IAsyncLifetime
             (HttpMethod.Delete, $"/api/sales-invoices/{id}",                 PermissionCodes.SALES_INVOICE_MANAGE),
             (HttpMethod.Post,   $"/api/sales-invoices/{id}/issue",           PermissionCodes.SALES_INVOICE_MANAGE),
             (HttpMethod.Post,   $"/api/sales-invoices/{id}/attach-pdf",      PermissionCodes.SALES_INVOICE_MANAGE),
+            (HttpMethod.Post,   $"/api/sales-invoices/{id}/cancel",          PermissionCodes.SALES_INVOICE_MANAGE),
             (HttpMethod.Get,    $"/api/sales-invoices/{id}/pdf",             PermissionCodes.SALES_INVOICE_VIEW),
             (HttpMethod.Post,   "/api/customer-payments",                    PermissionCodes.CUSTOMER_PAYMENT_RECORD),
             (HttpMethod.Get,    "/api/customer-payments",                    PermissionCodes.CUSTOMER_PAYMENT_VIEW),
@@ -370,6 +372,27 @@ public class ReceivablesHttpTests : IAsyncLifetime
 
         (await Send(HttpMethod.Put, $"/api/sales-invoices/{Id}", """{ "dueDate": "2026-10-30", "notes": "Net 45" }""")).StatusCode.Should().Be(HttpStatusCode.OK);
         (update!.DueDate, update.Notes).Should().Be((new DateTime(2026, 10, 30), "Net 45"));
+    }
+
+    [Fact]
+    public async Task Cancelling_an_invoice_binds_the_reason_and_answers_with_the_cancelled_invoice()
+    {
+        var response = await Send(HttpMethod.Post, $"/api/sales-invoices/{Id}/cancel", """{ "reason": "Billed in error" }""");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        _invoices.Verify(s => s.CancelAsync(Id, "Billed in error", 42), Times.Once);
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        json.RootElement.GetProperty("result").GetProperty("status").GetString().Should().Be("CANCELLED");
+        json.RootElement.GetProperty("message").GetString().Should().Be("Sales invoice SINV-20260920-0001 cancelled.");
+    }
+
+    [Fact]
+    public async Task Cancelling_with_no_body_reaches_the_service_to_be_refused_there()
+    {
+        var response = await _client.SendAsync(Request(HttpMethod.Post, $"/api/sales-invoices/{Id}/cancel", "42", AllReceivablesPermissions));
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK, "the mocked service accepts it; the real one answers 400");
+        _invoices.Verify(s => s.CancelAsync(Id, null, 42), Times.Once);
     }
 
     // ── The allocate endpoint's three ways of saying "FIFO" or "exactly this" ─

@@ -1,0 +1,28 @@
+.form-page { padding: 1.5rem; max-width: 60rem; }
+.page-header { display: flex; align-items: flex-start; gap: .5rem; margin-bottom: 1.25rem; }
+.page-title { font-size: 1.5rem; font-weight: 700; display: flex; align-items: center; gap: .625rem; margin: 0; flex-wrap: wrap; }
+.page-subtitle { color: var(--text-color-secondary); font-size: .875rem; margin: .25rem 0 0; }
+
+.state-card {
+  text-align: center; padding: 3.5rem 1rem; color: var(--text-color-secondary);
+  background: var(--surface-0); border: 1px solid var(--surface-200); border-radius: .625rem;
+}
+.state-card i { font-size: 2rem; display: block; margin-bottom: .625rem; opacity: .6; }
+.state-card h2 { font-size: 1.125rem; font-weight: 600; margin: 0 0 .25rem; color: var(--text-color); }
+
+.form-card { background: var(--surface-0); border: 1px solid var(--surface-200); border-radius: .625rem; padding: 1.25rem; margin-bottom: 1rem; }
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem 1.25rem; }
+.field { display: flex; flex-direction: column; gap: .375rem; min-width: 0; }
+.field.full { grid-column: 1 / -1; }
+.field label { font-size: .8125rem; font-weight: 600; }
+.required { color: var(--red-500, #ef4444); }
+.hint { color: var(--text-color-secondary); font-size: .75rem; }
+.p-error { color: var(--red-500, #ef4444); font-size: .8125rem; }
+.block { display: block; margin-bottom: .75rem; }
+.w-full { width: 100%; }
+.form-actions { display: flex; justify-content: flex-end; gap: .625rem; }
+
+@media (max-width: 640px) {
+  .form-page { padding: 1rem; }
+  .grid { grid-template-columns: 1fr; }
+}

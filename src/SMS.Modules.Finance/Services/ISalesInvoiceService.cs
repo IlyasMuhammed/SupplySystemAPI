@@ -66,6 +66,18 @@ public interface ISalesInvoiceService
     /// reused. An issued invoice has a receivable booked against it and cannot be deleted.
     /// </summary>
     Task DeleteAsync(Guid invoiceUuid, int userId);
+
+    /// <summary>
+    /// SAP alignment (S-7) — reverse, don't edit. Cancels an ISSUED or OVERDUE invoice that nothing has
+    /// been paid against: in one save the invoice becomes CANCELLED with nothing owing, the customer's
+    /// ledger is credited the grand total (CREDIT_NOTE), and every SALE the issue booked on the product
+    /// ledger is taken back in (RETURN_IN) at the cost it went out at. Then, best-effort: the order's
+    /// invoiced quantities come down, the order's timeline says so, and QuickBooks is told to void it.
+    /// The delivery can be invoiced again afterwards. Refused for a draft (delete it), an invoice already
+    /// cancelled, and one with any payment applied.
+    /// </summary>
+    /// <returns>The invoice as it stands after the cancellation.</returns>
+    Task<SalesInvoiceDetailModel> CancelAsync(Guid invoiceUuid, string? reason, int userId);
 }
 
 /// <summary>

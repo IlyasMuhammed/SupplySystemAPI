@@ -20,6 +20,8 @@
           <i class="pi pi-shopping-bag"></i>
           <span class="font-mono">{{ o.soNumber }}</span>
           <p-tag [value]="formatStatus(o.status)" [severity]="getStatusSeverity(o.status)"></p-tag>
+          <p-tag [value]="sourceLabel(sourceType)" [severity]="sourceSeverity(sourceType)" [rounded]="true"
+                 pTooltip="How the order was made" data-testid="source-badge"></p-tag>
         </h1>
         <p class="page-subtitle">
           <span *ngIf="partnerName" data-testid="partner-name">{{ partnerName }}</span>
@@ -47,6 +49,19 @@
           <i class="pi pi-info-circle"></i> Not ready to deliver
         </span>
       </div>
+    </div>
+
+    <!-- A32 BR-C3-05: the same customer PO on another order is allowed, but worth a look. -->
+    <div class="po-warning" *ngIf="poDuplicates.length" role="status" data-testid="po-duplicate-warning">
+      <i class="pi pi-exclamation-triangle"></i>
+      <span>
+        Customer PO <strong>{{ o.customerPoReference }}</strong> is also on
+        <ng-container *ngFor="let d of poDuplicates; let last = last">
+          <a class="source-link font-mono" [routerLink]="['/portal/pages/sales/orders', d.uuid]">{{ d.soNumber }}</a>
+          ({{ formatStatus(d.status) }}){{ last ? '.' : ', ' }}
+        </ng-container>
+        That is allowed — check it is not the same order entered twice.
+      </span>
     </div>
 
     <div class="detail-grid">
@@ -81,6 +96,52 @@
         </p>
         <p class="muted" *ngIf="!deliveries.length && !isLoadingDeliveries && canViewDeliveries">No delivery raised yet.</p>
       </div>
+
+      <!-- ── A32 PD-06: where the order came from, and the customer's own PO ────── -->
+      <div class="card" data-testid="customer-po">
+        <div class="card-title-row">
+          <h3>Source &amp; customer PO</h3>
+          <p-button *ngIf="canEditCustomerPo" label="Edit" icon="pi pi-pencil" [text]="true" size="small"
+                    severity="secondary" (onClick)="openCustomerPoDialog()" data-testid="edit-customer-po"></p-button>
+        </div>
+        <dl>
+          <dt>Source</dt><dd>{{ sourceLabel(sourceType) }}</dd>
+          <ng-container *ngIf="o.sourceQuotation as q">
+            <dt>Quotation</dt>
+            <dd data-testid="source-quotation">
+              <a *ngIf="canViewQuotations; else plainQuotation" class="source-link font-mono"
+                 [routerLink]="['/portal/pages/sales/quotations', q.uuid]" data-testid="source-quotation-link">{{ q.number }}</a>
+              <ng-template #plainQuotation><span class="font-mono">{{ q.number }}</span></ng-template>
+            </dd>
+          </ng-container>
+          <ng-container *ngIf="o.sourceInquiry as i">
+            <dt>Inquiry</dt>
+            <dd data-testid="source-inquiry">
+              <a *ngIf="canViewInquiries; else plainInquiry" class="source-link font-mono"
+                 [routerLink]="['/portal/pages/sales/inquiries', i.uuid]" data-testid="source-inquiry-link">{{ i.number }}</a>
+              <ng-template #plainInquiry><span class="font-mono">{{ i.number }}</span></ng-template>
+            </dd>
+          </ng-container>
+          <dt>PO reference</dt>
+          <dd class="font-mono" data-testid="po-reference">{{ o.customerPoReference || '—' }}</dd>
+          <dt>PO date</dt>
+          <dd data-testid="po-date">{{ o.customerPoDate ? (dateOnly(o.customerPoDate) | date:'dd MMM yyyy') : '—' }}</dd>
+          <dt>PO document</dt>
+          <dd data-testid="po-document">
+            <ng-container *ngIf="o.customerPoAttachmentUuid; else noPoFile">
+              <ng-container *ngIf="linkedPoFile as f; else poFilePending">
+                <a *ngIf="poFileHref(f) as href; else poFileName" class="source-link" [href]="href" target="_blank"
+                   rel="noopener" data-testid="po-document-link"><i class="pi pi-paperclip"></i> {{ f.fileName }}</a>
+                <ng-template #poFileName><i class="pi pi-paperclip"></i> {{ f.fileName }}</ng-template>
+              </ng-container>
+              <ng-template #poFilePending><span class="muted">Linked file</span></ng-template>
+            </ng-container>
+            <ng-template #noPoFile>—</ng-template>
+          </dd>
+        </dl>
+        <app-attachment-list [interfaceCode]="customerPoInterface" [documentId]="o.uuid" [compact]="true"
+                             label="Customer PO files"></app-attachment-list>
+      </div>
     </div>
 
     <p-tabView styleClass="order-tabs" [(activeIndex)]="activeTab" (onChange)="onTabChange($event)">
@@ -88,20 +149,23 @@
       <!-- ── Lines ─────────────────────────────────────────────────────────────── -->
       <p-tabPanel header="Lines" leftIcon="pi pi-list">
         <div class="table-card flush">
-          <p-table [value]="o.lines" [tableStyle]="{'min-width':'68rem'}" data-testid="lines-table">
+          <p-table [value]="o.lines" [tableStyle]="{'min-width':'82rem'}" data-testid="lines-table">
             <ng-template pTemplate="header">
               <tr>
                 <th>Item</th>
                 <th>UoM</th>
                 <th class="text-right">Ordered</th>
+                <th class="text-right" pTooltip="Stock this order holds for the line right now">Reserved</th>
                 <th class="text-right">Unit price</th>
                 <th class="text-right">Disc %</th>
-                <th class="text-right">Tax %</th>
+                <th class="text-right">Tax</th>
                 <th class="text-right">Total</th>
                 <th class="text-right">Delivered</th>
                 <th class="text-right">Outstanding</th>
                 <th>Mode</th>
                 <th>Status</th>
+                <th class="text-center" pTooltip="Delivery indicator — hover a dot for what it means">Ind</th>
+                <th class="text-center">Actions</th>
               </tr>
             </ng-template>
             <ng-template pTemplate="body" let-line>
@@ -112,20 +176,64 @@
                 </td>
                 <td>{{ line.unitOfMeasure || '—' }}</td>
                 <td class="text-right">{{ line.quantity | number:'1.0-3' }}</td>
+                <td class="text-right" data-testid="line-reserved">{{ (line.reservedQty ?? 0) | number:'1.0-3' }}</td>
                 <td class="text-right">{{ line.unitPrice | number:'1.2-2' }}</td>
                 <td class="text-right">{{ line.discountPercent | number:'1.0-2' }}</td>
-                <td class="text-right">{{ line.taxPercent | number:'1.0-2' }}</td>
+                <td class="text-right" data-testid="line-tax">
+                  <ng-container *ngIf="line.taxCode; else plainTax">
+                    <span class="tax-code">{{ line.taxCode }}</span> · {{ line.taxPercent | number:'1.0-2' }}%
+                  </ng-container>
+                  <ng-template #plainTax>{{ line.taxPercent | number:'1.0-2' }}%</ng-template>
+                </td>
                 <td class="text-right">{{ line.lineTotal | number:'1.2-2' }}</td>
                 <td class="text-right">{{ line.fulfilledQty | number:'1.0-3' }}</td>
                 <td class="text-right">{{ outstanding(line) | number:'1.0-3' }}</td>
                 <td>{{ formatStatus(line.fulfillmentMode) || '—' }}</td>
                 <td><p-tag [value]="formatStatus(line.status)" severity="secondary"></p-tag></td>
+                <td class="text-center">
+                  <span *ngIf="line.deliveryIndicator as ind; else noIndicator" class="ind-dot"
+                        [ngClass]="'ind-' + ind.toLowerCase()" [pTooltip]="indicatorTooltip(line)" tooltipPosition="left"
+                        [attr.data-indicator]="ind" [attr.aria-label]="indicatorTooltip(line)" role="img"
+                        data-testid="line-indicator"></span>
+                  <ng-template #noIndicator>—</ng-template>
+                </td>
+                <td class="text-center line-actions">
+                  <!-- BR-C4-08: without the code a button is disabled, never hidden; the wrapper carries the tooltip,
+                       which a disabled button cannot show. -->
+                  <span *ngIf="canReserveLine(line)" [pTooltip]="reserveTooltip(line)" tooltipPosition="left"
+                        data-testid="reserve-wrap">
+                    <p-button label="Reserve" icon="pi pi-lock" size="small" [outlined]="true"
+                              [disabled]="!mayReserve || !!busyLineUuid || isReservingAll"
+                              [loading]="busyLineUuid === line.uuid" (onClick)="reserveLine(line)"
+                              data-testid="reserve-line"></p-button>
+                  </span>
+                  <span *ngIf="canReleaseLine(line)" [pTooltip]="releaseTooltip(line)" tooltipPosition="left"
+                        data-testid="release-wrap">
+                    <p-button label="Release" icon="pi pi-lock-open" size="small" [outlined]="true" severity="secondary"
+                              [disabled]="!mayRelease || !!busyLineUuid || isReservingAll"
+                              (onClick)="releaseLine(line)" data-testid="release-line"></p-button>
+                  </span>
+                  <span *ngIf="!canReserveLine(line) && !canReleaseLine(line)" class="muted">—</span>
+                </td>
               </tr>
             </ng-template>
             <ng-template pTemplate="emptymessage">
-              <tr><td colspan="11" class="text-center text-secondary" style="padding:2rem">No lines.</td></tr>
+              <tr><td colspan="14" class="text-center text-secondary" style="padding:2rem">No lines.</td></tr>
             </ng-template>
           </p-table>
+        </div>
+
+        <div class="reserve-bar" *ngIf="isReservableOrder">
+          <span [pTooltip]="reserveAllTooltip" tooltipPosition="top" data-testid="reserve-all-wrap">
+            <p-button label="Reserve all open lines" icon="pi pi-lock" [outlined]="true" size="small"
+                      [disabled]="!canPressReserveAll" [loading]="isReservingAll" (onClick)="reserveAllLines()"
+                      data-testid="reserve-all"></p-button>
+          </span>
+          <p class="muted" *ngIf="lacksReservationPermission" data-testid="reserve-permission-note">
+            <i class="pi pi-info-circle"></i>
+            Reserving needs the "Reserve Stock for Sale Orders" permission and releasing needs "Release Sale Order
+            Reservations". Contact your administrator if a button is disabled.
+          </p>
         </div>
       </p-tabPanel>
 
@@ -403,6 +511,10 @@
     <p class="dialog-hint">
       Its reservations are released and its draft purchase orders are cancelled. This cannot be undone.
     </p>
+    <p class="dialog-hint" data-testid="cancel-invoices-hint">
+      An order that has been invoiced cannot be cancelled while any of its invoices still stands: cancel the
+      issued invoices (and delete any draft) under Sales Invoices first.
+    </p>
 
     <div class="dialog-row">
       <label class="dialog-label" for="cancel-reason">Reason</label>
@@ -464,6 +576,74 @@
       <p-button label="Back" [text]="true" severity="secondary" (onClick)="createDialogVisible = false"></p-button>
       <p-button label="Create delivery" icon="pi pi-check" [disabled]="!canSubmitDelivery"
                 (onClick)="submitDelivery()" data-testid="create-delivery-confirm"></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <!-- ── A32 PD-06: customer PO ───────────────────────────────────────────────── -->
+
+  <p-dialog header="Customer PO" [(visible)]="poDialogVisible" [modal]="true"
+            [style]="{width:'36rem'}" [draggable]="false" data-testid="po-dialog">
+    <p class="dialog-hint">
+      The customer's own purchase order for this sale. The same reference on another order is allowed.
+    </p>
+
+    <div class="dialog-row">
+      <label class="dialog-label" for="po-reference">PO reference</label>
+      <input pInputText id="po-reference" [(ngModel)]="poReference" [maxlength]="customerPoMaxLength" class="w-full"
+             placeholder="e.g. GT-PO-2026-4521" (blur)="checkDialogPoReference()" data-testid="po-dialog-reference" />
+    </div>
+
+    <p class="dialog-warning" *ngIf="dialogPoDuplicates.length" data-testid="po-dialog-duplicate">
+      <i class="pi pi-exclamation-triangle"></i>
+      Already on
+      <ng-container *ngFor="let d of dialogPoDuplicates; let last = last">
+        <span class="font-mono">{{ d.soNumber }}</span>{{ last ? '.' : ', ' }}
+      </ng-container>
+      You can still save it.
+    </p>
+
+    <div class="dialog-row">
+      <label class="dialog-label" for="po-date">PO date</label>
+      <p-calendar inputId="po-date" [(ngModel)]="poDate" dateFormat="dd/mm/yy" [showIcon]="true" [showClear]="true"
+                  styleClass="w-full" appendTo="body" data-testid="po-dialog-date"></p-calendar>
+    </div>
+
+    <div class="dialog-row">
+      <label class="dialog-label" for="po-file">PO document</label>
+      <p-dropdown inputId="po-file" [options]="poFileOptions" [(ngModel)]="poAttachmentUuid" optionLabel="label"
+                  optionValue="value" [showClear]="true" placeholder="No file linked" (onShow)="loadCustomerPoFiles()"
+                  styleClass="w-full" appendTo="body" data-testid="po-dialog-file"></p-dropdown>
+      <small class="muted">Upload the file under "Customer PO files" on the order first; it is then offered here.</small>
+    </div>
+
+    <ng-template pTemplate="footer">
+      <p-button label="Back" [text]="true" severity="secondary" (onClick)="poDialogVisible = false"></p-button>
+      <p-button label="Save" icon="pi pi-check" [disabled]="isSavingPo" [loading]="isSavingPo"
+                (onClick)="saveCustomerPo()" data-testid="save-customer-po"></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <!-- ── A32 PE-09: partial reservation ──────────────────────────────────────── -->
+
+  <p-dialog header="Reserve part of this line?" [(visible)]="partialDialogVisible" [modal]="true"
+            [style]="{width:'34rem'}" [draggable]="false" (onHide)="cancelPartial()" data-testid="partial-dialog">
+    <ng-container *ngIf="partial as p">
+      <div class="dialog-row" data-testid="partial-variant">
+        <span class="dialog-label">Item</span>
+        <span>{{ describe(p.line) }} <span class="line-sub font-mono" *ngIf="p.line.variantSku">{{ p.line.variantSku }}</span></span>
+      </div>
+      <div class="dialog-row" data-testid="partial-warehouse">
+        <span class="dialog-label">Warehouse</span>
+        <span>{{ p.result.warehouseName || 'The warehouse with the most free stock' }}</span>
+      </div>
+      <p class="partial-message" data-testid="partial-message">{{ partialMessage(p) }}</p>
+      <p class="dialog-hint">The rest stays open, and can be reserved later when more stock is free.</p>
+    </ng-container>
+
+    <ng-template pTemplate="footer">
+      <p-button label="Cancel" [text]="true" severity="secondary" (onClick)="cancelPartial()" data-testid="cancel-partial"></p-button>
+      <p-button [label]="'Reserve ' + ((partial?.result?.availableQty ?? 0) | number:'1.0-4')" icon="pi pi-lock"
+                (onClick)="confirmPartial()" data-testid="confirm-partial"></p-button>
     </ng-template>
   </p-dialog>
 </div>

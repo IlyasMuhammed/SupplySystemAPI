@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using SMS.Modules.Tenancy.Data;
 using SMS.Modules.Tenancy.Models;
 using SMS.Modules.Tenancy.Repositories;
@@ -12,12 +14,28 @@ internal sealed class TenancyService : ITenancyService
     private readonly ITenancyRepository _repo;
     private readonly IOrgUserProvisioningService _orgUserProvisioning;
     private readonly ITenantSnapshotProvider _snapshots;
+    private readonly ICurrencyCodeLookup? _currencies;
+    private readonly IReadOnlyList<IOrganizationProvisionedHandler> _provisioned;
+    private readonly ILogger<TenancyService> _log;
 
-    public TenancyService(ITenancyRepository repo, IOrgUserProvisioningService orgUserProvisioning, ITenantSnapshotProvider snapshots)
+    /// <param name="currencies">
+    /// Lookups' currency catalog, to check a base currency exists. Optional: a host (or a test) without the
+    /// Lookups module still works, it just cannot check.
+    /// </param>
+    /// <param name="provisioned">
+    /// A32 — what other modules set up for a new organization (Demand's rejection reasons), called after it is committed.
+    /// </param>
+    public TenancyService(
+        ITenancyRepository repo, IOrgUserProvisioningService orgUserProvisioning, ITenantSnapshotProvider snapshots,
+        ICurrencyCodeLookup? currencies = null, IEnumerable<IOrganizationProvisionedHandler>? provisioned = null,
+        ILogger<TenancyService>? log = null)
     {
         _repo = repo;
         _orgUserProvisioning = orgUserProvisioning;
         _snapshots = snapshots;
+        _currencies = currencies;
+        _provisioned = provisioned?.ToList() ?? [];
+        _log = log ?? NullLogger<TenancyService>.Instance;
     }
 
     // ── Organizations ────────────────────────────────────────────────────────
@@ -40,15 +58,63 @@ internal sealed class TenancyService : ITenancyService
             throw new BadRequestException("The initial admin's first name and email are required.");
         if (await _repo.OrgCodeExistsAsync(req.OrgCode))
             throw new BadRequestException($"Organization code '{req.OrgCode}' is already in use.");
+        if (req.BaseCurrency is { } baseCurrency)
+            await EnsureCurrencyUsableAsync(baseCurrency);
 
-        return await _repo.CreateOrganizationWithAdminAsync(req, createdBy);
+        var result = await _repo.CreateOrganizationWithAdminAsync(req, createdBy);
+
+        // A32 — after the commit, so a module's setup can never roll the organization back. A handler that fails is
+        // logged and skipped: each module also backfills every organization at startup, which repairs a missed call.
+        foreach (var handler in _provisioned)
+        {
+            try
+            {
+                await handler.OnOrganizationProvisionedAsync(result.OrganizationId);
+            }
+            catch (Exception ex)
+            {
+                _log.LogError(ex,
+                    "Setting up organization {OrganizationId} in {Handler} failed; the next API start's backfill will retry it.",
+                    result.OrganizationId, handler.GetType().Name);
+            }
+        }
+
+        return result;
     }
 
     public async Task<bool> UpdateOrganizationAsync(Guid id, UpdateOrganizationRequest req, int modifiedBy)
     {
         if (string.IsNullOrWhiteSpace(req.OrgName))
             throw new BadRequestException("Organization name is required.");
+        if (req.ClearBaseCurrency && req.BaseCurrency is not null)
+            throw new BadRequestException("Either choose a base currency or clear it, not both.");
+        if (req.BaseCurrency is { } baseCurrency)
+        {
+            // Sending back the base currency the organization already has is not choosing one: an edit form
+            // that always sends its picker's value must not be refused because that currency has since left
+            // the catalog or lost its code — that would block every profile edit of the organization.
+            var current = await _repo.GetOrganizationByIdAsync(id);
+            if (current is not null && current.BaseCurrency != baseCurrency)
+                await EnsureCurrencyUsableAsync(baseCurrency);
+        }
+
         return await _repo.UpdateOrganizationAsync(id, req, modifiedBy);
+    }
+
+    /// <summary>
+    /// A base currency must be a currency in the Lookups catalog with a code: Finance snapshots the code on
+    /// every final document (sales invoice at issue, supplier invoice at approval) and converts into it.
+    /// </summary>
+    private async Task EnsureCurrencyUsableAsync(Guid currencyId)
+    {
+        if (currencyId == Guid.Empty)
+            throw new BadRequestException("Choose a base currency from the currency list.");
+        if (_currencies is null) return;
+
+        var code = await _currencies.GetCodeAsync(currencyId);
+        if (string.IsNullOrWhiteSpace(code))
+            throw new BadRequestException(
+                "That base currency is not in the currency list, or has no code. Choose another, or give it a code under Currencies first.");
     }
 
     public async Task<bool> PatchStatusAsync(Guid id, bool isActive, int modifiedBy)

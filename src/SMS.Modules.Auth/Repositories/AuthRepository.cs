@@ -46,17 +46,50 @@ internal sealed class AuthRepository : IAuthRepository
         return 1;
     }
 
-    public int SetPasswordVerification(ForgotPasswordModel dto)
+    // ── Password reset code ───────────────────────────────────────────────────
+    //
+    // Each of these loads the one row and sets only its own columns. The code used to be stored with
+    // _db.UserAccounts.Update(new UserAccount { UserID, PasswordResetToken, PasswordResetTokenTime }), which
+    // marks EVERY column modified: on the forgot-password path it threw (FindByEmail had already tracked the
+    // row, so every forgot-password for a real account was a 500), and on any context that had not loaded the
+    // user it would have blanked the account — name, e-mail, password hash, role, organization.
+
+    public void SetPasswordResetCode(int userId, string code, DateTime expiresAt)
     {
-        var account = _db.UserAccounts.FirstOrDefault(u =>
-            u.Email == dto.Email.Trim() && u.IsActive && u.PasswordResetToken == dto.verificationCode);
-        if (account == null) return 0;
-        if (account.PasswordResetTokenTime < DateTime.UtcNow) return -1;
-        account.Password = _hasher.HashPassword(account, dto.Password);
-        account.UpdateDate = DateTime.UtcNow;
-        account.PasswordResetToken = null;
+        var account = _db.UserAccounts.First(u => u.UserID == userId);
+        account.PasswordResetToken = code;
+        account.PasswordResetTokenTime = expiresAt;
         _db.SaveChanges();
-        return 1;
+    }
+
+    public void ClearPasswordResetCode(int userId)
+    {
+        var account = _db.UserAccounts.FirstOrDefault(u => u.UserID == userId);
+        if (account is null || account.PasswordResetToken is null) return;
+        account.PasswordResetToken = null;
+        account.PasswordResetTokenTime = null;
+        _db.SaveChanges();
+    }
+
+    // The code has been checked by the caller. Spends it, sets the new password, lifts any login lockout
+    // (forgetting the password is the usual reason for one), and ends every session: whoever held one
+    // before an account-recovery reset may be the reason for it.
+    public void CompletePasswordReset(int userId, string newPassword)
+    {
+        var account = _db.UserAccounts.First(u => u.UserID == userId);
+        account.Password = _hasher.HashPassword(account, newPassword);
+        account.PasswordResetToken = null;
+        account.PasswordResetTokenTime = null;
+        account.FailedLoginAttempts = 0;
+        account.LastFailedAt = null;
+        account.LockedUntil = null;
+        account.UpdateDate = DateTime.UtcNow;
+
+        var now = DateTime.UtcNow;
+        foreach (var session in _db.UserSessions.Where(s => s.UserID == userId && s.RevokedAt == null).ToList())
+            session.RevokedAt = now;
+
+        _db.SaveChanges();
     }
 
     public int CreateUserAccount(UserAccountModel model)
@@ -84,20 +117,22 @@ internal sealed class AuthRepository : IAuthRepository
         return 1;
     }
 
-    public int UpdateUserAccount(UserAccount userAccount)
-    {
-        _db.UserAccounts.Update(userAccount);
-        _db.SaveChanges();
-        return 1;
-    }
-
+    // dto.UserID is always the signed-in user's own id — AuthController overwrites whatever the body said.
+    // Returns -1 when the account is gone, -2 when the new e-mail already belongs to another account (any
+    // organization, deleted or not: login finds users by e-mail alone and IX_UserAccounts_Email is unique
+    // across the whole table — see EmailExistsAsync), 1 when saved.
     public int UpdatePersonalInformation(UpdatePersonalInfoModel dto)
     {
-        var account = _db.UserAccounts.FirstOrDefault(x => x.UserID == dto.UserID);
+        var account = _db.UserAccounts.FirstOrDefault(x => x.UserID == dto.UserID && !x.IsDelete);
         if (account == null) return -1;
+
+        var email = (dto.Email ?? string.Empty).Trim().ToLowerInvariant();
+        if (_db.UserAccounts.IgnoreQueryFilters().Any(u => u.UserID != account.UserID && u.Email.ToLower() == email))
+            return -2;
+
         account.FirstName = dto.FirstName;
         account.LastName = dto.LastName;
-        account.Email = dto.Email;
+        account.Email = email;
         account.Phone = dto.Phone;
         account.PaymentMethod = dto.PaymentMethodId;
         account.UpdateDate = DateTime.UtcNow;
@@ -117,9 +152,14 @@ internal sealed class AuthRepository : IAuthRepository
         return 1;
     }
 
-    public PaginatedResponse<UserAccountModel> GetAllUsers(int page, int pageSize)
+    // organizationId: the caller's own organization, or null for a super admin (every organization). Applied
+    // explicitly, not left to the tenant filter, which a super admin, a background job and an anonymous
+    // request all bypass.
+    public PaginatedResponse<UserAccountModel> GetAllUsers(int page, int pageSize, Guid? organizationId)
     {
         var query = _db.UserAccounts.Where(x => !x.IsDelete);
+        if (organizationId is { } org)
+            query = query.Where(x => x.OrganizationId == org);
         var total = query.Count();
         var users = query
             .OrderByDescending(x => x.CreatedDate)
@@ -148,12 +188,19 @@ internal sealed class AuthRepository : IAuthRepository
         };
     }
 
+    // The caller (AuthService.DeactivateUserAsync) has already decided the target is theirs to deactivate.
+    // Its sessions end too, so a deactivated user cannot refresh their way past it.
     public int InactiveUser(int userId)
     {
         var user = _db.UserAccounts.FirstOrDefault(x => x.UserID == userId && !x.IsDelete);
         if (user == null) return 0;
         user.IsActive = false;
         user.UpdateDate = DateTime.UtcNow;
+
+        var now = DateTime.UtcNow;
+        foreach (var session in _db.UserSessions.Where(s => s.UserID == userId && s.RevokedAt == null).ToList())
+            session.RevokedAt = now;
+
         _db.SaveChanges();
         return 1;
     }
@@ -173,6 +220,8 @@ internal sealed class AuthRepository : IAuthRepository
                 }).ToList();
     }
 
+    // Merge, never delete: only the listed permissions change. AuthService.SaveRolePermissionsAsync has
+    // already decided the caller may change this role and grant each of these.
     public int SaveRolePermissions(int roleId, List<PermissionModel> permissions)
     {
         var existing = _db.RolePermissions.Where(x => x.RoleID == roleId).ToList();
@@ -186,18 +235,44 @@ internal sealed class AuthRepository : IAuthRepository
         return 1;
     }
 
-    public int SaveUserPermissions(int userId, List<PermissionModel> permissions)
+    // Merge, never delete. organizationId is the TARGET user's: a new override row would otherwise be stamped
+    // with the caller's own organization, which for a super admin working on another organization's user
+    // puts the row in the wrong tenant.
+    public int SaveUserPermissions(int userId, Guid organizationId, List<PermissionModel> permissions)
     {
         var existing = _db.UserPermissions.Where(x => x.UserID == userId).ToList();
         foreach (var perm in permissions)
         {
             var ex = existing.FirstOrDefault(x => x.PermissionID == perm.PermissionID);
             if (ex != null) { ex.IsAllowed = perm.IsAllowed; }
-            else { _db.UserPermissions.Add(new UserPermission { UserID = userId, PermissionID = perm.PermissionID, IsAllowed = perm.IsAllowed }); }
+            else { _db.UserPermissions.Add(new UserPermission { UserID = userId, PermissionID = perm.PermissionID, IsAllowed = perm.IsAllowed, OrganizationId = organizationId }); }
         }
         _db.SaveChanges();
         return 1;
     }
+
+    // ── Facts the administration guards in AuthService decide on ──────────────
+
+    public async Task<Dictionary<int, string>> GetPermissionCodesAsync() =>
+        await _db.Permissions.ToDictionaryAsync(p => p.PermissionID, p => p.Code);
+
+    public async Task<Dictionary<int, bool>> GetUserPermissionOverridesAsync(int userId) =>
+        await _db.UserPermissions.Where(p => p.UserID == userId).ToDictionaryAsync(p => p.PermissionID, p => p.IsAllowed);
+
+    public async Task<Dictionary<int, bool>> GetRolePermissionStatesAsync(int roleId) =>
+        (await _db.RolePermissions.Where(p => p.RoleID == roleId).ToListAsync())
+            .GroupBy(p => p.PermissionID)
+            .ToDictionary(g => g.Key, g => g.Any(p => p.IsAllowed));
+
+    /// <summary>The role, if the caller's tenant can see it at all: global, their own, or anything for a super admin.</summary>
+    public async Task<Role?> FindVisibleRoleAsync(int roleId) =>
+        await _db.Roles.FirstOrDefaultAsync(r => r.RoleID == roleId);
+
+    public async Task<List<string>> GetGrantedPermissionCodesForRoleAsync(int roleId) =>
+        await (from rp in _db.RolePermissions
+               join p in _db.Permissions on rp.PermissionID equals p.PermissionID
+               where rp.RoleID == roleId && rp.IsAllowed
+               select p.Code).Distinct().ToListAsync();
 
     public List<PermissionModel> GetUserPermissions(int userId)
     {
@@ -634,6 +709,11 @@ internal sealed class AuthRepository : IAuthRepository
         // every org regardless of caller (IgnoreQueryFilters) since it's the one physical table's
         // actual primary key, not a per-org sequence.
         var nextId = (await _db.Roles.IgnoreQueryFilters().MaxAsync(r => (int?)r.RoleID) ?? 0) + 1;
+
+        // RolePermissions has no foreign key to Roles, and an id is reused once the highest role is gone (the
+        // live database has had roles deleted by hand). Grants left behind under this id would silently become
+        // the new role's — including platform permissions no organization admin may hand out.
+        _db.RolePermissions.RemoveRange(await _db.RolePermissions.Where(rp => rp.RoleID == nextId).ToListAsync());
         var role = new Role
         {
             RoleID      = nextId,
@@ -695,7 +775,8 @@ internal sealed class AuthRepository : IAuthRepository
     // GuardNotGlobalUnlessSuperAdmin does not block — the ROLE is theirs, only the CODE is
     // dangerous), assign it to one of their org's users, and hand that user edit access to every
     // other organization's shared reference data.
-    private static readonly string[] SuperAdminOnlyPermissionCodes =
+    // Also what AuthService refuses a non-super-admin to hand out through a role assignment or a user override.
+    internal static readonly string[] SuperAdminOnlyPermissionCodes =
         [PermissionCodes.SYSTEM_CONFIGURE, PermissionCodes.PLATFORM_SUPER_ADMIN];
 
     public async Task<bool> ReplaceRolePermissionsAsync(int roleId, List<int> allowedPermissionIds)
@@ -797,7 +878,11 @@ internal sealed class AuthRepository : IAuthRepository
         var c when c.StartsWith("WORKFLOW_")    => "Workflow",
         // Checked before the general SALE_ORDER_ line below so config codes keep their own group.
         var c when c.StartsWith("SALE_ORDER_CONFIG_") => "Sale Order Administration",
+        // A32 — rejection reasons are sales master data, administered beside the sale order settings.
+        var c when c.StartsWith("SALE_REJECTION_REASON_") => "Sale Order Administration",
         var c when c.StartsWith("SALE_ORDER_")  => "Sale Orders",
+        var c when c.StartsWith("SALE_INQUIRY_")   => "Sale Inquiries",
+        var c when c.StartsWith("SALE_QUOTATION_") => "Sale Quotations",
         _                                       => "Other"
     };
 }

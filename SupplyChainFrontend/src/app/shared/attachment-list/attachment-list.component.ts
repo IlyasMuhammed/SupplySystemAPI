@@ -1,4 +1,5 @@
-import { Component, Input, OnChanges, SimpleChanges } from '@angular/core';
+import { Component, DestroyRef, Input, OnChanges, OnInit, SimpleChanges, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
@@ -8,6 +9,21 @@ import { MessageService, ConfirmationService } from 'primeng/api';
 import { ToastModule } from 'primeng/toast';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { AttachmentService, AttachmentModel } from '../../services/attachment.service';
+import { AttachmentAccessRule, AttachmentPolicyService } from '../../services/attachment-policy.service';
+import { AuthService } from '../../pages/service/auth.service';
+
+/**
+ * What a fetched file may be opened as in a new tab. A blob URL belongs to this app's origin, so a file
+ * typed as a page or an SVG would run there; anything not on this list is handed over as a download instead.
+ */
+const OPENABLE_TYPES = new Set([
+  'application/pdf', 'image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/bmp', 'text/plain'
+]);
+
+function escapeHtml(text: string): string {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+             .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
 
 @Component({
   selector: 'app-attachment-list',
@@ -17,11 +33,13 @@ import { AttachmentService, AttachmentModel } from '../../services/attachment.se
   styleUrls: ['./attachment-list.component.scss'],
   providers: [MessageService, ConfirmationService]
 })
-export class AttachmentListComponent implements OnChanges {
+export class AttachmentListComponent implements OnInit, OnChanges {
   // Document this attachment list belongs to. When documentId is empty, the list renders a
   // "save first" hint instead of an upload control — attachments need a real UUID to link to.
   @Input() interfaceCode!: string;
   @Input() documentId?: string | null;
+  // A page can always make the panel read-only (a cancelled payment, a sales invoice's filed copies). It
+  // cannot do the opposite: adding and removing are offered only as far as the server's rules allow.
   @Input() readOnly = false;
   @Input() compact = false;
   // True single-line layout: no header, no notes field, files shown as small removable chips
@@ -38,16 +56,58 @@ export class AttachmentListComponent implements OnChanges {
   // Optional remark applied to the batch of files picked in a single upload action.
   pendingNotes = '';
 
+  /**
+   * This kind of document's rule from the server (GET api/attachments/policy). Null until it arrives, and
+   * when it cannot be had — and while it is null the panel is read-only: it fails closed.
+   */
+  private rule: AttachmentAccessRule | null = null;
+  private ruleRequestedFor?: string;
+
+  private readonly destroyRef = inject(DestroyRef);
+
   constructor(
     private attachmentService: AttachmentService,
     private messageService: MessageService,
-    private confirmationService: ConfirmationService
+    private confirmationService: ConfirmationService,
+    private policy: AttachmentPolicyService,
+    private auth: AuthService
   ) {}
 
+  ngOnInit() {
+    this.loadRule();
+  }
+
   ngOnChanges(changes: SimpleChanges) {
+    if (changes['interfaceCode']) {
+      this.loadRule();
+    }
     if (changes['documentId'] && this.documentId) {
       this.load();
     }
+  }
+
+  /** Whether to offer adding files: never on a read-only page, and only to a holder of the rule's upload permission. */
+  get canUpload(): boolean {
+    // AuthService.hasPermission alone: it is all a page's test double provides.
+    return !this.readOnly && !!this.rule && this.rule.upload.some(code => this.auth.hasPermission(code));
+  }
+
+  /**
+   * Whether to offer removing this file: never on a read-only page or before the rule is known, never for a
+   * document the system filed, and otherwise as the server said for this caller (it can turn on who uploaded it).
+   */
+  canRemove(att: AttachmentModel): boolean {
+    return !this.readOnly && !!this.rule && !att.isGenerated && att.canRemove === true;
+  }
+
+  private loadRule() {
+    if (!this.interfaceCode || this.ruleRequestedFor === this.interfaceCode) return;
+
+    this.ruleRequestedFor = this.interfaceCode;
+    this.rule = null;
+    this.policy.ruleFor(this.interfaceCode)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(rule => this.rule = rule);
   }
 
   load() {
@@ -66,7 +126,7 @@ export class AttachmentListComponent implements OnChanges {
     const input = event.target as HTMLInputElement;
     const files = Array.from(input.files ?? []);
     input.value = '';
-    if (!files.length || !this.documentId) return;
+    if (!files.length || !this.documentId || !this.canUpload) return;
 
     const notes = this.pendingNotes.trim() || undefined;
     this.pendingNotes = '';
@@ -116,8 +176,11 @@ export class AttachmentListComponent implements OnChanges {
   }
 
   remove(att: AttachmentModel) {
+    if (!this.canRemove(att)) return;
+
     this.confirmationService.confirm({
-      message: `Remove <strong>${att.fileName}</strong>? This action cannot be undone.`,
+      // The dialog renders its message as HTML, and a file name is whatever the uploader called it.
+      message: `Remove <strong>${escapeHtml(att.fileName)}</strong>? This action cannot be undone.`,
       header: 'Remove Attachment',
       icon: 'pi pi-exclamation-triangle',
       acceptLabel: 'Remove',
@@ -152,7 +215,9 @@ export class AttachmentListComponent implements OnChanges {
     event.preventDefault();
     this.attachmentService.download(att.fileUrl).subscribe({
       next: (blob) => {
-        const url = URL.createObjectURL(new Blob([blob], { type: att.contentType || blob.type }));
+        const declared = (att.contentType || blob.type || '').split(';')[0].trim().toLowerCase();
+        const type = OPENABLE_TYPES.has(declared) ? declared : 'application/octet-stream';
+        const url = URL.createObjectURL(new Blob([blob], { type }));
         window.open(url, '_blank', 'noopener');
         // The new tab has the bytes by now; do not keep them alive for the life of this page.
         setTimeout(() => URL.revokeObjectURL(url), 60_000);

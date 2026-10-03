@@ -26,4 +26,14 @@ public static class SaleOrderTimelineEventTypes
     [
         SoCreated, SoConfirmed, PoCreatedFromSo, GrnForSoPo, SoStockReserved, SoFulfilled, SoInvoiced
     ];
+
+    /// <summary>
+    /// SAP alignment (S-7) — an issued sales invoice of the order was cancelled (reversed), emitted by
+    /// Finance's SalesInvoiceService. Like <c>SO_CANCELLED</c>, it is outside §13.3's seven and so not in
+    /// <see cref="All"/>; it is named here so its spelling still lives in one place.
+    /// </summary>
+    public const string SoInvoiceCancelled = "SO_INVOICE_CANCELLED";
+
+    /// <summary>A32 C4 — stock held for the order was given back by hand (manual release). Outside §13.3's seven, like the two above.</summary>
+    public const string SoStockReleased = "SO_STOCK_RELEASED";
 }

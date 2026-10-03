@@ -4,10 +4,13 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using SMS.Modules.Inventory.Data;
+using SMS.Modules.Inventory.Integration;
 using SMS.Modules.Inventory.Repositories;
 using SMS.Modules.Inventory.Services;
 using SMS.Shared.Common;
+using SMS.Shared.Integration.QuickBooks;
 
 namespace SMS.Modules.Inventory;
 
@@ -77,9 +80,20 @@ public static class InventoryModuleExtensions
         // A29-P2-04 — CRUD over the PricingRule rows the waterfall above reads.
         services.AddScoped<IPricingRuleService, PricingRuleService>();
         services.AddScoped<IVariantSupplierResolver, VariantSupplierResolver>();
+        // Lookups asks every checker before it deletes a currency or changes its code.
+        services.AddScoped<ILookupReferenceChecker, InventoryCurrencyReferenceChecker>();
         services.AddScoped<InventoryDataSeeder>();
         services.AddScoped<StaleRateAlertJob>();
         services.AddScoped<RateExpiryNotificationJob>();
+
+        // QuickBooks — product variants as items. TryAdd: in a host without the Integration module the
+        // gateway is the Null one (every call answers Disabled); the Integration module replaces it. The
+        // source is registered once and exposed both as itself (for the publisher) and as an
+        // IQuickBooksSource (for the gateway), one per scope.
+        services.TryAddScoped<IQuickBooksGateway, NullQuickBooksGateway>();
+        services.AddScoped<VariantQuickBooksSource>();
+        services.AddScoped<IQuickBooksSource>(sp => sp.GetRequiredService<VariantQuickBooksSource>());
+        services.AddScoped<VariantQuickBooksPublisher>();
 
         return services;
     }

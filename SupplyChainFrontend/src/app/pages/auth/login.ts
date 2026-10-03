@@ -141,10 +141,9 @@ export class Login {
             },
             error: (err) => {
                 this.isLoading = false;
-                // On an unhandled server exception, err.error.message is the generic
-                // "An unexpected error occurred." wrapper — GlobalExceptionMiddleware still puts
-                // the real exception message in result.exceptionMessage, so surface that instead
-                // of hiding the actual cause behind the generic wrapper.
+                // The server's own errors (locked account, bad credentials) carry their message in
+                // result.exceptionMessage; an unexpected failure carries none — only the generic message
+                // with a reference to the server log — so it falls through to err.error.message.
                 const detail = err.error?.result?.exceptionMessage || err.error?.message || 'Invalid email or password.';
                 this.messageService.add({
                     severity: 'error',

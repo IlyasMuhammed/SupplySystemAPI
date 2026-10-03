@@ -1,0 +1,227 @@
+<div class="detail-page">
+  <p-toast></p-toast>
+
+  <div class="not-found" *ngIf="notFound" data-testid="not-found">
+    <i class="pi pi-inbox"></i>
+    <h2>Sale inquiry not found</h2>
+    <p>It may belong to another organization, or the link may be wrong.</p>
+    <p-button label="Back to inquiries" icon="pi pi-arrow-left" [text]="true" routerLink="/portal/pages/sales/inquiries"></p-button>
+  </div>
+
+  <div *ngIf="isLoading && !inquiry" class="loading-state" data-testid="loading">
+    <i class="pi pi-spin pi-spinner"></i> Loading…
+  </div>
+
+  <ng-container *ngIf="inquiry as i">
+    <!-- ── Header ─────────────────────────────────────────────────────────────── -->
+    <div class="page-header" data-testid="inquiry-header">
+      <div class="header-main">
+        <h1 class="page-title">
+          <p-button icon="pi pi-arrow-left" [text]="true" severity="secondary" routerLink="/portal/pages/sales/inquiries"
+                    pTooltip="Back to inquiries"></p-button>
+          <i class="pi pi-inbox"></i>
+          <span class="font-mono">{{ i.inquiryNumber }}</span>
+          <span class="status-badge" [ngClass]="'st-' + statusColor(i.status)" data-testid="status-badge">
+            <span class="dot"></span>{{ statusLabel(i.status) }}
+          </span>
+        </h1>
+
+        <dl class="header-grid">
+          <dt>Customer</dt><dd data-testid="customer">{{ i.partnerName || i.partnerId }}</dd>
+          <dt>Customer ref</dt>
+          <dd>{{ i.customerReference || '—' }}<span class="muted" *ngIf="i.customerReferenceDate"> · {{ displayDate(i.customerReferenceDate) }}</span></dd>
+          <dt>Received</dt><dd>{{ displayDate(i.receivedDate) }}</dd>
+          <dt>Deadline</dt><dd>{{ displayDate(i.responseDeadline) }}</dd>
+          <dt>Assigned to</dt><dd data-testid="assignee">{{ assigneeName }}</dd>
+          <ng-container *ngIf="i.quotations.length">
+            <dt>Quotation{{ i.quotations.length === 1 ? '' : 's' }}</dt>
+            <dd data-testid="quotation-links">
+              <a *ngFor="let qt of i.quotations; let last = last" class="doc-link font-mono"
+                 [routerLink]="['/portal/pages/sales/quotations', qt.uuid]">{{ qt.number }}<span class="muted"> ({{ statusLabel(qt.status) }})</span>{{ last ? '' : ', ' }}</a>
+            </dd>
+          </ng-container>
+        </dl>
+      </div>
+
+      <div class="header-actions">
+        <div class="action" *ngIf="showStartReview">
+          <p-button label="Start Review" icon="pi pi-play" [outlined]="true" [disabled]="!!startReviewBlocker || !!busyStatus"
+                    [loading]="busyStatus === 'UNDER_REVIEW'" [pTooltip]="startReviewBlocker ?? undefined" tooltipPosition="bottom"
+                    (onClick)="changeStatus('UNDER_REVIEW')" data-testid="action-start-review"></p-button>
+          <small class="blocker" *ngIf="startReviewBlocker" data-testid="start-review-blocker">{{ startReviewBlocker }}</small>
+        </div>
+
+        <div class="action" *ngIf="showComplete">
+          <p-button label="Mark Review Complete" icon="pi pi-check-circle" [disabled]="!!completeBlocker || !!busyStatus"
+                    [loading]="busyStatus === 'REVIEW_COMPLETE'" [pTooltip]="completeBlocker ?? undefined" tooltipPosition="bottom"
+                    (onClick)="changeStatus('REVIEW_COMPLETE')" data-testid="action-complete"></p-button>
+          <small class="blocker" *ngIf="completeBlocker" data-testid="complete-blocker">{{ completeBlocker }}</small>
+        </div>
+
+        <div class="action" *ngIf="canCreateQuotation">
+          <p-button label="Create Quotation" icon="pi pi-file-edit" (onClick)="openQuotationDialog()"
+                    data-testid="action-create-quotation"></p-button>
+        </div>
+
+        <div class="action" *ngIf="showDecline">
+          <p-button label="Decline Inquiry" icon="pi pi-times-circle" severity="danger" [outlined]="true"
+                    [disabled]="!!declineBlocker || !!busyStatus" [pTooltip]="declineBlocker ?? undefined" tooltipPosition="bottom"
+                    (onClick)="openDeclineDialog()" data-testid="action-decline"></p-button>
+          <small class="blocker" *ngIf="declineBlocker" data-testid="decline-blocker">{{ declineBlocker }}</small>
+        </div>
+      </div>
+    </div>
+
+    <div class="note" *ngIf="!i.isEditable" data-testid="read-only-note">
+      <i class="pi pi-lock"></i>
+      <div>
+        This inquiry is {{ statusLabel(i.status) | lowercase }} and can no longer be changed.
+        <div *ngIf="i.status === 'DECLINED' && i.declineReason" data-testid="decline-reason">
+          <strong>Reason:</strong> {{ i.declineReason }}
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Tabs ───────────────────────────────────────────────────────────────── -->
+    <p-tabView styleClass="inquiry-tabs" [(activeIndex)]="activeTab">
+
+      <p-tabPanel header="Details" leftIcon="pi pi-info-circle">
+        <div class="card" *ngIf="!editingHeader">
+          <div class="card-head">
+            <h3>Inquiry</h3>
+            <p-button *ngIf="canEdit" label="Edit" icon="pi pi-pencil" [text]="true" size="small" (onClick)="startHeaderEdit()"
+                      data-testid="edit-header"></p-button>
+          </div>
+          <dl>
+            <dt>Customer</dt><dd>{{ i.partnerName || i.partnerId }}</dd>
+            <dt>Customer reference</dt><dd>{{ i.customerReference || '—' }}</dd>
+            <dt>Reference date</dt><dd>{{ displayDate(i.customerReferenceDate) }}</dd>
+            <dt>Received</dt><dd>{{ displayDate(i.receivedDate) }}</dd>
+            <dt>Response deadline</dt><dd>{{ displayDate(i.responseDeadline) }}</dd>
+            <dt>Assigned to</dt><dd>{{ assigneeName }}</dd>
+            <dt>Created</dt><dd>{{ i.createdDate | date:'dd MMM yyyy, HH:mm' }}</dd>
+          </dl>
+          <p class="notes" *ngIf="i.notes">{{ i.notes }}</p>
+        </div>
+
+        <div class="card" *ngIf="editingHeader" data-testid="header-form">
+          <h3>Edit inquiry</h3>
+          <div class="grid">
+            <div class="field">
+              <label for="hdRef">Customer reference</label>
+              <input pInputText id="hdRef" [(ngModel)]="header.customerReference" [maxlength]="max.customerReference" />
+            </div>
+            <div class="field">
+              <label for="hdRefDate">Reference date</label>
+              <p-datepicker inputId="hdRefDate" [(ngModel)]="header.customerReferenceDate" dateFormat="dd M yy" [showIcon]="true"
+                            [showClear]="true" styleClass="w-full" appendTo="body"></p-datepicker>
+            </div>
+            <div class="field">
+              <label for="hdReceived">Received <span class="required">*</span></label>
+              <p-datepicker inputId="hdReceived" [(ngModel)]="header.receivedDate" dateFormat="dd M yy" [showIcon]="true"
+                            styleClass="w-full" appendTo="body"></p-datepicker>
+            </div>
+            <div class="field">
+              <label for="hdDeadline">Response deadline</label>
+              <p-datepicker inputId="hdDeadline" [(ngModel)]="header.responseDeadline" dateFormat="dd M yy" [showIcon]="true"
+                            [showClear]="true" [minDate]="header.receivedDate" styleClass="w-full" appendTo="body"></p-datepicker>
+            </div>
+            <div class="field">
+              <label for="hdAssignee">Assigned to</label>
+              <p-select inputId="hdAssignee" [options]="assigneeOptions" [(ngModel)]="header.assignedToUserId" optionLabel="label"
+                        optionValue="value" [showClear]="true" placeholder="Unassigned" styleClass="w-full" appendTo="body"></p-select>
+            </div>
+            <div class="field full">
+              <label for="hdNotes">Internal notes</label>
+              <textarea pTextarea id="hdNotes" [(ngModel)]="header.notes" rows="3" [maxlength]="max.headerNotes"></textarea>
+            </div>
+          </div>
+          <small class="p-error block" *ngIf="headerSubmitted && headerProblem">{{ headerProblem }}</small>
+          <small class="p-error block" *ngIf="headerError">{{ headerError }}</small>
+          <div class="form-actions">
+            <p-button label="Cancel" [text]="true" severity="secondary" [disabled]="isSavingHeader" (onClick)="cancelHeaderEdit()"></p-button>
+            <p-button label="Save" icon="pi pi-check" [loading]="isSavingHeader" (onClick)="saveHeader()" data-testid="save-header"></p-button>
+          </div>
+        </div>
+      </p-tabPanel>
+
+      <p-tabPanel [header]="'Lines (' + i.lines.length + ')'" leftIcon="pi pi-list">
+        <app-sale-inquiry-lines [inquiry]="i" [canEdit]="canEdit" (changed)="load()"></app-sale-inquiry-lines>
+      </p-tabPanel>
+
+      <p-tabPanel header="Attachments" leftIcon="pi pi-paperclip">
+        <app-attachment-list [interfaceCode]="attachmentCode" [documentId]="i.uuid" [readOnly]="!i.isEditable"
+                             label="Customer documents"></app-attachment-list>
+      </p-tabPanel>
+    </p-tabView>
+  </ng-container>
+</div>
+
+<!-- ══ Decline ════════════════════════════════════════════════════════════════ -->
+<p-dialog header="Decline inquiry" [(visible)]="declineDialogVisible" [modal]="true" [draggable]="false"
+          [closable]="busyStatus !== 'DECLINED'" [style]="{ width: '32rem', maxWidth: '96vw' }" data-testid="decline-dialog">
+  <p class="dialog-hint">The whole inquiry is declined and becomes read-only. The customer is not notified by the system.</p>
+  <div class="field">
+    <label for="declineReason">Reason <span class="required">*</span></label>
+    <textarea pTextarea id="declineReason" [(ngModel)]="declineReason" rows="3" [maxlength]="max.declineReason"
+              data-testid="decline-reason-input"></textarea>
+    <small class="p-error" *ngIf="declineSubmitted && declineProblem">{{ declineProblem }}</small>
+  </div>
+  <ng-template pTemplate="footer">
+    <p-button label="Keep" [text]="true" severity="secondary" (onClick)="declineDialogVisible = false"></p-button>
+    <p-button label="Decline Inquiry" icon="pi pi-times-circle" severity="danger" [loading]="busyStatus === 'DECLINED'"
+              (onClick)="decline()" data-testid="confirm-decline"></p-button>
+  </ng-template>
+</p-dialog>
+
+<!-- ══ Create quotation ═══════════════════════════════════════════════════════ -->
+<p-dialog header="Create quotation" [(visible)]="quotationDialogVisible" [modal]="true" [draggable]="false"
+          [closable]="!isCreatingQuotation" [style]="{ width: '36rem', maxWidth: '96vw' }" data-testid="quotation-dialog">
+  <p class="dialog-hint">
+    A draft quotation is made from the evaluated lines: supplied lines are priced, lines that cannot be supplied
+    are carried as rejected (with their alternative, if one was named). The inquiry becomes Quoted.
+  </p>
+  <div class="grid">
+    <div class="field">
+      <label for="qValidFrom">Valid from</label>
+      <p-datepicker inputId="qValidFrom" [(ngModel)]="quotation.validFrom" dateFormat="dd M yy" [showIcon]="true"
+                    styleClass="w-full" appendTo="body"></p-datepicker>
+    </div>
+    <div class="field">
+      <label for="qValidTo">Valid to <span class="required">*</span></label>
+      <p-datepicker inputId="qValidTo" [(ngModel)]="quotation.validTo" dateFormat="dd M yy" [showIcon]="true"
+                    [minDate]="quotation.validFrom" styleClass="w-full" appendTo="body"></p-datepicker>
+    </div>
+    <div class="field full">
+      <label for="qCurrency">Currency</label>
+      <p-select inputId="qCurrency" [options]="currencyOptions" [(ngModel)]="quotation.currencyId" optionLabel="label"
+                optionValue="value" [showClear]="true" [filter]="true" filterBy="label"
+                placeholder="The organization's base currency" styleClass="w-full" appendTo="body"></p-select>
+    </div>
+    <div class="field">
+      <label for="qPayment">Payment terms</label>
+      <input pInputText id="qPayment" [(ngModel)]="quotation.paymentTerms" />
+    </div>
+    <div class="field">
+      <label for="qDelivery">Delivery terms</label>
+      <input pInputText id="qDelivery" [(ngModel)]="quotation.deliveryTerms" />
+    </div>
+    <div class="field full">
+      <label for="qNotes">Notes to the customer</label>
+      <textarea pTextarea id="qNotes" [(ngModel)]="quotation.notes" rows="2"></textarea>
+    </div>
+    <div class="field full">
+      <label for="qInternal">Internal notes</label>
+      <textarea pTextarea id="qInternal" [(ngModel)]="quotation.internalNotes" rows="2"></textarea>
+    </div>
+  </div>
+  <small class="p-error block" *ngIf="quotationProblem && (quotationSubmitted || unidentifiedLines.length)"
+         data-testid="quotation-problem">{{ quotationProblem }}</small>
+  <small class="p-error block" *ngIf="quotationError" data-testid="quotation-error">{{ quotationError }}</small>
+  <ng-template pTemplate="footer">
+    <p-button label="Cancel" [text]="true" severity="secondary" [disabled]="isCreatingQuotation" (onClick)="quotationDialogVisible = false"></p-button>
+    <p-button label="Create quotation" icon="pi pi-check" [loading]="isCreatingQuotation"
+              [disabled]="isCreatingQuotation || unidentifiedLines.length > 0" (onClick)="createQuotation()"
+              data-testid="confirm-create-quotation"></p-button>
+  </ng-template>
+</p-dialog>

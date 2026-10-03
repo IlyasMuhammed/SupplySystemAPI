@@ -164,6 +164,23 @@
       </div>
     </div>
 
+    <div class="dlg-field">
+      <label class="dlg-label">Base Currency</label>
+      <p-dropdown formControlName="baseCurrency" [options]="currencyOptions" optionLabel="label" optionValue="value"
+                  [filter]="currencyOptions.length > 8" filterBy="label" placeholder="No base currency"
+                  styleClass="w-full" appendTo="body" [showClear]="true" data-testid="base-currency"></p-dropdown>
+      <small class="dlg-hint">
+        The currency the organization keeps its books in. Finance converts foreign-currency invoices into it, and new sale
+        orders and prices default to it. Changing it does not change documents already final.
+      </small>
+      <small class="dlg-hint warn" *ngIf="baseCurrencyMissing" data-testid="base-currency-missing">
+        The current base currency is no longer in the currency list (or has no code). Choose one.
+      </small>
+      <small class="dlg-hint warn" *ngIf="isEditing && originalBaseCurrency && !f['baseCurrency'].value" data-testid="base-currency-clearing">
+        Saving removes the base currency. New documents then carry no base-currency conversion.
+      </small>
+    </div>
+
     <ng-container *ngIf="!isEditing">
       <hr class="md-sep" />
       <p class="dlg-section-title">Initial Admin</p>

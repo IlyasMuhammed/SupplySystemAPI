@@ -29,6 +29,8 @@ public static class LookupsModuleExtensions
         // Shared contract — lets other modules resolve a city from this catalog without a
         // project reference to Lookups. Consumed by SMS.Modules.Logistics' structured addresses.
         services.AddScoped<ICityLookupService, CityLookupService>();
+        // Same arrangement for currency codes — consumed by the QuickBooks gateway's preflight.
+        services.AddScoped<ICurrencyCodeLookup, CurrencyCodeLookup>();
 
         return services;
     }

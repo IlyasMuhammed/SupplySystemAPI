@@ -1,0 +1,49 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>SMS.Modules.Integration</RootNamespace>
+    <AssemblyName>SMS.Modules.Integration</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Core" Version="2.2.5" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="9.0.2" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.2">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <!-- Same version SMS.Modules.Auth and Logistics use. -->
+    <PackageReference Include="Hangfire.Core" Version="1.8.14" />
+    <!-- Intuit's QuickBooks Online SDK (OAuth2PlatformClient, DataService, QueryService). Referenced
+         only from Providers/QuickBooks — nothing else in the module may use Intuit.Ipp.* types. -->
+    <PackageReference Include="IppDotNetSdkForQuickBooksApiV3" Version="14.7.1.6" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Deliberately nothing but SMS.Shared: the gateway never reads another module's tables, and
+         no module references this one — SCM talks to it through SMS.Shared.Integration.QuickBooks. -->
+    <ProjectReference Include="..\SMS.Shared\SMS.Shared.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>SMS.Modules.Integration.Tests</_Parameter1>
+    </AssemblyAttribute>
+    <!-- The end-to-end tests through the real API host swap the Intuit boundary and run the jobs directly. -->
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>SMS.Integration.Tests</_Parameter1>
+    </AssemblyAttribute>
+    <!-- Moq proxies internal interfaces through this dynamic assembly. -->
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>DynamicProxyGenAssembly2</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+</Project>

@@ -35,6 +35,13 @@ internal sealed class InvoiceMap : IEntityTypeConfiguration<Invoice>
         b.Property(x => x.Subtotal).HasColumnType("decimal(18,2)");
         b.Property(x => x.TaxAmount).HasColumnType("decimal(18,2)");
         b.Property(x => x.TotalAmount).HasColumnType("decimal(18,2)");
+        // SAP alignment — purchase tax code, currency snapshot at approval, reversal record.
+        b.Property(x => x.TaxCode).HasMaxLength(20);
+        b.Property(x => x.TaxPercent).HasColumnType("decimal(5,2)");
+        b.Property(x => x.ExchangeRate).HasColumnType("decimal(18,8)");
+        b.Property(x => x.BaseCurrencyCode).HasMaxLength(10);
+        b.Property(x => x.BaseTotalAmount).HasColumnType("decimal(18,2)");
+        b.Property(x => x.ReversalReason).HasMaxLength(500);
         b.Property(x => x.MatchedPoValue).HasColumnType("decimal(18,2)");
         b.Property(x => x.MatchedGrnValue).HasColumnType("decimal(18,2)");
         b.Property(x => x.VarianceAmount).HasColumnType("decimal(18,2)");

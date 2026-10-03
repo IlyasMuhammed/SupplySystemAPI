@@ -11,6 +11,8 @@ public interface IInvoiceService
     Task<bool>                                  PatchAsync(Guid uuid, PatchInvoiceRequest req, int modifiedBy);
     Task<bool>                                  ApproveAsync(Guid uuid, string? notes, int approvedBy);
     Task<bool>                                  RejectAsync(Guid uuid, string reason, int rejectedBy);
+    /// <summary>S-7: reverses an approved, unpaid invoice (see <c>IInvoiceRepository.ReverseAsync</c>). False when not found.</summary>
+    Task<bool>                                  ReverseAsync(Guid uuid, string reason, int reversedBy);
     Task<bool>                                  UploadAttachmentAsync(Guid uuid, string url, int modifiedBy);
 }
 

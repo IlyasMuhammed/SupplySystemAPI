@@ -1,4 +1,5 @@
 using FluentValidation;
+using SMS.Modules.Suppliers.Integration;
 using SMS.Modules.Suppliers.Models;
 using SMS.Modules.Suppliers.Repositories;
 using SMS.Shared.Common;
@@ -12,21 +13,34 @@ internal sealed class BusinessPartnerService : IBusinessPartnerService
     private readonly IBusinessPartnerRepository _repo;
     private readonly BusinessPartnerModelValidator _validator;
     private readonly IEnumerable<ISupplierReferenceChecker> _referenceCheckers;
+    private readonly PartnerQuickBooksPublisher? _quickBooks;
 
+    /// <param name="quickBooks">
+    /// Tells the QuickBooks gateway about a partner after each save. Optional so a caller that builds this
+    /// service by hand needs nothing extra; the module registers it.
+    /// </param>
     public BusinessPartnerService(
         IBusinessPartnerRepository repo,
         BusinessPartnerModelValidator validator,
-        IEnumerable<ISupplierReferenceChecker> referenceCheckers)
+        IEnumerable<ISupplierReferenceChecker> referenceCheckers,
+        PartnerQuickBooksPublisher? quickBooks = null)
     {
         _repo = repo;
         _validator = validator;
         _referenceCheckers = referenceCheckers;
+        _quickBooks = quickBooks;
     }
+
+    /// <summary>After the repository's own save has committed. Never throws (see the publisher).</summary>
+    private Task PublishToQuickBooksAsync(Guid uuid) =>
+        _quickBooks is null ? Task.CompletedTask : _quickBooks.PublishAsync(uuid);
 
     public async Task<Guid> CreateAsync(BusinessPartnerModel model, int createdBy)
     {
         await ValidateAsync(model);
-        return await _repo.CreateAsync(model, createdBy);
+        var uuid = await _repo.CreateAsync(model, createdBy);
+        await PublishToQuickBooksAsync(uuid);
+        return uuid;
     }
 
     public Task<BusinessPartnerModel?> GetByIdAsync(Guid uuid) => _repo.GetByIdAsync(uuid);
@@ -34,7 +48,9 @@ internal sealed class BusinessPartnerService : IBusinessPartnerService
     public async Task<bool> UpdateAsync(Guid uuid, BusinessPartnerModel model, int modifiedBy)
     {
         await ValidateAsync(model);
-        return await _repo.UpdateAsync(uuid, model, modifiedBy);
+        var updated = await _repo.UpdateAsync(uuid, model, modifiedBy);
+        if (updated) await PublishToQuickBooksAsync(uuid);
+        return updated;
     }
 
     public async Task<bool> DeleteAsync(Guid uuid, int deletedBy)
@@ -49,7 +65,10 @@ internal sealed class BusinessPartnerService : IBusinessPartnerService
                     "Cannot delete this business partner — it is referenced by an existing purchase order, RFQ response, invoice, payment, GRN, or return order.");
         }
 
-        return await _repo.DeleteAsync(uuid, deletedBy);
+        var deleted = await _repo.DeleteAsync(uuid, deletedBy);
+        // Sent once more, as inactive, so a record QuickBooks already has is retired.
+        if (deleted) await PublishToQuickBooksAsync(uuid);
+        return deleted;
     }
 
     public Task<PaginatedResponse<BusinessPartnerModel>> GetAllAsync(BusinessPartnerFilter filter) =>

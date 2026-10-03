@@ -29,6 +29,12 @@ internal sealed class DemandDbContext : DbContext, ITenantScopedDbContext
     internal DbSet<SaleOrder>                 SaleOrders                => Set<SaleOrder>();
     internal DbSet<SaleOrderLine>             SaleOrderLines            => Set<SaleOrderLine>();
     internal DbSet<SaleOrderIntimation>       SaleOrderIntimations      => Set<SaleOrderIntimation>();
+    // A32 — sales pre-order pipeline.
+    internal DbSet<SaleInquiry>               SaleInquiries             => Set<SaleInquiry>();
+    internal DbSet<SaleInquiryLine>           SaleInquiryLines          => Set<SaleInquiryLine>();
+    internal DbSet<SaleQuotation>             SaleQuotations            => Set<SaleQuotation>();
+    internal DbSet<SaleQuotationLine>         SaleQuotationLines        => Set<SaleQuotationLine>();
+    internal DbSet<RejectionReason>           RejectionReasons          => Set<RejectionReason>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

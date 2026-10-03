@@ -1,0 +1,240 @@
+<p-toast></p-toast>
+<p-confirmDialog key="inquiry-lines" [style]="{ width: '28rem', maxWidth: '96vw' }"></p-confirmDialog>
+
+<div class="lines-toolbar">
+  <span class="muted">{{ inquiry.lines.length }} line{{ inquiry.lines.length === 1 ? '' : 's' }}</span>
+  <span class="grow"></span>
+  <p-button *ngIf="canEdit" label="Add line" icon="pi pi-plus" [outlined]="true" size="small" (onClick)="openAdd()"
+            data-testid="add-line"></p-button>
+</div>
+
+<p-table [value]="inquiry.lines" dataKey="uuid" [expandedRowKeys]="expanded" [rowExpandMode]="'multiple'"
+         [tableStyle]="{'min-width':'52rem'}" styleClass="p-datatable-sm" data-testid="lines-table">
+  <ng-template pTemplate="header">
+    <tr>
+      <th style="width:2.5rem"></th>
+      <th style="width:3rem">#</th>
+      <th>Product / description</th>
+      <th class="text-right">Qty</th>
+      <th>UOM</th>
+      <th>Requested delivery</th>
+      <th>Status</th>
+      <th *ngIf="canEdit" class="text-center" style="width:7rem">Action</th>
+    </tr>
+  </ng-template>
+
+  <ng-template pTemplate="body" let-l let-isOpen="expanded">
+    <tr data-testid="line-row">
+      <td>
+        <button type="button" class="toggler" [pRowToggler]="l" [attr.aria-label]="isOpen ? 'Hide detail' : 'Show detail'"
+                [disabled]="summary(l).length === 0">
+          <i class="pi" [ngClass]="isOpen ? 'pi-chevron-down' : 'pi-chevron-right'"></i>
+        </button>
+      </td>
+      <td>{{ l.lineNumber }}</td>
+      <td>
+        <div class="desc">{{ l.productDescription }}</div>
+        <div class="sub" *ngIf="l.variantName || l.variantSku">
+          <i class="pi pi-tag"></i> {{ l.variantName }}<span *ngIf="l.variantSku" class="font-mono"> · {{ l.variantSku }}</span>
+        </div>
+        <div class="sub" *ngIf="!l.variantUuid">Free text — not identified in the catalogue</div>
+      </td>
+      <td class="text-right">{{ l.requestedQuantity | number:'1.0-4' }}</td>
+      <td>{{ l.requestedUomCode || '—' }}</td>
+      <td>{{ displayDate(l.requestedDeliveryDate) }}</td>
+      <td>
+        <span class="line-status" data-testid="line-status">
+          <span class="dot" [ngClass]="'st-' + lineColor(l.lineStatus)"></span>{{ statusLabel(l.lineStatus) }}
+        </span>
+      </td>
+      <td *ngIf="canEdit" class="text-center nowrap">
+        <p-button icon="pi pi-pencil" [text]="true" [rounded]="true" size="small" pTooltip="Evaluate / edit"
+                  (onClick)="openEdit(l)" data-testid="edit-line"></p-button>
+        <p-button icon="pi pi-trash" [text]="true" [rounded]="true" size="small" severity="danger" pTooltip="Delete line"
+                  [disabled]="!!busy[l.uuid]" (onClick)="confirmDelete(l)" data-testid="delete-line"></p-button>
+      </td>
+    </tr>
+  </ng-template>
+
+  <!-- PrimeNG 19 names this template "expandedrow" ("rowexpansion" is silently ignored). -->
+  <ng-template pTemplate="expandedrow" let-l>
+    <tr class="detail-row">
+      <td></td>
+      <td [attr.colspan]="canEdit ? 7 : 6">
+        <ul class="line-detail" data-testid="line-detail">
+          <li *ngFor="let s of summary(l)"><i class="pi pi-angle-right"></i> {{ s }}</li>
+        </ul>
+        <div class="reviewed" *ngIf="l.reviewedByUserName || l.reviewedAt">
+          Evaluated{{ l.reviewedByUserName ? ' by ' + l.reviewedByUserName : '' }}{{ l.reviewedAt ? ' on ' + (l.reviewedAt | date:'dd MMM yyyy, HH:mm') : '' }}
+        </div>
+      </td>
+    </tr>
+  </ng-template>
+
+  <ng-template pTemplate="emptymessage">
+    <tr>
+      <td [attr.colspan]="canEdit ? 8 : 7" class="text-center muted" style="padding:2rem">
+        No lines yet.<ng-container *ngIf="canEdit"> Add what the customer asked for.</ng-container>
+      </td>
+    </tr>
+  </ng-template>
+</p-table>
+
+<div class="legend" aria-label="Line status legend">
+  <span *ngFor="let s of statusOptions" class="legend-item"><span class="dot" [ngClass]="'st-' + lineColor(s.value)"></span>{{ s.label }}</span>
+</div>
+
+<!-- ══ Add / evaluate drawer ═══════════════════════════════════════════════════ -->
+<p-drawer [(visible)]="drawerVisible" position="right" styleClass="inquiry-line-drawer" [modal]="true" [dismissible]="!isSaving"
+          data-testid="line-drawer">
+  <ng-template pTemplate="header">
+    <div class="drawer-head">
+      <i class="pi" [ngClass]="isAdd ? 'pi-plus' : 'pi-check-square'"></i>
+      <span>{{ isAdd ? 'Add line' : 'Line ' + editing?.lineNumber + ' — evaluation' }}</span>
+    </div>
+  </ng-template>
+
+  <div class="drawer-body">
+    <!-- What the customer asked for -->
+    <h4>Requested</h4>
+
+    <div class="field" *ngIf="isAdd">
+      <p-selectbutton [options]="addModeOptions" [ngModel]="addMode" (ngModelChange)="onAddModeChange($event)" optionLabel="label"
+                      optionValue="value" [allowEmpty]="false" data-testid="add-mode"></p-selectbutton>
+    </div>
+
+    <div class="field" *ngIf="!isAdd || addMode === 'CATALOGUE'">
+      <label>Catalogue item <span class="required" *ngIf="isAdd">*</span></label>
+      <div class="picked" *ngIf="draft.variantLabel && !pickingItem">
+        <span><i class="pi pi-tag"></i> {{ draft.variantLabel }}</span>
+        <p-button label="Change" [text]="true" size="small" (onClick)="pickingItem = true"></p-button>
+        <p-button *ngIf="!isAdd" label="Clear" [text]="true" size="small" severity="secondary" (onClick)="clearItem()"></p-button>
+      </div>
+      <div class="picked muted" *ngIf="!draft.variantLabel && !pickingItem && !isAdd">
+        <span>Not identified — free text</span>
+        <p-button label="Identify item" [text]="true" size="small" (onClick)="pickingItem = true" data-testid="identify-item"></p-button>
+      </div>
+      <app-product-variant-picker *ngIf="pickingItem" [products]="products" [productUuid]="draft.productUuid"
+                                  [variantUuid]="draft.variantUuid" channel="RETAIL"
+                                  (selectionChange)="onVariantPicked($event)"></app-product-variant-picker>
+      <small class="hint" *ngIf="productsFailed">The catalogue could not be loaded — enter the line as free text.</small>
+      <small class="p-error" *ngIf="showError('variantUuid')">{{ showError('variantUuid') }}</small>
+    </div>
+
+    <div class="field">
+      <label for="lnDesc">Customer's description <span class="required">*</span></label>
+      <textarea pTextarea id="lnDesc" [(ngModel)]="draft.productDescription" rows="2" [maxlength]="max.productDescription"
+                data-testid="line-description"></textarea>
+      <small class="p-error" *ngIf="showError('productDescription')">{{ showError('productDescription') }}</small>
+    </div>
+
+    <div class="row3">
+      <div class="field">
+        <label for="lnQty">Qty <span class="required">*</span></label>
+        <p-inputnumber inputId="lnQty" [(ngModel)]="draft.requestedQuantity" [min]="0" [maxFractionDigits]="4" styleClass="w-full"
+                       data-testid="line-qty"></p-inputnumber>
+        <small class="p-error" *ngIf="showError('requestedQuantity')">{{ showError('requestedQuantity') }}</small>
+      </div>
+      <div class="field">
+        <label for="lnUom">UOM</label>
+        <input pInputText id="lnUom" [(ngModel)]="draft.requestedUomCode" [maxlength]="max.uomCode" class="upper" />
+      </div>
+      <div class="field">
+        <label for="lnReqDate">Requested delivery</label>
+        <p-datepicker inputId="lnReqDate" [(ngModel)]="draft.requestedDeliveryDate" dateFormat="dd M yy" [showClear]="true"
+                      styleClass="w-full" appendTo="body"></p-datepicker>
+      </div>
+    </div>
+
+    <!-- The evaluation (an existing line only) -->
+    <ng-container *ngIf="!isAdd">
+      <h4>Evaluation</h4>
+
+      <div class="field">
+        <label for="lnStatus">Status</label>
+        <p-select inputId="lnStatus" [options]="statusOptions" [(ngModel)]="draft.lineStatus" optionLabel="label" optionValue="value"
+                  styleClass="w-full" appendTo="body" data-testid="line-status-select">
+          <ng-template let-o pTemplate="item">
+            <span class="line-status"><span class="dot" [ngClass]="'st-' + lineColor(o.value)"></span>{{ o.label }}</span>
+          </ng-template>
+        </p-select>
+      </div>
+
+      <div class="field" *ngIf="shows('canSupplyQuantity')">
+        <label for="lnCanQty">Can supply qty <span class="required">*</span></label>
+        <p-inputnumber inputId="lnCanQty" [(ngModel)]="draft.canSupplyQuantity" [min]="0" [maxFractionDigits]="4"
+                       styleClass="w-full" data-testid="can-supply-qty"></p-inputnumber>
+        <small class="hint">More than 0 and less than the {{ draft.requestedQuantity | number:'1.0-4' }} requested.</small>
+        <small class="p-error" *ngIf="showError('canSupplyQuantity')">{{ showError('canSupplyQuantity') }}</small>
+      </div>
+
+      <div class="field" *ngIf="shows('rejectionReasonUuid')">
+        <label for="lnReason">Rejection reason <span class="required">*</span></label>
+        <p-select inputId="lnReason" [options]="reasonOptions" [(ngModel)]="draft.rejectionReasonUuid" optionLabel="label"
+                  optionValue="value" [filter]="true" filterBy="label" placeholder="Why it cannot be supplied…"
+                  styleClass="w-full" appendTo="body" data-testid="rejection-reason"></p-select>
+        <small class="hint" *ngIf="reasonIsDeactivated">This reason has been deactivated; choose an active one if you change the line.</small>
+        <small class="p-error" *ngIf="showError('rejectionReasonUuid')">{{ showError('rejectionReasonUuid') }}</small>
+      </div>
+      <div class="field" *ngIf="shows('rejectionReasonUuid')">
+        <label for="lnRejNotes">Rejection notes</label>
+        <textarea pTextarea id="lnRejNotes" [(ngModel)]="draft.rejectionNotes" rows="2" [maxlength]="max.rejectionNotes"></textarea>
+      </div>
+
+      <ng-container *ngIf="shows('alternative')">
+        <div class="field">
+          <label>Suggested alternative</label>
+          <div class="picked" *ngIf="draft.alternativeLabel && !pickingAlternative">
+            <span><i class="pi pi-arrow-right-arrow-left"></i> {{ draft.alternativeLabel }}</span>
+            <p-button label="Change" [text]="true" size="small" (onClick)="pickingAlternative = true"></p-button>
+            <p-button label="Remove" [text]="true" size="small" severity="secondary" (onClick)="clearAlternative()"></p-button>
+          </div>
+          <p-button *ngIf="!draft.alternativeLabel && !pickingAlternative" label="Suggest an alternative" icon="pi pi-search"
+                    [outlined]="true" size="small" (onClick)="pickingAlternative = true" data-testid="pick-alternative"></p-button>
+          <app-product-variant-picker *ngIf="pickingAlternative" [products]="products" [productUuid]="draft.alternativeProductUuid"
+                                      [variantUuid]="draft.alternativeVariantUuid" channel="RETAIL"
+                                      (selectionChange)="onAlternativePicked($event)"></app-product-variant-picker>
+        </div>
+        <div class="field" *ngIf="draft.alternativeLabel || draft.alternativeVariantUuid">
+          <label for="lnAltNotes">Alternative notes</label>
+          <textarea pTextarea id="lnAltNotes" [(ngModel)]="draft.alternativeNotes" rows="2" [maxlength]="max.alternativeNotes"></textarea>
+        </div>
+      </ng-container>
+
+      <div class="field" *ngIf="shows('estimatedDeliveryDate')">
+        <label for="lnEstDate">
+          {{ draft.lineStatus === 'CANNOT_SUPPLY' ? "Alternative's estimated delivery" : 'Estimated delivery' }}
+          <span class="required" *ngIf="estimatedDateRequired">*</span>
+        </label>
+        <p-datepicker inputId="lnEstDate" [(ngModel)]="draft.estimatedDeliveryDate" dateFormat="dd M yy" [showClear]="true"
+                      styleClass="w-full" appendTo="body" data-testid="estimated-date"></p-datepicker>
+        <small class="p-error" *ngIf="showError('estimatedDeliveryDate')">{{ showError('estimatedDeliveryDate') }}</small>
+      </div>
+
+      <div class="field check">
+        <p-checkbox inputId="lnProc" [binary]="true" [(ngModel)]="draft.requiresProcurement"></p-checkbox>
+        <label for="lnProc">Supplying it needs purchasing from a vendor</label>
+      </div>
+      <div class="field" *ngIf="draft.requiresProcurement">
+        <label for="lnLead">Procurement lead time (days)</label>
+        <p-inputnumber inputId="lnLead" [(ngModel)]="draft.procurementLeadDays" [min]="0" [maxFractionDigits]="0" styleClass="w-full"></p-inputnumber>
+        <small class="p-error" *ngIf="showError('procurementLeadDays')">{{ showError('procurementLeadDays') }}</small>
+      </div>
+    </ng-container>
+
+    <div class="field">
+      <label for="lnNotes">Internal notes</label>
+      <textarea pTextarea id="lnNotes" [(ngModel)]="draft.notes" rows="2" [maxlength]="max.lineNotes"></textarea>
+    </div>
+
+    <small class="p-error block" *ngIf="saveError" data-testid="line-save-error">{{ saveError }}</small>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <div class="drawer-actions">
+      <p-button label="Cancel" [text]="true" severity="secondary" [disabled]="isSaving" (onClick)="drawerVisible = false"></p-button>
+      <p-button [label]="isAdd ? 'Add line' : 'Save'" icon="pi pi-check" [loading]="isSaving" [disabled]="isSaving"
+                (onClick)="saveLine()" data-testid="save-line"></p-button>
+    </div>
+  </ng-template>
+</p-drawer>

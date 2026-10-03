@@ -6,6 +6,7 @@ using SMS.Modules.Demand.Domain;
 using SMS.Modules.Demand.Services;
 using SMS.Modules.Finance.Data;
 using SMS.Modules.Finance.Domain;
+using SMS.Modules.Finance.Integration;
 using SMS.Modules.Finance.Models;
 using SMS.Modules.Lookups.Services;
 using SMS.Shared.Common;
@@ -41,12 +42,29 @@ internal sealed class SalesInvoiceService : ISalesInvoiceService
     private readonly IBackgroundJobClient          _jobs;
     private readonly ILogger<SalesInvoiceService>  _log;
     private readonly TimeProvider                  _clock;
+    private readonly SalesInvoiceQuickBooksPublisher? _quickBooks;
+    private readonly IExchangeRateProvider?        _exchangeRates;
+    private readonly IOrganizationCurrencyService? _orgCurrency;
+    private readonly ICurrencyCodeLookup?          _currencyCodes;
 
+    /// <param name="quickBooks">
+    /// Tells the QuickBooks gateway about an invoice once it is issued (plan D-7). Optional so a caller that
+    /// builds this service by hand needs nothing extra; the module registers it.
+    /// </param>
+    /// <param name="exchangeRates">
+    /// SAP alignment (S-5) — the rate an issued invoice is snapshotted at, with <paramref name="orgCurrency"/>
+    /// (the organization's base currency) and <paramref name="currencyCodes"/> (its ISO code; the Lookups
+    /// catalog is asked when this is absent). Optional, like <paramref name="quickBooks"/>: without them an
+    /// invoice is issued with no snapshot, exactly as a missing rate would leave it.
+    /// </param>
     public SalesInvoiceService(
         FinanceDbContext db, DemandDbContext demand, IDeliveryFulfillmentReader deliveries,
         ICustomerLedgerService ledger, IProductLedgerWriter productLedger,
         ISupplierNameLookupService partnerNames, ILookupsService lookups,
-        IBackgroundJobClient jobs, ILogger<SalesInvoiceService> log, TimeProvider? clock = null)
+        IBackgroundJobClient jobs, ILogger<SalesInvoiceService> log, TimeProvider? clock = null,
+        SalesInvoiceQuickBooksPublisher? quickBooks = null,
+        IExchangeRateProvider? exchangeRates = null, IOrganizationCurrencyService? orgCurrency = null,
+        ICurrencyCodeLookup? currencyCodes = null)
     {
         _db            = db;
         _demand        = demand;
@@ -58,6 +76,10 @@ internal sealed class SalesInvoiceService : ISalesInvoiceService
         _jobs          = jobs;
         _log           = log;
         _clock         = clock ?? TimeProvider.System;
+        _quickBooks    = quickBooks;
+        _exchangeRates = exchangeRates;
+        _orgCurrency   = orgCurrency;
+        _currencyCodes = currencyCodes;
     }
 
     // ── Create ───────────────────────────────────────────────────────────────
@@ -148,6 +170,9 @@ internal sealed class SalesInvoiceService : ISalesInvoiceService
                     UnitPrice       = soLine.UnitPrice,
                     DiscountPercent = soLine.DiscountPercent,
                     TaxPercent      = soLine.TaxPercent,
+                    // S-3 — the code and its rate travel together, as the order line snapshotted them.
+                    TaxCodeUuid     = soLine.TaxCodeUuid,
+                    TaxCode         = soLine.TaxCode,
                     LineTotal       = SalesInvoiceTotals.LineTotal(quantity, soLine.UnitPrice, soLine.DiscountPercent, soLine.TaxPercent)
                 });
 
@@ -244,12 +269,13 @@ internal sealed class SalesInvoiceService : ISalesInvoiceService
         SalesInvoice issued = null!;
         CustomerLedgerEntry entry = null!;
         var costOfSales = new List<ProductLedgerEntry>();
+        CurrencySnapshot? snapshot = null;
 
         for (var attempt = 1; attempt <= MaxAttempts; attempt++)
         {
             // Re-read on every pass: a lost race means somebody else committed in between, and what
             // they committed may have been this very invoice.
-            var invoice = await _db.SalesInvoices.Include(i => i.Lines)
+            var invoice = await OwnInvoices().Include(i => i.Lines)
                 .FirstOrDefaultAsync(i => i.UUID == invoiceUuid && !i.IsDelete)
                 ?? throw new NotFoundException("SalesInvoice", invoiceUuid);
 
@@ -262,6 +288,13 @@ internal sealed class SalesInvoiceService : ISalesInvoiceService
             invoice.Status       = SalesInvoiceStatuses.Issued;
             invoice.ModifiedBy   = userId;
             invoice.ModifiedDate = now;
+
+            // S-5 — the rate is fixed now, as the invoice becomes final, and never re-read afterwards. Looked
+            // up once: neither the invoice's currency nor its date can change between two passes.
+            snapshot ??= await SnapshotCurrencyAsync(invoice);
+            invoice.ExchangeRate     = snapshot.Rate;
+            invoice.BaseCurrencyCode = snapshot.BaseCurrencyCode;
+            invoice.BaseGrandTotal   = snapshot.Rate is { } rate ? ExchangeRateMath.Convert(invoice.GrandTotal, rate) : null;
 
             // §9.5 — the receivable is booked in the same transaction as the status change: one
             // SaveChanges below commits both, or neither.
@@ -296,7 +329,78 @@ internal sealed class SalesInvoiceService : ISalesInvoiceService
         await RecordInvoicedQuantitiesAsync(issued);
         RecordOnTimeline(issued, userId);
 
+        // DRAFT → ISSUED: the invoice is now something QuickBooks should have. After the commit above and
+        // never able to fail the issue — the publisher logs and swallows whatever the gateway does.
+        if (_quickBooks is not null)
+            await _quickBooks.OnChangedAsync(issued, SalesInvoiceStatuses.Draft, contentChanged: false);
+
         return new SalesInvoiceIssued(issued.UUID, issued.InvoiceNumber, issued.Status, issued.GrandTotal, entry.RunningBalance);
+    }
+
+    /// <summary>
+    /// What an invoice is worth in the organization's base currency. The base currency is kept whenever it is
+    /// known, the rate only when one was on file; both null when not even the base currency could be told.
+    /// </summary>
+    private sealed record CurrencySnapshot(decimal? Rate, string? BaseCurrencyCode)
+    {
+        public static readonly CurrencySnapshot None = new(null, null);
+    }
+
+    /// <summary>
+    /// S-5 — the invoice currency's rate into the organization's base currency on the invoice date: exactly
+    /// 1 when they are the same, the rate on file (or the reciprocal of the opposite pair) otherwise. No rate
+    /// on file (or none that could be read) keeps the base currency with no rate — so the invoice can say
+    /// "no USD → PKR rate was on file", as an approved supplier invoice does; no base currency, or no ISO code
+    /// for it, leaves no snapshot at all. Neither <b>ever</b> stops the issue: an organization that has not set
+    /// up rates bills exactly as it did before they existed.
+    /// </summary>
+    private async Task<CurrencySnapshot> SnapshotCurrencyAsync(SalesInvoice invoice)
+    {
+        string? baseCode;
+        try
+        {
+            if (_orgCurrency is null) return CurrencySnapshot.None;
+
+            var baseId = await _orgCurrency.GetBaseCurrencyIdAsync(invoice.OrganizationId);
+            if (baseId is not { } id) return CurrencySnapshot.None;
+
+            baseCode = _currencyCodes is not null
+                ? await _currencyCodes.GetCodeAsync(id)
+                : _lookups.GetCurrencies().FirstOrDefault(c => c.Id == id)?.Code;
+            if (string.IsNullOrWhiteSpace(baseCode)) return CurrencySnapshot.None;
+            baseCode = baseCode.Trim();
+        }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex,
+                "Sales invoice {Invoice} is being issued without an exchange-rate snapshot: its organization's base currency could not be read.",
+                invoice.InvoiceNumber);
+            return CurrencySnapshot.None;
+        }
+
+        if (string.Equals(baseCode, invoice.CurrencyCode, StringComparison.OrdinalIgnoreCase))
+            return new CurrencySnapshot(1m, baseCode);
+
+        var noRate = new CurrencySnapshot(null, baseCode);
+        if (_exchangeRates is null) return noRate;
+
+        try
+        {
+            var quote = await _exchangeRates.GetRateAsync(invoice.CurrencyCode, baseCode, invoice.InvoiceDate.Date);
+            if (quote is null) return noRate;
+
+            // decimal(18,8) is what the column keeps; the base total is worked from the rate as stored, so
+            // the two always agree when read back.
+            var rate = Math.Round(quote.Rate, 8, MidpointRounding.AwayFromZero);
+            return rate > 0m ? new CurrencySnapshot(rate, baseCode) : noRate;
+        }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex,
+                "Sales invoice {Invoice} is being issued with no exchange rate: looking the {From} → {To} rate up failed.",
+                invoice.InvoiceNumber, invoice.CurrencyCode, baseCode);
+            return noRate;
+        }
     }
 
     /// <summary>
@@ -431,9 +535,17 @@ internal sealed class SalesInvoiceService : ISalesInvoiceService
                 UnitPrice       = l.UnitPrice,
                 DiscountPercent = l.DiscountPercent,
                 TaxPercent      = l.TaxPercent,
+                TaxCodeUuid     = l.TaxCodeUuid,
+                TaxCode         = l.TaxCode,
                 LineTotal       = l.LineTotal
             })],
-            Payments = payments
+            Payments           = payments,
+            ExchangeRate       = invoice.ExchangeRate,
+            BaseCurrencyCode   = invoice.BaseCurrencyCode,
+            BaseGrandTotal     = invoice.BaseGrandTotal,
+            CancelledAt        = invoice.CancelledAt,
+            CancelledBy        = invoice.CancelledBy,
+            CancellationReason = invoice.CancellationReason
         };
         FillHeader(detail, invoice);
         return detail;
@@ -546,6 +658,216 @@ internal sealed class SalesInvoiceService : ISalesInvoiceService
         await SaveEditAsync(invoice);
     }
 
+    // ── Cancel (SAP alignment S-7: reverse, don't edit) ──────────────────────
+
+    internal const int MaxCancellationReasonLength = 500;
+
+    private const string SalesInvoiceReferenceType = "SalesInvoice";
+
+    public async Task<SalesInvoiceDetailModel> CancelAsync(Guid invoiceUuid, string? reason, int userId)
+    {
+        reason = string.IsNullOrWhiteSpace(reason) ? null : reason.Trim();
+        if (reason is null)
+            throw new BadRequestException(
+                "Say why the invoice is being cancelled: the reason is kept on the invoice and on the customer's ledger.");
+        if (reason.Length > MaxCancellationReasonLength)
+            throw new BadRequestException($"The reason is longer than {MaxCancellationReasonLength} characters.");
+
+        SalesInvoice cancelled = null!;
+        var previousStatus = SalesInvoiceStatuses.Issued;
+
+        for (var attempt = 1; attempt <= MaxAttempts; attempt++)
+        {
+            // Re-read on every pass, as issuing does: a lost race means someone else committed in between —
+            // a payment applied to this very invoice, say — and the checks must see what they committed.
+            var invoice = await OwnInvoices().Include(i => i.Lines)
+                .FirstOrDefaultAsync(i => i.UUID == invoiceUuid && !i.IsDelete)
+                ?? throw new NotFoundException("SalesInvoice", invoiceUuid);
+
+            await EnsureCancellableAsync(invoice);
+
+            var now = _clock.GetUtcNow().UtcDateTime;
+            previousStatus = invoice.Status;
+
+            invoice.Status             = SalesInvoiceStatuses.Cancelled;
+            invoice.BalanceDue         = 0m;
+            invoice.CancelledAt        = now;
+            invoice.CancelledBy        = userId;
+            invoice.CancellationReason = reason;
+            invoice.ModifiedBy         = userId;
+            // The concurrency token: a payment that read the invoice before this commit cannot then apply
+            // itself to a cancelled invoice — its save matches no row, and its retry sees CANCELLED.
+            invoice.ModifiedDate       = now;
+
+            CustomerLedgerEntry? credit = null;
+            var returns = new List<ProductLedgerEntry>();
+
+            try
+            {
+                // The opposite of the INVOICE debit the issue booked: the same amount, currency and reference,
+                // as a credit. The ledger is append-only, so the debit stays and this offsets it.
+                credit = await _ledger.TrackEntryAsync(new CustomerLedgerPosting(
+                    invoice.PartnerId, CustomerLedgerEntryTypes.CreditNote,
+                    SalesInvoiceReferenceType, invoice.UUID, invoice.InvoiceNumber,
+                    Debit: 0m, Credit: invoice.GrandTotal, invoice.CurrencyCode,
+                    Truncate($"Invoice {invoice.InvoiceNumber} cancelled: {reason}", 500),
+                    now, userId));
+
+                await TrackSaleReversalsAsync(invoice, now, userId, returns);
+
+                // One save: the status, the customer's credit and the stock coming back commit together or not at all.
+                await _db.SaveChangesAsync();
+                cancelled = invoice;
+                break;
+            }
+            catch (Exception ex)
+            {
+                // Nothing of this pass may wait on the context for some later save to commit half of it.
+                DetachAll(invoice, credit, returns);
+
+                // Another writer took this customer's (or a variant's) next sequence number, or changed the
+                // invoice: try again from a fresh read.
+                if (ex is DbUpdateException && attempt < MaxAttempts) continue;
+                if (ex is ConflictException)
+                    throw new ConflictException($"Sales invoice {invoice.InvoiceNumber} cannot be cancelled: {ex.Message}");
+                throw;
+            }
+        }
+
+        // After the commit, and never able to undo it — each logs rather than throws.
+        await RecordUninvoicedQuantitiesAsync(cancelled);
+        RecordCancellationOnTimeline(cancelled, userId, reason);
+
+        // ISSUED/OVERDUE → CANCELLED: QuickBooks voids its copy (SalesInvoiceQuickBooksRules). The publisher
+        // logs and swallows whatever the gateway does.
+        if (_quickBooks is not null)
+            await _quickBooks.OnChangedAsync(cancelled, previousStatus, contentChanged: false);
+
+        return (await GetAsync(invoiceUuid))!;
+    }
+
+    /// <summary>
+    /// Only an invoice that is a receivable, and that nothing has been paid against, can be cancelled. A
+    /// draft booked nothing (it is deleted instead); a paid or part-paid one would leave a payment applied
+    /// to an invoice that no longer stands. A payment that bounced or was reversed keeps its allocation row
+    /// as history but has put its money back, so it does not count.
+    /// </summary>
+    private async Task EnsureCancellableAsync(SalesInvoice invoice)
+    {
+        var number = invoice.InvoiceNumber;
+
+        switch (invoice.Status)
+        {
+            case SalesInvoiceStatuses.Issued:
+            case SalesInvoiceStatuses.Overdue:
+                break;
+
+            case SalesInvoiceStatuses.Draft:
+                throw new ConflictException(
+                    $"Sales invoice {number} is a DRAFT: nothing has been booked for it, so there is nothing to reverse. Delete the draft instead.");
+
+            case SalesInvoiceStatuses.Cancelled:
+                throw new ConflictException($"Sales invoice {number} is already CANCELLED.");
+
+            case SalesInvoiceStatuses.PartiallyPaid:
+            case SalesInvoiceStatuses.Paid:
+                throw new ConflictException(
+                    $"Sales invoice {number} is {invoice.Status}: {invoice.AmountPaid:0.00} {invoice.CurrencyCode} has been paid against it. " +
+                    "Only an invoice nothing has been paid against can be cancelled.");
+
+            default:
+                throw new ConflictException(
+                    $"Sales invoice {number} is {invoice.Status}. Only an ISSUED or OVERDUE invoice can be cancelled.");
+        }
+
+        if (invoice.AmountPaid != 0m)
+            throw new ConflictException(
+                $"Sales invoice {number} has {invoice.AmountPaid:0.00} {invoice.CurrencyCode} paid against it. " +
+                "Only an invoice nothing has been paid against can be cancelled.");
+
+        var applied = await _db.PaymentAllocations.AnyAsync(a =>
+            a.SalesInvoiceId == invoice.Id && a.CustomerPayment.Status == CustomerPaymentStatuses.Received);
+        if (applied)
+            throw new ConflictException(
+                $"Sales invoice {number} has a customer payment applied to it. " +
+                "Only an invoice nothing has been paid against can be cancelled.");
+    }
+
+    /// <summary>
+    /// §11 — every SALE the issue booked for this invoice comes back in as a RETURN_IN of the same quantity,
+    /// at the unit cost it went out at, so the variant's stock value is restored rather than re-costed at
+    /// whatever the average has become. Tracked only: the caller's single save commits them. An invoice
+    /// issued before the product ledger existed booked none, and so takes none back.
+    /// </summary>
+    private async Task TrackSaleReversalsAsync(
+        SalesInvoice invoice, DateTime now, int userId, List<ProductLedgerEntry> tracked)
+    {
+        var sales = await _db.ProductLedgerEntries.AsNoTracking()
+            .Where(e => e.ReferenceType == SalesInvoiceReferenceType && e.ReferenceId == invoice.UUID
+                     && e.EntryType == ProductLedgerEntryTypes.Sale && e.Direction == ProductLedgerDirections.Out)
+            .OrderBy(e => e.EntryDate).ThenBy(e => e.Id)
+            .ToListAsync();
+
+        foreach (var sale in sales)
+            tracked.Add(await _productLedger.TrackEntryAsync(new ProductLedgerPosting(
+                sale.VariantUuid, ProductLedgerEntryTypes.ReturnIn, ProductLedgerDirections.In, sale.Quantity, UnitCost: sale.UnitCost,
+                SalesInvoiceReferenceType, invoice.UUID, invoice.InvoiceNumber, userId,
+                ProductUuid: sale.ProductUuid,
+                PartnerId: invoice.PartnerId,
+                Narration: Truncate(
+                    $"Invoice {invoice.InvoiceNumber} cancelled: {sale.Quantity:0.####} taken back at {sale.UnitCost:0.####}", 500),
+                EntryDate: now)));
+    }
+
+    /// <summary>
+    /// Takes the cancelled invoice's quantities back off the order's per-line <c>invoiced_qty</c>, never below
+    /// zero. Best-effort, like <see cref="RecordInvoicedQuantitiesAsync"/>: the counter is derivable from
+    /// Finance's own invoice lines, so a failure is logged for someone to reconcile.
+    /// </summary>
+    private async Task RecordUninvoicedQuantitiesAsync(SalesInvoice invoice)
+    {
+        try
+        {
+            var soLineUuids = invoice.Lines.Select(l => l.SoLineUuid).Distinct().ToList();
+            var soLines = await _demand.SaleOrderLines.Where(l => soLineUuids.Contains(l.UUID)).ToListAsync();
+
+            foreach (var soLine in soLines)
+                soLine.InvoicedQty = Math.Max(0m,
+                    soLine.InvoicedQty - invoice.Lines.Where(l => l.SoLineUuid == soLine.UUID).Sum(l => l.Quantity));
+
+            await _demand.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex,
+                "Sales invoice {Invoice} was cancelled but sale order {SoNumber}'s invoiced quantities could not be reduced; reconcile by hand.",
+                invoice.InvoiceNumber, invoice.SaleOrderNumber);
+        }
+    }
+
+    /// <summary><c>SO_INVOICE_CANCELLED</c> on the order's own trace, beside the <c>SO_INVOICED</c> it undoes.</summary>
+    private void RecordCancellationOnTimeline(SalesInvoice invoice, int userId, string reason)
+    {
+        try
+        {
+            var notes = Truncate(
+                $"Invoice {invoice.InvoiceNumber} for {invoice.GrandTotal:0.00} {invoice.CurrencyCode} cancelled: {reason}", 500);
+
+            var traceId  = invoice.TraceId;
+            var evt      = new TimelineEvent(
+                SaleOrderTimelineEventTypes.SoInvoiceCancelled, "SO", invoice.SaleOrderUuid, invoice.SaleOrderNumber,
+                _clock.GetUtcNow().UtcDateTime, userId, notes);
+            var soNumber = invoice.SaleOrderNumber;
+            var orgId    = invoice.OrganizationId;
+
+            _jobs.Enqueue<ITimelineAppendJob>(j => j.AppendAsync(traceId, evt, "SO", soNumber, orgId));
+        }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "Sales invoice {Invoice} was cancelled but the order's timeline could not be told.", invoice.InvoiceNumber);
+        }
+    }
+
     /// <summary>
     /// A draft is edited or deleted from a read that may be stale — somebody issuing it at the same
     /// moment, say. The save then matches no row, and that is reported as what it is, not as a fault.
@@ -584,6 +906,20 @@ internal sealed class SalesInvoiceService : ISalesInvoiceService
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// The caller's own organization's invoices — for the actions that <b>book</b> something (issue, cancel).
+    /// The tenant filter already limits everyone else to them; a platform super admin bypasses it and would
+    /// find another organization's invoice by its uuid, but every ledger row the action adds is stamped with
+    /// the caller's organization at save, so the debit or the credit note, the stock moving and the QuickBooks
+    /// call (made on the caller's connection) would all land in the wrong books. Another organization's
+    /// invoice is therefore "not found" to these actions, for a super admin exactly as for anyone else.
+    /// </summary>
+    private IQueryable<SalesInvoice> OwnInvoices()
+    {
+        var organization = _db.TenantContext.OrganizationId;
+        return _db.SalesInvoices.Where(i => i.OrganizationId == organization);
+    }
 
     private Task<SalesInvoice?> LiveInvoiceForAsync(Guid deliveryUuid) =>
         _db.SalesInvoices.AsNoTracking().FirstOrDefaultAsync(i =>
@@ -642,10 +978,10 @@ internal sealed class SalesInvoiceService : ISalesInvoiceService
             e.State = EntityState.Detached;
     }
 
-    private void DetachAll(SalesInvoice invoice, CustomerLedgerEntry entry, IEnumerable<ProductLedgerEntry> costOfSales)
+    private void DetachAll(SalesInvoice invoice, CustomerLedgerEntry? entry, IEnumerable<ProductLedgerEntry> costOfSales)
     {
         foreach (var cost in costOfSales) _db.Entry(cost).State = EntityState.Detached;
-        _db.Entry(entry).State = EntityState.Detached;
+        if (entry is not null) _db.Entry(entry).State = EntityState.Detached;
         foreach (var line in invoice.Lines) _db.Entry(line).State = EntityState.Detached;
         _db.Entry(invoice).State = EntityState.Detached;
     }

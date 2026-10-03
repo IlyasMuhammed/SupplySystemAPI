@@ -217,8 +217,22 @@ internal sealed class SalesInvoiceDocumentService : ISalesInvoiceDocumentService
         });
     }
 
+    /// <summary>
+    /// SAP alignment (S-3) — what the tax column says for a line. A line with a tax code shows the code with
+    /// the rate it was snapshotted at ("GST17 · 17%"); a line without one shows its percentage as it always
+    /// did — bare under the "Tax %" heading of an invoice with no codes at all, with a "%" beside coded lines.
+    /// </summary>
+    internal static string TaxLabel(SalesInvoiceLineModel line, bool anyCode)
+    {
+        var percent = line.TaxPercent.ToString("0.##", Culture);
+        if (!string.IsNullOrWhiteSpace(line.TaxCode)) return $"{line.TaxCode.Trim()} · {percent}%";
+        return anyCode ? $"{percent}%" : percent;
+    }
+
     private static void ComposeLineItemsTable(ColumnDescriptor column, SalesInvoiceDetailModel invoice)
     {
+        var anyCode = invoice.Lines.Any(l => !string.IsNullOrWhiteSpace(l.TaxCode));
+
         column.Item().PaddingBottom(10).Table(table =>
         {
             table.ColumnsDefinition(columns =>
@@ -228,7 +242,8 @@ internal sealed class SalesInvoiceDocumentService : ISalesInvoiceDocumentService
                 columns.ConstantColumn(48);
                 columns.ConstantColumn(70);
                 columns.ConstantColumn(40);
-                columns.ConstantColumn(40);
+                // A code and its rate need room; an invoice with no codes keeps the old layout exactly.
+                columns.ConstantColumn(anyCode ? 76 : 40);
                 columns.ConstantColumn(78);
             });
 
@@ -239,7 +254,7 @@ internal sealed class SalesInvoiceDocumentService : ISalesInvoiceDocumentService
                 header.Cell().Element(HeaderCell).AlignRight().Text("Qty");
                 header.Cell().Element(HeaderCell).AlignRight().Text("Unit Price");
                 header.Cell().Element(HeaderCell).AlignRight().Text("Disc %");
-                header.Cell().Element(HeaderCell).AlignRight().Text("Tax %");
+                header.Cell().Element(HeaderCell).AlignRight().Text(anyCode ? "Tax" : "Tax %");
                 header.Cell().Element(HeaderCell).AlignRight().Text("Amount");
 
                 static IContainer HeaderCell(IContainer c) =>
@@ -260,7 +275,7 @@ internal sealed class SalesInvoiceDocumentService : ISalesInvoiceDocumentService
                 table.Cell().Element(c => BodyCell(c, isLast, isEven)).AlignRight().Text(line.Quantity.ToString("N2", Culture));
                 table.Cell().Element(c => BodyCell(c, isLast, isEven)).AlignRight().Text(line.UnitPrice.ToString("N2", Culture));
                 table.Cell().Element(c => BodyCell(c, isLast, isEven)).AlignRight().Text(line.DiscountPercent.ToString("0.##", Culture));
-                table.Cell().Element(c => BodyCell(c, isLast, isEven)).AlignRight().Text(line.TaxPercent.ToString("0.##", Culture));
+                table.Cell().Element(c => BodyCell(c, isLast, isEven)).AlignRight().Text(TaxLabel(line, anyCode));
                 table.Cell().Element(c => BodyCell(c, isLast, isEven)).AlignRight().Text(line.LineTotal.ToString("N2", Culture));
 
                 static IContainer BodyCell(IContainer c, bool isLast, bool isEven) =>

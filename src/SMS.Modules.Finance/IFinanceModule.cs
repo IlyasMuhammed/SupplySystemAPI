@@ -2,11 +2,14 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using SMS.Modules.Finance.Data;
+using SMS.Modules.Finance.Integration;
 using SMS.Modules.Finance.Repositories;
 using SMS.Modules.Finance.Services;
 using SMS.Modules.Warehouse.Events;
 using SMS.Shared.Common;
+using SMS.Shared.Integration.QuickBooks;
 
 namespace SMS.Modules.Finance;
 
@@ -73,6 +76,8 @@ public static class FinanceModuleExtensions
         services.AddScoped<ISalesInvoiceDocumentArchive, SalesInvoiceDocumentArchive>();
         services.AddScoped<ICustomerPaymentService, CustomerPaymentService>();
         services.AddScoped<InvoiceOverdueJob>();
+        // SAP alignment (S-7) — Demand asks it before cancelling a sale order that has been billed.
+        services.AddScoped<ISaleOrderInvoiceLookup, SaleOrderInvoiceLookup>();
 
         // A29-P8-02 — the per-variant product ledger. Finance's own code takes the writer, which can also
         // track an entry without saving; every other module takes the public contract.
@@ -84,6 +89,28 @@ public static class FinanceModuleExtensions
         // Timeline trace_id resolver
         services.AddScoped<ITraceIdResolver, InvoiceTraceIdResolver>();
         services.AddScoped<ITraceIdResolver, SupplierPaymentTraceIdResolver>();
+
+        // SAP alignment, work package A — finance master data. Tax codes and exchange rates are managed
+        // here and read by other modules through SMS.Shared (ITaxCodeLookup, IExchangeRateProvider).
+        services.AddScoped<ITaxCodeService, TaxCodeService>();
+        services.AddScoped<IExchangeRateService, ExchangeRateService>();
+        services.AddScoped<ITaxCodeLookup, TaxCodeLookup>();
+        services.AddScoped<IExchangeRateProvider, ExchangeRateProvider>();
+        // Lookups asks every checker before it deletes a currency or changes its code.
+        services.AddScoped<ILookupReferenceChecker, FinanceCurrencyReferenceChecker>();
+
+        // QuickBooks — sales invoices, and approved supplier invoices as bills. TryAdd: in a host without
+        // the Integration module the gateway is the Null one (every call answers Disabled); the Integration
+        // module replaces it. Each source is registered once and exposed both as itself (for its publisher)
+        // and as an IQuickBooksSource (for the gateway), one per scope.
+        services.TryAddScoped<IQuickBooksGateway, NullQuickBooksGateway>();
+        services.AddScoped<SalesInvoiceQuickBooksSource>();
+        services.AddScoped<IQuickBooksSource>(sp => sp.GetRequiredService<SalesInvoiceQuickBooksSource>());
+        services.AddScoped<SalesInvoiceQuickBooksPublisher>();
+        services.AddScoped<IPurchaseOrderLineVariants, DemandPurchaseOrderLineVariants>();
+        services.AddScoped<BillQuickBooksSource>();
+        services.AddScoped<IQuickBooksSource>(sp => sp.GetRequiredService<BillQuickBooksSource>());
+        services.AddScoped<BillQuickBooksPublisher>();
 
         return services;
     }

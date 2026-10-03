@@ -40,6 +40,7 @@ internal static class TenancyFeatureCatalog
         new("MODULE_MIR",             "Material Issue & Projects", CategoryModule, "Projects, material issue requests, MIV, wastage, and returns.",       false, 110),
         new("MODULE_MANUFACTURING",   "Manufacturing",            CategoryModule, "Bills of materials, production orders, material issue to the floor, quality inspection and finished goods receipt.", false, 115),
         new("MODULE_NOTIFICATIONS",   "Notifications",            CategoryModule, "In-app and email/WhatsApp notification delivery.",                     false, 120),
+        new("MODULE_INTEGRATION",     "QuickBooks Integration",   CategoryModule, "Sync customers, vendors, items, sales invoices and bills to QuickBooks Online.", false, 125),
 
         // SCREEN_* — notable individually-permissioned screens.
         new("SCREEN_USER_MANAGEMENT",       "User Management",          CategoryScreen, "Create and manage user accounts.",                          true,  210),
@@ -67,6 +68,7 @@ internal static class TenancyFeatureCatalog
     private static readonly HashSet<string> BasicExclusions = new(StringComparer.OrdinalIgnoreCase)
     {
         "MODULE_FINANCE", "MODULE_MIR", "MODULE_MANUFACTURING", "MODULE_LOGISTICS", "MODULE_NOTIFICATIONS", "MODULE_PROCUREMENT",
+        "MODULE_INTEGRATION",
         "SCREEN_SUPPLIER_SCORECARD", "SCREEN_AUDIT_LOG", "SCREEN_PO_DOCUMENT_TEMPLATE",
         "SCREEN_WORKFLOW_CONFIG", "SCREEN_BUDGET_MONITOR", "FEATURE_WHATSAPP", "FEATURE_MASTER_LEDGERS"
     };

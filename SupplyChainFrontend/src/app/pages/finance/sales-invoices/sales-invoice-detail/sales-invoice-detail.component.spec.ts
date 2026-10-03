@@ -59,7 +59,10 @@ describe('SalesInvoiceDetailComponent', () => {
 
   async function setup(model: SalesInvoiceDetailModel | null = invoice()) {
     invoices = jasmine.createSpyObj<SalesInvoiceService>('SalesInvoiceService',
-      ['getInvoice', 'issueInvoice', 'updateInvoice', 'deleteInvoice', 'attachPdf', 'downloadPdf']);
+      ['getInvoice', 'issueInvoice', 'updateInvoice', 'deleteInvoice', 'attachPdf', 'downloadPdf', 'cancelInvoice']);
+    invoices.cancelInvoice.and.returnValue(ok(
+      invoice({ status: 'CANCELLED', balanceDue: 0, cancelledAt: '2026-09-22T10:00:00Z', cancelledBy: 42, cancellationReason: 'Billed in error' }),
+      'Sales invoice SINV-20260920-0001 cancelled.'));
     invoices.getInvoice.and.returnValue(model ? ok(model) : of({ success: false, message: 'no', result: null } as any));
     invoices.issueInvoice.and.returnValue(ok({ invoiceUuid: UUID, invoiceNumber: 'x', status: 'ISSUED', grandTotal: 1170, partnerBalance: 1170 }, 'Sales invoice issued and its PDF filed.'));
     invoices.updateInvoice.and.returnValue(ok(null));
@@ -537,5 +540,296 @@ describe('SalesInvoiceDetailComponent', () => {
     component.filePdf();
 
     expect(invoices.attachPdf).not.toHaveBeenCalled();
+  });
+
+  // ── SAP alignment: tax code, base currency, cancel ─────────────────────────
+
+  it('shows a lines tax code with its rate, and the rate alone for a line without one', async () => {
+    await setup(invoice({
+      lines: [
+        { lineNo: 1, soLineUuid: 'sl-1', variantUuid: 'v-1', description: 'Cable', quantity: 25, unitPrice: 40, discountPercent: 0, taxPercent: 17, taxCodeUuid: 'tc-1', taxCode: 'GST17', lineTotal: 1170 },
+        { lineNo: 2, soLineUuid: 'sl-2', variantUuid: 'v-2', description: 'Clips', quantity: 1, unitPrice: 10, discountPercent: 0, taxPercent: 5.5, lineTotal: 10.55 }
+      ]
+    }));
+    fixture.detectChanges();
+
+    const cells = Array.from(fixture.nativeElement.querySelectorAll('[data-testid="line-tax"]')) as HTMLElement[];
+    expect(cells.map(c => c.textContent!.trim())).toEqual(['GST17 · 17%', '5.5%']);
+  });
+
+  it('shows what the invoice is worth in the base currency when that is another currency', async () => {
+    await setup(invoice({ currencyCode: 'USD', exchangeRate: 278.5, baseCurrencyCode: 'PKR', baseGrandTotal: 325845 }));
+    fixture.detectChanges();
+
+    const base = query('base-total')!.textContent!.replace(/\s+/g, ' ');
+    expect(base).toContain('325,845.00');
+    expect(base).toContain('278.5');
+    expect(fixture.nativeElement.textContent).toContain('In PKR');
+  });
+
+  it('shows no base total when the invoice is in the base currency, or no rate was on file', async () => {
+    await setup(invoice({ exchangeRate: 1, baseCurrencyCode: 'PKR', baseGrandTotal: 1170 }));
+    fixture.detectChanges();
+    expect(query('base-total')).toBeNull();
+
+    await setup(invoice({ currencyCode: 'USD', exchangeRate: null, baseCurrencyCode: null, baseGrandTotal: null }));
+    fixture.detectChanges();
+    expect(query('base-total')).toBeNull();
+  });
+
+  // Issued in a foreign currency with no rate on file, the server keeps the base currency's code and leaves the
+  // rate and the base total null. The page says so, in the supplier invoice's words, rather than show nothing.
+  it('says no rate was on file when an invoice was issued in a foreign currency without one', async () => {
+    await setup(invoice({ currencyCode: 'USD', exchangeRate: null, baseCurrencyCode: 'PKR', baseGrandTotal: null }));
+    fixture.detectChanges();
+
+    expect(component.missingRate).toBeTrue();
+    expect(query('base-total')).toBeNull();
+    expect(query('missing-rate')!.textContent!.replace(/\s+/g, ' ').trim())
+      .toBe('No USD → PKR rate was on file when it was issued.');
+    expect(fixture.nativeElement.textContent).not.toContain('null');
+    expect(fixture.nativeElement.textContent).not.toContain('NaN');
+
+    // Cancelled since, it still did not have one when it was issued.
+    await setup(invoice({ status: 'CANCELLED', currencyCode: 'USD', exchangeRate: null, baseCurrencyCode: 'PKR', baseGrandTotal: null }));
+    fixture.detectChanges();
+    expect(query('missing-rate')).not.toBeNull();
+  });
+
+  it('says nothing about a missing rate for a draft, a base-currency invoice, a legacy invoice, or one with a rate', async () => {
+    const cases: [string, Partial<SalesInvoiceDetailModel>][] = [
+      ['a draft has not been issued',  { status: 'DRAFT', currencyCode: 'USD', exchangeRate: null, baseCurrencyCode: 'PKR', baseGrandTotal: null }],
+      ['same currency, any case',      { currencyCode: 'pkr', exchangeRate: null, baseCurrencyCode: 'PKR', baseGrandTotal: null }],
+      ['legacy: no snapshot at all',   { currencyCode: 'USD', exchangeRate: null, baseCurrencyCode: null, baseGrandTotal: null }],
+      ['a rate was on file',           { currencyCode: 'USD', exchangeRate: 278.5, baseCurrencyCode: 'PKR', baseGrandTotal: 325845 }]
+    ];
+    for (const [why, overrides] of cases) {
+      await setup(invoice(overrides));
+      fixture.detectChanges();
+      expect(component.missingRate).withContext(why).toBeFalse();
+      expect(query('missing-rate')).withContext(why).toBeNull();
+    }
+  });
+
+  it('offers to cancel an issued or overdue invoice nothing has been paid against, to someone who may manage', async () => {
+    for (const status of ['ISSUED', 'OVERDUE']) {
+      await setup(invoice({ status }));
+      fixture.detectChanges();
+      expect(query('action-cancel')).withContext(status).not.toBeNull();
+    }
+    for (const status of ['DRAFT', 'PARTIALLY_PAID', 'PAID', 'CANCELLED', 'CREDIT_NOTE']) {
+      await setup(invoice({ status }));
+      fixture.detectChanges();
+      expect(query('action-cancel')).withContext(status).toBeNull();
+    }
+
+    permissions = ['SALES_INVOICE_VIEW'];
+    await setup(invoice({ status: 'ISSUED' }));
+    fixture.detectChanges();
+    expect(query('action-cancel')).withContext('no SALES_INVOICE_MANAGE').toBeNull();
+  });
+
+  it('does not offer to cancel an invoice a payment still stands against, but does once that payment bounced', async () => {
+    const payment = (paymentStatus: string) => ({
+      allocationUuid: 'a1', paymentUuid: 'pay-1', paymentNumber: 'CPAY-1', paymentDate: '2026-09-25T00:00:00Z',
+      paymentMethod: 'CHEQUE', paymentStatus, allocatedAmount: 400, allocatedAt: '2026-09-25T08:00:00Z', allocatedBy: 1
+    });
+
+    await setup(invoice({ status: 'ISSUED', amountPaid: 0, payments: [payment('RECEIVED')] }));
+    fixture.detectChanges();
+    expect(component.canCancel).toBeFalse();
+
+    await setup(invoice({ status: 'ISSUED', amountPaid: 0, payments: [payment('BOUNCED')] }));
+    fixture.detectChanges();
+    expect(component.canCancel).toBeTrue();
+
+    await setup(invoice({ status: 'OVERDUE', amountPaid: 1 }));
+    fixture.detectChanges();
+    expect(component.canCancel).withContext('anything paid').toBeFalse();
+  });
+
+  it('asks for a reason before cancelling, and cancels nothing by asking', async () => {
+    await setup();
+    fixture.detectChanges();
+
+    component.openCancelDialog();
+
+    expect(component.cancelVisible).toBeTrue();
+    expect(component.cancelReason).toBe('');
+    expect(component.canConfirmCancel).toBeFalse();
+    component.cancelInvoice();
+    expect(invoices.cancelInvoice).not.toHaveBeenCalled();
+
+    component.cancelReason = '   ';
+    expect(component.canConfirmCancel).withContext('blank is no reason').toBeFalse();
+    component.cancelReason = 'x'.repeat(501);
+    expect(component.canConfirmCancel).withContext('over 500').toBeFalse();
+    component.cancelReason = 'x'.repeat(500);
+    expect(component.canConfirmCancel).toBeTrue();
+  });
+
+  it('cancels with the reason trimmed, says what the server said, and shows the invoice as cancelled', async () => {
+    await setup();
+    fixture.detectChanges();
+    invoices.getInvoice.and.returnValue(ok(
+      invoice({ status: 'CANCELLED', balanceDue: 0, cancelledAt: '2026-09-22T10:00:00Z', cancellationReason: 'Billed in error' })));
+    component.openCancelDialog();
+    component.cancelReason = '  Billed in error  ';
+
+    component.cancelInvoice();
+    fixture.detectChanges();
+
+    expect(invoices.cancelInvoice).toHaveBeenCalledOnceWith(UUID, 'Billed in error');
+    expect(component.cancelVisible).toBeFalse();
+    expect(component.isCancelling).toBeFalse();
+    expect(lastToast().severity).toBe('success');
+    expect(lastToast().detail).toBe('Sales invoice SINV-20260920-0001 cancelled.');
+    expect(invoices.getInvoice).withContext('reloaded').toHaveBeenCalledTimes(2);
+    expect(query('cancelled-banner')).not.toBeNull();
+    expect(query('cancellation-reason')!.textContent).toContain('Billed in error');
+    expect(query('action-cancel')).toBeNull();
+    expect(fixture.nativeElement.querySelector('p-tag')!.textContent).toContain('Cancelled');
+  });
+
+  it('shows the servers reason when the reason is refused (400), and leaves the dialog open to correct it', async () => {
+    await setup();
+    fixture.detectChanges();
+    invoices.cancelInvoice.and.returnValue(throwError(() => ({
+      status: 400, error: { success: false, message: 'The reason is longer than 500 characters.' }
+    })));
+    component.openCancelDialog();
+    component.cancelReason = 'Billed in error';
+
+    component.cancelInvoice();
+
+    expect(lastToast().severity).toBe('error');
+    expect(lastToast().detail).toBe('The reason is longer than 500 characters.');
+    expect(component.cancelVisible).toBeTrue();
+    expect(component.isCancelling).toBeFalse();
+    expect(invoices.getInvoice).toHaveBeenCalledTimes(1);
+  });
+
+  // A 409 means the invoice is no longer what this page shows — a payment was applied to it, or someone
+  // else cancelled it, since it was loaded. Showing the reason is not enough: the page has to catch up,
+  // or it goes on offering a cancel the server will keep refusing.
+  it('after a 409 shows the servers reason, closes the dialog and reloads the invoice as it now stands', async () => {
+    await setup();
+    fixture.detectChanges();
+    invoices.cancelInvoice.and.returnValue(throwError(() => ({
+      status: 409,
+      error: { success: false, message: 'Sales invoice SINV-20260920-0001 has a customer payment applied to it. Only an invoice nothing has been paid against can be cancelled.' }
+    })));
+    invoices.getInvoice.and.returnValue(ok(invoice({
+      status: 'PARTIALLY_PAID', amountPaid: 100, balanceDue: 1070,
+      payments: [{
+        allocationUuid: 'a1', paymentUuid: 'pay-1', paymentNumber: 'CPAY-1', paymentDate: '2026-09-25T00:00:00Z',
+        paymentMethod: 'CASH', paymentStatus: 'RECEIVED', allocatedAmount: 100, allocatedAt: '2026-09-25T08:00:00Z', allocatedBy: 1
+      }]
+    })));
+    component.openCancelDialog();
+    component.cancelReason = 'Billed in error';
+
+    component.cancelInvoice();
+    fixture.detectChanges();
+
+    expect(lastToast().severity).toBe('error');
+    expect(lastToast().detail).toContain('has a customer payment applied to it');
+    expect(component.cancelVisible).toBeFalse();
+    expect(component.isCancelling).toBeFalse();
+    expect(invoices.getInvoice).withContext('reloaded').toHaveBeenCalledTimes(2);
+    expect(query('action-cancel')).toBeNull();
+    expect(query('amount-paid')!.textContent!.trim()).toBe('100.00');
+  });
+
+  it('says who cancelled the invoice, as well as when and why', async () => {
+    await setup(invoice({
+      status: 'CANCELLED', balanceDue: 0, cancelledAt: '2026-09-22T10:00:00Z', cancelledBy: 42, cancellationReason: 'Billed in error'
+    }));
+    fixture.detectChanges();
+
+    const banner = query('cancelled-banner')!.textContent!.replace(/\s+/g, ' ');
+    expect(banner).toContain('22 Sep 2026');
+    expect(banner).toContain('by user #42');
+    expect(query('cancellation-reason')!.textContent).toContain('Billed in error');
+    expect(query('balance-due')!.textContent!.trim()).toBe('0.00');
+    expect(query('action-record-payment')).toBeNull();
+    expect(query('action-cancel')).toBeNull();
+  });
+
+  it('shows a cancelled invoice without a "by" when the server did not say who', async () => {
+    await setup(invoice({ status: 'CANCELLED', balanceDue: 0, cancelledAt: '2026-09-22T10:00:00Z', cancelledBy: null }));
+    fixture.detectChanges();
+
+    expect(query('cancelled-banner')!.textContent).not.toContain('by user');
+    expect(query('cancelled-banner')!.textContent).not.toContain('null');
+  });
+
+  // An invoice raised before tax codes and rate snapshots existed has none of the new fields at all.
+  it('shows a legacy invoice, with no code, rate or base total, exactly as before — no "null", no "NaN"', async () => {
+    const legacy = invoice();
+    delete (legacy as any).exchangeRate;
+    delete (legacy as any).baseCurrencyCode;
+    delete (legacy as any).baseGrandTotal;
+    await setup(legacy);
+    fixture.detectChanges();
+
+    const text = fixture.nativeElement.textContent as string;
+    expect(query('base-total')).toBeNull();
+    expect(text).not.toContain('null');
+    expect(text).not.toContain('NaN');
+    expect(text).not.toContain('undefined');
+    expect(query('line-tax')!.textContent!.trim()).toBe('17%');
+  });
+
+  it('matches the server on what blocks a cancel: anything paid, or a payment that still stands', async () => {
+    const payment = (paymentStatus: string) => ({
+      allocationUuid: 'a-' + paymentStatus, paymentUuid: 'pay-' + paymentStatus, paymentNumber: 'CPAY-' + paymentStatus,
+      paymentDate: '2026-09-25T00:00:00Z', paymentMethod: 'CHEQUE', paymentStatus, allocatedAmount: 400,
+      allocatedAt: '2026-09-25T08:00:00Z', allocatedBy: 1
+    });
+
+    await setup(invoice({ status: 'OVERDUE', payments: [payment('BOUNCED'), payment('REVERSED')] }));
+    fixture.detectChanges();
+    expect(component.canCancel).withContext('bounced and reversed payments gave their money back').toBeTrue();
+
+    await setup(invoice({ status: 'OVERDUE', payments: [payment('BOUNCED'), payment('RECEIVED')] }));
+    fixture.detectChanges();
+    expect(component.canCancel).withContext('one that stands is enough').toBeFalse();
+
+    await setup(invoice({ status: 'ISSUED', amountPaid: 0.01 }));
+    fixture.detectChanges();
+    expect(component.canCancel).withContext('a cent paid').toBeFalse();
+  });
+
+  it('cancels once however often the button is pressed while it is working', async () => {
+    await setup();
+    fixture.detectChanges();
+    invoices.cancelInvoice.and.returnValue(new Subject<any>());
+    component.openCancelDialog();
+    component.cancelReason = 'Billed in error';
+
+    component.cancelInvoice();
+    component.cancelInvoice();
+
+    expect(invoices.cancelInvoice).toHaveBeenCalledTimes(1);
+  });
+
+  it('will not cancel a draft, a paid invoice, or for someone who may not manage', async () => {
+    for (const status of ['DRAFT', 'PAID']) {
+      await setup(invoice({ status }));
+      fixture.detectChanges();
+      component.openCancelDialog();
+      component.cancelReason = 'x';
+      component.cancelInvoice();
+      expect(component.cancelVisible).withContext(status).toBeFalse();
+      expect(invoices.cancelInvoice).withContext(status).not.toHaveBeenCalled();
+    }
+
+    permissions = ['SALES_INVOICE_VIEW'];
+    await setup();
+    fixture.detectChanges();
+    component.cancelReason = 'x';
+    component.cancelInvoice();
+    expect(invoices.cancelInvoice).not.toHaveBeenCalled();
   });
 });

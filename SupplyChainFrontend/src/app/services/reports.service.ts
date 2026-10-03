@@ -155,12 +155,16 @@ export interface ShipmentTrackerItem {
 
 // ── Finance ───────────────────────────────────────────────────────────────────
 
+/** An approved supplier invoice with something still owed on it (the server leaves out the rest). */
 export interface InvoiceAgingItem {
   invoiceNumber:     string;
   supplierInvoiceNo: string | null;
   supplierName:      string;
   dueDate:           string;
+  /** What the invoice billed. */
   totalAmount:       number;
+  /** What is still owed: TotalAmount − PaidAmount. This is what is aged. */
+  outstandingAmount: number;
   paymentStatus:     string;
   daysOverdue:       number;
   agingBucket:       string;
@@ -169,6 +173,7 @@ export interface InvoiceAgingItem {
 export interface InvoiceAgingBucketSummary {
   bucket:      string;
   count:       number;
+  /** The bucket's invoices' outstanding amounts — what is still owed, not what they billed. */
   totalAmount: number;
 }
 

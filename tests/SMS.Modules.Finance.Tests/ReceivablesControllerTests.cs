@@ -43,7 +43,7 @@ public class ReceivablesControllerTests
     public void The_controllers_and_their_actions_are_actually_found()
     {
         // Guards the guard: a reflection query that silently matches nothing passes every assertion below.
-        Controllers.SelectMany(ActionsOf).Should().HaveCount(13);
+        Controllers.SelectMany(ActionsOf).Should().HaveCount(14);
     }
 
     [Fact]
@@ -83,6 +83,7 @@ public class ReceivablesControllerTests
     [InlineData(typeof(SalesInvoicesController), nameof(SalesInvoicesController.Delete),      "SALES_INVOICE_MANAGE")]
     [InlineData(typeof(SalesInvoicesController), nameof(SalesInvoicesController.Issue),       "SALES_INVOICE_MANAGE")]
     [InlineData(typeof(SalesInvoicesController), nameof(SalesInvoicesController.AttachPdf),   "SALES_INVOICE_MANAGE")]
+    [InlineData(typeof(SalesInvoicesController), nameof(SalesInvoicesController.Cancel),      "SALES_INVOICE_MANAGE")]
     // Customer payments: recording and applying money is what settles an invoice.
     [InlineData(typeof(CustomerPaymentsController), nameof(CustomerPaymentsController.GetList),  "CUSTOMER_PAYMENT_VIEW")]
     [InlineData(typeof(CustomerPaymentsController), nameof(CustomerPaymentsController.GetById),  "CUSTOMER_PAYMENT_VIEW")]
@@ -131,6 +132,7 @@ public class ReceivablesControllerTests
             "DELETE api/sales-invoices/{uuid:guid}",
             "POST api/sales-invoices/{uuid:guid}/issue",
             "POST api/sales-invoices/{uuid:guid}/attach-pdf",
+            "POST api/sales-invoices/{uuid:guid}/cancel",
             "GET api/sales-invoices/{uuid:guid}/pdf",
             "POST api/customer-payments",
             "GET api/customer-payments",
@@ -259,6 +261,25 @@ public class ReceivablesControllerTests
 
         t.Service.Verify(s => s.UpdateAsync(id, update, Caller), Times.Once);
         t.Service.Verify(s => s.DeleteAsync(id, Caller), Times.Once);
+    }
+
+    [Fact]
+    public async Task Cancelling_passes_the_reason_and_the_caller_and_returns_the_cancelled_invoice()
+    {
+        var t = new Invoices();
+        var id = Guid.NewGuid();
+        var cancelled = new SalesInvoiceDetailModel { Uuid = id, InvoiceNumber = "SINV-1", Status = "CANCELLED" };
+        t.Service.Setup(s => s.CancelAsync(id, "Billed in error", Caller)).ReturnsAsync(cancelled);
+        t.Service.Setup(s => s.CancelAsync(id, null, Caller)).ReturnsAsync(cancelled);
+
+        var result = await t.Controller.Cancel(id, new CancelSalesInvoiceRequest { Reason = "Billed in error" });
+
+        Body<SalesInvoiceDetailModel>(result).Should().BeSameAs(cancelled);
+        ((ApiResponse<SalesInvoiceDetailModel>)((OkObjectResult)result).Value!).Message.Should().Be("Sales invoice SINV-1 cancelled.");
+
+        // No body at all: the service, not the controller, says a reason is required.
+        await t.Controller.Cancel(id, null);
+        t.Service.Verify(s => s.CancelAsync(id, null, Caller), Times.Once);
     }
 
     [Fact]

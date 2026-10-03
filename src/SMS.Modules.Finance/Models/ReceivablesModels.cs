@@ -62,6 +62,16 @@ public class SalesInvoiceListItemModel
     public string   CurrencyCode    { get; set; } = string.Empty;
 }
 
+/// <summary>
+/// SAP alignment (S-7) — cancel an issued, unpaid invoice. The reason is required: it is kept on the
+/// invoice and written on the customer's ledger beside the reversing entry.
+/// </summary>
+public class CancelSalesInvoiceRequest
+{
+    /// <summary>Why the invoice is being cancelled. Required, at most 500 characters.</summary>
+    public string? Reason { get; set; }
+}
+
 public class SalesInvoiceLineModel
 {
     public int     LineNo          { get; set; }
@@ -72,6 +82,10 @@ public class SalesInvoiceLineModel
     public decimal UnitPrice       { get; set; }
     public decimal DiscountPercent { get; set; }
     public decimal TaxPercent      { get; set; }
+    /// <summary>The tax code the sale order line used (a snapshot); null on lines with no code.</summary>
+    public Guid?   TaxCodeUuid     { get; set; }
+    /// <summary>The code's text as it was, e.g. "GST17".</summary>
+    public string? TaxCode         { get; set; }
     public decimal LineTotal       { get; set; }
 }
 
@@ -100,6 +114,19 @@ public class SalesInvoiceDetailModel : SalesInvoiceListItemModel
     public DateTime  CreatedDate    { get; set; }
     public int?      ModifiedBy     { get; set; }
     public DateTime? ModifiedDate   { get; set; }
+
+    // ── SAP alignment (S-5): the currency snapshot taken when the invoice was issued ──
+    /// <summary>1 unit of the invoice currency in <see cref="BaseCurrencyCode"/> on the invoice date; 1 when they are the same. Null when no rate was on file (or before issue).</summary>
+    public decimal?  ExchangeRate       { get; set; }
+    /// <summary>The organization's base currency when the invoice was issued; null when no snapshot was taken.</summary>
+    public string?   BaseCurrencyCode   { get; set; }
+    /// <summary>GrandTotal in the base currency at <see cref="ExchangeRate"/>; null when no snapshot was taken.</summary>
+    public decimal?  BaseGrandTotal     { get; set; }
+
+    // ── SAP alignment (S-7): set when an issued invoice is cancelled ──
+    public DateTime? CancelledAt        { get; set; }
+    public int?      CancelledBy        { get; set; }
+    public string?   CancellationReason { get; set; }
 
     public List<SalesInvoiceLineModel>    Lines    { get; set; } = [];
     public List<SalesInvoicePaymentModel> Payments { get; set; } = [];

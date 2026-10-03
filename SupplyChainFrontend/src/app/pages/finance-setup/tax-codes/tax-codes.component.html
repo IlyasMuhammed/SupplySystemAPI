@@ -1,0 +1,189 @@
+<p-toast></p-toast>
+<p-confirmDialog key="tax-codes" [style]="{ width: '32rem', maxWidth: '96vw' }"></p-confirmDialog>
+
+<div class="setup-page">
+
+  <!-- ── Header ───────────────────────────────────────────────────────────── -->
+  <div class="page-header">
+    <div class="page-icon"><i class="pi pi-percentage"></i></div>
+    <div class="grow">
+      <h1 class="page-title">Tax Codes</h1>
+      <p class="page-subtitle">
+        The tax rates your organization charges and pays. Sale-order lines and supplier invoices pick a code and keep its
+        rate, so changing a rate here never changes a document already raised. Codes are deactivated, never deleted.
+      </p>
+    </div>
+    <div class="page-actions" *ngIf="canManage">
+      <p-button label="Create codes from rates already used" icon="pi pi-bolt" [outlined]="true" [loading]="isCreatingFromRates"
+                (onClick)="confirmFromRates()" data-testid="from-rates"></p-button>
+      <p-button label="New tax code" icon="pi pi-plus" (onClick)="openCreate()" data-testid="new-code"></p-button>
+    </div>
+  </div>
+
+  <div class="note info" *ngIf="!canManage" data-testid="read-only">
+    <i class="pi pi-lock"></i>
+    <div class="note-body">You can see the tax codes. Changing them needs the Manage Finance Setup permission.</div>
+  </div>
+
+  <!-- ── Result of "codes from rates already used" ────────────────────────── -->
+  <div class="note" [class.success]="fromRatesResult.created.length" *ngIf="fromRatesResult" data-testid="from-rates-result">
+    <i class="pi" [ngClass]="fromRatesResult.created.length ? 'pi-check-circle' : 'pi-info-circle'"></i>
+    <div class="note-body">
+      <div class="note-title">{{ fromRatesMessage }}</div>
+      <div *ngIf="fromRatesResult.created.length" data-testid="from-rates-created">
+        Created:
+        <span *ngFor="let c of fromRatesResult.created; let last = last"><span class="mono">{{ c.code }}</span> ({{ formatPercent(c.ratePercent) }}%){{ last ? '' : ', ' }}</span>.
+        They are sales codes; make one the default or widen it to purchases by editing it.
+      </div>
+      <div *ngIf="fromRatesResult.skippedRates.length" data-testid="from-rates-skipped">
+        Already covered by a code: {{ skippedText(fromRatesResult.skippedRates) }}.
+      </div>
+    </div>
+    <p-button icon="pi pi-times" [text]="true" [rounded]="true" size="small" severity="secondary" (onClick)="dismissFromRates()"
+              ariaLabel="Dismiss"></p-button>
+  </div>
+
+  <!-- ── The codes ──────────────────────────────────────────────────────────── -->
+  <section class="form-card flush">
+    <div class="table-toolbar">
+      <p-iconfield>
+        <p-inputicon styleClass="pi pi-search"></p-inputicon>
+        <input pInputText type="text" [(ngModel)]="search" placeholder="Search code or name" data-testid="search" />
+      </p-iconfield>
+      <p-select [options]="sideOptions" [(ngModel)]="sideFilter" optionLabel="label" optionValue="value" appendTo="body"
+                data-testid="side-filter"></p-select>
+      <div class="check-row inline">
+        <p-checkbox inputId="showInactive" [binary]="true" [(ngModel)]="showInactive" data-testid="show-inactive"></p-checkbox>
+        <label for="showInactive">Show deactivated ({{ inactiveCount }})</label>
+      </div>
+      <span class="grow"></span>
+      <span class="muted" *ngIf="!isLoading">{{ visibleCodes.length }} of {{ codes.length }}</span>
+    </div>
+
+    <div class="state-inline" *ngIf="loadFailed" data-testid="load-failed">
+      <i class="pi pi-exclamation-triangle"></i> The tax codes could not be loaded.
+      <p-button label="Try again" [text]="true" size="small" (onClick)="load()"></p-button>
+    </div>
+
+    <p-table [value]="visibleCodes" [loading]="isLoading" dataKey="uuid" styleClass="p-datatable-sm" [tableStyle]="{ 'min-width': '48rem' }"
+             *ngIf="!loadFailed">
+      <ng-template pTemplate="header">
+        <tr>
+          <th style="width: 9rem">Code</th>
+          <th>Name</th>
+          <th style="width: 6rem" class="text-right">Rate</th>
+          <th style="width: 11rem">Used on</th>
+          <th style="width: 10rem">Default</th>
+          <th style="width: 7rem">Status</th>
+          <th style="width: 7rem" *ngIf="canManage"></th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-c>
+        <tr [class.inactive-row]="!c.isActive" [attr.data-testid]="'code-' + c.code">
+          <td class="mono">{{ c.code }}</td>
+          <td>
+            <div>{{ c.name }}</div>
+            <small class="muted" *ngIf="c.description">{{ c.description }}</small>
+          </td>
+          <td class="text-right nowrap">{{ formatPercent(c.ratePercent) }}%</td>
+          <td><p-tag [value]="usageLabel(c.usage)" [severity]="usageSeverity(c.usage)"></p-tag></td>
+          <td>
+            <span *ngIf="c.isDefault" class="default-mark" data-testid="default-mark"><i class="pi pi-star-fill"></i> {{ defaultLabel(c) }}</span>
+          </td>
+          <td><p-tag [value]="c.isActive ? 'Active' : 'Deactivated'" [severity]="c.isActive ? 'success' : 'secondary'"></p-tag></td>
+          <td *ngIf="canManage">
+            <div class="row-actions">
+              <p-button icon="pi pi-pencil" [text]="true" [rounded]="true" size="small" pTooltip="Edit" tooltipPosition="top"
+                        (onClick)="openEdit(c)" [attr.data-testid]="'edit-' + c.code"></p-button>
+              <p-button *ngIf="c.isActive" icon="pi pi-ban" [text]="true" [rounded]="true" size="small" severity="danger"
+                        pTooltip="Deactivate" tooltipPosition="top" [disabled]="!!busy[c.uuid]" (onClick)="confirmDeactivate(c)"
+                        [attr.data-testid]="'deactivate-' + c.code"></p-button>
+              <p-button *ngIf="!c.isActive" icon="pi pi-replay" [text]="true" [rounded]="true" size="small" severity="success"
+                        pTooltip="Reactivate" tooltipPosition="top" [disabled]="!!busy[c.uuid]" (onClick)="reactivate(c)"
+                        [attr.data-testid]="'reactivate-' + c.code"></p-button>
+            </div>
+          </td>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td [attr.colspan]="canManage ? 7 : 6" class="empty" data-testid="empty">
+            <ng-container *ngIf="codes.length; else none">No tax code matches these filters.</ng-container>
+            <ng-template #none>
+              No tax codes yet.
+              <ng-container *ngIf="canManage">Add one, or create them from the rates your sale orders already use.</ng-container>
+            </ng-template>
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </section>
+</div>
+
+<!-- ══ Add / edit ══════════════════════════════════════════════════════════ -->
+<p-dialog [header]="editing ? 'Edit ' + editing.code : 'New tax code'" [(visible)]="dialogVisible" [modal]="true" [draggable]="false"
+          [closable]="!isSaving" [style]="{ width: '36rem', maxWidth: '96vw' }" data-testid="code-dialog">
+  <div class="field-grid">
+    <div class="field">
+      <label for="taxCode">Code <span class="required">*</span></label>
+      <input pInputText id="taxCode" [(ngModel)]="draft.code" [maxlength]="maxCode" placeholder="e.g. GST17" class="mono upper"
+             data-testid="code-input" />
+      <small class="hint">Letters, digits, _ and -. Printed on documents.</small>
+    </div>
+    <div class="field">
+      <label for="taxRate">Rate <span class="required">*</span></label>
+      <p-inputnumber inputId="taxRate" [(ngModel)]="draft.ratePercent" [min]="0" [max]="100" [minFractionDigits]="0"
+                     [maxFractionDigits]="2" suffix="%" styleClass="w-full" data-testid="rate-input"></p-inputnumber>
+    </div>
+  </div>
+
+  <div class="field">
+    <label for="taxName">Name <span class="required">*</span></label>
+    <input pInputText id="taxName" [(ngModel)]="draft.name" [maxlength]="maxName" placeholder='e.g. "GST 17%"' data-testid="name-input" />
+  </div>
+
+  <div class="field">
+    <label for="taxDescription">Description</label>
+    <textarea pTextarea id="taxDescription" [(ngModel)]="draft.description" [maxlength]="maxDescription" rows="2"
+              data-testid="description-input"></textarea>
+  </div>
+
+  <div class="field">
+    <label>Used on <span class="required">*</span></label>
+    <p-selectbutton [options]="usageOptions" [(ngModel)]="draft.usage" optionLabel="label" optionValue="value" [allowEmpty]="false"
+                    data-testid="usage-input"></p-selectbutton>
+  </div>
+
+  <div class="check-row">
+    <p-checkbox inputId="taxActive" [binary]="true" [(ngModel)]="draft.isActive" (ngModelChange)="onActiveChange($event)"
+                data-testid="active-input"></p-checkbox>
+    <label for="taxActive">Active — can be picked on new lines</label>
+  </div>
+  <div class="check-row">
+    <p-checkbox inputId="taxDefault" [binary]="true" [(ngModel)]="draft.isDefault" [disabled]="!draft.isActive"
+                data-testid="default-input"></p-checkbox>
+    <label for="taxDefault">Default — pre-selected on new {{ draft.usage === 'SALES' ? 'sale-order lines' : draft.usage === 'PURCHASE' ? 'supplier invoices' : 'sale-order lines and supplier invoices' }}</label>
+  </div>
+
+  <div class="note warn" *ngIf="takesDefaultFrom.length" data-testid="default-takeover">
+    <i class="pi pi-info-circle"></i>
+    <div class="note-body">{{ defaultTakeoverText }}</div>
+  </div>
+  <div class="note info" *ngIf="rateChangeNote" data-testid="rate-change">
+    <i class="pi pi-info-circle"></i>
+    <div class="note-body">{{ rateChangeNote }}</div>
+  </div>
+  <div class="note warn" *ngIf="renameNote" data-testid="rename-note">
+    <i class="pi pi-exclamation-triangle"></i>
+    <div class="note-body">{{ renameNote }}</div>
+  </div>
+
+  <small class="p-error" *ngIf="problem && (draft.code || draft.name || draft.ratePercent !== null)" data-testid="code-problem">{{ problem }}</small>
+  <small class="p-error" *ngIf="saveError" data-testid="save-error">{{ saveError }}</small>
+
+  <ng-template pTemplate="footer">
+    <p-button label="Cancel" [text]="true" severity="secondary" [disabled]="isSaving" (onClick)="dialogVisible = false"></p-button>
+    <p-button [label]="editing ? 'Save' : 'Create'" icon="pi pi-check" [loading]="isSaving" [disabled]="!!problem || isSaving"
+              (onClick)="save()" data-testid="save"></p-button>
+  </ng-template>
+</p-dialog>

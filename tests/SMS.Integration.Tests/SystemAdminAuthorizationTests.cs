@@ -23,7 +23,9 @@ public class SystemAdminAuthorizationTests : IClassFixture<WebApplicationFactory
 
     public SystemAdminAuthorizationTests(WebApplicationFactory<Program> factory) => _factory = factory;
 
-    private string BuildToken(params string[] permissions)
+    private string BuildToken(params string[] permissions) => BuildToken(superAdmin: false, permissions);
+
+    private string BuildToken(bool superAdmin, params string[] permissions)
     {
         var secret = _factory.Services.GetRequiredService<IOptions<AppSettings>>().Value.Secret;
         var key = new SymmetricSecurityKey(Encoding.ASCII.GetBytes(secret));
@@ -33,7 +35,8 @@ public class SystemAdminAuthorizationTests : IClassFixture<WebApplicationFactory
         {
             new("sub", "999"),
             new("email", "nonadmin@test.com"),
-            new("roleId", "1")
+            new("roleId", "1"),
+            new("is_super_admin", superAdmin ? "true" : "false")
         };
         claims.AddRange(permissions.Select(p => new Claim("permission", p)));
 
@@ -82,10 +85,24 @@ public class SystemAdminAuthorizationTests : IClassFixture<WebApplicationFactory
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
+    // The code alone is not enough: the System Admin role carries it, and so can any custom role. Only a
+    // SuperAdminUsers member (the is_super_admin claim) manages every organization — see [RequireSuperAdmin].
     [Fact]
-    public async Task GetOrganizations_WithSuperAdminPermission_DoesNotReturn403()
+    public async Task GetOrganizations_WithSuperAdminPermissionButNotASuperAdmin_Returns403()
     {
         var client = CreateClientWithPermissions(PermissionCodes.PLATFORM_SUPER_ADMIN);
+
+        var response = await client.GetAsync("/api/system/organizations");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetOrganizations_AsASuperAdminWithThePermission_DoesNotReturn403()
+    {
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", BuildToken(superAdmin: true, PermissionCodes.PLATFORM_SUPER_ADMIN));
 
         var response = await client.GetAsync("/api/system/organizations");
 

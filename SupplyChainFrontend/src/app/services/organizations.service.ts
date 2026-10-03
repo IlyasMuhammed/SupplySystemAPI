@@ -42,6 +42,8 @@ export interface OrganizationDetailModel {
   address?: string;
   country?: string;
   timeZone?: string;
+  /** A Lookups currency id (currencies.service); null when none is set. */
+  baseCurrency?: string | null;
   createdBy: number;
   createdDate: string;
   modifiedBy?: number;
@@ -65,6 +67,8 @@ export interface CreateOrganizationRequest {
   address?: string;
   country?: string;
   timeZone?: string;
+  /** A Lookups currency id; optional. */
+  baseCurrency?: string;
   // Initial Admin user, created atomically with the organization — receives an email
   // invitation to set their own password.
   adminFirstName: string;
@@ -84,6 +88,24 @@ export interface UpdateOrganizationRequest {
   address?: string;
   country?: string;
   timeZone?: string;
+  /** A Lookups currency id to set. Left out (or null), the base currency stays as it is. */
+  baseCurrency?: string | null;
+  /** True removes the base currency. Never together with baseCurrency. */
+  clearBaseCurrency?: boolean;
+}
+
+/**
+ * What an edit sends about the base currency: a newly chosen one; an explicit clear when one was set and the
+ * field was emptied; nothing when it is unchanged (the server then leaves the column alone). An unchanged one is
+ * not sent back, because the server re-checks any id it is sent — a base currency since removed from the catalog
+ * (or left without a code) would turn every other edit of the organization into a 400.
+ */
+export function baseCurrencyChange(
+  original: string | null | undefined, chosen: string | null | undefined
+): Pick<UpdateOrganizationRequest, 'baseCurrency' | 'clearBaseCurrency'> {
+  if (chosen) return original && chosen.toLowerCase() === original.toLowerCase() ? {} : { baseCurrency: chosen };
+  if (original) return { clearBaseCurrency: true };
+  return {};
 }
 
 export interface OrganizationFeatureModel {

@@ -189,7 +189,21 @@ public sealed class NotificationService : INotificationService
         });
     }
 
-    private static string BuildEmailHtml(string title, string body, string? actionUrl) => $"""
+    /// <summary>
+    /// The notification e-mail. Title and body are plain text (they are shown as text in the app too) and can
+    /// carry user input — a rejection or reversal reason, a supplier's name — so they are HTML-encoded here, as
+    /// is the link; otherwise anyone who can type such a reason could put markup and links into every
+    /// recipient's mail (security audit F3).
+    /// </summary>
+    internal static string BuildEmailHtml(string title, string body, string? actionUrl)
+    {
+        var safeTitle = System.Net.WebUtility.HtmlEncode(title ?? string.Empty);
+        var safeBody  = System.Net.WebUtility.HtmlEncode(body ?? string.Empty);
+        var safeUrl   = actionUrl is null ? null : System.Net.WebUtility.HtmlEncode(actionUrl);
+        return BuildEncodedEmailHtml(safeTitle, safeBody, safeUrl);
+    }
+
+    private static string BuildEncodedEmailHtml(string title, string body, string? actionUrl) => $"""
         <!DOCTYPE html>
         <html>
         <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>

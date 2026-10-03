@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using SMS.Modules.Auth.Authorization;
 using SMS.Modules.Auth.Data;
 using SMS.Modules.Auth.Domain;
+using SMS.Modules.Auth.Infrastructure;
 using SMS.Modules.Auth.Jobs;
 using SMS.Modules.Auth.Repositories;
 using SMS.Modules.Auth.Services;
@@ -32,6 +33,9 @@ public static class AuthModuleExtensions
         services.AddScoped<IAuthRepository, AuthRepository>();
         services.AddScoped<ITokenService, TokenService>();
         services.AddScoped<IAuthService, AuthService>();
+        // One per process: the reset-code attempt counters must be shared by every request.
+        services.AddSingleton<PasswordResetThrottle>();
+        services.AddAuthRateLimits();
         services.AddScoped<IEmailService, EmailService>();
         services.AddScoped<IEmailSender, EmailSender>();
         services.AddScoped<IUserLookupService, UserLookupService>();

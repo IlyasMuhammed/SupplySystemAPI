@@ -1,0 +1,18 @@
+.group-title { font-size: .875rem; font-weight: 700; margin: 1.5rem 0 .25rem; }
+.auto-push { max-width: 44rem; }
+
+.table-actions { margin: 0; padding: .875rem 1.25rem; flex-wrap: wrap; }
+.rate, .code { font-weight: 700; }
+.code { font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace); letter-spacing: .02em; }
+.code-input { width: 9rem; text-transform: uppercase; }
+.code-name { margin-top: .125rem; }
+.code-usage { font-size: .75rem; }
+.suggestion { display: flex; align-items: center; gap: .25rem; flex-wrap: wrap; margin-top: .25rem; }
+.sub-table-head { padding: 1.25rem 1.25rem .5rem; border-top: 1px solid var(--surface-border, #e5e7eb); }
+.card-title.small { font-size: .9375rem; }
+.unmapped-count { color: var(--orange-700, #c2410c); font-size: .8125rem; font-weight: 600; display: inline-flex; gap: .375rem; align-items: center; }
+
+:host ::ng-deep tr.unmapped > td { background: var(--orange-50, #fff7ed); }
+:host ::ng-deep tr.unmapped > td:first-child { box-shadow: inset 3px 0 0 var(--orange-400, #fb923c); }
+:host ::ng-deep .rate-input { width: 7rem; }
+:host ::ng-deep .p-selectbutton { flex-wrap: wrap; }

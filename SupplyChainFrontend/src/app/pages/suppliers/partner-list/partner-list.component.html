@@ -55,6 +55,7 @@
           <th>Code</th>
           <th>Type</th>
           <th>Status</th>
+          <th *ngIf="qboAvailable()">QuickBooks</th>
           <th>Actions</th>
         </tr>
       </ng-template>
@@ -70,6 +71,12 @@
           <td>
             <p-tag [value]="partner.isActive ? 'Active' : 'Inactive'"
                    [severity]="partner.isActive ? 'success' : 'secondary'"></p-tag>
+          </td>
+          <td *ngIf="qboAvailable()">
+            <div class="qbo-cell">
+              <app-qbo-sync-badge *ngIf="partner.isCustomer" kind="Customer" [externalId]="partner.uuid" label="Customer"></app-qbo-sync-badge>
+              <app-qbo-sync-badge *ngIf="partner.isVendor" kind="Vendor" [externalId]="partner.uuid" label="Vendor"></app-qbo-sync-badge>
+            </div>
           </td>
           <td>
             <p-button
@@ -100,7 +107,7 @@
 
       <ng-template pTemplate="emptymessage">
         <tr>
-          <td colspan="5" class="text-center p-8">
+          <td [attr.colspan]="qboAvailable() ? 6 : 5" class="text-center p-8">
             <i class="pi pi-sitemap text-4xl text-gray-400 block mb-2"></i>
             <p class="text-gray-500">No business partners found for this filter.
               <a routerLink="/portal/pages/suppliers/partner-create" class="text-primary">Add one.</a>

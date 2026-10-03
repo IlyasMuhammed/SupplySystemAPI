@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -18,6 +18,8 @@ import {
   BusinessPartnerModel,
   BusinessPartnerFilter
 } from '../../../services/business-partner.service';
+import { QboSyncBadgeComponent } from '../../../shared/components/qbo-sync-badge/qbo-sync-badge.component';
+import { QboSyncStatusStore } from '../../../shared/components/qbo-sync-badge/qbo-sync-status.store';
 
 // Addendum 29 §1.6 — "type filter tabs (All/Vendors/Customers/Carriers/Service Providers)". Each
 // tab is a pure filter selector, not separate content — the same table below is re-queried on
@@ -31,7 +33,7 @@ type PartnerTypeTab = 'ALL' | 'VENDOR' | 'CUSTOMER' | 'CARRIER' | 'SERVICE_PROVI
     CommonModule, RouterModule, FormsModule,
     TableModule, ButtonModule, ToolbarModule,
     InputTextModule, InputIconModule, IconFieldModule,
-    TagModule, TabViewModule, ToastModule, ConfirmDialogModule
+    TagModule, TabViewModule, ToastModule, ConfirmDialogModule, QboSyncBadgeComponent
   ],
   templateUrl: './partner-list.component.html',
   styleUrls: ['./partner-list.component.scss'],
@@ -56,6 +58,10 @@ export class PartnerListComponent implements OnInit {
   ];
 
   private searchTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** The QuickBooks column shows only for organizations with the integration and users who may see it. */
+  private readonly qboStore = inject(QboSyncStatusStore);
+  readonly qboAvailable = computed(() => this.qboStore.isAvailable());
 
   constructor(
     private partnerService: BusinessPartnerService,

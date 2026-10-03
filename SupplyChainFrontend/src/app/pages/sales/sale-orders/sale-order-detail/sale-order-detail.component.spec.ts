@@ -438,6 +438,35 @@ describe('SaleOrderDetailComponent', () => {
     expect(component.isCancelling).toBeFalse();
   });
 
+  it('says the order is cancelled only once its invoices are, and shows the servers refusal naming them', async () => {
+    await setup(order({ status: 'FULFILLED' }));
+    fixture.detectChanges();
+    const add = spyOn(fixture.debugElement.injector.get(MessageService), 'add');
+    const refusal = 'Sale order SO-2026-00042 has sales invoices that still stand: SINV-20260920-0001 (ISSUED). Cancel its invoices first.';
+    service.cancelSaleOrder.and.returnValue(throwError(() => ({ status: 409, error: { message: refusal } })));
+
+    component.openCancelDialog();
+    component.cancelOrder();
+
+    expect(add.calls.mostRecent().args[0].detail).toBe(refusal);
+    expect(component.cancelDialogVisible).toBeTrue();
+  });
+
+  // ── SAP alignment (S-3): the tax code on a line ────────────────────────────
+
+  it('shows a lines tax code with its rate, and the percentage alone for a line without one', async () => {
+    await setup(order({
+      lines: [
+        line({ uuid: 'coded', taxCodeUuid: 'tc-1', taxCode: 'GST17', taxPercent: 17 }),
+        line({ uuid: 'plain', variantUuid: 'v2', taxPercent: 5 })
+      ]
+    }));
+    fixture.detectChanges();
+
+    const cells = Array.from(fixture.nativeElement.querySelectorAll('[data-testid="line-tax"]')) as HTMLElement[];
+    expect(cells.map(c => c.textContent!.replace(/\s+/g, ' ').trim())).toEqual(['GST17 · 17%', '5%']);
+  });
+
   it('will not cancel an order that is finished with, or for someone without the permission', async () => {
     await setup(order({ status: 'CLOSED' }));
     fixture.detectChanges();

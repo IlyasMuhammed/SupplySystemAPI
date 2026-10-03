@@ -8,8 +8,10 @@ using SMS.Shared.Pagination;
 
 namespace SMS.Modules.Inventory.Controllers;
 
+// Never [AllowAnonymous]: with no signed-in user the tenant filter is bypassed (TenantContext treats an
+// anonymous request as unscoped), so an anonymous call would read and change every organization's warehouses.
 [ApiController]
-[AllowAnonymous]
+[Authorize]
 [RequiresFeature("MODULE_INVENTORY")]
 public class WarehousesController : ControllerBase
 {

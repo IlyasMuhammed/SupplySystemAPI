@@ -107,6 +107,8 @@ public static class LogisticsModuleExtensions
         // A29-P7-04 — what Finance reads to bill a delivery. Contract in SMS.Shared, so Finance
         // needs no reference to Logistics.
         services.AddScoped<IDeliveryFulfillmentReader, DeliveryFulfillmentReader>();
+        // A32 PE-02 — what a sale order's lines have on deliveries not yet issued (Demand's held/reservable figures).
+        services.AddScoped<ISaleOrderDeliveryQuantities, SaleOrderDeliveryQuantities>();
         services.AddScoped<IPickListRepository, PickListRepository>();
         services.AddScoped<IPickListService,    PickListService>();
         services.AddScoped<IGoodsIssueRepository, GoodsIssueRepository>();
@@ -260,6 +262,9 @@ public static class LogisticsModuleExtensions
         // Registers deliveries with the workflow engine's composite dispatcher, which routes by
         // InterfaceCode. Nothing else is needed for the inbox, delegation, recall and audit.
         services.AddScoped<IDocumentStatusHandler, DeliveryStatusHandler>();
+
+        // Lookups asks every checker before it deletes a currency or changes its code.
+        services.AddScoped<ILookupReferenceChecker, LogisticsCurrencyReferenceChecker>();
 
         return services;
     }

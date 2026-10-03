@@ -16,6 +16,7 @@ import {
   SupplierLedgerEntryModel,
   SupplierBalanceSummary
 } from '../../../services/finance.service';
+import { QboSyncBadgeComponent } from '../../../shared/components/qbo-sync-badge/qbo-sync-badge.component';
 
 // Addendum 29 §1.6 — "Partner detail page with ledger tab." The ledger tab reuses
 // FinanceService.getSupplierLedger/getSupplierBalance verbatim: a BusinessPartner's UUID is the
@@ -26,7 +27,8 @@ import {
   standalone: true,
   imports: [
     CommonModule, FormsModule, RouterModule,
-    ButtonModule, CardModule, TagModule, TabViewModule, TableModule, CalendarModule, ToastModule
+    ButtonModule, CardModule, TagModule, TabViewModule, TableModule, CalendarModule, ToastModule,
+    QboSyncBadgeComponent
   ],
   templateUrl: './partner-detail.component.html',
   styleUrls: ['./partner-detail.component.scss'],
@@ -140,6 +142,7 @@ export class PartnerDetailComponent implements OnInit {
     switch (type) {
       case 'INVOICE_APPROVED':    return 'danger';
       case 'CREDIT_NOTE_APPROVED':
+      case 'INVOICE_REVERSED':
       case 'PAYMENT_POSTED':      return 'success';
       case 'DEBIT_NOTE_APPROVED': return 'danger';
       case 'PAYMENT_BOUNCED':     return 'warn';

@@ -20,7 +20,7 @@
         <i class="pi pi-paperclip"></i>{{ label }}
       </span>
 
-      <label class="attachment-chip attachment-chip--add" *ngIf="!readOnly" [class.uploading]="isUploading">
+      <label class="attachment-chip attachment-chip--add" *ngIf="canUpload" [class.uploading]="isUploading">
         <i class="pi" [class.pi-upload]="!isUploading" [class.pi-spin]="isUploading" [class.pi-spinner]="isUploading"></i>
         {{ isUploading ? 'Uploading…' : 'Add Attachment' }}
         <input type="file" multiple (change)="onFileSelected($event)" [disabled]="isUploading" hidden />
@@ -33,7 +33,7 @@
            (click)="open(att, $event)" (keydown.enter)="open(att, $event)" tabindex="0">
           <i class="pi pi-file"></i>{{ att.fileName }}
         </a>
-        <i class="pi pi-times attachment-chip-remove" *ngIf="!readOnly" (click)="remove(att)" pTooltip="Remove"></i>
+        <i class="pi pi-times attachment-chip-remove" *ngIf="canRemove(att)" (click)="remove(att)" pTooltip="Remove"></i>
       </div>
     </div>
 
@@ -50,7 +50,7 @@
               <span class="attachment-file-name">{{ att.fileName }}</span>
               <span class="attachment-file-size" *ngIf="att.fileSize">{{ formatSize(att.fileSize) }}</span>
             </a>
-            <p-button *ngIf="!readOnly" icon="pi pi-times" [text]="true" severity="danger" size="small"
+            <p-button *ngIf="canRemove(att)" class="attachment-remove" icon="pi pi-times" [text]="true" severity="danger" size="small"
                       pTooltip="Remove" (onClick)="remove(att)"></p-button>
           </div>
           <div class="attachment-meta">
@@ -65,7 +65,7 @@
         <i class="pi pi-inbox"></i> No attachments yet.
       </div>
 
-      <div *ngIf="!readOnly" class="attachment-upload">
+      <div *ngIf="canUpload" class="attachment-upload">
         <input pInputText type="text" class="attachment-notes-input" [(ngModel)]="pendingNotes"
                [ngModelOptions]="{standalone: true}" placeholder="Remarks/notes for this upload (optional)"
                [disabled]="isUploading" />

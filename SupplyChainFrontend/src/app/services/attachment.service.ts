@@ -18,6 +18,13 @@ export interface AttachmentModel {
   uploadedBy: number;
   uploadedByName: string;
   uploadedDate: string;
+  /** A document the system generated and filed (an issued invoice's PDF, a gate pass): it can never be removed. */
+  isGenerated?: boolean;
+  /**
+   * Whether the signed-in user may remove this file — decided by the server for each file, since it can turn
+   * on who uploaded it. Missing (an older server) means no.
+   */
+  canRemove?: boolean;
 }
 
 @Injectable({ providedIn: 'root' })

@@ -528,7 +528,7 @@
           <div class="tab-toolbar">
             <span class="tab-section-title">Outstanding Invoices</span>
             <p-button label="Record Payment" icon="pi pi-credit-card" size="small"
-                      *ngIf="outstandingInvoices.length"
+                      *ngIf="outstandingInvoices.length && canRecordPayment"
                       [routerLink]="['/portal/pages/finance/payments/create']"
                       [queryParams]="{supplierId: uuid}"></p-button>
           </div>
@@ -553,7 +553,7 @@
                 <td>{{ inv.dueDate | date:'dd MMM yyyy' }}</td>
                 <td><p-tag [value]="inv.paymentStatus"></p-tag></td>
                 <td class="text-center">
-                  <p-button label="Pay" icon="pi pi-credit-card" size="small" [text]="true"
+                  <p-button *ngIf="canRecordPayment" label="Pay" icon="pi pi-credit-card" size="small" [text]="true"
                             [routerLink]="['/portal/pages/finance/payments/create']"
                             [queryParams]="{supplierId: uuid, invoiceUuid: inv.invoiceUuid}"></p-button>
                 </td>
@@ -563,7 +563,7 @@
 
           <div *ngIf="!outstandingInvoices.length && !isLoadingOutstanding" class="empty-state">
             <i class="pi pi-check-circle"></i>
-            <p>No outstanding invoices for this supplier.</p>
+            <p>{{ noPayablesHint }}</p>
           </div>
         </div>
       </p-tabPanel>

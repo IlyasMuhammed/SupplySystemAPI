@@ -15,6 +15,13 @@ import { PoEditComponent } from './demand/purchase-orders/po-edit/po-edit.compon
 import { SaleOrderListComponent } from './sales/sale-orders/sale-order-list/sale-order-list.component';
 import { SaleOrderDetailComponent } from './sales/sale-orders/sale-order-detail/sale-order-detail.component';
 import { SaleOrderFormComponent } from './sales/sale-orders/sale-order-form/sale-order-form.component';
+import { SaleInquiryListComponent } from './sales/sale-inquiries/sale-inquiry-list/sale-inquiry-list.component';
+import { SaleInquiryFormComponent } from './sales/sale-inquiries/sale-inquiry-form/sale-inquiry-form.component';
+import { SaleInquiryDetailComponent } from './sales/sale-inquiries/sale-inquiry-detail/sale-inquiry-detail.component';
+import { RejectionReasonsComponent } from './sales/rejection-reasons/rejection-reasons.component';
+import { SaleQuotationListComponent } from './sales/quotations/sale-quotation-list/sale-quotation-list.component';
+import { SaleQuotationFormComponent } from './sales/quotations/sale-quotation-form/sale-quotation-form.component';
+import { SaleQuotationDetailComponent } from './sales/quotations/sale-quotation-detail/sale-quotation-detail.component';
 import { CustomerComponent } from './customer/customer';
 import { SupplierListComponent } from './suppliers/supplier-list/supplier-list.component';
 import { SupplierCreateComponent } from './suppliers/supplier-create/supplier-create.component';
@@ -37,6 +44,9 @@ import { PaymentTermsComponent } from './payment-terms/payment-terms.component';
 import { PoDocumentTemplateComponent } from './po-document-template/po-document-template.component';
 import { PortalSettingsComponent } from './portal-settings/portal-settings.component';
 import { SaleOrderSettingsComponent } from './sale-order-settings/sale-order-settings.component';
+import { QuickBooksIntegrationComponent } from './integrations/quickbooks/quickbooks-integration.component';
+import { TaxCodesComponent } from './finance-setup/tax-codes/tax-codes.component';
+import { ExchangeRatesComponent } from './finance-setup/exchange-rates/exchange-rates.component';
 import { AllocationsComponent } from './inventory/allocations/allocations.component';
 import { ProductionOrderListComponent } from './manufacturing/production-orders/production-order-list/production-order-list.component';
 import { ProductionOrderFormComponent } from './manufacturing/production-orders/production-order-form/production-order-form.component';
@@ -224,6 +234,17 @@ const P = {
   SALE_ORDER_EDIT:      'SALE_ORDER_EDIT',
   SALE_ORDER_CONFIRM:   'SALE_ORDER_CONFIRM',
   SALE_ORDER_CANCEL:    'SALE_ORDER_CANCEL',
+  // Addendum 32 — sales pre-order pipeline (inquiries, quotations, manual reservation, rejection reasons).
+  SALE_ORDER_RESERVE:             'SALE_ORDER_RESERVE',
+  SALE_ORDER_RELEASE_RESERVATION: 'SALE_ORDER_RELEASE_RESERVATION',
+  SALE_INQUIRY_VIEW:              'SALE_INQUIRY_VIEW',
+  SALE_INQUIRY_CREATE:            'SALE_INQUIRY_CREATE',
+  SALE_INQUIRY_EDIT:              'SALE_INQUIRY_EDIT',
+  SALE_QUOTATION_VIEW:            'SALE_QUOTATION_VIEW',
+  SALE_QUOTATION_CREATE:          'SALE_QUOTATION_CREATE',
+  SALE_QUOTATION_EDIT:            'SALE_QUOTATION_EDIT',
+  SALE_QUOTATION_SEND:            'SALE_QUOTATION_SEND',
+  SALE_REJECTION_REASON_MANAGE:   'SALE_REJECTION_REASON_MANAGE',
   // Addendum 29 — receivables (Finance). Separate from INVOICE_* and PAYMENT_*, which are the supplier side.
   SALES_INVOICE_VIEW:      'SALES_INVOICE_VIEW',
   SALES_INVOICE_MANAGE:    'SALES_INVOICE_MANAGE',
@@ -235,6 +256,15 @@ const P = {
   REPORT_EXPORT:        'REPORT_EXPORT',
   WORKFLOW_ADMIN:       'WORKFLOW_ADMIN',
   WORKFLOW_VIEW:        'WORKFLOW_VIEW',
+  // QuickBooks Online integration (plan §5.1). VIEW opens the screen and the sync badges; MANAGE
+  // connects, maps, matches, switches Live and manages API clients; SYNC retries and pushes records.
+  INTEGRATION_VIEW:     'INTEGRATION_VIEW',
+  INTEGRATION_MANAGE:   'INTEGRATION_MANAGE',
+  INTEGRATION_SYNC:     'INTEGRATION_SYNC',
+  // SAP alignment — tax codes and exchange rates (Finance master data). Reading them needs only a
+  // sign-in on the server (they feed pickers); the settings screens open for whoever maintains them
+  // and, read-only, for finance viewers (INVOICE_VIEW).
+  FINANCE_SETUP_MANAGE: 'FINANCE_SETUP_MANAGE',
 } as const;
 
 export default [
@@ -305,6 +335,17 @@ export default [
       canActivate: [permissionGuard(P.SYSTEM_CONFIGURE)] },
     { path: 'sale-order-settings', component: SaleOrderSettingsComponent,
       canActivate: [permissionGuard(P.SALE_ORDER_CONFIG_READ)] },
+    // Intuit's OAuth callback returns here with ?result=connected|error&reason=… (the Connection tab reads it).
+    // VIEW opens the page; each action is gated again on the page and by the server (MANAGE / SYNC).
+    { path: 'integrations/quickbooks', component: QuickBooksIntegrationComponent,
+      canActivate: [permissionGuard(P.INTEGRATION_VIEW)] },
+    // Same permissions as the menu entries (any one of them). FINANCE_SETUP_MANAGE maintains the codes
+    // and rates; INVOICE_VIEW lets finance viewers open the pages read-only (no write button is shown or
+    // callable there). The server enforces FINANCE_SETUP_MANAGE on every write regardless.
+    { path: 'finance-setup/tax-codes', component: TaxCodesComponent,
+      canActivate: [permissionGuard(P.FINANCE_SETUP_MANAGE, P.INVOICE_VIEW)] },
+    { path: 'finance-setup/exchange-rates', component: ExchangeRatesComponent,
+      canActivate: [permissionGuard(P.FINANCE_SETUP_MANAGE, P.INVOICE_VIEW)] },
     { path: 'po-document-template', component: PoDocumentTemplateComponent,
       canActivate: [permissionGuard(P.PO_TEMPLATE_MANAGE)] },
     { path: 'organizations', component: OrganizationsListComponent,
@@ -404,6 +445,30 @@ export default [
       canActivate: [permissionGuard(P.SALE_ORDER_EDIT)] },
     { path: 'sales/orders/:uuid', component: SaleOrderDetailComponent,
       canActivate: [permissionGuard(P.SALE_ORDER_VIEW, P.SALE_ORDER_CREATE, P.SALE_ORDER_EDIT, P.SALE_ORDER_CONFIRM)] },
+
+    // ── Sales — Sale Inquiries (Addendum 32 PB-08..11) and rejection reasons (C5) ──
+    // Guards equal the server's (contract §2): list/detail SALE_INQUIRY_VIEW, new SALE_INQUIRY_CREATE; the
+    // detail's buttons check SALE_INQUIRY_EDIT / SALE_QUOTATION_CREATE themselves. "new" before ":uuid".
+    { path: 'sales/inquiries', component: SaleInquiryListComponent,
+      canActivate: [permissionGuard(P.SALE_INQUIRY_VIEW)] },
+    { path: 'sales/inquiries/new', component: SaleInquiryFormComponent,
+      canActivate: [permissionGuard(P.SALE_INQUIRY_CREATE)] },
+    { path: 'sales/inquiries/:uuid', component: SaleInquiryDetailComponent,
+      canActivate: [permissionGuard(P.SALE_INQUIRY_VIEW)] },
+    { path: 'sales/rejection-reasons', component: RejectionReasonsComponent,
+      canActivate: [permissionGuard(P.SALE_REJECTION_REASON_MANAGE)] },
+
+    // ── Sales — Sale Quotations (Addendum 32 PC-10..14) ───────────────────────
+    // Guards equal the server's (contract §2): list/detail SALE_QUOTATION_VIEW, new SALE_QUOTATION_CREATE, the
+    // draft header SALE_QUOTATION_EDIT; the detail's buttons check _EDIT / _SEND / SALE_ORDER_CREATE themselves.
+    { path: 'sales/quotations', component: SaleQuotationListComponent,
+      canActivate: [permissionGuard(P.SALE_QUOTATION_VIEW)] },
+    { path: 'sales/quotations/new', component: SaleQuotationFormComponent,
+      canActivate: [permissionGuard(P.SALE_QUOTATION_CREATE)] },
+    { path: 'sales/quotations/:uuid/edit', component: SaleQuotationFormComponent,
+      canActivate: [permissionGuard(P.SALE_QUOTATION_EDIT)] },
+    { path: 'sales/quotations/:uuid', component: SaleQuotationDetailComponent,
+      canActivate: [permissionGuard(P.SALE_QUOTATION_VIEW)] },
 
     // ── Warehouse — GRN ───────────────────────────────────────────────────────
     { path: 'warehouse/grn', component: GrnListComponent,
@@ -521,12 +586,14 @@ export default [
       canActivate: [permissionGuard(P.DELIVERY_TRACK)] },
 
     // ── Finance — Invoices ────────────────────────────────────────────────────
+    // The list and the detail load through InvoicesController's GETs, which need INVOICE_VIEW alone — so
+    // INVOICE_PROCESS without VIEW must not open a page that can only 403.
     { path: 'finance/invoices', component: InvoiceListComponent,
-      canActivate: [permissionGuard(P.INVOICE_VIEW, P.INVOICE_PROCESS)] },
+      canActivate: [permissionGuard(P.INVOICE_VIEW)] },
     { path: 'finance/invoices/create', component: InvoiceCreateComponent,
       canActivate: [permissionGuard(P.INVOICE_PROCESS)] },
     { path: 'finance/invoices/:uuid', component: InvoiceDetailComponent,
-      canActivate: [permissionGuard(P.INVOICE_VIEW, P.INVOICE_PROCESS)] },
+      canActivate: [permissionGuard(P.INVOICE_VIEW)] },
 
     // ── Finance — Payments (multi-invoice allocation, DRAFT→APPROVED→POSTED) ───
     { path: 'finance/payments', component: SupplierPaymentListComponent,

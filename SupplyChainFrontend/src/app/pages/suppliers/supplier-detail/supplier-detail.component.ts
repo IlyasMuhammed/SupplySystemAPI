@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { environment } from '../../../../environments/environment';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
@@ -37,8 +37,10 @@ import {
   FinanceService,
   SupplierLedgerEntryModel,
   SupplierBalanceSummary,
-  OutstandingInvoiceModel
+  OutstandingInvoiceModel,
+  ONLY_APPROVED_INVOICES_PAYABLE
 } from '../../../services/finance.service';
+import { AuthService } from '../../service/auth.service';
 import { ReportsService } from '../../../services/reports.service';
 import { TimelineEvent } from '../../../services/timeline.service';
 
@@ -131,8 +133,15 @@ export class SupplierDetailComponent implements OnInit {
   ledgerTotalRecords = 0;
 
   // ── Outstanding Invoices (SFM-003) ─────────────────────────────────────────
+  /** The server's list: approved invoices with something still owed (nothing else can be paid). */
   outstandingInvoices: OutstandingInvoiceModel[] = [];
   isLoadingOutstanding = false;
+  get noPayablesHint(): string { return `No outstanding invoices for this supplier. ${ONLY_APPROVED_INVOICES_PAYABLE}`; }
+
+  private readonly authService = inject(AuthService);
+
+  /** Record Payment / Pay lead to the payment page, which needs PAYMENT_PROCESS (as does the POST). */
+  get canRecordPayment(): boolean { return this.authService.hasPermission('PAYMENT_PROCESS'); }
 
   constructor(
     private route: ActivatedRoute,
@@ -497,6 +506,7 @@ export class SupplierDetailComponent implements OnInit {
     switch (type) {
       case 'INVOICE_APPROVED':    return 'danger';   // debit — supplier owed
       case 'CREDIT_NOTE_APPROVED':
+      case 'INVOICE_REVERSED':    // SAP alignment S-7 — the opposite of an approval
       case 'PAYMENT_POSTED':      return 'success';  // credit — reduces what's owed
       case 'DEBIT_NOTE_APPROVED': return 'danger';
       case 'PAYMENT_BOUNCED':     return 'warn';

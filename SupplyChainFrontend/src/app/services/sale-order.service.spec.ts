@@ -65,6 +65,23 @@ describe('SaleOrderService', () => {
     req.flush({ success: true });
   });
 
+  it('sends each lines tax code with it, on a create and on an update alike', () => {
+    const lines = [
+      { variantUuid: 'v1', quantity: 5, discountPercent: 0, taxPercent: 17, taxCodeUuid: 'tc-gst17' },
+      { variantUuid: 'v2', quantity: 1, discountPercent: 0, taxPercent: 8 }
+    ];
+
+    service.createSaleOrder({ partnerId: 'cust-1', deliveryMode: 'SELF_PICKUP', lines }).subscribe();
+    const create = http.expectOne(BASE);
+    expect(create.request.body.lines).toEqual(lines);
+    create.flush({ success: true, message: '', result: 'new-uuid' });
+
+    service.updateSaleOrder('so-1', { deliveryMode: 'SELF_PICKUP', lines }).subscribe();
+    const update = http.expectOne(`${BASE}/so-1`);
+    expect(update.request.body.lines).toEqual(lines);
+    update.flush({ success: true });
+  });
+
   it('confirms with an empty body', () => {
     service.confirmSaleOrder('so-1').subscribe();
 

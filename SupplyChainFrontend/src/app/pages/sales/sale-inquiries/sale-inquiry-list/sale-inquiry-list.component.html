@@ -1,0 +1,91 @@
+<div class="list-page">
+  <p-toast></p-toast>
+
+  <div class="page-header">
+    <div>
+      <h1 class="page-title"><i class="pi pi-inbox"></i> Sale Inquiries</h1>
+      <p class="page-subtitle">What customers have asked for, and how each requested line was evaluated</p>
+    </div>
+    <p-button *ngIf="canCreate" label="New Inquiry" icon="pi pi-plus"
+              routerLink="/portal/pages/sales/inquiries/new" data-testid="new-inquiry"></p-button>
+  </div>
+
+  <div class="filter-bar">
+    <p-iconfield>
+      <p-inputicon styleClass="pi pi-search"></p-inputicon>
+      <input pInputText type="text" placeholder="Inquiry # or customer ref…"
+             [(ngModel)]="searchText" (ngModelChange)="onSearchChange()" class="search-input" data-testid="search" />
+    </p-iconfield>
+    <p-select [options]="statusOptions" [(ngModel)]="selectedStatus" optionLabel="label" optionValue="value"
+              (ngModelChange)="onFilterChange()" placeholder="Status" styleClass="filter-select" appendTo="body"
+              data-testid="status-filter"></p-select>
+    <p-autoComplete [(ngModel)]="customer" [suggestions]="customerSuggestions" field="companyName"
+                    (completeMethod)="searchCustomers($event)" (onSelect)="onFilterChange()" (onClear)="onFilterChange()"
+                    [dropdown]="true" [forceSelection]="true" placeholder="Customer" styleClass="filter-customer"
+                    appendTo="body" data-testid="customer-filter"></p-autoComplete>
+    <p-datepicker [(ngModel)]="receivedFrom" (ngModelChange)="onFilterChange()" dateFormat="dd M yy" [showIcon]="true"
+                  [showClear]="true" placeholder="Received from" styleClass="filter-date" appendTo="body"
+                  data-testid="received-from"></p-datepicker>
+    <p-datepicker [(ngModel)]="receivedTo" (ngModelChange)="onFilterChange()" dateFormat="dd M yy" [showIcon]="true"
+                  [showClear]="true" placeholder="Received to" styleClass="filter-date" appendTo="body"
+                  data-testid="received-to"></p-datepicker>
+    <p-button icon="pi pi-refresh" [text]="true" severity="secondary" pTooltip="Reset filters" (onClick)="resetFilters()"
+              data-testid="reset-filters"></p-button>
+  </div>
+
+  <div class="table-card">
+    <p-table [value]="inquiries" [loading]="isLoading" [lazy]="true"
+             [totalRecords]="totalRecords" [rows]="pageSize"
+             (onLazyLoad)="onPageChange($event)"
+             [paginator]="true" [rowsPerPageOptions]="[10,20,50]"
+             [tableStyle]="{'min-width':'52rem'}">
+      <ng-template pTemplate="header">
+        <tr>
+          <th>Inquiry #</th>
+          <th>Customer</th>
+          <th>Received</th>
+          <th>Status</th>
+          <th class="text-right">Lines</th>
+          <th class="text-center">Actions</th>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="body" let-i>
+        <tr data-testid="inquiry-row">
+          <td class="font-mono font-semibold">
+            <a [routerLink]="['/portal/pages/sales/inquiries', i.uuid]" class="doc-link">{{ i.inquiryNumber }}</a>
+            <div class="sub" *ngIf="i.customerReference">{{ i.customerReference }}</div>
+          </td>
+          <td>{{ i.partnerName || '—' }}</td>
+          <td data-testid="received">{{ displayDate(i.receivedDate) }}</td>
+          <td>
+            <span class="status-badge" [ngClass]="'st-' + statusColor(i.status)" data-testid="status-badge">
+              <span class="dot"></span>{{ statusLabel(i.status) }}
+            </span>
+          </td>
+          <td class="text-right" data-testid="line-count">
+            {{ i.lineCount }}
+            <span class="pending" *ngIf="i.pendingLineCount > 0 && (i.status === 'RECEIVED' || i.status === 'UNDER_REVIEW')"
+                  pTooltip="Lines not yet decided">({{ i.pendingLineCount }} open)</span>
+          </td>
+          <td class="text-center">
+            <p-button icon="pi pi-eye" [text]="true" severity="info" size="small" pTooltip="View"
+                      [routerLink]="['/portal/pages/sales/inquiries', i.uuid]" data-testid="view-inquiry"></p-button>
+          </td>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="6" class="text-center muted" style="padding:3rem">No sale inquiries found.</td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </div>
+
+  <div class="legend" aria-label="Status legend">
+    <span *ngFor="let s of statusOptions.slice(1)" class="legend-item">
+      <span class="dot" [ngClass]="'st-' + statusColor($any(s.value))"></span>{{ s.label }}
+    </span>
+  </div>
+</div>

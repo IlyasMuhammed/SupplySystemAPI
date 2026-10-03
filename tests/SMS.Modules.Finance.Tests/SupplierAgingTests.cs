@@ -44,7 +44,8 @@ file static class Build
             MatchedPoValue    = totalAmount,
             MatchedGrnValue   = 0m,
             VarianceAmount    = 0m,
-            MatchStatus       = "Matched",
+            // Only an approved invoice is a payable, so only it is aged.
+            MatchStatus       = "Approved",
             PaymentStatus     = status,
             PaidAmount        = paidAmount,
             IsActive          = true,

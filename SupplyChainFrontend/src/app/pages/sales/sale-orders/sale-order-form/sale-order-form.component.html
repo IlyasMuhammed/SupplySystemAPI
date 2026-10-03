@@ -11,7 +11,8 @@
         <ng-container *ngIf="isEdit">Edit <span class="font-mono">{{ order?.soNumber }}</span></ng-container>
       </h1>
       <p class="page-subtitle">
-        <ng-container *ngIf="!isEdit">The order is saved as a draft. Confirming it, which reserves stock, is a separate step.</ng-container>
+        <ng-container *ngIf="!isEdit && !isFromQuotation">The order is saved as a draft. Confirming it, which reserves stock, is a separate step.</ng-container>
+        <ng-container *ngIf="isFromQuotation">The lines the customer accepted become a draft order at the quoted prices. Confirming it is a separate step.</ng-container>
         <ng-container *ngIf="isEdit">Only a draft can be changed. Saving re-prices every line.</ng-container>
       </p>
     </div>
@@ -35,6 +36,93 @@
 
   <form *ngIf="!isLoading && !notFound && !notEditable" [formGroup]="form" (ngSubmit)="save()" novalidate>
 
+    <!-- ── A32 PD-07: how the order is made ─────────────────────────────────────── -->
+    <div class="form-card" *ngIf="!isEdit">
+      <div class="card-head">
+        <div class="card-icon"><i class="pi pi-sitemap"></i></div>
+        <div class="grow">
+          <div class="card-title">Source</div>
+          <div class="card-sub">Type the order in, or make it from a quotation the customer accepted</div>
+        </div>
+      </div>
+      <p-selectButton [options]="sourceModeOptions" [formControl]="createModeControl" optionLabel="label" optionValue="value"
+                      optionDisabled="disabled" [allowEmpty]="false" (onChange)="setCreateMode($event.value)"
+                      data-testid="source-mode"></p-selectButton>
+      <small class="hint" *ngIf="!canUseQuotations" data-testid="quotation-route-hint">
+        Making an order from a quotation needs permission to view sale quotations.
+      </small>
+    </div>
+
+    <div class="form-card" *ngIf="isFromQuotation" data-testid="quotation-card">
+      <div class="card-head">
+        <div class="card-icon"><i class="pi pi-file-import"></i></div>
+        <div class="grow">
+          <div class="card-title">Quotation</div>
+          <div class="card-sub">Only accepted quotations are offered; the customer, currency and accepted lines come from it</div>
+        </div>
+      </div>
+
+      <div class="field full">
+        <label>Accepted quotation <span class="required">*</span></label>
+        <p-autoComplete [formControl]="quotationControl" [suggestions]="quotationSuggestions" field="quotationNumber"
+                        (completeMethod)="searchQuotations($event)" (onSelect)="onQuotationSelected($event.value)"
+                        (onClear)="clearQuotation()" (onFocus)="onQuotationFieldFocus()" [minLength]="1" [dropdown]="true"
+                        placeholder="Search by quotation number or customer reference…" styleClass="w-full"
+                        inputStyleClass="w-full" appendTo="body" data-testid="quotation-picker">
+          <ng-template let-q pTemplate="item">
+            <div class="quotation-option">
+              <span class="font-mono">{{ q.quotationNumber }}</span>
+              <span>{{ q.partnerName || q.partnerId }}</span>
+              <span class="muted">{{ q.grandTotal | number:'1.2-2' }} {{ q.currencyCode }} · valid to {{ dateOnly(q.validTo) | date:'dd MMM yyyy' }}</span>
+            </div>
+          </ng-template>
+        </p-autoComplete>
+        <small class="muted" *ngIf="isLoadingQuotation"><i class="pi pi-spin pi-spinner"></i> Reading the quotation…</small>
+      </div>
+
+      <ng-container *ngIf="selectedQuotation as q">
+        <dl class="quotation-summary" data-testid="quotation-summary">
+          <dt>Customer</dt><dd>{{ q.partnerName || q.partnerId }}</dd>
+          <dt>Currency</dt><dd>{{ q.currencyCode || q.currencyId }}</dd>
+          <dt>Valid to</dt><dd>{{ dateOnly(q.validTo) | date:'dd MMM yyyy' }}</dd>
+          <ng-container *ngIf="q.sourceInquiry as i"><dt>Inquiry</dt><dd class="font-mono">{{ i.number }}</dd></ng-container>
+          <ng-container *ngIf="q.customerReference"><dt>Customer reference</dt><dd>{{ q.customerReference }}</dd></ng-container>
+        </dl>
+
+        <table class="quotation-lines" *ngIf="acceptedLines.length; else noAccepted">
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th class="text-right">Qty</th>
+              <th class="text-right">Unit price</th>
+              <th class="text-right">Disc %</th>
+              <th class="text-right">Tax</th>
+              <th class="text-right">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let l of acceptedLines" data-testid="quotation-line">
+              <td>{{ l.variantName || l.productDescription }} <div class="line-sub" *ngIf="l.variantSku">{{ l.variantSku }}</div></td>
+              <td class="text-right">{{ l.quantity | number:'1.0-4' }} {{ l.uomCode || '' }}</td>
+              <td class="text-right">{{ l.unitPrice | number:'1.2-4' }}</td>
+              <td class="text-right">{{ l.discountPercent | number:'1.0-2' }}</td>
+              <td class="text-right">{{ l.taxCode ? l.taxCode + ' · ' : '' }}{{ l.taxPercent | number:'1.0-2' }}%</td>
+              <td class="text-right">{{ l.lineTotal | number:'1.2-2' }}</td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr><td colspan="5" class="text-right">Accepted lines total</td><td class="text-right"><strong>{{ acceptedTotal | number:'1.2-2' }}</strong></td></tr>
+          </tfoot>
+        </table>
+        <ng-template #noAccepted>
+          <small class="p-error" data-testid="no-accepted-lines">The customer accepted no line on this quotation, so there is nothing to convert.</small>
+        </ng-template>
+        <small class="hint">
+          Only the lines the customer accepted are carried over, at the quoted prices. Lines with a counter offer are not.
+        </small>
+      </ng-container>
+    </div>
+
     <!-- ── Customer and delivery ─────────────────────────────────────────────── -->
     <div class="form-card">
       <div class="card-head">
@@ -46,7 +134,7 @@
       </div>
 
       <div class="grid">
-        <div class="field full">
+        <div class="field full" *ngIf="!isFromQuotation">
           <label>Customer <span class="required">*</span></label>
           <p-autoComplete formControlName="customer" [suggestions]="customerSuggestions" field="companyName"
                           (completeMethod)="searchCustomers($event)" (onSelect)="onCustomerSelected($event.value)"
@@ -93,7 +181,7 @@
                       [showIcon]="true" [showClear]="true" styleClass="w-full" appendTo="body"></p-calendar>
         </div>
 
-        <div class="field" data-testid="currency-field">
+        <div class="field" *ngIf="!isFromQuotation" data-testid="currency-field">
           <label>Currency <span class="required">*</span></label>
           <p-dropdown [options]="currencyOptions" formControlName="currencyId" optionLabel="label" optionValue="value"
                       [filter]="true" filterBy="label" [loading]="isLoadingCurrencies"
@@ -111,11 +199,34 @@
           <textarea pTextarea formControlName="notes" rows="2" class="w-full" maxlength="2000"
                     placeholder="Optional — anything the customer or the warehouse should know."></textarea>
         </div>
+
+        <!-- A32 C3 — the customer's own purchase order. The file is attached on the order once it exists. -->
+        <div class="field">
+          <label for="customer-po-reference">Customer PO reference</label>
+          <input pInputText id="customer-po-reference" formControlName="customerPoReference" class="w-full"
+                 [maxlength]="customerPoMaxLength" placeholder="Optional — e.g. GT-PO-2026-4521"
+                 (blur)="onCustomerPoBlur()" data-testid="customer-po-reference" />
+          <small class="p-error" *ngIf="form.get('customerPoReference')?.invalid">At most {{ customerPoMaxLength }} characters.</small>
+          <small class="po-warning" *ngIf="poDuplicates.length" data-testid="po-duplicate-warning">
+            <i class="pi pi-exclamation-triangle"></i>
+            Already on
+            <ng-container *ngFor="let d of poDuplicates; let last = last">
+              <span class="font-mono">{{ d.soNumber }}</span>{{ last ? '.' : ', ' }}
+            </ng-container>
+            You can still save it — check it is not the same order twice.
+          </small>
+        </div>
+
+        <div class="field">
+          <label>Customer PO date</label>
+          <p-calendar formControlName="customerPoDate" dateFormat="dd/mm/yy" [showIcon]="true" [showClear]="true"
+                      styleClass="w-full" appendTo="body" data-testid="customer-po-date"></p-calendar>
+        </div>
       </div>
     </div>
 
     <!-- ── Line items ────────────────────────────────────────────────────────── -->
-    <div class="form-card">
+    <div class="form-card" *ngIf="!isFromQuotation" data-testid="line-items-card">
       <div class="card-head">
         <div class="card-icon"><i class="pi pi-list"></i></div>
         <div class="grow">
@@ -171,11 +282,32 @@
                            [min]="0" [max]="100" styleClass="w-full" inputStyleClass="w-full" data-testid="discount"></p-inputNumber>
           </div>
 
-          <div class="line-field">
-            <label>Tax %</label>
+          <!-- SAP alignment (S-3): a tax code when the organization has any; the code's rate is the line's. -->
+          <div class="line-field" *ngIf="showTaxCodes; else plainTax" data-testid="tax-code-field">
+            <label>Tax code</label>
+            <p-dropdown formControlName="taxCodeUuid" [options]="taxCodeOptionsFor(i)" optionLabel="label" optionValue="value"
+                        [showClear]="true" placeholder="No code — type the %" (onChange)="onTaxCodeChange(i)"
+                        [class.p-invalid]="lineHasRetiredTaxCode(i)"
+                        styleClass="w-full" appendTo="body" data-testid="tax-code"></p-dropdown>
+            <small class="p-error" *ngIf="lineHasRetiredTaxCode(i)" data-testid="tax-code-retired">
+              No longer active, so this line cannot be saved on it. Choose another code, or clear it and type the rate.
+            </small>
             <p-inputNumber formControlName="taxPercent" [minFractionDigits]="0" [maxFractionDigits]="2"
-                           [min]="0" [max]="1000" styleClass="w-full" inputStyleClass="w-full" data-testid="tax"></p-inputNumber>
+                           [min]="0" [max]="100" suffix="%" [readonly]="lineHasTaxCode(i)"
+                           [class.p-invalid]="lineIsInvalid(i, 'taxPercent')"
+                           [pTooltip]="lineHasTaxCode(i) ? 'The rate of the tax code. Clear the code to type a rate.' : ''"
+                           styleClass="w-full" inputStyleClass="w-full" data-testid="tax"></p-inputNumber>
+            <small class="p-error" *ngIf="lineIsInvalid(i, 'taxPercent')">0 to 100.</small>
           </div>
+          <ng-template #plainTax>
+            <div class="line-field">
+              <label>Tax %</label>
+              <p-inputNumber formControlName="taxPercent" [minFractionDigits]="0" [maxFractionDigits]="2"
+                             [min]="0" [max]="100" [class.p-invalid]="lineIsInvalid(i, 'taxPercent')"
+                             styleClass="w-full" inputStyleClass="w-full" data-testid="tax"></p-inputNumber>
+              <small class="p-error" *ngIf="lineIsInvalid(i, 'taxPercent')">0 to 100.</small>
+            </div>
+          </ng-template>
 
           <div class="line-price" data-testid="price">
             <ng-container [ngSwitch]="lineControl(i, 'priceState').value">
@@ -183,10 +315,14 @@
                 <span class="price">{{ lineControl(i, 'unitPrice').value | number:'1.2-2' }}</span>
                 <span class="per">each</span>
                 <span class="total" *ngIf="lineTotal(i) !== null">= {{ lineTotal(i) | number:'1.2-2' }}</span>
+                <small class="note" *ngIf="lineControl(i, 'priceNote').value as note" data-testid="price-note">{{ note }}</small>
               </span>
               <span *ngSwitchCase="'loading'" class="muted"><i class="pi pi-spin pi-spinner"></i></span>
               <span *ngSwitchCase="'missing'" class="warn" data-testid="price-missing">
                 <i class="pi pi-exclamation-triangle"></i> No price rule applies. Saving will be refused.
+              </span>
+              <span *ngSwitchCase="'noRate'" class="warn" data-testid="price-no-rate">
+                <i class="pi pi-exclamation-triangle"></i> {{ lineControl(i, 'priceNote').value }}
               </span>
               <span *ngSwitchCase="'unavailable'" class="muted">Priced when saved</span>
               <span *ngSwitchDefault class="muted">—</span>
@@ -211,8 +347,9 @@
 
     <div class="form-actions">
       <p-button label="Cancel" [text]="true" severity="secondary" [routerLink]="backLink" data-testid="cancel"></p-button>
-      <p-button type="submit" [label]="isEdit ? 'Save changes' : 'Save draft'" icon="pi pi-check"
-                [loading]="isSaving" [disabled]="isSaving || hasLineQtyLimitErrors()" data-testid="save"></p-button>
+      <p-button type="submit" [label]="isFromQuotation ? 'Create order from quotation' : (isEdit ? 'Save changes' : 'Save draft')"
+                icon="pi pi-check" [loading]="isSaving"
+                [disabled]="isSaving || (!isFromQuotation && hasLineQtyLimitErrors())" data-testid="save"></p-button>
     </div>
   </form>
 

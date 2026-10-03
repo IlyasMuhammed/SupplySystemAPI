@@ -49,6 +49,12 @@ internal sealed class SalesInvoiceMap : IEntityTypeConfiguration<SalesInvoice>
         b.Property(x => x.Notes).HasMaxLength(500);
         b.Property(x => x.IsActive).HasDefaultValue(true);
 
+        // SAP alignment — currency snapshot at issue, and the reversal record.
+        b.Property(x => x.ExchangeRate).HasColumnType("decimal(18,8)");
+        b.Property(x => x.BaseCurrencyCode).HasMaxLength(10);
+        b.Property(x => x.BaseGrandTotal).HasColumnType("decimal(18,2)");
+        b.Property(x => x.CancellationReason).HasMaxLength(500);
+
         // Optimistic concurrency without a new column: every writer that changes an invoice sets
         // ModifiedDate to a fresh value, so a save made from a stale read matches no row and fails
         // rather than overwriting. Payments, allocations, issue, the overdue sweep and edits all
@@ -90,6 +96,7 @@ internal sealed class SalesInvoiceLineMap : IEntityTypeConfiguration<SalesInvoic
         b.Property(x => x.DiscountPercent).HasColumnType("decimal(5,2)");
         b.Property(x => x.TaxPercent).HasColumnType("decimal(5,2)");
         b.Property(x => x.LineTotal).HasColumnType("decimal(18,2)");
+        b.Property(x => x.TaxCode).HasMaxLength(20);
 
         b.Property(x => x.OrganizationId).IsRequired();
         b.HasIndex(x => x.OrganizationId);

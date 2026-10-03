@@ -22,3 +22,14 @@
 .file-drop-icon { font-size: 2rem; color: var(--primary-color); margin-bottom: .5rem; }
 .file-drop-label { font-weight: 600; margin: 0; }
 .file-drop-hint { font-size: .78rem; color: var(--text-color-secondary); margin: .25rem 0 0; }
+.amount-row.base { font-size: .8rem; color: var(--text-color-secondary); }
+.computed-amount { padding: .5rem .75rem; background: var(--surface-50); border: 1px solid var(--surface-200); border-radius: .375rem; font-weight: 600; }
+.sdlg-note { padding: .625rem .75rem; margin-bottom: .875rem; background: var(--surface-50); border: 1px solid var(--surface-200); border-radius: .5rem; font-size: .82rem; line-height: 1.5; color: var(--text-color-secondary); }
+.reversal-banner {
+  display: flex; gap: .75rem; align-items: flex-start; margin-bottom: 1.25rem; padding: .875rem 1rem;
+  border: 1px solid var(--surface-300); border-left: 4px solid var(--text-color); border-radius: .5rem; background: var(--surface-50);
+  > i { font-size: 1.25rem; margin-top: .1rem; }
+  .reversal-title { font-weight: 700; }
+  .reversal-reason { margin-top: .2rem; }
+  .reversal-note { margin-top: .4rem; font-size: .8rem; color: var(--text-color-secondary); line-height: 1.5; }
+}

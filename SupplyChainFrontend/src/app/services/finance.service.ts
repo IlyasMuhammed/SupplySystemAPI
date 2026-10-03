@@ -42,17 +42,53 @@ export interface InvoiceLineModel {
   lineTotal: number;
 }
 
+/** Supplier invoice match statuses (SAP alignment S-7 adds Reversed: an approved invoice whose ledger debit was cancelled). */
+export type InvoiceMatchStatus = 'Pending' | 'Matched' | 'Variance' | 'Approved' | 'Rejected' | 'Reversed';
+export const INVOICE_MATCH_STATUSES: InvoiceMatchStatus[] = ['Pending', 'Matched', 'Variance', 'Approved', 'Rejected', 'Reversed'];
+
+/** Sent as PatchInvoiceRequest.taxCodeUuid to remove an invoice's tax code (the tax is then an amount again). */
+export const NO_TAX_CODE = '00000000-0000-0000-0000-000000000000';
+
+/** The invoice's notes column, and the most the server takes for notes, approval notes or a rejection reason (400 above). */
+export const INVOICE_NOTES_MAX = 300;
+
+/**
+ * A supplier invoice is payable only once Approved (SAP): the outstanding-invoices list holds approved invoices with
+ * something still owed, and both payment flows refuse anything else (400). Said wherever that list is empty.
+ */
+export const ONLY_APPROVED_INVOICES_PAYABLE = 'Only approved invoices can be paid.';
+
+/** "GST17 · 17% — General sales tax": a tax code written as the sale-order line writes it (SAP alignment S-3). */
+export function taxCodeOptionLabel(code: string, ratePercent: number | null | undefined, name?: string | null): string {
+  const label = `${code} · ${Number((ratePercent ?? 0).toFixed(2))}%`;
+  return name && name !== code ? `${label} — ${name}` : label;
+}
+
+/**
+ * The tax a purchase code implies, as the server works it out: round(subtotal × rate / 100, 2), half away
+ * from zero. Computed in cents (subtotal × rate) so 7.525 is not 7.52499… in binary. A preview only — the
+ * server's figure is the one stored.
+ */
+export function purchaseTaxFor(subtotal: number, ratePercent: number): number {
+  const cents = (subtotal || 0) * (ratePercent || 0);
+  return (Math.sign(cents) * Math.round(Math.abs(cents) + 1e-7)) / 100;
+}
+
 export interface CreateInvoiceRequest {
   supplierInvoiceNo?: string;
   supplierId: string;
-  poUuid: string;
+  /** Optional (G10): absent for a payable with no purchase order behind it, e.g. a freight bill. Never send ''. */
+  poUuid?: string | null;
   grnUuid?: string;
   invoiceDate: string;
   receivedDate: string;
   dueDate: string;
   currency: string;
   subtotal: number;        // ignored when lines are provided (computed server-side)
+  /** The tax as an amount — ignored by the server when taxCodeUuid is given (it works the tax out from the code). */
   taxAmount: number;
+  /** A PURCHASE (or BOTH) tax code; the server snapshots it and computes taxAmount = round(subtotal × rate / 100, 2). */
+  taxCodeUuid?: string | null;
   paymentMethod?: string;
   notes?: string;
   attachmentUrl?: string;
@@ -62,15 +98,27 @@ export interface CreateInvoiceRequest {
   invoiceUuid?: string;
 }
 
+/**
+ * Omitted fields are left as they are. Once Approved, tax / tax code / match status are refused (409 —
+ * reverse the invoice instead); once Reversed only notes and attachment may change; payment status is
+ * Unpaid or Scheduled only, and not once a payment is recorded.
+ */
 export interface PatchInvoiceRequest {
   supplierInvoiceNo?: string;
   dueDate?: string;
   paymentMethod?: string;
+  /** Refused while the tax comes from a code — send taxCodeUuid NO_TAX_CODE with it to switch to a hand-entered amount. */
   taxAmount?: number;
+  /** A purchase tax code to apply (the tax is recomputed), or NO_TAX_CODE to remove the code. */
+  taxCodeUuid?: string;
   matchStatus?: string;
   paymentStatus?: string;
   notes?: string;
   attachmentUrl?: string;
+}
+
+export interface ReverseInvoiceRequest {
+  reason: string;
 }
 
 export interface InvoiceListItemModel {
@@ -78,12 +126,15 @@ export interface InvoiceListItemModel {
   invoiceNumber: string;
   supplierInvoiceNo?: string;
   supplierName: string;
-  poNumber: string;
+  /** Null on a payable with no purchase order behind it (G10). */
+  poNumber?: string | null;
   grnNumber?: string;
   invoiceDate: string;
   dueDate: string;
   totalAmount: number;
   currency: string;
+  taxCode?: string | null;
+  taxPercent?: number | null;
   matchStatus: string;
   paymentStatus: string;
 }
@@ -105,8 +156,9 @@ export interface InvoiceDetailModel {
   supplierInvoiceNo?: string;
   supplierId: string;
   supplierName: string;
-  poUuid: string;
-  poNumber: string;
+  /** Null on a payable with no purchase order behind it (G10). */
+  poUuid?: string | null;
+  poNumber?: string | null;
   grnUuid?: string;
   grnNumber?: string;
   invoiceDate: string;
@@ -116,14 +168,27 @@ export interface InvoiceDetailModel {
   subtotal: number;
   taxAmount: number;
   totalAmount: number;
+  /** The purchase tax code snapshotted on the invoice; null when the tax was entered as an amount. */
+  taxCodeUuid?: string | null;
+  taxCode?: string | null;
+  taxPercent?: number | null;
+  /** Snapshotted at approval: 1 `currency` = exchangeRate `baseCurrencyCode`. Rate and base total are null when no rate was on file. */
+  exchangeRate?: number | null;
+  baseCurrencyCode?: string | null;
+  baseTotalAmount?: number | null;
+  /** Three-way match on the net subtotal (S-8): subtotal vs PO and GRN values, all before tax. */
   matchedPoValue: number;
   matchedGrnValue: number;
   varianceAmount: number;
   matchStatus: string;
   paymentStatus: string;
+  paidAmount?: number;
   paymentMethod?: string;
   approvedBy?: number;
   approvedAt?: string;
+  reversedAt?: string | null;
+  reversedBy?: number | null;
+  reversalReason?: string | null;
   notes?: string;
   attachmentUrl?: string;
   createdDate: string;
@@ -488,6 +553,12 @@ export class FinanceService {
 
   rejectInvoice(uuid: string, reason: string): Observable<ApiResponse> {
     return this.http.post<ApiResponse>(`${BASE}/invoices/${uuid}/reject`, { reason });
+  }
+
+  /** Reverses an approved, unpaid invoice (INVOICE_PROCESS): opposite ledger entry, status Reversed. 409 when it cannot be. */
+  reverseInvoice(uuid: string, reason: string): Observable<ApiResponse<InvoiceDetailModel>> {
+    const body: ReverseInvoiceRequest = { reason };
+    return this.http.post<ApiResponse<InvoiceDetailModel>>(`${BASE}/invoices/${uuid}/reverse`, body);
   }
 
   uploadAttachment(uuid: string, file: File): Observable<ApiResponse<string>> {

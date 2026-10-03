@@ -35,7 +35,7 @@ file static class Build
             DueDate = DateTime.UtcNow.Date.AddDays(-daysOverdue), Currency = "PKR",
             Subtotal = totalAmount, TaxAmount = 0m, TotalAmount = totalAmount,
             MatchedPoValue = totalAmount, MatchedGrnValue = 0m, VarianceAmount = 0m,
-            MatchStatus = "Matched", PaymentStatus = status, PaidAmount = paidAmount,
+            MatchStatus = "Approved", PaymentStatus = status, PaidAmount = paidAmount, // only an approved invoice is a payable
             IsActive = true, CreatedBy = 1, CreatedDate = DateTime.UtcNow
         };
         db.Invoices.Add(inv);

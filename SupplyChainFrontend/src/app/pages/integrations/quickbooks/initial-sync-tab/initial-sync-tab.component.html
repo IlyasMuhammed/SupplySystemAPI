@@ -1,0 +1,95 @@
+<!-- ── Step 1 ─────────────────────────────────────────────────────────── -->
+<section class="form-card">
+  <div class="card-head">
+    <div class="step-no">1</div>
+    <div class="grow">
+      <div class="card-title">Load SCM's data into the gateway</div>
+      <div class="card-sub">
+        Every record is built and checked against QuickBooks' rules. In dry run nothing is sent to QuickBooks.
+      </div>
+    </div>
+  </div>
+
+  <div class="note warn" *ngIf="isLive" data-testid="live-warning">
+    <i class="pi pi-exclamation-triangle"></i>
+    <div class="note-body">The connection is Live: records loaded now are sent to QuickBooks.</div>
+  </div>
+
+  <div class="load-grid">
+    <div class="load-card" *ngFor="let kind of kinds" [attr.data-testid]="'load-card-' + kind">
+      <i [class]="kindIcon[kind]"></i>
+      <div class="grow">
+        <div class="load-title">{{ kindLabel[kind] }}s</div>
+        <div class="hint" *ngIf="results[kind] as r">{{ r.sent }} handed over</div>
+        <div class="hint" *ngIf="!results[kind]">Not loaded in this session</div>
+      </div>
+      <p-button [label]="'Load ' + kindPlural[kind]" icon="pi pi-upload" size="small" [outlined]="!!results[kind]"
+                [disabled]="!canManage || !!running[kind]" [loading]="!!running[kind]"
+                (onClick)="loadKind(kind)" [attr.data-testid]="'load-' + kind"></p-button>
+    </div>
+  </div>
+  <p class="hint" *ngIf="!canManage"><i class="pi pi-lock"></i> Loading needs the Manage integrations permission.</p>
+</section>
+
+<!-- ── Step 2 ─────────────────────────────────────────────────────────── -->
+<section class="form-card flush">
+  <div class="table-toolbar">
+    <div class="step-no">2</div>
+    <div class="grow">
+      <div class="card-title">Fix what was blocked</div>
+      <div class="card-sub">Records our checks refused, with the rule and the fix. Correct them in SCM; a corrected record is checked again when it is saved.</div>
+    </div>
+    <p-button icon="pi pi-refresh" [text]="true" severity="secondary" pTooltip="Reload the list"
+              [disabled]="isLoadingBlocked" (onClick)="loadBlocked(blockedPage)" data-testid="reload-blocked"></p-button>
+  </div>
+
+  <div class="state-inline" *ngIf="blockedFailed" data-testid="blocked-failed">
+    <i class="pi pi-exclamation-triangle"></i> The blocked records could not be loaded.
+    <p-button label="Try again" [text]="true" size="small" (onClick)="loadBlocked(blockedPage)"></p-button>
+  </div>
+
+  <p-table *ngIf="!blockedFailed" [value]="blocked" [lazy]="true" [loading]="isLoadingBlocked" [paginator]="blockedTotal > pageSize"
+           [rows]="pageSize" [totalRecords]="blockedTotal" [first]="(blockedPage - 1) * pageSize"
+           (onLazyLoad)="onBlockedPage($event)" [tableStyle]="{ 'min-width': '44rem' }" data-testid="blocked-table">
+    <ng-template pTemplate="header">
+      <tr>
+        <th style="width: 9rem">Kind</th>
+        <th>Record</th>
+        <th>What is wrong</th>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="body" let-item>
+      <tr data-testid="blocked-row">
+        <td><i [class]="iconOf(item.kind)"></i> {{ labelOf(item.kind) }}</td>
+        <td>
+          <a *ngIf="link(item) as route; else plain" [routerLink]="route" class="source-link" data-testid="source-link">{{ item.displayLabel || item.externalId }}</a>
+          <ng-template #plain>{{ item.displayLabel || item.externalId }}</ng-template>
+          <div class="hint" *ngIf="item.kind === 'Item' && link(item)">Open Products and search for it.</div>
+          <div class="hint" *ngIf="item.sourceSystem && item.sourceSystem !== 'SCM'">Sent by {{ item.sourceSystem }}</div>
+        </td>
+        <td>
+          <div class="fix">{{ item.lastError || 'Refused by a validation rule.' }}</div>
+          <div class="mono muted" *ngIf="item.lastErrorCode">{{ item.lastErrorCode }}</div>
+        </td>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="emptymessage">
+      <tr><td colspan="3" class="empty" data-testid="blocked-empty">
+        <i class="pi pi-check-circle ok"></i> Nothing is blocked.
+      </td></tr>
+    </ng-template>
+  </p-table>
+</section>
+
+<!-- ── Step 3 ─────────────────────────────────────────────────────────── -->
+<section class="form-card step3">
+  <div class="card-head tight">
+    <div class="step-no">3</div>
+    <div class="grow">
+      <div class="card-title">Match what is already in QuickBooks</div>
+      <div class="card-sub">Link SCM's customers, vendors and items to the ones your accountant already entered, so nothing is created twice.</div>
+    </div>
+    <p-button label="Go to Match existing" icon="pi pi-arrow-right" iconPos="right" (onClick)="navigate.emit('match')"
+              data-testid="go-match"></p-button>
+  </div>
+</section>

@@ -17,7 +17,13 @@ public class CreditNotesController : ControllerBase
 
     public CreditNotesController(ICreditNoteService service) => _service = service;
 
+    // A credit note reduces what a supplier invoice asks for, so changing one is INVOICE_PROCESS and reading one
+    // INVOICE_VIEW. Raising one also admits GOODS_RECEIVE and WAREHOUSE_TRANSFER: the SRO detail page
+    // (warehouse/sro/:uuid, guarded by exactly those two) resolves a supplier return by raising a credit note and
+    // offers the button on the return's status alone — refusing them here would break that page.
+
     [HttpPost]
+    [RequirePermission(PermissionCodes.INVOICE_PROCESS, PermissionCodes.GOODS_RECEIVE, PermissionCodes.WAREHOUSE_TRANSFER)]
     public async Task<IActionResult> CreateCreditNote([FromBody] CreateCreditNoteRequest req)
     {
         if (string.IsNullOrWhiteSpace(req.SupplierCreditNoteNo))
@@ -28,6 +34,7 @@ public class CreditNotesController : ControllerBase
     }
 
     [HttpGet]
+    [RequirePermission(PermissionCodes.INVOICE_VIEW)]
     public async Task<IActionResult> GetCreditNotes([FromQuery] CreditNoteListFilter filter)
     {
         var result = await _service.GetListAsync(filter);
@@ -35,6 +42,7 @@ public class CreditNotesController : ControllerBase
     }
 
     [HttpGet("{uuid:guid}")]
+    [RequirePermission(PermissionCodes.INVOICE_VIEW)]
     public async Task<IActionResult> GetCreditNoteById(Guid uuid)
     {
         var detail = await _service.GetByIdAsync(uuid);
@@ -44,6 +52,7 @@ public class CreditNotesController : ControllerBase
     }
 
     [HttpPost("{uuid:guid}/apply")]
+    [RequirePermission(PermissionCodes.INVOICE_PROCESS)]
     public async Task<IActionResult> ApplyCarriedForward(Guid uuid, [FromBody] ApplyCreditNoteRequest req)
     {
         await _service.ApplyCarriedForwardAsync(uuid, req, User.GetUserId());

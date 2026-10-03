@@ -1,0 +1,224 @@
+<p-confirmDialog key="qbo-sync" [style]="{ width: '32rem', maxWidth: '96vw' }"></p-confirmDialog>
+
+<!-- ══ Mode ══════════════════════════════════════════════════════════════ -->
+<section class="form-card mode-card" [class.live]="isLive" data-testid="mode-card">
+  <div class="card-head tight">
+    <div class="card-icon"><i class="pi" [ngClass]="isLive ? 'pi-bolt' : 'pi-eye'"></i></div>
+    <div class="grow">
+      <div class="card-title">
+        <span *ngIf="isLive" data-testid="mode-live">Live: records are sent to QuickBooks</span>
+        <span *ngIf="!isLive" data-testid="mode-dry-run">Dry run: records are checked, nothing is sent</span>
+      </div>
+      <div class="card-sub">
+        <ng-container *ngIf="summary">
+          {{ summary.queueDepth }} waiting in the queue<span *ngIf="summary.lastRunAt"> · last run {{ summary.lastRunAt | date:'d MMM, HH:mm' }}</span>
+        </ng-container>
+      </div>
+    </div>
+
+    <ng-container *ngIf="canManage">
+      <p-button *ngIf="!isLive" label="Switch to Live" icon="pi pi-bolt" severity="success"
+                [disabled]="!canGoLive || isSwitchingMode || isLoadingPreflight" [loading]="isSwitchingMode"
+                (onClick)="requestMode('Live')" data-testid="go-live"></p-button>
+      <p-button *ngIf="isLive" label="Switch back to dry run" icon="pi pi-eye" severity="warn" [outlined]="true"
+                [disabled]="isSwitchingMode" [loading]="isSwitchingMode"
+                (onClick)="requestMode('DryRun')" data-testid="go-dry-run"></p-button>
+    </ng-container>
+  </div>
+
+  <div class="note warn blockers" *ngIf="!isLive && !canGoLive && liveBlockers.length" data-testid="live-blockers">
+    <i class="pi pi-lock"></i>
+    <div class="note-body">
+      <div class="note-title">Live is not available yet</div>
+      <ul><li *ngFor="let b of liveBlockers">{{ b }}</li></ul>
+    </div>
+  </div>
+</section>
+
+<!-- ══ Counts per kind ═══════════════════════════════════════════════════ -->
+<div class="state-inline" *ngIf="summaryFailed" data-testid="summary-failed">
+  <i class="pi pi-exclamation-triangle"></i> The counts could not be loaded.
+  <p-button label="Try again" [text]="true" size="small" (onClick)="loadSummary()"></p-button>
+</div>
+
+<div class="kind-cards" *ngIf="!summaryFailed" data-testid="kind-cards">
+  <div class="kind-card" *ngFor="let card of cards" [attr.data-testid]="'kind-card-' + card.kind">
+    <div class="kind-head">
+      <i [class]="kindIcon[card.kind]"></i>
+      <span class="kind-name">{{ kindLabel[card.kind] }}s</span>
+      <span class="kind-total">{{ card.total }}</span>
+    </div>
+    <div class="state-chips">
+      <button type="button" *ngFor="let s of card.states" class="state-chip" [ngClass]="stateTagClass(s.state)"
+              (click)="filterBy(card.kind, s.state)" [pTooltip]="'Show ' + stateLabel(s.state).toLowerCase() + ' ' + kindPlural[card.kind]"
+              [attr.data-testid]="'chip-' + card.kind + '-' + s.state">
+        <span class="n">{{ s.count }}</span> {{ stateLabel(s.state) }}
+      </button>
+      <span class="muted small" *ngIf="!card.states.length">Nothing yet</span>
+    </div>
+    <p-button *ngIf="canManage" [label]="'Sync all ' + kindPlural[card.kind]" icon="pi pi-sync" [text]="true" size="small"
+              [loading]="!!syncingAll[card.kind]" [disabled]="!!syncingAll[card.kind]"
+              (onClick)="syncAll(card.kind)" [attr.data-testid]="'sync-all-' + card.kind"></p-button>
+  </div>
+</div>
+
+<!-- ══ Records ═══════════════════════════════════════════════════════════ -->
+<section class="form-card flush">
+  <div class="table-toolbar">
+    <p-select [options]="kindOptions" [(ngModel)]="kindFilter" (ngModelChange)="onFilterChange()" optionLabel="label"
+              optionValue="value" appendTo="body" styleClass="filter" data-testid="kind-filter"></p-select>
+    <p-select [options]="stateOptions" [(ngModel)]="stateFilter" (ngModelChange)="onFilterChange()" optionLabel="label"
+              optionValue="value" appendTo="body" styleClass="filter" data-testid="state-filter"></p-select>
+    <p-iconfield>
+      <p-inputicon styleClass="pi pi-search"></p-inputicon>
+      <input pInputText type="text" [(ngModel)]="search" (ngModelChange)="onSearchChange()" placeholder="Name, number or id…"
+             class="search" data-testid="search" />
+    </p-iconfield>
+    <p-button icon="pi pi-filter-slash" [text]="true" severity="secondary" pTooltip="Clear filters" (onClick)="clearFilters()"></p-button>
+    <span class="grow"></span>
+    <p-button icon="pi pi-refresh" [text]="true" severity="secondary" pTooltip="Reload" (onClick)="loadItems(page); loadSummary()"></p-button>
+  </div>
+
+  <div class="state-inline" *ngIf="itemsFailed" data-testid="items-failed">
+    <i class="pi pi-exclamation-triangle"></i> The records could not be loaded.
+    <p-button label="Try again" [text]="true" size="small" (onClick)="loadItems(page)"></p-button>
+  </div>
+
+  <p-table [value]="items" [lazy]="true" (onLazyLoad)="onLazyLoad($event)" [loading]="isLoadingItems" [paginator]="true"
+           [rows]="pageSize" [totalRecords]="total" [first]="(page - 1) * pageSize" [rowsPerPageOptions]="[25, 50, 100]"
+           [showCurrentPageReport]="true" currentPageReportTemplate="{first}–{last} of {totalRecords}"
+           dataKey="id" [tableStyle]="{ 'min-width': '72rem' }" data-testid="items-table">
+    <ng-template pTemplate="header">
+      <tr>
+        <th style="width: 9rem">Kind</th>
+        <th>Record</th>
+        <th style="width: 10rem">State</th>
+        <th style="width: 11rem">QuickBooks</th>
+        <th style="width: 10rem">Last attempt</th>
+        <th>Error</th>
+        <th style="width: 10rem" class="text-right">Actions</th>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="body" let-item>
+      <tr data-testid="item-row">
+        <td class="nowrap"><i [class]="iconOf(item.kind)"></i> {{ labelOf(item.kind) }}</td>
+        <td>
+          <a *ngIf="link(item) as route; else plainLabel" [routerLink]="route" class="source-link">{{ item.displayLabel || item.externalId }}</a>
+          <ng-template #plainLabel>{{ item.displayLabel || item.externalId }}</ng-template>
+          <div class="hint" *ngIf="item.sourceSystem && item.sourceSystem !== 'SCM'">From {{ item.sourceSystem }}</div>
+        </td>
+        <td>
+          <p-tag [value]="stateLabel(item.state)" [severity]="stateSeverity(item.state)" [styleClass]="stateTagClass(item.state)"
+                 [attr.data-testid]="'state-' + item.id"></p-tag>
+          <div class="hint" *ngIf="item.attemptCount > 1">{{ item.attemptCount }} attempts</div>
+        </td>
+        <td>
+          <ng-container *ngIf="item.remoteId || item.remoteDocNumber; else notInQbo">
+            <div class="mono">{{ item.remoteDocNumber || ('#' + item.remoteId) }}</div>
+          </ng-container>
+          <ng-template #notInQbo><span class="muted">—</span></ng-template>
+          <a *ngIf="item.deepLink" [href]="item.deepLink" target="_blank" rel="noopener" class="deep-link" data-testid="deep-link">
+            View in QuickBooks <i class="pi pi-external-link"></i>
+          </a>
+        </td>
+        <td>
+          <div>{{ item.updatedAt ? (item.updatedAt | date:'d MMM, HH:mm') : '—' }}</div>
+          <div class="hint" *ngIf="item.lastSyncedAt">Synced {{ item.lastSyncedAt | date:'d MMM, HH:mm' }}</div>
+        </td>
+        <td>
+          <div class="error-text" *ngIf="item.lastError">{{ item.lastError }}</div>
+          <div class="mono muted" *ngIf="item.lastErrorCode">{{ item.lastErrorCode }}</div>
+          <div class="warning-text" *ngIf="item.warning"><i class="pi pi-exclamation-triangle"></i> {{ item.warning }}</div>
+          <span class="muted" *ngIf="!item.lastError && !item.warning">—</span>
+        </td>
+        <td>
+          <div class="row-actions">
+            <p-button *ngIf="canRetry(item)" icon="pi pi-replay" [text]="true" size="small" pTooltip="Retry" tooltipPosition="top"
+                      [disabled]="!!busy[item.id]" (onClick)="retry(item)" [attr.data-testid]="'retry-' + item.id"></p-button>
+            <p-button *ngIf="canPush(item)" icon="pi pi-upload" [text]="true" size="small" pTooltip="Push now" tooltipPosition="top"
+                      [disabled]="!!busy[item.id]" (onClick)="pushNow(item)" [attr.data-testid]="'push-' + item.id"></p-button>
+            <p-button *ngIf="canResolve(item)" icon="pi pi-wrench" [text]="true" size="small" severity="warn" pTooltip="Resolve"
+                      tooltipPosition="top" (onClick)="openResolve(item)" [attr.data-testid]="'resolve-' + item.id"></p-button>
+            <p-button icon="pi pi-list" [text]="true" size="small" severity="secondary" pTooltip="Attempt log" tooltipPosition="top"
+                      (onClick)="openLog(item)" [attr.data-testid]="'log-' + item.id"></p-button>
+          </div>
+        </td>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="emptymessage">
+      <tr><td colspan="7" class="empty" data-testid="items-empty">No records match.</td></tr>
+    </ng-template>
+  </p-table>
+</section>
+
+<!-- ══ Resolve ═══════════════════════════════════════════════════════════ -->
+<p-dialog header="Resolve" [(visible)]="resolveVisible" [modal]="true" [draggable]="false" [closable]="!isResolving"
+          [style]="{ width: '34rem', maxWidth: '96vw' }" data-testid="resolve-dialog">
+  <p class="dialog-hint" *ngIf="resolveItem">
+    <strong>{{ resolveItem.displayLabel }}</strong> — {{ resolveItem.lastError || stateLabel(resolveItem.state) }}.
+    Check QuickBooks first, then choose what is true.
+  </p>
+  <div class="resolve-options">
+    <label *ngFor="let a of resolveActions" class="resolve-option" [class.selected]="resolveAction === a.value">
+      <input type="radio" name="resolveAction" [value]="a.value" [(ngModel)]="resolveAction" [attr.data-testid]="'resolve-' + a.value" />
+      <span>
+        <span class="title">{{ a.label }}</span>
+        <span class="hint">{{ a.description }}</span>
+      </span>
+    </label>
+  </div>
+  <div class="field" *ngIf="resolveAction === 'LinkRemote'">
+    <label for="resolveRemoteId">QuickBooks id</label>
+    <input pInputText id="resolveRemoteId" [(ngModel)]="resolveRemoteId" placeholder="e.g. 145" data-testid="resolve-remote-id" />
+    <small class="hint">The number in the QuickBooks address of the record, after "txnId=" or "nameId=".</small>
+  </div>
+  <ng-template pTemplate="footer">
+    <p-button label="Cancel" [text]="true" severity="secondary" [disabled]="isResolving" (onClick)="resolveVisible = false"></p-button>
+    <p-button label="Resolve" icon="pi pi-check" [loading]="isResolving" [disabled]="!canSubmitResolve"
+              (onClick)="resolve()" data-testid="resolve-submit"></p-button>
+  </ng-template>
+</p-dialog>
+
+<!-- ══ Attempt log ═══════════════════════════════════════════════════════ -->
+<p-drawer [(visible)]="logVisible" position="right" styleClass="qbo-log-drawer" data-testid="log-drawer">
+  <ng-template pTemplate="header">
+    <div class="drawer-head">
+      <i class="pi pi-list"></i>
+      <div>
+        <div class="drawer-title">Attempt log</div>
+        <div class="hint" *ngIf="logItem">{{ logItem.displayLabel }}</div>
+      </div>
+    </div>
+  </ng-template>
+
+  <div class="state-inline" *ngIf="isLoadingLog"><i class="pi pi-spin pi-spinner"></i> Loading…</div>
+  <div class="state-inline" *ngIf="logFailed" data-testid="log-failed"><i class="pi pi-exclamation-triangle"></i> The log could not be loaded.</div>
+  <div class="state-inline" *ngIf="!isLoadingLog && !logFailed && !logs.length" data-testid="log-empty">
+    <i class="pi pi-info-circle"></i> No attempts yet.
+  </div>
+
+  <ol class="log-list" *ngIf="logs.length" data-testid="log-list">
+    <li *ngFor="let l of logs" class="log-entry" data-testid="log-entry">
+      <div class="log-top">
+        <p-tag [value]="l.outcome" [severity]="outcomeSeverity(l.outcome)"></p-tag>
+        <span class="log-op">{{ l.operation }}</span>
+        <span class="grow"></span>
+        <span class="hint">{{ l.createdAt | date:'d MMM y, HH:mm:ss' }}</span>
+      </div>
+      <div class="log-message" *ngIf="l.message">{{ l.message }}</div>
+      <div class="log-meta hint">
+        <span *ngIf="l.errorCode" class="mono">{{ l.errorCode }}</span>
+        <span>{{ l.durationMs }} ms</span>
+        <span *ngIf="l.intuitTid" class="mono" title="Quote this to Intuit support">intuit_tid {{ l.intuitTid }}</span>
+      </div>
+      <details *ngIf="l.requestJson" class="json" data-testid="log-request">
+        <summary>Request</summary>
+        <pre>{{ prettyJson(l.requestJson) }}</pre>
+      </details>
+      <details *ngIf="l.responseJson" class="json" data-testid="log-response">
+        <summary>Response</summary>
+        <pre>{{ prettyJson(l.responseJson) }}</pre>
+      </details>
+    </li>
+  </ol>
+</p-drawer>

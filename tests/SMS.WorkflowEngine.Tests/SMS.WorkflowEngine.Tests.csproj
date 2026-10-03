@@ -23,6 +23,8 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\SMS.WorkflowEngine\SMS.WorkflowEngine.csproj" />
     <ProjectReference Include="..\..\src\SMS.Shared\SMS.Shared.csproj" />
+    <!-- Only to read the seeded role grants (AuthDataSeeder.RolePermissionSeed) in AttachmentAccessPolicyTests. -->
+    <ProjectReference Include="..\..\src\SMS.Modules.Auth\SMS.Modules.Auth.csproj" />
   </ItemGroup>
 
   <ItemGroup>

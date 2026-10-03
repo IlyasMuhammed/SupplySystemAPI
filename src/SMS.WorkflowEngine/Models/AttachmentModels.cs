@@ -35,7 +35,8 @@ public class GeneratedAttachmentRequest
 public sealed record StoredAttachment(Guid Uuid, bool AlreadyStored);
 
 /// <summary>A filed document's bytes and how to serve them.</summary>
-public sealed record AttachmentContent(byte[] Content, string FileName, string ContentType, string? RequiredPermission);
+public sealed record AttachmentContent(
+    byte[] Content, string FileName, string ContentType, string? RequiredPermission, string InterfaceCode);
 
 public class AttachmentModel
 {
@@ -50,4 +51,23 @@ public class AttachmentModel
     public int      UploadedBy    { get; set; }
     public string   UploadedByName { get; set; } = string.Empty;
     public DateTime UploadedDate  { get; set; }
+
+    /// <summary>A document the system generated and filed (its bytes are kept in the database). Nobody can remove it.</summary>
+    public bool     IsGenerated   { get; set; }
+
+    /// <summary>
+    /// Whether the caller who listed it may remove it — worked out by the server for each file, because it can
+    /// depend on who uploaded it (see <c>AttachmentAccessPolicy.MayRemove</c>). Only ever set on a list.
+    /// </summary>
+    public bool     CanRemove     { get; set; }
+}
+
+/// <summary>One kind of document's rule, as <c>GET api/attachments/policy</c> hands it to the frontend.</summary>
+public sealed class AttachmentAccessRuleModel
+{
+    public string       InterfaceCode { get; set; } = string.Empty;
+    public List<string> View          { get; set; } = [];
+    public List<string> Upload        { get; set; } = [];
+    public List<string> Delete        { get; set; } = [];
+    public List<string> DeleteOwn     { get; set; } = [];
 }

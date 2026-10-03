@@ -79,6 +79,19 @@ internal class SalesInvoice : ITenantScopedEntity
     public string   CurrencyCode   { get; set; } = "PKR";
     public string?  Notes          { get; set; }
 
+    // ── SAP alignment: currency snapshot at issue (docs/finance/SAP-ALIGNMENT-PLAN.md) ──
+    /// <summary>1 unit of <see cref="CurrencyCode"/> in <see cref="BaseCurrencyCode"/>, as of the invoice date. 1 when they are the same; null when no rate was on file.</summary>
+    public decimal? ExchangeRate     { get; set; }
+    /// <summary>The organization's base currency when the invoice was issued.</summary>
+    public string?  BaseCurrencyCode { get; set; }
+    /// <summary><see cref="GrandTotal"/> × <see cref="ExchangeRate"/>, rounded to 2dp. Null when no rate.</summary>
+    public decimal? BaseGrandTotal   { get; set; }
+
+    // ── Reverse, don't edit: cancelling an issued invoice posts the opposite entries ──
+    public DateTime? CancelledAt        { get; set; }
+    public int?      CancelledBy        { get; set; }
+    public string?   CancellationReason { get; set; }
+
     public bool      IsActive     { get; set; } = true;
     public bool      IsDelete     { get; set; }
     public int       CreatedBy    { get; set; }
@@ -114,4 +127,9 @@ internal class SalesInvoiceLine : ITenantScopedEntity
     public decimal DiscountPercent { get; set; }
     public decimal TaxPercent      { get; set; }
     public decimal LineTotal       { get; set; }
+
+    /// <summary>The tax code the sale-order line used (snapshot). Null on lines from before tax codes.</summary>
+    public Guid?   TaxCodeUuid     { get; set; }
+    /// <summary>The code's text as it was — what prints, even if the code is later renamed.</summary>
+    public string? TaxCode         { get; set; }
 }

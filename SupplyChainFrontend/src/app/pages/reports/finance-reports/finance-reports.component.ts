@@ -15,6 +15,8 @@ import {
   BudgetUtilizationItem
 } from '../../../services/reports.service';
 import { PdfService } from '../../../services/pdf.service';
+import { ONLY_APPROVED_INVOICES_PAYABLE } from '../../../services/finance.service';
+import { toDateOnly } from '../../../shared/date-only';
 
 @Component({
   selector: 'app-finance-reports',
@@ -36,6 +38,9 @@ export class FinanceReportsComponent implements OnInit {
 
   dateFrom: Date | null = null;
   dateTo:   Date | null = null;
+
+  /** The ageing lists approved supplier invoices only (the server's rule: nothing else is payable). */
+  readonly onlyApprovedHint = ONLY_APPROVED_INVOICES_PAYABLE;
 
   constructor(private reports: ReportsService, private msg: MessageService, private pdf: PdfService) {}
   ngOnInit(): void { this.load(); }
@@ -73,13 +78,16 @@ export class FinanceReportsComponent implements OnInit {
     this.pdf.downloadTableReport({
       title: 'Invoice Aging Report',
       fileName: 'invoice-aging',
-      columns: ['Invoice #', 'Supplier Ref', 'Supplier', 'Due Date', 'Amount', 'Payment Status', 'Days Overdue', 'Bucket'],
+      columns: ['Invoice #', 'Supplier Ref', 'Supplier', 'Due Date', 'Invoice total', 'Outstanding', 'Payment Status', 'Days Overdue', 'Bucket'],
       rows: this.agingItems.map(r => [
         r.invoiceNumber, r.supplierInvoiceNo ?? '—', r.supplierName,
         new Date(r.dueDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-        r.totalAmount.toFixed(2), r.paymentStatus, r.daysOverdue, r.agingBucket
+        r.totalAmount.toFixed(2), (r.outstandingAmount ?? 0).toFixed(2), r.paymentStatus, r.daysOverdue, r.agingBucket
       ]),
-      dateFilter: { from: this.dateFrom?.toLocaleDateString('en-GB') ?? '', to: this.dateTo?.toLocaleDateString('en-GB') ?? '' },
+      // What is aged is what is still owed; invoice totals are not summed (a part-paid one would count twice over).
+      totalsRow: ['TOTAL OWED', '', '', '', '', this.agingItems.reduce((s, r) => s + (r.outstandingAmount ?? 0), 0).toFixed(2), '', '', ''],
+      // No date filter in the header: the ageing is as of today and ignores the page's From/To.
+      subtitle: ONLY_APPROVED_INVOICES_PAYABLE,
       accentColor: [16, 185, 129]
     });
   }
@@ -100,7 +108,8 @@ export class FinanceReportsComponent implements OnInit {
     });
   }
 
+  /** The day picked, not its UTC instant: east of UTC, toISOString() of a picked midnight is the day before. */
   private toIsoDate(d: Date): string {
-    return d.toISOString().split('T')[0];
+    return toDateOnly(d);
   }
 }

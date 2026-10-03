@@ -1,4 +1,5 @@
 using Hangfire;
+using SMS.Modules.Inventory.Integration;
 using SMS.Modules.Inventory.Models;
 using SMS.Modules.Inventory.Repositories;
 using SMS.Shared.Common;
@@ -13,16 +14,29 @@ internal sealed class InventoryService : IInventoryService
     private readonly IProductSearchIndexService _searchIndex;
     private readonly IBackgroundJobClient _jobs;
     private readonly IEnumerable<IVariantReferenceChecker> _variantCheckers;
+    private readonly VariantQuickBooksPublisher? _quickBooks;
 
+    /// <param name="quickBooks">
+    /// Tells the QuickBooks gateway about variants after each save that changes what it would send. Optional
+    /// so a caller that builds this service by hand needs nothing extra; the module registers it.
+    /// </param>
     public InventoryService(
         IInventoryRepository repo, IProductSearchIndexService searchIndex, IBackgroundJobClient jobs,
-        IEnumerable<IVariantReferenceChecker> variantCheckers)
+        IEnumerable<IVariantReferenceChecker> variantCheckers, VariantQuickBooksPublisher? quickBooks = null)
     {
         _repo            = repo;
         _searchIndex     = searchIndex;
         _jobs            = jobs;
         _variantCheckers = variantCheckers;
+        _quickBooks      = quickBooks;
     }
+
+    // After the repository's own save has committed. Neither throws (see the publisher).
+    private Task PublishProductToQuickBooksAsync(int productId) =>
+        _quickBooks is null ? Task.CompletedTask : _quickBooks.PublishProductAsync(productId);
+
+    private Task PublishVariantToQuickBooksAsync(Guid variantUuid) =>
+        _quickBooks is null ? Task.CompletedTask : _quickBooks.PublishVariantAsync(variantUuid);
 
     // ── Categories ────────────────────────────────────────────────────────────
 
@@ -71,6 +85,7 @@ internal sealed class InventoryService : IInventoryService
     {
         var result = await _repo.CreateProductAsync(req, userId);
         await EnqueueRebuildForProductVariantsAsync(result.id);
+        await PublishProductToQuickBooksAsync(result.id);
         return result;
     }
 
@@ -81,15 +96,26 @@ internal sealed class InventoryService : IInventoryService
         // product's variants' search rows, so a product patch must reindex all of them too —
         // not just literal "variant create/update" from the FSD's wording.
         if (ok) await EnqueueRebuildForProductVariantsAsync(id);
+        // Likewise every one of its QuickBooks items: name, description and flags come from the product.
+        if (ok) await PublishProductToQuickBooksAsync(id);
         return ok;
     }
 
-    // Classification is not part of the search index, so no reindex here.
-    public Task<bool> SetManufacturingConfigAsync(int id, ManufacturingConfigRequest req)
-        => _repo.SetManufacturingConfigAsync(id, req);
+    // Classification is not part of the search index, so no reindex here — but it is what decides an
+    // item's kind and whether it is sold/purchased, so QuickBooks hears about it.
+    public async Task<bool> SetManufacturingConfigAsync(int id, ManufacturingConfigRequest req)
+    {
+        var ok = await _repo.SetManufacturingConfigAsync(id, req);
+        if (ok) await PublishProductToQuickBooksAsync(id);
+        return ok;
+    }
 
-    public Task<bool> SoftDeleteProductAsync(int id)
-        => _repo.SoftDeleteProductAsync(id);
+    public async Task<bool> SoftDeleteProductAsync(int id)
+    {
+        var ok = await _repo.SoftDeleteProductAsync(id);
+        if (ok) await PublishProductToQuickBooksAsync(id);
+        return ok;
+    }
 
     public Task<VariantLookupModel?> GetVariantByBarcodeAsync(string barcode)
         => _repo.GetVariantByBarcodeAsync(barcode);
@@ -110,6 +136,10 @@ internal sealed class InventoryService : IInventoryService
         if (result is null) return null;
 
         _jobs.Enqueue<IProductSearchIndexService>(s => s.RebuildForVariantAsync(result.Value.id));
+        // The new variant — and, when it is the product's second, the first one too, which then starts
+        // carrying its variant name in QuickBooks.
+        if (_quickBooks is not null)
+            await _quickBooks.PublishVariantAddedAsync(productId, result.Value.uuid);
         return new CreateVariantResult { Uuid = result.Value.uuid, Sku = result.Value.sku };
     }
 
@@ -117,7 +147,10 @@ internal sealed class InventoryService : IInventoryService
     {
         var variantId = await _repo.UpdateVariantAsync(variantUuid, req);
         if (variantId.HasValue)
+        {
             _jobs.Enqueue<IProductSearchIndexService>(s => s.RebuildForVariantAsync(variantId.Value));
+            await PublishVariantToQuickBooksAsync(variantUuid);
+        }
         return variantId.HasValue;
     }
 
@@ -140,6 +173,9 @@ internal sealed class InventoryService : IInventoryService
         }
         var softDelete = hasLocalReferences || hasExternalReferences;
 
+        // Read before the delete: a hard delete leaves nothing to tell QuickBooks about afterwards.
+        var quickBooksSnapshot = _quickBooks is null ? null : await _quickBooks.CaptureBeforeDeleteAsync(variantUuid);
+
         var (outcome, variantId) = await _repo.DeleteVariantAsync(variantUuid, softDelete);
 
         switch (outcome)
@@ -152,6 +188,8 @@ internal sealed class InventoryService : IInventoryService
             default: // Deleted
                 if (softDelete && variantId.HasValue)
                     _jobs.Enqueue<IProductSearchIndexService>(s => s.RebuildForVariantAsync(variantId.Value));
+                if (_quickBooks is not null)
+                    await _quickBooks.PublishDeletedAsync(quickBooksSnapshot, hardDeleted: !softDelete);
                 return new VariantDeleteResult { Found = true, SoftDeleted = softDelete };
         }
     }

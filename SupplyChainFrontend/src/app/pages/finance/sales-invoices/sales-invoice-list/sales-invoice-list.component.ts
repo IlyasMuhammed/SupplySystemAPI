@@ -1,4 +1,4 @@
-import { Component, OnDestroy } from '@angular/core';
+import { Component, OnDestroy, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -23,6 +23,8 @@ import { formatCode } from '../../../../shared/format-code';
 import { toDateOnly } from '../../../../shared/date-only';
 import { INVOICE_STATUS_OPTIONS, INVOICE_STATUS_SEVERITY, Severity } from '../../receivables/receivables.shared';
 import { SalesInvoicePdfDialogComponent } from '../sales-invoice-pdf-dialog/sales-invoice-pdf-dialog.component';
+import { QboSyncBadgeComponent } from '../../../../shared/components/qbo-sync-badge/qbo-sync-badge.component';
+import { QboSyncStatusStore } from '../../../../shared/components/qbo-sync-badge/qbo-sync-status.store';
 
 /** A delivery that has reached the customer, as the "new invoice" box offers it. */
 export interface DeliveryChoice {
@@ -37,7 +39,7 @@ export interface DeliveryChoice {
     CommonModule, RouterModule, FormsModule,
     TableModule, ButtonModule, InputTextModule, InputIconModule, IconFieldModule,
     TagModule, TooltipModule, ToastModule, DropdownModule, CalendarModule, DialogModule, AutoCompleteModule,
-    SalesInvoicePdfDialogComponent
+    SalesInvoicePdfDialogComponent, QboSyncBadgeComponent
   ],
   templateUrl: './sales-invoice-list.component.html',
   styleUrls: ['./sales-invoice-list.component.scss'],
@@ -68,6 +70,10 @@ export class SalesInvoiceListComponent implements OnDestroy {
   isCreating = false;
 
   private searchTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** The QuickBooks column shows only for organizations with the integration and users who may see it. */
+  private readonly qboStore = inject(QboSyncStatusStore);
+  readonly qboAvailable = computed(() => this.qboStore.isAvailable());
 
   constructor(
     private invoiceService: SalesInvoiceService,

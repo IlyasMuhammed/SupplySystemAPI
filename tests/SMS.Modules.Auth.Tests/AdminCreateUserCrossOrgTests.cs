@@ -9,6 +9,7 @@ using SMS.Modules.Auth.Domain;
 using SMS.Modules.Auth.Models;
 using SMS.Modules.Auth.Repositories;
 using SMS.Modules.Auth.Services;
+using SMS.Shared.Authorization;
 using SMS.Shared.Common;
 using SMS.Shared.Exceptions;
 using Xunit;
@@ -38,9 +39,14 @@ file static class HangfireSetup
 // StaticTenantContext for each org — unlike AuthServiceTests' shared Helpers.Build(), which always
 // constructs an IsSuperAdmin=true (bypassed) context to match the anonymous-endpoint flows it
 // tests, and would make this specific regression untestable.
+//
+// The new users get the global Requester role. These tests used to give them RoleID 1, System Admin,
+// with no role seeded at all — exactly what AdminCreateUserAsync now refuses an Org Admin (a role that
+// does not exist, or one carrying PLATFORM_SUPER_ADMIN; see UserAdministrationEscalationTests).
 public class AdminCreateUserCrossOrgTests
 {
     private const string TestSecret = "test-secret-key-must-be-at-least-32-bytes!";
+    private const int RequesterRole = (int)EnumRole.Requester;
 
     private static (AuthService Svc, AuthDbContext Db) Build(string dbName, Guid organizationId)
     {
@@ -48,6 +54,11 @@ public class AdminCreateUserCrossOrgTests
 
         var options = new DbContextOptionsBuilder<AuthDbContext>().UseInMemoryDatabase(dbName).Options;
         var db = new AuthDbContext(options, new StaticTenantContext { OrganizationId = organizationId });
+        if (!db.Roles.IgnoreQueryFilters().Any(r => r.RoleID == RequesterRole))
+        {
+            db.Roles.Add(new Role { RoleID = RequesterRole, Name = "Requester", RoleCode = "REQUESTER", IsGlobal = true });
+            db.SaveChanges();
+        }
 
         var hasher = new PasswordHasher<UserAccount>();
         var repo = new AuthRepository(db, hasher);
@@ -63,6 +74,10 @@ public class AdminCreateUserCrossOrgTests
         return (svc, db);
     }
 
+    /// <summary>An Org Admin of <paramref name="organizationId"/>, as their token describes them.</summary>
+    private static AuthCaller OrgAdmin(int userId, Guid organizationId) =>
+        new(userId, organizationId, false, new HashSet<string> { PermissionCodes.USER_MANAGE });
+
     [Fact]
     public async Task AdminCreateUserAsync_SameEmailInAnotherOrg_IsRejected()
     {
@@ -73,14 +88,14 @@ public class AdminCreateUserCrossOrgTests
         var (svcA, _) = Build(dbName, orgA);
         await svcA.AdminCreateUserAsync(new CreateUserRequest
         {
-            FirstName = "Alice", Email = "shared@test.com", RoleID = 1
-        }, createdByUserId: 1);
+            FirstName = "Alice", Email = "shared@test.com", RoleID = RequesterRole
+        }, OrgAdmin(1, orgA));
 
         var (svcB, _) = Build(dbName, orgB);
         var act = () => svcB.AdminCreateUserAsync(new CreateUserRequest
         {
-            FirstName = "Bob", Email = "shared@test.com", RoleID = 1
-        }, createdByUserId: 2);
+            FirstName = "Bob", Email = "shared@test.com", RoleID = RequesterRole
+        }, OrgAdmin(2, orgB));
 
         await act.Should().ThrowAsync<BadRequestException>();
     }
@@ -94,8 +109,8 @@ public class AdminCreateUserCrossOrgTests
         var (svc, db) = Build(dbName, orgA);
         await svc.AdminCreateUserAsync(new CreateUserRequest
         {
-            FirstName = "Alice", Email = "alice@test.com", RoleID = 1
-        }, createdByUserId: 1);
+            FirstName = "Alice", Email = "alice@test.com", RoleID = RequesterRole
+        }, OrgAdmin(1, orgA));
 
         var created = await db.UserAccounts.IgnoreQueryFilters().SingleAsync(u => u.Email == "alice@test.com");
         created.OrganizationId.Should().Be(orgA);
@@ -117,7 +132,7 @@ public class AdminCreateUserCrossOrgTests
         dbSetup.UserAccounts.Add(new UserAccount
         {
             FirstName = "Departed", Email = "departed@test.com", Password = "x",
-            RoleID = 1, OrganizationId = orgB, IsActive = false, IsDelete = true,
+            RoleID = RequesterRole, OrganizationId = orgB, IsActive = false, IsDelete = true,
             CreatedDate = DateTime.UtcNow
         });
         await dbSetup.SaveChangesAsync();
@@ -125,8 +140,8 @@ public class AdminCreateUserCrossOrgTests
         var (svcA, _) = Build(dbName, orgA);
         var act = () => svcA.AdminCreateUserAsync(new CreateUserRequest
         {
-            FirstName = "NewHire", Email = "departed@test.com", RoleID = 1
-        }, createdByUserId: 1);
+            FirstName = "NewHire", Email = "departed@test.com", RoleID = RequesterRole
+        }, OrgAdmin(1, orgA));
 
         await act.Should().ThrowAsync<BadRequestException>();
     }
@@ -141,14 +156,14 @@ public class AdminCreateUserCrossOrgTests
         var (svcA, _) = Build(dbName, orgA);
         await svcA.AdminCreateUserAsync(new CreateUserRequest
         {
-            FirstName = "Alice", Email = "alice@test.com", RoleID = 1
-        }, createdByUserId: 1);
+            FirstName = "Alice", Email = "alice@test.com", RoleID = RequesterRole
+        }, OrgAdmin(1, orgA));
 
         var (svcB, _) = Build(dbName, orgB);
         var act = () => svcB.AdminCreateUserAsync(new CreateUserRequest
         {
-            FirstName = "Bob", Email = "bob@test.com", RoleID = 1
-        }, createdByUserId: 2);
+            FirstName = "Bob", Email = "bob@test.com", RoleID = RequesterRole
+        }, OrgAdmin(2, orgB));
 
         await act.Should().NotThrowAsync();
     }

@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators, FormsModule } from '@angular/forms';
@@ -49,6 +49,8 @@ import {
   productTypeLabel, productTypeOption, supplyMethodLabel
 } from '../../../../shared/product-classification';
 import { BomManagerComponent } from './bom-manager/bom-manager.component';
+import { QboSyncBadgeComponent } from '../../../../shared/components/qbo-sync-badge/qbo-sync-badge.component';
+import { QboSyncStatusStore } from '../../../../shared/components/qbo-sync-badge/qbo-sync-status.store';
 
 @Component({
   selector: 'app-product-detail',
@@ -58,7 +60,7 @@ import { BomManagerComponent } from './bom-manager/bom-manager.component';
     ButtonModule, CardModule, TabViewModule, TagModule, ToastModule,
     DialogModule, InputTextModule, TextareaModule, InputNumberModule,
     DividerModule, TooltipModule, ConfirmDialogModule, DropdownModule, TableModule,
-    CheckboxModule, CalendarModule, DynamicAttributeFormComponent, BomManagerComponent
+    CheckboxModule, CalendarModule, DynamicAttributeFormComponent, BomManagerComponent, QboSyncBadgeComponent
   ],
   templateUrl: './product-detail.component.html',
   styleUrls: ['./product-detail.component.scss'],
@@ -73,6 +75,10 @@ export class ProductDetailComponent implements OnInit {
   get defaultVariant() {
     return this.product?.variants?.find(v => v.isDefault) ?? this.product?.variants?.[0] ?? null;
   }
+
+  /** The variants table's QuickBooks column: only for organizations with the integration and users who may see it. */
+  private readonly qboStore = inject(QboSyncStatusStore);
+  readonly qboAvailable = computed(() => this.qboStore.isAvailable());
 
   // ── Edit dialog ───────────────────────────────────────────────────────────
   showEditDialog = false;

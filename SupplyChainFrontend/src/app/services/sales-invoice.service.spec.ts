@@ -91,6 +91,28 @@ describe('SalesInvoiceService', () => {
     req.flush({ success: true });
   });
 
+  it('cancels an invoice by posting the reason to its cancel address, and hands back the invoice as it now stands', () => {
+    service.cancelInvoice('inv-1', 'Billed in error').subscribe(res => {
+      expect(res.result.status).toBe('CANCELLED');
+      expect(res.result.balanceDue).toBe(0);
+    });
+
+    const req = http.expectOne(`${BASE}/inv-1/cancel`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ reason: 'Billed in error' });
+    req.flush({ success: true, message: 'Sales invoice SINV-1 cancelled.', result: { status: 'CANCELLED', balanceDue: 0 } });
+  });
+
+  it('passes a refused cancel through as an error carrying the servers message', () => {
+    let message = '';
+    service.cancelInvoice('inv-1', 'x').subscribe({ error: err => message = err.error.message });
+
+    http.expectOne(`${BASE}/inv-1/cancel`).flush(
+      { success: false, message: 'Sales invoice SINV-1 is already CANCELLED.' }, { status: 409, statusText: 'Conflict' });
+
+    expect(message).toBe('Sales invoice SINV-1 is already CANCELLED.');
+  });
+
   // ── Open invoices: what a payment can be applied to ────────────────────────
 
   function invoice(uuid: string, overrides: Record<string, unknown> = {}) {

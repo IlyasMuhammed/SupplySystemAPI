@@ -260,6 +260,7 @@
               <th style="width:180px">Available For</th>
               <th style="width:100px">Default</th>
               <th style="width:100px">Status</th>
+              <th *ngIf="qboAvailable()" style="width:150px">QuickBooks</th>
               <th style="width:110px; text-align:center">Actions</th>
             </tr>
           </ng-template>
@@ -289,6 +290,9 @@
                        [severity]="variant.isActive ? 'success' : 'secondary'">
                 </p-tag>
               </td>
+              <td *ngIf="qboAvailable()">
+                <app-qbo-sync-badge kind="Item" [externalId]="variant.uuid"></app-qbo-sync-badge>
+              </td>
               <td style="text-align:center">
                 <p-button icon="pi pi-pencil" size="small" [text]="true" severity="secondary"
                           pTooltip="Edit" tooltipPosition="top"
@@ -303,7 +307,7 @@
           </ng-template>
           <ng-template pTemplate="emptymessage">
             <tr>
-              <td colspan="8" class="text-center" style="padding:2rem">
+              <td [attr.colspan]="qboAvailable() ? 10 : 9" class="text-center" style="padding:2rem">
                 <span class="text-secondary">No variants yet.</span>
               </td>
             </tr>
