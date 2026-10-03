@@ -26,6 +26,19 @@
     <p-dropdown [options]="sourceTypeOptions" [(ngModel)]="selectedSourceType"
                 (ngModelChange)="onFilterChange()" placeholder="Source"
                 styleClass="filter-dropdown" appendTo="body"></p-dropdown>
+    <!-- A33: only offered when the routes could be read. -->
+    <p-dropdown *ngIf="routeOptions.length" [options]="routeOptions" [(ngModel)]="selectedRouteUuid"
+                (ngModelChange)="onFilterChange()" placeholder="Route" [filter]="true" filterBy="label"
+                styleClass="filter-dropdown" appendTo="body" data-testid="route-filter"></p-dropdown>
+    <!-- A33: arrived from a sale order — say which, and let it go. -->
+    <span *ngIf="saleOrderUuid" class="filter-chip" data-testid="sale-order-filter">
+      <i class="pi pi-shopping-bag"></i>
+      Sale order <span class="font-mono">{{ saleOrderNumber || 'selected' }}</span>
+      <button type="button" class="chip-clear" (click)="clearSaleOrderFilter()"
+              aria-label="Show every sale order" pTooltip="Show every sale order">
+        <i class="pi pi-times"></i>
+      </button>
+    </span>
     <p-button icon="pi pi-refresh" [text]="true" severity="secondary"
               pTooltip="Reset filters" (onClick)="resetFilters()"></p-button>
   </div>
@@ -35,12 +48,14 @@
              [totalRecords]="totalRecords" [rows]="pageSize"
              (onLazyLoad)="onPageChange($event)"
              [paginator]="true" [rowsPerPageOptions]="[10,20,50]"
-             [tableStyle]="{'min-width':'72rem'}">
+             [tableStyle]="{'min-width':'84rem'}">
       <ng-template pTemplate="header">
         <tr>
           <th>Delivery #</th>
           <th>Direction</th>
           <th>Source</th>
+          <th>Sale Order</th>
+          <th>Route</th>
           <th>Ship To</th>
           <th class="text-center">Lines</th>
           <th>Requested</th>
@@ -58,6 +73,20 @@
           <td>
             <span class="source-type">{{ d.sourceType }}</span>
             <span class="source-number font-mono" *ngIf="d.sourceNumber"> {{ d.sourceNumber }}</span>
+          </td>
+          <!-- A33: a sale-order delivery's source number is the order number (contract §6). -->
+          <td>
+            <ng-container *ngIf="d.saleOrderUuid; else noSaleOrder">
+              <a class="font-mono so-link" [routerLink]="['/portal/pages/sales/orders', d.saleOrderUuid]"
+                 data-testid="sale-order-link">{{ d.sourceNumber || 'Sale order' }}</a>
+              <div class="so-customer" *ngIf="d.customerName" data-testid="sale-order-customer">{{ d.customerName }}</div>
+            </ng-container>
+            <ng-template #noSaleOrder><span class="text-secondary" data-testid="sale-order-none">—</span></ng-template>
+          </td>
+          <td>
+            <span *ngIf="d.fulfillmentRouteCode; else noRoute" class="route-badge font-mono"
+                  [pTooltip]="routeTooltip(d)" data-testid="route-badge">{{ d.fulfillmentRouteCode }}</span>
+            <ng-template #noRoute><span class="text-secondary" data-testid="route-none">—</span></ng-template>
           </td>
           <td>{{ d.shipToCity || '—' }}</td>
 
@@ -95,7 +124,7 @@
 
       <ng-template pTemplate="emptymessage">
         <tr>
-          <td colspan="10" class="text-center text-secondary" style="padding:3rem">
+          <td colspan="12" class="text-center text-secondary" style="padding:3rem" data-testid="empty-row">
             No deliveries found.
           </td>
         </tr>

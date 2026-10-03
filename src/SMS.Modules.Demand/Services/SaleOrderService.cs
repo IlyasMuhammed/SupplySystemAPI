@@ -1,5 +1,6 @@
-using Hangfire;
+﻿using Hangfire;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using SMS.Modules.Demand.Data;
 using SMS.Modules.Demand.Domain;
 using SMS.Modules.Demand.Models;
@@ -13,7 +14,7 @@ using SMS.WorkflowEngine.Services;
 namespace SMS.Modules.Demand.Services;
 
 // A29-P3-06 §4.1/§4.2/§4.5.
-internal sealed class SaleOrderService : ISaleOrderService
+internal sealed partial class SaleOrderService : ISaleOrderService
 {
     private readonly DemandDbContext _db;
     private readonly ITenantContext _tenantContext;
@@ -53,8 +54,16 @@ internal sealed class SaleOrderService : ISaleOrderService
         IProductVariantResolver? variants = null, IVariantAvailabilityService? availability = null,
         ITaxCodeLookup? taxCodes = null, IExchangeRateProvider? exchangeRates = null,
         ICurrencyCodeLookup? currencyCodes = null, ISaleOrderInvoiceLookup? invoices = null,
-        IAttachmentService? attachments = null, ISaleOrderDeliveryQuantities? deliveries = null)
+        IAttachmentService? attachments = null, ISaleOrderDeliveryQuantities? deliveries = null,
+        IEffectiveRouteResolver? routes = null, ISaleOrderDeliveryCreator? deliveryCreator = null,
+        ISaleOrderDeliveryCanceller? deliveryCanceller = null, ILogger<SaleOrderService>? log = null)
     {
+        // A33 — fulfillment routes (resolver + gate) and Logistics' delivery creator/canceller. All optional: without
+        // them routes are off (D-11) and confirm/cancel behave exactly as before A33.
+        _routes             = routes;
+        _deliveryCreator    = deliveryCreator;
+        _deliveryCanceller  = deliveryCanceller;
+        _log                = log ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<SaleOrderService>.Instance;
         // A32 — WorkflowEngine's attachment store, to check a linked customer PO file is this order's; and Logistics'
         // in-flight delivery quantities, for each line's computed held/reservable figures and delivery indicator.
         _attachments        = attachments;
@@ -78,6 +87,14 @@ internal sealed class SaleOrderService : ISaleOrderService
         _emailService       = emailService;
     }
 
+    /// <summary>
+    /// A32 PF-05 — the caller's own organization's orders. The EF tenant filter is off for a super admin, so every read and
+    /// write of an existing order goes through here: another organization's order is "not found", super admin included.
+    /// Every caller of this service runs in a request (the controller, SaleQuotationService), never in a bare job.
+    /// </summary>
+    private IQueryable<SaleOrder> OwnOrders() =>
+        _db.SaleOrders.Where(o => o.OrganizationId == _tenantContext.OrganizationId);
+
     public async Task<Guid> CreateAsync(CreateSaleOrderRequest req, int createdBy)
     {
         if (req.PartnerId == Guid.Empty)
@@ -94,6 +111,7 @@ internal sealed class SaleOrderService : ISaleOrderService
             throw new BadRequestException("A shipping address is required when the delivery mode is SHIP.");
         if (req.Lines.Count == 0)
             throw new BadRequestException("A sale order needs at least one line.");
+        await ValidateRouteOverridesAsync(req.Lines);
 
         var currencyId = req.CurrencyId
             ?? await _orgCurrency.GetBaseCurrencyIdAsync(_tenantContext.OrganizationId)
@@ -149,7 +167,7 @@ internal sealed class SaleOrderService : ISaleOrderService
 
     public async Task<bool> UpdateAsync(Guid uuid, UpdateSaleOrderRequest req, int modifiedBy)
     {
-        var order = await _db.SaleOrders.Include(x => x.Lines).FirstOrDefaultAsync(x => x.UUID == uuid);
+        var order = await OwnOrders().Include(x => x.Lines).FirstOrDefaultAsync(x => x.UUID == uuid);
         if (order is null) return false;
 
         if (order.Status != EnumCode<SaleOrderStatus>.Of(SaleOrderStatus.Draft))
@@ -161,6 +179,7 @@ internal sealed class SaleOrderService : ISaleOrderService
             throw new BadRequestException("A shipping address is required when the delivery mode is SHIP.");
         if (req.Lines.Count == 0)
             throw new BadRequestException("A sale order needs at least one line.");
+        await ValidateRouteOverridesAsync(req.Lines);
 
         var currencyId = req.CurrencyId
             ?? await _orgCurrency.GetBaseCurrencyIdAsync(_tenantContext.OrganizationId)
@@ -203,7 +222,7 @@ internal sealed class SaleOrderService : ISaleOrderService
 
     public async Task<SaleOrderModel?> GetByIdAsync(Guid uuid)
     {
-        var order = await _db.SaleOrders.AsNoTracking()
+        var order = await OwnOrders().AsNoTracking()
             .Include(x => x.Lines)
             .FirstOrDefaultAsync(x => x.UUID == uuid);
 
@@ -251,12 +270,15 @@ internal sealed class SaleOrderService : ISaleOrderService
             }
         }
 
+        // A33 C3 — each line's route (live while DRAFT, the snapshot afterwards) and what blocks confirming.
+        await ApplyRoutesAsync(order, model);
+
         return model;
     }
 
     public async Task<PaginatedResponse<SaleOrderModel>> GetListAsync(SaleOrderListFilter filter)
     {
-        var query = _db.SaleOrders.AsNoTracking().AsQueryable();
+        var query = OwnOrders().AsNoTracking().AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(filter.Status))
             query = query.Where(x => x.Status == filter.Status);
@@ -299,25 +321,20 @@ internal sealed class SaleOrderService : ISaleOrderService
     // deficit and the confirmation email are explicitly outside that transaction, as Hangfire jobs
     // — see SaleOrderConfirmationJobs.cs for why both are safe, genuine delegations rather than
     // built-out business logic.
-    public async Task<bool> ConfirmAsync(Guid uuid, int userId)
+    public async Task<bool> ConfirmAsync(Guid uuid, int userId) => await ConfirmWithResultAsync(uuid, userId) is not null;
+
+    public async Task<SaleOrderConfirmResultModel?> ConfirmWithResultAsync(Guid uuid, int userId)
     {
-        var order = await _db.SaleOrders.Include(x => x.Lines).FirstOrDefaultAsync(x => x.UUID == uuid);
-        if (order is null) return false;
+        if (!await OwnOrders().AnyAsync(x => x.UUID == uuid)) return null;
 
-        if (order.Status != EnumCode<SaleOrderStatus>.Of(SaleOrderStatus.Draft))
-            throw new BadRequestException("Only a DRAFT sale order can be confirmed.");
+        // Under the order's hold lock, like reserve, release and cancel: confirming reserves the order's stock, and the
+        // ledger is Inventory's and commits on its own, so two confirmations of the same draft at the same moment both
+        // passed the DRAFT check and both reserved it. The second now waits, reads CONFIRMED and is refused.
+        var confirmed = await SaleOrderHolds.OneChangeAtATimeAsync<ConfirmOutcome?>(
+            _db, uuid, () => ConfirmHeldAsync(uuid, userId));
+        if (confirmed is null) return null;
 
-        // A draft taken while customer pickup was on must not be confirmed once it is off (§8.1).
-        if (order.DeliveryMode == EnumCode<DeliveryMode>.Of(DeliveryMode.SelfPickup) && !(await ReadConfigAsync()).SelfPickupEnabled)
-            throw new BadRequestException(
-                "Customer pickup is switched off for this organization. Change the order to be shipped before confirming it.");
-
-        var reservations = await _availabilityCheck.CheckAndReserveAsync(uuid, userId);
-
-        order.Status       = EnumCode<SaleOrderStatus>.Of(SaleOrderStatus.Confirmed);
-        order.ModifiedBy   = userId;
-        order.ModifiedDate = DateTime.UtcNow;
-        await _db.SaveChangesAsync();
+        var (order, reservations, createDeliveries) = confirmed;
 
         // §13.4 — SO_CONFIRMED carries the outcome ("60 reserved, 40 deficit"), and each reservation
         // it made gets its own SO_STOCK_RESERVED event, in that order.
@@ -355,21 +372,77 @@ internal sealed class SaleOrderService : ISaleOrderService
         // ConfirmAsync's own transaction.
         await _emailService.SendConfirmationAsync(order.UUID);
 
-        return true;
+        var result = new SaleOrderConfirmResultModel { Status = order.Status };
+
+        // A33 D-1 — the deliveries, one per route × ship-from warehouse. Only now, after the lock's transaction has
+        // committed: Logistics' creator takes the same per-order lock on its own connection (REV-02), and inside ours it
+        // would wait out the timeout. Best effort — a failure leaves the order confirmed and pending for the D-12 sweep.
+        if (createDeliveries)
+            await CreateDeliveriesAfterConfirmAsync(order, userId, result);
+
+        return result;
+    }
+
+    private sealed record ConfirmOutcome(SaleOrder Order, IReadOnlyList<LineReservation> Reservations, bool CreateDeliveries);
+
+    /// <summary>The DRAFT → CONFIRMED change itself, run under the order's hold lock: read afresh, check, reserve, save.</summary>
+    private async Task<ConfirmOutcome?> ConfirmHeldAsync(Guid uuid, int userId)
+    {
+        var order = await OwnOrders().Include(x => x.Lines).FirstOrDefaultAsync(x => x.UUID == uuid);
+        if (order is null) return null;
+
+        if (order.Status != EnumCode<SaleOrderStatus>.Of(SaleOrderStatus.Draft))
+            throw new BadRequestException("Only a DRAFT sale order can be confirmed.");
+
+        // A draft taken while customer pickup was on must not be confirmed once it is off (§8.1).
+        var config = await ReadConfigAsync();
+        if (order.DeliveryMode == EnumCode<DeliveryMode>.Of(DeliveryMode.SelfPickup) && !config.SelfPickupEnabled)
+            throw new BadRequestException(
+                "Customer pickup is switched off for this organization. Change the order to be shipped before confirming it.");
+
+        // A33 PC-04 — the route gate (BR-C3-02, D-4), before anything is reserved, and re-checked here rather than trusted
+        // from the form: a route may have been deactivated since the line was saved (R-8). Every blocker in one 400.
+        var routing = await ResolveRoutesAsync(order, config);
+        if (routing.Blockers.Count > 0)
+            throw new BadRequestException(routing.Message);
+
+        var reservations = await _availabilityCheck.CheckAndReserveAsync(uuid, userId);
+
+        // A33 D-16 — each line keeps the route it resolved to; its deliveries, and any later remainder, follow it.
+        var createDeliveries = false;
+        if (routing.RoutesEnabled)
+        {
+            SnapshotRoutes(order, routing);
+            createDeliveries = config.AutoCreateDeliveriesOnConfirm && _deliveryCreator is not null
+                            && order.Lines.Any(l => l.RouteSource is not null);
+            // REV-01 — stamped in this same commit, cleared once the creator has run; the sweep retries only these.
+            if (createDeliveries) order.DeliveryCreationPendingSince = DateTime.UtcNow;
+        }
+
+        order.Status       = EnumCode<SaleOrderStatus>.Of(SaleOrderStatus.Confirmed);
+        order.ModifiedBy   = userId;
+        order.ModifiedDate = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        return new ConfirmOutcome(order, reservations, createDeliveries);
     }
 
     // A29-P4-04 §4.5.
-    public async Task<bool> CancelAsync(Guid uuid, int userId, string? reason)
+    public async Task<bool> CancelAsync(Guid uuid, int userId, string? reason) =>
+        await CancelWithResultAsync(uuid, userId, reason) is not null;
+
+    public async Task<SaleOrderCancelResultModel?> CancelWithResultAsync(Guid uuid, int userId, string? reason)
     {
-        if (!await _db.SaleOrders.AnyAsync(x => x.UUID == uuid)) return false;
+        if (!await OwnOrders().AnyAsync(x => x.UUID == uuid)) return null;
 
         // A32 PE-04 (BR-C4-05) — under the order's hold lock, so no manual reserve can slip in between the release and
         // the status change; and the holds are released BEFORE the order is saved as cancelled. The ledger is Inventory's
         // and commits on its own, so the two cannot share one transaction: releasing first means a failed save leaves a
         // still-open order with nothing held (cancel again — the release is idempotent), never a cancelled order whose
         // stock stays locked.
-        var order = await SaleOrderHolds.OneChangeAtATimeAsync<SaleOrder?>(_db, uuid, () => CancelHeldAsync(uuid, userId, reason));
-        if (order is null) return false;
+        var outcome = await SaleOrderHolds.OneChangeAtATimeAsync<(SaleOrder Order, SaleOrderDeliveryCancellationResult? Deliveries)?>(
+            _db, uuid, () => CancelHeldAsync(uuid, userId, reason));
+        if (outcome is not { } held) return null;
+        var (order, deliveries) = held;
 
         // §4.5 — "cancel linked DRAFT POs." Checked here, not left to PurchaseOrderService.CancelAsync's
         // own guard, so one line's PO having already moved past DRAFT (approved, sent — outside
@@ -390,15 +463,26 @@ internal sealed class SaleOrderService : ISaleOrderService
             new TimelineEvent("SO_CANCELLED", "SO", order.UUID, order.SoNumber, DateTime.UtcNow, userId, reason),
             "SO", order.SoNumber));
 
+        // A33 D-15 — what happened to its deliveries, on the timeline too: the issued ones need a manual reversal.
+        var result = ToCancelResult(deliveries);
+        if (deliveries is not null && (deliveries.Cancelled.Count > 0 || deliveries.AlreadyIssued.Count > 0))
+        {
+            var note = DeliveriesCancelledNote(deliveries);
+            _jobs.Enqueue<ITimelineAppendJob>(j => j.AppendAsync(
+                order.TraceId,
+                new TimelineEvent(SaleOrderTimelineEventTypes.SoDeliveriesCancelled, "SO", order.UUID, order.SoNumber, DateTime.UtcNow, userId, note),
+                "SO", order.SoNumber));
+        }
+
         // §4.5 — "enqueue cancellation email."
         _jobs.Enqueue<ISaleOrderEmailJob>(j => j.SendCancellationEmailAsync(order.UUID, reason, userId));
 
-        return true;
+        return result;
     }
 
-    private async Task<SaleOrder?> CancelHeldAsync(Guid uuid, int userId, string? reason)
+    private async Task<(SaleOrder Order, SaleOrderDeliveryCancellationResult? Deliveries)?> CancelHeldAsync(Guid uuid, int userId, string? reason)
     {
-        var order = await _db.SaleOrders.Include(x => x.Lines).FirstOrDefaultAsync(x => x.UUID == uuid);
+        var order = await OwnOrders().Include(x => x.Lines).FirstOrDefaultAsync(x => x.UUID == uuid);
         if (order is null) return null;
 
         var cancelled = EnumCode<SaleOrderStatus>.Of(SaleOrderStatus.Cancelled);
@@ -422,6 +506,16 @@ internal sealed class SaleOrderService : ISaleOrderService
             }
         }
 
+        // A33 D-15 (BR-C4-06/07, R-7) — the order's deliveries that have not been goods-issued are cancelled first, which
+        // hands their holds back to the order, so the release below frees those too. Called inside this lock but before
+        // anything here is written, so this transaction holds no row the canceller's writes could wait on (REV-02); the
+        // canceller never takes this lock itself. If it fails, nothing of the cancel has happened; both are idempotent.
+        // A DRAFT order never had deliveries.
+        SaleOrderDeliveryCancellationResult? deliveries = null;
+        if (_deliveryCanceller is not null && order.Status != EnumCode<SaleOrderStatus>.Of(SaleOrderStatus.Draft))
+            deliveries = await _deliveryCanceller.CancelOpenAsync(
+                _tenantContext.OrganizationId, order.UUID, reason ?? "Sale order cancelled.", userId);
+
         // §4.5 — "cancel (releases reservations)", BR-C4-05 — every ACTIVE SALES_ORDER hold of the order, manual or
         // not. A no-op for a DRAFT order that was never confirmed, and idempotent regardless.
         await _stock.ReleaseBySourceAsync(
@@ -431,6 +525,8 @@ internal sealed class SaleOrderService : ISaleOrderService
         order.Status       = cancelled;
         order.ModifiedBy   = userId;
         order.ModifiedDate = DateTime.UtcNow;
+        // REV-01 — a cancelled order is never swept for deliveries.
+        order.DeliveryCreationPendingSince = null;
 
         // A32 — the lines that were only waiting (OPEN) or holding stock (RESERVED, now released) are cancelled with the
         // order; a line that has shipped anything keeps its fulfilment status, which is history.
@@ -440,12 +536,12 @@ internal sealed class SaleOrderService : ISaleOrderService
             line.Status = EnumCode<SaleOrderLineStatus>.Of(SaleOrderLineStatus.Cancelled);
 
         await _db.SaveChangesAsync();
-        return order;
+        return (order, deliveries);
     }
 
     public async Task<TimelineDetail?> GetTimelineAsync(Guid uuid)
     {
-        var traceId = await _db.SaleOrders
+        var traceId = await OwnOrders()
             .Where(x => x.UUID == uuid)
             .Select(x => (Guid?)x.TraceId)
             .FirstOrDefaultAsync();
@@ -457,7 +553,7 @@ internal sealed class SaleOrderService : ISaleOrderService
     // §4.3's confirm would see if it ran right now.
     public async Task<IReadOnlyList<SaleOrderLineAvailabilityModel>?> GetAvailabilityAsync(Guid uuid)
     {
-        var order = await _db.SaleOrders.AsNoTracking().Include(x => x.Lines)
+        var order = await OwnOrders().AsNoTracking().Include(x => x.Lines)
             .FirstOrDefaultAsync(x => x.UUID == uuid);
         if (order is null) return null;
 
@@ -562,7 +658,9 @@ internal sealed class SaleOrderService : ISaleOrderService
             TaxCodeUuid     = taxCodeUuid,
             TaxCode         = taxCode,
             FulfillmentMode = fulfillmentMode,
-            Status          = EnumCode<SaleOrderLineStatus>.Of(SaleOrderLineStatus.Open)
+            Status          = EnumCode<SaleOrderLineStatus>.Of(SaleOrderLineStatus.Open),
+            // A33 — the override, already checked by ValidateRouteOverridesAsync (BR-C3-01); null = inherit.
+            FulfillmentRouteUuid = lineReq.FulfillmentRouteUuid is { } route && route != Guid.Empty ? route : null
         };
         line.LineTotal = ComputeLineTotal(line);
         return line;
@@ -679,8 +777,11 @@ internal sealed class SaleOrderService : ISaleOrderService
 
     // The policy, or the defaults a new organization gets when nobody has opened it yet. Read without
     // creating the row: taking an order should not be what first writes the settings.
+    // Own organization explicitly (A33): the tenant filter is off for a super admin, who would otherwise read whichever
+    // organization's settings came first.
     private async Task<SaleOrderConfig> ReadConfigAsync() =>
-        await _db.SaleOrderConfigs.AsNoTracking().FirstOrDefaultAsync() ?? new SaleOrderConfig();
+        await _db.SaleOrderConfigs.AsNoTracking().FirstOrDefaultAsync(c => c.OrganizationId == _tenantContext.OrganizationId)
+        ?? new SaleOrderConfig();
 
     // §8.1 — "shipment_required_default=0 makes new SOs default to SELF_PICKUP (overridable)" and
     // "self_pickup_enabled=0 forces SHIP". A mode the request leaves out is the default; an order

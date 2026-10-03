@@ -69,6 +69,7 @@
 }
 .package-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
 .package-head .barcode { font-size: 1rem; font-weight: 600; margin-right: .5rem; }
+.package-actions { display: flex; gap: .25rem; flex-wrap: wrap; justify-content: flex-end; }
 .package-meta { font-size: .8125rem; color: var(--text-color-secondary); margin-top: .25rem; display: block; }
 
 table.contents { width: 100%; border-collapse: collapse; margin-top: .625rem; font-size: .8125rem; }

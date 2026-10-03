@@ -104,6 +104,10 @@ internal sealed class LogisticsDbContext : DbContext, ITenantScopedDbContext
     internal DbSet<DeliveryProof>     DeliveryProofs     => Set<DeliveryProof>();
     internal DbSet<DeliveryProofFile> DeliveryProofFiles => Set<DeliveryProofFile>();
 
+    /// <summary>A33 C1 — which warehouse operations a sale order line goes through, per organization.</summary>
+    internal DbSet<FulfillmentRoute>     FulfillmentRoutes     => Set<FulfillmentRoute>();
+    internal DbSet<FulfillmentRouteStep> FulfillmentRouteSteps => Set<FulfillmentRouteStep>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema("logistics");

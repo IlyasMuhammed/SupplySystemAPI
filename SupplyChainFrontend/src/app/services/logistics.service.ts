@@ -316,6 +316,50 @@ export interface DeliveryListItemModel {
   /** Backfilled from a legacy shipment: the header is real, the lines were never recorded. */
   linesUnknown: boolean;
   createdDate: string;
+  // A33 — optional so older fixtures compile. Null route = a delivery from before routes (today's full path).
+  saleOrderUuid?: string | null;
+  fulfillmentRouteUuid?: string | null;
+  fulfillmentRouteCode?: string | null;
+  fulfillmentRouteName?: string | null;
+  /** "Steel Pipes × 500, +2 more". */
+  lineSummary?: string | null;
+  /** The sale order's customer (partner name); null for any other source. */
+  customerName?: string | null;
+}
+
+/** A33 — one node of the delivery's step tracker: the route's steps only, then COMPLETE (BR-C5-04). */
+export interface RouteStepProgressModel {
+  /** PICK | PACK | STAGE | APPROVAL | GOODS_ISSUE | SHIP | COMPLETE */
+  stepCode: string;
+  label: string;
+  state: 'DONE' | 'CURRENT' | 'PENDING';
+}
+
+/** A33 — what can be done next on a delivery, given its route, status and data. Buttons stay gated by each operation's own permission. */
+export type DeliveryNextAction =
+  'RELEASE' | 'GENERATE_PICK_LIST' | 'CONFIRM_PICK' | 'PACK' | 'STAGE' | 'APPROVE' | 'GOODS_ISSUE' |
+  'CREATE_CONSIGNMENT' | 'RECORD_COLLECTION' | 'HOLD' | 'RESUME' | 'CANCEL' | 'SHORT_CLOSE';
+
+/** A33 PE-02 — POST deliveries/{uuid}/advance. */
+export interface AdvanceDeliveryRequest {
+  /** The status the screen showed; a 409 when the delivery has moved on since. */
+  expectedStatus?: string;
+}
+
+export interface AdvanceDeliveryResultModel {
+  previousStatus: string;
+  status: string;
+  /** The action performed — always one of RELEASE, STAGE, APPROVE, GOODS_ISSUE (the steps that need no input). */
+  action: DeliveryNextAction;
+}
+
+/** A33 D-7 — POST deliveries/{uuid}/approve. */
+export interface DeliveryApprovalModel {
+  deliveryUuid: string;
+  approvedAt: string;
+  approvedBy?: number | null;
+  /** True when it had been approved before this call (nothing changed). */
+  alreadyApproved: boolean;
 }
 
 export interface DeliveryDetailModel {
@@ -356,6 +400,21 @@ export interface DeliveryDetailModel {
   createdDate: string;
   modifiedDate?: string;
   lines: DeliveryLineModel[];
+  // A33 — fulfillment route (API-CONTRACT.md §6). Optional so older fixtures compile; no route = today's full path.
+  /** The sale order's customer (partner name); null for any other source. */
+  customerName?: string | null;
+  fulfillmentRouteUuid?: string | null;
+  fulfillmentRouteCode?: string | null;
+  fulfillmentRouteName?: string | null;
+  /** The tracker: empty when the delivery has no route (show the status tag only). */
+  routeSteps?: RouteStepProgressModel[];
+  /** The route has APPROVAL: goods issue waits for "Approve dispatch" (DELIVERY_APPROVE). */
+  requiresApproval?: boolean;
+  approvedAt?: string | null;
+  approvedBy?: number | null;
+  /** The CURRENT step's code. */
+  nextStep?: string | null;
+  nextActions?: DeliveryNextAction[];
 }
 
 /** A consignment as the delivery sees it — enough to name it, link to it and show where it is. */
@@ -401,6 +460,10 @@ export interface DeliveryFilter {
   status?: string;
   direction?: string;
   sourceType?: string;
+  /** A33 — the deliveries of one sale order. */
+  saleOrderUuid?: string;
+  /** A33 — the deliveries on one fulfillment route. */
+  fulfillmentRouteUuid?: string;
   search?: string;
   fromDate?: string;
   toDate?: string;
@@ -1911,6 +1974,8 @@ export class LogisticsService {
     if (filter.status)     params = params.set('status',     filter.status);
     if (filter.direction)  params = params.set('direction',  filter.direction);
     if (filter.sourceType) params = params.set('sourceType', filter.sourceType);
+    if (filter.saleOrderUuid)        params = params.set('saleOrderUuid',        filter.saleOrderUuid);
+    if (filter.fulfillmentRouteUuid) params = params.set('fulfillmentRouteUuid', filter.fulfillmentRouteUuid);
     if (filter.search)     params = params.set('search',     filter.search);
     if (filter.fromDate)   params = params.set('fromDate',   filter.fromDate);
     if (filter.toDate)     params = params.set('toDate',     filter.toDate);
@@ -2115,6 +2180,19 @@ export class LogisticsService {
    */
   recordPickup(uuid: string, req: RecordPickupRequest): Observable<ApiResponse<PickupResultModel>> {
     return this.http.post<ApiResponse<PickupResultModel>>(`${BASE}/deliveries/${uuid}/pickup`, req);
+  }
+
+  /** A33 D-7 — "Approve dispatch" on a STAGED delivery whose route has APPROVAL. DELIVERY_APPROVE. */
+  approveDelivery(uuid: string): Observable<ApiResponse<DeliveryApprovalModel>> {
+    return this.http.post<ApiResponse<DeliveryApprovalModel>>(`${BASE}/deliveries/${uuid}/approve`, {});
+  }
+
+  /**
+   * A33 PE-02 — performs the route's next step when it needs no input (release, stage, approve, goods issue).
+   * 409 names the screen when the next step needs input (pick, pack, consignment, collection) or the status is stale.
+   */
+  advanceDelivery(uuid: string, req: AdvanceDeliveryRequest = {}): Observable<ApiResponse<AdvanceDeliveryResultModel>> {
+    return this.http.post<ApiResponse<AdvanceDeliveryResultModel>>(`${BASE}/deliveries/${uuid}/advance`, req);
   }
 
   // ── Documents ─────────────────────────────────────────────────────────────

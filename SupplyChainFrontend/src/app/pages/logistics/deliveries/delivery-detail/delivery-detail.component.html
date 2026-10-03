@@ -36,6 +36,17 @@
             {{ isSelfPickup ? 'Customer collects' : 'Ship to customer' }}
           </span>
         </p>
+        <!-- A33: the route the delivery runs on (a snapshot, D-10) and who it is for. -->
+        <p class="header-facts" *ngIf="d.fulfillmentRouteCode || d.customerName">
+          <span class="fact" *ngIf="d.fulfillmentRouteCode">
+            <span class="fact-label">Route</span>
+            <span class="route-badge font-mono" data-testid="route-badge">{{ d.fulfillmentRouteCode }}</span>
+            <span *ngIf="d.fulfillmentRouteName" data-testid="route-name">{{ d.fulfillmentRouteName }}</span>
+          </span>
+          <span class="fact" *ngIf="d.customerName" data-testid="customer-name">
+            <span class="fact-label">Customer</span> {{ d.customerName }}
+          </span>
+        </p>
       </div>
 
       <div class="header-actions">
@@ -49,15 +60,25 @@
                   [disabled]="isSubmitting" (onClick)="createInvoice()"
                   data-testid="action-create-invoice"></p-button>
 
-        <p-button *ngIf="canCreateConsignment" label="Create consignment" icon="pi pi-send"
+        <!-- A33: a routed delivery's step buttons come from its route (nextActions), first in flow order is primary,
+             each gated on the operation's own permission. Today's step buttons below are for deliveries with no route. -->
+        <ng-container *ngIf="hasRoute">
+          <p-button *ngFor="let a of routeActions; let first = first"
+                    [label]="a.label" [icon]="a.icon" [outlined]="!first"
+                    [severity]="first ? 'success' : 'secondary'"
+                    [disabled]="isSubmitting" (onClick)="performRouteAction(a.action)"
+                    [attr.data-testid]="first ? 'route-action-primary' : 'route-action-secondary'"></p-button>
+        </ng-container>
+
+        <p-button *ngIf="!hasRoute && canCreateConsignment" label="Create consignment" icon="pi pi-send"
                   severity="success" [outlined]="true" [disabled]="isSubmitting"
                   (onClick)="openConsignmentDialog()" data-testid="action-create-consignment"></p-button>
 
-        <p-button *ngIf="canRecordPickup" label="Record collection" icon="pi pi-user-plus" severity="success"
+        <p-button *ngIf="!hasRoute && canRecordPickup" label="Record collection" icon="pi pi-user-plus" severity="success"
                   [disabled]="isSubmitting" (onClick)="openPickupDialog()"
                   data-testid="action-record-pickup"></p-button>
 
-        <p-button *ngIf="canOpenPackStation" label="Pack station" icon="pi pi-box"
+        <p-button *ngIf="showPackStationLink" label="Pack station" icon="pi pi-box"
                   severity="secondary" [outlined]="true"
                   [routerLink]="['/portal/pages/logistics/deliveries', uuid, 'pack']"
                   data-testid="action-pack-station"></p-button>
@@ -65,11 +86,11 @@
         <p-button *ngIf="canResume" label="Resume" icon="pi pi-play" severity="success"
                   [disabled]="isSubmitting" (onClick)="resume()" data-testid="action-resume"></p-button>
 
-        <p-button *ngIf="canRelease" label="Release" icon="pi pi-lock" severity="success"
+        <p-button *ngIf="!hasRoute && canRelease" label="Release" icon="pi pi-lock" severity="success"
                   [disabled]="isSubmitting" (onClick)="openReleaseDialog()"
                   data-testid="action-release"></p-button>
 
-        <p-button *ngIf="canGeneratePickList" label="Generate pick list" icon="pi pi-list-check"
+        <p-button *ngIf="!hasRoute && canGeneratePickList" label="Generate pick list" icon="pi pi-list-check"
                   [disabled]="isSubmitting" (onClick)="generatePickList()"
                   data-testid="action-generate-pick-list"></p-button>
 
@@ -115,6 +136,35 @@
         Migrated from a legacy shipment. The header is accurate; its lines were never recorded,
         so this delivery cannot be picked or packed.
       </span>
+    </div>
+
+    <!-- A33-PE-04: only the route's own steps, then Complete (BR-C5-04, D-2). States come from the server, which maps
+         them onto the real statuses (contract §8). No route, no tracker: the status tag above is today's view. -->
+    <div class="card tracker-card" *ngIf="hasRoute" data-testid="route-tracker">
+      <h3>Fulfillment progress</h3>
+      <ol class="route-tracker" aria-label="Fulfillment progress">
+        <li *ngFor="let s of trackerSteps; let last = last; trackBy: trackStep" class="route-step"
+            [class.done]="s.state === 'DONE'" [class.current]="s.state === 'CURRENT'"
+            [attr.data-state]="s.state" [attr.aria-current]="s.state === 'CURRENT' ? 'step' : null"
+            data-testid="route-step">
+          <span class="step-marker" aria-hidden="true">{{ stepMarker(s) }}</span>
+          <span class="step-text">
+            <span class="step-label">{{ s.label }}</span>
+            <span class="step-caption" *ngIf="stepCaption(s) as caption">{{ caption }}</span>
+          </span>
+          <span class="step-connector" *ngIf="!last" aria-hidden="true"></span>
+        </li>
+      </ol>
+
+      <p class="tracker-note stopped" *ngIf="trackerStoppedNote as note" data-testid="tracker-stopped">
+        <i class="pi pi-info-circle"></i> {{ note }}
+      </p>
+      <p class="tracker-note" *ngIf="d.requiresApproval && d.approvedAt" data-testid="approved-note">
+        <i class="pi pi-verified"></i> Dispatch approved on {{ d.approvedAt | date:'dd MMM yyyy HH:mm' }}.
+      </p>
+      <p class="tracker-note" *ngIf="blockedRouteAction as b" data-testid="route-action-blocked">
+        <i class="pi pi-lock"></i> Next: <strong>{{ b.label }}</strong>. Someone with permission for it has to take this step.
+      </p>
     </div>
 
     <div class="detail-grid">
@@ -199,6 +249,7 @@
             <th class="text-right">Ordered</th>
             <th class="text-right">Picked</th>
             <th class="text-right">Packed</th>
+            <th class="text-right">Shipped</th>
             <th class="text-right">Delivered</th>
             <th class="text-right">Short</th>
           </tr>
@@ -216,8 +267,9 @@
             </td>
             <td>{{ line.unitOfMeasure || '—' }}</td>
             <td class="text-right">{{ line.qtyOrdered }}</td>
-            <td class="text-right">{{ line.qtyPicked }}</td>
-            <td class="text-right">{{ line.qtyPacked }}</td>
+            <td class="text-right" data-testid="qty-picked">{{ line.qtyPicked }}</td>
+            <td class="text-right" data-testid="qty-packed">{{ line.qtyPacked }}</td>
+            <td class="text-right" data-testid="qty-shipped">{{ line.qtyShipped }}</td>
             <td class="text-right">{{ line.qtyDelivered }}</td>
             <td class="text-right" [class.short]="isShort(line)">
               {{ line.qtyShort }}
@@ -227,7 +279,7 @@
         </ng-template>
         <ng-template pTemplate="emptymessage">
           <tr>
-            <td colspan="8" class="text-center text-secondary" style="padding:2rem">
+            <td colspan="9" class="text-center text-secondary" style="padding:2rem">
               {{ d.linesUnknown ? 'This delivery was migrated without line detail.' : 'No lines.' }}
             </td>
           </tr>
@@ -329,6 +381,23 @@
       <p-button label="Back" [text]="true" severity="secondary" (onClick)="consignmentDialogVisible = false"></p-button>
       <p-button label="Create" icon="pi pi-check" severity="success" [disabled]="isSubmitting"
                 (onClick)="submitConsignment()" data-testid="consignment-confirm"></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <!-- ── A33: goods issue from the route's button — asked first, as at the pack station ── -->
+
+  <p-dialog header="Issue the goods" [(visible)]="issueDialogVisible" [modal]="true"
+            [style]="{width:'32rem'}" [draggable]="false" data-testid="issue-dialog">
+    <p class="dialog-hint danger">
+      <i class="pi pi-exclamation-triangle"></i>
+      This is the point of no return. The stock leaves the books and the delivery can no longer be cancelled.
+    </p>
+
+    <ng-template pTemplate="footer">
+      <p-button label="Back" [text]="true" severity="secondary" (onClick)="issueDialogVisible = false"></p-button>
+      <p-button label="Issue goods" icon="pi pi-check-circle" severity="success"
+                [disabled]="isSubmitting" [loading]="isSubmitting" (onClick)="confirmGoodsIssue()"
+                data-testid="confirm-goods-issue"></p-button>
     </ng-template>
   </p-dialog>
 

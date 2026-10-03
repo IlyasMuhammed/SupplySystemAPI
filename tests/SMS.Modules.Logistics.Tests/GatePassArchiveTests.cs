@@ -190,7 +190,7 @@ public class GatePassArchiveTests
         {
             Controller = new DeliveriesController(
                 Deliveries.Object, Mock.Of<IPickListService>(), Mock.Of<IPackageService>(),
-                Mock.Of<IDeliveryDocumentService>(), Archive.Object)
+                Mock.Of<IDeliveryDocumentService>(), Archive.Object, Mock.Of<IDeliveryRouteService>())
             {
                 ControllerContext = new ControllerContext
                 {

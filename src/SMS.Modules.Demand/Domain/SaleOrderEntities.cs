@@ -48,6 +48,14 @@ internal class SaleOrder : ITenantScopedEntity
     /// <summary>The CUSTOMER_PO file in the generic attachment store (WorkflowEngine document_attachments.UUID).</summary>
     public Guid?     CustomerPoAttachmentUuid { get; set; }
 
+    /// <summary>
+    /// A33 D-12 / REV-01: set (UTC) in the confirm's own commit when deliveries are to be created automatically, and
+    /// cleared once a delivery creator call for the order returns without throwing (confirm, the sweep, the recovery
+    /// button), or when the order is cancelled. The sweep retries only orders where it is still set, so a delivery a user
+    /// cancelled on purpose is never re-created behind their back.
+    /// </summary>
+    public DateTime? DeliveryCreationPendingSince { get; set; }
+
     public ICollection<SaleOrderLine> Lines { get; set; } = new List<SaleOrderLine>();
 }
 
@@ -80,6 +88,16 @@ internal class SaleOrderLine : ITenantScopedEntity
     public decimal? MarginPercent         { get; set; }
     public string   Status                { get; set; } = EnumCode<SaleOrderLineStatus>.Of(SaleOrderLineStatus.Open);
     public string?  Notes                 { get; set; }
+
+    // A33 C3: the fulfillment route, an unenforced Guid to logistics.fulfillment_routes.UUID (no cross-context FK).
+    // While the order is DRAFT this is the salesperson's override (null = inherit from the variant, then the org
+    // default). At confirm it is overwritten with the route the line resolved to, and RouteSource records which tier
+    // gave it (D-16). That snapshot is what the deliveries, and any later remainder, follow.
+    public Guid?    FulfillmentRouteUuid  { get; set; }
+    /// <summary>The route's code at confirm (codes are immutable, L-4), kept so the line still names it if the route is later deleted.</summary>
+    public string?  FulfillmentRouteCode  { get; set; }
+    /// <summary>LINE_OVERRIDE | VARIANT | ORG_DEFAULT, written at confirm (D-16); null while DRAFT and on lines confirmed before A33.</summary>
+    public string?  RouteSource           { get; set; }
 
     public SaleOrder SaleOrder { get; set; } = null!;
 }

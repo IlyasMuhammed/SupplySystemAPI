@@ -71,6 +71,9 @@ internal sealed class SaleOrderConfigService : ISaleOrderConfigService
         CaptureChange(nameof(SaleOrderConfig.IntimationDepartmentId), entity.IntimationDepartmentId?.ToString(), req.IntimationDepartmentId?.ToString());
         CaptureChange(nameof(SaleOrderConfig.IntimationCcEmails), entity.IntimationCcEmails, copyEmails);
         CaptureChange(nameof(SaleOrderConfig.ShipmentRequiredDefault), entity.ShipmentRequiredDefault.ToString(), req.ShipmentRequiredDefault.ToString());
+        // A33 D-1 — null (a client from before A33) keeps what is saved.
+        var autoCreate = req.AutoCreateDeliveriesOnConfirm ?? entity.AutoCreateDeliveriesOnConfirm;
+        CaptureChange(nameof(SaleOrderConfig.AutoCreateDeliveriesOnConfirm), entity.AutoCreateDeliveriesOnConfirm.ToString(), autoCreate.ToString());
 
         entity.AutoPoEnabled             = req.AutoPoEnabled;
         entity.SupplierSelectionMode     = req.SupplierSelectionMode;
@@ -84,6 +87,7 @@ internal sealed class SaleOrderConfigService : ISaleOrderConfigService
         entity.IntimationDepartmentId    = req.IntimationDepartmentId;
         entity.IntimationCcEmails        = copyEmails;
         entity.ShipmentRequiredDefault   = req.ShipmentRequiredDefault;
+        entity.AutoCreateDeliveriesOnConfirm = autoCreate;
         entity.UpdatedBy                 = updatedBy;
         entity.UpdatedAt                 = now;
 
@@ -162,6 +166,7 @@ internal sealed class SaleOrderConfigService : ISaleOrderConfigService
         IntimationDepartmentId    = x.IntimationDepartmentId,
         IntimationCcEmails        = x.IntimationCcEmails,
         ShipmentRequiredDefault   = x.ShipmentRequiredDefault,
+        AutoCreateDeliveriesOnConfirm = x.AutoCreateDeliveriesOnConfirm,
         UpdatedBy                 = x.UpdatedBy,
         UpdatedAt                 = x.UpdatedAt
     };

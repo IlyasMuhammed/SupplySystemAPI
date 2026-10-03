@@ -1,6 +1,6 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { ActivatedRoute, RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
 import { TableModule, TableLazyLoadEvent } from 'primeng/table';
@@ -14,6 +14,7 @@ import { DropdownModule } from 'primeng/dropdown';
 import { MessageService } from 'primeng/api';
 
 import { LogisticsService, DeliveryListItemModel, DeliveryFilter } from '../../../../services/logistics.service';
+import { FulfillmentRoutesService } from '../../../../services/fulfillment-routes.service';
 
 type Severity = 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast';
 
@@ -66,6 +67,17 @@ export class DeliveryListComponent implements OnInit, OnDestroy {
   selectedStatus     = '';
   selectedDirection  = '';
   selectedSourceType = '';
+  /** A33 — '' is every route. */
+  selectedRouteUuid  = '';
+  /**
+   * A33 — the deliveries of one sale order, when the link asked for that (?saleOrderUuid=…, with the order's number
+   * in ?saleOrderNumber= for the chip). Not a dropdown: there are far too many orders to list.
+   */
+  saleOrderUuid      = '';
+  saleOrderNumber    = '';
+
+  /** Filled from the routes endpoint; left empty (and the filter hidden) when routes can't be read. */
+  routeOptions: { label: string; value: string }[] = [];
 
   private searchTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -107,13 +119,37 @@ export class DeliveryListComponent implements OnInit, OnDestroy {
 
   constructor(
     private logisticsService: LogisticsService,
-    private messageService: MessageService
+    private messageService: MessageService,
+    private routesService: FulfillmentRoutesService,
+    private activatedRoute: ActivatedRoute
   ) {}
 
   ngOnInit() {
     // Deliberately does not load. A PrimeNG table with [lazy]="true" fires (onLazyLoad) once as
     // it initialises, so loading here too would issue the same request twice on every visit.
     // The table's first lazy event supplies first=0 and rows=pageSize, which is page 1.
+    const query = this.activatedRoute.snapshot?.queryParamMap;
+    this.saleOrderUuid   = query?.get('saleOrderUuid') ?? '';
+    this.saleOrderNumber = query?.get('saleOrderNumber') ?? '';
+    this.loadRoutes();
+  }
+
+  /**
+   * Inactive routes too: a delivery keeps the route it was raised on after the route is retired, and filtering for
+   * those is exactly when someone needs the old code. Reading routes is allowed with DELIVERY_VIEW (contract §2);
+   * if it fails anyway the filter simply isn't offered — the list itself does not depend on it.
+   */
+  private loadRoutes() {
+    this.routesService.getRoutes(true).subscribe({
+      next: (res) => {
+        const list = res.success ? res.result ?? [] : [];
+        this.routeOptions = list.length
+          ? [{ label: 'All Routes', value: '' },
+             ...list.map(r => ({ label: `${r.code} — ${r.name}`, value: r.uuid }))]
+          : [];
+      },
+      error: () => this.routeOptions = []
+    });
   }
 
   ngOnDestroy() {
@@ -130,7 +166,9 @@ export class DeliveryListComponent implements OnInit, OnDestroy {
       search: this.searchText || undefined,
       status: this.selectedStatus || undefined,
       direction: this.selectedDirection || undefined,
-      sourceType: this.selectedSourceType || undefined
+      sourceType: this.selectedSourceType || undefined,
+      fulfillmentRouteUuid: this.selectedRouteUuid || undefined,
+      saleOrderUuid: this.saleOrderUuid || undefined
     };
 
     this.logisticsService.getDeliveries(filter).subscribe({
@@ -175,8 +213,22 @@ export class DeliveryListComponent implements OnInit, OnDestroy {
     this.selectedStatus = '';
     this.selectedDirection = '';
     this.selectedSourceType = '';
+    this.selectedRouteUuid = '';
+    this.saleOrderUuid = '';
+    this.saleOrderNumber = '';
     this.currentPage = 1;
     this.load();
+  }
+
+  clearSaleOrderFilter() {
+    this.saleOrderUuid = '';
+    this.saleOrderNumber = '';
+    this.onFilterChange();
+  }
+
+  /** The badge shows the code (short, stable — L-4); the name is on hover. */
+  routeTooltip(d: DeliveryListItemModel): string {
+    return d.fulfillmentRouteName || d.fulfillmentRouteCode || '';
   }
 
   getStatusSeverity(status: string): Severity {

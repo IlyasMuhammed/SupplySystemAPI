@@ -333,4 +333,45 @@ public class SaleOrderConfigServiceTests
         otherOrgConfig.Uuid.Should().NotBe(firstOrgConfig.Uuid);
         (await h.Db.SaleOrderConfigs.IgnoreQueryFilters().CountAsync()).Should().Be(2, "each org's GetOrCreate must produce its own row, not share one");
     }
+
+    // ── A33 D-1: AutoCreateDeliveriesOnConfirm ───────────────────────────────
+
+    [Fact]
+    public async Task A33_auto_create_deliveries_on_confirm_is_on_by_default()
+    {
+        var h = NewHarness();
+
+        (await h.Service.GetConfigAsync()).AutoCreateDeliveriesOnConfirm.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task A33_a_save_that_leaves_auto_create_out_keeps_it_as_it_was()
+    {
+        var h = NewHarness();
+        var off = ValidUpdate();
+        off.AutoCreateDeliveriesOnConfirm = false;
+        await h.Service.UpdateConfigAsync(off, updatedBy: 3);
+
+        var older = ValidUpdate(); // a client from before A33: the field is not sent (null)
+        older.AutoCreateDeliveriesOnConfirm.Should().BeNull();
+        var saved = await h.Service.UpdateConfigAsync(older, updatedBy: 3);
+
+        saved.AutoCreateDeliveriesOnConfirm.Should().BeFalse("null keeps the current value");
+    }
+
+    [Fact]
+    public async Task A33_switching_auto_create_off_is_saved_and_audited()
+    {
+        var h = NewHarness();
+        await h.Service.GetConfigAsync();
+        var req = ValidUpdate();
+        req.AutoCreateDeliveriesOnConfirm = false;
+
+        var saved = await h.Service.UpdateConfigAsync(req, updatedBy: 3);
+
+        saved.AutoCreateDeliveriesOnConfirm.Should().BeFalse();
+        (await h.Db.SaleOrderConfigAudits.ToListAsync())
+            .Should().ContainSingle(a => a.FieldChanged == nameof(SaleOrderConfig.AutoCreateDeliveriesOnConfirm))
+            .Which.NewValue.Should().Be("False");
+    }
 }

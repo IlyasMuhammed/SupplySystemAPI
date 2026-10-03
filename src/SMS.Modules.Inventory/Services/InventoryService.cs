@@ -15,20 +15,27 @@ internal sealed class InventoryService : IInventoryService
     private readonly IBackgroundJobClient _jobs;
     private readonly IEnumerable<IVariantReferenceChecker> _variantCheckers;
     private readonly VariantQuickBooksPublisher? _quickBooks;
+    private readonly IFulfillmentRouteLookup? _routeLookup;
 
     /// <param name="quickBooks">
     /// Tells the QuickBooks gateway about variants after each save that changes what it would send. Optional
     /// so a caller that builds this service by hand needs nothing extra; the module registers it.
     /// </param>
+    /// <param name="routeLookup">
+    /// A33 — names each variant's fulfillment route on the product detail. Logistics registers it; without it the
+    /// route uuid is still shown, with no code or name (D-11).
+    /// </param>
     public InventoryService(
         IInventoryRepository repo, IProductSearchIndexService searchIndex, IBackgroundJobClient jobs,
-        IEnumerable<IVariantReferenceChecker> variantCheckers, VariantQuickBooksPublisher? quickBooks = null)
+        IEnumerable<IVariantReferenceChecker> variantCheckers, VariantQuickBooksPublisher? quickBooks = null,
+        IFulfillmentRouteLookup? routeLookup = null)
     {
         _repo            = repo;
         _searchIndex     = searchIndex;
         _jobs            = jobs;
         _variantCheckers = variantCheckers;
         _quickBooks      = quickBooks;
+        _routeLookup     = routeLookup;
     }
 
     // After the repository's own save has committed. Neither throws (see the publisher).
@@ -78,8 +85,31 @@ internal sealed class InventoryService : IInventoryService
     public Task<PaginatedResponse<ProductListItemModel>> GetProductsAsync(ProductListFilter filter)
         => _repo.GetProductsAsync(filter);
 
-    public Task<ProductDetailModel?> GetProductByIdAsync(int id)
-        => _repo.GetProductByIdAsync(id);
+    public async Task<ProductDetailModel?> GetProductByIdAsync(int id)
+    {
+        var detail = await _repo.GetProductByIdAsync(id);
+        if (detail is not null) await NameVariantRoutesAsync(detail.Variants);
+        return detail;
+    }
+
+    // A33 C2 — each variant's route code and name, read from Logistics for the variant's own organization (the
+    // route belongs to it: BR-C2-01). A route that is gone keeps its uuid and gets no name.
+    private async Task NameVariantRoutesAsync(IEnumerable<ProductVariantModel> variants)
+    {
+        if (_routeLookup is null) return;
+
+        foreach (var ofOrg in variants.Where(v => v.FulfillmentRouteUuid.HasValue).GroupBy(v => v.OrganizationId))
+        {
+            var routes = await _routeLookup.GetAsync(
+                ofOrg.Key, ofOrg.Select(v => v.FulfillmentRouteUuid!.Value).Distinct().ToList());
+            foreach (var variant in ofOrg)
+            {
+                if (!routes.TryGetValue(variant.FulfillmentRouteUuid!.Value, out var route)) continue;
+                variant.FulfillmentRouteCode = route.Code;
+                variant.FulfillmentRouteName = route.Name;
+            }
+        }
+    }
 
     public async Task<(int id, string sku)> CreateProductAsync(CreateProductRequest req, int userId)
     {

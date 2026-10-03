@@ -78,6 +78,15 @@
       <span>Everything picked is in a carton. Stage it when it reaches the dock.</span>
     </div>
 
+    <!-- A33 REV-04b: staged by its route, not by a person — the cartons can still be weighed or voided. -->
+    <div class="banner ready" *ngIf="p.status === 'STAGED' && amendableWhileStaged" data-testid="banner-amendable">
+      <i class="pi pi-info-circle"></i>
+      <span>
+        Staged automatically by its route. Cartons can still be weighed, resized or voided until the dispatch is
+        approved, a consignment carries it, or the goods are issued. A courier needs every package's weight.
+      </span>
+    </div>
+
     <div class="banner warn" *ngIf="!canPack && !canIssue && !canStage" data-testid="banner-closed">
       <i class="pi pi-lock"></i>
       <span>
@@ -150,9 +159,14 @@
             </div>
           </div>
 
-          <p-button *ngIf="canPack" icon="pi pi-trash" label="Void" severity="danger"
-                    [text]="true" [disabled]="isSubmitting" (onClick)="openVoidDialog(pkg)"
-                    data-testid="action-void"></p-button>
+          <div class="package-actions" *ngIf="canAmend">
+            <p-button icon="pi pi-pencil" label="Weight & size" severity="secondary"
+                      [text]="true" [disabled]="isSubmitting" (onClick)="openEditDialog(pkg)"
+                      data-testid="action-edit-package"></p-button>
+            <p-button icon="pi pi-trash" label="Void" severity="danger"
+                      [text]="true" [disabled]="isSubmitting" (onClick)="openVoidDialog(pkg)"
+                      data-testid="action-void"></p-button>
+          </div>
         </div>
 
         <table class="contents">
@@ -276,6 +290,51 @@
       <p-button label="Pack" icon="pi pi-check" [disabled]="!canConfirmPack"
                 [loading]="isSubmitting" (onClick)="confirmPack()"
                 data-testid="confirm-pack"></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <!-- ── Weight and size (A33 REV-04b) ──────────────────────────────────────── -->
+
+  <p-dialog header="Weight & size" [(visible)]="editDialogVisible" [modal]="true"
+            [style]="{ width: '36rem' }" [draggable]="false" data-testid="edit-package-dialog">
+    <div class="dialog-body">
+      <p class="dialog-hint" *ngIf="editTarget">
+        Package <span class="font-mono">{{ editTarget.packageBarcode }}</span>. Only what you change is saved.
+      </p>
+      <div class="field-grid">
+        <div class="field">
+          <label for="edit-gross">Gross weight (kg)</label>
+          <p-inputNumber inputId="edit-gross" [(ngModel)]="edit.grossWeightKg" [min]="0"
+                         [maxFractionDigits]="3" data-testid="edit-gross"></p-inputNumber>
+        </div>
+        <div class="field">
+          <label for="edit-net">Net weight (kg)</label>
+          <p-inputNumber inputId="edit-net" [(ngModel)]="edit.netWeightKg" [min]="0"
+                         [maxFractionDigits]="3"></p-inputNumber>
+        </div>
+        <div class="field">
+          <label for="edit-length">Length (cm)</label>
+          <p-inputNumber inputId="edit-length" [(ngModel)]="edit.lengthCm" [min]="0" [maxFractionDigits]="2"></p-inputNumber>
+        </div>
+        <div class="field">
+          <label for="edit-width">Width (cm)</label>
+          <p-inputNumber inputId="edit-width" [(ngModel)]="edit.widthCm" [min]="0" [maxFractionDigits]="2"></p-inputNumber>
+        </div>
+        <div class="field">
+          <label for="edit-height">Height (cm)</label>
+          <p-inputNumber inputId="edit-height" [(ngModel)]="edit.heightCm" [min]="0" [maxFractionDigits]="2"></p-inputNumber>
+        </div>
+        <div class="field">
+          <label for="edit-seal">Seal number</label>
+          <input pInputText id="edit-seal" [(ngModel)]="edit.sealNumber" />
+        </div>
+      </div>
+    </div>
+
+    <ng-template pTemplate="footer">
+      <p-button label="Cancel" [text]="true" severity="secondary" (onClick)="editDialogVisible = false"></p-button>
+      <p-button label="Save" icon="pi pi-check" [disabled]="!canSaveEdit" [loading]="isSubmitting"
+                (onClick)="saveEdit()" data-testid="confirm-edit-package"></p-button>
     </ng-template>
   </p-dialog>
 

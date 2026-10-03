@@ -149,6 +149,19 @@ export interface ProductVariantModel {
   saleOrderMinQty?: number;
   saleOrderMaxQty?: number;
   createdDate: string;
+  // A33 C2 — the variant's default fulfillment route. Set only through setVariantFulfillmentRoute (FULFILLMENT_ROUTE_ASSIGN);
+  // updateVariant ignores it.
+  fulfillmentRouteUuid?: string | null;
+  fulfillmentRouteCode?: string | null;
+  fulfillmentRouteName?: string | null;
+}
+
+/** A33 — PUT /api/variants/{uuid}/fulfillment-route result. */
+export interface VariantFulfillmentRouteModel {
+  variantUuid: string;
+  fulfillmentRouteUuid?: string | null;
+  fulfillmentRouteCode?: string | null;
+  fulfillmentRouteName?: string | null;
 }
 
 export interface CreateProductVariantRequest {
@@ -711,6 +724,14 @@ export class InventoryService {
   // PV-007 — variant CRUD on an existing product.
   addVariant(productId: number, data: CreateProductVariantRequest): Observable<ApiResponse<CreateVariantResult>> {
     return this.http.post<ApiResponse<CreateVariantResult>>(`${this.base}/products/${productId}/variants`, data);
+  }
+  /**
+   * A33 C2 — sets (or, with null, clears) the variant's default fulfillment route. FULFILLMENT_ROUTE_ASSIGN.
+   * 400 when the route is inactive or not this organization's.
+   */
+  setVariantFulfillmentRoute(variantUuid: string, fulfillmentRouteUuid: string | null): Observable<ApiResponse<VariantFulfillmentRouteModel>> {
+    return this.http.put<ApiResponse<VariantFulfillmentRouteModel>>(
+      `${this.base}/variants/${variantUuid}/fulfillment-route`, { fulfillmentRouteUuid });
   }
   updateVariant(variantUuid: string, data: CreateProductVariantRequest): Observable<ApiResponse> {
     return this.http.patch<ApiResponse>(`${this.base}/variants/${variantUuid}`, data);

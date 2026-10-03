@@ -19,6 +19,27 @@
   white-space: nowrap;
 }
 
+// A33 — the sale order and the route a delivery runs on.
+.so-link { color: var(--primary-color); text-decoration: none; font-size: .8125rem; }
+.so-link:hover { text-decoration: underline; }
+.so-customer { font-size: .75rem; color: var(--text-color-secondary); margin-top: .125rem; }
+.route-badge {
+  display: inline-block; padding: .0625rem .4375rem; border-radius: .25rem;
+  font-size: .6875rem; font-weight: 600; letter-spacing: .02em; white-space: nowrap;
+  background: var(--primary-50, #eef2ff); color: var(--primary-700, #4338ca);
+  border: 1px solid var(--primary-200, #c7d2fe);
+}
+.filter-chip {
+  display: inline-flex; align-items: center; gap: .375rem;
+  padding: .25rem .375rem .25rem .625rem; border-radius: 1rem; font-size: .8125rem;
+  background: var(--surface-100); border: 1px solid var(--surface-300);
+}
+.chip-clear {
+  border: 0; background: transparent; cursor: pointer; padding: .125rem .25rem; line-height: 1;
+  color: var(--text-color-secondary); border-radius: 50%;
+}
+.chip-clear:hover { background: var(--surface-200); color: var(--text-color); }
+
 .priority-urgent { font-weight: 700; color: var(--red-600, #dc2626); }
 .priority-high   { font-weight: 600; color: var(--orange-600, #ea580c); }
 

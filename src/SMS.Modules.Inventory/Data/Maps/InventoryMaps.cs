@@ -118,6 +118,11 @@ internal sealed class ProductVariantMap : IEntityTypeConfiguration<ProductVarian
         b.Property(x => x.OrganizationId).IsRequired();
         b.HasIndex(x => x.ProductId);
         b.HasIndex(x => x.DefaultSupplierId);
+        // A33 C2 — "which of this organization's variants use route X" (the in-use count Logistics asks before it
+        // deactivates or deletes a route). Filtered: most variants have no route.
+        b.HasIndex(x => new { x.OrganizationId, x.FulfillmentRouteUuid })
+            .HasDatabaseName("IX_ProductVariants_OrganizationId_FulfillmentRouteUuid")
+            .HasFilter("[FulfillmentRouteUuid] IS NOT NULL");
 
         b.HasOne(x => x.Product).WithMany(x => x.Variants)
             .HasForeignKey(x => x.ProductId).OnDelete(DeleteBehavior.Cascade);

@@ -46,9 +46,12 @@ internal static class SaleOrderHolds
             .GroupBy(h => h.SourceLineUuid!.Value)
             .ToDictionary(g => g.Key, g => g.Sum(h => h.ReservedQty));
 
+        // A33 C-2: only deliveries that actually HOLD stock count — RELEASED onwards (release moved the order's hold onto
+        // them). A DRAFT delivery holds nothing, and since confirm now creates DRAFT deliveries for every line, counting
+        // them made every line look fully held: Reserve was dead and the GRN link reserved nothing.
         IReadOnlyDictionary<Guid, decimal> inFlight = deliveries is null
             ? new Dictionary<Guid, decimal>()
-            : await deliveries.GetInFlightBySoLineAsync(orderUuid, ct) ?? new Dictionary<Guid, decimal>();
+            : await deliveries.GetHeldBySoLineAsync(orderUuid, ct) ?? new Dictionary<Guid, decimal>();
 
         return new SaleOrderLineHolds(reserved, inFlight);
     }
@@ -93,9 +96,10 @@ internal static class SaleOrderHolds
     // ── One change to an order's holds at a time ─────────────────────────────
 
     /// <summary>How long a reserve/release/cancel waits for another one on the same order before giving up with a 409.</summary>
-    internal const int LockTimeoutMilliseconds = 15_000;
+    internal const int LockTimeoutMilliseconds = SaleOrderLocks.TimeoutMilliseconds;
 
-    internal static string LockResource(Guid orderUuid) => $"demand.sale_orders/{orderUuid:N}/holds";
+    /// <summary>A33 REV-02: the one shared string — Logistics' delivery creator takes the same lock before it re-reads the order.</summary>
+    internal static string LockResource(Guid orderUuid) => SaleOrderLocks.HoldsResource(orderUuid);
 
     /// <summary>
     /// Runs <paramref name="work"/> so that no other reserve, release or cancel of the same order runs alongside it: on

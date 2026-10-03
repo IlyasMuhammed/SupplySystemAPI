@@ -58,9 +58,10 @@ internal sealed class PickListRepository : IPickListRepository
 
     public async Task<Guid> GenerateAsync(Guid deliveryUuid, GeneratePickListRequest? req, int userId)
     {
-        var delivery = await _db.DeliveryOrders
+        // A33 R-14: the caller's own delivery only, super admin included.
+        var delivery = await _db.OwnDeliveries()
             .Include(d => d.Lines)
-            .FirstOrDefaultAsync(d => d.UUID == deliveryUuid && !d.IsDelete)
+            .FirstOrDefaultAsync(d => d.UUID == deliveryUuid)
             ?? throw new NotFoundException("Delivery not found.");
 
         var current = LogisticsCode.Parse<DeliveryStatus>(delivery.Status);
@@ -219,8 +220,8 @@ internal sealed class PickListRepository : IPickListRepository
 
     public async Task<PickListModel?> GetForDeliveryAsync(Guid deliveryUuid)
     {
-        var deliveryId = await _db.DeliveryOrders
-            .Where(d => d.UUID == deliveryUuid && !d.IsDelete)
+        var deliveryId = await _db.OwnDeliveries()
+            .Where(d => d.UUID == deliveryUuid)
             .Select(d => (int?)d.Id)
             .FirstOrDefaultAsync();
 
@@ -238,11 +239,10 @@ internal sealed class PickListRepository : IPickListRepository
     private async Task<PickListModel?> Detail(
         System.Linq.Expressions.Expression<Func<PickList, bool>> predicate, bool mostRecent = false)
     {
-        var query = _db.PickLists
+        var query = _db.OwnPickLists()
             .Include(p => p.DeliveryOrder)
             .Include(p => p.Lines).ThenInclude(l => l.DeliveryOrderLine)
             .AsNoTracking()
-            .Where(p => !p.IsDelete)
             .Where(predicate);
 
         if (mostRecent) query = query.OrderByDescending(p => p.Id);
@@ -292,7 +292,7 @@ internal sealed class PickListRepository : IPickListRepository
 
     public async Task<PaginatedResponse<PickListListItemModel>> GetListAsync(PickListFilter filter)
     {
-        var q = _db.PickLists.Where(p => !p.IsDelete);
+        var q = _db.OwnPickLists();
 
         if (!string.IsNullOrWhiteSpace(filter.Status))
             q = q.Where(p => p.Status == filter.Status);
@@ -350,7 +350,7 @@ internal sealed class PickListRepository : IPickListRepository
 
     public async Task<bool> AssignAsync(Guid uuid, int assignToUserId, int userId)
     {
-        var pickList = await _db.PickLists.FirstOrDefaultAsync(p => p.UUID == uuid && !p.IsDelete);
+        var pickList = await _db.OwnPickLists().FirstOrDefaultAsync(p => p.UUID == uuid);
         if (pickList is null) return false;
 
         EnsureLive(pickList, "reassigned");
@@ -376,10 +376,10 @@ internal sealed class PickListRepository : IPickListRepository
         if (string.IsNullOrWhiteSpace(req?.Reason))
             throw new BadRequestException("A reason is required to cancel a pick list.");
 
-        var pickList = await _db.PickLists
+        var pickList = await _db.OwnPickLists()
             .Include(p => p.DeliveryOrder)
             .Include(p => p.Lines)
-            .FirstOrDefaultAsync(p => p.UUID == uuid && !p.IsDelete);
+            .FirstOrDefaultAsync(p => p.UUID == uuid);
 
         if (pickList is null) return false;
 
@@ -430,10 +430,10 @@ internal sealed class PickListRepository : IPickListRepository
     {
         ArgumentNullException.ThrowIfNull(req);
 
-        var pickList = await _db.PickLists
+        var pickList = await _db.OwnPickLists()
             .Include(p => p.DeliveryOrder).ThenInclude(d => d.Lines)
             .Include(p => p.Lines)
-            .FirstOrDefaultAsync(p => p.UUID == uuid && !p.IsDelete);
+            .FirstOrDefaultAsync(p => p.UUID == uuid);
 
         if (pickList is null) return null;
 
@@ -581,7 +581,70 @@ internal sealed class PickListRepository : IPickListRepository
         delivery.ModifiedBy   = userId;
         delivery.ModifiedDate = now;
 
+        // A33 D-3: a route without PACK has nobody at a pack station, so the pick is boxed here; a route without STAGE
+        // is then staged at once. A delivery with no route is left PICKED, exactly as before.
+        if (DeliveryRouteFlow.Lacks(delivery, FulfillmentStepCode.Pack))
+            await AutoPackAsync(pickList, delivery, userId, now);
+
         return returned;
+    }
+
+    /// <summary>
+    /// A33 D-3 — the system's own packing for a route without PACK: one LOOSE handling unit holding everything that was
+    /// picked, so goods issue (which ships <c>QtyPacked</c>), carrier booking (which needs a package), the packing list
+    /// and the gate pass all work unchanged. The unit is recognisable as the system's: LOOSE, created at the pick's
+    /// confirmation by the person who confirmed it. Nothing picked → nothing to box; the delivery stays PICKED, to be
+    /// short-closed or cancelled.
+    /// </summary>
+    private async Task AutoPackAsync(PickList pickList, DeliveryOrder delivery, int userId, DateTime now)
+    {
+        var lines = delivery.Lines.Where(l => l.QtyPicked > 0).ToList();
+        if (lines.Count == 0) return;
+
+        var package = new ShipmentPackage
+        {
+            UUID            = Guid.NewGuid(),
+            OrganizationId  = delivery.OrganizationId,
+            DeliveryOrderId = delivery.Id,
+            PackageBarcode  = await _numbers.NextAsync(DocumentNumberPrefix.HandlingUnit, now, delivery.OrganizationId),
+            PackageType     = LogisticsCode.Of(PackageType.Loose),
+            CreatedBy       = userId,
+            CreatedDate     = now
+        };
+
+        foreach (var line in lines)
+        {
+            // The batch the picker recorded, when the line came from exactly one — the packing list prints it.
+            var batches = pickList.Lines
+                .Where(p => p.DeliveryOrderLineId == line.Id && p.QtyPicked > 0 && p.BatchNumber != null)
+                .Select(p => p.BatchNumber!)
+                .Distinct()
+                .Take(2)
+                .ToList();
+
+            package.Contents.Add(new PackageContent
+            {
+                UUID                = Guid.NewGuid(),
+                OrganizationId      = delivery.OrganizationId,
+                DeliveryOrderLineId = line.Id,
+                Qty                 = line.QtyPicked,
+                BatchNumber         = batches.Count == 1 ? batches[0] : null,
+                CreatedBy           = userId,
+                CreatedDate         = now
+            });
+            line.QtyPacked = line.QtyPicked;
+        }
+
+        _db.ShipmentPackages.Add(package);
+
+        DeliveryStateMachine.Instance.EnsureCanTransition(DeliveryStatus.Picked, DeliveryStatus.Packed);
+        delivery.Status = LogisticsCode.Of(DeliveryStatus.Packed);
+
+        if (DeliveryRouteFlow.Lacks(delivery, FulfillmentStepCode.Stage))
+        {
+            DeliveryStateMachine.Instance.EnsureCanTransition(DeliveryStatus.Packed, DeliveryStatus.Staged);
+            delivery.Status = LogisticsCode.Of(DeliveryStatus.Staged);
+        }
     }
 
     private static string? Trim(string? value) =>

@@ -435,7 +435,10 @@ internal sealed class InventoryRepository : IInventoryRepository
                         SortOrder         = v.SortOrder,
                         SaleOrderMinQty   = v.SaleOrderMinQty,
                         SaleOrderMaxQty   = v.SaleOrderMaxQty,
-                        CreatedDate       = v.CreatedDate
+                        CreatedDate       = v.CreatedDate,
+                        // A33 — code and name are filled in by InventoryService from Logistics.
+                        FulfillmentRouteUuid = v.FulfillmentRouteUuid,
+                        OrganizationId    = v.OrganizationId
                     }).ToList()
             })
             .FirstOrDefaultAsync();

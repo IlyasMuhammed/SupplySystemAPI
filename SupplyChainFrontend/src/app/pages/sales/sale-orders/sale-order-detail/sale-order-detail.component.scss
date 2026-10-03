@@ -113,3 +113,49 @@ tr.line-short td { background: var(--orange-50, #fff7ed); }
   .detail-grid { grid-template-columns: 1fr; }
   .header-actions { width: 100%; }
 }
+
+// ── A33: routes, confirm gate, fulfillment ────────────────────────────────────
+.route-warning, .cancel-result {
+  display: flex; gap: .625rem; align-items: flex-start; margin: 0 0 1rem; padding: .75rem 1rem; border-radius: .5rem;
+  font-size: .875rem;
+  ul { margin: .375rem 0 0; padding-left: 1.125rem; }
+  p { margin: 0 0 .25rem; }
+  .grow { flex: 1; }
+}
+.route-warning { background: var(--orange-50, #fff7ed); border: 1px solid var(--orange-200, #fed7aa); color: var(--orange-900, #7c2d12); }
+.cancel-result { background: var(--surface-50, #fafafa); border: 1px solid var(--surface-200); }
+.route-cell { min-width: 13rem; }
+.route-value { display: flex; align-items: center; gap: .375rem; }
+.route-source { font-weight: 700; cursor: help; }
+.route-source.blocking, .route-hint.blocking { color: var(--orange-700, #c2410c); }
+.route-hint { font-size: .75rem; color: var(--text-color-secondary); margin-top: .125rem; }
+:host ::ng-deep .route-select { width: 100%; min-width: 11rem; }
+.route-legend {
+  display: flex; flex-wrap: wrap; gap: .25rem 1rem; margin: .75rem 0 0; font-size: .75rem; color: var(--text-color-secondary);
+  .legend-title { font-weight: 600; }
+  .legend-note { font-style: italic; }
+}
+.dialog-error {
+  margin-top: 1rem; padding: .75rem 1rem; border-radius: .5rem; font-size: .875rem;
+  background: var(--red-50, #fef2f2); border: 1px solid var(--red-200, #fecaca); color: var(--red-800, #991b1b);
+  p { margin: 0 0 .375rem; font-weight: 600; }
+  ul { margin: 0; padding-left: 1.125rem; }
+  li { white-space: pre-line; }
+}
+.fulfil-progress {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: .5rem; margin: .5rem 0 1rem; font-size: .875rem;
+  .percent { margin-left: auto; font-weight: 600; }
+  .progress-track { flex-basis: 100%; }
+}
+.deliveries-bar {
+  display: flex; align-items: center; gap: .75rem; margin-bottom: .75rem;
+  h4 { margin: 0; font-size: .9375rem; font-weight: 700; }
+  .grow { flex: 1; }
+}
+.delivery-expansion-row > td { background: var(--surface-50, #fafafa); }
+.delivery-lines {
+  width: 100%; border-collapse: collapse; font-size: .8125rem; margin-top: .25rem;
+  th, td { padding: .375rem .5rem; border-bottom: 1px solid var(--surface-200); }
+  th { font-size: .6875rem; text-transform: uppercase; letter-spacing: .03em; color: var(--text-color-secondary); text-align: left; }
+  th.text-right { text-align: right; }
+}

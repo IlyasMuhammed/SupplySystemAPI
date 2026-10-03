@@ -26,6 +26,8 @@ internal sealed class SaleOrderConfigMap : IEntityTypeConfiguration<SaleOrderCon
         b.Property(x => x.PartialFulfillmentAllowed).HasDefaultValue(true);
         b.Property(x => x.EmailIntimationEnabled).HasDefaultValue(true);
         b.Property(x => x.ShipmentRequiredDefault).HasDefaultValue(true);
+        // A33 D-1: existing organizations get it on, like a new one.
+        b.Property(x => x.AutoCreateDeliveriesOnConfirm).HasDefaultValue(true);
 
         // §3.2 — "one row per org."
         b.Property(x => x.OrganizationId).IsRequired();

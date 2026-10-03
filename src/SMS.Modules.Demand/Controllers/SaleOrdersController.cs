@@ -82,9 +82,10 @@ public partial class SaleOrdersController : ControllerBase
     [RequirePermission(PermissionCodes.SALE_ORDER_CONFIRM)]
     public async Task<IActionResult> Confirm(Guid uuid)
     {
-        var confirmed = await _service.ConfirmAsync(uuid, User.GetUserId());
-        return confirmed
-            ? Ok(ApiResponse.Ok("Sale order confirmed."))
+        // A33 — 400 with every route blocker when the gate refuses; the result lists the deliveries created (D-1).
+        var confirmed = await _service.ConfirmWithResultAsync(uuid, User.GetUserId());
+        return confirmed is not null
+            ? Ok(ApiResponse<SaleOrderConfirmResultModel>.Ok(confirmed, "Sale order confirmed."))
             : NotFound(ApiResponse.Fail(StaticResponseMessage.recordNotFound));
     }
 
@@ -92,10 +93,42 @@ public partial class SaleOrdersController : ControllerBase
     [RequirePermission(PermissionCodes.SALE_ORDER_CANCEL)]
     public async Task<IActionResult> Cancel(Guid uuid, [FromBody] CancelSaleOrderRequest? req)
     {
-        var cancelled = await _service.CancelAsync(uuid, User.GetUserId(), req?.Reason);
-        return cancelled
-            ? Ok(ApiResponse.Ok("Sale order cancelled."))
+        // A33 D-15 — the result lists the deliveries cancelled with it and the issued ones left standing.
+        var cancelled = await _service.CancelWithResultAsync(uuid, User.GetUserId(), req?.Reason);
+        return cancelled is not null
+            ? Ok(ApiResponse<SaleOrderCancelResultModel>.Ok(cancelled, "Sale order cancelled."))
             : NotFound(ApiResponse.Fail(StaticResponseMessage.recordNotFound));
+    }
+
+    /// <summary>A33 BR-C3-05 — how a saved order's lines would be split into deliveries (route × warehouse). Persists nothing.</summary>
+    [HttpGet("{uuid:guid}/delivery-preview")]
+    [RequirePermission(PermissionCodes.SALE_ORDER_VIEW)]
+    public async Task<IActionResult> GetDeliveryPreview(Guid uuid)
+    {
+        var preview = await _service.GetDeliveryPreviewAsync(uuid);
+        return preview is null
+            ? NotFound(ApiResponse.Fail(StaticResponseMessage.recordNotFound))
+            : Ok(ApiResponse<SaleOrderDeliveryPreviewModel>.Ok(preview));
+    }
+
+    /// <summary>A33 BR-C3-05 — the same for the unsaved form; drives its Route column, preview panel and confirm blockers.</summary>
+    [HttpPost("delivery-preview")]
+    [RequirePermission(PermissionCodes.SALE_ORDER_CREATE, PermissionCodes.SALE_ORDER_EDIT, PermissionCodes.SALE_ORDER_VIEW)]
+    public async Task<IActionResult> PreviewDeliveries([FromBody] SaleOrderDeliveryPreviewRequest req) =>
+        Ok(ApiResponse<SaleOrderDeliveryPreviewModel>.Ok(await _service.PreviewDeliveriesAsync(req)));
+
+    /// <summary>
+    /// A33 — change one DRAFT line's route only (null = inherit): no re-pricing, unlike the full PUT. Returns the line
+    /// with its effective route, source and blocker.
+    /// </summary>
+    [HttpPut("{uuid:guid}/lines/{lineUuid:guid}/fulfillment-route")]
+    [RequirePermission(PermissionCodes.SALE_ORDER_EDIT)]
+    public async Task<IActionResult> UpdateLineRoute(Guid uuid, Guid lineUuid, [FromBody] UpdateSaleOrderLineRouteRequest? req)
+    {
+        var line = await _service.UpdateLineRouteAsync(uuid, lineUuid, req?.FulfillmentRouteUuid, User.GetUserId());
+        return line is null
+            ? NotFound(ApiResponse.Fail(StaticResponseMessage.recordNotFound))
+            : Ok(ApiResponse<SaleOrderLineModel>.Ok(line, StaticResponseMessage.recordUpdatedSuccessfully));
     }
 
     [HttpGet("{uuid:guid}/timeline")]

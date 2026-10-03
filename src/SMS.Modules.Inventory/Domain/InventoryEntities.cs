@@ -134,6 +134,13 @@ internal class ProductVariant : ITenantScopedEntity
     public decimal? SaleOrderMinQty { get; set; }
     public decimal? SaleOrderMaxQty { get; set; }
 
+    // A33 C2 — the route a sale order line for this variant inherits when it has no override (BR-C3-03 tier 2).
+    // Unenforced scalar reference -> logistics.fulfillment_routes.UUID: routes live in Logistics' DbContext, so
+    // "an active route of this variant's own organization" (BR-C2-01) is checked by VariantFulfillmentRouteService
+    // through IFulfillmentRouteLookup. Set only through PUT api/variants/{uuid}/fulfillment-route
+    // (FULFILLMENT_ROUTE_ASSIGN) and the bulk assign; the ungated variant PATCH never touches it.
+    public Guid?    FulfillmentRouteUuid { get; set; }
+
     public Product Product { get; set; } = null!;
     public ICollection<VariantAttributeValue> AttributeValues { get; set; } = new List<VariantAttributeValue>();
     // PV-005 — stock is tracked per variant per warehouse, not per parent product.

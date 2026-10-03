@@ -530,6 +530,11 @@ export class AppMenu {
                           routerLink: ['/portal/pages/sale-order-settings'],
                           featureCode: 'MODULE_DEMAND',
                           permRequired: ['SALE_ORDER_CONFIG_READ'] },
+                        // A33 — same codes as the route; api/fulfillment-routes needs MODULE_LOGISTICS.
+                        { label: 'Fulfillment Routes', icon: 'pi pi-fw pi-directions',
+                          routerLink: ['/portal/pages/logistics/fulfillment-routes'],
+                          featureCode: 'MODULE_LOGISTICS',
+                          permRequired: ['FULFILLMENT_ROUTE_VIEW', 'FULFILLMENT_ROUTE_MANAGE'] },
                         // A32 C5 — why inquiry/quotation lines are declined; same code as the route.
                         { label: 'Rejection Reasons', icon: 'pi pi-fw pi-ban',
                           routerLink: ['/portal/pages/sales/rejection-reasons'],

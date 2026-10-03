@@ -209,7 +209,8 @@ public class PurchaseOrderAuditTests
         var order = await h.Db.SaleOrders.AsNoTracking().Include(o => o.Lines).SingleAsync();
         var poService = new Mock<IPurchaseOrderService>();
         var saleOrders = new SaleOrderService(
-            h.Db, new StaticTenantContext(), Mock.Of<IOrganizationCurrencyService>(), Mock.Of<IDocumentNumberGenerator>(),
+            // The order's own organization: the service filters on it explicitly (A32 PF-05).
+            h.Db, h.Db.TenantContext, Mock.Of<IOrganizationCurrencyService>(), Mock.Of<IDocumentNumberGenerator>(),
             Mock.Of<IPricingService>(), Mock.Of<IStockReservationService>(), Mock.Of<ITimelineService>(),
             Mock.Of<IBackgroundJobClient>(), Mock.Of<IAvailabilityCheckService>(), poService.Object, Mock.Of<ISaleOrderEmailService>());
 

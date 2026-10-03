@@ -22,6 +22,13 @@ public interface ISaleOrderDeliveryService
 
     /// <summary>The order's deliveries, oldest first. Null when the order does not exist here.</summary>
     Task<IReadOnlyList<DeliveryListItemModel>?> GetDeliveriesAsync(Guid saleOrderUuid);
+
+    /// <summary>
+    /// A33 PD-05 recovery (D-12 button): the route deliveries for a confirmed order's lines, from their confirmed route
+    /// snapshots, through <see cref="SMS.Shared.Common.ISaleOrderDeliveryCreator"/>. Idempotent. Null when the order is
+    /// not the caller organization's.
+    /// </summary>
+    Task<SMS.Shared.Common.SaleOrderDeliveryCreationResult?> CreateRouteDeliveriesAsync(Guid saleOrderUuid, int userId);
 }
 
 internal sealed class SaleOrderDeliveryService : ISaleOrderDeliveryService
@@ -29,16 +36,23 @@ internal sealed class SaleOrderDeliveryService : ISaleOrderDeliveryService
     private readonly DemandDbContext               _demand;
     private readonly IDeliveryRepository           _deliveries;
     private readonly IDeliveryFromSourceRepository _fromSource;
+    private readonly SMS.Shared.Common.ISaleOrderDeliveryCreator? _creator;
+    private readonly Demand.Services.ISaleOrderService?         _orders;
 
     public SaleOrderDeliveryService(
         DemandDbContext demand,
         IDeliveryRepository deliveries,
-        IDeliveryFromSourceRepository fromSource)
+        IDeliveryFromSourceRepository fromSource,
+        SMS.Shared.Common.ISaleOrderDeliveryCreator? creator = null,
+        Demand.Services.ISaleOrderService? orders = null)
     {
         _demand     = demand;
         _deliveries = deliveries;
         _fromSource = fromSource;
+        _creator    = creator;
+        _orders     = orders;
     }
+
 
     public Task<Guid> CreateAsync(Guid saleOrderUuid, CreateSaleOrderDeliveryRequest? req, int createdBy)
     {
@@ -65,9 +79,65 @@ internal sealed class SaleOrderDeliveryService : ISaleOrderDeliveryService
     {
         // An order that does not exist — or belongs to another organization, which the tenant
         // filter makes the same thing — is a 404, not an empty list that reads as "nothing yet".
-        var exists = await _demand.SaleOrders.AnyAsync(s => s.UUID == saleOrderUuid && !s.IsDeleted);
+        // A33 (R-14): the caller's own organization explicitly, as the sale order pages are (A32 PF-05).
+        var ownOrg = _demand.TenantContext.OrganizationId;
+        var exists = await _demand.SaleOrders.AnyAsync(s => s.UUID == saleOrderUuid && !s.IsDeleted && s.OrganizationId == ownOrg);
         if (!exists) return null;
 
         return await _deliveries.GetForSaleOrderAsync(saleOrderUuid);
+    }
+
+    private static readonly string CancelledLine =
+        Demand.Domain.EnumCode<Demand.Domain.SaleOrderLineStatus>.Of(Demand.Domain.SaleOrderLineStatus.Cancelled);
+
+    private static readonly string DropShipLine =
+        Demand.Domain.EnumCode<Demand.Domain.SaleOrderLineFulfillmentMode>.Of(Demand.Domain.SaleOrderLineFulfillmentMode.DropShip);
+
+    private static readonly string[] DeliverableSoStatuses =
+    [
+        Demand.Domain.EnumCode<Demand.Domain.SaleOrderStatus>.Of(Demand.Domain.SaleOrderStatus.Confirmed),
+        Demand.Domain.EnumCode<Demand.Domain.SaleOrderStatus>.Of(Demand.Domain.SaleOrderStatus.PartiallyFulfilled)
+    ];
+
+    public async Task<SMS.Shared.Common.SaleOrderDeliveryCreationResult?> CreateRouteDeliveriesAsync(Guid saleOrderUuid, int userId)
+    {
+        var ownOrg = _demand.TenantContext.OrganizationId;
+        var so = await _demand.SaleOrders.AsNoTracking()
+            .Include(s => s.Lines)
+            .FirstOrDefaultAsync(s => s.UUID == saleOrderUuid && !s.IsDeleted && s.OrganizationId == ownOrg);
+        if (so is null) return null;
+
+        if (!DeliverableSoStatuses.Contains(so.Status))
+            throw new SMS.Shared.Exceptions.BadRequestException(
+                $"Sale order {so.SoNumber} is {so.Status}. Deliveries are created for an order that is " +
+                $"{string.Join(" or ", DeliverableSoStatuses)}.");
+
+        if (_creator is null)
+            throw new SMS.Shared.Exceptions.ConflictException("Creating deliveries by route is not available here.");
+
+        var lines = so.Lines
+            .Where(l => l.Status != CancelledLine && l.FulfillmentMode != DropShipLine)
+            .OrderBy(l => l.Id)
+            .ToList();
+
+        // The confirmed snapshot (D-16) is the line's route with a RouteSource; a line confirmed before routes has none.
+        var routed  = lines.Where(l => l.FulfillmentRouteUuid is not null && l.RouteSource is not null).ToList();
+        var legacy  = lines.Except(routed)
+            .Select(l => new SMS.Shared.Common.SkippedSaleOrderLine(l.UUID,
+                $"Line {so.Lines.OrderBy(x => x.Id).ToList().IndexOf(l) + 1} was confirmed before fulfillment routes, " +
+                "so it has no route to follow. Use \"Create delivery\" to raise its delivery by hand."))
+            .ToList();
+
+        var result = routed.Count == 0
+            ? new SMS.Shared.Common.SaleOrderDeliveryCreationResult([], [])
+            : await _creator.CreateForConfirmedOrderAsync(
+                ownOrg, so.UUID,
+                [.. routed.Select(l => new SMS.Shared.Common.SaleOrderLineRoute(l.UUID, l.FulfillmentRouteUuid!.Value))],
+                userId);
+
+        // REV-01 — the creator returned without throwing, so the D-12 sweep has nothing left to retry for this order.
+        if (_orders is not null) await _orders.MarkDeliveriesCreatedAsync(so.UUID);
+
+        return new SMS.Shared.Common.SaleOrderDeliveryCreationResult(result.Created, [.. result.Skipped, .. legacy]);
     }
 }

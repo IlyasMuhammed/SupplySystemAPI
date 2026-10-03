@@ -152,6 +152,7 @@ public class VocabularyTests
         AssertCodesRoundTrip<ExceptionSource>();
         AssertCodesRoundTrip<ProofSource>();
         AssertCodesRoundTrip<ProofFileKind>();
+        AssertCodesRoundTrip<FulfillmentStep>();
     }
 
     [Fact]
@@ -182,7 +183,8 @@ public class VocabularyTests
             nameof(CarrierInvoiceStatus), nameof(InvoiceLineMatchStatus), nameof(InvoiceLineMatchMethod),
             nameof(VarianceReason), nameof(CodStatus), nameof(DisputeOutcome),
             nameof(ExceptionStatus), nameof(ExceptionSeverity), nameof(ExceptionSource),
-            nameof(ProofSource), nameof(ProofFileKind)
+            nameof(ProofSource), nameof(ProofFileKind),
+            nameof(FulfillmentStep)
         ];
 
         declared.Should().BeEquivalentTo(covered,

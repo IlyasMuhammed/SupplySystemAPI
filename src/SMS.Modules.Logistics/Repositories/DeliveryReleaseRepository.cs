@@ -47,9 +47,10 @@ internal sealed class DeliveryReleaseRepository : IDeliveryReleaseRepository
 
     public async Task<bool> ReleaseAsync(Guid uuid, ReleaseDeliveryRequest? req, int userId)
     {
-        var delivery = await _db.DeliveryOrders
+        // A33 R-14: the caller's own delivery only, super admin included.
+        var delivery = await _db.OwnDeliveries()
             .Include(d => d.Lines)
-            .FirstOrDefaultAsync(d => d.UUID == uuid && !d.IsDelete);
+            .FirstOrDefaultAsync(d => d.UUID == uuid);
 
         if (delivery is null) return false;
 
@@ -102,10 +103,10 @@ internal sealed class DeliveryReleaseRepository : IDeliveryReleaseRepository
 
     public async Task<DeliveryAvailabilityModel?> GetAvailabilityAsync(Guid uuid)
     {
-        var delivery = await _db.DeliveryOrders
+        var delivery = await _db.OwnDeliveries()
             .Include(d => d.Lines)
             .AsNoTracking()
-            .FirstOrDefaultAsync(d => d.UUID == uuid && !d.IsDelete);
+            .FirstOrDefaultAsync(d => d.UUID == uuid);
 
         if (delivery is null) return null;
 
@@ -287,6 +288,10 @@ internal sealed class DeliveryReleaseRepository : IDeliveryReleaseRepository
             // The balance of a sale-order delivery is still that order's, in the same mode.
             SaleOrderUuid  = delivery.SaleOrderUuid,
             DeliveryMode   = delivery.DeliveryMode,
+            // A33 — and on the same route snapshot (D-10): the balance goes through the same steps.
+            FulfillmentRouteUuid = delivery.FulfillmentRouteUuid,
+            FulfillmentRouteCode = delivery.FulfillmentRouteCode,
+            RouteSteps           = delivery.RouteSteps,
             ShipFromAddressId     = delivery.ShipFromAddressId,
             ShipToAddressId       = delivery.ShipToAddressId,
             ShipFromWarehouseUuid = delivery.ShipFromWarehouseUuid,

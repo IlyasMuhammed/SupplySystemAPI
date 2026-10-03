@@ -44,6 +44,7 @@ import { PaymentTermsComponent } from './payment-terms/payment-terms.component';
 import { PoDocumentTemplateComponent } from './po-document-template/po-document-template.component';
 import { PortalSettingsComponent } from './portal-settings/portal-settings.component';
 import { SaleOrderSettingsComponent } from './sale-order-settings/sale-order-settings.component';
+import { FulfillmentRoutesComponent } from './logistics/fulfillment-routes/fulfillment-routes.component';
 import { QuickBooksIntegrationComponent } from './integrations/quickbooks/quickbooks-integration.component';
 import { TaxCodesComponent } from './finance-setup/tax-codes/tax-codes.component';
 import { ExchangeRatesComponent } from './finance-setup/exchange-rates/exchange-rates.component';
@@ -227,6 +228,12 @@ const P = {
   DELIVERY_VIEW:        'DELIVERY_VIEW',
   DELIVERY_CREATE:      'DELIVERY_CREATE',
   DELIVERY_EDIT:        'DELIVERY_EDIT',
+  // Addendum 33 — fulfillment routes (docs/fulfillment-routes/API-CONTRACT.md §2). VIEW (or MANAGE) opens the
+  // routes settings screen; MANAGE edits routes; ASSIGN sets a variant's route; APPROVE is "Approve dispatch".
+  DELIVERY_APPROVE:         'DELIVERY_APPROVE',
+  FULFILLMENT_ROUTE_VIEW:   'FULFILLMENT_ROUTE_VIEW',
+  FULFILLMENT_ROUTE_MANAGE: 'FULFILLMENT_ROUTE_MANAGE',
+  FULFILLMENT_ROUTE_ASSIGN: 'FULFILLMENT_ROUTE_ASSIGN',
   // Addendum 29 — sale orders (Demand). Fulfilment of an order is delivery work and keeps the
   // DELIVERY_* codes; these gate the order screens themselves.
   SALE_ORDER_VIEW:      'SALE_ORDER_VIEW',
@@ -335,6 +342,10 @@ export default [
       canActivate: [permissionGuard(P.SYSTEM_CONFIGURE)] },
     { path: 'sale-order-settings', component: SaleOrderSettingsComponent,
       canActivate: [permissionGuard(P.SALE_ORDER_CONFIG_READ)] },
+    // A33 — Settings → Fulfillment Routes (API-CONTRACT.md §2). VIEW or MANAGE opens it; writes are gated on the page
+    // (MANAGE; ASSIGN for "Assign to category") and by the server.
+    { path: 'logistics/fulfillment-routes', component: FulfillmentRoutesComponent,
+      canActivate: [permissionGuard(P.FULFILLMENT_ROUTE_VIEW, P.FULFILLMENT_ROUTE_MANAGE)] },
     // Intuit's OAuth callback returns here with ?result=connected|error&reason=… (the Connection tab reads it).
     // VIEW opens the page; each action is gated again on the page and by the server (MANAGE / SYNC).
     { path: 'integrations/quickbooks', component: QuickBooksIntegrationComponent,

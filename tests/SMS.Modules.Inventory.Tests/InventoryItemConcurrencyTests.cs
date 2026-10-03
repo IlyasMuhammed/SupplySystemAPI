@@ -324,12 +324,13 @@ internal sealed class InventorySqlServerHarness : IAsyncDisposable
         await db.Database.ExecuteSqlRawAsync(sql);
     }
 
-    internal InventoryDbContext NewContext(Guid organizationId, IInterceptor? interceptor = null)
+    internal InventoryDbContext NewContext(Guid organizationId, IInterceptor? interceptor = null, bool superAdmin = false)
     {
         var options = new DbContextOptionsBuilder<InventoryDbContext>().UseSqlServer(_connectionString);
         if (interceptor is not null) options.AddInterceptors(interceptor);
 
-        return new InventoryDbContext(options.Options, new StaticTenantContext { OrganizationId = organizationId });
+        return new InventoryDbContext(options.Options,
+            new StaticTenantContext { OrganizationId = organizationId, IsSuperAdmin = superAdmin });
     }
 
     internal async Task<SeededStock> SeedStockAsync(decimal onHand)

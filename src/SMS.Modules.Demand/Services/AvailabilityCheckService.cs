@@ -41,7 +41,11 @@ internal sealed class AvailabilityCheckService : IAvailabilityCheckService
 
     public async Task<IReadOnlyList<LineReservation>> CheckAndReserveAsync(Guid saleOrderUuid, int userId)
     {
-        var order = await _db.SaleOrders.Include(x => x.Lines).FirstOrDefaultAsync(x => x.UUID == saleOrderUuid)
+        // A32 PF-05 — own organization explicitly: the tenant filter is off for a super admin, and confirm is only ever
+        // called for the caller's own order (SaleOrderService.ConfirmAsync, in a request).
+        var orgId = _db.TenantContext.OrganizationId;
+        var order = await _db.SaleOrders.Include(x => x.Lines)
+                        .FirstOrDefaultAsync(x => x.UUID == saleOrderUuid && x.OrganizationId == orgId)
             ?? throw new NotFoundException("SaleOrder", saleOrderUuid);
 
         var config    = await _config.GetConfigAsync();

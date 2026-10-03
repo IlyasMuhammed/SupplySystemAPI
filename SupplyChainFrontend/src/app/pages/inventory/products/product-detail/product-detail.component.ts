@@ -51,6 +51,9 @@ import {
 import { BomManagerComponent } from './bom-manager/bom-manager.component';
 import { QboSyncBadgeComponent } from '../../../../shared/components/qbo-sync-badge/qbo-sync-badge.component';
 import { QboSyncStatusStore } from '../../../../shared/components/qbo-sync-badge/qbo-sync-status.store';
+import { AuthService } from '../../../service/auth.service';
+import { TenantService } from '../../../service/tenant.service';
+import { VariantRouteFieldComponent } from './variant-route-field/variant-route-field.component';
 
 @Component({
   selector: 'app-product-detail',
@@ -60,7 +63,8 @@ import { QboSyncStatusStore } from '../../../../shared/components/qbo-sync-badge
     ButtonModule, CardModule, TabViewModule, TagModule, ToastModule,
     DialogModule, InputTextModule, TextareaModule, InputNumberModule,
     DividerModule, TooltipModule, ConfirmDialogModule, DropdownModule, TableModule,
-    CheckboxModule, CalendarModule, DynamicAttributeFormComponent, BomManagerComponent, QboSyncBadgeComponent
+    CheckboxModule, CalendarModule, DynamicAttributeFormComponent, BomManagerComponent, QboSyncBadgeComponent,
+    VariantRouteFieldComponent
   ],
   templateUrl: './product-detail.component.html',
   styleUrls: ['./product-detail.component.scss'],
@@ -148,6 +152,15 @@ export class ProductDetailComponent implements OnInit {
   editingVariant: ProductVariantModel | null = null;
   private variantAttributeValues: VariantAttributeValueInput[] = [];
   private variantAttributesValid = true;
+
+  // A33-PB-04 — the variant's fulfillment route. Saved after the variant through its own gated call
+  // (PUT api/variants/{uuid}/fulfillment-route, FULFILLMENT_ROUTE_ASSIGN); PATCH api/variants ignores it.
+  // Hidden for organizations without Logistics (D-11: no routes there).
+  variantRouteUuid: string | null = null;
+  private readonly authService = inject(AuthService);
+  private readonly tenantService = inject(TenantService);
+  get routesEnabled(): boolean { return this.tenantService.hasFeature('MODULE_LOGISTICS'); }
+  get canAssignRoute(): boolean { return this.authService.hasPermission('FULFILLMENT_ROUTE_ASSIGN'); }
 
   // ── Pricing tab (A29-P2-06) ───────────────────────────────────────────────
   pricingVariantUuid: string | null = null;
@@ -595,6 +608,7 @@ export class ProductDetailComponent implements OnInit {
       isAvailableForProduction: false, isAvailableForServices: false,
       saleOrderMinQty: null, saleOrderMaxQty: null
     });
+    this.variantRouteUuid = null;
     this.showVariantDialog = true;
   }
 
@@ -621,6 +635,7 @@ export class ProductDetailComponent implements OnInit {
       saleOrderMinQty: variant.saleOrderMinQty ?? null,
       saleOrderMaxQty: variant.saleOrderMaxQty ?? null
     });
+    this.variantRouteUuid = variant.fulfillmentRouteUuid ?? null;
     this.showVariantDialog = true;
   }
 
@@ -667,10 +682,12 @@ export class ProductDetailComponent implements OnInit {
     this.isSavingVariant = true;
     if (this.editingVariant) {
       const variantUuid = this.editingVariant.uuid;
+      const savedRoute = this.editingVariant.fulfillmentRouteUuid ?? null;
       this.inventoryService.updateVariant(variantUuid, payload).subscribe({
         next: (res) => {
           if (res.success) {
-            this.saveVariantAttributesThen(variantUuid, () => this.finishVariantSave('Variant updated.'));
+            this.saveVariantAttributesThen(variantUuid, () =>
+              this.saveVariantRouteThen(variantUuid, savedRoute, () => this.finishVariantSave('Variant updated.')));
           } else {
             this.isSavingVariant = false;
             this.messageService.add({ severity: 'error', summary: 'Error', detail: res.message });
@@ -685,7 +702,9 @@ export class ProductDetailComponent implements OnInit {
       this.inventoryService.addVariant(this.productId, payload).subscribe({
         next: (res) => {
           if (res.success && res.result) {
-            this.saveVariantAttributesThen(res.result.uuid, () => this.finishVariantSave('Variant added.'));
+            const variantUuid = res.result.uuid;
+            this.saveVariantAttributesThen(variantUuid, () =>
+              this.saveVariantRouteThen(variantUuid, null, () => this.finishVariantSave('Variant added.')));
           } else {
             this.isSavingVariant = false;
             this.messageService.add({ severity: 'error', summary: 'Error', detail: res.message });
@@ -707,6 +726,23 @@ export class ProductDetailComponent implements OnInit {
       next: () => then(),
       error: () => {
         this.messageService.add({ severity: 'warn', summary: 'Partial Save', detail: 'Variant saved, but attribute values failed to save.' });
+        then();
+      }
+    });
+  }
+
+  // A33-PB-04 — the route is a secondary write too, through its own gated call and only when it changed. A refusal
+  // (inactive or unknown route, 400) is a warning: the variant itself is saved.
+  private saveVariantRouteThen(variantUuid: string, savedRoute: string | null, then: () => void): void {
+    const route = this.variantRouteUuid ?? null;
+    if (!this.routesEnabled || !this.canAssignRoute || route === savedRoute) { then(); return; }
+    this.inventoryService.setVariantFulfillmentRoute(variantUuid, route).subscribe({
+      next: () => then(),
+      error: (err) => {
+        this.messageService.add({
+          severity: 'warn', summary: 'Partial Save', life: 8000,
+          detail: `Variant saved, but the fulfillment route was not set: ${err?.error?.message || 'the request failed.'}`
+        });
         then();
       }
     });

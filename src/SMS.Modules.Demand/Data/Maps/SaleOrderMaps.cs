@@ -53,6 +53,9 @@ internal sealed class SaleOrderMap : IEntityTypeConfiguration<SaleOrder>
          .OnDelete(DeleteBehavior.NoAction);
         b.HasIndex(x => x.SourceInquiryId).HasFilter("[SourceInquiryId] IS NOT NULL");
 
+        // A33 D-12: the sweep reads only the few orders still waiting for their deliveries.
+        b.HasIndex(x => x.DeliveryCreationPendingSince).HasFilter("[DeliveryCreationPendingSince] IS NOT NULL");
+
         b.HasMany(x => x.Lines)
          .WithOne(x => x.SaleOrder)
          .HasForeignKey(x => x.SaleOrderId)
@@ -90,5 +93,12 @@ internal sealed class SaleOrderLineMap : IEntityTypeConfiguration<SaleOrderLine>
         b.HasIndex(x => x.SaleOrderId);
         // §17.2 — SaleOrderLines (variant, status).
         b.HasIndex(x => new { x.VariantUuid, x.Status });
+
+        // A33 C3: the route (override while DRAFT, snapshot after confirm). Filtered, for "is this route in use" (L-7).
+        // Not led by OrganizationId on purpose: a filtered index leading with it would make ApplyTenantIndexes drop the
+        // table's plain OrganizationId index, which the tenant filter's queries need (and dropping is unsafe on SMSGlobal).
+        b.Property(x => x.FulfillmentRouteCode).HasMaxLength(30);
+        b.Property(x => x.RouteSource).HasMaxLength(20);
+        b.HasIndex(x => x.FulfillmentRouteUuid).HasFilter("[FulfillmentRouteUuid] IS NOT NULL");
     }
 }

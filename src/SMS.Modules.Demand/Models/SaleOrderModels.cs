@@ -20,6 +20,12 @@ public class CreateSaleOrderLineRequest
     /// a draft's lines are rebuilt from the request, so a line sent without it loses its code.
     /// </summary>
     public Guid?   TaxCodeUuid     { get; set; }
+    /// <summary>
+    /// A33 BR-C3-01: the line's fulfillment route override, an active route of the caller's organization; null means
+    /// inherit (the variant's route, then the organization default). DRAFT only, and like the tax code it must be sent
+    /// back on every update, because a draft's lines are rebuilt from the request.
+    /// </summary>
+    public Guid?   FulfillmentRouteUuid { get; set; }
 }
 
 public class CreateSaleOrderRequest
@@ -168,6 +174,142 @@ public class SaleOrderModel
     public Guid?     CustomerPoAttachmentUuid { get; set; }
 
     public List<SaleOrderLineModel> Lines { get; set; } = [];
+
+    // A33 (detail only). False when the organization has no Logistics module (D-11): no route, no gate, no auto-create.
+    public bool      RoutesEnabled            { get; set; }
+    /// <summary>Why the order cannot be confirmed yet; always empty unless DRAFT.</summary>
+    public List<ConfirmBlockerModel> ConfirmBlockers { get; set; } = [];
+}
+
+/// <summary>A33: one reason a DRAFT order cannot be confirmed (API-CONTRACT.md §5).</summary>
+public class ConfirmBlockerModel
+{
+    public Guid?   LineUuid   { get; set; }
+    /// <summary>1-based position of the line by Id ("Line N"); null for an order-level blocker.</summary>
+    public int?    LineNumber { get; set; }
+    /// <summary>ROUTE_MISSING | ROUTE_INACTIVE | ROUTE_UNKNOWN | SHIPPING_ADDRESS_REQUIRED | SELF_PICKUP_DISABLED.</summary>
+    public string  Code       { get; set; } = string.Empty;
+    public string  Message    { get; set; } = string.Empty;
+}
+
+public static class ConfirmBlockerCodes
+{
+    public const string RouteMissing            = "ROUTE_MISSING";
+    public const string RouteInactive           = "ROUTE_INACTIVE";
+    public const string RouteUnknown            = "ROUTE_UNKNOWN";
+    public const string ShippingAddressRequired = "SHIPPING_ADDRESS_REQUIRED";
+    public const string SelfPickupDisabled      = "SELF_PICKUP_DISABLED";
+}
+
+// ── A33 delivery preview (BR-C3-05), confirm and cancel results ─────────────
+
+public class SaleOrderDeliveryPreviewRequest
+{
+    /// <summary>The order being edited, when it has been saved; must be the caller's own.</summary>
+    public Guid?   SaleOrderUuid     { get; set; }
+    /// <summary>SHIP | SELF_PICKUP; picks the organization default of that class (D-4). Blank = the organization's default mode.</summary>
+    public string? DeliveryMode      { get; set; }
+    public Guid?   ShippingAddressId { get; set; }
+    public List<SaleOrderDeliveryPreviewLineRequest> Lines { get; set; } = [];
+}
+
+/// <summary>A33 — PUT api/sale-orders/{uuid}/lines/{lineUuid}/fulfillment-route. Null = inherit (variant, then org default).</summary>
+public class UpdateSaleOrderLineRouteRequest
+{
+    public Guid? FulfillmentRouteUuid { get; set; }
+}
+
+public class SaleOrderDeliveryPreviewLineRequest
+{
+    public Guid    VariantUuid          { get; set; }
+    public decimal Quantity             { get; set; }
+    public Guid?   FulfillmentRouteUuid { get; set; }
+}
+
+public class SaleOrderDeliveryPreviewModel
+{
+    public bool RoutesEnabled { get; set; }
+    /// <summary>No blockers.</summary>
+    public bool CanConfirm    { get; set; }
+    /// <summary>= Groups.Count.</summary>
+    public int  DeliveryCount { get; set; }
+    public List<DeliveryPreviewLineModel>  Lines    { get; set; } = [];
+    public List<DeliveryPreviewGroupModel> Groups   { get; set; } = [];
+    public List<ConfirmBlockerModel>       Blockers { get; set; } = [];
+}
+
+public class DeliveryPreviewLineModel
+{
+    public Guid?   LineUuid             { get; set; }
+    public int     LineNumber           { get; set; }
+    public Guid    VariantUuid          { get; set; }
+    public string? ItemDescription      { get; set; }
+    public decimal Quantity             { get; set; }
+    public Guid?   FulfillmentRouteUuid { get; set; }
+    public Guid?   EffectiveRouteUuid   { get; set; }
+    public string? EffectiveRouteCode   { get; set; }
+    public string? EffectiveRouteName   { get; set; }
+    public List<string> EffectiveRouteSteps { get; set; } = [];
+    public string  RouteSource          { get; set; } = "NONE";
+    public string? RouteBlocker         { get; set; }
+}
+
+/// <summary>One delivery confirming would create (route × ship-from warehouse; the warehouse only once stock is held).</summary>
+public class DeliveryPreviewGroupModel
+{
+    public Guid    RouteUuid        { get; set; }
+    public string  RouteCode        { get; set; } = string.Empty;
+    public string  RouteName        { get; set; } = string.Empty;
+    public List<string> Steps       { get; set; } = [];
+    public string  StepsText        { get; set; } = string.Empty;
+    public bool    RequiresShipping { get; set; }
+    /// <summary>SHIP | SELF_PICKUP, from the route (D-4).</summary>
+    public string  DeliveryMode     { get; set; } = string.Empty;
+    public Guid?   WarehouseUuid    { get; set; }
+    public string? WarehouseName    { get; set; }
+    public List<int> LineNumbers    { get; set; } = [];
+}
+
+public class CreatedSaleOrderDeliveryModel
+{
+    public Guid    DeliveryUuid          { get; set; }
+    public string  DeliveryNumber        { get; set; } = string.Empty;
+    public Guid    RouteUuid             { get; set; }
+    public string  RouteCode             { get; set; } = string.Empty;
+    public string  DeliveryMode          { get; set; } = string.Empty;
+    public Guid?   ShipFromWarehouseUuid { get; set; }
+    public int     LineCount             { get; set; }
+}
+
+public class SkippedSaleOrderLineModel
+{
+    public Guid   SoLineUuid { get; set; }
+    public string Reason     { get; set; } = string.Empty;
+}
+
+/// <summary>A33: what confirming did. Additive over the old bare message.</summary>
+public class SaleOrderConfirmResultModel
+{
+    public string Status { get; set; } = string.Empty;
+    public List<CreatedSaleOrderDeliveryModel> Deliveries   { get; set; } = [];
+    public List<SkippedSaleOrderLineModel>     SkippedLines { get; set; } = [];
+    /// <summary>The order is confirmed but its deliveries were not created: show DeliveryMessage and the recovery button.</summary>
+    public bool    DeliveryCreationFailed { get; set; }
+    public string? DeliveryMessage        { get; set; }
+}
+
+public class SaleOrderDeliveryRefModel
+{
+    public Guid   DeliveryUuid   { get; set; }
+    public string DeliveryNumber { get; set; } = string.Empty;
+    public string Status         { get; set; } = string.Empty;
+}
+
+/// <summary>A33 D-15: deliveries not yet goods-issued were cancelled; issued ones stay and need a manual reversal.</summary>
+public class SaleOrderCancelResultModel
+{
+    public List<SaleOrderDeliveryRefModel> CancelledDeliveries { get; set; } = [];
+    public List<SaleOrderDeliveryRefModel> IssuedDeliveries    { get; set; } = [];
 }
 
 public class SaleOrderLineModel
@@ -209,6 +351,18 @@ public class SaleOrderLineModel
     public decimal  ReservableQty         { get; set; }
     /// <summary>GREEN | BLUE | YELLOW | RED | GREY (§6.3).</summary>
     public string   DeliveryIndicator     { get; set; } = "RED";
+
+    // A33 C3 (detail only): live while DRAFT, the confirm-time snapshot afterwards (D-16).
+    /// <summary>The line's override while DRAFT (null = inherit); the route it was confirmed with afterwards.</summary>
+    public Guid?    FulfillmentRouteUuid  { get; set; }
+    public Guid?    EffectiveRouteUuid    { get; set; }
+    public string?  EffectiveRouteCode    { get; set; }
+    public string?  EffectiveRouteName    { get; set; }
+    public List<string> EffectiveRouteSteps { get; set; } = [];
+    /// <summary>LINE_OVERRIDE | VARIANT | ORG_DEFAULT | NONE (DROP_SHIP lines: NONE with no blocker, D-5).</summary>
+    public string   RouteSource           { get; set; } = "NONE";
+    /// <summary>A <see cref="ConfirmBlockerCodes"/> value when this line blocks confirmation.</summary>
+    public string?  RouteBlocker          { get; set; }
 }
 
 // A29-P3-07 §4.5's /availability preview — what §4.3's confirm-time check would see right now,

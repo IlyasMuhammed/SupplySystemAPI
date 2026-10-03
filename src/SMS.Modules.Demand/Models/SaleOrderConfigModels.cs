@@ -17,6 +17,8 @@ public class SaleOrderConfigModel
     public int?     IntimationDepartmentId    { get; set; }
     public string?  IntimationCcEmails        { get; set; }
     public bool     ShipmentRequiredDefault   { get; set; }
+    /// <summary>A33 D-1: confirming an order creates its deliveries, one per route (default true; only with MODULE_LOGISTICS).</summary>
+    public bool     AutoCreateDeliveriesOnConfirm { get; set; } = true;
     public int?      UpdatedBy { get; set; }
     public DateTime? UpdatedAt { get; set; }
 }
@@ -35,6 +37,8 @@ public class UpdateSaleOrderConfigRequest
     public int?     IntimationDepartmentId    { get; set; }
     public string?  IntimationCcEmails        { get; set; }
     public bool     ShipmentRequiredDefault   { get; set; }
+    /// <summary>A33 D-1. Null keeps the current value, so a client from before A33 cannot switch it off by leaving it out.</summary>
+    public bool?    AutoCreateDeliveriesOnConfirm { get; set; }
 }
 
 public class SaleOrderConfigAuditModel

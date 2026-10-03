@@ -37,8 +37,12 @@
         <p-button *ngIf="canCancel" label="Cancel order" icon="pi pi-times-circle" severity="danger" [outlined]="true"
                   (onClick)="openCancelDialog()" data-testid="action-cancel"></p-button>
 
-        <p-button *ngIf="canConfirm" label="Confirm order" icon="pi pi-check-circle"
-                  (onClick)="openConfirmDialog()" data-testid="action-confirm"></p-button>
+        <!-- A33 PC-09: disabled, never hidden, while anything blocks it; the wrapper carries the tooltip a disabled
+             button cannot show. -->
+        <span *ngIf="canConfirm" [pTooltip]="confirmBlockedTooltip" tooltipPosition="bottom" data-testid="confirm-wrap">
+          <p-button label="Confirm order" icon="pi pi-check-circle" [disabled]="isConfirmBlocked"
+                    (onClick)="openConfirmDialog()" data-testid="action-confirm"></p-button>
+        </span>
 
         <p-button *ngIf="canCreateDelivery" label="Create delivery" icon="pi pi-truck"
                   (onClick)="openCreateDialog()" data-testid="action-create-delivery"></p-button>
@@ -49,6 +53,48 @@
           <i class="pi pi-info-circle"></i> Not ready to deliver
         </span>
       </div>
+    </div>
+
+    <!-- A33 PC-09: why the order cannot be confirmed yet. -->
+    <div class="route-warning" *ngIf="isConfirmBlocked" role="status" data-testid="confirm-blockers-banner">
+      <i class="pi pi-exclamation-triangle"></i>
+      <div>
+        <strong>This order cannot be confirmed yet.</strong>
+        <ul><li *ngFor="let row of confirmBlockerRows">{{ row }}</li></ul>
+      </div>
+    </div>
+
+    <!-- A33 D-1/D-12: confirmed, but the deliveries were not created — the order stands; create them now. -->
+    <div class="route-warning" *ngIf="deliveryCreationMessage" role="status" data-testid="delivery-creation-failed">
+      <i class="pi pi-exclamation-triangle"></i>
+      <div class="grow">
+        <strong>The delivery orders were not created.</strong> {{ deliveryCreationMessage }}
+      </div>
+      <p-button *ngIf="canCreateRouteDeliveries" label="Create deliveries" icon="pi pi-truck" size="small"
+                [loading]="isCreatingDeliveries" (onClick)="createRouteDeliveries()" data-testid="create-deliveries-retry"></p-button>
+    </div>
+
+    <!-- A33 D-15: what cancelling did to the order's deliveries. -->
+    <div class="cancel-result" *ngIf="cancelResult as r" role="status" data-testid="cancel-result">
+      <div class="grow">
+        <p *ngIf="r.cancelledDeliveries.length">
+          <strong>Cancelled with the order:</strong>
+          <ng-container *ngFor="let d of r.cancelledDeliveries; let last = last">
+            <a class="source-link font-mono" [routerLink]="['/portal/pages/logistics/deliveries', d.deliveryUuid]"
+               data-testid="cancelled-delivery">{{ d.deliveryNumber }}</a>{{ last ? '.' : ', ' }}
+          </ng-container>
+        </p>
+        <p *ngIf="r.issuedDeliveries.length">
+          <strong>Kept — already goods-issued, so the stock has left:</strong>
+          <ng-container *ngFor="let d of r.issuedDeliveries; let last = last">
+            <a class="source-link font-mono" [routerLink]="['/portal/pages/logistics/deliveries', d.deliveryUuid]"
+               data-testid="issued-delivery">{{ d.deliveryNumber }}</a> ({{ formatStatus(d.status) }}){{ last ? '.' : ', ' }}
+          </ng-container>
+          Reverse or return them by hand if needed.
+        </p>
+      </div>
+      <p-button icon="pi pi-times" [text]="true" severity="secondary" size="small" pTooltip="Dismiss"
+                (onClick)="dismissCancelResult()"></p-button>
     </div>
 
     <!-- A32 BR-C3-05: the same customer PO on another order is allowed, but worth a look. -->
@@ -71,7 +117,8 @@
           <dt>Order date</dt><dd>{{ o.orderDate | date:'dd MMM yyyy' }}</dd>
           <dt>Expected</dt><dd>{{ o.expectedDeliveryDate ? (o.expectedDeliveryDate | date:'dd MMM yyyy') : '—' }}</dd>
           <dt>Delivery mode</dt><dd>{{ formatStatus(o.deliveryMode) }}</dd>
-          <ng-container *ngIf="o.deliveryMode === 'SHIP'">
+          <!-- A collected order can still carry an address: a line routed to Ship needs one (D-4). -->
+          <ng-container *ngIf="o.deliveryMode === 'SHIP' || o.shippingAddressId">
             <dt>Ship to</dt>
             <dd data-testid="ship-to">{{ shipTo ? formatAddress(shipTo) : (o.shippingAddressId ? 'Address on file' : '—') }}</dd>
           </ng-container>
@@ -163,6 +210,7 @@
                 <th class="text-right">Delivered</th>
                 <th class="text-right">Outstanding</th>
                 <th>Mode</th>
+                <th *ngIf="routesOn" data-testid="route-header" pTooltip="Fulfillment route — how the warehouse sends the line">Route</th>
                 <th>Status</th>
                 <th class="text-center" pTooltip="Delivery indicator — hover a dot for what it means">Ind</th>
                 <th class="text-center">Actions</th>
@@ -189,6 +237,27 @@
                 <td class="text-right">{{ line.fulfilledQty | number:'1.0-3' }}</td>
                 <td class="text-right">{{ outstanding(line) | number:'1.0-3' }}</td>
                 <td>{{ formatStatus(line.fulfillmentMode) || '—' }}</td>
+                <!-- A33 PC-07: a dropdown on a draft for someone who may edit it; read-only otherwise (the route is
+                     snapshotted at confirm, D-16). A drop-shipped line needs none (D-5). -->
+                <td *ngIf="routesOn" class="route-cell" data-testid="line-route">
+                  <ng-container *ngIf="routeDisplay(line) as d">
+                    <div class="route-value">
+                      <p-dropdown *ngIf="canChangeRoute && d.kind !== 'exempt'; else routeName"
+                                  [options]="routeOptionsFor(line)" optionLabel="label" optionValue="value"
+                                  [ngModel]="line.fulfillmentRouteUuid ?? null" (ngModelChange)="changeLineRoute(line, $event)"
+                                  [showClear]="true" [placeholder]="inheritedRouteLabel(line)" [disabled]="!!savingRouteLineUuid"
+                                  [class.p-invalid]="d.kind === 'blocked'" appendTo="body" styleClass="route-select"
+                                  data-testid="line-route-select"></p-dropdown>
+                      <ng-template #routeName>
+                        <span *ngIf="d.name" data-testid="line-route-name">{{ d.name }}</span>
+                      </ng-template>
+                      <span *ngIf="d.icon" class="route-source" [class.blocking]="d.kind === 'blocked'" [attr.data-source]="d.source"
+                            [pTooltip]="d.hint" data-testid="line-route-source">{{ d.icon }}</span>
+                      <i *ngIf="savingRouteLineUuid === line.uuid" class="pi pi-spin pi-spinner"></i>
+                    </div>
+                    <div class="route-hint" [class.blocking]="d.kind === 'blocked'" data-testid="line-route-hint">{{ d.hint }}</div>
+                  </ng-container>
+                </td>
                 <td><p-tag [value]="formatStatus(line.status)" severity="secondary"></p-tag></td>
                 <td class="text-center">
                   <span *ngIf="line.deliveryIndicator as ind; else noIndicator" class="ind-dot"
@@ -218,10 +287,21 @@
               </tr>
             </ng-template>
             <ng-template pTemplate="emptymessage">
-              <tr><td colspan="14" class="text-center text-secondary" style="padding:2rem">No lines.</td></tr>
+              <tr><td [attr.colspan]="routesOn ? 15 : 14" class="text-center text-secondary" style="padding:2rem">No lines.</td></tr>
             </ng-template>
           </p-table>
         </div>
+
+        <ng-container *ngIf="routesOn">
+          <p class="route-legend" data-testid="route-legend">
+            <span class="legend-title">Route:</span>
+            <span *ngFor="let l of routeLegend">{{ l.icon }} = {{ l.text }}</span>
+          </p>
+
+          <!-- A33 PC-08: what confirming will create (a draft only; nothing is saved). -->
+          <app-delivery-preview-panel *ngIf="o.status === 'DRAFT' && (preview || isLoadingPreview || previewFailed)"
+                                      [preview]="preview" [loading]="isLoadingPreview" [failed]="previewFailed"></app-delivery-preview-panel>
+        </ng-container>
 
         <div class="reserve-bar" *ngIf="isReservableOrder">
           <span [pTooltip]="reserveAllTooltip" tooltipPosition="top" data-testid="reserve-all-wrap">
@@ -239,50 +319,119 @@
 
       <!-- ── Deliveries ────────────────────────────────────────────────────────── -->
       <p-tabPanel header="Deliveries" leftIcon="pi pi-truck">
+        <!-- A33 PD-06: the order's fulfillment — progress by line, then each delivery with its route. -->
+        <div class="fulfil-progress" data-testid="lines-delivered">
+          <span><strong>Overall fulfillment:</strong> {{ linesDelivered }} of {{ linesToDeliver }} lines delivered</span>
+          <span class="percent">{{ linesDeliveredPercent }}%</span>
+          <div class="progress-track"><div class="progress-fill" [style.width.%]="linesDeliveredPercent"></div></div>
+        </div>
+
         <p class="no-access" *ngIf="!canViewDeliveries" data-testid="deliveries-no-access">
           <i class="pi pi-lock"></i> You do not have permission to see deliveries.
         </p>
 
-        <div class="table-card flush" *ngIf="canViewDeliveries">
-          <p-table [value]="deliveries" [loading]="isLoadingDeliveries"
-                   [tableStyle]="{'min-width':'56rem'}" data-testid="deliveries-table">
-            <ng-template pTemplate="header">
-              <tr>
-                <th>Delivery #</th>
-                <th>Mode</th>
-                <th class="text-center">Lines</th>
-                <th>Requested</th>
-                <th>Created</th>
-                <th>Status</th>
-                <th class="text-center">Actions</th>
-              </tr>
-            </ng-template>
-            <ng-template pTemplate="body" let-d>
-              <tr>
-                <td class="font-mono font-semibold">{{ d.deliveryNumber }}</td>
-                <td>{{ formatStatus(d.deliveryMode) || '—' }}</td>
-                <td class="text-center">{{ d.lineCount }}</td>
-                <td>{{ d.requestedDate ? (d.requestedDate | date:'dd MMM yyyy') : '—' }}</td>
-                <td>{{ d.createdDate | date:'dd MMM yyyy' }}</td>
-                <td><p-tag [value]="formatStatus(d.status)" [severity]="getDeliverySeverity(d.status)"></p-tag></td>
-                <td class="text-center">
-                  <!-- The delivery's own page is where it is released, picked, packed, issued,
-                       shipped, tracked and collected — one link, not seven. -->
-                  <p-button icon="pi pi-eye" [text]="true" severity="info" size="small" pTooltip="Open delivery"
-                            [routerLink]="['/portal/pages/logistics/deliveries', d.uuid]"
-                            data-testid="open-delivery"></p-button>
-                </td>
-              </tr>
-            </ng-template>
-            <ng-template pTemplate="emptymessage">
-              <tr>
-                <td colspan="7" class="text-center text-secondary" style="padding:2rem">
-                  No deliveries raised for this order yet.
-                </td>
-              </tr>
-            </ng-template>
-          </p-table>
-        </div>
+        <ng-container *ngIf="canViewDeliveries">
+          <div class="deliveries-bar">
+            <h4 data-testid="deliveries-heading">Delivery orders ({{ deliveries.length }})</h4>
+            <a *ngIf="deliveries.length" class="source-link" [routerLink]="['/portal/pages/logistics/deliveries']"
+               [queryParams]="deliveriesListQuery" data-testid="deliveries-list-link">View in Deliveries</a>
+            <span class="grow"></span>
+            <p-button *ngIf="canCreateRouteDeliveries" label="Create deliveries" icon="pi pi-truck" size="small" [outlined]="true"
+                      [loading]="isCreatingDeliveries" (onClick)="createRouteDeliveries()"
+                      pTooltip="Creates one delivery per route for every line not on a delivery yet. Safe to press again."
+                      data-testid="create-deliveries"></p-button>
+          </div>
+
+          <div class="route-warning" *ngIf="createDeliveriesSkipped.length" data-testid="create-deliveries-skipped">
+            <i class="pi pi-info-circle"></i>
+            <div>
+              <strong>Not put on a delivery:</strong>
+              <ul><li *ngFor="let s of createDeliveriesSkipped">{{ skippedLineName(s) }} — {{ s.reason }}</li></ul>
+            </div>
+          </div>
+
+          <div class="table-card flush">
+            <p-table [value]="deliveries" [loading]="isLoadingDeliveries"
+                     [tableStyle]="{'min-width':'60rem'}" data-testid="deliveries-table">
+              <ng-template pTemplate="header">
+                <tr>
+                  <th style="width:3rem"></th>
+                  <th>Delivery #</th>
+                  <th *ngIf="routesOn">Route</th>
+                  <th>Mode</th>
+                  <th class="text-center">Lines</th>
+                  <th>Requested</th>
+                  <th>Created</th>
+                  <th>Status</th>
+                  <th class="text-center">Actions</th>
+                </tr>
+              </ng-template>
+              <ng-template pTemplate="body" let-d>
+                <tr>
+                  <td>
+                    <p-button [icon]="isDeliveryExpanded(d) ? 'pi pi-chevron-down' : 'pi pi-chevron-right'" [text]="true"
+                              severity="secondary" size="small" (onClick)="toggleDelivery(d)"
+                              [attr.aria-label]="isDeliveryExpanded(d) ? 'Hide lines' : 'Show lines'"
+                              data-testid="toggle-delivery"></p-button>
+                  </td>
+                  <td>
+                    <span class="font-mono font-semibold">{{ d.deliveryNumber }}</span>
+                    <div class="line-sub" *ngIf="d.lineSummary">{{ d.lineSummary }}</div>
+                  </td>
+                  <td *ngIf="routesOn" data-testid="delivery-route"
+                      [pTooltip]="d.fulfillmentRouteUuid ? '' : 'Raised without a route: the full path (pick, pack, stage, goods issue).'">
+                    {{ d.fulfillmentRouteName || d.fulfillmentRouteCode || 'No route' }}
+                  </td>
+                  <td>{{ formatStatus(d.deliveryMode) || '—' }}</td>
+                  <td class="text-center" data-testid="delivery-line-count">{{ d.lineCount }}</td>
+                  <td>{{ d.requestedDate ? (dateOnly(d.requestedDate) | date:'dd MMM yyyy') : '—' }}</td>
+                  <td>{{ d.createdDate | date:'dd MMM yyyy' }}</td>
+                  <td><p-tag [value]="formatStatus(d.status)" [severity]="getDeliverySeverity(d.status)" data-testid="delivery-status"></p-tag></td>
+                  <td class="text-center">
+                    <!-- The delivery's own page is where it is released, picked, packed, issued,
+                         shipped, tracked and collected — one link, not seven. -->
+                    <p-button label="View" icon="pi pi-eye" [text]="true" severity="info" size="small" pTooltip="Open delivery"
+                              [routerLink]="['/portal/pages/logistics/deliveries', d.uuid]"
+                              data-testid="open-delivery"></p-button>
+                  </td>
+                </tr>
+                <tr *ngIf="isDeliveryExpanded(d)" class="delivery-expansion-row">
+                  <td [attr.colspan]="routesOn ? 9 : 8" data-testid="delivery-expansion">
+                    <p class="line-sub" *ngIf="d.lineSummary">{{ d.lineSummary }}</p>
+                    <span *ngIf="isLoadingLinesOf(d)" class="muted"><i class="pi pi-spin pi-spinner"></i> Loading the lines…</span>
+                    <span *ngIf="linesFailedFor(d)" class="muted">The lines could not be loaded. Open the delivery to see them.</span>
+                    <table class="delivery-lines" *ngIf="linesOf(d) as dl">
+                      <thead>
+                        <tr>
+                          <th>Item</th><th class="text-right">Ordered</th><th class="text-right">Picked</th>
+                          <th class="text-right">Packed</th><th class="text-right">Shipped</th><th class="text-right">Delivered</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr *ngFor="let l of dl" data-testid="delivery-line">
+                          <td>{{ l.itemDescription }} <span class="line-sub" *ngIf="l.unitOfMeasure">{{ l.unitOfMeasure }}</span></td>
+                          <td class="text-right">{{ l.qtyOrdered | number:'1.0-3' }}</td>
+                          <td class="text-right">{{ l.qtyPicked | number:'1.0-3' }}</td>
+                          <td class="text-right">{{ l.qtyPacked | number:'1.0-3' }}</td>
+                          <td class="text-right">{{ l.qtyShipped | number:'1.0-3' }}</td>
+                          <td class="text-right">{{ l.qtyDelivered | number:'1.0-3' }}</td>
+                        </tr>
+                        <tr *ngIf="!dl.length"><td colspan="6" class="muted">No lines recorded.</td></tr>
+                      </tbody>
+                    </table>
+                  </td>
+                </tr>
+              </ng-template>
+              <ng-template pTemplate="emptymessage">
+                <tr>
+                  <td [attr.colspan]="routesOn ? 9 : 8" class="text-center text-secondary" style="padding:2rem">
+                    No deliveries raised for this order yet.
+                  </td>
+                </tr>
+              </ng-template>
+            </p-table>
+          </div>
+        </ng-container>
       </p-tabPanel>
 
       <!-- ── Invoices ──────────────────────────────────────────────────────────── -->
@@ -496,6 +645,12 @@
       {{ shortfalls.length }} line{{ shortfalls.length === 1 ? ' is' : 's are' }} short. A purchase order will be raised
       for what is missing.
     </p>
+
+    <!-- A33 PC-09: the server's refusal, one blocker per line. -->
+    <div class="dialog-error" *ngIf="confirmErrors.length" role="alert" data-testid="confirm-errors">
+      <p><i class="pi pi-times-circle"></i> The order was not confirmed:</p>
+      <ul><li *ngFor="let e of confirmErrors" data-testid="confirm-error-line">{{ e }}</li></ul>
+    </div>
 
     <ng-template pTemplate="footer">
       <p-button label="Back" [text]="true" severity="secondary" (onClick)="confirmDialogVisible = false"></p-button>

@@ -19,9 +19,21 @@ import {
   DeliveryPackingModel,
   PackageModel,
   PackContentRequest,
+  PatchPackageRequest,
   PACKAGE_TYPES
 } from '../../../../services/logistics.service';
 import { DELIVERY_STATUS_SEVERITY } from '../delivery-list/delivery-list.component';
+import { packagesAmendableWhileStaged } from '../delivery-detail/delivery-detail.component';
+
+/** The fields of a carton the packer can correct after packing (PATCH: a field left empty stays as it is). */
+interface PackageEdit {
+  lengthCm: number | null;
+  widthCm: number | null;
+  heightCm: number | null;
+  grossWeightKg: number | null;
+  netWeightKg: number | null;
+  sealNumber: string;
+}
 
 type Severity = 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast';
 
@@ -81,6 +93,15 @@ export class PackStationComponent implements OnInit {
 
   issueDialogVisible = false;
 
+  // ── A33 REV-04b — correcting a carton (weight, size, seal) ─────────────────
+
+  /** STAGED by its route's auto-stage, not approved, on no live consignment: the server still lets cartons change. */
+  amendableWhileStaged = false;
+  editDialogVisible = false;
+  editTarget: PackageModel | null = null;
+  edit: PackageEdit = this.emptyEdit();
+  private editOriginal: PackageEdit = this.emptyEdit();
+
   constructor(
     private route: ActivatedRoute,
     private logisticsService: LogisticsService,
@@ -103,19 +124,37 @@ export class PackStationComponent implements OnInit {
         if (res.success && res.result) {
           this.packing = res.result;
           this.notFound = false;
+          this.checkAmendableWhileStaged();
         } else {
           this.packing = null;
           this.notFound = true;
+          this.amendableWhileStaged = false;
         }
       },
       error: (err) => {
         this.isLoading = false;
         this.packing = null;
+        this.amendableWhileStaged = false;
         // A 404 means this delivery does not exist; anything else is a failure to ask, and
         // showing "not found" for a dropped connection sends someone hunting for a live record.
         this.notFound = err?.status === 404;
         if (!this.notFound) this.fail(err, 'Failed to load the delivery.');
       }
+    });
+  }
+
+  /**
+   * REV-04b. Only a STAGED delivery needs the question, and the packing model doesn't carry the route, the approval or
+   * the consignments, so the delivery is read for them. If it can't be read the cartons stay frozen (today's rule):
+   * the server is the judge either way.
+   */
+  private checkAmendableWhileStaged() {
+    this.amendableWhileStaged = false;
+    if (this.packing?.status !== 'STAGED') return;
+
+    this.logisticsService.getDeliveryById(this.uuid).subscribe({
+      next: (res) => this.amendableWhileStaged = !!res.success && packagesAmendableWhileStaged(res.result),
+      error: () => this.amendableWhileStaged = false
     });
   }
 
@@ -132,6 +171,14 @@ export class PackStationComponent implements OnInit {
   /** Packing is open while goods are off the shelf and before they leave the building. */
   get canPack(): boolean {
     return this.packing?.status === 'PICKED' || this.packing?.status === 'PACKED';
+  }
+
+  /**
+   * Existing cartons can be corrected or voided: always while PICKED / PACKED, and (REV-04) while an auto-staged
+   * delivery is still amendable. New cartons still wait for PICKED — voiding one steps the delivery back there.
+   */
+  get canAmend(): boolean {
+    return this.canPack || (this.packing?.status === 'STAGED' && this.amendableWhileStaged);
   }
 
   get canStage(): boolean {
@@ -315,6 +362,60 @@ export class PackStationComponent implements OnInit {
       error: (err) => {
         this.isSubmitting = false;
         this.fail(err, 'The goods could not be issued.');
+      }
+    });
+  }
+
+  // ── Correcting a carton (REV-04b) ───────────────────────────────────────────
+
+  private emptyEdit(): PackageEdit {
+    return { lengthCm: null, widthCm: null, heightCm: null, grossWeightKg: null, netWeightKg: null, sealNumber: '' };
+  }
+
+  openEditDialog(pkg: PackageModel) {
+    this.editTarget = pkg;
+    this.editOriginal = {
+      lengthCm: pkg.lengthCm ?? null, widthCm: pkg.widthCm ?? null, heightCm: pkg.heightCm ?? null,
+      grossWeightKg: pkg.grossWeightKg ?? null, netWeightKg: pkg.netWeightKg ?? null, sealNumber: pkg.sealNumber ?? ''
+    };
+    this.edit = { ...this.editOriginal };
+    this.editDialogVisible = true;
+  }
+
+  /**
+   * Only the fields that changed and have a value. PATCH leaves an absent field as it is, so a cleared field can't
+   * erase a weight — the server has no "clear" for these, and a courier needs them anyway.
+   */
+  get editChanges(): PatchPackageRequest {
+    const changes: PatchPackageRequest = {};
+    const numbers: (keyof Omit<PackageEdit, 'sealNumber'>)[] = ['lengthCm', 'widthCm', 'heightCm', 'grossWeightKg', 'netWeightKg'];
+    for (const key of numbers) {
+      const value = this.edit[key];
+      if (value != null && value !== this.editOriginal[key]) changes[key] = value;
+    }
+    const seal = this.edit.sealNumber.trim();
+    if (seal && seal !== this.editOriginal.sealNumber) changes.sealNumber = seal;
+    return changes;
+  }
+
+  get canSaveEdit(): boolean {
+    return !this.isSubmitting && !!this.editTarget && Object.keys(this.editChanges).length > 0;
+  }
+
+  saveEdit() {
+    if (!this.canAmend || !this.canSaveEdit || !this.editTarget) return;
+    this.isSubmitting = true;
+
+    this.logisticsService.patchPackage(this.editTarget.uuid, this.editChanges).subscribe({
+      next: () => {
+        this.isSubmitting = false;
+        this.editDialogVisible = false;
+        this.ok('Package updated.');
+        this.load();
+      },
+      error: (err) => {
+        this.isSubmitting = false;
+        this.fail(err, 'The package could not be updated.');
       }
     });
   }

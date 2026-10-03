@@ -60,16 +60,38 @@ function ok<T>(result: T) {
   return of({ success: true, message: '', result } as any);
 }
 
+/** The delivery as the detail endpoint reads it — only what the REV-04b rule looks at. No route: today's path. */
+function legacyDetail(overrides: any = {}) {
+  return { uuid: UUID, status: 'STAGED', routeSteps: [], approvedAt: null, consignments: [], ...overrides };
+}
+
+/** PICK_AND_SHIP, staged by the route (no STAGE step), not approved, on no consignment: cartons still amendable. */
+function autoStagedDetail(overrides: any = {}) {
+  return legacyDetail({
+    fulfillmentRouteCode: 'PICK_AND_SHIP',
+    routeSteps: [
+      { stepCode: 'PICK', label: 'Pick', state: 'DONE' },
+      { stepCode: 'GOODS_ISSUE', label: 'Goods Issue', state: 'CURRENT' },
+      { stepCode: 'SHIP', label: 'Ship', state: 'PENDING' },
+      { stepCode: 'COMPLETE', label: 'Complete', state: 'PENDING' }
+    ],
+    ...overrides
+  });
+}
+
 describe('PackStationComponent', () => {
   let fixture: ComponentFixture<PackStationComponent>;
   let component: PackStationComponent;
   let service: jasmine.SpyObj<LogisticsService>;
 
-  async function setup(model: DeliveryPackingModel | null = packing()) {
+  async function setup(model: DeliveryPackingModel | null = packing(), deliveryDetail: any = legacyDetail()) {
     service = jasmine.createSpyObj<LogisticsService>('LogisticsService', [
       'getDeliveryPackages', 'packDelivery', 'voidPackage', 'stageDelivery',
-      'goodsIssueDelivery', 'downloadPackingList', 'downloadGatePass'
+      'goodsIssueDelivery', 'downloadPackingList', 'downloadGatePass',
+      'getDeliveryById', 'patchPackage'
     ]);
+    service.getDeliveryById.and.returnValue(ok(deliveryDetail));
+    service.patchPackage.and.returnValue(of({ success: true, message: '' } as any));
 
     service.getDeliveryPackages.and.returnValue(
       model ? ok(model) : of({ success: false, message: 'not found', result: null } as any));
@@ -429,5 +451,121 @@ describe('PackStationComponent', () => {
     await setup();
     expect(component.titleCase('PENDING_APPROVAL')).toBe('Pending Approval');
     expect(component.titleCase(undefined)).toBe('');
+  });
+
+  // ── A33 REV-04b — amending the cartons of an auto-staged delivery ────────────
+  //
+  // The server (REV-04) keeps the cartons of a delivery its route staged automatically (no STAGE step) amendable until
+  // it is approved, consigned or issued. That window is the only time PICK_AND_SHIP's auto LOOSE unit — created with no
+  // weight, which a courier refuses — can be weighed.
+
+  describe('REV-04b amending cartons', () => {
+    const staged = () => packing({
+      status: 'STAGED', isFullyPacked: true, qtyPacked: 100, qtyUnpacked: 0,
+      packages: [pkg({ packageType: 'LOOSE', grossWeightKg: undefined })]
+    });
+    const q = (id: string) => fixture.nativeElement.querySelector(`[data-testid="${id}"]`);
+
+    it('reads the delivery only when it is staged, and keeps today\'s rule for one with no route', async () => {
+      await setup(packing({ status: 'PICKED' }));
+      fixture.detectChanges();
+      expect(service.getDeliveryById).not.toHaveBeenCalled();
+      expect(component.canAmend).withContext('picked cartons are always the packer\'s').toBeTrue();
+
+      await setup(staged(), legacyDetail());
+      fixture.detectChanges();
+      expect(service.getDeliveryById).toHaveBeenCalledOnceWith(UUID);
+      expect(component.canAmend).toBeFalse();
+      expect(q('action-void')).toBeNull();
+      expect(q('action-edit-package')).toBeNull();
+    });
+
+    it('lets the packer weigh or void a carton of an auto-staged PICK_AND_SHIP delivery', async () => {
+      await setup(staged(), autoStagedDetail());
+      fixture.detectChanges();
+
+      expect(component.canAmend).toBeTrue();
+      expect(component.canPack).withContext('new cartons still wait for PICKED (the void steps it back)').toBeFalse();
+      expect(q('action-void')).not.toBeNull();
+      expect(q('action-edit-package')).not.toBeNull();
+      expect(q('banner-amendable')).not.toBeNull();
+    });
+
+    it('freezes the cartons once the dispatch is approved or a live consignment carries it', async () => {
+      await setup(staged(), autoStagedDetail({ approvedAt: '2026-10-03T09:00:00Z' }));
+      fixture.detectChanges();
+      expect(component.canAmend).withContext('approved').toBeFalse();
+      expect(q('action-edit-package')).toBeNull();
+
+      await setup(staged(), autoStagedDetail({ consignments: [{ consignmentUuid: 'cn', consignmentNumber: 'CN-1', status: 'BOOKED' }] }));
+      fixture.detectChanges();
+      expect(component.canAmend).withContext('consigned').toBeFalse();
+    });
+
+    it('keeps the cartons frozen if the delivery cannot be read', async () => {
+      await setup(staged());
+      service.getDeliveryById.and.returnValue(throwError(() => ({ status: 500 })));
+      fixture.detectChanges();
+
+      expect(component.canAmend).toBeFalse();
+      expect(component.packing).withContext('the packing still shows').not.toBeNull();
+    });
+
+    it('edits a carton\'s weight and size, sending only what was filled in, then reloads', async () => {
+      await setup(staged(), autoStagedDetail());
+      fixture.detectChanges();
+      const loose = component.livePackages[0];
+
+      component.openEditDialog(loose);
+      expect(component.editDialogVisible).toBeTrue();
+      component.edit.grossWeightKg = 12.5;
+      component.edit.lengthCm = 40;
+      component.saveEdit();
+
+      expect(service.patchPackage).toHaveBeenCalledOnceWith('p1', { grossWeightKg: 12.5, lengthCm: 40 });
+      expect(component.editDialogVisible).toBeFalse();
+      expect(service.getDeliveryPackages).toHaveBeenCalledTimes(2);
+    });
+
+    it('prefills what the carton already records, and sends nothing for an untouched form', async () => {
+      await setup(staged(), autoStagedDetail());
+      fixture.detectChanges();
+
+      component.openEditDialog(pkg({ grossWeightKg: 3, sealNumber: 'S-1' }));
+      expect(component.edit.grossWeightKg).toBe(3);
+      expect(component.edit.sealNumber).toBe('S-1');
+      expect(component.canSaveEdit).withContext('nothing changed').toBeFalse();
+
+      component.saveEdit();
+      expect(service.patchPackage).not.toHaveBeenCalled();
+    });
+
+    it('shows the server\'s reason when the edit is refused, and keeps the dialog open', async () => {
+      await setup(staged(), autoStagedDetail());
+      fixture.detectChanges();
+      const add = spyOn(fixture.debugElement.injector.get(MessageService), 'add');
+      service.patchPackage.and.returnValue(throwError(() => ({
+        status: 409, error: { message: 'Delivery DLV-2026-00001 is STAGED, so its packages can no longer be changed.' }
+      })));
+
+      component.openEditDialog(component.livePackages[0]);
+      component.edit.grossWeightKg = 2;
+      component.saveEdit();
+
+      expect(add.calls.mostRecent().args[0].detail).toContain('can no longer be changed');
+      expect(component.editDialogVisible).toBeTrue();
+      expect(component.isSubmitting).toBeFalse();
+    });
+
+    it('will not edit when the cartons are frozen', async () => {
+      await setup(staged(), legacyDetail());
+      fixture.detectChanges();
+
+      component.openEditDialog(component.livePackages[0]);
+      component.edit.grossWeightKg = 2;
+      component.saveEdit();
+
+      expect(service.patchPackage).not.toHaveBeenCalled();
+    });
   });
 });

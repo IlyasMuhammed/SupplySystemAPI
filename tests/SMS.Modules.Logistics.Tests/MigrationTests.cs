@@ -256,6 +256,69 @@ public class MigrationTests
                  .Should().BeEquivalentTo(added.Select(c => $"{c.Table}.{c.Name}"));
     }
 
+    // ── A33 PA-01 / PD-01 — fulfillment routes and the delivery route columns ─
+
+    private static Migration RoutesMigration() =>
+        Migrations().Single(m => m.GetType().Name == "A33_FulfillmentRoutes");
+
+    [Fact]
+    public void The_routes_migration_creates_two_tables_and_adds_four_nullable_delivery_columns()
+    {
+        var up = RoutesMigration().UpOperations;
+
+        up.OfType<CreateTableOperation>().Select(t => t.Name)
+          .Should().BeEquivalentTo(["fulfillment_routes", "fulfillment_route_steps"]);
+
+        var columns = up.OfType<AddColumnOperation>().ToList();
+        columns.Select(c => $"{c.Table}.{c.Name}").Should().BeEquivalentTo(
+        [
+            "delivery_orders.FulfillmentRouteUuid", "delivery_orders.FulfillmentRouteCode",
+            "delivery_orders.RouteSteps", "delivery_orders.ApprovedBy"
+        ]);
+        columns.Should().OnlyContain(c => c.IsNullable && c.DefaultValue == null && c.DefaultValueSql == null,
+            "R-1: every existing delivery keeps a null route — the legacy full path");
+    }
+
+    [Fact]
+    public void One_default_per_class_and_one_code_per_organization_are_enforced_by_the_database()
+    {
+        var indexes = RoutesMigration().UpOperations.OfType<CreateIndexOperation>()
+            .Where(i => i.Table == "fulfillment_routes").ToList();
+
+        var byDefault = indexes.Single(i => i.Columns.SequenceEqual(new[] { "OrganizationId", "RequiresShipping" }));
+        byDefault.IsUnique.Should().BeTrue();
+        byDefault.Filter.Should().Contain("IsDefault").And.Contain("1");
+
+        indexes.Should().Contain(i => i.IsUnique && i.Columns.SequenceEqual(new[] { "OrganizationId", "Code" }));
+
+        var steps = RoutesMigration().UpOperations.OfType<CreateIndexOperation>()
+            .Where(i => i.Table == "fulfillment_route_steps" && i.IsUnique).Select(i => string.Join(",", i.Columns));
+        steps.Should().Contain(["FulfillmentRouteId,StepOrder", "FulfillmentRouteId,StepCode"]);
+    }
+
+    [Fact]
+    public void The_routes_migration_has_no_foreign_key_into_another_module()
+    {
+        var up = RoutesMigration().UpOperations;
+        up.OfType<AddForeignKeyOperation>().Should().BeEmpty();
+        up.OfType<CreateTableOperation>().SelectMany(t => t.ForeignKeys)
+          .Should().OnlyContain(fk => fk.PrincipalTable == "fulfillment_routes" && fk.PrincipalSchema == "logistics");
+        up.OfType<CreateIndexOperation>()
+          .Should().Contain(i => i.Table == "delivery_orders" && i.Columns.Contains("FulfillmentRouteUuid") && i.Filter != null);
+    }
+
+    [Fact]
+    public void Rolling_the_routes_migration_back_removes_exactly_what_it_added()
+    {
+        var migration = RoutesMigration();
+
+        migration.DownOperations.OfType<DropTableOperation>().Select(o => o.Name)
+                 .Should().BeEquivalentTo(migration.UpOperations.OfType<CreateTableOperation>().Select(o => o.Name));
+        migration.DownOperations.OfType<DropColumnOperation>().Select(o => $"{o.Table}.{o.Name}")
+                 .Should().BeEquivalentTo(migration.UpOperations.OfType<AddColumnOperation>().Select(o => $"{o.Table}.{o.Name}"));
+        migration.DownOperations.Should().OnlyContain(o => o is DropTableOperation || o is DropColumnOperation || o is DropIndexOperation);
+    }
+
     // ── The test that stops the model and the migrations drifting apart ──────
 
     [Fact]

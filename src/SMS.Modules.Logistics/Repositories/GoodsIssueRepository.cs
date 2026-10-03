@@ -82,9 +82,10 @@ internal sealed class GoodsIssueRepository : IGoodsIssueRepository
     /// </summary>
     public async Task<bool> StageAsync(Guid uuid, int userId)
     {
-        var delivery = await _db.DeliveryOrders
+        // A33 R-14: the caller's own delivery only, super admin included (here and in issue and collection).
+        var delivery = await _db.OwnDeliveries()
             .Include(d => d.Lines)
-            .FirstOrDefaultAsync(d => d.UUID == uuid && !d.IsDelete);
+            .FirstOrDefaultAsync(d => d.UUID == uuid);
 
         if (delivery is null) return false;
 
@@ -108,15 +109,19 @@ internal sealed class GoodsIssueRepository : IGoodsIssueRepository
 
     public async Task<GoodsIssueResultModel?> IssueAsync(Guid uuid, int userId)
     {
-        var delivery = await _db.DeliveryOrders
+        var delivery = await _db.OwnDeliveries()
             .Include(d => d.Lines)
             .Include(d => d.ShipToAddress)
-            .FirstOrDefaultAsync(d => d.UUID == uuid && !d.IsDelete);
+            .FirstOrDefaultAsync(d => d.UUID == uuid);
 
         if (delivery is null) return null;
 
         DeliveryStateMachine.Instance.EnsureCanTransition(
             LogisticsCode.Parse<DeliveryStatus>(delivery.Status), DeliveryStatus.GoodsIssued);
+
+        // A33 D-7 — here, not in the controller: "Record collection" issues through this method too, and must not be a
+        // way round the approval. No route, or a route without APPROVAL: no gate, as before.
+        EnsureApprovedIfRequired(delivery);
 
         var sourceType = LogisticsCode.Parse<DeliverySourceType>(delivery.SourceType);
         var posts      = DeliverySourceTypeInfo.PostsGoodsIssue(sourceType);
@@ -246,10 +251,16 @@ internal sealed class GoodsIssueRepository : IGoodsIssueRepository
                 $"'{req.PickupPersonIdType}' is not a valid ID type. Valid values: " +
                 $"{string.Join(", ", LogisticsCode.Codes<PickupIdType>())}.");
 
-        var delivery = await _db.DeliveryOrders.AsNoTracking()
-            .FirstOrDefaultAsync(d => d.UUID == uuid && !d.IsDelete);
+        var delivery = await _db.OwnDeliveries().AsNoTracking()
+            .FirstOrDefaultAsync(d => d.UUID == uuid);
 
         if (delivery is null) return null;
+
+        // A33 contract §6/§7: a route with SHIP is proved delivered by its consignment, never by a collection.
+        if (DeliveryRouteFlow.Has(delivery, FulfillmentStepCode.Ship))
+            throw new BadRequestException(
+                $"Delivery {delivery.DeliveryNumber} follows {DeliveryRouteFlow.Describe(delivery)}, which ships it to " +
+                "the customer, so a collection cannot be recorded. Create a consignment for it instead.");
 
         if (!LogisticsCode.TryParse<DeliveryMode>(delivery.DeliveryMode, out var mode) || mode != DeliveryMode.SelfPickup)
             throw new ConflictException(
@@ -265,6 +276,11 @@ internal sealed class GoodsIssueRepository : IGoodsIssueRepository
                 $"Delivery {delivery.DeliveryNumber} was already collected" +
                 (delivery.PickedUpAt is { } at ? $" on {at:yyyy-MM-dd HH:mm} by {delivery.PickupPersonName}" : "") +
                 ". A collection is recorded once.");
+
+        // A33 D-7: refused before anything moves — otherwise the auto-stage below would be saved and then the issue
+        // refused, leaving a half-done collection.
+        if (status is DeliveryStatus.Packed or DeliveryStatus.Staged or DeliveryStatus.PendingApproval)
+            EnsureApprovedIfRequired(delivery);
 
         // Packed but not yet at the dock: the counter is the dock for a collection.
         if (status == DeliveryStatus.Packed)
@@ -283,7 +299,7 @@ internal sealed class GoodsIssueRepository : IGoodsIssueRepository
                 "over yet. Pick, pack and stage it first; the collection then issues the stock.");
 
         // Re-read tracked: the issue above saved through its own load.
-        var tracked = await _db.DeliveryOrders
+        var tracked = await _db.OwnDeliveries()
             .Include(d => d.Lines)
             .FirstAsync(d => d.UUID == uuid);
 
@@ -329,6 +345,15 @@ internal sealed class GoodsIssueRepository : IGoodsIssueRepository
     /// </summary>
     private Task<FulfillmentResult?> NotifySaleOrderAsync(DeliveryOrder delivery, int userId) =>
         SaleOrderDeliveryNotifier.NotifyDeliveredAsync(_fulfillment, _log, delivery, userId);
+
+    /// <summary>A33 D-7 — a route with APPROVAL issues only once "Approve dispatch" (or the workflow) stamped ApprovedAt.</summary>
+    private static void EnsureApprovedIfRequired(DeliveryOrder delivery)
+    {
+        if (DeliveryRouteFlow.AwaitsApproval(delivery))
+            throw new BadRequestException(
+                $"Delivery {delivery.DeliveryNumber} follows {DeliveryRouteFlow.Describe(delivery)}, so its dispatch " +
+                "has to be approved before the goods are issued. Ask someone who can approve dispatch to approve it.");
+    }
 
     private static string Require(string? value, string what) =>
         string.IsNullOrWhiteSpace(value)

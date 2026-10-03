@@ -48,6 +48,17 @@ public static class LogisticsModuleExtensions
         scope.ServiceProvider.GetRequiredService<ILegacyShipmentBackfillService>()
              .BackfillAsync().GetAwaiter().GetResult();
 
+        // A33 PA-03 — every existing organization gets whichever of the three seed fulfillment routes it lacks
+        // (idempotent, matched by code: a renamed, edited or deactivated seed is never touched). After Logistics' own
+        // migration, because the table must exist; Tenancy migrates earlier, so its organizations are already there.
+        var organizations = scope.ServiceProvider.GetService<IOrganizationDirectory>();
+        if (organizations is not null)
+        {
+            var orgIds = organizations.GetOrganizationIdsAsync().GetAwaiter().GetResult();
+            scope.ServiceProvider.GetRequiredService<IFulfillmentRouteSeeder>()
+                 .EnsureSeededForAllAsync(orgIds).GetAwaiter().GetResult();
+        }
+
         // Every five minutes — well inside the ledger's five-minute lease plus the two-minute
         // grace, so nothing stalls for long, and cheap when there is nothing to do.
         RecurringJob.AddOrUpdate<ConsignmentBookingSweepJob>(
@@ -109,6 +120,18 @@ public static class LogisticsModuleExtensions
         services.AddScoped<IDeliveryFulfillmentReader, DeliveryFulfillmentReader>();
         // A32 PE-02 — what a sale order's lines have on deliveries not yet issued (Demand's held/reservable figures).
         services.AddScoped<ISaleOrderDeliveryQuantities, SaleOrderDeliveryQuantities>();
+        // A33 C1 — fulfillment routes: the admin service, the seeds (provisioning + startup backfill) and the lookup
+        // Inventory and Demand read routes through (SMS.Shared contract, no project reference).
+        services.AddScoped<IFulfillmentRouteService, FulfillmentRouteService>();
+        services.AddScoped<IFulfillmentRouteSeeder, FulfillmentRouteSeeder>();
+        services.AddScoped<IOrganizationProvisionedHandler, FulfillmentRouteProvisioningHandler>();
+        services.AddScoped<IFulfillmentRouteLookup, FulfillmentRouteLookup>();
+        // A33 C4 (FLOW) — the sale order's DRAFT deliveries by route × warehouse, and their cancellation with the order.
+        // SMS.Shared contracts, called by Demand (confirm, the D-12 sweep, cancel) without a project reference.
+        services.AddScoped<ISaleOrderDeliveryCreator, SaleOrderDeliveryCreator>();
+        services.AddScoped<ISaleOrderDeliveryCanceller, SaleOrderDeliveryCanceller>();
+        // A33 C5 (FLOW) — "Approve dispatch" (D-7) and the route-aware "advance one step" (PE-02).
+        services.AddScoped<IDeliveryRouteService, DeliveryRouteService>();
         services.AddScoped<IPickListRepository, PickListRepository>();
         services.AddScoped<IPickListService,    PickListService>();
         services.AddScoped<IGoodsIssueRepository, GoodsIssueRepository>();

@@ -1,0 +1,119 @@
+<p-toast></p-toast>
+<p-confirmDialog key="fulfillment-routes" [style]="{ width: '32rem', maxWidth: '96vw' }"></p-confirmDialog>
+
+<div class="setup-page">
+  <div class="page-header">
+    <div class="page-icon"><i class="pi pi-directions"></i></div>
+    <div class="grow">
+      <h1 class="page-title">Fulfillment Routes</h1>
+      <p class="page-subtitle">
+        Which warehouse steps a sold item goes through. A route is set on a product variant and can be overridden on a sale
+        order line; lines with neither use the default route for shipping or self-pickup orders.
+      </p>
+    </div>
+    <div class="page-actions" *ngIf="canManage">
+      <p-button label="New Route" icon="pi pi-plus" (onClick)="openCreate()" data-testid="new-route"></p-button>
+    </div>
+  </div>
+
+  <section class="table-card">
+    <div class="table-toolbar">
+      <div class="check-row">
+        <p-checkbox inputId="frShowInactive" [binary]="true" [(ngModel)]="showInactive" data-testid="show-inactive"></p-checkbox>
+        <label for="frShowInactive">Show deactivated ({{ inactiveCount }})</label>
+      </div>
+      <span class="grow"></span>
+      <span class="legend muted">
+        <i class="pi pi-lock"></i> system route (steps locked, can't be deleted) ·
+        <i class="pi pi-star-fill star"></i> default
+      </span>
+    </div>
+
+    <div class="state-inline" *ngIf="loadFailed" data-testid="load-failed">
+      <i class="pi pi-exclamation-triangle"></i> The fulfillment routes could not be loaded.
+      <p-button label="Try again" [text]="true" size="small" (onClick)="load()"></p-button>
+    </div>
+
+    <p-table *ngIf="!loadFailed" [value]="visibleRoutes" [loading]="isLoading" dataKey="uuid" styleClass="p-datatable-sm"
+             [tableStyle]="{ 'min-width': '52rem' }">
+      <ng-template pTemplate="header">
+        <tr>
+          <th style="width:11rem">Code</th>
+          <th>Name</th>
+          <th>Steps</th>
+          <th style="width:8.5rem">Default</th>
+          <th style="width:2.5rem"></th>
+          <th style="width:7.5rem">Status</th>
+          <th style="width:13rem"></th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-r>
+        <tr [class.inactive-row]="!r.isActive" [attr.data-testid]="'route-' + r.code">
+          <td class="mono">{{ r.code }}</td>
+          <td>
+            <div>{{ r.name }}</div>
+            <small class="muted" *ngIf="r.description">{{ r.description }}</small>
+          </td>
+          <td class="chain" [pTooltip]="r.stepsText" tooltipPosition="top">{{ stepChain(r) }}</td>
+          <td>
+            <span class="default-mark" *ngIf="r.isDefault" [pTooltip]="defaultTooltip(r)" tooltipPosition="top"
+                  [attr.data-testid]="'default-' + r.code">
+              <i class="pi pi-star-fill star"></i> {{ defaultLabel(r) }}
+            </span>
+          </td>
+          <td>
+            <i class="pi pi-lock muted" *ngIf="r.isSystem" pTooltip="System route: its steps are locked and it can't be deleted"
+               tooltipPosition="top" [attr.data-testid]="'system-' + r.code"></i>
+          </td>
+          <td><p-tag [value]="r.isActive ? 'Active' : 'Deactivated'" [severity]="r.isActive ? 'success' : 'secondary'"></p-tag></td>
+          <td>
+            <div class="row-actions">
+              <p-button [icon]="canManage ? 'pi pi-pencil' : 'pi pi-eye'" [text]="true" [rounded]="true" size="small"
+                        [pTooltip]="canManage ? 'Edit' : 'View'" tooltipPosition="top" (onClick)="openEdit(r)"
+                        [attr.data-testid]="(canManage ? 'edit-' : 'view-') + r.code"></p-button>
+              <p-button *ngIf="canAssign && r.isActive" icon="pi pi-sitemap" [text]="true" [rounded]="true" size="small"
+                        pTooltip="Assign to category" tooltipPosition="top" (onClick)="openAssign(r)"
+                        [attr.data-testid]="'assign-' + r.code"></p-button>
+              <ng-container *ngIf="canManage">
+                <p-button *ngIf="r.isActive && !r.isDefault" icon="pi pi-star" [text]="true" [rounded]="true" size="small"
+                          pTooltip="Make default" tooltipPosition="top" [disabled]="!!busy[r.uuid]" (onClick)="confirmSetDefault(r)"
+                          [attr.data-testid]="'set-default-' + r.code"></p-button>
+                <p-button *ngIf="r.isDefault" icon="pi pi-star-fill" [text]="true" [rounded]="true" size="small" severity="warn"
+                          pTooltip="Clear default" tooltipPosition="top" [disabled]="!!busy[r.uuid]" (onClick)="confirmClearDefault(r)"
+                          [attr.data-testid]="'clear-default-' + r.code"></p-button>
+                <span *ngIf="r.isActive" [pTooltip]="r.isDefault ? 'A default route can\'t be deactivated: make another route the default first, or clear the default.' : 'Deactivate'"
+                      tooltipPosition="top">
+                  <p-button icon="pi pi-ban" [text]="true" [rounded]="true" size="small" severity="danger"
+                            [disabled]="r.isDefault || !!busy[r.uuid]" (onClick)="confirmDeactivate(r)"
+                            [attr.data-testid]="'deactivate-' + r.code"></p-button>
+                </span>
+                <p-button *ngIf="!r.isActive" icon="pi pi-replay" [text]="true" [rounded]="true" size="small" severity="success"
+                          pTooltip="Reactivate" tooltipPosition="top" [disabled]="!!busy[r.uuid]" (onClick)="activate(r)"
+                          [attr.data-testid]="'activate-' + r.code"></p-button>
+                <p-button *ngIf="!r.isSystem && !r.isDefault" icon="pi pi-trash" [text]="true" [rounded]="true" size="small"
+                          severity="danger" pTooltip="Delete (only if nothing uses it)" tooltipPosition="top"
+                          [disabled]="!!busy[r.uuid]" (onClick)="confirmDelete(r)" [attr.data-testid]="'delete-' + r.code"></p-button>
+              </ng-container>
+            </div>
+          </td>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="emptymessage">
+        <tr><td colspan="7" class="empty muted">No fulfillment routes.</td></tr>
+      </ng-template>
+    </p-table>
+  </section>
+</div>
+
+<p-dialog [header]="editing ? (editorReadOnly ? '' : 'Edit ') + 'Fulfillment Route: ' + editing.code : 'New Fulfillment Route'"
+          [(visible)]="editorVisible" [modal]="true" [draggable]="false" [style]="{ width: '46rem', maxWidth: '96vw' }"
+          data-testid="dialog-route">
+  <app-fulfillment-route-editor *ngIf="editorVisible" [route]="editing" [readOnly]="editorReadOnly" [routes]="routes"
+                                (saved)="onSaved($event)" (cancelled)="editorVisible = false"></app-fulfillment-route-editor>
+</p-dialog>
+
+<p-dialog [header]="'Assign ' + (assigning?.code ?? '') + ' to a category'" [(visible)]="assignVisible" [modal]="true"
+          [draggable]="false" [style]="{ width: '30rem', maxWidth: '96vw' }" data-testid="dialog-assign">
+  <app-fulfillment-route-assign *ngIf="assignVisible" [route]="assigning" (assigned)="onAssigned($event)"
+                                (closed)="assignVisible = false"></app-fulfillment-route-assign>
+</p-dialog>

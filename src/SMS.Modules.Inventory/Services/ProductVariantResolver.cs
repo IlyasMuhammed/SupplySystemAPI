@@ -61,13 +61,20 @@ internal sealed class VariantAvailabilityService : IVariantAvailabilityService
 
     public VariantAvailabilityService(InventoryDbContext db) => _db = db;
 
-    public async Task<VariantChannelAvailability?> GetAvailabilityAsync(Guid variantUuid) =>
-        await _db.ProductVariants
-            .Where(v => v.Uuid == variantUuid && v.IsActive)
+    // A32 PF-05 — the caller's own organization's variant only: the EF tenant filter is off for a super admin, and this is
+    // what guards a sale order / sale quotation line, so another organization's item must read as absent. Every caller
+    // today (SaleOrderService, SaleQuotationService) runs in a request; a background caller must set HangfireTenantScope
+    // to the organization it works for (an unscoped job would be scoped to the default organization here).
+    public async Task<VariantChannelAvailability?> GetAvailabilityAsync(Guid variantUuid)
+    {
+        var orgId = _db.TenantContext.OrganizationId;
+        return await _db.ProductVariants
+            .Where(v => v.Uuid == variantUuid && v.IsActive && v.OrganizationId == orgId)
             .Select(v => new VariantChannelAvailability(
                 v.IsDefault ? $"{v.Product.Name} ({v.Sku})" : $"{v.Product.Name} - {v.VariantName} ({v.Sku})",
                 v.IsAvailableForRetail, v.IsAvailableForPos, v.IsAvailableForMirMiv,
                 v.IsAvailableForProduction, v.IsAvailableForServices,
                 v.SaleOrderMinQty, v.SaleOrderMaxQty))
             .FirstOrDefaultAsync();
+    }
 }

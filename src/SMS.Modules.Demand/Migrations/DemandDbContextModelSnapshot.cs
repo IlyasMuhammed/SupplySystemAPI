@@ -1103,6 +1103,9 @@ namespace SMS.Modules.Demand.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<DateTime?>("DeliveryCreationPendingSince")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("DeliveryMode")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -1191,6 +1194,9 @@ namespace SMS.Modules.Demand.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("DeliveryCreationPendingSince")
+                        .HasFilter("[DeliveryCreationPendingSince] IS NOT NULL");
+
                     b.HasIndex("SourceInquiryId")
                         .HasFilter("[SourceInquiryId] IS NOT NULL");
 
@@ -1223,6 +1229,11 @@ namespace SMS.Modules.Demand.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("AutoCreateDeliveriesOnConfirm")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
 
                     b.Property<string>("AutoPoApprovalMode")
                         .IsRequired()
@@ -1437,6 +1448,13 @@ namespace SMS.Modules.Demand.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
+                    b.Property<string>("FulfillmentRouteCode")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<Guid?>("FulfillmentRouteUuid")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<decimal>("InvoicedQty")
                         .HasColumnType("decimal(18,4)");
 
@@ -1461,6 +1479,10 @@ namespace SMS.Modules.Demand.Migrations
 
                     b.Property<decimal>("Quantity")
                         .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("RouteSource")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
 
                     b.Property<int>("SaleOrderId")
                         .HasColumnType("int");
@@ -1493,6 +1515,9 @@ namespace SMS.Modules.Demand.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("FulfillmentRouteUuid")
+                        .HasFilter("[FulfillmentRouteUuid] IS NOT NULL");
 
                     b.HasIndex("OrganizationId");
 

@@ -80,6 +80,12 @@ public static class DemandModuleExtensions
         // A32 — sale quotations (PC-03..PC-09) and their daily expiry sweep.
         services.AddScoped<ISaleQuotationService, SaleQuotationService>();
         services.AddScoped<QuotationExpiryJob>();
+        // A33 — fulfillment routes on sale orders: the effective-route resolver (line → variant → org default, the confirm
+        // gate), the D-12 sweep creating deliveries a confirm could not, and "open sale order lines" for Logistics'
+        // in-use check (L-7; one IFulfillmentRouteUsage per module, Logistics injects them all).
+        services.AddScoped<IEffectiveRouteResolver, EffectiveRouteResolver>();
+        services.AddScoped<SaleOrderDeliverySweepJob>();
+        services.AddScoped<IFulfillmentRouteUsage, SaleOrderRouteUsage>();
 
         // Workflow engine handlers
         services.AddScoped<IDocumentStatusHandler, PrStatusHandler>();
@@ -137,6 +143,12 @@ public static class DemandModuleExtensions
             QuotationExpiryJob.RecurringJobId,
             job => job.RunAsync(),
             QuotationExpiryJob.Cron);
+
+        // A33 D-12 — every 15 minutes: confirmed orders whose deliveries could not be created right after the confirm.
+        RecurringJob.AddOrUpdate<SaleOrderDeliverySweepJob>(
+            SaleOrderDeliverySweepJob.RecurringJobId,
+            job => job.RunAsync(),
+            SaleOrderDeliverySweepJob.Cron);
 
         return app;
     }

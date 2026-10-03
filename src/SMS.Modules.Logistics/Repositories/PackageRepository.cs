@@ -202,8 +202,8 @@ internal sealed class PackageRepository : IPackageRepository
     {
         if (parentUuid is not { } uuid) return null;
 
-        var parent = await _db.ShipmentPackages
-            .FirstOrDefaultAsync(p => p.UUID == uuid && !p.IsDelete)
+        var parent = await _db.OwnPackages()
+            .FirstOrDefaultAsync(p => p.UUID == uuid)
             ?? throw new BadRequestException("The package it is being loaded onto does not exist.");
 
         if (parent.DeliveryOrderId != delivery.Id)
@@ -233,10 +233,10 @@ internal sealed class PackageRepository : IPackageRepository
 
     public async Task<DeliveryPackingModel?> GetForDeliveryAsync(Guid deliveryUuid)
     {
-        var delivery = await _db.DeliveryOrders
+        var delivery = await _db.OwnDeliveries()
             .Include(d => d.Lines)
             .AsNoTracking()
-            .FirstOrDefaultAsync(d => d.UUID == deliveryUuid && !d.IsDelete);
+            .FirstOrDefaultAsync(d => d.UUID == deliveryUuid);
 
         if (delivery is null) return null;
 
@@ -287,13 +287,12 @@ internal sealed class PackageRepository : IPackageRepository
     }
 
     private IQueryable<ShipmentPackage> PackageQuery() =>
-        _db.ShipmentPackages
+        _db.OwnPackages()
             .Include(p => p.DeliveryOrder)
             .Include(p => p.ParentPackage)
             .Include(p => p.ChildPackages)
             .Include(p => p.Contents).ThenInclude(c => c.DeliveryOrderLine)
-            .AsNoTracking()
-            .Where(p => !p.IsDelete);
+            .AsNoTracking();
 
     private static PackageModel ToModel(ShipmentPackage p) => new()
     {
@@ -345,13 +344,13 @@ internal sealed class PackageRepository : IPackageRepository
     {
         ArgumentNullException.ThrowIfNull(req);
 
-        var package = await _db.ShipmentPackages
+        var package = await _db.OwnPackages()
             .Include(p => p.DeliveryOrder)
-            .FirstOrDefaultAsync(p => p.UUID == uuid && !p.IsDelete);
+            .FirstOrDefaultAsync(p => p.UUID == uuid);
 
         if (package is null) return false;
 
-        EnsureAmendable(package);
+        await EnsureAmendableAsync(package);
 
         if (req.PackageType is not null) package.PackageType = ParsePackageType(req.PackageType);
 
@@ -409,17 +408,17 @@ internal sealed class PackageRepository : IPackageRepository
         // navigation is only ever populated by change-tracker fixup from some earlier load in the
         // same request — which holds in a test that packed first, and does not hold for a request
         // that opens by voiding.
-        var package = await _db.ShipmentPackages
+        var package = await _db.OwnPackages()
             .Include(p => p.DeliveryOrder)
             .Include(p => p.ChildPackages)
-            .FirstOrDefaultAsync(p => p.UUID == uuid && !p.IsDelete);
+            .FirstOrDefaultAsync(p => p.UUID == uuid);
 
         if (package is null) return false;
 
         if (package.IsVoided)
             throw new ConflictException($"Package '{package.PackageBarcode}' is already voided.");
 
-        EnsureAmendable(package);
+        await EnsureAmendableAsync(package);
 
         var children = package.ChildPackages.Where(c => !c.IsDelete && !c.IsVoided).ToList();
         if (children.Count > 0)
@@ -449,13 +448,14 @@ internal sealed class PackageRepository : IPackageRepository
     // ── Shared rules ──────────────────────────────────────────────────────────
 
     private Task<DeliveryOrder?> LoadForPackingAsync(Guid uuid) =>
-        PackingQuery().FirstOrDefaultAsync(d => d.UUID == uuid && !d.IsDelete);
+        PackingQuery().FirstOrDefaultAsync(d => d.UUID == uuid);
 
     private Task<DeliveryOrder?> LoadForPackingAsync(int id) =>
-        PackingQuery().FirstOrDefaultAsync(d => d.Id == id && !d.IsDelete);
+        PackingQuery().FirstOrDefaultAsync(d => d.Id == id);
 
+    /// <summary>A33 R-14 — the caller's own deliveries only, super admin included.</summary>
     private IQueryable<DeliveryOrder> PackingQuery() =>
-        _db.DeliveryOrders
+        _db.OwnDeliveries()
             .Include(d => d.Lines).ThenInclude(l => l.PackageContents).ThenInclude(c => c.ShipmentPackage);
 
     /// <summary>
@@ -473,9 +473,15 @@ internal sealed class PackageRepository : IPackageRepository
                 "there is nothing in front of the packer before that.");
     }
 
-    private static void EnsureAmendable(ShipmentPackage package)
+    private async Task EnsureAmendableAsync(ShipmentPackage package)
     {
         var status = LogisticsCode.Parse<DeliveryStatus>(package.DeliveryOrder.Status);
+
+        // A33 REV-04: a delivery staged only because its route has no STAGE step (D-3) was never "loaded" by anyone —
+        // the system moved it — so its cartons stay the packer's (weigh the auto LOOSE unit, void a wrong carton)
+        // until something real freezes them: an approved dispatch, a consignment carrying it, or the goods issue.
+        if (status == DeliveryStatus.Staged && await IsStillAmendableWhenStagedAsync(package.DeliveryOrder))
+            return;
 
         // Once staged or issued the carton is on a vehicle or off the books. Changing its weight
         // or contents then would rewrite what was already declared to a carrier.
@@ -483,6 +489,17 @@ internal sealed class PackageRepository : IPackageRepository
             throw new ConflictException(
                 $"Delivery {package.DeliveryOrder.DeliveryNumber} is {package.DeliveryOrder.Status}, " +
                 "so its packages can no longer be changed.");
+    }
+
+    /// <summary>A33 REV-04 — STAGED by the route's auto-stage, not approved, on no live consignment.</summary>
+    private async Task<bool> IsStillAmendableWhenStagedAsync(DeliveryOrder delivery)
+    {
+        if (!DeliveryRouteFlow.Lacks(delivery, FulfillmentStepCode.Stage) || delivery.ApprovedAt is not null)
+            return false;
+
+        var cancelled = LogisticsCode.Of(ShipmentStatus.Cancelled);
+        return !await _db.ConsignmentDeliveries.AnyAsync(l =>
+            l.DeliveryOrderId == delivery.Id && !l.Consignment.IsDelete && l.Consignment.Status != cancelled);
     }
 
     /// <summary>
@@ -535,11 +552,23 @@ internal sealed class PackageRepository : IPackageRepository
         delivery.Status       = LogisticsCode.Of(DeliveryStatus.Packed);
         delivery.ModifiedBy   = userId;
         delivery.ModifiedDate = now;
+
+        // A33 D-3: a route without STAGE is staged as soon as it is packed (everything picked is boxed — just checked
+        // above — which is all staging asks). No route: stays PACKED, as before.
+        if (DeliveryRouteFlow.Lacks(delivery, FulfillmentStepCode.Stage))
+        {
+            DeliveryStateMachine.Instance.EnsureCanTransition(DeliveryStatus.Packed, DeliveryStatus.Staged);
+            delivery.Status = LogisticsCode.Of(DeliveryStatus.Staged);
+        }
     }
 
     private static void Reopen(DeliveryOrder delivery, int userId, DateTime now)
     {
-        if (LogisticsCode.Parse<DeliveryStatus>(delivery.Status) != DeliveryStatus.Packed) return;
+        // A33 REV-04: a delivery the route staged automatically (no STAGE step) steps back too — the void was already
+        // allowed by EnsureAmendableAsync, and repacking will pack and stage it again through Complete.
+        var status = LogisticsCode.Parse<DeliveryStatus>(delivery.Status);
+        var autoStaged = status == DeliveryStatus.Staged && DeliveryRouteFlow.Lacks(delivery, FulfillmentStepCode.Stage);
+        if (status != DeliveryStatus.Packed && !autoStaged) return;
         if (delivery.Lines.All(l => l.QtyPacked >= l.QtyPicked)) return;
 
         delivery.Status       = LogisticsCode.Of(DeliveryStatus.Picked);

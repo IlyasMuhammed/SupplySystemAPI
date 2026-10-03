@@ -1,0 +1,8 @@
+.route-field { display: flex; flex-direction: column; gap: .375rem; }
+.adj-label { font-size: .8125rem; font-weight: 600; display: inline-flex; align-items: center; gap: .375rem; }
+.info { color: var(--text-color-secondary); font-size: .8125rem; cursor: help; }
+:host ::ng-deep .w-full { width: 100%; }
+.steps { font-size: .78rem; color: var(--text-color); }
+.hint { color: var(--text-color-secondary); font-size: .75rem; }
+.warn { color: var(--orange-600, #ea580c); }
+.readonly-value { display: flex; flex-direction: column; gap: .125rem; font-size: .875rem; }

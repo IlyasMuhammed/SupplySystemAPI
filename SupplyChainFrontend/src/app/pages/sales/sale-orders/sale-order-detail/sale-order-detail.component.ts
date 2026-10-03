@@ -25,8 +25,16 @@ import { AttachmentListComponent } from '../../../../shared/attachment-list/atta
 import { fromDateOnly, toDateOnly } from '../../../../shared/date-only';
 import {
   SaleOrderService, SaleOrderModel, SaleOrderLineModel, SaleOrderLineAvailabilityModel, SaleOrderSourceType,
-  DeliveryIndicator, CustomerPoDuplicateModel, SaleOrderLineReservationModel
+  DeliveryIndicator, CustomerPoDuplicateModel, SaleOrderLineReservationModel, ConfirmBlockerCode, ConfirmBlockerModel,
+  SaleOrderDeliveryPreviewModel, SkippedSaleOrderLineModel, SaleOrderCancelResultModel,
+  SaleOrderConfirmResultModel, CreatedSaleOrderDeliveryModel
 } from '../../../../services/sale-order.service';
+import { FulfillmentRoutesService, FulfillmentRouteModel } from '../../../../services/fulfillment-routes.service';
+import {
+  LineRouteDisplay, ROUTE_LEGEND, confirmBlockedSummary, inheritPlaceholder, isRouteBlocker, lineRouteDisplay,
+  splitServerMessage
+} from '../fulfillment-route-display';
+import { DeliveryPreviewPanelComponent } from '../delivery-preview-panel/delivery-preview-panel.component';
 import { SALES_ATTACHMENT_CODES } from '../../../../services/sales-preorder.service';
 import { AttachmentService, AttachmentModel } from '../../../../services/attachment.service';
 import { BusinessPartnerService } from '../../../../services/business-partner.service';
@@ -34,7 +42,9 @@ import {
   SalesInvoiceService, SalesInvoiceListItemModel, SalesInvoiceDetailModel, SalesInvoicePaymentModel
 } from '../../../../services/sales-invoice.service';
 import { AddressService } from '../../../../services/address.service';
-import { AddressModel, DeliveryListItemModel, SourceLineSelection } from '../../../../services/logistics.service';
+import {
+  AddressModel, DeliveryListItemModel, DeliveryLineModel, LogisticsService, SourceLineSelection
+} from '../../../../services/logistics.service';
 import { ProductionOrderService, ProductionOrderListItem, productionStatusSeverity } from '../../../../services/production-order.service';
 import { AuthService } from '../../../service/auth.service';
 import { DELIVERY_STATUS_SEVERITY } from '../../../logistics/deliveries/delivery-list/delivery-list.component';
@@ -132,7 +142,7 @@ export interface PendingPartialReservation {
     CommonModule, RouterModule, FormsModule,
     TableModule, ButtonModule, TagModule, TooltipModule, ToastModule,
     DialogModule, DropdownModule, CheckboxModule, InputNumberModule, InputTextModule, CalendarModule, TextareaModule,
-    TabViewModule, TimelinePanelComponent, AttachmentListComponent
+    TabViewModule, TimelinePanelComponent, AttachmentListComponent, DeliveryPreviewPanelComponent
   ],
   templateUrl: './sale-order-detail.component.html',
   styleUrls: ['./sale-order-detail.component.scss'],
@@ -216,12 +226,42 @@ export class SaleOrderDetailComponent implements OnInit {
   partialDialogVisible = false;
   partial: PendingPartialReservation | null = null;
 
+  // ── A33: routes, preview, confirm gate, fulfillment ─────────────────────────
+
+  activeRoutes: FulfillmentRouteModel[] = [];
+  private routesRequested = false;
+  /** The line whose route change is being saved; every route dropdown waits for it. */
+  savingRouteLineUuid: string | null = null;
+
+  preview: SaleOrderDeliveryPreviewModel | null = null;
+  isLoadingPreview = false;
+  previewFailed = false;
+  private previewSeq = 0;
+
+  /** The confirm 400, one blocker per line (the server joins them with "\n"). */
+  confirmErrors: string[] = [];
+  /** Confirmed, but the deliveries were not (all) created: the server's reason, shown with the recovery button. */
+  deliveryCreationMessage: string | null = null;
+  isCreatingDeliveries = false;
+  /** Lines the last confirm or "Create deliveries" left off a delivery, with why. */
+  createDeliveriesSkipped: SkippedSaleOrderLineModel[] = [];
+
+  /** D-15 — what cancelling the order did to its deliveries. */
+  cancelResult: SaleOrderCancelResultModel | null = null;
+
+  private readonly expandedDeliveries = new Set<string>();
+  private readonly deliveryLines = new Map<string, DeliveryLineModel[]>();
+  private readonly loadingDeliveryLines = new Set<string>();
+  private readonly failedDeliveryLines = new Set<string>();
+
   private readonly destroyRef = inject(DestroyRef);
 
   constructor(
     private route: ActivatedRoute,
     private router: Router,
     private saleOrderService: SaleOrderService,
+    private routesService: FulfillmentRoutesService,
+    private logisticsService: LogisticsService,
     private partnerService: BusinessPartnerService,
     private invoiceService: SalesInvoiceService,
     private addressService: AddressService,
@@ -254,6 +294,13 @@ export class SaleOrderDetailComponent implements OnInit {
       this.invoiceTotals = [];
       this.customerPoFiles = [];
       this.poDuplicates = [];
+      this.preview = null;
+      this.cancelResult = null;
+      this.deliveryCreationMessage = null;
+      this.createDeliveriesSkipped = [];
+      this.expandedDeliveries.clear();
+      this.deliveryLines.clear();
+      this.failedDeliveryLines.clear();
     }
     this.uuid = uuid;
     this.load();
@@ -276,6 +323,8 @@ export class SaleOrderDetailComponent implements OnInit {
           this.loadShipTo(res.result);
           this.loadDeliveries();
           this.loadProductionOrders();
+          this.ensureRoutesLoaded();
+          this.loadPreview();
           // Whatever the order did just now may have changed what has been billed.
           this.invoicesRequested = false;
           if (this.activeTab === TAB_INVOICES || this.activeTab === TAB_PAYMENTS) this.ensureInvoicesLoaded();
@@ -308,7 +357,8 @@ export class SaleOrderDetailComponent implements OnInit {
   /** Where it ships to, in words. Best effort: the order renders without it. */
   private loadShipTo(order: SaleOrderModel) {
     this.shipTo = null;
-    if (order.deliveryMode !== 'SHIP' || !order.shippingAddressId) return;
+    // A33 D-4 — a collected order with a line routed to Ship has an address too.
+    if (!order.shippingAddressId) return;
     this.addressService.getAddress(order.shippingAddressId).subscribe({
       next: (res) => { this.shipTo = res.result ?? null; },
       error: () => { this.shipTo = null; }
@@ -486,7 +536,8 @@ export class SaleOrderDetailComponent implements OnInit {
 
   /** Shows what confirming would find, then asks. Nothing is reserved until the order is confirmed. */
   openConfirmDialog() {
-    if (!this.canConfirm) return;
+    if (!this.canConfirm || this.isConfirmBlocked) return;
+    this.confirmErrors = [];
     this.confirmDialogVisible = true;
     this.availability = [];
     this.availabilityFailed = false;
@@ -512,24 +563,48 @@ export class SaleOrderDetailComponent implements OnInit {
   }
 
   confirmOrder() {
-    if (!this.canConfirm || this.isConfirming) return;
+    if (!this.canConfirm || this.isConfirming || this.isConfirmBlocked) return;
     this.isConfirming = true;
+    this.confirmErrors = [];
 
     this.saleOrderService.confirmSaleOrder(this.uuid).subscribe({
-      next: () => {
+      next: (res) => {
         this.isConfirming = false;
         this.confirmDialogVisible = false;
-        this.messageService.add({ severity: 'success', summary: 'Order confirmed', detail: 'Stock has been reserved.' });
+        this.afterConfirm(res?.result ?? null);
         this.load();
       },
       error: (err) => {
         this.isConfirming = false;
+        // A33 PC-09 — the gate's 400 is one blocker per line: listed in the dialog, which stays open.
+        const message: string | undefined = err?.error?.message;
+        this.confirmErrors = splitServerMessage(message);
         this.messageService.add({
           severity: 'error', summary: 'Not confirmed',
-          detail: err?.error?.message ?? 'The order could not be confirmed.'
+          detail: this.confirmErrors.length > 1
+            ? `${this.confirmErrors.length} things stop the order being confirmed — they are listed in the dialog.`
+            : message ?? 'The order could not be confirmed.'
         });
       }
     });
+  }
+
+  /** A33 D-1 — what confirming created; when the deliveries failed, the order is still confirmed: say so and offer the retry. */
+  private afterConfirm(result: SaleOrderConfirmResultModel | null) {
+    const created = result?.deliveries ?? [];
+    this.createDeliveriesSkipped = result?.skippedLines ?? [];
+    this.deliveryCreationMessage = result?.deliveryCreationFailed
+      ? result.deliveryMessage || 'The order is confirmed, but its delivery orders could not be created.'
+      : null;
+
+    if (this.deliveryCreationMessage) {
+      this.messageService.add({ severity: 'warn', summary: 'Order confirmed', detail: `Stock has been reserved. ${this.deliveryCreationMessage}` });
+    } else {
+      this.messageService.add({
+        severity: 'success', summary: 'Order confirmed',
+        detail: created.length ? `Stock has been reserved. ${this.createdText(created)}` : 'Stock has been reserved.'
+      });
+    }
   }
 
   // ── Cancel ──────────────────────────────────────────────────────────────────
@@ -545,10 +620,19 @@ export class SaleOrderDetailComponent implements OnInit {
     this.isCancelling = true;
 
     this.saleOrderService.cancelSaleOrder(this.uuid, this.cancelReason.trim() || undefined).subscribe({
-      next: () => {
+      next: (res) => {
         this.isCancelling = false;
         this.cancelDialogVisible = false;
-        this.messageService.add({ severity: 'success', summary: 'Order cancelled', detail: 'Its reservations have been released.' });
+        // A33 D-15 — deliveries not yet goods-issued are cancelled with the order; issued ones stay.
+        const result = res?.result ?? null;
+        const cancelled = result?.cancelledDeliveries ?? [];
+        const issued = result?.issuedDeliveries ?? [];
+        this.cancelResult = cancelled.length || issued.length ? { cancelledDeliveries: cancelled, issuedDeliveries: issued } : null;
+
+        const parts = ['Its reservations have been released.'];
+        if (cancelled.length) parts.push(`${cancelled.length} deliver${cancelled.length === 1 ? 'y' : 'ies'} cancelled.`);
+        if (issued.length) parts.push(`${issued.length} already goods-issued kept — see the list on the order.`);
+        this.messageService.add({ severity: issued.length ? 'warn' : 'success', summary: 'Order cancelled', detail: parts.join(' ') });
         this.load();
       },
       error: (err) => {
@@ -980,4 +1064,220 @@ export class SaleOrderDetailComponent implements OnInit {
     const cityLine = [a.cityName, a.postalCode].filter(Boolean).join(' ');
     return [a.line1, a.line2, cityLine, a.countryName].filter(Boolean).join(', ');
   }
+
+  // ── A33 PC-07: the Route column ─────────────────────────────────────────────
+
+  readonly routeLegend = ROUTE_LEGEND;
+
+  /** The order's organization has Logistics (D-11). An order read from an older server has no flag: no routes. */
+  get routesOn(): boolean { return this.order?.routesEnabled === true; }
+
+  /** DRAFT only (the route is snapshotted at confirm, D-16), and changing it is editing the order. */
+  get canChangeRoute(): boolean {
+    return this.routesOn && this.order?.status === 'DRAFT' && this.authService.hasPermission('SALE_ORDER_EDIT');
+  }
+
+  routeDisplay(line: SaleOrderLineModel): LineRouteDisplay {
+    return lineRouteDisplay(line);
+  }
+
+  private ensureRoutesLoaded() {
+    if (this.routesRequested || !this.canChangeRoute) return;
+    this.routesRequested = true;
+    this.routesService.getRoutes().subscribe({
+      next: (res) => { this.activeRoutes = res.result ?? []; },
+      error: () => { this.activeRoutes = []; }
+    });
+  }
+
+  /** The active routes, and the line's own override when it is no longer among them (inactive, deleted). */
+  routeOptionsFor(line: SaleOrderLineModel): { label: string; value: string }[] {
+    const options = this.activeRoutes.map(r => ({ label: r.name, value: r.uuid }));
+    const own = line.fulfillmentRouteUuid;
+    if (own && !options.some(o => o.value === own)) {
+      const name = line.effectiveRouteName || line.effectiveRouteCode || 'Route';
+      const why = line.routeBlocker === 'ROUTE_INACTIVE' ? ' (inactive)' : line.routeBlocker === 'ROUTE_UNKNOWN' ? ' (no longer available)' : '';
+      options.push({ label: name + why, value: own });
+    }
+    return options;
+  }
+
+  inheritedRouteLabel(line: SaleOrderLineModel): string {
+    return inheritPlaceholder(line, !!line.fulfillmentRouteUuid);
+  }
+
+  /**
+   * Through the route-only line endpoint (PUT …/lines/{line}/fulfillment-route): nothing else on the order changes —
+   * never the full-draft PUT, which rebuilds and re-prices every line (and would drop what the form does not show).
+   * Then the order and the preview are read again.
+   */
+  changeLineRoute(line: SaleOrderLineModel, routeUuid: string | null) {
+    if (!this.canChangeRoute || !this.order || this.savingRouteLineUuid) return;
+    if ((line.fulfillmentRouteUuid ?? null) === (routeUuid ?? null)) return;
+    this.savingRouteLineUuid = line.uuid;
+
+    this.saleOrderService.setLineFulfillmentRoute(this.uuid, line.uuid, routeUuid ?? null).subscribe({
+      next: () => {
+        this.savingRouteLineUuid = null;
+        this.messageService.add({ severity: 'success', summary: 'Route changed', detail: `${this.describe(line)} now ${routeUuid ? 'has its own route' : 'inherits its route'}.` });
+        this.reloadDraft();
+      },
+      error: (err) => {
+        this.savingRouteLineUuid = null;
+        // Fresh line objects re-draw the dropdowns with what the order still has.
+        if (this.order) this.order = { ...this.order, lines: this.order.lines.map(l => ({ ...l })) };
+        this.messageService.add({ severity: 'error', summary: 'Route not changed', detail: err?.error?.message ?? 'The route could not be changed.' });
+      }
+    });
+  }
+
+  /** After a route change: the order (its lines' sources and blockers) and the preview, nothing else. */
+  private reloadDraft() {
+    this.saleOrderService.getSaleOrderById(this.uuid).subscribe({
+      next: (res) => {
+        if (res.success && res.result) this.order = res.result;
+        this.loadPreview();
+      },
+      error: () => this.loadPreview()
+    });
+  }
+
+  // ── A33 PC-08: the preview of a saved draft ─────────────────────────────────
+
+  private loadPreview() {
+    const seq = ++this.previewSeq;
+    if (!this.routesOn || this.order?.status !== 'DRAFT') {
+      this.preview = null;
+      this.isLoadingPreview = false;
+      return;
+    }
+    this.isLoadingPreview = true;
+    this.previewFailed = false;
+    this.saleOrderService.getDeliveryPreview(this.uuid).subscribe({
+      next: (res) => {
+        if (seq !== this.previewSeq) return;
+        this.isLoadingPreview = false;
+        this.preview = res.result ?? null;
+      },
+      error: () => {
+        if (seq !== this.previewSeq) return;
+        this.isLoadingPreview = false;
+        this.previewFailed = true;
+      }
+    });
+  }
+
+  // ── A33 PC-09: the Confirm gate ─────────────────────────────────────────────
+
+  get confirmBlockers(): ConfirmBlockerModel[] {
+    return this.order?.status === 'DRAFT' ? this.order.confirmBlockers ?? [] : [];
+  }
+
+  /** Confirm stays on screen, disabled, while anything blocks it (spec §5.5: not hidden). */
+  get isConfirmBlocked(): boolean { return this.confirmBlockers.length > 0; }
+
+  get confirmBlockedTooltip(): string { return confirmBlockedSummary(this.confirmBlockers); }
+
+  /** The banner's lines: a line's route problem names the line; anything else is in the server's words. */
+  get confirmBlockerRows(): string[] {
+    const lines = this.order?.lines ?? [];
+    return this.confirmBlockers.map(b => {
+      if (!isRouteBlocker(b.code) || b.lineNumber == null) return b.message;
+      const line = lines.find(l => l.uuid === b.lineUuid) ?? lines[b.lineNumber - 1];
+      const what = line ? ` · ${this.describe(line)}` : '';
+      return `Line ${b.lineNumber}${what}: ${BLOCKER_REASONS[b.code] ?? b.message}`;
+    });
+  }
+
+  // ── A33 PD-06: the Deliveries tab as the order's fulfillment ────────────────
+
+  private get openLines(): SaleOrderLineModel[] {
+    return (this.order?.lines ?? []).filter(l => l.status !== 'CANCELLED');
+  }
+
+  /** "N of M lines delivered" (spec §10.4): a line counts once all of it has gone. */
+  get linesToDeliver(): number { return this.openLines.length; }
+  get linesDelivered(): number { return this.openLines.filter(l => l.fulfilledQty >= l.quantity).length; }
+  get linesDeliveredPercent(): number {
+    return this.linesToDeliver ? Math.round((this.linesDelivered / this.linesToDeliver) * 100) : 0;
+  }
+
+  /** "Create deliveries" (D-12 recovery): one per route for whatever is not on a delivery yet. Same gate as the server. */
+  get canCreateRouteDeliveries(): boolean {
+    return this.routesOn && !!this.order && DELIVERABLE_ORDER_STATUSES.includes(this.order.status)
+        && this.authService.hasPermission('DELIVERY_CREATE');
+  }
+
+  createRouteDeliveries() {
+    if (!this.canCreateRouteDeliveries || this.isCreatingDeliveries) return;
+    this.isCreatingDeliveries = true;
+
+    this.saleOrderService.createDeliveries(this.uuid).subscribe({
+      next: (res) => {
+        this.isCreatingDeliveries = false;
+        const created = res.result?.created ?? [];
+        this.createDeliveriesSkipped = res.result?.skipped ?? [];
+        this.deliveryCreationMessage = null;
+        this.messageService.add(created.length
+          ? { severity: 'success', summary: 'Deliveries created', detail: this.createdText(created) }
+          : { severity: 'info', summary: 'Nothing to create', detail: 'Every line that can go is already on a delivery.' });
+        this.loadDeliveries();
+      },
+      error: (err) => {
+        this.isCreatingDeliveries = false;
+        this.messageService.add({ severity: 'error', summary: 'Not created', detail: err?.error?.message ?? 'The deliveries could not be created.' });
+      }
+    });
+  }
+
+  /** "2 delivery orders created: DLV-2026-00001, DLV-2026-00002." */
+  private createdText(created: CreatedSaleOrderDeliveryModel[]): string {
+    const n = created.length;
+    return `${n} delivery order${n === 1 ? '' : 's'} created: ${created.map(d => d.deliveryNumber).join(', ')}.`;
+  }
+
+  /** A skipped line, named. */
+  skippedLineName(s: SkippedSaleOrderLineModel): string {
+    const line = this.order?.lines.find(l => l.uuid === s.soLineUuid);
+    return line ? this.describe(line) : 'A line';
+  }
+
+  isDeliveryExpanded(d: DeliveryListItemModel): boolean { return this.expandedDeliveries.has(d.uuid); }
+
+  /** Opens a delivery's lines under its row; they are read the first time only. */
+  toggleDelivery(d: DeliveryListItemModel) {
+    if (this.expandedDeliveries.has(d.uuid)) { this.expandedDeliveries.delete(d.uuid); return; }
+    this.expandedDeliveries.add(d.uuid);
+    if (this.deliveryLines.has(d.uuid) || this.loadingDeliveryLines.has(d.uuid)) return;
+
+    this.loadingDeliveryLines.add(d.uuid);
+    this.logisticsService.getDeliveryById(d.uuid).subscribe({
+      next: (res) => {
+        this.loadingDeliveryLines.delete(d.uuid);
+        this.deliveryLines.set(d.uuid, res.result?.lines ?? []);
+      },
+      error: () => {
+        this.loadingDeliveryLines.delete(d.uuid);
+        this.failedDeliveryLines.add(d.uuid);
+      }
+    });
+  }
+
+  linesOf(d: DeliveryListItemModel): DeliveryLineModel[] | null { return this.deliveryLines.get(d.uuid) ?? null; }
+  isLoadingLinesOf(d: DeliveryListItemModel): boolean { return this.loadingDeliveryLines.has(d.uuid); }
+  linesFailedFor(d: DeliveryListItemModel): boolean { return this.failedDeliveryLines.has(d.uuid) && !this.deliveryLines.has(d.uuid); }
+
+  /** FE-DLV's filtered delivery list for this order. */
+  get deliveriesListQuery(): Record<string, string> {
+    return { saleOrderUuid: this.uuid, saleOrderNumber: this.order?.soNumber ?? '' };
+  }
+
+  dismissCancelResult() { this.cancelResult = null; }
 }
+
+/** The banner's words for a line whose route stops confirmation. */
+const BLOCKER_REASONS: Partial<Record<ConfirmBlockerCode, string>> = {
+  ROUTE_MISSING: 'no fulfillment route — assign one on the line, or set a default route on the product variant.',
+  ROUTE_INACTIVE: 'its route is inactive — choose another.',
+  ROUTE_UNKNOWN: 'its route no longer exists — choose another.'
+};

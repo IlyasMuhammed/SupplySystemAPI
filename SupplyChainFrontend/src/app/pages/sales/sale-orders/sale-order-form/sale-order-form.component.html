@@ -156,8 +156,13 @@
           </small>
         </div>
 
-        <div class="field full" *ngIf="isShip" data-testid="address-field">
-          <label>Shipping address <span class="required">*</span></label>
+        <div class="field full" *ngIf="showAddress" data-testid="address-field">
+          <label>Shipping address <span class="required" *ngIf="isShip">*</span></label>
+          <!-- A33 D-4: a collected order still needs an address when a line's route ships. -->
+          <small class="hint route-ships" *ngIf="!isShip" data-testid="address-route-hint">
+            <i class="pi pi-truck"></i> A line on this order ships (its route has a Ship step), so the order needs a shipping
+            address before it can be confirmed, even though the customer collects the rest.
+          </small>
           <div class="address-row">
             <p-dropdown [options]="addressOptions" formControlName="shippingAddressId" optionLabel="label" optionValue="value"
                         [filter]="true" filterBy="label" [loading]="isLoadingAddresses" [showClear]="true"
@@ -240,7 +245,7 @@
       <small class="p-error" *ngIf="lines.length === 0" data-testid="no-lines">Add at least one line.</small>
 
       <div formArrayName="lines" class="lines">
-        <div class="line-card" *ngFor="let line of lines.controls; let i = index" [formGroupName]="i" data-testid="line">
+        <div class="line-card" [class.with-route]="routesEnabled" *ngFor="let line of lines.controls; let i = index" [formGroupName]="i" data-testid="line">
           <div class="line-index">{{ i + 1 }}</div>
 
           <div class="line-item">
@@ -309,6 +314,20 @@
             </div>
           </ng-template>
 
+          <!-- A33 PC-07: the line's route — its own override, or what it inherits (variant, then organization default). -->
+          <div class="line-field line-route" *ngIf="routesEnabled" data-testid="route-field">
+            <label>Route</label>
+            <p-dropdown formControlName="fulfillmentRouteUuid" [options]="routeOptionsFor(i)" optionLabel="label" optionValue="value"
+                        [showClear]="true" [placeholder]="inheritedRouteLabel(i)"
+                        [class.p-invalid]="lineRouteDisplayFor(i)?.kind === 'blocked'"
+                        [pTooltip]="canChangeRoute ? '' : 'You do not have permission to change the route.'"
+                        styleClass="w-full" appendTo="body" data-testid="route"></p-dropdown>
+            <small *ngIf="lineRouteDisplayFor(i) as d" class="route-hint" [class.blocking]="d.kind === 'blocked'" data-testid="route-hint">
+              <span class="route-source" [attr.data-source]="d.source" data-testid="route-source">{{ d.icon }}</span>
+              {{ d.hint }}
+            </small>
+          </div>
+
           <div class="line-price" data-testid="price">
             <ng-container [ngSwitch]="lineControl(i, 'priceState').value">
               <span *ngSwitchCase="'found'">
@@ -343,6 +362,16 @@
           {{ unpricedLines }} line{{ unpricedLines === 1 ? ' has' : 's have' }} no price to preview, so the total is only set when the order is saved.
         </small>
       </div>
+
+      <p class="route-legend" *ngIf="routesEnabled" data-testid="route-legend">
+        <span class="legend-title">Route:</span>
+        <span *ngFor="let l of routeLegend">{{ l.icon }} = {{ l.text }}</span>
+      </p>
+
+      <!-- A33 PC-08: what confirming will create, from the lines as they stand (nothing is saved). -->
+      <app-delivery-preview-panel *ngIf="routesEnabled && (preview || isLoadingPreview || previewFailed)"
+                                  [preview]="preview" [loading]="isLoadingPreview" [failed]="previewFailed"
+                                  [lineRef]="previewLineRef"></app-delivery-preview-panel>
     </div>
 
     <div class="form-actions">

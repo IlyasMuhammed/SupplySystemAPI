@@ -6,8 +6,10 @@ import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { MessageService } from 'primeng/api';
 import { of, throwError } from 'rxjs';
 
-import { DeliveryDetailComponent } from './delivery-detail.component';
-import { LogisticsService, DeliveryDetailModel } from '../../../../services/logistics.service';
+import { DeliveryDetailComponent, packagesAmendableWhileStaged } from './delivery-detail.component';
+import {
+  LogisticsService, DeliveryDetailModel, DeliveryNextAction, RouteStepProgressModel
+} from '../../../../services/logistics.service';
 import { SalesInvoiceService } from '../../../../services/sales-invoice.service';
 import { AuthService } from '../../../service/auth.service';
 
@@ -62,8 +64,20 @@ describe('DeliveryDetailComponent', () => {
 
     service = jasmine.createSpyObj<LogisticsService>('LogisticsService', [
       'getDeliveryById', 'holdDelivery', 'resumeDelivery', 'cancelDelivery', 'shortCloseDelivery',
-      'recordPickup', 'downloadGatePass', 'getActiveCarriers', 'createConsignment'
+      'recordPickup', 'downloadGatePass', 'getActiveCarriers', 'createConsignment',
+      // A33 — the route's step actions
+      'approveDelivery', 'advanceDelivery', 'generatePickList', 'getPickListForDelivery',
+      'getDeliveryAvailability', 'releaseDelivery'
     ]);
+    service.approveDelivery.and.returnValue(of({ success: true, message: 'Dispatch approved.' } as any));
+    service.advanceDelivery.and.returnValue(of({
+      success: true, message: '', result: { previousStatus: 'PACKED', status: 'STAGED', action: 'STAGE' }
+    } as any));
+    service.generatePickList.and.returnValue(of({ success: true, message: '', result: 'pick-list-1' } as any));
+    service.getPickListForDelivery.and.returnValue(of({ success: true, message: '', result: { uuid: 'pick-list-7' } } as any));
+    service.getDeliveryAvailability.and.returnValue(of({
+      success: true, message: '', result: { requiresStock: true, canReleasePartially: false, lines: [] }
+    } as any));
     service.getActiveCarriers.and.returnValue(of({
       success: true, message: '',
       result: [{ uuid: 'carrier-1', name: 'Beta Road', code: 'BETA', status: 'ACTIVE', isActive: true }]
@@ -735,6 +749,536 @@ describe('DeliveryDetailComponent', () => {
       component.submitConsignment();
 
       expect(service.createConsignment).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── A33 — fulfillment routes (API-CONTRACT.md §6–§8) ────────────────────────
+  //
+  // The server computes the tracker (routeSteps, with D-2/D-3 mapped onto the real statuses) and the next
+  // actions (nextActions). These fixtures copy rows of the contract's §8 table, so the specs read as that table.
+
+  const LABELS: Record<string, string> = {
+    PICK: 'Pick', PACK: 'Pack', STAGE: 'Stage', APPROVAL: 'Approval',
+    GOODS_ISSUE: 'Goods Issue', SHIP: 'Ship', COMPLETE: 'Complete'
+  };
+
+  /** 'PICK:DONE GOODS_ISSUE:CURRENT COMPLETE:PENDING' → the server's routeSteps. */
+  function steps(spec: string): RouteStepProgressModel[] {
+    return spec.split(' ').map(pair => {
+      const [stepCode, state] = pair.split(':');
+      return { stepCode, label: LABELS[stepCode], state: state as RouteStepProgressModel['state'] };
+    });
+  }
+
+  /** PICK_PACK_SHIP at PICKED (§8: "Pack ●"), for sale order SO-2026-01085. */
+  const routed = (overrides: Partial<DeliveryDetailModel> = {}) => detail({
+    sourceType: 'SALE_ORDER', sourceNumber: 'SO-2026-01085', saleOrderUuid: 'so-1085', customerName: 'Punjab Group',
+    deliveryMode: 'SHIP',
+    fulfillmentRouteUuid: 'route-pps', fulfillmentRouteCode: 'PICK_PACK_SHIP', fulfillmentRouteName: 'Pick, Pack & Ship',
+    status: 'PICKED', allowedNextStatuses: ['PACKED', 'SHORT_CLOSED', 'ON_HOLD', 'CANCELLED'],
+    routeSteps: steps('PICK:DONE PACK:CURRENT GOODS_ISSUE:PENDING SHIP:PENDING COMPLETE:PENDING'),
+    requiresApproval: false, nextStep: 'PACK', nextActions: ['PACK', 'HOLD', 'SHORT_CLOSE', 'CANCEL'],
+    ...overrides
+  });
+
+  /** PICK_ONLY (Pick → Goods Issue → Complete), a counter collection. */
+  const pickOnly = (overrides: Partial<DeliveryDetailModel> = {}) => routed({
+    deliveryMode: 'SELF_PICKUP',
+    fulfillmentRouteUuid: 'route-po', fulfillmentRouteCode: 'PICK_ONLY', fulfillmentRouteName: 'Pick Only',
+    ...overrides
+  });
+
+  const q = (testId: string) => fixture.nativeElement.querySelector(`[data-testid="${testId}"]`);
+  const qAll = (testId: string): HTMLElement[] =>
+    Array.from(fixture.nativeElement.querySelectorAll(`[data-testid="${testId}"]`));
+
+  describe('A33-PE-04 step tracker', () => {
+    it('shows only the route\'s own steps, then Complete, as ✓ done, ● current and ○ pending', async () => {
+      await setup(routed());
+      fixture.detectChanges();
+
+      const nodes = qAll('route-step');
+      expect(nodes.map(n => n.querySelector('.step-label')!.textContent!.trim()))
+        .toEqual(['Pick', 'Pack', 'Goods Issue', 'Ship', 'Complete']);
+      expect(nodes.map(n => n.getAttribute('data-state'))).toEqual(['DONE', 'CURRENT', 'PENDING', 'PENDING', 'PENDING']);
+      expect(nodes.map(n => n.querySelector('.step-marker')!.textContent!.trim())).toEqual(['✓', '●', '○', '○', '○']);
+
+      // Skipped steps never appear (BR-C5-04): this route has no STAGE and no APPROVAL.
+      const tracker = q('route-tracker').textContent;
+      expect(tracker).not.toContain('Stage');
+      expect(tracker).not.toContain('Approval');
+    });
+
+    it('marks the current step for assistive technology and names the real status under it', async () => {
+      // §8: SHIP is CURRENT while the consignment is IN_TRANSIT.
+      await setup(routed({
+        status: 'IN_TRANSIT', allowedNextStatuses: ['DELIVERED', 'PARTIALLY_DELIVERED'],
+        routeSteps: steps('PICK:DONE PACK:DONE GOODS_ISSUE:DONE SHIP:CURRENT COMPLETE:PENDING'),
+        nextStep: 'SHIP', nextActions: []
+      }));
+      fixture.detectChanges();
+
+      const current = qAll('route-step').find(n => n.getAttribute('data-state') === 'CURRENT')!;
+      expect(current.getAttribute('aria-current')).toBe('step');
+      expect(current.textContent).toContain('Ship');
+      expect(current.querySelector('.step-caption')!.textContent).toContain('In Transit');
+      expect(qAll('route-step').filter(n => n.hasAttribute('aria-current')).length).toBe(1);
+    });
+
+    it('PICK_ONLY: once issued, Complete is current and the next action is Record Collection (D-2)', async () => {
+      permissions = ['DISPATCH'];
+      await setup(pickOnly({
+        status: 'GOODS_ISSUED', allowedNextStatuses: ['DELIVERED'],
+        routeSteps: steps('PICK:DONE GOODS_ISSUE:DONE COMPLETE:CURRENT'),
+        nextStep: 'COMPLETE', nextActions: ['RECORD_COLLECTION']
+      }));
+      fixture.detectChanges();
+
+      expect(qAll('route-step').map(n => n.getAttribute('data-state'))).toEqual(['DONE', 'DONE', 'CURRENT']);
+      expect(q('route-action-primary').textContent).toContain('Record Collection');
+    });
+
+    it('shows every step done once the delivery has reached the customer', async () => {
+      await setup(pickOnly({
+        status: 'DELIVERED', allowedNextStatuses: ['CLOSED'],
+        routeSteps: steps('PICK:DONE GOODS_ISSUE:DONE COMPLETE:DONE'), nextStep: null, nextActions: []
+      }));
+      fixture.detectChanges();
+
+      expect(qAll('route-step').every(n => n.getAttribute('data-state') === 'DONE')).toBeTrue();
+      expect(q('route-action-primary')).toBeNull();
+    });
+
+    it('always ends at Complete, even if the server sent the route steps alone (D-2)', async () => {
+      await setup(routed({ routeSteps: steps('PICK:DONE PACK:CURRENT GOODS_ISSUE:PENDING SHIP:PENDING') }));
+      fixture.detectChanges();
+
+      const last = qAll('route-step').pop()!;
+      expect(last.textContent).toContain('Complete');
+      expect(last.getAttribute('data-state')).toBe('PENDING');
+
+      await setup(pickOnly({
+        status: 'CLOSED', allowedNextStatuses: [], routeSteps: steps('PICK:DONE GOODS_ISSUE:DONE'), nextActions: []
+      }));
+      fixture.detectChanges();
+      expect(qAll('route-step').pop()!.getAttribute('data-state')).toBe('DONE');
+    });
+
+    it('stays where it stopped when cancelled, held or short closed, and says why', async () => {
+      for (const status of ['CANCELLED', 'SHORT_CLOSED', 'ON_HOLD']) {
+        await setup(routed({ status, allowedNextStatuses: [], nextActions: [] }));
+        fixture.detectChanges();
+
+        expect(qAll('route-step').map(n => n.getAttribute('data-state')))
+          .withContext(status).toEqual(['DONE', 'CURRENT', 'PENDING', 'PENDING', 'PENDING']);
+        expect(q('tracker-stopped')).withContext(status).not.toBeNull();
+        expect(q('tracker-stopped').textContent).withContext(status).toContain(component.formatStatus(status));
+      }
+
+      await setup(routed());
+      fixture.detectChanges();
+      expect(q('tracker-stopped')).withContext('a moving delivery has no "stopped" note').toBeNull();
+    });
+
+    it('notes when an APPROVAL route has been approved', async () => {
+      await setup(routed({
+        status: 'STAGED', requiresApproval: true, approvedAt: '2026-10-03T09:30:00Z',
+        routeSteps: steps('PICK:DONE PACK:DONE APPROVAL:DONE GOODS_ISSUE:CURRENT SHIP:PENDING COMPLETE:PENDING'),
+        nextActions: ['GOODS_ISSUE']
+      }));
+      fixture.detectChanges();
+
+      expect(q('approved-note')).not.toBeNull();
+      expect(q('approved-note').textContent).toContain('03 Oct 2026');
+    });
+
+    it('leaves a delivery with no route exactly as it was: status tag, no tracker, no route badge', async () => {
+      await setup(detail({ status: 'DRAFT', allowedNextStatuses: ['RELEASED', 'CANCELLED'] }));
+      fixture.detectChanges();
+
+      expect(component.hasRoute).toBeFalse();
+      expect(q('route-tracker')).toBeNull();
+      expect(q('route-badge')).toBeNull();
+      expect(q('route-action-primary')).toBeNull();
+      // Today's buttons, today's rules (no permission check was ever made on Release here).
+      expect(q('action-release')).not.toBeNull();
+      expect(q('action-cancel')).not.toBeNull();
+    });
+
+    it('treats an empty routeSteps as no route, as the contract says', async () => {
+      await setup(detail({ routeSteps: [], nextActions: ['RELEASE'] }));
+      fixture.detectChanges();
+
+      expect(component.hasRoute).toBeFalse();
+      expect(q('route-tracker')).toBeNull();
+    });
+  });
+
+  describe('A33-PE-05 header and route actions', () => {
+    it('shows the route, the sale order and the customer in the header', async () => {
+      await setup(routed());
+      fixture.detectChanges();
+
+      expect(q('route-badge').textContent.trim()).toBe('PICK_PACK_SHIP');
+      expect(q('route-name').textContent).toContain('Pick, Pack & Ship');
+      const link: HTMLAnchorElement = q('sale-order-link');
+      expect(link.textContent).toContain('SO-2026-01085');
+      expect(link.getAttribute('href')).toBe('/portal/pages/sales/orders/so-1085');
+      expect(q('customer-name').textContent).toContain('Punjab Group');
+    });
+
+    it('shows no customer row when the server sent none', async () => {
+      await setup(routed({ customerName: null }));
+      fixture.detectChanges();
+
+      expect(q('customer-name')).toBeNull();
+    });
+
+    it('shows picked, packed and shipped quantities on every line', async () => {
+      await setup(routed({
+        lines: [{
+          uuid: 'l1', lineNo: 1, itemDescription: 'Copper wire', unitOfMeasure: 'M',
+          qtyOrdered: 600, qtyPicked: 600, qtyPacked: 400, qtyShipped: 250, qtyDelivered: 0, qtyShort: 0,
+          isHazardous: false, isFragile: false, isTemperatureControlled: false
+        }]
+      }));
+      fixture.detectChanges();
+
+      const headers = Array.from(fixture.nativeElement.querySelectorAll('.table-card thead th'))
+        .map((th: any) => th.textContent.trim());
+      expect(headers).toEqual(jasmine.arrayContaining(['Picked', 'Packed', 'Shipped']));
+      expect(q('qty-picked').textContent.trim()).toBe('600');
+      expect(q('qty-packed').textContent.trim()).toBe('400');
+      expect(q('qty-shipped').textContent.trim()).toBe('250');
+    });
+
+    // Each forward action, the permission the server checks for it, and the button it becomes.
+    const ACTIONS: [DeliveryNextAction, string, string][] = [
+      ['RELEASE',            'DELIVERY_EDIT',    'Release'],
+      ['GENERATE_PICK_LIST', 'PICKING',          'Start Picking'],
+      ['CONFIRM_PICK',       'PICKING',          'Confirm Pick'],
+      ['PACK',               'DISPATCH',         'Start Packing'],
+      ['STAGE',              'DISPATCH',         'Stage for Dispatch'],
+      ['APPROVE',            'DELIVERY_APPROVE', 'Approve Dispatch'],
+      ['GOODS_ISSUE',        'DISPATCH',         'Post Goods Issue'],
+      ['CREATE_CONSIGNMENT', 'DELIVERY_EDIT',    'Dispatch for Shipment'],
+      ['RECORD_COLLECTION',  'DISPATCH',         'Record Collection']
+    ];
+
+    it('turns the next action into the primary button, for whoever holds its permission', async () => {
+      for (const [action, permission, label] of ACTIONS) {
+        permissions = [permission];
+        await setup(routed({ nextActions: [action, 'CANCEL'] }));
+        fixture.detectChanges();
+
+        expect(q('route-action-primary')).withContext(action).not.toBeNull();
+        expect(q('route-action-primary').textContent).withContext(action).toContain(label);
+      }
+    });
+
+    it('offers no step button to someone without its permission, and says who must act', async () => {
+      for (const [action, , label] of ACTIONS) {
+        // Every other logistics permission, but not this action's own.
+        const own = ACTIONS.find(a => a[0] === action)![1];
+        permissions = ['DELIVERY_EDIT', 'PICKING', 'DISPATCH', 'DELIVERY_APPROVE'].filter(p => p !== own);
+        await setup(routed({ nextActions: [action] }));
+        fixture.detectChanges();
+
+        expect(q('route-action-primary')).withContext(action).toBeNull();
+        expect(q('route-action-blocked')).withContext(action).not.toBeNull();
+        expect(q('route-action-blocked').textContent).withContext(action).toContain(label);
+      }
+    });
+
+    it('Approve Dispatch needs DELIVERY_APPROVE: DISPATCH alone does not approve (D-7)', async () => {
+      permissions = ['DISPATCH', 'DELIVERY_EDIT'];
+      await setup(routed({ status: 'STAGED', requiresApproval: true, nextActions: ['APPROVE'] }));
+      fixture.detectChanges();
+
+      expect(component.routeActions.length).toBe(0);
+      expect(q('route-action-primary')).toBeNull();
+    });
+
+    it('approves through the approve endpoint, never advance, so an approval can never issue the goods', async () => {
+      permissions = ['DELIVERY_APPROVE'];
+      await setup(routed({ status: 'STAGED', requiresApproval: true, nextActions: ['APPROVE'] }));
+      fixture.detectChanges();
+
+      q('route-action-primary').querySelector('button').click();
+
+      expect(service.approveDelivery).toHaveBeenCalledOnceWith(UUID);
+      expect(service.advanceDelivery).not.toHaveBeenCalled();
+      expect(service.getDeliveryById).withContext('reloads from the server').toHaveBeenCalledTimes(2);
+    });
+
+    it('says so, without alarm, when someone else had already approved it', async () => {
+      permissions = ['DELIVERY_APPROVE'];
+      await setup(routed({ status: 'STAGED', requiresApproval: true, nextActions: ['APPROVE'] }));
+      fixture.detectChanges();
+      const add = spyOn(fixture.debugElement.injector.get(MessageService), 'add');
+      service.approveDelivery.and.returnValue(of({
+        success: true, message: '',
+        result: { deliveryUuid: UUID, approvedAt: '2026-10-03T09:00:00Z', approvedBy: 7, alreadyApproved: true }
+      } as any));
+
+      component.performRouteAction('APPROVE');
+
+      expect(add.calls.mostRecent().args[0].severity).toBe('info');
+      expect(add.calls.mostRecent().args[0].summary).toBe('Already approved');
+      expect(service.getDeliveryById).toHaveBeenCalledTimes(2);
+    });
+
+    it('stages through advance, naming the status on screen so a stale page gets a 409', async () => {
+      permissions = ['DISPATCH'];
+      await setup(routed({ status: 'PACKED', nextActions: ['STAGE'] }));
+      fixture.detectChanges();
+      const add = spyOn(fixture.debugElement.injector.get(MessageService), 'add');
+
+      component.performRouteAction('STAGE');
+
+      expect(service.advanceDelivery).toHaveBeenCalledOnceWith(UUID, { expectedStatus: 'PACKED' });
+      expect(add.calls.mostRecent().args[0].severity).toBe('success');
+      expect(service.getDeliveryById).toHaveBeenCalledTimes(2);
+      expect(component.isSubmitting).toBeFalse();
+    });
+
+    it('asks before the goods issue, the point of no return, then advances', async () => {
+      permissions = ['DISPATCH'];
+      await setup(routed({ status: 'STAGED', nextActions: ['GOODS_ISSUE', 'CANCEL'] }));
+      fixture.detectChanges();
+      service.advanceDelivery.and.returnValue(of({
+        success: true, message: '', result: { previousStatus: 'STAGED', status: 'GOODS_ISSUED', action: 'GOODS_ISSUE' }
+      } as any));
+
+      component.performRouteAction('GOODS_ISSUE');
+      expect(component.issueDialogVisible).toBeTrue();
+      expect(service.advanceDelivery).not.toHaveBeenCalled();
+
+      component.confirmGoodsIssue();
+
+      expect(service.advanceDelivery).toHaveBeenCalledOnceWith(UUID, { expectedStatus: 'STAGED' });
+      expect(component.issueDialogVisible).toBeFalse();
+      expect(service.getDeliveryById).toHaveBeenCalledTimes(2);
+    });
+
+    it('shows the server\'s reason on a 409 (moved on, or the step needs input) and reloads', async () => {
+      permissions = ['DISPATCH'];
+      await setup(routed({ status: 'PACKED', nextActions: ['STAGE'] }));
+      fixture.detectChanges();
+      const add = spyOn(fixture.debugElement.injector.get(MessageService), 'add');
+      service.advanceDelivery.and.returnValue(throwError(() => ({
+        status: 409, error: { message: 'The delivery is no longer PACKED.' }
+      })));
+
+      component.performRouteAction('STAGE');
+
+      expect(add.calls.mostRecent().args[0].severity).toBe('warn');
+      expect(add.calls.mostRecent().args[0].detail).toContain('no longer PACKED');
+      expect(service.getDeliveryById).withContext('shows what it is now').toHaveBeenCalledTimes(2);
+      expect(component.isSubmitting).toBeFalse();
+    });
+
+    it('shows the server\'s reason on any other refusal, and stays', async () => {
+      permissions = ['DELIVERY_APPROVE'];
+      await setup(routed({ status: 'STAGED', requiresApproval: true, nextActions: ['APPROVE'] }));
+      fixture.detectChanges();
+      const add = spyOn(fixture.debugElement.injector.get(MessageService), 'add');
+      service.approveDelivery.and.returnValue(throwError(() => ({
+        status: 400, error: { message: 'Only a STAGED delivery can be approved.' }
+      })));
+
+      component.performRouteAction('APPROVE');
+
+      expect(add.calls.mostRecent().args[0].severity).toBe('error');
+      expect(add.calls.mostRecent().args[0].detail).toContain('Only a STAGED delivery');
+      expect(component.isSubmitting).toBeFalse();
+    });
+
+    it('opens the existing screens and dialogs for steps that need input, never advance', async () => {
+      permissions = ['DELIVERY_EDIT', 'PICKING', 'DISPATCH'];
+
+      await setup(routed({ status: 'DRAFT', nextActions: ['RELEASE'] }));
+      fixture.detectChanges();
+      component.performRouteAction('RELEASE');
+      expect(component.releaseDialogVisible).withContext('release shows the stock check first').toBeTrue();
+      expect(service.getDeliveryAvailability).toHaveBeenCalled();
+
+      await setup(routed({ status: 'RELEASED', nextActions: ['GENERATE_PICK_LIST'] }));
+      fixture.detectChanges();
+      let navigate = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
+      component.performRouteAction('GENERATE_PICK_LIST');
+      expect(service.generatePickList).toHaveBeenCalledWith(UUID);
+      expect(navigate).toHaveBeenCalledWith(['/portal/pages/logistics/picking', 'pick-list-1']);
+
+      await setup(routed({ status: 'PICKING', nextActions: ['CONFIRM_PICK'] }));
+      fixture.detectChanges();
+      navigate = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
+      component.performRouteAction('CONFIRM_PICK');
+      expect(service.getPickListForDelivery).toHaveBeenCalledWith(UUID);
+      expect(navigate).toHaveBeenCalledWith(['/portal/pages/logistics/picking', 'pick-list-7']);
+
+      await setup(routed({ status: 'PICKED', nextActions: ['PACK'] }));
+      fixture.detectChanges();
+      navigate = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
+      component.performRouteAction('PACK');
+      expect(navigate).toHaveBeenCalledWith(['/portal/pages/logistics/deliveries', UUID, 'pack']);
+
+      await setup(routed({ status: 'GOODS_ISSUED', nextActions: ['CREATE_CONSIGNMENT'] }));
+      fixture.detectChanges();
+      component.performRouteAction('CREATE_CONSIGNMENT');
+      expect(component.consignmentDialogVisible).toBeTrue();
+
+      await setup(pickOnly({ status: 'GOODS_ISSUED', nextActions: ['RECORD_COLLECTION'] }));
+      fixture.detectChanges();
+      component.performRouteAction('RECORD_COLLECTION');
+      expect(component.pickupDialogVisible).toBeTrue();
+
+      expect(service.advanceDelivery).not.toHaveBeenCalled();
+    });
+
+    it('will not perform an action the route does not offer or the user may not do', async () => {
+      permissions = ['DISPATCH'];
+      await setup(routed({ status: 'PACKED', nextActions: ['STAGE'] }));
+      fixture.detectChanges();
+
+      component.performRouteAction('GOODS_ISSUE');
+      component.confirmGoodsIssue();
+      component.performRouteAction('APPROVE');
+
+      expect(service.advanceDelivery).not.toHaveBeenCalled();
+      expect(service.approveDelivery).not.toHaveBeenCalled();
+      expect(component.issueDialogVisible).toBeFalse();
+    });
+
+    it('puts the first action in flow order first and offers the rest beside it', async () => {
+      permissions = ['DISPATCH', 'DELIVERY_EDIT'];
+      await setup(routed({ status: 'PACKED', nextActions: ['CREATE_CONSIGNMENT', 'STAGE', 'CANCEL'] }));
+      fixture.detectChanges();
+
+      expect(component.routeActions.map(a => a.action)).toEqual(['STAGE', 'CREATE_CONSIGNMENT']);
+      expect(q('route-action-primary').textContent).toContain('Stage for Dispatch');
+      expect(qAll('route-action-secondary').map(b => b.textContent!.trim())).toEqual(['Dispatch for Shipment']);
+    });
+
+    it('replaces today\'s step buttons with the route\'s, so nothing is offered twice', async () => {
+      // Today a STAGED self-pickup offers "Record collection"; on PICK_ONLY the route says goods issue comes first.
+      permissions = ['DISPATCH', 'DELIVERY_EDIT', 'PICKING'];
+      await setup(pickOnly({
+        status: 'STAGED', allowedNextStatuses: ['GOODS_ISSUED', 'ON_HOLD', 'CANCELLED'],
+        routeSteps: steps('PICK:DONE GOODS_ISSUE:CURRENT COMPLETE:PENDING'), nextActions: ['GOODS_ISSUE', 'HOLD', 'CANCEL']
+      }));
+      fixture.detectChanges();
+
+      expect(component.canRecordPickup).toBeFalse();
+      expect(q('action-record-pickup')).toBeNull();
+      expect(q('action-release')).toBeNull();
+      expect(q('action-generate-pick-list')).toBeNull();
+      expect(q('route-action-primary').textContent).toContain('Post Goods Issue');
+
+      await setup(routed({ status: 'DRAFT', allowedNextStatuses: ['RELEASED', 'CANCELLED'], nextActions: ['RELEASE', 'CANCEL'] }));
+      fixture.detectChanges();
+      expect(q('action-release')).withContext('the route button replaces it').toBeNull();
+      expect(q('route-action-primary').textContent).toContain('Release');
+    });
+
+    it('keeps hold, cancel and short close route-independent (BR-C5-05)', async () => {
+      await setup(routed());
+      fixture.detectChanges();
+
+      expect(q('action-hold')).not.toBeNull();
+      expect(q('action-short-close')).not.toBeNull();
+      expect(q('action-cancel')).not.toBeNull();
+    });
+
+    it('creates the consignment only when the route offers it', async () => {
+      permissions = ['DELIVERY_EDIT'];
+      await setup(routed({ status: 'GOODS_ISSUED', allowedNextStatuses: ['IN_TRANSIT'], nextActions: ['CREATE_CONSIGNMENT'] }));
+      fixture.detectChanges();
+      spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
+
+      expect(component.canCreateConsignment).toBeTrue();
+      component.openConsignmentDialog();
+      component.submitConsignment();
+      expect(service.createConsignment).toHaveBeenCalled();
+
+      // PACKED would allow a consignment today; the route says stage first.
+      await setup(routed({ status: 'PACKED', allowedNextStatuses: ['STAGED'], nextActions: ['STAGE'] }));
+      fixture.detectChanges();
+      expect(component.canCreateConsignment).toBeFalse();
+    });
+
+    it('offers the pack station only on a route that packs, and not twice', async () => {
+      permissions = ['DISPATCH'];
+
+      // PICK_AND_SHIP has no PACK: packing is automatic (D-3), so once its cartons are frozen (here: a live
+      // consignment carries it) the dock screen has nothing to do. Before that, see REV-04b below.
+      await setup(routed({
+        status: 'STAGED', fulfillmentRouteCode: 'PICK_AND_SHIP',
+        routeSteps: steps('PICK:DONE GOODS_ISSUE:CURRENT SHIP:PENDING COMPLETE:PENDING'), nextActions: ['GOODS_ISSUE'],
+        consignments: [{ consignmentUuid: 'cn-1', consignmentNumber: 'CN-1', status: 'BOOKED' }]
+      }));
+      fixture.detectChanges();
+      expect(q('action-pack-station')).toBeNull();
+
+      // PICK_PACK_SHIP, packed: the cartons are worth seeing.
+      await setup(routed({
+        status: 'PACKED', routeSteps: steps('PICK:DONE PACK:DONE GOODS_ISSUE:CURRENT SHIP:PENDING COMPLETE:PENDING'),
+        nextActions: ['STAGE']
+      }));
+      fixture.detectChanges();
+      expect(q('action-pack-station')).not.toBeNull();
+
+      // When packing is the next step, "Start Packing" already goes there.
+      await setup(routed());
+      fixture.detectChanges();
+      expect(q('route-action-primary').textContent).toContain('Start Packing');
+      expect(q('action-pack-station')).toBeNull();
+    });
+
+    // REV-04b — the server (REV-04) keeps an auto-staged delivery's cartons amendable until it is approved, consigned or
+    // issued: that is the only time PICK_AND_SHIP's auto LOOSE unit can be weighed, which a courier needs.
+    describe('REV-04b: cartons of an auto-staged delivery', () => {
+      const autoStaged = (overrides: Partial<DeliveryDetailModel> = {}) => routed({
+        status: 'STAGED', allowedNextStatuses: ['GOODS_ISSUED', 'ON_HOLD', 'CANCELLED'],
+        fulfillmentRouteCode: 'PICK_AND_SHIP', fulfillmentRouteName: 'Pick & Ship',
+        routeSteps: steps('PICK:DONE GOODS_ISSUE:CURRENT SHIP:PENDING COMPLETE:PENDING'),
+        nextActions: ['GOODS_ISSUE', 'CANCEL'], approvedAt: null, consignments: [],
+        ...overrides
+      });
+
+      it('mirrors the server rule: STAGED, route without STAGE, not approved, on no live consignment', () => {
+        expect(packagesAmendableWhileStaged(autoStaged())).toBeTrue();
+
+        expect(packagesAmendableWhileStaged(autoStaged({ approvedAt: '2026-10-03T09:00:00Z' })))
+          .withContext('approved').toBeFalse();
+        expect(packagesAmendableWhileStaged(autoStaged({
+          consignments: [{ consignmentUuid: 'cn-1', consignmentNumber: 'CN-1', status: 'BOOKED' }]
+        }))).withContext('on a consignment').toBeFalse();
+        expect(packagesAmendableWhileStaged(autoStaged({
+          consignments: [{ consignmentUuid: 'cn-1', consignmentNumber: 'CN-1', status: 'CANCELLED' }]
+        }))).withContext('a cancelled consignment no longer carries it').toBeTrue();
+        expect(packagesAmendableWhileStaged(autoStaged({
+          routeSteps: steps('PICK:DONE PACK:DONE STAGE:DONE GOODS_ISSUE:CURRENT SHIP:PENDING COMPLETE:PENDING')
+        }))).withContext('a route that stages by hand').toBeFalse();
+        expect(packagesAmendableWhileStaged(autoStaged({ status: 'GOODS_ISSUED' }))).withContext('issued').toBeFalse();
+        expect(packagesAmendableWhileStaged(detail({ status: 'STAGED' }))).withContext('no route: today\'s rule').toBeFalse();
+      });
+
+      it('offers the pack station on PICK_AND_SHIP while staged, not approved and not consigned', async () => {
+        await setup(autoStaged());
+        fixture.detectChanges();
+        expect(q('action-pack-station')).not.toBeNull();
+      });
+
+      it('hides it once approved or on a consignment', async () => {
+        await setup(autoStaged({ approvedAt: '2026-10-03T09:00:00Z' }));
+        fixture.detectChanges();
+        expect(q('action-pack-station')).withContext('approved').toBeNull();
+
+        await setup(autoStaged({ consignments: [{ consignmentUuid: 'cn-1', consignmentNumber: 'CN-1', status: 'BOOKED' }] }));
+        fixture.detectChanges();
+        expect(q('action-pack-station')).withContext('consigned').toBeNull();
+      });
     });
   });
 });

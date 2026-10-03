@@ -28,6 +28,8 @@ internal class SaleOrderConfig : ITenantScopedEntity
     public int?     IntimationDepartmentId    { get; set; }
     public string?  IntimationCcEmails        { get; set; }
     public bool     ShipmentRequiredDefault   { get; set; } = true;
+    /// <summary>A33 D-1: confirming an order creates its DRAFT deliveries, one per route × ship-from warehouse. Only for orgs with MODULE_LOGISTICS (D-11).</summary>
+    public bool     AutoCreateDeliveriesOnConfirm { get; set; } = true;
 
     public int?      UpdatedBy { get; set; }
     public DateTime? UpdatedAt { get; set; }

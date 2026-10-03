@@ -35,6 +35,44 @@
 .mode-chip i { font-size: .75rem; }
 .mode-chip.mode-pickup i { color: var(--orange-600, #ea580c); }
 
+// ── A33 — route, customer and the step tracker ──────────────────────────────
+
+.header-facts { display: flex; flex-wrap: wrap; gap: .375rem 1.25rem; margin: .5rem 0 0; font-size: .875rem; }
+.fact { display: inline-flex; align-items: center; gap: .375rem; }
+.fact-label { color: var(--text-color-secondary); font-size: .75rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+.route-badge {
+  display: inline-block; padding: .0625rem .4375rem; border-radius: .25rem;
+  font-size: .75rem; font-weight: 600; letter-spacing: .02em; white-space: nowrap;
+  background: var(--primary-50, #eef2ff); color: var(--primary-700, #4338ca);
+  border: 1px solid var(--primary-200, #c7d2fe);
+}
+
+// Horizontal on a wide screen: marker, label, then a connector line to the next step.
+.route-tracker { list-style: none; margin: 0; padding: 0; display: flex; align-items: flex-start; }
+.route-step { display: flex; align-items: flex-start; gap: .5rem; flex: 1 1 0; min-width: 0; }
+.route-step:last-child { flex: 0 0 auto; }
+.step-marker {
+  flex: 0 0 auto; width: 1.75rem; height: 1.75rem; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: .875rem; line-height: 1; font-weight: 700;
+  border: 2px solid var(--surface-300); color: var(--text-color-secondary); background: var(--surface-0);
+}
+.step-text { display: flex; flex-direction: column; min-width: 0; padding-top: .1875rem; }
+.step-label { font-size: .875rem; font-weight: 600; white-space: nowrap; color: var(--text-color-secondary); }
+.step-caption { font-size: .75rem; color: var(--text-color-secondary); }
+.step-connector { flex: 1 1 auto; height: 2px; margin: .8125rem .5rem 0; min-width: 1rem; background: var(--surface-300); }
+
+.route-step.done .step-marker { border-color: var(--green-500, #22c55e); background: var(--green-500, #22c55e); color: #fff; }
+.route-step.done .step-label { color: var(--text-color); }
+.route-step.done .step-connector { background: var(--green-500, #22c55e); }
+.route-step.current .step-marker { border-color: var(--primary-color); color: var(--primary-color); }
+.route-step.current .step-label { color: var(--primary-color); }
+.route-step.current .step-caption { color: var(--primary-color); font-weight: 600; }
+
+.tracker-note { display: flex; align-items: center; gap: .375rem; margin: 1rem 0 0; font-size: .8125rem; color: var(--text-color-secondary); }
+.tracker-note.stopped { color: var(--yellow-800, #854d0e); }
+.dialog-hint.danger { color: var(--red-700, #b91c1c); display: flex; gap: .5rem; align-items: flex-start; }
+
 .dialog-row { margin-top: 1rem; }
 .dialog-row.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
 
@@ -89,6 +127,11 @@ td.short { font-weight: 700; color: var(--red-600, #dc2626); }
   .detail-page { padding: 1rem; }
   .detail-grid { grid-template-columns: 1fr; }
   .header-actions { width: 100%; }
+
+  // A33: the tracker stacks vertically — marker, label, and the connector running down to the next step.
+  .route-tracker { flex-direction: column; }
+  .route-step { display: grid; grid-template-columns: 1.75rem 1fr; column-gap: .5rem; width: 100%; }
+  .step-connector { grid-column: 1; justify-self: center; width: 2px; height: 1rem; min-width: 0; margin: .25rem 0; }
 }
 
 // ── Release dialog (T-30) ───────────────────────────────────────────────────

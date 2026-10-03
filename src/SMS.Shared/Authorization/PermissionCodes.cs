@@ -138,9 +138,22 @@ public static class PermissionCodes
     /// are drivers and gate staff, who have no business editing the delivery itself.
     /// </summary>
     public const string POD_CAPTURE = "POD_CAPTURE";
+    /// <summary>
+    /// A33 D-7 — "Approve dispatch" on a STAGED delivery whose fulfillment route has the APPROVAL step; goods
+    /// issue is refused until it is approved. A manager's act, so separate from DELIVERY_EDIT.
+    /// </summary>
+    public const string DELIVERY_APPROVE = "DELIVERY_APPROVE";
     // Codes for work that does not exist yet — DELIVERY_RELEASE, DELIVERY_PACK,
     // DELIVERY_GOODS_ISSUE, SHIPMENT_CANCEL — are added with the features they gate.
     // Listing them early would put switches in the role editor that grant nothing.
+
+    // ── Fulfillment routes (Addendum 33, D-9) ─────────────────────────────────
+    /// <summary>Opening the routes settings screen. Reading routes (pickers) also accepts SALE_ORDER_VIEW, INVENTORY_VIEW or DELIVERY_VIEW.</summary>
+    public const string FULFILLMENT_ROUTE_VIEW   = "FULFILLMENT_ROUTE_VIEW";
+    /// <summary>Creating, editing, (de)activating and deleting routes, and choosing the organization's defaults.</summary>
+    public const string FULFILLMENT_ROUTE_MANAGE = "FULFILLMENT_ROUTE_MANAGE";
+    /// <summary>Setting a product variant's default route, one by one or in bulk by category. A sale order line's override needs only SALE_ORDER_EDIT.</summary>
+    public const string FULFILLMENT_ROUTE_ASSIGN = "FULFILLMENT_ROUTE_ASSIGN";
 
     // ── Reports ───────────────────────────────────────────────────────────────
     public const string REPORT_VIEW        = "REPORT_VIEW";
@@ -298,6 +311,7 @@ public static class PermissionCodes
         DELIVERY_TRACK, DELIVERY_VIEW, DELIVERY_CREATE, DELIVERY_EDIT, SHIPMENT_BOOK,
         CARRIER_MANAGE, CARRIER_CREDENTIAL_MANAGE, SHIPMENT_RATE_VIEW, RATE_CARD_MANAGE,
         SHIPPING_RULE_MANAGE, FREIGHT_INVOICE_VIEW, FREIGHT_INVOICE_RECONCILE, POD_CAPTURE,
+        DELIVERY_APPROVE, FULFILLMENT_ROUTE_VIEW, FULFILLMENT_ROUTE_MANAGE, FULFILLMENT_ROUTE_ASSIGN,
         REPORT_VIEW, REPORT_EXPORT,
         WORKFLOW_ADMIN, WORKFLOW_VIEW,
         SALE_ORDER_CONFIG_READ, SALE_ORDER_CONFIG_WRITE,

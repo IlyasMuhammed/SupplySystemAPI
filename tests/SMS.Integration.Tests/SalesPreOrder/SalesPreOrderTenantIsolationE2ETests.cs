@@ -221,9 +221,6 @@ public sealed class SalesPreOrderTenantIsolationE2ETests : IClassFixture<SapWebA
                 .Status.Should().Be(HttpStatusCode.BadRequest, $"{who}: another organization's customer is not a customer here");
             (await actor.Post("/api/sale-quotations", new { PartnerId = other.Customer.Uuid, CurrencyId = pkr, ValidTo = Day(Today.AddDays(5)) }))
                 .Status.Should().Be(HttpStatusCode.BadRequest, $"{who}: quotation for the other's customer");
-            var foreignItem = await actor.Post($"/api/sale-quotations/{own.Draft}/lines", new { LineType = "NORMAL", VariantUuid = other.Item.VariantUuid, Quantity = 1m, UnitPrice = 5m });
-            foreignItem.Status.Should().Be(HttpStatusCode.BadRequest, $"{who}: another organization's item on one's own quotation — {foreignItem}");
-
             await actor.Ok(actor.Patch($"/api/sale-inquiries/{own.Inquiry}/status", new { Status = "UNDER_REVIEW" }), "own review");
             var foreignReason = await actor.Put($"/api/sale-inquiries/{own.Inquiry}/lines/{own.InquiryLine}", new
             {
@@ -234,7 +231,47 @@ public sealed class SalesPreOrderTenantIsolationE2ETests : IClassFixture<SapWebA
             var foreignFile = await actor.Put($"/api/sale-orders/{own.DirectSo}/customer-po", new { CustomerPoReference = "X", CustomerPoAttachmentUuid = other.PoFile });
             foreignFile.Status.Should().Be(HttpStatusCode.BadRequest, $"{who}: another organization's PO file — {foreignFile}");
         }
-        throw new Exception("QA-MARKER: reached the end");
+    }
+
+    /// <summary>
+    /// Another organization's catalog item cannot go on one's own quotation, inquiry evaluation or sale order — the
+    /// super admin included (the shared variant lookup must not lean on the EF filter the super admin bypasses).
+    /// </summary>
+    [Fact]
+    public async Task Another_organizations_item_cannot_be_put_on_ones_own_quotation_or_order_super_admin_included()
+    {
+        var pkr = await _root.PkrBaseAsync();
+        var (org2Id, org2, _) = await _root.SecondOrganizationAsync();
+        await _root.SetOrgBaseCurrencyAsync(org2Id, pkr);
+
+        var mineCustomer   = await _root.CreateCustomerAsync("Item Customer");
+        var mineItem       = await _root.CreateProductAsync("Item Mine", purchasePrice: 10m, sellingPrice: 20m);
+        var theirsCustomer = await org2.CreateCustomerAsync("Item Customer 2");
+        var theirsItem     = await org2.CreateProductAsync("Item Theirs", purchasePrice: 10m, sellingPrice: 20m);
+
+        var failures = new List<string>();
+        foreach (var (actor, customer, own, foreign, who) in new[]
+                 {
+                     (_root, mineCustomer, mineItem, theirsItem, "super admin"),
+                     (org2, theirsCustomer, theirsItem, mineItem, "org 2 admin")
+                 })
+        {
+            var draft = await actor.DraftQuotationAsync(customer, pkr, own, 1m);
+            var calls = new (string What, Api Result)[]
+            {
+                ("quotation line", await actor.Post($"/api/sale-quotations/{draft}/lines", new { LineType = "NORMAL", VariantUuid = foreign.VariantUuid, Quantity = 1m, UnitPrice = 5m })),
+                ("quotation create", await actor.Post("/api/sale-quotations", new
+                {
+                    PartnerId = customer.Uuid, CurrencyId = pkr, ValidTo = Day(Today.AddDays(5)),
+                    Lines = new object[] { new { LineType = "NORMAL", VariantUuid = foreign.VariantUuid, Quantity = 1m, UnitPrice = 5m } }
+                })),
+                ("direct sale order", await actor.TryCreateSaleOrderAsync(customer, pkr, SapKit.Line(foreign, 1m))),
+            };
+            foreach (var (what, api) in calls)
+                if (api.Status != HttpStatusCode.BadRequest)
+                    failures.Add($"{who}: another organization's item on a {what} — {api.ToString()[..Math.Min(200, api.ToString().Length)]}");
+        }
+        failures.Should().BeEmpty("an item belongs to its organization. ACCEPTED:" + Environment.NewLine + string.Join(Environment.NewLine, failures));
     }
 
     [Fact]

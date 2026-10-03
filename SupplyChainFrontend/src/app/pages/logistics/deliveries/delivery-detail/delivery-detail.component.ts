@@ -21,7 +21,9 @@ import {
   CreateConsignmentRequest,
   DeliveryDetailModel,
   DeliveryAvailabilityModel,
+  DeliveryNextAction,
   RecordPickupRequest,
+  RouteStepProgressModel,
   PICKUP_ID_TYPES
 } from '../../../../services/logistics.service';
 import { SalesInvoiceService } from '../../../../services/sales-invoice.service';
@@ -52,6 +54,60 @@ const GATE_PASS_STATUSES = ['STAGED', 'PENDING_APPROVAL', 'GOODS_ISSUED', 'IN_TR
  * already exists, and the delivery follows it.
  */
 const CONSIGNABLE_STATUSES = ['PACKED', 'STAGED', 'PENDING_APPROVAL', 'GOODS_ISSUED'];
+
+/** A33 — a forward step a routed delivery can take next, as this page offers it. */
+export interface RouteActionButton {
+  action: DeliveryNextAction;
+  label: string;
+  icon: string;
+  /** The operation's own permission, the same code the server checks (contract §6). */
+  permission: string;
+}
+
+/**
+ * A33 — the forward actions of contract §6 in flow order, so the first one offered is the primary button. HOLD,
+ * RESUME, CANCEL and SHORT_CLOSE aren't here: they stay route-independent (BR-C5-05), on allowedNextStatuses as before.
+ * STAGE and GOODS_ISSUE need no input and go through `advance`; APPROVE has its own endpoint (an approval must never
+ * turn into a goods issue); the rest need input and open the screens and dialogs that already collect it.
+ */
+export const ROUTE_ACTION_BUTTONS: readonly RouteActionButton[] = [
+  { action: 'RELEASE',            label: 'Release',               icon: 'pi pi-lock',         permission: 'DELIVERY_EDIT' },
+  { action: 'GENERATE_PICK_LIST', label: 'Start Picking',         icon: 'pi pi-list-check',   permission: 'PICKING' },
+  { action: 'CONFIRM_PICK',       label: 'Confirm Pick',          icon: 'pi pi-check-square', permission: 'PICKING' },
+  { action: 'PACK',               label: 'Start Packing',         icon: 'pi pi-box',          permission: 'DISPATCH' },
+  { action: 'STAGE',              label: 'Stage for Dispatch',    icon: 'pi pi-inbox',        permission: 'DISPATCH' },
+  { action: 'APPROVE',            label: 'Approve Dispatch',      icon: 'pi pi-verified',     permission: 'DELIVERY_APPROVE' },
+  { action: 'GOODS_ISSUE',        label: 'Post Goods Issue',      icon: 'pi pi-sign-out',     permission: 'DISPATCH' },
+  { action: 'CREATE_CONSIGNMENT', label: 'Dispatch for Shipment', icon: 'pi pi-send',         permission: 'DELIVERY_EDIT' },
+  { action: 'RECORD_COLLECTION',  label: 'Record Collection',     icon: 'pi pi-user-plus',    permission: 'DISPATCH' }
+];
+
+/**
+ * A33 REV-04 / REV-04b — the server's PackageRepository.IsStillAmendableWhenStagedAsync, read from the detail model: a
+ * delivery its route staged automatically (no STAGE step, D-3) keeps its cartons amendable (weigh, resize, void) until
+ * the dispatch is approved, a live (not cancelled) consignment carries it, or the goods are issued. No route: false,
+ * today's rule (packages change only while PICKED / PACKED). The server checks it again on every change.
+ */
+export function packagesAmendableWhileStaged(
+  d: Pick<DeliveryDetailModel, 'status' | 'routeSteps' | 'approvedAt' | 'consignments'> | null | undefined
+): boolean {
+  if (!d || d.status !== 'STAGED' || !d.routeSteps?.length) return false;
+  if (d.routeSteps.some(s => s.stepCode === 'STAGE') || d.approvedAt) return false;
+  return !(d.consignments ?? []).some(c => c.status !== 'CANCELLED');
+}
+
+/** Where the tracker stops moving; it stays where it was and the status says why (contract §8). */
+const STOPPED_STATUSES = ['CANCELLED', 'SHORT_CLOSED', 'ON_HOLD'];
+
+/** The statuses at which every route has finished: spec COMPLETED ≙ DELIVERED, then CLOSED (D-2). */
+const COMPLETE_STATUSES = ['DELIVERED', 'CLOSED'];
+
+const ADVANCE_SUCCESS: Partial<Record<DeliveryNextAction, string>> = {
+  RELEASE:     'Delivery released and stock reserved.',
+  STAGE:       'Delivery staged at the dock.',
+  APPROVE:     'Dispatch approved.',
+  GOODS_ISSUE: 'Goods issued.'
+};
 
 @Component({
   selector: 'app-delivery-detail',
@@ -99,6 +155,10 @@ export class DeliveryDetailComponent implements OnInit {
   consignmentDialogVisible = false;
   carriers: CarrierListItemModel[] = [];
   consignment = this.emptyConsignment();
+
+  // ── A33 — goods issue from the route's primary button ───────────────────────
+
+  issueDialogVisible = false;
 
   constructor(
     private route: ActivatedRoute,
@@ -158,10 +218,16 @@ export class DeliveryDetailComponent implements OnInit {
   get canHold(): boolean       { return this.canMoveTo('ON_HOLD'); }
   get canCancel(): boolean     { return this.canMoveTo('CANCELLED'); }
   get canShortClose(): boolean { return this.canMoveTo('SHORT_CLOSED'); }
-  get canRelease(): boolean    { return this.canMoveTo('RELEASED'); }
+
+  /** On a routed delivery the route says (nextActions); otherwise today's rule. */
+  get canRelease(): boolean {
+    return this.hasRoute ? this.routeAllows('RELEASE') : this.canMoveTo('RELEASED');
+  }
 
   /** Picking starts from a released delivery; the server owns the rest of the rule. */
-  get canGeneratePickList(): boolean { return this.canMoveTo('PICKING'); }
+  get canGeneratePickList(): boolean {
+    return this.hasRoute ? this.routeAllows('GENERATE_PICK_LIST') : this.canMoveTo('PICKING');
+  }
 
   /**
    * The dock screen is worth offering once goods are off the shelf and until they have left.
@@ -184,6 +250,8 @@ export class DeliveryDetailComponent implements OnInit {
 
   /** The counter's one button: the customer is here for a self-pickup that is ready to hand over. */
   get canRecordPickup(): boolean {
+    // A routed delivery collects when its route says so: PICK_ONLY issues the goods first (D-2).
+    if (this.hasRoute) return this.routeAllows('RECORD_COLLECTION');
     return this.isSelfPickup && COLLECTABLE_STATUSES.includes(this.delivery?.status ?? '');
   }
 
@@ -204,6 +272,8 @@ export class DeliveryDetailComponent implements OnInit {
    */
   get canCreateConsignment(): boolean {
     const d = this.delivery;
+    // A routed delivery is consigned when its route reaches SHIP (the server refuses it on a route without SHIP).
+    if (d && this.hasRoute) return this.routeAllows('CREATE_CONSIGNMENT');
     return !!d
         && d.direction === 'OUTBOUND'
         && !this.isSelfPickup
@@ -540,6 +610,196 @@ export class DeliveryDetailComponent implements OnInit {
         this.messageService.add({
           severity: 'error', summary: 'Not available',
           detail: err?.error?.message ?? 'The gate pass could not be generated.'
+        });
+      }
+    });
+  }
+
+  // ── A33 — the delivery's fulfillment route (API-CONTRACT.md §6–§8) ──────────
+  //
+  // The server maps the route onto the real statuses (D-2/D-3) and sends the tracker (routeSteps) and what can be done
+  // next (nextActions). This page draws them and gates each button on the operation's own permission; it keeps no copy
+  // of the mapping. A delivery with no route (routeSteps empty) keeps today's page exactly.
+
+  /** True for a delivery raised on a route. Empty routeSteps is the contract's "no route": today's path, unchanged. */
+  get hasRoute(): boolean {
+    return !!this.delivery?.routeSteps?.length;
+  }
+
+  /** The route's steps, then Complete: every route ends at DELIVERED (D-2), even if the server sent the steps alone. */
+  get trackerSteps(): RouteStepProgressModel[] {
+    const steps = this.delivery?.routeSteps ?? [];
+    if (!steps.length || steps[steps.length - 1].stepCode === 'COMPLETE') return steps;
+
+    const status = this.delivery!.status;
+    const state: RouteStepProgressModel['state'] =
+        COMPLETE_STATUSES.includes(status) ? 'DONE'
+      : steps.every(s => s.state === 'DONE') ? 'CURRENT'
+      : 'PENDING';
+    return [...steps, { stepCode: 'COMPLETE', label: 'Complete', state }];
+  }
+
+  trackStep(_: number, step: RouteStepProgressModel): string {
+    return step.stepCode;
+  }
+
+  stepMarker(step: RouteStepProgressModel): string {
+    return step.state === 'DONE' ? '✓' : step.state === 'CURRENT' ? '●' : '○';
+  }
+
+  /** Under the current step: the real status, so "Ship ●" says whether the parcel is in transit or not yet booked. */
+  stepCaption(step: RouteStepProgressModel): string {
+    if (step.state === 'DONE') return 'done';
+    if (step.state !== 'CURRENT' || !this.delivery) return '';
+    return this.formatStatus(this.delivery.status);
+  }
+
+  /** CANCELLED / SHORT_CLOSED / ON_HOLD: the tracker stays where it was, and this says why (contract §8). */
+  get trackerStoppedNote(): string | null {
+    const d = this.delivery;
+    if (!d || !this.hasRoute || !STOPPED_STATUSES.includes(d.status)) return null;
+    return `${this.formatStatus(d.status)} — the tracker shows where it stopped.`;
+  }
+
+  /** The route offers this action now and the user holds its permission. */
+  private routeAllows(action: DeliveryNextAction): boolean {
+    const button = ROUTE_ACTION_BUTTONS.find(b => b.action === action);
+    return !!button
+        && !!this.delivery?.nextActions?.includes(action)
+        && this.authService.hasPermission(button.permission);
+  }
+
+  /** The forward actions this user can take now, in flow order: the first is the primary button. */
+  get routeActions(): RouteActionButton[] {
+    if (!this.hasRoute) return [];
+    return ROUTE_ACTION_BUTTONS.filter(b => this.routeAllows(b.action));
+  }
+
+  /** The next step when it's someone else's to take (no permission): named, so the page doesn't just go quiet. */
+  get blockedRouteAction(): RouteActionButton | null {
+    if (!this.hasRoute || this.routeActions.length) return null;
+    const next = this.delivery?.nextActions ?? [];
+    return ROUTE_ACTION_BUTTONS.find(b => next.includes(b.action)) ?? null;
+  }
+
+  get routeHasPacking(): boolean {
+    return this.trackerSteps.some(s => s.stepCode === 'PACK');
+  }
+
+  /**
+   * The dock screen. Without a route, today's rule. On a route without PACK the boxing is automatic (D-3) and staging
+   * and goods issue are on this page, so there's usually nothing there to do; and when packing is the next step, "Start
+   * Packing" already goes there. Except (REV-04b): while an auto-staged delivery's cartons are still amendable, the pack
+   * station is where the auto LOOSE unit gets weighed — a courier refuses a package with no weight.
+   */
+  get showPackStationLink(): boolean {
+    if (!this.canOpenPackStation) return false;
+    if (!this.hasRoute) return true;
+    if (packagesAmendableWhileStaged(this.delivery)) return true;
+    return this.routeHasPacking && !this.routeActions.some(a => a.action === 'PACK');
+  }
+
+  /** The route's buttons. Steps that need input open the screen or dialog that collects it; never `advance`. */
+  performRouteAction(action: DeliveryNextAction) {
+    if (this.isSubmitting || !this.routeAllows(action)) return;
+
+    switch (action) {
+      case 'RELEASE':            this.openReleaseDialog(); break;
+      case 'GENERATE_PICK_LIST': this.generatePickList(); break;
+      case 'CONFIRM_PICK':       this.openPickList(); break;
+      case 'PACK':               this.router.navigate(['/portal/pages/logistics/deliveries', this.uuid, 'pack']); break;
+      case 'STAGE':              this.advance('STAGE'); break;
+      case 'APPROVE':            this.approveDispatch(); break;
+      case 'GOODS_ISSUE':        this.issueDialogVisible = true; break;
+      case 'CREATE_CONSIGNMENT': this.openConsignmentDialog(); break;
+      case 'RECORD_COLLECTION':  this.openPickupDialog(); break;
+    }
+  }
+
+  /** The point of no return, asked for first exactly as the pack station does. */
+  confirmGoodsIssue() {
+    if (!this.issueDialogVisible || !this.routeAllows('GOODS_ISSUE')) return;
+    this.advance('GOODS_ISSUE');
+  }
+
+  /**
+   * One step that needs no input. `expectedStatus` is the status on screen: if someone else moved the delivery on, the
+   * server answers 409 instead of doing a step nobody saw, and the reload shows what it is now.
+   */
+  private advance(action: DeliveryNextAction) {
+    if (this.isSubmitting || !this.delivery) return;
+    this.isSubmitting = true;
+
+    this.logisticsService.advanceDelivery(this.uuid, { expectedStatus: this.delivery.status }).subscribe({
+      next: (res) => {
+        this.isSubmitting = false;
+        this.issueDialogVisible = false;
+        const done = res.result?.action ?? action;
+        this.messageService.add({
+          severity: 'success', summary: 'Done',
+          detail: ADVANCE_SUCCESS[done] ?? res.message ?? 'Done.'
+        });
+        this.load();
+      },
+      error: (err) => {
+        this.isSubmitting = false;
+        this.issueDialogVisible = false;
+        if (err?.status === 409) {
+          // Moved on since the page loaded, or the step needs input after all: say what the server said, then show
+          // the delivery as it is now.
+          this.messageService.add({
+            severity: 'warn', summary: 'Not done',
+            detail: err?.error?.message ?? 'The delivery has changed since this page loaded.'
+          });
+          this.load();
+          return;
+        }
+        this.messageService.add({
+          severity: 'error', summary: 'Not allowed',
+          detail: err?.error?.message ?? 'The step could not be completed.'
+        });
+      }
+    });
+  }
+
+  /** D-7, DELIVERY_APPROVE. Its own endpoint rather than advance: a click on "Approve" must never issue the goods. */
+  private approveDispatch() {
+    if (this.isSubmitting) return;
+    this.isSubmitting = true;
+
+    this.logisticsService.approveDelivery(this.uuid).subscribe({
+      next: (res) => {
+        this.isSubmitting = false;
+        // A 200 no-op when someone approved it first (contract §6): worth saying, not worth alarming anyone over.
+        const already = !!res.result?.alreadyApproved;
+        this.messageService.add({
+          severity: already ? 'info' : 'success',
+          summary: already ? 'Already approved' : 'Approved',
+          detail: res.message || (already ? 'The dispatch had already been approved.' : 'Dispatch approved.')
+        });
+        this.load();
+      },
+      error: (err) => {
+        this.isSubmitting = false;
+        this.messageService.add({
+          severity: 'error', summary: 'Not approved',
+          detail: err?.error?.message ?? 'The dispatch could not be approved.'
+        });
+      }
+    });
+  }
+
+  /** The pick is confirmed on the pick walk, against the list the warehouse is working from. */
+  private openPickList() {
+    this.logisticsService.getPickListForDelivery(this.uuid).subscribe({
+      next: (res) => {
+        if (res.result?.uuid) this.router.navigate(['/portal/pages/logistics/picking', res.result.uuid]);
+        else this.messageService.add({ severity: 'warn', summary: 'No pick list', detail: 'This delivery has no pick list yet.' });
+      },
+      error: (err) => {
+        this.messageService.add({
+          severity: 'error', summary: 'Not available',
+          detail: err?.error?.message ?? 'The pick list could not be opened.'
         });
       }
     });

@@ -168,6 +168,15 @@ public class ProductVariantModel
     public decimal? SaleOrderMinQty { get; set; }
     public decimal? SaleOrderMaxQty { get; set; }
     public DateTime CreatedDate { get; set; }
+
+    // A33 C2 — the variant's default fulfillment route. Code and name come from Logistics (IFulfillmentRouteLookup)
+    // and are null when the route is gone or the host has no Logistics; the uuid is what the variant stores.
+    public Guid? FulfillmentRouteUuid { get; set; }
+    public string? FulfillmentRouteCode { get; set; }
+    public string? FulfillmentRouteName { get; set; }
+
+    // The variant's organization — whose routes its route uuid names. Internal, so never serialized.
+    internal Guid OrganizationId { get; set; }
 }
 
 // PV-004 — resolves a scanned barcode straight to its variant during GRN receiving, along with

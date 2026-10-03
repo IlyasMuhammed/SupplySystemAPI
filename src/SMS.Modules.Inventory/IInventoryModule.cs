@@ -82,6 +82,12 @@ public static class InventoryModuleExtensions
         services.AddScoped<IVariantSupplierResolver, VariantSupplierResolver>();
         // Lookups asks every checker before it deletes a currency or changes its code.
         services.AddScoped<ILookupReferenceChecker, InventoryCurrencyReferenceChecker>();
+        // A33 C2 — variant fulfillment routes: the gated assign endpoints, each variant's route for Demand's resolver,
+        // and "still used by active product variants" for Logistics (one IFulfillmentRouteUsage per module, L-7).
+        services.AddScoped<IVariantFulfillmentRouteService, VariantFulfillmentRouteService>();
+        services.AddScoped<VariantFulfillmentRoutes>();
+        services.AddScoped<IVariantFulfillmentRoutes>(sp => sp.GetRequiredService<VariantFulfillmentRoutes>());
+        services.AddScoped<IFulfillmentRouteUsage>(sp => sp.GetRequiredService<VariantFulfillmentRoutes>());
         services.AddScoped<InventoryDataSeeder>();
         services.AddScoped<StaleRateAlertJob>();
         services.AddScoped<RateExpiryNotificationJob>();

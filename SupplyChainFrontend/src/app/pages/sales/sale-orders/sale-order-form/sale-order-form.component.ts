@@ -1,7 +1,8 @@
-import { Component, Inject, LOCALE_ID, OnInit, effect } from '@angular/core';
+import { Component, Inject, LOCALE_ID, OnInit, effect, untracked } from '@angular/core';
 import { CommonModule, formatDate, formatNumber } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { distinctUntilChanged } from 'rxjs/operators';
+import { Subject, merge } from 'rxjs';
+import { debounceTime, distinctUntilChanged, map } from 'rxjs/operators';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import {
   AbstractControl, FormArray, FormBuilder, FormControl, FormGroup, ReactiveFormsModule, ValidationErrors, Validators
@@ -24,8 +25,16 @@ import {
 } from '../../../../shared/product-variant-picker/product-variant-picker.component';
 import {
   SaleOrderService, SaleOrderModel, SaleOrderLineRequest, CreateSaleOrderRequest, UpdateSaleOrderRequest,
-  SaleOrderDefaultsModel, CustomerPoDuplicateModel
+  SaleOrderDefaultsModel, CustomerPoDuplicateModel, SaleOrderDeliveryPreviewModel, SaleOrderDeliveryPreviewRequest,
+  DeliveryPreviewLineModel
 } from '../../../../services/sale-order.service';
+import {
+  FulfillmentRoutesService, FulfillmentRouteModel, FulfillmentRouteSource
+} from '../../../../services/fulfillment-routes.service';
+import {
+  LineRouteDisplay, PreviewLineRef, ROUTE_LEGEND, inheritPlaceholder, lineRouteDisplay
+} from '../fulfillment-route-display';
+import { DeliveryPreviewPanelComponent } from '../delivery-preview-panel/delivery-preview-panel.component';
 import {
   SalesPreorderService, SaleQuotation, SaleQuotationLine, SaleQuotationListItem, ConvertQuotationToOrderRequest
 } from '../../../../services/sales-preorder.service';
@@ -173,7 +182,7 @@ const CUSTOMER_PO_MAX_LENGTH = 50;
     CommonModule, RouterModule, ReactiveFormsModule,
     ButtonModule, ToastModule, TooltipModule, DialogModule, DropdownModule, CalendarModule,
     InputNumberModule, InputTextModule, TextareaModule, AutoCompleteModule, SelectButtonModule,
-    ProductVariantPickerComponent
+    ProductVariantPickerComponent, DeliveryPreviewPanelComponent
   ],
   templateUrl: './sale-order-form.component.html',
   styleUrls: ['./sale-order-form.component.scss'],
@@ -254,11 +263,31 @@ export class SaleOrderFormComponent implements OnInit {
   poDuplicates: CustomerPoDuplicateModel[] = [];
   readonly customerPoMaxLength = CUSTOMER_PO_MAX_LENGTH;
 
+  // ── A33: routes and the delivery preview ────────────────────────────────────
+
+  /** The organization's active routes, for each line's Route dropdown. */
+  activeRoutes: FulfillmentRouteModel[] = [];
+  private routesRequested = false;
+  /** A loaded line's override that is no longer offered (deactivated, deleted), named as the server last knew it. */
+  private retiredRouteLabels = new Map<string, string>();
+  /** The server said routes do not apply to this organization (D-11). */
+  private serverRoutesOff = false;
+
+  preview: SaleOrderDeliveryPreviewModel | null = null;
+  /** The line controls the preview was asked for, in request order: the server's line N is previewControls[N-1]. */
+  private previewControls: AbstractControl[] = [];
+  private previewSeq = 0;
+  isLoadingPreview = false;
+  previewFailed = false;
+  /** Asks for a preview when something outside the form changes (the organization's modules arriving). */
+  private readonly previewTrigger$ = new Subject<void>();
+
   constructor(
     private fb: FormBuilder,
     private route: ActivatedRoute,
     private router: Router,
     private saleOrderService: SaleOrderService,
+    private routesService: FulfillmentRoutesService,
     private preorderService: SalesPreorderService,
     private partnerService: BusinessPartnerService,
     private inventoryService: InventoryService,
@@ -305,12 +334,26 @@ export class SaleOrderFormComponent implements OnInit {
     effect(() => {
       this.tenantService.tenant();
       this.applyDefaultCurrency();
+      // A33 — whether routes apply depends on the organization's modules (D-11).
+      untracked(() => {
+        this.ensureRoutesLoaded();
+        this.previewTrigger$.next();
+      });
     });
 
     // A line is priced in the order's currency, so another currency is another price for every line.
     this.form.get('currencyId')!.valueChanges.pipe(distinctUntilChanged(), takeUntilDestroyed()).subscribe(() => {
       this.lines.controls.forEach((_, i) => this.refreshPrice(i));
     });
+
+    // A33 PC-08 — the preview follows the lines, their routes, the delivery mode and the address, a moment after
+    // the last change; nothing else asks for a new one.
+    merge(this.form.valueChanges, this.previewTrigger$).pipe(
+      map(() => this.previewKey()),
+      debounceTime(PREVIEW_DEBOUNCE_MS),
+      distinctUntilChanged(),
+      takeUntilDestroyed()
+    ).subscribe(() => this.refreshPreview());
   }
 
   ngOnInit() {
@@ -351,6 +394,8 @@ export class SaleOrderFormComponent implements OnInit {
       },
       error: () => { this.taxCodes = []; }
     });
+
+    this.ensureRoutesLoaded();
 
     if (this.uuid) this.loadOrder(this.uuid);
     else {
@@ -490,12 +535,12 @@ export class SaleOrderFormComponent implements OnInit {
   /** POST …/convert-to-order: the order's own details; partner, currency and lines come from the quotation. */
   buildConvertRequest(): ConvertQuotationToOrderRequest {
     const v = this.form.getRawValue();
-    const ship = v.deliveryMode === 'SHIP';
     const notes = ((v.notes as string | null) ?? '').trim();
     return {
       ...(v.expectedDeliveryDate ? { expectedDeliveryDate: toDateOnly(v.expectedDeliveryDate as Date) } : {}),
       deliveryMode: v.deliveryMode,
-      ...(ship && v.shippingAddressId ? { shippingAddressId: v.shippingAddressId as string } : {}),
+      // A33 D-4 — the same rule as saving: shipped, or a line's route ships.
+      ...(this.showAddress && v.shippingAddressId ? { shippingAddressId: v.shippingAddressId as string } : {}),
       ...(notes ? { notes } : {}),
       ...this.customerPoFields()
     };
@@ -596,10 +641,13 @@ export class SaleOrderFormComponent implements OnInit {
       customerPoReference: order.customerPoReference ?? '',
       customerPoDate: order.customerPoDate ? fromDateOnly(order.customerPoDate) : null
     });
-    this.onModeChange();
+    if (order.routesEnabled === false) this.serverRoutesOff = true;
+    // A stored address is kept (and sent only while the field is shown): a collected draft may need it (D-4).
+    this.onModeChange(false);
 
     this.lines.clear();
     this.retiredTaxCodes = [];
+    this.retiredRouteLabels.clear();
     for (const l of order.lines.filter(l => l.status !== 'CANCELLED')) {
       // A line keeps the code it has (and one with none stays without): the default is only for new lines.
       const group = this.newLine(false);
@@ -612,10 +660,18 @@ export class SaleOrderFormComponent implements OnInit {
         discountPercent: l.discountPercent,
         taxPercent: l.taxPercent,
         taxCodeUuid: l.taxCodeUuid ?? null,
+        // A33 — the line's own override (null = inherits); sent back on every save, the lines being rebuilt.
+        fulfillmentRouteUuid: l.fulfillmentRouteUuid ?? null,
         unitPrice: l.unitPrice,
         priceState: 'found'
       });
       this.lines.push(group);
+
+      if (l.fulfillmentRouteUuid) {
+        const name = (l.routeSource === 'LINE_OVERRIDE' ? l.effectiveRouteName || l.effectiveRouteCode : null) ?? 'Route';
+        const why = l.routeBlocker === 'ROUTE_INACTIVE' ? ' (inactive)' : l.routeBlocker === 'ROUTE_UNKNOWN' ? ' (no longer available)' : '';
+        this.retiredRouteLabels.set(l.fulfillmentRouteUuid, name + why);
+      }
 
       if (l.taxCodeUuid && !this.retiredTaxCodes.some(o => o.value === l.taxCodeUuid)) {
         const code = l.taxCode ?? 'Code';
@@ -695,17 +751,40 @@ export class SaleOrderFormComponent implements OnInit {
     }
   }
 
-  /** A collected order has no address; a shipped one cannot do without. */
-  onModeChange() {
+  /**
+   * A shipped order cannot do without an address. A collected one has none, unless a line's route ships (A33 D-4,
+   * REV-03): then the address is kept and offered, though a draft may still be saved without it (Confirm is the gate).
+   * @param clearAddress False when loading a draft: its stored address stays until the preview says whether it is needed.
+   */
+  onModeChange(clearAddress = true) {
     const address = this.form.get('shippingAddressId')!;
     if (this.isShip) {
       address.addValidators(Validators.required);
     } else {
       address.removeValidators(Validators.required);
-      address.setValue(null);
+      if (clearAddress && !this.routesNeedShipping) address.setValue(null);
     }
     address.updateValueAndValidity();
   }
+
+  /**
+   * A33 D-4 — some line's route has a Ship step (or the server asks for an address), so the order needs a shipping
+   * address whatever its header mode. From the preview; before the first one, from the loaded draft.
+   */
+  get routesNeedShipping(): boolean {
+    if (!this.routesEnabled) return false;
+    if (this.preview) {
+      return this.preview.blockers.some(b => b.code === 'SHIPPING_ADDRESS_REQUIRED')
+          || this.preview.groups.some(g => g.requiresShipping)
+          || this.preview.lines.some(l => (l.effectiveRouteSteps ?? []).includes('SHIP'));
+    }
+    const o = this.order;
+    return !!o && ((o.confirmBlockers ?? []).some(b => b.code === 'SHIPPING_ADDRESS_REQUIRED')
+          || o.lines.some(l => (l.effectiveRouteSteps ?? []).includes('SHIP')));
+  }
+
+  /** The address field is on screen, and its value is sent, for a shipped order or one with a line that ships. */
+  get showAddress(): boolean { return this.isShip || this.routesNeedShipping; }
 
   private loadAddresses(customerUuid: string, select?: string | null) {
     this.isLoadingAddresses = true;
@@ -821,6 +900,9 @@ export class SaleOrderFormComponent implements OnInit {
       taxPercent:      [code?.ratePercent ?? 0, [Validators.min(0), Validators.max(100)]],
       // SAP alignment (S-3) — the tax code; with one, taxPercent is its rate and is not typed.
       taxCodeUuid:     [code?.uuid ?? null as string | null],
+      // A33 PC-07 — the line's route override; null inherits (variant, then organization default). Read-only for
+      // someone who may not change the order, but still sent back so a save never drops it.
+      fulfillmentRouteUuid: [{ value: null as string | null, disabled: !this.canChangeRoute }],
       unitPrice:       [null as number | null],
       priceState:      ['none' as PriceState],
       // UI-only: how a price in another currency was converted, or why it cannot be.
@@ -1122,14 +1204,16 @@ export class SaleOrderFormComponent implements OnInit {
 
   private buildLines(): SaleOrderLineRequest[] {
     return this.lines.controls.map(c => {
-      const v = c.value;
+      // Raw: a read-only route field is disabled, and its override must still go back.
+      const v = (c as FormGroup).getRawValue();
       return {
         variantUuid: v.variantUuid as string,
         quantity: v.quantity as number,
         discountPercent: v.discountPercent ?? 0,
         taxPercent: v.taxPercent ?? 0,
         // Sent on every save, an edit included: a draft's lines are rebuilt from what is sent.
-        ...(v.taxCodeUuid ? { taxCodeUuid: v.taxCodeUuid as string } : {})
+        ...(v.taxCodeUuid ? { taxCodeUuid: v.taxCodeUuid as string } : {}),
+        ...(v.fulfillmentRouteUuid ? { fulfillmentRouteUuid: v.fulfillmentRouteUuid as string } : {})
       };
     });
   }
@@ -1137,7 +1221,8 @@ export class SaleOrderFormComponent implements OnInit {
   /** What saving will send: a create for a new order, an update for one being edited. Exported so a spec can pin it. */
   buildRequest(): CreateSaleOrderRequest | UpdateSaleOrderRequest {
     const v = this.form.getRawValue();
-    const ship = v.deliveryMode === 'SHIP';
+    // A33 D-4 — also on a collected order when a line's route ships (REV-03).
+    const withAddress = this.showAddress;
     const expected = v.expectedDeliveryDate ? toDateOnly(v.expectedDeliveryDate as Date) : undefined;
     const notes = (v.notes ?? '').trim() || undefined;
 
@@ -1147,7 +1232,7 @@ export class SaleOrderFormComponent implements OnInit {
         currencyId: v.currencyId ?? undefined,
         deliveryMode: v.deliveryMode,
         // An update replaces this outright, so what the form does not show is sent back as it was.
-        shippingAddressId: ship ? v.shippingAddressId ?? undefined : undefined,
+        shippingAddressId: withAddress ? v.shippingAddressId ?? undefined : undefined,
         intimationDepartmentId: this.intimationDepartmentId,
         notes,
         // A32 — the draft's customer PO is replaced too: sent back as loaded unless changed, left out when cleared.
@@ -1161,7 +1246,7 @@ export class SaleOrderFormComponent implements OnInit {
       expectedDeliveryDate: expected,
       currencyId: v.currencyId ?? undefined,
       deliveryMode: v.deliveryMode,
-      shippingAddressId: ship ? v.shippingAddressId ?? undefined : undefined,
+      shippingAddressId: withAddress ? v.shippingAddressId ?? undefined : undefined,
       notes,
       // A32 — sourceType is left to the server's default, MANUAL: the only one this endpoint takes.
       ...this.customerPoFields(),
@@ -1239,4 +1324,170 @@ export class SaleOrderFormComponent implements OnInit {
   get backLink(): string[] {
     return this.isEdit ? ['/portal/pages/sales/orders', this.uuid!] : ['/portal/pages/sales/orders'];
   }
+
+  // ── A33 PC-07 / PC-08: route per line, delivery preview ─────────────────────
+
+  /** The organization has the Logistics module (D-11); without it there are no routes, no gate and no preview. */
+  private get logisticsOn(): boolean {
+    return !!this.tenantService.tenant()?.enabledFeatureCodes?.includes('MODULE_LOGISTICS');
+  }
+
+  /** Routes apply: the organization has Logistics and the server has not said otherwise. */
+  get routesEnabled(): boolean {
+    return this.logisticsOn && !this.serverRoutesOff;
+  }
+
+  /** The override is part of the order: picking it on a new order is creating it, on a draft editing it (contract §2). */
+  get canChangeRoute(): boolean {
+    return this.authService.hasPermission(this.isEdit ? 'SALE_ORDER_EDIT' : 'SALE_ORDER_CREATE');
+  }
+
+  /** Reading the routes accepts any of these (contract §2). */
+  private get canReadRoutes(): boolean {
+    return ['FULFILLMENT_ROUTE_VIEW', 'FULFILLMENT_ROUTE_MANAGE', 'FULFILLMENT_ROUTE_ASSIGN', 'SALE_ORDER_VIEW', 'INVENTORY_VIEW', 'DELIVERY_VIEW']
+      .some(code => this.authService.hasPermission(code));
+  }
+
+  private ensureRoutesLoaded() {
+    if (this.routesRequested || !this.routesEnabled || !this.canReadRoutes) return;
+    this.routesRequested = true;
+    this.routesService.getRoutes().subscribe({
+      next: (res) => { this.activeRoutes = res.result ?? []; },
+      // Without the list the line can still inherit, and keeps the override it has.
+      error: () => { this.activeRoutes = []; }
+    });
+  }
+
+  /** The active routes, and the route a loaded line already carries when it is no longer among them. */
+  routeOptionsFor(i: number): { label: string; value: string }[] {
+    const options = this.activeRoutes.map(r => ({ label: r.name, value: r.uuid }));
+    const own = this.lineControl(i, 'fulfillmentRouteUuid').value as string | null;
+    if (own && !options.some(o => o.value === own)) {
+      options.push({ label: this.retiredRouteLabels.get(own) ?? 'Route no longer offered', value: own });
+    }
+    return options;
+  }
+
+  /** The preview's answer for line `i`, if the line was in the last request. */
+  private previewLineFor(i: number): DeliveryPreviewLineModel | null {
+    const control = this.lines.at(i);
+    const position = this.previewControls.indexOf(control);
+    if (!this.preview || position < 0) return null;
+    return this.preview.lines.find(l => l.lineNumber === position + 1) ?? null;
+  }
+
+  /** What the line would inherit, for the dropdown's empty choice. */
+  inheritedRouteLabel(i: number): string {
+    return inheritPlaceholder(this.previewLineFor(i), !!this.lineControl(i, 'fulfillmentRouteUuid').value);
+  }
+
+  /**
+   * Where line `i`'s route comes from. An override shows at once; otherwise what the preview said, once it has
+   * caught up with the line (a cleared override reads as unknown until it does).
+   */
+  lineRouteSource(i: number): FulfillmentRouteSource | null {
+    if (!this.routesEnabled) return null;
+    if (this.lineControl(i, 'fulfillmentRouteUuid').value) return 'LINE_OVERRIDE';
+    const p = this.previewLineFor(i);
+    if (!p || p.routeSource === 'LINE_OVERRIDE') return null;
+    return p.routeSource;
+  }
+
+  lineRouteDisplayFor(i: number): LineRouteDisplay | null {
+    const source = this.lineRouteSource(i);
+    if (!source) return null;
+    const p = this.previewLineFor(i);
+    if (source !== 'LINE_OVERRIDE') return lineRouteDisplay(p ?? { routeSource: source });
+
+    const own = this.lineControl(i, 'fulfillmentRouteUuid').value as string;
+    const answered = p?.routeSource === 'LINE_OVERRIDE' && (p.fulfillmentRouteUuid ?? p.effectiveRouteUuid) === own;
+    return lineRouteDisplay({
+      routeSource: 'LINE_OVERRIDE',
+      routeBlocker: answered ? p!.routeBlocker : null,
+      effectiveRouteName: this.routeOptionsFor(i).find(o => o.value === own)?.label ?? (answered ? p!.effectiveRouteName : null),
+      effectiveRouteCode: own
+    });
+  }
+
+  readonly routeLegend = ROUTE_LEGEND;
+
+  /** The preview request for the form as it stands; null when routes are off or no line is complete yet. */
+  private buildPreviewRequest(): { request: SaleOrderDeliveryPreviewRequest; controls: AbstractControl[] } | null {
+    if (!this.routesEnabled) return null;
+    const controls = this.lines.controls.filter(c => {
+      const v = (c as FormGroup).getRawValue();
+      return !!v.variantUuid && v.quantity != null && v.quantity > 0;
+    });
+    if (controls.length === 0) return null;
+
+    const v = this.form.getRawValue();
+    return {
+      controls,
+      request: {
+        saleOrderUuid: this.uuid ?? null,
+        deliveryMode: v.deliveryMode,
+        // D-4 — a collected order with a line that ships sends its address too, so that blocker can clear.
+        shippingAddressId: this.showAddress ? (v.shippingAddressId as string | null) ?? null : null,
+        lines: controls.map(c => {
+          const l = (c as FormGroup).getRawValue();
+          return { variantUuid: l.variantUuid as string, quantity: l.quantity as number, fulfillmentRouteUuid: (l.fulfillmentRouteUuid as string | null) ?? null };
+        })
+      }
+    };
+  }
+
+  /** Only what changes the preview starts a new one; a price arriving or a discount typed does not. */
+  private previewKey(): string {
+    const built = this.buildPreviewRequest();
+    return built ? JSON.stringify(built.request) : '';
+  }
+
+  private refreshPreview() {
+    const built = this.buildPreviewRequest();
+    const seq = ++this.previewSeq;
+    if (!built) {
+      this.preview = null;
+      this.previewControls = [];
+      this.isLoadingPreview = false;
+      this.previewFailed = false;
+      return;
+    }
+    this.isLoadingPreview = true;
+    this.saleOrderService.previewDeliveries(built.request).subscribe({
+      next: (res) => {
+        if (seq !== this.previewSeq) return;            // a newer request is on its way
+        this.isLoadingPreview = false;
+        this.previewFailed = false;
+        const result = res.result ?? null;
+        if (result && result.routesEnabled === false) {
+          this.serverRoutesOff = true;
+          this.preview = null;
+          this.previewControls = [];
+          return;
+        }
+        this.preview = result;
+        this.previewControls = built.controls;
+        // Whether a line ships may have changed whether the address belongs in the request: ask again if so
+        // (the key is unchanged otherwise, so this never loops).
+        this.previewTrigger$.next();
+      },
+      error: () => {
+        if (seq !== this.previewSeq) return;
+        this.isLoadingPreview = false;
+        this.previewFailed = true;
+      }
+    });
+  }
+
+  /** The preview names lines by the form's own numbers and labels. */
+  readonly previewLineRef = (lineNumber: number): PreviewLineRef | null => {
+    const control = this.previewControls[lineNumber - 1];
+    const index = control ? this.lines.controls.indexOf(control) : -1;
+    if (index < 0) return null;
+    const v = (control as FormGroup).getRawValue();
+    return { number: index + 1, description: (v.label as string) || (v.sku as string) || `Line ${index + 1}` };
+  };
 }
+
+/** How long the form waits after the last change before asking for a new preview. */
+export const PREVIEW_DEBOUNCE_MS = 400;

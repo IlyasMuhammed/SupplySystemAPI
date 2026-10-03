@@ -872,6 +872,7 @@ internal sealed class AuthRepository : IAuthRepository
                 || c.StartsWith("CARRIER_")
                 || c.StartsWith("RATE_CARD_")
                 || c.StartsWith("SHIPPING_RULE_")
+                || c.StartsWith("FULFILLMENT_ROUTE_")
                 || c.StartsWith("FREIGHT_")     => "Logistics",
         var c when c.StartsWith("MATERIAL_")    => "Material Management",
         var c when c.StartsWith("REPORT_")      => "Reports",

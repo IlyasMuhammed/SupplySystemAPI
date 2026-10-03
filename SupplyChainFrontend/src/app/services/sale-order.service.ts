@@ -5,6 +5,7 @@ import { environment } from '../../environments/environment';
 import {
   ApiResponse, PaginatedResponse, AddressRequest, DeliveryListItemModel, SourceLineSelection
 } from './logistics.service';
+import { FulfillmentRouteSource } from './fulfillment-routes.service';
 
 // A29 — sale orders (/api/sale-orders, Demand) and the fulfilment endpoints Logistics mounts
 // under the same prefix (P6-05: create-delivery, deliveries).
@@ -49,6 +50,31 @@ export interface SaleOrderLineModel {
   reservableQty?: number;
   /** GREEN | BLUE | YELLOW | RED | GREY — see DELIVERY_INDICATORS in sales-preorder.service.ts. */
   deliveryIndicator?: DeliveryIndicator;
+  // A33 C3 — fulfillment route (API-CONTRACT.md §5). Live while DRAFT, the confirm-time snapshot afterwards (D-16).
+  // Optional only so fixtures written before A33 compile; the server always sends them on the detail read.
+  /** The line's own override while DRAFT (null = inherit); the route it was confirmed with afterwards. */
+  fulfillmentRouteUuid?: string | null;
+  effectiveRouteUuid?: string | null;
+  effectiveRouteCode?: string | null;
+  effectiveRouteName?: string | null;
+  /** Step codes of the effective route, in order — e.g. ['PICK', 'GOODS_ISSUE', 'SHIP']. */
+  effectiveRouteSteps?: string[];
+  /** LINE_OVERRIDE ✎ | VARIANT ⓥ | ORG_DEFAULT | NONE ⚠ (DROP_SHIP lines are NONE with no blocker, D-5). */
+  routeSource?: FulfillmentRouteSource;
+  /** Why this line blocks confirmation; null when it doesn't. */
+  routeBlocker?: ConfirmBlockerCode | null;
+}
+
+/** A33 — why a DRAFT order can't be confirmed yet (API-CONTRACT.md §5). */
+export type ConfirmBlockerCode =
+  'ROUTE_MISSING' | 'ROUTE_INACTIVE' | 'ROUTE_UNKNOWN' | 'SHIPPING_ADDRESS_REQUIRED' | 'SELF_PICKUP_DISABLED';
+
+export interface ConfirmBlockerModel {
+  lineUuid?: string | null;
+  /** 1-based, by the order the lines were added ("Line N"). Null for order-level blockers. */
+  lineNumber?: number | null;
+  code: ConfirmBlockerCode;
+  message: string;
 }
 
 /** A32 §6.3 — computed per line, never stored. */
@@ -99,6 +125,11 @@ export interface SaleOrderModel {
   customerPoAttachmentUuid?: string | null;
   /** Empty on list rows; the detail carries them. */
   lines: SaleOrderLineModel[];
+  // A33 — optional so older fixtures compile; the detail read always sends them.
+  /** False when the organization has no Logistics module (D-11): no Route column, no gate, no auto-created deliveries. */
+  routesEnabled?: boolean;
+  /** Empty unless DRAFT. Non-empty → "Confirm order" is disabled with these messages as its tooltip (not hidden). */
+  confirmBlockers?: ConfirmBlockerModel[];
 }
 
 export interface SaleOrderFilter {
@@ -126,6 +157,106 @@ export interface SaleOrderLineRequest {
   discountPercent: number;
   taxPercent: number;
   taxCodeUuid?: string;
+  /** A33 — the line's route override; null/omitted = inherit (variant, then organization default). Send it back on every update. */
+  fulfillmentRouteUuid?: string | null;
+}
+
+// ── A33 C3/C4 — delivery preview, confirm and cancel results (API-CONTRACT.md §5–§6) ──
+
+/** POST /api/sale-orders/delivery-preview — the unsaved form's lines, resolved and grouped without saving anything. */
+export interface SaleOrderDeliveryPreviewRequest {
+  /** The order being edited, if it has been saved. */
+  saleOrderUuid?: string | null;
+  /** SHIP | SELF_PICKUP — picks which organization default applies (D-4). */
+  deliveryMode: string;
+  shippingAddressId?: string | null;
+  lines: { variantUuid: string; quantity: number; fulfillmentRouteUuid?: string | null }[];
+}
+
+export interface DeliveryPreviewLineModel {
+  lineUuid?: string | null;
+  lineNumber: number;
+  variantUuid: string;
+  itemDescription?: string | null;
+  quantity: number;
+  fulfillmentRouteUuid?: string | null;
+  effectiveRouteUuid?: string | null;
+  effectiveRouteCode?: string | null;
+  effectiveRouteName?: string | null;
+  effectiveRouteSteps: string[];
+  routeSource: FulfillmentRouteSource;
+  routeBlocker?: ConfirmBlockerCode | null;
+}
+
+/** One delivery that confirming would create. */
+export interface DeliveryPreviewGroupModel {
+  routeUuid: string;
+  routeCode: string;
+  routeName: string;
+  steps: string[];
+  stepsText: string;
+  requiresShipping: boolean;
+  /** SHIP | SELF_PICKUP — from the route (D-4). */
+  deliveryMode: string;
+  /** Known only once the order holds stock (after confirm). */
+  warehouseUuid?: string | null;
+  warehouseName?: string | null;
+  lineNumbers: number[];
+}
+
+export interface SaleOrderDeliveryPreviewModel {
+  routesEnabled: boolean;
+  canConfirm: boolean;
+  deliveryCount: number;
+  lines: DeliveryPreviewLineModel[];
+  groups: DeliveryPreviewGroupModel[];
+  blockers: ConfirmBlockerModel[];
+}
+
+/** A delivery created for the order (by confirm or by the recovery button). */
+export interface CreatedSaleOrderDeliveryModel {
+  deliveryUuid: string;
+  deliveryNumber: string;
+  routeUuid: string;
+  routeCode: string;
+  /** SHIP | SELF_PICKUP */
+  deliveryMode: string;
+  shipFromWarehouseUuid?: string | null;
+  lineCount: number;
+}
+
+export interface SkippedSaleOrderLineModel {
+  soLineUuid: string;
+  reason: string;
+}
+
+/** POST /api/sale-orders/{id}/confirm — what confirming did. */
+export interface SaleOrderConfirmResultModel {
+  status: string;
+  deliveries: CreatedSaleOrderDeliveryModel[];
+  skippedLines: SkippedSaleOrderLineModel[];
+  /** The order is confirmed but its deliveries were not all created: show deliveryMessage and the "Create deliveries" button. */
+  deliveryCreationFailed: boolean;
+  deliveryMessage?: string | null;
+}
+
+/** POST /api/sale-orders/{id}/create-deliveries — the recovery button (D-12). Idempotent. */
+export interface SaleOrderDeliveryCreationResultModel {
+  created: CreatedSaleOrderDeliveryModel[];
+  skipped: SkippedSaleOrderLineModel[];
+}
+
+export interface SaleOrderDeliveryRefModel {
+  deliveryUuid: string;
+  deliveryNumber: string;
+  status: string;
+}
+
+/** POST /api/sale-orders/{id}/cancel — deliveries not yet goods-issued are cancelled; issued ones stay (D-15). */
+export interface SaleOrderCancelResultModel {
+  cancelledDeliveries: SaleOrderDeliveryRefModel[];
+  /** Already goods-issued: left as they are and need a manual reversal. */
+  issuedDeliveries: SaleOrderDeliveryRefModel[];
 }
 
 /** POST /api/sale-orders. The order is created as a DRAFT. */
@@ -315,14 +446,47 @@ export class SaleOrderService {
     return this.http.put<ApiResponse>(`${this.baseUrl}/${uuid}`, req);
   }
 
-  /** DRAFT to CONFIRMED: reserves what stock there is and raises purchase orders for the rest. */
-  confirmSaleOrder(uuid: string): Observable<ApiResponse> {
-    return this.http.post<ApiResponse>(`${this.baseUrl}/${uuid}/confirm`, {});
+  /**
+   * DRAFT to CONFIRMED: reserves what stock there is and raises purchase orders for the rest. A33: 400 with one
+   * line per blocker when a line has no usable route; on success, the deliveries created per route (D-1).
+   */
+  confirmSaleOrder(uuid: string): Observable<ApiResponse<SaleOrderConfirmResultModel>> {
+    return this.http.post<ApiResponse<SaleOrderConfirmResultModel>>(`${this.baseUrl}/${uuid}/confirm`, {});
   }
 
-  /** Cancels the order, releasing its reservations and cancelling its draft purchase orders. */
-  cancelSaleOrder(uuid: string, reason?: string): Observable<ApiResponse> {
-    return this.http.post<ApiResponse>(`${this.baseUrl}/${uuid}/cancel`, { reason: reason || null });
+  /**
+   * Cancels the order, releasing its reservations and cancelling its draft purchase orders. A33: also cancels its
+   * deliveries not yet goods-issued and reports the issued ones.
+   */
+  cancelSaleOrder(uuid: string, reason?: string): Observable<ApiResponse<SaleOrderCancelResultModel>> {
+    return this.http.post<ApiResponse<SaleOrderCancelResultModel>>(`${this.baseUrl}/${uuid}/cancel`, { reason: reason || null });
+  }
+
+  /**
+   * A33 — sets (or, with null, clears) one DRAFT line's route override without re-pricing or rebuilding the order.
+   * SALE_ORDER_EDIT. Returns the line with its effective route, source and blocker recomputed.
+   */
+  setLineFulfillmentRoute(uuid: string, lineUuid: string, fulfillmentRouteUuid: string | null): Observable<ApiResponse<SaleOrderLineModel>> {
+    return this.http.put<ApiResponse<SaleOrderLineModel>>(
+      `${this.baseUrl}/${uuid}/lines/${lineUuid}/fulfillment-route`, { fulfillmentRouteUuid });
+  }
+
+  /** A33 — how a saved order's lines would be split into deliveries on confirm. SALE_ORDER_VIEW. Persists nothing. */
+  getDeliveryPreview(uuid: string): Observable<ApiResponse<SaleOrderDeliveryPreviewModel>> {
+    return this.http.get<ApiResponse<SaleOrderDeliveryPreviewModel>>(`${this.baseUrl}/${uuid}/delivery-preview`);
+  }
+
+  /**
+   * A33 — the same for the unsaved form (drives its Route column, preview panel and confirm blockers).
+   * SALE_ORDER_CREATE / SALE_ORDER_EDIT / SALE_ORDER_VIEW. Persists nothing.
+   */
+  previewDeliveries(req: SaleOrderDeliveryPreviewRequest): Observable<ApiResponse<SaleOrderDeliveryPreviewModel>> {
+    return this.http.post<ApiResponse<SaleOrderDeliveryPreviewModel>>(`${this.baseUrl}/delivery-preview`, req);
+  }
+
+  /** A33 D-12 — creates whatever deliveries a confirmed order is missing, one per route. DELIVERY_CREATE. Idempotent. */
+  createDeliveries(uuid: string): Observable<ApiResponse<SaleOrderDeliveryCreationResultModel>> {
+    return this.http.post<ApiResponse<SaleOrderDeliveryCreationResultModel>>(`${this.baseUrl}/${uuid}/create-deliveries`, {});
   }
 
   /** A preview of what confirming would find, line by line. Changes nothing. */

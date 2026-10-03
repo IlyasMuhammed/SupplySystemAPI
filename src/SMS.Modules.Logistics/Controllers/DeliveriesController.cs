@@ -27,19 +27,58 @@ public class DeliveriesController : ControllerBase
     private readonly IPackageService          _packages;
     private readonly IDeliveryDocumentService _documents;
     private readonly IGatePassArchive         _gatePasses;
+    private readonly IDeliveryRouteService    _routes;
 
     public DeliveriesController(
         IDeliveryService svc,
         IPickListService pickLists,
         IPackageService packages,
         IDeliveryDocumentService documents,
-        IGatePassArchive gatePasses)
+        IGatePassArchive gatePasses,
+        IDeliveryRouteService routes)
     {
         _svc        = svc;
         _pickLists  = pickLists;
         _packages   = packages;
         _documents  = documents;
         _gatePasses = gatePasses;
+        _routes     = routes;
+    }
+
+    /// <summary>
+    /// A33 D-7 — "Approve dispatch" for a STAGED delivery whose route has the APPROVAL step. Goods issue (and a
+    /// collection, which issues) is refused until this is done. A repeat is a no-op.
+    /// </summary>
+    /// <remarks>400 if the delivery is not STAGED or its route has no APPROVAL; 404 if it is not the caller's.</remarks>
+    [RequirePermission(PermissionCodes.DELIVERY_APPROVE)]
+    [HttpPost("{uuid:guid}/approve")]
+    public async Task<IActionResult> Approve(Guid uuid)
+    {
+        var result = await _routes.ApproveAsync(uuid, User.GetUserId());
+        return result is null
+            ? NotFound(ApiResponse.Fail(StaticResponseMessage.recordNotFound))
+            : Ok(ApiResponse<DeliveryApprovalModel>.Ok(
+                result, result.AlreadyApproved ? "Dispatch was already approved." : "Dispatch approved."));
+    }
+
+    /// <summary>
+    /// A33 PE-02 — performs the delivery's one next step that needs no input: release a DRAFT, stage a PACKED one,
+    /// approve dispatch (route with APPROVAL), or issue the goods. A step that needs input (confirm the pick, pack,
+    /// create a consignment, record the collection) is refused with a 409 that names it.
+    /// </summary>
+    /// <remarks>
+    /// Reachable with any of DELIVERY_EDIT, DISPATCH, DELIVERY_APPROVE; the step's own permission is then checked
+    /// (release: DELIVERY_EDIT; stage and goods issue: DISPATCH; approve: DELIVERY_APPROVE) — 403 without it. Send
+    /// <c>expectedStatus</c> to get a 409 instead of acting on a delivery someone else has just moved.
+    /// </remarks>
+    [RequirePermission(PermissionCodes.DELIVERY_EDIT, PermissionCodes.DISPATCH, PermissionCodes.DELIVERY_APPROVE)]
+    [HttpPost("{uuid:guid}/advance")]
+    public async Task<IActionResult> Advance(Guid uuid, [FromBody] AdvanceDeliveryRequest? req)
+    {
+        var result = await _routes.AdvanceAsync(uuid, req, code => User.HasPermission(code), User.GetUserId());
+        return result is null
+            ? NotFound(ApiResponse.Fail(StaticResponseMessage.recordNotFound))
+            : Ok(ApiResponse<AdvanceDeliveryResultModel>.Ok(result, $"Delivery moved from {result.PreviousStatus} to {result.Status}."));
     }
 
     [RequirePermission(PermissionCodes.DELIVERY_CREATE)]

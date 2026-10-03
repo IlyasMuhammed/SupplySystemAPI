@@ -24,6 +24,11 @@ export interface SaleOrderConfigModel {
   intimationDepartmentId?: number | null;
   intimationCcEmails?: string | null;
   shipmentRequiredDefault: boolean;
+  /**
+   * A33 D-1 — confirming an order creates its deliveries, one per route (default true). Optional so older fixtures
+   * compile; omitted from a save, the server keeps the current value.
+   */
+  autoCreateDeliveriesOnConfirm?: boolean;
   updatedBy?: number | null;
   updatedAt?: string | null;
 }

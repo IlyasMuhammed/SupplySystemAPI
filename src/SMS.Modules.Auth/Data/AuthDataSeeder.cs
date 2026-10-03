@@ -96,6 +96,10 @@ internal sealed class AuthDataSeeder
         ("View Freight Invoices",         PermissionCodes.FREIGHT_INVOICE_VIEW,  "See carrier bills and what is accrued against them"),
         ("Reconcile Freight Invoices",    PermissionCodes.FREIGHT_INVOICE_RECONCILE, "Record and settle a carrier's bill — this decides what the company accepts it owes"),
         ("Capture Proof of Delivery",     PermissionCodes.POD_CAPTURE,           "Record who took the goods and attach the signature, photograph or delivery note"),
+        ("Approve Dispatch",              PermissionCodes.DELIVERY_APPROVE,      "Approve a staged delivery for goods issue when its fulfillment route has an approval step"),
+        ("View Fulfillment Routes",       PermissionCodes.FULFILLMENT_ROUTE_VIEW,   "Open the fulfillment routes settings screen"),
+        ("Manage Fulfillment Routes",     PermissionCodes.FULFILLMENT_ROUTE_MANAGE, "Create, edit, deactivate and delete fulfillment routes, and choose the organization's default routes"),
+        ("Assign Fulfillment Routes",     PermissionCodes.FULFILLMENT_ROUTE_ASSIGN, "Set a product variant's default fulfillment route, one by one or in bulk by category"),
 
         ("View Reports",                  PermissionCodes.REPORT_VIEW,           "Access standard reports and dashboards"),
         ("Export Reports",                PermissionCodes.REPORT_EXPORT,         "Download report data to CSV / Excel"),
@@ -312,6 +316,8 @@ internal sealed class AuthDataSeeder
             // A32 §6.5 — the spec's WAREHOUSE_MANAGER: holds and frees stock for sale order lines, so it must be
             // able to open the order to reach the buttons.
             PermissionCodes.SALE_ORDER_VIEW, PermissionCodes.SALE_ORDER_RESERVE, PermissionCodes.SALE_ORDER_RELEASE_RESERVATION,
+            // A33 D-9 — the built-in role holding STOCK_MANAGE: decides how each product is fulfilled.
+            PermissionCodes.FULFILLMENT_ROUTE_VIEW, PermissionCodes.FULFILLMENT_ROUTE_MANAGE, PermissionCodes.FULFILLMENT_ROUTE_ASSIGN,
         ],
 
         [(int)EnumRole.WarehouseOperator] =

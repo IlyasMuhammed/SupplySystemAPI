@@ -1109,6 +1109,9 @@ namespace SMS.Modules.Inventory.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<Guid?>("FulfillmentRouteUuid")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<bool>("IsActive")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
@@ -1200,6 +1203,10 @@ namespace SMS.Modules.Inventory.Migrations
                     b.HasIndex("OrganizationId", "Barcode")
                         .IsUnique()
                         .HasFilter("[Barcode] IS NOT NULL");
+
+                    b.HasIndex("OrganizationId", "FulfillmentRouteUuid")
+                        .HasDatabaseName("IX_ProductVariants_OrganizationId_FulfillmentRouteUuid")
+                        .HasFilter("[FulfillmentRouteUuid] IS NOT NULL");
 
                     b.HasIndex("OrganizationId", "Sku")
                         .IsUnique();

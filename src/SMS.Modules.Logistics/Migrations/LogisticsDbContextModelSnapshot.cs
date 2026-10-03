@@ -1759,6 +1759,9 @@ namespace SMS.Modules.Logistics.Migrations
                     b.Property<DateTime?>("ApprovedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("ApprovedBy")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("ClosedAt")
                         .HasColumnType("datetime2");
 
@@ -1788,6 +1791,13 @@ namespace SMS.Modules.Logistics.Migrations
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("FulfillmentRouteCode")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<Guid?>("FulfillmentRouteUuid")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime?>("GoodsIssuedAt")
                         .HasColumnType("datetime2");
@@ -1866,6 +1876,10 @@ namespace SMS.Modules.Logistics.Migrations
                     b.Property<DateTime?>("RequestedDate")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("RouteSteps")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
                         .IsRequired()
@@ -1925,6 +1939,9 @@ namespace SMS.Modules.Logistics.Migrations
 
                     b.HasIndex("OrganizationId", "DeliveryNumber")
                         .IsUnique();
+
+                    b.HasIndex("OrganizationId", "FulfillmentRouteUuid")
+                        .HasFilter("[FulfillmentRouteUuid] IS NOT NULL");
 
                     b.HasIndex("OrganizationId", "Status");
 
@@ -2340,6 +2357,132 @@ namespace SMS.Modules.Logistics.Migrations
                     b.HasIndex("OrganizationId", "Status", "CarrierId");
 
                     b.ToTable("freight_accruals", "logistics");
+                });
+
+            modelBuilder.Entity("SMS.Modules.Logistics.Domain.FulfillmentRoute", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<int>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("IsDefault")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsSystem")
+                        .HasColumnType("bit");
+
+                    b.Property<int?>("ModifiedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ModifiedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("RequiresPacking")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("RequiresShipping")
+                        .HasColumnType("bit");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<Guid>("UUID")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UUID")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "Code")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "RequiresShipping")
+                        .IsUnique()
+                        .HasDatabaseName("UX_fulfillment_routes_OrganizationId_RequiresShipping_Default")
+                        .HasFilter("[IsDefault] = 1");
+
+                    b.ToTable("fulfillment_routes", "logistics");
+                });
+
+            modelBuilder.Entity("SMS.Modules.Logistics.Domain.FulfillmentRouteStep", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("FulfillmentRouteId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsMandatory")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("StepCode")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<int>("StepOrder")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.HasIndex("FulfillmentRouteId", "StepCode")
+                        .IsUnique();
+
+                    b.HasIndex("FulfillmentRouteId", "StepOrder")
+                        .IsUnique();
+
+                    b.ToTable("fulfillment_route_steps", "logistics");
                 });
 
             modelBuilder.Entity("SMS.Modules.Logistics.Domain.PackageContent", b =>
@@ -3460,6 +3603,17 @@ namespace SMS.Modules.Logistics.Migrations
                     b.Navigation("Consignment");
                 });
 
+            modelBuilder.Entity("SMS.Modules.Logistics.Domain.FulfillmentRouteStep", b =>
+                {
+                    b.HasOne("SMS.Modules.Logistics.Domain.FulfillmentRoute", "FulfillmentRoute")
+                        .WithMany("Steps")
+                        .HasForeignKey("FulfillmentRouteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("FulfillmentRoute");
+                });
+
             modelBuilder.Entity("SMS.Modules.Logistics.Domain.PackageContent", b =>
                 {
                     b.HasOne("SMS.Modules.Logistics.Domain.DeliveryOrderLine", "DeliveryOrderLine")
@@ -3626,6 +3780,11 @@ namespace SMS.Modules.Logistics.Migrations
             modelBuilder.Entity("SMS.Modules.Logistics.Domain.DeliveryProof", b =>
                 {
                     b.Navigation("Files");
+                });
+
+            modelBuilder.Entity("SMS.Modules.Logistics.Domain.FulfillmentRoute", b =>
+                {
+                    b.Navigation("Steps");
                 });
 
             modelBuilder.Entity("SMS.Modules.Logistics.Domain.PickList", b =>

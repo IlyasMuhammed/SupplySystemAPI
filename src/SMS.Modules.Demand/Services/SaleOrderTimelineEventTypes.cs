@@ -36,4 +36,11 @@ public static class SaleOrderTimelineEventTypes
 
     /// <summary>A32 C4 — stock held for the order was given back by hand (manual release). Outside §13.3's seven, like the two above.</summary>
     public const string SoStockReleased = "SO_STOCK_RELEASED";
+
+    /// <summary>A33 D-1 — the order's deliveries were created (at confirm, or by the D-12 sweep). Outside §13.3's seven.</summary>
+    public const string SoDeliveriesCreated = "SO_DELIVERIES_CREATED";
+    /// <summary>A33 D-1 — creating them after the confirm failed; the D-12 sweep or the recovery button finishes it.</summary>
+    public const string SoDeliveryCreationFailed = "SO_DELIVERY_CREATION_FAILED";
+    /// <summary>A33 D-15 — cancelling the order cancelled its open deliveries; issued ones are listed for a manual reversal.</summary>
+    public const string SoDeliveriesCancelled = "SO_DELIVERIES_CANCELLED";
 }

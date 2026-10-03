@@ -1,0 +1,106 @@
+<div class="editor">
+  <div class="row-2">
+    <div class="field code-field">
+      <label for="frCode">Code <span class="required" *ngIf="isNew && !readOnly">*</span></label>
+      <input pInputText id="frCode" [(ngModel)]="draft.code" [maxlength]="maxCode" class="mono upper"
+             [disabled]="!isNew || readOnly" placeholder="e.g. HIGH_VALUE" data-testid="code-input" />
+      <small class="hint">{{ isNew ? 'Letters, digits and underscores. It never changes afterwards.' : 'The code never changes.' }}</small>
+    </div>
+    <div class="field">
+      <label for="frName">Name <span class="required" *ngIf="!readOnly">*</span></label>
+      <input pInputText id="frName" [(ngModel)]="draft.name" [maxlength]="maxName" [disabled]="readOnly" data-testid="name-input" />
+    </div>
+  </div>
+
+  <div class="field">
+    <label for="frDescription">Description</label>
+    <textarea pTextarea id="frDescription" [(ngModel)]="draft.description" [maxlength]="maxDescription" rows="2"
+              [disabled]="readOnly" placeholder="When to use this route" data-testid="description-input"></textarea>
+  </div>
+
+  <div class="field order-field">
+    <label for="frOrder">Order in dropdowns <span class="required" *ngIf="!isNew && !readOnly">*</span></label>
+    <p-inputnumber inputId="frOrder" [(ngModel)]="draft.displayOrder" [min]="0" [maxFractionDigits]="0" [useGrouping]="false"
+                   [placeholder]="isNew ? 'Last' : ''" [disabled]="readOnly" data-testid="order-input"></p-inputnumber>
+  </div>
+
+  <section class="steps">
+    <div class="section-head">
+      <span class="section-title">Steps</span>
+      <span class="muted">in the order the warehouse performs them</span>
+    </div>
+    <div class="locked-note" *ngIf="route?.isSystem" data-testid="steps-locked">
+      <i class="pi pi-lock"></i>
+      A system route: its steps are locked. The name, description and order can still be changed.
+    </div>
+
+    <div class="step-row" *ngFor="let s of draft.steps; let i = index" [attr.data-testid]="'step-row-' + s.stepCode">
+      <span class="step-no">{{ stepNumber(i) }}</span>
+      <div class="step-main">
+        <div class="step-name">
+          <strong>{{ stepLabels[s.stepCode] }}</strong> <span class="mono small">{{ s.stepCode }}</span>
+        </div>
+        <small class="hint">{{ stepHints[s.stepCode] }}</small>
+      </div>
+      <div class="step-mandatory">
+        <p-checkbox [inputId]="'mandatory-' + s.stepCode" [binary]="true" [(ngModel)]="s.isMandatory"
+                    [disabled]="stepsLocked || isRequired(s.stepCode)" [attr.data-testid]="'mandatory-' + s.stepCode"></p-checkbox>
+        <label [for]="'mandatory-' + s.stepCode"
+               [pTooltip]="isRequired(s.stepCode) ? 'Always mandatory' : 'Recorded for reference; a step in the route is always performed.'"
+               tooltipPosition="top">Mandatory</label>
+      </div>
+      <input pInputText class="step-desc" [(ngModel)]="s.description" [maxlength]="maxStepDescription"
+             [disabled]="stepsLocked" placeholder="Instructions (optional)" [attr.data-testid]="'step-desc-' + s.stepCode" />
+      <span class="step-remove">
+        <p-button *ngIf="!stepsLocked && !isRequired(s.stepCode)" icon="pi pi-times" [text]="true" [rounded]="true" size="small"
+                  severity="secondary" pTooltip="Remove step" tooltipPosition="top" (onClick)="removeStep(s.stepCode)"
+                  [attr.data-testid]="'remove-step-' + s.stepCode"></p-button>
+      </span>
+    </div>
+
+    <div class="add-steps" *ngIf="addable.length">
+      <span class="muted">Add step:</span>
+      <p-button *ngFor="let c of addable" [label]="stepLabels[c]" icon="pi pi-plus" size="small" [outlined]="true"
+                (onClick)="addStep(c)" [attr.data-testid]="'add-step-' + c"></p-button>
+    </div>
+  </section>
+
+  <section class="preview" data-testid="status-preview">
+    <div class="section-title">Delivery path</div>
+    <div class="path">
+      <ng-container *ngFor="let status of statusPath; let last = last">
+        <span class="status">{{ status }}</span><span class="arrow" *ngIf="!last">→</span>
+      </ng-container>
+    </div>
+    <small class="hint" *ngIf="!shipsToCustomer">
+      No SHIP step: the customer collects, and "Record collection" takes the delivery from GOODS_ISSUED to DELIVERED.
+    </small>
+    <small class="hint">Statuses of steps not in the route are completed automatically.</small>
+  </section>
+
+  <div class="default-row">
+    <p-checkbox inputId="frDefault" [binary]="true" [(ngModel)]="draft.makeDefault" [disabled]="!canChangeDefault"
+                data-testid="make-default"></p-checkbox>
+    <label for="frDefault" data-testid="make-default-label">Make this the default route for {{ defaultClass }}</label>
+  </div>
+  <small class="hint default-hint" data-testid="default-hint"
+         *ngIf="!readOnly && (!canChangeDefault || (draft.makeDefault && currentDefault) || (!draft.makeDefault && route?.isDefault))">
+    <ng-container *ngIf="!canChangeDefault && !readOnly">Activate the route before making it a default.</ng-container>
+    <ng-container *ngIf="canChangeDefault && draft.makeDefault && currentDefault">
+      It replaces {{ currentDefault.name }} ({{ currentDefault.code }}) as the default for {{ defaultClass }}.
+    </ng-container>
+    <ng-container *ngIf="canChangeDefault && !draft.makeDefault && route?.isDefault">
+      {{ defaultClass | titlecase }} will have no default route: lines with no route of their own will block confirmation.
+    </ng-container>
+  </small>
+
+  <small class="p-error" *ngIf="submitted && problem" data-testid="problem">{{ problem }}</small>
+  <small class="p-error" *ngIf="saveError" data-testid="save-error">{{ saveError }}</small>
+
+  <div class="actions">
+    <p-button [label]="readOnly ? 'Close' : 'Cancel'" [text]="true" severity="secondary" [disabled]="isSaving"
+              (onClick)="cancelled.emit()" data-testid="cancel"></p-button>
+    <p-button *ngIf="!readOnly" [label]="isNew ? 'Create' : 'Save'" icon="pi pi-check" [loading]="isSaving" [disabled]="isSaving"
+              (onClick)="save()" data-testid="save"></p-button>
+  </div>
+</div>

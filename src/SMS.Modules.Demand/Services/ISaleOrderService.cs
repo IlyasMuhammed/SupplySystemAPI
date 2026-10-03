@@ -40,4 +40,35 @@ public interface ISaleOrderService
 
     /// <summary>BR-C3-05 — the organization's other orders with this customer PO reference (case-insensitive, trimmed).</summary>
     Task<IReadOnlyList<CustomerPoDuplicateModel>> FindCustomerPoDuplicatesAsync(string reference, Guid? excludeUuid);
+
+    // ── A33 C3/C4 (owner DEM) — fulfillment routes ──────────────────────────────
+
+    /// <summary>
+    /// <see cref="ConfirmAsync"/> with its outcome (API-CONTRACT.md §5): under the order's lock, the route gate (400 with
+    /// every blocker), reservation and the D-16 route snapshot commit together; then, outside the lock, the deliveries are
+    /// created (D-1, best effort). Null = not the caller's order.
+    /// </summary>
+    Task<SaleOrderConfirmResultModel?> ConfirmWithResultAsync(Guid uuid, int userId);
+
+    /// <summary><see cref="CancelAsync"/> with the deliveries it cancelled and the issued ones it left (D-15). Null = not found.</summary>
+    Task<SaleOrderCancelResultModel?> CancelWithResultAsync(Guid uuid, int userId, string? reason);
+
+    /// <summary>BR-C3-05 — how a saved order's lines would be split into deliveries. Persists nothing. Null = not found.</summary>
+    Task<SaleOrderDeliveryPreviewModel?> GetDeliveryPreviewAsync(Guid uuid);
+
+    /// <summary>BR-C3-05 — the same for the unsaved form. A <c>SaleOrderUuid</c> that is not the caller's is a NotFoundException.</summary>
+    Task<SaleOrderDeliveryPreviewModel> PreviewDeliveriesAsync(SaleOrderDeliveryPreviewRequest req);
+
+    /// <summary>
+    /// D-12 / REV-01 — a delivery creator call for the order returned without throwing (e.g. Logistics' recovery
+    /// endpoint), so the sweep need not retry it. Own organization; a no-op when nothing is pending. False = not found.
+    /// </summary>
+    Task<bool> MarkDeliveriesCreatedAsync(Guid uuid);
+
+    /// <summary>
+    /// A33 — set (or with null clear) one DRAFT line's route override and nothing else: no re-pricing, no line rebuild,
+    /// unlike the full PUT. BR-C3-01 validation; non-DRAFT is a 400 (BR-C3-04). Returns the line with its effective route,
+    /// source and blocker recomputed; null = the order or line is not the caller's.
+    /// </summary>
+    Task<SaleOrderLineModel?> UpdateLineRouteAsync(Guid uuid, Guid lineUuid, Guid? fulfillmentRouteUuid, int userId);
 }

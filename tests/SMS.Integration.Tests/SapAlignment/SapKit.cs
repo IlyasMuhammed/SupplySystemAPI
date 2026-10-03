@@ -385,10 +385,19 @@ internal sealed class SapKit
         so.A("lines").Should().OnlyContain(l => (l.ND("deficitQty") ?? 0m) == 0m, "the order was confirmed against stock on hand");
     }
 
-    /// <summary>Raises a delivery for every outstanding line, then release → pick → pack → customer pickup (DELIVERED).</summary>
+    /// <summary>
+    /// Delivers every outstanding line: the DRAFT delivery the confirm created (A33 D-1, a SELF_PICKUP order's
+    /// PICK_ONLY route), or else one raised by hand, then release → pick → pack (unless the route packed it at
+    /// confirm-pick, D-3) → customer pickup (DELIVERED).
+    /// </summary>
     public async Task<Guid> DeliverAsync(Guid soUuid)
     {
-        var delivery = (await Ok(Post($"/api/sale-orders/{soUuid}/create-delivery", new { }), "create delivery")).GetGuid();
+        var drafts = (await Ok(Get($"/api/sale-orders/{soUuid}/deliveries"), "list the order's deliveries")).Items()
+            .Where(d => d.S("status") == "DRAFT").ToList();
+        drafts.Should().HaveCountLessThan(2, $"DeliverAsync handles one delivery per order — {string.Join(", ", drafts.Select(J.Short))}");
+        var delivery = drafts.Count == 1
+            ? drafts[0].G("uuid")
+            : (await Ok(Post($"/api/sale-orders/{soUuid}/create-delivery", new { }), "create delivery")).GetGuid();
 
         await Ok(Post($"/api/logistics/deliveries/{delivery}/release", new { OnShortage = "BLOCK" }), "release delivery");
 
@@ -401,11 +410,12 @@ internal sealed class SapKit
         confirm.B("completed").Should().BeTrue($"every pick was answered — {J.Short(confirm)}");
 
         var detail = await Ok(Get($"/api/logistics/deliveries/{delivery}"), "read delivery");
-        await Ok(Post($"/api/logistics/deliveries/{delivery}/packages", new
-        {
-            PackageType = "BOX",
-            Contents = detail.A("lines").Where(l => l.D("qtyPicked") > 0).Select(l => new { DeliveryLineUuid = l.G("uuid"), Qty = l.D("qtyPicked") }).ToArray()
-        }), "pack");
+        if (detail.S("status") == "PICKED")
+            await Ok(Post($"/api/logistics/deliveries/{delivery}/packages", new
+            {
+                PackageType = "BOX",
+                Contents = detail.A("lines").Where(l => l.D("qtyPicked") > 0).Select(l => new { DeliveryLineUuid = l.G("uuid"), Qty = l.D("qtyPicked") }).ToArray()
+            }), "pack");
 
         await Ok(Post($"/api/logistics/deliveries/{delivery}/pickup", new
         {

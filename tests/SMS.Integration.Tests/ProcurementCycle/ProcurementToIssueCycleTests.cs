@@ -501,6 +501,7 @@ public sealed class ProcurementToIssueCycleTests : IClassFixture<ProcurementCycl
 
     private async Task SubmitAndApproveGrnAsync(Guid grnUuid)
     {
+        await GrnReceivingCheck.PassAllAsync(_client, grnUuid);
         var submitResp = await _client.PostAsync($"/api/grns/{grnUuid}/submit", null);
         submitResp.StatusCode.Should().Be(HttpStatusCode.OK, $"GRN submit failed: {await submitResp.Content.ReadAsStringAsync()}");
 

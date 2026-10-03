@@ -50,8 +50,21 @@ internal sealed class ConsignmentRepository : IConsignmentRepository
         Carrier? carrier = null;
         if (req.CarrierUuid is { } carrierUuid)
         {
-            carrier = await _db.Carriers.FirstOrDefaultAsync(c => c.UUID == carrierUuid && !c.IsDelete)
+            // A33 R-14: the caller's own carrier only, super admin included.
+            carrier = await _db.OwnCarriers().FirstOrDefaultAsync(c => c.UUID == carrierUuid)
                 ?? throw new NotFoundException("Carrier", carrierUuid);
+        }
+
+        // A33: every delivery is checked before the consignment exists — an unknown one or another organization's
+        // (R-14) is a 404, one whose route has no SHIP a 400 — so a refusal leaves no empty consignment behind.
+        if (req.DeliveryUuids is { Count: > 0 } wanted)
+        {
+            var found = await _db.OwnDeliveries().AsNoTracking()
+                .Where(d => wanted.Contains(d.UUID))
+                .ToListAsync();
+            var missing = wanted.Where(u => found.All(d => d.UUID != u)).ToList();
+            if (missing.Count > 0) throw new NotFoundException("Delivery", missing[0]);
+            foreach (var delivery in found) EnsureShips(delivery);
         }
 
         var now = DateTime.UtcNow;
@@ -90,17 +103,32 @@ internal sealed class ConsignmentRepository : IConsignmentRepository
         return consignment.UUID;
     }
 
+    /// <summary>
+    /// A33 contract §7 — a delivery whose route has no SHIP step is collected by the customer ("Record collection"),
+    /// so it never travels on a consignment. A delivery with no route is not affected.
+    /// </summary>
+    private static void EnsureShips(DeliveryOrder delivery)
+    {
+        if (DeliveryRouteFlow.Lacks(delivery, FulfillmentStepCode.Ship))
+            throw new BadRequestException(
+                $"Delivery {delivery.DeliveryNumber} follows {DeliveryRouteFlow.Describe(delivery)}, which has no Ship " +
+                "step: the customer collects it, so it cannot go on a consignment. Record the collection instead.");
+    }
+
     public async Task<bool> AttachDeliveryAsync(Guid uuid, Guid deliveryUuid, int userId)
     {
-        var consignment = await _db.Consignments
+        // A33 R-14: the caller's own consignment and delivery only, super admin included.
+        var consignment = await _db.OwnConsignments()
             .Include(c => c.Deliveries)
-            .FirstOrDefaultAsync(c => c.UUID == uuid && !c.IsDelete);
+            .FirstOrDefaultAsync(c => c.UUID == uuid);
 
         if (consignment is null) return false;
 
-        var delivery = await _db.DeliveryOrders
-            .FirstOrDefaultAsync(d => d.UUID == deliveryUuid && !d.IsDelete)
+        var delivery = await _db.OwnDeliveries()
+            .FirstOrDefaultAsync(d => d.UUID == deliveryUuid)
             ?? throw new NotFoundException("Delivery", deliveryUuid);
+
+        EnsureShips(delivery);
 
         if (consignment.Deliveries.Any(d => d.DeliveryOrderId == delivery.Id))
             throw new ConflictException(
@@ -136,9 +164,9 @@ internal sealed class ConsignmentRepository : IConsignmentRepository
     {
         ArgumentNullException.ThrowIfNull(req);
 
-        var consignment = await _db.Consignments
+        var consignment = await _db.OwnConsignments()
             .Include(c => c.Carrier)
-            .FirstOrDefaultAsync(c => c.UUID == uuid && !c.IsDelete);
+            .FirstOrDefaultAsync(c => c.UUID == uuid);
 
         if (consignment is null) return false;
 
@@ -178,12 +206,12 @@ internal sealed class ConsignmentRepository : IConsignmentRepository
 
     public async Task<ConsignmentDetailModel?> GetByUuidAsync(Guid uuid)
     {
-        var consignment = await _db.Consignments
+        var consignment = await _db.OwnConsignments()
             .Include(c => c.Carrier)
             .Include(c => c.CarrierAccount)
             .Include(c => c.Deliveries).ThenInclude(cd => cd.DeliveryOrder)
             .AsNoTracking()
-            .FirstOrDefaultAsync(c => c.UUID == uuid && !c.IsDelete);
+            .FirstOrDefaultAsync(c => c.UUID == uuid);
 
         if (consignment is null) return null;
 

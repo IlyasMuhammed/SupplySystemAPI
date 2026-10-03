@@ -156,6 +156,29 @@ internal class DeliveryOrder : ITenantScopedEntity
     public DateTime? ApprovedAt { get; set; }
 
     /// <summary>
+    /// A33 D-7 — who pressed "Approve dispatch". Null when approval came through the workflow engine (which does
+    /// not say who acted) or never happened.
+    /// </summary>
+    public int? ApprovedBy { get; set; }
+
+    // ── Fulfillment route (A33 C4/C5) ─────────────────────────────────────────
+    // All null on every delivery from before routes and every non-sale-order delivery: null means the legacy full
+    // path, today's behaviour exactly (R-1).
+
+    /// <summary>The route this delivery follows. Bare <c>FulfillmentRoute.UUID</c> (same context, but kept a scalar so a route can never be deleted out from under history — see FulfillmentRouteService.DeleteAsync).</summary>
+    public Guid? FulfillmentRouteUuid { get; set; }
+
+    /// <summary>The route's code when the delivery was created.</summary>
+    public string? FulfillmentRouteCode { get; set; }
+
+    /// <summary>
+    /// D-10 — the route's steps when the delivery was created, e.g. "PICK,PACK,GOODS_ISSUE,SHIP"
+    /// (<see cref="FulfillmentStepCode.Format"/> / <see cref="FulfillmentStepCode.Parse"/>). Edits to the route
+    /// afterwards reach only deliveries created later.
+    /// </summary>
+    public string? RouteSteps { get; set; }
+
+    /// <summary>
     /// When the stock left the books, and who issued it.
     /// <para>
     /// Stored rather than inferred from the status, because the status only says the delivery is

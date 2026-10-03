@@ -1,0 +1,29 @@
+<div class="route-field">
+  <label class="adj-label" for="variantRoute">
+    Fulfillment Route
+    <i class="pi pi-info-circle info" [pTooltip]="infoText" tooltipPosition="top" data-testid="route-info"></i>
+  </label>
+
+  <ng-container *ngIf="!loadFailed; else failed">
+    <p-select inputId="variantRoute" [options]="options" [ngModel]="value" (ngModelChange)="onChange($event)"
+              optionLabel="label" optionValue="value" [showClear]="clearable" [disabled]="!canAssign" [loading]="loading"
+              placeholder="No route" appendTo="body" styleClass="w-full" data-testid="route-select"></p-select>
+    <small class="steps" *ngIf="selected?.stepsText" data-testid="route-steps">Steps: {{ selected!.stepsText }}</small>
+    <small class="hint warn" *ngIf="selected?.inactive" data-testid="route-inactive">
+      This route is no longer active. Choose another one.
+    </small>
+    <small class="hint" *ngIf="!value" data-testid="route-none">
+      No route: sale order lines for this variant use the organization's default route.
+    </small>
+  </ng-container>
+  <ng-template #failed>
+    <div class="readonly-value" data-testid="routes-failed">
+      {{ currentName ? currentName + (currentCode ? ' (' + currentCode + ')' : '') : 'No route' }}
+      <small class="hint">The routes could not be loaded.</small>
+    </div>
+  </ng-template>
+
+  <small class="hint" *ngIf="!canAssign" data-testid="route-readonly">
+    Changing it needs the "assign fulfillment route" permission.
+  </small>
+</div>

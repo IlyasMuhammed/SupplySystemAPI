@@ -359,6 +359,73 @@ public class DeliveryListItemModel
     public bool LinesUnknown { get; set; }
 
     public DateTime CreatedDate { get; set; }
+
+    // ── A33 (contract §6) ──
+    /// <summary>The sale order this delivery fulfils; null for every other source.</summary>
+    public Guid?   SaleOrderUuid        { get; set; }
+    /// <summary>The sale order's customer (partner) name; null unless the delivery is for a sale order.</summary>
+    public string? CustomerName         { get; set; }
+    /// <summary>The route this delivery follows; null = no route (today's full path).</summary>
+    public Guid?   FulfillmentRouteUuid { get; set; }
+    /// <summary>The route's code when the delivery was created (snapshot).</summary>
+    public string? FulfillmentRouteCode { get; set; }
+    /// <summary>The route's name now (live from the route table).</summary>
+    public string? FulfillmentRouteName { get; set; }
+    /// <summary>"Steel Pipes × 500, +2 more" — the first line by line number, and how many others.</summary>
+    public string? LineSummary          { get; set; }
+}
+
+/// <summary>A33 — one step of the delivery's route as the tracker shows it (contract §6/§8).</summary>
+public class RouteStepProgressModel
+{
+    /// <summary>PICK | PACK | STAGE | APPROVAL | GOODS_ISSUE | SHIP, or COMPLETE for the final marker.</summary>
+    public string StepCode { get; set; } = string.Empty;
+    public string Label    { get; set; } = string.Empty;
+    /// <summary>DONE | CURRENT | PENDING.</summary>
+    public string State    { get; set; } = string.Empty;
+}
+
+/// <summary>A33 — the actions <c>nextActions</c> may list. Each button is still gated by its operation's own permission.</summary>
+public static class DeliveryNextAction
+{
+    public const string Release           = "RELEASE";
+    public const string GeneratePickList  = "GENERATE_PICK_LIST";
+    public const string ConfirmPick       = "CONFIRM_PICK";
+    public const string Pack              = "PACK";
+    public const string Stage             = "STAGE";
+    public const string Approve           = "APPROVE";
+    public const string GoodsIssue        = "GOODS_ISSUE";
+    public const string CreateConsignment = "CREATE_CONSIGNMENT";
+    public const string RecordCollection  = "RECORD_COLLECTION";
+    public const string Hold              = "HOLD";
+    public const string Resume            = "RESUME";
+    public const string Cancel            = "CANCEL";
+    public const string ShortClose        = "SHORT_CLOSE";
+}
+
+/// <summary>A33 PE-02 — <c>POST api/logistics/deliveries/{uuid}/advance</c>.</summary>
+public class AdvanceDeliveryRequest
+{
+    /// <summary>The status the caller saw. When given and the delivery has moved on since, the call is refused (409).</summary>
+    public string? ExpectedStatus { get; set; }
+}
+
+public class AdvanceDeliveryResultModel
+{
+    public string PreviousStatus { get; set; } = string.Empty;
+    public string Status         { get; set; } = string.Empty;
+    /// <summary>What was done: RELEASE | STAGE | APPROVE | GOODS_ISSUE.</summary>
+    public string Action         { get; set; } = string.Empty;
+}
+
+/// <summary>A33 D-7 — <c>POST api/logistics/deliveries/{uuid}/approve</c>.</summary>
+public class DeliveryApprovalModel
+{
+    public Guid      DeliveryUuid    { get; set; }
+    public DateTime  ApprovedAt      { get; set; }
+    public int?      ApprovedBy      { get; set; }
+    /// <summary>True when it had already been approved and this call changed nothing.</summary>
+    public bool      AlreadyApproved { get; set; }
 }
 
 public class DeliveryDetailModel
@@ -412,6 +479,23 @@ public class DeliveryDetailModel
     public DateTime? ModifiedDate { get; set; }
 
     public List<DeliveryLineModel> Lines { get; set; } = [];
+
+    // ── A33 (contract §6) ──
+    /// <summary>The sale order's customer (partner) name; null unless the delivery is for a sale order.</summary>
+    public string? CustomerName         { get; set; }
+    public Guid?   FulfillmentRouteUuid { get; set; }
+    public string? FulfillmentRouteCode { get; set; }
+    public string? FulfillmentRouteName { get; set; }
+    /// <summary>The route's steps then COMPLETE, each DONE / CURRENT / PENDING. Empty when the delivery has no route.</summary>
+    public List<RouteStepProgressModel> RouteSteps { get; set; } = [];
+    /// <summary>The route has the APPROVAL step (D-7): goods issue waits for "Approve dispatch".</summary>
+    public bool      RequiresApproval { get; set; }
+    public DateTime? ApprovedAt       { get; set; }
+    public int?      ApprovedBy       { get; set; }
+    /// <summary>The CURRENT step's code (COMPLETE when only that is left); null with no route or when done.</summary>
+    public string?   NextStep         { get; set; }
+    /// <summary>What can be done now, per the route, the status and the data (see <see cref="DeliveryNextAction"/>).</summary>
+    public List<string> NextActions   { get; set; } = [];
 }
 
 /// <summary>A consignment as the delivery sees it — enough to name it, link to it and show where it is.</summary>
@@ -432,6 +516,10 @@ public class DeliveryFilter
     public string? Search     { get; set; }
     public DateTime? FromDate { get; set; }
     public DateTime? ToDate   { get; set; }
+    /// <summary>A33 — only this sale order's deliveries.</summary>
+    public Guid? SaleOrderUuid        { get; set; }
+    /// <summary>A33 — only deliveries on this route.</summary>
+    public Guid? FulfillmentRouteUuid { get; set; }
     public int Page     { get; set; } = 1;
     public int PageSize { get; set; } = 20;
 }

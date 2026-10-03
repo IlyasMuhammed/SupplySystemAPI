@@ -415,6 +415,7 @@ public sealed class VendorBackwardCompatibilityTests : IClassFixture<Procurement
             Lines = [ new GrnLineReceiveInput { PoLineUuid = po.Lines.Single().UUID, QtyReceived = quantity, QtyAccepted = quantity, QtyRejected = 0 } ]
         });
 
+        await GrnReceivingCheck.PassAllAsync(_client, grnUuid);
         var submit = await _client.PostAsync($"/api/grns/{grnUuid}/submit", null);
         submit.StatusCode.Should().Be(HttpStatusCode.OK, $"GRN submit failed: {await submit.Content.ReadAsStringAsync()}");
         var approve = await _client.PostAsJsonAsync($"/api/grns/{grnUuid}/approve", new { Remarks = (string?)null });

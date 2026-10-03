@@ -111,9 +111,12 @@ internal sealed class DeliveryFromSourceRepository : IDeliveryFromSourceReposito
     private async Task<Guid> CreateFromPurchaseOrderAsync(
         CreateDeliveryFromSourceRequest req, int createdBy)
     {
+        // A33 R-14 (every source below too): the caller's own document only, super admin included — otherwise a super
+        // admin could raise a delivery against another organization's document, stamped under their own.
+        var ownOrg = OwnOrg;
         var po = await _demand.PurchaseOrders
             .Include(p => p.Lines)
-            .FirstOrDefaultAsync(p => p.UUID == req.SourceUuid && !p.IsDelete)
+            .FirstOrDefaultAsync(p => p.UUID == req.SourceUuid && !p.IsDelete && p.OrganizationId == ownOrg)
             ?? throw new NotFoundException("PurchaseOrder", req.SourceUuid);
 
         if (!AdvisablePoStatuses.Contains(po.Status))
@@ -192,10 +195,11 @@ internal sealed class DeliveryFromSourceRepository : IDeliveryFromSourceReposito
     private async Task<Guid> CreateFromSupplierReturnAsync(
         CreateDeliveryFromSourceRequest req, int createdBy)
     {
+        var ownOrg = OwnOrg;
         var sro = await _warehouse.SupplierReturnOrders
             .Include(s => s.Lines)
             // No IsDelete on this entity — supplier returns are not soft-deleted.
-            .FirstOrDefaultAsync(s => s.UUID == req.SourceUuid)
+            .FirstOrDefaultAsync(s => s.UUID == req.SourceUuid && s.OrganizationId == ownOrg)
             ?? throw new NotFoundException("SupplierReturnOrder", req.SourceUuid);
 
         // Only an approved return is ready to leave. A draft has not been agreed, and anything
@@ -293,10 +297,11 @@ internal sealed class DeliveryFromSourceRepository : IDeliveryFromSourceReposito
     private async Task<Guid> CreateFromMaterialIssueAsync(
         CreateDeliveryFromSourceRequest req, int createdBy)
     {
+        var ownOrg = OwnOrg;
         var miv = await _material.MaterialIssueVouchers
             .Include(m => m.Lines)
             .Include(m => m.MaterialIssueRequest)
-            .FirstOrDefaultAsync(m => m.UUID == req.SourceUuid)
+            .FirstOrDefaultAsync(m => m.UUID == req.SourceUuid && m.OrganizationId == ownOrg)
             ?? throw new NotFoundException("MaterialIssueVoucher", req.SourceUuid);
 
         // A draft voucher has not deducted stock yet, and a cancelled one never will.
@@ -373,9 +378,10 @@ internal sealed class DeliveryFromSourceRepository : IDeliveryFromSourceReposito
     private async Task<Guid> CreateFromSaleOrderAsync(
         CreateDeliveryFromSourceRequest req, int createdBy)
     {
+        var ownOrg = OwnOrg;
         var so = await _demand.SaleOrders
             .Include(s => s.Lines)
-            .FirstOrDefaultAsync(s => s.UUID == req.SourceUuid && !s.IsDeleted)
+            .FirstOrDefaultAsync(s => s.UUID == req.SourceUuid && !s.IsDeleted && s.OrganizationId == ownOrg)
             ?? throw new NotFoundException("SaleOrder", req.SourceUuid);
 
         if (!DeliverableSoStatuses.Contains(so.Status))
@@ -480,7 +486,9 @@ internal sealed class DeliveryFromSourceRepository : IDeliveryFromSourceReposito
         List<Demand.Domain.SaleOrderLine> deliverable,
         List<(Demand.Domain.SaleOrderLine Line, decimal Qty)> selections)
     {
-        var config = await _demand.SaleOrderConfigs.AsNoTracking().FirstOrDefaultAsync();
+        // The order's own organization's setting (the filter is off for a super admin).
+        var config = await _demand.SaleOrderConfigs.AsNoTracking()
+            .FirstOrDefaultAsync(c => c.OrganizationId == so.OrganizationId);
         if (config is null || config.PartialFulfillmentAllowed) return;
 
         var chosen = selections.ToDictionary(s => s.Line.UUID, s => s.Qty);
@@ -552,7 +560,10 @@ internal sealed class DeliveryFromSourceRepository : IDeliveryFromSourceReposito
         };
     }
 
-    private static string DescribeLine(Guid variantUuid, VariantDescription? variant)
+    /// <summary>A33 R-14 — the caller's organization; every source document is looked up in it explicitly.</summary>
+    private Guid OwnOrg => _db.TenantContext.OrganizationId;
+
+    internal static string DescribeLine(Guid variantUuid, VariantDescription? variant)
     {
         var description = variant?.DisplayName ?? $"Variant {variantUuid}";
         return description.Length > 300 ? description[..300] : description;

@@ -39,18 +39,26 @@ internal sealed class DeliveryRepository : IDeliveryRepository
     private static readonly DeliveryStatus[] DeletableStatuses =
         [DeliveryStatus.Draft, DeliveryStatus.Cancelled];
 
-    private readonly LogisticsDbContext        _db;
-    private readonly IDocumentNumberGenerator  _numbers;
-    private readonly IAddressNormalizer        _addresses;
+    private readonly LogisticsDbContext          _db;
+    private readonly IDocumentNumberGenerator    _numbers;
+    private readonly IAddressNormalizer          _addresses;
+    private readonly Demand.Data.DemandDbContext? _demand;
+    private readonly ISupplierNameLookupService? _partnerNames;
 
+    /// <param name="demand">A33 — reads the sale order's partner for <c>customerName</c>; optional (null = no name).</param>
+    /// <param name="partnerNames">A33 — the business partner name lookup (Suppliers module); optional.</param>
     public DeliveryRepository(
         LogisticsDbContext db,
         IDocumentNumberGenerator numbers,
-        IAddressNormalizer addresses)
+        IAddressNormalizer addresses,
+        Demand.Data.DemandDbContext? demand = null,
+        ISupplierNameLookupService? partnerNames = null)
     {
-        _db        = db;
-        _numbers   = numbers;
-        _addresses = addresses;
+        _db           = db;
+        _numbers      = numbers;
+        _addresses    = addresses;
+        _demand       = demand;
+        _partnerNames = partnerNames;
     }
 
     // ── Create ────────────────────────────────────────────────────────────────
@@ -198,7 +206,7 @@ internal sealed class DeliveryRepository : IDeliveryRepository
 
     public async Task<PaginatedResponse<DeliveryListItemModel>> GetListAsync(DeliveryFilter filter)
     {
-        var q = _db.DeliveryOrders.Where(x => !x.IsDelete);
+        var q = _db.OwnDeliveries();
 
         if (!string.IsNullOrWhiteSpace(filter.Status))
             q = q.Where(x => x.Status == filter.Status);
@@ -219,6 +227,10 @@ internal sealed class DeliveryRepository : IDeliveryRepository
         if (filter.FromDate.HasValue) q = q.Where(x => x.CreatedDate >= filter.FromDate.Value);
         if (filter.ToDate.HasValue)   q = q.Where(x => x.CreatedDate <= filter.ToDate.Value);
 
+        // A33 contract §6.
+        if (filter.SaleOrderUuid is { } soUuid)       q = q.Where(x => x.SaleOrderUuid == soUuid);
+        if (filter.FulfillmentRouteUuid is { } route) q = q.Where(x => x.FulfillmentRouteUuid == route);
+
         var page     = filter.Page     < 1 ? 1  : filter.Page;
         var pageSize = filter.PageSize < 1 ? 20 : filter.PageSize;
 
@@ -232,6 +244,8 @@ internal sealed class DeliveryRepository : IDeliveryRepository
             .Select(ToListItem)
             .ToListAsync();
 
+        await EnrichAsync(data);
+
         return new PaginatedResponse<DeliveryListItemModel>
         {
             Data         = data,
@@ -242,15 +256,79 @@ internal sealed class DeliveryRepository : IDeliveryRepository
         };
     }
 
-    public async Task<IReadOnlyList<DeliveryListItemModel>> GetForSaleOrderAsync(Guid saleOrderUuid) =>
-        await _db.DeliveryOrders
-            .Where(x => x.SaleOrderUuid == saleOrderUuid && !x.IsDelete)
+    public async Task<IReadOnlyList<DeliveryListItemModel>> GetForSaleOrderAsync(Guid saleOrderUuid)
+    {
+        var data = await _db.OwnDeliveries()
+            .Where(x => x.SaleOrderUuid == saleOrderUuid)
             // Oldest first: the order's fulfilment reads as a history — first shipment, second,
             // the collection — rather than as a cockpit of what is newest.
             .OrderBy(x => x.CreatedDate)
             .ThenBy(x => x.Id)
             .Select(ToListItem)
             .ToListAsync();
+
+        await EnrichAsync(data);
+        return data;
+    }
+
+    /// <summary>
+    /// A33 contract §6 — what a list row shows beyond its own columns: the route's live name, a one-line summary of
+    /// the goods, and the customer. Three set-based reads for the page, not one per row.
+    /// </summary>
+    private async Task EnrichAsync(List<DeliveryListItemModel> rows)
+    {
+        if (rows.Count == 0) return;
+
+        var routeUuids = rows.Where(r => r.FulfillmentRouteUuid is not null)
+                             .Select(r => r.FulfillmentRouteUuid!.Value).Distinct().ToList();
+        var routeNames = routeUuids.Count == 0
+            ? new Dictionary<Guid, string>()
+            : await _db.FulfillmentRoutes.AsNoTracking()
+                .Where(r => routeUuids.Contains(r.UUID))
+                .ToDictionaryAsync(r => r.UUID, r => r.Name);
+
+        var deliveryUuids = rows.Select(r => r.UUID).ToList();
+        var firstLines = (await _db.DeliveryOrderLines.AsNoTracking()
+                .Where(l => deliveryUuids.Contains(l.DeliveryOrder.UUID))
+                .Select(l => new { l.DeliveryOrder.UUID, l.LineNo, l.ItemDescription, l.QtyOrdered })
+                .ToListAsync())
+            .GroupBy(l => l.UUID)
+            .ToDictionary(g => g.Key, g => g.OrderBy(l => l.LineNo).First());
+
+        var customers = await CustomerNamesAsync(rows.Where(r => r.SaleOrderUuid is not null)
+                                                     .Select(r => r.SaleOrderUuid!.Value).Distinct().ToList());
+
+        foreach (var row in rows)
+        {
+            if (row.FulfillmentRouteUuid is { } route && routeNames.TryGetValue(route, out var name))
+                row.FulfillmentRouteName = name;
+
+            if (firstLines.TryGetValue(row.UUID, out var first))
+                row.LineSummary = $"{first.ItemDescription} × {first.QtyOrdered:0.###}"
+                                + (row.LineCount > 1 ? $", +{row.LineCount - 1} more" : "");
+
+            if (row.SaleOrderUuid is { } so && customers.TryGetValue(so, out var customer))
+                row.CustomerName = customer;
+        }
+    }
+
+    /// <summary>Customer (partner) name per sale order uuid. Empty when Demand or the name lookup is not available.</summary>
+    private async Task<IReadOnlyDictionary<Guid, string>> CustomerNamesAsync(IReadOnlyList<Guid> saleOrderUuids)
+    {
+        if (saleOrderUuids.Count == 0 || _demand is null || _partnerNames is null)
+            return new Dictionary<Guid, string>();
+
+        // The deliveries were already read in the caller's organization; their sale orders are the same ones.
+        var partners = await _demand.SaleOrders.AsNoTracking()
+            .Where(s => saleOrderUuids.Contains(s.UUID))
+            .Select(s => new { s.UUID, s.PartnerId })
+            .ToListAsync();
+        if (partners.Count == 0) return new Dictionary<Guid, string>();
+
+        var names = await _partnerNames.GetNamesAsync([.. partners.Select(p => p.PartnerId).Distinct()]);
+        return partners.Where(p => names.ContainsKey(p.PartnerId))
+                       .ToDictionary(p => p.UUID, p => names[p.PartnerId]);
+    }
 
     private static readonly System.Linq.Expressions.Expression<Func<DeliveryOrder, DeliveryListItemModel>> ToListItem =
         x => new DeliveryListItemModel
@@ -268,17 +346,20 @@ internal sealed class DeliveryRepository : IDeliveryRepository
             ShipToCity     = x.ShipToAddress != null ? x.ShipToAddress.CityName : null,
             LineCount      = x.Lines.Count,
             LinesUnknown   = x.LinesUnknown,
-            CreatedDate    = x.CreatedDate
+            CreatedDate    = x.CreatedDate,
+            SaleOrderUuid        = x.SaleOrderUuid,
+            FulfillmentRouteUuid = x.FulfillmentRouteUuid,
+            FulfillmentRouteCode = x.FulfillmentRouteCode
         };
 
     public async Task<DeliveryDetailModel?> GetByUuidAsync(Guid uuid)
     {
-        var delivery = await _db.DeliveryOrders
+        var delivery = await _db.OwnDeliveries()
             .Include(x => x.Lines)
             .Include(x => x.ShipFromAddress)
             .Include(x => x.ShipToAddress)
             .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.UUID == uuid && !x.IsDelete);
+            .FirstOrDefaultAsync(x => x.UUID == uuid);
 
         if (delivery is null) return null;
 
@@ -298,8 +379,28 @@ internal sealed class DeliveryRepository : IDeliveryRepository
             })
             .ToListAsync();
 
+        // A33 contract §6/§8 — the route as the page shows it. Empty / false / null for a delivery with no route.
+        var progress  = DeliveryRouteFlow.Progress(delivery);
+        var routeName = delivery.FulfillmentRouteUuid is { } routeUuid
+            ? await _db.FulfillmentRoutes.AsNoTracking().Where(r => r.UUID == routeUuid).Select(r => r.Name).FirstOrDefaultAsync()
+            : null;
+        var customer  = delivery.SaleOrderUuid is { } soUuid
+            ? (await CustomerNamesAsync([soUuid])).GetValueOrDefault(soUuid)
+            : null;
+        var liveConsignment = consignments.Any(c => c.Status != LogisticsCode.Of(ShipmentStatus.Cancelled));
+
         return new DeliveryDetailModel
         {
+            CustomerName         = customer,
+            FulfillmentRouteUuid = delivery.FulfillmentRouteUuid,
+            FulfillmentRouteCode = delivery.FulfillmentRouteCode,
+            FulfillmentRouteName = routeName,
+            RouteSteps           = progress,
+            RequiresApproval     = DeliveryRouteFlow.RequiresApproval(delivery),
+            ApprovedAt           = delivery.ApprovedAt,
+            ApprovedBy           = delivery.ApprovedBy,
+            NextStep             = DeliveryRouteFlow.NextStep(progress),
+            NextActions          = DeliveryRouteFlow.NextActions(delivery, liveConsignment),
             UUID             = delivery.UUID,
             DeliveryNumber   = delivery.DeliveryNumber,
             TraceId          = delivery.TraceId,
@@ -342,9 +443,9 @@ internal sealed class DeliveryRepository : IDeliveryRepository
     {
         ArgumentNullException.ThrowIfNull(req);
 
-        var delivery = await _db.DeliveryOrders
+        var delivery = await _db.OwnDeliveries()
             .Include(x => x.ShipToAddress)
-            .FirstOrDefaultAsync(x => x.UUID == uuid && !x.IsDelete);
+            .FirstOrDefaultAsync(x => x.UUID == uuid);
 
         if (delivery is null) return false;
 
@@ -374,7 +475,7 @@ internal sealed class DeliveryRepository : IDeliveryRepository
 
     public async Task<bool> DeleteAsync(Guid uuid)
     {
-        var delivery = await _db.DeliveryOrders.FirstOrDefaultAsync(x => x.UUID == uuid && !x.IsDelete);
+        var delivery = await _db.OwnDeliveries().FirstOrDefaultAsync(x => x.UUID == uuid);
         if (delivery is null) return false;
 
         var status = LogisticsCode.Parse<DeliveryStatus>(delivery.Status);

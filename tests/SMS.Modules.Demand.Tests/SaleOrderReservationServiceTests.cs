@@ -56,7 +56,8 @@ public class SaleOrderReservationServiceTests
         config.Setup(c => c.GetConfigAsync()).ReturnsAsync(new SaleOrderConfigModel { ReservationTtlHours = ttlHours });
 
         var deliveries = new Mock<ISaleOrderDeliveryQuantities>();
-        deliveries.Setup(d => d.GetInFlightBySoLineAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+        // A33 C-2: Demand reads what released deliveries HOLD (GetHeldBySoLineAsync), not what DRAFT ones plan.
+        deliveries.Setup(d => d.GetHeldBySoLineAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Dictionary<Guid, decimal>());
 
         var reservations = new SaleOrderReservationService(
@@ -179,7 +180,7 @@ public class SaleOrderReservationServiceTests
         var variant = await SeedStockAsync(h, 100m);
         var order = await SeedOrderAsync(h, "CONFIRMED", Open(variant, 10m));
         var lineUuid = order.Lines.Single().UUID;
-        h.Deliveries.Setup(d => d.GetInFlightBySoLineAsync(order.UUID, It.IsAny<CancellationToken>()))
+        h.Deliveries.Setup(d => d.GetHeldBySoLineAsync(order.UUID, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Dictionary<Guid, decimal> { [lineUuid] = 6m });
 
         var line = await LineAsync(h, order.UUID, lineUuid);
@@ -187,6 +188,26 @@ public class SaleOrderReservationServiceTests
 
         line.ReservableQty.Should().Be(4m);
         await act.Should().ThrowAsync<BadRequestException>();
+    }
+
+    [Fact]
+    public async Task A33_C2_a_draft_delivery_plans_but_does_not_hold_so_the_line_stays_reservable()
+    {
+        // Confirm now creates DRAFT deliveries for every line. They are "in flight" (planned) but hold nothing until
+        // release, so they must not make the line look held, or Reserve and the GRN link go dead (A33 C-2).
+        var h = NewHarness();
+        var variant = await SeedStockAsync(h, 100m);
+        var order = await SeedOrderAsync(h, "CONFIRMED", Open(variant, 10m));
+        var lineUuid = order.Lines.Single().UUID;
+        h.Deliveries.Setup(d => d.GetInFlightBySoLineAsync(order.UUID, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Dictionary<Guid, decimal> { [lineUuid] = 10m });
+
+        var line = await LineAsync(h, order.UUID, lineUuid);
+
+        line.ReservableQty.Should().Be(10m);
+        line.DeliveryIndicator.Should().Be("RED");
+        (await h.Reservations.ReserveLineAsync(order.UUID, lineUuid, new ReserveSaleOrderLineRequest { Quantity = 10m }, User))!
+            .ReservedQty.Should().Be(10m);
     }
 
     // ── PE-03 reserve ─────────────────────────────────────────────────────────

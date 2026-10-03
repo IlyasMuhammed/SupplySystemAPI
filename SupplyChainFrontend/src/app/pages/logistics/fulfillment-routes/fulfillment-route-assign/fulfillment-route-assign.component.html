@@ -1,0 +1,60 @@
+<div class="assign">
+  <ng-container *ngIf="step === 'choose'">
+    <p class="intro">
+      Sets <strong>{{ route?.name }}</strong> on every active variant in a category that has <strong>no route yet</strong>.
+      Variants that already have a route keep it.
+    </p>
+
+    <div class="state-inline" *ngIf="categoriesFailed" data-testid="categories-failed">
+      <i class="pi pi-exclamation-triangle"></i> The categories could not be loaded.
+    </div>
+
+    <div class="field">
+      <label for="assignCategory">Category <span class="required">*</span></label>
+      <p-select inputId="assignCategory" [options]="categoryOptions" [ngModel]="categoryId" (ngModelChange)="onCategoryChange($event)"
+                optionLabel="label" optionValue="value" [filter]="true" filterBy="label" appendTo="body"
+                [loading]="categoriesLoading" placeholder="Choose a category" styleClass="w-full"
+                data-testid="category-select"></p-select>
+    </div>
+    <div class="field">
+      <label for="assignSubCategory">Sub-category</label>
+      <p-select inputId="assignSubCategory" [options]="subCategoryOptions" [(ngModel)]="subCategoryId"
+                optionLabel="label" optionValue="value" [showClear]="true" appendTo="body"
+                [disabled]="categoryId == null || !subCategoryOptions.length" placeholder="All sub-categories" styleClass="w-full"
+                data-testid="subcategory-select"></p-select>
+    </div>
+
+    <div class="actions">
+      <p-button label="Cancel" [text]="true" severity="secondary" (onClick)="closed.emit()" data-testid="cancel"></p-button>
+      <p-button label="Next" icon="pi pi-arrow-right" iconPos="right" [disabled]="categoryId == null" (onClick)="next()"
+                data-testid="next"></p-button>
+    </div>
+  </ng-container>
+
+  <ng-container *ngIf="step === 'confirm'">
+    <p class="confirm" data-testid="confirm-text">
+      Set <strong>{{ route?.name }}</strong> ({{ route?.code }}) on every active variant in
+      <strong>{{ selectedCategory?.name }}</strong>
+      <ng-container *ngIf="selectedSubCategoryName; else allSubs"> › <strong>{{ selectedSubCategoryName }}</strong></ng-container>
+      <ng-template #allSubs> and all its sub-categories</ng-template>
+      that has no route yet? Variants that already have a route are left as they are.
+    </p>
+    <small class="p-error" *ngIf="error" data-testid="assign-error">{{ error }}</small>
+    <div class="actions">
+      <p-button label="Back" [text]="true" severity="secondary" [disabled]="isAssigning" (onClick)="back()" data-testid="back"></p-button>
+      <p-button label="Assign" icon="pi pi-check" [loading]="isAssigning" [disabled]="isAssigning" (onClick)="assign()"
+                data-testid="assign"></p-button>
+    </div>
+  </ng-container>
+
+  <ng-container *ngIf="step === 'done' && result">
+    <div class="counts">
+      <div class="count" data-testid="result-updated"><span class="num">{{ result.updated }}</span><span class="lbl">updated</span></div>
+      <div class="count" data-testid="result-skipped"><span class="num">{{ result.skipped }}</span><span class="lbl">skipped — already had a route</span></div>
+      <div class="count" data-testid="result-total"><span class="num">{{ result.total }}</span><span class="lbl">variants in all</span></div>
+    </div>
+    <div class="actions">
+      <p-button label="Close" (onClick)="closed.emit()" data-testid="close"></p-button>
+    </div>
+  </ng-container>
+</div>

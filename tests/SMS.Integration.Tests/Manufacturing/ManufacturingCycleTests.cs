@@ -557,6 +557,7 @@ public sealed class ManufacturingCycleTests : IClassFixture<ProcurementCycleWebA
             Lines = [new GrnLineReceiveInput { PoLineUuid = line.UUID, QtyReceived = quantity, QtyAccepted = quantity, QtyRejected = 0 }]
         });
 
+        await GrnReceivingCheck.PassAllAsync(_admin, grnUuid);
         var submitResp = await _admin.PostAsync($"/api/grns/{grnUuid}/submit", null);
         submitResp.StatusCode.Should().Be(HttpStatusCode.OK, $"GRN submit failed: {await submitResp.Content.ReadAsStringAsync()}");
 

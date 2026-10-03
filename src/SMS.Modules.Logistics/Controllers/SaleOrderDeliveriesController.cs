@@ -51,4 +51,27 @@ public class SaleOrderDeliveriesController : ControllerBase
             ? NotFound(ApiResponse.Fail(StaticResponseMessage.recordNotFound))
             : Ok(ApiResponse<IReadOnlyList<DeliveryListItemModel>>.Ok(deliveries));
     }
+
+    /// <summary>
+    /// A33 recovery (D-12 "Create deliveries"): the DRAFT deliveries a confirmed order's lines should have, one per
+    /// route × ship-from warehouse, from the routes the lines were confirmed with. Idempotent — only what is still
+    /// outstanding gets a delivery, and each line put on none is listed with the reason.
+    /// </summary>
+    /// <remarks>
+    /// 400 unless the order is CONFIRMED or PARTIALLY_FULFILLED; 404 when it is not the caller organization's. Lines
+    /// confirmed before routes are skipped: use <c>create-delivery</c> for them.
+    /// </remarks>
+    [RequirePermission(PermissionCodes.DELIVERY_CREATE)]
+    [HttpPost("api/sale-orders/{uuid:guid}/create-deliveries")]
+    public async Task<IActionResult> CreateDeliveries(Guid uuid)
+    {
+        var result = await _svc.CreateRouteDeliveriesAsync(uuid, User.GetUserId());
+        return result is null
+            ? NotFound(ApiResponse.Fail(StaticResponseMessage.recordNotFound))
+            : Ok(ApiResponse<SMS.Shared.Common.SaleOrderDeliveryCreationResult>.Ok(
+                result,
+                result.Created.Count == 0
+                    ? "No delivery was needed: every line is already on a delivery, fulfilled, or listed with the reason it was skipped."
+                    : $"{result.Created.Count} delivery(ies) created."));
+    }
 }

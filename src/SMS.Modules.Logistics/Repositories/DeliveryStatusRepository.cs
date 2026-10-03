@@ -14,6 +14,13 @@ internal interface IDeliveryStatusRepository
     Task<bool> ResumeAsync(Guid uuid, int userId);
     Task<bool> CancelAsync(Guid uuid, DeliveryReasonRequest req, int userId);
     Task<bool> ShortCloseAsync(Guid uuid, DeliveryReasonRequest req, int userId);
+
+    /// <summary>
+    /// A33 PD-04 — cancels every delivery of <paramref name="saleOrderUuid"/> in <paramref name="organizationId"/> that
+    /// has not been goods-issued, and reports the issued ones it leaves alone. Already-cancelled ones are skipped.
+    /// </summary>
+    Task<SaleOrderDeliveryCancellationResult> CancelOpenForSaleOrderAsync(
+        Guid organizationId, Guid saleOrderUuid, string reason, int userId, CancellationToken ct = default);
 }
 
 /// <summary>
@@ -96,12 +103,59 @@ internal sealed class DeliveryStatusRepository : IDeliveryStatusRepository
     public async Task<bool> CancelAsync(Guid uuid, DeliveryReasonRequest req, int userId)
     {
         var reason   = RequireReason(req, "Cancelling a delivery");
-        var delivery = await _db.DeliveryOrders
+        // A33 (R-14): the caller's own organization explicitly — the EF filter is off for a super admin, and another
+        // organization's delivery must read as absent (404), not be cancellable.
+        var delivery = await _db.OwnDeliveries()
             .Include(d => d.Lines)
-            .FirstOrDefaultAsync(d => d.UUID == uuid && !d.IsDelete);
+            .FirstOrDefaultAsync(d => d.UUID == uuid);
 
         if (delivery is null) return false;
 
+        await CancelLoadedAsync(delivery, reason, userId);
+        return true;
+    }
+
+    public async Task<SaleOrderDeliveryCancellationResult> CancelOpenForSaleOrderAsync(
+        Guid organizationId, Guid saleOrderUuid, string reason, int userId, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+            throw new BadRequestException("Cancelling a sale order's deliveries needs a reason.");
+
+        // Explicit organization, filter off: Demand may call this for a super admin or from no user at all.
+        var deliveries = await _db.DeliveryOrders.IgnoreQueryFilters()
+            .Include(d => d.Lines)
+            .Where(d => d.OrganizationId == organizationId && d.SaleOrderUuid == saleOrderUuid && !d.IsDelete)
+            .OrderBy(d => d.Id)
+            .ToListAsync(ct);
+
+        var cancelled = new List<SaleOrderDeliveryRef>();
+        var issued    = new List<SaleOrderDeliveryRef>();
+
+        foreach (var delivery in deliveries)
+        {
+            var status = Status(delivery);
+
+            if (Machine.CanTransition(status, DeliveryStatus.Cancelled))
+            {
+                await CancelLoadedAsync(delivery, reason.Trim(), userId);
+                cancelled.Add(new(delivery.UUID, delivery.DeliveryNumber, delivery.Status));
+            }
+            else if (delivery.GoodsIssuedAt is not null
+                  || status is DeliveryStatus.GoodsIssued or DeliveryStatus.InTransit
+                            or DeliveryStatus.PartiallyDelivered or DeliveryStatus.Delivered or DeliveryStatus.Closed)
+            {
+                // BR-C4-07 / D-15: the stock has left the books; only a manual reversal can undo it.
+                issued.Add(new(delivery.UUID, delivery.DeliveryNumber, delivery.Status));
+            }
+            // CANCELLED (idempotent) and a SHORT_CLOSED that never issued: nothing open, nothing to report.
+        }
+
+        return new SaleOrderDeliveryCancellationResult(cancelled, issued);
+    }
+
+    /// <summary>The cancel itself, on a delivery already loaded (with its lines) and already known to be the caller's.</summary>
+    private async Task CancelLoadedAsync(DeliveryOrder delivery, string reason, int userId)
+    {
         // The state machine refuses this at or after GOODS_ISSUED: the stock has left the books,
         // and cancelling would leave the ledger asserting a movement the document denies.
         Machine.EnsureCanTransition(Status(delivery), DeliveryStatus.Cancelled);
@@ -118,7 +172,6 @@ internal sealed class DeliveryStatusRepository : IDeliveryStatusRepository
 
         Touch(delivery, userId);
         await _db.SaveChangesAsync();
-        return true;
     }
 
     // ── Short close ───────────────────────────────────────────────────────────
@@ -126,9 +179,9 @@ internal sealed class DeliveryStatusRepository : IDeliveryStatusRepository
     public async Task<bool> ShortCloseAsync(Guid uuid, DeliveryReasonRequest req, int userId)
     {
         var reason   = RequireReason(req, "Short-closing a delivery");
-        var delivery = await _db.DeliveryOrders
+        var delivery = await _db.OwnDeliveries()
             .Include(d => d.Lines)
-            .FirstOrDefaultAsync(d => d.UUID == uuid && !d.IsDelete);
+            .FirstOrDefaultAsync(d => d.UUID == uuid);
 
         if (delivery is null) return false;
 
@@ -178,8 +231,9 @@ internal sealed class DeliveryStatusRepository : IDeliveryStatusRepository
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
+    /// <summary>A33 R-14 — the caller's own delivery; another organization's is absent, super admin included.</summary>
     private Task<DeliveryOrder?> FindAsync(Guid uuid) =>
-        _db.DeliveryOrders.FirstOrDefaultAsync(d => d.UUID == uuid && !d.IsDelete);
+        _db.OwnDeliveries().FirstOrDefaultAsync(d => d.UUID == uuid);
 
     private static DeliveryStatus Status(DeliveryOrder delivery) =>
         LogisticsCode.Parse<DeliveryStatus>(delivery.Status);

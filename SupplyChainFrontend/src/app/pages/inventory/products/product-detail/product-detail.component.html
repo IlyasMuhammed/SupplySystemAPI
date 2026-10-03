@@ -1014,6 +1014,13 @@
       </div>
     </div>
 
+    <!-- A33-PB-04 — logistics: the fulfillment route (Logistics orgs only, D-11) next to weight and dimensions (D-13). -->
+    <div class="adj-field" *ngIf="routesEnabled" data-testid="variant-route">
+      <app-variant-route-field [(value)]="variantRouteUuid" [canAssign]="canAssignRoute"
+                               [currentCode]="editingVariant?.fulfillmentRouteCode ?? null"
+                               [currentName]="editingVariant?.fulfillmentRouteName ?? null"></app-variant-route-field>
+    </div>
+
     <div class="adj-row-2">
       <div class="adj-field">
         <label class="adj-label">Weight (kg)</label>

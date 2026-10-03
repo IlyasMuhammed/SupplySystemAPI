@@ -58,6 +58,18 @@
 .line-price .warn { color: var(--orange-700, #c2410c); font-size: .8125rem; display: inline-flex; gap: .375rem; align-items: flex-start; }
 .line-card > p-button { padding-top: 1.5rem; }
 
+// ── A33 PC-07: the Route field, between the tax and the price ────────────────
+.line-card.with-route {
+  grid-template-columns: 2rem minmax(14rem, 2.2fr) repeat(2, minmax(5.5rem, .8fr)) minmax(9rem, 1.2fr) minmax(10rem, 1.3fr) minmax(8rem, 1fr) 2.5rem;
+}
+.route-hint { font-size: .75rem; color: var(--text-color-secondary); display: flex; gap: .25rem; align-items: baseline; }
+.route-hint.blocking { color: var(--orange-700, #c2410c); }
+.route-source { font-weight: 700; }
+.route-legend {
+  display: flex; flex-wrap: wrap; gap: .25rem 1rem; margin: .75rem 0 0; font-size: .75rem; color: var(--text-color-secondary);
+  .legend-title { font-weight: 600; }
+}
+
 .totals { display: flex; align-items: baseline; justify-content: flex-end; gap: 1rem; flex-wrap: wrap; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--surface-200); }
 .totals-label { color: var(--text-color-secondary); margin-right: .5rem; }
 .totals strong { font-size: 1.125rem; }
@@ -87,7 +99,7 @@
 .address-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .875rem 1rem; }
 
 @media (max-width: 960px) {
-  .line-card { grid-template-columns: 2rem 1fr 1fr; }
+  .line-card, .line-card.with-route { grid-template-columns: 2rem 1fr 1fr; }
   .line-item { grid-column: 2 / -1; }
   .line-price { grid-column: 2 / 3; padding-top: 0; }
   .line-card > p-button { grid-column: 3 / 4; padding-top: 0; justify-self: end; }

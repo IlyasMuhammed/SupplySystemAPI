@@ -32,6 +32,12 @@ internal sealed class DeliveryOrderMap : IEntityTypeConfiguration<DeliveryOrder>
         b.Property(x => x.PickupPersonIdNumber).HasMaxLength(50);
         b.Property(x => x.PickupAuthorization).HasMaxLength(500);
 
+        // A33 — the route and its step snapshot (D-10). Nullable: null is the legacy full path (R-1).
+        b.Property(x => x.FulfillmentRouteCode).HasMaxLength(30);
+        b.Property(x => x.RouteSteps).HasMaxLength(100);
+        b.HasIndex(x => new { x.OrganizationId, x.FulfillmentRouteUuid })
+         .HasFilter("[FulfillmentRouteUuid] IS NOT NULL");
+
         b.Property(x => x.Status).HasMaxLength(30).IsRequired();
         b.Property(x => x.StatusBeforeHold).HasMaxLength(30);
         b.Property(x => x.HoldReason).HasMaxLength(500);

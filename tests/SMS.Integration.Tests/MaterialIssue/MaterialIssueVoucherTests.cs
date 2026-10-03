@@ -138,6 +138,7 @@ public sealed class MaterialIssueVoucherTests : IClassFixture<ProcurementCycleWe
             PoUuid = poUuid, WarehouseUuid = warehouse.Uuid, ReceivedAt = DateTime.UtcNow,
             Lines = [ new GrnLineReceiveInput { PoLineUuid = po.Lines.Single().UUID, QtyReceived = quantity, QtyAccepted = quantity, QtyRejected = 0 } ]
         });
+        await GrnReceivingCheck.PassAllAsync(_client, grnUuid);
         (await _client.PostAsync($"/api/grns/{grnUuid}/submit", null)).StatusCode.Should().Be(HttpStatusCode.OK);
         (await _client.PostAsJsonAsync($"/api/grns/{grnUuid}/approve", new { Remarks = (string?)null })).StatusCode.Should().Be(HttpStatusCode.OK);
 
