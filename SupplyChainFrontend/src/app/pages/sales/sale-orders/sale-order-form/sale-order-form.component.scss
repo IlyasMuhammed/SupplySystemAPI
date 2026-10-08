@@ -62,6 +62,11 @@
 .line-card.with-route {
   grid-template-columns: 2rem minmax(14rem, 2.2fr) repeat(2, minmax(5.5rem, .8fr)) minmax(9rem, 1.2fr) minmax(10rem, 1.3fr) minmax(8rem, 1fr) 2.5rem;
 }
+// ── A34 PC-07: the line's delivery date, a row of its own under the item ─────
+.line-delivery {
+  grid-column: 2 / -1; display: flex; align-items: center; gap: .75rem; font-size: .875rem;
+  label { font-size: .8125rem; font-weight: 600; }
+}
 .route-hint { font-size: .75rem; color: var(--text-color-secondary); display: flex; gap: .25rem; align-items: baseline; }
 .route-hint.blocking { color: var(--orange-700, #c2410c); }
 .route-source { font-weight: 700; }

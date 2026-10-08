@@ -61,6 +61,11 @@ public class SaleQuotationModel
     public decimal   TaxAmount             { get; set; }
     public decimal   DiscountAmount        { get; set; }
     public decimal   GrandTotal            { get; set; }
+    // A35 (API-CONTRACT §6) — locked when SENT: units of the sale base per 1 unit of the quotation currency. Null while DRAFT.
+    public decimal?  ExchangeRate          { get; set; }
+    public Guid?     BaseCurrencyId        { get; set; }
+    public string?   BaseCurrencyCode      { get; set; }
+    public DateTime? RateLockedAt          { get; set; }
     public string?   Notes                 { get; set; }
     public string?   InternalNotes         { get; set; }
     public DateTime? SentAt                { get; set; }
@@ -95,6 +100,11 @@ public class SaleQuotationLineModel
     public string?   TaxCode                    { get; set; }
     public decimal   TaxAmount                  { get; set; }
     public decimal   LineTotal                  { get; set; }
+    /// <summary>A35 D-10 — in the sale base at the rate locked on SENT; null until then.</summary>
+    public decimal?  UnitPriceBase              { get; set; }
+    public decimal?  DiscountAmountBase         { get; set; }
+    public decimal?  TaxAmountBase              { get; set; }
+    public decimal?  LineTotalBase              { get; set; }
     public DateTime? PromisedDeliveryDate       { get; set; }
     /// <summary>NORMAL | ALTERNATIVE | REJECTED.</summary>
     public string    LineType                   { get; set; } = string.Empty;
@@ -112,6 +122,13 @@ public class SaleQuotationLineModel
     public string?   CustomerResponseNotes      { get; set; }
     public decimal?  CustomerCounterPrice       { get; set; }
     public string?   Notes                      { get; set; }
+
+    // A34 D-15 (API-CONTRACT §5.1). The manual date is PromisedDeliveryDate.
+    public int?      CalculatedLeadTimeDays     { get; set; }
+    public DateTime? CalculatedDeliveryDate     { get; set; }
+    public DateTime? LeadTimeCalculatedAt       { get; set; }
+    public DateTime? EffectiveDeliveryDate      { get; set; }
+    public string    DeliveryDateSource         { get; set; } = DeliveryDateSources.None;
 }
 
 /// <summary>POST /api/sale-quotations — an independent quotation (no inquiry). Created as DRAFT.</summary>
@@ -120,7 +137,7 @@ public class CreateSaleQuotationRequest
     public Guid      PartnerId             { get; set; }
     public string?   CustomerReference     { get; set; }
     public DateTime? CustomerReferenceDate { get; set; }
-    /// <summary>The organization's base currency when omitted.</summary>
+    /// <summary>A35 D-14: the customer's default sale currency when omitted, else the organization's sale base.</summary>
     public Guid?     CurrencyId            { get; set; }
     /// <summary>Today when omitted.</summary>
     public DateTime? ValidFrom             { get; set; }

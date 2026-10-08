@@ -14,7 +14,8 @@ import { InvoiceCreateComponent } from './invoices/invoice-create/invoice-create
 import { InvoiceDetailComponent } from './invoices/invoice-detail/invoice-detail.component';
 import { MappingFormValue, toSettingsRequest } from '../integrations/quickbooks/mappings-tab/mappings-tab.component';
 
-import { ExchangeRateModel, FinanceSetupService, SaveExchangeRateRequest } from '../../services/finance-setup.service';
+import { CurrencyRateModel, OrgCurrencyService } from '../../services/org-currency.service';
+import { FinanceSetupService } from '../../services/finance-setup.service';
 import { CurrenciesService } from '../../services/currencies.service';
 import { SalesInvoiceService, SalesInvoiceDetailModel, UpdateSalesInvoiceRequest } from '../../services/sales-invoice.service';
 import { AttachmentService } from '../../services/attachment.service';
@@ -62,25 +63,28 @@ describe('SAP alignment consistency: dates go to the server as the day picked', 
 
   // ── Settings → Exchange Rates ─────────────────────────────────────────────
 
+  // A35: the page works over api/currency-rates (date ranges against the org's rate currency).
   describe('exchange rates', () => {
-    let service: jasmine.SpyObj<FinanceSetupService>;
+    let service: jasmine.SpyObj<OrgCurrencyService>;
 
-    async function page(rates: ExchangeRateModel[] = []) {
-      service = jasmine.createSpyObj<FinanceSetupService>('FinanceSetupService',
-        ['getExchangeRates', 'createExchangeRate', 'updateExchangeRate', 'deleteExchangeRate', 'quoteExchangeRate']);
-      service.getExchangeRates.and.returnValue(ok(rates));
-      service.createExchangeRate.and.callFake(req => ok({ ...req, uuid: 'new', source: 'MANUAL', notes: null, createdDate: '' }));
-      service.updateExchangeRate.and.callFake((uuid, req) => ok({ ...req, uuid, source: 'MANUAL', notes: null, createdDate: '' }));
-      service.quoteExchangeRate.and.returnValue(ok(null));
-      const currencies = jasmine.createSpyObj<CurrenciesService>('CurrenciesService', ['getAll']);
-      currencies.getAll.and.returnValue(ok([{ id: 'c1', name: 'US Dollar', code: 'USD' }, { id: 'c2', name: 'Pakistani Rupee', code: 'PKR' }]));
+    async function page(rates: CurrencyRateModel[] = []) {
+      service = jasmine.createSpyObj<OrgCurrencyService>('OrgCurrencyService',
+        ['getCurrencies', 'getRates', 'getRateHistory', 'getRateOn', 'createRate', 'updateRate']);
+      service.getCurrencies.and.returnValue(ok([
+        { currencyId: 'usd', code: 'USD', name: 'US Dollar', symbol: '$', decimalPlaces: 2, rounding: 0.01, symbolPosition: 'before', isActive: true, displayOrder: 2 },
+        { currencyId: 'pkr', code: 'PKR', name: 'Pakistani Rupee', symbol: '₨', decimalPlaces: 2, rounding: 0.01, symbolPosition: 'before', isActive: true, displayOrder: 1, isRateCurrency: true }
+      ]));
+      service.getRates.and.returnValue(ok(rates));
+      service.getRateHistory.and.returnValue(ok(rates));
+      service.getRateOn.and.returnValue(ok(null));
+      service.createRate.and.callFake(req => ok({ rate: { ...req, id: 'new' }, closedPrevious: null }));
+      service.updateRate.and.callFake((id, req) => ok({ ...req, id }));
 
       await TestBed.resetTestingModule().configureTestingModule({
         imports: [ExchangeRatesComponent],
         providers: [
           provideNoopAnimations(),
-          { provide: FinanceSetupService, useValue: service },
-          { provide: CurrenciesService, useValue: currencies },
+          { provide: OrgCurrencyService, useValue: service },
           { provide: AuthService, useValue: auth }
         ]
       }).compileComponents();
@@ -89,20 +93,23 @@ describe('SAP alignment consistency: dates go to the server as the day picked', 
       return fixture.componentInstance;
     }
 
-    it('saves a new rate effective from the day picked', async () => {
+    it('saves a new rate effective from the day picked, and a fixed end on the day picked', async () => {
       const c = await page();
       c.openCreate();
-      c.draft = { fromCurrencyCode: 'USD', toCurrencyCode: 'PKR', rate: 278.5, effectiveDate: new Date(PICKED), notes: '' };
+      c.draft = { currencyId: 'usd', rate: 278.5, effectiveFrom: new Date(PICKED), openEnded: false, effectiveTo: new Date(PICKED), notes: '' };
 
       c.save();
 
-      expect((service.createExchangeRate.calls.mostRecent().args[0] as SaveExchangeRateRequest).effectiveDate).toBe(PICKED_ISO);
+      const req = service.createRate.calls.mostRecent().args[0];
+      expect(req.effectiveFrom).toBe(PICKED_ISO);
+      expect(req.effectiveTo).toBe(PICKED_ISO);
     });
 
     it('keeps an existing rate on its own day when it is edited and saved', async () => {
-      const existing: ExchangeRateModel = {
-        uuid: 'r1', fromCurrencyCode: 'USD', toCurrencyCode: 'PKR', rate: 278.5, effectiveDate: PICKED_ISO,
-        source: 'MANUAL', notes: null, createdDate: '2026-10-01T08:00:00'
+      const existing: CurrencyRateModel = {
+        id: 'r1', currencyId: 'usd', currencyCode: 'USD', currencyName: 'US Dollar', rate: 278.5, inverseRate: 0.0035906643,
+        effectiveFrom: PICKED_ISO, effectiveTo: '9999-12-31', isCurrent: true, source: 'MANUAL', notes: null,
+        rateCurrencyId: 'pkr', rateCurrencyCode: 'PKR'
       };
       const c = await page([existing]);
       c.openEdit(existing);
@@ -110,18 +117,17 @@ describe('SAP alignment consistency: dates go to the server as the day picked', 
 
       c.save();
 
-      expect((service.updateExchangeRate.calls.mostRecent().args[1] as SaveExchangeRateRequest).effectiveDate).toBe(PICKED_ISO);
+      expect(service.updateRate.calls.mostRecent().args[1].effectiveFrom).toBe(PICKED_ISO);
     });
 
     it('asks for the rate on the day picked', async () => {
       const c = await page();
-      c.quoteFrom = 'USD';
-      c.quoteTo = 'PKR';
+      c.quoteCurrencyId = 'usd';
       c.quoteDate = new Date(PICKED);
 
       c.checkQuote();
 
-      expect(service.quoteExchangeRate).toHaveBeenCalledWith('USD', 'PKR', PICKED_ISO);
+      expect(service.getRateOn).toHaveBeenCalledWith('usd', PICKED_ISO);
     });
   });
 

@@ -6,8 +6,13 @@
       <h1 class="page-title"><i class="pi pi-credit-card"></i> Payments</h1>
       <p class="page-subtitle">Multi-invoice supplier payments — allocate, approve, and post to the ledger</p>
     </div>
-    <p-button *ngIf="canRecordPayment" label="Record Payment" icon="pi pi-plus" severity="warn"
-              routerLink="/portal/pages/finance/payments/create"></p-button>
+    <div class="header-actions">
+      <!-- The pre-multi-invoice payment history: read-only, moved here out of the menu. -->
+      <p-button label="Legacy payment history" icon="pi pi-history" [text]="true" severity="secondary"
+                routerLink="/portal/pages/finance/payments-legacy" data-testid="legacy-payments-link"></p-button>
+      <p-button *ngIf="canRecordPayment" label="Record Payment" icon="pi pi-plus" severity="warn"
+                routerLink="/portal/pages/finance/payments/create"></p-button>
+    </div>
   </div>
 
   <div class="filter-bar">
@@ -47,7 +52,7 @@
           <td class="font-mono font-semibold">{{ p.paymentNumber }}</td>
           <td>{{ p.supplierName }}</td>
           <td>{{ p.paymentDate | date:'dd MMM yyyy' }}</td>
-          <td class="font-semibold">{{ p.totalAmount | number:'1.2-2' }}</td>
+          <td class="font-semibold">{{ p.totalAmount | number:'1.2-2' }}<span *ngIf="p.currencyCode"> {{ p.currencyCode }}</span><div *ngIf="p.amountBase != null && p.currencyCode" class="base-sub" data-testid="list-base-total">{{ p.amountBase | number:'1.2-2' }} (base)</div></td>
           <td>{{ p.paymentMethod }}</td>
           <td>{{ p.lineCount }}</td>
           <td class="text-center">

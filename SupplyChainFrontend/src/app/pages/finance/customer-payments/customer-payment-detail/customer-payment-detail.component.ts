@@ -17,6 +17,10 @@ import { formatCode } from '../../../../shared/format-code';
 import { INVOICE_STATUS_SEVERITY, PAYMENT_STATUS_SEVERITY, Severity } from '../../receivables/receivables.shared';
 import { PaymentAllocationEditorComponent } from '../payment-allocation-editor/payment-allocation-editor.component';
 import { AllocationAmounts, allocationProblem, toAllocations } from '../payment-allocation-editor/payment-allocation';
+import { DocCurrencyPanelComponent } from '../../../../shared/doc-currency/doc-currency-panel.component';
+import { FxDifferenceComponent } from '../../../../shared/doc-currency/fx-difference.component';
+import { DocCurrencyInfo, cachedDocCurrency, hasBaseAmounts } from '../../../../shared/doc-currency/doc-currency';
+import { MoneyPipe } from '../../../../shared/money/money.pipe';
 
 @Component({
   selector: 'app-customer-payment-detail',
@@ -24,7 +28,7 @@ import { AllocationAmounts, allocationProblem, toAllocations } from '../payment-
   imports: [
     CommonModule, RouterModule,
     TableModule, ButtonModule, TagModule, TooltipModule, ToastModule,
-    PaymentAllocationEditorComponent
+    PaymentAllocationEditorComponent, DocCurrencyPanelComponent, FxDifferenceComponent, MoneyPipe
   ],
   templateUrl: './customer-payment-detail.component.html',
   styleUrls: ['./customer-payment-detail.component.scss'],
@@ -33,6 +37,20 @@ import { AllocationAmounts, allocationProblem, toAllocations } from '../payment-
 export class CustomerPaymentDetailComponent implements OnInit {
   uuid = '';
   payment: CustomerPaymentDetailModel | null = null;
+
+  // ── A35-E-06: currency, rate locked at posting (sale base), realized exchange differences ──
+  readonly moneyCode = { display: 'code' } as const;
+  private readonly mapCurrency = cachedDocCurrency((p: CustomerPaymentDetailModel) => ({
+    currencyId: p.currencyId, currencyCode: p.currencyCode, exchangeRate: p.exchangeRate,
+    baseCurrencyId: p.baseCurrencyId, baseCurrencyCode: p.baseCurrencyCode, rateLockedAt: null
+  }));
+  get currencyInfo(): DocCurrencyInfo | null { return this.mapCurrency(this.payment); }
+  /** The amount in the sale base, when the payment is in another currency and its rate is locked. */
+  get showAmountBase(): boolean { return hasBaseAmounts(this.currencyInfo) && this.payment?.amountBase != null; }
+  get baseCurrencyRef(): string | null { return this.payment?.baseCurrencyId || this.payment?.baseCurrencyCode || null; }
+  get hasAllocationFx(): boolean {
+    return (this.payment?.allocations ?? []).some(a => a.exchangeDifference !== null && a.exchangeDifference !== undefined);
+  }
   isLoading = true;
   notFound = false;
 

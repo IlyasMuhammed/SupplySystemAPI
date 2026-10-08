@@ -53,6 +53,14 @@ internal class CustomerPayment : ITenantScopedEntity
     public string   CurrencyCode   { get; set; } = "PKR";
     public string?  Notes          { get; set; }
 
+    // ── A35 (D-10, D-12): locked when the payment is recorded (RECEIVED = posted), at the payment date, sale base ──
+    public Guid?    CurrencyId         { get; set; }
+    public decimal? ExchangeRate       { get; set; }
+    public Guid?    BaseCurrencyId     { get; set; }
+    public decimal? AmountBase         { get; set; }
+    /// <summary>Σ of the allocations' realized differences (+ gain / − loss, sale base).</summary>
+    public decimal? ExchangeDifference { get; set; }
+
     /// <summary>See <see cref="CustomerPaymentStatuses"/>.</summary>
     public string   Status         { get; set; } = CustomerPaymentStatuses.Received;
 
@@ -84,4 +92,7 @@ internal class PaymentAllocation : ITenantScopedEntity
     public decimal  AllocatedAmount { get; set; }
     public DateTime AllocatedAt     { get; set; }
     public int      AllocatedBy     { get; set; }
+
+    /// <summary>A35 C7 — realized gain (+) / loss (−) on this allocation in the sale base (null before A35).</summary>
+    public decimal? ExchangeDifference { get; set; }
 }

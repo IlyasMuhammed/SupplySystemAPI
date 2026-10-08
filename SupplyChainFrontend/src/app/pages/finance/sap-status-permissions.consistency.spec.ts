@@ -140,10 +140,10 @@ describe('SAP alignment consistency: statuses, permissions and navigation', () =
       expect(supplierDetail(supplierInvoice(), ['INVOICE_PROCESS']).canSeeReverse()).withContext('processor').toBeTrue();
     });
 
-    it('Tax code and exchange rate writes (FINANCE_SETUP_MANAGE); anyone else the page admits gets it read-only', () => {
-      for (const Page of [TaxCodesComponent, ExchangeRatesComponent]) {
+    it('Tax code writes (FINANCE_SETUP_MANAGE) and exchange rate writes (A35: CURRENCY_RATE_MANAGE); anyone else the page admits gets it read-only', () => {
+      for (const [Page, code] of [[TaxCodesComponent, 'FINANCE_SETUP_MANAGE'], [ExchangeRatesComponent, 'CURRENCY_RATE_MANAGE']] as const) {
         const viewer = Object.assign(Object.create(Page.prototype), { authService: auth(['INVOICE_VIEW']) });
-        const manager = Object.assign(Object.create(Page.prototype), { authService: auth(['FINANCE_SETUP_MANAGE']) });
+        const manager = Object.assign(Object.create(Page.prototype), { authService: auth([code]) });
         expect(viewer.canManage).withContext(`${Page.name} viewer`).toBeFalse();
         expect(manager.canManage).withContext(`${Page.name} manager`).toBeTrue();
       }

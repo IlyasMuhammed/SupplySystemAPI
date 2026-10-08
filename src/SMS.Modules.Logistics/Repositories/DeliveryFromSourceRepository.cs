@@ -399,7 +399,12 @@ internal sealed class DeliveryFromSourceRepository : IDeliveryFromSourceReposito
             .ToList();
 
         var outstanding = await OutstandingBySoLineAsync(so.UUID, deliverable);
-        var selections  = ResolveSaleOrderSelections(req.Lines, deliverable, outstanding);
+
+        // Described up front, not after selection: a refusal names the item, never its variant id.
+        var descriptions = await _variants.DescribeVariantsAsync(
+            deliverable.Select(l => l.VariantUuid).Distinct().ToList());
+
+        var selections  = ResolveSaleOrderSelections(req.Lines, deliverable, outstanding, descriptions);
 
         if (selections.Count == 0)
             throw new BadRequestException(
@@ -407,9 +412,6 @@ internal sealed class DeliveryFromSourceRepository : IDeliveryFromSourceReposito
                 "fulfilled or already on a delivery.");
 
         await EnsurePartialFulfilmentAllowedAsync(so, deliverable, selections);
-
-        var descriptions = await _variants.DescribeVariantsAsync(
-            selections.Select(s => s.Line.VariantUuid).Distinct().ToList());
 
         var now = DateTime.UtcNow;
 
@@ -611,7 +613,8 @@ internal sealed class DeliveryFromSourceRepository : IDeliveryFromSourceReposito
     private static List<(Demand.Domain.SaleOrderLine Line, decimal Qty)> ResolveSaleOrderSelections(
         List<SourceLineSelection>? requested,
         List<Demand.Domain.SaleOrderLine> soLines,
-        Dictionary<Guid, decimal> outstanding)
+        Dictionary<Guid, decimal> outstanding,
+        IReadOnlyDictionary<Guid, VariantDescription> descriptions)
     {
         if (requested is null || requested.Count == 0)
             return [.. soLines
@@ -624,11 +627,15 @@ internal sealed class DeliveryFromSourceRepository : IDeliveryFromSourceReposito
         {
             var soLine = soLines.FirstOrDefault(l => l.UUID == selection.SourceLineUuid)
                 ?? throw new BadRequestException(
-                    $"Line {selection.SourceLineUuid} does not belong to this sale order, or cannot be " +
-                    "delivered from here (cancelled, or shipped by the vendor directly).");
+                    "One of the selected lines does not belong to this sale order, or cannot be " +
+                    "delivered from here (cancelled, or shipped by the vendor directly). Refresh the page and try again.");
 
-            // Sale order lines carry no line number; their position in the order is the label.
-            var label     = $"Line {soLines.IndexOf(soLine) + 1} ({soLine.VariantUuid})";
+            // Sale order lines carry no line number; their position in the order is the label, and the item says which
+            // one. Never the variant id: this text is shown to the user as is.
+            var item  = descriptions.TryGetValue(soLine.VariantUuid, out var variant) && !string.IsNullOrWhiteSpace(variant.DisplayName)
+                ? $" ({variant.DisplayName})"
+                : "";
+            var label     = $"Line {soLines.IndexOf(soLine) + 1}{item}";
             var available = outstanding.GetValueOrDefault(soLine.UUID);
 
             if (available <= 0)
@@ -729,7 +736,7 @@ internal sealed class DeliveryFromSourceRepository : IDeliveryFromSourceReposito
         {
             var poLine = poLines.FirstOrDefault(l => l.UUID == selection.SourceLineUuid)
                 ?? throw new BadRequestException(
-                    $"Line {selection.SourceLineUuid} does not belong to this purchase order.");
+                    "One of the selected lines does not belong to this purchase order. Refresh the page and try again.");
 
             var available = outstanding.GetValueOrDefault(poLine.UUID);
 

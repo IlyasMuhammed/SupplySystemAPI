@@ -39,7 +39,7 @@
 
         <!-- A33 PC-09: disabled, never hidden, while anything blocks it; the wrapper carries the tooltip a disabled
              button cannot show. -->
-        <span *ngIf="canConfirm" [pTooltip]="confirmBlockedTooltip" tooltipPosition="bottom" data-testid="confirm-wrap">
+        <span *ngIf="canConfirm" [pTooltip]="confirmTooltip" tooltipPosition="bottom" data-testid="confirm-wrap">
           <p-button label="Confirm order" icon="pi pi-check-circle" [disabled]="isConfirmBlocked"
                     (onClick)="openConfirmDialog()" data-testid="action-confirm"></p-button>
         </span>
@@ -74,7 +74,37 @@
                 [loading]="isCreatingDeliveries" (onClick)="createRouteDeliveries()" data-testid="create-deliveries-retry"></p-button>
     </div>
 
-    <!-- A33 D-15: what cancelling did to the order's deliveries. -->
+    <!-- A34 D-17: confirmed, but the make-to-order production orders were not (all) created — create them now. -->
+    <div class="route-warning" *ngIf="productionPendingMessage as msg" role="status" data-testid="production-creation-failed">
+      <i class="pi pi-exclamation-triangle"></i>
+      <div class="grow">
+        <strong>The production orders were not created.</strong> {{ msg }}
+      </div>
+      <p-button *ngIf="canCreateProductionOrders" label="Create production orders" icon="pi pi-cog" size="small"
+                [loading]="isCreatingProduction" (onClick)="createProductionOrders()"
+                pTooltip="Creates the missing production order for each make-to-order line. Safe to press again."
+                data-testid="create-production-orders"></p-button>
+    </div>
+
+    <!-- A34 D-17: the production orders confirming (or the recovery) created. -->
+    <div class="cancel-result" *ngIf="confirmProductionOrders.length" role="status" data-testid="confirm-production-result">
+      <div class="grow">
+        <p>
+          <strong>Production orders created:</strong>
+          <ng-container *ngFor="let p of confirmProductionOrders; let last = last">
+            <a *ngIf="canViewProduction; else plainPo" class="source-link font-mono"
+               [routerLink]="['/portal/pages/manufacturing/production-orders', p.productionOrderUuid]">{{ p.productionNumber }}</a>
+            <ng-template #plainPo><span class="font-mono">{{ p.productionNumber }}</span></ng-template>
+            <span *ngIf="p.lineNumber"> (Line {{ p.lineNumber }})</span>{{ last ? '.' : ', ' }}
+          </ng-container>
+          Their deliveries are created when production completes.
+        </p>
+      </div>
+      <p-button icon="pi pi-times" [text]="true" severity="secondary" size="small" pTooltip="Dismiss"
+                (onClick)="dismissConfirmProduction()"></p-button>
+    </div>
+
+    <!-- A33 D-15: what cancelling did to the order's deliveries (A34 D-22: and its production orders). -->
     <div class="cancel-result" *ngIf="cancelResult as r" role="status" data-testid="cancel-result">
       <div class="grow">
         <p *ngIf="r.cancelledDeliveries.length">
@@ -91,6 +121,22 @@
                data-testid="issued-delivery">{{ d.deliveryNumber }}</a> ({{ formatStatus(d.status) }}){{ last ? '.' : ', ' }}
           </ng-container>
           Reverse or return them by hand if needed.
+        </p>
+        <p *ngIf="r.cancelledProductionOrders?.length" data-testid="cancelled-production">
+          <strong>Production cancelled with the order:</strong>
+          <ng-container *ngFor="let p of r.cancelledProductionOrders; let last = last">
+            <span class="font-mono">{{ p.productionNumber }}</span>{{ last ? '.' : ', ' }}
+          </ng-container>
+        </p>
+        <p *ngIf="r.runningProductionOrders?.length" data-testid="running-production">
+          <strong>Still running — already started or material issued:</strong>
+          <ng-container *ngFor="let p of r.runningProductionOrders; let last = last">
+            <a *ngIf="canViewProduction; else plainRunning" class="source-link font-mono"
+               [routerLink]="['/portal/pages/manufacturing/production-orders', p.productionOrderUuid]">{{ p.productionNumber }}</a>
+            <ng-template #plainRunning><span class="font-mono">{{ p.productionNumber }}</span></ng-template>
+            ({{ formatStatus(p.status) }}){{ last ? '.' : ', ' }}
+          </ng-container>
+          They finish into stock; cancel them on the production order if the goods are not wanted.
         </p>
       </div>
       <p-button icon="pi pi-times" [text]="true" severity="secondary" size="small" pTooltip="Dismiss"
@@ -110,6 +156,11 @@
       </span>
     </div>
 
+    <!-- A35 P3-13 / §11.5 — currency, the rate locked at confirmation, the sale base, and the amount toggle. -->
+    <div class="card currency-card">
+      <app-doc-currency-panel [doc]="o" lockPoint="confirmation" domain="SALE" [(view)]="amountView"></app-doc-currency-panel>
+    </div>
+
     <div class="detail-grid">
       <div class="card">
         <h3>Order</h3>
@@ -122,10 +173,19 @@
             <dt>Ship to</dt>
             <dd data-testid="ship-to">{{ shipTo ? formatAddress(shipTo) : (o.shippingAddressId ? 'Address on file' : '—') }}</dd>
           </ng-container>
-          <dt>Subtotal</dt><dd>{{ o.subtotal | number:'1.2-2' }}</dd>
-          <dt>Tax</dt><dd>{{ o.taxAmount | number:'1.2-2' }}</dd>
-          <dt>Discount</dt><dd>{{ o.discountAmount | number:'1.2-2' }}</dd>
-          <dt>Grand total</dt><dd class="font-semibold">{{ o.grandTotal | number:'1.2-2' }}</dd>
+          <!-- A35 §11.5: each total in the order's currency and, once the rate is locked, in the sale base. -->
+          <dt>Subtotal</dt>
+          <dd data-testid="order-subtotal">{{ primaryAmount(o.subtotal, o.subtotalBase) | money:primaryCurrency:moneyCode }}<span
+              *ngIf="showBase" class="base-amount"> {{ secondaryAmount(o.subtotal, o.subtotalBase) | money:secondaryCurrency:moneyCode }}</span></dd>
+          <dt>Tax</dt>
+          <dd data-testid="order-tax">{{ primaryAmount(o.taxAmount, o.taxAmountBase) | money:primaryCurrency:moneyCode }}<span
+              *ngIf="showBase" class="base-amount"> {{ secondaryAmount(o.taxAmount, o.taxAmountBase) | money:secondaryCurrency:moneyCode }}</span></dd>
+          <dt>Discount</dt>
+          <dd data-testid="order-discount">{{ primaryAmount(o.discountAmount, o.discountAmountBase) | money:primaryCurrency:moneyCode }}<span
+              *ngIf="showBase" class="base-amount"> {{ secondaryAmount(o.discountAmount, o.discountAmountBase) | money:secondaryCurrency:moneyCode }}</span></dd>
+          <dt>Grand total</dt>
+          <dd class="font-semibold" data-testid="order-grand-total">{{ primaryAmount(o.grandTotal, o.grandTotalBase) | money:primaryCurrency:moneyCode }}<span
+              *ngIf="showBase" class="base-amount"> {{ secondaryAmount(o.grandTotal, o.grandTotalBase) | money:secondaryCurrency:moneyCode }}</span></dd>
         </dl>
         <p class="notes" *ngIf="o.notes">{{ o.notes }}</p>
       </div>
@@ -196,7 +256,7 @@
       <!-- ── Lines ─────────────────────────────────────────────────────────────── -->
       <p-tabPanel header="Lines" leftIcon="pi pi-list">
         <div class="table-card flush">
-          <p-table [value]="o.lines" [tableStyle]="{'min-width':'82rem'}" data-testid="lines-table">
+          <p-table [value]="o.lines" [tableStyle]="{'min-width':'90rem'}" data-testid="lines-table">
             <ng-template pTemplate="header">
               <tr>
                 <th>Item</th>
@@ -206,26 +266,33 @@
                 <th class="text-right">Unit price</th>
                 <th class="text-right">Disc %</th>
                 <th class="text-right">Tax</th>
-                <th class="text-right">Total</th>
+                <th class="text-right" data-testid="total-primary-header">{{ showBase ? 'Total (' + currencyCodeOf(primaryCurrency) + ')' : 'Total' }}</th>
+                <th *ngIf="showBase" class="text-right" data-testid="total-secondary-header">Total ({{ currencyCodeOf(secondaryCurrency) }})</th>
                 <th class="text-right">Delivered</th>
                 <th class="text-right">Outstanding</th>
-                <th>Mode</th>
+                <th data-testid="sourcing-header">Sourcing</th>
                 <th *ngIf="routesOn" data-testid="route-header" pTooltip="Fulfillment route — how the warehouse sends the line">Route</th>
+                <th data-testid="delivery-date-header"
+                    pTooltip="⏱ = calculated from lead times · ✎ = set by hand · — = not calculated">Delivery</th>
                 <th>Status</th>
                 <th class="text-center" pTooltip="Delivery indicator — hover a dot for what it means">Ind</th>
                 <th class="text-center">Actions</th>
               </tr>
             </ng-template>
-            <ng-template pTemplate="body" let-line>
+            <ng-template pTemplate="body" let-line let-i="rowIndex">
               <tr [class.line-done]="outstanding(line) === 0" [class.line-cancelled]="line.status === 'CANCELLED'">
                 <td>
                   {{ describe(line) }}
                   <div class="line-sub" *ngIf="line.variantSku">{{ line.variantSku }}</div>
+                  <!-- A34 D-21: production accepted less than the line. -->
+                  <p-tag *ngIf="(line.productionShortfallQty ?? 0) > 0" severity="danger" styleClass="line-shortfall"
+                         [value]="'Short ' + (line.productionShortfallQty | number:'1.0-4')" [pTooltip]="shortfallTooltip(line)"
+                         data-testid="line-shortfall"></p-tag>
                 </td>
                 <td>{{ line.unitOfMeasure || '—' }}</td>
                 <td class="text-right">{{ line.quantity | number:'1.0-3' }}</td>
                 <td class="text-right" data-testid="line-reserved">{{ (line.reservedQty ?? 0) | number:'1.0-3' }}</td>
-                <td class="text-right">{{ line.unitPrice | number:'1.2-2' }}</td>
+                <td class="text-right" data-testid="line-unit-price">{{ primaryAmount(line.unitPrice, line.unitPriceBase) | money:primaryCurrency:moneyCode }}</td>
                 <td class="text-right">{{ line.discountPercent | number:'1.0-2' }}</td>
                 <td class="text-right" data-testid="line-tax">
                   <ng-container *ngIf="line.taxCode; else plainTax">
@@ -233,10 +300,12 @@
                   </ng-container>
                   <ng-template #plainTax>{{ line.taxPercent | number:'1.0-2' }}%</ng-template>
                 </td>
-                <td class="text-right">{{ line.lineTotal | number:'1.2-2' }}</td>
+                <td class="text-right" data-testid="line-total-primary">{{ primaryAmount(line.lineTotal, line.lineTotalBase) | money:primaryCurrency:moneyCode }}</td>
+                <td *ngIf="showBase" class="text-right" data-testid="line-total-secondary">{{ secondaryAmount(line.lineTotal, line.lineTotalBase) | money:secondaryCurrency:moneyCode }}</td>
                 <td class="text-right">{{ line.fulfilledQty | number:'1.0-3' }}</td>
                 <td class="text-right">{{ outstanding(line) | number:'1.0-3' }}</td>
-                <td>{{ formatStatus(line.fulfillmentMode) || '—' }}</td>
+                <!-- A34 R-15: MAKE_TO_ORDER reads "Make to order"; the route category is a tag in the Route cell, never sourcing. -->
+                <td data-testid="line-sourcing">{{ sourcing(line) }}</td>
                 <!-- A33 PC-07: a dropdown on a draft for someone who may edit it; read-only otherwise (the route is
                      snapshotted at confirm, D-16). A drop-shipped line needs none (D-5). -->
                 <td *ngIf="routesOn" class="route-cell" data-testid="line-route">
@@ -254,9 +323,23 @@
                       <span *ngIf="d.icon" class="route-source" [class.blocking]="d.kind === 'blocked'" [attr.data-source]="d.source"
                             [pTooltip]="d.hint" data-testid="line-route-source">{{ d.icon }}</span>
                       <i *ngIf="savingRouteLineUuid === line.uuid" class="pi pi-spin pi-spinner"></i>
+                      <p-tag *ngIf="categoryTag(line) as tag" [value]="tag.label" [severity]="tag.severity" styleClass="route-category"
+                             [pTooltip]="tag.label === 'Manufacture' ? 'Make-to-order route: a production order makes this line, then its delivery follows' : 'Shipped from stock'"
+                             data-testid="line-category"></p-tag>
                     </div>
                     <div class="route-hint" [class.blocking]="d.kind === 'blocked'" data-testid="line-route-hint">{{ d.hint }}</div>
                   </ng-container>
+                </td>
+                <!-- A34 PC-07/08/09: the line's delivery date and where it comes from; ⏱ on a draft, ✎ while it is open. -->
+                <td class="delivery-cell" data-testid="line-delivery">
+                  <app-lead-time-popover [variantUuid]="line.variantUuid" [quantity]="line.quantity"
+                                         [manualDate]="line.manualDeliveryDate" [calculatedDate]="line.calculatedDeliveryDate"
+                                         [calculatedDays]="line.calculatedLeadTimeDays" [calculatedAt]="line.leadTimeCalculatedAt"
+                                         [canCalculate]="canCalculateLeadTime" [canOverride]="canSetDeliveryDate(line)"
+                                         [calculator]="leadTimeCalculator(line)" [saving]="savingDateLineUuid === line.uuid"
+                                         [label]="lineLabel(line, i)"
+                                         (calculated)="onLineLeadTime(line, $event)"
+                                         (manualDateChange)="setLineDeliveryDate(line, $event)"></app-lead-time-popover>
                 </td>
                 <td><p-tag [value]="formatStatus(line.status)" severity="secondary"></p-tag></td>
                 <td class="text-center">
@@ -287,7 +370,7 @@
               </tr>
             </ng-template>
             <ng-template pTemplate="emptymessage">
-              <tr><td [attr.colspan]="routesOn ? 15 : 14" class="text-center text-secondary" style="padding:2rem">No lines.</td></tr>
+              <tr><td [attr.colspan]="routesOn ? 16 : 15" class="text-center text-secondary" style="padding:2rem">No lines.</td></tr>
             </ng-template>
           </p-table>
         </div>
@@ -325,6 +408,13 @@
           <span class="percent">{{ linesDeliveredPercent }}%</span>
           <div class="progress-track"><div class="progress-fill" [style.width.%]="linesDeliveredPercent"></div></div>
         </div>
+
+        <!-- A34 PD-07: make-to-order lines get their delivery when production completes. -->
+        <p class="awaiting-production" *ngIf="linesAwaitingProduction.length as n" data-testid="awaiting-production">
+          <i class="pi pi-cog"></i>
+          {{ n }} line{{ n === 1 ? '' : 's' }} awaiting production — the delivery is created when production completes
+          (see the Production tab).
+        </p>
 
         <p class="no-access" *ngIf="!canViewDeliveries" data-testid="deliveries-no-access">
           <i class="pi pi-lock"></i> You do not have permission to see deliveries.
@@ -555,42 +645,62 @@
         </ng-template>
       </p-tabPanel>
 
-      <!-- ══ Production orders (A31 C7/PD-06) ═══════════════════════════════════ -->
+      <!-- ══ Production orders (A31 C7/PD-06; A34 D-25: from the detail, with route and delivery) ══ -->
       <p-tabPanel header="Production" leftIcon="pi pi-cog">
-        <p class="no-access" *ngIf="!canViewProduction" data-testid="production-no-access">
+        <p class="no-access" *ngIf="!canSeeProductionTab" data-testid="production-no-access">
           <i class="pi pi-lock"></i> You do not have permission to see production orders.
         </p>
 
-        <div class="table-card flush" *ngIf="canViewProduction">
-          <p-table [value]="productionOrders" [loading]="isLoadingProductionOrders"
-                   [tableStyle]="{'min-width':'50rem'}" data-testid="production-orders-table">
+        <div class="table-card flush" *ngIf="canSeeProductionTab">
+          <p-table [value]="productionRows" [loading]="isLoadingProductionOrders"
+                   [tableStyle]="{'min-width':'60rem'}" data-testid="production-orders-table">
             <ng-template pTemplate="header">
               <tr>
                 <th>Order #</th>
-                <th>Product</th>
+                <th>For</th>
                 <th class="text-right">Planned</th>
-                <th>Required</th>
+                <th class="text-right">Accepted</th>
+                <th pTooltip="The route the goods take once made (make-to-order only)">Route</th>
+                <th pTooltip="Make-to-order: the delivery created when production completes">Delivery</th>
                 <th>Status</th>
                 <th class="text-center">Actions</th>
               </tr>
             </ng-template>
             <ng-template pTemplate="body" let-p>
-              <tr>
-                <td class="font-mono font-semibold">{{ p.productionNumber }}</td>
-                <td>{{ p.productName }} <span class="muted" *ngIf="p.variantName">— {{ p.variantName }}</span></td>
+              <tr data-testid="production-row">
+                <td class="font-mono font-semibold">{{ p.number }}</td>
+                <td>{{ p.what }}</td>
                 <td class="text-right">{{ p.plannedQuantity | number:'1.0-4' }}</td>
-                <td>{{ p.requiredDate | date:'dd MMM yyyy' }}</td>
-                <td><p-tag [value]="p.status" [severity]="productionSeverity(p.status)"></p-tag></td>
+                <td class="text-right">{{ p.acceptedQuantity != null ? (p.acceptedQuantity | number:'1.0-4') : '—' }}</td>
+                <td data-testid="production-route">
+                  <ng-container *ngIf="p.isMakeToOrder; else stockRoute">{{ p.routeName || 'Make to order' }}</ng-container>
+                  <ng-template #stockRoute><span class="muted" pTooltip="Made to cover a stock shortfall; the line's own delivery carries it">—</span></ng-template>
+                </td>
+                <td data-testid="production-delivery">
+                  <ng-container *ngIf="p.isMakeToOrder; else noDelivery">
+                    <ng-container *ngIf="p.deliveryNumber; else pending">
+                      <a *ngIf="canViewDeliveries && p.deliveryUuid; else plainDelivery" class="source-link font-mono"
+                         [routerLink]="['/portal/pages/logistics/deliveries', p.deliveryUuid]"
+                         data-testid="production-delivery-link">{{ p.deliveryNumber }}</a>
+                      <ng-template #plainDelivery><span class="font-mono">{{ p.deliveryNumber }}</span></ng-template>
+                    </ng-container>
+                    <ng-template #pending><span class="muted">Delivery: pending</span></ng-template>
+                  </ng-container>
+                  <ng-template #noDelivery><span class="muted">—</span></ng-template>
+                </td>
+                <td><p-tag [value]="formatStatus(p.status)" [severity]="productionSeverity(p.status)"></p-tag></td>
                 <td class="text-center">
-                  <p-button icon="pi pi-eye" [text]="true" severity="info" size="small" pTooltip="Open production order"
+                  <p-button *ngIf="canViewProduction; else noOpen" icon="pi pi-eye" [text]="true" severity="info" size="small"
+                            pTooltip="Open production order"
                             [routerLink]="['/portal/pages/manufacturing/production-orders', p.uuid]"
                             data-testid="open-production-order"></p-button>
+                  <ng-template #noOpen><span class="muted">—</span></ng-template>
                 </td>
               </tr>
             </ng-template>
             <ng-template pTemplate="emptymessage">
               <tr>
-                <td colspan="6" class="text-center text-secondary" style="padding:2rem">
+                <td colspan="8" class="text-center text-secondary" style="padding:2rem">
                   No production order raised from this sale order.
                 </td>
               </tr>
@@ -646,8 +756,23 @@
       for what is missing.
     </p>
 
+    <!-- A34 D-1: make-to-order lines reserve nothing; a production order makes all of each. -->
+    <p class="dialog-hint" *ngIf="makeToOrderLines.length as m" data-testid="confirm-production-note">
+      <i class="pi pi-cog"></i>
+      {{ m }} line{{ m === 1 ? ' is' : 's are' }} made to order: a production order is created for {{ m === 1 ? 'it' : 'each' }}
+      and nothing is reserved. The delivery follows when production completes.
+    </p>
+
     <!-- A33 PC-09: the server's refusal, one blocker per line. -->
-    <div class="dialog-error" *ngIf="confirmErrors.length" role="alert" data-testid="confirm-errors">
+    <!-- A35 D-5 — no rate for the order's currency on the confirm date. -->
+    <div class="dialog-error" *ngIf="missingRate as mr" role="alert" data-testid="missing-rate">
+      <p><i class="pi pi-exclamation-triangle"></i> <strong>No exchange rate for {{ mr.code }} on {{ mr.date }}.</strong></p>
+      <p>The order is in {{ mr.code }}, so its rate is locked when it is confirmed. Add a rate under
+        <a routerLink="/portal/pages/finance-setup/exchange-rates" data-testid="missing-rate-link">Settings → Exchange Rates</a>,
+        then confirm again.</p>
+    </div>
+
+    <div class="dialog-error" *ngIf="confirmErrors.length && !missingRate" role="alert" data-testid="confirm-errors">
       <p><i class="pi pi-times-circle"></i> The order was not confirmed:</p>
       <ul><li *ngFor="let e of confirmErrors" data-testid="confirm-error-line">{{ e }}</li></ul>
     </div>

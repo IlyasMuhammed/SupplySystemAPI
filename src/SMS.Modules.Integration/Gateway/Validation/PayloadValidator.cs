@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using SMS.Modules.Integration.Core.Connections;
+using SMS.Modules.Integration.Core.Reference;
 using SMS.Modules.Integration.Core.Sync;
 using SMS.Modules.Integration.Data;
 using SMS.Modules.Integration.Domain;
@@ -41,12 +42,15 @@ internal sealed partial class PayloadValidator : IPayloadValidator
     private readonly IntegrationDbContext  _db;
     private readonly IRemoteNameResolver   _names;
     private readonly ICurrencyRules        _currency;
+    private readonly IBaseCurrencyResolver? _baseCurrency;
 
-    public PayloadValidator(IntegrationDbContext db, IRemoteNameResolver names, ICurrencyRules currency)
+    /// <param name="baseCurrency">A35 D-19 — the organization's purchase base, for the bill rule. Optional: without it no bill is refused for it.</param>
+    public PayloadValidator(IntegrationDbContext db, IRemoteNameResolver names, ICurrencyRules currency, IBaseCurrencyResolver? baseCurrency = null)
     {
-        _db       = db;
-        _names    = names;
-        _currency = currency;
+        _db           = db;
+        _names        = names;
+        _currency     = currency;
+        _baseCurrency = baseCurrency;
     }
 
     [GeneratedRegex(@"^[^@\s]+@[^@\s]+\.[^@\s]+$")]
@@ -228,6 +232,7 @@ internal sealed partial class PayloadValidator : IPayloadValidator
         PayloadValidationResult r, CancellationToken ct)
     {
         CheckDocNumber(p.DocNumber, "supplier invoice", r);
+        await CheckPurchaseBaseAsync(connection, r, ct);
 
         if (string.IsNullOrWhiteSpace(p.VendorExternalId))
             r.Error("vendorExternalId", "VENDOR_REQUIRED", "The supplier invoice has no supplier. Every QuickBooks bill needs a vendor.");
@@ -299,6 +304,29 @@ internal sealed partial class PayloadValidator : IPayloadValidator
             r.Warnings.Add(
                 $"The bill's lines add up to {SyncPayloads.Amount(computed)} but its total is {SyncPayloads.Amount(p.ExpectedTotal)} " +
                 $"(a {SyncPayloads.Amount(difference)} rounding difference across {lines.Count} lines); QuickBooks will show the lines' total.");
+    }
+
+    /// <summary>
+    /// A35 D-19 — QuickBooks keeps its books in its home currency, which is compared with SCM's <b>sale</b> base. A supplier
+    /// invoice is booked in the organization's <b>purchase</b> base; when that is another currency, its base amounts mean
+    /// nothing to QuickBooks and the bill is refused. Unknown purchase base or home currency: no refusal.
+    /// </summary>
+    private async Task CheckPurchaseBaseAsync(IntegrationConnection connection, PayloadValidationResult r, CancellationToken ct)
+    {
+        if (_baseCurrency is null) return;
+
+        var home = (await _currency.FactsAsync(connection, ct)).HomeCurrency;
+        if (home is null) return;
+
+        var purchase = CurrencyRules.Normalize(
+            (await _baseCurrency.ResolveAsync(connection.OrganizationId, SMS.Shared.Common.TransactionDomain.Purchase, ct)).Code);
+        if (purchase is null || purchase == home) return;
+
+        r.Error("currencyCode", "PURCHASE_BASE_NOT_HOME",
+            $"SCM's purchase base currency is {purchase} but the QuickBooks company's home currency is {home}. Supplier invoices are " +
+            $"booked in {purchase}, which QuickBooks does not keep, so bills are not sent while the two differ. Enter this bill in " +
+            $"QuickBooks by hand, or set the purchase base currency to {home} under Settings → Currency Configuration; blocked bills " +
+            "are then checked again and sent by themselves.");
     }
 
     /// <summary>0.01 plus half a cent per line.</summary>

@@ -27,3 +27,6 @@ tr.inactive-row td { color: var(--text-color-secondary); }
 @media (max-width: 640px) {
   .setup-page { padding: 1rem; }
 }
+
+// A34-PA-09 — category filter in the toolbar
+:host ::ng-deep .category-filter { min-width: 11rem; }

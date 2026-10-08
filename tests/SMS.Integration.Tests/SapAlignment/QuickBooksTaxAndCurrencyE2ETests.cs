@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Text.Json;
 using FluentAssertions;
 using SMS.Integration.Tests.QuickBooks;
@@ -13,8 +13,9 @@ namespace SMS.Integration.Tests.SapAlignment;
 /// SAP alignment scenarios 4 and 5 — what QuickBooks receives, through the real host with only Intuit faked:
 /// a line's tax code is mapped by code before its rate (S-11), a line from before tax codes still issues,
 /// prints and maps by its rate, a cancelled invoice is voided (S-7), and with QuickBooks' multicurrency on a
-/// foreign invoice is sent with SMS's rate for its date — or blocked with EXCHANGE_RATE_MISSING until one is
-/// added (S-10).
+/// foreign invoice is sent with SMS's rate for its date (S-10). A35 D-5 (supersedes S-5): a document with no rate on file
+/// is refused at its lock (SO confirm), so SMS no longer issues a foreign invoice without a rate; rates come from
+/// api/currency-rates (A35 D-3) and a historical correction never changes an issued invoice.
 /// <para>Run alone: <c>dotnet test &lt;out&gt;\SMS.Integration.Tests.dll --filter FullyQualifiedName~QuickBooksTaxAndCurrencyE2ETests</c>.</para>
 /// </summary>
 public sealed class QuickBooksTaxAndCurrencyE2ETests : IClassFixture<SapWebApplicationFactory>
@@ -45,7 +46,7 @@ public sealed class QuickBooksTaxAndCurrencyE2ETests : IClassFixture<SapWebAppli
         var gst5   = await _k.EnsureTaxCodeAsync("GST5", 5m, "SALES", isDefault: false);    // no code row: falls back to the 5% row
         var gst12  = await _k.EnsureTaxCodeAsync("GST12", 12m, "SALES", isDefault: false);  // neither a code row nor a 12% row
         await _k.CreateApproverPlaceholdersAsync();
-        var usdRate = (await _k.CreateRateAsync("USD", "PKR", 280m, today.AddDays(-30))).G("uuid");
+        await _k.CreateRateAsync("USD", "PKR", 280m, today.AddDays(-30));
 
         var wh          = await _k.CreateWarehouseAsync();
         var vendor      = await _k.CreateVendorAsync("QB Stock Vendor");
@@ -185,31 +186,21 @@ public sealed class QuickBooksTaxAndCurrencyE2ETests : IClassFixture<SapWebAppli
             .Should().BeAssignableTo<RemoteParty>().Subject;
         qboCustomer.CurrencyCode.Should().Be("USD", "QuickBooks keeps the customer in the invoice's currency");
 
-        // ═══ 4. No rate on file: blocked with EXCHANGE_RATE_MISSING, sent once one is added ══
-        await _k.Ok(_k.Delete($"/api/finance/exchange-rates/{usdRate}"), "delete the USD rate");
-        var (_, _, blockedInvoice) = await _k.SellAsync(usdCustomer, usd, SapKit.Line(dollar, 2m, taxCode: gst17));
-        var blockedDoc = await _k.GetInvoiceAsync(blockedInvoice);
-        blockedDoc.S("status").Should().Be("ISSUED", "SCM issues it with no snapshot");
-        blockedDoc.ND("exchangeRate").Should().BeNull();
+        // ═══ 4. A35 D-5 (supersedes S-5): no rate on file refuses the LOCK itself — the EUR order cannot be confirmed, so no
+        //        issued invoice can lack its rate (QuickBooks' EXCHANGE_RATE_MISSING is now reachable only by pre-A35 data) ══
+        var eur = await _k.EnsureCurrencyAsync("EUR", "Euro", "€");
+        await _k.Ok(_k.Post("/api/pricing-rules", new
+        {
+            VariantUuid = coded.VariantUuid, PriceType = "SELLING", UnitPrice = 20m, CurrencyId = eur, EffectiveFrom = today.AddDays(-60)
+        }), "EUR price rule");
+        var eurSo = await _k.CreateSaleOrderAsync(pkrCustomer, eur, SapKit.Line(coded, 1m, taxCode: gst17));
+        var noRate = await _k.Post($"/api/sale-orders/{eurSo}/confirm");
+        noRate.Status.Should().Be(HttpStatusCode.BadRequest, $"D-5: a EUR order in a PKR org needs a EUR rate to lock — {noRate}");
+        noRate.Message.Should().Be($"No exchange rate for EUR on {today:yyyy-MM-dd}. Add one under Settings → Exchange Rates.");
+        (await _k.GetSaleOrderAsync(eurSo)).S("status").Should().Be("DRAFT");
 
-        _f.Company.ResetCalls();
-        await RunJobsAsync(rounds: 3);
-        var blocked = await MapAsync(blockedInvoice);
-        blocked.State.Should().Be("Blocked", $"no USD→PKR rate for the invoice date — got {blocked.State} {blocked.LastErrorCode}: {blocked.LastError}");
-        blocked.LastErrorCode.Should().Be("EXCHANGE_RATE_MISSING");
-        _f.Company.Writes.Should().NotContain(w => w.Kind == SyncKind.SalesInvoice && w.Operation == "Create");
-
-        var item = (await _k.Ok(_k.Get($"{Qb}/sync/items?kind=SalesInvoice&search={Uri.EscapeDataString(blockedDoc.S("invoiceNumber")!)}&page=1&pageSize=10"), "sync items"))
-            .A("data").Single(i => i.S("externalId") == blockedInvoice.ToString());
-        item.S("state").Should().Be("Blocked");
-        item.S("lastErrorCode").Should().Be("EXCHANGE_RATE_MISSING", "the dashboard says why");
-
-        // Adding the rate is enough: the next outbox run re-validates the blocked invoice — no Retry needed.
-        await _k.CreateRateAsync("USD", "PKR", 281.5m, today.AddDays(-1));
-        await RunJobsAsync(rounds: 3);
-        (await MapAsync(blockedInvoice)).State.Should().Be("Synced", "the rate is on file now, and blocked records re-validate themselves");
-        CreatedInvoice(blockedDoc.S("invoiceNumber")!).ExchangeRate.Should().Be(281.5m);
-
+        // The USD rate moves to 281.5 from yesterday (the 280 row is closed the day before).
+        var lastRate = await _k.CreateRateAsync("USD", "PKR", 281.5m, today.AddDays(-1));
         // ═══ 5. Bills: a purchase code maps by code; tax keyed as an amount takes the default purchase code ══
         var billVendor = await _k.CreateVendorAsync("QB Bill Vendor");
         var codedBillNo  = $"{_k.Marker}-B1";
@@ -230,15 +221,11 @@ public sealed class QuickBooksTaxAndCurrencyE2ETests : IClassFixture<SapWebAppli
         billPayload.A("lines").Single().S("taxCode").Should().Be("PGST17");
 
         // ═══ 6. QuickBooks gets the rate the invoice was issued at, not a rate changed afterwards ══
-        var lastRate = (await _k.Ok(_k.Get("/api/finance/exchange-rates?from=USD&to=PKR"), "rates")).Items()
-            .Single(r => r.D("rate") == 281.5m);
+
         var (_, _, lateInvoice) = await _k.SellAsync(usdCustomer, usd, SapKit.Line(dollar, 1m, taxCode: gst17));
         var lateDoc = await _k.GetInvoiceAsync(lateInvoice);
         lateDoc.ND("exchangeRate").Should().Be(281.5m, "snapshotted at issue");
-        await _k.Ok(_k.Put($"/api/finance/exchange-rates/{lastRate.G("uuid")}", new
-        {
-            fromCurrencyCode = "USD", toCurrencyCode = "PKR", rate = 295m, effectiveDate = lastRate.S("effectiveDate"), notes = "corrected later"
-        }), "correct the rate after the invoice was issued");
+        await _k.CorrectRateAsync(lastRate, 295m); // a historical correction after the invoice was issued
         (await _k.GetInvoiceAsync(lateInvoice)).ND("exchangeRate").Should().Be(281.5m, "a later rate change never changes an issued document (S-5)");
 
         _f.Company.ResetCalls();

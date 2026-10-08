@@ -24,6 +24,14 @@ export interface BusinessPartnerModel {
   vehicleTypes?: string | null;
   serviceCategories?: string | null;
   isActive: boolean;
+  // A35 D-9 (API-CONTRACT.md §5) — currency defaults. Input: null/absent = unchanged; clear with the flags.
+  defaultSaleCurrencyId?: string | null;
+  defaultSaleCurrencyCode?: string | null;      // response only
+  /** = the partner's PreferredCurrency. */
+  defaultPurchaseCurrencyId?: string | null;
+  defaultPurchaseCurrencyCode?: string | null;  // response only
+  clearDefaultSaleCurrency?: boolean;
+  clearDefaultPurchaseCurrency?: boolean;
 }
 
 export interface BusinessPartnerFilter {

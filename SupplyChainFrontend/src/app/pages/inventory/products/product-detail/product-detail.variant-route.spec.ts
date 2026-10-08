@@ -25,6 +25,7 @@ describe('ProductDetailComponent — variant fulfillment route (A33-PB-04)', () 
   let permissions: string[];
   let features: string[];
   let toasts: any[];
+  let productOver: Partial<ProductDetailModel>;
 
   const variant = (over: Partial<ProductVariantModel> = {}): ProductVariantModel => ({
     id: 1, uuid: 'v-1', sku: 'SKU-1', variantName: 'Rod 10mm', purchasePrice: 10, isDefault: true, isActive: true,
@@ -38,7 +39,7 @@ describe('ProductDetailComponent — variant fulfillment route (A33-PB-04)', () 
   function setup() {
     inventory = jasmine.createSpyObj<InventoryService>('InventoryService',
       ['getProductById', 'getProductStock', 'updateVariant', 'addVariant', 'setVariantAttributeValues', 'setVariantFulfillmentRoute']);
-    inventory.getProductById.and.returnValue(ok({ id: 7, uuid: 'p-7', name: 'Rod', variants: [variant()] } as unknown as ProductDetailModel));
+    inventory.getProductById.and.returnValue(ok({ id: 7, uuid: 'p-7', name: 'Rod', variants: [variant()], ...productOver } as unknown as ProductDetailModel));
     inventory.getProductStock.and.returnValue(ok([]));
     inventory.updateVariant.and.returnValue(ok(null));
     inventory.addVariant.and.returnValue(ok(variant({ uuid: 'v-new', fulfillmentRouteUuid: null })));
@@ -72,6 +73,35 @@ describe('ProductDetailComponent — variant fulfillment route (A33-PB-04)', () 
   beforeEach(() => {
     permissions = ['FULFILLMENT_ROUTE_ASSIGN'];
     features = ['MODULE_LOGISTICS', 'MODULE_INVENTORY'];
+    productOver = {};
+  });
+
+  // ── A34 ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  it('lets the route field offer make-to-order routes only for a manufactured product in a manufacturing org (D-3, D-9)', () => {
+    productOver = { supplyMethod: 'MANUFACTURE' };
+    features = ['MODULE_LOGISTICS', 'MODULE_INVENTORY', 'MODULE_MANUFACTURING'];
+    setup();
+    expect(component.productManufactured).toBeTrue();
+    expect(component.manufacturingEnabled).toBeTrue();
+    features = ['MODULE_LOGISTICS', 'MODULE_INVENTORY'];
+    expect(component.manufacturingEnabled).toBeFalse();
+    productOver = { supplyMethod: 'PURCHASE' };
+    setup();
+    expect(component.productManufactured).toBeFalse();
+  });
+
+  it('Lead Times tab (D-26): editable with STOCK_MANAGE; "Recalculate from BOM" needs a calculate code', () => {
+    permissions = ['INVENTORY_VIEW'];
+    setup();
+    expect(component.canEditLeadTimes).toBeFalse();
+    expect(component.canCalculateLeadTimes).toBeTrue();
+    permissions = ['STOCK_MANAGE'];
+    expect(component.canEditLeadTimes).toBeTrue();
+    expect(component.canCalculateLeadTimes).toBeTrue();
+    permissions = ['LEAD_TIME_DEFAULTS_MANAGE'];
+    expect(component.canEditLeadTimes).toBeFalse();
+    expect(component.canCalculateLeadTimes).toBeFalse();
   });
 
   it('opens the edit dialog on the variant\'s route; a new variant starts with none', () => {

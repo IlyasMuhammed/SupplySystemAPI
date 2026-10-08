@@ -15,5 +15,11 @@ internal sealed class TenancyCurrencyReferenceChecker : ILookupReferenceChecker
     public TenancyCurrencyReferenceChecker(TenancyDbContext db) => _db = db;
 
     public bool IsValueReferenced(Guid lookupValueId) =>
-        lookupValueId != Guid.Empty && _db.Organizations.Any(o => o.BaseCurrency == lookupValueId);
+        lookupValueId != Guid.Empty
+        && (_db.Organizations.Any(o => o.BaseCurrency == lookupValueId)
+            // A35 D-7 — any domain base or rate currency in a stored settings row.
+            || _db.OrganizationCurrencySettings.Any(s => s.SaleBaseCurrencyId == lookupValueId
+                                                      || s.PurchaseBaseCurrencyId == lookupValueId
+                                                      || s.ServiceBaseCurrencyId == lookupValueId
+                                                      || s.RateCurrencyId == lookupValueId));
 }

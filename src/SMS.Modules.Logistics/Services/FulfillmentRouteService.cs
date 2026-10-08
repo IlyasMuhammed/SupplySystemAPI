@@ -50,10 +50,17 @@ internal sealed partial class FulfillmentRouteService : IFulfillmentRouteService
 
     // ── Reads ────────────────────────────────────────────────────────────────
 
-    public async Task<IReadOnlyList<FulfillmentRouteModel>> GetListAsync(bool includeInactive)
+    public async Task<IReadOnlyList<FulfillmentRouteModel>> GetListAsync(bool includeInactive, string? category = null)
     {
         var query = Own().AsNoTracking();
         if (!includeInactive) query = query.Where(r => r.IsActive);
+
+        // A34 PA-05 — ?category=; any known code may be asked for (the reserved ones simply find nothing today).
+        if (!string.IsNullOrWhiteSpace(category))
+        {
+            var wanted = KnownCategory(category);
+            query = query.Where(r => r.RouteCategory == wanted);
+        }
 
         var rows = await query.OrderBy(r => r.DisplayOrder).ThenBy(r => r.Code).ToListAsync();
         return rows.Select(ToModel).ToList();
@@ -73,6 +80,9 @@ internal sealed partial class FulfillmentRouteService : IFulfillmentRouteService
         var name        = NormalizeName(req.Name);
         var description = NormalizeDescription(req.Description);
         var steps       = ValidateSteps(req.Steps);
+        var category    = string.IsNullOrWhiteSpace(req.RouteCategory)
+            ? FulfillmentRouteCategory.Stock
+            : AvailableCategory(req.RouteCategory);
 
         // BR-C1-01 — a clear message here; the unique index (OrganizationId, Code) holds under a race.
         if (await Own().AnyAsync(r => r.Code == code))
@@ -92,6 +102,7 @@ internal sealed partial class FulfillmentRouteService : IFulfillmentRouteService
             IsSystem       = false,
             IsDefault      = false,
             DisplayOrder   = displayOrder,
+            RouteCategory  = category,
             CreatedBy      = userId,
             CreatedDate    = DateTime.UtcNow
         };
@@ -117,6 +128,25 @@ internal sealed partial class FulfillmentRouteService : IFulfillmentRouteService
 
         var name        = NormalizeName(req.Name);
         var description = NormalizeDescription(req.Description);
+
+        // A34 D-7 / D-8 — null or blank leaves the category alone; re-sending the current one is not a change.
+        var category = string.IsNullOrWhiteSpace(req.RouteCategory) ? row.RouteCategory : AvailableCategory(req.RouteCategory);
+        if (category != row.RouteCategory)
+        {
+            if (row.IsSystem)
+                throw new ConflictException(
+                    $"'{row.Code}' is a system route: its category can't be changed. Create a custom route instead.");
+
+            if (row.IsDefault)
+                throw new ConflictException(
+                    $"'{row.Code}' is the default route for {ClassName(row.RequiresShipping)} orders: its category can't be " +
+                    "changed. Make another route the default first, or clear the default.");
+
+            var usage = await UsageOfAsync(row.UUID);
+            if (usage.Count > 0)
+                throw new ConflictException(
+                    $"'{row.Code}' is still used by {Describe(usage)}: its category can't be changed. Reassign them first.");
+        }
 
         if (req.Steps is not null)
         {
@@ -146,10 +176,11 @@ internal sealed partial class FulfillmentRouteService : IFulfillmentRouteService
             }
         }
 
-        row.Name         = name;
-        row.Description  = description;
-        row.DisplayOrder = req.DisplayOrder;
-        row.ModifiedBy   = userId;
+        row.Name          = name;
+        row.Description   = description;
+        row.DisplayOrder  = req.DisplayOrder;
+        row.RouteCategory = category;
+        row.ModifiedBy    = userId;
         row.ModifiedDate = DateTime.UtcNow;
         await _db.SaveChangesAsync();
 
@@ -189,6 +220,12 @@ internal sealed partial class FulfillmentRouteService : IFulfillmentRouteService
             var row = await Own().FirstOrDefaultAsync(r => r.UUID == uuid);
             if (row is null) return null;
             if (row.IsDefault) return ToModel(row);
+
+            // A34 D-6 (C-11) — a make-to-order default would send every line without its own route to production.
+            if (FulfillmentRouteCategory.IsManufacture(row.RouteCategory))
+                throw new BadRequestException(
+                    $"'{row.Code}' is a make-to-order (MANUFACTURE) route and can't be a default: every line without its own " +
+                    "route would be sent to production. Assign it to the variants that are made to order instead.");
 
             if (!row.IsActive)
                 throw new BadRequestException($"'{row.Code}' is inactive. Activate it before making it a default.");
@@ -377,6 +414,26 @@ internal sealed partial class FulfillmentRouteService : IFulfillmentRouteService
         return normalized;
     }
 
+    /// <summary>A34 BR-C1-01 — one of <see cref="FulfillmentRouteCategory.All"/>, trimmed and upper-cased; else 400.</summary>
+    internal static string KnownCategory(string category)
+    {
+        var normalized = category.Trim().ToUpperInvariant();
+        if (!FulfillmentRouteCategory.IsKnown(normalized))
+            throw new BadRequestException(
+                $"Unknown route category '{normalized}'. Categories are {string.Join(", ", FulfillmentRouteCategory.All)}.");
+        return normalized;
+    }
+
+    /// <summary>A34 D-7 — a known category that can be used today (STOCK, MANUFACTURE); BUY / DROPSHIP are a 400.</summary>
+    internal static string AvailableCategory(string category)
+    {
+        var normalized = KnownCategory(category);
+        if (!FulfillmentRouteCategory.IsActive(normalized))
+            throw new BadRequestException(
+                $"Route category '{normalized}' is not yet available. Use {string.Join(" or ", FulfillmentRouteCategory.Active)}.");
+        return normalized;
+    }
+
     // ── Serializing default changes per organization ─────────────────────────
 
     internal static string LockResource(Guid org) => $"logistics.fulfillment_routes/{org:N}/default";
@@ -442,6 +499,7 @@ internal sealed partial class FulfillmentRouteService : IFulfillmentRouteService
             RequiresPacking  = r.RequiresPacking,
             RequiresShipping = r.RequiresShipping,
             DisplayOrder     = r.DisplayOrder,
+            RouteCategory    = r.RouteCategory,
             Steps = steps.Select(s => new FulfillmentRouteStepModel
             {
                 StepCode    = s.StepCode,
@@ -459,19 +517,28 @@ internal sealed partial class FulfillmentRouteService : IFulfillmentRouteService
 
     internal static FulfillmentRouteSummary ToSummary(FulfillmentRoute r) => new(
         r.UUID, r.Code, r.Name, r.IsActive, r.IsDefault, r.IsSystem, r.RequiresPacking, r.RequiresShipping,
-        r.OrderedStepCodes());
+        r.OrderedStepCodes())
+    {
+        Category = r.RouteCategory
+    };
 }
 
 /// <summary>
-/// A33 PA-03 — the three seed routes (D-6, L-1). Matched by code: a seed that already exists — renamed, edited,
+/// A33 PA-03 — the seed routes (D-6, L-1; A34 D-9 adds the two MANUFACTURE ones, never defaults). Matched by code: a seed that already exists — renamed, edited,
 /// deactivated, its default cleared — is never touched. A seed becomes a default only if its class has none yet.
 /// Ignores the tenant filter and stamps the organization it is given (R-13): a super admin provisions organizations
 /// they are not in, and the startup backfill runs with no user at all.
 /// </summary>
 internal sealed class FulfillmentRouteSeeder : IFulfillmentRouteSeeder
 {
-    internal sealed record SeedRoute(string Code, string Name, string Description, int DisplayOrder, bool Default, string[] Steps);
+    internal sealed record SeedRoute(
+        string Code, string Name, string Description, int DisplayOrder, bool Default, string[] Steps,
+        string Category = FulfillmentRouteCategory.Stock);
 
+    /// <summary>
+    /// A33's three stock routes, plus A34's two make-to-order routes (D-9: every organization gets them, whatever its
+    /// modules; they are never a default, D-6).
+    /// </summary>
     internal static readonly IReadOnlyList<SeedRoute> SeedRoutes =
     [
         new("PICK_ONLY", "Pick Only", "Customer collects from the warehouse; no packing or shipping.", 10, true,
@@ -480,6 +547,14 @@ internal sealed class FulfillmentRouteSeeder : IFulfillmentRouteSeeder
             [FulfillmentStepCode.Pick, FulfillmentStepCode.GoodsIssue, FulfillmentStepCode.Ship]),
         new("PICK_PACK_SHIP", "Pick, Pack & Ship", "Items packed into boxes or pallets before shipment.", 30, false,
             [FulfillmentStepCode.Pick, FulfillmentStepCode.Pack, FulfillmentStepCode.GoodsIssue, FulfillmentStepCode.Ship]),
+        new("MFG_PICK_SHIP", "Manufacture → Pick & Ship",
+            "Made to order: a production order is raised at confirmation, and the delivery follows when it completes.", 40, false,
+            [FulfillmentStepCode.Pick, FulfillmentStepCode.GoodsIssue, FulfillmentStepCode.Ship],
+            FulfillmentRouteCategory.Manufacture),
+        new("MFG_PICK_PACK_SHIP", "Manufacture → Pick, Pack & Ship",
+            "Made to order, then packed into boxes or pallets before shipment.", 50, false,
+            [FulfillmentStepCode.Pick, FulfillmentStepCode.Pack, FulfillmentStepCode.GoodsIssue, FulfillmentStepCode.Ship],
+            FulfillmentRouteCategory.Manufacture),
     ];
 
     private readonly LogisticsDbContext _db;
@@ -509,7 +584,8 @@ internal sealed class FulfillmentRouteSeeder : IFulfillmentRouteSeeder
                 if (codes.Contains((org, seed.Code))) continue;
 
                 var requiresShipping = seed.Steps.Contains(FulfillmentStepCode.Ship);
-                var isDefault        = seed.Default && defaultTaken.Add((org, requiresShipping));
+                var isDefault        = seed.Default && !FulfillmentRouteCategory.IsManufacture(seed.Category)
+                                       && defaultTaken.Add((org, requiresShipping));
 
                 var route = new FulfillmentRoute
                 {
@@ -524,6 +600,7 @@ internal sealed class FulfillmentRouteSeeder : IFulfillmentRouteSeeder
                     RequiresPacking  = seed.Steps.Contains(FulfillmentStepCode.Pack),
                     RequiresShipping = requiresShipping,
                     DisplayOrder     = seed.DisplayOrder,
+                    RouteCategory    = seed.Category,
                     CreatedDate      = DateTime.UtcNow
                 };
                 for (var i = 0; i < seed.Steps.Length; i++)

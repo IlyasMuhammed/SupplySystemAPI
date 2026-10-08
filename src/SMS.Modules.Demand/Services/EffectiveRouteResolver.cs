@@ -57,16 +57,22 @@ internal sealed class EffectiveRouteResolver : IEffectiveRouteResolver
 {
     internal const string LogisticsFeature = "MODULE_LOGISTICS";
 
+    internal const string ManufacturingFeature = "MODULE_MANUFACTURING";
+
     private readonly IFulfillmentRouteLookup? _lookup;
     private readonly IVariantFulfillmentRoutes? _variants;
     private readonly ITenantSnapshotProvider? _tenants;
+    private readonly IManufacturingReadiness? _readiness;
 
     public EffectiveRouteResolver(
-        IFulfillmentRouteLookup? lookup = null, IVariantFulfillmentRoutes? variants = null, ITenantSnapshotProvider? tenants = null)
+        IFulfillmentRouteLookup? lookup = null, IVariantFulfillmentRoutes? variants = null, ITenantSnapshotProvider? tenants = null,
+        IManufacturingReadiness? readiness = null)
     {
-        _lookup   = lookup;
-        _variants = variants;
-        _tenants  = tenants;
+        _lookup    = lookup;
+        _variants  = variants;
+        _tenants   = tenants;
+        // A34 D-5 — Material's batched readiness check for make-to-order lines. Without it nothing can be made to order.
+        _readiness = readiness;
     }
 
     public async Task<bool> RoutesEnabledAsync(Guid organizationId, CancellationToken ct = default)
@@ -140,20 +146,68 @@ internal sealed class EffectiveRouteResolver : IEffectiveRouteResolver
             resolved.Add(new ResolvedLineRoute(line, route, uuid, source, blocker, Exempt: false));
         }
 
-        return new RouteResolution(true, resolved, Blockers(resolved, order));
+        var items = await ManufacturingGateAsync(organizationId, resolved, ct);
+        return new RouteResolution(true, resolved, Blockers(resolved, order, items));
+    }
+
+    /// <summary>
+    /// A34 D-5 — the make-to-order lines (routable, effective route MANUFACTURE) that cannot be made get one blocker each,
+    /// first match: MANUFACTURING_DISABLED, NOT_MANUFACTURED, BOM_MISSING, PRODUCTION_WAREHOUSE_MISSING. One batched
+    /// readiness call, only when some line is make to order. Returns each line's item name for the messages.
+    /// </summary>
+    private async Task<IReadOnlyDictionary<int, string>> ManufacturingGateAsync(
+        Guid organizationId, List<ResolvedLineRoute> resolved, CancellationToken ct)
+    {
+        var names = new Dictionary<int, string>();
+        var makeToOrder = resolved.Select((r, i) => (r, i)).Where(x => x.r.IsRoutable && x.r.Route!.IsManufacture).ToList();
+        if (makeToOrder.Count == 0) return names;
+
+        IReadOnlyDictionary<Guid, ManufacturingReadinessInfo>? ready = null;
+        if (_readiness is not null && await ManufacturingEnabledAsync(organizationId))
+            ready = await _readiness.CheckAsync(organizationId, makeToOrder.Select(x => x.r.Line.VariantUuid).Distinct().ToList(), ct);
+
+        foreach (var (r, i) in makeToOrder)
+        {
+            string? blocker;
+            if (ready is null)
+                blocker = ConfirmBlockerCodes.ManufacturingDisabled;
+            else if (!ready.TryGetValue(r.Line.VariantUuid, out var info) || !info.IsManufactured)
+                blocker = ConfirmBlockerCodes.NotManufactured;
+            else if (!info.HasActiveBom)
+                blocker = ConfirmBlockerCodes.BomMissing;
+            else if (!info.HasProductionWarehouse)
+                blocker = ConfirmBlockerCodes.ProductionWarehouseMissing;
+            else
+                blocker = null;
+
+            if (blocker is null) continue;
+            names[r.Line.LineNumber] = ready?.GetValueOrDefault(r.Line.VariantUuid)?.DisplayName ?? "This item";
+            resolved[i] = r with { Blocker = blocker };
+        }
+        return names;
+    }
+
+    /// <summary>D-9 — make-to-order needs MODULE_MANUFACTURING; with no snapshot provider (unit hosts) it is taken as on.</summary>
+    private async Task<bool> ManufacturingEnabledAsync(Guid organizationId)
+    {
+        if (_tenants is null) return true;
+        var tenant = await _tenants.GetSnapshotAsync(organizationId);
+        return tenant is not null && tenant.EnabledFeatureCodes.Contains(ManufacturingFeature);
     }
 
     /// <summary>
     /// The 400's content, in its order (API-CONTRACT.md §5): each line's own route problem, in line order; then every
     /// line with no route at all, together; then the order-level D-4 shipping address check.
     /// </summary>
-    private static List<ConfirmBlockerModel> Blockers(IReadOnlyList<ResolvedLineRoute> lines, RouteOrderContext order)
+    private static List<ConfirmBlockerModel> Blockers(
+        IReadOnlyList<ResolvedLineRoute> lines, RouteOrderContext order, IReadOnlyDictionary<int, string> items)
     {
         var blockers = new List<ConfirmBlockerModel>();
         foreach (var r in lines.Where(r => r.Blocker is not null && r.Blocker != ConfirmBlockerCodes.RouteMissing)
                                .OrderBy(r => r.Line.LineNumber))
         {
             var n = r.Line.LineNumber;
+            var item = items.GetValueOrDefault(n, "This item");
             var message = r.Blocker switch
             {
                 ConfirmBlockerCodes.RouteInactive =>
@@ -161,6 +215,19 @@ internal sealed class EffectiveRouteResolver : IEffectiveRouteResolver
                 ConfirmBlockerCodes.SelfPickupDisabled =>
                     $"Line {n}: fulfillment route '{r.Route!.Code}' has no Ship step, so the customer would collect, " +
                     "and customer pickup is switched off for this organization. Choose a route that ships.",
+                // A34 D-5 (API-CONTRACT §6.2).
+                ConfirmBlockerCodes.ManufacturingDisabled =>
+                    $"Line {n}: '{r.Route!.Code}' is a make-to-order route, but manufacturing is not enabled for your organization. " +
+                    "Choose a stock route for this line.",
+                ConfirmBlockerCodes.NotManufactured =>
+                    $"Line {n}: {item} is not a manufactured product, so it can't use the make-to-order route '{r.Route!.Code}'. " +
+                    "Choose a stock route, or set the product's supply method to MANUFACTURE.",
+                ConfirmBlockerCodes.BomMissing =>
+                    $"Line {n}: {item} has no active bill of materials, so it can't be made to order. " +
+                    "Activate a BOM, or choose a stock route for this line.",
+                ConfirmBlockerCodes.ProductionWarehouseMissing =>
+                    $"Line {n}: {item} has no default production warehouse, so it can't be made to order. " +
+                    "Set one on the product, or choose a stock route for this line.",
                 _ =>
                     $"Line {n}: its fulfillment route no longer exists in this organization. Choose another route."
             };
@@ -185,12 +252,15 @@ internal sealed class EffectiveRouteResolver : IEffectiveRouteResolver
 
         // D-4: a route with Ship needs somewhere to ship to, whatever the header mode says.
         if (order.ShippingAddressId is null && lines.Any(r => r.IsRoutable && r.Route!.RequiresShipping))
-            blockers.Add(new ConfirmBlockerModel
-            {
-                Code    = ConfirmBlockerCodes.ShippingAddressRequired,
-                Message = "Cannot confirm: some lines are shipped (their fulfillment route has a Ship step), " +
-                          "so the order needs a shipping address."
-            });
+        {
+            var message = "Cannot confirm: some lines are shipped (their fulfillment route has a Ship step), " +
+                          "so the order needs a shipping address.";
+            // A34 R-17 / C-16 — both seeded manufacture routes ship; a collected order needs one of its own.
+            if (order.DeliveryMode == EnumCode<DeliveryMode>.Of(DeliveryMode.SelfPickup)
+                && lines.Any(r => r.IsRoutable && r.Route!.IsManufacture && r.Route.RequiresShipping))
+                message += " For collection, create a MANUFACTURE route without the SHIP step.";
+            blockers.Add(new ConfirmBlockerModel { Code = ConfirmBlockerCodes.ShippingAddressRequired, Message = message });
+        }
 
         return blockers;
     }

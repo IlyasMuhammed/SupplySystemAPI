@@ -44,11 +44,20 @@
 
       <div class="card">
         <h3>Amounts <span class="cur">{{ p.currencyCode }}</span></h3>
+        <!-- A35-E-06 — currency, the rate locked at posting, the sale base. -->
+        <app-doc-currency-panel [doc]="currencyInfo" lockPoint="posting" domain="SALE" [showToggle]="false"></app-doc-currency-panel>
         <dl>
           <dt>Received</dt><dd class="font-semibold" data-testid="amount">{{ p.amount | number:'1.2-2' }}</dd>
           <dt>Applied to invoices</dt><dd data-testid="allocated">{{ p.allocatedAmount | number:'1.2-2' }}</dd>
           <dt>Held on account</dt>
           <dd class="font-semibold" [class.on-account]="p.unallocatedAmount > 0" data-testid="unallocated">{{ p.unallocatedAmount | number:'1.2-2' }}</dd>
+          <ng-container *ngIf="showAmountBase">
+            <dt>In {{ p.baseCurrencyCode }}</dt><dd data-testid="amount-base">{{ p.amountBase | money:baseCurrencyRef:moneyCode }}</dd>
+          </ng-container>
+          <ng-container *ngIf="p.exchangeDifference !== null && p.exchangeDifference !== undefined">
+            <dt>Realized exchange difference</dt>
+            <dd data-testid="payment-fx"><app-fx-difference [amount]="p.exchangeDifference" [currency]="baseCurrencyRef"></app-fx-difference></dd>
+          </ng-container>
         </dl>
         <p class="muted" *ngIf="isHistoryOnly" data-testid="history-note">
           This payment is {{ formatStatus(p.status) }}, so none of it is applied to an invoice or held on account any more.
@@ -66,6 +75,7 @@
               <th>Invoice #</th>
               <th>Applied on</th>
               <th class="text-right">Amount applied</th>
+              <th *ngIf="hasAllocationFx" class="text-right" pTooltip="Realized gain (+) or loss (−) in the base: this payment's rate against the invoice's">Exchange diff.</th>
               <th class="text-right">Invoice balance now</th>
               <th>Invoice status</th>
             </tr>
@@ -79,6 +89,7 @@
               </td>
               <td>{{ a.allocatedAt | date:'dd MMM yyyy, HH:mm' }}</td>
               <td class="text-right">{{ a.allocatedAmount | number:'1.2-2' }} <span class="cur">{{ p.currencyCode }}</span></td>
+              <td *ngIf="hasAllocationFx" class="text-right" data-testid="allocation-fx"><app-fx-difference [amount]="a.exchangeDifference" [currency]="baseCurrencyRef"></app-fx-difference></td>
               <td class="text-right">{{ a.invoiceBalanceDue | number:'1.2-2' }}</td>
               <td><p-tag [value]="formatStatus(a.invoiceStatus)" [severity]="getInvoiceSeverity(a.invoiceStatus)"></p-tag></td>
             </tr>

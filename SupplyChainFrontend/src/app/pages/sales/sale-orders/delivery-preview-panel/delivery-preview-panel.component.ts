@@ -2,7 +2,7 @@ import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 import { SaleOrderDeliveryPreviewModel } from '../../../../services/sale-order.service';
-import { DeliveryPreviewView, PreviewLineRef, buildDeliveryPreviewView } from '../fulfillment-route-display';
+import { DeliveryPreviewView, PreviewLineRef, buildDeliveryPreviewView, previewHeadline } from '../fulfillment-route-display';
 
 /**
  * A33 PC-08 — "On confirmation, N delivery orders will be created": the lines grouped by route (and warehouse, once
@@ -48,6 +48,22 @@ import { DeliveryPreviewView, PreviewLineRef, buildDeliveryPreviewView } from '.
             </li>
           </ul>
 
+          <!-- A34 PD-08: make-to-order lines get a production order, not a delivery, at confirmation. -->
+          <div *ngIf="v.production.length" class="preview-production" data-testid="delivery-preview-production">
+            <div class="group-head">
+              <i class="pi pi-cog"></i>
+              <strong>Production orders ({{ v.production.length }} line{{ v.production.length === 1 ? '' : 's' }})</strong>
+            </div>
+            <p class="production-note" data-testid="delivery-preview-production-note">
+              Production will be triggered. Delivery is created after production completes.
+            </p>
+            <div class="group-lines">
+              <span *ngFor="let p of v.production; let last = last" data-testid="delivery-preview-production-line">
+                Line {{ p.number }}: {{ p.description }} × {{ p.quantity | number:'1.0-4' }} — {{ p.routeName }}{{ last ? '' : ' · ' }}
+              </span>
+            </div>
+          </div>
+
           <ul *ngIf="v.unroutable.length" class="preview-unroutable" data-testid="delivery-preview-unroutable">
             <li *ngFor="let u of v.unroutable">
               <i class="pi pi-exclamation-triangle"></i> Line {{ u.number }}: {{ u.description }} — {{ u.message }}
@@ -85,6 +101,12 @@ import { DeliveryPreviewView, PreviewLineRef, buildDeliveryPreviewView } from '.
     .preview-unroutable { margin-top: .625rem; color: var(--orange-700, #c2410c); font-size: .875rem; }
     .preview-warn { color: var(--orange-700, #c2410c); font-size: .875rem; }
     .muted { color: var(--text-color-secondary); font-size: .8125rem; }
+    .preview-production {
+      margin-top: .625rem; padding: .5rem .75rem; border-left: 3px solid var(--orange-500, #f97316);
+      background: var(--orange-50, #fff7ed); border-radius: .375rem; color: var(--orange-800, #9a3412);
+    }
+    .preview-production .group-head { color: var(--orange-800, #9a3412); }
+    .production-note { margin: .25rem 0; font-size: .8125rem; }
   `]
 })
 export class DeliveryPreviewPanelComponent {
@@ -101,8 +123,6 @@ export class DeliveryPreviewPanelComponent {
   }
 
   headline(v: DeliveryPreviewView): string {
-    const n = v.deliveryCount;
-    if (n === 0) return 'No delivery order can be created yet.';
-    return `On confirmation, ${n} delivery order${n === 1 ? '' : 's'} will be created${v.canConfirm ? '' : ' once the problems below are fixed'}:`;
+    return previewHeadline(v);
   }
 }

@@ -2,6 +2,7 @@ using Hangfire;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -9,6 +10,7 @@ using SMS.Modules.Inventory.Data;
 using SMS.Modules.Inventory.Integration;
 using SMS.Modules.Inventory.Repositories;
 using SMS.Modules.Inventory.Services;
+using SMS.Modules.Inventory.Services.LeadTimes;
 using SMS.Shared.Common;
 using SMS.Shared.Integration.QuickBooks;
 
@@ -88,6 +90,29 @@ public static class InventoryModuleExtensions
         services.AddScoped<VariantFulfillmentRoutes>();
         services.AddScoped<IVariantFulfillmentRoutes>(sp => sp.GetRequiredService<VariantFulfillmentRoutes>());
         services.AddScoped<IFulfillmentRouteUsage>(sp => sp.GetRequiredService<VariantFulfillmentRoutes>());
+        // A34 C3 — lead-time defaults (one row per org, D-10) and a variant's 8 components (D-26). The loader reads
+        // Suppliers' ISupplierLeadTimeLookup / ISupplierNameLookupService when the host registers them (both optional).
+        services.AddScoped(sp => new LeadTimeInputsLoader(
+            sp.GetRequiredService<InventoryDbContext>(),
+            sp.GetService<ISupplierLeadTimeLookup>(),
+            sp.GetService<ISupplierNameLookupService>()));
+        services.AddScoped<ILeadTimeDefaultsService, LeadTimeDefaultsService>();
+        services.AddScoped<IVariantLeadTimeService>(sp => new VariantLeadTimeService(
+            sp.GetRequiredService<InventoryDbContext>(),
+            sp.GetRequiredService<LeadTimeInputsLoader>(),
+            sp.GetService<IFulfillmentRouteLookup>()));
+        // A34 C4 — the calculator (Shared ILeadTimeCalculator, for Demand's line endpoints and D-19 dates) and its
+        // per-level tree. The BOM structure comes from Material's IBomStructureReader when the host registers it. The
+        // D-27 cache is the process-wide IMemoryCache (AddMemoryCache is idempotent); the org is in every key.
+        services.AddMemoryCache();
+        services.AddScoped(sp => new LeadTimeCalculator(
+            sp.GetRequiredService<InventoryDbContext>(),
+            sp.GetRequiredService<LeadTimeInputsLoader>(),
+            sp.GetRequiredService<IMemoryCache>(),
+            sp.GetService<IFulfillmentRouteLookup>(),
+            sp.GetService<IBomStructureReader>()));
+        services.AddScoped<ILeadTimeCalculator>(sp => sp.GetRequiredService<LeadTimeCalculator>());
+        services.AddScoped<IManufacturingLeadTimeCalculator>(sp => sp.GetRequiredService<LeadTimeCalculator>());
         services.AddScoped<InventoryDataSeeder>();
         services.AddScoped<StaleRateAlertJob>();
         services.AddScoped<RateExpiryNotificationJob>();

@@ -6,6 +6,7 @@ import {
   ApiResponse, PaginatedResponse, AddressRequest, DeliveryListItemModel, SourceLineSelection
 } from './logistics.service';
 import { FulfillmentRouteSource } from './fulfillment-routes.service';
+import type { LeadTimeResultModel } from './lead-time.service';
 
 // A29 — sale orders (/api/sale-orders, Demand) and the fulfilment endpoints Logistics mounts
 // under the same prefix (P6-05: create-delivery, deliveries).
@@ -31,7 +32,10 @@ export interface SaleOrderLineModel {
   /** Credited at goods issue — what has actually left for the customer. */
   fulfilledQty: number;
   invoicedQty: number;
-  /** IN_STOCK | SPLIT | BACK_TO_BACK | DROP_SHIP — decided at confirmation. */
+  /**
+   * IN_STOCK | SPLIT | BACK_TO_BACK | DROP_SHIP | MAKE_TO_ORDER — decided at confirmation. A34 D-1: MAKE_TO_ORDER
+   * (labelled "Make to order", R-15) reserves nothing, deficitQty = quantity, and one production order makes it all.
+   */
   fulfillmentMode?: string;
   availableQtyAtConfirm?: number;
   deficitQty?: number;
@@ -63,11 +67,94 @@ export interface SaleOrderLineModel {
   routeSource?: FulfillmentRouteSource;
   /** Why this line blocks confirmation; null when it doesn't. */
   routeBlocker?: ConfirmBlockerCode | null;
+  // A34 (docs/route-classification/API-CONTRACT.md §5.1, §6.1). Optional so older fixtures compile.
+  /** STOCK | MANUFACTURE — live while DRAFT, the confirm-time snapshot afterwards; null for DROP_SHIP lines and lines with no route. */
+  effectiveRouteCategory?: RouteCategory | null;
+  /** D-21: production accepted less than the line (= the quantity on zero yield). */
+  productionShortfallQty?: number | null;
+  calculatedLeadTimeDays?: number | null;
+  /** Date-only. */
+  calculatedDeliveryDate?: string | null;
+  /** UTC. */
+  leadTimeCalculatedAt?: string | null;
+  /** Date-only; the user's own date (D-15). */
+  manualDeliveryDate?: string | null;
+  /** Date-only: manual ?? calculated. */
+  effectiveDeliveryDate?: string | null;
+  deliveryDateSource?: DeliveryDateSource;
+  // A35 (docs/multi-currency/API-CONTRACT.md §6) — in the sale base; null until the rate is locked at confirmation.
+  unitPriceBase?: number | null;
+  lineTotalBase?: number | null;
 }
 
-/** A33 — why a DRAFT order can't be confirmed yet (API-CONTRACT.md §5). */
+/** A34 — a route's category (API-CONTRACT.md §1). BUY / DROPSHIP are reserved and never reach a sale order. */
+export type RouteCategory = 'STOCK' | 'MANUFACTURE';
+
+/** A34 D-15 — where a line's effective delivery date comes from. */
+export type DeliveryDateSource = 'MANUAL' | 'CALCULATED' | 'NONE';
+
+/** A33 — why a DRAFT order can't be confirmed yet (API-CONTRACT.md §5). A34 D-5 adds the four make-to-order codes. */
 export type ConfirmBlockerCode =
-  'ROUTE_MISSING' | 'ROUTE_INACTIVE' | 'ROUTE_UNKNOWN' | 'SHIPPING_ADDRESS_REQUIRED' | 'SELF_PICKUP_DISABLED';
+  'ROUTE_MISSING' | 'ROUTE_INACTIVE' | 'ROUTE_UNKNOWN' | 'SHIPPING_ADDRESS_REQUIRED' | 'SELF_PICKUP_DISABLED' |
+  'MANUFACTURING_DISABLED' | 'NOT_MANUFACTURED' | 'BOM_MISSING' | 'PRODUCTION_WAREHOUSE_MISSING';
+
+/** A34 D-25 — one production order raised from the sale order (make-to-order or A30 make-to-shortage). */
+export interface SaleOrderProductionOrderModel {
+  productionOrderUuid: string;
+  productionNumber: string;
+  soLineUuid?: string | null;
+  /** 1-based, as A33's "Line N". */
+  lineNumber?: number | null;
+  /** DRAFT … COMPLETED, CANCELLED */
+  status: string;
+  plannedQuantity: number;
+  acceptedQuantity: number;
+  /** Has a route of its own: made to order for the line, and its delivery follows its completion. */
+  isMakeToOrder: boolean;
+  fulfillmentRouteUuid?: string | null;
+  fulfillmentRouteCode?: string | null;
+  fulfillmentRouteName?: string | null;
+  /** The latest delivery made from it; null = "Delivery: pending". */
+  deliveryOrderUuid?: string | null;
+  deliveryNumber?: string | null;
+  /** Only meaningful in a confirm / create result: this call made it. */
+  created?: boolean;
+}
+
+/** A34 §6.3 — a make-to-order line in the delivery preview: confirming raises a production order for it, no delivery. */
+export interface DeliveryPreviewProductionLineModel {
+  lineUuid?: string | null;
+  lineNumber: number;
+  variantUuid: string;
+  itemDescription?: string | null;
+  quantity: number;
+  routeUuid: string;
+  routeCode: string;
+  routeName: string;
+  steps: string[];
+  message: string;
+}
+
+/** A34 §6.5 — POST …/create-production-orders. Idempotent. */
+export interface SaleOrderProductionCreationResultModel {
+  productionOrders: SaleOrderProductionOrderModel[];
+  productionCreationFailed: boolean;
+  productionMessage?: string | null;
+}
+
+/** A34 §5.2 — what the calculator gave for one line, and the line as it was stored. */
+export interface SaleOrderLineLeadTimeModel {
+  line: SaleOrderLineModel;
+  leadTime: LeadTimeResultModel;
+}
+
+/** A34 §5.2 — PUT …/lines/{lineUuid}/delivery-date. */
+export interface SaleOrderLineDeliveryDateResultModel {
+  line: SaleOrderLineModel;
+  /** The line already has a production order planned for the earlier date; it is not rescheduled. */
+  productionNotRescheduled: boolean;
+  warning?: string | null;
+}
 
 export interface ConfirmBlockerModel {
   lineUuid?: string | null;
@@ -130,6 +217,24 @@ export interface SaleOrderModel {
   routesEnabled?: boolean;
   /** Empty unless DRAFT. Non-empty → "Confirm order" is disabled with these messages as its tooltip (not hidden). */
   confirmBlockers?: ConfirmBlockerModel[];
+  /** A34 D-25 — every SALES_ORDER-sourced production order of the order, oldest first (readable with SALE_ORDER_VIEW). */
+  productionOrders?: SaleOrderProductionOrderModel[];
+  /** A34 D-17 — confirmed, but its make-to-order production orders were not (all) created yet. */
+  productionCreationPending?: boolean;
+  // A35 (API-CONTRACT.md §6, D-10..D-12) — the rate is locked at CONFIRMED (re-locked, not inherited from the quotation).
+  // Base fields are null until then. Optional so older fixtures compile.
+  currencyCode?: string | null;
+  /** Units of the sale base per 1 unit of the order currency. */
+  exchangeRate?: number | null;
+  baseCurrencyId?: string | null;
+  baseCurrencyCode?: string | null;
+  /** ISO UTC timestamp. */
+  rateLockedAt?: string | null;
+  /** v1.2: grandTotalBase = Σ lineTotalBase; subtotalBase = grandTotalBase − taxAmountBase + discountAmountBase. Shown as sent. */
+  subtotalBase?: number | null;
+  taxAmountBase?: number | null;
+  discountAmountBase?: number | null;
+  grandTotalBase?: number | null;
 }
 
 export interface SaleOrderFilter {
@@ -159,6 +264,11 @@ export interface SaleOrderLineRequest {
   taxCodeUuid?: string;
   /** A33 — the line's route override; null/omitted = inherit (variant, then organization default). Send it back on every update. */
   fulfillmentRouteUuid?: string | null;
+  // A34 D-15 / C-14 — a draft's lines are rebuilt on every save, so these go back each time too. Dates are yyyy-MM-dd.
+  manualDeliveryDate?: string | null;
+  calculatedLeadTimeDays?: number | null;
+  calculatedDeliveryDate?: string | null;
+  leadTimeCalculatedAt?: string | null;
 }
 
 // ── A33 C3/C4 — delivery preview, confirm and cancel results (API-CONTRACT.md §5–§6) ──
@@ -186,6 +296,8 @@ export interface DeliveryPreviewLineModel {
   effectiveRouteSteps: string[];
   routeSource: FulfillmentRouteSource;
   routeBlocker?: ConfirmBlockerCode | null;
+  /** A34 — STOCK | MANUFACTURE; a MANUFACTURE line is in productionLines, not in a group. */
+  effectiveRouteCategory?: RouteCategory | null;
 }
 
 /** One delivery that confirming would create. */
@@ -211,6 +323,8 @@ export interface SaleOrderDeliveryPreviewModel {
   lines: DeliveryPreviewLineModel[];
   groups: DeliveryPreviewGroupModel[];
   blockers: ConfirmBlockerModel[];
+  /** A34 §6.3 — make-to-order lines: a production order each; their delivery follows production. Optional for older servers. */
+  productionLines?: DeliveryPreviewProductionLineModel[];
 }
 
 /** A delivery created for the order (by confirm or by the recovery button). */
@@ -238,6 +352,12 @@ export interface SaleOrderConfirmResultModel {
   /** The order is confirmed but its deliveries were not all created: show deliveryMessage and the "Create deliveries" button. */
   deliveryCreationFailed: boolean;
   deliveryMessage?: string | null;
+  // A34 §6.4 — optional for older servers.
+  /** Created by this confirm (created = true) or already there. */
+  productionOrders?: SaleOrderProductionOrderModel[];
+  /** True → show productionMessage and "Create production orders". */
+  productionCreationFailed?: boolean;
+  productionMessage?: string | null;
 }
 
 /** POST /api/sale-orders/{id}/create-deliveries — the recovery button (D-12). Idempotent. */
@@ -257,6 +377,12 @@ export interface SaleOrderCancelResultModel {
   cancelledDeliveries: SaleOrderDeliveryRefModel[];
   /** Already goods-issued: left as they are and need a manual reversal. */
   issuedDeliveries: SaleOrderDeliveryRefModel[];
+  // A34 D-22 — optional for older servers.
+  /** Were DRAFT / PLANNED / MATERIAL_PENDING / READY with nothing issued: cancelled with the order. */
+  cancelledProductionOrders?: SaleOrderProductionOrderModel[];
+  /** IN_PROGRESS or later, or material issued: kept running, need attention. */
+  runningProductionOrders?: SaleOrderProductionOrderModel[];
+  cancelledAllocationDemands?: number;
 }
 
 /** POST /api/sale-orders. The order is created as a DRAFT. */
@@ -469,6 +595,28 @@ export class SaleOrderService {
   setLineFulfillmentRoute(uuid: string, lineUuid: string, fulfillmentRouteUuid: string | null): Observable<ApiResponse<SaleOrderLineModel>> {
     return this.http.put<ApiResponse<SaleOrderLineModel>>(
       `${this.baseUrl}/${uuid}/lines/${lineUuid}/fulfillment-route`, { fulfillmentRouteUuid });
+  }
+
+  /**
+   * A34 §5.2 — calculates one DRAFT line's lead time with its variant, quantity and effective route, and stores the
+   * Calculated* fields (the manual date is untouched). SALE_ORDER_EDIT.
+   */
+  calculateLineLeadTime(uuid: string, lineUuid: string): Observable<ApiResponse<SaleOrderLineLeadTimeModel>> {
+    return this.http.post<ApiResponse<SaleOrderLineLeadTimeModel>>(`${this.baseUrl}/${uuid}/lines/${lineUuid}/lead-time`, {});
+  }
+
+  /**
+   * A34 §5.2 — sets (yyyy-MM-dd) or clears (null) one line's manual delivery date on a DRAFT, CONFIRMED or
+   * PARTIALLY_FULFILLED order, without re-pricing. SALE_ORDER_EDIT. A line's production order is not rescheduled.
+   */
+  setLineDeliveryDate(uuid: string, lineUuid: string, manualDeliveryDate: string | null): Observable<ApiResponse<SaleOrderLineDeliveryDateResultModel>> {
+    return this.http.put<ApiResponse<SaleOrderLineDeliveryDateResultModel>>(
+      `${this.baseUrl}/${uuid}/lines/${lineUuid}/delivery-date`, { manualDeliveryDate });
+  }
+
+  /** A34 §6.5 — creates the make-to-order production orders a confirmed order is missing. SALE_ORDER_CONFIRM or PROD_CREATE. Idempotent. */
+  createProductionOrders(uuid: string): Observable<ApiResponse<SaleOrderProductionCreationResultModel>> {
+    return this.http.post<ApiResponse<SaleOrderProductionCreationResultModel>>(`${this.baseUrl}/${uuid}/create-production-orders`, {});
   }
 
   /** A33 — how a saved order's lines would be split into deliveries on confirm. SALE_ORDER_VIEW. Persists nothing. */

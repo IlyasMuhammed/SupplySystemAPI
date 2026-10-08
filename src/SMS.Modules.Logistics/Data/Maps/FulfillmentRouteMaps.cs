@@ -9,12 +9,17 @@ internal sealed class FulfillmentRouteMap : IEntityTypeConfiguration<Fulfillment
 {
     public void Configure(EntityTypeBuilder<FulfillmentRoute> b)
     {
-        b.ToTable("fulfillment_routes");
+        // A34 C1 — the CHECK accepts the reserved BUY / DROPSHIP too (D-7: the service refuses them, the schema is ready).
+        b.ToTable("fulfillment_routes", t => t.HasCheckConstraint(
+            "CK_fulfillment_routes_RouteCategory",
+            "[RouteCategory] IN ('STOCK','MANUFACTURE','BUY','DROPSHIP')"));
         b.HasKey(x => x.Id);
         b.Property(x => x.Id).ValueGeneratedOnAdd();
 
         b.Property(x => x.UUID).IsRequired();
         b.HasIndex(x => x.UUID).IsUnique();
+
+        b.Property(x => x.RouteCategory).HasMaxLength(20).IsRequired().HasDefaultValue(SMS.Shared.Common.FulfillmentRouteCategory.Stock);
 
         b.Property(x => x.Code).HasMaxLength(30).IsRequired();
         b.Property(x => x.Name).HasMaxLength(100).IsRequired();

@@ -17,6 +17,7 @@ import {
   SupplierBalanceSummary
 } from '../../../services/finance.service';
 import { QboSyncBadgeComponent } from '../../../shared/components/qbo-sync-badge/qbo-sync-badge.component';
+import { PartnerCurrencyTabComponent } from '../partner-currency-tab/partner-currency-tab.component';
 
 // Addendum 29 §1.6 — "Partner detail page with ledger tab." The ledger tab reuses
 // FinanceService.getSupplierLedger/getSupplierBalance verbatim: a BusinessPartner's UUID is the
@@ -28,7 +29,7 @@ import { QboSyncBadgeComponent } from '../../../shared/components/qbo-sync-badge
   imports: [
     CommonModule, FormsModule, RouterModule,
     ButtonModule, CardModule, TagModule, TabViewModule, TableModule, CalendarModule, ToastModule,
-    QboSyncBadgeComponent
+    QboSyncBadgeComponent, PartnerCurrencyTabComponent
   ],
   templateUrl: './partner-detail.component.html',
   styleUrls: ['./partner-detail.component.scss'],

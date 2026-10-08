@@ -40,15 +40,30 @@ internal sealed class SupplierPaymentRepository : ISupplierPaymentRepository
     private readonly ISupplierLedgerService _ledger;
     private readonly INotificationService   _notif;
     private readonly IAttachmentService?    _attachments;
+    private readonly ICurrencyService?          _currency;
+    private readonly ExchangeDifferenceWriter?  _differences;
+    private readonly IPartnerCurrencyDefaults?  _partnerDefaults;
+    private readonly SMS.Modules.Lookups.Services.ILookupsService? _lookups;
 
+    /// <param name="currency">
+    /// A35 (D-12, D-15) — when registered (always, in the host) posting locks the payment's rate (purchase base, payment
+    /// date; 400 when foreign and no rate) and books one realized exchange difference per line; a bounce books them back.
+    /// Without it (a hand-built harness) payments post as before A35.
+    /// </param>
     public SupplierPaymentRepository(
         FinanceDbContext fin, ISupplierLedgerService ledger, INotificationService notif,
-        IAttachmentService? attachments = null)
+        IAttachmentService? attachments = null,
+        ICurrencyService? currency = null, ExchangeDifferenceWriter? differences = null,
+        IPartnerCurrencyDefaults? partnerDefaults = null, SMS.Modules.Lookups.Services.ILookupsService? lookups = null)
     {
-        _fin         = fin;
-        _ledger      = ledger;
-        _notif       = notif;
-        _attachments = attachments;
+        _fin             = fin;
+        _ledger          = ledger;
+        _notif           = notif;
+        _attachments     = attachments;
+        _currency        = currency;
+        _differences     = differences ?? (currency is null ? null : new ExchangeDifferenceWriter(fin));
+        _partnerDefaults = partnerDefaults;
+        _lookups         = lookups;
     }
 
     /// <summary>This organization's own payments — the only ones a change may touch.</summary>
@@ -116,6 +131,10 @@ internal sealed class SupplierPaymentRepository : ISupplierPaymentRepository
                 CreatedDate   = now
             };
 
+            // A35 D-14 — one currency per payment: the one asked for, else its first invoice's, else the supplier's default
+            // purchase currency, else the purchase base. Every line's invoice must be in it (checked below).
+            (payment.CurrencyCode, payment.CurrencyId) = await ResolvePaymentCurrencyAsync(req);
+
             // Tracks amounts already reserved against each invoice by earlier lines in THIS same
             // request, so two lines targeting the same invoice can't jointly over-allocate it.
             var reservedInThisRequest = new Dictionary<Guid, decimal>();
@@ -133,6 +152,9 @@ internal sealed class SupplierPaymentRepository : ISupplierPaymentRepository
                 // Only an approved invoice is owed; a reversed or rejected one never again (S-7).
                 if (NotPayable(invoice) is { } why)
                     throw new BadRequestException(why);
+
+                if (CurrencyMismatch(payment, invoice) is { } mismatch)
+                    throw new BadRequestException(mismatch);
 
                 var outstanding    = Math.Max(0m, await InvoiceSettlement.AvailableAsync(_fin, invoice));
                 var reservedSoFar  = reservedInThisRequest.GetValueOrDefault(invoice.UUID);
@@ -195,6 +217,8 @@ internal sealed class SupplierPaymentRepository : ISupplierPaymentRepository
                 PaymentDate   = x.PaymentDate,
                 PaymentMethod = x.PaymentMethod,
                 TotalAmount   = x.TotalAmount,
+                CurrencyCode  = x.CurrencyCode,
+                AmountBase    = x.AmountBase,
                 Status        = x.Status,
                 PaymentType   = x.PaymentType,
                 LineCount     = x.Lines.Count
@@ -251,6 +275,13 @@ internal sealed class SupplierPaymentRepository : ISupplierPaymentRepository
             BouncedAt     = p.BouncedAt,
             PaymentType   = p.PaymentType,
             CreditNoteUuid = p.CreditNoteUuid,
+            CurrencyCode       = p.CurrencyCode,
+            CurrencyId         = p.CurrencyId,
+            ExchangeRate       = p.ExchangeRate,
+            BaseCurrencyId     = p.BaseCurrencyId,
+            BaseCurrencyCode   = p.BaseCurrencyId is { } baseId ? CodeOf(baseId) : null,
+            AmountBase         = p.AmountBase,
+            ExchangeDifference = p.ExchangeDifference,
             Lines = p.Lines.Select(l => new SupplierPaymentLineModel
             {
                 Uuid                        = l.UUID,
@@ -258,7 +289,8 @@ internal sealed class SupplierPaymentRepository : ISupplierPaymentRepository
                 InvoiceNumber               = l.InvoiceNumber,
                 AllocatedAmount             = l.AllocatedAmount,
                 OutstandingBeforeAllocation = l.OutstandingBeforeAllocation,
-                Notes                       = l.Notes
+                Notes                       = l.Notes,
+                ExchangeDifference          = l.ExchangeDifference
             }).ToList()
         };
     }
@@ -336,6 +368,10 @@ internal sealed class SupplierPaymentRepository : ISupplierPaymentRepository
             // An invoice that is not approved — never was, or was reversed or rejected after this payment was
             // drafted — is owed nothing: no money moves to it.
             var invoices = await PayableInvoicesAsync(payment);
+
+            // A35 D-12 / C7 — lock the payment's rate (purchase base, payment date; 400 when foreign and no rate) and book a
+            // realized difference per line, tracked for the same single save as everything below.
+            await LockAndTrackRealizedAsync(payment, invoices, postedBy);
 
             // Track every mutation below WITHOUT saving — PostEntryAsync's own SaveChangesAsync
             // (called last) commits this payment, every allocated invoice, the advance-payment /
@@ -440,6 +476,10 @@ internal sealed class SupplierPaymentRepository : ISupplierPaymentRepository
                 invoice.PaymentStatus = InvoicePaymentStatus.Derive(invoice.PaidAmount, invoice.TotalAmount);
                 invoice.ModifiedDate  = DateTime.UtcNow;
             }
+
+            // A35 C7 — the money never left, so its exchange differences are booked back (same single save).
+            if (_differences is not null)
+                await _differences.TrackReversalAsync(payment.OrganizationId, ExchangeDifferenceRefs.SupplierPayment, payment.UUID, bouncedBy);
 
             payment.Status       = "BOUNCED";
             payment.BouncedAt    = DateTime.UtcNow;
@@ -546,6 +586,102 @@ internal sealed class SupplierPaymentRepository : ISupplierPaymentRepository
         return amount > remaining
             ? $"The settlement ({amount:N2}) is more than credit note {note.CreditNoteNumber} has left ({remaining:N2})."
             : null;
+    }
+
+    // ── A35: currency, lock, realized differences ─────────────────────────────
+
+    private string? CodeOf(Guid id) =>
+        _lookups?.GetCurrencies().FirstOrDefault(c => c.Id == id)?.Code?.Trim().ToUpperInvariant();
+
+    private Guid? IdOf(string? code) =>
+        string.IsNullOrWhiteSpace(code) ? null
+        : _lookups?.GetCurrencies().FirstOrDefault(c => string.Equals(c.Code?.Trim(), code.Trim(), StringComparison.OrdinalIgnoreCase))?.Id;
+
+    /// <summary>D-14 — the payment's currency (code, id): asked for, else its first invoice's, else the supplier's default, else the purchase base.</summary>
+    private async Task<(string Code, Guid? Id)> ResolvePaymentCurrencyAsync(CreateSupplierPaymentRequest req)
+    {
+        if (req.CurrencyId is { } asked && asked != Guid.Empty)
+            return (CodeOf(asked) ?? throw new BadRequestException("The payment's currency is not a currency in the Lookups catalog."), asked);
+
+        if (!string.IsNullOrWhiteSpace(req.CurrencyCode))
+        {
+            var code = req.CurrencyCode.Trim().ToUpperInvariant();
+            return (code, IdOf(code));
+        }
+
+        if (req.Lines.Count > 0)
+        {
+            var first = req.Lines[0].InvoiceUuid;
+            var inv = await InvoiceRowLocks.Own(_fin).AsNoTracking().Where(i => i.UUID == first)
+                .Select(i => new { i.Currency, i.CurrencyId }).FirstOrDefaultAsync();
+            if (inv is not null)
+                return (inv.Currency.Trim().ToUpperInvariant(), inv.CurrencyId ?? IdOf(inv.Currency));
+        }
+
+        var organizationId = _fin.TenantContext.OrganizationId;
+        // Guid.Empty from either = "could not be resolved", never a currency.
+        Guid? fallback = null;
+        if (_partnerDefaults is not null)
+            fallback = await _partnerDefaults.ResolveDefaultCurrencyAsync(organizationId, req.SupplierId, TransactionDomain.Purchase);
+        if ((fallback is null || fallback == Guid.Empty) && _currency is not null)
+            fallback = await _currency.GetBaseCurrencyIdAsync(organizationId, TransactionDomain.Purchase);
+        if (fallback == Guid.Empty) fallback = null;
+
+        return fallback is { } f && CodeOf(f) is { } fCode ? (fCode, f) : ("PKR", IdOf("PKR"));
+    }
+
+    /// <summary>D-14 — why the invoice cannot be paid from this payment's currency, or null.</summary>
+    private static string? CurrencyMismatch(SupplierPayment payment, Invoice invoice) =>
+        string.Equals(payment.CurrencyCode?.Trim(), invoice.Currency?.Trim(), StringComparison.OrdinalIgnoreCase)
+            ? null
+            : $"Payment is in {payment.CurrencyCode}; invoice {invoice.InvoiceNumber} is in {invoice.Currency}. Allocate it to invoices in the same currency.";
+
+    /// <summary>
+    /// D-12 — the payment's rate locked at POSTED (purchase base, payment date) and, C7, one realized difference per line
+    /// against the invoice's approval rate (BR-C7-01..03, Payable side; nothing for the base currency, BR-C7-05). Tracked
+    /// only — the posting's single save commits them. A payment that already has realized rows (a retry) books none again.
+    /// </summary>
+    private async Task LockAndTrackRealizedAsync(SupplierPayment payment, Dictionary<Guid, Invoice> invoices, int postedBy)
+    {
+        foreach (var invoice in invoices.Values)
+            if (CurrencyMismatch(payment, invoice) is { } mismatch)
+                throw new ConflictException(mismatch);
+
+        if (_currency is null || _differences is null) return;
+
+        var organizationId = payment.OrganizationId;
+        var currencyId = payment.CurrencyId ?? IdOf(payment.CurrencyCode)
+            ?? throw new BadRequestException($"'{payment.CurrencyCode}' is not a currency in the Lookups catalog, so the payment's exchange rate cannot be locked.");
+
+        var lk = await _currency.LockRateAsync(organizationId, currencyId, DateOnly.FromDateTime(payment.PaymentDate), TransactionDomain.Purchase);
+        payment.CurrencyId         = currencyId;
+        payment.ExchangeRate       = lk.Rate;
+        payment.BaseCurrencyId     = lk.BaseCurrencyId;
+        payment.AmountBase         = lk.ToBase(payment.TotalAmount);
+        payment.ExchangeDifference = 0m;
+
+        if (await _differences.HasRealizedAsync(organizationId, ExchangeDifferenceRefs.SupplierPayment, payment.UUID))
+        {
+            payment.ExchangeDifference = payment.Lines.Sum(l => l.ExchangeDifference ?? 0m);
+            return;
+        }
+
+        var accounts = await _differences.AccountsAsync(organizationId, realized: true);
+        foreach (var line in payment.Lines)
+        {
+            var invoice = invoices[line.InvoiceUuid];
+            var invoiceBase = invoice.BaseCurrencyId
+                ?? (string.Equals(invoice.BaseCurrencyCode, lk.BaseCurrencyCode, StringComparison.OrdinalIgnoreCase) ? lk.BaseCurrencyId : null);
+
+            var row = _differences.TrackRealized(organizationId, new RealizedAllocation(
+                ExchangeDifferenceSides.Payable,
+                ExchangeDifferenceRefs.SupplierInvoice, invoice.Id, invoice.UUID, invoice.InvoiceNumber,
+                ExchangeDifferenceRefs.SupplierPayment, payment.Id, payment.UUID, payment.PaymentNumber, line.Id, payment.SupplierId,
+                line.AllocatedAmount, invoice.ExchangeRate, invoiceBase), lk, accounts, postedBy);
+
+            line.ExchangeDifference     = row?.DifferenceBase ?? 0m;
+            payment.ExchangeDifference += line.ExchangeDifference;
+        }
     }
 
     // ── Outstanding invoices ──────────────────────────────────────────────────

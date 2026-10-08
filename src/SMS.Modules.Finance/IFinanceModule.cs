@@ -23,8 +23,20 @@ public static class FinanceModuleExtensions
         var db = scope.ServiceProvider.GetRequiredService<FinanceDbContext>();
         db.Database.Migrate();
 
+        // A35 P1-13 / E-01 (CUR) — every organization's currencies, rate-currency row and legacy rate conversion, then the
+        // ICurrencyRatesReadyParticipants (Demand's locked-document backfill). Synchronous, before app.Run(), idempotent,
+        // one process per organization at a time (applock). Tenancy migrates earlier, so its organizations exist.
+        var organizations = scope.ServiceProvider.GetService<IOrganizationDirectory>();
+        if (organizations is not null)
+        {
+            var orgIds = organizations.GetOrganizationIdsAsync().GetAwaiter().GetResult();
+            scope.ServiceProvider.GetRequiredService<CurrencyBootstrapper>().EnsureForAllAsync(orgIds).GetAwaiter().GetResult();
+        }
+
         // A29-P7-07 — daily; see InvoiceOverdueJob for what it does and why it needs no tenant.
         InvoiceOverdueJob.Schedule();
+        // A35 P4-02 (FIN) — monthly unrealized revaluation, every organization explicitly (see ExchangeRevaluationJob).
+        ExchangeRevaluationJob.Schedule();
 
         return app;
     }
@@ -78,6 +90,15 @@ public static class FinanceModuleExtensions
         services.AddScoped<InvoiceOverdueJob>();
         // SAP alignment (S-7) — Demand asks it before cancelling a sale order that has been billed.
         services.AddScoped<ISaleOrderInvoiceLookup, SaleOrderInvoiceLookup>();
+        // A35 D-8 (FIN) — issued sales invoices lock the sale base, approved supplier invoices the purchase base.
+        services.AddScoped<ICurrencyUsageChecker, FinanceDocumentCurrencyUsageChecker>();
+        // A35 C7 (FIN) — the exchange-difference register writer (realized at payment, reversed on bounce).
+        services.AddScoped<ExchangeDifferenceWriter>();
+        services.AddScoped<Controllers.IExchangeDifferenceQueryService, Controllers.ExchangeDifferenceQueryService>();
+        services.AddScoped<IExchangeRevaluationService, ExchangeRevaluationService>();
+        services.AddScoped<ExchangeRevaluationJob>();
+        // A35 D-11 (FIN) — foreign locked Finance documents get their rate once CUR's rates are in (startup + provisioning).
+        services.AddScoped<ICurrencyRatesReadyParticipant, FinanceDocumentRatesBackfill>();
 
         // A29-P8-02 — the per-variant product ledger. Finance's own code takes the writer, which can also
         // track an entry without saving; every other module takes the public contract.
@@ -95,7 +116,25 @@ public static class FinanceModuleExtensions
         services.AddScoped<ITaxCodeService, TaxCodeService>();
         services.AddScoped<IExchangeRateService, ExchangeRateService>();
         services.AddScoped<ITaxCodeLookup, TaxCodeLookup>();
-        services.AddScoped<IExchangeRateProvider, ExchangeRateProvider>();
+        services.AddScoped<IExchangeRateProvider>(sp =>
+            new ExchangeRateProvider(sp.GetRequiredService<FinanceDbContext>(), sp.GetService<IOrganizationCurrencyService>()));
+
+        // A35 — multi-currency core (CUR): org currencies, date-ranged rates, ICurrencyService, the startup/provisioning
+        // bootstrap (currencies, rate-currency row, legacy rate conversion, then ICurrencyRatesReadyParticipant).
+        services.AddScoped<ICurrencyService>(sp =>
+            new CurrencyService(sp.GetRequiredService<FinanceDbContext>(), sp.GetService<IOrganizationCurrencyService>()));
+        services.AddScoped<IOrgCurrencyLookup, OrgCurrencyLookup>();
+        services.AddScoped<IOrgCurrencyService>(sp => new OrgCurrencyService(
+            sp.GetRequiredService<FinanceDbContext>(), sp.GetRequiredService<SMS.Modules.Lookups.Services.ILookupsService>(),
+            sp.GetService<IOrganizationCurrencyService>(), sp.GetServices<ICurrencyUsageChecker>()));
+        services.AddScoped<ICurrencyRateService>(sp =>
+            new CurrencyRateService(sp.GetRequiredService<FinanceDbContext>(), sp.GetService<IOrganizationCurrencyService>()));
+        services.AddScoped<ICurrencyUsageChecker, CurrencyRateUsageChecker>();
+        services.AddScoped(sp => new CurrencyBootstrapper(
+            sp.GetRequiredService<FinanceDbContext>(), sp.GetRequiredService<SMS.Modules.Lookups.Services.ILookupsService>(),
+            sp.GetServices<ICurrencyRatesReadyParticipant>(), sp.GetService<IOrganizationCurrencyService>(),
+            sp.GetService<Microsoft.Extensions.Logging.ILogger<CurrencyBootstrapper>>()));
+        services.AddScoped<IOrganizationProvisionedHandler>(sp => sp.GetRequiredService<CurrencyBootstrapper>());
         // Lookups asks every checker before it deletes a currency or changes its code.
         services.AddScoped<ILookupReferenceChecker, FinanceCurrencyReferenceChecker>();
 

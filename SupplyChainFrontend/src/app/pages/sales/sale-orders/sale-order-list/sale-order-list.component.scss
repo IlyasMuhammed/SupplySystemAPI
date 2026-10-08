@@ -19,3 +19,6 @@
   .search-input, .filter-dropdown { width: 100%; }
   .filter-bar { gap: .5rem; }
 }
+
+// A35 — the total in the domain base, under the document-currency total.
+.base-sub { font-size: .75rem; font-weight: 400; color: var(--p-text-muted-color, #64748b); }

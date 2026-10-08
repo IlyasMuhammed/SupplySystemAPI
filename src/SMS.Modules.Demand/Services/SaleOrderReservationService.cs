@@ -37,6 +37,7 @@ internal sealed class SaleOrderReservationService : ISaleOrderReservationService
     ];
 
     private static readonly string DropShip = EnumCode<SaleOrderLineFulfillmentMode>.Of(SaleOrderLineFulfillmentMode.DropShip);
+    private static readonly string MakeToOrder = EnumCode<SaleOrderLineFulfillmentMode>.Of(SaleOrderLineFulfillmentMode.MakeToOrder);
 
     private readonly DemandDbContext _db;
     private readonly ITenantContext _tenant;
@@ -155,10 +156,17 @@ internal sealed class SaleOrderReservationService : ISaleOrderReservationService
             var expiresAt = await ExpiryAsync();
             var results = new List<SaleOrderLineReservationModel>();
 
+            var number = 0;
             foreach (var line in order.Lines.OrderBy(l => l.Id))
             {
+                number++;
                 var holds = await ReadHoldsAsync(order);
-                var why = WhyLineCannotHold(line)
+                // A34 REV-07 / D-28 — a make-to-order line's production order makes all of it; holding stock for it too is a
+                // deliberate per-line choice (the single-line reserve), never a side effect of reserving everything.
+                var why = (line.FulfillmentMode == MakeToOrder
+                              ? $"Line {number} is made to order: its production order makes it. Reserve it on its own to use stock instead."
+                              : null)
+                       ?? WhyLineCannotHold(line)
                        ?? (holds.ReservableFor(line) <= 0m ? "Nothing is left to reserve on this line." : null);
                 if (why is not null)
                 {

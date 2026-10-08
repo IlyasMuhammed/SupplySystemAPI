@@ -16,6 +16,7 @@ import { CheckboxModule } from 'primeng/checkbox';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { ConfirmationService, MessageService } from 'primeng/api';
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 
 import {
   SalesPreorderService, SaleInquiry, SaleInquiryLine, SaleInquiryLineStatus, RejectionReason, SALE_INQUIRY_LINE_STATUSES
@@ -26,8 +27,15 @@ import {
 } from '../../../../shared/product-variant-picker/product-variant-picker.component';
 import {
   INQUIRY_LINE_STATUS_COLOR, LineDraft, LineProblems, MAX, StatusColor, applies, displayDate, draftFromLine, emptyLineDraft,
-  lineProblems, lineSummary, serverMessage, statusLabel, toLineRequest, toNewLineRequest
+  lineProblems, lineSummary, readDate, serverMessage, statusLabel, toLineRequest, toNewLineRequest
 } from '../sale-inquiry.shared';
+import { LeadTimeCalculation, LeadTimePopoverComponent } from '../../lead-time-popover/lead-time-popover.component';
+
+/** A34 §5.2 — the inquiry statuses its lines' lead times can be calculated in. */
+const LEAD_TIME_INQUIRY_STATUSES = ['RECEIVED', 'UNDER_REVIEW', 'REVIEW_COMPLETE'];
+
+/** A34 — why a line's date can't be set from the popover: its status carries no estimate. */
+export const INQUIRY_DATE_NOTE = 'Evaluate the line (Can supply, Partial or Under review) to give it an estimated date.';
 
 export type AddMode = 'CATALOGUE' | 'TEXT';
 export type DrawerField = 'canSupplyQuantity' | 'estimatedDeliveryDate' | 'rejectionReasonUuid' | 'alternative';
@@ -44,7 +52,7 @@ export type DrawerField = 'canSupplyQuantity' | 'estimatedDeliveryDate' | 'rejec
   imports: [
     CommonModule, FormsModule, ButtonModule, TableModule, TooltipModule, ToastModule, DrawerModule, SelectModule,
     SelectButtonModule, DatePickerModule, InputNumberModule, InputTextModule, TextareaModule, CheckboxModule,
-    ConfirmDialogModule, ProductVariantPickerComponent
+    ConfirmDialogModule, ProductVariantPickerComponent, LeadTimePopoverComponent
   ],
   templateUrl: './sale-inquiry-lines.component.html',
   styleUrls: ['../sale-inquiry.shared.scss', './sale-inquiry-lines.component.scss'],
@@ -204,12 +212,20 @@ export class SaleInquiryLinesComponent implements OnInit, OnChanges {
   }
 
   get estimatedDateRequired(): boolean {
-    return this.draft.lineStatus === 'CAN_SUPPLY' || this.draft.lineStatus === 'PARTIAL';
+    // A34 §5.2 — a calculated date stands in for an estimate nobody typed.
+    return (this.draft.lineStatus === 'CAN_SUPPLY' || this.draft.lineStatus === 'PARTIAL') && !this.editing?.calculatedDeliveryDate;
+  }
+
+  /** A34 — under the estimate: the line's calculated date, used when the estimate is left blank. */
+  get calculatedDateHint(): string | null {
+    const calculated = this.editing?.calculatedDeliveryDate;
+    return calculated ? `Calculated: ${displayDate(calculated)} — used when the estimate is left blank.` : null;
   }
 
   /** Client validation: the server's line rules, plus "pick the item" when adding from the catalogue. */
   get problems(): LineProblems {
     const p = lineProblems(this.draft);
+    if (this.editing?.calculatedDeliveryDate) delete p.estimatedDeliveryDate;
     if (this.isAdd) {
       // A new line is only what the customer asked for; its evaluation comes after.
       delete p.estimatedDeliveryDate; delete p.canSupplyQuantity; delete p.rejectionReasonUuid;
@@ -295,6 +311,64 @@ export class SaleInquiryLinesComponent implements OnInit, OnChanges {
       error: (err) => {
         this.isSaving = false;
         this.saveError = serverMessage(err, 'The line could not be saved.');
+      }
+    });
+  }
+
+  // ── A34 PC-07/08/09: lead time ──────────────────────────────────────────────
+
+  readonly inquiryDateNote = INQUIRY_DATE_NOTE;
+  private readonly leadTimeCalculators = new Map<string, () => Observable<LeadTimeCalculation>>();
+  /** The line whose estimate is being stored. */
+  savingDateLineUuid: string | null = null;
+
+  /** ⏱ needs SALE_INQUIRY_EDIT (canEdit) and an open inquiry (contract §5.2). */
+  get canCalculateLeadTime(): boolean {
+    return this.canEdit && LEAD_TIME_INQUIRY_STATUSES.includes(this.inquiry.status);
+  }
+
+  /** The estimate is part of the evaluation: kept by the server only for statuses that carry a date. */
+  canSetDate(line: SaleInquiryLine): boolean {
+    return this.canCalculateLeadTime && applies(draftFromLine(line), 'estimatedDeliveryDate');
+  }
+
+  leadTimeCalculator(line: SaleInquiryLine): () => Observable<LeadTimeCalculation> {
+    let calc = this.leadTimeCalculators.get(line.uuid);
+    if (!calc) {
+      calc = () => this.service.calculateInquiryLineLeadTime(this.inquiry.uuid, line.uuid).pipe(
+        map(res => ({ leadTime: res.result!.leadTime, line: res.result!.line })));
+      this.leadTimeCalculators.set(line.uuid, calc);
+    }
+    return calc;
+  }
+
+  /** The stored calculation onto the line shown — the same object, so its row and open popover stay. */
+  onLineLeadTime(line: SaleInquiryLine, calc: LeadTimeCalculation) {
+    const stored = calc.line as SaleInquiryLine | undefined;
+    if (!stored) return;
+    line.calculatedLeadTimeDays = stored.calculatedLeadTimeDays ?? null;
+    line.calculatedDeliveryDate = stored.calculatedDeliveryDate ?? null;
+    line.leadTimeCalculatedAt = stored.leadTimeCalculatedAt ?? null;
+    line.effectiveDeliveryDate = stored.effectiveDeliveryDate ?? null;
+    if (stored.deliveryDateSource) line.deliveryDateSource = stored.deliveryDateSource;
+  }
+
+  /** The estimate, set (yyyy-MM-dd) or cleared (null), through the line's evaluation — everything else as it is. */
+  setLineDate(line: SaleInquiryLine, date: string | null) {
+    if (!this.canSetDate(line) || this.savingDateLineUuid) return;
+    this.savingDateLineUuid = line.uuid;
+    const req = toLineRequest({ ...draftFromLine(line), estimatedDeliveryDate: readDate(date) });
+
+    this.service.updateInquiryLine(this.inquiry.uuid, line.uuid, req).subscribe({
+      next: () => {
+        this.savingDateLineUuid = null;
+        this.messages.add({ severity: 'success', summary: date ? 'Estimate set' : 'Estimate cleared',
+                            detail: date ? `Line ${line.lineNumber}: ${displayDate(date)}.` : `Line ${line.lineNumber} uses its calculated date.` });
+        this.changed.emit();
+      },
+      error: (err) => {
+        this.savingDateLineUuid = null;
+        this.messages.add({ severity: 'error', summary: 'Date not changed', detail: serverMessage(err, 'The estimate could not be changed.') });
       }
     });
   }

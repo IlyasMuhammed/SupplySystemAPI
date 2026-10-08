@@ -71,6 +71,9 @@ internal sealed class SaleQuotationService : ISaleQuotationService
     private readonly IExchangeRateProvider? _exchangeRates;
     private readonly ICurrencyCodeLookup? _currencyCodes;
     private readonly ISupplierNameLookupService? _partnerNames;
+    private readonly ICurrencyService? _currency;
+    private readonly IPartnerCurrencyDefaults? _partnerCurrencies;
+    private readonly IOrgCurrencyLookup? _orgCurrencies;
 
     // The optional ones are optional for the reason SaleOrderService gives: production DI always supplies them
     // (Finance, Inventory, Lookups, Suppliers register them); without one, the behaviour from before it existed.
@@ -80,8 +83,14 @@ internal sealed class SaleQuotationService : ISaleQuotationService
         ISaleInquiryService inquiries, ISaleOrderService saleOrders,
         ITaxCodeLookup? taxCodes = null, IProductVariantResolver? variants = null,
         IVariantAvailabilityService? availability = null, IExchangeRateProvider? exchangeRates = null,
-        ICurrencyCodeLookup? currencyCodes = null, ISupplierNameLookupService? partnerNames = null)
+        ICurrencyCodeLookup? currencyCodes = null, ISupplierNameLookupService? partnerNames = null,
+        ICurrencyService? currency = null, IPartnerCurrencyDefaults? partnerCurrencies = null,
+        IOrgCurrencyLookup? orgCurrencies = null)
     {
+        // A35 — rate lock at SENT (Finance), the customer's default currency (Suppliers), org currencies (Finance).
+        _currency          = currency;
+        _partnerCurrencies = partnerCurrencies;
+        _orgCurrencies     = orgCurrencies;
         _db            = db;
         _tenant        = tenant;
         _numbers       = numbers;
@@ -115,7 +124,7 @@ internal sealed class SaleQuotationService : ISaleQuotationService
     {
         await RequireCustomerAsync(req.PartnerId);
         var (validFrom, validTo) = Validity(req.ValidFrom, req.ValidTo);
-        var currencyId = await CurrencyAsync(req.CurrencyId);
+        var currencyId = await CurrencyAsync(req.CurrencyId, req.PartnerId);
 
         var quotation = new SaleQuotation
         {
@@ -147,7 +156,7 @@ internal sealed class SaleQuotationService : ISaleQuotationService
         foreach (var (line, lineReq) in built)
             LinkAlternative(line, lineReq, quotation);
 
-        ApplyTotals(quotation);
+        ApplyTotals(quotation, await AmountDecimalsAsync(quotation.CurrencyId));
         quotation.QuotationNumber = await _numbers.NextAsync(NumberPrefix, DateTime.UtcNow);
 
         _db.SaleQuotations.Add(quotation);
@@ -173,7 +182,7 @@ internal sealed class SaleQuotationService : ISaleQuotationService
 
         await RequireCustomerAsync(inquiry.PartnerId);
         var (validFrom, validTo) = Validity(req.ValidFrom, req.ValidTo);
-        var currencyId = await CurrencyAsync(req.CurrencyId);
+        var currencyId = await CurrencyAsync(req.CurrencyId, inquiry.PartnerId, inherited: inquiry.CurrencyId);
 
         var quotation = new SaleQuotation
         {
@@ -219,6 +228,10 @@ internal sealed class SaleQuotationService : ISaleQuotationService
                     UomCode = src.RequestedUomCode, PromisedDeliveryDate = src.EstimatedDeliveryDate,
                     TaxCodeUuid = defaultTax?.Uuid, Notes = src.Notes
                 });
+                // A34 D-15 — the inquiry line's calculation travels with the offered item (same variant).
+                line.CalculatedLeadTimeDays = src.CalculatedLeadTimeDays;
+                line.CalculatedDeliveryDate = src.CalculatedDeliveryDate;
+                line.LeadTimeCalculatedAt   = src.LeadTimeCalculatedAt;
                 quotation.Lines.Add(line);
             }
             else if (src.LineStatus == "CANNOT_SUPPLY")
@@ -258,7 +271,7 @@ internal sealed class SaleQuotationService : ISaleQuotationService
             }
         }
 
-        ApplyTotals(quotation);
+        ApplyTotals(quotation, await AmountDecimalsAsync(quotation.CurrencyId));
         quotation.QuotationNumber = await _numbers.NextAsync(NumberPrefix, DateTime.UtcNow);
 
         // BR-C1-07 — QUOTED on the same tracked inquiry; the one save below commits both (a concurrent
@@ -294,7 +307,7 @@ internal sealed class SaleQuotationService : ISaleQuotationService
         RequireEditable(quotation);
 
         var (validFrom, validTo) = Validity(req.ValidFrom, req.ValidTo);
-        var currencyId = await CurrencyAsync(req.CurrencyId);
+        var currencyId = await CurrencyAsync(req.CurrencyId, quotation.PartnerId, current: quotation.CurrencyId);
         // Prices were quoted in the old currency; silently relabelling them would misprice every line.
         if (currencyId != quotation.CurrencyId && quotation.Lines.Any(l => l.LineType != RejectedLine))
             throw new BadRequestException(
@@ -334,7 +347,7 @@ internal sealed class SaleQuotationService : ISaleQuotationService
         LinkAlternative(line, req, quotation);
         quotation.Lines.Add(line);
 
-        ApplyTotals(quotation);
+        ApplyTotals(quotation, await AmountDecimalsAsync(quotation.CurrencyId));
         Touch(quotation, userId);
         await _db.SaveChangesAsync();
         return line.UUID;
@@ -358,7 +371,7 @@ internal sealed class SaleQuotationService : ISaleQuotationService
         LinkAlternative(line, req, quotation);
         line.ModifiedDate = DateTime.UtcNow;
 
-        ApplyTotals(quotation);
+        ApplyTotals(quotation, await AmountDecimalsAsync(quotation.CurrencyId));
         Touch(quotation, userId);
         await _db.SaveChangesAsync();
         return true;
@@ -378,7 +391,7 @@ internal sealed class SaleQuotationService : ISaleQuotationService
         quotation.Lines.Remove(line);
         _db.SaleQuotationLines.Remove(line);
 
-        ApplyTotals(quotation);
+        ApplyTotals(quotation, await AmountDecimalsAsync(quotation.CurrencyId));
         Touch(quotation, userId);
         await _db.SaveChangesAsync();
         return true;
@@ -397,8 +410,16 @@ internal sealed class SaleQuotationService : ISaleQuotationService
             throw new BadRequestException(
                 "A quotation needs at least one NORMAL or ALTERNATIVE line before it can be sent — there is nothing to offer.");
 
+        // A35 P3-11 (D-5, D-12) — the rate of the sent date, against the sale base; refused (400) before anything changes
+        // when the quotation is in another currency and no rate is on file. Never recalculated afterwards (BR-C5-06).
+        var sentAt = DateTime.UtcNow;
+        var rateLock = await DemandCurrency.LockAsync(_currency, _orgCurrency, _tenant.OrganizationId, quotation.CurrencyId,
+            DemandCurrency.Today(sentAt), TransactionDomain.Sale);
+        if (rateLock is not null)
+            DemandCurrency.Apply(quotation, rateLock, sentAt);
+
         quotation.Status       = Sent;
-        quotation.SentAt       = DateTime.UtcNow;
+        quotation.SentAt       = sentAt;
         quotation.SentByUserId = userId;
         Touch(quotation, userId);
 
@@ -439,7 +460,10 @@ internal sealed class SaleQuotationService : ISaleQuotationService
                     throw new BadRequestException(
                         $"Line {line.LineNumber} has no counter price to accept — record the customer's COUNTER first.");
                 line.UnitPrice = agreed;
-                ComputeLine(line);
+                ComputeLine(line, await AmountDecimalsAsync(quotation.CurrencyId));
+                // A35 — the line's base amounts follow its new price at the rate locked on SENT (never re-looked up, BR-C5-06).
+                if (quotation.ExchangeRate is { } locked && quotation.BaseCurrencyId is { } baseId)
+                    await RebaseLineAsync(quotation, line, locked, baseId);
                 break;
 
             default:
@@ -452,7 +476,7 @@ internal sealed class SaleQuotationService : ISaleQuotationService
         line.CustomerResponseNotes = Text(req.Notes, 500, "response notes");
         line.ModifiedDate          = DateTime.UtcNow;
 
-        ApplyTotals(quotation);
+        ApplyTotals(quotation, await AmountDecimalsAsync(quotation.CurrencyId));
         Touch(quotation, userId);
         await _db.SaveChangesAsync();
         return true;
@@ -548,7 +572,12 @@ internal sealed class SaleQuotationService : ISaleQuotationService
                 UnitPrice       = l.UnitPrice,
                 DiscountPercent = l.DiscountPercent,
                 TaxPercent      = l.TaxPercent,
-                TaxCodeUuid     = l.TaxCodeUuid
+                TaxCodeUuid     = l.TaxCodeUuid,
+                // A34 D-15 — promised → the order line's manual date; the calculation is copied.
+                ManualDeliveryDate     = l.PromisedDeliveryDate,
+                CalculatedLeadTimeDays = l.CalculatedLeadTimeDays,
+                CalculatedDeliveryDate = l.CalculatedDeliveryDate,
+                LeadTimeCalculatedAt   = l.LeadTimeCalculatedAt
             }).ToList()
         };
 
@@ -595,6 +624,7 @@ internal sealed class SaleQuotationService : ISaleQuotationService
             CreatedDate           = DateTime.UtcNow
         };
 
+        var copyDecimals = await AmountDecimalsAsync(copy.CurrencyId);
         var map = new Dictionary<int, SaleQuotationLine>();
         foreach (var l in source.Lines.OrderBy(l => l.LineNumber))
         {
@@ -612,6 +642,9 @@ internal sealed class SaleQuotationService : ISaleQuotationService
                 TaxCodeUuid          = l.TaxCodeUuid,
                 TaxCode              = l.TaxCode,
                 PromisedDeliveryDate = l.PromisedDeliveryDate,
+                CalculatedLeadTimeDays = l.CalculatedLeadTimeDays,
+                CalculatedDeliveryDate = l.CalculatedDeliveryDate,
+                LeadTimeCalculatedAt   = l.LeadTimeCalculatedAt,
                 LineType             = l.LineType,
                 RejectionReasonId    = l.RejectionReasonId,
                 RejectionNotes       = l.RejectionNotes,
@@ -619,7 +652,7 @@ internal sealed class SaleQuotationService : ISaleQuotationService
                 Notes                = l.Notes,
                 CreatedDate          = DateTime.UtcNow
             };
-            ComputeLine(line);
+            ComputeLine(line, copyDecimals);
             map[l.Id] = line;
             copy.Lines.Add(line);
         }
@@ -627,7 +660,7 @@ internal sealed class SaleQuotationService : ISaleQuotationService
             if (map.TryGetValue(l.AlternativeForLineId!.Value, out var target))
                 map[l.Id].AlternativeForLine = target;
 
-        ApplyTotals(copy);
+        ApplyTotals(copy, copyDecimals);
         copy.QuotationNumber = await _numbers.NextAsync(NumberPrefix, DateTime.UtcNow);
 
         _db.SaleQuotations.Add(copy);
@@ -682,6 +715,10 @@ internal sealed class SaleQuotationService : ISaleQuotationService
                 TaxCode                    = l.TaxCode,
                 TaxAmount                  = l.TaxAmount,
                 LineTotal                  = l.LineTotal,
+                UnitPriceBase              = l.UnitPriceBase,
+                DiscountAmountBase         = l.DiscountAmountBase,
+                TaxAmountBase              = l.TaxAmountBase,
+                LineTotalBase              = l.LineTotalBase,
                 PromisedDeliveryDate       = l.PromisedDeliveryDate,
                 LineType                   = l.LineType,
                 RejectionReasonUuid        = l.RejectionReason?.UUID,
@@ -695,7 +732,12 @@ internal sealed class SaleQuotationService : ISaleQuotationService
                 CustomerResponseDate       = l.CustomerResponseDate,
                 CustomerResponseNotes      = l.CustomerResponseNotes,
                 CustomerCounterPrice       = l.CustomerCounterPrice,
-                Notes                      = l.Notes
+                Notes                      = l.Notes,
+                CalculatedLeadTimeDays     = l.CalculatedLeadTimeDays,
+                CalculatedDeliveryDate     = l.CalculatedDeliveryDate,
+                LeadTimeCalculatedAt       = l.LeadTimeCalculatedAt,
+                EffectiveDeliveryDate      = DeliveryDateSources.Effective(l.PromisedDeliveryDate, l.CalculatedDeliveryDate),
+                DeliveryDateSource         = DeliveryDateSources.Of(l.PromisedDeliveryDate, l.CalculatedDeliveryDate)
             };
         }).ToList();
 
@@ -723,6 +765,10 @@ internal sealed class SaleQuotationService : ISaleQuotationService
             TaxAmount             = q.TaxAmount,
             DiscountAmount        = q.DiscountAmount,
             GrandTotal            = q.GrandTotal,
+            ExchangeRate          = q.ExchangeRate,
+            BaseCurrencyId        = q.BaseCurrencyId,
+            BaseCurrencyCode      = q.BaseCurrencyId is { } baseId ? await CurrencyCodeAsync(baseId) : null,
+            RateLockedAt          = q.RateLockedAt,
             Notes                 = q.Notes,
             InternalNotes         = q.InternalNotes,
             SentAt                = q.SentAt,
@@ -834,10 +880,12 @@ internal sealed class SaleQuotationService : ISaleQuotationService
         public Dictionary<Guid, TaxCodeInfo?> TaxCodes      { get; } = [];
         public Dictionary<Guid, string?>      CurrencyCodes { get; } = [];
         public (Guid? Id, bool Known) BaseCurrency { get; set; }
+        /// <summary>A35 D-13 — the quotation currency's decimals for line amounts.</summary>
+        public int Decimals { get; set; } = CurrencyConventions.DefaultDecimalPlaces;
     }
 
     private async Task<LineContext> NewContextAsync(SaleQuotation quotation, IEnumerable<Guid?> variantUuids) =>
-        new(quotation, await DescribeAsync(variantUuids));
+        new(quotation, await DescribeAsync(variantUuids)) { Decimals = await AmountDecimalsAsync(quotation.CurrencyId) };
 
     private async Task<IReadOnlyDictionary<Guid, VariantDescription>> DescribeAsync(IEnumerable<Guid?> variantUuids)
     {
@@ -858,6 +906,14 @@ internal sealed class SaleQuotationService : ISaleQuotationService
 
         var variant = req.VariantUuid is { } vu && vu != Guid.Empty ? vu : (Guid?)null;
         var described = variant is { } d ? context.Variants.GetValueOrDefault(d) : null;
+
+        // A34 D-15 — a lead time is calculated for one variant and quantity: once either changes it no longer holds.
+        if (line.VariantUuid != variant || line.Quantity != req.Quantity)
+        {
+            line.CalculatedLeadTimeDays = null;
+            line.CalculatedDeliveryDate = null;
+            line.LeadTimeCalculatedAt   = null;
+        }
 
         line.LineType             = EnumCode<SaleQuotationLineType>.Of(type);
         line.VariantUuid          = variant;
@@ -880,7 +936,7 @@ internal sealed class SaleQuotationService : ISaleQuotationService
             line.UnitPrice = 0m; line.DiscountPercent = 0m; line.TaxPercent = 0m; line.TaxCodeUuid = null; line.TaxCode = null;
             line.AlternativeForLineId = null; line.AlternativeForLine = null; line.AlternativeNotes = null;
             line.CustomerResponse = Pending; line.CustomerResponseDate = null; line.CustomerCounterPrice = null;
-            ComputeLine(line);
+            ComputeLine(line, context.Decimals);
             return;
         }
 
@@ -944,7 +1000,7 @@ internal sealed class SaleQuotationService : ISaleQuotationService
             line.AlternativeForLineId = null;
             line.AlternativeForLine   = null;
         }
-        ComputeLine(line);
+        ComputeLine(line, context.Decimals);
     }
 
     /// <summary>
@@ -1075,15 +1131,22 @@ internal sealed class SaleQuotationService : ISaleQuotationService
     // ── totals ────────────────────────────────────────────────────────────────
 
     /// <summary>The SaleOrderLine formula: qty × price × (1 − disc%) × (1 + tax%), rounded to 2 away from zero.</summary>
-    private static void ComputeLine(SaleQuotationLine line)
+    /// <remarks>A35 D-13 — at the quotation currency's decimals (JPY 0), at most 2 (the columns are decimal(18,2)).</remarks>
+    private static void ComputeLine(SaleQuotationLine line, int decimals)
     {
         var net = line.Quantity * line.UnitPrice * (1 - line.DiscountPercent / 100m);
-        line.TaxAmount = Math.Round(net * line.TaxPercent / 100m, 2, MidpointRounding.AwayFromZero);
-        line.LineTotal = Math.Round(net * (1 + line.TaxPercent / 100m), 2, MidpointRounding.AwayFromZero);
+        line.TaxAmount = Math.Round(net * line.TaxPercent / 100m, decimals, MidpointRounding.AwayFromZero);
+        line.LineTotal = Math.Round(net * (1 + line.TaxPercent / 100m), decimals, MidpointRounding.AwayFromZero);
     }
 
+    /// <summary>A35 D-13 — the quotation currency's decimals from Finance (2 without it), at most 2.</summary>
+    private async Task<int> AmountDecimalsAsync(Guid currencyId) =>
+        _orgCurrencies is null
+            ? CurrencyConventions.DefaultDecimalPlaces
+            : Math.Clamp(await _orgCurrencies.GetDecimalPlacesAsync(_tenant.OrganizationId, currencyId), 0, CurrencyConventions.DefaultDecimalPlaces);
+
     /// <summary>SaleOrderService.ApplyTotals over the offered (non-REJECTED) lines.</summary>
-    private static void ApplyTotals(SaleQuotation quotation)
+    private static void ApplyTotals(SaleQuotation quotation, int decimals)
     {
         decimal subtotal = 0, discount = 0, tax = 0;
         foreach (var line in quotation.Lines.Where(l => l.LineType != RejectedLine))
@@ -1095,9 +1158,9 @@ internal sealed class SaleQuotationService : ISaleQuotationService
             tax      += (gross - lineDiscount) * line.TaxPercent / 100m;
         }
 
-        quotation.Subtotal       = Math.Round(subtotal, 2, MidpointRounding.AwayFromZero);
-        quotation.DiscountAmount = Math.Round(discount, 2, MidpointRounding.AwayFromZero);
-        quotation.TaxAmount      = Math.Round(tax, 2, MidpointRounding.AwayFromZero);
+        quotation.Subtotal       = Math.Round(subtotal, decimals, MidpointRounding.AwayFromZero);
+        quotation.DiscountAmount = Math.Round(discount, decimals, MidpointRounding.AwayFromZero);
+        quotation.TaxAmount      = Math.Round(tax, decimals, MidpointRounding.AwayFromZero);
         quotation.GrandTotal     = quotation.Subtotal - quotation.DiscountAmount + quotation.TaxAmount;
     }
 
@@ -1130,12 +1193,40 @@ internal sealed class SaleQuotationService : ISaleQuotationService
         return (from, to);
     }
 
-    private async Task<Guid> CurrencyAsync(Guid? requested) =>
-        requested is { } id && id != Guid.Empty
-            ? id
-            : await _orgCurrency.GetBaseCurrencyIdAsync(_tenant.OrganizationId)
-              ?? throw new BadRequestException(
-                  "Currency is required — this organization has no base currency configured, so it must be supplied explicitly.");
+    /// <summary>
+    /// A35 D-14 — the quotation's currency: the one asked for (a new choice must be an active org currency), else the
+    /// quotation's own (an update), else the inquiry's, else the customer's default sale currency, else the sale base.
+    /// </summary>
+    private async Task<Guid> CurrencyAsync(Guid? requested, Guid partnerId, Guid? inherited = null, Guid? current = null)
+    {
+        var org = _tenant.OrganizationId;
+        if (requested is { } id && id != Guid.Empty)
+        {
+            if (id != current && id != inherited)
+                await DemandCurrency.RequireActiveOrgCurrencyAsync(_orgCurrencies, _orgCurrency, org, id, TransactionDomain.Sale, await CurrencyCodeAsync(id));
+            return id;
+        }
+        if (current is { } existing && existing != Guid.Empty) return existing;
+        if (inherited is { } fromInquiry && fromInquiry != Guid.Empty) return fromInquiry;
+        return await DemandCurrency.DefaultForPartnerAsync(_partnerCurrencies, _orgCurrency, org, partnerId, TransactionDomain.Sale)
+               ?? throw new BadRequestException(
+                   "Currency is required — this organization has no base currency configured, so it must be supplied explicitly.");
+    }
+
+    /// <summary>One line's base amounts at an already-locked rate (the base's decimals from Finance, else 2).</summary>
+    private async Task RebaseLineAsync(SaleQuotation quotation, SaleQuotationLine line, decimal rate, Guid baseId)
+    {
+        var baseDecimals = _orgCurrencies is null
+            ? CurrencyConventions.DefaultDecimalPlaces
+            : await _orgCurrencies.GetDecimalPlacesAsync(_tenant.OrganizationId, baseId);
+        var same = quotation.CurrencyId == baseId;
+        var lockInfo = new DocumentRateLock(quotation.CurrencyId, string.Empty, baseId, string.Empty, TransactionDomain.Sale,
+            rate, DateOnly.FromDateTime(quotation.RateLockedAt ?? DateTime.UtcNow), same, baseDecimals, baseDecimals);
+        line.UnitPriceBase      = lockInfo.ToBase(line.UnitPrice);
+        line.DiscountAmountBase = lockInfo.ToBase(line.Quantity * line.UnitPrice * line.DiscountPercent / 100m);
+        line.TaxAmountBase      = lockInfo.ToBase(line.TaxAmount);
+        line.LineTotalBase      = lockInfo.ToBase(line.LineTotal);
+    }
 
     private static void RequireEditable(SaleQuotation quotation)
     {

@@ -26,7 +26,8 @@ describe('FulfillmentRouteEditorComponent (A33-PA-08)', () => {
   let el: HTMLElement;
   let saved: RouteSavedEvent[];
 
-  async function setup(editing: FulfillmentRouteModel | null, opts: { readOnly?: boolean; routes?: FulfillmentRouteModel[] } = {}) {
+  async function setup(editing: FulfillmentRouteModel | null,
+                       opts: { readOnly?: boolean; routes?: FulfillmentRouteModel[]; manufacturingEnabled?: boolean } = {}) {
     service = jasmine.createSpyObj<FulfillmentRoutesService>('FulfillmentRoutesService',
       ['createRoute', 'updateRoute', 'setDefault', 'clearDefault']);
     service.createRoute.and.callFake(req => of({ success: true, message: '', result: route(req.steps.map(s => s.stepCode), { uuid: 'r-new', code: req.code, name: req.name }) } as any));
@@ -44,6 +45,7 @@ describe('FulfillmentRouteEditorComponent (A33-PA-08)', () => {
     fixture.componentRef.setInput('route', editing);
     fixture.componentRef.setInput('readOnly', !!opts.readOnly);
     fixture.componentRef.setInput('routes', opts.routes ?? [PICK_ONLY, PICK_AND_SHIP]);
+    if (opts.manufacturingEnabled !== undefined) fixture.componentRef.setInput('manufacturingEnabled', opts.manufacturingEnabled);
     saved = [];
     component.saved.subscribe(e => saved.push(e));
     fixture.detectChanges();
@@ -107,7 +109,7 @@ describe('FulfillmentRouteEditorComponent (A33-PA-08)', () => {
     component.addStep('APPROVAL');
     component.save();
     expect(service.createRoute).toHaveBeenCalledWith({
-      code: 'HIGH_VALUE', name: 'High value', description: null, displayOrder: null,
+      code: 'HIGH_VALUE', name: 'High value', description: null, displayOrder: null, routeCategory: 'STOCK', // A34
       steps: [
         { stepCode: 'PICK', stepOrder: 1, isMandatory: true, description: null },
         { stepCode: 'APPROVAL', stepOrder: 2, isMandatory: true, description: null },
@@ -182,7 +184,7 @@ describe('FulfillmentRouteEditorComponent (A33-PA-08)', () => {
     component.draft.description = 'Boxes, then carrier';
     component.draft.displayOrder = 35;
     component.save();
-    expect(service.updateRoute).toHaveBeenCalledWith('r-pps', { name: 'Full cycle', description: 'Boxes, then carrier', displayOrder: 35, steps: null });
+    expect(service.updateRoute).toHaveBeenCalledWith('r-pps', { name: 'Full cycle', description: 'Boxes, then carrier', displayOrder: 35, steps: null, routeCategory: null });
     expect(saved[0].created).toBeFalse();
   });
 
@@ -238,6 +240,77 @@ describe('FulfillmentRouteEditorComponent (A33-PA-08)', () => {
     component.save();
     expect(saved.length).toBe(1);
     expect(saved[0].warning).toContain('Inactive route.');
+  });
+
+  // ── A34-PA-09 — route category ─────────────────────────────────────────────────────────────────────────
+
+  it('a new route starts as STOCK; the dropdown offers STOCK and MANUFACTURE, BUY and DROPSHIP disabled as reserved', async () => {
+    await setup(null);
+    expect(component.draft.routeCategory).toBe('STOCK');
+    expect(q('category-select')).not.toBeNull();
+    expect(component.categoryOptions.map(o => `${o.value}:${o.disabled}`)).toEqual(
+      ['STOCK:false', 'MANUFACTURE:false', 'BUY:true', 'DROPSHIP:true']);
+    expect(component.categoryOptions.find(o => o.value === 'BUY')!.tooltip).toBe('Reserved for future release');
+    expect(q('manufacture-note')).toBeNull();
+    component.draft.code = 'HV';
+    component.draft.name = 'High value';
+    component.save();
+    expect(service.createRoute.calls.mostRecent().args[0].routeCategory).toBe('STOCK');
+  });
+
+  it('MANUFACTURE shows the §3.6 note, hides "make default" (D-6) and is created without set-default', async () => {
+    await setup(null);
+    component.draft.makeDefault = true;
+    component.onCategoryChange('MANUFACTURE');
+    await refresh();
+    expect(q('manufacture-note')!.textContent).toContain('trigger a Production Order at Sale Order confirmation');
+    expect(q('manufacture-note')!.textContent).toContain('Delivery is created after production completes');
+    expect(q('make-default')).toBeNull();
+    expect(component.draft.makeDefault).toBeFalse();
+    component.draft.code = 'MTO';
+    component.draft.name = 'Make to order';
+    component.save();
+    expect(service.createRoute.calls.mostRecent().args[0].routeCategory).toBe('MANUFACTURE');
+    expect(service.setDefault).not.toHaveBeenCalled();
+    expect(saved.length).toBe(1);
+  });
+
+  it('does not offer MANUFACTURE without MODULE_MANUFACTURING (D-9)', async () => {
+    await setup(null, { manufacturingEnabled: false });
+    expect(component.categoryOptions.map(o => o.value)).toEqual(['STOCK', 'BUY', 'DROPSHIP']);
+  });
+
+  it('a system route shows its category read-only and never sends one', async () => {
+    await setup(route(['PICK', 'GOODS_ISSUE', 'SHIP'], { code: 'MFG_PICK_SHIP', isSystem: true, routeCategory: 'MANUFACTURE' }));
+    expect(q('category-select')).toBeNull();
+    expect(q('category-readonly')!.textContent).toContain('Manufacture');
+    expect(q('manufacture-note')).not.toBeNull();
+    component.onCategoryChange('STOCK');
+    expect(component.draft.routeCategory).toBe('MANUFACTURE');
+    component.save();
+    expect(service.updateRoute.calls.mostRecent().args[1].routeCategory).toBeNull();
+  });
+
+  it('a default route\'s category is disabled, with the reason (D-8)', async () => {
+    await setup(route(['PICK', 'GOODS_ISSUE', 'SHIP'], { isDefault: true }));
+    expect(component.categoryLock.disabled).toBeTrue();
+    expect(q('category-locked')!.textContent).toContain('default route for shipping orders');
+    component.onCategoryChange('MANUFACTURE');
+    expect(component.draft.routeCategory).toBe('STOCK');
+  });
+
+  it('a custom route sends its category only when changed; an in-use refusal (409) shows the server\'s words', async () => {
+    await setup(route(['PICK', 'GOODS_ISSUE', 'SHIP']));
+    component.save();
+    expect(service.updateRoute.calls.mostRecent().args[1].routeCategory).toBeNull();
+
+    service.updateRoute.and.returnValue(throwError(() => ({ status: 409, error: {
+      message: "'CUSTOM' is still used by 3 active product variants: its category can't be changed. Reassign them first." } })));
+    component.onCategoryChange('MANUFACTURE');
+    component.save();
+    expect(service.updateRoute.calls.mostRecent().args[1].routeCategory).toBe('MANUFACTURE');
+    await refresh();
+    expect(q('save-error')!.textContent).toContain('still used by 3 active product variants');
   });
 
   it('read-only (no FULFILLMENT_ROUTE_MANAGE): every field disabled and no save button', async () => {

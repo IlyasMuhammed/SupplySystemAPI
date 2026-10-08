@@ -1,4 +1,37 @@
 <div class="editor">
+  <!-- A34-PA-09 — route category (spec §3.6, contract §3) -->
+  <div class="field category-field">
+    <label for="frCategory">Category</label>
+    <ng-container *ngIf="!categoryLock.readOnly; else categoryReadOnly">
+      <span class="category-wrap" [pTooltip]="categoryLock.disabled ? (categoryLock.reason ?? '') : ''" tooltipPosition="top">
+        <p-select inputId="frCategory" [options]="categoryOptions" [ngModel]="draft.routeCategory"
+                  (ngModelChange)="onCategoryChange($event)" optionLabel="label" optionValue="value" optionDisabled="disabled"
+                  [disabled]="readOnly || categoryLock.disabled" appendTo="body" styleClass="category-select"
+                  data-testid="category-select">
+          <ng-template let-option #item>
+            <span [pTooltip]="option.tooltip ?? ''" tooltipPosition="right" [attr.title]="option.tooltip ?? null"
+                  [attr.data-testid]="'category-option-' + option.value">
+              {{ option.label }}<span class="muted small" *ngIf="option.disabled"> · reserved</span>
+            </span>
+          </ng-template>
+        </p-select>
+      </span>
+      <small class="hint" *ngIf="categoryLock.disabled && !readOnly" data-testid="category-locked">{{ categoryLock.reason }}</small>
+      <small class="hint" *ngIf="!isNew && !categoryLock.disabled && !readOnly" data-testid="category-usage-hint">
+        The category can't change while variants, open sale order lines or open production orders use the route.
+      </small>
+    </ng-container>
+    <ng-template #categoryReadOnly>
+      <div class="category-readonly" data-testid="category-readonly">
+        <p-tag [value]="categoryLabel(draft.routeCategory)" [severity]="categorySeverity(draft.routeCategory)"></p-tag>
+        <small class="hint">{{ categoryLock.reason }}</small>
+      </div>
+    </ng-template>
+    <div class="manufacture-note" *ngIf="isManufacture" data-testid="manufacture-note">
+      <i class="pi pi-info-circle"></i> {{ manufactureNote }}
+    </div>
+  </div>
+
   <div class="row-2">
     <div class="field code-field">
       <label for="frCode">Code <span class="required" *ngIf="isNew && !readOnly">*</span></label>
@@ -78,13 +111,16 @@
     <small class="hint">Statuses of steps not in the route are completed automatically.</small>
   </section>
 
-  <div class="default-row">
+  <div class="default-row" *ngIf="!isManufacture">
     <p-checkbox inputId="frDefault" [binary]="true" [(ngModel)]="draft.makeDefault" [disabled]="!canChangeDefault"
                 data-testid="make-default"></p-checkbox>
     <label for="frDefault" data-testid="make-default-label">Make this the default route for {{ defaultClass }}</label>
   </div>
+  <small class="hint" *ngIf="isManufacture && !readOnly" data-testid="manufacture-no-default">
+    A make-to-order route is never a default: assign it to the variants that are made to order.
+  </small>
   <small class="hint default-hint" data-testid="default-hint"
-         *ngIf="!readOnly && (!canChangeDefault || (draft.makeDefault && currentDefault) || (!draft.makeDefault && route?.isDefault))">
+         *ngIf="!isManufacture && !readOnly && (!canChangeDefault || (draft.makeDefault && currentDefault) || (!draft.makeDefault && route?.isDefault))">
     <ng-container *ngIf="!canChangeDefault && !readOnly">Activate the route before making it a default.</ng-container>
     <ng-container *ngIf="canChangeDefault && draft.makeDefault && currentDefault">
       It replaces {{ currentDefault.name }} ({{ currentDefault.code }}) as the default for {{ defaultClass }}.

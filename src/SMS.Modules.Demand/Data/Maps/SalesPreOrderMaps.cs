@@ -65,6 +65,7 @@ internal sealed class SaleInquiryLineMap : IEntityTypeConfiguration<SaleInquiryL
         b.Property(x => x.LineStatus).HasMaxLength(20).IsRequired();
         b.Property(x => x.CanSupplyQuantity).HasColumnType("decimal(18,4)");
         b.Property(x => x.EstimatedDeliveryDate).HasColumnType("date");
+        b.Property(x => x.CalculatedDeliveryDate).HasColumnType("date"); // A34 D-15
         b.Property(x => x.RejectionNotes).HasMaxLength(500);
         b.Property(x => x.AlternativeNotes).HasMaxLength(500);
         b.Property(x => x.RequiresProcurement).HasDefaultValue(false);
@@ -109,6 +110,7 @@ internal sealed class SaleQuotationMap : IEntityTypeConfiguration<SaleQuotation>
         b.Property(x => x.GrandTotal).HasColumnType("decimal(18,2)");
         b.Property(x => x.Notes).HasMaxLength(2000);
         b.Property(x => x.InternalNotes).HasMaxLength(2000);
+        b.Property(x => x.ExchangeRate).HasColumnType("decimal(18,10)"); // A35 D-10/D-11: null = not locked yet
 
         b.HasIndex(x => new { x.OrganizationId, x.Status });
         b.HasIndex(x => x.PartnerId);
@@ -152,6 +154,7 @@ internal sealed class SaleQuotationLineMap : IEntityTypeConfiguration<SaleQuotat
         b.Property(x => x.TaxAmount).HasColumnType("decimal(18,2)");
         b.Property(x => x.LineTotal).HasColumnType("decimal(18,2)");
         b.Property(x => x.PromisedDeliveryDate).HasColumnType("date");
+        b.Property(x => x.CalculatedDeliveryDate).HasColumnType("date"); // A34 D-15
         b.Property(x => x.LineType).HasMaxLength(15).IsRequired();
         b.Property(x => x.RejectionNotes).HasMaxLength(500);
         b.Property(x => x.AlternativeNotes).HasMaxLength(500);
@@ -160,6 +163,11 @@ internal sealed class SaleQuotationLineMap : IEntityTypeConfiguration<SaleQuotat
         b.Property(x => x.CustomerResponseNotes).HasMaxLength(500);
         b.Property(x => x.CustomerCounterPrice).HasColumnType("decimal(18,4)");
         b.Property(x => x.Notes).HasMaxLength(1000);
+        // A35 D-10 — base amounts, locked at SENT.
+        b.Property(x => x.UnitPriceBase).HasColumnType("decimal(18,4)");
+        b.Property(x => x.DiscountAmountBase).HasColumnType("decimal(18,4)");
+        b.Property(x => x.TaxAmountBase).HasColumnType("decimal(18,4)");
+        b.Property(x => x.LineTotalBase).HasColumnType("decimal(18,4)");
 
         b.HasIndex(x => x.VariantUuid);
 

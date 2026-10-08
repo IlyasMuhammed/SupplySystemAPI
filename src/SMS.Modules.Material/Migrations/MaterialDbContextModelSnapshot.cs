@@ -1293,6 +1293,19 @@ namespace SMS.Modules.Material.Migrations
                     b.Property<int>("CreatedBy")
                         .HasColumnType("int");
 
+                    b.Property<DateTime?>("DeliveryCreationPendingSince")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DeliveryNumber")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid?>("DeliveryOrderUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("FulfillmentRouteUuid")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("MaterialReadiness")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -1384,6 +1397,14 @@ namespace SMS.Modules.Material.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("BomId");
+
+                    b.HasIndex("DeliveryCreationPendingSince")
+                        .HasDatabaseName("IX_production_orders_DeliveryCreationPendingSince")
+                        .HasFilter("[DeliveryCreationPendingSince] IS NOT NULL");
+
+                    b.HasIndex("FulfillmentRouteUuid")
+                        .HasDatabaseName("IX_production_orders_FulfillmentRouteUuid")
+                        .HasFilter("[FulfillmentRouteUuid] IS NOT NULL");
 
                     b.HasIndex("OrganizationId");
 

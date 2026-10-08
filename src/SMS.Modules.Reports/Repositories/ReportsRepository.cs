@@ -79,36 +79,38 @@ internal sealed class ReportsRepository : IReportsRepository
         var inv = tInventory.Result;
         var fin = tFinance.Result;
 
-        // KPI 2 cross-join in memory (both sides now available)
+        // KPI 2 cross-join in memory (both sides now available). Only GRNs whose PO had a delivery date can be on time
+        // or late; the rest are not part of the measure. (This used to read a ReceivedAt that was never set — always
+        // 0001-01-01 — so every GRN counted as on time and the KPI could only show 100%.)
         var poDeliveryMap = d.AllPos.ToDictionary(p => p.Uuid, p => p.DeliveryDate);
-        var onTimeCount   = w.ApprovedGrns.Count(g =>
-            poDeliveryMap.TryGetValue(g.PoUuid, out var dd) && dd.HasValue && g.ReceivedAt <= dd.Value);
+        var datedGrns     = w.ApprovedGrns
+            .Where(g => poDeliveryMap.TryGetValue(g.PoUuid, out var dd) && dd.HasValue)
+            .ToList();
+        var onTimeCount   = datedGrns.Count(g => g.ReceivedDate.Date <= poDeliveryMap[g.PoUuid]!.Value.Date);
 
+        // Null, not 0, wherever there was nothing to measure: the page shows "no data" instead of a failing score.
         return new KpiDashboardModel
         {
-            PoCycleTimeDays            = d.CycleTimes.Count > 0 ? Math.Round(d.CycleTimes.Average(), 1) : 0,
-            SupplierOnTimeDeliveryRate = w.ApprovedGrns.Count > 0
-                ? Math.Round((double)onTimeCount / w.ApprovedGrns.Count * 100, 1) : 0,
+            PoCycleTimeDays            = d.CycleTimes.Count > 0 ? Math.Round(d.CycleTimes.Average(), 1) : null,
+            SupplierOnTimeDeliveryRate = datedGrns.Count > 0
+                ? Math.Round((double)onTimeCount / datedGrns.Count * 100, 1) : null,
             PoFillRate                 = d.PoLineTotal > 0
-                ? Math.Round((double)d.PoLineFilled / d.PoLineTotal * 100, 1) : 0,
+                ? Math.Round((double)d.PoLineFilled / d.PoLineTotal * 100, 1) : null,
             StockTurnoverRatio         = inv.InventoryValue > 0
-                ? Math.Round((double)(d.AnnualPoSpend / inv.InventoryValue), 2) : 0,
+                ? Math.Round((double)(d.AnnualPoSpend / inv.InventoryValue), 2) : null,
             InventoryAccuracy          = inv.InventoryAccuracy,
             InvoiceProcessingTimeDays  = fin.InvoiceProcessingTimeDays,
             ThreeWayMatchRate          = fin.ThreeWayMatchRate,
             BudgetVariancePercent      = d.PrEstimate > 0
-                ? Math.Round((double)((d.PoActual - d.PrEstimate) / d.PrEstimate) * 100, 1) : 0,
+                ? Math.Round((double)((d.PoActual - d.PrEstimate) / d.PrEstimate) * 100, 1) : null,
             GrnRejectionRate           = w.TotalReceived > 0
-                ? Math.Round((double)w.TotalRejected / w.TotalReceived * 100, 1) : 0,
+                ? Math.Round((double)w.TotalRejected / w.TotalReceived * 100, 1) : null,
             ReorderTriggerCount        = inv.ReorderTriggerCount
         };
     }
     // ── Private data containers ───────────────────────────────────────────────
     private sealed record PoEntry(Guid Uuid, DateTime? DeliveryDate);
-    private sealed record GrnEntry(Guid PoUuid, DateTime ReceivedDate)
-    {
-        public DateTime ReceivedAt { get; internal set; }
-    }
+    private sealed record GrnEntry(Guid PoUuid, DateTime ReceivedDate);
 
     private sealed record DemandKpiData(
         List<double>   CycleTimes,
@@ -126,12 +128,12 @@ internal sealed class ReportsRepository : IReportsRepository
 
     private sealed record InventoryKpiData(
         decimal        InventoryValue,
-        double         InventoryAccuracy,
+        double?        InventoryAccuracy,
         int            ReorderTriggerCount);
 
     private sealed record FinanceKpiData(
-        double         InvoiceProcessingTimeDays,
-        double         ThreeWayMatchRate);
+        double?        InvoiceProcessingTimeDays,
+        double?        ThreeWayMatchRate);
 
     // ── Demand group (runs sequentially on _demand DbContext) ─────────────────
 
@@ -237,9 +239,9 @@ internal sealed class ReportsRepository : IReportsRepository
             .Where(i => i.Variant != null && i.QtyOnHand <= i.Variant.ReorderPoint)
             .CountAsync();
 
-        var accuracy = totalItems > 0
+        double? accuracy = totalItems > 0
             ? Math.Round((double)(totalItems - problemItems) / totalItems * 100, 1)
-            : 100.0;
+            : null;
 
         return new InventoryKpiData(inventoryValue, accuracy, reorderCount);
     }
@@ -253,13 +255,11 @@ internal sealed class ReportsRepository : IReportsRepository
             .Select(i => new { i.ReceivedDate, i.ApprovedAt })
             .ToListAsync();
 
-        var processingDays = approvedInvoices.Count > 0
-            ? approvedInvoices
-                .Select(i => (i.ApprovedAt!.Value - i.ReceivedDate).TotalDays)
-                .Where(d => d >= 0)
-                .DefaultIfEmpty(0)
-                .Average()
-            : 0.0;
+        var processing = approvedInvoices
+            .Select(i => (i.ApprovedAt!.Value - i.ReceivedDate).TotalDays)
+            .Where(d => d >= 0)
+            .ToList();
+        double? processingDays = processing.Count > 0 ? Math.Round(processing.Average(), 1) : null;
 
         // Two COUNT queries — both on _finance, run sequentially (same DbContext). Approving an invoice overwrites its
         // MatchStatus, so "Matched" alone made every approval lower the rate: an approved (or later reversed) invoice
@@ -273,11 +273,11 @@ internal sealed class ReportsRepository : IReportsRepository
                                   && i.MatchedPoValue > 0m
                                   && Math.Abs(i.VarianceAmount) <= i.MatchedPoValue * 0.05m)));
 
-        var matchRate = invoiceTotal > 0
+        double? matchRate = invoiceTotal > 0
             ? Math.Round((double)matchedTotal / invoiceTotal * 100, 1)
-            : 0.0;
+            : null;
 
-        return new FinanceKpiData(Math.Round(processingDays, 1), matchRate);
+        return new FinanceKpiData(processingDays, matchRate);
     }
 
     // ── Supplier Performance ──────────────────────────────────────────────────

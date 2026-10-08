@@ -37,6 +37,10 @@ internal class Invoice : ITenantScopedEntity
     public decimal? ExchangeRate       { get; set; }
     public string?  BaseCurrencyCode   { get; set; }
     public decimal? BaseTotalAmount    { get; set; }
+    /// <summary>A35 D-10 — the invoice currency (global lookups id; inherited from the PO), the purchase base and when the rate was locked (approval).</summary>
+    public Guid?     CurrencyId           { get; set; }
+    public Guid?     BaseCurrencyId       { get; set; }
+    public DateTime? ExchangeRateLockedAt { get; set; }
     /// <summary>Set when an approved invoice was reversed (the ledger got the opposite entry; nothing was edited).</summary>
     public DateTime? ReversedAt        { get; set; }
     public int?      ReversedBy        { get; set; }
@@ -371,6 +375,15 @@ internal class SupplierPayment : ITenantScopedEntity
     // TotalAmount when this payment is posted.
     public Guid?    CreditNoteUuid { get; set; }
 
+    // ── A35 (D-10, D-12, D-15): the payment's currency, and the lock at POSTED (rate of the payment date, purchase base) ──
+    public string   CurrencyCode       { get; set; } = "PKR";
+    public Guid?    CurrencyId         { get; set; }
+    public decimal? ExchangeRate       { get; set; }
+    public Guid?    BaseCurrencyId     { get; set; }
+    public decimal? AmountBase         { get; set; }
+    /// <summary>Σ of the lines' realized differences (+ gain / − loss, purchase base).</summary>
+    public decimal? ExchangeDifference { get; set; }
+
     public ICollection<SupplierPaymentLine> Lines { get; set; } = new List<SupplierPaymentLine>();
 }
 
@@ -401,6 +414,8 @@ internal class SupplierPaymentLine : ITenantScopedEntity
     // Snapshot of the invoice's outstanding balance at the moment this allocation was made.
     public decimal  OutstandingBeforeAllocation  { get; set; }
     public string?  Notes                        { get; set; }
+    /// <summary>A35 C7 — realized gain (+) / loss (−) on this line in the purchase base, set at posting.</summary>
+    public decimal? ExchangeDifference           { get; set; }
 
     public SupplierPayment SupplierPayment { get; set; } = null!;
 }

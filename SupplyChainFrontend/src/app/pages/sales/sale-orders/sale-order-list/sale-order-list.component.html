@@ -60,7 +60,7 @@
               {{ formatStatus(o.deliveryMode) }}
             </span>
           </td>
-          <td class="text-right">{{ o.grandTotal | number:'1.2-2' }}</td>
+          <td class="text-right">{{ o.grandTotal | number:'1.2-2' }}<span *ngIf="o.currencyCode" class="cur"> {{ o.currencyCode }}</span><div *ngIf="o.grandTotalBase != null && o.baseCurrencyCode && o.baseCurrencyCode !== o.currencyCode" class="base-sub" data-testid="list-base-total">{{ o.grandTotalBase | number:'1.2-2' }} {{ o.baseCurrencyCode }}</div></td>
           <td>
             <p-tag [value]="formatStatus(o.status)" [severity]="getStatusSeverity(o.status)"></p-tag>
           </td>

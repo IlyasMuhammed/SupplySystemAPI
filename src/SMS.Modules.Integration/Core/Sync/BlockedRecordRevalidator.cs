@@ -67,6 +67,7 @@ internal sealed class BlockedRecordRevalidator : IBlockedRecordRevalidator
         "CURRENCY_NOT_ACTIVE",
         "CURRENCY_NOT_HOME",
         "CURRENCY_PARTY_MISMATCH",
+        "PURCHASE_BASE_NOT_HOME",
         "VALIDATION_FAILED"
     ];
 

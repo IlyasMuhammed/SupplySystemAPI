@@ -1,7 +1,7 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
-import { FormsModule } from '@angular/forms';
+import { FormControl, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { TextareaModule } from 'primeng/textarea';
@@ -17,6 +17,8 @@ import { BusinessPartnerService, BusinessPartnerModel } from '../../../../servic
 import { UserService } from '../../../../services/user.service';
 import { AuthService } from '../../../service/auth.service';
 import { AssigneeOption, MAX, assigneeOptions$, serverMessage, writeDate } from '../sale-inquiry.shared';
+import { MoneyService } from '../../../../services/money.service';
+import { DocCurrencyPicker } from '../../../../shared/doc-currency/doc-currency-picker';
 
 export interface InquiryHeaderDraft {
   customer: BusinessPartnerModel | null;
@@ -36,7 +38,7 @@ export interface InquiryHeaderDraft {
   selector: 'app-sale-inquiry-form',
   standalone: true,
   imports: [
-    CommonModule, RouterModule, FormsModule, ButtonModule, InputTextModule, TextareaModule, SelectModule,
+    CommonModule, RouterModule, FormsModule, ReactiveFormsModule, ButtonModule, InputTextModule, TextareaModule, SelectModule,
     DatePickerModule, AutoCompleteModule, ToastModule, TooltipModule
   ],
   templateUrl: './sale-inquiry-form.component.html',
@@ -52,6 +54,10 @@ export class SaleInquiryFormComponent implements OnInit {
   };
   customerSuggestions: BusinessPartnerModel[] = [];
   assigneeOptions: AssigneeOption[] = [];
+
+  // A35 — the inquiry's currency: sale base, then the customer's default sale currency (D-9, D-14). No rate (no prices).
+  readonly currencyControl = new FormControl<string | null>(null);
+  readonly currency = new DocCurrencyPicker(inject(MoneyService), this.currencyControl, 'SALE');
 
   isSaving = false;
   saveError = '';
@@ -72,6 +78,12 @@ export class SaleInquiryFormComponent implements OnInit {
 
   ngOnInit() {
     assigneeOptions$(this.userService, this.authService).subscribe(options => this.assigneeOptions = options);
+    this.currency.load();
+  }
+
+  /** A35 D-9 — a customer's default sale currency (absent on servers before A35). */
+  onCustomerSelected(partner: BusinessPartnerModel | null) {
+    this.currency.applyPartnerDefault((partner as (BusinessPartnerModel & { defaultSaleCurrencyId?: string | null }) | null)?.defaultSaleCurrencyId ?? null);
   }
 
   searchCustomers(event: AutoCompleteCompleteEvent) {
@@ -101,7 +113,8 @@ export class SaleInquiryFormComponent implements OnInit {
       receivedDate: writeDate(d.receivedDate),
       responseDeadline: writeDate(d.responseDeadline),
       assignedToUserId: d.assignedToUserId ?? null,
-      notes: d.notes.trim() || null
+      notes: d.notes.trim() || null,
+      currencyId: this.currencyControl.value || null
     };
   }
 

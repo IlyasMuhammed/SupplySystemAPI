@@ -305,6 +305,14 @@ internal sealed class InventoryRepository : IInventoryRepository
             query = query.Where(p => p.SupplyMethod == supplyMethod);
         }
 
+        // A34 §4.3 — routeCategory, resolved to route uuids by InventoryService. An empty list matches nothing.
+        if (filter.RouteUuids is { } routeUuids)
+        {
+            var uuids = routeUuids.ToList();
+            query = query.Where(p => p.Variants.Any(v =>
+                v.IsActive && v.FulfillmentRouteUuid != null && uuids.Contains(v.FulfillmentRouteUuid.Value)));
+        }
+
         if (!string.IsNullOrWhiteSpace(filter.Search))
         {
             var search = filter.Search.ToLower();
@@ -438,6 +446,15 @@ internal sealed class InventoryRepository : IInventoryRepository
                         CreatedDate       = v.CreatedDate,
                         // A33 — code and name are filled in by InventoryService from Logistics.
                         FulfillmentRouteUuid = v.FulfillmentRouteUuid,
+                        // A34 §4.1 — the stored lead-time overrides, read-only here (category: InventoryService).
+                        SupplierLeadTimeDays      = v.LeadTimeDays,
+                        ManufacturingLeadTimeDays = v.ManufacturingLeadTimeDays,
+                        ManufacturingBufferDays   = v.ManufacturingBufferDays,
+                        QualityInspectionDays     = v.QualityInspectionDays,
+                        InternalTransferDays      = v.InternalTransferDays,
+                        PickPackDays              = v.PickPackDays,
+                        ShippingLeadTimeDays      = v.ShippingLeadTimeDays,
+                        SalesBufferDays           = v.SalesBufferDays,
                         OrganizationId    = v.OrganizationId
                     }).ToList()
             })

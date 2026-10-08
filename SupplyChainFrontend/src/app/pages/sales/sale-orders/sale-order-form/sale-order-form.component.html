@@ -197,6 +197,8 @@
           <small class="hint" *ngIf="noBaseCurrency && !isEdit" data-testid="currency-hint">
             This organization has no default currency, so choose one for each order.
           </small>
+          <!-- A35 P3-13 — the rate is locked when the order is confirmed; base amounts appear on the order then. -->
+          <app-doc-currency-panel *ngIf="formCurrency as fc" [doc]="fc" lockPoint="confirmation" domain="SALE"></app-doc-currency-panel>
         </div>
 
         <div class="field full">
@@ -350,6 +352,21 @@
 
           <p-button icon="pi pi-trash" [text]="true" severity="danger" size="small" (onClick)="removeLine(i)"
                     pTooltip="Remove the line" data-testid="remove-line"></p-button>
+
+          <!-- A34 PC-07/08/09: the line's delivery date — ⏱ calculates it on demand (POST api/lead-time/calculate), ✎ sets it. -->
+          <div class="line-delivery" data-testid="delivery-field">
+            <label>Delivery</label>
+            <ng-container *ngIf="lineCalculation(i) as calc">
+              <app-lead-time-popover [variantUuid]="lineControl(i, 'variantUuid').value" [quantity]="lineControl(i, 'quantity').value"
+                                     [manualDate]="lineControl(i, 'manualDeliveryDate').value"
+                                     [calculatedDate]="calc.calculatedDate" [calculatedDays]="calc.calculatedDays"
+                                     [calculatedAt]="calc.calculatedAt"
+                                     [canCalculate]="canUseLeadTime" [canOverride]="canUseLeadTime"
+                                     [calculator]="leadTimeCalculator(i)" [label]="lineLeadTimeLabel(i)"
+                                     (calculated)="onLineLeadTime(i, $event)"
+                                     (manualDateChange)="setLineDate(i, $event)"></app-lead-time-popover>
+            </ng-container>
+          </div>
         </div>
       </div>
 

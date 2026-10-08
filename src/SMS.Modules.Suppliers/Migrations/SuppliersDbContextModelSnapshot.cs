@@ -63,6 +63,9 @@ namespace SMS.Modules.Suppliers.Migrations
                     b.Property<decimal?>("CreditLimit")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<Guid?>("DefaultSaleCurrency")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("Email")
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)");

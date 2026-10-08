@@ -402,7 +402,8 @@ describe('SaleOrderDetailComponent — A33 routes, confirm gate and fulfillment'
     const confirm = query('action-confirm')!.querySelector('button') as HTMLButtonElement;
     expect(confirm.disabled).toBeFalse();
     expect(query('confirm-blockers-banner')).toBeNull();
-    expect(tooltipOf('confirm-wrap')).toBe('');
+    // A34 PD-08: with nothing blocking, the tooltip says what confirming creates (no blocking reasons).
+    expect(tooltipOf('confirm-wrap')).toBe('Will create 2 delivery orders');
   });
 
   it('will not open the confirm dialog, nor confirm, while blocked', async () => {

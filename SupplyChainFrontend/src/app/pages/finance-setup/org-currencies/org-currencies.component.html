@@ -1,0 +1,147 @@
+<p-toast></p-toast>
+
+<div class="setup-page">
+
+  <!-- ── Header ───────────────────────────────────────────────────────────── -->
+  <div class="page-header">
+    <div class="page-icon"><i class="pi pi-dollar"></i></div>
+    <div class="grow">
+      <h1 class="page-title">Currencies</h1>
+      <p class="page-subtitle">
+        The currencies your documents can use, and how amounts in each are written: symbol, decimal places and where the
+        symbol goes. A base currency cannot be switched off, and a currency is never deleted — switch it off instead, and old
+        documents keep it.
+      </p>
+    </div>
+    <div class="page-actions" *ngIf="canManage">
+      <p-button label="Add currency" icon="pi pi-plus" (onClick)="openCreate()" data-testid="add-currency"></p-button>
+    </div>
+  </div>
+
+  <div class="note info" *ngIf="!canManage" data-testid="read-only">
+    <i class="pi pi-lock"></i>
+    <div class="note-body">You can see the currencies. Changing them needs the Manage Currencies permission.</div>
+  </div>
+
+  <section class="form-card flush">
+    <div class="state-inline" *ngIf="loadFailed" data-testid="load-failed">
+      <i class="pi pi-exclamation-triangle"></i> The currencies could not be loaded.
+      <p-button label="Try again" [text]="true" size="small" (onClick)="load()"></p-button>
+    </div>
+
+    <p-table [value]="currencies" [loading]="isLoading" dataKey="currencyId" styleClass="p-datatable-sm"
+             [tableStyle]="{ 'min-width': '46rem' }" *ngIf="!loadFailed">
+      <ng-template pTemplate="header">
+        <tr>
+          <th style="width: 4.5rem">Order</th>
+          <th style="width: 5rem">Code</th>
+          <th>Name</th>
+          <th style="width: 5rem">Symbol</th>
+          <th style="width: 4rem" class="text-right">Dec.</th>
+          <th style="width: 9rem">Example</th>
+          <th style="width: 6rem">Active</th>
+          <th style="width: 6rem"></th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-c>
+        <tr [attr.data-testid]="'cur-' + c.code" [class.inactive-row]="!c.isActive">
+          <td>{{ c.displayOrder }}</td>
+          <td class="mono">{{ c.code }}</td>
+          <td>
+            {{ c.name }}
+            <p-tag *ngIf="c.isRateCurrency" value="Rate currency" severity="info" styleClass="ml-tag"
+                   pTooltip="Every exchange rate is in this currency; its own rate is always 1.0." tooltipPosition="top"></p-tag>
+          </td>
+          <td>{{ c.symbol }}</td>
+          <td class="text-right">{{ c.decimalPlaces }}</td>
+          <td class="nowrap muted">{{ example(c) }}</td>
+          <td>
+            <p-toggleswitch [ngModel]="c.isActive" (ngModelChange)="toggleActive(c, $event)" [disabled]="!canToggle(c)"
+                            [attr.data-testid]="'active-' + c.code"></p-toggleswitch>
+          </td>
+          <td>
+            <div class="row-actions">
+              <i *ngIf="lockText(c) as why" class="pi pi-lock muted lock" [pTooltip]="why + ' — cannot deactivate.'" tooltipPosition="left"
+                 [attr.data-testid]="'lock-' + c.code"></i>
+              <p-button *ngIf="canManage" icon="pi pi-pencil" [text]="true" [rounded]="true" size="small" pTooltip="Edit" tooltipPosition="top"
+                        (onClick)="openEdit(c)" [attr.data-testid]="'edit-' + c.code"></p-button>
+            </div>
+          </td>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="emptymessage">
+        <tr><td colspan="8" class="empty" data-testid="empty">No currencies are set up for this organization yet.</td></tr>
+      </ng-template>
+    </p-table>
+  </section>
+  <p class="hint">🔒 = used as a base currency or the rate currency (cannot be deactivated).</p>
+</div>
+
+<!-- ══ Add / edit ══════════════════════════════════════════════════════════ -->
+<p-dialog [header]="editing ? 'Edit ' + editing.code : 'Add currency'" [(visible)]="dialogVisible" [modal]="true" [draggable]="false"
+          [closable]="!isSaving" [style]="{ width: '34rem', maxWidth: '96vw' }" data-testid="currency-dialog">
+  <div class="field-grid">
+    <div class="field">
+      <label for="curCode">Code <span class="required">*</span></label>
+      <input pInputText id="curCode" [(ngModel)]="draft.code" (ngModelChange)="onCodeChange()" maxlength="3" [disabled]="!!editing"
+             placeholder="e.g. EUR" class="w-full mono" data-testid="code-input" />
+      <small class="hint" *ngIf="!editing">ISO 4217: three letters.</small>
+    </div>
+    <div class="field">
+      <label for="curOrder">Display order</label>
+      <p-inputnumber inputId="curOrder" [(ngModel)]="draft.displayOrder" [min]="0" [useGrouping]="false" styleClass="w-full"
+                     data-testid="order-input"></p-inputnumber>
+    </div>
+  </div>
+
+  <div class="field-grid">
+    <div class="field">
+      <label for="curName">Name <span class="required" *ngIf="needsNameAndSymbol">*</span></label>
+      <input pInputText id="curName" [(ngModel)]="draft.name" [maxlength]="maxName" class="w-full" data-testid="name-input" />
+    </div>
+    <div class="field">
+      <label for="curSymbol">Symbol <span class="required" *ngIf="needsNameAndSymbol">*</span></label>
+      <input pInputText id="curSymbol" [(ngModel)]="draft.symbol" [maxlength]="maxSymbol" class="w-full" data-testid="symbol-input" />
+    </div>
+  </div>
+
+  <div class="field-grid">
+    <div class="field">
+      <label for="curDecimals">Decimal places <span class="required">*</span></label>
+      <p-inputnumber inputId="curDecimals" [(ngModel)]="draft.decimalPlaces" (ngModelChange)="onDecimalsChange()" [min]="0" [max]="3"
+                     [showButtons]="true" styleClass="w-full" data-testid="decimals-input"></p-inputnumber>
+    </div>
+    <div class="field">
+      <label for="curRounding">Rounding (smallest unit) <span class="required">*</span></label>
+      <p-inputnumber inputId="curRounding" [(ngModel)]="draft.rounding" [min]="0" [minFractionDigits]="0" [maxFractionDigits]="6"
+                     styleClass="w-full" data-testid="rounding-input"></p-inputnumber>
+    </div>
+  </div>
+
+  <div class="field">
+    <label for="curPosition">Symbol position</label>
+    <p-select inputId="curPosition" [options]="symbolPositions" [(ngModel)]="draft.symbolPosition" optionLabel="label" optionValue="value"
+              appendTo="body" styleClass="w-full" data-testid="position-input"></p-select>
+  </div>
+
+  <div class="check-row">
+    <p-toggleswitch inputId="curActive" [(ngModel)]="draft.isActive" data-testid="active-input"></p-toggleswitch>
+    <label for="curActive">Active — documents can use it</label>
+  </div>
+
+  <p class="hint" *ngIf="draftExample" data-testid="draft-example">Amounts look like: <strong>{{ draftExample }}</strong></p>
+
+  <div class="note info" *ngIf="editing">
+    <i class="pi pi-info-circle"></i>
+    <div class="note-body">Changing the decimal places is refused once locked documents use this currency.</div>
+  </div>
+
+  <small class="p-error" *ngIf="problem && draft.code" data-testid="currency-problem">{{ problem }}</small>
+  <small class="p-error" *ngIf="saveError" data-testid="save-error">{{ saveError }}</small>
+
+  <ng-template pTemplate="footer">
+    <p-button label="Cancel" [text]="true" severity="secondary" [disabled]="isSaving" (onClick)="dialogVisible = false"></p-button>
+    <p-button [label]="editing ? 'Save' : 'Add currency'" icon="pi pi-check" [loading]="isSaving" [disabled]="!!problem || isSaving"
+              (onClick)="save()" data-testid="save"></p-button>
+  </ng-template>
+</p-dialog>

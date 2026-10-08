@@ -28,7 +28,7 @@
           <p-autoComplete formControlName="customer" [suggestions]="customerSuggestions" (completeMethod)="searchCustomers($event)"
                           optionLabel="companyName" [forceSelection]="true" [dropdown]="true" placeholder="Search customers"
                           [class.p-invalid]="invalid('customer')" styleClass="w-full" inputStyleClass="w-full"
-                          appendTo="body" data-testid="customer"></p-autoComplete>
+                          appendTo="body" data-testid="customer" (onSelect)="onCustomerSelected($event.value)"></p-autoComplete>
           <small class="p-error" *ngIf="invalid('customer')">Pick a customer from the list.</small>
         </div>
 

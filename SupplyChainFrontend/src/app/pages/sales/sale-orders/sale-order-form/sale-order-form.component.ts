@@ -1,7 +1,7 @@
-import { Component, Inject, LOCALE_ID, OnInit, effect, untracked } from '@angular/core';
+import { Component, Inject, LOCALE_ID, OnInit, effect, inject, untracked } from '@angular/core';
 import { CommonModule, formatDate, formatNumber } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { Subject, merge } from 'rxjs';
+import { Observable, Subject, merge } from 'rxjs';
 import { debounceTime, distinctUntilChanged, map } from 'rxjs/operators';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import {
@@ -29,7 +29,7 @@ import {
   DeliveryPreviewLineModel
 } from '../../../../services/sale-order.service';
 import {
-  FulfillmentRoutesService, FulfillmentRouteModel, FulfillmentRouteSource
+  FulfillmentRoutesService, FulfillmentRouteModel, FulfillmentRouteSource, routesVisibleToOrg
 } from '../../../../services/fulfillment-routes.service';
 import {
   LineRouteDisplay, PreviewLineRef, ROUTE_LEGEND, inheritPlaceholder, lineRouteDisplay
@@ -50,6 +50,14 @@ import { AddressModel, AddressRequest } from '../../../../services/logistics.ser
 import { AuthService } from '../../../service/auth.service';
 import { TenantService } from '../../../service/tenant.service';
 import { taxCodeLabel as formatTaxCodeLabel } from '../../../../shared/tax-code-label';
+import { LeadTimeService } from '../../../../services/lead-time.service';
+import { LeadTimeCalculation, LeadTimePopoverComponent } from '../../lead-time-popover/lead-time-popover.component';
+import { MoneyService } from '../../../../services/money.service';
+import { DocCurrencyPanelComponent } from '../../../../shared/doc-currency/doc-currency-panel.component';
+import { DocCurrencyInfo } from '../../../../shared/doc-currency/doc-currency';
+
+/** A35 D-9 — a customer's default sale currency (API-CONTRACT.md §5); absent on servers before A35. */
+type PartnerWithSaleCurrency = BusinessPartnerModel & { defaultSaleCurrencyId?: string | null };
 
 /**
  * Where a line's indicative unit price stands. The server prices the order when it is saved; this only previews it.
@@ -182,7 +190,7 @@ const CUSTOMER_PO_MAX_LENGTH = 50;
     CommonModule, RouterModule, ReactiveFormsModule,
     ButtonModule, ToastModule, TooltipModule, DialogModule, DropdownModule, CalendarModule,
     InputNumberModule, InputTextModule, TextareaModule, AutoCompleteModule, SelectButtonModule,
-    ProductVariantPickerComponent, DeliveryPreviewPanelComponent
+    ProductVariantPickerComponent, DeliveryPreviewPanelComponent, LeadTimePopoverComponent, DocCurrencyPanelComponent
   ],
   templateUrl: './sale-order-form.component.html',
   styleUrls: ['./sale-order-form.component.scss'],
@@ -226,6 +234,10 @@ export class SaleOrderFormComponent implements OnInit {
   isLoadingCurrencies = false;
   /** The currencies as loaded, with their ISO codes: a price in another currency is converted by code. */
   private currencies: CurrencyModel[] = [];
+
+  // A35 P3-13 — the organization's currencies (api/currencies) narrow the picker to the active ones (D-1).
+  private readonly money = inject(MoneyService);
+  private formCurrencyCache: DocCurrencyInfo | null = null;
 
   /**
    * SAP alignment (S-3) — the organization's active sales tax codes, default first. Empty until they load,
@@ -298,6 +310,7 @@ export class SaleOrderFormComponent implements OnInit {
     private tenantService: TenantService,
     public authService: AuthService,
     private messageService: MessageService,
+    private leadTimeService: LeadTimeService,
     @Inject(LOCALE_ID) private locale: string
   ) {
     this.form = this.fb.group({
@@ -364,7 +377,7 @@ export class SaleOrderFormComponent implements OnInit {
       next: (res) => {
         this.isLoadingCurrencies = false;
         this.currencies = res.result ?? [];
-        this.currencyOptions = this.currencies.map(c => ({ label: c.code ? `${c.name} (${c.code})` : c.name, value: c.id }));
+        this.rebuildCurrencyOptions();
         this.applyDefaultCurrency();
       },
       error: () => {
@@ -372,6 +385,8 @@ export class SaleOrderFormComponent implements OnInit {
         this.messageService.add({ severity: 'error', summary: 'Error', detail: 'The currency list could not be loaded.' });
       }
     });
+    // A35 — whichever list arrives second narrows the picker; without the org list every currency stays offered.
+    this.money.load().subscribe(() => { this.rebuildCurrencyOptions(); this.applyDefaultCurrency(); });
 
     this.inventoryService.getProducts({ activeOnly: true, pageSize: 500, availableFor: 'RETAIL' }).subscribe({
       next: (res) => { this.products = res.result?.data ?? []; },
@@ -599,6 +614,49 @@ export class SaleOrderFormComponent implements OnInit {
     if (base && this.currencyOptions.some(o => o.value === base)) control.setValue(base);
   }
 
+  /**
+   * A35 D-1 — the picker offers the organization's active currencies (the global catalogue entries it has set up and
+   * not deactivated), plus the one the order already has. Until the org list is known, every currency is offered.
+   */
+  private rebuildCurrencyOptions() {
+    const org = this.money.currencies();
+    const keep = (this.form.get('currencyId')?.value as string | null) ?? this.order?.currencyId ?? null;
+    const offered = org.length
+      ? this.currencies.filter(c => c.id === keep || this.money.find(c.id)?.isActive === true)
+      : this.currencies;
+    this.currencyOptions = offered.map(c => ({ label: c.code ? `${c.name} (${c.code})` : c.name, value: c.id }));
+  }
+
+  /**
+   * A35 D-9 / D-14 — a new order follows the customer's default sale currency (else the sale base) until the user picks
+   * one by hand. An order from a quotation takes the quotation's.
+   */
+  private applyCustomerCurrency(partner: BusinessPartnerModel | null) {
+    if (this.isEdit || this.isFromQuotation) return;
+    const control = this.form.get('currencyId');
+    if (!control || control.dirty) return;
+    const own = (partner as PartnerWithSaleCurrency | null)?.defaultSaleCurrencyId || null;
+    // A customer with no default leaves the currency alone, unless it was the previous customer's default.
+    const fromPrevious = this.currencyFromCustomer !== null && control.value === this.currencyFromCustomer;
+    const wanted = own ?? (fromPrevious ? this.tenantService.tenant()?.baseCurrency ?? null : null);
+    this.currencyFromCustomer = null;
+    if (!wanted || !this.currencyOptions.some(o => o.value === wanted)) return;
+    if (own) this.currencyFromCustomer = own;
+    if (wanted !== control.value) control.setValue(wanted);
+  }
+  private currencyFromCustomer: string | null = null;
+
+  /** The header's currency panel: the chosen currency, not locked (a form only edits drafts). Cached for change detection. */
+  get formCurrency(): DocCurrencyInfo | null {
+    const id = (this.form.get('currencyId')?.value as string | null) ?? null;
+    if (!id) return null;
+    const code = this.currencies.find(c => c.id === id)?.code ?? null;
+    if (this.formCurrencyCache?.currencyId !== id || this.formCurrencyCache?.currencyCode !== code) {
+      this.formCurrencyCache = { currencyId: id, currencyCode: code, exchangeRate: null };
+    }
+    return this.formCurrencyCache;
+  }
+
   /** The customer, once one has been picked from the list. */
   get customer(): BusinessPartnerModel | null {
     const v = this.form.get('customer')?.value;
@@ -641,6 +699,8 @@ export class SaleOrderFormComponent implements OnInit {
       customerPoReference: order.customerPoReference ?? '',
       customerPoDate: order.customerPoDate ? fromDateOnly(order.customerPoDate) : null
     });
+    // A35 — a draft in a currency deactivated since keeps it on offer.
+    this.rebuildCurrencyOptions();
     if (order.routesEnabled === false) this.serverRoutesOff = true;
     // A stored address is kept (and sent only while the field is shown): a collected draft may need it (D-4).
     this.onModeChange(false);
@@ -663,7 +723,13 @@ export class SaleOrderFormComponent implements OnInit {
         // A33 — the line's own override (null = inherits); sent back on every save, the lines being rebuilt.
         fulfillmentRouteUuid: l.fulfillmentRouteUuid ?? null,
         unitPrice: l.unitPrice,
-        priceState: 'found'
+        priceState: 'found',
+        // A34 — the line's dates, kept as they were saved and sent back as they are unless changed here.
+        manualDeliveryDate: l.manualDeliveryDate ? l.manualDeliveryDate.slice(0, 10) : null,
+        calculatedLeadTimeDays: l.calculatedLeadTimeDays ?? null,
+        calculatedDeliveryDate: l.calculatedDeliveryDate ? l.calculatedDeliveryDate.slice(0, 10) : null,
+        leadTimeCalculatedAt: l.leadTimeCalculatedAt ?? null,
+        leadTimeBasis: l.calculatedDeliveryDate ? leadTimeBasis(l.variantUuid, l.quantity) : null
       });
       this.lines.push(group);
 
@@ -725,6 +791,7 @@ export class SaleOrderFormComponent implements OnInit {
     this.form.get('shippingAddressId')?.setValue(null);
     this.addresses = [];
     if (partner?.uuid) this.loadAddresses(partner.uuid);
+    this.applyCustomerCurrency(partner);
     this.lines.controls.forEach((_, i) => this.refreshPrice(i));
   }
 
@@ -910,7 +977,14 @@ export class SaleOrderFormComponent implements OnInit {
       // A31-C1 — UI-only, carried from the picked variant, never submitted; drives the inline
       // min/max quantity check below (the server enforces the same rule regardless).
       saleOrderMinQty: [null as number | null],
-      saleOrderMaxQty: [null as number | null]
+      saleOrderMaxQty: [null as number | null],
+      // A34 D-15 — the line's dates, yyyy-MM-dd (and a UTC timestamp), sent back on every save (C-14). The calculation
+      // holds for the variant and quantity it was made for (leadTimeBasis); a changed line drops it.
+      manualDeliveryDate:     [null as string | null],
+      calculatedLeadTimeDays: [null as number | null],
+      calculatedDeliveryDate: [null as string | null],
+      leadTimeCalculatedAt:   [null as string | null],
+      leadTimeBasis:          [null as string | null]
     });
   }
 
@@ -1203,9 +1277,10 @@ export class SaleOrderFormComponent implements OnInit {
   // ── Saving ──────────────────────────────────────────────────────────────────
 
   private buildLines(): SaleOrderLineRequest[] {
-    return this.lines.controls.map(c => {
+    return this.lines.controls.map((c, i) => {
       // Raw: a read-only route field is disabled, and its override must still go back.
       const v = (c as FormGroup).getRawValue();
+      const calc = this.lineCalculation(i);
       return {
         variantUuid: v.variantUuid as string,
         quantity: v.quantity as number,
@@ -1213,9 +1288,80 @@ export class SaleOrderFormComponent implements OnInit {
         taxPercent: v.taxPercent ?? 0,
         // Sent on every save, an edit included: a draft's lines are rebuilt from what is sent.
         ...(v.taxCodeUuid ? { taxCodeUuid: v.taxCodeUuid as string } : {}),
-        ...(v.fulfillmentRouteUuid ? { fulfillmentRouteUuid: v.fulfillmentRouteUuid as string } : {})
+        ...(v.fulfillmentRouteUuid ? { fulfillmentRouteUuid: v.fulfillmentRouteUuid as string } : {}),
+        // A34 C-14 — the dates go back too, or the rebuilt line loses them.
+        ...(v.manualDeliveryDate ? { manualDeliveryDate: v.manualDeliveryDate as string } : {}),
+        ...(calc.calculatedDate ? {
+          calculatedLeadTimeDays: calc.calculatedDays,
+          calculatedDeliveryDate: calc.calculatedDate,
+          leadTimeCalculatedAt: calc.calculatedAt
+        } : {})
       };
     });
+  }
+
+  // ── A34 PC-07/08/09: lead time per line ─────────────────────────────────────
+
+  /** ⏱ and the date are part of the order: creating it (new) or editing it (existing) — both are calculate codes. */
+  get canUseLeadTime(): boolean {
+    return this.authService.hasPermission(this.isEdit ? 'SALE_ORDER_EDIT' : 'SALE_ORDER_CREATE');
+  }
+
+  /** Line `i`'s stored calculation, while it still matches the line's variant and quantity. */
+  lineCalculation(i: number): { calculatedDate: string | null; calculatedDays: number | null; calculatedAt: string | null } {
+    const v = (this.lines.at(i) as FormGroup).getRawValue();
+    const current = !!v.calculatedDeliveryDate && v.leadTimeBasis === leadTimeBasis(v.variantUuid, v.quantity);
+    return current
+      ? { calculatedDate: v.calculatedDeliveryDate, calculatedDays: v.calculatedLeadTimeDays, calculatedAt: v.leadTimeCalculatedAt }
+      : { calculatedDate: null, calculatedDays: null, calculatedAt: null };
+  }
+
+  private readonly leadTimeCalculators = new WeakMap<AbstractControl, () => Observable<LeadTimeCalculation>>();
+
+  /**
+   * POST api/lead-time/calculate for the line as it stands (unsaved): its own route override, else the route the preview
+   * resolved for it, against the header's expected date. One function per line, so the popover's input stays put.
+   */
+  leadTimeCalculator(i: number): () => Observable<LeadTimeCalculation> {
+    const control = this.lines.at(i);
+    let calc = this.leadTimeCalculators.get(control);
+    if (!calc) {
+      calc = () => {
+        const index = this.lines.controls.indexOf(control);
+        const v = (control as FormGroup).getRawValue();
+        const expected = this.form.get('expectedDeliveryDate')?.value as Date | null;
+        return this.leadTimeService.calculate({
+          variantUuid: v.variantUuid as string,
+          quantity: v.quantity as number,
+          routeUuid: (v.fulfillmentRouteUuid as string | null) || this.previewLineFor(index)?.effectiveRouteUuid || null,
+          requestedDate: expected ? toDateOnly(expected) : null
+        }).pipe(map(res => ({ leadTime: res.result! })));
+      };
+      this.leadTimeCalculators.set(control, calc);
+    }
+    return calc;
+  }
+
+  /** The calculation, onto the line, for the variant and quantity it was made for. */
+  onLineLeadTime(i: number, calc: LeadTimeCalculation) {
+    const line = this.lines.at(i) as FormGroup;
+    const v = line.getRawValue();
+    line.patchValue({
+      calculatedLeadTimeDays: calc.leadTime.totalLeadTimeDays,
+      calculatedDeliveryDate: calc.leadTime.earliestDeliveryDate.slice(0, 10),
+      leadTimeCalculatedAt: calc.leadTime.calculatedAt,
+      leadTimeBasis: leadTimeBasis(v.variantUuid, v.quantity)
+    });
+  }
+
+  /** Override date / Apply / × — the line's own date, or null for the calculated one. Saved with the order. */
+  setLineDate(i: number, date: string | null) {
+    this.lines.at(i).patchValue({ manualDeliveryDate: date });
+  }
+
+  lineLeadTimeLabel(i: number): string {
+    const label = this.lineControl(i, 'label').value as string;
+    return `Line ${i + 1}${label ? ': ' + label : ''}`;
   }
 
   /** What saving will send: a create for a new order, an update for one being edited. Exported so a spec can pin it. */
@@ -1332,6 +1478,11 @@ export class SaleOrderFormComponent implements OnInit {
     return !!this.tenantService.tenant()?.enabledFeatureCodes?.includes('MODULE_LOGISTICS');
   }
 
+  /** A34 D-9 — the organization has the Manufacturing module (make-to-order routes are offered). */
+  private get manufacturingOn(): boolean {
+    return !!this.tenantService.tenant()?.enabledFeatureCodes?.includes('MODULE_MANUFACTURING');
+  }
+
   /** Routes apply: the organization has Logistics and the server has not said otherwise. */
   get routesEnabled(): boolean {
     return this.logisticsOn && !this.serverRoutesOff;
@@ -1352,7 +1503,8 @@ export class SaleOrderFormComponent implements OnInit {
     if (this.routesRequested || !this.routesEnabled || !this.canReadRoutes) return;
     this.routesRequested = true;
     this.routesService.getRoutes().subscribe({
-      next: (res) => { this.activeRoutes = res.result ?? []; },
+      // A34 D-9 — MANUFACTURE routes only for an organization with manufacturing.
+      next: (res) => { this.activeRoutes = routesVisibleToOrg(res.result ?? [], this.manufacturingOn); },
       // Without the list the line can still inherit, and keeps the override it has.
       error: () => { this.activeRoutes = []; }
     });
@@ -1491,3 +1643,8 @@ export class SaleOrderFormComponent implements OnInit {
 
 /** How long the form waits after the last change before asking for a new preview. */
 export const PREVIEW_DEBOUNCE_MS = 400;
+
+/** A34 — what a line's lead-time calculation was made for: a changed variant or quantity voids it. */
+function leadTimeBasis(variantUuid: unknown, quantity: unknown): string | null {
+  return variantUuid && quantity != null ? `${variantUuid}|${quantity}` : null;
+}

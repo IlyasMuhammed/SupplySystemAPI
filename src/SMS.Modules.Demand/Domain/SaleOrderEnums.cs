@@ -85,7 +85,10 @@ internal enum SaleOrderLineFulfillmentMode
     [Code("IN_STOCK")]     InStock,
     [Code("BACK_TO_BACK")] BackToBack,
     [Code("DROP_SHIP")]    DropShip,
-    [Code("SPLIT")]        Split
+    [Code("SPLIT")]        Split,
+    // A34 D-1: the line's effective route is MANUFACTURE. Nothing reserved, DeficitQty = Quantity, no deficit job, no
+    // delivery at confirm: one production order for the full quantity, whose completion creates the delivery.
+    [Code("MAKE_TO_ORDER")] MakeToOrder
 }
 
 internal enum SaleOrderLineStatus

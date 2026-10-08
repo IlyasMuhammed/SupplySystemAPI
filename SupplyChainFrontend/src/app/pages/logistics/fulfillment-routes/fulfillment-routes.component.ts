@@ -1,10 +1,11 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
 import { CheckboxModule } from 'primeng/checkbox';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { DialogModule } from 'primeng/dialog';
+import { SelectModule } from 'primeng/select';
 import { TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
 import { ToastModule } from 'primeng/toast';
@@ -12,8 +13,12 @@ import { TooltipModule } from 'primeng/tooltip';
 import { ConfirmationService, MessageService } from 'primeng/api';
 import { Observable } from 'rxjs';
 
-import { AssignRouteByCategoryResult, FulfillmentRouteModel, FulfillmentRoutesService } from '../../../services/fulfillment-routes.service';
+import {
+  AssignRouteByCategoryResult, FulfillmentRouteCategory, FulfillmentRouteModel, FulfillmentRoutesService, routeCategoryLabel,
+  routeCategoryOf, routeCategorySeverity, routesVisibleToOrg
+} from '../../../services/fulfillment-routes.service';
 import { AuthService } from '../../service/auth.service';
+import { TenantService } from '../../service/tenant.service';
 import { FulfillmentRouteEditorComponent, RouteSavedEvent } from './fulfillment-route-editor/fulfillment-route-editor.component';
 import { FulfillmentRouteAssignComponent } from './fulfillment-route-assign/fulfillment-route-assign.component';
 import { abbreviatedSteps, defaultClassLabel } from './fulfillment-routes.shared';
@@ -25,13 +30,16 @@ import { abbreviatedSteps, defaultClassLabel } from './fulfillment-routes.shared
  * Gating (contract §2): the page opens with FULFILLMENT_ROUTE_VIEW or _MANAGE; every change needs _MANAGE; "Assign to
  * category" needs _ASSIGN. System routes can't be deleted and their steps are locked (D-10); a default route can't be
  * deactivated or deleted (L-5) — the server refuses all of these too.
+ *
+ * A34-PA-09: a category column and filter; no "make default" on a MANUFACTURE route (D-6); MANUFACTURE routes are
+ * hidden from an organization without MODULE_MANUFACTURING (D-9, contract §3: the server lists them regardless).
  */
 @Component({
   selector: 'app-fulfillment-routes',
   standalone: true,
   imports: [
-    CommonModule, FormsModule, ButtonModule, CheckboxModule, ConfirmDialogModule, DialogModule, TableModule, TagModule,
-    ToastModule, TooltipModule, FulfillmentRouteEditorComponent, FulfillmentRouteAssignComponent
+    CommonModule, FormsModule, ButtonModule, CheckboxModule, ConfirmDialogModule, DialogModule, SelectModule, TableModule,
+    TagModule, ToastModule, TooltipModule, FulfillmentRouteEditorComponent, FulfillmentRouteAssignComponent
   ],
   templateUrl: './fulfillment-routes.component.html',
   styleUrls: ['./fulfillment-routes.component.scss'],
@@ -63,11 +71,33 @@ export class FulfillmentRoutesComponent implements OnInit {
   get canManage(): boolean { return this.authService.hasPermission('FULFILLMENT_ROUTE_MANAGE'); }
   get canAssign(): boolean { return this.authService.hasPermission('FULFILLMENT_ROUTE_ASSIGN'); }
 
-  get visibleRoutes(): FulfillmentRouteModel[] {
-    return this.showInactive ? this.routes : this.routes.filter(r => r.isActive);
+  // ── A34 category ─────────────────────────────────────────────────────────────────────────────────────────
+  private readonly tenantService = inject(TenantService);
+  readonly categoryLabel = (r: FulfillmentRouteModel) => routeCategoryLabel(routeCategoryOf(r));
+  readonly categorySeverity = (r: FulfillmentRouteModel) => routeCategorySeverity(routeCategoryOf(r));
+  categoryFilter: FulfillmentRouteCategory | null = null;
+
+  get manufacturingEnabled(): boolean { return this.tenantService.hasFeature('MODULE_MANUFACTURING'); }
+
+  get categoryFilterOptions(): { label: string; value: FulfillmentRouteCategory | null }[] {
+    const options: { label: string; value: FulfillmentRouteCategory | null }[] = [
+      { label: 'All categories', value: null }, { label: 'Stock', value: 'STOCK' }
+    ];
+    if (this.manufacturingEnabled) options.push({ label: 'Manufacture', value: 'MANUFACTURE' });
+    return options;
   }
 
-  get inactiveCount(): number { return this.routes.filter(r => !r.isActive).length; }
+  isManufacture(route: FulfillmentRouteModel): boolean { return routeCategoryOf(route) === 'MANUFACTURE'; }
+
+  /** The routes this organization may see (D-9). */
+  private get orgRoutes(): FulfillmentRouteModel[] { return routesVisibleToOrg(this.routes, this.manufacturingEnabled); }
+
+  get visibleRoutes(): FulfillmentRouteModel[] {
+    return this.orgRoutes.filter(r =>
+      (this.showInactive || r.isActive) && (!this.categoryFilter || routeCategoryOf(r) === this.categoryFilter));
+  }
+
+  get inactiveCount(): number { return this.orgRoutes.filter(r => !r.isActive).length; }
 
   stepChain(route: FulfillmentRouteModel): string {
     return abbreviatedSteps([...route.steps].sort((a, b) => a.stepOrder - b.stepOrder).map(s => s.stepCode));
@@ -125,6 +155,7 @@ export class FulfillmentRoutesComponent implements OnInit {
   // ── Default (L-1: one per class) ────────────────────────────────────────────────────────────────────────
 
   confirmSetDefault(route: FulfillmentRouteModel): void {
+    if (this.isManufacture(route)) return; // D-6: the server refuses it (400)
     const cls = defaultClassLabel(route.requiresShipping);
     const current = this.routes.find(r => r.isDefault && r.requiresShipping === route.requiresShipping && r.uuid !== route.uuid);
     this.confirmation.confirm({

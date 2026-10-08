@@ -23,6 +23,9 @@ import { fromDateOnly, toDateOnly } from '../../../../shared/date-only';
 import { INVOICE_STATUS_SEVERITY, PAYMENT_STATUS_SEVERITY, Severity } from '../../receivables/receivables.shared';
 import { SalesInvoicePdfDialogComponent } from '../sales-invoice-pdf-dialog/sales-invoice-pdf-dialog.component';
 import { QboSyncBadgeComponent } from '../../../../shared/components/qbo-sync-badge/qbo-sync-badge.component';
+import { DocCurrencyPanelComponent } from '../../../../shared/doc-currency/doc-currency-panel.component';
+import { FxDifferenceComponent } from '../../../../shared/doc-currency/fx-difference.component';
+import { DocCurrencyInfo, cachedDocCurrency, missingRateOf, sumDifferences } from '../../../../shared/doc-currency/doc-currency';
 
 @Component({
   selector: 'app-sales-invoice-detail',
@@ -30,7 +33,7 @@ import { QboSyncBadgeComponent } from '../../../../shared/components/qbo-sync-ba
   imports: [
     CommonModule, RouterModule, FormsModule,
     TableModule, ButtonModule, TagModule, TooltipModule, ToastModule, DialogModule, CalendarModule, TextareaModule,
-    AttachmentListComponent, SalesInvoicePdfDialogComponent, QboSyncBadgeComponent
+    AttachmentListComponent, SalesInvoicePdfDialogComponent, QboSyncBadgeComponent, DocCurrencyPanelComponent, FxDifferenceComponent
   ],
   templateUrl: './sales-invoice-detail.component.html',
   styleUrls: ['./sales-invoice-detail.component.scss'],
@@ -161,6 +164,29 @@ export class SalesInvoiceDetailComponent implements OnInit {
         && inv.baseCurrencyCode.toUpperCase() !== (inv.currencyCode ?? '').toUpperCase();
   }
 
+  // ── A35-E-06: currency, locked rate, realized exchange differences ──────────
+
+  private readonly mapCurrency = cachedDocCurrency((inv: SalesInvoiceDetailModel) => ({
+    currencyId: inv.currencyId, currencyCode: inv.currencyCode, exchangeRate: inv.exchangeRate,
+    baseCurrencyId: inv.baseCurrencyId, baseCurrencyCode: inv.baseCurrencyCode, rateLockedAt: inv.exchangeRateLockedAt
+  }));
+
+  /** The header panel: rate locked at issue against the sale base. */
+  get currencyInfo(): DocCurrencyInfo | null { return this.mapCurrency(this.invoice); }
+
+  /** The server sends a realized difference per payment (A35); older servers do not — no column then. */
+  get hasPaymentFx(): boolean {
+    return (this.invoice?.payments ?? []).some(p => p.exchangeDifference !== null && p.exchangeDifference !== undefined);
+  }
+
+  /** Σ realized differences in the base: the server's total, else the payments' sum; null when unknown. */
+  get realizedFx(): number | null {
+    const inv = this.invoice;
+    if (!inv) return null;
+    if (inv.realizedExchangeDifference !== null && inv.realizedExchangeDifference !== undefined) return inv.realizedExchangeDifference;
+    return sumDifferences((inv.payments ?? []).map(p => p.exchangeDifference));
+  }
+
   get canViewPayments(): boolean { return this.can('CUSTOMER_PAYMENT_VIEW'); }
   get canViewLedger(): boolean   { return this.can('CUSTOMER_LEDGER_VIEW'); }
   get canViewDelivery(): boolean { return this.can('DELIVERY_VIEW'); }
@@ -229,6 +255,12 @@ export class SalesInvoiceDetailComponent implements OnInit {
       },
       error: (err) => {
         this.isIssuing = false;
+        // A35 D-5 — the invoice's currency has no rate on the issue date.
+        const missing = missingRateOf(err?.error?.message);
+        if (missing) {
+          this.messageService.add({ severity: 'error', summary: 'No exchange rate', detail: missing.message, life: 10000 });
+          return;
+        }
         this.messageService.add({
           severity: 'error', summary: 'Not issued', detail: err?.error?.message ?? 'The invoice could not be issued.'
         });

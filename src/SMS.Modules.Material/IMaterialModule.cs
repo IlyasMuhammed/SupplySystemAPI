@@ -75,6 +75,21 @@ public static class MaterialModuleExtensions
         // A30-P5-01 — the ten manufacturing-lifecycle notifications (FSD §30).
         services.AddScoped<IManufacturingNotificationService, ManufacturingNotificationService>();
 
+        // A34 (route classification, make-to-order) — one active-BOM rule (ActiveBomResolver) behind PO creation,
+        // the lead-time calculator's BOM reader and the confirm gate's readiness check (D-5); "open production orders"
+        // for the route category / in-use rules (D-8).
+        services.AddScoped<IBomStructureReader, BomStructureReader>();
+        services.AddScoped<IManufacturingReadiness, ManufacturingReadiness>();
+        services.AddScoped<IFulfillmentRouteUsage, ProductionOrderRouteUsage>();
+        // A34 C5 (D-17, D-22, D-25) — make-to-order production orders for sale order lines; Demand's confirm, cancel and
+        // detail reach it through the Shared contract. It resolves the production graph lazily (no DI cycle into Demand).
+        services.AddScoped<ISaleOrderProductionService, SaleOrderProductionService>();
+        // A34 C6 (D-20) — a completed make-to-order order → its DRAFT delivery through Logistics' IProductionDeliveryCreator
+        // (FGR hook, "Create delivery now"), and the sweep that retries a hand-off that never settled. Neither depends on
+        // the FGR or QI services (no DI cycle with the hook).
+        services.AddScoped<IProductionDeliveryHandoff, ProductionDeliveryHandoff>();
+        services.AddScoped<ProductionDeliverySweepJob>();
+
         // Workflow status handlers (MIR_PROJECT and MIR_GENERAL)
         services.AddScoped<IDocumentStatusHandler, MirProjectStatusHandler>();
         services.AddScoped<IDocumentStatusHandler, MirGeneralStatusHandler>();
@@ -111,6 +126,12 @@ public static class MaterialModuleExtensions
         // migrates Inventory first — so both schemas exist by the time this runs. Idempotent.
         scope.ServiceProvider.GetRequiredService<IMirReservationMigrationService>()
              .MigrateAsync().GetAwaiter().GetResult();
+
+        // A34 D-20 — every 15 minutes, make-to-order orders whose delivery hand-off is pending ≥ 10 minutes.
+        Hangfire.RecurringJob.AddOrUpdate<ProductionDeliverySweepJob>(
+            ProductionDeliverySweepJob.RecurringJobId,
+            job => job.RunAsync(),
+            ProductionDeliverySweepJob.Cron);
 
         return app;
     }

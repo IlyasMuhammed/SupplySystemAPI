@@ -445,13 +445,13 @@ public class FulfillmentRouteTests
     // ── Seeding: PA-03, D-6, L-1, R-3, R-13 ─────────────────────────────────
 
     [Fact]
-    public async Task Seeding_adds_the_three_system_routes_with_a_default_for_each_class()
+    public async Task Seeding_adds_the_five_system_routes_with_a_default_for_each_class()
     {
         var h = New();
-        (await new FulfillmentRouteSeeder(h.Db).EnsureSeededAsync(h.Tenant.OrganizationId)).Should().Be(3);
+        (await new FulfillmentRouteSeeder(h.Db).EnsureSeededAsync(h.Tenant.OrganizationId)).Should().Be(5);
 
         var routes = await h.Service.GetListAsync(true);
-        routes.Select(r => r.Code).Should().Equal("PICK_ONLY", "PICK_AND_SHIP", "PICK_PACK_SHIP");
+        routes.Select(r => r.Code).Should().Equal("PICK_ONLY", "PICK_AND_SHIP", "PICK_PACK_SHIP", "MFG_PICK_SHIP", "MFG_PICK_PACK_SHIP");
         routes.Should().OnlyContain(r => r.IsSystem && r.IsActive);
 
         var only = routes[0]; var andShip = routes[1]; var packShip = routes[2];
@@ -481,7 +481,7 @@ public class FulfillmentRouteTests
         (await seeder.EnsureSeededAsync(h.Tenant.OrganizationId)).Should().Be(0);
 
         var after = await h.Service.GetListAsync(true);
-        after.Should().HaveCount(3);
+        after.Should().HaveCount(5);
         var boxed = after.Single(r => r.Code == "PICK_PACK_SHIP");
         boxed.Name.Should().Be("Boxed");
         boxed.IsActive.Should().BeFalse();
@@ -510,11 +510,11 @@ public class FulfillmentRouteTests
         var (db, _, _) = LogisticsTestDb.New(Guid.NewGuid(), isSuperAdmin: true);
         var orgA = Guid.NewGuid(); var orgB = Guid.NewGuid();
 
-        (await new FulfillmentRouteSeeder(db).EnsureSeededForAllAsync([orgA, orgB, orgA, Guid.Empty])).Should().Be(6);
+        (await new FulfillmentRouteSeeder(db).EnsureSeededForAllAsync([orgA, orgB, orgA, Guid.Empty])).Should().Be(10);
 
         var rows = await db.Set<FulfillmentRoute>().IgnoreQueryFilters().Include(r => r.Steps).ToListAsync();
-        rows.Count(r => r.OrganizationId == orgA).Should().Be(3);
-        rows.Count(r => r.OrganizationId == orgB).Should().Be(3);
+        rows.Count(r => r.OrganizationId == orgA).Should().Be(5);
+        rows.Count(r => r.OrganizationId == orgB).Should().Be(5);
         rows.SelectMany(r => r.Steps).Should().OnlyContain(s => s.OrganizationId == orgA || s.OrganizationId == orgB);
         rows.Where(r => r.OrganizationId == orgA).SelectMany(r => r.Steps)
             .Should().OnlyContain(s => s.OrganizationId == orgA);
@@ -528,7 +528,7 @@ public class FulfillmentRouteTests
 
         await new FulfillmentRouteProvisioningHandler(new FulfillmentRouteSeeder(db)).OnOrganizationProvisionedAsync(org);
 
-        (await db.Set<FulfillmentRoute>().IgnoreQueryFilters().CountAsync(r => r.OrganizationId == org)).Should().Be(3);
+        (await db.Set<FulfillmentRoute>().IgnoreQueryFilters().CountAsync(r => r.OrganizationId == org)).Should().Be(5);
     }
 
     // ── IFulfillmentRouteLookup: R-12 ───────────────────────────────────────
@@ -564,7 +564,7 @@ public class FulfillmentRouteTests
         defaults.For("SELF_PICKUP")!.Code.Should().Be("PICK_ONLY");
 
         (await lookup.ListActiveAsync(h.Tenant.OrganizationId)).Select(r => r.Code)
-            .Should().Equal("PICK_ONLY", "PICK_AND_SHIP");
+            .Should().Equal("PICK_ONLY", "PICK_AND_SHIP", "MFG_PICK_SHIP", "MFG_PICK_PACK_SHIP");
 
         (await lookup.GetOrgDefaultsAsync(Guid.NewGuid())).Should().Be(new FulfillmentRouteDefaults(null, null));
     }

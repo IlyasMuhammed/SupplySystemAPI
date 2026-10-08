@@ -319,6 +319,43 @@ public class MigrationTests
         migration.DownOperations.Should().OnlyContain(o => o is DropTableOperation || o is DropColumnOperation || o is DropIndexOperation);
     }
 
+    // ── A34 PA-01 — route category and deliveries from production ────────────
+
+    private static Migration A34Migration() =>
+        Migrations().Single(m => m.GetType().Name == "A34_RouteCategoryAndProductionDeliveries");
+
+    [Fact]
+    public void The_A34_migration_is_guarded_sql_that_adds_the_category_and_the_production_link_and_no_rows()
+    {
+        var up = A34Migration().UpOperations;
+        up.Should().OnlyContain(o => o is SqlOperation, "every API start migrates the drifted shared database: guarded SQL only");
+
+        var sql = up.Cast<SqlOperation>().Select(o => o.Sql).ToList();
+        sql.Should().HaveCount(4, "one statement per Sql() call");
+        sql.Should().OnlyContain(s => s.TrimStart().StartsWith("IF "), "each statement checks before it adds");
+        sql.Should().NotContain(s => s.Contains("INSERT", StringComparison.OrdinalIgnoreCase), "D-9: seeds come from C#");
+        sql.Should().NotContain(s => System.Text.RegularExpressions.Regex.IsMatch(s, @"\bDROP\s", System.Text.RegularExpressions.RegexOptions.IgnoreCase));
+
+        var all = string.Join("\n", sql);
+        all.Should().Contain("[RouteCategory] nvarchar(20) NOT NULL").And.Contain("DEFAULT N'STOCK'")
+           .And.Contain("CK_fulfillment_routes_RouteCategory").And.Contain("('STOCK','MANUFACTURE','BUY','DROPSHIP')")
+           .And.Contain("[ProductionOrderUuid] uniqueidentifier NULL")
+           .And.Contain("WHERE [ProductionOrderUuid] IS NOT NULL");
+    }
+
+    [Fact]
+    public void Rolling_the_A34_migration_back_removes_the_index_the_columns_and_both_constraints()
+    {
+        var down = A34Migration().DownOperations;
+        down.Should().OnlyContain(o => o is SqlOperation);
+        var all = string.Join("\n", down.Cast<SqlOperation>().Select(o => o.Sql));
+        all.Should().Contain("DROP INDEX [IX_delivery_orders_OrganizationId_ProductionOrderUuid]")
+           .And.Contain("DROP COLUMN [ProductionOrderUuid]")
+           .And.Contain("DROP CONSTRAINT [CK_fulfillment_routes_RouteCategory]")
+           .And.Contain("sys.default_constraints")
+           .And.Contain("DROP COLUMN [RouteCategory]");
+    }
+
     // ── The test that stops the model and the migrations drifting apart ──────
 
     [Fact]

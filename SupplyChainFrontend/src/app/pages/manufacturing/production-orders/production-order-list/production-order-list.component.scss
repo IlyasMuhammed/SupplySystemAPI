@@ -3,3 +3,6 @@
 .filters { display: flex; gap: .75rem; align-items: center; }
 :host ::ng-deep .status-filter { min-width: 11rem; }
 .row-link { cursor: pointer; }
+
+// A34 PE-06
+:host ::ng-deep .mto-tag { font-size: .6875rem; }

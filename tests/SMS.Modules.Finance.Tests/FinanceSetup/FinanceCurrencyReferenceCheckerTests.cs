@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
 using SMS.Modules.Finance.Domain;
 using SMS.Modules.Finance.Services;
 using Xunit;
@@ -94,16 +95,29 @@ public class FinanceCurrencyReferenceCheckerTests
     }
 
     [Fact]
-    public async Task A_live_exchange_rate_counts_on_either_side_and_a_deleted_one_does_not()
+    public async Task A_live_legacy_exchange_rate_counts_on_either_side_and_a_deleted_one_does_not()
     {
-        var rate = await _globex.CreateRate("USD", "EUR", 0.92m, "2026-10-01");
-
+        await _globex.Seed(new ExchangeRate { Uuid = Guid.NewGuid(), FromCurrencyCode = "USD", ToCurrencyCode = "EUR", Rate = 0.92m, EffectiveDate = new DateTime(2026, 10, 1), CreatedBy = 1 });
         IsReferenced(SetupWorld.UsdId).Should().BeTrue();
         IsReferenced(SetupWorld.EurId).Should().BeTrue();
 
-        await _globex.Rates(s => s.DeleteAsync(rate.Uuid, SetupWorld.User));
-
+        await using (var db = _globex.Finance())
+        {
+            (await db.ExchangeRates.SingleAsync()).IsDelete = true;
+            await db.SaveChangesAsync();
+        }
         IsReferenced(SetupWorld.UsdId).Should().BeFalse();
         IsReferenced(SetupWorld.EurId).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task A35_an_organizations_currency_or_rate_references_the_catalog_guid()
+    {
+        await _globex.Seed(new OrgCurrency { CurrencyId = SetupWorld.AedId, Code = "AED", Name = "UAE Dirham", Symbol = "AED" });
+        IsReferenced(SetupWorld.AedId).Should().BeTrue();
+
+        await _acme.Seed(new CurrencyRate { CurrencyId = SetupWorld.UsdId, CurrencyCode = "USD", Rate = 1m, InverseRate = 1m,
+            EffectiveFrom = new DateOnly(2026, 1, 1), EffectiveTo = new DateOnly(9999, 12, 31) });
+        IsReferenced(SetupWorld.UsdId).Should().BeTrue();
     }
 }

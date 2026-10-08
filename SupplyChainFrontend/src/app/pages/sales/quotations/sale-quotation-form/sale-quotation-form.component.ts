@@ -1,4 +1,4 @@
-import { Component, OnInit, effect } from '@angular/core';
+import { Component, OnInit, effect, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import {
@@ -18,7 +18,9 @@ import {
   SalesPreorderService, SaleQuotation, CreateSaleQuotationRequest, UpdateSaleQuotationRequest
 } from '../../../../services/sales-preorder.service';
 import { BusinessPartnerService, BusinessPartnerModel } from '../../../../services/business-partner.service';
-import { CurrenciesService } from '../../../../services/currencies.service';
+import { CurrenciesService, CurrencyModel } from '../../../../services/currencies.service';
+import { MoneyService } from '../../../../services/money.service';
+import { orgActiveCurrencyOptions } from '../../../../shared/doc-currency/doc-currency-picker';
 import { TenantService } from '../../../service/tenant.service';
 import { fromDateOnly, toDateOnly } from '../../../../shared/date-only';
 import { QUOTATIONS_ROUTE } from '../sale-quotation.shared';
@@ -67,6 +69,9 @@ export class SaleQuotationFormComponent implements OnInit {
 
   customerSuggestions: BusinessPartnerModel[] = [];
   currencyOptions: { label: string; value: string }[] = [];
+  /** A35 D-1 — the global catalogue as loaded; offered narrowed to the org's active currencies. */
+  private catalog: CurrencyModel[] = [];
+  private readonly money = inject(MoneyService);
 
   constructor(
     fb: FormBuilder,
@@ -102,11 +107,14 @@ export class SaleQuotationFormComponent implements OnInit {
 
     this.currenciesService.getAll().subscribe({
       next: (res) => {
-        this.currencyOptions = (res.result ?? []).map(c => ({ label: c.code ? `${c.name} (${c.code})` : c.name, value: c.id }));
+        this.catalog = res.result ?? [];
+        this.rebuildCurrencyOptions();
         this.applyDefaultCurrency();
       },
       error: () => { this.error = 'The currency list could not be loaded.'; }
     });
+    // A35 — whichever list arrives second narrows the picker; without the org list every currency stays offered.
+    this.money.load().subscribe(() => { this.rebuildCurrencyOptions(); this.applyDefaultCurrency(); });
 
     if (this.uuid) this.load(this.uuid);
   }
@@ -117,6 +125,12 @@ export class SaleQuotationFormComponent implements OnInit {
 
   private today(): Date { return new Date(new Date().setHours(0, 0, 0, 0)); }
 
+  /** Org-active currencies, plus the quotation's own (kept even if deactivated since). */
+  private rebuildCurrencyOptions() {
+    const keep = (this.form?.get('currencyId')?.value as string | null) ?? this.quotation?.currencyId ?? null;
+    this.currencyOptions = orgActiveCurrencyOptions(this.money, this.catalog, keep);
+  }
+
   /** A new quotation is in the organization's base currency unless one is chosen (the server does the same). */
   private applyDefaultCurrency() {
     const control = this.form?.get('currencyId');
@@ -124,6 +138,22 @@ export class SaleQuotationFormComponent implements OnInit {
     const base = this.tenantService.tenant()?.baseCurrency;
     if (base && this.currencyOptions.some(o => o.value === base)) control.setValue(base);
   }
+
+  /**
+   * A35 D-9 / D-14 — a new quotation follows the customer's default sale currency until the user picks one by hand; a
+   * customer with none brings the base back only if the currency was the previous customer's default.
+   */
+  onCustomerSelected(partner: BusinessPartnerModel | null) {
+    const control = this.form.get('currencyId');
+    if (this.isEdit || this.currencyLocked || !control || control.dirty) return;
+    const own = (partner as (BusinessPartnerModel & { defaultSaleCurrencyId?: string | null }) | null)?.defaultSaleCurrencyId || null;
+    const ownOffered = own && this.currencyOptions.some(o => o.value === own) ? own : null;
+    const fromPrevious = this.currencyFromCustomer !== null && control.value === this.currencyFromCustomer;
+    this.currencyFromCustomer = ownOffered;
+    const wanted = ownOffered ?? (fromPrevious ? this.tenantService.tenant()?.baseCurrency ?? null : null);
+    if (wanted && wanted !== control.value && this.currencyOptions.some(o => o.value === wanted)) control.setValue(wanted);
+  }
+  private currencyFromCustomer: string | null = null;
 
   /** The server refuses a new currency while priced lines exist: their prices are in the old one. */
   get currencyLocked(): boolean {
@@ -153,6 +183,7 @@ export class SaleQuotationFormComponent implements OnInit {
           internalNotes: q.internalNotes ?? ''
         });
         this.form.get('customer')!.disable();
+        this.rebuildCurrencyOptions();
         if (this.currencyLocked) this.form.get('currencyId')!.disable();
       },
       error: (err) => {

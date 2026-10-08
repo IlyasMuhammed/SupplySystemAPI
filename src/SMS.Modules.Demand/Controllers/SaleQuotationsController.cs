@@ -63,6 +63,17 @@ public class SaleQuotationsController : ControllerBase
     public async Task<IActionResult> UpdateLine(Guid uuid, Guid lineUuid, [FromBody] SaleQuotationLineRequest req) =>
         Done(await _service.UpdateLineAsync(uuid, lineUuid, req, User.GetUserId()), StaticResponseMessage.recordUpdatedSuccessfully);
 
+    /// <summary>A34 D-16 — calculate one DRAFT line's lead time and store it (API-CONTRACT §5.2).</summary>
+    [HttpPost("{uuid:guid}/lines/{lineUuid:guid}/lead-time")]
+    [RequirePermission(PermissionCodes.SALE_QUOTATION_EDIT)]
+    public async Task<IActionResult> CalculateLineLeadTime(Guid uuid, Guid lineUuid, [FromServices] ISalesLineLeadTimeService leadTimes)
+    {
+        var result = await leadTimes.CalculateQuotationLineAsync(uuid, lineUuid, User.GetUserId());
+        return result is null
+            ? NotFound(ApiResponse.Fail(StaticResponseMessage.recordNotFound))
+            : Ok(ApiResponse<SaleLineLeadTimeModel<SaleQuotationLineModel>>.Ok(result, "Lead time calculated."));
+    }
+
     [HttpDelete("{uuid:guid}/lines/{lineUuid:guid}")]
     [RequirePermission(PermissionCodes.SALE_QUOTATION_EDIT)]
     public async Task<IActionResult> DeleteLine(Guid uuid, Guid lineUuid) =>

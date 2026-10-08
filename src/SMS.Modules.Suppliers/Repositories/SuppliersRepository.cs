@@ -133,7 +133,9 @@ internal sealed class SuppliersRepository : ISuppliersRepository
             PrimaryContactPhone = req.PrimaryContactPhone,
             PrimaryContactEmail = req.PrimaryContactEmail,
             PreferredPaymentTerms = req.PreferredPaymentTerms,
-            PreferredCurrency = req.PreferredCurrency,
+            // A35 D-9 — defaultPurchaseCurrencyId is the alias of PreferredCurrency and wins when both are sent.
+            PreferredCurrency = req.DefaultPurchaseCurrencyId ?? req.PreferredCurrency,
+            DefaultSaleCurrency = req.DefaultSaleCurrencyId,
             CreditLimit = req.CreditLimit,
             LeadTimeDays = req.LeadTimeDays,
             Notes = req.Notes,
@@ -266,6 +268,7 @@ internal sealed class SuppliersRepository : ISuppliersRepository
             PrimaryContactName = s.PrimaryContactName, PrimaryContactTitle = s.PrimaryContactTitle,
             PrimaryContactPhone = s.PrimaryContactPhone, PrimaryContactEmail = s.PrimaryContactEmail,
             PreferredPaymentTerms = s.PreferredPaymentTerms, PreferredCurrency = s.PreferredCurrency,
+            DefaultPurchaseCurrencyId = s.PreferredCurrency, DefaultSaleCurrencyId = s.DefaultSaleCurrency,
             CreditLimit = s.CreditLimit, LeadTimeDays = s.LeadTimeDays, Rating = s.Rating,
             Status = s.Status, OnboardingDate = s.OnboardingDate, LastReviewDate = s.LastReviewDate,
             Notes = s.Notes, IsPreferredSupplier = s.IsPreferredSupplier,
@@ -315,7 +318,11 @@ internal sealed class SuppliersRepository : ISuppliersRepository
         if (req.PrimaryContactPhone is not null) s.PrimaryContactPhone = req.PrimaryContactPhone;
         if (req.PrimaryContactEmail is not null) s.PrimaryContactEmail = req.PrimaryContactEmail;
         if (req.PreferredPaymentTerms.HasValue) s.PreferredPaymentTerms = req.PreferredPaymentTerms;
-        if (req.PreferredCurrency.HasValue) s.PreferredCurrency = req.PreferredCurrency;
+        // A35 D-9 — null = unchanged; the Clear flags remove a default (validated by the service).
+        if (req.ClearDefaultPurchaseCurrency) s.PreferredCurrency = null;
+        else if ((req.DefaultPurchaseCurrencyId ?? req.PreferredCurrency) is { } purchaseCurrency) s.PreferredCurrency = purchaseCurrency;
+        if (req.ClearDefaultSaleCurrency) s.DefaultSaleCurrency = null;
+        else if (req.DefaultSaleCurrencyId is { } saleCurrency) s.DefaultSaleCurrency = saleCurrency;
         if (req.CreditLimit.HasValue) s.CreditLimit = req.CreditLimit;
         if (req.LeadTimeDays.HasValue) s.LeadTimeDays = req.LeadTimeDays;
         if (req.Notes is not null) s.Notes = req.Notes;

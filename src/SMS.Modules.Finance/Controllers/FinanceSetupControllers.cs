@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using SMS.Modules.Finance.Models;
 using SMS.Modules.Finance.Services;
 using SMS.Shared.Authorization;
@@ -95,32 +95,6 @@ public class ExchangeRatesController : ControllerBase
                     : $"The {quote.FromCurrencyCode} → {quote.ToCurrencyCode} rate of {quote.EffectiveDate}."));
     }
 
-    [HttpPost]
-    [RequirePermission(PermissionCodes.FINANCE_SETUP_MANAGE)]
-    [RequiresFeature("MODULE_FINANCE")]
-    public async Task<IActionResult> Create([FromBody] SaveExchangeRateRequest req)
-    {
-        var created = await _svc.CreateAsync(req, User.GetUserId());
-        return Ok(ApiResponse<ExchangeRateModel>.Ok(created, StaticResponseMessage.recordCreatedSuccessfully));
-    }
 
-    [HttpPut("{uuid:guid}")]
-    [RequirePermission(PermissionCodes.FINANCE_SETUP_MANAGE)]
-    [RequiresFeature("MODULE_FINANCE")]
-    public async Task<IActionResult> Update(Guid uuid, [FromBody] SaveExchangeRateRequest req)
-    {
-        var updated = await _svc.UpdateAsync(uuid, req, User.GetUserId());
-        return Ok(ApiResponse<ExchangeRateModel>.Ok(
-            updated, "Exchange rate updated. Documents that already recorded the old rate keep it."));
-    }
-
-    /// <summary>Soft delete. Documents that recorded this rate keep it; new ones fall back to the previous rate for the pair.</summary>
-    [HttpDelete("{uuid:guid}")]
-    [RequirePermission(PermissionCodes.FINANCE_SETUP_MANAGE)]
-    [RequiresFeature("MODULE_FINANCE")]
-    public async Task<IActionResult> Delete(Guid uuid)
-    {
-        await _svc.DeleteAsync(uuid, User.GetUserId());
-        return Ok(ApiResponse.Ok(StaticResponseMessage.recordDeletedSuccessfully));
-    }
+    // A35-E-02 (D-17): POST/PUT/DELETE removed — rates are written through api/currency-rates (CurrencyRatesController).
 }

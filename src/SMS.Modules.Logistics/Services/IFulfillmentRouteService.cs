@@ -10,8 +10,11 @@ namespace SMS.Modules.Logistics.Services;
 /// </summary>
 public interface IFulfillmentRouteService
 {
-    /// <summary>By display order, then code. Active only unless <paramref name="includeInactive"/>.</summary>
-    Task<IReadOnlyList<FulfillmentRouteModel>> GetListAsync(bool includeInactive);
+    /// <summary>
+    /// By display order, then code. Active only unless <paramref name="includeInactive"/>. A34: only routes of
+    /// <paramref name="category"/> when given (case-insensitive); an unknown category is a 400.
+    /// </summary>
+    Task<IReadOnlyList<FulfillmentRouteModel>> GetListAsync(bool includeInactive, string? category = null);
 
     Task<FulfillmentRouteModel?> GetByUuidAsync(Guid uuid);
 

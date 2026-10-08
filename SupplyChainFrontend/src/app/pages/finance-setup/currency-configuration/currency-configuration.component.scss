@@ -1,0 +1,4 @@
+.base-row { max-width: 32rem; }
+.base-input { display: flex; align-items: center; gap: .5rem; }
+.select-wrap { flex: 1; min-width: 0; display: block; }
+.actions { display: flex; justify-content: flex-end; align-items: center; gap: 1rem; flex-wrap: wrap; }

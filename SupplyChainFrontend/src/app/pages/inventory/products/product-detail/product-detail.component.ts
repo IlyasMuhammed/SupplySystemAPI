@@ -54,6 +54,13 @@ import { QboSyncStatusStore } from '../../../../shared/components/qbo-sync-badge
 import { AuthService } from '../../../service/auth.service';
 import { TenantService } from '../../../service/tenant.service';
 import { VariantRouteFieldComponent } from './variant-route-field/variant-route-field.component';
+import { LeadTimesTabComponent } from './lead-times-tab/lead-times-tab.component';
+
+/** A34 — any of these may call api/lead-time/calculate-manufacturing (API-CONTRACT §2). */
+const LEAD_TIME_CALCULATE_CODES = [
+  'SALE_ORDER_VIEW', 'SALE_ORDER_CREATE', 'SALE_ORDER_EDIT', 'SALE_INQUIRY_VIEW', 'SALE_INQUIRY_EDIT',
+  'SALE_QUOTATION_VIEW', 'SALE_QUOTATION_EDIT', 'INVENTORY_VIEW', 'STOCK_MANAGE'
+];
 
 @Component({
   selector: 'app-product-detail',
@@ -64,7 +71,7 @@ import { VariantRouteFieldComponent } from './variant-route-field/variant-route-
     DialogModule, InputTextModule, TextareaModule, InputNumberModule,
     DividerModule, TooltipModule, ConfirmDialogModule, DropdownModule, TableModule,
     CheckboxModule, CalendarModule, DynamicAttributeFormComponent, BomManagerComponent, QboSyncBadgeComponent,
-    VariantRouteFieldComponent
+    VariantRouteFieldComponent, LeadTimesTabComponent
   ],
   templateUrl: './product-detail.component.html',
   styleUrls: ['./product-detail.component.scss'],
@@ -161,6 +168,15 @@ export class ProductDetailComponent implements OnInit {
   private readonly tenantService = inject(TenantService);
   get routesEnabled(): boolean { return this.tenantService.hasFeature('MODULE_LOGISTICS'); }
   get canAssignRoute(): boolean { return this.authService.hasPermission('FULFILLMENT_ROUTE_ASSIGN'); }
+
+  // A34 — make-to-order routes are offered only for MANUFACTURE products (D-3) in MODULE_MANUFACTURING orgs (D-9).
+  get productManufactured(): boolean { return this.product?.supplyMethod === 'MANUFACTURE'; }
+  get manufacturingEnabled(): boolean { return this.tenantService.hasFeature('MODULE_MANUFACTURING'); }
+
+  // A34-PB-07 (D-26) — the Lead Times tab: editable with STOCK_MANAGE (the PUT's code); "Recalculate from BOM" with a
+  // calculate code (contract §2).
+  get canEditLeadTimes(): boolean { return this.authService.hasPermission('STOCK_MANAGE'); }
+  get canCalculateLeadTimes(): boolean { return LEAD_TIME_CALCULATE_CODES.some(c => this.authService.hasPermission(c)); }
 
   // ── Pricing tab (A29-P2-06) ───────────────────────────────────────────────
   pricingVariantUuid: string | null = null;

@@ -291,6 +291,9 @@ internal sealed class SaleOrderEmailService : ISaleOrderEmailService
             return $"No stock available. {line.DeficitQty:0.####} unit(s) require procurement.";
         if (line.FulfillmentMode == EnumCode<SaleOrderLineFulfillmentMode>.Of(SaleOrderLineFulfillmentMode.DropShip))
             return "Drop ship — no warehouse stock impact.";
+        // A34 D-1 — nothing reserved: the line's production order makes the full quantity.
+        if (line.FulfillmentMode == EnumCode<SaleOrderLineFulfillmentMode>.Of(SaleOrderLineFulfillmentMode.MakeToOrder))
+            return $"Made to order: a production order makes all {line.Quantity:0.####} unit(s).";
         return "Not yet confirmed.";
     }
 

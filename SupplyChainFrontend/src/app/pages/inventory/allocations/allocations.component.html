@@ -206,14 +206,22 @@
         <ng-container *ngIf="!isLoadingRules">
           <p-message *ngIf="!canAdmin" severity="info" styleClass="read-only-note">You can see the rules but not change them.</p-message>
 
-          <p-table [value]="rulesDraft" styleClass="p-datatable-sm" data-testid="rules">
+          <p-table [value]="rulesDraft" styleClass="p-datatable-sm rules-table" [tableStyle]="{ 'min-width': '62rem' }" data-testid="rules">
             <ng-template pTemplate="header">
-              <tr><th style="width:5rem">Order</th><th>Name</th><th>Sort by</th><th>Direction</th><th>Only for</th><th>Active</th><th *ngIf="canAdmin"></th></tr>
+              <tr>
+                <th style="width:6rem">Order</th>
+                <th style="min-width:18rem">Name</th>
+                <th style="width:13rem">Sort by</th>
+                <th style="width:10rem">Direction</th>
+                <th style="width:12rem">Only for</th>
+                <th style="width:5rem">Active</th>
+                <th *ngIf="canAdmin" style="width:4rem"></th>
+              </tr>
             </ng-template>
             <ng-template pTemplate="body" let-r let-i="rowIndex">
               <tr>
                 <td><p-inputnumber [(ngModel)]="r.priorityOrder" [min]="1" [disabled]="!canAdmin" [showButtons]="false" styleClass="w-full"></p-inputnumber></td>
-                <td><input pInputText [(ngModel)]="r.ruleName" [disabled]="!canAdmin" class="w-full" placeholder="Rule name" /></td>
+                <td><input pInputText [(ngModel)]="r.ruleName" [disabled]="!canAdmin" [title]="r.ruleName || ''" class="w-full" placeholder="Rule name" /></td>
                 <td><p-dropdown [options]="sortFieldOptions" [(ngModel)]="r.sortField" optionLabel="label" optionValue="value" [disabled]="!canAdmin" styleClass="w-full" appendTo="body"></p-dropdown></td>
                 <td><p-dropdown [options]="directionOptions" [(ngModel)]="r.sortDirection" optionLabel="label" optionValue="value" [disabled]="!canAdmin" styleClass="w-full" appendTo="body"></p-dropdown></td>
                 <td><p-dropdown [options]="demandTypeOptions" [(ngModel)]="r.demandTypeFilter" optionLabel="label" optionValue="value" [showClear]="true" placeholder="Every kind" [disabled]="!canAdmin" styleClass="w-full" appendTo="body"></p-dropdown></td>

@@ -72,7 +72,12 @@
               <dt>Discount</dt><dd>{{ q.discountAmount | number:'1.2-2' }}</dd>
               <dt>Tax</dt><dd>{{ q.taxAmount | number:'1.2-2' }}</dd>
               <dt>Grand total</dt><dd class="font-semibold">{{ q.grandTotal | number:'1.2-2' }} {{ q.currencyCode }}</dd>
+              <ng-container *ngIf="baseGrandTotal !== null">
+                <dt>In {{ q.baseCurrencyCode }}</dt><dd data-testid="quotation-base-total">{{ baseGrandTotal | money:baseCurrencyRef:moneyCode }}</dd>
+              </ng-container>
             </dl>
+            <!-- A35 — currency, the rate locked when the quotation is sent, the sale base. -->
+            <app-doc-currency-panel [doc]="currencyInfo" lockPoint="sending" domain="SALE" [showToggle]="false"></app-doc-currency-panel>
             <p class="notes" *ngIf="q.internalNotes"><strong>Internal:</strong> {{ q.internalNotes }}</p>
           </div>
         </div>
@@ -100,6 +105,7 @@
                 <th class="text-right">Disc %</th>
                 <th class="text-right">Tax</th>
                 <th class="text-right">Total</th>
+                <th *ngIf="showBase" class="text-right">Total ({{ q.baseCurrencyCode }})</th>
                 <th>Delivery</th>
                 <th>Type</th>
                 <th>Response</th>
@@ -123,6 +129,7 @@
                   <td class="text-right">{{ row.line.discountPercent | number:'1.0-2' }}</td>
                   <td class="text-right" data-testid="line-tax">{{ taxText(row.line) }}</td>
                   <td class="text-right" data-testid="line-total">{{ row.line.lineTotal | number:'1.2-2' }}</td>
+                  <td *ngIf="showBase" class="text-right" data-testid="line-total-base">{{ row.line.lineTotalBase | money:baseCurrencyRef:moneyCode }}</td>
                   <td>{{ row.line.promisedDeliveryDate ? (day(row.line.promisedDeliveryDate) | date:'dd MMM yyyy') : '—' }}</td>
                 </ng-container>
                 <ng-template #noFigures>

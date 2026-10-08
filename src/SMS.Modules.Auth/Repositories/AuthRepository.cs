@@ -727,6 +727,17 @@ internal sealed class AuthRepository : IAuthRepository
             IsGlobal    = _db.TenantContext.IsSuperAdmin
         };
         _db.Roles.Add(role);
+
+        // A35 D-16 / REV-09 — every role can read currencies and rates (document forms need the pickers); an
+        // administrator can still switch them off in the role editor afterwards.
+        var everyRole = await _db.Permissions.Where(p => SMS.Modules.Auth.Data.AuthDataSeeder.EveryRoleCodes.Contains(p.Code))
+            .Select(p => p.PermissionID).ToListAsync();
+        foreach (var permId in everyRole)
+            _db.RolePermissions.Add(new RolePermission
+            {
+                RoleID = nextId, PermissionID = permId, IsAllowed = true, OrganizationId = TenantDefaults.ScmDemoOrganizationId
+            });
+
         await _db.SaveChangesAsync();
         return new RoleListItemModel
         {
@@ -737,7 +748,7 @@ internal sealed class AuthRepository : IAuthRepository
             IsActive        = role.IsActive,
             IsGlobal        = role.IsGlobal,
             ActiveUserCount = 0,
-            PermissionCount = 0
+            PermissionCount = everyRole.Count
         };
     }
 
@@ -858,13 +869,15 @@ internal sealed class AuthRepository : IAuthRepository
         var c when c.StartsWith("PO_")          => "Purchase Orders",
         var c when c.StartsWith("REQUISITION_") => "Requisitions",
         var c when c.StartsWith("BUDGET_")      => "Budget",
-        "INVENTORY_VIEW" or "STOCK_MANAGE" or "STOCK_ADJUST" or "REORDER_MANAGE" => "Inventory",
+        "INVENTORY_VIEW" or "STOCK_MANAGE" or "STOCK_ADJUST" or "REORDER_MANAGE" or "LEAD_TIME_DEFAULTS_MANAGE" => "Inventory",
         "WAREHOUSE_TRANSFER" or "GOODS_RECEIVE" or "PUTAWAY" or "PICKING" or "DISPATCH" or "STOCK_LOCATION_UPDATE" => "Warehouse",
         var c when c.StartsWith("GRN_")         => "GRN Approvals",
         "INVOICE_VIEW" or "INVOICE_PROCESS" or "PAYMENT_VIEW" or "PAYMENT_PROCESS" or "RECONCILIATION" => "Finance",
         // A29 §9–§10 receivables: sits with the rest of Finance in the role editor.
         var c when c.StartsWith("SALES_INVOICE_") || c.StartsWith("CUSTOMER_PAYMENT_") || c.StartsWith("CUSTOMER_LEDGER_")
                 || c.StartsWith("PRODUCT_LEDGER_") => "Finance",
+        // A35 — currencies, exchange rates, base-currency settings and revaluation sit with Finance.
+        var c when c.StartsWith("CURRENCY_") || c == "ORG_CURRENCY_SETTINGS_MANAGE" || c == "EXCHANGE_REVALUATION_RUN" => "Finance",
         // Every DELIVERY_*, SHIPMENT_*, CARRIER_* and RATE_CARD_* code groups under Logistics. Note
         // this sits below the Warehouse line above, so DISPATCH and PICKING keep their grouping.
         var c when c.StartsWith("DELIVERY_")

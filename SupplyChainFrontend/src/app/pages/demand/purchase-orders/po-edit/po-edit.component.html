@@ -46,6 +46,15 @@
           <small class="p-error" *ngIf="isInvalid('supplierName')">Supplier name is required</small>
         </div>
 
+        <!-- A35 P3-14 — PO currency; the rate is locked at approval against the purchase base. -->
+        <div class="field col-span-2" data-testid="po-currency-field">
+          <label>Currency</label>
+          <p-dropdown formControlName="currencyId" [options]="currency.options" optionLabel="label" optionValue="value"
+                      [filter]="true" filterBy="label" placeholder="Purchase base currency" styleClass="w-full"
+                      appendTo="body" data-testid="po-currency"></p-dropdown>
+          <app-doc-currency-panel *ngIf="currency.doc as cd" [doc]="cd" lockPoint="approval" domain="PURCHASE"></app-doc-currency-panel>
+        </div>
+
         <div class="field">
           <label>PO Title</label>
           <input pInputText formControlName="title" placeholder="Optional title" class="w-full" maxlength="150" />
@@ -194,7 +203,7 @@
 
       <div class="total-bar">
         <span class="total-label">Estimated Total</span>
-        <span class="total-amount">{{ estimatedTotal | number:'1.2-2' }}</span>
+        <span class="total-amount" data-testid="po-estimated-total">{{ estimatedTotal | money:currency.code:moneyCode }}</span>
       </div>
     </div>
 

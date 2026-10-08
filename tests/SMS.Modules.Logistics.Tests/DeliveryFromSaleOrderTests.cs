@@ -540,7 +540,26 @@ public class DeliveryFromSaleOrderTests
 
         var act = async () => await h.Repo.CreateFromSourceAsync(req, User);
 
-        (await act.Should().ThrowAsync<BadRequestException>()).WithMessage("*does not belong to this sale order*");
+        (await act.Should().ThrowAsync<BadRequestException>()).WithMessage("*does not belong to this sale order*")
+            .Which.Message.Should().NotContain(req.Lines[0].SourceLineUuid.ToString(), "the message is shown to the user as is");
+    }
+
+    [Fact]
+    public async Task A_line_with_nothing_left_is_refused_by_its_item_name_never_its_id()
+    {
+        var h       = NewHarness();
+        var variant = h.Variants.AddVariant("CAB-4MM", "4mm cable");
+        var so      = await SeedOrder(h, "PARTIALLY_FULFILLED", addressUuid: (await SeedAddress(h)).UUID,
+            lines: [new L(variant, 100m, Fulfilled: 100m, Status: "FULFILLED")]);
+
+        var req = Request(so.UUID);
+        req.Lines = [Pick(so.Lines.Single())];
+
+        var act = async () => await h.Repo.CreateFromSourceAsync(req, User);
+
+        var refused = (await act.Should().ThrowAsync<BadRequestException>()).Which;
+        refused.Message.Should().StartWith("Line 1 (4mm cable").And.Contain("has nothing left to deliver");
+        refused.Message.Should().NotContain(variant.ToString());
     }
 
     [Fact]

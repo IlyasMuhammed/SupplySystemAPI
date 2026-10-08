@@ -41,6 +41,8 @@ internal sealed class PoCloneHandler : IDocumentCloneHandler
             SupplierName = source.SupplierName,
             Status       = "DRAFT",
             TotalAmount  = source.TotalAmount,
+            // A35 — the currency travels with the reissue; its rate does not (the reissue locks its own on approval).
+            CurrencyId   = source.CurrencyId,
             DeliveryDate = source.DeliveryDate,
             Notes        = source.Notes,
             IsActive     = true,

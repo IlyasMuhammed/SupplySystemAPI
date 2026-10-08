@@ -79,6 +79,15 @@ public sealed record FulfillmentRouteSummary(
     bool                  RequiresShipping,
     IReadOnlyList<string> Steps)
 {
+    /// <summary>
+    /// A34 C1 — one of <see cref="FulfillmentRouteCategory"/> (STOCK, MANUFACTURE; BUY / DROPSHIP reserved). Init-only
+    /// so positional callers are unaffected; anything built without it reads as STOCK.
+    /// </summary>
+    public string Category { get; init; } = FulfillmentRouteCategory.Stock;
+
+    /// <summary>A34 — the route makes to order (D-1).</summary>
+    public bool IsManufacture => FulfillmentRouteCategory.IsManufacture(Category);
+
     public bool HasStep(string stepCode) => Steps.Contains(stepCode, StringComparer.Ordinal);
 
     /// <summary>"Pick → Pack → Goods Issue → Ship" — the wording every screen uses.</summary>

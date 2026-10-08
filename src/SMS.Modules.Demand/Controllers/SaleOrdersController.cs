@@ -131,6 +131,40 @@ public partial class SaleOrdersController : ControllerBase
             : Ok(ApiResponse<SaleOrderLineModel>.Ok(line, StaticResponseMessage.recordUpdatedSuccessfully));
     }
 
+    /// <summary>A34 D-16 — calculate one DRAFT line's lead time and store it (API-CONTRACT §5.2).</summary>
+    [HttpPost("{uuid:guid}/lines/{lineUuid:guid}/lead-time")]
+    [RequirePermission(PermissionCodes.SALE_ORDER_EDIT)]
+    public async Task<IActionResult> CalculateLineLeadTime(Guid uuid, Guid lineUuid)
+    {
+        var result = await _service.CalculateLineLeadTimeAsync(uuid, lineUuid, User.GetUserId());
+        return result is null
+            ? NotFound(ApiResponse.Fail(StaticResponseMessage.recordNotFound))
+            : Ok(ApiResponse<SaleLineLeadTimeModel<SaleOrderLineModel>>.Ok(result, "Lead time calculated."));
+    }
+
+    /// <summary>A34 D-16 — set or clear one line's manual delivery date (DRAFT / CONFIRMED / PARTIALLY_FULFILLED), no re-pricing.</summary>
+    [HttpPut("{uuid:guid}/lines/{lineUuid:guid}/delivery-date")]
+    [RequirePermission(PermissionCodes.SALE_ORDER_EDIT)]
+    public async Task<IActionResult> UpdateLineDeliveryDate(Guid uuid, Guid lineUuid, [FromBody] UpdateSaleOrderLineDeliveryDateRequest? req)
+    {
+        var result = await _service.UpdateLineDeliveryDateAsync(uuid, lineUuid, req?.ManualDeliveryDate, User.GetUserId());
+        return result is null
+            ? NotFound(ApiResponse.Fail(StaticResponseMessage.recordNotFound))
+            : Ok(ApiResponse<SaleOrderLineDeliveryDateResultModel>.Ok(result, result.Warning ?? StaticResponseMessage.recordUpdatedSuccessfully));
+    }
+
+    /// <summary>A34 D-17 — create (idempotently) and plan the make-to-order production orders of a confirmed order.</summary>
+    [HttpPost("{uuid:guid}/create-production-orders")]
+    [RequirePermission(PermissionCodes.SALE_ORDER_CONFIRM, PermissionCodes.PROD_CREATE)]
+    public async Task<IActionResult> CreateProductionOrders(Guid uuid)
+    {
+        var result = await _service.CreateProductionOrdersAsync(uuid, User.GetUserId());
+        return result is null
+            ? NotFound(ApiResponse.Fail(StaticResponseMessage.recordNotFound))
+            : Ok(ApiResponse<SaleOrderProductionCreationResultModel>.Ok(result,
+                result.ProductionCreationFailed ? result.ProductionMessage ?? "Production orders could not be created." : "Production orders created."));
+    }
+
     [HttpGet("{uuid:guid}/timeline")]
     [RequirePermission(PermissionCodes.SALE_ORDER_VIEW)]
     public async Task<IActionResult> GetTimeline(Guid uuid)

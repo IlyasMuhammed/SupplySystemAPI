@@ -50,7 +50,7 @@ public sealed class FulfillmentRouteSqlServerTests : IAsyncLifetime
     public async Task The_database_refuses_a_second_default_of_the_same_class_but_allows_one_per_class()
     {
         await using (var db = NewContext())
-            (await new FulfillmentRouteSeeder(db).EnsureSeededAsync(_org)).Should().Be(3);
+            (await new FulfillmentRouteSeeder(db).EnsureSeededAsync(_org)).Should().Be(5);
 
         await using var raw = NewContext();
         var packShip = await raw.FulfillmentRoutes.SingleAsync(r => r.OrganizationId == _org && r.Code == "PICK_PACK_SHIP");
@@ -115,7 +115,7 @@ public sealed class FulfillmentRouteSqlServerTests : IAsyncLifetime
         await using (var db = NewContext())
         {
             var seeder = new FulfillmentRouteSeeder(db);
-            (await seeder.EnsureSeededAsync(_org)).Should().Be(3);
+            (await seeder.EnsureSeededAsync(_org)).Should().Be(5);
             (await seeder.EnsureSeededAsync(_org)).Should().Be(0);
         }
 

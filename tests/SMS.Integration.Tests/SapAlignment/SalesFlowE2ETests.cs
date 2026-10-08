@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Text.Json;
 using FluentAssertions;
 using Xunit;
@@ -258,18 +258,33 @@ public sealed class SalesFlowE2ETests : IClassFixture<SapWebApplicationFactory>
         await _k.CreateRateAsync("USD", "PKR", 300m, today);
         (await _k.GetInvoiceAsync(usdInvoice)).ND("exchangeRate").Should().Be(280m, "the snapshot is the document's own");
 
-        // ── No rate on file: the invoice still issues, with no snapshot ──────────────
+        // ── A35 D-5 (supersedes S-5): no EUR rate on file refuses the lock — the order cannot be confirmed ─────
         // (A EUR price rule, so the order itself needs no conversion.)
-        var (_, _, eurInvoice) = await _k.SellAsync(customer, eur, SapKit.Line(eurRuled, 1m, taxCode: gst17));
-        var eurInv = await _k.GetInvoiceAsync(eurInvoice);
-        eurInv.S("status").Should().Be("ISSUED", "a missing rate never blocks the document");
+        var eurSo = await _k.CreateSaleOrderAsync(customer, eur, SapKit.Line(eurRuled, 1m, taxCode: gst17));
+        var noRateAtLock = await _k.Post($"/api/sale-orders/{eurSo}/confirm");
+        noRateAtLock.Status.Should().Be(HttpStatusCode.BadRequest, $"a EUR order in a PKR org needs a EUR rate to lock — {noRateAtLock}");
+        noRateAtLock.Message.Should().Be($"No exchange rate for EUR on {Today}. Add one under Settings → Exchange Rates.");
+        (await _k.GetSaleOrderAsync(eurSo)).S("status").Should().Be("DRAFT", "nothing was locked");
+
+        // With a rate the same order confirms, and its invoice carries the rate from issue.
+        await _k.CreateRateAsync("EUR", "PKR", 316.48m, today.AddDays(-1));
+        await _k.ConfirmSaleOrderAsync(eurSo);
+        var eurInv = await _k.GetInvoiceAsync(await IssueAsync(eurSo));
+        eurInv.S("status").Should().Be("ISSUED");
         eurInv.S("currencyCode").Should().Be("EUR");
         eurInv.D("grandTotal").Should().Be(46.80m, "40 EUR + 17%");
-        eurInv.ND("exchangeRate").Should().BeNull();
-        eurInv.ND("baseGrandTotal").Should().BeNull();
-        eurInv.S("baseCurrencyCode").Should().Be("PKR", "the base currency is recorded whenever it is known, as on supplier invoices");
+        eurInv.ND("exchangeRate").Should().Be(316.48m);
+        eurInv.ND("baseGrandTotal").Should().Be(14_811.26m, "46.80 × 316.48 = 14,811.264");
+        eurInv.S("baseCurrencyCode").Should().Be("PKR");
     }
 
+    private async Task<Guid> IssueAsync(Guid confirmedSo)
+    {
+        var delivery = await _k.DeliverAsync(confirmedSo);
+        var invoice = (await _k.RaiseInvoiceAsync(delivery)).G("invoiceUuid");
+        await _k.IssueAsync(invoice);
+        return invoice;
+    }
     // ── helpers ──────────────────────────────────────────────────────────────────
 
     private static string Today => DateTime.UtcNow.ToString("yyyy-MM-dd");

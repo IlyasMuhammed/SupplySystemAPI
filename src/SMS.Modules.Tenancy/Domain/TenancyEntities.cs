@@ -80,6 +80,28 @@ internal class OrganizationSettings
     public Organization Organization { get; set; } = null!;
 }
 
+// A35 D-7 — the organization's currency configuration (spec C3), 1:1 with Organization, keyed by OrganizationId like
+// OrganizationSettings. Currency ids are unenforced scalar Guids into lookups.Currencies (global identity, D-1); that
+// each one is an active currency of this organization is checked by OrganizationCurrencySettingsService (BR-C3-02).
+// RateCurrencyId is the currency whose rate is permanently 1.0 (D-2). SaleBaseCurrencyId is mirrored into
+// Organization.BaseCurrency for legacy readers. GL account codes are free text (no ledger exists, D-15).
+internal class OrganizationCurrencySettings
+{
+    public Guid OrganizationId { get; set; }
+    public Guid SaleBaseCurrencyId { get; set; }
+    public Guid PurchaseBaseCurrencyId { get; set; }
+    public Guid ServiceBaseCurrencyId { get; set; }
+    public Guid RateCurrencyId { get; set; }
+    public string? ExchangeGainAccountCode { get; set; }
+    public string? ExchangeLossAccountCode { get; set; }
+    public string? UnrealizedGainAccountCode { get; set; }
+    public string? UnrealizedLossAccountCode { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    public int? ModifiedBy { get; set; }
+    public Organization Organization { get; set; } = null!;
+}
+
 // MT-007 — the authoritative record of platform Super Admins. Deliberately has no OrganizationId:
 // Super Admin is outside org scope by definition, not a role within any one tenant. UserId is a
 // plain int FK to auth.UserAccounts.UserID with no DB-level cross-schema constraint (same

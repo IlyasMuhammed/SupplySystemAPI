@@ -43,4 +43,16 @@ public static class SaleOrderTimelineEventTypes
     public const string SoDeliveryCreationFailed = "SO_DELIVERY_CREATION_FAILED";
     /// <summary>A33 D-15 — cancelling the order cancelled its open deliveries; issued ones are listed for a manual reversal.</summary>
     public const string SoDeliveriesCancelled = "SO_DELIVERIES_CANCELLED";
+
+    // A34 (API-CONTRACT §9) — make-to-order production. Outside §13.3's seven.
+    /// <summary>D-17 — the order's make-to-order production orders were created (confirm, the sweep or the button).</summary>
+    public const string SoProductionCreated = "SO_PRODUCTION_CREATED";
+    /// <summary>D-17 — creating or planning them failed; the sweep or the "Create production orders" button finishes it.</summary>
+    public const string SoProductionFailed = "SO_PRODUCTION_FAILED";
+    /// <summary>D-22 — cancelling the order cancelled its production orders; running ones are listed.</summary>
+    public const string SoProductionCancelled = "SO_PRODUCTION_CANCELLED";
+    /// <summary>D-20 — a delivery was created from a completed make-to-order production order.</summary>
+    public const string SoDeliveryFromProduction = "SO_DELIVERY_FROM_PRODUCTION";
+    /// <summary>D-21 — production accepted less than the line (also zero yield).</summary>
+    public const string SoProductionShortfall = "SO_PRODUCTION_SHORTFALL";
 }

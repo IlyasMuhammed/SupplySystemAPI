@@ -32,6 +32,10 @@ internal sealed class CustomerPaymentMap : IEntityTypeConfiguration<CustomerPaym
         b.Property(x => x.CurrencyCode).HasMaxLength(10).IsRequired().HasDefaultValue("PKR");
         b.Property(x => x.Notes).HasMaxLength(500);
         b.Property(x => x.Status).HasMaxLength(20).IsRequired().HasDefaultValue(CustomerPaymentStatuses.Received);
+        // A35 D-10 — the lock when the payment is recorded.
+        b.Property(x => x.ExchangeRate).HasColumnType("decimal(18,10)");
+        b.Property(x => x.AmountBase).HasColumnType("decimal(18,4)");
+        b.Property(x => x.ExchangeDifference).HasColumnType("decimal(18,4)");
 
         // A payment's unallocated remainder is derived from its allocations, so two requests to
         // apply it at once would each see the whole remainder. Whoever applies (or later reverses) a
@@ -64,6 +68,7 @@ internal sealed class PaymentAllocationMap : IEntityTypeConfiguration<PaymentAll
         b.HasIndex(x => x.SalesInvoiceId);
 
         b.Property(x => x.AllocatedAmount).HasColumnType("decimal(18,2)");
+        b.Property(x => x.ExchangeDifference).HasColumnType("decimal(18,4)");
 
         b.Property(x => x.OrganizationId).IsRequired();
         b.HasIndex(x => x.OrganizationId);

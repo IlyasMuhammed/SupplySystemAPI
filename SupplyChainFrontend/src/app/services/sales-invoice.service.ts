@@ -54,9 +54,18 @@ export interface SalesInvoicePaymentModel {
   allocatedAmount: number;
   allocatedAt: string;
   allocatedBy: number;
+  /** A35 — realized exchange difference of this allocation in the invoice's base (+ gain, − loss); absent on older servers. */
+  exchangeDifference?: number | null;
 }
 
 export interface SalesInvoiceDetailModel extends SalesInvoiceListItemModel {
+  // A35 (API-CONTRACT.md §7) — rate locked at ISSUED against the sale base. Optional for older servers.
+  currencyId?: string | null;
+  baseCurrencyId?: string | null;
+  /** ISO UTC timestamp of the lock. */
+  exchangeRateLockedAt?: string | null;
+  /** Σ realized exchange differences of the payments applied (base currency), when the server sends it. */
+  realizedExchangeDifference?: number | null;
   traceId: string;
   subtotal: number;
   discountAmount: number;

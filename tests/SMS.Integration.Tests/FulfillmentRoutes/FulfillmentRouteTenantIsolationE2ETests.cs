@@ -42,16 +42,18 @@ public sealed class FulfillmentRouteTenantIsolationE2ETests : IClassFixture<SapW
     {
         var (org2, k2, _) = await _k.SecondOrganizationAsync("RT2");
 
-        // Provisioning seeded org 2 its own three system routes, defaults per class (L-1).
+        // Provisioning seeded org 2 its own system routes, defaults per class (L-1). A34 D-9 adds the two MANUFACTURE
+        // seeds (never default) to every org, so there are five.
         var mine = await _k.RoutesAsync(includeInactive: true);
         var theirs = await k2.RoutesAsync(includeInactive: true);
-        theirs.Where(r => r.B("isSystem")).Select(r => r.S("code")).Should().BeEquivalentTo(new[] { PickOnly, PickAndShip, PickPackShip });
+        theirs.Where(r => r.B("isSystem")).Select(r => r.S("code")).Should()
+            .BeEquivalentTo(new[] { PickOnly, PickAndShip, PickPackShip, "MFG_PICK_SHIP", "MFG_PICK_PACK_SHIP" });
         theirs.Single(r => r.S("code") == PickOnly).B("isDefault").Should().BeTrue();
         theirs.Single(r => r.S("code") == PickAndShip).B("isDefault").Should().BeTrue();
         theirs.Select(r => r.G("uuid")).Should().NotIntersectWith(mine.Select(r => r.G("uuid")), "each org has its own rows");
         var seeded = await _f.QueryAsync(
             "SELECT COUNT(*) AS N FROM logistics.fulfillment_routes WHERE OrganizationId = @o AND IsSystem = 1", ("@o", org2));
-        Convert.ToInt32(seeded[0]["N"]).Should().Be(3);
+        Convert.ToInt32(seeded[0]["N"]).Should().Be(5, "3 stock seeds (A33) + 2 MANUFACTURE seeds (A34 D-9)");
 
         // The super admin's list shows only its own org's routes (the EF filter is off for it).
         mine.Select(r => r.G("uuid")).Should().NotIntersectWith(theirs.Select(r => r.G("uuid")), "the super admin sees only org 1's routes");

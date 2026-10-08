@@ -87,6 +87,14 @@ internal class SalesInvoice : ITenantScopedEntity
     /// <summary><see cref="GrandTotal"/> × <see cref="ExchangeRate"/>, rounded to 2dp. Null when no rate.</summary>
     public decimal? BaseGrandTotal   { get; set; }
 
+    // ── A35 (D-10, D-12): currency identity and the lock. GrandTotal is the amount in the currency, BaseGrandTotal in the base ──
+    /// <summary>The invoice currency (global lookups.Currencies id), inherited from the sale order.</summary>
+    public Guid?     CurrencyId           { get; set; }
+    /// <summary>The organization's sale base when the invoice was issued.</summary>
+    public Guid?     BaseCurrencyId       { get; set; }
+    /// <summary>When <see cref="ExchangeRate"/> was locked (issue). Null = not locked yet (D-11).</summary>
+    public DateTime? ExchangeRateLockedAt { get; set; }
+
     // ── Reverse, don't edit: cancelling an issued invoice posts the opposite entries ──
     public DateTime? CancelledAt        { get; set; }
     public int?      CancelledBy        { get; set; }

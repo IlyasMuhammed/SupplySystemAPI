@@ -1,0 +1,26 @@
+<div class="currency-tab">
+  <div class="field">
+    <label for="defSale">Default Sale Currency</label>
+    <p-select inputId="defSale" [options]="saleOptions" [(ngModel)]="saleCurrencyId" optionLabel="label" optionValue="value"
+              [disabled]="!canEdit" [filter]="saleOptions.length > 8" filterBy="label" appendTo="body" styleClass="w-full"
+              data-testid="sale-currency"></p-select>
+    <div class="note" data-testid="sale-note">
+      <i class="pi pi-info-circle"></i>
+      <span>New Sale Inquiries, Quotations, and Orders for this customer will default to {{ saleCode }}. Can be overridden on each document.</span>
+    </div>
+  </div>
+
+  <div class="field">
+    <label for="defPurchase">Default Purchase Currency</label>
+    <p-select inputId="defPurchase" [options]="purchaseOptions" [(ngModel)]="purchaseCurrencyId" optionLabel="label" optionValue="value"
+              [disabled]="!canEdit" [filter]="purchaseOptions.length > 8" filterBy="label" appendTo="body" styleClass="w-full"
+              data-testid="purchase-currency"></p-select>
+    <small class="hint" data-testid="purchase-note">(Used when this partner is also a supplier — new purchase orders start in it.)</small>
+  </div>
+
+  <div class="actions" *ngIf="canEdit">
+    <small class="p-error" *ngIf="saveError" data-testid="save-error">{{ saveError }}</small>
+    <small class="ok" *ngIf="savedMessage && !dirty" data-testid="saved">{{ savedMessage }}</small>
+    <p-button label="Save" icon="pi pi-check" [loading]="isSaving" [disabled]="!dirty || isSaving" (onClick)="save()" data-testid="save"></p-button>
+  </div>
+</div>

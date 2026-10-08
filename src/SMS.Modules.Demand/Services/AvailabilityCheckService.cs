@@ -39,7 +39,10 @@ internal sealed class AvailabilityCheckService : IAvailabilityCheckService
         _config = config;
     }
 
-    public async Task<IReadOnlyList<LineReservation>> CheckAndReserveAsync(Guid saleOrderUuid, int userId)
+    public Task<IReadOnlyList<LineReservation>> CheckAndReserveAsync(Guid saleOrderUuid, int userId) =>
+        CheckAndReserveAsync(saleOrderUuid, userId, []);
+
+    public async Task<IReadOnlyList<LineReservation>> CheckAndReserveAsync(Guid saleOrderUuid, int userId, IReadOnlyCollection<Guid> makeToOrderLines)
     {
         // A32 PF-05 — own organization explicitly: the tenant filter is off for a super admin, and confirm is only ever
         // called for the caller's own order (SaleOrderService.ConfirmAsync, in a request).
@@ -73,6 +76,16 @@ internal sealed class AvailabilityCheckService : IAvailabilityCheckService
             byVariant.TryGetValue(line.VariantUuid, out var availability);
             var availableQty = availability?.Available ?? 0m;
             line.AvailableQtyAtConfirm = availableQty;
+
+            // A34 D-1 / C-2 — the line's effective route is MANUFACTURE: it is made to order for its full quantity, so the
+            // shelf is not touched (free stock is shown for information only). No deficit job and no delivery follow.
+            if (makeToOrderLines.Contains(line.UUID))
+            {
+                line.DeficitQty      = line.Quantity;
+                line.FulfillmentMode = EnumCode<SaleOrderLineFulfillmentMode>.Of(SaleOrderLineFulfillmentMode.MakeToOrder);
+                line.Status          = EnumCode<SaleOrderLineStatus>.Of(SaleOrderLineStatus.Open);
+                continue;
+            }
 
             // A line that was made buy-to-order from the start (the organization's default fulfilment is
             // BACK_TO_BACK) is bought whatever the shelves hold: nothing is reserved, all of it is the deficit.

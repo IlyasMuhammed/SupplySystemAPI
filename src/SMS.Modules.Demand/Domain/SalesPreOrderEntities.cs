@@ -32,6 +32,12 @@ internal class SaleInquiry : ITenantScopedEntity
     public string?   Notes                 { get; set; }
     /// <summary>Why the organization declined the whole inquiry (set with the DECLINED transition).</summary>
     public string?   DeclineReason         { get; set; }
+    /// <summary>
+    /// A35 D-10/D-14 — the currency the customer is asking in (Lookups currency UUID), defaulted from the customer's
+    /// default sale currency, else the org's sale base. Informational: an inquiry has no prices and locks no rate; the
+    /// quotation made from it inherits it. Null only on rows the migration could not resolve.
+    /// </summary>
+    public Guid?     CurrencyId            { get; set; }
     public int       CreatedBy             { get; set; }
     public DateTime  CreatedDate           { get; set; } = DateTime.UtcNow;
     public int?      ModifiedBy            { get; set; }
@@ -68,6 +74,10 @@ internal class SaleInquiryLine : ITenantScopedEntity
     public string?   AlternativeNotes       { get; set; }
     public bool      RequiresProcurement    { get; set; }
     public int?      ProcurementLeadDays    { get; set; }
+    /// <summary>A34 D-15: from ILeadTimeCalculator. The manual date is <see cref="EstimatedDeliveryDate"/>.</summary>
+    public int?      CalculatedLeadTimeDays { get; set; }
+    public DateTime? CalculatedDeliveryDate { get; set; }
+    public DateTime? LeadTimeCalculatedAt   { get; set; }
     public int?      ReviewedByUserId       { get; set; }
     public DateTime? ReviewedAt             { get; set; }
     public string?   Notes                  { get; set; }
@@ -109,6 +119,10 @@ internal class SaleQuotation : ITenantScopedEntity
     public string?   InternalNotes         { get; set; }
     public DateTime? SentAt                { get; set; }
     public int?      SentByUserId          { get; set; }
+    /// <summary>A35 D-10/D-12 — the rate locked when the quotation is SENT (null = not locked), the sale base it is against, and when.</summary>
+    public decimal?  ExchangeRate          { get; set; }
+    public Guid?     BaseCurrencyId        { get; set; }
+    public DateTime? RateLockedAt          { get; set; }
     public int       CreatedBy             { get; set; }
     public DateTime  CreatedDate           { get; set; } = DateTime.UtcNow;
     public int?      ModifiedBy            { get; set; }
@@ -146,7 +160,11 @@ internal class SaleQuotationLine : ITenantScopedEntity
     /// <summary>qty × price × (1 − disc%) × (1 + tax%), rounded to 2 — the SaleOrderLine formula.</summary>
     public decimal   LineTotal             { get; set; }
     public DateTime? PromisedDeliveryDate  { get; set; }
-    public string    LineType              { get; set; } = EnumCode<SaleQuotationLineType>.Of(SaleQuotationLineType.Normal);
+    /// <summary>A34 D-15: from ILeadTimeCalculator (or copied from the inquiry line). The manual date is <see cref="PromisedDeliveryDate"/>.</summary>
+    public int?      CalculatedLeadTimeDays { get; set; }
+    public DateTime? CalculatedDeliveryDate { get; set; }
+    public DateTime? LeadTimeCalculatedAt   { get; set; }
+    public string    LineType             { get; set; } = EnumCode<SaleQuotationLineType>.Of(SaleQuotationLineType.Normal);
     public int?      RejectionReasonId     { get; set; }
     public string?   RejectionNotes        { get; set; }
     /// <summary>ALTERNATIVE only: the REJECTED line of the same quotation this replaces.</summary>
@@ -159,6 +177,12 @@ internal class SaleQuotationLine : ITenantScopedEntity
     public string?   Notes                 { get; set; }
     public DateTime  CreatedDate           { get; set; } = DateTime.UtcNow;
     public DateTime? ModifiedDate          { get; set; }
+
+    /// <summary>A35 D-10 — the line in the sale base at the rate locked on SENT; null until then.</summary>
+    public decimal?  UnitPriceBase         { get; set; }
+    public decimal?  DiscountAmountBase    { get; set; }
+    public decimal?  TaxAmountBase         { get; set; }
+    public decimal?  LineTotalBase         { get; set; }
 
     public SaleQuotation      SaleQuotation      { get; set; } = null!;
     public SaleInquiryLine?   SourceInquiryLine  { get; set; }

@@ -1,5 +1,4 @@
 import { Routes } from '@angular/router';
-import { Empty } from './empty/empty';
 import { PrListComponent } from './demand/requisitions/pr-list/pr-list.component';
 import { PrCreateComponent } from './demand/requisitions/pr-create/pr-create.component';
 import { PrDetailComponent } from './demand/requisitions/pr-detail/pr-detail.component';
@@ -22,7 +21,7 @@ import { RejectionReasonsComponent } from './sales/rejection-reasons/rejection-r
 import { SaleQuotationListComponent } from './sales/quotations/sale-quotation-list/sale-quotation-list.component';
 import { SaleQuotationFormComponent } from './sales/quotations/sale-quotation-form/sale-quotation-form.component';
 import { SaleQuotationDetailComponent } from './sales/quotations/sale-quotation-detail/sale-quotation-detail.component';
-import { CustomerComponent } from './customer/customer';
+import { UsersComponent } from './users/users';
 import { SupplierListComponent } from './suppliers/supplier-list/supplier-list.component';
 import { SupplierCreateComponent } from './suppliers/supplier-create/supplier-create.component';
 import { SupplierDetailComponent } from './suppliers/supplier-detail/supplier-detail.component';
@@ -45,14 +44,16 @@ import { PoDocumentTemplateComponent } from './po-document-template/po-document-
 import { PortalSettingsComponent } from './portal-settings/portal-settings.component';
 import { SaleOrderSettingsComponent } from './sale-order-settings/sale-order-settings.component';
 import { FulfillmentRoutesComponent } from './logistics/fulfillment-routes/fulfillment-routes.component';
+import { LeadTimeDefaultsComponent } from './lead-time-defaults/lead-time-defaults.component';
 import { QuickBooksIntegrationComponent } from './integrations/quickbooks/quickbooks-integration.component';
 import { TaxCodesComponent } from './finance-setup/tax-codes/tax-codes.component';
 import { ExchangeRatesComponent } from './finance-setup/exchange-rates/exchange-rates.component';
+import { OrgCurrenciesComponent } from './finance-setup/org-currencies/org-currencies.component';
+import { CurrencyConfigurationComponent } from './finance-setup/currency-configuration/currency-configuration.component';
 import { AllocationsComponent } from './inventory/allocations/allocations.component';
 import { ProductionOrderListComponent } from './manufacturing/production-orders/production-order-list/production-order-list.component';
 import { ProductionOrderFormComponent } from './manufacturing/production-orders/production-order-form/production-order-form.component';
 import { ProductionOrderDetailComponent } from './manufacturing/production-orders/production-order-detail/production-order-detail.component';
-import { ShortagesComponent } from './manufacturing/shortages/shortages.component';
 import { PurchaseRequiredComponent } from './manufacturing/purchase-required/purchase-required.component';
 import { ManufacturingReportsComponent } from './reports/manufacturing-reports/manufacturing-reports.component';
 import { OrganizationsListComponent } from './organizations/organizations-list/organizations-list.component';
@@ -97,7 +98,6 @@ import { ExceptionQueueComponent } from './logistics/visibility/exception-queue/
 import { ProofOfDeliveryComponent } from './logistics/visibility/proof-of-delivery/proof-of-delivery.component';
 import { CarrierScorecardComponent } from './logistics/visibility/carrier-scorecard/carrier-scorecard.component';
 import { ShipmentListComponent } from './logistics/shipments/shipment-list/shipment-list.component';
-import { ShipmentCreateComponent } from './logistics/shipments/shipment-create/shipment-create.component';
 import { ShipmentDetailComponent } from './logistics/shipments/shipment-detail/shipment-detail.component';
 import { InvoiceListComponent } from './finance/invoices/invoice-list/invoice-list.component';
 import { InvoiceCreateComponent } from './finance/invoices/invoice-create/invoice-create.component';
@@ -113,6 +113,7 @@ import { CustomerPaymentListComponent } from './finance/customer-payments/custom
 import { CustomerPaymentFormComponent } from './finance/customer-payments/customer-payment-form/customer-payment-form.component';
 import { CustomerPaymentDetailComponent } from './finance/customer-payments/customer-payment-detail/customer-payment-detail.component';
 import { CustomerLedgerComponent } from './finance/customer-ledger/customer-ledger.component';
+import { ExchangeDifferencesComponent } from './finance/exchange-differences/exchange-differences.component';
 import { SupplierPaymentDetailComponent } from './finance/supplier-payments/supplier-payment-detail/supplier-payment-detail.component';
 import { KpiDashboardComponent } from './reports/kpi-dashboard/kpi-dashboard.component';
 import { SupplierPerformanceComponent } from './reports/supplier-performance/supplier-performance.component';
@@ -120,7 +121,6 @@ import { PoReportsComponent } from './reports/po-reports/po-reports.component';
 import { PendingApprovalsComponent } from './reports/pending-approvals/pending-approvals.component';
 import { InventoryReportsComponent } from './reports/inventory-reports/inventory-reports.component';
 import { GrnVarianceComponent } from './reports/grn-variance/grn-variance.component';
-import { ShipmentTrackerComponent } from './reports/shipment-tracker/shipment-tracker.component';
 import { FinanceReportsComponent } from './reports/finance-reports/finance-reports.component';
 import { SalesReportsComponent } from './reports/sales-reports/sales-reports.component';
 import { AuditTrailComponent } from './reports/audit-trail/audit-trail.component';
@@ -191,6 +191,7 @@ const P = {
   STOCK_MANAGE:         'STOCK_MANAGE',
   STOCK_ADJUST:         'STOCK_ADJUST',
   REORDER_MANAGE:       'REORDER_MANAGE',
+  LEAD_TIME_DEFAULTS_MANAGE: 'LEAD_TIME_DEFAULTS_MANAGE',   // A34 D-24
   WAREHOUSE_TRANSFER:   'WAREHOUSE_TRANSFER',
   GOODS_RECEIVE:        'GOODS_RECEIVE',
   // Warehouse execution. Both pre-date the delivery rebuild and gated nothing until it reused
@@ -272,15 +273,18 @@ const P = {
   // sign-in on the server (they feed pickers); the settings screens open for whoever maintains them
   // and, read-only, for finance viewers (INVOICE_VIEW).
   FINANCE_SETUP_MANAGE: 'FINANCE_SETUP_MANAGE',
+  // Addendum 35 — multi-currency (docs/multi-currency/API-CONTRACT.md, D-16). The *_VIEW codes are held by every role
+  // (document forms need the currency picker), so the settings screens open for the MANAGE code, for whoever maintains
+  // finance setup, and read-only for finance viewers (INVOICE_VIEW) — like Tax Codes.
+  CURRENCY_MANAGE:              'CURRENCY_MANAGE',
+  CURRENCY_RATE_MANAGE:         'CURRENCY_RATE_MANAGE',
+  ORG_CURRENCY_SETTINGS_MANAGE: 'ORG_CURRENCY_SETTINGS_MANAGE',
+  EXCHANGE_REVALUATION_RUN:     'EXCHANGE_REVALUATION_RUN',
 } as const;
 
 export default [
-    { path: 'empty', component: Empty },
-
     // ── Users & Roles (System Admin only) ─────────────────────────────────────
-    { path: 'users', component: CustomerComponent,
-      canActivate: [permissionGuard(P.USER_MANAGE)] },
-    { path: 'user', component: CustomerComponent,
+    { path: 'users', component: UsersComponent,
       canActivate: [permissionGuard(P.USER_MANAGE)] },
     { path: 'admin/roles', component: RolesComponent,
       canActivate: [permissionGuard(P.USER_MANAGE)] },
@@ -346,6 +350,10 @@ export default [
     // (MANAGE; ASSIGN for "Assign to category") and by the server.
     { path: 'logistics/fulfillment-routes', component: FulfillmentRoutesComponent,
       canActivate: [permissionGuard(P.FULFILLMENT_ROUTE_VIEW, P.FULFILLMENT_ROUTE_MANAGE)] },
+    // A34-PB-08 — Settings → Lead Time Defaults (docs/route-classification/API-CONTRACT.md §2/§4.4). Both codes can read
+    // the defaults on the server (GET also accepts STOCK_MANAGE / SALE_ORDER_VIEW); Save needs LEAD_TIME_DEFAULTS_MANAGE.
+    { path: 'lead-time-defaults', component: LeadTimeDefaultsComponent,
+      canActivate: [permissionGuard(P.LEAD_TIME_DEFAULTS_MANAGE, P.INVENTORY_VIEW)] },
     // Intuit's OAuth callback returns here with ?result=connected|error&reason=… (the Connection tab reads it).
     // VIEW opens the page; each action is gated again on the page and by the server (MANAGE / SYNC).
     { path: 'integrations/quickbooks', component: QuickBooksIntegrationComponent,
@@ -355,8 +363,16 @@ export default [
     // callable there). The server enforces FINANCE_SETUP_MANAGE on every write regardless.
     { path: 'finance-setup/tax-codes', component: TaxCodesComponent,
       canActivate: [permissionGuard(P.FINANCE_SETUP_MANAGE, P.INVOICE_VIEW)] },
+    // A35 — the rates are now date ranges against the org's rate currency (api/currency-rates); writes need
+    // CURRENCY_RATE_MANAGE (also granted to FINANCE_SETUP_MANAGE roles).
     { path: 'finance-setup/exchange-rates', component: ExchangeRatesComponent,
-      canActivate: [permissionGuard(P.FINANCE_SETUP_MANAGE, P.INVOICE_VIEW)] },
+      canActivate: [permissionGuard(P.CURRENCY_RATE_MANAGE, P.FINANCE_SETUP_MANAGE, P.INVOICE_VIEW)] },
+    // A35-P1-05 — the organization's currencies (api/currencies); Master Data → Currencies stays the global catalog.
+    { path: 'finance-setup/currencies', component: OrgCurrenciesComponent,
+      canActivate: [permissionGuard(P.CURRENCY_MANAGE, P.FINANCE_SETUP_MANAGE, P.INVOICE_VIEW)] },
+    // A35-P2-05 — base currencies + exchange-difference accounts (api/organization/currency-settings).
+    { path: 'finance-setup/currency-configuration', component: CurrencyConfigurationComponent,
+      canActivate: [permissionGuard(P.ORG_CURRENCY_SETTINGS_MANAGE, P.FINANCE_SETUP_MANAGE, P.INVOICE_VIEW)] },
     { path: 'po-document-template', component: PoDocumentTemplateComponent,
       canActivate: [permissionGuard(P.PO_TEMPLATE_MANAGE)] },
     { path: 'organizations', component: OrganizationsListComponent,
@@ -385,8 +401,6 @@ export default [
       canActivate: [permissionGuard(P.PROD_VIEW)] },
     { path: 'manufacturing/production-orders/new', component: ProductionOrderFormComponent,
       canActivate: [permissionGuard(P.PROD_CREATE)] },
-    { path: 'manufacturing/shortages', component: ShortagesComponent,
-      canActivate: [permissionGuard(P.PROD_VIEW)] },
     { path: 'manufacturing/purchase-required', component: PurchaseRequiredComponent,
       canActivate: [permissionGuard(P.SUPPLY_VIEW)] },
     { path: 'manufacturing/production-orders/:uuid', component: ProductionOrderDetailComponent,
@@ -588,10 +602,10 @@ export default [
     { path: 'logistics/consignments/:uuid', component: ConsignmentDetailComponent,
       canActivate: [permissionGuard(P.DELIVERY_VIEW)] },
 
-    // ── Logistics — Shipments ─────────────────────────────────────────────────
+    // ── Logistics — Shipments (legacy, read-only) ────────────────────────────
+    // The old shipments table. New movements are Delivery → Consignment; creating a legacy shipment
+    // was retired (it stayed outside that flow until the next startup backfill). Kept readable for history.
     { path: 'logistics/shipments', component: ShipmentListComponent,
-      canActivate: [permissionGuard(P.DELIVERY_TRACK)] },
-    { path: 'logistics/shipments/create', component: ShipmentCreateComponent,
       canActivate: [permissionGuard(P.DELIVERY_TRACK)] },
     { path: 'logistics/shipments/:uuid', component: ShipmentDetailComponent,
       canActivate: [permissionGuard(P.DELIVERY_TRACK)] },
@@ -643,6 +657,9 @@ export default [
       canActivate: [permissionGuard(P.CUSTOMER_LEDGER_VIEW)] },
     { path: 'finance/customer-ledger/:partnerId', component: CustomerLedgerComponent,
       canActivate: [permissionGuard(P.CUSTOMER_LEDGER_VIEW)] },
+    // A35-E-06 — exchange differences register (API-CONTRACT.md §7.1, any of these codes).
+    { path: 'finance/exchange-differences', component: ExchangeDifferencesComponent,
+      canActivate: [permissionGuard(P.INVOICE_VIEW, P.SALES_INVOICE_VIEW, P.CUSTOMER_PAYMENT_VIEW, P.PAYMENT_VIEW, P.EXCHANGE_REVALUATION_RUN)] },
 
     // ── Reports & Analytics ───────────────────────────────────────────────────
     { path: 'reports/kpi-dashboard', component: KpiDashboardComponent,
@@ -656,8 +673,6 @@ export default [
     { path: 'reports/inventory-reports', component: InventoryReportsComponent,
       canActivate: [permissionGuard(P.REPORT_VIEW, P.REPORT_EXPORT)] },
     { path: 'reports/grn-variance', component: GrnVarianceComponent,
-      canActivate: [permissionGuard(P.REPORT_VIEW, P.REPORT_EXPORT)] },
-    { path: 'reports/shipment-tracker', component: ShipmentTrackerComponent,
       canActivate: [permissionGuard(P.REPORT_VIEW, P.REPORT_EXPORT)] },
     { path: 'reports/finance-reports', component: FinanceReportsComponent,
       canActivate: [permissionGuard(P.REPORT_VIEW, P.REPORT_EXPORT)] },

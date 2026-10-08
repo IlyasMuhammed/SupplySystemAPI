@@ -1,0 +1,133 @@
+<div class="lead-times">
+  <div class="lt-toolbar">
+    <div class="lt-field">
+      <label for="ltVariant">Variant</label>
+      <p-select inputId="ltVariant" [options]="variantOptions" [ngModel]="variantUuid" (ngModelChange)="selectVariant($event)"
+                optionLabel="label" optionValue="value" [filter]="variantOptions.length > 8" filterBy="label"
+                placeholder="Choose a variant" appendTo="body" styleClass="lt-variant" data-testid="lt-variant"></p-select>
+    </div>
+    <span class="grow"></span>
+    <p-tag *ngIf="!canEdit" value="View only" severity="secondary" icon="pi pi-lock" data-testid="lt-readonly"
+           pTooltip="Changing lead times needs the stock management permission." tooltipPosition="left"></p-tag>
+  </div>
+
+  <div class="state-inline" *ngIf="loading" data-testid="lt-loading"><i class="pi pi-spin pi-spinner"></i> Loading the lead times…</div>
+  <div class="state-inline warn" *ngIf="loadFailed && !loading" data-testid="lt-load-failed">
+    <i class="pi pi-exclamation-triangle"></i> The lead times could not be loaded.
+    <p-button label="Try again" [text]="true" size="small" (onClick)="load()"></p-button>
+  </div>
+  <div class="state-inline" *ngIf="!variants.length" data-testid="lt-no-variants">This product has no variants yet.</div>
+
+  <ng-container *ngIf="model && !loading && !loadFailed">
+    <div class="lt-route" data-testid="lt-route">
+      <span class="muted">Route:</span>
+      <ng-container *ngIf="model.routeUuid; else noRoute">
+        <strong>{{ model.routeName }}</strong> <span class="mono small">{{ model.routeCode }}</span>
+      </ng-container>
+      <ng-template #noRoute><strong>No route</strong></ng-template>
+      <p-tag [value]="categoryLabel(model.routeCategory)" [severity]="categorySeverity(model.routeCategory)"></p-tag>
+      <small class="hint" *ngIf="model.routeFromOrgDefault && model.routeUuid" data-testid="lt-route-default">
+        The variant has no route of its own: shown for the organization's default route for shipping orders.
+      </small>
+      <small class="hint" *ngIf="!model.routeUuid">No route applies, so the variant is shown as a stock item without shipping.</small>
+    </div>
+
+    <table class="lt-table">
+      <thead>
+        <tr><th>Component</th><th class="days-col">Days</th><th>Source</th></tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let row of rows" [attr.data-testid]="'lt-row-' + row.code" [class.not-counted]="!counted(row)">
+          <td>
+            <div class="comp-name">{{ row.name }}</div>
+            <small class="hint" *ngIf="row.detail">{{ row.detail }}</small>
+            <small class="hint" *ngIf="!counted(row)">Shown for reference, not counted: a made-to-order item waits on its BOM instead.</small>
+          </td>
+          <td class="days-col">
+            <p-inputnumber [ngModel]="value(row)" (ngModelChange)="onDaysChange(row.field, $event)" [min]="0" [max]="maxDays"
+                           [maxFractionDigits]="0" [useGrouping]="false" [disabled]="!canEdit"
+                           [placeholder]="effectiveDays(row) !== null ? '' + effectiveDays(row) : ''" inputStyleClass="days-input"
+                           [attr.data-testid]="'lt-input-' + row.code"></p-inputnumber>
+          </td>
+          <td [attr.data-testid]="'lt-source-' + row.code">
+            <p-tag [value]="sourceLabel(effectiveSource(row)) || 'Default (applies on save)'" [severity]="sourceSeverity(effectiveSource(row))"></p-tag>
+            <span class="muted small" *ngIf="value(row) === null && effectiveDays(row) !== null"> {{ effectiveDays(row) }} days</span>
+          </td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr class="total-row">
+          <td>Total lead time</td>
+          <td class="days-col" data-testid="lt-total">
+            <ng-container *ngIf="total !== null; else unknownTotal">{{ total }} {{ total === 1 ? 'day' : 'days' }}</ng-container>
+            <ng-template #unknownTotal><span class="muted">Save to recalculate</span></ng-template>
+          </td>
+          <td><small class="hint">Configured days only: a sale order line also weighs stock and the BOM when it is calculated.</small></td>
+        </tr>
+      </tfoot>
+    </table>
+
+    <small class="hint" *ngIf="hiddenNames.length" data-testid="lt-hidden-note">
+      Not used by this route: {{ hiddenNames.join(', ') }}.
+    </small>
+
+    <div class="legend muted small">
+      Variant override = set on this variant · Org default = Settings → Lead Time Defaults · Supplier = the supplier's lead
+      time · Product = the product's lead time · BOM = calculated from the bill of materials. Leave a box empty to use the default.
+    </div>
+
+    <small class="p-error" *ngIf="submitted && problem" data-testid="lt-problem">{{ problem }}</small>
+    <small class="p-error" *ngIf="saveError" data-testid="lt-save-error">{{ saveError }}</small>
+
+    <div class="lt-actions">
+      <ng-container *ngIf="canRecalculate">
+        <p-inputnumber [(ngModel)]="bomQuantity" [min]="0.0001" [maxFractionDigits]="4" [useGrouping]="false"
+                       inputStyleClass="qty-input" pTooltip="Quantity to make" tooltipPosition="top"
+                       data-testid="lt-bom-qty"></p-inputnumber>
+        <p-button label="Recalculate from BOM" icon="pi pi-sitemap" [outlined]="true" [loading]="calculating"
+                  (onClick)="recalculate()" data-testid="lt-recalc"></p-button>
+      </ng-container>
+      <span class="grow"></span>
+      <ng-container *ngIf="canEdit">
+        <p-button label="Reset to org defaults" icon="pi pi-refresh" [text]="true" severity="secondary" [disabled]="saving"
+                  pTooltip="Clears every override on this variant; Save to apply." tooltipPosition="top"
+                  (onClick)="resetToDefaults()" data-testid="lt-reset"></p-button>
+        <p-button label="Discard" [outlined]="true" severity="secondary" [disabled]="!dirty || saving" (onClick)="discard()"
+                  data-testid="lt-discard"></p-button>
+        <p-button label="Save" icon="pi pi-check" [loading]="saving" [disabled]="!dirty || saving" (onClick)="save()"
+                  data-testid="lt-save"></p-button>
+      </ng-container>
+    </div>
+
+    <small class="p-error" *ngIf="bomError" data-testid="lt-bom-error">{{ bomError }}</small>
+    <section class="bom-result" *ngIf="bomResult" data-testid="lt-bom-result">
+      <div class="bom-head">
+        <strong>BOM-aware manufacturing time: {{ bomResult.totalDays }} {{ bomResult.totalDays === 1 ? 'day' : 'days' }}</strong>
+        <span class="muted small">for {{ bomResult.quantity }} · not saved, for information</span>
+      </div>
+      <div class="small">
+        {{ bomResult.levelDays }} {{ bomResult.levelDays === 1 ? 'day' : 'days' }} to make ({{ sourceLabel(bomResult.levelDaysSource) }})
+        + {{ longestWait }} {{ longestWait === 1 ? 'day' : 'days' }} waiting for the slowest component
+        <ng-container *ngIf="bomResult.bomNumber"> · {{ bomResult.bomNumber }} v{{ bomResult.bomVersion }}</ng-container>
+      </div>
+      <table class="lt-table bom-table" *ngIf="bomResult.inputs.length">
+        <thead>
+          <tr><th>Component</th><th>Needed</th><th>Free</th><th>Short</th><th>Wait</th><th>Source</th></tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let i of bomResult.inputs">
+            <td>{{ i.displayName }}<small class="hint" *ngIf="i.detail"> · {{ i.detail }}</small></td>
+            <td>{{ i.requiredQty | number:'1.0-4' }}</td>
+            <td>{{ i.freeQty | number:'1.0-4' }}</td>
+            <td>{{ i.shortfallQty | number:'1.0-4' }}</td>
+            <td>{{ i.waitDays }} d</td>
+            <td><p-tag [value]="sourceLabel(i.source)" [severity]="sourceSeverity(i.source)"></p-tag></td>
+          </tr>
+        </tbody>
+      </table>
+      <ul class="warnings" *ngIf="bomResult.warnings.length" data-testid="lt-bom-warnings">
+        <li *ngFor="let w of bomResult.warnings"><i class="pi pi-exclamation-triangle"></i> {{ w }}</li>
+      </ul>
+    </section>
+  </ng-container>
+</div>

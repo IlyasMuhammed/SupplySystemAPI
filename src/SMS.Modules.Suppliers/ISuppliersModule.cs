@@ -38,10 +38,13 @@ public static class SuppliersModuleExtensions
         services.AddScoped<ISupplierNameLookupService, SupplierNameLookupService>();
         // A32 — Demand's sale inquiry/quotation customer check (BR-C1-01/BR-C2-01).
         services.AddScoped<IPartnerRoleLookup, PartnerRoleLookup>();
+        // A34 D-11 tier 4 — the supplier record's lead time, for Inventory's lead-time calculator.
+        services.AddScoped<ISupplierLeadTimeLookup, SupplierLeadTimeLookup>();
         services.AddScoped<ISupplierScoreLookupService, SupplierScoreLookupService>();
         services.AddScoped<IScorecardRepository, ScorecardRepository>();
         services.AddScoped<IScorecardService, ScorecardService>();
         services.AddScoped<ScorecardDataSeeder>();
+        services.AddScoped<IOrganizationProvisionedHandler, ScorecardWeightsProvisioningHandler>();
         services.AddScoped<ISupplierScoringService, SupplierScoringService>();
         services.AddScoped<IScorecardRecalculationService, ScorecardRecalculationService>();
         services.AddScoped<IScorecardDashboardService, ScorecardDashboardService>();
@@ -53,6 +56,9 @@ public static class SuppliersModuleExtensions
         services.AddScoped<IBusinessPartnerService, BusinessPartnerService>();
         // Lookups asks every checker before it deletes a currency or changes its code.
         services.AddScoped<ILookupReferenceChecker, SuppliersCurrencyReferenceChecker>();
+        // A35 D-9 — partner default currencies (resolution for Demand/Finance, BR-C4-01 validation).
+        services.AddScoped<IPartnerCurrencyDefaults, PartnerCurrencyDefaultsService>();
+        services.AddScoped<PartnerCurrencyRules>();
 
         // Replaces Warehouse's NullGrnEventPublisher registration — must run AFTER AddWarehouseModule()
         // in Program.cs for this override to win (last registration for a given service type wins).
@@ -69,6 +75,22 @@ public static class SuppliersModuleExtensions
         services.AddScoped<PartnerQuickBooksPublisher>();
 
         return services;
+    }
+
+    /// <summary>
+    /// A35 — migrates the suppliers schema ONLY (no scorecard seeder, no recurring job). The host never called
+    /// <see cref="UseSuppliersModule"/>, so the shared database was migrated by hand up to 2026-09-21; this is what applies
+    /// later migrations (A35_PartnerDefaultSaleCurrency — guarded, idempotent) on every API start. Defensive (REV-08): when
+    /// the tables exist but the history lacks InitialCreate it logs a critical error and skips instead of crashing.
+    /// </summary>
+    public static IApplicationBuilder MigrateSuppliersSchema(this IApplicationBuilder app)
+    {
+        using var scope = app.ApplicationServices.CreateScope();
+        var log = scope.ServiceProvider.GetService<Microsoft.Extensions.Logging.ILoggerFactory>()?
+                      .CreateLogger("SMS.Modules.Suppliers.Migrations")
+                  ?? (Microsoft.Extensions.Logging.ILogger)Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance;
+        SuppliersSchemaMigrator.MigrateIfSafe(scope.ServiceProvider.GetRequiredService<SuppliersDbContext>(), log);
+        return app;
     }
 
     public static IApplicationBuilder UseSuppliersModule(this IApplicationBuilder app)

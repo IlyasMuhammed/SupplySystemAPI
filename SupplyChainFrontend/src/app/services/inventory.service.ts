@@ -154,6 +154,19 @@ export interface ProductVariantModel {
   fulfillmentRouteUuid?: string | null;
   fulfillmentRouteCode?: string | null;
   fulfillmentRouteName?: string | null;
+  // A34 (API-CONTRACT §4.1) — the variant's own route's category (null with no route of its own) and the
+  // "Make to order" tag (D-4: MANUFACTURE route). The eight lead-time overrides are read-only here: they are edited
+  // through PUT api/variants/{uuid}/lead-times (lead-time.service.ts); null = use the default.
+  fulfillmentRouteCategory?: 'STOCK' | 'MANUFACTURE' | null;
+  isMakeToOrder?: boolean;
+  supplierLeadTimeDays?: number | null;
+  manufacturingLeadTimeDays?: number | null;
+  manufacturingBufferDays?: number | null;
+  qualityInspectionDays?: number | null;
+  internalTransferDays?: number | null;
+  pickPackDays?: number | null;
+  shippingLeadTimeDays?: number | null;
+  salesBufferDays?: number | null;
 }
 
 /** A33 — PUT /api/variants/{uuid}/fulfillment-route result. */
@@ -219,6 +232,8 @@ export interface ProductListFilter {
   /** A30 §6 — product type / supply method codes. */
   productType?: string;
   supplyMethod?: string;
+  /** A34 — products with at least one active variant whose route has this category (unrouted variants never match). */
+  routeCategory?: 'STOCK' | 'MANUFACTURE';
   activeOnly?: boolean;
   page?: number;
   pageSize?: number;
@@ -677,6 +692,7 @@ export class InventoryService {
     if (filter.availableFor)      params = params.set('availableFor', filter.availableFor);
     if (filter.productType)       params = params.set('productType',  filter.productType);
     if (filter.supplyMethod)      params = params.set('supplyMethod', filter.supplyMethod);
+    if (filter.routeCategory)     params = params.set('routeCategory', filter.routeCategory);
     if (filter.activeOnly != null) params = params.set('activeOnly', String(filter.activeOnly));
     params = params.set('page',     String(filter.page     ?? 1));
     params = params.set('pageSize', String(filter.pageSize ?? 20));

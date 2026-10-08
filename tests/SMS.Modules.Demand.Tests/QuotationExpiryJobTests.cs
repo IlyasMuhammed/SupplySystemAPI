@@ -95,6 +95,7 @@ public class SaleQuotationsControllerPermissionTests
     [InlineData("AddLine",                PermissionCodes.SALE_QUOTATION_EDIT)]
     [InlineData("UpdateLine",             PermissionCodes.SALE_QUOTATION_EDIT)]
     [InlineData("DeleteLine",             PermissionCodes.SALE_QUOTATION_EDIT)]
+    [InlineData("CalculateLineLeadTime",  PermissionCodes.SALE_QUOTATION_EDIT)]   // A34 D-16 / D-24
     [InlineData("RecordCustomerResponse", PermissionCodes.SALE_QUOTATION_EDIT)]
     [InlineData("Accept",                 PermissionCodes.SALE_QUOTATION_EDIT)]
     [InlineData("Reject",                 PermissionCodes.SALE_QUOTATION_EDIT)]
@@ -112,7 +113,7 @@ public class SaleQuotationsControllerPermissionTests
     public void Every_public_action_is_gated_and_none_is_anonymous()
     {
         var actions = typeof(SaleQuotationsController).GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly);
-        actions.Should().HaveCount(13);
+        actions.Should().HaveCount(14);
         actions.Should().OnlyContain(m => m.GetCustomAttributes<RequirePermissionAttribute>().Any());
         actions.Should().NotContain(m => m.GetCustomAttributes<Microsoft.AspNetCore.Authorization.AllowAnonymousAttribute>().Any());
         typeof(SaleQuotationsController).GetCustomAttribute<RouteAttribute>()!.Template.Should().Be("api/sale-quotations");

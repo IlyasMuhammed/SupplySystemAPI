@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -19,6 +19,9 @@ import {
   ProductListFilter
 } from '../../../../services/inventory.service';
 import { AttachmentService } from '../../../../services/attachment.service';
+import { TenantService } from '../../../service/tenant.service';
+
+type RouteCategoryFilter = 'STOCK' | 'MANUFACTURE';
 
 @Component({
   selector: 'app-product-list',
@@ -44,6 +47,21 @@ export class ProductListComponent implements OnInit {
   searchText = '';
   selectedCategory: number | null = null;
   selectedStatus = '';
+  /** A34-PA-10 — GET api/products?routeCategory= (contract §4.3). Shown only where routes exist (MODULE_LOGISTICS). */
+  selectedRouteCategory: RouteCategoryFilter | null = null;
+
+  private readonly tenantService = inject(TenantService);
+
+  get routesEnabled(): boolean { return this.tenantService.hasFeature('MODULE_LOGISTICS'); }
+
+  /** MANUFACTURE only for organizations with MODULE_MANUFACTURING (D-9). */
+  get routeCategoryOptions(): { label: string; value: RouteCategoryFilter | null }[] {
+    const options: { label: string; value: RouteCategoryFilter | null }[] = [
+      { label: 'All Routes', value: null }, { label: 'Stock routes', value: 'STOCK' }
+    ];
+    if (this.tenantService.hasFeature('MODULE_MANUFACTURING')) options.push({ label: 'Manufacture routes', value: 'MANUFACTURE' });
+    return options;
+  }
 
   private searchTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -101,7 +119,8 @@ export class ProductListComponent implements OnInit {
       pageSize: this.pageSize,
       search: this.searchText || undefined,
       status: this.selectedStatus || undefined,
-      categoryId: this.selectedCategory ?? undefined
+      categoryId: this.selectedCategory ?? undefined,
+      routeCategory: (this.routesEnabled && this.selectedRouteCategory) || undefined
     };
 
     this.inventoryService.getProducts(filter).subscribe({
@@ -145,6 +164,7 @@ export class ProductListComponent implements OnInit {
     this.searchText = '';
     this.selectedCategory = null;
     this.selectedStatus = '';
+    this.selectedRouteCategory = null;
     this.currentPage = 1;
     this.loadProducts();
   }

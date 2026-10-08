@@ -170,6 +170,7 @@ public class ProductsController : ControllerBase
         [FromQuery] string? availableFor,
         [FromQuery] string? productType,
         [FromQuery] string? supplyMethod,
+        [FromQuery] string? routeCategory,
         [FromQuery] bool activeOnly = true,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20)
@@ -182,6 +183,8 @@ public class ProductsController : ControllerBase
             AvailableFor = availableFor,
             ProductType = productType,
             SupplyMethod = supplyMethod,
+            // A34 §4.3 (T-C2-04) — STOCK / MANUFACTURE.
+            RouteCategory = routeCategory,
             ActiveOnly = activeOnly,
             Page = page,
             PageSize = pageSize

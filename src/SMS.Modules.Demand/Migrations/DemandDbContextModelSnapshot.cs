@@ -167,11 +167,17 @@ namespace SMS.Modules.Demand.Migrations
                     b.Property<Guid?>("AutoSelectedSupplierId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("BaseCurrencyId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<int>("CreatedBy")
                         .HasColumnType("int");
 
                     b.Property<DateTime>("CreatedDate")
                         .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CurrencyId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid?>("CustomerShippingAddressId")
                         .HasColumnType("uniqueidentifier");
@@ -185,6 +191,9 @@ namespace SMS.Modules.Demand.Migrations
                     b.Property<string>("DeliveryWarehouseName")
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)");
+
+                    b.Property<decimal?>("ExchangeRate")
+                        .HasColumnType("decimal(18,10)");
 
                     b.Property<string>("InternalNotes")
                         .HasMaxLength(2000)
@@ -222,6 +231,9 @@ namespace SMS.Modules.Demand.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
+                    b.Property<DateTime?>("RateLockedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("Source")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
@@ -254,6 +266,9 @@ namespace SMS.Modules.Demand.Migrations
 
                     b.Property<decimal>("TotalAmount")
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("TotalAmountBase")
+                        .HasColumnType("decimal(18,4)");
 
                     b.Property<Guid>("TraceId")
                         .ValueGeneratedOnAdd()
@@ -311,6 +326,9 @@ namespace SMS.Modules.Demand.Migrations
                     b.Property<decimal>("LineTotal")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<decimal?>("LineTotalBase")
+                        .HasColumnType("decimal(18,4)");
+
                     b.Property<Guid>("OrganizationId")
                         .HasColumnType("uniqueidentifier");
 
@@ -354,6 +372,9 @@ namespace SMS.Modules.Demand.Migrations
 
                     b.Property<decimal>("UnitPrice")
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("UnitPriceBase")
+                        .HasColumnType("decimal(18,4)");
 
                     b.Property<Guid?>("VariantUuid")
                         .HasColumnType("uniqueidentifier");
@@ -892,6 +913,9 @@ namespace SMS.Modules.Demand.Migrations
                     b.Property<DateTime>("CreatedDate")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid?>("CurrencyId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("CustomerReference")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
@@ -982,6 +1006,12 @@ namespace SMS.Modules.Demand.Migrations
                     b.Property<Guid?>("AlternativeVariantUuid")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTime?>("CalculatedDeliveryDate")
+                        .HasColumnType("date");
+
+                    b.Property<int?>("CalculatedLeadTimeDays")
+                        .HasColumnType("int");
+
                     b.Property<decimal?>("CanSupplyQuantity")
                         .HasColumnType("decimal(18,4)");
 
@@ -990,6 +1020,9 @@ namespace SMS.Modules.Demand.Migrations
 
                     b.Property<DateTime?>("EstimatedDeliveryDate")
                         .HasColumnType("date");
+
+                    b.Property<DateTime?>("LeadTimeCalculatedAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<int>("LineNumber")
                         .HasColumnType("int");
@@ -1084,6 +1117,9 @@ namespace SMS.Modules.Demand.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<Guid?>("BaseCurrencyId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<int>("CreatedBy")
                         .HasColumnType("int");
 
@@ -1114,11 +1150,20 @@ namespace SMS.Modules.Demand.Migrations
                     b.Property<decimal>("DiscountAmount")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<decimal?>("DiscountAmountBase")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("ExchangeRate")
+                        .HasColumnType("decimal(18,10)");
+
                     b.Property<DateTime?>("ExpectedDeliveryDate")
                         .HasColumnType("datetime2");
 
                     b.Property<decimal>("GrandTotal")
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("GrandTotalBase")
+                        .HasColumnType("decimal(18,4)");
 
                     b.Property<int?>("IntimationDepartmentId")
                         .HasColumnType("int");
@@ -1146,6 +1191,12 @@ namespace SMS.Modules.Demand.Migrations
 
                     b.Property<Guid>("PartnerId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ProductionCreationPendingSince")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("RateLockedAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<bool>("RequiresShipment")
                         .ValueGeneratedOnAdd()
@@ -1181,8 +1232,14 @@ namespace SMS.Modules.Demand.Migrations
                     b.Property<decimal>("Subtotal")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<decimal?>("SubtotalBase")
+                        .HasColumnType("decimal(18,4)");
+
                     b.Property<decimal>("TaxAmount")
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("TaxAmountBase")
+                        .HasColumnType("decimal(18,4)");
 
                     b.Property<Guid>("TraceId")
                         .ValueGeneratedOnAdd()
@@ -1196,6 +1253,9 @@ namespace SMS.Modules.Demand.Migrations
 
                     b.HasIndex("DeliveryCreationPendingSince")
                         .HasFilter("[DeliveryCreationPendingSince] IS NOT NULL");
+
+                    b.HasIndex("ProductionCreationPendingSince")
+                        .HasFilter("[ProductionCreationPendingSince] IS NOT NULL");
 
                     b.HasIndex("SourceInquiryId")
                         .HasFilter("[SourceInquiryId] IS NOT NULL");
@@ -1435,6 +1495,12 @@ namespace SMS.Modules.Demand.Migrations
                     b.Property<decimal?>("AvailableQtyAtConfirm")
                         .HasColumnType("decimal(18,4)");
 
+                    b.Property<DateTime?>("CalculatedDeliveryDate")
+                        .HasColumnType("date");
+
+                    b.Property<int?>("CalculatedLeadTimeDays")
+                        .HasColumnType("int");
+
                     b.Property<decimal?>("DeficitQty")
                         .HasColumnType("decimal(18,4)");
 
@@ -1448,6 +1514,10 @@ namespace SMS.Modules.Demand.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
+                    b.Property<string>("FulfillmentRouteCategory")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
                     b.Property<string>("FulfillmentRouteCode")
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");
@@ -1458,11 +1528,20 @@ namespace SMS.Modules.Demand.Migrations
                     b.Property<decimal>("InvoicedQty")
                         .HasColumnType("decimal(18,4)");
 
+                    b.Property<DateTime?>("LeadTimeCalculatedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<decimal>("LineTotal")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<decimal?>("LineTotalBase")
+                        .HasColumnType("decimal(18,4)");
+
                     b.Property<int?>("LinkedPoId")
                         .HasColumnType("int");
+
+                    b.Property<DateTime?>("ManualDeliveryDate")
+                        .HasColumnType("date");
 
                     b.Property<decimal?>("Margin")
                         .HasColumnType("decimal(18,2)");
@@ -1476,6 +1555,9 @@ namespace SMS.Modules.Demand.Migrations
 
                     b.Property<Guid>("OrganizationId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal?>("ProductionShortfallQty")
+                        .HasColumnType("decimal(18,4)");
 
                     b.Property<decimal>("Quantity")
                         .HasColumnType("decimal(18,4)");
@@ -1511,6 +1593,9 @@ namespace SMS.Modules.Demand.Migrations
                     b.Property<decimal>("UnitPrice")
                         .HasColumnType("decimal(18,4)");
 
+                    b.Property<decimal?>("UnitPriceBase")
+                        .HasColumnType("decimal(18,4)");
+
                     b.Property<Guid>("VariantUuid")
                         .HasColumnType("uniqueidentifier");
 
@@ -1539,6 +1624,9 @@ namespace SMS.Modules.Demand.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<Guid?>("BaseCurrencyId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<int>("CreatedBy")
                         .HasColumnType("int");
 
@@ -1561,6 +1649,9 @@ namespace SMS.Modules.Demand.Migrations
 
                     b.Property<decimal>("DiscountAmount")
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("ExchangeRate")
+                        .HasColumnType("decimal(18,10)");
 
                     b.Property<decimal>("GrandTotal")
                         .HasColumnType("decimal(18,2)");
@@ -1593,6 +1684,9 @@ namespace SMS.Modules.Demand.Migrations
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime?>("RateLockedAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<DateTime?>("SentAt")
                         .HasColumnType("datetime2");
@@ -1666,6 +1760,12 @@ namespace SMS.Modules.Demand.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<DateTime?>("CalculatedDeliveryDate")
+                        .HasColumnType("date");
+
+                    b.Property<int?>("CalculatedLeadTimeDays")
+                        .HasColumnType("int");
+
                     b.Property<DateTime>("CreatedDate")
                         .HasColumnType("datetime2");
 
@@ -1684,14 +1784,23 @@ namespace SMS.Modules.Demand.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<decimal?>("DiscountAmountBase")
+                        .HasColumnType("decimal(18,4)");
+
                     b.Property<decimal>("DiscountPercent")
                         .HasColumnType("decimal(5,2)");
+
+                    b.Property<DateTime?>("LeadTimeCalculatedAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<int>("LineNumber")
                         .HasColumnType("int");
 
                     b.Property<decimal>("LineTotal")
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("LineTotalBase")
+                        .HasColumnType("decimal(18,4)");
 
                     b.Property<string>("LineType")
                         .IsRequired()
@@ -1735,6 +1844,9 @@ namespace SMS.Modules.Demand.Migrations
                     b.Property<decimal>("TaxAmount")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<decimal?>("TaxAmountBase")
+                        .HasColumnType("decimal(18,4)");
+
                     b.Property<string>("TaxCode")
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
@@ -1749,6 +1861,9 @@ namespace SMS.Modules.Demand.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal>("UnitPrice")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("UnitPriceBase")
                         .HasColumnType("decimal(18,4)");
 
                     b.Property<string>("UomCode")

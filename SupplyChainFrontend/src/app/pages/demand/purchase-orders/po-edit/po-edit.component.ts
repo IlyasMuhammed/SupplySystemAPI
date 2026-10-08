@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { ReactiveFormsModule, FormsModule, FormBuilder, FormGroup, FormArray, Validators } from '@angular/forms';
@@ -15,7 +15,11 @@ import { AutoCompleteModule } from 'primeng/autocomplete';
 import { CheckboxModule } from 'primeng/checkbox';
 import { MessageService } from 'primeng/api';
 import { DemandService, PatchPoRequest } from '../../../../services/demand.service';
-import { SupplierService, SupplierListItemModel } from '../../../../services/supplier.service';
+import { SupplierService, SupplierListItemModel, SupplierDetailModel } from '../../../../services/supplier.service';
+import { MoneyService } from '../../../../services/money.service';
+import { DocCurrencyPicker } from '../../../../shared/doc-currency/doc-currency-picker';
+import { DocCurrencyPanelComponent } from '../../../../shared/doc-currency/doc-currency-panel.component';
+import { MoneyPipe } from '../../../../shared/money/money.pipe';
 import { InventoryService, ProductListItemModel, WarehouseModel } from '../../../../services/inventory.service';
 import { ProductVariantPickerComponent, VariantPickerSelection } from '../../../../shared/product-variant-picker/product-variant-picker.component';
 
@@ -26,7 +30,8 @@ import { ProductVariantPickerComponent, VariantPickerSelection } from '../../../
     CommonModule, RouterModule, ReactiveFormsModule, FormsModule,
     ButtonModule, InputTextModule, TextareaModule, InputNumberModule,
     DropdownModule, CalendarModule, DividerModule, ToastModule,
-    TooltipModule, AutoCompleteModule, CheckboxModule, ProductVariantPickerComponent
+    TooltipModule, AutoCompleteModule, CheckboxModule, ProductVariantPickerComponent,
+    DocCurrencyPanelComponent, MoneyPipe
   ],
   templateUrl: './po-edit.component.html',
   styleUrls: ['./po-edit.component.scss'],
@@ -40,6 +45,11 @@ export class PoEditComponent implements OnInit {
   minDate = new Date();
 
   supplierSuggestions: SupplierListItemModel[] = [];
+
+  // A35 P3-14 — the draft's currency (changeable until approval locks the rate).
+  private readonly money = inject(MoneyService);
+  currency!: DocCurrencyPicker;
+  readonly moneyCode = { display: 'code' } as const;
   supplierAuto: any = null;
 
   products: ProductListItemModel[] = [];
@@ -132,6 +142,7 @@ export class PoEditComponent implements OnInit {
     this.form = this.fb.group({
       supplierName:          ['', Validators.required],
       supplierId:            [''],
+      currencyId:            [null as string | null],
       title:                 [''],
       deliveryDate:          [null],
       deliveryWarehouseId:   [null],
@@ -139,6 +150,8 @@ export class PoEditComponent implements OnInit {
       notes:                 [''],
       lines:                 this.fb.array([this.newLine()])
     });
+    this.currency = new DocCurrencyPicker(this.money, this.form.get('currencyId')!, 'PURCHASE');
+    this.currency.load(false);
   }
 
   get lines(): FormArray { return this.form.get('lines') as FormArray; }
@@ -198,9 +211,22 @@ export class PoEditComponent implements OnInit {
   onSupplierChange(val: any) {
     if (val && typeof val === 'object') {
       this.form.patchValue({ supplierId: val.uuid, supplierName: val.supplierName });
+      this.applySupplierCurrency(val.uuid);
     } else {
       this.form.patchValue({ supplierName: val ?? '', supplierId: '' });
     }
+  }
+
+  /** A35 D-9 — the supplier's default purchase currency (defaultPurchaseCurrencyId; older servers: preferredCurrency). */
+  private applySupplierCurrency(supplierId: string | null) {
+    if (!supplierId) return;
+    this.supplierService.getSupplierById(supplierId).subscribe({
+      next: res => {
+        const s = res?.result as (SupplierDetailModel & { defaultPurchaseCurrencyId?: string | null }) | null | undefined;
+        this.currency.applyPartnerDefault(s?.defaultPurchaseCurrencyId ?? s?.preferredCurrency ?? null);
+      },
+      error: () => { /* the currency stays as it is */ }
+    });
   }
 
   load() {
@@ -245,8 +271,10 @@ export class PoEditComponent implements OnInit {
           deliveryDate:          po.deliveryDate ? new Date(po.deliveryDate) : null,
           deliveryWarehouseId:   po.deliveryWarehouseId ?? null,
           deliveryWarehouseName: po.deliveryWarehouseName ?? '',
-          notes:                 po.notes ?? ''
+          notes:                 po.notes ?? '',
+          currencyId:            po.currencyId ?? null
         });
+        this.currency.rebuild();
       },
       error: () => {
         this.isLoading = false;
@@ -267,6 +295,7 @@ export class PoEditComponent implements OnInit {
       deliveryWarehouseId:   v.deliveryWarehouseId   || undefined,
       deliveryWarehouseName: v.deliveryWarehouseName || undefined,
       notes:                 v.notes                 || undefined,
+      currencyId:            v.currencyId            || undefined,
       lines: v.lines.map((l: any) => ({
         variantUuid:     l.variantUuid     || undefined,
         itemDescription: l.itemDescription,

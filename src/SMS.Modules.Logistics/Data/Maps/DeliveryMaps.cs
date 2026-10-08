@@ -38,6 +38,10 @@ internal sealed class DeliveryOrderMap : IEntityTypeConfiguration<DeliveryOrder>
         b.HasIndex(x => new { x.OrganizationId, x.FulfillmentRouteUuid })
          .HasFilter("[FulfillmentRouteUuid] IS NOT NULL");
 
+        // A34 C6 — deliveries made from a production order (D-29 idempotence, the PO detail's delivery card).
+        b.HasIndex(x => new { x.OrganizationId, x.ProductionOrderUuid })
+         .HasFilter("[ProductionOrderUuid] IS NOT NULL");
+
         b.Property(x => x.Status).HasMaxLength(30).IsRequired();
         b.Property(x => x.StatusBeforeHold).HasMaxLength(30);
         b.Property(x => x.HoldReason).HasMaxLength(500);

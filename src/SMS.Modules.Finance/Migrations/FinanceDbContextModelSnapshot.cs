@@ -133,6 +133,90 @@ namespace SMS.Modules.Finance.Migrations
                     b.ToTable("credit_notes", "finance");
                 });
 
+            modelBuilder.Entity("SMS.Modules.Finance.Domain.CurrencyRate", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CurrencyCode")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("nvarchar(3)");
+
+                    b.Property<Guid>("CurrencyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateOnly>("EffectiveFrom")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly>("EffectiveTo")
+                        .HasColumnType("date");
+
+                    b.Property<decimal>("InverseRate")
+                        .HasColumnType("decimal(18,10)");
+
+                    b.Property<int?>("ModifiedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ModifiedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Rate")
+                        .HasColumnType("decimal(18,10)");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)")
+                        .HasDefaultValue("MANUAL");
+
+                    b.Property<Guid>("Uuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Uuid")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "EffectiveTo")
+                        .HasDatabaseName("IX_currency_rates_Active")
+                        .HasFilter("[EffectiveTo] = '9999-12-31'");
+
+                    b.HasIndex("OrganizationId", "CurrencyId", "EffectiveFrom")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "CurrencyId", "EffectiveFrom", "EffectiveTo")
+                        .HasDatabaseName("IX_currency_rates_Lookup");
+
+                    b.ToTable("currency_rates", "finance", t =>
+                        {
+                            t.HasCheckConstraint("CK_currency_rates_DateRange", "[EffectiveTo] >= [EffectiveFrom]");
+
+                            t.HasCheckConstraint("CK_currency_rates_InversePositive", "[InverseRate] > 0");
+
+                            t.HasCheckConstraint("CK_currency_rates_RatePositive", "[Rate] > 0");
+
+                            t.HasCheckConstraint("CK_currency_rates_Source", "[Source] IN ('MANUAL','API_SBP','API_ECB','API_OPENEXCHANGE','API_FOREX','SYSTEM')");
+                        });
+                });
+
             modelBuilder.Entity("SMS.Modules.Finance.Domain.CustomerLedgerEntry", b =>
                 {
                     b.Property<int>("Id")
@@ -224,9 +308,15 @@ namespace SMS.Modules.Finance.Migrations
                     b.Property<decimal>("Amount")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<decimal?>("AmountBase")
+                        .HasColumnType("decimal(18,4)");
+
                     b.Property<string>("BankReference")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid?>("BaseCurrencyId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("ChequeNumber")
                         .HasMaxLength(30)
@@ -244,6 +334,15 @@ namespace SMS.Modules.Finance.Migrations
                         .HasMaxLength(10)
                         .HasColumnType("nvarchar(10)")
                         .HasDefaultValue("PKR");
+
+                    b.Property<Guid?>("CurrencyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal?>("ExchangeDifference")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("ExchangeRate")
+                        .HasColumnType("decimal(18,10)");
 
                     b.Property<int?>("ModifiedBy")
                         .HasColumnType("int");
@@ -506,6 +605,139 @@ namespace SMS.Modules.Finance.Migrations
                     b.ToTable("debt_write_offs", "finance");
                 });
 
+            modelBuilder.Entity("SMS.Modules.Finance.Domain.ExchangeDifference", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AccountCode")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<int?>("AllocationId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("AmountCurrency")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("BaseCurrencyCode")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<Guid?>("BaseCurrencyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("BookedAmountBase")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("BookedRate")
+                        .HasColumnType("decimal(18,10)");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CurrencyCode")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<Guid?>("CurrencyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("DifferenceBase")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<int>("DocumentId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("DocumentNo")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("DocumentType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<Guid>("DocumentUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("nvarchar(12)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("PartnerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("PaymentId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PaymentNo")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("PaymentType")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<Guid?>("PaymentUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("PostedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateOnly?>("RevaluationDate")
+                        .HasColumnType("date");
+
+                    b.Property<decimal>("SettledAmountBase")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("SettlementRate")
+                        .HasColumnType("decimal(18,10)");
+
+                    b.Property<string>("Side")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("nvarchar(12)");
+
+                    b.Property<Guid>("Uuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Uuid")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "DocumentType", "DocumentId");
+
+                    b.HasIndex("OrganizationId", "Kind", "PostedAt");
+
+                    b.HasIndex("OrganizationId", "PaymentType", "PaymentId");
+
+                    b.HasIndex("OrganizationId", "DocumentType", "DocumentId", "RevaluationDate")
+                        .IsUnique()
+                        .HasDatabaseName("UX_exchange_differences_Revaluation")
+                        .HasFilter("[Kind] = 'UNREALIZED' AND [RevaluationDate] IS NOT NULL");
+
+                    b.ToTable("exchange_differences", "finance", t =>
+                        {
+                            t.HasCheckConstraint("CK_exchange_differences_Kind", "[Kind] IN ('REALIZED','UNREALIZED')");
+
+                            t.HasCheckConstraint("CK_exchange_differences_Side", "[Side] IN ('RECEIVABLE','PAYABLE')");
+                        });
+                });
+
             modelBuilder.Entity("SMS.Modules.Finance.Domain.ExchangeRate", b =>
                 {
                     b.Property<int>("Id")
@@ -596,8 +828,11 @@ namespace SMS.Modules.Finance.Migrations
                         .HasMaxLength(10)
                         .HasColumnType("nvarchar(10)");
 
+                    b.Property<Guid?>("BaseCurrencyId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<decimal?>("BaseTotalAmount")
-                        .HasColumnType("decimal(18,2)");
+                        .HasColumnType("decimal(18,4)");
 
                     b.Property<int>("CreatedBy")
                         .HasColumnType("int");
@@ -612,11 +847,17 @@ namespace SMS.Modules.Finance.Migrations
                         .HasColumnType("nvarchar(10)")
                         .HasDefaultValue("PKR");
 
+                    b.Property<Guid?>("CurrencyId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<DateTime>("DueDate")
                         .HasColumnType("datetime2");
 
                     b.Property<decimal?>("ExchangeRate")
-                        .HasColumnType("decimal(18,8)");
+                        .HasColumnType("decimal(18,10)");
+
+                    b.Property<DateTime?>("ExchangeRateLockedAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("GrnNumber")
                         .HasMaxLength(20)
@@ -1046,6 +1287,100 @@ namespace SMS.Modules.Finance.Migrations
                     b.ToTable("master_product_ledger", "finance");
                 });
 
+            modelBuilder.Entity("SMS.Modules.Finance.Domain.OrgCurrency", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("nvarchar(3)");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CurrencyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("DecimalPlaces")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(2);
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<int?>("ModifiedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ModifiedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Rounding")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,6)")
+                        .HasDefaultValue(0.01m);
+
+                    b.Property<string>("Symbol")
+                        .IsRequired()
+                        .HasMaxLength(5)
+                        .HasColumnType("nvarchar(5)");
+
+                    b.Property<string>("SymbolPosition")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(6)
+                        .HasColumnType("nvarchar(6)")
+                        .HasDefaultValue("before");
+
+                    b.Property<Guid>("Uuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Uuid")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "Code")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "CurrencyId")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "IsActive", "DisplayOrder");
+
+                    b.ToTable("org_currencies", "finance", t =>
+                        {
+                            t.HasCheckConstraint("CK_org_currencies_Code", "LEN([Code]) = 3 AND [Code] = UPPER([Code]) COLLATE Latin1_General_CS_AS");
+
+                            t.HasCheckConstraint("CK_org_currencies_DecimalPlaces", "[DecimalPlaces] BETWEEN 0 AND 3");
+
+                            t.HasCheckConstraint("CK_org_currencies_Rounding", "[Rounding] > 0");
+
+                            t.HasCheckConstraint("CK_org_currencies_SymbolPosition", "[SymbolPosition] IN ('before','after')");
+                        });
+                });
+
             modelBuilder.Entity("SMS.Modules.Finance.Domain.Payment", b =>
                 {
                     b.Property<int>("Id")
@@ -1167,6 +1502,9 @@ namespace SMS.Modules.Finance.Migrations
 
                     b.Property<int>("CustomerPaymentId")
                         .HasColumnType("int");
+
+                    b.Property<decimal?>("ExchangeDifference")
+                        .HasColumnType("decimal(18,4)");
 
                     b.Property<Guid>("OrganizationId")
                         .HasColumnType("uniqueidentifier");
@@ -1303,8 +1641,11 @@ namespace SMS.Modules.Finance.Migrations
                         .HasMaxLength(10)
                         .HasColumnType("nvarchar(10)");
 
+                    b.Property<Guid?>("BaseCurrencyId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<decimal?>("BaseGrandTotal")
-                        .HasColumnType("decimal(18,2)");
+                        .HasColumnType("decimal(18,4)");
 
                     b.Property<string>("CancellationReason")
                         .HasMaxLength(500)
@@ -1329,6 +1670,9 @@ namespace SMS.Modules.Finance.Migrations
                         .HasColumnType("nvarchar(10)")
                         .HasDefaultValue("PKR");
 
+                    b.Property<Guid?>("CurrencyId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("DeliveryNumber")
                         .HasMaxLength(25)
                         .HasColumnType("nvarchar(25)");
@@ -1343,7 +1687,10 @@ namespace SMS.Modules.Finance.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<decimal?>("ExchangeRate")
-                        .HasColumnType("decimal(18,8)");
+                        .HasColumnType("decimal(18,10)");
+
+                    b.Property<DateTime?>("ExchangeRateLockedAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<decimal>("GrandTotal")
                         .HasColumnType("decimal(18,2)");
@@ -1630,6 +1977,9 @@ namespace SMS.Modules.Finance.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<decimal?>("AmountBase")
+                        .HasColumnType("decimal(18,4)");
+
                     b.Property<DateTime?>("ApprovedAt")
                         .HasColumnType("datetime2");
 
@@ -1639,6 +1989,9 @@ namespace SMS.Modules.Finance.Migrations
                     b.Property<string>("BankAccount")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid?>("BaseCurrencyId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime?>("BouncedAt")
                         .HasColumnType("datetime2");
@@ -1658,6 +2011,22 @@ namespace SMS.Modules.Finance.Migrations
 
                     b.Property<Guid?>("CreditNoteUuid")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CurrencyCode")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)")
+                        .HasDefaultValue("PKR");
+
+                    b.Property<Guid?>("CurrencyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal?>("ExchangeDifference")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("ExchangeRate")
+                        .HasColumnType("decimal(18,10)");
 
                     b.Property<int?>("ModifiedBy")
                         .HasColumnType("int");
@@ -1748,6 +2117,9 @@ namespace SMS.Modules.Finance.Migrations
 
                     b.Property<decimal>("AllocatedAmount")
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("ExchangeDifference")
+                        .HasColumnType("decimal(18,4)");
 
                     b.Property<string>("InvoiceNumber")
                         .IsRequired()

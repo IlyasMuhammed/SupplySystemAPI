@@ -89,6 +89,11 @@ public sealed class ManufacturingCycleTests : IClassFixture<ProcurementCycleWebA
         var warehouse  = await CreateWarehouseAsync("MFG-WH", "Manufacturing Warehouse");
         var customerId = await CreateCustomerAsync("Manufacturing Test Customer");
         var currencyId = await CreateCurrencyAsync("US Dollar", "USD", "$");
+        // A35 D-5: the org's sale base is PKR (the fallback), so confirming a USD order locks a USD rate — one must exist.
+        await PostAsync<System.Text.Json.JsonElement>("/api/currency-rates", new
+        {
+            currencyId, rate = 280m, effectiveFrom = DateTime.UtcNow.Date.AddDays(-30).ToString("yyyy-MM-dd"), notes = "p421"
+        });
         var invMgr     = await CreateSecondApproverClientAsync();
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -332,8 +337,16 @@ public sealed class ManufacturingCycleTests : IClassFixture<ProcurementCycleWebA
 
     // A fresh org has no base currency configured, and both rate cards and sale orders refuse to
     // fall back silently — supply one explicitly everywhere instead of also configuring org settings.
-    private async Task<Guid> CreateCurrencyAsync(string name, string code, string symbol) =>
-        await PostAsync<Guid>("/api/lookups/currencies", new SMS.Modules.Lookups.Models.CreateCurrencyRequest { Name = name, Code = code, Symbol = symbol });
+    // A35 (D-1): the Lookups startup seeder now puts the 18 seed codes (USD included) in the global catalog, so an existing
+    // row with this code is reused instead of created again (a second "US Dollar" is a 409).
+    private async Task<Guid> CreateCurrencyAsync(string name, string code, string symbol)
+    {
+        var existing = (await GetAsync<List<System.Text.Json.JsonElement>>("/api/lookups/currencies"))
+            .FirstOrDefault(c => c.TryGetProperty("code", out var k) && string.Equals(k.GetString()?.Trim(), code, StringComparison.OrdinalIgnoreCase));
+        return existing.ValueKind == System.Text.Json.JsonValueKind.Object
+            ? existing.GetProperty("id").GetGuid()
+            : await PostAsync<Guid>("/api/lookups/currencies", new SMS.Modules.Lookups.Models.CreateCurrencyRequest { Name = name, Code = code, Symbol = symbol });
+    }
 
     private async Task<Guid> CreateCustomerAsync(string name) =>
         await PostAsync<Guid>("/api/partners", new SMS.Modules.Suppliers.Models.BusinessPartnerModel

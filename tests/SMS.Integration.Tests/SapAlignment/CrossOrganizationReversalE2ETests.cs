@@ -132,6 +132,31 @@ public sealed class CrossOrganizationReversalE2ETests : IClassFixture<SapWebAppl
             ("@p", po))).Single()["Q"]!;
 
     /// <summary>A second organization (ENTERPRISE plan) whose admin has accepted the invitation, and a kit acting as that admin.</summary>
+    /// <summary>
+    /// A35 P1-14 — an organization created by the super admin (no base currency) gets its own currency setup in the same
+    /// request: org currencies and the PKR SYSTEM rate row under ITS id; the super admin's organization is untouched.
+    /// (Regression: the org-create transaction stayed attached to TenancyDbContext, so every provisioning handler that
+    /// read Tenancy afterwards failed silently.)
+    /// </summary>
+    [Fact]
+    public async Task A35_a_new_organization_gets_its_own_currencies_and_rate_currency_row()
+    {
+        async Task<int> CountAsync(string sql, Guid org) =>
+            Convert.ToInt32((await _f.QueryAsync(sql, ("@o", org)))[0].Values.First());
+        const string currencies = "SELECT COUNT(*) AS n FROM finance.org_currencies WHERE OrganizationId = @o";
+        const string systemRow  = "SELECT COUNT(*) AS n FROM finance.currency_rates WHERE OrganizationId = @o AND Source = 'SYSTEM' AND CurrencyCode = 'PKR' AND Rate = 1";
+
+        var mineBefore = await CountAsync(currencies, _f.OrganizationId);
+        var (org2, kit2) = await SecondOrganizationAsync();
+
+        (await CountAsync(currencies, org2)).Should().BeGreaterThan(0, "the new organization's currencies are seeded on creation");
+        (await CountAsync(systemRow, org2)).Should().Be(1, "its rate currency (PKR fallback) has the permanent 1.0 row");
+        (await CountAsync(currencies, _f.OrganizationId)).Should().Be(mineBefore, "the super admin's organization is untouched");
+
+        var list = await kit2.Ok(kit2.Get("/api/currencies"), "org 2 currencies");
+        list.Items().Should().Contain(c => c.S("code") == "PKR" && c.B("isRateCurrency"));
+    }
+
     private async Task<(Guid OrgId, SapKit Kit)> SecondOrganizationAsync()
     {
         var email = $"org2-{Guid.NewGuid():N}@sap-e2e.test";

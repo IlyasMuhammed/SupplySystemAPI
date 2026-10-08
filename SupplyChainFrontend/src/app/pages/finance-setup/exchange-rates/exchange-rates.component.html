@@ -1,5 +1,4 @@
 <p-toast></p-toast>
-<p-confirmDialog key="exchange-rates" [style]="{ width: '32rem', maxWidth: '96vw' }"></p-confirmDialog>
 
 <div class="setup-page">
 
@@ -9,19 +8,19 @@
     <div class="grow">
       <h1 class="page-title">Exchange Rates</h1>
       <p class="page-subtitle">
-        One unit of the first currency is worth the rate in the second, from the effective date until the next rate for the
-        same pair. A document uses the latest rate on or before its date — or the opposite pair's, turned round — and keeps
-        it once final, so changing a rate here never changes a document already issued or approved.
+        How many {{ rateCurrencyCode || 'rate-currency' }} one unit of each currency is worth, from one date to another. Adding a
+        current rate ends the previous one the day before, so every day has exactly one rate. A document fixes the rate of its
+        date when it is confirmed, approved or issued — changing a rate here never changes it.
       </p>
     </div>
     <div class="page-actions" *ngIf="canManage">
-      <p-button label="New rate" icon="pi pi-plus" (onClick)="openCreate()" data-testid="new-rate"></p-button>
+      <p-button label="Add rate" icon="pi pi-plus" (onClick)="openCreate()" data-testid="add-rate"></p-button>
     </div>
   </div>
 
   <div class="note info" *ngIf="!canManage" data-testid="read-only">
     <i class="pi pi-lock"></i>
-    <div class="note-body">You can see the rates. Changing them needs the Manage Finance Setup permission.</div>
+    <div class="note-body">You can see the rates. Changing them needs the Manage Exchange Rates permission.</div>
   </div>
 
   <div class="note warn" *ngIf="currenciesFailed" data-testid="currencies-failed">
@@ -35,40 +34,29 @@
       <div class="card-icon"><i class="pi pi-calculator"></i></div>
       <div class="grow">
         <div class="card-title">Rate on a date</div>
-        <div class="card-sub">The rate a document dated that day would use.</div>
+        <div class="card-sub">The rate a document dated that day would lock.</div>
       </div>
     </div>
     <div class="quote-row">
-      <p-select [options]="currencies" [(ngModel)]="quoteFrom" (ngModelChange)="onQuoteInputChange()" optionLabel="label" optionValue="value"
-                placeholder="From" [filter]="currencies.length > 8" filterBy="label" appendTo="body" styleClass="currency"
-                data-testid="quote-from"></p-select>
-      <i class="pi pi-arrow-right muted"></i>
-      <p-select [options]="currencies" [(ngModel)]="quoteTo" (ngModelChange)="onQuoteInputChange()" optionLabel="label" optionValue="value"
-                placeholder="To" [filter]="currencies.length > 8" filterBy="label" appendTo="body" styleClass="currency"
-                data-testid="quote-to"></p-select>
+      <p-select [options]="filterOptions" [(ngModel)]="quoteCurrencyId" (ngModelChange)="onQuoteInputChange()" optionLabel="label"
+                optionValue="value" placeholder="Currency" [filter]="filterOptions.length > 8" filterBy="label" appendTo="body"
+                styleClass="currency" data-testid="quote-currency"></p-select>
       <p-datepicker [(ngModel)]="quoteDate" (ngModelChange)="onQuoteInputChange()" dateFormat="dd/mm/yy" [showIcon]="true"
                     appendTo="body" inputId="quoteDate" data-testid="quote-date"></p-datepicker>
       <p-button label="Check" icon="pi pi-search" [disabled]="!canQuote" [loading]="isQuoting" (onClick)="checkQuote()"
                 data-testid="quote-check"></p-button>
     </div>
-
     <div class="quote-answer" *ngIf="quoteChecked" data-testid="quote-answer">
       <ng-container *ngIf="quote; else noQuote">
-        <div class="quote-value">1 {{ quote.fromCurrencyCode }} = <strong>{{ formatRate(quote.rate) }}</strong> {{ quote.toCurrencyCode }}</div>
+        <div class="quote-value">1 {{ quote.currencyCode }} = <strong>{{ rateText(quote.rate) }}</strong> {{ quote.rateCurrencyCode }}</div>
         <div class="hint">
-          <ng-container *ngIf="quote.fromCurrencyCode === quote.toCurrencyCode">The same currency is always 1.</ng-container>
-          <ng-container *ngIf="quote.fromCurrencyCode !== quote.toCurrencyCode && !quote.inverted">
-            The {{ quote.fromCurrencyCode }} → {{ quote.toCurrencyCode }} rate of {{ quote.effectiveDate | date:'d MMM y' }}.
-          </ng-container>
-          <ng-container *ngIf="quote.inverted">
-            Worked out from the {{ quote.toCurrencyCode }} → {{ quote.fromCurrencyCode }} rate of {{ quote.effectiveDate | date:'d MMM y' }}
-            (no {{ quote.fromCurrencyCode }} → {{ quote.toCurrencyCode }} rate is on file).
-          </ng-container>
+          The rate from {{ dayText(quote.effectiveFrom) }}
+          <ng-container *ngIf="isOpenEnd(quote.effectiveTo); else closedTo">(current).</ng-container>
+          <ng-template #closedTo>to {{ dayText(quote.effectiveTo) }}.</ng-template>
         </div>
       </ng-container>
       <ng-template #noQuote>
-        <div class="quote-none"><i class="pi pi-info-circle"></i> {{ quoteMessage || 'No rate is on file for that date.' }}</div>
-        <div class="hint">A document dated then would carry no conversion. Rates are not chained through a third currency.</div>
+        <div class="quote-none"><i class="pi pi-info-circle"></i> {{ quoteMessage || 'No rate covers that date.' }}</div>
       </ng-template>
     </div>
   </section>
@@ -76,16 +64,14 @@
   <!-- ── The rates ──────────────────────────────────────────────────────────── -->
   <section class="form-card flush">
     <div class="table-toolbar">
-      <p-select [options]="currencies" [(ngModel)]="filterFrom" (ngModelChange)="onFilterChange()" optionLabel="label" optionValue="value"
-                placeholder="Any from-currency" [showClear]="true" [filter]="currencies.length > 8" filterBy="label" appendTo="body"
-                styleClass="currency" data-testid="filter-from"></p-select>
-      <i class="pi pi-arrow-right muted"></i>
-      <p-select [options]="currencies" [(ngModel)]="filterTo" (ngModelChange)="onFilterChange()" optionLabel="label" optionValue="value"
-                placeholder="Any to-currency" [showClear]="true" [filter]="currencies.length > 8" filterBy="label" appendTo="body"
-                styleClass="currency" data-testid="filter-to"></p-select>
+      <p-select [options]="filterOptions" [(ngModel)]="filterCurrencyId" (ngModelChange)="onFilterChange()" optionLabel="label"
+                optionValue="value" placeholder="All currencies" [showClear]="true" [filter]="filterOptions.length > 8" filterBy="label"
+                appendTo="body" styleClass="currency" data-testid="filter-currency"></p-select>
+      <p-datepicker [(ngModel)]="filterMonth" (ngModelChange)="onFilterChange()" view="month" dateFormat="M yy" placeholder="Any period"
+                    [showIcon]="true" [showClear]="true" [readonlyInput]="true" appendTo="body" data-testid="filter-month"></p-datepicker>
       <p-button *ngIf="hasFilters" label="Clear" [text]="true" size="small" (onClick)="clearFilters()" data-testid="clear-filters"></p-button>
       <span class="grow"></span>
-      <span class="muted" *ngIf="!isLoading">{{ rates.length }} {{ rates.length === 1 ? 'rate' : 'rates' }}, newest first</span>
+      <span class="muted" *ngIf="!isLoading">{{ rates.length }} {{ rates.length === 1 ? 'rate' : 'rates' }}</span>
     </div>
 
     <div class="state-inline" *ngIf="loadFailed" data-testid="load-failed">
@@ -93,102 +79,120 @@
       <p-button label="Try again" [text]="true" size="small" (onClick)="load()"></p-button>
     </div>
 
-    <p-table [value]="rates" [loading]="isLoading" dataKey="uuid" styleClass="p-datatable-sm" [tableStyle]="{ 'min-width': '46rem' }"
-             [paginator]="rates.length > 25" [rows]="25" *ngIf="!loadFailed">
+    <p-table [value]="rates" [loading]="isLoading" dataKey="id" styleClass="p-datatable-sm" [tableStyle]="{ 'min-width': '52rem' }"
+             [paginator]="rates.length > 50" [rows]="50" *ngIf="!loadFailed">
       <ng-template pTemplate="header">
         <tr>
-          <th style="width: 9rem">Pair</th>
-          <th class="text-right" style="width: 12rem">Rate</th>
-          <th style="width: 9rem">Effective</th>
-          <th style="width: 7rem">Source</th>
+          <th style="width: 5rem">Code</th>
+          <th>Name</th>
+          <th class="text-right" style="width: 11rem" data-testid="rate-col">Rate ({{ rateCurrencyCode }})</th>
+          <th style="width: 8.5rem">From</th>
+          <th style="width: 8.5rem">To</th>
+          <th style="width: 6rem">Source</th>
           <th>Notes</th>
-          <th style="width: 6rem" *ngIf="canManage"></th>
+          <th style="width: 4rem" *ngIf="canManage"></th>
         </tr>
       </ng-template>
       <ng-template pTemplate="body" let-r>
-        <tr [attr.data-testid]="'rate-' + r.uuid">
-          <td class="mono nowrap">{{ r.fromCurrencyCode }} → {{ r.toCurrencyCode }}</td>
-          <td class="text-right nowrap" [pTooltip]="'1 ' + r.fromCurrencyCode + ' = ' + formatRate(r.rate) + ' ' + r.toCurrencyCode" tooltipPosition="top">
-            {{ formatRate(r.rate) }}
+        <tr [attr.data-testid]="'rate-' + r.id">
+          <td class="mono">{{ r.currencyCode }}</td>
+          <td>{{ r.currencyName }}</td>
+          <td class="text-right nowrap mono"
+              [pTooltip]="'1 ' + r.currencyCode + ' = ' + rateText(r.rate) + ' ' + r.rateCurrencyCode + ' · 1 ' + r.rateCurrencyCode + ' = ' + rateText(r.inverseRate) + ' ' + r.currencyCode"
+              tooltipPosition="top">{{ rateText(r.rate) }}</td>
+          <td class="nowrap">{{ dayText(r.effectiveFrom) }}</td>
+          <td class="nowrap">
+            <p-tag *ngIf="isOpenEnd(r.effectiveTo); else toDay" value="● Current" severity="success" [attr.data-testid]="'current-' + r.id"></p-tag>
+            <ng-template #toDay>{{ dayText(r.effectiveTo) }}</ng-template>
           </td>
-          <td class="nowrap">{{ r.effectiveDate | date:'d MMM y' }}</td>
-          <td><p-tag [value]="r.source" [severity]="r.source === 'MANUAL' ? 'secondary' : 'info'"></p-tag></td>
+          <td><p-tag [value]="r.source === 'SYSTEM' ? 'System' : 'Manual'" [severity]="r.source === 'SYSTEM' ? 'info' : 'secondary'"></p-tag></td>
           <td class="muted">{{ r.notes }}</td>
           <td *ngIf="canManage">
             <div class="row-actions">
-              <p-button icon="pi pi-pencil" [text]="true" [rounded]="true" size="small" pTooltip="Edit" tooltipPosition="top"
-                        (onClick)="openEdit(r)" [attr.data-testid]="'edit-' + r.uuid"></p-button>
-              <p-button icon="pi pi-trash" [text]="true" [rounded]="true" size="small" severity="danger" pTooltip="Delete" tooltipPosition="top"
-                        [disabled]="!!busy[r.uuid]" (onClick)="confirmDelete(r)" [attr.data-testid]="'delete-' + r.uuid"></p-button>
+              <p-button *ngIf="canEdit(r)" icon="pi pi-pencil" [text]="true" [rounded]="true" size="small" pTooltip="Edit" tooltipPosition="top"
+                        (onClick)="openEdit(r)" [attr.data-testid]="'edit-' + r.id"></p-button>
+              <i *ngIf="!canEdit(r)" class="pi pi-lock muted" pTooltip="The rate currency's rate is always 1.0." tooltipPosition="left"></i>
             </div>
           </td>
         </tr>
       </ng-template>
       <ng-template pTemplate="emptymessage">
         <tr>
-          <td [attr.colspan]="canManage ? 6 : 5" class="empty" data-testid="empty">
-            <ng-container *ngIf="hasFilters; else none">No rate for these currencies.</ng-container>
-            <ng-template #none>
-              No exchange rates yet. Documents in a foreign currency are then saved without a conversion.
-            </ng-template>
+          <td [attr.colspan]="canManage ? 8 : 7" class="empty" data-testid="empty">
+            <ng-container *ngIf="hasFilters; else none">No rate for this currency or period.</ng-container>
+            <ng-template #none>No exchange rates yet. A document in a foreign currency cannot be confirmed until its currency has a rate.</ng-template>
           </td>
         </tr>
       </ng-template>
     </p-table>
   </section>
+  <p class="hint">● Current = the rate in force from its start date onwards (no end date yet).</p>
 </div>
 
 <!-- ══ Add / edit ══════════════════════════════════════════════════════════ -->
-<p-dialog [header]="editing ? 'Edit rate' : 'New exchange rate'" [(visible)]="dialogVisible" [modal]="true" [draggable]="false"
-          [closable]="!isSaving" [style]="{ width: '36rem', maxWidth: '96vw' }" data-testid="rate-dialog">
-  <div class="pair-row">
-    <div class="field grow">
-      <label for="rateFrom">From <span class="required">*</span></label>
-      <p-select inputId="rateFrom" [options]="currencies" [(ngModel)]="draft.fromCurrencyCode" optionLabel="label" optionValue="value"
-                placeholder="Currency" [filter]="currencies.length > 8" filterBy="label" appendTo="body" styleClass="w-full"
-                data-testid="from-input"></p-select>
+<p-dialog [header]="editing ? 'Edit exchange rate' : 'Add exchange rate'" [(visible)]="dialogVisible" [modal]="true" [draggable]="false"
+          [closable]="!isSaving" [style]="{ width: '34rem', maxWidth: '96vw' }" data-testid="rate-dialog">
+  <div class="field">
+    <label for="rateCurrency">Currency <span class="required">*</span></label>
+    <p-select inputId="rateCurrency" [options]="currencyOptions" [(ngModel)]="draft.currencyId" (ngModelChange)="onDraftCurrencyChange()"
+              optionLabel="label" optionValue="value" placeholder="Choose a currency" [disabled]="!!editing"
+              [filter]="currencyOptions.length > 8" filterBy="label" appendTo="body" styleClass="w-full" data-testid="currency-input"></p-select>
+    <small class="hint" *ngIf="editing">{{ editing.currencyCode }} - {{ editing.currencyName }}</small>
+  </div>
+
+  <div class="field">
+    <label for="rateValue">Rate ({{ rateCurrencyCode }}/{{ draftCodeLabel() }}) <span class="required">*</span></label>
+    <p-inputnumber inputId="rateValue" [(ngModel)]="draft.rate" [min]="0" [minFractionDigits]="0" [maxFractionDigits]="rateDecimals"
+                   [useGrouping]="false" styleClass="w-full" data-testid="rate-input"></p-inputnumber>
+    <small class="hint" *ngIf="inverse" data-testid="inverse">Inverse: {{ inverse }}</small>
+  </div>
+
+  <div class="field">
+    <label for="rateFrom">Effective from <span class="required">*</span></label>
+    <p-datepicker inputId="rateFrom" [(ngModel)]="draft.effectiveFrom" dateFormat="dd/mm/yy" [showIcon]="true" appendTo="body"
+                  styleClass="w-full" data-testid="from-input"></p-datepicker>
+  </div>
+
+  <div class="field">
+    <label>Effective to</label>
+    <div class="radio-row">
+      <p-radiobutton inputId="toOpen" name="rateTo" [value]="true" [(ngModel)]="draft.openEnded" data-testid="to-open"></p-radiobutton>
+      <label for="toOpen">Current (open-ended)</label>
     </div>
-    <p-button icon="pi pi-arrow-right-arrow-left" [text]="true" [rounded]="true" pTooltip="Swap, turning the rate round"
-              tooltipPosition="top" (onClick)="swapDraft()" styleClass="swap" data-testid="swap"></p-button>
-    <div class="field grow">
-      <label for="rateTo">To <span class="required">*</span></label>
-      <p-select inputId="rateTo" [options]="currencies" [(ngModel)]="draft.toCurrencyCode" optionLabel="label" optionValue="value"
-                placeholder="Currency" [filter]="currencies.length > 8" filterBy="label" appendTo="body" styleClass="w-full"
-                data-testid="to-input"></p-select>
+    <div class="radio-row">
+      <p-radiobutton inputId="toFixed" name="rateTo" [value]="false" [(ngModel)]="draft.openEnded" data-testid="to-fixed"></p-radiobutton>
+      <label for="toFixed">Fixed:</label>
+      <p-datepicker [(ngModel)]="draft.effectiveTo" [disabled]="draft.openEnded" dateFormat="dd/mm/yy" [showIcon]="true" appendTo="body"
+                    inputId="rateTo" data-testid="to-input"></p-datepicker>
     </div>
   </div>
 
-  <div class="field-grid">
-    <div class="field">
-      <label for="rateValue">Rate <span class="required">*</span></label>
-      <p-inputnumber inputId="rateValue" [(ngModel)]="draft.rate" [min]="0" [minFractionDigits]="0" [maxFractionDigits]="rateDecimals"
-                     [useGrouping]="false" styleClass="w-full" data-testid="rate-input"></p-inputnumber>
-    </div>
-    <div class="field">
-      <label for="rateDate">Effective from <span class="required">*</span></label>
-      <p-datepicker inputId="rateDate" [(ngModel)]="draft.effectiveDate" dateFormat="dd/mm/yy" [showIcon]="true" appendTo="body"
-                    styleClass="w-full" data-testid="date-input"></p-datepicker>
-    </div>
+  <div class="field">
+    <label>Source</label>
+    <div class="muted">Manual</div>
   </div>
-  <p class="hint reading" *ngIf="draftReading" data-testid="draft-reading">{{ draftReading }}</p>
 
   <div class="field">
     <label for="rateNotes">Notes</label>
-    <textarea pTextarea id="rateNotes" [(ngModel)]="draft.notes" [maxlength]="maxNotes" rows="2" placeholder="e.g. State Bank closing rate"
+    <textarea pTextarea id="rateNotes" [(ngModel)]="draft.notes" [maxlength]="maxNotes" rows="2" placeholder="e.g. SBP closing rate"
               data-testid="notes-input"></textarea>
   </div>
 
+  <div class="note info" *ngIf="notice" data-testid="notice">
+    <i class="pi pi-info-circle"></i>
+    <div class="note-body">{{ notice }}</div>
+  </div>
   <div class="note info" *ngIf="editing">
     <i class="pi pi-info-circle"></i>
-    <div class="note-body">Documents that already recorded this rate keep it. Only documents made final from now on use the new value.</div>
+    <div class="note-body">Documents that already locked this rate keep it. The range must not overlap another rate of {{ editing.currencyCode }}.</div>
   </div>
 
-  <small class="p-error" *ngIf="problem && (draft.fromCurrencyCode || draft.toCurrencyCode || draft.rate !== null)" data-testid="rate-problem">{{ problem }}</small>
+  <small class="p-error" *ngIf="problem && draft.currencyId && draft.rate !== null" data-testid="rate-problem">{{ problem }}</small>
   <small class="p-error" *ngIf="saveError" data-testid="save-error">{{ saveError }}</small>
 
   <ng-template pTemplate="footer">
     <p-button label="Cancel" [text]="true" severity="secondary" [disabled]="isSaving" (onClick)="dialogVisible = false"></p-button>
-    <p-button [label]="editing ? 'Save' : 'Add rate'" icon="pi pi-check" [loading]="isSaving" [disabled]="!!problem || isSaving"
-              (onClick)="save()" data-testid="save"></p-button>
+    <p-button label="Save rate" icon="pi pi-check" [loading]="isSaving" [disabled]="!!problem || isSaving" (onClick)="save()"
+              data-testid="save"></p-button>
   </ng-template>
 </p-dialog>

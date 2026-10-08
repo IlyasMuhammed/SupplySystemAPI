@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Moq;
 using SMS.Modules.Demand.Data;
@@ -32,78 +32,6 @@ public class FinanceSetupSqlServerTests
             new CurrencyModel { Id = SetupWorld.UsdId, Name = "US Dollar",       Code = "USD" }
         ]);
         return lookups.Object;
-    }
-
-    [FinanceSqlServerFact]
-    public async Task The_index_holds_one_live_rate_per_pair_per_day_and_a_soft_delete_frees_the_day()
-    {
-        await using var harness = await FinanceSqlServerHarness.CreateAsync();
-        var org = Guid.NewGuid();
-
-        await using (var db = harness.NewContext(org))
-        {
-            db.ExchangeRates.Add(new ExchangeRate { Uuid = Guid.NewGuid(), FromCurrencyCode = "USD", ToCurrencyCode = "PKR", Rate = 278m, EffectiveDate = new DateTime(2026, 10, 1), CreatedBy = 1 });
-            await db.SaveChangesAsync();
-        }
-
-        // A second live row for the pair and day is refused by the index itself, past any service…
-        await using (var db = harness.NewContext(org))
-        {
-            db.ExchangeRates.Add(new ExchangeRate { Uuid = Guid.NewGuid(), FromCurrencyCode = "USD", ToCurrencyCode = "PKR", Rate = 279m, EffectiveDate = new DateTime(2026, 10, 1), CreatedBy = 1 });
-            var raced = () => db.SaveChangesAsync();
-            await raced.Should().ThrowAsync<DbUpdateException>("the filtered unique index holds one live rate per pair per day");
-        }
-
-        // …and refused by the service's own check, as a conflict.
-        await using (var db = harness.NewContext(org))
-        {
-            var svc = new ExchangeRateService(db, Lookups(), new ExchangeRateProvider(db));
-            var act = () => svc.CreateAsync(Rate("USD", "PKR", 280m, "2026-10-01"), 1);
-            await act.Should().ThrowAsync<ConflictException>();
-        }
-
-        // A soft delete frees the day, at the index too.
-        await using (var db = harness.NewContext(org))
-        {
-            var svc   = new ExchangeRateService(db, Lookups(), new ExchangeRateProvider(db));
-            var first = (await svc.ListAsync(null, null)).Single();
-            await svc.DeleteAsync(first.Uuid, 1);
-        }
-        await using (var db = harness.NewContext(org))
-        {
-            var svc = new ExchangeRateService(db, Lookups(), new ExchangeRateProvider(db));
-            var corrected = await svc.CreateAsync(Rate("usd", "pkr", 278.5m, "2026-10-01T09:00:00+05:00"), 1);
-            corrected.EffectiveDate.Should().Be("2026-10-01");
-        }
-
-        await using (var db = harness.NewContext(org))
-        {
-            (await db.ExchangeRates.CountAsync()).Should().Be(2, "the deleted row is kept");
-            (await db.ExchangeRates.SingleAsync(r => !r.IsDelete)).Rate.Should().Be(278.5m);
-        }
-    }
-
-    [FinanceSqlServerFact]
-    public async Task The_service_turns_a_lost_race_for_the_day_into_a_409()
-    {
-        await using var harness = await FinanceSqlServerHarness.CreateAsync();
-        var org = Guid.NewGuid();
-
-        await using var db  = harness.NewContext(org);
-        var svc = new ExchangeRateService(db, Lookups(), new ExchangeRateProvider(db));
-
-        // Another request commits the same pair and day after this one's check — reproduced by a command that
-        // runs just before this context's INSERT.
-        var interceptor = new InsertFirst(harness, org, "exchange_rates", other =>
-            other.ExchangeRates.Add(new ExchangeRate { Uuid = Guid.NewGuid(), FromCurrencyCode = "USD", ToCurrencyCode = "PKR", Rate = 279m, EffectiveDate = new DateTime(2026, 10, 1), CreatedBy = 2 }));
-        await using var racing = harness.NewContext(org, interceptor);
-        var racingSvc = new ExchangeRateService(racing, Lookups(), new ExchangeRateProvider(racing));
-
-        var act = () => racingSvc.CreateAsync(Rate("USD", "PKR", 280m, "2026-10-01"), 1);
-
-        (await act.Should().ThrowAsync<ConflictException>()).WithMessage("*already a USD → PKR rate for 2026-10-01*");
-        interceptor.Fired.Should().BeTrue();
-        (await svc.ListAsync("USD", "PKR")).Should().ContainSingle().Which.Rate.Should().Be(279m);
     }
 
     [FinanceSqlServerFact]
@@ -249,9 +177,14 @@ public class FinanceSetupSqlServerTests
 
         await using (var db = harness.NewContext(org))
         {
-            db.ExchangeRates.AddRange(
-                new ExchangeRate { Uuid = Guid.NewGuid(), FromCurrencyCode = "USD", ToCurrencyCode = "PKR", Rate = 278m, EffectiveDate = new DateTime(2026, 9, 1), CreatedBy = 1 },
-                new ExchangeRate { Uuid = Guid.NewGuid(), FromCurrencyCode = "USD", ToCurrencyCode = "PKR", Rate = 280m, EffectiveDate = new DateTime(2026, 10, 1), CreatedBy = 1 });
+            // A35-E-01: the provider reads finance.currency_rates (PKR is the rate currency).
+            db.OrgCurrencies.AddRange(
+                new OrgCurrency { OrganizationId = org, CurrencyId = SetupWorld.PkrId, Code = "PKR", Name = "Pakistani Rupee", Symbol = "Rs", DisplayOrder = 1 },
+                new OrgCurrency { OrganizationId = org, CurrencyId = SetupWorld.UsdId, Code = "USD", Name = "US Dollar", Symbol = "$", DisplayOrder = 2 });
+            db.CurrencyRates.AddRange(
+                new CurrencyRate { OrganizationId = org, CurrencyId = SetupWorld.PkrId, CurrencyCode = "PKR", Rate = 1m, InverseRate = 1m, EffectiveFrom = CurrencyConventions.SystemStart, EffectiveTo = CurrencyConventions.OpenEnd, Source = "SYSTEM" },
+                new CurrencyRate { OrganizationId = org, CurrencyId = SetupWorld.UsdId, CurrencyCode = "USD", Rate = 278m, InverseRate = 0.0035971223m, EffectiveFrom = new DateOnly(2026, 9, 1), EffectiveTo = new DateOnly(2026, 9, 30) },
+                new CurrencyRate { OrganizationId = org, CurrencyId = SetupWorld.UsdId, CurrencyCode = "USD", Rate = 280m, InverseRate = 0.0035714286m, EffectiveFrom = new DateOnly(2026, 10, 1), EffectiveTo = CurrencyConventions.OpenEnd });
             await db.SaveChangesAsync();
         }
         await using (var db = harness.NewContext(org))
@@ -259,7 +192,7 @@ public class FinanceSetupSqlServerTests
             var provider = new ExchangeRateProvider(db);
             (await provider.GetRateAsync("usd", "pkr", new DateTime(2026, 9, 30, 23, 59, 0)))!.Rate.Should().Be(278m);
             (await provider.GetRateAsync("PKR", "USD", new DateTime(2026, 10, 1)))!.Should().Be(
-                new ExchangeRateQuote("PKR", "USD", 0.00357143m, new DateTime(2026, 10, 1), Inverted: true));
+                new ExchangeRateQuote("PKR", "USD", 0.0035714286m, new DateTime(2026, 10, 1), Inverted: false));
         }
 
         // The currency reference checker's queries translate too (UPPER() on SQL Server).

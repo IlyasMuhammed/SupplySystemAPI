@@ -33,15 +33,22 @@ internal sealed class VariantFulfillmentRouteService : IVariantFulfillmentRouteS
 {
     private readonly InventoryDbContext _db;
     private readonly IFulfillmentRouteLookup? _routeLookup;
+    private readonly ITenantSnapshotProvider? _tenants;
 
     /// <param name="routeLookup">
     /// Logistics' route reader. Optional (D-11): a host without Logistics has no routes, so nothing can be assigned —
     /// clearing a route still works.
     /// </param>
-    public VariantFulfillmentRouteService(InventoryDbContext db, IFulfillmentRouteLookup? routeLookup = null)
+    /// <param name="tenants">
+    /// A34 D-9 — the organization's enabled modules, for "a MANUFACTURE route needs MODULE_MANUFACTURING". Optional
+    /// (a host without Tenancy, unit tests): the check is then skipped, the A33 EffectiveRouteResolver convention.
+    /// </param>
+    public VariantFulfillmentRouteService(
+        InventoryDbContext db, IFulfillmentRouteLookup? routeLookup = null, ITenantSnapshotProvider? tenants = null)
     {
         _db          = db;
         _routeLookup = routeLookup;
+        _tenants     = tenants;
     }
 
     /// <summary>How long a bulk assign waits for another one of the same organization before it gives up with a 409.</summary>
@@ -64,6 +71,20 @@ internal sealed class VariantFulfillmentRouteService : IVariantFulfillmentRouteS
                     "That fulfillment route was not found: the route must belong to your organization.");
             if (!route.IsActive)
                 throw new BadRequestException($"Fulfillment route '{route.Code}' is inactive. Choose an active route.");
+
+            // A34 D-9 then D-3 (API-CONTRACT §4.2): a make-to-order route needs the module and a manufactured product.
+            // The product's flags are validated, never written from the route.
+            if (route.IsManufacture)
+            {
+                await RequireManufacturingAsync(org, route, ct);
+                var supplyMethod = await _db.Products.IgnoreQueryFilters()
+                    .Where(p => p.Id == variant.ProductId && p.OrganizationId == org)
+                    .Select(p => p.SupplyMethod)
+                    .FirstOrDefaultAsync(ct);
+                if (supplyMethod != SupplyMethod.Manufacture)
+                    throw new BadRequestException(
+                        $"Set the product's supply method to MANUFACTURE first: only manufactured products can use the make-to-order route '{route.Code}'.");
+            }
         }
 
         // A tracked change of this one column: a concurrent edit of the variant's other fields is not overwritten.
@@ -97,7 +118,15 @@ internal sealed class VariantFulfillmentRouteService : IVariantFulfillmentRouteS
                 s => s.Id == subCategoryId && s.CategoryId == request.CategoryId && s.OrganizationId == org, ct))
             throw new BadRequestException("That sub-category was not found in this category.");
 
+        // A34 D-9 / D-3: a make-to-order route needs the module, and only reaches manufactured products; the others
+        // in scope are left alone and counted in "skipped" (API-CONTRACT §4.2).
+        if (route.IsManufacture)
+            await RequireManufacturingAsync(org, route, ct);
+
         var inScope = VariantsInScope(org, request);
+        var assignable = route.IsManufacture
+            ? inScope.Where(v => v.Product.SupplyMethod == SupplyMethod.Manufacture)
+            : inScope;
         Guid? assigned = route.Uuid;
 
         return await OneBulkAssignAtATimeAsync(org, async () =>
@@ -105,7 +134,7 @@ internal sealed class VariantFulfillmentRouteService : IVariantFulfillmentRouteS
             // R-15 — one set-based UPDATE … WHERE FulfillmentRouteUuid IS NULL: a row another assignment set first is
             // not matched, so nothing is ever overwritten, whatever runs alongside. The count follows in the same
             // transaction, so "skipped" is exactly the in-scope variants that already had a route.
-            var updated = await inScope
+            var updated = await assignable
                 .Where(v => v.FulfillmentRouteUuid == null)
                 .ExecuteUpdateAsync(s => s.SetProperty(v => v.FulfillmentRouteUuid, assigned), ct);
             var total = await inScope.CountAsync(ct);
@@ -135,6 +164,19 @@ internal sealed class VariantFulfillmentRouteService : IVariantFulfillmentRouteS
         return variants.Where(v =>
             v.Product.CategoryId == categoryId
             || (v.Product.SubCategory != null && v.Product.SubCategory.CategoryId == categoryId));
+    }
+
+    internal const string ManufacturingFeature = "MODULE_MANUFACTURING";
+
+    /// <summary>A34 D-9 — a MANUFACTURE route can't be assigned in an organization without MODULE_MANUFACTURING.</summary>
+    private async Task RequireManufacturingAsync(Guid org, FulfillmentRouteSummary route, CancellationToken ct)
+    {
+        if (_tenants is null) return;
+        ct.ThrowIfCancellationRequested();
+        var tenant = await _tenants.GetSnapshotAsync(org);
+        if (tenant is null || !tenant.EnabledFeatureCodes.Contains(ManufacturingFeature))
+            throw new BadRequestException(
+                $"Manufacturing is not enabled for your organization, so the make-to-order route '{route.Code}' can't be assigned.");
     }
 
     private async Task<FulfillmentRouteSummary?> FindOwnRouteAsync(Guid org, Guid routeUuid, CancellationToken ct)

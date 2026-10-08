@@ -1,4 +1,4 @@
-﻿using Hangfire;
+using Hangfire;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SMS.Modules.Demand.Data;
@@ -35,6 +35,9 @@ internal sealed partial class SaleOrderService : ISaleOrderService
     private readonly ISaleOrderInvoiceLookup? _invoices;
     private readonly IAttachmentService? _attachments;
     private readonly ISaleOrderDeliveryQuantities? _deliveries;
+    private readonly ICurrencyService? _currency;
+    private readonly IPartnerCurrencyDefaults? _partnerCurrencies;
+    private readonly IOrgCurrencyLookup? _orgCurrencies;
 
     // Both are optional the way InventoryLedgerService's master ledger is: production DI always
     // supplies them (Inventory registers both), and a caller without one gets the same behaviour
@@ -56,8 +59,27 @@ internal sealed partial class SaleOrderService : ISaleOrderService
         ICurrencyCodeLookup? currencyCodes = null, ISaleOrderInvoiceLookup? invoices = null,
         IAttachmentService? attachments = null, ISaleOrderDeliveryQuantities? deliveries = null,
         IEffectiveRouteResolver? routes = null, ISaleOrderDeliveryCreator? deliveryCreator = null,
-        ISaleOrderDeliveryCanceller? deliveryCanceller = null, ILogger<SaleOrderService>? log = null)
+        ISaleOrderDeliveryCanceller? deliveryCanceller = null, ILogger<SaleOrderService>? log = null,
+        ILeadTimeCalculator? leadTimes = null, ISaleOrderProductionService? production = null,
+        IAllocationEngine? allocation = null, ITenantSnapshotProvider? tenants = null, INotificationService? notifications = null,
+        IManufacturingLevelDays? levelDays = null,
+        ICurrencyService? currency = null, IPartnerCurrencyDefaults? partnerCurrencies = null,
+        IOrgCurrencyLookup? orgCurrencies = null)
     {
+        // A35 — Finance's rate locking and org currencies, Suppliers' customer default currency. Optional like the rest:
+        // without them a foreign-currency order confirms unlocked and the customer default falls back to the sale base.
+        _currency           = currency;
+        _partnerCurrencies  = partnerCurrencies;
+        _orgCurrencies      = orgCurrencies;
+        _levelDays          = levelDays;
+        // A34 — Inventory's lead-time calculator (D-16/D-19), Material's make-to-order production (D-17/D-22/D-25), the
+        // allocation engine (D-22 cancels the order's SALES_ORDER demands), Tenancy's features and notifications (D-23).
+        // All optional: without them lead times are off and no make-to-order line can be confirmed.
+        _leadTimes          = leadTimes;
+        _production         = production;
+        _allocation         = allocation;
+        _tenants            = tenants;
+        _notifications      = notifications;
         // A33 — fulfillment routes (resolver + gate) and Logistics' delivery creator/canceller. All optional: without
         // them routes are off (D-11) and confirm/cancel behave exactly as before A33.
         _routes             = routes;
@@ -113,10 +135,7 @@ internal sealed partial class SaleOrderService : ISaleOrderService
             throw new BadRequestException("A sale order needs at least one line.");
         await ValidateRouteOverridesAsync(req.Lines);
 
-        var currencyId = req.CurrencyId
-            ?? await _orgCurrency.GetBaseCurrencyIdAsync(_tenantContext.OrganizationId)
-            ?? throw new BadRequestException(
-                "Currency is required — this organization has no base currency configured, so it must be supplied explicitly.");
+        var currencyId = await ResolveCurrencyAsync(req.CurrencyId, req.PartnerId, current: null);
 
         var orderDate = req.OrderDate?.Date ?? DateTime.UtcNow.Date;
         // §4.1 — "SO-YYYYMMDD-NNNN." The only document numbering this codebase actually has is
@@ -148,11 +167,11 @@ internal sealed partial class SaleOrderService : ISaleOrderService
         };
 
         var lineMode = DefaultLineMode(config, deliveryMode);
-        var context  = new LineBuildContext(currencyId, orderDate);
+        var context  = new LineBuildContext(currencyId, orderDate) { Decimals = await AmountDecimalsAsync(currencyId) };
         foreach (var lineReq in req.Lines)
             order.Lines.Add(await BuildLineAsync(lineReq, req.PartnerId, lineMode, context));
 
-        ApplyTotals(order);
+        ApplyTotals(order, context.Decimals);
 
         _db.SaleOrders.Add(order);
         await _db.SaveChangesAsync();
@@ -181,10 +200,8 @@ internal sealed partial class SaleOrderService : ISaleOrderService
             throw new BadRequestException("A sale order needs at least one line.");
         await ValidateRouteOverridesAsync(req.Lines);
 
-        var currencyId = req.CurrencyId
-            ?? await _orgCurrency.GetBaseCurrencyIdAsync(_tenantContext.OrganizationId)
-            ?? throw new BadRequestException(
-                "Currency is required — this organization has no base currency configured, so it must be supplied explicitly.");
+        // A35 D-14 — overridable while DRAFT; a request that names none keeps the order's currency.
+        var currencyId = await ResolveCurrencyAsync(req.CurrencyId, order.PartnerId, current: order.CurrencyId);
 
         order.ExpectedDeliveryDate   = req.ExpectedDeliveryDate;
         order.CurrencyId             = currencyId;
@@ -204,7 +221,7 @@ internal sealed partial class SaleOrderService : ISaleOrderService
         // Every new line is built before the old ones are dropped, so a refused line (an inactive tax
         // code, a price with no exchange rate) fails the update before any line is touched.
         var lineMode = DefaultLineMode(config, deliveryMode);
-        var context  = new LineBuildContext(currencyId, order.OrderDate);
+        var context  = new LineBuildContext(currencyId, order.OrderDate) { Decimals = await AmountDecimalsAsync(currencyId) };
         var rebuilt  = new List<SaleOrderLine>(req.Lines.Count);
         foreach (var lineReq in req.Lines)
             rebuilt.Add(await BuildLineAsync(lineReq, order.PartnerId, lineMode, context));
@@ -214,7 +231,7 @@ internal sealed partial class SaleOrderService : ISaleOrderService
         foreach (var line in rebuilt)
             order.Lines.Add(line);
 
-        ApplyTotals(order);
+        ApplyTotals(order, context.Decimals);
 
         await _db.SaveChangesAsync();
         return true;
@@ -229,6 +246,7 @@ internal sealed partial class SaleOrderService : ISaleOrderService
         if (order is null) return null;
 
         var model = ToModel(order, includeLines: true);
+        await ApplyCurrencyCodesAsync([model]);
 
         // A32 C3 — the chain this order came from, as links.
         if (order.SourceQuotationId is { } quotationId)
@@ -273,6 +291,9 @@ internal sealed partial class SaleOrderService : ISaleOrderService
         // A33 C3 — each line's route (live while DRAFT, the snapshot afterwards) and what blocks confirming.
         await ApplyRoutesAsync(order, model);
 
+        // A34 D-25 — the order's production orders, readable with the detail's own permission, and whether creation is due.
+        await ApplyProductionAsync(order, model);
+
         return model;
     }
 
@@ -301,11 +322,13 @@ internal sealed partial class SaleOrderService : ISaleOrderService
         var pageSize = Math.Clamp(filter.PageSize, 1, 100);
 
         var rows = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+        // List rows omit Lines — GetByIdAsync is where a caller reads a single order's detail.
+        var models = rows.Select(x => ToModel(x, includeLines: false)).ToList();
+        await ApplyCurrencyCodesAsync(models);
 
         return new PaginatedResponse<SaleOrderModel>
         {
-            // List rows omit Lines — GetByIdAsync is where a caller reads a single order's detail.
-            Data         = rows.Select(x => ToModel(x, includeLines: false)).ToList(),
+            Data         = models,
             TotalRecords = total,
             Page         = page,
             PageSize     = pageSize,
@@ -334,17 +357,22 @@ internal sealed partial class SaleOrderService : ISaleOrderService
             _db, uuid, () => ConfirmHeldAsync(uuid, userId));
         if (confirmed is null) return null;
 
-        var (order, reservations, createDeliveries) = confirmed;
+        var (order, reservations, createDeliveries, createProduction) = confirmed;
+        var makeToOrderCode = EnumCode<SaleOrderLineFulfillmentMode>.Of(SaleOrderLineFulfillmentMode.MakeToOrder);
 
         // §13.4 — SO_CONFIRMED carries the outcome ("60 reserved, 40 deficit"), and each reservation
-        // it made gets its own SO_STOCK_RESERVED event, in that order.
+        // it made gets its own SO_STOCK_RESERVED event, in that order. A34: make-to-order quantity is named apart.
         var reservedQty = reservations.Sum(r => r.ReservedQty);
-        var deficitQty  = order.Lines.Sum(l => l.DeficitQty ?? 0m);
+        var deficitQty  = order.Lines.Where(l => l.FulfillmentMode != makeToOrderCode).Sum(l => l.DeficitQty ?? 0m);
+        var madeQty     = order.Lines.Where(l => l.FulfillmentMode == makeToOrderCode).Sum(l => l.Quantity);
+        var confirmedNote = madeQty > 0m
+            ? $"{reservedQty:0.####} reserved, {deficitQty:0.####} deficit, {madeQty:0.####} made to order"
+            : $"{reservedQty:0.####} reserved, {deficitQty:0.####} deficit";
         _jobs.Enqueue<ITimelineAppendJob>(j => j.AppendAsync(
             order.TraceId,
             new TimelineEvent(
                 SaleOrderTimelineEventTypes.SoConfirmed, "SO", order.UUID, order.SoNumber, DateTime.UtcNow, userId,
-                $"{reservedQty:0.####} reserved, {deficitQty:0.####} deficit"),
+                confirmedNote),
             "SO", order.SoNumber));
 
         foreach (var reservation in reservations)
@@ -361,8 +389,9 @@ internal sealed partial class SaleOrderService : ISaleOrderService
                 "SO", order.SoNumber));
         }
 
-        // §4.3 — "create auto-POs for deficit (delegates to Phase 5)."
-        foreach (var line in order.Lines.Where(l => l.DeficitQty is > 0))
+        // §4.3 — "create auto-POs for deficit (delegates to Phase 5)." A34 C-1 / D-2 — never for a make-to-order line: its
+        // production order (below) makes the whole quantity.
+        foreach (var line in order.Lines.Where(l => l.DeficitQty is > 0 && l.FulfillmentMode != makeToOrderCode))
             _jobs.Enqueue<IAutoPoCreationJob>(j => j.CreateForDeficitAsync(order.UUID, line.UUID, userId));
 
         // §4.5/A29-P4-07 — the real confirmation email: renders, logs a SaleOrderIntimations row,
@@ -380,10 +409,20 @@ internal sealed partial class SaleOrderService : ISaleOrderService
         if (createDeliveries)
             await CreateDeliveriesAfterConfirmAsync(order, userId, result);
 
+        // A34 D-17 — the make-to-order production orders: created under the order's lock (its own transaction, now that
+        // confirm's has committed), planned after it. Best effort — a failure leaves the order confirmed and pending.
+        if (createProduction)
+        {
+            var production = await RunProductionCreationAsync(order.UUID, userId);
+            result.ProductionOrders         = production.Models;
+            result.ProductionCreationFailed = production.Outcome.Failed;
+            result.ProductionMessage        = production.Outcome.Message;
+        }
+
         return result;
     }
 
-    private sealed record ConfirmOutcome(SaleOrder Order, IReadOnlyList<LineReservation> Reservations, bool CreateDeliveries);
+    private sealed record ConfirmOutcome(SaleOrder Order, IReadOnlyList<LineReservation> Reservations, bool CreateDeliveries, bool CreateProduction);
 
     /// <summary>The DRAFT → CONFIRMED change itself, run under the order's hold lock: read afresh, check, reserve, save.</summary>
     private async Task<ConfirmOutcome?> ConfirmHeldAsync(Guid uuid, int userId)
@@ -406,24 +445,48 @@ internal sealed partial class SaleOrderService : ISaleOrderService
         if (routing.Blockers.Count > 0)
             throw new BadRequestException(routing.Message);
 
-        var reservations = await _availabilityCheck.CheckAndReserveAsync(uuid, userId);
+        // A34 D-1 — lines whose effective route is MANUFACTURE are made to order: nothing reserved for them (C-2). The
+        // resolver's D-5 gate has already refused any that cannot be made; without Material's production service none can.
+        var makeToOrder = routing.Lines.Where(r => r.IsRoutable && r.Route!.IsManufacture).Select(r => r.Line.LineUuid!.Value).ToList();
+        if (makeToOrder.Count > 0 && _production is null)
+            throw new BadRequestException(
+                "Some lines are made to order, but production orders cannot be created here. Choose a stock route for them.");
+
+        // A35 P3-09 (D-5, D-12) — the rate of the confirm date, taken before anything is reserved: an order in another
+        // currency than the sale base with no rate on file is refused here (400) with nothing held. Re-locked, never
+        // inherited from a quotation (§6.3.5); written in this same commit and never recalculated (BR-C5-06).
+        var lockedAt = DateTime.UtcNow;
+        var rateLock = await DemandCurrency.LockAsync(_currency, _orgCurrency, _tenantContext.OrganizationId, order.CurrencyId,
+            DemandCurrency.Today(lockedAt), TransactionDomain.Sale);
+
+        var reservations = makeToOrder.Count == 0
+            ? await _availabilityCheck.CheckAndReserveAsync(uuid, userId)
+            : await _availabilityCheck.CheckAndReserveAsync(uuid, userId, makeToOrder);
 
         // A33 D-16 — each line keeps the route it resolved to; its deliveries, and any later remainder, follow it.
         var createDeliveries = false;
         if (routing.RoutesEnabled)
         {
             SnapshotRoutes(order, routing);
+            // A34 — deliveries at confirm only for stock lines (C-3); make-to-order lines get theirs when production completes.
             createDeliveries = config.AutoCreateDeliveriesOnConfirm && _deliveryCreator is not null
-                            && order.Lines.Any(l => l.RouteSource is not null);
+                            && order.Lines.Any(l => l.RouteSource is not null && l.FulfillmentRouteCategory != FulfillmentRouteCategory.Manufacture);
             // REV-01 — stamped in this same commit, cleared once the creator has run; the sweep retries only these.
             if (createDeliveries) order.DeliveryCreationPendingSince = DateTime.UtcNow;
         }
+
+        // A34 D-17 — stamped in the same commit; cleared once production creation has run (the sweep retries only these).
+        var createProduction = makeToOrder.Count > 0;
+        if (createProduction) order.ProductionCreationPendingSince = DateTime.UtcNow;
+
+        if (rateLock is not null)
+            DemandCurrency.Apply(order, rateLock, lockedAt);
 
         order.Status       = EnumCode<SaleOrderStatus>.Of(SaleOrderStatus.Confirmed);
         order.ModifiedBy   = userId;
         order.ModifiedDate = DateTime.UtcNow;
         await _db.SaveChangesAsync();
-        return new ConfirmOutcome(order, reservations, createDeliveries);
+        return new ConfirmOutcome(order, reservations, createDeliveries, createProduction);
     }
 
     // A29-P4-04 §4.5.
@@ -439,10 +502,10 @@ internal sealed partial class SaleOrderService : ISaleOrderService
         // and commits on its own, so the two cannot share one transaction: releasing first means a failed save leaves a
         // still-open order with nothing held (cancel again — the release is idempotent), never a cancelled order whose
         // stock stays locked.
-        var outcome = await SaleOrderHolds.OneChangeAtATimeAsync<(SaleOrder Order, SaleOrderDeliveryCancellationResult? Deliveries)?>(
+        var held = await SaleOrderHolds.OneChangeAtATimeAsync<CancelOutcome?>(
             _db, uuid, () => CancelHeldAsync(uuid, userId, reason));
-        if (outcome is not { } held) return null;
-        var (order, deliveries) = held;
+        if (held is null) return null;
+        var (order, deliveries, production, cancelledDemands) = held;
 
         // §4.5 — "cancel linked DRAFT POs." Checked here, not left to PurchaseOrderService.CancelAsync's
         // own guard, so one line's PO having already moved past DRAFT (approved, sent — outside
@@ -474,13 +537,26 @@ internal sealed partial class SaleOrderService : ISaleOrderService
                 "SO", order.SoNumber));
         }
 
+        // A34 D-22 — what happened to its production orders and allocation demands; running ones need attention.
+        result.CancelledAllocationDemands = cancelledDemands;
+        if (production is not null && (production.Cancelled.Count > 0 || production.KeptRunning.Count > 0))
+        {
+            result.CancelledProductionOrders = await ProductionModelsAsync(order, production.Cancelled);
+            result.RunningProductionOrders   = await ProductionModelsAsync(order, production.KeptRunning);
+            SaleOrderProductionCreation.Timeline(_jobs, order, SaleOrderTimelineEventTypes.SoProductionCancelled, userId,
+                ProductionCancelledNote(production));
+        }
+
         // §4.5 — "enqueue cancellation email."
         _jobs.Enqueue<ISaleOrderEmailJob>(j => j.SendCancellationEmailAsync(order.UUID, reason, userId));
 
         return result;
     }
 
-    private async Task<(SaleOrder Order, SaleOrderDeliveryCancellationResult? Deliveries)?> CancelHeldAsync(Guid uuid, int userId, string? reason)
+    private sealed record CancelOutcome(
+        SaleOrder Order, SaleOrderDeliveryCancellationResult? Deliveries, SaleOrderProductionCancellation? Production, int CancelledDemands);
+
+    private async Task<CancelOutcome?> CancelHeldAsync(Guid uuid, int userId, string? reason)
     {
         var order = await OwnOrders().Include(x => x.Lines).FirstOrDefaultAsync(x => x.UUID == uuid);
         if (order is null) return null;
@@ -516,6 +592,29 @@ internal sealed partial class SaleOrderService : ISaleOrderService
             deliveries = await _deliveryCanceller.CancelOpenAsync(
                 _tenantContext.OrganizationId, order.UUID, reason ?? "Sale order cancelled.", userId);
 
+        // A34 D-22 (fixes C-10) — every SALES_ORDER-sourced production order of the order that has not started is
+        // cancelled (the rest keep running and are reported), then every open SALES_ORDER allocation demand, so finished
+        // goods can never be re-parented onto a cancelled order. Like the delivery canceller: inside this lock, before
+        // anything here is written and before the hold release; neither callee takes this lock; both are idempotent.
+        SaleOrderProductionCancellation? production = null;
+        var cancelledDemands = 0;
+        if (order.Status != EnumCode<SaleOrderStatus>.Of(SaleOrderStatus.Draft))
+        {
+            if (_production is not null)
+                production = await _production.CancelForSaleOrderAsync(
+                    _tenantContext.OrganizationId, order.UUID, reason ?? "Sale order cancelled.", userId);
+            if (_allocation is not null)
+            {
+                var demands = await _allocation.GetDemandsAsync(
+                    variantUuid: null, demandType: AllocationDemandType.SalesOrder, demandUuid: order.UUID, openOnly: true);
+                foreach (var demand in demands.Where(d => d.DemandUuid == order.UUID))
+                {
+                    await _allocation.CancelDemandAsync(demand.Uuid, reason ?? "Sale order cancelled.", userId);
+                    cancelledDemands++;
+                }
+            }
+        }
+
         // §4.5 — "cancel (releases reservations)", BR-C4-05 — every ACTIVE SALES_ORDER hold of the order, manual or
         // not. A no-op for a DRAFT order that was never confirmed, and idempotent regardless.
         await _stock.ReleaseBySourceAsync(
@@ -525,8 +624,9 @@ internal sealed partial class SaleOrderService : ISaleOrderService
         order.Status       = cancelled;
         order.ModifiedBy   = userId;
         order.ModifiedDate = DateTime.UtcNow;
-        // REV-01 — a cancelled order is never swept for deliveries.
-        order.DeliveryCreationPendingSince = null;
+        // REV-01 — a cancelled order is never swept for deliveries; A34 — nor for production.
+        order.DeliveryCreationPendingSince   = null;
+        order.ProductionCreationPendingSince = null;
 
         // A32 — the lines that were only waiting (OPEN) or holding stock (RESERVED, now released) are cancelled with the
         // order; a line that has shipped anything keeps its fulfilment status, which is history.
@@ -536,7 +636,7 @@ internal sealed partial class SaleOrderService : ISaleOrderService
             line.Status = EnumCode<SaleOrderLineStatus>.Of(SaleOrderLineStatus.Cancelled);
 
         await _db.SaveChangesAsync();
-        return (order, deliveries);
+        return new CancelOutcome(order, deliveries, production, cancelledDemands);
     }
 
     public async Task<TimelineDetail?> GetTimelineAsync(Guid uuid)
@@ -590,6 +690,9 @@ internal sealed partial class SaleOrderService : ISaleOrderService
 
         /// <summary>The organization's base currency, once a line has needed it; null inside when it has none.</summary>
         public (Guid? Id, bool Known) BaseCurrency { get; set; }
+
+        /// <summary>A35 D-13 — the order currency's decimals for line and header amounts (2 unless Finance says fewer).</summary>
+        public int Decimals { get; set; } = CurrencyConventions.DefaultDecimalPlaces;
     }
 
     // §4.2 — "unit_price (resolved selling price)": never trust a client-supplied price, always
@@ -609,6 +712,8 @@ internal sealed partial class SaleOrderService : ISaleOrderService
         if (lineReq.DiscountPercent is < 0m or > 100m || decimal.Round(lineReq.DiscountPercent, 2) != lineReq.DiscountPercent)
             throw new BadRequestException(
                 $"A line's discount must be a percentage from 0 to 100 with at most two decimal places; {lineReq.DiscountPercent} is not.");
+        if (lineReq.CalculatedLeadTimeDays is < 0)
+            throw new BadRequestException($"A line's calculated lead time cannot be negative; {lineReq.CalculatedLeadTimeDays} is.");
 
         var (taxCodeUuid, taxCode, taxPercent) = await ResolveTaxAsync(lineReq, context);
 
@@ -660,9 +765,14 @@ internal sealed partial class SaleOrderService : ISaleOrderService
             FulfillmentMode = fulfillmentMode,
             Status          = EnumCode<SaleOrderLineStatus>.Of(SaleOrderLineStatus.Open),
             // A33 — the override, already checked by ValidateRouteOverridesAsync (BR-C3-01); null = inherit.
-            FulfillmentRouteUuid = lineReq.FulfillmentRouteUuid is { } route && route != Guid.Empty ? route : null
+            FulfillmentRouteUuid = lineReq.FulfillmentRouteUuid is { } route && route != Guid.Empty ? route : null,
+            // A34 D-15 / C-14 — kept as sent (the line is rebuilt on every draft update); dates date-only.
+            ManualDeliveryDate     = lineReq.ManualDeliveryDate?.Date,
+            CalculatedLeadTimeDays = lineReq.CalculatedLeadTimeDays,
+            CalculatedDeliveryDate = lineReq.CalculatedDeliveryDate?.Date,
+            LeadTimeCalculatedAt   = lineReq.LeadTimeCalculatedAt
         };
-        line.LineTotal = ComputeLineTotal(line);
+        line.LineTotal = ComputeLineTotal(line, context.Decimals);
         return line;
     }
 
@@ -754,6 +864,52 @@ internal sealed partial class SaleOrderService : ISaleOrderService
                 "Add one under Settings → Exchange Rates and try again.");
 
         return ExchangeRateMath.Convert(price, quote.Rate);
+    }
+
+    /// <summary>
+    /// A35 D-14 / BR-C4-02 — the order's currency: the one asked for (it must be an active currency of the organization when
+    /// it is a new choice), else the order's own (an update), else the customer's default sale currency, else the sale base.
+    /// </summary>
+    private async Task<Guid> ResolveCurrencyAsync(Guid? requested, Guid partnerId, Guid? current)
+    {
+        var org = _tenantContext.OrganizationId;
+        if (requested is { } id && id != Guid.Empty)
+        {
+            if (id != current)
+                await DemandCurrency.RequireActiveOrgCurrencyAsync(_orgCurrencies, _orgCurrency, org, id, TransactionDomain.Sale, _currencyCodes is null ? null : await _currencyCodes.GetCodeAsync(id));
+            return id;
+        }
+        if (current is { } existing && existing != Guid.Empty) return existing;
+        return await DemandCurrency.DefaultForPartnerAsync(_partnerCurrencies, _orgCurrency, org, partnerId, TransactionDomain.Sale)
+            ?? throw new BadRequestException(
+                "Currency is required — this organization has no base currency configured, so it must be supplied explicitly.");
+    }
+
+    /// <summary>
+    /// A35 D-13 — the decimals the order's amounts are rounded at: the currency's own (JPY 0) when Finance knows it, at
+    /// most 2 because the amount columns are decimal(18,2) (a 3-decimal currency such as BHD is kept at 2 — residual).
+    /// </summary>
+    private async Task<int> AmountDecimalsAsync(Guid currencyId) =>
+        _orgCurrencies is null
+            ? CurrencyConventions.DefaultDecimalPlaces
+            : Math.Clamp(await _orgCurrencies.GetDecimalPlacesAsync(_tenantContext.OrganizationId, currencyId), 0, CurrencyConventions.DefaultDecimalPlaces);
+
+    /// <summary>A35 API-CONTRACT §6 — currencyCode / baseCurrencyCode, each distinct currency asked once (Lookups).</summary>
+    private async Task ApplyCurrencyCodesAsync(IReadOnlyList<SaleOrderModel> models)
+    {
+        if (_currencyCodes is null || models.Count == 0) return;
+        var codes = new Dictionary<Guid, string?>();
+        async Task<string?> Code(Guid id)
+        {
+            if (!codes.TryGetValue(id, out var c))
+                codes[id] = c = (await _currencyCodes.GetCodeAsync(id))?.Trim();
+            return c;
+        }
+        foreach (var m in models)
+        {
+            m.CurrencyCode = await Code(m.CurrencyId);
+            if (m.BaseCurrencyId is { } b) m.BaseCurrencyCode = await Code(b);
+        }
     }
 
     /// <summary>The organization's base currency, asked once per order however many lines carry a list price.</summary>
@@ -881,18 +1037,21 @@ internal sealed partial class SaleOrderService : ISaleOrderService
         };
 
         var lineMode = DefaultLineMode(config, deliveryMode);
-        var context  = new LineBuildContext(quotation.CurrencyId, orderDate);
+        var context  = new LineBuildContext(quotation.CurrencyId, orderDate) { Decimals = await AmountDecimalsAsync(quotation.CurrencyId) };
         foreach (var quoted in cmd.Lines)
         {
             var lineReq = new CreateSaleOrderLineRequest
             {
                 VariantUuid = quoted.VariantUuid, Quantity = quoted.Quantity, DiscountPercent = quoted.DiscountPercent,
-                TaxPercent = quoted.TaxPercent, TaxCodeUuid = quoted.TaxCodeUuid
+                TaxPercent = quoted.TaxPercent, TaxCodeUuid = quoted.TaxCodeUuid,
+                // A34 D-15 — the promised date is the order line's manual date; the calculation travels with it.
+                ManualDeliveryDate = quoted.ManualDeliveryDate, CalculatedLeadTimeDays = quoted.CalculatedLeadTimeDays,
+                CalculatedDeliveryDate = quoted.CalculatedDeliveryDate, LeadTimeCalculatedAt = quoted.LeadTimeCalculatedAt
             };
             order.Lines.Add(await BuildLineAsync(lineReq, quotation.PartnerId, lineMode, context, quoted.UnitPrice));
         }
 
-        ApplyTotals(order);
+        ApplyTotals(order, context.Decimals);
 
         _db.SaleOrders.Add(order);
         try
@@ -999,15 +1158,16 @@ internal sealed partial class SaleOrderService : ISaleOrderService
     }
 
     // §4.2 — "line_total = qty * price * (1 - disc%) * (1 + tax%)."
-    private static decimal ComputeLineTotal(SaleOrderLine line) =>
+    // A35 D-13 — at the order currency's decimals (JPY 0), at most 2: the amount columns are decimal(18,2).
+    private static decimal ComputeLineTotal(SaleOrderLine line, int decimals) =>
         Math.Round(
             line.Quantity * line.UnitPrice * (1 - line.DiscountPercent / 100m) * (1 + line.TaxPercent / 100m),
-            2, MidpointRounding.AwayFromZero);
+            decimals, MidpointRounding.AwayFromZero);
 
     // §4.1 — "grand_total (= subtotal + tax - discount)." Subtotal/DiscountAmount/TaxAmount are
     // each the sum of the same three quantities every line's own total was built from, so the
     // header and the lines can never silently disagree with one another.
-    private static void ApplyTotals(SaleOrder order)
+    private static void ApplyTotals(SaleOrder order, int decimals)
     {
         decimal subtotal = 0, discount = 0, tax = 0;
         foreach (var line in order.Lines)
@@ -1022,9 +1182,9 @@ internal sealed partial class SaleOrderService : ISaleOrderService
             tax      += lineTax;
         }
 
-        order.Subtotal       = Math.Round(subtotal, 2, MidpointRounding.AwayFromZero);
-        order.DiscountAmount = Math.Round(discount, 2, MidpointRounding.AwayFromZero);
-        order.TaxAmount      = Math.Round(tax, 2, MidpointRounding.AwayFromZero);
+        order.Subtotal       = Math.Round(subtotal, decimals, MidpointRounding.AwayFromZero);
+        order.DiscountAmount = Math.Round(discount, decimals, MidpointRounding.AwayFromZero);
+        order.TaxAmount      = Math.Round(tax, decimals, MidpointRounding.AwayFromZero);
         order.GrandTotal     = order.Subtotal - order.DiscountAmount + order.TaxAmount;
     }
 
@@ -1041,6 +1201,13 @@ internal sealed partial class SaleOrderService : ISaleOrderService
         TaxAmount              = x.TaxAmount,
         DiscountAmount         = x.DiscountAmount,
         GrandTotal             = x.GrandTotal,
+        ExchangeRate           = x.ExchangeRate,
+        BaseCurrencyId         = x.BaseCurrencyId,
+        RateLockedAt           = x.RateLockedAt,
+        SubtotalBase           = x.SubtotalBase,
+        TaxAmountBase          = x.TaxAmountBase,
+        DiscountAmountBase     = x.DiscountAmountBase,
+        GrandTotalBase         = x.GrandTotalBase,
         Status                 = x.Status,
         RequiresShipment       = x.RequiresShipment,
         DeliveryMode           = x.DeliveryMode,
@@ -1059,10 +1226,18 @@ internal sealed partial class SaleOrderService : ISaleOrderService
                   Uuid = l.UUID, VariantUuid = l.VariantUuid, Quantity = l.Quantity, UnitPrice = l.UnitPrice,
                   DiscountPercent = l.DiscountPercent, TaxPercent = l.TaxPercent,
                   TaxCodeUuid = l.TaxCodeUuid, TaxCode = l.TaxCode, LineTotal = l.LineTotal,
+                  UnitPriceBase = l.UnitPriceBase, LineTotalBase = l.LineTotalBase,
                   FulfilledQty = l.FulfilledQty, InvoicedQty = l.InvoicedQty, FulfillmentMode = l.FulfillmentMode,
                   AvailableQtyAtConfirm = l.AvailableQtyAtConfirm, DeficitQty = l.DeficitQty,
                   LinkedPoId = l.LinkedPoId, SelectedSupplierId = l.SelectedSupplierId,
-                  Margin = l.Margin, MarginPercent = l.MarginPercent, Status = l.Status, Notes = l.Notes
+                  Margin = l.Margin, MarginPercent = l.MarginPercent, Status = l.Status, Notes = l.Notes,
+                  // A34 — the confirm snapshot (ApplyRoutesAsync fills the live category while DRAFT), D-21 and D-15.
+                  EffectiveRouteCategory = l.FulfillmentRouteCategory,
+                  ProductionShortfallQty = l.ProductionShortfallQty,
+                  CalculatedLeadTimeDays = l.CalculatedLeadTimeDays, CalculatedDeliveryDate = l.CalculatedDeliveryDate,
+                  LeadTimeCalculatedAt = l.LeadTimeCalculatedAt, ManualDeliveryDate = l.ManualDeliveryDate,
+                  EffectiveDeliveryDate = DeliveryDateSources.Effective(l.ManualDeliveryDate, l.CalculatedDeliveryDate),
+                  DeliveryDateSource = DeliveryDateSources.Of(l.ManualDeliveryDate, l.CalculatedDeliveryDate)
               }).ToList()
             : []
     };

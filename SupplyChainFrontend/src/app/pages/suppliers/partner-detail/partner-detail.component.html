@@ -69,6 +69,13 @@
       </div>
     </p-tabPanel>
 
+    <!-- ══ A35-P2-09 — default sale / purchase currency (spec §11.6), for every partner type ══ -->
+    <p-tabPanel header="Currency" leftIcon="pi pi-dollar">
+      <div class="tab-content">
+        <app-partner-currency-tab *ngIf="partner.uuid" [partner]="partner" (saved)="loadPartner()"></app-partner-currency-tab>
+      </div>
+    </p-tabPanel>
+
     <!-- ══ Ledger — reuses the existing FinanceService supplier-ledger API verbatim ══ -->
     <p-tabPanel header="Ledger" leftIcon="pi pi-book">
       <div class="tab-content">

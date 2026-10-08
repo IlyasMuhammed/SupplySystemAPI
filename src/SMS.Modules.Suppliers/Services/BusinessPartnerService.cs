@@ -14,6 +14,8 @@ internal sealed class BusinessPartnerService : IBusinessPartnerService
     private readonly BusinessPartnerModelValidator _validator;
     private readonly IEnumerable<ISupplierReferenceChecker> _referenceCheckers;
     private readonly PartnerQuickBooksPublisher? _quickBooks;
+    // A35 BR-C4-01 — default currencies must be active currencies of the organization.
+    private readonly PartnerCurrencyRules _currencyRules;
 
     /// <param name="quickBooks">
     /// Tells the QuickBooks gateway about a partner after each save. Optional so a caller that builds this
@@ -23,8 +25,10 @@ internal sealed class BusinessPartnerService : IBusinessPartnerService
         IBusinessPartnerRepository repo,
         BusinessPartnerModelValidator validator,
         IEnumerable<ISupplierReferenceChecker> referenceCheckers,
-        PartnerQuickBooksPublisher? quickBooks = null)
+        PartnerQuickBooksPublisher? quickBooks = null,
+        PartnerCurrencyRules? currencyRules = null)
     {
+        _currencyRules = currencyRules ?? new PartnerCurrencyRules();
         _repo = repo;
         _validator = validator;
         _referenceCheckers = referenceCheckers;
@@ -38,16 +42,29 @@ internal sealed class BusinessPartnerService : IBusinessPartnerService
     public async Task<Guid> CreateAsync(BusinessPartnerModel model, int createdBy)
     {
         await ValidateAsync(model);
+        await _currencyRules.ValidateAsync(
+            model.DefaultSaleCurrencyId, model.ClearDefaultSaleCurrency,
+            PartnerCurrencyRules.Purchase(model.DefaultPurchaseCurrencyId, model.PreferredCurrency), model.ClearDefaultPurchaseCurrency);
         var uuid = await _repo.CreateAsync(model, createdBy);
         await PublishToQuickBooksAsync(uuid);
         return uuid;
     }
 
-    public Task<BusinessPartnerModel?> GetByIdAsync(Guid uuid) => _repo.GetByIdAsync(uuid);
+    public async Task<BusinessPartnerModel?> GetByIdAsync(Guid uuid)
+    {
+        var model = await _repo.GetByIdAsync(uuid);
+        await _currencyRules.FillCodesAsync(model);
+        return model;
+    }
 
     public async Task<bool> UpdateAsync(Guid uuid, BusinessPartnerModel model, int modifiedBy)
     {
         await ValidateAsync(model);
+        var current = await _repo.GetByIdAsync(uuid);
+        await _currencyRules.ValidateAsync(
+            model.DefaultSaleCurrencyId, model.ClearDefaultSaleCurrency,
+            PartnerCurrencyRules.Purchase(model.DefaultPurchaseCurrencyId, model.PreferredCurrency), model.ClearDefaultPurchaseCurrency,
+            current?.DefaultSaleCurrencyId, current?.DefaultPurchaseCurrencyId);
         var updated = await _repo.UpdateAsync(uuid, model, modifiedBy);
         if (updated) await PublishToQuickBooksAsync(uuid);
         return updated;

@@ -179,6 +179,13 @@ internal class DeliveryOrder : ITenantScopedEntity
     public string? RouteSteps { get; set; }
 
     /// <summary>
+    /// A34 C6 (D-29) — the make-to-order production order this delivery was created from (Material's
+    /// <c>ProductionOrder.UUID</c>, a bare Guid across DbContexts). Null on every other delivery. The production delivery
+    /// creator's idempotence key: what is already "from this PO" is the sum of its non-cancelled lines.
+    /// </summary>
+    public Guid? ProductionOrderUuid { get; set; }
+
+    /// <summary>
     /// When the stock left the books, and who issued it.
     /// <para>
     /// Stored rather than inferred from the status, because the status only says the delivery is

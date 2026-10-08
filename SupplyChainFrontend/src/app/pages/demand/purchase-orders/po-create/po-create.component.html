@@ -154,6 +154,15 @@
           </div>
         </div>
 
+        <!-- A35 P3-14 — PO currency; the rate is locked at approval against the purchase base. -->
+        <div class="field full" data-testid="po-currency-field">
+          <label>Currency</label>
+          <p-dropdown formControlName="currencyId" [options]="currency.options" optionLabel="label" optionValue="value"
+                      [filter]="true" filterBy="label" placeholder="Purchase base currency" styleClass="w-full"
+                      appendTo="body" data-testid="po-currency"></p-dropdown>
+          <app-doc-currency-panel *ngIf="currency.doc as cd" [doc]="cd" lockPoint="approval" domain="PURCHASE"></app-doc-currency-panel>
+        </div>
+
         <!-- PO Title | Delivery Date -->
         <div class="field">
           <label>PO Title</label>
@@ -313,7 +322,7 @@
 
       <div class="total-bar">
         <span class="total-label">Order Total</span>
-        <span class="total-amount">{{ estimatedTotal | number:'1.2-2' }}</span>
+        <span class="total-amount" data-testid="po-estimated-total">{{ estimatedTotal | money:currency.code:moneyCode }}</span>
       </div>
     </div>
 

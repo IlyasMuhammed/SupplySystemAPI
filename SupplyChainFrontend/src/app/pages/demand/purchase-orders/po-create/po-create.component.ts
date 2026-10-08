@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule, ActivatedRoute } from '@angular/router';
 import { ReactiveFormsModule, FormsModule, FormBuilder, FormGroup, FormArray, Validators } from '@angular/forms';
@@ -17,12 +17,16 @@ import { MessageService } from 'primeng/api';
 import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { DemandService, CreatePoRequest, VendorResponseModel } from '../../../../services/demand.service';
-import { SupplierService, SupplierScoreSummaryModel } from '../../../../services/supplier.service';
+import { SupplierService, SupplierScoreSummaryModel, SupplierDetailModel } from '../../../../services/supplier.service';
 import { InventoryService, ProductListItemModel, WarehouseModel } from '../../../../services/inventory.service';
 import { AuthService } from '../../../service/auth.service';
 import { AttachmentListComponent } from '../../../../shared/attachment-list/attachment-list.component';
 import { ProductVariantPickerComponent, VariantPickerSelection } from '../../../../shared/product-variant-picker/product-variant-picker.component';
 import { RateCardService, DiscountTierDto } from '../../../../services/rate-card.service';
+import { MoneyService } from '../../../../services/money.service';
+import { DocCurrencyPicker } from '../../../../shared/doc-currency/doc-currency-picker';
+import { DocCurrencyPanelComponent } from '../../../../shared/doc-currency/doc-currency-panel.component';
+import { MoneyPipe } from '../../../../shared/money/money.pipe';
 
 @Component({
   selector: 'app-po-create',
@@ -31,7 +35,8 @@ import { RateCardService, DiscountTierDto } from '../../../../services/rate-card
     CommonModule, RouterModule, ReactiveFormsModule, FormsModule,
     ButtonModule, InputTextModule, TextareaModule, InputNumberModule,
     DropdownModule, CalendarModule, DividerModule, ToastModule, TooltipModule,
-    DialogModule, CheckboxModule, AttachmentListComponent, ProductVariantPickerComponent
+    DialogModule, CheckboxModule, AttachmentListComponent, ProductVariantPickerComponent,
+    DocCurrencyPanelComponent, MoneyPipe
   ],
   templateUrl: './po-create.component.html',
   styleUrls: ['./po-create.component.scss'],
@@ -47,6 +52,11 @@ export class PoCreateComponent implements OnInit {
   readonly poUuid = crypto.randomUUID();
 
   supplierOptions: { label: string; value: string }[] = [];
+
+  // A35 P3-14 — the PO currency: active org currencies, purchase base first, then the supplier's default (D-9, D-14).
+  private readonly money = inject(MoneyService);
+  currency!: DocCurrencyPicker;
+  readonly moneyCode = { display: 'code' } as const;
   loadingSuppliers = false;
   private suppliersMap = new Map<string, string>();
 
@@ -109,7 +119,10 @@ export class PoCreateComponent implements OnInit {
     private authService: AuthService,
     private route: ActivatedRoute,
     private rateCardService: RateCardService
-  ) { this.buildForm(); }
+  ) {
+    this.buildForm();
+    this.currency = new DocCurrencyPicker(this.money, this.form.get('currencyId')!, 'PURCHASE');
+  }
 
   get isProcurementManager(): boolean {
     return this.authService.hasRole('Procurement Manager');
@@ -127,6 +140,7 @@ export class PoCreateComponent implements OnInit {
         this.form.patchValue({ title: `Reorder: ${this.prefillProductName}` });
       }
     }
+    this.currency.load();
     this.loadSuppliers();
     this.loadProducts();
     this.loadPrs();
@@ -223,6 +237,7 @@ export class PoCreateComponent implements OnInit {
     const name = this.suppliersMap.get(event.value) ?? '';
     this.form.patchValue({ supplierName: name });
     this.checkSupplierGrade(event.value, name);
+    this.applySupplierCurrency(event.value);
     for (let i = 0; i < this.lines.length; i++) this.checkDiscountSuggestion(i);
   }
 
@@ -471,8 +486,21 @@ export class PoCreateComponent implements OnInit {
 
   // ── Supplier lock helpers ─────────────────────────────────────────────────
 
+  /** A35 D-9 — the supplier's default purchase currency (defaultPurchaseCurrencyId; older servers: preferredCurrency). */
+  private applySupplierCurrency(supplierId: string | null) {
+    if (!supplierId) return;
+    this.supplierService.getSupplierById(supplierId).subscribe({
+      next: res => {
+        const s = res?.result as (SupplierDetailModel & { defaultPurchaseCurrencyId?: string | null }) | null | undefined;
+        this.currency.applyPartnerDefault(s?.defaultPurchaseCurrencyId ?? s?.preferredCurrency ?? null);
+      },
+      error: () => { /* the purchase base stays; the server defaults the same way */ }
+    });
+  }
+
   private applySupplierLock(supplierId: string, supplierName: string, quotationNumber: string) {
     this.form.patchValue({ supplierId, supplierName });
+    this.applySupplierCurrency(supplierId);
     this.supplierLocked        = true;
     this.lockQuotationNumber   = quotationNumber;
     this.lockOriginalSupplierId   = supplierId;
@@ -514,6 +542,7 @@ export class PoCreateComponent implements OnInit {
     this.form = this.fb.group({
       supplierId:            ['', Validators.required],
       supplierName:          [''],
+      currencyId:            [null as string | null],
       title:                 [''],
       deliveryDate:          [null],
       deliveryWarehouseId:   [null],
@@ -569,6 +598,7 @@ export class PoCreateComponent implements OnInit {
       deliveryWarehouseName: v.deliveryWarehouseName || undefined,
       notes:                 v.notes                || undefined,
       internalNotes:         this.unlockAuditNote   || undefined,
+      currencyId:            v.currencyId           || undefined,
       lines: v.lines.map((l: any) => ({
         sourcePrLineUuid: l.sourcePrLineUuid || undefined,
         variantUuid:      l.variantUuid      || undefined,

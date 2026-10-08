@@ -7,6 +7,7 @@ import { FulfillmentRoutesComponent } from './fulfillment-routes.component';
 import { FulfillmentRouteModel, FulfillmentRoutesService } from '../../../services/fulfillment-routes.service';
 import { InventoryService } from '../../../services/inventory.service';
 import { AuthService } from '../../service/auth.service';
+import { TenantService } from '../../service/tenant.service';
 
 const LABELS: Record<string, string> = { PICK: 'Pick', PACK: 'Pack', STAGE: 'Stage', APPROVAL: 'Approval', GOODS_ISSUE: 'Goods Issue', SHIP: 'Ship' };
 
@@ -32,6 +33,7 @@ describe('FulfillmentRoutesComponent (A33-PA-07 route list)', () => {
   let component: FulfillmentRoutesComponent;
   let service: jasmine.SpyObj<FulfillmentRoutesService>;
   let permissions: string[];
+  let features: string[];
   let el: HTMLElement;
   let confirmation: ConfirmationService;
 
@@ -57,7 +59,8 @@ describe('FulfillmentRoutesComponent (A33-PA-07 route list)', () => {
         provideNoopAnimations(),
         { provide: FulfillmentRoutesService, useValue: service },
         { provide: InventoryService, useValue: inventory },
-        { provide: AuthService, useValue: auth }
+        { provide: AuthService, useValue: auth },
+        { provide: TenantService, useValue: { hasFeature: (c: string) => features.includes(c) } }
       ]
     }).compileComponents();
 
@@ -75,7 +78,55 @@ describe('FulfillmentRoutesComponent (A33-PA-07 route list)', () => {
   const click = (id: string) => ((q(id)!.querySelector('button') ?? q(id)!) as HTMLElement).click();
   const refresh = async () => { fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges(); };
 
-  beforeEach(() => { permissions = ['FULFILLMENT_ROUTE_VIEW', 'FULFILLMENT_ROUTE_MANAGE', 'FULFILLMENT_ROUTE_ASSIGN']; });
+  beforeEach(() => {
+    permissions = ['FULFILLMENT_ROUTE_VIEW', 'FULFILLMENT_ROUTE_MANAGE', 'FULFILLMENT_ROUTE_ASSIGN'];
+    features = ['MODULE_LOGISTICS', 'MODULE_MANUFACTURING'];
+  });
+
+  // ── A34-PA-09 — category ───────────────────────────────────────────────────────────────────────────────
+
+  const WITH_MFG = () => [
+    ...ROUTES(),
+    route('MFG_PICK_SHIP', ['PICK', 'GOODS_ISSUE', 'SHIP'], { name: 'Manufacture → Pick & Ship', isSystem: true, routeCategory: 'MANUFACTURE' })
+  ];
+
+  it('shows each route\'s category as a tag: Stock green, Manufacture orange (no category saved = Stock)', async () => {
+    await setup(WITH_MFG());
+    expect(q('category-MFG_PICK_SHIP')!.textContent).toContain('Manufacture');
+    expect(q('category-MFG_PICK_SHIP')!.querySelector('.p-tag-warn')).not.toBeNull();
+    expect(q('category-PICK_ONLY')!.textContent).toContain('Stock');
+    expect(q('category-PICK_ONLY')!.querySelector('.p-tag-success')).not.toBeNull();
+  });
+
+  it('filters the list by category', async () => {
+    await setup(WITH_MFG());
+    expect(component.categoryFilterOptions.map(o => o.value)).toEqual([null, 'STOCK', 'MANUFACTURE']);
+    component.categoryFilter = 'MANUFACTURE';
+    await refresh();
+    expect(q('route-MFG_PICK_SHIP')).not.toBeNull();
+    expect(q('route-PICK_ONLY')).toBeNull();
+    component.categoryFilter = 'STOCK';
+    await refresh();
+    expect(q('route-MFG_PICK_SHIP')).toBeNull();
+    expect(q('route-HIGH_VALUE')).not.toBeNull();
+  });
+
+  it('never offers "make default" on a MANUFACTURE route (D-6)', async () => {
+    await setup(WITH_MFG());
+    expect(q('set-default-MFG_PICK_SHIP')).toBeNull();
+    expect(q('set-default-PICK_PACK_SHIP')).not.toBeNull();
+    component.confirmSetDefault(WITH_MFG()[5]);
+    expect(service.setDefault).not.toHaveBeenCalled();
+  });
+
+  it('without MODULE_MANUFACTURING hides MANUFACTURE routes and the filter option, and tells the editor (D-9)', async () => {
+    features = ['MODULE_LOGISTICS'];
+    await setup(WITH_MFG());
+    expect(q('route-MFG_PICK_SHIP')).toBeNull();
+    expect(q('route-PICK_ONLY')).not.toBeNull();
+    expect(component.categoryFilterOptions.map(o => o.value)).toEqual([null, 'STOCK']);
+    expect(component.manufacturingEnabled).toBeFalse();
+  });
 
   // ── Columns ────────────────────────────────────────────────────────────────────────────────────────────
 

@@ -10,6 +10,7 @@ import { TextareaModule } from 'primeng/textarea';
 import { SelectButtonModule } from 'primeng/selectbutton';
 import { TooltipModule } from 'primeng/tooltip';
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 
 import {
   ProductVariantPickerComponent, VariantPickerSelection
@@ -27,6 +28,10 @@ import { RETIRED_TAX_CODE_SUFFIX, taxCodeLabel } from '../../../../shared/tax-co
 import {
   TaxCodeOption, saleOrderGrandTotal, saleOrderLineTotal
 } from '../../sale-orders/sale-order-form/sale-order-form.component';
+import { LeadTimeService } from '../../../../services/lead-time.service';
+import {
+  LeadTimeApplyMode, LeadTimeCalculation, LeadTimePopoverComponent
+} from '../../lead-time-popover/lead-time-popover.component';
 
 /**
  * A32-PC-12 — adds or changes one line of a DRAFT sale quotation. Pricing works as on the sale order form's
@@ -38,7 +43,7 @@ import {
   standalone: true,
   imports: [
     CommonModule, ReactiveFormsModule, ButtonModule, DropdownModule, CalendarModule, InputNumberModule,
-    InputTextModule, TextareaModule, SelectButtonModule, TooltipModule, ProductVariantPickerComponent
+    InputTextModule, TextareaModule, SelectButtonModule, TooltipModule, ProductVariantPickerComponent, LeadTimePopoverComponent
   ],
   templateUrl: './sale-quotation-line-editor.component.html',
   styleUrls: ['./sale-quotation-line-editor.component.scss']
@@ -87,7 +92,8 @@ export class SaleQuotationLineEditorComponent implements OnInit {
     private financeSetupService: FinanceSetupService,
     private pricingService: PricingRuleService,
     private tenantService: TenantService,
-    private authService: AuthService
+    private authService: AuthService,
+    private leadTimeService: LeadTimeService
   ) {
     this.form = fb.group({
       lineType:               ['NORMAL' as SaleQuotationLineType],
@@ -411,6 +417,66 @@ export class SaleQuotationLineEditorComponent implements OnInit {
   }
 
   cancel() { this.cancelled.emit(); }
+
+  // ── A34 PC-07/08/09: lead time ──────────────────────────────────────────────
+
+  /** The saved line's calculation, as stored (updated by its own endpoint); null on a new line. */
+  storedLeadTime: { date: string | null; days: number | null; at: string | null } | null = null;
+
+  /** ⏱ on a priced line of a draft, for someone who may edit the quotation. */
+  get canCalculateLeadTime(): boolean {
+    return !this.readOnly && this.isPriced && this.authService.hasPermission('SALE_QUOTATION_EDIT');
+  }
+
+  get canSetPromisedDate(): boolean { return !this.readOnly && this.isPriced; }
+
+  /** A saved line whose item and quantity are as saved: its own endpoint calculates for exactly this. */
+  get isUnchangedSavedLine(): boolean {
+    const v = this.form.getRawValue();
+    return !!this.line && v.variantUuid === this.line.variantUuid && v.quantity === this.line.quantity;
+  }
+
+  /** Stored with the line → Apply drops the promised date; computed for an unsaved line → Apply writes it. */
+  get leadTimeApplyMode(): LeadTimeApplyMode { return this.isUnchangedSavedLine ? 'clear-manual' : 'set-manual'; }
+
+  /** The calculation shown as the line's: only one that is stored for the line as it stands. */
+  get shownLeadTime(): { date: string | null; days: number | null; at: string | null } {
+    if (!this.isUnchangedSavedLine) return { date: null, days: null, at: null };
+    return this.storedLeadTime ?? {
+      date: this.line?.calculatedDeliveryDate ?? null, days: this.line?.calculatedLeadTimeDays ?? null, at: this.line?.leadTimeCalculatedAt ?? null
+    };
+  }
+
+  get promisedDateValue(): string | null {
+    const d = this.form.get('promisedDeliveryDate')!.value as Date | null;
+    return d ? toDateOnly(d) : null;
+  }
+
+  readonly leadTimeCalculator = (): Observable<LeadTimeCalculation> => {
+    if (this.isUnchangedSavedLine) {
+      return this.salesPreorderService.calculateQuotationLineLeadTime(this.quotation.uuid, this.line!.uuid).pipe(
+        map(res => ({ leadTime: res.result!.leadTime, line: res.result!.line })));
+    }
+    const v = this.form.getRawValue();
+    return this.leadTimeService.calculate({ variantUuid: v.variantUuid, quantity: v.quantity, routeUuid: null, requestedDate: null })
+      .pipe(map(res => ({ leadTime: res.result! })));
+  };
+
+  onLeadTime(calc: LeadTimeCalculation) {
+    const stored = calc.line as SaleQuotationLine | undefined;
+    if (stored) {
+      this.storedLeadTime = {
+        date: stored.calculatedDeliveryDate ?? null, days: stored.calculatedLeadTimeDays ?? null, at: stored.leadTimeCalculatedAt ?? null
+      };
+    }
+  }
+
+  /** The promised date is the line's manual date; it is saved with the line. */
+  onPromisedDate(date: string | null) {
+    const control = this.form.get('promisedDeliveryDate')!;
+    control.setValue(date ? fromDateOnly(date) : null);
+    control.markAsDirty();
+  }
 
   fieldInvalid(name: string): boolean {
     const c = this.form.get(name)!;

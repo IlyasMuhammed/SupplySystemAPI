@@ -38,9 +38,10 @@ internal sealed class InvoiceMap : IEntityTypeConfiguration<Invoice>
         // SAP alignment — purchase tax code, currency snapshot at approval, reversal record.
         b.Property(x => x.TaxCode).HasMaxLength(20);
         b.Property(x => x.TaxPercent).HasColumnType("decimal(5,2)");
-        b.Property(x => x.ExchangeRate).HasColumnType("decimal(18,8)");
+        // A35 D-10: rate 10 places, base amount 4.
+        b.Property(x => x.ExchangeRate).HasColumnType("decimal(18,10)");
         b.Property(x => x.BaseCurrencyCode).HasMaxLength(10);
-        b.Property(x => x.BaseTotalAmount).HasColumnType("decimal(18,2)");
+        b.Property(x => x.BaseTotalAmount).HasColumnType("decimal(18,4)");
         b.Property(x => x.ReversalReason).HasMaxLength(500);
         b.Property(x => x.MatchedPoValue).HasColumnType("decimal(18,2)");
         b.Property(x => x.MatchedGrnValue).HasColumnType("decimal(18,2)");
@@ -262,6 +263,11 @@ internal sealed class SupplierPaymentMap : IEntityTypeConfiguration<SupplierPaym
         b.Property(x => x.Status).HasMaxLength(20).HasDefaultValue("DRAFT");
         b.Property(x => x.Notes).HasMaxLength(300);
         b.Property(x => x.PaymentType).HasMaxLength(30).HasDefaultValue("STANDARD");
+        // A35 D-10 — the payment's currency and its lock at POSTED.
+        b.Property(x => x.CurrencyCode).HasMaxLength(10).IsRequired().HasDefaultValue("PKR");
+        b.Property(x => x.ExchangeRate).HasColumnType("decimal(18,10)");
+        b.Property(x => x.AmountBase).HasColumnType("decimal(18,4)");
+        b.Property(x => x.ExchangeDifference).HasColumnType("decimal(18,4)");
         b.Property(x => x.OrganizationId).IsRequired();
         b.HasIndex(x => x.OrganizationId);
 
@@ -305,6 +311,7 @@ internal sealed class SupplierPaymentLineMap : IEntityTypeConfiguration<Supplier
         b.Property(x => x.InvoiceNumber).HasMaxLength(20).IsRequired();
         b.Property(x => x.AllocatedAmount).HasColumnType("decimal(18,2)");
         b.Property(x => x.OutstandingBeforeAllocation).HasColumnType("decimal(18,2)");
+        b.Property(x => x.ExchangeDifference).HasColumnType("decimal(18,4)");
         b.Property(x => x.Notes).HasMaxLength(300);
         b.Property(x => x.OrganizationId).IsRequired();
         b.HasIndex(x => x.OrganizationId);

@@ -150,6 +150,19 @@ export interface PaymentSummaryModel {
   status: string;
 }
 
+/** A35 — one supplier payment allocated to a supplier invoice (InvoiceDetailModel.supplierPayments). */
+export interface SupplierInvoicePaymentModel {
+  paymentUuid: string;
+  paymentNumber: string;
+  paymentDate: string;
+  paymentMethod: string;
+  status: string;
+  currencyCode?: string | null;
+  allocatedAmount: number;
+  /** Realized difference of this allocation in the purchase base (+ gain, − loss). */
+  exchangeDifference?: number | null;
+}
+
 export interface InvoiceDetailModel {
   uuid: string;
   invoiceNumber: string;
@@ -176,6 +189,13 @@ export interface InvoiceDetailModel {
   exchangeRate?: number | null;
   baseCurrencyCode?: string | null;
   baseTotalAmount?: number | null;
+  // A35 (API-CONTRACT.md §7) — rate locked at APPROVED against the purchase base. Optional for older servers.
+  currencyId?: string | null;
+  baseCurrencyId?: string | null;
+  exchangeRateLockedAt?: string | null;
+  realizedExchangeDifference?: number | null;
+  /** A35 (FIN) — the multi-invoice supplier payments allocated to this invoice, with each one's realized difference. */
+  supplierPayments?: SupplierInvoicePaymentModel[] | null;
   /** Three-way match on the net subtotal (S-8): subtotal vs PO and GRN values, all before tax. */
   matchedPoValue: number;
   matchedGrnValue: number;
@@ -466,6 +486,9 @@ export interface SupplierPaymentListItemModel {
   paymentType: string;
   lineCount: number;
   attachmentCount: number;
+  // A35 (contract v1.4 §7) — optional for older servers.
+  currencyCode?: string | null;
+  amountBase?: number | null;
 }
 
 export interface SupplierPaymentLineModel {
@@ -475,6 +498,8 @@ export interface SupplierPaymentLineModel {
   allocatedAmount: number;
   outstandingBeforeAllocation: number;
   notes?: string;
+  /** A35 — realized exchange difference of this line in the purchase base (+ gain, − loss). */
+  exchangeDifference?: number | null;
 }
 
 export interface SupplierPaymentDetailModel {
@@ -499,6 +524,15 @@ export interface SupplierPaymentDetailModel {
   paymentType: string;
   creditNoteUuid?: string;
   lines: SupplierPaymentLineModel[];
+  // A35 (API-CONTRACT.md §7) — rate locked at POSTED against the purchase base; base fields null until then.
+  currencyCode?: string | null;
+  currencyId?: string | null;
+  exchangeRate?: number | null;
+  baseCurrencyId?: string | null;
+  baseCurrencyCode?: string | null;
+  amountBase?: number | null;
+  /** Σ of the lines' realized differences (+ gain, − loss). */
+  exchangeDifference?: number | null;
 }
 
 export interface OutstandingInvoiceModel {

@@ -44,21 +44,33 @@ internal sealed class DeliveryRepository : IDeliveryRepository
     private readonly IAddressNormalizer          _addresses;
     private readonly Demand.Data.DemandDbContext? _demand;
     private readonly ISupplierNameLookupService? _partnerNames;
+    private readonly Warehouse.Data.WarehouseDbContext? _warehouse;
+    private readonly IWarehouseDirectory?       _warehouses;
+    private readonly IStockReservationService?  _reservations;
 
     /// <param name="demand">A33 — reads the sale order's partner for <c>customerName</c>; optional (null = no name).</param>
     /// <param name="partnerNames">A33 — the business partner name lookup (Suppliers module); optional.</param>
+    /// <param name="warehouse">Reads a supplier return's supplier for <c>vendorName</c>; optional (null = no name).</param>
+    /// <param name="warehouses">Names and locates the ship-from / ship-to warehouse; optional (null = not shown).</param>
+    /// <param name="reservations">Tells the ship-from warehouse from the stock held when the header never recorded one; optional.</param>
     public DeliveryRepository(
         LogisticsDbContext db,
         IDocumentNumberGenerator numbers,
         IAddressNormalizer addresses,
         Demand.Data.DemandDbContext? demand = null,
-        ISupplierNameLookupService? partnerNames = null)
+        ISupplierNameLookupService? partnerNames = null,
+        Warehouse.Data.WarehouseDbContext? warehouse = null,
+        IWarehouseDirectory? warehouses = null,
+        IStockReservationService? reservations = null)
     {
         _db           = db;
         _numbers      = numbers;
         _addresses    = addresses;
         _demand       = demand;
         _partnerNames = partnerNames;
+        _warehouse    = warehouse;
+        _warehouses   = warehouses;
+        _reservations = reservations;
     }
 
     // ── Create ────────────────────────────────────────────────────────────────
@@ -230,6 +242,8 @@ internal sealed class DeliveryRepository : IDeliveryRepository
         // A33 contract §6.
         if (filter.SaleOrderUuid is { } soUuid)       q = q.Where(x => x.SaleOrderUuid == soUuid);
         if (filter.FulfillmentRouteUuid is { } route) q = q.Where(x => x.FulfillmentRouteUuid == route);
+        // A34 contract §8.3 — the PO detail's delivery card.
+        if (filter.ProductionOrderUuid is { } po)     q = q.Where(x => x.ProductionOrderUuid == po);
 
         var page     = filter.Page     < 1 ? 1  : filter.Page;
         var pageSize = filter.PageSize < 1 ? 20 : filter.PageSize;
@@ -330,6 +344,78 @@ internal sealed class DeliveryRepository : IDeliveryRepository
                        .ToDictionary(p => p.UUID, p => names[p.PartnerId]);
     }
 
+    /// <summary>
+    /// The supplier a PO or supplier-return delivery is from / to, as that document records it (both keep the name
+    /// denormalised). Null for any other source, or when the owning module is not available.
+    /// </summary>
+    private async Task<string?> VendorNameAsync(DeliveryOrder delivery)
+    {
+        if (delivery.SourceUuid is not { } sourceUuid) return null;
+
+        // The delivery was already read in the caller's organization; its source document is in the same one.
+        if (delivery.SourceType == LogisticsCode.Of(DeliverySourceType.Po) && _demand is not null)
+            return await _demand.PurchaseOrders.AsNoTracking()
+                .Where(p => p.UUID == sourceUuid && p.OrganizationId == delivery.OrganizationId)
+                .Select(p => p.SupplierName)
+                .FirstOrDefaultAsync();
+
+        if (delivery.SourceType == LogisticsCode.Of(DeliverySourceType.Sro) && _warehouse is not null)
+            return await _warehouse.SupplierReturnOrders.AsNoTracking()
+                .Where(s => s.UUID == sourceUuid && s.OrganizationId == delivery.OrganizationId)
+                .Select(s => s.SupplierName)
+                .FirstOrDefaultAsync();
+
+        return null;
+    }
+
+    /// <summary>The warehouse with its address, or null when there is none, no directory, or the lookup fails.</summary>
+    private async Task<DeliveryWarehouseModel?> WarehouseAsync(Guid? warehouseUuid)
+    {
+        if (warehouseUuid is not { } uuid || _warehouses is null) return null;
+
+        try
+        {
+            var w = await _warehouses.FindAsync(uuid);
+            return w is null ? null : new DeliveryWarehouseModel
+            {
+                Uuid = w.Uuid, Code = w.Code, Name = w.Name, Address = w.Address, City = w.City, Country = w.Country,
+                ContactName = w.ContactName, ContactPhone = w.ContactPhone
+            };
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Where the stock actually is, for a delivery whose header never recorded a warehouse: its own holds (any status —
+    /// consumed is normal once goods are issued), else its sale order lines' holds. One warehouse or nothing; two would
+    /// be a guess. Same reasoning as <c>ConsignmentShipFrom</c>.
+    /// </summary>
+    private async Task<Guid?> WarehouseFromHoldsAsync(DeliveryOrder delivery)
+    {
+        if (_reservations is null) return null;
+
+        try
+        {
+            var own = (await _reservations.GetBySourceAsync(ReservationSourceType.Delivery, delivery.UUID))
+                .Select(r => r.WarehouseUuid).Distinct().ToList();
+            if (own.Count == 1) return own[0];
+            if (own.Count > 1 || delivery.SaleOrderUuid is not { } soUuid) return null;
+
+            var soLines = delivery.Lines.Where(l => l.SoLineUuid != null).Select(l => l.SoLineUuid!.Value).ToHashSet();
+            var held = (await _reservations.GetBySourceAsync(ReservationSourceType.SalesOrder, soUuid))
+                .Where(r => r.SourceLineUuid is { } line && soLines.Contains(line))
+                .Select(r => r.WarehouseUuid).Distinct().ToList();
+            return held.Count == 1 ? held[0] : null;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return null;
+        }
+    }
+
     private static readonly System.Linq.Expressions.Expression<Func<DeliveryOrder, DeliveryListItemModel>> ToListItem =
         x => new DeliveryListItemModel
         {
@@ -349,7 +435,8 @@ internal sealed class DeliveryRepository : IDeliveryRepository
             CreatedDate    = x.CreatedDate,
             SaleOrderUuid        = x.SaleOrderUuid,
             FulfillmentRouteUuid = x.FulfillmentRouteUuid,
-            FulfillmentRouteCode = x.FulfillmentRouteCode
+            FulfillmentRouteCode = x.FulfillmentRouteCode,
+            ProductionOrderUuid  = x.ProductionOrderUuid
         };
 
     public async Task<DeliveryDetailModel?> GetByUuidAsync(Guid uuid)
@@ -387,6 +474,9 @@ internal sealed class DeliveryRepository : IDeliveryRepository
         var customer  = delivery.SaleOrderUuid is { } soUuid
             ? (await CustomerNamesAsync([soUuid])).GetValueOrDefault(soUuid)
             : null;
+        var vendor    = await VendorNameAsync(delivery);
+        var shipFromWarehouse = await WarehouseAsync(delivery.ShipFromWarehouseUuid ?? await WarehouseFromHoldsAsync(delivery));
+        var shipToWarehouse   = await WarehouseAsync(delivery.ShipToWarehouseUuid);
         var liveConsignment = consignments.Any(c => c.Status != LogisticsCode.Of(ShipmentStatus.Cancelled));
 
         return new DeliveryDetailModel
@@ -395,6 +485,7 @@ internal sealed class DeliveryRepository : IDeliveryRepository
             FulfillmentRouteUuid = delivery.FulfillmentRouteUuid,
             FulfillmentRouteCode = delivery.FulfillmentRouteCode,
             FulfillmentRouteName = routeName,
+            ProductionOrderUuid  = delivery.ProductionOrderUuid,
             RouteSteps           = progress,
             RequiresApproval     = DeliveryRouteFlow.RequiresApproval(delivery),
             ApprovedAt           = delivery.ApprovedAt,
@@ -418,6 +509,11 @@ internal sealed class DeliveryRepository : IDeliveryRepository
             PickedUpAt           = delivery.PickedUpAt,
             ShipFromAddress  = ToAddressModel(delivery.ShipFromAddress),
             ShipToAddress    = ToAddressModel(delivery.ShipToAddress),
+            ShipFromWarehouseUuid = delivery.ShipFromWarehouseUuid,
+            ShipToWarehouseUuid   = delivery.ShipToWarehouseUuid,
+            ShipFromWarehouse     = shipFromWarehouse,
+            ShipToWarehouse       = shipToWarehouse,
+            VendorName       = vendor,
             RequestedDate    = delivery.RequestedDate,
             PromisedDate     = delivery.PromisedDate,
             Priority         = delivery.Priority,

@@ -1,4 +1,4 @@
-using SMS.Modules.Finance.Services;
+﻿using SMS.Modules.Finance.Services;
 
 namespace SMS.Modules.Finance.Models;
 
@@ -60,6 +60,8 @@ public class SalesInvoiceListItemModel
     public decimal  BalanceDue      { get; set; }
     public string   Status          { get; set; } = string.Empty;
     public string   CurrencyCode    { get; set; } = string.Empty;
+    /// <summary>A35 D-10 — the invoice currency's id (inherited from the sale order). Null on rows from before A35 not yet backfilled.</summary>
+    public Guid?    CurrencyId      { get; set; }
 }
 
 /// <summary>
@@ -101,6 +103,8 @@ public class SalesInvoicePaymentModel
     public decimal  AllocatedAmount { get; set; }
     public DateTime AllocatedAt     { get; set; }
     public int      AllocatedBy     { get; set; }
+    /// <summary>A35 E-06 — realized gain (+) / loss (−) on this allocation in the sale base; null before A35.</summary>
+    public decimal? ExchangeDifference { get; set; }
 }
 
 public class SalesInvoiceDetailModel : SalesInvoiceListItemModel
@@ -122,6 +126,11 @@ public class SalesInvoiceDetailModel : SalesInvoiceListItemModel
     public string?   BaseCurrencyCode   { get; set; }
     /// <summary>GrandTotal in the base currency at <see cref="ExchangeRate"/>; null when no snapshot was taken.</summary>
     public decimal?  BaseGrandTotal     { get; set; }
+    /// <summary>A35 D-10 — the sale base's id and when the rate was locked (at issue).</summary>
+    public Guid?     BaseCurrencyId       { get; set; }
+    public DateTime? ExchangeRateLockedAt { get; set; }
+    /// <summary>A35 E-06 — net realized exchange difference booked on this invoice (sale base; bounced payments net out). Null when none.</summary>
+    public decimal?  RealizedExchangeDifference { get; set; }
 
     // ── SAP alignment (S-7): set when an issued invoice is cancelled ──
     public DateTime? CancelledAt        { get; set; }
@@ -148,8 +157,10 @@ public class RecordCustomerPaymentRequest
     public decimal   Amount        { get; set; }
     /// <summary>CASH, CHEQUE, BANK_TRANSFER, CARD or ONLINE.</summary>
     public string    Method        { get; set; } = string.Empty;
-    /// <summary>The currency the money arrived in, as the Lookups catalog spells it.</summary>
+    /// <summary>The currency the money arrived in, as the Lookups catalog spells it. Or <see cref="CurrencyId"/>; both absent → the first allocated invoice's currency, else the customer's default sale currency, else the sale base (A35 D-14).</summary>
     public string    CurrencyCode  { get; set; } = string.Empty;
+    /// <summary>A35 — the currency's global lookups id; wins over <see cref="CurrencyCode"/> when given.</summary>
+    public Guid?     CurrencyId    { get; set; }
     public DateTime? PaymentDate   { get; set; }
     /// <summary>Required for CHEQUE.</summary>
     public string?   ChequeNumber  { get; set; }
@@ -215,6 +226,8 @@ public class CustomerPaymentAllocationModel
     public int      AllocatedBy        { get; set; }
     public decimal  InvoiceBalanceDue  { get; set; }
     public string   InvoiceStatus      { get; set; } = string.Empty;
+    /// <summary>A35 C7 — realized gain (+) / loss (−) in the sale base on this allocation; null before A35.</summary>
+    public decimal? ExchangeDifference { get; set; }
 }
 
 public class CustomerPaymentDetailModel : CustomerPaymentListItemModel
@@ -224,6 +237,14 @@ public class CustomerPaymentDetailModel : CustomerPaymentListItemModel
     public DateTime  CreatedDate  { get; set; }
     public int?      ModifiedBy   { get; set; }
     public DateTime? ModifiedDate { get; set; }
+
+    /// <summary>A35 D-10 — the payment's currency id, the rate locked when it was received, the sale base, the amount in it and Σ allocation differences.</summary>
+    public Guid?     CurrencyId         { get; set; }
+    public decimal?  ExchangeRate       { get; set; }
+    public Guid?     BaseCurrencyId     { get; set; }
+    public string?   BaseCurrencyCode   { get; set; }
+    public decimal?  AmountBase         { get; set; }
+    public decimal?  ExchangeDifference { get; set; }
 
     public List<CustomerPaymentAllocationModel> Allocations { get; set; } = [];
 }

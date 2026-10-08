@@ -40,6 +40,13 @@ internal class FulfillmentRoute : ITenantScopedEntity
 
     public int DisplayOrder { get; set; }
 
+    /// <summary>
+    /// A34 C1 — one of <see cref="FulfillmentRouteCategory"/> (CHECK constraint; default STOCK, so every route from
+    /// before A34 is a stock route). MANUFACTURE = make to order (D-1): never a default (D-6); locked on system,
+    /// default and in-use routes (D-8). BUY / DROPSHIP are reserved and refused by the service (D-7).
+    /// </summary>
+    public string RouteCategory { get; set; } = FulfillmentRouteCategory.Stock;
+
     public int       CreatedBy    { get; set; }
     public DateTime  CreatedDate  { get; set; }
     public int?      ModifiedBy   { get; set; }

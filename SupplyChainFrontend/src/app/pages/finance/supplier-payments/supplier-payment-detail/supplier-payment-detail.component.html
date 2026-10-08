@@ -72,8 +72,10 @@
         </div>
         <div class="total-hero">
           <span class="total-hero-label">Total Amount</span>
-          <span class="total-hero-amount">{{ payment.totalAmount | number:'1.2-2' }}</span>
+          <span class="total-hero-amount">{{ payment.totalAmount | number:'1.2-2' }} <small *ngIf="payment.currencyCode">{{ payment.currencyCode }}</small></span>
         </div>
+        <!-- A35-E-06 — currency, the rate locked at posting, the purchase base. -->
+        <app-doc-currency-panel [doc]="currencyInfo" lockPoint="posting" domain="PURCHASE" [showToggle]="false"></app-doc-currency-panel>
         <div class="meta-rows">
           <div class="meta-row">
             <span><i class="pi pi-calendar"></i> Payment Date</span>
@@ -86,6 +88,14 @@
           <div class="meta-row">
             <span><i class="pi pi-tag"></i> Type</span>
             <strong>{{ payment.paymentType }}</strong>
+          </div>
+          <div class="meta-row" *ngIf="showAmountBase">
+            <span><i class="pi pi-globe"></i> In {{ payment.baseCurrencyCode }}</span>
+            <strong data-testid="amount-base">{{ payment.amountBase | money:baseCurrencyRef:moneyCode }}</strong>
+          </div>
+          <div class="meta-row" *ngIf="payment.exchangeDifference !== null && payment.exchangeDifference !== undefined">
+            <span><i class="pi pi-sort-alt"></i> Realized exchange difference</span>
+            <strong data-testid="payment-fx"><app-fx-difference [amount]="payment.exchangeDifference" [currency]="baseCurrencyRef"></app-fx-difference></strong>
           </div>
           <div class="meta-row" *ngIf="payment.bankAccount">
             <span><i class="pi pi-building-columns"></i> Bank Account</span>
@@ -146,6 +156,7 @@
               <th>Invoice #</th>
               <th class="text-right">Outstanding Before</th>
               <th class="text-right">Allocated</th>
+              <th *ngIf="hasLineFx" class="text-right">Exchange diff.</th>
               <th>Notes</th>
             </tr>
           </ng-template>
@@ -154,6 +165,7 @@
               <td class="font-mono">{{ l.invoiceNumber }}</td>
               <td class="text-right">{{ l.outstandingBeforeAllocation | number:'1.2-2' }}</td>
               <td class="text-right font-semibold">{{ l.allocatedAmount | number:'1.2-2' }}</td>
+              <td *ngIf="hasLineFx" class="text-right" data-testid="line-fx"><app-fx-difference [amount]="l.exchangeDifference" [currency]="baseCurrencyRef"></app-fx-difference></td>
               <td>{{ l.notes || '—' }}</td>
             </tr>
           </ng-template>

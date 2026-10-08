@@ -258,6 +258,20 @@ public class SaleOrderEmailServiceTests
         row.BodyHtml.Should().Contain("require procurement");
     }
 
+    [Fact]
+    public async Task A34_a_make_to_order_line_says_it_is_made_to_order_not_unconfirmed()
+    {
+        var h = NewHarness();
+        h.Users.Setup(u => u.GetUserEmailAsync(Creator)).ReturnsAsync("creator@x.com");
+        var orderUuid = await SeedOrder(h, (Guid.NewGuid(), 12m, "MAKE_TO_ORDER", 12m, 5m, null));
+
+        await h.Service.SendConfirmationAsync(orderUuid);
+
+        var row = await h.Db.SaleOrderIntimations.AsNoTracking().SingleAsync();
+        row.BodyHtml.Should().Contain("Made to order: a production order makes all 12 unit(s).");
+        row.BodyHtml.Should().NotContain("Not yet confirmed");
+    }
+
     // ── A29-P4-08 §5.2 — email template content validation ──────────────────
 
     [Fact]

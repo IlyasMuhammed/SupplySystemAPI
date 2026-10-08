@@ -1,93 +1,86 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
-import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { DatePickerModule } from 'primeng/datepicker';
 import { DialogModule } from 'primeng/dialog';
 import { InputNumberModule } from 'primeng/inputnumber';
-import { InputTextModule } from 'primeng/inputtext';
+import { RadioButtonModule } from 'primeng/radiobutton';
 import { SelectModule } from 'primeng/select';
 import { TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
 import { TextareaModule } from 'primeng/textarea';
 import { ToastModule } from 'primeng/toast';
 import { TooltipModule } from 'primeng/tooltip';
-import { ConfirmationService, MessageService } from 'primeng/api';
+import { MessageService } from 'primeng/api';
 
 import {
-  ExchangeRateModel, ExchangeRateQuoteModel, FinanceSetupService, SaveExchangeRateRequest
-} from '../../../services/finance-setup.service';
-import { CurrenciesService } from '../../../services/currencies.service';
+  CURRENCY_RATE_DECIMALS, CURRENCY_RATE_MANAGE, CurrencyRateModel, OrgCurrencyModel, OrgCurrencyService, isOpenEnd
+} from '../../../services/org-currency.service';
 import { AuthService } from '../../service/auth.service';
+import { fromIsoDate, setupErrorMessage, toIsoDate } from '../finance-setup.shared';
 import {
-  ExchangeRateDraft, FINANCE_SETUP_MANAGE, MAX_RATE_NOTES_LENGTH, RATE_DECIMALS, exchangeRateProblem, formatRate, fromIsoDate,
-  roundExchangeRate, setupErrorMessage, toIsoDate
-} from '../finance-setup.shared';
+  MAX_RATE_NOTES, RateDraft, dayText, formatCurrencyRate, inverseText, previousRateNotice, rateProblem
+} from '../currency-setup.shared';
 
-interface CurrencyOption {
+interface Option {
   label: string;
   value: string;
 }
 
 /**
- * Settings → Exchange Rates (SAP alignment S-4). One unit of the first currency is worth the rate in the
- * second, from the effective date until the next rate for the same pair. A document uses the latest rate
- * on or before its date, else the reciprocal of the opposite pair; the "rate on a date" check shows
- * exactly what a document would get. Final documents record the rate they used, so changing or deleting
- * a rate here never changes them.
+ * A35-P1-11 / P1-12 — Settings → Finance Setup → Exchange Rates (spec §11.3 / §11.4, api/currency-rates). Every rate is
+ * "units of the organization's rate currency per 1 unit of X" over a date range (D-2, D-3): adding a current rate closes
+ * the previous one the day before (BR-C2-03); a fixed range fills a gap; ranges never overlap (BR-C2-02). The rate
+ * currency's own 1.0 row cannot be changed (BR-C2-04). Locked documents keep the rate they locked, so editing a rate here
+ * never changes them. Replaces the SAP-alignment pair-based page (api/finance/exchange-rates, D-17).
  */
 @Component({
   selector: 'app-exchange-rates',
   standalone: true,
   imports: [
-    CommonModule, FormsModule, ButtonModule, ConfirmDialogModule, DatePickerModule, DialogModule, InputNumberModule, InputTextModule,
-    SelectModule, TableModule, TagModule, TextareaModule, ToastModule, TooltipModule
+    CommonModule, FormsModule, ButtonModule, DatePickerModule, DialogModule, InputNumberModule, RadioButtonModule, SelectModule,
+    TableModule, TagModule, TextareaModule, ToastModule, TooltipModule
   ],
   templateUrl: './exchange-rates.component.html',
   styleUrls: ['../finance-setup.scss', './exchange-rates.component.scss'],
-  providers: [MessageService, ConfirmationService]
+  providers: [MessageService]
 })
 export class ExchangeRatesComponent implements OnInit {
-  readonly maxNotes = MAX_RATE_NOTES_LENGTH;
-  readonly rateDecimals = RATE_DECIMALS;
-  readonly formatRate = formatRate;
+  readonly maxNotes = MAX_RATE_NOTES;
+  readonly rateDecimals = CURRENCY_RATE_DECIMALS;
+  readonly dayText = dayText;
+  readonly isOpenEnd = isOpenEnd;
 
-  rates: ExchangeRateModel[] = [];
+  rates: CurrencyRateModel[] = [];
   isLoading = false;
   loadFailed = false;
-  busy: Record<string, boolean> = {};
 
-  currencies: CurrencyOption[] = [];
+  currencies: OrgCurrencyModel[] = [];
   currenciesFailed = false;
 
-  // Filters (sent to the server)
-  filterFrom: string | null = null;
-  filterTo: string | null = null;
+  filterCurrencyId: string | null = null;
+  filterMonth: Date | null = null;
 
-  // Add / edit
   dialogVisible = false;
-  editing: ExchangeRateModel | null = null;
-  draft: ExchangeRateDraft = ExchangeRatesComponent.emptyDraft();
+  editing: CurrencyRateModel | null = null;
+  draft: RateDraft = ExchangeRatesComponent.emptyDraft();
+  /** Every row of the dialog's currency (for the overlap check and the "will be closed" notice). */
+  history: CurrencyRateModel[] = [];
   isSaving = false;
   saveError = '';
 
-  // Rate on a date
-  quoteFrom: string | null = null;
-  quoteTo: string | null = null;
+  quoteCurrencyId: string | null = null;
   quoteDate: Date | null = new Date();
-  quote: ExchangeRateQuoteModel | null = null;
+  quote: CurrencyRateModel | null = null;
   quoteMessage = '';
   quoteChecked = false;
   isQuoting = false;
 
   constructor(
-    private service: FinanceSetupService,
-    private currenciesService: CurrenciesService,
+    private service: OrgCurrencyService,
     private authService: AuthService,
-    private messages: MessageService,
-    private confirmation: ConfirmationService
+    private messages: MessageService
   ) {}
 
   ngOnInit(): void {
@@ -96,24 +89,22 @@ export class ExchangeRatesComponent implements OnInit {
   }
 
   get canManage(): boolean {
-    return this.authService.hasPermission(FINANCE_SETUP_MANAGE);
+    return this.authService.hasPermission(CURRENCY_RATE_MANAGE);
   }
 
-  static emptyDraft(): ExchangeRateDraft {
-    return { fromCurrencyCode: null, toCurrencyCode: null, rate: null, effectiveDate: new Date(), notes: '' };
+  static emptyDraft(): RateDraft {
+    const today = new Date();
+    return {
+      currencyId: null, rate: null, effectiveFrom: new Date(today.getFullYear(), today.getMonth(), today.getDate()),
+      openEnded: true, effectiveTo: null, notes: ''
+    };
   }
+
+  // ── Loading ─────────────────────────────────────────────────────────────────
 
   private loadCurrencies(): void {
-    this.currenciesService.getAll().subscribe({
-      next: (res) => {
-        // Rates are keyed by code; a catalog currency without one cannot be used.
-        const seen = new Set<string>();
-        this.currencies = (res.result ?? [])
-          .filter(c => !!c.code?.trim())
-          .map(c => ({ value: c.code!.trim().toUpperCase(), label: `${c.code!.trim().toUpperCase()} — ${c.name}` }))
-          .filter(o => !seen.has(o.value) && !!seen.add(o.value))
-          .sort((a, b) => a.value.localeCompare(b.value));
-      },
+    this.service.getCurrencies(true).subscribe({
+      next: res => { this.currencies = res.result ?? []; },
       error: () => { this.currenciesFailed = true; }
     });
   }
@@ -121,10 +112,11 @@ export class ExchangeRatesComponent implements OnInit {
   load(): void {
     this.isLoading = true;
     this.loadFailed = false;
-    this.service.getExchangeRates(this.filterFrom ?? undefined, this.filterTo ?? undefined).subscribe({
-      next: (res) => {
+    this.service.getRates(this.filter()).subscribe({
+      next: res => {
         this.isLoading = false;
-        this.rates = res.result ?? [];
+        this.rates = [...(res.result ?? [])].sort((a, b) =>
+          a.currencyCode.localeCompare(b.currencyCode) || b.effectiveFrom.localeCompare(a.effectiveFrom));
       },
       error: () => {
         this.isLoading = false;
@@ -133,150 +125,183 @@ export class ExchangeRatesComponent implements OnInit {
     });
   }
 
+  private filter(): { currencyId: string | null; from: string | null; to: string | null } {
+    const m = this.filterMonth;
+    return {
+      currencyId: this.filterCurrencyId ?? null,
+      from: m ? toIsoDate(new Date(m.getFullYear(), m.getMonth(), 1)) : null,
+      to: m ? toIsoDate(new Date(m.getFullYear(), m.getMonth() + 1, 0)) : null
+    };
+  }
+
   onFilterChange(): void {
     this.load();
   }
 
   clearFilters(): void {
-    this.filterFrom = null;
-    this.filterTo = null;
+    this.filterCurrencyId = null;
+    this.filterMonth = null;
     this.load();
   }
 
   get hasFilters(): boolean {
-    return !!this.filterFrom || !!this.filterTo;
+    return !!this.filterCurrencyId || !!this.filterMonth;
+  }
+
+  /** The rate currency (rate 1.0): from the org currencies, else from any rate row. */
+  get rateCurrency(): OrgCurrencyModel | null {
+    return this.currencies.find(c => c.isRateCurrency) ?? null;
+  }
+
+  get rateCurrencyCode(): string {
+    return this.rateCurrency?.code ?? this.rates[0]?.rateCurrencyCode ?? '';
+  }
+
+  private get rateCurrencyId(): string | null {
+    return this.rateCurrency?.currencyId ?? this.rates[0]?.rateCurrencyId ?? null;
+  }
+
+  /** Every org currency, for the list filter. */
+  get filterOptions(): Option[] {
+    return this.currencies.map(c => ({ value: c.currencyId, label: `${c.code} - ${c.name}` }));
+  }
+
+  /** Active currencies that can have a rate (not the rate currency), for the dialog. */
+  get currencyOptions(): Option[] {
+    const rateId = this.rateCurrencyId;
+    return this.currencies
+      .filter(c => c.isActive && c.currencyId !== rateId)
+      .map(c => ({ value: c.currencyId, label: `${c.code} - ${c.name}` }));
+  }
+
+  /** 278.05 → '278.0500' (at least four decimals, up to ten). */
+  rateText(rate: number): string {
+    const full = formatCurrencyRate(rate);
+    const dot = full.indexOf('.');
+    const decimals = dot < 0 ? 0 : full.length - dot - 1;
+    return decimals >= 4 ? full : rate.toFixed(4);
+  }
+
+  canEdit(r: CurrencyRateModel): boolean {
+    return this.canManage && r.source !== 'SYSTEM' && r.currencyId !== this.rateCurrencyId;
   }
 
   // ── Add / edit ──────────────────────────────────────────────────────────────
 
-  openCreate(): void {
-    if (!this.canManage) return;
-    this.editing = null;
-    this.draft = {
-      ...ExchangeRatesComponent.emptyDraft(),
-      // Most often a new rate for the pair being looked at.
-      fromCurrencyCode: this.filterFrom, toCurrencyCode: this.filterTo
-    };
-    this.saveError = '';
-    this.dialogVisible = true;
+  private get draftCode(): string {
+    if (this.editing) return this.editing.currencyCode;
+    return this.currencies.find(c => c.currencyId === this.draft.currencyId)?.code ?? '';
   }
 
-  openEdit(rate: ExchangeRateModel): void {
-    if (!this.canManage) return;
-    this.editing = rate;
-    this.draft = {
-      fromCurrencyCode: rate.fromCurrencyCode, toCurrencyCode: rate.toCurrencyCode, rate: rate.rate,
-      effectiveDate: fromIsoDate(rate.effectiveDate), notes: rate.notes ?? ''
-    };
-    this.saveError = '';
-    this.dialogVisible = true;
+  draftCodeLabel(): string {
+    return this.draftCode || 'X';
+  }
+
+  get inverse(): string {
+    const code = this.draftCode;
+    return code ? inverseText(this.draft.rate, code, this.rateCurrencyCode) : '';
+  }
+
+  get notice(): string | null {
+    if (this.editing || !this.draft.openEnded) return null;
+    const current = this.history.find(r => isOpenEnd(r.effectiveTo)) ?? null;
+    return previousRateNotice(current, this.draft.effectiveFrom);
   }
 
   get problem(): string | null {
-    return exchangeRateProblem(this.draft, this.rates, this.editing?.uuid ?? null);
+    return rateProblem(this.draft, this.history, this.editing?.id ?? null, this.rateCurrencyId);
   }
 
-  /** "1 USD = 278.5 PKR" for what is being typed. */
-  get draftReading(): string {
-    const { fromCurrencyCode: from, toCurrencyCode: to, rate } = this.draft;
-    if (!from || !to || !rate || rate <= 0) return '';
-    return `1 ${from} = ${formatRate(rate)} ${to}, and so 1 ${to} = ${formatRate(Number((1 / rate).toFixed(RATE_DECIMALS)))} ${from}.`;
+  openCreate(): void {
+    if (!this.canManage) return;
+    this.editing = null;
+    this.draft = { ...ExchangeRatesComponent.emptyDraft(), currencyId: this.filterCurrencyId };
+    this.history = [];
+    this.saveError = '';
+    this.dialogVisible = true;
+    if (this.draft.currencyId) this.onDraftCurrencyChange();
   }
 
-  swapDraft(): void {
+  openEdit(r: CurrencyRateModel): void {
+    if (!this.canEdit(r)) return;
+    this.editing = r;
+    const open = isOpenEnd(r.effectiveTo);
     this.draft = {
-      ...this.draft,
-      fromCurrencyCode: this.draft.toCurrencyCode,
-      toCurrencyCode: this.draft.fromCurrencyCode,
-      rate: this.draft.rate && this.draft.rate > 0 ? Number((1 / this.draft.rate).toFixed(RATE_DECIMALS)) : this.draft.rate
+      currencyId: r.currencyId, rate: r.rate, effectiveFrom: fromIsoDate(r.effectiveFrom), openEnded: open,
+      effectiveTo: open ? null : fromIsoDate(r.effectiveTo), notes: r.notes ?? ''
     };
+    this.history = [];
+    this.saveError = '';
+    this.dialogVisible = true;
+    this.onDraftCurrencyChange();
+  }
+
+  onDraftCurrencyChange(): void {
+    const id = this.draft.currencyId;
+    this.history = [];
+    if (!id) return;
+    this.service.getRateHistory(id).subscribe({
+      next: res => { if (this.draft.currencyId === id) this.history = res.result ?? []; },
+      error: () => { /* the server still refuses an overlap; the notice is just not shown */ }
+    });
   }
 
   save(): void {
-    if (!this.canManage || this.isSaving || this.problem) return;
-    const req: SaveExchangeRateRequest = {
-      fromCurrencyCode: this.draft.fromCurrencyCode!,
-      toCurrencyCode: this.draft.toCurrencyCode!,
-      // Rounded: the rate box's arrow keys can leave float noise (1.5699999999999998) the server would refuse.
-      rate: roundExchangeRate(Number(this.draft.rate)),
-      effectiveDate: toIsoDate(this.draft.effectiveDate!),
-      notes: this.draft.notes.trim() || null
-    };
+    if (!this.canManage || !this.dialogVisible || this.isSaving || this.problem) return;
+    const from = toIsoDate(this.draft.effectiveFrom!);
+    const to = this.draft.openEnded ? null : toIsoDate(this.draft.effectiveTo!);
+    const rate = Number(Number(this.draft.rate).toFixed(CURRENCY_RATE_DECIMALS));
+    const notes = this.draft.notes.trim() || null;
+    const code = this.draftCode;
+    const editing = this.editing;
 
     this.isSaving = true;
     this.saveError = '';
-    const call = this.editing ? this.service.updateExchangeRate(this.editing.uuid, req) : this.service.createExchangeRate(req);
-    call.subscribe({
-      next: (res) => {
-        this.isSaving = false;
-        this.dialogVisible = false;
-        this.messages.add({
-          severity: 'success', summary: this.editing ? 'Rate saved' : 'Rate added',
-          detail: res.message || `1 ${req.fromCurrencyCode} = ${formatRate(req.rate)} ${req.toCurrencyCode} from ${req.effectiveDate}.`,
-          life: 5000
-        });
-        this.load();
+    const done = (detail: string) => {
+      this.isSaving = false;
+      this.dialogVisible = false;
+      this.messages.add({ severity: 'success', summary: editing ? 'Rate saved' : 'Rate added', detail, life: 6000 });
+      this.load();
+    };
+    const fail = (err: unknown) => {
+      this.isSaving = false;
+      this.saveError = setupErrorMessage(err, 'The rate could not be saved.');
+    };
+
+    if (editing) {
+      this.service.updateRate(editing.id, { rate, effectiveFrom: from, effectiveTo: to, notes }).subscribe({
+        next: () => done(`1 ${code} = ${formatCurrencyRate(rate)} ${this.rateCurrencyCode} from ${dayText(from)}.`),
+        error: fail
+      });
+      return;
+    }
+    this.service.createRate({ currencyId: this.draft.currencyId!, rate, effectiveFrom: from, effectiveTo: to, notes }).subscribe({
+      next: res => {
+        const closed = res.result?.closedPrevious;
+        done(`1 ${code} = ${formatCurrencyRate(rate)} ${this.rateCurrencyCode} from ${dayText(from)}.`
+          + (closed ? ` The previous rate now ends on ${dayText(closed.effectiveTo)}.` : ''));
       },
-      error: (err) => {
-        this.isSaving = false;
-        this.saveError = setupErrorMessage(err, 'The rate could not be saved.');
-      }
-    });
-  }
-
-  // ── Delete ──────────────────────────────────────────────────────────────────
-
-  confirmDelete(rate: ExchangeRateModel): void {
-    if (!this.canManage) return;
-    this.confirmation.confirm({
-      key: 'exchange-rates',
-      header: 'Delete this rate?',
-      icon: 'pi pi-exclamation-triangle',
-      message: `1 ${rate.fromCurrencyCode} = ${formatRate(rate.rate)} ${rate.toCurrencyCode} from ${rate.effectiveDate}. `
-        + 'Documents that already recorded it keep it; new documents use the rate before it, if there is one.',
-      acceptLabel: 'Delete',
-      rejectLabel: 'Keep it',
-      acceptButtonStyleClass: 'p-button-danger',
-      rejectButtonStyleClass: 'p-button-text',
-      accept: () => this.delete(rate)
-    });
-  }
-
-  delete(rate: ExchangeRateModel): void {
-    if (!this.canManage || this.busy[rate.uuid]) return;
-    this.busy = { ...this.busy, [rate.uuid]: true };
-    this.service.deleteExchangeRate(rate.uuid).subscribe({
-      next: () => {
-        this.busy = { ...this.busy, [rate.uuid]: false };
-        this.rates = this.rates.filter(r => r.uuid !== rate.uuid);
-        this.messages.add({ severity: 'success', summary: 'Rate deleted', detail: `The ${rate.fromCurrencyCode} → ${rate.toCurrencyCode} rate of ${rate.effectiveDate} is deleted.` });
-      },
-      error: (err) => {
-        this.busy = { ...this.busy, [rate.uuid]: false };
-        this.messages.add({ severity: 'error', summary: 'Not deleted', detail: setupErrorMessage(err, 'The rate could not be deleted.') });
-        // 404: someone else deleted it already — show the list as it now is rather than a row that cannot be acted on.
-        if ((err as HttpErrorResponse | null)?.status === 404) this.load();
-      }
+      error: fail
     });
   }
 
   // ── Rate on a date ──────────────────────────────────────────────────────────
 
   get canQuote(): boolean {
-    return !!this.quoteFrom && !!this.quoteTo && !!this.quoteDate && !this.isQuoting;
+    return !!this.quoteCurrencyId && !!this.quoteDate && !this.isQuoting;
   }
 
   checkQuote(): void {
     if (!this.canQuote) return;
     this.isQuoting = true;
-    this.service.quoteExchangeRate(this.quoteFrom!, this.quoteTo!, toIsoDate(this.quoteDate!)).subscribe({
-      next: (res) => {
+    this.service.getRateOn(this.quoteCurrencyId!, toIsoDate(this.quoteDate!)).subscribe({
+      next: res => {
         this.isQuoting = false;
         this.quoteChecked = true;
         this.quote = res.result ?? null;
         this.quoteMessage = res.message ?? '';
       },
-      error: (err) => {
+      error: err => {
         this.isQuoting = false;
         this.quoteChecked = true;
         this.quote = null;
@@ -286,7 +311,6 @@ export class ExchangeRatesComponent implements OnInit {
   }
 
   onQuoteInputChange(): void {
-    // An answer for other inputs would be misleading.
     this.quoteChecked = false;
     this.quote = null;
     this.quoteMessage = '';

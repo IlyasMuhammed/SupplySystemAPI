@@ -98,6 +98,20 @@ public class ProductionOrdersController : ControllerBase
         return Ok(ApiResponse.Ok("Production order cancelled."));
     }
 
+    /// <summary>
+    /// A34 D-20 "Create delivery now" (API-CONTRACT §7): a DRAFT delivery for what the make-to-order order has accepted
+    /// and not yet put on a delivery. 404 another organization's order; 400 unless made to order with accepted quantity;
+    /// a repeat is a 200 with nothing created.
+    /// </summary>
+    [HttpPost("{uuid:guid}/create-delivery")]
+    [RequirePermission(PermissionCodes.DELIVERY_CREATE)]
+    public async Task<IActionResult> CreateDelivery(Guid uuid, [FromServices] IProductionDeliveryHandoff handoff)
+    {
+        var result = await handoff.CreateNowAsync(uuid, User.GetUserId());
+        return Ok(ApiResponse<ProductionDeliveryHandoffModel>.Ok(result,
+            result.QuantityCreated > 0 ? $"Delivery {result.DeliveryNumber} created." : "No new delivery was needed."));
+    }
+
     [HttpGet("{uuid:guid}/materials")]
     [RequirePermission(PermissionCodes.PROD_VIEW)]
     public async Task<IActionResult> GetMaterials(Guid uuid) =>

@@ -49,4 +49,5 @@ internal sealed record SaleOrderDeficitPo(
     Guid?   CustomerShippingAddressId);
 
 /// <param name="Sku">Null when the variant couldn't be resolved (no Inventory context, or it's gone).</param>
-internal sealed record CreatedPurchaseOrder(Guid Uuid, int Id, string PoNumber, string? Sku);
+/// <param name="Status">A35 — the status it was actually created in: an APPROVED one whose rate cannot be locked is created DRAFT.</param>
+internal sealed record CreatedPurchaseOrder(Guid Uuid, int Id, string PoNumber, string? Sku, string Status = "DRAFT");

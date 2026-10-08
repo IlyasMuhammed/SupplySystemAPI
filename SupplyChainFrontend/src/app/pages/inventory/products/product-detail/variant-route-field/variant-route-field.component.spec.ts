@@ -24,7 +24,8 @@ describe('VariantRouteFieldComponent (A33-PB-04 variant route)', () => {
   let el: HTMLElement;
   let emitted: (string | null)[];
 
-  async function setup(inputs: { value?: string | null; canAssign?: boolean; currentCode?: string | null; currentName?: string | null },
+  async function setup(inputs: { value?: string | null; canAssign?: boolean; currentCode?: string | null; currentName?: string | null;
+                                 productManufactured?: boolean; manufacturingEnabled?: boolean },
                        routes$ = of({ success: true, message: '', result: ACTIVE } as any)) {
     service = jasmine.createSpyObj<FulfillmentRoutesService>('FulfillmentRoutesService', ['getRoutes']);
     service.getRoutes.and.returnValue(routes$);
@@ -38,6 +39,8 @@ describe('VariantRouteFieldComponent (A33-PB-04 variant route)', () => {
     fixture.componentRef.setInput('canAssign', inputs.canAssign ?? true);
     fixture.componentRef.setInput('currentCode', inputs.currentCode ?? null);
     fixture.componentRef.setInput('currentName', inputs.currentName ?? null);
+    if (inputs.productManufactured !== undefined) fixture.componentRef.setInput('productManufactured', inputs.productManufactured);
+    if (inputs.manufacturingEnabled !== undefined) fixture.componentRef.setInput('manufacturingEnabled', inputs.manufacturingEnabled);
     emitted = [];
     component.valueChange.subscribe(v => emitted.push(v));
     fixture.detectChanges();
@@ -94,6 +97,44 @@ describe('VariantRouteFieldComponent (A33-PB-04 variant route)', () => {
     await setup({ value: 'r-old', currentCode: 'OLD', currentName: 'Old route' });
     expect(component.options.map(o => o.label)).toContain('Old route (OLD) — inactive');
     expect(q('route-inactive')).not.toBeNull();
+  });
+
+  // ── A34-PA-06/PA-10 — route category on the variant ────────────────────────────────────────────────────
+
+  const MFG = { ...route('r-mfg', 'MFG_PICK_SHIP', 'Manufacture → Pick & Ship', 'Pick → Goods Issue → Ship'), routeCategory: 'MANUFACTURE' as const };
+  const WITH_MFG = () => of({ success: true, message: '', result: [...ACTIVE, MFG] } as any);
+
+  it('offers MANUFACTURE routes only for a manufactured product (D-3)', async () => {
+    await setup({ productManufactured: false, manufacturingEnabled: true }, WITH_MFG());
+    expect(component.options.map(o => o.value)).toEqual(['r-po', 'r-ps']);
+    expect(q('route-mfg-hint')!.textContent).toContain('supply method');
+    await setup({ productManufactured: true, manufacturingEnabled: true }, WITH_MFG());
+    expect(component.options.map(o => o.value)).toEqual(['r-po', 'r-ps', 'r-mfg']);
+    expect(q('route-mfg-hint')).toBeNull();
+  });
+
+  it('never offers MANUFACTURE routes without MODULE_MANUFACTURING (D-9)', async () => {
+    await setup({ productManufactured: true, manufacturingEnabled: false }, WITH_MFG());
+    expect(component.options.map(o => o.value)).toEqual(['r-po', 'r-ps']);
+    expect(q('route-mfg-hint')).toBeNull();
+  });
+
+  it('shows the chosen route\'s category as a badge: Stock green, Manufacture orange', async () => {
+    await setup({ value: 'r-mfg', productManufactured: true, manufacturingEnabled: true }, WITH_MFG());
+    expect(q('route-category')!.textContent).toContain('Manufacture');
+    expect(q('route-category')!.querySelector('.p-tag-warn')).not.toBeNull();
+    expect(q('route-make-to-order')!.textContent).toContain('production order');
+    component.onChange('r-ps');
+    await refresh();
+    expect(q('route-category')!.textContent).toContain('Stock');
+    expect(q('route-category')!.querySelector('.p-tag-success')).not.toBeNull();
+    expect(q('route-make-to-order')).toBeNull();
+  });
+
+  it('keeps showing a MANUFACTURE route the variant has once the product is no longer manufactured, with a warning', async () => {
+    await setup({ value: 'r-mfg', productManufactured: false, manufacturingEnabled: true }, WITH_MFG());
+    expect(component.options.map(o => o.value)).toContain('r-mfg');
+    expect(q('route-not-allowed')!.textContent).toContain('block');
   });
 
   it('when the routes cannot be loaded, shows the variant\'s route as text', async () => {

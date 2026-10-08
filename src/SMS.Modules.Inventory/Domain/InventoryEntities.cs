@@ -141,6 +141,18 @@ internal class ProductVariant : ITenantScopedEntity
     // (FULFILLMENT_ROUTE_ASSIGN) and the bulk assign; the ungated variant PATCH never touches it.
     public Guid?    FulfillmentRouteUuid { get; set; }
 
+    // A34 C3 (D-10, D-11) — the variant's lead-time overrides, in days. NULL = "use the fallback": the organization's
+    // LeadTimeDefaults row for the six that have one (BR-C3-02), Product.LeadTimeDays (MANUFACTURE products) or 1 for
+    // the manufacturing days of one BOM level (D-12). LeadTimeDays above is the seventh: the supplier override, whose
+    // fallback is the supplier chain (D-11). Set only through PUT api/variants/{uuid}/lead-times (STOCK_MANAGE).
+    public int?     ManufacturingLeadTimeDays { get; set; }
+    public int?     ManufacturingBufferDays   { get; set; }
+    public int?     QualityInspectionDays     { get; set; }
+    public int?     InternalTransferDays      { get; set; }
+    public int?     PickPackDays              { get; set; }
+    public int?     ShippingLeadTimeDays      { get; set; }
+    public int?     SalesBufferDays           { get; set; }
+
     public Product Product { get; set; } = null!;
     public ICollection<VariantAttributeValue> AttributeValues { get; set; } = new List<VariantAttributeValue>();
     // PV-005 — stock is tracked per variant per warehouse, not per parent product.

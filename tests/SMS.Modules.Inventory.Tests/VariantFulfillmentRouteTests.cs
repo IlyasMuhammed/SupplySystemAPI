@@ -415,8 +415,10 @@ internal static class RouteSeed
 internal sealed class FakeFulfillmentRouteLookup : IFulfillmentRouteLookup
 {
     private readonly List<(Guid Org, FulfillmentRouteSummary Route)> _routes = [];
+    private readonly Dictionary<Guid, FulfillmentRouteSummary> _shippingDefaults = [];
 
-    public FulfillmentRouteSummary Add(Guid org, string code, bool isActive = true)
+    /// <param name="category">A34 — the route's category (STOCK unless a MANUFACTURE route is wanted).</param>
+    public FulfillmentRouteSummary Add(Guid org, string code, bool isActive = true, string category = FulfillmentRouteCategory.Stock)
     {
         var ships = code.EndsWith("SHIP", StringComparison.Ordinal);
         IReadOnlyList<string> steps = ships
@@ -424,10 +426,13 @@ internal sealed class FakeFulfillmentRouteLookup : IFulfillmentRouteLookup
             : [FulfillmentStepCode.Pick, FulfillmentStepCode.GoodsIssue];
         var route = new FulfillmentRouteSummary(
             Guid.NewGuid(), code, $"Route {code}", isActive, IsDefault: false, IsSystem: false,
-            RequiresPacking: false, RequiresShipping: ships, steps);
+            RequiresPacking: false, RequiresShipping: ships, steps) { Category = category };
         _routes.Add((org, route));
         return route;
     }
+
+    /// <summary>A34 — makes <paramref name="route"/> the organization's default for SHIP orders.</summary>
+    public void SetShippingDefault(Guid org, FulfillmentRouteSummary route) => _shippingDefaults[org] = route;
 
     public Task<IReadOnlyDictionary<Guid, FulfillmentRouteSummary>> GetAsync(
         Guid organizationId, IReadOnlyCollection<Guid> routeUuids, CancellationToken ct = default) =>
@@ -436,7 +441,7 @@ internal sealed class FakeFulfillmentRouteLookup : IFulfillmentRouteLookup
             .ToDictionary(r => r.Route.Uuid, r => r.Route));
 
     public Task<FulfillmentRouteDefaults> GetOrgDefaultsAsync(Guid organizationId, CancellationToken ct = default) =>
-        Task.FromResult(new FulfillmentRouteDefaults(null, null));
+        Task.FromResult(new FulfillmentRouteDefaults(_shippingDefaults.GetValueOrDefault(organizationId), null));
 
     public Task<IReadOnlyList<FulfillmentRouteSummary>> ListActiveAsync(Guid organizationId, CancellationToken ct = default) =>
         Task.FromResult<IReadOnlyList<FulfillmentRouteSummary>>(_routes

@@ -20,6 +20,8 @@ public class CreatePoRequest
     // A31-C3 — one of PurchaseOrderSources's own values (e.g. "PRODUCTION"). Defaults to MANUAL
     // when left null, matching every caller before this addendum.
     public string? Source { get; set; }
+    // A35 D-14 — the supplier's default purchase currency when omitted, else the organization's purchase base.
+    public Guid? CurrencyId { get; set; }
 }
 
 public class CreatePoLineRequest
@@ -64,6 +66,8 @@ public class PatchPoRequest
     public string? DeliveryWarehouseName { get; set; }
     public string? Notes { get; set; }
     public List<CreatePoLineRequest>? Lines { get; set; }
+    // A35 — omitted keeps the PO's currency; once the rate is locked (APPROVED) a change is refused (400).
+    public Guid? CurrencyId { get; set; }
 }
 
 // ── Filter ────────────────────────────────────────────────────────────────────
@@ -91,6 +95,10 @@ public class PoListItemModel
     public string SupplierName { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
     public decimal TotalAmount { get; set; }
+    // A35 (API-CONTRACT §6) — the PO's currency and, once APPROVED, its total in the purchase base.
+    public Guid? CurrencyId { get; set; }
+    public string? CurrencyCode { get; set; }
+    public decimal? TotalAmountBase { get; set; }
     public DateTime? DeliveryDate { get; set; }
     public DateTime CreatedDate { get; set; }
 }
@@ -106,6 +114,14 @@ public class PoDetailModel
     public string? SupplierContactMobile { get; set; }
     public string Status { get; set; } = string.Empty;
     public decimal TotalAmount { get; set; }
+    // A35 (API-CONTRACT §6) — locked at APPROVED: units of the purchase base per 1 unit of the PO currency. Null before.
+    public Guid? CurrencyId { get; set; }
+    public string? CurrencyCode { get; set; }
+    public decimal? ExchangeRate { get; set; }
+    public Guid? BaseCurrencyId { get; set; }
+    public string? BaseCurrencyCode { get; set; }
+    public DateTime? RateLockedAt { get; set; }
+    public decimal? TotalAmountBase { get; set; }
     public DateTime? DeliveryDate { get; set; }
     public Guid? DeliveryWarehouseId { get; set; }
     public string? DeliveryWarehouseName { get; set; }
@@ -214,6 +230,9 @@ public class PoLineModel
     public decimal UnitPrice { get; set; }
     public decimal? LineDiscountPct { get; set; }
     public decimal LineTotal { get; set; }
+    /// <summary>A35 D-10 — in the purchase base at the rate locked on APPROVED; null until then.</summary>
+    public decimal? UnitPriceBase { get; set; }
+    public decimal? LineTotalBase { get; set; }
     public decimal QtyReceived { get; set; }
     public decimal QtyInvoiced { get; set; }
     public decimal QtyPending        => Quantity - QtyReceived;

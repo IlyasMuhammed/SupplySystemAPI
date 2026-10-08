@@ -40,6 +40,11 @@ public class CreateInvoiceRequest
     public DateTime ReceivedDate     { get; set; }
     public DateTime DueDate          { get; set; }
     public string  Currency          { get; set; } = "PKR";
+    /// <summary>
+    /// A35 D-14 — the invoice's currency (global lookups.Currencies id). When given it wins over <see cref="Currency"/>.
+    /// When absent, an invoice against a purchase order inherits the PO's currency; otherwise <see cref="Currency"/> is used.
+    /// </summary>
+    public Guid?   CurrencyId        { get; set; }
     // When Lines are provided, Subtotal is computed from them; otherwise enter manually.
     public decimal Subtotal          { get; set; }
     /// <summary>The tax as an amount — used only when no <see cref="TaxCodeUuid"/> is given.</summary>
@@ -153,6 +158,10 @@ public class InvoiceDetailModel
     public decimal? ExchangeRate      { get; set; }
     public string?  BaseCurrencyCode  { get; set; }
     public decimal? BaseTotalAmount   { get; set; }
+    /// <summary>A35 D-10 — the invoice currency's id, the purchase base's id and when the rate was locked (at approval).</summary>
+    public Guid?     CurrencyId           { get; set; }
+    public Guid?     BaseCurrencyId       { get; set; }
+    public DateTime? ExchangeRateLockedAt { get; set; }
     /// <summary>Three-way match against the PO and GRN values, on the net Subtotal (S-8).</summary>
     public decimal  MatchedPoValue    { get; set; }
     public decimal  MatchedGrnValue   { get; set; }
@@ -175,6 +184,10 @@ public class InvoiceDetailModel
     public DateTime CreatedDate       { get; set; }
     public List<InvoiceLineModel>     Lines    { get; set; } = new();
     public List<PaymentListItemModel> Payments { get; set; } = new();
+    /// <summary>A35 E-06 — the multi-invoice supplier payments' lines against this invoice, with their realized differences.</summary>
+    public List<InvoiceSupplierPaymentModel> SupplierPayments { get; set; } = new();
+    /// <summary>A35 E-06 — net realized exchange difference booked on this invoice (purchase base; bounced payments net out). Null before A35 / none booked.</summary>
+    public decimal? RealizedExchangeDifference { get; set; }
     public List<DebitNoteListItemModel>  DebitNotes  { get; set; } = new();
     public List<CreditNoteListItemModel> CreditNotes { get; set; } = new();
 }
@@ -226,6 +239,25 @@ public class PaymentListItemModel
     public decimal  AmountPaid     { get; set; }
     public string   PaymentMethod  { get; set; } = string.Empty;
     public string   Status         { get; set; } = string.Empty;
+    /// <summary>
+    /// A35 C7 — realized gain (+) / loss (−) in the purchase base. On an invoice's detail: the multi-invoice supplier payment
+    /// line's difference; always null for a legacy single-invoice payment (no FX was ever booked on those).
+    /// </summary>
+    public decimal? ExchangeDifference { get; set; }
+}
+
+/// <summary>A35 E-06 — one supplier-payment line against an invoice, as the invoice's detail shows it.</summary>
+public class InvoiceSupplierPaymentModel
+{
+    public Guid     PaymentUuid        { get; set; }
+    public string   PaymentNumber      { get; set; } = string.Empty;
+    public DateTime PaymentDate        { get; set; }
+    public string   PaymentMethod      { get; set; } = string.Empty;
+    public string   Status             { get; set; } = string.Empty;
+    public string?  CurrencyCode       { get; set; }
+    public decimal  AllocatedAmount    { get; set; }
+    /// <summary>Realized gain (+) / loss (−) on this line in the purchase base; null until posted (or before A35).</summary>
+    public decimal? ExchangeDifference { get; set; }
 }
 
 public class PaymentDetailModel
@@ -558,6 +590,13 @@ public class CreateSupplierPaymentRequest
     // Client-generated id so payment-evidence attachments uploaded before save can be linked
     // to this payment via the same DocumentId (see supplier-payment-create.component.ts).
     public Guid?    PaymentUuid    { get; set; }
+    /// <summary>
+    /// A35 D-14 — the payment's currency: <see cref="CurrencyId"/> (global lookups id) or <see cref="CurrencyCode"/>. Both
+    /// absent: the first allocated invoice's currency, else the supplier's default purchase currency, else the purchase base.
+    /// Every line's invoice must be in it (400 otherwise).
+    /// </summary>
+    public Guid?    CurrencyId     { get; set; }
+    public string?  CurrencyCode   { get; set; }
     public List<CreateSupplierPaymentLineRequest> Lines { get; set; } = [];
 }
 
@@ -582,6 +621,9 @@ public class SupplierPaymentListItemModel
     public DateTime PaymentDate   { get; set; }
     public string   PaymentMethod { get; set; } = string.Empty;
     public decimal  TotalAmount   { get; set; }
+    /// <summary>A35 — the payment's currency and, once posted, its amount in the purchase base.</summary>
+    public string?  CurrencyCode  { get; set; }
+    public decimal? AmountBase    { get; set; }
     public string   Status        { get; set; } = string.Empty;
     public string   PaymentType   { get; set; } = string.Empty;
     public int      LineCount     { get; set; }
@@ -596,6 +638,8 @@ public class SupplierPaymentLineModel
     public decimal AllocatedAmount             { get; set; }
     public decimal OutstandingBeforeAllocation { get; set; }
     public string? Notes                       { get; set; }
+    /// <summary>A35 C7 — realized gain (+) / loss (−) in the purchase base on this line, set when the payment posts.</summary>
+    public decimal? ExchangeDifference         { get; set; }
 }
 
 public class SupplierPaymentDetailModel
@@ -621,6 +665,14 @@ public class SupplierPaymentDetailModel
     public DateTime? BouncedAt    { get; set; }
     public string   PaymentType   { get; set; } = string.Empty;
     public Guid?    CreditNoteUuid { get; set; }
+    /// <summary>A35 D-10 — currency, and (from posting) the locked rate, the purchase base, the base amount and Σ line differences.</summary>
+    public string?  CurrencyCode       { get; set; }
+    public Guid?    CurrencyId         { get; set; }
+    public decimal? ExchangeRate       { get; set; }
+    public Guid?    BaseCurrencyId     { get; set; }
+    public string?  BaseCurrencyCode   { get; set; }
+    public decimal? AmountBase         { get; set; }
+    public decimal? ExchangeDifference { get; set; }
     public List<SupplierPaymentLineModel> Lines { get; set; } = [];
 }
 

@@ -170,6 +170,35 @@ export interface ProductionOrderListItem {
   shortMaterialCount: number;
   createdAt: string;
   updatedAt: string;
+  // A34 D-18 (docs/route-classification/API-CONTRACT.md §7). Optional so older fixtures compile.
+  /** Made to order for a sale order line: it has a route, and its delivery follows its completion. */
+  isMakeToOrder?: boolean;
+  fulfillmentRouteUuid?: string | null;
+  fulfillmentRouteCode?: string | null;
+  fulfillmentRouteName?: string | null;
+  fulfillmentRouteCategory?: string | null;
+  /** The latest delivery created from it. */
+  deliveryOrderUuid?: string | null;
+  deliveryNumber?: string | null;
+  /** Its delivery is still to be created (a failed handoff, waiting on the sweep). */
+  deliveryCreationPending?: boolean;
+  /** When sourced from a sale order: the line's 1-based number. */
+  saleOrderLineNumber?: number | null;
+  /** Make-to-order, QI recorded, accepted < planned: planned − accepted. */
+  shortfallQuantity?: number | null;
+}
+
+/** A34 §7 — POST production-orders/{uuid}/create-delivery ("Create delivery now"). */
+export interface ProductionDeliveryHandoffModel {
+  productionOrderUuid: string;
+  quantityCreated: number;
+  /** Created by this call. */
+  deliveryUuid?: string | null;
+  deliveryNumber?: string | null;
+  latestDeliveryUuid?: string | null;
+  latestDeliveryNumber?: string | null;
+  /** Why nothing, or less, was created. */
+  skippedReason?: string | null;
 }
 
 export interface ProductionMaterial {
@@ -485,6 +514,14 @@ export class ProductionOrderService {
 
   update(uuid: string, req: UpdateProductionOrderRequest): Observable<ApiResponse> {
     return this.http.put<ApiResponse>(`${this.base}/${uuid}`, req);
+  }
+
+  /**
+   * A34 D-20 — "Create delivery now": a delivery for the accepted goods not yet on one, capped by what the sale order
+   * line still needs. DELIVERY_CREATE. Idempotent: a repeat creates nothing and says why (skippedReason).
+   */
+  createDelivery(uuid: string): Observable<ApiResponse<ProductionDeliveryHandoffModel>> {
+    return this.http.post<ApiResponse<ProductionDeliveryHandoffModel>>(`${this.base}/${uuid}/create-delivery`, {});
   }
 
   plan(uuid: string): Observable<ApiResponse<ProductionReadiness>> {

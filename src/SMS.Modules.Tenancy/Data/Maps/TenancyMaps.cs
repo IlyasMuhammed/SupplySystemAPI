@@ -74,7 +74,30 @@ internal sealed class OrganizationSettingsMap : IEntityTypeConfiguration<Organiz
     }
 }
 
-internal sealed class SuperAdminUserMap : IEntityTypeConfiguration<SuperAdminUser>
+internal sealed class OrganizationCurrencySettingsMap : IEntityTypeConfiguration<OrganizationCurrencySettings>
+{
+    public const int AccountCodeLength = 20;
+
+    public void Configure(EntityTypeBuilder<OrganizationCurrencySettings> b)
+    {
+        b.ToTable("organization_currency_settings");
+        b.HasKey(x => x.OrganizationId).HasName("PK_organization_currency_settings");
+        b.Property(x => x.ExchangeGainAccountCode).HasMaxLength(AccountCodeLength);
+        b.Property(x => x.ExchangeLossAccountCode).HasMaxLength(AccountCodeLength);
+        b.Property(x => x.UnrealizedGainAccountCode).HasMaxLength(AccountCodeLength);
+        b.Property(x => x.UnrealizedLossAccountCode).HasMaxLength(AccountCodeLength);
+        // Set by the code on every write (no SQL default: a store-generated default would make EF skip an explicit value
+        // equal to the CLR default, and the SQLite test databases cannot run SYSUTCDATETIME()).
+        b.Property(x => x.CreatedAt).IsRequired();
+        b.Property(x => x.UpdatedAt).IsRequired();
+        b.HasOne(x => x.Organization).WithOne()
+            .HasForeignKey<OrganizationCurrencySettings>(x => x.OrganizationId)
+            .HasConstraintName("FK_organization_currency_settings_Organizations")
+            .OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+internal sealed class SuperAdminUserMap: IEntityTypeConfiguration<SuperAdminUser>
 {
     public void Configure(EntityTypeBuilder<SuperAdminUser> b)
     {

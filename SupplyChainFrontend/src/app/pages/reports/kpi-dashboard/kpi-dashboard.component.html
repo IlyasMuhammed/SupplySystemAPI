@@ -7,11 +7,19 @@
     <div class="dash-header-left">
       <div class="dash-icon-box"><i class="pi pi-chart-bar"></i></div>
       <div>
-        <h1 class="dash-title">Supply Chain Dashboard</h1>
-        <p class="dash-subtitle">Real-time performance across procurement, inventory &amp; finance</p>
+        <h1 class="dash-title">KPI Dashboard</h1>
+        <p class="dash-subtitle">Performance across sales, fulfilment, manufacturing, procurement, inventory &amp; finance</p>
       </div>
     </div>
     <div class="dash-header-right">
+      <div class="window-picker" data-testid="window-picker">
+        <span class="wp-label">Period</span>
+        <button *ngFor="let d of windows" type="button" class="wp-btn" [class.active]="d === windowDays"
+                [disabled]="isLoading || isRefreshing" (click)="setWindow(d)"
+                pTooltip="Sales, fulfilment, manufacturing and receivables KPIs cover the last {{ d }} days" tooltipPosition="bottom">
+          {{ d === 365 ? '1y' : d + 'd' }}
+        </button>
+      </div>
       <div class="live-pill" *ngIf="!isLoading && !isRefreshing">
         <span class="live-dot"></span>Live
       </div>
@@ -40,20 +48,12 @@
       </div>
       <div class="section-hdr"><p-skeleton width="130px" height="18px" /></div>
       <div class="kpi-grid">
-        <p-skeleton *ngFor="let _ of [1,2,3]" height="200px" borderRadius="20px" />
-      </div>
-      <div class="section-hdr mt-3"><p-skeleton width="110px" height="18px" /></div>
-      <div class="kpi-grid">
-        <p-skeleton *ngFor="let _ of [1,2,3]" height="200px" borderRadius="20px" />
-      </div>
-      <div class="section-hdr mt-3"><p-skeleton width="90px" height="18px" /></div>
-      <div class="kpi-grid kpi-grid--4">
         <p-skeleton *ngFor="let _ of [1,2,3,4]" height="200px" borderRadius="20px" />
       </div>
     </ng-container>
 
     <!-- ── Loaded ──────────────────────────────────────────────────────────── -->
-    <ng-container *ngIf="!isLoading && kpis">
+    <ng-container *ngIf="!isLoading && hasData">
 
       <!-- ── Hero summary strip ─────────────────────────────────────────────── -->
       <div class="hero-row">
@@ -63,9 +63,9 @@
             <div class="hc-icon"><i class="pi pi-chart-bar"></i></div>
           </div>
           <div class="hc-center">
-            <div class="hc-value">{{ healthScore }}<span class="hc-unit">%</span></div>
+            <div class="hc-value" data-testid="health-score">{{ healthScore }}<span class="hc-unit">%</span></div>
             <div class="hc-label">Overall Health</div>
-            <div class="hc-desc">{{ allCards.length }} KPIs tracked</div>
+            <div class="hc-desc">{{ measuredCards.length }} of {{ allCards.length }} KPIs measured</div>
           </div>
           <div class="hc-bg-ring"></div>
         </div>
@@ -75,7 +75,7 @@
           <div class="hc-center">
             <div class="hc-value">{{ goodCount }}</div>
             <div class="hc-label">On Track</div>
-            <div class="hc-desc">of {{ allCards.length }} KPIs</div>
+            <div class="hc-desc">meeting target</div>
           </div>
         </div>
 
@@ -98,6 +98,12 @@
         </div>
 
       </div>
+
+      <p class="no-data-note" *ngIf="noDataCount > 0" data-testid="no-data-note">
+        <i class="pi pi-info-circle"></i>
+        {{ noDataCount }} KPI{{ noDataCount === 1 ? ' has' : 's have' }} nothing to measure yet and {{ noDataCount === 1 ? 'is' : 'are' }}
+        left out of the health score.
+      </p>
 
       <!-- ── Charts row ─────────────────────────────────────────────────────── -->
       <div class="charts-row">
@@ -147,7 +153,7 @@
           </div>
         </div>
 
-        <!-- Performance Scorecard (custom HTML — no Chart.js) -->
+        <!-- Performance Scorecard -->
         <div class="chart-card scorecard-card">
           <div class="chart-card-header">
             <span class="chart-card-title">
@@ -157,177 +163,82 @@
           </div>
 
           <div class="scorecard-list">
-
-            <!-- Procurement rows -->
-            <div class="sc-section-label procurement-sc">
-              <i class="pi pi-shopping-cart"></i>Procurement
-            </div>
-            <div class="sc-row" *ngFor="let card of procurementCards" [class]="statusClass(card)">
-              <div class="sc-name-cell">
-                <span class="sc-icon" [class]="card.iconClass"><i [class]="card.icon"></i></span>
-                <span class="sc-label">{{ card.label }}</span>
+            <ng-container *ngFor="let section of visibleSections; let last = last">
+              <div class="sc-section-label" [style.color]="section.color">
+                <i [class]="section.icon" [style.color]="section.color"></i>{{ section.title }}
               </div>
-              <div class="sc-bar-cell">
-                <div class="sc-bar-track">
-                  <div class="sc-bar-fill" [class]="statusClass(card)" [style.width]="progressPct(card) + '%'"></div>
+              <div class="sc-row" *ngFor="let card of section.cards" [class]="statusClass(card)">
+                <div class="sc-name-cell">
+                  <span class="sc-icon" [class]="card.iconClass"><i [class]="card.icon"></i></span>
+                  <span class="sc-label">{{ card.label }}</span>
                 </div>
-              </div>
-              <span class="sc-pct" [class]="statusClass(card)">{{ progressPct(card) }}%</span>
-              <span class="sc-badge" [class]="statusClass(card)">
-                <i [class]="statusIcon(card)"></i>{{ statusLabel(card) }}
-              </span>
-            </div>
-
-            <div class="sc-divider"></div>
-
-            <!-- Inventory rows -->
-            <div class="sc-section-label inventory-sc">
-              <i class="pi pi-box"></i>Inventory
-            </div>
-            <div class="sc-row" *ngFor="let card of inventoryCards" [class]="statusClass(card)">
-              <div class="sc-name-cell">
-                <span class="sc-icon" [class]="card.iconClass"><i [class]="card.icon"></i></span>
-                <span class="sc-label">{{ card.label }}</span>
-              </div>
-              <div class="sc-bar-cell">
-                <div class="sc-bar-track">
-                  <div class="sc-bar-fill" [class]="statusClass(card)" [style.width]="progressPct(card) + '%'"></div>
+                <div class="sc-bar-cell">
+                  <div class="sc-bar-track">
+                    <div class="sc-bar-fill" [class]="statusClass(card)" [style.width]="progressPct(card) + '%'"></div>
+                  </div>
                 </div>
+                <span class="sc-pct" [class]="statusClass(card)">{{ getValue(card) === null ? '—' : progressPct(card) + '%' }}</span>
+                <span class="sc-badge" [class]="statusClass(card)">
+                  <i [class]="statusIcon(card)"></i>{{ statusLabel(card) }}
+                </span>
               </div>
-              <span class="sc-pct" [class]="statusClass(card)">{{ progressPct(card) }}%</span>
-              <span class="sc-badge" [class]="statusClass(card)">
+              <div class="sc-divider" *ngIf="!last"></div>
+            </ng-container>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ── One block per section ──────────────────────────────────────────── -->
+      <ng-container *ngFor="let section of visibleSections; let first = first">
+        <div class="section-hdr" [class.mt-3]="!first" [attr.data-testid]="'section-' + section.id">
+          <span class="sh-accent" [style.background]="section.color"></span>
+          <span class="sh-icon" [style.background]="section.color + '1f'"><i [class]="section.icon" [style.color]="section.color"></i></span>
+          <span class="sh-title">{{ section.title }}</span>
+          <span class="sh-line"></span>
+          <span class="sh-count">
+            <ng-container *ngIf="sectionHealth(section).measured > 0; else noneMeasured">
+              {{ sectionHealth(section).good }} / {{ sectionHealth(section).measured }} on track
+            </ng-container>
+            <ng-template #noneMeasured>{{ section.cards.length }} metrics · no data yet</ng-template>
+          </span>
+        </div>
+        <div class="kpi-grid" [class.kpi-grid--4]="section.cards.length >= 4" [class.kpi-grid--2]="section.cards.length === 2">
+          <div class="kpi-card" *ngFor="let card of section.cards" [class]="statusClass(card)" [attr.data-testid]="'kpi-' + card.id">
+            <div class="kc-top">
+              <div class="kc-icon-box" [class]="card.iconClass"><i [class]="card.icon"></i></div>
+              <div class="kc-badge" [class]="statusClass(card)">
                 <i [class]="statusIcon(card)"></i>{{ statusLabel(card) }}
-              </span>
-            </div>
-
-            <div class="sc-divider"></div>
-
-            <!-- Finance rows -->
-            <div class="sc-section-label finance-sc">
-              <i class="pi pi-wallet"></i>Finance
-            </div>
-            <div class="sc-row" *ngFor="let card of financeCards" [class]="statusClass(card)">
-              <div class="sc-name-cell">
-                <span class="sc-icon" [class]="card.iconClass"><i [class]="card.icon"></i></span>
-                <span class="sc-label">{{ card.label }}</span>
               </div>
-              <div class="sc-bar-cell">
-                <div class="sc-bar-track">
-                  <div class="sc-bar-fill" [class]="statusClass(card)" [style.width]="progressPct(card) + '%'"></div>
+            </div>
+            <div class="kc-value">{{ formatValue(card) }}</div>
+            <div class="kc-label">{{ card.label }}</div>
+            <div class="kc-sub">{{ card.subtitle }}</div>
+            <div class="kc-basis" *ngIf="basisText(card)">{{ basisText(card) }}</div>
+            <div class="kc-divider"></div>
+            <div class="kc-footer">
+              <div class="kc-progress">
+                <div class="kc-track">
+                  <div class="kc-fill" [class]="statusClass(card)" [style.width]="progressPct(card) + '%'"></div>
                 </div>
+                <span class="kc-pct" [class]="statusClass(card)">{{ getValue(card) === null ? '—' : progressPct(card) + '%' }}</span>
               </div>
-              <span class="sc-pct" [class]="statusClass(card)">{{ progressPct(card) }}%</span>
-              <span class="sc-badge" [class]="statusClass(card)">
-                <i [class]="statusIcon(card)"></i>{{ statusLabel(card) }}
-              </span>
-            </div>
-
-          </div>
-        </div>
-
-      </div>
-
-      <!-- ── Procurement KPI cards ──────────────────────────────────────────── -->
-      <div class="section-hdr">
-        <span class="sh-accent procurement-accent"></span>
-        <span class="sh-icon procurement-icon"><i class="pi pi-shopping-cart"></i></span>
-        <span class="sh-title">Procurement</span>
-        <span class="sh-line"></span>
-        <span class="sh-count">{{ procurementCards.length }} metrics</span>
-      </div>
-      <div class="kpi-grid">
-        <div class="kpi-card" *ngFor="let card of procurementCards" [class]="statusClass(card)">
-          <div class="kc-top">
-            <div class="kc-icon-box" [class]="card.iconClass"><i [class]="card.icon"></i></div>
-            <div class="kc-badge" [class]="statusClass(card)">
-              <i [class]="statusIcon(card)"></i>{{ statusLabel(card) }}
-            </div>
-          </div>
-          <div class="kc-value">{{ formatValue(card) }}</div>
-          <div class="kc-label">{{ card.label }}</div>
-          <div class="kc-sub">{{ card.subtitle }}</div>
-          <div class="kc-divider"></div>
-          <div class="kc-footer">
-            <div class="kc-progress">
-              <div class="kc-track">
-                <div class="kc-fill" [class]="statusClass(card)" [style.width]="progressPct(card) + '%'"></div>
+              <div class="kc-target">
+                <i class="pi pi-flag"></i>Target: {{ formatTarget(card) }}
               </div>
-              <span class="kc-pct" [class]="statusClass(card)">{{ progressPct(card) }}%</span>
-            </div>
-            <div class="kc-target">
-              <i class="pi pi-flag"></i>Target: {{ formatTarget(card) }}
             </div>
           </div>
         </div>
-      </div>
+        <p class="section-note" *ngIf="section.id === 'receivables' && (sources.ops?.receivables?.unconvertedInvoices ?? 0) > 0">
+          <i class="pi pi-info-circle"></i>
+          {{ sources.ops?.receivables?.unconvertedInvoices }} open invoice(s) have no exchange rate on file and are left out of these two KPIs.
+        </p>
+      </ng-container>
 
-      <!-- ── Inventory KPI cards ────────────────────────────────────────────── -->
-      <div class="section-hdr mt-3">
-        <span class="sh-accent inventory-accent"></span>
-        <span class="sh-icon inventory-icon"><i class="pi pi-box"></i></span>
-        <span class="sh-title">Inventory</span>
-        <span class="sh-line"></span>
-        <span class="sh-count">{{ inventoryCards.length }} metrics</span>
-      </div>
-      <div class="kpi-grid">
-        <div class="kpi-card" *ngFor="let card of inventoryCards" [class]="statusClass(card)">
-          <div class="kc-top">
-            <div class="kc-icon-box" [class]="card.iconClass"><i [class]="card.icon"></i></div>
-            <div class="kc-badge" [class]="statusClass(card)">
-              <i [class]="statusIcon(card)"></i>{{ statusLabel(card) }}
-            </div>
-          </div>
-          <div class="kc-value">{{ formatValue(card) }}</div>
-          <div class="kc-label">{{ card.label }}</div>
-          <div class="kc-sub">{{ card.subtitle }}</div>
-          <div class="kc-divider"></div>
-          <div class="kc-footer">
-            <div class="kc-progress">
-              <div class="kc-track">
-                <div class="kc-fill" [class]="statusClass(card)" [style.width]="progressPct(card) + '%'"></div>
-              </div>
-              <span class="kc-pct" [class]="statusClass(card)">{{ progressPct(card) }}%</span>
-            </div>
-            <div class="kc-target">
-              <i class="pi pi-flag"></i>Target: {{ formatTarget(card) }}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- ── Finance KPI cards ──────────────────────────────────────────────── -->
-      <div class="section-hdr mt-3">
-        <span class="sh-accent finance-accent"></span>
-        <span class="sh-icon finance-icon"><i class="pi pi-wallet"></i></span>
-        <span class="sh-title">Finance</span>
-        <span class="sh-line"></span>
-        <span class="sh-count">{{ financeCards.length }} metrics</span>
-      </div>
-      <div class="kpi-grid kpi-grid--4">
-        <div class="kpi-card" *ngFor="let card of financeCards" [class]="statusClass(card)">
-          <div class="kc-top">
-            <div class="kc-icon-box" [class]="card.iconClass"><i [class]="card.icon"></i></div>
-            <div class="kc-badge" [class]="statusClass(card)">
-              <i [class]="statusIcon(card)"></i>{{ statusLabel(card) }}
-            </div>
-          </div>
-          <div class="kc-value">{{ formatValue(card) }}</div>
-          <div class="kc-label">{{ card.label }}</div>
-          <div class="kc-sub">{{ card.subtitle }}</div>
-          <div class="kc-divider"></div>
-          <div class="kc-footer">
-            <div class="kc-progress">
-              <div class="kc-track">
-                <div class="kc-fill" [class]="statusClass(card)" [style.width]="progressPct(card) + '%'"></div>
-              </div>
-              <span class="kc-pct" [class]="statusClass(card)">{{ progressPct(card) }}%</span>
-            </div>
-            <div class="kc-target">
-              <i class="pi pi-flag"></i>Target: {{ formatTarget(card) }}
-            </div>
-          </div>
-        </div>
-      </div>
+      <p class="window-note" *ngIf="sources.ops">
+        Sales, fulfilment, manufacturing and receivables KPIs cover the last {{ sources.ops.windowDays }} days.
+        Procurement, inventory and payables KPIs cover all recorded history.
+      </p>
 
     </ng-container>
   </div>

@@ -326,6 +326,40 @@ describe('DeliveryDetailComponent', () => {
     expect(warning.textContent).toContain('City and country need confirming.');
   });
 
+  it('shows the warehouse and its address under Ship from when no ship-from address was stored', async () => {
+    // A sale-order delivery stores only the warehouse it leaves from — "Ship from" used to be missing entirely.
+    await setup(detail({
+      shipFromAddress: undefined,
+      shipFromWarehouse: {
+        uuid: 'wh-1', code: 'WH-01', name: 'Central Warehouse', address: '12 Dock Road',
+        city: 'Karachi', country: 'Pakistan', contactName: 'Store Keeper', contactPhone: '+92 300 1234567'
+      }
+    }));
+    fixture.detectChanges();
+
+    const card = fixture.nativeElement.querySelector('[data-testid="ship-from-card"]');
+    expect(card.textContent).toContain('Central Warehouse');
+    expect(card.textContent).toContain('12 Dock Road');
+    expect(card.textContent).toContain('Karachi, Pakistan');
+    expect(card.textContent).toContain('Store Keeper');
+    expect(fixture.nativeElement.querySelector('[data-testid="no-ship-from"]')).toBeNull();
+  });
+
+  it('says so when neither a ship-from address nor a warehouse is known', async () => {
+    await setup(detail({ shipFromAddress: undefined, shipFromWarehouse: null }));
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('[data-testid="no-ship-from"]').textContent)
+      .toContain('No ship-from address or warehouse recorded.');
+  });
+
+  it('names the customer under Ship to', async () => {
+    await setup(detail({ customerName: 'Packages Pvt Ltd' }));
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('[data-testid="ship-to-party"]').textContent).toContain('Packages Pvt Ltd');
+  });
+
   it('shows no address warning for a confirmed address', async () => {
     await setup(detail({
       shipToAddress: {

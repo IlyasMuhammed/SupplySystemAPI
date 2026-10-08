@@ -93,6 +93,8 @@
             <div class="detail-value">{{ invoice.paymentMethod || '—' }}</div>
           </div>
         </div>
+        <!-- A35-E-06 — currency, the rate locked at approval, the purchase base. -->
+        <app-doc-currency-panel [doc]="currencyInfo" lockPoint="approval" domain="PURCHASE" [showToggle]="false"></app-doc-currency-panel>
         <p-divider></p-divider>
         <div class="amounts-grid">
           <div class="amount-row">
@@ -113,6 +115,10 @@
           </div>
           <div class="amount-row base" *ngIf="missingRate">
             <span>No {{ invoice.currency }} → {{ invoice.baseCurrencyCode }} rate was on file when it was approved.</span>
+          </div>
+          <div class="amount-row base" *ngIf="realizedFx !== null">
+            <span>Realized exchange difference</span>
+            <span data-testid="realized-fx"><app-fx-difference [amount]="realizedFx" [currency]="baseCurrencyRef"></app-fx-difference></span>
           </div>
         </div>
         <div *ngIf="invoice.attachmentUrl" class="mt-3">
@@ -213,6 +219,7 @@
             <th>Date</th>
             <th>Amount</th>
             <th>Method</th>
+            <th *ngIf="hasPaymentFx" class="text-right" pTooltip="Realized gain (+) or loss (−) in the purchase base on this invoice's share of the payment">Exchange diff.</th>
             <th>Status</th>
             <th class="text-center">Action</th>
           </tr>
@@ -223,6 +230,7 @@
             <td>{{ p.paymentDate | date:'dd MMM yyyy' }}</td>
             <td class="font-semibold">{{ p.totalAmount | number:'1.2-2' }}</td>
             <td>{{ p.paymentMethod }}</td>
+            <td *ngIf="hasPaymentFx" class="text-right" data-testid="supplier-payment-fx"><app-fx-difference [amount]="paymentFx(p.uuid)" [currency]="baseCurrencyRef"></app-fx-difference></td>
             <td><p-tag [value]="p.status"></p-tag></td>
             <td class="text-center">
               <p-button icon="pi pi-eye" [text]="true" severity="info" size="small"
@@ -246,6 +254,7 @@
             <th>Date</th>
             <th>Amount</th>
             <th>Method</th>
+            <th *ngIf="hasPaymentFx" class="text-right" pTooltip="Realized gain (+) or loss (−) in the purchase base on this invoice's share of the payment">Exchange diff.</th>
             <th>Status</th>
             <th class="text-center">Action</th>
           </tr>

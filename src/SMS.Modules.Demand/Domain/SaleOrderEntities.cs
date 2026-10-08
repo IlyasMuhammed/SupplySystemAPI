@@ -56,6 +56,24 @@ internal class SaleOrder : ITenantScopedEntity
     /// </summary>
     public DateTime? DeliveryCreationPendingSince { get; set; }
 
+    /// <summary>
+    /// A34 D-17: set (UTC) in the confirm's own commit when the order has make-to-order lines, cleared once production
+    /// creation ran (confirm, the sweep, the "Create production orders" button), or when the order is cancelled. The
+    /// production sweep retries only orders where it is still set.
+    /// </summary>
+    public DateTime? ProductionCreationPendingSince { get; set; }
+
+    // A35 D-10/D-11/D-12 — the rate locked at CONFIRMED (units of the sale base per 1 unit of CurrencyId; 1 when the
+    // order is in the base) and the order's amounts in the base. All null while DRAFT (null rate = not locked yet), and
+    // never recalculated once set (BR-C5-06). GrandTotalBase = Σ line LineTotalBase (line totals include tax here).
+    public decimal?  ExchangeRate       { get; set; }
+    public Guid?     BaseCurrencyId     { get; set; }
+    public DateTime? RateLockedAt       { get; set; }
+    public decimal?  SubtotalBase       { get; set; }
+    public decimal?  TaxAmountBase      { get; set; }
+    public decimal?  DiscountAmountBase { get; set; }
+    public decimal?  GrandTotalBase     { get; set; }
+
     public ICollection<SaleOrderLine> Lines { get; set; } = new List<SaleOrderLine>();
 }
 
@@ -98,6 +116,24 @@ internal class SaleOrderLine : ITenantScopedEntity
     public string?  FulfillmentRouteCode  { get; set; }
     /// <summary>LINE_OVERRIDE | VARIANT | ORG_DEFAULT, written at confirm (D-16); null while DRAFT and on lines confirmed before A33.</summary>
     public string?  RouteSource           { get; set; }
+
+    // A34 D-15: lead time. The calculated date comes from ILeadTimeCalculator (POST …/lines/{line}/lead-time); the
+    // manual date is the salesperson's (PUT …/delivery-date, or copied from the quotation's promised date). The
+    // effective date (manual ?? calculated) is derived in the models, never stored. All dates are date-only.
+    public int?      CalculatedLeadTimeDays { get; set; }
+    public DateTime? CalculatedDeliveryDate { get; set; }
+    public DateTime? LeadTimeCalculatedAt   { get; set; }
+    public DateTime? ManualDeliveryDate     { get; set; }
+
+    /// <summary>A34: the confirmed route's category (STOCK | MANUFACTURE), snapshotted at confirm with the route (D-16 A33); null while DRAFT.</summary>
+    public string?  FulfillmentRouteCategory { get; set; }
+
+    /// <summary>A34 D-21: planned − accepted when a make-to-order production order yields less than the line; null otherwise.</summary>
+    public decimal? ProductionShortfallQty  { get; set; }
+
+    /// <summary>A35 D-10: UnitPrice / LineTotal × the order's locked rate, at the base currency's decimals; null until CONFIRMED.</summary>
+    public decimal? UnitPriceBase { get; set; }
+    public decimal? LineTotalBase { get; set; }
 
     public SaleOrder SaleOrder { get; set; } = null!;
 }

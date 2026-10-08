@@ -1870,6 +1870,9 @@ namespace SMS.Modules.Logistics.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
+                    b.Property<Guid?>("ProductionOrderUuid")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<DateTime?>("PromisedDate")
                         .HasColumnType("datetime2");
 
@@ -1942,6 +1945,9 @@ namespace SMS.Modules.Logistics.Migrations
 
                     b.HasIndex("OrganizationId", "FulfillmentRouteUuid")
                         .HasFilter("[FulfillmentRouteUuid] IS NOT NULL");
+
+                    b.HasIndex("OrganizationId", "ProductionOrderUuid")
+                        .HasFilter("[ProductionOrderUuid] IS NOT NULL");
 
                     b.HasIndex("OrganizationId", "Status");
 
@@ -2416,6 +2422,13 @@ namespace SMS.Modules.Logistics.Migrations
                     b.Property<bool>("RequiresShipping")
                         .HasColumnType("bit");
 
+                    b.Property<string>("RouteCategory")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("STOCK");
+
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
                         .IsRequired()
@@ -2438,7 +2451,10 @@ namespace SMS.Modules.Logistics.Migrations
                         .HasDatabaseName("UX_fulfillment_routes_OrganizationId_RequiresShipping_Default")
                         .HasFilter("[IsDefault] = 1");
 
-                    b.ToTable("fulfillment_routes", "logistics");
+                    b.ToTable("fulfillment_routes", "logistics", t =>
+                        {
+                            t.HasCheckConstraint("CK_fulfillment_routes_RouteCategory", "[RouteCategory] IN ('STOCK','MANUFACTURE','BUY','DROPSHIP')");
+                        });
                 });
 
             modelBuilder.Entity("SMS.Modules.Logistics.Domain.FulfillmentRouteStep", b =>

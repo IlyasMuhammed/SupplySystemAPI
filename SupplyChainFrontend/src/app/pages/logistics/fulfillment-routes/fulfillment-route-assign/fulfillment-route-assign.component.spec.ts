@@ -62,6 +62,19 @@ describe('FulfillmentRouteAssignComponent (A33 D-14 bulk assign)', () => {
   const click = (id: string) => ((q(id)!.querySelector('button') ?? q(id)!) as HTMLElement).click();
   const refresh = async () => { fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges(); };
 
+  it('A34: a MANUFACTURE route says only manufactured products are assigned, and counts the rest as skipped (§4.2)', async () => {
+    await setup();
+    expect(q('mto-note')).toBeNull();
+    fixture.componentRef.setInput('route', { ...ROUTE, code: 'MFG_PICK_SHIP', isDefault: false, routeCategory: 'MANUFACTURE' });
+    await refresh();
+    expect(q('mto-note')!.textContent).toContain('supply method is Manufacture');
+    component.onCategoryChange(15);
+    component.next();
+    component.assign();
+    await refresh();
+    expect(q('result-skipped')!.textContent).toContain('not manufactured');
+  });
+
   it('offers the active categories, and the chosen category\'s active sub-categories', async () => {
     await setup();
     expect(inventory.getCategories).toHaveBeenCalled();

@@ -18,7 +18,7 @@ import { TextareaModule } from 'primeng/textarea';
 import { TabViewModule, TabViewChangeEvent } from 'primeng/tabview';
 import { MessageService } from 'primeng/api';
 import { Observable, forkJoin, of } from 'rxjs';
-import { catchError } from 'rxjs/operators';
+import { catchError, map } from 'rxjs/operators';
 
 import { TimelinePanelComponent } from '../../../../shared/timeline-panel/timeline-panel.component';
 import { AttachmentListComponent } from '../../../../shared/attachment-list/attachment-list.component';
@@ -27,15 +27,18 @@ import {
   SaleOrderService, SaleOrderModel, SaleOrderLineModel, SaleOrderLineAvailabilityModel, SaleOrderSourceType,
   DeliveryIndicator, CustomerPoDuplicateModel, SaleOrderLineReservationModel, ConfirmBlockerCode, ConfirmBlockerModel,
   SaleOrderDeliveryPreviewModel, SkippedSaleOrderLineModel, SaleOrderCancelResultModel,
-  SaleOrderConfirmResultModel, CreatedSaleOrderDeliveryModel
+  SaleOrderConfirmResultModel, CreatedSaleOrderDeliveryModel, SaleOrderProductionOrderModel
 } from '../../../../services/sale-order.service';
-import { FulfillmentRoutesService, FulfillmentRouteModel } from '../../../../services/fulfillment-routes.service';
+import { FulfillmentRoutesService, FulfillmentRouteModel, routesVisibleToOrg } from '../../../../services/fulfillment-routes.service';
+import { TenantService } from '../../../service/tenant.service';
 import {
-  LineRouteDisplay, ROUTE_LEGEND, confirmBlockedSummary, inheritPlaceholder, isRouteBlocker, lineRouteDisplay,
-  splitServerMessage
+  LINE_BLOCKER_REASONS, LineRouteDisplay, ROUTE_LEGEND, confirmBlockedSummary, confirmReadyTooltip, inheritPlaceholder,
+  isLineBlocker, isMakeToOrderLine, lineRouteDisplay, routeCategoryTag, sourcingLabel, splitServerMessage
 } from '../fulfillment-route-display';
 import { DeliveryPreviewPanelComponent } from '../delivery-preview-panel/delivery-preview-panel.component';
+import { LeadTimeCalculation, LeadTimePopoverComponent } from '../../lead-time-popover/lead-time-popover.component';
 import { SALES_ATTACHMENT_CODES } from '../../../../services/sales-preorder.service';
+import { displayDate } from '../../sale-inquiries/sale-inquiry.shared';
 import { AttachmentService, AttachmentModel } from '../../../../services/attachment.service';
 import { BusinessPartnerService } from '../../../../services/business-partner.service';
 import {
@@ -50,6 +53,12 @@ import { AuthService } from '../../../service/auth.service';
 import { DELIVERY_STATUS_SEVERITY } from '../../../logistics/deliveries/delivery-list/delivery-list.component';
 import { SALE_ORDER_STATUS_SEVERITY, formatCode } from '../sale-order-list/sale-order-list.component';
 import { INVOICE_STATUS_SEVERITY } from '../../../finance/receivables/receivables.shared';
+import { DocCurrencyPanelComponent } from '../../../../shared/doc-currency/doc-currency-panel.component';
+import {
+  AmountView, DocCurrencyInfo, MissingRate, amountIn, currencyIn, hasBaseAmounts, missingRateOf
+} from '../../../../shared/doc-currency/doc-currency';
+import { MoneyPipe } from '../../../../shared/money/money.pipe';
+import { MoneyService } from '../../../../services/money.service';
 
 type Severity = 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast';
 
@@ -129,6 +138,24 @@ const PO_LOCKED_ORDER_STATUSES = ['CANCELLED', 'CLOSED'];
 /** BR-C3-04 — free text, at most 50 characters. */
 const CUSTOMER_PO_MAX_LENGTH = 50;
 
+/** A34 D-16 — a line's manual delivery date can change while the order is still open. */
+const DATE_EDITABLE_ORDER_STATUSES = ['DRAFT', 'CONFIRMED', 'PARTIALLY_FULFILLED'];
+
+/** One row of the Production tab: from the detail's productionOrders (A34 D-25), or the older production list. */
+export interface ProductionRow {
+  uuid: string;
+  number: string;
+  /** "Line 2 · Custom Gear Assy", or the product for a row from the older list. */
+  what: string;
+  plannedQuantity: number;
+  acceptedQuantity: number | null;
+  status: string;
+  isMakeToOrder: boolean;
+  routeName: string | null;
+  deliveryUuid: string | null;
+  deliveryNumber: string | null;
+}
+
 /** A reserve call that found less free stock than asked, waiting for the user to accept the part there is. */
 export interface PendingPartialReservation {
   line: SaleOrderLineModel;
@@ -142,7 +169,8 @@ export interface PendingPartialReservation {
     CommonModule, RouterModule, FormsModule,
     TableModule, ButtonModule, TagModule, TooltipModule, ToastModule,
     DialogModule, DropdownModule, CheckboxModule, InputNumberModule, InputTextModule, CalendarModule, TextareaModule,
-    TabViewModule, TimelinePanelComponent, AttachmentListComponent, DeliveryPreviewPanelComponent
+    TabViewModule, TimelinePanelComponent, AttachmentListComponent, DeliveryPreviewPanelComponent, LeadTimePopoverComponent,
+    DocCurrencyPanelComponent, MoneyPipe
   ],
   templateUrl: './sale-order-detail.component.html',
   styleUrls: ['./sale-order-detail.component.scss'],
@@ -246,8 +274,20 @@ export class SaleOrderDetailComponent implements OnInit {
   /** Lines the last confirm or "Create deliveries" left off a delivery, with why. */
   createDeliveriesSkipped: SkippedSaleOrderLineModel[] = [];
 
-  /** D-15 — what cancelling the order did to its deliveries. */
+  /** D-15 — what cancelling the order did to its deliveries (A34 D-22: and to its production orders). */
   cancelResult: SaleOrderCancelResultModel | null = null;
+
+  // ── A34: lead times, production ─────────────────────────────────────────────
+
+  /** The line whose manual delivery date is being stored. */
+  savingDateLineUuid: string | null = null;
+  private readonly leadTimeCalculators = new Map<string, () => Observable<LeadTimeCalculation>>();
+
+  /** D-17 — the production orders the last confirm (or recovery) created, listed until dismissed. */
+  confirmProductionOrders: SaleOrderProductionOrderModel[] = [];
+  /** Confirmed, but production creation failed: the server's reason, shown with "Create production orders". */
+  productionCreationMessage: string | null = null;
+  isCreatingProduction = false;
 
   private readonly expandedDeliveries = new Set<string>();
   private readonly deliveryLines = new Map<string, DeliveryLineModel[]>();
@@ -255,6 +295,52 @@ export class SaleOrderDetailComponent implements OnInit {
   private readonly failedDeliveryLines = new Set<string>();
 
   private readonly destroyRef = inject(DestroyRef);
+
+  // ── A35 P3-13: currency, locked rate, dual amounts (FSD §11.5) ──────────────
+
+  /** Which currency comes first: the order's own, or the sale base ("Show in AED / Show in PKR"). */
+  amountView: AmountView = 'DOC';
+  /** The last confirm was refused for want of an exchange rate (D-5). */
+  missingRate: MissingRate | null = null;
+  /** Amounts are written with the currency code, as in §11.5 ("AED 6,000.00"). */
+  readonly moneyCode = { display: 'code' } as const;
+  private readonly money = inject(MoneyService);
+
+  get docCurrency(): DocCurrencyInfo | null {
+    return this.order;
+  }
+
+  /** The rate is locked and the base is another currency: a second column of amounts. */
+  get showBase(): boolean {
+    return hasBaseAmounts(this.order);
+  }
+
+  get primaryCurrency(): string | null {
+    return currencyIn(this.showBase ? this.amountView : 'DOC', this.order);
+  }
+
+  get secondaryCurrency(): string | null {
+    return currencyIn(this.amountView === 'BASE' ? 'DOC' : 'BASE', this.order);
+  }
+
+  /** The code of a currency id or code, for column headers. */
+  currencyCodeOf(idOrCode: string | null): string {
+    if (!idOrCode) return '';
+    const o = this.order;
+    if (o && idOrCode === o.currencyId && o.currencyCode) return o.currencyCode;
+    if (o && idOrCode === o.baseCurrencyId && o.baseCurrencyCode) return o.baseCurrencyCode;
+    return this.money.find(idOrCode)?.code ?? idOrCode;
+  }
+
+  /** The amount in the first currency (the base one when toggled and there is one). */
+  primaryAmount(amount: number | null | undefined, amountBase: number | null | undefined): number | null {
+    return amountIn(this.showBase ? this.amountView : 'DOC', amount, amountBase);
+  }
+
+  /** The amount in the second currency (only shown when there are base amounts). */
+  secondaryAmount(amount: number | null | undefined, amountBase: number | null | undefined): number | null {
+    return this.amountView === 'BASE' ? (amount ?? null) : (amountBase ?? null);
+  }
 
   constructor(
     private route: ActivatedRoute,
@@ -269,6 +355,7 @@ export class SaleOrderDetailComponent implements OnInit {
     private attachmentService: AttachmentService,
     public authService: AuthService,
     private messageService: MessageService,
+    private tenantService: TenantService,
     @Inject(LOCALE_ID) private locale: string
   ) {}
 
@@ -289,6 +376,8 @@ export class SaleOrderDetailComponent implements OnInit {
       // Another order: start over, rather than show this one's figures under its number.
       this.order = null;
       this.activeTab = 0;
+      this.amountView = 'DOC';
+      this.missingRate = null;
       this.invoices = [];
       this.payments = [];
       this.invoiceTotals = [];
@@ -298,6 +387,9 @@ export class SaleOrderDetailComponent implements OnInit {
       this.cancelResult = null;
       this.deliveryCreationMessage = null;
       this.createDeliveriesSkipped = [];
+      this.confirmProductionOrders = [];
+      this.productionCreationMessage = null;
+      this.leadTimeCalculators.clear();
       this.expandedDeliveries.clear();
       this.deliveryLines.clear();
       this.failedDeliveryLines.clear();
@@ -382,8 +474,9 @@ export class SaleOrderDetailComponent implements OnInit {
     });
   }
 
+  /** The older production list; an A34 server carries the order's production orders on the detail itself (D-25). */
   loadProductionOrders() {
-    if (!this.canViewProduction) { this.productionOrders = []; return; }
+    if (this.hasDetailProduction || !this.canViewProduction) { this.productionOrders = []; return; }
 
     this.isLoadingProductionOrders = true;
     this.productionOrderService.getList({ sourceUuid: this.uuid, pageSize: 100 }).subscribe({
@@ -474,6 +567,7 @@ export class SaleOrderDetailComponent implements OnInit {
   // ── What this user may do, and what the order allows ────────────────────────
 
   get canViewDeliveries(): boolean { return this.authService.hasPermission('DELIVERY_VIEW'); }
+  /** The production order pages (and the older list) need PROD_VIEW. */
   get canViewProduction(): boolean { return this.authService.hasPermission('PROD_VIEW'); }
   get canViewInvoices(): boolean   { return this.authService.hasPermission('SALES_INVOICE_VIEW'); }
   get canViewPayments(): boolean   { return this.authService.hasPermission('CUSTOMER_PAYMENT_VIEW'); }
@@ -557,15 +651,22 @@ export class SaleOrderDetailComponent implements OnInit {
     });
   }
 
-  /** Lines the stock on hand does not cover, which confirming will raise purchase orders for. */
+  /** Lines the stock on hand does not cover, which confirming will raise purchase orders for (not the made-to-order ones). */
   get shortfalls(): AvailabilityRow[] {
-    return this.availability.filter(a => a.deficitQty > 0);
+    const madeToOrder = new Set(this.makeToOrderLines.map(l => l.variantUuid));
+    return this.availability.filter(a => a.deficitQty > 0 && !madeToOrder.has(a.variantUuid));
+  }
+
+  /** A34 D-1 — the lines confirming will make to order: a production order each, nothing reserved. */
+  get makeToOrderLines(): SaleOrderLineModel[] {
+    return (this.order?.lines ?? []).filter(l => l.status !== 'CANCELLED' && isMakeToOrderLine(l));
   }
 
   confirmOrder() {
     if (!this.canConfirm || this.isConfirming || this.isConfirmBlocked) return;
     this.isConfirming = true;
     this.confirmErrors = [];
+    this.missingRate = null;
 
     this.saleOrderService.confirmSaleOrder(this.uuid).subscribe({
       next: (res) => {
@@ -579,6 +680,12 @@ export class SaleOrderDetailComponent implements OnInit {
         // A33 PC-09 — the gate's 400 is one blocker per line: listed in the dialog, which stays open.
         const message: string | undefined = err?.error?.message;
         this.confirmErrors = splitServerMessage(message);
+        // A35 D-5 — the order's currency has no rate on the confirm date: name it, and where to add one.
+        this.missingRate = missingRateOf(message);
+        if (this.missingRate) {
+          this.messageService.add({ severity: 'error', summary: 'No exchange rate', detail: this.missingRate.message, life: 10000 });
+          return;
+        }
         this.messageService.add({
           severity: 'error', summary: 'Not confirmed',
           detail: this.confirmErrors.length > 1
@@ -596,15 +703,70 @@ export class SaleOrderDetailComponent implements OnInit {
     this.deliveryCreationMessage = result?.deliveryCreationFailed
       ? result.deliveryMessage || 'The order is confirmed, but its delivery orders could not be created.'
       : null;
+    // A34 D-17 — production is created after the confirm commits; a failure leaves the order confirmed.
+    this.confirmProductionOrders = (result?.productionOrders ?? []).filter(p => p.created !== false);
+    this.productionCreationMessage = result?.productionCreationFailed
+      ? result.productionMessage || PRODUCTION_FAILED_TEXT
+      : null;
 
-    if (this.deliveryCreationMessage) {
-      this.messageService.add({ severity: 'warn', summary: 'Order confirmed', detail: `Stock has been reserved. ${this.deliveryCreationMessage}` });
-    } else {
-      this.messageService.add({
-        severity: 'success', summary: 'Order confirmed',
-        detail: created.length ? `Stock has been reserved. ${this.createdText(created)}` : 'Stock has been reserved.'
-      });
-    }
+    const parts = ['Stock has been reserved.'];
+    if (created.length) parts.push(this.createdText(created));
+    if (this.confirmProductionOrders.length) parts.push(this.productionCreatedText(this.confirmProductionOrders));
+    if (this.deliveryCreationMessage) parts.push(this.deliveryCreationMessage);
+    if (this.productionCreationMessage) parts.push(`Production orders were not created: ${this.productionCreationMessage}`);
+    const failed = !!this.deliveryCreationMessage || !!this.productionCreationMessage;
+    this.messageService.add({ severity: failed ? 'warn' : 'success', summary: 'Order confirmed', detail: parts.join(' ') });
+  }
+
+  /** "1 production order created: PROD-2026-00085." */
+  private productionCreatedText(orders: SaleOrderProductionOrderModel[]): string {
+    const n = orders.length;
+    return `${n} production order${n === 1 ? '' : 's'} created: ${orders.map(p => p.productionNumber).join(', ')}.`;
+  }
+
+  dismissConfirmProduction() { this.confirmProductionOrders = []; }
+
+  // ── A34 D-17: production recovery ───────────────────────────────────────────
+
+  /** The failure banner: this session's confirm said so, or the order still has production pending. */
+  get productionPendingMessage(): string | null {
+    if (!this.order || !DELIVERABLE_ORDER_STATUSES.includes(this.order.status)) return null;
+    if (this.productionCreationMessage) return this.productionCreationMessage;
+    return this.order.productionCreationPending ? PRODUCTION_FAILED_TEXT : null;
+  }
+
+  /** Same gate as the server: SALE_ORDER_CONFIRM or PROD_CREATE, on a confirmed order. */
+  get canCreateProductionOrders(): boolean {
+    return !!this.order && DELIVERABLE_ORDER_STATUSES.includes(this.order.status)
+        && ['SALE_ORDER_CONFIRM', 'PROD_CREATE'].some(code => this.authService.hasPermission(code));
+  }
+
+  createProductionOrders() {
+    if (!this.canCreateProductionOrders || this.isCreatingProduction) return;
+    this.isCreatingProduction = true;
+
+    this.saleOrderService.createProductionOrders(this.uuid).subscribe({
+      next: (res) => {
+        this.isCreatingProduction = false;
+        const result = res.result;
+        const created = (result?.productionOrders ?? []).filter(p => p.created !== false);
+        this.confirmProductionOrders = created;
+        if (result?.productionCreationFailed) {
+          this.productionCreationMessage = result.productionMessage || PRODUCTION_FAILED_TEXT;
+          this.messageService.add({ severity: 'warn', summary: 'Not all created', detail: this.productionCreationMessage });
+        } else {
+          this.productionCreationMessage = null;
+          this.messageService.add(created.length
+            ? { severity: 'success', summary: 'Production orders created', detail: this.productionCreatedText(created) }
+            : { severity: 'info', summary: 'Nothing to create', detail: 'Every make-to-order line already has its production order.' });
+        }
+        this.load();
+      },
+      error: (err) => {
+        this.isCreatingProduction = false;
+        this.messageService.add({ severity: 'error', summary: 'Not created', detail: err?.error?.message ?? 'The production orders could not be created.' });
+      }
+    });
   }
 
   // ── Cancel ──────────────────────────────────────────────────────────────────
@@ -624,15 +786,26 @@ export class SaleOrderDetailComponent implements OnInit {
         this.isCancelling = false;
         this.cancelDialogVisible = false;
         // A33 D-15 — deliveries not yet goods-issued are cancelled with the order; issued ones stay.
+        // A34 D-22 — production orders not started are cancelled too; running ones are kept and listed.
         const result = res?.result ?? null;
         const cancelled = result?.cancelledDeliveries ?? [];
         const issued = result?.issuedDeliveries ?? [];
-        this.cancelResult = cancelled.length || issued.length ? { cancelledDeliveries: cancelled, issuedDeliveries: issued } : null;
+        const stopped = result?.cancelledProductionOrders ?? [];
+        const running = result?.runningProductionOrders ?? [];
+        this.cancelResult = cancelled.length || issued.length || stopped.length || running.length
+          ? { cancelledDeliveries: cancelled, issuedDeliveries: issued, cancelledProductionOrders: stopped, runningProductionOrders: running }
+          : null;
+        this.productionCreationMessage = null;
+        this.confirmProductionOrders = [];
 
         const parts = ['Its reservations have been released.'];
         if (cancelled.length) parts.push(`${cancelled.length} deliver${cancelled.length === 1 ? 'y' : 'ies'} cancelled.`);
         if (issued.length) parts.push(`${issued.length} already goods-issued kept — see the list on the order.`);
-        this.messageService.add({ severity: issued.length ? 'warn' : 'success', summary: 'Order cancelled', detail: parts.join(' ') });
+        if (stopped.length) parts.push(`${stopped.length} production order${stopped.length === 1 ? '' : 's'} cancelled.`);
+        if (running.length) parts.push(`${running.length} production order${running.length === 1 ? '' : 's'} still running — see the list on the order.`);
+        this.messageService.add({
+          severity: issued.length || running.length ? 'warn' : 'success', summary: 'Order cancelled', detail: parts.join(' ')
+        });
         this.load();
       },
       error: (err) => {
@@ -865,7 +1038,11 @@ export class SaleOrderDetailComponent implements OnInit {
   }
 
   reserveTooltip(line: SaleOrderLineModel): string {
-    return this.mayReserve ? `Hold up to ${this.qty(line.reservableQty)} from free stock.` : RESERVE_PERMISSION_TOOLTIP;
+    if (!this.mayReserve) return RESERVE_PERMISSION_TOOLTIP;
+    const hold = `Hold up to ${this.qty(line.reservableQty)} from free stock.`;
+    // A34 D-28 — allowed (the make-to-stock escape after confirm), but the production order is not reduced.
+    const warning = this.makeToOrderReserveWarning(line);
+    return warning ? `Made to order: ${warning} ${hold}` : hold;
   }
 
   releaseTooltip(line: SaleOrderLineModel): string {
@@ -1009,6 +1186,10 @@ export class SaleOrderDetailComponent implements OnInit {
         });
     }
 
+    // A34 D-28 — stock held for a make-to-order line does not shrink its production order.
+    const warning = result.outcome === 'RESERVED' || result.outcome === 'PARTIAL' ? this.makeToOrderReserveWarning(line) : null;
+    if (warning) this.messageService.add({ severity: 'warn', summary: 'Made to order', detail: warning });
+
     if (result.changedQty > 0) this.refreshOrder();
   }
 
@@ -1084,8 +1265,10 @@ export class SaleOrderDetailComponent implements OnInit {
   private ensureRoutesLoaded() {
     if (this.routesRequested || !this.canChangeRoute) return;
     this.routesRequested = true;
+    // A34 D-9 — MANUFACTURE routes only for an organization with manufacturing.
+    const manufacturing = !!this.tenantService.tenant()?.enabledFeatureCodes?.includes('MODULE_MANUFACTURING');
     this.routesService.getRoutes().subscribe({
-      next: (res) => { this.activeRoutes = res.result ?? []; },
+      next: (res) => { this.activeRoutes = routesVisibleToOrg(res.result ?? [], manufacturing); },
       error: () => { this.activeRoutes = []; }
     });
   }
@@ -1178,14 +1361,19 @@ export class SaleOrderDetailComponent implements OnInit {
 
   get confirmBlockedTooltip(): string { return confirmBlockedSummary(this.confirmBlockers); }
 
-  /** The banner's lines: a line's route problem names the line; anything else is in the server's words. */
+  /** A34 PD-08 — blocked: why; otherwise what confirming will create ("Will create N delivery orders and M production orders"). */
+  get confirmTooltip(): string {
+    return this.isConfirmBlocked ? this.confirmBlockedTooltip : confirmReadyTooltip(this.preview);
+  }
+
+  /** The banner's lines: a line's own problem (route, or A34 make to order) names the line; anything else is in the server's words. */
   get confirmBlockerRows(): string[] {
     const lines = this.order?.lines ?? [];
     return this.confirmBlockers.map(b => {
-      if (!isRouteBlocker(b.code) || b.lineNumber == null) return b.message;
+      if (!isLineBlocker(b.code) || b.lineNumber == null) return b.message;
       const line = lines.find(l => l.uuid === b.lineUuid) ?? lines[b.lineNumber - 1];
       const what = line ? ` · ${this.describe(line)}` : '';
-      return `Line ${b.lineNumber}${what}: ${BLOCKER_REASONS[b.code] ?? b.message}`;
+      return `Line ${b.lineNumber}${what}: ${LINE_BLOCKER_REASONS[b.code] ?? b.message}`;
     });
   }
 
@@ -1273,11 +1461,143 @@ export class SaleOrderDetailComponent implements OnInit {
   }
 
   dismissCancelResult() { this.cancelResult = null; }
+
+  // ── A34 PC-07/08/09: lead time and delivery date per line ───────────────────
+
+  /** ⏱ works on a draft's lines only (the server refuses otherwise), for someone who may edit the order. */
+  get canCalculateLeadTime(): boolean {
+    return this.order?.status === 'DRAFT' && this.authService.hasPermission('SALE_ORDER_EDIT');
+  }
+
+  /** D-16 — the manual date can change on DRAFT, CONFIRMED and PARTIALLY_FULFILLED orders, on a live line. */
+  canSetDeliveryDate(line: SaleOrderLineModel): boolean {
+    return !!this.order && DATE_EDITABLE_ORDER_STATUSES.includes(this.order.status) && line.status !== 'CANCELLED'
+        && this.authService.hasPermission('SALE_ORDER_EDIT');
+  }
+
+  /** The line's own endpoint calculates and stores; one function per line, so the popover's input stays the same. */
+  leadTimeCalculator(line: SaleOrderLineModel): () => Observable<LeadTimeCalculation> {
+    let calc = this.leadTimeCalculators.get(line.uuid);
+    if (!calc) {
+      calc = () => this.saleOrderService.calculateLineLeadTime(this.uuid, line.uuid).pipe(
+        map(res => ({ leadTime: res.result!.leadTime, line: res.result!.line })));
+      this.leadTimeCalculators.set(line.uuid, calc);
+    }
+    return calc;
+  }
+
+  lineLabel(line: SaleOrderLineModel, index: number): string {
+    return `Line ${index + 1}: ${this.describe(line)}`;
+  }
+
+  /** The stored calculation, onto the line shown (the same object: the row and its open popover stay). */
+  onLineLeadTime(line: SaleOrderLineModel, calc: LeadTimeCalculation) {
+    const stored = calc.line as SaleOrderLineModel | undefined;
+    if (stored) this.copyDates(line, stored);
+  }
+
+  /** PUT …/lines/{line}/delivery-date: the date (yyyy-MM-dd), or null to go back to the calculated one. */
+  setLineDeliveryDate(line: SaleOrderLineModel, date: string | null) {
+    if (!this.canSetDeliveryDate(line) || this.savingDateLineUuid) return;
+    this.savingDateLineUuid = line.uuid;
+
+    this.saleOrderService.setLineDeliveryDate(this.uuid, line.uuid, date).subscribe({
+      next: (res) => {
+        this.savingDateLineUuid = null;
+        const result = res.result;
+        if (result?.line) this.copyDates(line, result.line);
+        else line.manualDeliveryDate = date;
+        this.messageService.add({
+          severity: 'success', summary: date ? 'Delivery date set' : 'Manual date cleared',
+          detail: date ? `${this.describe(line)} is now due ${displayDate(date)}.` : `${this.describe(line)} uses its calculated date again.`
+        });
+        if (result?.warning || result?.productionNotRescheduled) {
+          this.messageService.add({
+            severity: 'warn', summary: 'Production not rescheduled',
+            detail: result.warning || 'Its production order was planned for the earlier date and is not rescheduled.'
+          });
+        }
+      },
+      error: (err) => {
+        this.savingDateLineUuid = null;
+        this.messageService.add({ severity: 'error', summary: 'Date not changed', detail: err?.error?.message ?? 'The delivery date could not be changed.' });
+      }
+    });
+  }
+
+  private copyDates(target: SaleOrderLineModel, from: SaleOrderLineModel) {
+    target.manualDeliveryDate = from.manualDeliveryDate ?? null;
+    target.calculatedDeliveryDate = from.calculatedDeliveryDate ?? null;
+    target.calculatedLeadTimeDays = from.calculatedLeadTimeDays ?? null;
+    target.leadTimeCalculatedAt = from.leadTimeCalculatedAt ?? null;
+    target.effectiveDeliveryDate = from.effectiveDeliveryDate ?? null;
+    if (from.deliveryDateSource) target.deliveryDateSource = from.deliveryDateSource;
+  }
+
+  // ── A34 R-15 / D-21: sourcing, route category, shortfall ───────────────────
+
+  sourcing(line: SaleOrderLineModel): string { return sourcingLabel(line.fulfillmentMode); }
+
+  categoryTag(line: SaleOrderLineModel) { return routeCategoryTag(line.effectiveRouteCategory); }
+
+  shortfallTooltip(line: SaleOrderLineModel): string {
+    const short = line.productionShortfallQty ?? 0;
+    return short >= line.quantity
+      ? 'Production yielded nothing for this line.'
+      : `Production made ${this.qty(short)} fewer than the ${this.qty(line.quantity)} ordered.`;
+  }
+
+  // ── A34 D-25 / PD-07: production ────────────────────────────────────────────
+
+  /** An A34 server carries the order's production orders on the detail (SALE_ORDER_VIEW is enough). */
+  get hasDetailProduction(): boolean { return Array.isArray(this.order?.productionOrders); }
+
+  /** The tab shows from the detail for anyone who can read the order; the older list needs PROD_VIEW. */
+  get canSeeProductionTab(): boolean { return this.hasDetailProduction || this.canViewProduction; }
+
+  get productionRows(): ProductionRow[] {
+    if (this.hasDetailProduction) {
+      const lines = this.order?.lines ?? [];
+      return this.order!.productionOrders!.map(p => {
+        const line = lines.find(l => l.uuid === p.soLineUuid);
+        const number = p.lineNumber ?? (line ? lines.indexOf(line) + 1 : null);
+        const what = [number != null ? `Line ${number}` : null, line ? this.describe(line) : null].filter(Boolean).join(' · ') || '—';
+        return {
+          uuid: p.productionOrderUuid, number: p.productionNumber, what, plannedQuantity: p.plannedQuantity,
+          acceptedQuantity: p.acceptedQuantity, status: p.status, isMakeToOrder: p.isMakeToOrder,
+          routeName: p.isMakeToOrder ? (p.fulfillmentRouteName || p.fulfillmentRouteCode || null) : null,
+          deliveryUuid: p.deliveryOrderUuid ?? null, deliveryNumber: p.deliveryNumber ?? null
+        };
+      });
+    }
+    return this.productionOrders.map(p => ({
+      uuid: p.uuid, number: p.productionNumber, what: p.variantName ? `${p.productName} — ${p.variantName}` : p.productName,
+      plannedQuantity: p.plannedQuantity, acceptedQuantity: p.acceptedQuantity ?? null, status: p.status,
+      isMakeToOrder: !!p.isMakeToOrder, routeName: p.isMakeToOrder ? (p.fulfillmentRouteName || p.fulfillmentRouteCode || null) : null,
+      deliveryUuid: p.deliveryOrderUuid ?? null, deliveryNumber: p.deliveryNumber ?? null
+    }));
+  }
+
+  /** The make-to-order production order of a line, if it has one. */
+  productionOrderFor(line: SaleOrderLineModel): SaleOrderProductionOrderModel | null {
+    return (this.order?.productionOrders ?? []).find(p => p.soLineUuid === line.uuid && p.isMakeToOrder && p.status !== 'CANCELLED') ?? null;
+  }
+
+  /** PD-07 — open make-to-order lines whose goods are still being made: no delivery from production yet. */
+  get linesAwaitingProduction(): SaleOrderLineModel[] {
+    if (!this.order || !DELIVERABLE_ORDER_STATUSES.includes(this.order.status)) return [];
+    return this.makeToOrderLines.filter(l => this.outstanding(l) > 0 && !this.productionOrderFor(l)?.deliveryOrderUuid);
+  }
+
+  // ── A34 D-28: manual reserve on a make-to-order line ────────────────────────
+
+  /** "PROD-2026-00085 still makes the full quantity." — the production order is not reduced by a reservation. */
+  makeToOrderReserveWarning(line: SaleOrderLineModel): string | null {
+    if (!isMakeToOrderLine(line)) return null;
+    const number = this.productionOrderFor(line)?.productionNumber ?? 'Its production order';
+    return `${number} still makes the full quantity — reserving stock does not reduce it.`;
+  }
 }
 
-/** The banner's words for a line whose route stops confirmation. */
-const BLOCKER_REASONS: Partial<Record<ConfirmBlockerCode, string>> = {
-  ROUTE_MISSING: 'no fulfillment route — assign one on the line, or set a default route on the product variant.',
-  ROUTE_INACTIVE: 'its route is inactive — choose another.',
-  ROUTE_UNKNOWN: 'its route no longer exists — choose another.'
-};
+/** A34 D-17 — the banner's words when the server gives none. */
+const PRODUCTION_FAILED_TEXT = 'The order is confirmed, but its production orders could not be created.';

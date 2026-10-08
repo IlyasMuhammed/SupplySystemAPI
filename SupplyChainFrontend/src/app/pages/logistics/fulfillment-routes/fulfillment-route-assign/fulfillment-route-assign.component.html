@@ -4,6 +4,11 @@
       Sets <strong>{{ route?.name }}</strong> on every active variant in a category that has <strong>no route yet</strong>.
       Variants that already have a route keep it.
     </p>
+    <p class="intro mto" *ngIf="isManufacture" data-testid="mto-note">
+      <i class="pi pi-info-circle"></i>
+      A make-to-order route: only variants of products whose supply method is Manufacture are assigned. The others are
+      skipped.
+    </p>
 
     <div class="state-inline" *ngIf="categoriesFailed" data-testid="categories-failed">
       <i class="pi pi-exclamation-triangle"></i> The categories could not be loaded.
@@ -50,7 +55,7 @@
   <ng-container *ngIf="step === 'done' && result">
     <div class="counts">
       <div class="count" data-testid="result-updated"><span class="num">{{ result.updated }}</span><span class="lbl">updated</span></div>
-      <div class="count" data-testid="result-skipped"><span class="num">{{ result.skipped }}</span><span class="lbl">skipped — already had a route</span></div>
+      <div class="count" data-testid="result-skipped"><span class="num">{{ result.skipped }}</span><span class="lbl">skipped — already had a route{{ isManufacture ? ' or not manufactured' : '' }}</span></div>
       <div class="count" data-testid="result-total"><span class="num">{{ result.total }}</span><span class="lbl">variants in all</span></div>
     </div>
     <div class="actions">

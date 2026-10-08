@@ -76,6 +76,17 @@ public class SaleInquiriesController : ControllerBase
             ? Ok(ApiResponse.Ok(StaticResponseMessage.recordUpdatedSuccessfully))
             : NotFound(ApiResponse.Fail(StaticResponseMessage.recordNotFound));
 
+    /// <summary>A34 D-16 — calculate one line's lead time and store it (API-CONTRACT §5.2).</summary>
+    [HttpPost("{uuid:guid}/lines/{lineUuid:guid}/lead-time")]
+    [RequirePermission(PermissionCodes.SALE_INQUIRY_EDIT)]
+    public async Task<IActionResult> CalculateLineLeadTime(Guid uuid, Guid lineUuid, [FromServices] ISalesLineLeadTimeService leadTimes)
+    {
+        var result = await leadTimes.CalculateInquiryLineAsync(uuid, lineUuid, User.GetUserId());
+        return result is null
+            ? NotFound(ApiResponse.Fail(StaticResponseMessage.recordNotFound))
+            : Ok(ApiResponse<SaleLineLeadTimeModel<SaleInquiryLineModel>>.Ok(result, "Lead time calculated."));
+    }
+
     [HttpDelete("{uuid:guid}/lines/{lineUuid:guid}")]
     [RequirePermission(PermissionCodes.SALE_INQUIRY_EDIT)]
     public async Task<IActionResult> DeleteLine(Guid uuid, Guid lineUuid) =>

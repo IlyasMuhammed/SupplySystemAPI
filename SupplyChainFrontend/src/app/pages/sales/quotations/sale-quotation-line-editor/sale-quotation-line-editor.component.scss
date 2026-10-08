@@ -24,3 +24,6 @@
 @media (max-width: 640px) {
   .grid { grid-template-columns: 1fr; }
 }
+
+// A34 PC-07: the line's lead time, under the promised date.
+.lead-time { margin-top: .375rem; font-size: .875rem; }

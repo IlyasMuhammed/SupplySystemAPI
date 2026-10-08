@@ -373,6 +373,9 @@ public class DeliveryListItemModel
     public string? FulfillmentRouteName { get; set; }
     /// <summary>"Steel Pipes × 500, +2 more" — the first line by line number, and how many others.</summary>
     public string? LineSummary          { get; set; }
+
+    /// <summary>A34 C6 — the make-to-order production order this delivery was created from; null otherwise.</summary>
+    public Guid?   ProductionOrderUuid  { get; set; }
 }
 
 /// <summary>A33 — one step of the delivery's route as the tracker shows it (contract §6/§8).</summary>
@@ -456,6 +459,22 @@ public class DeliveryDetailModel
     public AddressModel? ShipFromAddress { get; set; }
     public AddressModel? ShipToAddress   { get; set; }
 
+    /// <summary>The warehouse the goods leave from / arrive at; lets a printed document name it when no address was stored.</summary>
+    public Guid? ShipFromWarehouseUuid { get; set; }
+    public Guid? ShipToWarehouseUuid   { get; set; }
+
+    /// <summary>
+    /// The warehouse the goods leave from, with its address — the header's warehouse, or, when that was never recorded,
+    /// the one the delivery's (or its sale order lines') stock is held in. Null when none can be told. Read-only: what
+    /// the page and the printed documents show under "Ship from" when <see cref="ShipFromAddress"/> is empty.
+    /// </summary>
+    public DeliveryWarehouseModel? ShipFromWarehouse { get; set; }
+    /// <summary>The warehouse the goods arrive at (a transfer); null otherwise.</summary>
+    public DeliveryWarehouseModel? ShipToWarehouse   { get; set; }
+
+    /// <summary>The supplier on a PO (inbound) or supplier-return (outbound) delivery; null for every other source.</summary>
+    public string? VendorName { get; set; }
+
     public DateTime? RequestedDate { get; set; }
     public DateTime? PromisedDate  { get; set; }
     public string    Priority      { get; set; } = string.Empty;
@@ -496,6 +515,22 @@ public class DeliveryDetailModel
     public string?   NextStep         { get; set; }
     /// <summary>What can be done now, per the route, the status and the data (see <see cref="DeliveryNextAction"/>).</summary>
     public List<string> NextActions   { get; set; } = [];
+
+    /// <summary>A34 C6 — the make-to-order production order this delivery was created from; null otherwise.</summary>
+    public Guid?   ProductionOrderUuid  { get; set; }
+}
+
+/// <summary>A warehouse as a delivery shows it: which one, and where (free text, as the warehouse master keeps it).</summary>
+public class DeliveryWarehouseModel
+{
+    public Guid    Uuid         { get; set; }
+    public string  Code         { get; set; } = string.Empty;
+    public string  Name         { get; set; } = string.Empty;
+    public string? Address      { get; set; }
+    public string? City         { get; set; }
+    public string? Country      { get; set; }
+    public string? ContactName  { get; set; }
+    public string? ContactPhone { get; set; }
 }
 
 /// <summary>A consignment as the delivery sees it — enough to name it, link to it and show where it is.</summary>
@@ -520,6 +555,8 @@ public class DeliveryFilter
     public Guid? SaleOrderUuid        { get; set; }
     /// <summary>A33 — only deliveries on this route.</summary>
     public Guid? FulfillmentRouteUuid { get; set; }
+    /// <summary>A34 — only deliveries created from this production order (the PO detail's delivery card).</summary>
+    public Guid? ProductionOrderUuid  { get; set; }
     public int Page     { get; set; } = 1;
     public int PageSize { get; set; } = 20;
 }

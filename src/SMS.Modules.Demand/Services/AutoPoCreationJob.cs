@@ -76,6 +76,15 @@ internal sealed class AutoPoCreationJob : IAutoPoCreationJob
             return;
         }
 
+        // A34 D-2 — a make-to-order line's whole quantity is its production order's (D-1). Confirm never enqueues this job
+        // for one; a replayed or hand-run job must not buy or make it a second time either.
+        if (line.FulfillmentMode == EnumCode<SaleOrderLineFulfillmentMode>.Of(SaleOrderLineFulfillmentMode.MakeToOrder))
+        {
+            _log.LogInformation("Auto-PO: sale order {So} line {Line} is made to order; its production order supplies it.",
+                saleOrderUuid, saleOrderLineUuid);
+            return;
+        }
+
         // What is short NOW, not what was short when the job was enqueued: stock may have arrived, or
         // a GRN reserved against it, in between.
         var deficit = line.DeficitQty ?? 0m;

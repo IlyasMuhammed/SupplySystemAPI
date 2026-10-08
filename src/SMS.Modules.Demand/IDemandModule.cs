@@ -86,6 +86,13 @@ public static class DemandModuleExtensions
         services.AddScoped<IEffectiveRouteResolver, EffectiveRouteResolver>();
         services.AddScoped<SaleOrderDeliverySweepJob>();
         services.AddScoped<IFulfillmentRouteUsage, SaleOrderRouteUsage>();
+        // A34 — the ⏱ endpoints of inquiry and quotation lines (D-16; sale order lines are on ISaleOrderService).
+        services.AddScoped<ISalesLineLeadTimeService, SalesLineLeadTimeService>();
+        // A34 D-17 — the sweep creating make-to-order production orders a confirm could not; D-21 — Material's production
+        // outcomes recorded on the sale order line (shortfall, timeline, notifications).
+        services.AddScoped<SaleOrderProductionSweepJob>();
+        services.AddScoped<IManufacturingLevelDays, InventoryManufacturingLevelDays>();   // D-19 / REV-08
+        services.AddScoped<ISaleOrderProductionFeedback, SaleOrderProductionFeedback>();
 
         // Workflow engine handlers
         services.AddScoped<IDocumentStatusHandler, PrStatusHandler>();
@@ -103,6 +110,12 @@ public static class DemandModuleExtensions
         services.AddScoped<ISupplierReferenceChecker, DemandSupplierReferenceChecker>();
         // Lookups asks every checker before it deletes a currency or changes its code.
         services.AddScoped<ILookupReferenceChecker, DemandCurrencyReferenceChecker>();
+
+        // A35 D-8 — confirmed SOs / sent quotations (Sale) and approved+ POs (Purchase) make a currency or a base "in use".
+        services.AddScoped<ICurrencyUsageChecker, DemandCurrencyUsageChecker>();
+        // A35 D-11 / REV-01 — locks legacy foreign-currency documents per organization, called by Finance's
+        // CurrencyBootstrapper once Finance has migrated and its rates are seeded.
+        services.AddScoped<ICurrencyRatesReadyParticipant, DemandCurrencyBackfill>();
 
         return services;
     }
@@ -149,6 +162,12 @@ public static class DemandModuleExtensions
             SaleOrderDeliverySweepJob.RecurringJobId,
             job => job.RunAsync(),
             SaleOrderDeliverySweepJob.Cron);
+
+        // A34 D-17 — every 15 minutes: confirmed orders whose make-to-order production orders could not be created.
+        RecurringJob.AddOrUpdate<SaleOrderProductionSweepJob>(
+            SaleOrderProductionSweepJob.RecurringJobId,
+            job => job.RunAsync(),
+            SaleOrderProductionSweepJob.Cron);
 
         return app;
     }

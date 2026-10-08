@@ -13,17 +13,21 @@ public class ReportDateFilter
 
 // ── KPI Dashboard ─────────────────────────────────────────────────────────────
 
+/// <summary>
+/// The original procurement / inventory / payables KPIs. A null value means there was nothing to measure yet (no PRs
+/// linked to POs, no approved GRNs, no invoices…) — shown as "no data", never as a failing zero.
+/// </summary>
 public class KpiDashboardModel
 {
-    public double  PoCycleTimeDays           { get; set; }
-    public double  SupplierOnTimeDeliveryRate { get; set; }
-    public double  PoFillRate                { get; set; }
-    public double  StockTurnoverRatio        { get; set; }
-    public double  InventoryAccuracy         { get; set; }
-    public double  InvoiceProcessingTimeDays { get; set; }
-    public double  ThreeWayMatchRate         { get; set; }
-    public double  BudgetVariancePercent     { get; set; }
-    public double  GrnRejectionRate          { get; set; }
+    public double? PoCycleTimeDays           { get; set; }
+    public double? SupplierOnTimeDeliveryRate { get; set; }
+    public double? PoFillRate                { get; set; }
+    public double? StockTurnoverRatio        { get; set; }
+    public double? InventoryAccuracy         { get; set; }
+    public double? InvoiceProcessingTimeDays { get; set; }
+    public double? ThreeWayMatchRate         { get; set; }
+    public double? BudgetVariancePercent     { get; set; }
+    public double? GrnRejectionRate          { get; set; }
     public int     ReorderTriggerCount       { get; set; }
 }
 

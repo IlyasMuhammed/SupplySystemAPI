@@ -39,18 +39,28 @@ internal sealed class InvoiceRepository : IInvoiceRepository
     private readonly IOrganizationCurrencyService? _orgCurrency;
     private readonly ICurrencyCodeLookup?          _currencyCodes;
     private readonly ILogger<InvoiceRepository>?   _log;
+    private readonly ICurrencyService?             _currency;
+    private readonly SMS.Modules.Lookups.Services.ILookupsService? _lookups;
 
     /// <param name="taxCodes">Purchase tax codes (S-3). Optional so a hand-built harness needs nothing extra; without it an invoice can only carry tax as an amount.</param>
     /// <param name="rates">Exchange rates, for the snapshot at approval (S-5). Optional; without it a foreign-currency invoice gets no rate.</param>
     /// <param name="orgCurrency">The organization's base currency id (Tenancy). Optional; without it no snapshot is taken.</param>
     /// <param name="currencyCodes">Turns that id into an ISO code (Lookups). Optional, as above.</param>
+    /// <param name="currency">
+    /// A35 (D-5, D-12) — when registered (always, in the host) approval <b>locks</b> the rate against the <b>purchase</b>
+    /// base at the approval date; a foreign invoice with no rate is refused (400). Without it the S-5 snapshot applies.
+    /// </param>
+    /// <param name="lookups">The global currency catalog (code ↔ id), for the invoice's CurrencyId (D-10). Optional.</param>
     public InvoiceRepository(
         FinanceDbContext db, DemandDbContext demand, WarehouseDbContext warehouse,
         ISupplierLedgerService ledger, ISupplierNameLookupService supplierNames,
         ITaxCodeLookup? taxCodes = null, IExchangeRateProvider? rates = null,
         IOrganizationCurrencyService? orgCurrency = null, ICurrencyCodeLookup? currencyCodes = null,
-        ILogger<InvoiceRepository>? log = null)
+        ILogger<InvoiceRepository>? log = null,
+        ICurrencyService? currency = null, SMS.Modules.Lookups.Services.ILookupsService? lookups = null)
     {
+        _currency      = currency;
+        _lookups       = lookups;
         _db            = db;
         _demand        = demand;
         _warehouse     = warehouse;
@@ -200,6 +210,9 @@ internal sealed class InvoiceRepository : IInvoiceRepository
         var (matchedPoValue, matchedGrnValue, matchStatus) = ThreeWayMatch(subtotal, req.Lines, po, grn);
         var variance = po is null ? 0m : subtotal - matchedPoValue;
 
+        // A35 D-14 — the currency asked for by id, else the purchase order's, else the code given.
+        var (currencyCode, currencyId) = await ResolveInvoiceCurrencyAsync(req, po);
+
         var now           = DateTime.UtcNow;
         var invoiceNumber = await GenerateInvoiceNumberAsync(now.Year);
 
@@ -220,7 +233,8 @@ internal sealed class InvoiceRepository : IInvoiceRepository
             InvoiceDate       = req.InvoiceDate,
             ReceivedDate      = req.ReceivedDate,
             DueDate           = req.DueDate,
-            Currency          = req.Currency,
+            Currency          = currencyCode,
+            CurrencyId        = currencyId,
             Subtotal          = subtotal,
             TaxAmount         = taxAmount,
             TaxCodeUuid       = taxCode?.Uuid,
@@ -403,6 +417,9 @@ internal sealed class InvoiceRepository : IInvoiceRepository
             ExchangeRate      = inv.ExchangeRate,
             BaseCurrencyCode  = inv.BaseCurrencyCode,
             BaseTotalAmount   = inv.BaseTotalAmount,
+            CurrencyId           = inv.CurrencyId,
+            BaseCurrencyId       = inv.BaseCurrencyId,
+            ExchangeRateLockedAt = inv.ExchangeRateLockedAt,
             MatchedPoValue    = inv.MatchedPoValue,
             MatchedGrnValue   = inv.MatchedGrnValue,
             VarianceAmount    = inv.VarianceAmount,
@@ -445,8 +462,34 @@ internal sealed class InvoiceRepository : IInvoiceRepository
                     Status        = p.Status
                 }).ToList(),
             DebitNotes  = debitNotes,
-            CreditNotes = creditNotes
+            CreditNotes = creditNotes,
+            // A35 E-06 — supplier-payment lines with their realized differences, and the net booked on this invoice.
+            SupplierPayments = await _db.SupplierPaymentLines.AsNoTracking()
+                .Where(l => l.InvoiceUuid == inv.UUID && l.SupplierPayment.OrganizationId == inv.OrganizationId)
+                .OrderBy(l => l.SupplierPayment.PaymentDate).ThenBy(l => l.Id)
+                .Select(l => new InvoiceSupplierPaymentModel
+                {
+                    PaymentUuid        = l.SupplierPayment.UUID,
+                    PaymentNumber      = l.SupplierPayment.PaymentNumber,
+                    PaymentDate        = l.SupplierPayment.PaymentDate,
+                    PaymentMethod      = l.SupplierPayment.PaymentMethod,
+                    Status             = l.SupplierPayment.Status,
+                    CurrencyCode       = l.SupplierPayment.CurrencyCode,
+                    AllocatedAmount    = l.AllocatedAmount,
+                    ExchangeDifference = l.ExchangeDifference
+                }).ToListAsync(),
+            RealizedExchangeDifference = await RealizedDifferenceAsync(inv)
         };
+    }
+
+    /// <summary>Net REALIZED difference booked on the invoice (reversals included); null when none.</summary>
+    private async Task<decimal?> RealizedDifferenceAsync(Invoice inv)
+    {
+        var rows = await _db.ExchangeDifferences.AsNoTracking()
+            .Where(d => d.OrganizationId == inv.OrganizationId && d.Kind == ExchangeDifferenceKinds.Realized
+                     && d.DocumentType == ExchangeDifferenceRefs.SupplierInvoice && d.DocumentUuid == inv.UUID)
+            .Select(d => d.DifferenceBase).ToListAsync();
+        return rows.Count == 0 ? null : rows.Sum();
     }
 
     /// <summary>
@@ -669,8 +712,17 @@ internal sealed class InvoiceRepository : IInvoiceRepository
                 ? $"Invoice {inv.InvoiceNumber} is already approved. Approving it again would book it to the supplier ledger twice."
                 : $"Invoice {inv.InvoiceNumber} is {inv.MatchStatus}, so it cannot be approved. Only a Pending, Matched or Variance invoice can be.");
 
-        // S-5: the rate is fixed now, when the invoice is booked. A missing rate never stops the approval.
-        await SnapshotExchangeRateAsync(inv);
+        if (_currency is not null)
+        {
+            // A35 D-12 — locked now, against the PURCHASE base, at the approval date. Foreign with no rate: 400 (D-5),
+            // and nothing of the approval is saved.
+            await LockExchangeRateAsync(inv, DateTime.UtcNow);
+        }
+        else
+        {
+            // S-5: the rate is fixed now, when the invoice is booked. A missing rate never stops the approval.
+            await SnapshotExchangeRateAsync(inv);
+        }
 
         inv.MatchStatus  = InvoiceMatchStatus.Approved;
         inv.ApprovedBy   = approvedBy;
@@ -1028,6 +1080,46 @@ internal sealed class InvoiceRepository : IInvoiceRepository
                 inv.InvoiceNumber, inv.UUID);
         }
     }
+
+    /// <summary>
+    /// A35 D-12 — the rate of the invoice's currency into the organization's purchase base at <paramref name="now"/>'s date:
+    /// exactly 1 with no lookup when they are the same (BR-C5-04), the locked rate otherwise; base total rounded at the base's
+    /// decimals (D-13). Throws the contract's 400 when no rate covers the date.
+    /// </summary>
+    private async Task LockExchangeRateAsync(Invoice inv, DateTime now)
+    {
+        var currencyId = inv.CurrencyId ?? CurrencyIdOf(inv.Currency)
+            ?? throw new BadRequestException(
+                $"Invoice {inv.InvoiceNumber} is in {inv.Currency}, which is not a currency in the Lookups catalog, so its exchange rate cannot be locked.");
+
+        var lk = await _currency!.LockRateAsync(inv.OrganizationId, currencyId, DateOnly.FromDateTime(now), TransactionDomain.Purchase);
+        inv.CurrencyId           = currencyId;
+        inv.ExchangeRate         = lk.Rate;
+        inv.BaseCurrencyId       = lk.BaseCurrencyId;
+        inv.BaseCurrencyCode     = lk.BaseCurrencyCode;
+        inv.BaseTotalAmount      = lk.ToBase(inv.TotalAmount);
+        inv.ExchangeRateLockedAt = now;
+    }
+
+    /// <summary>D-14 — the currency of a new invoice: the id asked for, else the purchase order's, else the code given.</summary>
+    private async Task<(string Code, Guid? Id)> ResolveInvoiceCurrencyAsync(CreateInvoiceRequest req, PurchaseOrder? po)
+    {
+        async Task<string?> CodeOf(Guid id) =>
+            _lookups?.GetCurrencies().FirstOrDefault(c => c.Id == id)?.Code?.Trim().ToUpperInvariant()
+            ?? (_currencyCodes is null ? null : (await _currencyCodes.GetCodeAsync(id))?.Trim().ToUpperInvariant());
+
+        if (req.CurrencyId is { } asked && asked != Guid.Empty)
+            return (await CodeOf(asked) ?? throw new BadRequestException("The invoice's currency is not a currency in the Lookups catalog."), asked);
+
+        if (po?.CurrencyId is { } poCurrency && await CodeOf(poCurrency) is { } poCode)
+            return (poCode, poCurrency);
+
+        return (req.Currency, CurrencyIdOf(req.Currency));
+    }
+
+    private Guid? CurrencyIdOf(string? code) =>
+        string.IsNullOrWhiteSpace(code) ? null
+        : _lookups?.GetCurrencies().FirstOrDefault(c => string.Equals(c.Code?.Trim(), code.Trim(), StringComparison.OrdinalIgnoreCase))?.Id;
 
     public async Task<bool> UploadAttachmentAsync(Guid uuid, string url, int modifiedBy)
     {

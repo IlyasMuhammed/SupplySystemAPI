@@ -17,6 +17,8 @@ internal sealed class TenancyService : ITenancyService
     private readonly ICurrencyCodeLookup? _currencies;
     private readonly IReadOnlyList<IOrganizationProvisionedHandler> _provisioned;
     private readonly ILogger<TenancyService> _log;
+    // A35 D-7 — keeps the stored sale base equal to Organization.BaseCurrency when the profile edit changes it.
+    private readonly IOrganizationCurrencySettingsService? _currencySettings;
 
     /// <param name="currencies">
     /// Lookups' currency catalog, to check a base currency exists. Optional: a host (or a test) without the
@@ -28,8 +30,9 @@ internal sealed class TenancyService : ITenancyService
     public TenancyService(
         ITenancyRepository repo, IOrgUserProvisioningService orgUserProvisioning, ITenantSnapshotProvider snapshots,
         ICurrencyCodeLookup? currencies = null, IEnumerable<IOrganizationProvisionedHandler>? provisioned = null,
-        ILogger<TenancyService>? log = null)
+        ILogger<TenancyService>? log = null, IOrganizationCurrencySettingsService? currencySettings = null)
     {
+        _currencySettings = currencySettings;
         _repo = repo;
         _orgUserProvisioning = orgUserProvisioning;
         _snapshots = snapshots;
@@ -95,7 +98,18 @@ internal sealed class TenancyService : ITenancyService
             // the catalog or lost its code — that would block every profile edit of the organization.
             var current = await _repo.GetOrganizationByIdAsync(id);
             if (current is not null && current.BaseCurrency != baseCurrency)
+            {
                 await EnsureCurrencyUsableAsync(baseCurrency);
+                // A35 D-7/D-8 — 409 when the sale base is used by locked documents; else a stored row's sale base moves
+                // with it (tracked here, saved by the repository's SaveChanges on the same context).
+                if (_currencySettings is not null)
+                    await _currencySettings.ApplyProfileBaseCurrencyAsync(id, baseCurrency);
+            }
+        }
+        else if (req.ClearBaseCurrency && _currencySettings is not null)
+        {
+            // A35 REV-06 — 400 once settings are stored; 409 when any domain base / the rate currency is in use.
+            await _currencySettings.EnsureProfileBaseCurrencyCanBeClearedAsync(id);
         }
 
         return await _repo.UpdateOrganizationAsync(id, req, modifiedBy);

@@ -33,6 +33,8 @@ public class SaleInquiriesControllerTests
         { nameof(SaleInquiriesController.AddLine),         "POST",   "{uuid:guid}/lines",                    [PermissionCodes.SALE_INQUIRY_EDIT] },
         { nameof(SaleInquiriesController.UpdateLine),      "PUT",    "{uuid:guid}/lines/{lineUuid:guid}",    [PermissionCodes.SALE_INQUIRY_EDIT] },
         { nameof(SaleInquiriesController.DeleteLine),      "DELETE", "{uuid:guid}/lines/{lineUuid:guid}",    [PermissionCodes.SALE_INQUIRY_EDIT] },
+        // A34 D-16 / D-24 — the line ⏱ endpoint needs the document's EDIT code.
+        { nameof(SaleInquiriesController.CalculateLineLeadTime), "POST", "{uuid:guid}/lines/{lineUuid:guid}/lead-time", [PermissionCodes.SALE_INQUIRY_EDIT] },
         { nameof(SaleInquiriesController.ChangeStatus),    "PATCH",  "{uuid:guid}/status",                   [PermissionCodes.SALE_INQUIRY_EDIT] },
         { nameof(SaleInquiriesController.CreateQuotation), "POST",   "{uuid:guid}/create-quotation",         [PermissionCodes.SALE_QUOTATION_CREATE] },
     };

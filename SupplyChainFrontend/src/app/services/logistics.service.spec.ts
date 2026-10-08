@@ -70,6 +70,18 @@ describe('LogisticsService — deliveries', () => {
     req.flush({ success: true, message: '', result: null });
   });
 
+  it('A34: asks for the deliveries made from one production order (API-CONTRACT §8.3), and only when asked', () => {
+    service.getDeliveries({ productionOrderUuid: 'po-1' }).subscribe();
+    let req = http.expectOne(r => r.url === `${BASE}/deliveries`);
+    expect(req.request.params.get('productionOrderUuid')).toBe('po-1');
+    req.flush({ success: true, message: '', result: null });
+
+    service.getDeliveries({}).subscribe();
+    req = http.expectOne(r => r.url === `${BASE}/deliveries`);
+    expect(req.request.params.has('productionOrderUuid')).toBeFalse();
+    req.flush({ success: true, message: '', result: null });
+  });
+
   it('always sends paging, defaulting to the first page of twenty', () => {
     service.getDeliveries().subscribe();
 

@@ -22,6 +22,9 @@
         <p-checkbox inputId="frShowInactive" [binary]="true" [(ngModel)]="showInactive" data-testid="show-inactive"></p-checkbox>
         <label for="frShowInactive">Show deactivated ({{ inactiveCount }})</label>
       </div>
+      <p-select [options]="categoryFilterOptions" [(ngModel)]="categoryFilter" optionLabel="label" optionValue="value"
+                placeholder="All categories" styleClass="category-filter" appendTo="body" ariaLabel="Category"
+                data-testid="category-filter"></p-select>
       <span class="grow"></span>
       <span class="legend muted">
         <i class="pi pi-lock"></i> system route (steps locked, can't be deleted) ·
@@ -35,12 +38,13 @@
     </div>
 
     <p-table *ngIf="!loadFailed" [value]="visibleRoutes" [loading]="isLoading" dataKey="uuid" styleClass="p-datatable-sm"
-             [tableStyle]="{ 'min-width': '52rem' }">
+             [tableStyle]="{ 'min-width': '58rem' }">
       <ng-template pTemplate="header">
         <tr>
           <th style="width:11rem">Code</th>
           <th>Name</th>
           <th>Steps</th>
+          <th style="width:8rem">Category</th>
           <th style="width:8.5rem">Default</th>
           <th style="width:2.5rem"></th>
           <th style="width:7.5rem">Status</th>
@@ -55,6 +59,11 @@
             <small class="muted" *ngIf="r.description">{{ r.description }}</small>
           </td>
           <td class="chain" [pTooltip]="r.stepsText" tooltipPosition="top">{{ stepChain(r) }}</td>
+          <td [attr.data-testid]="'category-' + r.code">
+            <p-tag [value]="categoryLabel(r)" [severity]="categorySeverity(r)"
+                   [pTooltip]="isManufacture(r) ? 'Make to order: a production order at confirmation, the delivery when it completes' : ''"
+                   tooltipPosition="top"></p-tag>
+          </td>
           <td>
             <span class="default-mark" *ngIf="r.isDefault" [pTooltip]="defaultTooltip(r)" tooltipPosition="top"
                   [attr.data-testid]="'default-' + r.code">
@@ -75,7 +84,7 @@
                         pTooltip="Assign to category" tooltipPosition="top" (onClick)="openAssign(r)"
                         [attr.data-testid]="'assign-' + r.code"></p-button>
               <ng-container *ngIf="canManage">
-                <p-button *ngIf="r.isActive && !r.isDefault" icon="pi pi-star" [text]="true" [rounded]="true" size="small"
+                <p-button *ngIf="r.isActive && !r.isDefault && !isManufacture(r)" icon="pi pi-star" [text]="true" [rounded]="true" size="small"
                           pTooltip="Make default" tooltipPosition="top" [disabled]="!!busy[r.uuid]" (onClick)="confirmSetDefault(r)"
                           [attr.data-testid]="'set-default-' + r.code"></p-button>
                 <p-button *ngIf="r.isDefault" icon="pi pi-star-fill" [text]="true" [rounded]="true" size="small" severity="warn"
@@ -99,7 +108,7 @@
         </tr>
       </ng-template>
       <ng-template pTemplate="emptymessage">
-        <tr><td colspan="7" class="empty muted">No fulfillment routes.</td></tr>
+        <tr><td colspan="8" class="empty muted">No fulfillment routes.</td></tr>
       </ng-template>
     </p-table>
   </section>
@@ -109,7 +118,7 @@
           [(visible)]="editorVisible" [modal]="true" [draggable]="false" [style]="{ width: '46rem', maxWidth: '96vw' }"
           data-testid="dialog-route">
   <app-fulfillment-route-editor *ngIf="editorVisible" [route]="editing" [readOnly]="editorReadOnly" [routes]="routes"
-                                (saved)="onSaved($event)" (cancelled)="editorVisible = false"></app-fulfillment-route-editor>
+                                [manufacturingEnabled]="manufacturingEnabled" (saved)="onSaved($event)" (cancelled)="editorVisible = false"></app-fulfillment-route-editor>
 </p-dialog>
 
 <p-dialog [header]="'Assign ' + (assigning?.code ?? '') + ' to a category'" [(visible)]="assignVisible" [modal]="true"

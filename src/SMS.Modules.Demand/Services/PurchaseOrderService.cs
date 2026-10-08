@@ -1,6 +1,7 @@
 using Hangfire;
 using SMS.Modules.Demand.Models;
 using SMS.Modules.Demand.Repositories;
+using SMS.Shared.Common;
 using SMS.Shared.Exceptions;
 using SMS.Shared.Pagination;
 using SMS.WorkflowEngine.Jobs;
@@ -16,14 +17,24 @@ internal sealed class PurchaseOrderService : IPurchaseOrderService
     private readonly IWorkflowInboxService    _inbox;
     private readonly IBackgroundJobClient     _jobs;
     private readonly ITimelineService         _timeline;
+    private readonly ICurrencyService?        _currency;
+    private readonly IOrganizationCurrencyService? _orgCurrency;
+    private readonly ITenantContext?          _tenant;
 
     public PurchaseOrderService(
         IPurchaseOrderRepository repo,
         IWorkflowActionService   workflow,
         IWorkflowInboxService    inbox,
         IBackgroundJobClient     jobs,
-        ITimelineService         timeline)
+        ITimelineService         timeline,
+        ICurrencyService?        currency    = null,
+        IOrganizationCurrencyService? orgCurrency = null,
+        ITenantContext?          tenant      = null)
     {
+        // A35 — to refuse an approval whose rate cannot be locked BEFORE the workflow records it (D-5).
+        _currency    = currency;
+        _orgCurrency = orgCurrency;
+        _tenant      = tenant;
         _repo     = repo;
         _workflow = workflow;
         _inbox    = inbox;
@@ -185,6 +196,18 @@ internal sealed class PurchaseOrderService : IPurchaseOrderService
 
     public async Task ApproveAsync(Guid poUuid, int approvedBy, string? remarks = null)
     {
+        // A35 D-5 — the rate the approval will lock must exist, checked BEFORE the workflow records the approval (its
+        // status handler runs after the workflow's commit and can no longer refuse). Every tier is checked: a PO in a
+        // foreign currency cannot be approved at all without a rate for today.
+        if (_currency is not null && _tenant is not null && await _repo.GetByIdAsync(poUuid) is { ExchangeRate: null } pending)
+        {
+            var currencyId = pending.CurrencyId
+                ?? await DemandCurrency.BaseAsync(_orgCurrency, _tenant.OrganizationId, TransactionDomain.Purchase);
+            if (currencyId is { } cid)
+                await DemandCurrency.LockAsync(_currency, _orgCurrency, _tenant.OrganizationId, cid,
+                    DemandCurrency.Today(DateTime.UtcNow), TransactionDomain.Purchase);
+        }
+
         // Capture the tier being actioned before approving — CurrentStepNumber advances once approved.
         var activeApproval = await _inbox.GetActiveApprovalByDocumentAsync(poUuid);
         var tierStep        = activeApproval?.CurrentStepNumber;

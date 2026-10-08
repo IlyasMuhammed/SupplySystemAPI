@@ -188,8 +188,51 @@
         <p class="notes" *ngIf="d.notes">{{ d.notes }}</p>
       </div>
 
+      <!-- Where the goods leave from: the stored address, else the warehouse (sale-order deliveries store only that). -->
+      <div class="card" data-testid="ship-from-card">
+        <h3>Ship from</h3>
+        <p class="party-name" *ngIf="d.direction === 'INBOUND' && d.vendorName" data-testid="ship-from-party">{{ d.vendorName }}</p>
+        <p class="party-site" *ngIf="d.shipFromWarehouse as w" data-testid="ship-from-warehouse">
+          {{ w.name }} <span class="font-mono muted">{{ w.code }}</span>
+        </p>
+        <ng-container *ngIf="d.shipFromAddress as a; else warehouseAddress">
+          <address>
+            {{ a.line1 }}<br *ngIf="a.line2" />{{ a.line2 }}<br />
+            {{ a.cityName }}<span *ngIf="a.postalCode">, {{ a.postalCode }}</span><br />
+            {{ a.countryName }}
+          </address>
+          <p class="contact" *ngIf="a.contactName || a.contactPhoneE164">
+            {{ a.contactName }}
+            <span class="font-mono" *ngIf="a.contactPhoneE164"> {{ a.contactPhoneE164 }}</span>
+          </p>
+        </ng-container>
+        <ng-template #warehouseAddress>
+          <ng-container *ngIf="d.shipFromWarehouse as w; else noFromAddress">
+            <address *ngIf="w.address || w.city || w.country; else noFromAddress" data-testid="ship-from-warehouse-address">
+              <ng-container *ngIf="w.address">{{ w.address }}<br /></ng-container>
+              {{ w.city }}<span *ngIf="w.city && w.country">, </span>{{ w.country }}
+            </address>
+            <p class="contact" *ngIf="w.contactName || w.contactPhone">
+              {{ w.contactName }}
+              <span class="font-mono" *ngIf="w.contactPhone"> {{ w.contactPhone }}</span>
+            </p>
+          </ng-container>
+        </ng-template>
+        <ng-template #noFromAddress>
+          <p class="muted" data-testid="no-ship-from">
+            {{ d.shipFromWarehouse ? 'This warehouse has no address on file — add one in the warehouse settings.' : 'No ship-from address or warehouse recorded.' }}
+          </p>
+        </ng-template>
+      </div>
+
       <div class="card">
         <h3>Ship to</h3>
+        <p class="party-name" *ngIf="d.direction !== 'INBOUND' && (d.customerName || d.vendorName)" data-testid="ship-to-party">
+          {{ d.customerName || d.vendorName }}
+        </p>
+        <p class="party-site" *ngIf="d.shipToWarehouse as w">
+          {{ w.name }} <span class="font-mono muted">{{ w.code }}</span>
+        </p>
         <ng-container *ngIf="d.shipToAddress as a; else noAddress">
           <address>
             {{ a.line1 }}<br *ngIf="a.line2" />{{ a.line2 }}<br />

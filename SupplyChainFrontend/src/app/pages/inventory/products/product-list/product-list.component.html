@@ -85,6 +85,21 @@
         styleClass="filter-dropdown" appendTo="body">
       </p-dropdown>
 
+      <!-- A34-PA-10 — products whose variants have a route of this category -->
+      <p-dropdown
+        *ngIf="routesEnabled"
+        [options]="routeCategoryOptions"
+        [(ngModel)]="selectedRouteCategory"
+        optionLabel="label"
+        optionValue="value"
+        placeholder="All Routes"
+        (onChange)="onFilterChange()"
+        pTooltip="Products with at least one active variant on a route of this kind"
+        tooltipPosition="top"
+        styleClass="filter-dropdown" appendTo="body"
+        data-testid="route-category-filter">
+      </p-dropdown>
+
       <p-button
         icon="pi pi-refresh"
         severity="secondary"

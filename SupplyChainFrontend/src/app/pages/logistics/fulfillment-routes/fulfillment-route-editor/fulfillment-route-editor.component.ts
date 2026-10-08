@@ -5,18 +5,21 @@ import { ButtonModule } from 'primeng/button';
 import { CheckboxModule } from 'primeng/checkbox';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { InputTextModule } from 'primeng/inputtext';
+import { SelectModule } from 'primeng/select';
+import { TagModule } from 'primeng/tag';
 import { TextareaModule } from 'primeng/textarea';
 import { TooltipModule } from 'primeng/tooltip';
 import { Observable, of } from 'rxjs';
 import { catchError, map, switchMap } from 'rxjs/operators';
 
 import {
-  FULFILLMENT_STEP_LABELS, FulfillmentRouteModel, FulfillmentRoutesService, FulfillmentStepCode
+  FULFILLMENT_STEP_LABELS, FulfillmentRouteCategory, FulfillmentRouteModel, FulfillmentRoutesService, FulfillmentStepCode,
+  MANUFACTURE_ROUTE_NOTE, RouteCategoryOption, routeCategoryLabel, routeCategoryOf, routeCategoryOptions, routeCategorySeverity
 } from '../../../../services/fulfillment-routes.service';
 import {
-  MAX_ROUTE_CODE, MAX_ROUTE_DESCRIPTION, MAX_ROUTE_NAME, MAX_STEP_DESCRIPTION, RouteDraft, STEP_HINTS, addStep,
-  availableSteps, defaultClassLabel, draftFromRoute, draftProblem, emptyDraft, hasShipStep, isRequiredStep, removeStep,
-  routeStatusPath, stepRequests, stepsChanged
+  CategoryLock, MAX_ROUTE_CODE, MAX_ROUTE_DESCRIPTION, MAX_ROUTE_NAME, MAX_STEP_DESCRIPTION, RouteDraft, STEP_HINTS, addStep,
+  availableSteps, categoryLock, defaultClassLabel, draftFromRoute, draftProblem, emptyDraft, hasShipStep, isRequiredStep,
+  removeStep, routeStatusPath, stepRequests, stepsChanged
 } from '../fulfillment-routes.shared';
 
 /** What the editor reports once the route itself is saved. `warning`: the route saved but the default change didn't. */
@@ -35,12 +38,16 @@ export interface RouteSavedEvent {
  * - A system route's steps are locked (D-10): only name, description and order are sent.
  * - The preview shows the real delivery statuses (contract §8), not the spec's.
  * - "Set as default" is per class (L-1): calls set-default / clear-default after the route is saved.
+ * - A34-PA-09 category (contract §3): STOCK / MANUFACTURE, BUY and DROPSHIP disabled (D-7); read-only on a system route,
+ *   disabled on a default route (D-8; usage isn't on the model, so an in-use route gets the server's 409); a MANUFACTURE
+ *   route is never a default (D-6) and shows the §3.6 note; MANUFACTURE isn't offered without MODULE_MANUFACTURING (D-9).
  */
 @Component({
   selector: 'app-fulfillment-route-editor',
   standalone: true,
   imports: [
-    CommonModule, FormsModule, ButtonModule, CheckboxModule, InputNumberModule, InputTextModule, TextareaModule, TooltipModule
+    CommonModule, FormsModule, ButtonModule, CheckboxModule, InputNumberModule, InputTextModule, SelectModule, TagModule,
+    TextareaModule, TooltipModule
   ],
   templateUrl: './fulfillment-route-editor.component.html',
   styleUrls: ['./fulfillment-route-editor.component.scss']
@@ -52,6 +59,8 @@ export class FulfillmentRouteEditorComponent implements OnChanges {
   @Input() readOnly = false;
   /** Every route of the organization, to name the default a new default would replace. */
   @Input() routes: FulfillmentRouteModel[] = [];
+  /** The organization has MODULE_MANUFACTURING (D-9); without it MANUFACTURE isn't offered. */
+  @Input() manufacturingEnabled = true;
 
   @Output() saved = new EventEmitter<RouteSavedEvent>();
   @Output() cancelled = new EventEmitter<void>();
@@ -63,6 +72,9 @@ export class FulfillmentRouteEditorComponent implements OnChanges {
   readonly stepLabels = FULFILLMENT_STEP_LABELS;
   readonly stepHints = STEP_HINTS;
   readonly isRequired = isRequiredStep;
+  readonly manufactureNote = MANUFACTURE_ROUTE_NOTE;
+  readonly categoryLabel = routeCategoryLabel;
+  readonly categorySeverity = routeCategorySeverity;
 
   draft: RouteDraft = emptyDraft();
   submitted = false;
@@ -98,6 +110,22 @@ export class FulfillmentRouteEditorComponent implements OnChanges {
   /** set-default on an inactive route is a 400; the box stays as it is. */
   get canChangeDefault(): boolean { return !this.readOnly && (this.isNew || !!this.route?.isActive); }
 
+  get isManufacture(): boolean { return this.draft.routeCategory === 'MANUFACTURE'; }
+
+  get categoryOptions(): RouteCategoryOption[] {
+    return routeCategoryOptions(this.manufacturingEnabled, this.route ? routeCategoryOf(this.route) : null);
+  }
+
+  get categoryLock(): CategoryLock { return categoryLock(this.route); }
+
+  /** No change in read-only mode or on a locked route (D-8). MANUFACTURE drops "make default" (D-6). */
+  onCategoryChange(category: FulfillmentRouteCategory | null): void {
+    if (this.readOnly || this.categoryLock.disabled || !category) return;
+    if (!this.categoryOptions.some(o => o.value === category && !o.disabled)) return;
+    this.draft.routeCategory = category;
+    if (category === 'MANUFACTURE') this.draft.makeDefault = false;
+  }
+
   /** The route that is the default of this class today (not this one), if any. */
   get currentDefault(): FulfillmentRouteModel | null {
     return this.routes.find(r => r.isDefault && r.requiresShipping === this.shipsToCustomer && r.uuid !== this.route?.uuid) ?? null;
@@ -132,18 +160,21 @@ export class FulfillmentRouteEditorComponent implements OnChanges {
           description,
           displayOrder: d.displayOrder!,
           // System routes: locked (D-10). Custom routes: only when changed, so a name edit never races a step edit.
-          steps: original.isSystem || !stepsChanged(d.steps, original) ? null : stepRequests(d.steps)
+          steps: original.isSystem || !stepsChanged(d.steps, original) ? null : stepRequests(d.steps),
+          // A34: null = unchanged; never sent for a locked route (D-8).
+          routeCategory: this.categoryLock.disabled || d.routeCategory === routeCategoryOf(original) ? null : d.routeCategory
         })
       : this.service.createRoute({
           code: d.code.trim().toUpperCase(),
           name: d.name.trim(),
           description,
           displayOrder: d.displayOrder,
+          routeCategory: d.routeCategory,
           steps: stepRequests(d.steps)
         });
 
     save$.pipe(
-      switchMap(res => this.applyDefault(res.result, d.makeDefault))
+      switchMap(res => this.applyDefault(res.result, d.makeDefault && d.routeCategory !== 'MANUFACTURE'))
     ).subscribe({
       next: ({ route, warning }) => {
         this.isSaving = false;

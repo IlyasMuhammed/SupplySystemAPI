@@ -26,6 +26,13 @@ public class CreateSaleOrderLineRequest
     /// back on every update, because a draft's lines are rebuilt from the request.
     /// </summary>
     public Guid?   FulfillmentRouteUuid { get; set; }
+
+    // A34 D-15 / C-14: the line's lead time and manual date. A draft's lines are rebuilt from the request, so these are
+    // sent back on every update like the tax code and the route. Dates are date-only; days ≥ 0.
+    public DateTime? ManualDeliveryDate     { get; set; }
+    public int?      CalculatedLeadTimeDays { get; set; }
+    public DateTime? CalculatedDeliveryDate { get; set; }
+    public DateTime? LeadTimeCalculatedAt   { get; set; }
 }
 
 public class CreateSaleOrderRequest
@@ -77,6 +84,12 @@ public class QuotedSaleOrderLine
     public decimal DiscountPercent { get; set; }
     public decimal TaxPercent      { get; set; }
     public Guid?   TaxCodeUuid     { get; set; }
+
+    // A34 D-15: the quotation line's promised date becomes the order line's manual date; its calculation is copied.
+    public DateTime? ManualDeliveryDate     { get; set; }
+    public int?      CalculatedLeadTimeDays { get; set; }
+    public DateTime? CalculatedDeliveryDate { get; set; }
+    public DateTime? LeadTimeCalculatedAt   { get; set; }
 }
 
 /// <summary>
@@ -155,6 +168,17 @@ public class SaleOrderModel
     public decimal   TaxAmount              { get; set; }
     public decimal   DiscountAmount         { get; set; }
     public decimal   GrandTotal             { get; set; }
+    // A35 (API-CONTRACT §6) — the order's currency code and, once CONFIRMED, the locked rate (units of the sale base per
+    // 1 unit of the order currency), the base and the amounts in it. All null while DRAFT.
+    public string?   CurrencyCode           { get; set; }
+    public decimal?  ExchangeRate           { get; set; }
+    public Guid?     BaseCurrencyId         { get; set; }
+    public string?   BaseCurrencyCode       { get; set; }
+    public DateTime? RateLockedAt           { get; set; }
+    public decimal?  SubtotalBase           { get; set; }
+    public decimal?  TaxAmountBase          { get; set; }
+    public decimal?  DiscountAmountBase     { get; set; }
+    public decimal?  GrandTotalBase         { get; set; }
     public string    Status                 { get; set; } = string.Empty;
     public bool      RequiresShipment       { get; set; }
     public string    DeliveryMode           { get; set; } = string.Empty;
@@ -179,6 +203,11 @@ public class SaleOrderModel
     public bool      RoutesEnabled            { get; set; }
     /// <summary>Why the order cannot be confirmed yet; always empty unless DRAFT.</summary>
     public List<ConfirmBlockerModel> ConfirmBlockers { get; set; } = [];
+
+    // A34 (detail only, D-25 / D-17).
+    public List<SaleOrderProductionOrderModel> ProductionOrders { get; set; } = [];
+    /// <summary>ProductionCreationPendingSince is set: show the banner and "Create production orders".</summary>
+    public bool ProductionCreationPending { get; set; }
 }
 
 /// <summary>A33: one reason a DRAFT order cannot be confirmed (API-CONTRACT.md §5).</summary>
@@ -199,6 +228,12 @@ public static class ConfirmBlockerCodes
     public const string RouteUnknown            = "ROUTE_UNKNOWN";
     public const string ShippingAddressRequired = "SHIPPING_ADDRESS_REQUIRED";
     public const string SelfPickupDisabled      = "SELF_PICKUP_DISABLED";
+
+    // A34 D-5 (API-CONTRACT §6.2): a make-to-order line that cannot be made. One per line, first match in this order.
+    public const string ManufacturingDisabled      = "MANUFACTURING_DISABLED";
+    public const string NotManufactured            = "NOT_MANUFACTURED";
+    public const string BomMissing                 = "BOM_MISSING";
+    public const string ProductionWarehouseMissing = "PRODUCTION_WAREHOUSE_MISSING";
 }
 
 // ── A33 delivery preview (BR-C3-05), confirm and cancel results ─────────────
@@ -236,6 +271,8 @@ public class SaleOrderDeliveryPreviewModel
     public List<DeliveryPreviewLineModel>  Lines    { get; set; } = [];
     public List<DeliveryPreviewGroupModel> Groups   { get; set; } = [];
     public List<ConfirmBlockerModel>       Blockers { get; set; } = [];
+    /// <summary>A34 §6.3: make-to-order lines (not in <see cref="Groups"/>).</summary>
+    public List<DeliveryPreviewProductionLineModel> ProductionLines { get; set; } = [];
 }
 
 public class DeliveryPreviewLineModel
@@ -252,6 +289,8 @@ public class DeliveryPreviewLineModel
     public List<string> EffectiveRouteSteps { get; set; } = [];
     public string  RouteSource          { get; set; } = "NONE";
     public string? RouteBlocker         { get; set; }
+    /// <summary>A34: STOCK | MANUFACTURE; null without a route.</summary>
+    public string? EffectiveRouteCategory { get; set; }
 }
 
 /// <summary>One delivery confirming would create (route × ship-from warehouse; the warehouse only once stock is held).</summary>
@@ -296,6 +335,11 @@ public class SaleOrderConfirmResultModel
     /// <summary>The order is confirmed but its deliveries were not created: show DeliveryMessage and the recovery button.</summary>
     public bool    DeliveryCreationFailed { get; set; }
     public string? DeliveryMessage        { get; set; }
+
+    // A34 §6.4 (D-17).
+    public List<SaleOrderProductionOrderModel> ProductionOrders { get; set; } = [];
+    public bool    ProductionCreationFailed { get; set; }
+    public string? ProductionMessage        { get; set; }
 }
 
 public class SaleOrderDeliveryRefModel
@@ -310,6 +354,11 @@ public class SaleOrderCancelResultModel
 {
     public List<SaleOrderDeliveryRefModel> CancelledDeliveries { get; set; } = [];
     public List<SaleOrderDeliveryRefModel> IssuedDeliveries    { get; set; } = [];
+
+    // A34 §6.6 (D-22).
+    public List<SaleOrderProductionOrderModel> CancelledProductionOrders { get; set; } = [];
+    public List<SaleOrderProductionOrderModel> RunningProductionOrders   { get; set; } = [];
+    public int CancelledAllocationDemands { get; set; }
 }
 
 public class SaleOrderLineModel
@@ -332,6 +381,9 @@ public class SaleOrderLineModel
     /// <summary>The code's text as it was when picked, e.g. "GST17".</summary>
     public string?  TaxCode               { get; set; }
     public decimal  LineTotal             { get; set; }
+    /// <summary>A35 D-10 — in the sale base at the rate locked on CONFIRMED; null until then.</summary>
+    public decimal? UnitPriceBase         { get; set; }
+    public decimal? LineTotalBase         { get; set; }
     public decimal  FulfilledQty          { get; set; }
     public decimal  InvoicedQty           { get; set; }
     public string?  FulfillmentMode       { get; set; }
@@ -363,6 +415,105 @@ public class SaleOrderLineModel
     public string   RouteSource           { get; set; } = "NONE";
     /// <summary>A <see cref="ConfirmBlockerCodes"/> value when this line blocks confirmation.</summary>
     public string?  RouteBlocker          { get; set; }
+
+    // A34 (API-CONTRACT §5.1, §6.1).
+    /// <summary>STOCK | MANUFACTURE: live from the effective route while DRAFT, the confirm snapshot after; null without a route.</summary>
+    public string?   EffectiveRouteCategory { get; set; }
+    /// <summary>D-21: production accepted less than the line (= quantity on zero yield).</summary>
+    public decimal?  ProductionShortfallQty { get; set; }
+    public int?      CalculatedLeadTimeDays { get; set; }
+    public DateTime? CalculatedDeliveryDate { get; set; }
+    public DateTime? LeadTimeCalculatedAt   { get; set; }
+    public DateTime? ManualDeliveryDate     { get; set; }
+    /// <summary>manual ?? calculated (D-15), date-only.</summary>
+    public DateTime? EffectiveDeliveryDate  { get; set; }
+    /// <summary>MANUAL | CALCULATED | NONE.</summary>
+    public string    DeliveryDateSource     { get; set; } = DeliveryDateSources.None;
+}
+
+// ── A34 (API-CONTRACT §5, §6) ───────────────────────────────────────────────
+
+/// <summary>D-25: a SALES_ORDER-sourced production order of the order (make-to-order and A30 make-to-shortage).</summary>
+public class SaleOrderProductionOrderModel
+{
+    public Guid    ProductionOrderUuid  { get; set; }
+    public string  ProductionNumber     { get; set; } = string.Empty;
+    public Guid?   SoLineUuid           { get; set; }
+    /// <summary>1-based by line Id, as A33's "Line N".</summary>
+    public int?    LineNumber           { get; set; }
+    public string  Status               { get; set; } = string.Empty;
+    public decimal PlannedQuantity      { get; set; }
+    public decimal AcceptedQuantity     { get; set; }
+    public bool    IsMakeToOrder        { get; set; }
+    public Guid?   FulfillmentRouteUuid { get; set; }
+    public string? FulfillmentRouteCode { get; set; }
+    public string? FulfillmentRouteName { get; set; }
+    public Guid?   DeliveryOrderUuid    { get; set; }
+    public string? DeliveryNumber       { get; set; }
+    /// <summary>Only meaningful in confirm / create results.</summary>
+    public bool    Created              { get; set; }
+}
+
+/// <summary>§6.3: a make-to-order line of the preview; it gets a production order, not a delivery, at confirm.</summary>
+public class DeliveryPreviewProductionLineModel
+{
+    public Guid?   LineUuid        { get; set; }
+    public int     LineNumber      { get; set; }
+    public Guid    VariantUuid     { get; set; }
+    public string? ItemDescription { get; set; }
+    public decimal Quantity        { get; set; }
+    public Guid    RouteUuid       { get; set; }
+    public string  RouteCode       { get; set; } = string.Empty;
+    public string  RouteName       { get; set; } = string.Empty;
+    public List<string> Steps      { get; set; } = [];
+    public string  Message         { get; set; } = SaleOrderProductionMessages.PreviewLine;
+}
+
+/// <summary>§6.5: <c>POST api/sale-orders/{uuid}/create-production-orders</c>.</summary>
+public class SaleOrderProductionCreationResultModel
+{
+    public List<SaleOrderProductionOrderModel> ProductionOrders { get; set; } = [];
+    public bool    ProductionCreationFailed { get; set; }
+    public string? ProductionMessage        { get; set; }
+}
+
+/// <summary>§5.2: <c>PUT api/sale-orders/{uuid}/lines/{lineUuid}/delivery-date</c>; null clears the manual date.</summary>
+public class UpdateSaleOrderLineDeliveryDateRequest
+{
+    public DateTime? ManualDeliveryDate { get; set; }
+}
+
+public class SaleOrderLineDeliveryDateResultModel
+{
+    public SaleOrderLineModel Line { get; set; } = new();
+    /// <summary>The line already has a production order, planned for the earlier date and not rescheduled (D-16).</summary>
+    public bool    ProductionNotRescheduled { get; set; }
+    public string? Warning                  { get; set; }
+}
+
+/// <summary>§5.2: what a line ⏱ endpoint returns — the line with its new Calculated* fields, and the calculator's result.</summary>
+public class SaleLineLeadTimeModel<TLine> where TLine : class
+{
+    public TLine Line { get; set; } = null!;
+    public SMS.Shared.Common.LeadTimeResult LeadTime { get; set; } = null!;
+}
+
+public static class SaleOrderProductionMessages
+{
+    public const string PreviewLine = "A production order will be created; its delivery follows when production completes.";
+}
+
+/// <summary>A34 D-15: where a sales line's effective delivery date comes from.</summary>
+public static class DeliveryDateSources
+{
+    public const string Manual     = "MANUAL";
+    public const string Calculated = "CALCULATED";
+    public const string None       = "NONE";
+
+    public static DateTime? Effective(DateTime? manual, DateTime? calculated) => manual?.Date ?? calculated?.Date;
+
+    public static string Of(DateTime? manual, DateTime? calculated) =>
+        manual is not null ? Manual : calculated is not null ? Calculated : None;
 }
 
 // A29-P3-07 §4.5's /availability preview — what §4.3's confirm-time check would see right now,

@@ -77,22 +77,7 @@ export interface CarrierFilter {
   pageSize?: number;
 }
 
-// ── Shipment models ───────────────────────────────────────────────────────────
-
-export interface CreateShipmentRequest {
-  poUuid: string;
-  carrierUuid?: string;
-  shipmentType: string;
-  dispatchDate: string;
-  estimatedArrival: string;
-  trackingNumber?: string;
-  originWarehouseUuid?: string;
-  destinationAddress: string;
-  weightKg?: number;
-  volumeCbm?: number;
-  freightCost?: number;
-  notes?: string;
-}
+// ── Shipment models (legacy, read-only: creating one was retired — use Delivery → Consignment) ──
 
 export interface PatchShipmentRequest {
   shipmentType?: string;
@@ -325,6 +310,8 @@ export interface DeliveryListItemModel {
   lineSummary?: string | null;
   /** The sale order's customer (partner name); null for any other source. */
   customerName?: string | null;
+  /** A34 §8.3 — set on a delivery made from a completed make-to-order production order. */
+  productionOrderUuid?: string | null;
 }
 
 /** A33 — one node of the delivery's step tracker: the route's steps only, then COMPLETE (BR-C5-04). */
@@ -362,6 +349,18 @@ export interface DeliveryApprovalModel {
   alreadyApproved: boolean;
 }
 
+/** A warehouse as a delivery shows it (free-text address, as the warehouse master keeps it). */
+export interface DeliveryWarehouseModel {
+  uuid: string;
+  code: string;
+  name: string;
+  address?: string | null;
+  city?: string | null;
+  country?: string | null;
+  contactName?: string | null;
+  contactPhone?: string | null;
+}
+
 export interface DeliveryDetailModel {
   uuid: string;
   deliveryNumber: string;
@@ -384,6 +383,15 @@ export interface DeliveryDetailModel {
   pickedUpAt?: string;
   shipFromAddress?: AddressModel;
   shipToAddress?: AddressModel;
+  /**
+   * The warehouse the goods leave from, with its address: the header's, else the one the stock is held in. Shown under
+   * "Ship from" when no ship-from address was stored (sale-order deliveries store none). Null when it cannot be told.
+   */
+  shipFromWarehouse?: DeliveryWarehouseModel | null;
+  /** The warehouse the goods arrive at (a transfer); null otherwise. */
+  shipToWarehouse?: DeliveryWarehouseModel | null;
+  /** The supplier on a PO or supplier-return delivery; null otherwise. */
+  vendorName?: string | null;
   requestedDate?: string;
   promisedDate?: string;
   priority: string;
@@ -415,6 +423,8 @@ export interface DeliveryDetailModel {
   /** The CURRENT step's code. */
   nextStep?: string | null;
   nextActions?: DeliveryNextAction[];
+  /** A34 §8.3 — set on a delivery made from a completed make-to-order production order. */
+  productionOrderUuid?: string | null;
 }
 
 /** A consignment as the delivery sees it — enough to name it, link to it and show where it is. */
@@ -464,6 +474,8 @@ export interface DeliveryFilter {
   saleOrderUuid?: string;
   /** A33 — the deliveries on one fulfillment route. */
   fulfillmentRouteUuid?: string;
+  /** A34 §8.3 — the deliveries made from one production order (DELIVERY_VIEW). */
+  productionOrderUuid?: string;
   search?: string;
   fromDate?: string;
   toDate?: string;
@@ -1932,11 +1944,7 @@ export class LogisticsService {
     return this.http.delete<ApiResponse>(`${BASE}/carriers/${uuid}`);
   }
 
-  // ── Shipments ─────────────────────────────────────────────────────────────
-
-  createShipment(req: CreateShipmentRequest): Observable<ApiResponse<string>> {
-    return this.http.post<ApiResponse<string>>(`${BASE}/shipments`, req);
-  }
+  // ── Shipments (legacy) ────────────────────────────────────────────────────
 
   getShipments(filter: ShipmentFilter = {}): Observable<ApiResponse<PaginatedResponse<ShipmentListItemModel>>> {
     let params = new HttpParams();
@@ -1976,6 +1984,7 @@ export class LogisticsService {
     if (filter.sourceType) params = params.set('sourceType', filter.sourceType);
     if (filter.saleOrderUuid)        params = params.set('saleOrderUuid',        filter.saleOrderUuid);
     if (filter.fulfillmentRouteUuid) params = params.set('fulfillmentRouteUuid', filter.fulfillmentRouteUuid);
+    if (filter.productionOrderUuid)  params = params.set('productionOrderUuid',  filter.productionOrderUuid);
     if (filter.search)     params = params.set('search',     filter.search);
     if (filter.fromDate)   params = params.set('fromDate',   filter.fromDate);
     if (filter.toDate)     params = params.set('toDate',     filter.toDate);

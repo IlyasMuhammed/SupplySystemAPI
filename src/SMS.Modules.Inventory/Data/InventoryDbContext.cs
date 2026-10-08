@@ -40,6 +40,8 @@ internal sealed class InventoryDbContext : DbContext, ITenantScopedDbContext
     internal DbSet<AllocationSupply> AllocationSupplies => Set<AllocationSupply>();
     internal DbSet<AllocationRecord> AllocationRecords => Set<AllocationRecord>();
     internal DbSet<AllocationRule> AllocationRules => Set<AllocationRule>();
+    // A34 C3 (D-10) — one row per organization; a missing row reads as the system defaults.
+    internal DbSet<LeadTimeDefaults> LeadTimeDefaults => Set<LeadTimeDefaults>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

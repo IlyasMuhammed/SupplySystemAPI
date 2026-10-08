@@ -401,6 +401,8 @@ export interface CreatePoRequest {
   // Client-generated id so attachments uploaded before save can be linked via the same
   // DocumentId — becomes the PO's own UUID on save.
   poUuid?: string;
+  /** A35 — the PO currency (global lookups.Currencies id); omitted = supplier default → purchase base (D-14). */
+  currencyId?: string;
   // A31-C3/C9 — one of the backend's PurchaseOrderSources values (e.g. "PRODUCTION"). Defaults to
   // MANUAL server-side when left unset, matching every caller before this addendum.
   source?: string;
@@ -415,6 +417,8 @@ export interface PatchPoRequest {
   deliveryWarehouseName?: string;
   notes?: string;
   lines?: CreatePoLineRequest[];
+  /** A35 — changeable until the PO is approved (the rate locks then). */
+  currencyId?: string;
 }
 
 export interface PoListFilter {
@@ -437,6 +441,9 @@ export interface PoListItemModel {
   totalAmount: number;
   deliveryDate?: string;
   createdDate: string;
+  // A35 (API-CONTRACT.md §6) — optional for older servers.
+  currencyCode?: string | null;
+  totalAmountBase?: number | null;
 }
 
 export interface PoSearchItemModel {
@@ -477,6 +484,9 @@ export interface PoLineModel {
   effectiveWarehouseId?: string;
   effectiveWarehouseName?: string;
   requiresInspection: boolean;
+  // A35 — in the purchase base; null until the rate is locked at approval.
+  unitPriceBase?: number | null;
+  lineTotalBase?: number | null;
 }
 
 export interface PoDetailModel {
@@ -495,6 +505,15 @@ export interface PoDetailModel {
   createdDate: string;
   lines: PoLineModel[];
   linkedPrUuids: LinkedPrModel[];
+  // A35 (API-CONTRACT.md §6, D-10..D-12) — POs have a total only (no tax/subtotal). Base fields null until APPROVED.
+  currencyId?: string | null;
+  currencyCode?: string | null;
+  /** Units of the purchase base per 1 unit of the PO currency. */
+  exchangeRate?: number | null;
+  baseCurrencyId?: string | null;
+  baseCurrencyCode?: string | null;
+  rateLockedAt?: string | null;
+  totalAmountBase?: number | null;
 }
 
 export interface LinkedPrModel {

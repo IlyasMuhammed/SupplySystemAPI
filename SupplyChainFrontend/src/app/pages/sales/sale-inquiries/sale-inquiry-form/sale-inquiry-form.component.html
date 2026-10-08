@@ -17,7 +17,15 @@
         <p-autoComplete inputId="inqCustomer" [(ngModel)]="draft.customer" [suggestions]="customerSuggestions" field="companyName"
                         (completeMethod)="searchCustomers($event)" [dropdown]="true" [forceSelection]="true"
                         placeholder="Search customers by name…" styleClass="w-full" inputStyleClass="w-full"
-                        appendTo="body" data-testid="customer"></p-autoComplete>
+                        appendTo="body" data-testid="customer" (onSelect)="onCustomerSelected($event.value)"></p-autoComplete>
+      </div>
+
+      <!-- A35 — the currency the customer asks in; quotations made from the inquiry start in it. -->
+      <div class="field">
+        <label for="inqCurrency">Currency</label>
+        <p-select inputId="inqCurrency" [options]="currency.options" [formControl]="currencyControl" optionLabel="label"
+                  optionValue="value" [filter]="true" filterBy="label" placeholder="Sale base currency" styleClass="w-full"
+                  appendTo="body" data-testid="inquiry-currency"></p-select>
       </div>
 
       <div class="field">

@@ -3,3 +3,11 @@
 :host ::ng-deep .note { display: block; margin-bottom: 1rem; }
 .short-row td:first-child { box-shadow: inset 3px 0 0 var(--red-500, #ef4444); }
 .section-title { font-size: .9rem; font-weight: 700; margin: 0 0 .5rem; .sub { font-weight: 500; } }
+
+// A34 PE-06 — summary line, the auto-created delivery card.
+.production-summary { display: flex; flex-wrap: wrap; gap: 1.25rem; margin: .75rem 0; font-size: .9375rem; }
+.delivery-card { margin-bottom: 1.25rem; }
+.delivery-card-head { display: flex; align-items: center; gap: .5rem; }
+.delivery-row { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; padding: .375rem 0; border-bottom: 1px solid var(--surface-100); }
+.warn-text { color: var(--orange-700, #c2410c); font-size: .875rem; margin: .5rem 0 0; }
+:host ::ng-deep .mto-tag { margin-left: .5rem; font-size: .6875rem; }

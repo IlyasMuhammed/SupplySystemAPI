@@ -5,6 +5,17 @@
 .field input, .field textarea { width: 100%; }
 .order-field { max-width: 12rem; }
 
+// A34-PA-09 — category
+.category-wrap { display: inline-block; max-width: 16rem; }
+:host ::ng-deep .category-select { width: 16rem; max-width: 100%; }
+.category-readonly { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.manufacture-note {
+  display: flex; align-items: flex-start; gap: .5rem; font-size: .8125rem; line-height: 1.4;
+  color: var(--orange-800, #9a3412); background: var(--orange-50, #fff7ed); border: 1px solid var(--orange-200, #fed7aa);
+  border-radius: .375rem; padding: .5rem .625rem;
+}
+.manufacture-note .pi { margin-top: .15rem; }
+
 .section-head { display: flex; align-items: baseline; gap: .5rem; margin-bottom: .5rem; }
 .section-title { font-size: .8125rem; font-weight: 700; }
 .steps { border: 1px solid var(--surface-200); border-radius: .5rem; padding: .75rem; margin-bottom: .875rem; }

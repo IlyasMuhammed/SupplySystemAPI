@@ -1,6 +1,6 @@
 import {
-  FULFILLMENT_STEP_CODES, FulfillmentRouteModel, FulfillmentRouteStepRequest, FulfillmentStepCode, REQUIRED_FULFILLMENT_STEPS,
-  validateRouteSteps
+  ACTIVE_ROUTE_CATEGORIES, FULFILLMENT_STEP_CODES, FulfillmentRouteCategory, FulfillmentRouteModel, FulfillmentRouteStepRequest,
+  FulfillmentStepCode, REQUIRED_FULFILLMENT_STEPS, routeCategoryOf, validateRouteSteps
 } from '../../../services/fulfillment-routes.service';
 
 // A33 C1 — the route editor's rules, kept out of the components so they can be tested on their own
@@ -28,6 +28,15 @@ export interface RouteDraft {
   steps: RouteStepDraft[];
   /** Make (or keep) it the default of its class: shipping orders when it has SHIP, self-pickup orders otherwise (L-1). */
   makeDefault: boolean;
+  /** A34 C1. A MANUFACTURE route is never a default (D-6). */
+  routeCategory: FulfillmentRouteCategory;
+}
+
+/** How the editor shows the category (D-8): read-only on a system route, disabled on a default route, else editable. */
+export interface CategoryLock {
+  readOnly: boolean;
+  disabled: boolean;
+  reason: string | null;
 }
 
 /** Short labels for the list's step column ("Pick → GI → Ship"). */
@@ -88,9 +97,27 @@ const rank = (code: FulfillmentStepCode) => FULFILLMENT_STEP_CODES.indexOf(code)
 
 export function emptyDraft(): RouteDraft {
   return {
-    code: '', name: '', description: '', displayOrder: null, makeDefault: false,
+    code: '', name: '', description: '', displayOrder: null, makeDefault: false, routeCategory: 'STOCK',
     steps: REQUIRED_FULFILLMENT_STEPS.map(stepCode => ({ stepCode, isMandatory: true, description: '' }))
   };
+}
+
+/**
+ * D-8 — what the model tells us. Usage (variants, open sale order lines, open production orders) is not on the model
+ * (contract §3), so an in-use route stays editable here and the server's 409 explains it.
+ */
+export function categoryLock(route: FulfillmentRouteModel | null): CategoryLock {
+  if (route?.isSystem) {
+    return { readOnly: true, disabled: true, reason: 'A system route: its category can\'t be changed. Create a custom route instead.' };
+  }
+  if (route?.isDefault) {
+    return {
+      readOnly: false, disabled: true,
+      reason: `The default route for ${defaultClassLabel(route.requiresShipping)}: its category can't be changed. ` +
+        'Make another route the default first, or clear the default.'
+    };
+  }
+  return { readOnly: false, disabled: false, reason: null };
 }
 
 export function draftFromRoute(route: FulfillmentRouteModel): RouteDraft {
@@ -100,6 +127,7 @@ export function draftFromRoute(route: FulfillmentRouteModel): RouteDraft {
     description: route.description ?? '',
     displayOrder: route.displayOrder,
     makeDefault: route.isDefault,
+    routeCategory: routeCategoryOf(route),
     steps: [...route.steps]
       .sort((a, b) => a.stepOrder - b.stepOrder)
       .map(s => ({ stepCode: s.stepCode, isMandatory: s.isMandatory, description: s.description ?? '' }))
@@ -164,6 +192,16 @@ export function draftProblem(draft: RouteDraft, original: FulfillmentRouteModel 
   if (original && draft.displayOrder == null) return 'Order is required.';
   if (draft.displayOrder != null && (!Number.isInteger(draft.displayOrder) || draft.displayOrder < 0)) {
     return 'Order is a whole number, 0 or more.';
+  }
+
+  // A34 C1 — D-7 reserved categories, D-8 locked category, D-6 never a default.
+  if (!ACTIVE_ROUTE_CATEGORIES.includes(draft.routeCategory)) {
+    return `Route category '${draft.routeCategory}' is not yet available. Use STOCK or MANUFACTURE.`;
+  }
+  const lock = categoryLock(original);
+  if (original && lock.disabled && draft.routeCategory !== routeCategoryOf(original)) return lock.reason;
+  if (draft.routeCategory === 'MANUFACTURE' && draft.makeDefault) {
+    return 'A make-to-order (MANUFACTURE) route can\'t be a default: assign it to the variants that are made to order instead.';
   }
 
   if (original?.isSystem) return null;

@@ -16,6 +16,7 @@ internal sealed class InventoryService : IInventoryService
     private readonly IEnumerable<IVariantReferenceChecker> _variantCheckers;
     private readonly VariantQuickBooksPublisher? _quickBooks;
     private readonly IFulfillmentRouteLookup? _routeLookup;
+    private readonly ITenantContext? _tenantContext;
 
     /// <param name="quickBooks">
     /// Tells the QuickBooks gateway about variants after each save that changes what it would send. Optional
@@ -25,10 +26,11 @@ internal sealed class InventoryService : IInventoryService
     /// A33 — names each variant's fulfillment route on the product detail. Logistics registers it; without it the
     /// route uuid is still shown, with no code or name (D-11).
     /// </param>
+    /// <param name="tenantContext">A34 §4.3 — whose routes the <c>routeCategory</c> filter reads (the caller's own organization).</param>
     public InventoryService(
         IInventoryRepository repo, IProductSearchIndexService searchIndex, IBackgroundJobClient jobs,
         IEnumerable<IVariantReferenceChecker> variantCheckers, VariantQuickBooksPublisher? quickBooks = null,
-        IFulfillmentRouteLookup? routeLookup = null)
+        IFulfillmentRouteLookup? routeLookup = null, ITenantContext? tenantContext = null)
     {
         _repo            = repo;
         _searchIndex     = searchIndex;
@@ -36,6 +38,7 @@ internal sealed class InventoryService : IInventoryService
         _variantCheckers = variantCheckers;
         _quickBooks      = quickBooks;
         _routeLookup     = routeLookup;
+        _tenantContext   = tenantContext;
     }
 
     // After the repository's own save has committed. Neither throws (see the publisher).
@@ -82,8 +85,28 @@ internal sealed class InventoryService : IInventoryService
 
     // ── Products ──────────────────────────────────────────────────────────────
 
-    public Task<PaginatedResponse<ProductListItemModel>> GetProductsAsync(ProductListFilter filter)
-        => _repo.GetProductsAsync(filter);
+    public async Task<PaginatedResponse<ProductListItemModel>> GetProductsAsync(ProductListFilter filter)
+    {
+        if (!string.IsNullOrWhiteSpace(filter.RouteCategory))
+            filter.RouteUuids = await RouteUuidsOfCategoryAsync(filter.RouteCategory);
+        return await _repo.GetProductsAsync(filter);
+    }
+
+    // A34 §4.3 — the caller's own organization's active routes of the category (routes live in Logistics, so the
+    // repository filters variants by these uuids). No Logistics in the host: no routes, so nothing matches.
+    private async Task<IReadOnlyList<Guid>> RouteUuidsOfCategoryAsync(string requested)
+    {
+        var category = requested.Trim().ToUpperInvariant();
+        if (!FulfillmentRouteCategory.IsKnown(category))
+            throw new BadRequestException(
+                $"Unknown route category '{requested.Trim()}'. Categories are {string.Join(", ", FulfillmentRouteCategory.All)}.");
+
+        var org = _tenantContext?.OrganizationId ?? Guid.Empty;
+        if (_routeLookup is null || org == Guid.Empty) return [];
+
+        var routes = await _routeLookup.ListActiveAsync(org);
+        return routes.Where(r => r.Category == category).Select(r => r.Uuid).ToList();
+    }
 
     public async Task<ProductDetailModel?> GetProductByIdAsync(int id)
     {
@@ -107,6 +130,9 @@ internal sealed class InventoryService : IInventoryService
                 if (!routes.TryGetValue(variant.FulfillmentRouteUuid!.Value, out var route)) continue;
                 variant.FulfillmentRouteCode = route.Code;
                 variant.FulfillmentRouteName = route.Name;
+                // A34 §4.1 (D-4) — the "Make to order" tag.
+                variant.FulfillmentRouteCategory = route.Category;
+                variant.IsMakeToOrder            = route.IsManufacture;
             }
         }
     }

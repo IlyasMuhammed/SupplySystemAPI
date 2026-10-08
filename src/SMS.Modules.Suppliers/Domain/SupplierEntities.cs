@@ -40,7 +40,10 @@ internal class BusinessPartner : ITenantScopedEntity
 
     // ── Preferences (optional) ────────────────────────────────────────────────
     public Guid? PreferredPaymentTerms { get; set; }
+    /// <summary>A35 D-9 — also the partner's default PURCHASE currency (API alias <c>defaultPurchaseCurrencyId</c>).</summary>
     public Guid? PreferredCurrency { get; set; }
+    /// <summary>A35 D-9 — default currency of sale documents for this partner; null = the organization's sale base.</summary>
+    public Guid? DefaultSaleCurrency { get; set; }
 
     // ── Financial ─────────────────────────────────────────────────────────────
     public decimal? CreditLimit { get; set; }

@@ -427,4 +427,49 @@ public class SaleOrderDeliveryCreatorTests
             .Should().Be(7m, "its own 6 plus the 1 nothing holds yet, with the larger hold");
         deliveries.Single(d => d.ShipFromWarehouseUuid == lhr).Lines.Single().QtyOrdered.Should().Be(3m);
     }
+
+    // ── A34 PD-02 (C-3) — make-to-order lines get their delivery from production, never here ──
+
+    [Fact]
+    public async Task PD_02_a_line_on_a_manufacture_route_is_skipped_and_the_stock_lines_still_get_their_delivery()
+    {
+        var h = await NewHarness();
+        var (so, lines) = await SeedOrder(h, lines:
+        [
+            new L("PICK_AND_SHIP"),
+            new L("MFG_PICK_SHIP", Mode: "MAKE_TO_ORDER", Status: "OPEN"),
+            new L("MFG_PICK_PACK_SHIP", Mode: "MAKE_TO_ORDER", Status: "OPEN")
+        ]);
+
+        // Confirm, the D-12 sweep and "Create deliveries" all come through here; a replay changes nothing.
+        for (var call = 0; call < 2; call++)
+        {
+            var result = await h.Creator.CreateForConfirmedOrderAsync(h.OrgId, so.UUID, RoutesOf(lines), User);
+
+            var made = result.Skipped.Where(s => s.SoLineUuid != lines[0].UUID).ToList();
+            made.Select(s => s.SoLineUuid).Should().BeEquivalentTo([lines[1].UUID, lines[2].UUID]);
+            made.Select(s => s.Reason).Should().Equal(
+                "Line 2 is made to order: its delivery is created when its production order completes.",
+                "Line 3 is made to order: its delivery is created when its production order completes.");
+            if (call == 0) result.Created.Should().ContainSingle().Which.RouteCode.Should().Be("PICK_AND_SHIP");
+            else           result.Created.Should().BeEmpty();
+        }
+
+        var deliveries = await Deliveries(h, so.UUID);
+        deliveries.Should().ContainSingle();
+        deliveries.Single().Lines.Single().SoLineUuid.Should().Be(lines[0].UUID);
+    }
+
+    [Fact]
+    public async Task PD_02_an_order_whose_lines_are_all_made_to_order_gets_no_delivery_and_no_error()
+    {
+        var h = await NewHarness();
+        var (so, lines) = await SeedOrder(h, lines: [new L("MFG_PICK_SHIP", Mode: "MAKE_TO_ORDER", Status: "OPEN")]);
+
+        var result = await h.Creator.CreateForConfirmedOrderAsync(h.OrgId, so.UUID, RoutesOf(lines), User);
+
+        result.Created.Should().BeEmpty();
+        result.Skipped.Should().ContainSingle().Which.Reason.Should().Contain("made to order");
+        (await Deliveries(h, so.UUID)).Should().BeEmpty();
+    }
 }

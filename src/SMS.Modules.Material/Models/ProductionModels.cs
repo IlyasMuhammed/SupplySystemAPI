@@ -103,6 +103,24 @@ public class ProductionOrderListItemModel
     public int       ShortMaterialCount      { get; set; }
     public DateTime  CreatedAt               { get; set; }
     public DateTime  UpdatedAt               { get; set; }
+
+    // ── A34 (D-18, API-CONTRACT §7) — make to order and the delivery made from the order ──
+    /// <summary>Made to order for a sale order line: <see cref="FulfillmentRouteUuid"/> is set (only the A34 path sets it).</summary>
+    public bool      IsMakeToOrder            { get; set; }
+    public Guid?     FulfillmentRouteUuid     { get; set; }
+    /// <summary>Code, name and category through IFulfillmentRouteLookup (also for a route deactivated since); null when unknown.</summary>
+    public string?   FulfillmentRouteCode     { get; set; }
+    public string?   FulfillmentRouteName     { get; set; }
+    public string?   FulfillmentRouteCategory { get; set; }
+    /// <summary>The latest delivery created from this order (live status: GET api/logistics/deliveries?productionOrderUuid=).</summary>
+    public Guid?     DeliveryOrderUuid        { get; set; }
+    public string?   DeliveryNumber           { get; set; }
+    /// <summary>The delivery handoff has not settled yet; the sweep retries it.</summary>
+    public bool      DeliveryCreationPending  { get; set; }
+    /// <summary>1-based position of the sale order line (by line id, as A33's "Line N"), when SourceType is SALES_ORDER.</summary>
+    public int?      SaleOrderLineNumber      { get; set; }
+    /// <summary>Make to order only: planned − accepted once COMPLETED (when above zero), or the planned quantity on zero yield.</summary>
+    public decimal?  ShortfallQuantity        { get; set; }
 }
 
 public class ProductionMaterialModel

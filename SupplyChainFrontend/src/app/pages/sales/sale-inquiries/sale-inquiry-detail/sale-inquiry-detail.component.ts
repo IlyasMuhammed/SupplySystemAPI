@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -18,7 +18,9 @@ import {
   SALES_ATTACHMENT_CODES
 } from '../../../../services/sales-preorder.service';
 import { UserService } from '../../../../services/user.service';
-import { CurrenciesService } from '../../../../services/currencies.service';
+import { CurrenciesService, CurrencyModel } from '../../../../services/currencies.service';
+import { MoneyService } from '../../../../services/money.service';
+import { orgActiveCurrencyOptions } from '../../../../shared/doc-currency/doc-currency-picker';
 import { AuthService } from '../../../service/auth.service';
 import { AttachmentListComponent } from '../../../../shared/attachment-list/attachment-list.component';
 import { SaleInquiryLinesComponent } from '../sale-inquiry-lines/sale-inquiry-lines.component';
@@ -101,6 +103,9 @@ export class SaleInquiryDetailComponent implements OnInit {
   quotationError = '';
   currencyOptions: { label: string; value: string }[] = [];
   private currenciesRequested = false;
+  /** A35 D-1 — the global catalogue; the dialog offers the org's active currencies plus the inquiry's own. */
+  private currencyCatalog: CurrencyModel[] = [];
+  private readonly money = inject(MoneyService);
 
   constructor(
     private route: ActivatedRoute,
@@ -337,11 +342,19 @@ export class SaleInquiryDetailComponent implements OnInit {
       this.currenciesRequested = true;
       this.currenciesService.getAll().subscribe({
         next: (res) => {
-          this.currencyOptions = (res.result ?? []).map((c: any) => ({ label: c.code ? `${c.name} (${c.code})` : c.name, value: c.id }));
+          this.currencyCatalog = res.result ?? [];
+          this.rebuildCurrencyOptions();
         },
         error: () => { this.currenciesRequested = false; }
       });
+      this.money.load().subscribe(() => this.rebuildCurrencyOptions());
     }
+  }
+
+  /** Org-active currencies, keeping the inquiry's own (the server's default for the quotation) even if deactivated since. */
+  private rebuildCurrencyOptions() {
+    const keep = this.quotation.currencyId ?? this.inquiry?.currencyId ?? null;
+    this.currencyOptions = orgActiveCurrencyOptions(this.money, this.currencyCatalog, keep);
   }
 
   /** Supplied lines (CAN_SUPPLY / PARTIAL) with no catalogue item cannot be quoted (contract §4.1). */

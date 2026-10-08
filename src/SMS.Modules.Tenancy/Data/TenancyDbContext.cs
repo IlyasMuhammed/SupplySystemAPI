@@ -13,6 +13,7 @@ internal sealed class TenancyDbContext : DbContext
     internal DbSet<PlanFeatureTemplate> PlanFeatureTemplates => Set<PlanFeatureTemplate>();
     internal DbSet<OrganizationSettings> OrganizationSettings => Set<OrganizationSettings>();
     internal DbSet<SuperAdminUser> SuperAdminUsers => Set<SuperAdminUser>();
+    internal DbSet<OrganizationCurrencySettings> OrganizationCurrencySettings => Set<OrganizationCurrencySettings>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

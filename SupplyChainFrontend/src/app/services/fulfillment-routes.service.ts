@@ -23,6 +23,79 @@ export const FULFILLMENT_STEP_LABELS: Record<FulfillmentStepCode, string> = {
   SHIP: 'Ship'
 };
 
+// ── A34 C1 — route category (docs/route-classification/API-CONTRACT.md) ─────────────────────────────────────
+
+/**
+ * What a route is for (BR-C1-01). STOCK ships from stock (A33 behaviour); MANUFACTURE is make-to-order (D-1). BUY and
+ * DROPSHIP are reserved: the server refuses them (D-7), the editor shows them disabled.
+ */
+export type FulfillmentRouteCategory = 'STOCK' | 'MANUFACTURE' | 'BUY' | 'DROPSHIP';
+
+export const ROUTE_CATEGORIES: readonly FulfillmentRouteCategory[] = ['STOCK', 'MANUFACTURE', 'BUY', 'DROPSHIP'];
+/** The categories a route can be created with or changed to today. */
+export const ACTIVE_ROUTE_CATEGORIES: readonly FulfillmentRouteCategory[] = ['STOCK', 'MANUFACTURE'];
+
+const ROUTE_CATEGORY_LABELS: Record<FulfillmentRouteCategory, string> = {
+  STOCK: 'Stock', MANUFACTURE: 'Manufacture', BUY: 'Buy', DROPSHIP: 'Drop ship'
+};
+
+export const RESERVED_CATEGORY_TOOLTIP = 'Reserved for future release';
+
+/** Spec §3.6 — shown in the editor while MANUFACTURE is chosen. */
+export const MANUFACTURE_ROUTE_NOTE = 'Products with this route will trigger a Production Order at Sale Order confirmation. ' +
+  'Delivery is created after production completes.';
+
+export interface RouteCategoryOption {
+  label: string;
+  value: FulfillmentRouteCategory;
+  disabled: boolean;
+  tooltip?: string;
+}
+
+/** A route saved before A34 (or a model without the field) is STOCK, the column's default. */
+export function routeCategoryOf(route: { routeCategory?: string | null } | null | undefined): FulfillmentRouteCategory {
+  return (route?.routeCategory as FulfillmentRouteCategory | null | undefined) ?? 'STOCK';
+}
+
+export function routeCategoryLabel(category: string | null | undefined): string {
+  return ROUTE_CATEGORY_LABELS[(category ?? 'STOCK') as FulfillmentRouteCategory] ?? category ?? '';
+}
+
+/** The badge colour: STOCK green, MANUFACTURE orange, anything else grey. */
+export function routeCategorySeverity(category: string | null | undefined): 'success' | 'warn' | 'secondary' {
+  switch (category ?? 'STOCK') {
+    case 'STOCK':       return 'success';
+    case 'MANUFACTURE': return 'warn';
+    default:            return 'secondary';
+  }
+}
+
+/**
+ * The editor's category dropdown: STOCK and MANUFACTURE, then BUY and DROPSHIP disabled (D-7). Without
+ * MODULE_MANUFACTURING, MANUFACTURE is left out (D-9) unless the route already has it.
+ */
+export function routeCategoryOptions(manufacturingEnabled: boolean, current?: string | null): RouteCategoryOption[] {
+  return ROUTE_CATEGORIES
+    .filter(c => c !== 'MANUFACTURE' || manufacturingEnabled || current === 'MANUFACTURE')
+    .map(c => ACTIVE_ROUTE_CATEGORIES.includes(c)
+      ? { label: ROUTE_CATEGORY_LABELS[c], value: c, disabled: false }
+      : { label: ROUTE_CATEGORY_LABELS[c], value: c, disabled: true, tooltip: RESERVED_CATEGORY_TOOLTIP });
+}
+
+/** D-9 — MANUFACTURE routes are hidden from an organization without MODULE_MANUFACTURING. */
+export function routesVisibleToOrg<T extends { routeCategory?: string | null }>(routes: readonly T[], manufacturingEnabled: boolean): T[] {
+  return routes.filter(r => manufacturingEnabled || routeCategoryOf(r) !== 'MANUFACTURE');
+}
+
+/**
+ * D-3 / D-9 — the routes a variant may be given: MANUFACTURE routes only when the product's supply method is
+ * MANUFACTURE and the organization has MODULE_MANUFACTURING (the server refuses the rest with 400).
+ */
+export function routesForVariant<T extends { routeCategory?: string | null }>(
+  routes: readonly T[], productManufactured: boolean, manufacturingEnabled: boolean): T[] {
+  return routes.filter(r => routeCategoryOf(r) !== 'MANUFACTURE' || (productManufactured && manufacturingEnabled));
+}
+
 /** Where a sale order line's route came from (BR-C3-03). */
 export type FulfillmentRouteSource = 'LINE_OVERRIDE' | 'VARIANT' | 'ORG_DEFAULT' | 'NONE';
 
@@ -57,6 +130,8 @@ export interface FulfillmentRouteModel {
   isSystem: boolean;
   requiresPacking: boolean;
   requiresShipping: boolean;
+  /** A34 C1. Absent / null reads as STOCK (see routeCategoryOf). */
+  routeCategory?: FulfillmentRouteCategory | null;
   displayOrder: number;
   /** In step order. */
   steps: FulfillmentRouteStepModel[];
@@ -84,6 +159,8 @@ export interface CreateFulfillmentRouteRequest {
   description?: string | null;
   /** Last + 10 when omitted. */
   displayOrder?: number | null;
+  /** A34: STOCK when omitted; BUY / DROPSHIP are refused (D-7). */
+  routeCategory?: FulfillmentRouteCategory | null;
   steps: FulfillmentRouteStepRequest[];
 }
 
@@ -93,6 +170,8 @@ export interface UpdateFulfillmentRouteRequest {
   description?: string | null;
   displayOrder: number;
   steps?: FulfillmentRouteStepRequest[] | null;
+  /** A34: null / omitted = unchanged. A change on a system, default or in-use route is a 409 (D-8). */
+  routeCategory?: FulfillmentRouteCategory | null;
 }
 
 /** POST /api/fulfillment-routes/{uuid}/assign-by-category (Inventory) — only variants with no route are set (BR-C2-02). */
@@ -142,10 +221,11 @@ export class FulfillmentRoutesService {
 
   constructor(private http: HttpClient) {}
 
-  /** Active routes by display order (all of them with includeInactive, for the settings screen). */
-  getRoutes(includeInactive = false): Observable<ApiResponse<FulfillmentRouteModel[]>> {
+  /** Active routes by display order (all of them with includeInactive, for the settings screen); A34: of one category. */
+  getRoutes(includeInactive = false, category?: FulfillmentRouteCategory | null): Observable<ApiResponse<FulfillmentRouteModel[]>> {
     let params = new HttpParams();
     if (includeInactive) params = params.set('includeInactive', 'true');
+    if (category) params = params.set('category', category);
     return this.http.get<ApiResponse<FulfillmentRouteModel[]>>(this.baseUrl, { params });
   }
 

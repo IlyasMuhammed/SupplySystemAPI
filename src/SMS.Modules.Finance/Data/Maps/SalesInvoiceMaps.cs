@@ -50,9 +50,10 @@ internal sealed class SalesInvoiceMap : IEntityTypeConfiguration<SalesInvoice>
         b.Property(x => x.IsActive).HasDefaultValue(true);
 
         // SAP alignment — currency snapshot at issue, and the reversal record.
-        b.Property(x => x.ExchangeRate).HasColumnType("decimal(18,8)");
+        // A35 D-10: rates keep 10 places (CurrencyConventions.RateDecimals), base amounts 4 (base currencies may have 3).
+        b.Property(x => x.ExchangeRate).HasColumnType("decimal(18,10)");
         b.Property(x => x.BaseCurrencyCode).HasMaxLength(10);
-        b.Property(x => x.BaseGrandTotal).HasColumnType("decimal(18,2)");
+        b.Property(x => x.BaseGrandTotal).HasColumnType("decimal(18,4)");
         b.Property(x => x.CancellationReason).HasMaxLength(500);
 
         // Optimistic concurrency without a new column: every writer that changes an invoice sets

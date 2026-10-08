@@ -1,5 +1,6 @@
 using Hangfire;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using SMS.Modules.Material.Data;
 using SMS.Modules.Material.Domain;
 using SMS.Modules.Material.Models;
@@ -34,10 +35,15 @@ internal sealed class QualityInspectionService : IQualityInspectionService
     private readonly IDocumentNumberGenerator   _numbers;
     private readonly IBackgroundJobClient?      _jobs;
     private readonly IManufacturingNotificationService? _notify;
+    private readonly ISaleOrderProductionFeedback?      _feedback;
+    private readonly ILogger<QualityInspectionService>? _log;
 
     public QualityInspectionService(MaterialDbContext db, IProductionOrderRepository orders, IDocumentNumberGenerator numbers,
-        IBackgroundJobClient? jobs = null, IManufacturingNotificationService? notify = null)
+        IBackgroundJobClient? jobs = null, IManufacturingNotificationService? notify = null,
+        ISaleOrderProductionFeedback? feedback = null, ILogger<QualityInspectionService>? log = null)
     {
+        _feedback = feedback;
+        _log      = log;
         _db      = db;
         _orders  = orders;
         _numbers = numbers;
@@ -133,7 +139,28 @@ internal sealed class QualityInspectionService : IQualityInspectionService
 
         if (_notify is not null) await _notify.QualityInspectionCompletedAsync(po, qi);
 
+        // A34 D-21 — zero yield on a make-to-order order: no receipt can follow (nothing to receive), so this is the only
+        // moment the sale order can learn it gets nothing from this order. A QI is recorded once per order, so once.
+        if (accepted == 0m && po.IsMakeToOrder) await ReportZeroYieldAsync(po, userId, ct);
+
         return qi.UUID;
+    }
+
+    private async Task ReportZeroYieldAsync(ProductionOrder po, int userId, CancellationToken ct)
+    {
+        try
+        {
+            if (_notify is not null) await _notify.ProductionZeroYieldAsync(po);
+            // The PO's own organization, not the caller's (R-11); nothing is held here (the QI is committed).
+            if (_feedback is not null)
+                await _feedback.RecordOutcomeAsync(po.OrganizationId, new ProductionOutcome(
+                    po.SourceUuid!.Value, po.SourceLineUuid!.Value, po.UUID, po.ProductionNumber,
+                    po.PlannedQuantity, 0m, null, ZeroYield: true, Completed: false), userId, ct);
+        }
+        catch (Exception ex)
+        {
+            _log?.LogWarning(ex, "Zero yield on {ProductionNumber} could not be reported to its sale order.", po.ProductionNumber);
+        }
     }
 
     public async Task<QualityInspectionModel?> GetAsync(Guid uuid)

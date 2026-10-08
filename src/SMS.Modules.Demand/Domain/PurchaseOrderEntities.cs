@@ -43,6 +43,17 @@ internal class PurchaseOrder : ITenantScopedEntity
     // suppliers.BusinessPartners.UUID — cross-module reference, no FK constraint.
     public Guid?    AutoSelectedSupplierId     { get; set; }
 
+    // A35 D-10/D-12 — a PO's currency (Lookups currency UUID), new in A35: before it every PO was implicitly in the
+    // org's base, and the migration backfills that. Defaulted from the supplier's default purchase currency, else the
+    // org's purchase base (D-14). Null only on a legacy row the migration could not resolve (read as the purchase base).
+    // The rate (units of the purchase base per 1 unit of CurrencyId) and TotalAmountBase are locked at APPROVED and
+    // never recalculated (BR-C5-06); null = not locked yet. POs carry no tax and no subtotal, so only the total.
+    public Guid?     CurrencyId                { get; set; }
+    public decimal?  ExchangeRate              { get; set; }
+    public Guid?     BaseCurrencyId            { get; set; }
+    public DateTime? RateLockedAt              { get; set; }
+    public decimal?  TotalAmountBase           { get; set; }
+
     public ICollection<PurchaseOrderLine> Lines { get; set; } = new List<PurchaseOrderLine>();
     public ICollection<PurchaseOrderPrLink> PrLinks { get; set; } = new List<PurchaseOrderPrLink>();
 }
@@ -92,6 +103,9 @@ internal class PurchaseOrderLine : ITenantScopedEntity
     // Decided at PO creation; inherited by the GRN line when goods are received — QC is
     // skipped entirely for lines where this is false.
     public bool RequiresInspection { get; set; } = true;
+    /// <summary>A35 D-10 — UnitPrice / LineTotal × the PO's locked rate, at the purchase base's decimals; null until APPROVED.</summary>
+    public decimal? UnitPriceBase { get; set; }
+    public decimal? LineTotalBase { get; set; }
     public PurchaseOrder PurchaseOrder { get; set; } = null!;
 
     [System.ComponentModel.DataAnnotations.Schema.NotMapped]

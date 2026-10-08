@@ -37,6 +37,10 @@ internal sealed class PurchaseOrderMap : IEntityTypeConfiguration<PurchaseOrder>
         b.HasIndex(x => new { x.OrganizationId, x.TraceId });
         b.HasIndex(x => new { x.LinkedSoId, x.LinkedSoLineId });
 
+        // A35 D-10/D-11 — currency + the rate locked at APPROVED (null = not locked) and the total in the purchase base.
+        b.Property(x => x.ExchangeRate).HasColumnType("decimal(18,10)");
+        b.Property(x => x.TotalAmountBase).HasColumnType("decimal(18,4)");
+
         b.HasMany(x => x.Lines)
          .WithOne(x => x.PurchaseOrder)
          .HasForeignKey(x => x.PurchaseOrderId)
@@ -70,6 +74,8 @@ internal sealed class PurchaseOrderLineMap : IEntityTypeConfiguration<PurchaseOr
         b.Property(x => x.BudgetCode).HasMaxLength(50);
         b.Property(x => x.WarehouseName).HasMaxLength(150);
         b.Property(x => x.RequiresInspection).HasDefaultValue(true);
+        b.Property(x => x.UnitPriceBase).HasColumnType("decimal(18,4)"); // A35 D-10
+        b.Property(x => x.LineTotalBase).HasColumnType("decimal(18,4)");
         b.Property(x => x.OrganizationId).IsRequired();
         b.HasIndex(x => x.OrganizationId);
     }

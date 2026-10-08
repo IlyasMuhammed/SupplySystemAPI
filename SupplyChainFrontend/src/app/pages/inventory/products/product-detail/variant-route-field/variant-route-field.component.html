@@ -7,13 +7,36 @@
   <ng-container *ngIf="!loadFailed; else failed">
     <p-select inputId="variantRoute" [options]="options" [ngModel]="value" (ngModelChange)="onChange($event)"
               optionLabel="label" optionValue="value" [showClear]="clearable" [disabled]="!canAssign" [loading]="loading"
-              placeholder="No route" appendTo="body" styleClass="w-full" data-testid="route-select"></p-select>
-    <small class="steps" *ngIf="selected?.stepsText" data-testid="route-steps">Steps: {{ selected!.stepsText }}</small>
+              placeholder="No route" appendTo="body" styleClass="w-full" data-testid="route-select">
+      <ng-template let-option #item>
+        <span class="route-option">
+          {{ option.label }}
+          <p-tag *ngIf="option.category === 'MANUFACTURE'" value="Manufacture" severity="warn" styleClass="mini-tag"></p-tag>
+        </span>
+      </ng-template>
+    </p-select>
+    <div class="route-meta" *ngIf="selected && !selected.inactive">
+      <span data-testid="route-category">
+        <p-tag [value]="categoryLabel(selected.category)" [severity]="categorySeverity(selected.category)"></p-tag>
+      </span>
+      <small class="steps" *ngIf="selected.stepsText" data-testid="route-steps">Steps: {{ selected.stepsText }}</small>
+    </div>
+    <small class="hint" *ngIf="selected?.category === 'MANUFACTURE' && !selected?.notAllowed" data-testid="route-make-to-order">
+      Make to order: confirming a sale order raises a production order for the full quantity; the delivery is created when
+      it completes.
+    </small>
+    <small class="hint warn" *ngIf="selected?.notAllowed" data-testid="route-not-allowed">
+      This make-to-order route needs a manufactured product in an organization with Manufacturing. Sale orders for this
+      variant will block at confirmation until you choose another route or set the product's supply method to Manufacture.
+    </small>
     <small class="hint warn" *ngIf="selected?.inactive" data-testid="route-inactive">
       This route is no longer active. Choose another one.
     </small>
     <small class="hint" *ngIf="!value" data-testid="route-none">
       No route: sale order lines for this variant use the organization's default route.
+    </small>
+    <small class="hint" *ngIf="manufactureRoutesHidden && canAssign" data-testid="route-mfg-hint">
+      Make-to-order routes are offered once the product's supply method is Manufacture.
     </small>
   </ng-container>
   <ng-template #failed>

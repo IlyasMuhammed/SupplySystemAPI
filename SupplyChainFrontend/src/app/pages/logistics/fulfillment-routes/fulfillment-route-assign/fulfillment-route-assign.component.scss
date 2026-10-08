@@ -15,3 +15,6 @@ small.p-error { display: block; font-size: .78rem; }
 @media (max-width: 480px) {
   .counts { grid-template-columns: 1fr; }
 }
+
+// A34 — make-to-order note
+.intro.mto { color: var(--orange-800, #9a3412); background: var(--orange-50, #fff7ed); border-radius: .375rem; padding: .5rem .625rem; }

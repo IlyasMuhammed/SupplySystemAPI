@@ -47,13 +47,43 @@ public class SaleOrderAdminRoleSeedTests
     }
 
     [Fact]
-    public void Supply_dept_admin_gets_exactly_read_and_write_and_nothing_else()
+    public void Supply_dept_admin_gets_exactly_read_and_write_and_the_lead_time_defaults_and_nothing_else()
     {
+        // A34 D-24 added LEAD_TIME_DEFAULTS_MANAGE: the defaults drive every quoted delivery date.
         var granted = RolePermissionSeed()[(int)EnumRole.SupplyDeptAdmin];
         granted.Should().BeEquivalentTo(
         [
             PermissionCodes.SALE_ORDER_CONFIG_READ,
-            PermissionCodes.SALE_ORDER_CONFIG_WRITE
+            PermissionCodes.SALE_ORDER_CONFIG_WRITE,
+            PermissionCodes.LEAD_TIME_DEFAULTS_MANAGE
+        ]);
+    }
+
+    // ── A34 D-24 — LEAD_TIME_DEFAULTS_MANAGE ─────────────────────────────────
+
+    [Fact]
+    public void A34_lead_time_defaults_manage_is_defined_in_the_catalog_and_grouped_under_inventory()
+    {
+        PermissionCodes.All.Should().Contain(PermissionCodes.LEAD_TIME_DEFAULTS_MANAGE);
+        PermissionSeed().Should().ContainSingle(p => p.Code == PermissionCodes.LEAD_TIME_DEFAULTS_MANAGE)
+            .Which.Name.Should().Be("Manage Lead Time Defaults");
+
+        var method = typeof(SMS.Modules.Auth.Repositories.AuthRepository)
+            .GetMethod("GetPermissionModule", BindingFlags.NonPublic | BindingFlags.Static);
+        ((string)method!.Invoke(null, [PermissionCodes.LEAD_TIME_DEFAULTS_MANAGE])!).Should().Be("Inventory");
+    }
+
+    [Fact]
+    public void A34_lead_time_defaults_manage_goes_to_both_admins_the_inventory_manager_and_the_supply_dept_admin_only()
+    {
+        var holders = RolePermissionSeed()
+            .Where(kv => kv.Value.Contains(PermissionCodes.LEAD_TIME_DEFAULTS_MANAGE))
+            .Select(kv => kv.Key)
+            .ToList();
+
+        holders.Should().BeEquivalentTo(
+        [
+            (int)EnumRole.SystemAdmin, (int)EnumRole.OrgAdmin, (int)EnumRole.InventoryManager, (int)EnumRole.SupplyDeptAdmin
         ]);
     }
 

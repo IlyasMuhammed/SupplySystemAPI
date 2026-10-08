@@ -43,6 +43,9 @@ internal sealed class BusinessPartnerRepository : IBusinessPartnerRepository
             IsServiceProvider = model.IsServiceProvider,
             VehicleTypes = model.VehicleTypes,
             ServiceCategories = model.ServiceCategories,
+            // A35 D-9 — defaultPurchaseCurrencyId is the alias of PreferredCurrency and wins when both are sent.
+            PreferredCurrency = model.DefaultPurchaseCurrencyId ?? model.PreferredCurrency,
+            DefaultSaleCurrency = model.DefaultSaleCurrencyId,
             Status = "PENDING",
             IsActive = true,
             IsDelete = false,
@@ -79,6 +82,11 @@ internal sealed class BusinessPartnerRepository : IBusinessPartnerRepository
             p.IsVendor, p.IsCustomer, p.IsCarrier, p.IsServiceProvider));
         p.VehicleTypes = model.VehicleTypes;
         p.ServiceCategories = model.ServiceCategories;
+        // A35 D-9 — null = unchanged (a client that predates the fields must not wipe them); the Clear flags remove one.
+        if (model.ClearDefaultPurchaseCurrency) p.PreferredCurrency = null;
+        else if ((model.DefaultPurchaseCurrencyId ?? model.PreferredCurrency) is { } purchaseCurrency) p.PreferredCurrency = purchaseCurrency;
+        if (model.ClearDefaultSaleCurrency) p.DefaultSaleCurrency = null;
+        else if (model.DefaultSaleCurrencyId is { } saleCurrency) p.DefaultSaleCurrency = saleCurrency;
         p.ModifiedBy = modifiedBy;
         p.ModifiedDate = DateTime.UtcNow;
 

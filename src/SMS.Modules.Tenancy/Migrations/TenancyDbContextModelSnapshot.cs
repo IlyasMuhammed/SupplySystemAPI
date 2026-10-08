@@ -135,6 +135,54 @@ namespace SMS.Modules.Tenancy.Migrations
                     b.ToTable("Organizations", "tenant");
                 });
 
+            modelBuilder.Entity("SMS.Modules.Tenancy.Domain.OrganizationCurrencySettings", b =>
+                {
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ExchangeGainAccountCode")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("ExchangeLossAccountCode")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<int?>("ModifiedBy")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("PurchaseBaseCurrencyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("RateCurrencyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("SaleBaseCurrencyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ServiceBaseCurrencyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("UnrealizedGainAccountCode")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("UnrealizedLossAccountCode")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("OrganizationId")
+                        .HasName("PK_organization_currency_settings");
+
+                    b.ToTable("organization_currency_settings", "tenant");
+                });
+
             modelBuilder.Entity("SMS.Modules.Tenancy.Domain.OrganizationFeature", b =>
                 {
                     b.Property<Guid>("Id")
@@ -223,6 +271,18 @@ namespace SMS.Modules.Tenancy.Migrations
                     b.HasKey("UserId");
 
                     b.ToTable("SuperAdminUsers", "tenant");
+                });
+
+            modelBuilder.Entity("SMS.Modules.Tenancy.Domain.OrganizationCurrencySettings", b =>
+                {
+                    b.HasOne("SMS.Modules.Tenancy.Domain.Organization", "Organization")
+                        .WithOne()
+                        .HasForeignKey("SMS.Modules.Tenancy.Domain.OrganizationCurrencySettings", "OrganizationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_organization_currency_settings_Organizations");
+
+                    b.Navigation("Organization");
                 });
 
             modelBuilder.Entity("SMS.Modules.Tenancy.Domain.OrganizationSettings", b =>

@@ -28,6 +28,11 @@ internal sealed class FinanceCurrencyReferenceChecker : ILookupReferenceChecker
 
     public bool IsValueReferenced(Guid lookupValueId)
     {
+        // A35 (D-1): an organization's currency configuration and its rates reference the catalog Guid directly.
+        if (_db.OrgCurrencies.IgnoreQueryFilters().Any(c => c.CurrencyId == lookupValueId)
+            || _db.CurrencyRates.IgnoreQueryFilters().Any(r => r.CurrencyId == lookupValueId))
+            return true;
+
         var code = _lookups.GetCurrencies().FirstOrDefault(c => c.Id == lookupValueId)?.Code?.Trim();
         if (string.IsNullOrEmpty(code)) return false;
 

@@ -18,13 +18,18 @@ public sealed record ManualPaymentAllocation(Guid InvoiceUuid, decimal Amount);
 /// override and is applied exactly as written: whatever it does not name stays unallocated, on the
 /// customer's account, rather than being spilled onto other invoices behind their back.
 /// </param>
+/// <param name="CurrencyId">
+/// A35 — the currency's global lookups id; wins over <paramref name="CurrencyCode"/>. Both blank: the first allocated
+/// invoice's currency, else the customer's default sale currency, else the sale base (D-14).
+/// </param>
 public sealed record CustomerPaymentDetails(
-    string CurrencyCode,
+    string? CurrencyCode,
     DateTime? PaymentDate = null,
     string? ChequeNumber = null,
     string? BankReference = null,
     string? Notes = null,
-    IReadOnlyList<ManualPaymentAllocation>? Allocations = null);
+    IReadOnlyList<ManualPaymentAllocation>? Allocations = null,
+    Guid? CurrencyId = null);
 
 public sealed record AppliedPaymentAllocation(
     Guid    InvoiceUuid,

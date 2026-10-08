@@ -18,4 +18,6 @@ internal interface IManufacturingNotificationService
     // A31-C3 §5.5 — a purchase order the Supply Requirement Engine raised (or appended a line to) for
     // a purchased shortage. isNewPo distinguishes "a new draft now exists" from "an existing one grew".
     Task PurchaseOrderDraftCreatedAsync(SupplyRequirement sr, string poNumber, bool isNewPo);
+    // A34 D-21 / D-23 — QI accepted nothing on a make-to-order order: to the PO creator's supervisor (Demand tells the SO creator).
+    Task ProductionZeroYieldAsync(ProductionOrder po);
 }

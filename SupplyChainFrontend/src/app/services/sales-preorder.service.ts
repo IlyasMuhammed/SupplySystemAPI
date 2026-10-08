@@ -3,7 +3,8 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { ApiResponse, PaginatedResponse } from './logistics.service';
-import type { DeliveryIndicator, SalesDocumentLink } from './sale-order.service';
+import type { DeliveryDateSource, DeliveryIndicator, SalesDocumentLink } from './sale-order.service';
+import type { LeadTimeResultModel } from './lead-time.service';
 
 // A32 — Sales Pre-Order Pipeline: sale inquiries (/api/sale-inquiries), sale quotations (/api/sale-quotations)
 // and rejection reasons (/api/rejection-reasons), all Demand. The contract is
@@ -101,6 +102,20 @@ export interface SaleInquiryLine {
   reviewedByUserName?: string | null;
   reviewedAt?: string | null;
   notes?: string | null;
+  // A34 D-15 (docs/route-classification/API-CONTRACT.md §5.1) — the manual date is estimatedDeliveryDate.
+  calculatedLeadTimeDays?: number | null;
+  /** Date-only. Satisfies CAN_SUPPLY / PARTIAL's "estimated delivery date required" when no estimate was typed. */
+  calculatedDeliveryDate?: string | null;
+  /** UTC. */
+  leadTimeCalculatedAt?: string | null;
+  effectiveDeliveryDate?: string | null;
+  deliveryDateSource?: DeliveryDateSource;
+}
+
+/** A34 §5.2 — POST …/lines/{lineUuid}/lead-time on an inquiry or a quotation: the line as stored, and the calculation. */
+export interface SaleLineLeadTimeModel<TLine> {
+  line: TLine;
+  leadTime: LeadTimeResultModel;
 }
 
 export interface SaleInquiry {
@@ -128,6 +143,9 @@ export interface SaleInquiry {
   lines: SaleInquiryLine[];
   /** Quotations created from this inquiry. */
   quotations: SalesDocumentLink[];
+  // A35 (API-CONTRACT.md §6) — the currency asked in; default customer defaultSaleCurrencyId → sale base. No rate, no lock.
+  currencyId?: string | null;
+  currencyCode?: string | null;
 }
 
 /** What the customer asked for (POST …/lines, and lines[] of a create). */
@@ -170,6 +188,8 @@ export interface CreateSaleInquiryRequest {
   assignedToUserId?: number | null;
   notes?: string | null;
   lines?: SaleInquiryLineRequest[];
+  /** A35 — omitted = the customer's default sale currency → the sale base. */
+  currencyId?: string | null;
 }
 
 /** Header only; replaces every field. The customer cannot change. */
@@ -180,6 +200,8 @@ export interface UpdateSaleInquiryRequest {
   responseDeadline?: string | null;
   assignedToUserId?: number | null;
   notes?: string | null;
+  /** A35 — omitted = unchanged. */
+  currencyId?: string | null;
 }
 
 export interface ChangeSaleInquiryStatusRequest {
@@ -255,6 +277,19 @@ export interface SaleQuotationLine {
   customerResponseNotes?: string | null;
   customerCounterPrice?: number | null;
   notes?: string | null;
+  // A34 D-15 — the manual date is promisedDeliveryDate.
+  calculatedLeadTimeDays?: number | null;
+  /** Date-only. */
+  calculatedDeliveryDate?: string | null;
+  /** UTC. */
+  leadTimeCalculatedAt?: string | null;
+  effectiveDeliveryDate?: string | null;
+  deliveryDateSource?: DeliveryDateSource;
+  // A35 — in the sale base; null until the rate is locked at SENT.
+  unitPriceBase?: number | null;
+  discountAmountBase?: number | null;
+  taxAmountBase?: number | null;
+  lineTotalBase?: number | null;
 }
 
 export interface SaleQuotation {
@@ -291,6 +326,11 @@ export interface SaleQuotation {
   isEditable: boolean;
   allowedActions: SaleQuotationAction[];
   lines: SaleQuotationLine[];
+  // A35 (API-CONTRACT.md §6) — rate locked at SENT (the sent date) against the sale base; null before.
+  exchangeRate?: number | null;
+  baseCurrencyId?: string | null;
+  baseCurrencyCode?: string | null;
+  rateLockedAt?: string | null;
 }
 
 /**
@@ -462,6 +502,19 @@ export class SalesPreorderService {
 
   deleteInquiryLine(uuid: string, lineUuid: string): Observable<ApiResponse> {
     return this.http.delete<ApiResponse>(`${this.inquiriesUrl}/${uuid}/lines/${lineUuid}`);
+  }
+
+  /**
+   * A34 §5.2 — calculates one line's lead time (its variant and requested quantity, against its requested date) and
+   * stores the Calculated* fields; the estimate is untouched. SALE_INQUIRY_EDIT; RECEIVED / UNDER_REVIEW / REVIEW_COMPLETE.
+   */
+  calculateInquiryLineLeadTime(uuid: string, lineUuid: string): Observable<ApiResponse<SaleLineLeadTimeModel<SaleInquiryLine>>> {
+    return this.http.post<ApiResponse<SaleLineLeadTimeModel<SaleInquiryLine>>>(`${this.inquiriesUrl}/${uuid}/lines/${lineUuid}/lead-time`, {});
+  }
+
+  /** A34 §5.2 — the same for a DRAFT quotation's line; the promised date is untouched. SALE_QUOTATION_EDIT. */
+  calculateQuotationLineLeadTime(uuid: string, lineUuid: string): Observable<ApiResponse<SaleLineLeadTimeModel<SaleQuotationLine>>> {
+    return this.http.post<ApiResponse<SaleLineLeadTimeModel<SaleQuotationLine>>>(`${this.quotationsUrl}/${uuid}/lines/${lineUuid}/lead-time`, {});
   }
 
   /** Returns the inquiry as it now stands. */

@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using SMS.Modules.Demand.Data;
 using SMS.Modules.Inventory.Data;
 using SMS.Modules.Material.Data;
 using SMS.Modules.Material.Domain;
@@ -22,17 +24,25 @@ internal sealed class ProductionOrderRepository : IProductionOrderRepository
     private readonly MaterialDbContext        _db;
     private readonly InventoryDbContext       _inv;
     private readonly IDocumentNumberGenerator _numbers;
+    // A34 read-model decoration (optional): the sale order line number and the route's names. The route lookup is
+    // resolved when used, so this repository never pulls Logistics' route graph into its own construction.
+    private readonly DemandDbContext?  _demand;
+    private readonly IServiceProvider? _services;
 
-    public ProductionOrderRepository(MaterialDbContext db, InventoryDbContext inv, IDocumentNumberGenerator numbers)
+    public ProductionOrderRepository(MaterialDbContext db, InventoryDbContext inv, IDocumentNumberGenerator numbers,
+        DemandDbContext? demand = null, IServiceProvider? services = null)
     {
-        _db      = db;
-        _inv     = inv;
-        _numbers = numbers;
+        _db       = db;
+        _inv      = inv;
+        _numbers  = numbers;
+        _demand   = demand;
+        _services = services;
     }
 
     // ── Writes ────────────────────────────────────────────────────────────────
 
-    public async Task<ProductionOrder> CreateAsync(CreateProductionOrderRequest req, int userId, int? parentProductionOrderId = null, Guid? traceId = null)
+    public async Task<ProductionOrder> CreateAsync(CreateProductionOrderRequest req, int userId, int? parentProductionOrderId = null, Guid? traceId = null,
+        Guid? organizationId = null, Guid? fulfillmentRouteUuid = null)
     {
         ArgumentNullException.ThrowIfNull(req);
 
@@ -49,21 +59,24 @@ internal sealed class ProductionOrderRepository : IProductionOrderRepository
         if (!ProductionSourceType.All.Contains(sourceType))
             throw new BadRequestException($"'{req.SourceType}' is not a production order source. Use one of: {string.Join(", ", ProductionSourceType.All)}.");
 
-        var product   = await ManufacturedProductAsync(req.ProductUuid);
-        var variant   = await OutputVariantAsync(product, req.ProductVariantUuid);
+        var product   = await ManufacturedProductAsync(req.ProductUuid, organizationId);
+        var variant   = await OutputVariantAsync(product, req.ProductVariantUuid, organizationId);
         var warehouse = req.WarehouseUuid ?? product.DefaultProductionWarehouseUuid
             ?? throw new BadRequestException(
                 $"Choose a production warehouse, or set a default production warehouse on product {product.Name}.");
-        await EnsureWarehouseAsync(warehouse);
-        if (req.OutputWarehouseUuid is { } output && output != warehouse) await EnsureWarehouseAsync(output);
+        await EnsureWarehouseAsync(warehouse, organizationId);
+        if (req.OutputWarehouseUuid is { } output && output != warehouse) await EnsureWarehouseAsync(output, organizationId);
 
-        var bom = await ActiveBomAsync(product, variant.Uuid);
+        var bom = await ActiveBomAsync(product, variant.Uuid, organizationId);
         var now = DateTime.UtcNow;
 
         var po = new ProductionOrder
         {
             TraceId                 = traceId ?? Guid.NewGuid(),
-            ProductionNumber        = await _numbers.NextAsync(ManufacturingDocumentPrefix.ProductionOrder, now),
+            // A34: an explicit organization (make-to-order creation, R-11) stamps the order and draws its number;
+            // otherwise the ambient tenant does, as before.
+            OrganizationId          = organizationId ?? Guid.Empty,
+            ProductionNumber        = await _numbers.NextAsync(ManufacturingDocumentPrefix.ProductionOrder, now, organizationId),
             ProductUuid             = product.Uuid,
             ProductVariantUuid      = variant.Uuid,
             BomId                   = bom.Id,
@@ -75,6 +88,9 @@ internal sealed class ProductionOrderRepository : IProductionOrderRepository
             SourceUuid              = req.SourceUuid,
             SourceLineUuid          = req.SourceLineUuid,
             SourceReference         = req.SourceReference?.Trim(),
+            // A34 D-18: only the make-to-order path passes it (never the public create request), in the same INSERT,
+            // so no PO can exist half made-to-order.
+            FulfillmentRouteUuid    = fulfillmentRouteUuid,
             ParentProductionOrderId = parentProductionOrderId,
             Priority                = req.Priority,
             RequiredDate            = req.RequiredDate.Date,
@@ -194,9 +210,11 @@ internal sealed class ProductionOrderRepository : IProductionOrderRepository
             .ToListAsync();
 
         var names = await NamesAsync(orders, [], []);
+        var items = orders.Select(p => Fill(new ProductionOrderListItemModel(), p, names)).ToList();
+        await DecorateMakeToOrderAsync(orders.Zip(items).ToList());
         return new PaginatedResponse<ProductionOrderListItemModel>
         {
-            Data         = orders.Select(p => Fill(new ProductionOrderListItemModel(), p, names)).ToList(),
+            Data         = items,
             TotalRecords = total,
             Page         = page,
             PageSize     = pageSize,
@@ -241,7 +259,80 @@ internal sealed class ProductionOrderRepository : IProductionOrderRepository
         detail.SupplyRequirements  = supply.Select(s => ToSupplyModel(s, names, pmrByUuid)).ToList();
         detail.Issues              = issues.Select(i => ToIssueModel(i, po, names, pmrById)).ToList();
         detail.ChildOrders         = children.Select(c => Fill(new ProductionOrderListItemModel(), c, names)).ToList();
+        await DecorateMakeToOrderAsync([(po, detail), .. children.Zip(detail.ChildOrders)]);
         return detail;
+    }
+
+    /// <summary>
+    /// A34 (API-CONTRACT §7) — the make-to-order fields: route names through <see cref="IFulfillmentRouteLookup"/> (per
+    /// organization, also for a route deactivated since), the sale order line's 1-based number (by line id, A33's "Line
+    /// N"), the delivery stamped by the handoff, and the shortfall (once COMPLETED: planned − accepted; at zero yield: the
+    /// planned quantity). Batched; a lookup that fails leaves the names empty rather than failing the read.
+    /// </summary>
+    private async Task DecorateMakeToOrderAsync(IReadOnlyList<(ProductionOrder Po, ProductionOrderListItemModel Model)> rows)
+    {
+        if (rows.Count == 0) return;
+        foreach (var (p, m) in rows)
+        {
+            m.IsMakeToOrder           = p.FulfillmentRouteUuid is not null;
+            m.FulfillmentRouteUuid    = p.FulfillmentRouteUuid;
+            m.DeliveryOrderUuid       = p.DeliveryOrderUuid;
+            m.DeliveryNumber          = p.DeliveryNumber;
+            m.DeliveryCreationPending = p.DeliveryCreationPendingSince is not null;
+            if (p.FulfillmentRouteUuid is not null && p.Status == ProductionOrderStatus.Completed && p.PlannedQuantity > p.AcceptedQuantity)
+                m.ShortfallQuantity = p.PlannedQuantity - p.AcceptedQuantity;
+        }
+
+        // Zero yield: a make-to-order order still in QUALITY_INSPECTION whose inspection accepted nothing.
+        var inspecting = rows.Where(r => r.Po.FulfillmentRouteUuid is not null && r.Po.Status == ProductionOrderStatus.QualityInspection)
+                             .Select(r => r.Po.Id).Distinct().ToList();
+        if (inspecting.Count > 0)
+        {
+            var zero = (await _db.QualityInspections.IgnoreQueryFilters().AsNoTracking()
+                    .Where(q => inspecting.Contains(q.ProductionOrderId) && q.AcceptedQuantity == 0)
+                    .Select(q => q.ProductionOrderId).ToListAsync())
+                .ToHashSet();
+            foreach (var (p, m) in rows.Where(r => zero.Contains(r.Po.Id))) m.ShortfallQuantity = p.PlannedQuantity;
+        }
+
+        if (_services?.GetService<IFulfillmentRouteLookup>() is { } routes)
+        {
+            foreach (var org in rows.Where(r => r.Po.FulfillmentRouteUuid is not null).GroupBy(r => r.Po.OrganizationId))
+            {
+                try
+                {
+                    var found = await routes.GetAsync(org.Key, org.Select(r => r.Po.FulfillmentRouteUuid!.Value).Distinct().ToList());
+                    foreach (var (p, m) in org)
+                        if (found.TryGetValue(p.FulfillmentRouteUuid!.Value, out var route))
+                        {
+                            m.FulfillmentRouteCode     = route.Code;
+                            m.FulfillmentRouteName     = route.Name;
+                            m.FulfillmentRouteCategory = route.Category;
+                        }
+                }
+                catch (Exception)
+                {
+                    // Names are decoration; the order itself still reads.
+                }
+            }
+        }
+
+        if (_demand is not null)
+        {
+            var linked = rows.Where(r => r.Po.SourceType == ProductionSourceType.SalesOrder && r.Po.SourceUuid is not null && r.Po.SourceLineUuid is not null).ToList();
+            if (linked.Count == 0) return;
+            var soUuids = linked.Select(r => r.Po.SourceUuid!.Value).Distinct().ToList();
+            var lines = await _demand.SaleOrderLines.IgnoreQueryFilters().AsNoTracking()
+                .Where(l => soUuids.Contains(l.SaleOrder.UUID))
+                .Select(l => new { SoUuid = l.SaleOrder.UUID, l.UUID, l.Id, l.OrganizationId })
+                .ToListAsync();
+            var numbers = lines.GroupBy(l => l.SoUuid)
+                .SelectMany(g => g.OrderBy(l => l.Id).Select((l, i) => (l.UUID, l.OrganizationId, Number: i + 1)))
+                .ToDictionary(l => l.UUID);
+            foreach (var (p, m) in linked)
+                if (numbers.TryGetValue(p.SourceLineUuid!.Value, out var n) && n.OrganizationId == p.OrganizationId)
+                    m.SaleOrderLineNumber = n.Number;
+        }
     }
 
     public async Task<IReadOnlyList<ProductionMaterialModel>> GetMaterialsAsync(Guid uuid)
@@ -429,9 +520,12 @@ internal sealed class ProductionOrderRepository : IProductionOrderRepository
     private sealed record VariantFacts(int Id, Guid Uuid, string VariantName, bool IsDefault, bool IsActive);
 
     /// <summary>V-PR01 — only something this organization makes can be made.</summary>
-    private async Task<ProductFacts> ManufacturedProductAsync(Guid productUuid)
+    private async Task<ProductFacts> ManufacturedProductAsync(Guid productUuid, Guid? organizationId = null)
     {
-        var product = await _inv.Products.AsNoTracking()
+        var products = organizationId is { } org
+            ? _inv.Products.IgnoreQueryFilters().Where(p => p.OrganizationId == org)
+            : _inv.Products;
+        var product = await products.AsNoTracking()
             .Where(p => p.Uuid == productUuid)
             .Select(p => new ProductFacts(p.Id, p.Uuid, p.Name, p.UomCode, p.SupplyMethod, p.IsActive,
                 p.DefaultProductionWarehouse != null ? p.DefaultProductionWarehouse.Uuid : (Guid?)null))
@@ -446,9 +540,12 @@ internal sealed class ProductionOrderRepository : IProductionOrderRepository
         return product;
     }
 
-    private async Task<VariantFacts> OutputVariantAsync(ProductFacts product, Guid? variantUuid)
+    private async Task<VariantFacts> OutputVariantAsync(ProductFacts product, Guid? variantUuid, Guid? organizationId = null)
     {
-        var variants = await _inv.ProductVariants.AsNoTracking()
+        var source = organizationId is { } org
+            ? _inv.ProductVariants.IgnoreQueryFilters().Where(v => v.OrganizationId == org)
+            : _inv.ProductVariants;
+        var variants = await source.AsNoTracking()
             .Where(v => v.ProductId == product.Id)
             .Select(v => new VariantFacts(v.Id, v.Uuid, v.VariantName, v.IsDefault, v.IsActive))
             .ToListAsync();
@@ -466,31 +563,29 @@ internal sealed class ProductionOrderRepository : IProductionOrderRepository
             ?? throw new BadRequestException($"Product {product.Name} has no active variant to produce.");
     }
 
-    private async Task EnsureWarehouseAsync(Guid warehouseUuid)
+    private async Task EnsureWarehouseAsync(Guid warehouseUuid, Guid? organizationId = null)
     {
-        if (!await _inv.Warehouses.AsNoTracking().AnyAsync(w => w.Uuid == warehouseUuid && w.IsActive))
+        var warehouses = organizationId is { } org
+            ? _inv.Warehouses.IgnoreQueryFilters().Where(w => w.OrganizationId == org)
+            : _inv.Warehouses;
+        if (!await warehouses.AsNoTracking().AnyAsync(w => w.Uuid == warehouseUuid && w.IsActive))
             throw new BadRequestException($"Warehouse {warehouseUuid} does not exist or is inactive.");
     }
 
     /// <summary>
     /// The recipe to snapshot (§11.4): the active one for this exact variant, else the product's
     /// general one. A31-C6 removed warehouse from this resolution entirely — warehouse is decided
-    /// by the production order, not by which recipe applies.
+    /// by the production order, not by which recipe applies. A34: the rule lives in
+    /// <see cref="ActiveBomResolver"/>, shared with the BOM reader and the confirm gate.
     /// </summary>
-    private async Task<BillOfMaterial> ActiveBomAsync(ProductFacts product, Guid variantUuid)
+    private async Task<BillOfMaterial> ActiveBomAsync(ProductFacts product, Guid variantUuid, Guid? organizationId = null)
     {
-        var today = DateTime.UtcNow.Date;
-        var candidates = await _db.BillsOfMaterials.AsNoTracking()
-            .Where(b => b.ProductUuid == product.Uuid && b.Status == BomStatus.Active &&
-                        (b.ProductVariantUuid == null || b.ProductVariantUuid == variantUuid) &&
-                        (b.EffectiveFrom == null || b.EffectiveFrom <= today) &&
-                        (b.EffectiveTo == null || b.EffectiveTo >= today))
-            .ToListAsync();
+        var boms = organizationId is { } org
+            ? _db.BillsOfMaterials.IgnoreQueryFilters().AsNoTracking().Where(b => b.OrganizationId == org)
+            : _db.BillsOfMaterials.AsNoTracking();
+        var candidates = await ActiveBomResolver.Candidates(boms, [product.Uuid], DateTime.UtcNow).ToListAsync();
 
-        return candidates
-            .OrderByDescending(b => b.ProductVariantUuid.HasValue)
-            .ThenByDescending(b => b.Version)
-            .FirstOrDefault()
+        return ActiveBomResolver.Pick(candidates, product.Uuid, variantUuid)
             ?? throw new BadRequestException($"No active BOM found for product {product.Name}. Activate a bill of materials first.");
     }
 

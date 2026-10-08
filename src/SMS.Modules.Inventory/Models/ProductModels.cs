@@ -175,6 +175,22 @@ public class ProductVariantModel
     public string? FulfillmentRouteCode { get; set; }
     public string? FulfillmentRouteName { get; set; }
 
+    // A34 §4.1 (D-4) — the variant's own route's category (null when it has no route of its own, or the route is gone)
+    // and the "Make to order" tag: true exactly when that category is MANUFACTURE.
+    public string? FulfillmentRouteCategory { get; set; }
+    public bool IsMakeToOrder { get; set; }
+
+    // A34 §4.1 — the stored lead-time overrides, read-only here (edited through PUT api/variants/{uuid}/lead-times;
+    // the variant PATCH ignores them). Null = use the default. SupplierLeadTimeDays is ProductVariant.LeadTimeDays (D-11).
+    public int? SupplierLeadTimeDays { get; set; }
+    public int? ManufacturingLeadTimeDays { get; set; }
+    public int? ManufacturingBufferDays { get; set; }
+    public int? QualityInspectionDays { get; set; }
+    public int? InternalTransferDays { get; set; }
+    public int? PickPackDays { get; set; }
+    public int? ShippingLeadTimeDays { get; set; }
+    public int? SalesBufferDays { get; set; }
+
     // The variant's organization — whose routes its route uuid names. Internal, so never serialized.
     internal Guid OrganizationId { get; set; }
 }
@@ -303,8 +319,14 @@ public class ProductListFilter
     // A30 §6 — SMS.Shared.Common.ProductType / SupplyMethod codes. Null/omitted means no filtering.
     public string? ProductType { get; set; }
     public string? SupplyMethod { get; set; }
+    // A34 §4.3 — STOCK / MANUFACTURE (case-insensitive): products with at least one active variant whose own route has
+    // that category. Variants without a route are not matched (they follow the org default).
+    public string? RouteCategory { get; set; }
     public int Page { get; set; } = 1;
     public int PageSize { get; set; } = 20;
+
+    // Set by InventoryService from RouteCategory: the organization's active routes of that category. Null = no filter.
+    internal IReadOnlyList<Guid>? RouteUuids { get; set; }
 }
 
 // ── Product requests ──────────────────────────────────────────────────────────

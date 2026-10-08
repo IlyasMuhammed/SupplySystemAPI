@@ -161,7 +161,7 @@ public class CustomerPaymentsController : ControllerBase
     public async Task<IActionResult> Record([FromBody] RecordCustomerPaymentRequest req)
     {
         var details = new CustomerPaymentDetails(
-            req.CurrencyCode, req.PaymentDate, req.ChequeNumber, req.BankReference, req.Notes, req.Allocations);
+            req.CurrencyCode, req.PaymentDate, req.ChequeNumber, req.BankReference, req.Notes, req.Allocations, req.CurrencyId);
 
         var result = await _svc.RecordPaymentAsync(req.PartnerId, req.Amount, req.Method, details, User.GetUserId());
         return Ok(ApiResponse<CustomerPaymentRecorded>.Ok(result, "Payment recorded."));

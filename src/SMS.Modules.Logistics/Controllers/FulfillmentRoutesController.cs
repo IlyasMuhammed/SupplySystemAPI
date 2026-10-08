@@ -21,13 +21,16 @@ public class FulfillmentRoutesController : ControllerBase
 
     public FulfillmentRoutesController(IFulfillmentRouteService service) => _service = service;
 
-    /// <summary>Active routes by display order, then code; <paramref name="includeInactive"/> for the settings screen.</summary>
+    /// <summary>
+    /// Active routes by display order, then code; <paramref name="includeInactive"/> for the settings screen. A34:
+    /// <paramref name="category"/> (STOCK | MANUFACTURE | …) narrows the list; an unknown one is a 400.
+    /// </summary>
     [HttpGet]
     [RequirePermission(PermissionCodes.FULFILLMENT_ROUTE_VIEW, PermissionCodes.FULFILLMENT_ROUTE_MANAGE,
         PermissionCodes.FULFILLMENT_ROUTE_ASSIGN, PermissionCodes.SALE_ORDER_VIEW, PermissionCodes.INVENTORY_VIEW,
         PermissionCodes.DELIVERY_VIEW)]
-    public async Task<IActionResult> GetList([FromQuery] bool includeInactive = false) =>
-        Ok(ApiResponse<IReadOnlyList<FulfillmentRouteModel>>.Ok(await _service.GetListAsync(includeInactive)));
+    public async Task<IActionResult> GetList([FromQuery] bool includeInactive = false, [FromQuery] string? category = null) =>
+        Ok(ApiResponse<IReadOnlyList<FulfillmentRouteModel>>.Ok(await _service.GetListAsync(includeInactive, category)));
 
     [HttpGet("{uuid:guid}")]
     [RequirePermission(PermissionCodes.FULFILLMENT_ROUTE_VIEW, PermissionCodes.FULFILLMENT_ROUTE_MANAGE,

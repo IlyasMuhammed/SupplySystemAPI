@@ -109,6 +109,53 @@ describe('SaleOrderService', () => {
     req.flush({ success: true });
   });
 
+  // ── A34 (API-CONTRACT.md §5.2, §6.5) ───────────────────────────────────────
+
+  it('A34: calculates one saved line\'s lead time with an empty body on the line\'s own address', () => {
+    service.calculateLineLeadTime('so-1', 'l-2').subscribe(res => expect(res.result!.leadTime.totalLeadTimeDays).toBe(13));
+
+    const req = http.expectOne(`${BASE}/so-1/lines/l-2/lead-time`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({});
+    req.flush({ success: true, message: '', result: { line: { uuid: 'l-2' }, leadTime: { totalLeadTimeDays: 13 } } });
+  });
+
+  it('A34: puts a manual delivery date as yyyy-MM-dd, and null to clear it', () => {
+    service.setLineDeliveryDate('so-1', 'l-2', '2026-10-16').subscribe(res => expect(res.result!.productionNotRescheduled).toBeTrue());
+    let req = http.expectOne(`${BASE}/so-1/lines/l-2/delivery-date`);
+    expect(req.request.method).toBe('PUT');
+    expect(req.request.body).toEqual({ manualDeliveryDate: '2026-10-16' });
+    req.flush({ success: true, message: '', result: { line: { uuid: 'l-2' }, productionNotRescheduled: true, warning: 'PROD-1 …' } });
+
+    service.setLineDeliveryDate('so-1', 'l-2', null).subscribe();
+    req = http.expectOne(`${BASE}/so-1/lines/l-2/delivery-date`);
+    expect(req.request.body).toEqual({ manualDeliveryDate: null });
+    req.flush({ success: true });
+  });
+
+  it('A34: posts the production recovery with an empty body', () => {
+    service.createProductionOrders('so-1').subscribe(res => expect(res.result!.productionOrders.length).toBe(1));
+
+    const req = http.expectOne(`${BASE}/so-1/create-production-orders`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({});
+    req.flush({ success: true, message: '', result: {
+      productionOrders: [{ productionOrderUuid: 'po-1', productionNumber: 'PROD-1', status: 'DRAFT', plannedQuantity: 50,
+                           acceptedQuantity: 0, isMakeToOrder: true, created: true }],
+      productionCreationFailed: false } });
+  });
+
+  it('A34: sends a line\'s lead-time fields back on save, so a rebuilt draft line keeps them (C-14)', () => {
+    const lines = [{
+      variantUuid: 'v1', quantity: 50, discountPercent: 0, taxPercent: 0, manualDeliveryDate: '2026-10-20',
+      calculatedLeadTimeDays: 13, calculatedDeliveryDate: '2026-10-17', leadTimeCalculatedAt: '2026-10-04T08:00:00Z'
+    }];
+    service.updateSaleOrder('so-1', { deliveryMode: 'SHIP', lines }).subscribe();
+    const req = http.expectOne(`${BASE}/so-1`);
+    expect(req.request.body.lines).toEqual(lines);
+    req.flush({ success: true });
+  });
+
   it('reads the stock preview from the availability endpoint', () => {
     service.getAvailability('so-1').subscribe(res => expect(res.result!.length).toBe(1));
 

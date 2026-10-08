@@ -139,12 +139,13 @@ internal sealed class AutoPurchaseOrderService : IAutoPurchaseOrderService
         (line.Margin, line.MarginPercent) = SaleOrderMargin.Compute(line.UnitPrice, price);
         await _db.SaveChangesAsync();
 
-        var status = submit ? await TrySubmitForApprovalAsync(created.Uuid, userId, created.PoNumber) : initialStatus;
+        // A35 — created.Status: an AUTO_SEND PO whose rate could not be locked is created DRAFT, and is not sent.
+        var status = submit ? await TrySubmitForApprovalAsync(created.Uuid, userId, created.PoNumber) : created.Status;
 
         // §3.4 — "AUTO_SEND ... sent immediately." APPROVED alone still left it waiting for someone
         // to press the same Send button a REQUIRE_WORKFLOW or DRAFT_ONLY PO needs — this is that
         // button, pressed on the org's behalf the moment the PO exists.
-        if (config.AutoPoApprovalMode == AutoPoApprovalModes.AutoSend)
+        if (config.AutoPoApprovalMode == AutoPoApprovalModes.AutoSend && created.Status == "APPROVED")
             status = await TrySendAsync(created.Uuid, userId, created.PoNumber);
 
         // §6.3.1 — appended to the sale order's own trace, since the PO carries its trace id. The

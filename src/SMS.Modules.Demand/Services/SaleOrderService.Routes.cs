@@ -87,12 +87,14 @@ internal sealed partial class SaleOrderService
                 line.FulfillmentRouteUuid = resolved.Route!.Uuid;
                 line.FulfillmentRouteCode = resolved.Route.Code;
                 line.RouteSource          = resolved.Source;
+                line.FulfillmentRouteCategory = resolved.Route.Category;   // A34 — snapshotted with the route
             }
             else
             {
                 line.FulfillmentRouteUuid = null;
                 line.FulfillmentRouteCode = null;
                 line.RouteSource          = null;
+                line.FulfillmentRouteCategory = null;
             }
         }
     }
@@ -112,6 +114,8 @@ internal sealed partial class SaleOrderService
                 FillEffective(line, resolved.Route, resolved.RouteUuid, resolved.Route?.Code);
                 line.RouteSource  = resolved.Source;
                 line.RouteBlocker = resolved.Blocker;
+                // A34 §6.1 — live while DRAFT; null for exempt (DROP_SHIP) lines and lines with no known route.
+                line.EffectiveRouteCategory = resolved.Exempt ? null : resolved.Route?.Category;
             }
             return;
         }
@@ -128,6 +132,9 @@ internal sealed partial class SaleOrderService
             var route = entity.FulfillmentRouteUuid is { } u ? routes.GetValueOrDefault(u) : null;
             FillEffective(line, route, entity.FulfillmentRouteUuid, entity.FulfillmentRouteCode);
             line.RouteSource = entity.RouteSource ?? FulfillmentRouteSource.None;
+            // A34 §6.1 — the confirm snapshot; a line confirmed before A34 has none, and its route was a stock route then.
+            line.EffectiveRouteCategory = entity.FulfillmentRouteCategory
+                ?? (entity.FulfillmentRouteUuid is null ? null : route?.Category ?? FulfillmentRouteCategory.Stock);
         }
     }
 
@@ -322,11 +329,28 @@ internal sealed partial class SaleOrderService
             EffectiveRouteName   = r.Route?.Name,
             EffectiveRouteSteps  = r.Route is null ? [] : [.. r.Route.Steps],
             RouteSource          = r.Source,
-            RouteBlocker         = r.Blocker
+            RouteBlocker         = r.Blocker,
+            EffectiveRouteCategory = r.Exempt ? null : r.Route?.Category
         }).ToList();
 
+        // A34 §6.3 — make-to-order lines get a production order at confirm, not a delivery: listed apart.
+        var productionLines = routing.Lines.Where(r => r.IsRoutable && r.Route!.IsManufacture)
+            .OrderBy(r => r.Line.LineNumber)
+            .Select(r => new DeliveryPreviewProductionLineModel
+            {
+                LineUuid        = r.Line.LineUuid,
+                LineNumber      = r.Line.LineNumber,
+                VariantUuid     = r.Line.VariantUuid,
+                ItemDescription = described is not null && described.TryGetValue(r.Line.VariantUuid, out var pv) ? pv.DisplayName : null,
+                Quantity        = r.Line.Quantity,
+                RouteUuid       = r.Route!.Uuid,
+                RouteCode       = r.Route.Code,
+                RouteName       = r.Route.Name,
+                Steps           = [.. r.Route.Steps]
+            }).ToList();
+
         // One delivery per route × ship-from warehouse (C-4), in the order their first line appears.
-        var groups = routing.Lines.Where(r => r.IsRoutable)
+        var groups = routing.Lines.Where(r => r.IsRoutable && !r.Route!.IsManufacture)
             .SelectMany(r => r.Line.LineUuid is { } lu && warehouses.TryGetValue(lu, out var held) && held.Count > 0
                 ? held.Select(w => (Line: r, Warehouse: (Guid?)w))
                 : [(Line: r, Warehouse: (Guid?)null)])
@@ -356,7 +380,8 @@ internal sealed partial class SaleOrderService
             DeliveryCount = groups.Count,
             Lines         = lines,
             Groups        = groups,
-            Blockers      = [.. routing.Blockers]
+            Blockers      = [.. routing.Blockers],
+            ProductionLines = productionLines
         };
     }
 }

@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Text.Json;
 using FluentAssertions;
 using Xunit;
@@ -143,7 +143,7 @@ public sealed class PurchaseFlowE2ETests : IClassFixture<SapWebApplicationFactor
         (await _k.Ok(_k.Get($"/api/suppliers/{vendor.Uuid}/outstanding-invoices"), "outstanding invoices")).Items()
             .Should().NotContain(i => i.G("invoiceUuid") == rejected, "a rejected invoice is owed to nobody");
 
-        // ── Foreign currency: snapshot with the rate; without one, approval still goes through ──
+        // ── Foreign currency: snapshot with the rate at approval; A35 D-5 (supersedes S-5): without one, approval is refused ──
         var usdInvoice = await CreateAsync(Direct(vendor, "USD", 100m, taxAmount: 0m, taxCode: pgst17));
         await Approve(usdInvoice);
         var usd = await GetAsync(usdInvoice);
@@ -151,11 +151,17 @@ public sealed class PurchaseFlowE2ETests : IClassFixture<SapWebApplicationFactor
             .Should().Be((117m, (decimal?)280m, "PKR", (decimal?)32760m));
 
         var eurInvoice = await CreateAsync(Direct(vendor, "EUR", 100m, taxAmount: 0m));
-        await Approve(eurInvoice);
+        var noRate = await _k.Post($"{Invoices}/{eurInvoice}/approve", new { Notes = "ok" });
+        noRate.Status.Should().Be(HttpStatusCode.BadRequest, $"no EUR rate on file — {noRate}");
+        noRate.Message.Should().Be($"No exchange rate for EUR on {today:yyyy-MM-dd}. Add one under Settings → Exchange Rates.");
         var eur = await GetAsync(eurInvoice);
-        eur.S("matchStatus").Should().Be("Approved", "a missing rate never blocks an approval");
+        eur.S("matchStatus").Should().Be("Pending", "nothing was approved or booked");
         eur.ND("exchangeRate").Should().BeNull();
-        eur.ND("baseTotalAmount").Should().BeNull();
+        (await LedgerAsync(eurInvoice)).Should().BeEmpty();
+        await _k.CreateRateAsync("EUR", "PKR", 316.48m, today.AddDays(-1));
+        await Approve(eurInvoice);
+        eur = await GetAsync(eurInvoice);
+        (eur.ND("exchangeRate"), eur.ND("baseTotalAmount")).Should().Be(((decimal?)316.48m, (decimal?)31_648m));
 
         // ── Something paid against it: no reversal ───────────────────────────────
         var paid = await CreateAsync(Direct(vendor, "PKR", 500m, taxAmount: 0m, taxCode: pgst17));

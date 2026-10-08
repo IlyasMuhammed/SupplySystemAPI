@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using SMS.Modules.Lookups.Domain;
 
 namespace SMS.Modules.Lookups.Data;
@@ -112,6 +113,54 @@ internal sealed class LookupsDataSeeder
         {
             "Quantity Change", "Price Change", "Delivery Date Change", "Scope Change", "Cancellation"
         });
+
+        await SeedCurrenciesAsync();
+    }
+
+    /// <summary>A35 §2.3 — the seed codes every organization's currency list is built from (D-1).</summary>
+    internal static readonly (string Code, string Name, string Symbol)[] SeedCurrencies =
+    [
+        ("PKR", "Pakistani Rupee", "₨"), ("USD", "US Dollar", "$"), ("EUR", "Euro", "€"), ("GBP", "British Pound", "£"),
+        ("SAR", "Saudi Riyal", "﷼"), ("AED", "UAE Dirham", "د.إ"), ("CNY", "Chinese Yuan", "¥"), ("JPY", "Japanese Yen", "¥"),
+        ("BHD", "Bahraini Dinar", "BD"), ("OMR", "Omani Rial", "OMR"), ("CAD", "Canadian Dollar", "C$"),
+        ("AUD", "Australian Dollar", "A$"), ("INR", "Indian Rupee", "₹"), ("TRY", "Turkish Lira", "₺"),
+        ("MYR", "Malaysian Ringgit", "RM"), ("KWD", "Kuwaiti Dinar", "KD"), ("QAR", "Qatari Riyal", "QR"), ("CHF", "Swiss Franc", "CHF"),
+    ];
+
+    /// <summary>
+    /// A35 P1-13 (D-1) — adds whichever seed codes the global catalog lacks (rows only, no schema change; Lookups has no
+    /// migrations at startup). Existing rows are never changed, except that a row with the seed's exact name and no code
+    /// gets the code (instead of a second row of that name). Idempotent.
+    /// </summary>
+    internal async Task SeedCurrenciesAsync()
+    {
+        var existing = await _db.Currencies.ToListAsync();
+        var codes    = existing.Where(c => !string.IsNullOrWhiteSpace(c.Code))
+            .Select(c => c.Code!.Trim().ToUpperInvariant()).ToHashSet();
+
+        foreach (var (code, name, symbol) in SeedCurrencies)
+        {
+            if (codes.Contains(code)) continue;
+
+            var sameName = existing.FirstOrDefault(c =>
+                string.IsNullOrWhiteSpace(c.Code) && string.Equals(c.Name.Trim(), name, StringComparison.OrdinalIgnoreCase));
+            if (sameName is not null)
+            {
+                sameName.Code = code;
+                sameName.Symbol ??= symbol;
+            }
+            else if (existing.Any(c => string.Equals(c.Name.Trim(), name, StringComparison.OrdinalIgnoreCase)))
+            {
+                // A same-named row under another code: add ours with the code in the name to keep names distinct.
+                _db.Currencies.Add(new Currency { Id = Guid.NewGuid(), Name = $"{name} ({code})", Code = code, Symbol = symbol });
+            }
+            else
+            {
+                _db.Currencies.Add(new Currency { Id = Guid.NewGuid(), Name = name, Code = code, Symbol = symbol });
+            }
+            codes.Add(code);
+        }
+        await _db.SaveChangesAsync();
     }
 
     private async Task SeedValuesAsync(string typeSlug, string[] displayNames)

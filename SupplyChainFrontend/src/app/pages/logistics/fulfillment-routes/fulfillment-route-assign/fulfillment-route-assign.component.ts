@@ -5,7 +5,7 @@ import { ButtonModule } from 'primeng/button';
 import { SelectModule } from 'primeng/select';
 
 import {
-  AssignRouteByCategoryRequest, AssignRouteByCategoryResult, FulfillmentRouteModel, FulfillmentRoutesService
+  AssignRouteByCategoryRequest, AssignRouteByCategoryResult, FulfillmentRouteModel, FulfillmentRoutesService, routeCategoryOf
 } from '../../../../services/fulfillment-routes.service';
 import { CategoryModel, InventoryService } from '../../../../services/inventory.service';
 
@@ -59,6 +59,9 @@ export class FulfillmentRouteAssignComponent implements OnInit {
     const category = this.selectedCategory;
     return (category?.subCategories ?? []).filter(s => s.isActive).map(s => ({ label: s.name, value: s.id }));
   }
+
+  /** A34 §4.2 — a MANUFACTURE route is set only on manufactured products; the rest count as skipped. */
+  get isManufacture(): boolean { return routeCategoryOf(this.route) === 'MANUFACTURE'; }
 
   get selectedCategory(): CategoryModel | null { return this.categories.find(c => c.id === this.categoryId) ?? null; }
 

@@ -55,6 +55,15 @@ internal sealed class SaleOrderMap : IEntityTypeConfiguration<SaleOrder>
 
         // A33 D-12: the sweep reads only the few orders still waiting for their deliveries.
         b.HasIndex(x => x.DeliveryCreationPendingSince).HasFilter("[DeliveryCreationPendingSince] IS NOT NULL");
+        // A34 D-17: likewise for the production sweep.
+        b.HasIndex(x => x.ProductionCreationPendingSince).HasFilter("[ProductionCreationPendingSince] IS NOT NULL");
+
+        // A35 D-10/D-11 — the rate locked at CONFIRMED (null = not locked) and the base amounts.
+        b.Property(x => x.ExchangeRate).HasColumnType("decimal(18,10)");
+        b.Property(x => x.SubtotalBase).HasColumnType("decimal(18,4)");
+        b.Property(x => x.TaxAmountBase).HasColumnType("decimal(18,4)");
+        b.Property(x => x.DiscountAmountBase).HasColumnType("decimal(18,4)");
+        b.Property(x => x.GrandTotalBase).HasColumnType("decimal(18,4)");
 
         b.HasMany(x => x.Lines)
          .WithOne(x => x.SaleOrder)
@@ -100,5 +109,15 @@ internal sealed class SaleOrderLineMap : IEntityTypeConfiguration<SaleOrderLine>
         b.Property(x => x.FulfillmentRouteCode).HasMaxLength(30);
         b.Property(x => x.RouteSource).HasMaxLength(20);
         b.HasIndex(x => x.FulfillmentRouteUuid).HasFilter("[FulfillmentRouteUuid] IS NOT NULL");
+
+        // A34 D-15 / D-21: lead time (date-only), the route category snapshot and the production shortfall.
+        b.Property(x => x.CalculatedDeliveryDate).HasColumnType("date");
+        b.Property(x => x.ManualDeliveryDate).HasColumnType("date");
+        b.Property(x => x.FulfillmentRouteCategory).HasMaxLength(20);
+        b.Property(x => x.ProductionShortfallQty).HasColumnType("decimal(18,4)");
+
+        // A35 D-10 — base amounts, locked at CONFIRMED.
+        b.Property(x => x.UnitPriceBase).HasColumnType("decimal(18,4)");
+        b.Property(x => x.LineTotalBase).HasColumnType("decimal(18,4)");
     }
 }

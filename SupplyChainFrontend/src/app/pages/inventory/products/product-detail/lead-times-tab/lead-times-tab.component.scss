@@ -1,0 +1,38 @@
+.lead-times { display: flex; flex-direction: column; gap: .75rem; max-width: 56rem; }
+.lt-toolbar { display: flex; align-items: flex-end; gap: .75rem; flex-wrap: wrap; }
+.lt-field { display: flex; flex-direction: column; gap: .375rem; }
+.lt-field label { font-size: .8125rem; font-weight: 600; }
+:host ::ng-deep .lt-variant { min-width: 18rem; max-width: 100%; }
+.grow { flex: 1; }
+
+.lt-route { display: flex; align-items: center; flex-wrap: wrap; gap: .375rem .5rem; }
+.lt-table { width: 100%; border-collapse: collapse; font-size: .875rem; }
+.lt-table th { text-align: left; font-size: .75rem; font-weight: 600; color: var(--text-color-secondary); padding: .5rem; border-bottom: 1px solid var(--surface-200); }
+.lt-table td { padding: .5rem; border-bottom: 1px solid var(--surface-100, #f1f5f9); vertical-align: middle; }
+.days-col { width: 8rem; }
+:host ::ng-deep .days-input { width: 6rem; }
+:host ::ng-deep .qty-input { width: 6rem; }
+.comp-name { font-weight: 500; }
+.not-counted .comp-name { color: var(--text-color-secondary); }
+.total-row td { font-weight: 700; border-top: 2px solid var(--surface-200); border-bottom: 0; }
+.total-row td small { font-weight: 400; }
+
+.lt-actions { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.bom-result { border: 1px solid var(--orange-200, #fed7aa); background: var(--orange-50, #fff7ed); border-radius: .5rem; padding: .75rem; display: flex; flex-direction: column; gap: .5rem; }
+.bom-head { display: flex; align-items: baseline; gap: .5rem; flex-wrap: wrap; }
+.bom-table { background: var(--surface-0, #fff); border-radius: .375rem; }
+.warnings { margin: 0; padding-left: 1rem; color: var(--orange-700, #c2410c); font-size: .8125rem; }
+.warnings li { list-style: none; }
+
+.state-inline { display: flex; align-items: center; gap: .5rem; font-size: .875rem; color: var(--text-color-secondary); }
+.state-inline.warn { color: var(--orange-700, #c2410c); }
+.legend { line-height: 1.4; }
+.mono { font-family: monospace; font-weight: 600; }
+.small { font-size: .75rem; }
+.muted { color: var(--text-color-secondary); }
+.hint { display: block; color: var(--text-color-secondary); font-size: .75rem; }
+small.p-error { display: block; color: var(--red-500, #ef4444); font-size: .78rem; }
+
+@media (max-width: 640px) {
+  .days-col { width: auto; }
+}

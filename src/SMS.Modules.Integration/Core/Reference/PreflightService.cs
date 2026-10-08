@@ -24,6 +24,7 @@ internal static class PreflightCodes
     public const string Connection        = "CONNECTION";
     public const string ReferenceData     = "REFERENCE_DATA";
     public const string HomeCurrency      = "HOME_CURRENCY";
+    public const string PurchaseBase      = "PURCHASE_BASE_CURRENCY";
     public const string MultiCurrency     = "MULTICURRENCY";
     public const string Country           = "COUNTRY";
     public const string CustomTxnNumbers  = "CUSTOM_TXN_NUMBERS";
@@ -93,6 +94,7 @@ internal sealed class PreflightService : IPreflightService
 
         checks.Add(ReferenceDataCheck(data, fetchedAt));
         checks.Add(await HomeCurrencyCheckAsync(connection, data, facts, ct));
+        if (await PurchaseBaseCheckAsync(connection, data, ct) is { } purchaseBase) checks.Add(purchaseBase);
         checks.Add(await MultiCurrencyCheckAsync(connection, data, facts, ct));
         checks.Add(CountryCheck(connection, data));
         checks.Add(CustomTxnNumbersCheck(data));
@@ -164,6 +166,35 @@ internal sealed class PreflightService : IPreflightService
                 ? $"SCM's base currency could not be checked automatically. Confirm it is {home}, QuickBooks' home currency."
                 : $"No base currency is set for this organization in SCM. Set it, and confirm it is {home}, QuickBooks' home currency.")
             + foreignNote);
+    }
+
+    /// <summary>
+    /// A35 D-19 — QuickBooks is compared with the <b>sale</b> base (HOME_CURRENCY). When the organization keeps a separate
+    /// purchase base, this says whether bills can go: a purchase base other than QuickBooks' home currency means SMS books
+    /// supplier invoices in a base QuickBooks does not keep, so every bill is refused (PURCHASE_BASE_NOT_HOME) until they
+    /// agree. A warning, not a failure: sales invoices are unaffected. Null (no row) when the purchase base is the sale
+    /// base or cannot be told — HOME_CURRENCY already covers that.
+    /// </summary>
+    private async Task<PreflightCheckModel?> PurchaseBaseCheckAsync(
+        IntegrationConnection connection, RemoteReferenceData? data, CancellationToken ct)
+    {
+        const string title = "Purchase base currency";
+
+        var home = CurrencyRules.Normalize(connection.HomeCurrencyCode ?? data?.Preferences?.HomeCurrencyCode);
+        if (home is null) return null;
+
+        var purchase = CurrencyRules.Normalize((await _baseCurrency.ResolveAsync(connection.OrganizationId, TransactionDomain.Purchase, ct)).Code);
+        var sale     = CurrencyRules.Normalize((await _baseCurrency.ResolveAsync(connection.OrganizationId, ct)).Code);
+        if (purchase is null || purchase == sale) return null;
+
+        return purchase == home
+            ? Pass(PreflightCodes.PurchaseBase, title,
+                $"SCM's purchase base currency and QuickBooks' home currency are both {home}.")
+            : Warn(PreflightCodes.PurchaseBase, title,
+                $"SCM's purchase base currency is {purchase} but QuickBooks' home currency is {home}. Supplier invoices are booked "
+              + $"in {purchase}, which QuickBooks does not keep, so every bill is refused while they differ (sales invoices are not "
+              + $"affected). Enter bills in QuickBooks by hand, or set the purchase base currency to {home} under Settings → "
+              + "Currency Configuration (possible only before any purchase document is locked).");
     }
 
     /// <summary>

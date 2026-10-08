@@ -202,9 +202,12 @@ public sealed class SaleOrderSettingsEndpointTests : IClassFixture<ProcurementCy
         now.GetProperty("deliveryMode").GetString().Should().Be("SHIP");
         now.GetProperty("selfPickupEnabled").GetBoolean().Should().BeFalse();
 
+        // A35 D-1: the order's currency is checked against the org's active currencies before the channel rule, so the
+        // probe uses a real org currency (the sale base) — a random id would stop at the currency rule instead.
+        var saleBase = (await GetResultAsync(_admin, "/api/organization/currency-settings")).GetProperty("saleBaseCurrencyId").GetGuid();
         var collected = new
         {
-            partnerId = Guid.NewGuid(), currencyId = Guid.NewGuid(), deliveryMode = "SELF_PICKUP",
+            partnerId = Guid.NewGuid(), currencyId = saleBase, deliveryMode = "SELF_PICKUP",
             lines = new[] { new { variantUuid = Guid.NewGuid(), quantity = 1 } }
         };
         var refusedOrder = await _admin.PostAsJsonAsync("/api/sale-orders", collected);

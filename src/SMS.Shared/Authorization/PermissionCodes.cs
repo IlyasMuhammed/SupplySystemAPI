@@ -60,6 +60,12 @@ public static class PermissionCodes
     public const string STOCK_MANAGE       = "STOCK_MANAGE";
     public const string STOCK_ADJUST       = "STOCK_ADJUST";
     public const string REORDER_MANAGE     = "REORDER_MANAGE";
+    /// <summary>
+    /// A34 D-24 — changing the organization's lead-time defaults (PUT api/lead-time/defaults: pick/pack, shipping,
+    /// sales buffer, manufacturing buffer, QC, transfer days). Reading them accepts any of this, INVENTORY_VIEW,
+    /// STOCK_MANAGE or SALE_ORDER_VIEW.
+    /// </summary>
+    public const string LEAD_TIME_DEFAULTS_MANAGE = "LEAD_TIME_DEFAULTS_MANAGE";
 
     // ── Warehouse ─────────────────────────────────────────────────────────────
     public const string WAREHOUSE_TRANSFER    = "WAREHOUSE_TRANSFER";
@@ -293,6 +299,20 @@ public static class PermissionCodes
     /// <summary>Creating and changing tax codes and exchange rates. Reading them (for pickers) needs only a sign-in.</summary>
     public const string FINANCE_SETUP_MANAGE = "FINANCE_SETUP_MANAGE";
 
+    // ── Multi-currency (Addendum 35, D-16; docs/multi-currency/ADDENDUM-35-ANALYSIS.md) ──
+    /// <summary>Reading the organization's currencies (every role — document forms need the picker).</summary>
+    public const string CURRENCY_VIEW                 = "CURRENCY_VIEW";
+    /// <summary>Adding an org currency, changing its formatting, activating/deactivating it.</summary>
+    public const string CURRENCY_MANAGE               = "CURRENCY_MANAGE";
+    /// <summary>Reading exchange rates and converting amounts (every role).</summary>
+    public const string CURRENCY_RATE_VIEW            = "CURRENCY_RATE_VIEW";
+    /// <summary>Inserting and correcting exchange rates.</summary>
+    public const string CURRENCY_RATE_MANAGE          = "CURRENCY_RATE_MANAGE";
+    /// <summary>Changing the organization's sale/purchase/service base currencies and FX account codes.</summary>
+    public const string ORG_CURRENCY_SETTINGS_MANAGE  = "ORG_CURRENCY_SETTINGS_MANAGE";
+    /// <summary>Running the unrealized exchange revaluation by hand.</summary>
+    public const string EXCHANGE_REVALUATION_RUN      = "EXCHANGE_REVALUATION_RUN";
+
     // ── All codes (used by System Admin seed) ─────────────────────────────────
     public static readonly IReadOnlyList<string> All =
     [
@@ -303,7 +323,7 @@ public static class PermissionCodes
         PO_VIEW, PO_CREATE, PO_EDIT, PO_APPROVE, PO_CANCEL, PO_TEMPLATE_MANAGE,
         REQUISITION_CREATE, REQUISITION_VIEW_OWN, REQUISITION_VIEW_ALL, REQUISITION_APPROVE,
         BUDGET_VIEW, BUDGET_MANAGE, BUDGET_MONITOR,
-        INVENTORY_VIEW, STOCK_MANAGE, STOCK_ADJUST, REORDER_MANAGE,
+        INVENTORY_VIEW, STOCK_MANAGE, STOCK_ADJUST, REORDER_MANAGE, LEAD_TIME_DEFAULTS_MANAGE,
         WAREHOUSE_TRANSFER, GOODS_RECEIVE, PUTAWAY, PICKING, DISPATCH, STOCK_LOCATION_UPDATE,
         GRN_QC_CONFIRM, GRN_APPROVE, GRN_FINANCE_APPROVE,
         MATERIAL_VIEW, MATERIAL_MANAGE,
@@ -329,5 +349,7 @@ public static class PermissionCodes
         QI_CREATE, QI_APPROVE, FGR_CREATE, FGR_CONFIRM, PROD_LEDGER_VIEW,
         INTEGRATION_VIEW, INTEGRATION_MANAGE, INTEGRATION_SYNC,
         FINANCE_SETUP_MANAGE,
+        CURRENCY_VIEW, CURRENCY_MANAGE, CURRENCY_RATE_VIEW, CURRENCY_RATE_MANAGE,
+        ORG_CURRENCY_SETTINGS_MANAGE, EXCHANGE_REVALUATION_RUN,
     ];
 }

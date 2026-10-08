@@ -194,7 +194,9 @@ public class UserAdministrationEscalationTests
 
         created.RoleId.Should().Be(nextId);
         var detail = await repo.GetRoleDetailAsync(created.RoleId);
-        detail!.PermissionGroups.SelectMany(g => g.Permissions).Where(p => p.IsAllowed).Should().BeEmpty();
+        // A35 D-16: a new role starts with only the every-role currency reads.
+        detail!.PermissionGroups.SelectMany(g => g.Permissions).Where(p => p.IsAllowed).Select(p => p.Code)
+            .Should().BeSubsetOf(SMS.Modules.Auth.Data.AuthDataSeeder.EveryRoleCodes);
     }
 
     [Theory]

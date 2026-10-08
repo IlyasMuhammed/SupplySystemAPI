@@ -18,6 +18,17 @@ public class BusinessPartnerModel
     public string? VehicleTypes { get; set; }
     public string? ServiceCategories { get; set; }
     public bool IsActive { get; set; }
+
+    // ── A35 D-9 currency defaults (API-CONTRACT.md §5). Input: null = unchanged (create: none); clear with the flags. ──
+    public Guid? DefaultSaleCurrencyId { get; set; }
+    public string? DefaultSaleCurrencyCode { get; set; }
+    /// <summary>The partner's default purchase currency = the PreferredCurrency column.</summary>
+    public Guid? DefaultPurchaseCurrencyId { get; set; }
+    public string? DefaultPurchaseCurrencyCode { get; set; }
+    /// <summary>Alias of <see cref="DefaultPurchaseCurrencyId"/> (that one wins when both are sent).</summary>
+    public Guid? PreferredCurrency { get; set; }
+    public bool ClearDefaultSaleCurrency { get; set; }
+    public bool ClearDefaultPurchaseCurrency { get; set; }
 }
 
 // P1-05 (Addendum 29 §1.6) — GET /api/partners' filter set. Mirrors SupplierListFilter's shape

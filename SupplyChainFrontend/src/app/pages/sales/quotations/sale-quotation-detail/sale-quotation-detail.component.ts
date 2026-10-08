@@ -33,6 +33,9 @@ import {
 } from '../sale-quotation.shared';
 import { SaleQuotationLineEditorComponent } from '../sale-quotation-line-editor/sale-quotation-line-editor.component';
 import { SaleQuotationResponsePanelComponent } from '../sale-quotation-response-panel/sale-quotation-response-panel.component';
+import { DocCurrencyPanelComponent } from '../../../../shared/doc-currency/doc-currency-panel.component';
+import { DocCurrencyInfo, cachedDocCurrency, hasBaseAmounts, missingRateOf, sumDifferences } from '../../../../shared/doc-currency/doc-currency';
+import { MoneyPipe } from '../../../../shared/money/money.pipe';
 
 const TAB_LINES = 1;
 
@@ -56,7 +59,8 @@ export interface ConvertForm {
     CommonModule, RouterModule, FormsModule,
     TableModule, ButtonModule, TagModule, TooltipModule, ToastModule, DialogModule, DropdownModule, CalendarModule,
     InputTextModule, SelectButtonModule, TabViewModule,
-    AttachmentListComponent, SaleQuotationLineEditorComponent, SaleQuotationResponsePanelComponent
+    AttachmentListComponent, SaleQuotationLineEditorComponent, SaleQuotationResponsePanelComponent,
+    DocCurrencyPanelComponent, MoneyPipe
   ],
   templateUrl: './sale-quotation-detail.component.html',
   styleUrls: ['./sale-quotation-detail.component.scss'],
@@ -71,6 +75,21 @@ export class SaleQuotationDetailComponent implements OnInit {
 
   uuid = '';
   quotation: SaleQuotation | null = null;
+
+  // ── A35: currency, rate locked at SENT (sale base), line amounts in the base ──
+  readonly moneyCode = { display: 'code' } as const;
+  private readonly mapCurrency = cachedDocCurrency((q: SaleQuotation) => ({
+    currencyId: q.currencyId, currencyCode: q.currencyCode, exchangeRate: q.exchangeRate,
+    baseCurrencyId: q.baseCurrencyId, baseCurrencyCode: q.baseCurrencyCode, rateLockedAt: q.rateLockedAt
+  }));
+  get currencyInfo(): DocCurrencyInfo | null { return this.mapCurrency(this.quotation); }
+  /** Locked, and the base is another currency: line totals in the base get a column. */
+  get showBase(): boolean { return hasBaseAmounts(this.currencyInfo); }
+  get baseCurrencyRef(): string | null { return this.quotation?.baseCurrencyId || this.quotation?.baseCurrencyCode || null; }
+  /** The quotation has no header base total (contract §6): it is the sum of the line base totals (D-13). */
+  get baseGrandTotal(): number | null {
+    return this.showBase ? sumDifferences((this.quotation?.lines ?? []).map(l => l.lineTotalBase)) : null;
+  }
   rows: QuotationLineRow[] = [];
   isLoading = true;
   notFound = false;
@@ -268,6 +287,12 @@ export class SaleQuotationDetailComponent implements OnInit {
       error: (err) => {
         this.isSending = false;
         this.sendDialogVisible = false;
+        // A35 D-5 — sending locks the rate; the quotation's currency has none on the sent date.
+        const missing = missingRateOf(err?.error?.message);
+        if (missing) {
+          this.messageService.add({ severity: 'error', summary: 'No exchange rate', detail: missing.message, life: 10000 });
+          return;
+        }
         this.messageService.add({ severity: 'error', summary: 'Not sent', detail: err?.error?.message ?? 'The quotation could not be sent.' });
       }
     });

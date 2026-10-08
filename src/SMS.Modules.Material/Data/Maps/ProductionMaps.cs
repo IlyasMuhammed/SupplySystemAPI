@@ -34,6 +34,16 @@ internal sealed class ProductionOrderMap : IEntityTypeConfiguration<ProductionOr
         b.HasIndex(x => new { x.OrganizationId, x.Status, x.RequiredDate });
         b.HasIndex(x => new { x.OrganizationId, x.SourceType, x.SourceUuid });
         b.HasIndex(x => new { x.OrganizationId, x.ProductUuid });
+        // A34 D-18 / D-20 — make-to-order route and the delivery made from the PO (scalar Guids, no FK across contexts).
+        b.Ignore(x => x.IsMakeToOrder);
+        b.Property(x => x.DeliveryNumber).HasMaxLength(50);
+        // D-8 "is this route in use" and the C6 sweep's selection; filtered so the (many) rows without them cost nothing.
+        b.HasIndex(x => x.FulfillmentRouteUuid)
+         .HasDatabaseName("IX_production_orders_FulfillmentRouteUuid")
+         .HasFilter("[FulfillmentRouteUuid] IS NOT NULL");
+        b.HasIndex(x => x.DeliveryCreationPendingSince)
+         .HasDatabaseName("IX_production_orders_DeliveryCreationPendingSince")
+         .HasFilter("[DeliveryCreationPendingSince] IS NOT NULL");
 
         b.HasOne(x => x.Bom).WithMany()
          .HasForeignKey(x => x.BomId).OnDelete(DeleteBehavior.Restrict);

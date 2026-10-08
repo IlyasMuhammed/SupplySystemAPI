@@ -18,6 +18,7 @@
       <th class="text-right">Qty</th>
       <th>UOM</th>
       <th>Requested delivery</th>
+      <th pTooltip="⏱ = calculated from lead times · ✎ = the estimate given · — = not calculated">Delivery</th>
       <th>Status</th>
       <th *ngIf="canEdit" class="text-center" style="width:7rem">Action</th>
     </tr>
@@ -42,6 +43,18 @@
       <td class="text-right">{{ l.requestedQuantity | number:'1.0-4' }}</td>
       <td>{{ l.requestedUomCode || '—' }}</td>
       <td>{{ displayDate(l.requestedDeliveryDate) }}</td>
+      <!-- A34 PC-07/08/09: the estimate is the manual date; ⏱ calculates and stores the lead time on demand. -->
+      <td class="nowrap" data-testid="line-delivery">
+        <app-lead-time-popover [variantUuid]="l.variantUuid" [quantity]="l.requestedQuantity"
+                               [manualDate]="l.estimatedDeliveryDate" [calculatedDate]="l.calculatedDeliveryDate"
+                               [calculatedDays]="l.calculatedLeadTimeDays" [calculatedAt]="l.leadTimeCalculatedAt"
+                               [canCalculate]="canCalculateLeadTime" [canOverride]="canSetDate(l)"
+                               [overrideNote]="canCalculateLeadTime ? inquiryDateNote : null"
+                               [calculator]="leadTimeCalculator(l)" [saving]="savingDateLineUuid === l.uuid"
+                               [label]="'Line ' + l.lineNumber + ': ' + l.productDescription"
+                               (calculated)="onLineLeadTime(l, $event)"
+                               (manualDateChange)="setLineDate(l, $event)"></app-lead-time-popover>
+      </td>
       <td>
         <span class="line-status" data-testid="line-status">
           <span class="dot" [ngClass]="'st-' + lineColor(l.lineStatus)"></span>{{ statusLabel(l.lineStatus) }}
@@ -60,7 +73,7 @@
   <ng-template pTemplate="expandedrow" let-l>
     <tr class="detail-row">
       <td></td>
-      <td [attr.colspan]="canEdit ? 7 : 6">
+      <td [attr.colspan]="canEdit ? 8 : 7">
         <ul class="line-detail" data-testid="line-detail">
           <li *ngFor="let s of summary(l)"><i class="pi pi-angle-right"></i> {{ s }}</li>
         </ul>
@@ -73,7 +86,7 @@
 
   <ng-template pTemplate="emptymessage">
     <tr>
-      <td [attr.colspan]="canEdit ? 8 : 7" class="text-center muted" style="padding:2rem">
+      <td [attr.colspan]="canEdit ? 9 : 8" class="text-center muted" style="padding:2rem">
         No lines yet.<ng-container *ngIf="canEdit"> Add what the customer asked for.</ng-container>
       </td>
     </tr>
@@ -209,6 +222,7 @@
         <p-datepicker inputId="lnEstDate" [(ngModel)]="draft.estimatedDeliveryDate" dateFormat="dd M yy" [showClear]="true"
                       styleClass="w-full" appendTo="body" data-testid="estimated-date"></p-datepicker>
         <small class="p-error" *ngIf="showError('estimatedDeliveryDate')">{{ showError('estimatedDeliveryDate') }}</small>
+        <small class="muted" *ngIf="calculatedDateHint as hint" data-testid="calculated-date-hint">⏱ {{ hint }}</small>
       </div>
 
       <div class="field check">

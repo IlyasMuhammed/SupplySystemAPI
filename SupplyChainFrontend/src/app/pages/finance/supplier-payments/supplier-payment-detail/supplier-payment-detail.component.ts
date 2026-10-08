@@ -14,6 +14,10 @@ import { FinanceService, SupplierPaymentDetailModel } from '../../../../services
 import { AuthService } from '../../../service/auth.service';
 import { AttachmentListComponent } from '../../../../shared/attachment-list/attachment-list.component';
 import { TimelinePanelComponent } from '../../../../shared/timeline-panel/timeline-panel.component';
+import { DocCurrencyPanelComponent } from '../../../../shared/doc-currency/doc-currency-panel.component';
+import { FxDifferenceComponent } from '../../../../shared/doc-currency/fx-difference.component';
+import { DocCurrencyInfo, cachedDocCurrency, hasBaseAmounts, missingRateOf } from '../../../../shared/doc-currency/doc-currency';
+import { MoneyPipe } from '../../../../shared/money/money.pipe';
 
 @Component({
   selector: 'app-supplier-payment-detail',
@@ -21,7 +25,8 @@ import { TimelinePanelComponent } from '../../../../shared/timeline-panel/timeli
   imports: [
     CommonModule, RouterModule, FormsModule,
     ButtonModule, TagModule, ToastModule,
-    TableModule, TooltipModule, ConfirmDialogModule, AttachmentListComponent, TimelinePanelComponent
+    TableModule, TooltipModule, ConfirmDialogModule, AttachmentListComponent, TimelinePanelComponent,
+    DocCurrencyPanelComponent, FxDifferenceComponent, MoneyPipe
   ],
   templateUrl: './supplier-payment-detail.component.html',
   styleUrls: ['./supplier-payment-detail.component.scss'],
@@ -32,6 +37,19 @@ export class SupplierPaymentDetailComponent implements OnInit {
   isLoading  = true;
   isActioning = false;
   showTimeline = false;
+
+  // ── A35-E-06: currency, rate locked at posting (purchase base), realized exchange differences ──
+  readonly moneyCode = { display: 'code' } as const;
+  private readonly mapCurrency = cachedDocCurrency((p: SupplierPaymentDetailModel) => ({
+    currencyId: p.currencyId, currencyCode: p.currencyCode, exchangeRate: p.exchangeRate,
+    baseCurrencyId: p.baseCurrencyId, baseCurrencyCode: p.baseCurrencyCode, rateLockedAt: null
+  }));
+  get currencyInfo(): DocCurrencyInfo | null { return this.mapCurrency(this.payment); }
+  get showAmountBase(): boolean { return hasBaseAmounts(this.currencyInfo) && this.payment?.amountBase != null; }
+  get baseCurrencyRef(): string | null { return this.payment?.baseCurrencyId || this.payment?.baseCurrencyCode || null; }
+  get hasLineFx(): boolean {
+    return (this.payment?.lines ?? []).some(l => l.exchangeDifference !== null && l.exchangeDifference !== undefined);
+  }
 
   constructor(
     private financeService: FinanceService,
@@ -121,6 +139,12 @@ export class SupplierPaymentDetailComponent implements OnInit {
       },
       error: (err) => {
         this.isActioning = false;
+        // A35 D-5 — posting needs a rate for the payment's currency on the payment date.
+        const missing = missingRateOf(err?.error?.message);
+        if (missing) {
+          this.messageService.add({ severity: 'error', summary: 'No exchange rate', detail: missing.message, life: 10000 });
+          return;
+        }
         this.messageService.add({ severity: 'error', summary: 'Error', detail: err?.error?.message || 'Action failed.' });
       }
     });

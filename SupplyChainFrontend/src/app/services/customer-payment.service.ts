@@ -115,6 +115,8 @@ export interface CustomerPaymentAllocationModel {
   allocatedBy: number;
   invoiceBalanceDue: number;
   invoiceStatus: string;
+  /** A35 — realized exchange difference of this allocation in the sale base (+ gain, − loss). */
+  exchangeDifference?: number | null;
 }
 
 export interface CustomerPaymentDetailModel extends CustomerPaymentListItemModel {
@@ -124,6 +126,14 @@ export interface CustomerPaymentDetailModel extends CustomerPaymentListItemModel
   modifiedBy?: number | null;
   modifiedDate?: string | null;
   allocations: CustomerPaymentAllocationModel[];
+  // A35 (API-CONTRACT.md §7) — rate locked at posting against the sale base; base fields null until then.
+  currencyId?: string | null;
+  exchangeRate?: number | null;
+  baseCurrencyId?: string | null;
+  baseCurrencyCode?: string | null;
+  amountBase?: number | null;
+  /** Σ of the allocations' realized differences (+ gain, − loss). */
+  exchangeDifference?: number | null;
 }
 
 @Injectable({ providedIn: 'root' })

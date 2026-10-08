@@ -267,7 +267,13 @@
           <ng-template pTemplate="body" let-variant>
             <tr>
               <td><span class="sku-chip">{{ variant.sku }}</span></td>
-              <td>{{ variant.variantName }}</td>
+              <td>
+                {{ variant.variantName }}
+                <!-- A34 D-4 — a MANUFACTURE route: confirming a sale order raises a production order for the line -->
+                <p-tag *ngIf="variant.isMakeToOrder" value="Make to order" severity="warn" styleClass="ml-1"
+                       [pTooltip]="'Route ' + (variant.fulfillmentRouteName ?? '') + ': each sale order line is produced, then delivered'"
+                       tooltipPosition="top" [attr.data-testid]="'make-to-order-' + variant.uuid"></p-tag>
+              </td>
               <td class="text-right">{{ variant.purchasePrice | number:'1.2-2' }}</td>
               <td class="text-right">{{ variant.sellingPrice != null ? (variant.sellingPrice | number:'1.2-2') : '—' }}</td>
               <td>{{ variant.barcode || '—' }}</td>
@@ -536,6 +542,17 @@
         </div>
 
       </div>
+    </p-tabPanel>
+
+    <!-- TAB: Lead Times (A34-PB-07, D-26) — per variant; content loads when the tab is first opened -->
+    <p-tabPanel header="Lead Times" leftIcon="pi pi-clock" data-testid="lead-times-tab">
+      <ng-template pTemplate="content">
+        <div class="tab-content" style="padding-top:1.25rem">
+          <app-lead-times-tab [variants]="product.variants" [canEdit]="canEditLeadTimes"
+                              [canCalculate]="canCalculateLeadTimes" [productManufactured]="productManufactured">
+          </app-lead-times-tab>
+        </div>
+      </ng-template>
     </p-tabPanel>
 
     <!-- TAB: Bill of Materials (A31-C4) — inline, replaces the standalone BOM module UI -->
@@ -1018,7 +1035,9 @@
     <div class="adj-field" *ngIf="routesEnabled" data-testid="variant-route">
       <app-variant-route-field [(value)]="variantRouteUuid" [canAssign]="canAssignRoute"
                                [currentCode]="editingVariant?.fulfillmentRouteCode ?? null"
-                               [currentName]="editingVariant?.fulfillmentRouteName ?? null"></app-variant-route-field>
+                               [currentName]="editingVariant?.fulfillmentRouteName ?? null"
+                               [productManufactured]="productManufactured"
+                               [manufacturingEnabled]="manufacturingEnabled"></app-variant-route-field>
     </div>
 
     <div class="adj-row-2">

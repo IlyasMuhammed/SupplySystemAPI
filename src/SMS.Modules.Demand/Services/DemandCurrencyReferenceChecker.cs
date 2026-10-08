@@ -21,7 +21,11 @@ internal sealed class DemandCurrencyReferenceChecker : ILookupReferenceChecker
 
     public DemandCurrencyReferenceChecker(DemandDbContext db) => _db = db;
 
+    // A35 — quotations, inquiries and purchase orders carry a currency too (D-10), and a locked document its base.
     public bool IsValueReferenced(Guid lookupValueId) =>
         lookupValueId != Guid.Empty
-        && _db.SaleOrders.IgnoreQueryFilters().Any(o => o.CurrencyId == lookupValueId);
+        && (_db.SaleOrders.IgnoreQueryFilters().Any(o => o.CurrencyId == lookupValueId || o.BaseCurrencyId == lookupValueId)
+            || _db.SaleQuotations.IgnoreQueryFilters().Any(q => q.CurrencyId == lookupValueId || q.BaseCurrencyId == lookupValueId)
+            || _db.SaleInquiries.IgnoreQueryFilters().Any(i => i.CurrencyId == lookupValueId)
+            || _db.PurchaseOrders.IgnoreQueryFilters().Any(p => p.CurrencyId == lookupValueId || p.BaseCurrencyId == lookupValueId));
 }

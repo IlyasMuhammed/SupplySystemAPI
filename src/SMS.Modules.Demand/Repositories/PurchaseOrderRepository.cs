@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using SMS.Modules.Demand.Data;
 using SMS.Modules.Demand.Domain;
 using SMS.Modules.Demand.Models;
+using SMS.Modules.Demand.Services;
 using SMS.Modules.Inventory.Data;
 using SMS.Shared.Common;
 using SMS.Shared.Exceptions;
@@ -20,13 +21,50 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
     // supplies the real InventoryDbContext since it's registered by the Inventory module.
     private readonly InventoryDbContext? _inv;
 
+    // A35 — optional like the Inventory context: Finance's rate lock (AUTO_SEND POs are created APPROVED), Suppliers' default
+    // purchase currency, Tenancy's purchase base, Finance's org currencies and Lookups' codes. Without them a PO takes the
+    // currency it is given (or none) and is not locked at creation.
+    private readonly ICurrencyService? _currency;
+    private readonly IPartnerCurrencyDefaults? _partnerCurrencies;
+    private readonly IOrganizationCurrencyService? _orgCurrency;
+    private readonly IOrgCurrencyLookup? _orgCurrencies;
+    private readonly ICurrencyCodeLookup? _currencyCodes;
+
     public PurchaseOrderRepository(
-        DemandDbContext db, ILogger<PurchaseOrderRepository> logger, IDocumentNumberGenerator numbers, InventoryDbContext? inv = null)
+        DemandDbContext db, ILogger<PurchaseOrderRepository> logger, IDocumentNumberGenerator numbers, InventoryDbContext? inv = null,
+        ICurrencyService? currency = null, IPartnerCurrencyDefaults? partnerCurrencies = null,
+        IOrganizationCurrencyService? orgCurrency = null, IOrgCurrencyLookup? orgCurrencies = null,
+        ICurrencyCodeLookup? currencyCodes = null)
     {
+        _currency          = currency;
+        _partnerCurrencies = partnerCurrencies;
+        _orgCurrency       = orgCurrency;
+        _orgCurrencies     = orgCurrencies;
+        _currencyCodes     = currencyCodes;
         _db      = db;
         _logger  = logger;
         _numbers = numbers;
         _inv     = inv;
+    }
+
+    private Guid Org => _db.TenantContext.OrganizationId;
+
+    /// <summary>
+    /// A35 D-14 / BR-C4-03 — a PO's currency: the one asked for (a new choice must be an active org currency), else the PO's
+    /// own (an edit), else the supplier's default purchase currency, else the organization's purchase base. Null only when
+    /// none of those services is there (module test hosts) — read as the purchase base.
+    /// </summary>
+    private async Task<Guid?> ResolveCurrencyAsync(Guid? requested, Guid supplierId, Guid? current = null)
+    {
+        if (requested is { } id && id != Guid.Empty)
+        {
+            if (id != current)
+                await DemandCurrency.RequireActiveOrgCurrencyAsync(_orgCurrencies, _orgCurrency, Org, id, TransactionDomain.Purchase,
+                    _currencyCodes is null ? null : await _currencyCodes.GetCodeAsync(id));
+            return id;
+        }
+        if (current is { } existing && existing != Guid.Empty) return existing;
+        return await DemandCurrency.DefaultForPartnerAsync(_partnerCurrencies, _orgCurrency, Org, supplierId, TransactionDomain.Purchase);
     }
 
     // ── Single-vendor conversion: all PR lines → one PO ──────────────────────
@@ -81,6 +119,7 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
             SupplierId   = req.SupplierId,
             SupplierName = req.SupplierName,
             Status       = "DRAFT",
+            CurrencyId   = await ResolveCurrencyAsync(null, req.SupplierId),
             TotalAmount  = poLines.Sum(l => l.LineTotal),
             DeliveryDate = req.DeliveryDate,
             Notes               = req.Notes,
@@ -171,6 +210,7 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
                 SupplierId   = group.Key,
                 SupplierName = firstAssignment.SupplierName,
                 Status       = "DRAFT",
+                CurrencyId   = await ResolveCurrencyAsync(null, group.Key),
                 TotalAmount  = poLines.Sum(l => l.LineTotal),
                 DeliveryDate = req.DeliveryDate,
                 Notes        = req.Notes,
@@ -211,6 +251,7 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
             SupplierId            = req.SupplierId,
             SupplierName          = req.SupplierName,
             Status                = "DRAFT",
+            CurrencyId            = await ResolveCurrencyAsync(req.CurrencyId, req.SupplierId),
             Source                = string.IsNullOrWhiteSpace(req.Source) ? PurchaseOrderSources.Manual : req.Source.Trim().ToUpperInvariant(),
             DeliveryDate          = req.DeliveryDate,
             DeliveryWarehouseId   = req.DeliveryWarehouseId,
@@ -448,6 +489,7 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
             SupplierId                = spec.SupplierId,
             SupplierName              = spec.SupplierName,
             Status                    = spec.Status,
+            CurrencyId                = await ResolveCurrencyAsync(null, spec.SupplierId),
             IsActive                  = true,
             CreatedBy                 = createdBy,
             CreatedDate               = now,
@@ -474,10 +516,29 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
         });
 
         po.TotalAmount = po.Lines.Sum(l => l.LineTotal);
+
+        // A35 D-12 — an AUTO_SEND PO is APPROVED from birth, so its rate is locked here. With no rate on file (D-5) it is
+        // not refused outright — this runs in a retried job and the deficit still needs a PO — but created as a DRAFT for a
+        // person to approve once a rate is entered (approval then locks it).
+        if (spec.Status == "APPROVED" && po.CurrencyId is { } currencyId)
+        {
+            try
+            {
+                var now2 = DateTime.UtcNow;
+                if (await DemandCurrency.LockAsync(_currency, _orgCurrency, Org, currencyId, DemandCurrency.Today(now2), TransactionDomain.Purchase) is { } rate)
+                    DemandCurrency.Apply(po, rate, now2);
+            }
+            catch (CurrencyRateNotFoundException ex)
+            {
+                _logger.LogWarning("Auto-created PO {PoNumber} was left as a DRAFT: {Reason}", po.PoNumber, ex.Message);
+                po.Status = "DRAFT";
+            }
+        }
+
         _db.PurchaseOrders.Add(po);
         await _db.SaveChangesAsync();
 
-        return new CreatedPurchaseOrder(po.UUID, po.Id, po.PoNumber, variant?.Sku);
+        return new CreatedPurchaseOrder(po.UUID, po.Id, po.PoNumber, variant?.Sku, po.Status);
     }
 
     // ── Update DRAFT PO ───────────────────────────────────────────────────────
@@ -514,6 +575,13 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
         if (req.DeliveryWarehouseId.HasValue)      po.DeliveryWarehouseId   = req.DeliveryWarehouseId;
         if (req.DeliveryWarehouseName is not null) po.DeliveryWarehouseName = req.DeliveryWarehouseName;
         if (req.Notes is not null)                 po.Notes                 = req.Notes;
+        // A35 — DRAFT only (checked above), so the rate is never locked yet; omitted keeps the PO's currency.
+        if (req.CurrencyId is { } newCurrency && newCurrency != Guid.Empty && newCurrency != po.CurrencyId)
+        {
+            if (po.ExchangeRate is not null)
+                throw new BadRequestException(DemandCurrency.LockedMessage);
+            po.CurrencyId = await ResolveCurrencyAsync(newCurrency, po.SupplierId, po.CurrencyId);
+        }
 
         if (req.Lines is not null)
         {
@@ -623,6 +691,7 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
             SupplierId                = req.SupplierId,
             SupplierName              = req.SupplierName,
             Status                    = "DRAFT",
+            CurrencyId                = po.CurrencyId, // A35 — the moved quantity keeps the price's currency
             DeliveryDate              = po.DeliveryDate,
             DeliveryWarehouseId       = po.DeliveryWarehouseId,
             DeliveryWarehouseName     = po.DeliveryWarehouseName,
@@ -905,10 +974,19 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
                 SupplierName = p.SupplierName,
                 Status       = p.Status,
                 TotalAmount  = p.TotalAmount,
+                CurrencyId      = p.CurrencyId,
+                TotalAmountBase = p.TotalAmountBase,
                 DeliveryDate = p.DeliveryDate,
                 CreatedDate  = p.CreatedDate
             })
             .ToListAsync();
+
+        if (_currencyCodes is not null)
+            foreach (var group in items.Where(i => i.CurrencyId is not null).GroupBy(i => i.CurrencyId!.Value))
+            {
+                var code = (await _currencyCodes.GetCodeAsync(group.Key))?.Trim();
+                foreach (var item in group) item.CurrencyCode = code;
+            }
 
         return new PaginatedResponse<PoListItemModel>
         {
@@ -960,6 +1038,13 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
             SupplierContactMobile = po.SupplierContactMobile,
             Status                = po.Status,
             TotalAmount           = po.TotalAmount,
+            CurrencyId            = po.CurrencyId,
+            CurrencyCode          = po.CurrencyId is { } cid && _currencyCodes is not null ? (await _currencyCodes.GetCodeAsync(cid))?.Trim() : null,
+            ExchangeRate          = po.ExchangeRate,
+            BaseCurrencyId        = po.BaseCurrencyId,
+            BaseCurrencyCode      = po.BaseCurrencyId is { } bid && _currencyCodes is not null ? (await _currencyCodes.GetCodeAsync(bid))?.Trim() : null,
+            RateLockedAt          = po.RateLockedAt,
+            TotalAmountBase       = po.TotalAmountBase,
             DeliveryDate          = po.DeliveryDate,
             DeliveryWarehouseId   = po.DeliveryWarehouseId,
             DeliveryWarehouseName = po.DeliveryWarehouseName,
@@ -993,6 +1078,8 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
                     UnitPrice             = l.UnitPrice,
                     LineDiscountPct       = l.LineDiscountPct,
                     LineTotal             = l.LineTotal,
+                    UnitPriceBase         = l.UnitPriceBase,
+                    LineTotalBase         = l.LineTotalBase,
                     QtyReceived           = l.QtyReceived,
                     QtyInvoiced           = l.QtyInvoiced,
                     RequiredDate          = l.RequiredDate,

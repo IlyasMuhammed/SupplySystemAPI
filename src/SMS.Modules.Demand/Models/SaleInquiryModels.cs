@@ -52,6 +52,9 @@ public class SaleInquiryModel
     public string?   AssignedToUserName    { get; set; }
     public string?   Notes                 { get; set; }
     public string?   DeclineReason         { get; set; }
+    /// <summary>A35 D-10/D-14 — the currency the customer asks in (informational; no rate). The quotation inherits it.</summary>
+    public Guid?     CurrencyId            { get; set; }
+    public string?   CurrencyCode          { get; set; }
     public int       CreatedBy             { get; set; }
     public DateTime  CreatedDate           { get; set; }
     public DateTime? ModifiedDate          { get; set; }
@@ -95,6 +98,13 @@ public class SaleInquiryLineModel
     public string?   ReviewedByUserName         { get; set; }
     public DateTime? ReviewedAt                 { get; set; }
     public string?   Notes                      { get; set; }
+
+    // A34 D-15 (API-CONTRACT §5.1). The manual date is EstimatedDeliveryDate.
+    public int?      CalculatedLeadTimeDays     { get; set; }
+    public DateTime? CalculatedDeliveryDate     { get; set; }
+    public DateTime? LeadTimeCalculatedAt       { get; set; }
+    public DateTime? EffectiveDeliveryDate      { get; set; }
+    public string    DeliveryDateSource         { get; set; } = DeliveryDateSources.None;
 }
 
 /// <summary>POST /api/sale-inquiries. Created as RECEIVED; lines optional (they can be added after).</summary>
@@ -108,6 +118,8 @@ public class CreateSaleInquiryRequest
     public DateTime? ResponseDeadline      { get; set; }
     public int?      AssignedToUserId      { get; set; }
     public string?   Notes                 { get; set; }
+    /// <summary>A35 D-14 — the customer's default sale currency when omitted, else the organization's sale base.</summary>
+    public Guid?     CurrencyId            { get; set; }
     public List<SaleInquiryLineRequest> Lines { get; set; } = [];
 }
 
@@ -120,6 +132,8 @@ public class UpdateSaleInquiryRequest
     public DateTime? ResponseDeadline      { get; set; }
     public int?      AssignedToUserId      { get; set; }
     public string?   Notes                 { get; set; }
+    /// <summary>A35 — omitted keeps the inquiry's currency.</summary>
+    public Guid?     CurrencyId            { get; set; }
 }
 
 /// <summary>

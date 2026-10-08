@@ -27,11 +27,18 @@
         </p>
         <p class="page-subtitle" data-testid="source-line">
           <ng-container *ngIf="order.sourceType === 'SALES_ORDER' && order.sourceUuid; else notFromSale">
-            From sale order <a class="mono" [routerLink]="['/portal/pages/sales/orders', order.sourceUuid]">{{ order.sourceReference || order.sourceUuid }}</a>
+            From sale order <a class="mono" [routerLink]="['/portal/pages/sales/orders', order.sourceUuid]">{{ order.sourceReference || order.sourceUuid }}</a><span
+              *ngIf="order.saleOrderLineNumber" data-testid="source-line-number"> (line {{ order.saleOrderLineNumber }})</span>
           </ng-container>
           <ng-template #notFromSale>
             <span class="sub">{{ order.sourceType === 'MANUAL' ? 'Directly created' : (order.sourceReference || (order.sourceType | titlecase)) }}</span>
           </ng-template>
+        </p>
+        <!-- A34 PE-06: the route the goods take once made (make-to-order only). -->
+        <p class="page-subtitle" *ngIf="isMakeToOrder" data-testid="fulfillment-route">
+          Fulfillment route: <strong>{{ order.fulfillmentRouteName || order.fulfillmentRouteCode || 'Route' }}</strong>
+          <p-tag value="Make to order" severity="warn" styleClass="mto-tag"
+                 pTooltip="Made for its sale order line; the delivery is created when production completes"></p-tag>
         </p>
       </div>
       <div class="header-actions" data-testid="actions">
@@ -58,6 +65,59 @@
         <span class="stat-label">Materials short</span><span class="stat-value">{{ order.shortMaterialCount }} / {{ order.materialCount }}</span>
       </div>
       <div class="stat"><span class="stat-label">Required</span><span class="stat-value" style="font-size:1rem">{{ order.requiredDate | date:'mediumDate' }}</span></div>
+    </div>
+
+    <!-- A34 PE-06: planned / accepted / yield. -->
+    <p class="production-summary" data-testid="production-summary">
+      <span>Planned: <strong>{{ order.plannedQuantity | number:'1.0-4' }}</strong></span>
+      <ng-container *ngIf="showYield; else notInspected">
+        <span>Accepted: <strong>{{ order.acceptedQuantity | number:'1.0-4' }}</strong></span>
+        <span *ngIf="yieldPercent !== null">Yield: <strong>{{ yieldPercent }}%</strong></span>
+      </ng-container>
+      <ng-template #notInspected><span class="sub">Accepted and yield follow the quality inspection.</span></ng-template>
+    </p>
+
+    <!-- A34 PE-06 / D-20: the delivery made from this order when it completes (or by "Create delivery now"). -->
+    <div class="form-card delivery-card" *ngIf="isMakeToOrder" data-testid="auto-delivery">
+      <div class="delivery-card-head">
+        <h3 class="section-title"><i class="pi pi-truck"></i> Auto-created delivery</h3>
+        <span class="grow"></span>
+        <p-button *ngIf="canCreateDeliveryNow" label="Create delivery now" icon="pi pi-truck" size="small" [outlined]="true"
+                  [loading]="isCreatingDelivery" (onClick)="createDeliveryNow()"
+                  pTooltip="Deliver the accepted goods not yet on a delivery, up to what the sale order line still needs"
+                  data-testid="create-delivery-now"></p-button>
+      </div>
+
+      <ng-container *ngIf="productionDeliveries.length; else fromOrder">
+        <div class="delivery-row" *ngFor="let d of productionDeliveries" data-testid="auto-delivery-row">
+          <span class="mono">{{ d.deliveryNumber }}</span>
+          <span *ngIf="d.fulfillmentRouteName">{{ d.fulfillmentRouteName }}</span>
+          <span *ngIf="d.lineSummary" class="sub">{{ d.lineSummary }}</span>
+          <p-tag [value]="deliveryStatusLabel(d.status)" [severity]="deliverySeverity(d.status)"></p-tag>
+          <span class="grow"></span>
+          <p-button label="View" icon="pi pi-eye" size="small" [text]="true"
+                    [routerLink]="['/portal/pages/logistics/deliveries', d.uuid]" data-testid="view-delivery"></p-button>
+        </div>
+      </ng-container>
+      <!-- Without DELIVERY_VIEW (or before the list answers): what the order itself knows. -->
+      <ng-template #fromOrder>
+        <div class="delivery-row" *ngIf="order.deliveryNumber; else noDeliveryYet">
+          <span class="mono">{{ order.deliveryNumber }}</span>
+          <i *ngIf="isLoadingDeliveries" class="pi pi-spin pi-spinner sub"></i>
+          <span class="grow"></span>
+          <p-button *ngIf="canViewDeliveries && order.deliveryOrderUuid" label="View" icon="pi pi-eye" size="small" [text]="true"
+                    [routerLink]="['/portal/pages/logistics/deliveries', order.deliveryOrderUuid]" data-testid="view-delivery"></p-button>
+        </div>
+        <ng-template #noDeliveryYet>
+          <p class="sub" *ngIf="!order.deliveryCreationPending">Pending — the delivery is created when production completes.</p>
+          <p class="warn-text" *ngIf="order.deliveryCreationPending">
+            <i class="pi pi-exclamation-triangle"></i> Production is complete, but its delivery could not be created yet. It is
+            retried automatically; "Create delivery now" creates it straight away.
+          </p>
+        </ng-template>
+      </ng-template>
+
+      <p class="warn-text" *ngIf="shortfallText as s" data-testid="shortfall-note"><i class="pi pi-exclamation-triangle"></i> {{ s }}</p>
     </div>
 
     <p-tabView [activeIndex]="activeTab" (onChange)="onTabChange($event.index)">

@@ -20,6 +20,9 @@ import { SupplierService, EligibleContactModel } from '../../../../services/supp
 import { TimelinePanelComponent } from '../../../../shared/timeline-panel/timeline-panel.component';
 import { AttachmentListComponent } from '../../../../shared/attachment-list/attachment-list.component';
 import { AttachmentService } from '../../../../services/attachment.service';
+import { DocCurrencyPanelComponent } from '../../../../shared/doc-currency/doc-currency-panel.component';
+import { DualAmounts, missingRateOf } from '../../../../shared/doc-currency/doc-currency';
+import { MoneyPipe } from '../../../../shared/money/money.pipe';
 
 @Component({
   selector: 'app-po-detail',
@@ -29,7 +32,7 @@ import { AttachmentService } from '../../../../services/attachment.service';
     ButtonModule, TagModule, ToastModule,
     TableModule, DividerModule, TooltipModule,
     ConfirmDialogModule, DialogModule, TextareaModule, DropdownModule, TimelinePanelComponent,
-    AttachmentListComponent
+    AttachmentListComponent, DocCurrencyPanelComponent, MoneyPipe
   ],
   templateUrl: './po-detail.component.html',
   styleUrls: ['./po-detail.component.scss'],
@@ -39,6 +42,9 @@ export class PoDetailComponent implements OnInit, OnDestroy {
   uuid  = '';
   showTimeline = false;
   po: PoDetailModel | null = null;
+  /** A35 P3-14 — PO currency vs purchase base (rate locked at approval); amounts written with the code, as §11.5. */
+  readonly dual = new DualAmounts(() => this.po);
+  readonly moneyCode = { display: 'code' } as const;
   isLoading    = true;
   isSubmitting = false;
   isApproving  = false;
@@ -220,6 +226,12 @@ export class PoDetailComponent implements OnInit, OnDestroy {
       },
       error: (err: any) => {
         this.isApproving = false;
+        // A35 D-5 — the PO's currency has no rate on the approval date.
+        const missing = missingRateOf(err?.error?.message);
+        if (missing) {
+          this.messageService.add({ severity: 'error', summary: 'No exchange rate', detail: missing.message, life: 10000 });
+          return;
+        }
         this.messageService.add({ severity: 'error', summary: 'Error', detail: err?.error?.message || 'Failed to approve PO.' });
       }
     });

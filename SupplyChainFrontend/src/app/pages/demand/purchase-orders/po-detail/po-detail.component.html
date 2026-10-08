@@ -75,7 +75,8 @@
 
         <div class="summary-total">
           <span class="total-label">Order Total</span>
-          <span class="total-amount">{{ po.totalAmount | number:'1.2-2' }}</span>
+          <span class="total-amount">{{ dual.primary(po.totalAmount, po.totalAmountBase) | money:dual.primaryCurrency:moneyCode }}</span>
+          <span class="total-base" *ngIf="dual.showBase">{{ dual.secondary(po.totalAmount, po.totalAmountBase) | money:dual.secondaryCurrency:moneyCode }}</span>
         </div>
       </div>
 
@@ -94,6 +95,11 @@
           </a>
         </div>
       </div>
+    </div>
+
+    <!-- A35 P3-14 — PO currency, the rate locked at approval, the purchase base, and the amount toggle. -->
+    <div class="currency-card">
+      <app-doc-currency-panel [doc]="po" lockPoint="approval" domain="PURCHASE" [(view)]="dual.view"></app-doc-currency-panel>
     </div>
 
     <!-- ── Line Items ──────────────────────────────────────────────────── -->
@@ -119,7 +125,8 @@
               <th class="col-num-r">Invoiced</th>
               <th class="col-num-r">Pending</th>
               <th class="col-num-r">Unit Price</th>
-              <th class="col-num-r">Total</th>
+              <th class="col-num-r" data-testid="po-total-header-primary">{{ dual.showBase ? 'Total (' + dual.primaryCode + ')' : 'Total' }}</th>
+              <th class="col-num-r" *ngIf="dual.showBase" data-testid="po-total-header-secondary">Total ({{ dual.secondaryCode }})</th>
               <th>Budget Code</th>
             </tr>
           </thead>
@@ -166,15 +173,17 @@
                   {{ line.qtyPending | number:'1.0-4' }}
                 </span>
               </td>
-              <td class="col-num-r price-cell">{{ line.unitPrice | number:'1.2-2' }}</td>
-              <td class="col-num-r total-cell">{{ line.lineTotal | number:'1.2-2' }}</td>
+              <td class="col-num-r price-cell" data-testid="po-line-unit-price">{{ dual.primary(line.unitPrice, line.unitPriceBase) | money:dual.primaryCurrency:moneyCode }}</td>
+              <td class="col-num-r total-cell" data-testid="po-line-total-primary">{{ dual.primary(line.lineTotal, line.lineTotalBase) | money:dual.primaryCurrency:moneyCode }}</td>
+              <td class="col-num-r total-cell" *ngIf="dual.showBase" data-testid="po-line-total-secondary">{{ dual.secondary(line.lineTotal, line.lineTotalBase) | money:dual.secondaryCurrency:moneyCode }}</td>
               <td>{{ line.budgetCode || '—' }}</td>
             </tr>
           </tbody>
           <tfoot>
             <tr class="po-total-row">
               <td colspan="8" class="total-label-cell">Order Total</td>
-              <td class="total-amount-cell">{{ totalAmount | number:'1.2-2' }}</td>
+              <td class="total-amount-cell" data-testid="po-total">{{ dual.primary(totalAmount, po.totalAmountBase) | money:dual.primaryCurrency:moneyCode }}<span
+                  *ngIf="dual.showBase" class="total-base"> {{ dual.secondary(totalAmount, po.totalAmountBase) | money:dual.secondaryCurrency:moneyCode }}</span></td>
               <td></td>
             </tr>
           </tfoot>

@@ -16,9 +16,19 @@ internal sealed class BusinessPartnerMappingProfile : Profile
         CreateMap<BusinessPartner, BusinessPartnerModel>()
             .ForMember(d => d.Uuid,        opt => opt.MapFrom(s => s.UUID))
             .ForMember(d => d.PartnerCode, opt => opt.MapFrom(s => s.SupplierCode))
-            .ForMember(d => d.CompanyName, opt => opt.MapFrom(s => s.SupplierName));
+            .ForMember(d => d.CompanyName, opt => opt.MapFrom(s => s.SupplierName))
+            // A35 D-9 — codes are filled by the service (Lookups), the clear flags are input only.
+            .ForMember(d => d.DefaultSaleCurrencyId,       opt => opt.MapFrom(s => s.DefaultSaleCurrency))
+            .ForMember(d => d.DefaultPurchaseCurrencyId,   opt => opt.MapFrom(s => s.PreferredCurrency))
+            .ForMember(d => d.PreferredCurrency,           opt => opt.MapFrom(s => s.PreferredCurrency))
+            .ForMember(d => d.DefaultSaleCurrencyCode,     opt => opt.Ignore())
+            .ForMember(d => d.DefaultPurchaseCurrencyCode, opt => opt.Ignore())
+            .ForMember(d => d.ClearDefaultSaleCurrency,    opt => opt.Ignore())
+            .ForMember(d => d.ClearDefaultPurchaseCurrency, opt => opt.Ignore());
 
         CreateMap<BusinessPartnerModel, BusinessPartner>()
+            .ForMember(d => d.DefaultSaleCurrency, opt => opt.Ignore())
+            .ForMember(d => d.PreferredCurrency,   opt => opt.Ignore())
             .ForMember(d => d.Id,             opt => opt.Ignore())
             .ForMember(d => d.UUID,           opt => opt.MapFrom(s => s.Uuid))
             .ForMember(d => d.SupplierCode,   opt => opt.MapFrom(s => s.PartnerCode))

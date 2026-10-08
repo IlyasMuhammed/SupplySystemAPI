@@ -32,6 +32,9 @@ public class CreateFulfillmentRouteRequest
     public int?    DisplayOrder { get; set; }
 
     public List<FulfillmentRouteStepRequest> Steps { get; set; } = [];
+
+    /// <summary>A34 — STOCK | MANUFACTURE (trimmed, upper-cased); omitted / blank = STOCK. BUY / DROPSHIP are refused (D-7).</summary>
+    public string? RouteCategory { get; set; }
 }
 
 /// <summary>Replaces name, description, display order and (custom routes only) the steps. The code never changes.</summary>
@@ -46,6 +49,12 @@ public class UpdateFulfillmentRouteRequest
     /// from the current ones is a 400.
     /// </summary>
     public List<FulfillmentRouteStepRequest>? Steps { get; set; }
+
+    /// <summary>
+    /// A34 — null / blank = leave the category as it is. A change is refused (409) on a system, default or in-use route
+    /// (D-8); BUY / DROPSHIP are refused (400, D-7).
+    /// </summary>
+    public string? RouteCategory { get; set; }
 }
 
 public class FulfillmentRouteStepModel
@@ -72,6 +81,9 @@ public class FulfillmentRouteModel
     public bool RequiresPacking  { get; set; }
     public bool RequiresShipping { get; set; }
     public int  DisplayOrder     { get; set; }
+
+    /// <summary>A34 — STOCK | MANUFACTURE (| BUY | DROPSHIP, reserved). A MANUFACTURE route is never a default (D-6).</summary>
+    public string RouteCategory  { get; set; } = SMS.Shared.Common.FulfillmentRouteCategory.Stock;
 
     public List<FulfillmentRouteStepModel> Steps { get; set; } = [];
 

@@ -44,17 +44,53 @@ export interface AuditLogFilter {
 
 // ── KPI Dashboard ─────────────────────────────────────────────────────────────
 
+/** The original KPIs. Null = nothing to measure yet ("no data"), never a failing zero. */
 export interface KpiDashboardModel {
-  poCycleTimeDays:           number;
-  supplierOnTimeDeliveryRate: number;
-  poFillRate:                number;
-  stockTurnoverRatio:        number;
-  inventoryAccuracy:         number;
-  invoiceProcessingTimeDays: number;
-  threeWayMatchRate:         number;
-  budgetVariancePercent:     number;
-  grnRejectionRate:          number;
+  poCycleTimeDays:           number | null;
+  supplierOnTimeDeliveryRate: number | null;
+  poFillRate:                number | null;
+  stockTurnoverRatio:        number | null;
+  inventoryAccuracy:         number | null;
+  invoiceProcessingTimeDays: number | null;
+  threeWayMatchRate:         number | null;
+  budgetVariancePercent:     number | null;
+  grnRejectionRate:          number | null;
   reorderTriggerCount:       number;
+}
+
+/** One operations KPI: its value (null with nothing to measure) and how many records it was worked out from. */
+export interface KpiMetric {
+  value: number | null;
+  basis: number;
+}
+
+/** GET reports/kpis/operations — sales, fulfilment, manufacturing and receivables KPIs over a rolling window. A section is null when the user may not see that area. */
+export interface OperationsKpiModel {
+  from: string;
+  to: string;
+  windowDays: number;
+  sales?: {
+    quoteWinRate: KpiMetric;
+    inquiryConversionRate: KpiMetric;
+    orderCancellationRate: KpiMetric;
+    lateOpenOrderRate: KpiMetric;
+  } | null;
+  fulfilment?: {
+    onTimeShipmentRate: KpiMetric;
+    inFullRate: KpiMetric;
+    orderToShipDays: KpiMetric;
+  } | null;
+  manufacturing?: {
+    onTimeCompletionRate: KpiMetric;
+    planAttainment: KpiMetric;
+    firstPassYield: KpiMetric;
+    cycleTimeDays: KpiMetric;
+  } | null;
+  receivables?: {
+    daysSalesOutstanding: KpiMetric;
+    overdueRate: KpiMetric;
+    unconvertedInvoices: number;
+  } | null;
 }
 
 // ── Procurement ───────────────────────────────────────────────────────────────
@@ -137,20 +173,6 @@ export interface GrnVarianceItem {
   totalRejected: number;
   varianceQty:   number;
   status:        string;
-}
-
-export interface ShipmentTrackerItem {
-  shipmentNumber:   string;
-  poNumber:         string;
-  carrierName:      string | null;
-  shipmentType:     string;
-  status:           string;
-  dispatchDate:     string;
-  estimatedArrival: string;
-  actualArrival:    string | null;
-  isOverdue:        boolean;
-  trackingNumber:   string | null;
-  trackingUrl:      string | null;
 }
 
 // ── Finance ───────────────────────────────────────────────────────────────────
@@ -488,6 +510,11 @@ export class ReportsService {
     return this.http.get<ApiResponse<KpiDashboardModel>>(`${BASE}/kpis`);
   }
 
+  /** Sales, fulfilment, manufacturing and receivables KPIs over the last {@link days} days (7–365). */
+  getOperationsKpis(days = 90): Observable<ApiResponse<OperationsKpiModel>> {
+    return this.http.get<ApiResponse<OperationsKpiModel>>(`${BASE}/kpis/operations`, { params: { days } });
+  }
+
   getSupplierPerformance(filter: ReportDateFilter = {}): Observable<ApiResponse<SupplierPerformanceItem[]>> {
     return this.http.get<ApiResponse<SupplierPerformanceItem[]>>(`${BASE}/supplier-performance`, { params: this.params(filter) });
   }
@@ -518,12 +545,6 @@ export class ReportsService {
 
   getGrnVariance(filter: ReportDateFilter = {}): Observable<ApiResponse<GrnVarianceItem[]>> {
     return this.http.get<ApiResponse<GrnVarianceItem[]>>(`${BASE}/grn-variance`, { params: this.params(filter) });
-  }
-
-  getShipmentTracker(status?: string): Observable<ApiResponse<ShipmentTrackerItem[]>> {
-    let p = new HttpParams();
-    if (status) p = p.set('status', status);
-    return this.http.get<ApiResponse<ShipmentTrackerItem[]>>(`${BASE}/shipment-tracker`, { params: p });
   }
 
   getInvoiceAging(): Observable<ApiResponse<{ items: InvoiceAgingItem[]; buckets: InvoiceAgingBucketSummary[] }>> {

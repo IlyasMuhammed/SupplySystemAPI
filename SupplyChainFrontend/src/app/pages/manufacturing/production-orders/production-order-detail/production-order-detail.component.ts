@@ -26,6 +26,12 @@ import {
 import { AuthService } from '../../../service/auth.service';
 import { ApiResponse } from '../../../../services/inventory.service';
 import { AllocationService } from '../../../../services/allocation.service';
+import { DeliveryListItemModel, LogisticsService } from '../../../../services/logistics.service';
+import { DELIVERY_STATUS_SEVERITY } from '../../../logistics/deliveries/delivery-list/delivery-list.component';
+import { formatCode } from '../../../../shared/format-code';
+
+/** A34 — statuses after a quality inspection has been recorded: accepted and yield mean something. */
+const INSPECTED_STATUSES = ['QUALITY_INSPECTION', 'COMPLETED', 'CLOSED'];
 
 /** A30 §29.3 — one production order: its materials, whether they are covered, supply raised for what is short, and floor issues. */
 @Component({
@@ -90,6 +96,11 @@ export class ProductionOrderDetailComponent implements OnInit {
   isRunningAllocation = false;
   runningRowUuid: string | null = null;
 
+  // A34 PE-06 — the deliveries made from this order (live status; Material can't read Logistics).
+  productionDeliveries: DeliveryListItemModel[] = [];
+  isLoadingDeliveries = false;
+  isCreatingDelivery = false;
+
   constructor(
     private route: ActivatedRoute,
     private router: Router,
@@ -97,7 +108,8 @@ export class ProductionOrderDetailComponent implements OnInit {
     private allocationService: AllocationService,
     private authService: AuthService,
     private messageService: MessageService,
-    private confirmationService: ConfirmationService
+    private confirmationService: ConfirmationService,
+    private logisticsService: LogisticsService
   ) {}
 
   ngOnInit(): void {
@@ -138,6 +150,7 @@ export class ProductionOrderDetailComponent implements OnInit {
         this.isLoading = false;
         this.order = res.result ?? null;
         if (!this.order) this.loadFailed = true;
+        this.loadProductionDeliveries();
         if (this.activeTab === 3) this.loadQuality();
         if (this.activeTab === 4) this.loadLedger();
       },
@@ -368,6 +381,76 @@ export class ProductionOrderDetailComponent implements OnInit {
 
   confirmFgrRow(fgrUuid: string): void {
     this.run(this.service.confirmFgr(fgrUuid), 'Finished goods receipt confirmed.');
+  }
+
+  // ── A34 PE-06: made to order → delivery ─────────────────────────────────────
+
+  /** Made to order for a sale order line: it has a route, and its delivery follows its completion (D-18). */
+  get isMakeToOrder(): boolean { return !!this.order?.isMakeToOrder; }
+
+  get canViewDeliveries(): boolean { return this.has('DELIVERY_VIEW'); }
+  get canViewSaleOrder(): boolean { return this.has('SALE_ORDER_VIEW'); }
+
+  /** D-20 — "Create delivery now": DELIVERY_CREATE, a make-to-order order from a sale order, with accepted goods. */
+  get canCreateDeliveryNow(): boolean {
+    return this.has('DELIVERY_CREATE') && this.isMakeToOrder && this.order?.sourceType === 'SALES_ORDER'
+        && (this.order?.acceptedQuantity ?? 0) > 0 && this.order?.status !== 'CANCELLED';
+  }
+
+  /** Accepted and yield mean something once a quality inspection is recorded. */
+  get showYield(): boolean {
+    return !!this.order && (INSPECTED_STATUSES.includes(this.order.status) || this.order.acceptedQuantity > 0);
+  }
+
+  get yieldPercent(): number | null {
+    const o = this.order;
+    if (!o || !o.plannedQuantity) return null;
+    return Math.round((o.acceptedQuantity / o.plannedQuantity) * 100);
+  }
+
+  /** "Shortfall of 2 units (planned 50, produced 48)" — D-21. */
+  get shortfallText(): string | null {
+    const o = this.order;
+    const short = o?.shortfallQuantity ?? 0;
+    if (!o || short <= 0) return null;
+    const n = (v: number) => String(Math.round(v * 10000) / 10000);
+    return `Shortfall of ${n(short)} unit${short === 1 ? '' : 's'} (planned ${n(o.plannedQuantity)}, produced ${n(o.acceptedQuantity)})`;
+  }
+
+  deliveryStatusLabel(status: string): string { return formatCode(status); }
+  deliverySeverity(status: string) { return DELIVERY_STATUS_SEVERITY[status] ?? 'secondary'; }
+
+  /** GET api/logistics/deliveries?productionOrderUuid= — read on every load, so the status is live (no push, D-25). */
+  loadProductionDeliveries(): void {
+    this.productionDeliveries = [];
+    if (!this.isMakeToOrder || !this.canViewDeliveries) return;
+    this.isLoadingDeliveries = true;
+    this.logisticsService.getDeliveries({ productionOrderUuid: this.uuid, pageSize: 50 }).subscribe({
+      next: (res) => { this.isLoadingDeliveries = false; this.productionDeliveries = res.result?.data ?? []; },
+      error: () => { this.isLoadingDeliveries = false; this.productionDeliveries = []; }
+    });
+  }
+
+  createDeliveryNow(): void {
+    if (!this.canCreateDeliveryNow || this.isCreatingDelivery) return;
+    this.isCreatingDelivery = true;
+    this.service.createDelivery(this.uuid).subscribe({
+      next: (res) => {
+        this.isCreatingDelivery = false;
+        const r = res.result;
+        if (r && r.quantityCreated > 0) {
+          this.messageService.add({
+            severity: 'success', summary: 'Delivery created',
+            detail: `${r.deliveryNumber ?? 'A delivery'} created for ${r.quantityCreated} unit${r.quantityCreated === 1 ? '' : 's'}.` +
+                    (r.skippedReason ? ` ${r.skippedReason}` : '')
+          });
+        } else {
+          this.messageService.add({ severity: 'info', summary: 'Nothing to create', detail: r?.skippedReason || 'Everything accepted is already on a delivery.' });
+        }
+        this.load();
+      },
+      error: (err) => { this.isCreatingDelivery = false; this.fail(err); }
+    });
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────

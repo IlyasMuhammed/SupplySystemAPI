@@ -18,7 +18,13 @@ internal interface IProductionOrderRepository
     /// sale order's own deficit inheriting the sale order's) — omitted, the order starts its own
     /// (A30-P5-07, trace_id propagation through SO→PO→SR→...→FGR).
     /// </summary>
-    Task<ProductionOrder> CreateAsync(CreateProductionOrderRequest req, int userId, int? parentProductionOrderId = null, Guid? traceId = null);
+    /// <param name="organizationId">
+    /// A34 (R-11): when given, the product, variant, warehouses and BOM are read for that organization only (the EF tenant
+    /// filter is off for super admins and in Hangfire) and the order is stamped with it. Null = the ambient tenant.
+    /// </param>
+    /// <param name="fulfillmentRouteUuid">A34 D-18: set only by the make-to-order path; marks the PO as made to order.</param>
+    Task<ProductionOrder> CreateAsync(CreateProductionOrderRequest req, int userId, int? parentProductionOrderId = null, Guid? traceId = null,
+        Guid? organizationId = null, Guid? fulfillmentRouteUuid = null);
     Task UpdateAsync(Guid uuid, UpdateProductionOrderRequest req, int userId);
     /// <summary>The tracked order with its requirements and recipe lines, for a service to change.</summary>
     Task<ProductionOrder> LoadAsync(Guid uuid);

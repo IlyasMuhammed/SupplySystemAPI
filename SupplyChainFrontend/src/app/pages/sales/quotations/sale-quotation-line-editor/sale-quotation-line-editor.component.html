@@ -100,6 +100,16 @@
         <label>Promised delivery</label>
         <p-calendar formControlName="promisedDeliveryDate" dateFormat="dd/mm/yy" [showIcon]="true" [showClear]="true"
                     styleClass="w-full" appendTo="body" data-testid="delivery-date"></p-calendar>
+        <!-- A34 PC-07/08/09: ⏱ works out the lead time; Apply / Override set the promised date (the line's manual date). -->
+        <div class="lead-time" data-testid="quotation-lead-time">
+          <app-lead-time-popover [inline]="true" [variantUuid]="form.get('variantUuid')!.value" [quantity]="form.get('quantity')!.value"
+                                 [manualDate]="promisedDateValue" [calculatedDate]="shownLeadTime.date"
+                                 [calculatedDays]="shownLeadTime.days" [calculatedAt]="shownLeadTime.at"
+                                 [canCalculate]="canCalculateLeadTime" [canOverride]="canSetPromisedDate"
+                                 [calculator]="leadTimeCalculator" [applyMode]="leadTimeApplyMode"
+                                 [label]="itemLabel || null"
+                                 (calculated)="onLeadTime($event)" (manualDateChange)="onPromisedDate($event)"></app-lead-time-popover>
+        </div>
       </div>
     </ng-container>
 

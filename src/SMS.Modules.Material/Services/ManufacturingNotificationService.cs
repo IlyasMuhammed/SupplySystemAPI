@@ -105,4 +105,14 @@ internal sealed class ManufacturingNotificationService : IManufacturingNotificat
                 ? $"{poNumber} was drafted for review — covers supply requirement {sr.SupplyNumber}."
                 : $"{poNumber} was updated to also cover supply requirement {sr.SupplyNumber}.",
             Category: "Manufacturing", EntityType: "SupplyRequirement", EntityUuid: sr.UUID.ToString(), CreatedBy: sr.CreatedBy));
+
+    // A34 D-21 / D-23 — the order was made for a customer and inspection passed none of it: someone other than its
+    // creator has to decide what happens next, so it escalates like PROD_CREATED (the SO creator is told by Demand).
+    public async Task ProductionZeroYieldAsync(ProductionOrder po) =>
+        await _notifications.TryCreateAsync(new NotificationRequest(
+            UserId: await EscalateAsync(po.CreatedBy), Type: RouteClassificationNotificationTypes.ProductionZeroYield,
+            Title: "Production Yielded Nothing",
+            Message: $"{po.ProductionNumber}: quality inspection accepted none of the {po.PlannedQuantity:0.####} planned"
+                   + (po.SourceReference is null ? "." : $" for {po.SourceReference}. No delivery will be created."),
+            Category: "Manufacturing", EntityType: "ProductionOrder", EntityUuid: po.UUID.ToString(), CreatedBy: po.CreatedBy, SendEmail: true));
 }

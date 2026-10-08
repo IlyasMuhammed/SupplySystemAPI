@@ -1,7 +1,7 @@
 import { FulfillmentRouteModel } from '../../../services/fulfillment-routes.service';
 import {
-  RouteDraft, RouteStepDraft, abbreviatedSteps, addStep, availableSteps, defaultClassLabel, draftFromRoute, draftProblem,
-  emptyDraft, hasShipStep, removeStep, routeStatusPath, stepRequests, stepsChanged
+  RouteDraft, RouteStepDraft, abbreviatedSteps, addStep, availableSteps, categoryLock, defaultClassLabel, draftFromRoute,
+  draftProblem, emptyDraft, hasShipStep, removeStep, routeStatusPath, stepRequests, stepsChanged
 } from './fulfillment-routes.shared';
 
 const step = (stepCode: RouteStepDraft['stepCode'], over: Partial<RouteStepDraft> = {}): RouteStepDraft =>
@@ -24,6 +24,45 @@ function route(over: Partial<FulfillmentRouteModel> = {}): FulfillmentRouteModel
 function draft(over: Partial<RouteDraft> = {}): RouteDraft {
   return { ...emptyDraft(), code: 'HIGH_VALUE', name: 'High value', ...over };
 }
+
+describe('fulfillment routes — route category rules (A34-PA-09)', () => {
+  const custom = (over: Partial<FulfillmentRouteModel> = {}) => route({ code: 'CUSTOM', isSystem: false, ...over });
+
+  it('a new route starts as STOCK; an edited one carries its category (none saved = STOCK)', () => {
+    expect(emptyDraft().routeCategory).toBe('STOCK');
+    expect(draftFromRoute(route({ routeCategory: 'MANUFACTURE' })).routeCategory).toBe('MANUFACTURE');
+    expect(draftFromRoute(route()).routeCategory).toBe('STOCK');
+  });
+
+  it('locks the category read-only on a system route, and disables it on a default route, saying why (D-8)', () => {
+    expect(categoryLock(null)).toEqual({ readOnly: false, disabled: false, reason: null });
+    const system = categoryLock(route());
+    expect(system.readOnly).toBeTrue();
+    expect(system.reason).toContain('system route');
+    const dflt = categoryLock(custom({ isDefault: true, requiresShipping: true }));
+    expect(dflt.readOnly).toBeFalse();
+    expect(dflt.disabled).toBeTrue();
+    expect(dflt.reason).toContain('default route for shipping orders');
+    expect(dflt.reason).toContain('Make another route the default first');
+    expect(categoryLock(custom())).toEqual({ readOnly: false, disabled: false, reason: null });
+  });
+
+  it('refuses the reserved categories before a save (D-7)', () => {
+    expect(draftProblem(draft({ routeCategory: 'BUY' }), null)).toContain('not yet available');
+    expect(draftProblem(draft({ routeCategory: 'DROPSHIP' }), null)).toContain('not yet available');
+    expect(draftProblem(draft({ routeCategory: 'MANUFACTURE' }), null)).toBeNull();
+  });
+
+  it('a MANUFACTURE route can never be made a default (D-6)', () => {
+    expect(draftProblem(draft({ routeCategory: 'MANUFACTURE', makeDefault: true }), null)).toContain("can't be a default");
+  });
+
+  it('a default route can\'t change category (D-8)', () => {
+    const original = custom({ isDefault: true, requiresShipping: true, routeCategory: 'STOCK' });
+    const d = { ...draftFromRoute(original), routeCategory: 'MANUFACTURE' as const };
+    expect(draftProblem(d, original)).toContain("its category can't be changed");
+  });
+});
 
 describe('fulfillment routes — shared editor rules', () => {
 

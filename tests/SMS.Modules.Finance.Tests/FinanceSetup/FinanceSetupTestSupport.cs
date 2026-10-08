@@ -120,9 +120,6 @@ internal sealed class SetupDesk
     public Task<IReadOnlyList<TaxCodeModel>> ListCodes(string? side = null, bool includeInactive = false) =>
         TaxCodes(s => s.ListAsync(side, includeInactive));
 
-    public Task<ExchangeRateModel> CreateRate(string from, string to, decimal rate, string date, string? notes = null) =>
-        Rates(s => s.CreateAsync(Rate(from, to, rate, date, notes), SetupWorld.User));
-
     public static SaveTaxCodeRequest Code(
         string code, decimal rate, string usage = "BOTH", bool isDefault = false, bool isActive = true, string? name = null) => new()
     {

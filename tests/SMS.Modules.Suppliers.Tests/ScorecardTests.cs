@@ -49,6 +49,31 @@ public class ScorecardDataSeeder_Tests
 
         (await db.ScorecardDimensionWeights.CountAsync()).Should().Be(5);
     }
+
+    [Fact]
+    public async Task SeedForAll_Gives_Every_Org_Its_Own_Five_And_Keeps_Edited_Weights()
+    {
+        var orgA = Guid.NewGuid();
+        var orgB = Guid.NewGuid();
+        // A startup caller: no tenant, so the filter is bypassed — the case the old seeder got wrong.
+        var db = new SuppliersDbContext(new DbContextOptionsBuilder<SuppliersDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,
+            new StaticTenantContext { IsSuperAdmin = true });
+        var seeder = new ScorecardDataSeeder(db);
+
+        await seeder.SeedForOrganizationAsync(orgA);
+        var edited = await db.ScorecardDimensionWeights.SingleAsync(d => d.OrganizationId == orgA && d.DimensionCode == "PRICE");
+        edited.WeightPercentage = 40m;
+        await db.SaveChangesAsync();
+
+        await seeder.SeedForAllAsync([orgA, orgB]);
+        await seeder.SeedForAllAsync([orgA, orgB]);
+
+        (await db.ScorecardDimensionWeights.CountAsync(d => d.OrganizationId == orgA)).Should().Be(5);
+        (await db.ScorecardDimensionWeights.CountAsync(d => d.OrganizationId == orgB)).Should().Be(5);
+        (await db.ScorecardDimensionWeights.SingleAsync(d => d.OrganizationId == orgA && d.DimensionCode == "PRICE"))
+            .WeightPercentage.Should().Be(40m);
+    }
 }
 
 public class ScorecardRepository_Tests

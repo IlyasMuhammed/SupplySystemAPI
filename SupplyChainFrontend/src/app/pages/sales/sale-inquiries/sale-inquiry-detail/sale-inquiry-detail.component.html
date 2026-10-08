@@ -31,6 +31,7 @@
           <dt>Customer ref</dt>
           <dd>{{ i.customerReference || '—' }}<span class="muted" *ngIf="i.customerReferenceDate"> · {{ displayDate(i.customerReferenceDate) }}</span></dd>
           <dt>Received</dt><dd>{{ displayDate(i.receivedDate) }}</dd>
+          <ng-container *ngIf="i.currencyCode"><dt>Currency</dt><dd data-testid="inquiry-currency">{{ i.currencyCode }}</dd></ng-container>
           <dt>Deadline</dt><dd>{{ displayDate(i.responseDeadline) }}</dd>
           <dt>Assigned to</dt><dd data-testid="assignee">{{ assigneeName }}</dd>
           <ng-container *ngIf="i.quotations.length">
@@ -196,7 +197,7 @@
       <label for="qCurrency">Currency</label>
       <p-select inputId="qCurrency" [options]="currencyOptions" [(ngModel)]="quotation.currencyId" optionLabel="label"
                 optionValue="value" [showClear]="true" [filter]="true" filterBy="label"
-                placeholder="The organization's base currency" styleClass="w-full" appendTo="body"></p-select>
+                placeholder="The inquiry's currency" styleClass="w-full" appendTo="body"></p-select>
     </div>
     <div class="field">
       <label for="qPayment">Payment terms</label>

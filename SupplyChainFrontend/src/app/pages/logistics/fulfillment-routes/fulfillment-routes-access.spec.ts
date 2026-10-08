@@ -40,8 +40,9 @@ describe('A33 fulfillment routes — route and menu', () => {
       { hasAnyPermission: (...codes: string[]) => codes.some(c => permissions.includes(c)) } as any,
       { tenant, hasFeature: (c: string) => features.includes(c), isSuperAdmin: () => false } as any
     );
+    // Settings is split into sub-groups; the sales and fulfilment settings sit together in one of them.
     let found: any[] = [];
-    const walk = (items: any[]) => items.forEach(i => { if (i.label === 'Settings' && i.items) found = i.items; else if (i.items) walk(i.items); });
+    const walk = (items: any[]) => items.forEach(i => { if (i.label === 'Sales & Fulfilment' && i.items) found = i.items; else if (i.items) walk(i.items); });
     walk(menu.model());
     return found;
   }

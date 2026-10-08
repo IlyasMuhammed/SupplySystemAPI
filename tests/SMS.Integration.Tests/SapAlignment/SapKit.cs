@@ -147,13 +147,32 @@ internal sealed class SapKit
     /// <summary>The currency with this ISO code from the global Lookups catalog, created when missing.</summary>
     public async Task<Guid> EnsureCurrencyAsync(string code, string name, string symbol)
     {
+        Guid? id = null;
         var list = await Ok(Get("/api/lookups/currencies"), "list currencies");
         foreach (var c in list.Items())
             if (string.Equals(c.S("code")?.Trim(), code, StringComparison.OrdinalIgnoreCase))
-                return c.G("id");
+                id = c.G("id");
 
-        var created = await Ok(Post("/api/lookups/currencies", new { name, code, symbol }), $"create currency {code}");
-        return created.GetGuid();
+        id ??= (await Ok(Post("/api/lookups/currencies", new { name, code, symbol }), $"create currency {code}")).GetGuid();
+        await EnsureOrgCurrencyAsync(code, name, symbol);
+        return id.Value;
+    }
+
+    /// <summary>
+    /// A35 D-1: documents and rates use the organization's own currencies (finance.org_currencies) — the code is configured
+    /// and active for the kit's organization through api/currencies (linked to the global catalog row).
+    /// </summary>
+    public async Task EnsureOrgCurrencyAsync(string code, string name, string symbol)
+    {
+        var mine = (await Ok(Get("/api/currencies?includeInactive=true"), "list org currencies")).Items()
+            .FirstOrDefault(c => c.S("code") == code);
+        if (mine.ValueKind == JsonValueKind.Object)
+        {
+            if (!mine.B("isActive"))
+                await Ok(Put($"/api/currencies/{mine.G("currencyId")}", new { code, isActive = true }), $"activate org currency {code}");
+            return;
+        }
+        await Ok(Post("/api/currencies", new { code, name, symbol }), $"add org currency {code}");
     }
 
     /// <summary>The organization's base currency, through the platform admin's organization edit (the seeded admin is super admin).</summary>
@@ -356,11 +375,33 @@ internal sealed class SapKit
         return (await CreateTaxCodeAsync(code, rate, usage, isDefault)).G("uuid");
     }
 
-    public async Task<JsonElement> CreateRateAsync(string from, string to, decimal rate, DateTime effective) =>
-        await Ok(Post("/api/finance/exchange-rates", new
+    /// <summary>
+    /// A35 (D-2/D-3/D-17): a rate is "units of the organization's rate currency per 1 <paramref name="from"/>", entered through
+    /// api/currency-rates (the legacy api/finance/exchange-rates table is frozen). <paramref name="to"/> must be the rate
+    /// currency. Open-ended from <paramref name="effective"/> (the current row is closed the day before). Returns the new row
+    /// (CurrencyRateModel: id, rate, effectiveFrom, effectiveTo, …).
+    /// </summary>
+    public async Task<JsonElement> CreateRateAsync(string from, string to, decimal rate, DateTime effective)
+    {
+        var settings = await Ok(Get("/api/organization/currency-settings"), "read currency settings");
+        settings.S("rateCurrencyCode").Should().Be(to, $"rates are entered against the rate currency (A35 D-2), not {from}->{to}");
+        var currency = (await Ok(Get("/api/currencies?includeInactive=true"), "list org currencies")).Items()
+            .Single(c => c.S("code") == from).G("currencyId");
+        return (await Ok(Post("/api/currency-rates", new
         {
-            fromCurrencyCode = from, toCurrencyCode = to, rate, effectiveDate = effective.ToString("yyyy-MM-dd"), notes = "sap e2e"
-        }), $"create rate {from}->{to}");
+            currencyId = currency, rate, effectiveFrom = effective.ToString("yyyy-MM-dd"), notes = "sap e2e"
+        }), $"create rate {from}->{to}")).P("rate");
+    }
+
+    /// <summary>A35: a historical correction of one rate row (PUT api/currency-rates/{id}); its range is kept.</summary>
+    public async Task<JsonElement> CorrectRateAsync(JsonElement row, decimal rate) =>
+        await Ok(Put($"/api/currency-rates/{row.G("id")}", new
+        {
+            rate,
+            effectiveFrom = row.S("effectiveFrom")![..10],
+            effectiveTo   = row.S("effectiveTo")![..10] == "9999-12-31" ? null : row.S("effectiveTo")![..10],
+            notes         = "corrected later"
+        }), "correct a rate");
 
     // ── Selling: SO → confirm → self-pickup delivery → invoice → issue ──────────
 

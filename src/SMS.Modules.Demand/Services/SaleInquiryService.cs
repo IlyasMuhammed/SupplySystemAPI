@@ -60,14 +60,26 @@ internal sealed class SaleInquiryService : ISaleInquiryService
     private readonly IProductVariantResolver? _variants;
     private readonly IUserQueryService? _users;
     private readonly ISupplierNameLookupService? _partnerNames;
+    private readonly IPartnerCurrencyDefaults? _partnerCurrencies;
+    private readonly IOrganizationCurrencyService? _orgCurrency;
+    private readonly ICurrencyCodeLookup? _currencyCodes;
+    private readonly IOrgCurrencyLookup? _orgCurrencies;
 
     // The last three are optional like SaleOrderService's catalog resolver: production DI always supplies them
     // (Inventory, Auth and Suppliers register them); without one, variants go unchecked and names stay empty.
     public SaleInquiryService(
         DemandDbContext db, ITenantContext tenant, IDocumentNumberGenerator numbers, IPartnerRoleLookup partners,
         IProductVariantResolver? variants = null, IUserQueryService? users = null,
-        ISupplierNameLookupService? partnerNames = null)
+        ISupplierNameLookupService? partnerNames = null,
+        IPartnerCurrencyDefaults? partnerCurrencies = null, IOrganizationCurrencyService? orgCurrency = null,
+        ICurrencyCodeLookup? currencyCodes = null, IOrgCurrencyLookup? orgCurrencies = null)
     {
+        // A35 D-14 — the customer's default sale currency (Suppliers), the sale base (Tenancy), codes (Lookups) and org
+        // currencies (Finance). Optional: without them an inquiry names the currency it is given, or none.
+        _partnerCurrencies = partnerCurrencies;
+        _orgCurrency       = orgCurrency;
+        _currencyCodes     = currencyCodes;
+        _orgCurrencies     = orgCurrencies;
         _db           = db;
         _tenant       = tenant;
         _numbers      = numbers;
@@ -78,6 +90,23 @@ internal sealed class SaleInquiryService : ISaleInquiryService
     }
 
     private Guid Org => _tenant.OrganizationId;
+
+    /// <summary>
+    /// A35 D-14 / BR-C4-02 — the one asked for (a new choice must be an active org currency), else the inquiry's own, else
+    /// the customer's default sale currency, else the sale base; null only when none of those can be resolved.
+    /// </summary>
+    private async Task<Guid?> CurrencyAsync(Guid? requested, Guid partnerId, Guid? current)
+    {
+        if (requested is { } id && id != Guid.Empty)
+        {
+            if (id != current)
+                await DemandCurrency.RequireActiveOrgCurrencyAsync(_orgCurrencies, _orgCurrency, Org, id, TransactionDomain.Sale,
+                    _currencyCodes is null ? null : await _currencyCodes.GetCodeAsync(id));
+            return id;
+        }
+        if (current is { } existing && existing != Guid.Empty) return existing;
+        return await DemandCurrency.DefaultForPartnerAsync(_partnerCurrencies, _orgCurrency, Org, partnerId, TransactionDomain.Sale);
+    }
 
     // ── Create / update / read ──────────────────────────────────────────────────
 
@@ -93,6 +122,7 @@ internal sealed class SaleInquiryService : ISaleInquiryService
             OrganizationId = Org,
             PartnerId      = req.PartnerId,
             Status         = Received,
+            CurrencyId     = await CurrencyAsync(req.CurrencyId, req.PartnerId, current: null),
             CreatedBy      = userId,
             CreatedDate    = DateTime.UtcNow
         };
@@ -130,6 +160,7 @@ internal sealed class SaleInquiryService : ISaleInquiryService
 
         ApplyHeader(inquiry, req.CustomerReference, req.CustomerReferenceDate, req.ReceivedDate, req.ResponseDeadline,
             req.AssignedToUserId, req.Notes);
+        inquiry.CurrencyId = await CurrencyAsync(req.CurrencyId, inquiry.PartnerId, current: inquiry.CurrencyId);
         Touch(inquiry, userId);
 
         await _db.SaveChangesAsync();
@@ -180,6 +211,9 @@ internal sealed class SaleInquiryService : ISaleInquiryService
             AssignedToUserName    = NameOf(users, inquiry.AssignedToUserId),
             Notes                 = inquiry.Notes,
             DeclineReason         = inquiry.DeclineReason,
+            CurrencyId            = inquiry.CurrencyId,
+            CurrencyCode          = inquiry.CurrencyId is { } currencyId && _currencyCodes is not null
+                                        ? (await _currencyCodes.GetCodeAsync(currencyId))?.Trim() : null,
             CreatedBy             = inquiry.CreatedBy,
             CreatedDate           = inquiry.CreatedDate,
             ModifiedDate          = inquiry.ModifiedDate,
@@ -522,6 +556,14 @@ internal sealed class SaleInquiryService : ISaleInquiryService
         var (product, variant) = await ResolveCatalogAsync(
             req.ProductUuid, req.VariantUuid, line.ProductUuid, line.VariantUuid, "variant");
 
+        // A34 D-15 — a lead time is calculated for one variant and quantity: once either changes it no longer holds.
+        if (line.VariantUuid != variant || line.RequestedQuantity != req.RequestedQuantity)
+        {
+            line.CalculatedLeadTimeDays = null;
+            line.CalculatedDeliveryDate = null;
+            line.LeadTimeCalculatedAt   = null;
+        }
+
         line.ProductUuid           = product;
         line.VariantUuid           = variant;
         line.ProductDescription    = description;
@@ -557,9 +599,12 @@ internal sealed class SaleInquiryService : ISaleInquiryService
 
         switch (status)
         {
+            // A34 D-15 — a calculated date satisfies the rule when no estimate was typed; the estimate (the manual date)
+            // then stays empty and the calculated date is the effective one.
             case SaleInquiryLineStatus.CanSupply:
-                delivery = req.EstimatedDeliveryDate?.Date
-                    ?? throw new BadRequestException("A line that can be supplied needs an estimated delivery date.");
+                delivery = req.EstimatedDeliveryDate?.Date;
+                if (delivery is null && line.CalculatedDeliveryDate is null)
+                    throw new BadRequestException("A line that can be supplied needs an estimated delivery date.");
                 break;
 
             case SaleInquiryLineStatus.Partial:
@@ -569,8 +614,9 @@ internal sealed class SaleInquiryService : ISaleInquiryService
                         $"requested {line.RequestedQuantity:0.####}.");
                 EnsureQuantityScale(quantity, "The can-supply quantity");
                 canSupply = quantity;
-                delivery = req.EstimatedDeliveryDate?.Date
-                    ?? throw new BadRequestException("A partially supplied line needs an estimated delivery date.");
+                delivery = req.EstimatedDeliveryDate?.Date;
+                if (delivery is null && line.CalculatedDeliveryDate is null)
+                    throw new BadRequestException("A partially supplied line needs an estimated delivery date.");
                 break;
 
             case SaleInquiryLineStatus.CannotSupply:
@@ -729,7 +775,12 @@ internal sealed class SaleInquiryService : ISaleInquiryService
             ReviewedByUserId           = l.ReviewedByUserId,
             ReviewedByUserName         = NameOf(users, l.ReviewedByUserId),
             ReviewedAt                 = l.ReviewedAt,
-            Notes                      = l.Notes
+            Notes                      = l.Notes,
+            CalculatedLeadTimeDays     = l.CalculatedLeadTimeDays,
+            CalculatedDeliveryDate     = l.CalculatedDeliveryDate,
+            LeadTimeCalculatedAt       = l.LeadTimeCalculatedAt,
+            EffectiveDeliveryDate      = DeliveryDateSources.Effective(l.EstimatedDeliveryDate, l.CalculatedDeliveryDate),
+            DeliveryDateSource         = DeliveryDateSources.Of(l.EstimatedDeliveryDate, l.CalculatedDeliveryDate)
         };
     }
 }

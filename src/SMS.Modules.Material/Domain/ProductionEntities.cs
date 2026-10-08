@@ -149,10 +149,29 @@ internal class ProductionOrder : ITenantScopedEntity
     public string    Status                   { get; set; } = ProductionOrderStatus.Draft;
     public string    MaterialReadiness        { get; set; } = Domain.MaterialReadiness.NotChecked;
     public string?   Notes                    { get; set; }
+    /// <summary>
+    /// A34 D-18 — the sale order line's fulfillment route (logistics.fulfillment_routes.UUID, no FK). Set <b>only</b> by
+    /// the make-to-order path (<c>SaleOrderProductionService</c>): it is what marks a PO as make-to-order
+    /// and what triggers the delivery on completion (C6). A30 make-to-shortage and standalone POs never carry one (C-4,
+    /// no backfill), so they never create a delivery (BR-C6-02).
+    /// </summary>
+    public Guid?     FulfillmentRouteUuid     { get; set; }
+    /// <summary>A34 D-18 — the latest delivery created from this PO (logistics.delivery_orders.UUID, no FK).</summary>
+    public Guid?     DeliveryOrderUuid        { get; set; }
+    public string?   DeliveryNumber           { get; set; }
+    /// <summary>
+    /// A34 D-20 — set in the same commit that turns a make-to-order PO COMPLETED; cleared once the delivery handoff
+    /// returned. While set and at least 10 minutes old, <c>ProductionDeliverySweepJob</c> retries it.
+    /// </summary>
+    public DateTime? DeliveryCreationPendingSince { get; set; }
     public int       CreatedBy                { get; set; }
     public DateTime  CreatedAt                { get; set; } = DateTime.UtcNow;
     public DateTime  UpdatedAt                { get; set; } = DateTime.UtcNow;
     public byte[]    RowVersion               { get; set; } = [];
+
+    /// <summary>A34 — made to order for a sale order line (D-18): a route, SourceType SALES_ORDER and a line.</summary>
+    public bool IsMakeToOrder =>
+        FulfillmentRouteUuid is not null && SourceType == ProductionSourceType.SalesOrder && SourceUuid is not null && SourceLineUuid is not null;
 
     public BillOfMaterial   Bom    { get; set; } = null!;
     public ProductionOrder? Parent { get; set; }

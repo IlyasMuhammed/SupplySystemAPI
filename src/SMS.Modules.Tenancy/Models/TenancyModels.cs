@@ -66,6 +66,55 @@ public class UpdateOrganizationSettingsRequest
     public int AckLinkExpiryDays { get; set; }
 }
 
+// ── A35 D-7 — organization currency settings (API-CONTRACT.md §4) ───────────
+
+public class OrgCurrencySettingsModel
+{
+    public Guid SaleBaseCurrencyId { get; set; }
+    public string? SaleBaseCurrencyCode { get; set; }
+    public Guid PurchaseBaseCurrencyId { get; set; }
+    public string? PurchaseBaseCurrencyCode { get; set; }
+    public Guid ServiceBaseCurrencyId { get; set; }
+    public string? ServiceBaseCurrencyCode { get; set; }
+    public Guid RateCurrencyId { get; set; }
+    public string? RateCurrencyCode { get; set; }
+    public string? ExchangeGainAccountCode { get; set; }
+    public string? ExchangeLossAccountCode { get; set; }
+    public string? UnrealizedGainAccountCode { get; set; }
+    public string? UnrealizedLossAccountCode { get; set; }
+    /// <summary>False when the organization has no settings row yet (values are the D-7 fallback).</summary>
+    public bool IsStored { get; set; }
+    public OrgCurrencySettingsLocks Locks { get; set; } = new();
+}
+
+public class OrgCurrencySettingsLocks
+{
+    public OrgCurrencySettingsLock Sale { get; set; } = new();
+    public OrgCurrencySettingsLock Purchase { get; set; } = new();
+    public OrgCurrencySettingsLock Service { get; set; } = new();
+    public OrgCurrencySettingsLock RateCurrency { get; set; } = new();
+}
+
+public class OrgCurrencySettingsLock
+{
+    public bool Locked { get; set; }
+    /// <summary>What uses it ("12 confirmed sale orders"); null when not locked.</summary>
+    public string? Reason { get; set; }
+}
+
+public class UpdateOrgCurrencySettingsRequest
+{
+    public Guid SaleBaseCurrencyId { get; set; }
+    public Guid PurchaseBaseCurrencyId { get; set; }
+    public Guid ServiceBaseCurrencyId { get; set; }
+    /// <summary>Null = unchanged.</summary>
+    public Guid? RateCurrencyId { get; set; }
+    public string? ExchangeGainAccountCode { get; set; }
+    public string? ExchangeLossAccountCode { get; set; }
+    public string? UnrealizedGainAccountCode { get; set; }
+    public string? UnrealizedLossAccountCode { get; set; }
+}
+
 public class PatchOrganizationStatusRequest
 {
     public bool IsActive { get; set; }

@@ -703,6 +703,67 @@ namespace SMS.Modules.Inventory.Migrations
                     b.ToTable("InventoryLedgerEntries", "inventory");
                 });
 
+            modelBuilder.Entity("SMS.Modules.Inventory.Domain.LeadTimeDefaults", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("InternalTransferDays")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ManufacturingBufferDays")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ModifiedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ModifiedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("PickPackDays")
+                        .HasColumnType("int");
+
+                    b.Property<int>("QualityInspectionDays")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int>("SalesBufferDays")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ShippingLeadTimeDays")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("Uuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId")
+                        .IsUnique();
+
+                    b.HasIndex("Uuid")
+                        .IsUnique();
+
+                    b.ToTable("LeadTimeDefaults", "inventory");
+                });
+
             modelBuilder.Entity("SMS.Modules.Inventory.Domain.PricingRule", b =>
                 {
                     b.Property<int>("Id")
@@ -1112,6 +1173,9 @@ namespace SMS.Modules.Inventory.Migrations
                     b.Property<Guid?>("FulfillmentRouteUuid")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<int?>("InternalTransferDays")
+                        .HasColumnType("int");
+
                     b.Property<bool>("IsActive")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
@@ -1151,14 +1215,26 @@ namespace SMS.Modules.Inventory.Migrations
                     b.Property<int?>("LeadTimeDays")
                         .HasColumnType("int");
 
+                    b.Property<int?>("ManufacturingBufferDays")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ManufacturingLeadTimeDays")
+                        .HasColumnType("int");
+
                     b.Property<Guid>("OrganizationId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("PickPackDays")
+                        .HasColumnType("int");
 
                     b.Property<int>("ProductId")
                         .HasColumnType("int");
 
                     b.Property<decimal>("PurchasePrice")
                         .HasColumnType("decimal(18,4)");
+
+                    b.Property<int?>("QualityInspectionDays")
+                        .HasColumnType("int");
 
                     b.Property<decimal?>("ReorderPoint")
                         .HasColumnType("decimal(18,4)");
@@ -1169,8 +1245,14 @@ namespace SMS.Modules.Inventory.Migrations
                     b.Property<decimal?>("SaleOrderMinQty")
                         .HasColumnType("decimal(18,4)");
 
+                    b.Property<int?>("SalesBufferDays")
+                        .HasColumnType("int");
+
                     b.Property<decimal?>("SellingPrice")
                         .HasColumnType("decimal(18,4)");
+
+                    b.Property<int?>("ShippingLeadTimeDays")
+                        .HasColumnType("int");
 
                     b.Property<string>("Sku")
                         .IsRequired()

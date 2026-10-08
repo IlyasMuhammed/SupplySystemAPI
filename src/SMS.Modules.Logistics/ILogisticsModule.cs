@@ -48,7 +48,7 @@ public static class LogisticsModuleExtensions
         scope.ServiceProvider.GetRequiredService<ILegacyShipmentBackfillService>()
              .BackfillAsync().GetAwaiter().GetResult();
 
-        // A33 PA-03 — every existing organization gets whichever of the three seed fulfillment routes it lacks
+        // A33 PA-03 / A34 D-9 — every existing organization gets whichever of the five seed fulfillment routes it lacks
         // (idempotent, matched by code: a renamed, edited or deactivated seed is never touched). After Logistics' own
         // migration, because the table must exist; Tenancy migrates earlier, so its organizations are already there.
         var organizations = scope.ServiceProvider.GetService<IOrganizationDirectory>();
@@ -130,6 +130,9 @@ public static class LogisticsModuleExtensions
         // SMS.Shared contracts, called by Demand (confirm, the D-12 sweep, cancel) without a project reference.
         services.AddScoped<ISaleOrderDeliveryCreator, SaleOrderDeliveryCreator>();
         services.AddScoped<ISaleOrderDeliveryCanceller, SaleOrderDeliveryCanceller>();
+        // A34 C6 (D-29) — the DRAFT delivery of a completed make-to-order production order. SMS.Shared contract, called
+        // by Material's FGR hook, its sweep and "Create delivery now" (Material cannot reference Logistics).
+        services.AddScoped<IProductionDeliveryCreator, ProductionDeliveryCreator>();
         // A33 C5 (FLOW) — "Approve dispatch" (D-7) and the route-aware "advance one step" (PE-02).
         services.AddScoped<IDeliveryRouteService, DeliveryRouteService>();
         services.AddScoped<IPickListRepository, PickListRepository>();

@@ -103,7 +103,8 @@ public class RoleSeedIdentityTests
             .Join(db.Permissions, rp => rp.PermissionID, p => p.PermissionID, (rp, p) => p.Code)
             .ToListAsync();
 
-        granted.Should().BeEquivalentTo([PermissionCodes.SALE_ORDER_CONFIG_READ, PermissionCodes.SALE_ORDER_CONFIG_WRITE]);
+        granted.Should().BeEquivalentTo([PermissionCodes.SALE_ORDER_CONFIG_READ, PermissionCodes.SALE_ORDER_CONFIG_WRITE,
+            PermissionCodes.LEAD_TIME_DEFAULTS_MANAGE]);   // A34 D-24
 
         var squatterGranted = await db.RolePermissions.CountAsync(rp => rp.RoleID == (int)EnumRole.SupplyDeptAdmin);
         squatterGranted.Should().Be(0, "the role that happened to hold this id must gain nothing from a seed entry meant for someone else");

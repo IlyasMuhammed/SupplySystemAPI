@@ -46,6 +46,7 @@ internal sealed class SalesInvoiceService : ISalesInvoiceService
     private readonly IExchangeRateProvider?        _exchangeRates;
     private readonly IOrganizationCurrencyService? _orgCurrency;
     private readonly ICurrencyCodeLookup?          _currencyCodes;
+    private readonly ICurrencyService?             _currency;
 
     /// <param name="quickBooks">
     /// Tells the QuickBooks gateway about an invoice once it is issued (plan D-7). Optional so a caller that
@@ -57,6 +58,11 @@ internal sealed class SalesInvoiceService : ISalesInvoiceService
     /// catalog is asked when this is absent). Optional, like <paramref name="quickBooks"/>: without them an
     /// invoice is issued with no snapshot, exactly as a missing rate would leave it.
     /// </param>
+    /// <param name="currency">
+    /// A35 (D-5, D-12) — when registered (always, in the host) the rate is <b>locked</b> at issue through it: the sale base,
+    /// the rate of the issue date, and a missing rate for a foreign invoice refuses the issue (400). Without it (a hand-built
+    /// harness) the S-5 snapshot above applies.
+    /// </param>
     public SalesInvoiceService(
         FinanceDbContext db, DemandDbContext demand, IDeliveryFulfillmentReader deliveries,
         ICustomerLedgerService ledger, IProductLedgerWriter productLedger,
@@ -64,7 +70,7 @@ internal sealed class SalesInvoiceService : ISalesInvoiceService
         IBackgroundJobClient jobs, ILogger<SalesInvoiceService> log, TimeProvider? clock = null,
         SalesInvoiceQuickBooksPublisher? quickBooks = null,
         IExchangeRateProvider? exchangeRates = null, IOrganizationCurrencyService? orgCurrency = null,
-        ICurrencyCodeLookup? currencyCodes = null)
+        ICurrencyCodeLookup? currencyCodes = null, ICurrencyService? currency = null)
     {
         _db            = db;
         _demand        = demand;
@@ -80,6 +86,7 @@ internal sealed class SalesInvoiceService : ISalesInvoiceService
         _exchangeRates = exchangeRates;
         _orgCurrency   = orgCurrency;
         _currencyCodes = currencyCodes;
+        _currency      = currency;
     }
 
     // ── Create ───────────────────────────────────────────────────────────────
@@ -152,6 +159,8 @@ internal sealed class SalesInvoiceService : ISalesInvoiceService
                 BalanceDue      = grand,
                 Status          = SalesInvoiceStatuses.Draft,
                 CurrencyCode    = currencyCode,
+                // A35 D-14 — the order's currency, carried as its id too.
+                CurrencyId      = order.CurrencyId,
                 Notes           = $"Raised from delivery {delivery.DeliveryNumber} against sale order {order.SoNumber}.",
                 CreatedBy       = userId,
                 CreatedDate     = _clock.GetUtcNow().UtcDateTime
@@ -270,6 +279,7 @@ internal sealed class SalesInvoiceService : ISalesInvoiceService
         CustomerLedgerEntry entry = null!;
         var costOfSales = new List<ProductLedgerEntry>();
         CurrencySnapshot? snapshot = null;
+        DocumentRateLock? rateLock = null;
 
         for (var attempt = 1; attempt <= MaxAttempts; attempt++)
         {
@@ -285,16 +295,31 @@ internal sealed class SalesInvoiceService : ISalesInvoiceService
 
             var now = _clock.GetUtcNow().UtcDateTime;
 
+            if (_currency is not null)
+            {
+                // A35 D-12 — the rate is LOCKED now (issue date, sale base) and never changes again. Asked before
+                // anything is changed, and once: a missing rate for a foreign invoice refuses the issue (D-5, 400).
+                rateLock ??= await LockRateAsync(invoice, now);
+                invoice.CurrencyId           = rateLock.CurrencyId;
+                invoice.ExchangeRate         = rateLock.Rate;
+                invoice.BaseCurrencyId       = rateLock.BaseCurrencyId;
+                invoice.BaseCurrencyCode     = rateLock.BaseCurrencyCode;
+                invoice.BaseGrandTotal       = rateLock.ToBase(invoice.GrandTotal);
+                invoice.ExchangeRateLockedAt = now;
+            }
+            else
+            {
+                // S-5 — the rate is fixed now, as the invoice becomes final, and never re-read afterwards. Looked
+                // up once: neither the invoice's currency nor its date can change between two passes.
+                snapshot ??= await SnapshotCurrencyAsync(invoice);
+                invoice.ExchangeRate     = snapshot.Rate;
+                invoice.BaseCurrencyCode = snapshot.BaseCurrencyCode;
+                invoice.BaseGrandTotal   = snapshot.Rate is { } rate ? ExchangeRateMath.Convert(invoice.GrandTotal, rate) : null;
+            }
+
             invoice.Status       = SalesInvoiceStatuses.Issued;
             invoice.ModifiedBy   = userId;
             invoice.ModifiedDate = now;
-
-            // S-5 — the rate is fixed now, as the invoice becomes final, and never re-read afterwards. Looked
-            // up once: neither the invoice's currency nor its date can change between two passes.
-            snapshot ??= await SnapshotCurrencyAsync(invoice);
-            invoice.ExchangeRate     = snapshot.Rate;
-            invoice.BaseCurrencyCode = snapshot.BaseCurrencyCode;
-            invoice.BaseGrandTotal   = snapshot.Rate is { } rate ? ExchangeRateMath.Convert(invoice.GrandTotal, rate) : null;
 
             // §9.5 — the receivable is booked in the same transaction as the status change: one
             // SaveChanges below commits both, or neither.
@@ -335,6 +360,22 @@ internal sealed class SalesInvoiceService : ISalesInvoiceService
             await _quickBooks.OnChangedAsync(issued, SalesInvoiceStatuses.Draft, contentChanged: false);
 
         return new SalesInvoiceIssued(issued.UUID, issued.InvoiceNumber, issued.Status, issued.GrandTotal, entry.RunningBalance);
+    }
+
+    /// <summary>
+    /// A35 D-12 — the invoice's rate into the organization's <b>sale</b> base on the issue date. Same currency: rate 1, no
+    /// lookup (BR-C5-04). Foreign and no rate: <see cref="CurrencyRateNotFoundException"/> (400) — the issue is refused (D-5).
+    /// The currency is the one carried from the sale order; an invoice from before A35 is resolved from its ISO code.
+    /// </summary>
+    private async Task<DocumentRateLock> LockRateAsync(SalesInvoice invoice, DateTime now)
+    {
+        var currencyId = invoice.CurrencyId
+            ?? _lookups.GetCurrencies()
+                   .FirstOrDefault(c => string.Equals(c.Code?.Trim(), invoice.CurrencyCode.Trim(), StringComparison.OrdinalIgnoreCase))?.Id
+            ?? throw new BadRequestException(
+                $"Sales invoice {invoice.InvoiceNumber} is in {invoice.CurrencyCode}, which is not a currency in the Lookups catalog, so its exchange rate cannot be locked.");
+
+        return await _currency!.LockRateAsync(invoice.OrganizationId, currencyId, DateOnly.FromDateTime(now), TransactionDomain.Sale);
     }
 
     /// <summary>
@@ -511,8 +552,15 @@ internal sealed class SalesInvoiceService : ISalesInvoiceService
                 PaymentStatus   = payment.Status,
                 AllocatedAmount = allocation.AllocatedAmount,
                 AllocatedAt     = allocation.AllocatedAt,
-                AllocatedBy     = allocation.AllocatedBy
+                AllocatedBy     = allocation.AllocatedBy,
+                ExchangeDifference = allocation.ExchangeDifference
             }).ToListAsync();
+
+        // A35 E-06 — the net realized difference booked on this invoice (a bounced payment's reversal nets it out).
+        var realized = await _db.ExchangeDifferences.AsNoTracking()
+            .Where(d => d.OrganizationId == invoice.OrganizationId && d.Kind == ExchangeDifferenceKinds.Realized
+                     && d.DocumentType == ExchangeDifferenceRefs.SalesInvoice && d.DocumentUuid == invoice.UUID)
+            .Select(d => d.DifferenceBase).ToListAsync();
 
         var detail = new SalesInvoiceDetailModel
         {
@@ -543,7 +591,10 @@ internal sealed class SalesInvoiceService : ISalesInvoiceService
             ExchangeRate       = invoice.ExchangeRate,
             BaseCurrencyCode   = invoice.BaseCurrencyCode,
             BaseGrandTotal     = invoice.BaseGrandTotal,
-            CancelledAt        = invoice.CancelledAt,
+            BaseCurrencyId       = invoice.BaseCurrencyId,
+            ExchangeRateLockedAt = invoice.ExchangeRateLockedAt,
+            RealizedExchangeDifference = realized.Count == 0 ? null : realized.Sum(),
+            CancelledAt       = invoice.CancelledAt,
             CancelledBy        = invoice.CancelledBy,
             CancellationReason = invoice.CancellationReason
         };
@@ -602,7 +653,8 @@ internal sealed class SalesInvoiceService : ISalesInvoiceService
                 AmountPaid      = i.AmountPaid,
                 BalanceDue      = i.BalanceDue,
                 Status          = i.Status,
-                CurrencyCode    = i.CurrencyCode
+                CurrencyCode    = i.CurrencyCode,
+                CurrencyId      = i.CurrencyId
             })
             .ToListAsync();
 
@@ -903,6 +955,7 @@ internal sealed class SalesInvoiceService : ISalesInvoiceService
         model.BalanceDue      = i.BalanceDue;
         model.Status          = i.Status;
         model.CurrencyCode    = i.CurrencyCode;
+        model.CurrencyId      = i.CurrencyId;
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────

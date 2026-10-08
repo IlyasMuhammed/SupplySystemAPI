@@ -3,7 +3,9 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 
 import {
-  FulfillmentRoutesService, FulfillmentRouteStepRequest, routeStepsText, validateRouteSteps
+  FulfillmentRouteModel, FulfillmentRoutesService, FulfillmentRouteStepRequest, MANUFACTURE_ROUTE_NOTE, RESERVED_CATEGORY_TOOLTIP,
+  routeCategoryLabel, routeCategoryOf, routeCategoryOptions, routeCategorySeverity, routesForVariant, routesVisibleToOrg,
+  routeStepsText, validateRouteSteps
 } from './fulfillment-routes.service';
 import { environment } from '../../environments/environment';
 
@@ -66,6 +68,26 @@ describe('FulfillmentRoutesService', () => {
     }
   });
 
+  it('filters the list by route category with ?category= (A34-PA-05)', () => {
+    service.getRoutes(false, 'MANUFACTURE').subscribe();
+    const req = http.expectOne(r => r.url === BASE);
+    expect(req.request.params.get('category')).toBe('MANUFACTURE');
+    expect(req.request.params.has('includeInactive')).toBeFalse();
+    req.flush({ success: true, message: '', result: [] });
+  });
+
+  it('sends the category on create, and on update only when given (null = unchanged)', () => {
+    service.createRoute({ code: 'MTO', name: 'Make to order', routeCategory: 'MANUFACTURE', steps: steps('PICK', 'GOODS_ISSUE') }).subscribe();
+    const create = http.expectOne(BASE);
+    expect(create.request.body.routeCategory).toBe('MANUFACTURE');
+    create.flush({ success: true, message: '', result: {} });
+
+    service.updateRoute(ID, { name: 'Make to order', displayOrder: 40, steps: null, routeCategory: null }).subscribe();
+    const update = http.expectOne(`${BASE}/${ID}`);
+    expect(update.request.body.routeCategory).toBeNull();
+    update.flush({ success: true, message: '', result: {} });
+  });
+
   it('deletes and bulk-assigns by category', () => {
     service.deleteRoute(ID).subscribe();
     const del = http.expectOne(`${BASE}/${ID}`);
@@ -77,6 +99,59 @@ describe('FulfillmentRoutesService', () => {
     expect(assign.request.method).toBe('POST');
     expect(assign.request.body).toEqual({ categoryId: 15 });
     assign.flush({ success: true, message: '', result: { updated: 2, skipped: 1, total: 3 } });
+  });
+});
+
+describe('route category helpers (A34 C1)', () => {
+  const r = (code: string, routeCategory?: FulfillmentRouteModel['routeCategory']): FulfillmentRouteModel => ({
+    uuid: 'r-' + code, code, name: code, description: null, isDefault: false, isActive: true, isSystem: false,
+    requiresPacking: false, requiresShipping: true, displayOrder: 10, steps: [], stepsText: '', statusPath: [], createdDate: '',
+    routeCategory
+  });
+  const routes = [r('PICK_AND_SHIP', 'STOCK'), r('LEGACY'), r('MFG_PICK_SHIP', 'MANUFACTURE')];
+
+  it('reads a route with no category as STOCK (routes saved before A34)', () => {
+    expect(routeCategoryOf(r('LEGACY'))).toBe('STOCK');
+    expect(routeCategoryOf(r('X', 'MANUFACTURE'))).toBe('MANUFACTURE');
+    expect(routeCategoryOf(null)).toBe('STOCK');
+  });
+
+  it('labels and colours the categories: STOCK green, MANUFACTURE orange', () => {
+    expect(routeCategoryLabel('STOCK')).toBe('Stock');
+    expect(routeCategoryLabel('MANUFACTURE')).toBe('Manufacture');
+    expect(routeCategoryLabel('DROPSHIP')).toBe('Drop ship');
+    expect(routeCategorySeverity('STOCK')).toBe('success');
+    expect(routeCategorySeverity('MANUFACTURE')).toBe('warn');
+    expect(routeCategorySeverity('BUY')).toBe('secondary');
+  });
+
+  it('offers STOCK and MANUFACTURE; BUY and DROPSHIP are shown disabled as reserved (D-7)', () => {
+    const options = routeCategoryOptions(true);
+    expect(options.map(o => o.value)).toEqual(['STOCK', 'MANUFACTURE', 'BUY', 'DROPSHIP']);
+    expect(options.filter(o => !o.disabled).map(o => o.value)).toEqual(['STOCK', 'MANUFACTURE']);
+    expect(options.filter(o => o.disabled).every(o => o.tooltip === RESERVED_CATEGORY_TOOLTIP)).toBeTrue();
+    expect(RESERVED_CATEGORY_TOOLTIP).toBe('Reserved for future release');
+  });
+
+  it('leaves MANUFACTURE out without MODULE_MANUFACTURING, unless the route already has it (D-9)', () => {
+    expect(routeCategoryOptions(false).map(o => o.value)).toEqual(['STOCK', 'BUY', 'DROPSHIP']);
+    expect(routeCategoryOptions(false, 'MANUFACTURE').map(o => o.value)).toContain('MANUFACTURE');
+  });
+
+  it('carries the §3.6 note for MANUFACTURE routes', () => {
+    expect(MANUFACTURE_ROUTE_NOTE).toBe('Products with this route will trigger a Production Order at Sale Order confirmation. ' +
+      'Delivery is created after production completes.');
+  });
+
+  it('hides MANUFACTURE routes from an organization without MODULE_MANUFACTURING (D-9)', () => {
+    expect(routesVisibleToOrg(routes, true).map(x => x.code)).toEqual(['PICK_AND_SHIP', 'LEGACY', 'MFG_PICK_SHIP']);
+    expect(routesVisibleToOrg(routes, false).map(x => x.code)).toEqual(['PICK_AND_SHIP', 'LEGACY']);
+  });
+
+  it('offers MANUFACTURE routes to a variant only when its product is manufactured and the org manufactures (D-3, D-9)', () => {
+    expect(routesForVariant(routes, true, true).map(x => x.code)).toEqual(['PICK_AND_SHIP', 'LEGACY', 'MFG_PICK_SHIP']);
+    expect(routesForVariant(routes, false, true).map(x => x.code)).toEqual(['PICK_AND_SHIP', 'LEGACY']);
+    expect(routesForVariant(routes, true, false).map(x => x.code)).toEqual(['PICK_AND_SHIP', 'LEGACY']);
   });
 });
 

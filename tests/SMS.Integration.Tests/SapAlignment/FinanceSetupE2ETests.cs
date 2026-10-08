@@ -9,8 +9,9 @@ namespace SMS.Integration.Tests.SapAlignment;
 /// <summary>
 /// SAP alignment (docs/finance/SAP-ALIGNMENT-PLAN.md), scenario 1 — Finance master data through the real host:
 /// tax codes (S-1/S-2/S-3: validation, uniqueness, sides, one default per side, deactivation, snapshots on
-/// sale-order lines, "codes from rates in use"), exchange rates (S-4: latest on or before the date, reciprocal,
-/// same currency = 1, nothing = null), who may change them, and the organization's base currency edit.
+/// sale-order lines, "codes from rates in use"), exchange rates (A35: written through api/currency-rates as date ranges; the
+/// legacy api/finance/exchange-rates list + quote read them, triangulated through the rate currency — D-3/D-6/D-17), who
+/// may change them, and the organization's base currency edit.
 /// <para>Run alone: <c>dotnet test &lt;out&gt;\SMS.Integration.Tests.dll --filter FullyQualifiedName~FinanceSetupE2ETests</c>.</para>
 /// </summary>
 public sealed class FinanceSetupE2ETests : IClassFixture<SapWebApplicationFactory>
@@ -200,66 +201,69 @@ public sealed class FinanceSetupE2ETests : IClassFixture<SapWebApplicationFactor
     [Fact]
     public async Task Exchange_rates_are_validated_and_quoted_by_date_inversely_and_per_currency()
     {
+        // A35: rates are written through api/currency-rates (date ranges vs the org's rate currency, D-2/D-3); the legacy
+        // api/finance/exchange-rates keeps only its reads (list + quote), served from finance.currency_rates (D-17).
         await _k.EnsureCurrencyAsync("PKR", "Pakistani Rupee", "Rs");
-        await _k.EnsureCurrencyAsync("USD", "US Dollar", "$");
+        var usd = await _k.EnsureCurrencyAsync("USD", "US Dollar", "$");
         await _k.EnsureCurrencyAsync("EUR", "Euro", "€");
+        var pkr = (await _k.Ok(_k.Get("/api/organization/currency-settings"), "settings")).G("rateCurrencyId");
 
-        var jan = await _k.Ok(_k.Post(Rates, Rate("usd", "pkr", 278.5m, "2026-01-01")), "USD→PKR January");
-        jan.S("fromCurrencyCode").Should().Be("USD", "codes are stored upper-case");
-        jan.S("toCurrencyCode").Should().Be("PKR");
+        var jan = await _k.CreateRateAsync("USD", "PKR", 278.5m, new DateTime(2026, 1, 1));
+        jan.S("currencyCode").Should().Be("USD");
         jan.D("rate").Should().Be(278.5m);
-        jan.S("effectiveDate").Should().Be("2026-01-01");
+        jan.S("effectiveFrom")!.Should().StartWith("2026-01-01");
         jan.S("source").Should().Be("MANUAL");
-        var june = await _k.Ok(_k.Post(Rates, Rate("USD", "PKR", 280.25m, "2026-06-01")), "USD→PKR June");
-        var juneId = june.G("uuid");
+        var june = await _k.CreateRateAsync("USD", "PKR", 280.25m, new DateTime(2026, 6, 1)); // closes January to 2026-05-31
 
-        // ── Validation ────────────────────────────────────────────────────────────
-        (await _k.Post(Rates, Rate("USD", "PKR", 281m, "2026-06-01"))).Status.Should().Be(HttpStatusCode.Conflict, "one live rate per pair per day");
+        // ── Validation (api/currency-rates) ───────────────────────────────────────
+        (await _k.Post(NewRates, NewRate(usd, 281m, "2026-06-01"))).Status.Should().Be(HttpStatusCode.Conflict, "one rate per currency per day");
         foreach (var (body, why) in new (object, string)[]
                  {
-                     (Rate("PKR", "PKR", 1m, "2026-01-01"), "the same currency on both sides"),
-                     (Rate("USD", "PKR", 0m, "2026-02-01"), "a zero rate"),
-                     (Rate("USD", "PKR", -1m, "2026-02-01"), "a negative rate"),
-                     (Rate("USD", "PKR", 1.123456789m, "2026-02-01"), "nine decimals"),
-                     (Rate("XYZ", "PKR", 2m, "2026-02-01"), "a currency not in the catalog"),
-                     (Rate("USD", "PKR", 2m, null), "no effective date"),
-                     (Rate("USD", "PKR", 2m, "2026-13-01"), "an impossible date"),
+                     (NewRate(pkr, 2m, "2026-02-01"), "the rate currency's own rate (always 1)"),
+                     (NewRate(usd, 0m, "2026-07-01"), "a zero rate"),
+                     (NewRate(usd, -1m, "2026-07-01"), "a negative rate"),
+                     (NewRate(usd, 1.12345678901m, "2026-07-01"), "eleven decimals"),
+                     (NewRate(usd, 2m, null), "no effective date"),
                  })
         {
-            var refused = await _k.Post(Rates, body);
+            var refused = await _k.Post(NewRates, body);
             refused.Status.Should().Be(HttpStatusCode.BadRequest, $"{why} is refused — {refused}");
         }
+        (await _k.Post(NewRates, NewRate(Guid.NewGuid(), 2m, "2026-07-01"))).Status
+            .Should().BeOneOf(new[] { HttpStatusCode.BadRequest, HttpStatusCode.NotFound }, "a currency not in the catalog");
 
-        // ── List, newest first ──────────────────────────────────────────────────────
+        // ── Legacy list (reads only), newest first; legacy writes are gone ─────────────
         var listed = await _k.Ok(_k.Get($"{Rates}?from=USD&to=PKR"), "list USD→PKR");
         listed.Items().Select(r => r.S("effectiveDate")).Should().Equal(["2026-06-01", "2026-01-01"]);
+        (await _k.Post(Rates, new { fromCurrencyCode = "USD", toCurrencyCode = "PKR", rate = 1m, effectiveDate = "2026-08-01" })).Status
+            .Should().BeOneOf(new[] { HttpStatusCode.NotFound, HttpStatusCode.MethodNotAllowed }, "A35-E-02: legacy writes removed");
 
         // ── Quotes ──────────────────────────────────────────────────────────────────
-        (await Quote("USD", "PKR", "2026-03-15")).Should().Be((278.5m, "2026-01-01", false), "the latest rate on or before the date");
+        (await Quote("USD", "PKR", "2026-03-15")).Should().Be((278.5m, "2026-01-01", false), "the rate covering the date");
         (await Quote("USD", "PKR", "2026-06-01")).Should().Be((280.25m, "2026-06-01", false), "a rate applies from its own day");
         (await Quote("USD", "PKR", "2026-12-31")).Should().Be((280.25m, "2026-06-01", false));
         (await QuoteOrNull("USD", "PKR", "2025-12-31")).Should().BeNull("nothing is on file before the first rate");
 
-        var inverse = Math.Round(1m / 278.5m, 8, MidpointRounding.AwayFromZero);
-        (await Quote("PKR", "USD", "2026-03-15")).Should().Be((inverse, "2026-01-01", true), "the reciprocal of the opposite pair");
-        (await Quote("pkr", "pkr", "2026-03-15")).Should().Be((1m, "2026-03-15", false), "the same currency is always 1");
-        (await QuoteOrNull("EUR", "PKR", "2026-03-15")).Should().BeNull("no EUR rate, and no triangulation through USD");
+        var inverse = await Quote("PKR", "USD", "2026-03-15");
+        inverse.Rate.Should().BeApproximately(1m / 278.5m, 0.0000000001m, "PKR → USD through the rate currency (D-6)");
+        inverse.EffectiveDate.Should().Be("2026-01-01");
+        (await Quote("pkr", "pkr", "2026-03-15")).Rate.Should().Be(1m, "the same currency is always 1");
+        (await QuoteOrNull("EUR", "PKR", "2026-03-15")).Should().BeNull("no EUR rate on file");
         (await _k.Get($"{Rates}/quote?to=PKR&date=2026-03-15")).Status.Should().Be(HttpStatusCode.BadRequest);
 
-        // ── Change and delete ─────────────────────────────────────────────────────
-        await _k.Ok(_k.Put($"{Rates}/{juneId}", Rate("USD", "PKR", 281m, "2026-06-01")), "change June");
+        // D-6 (supersedes S-4): EUR → USD is triangulated through PKR; the range starts at the later of the two rows.
+        await _k.CreateRateAsync("EUR", "PKR", 316.48m, new DateTime(2026, 3, 1));
+        var cross = await Quote("EUR", "USD", "2026-03-15");
+        cross.Rate.Should().BeApproximately(316.48m / 278.5m, 0.0000000001m);
+        cross.EffectiveDate.Should().Be("2026-03-01");
+        cross.Inverted.Should().BeFalse();
+
+        // ── Historical correction (PUT api/currency-rates/{id}); no deletes ──────────
+        await _k.CorrectRateAsync(june, 281m);
         (await Quote("USD", "PKR", "2026-12-31")).Rate.Should().Be(281m);
-        (await _k.Put($"{Rates}/{juneId}", Rate("USD", "PKR", 281m, "2026-01-01"))).Status
-            .Should().Be(HttpStatusCode.Conflict, "moving it onto January's day clashes with the January rate");
-
-        await _k.Ok(_k.Delete($"{Rates}/{juneId}"), "delete June");
-        (await Quote("USD", "PKR", "2026-12-31")).Should().Be((278.5m, "2026-01-01", false), "deleted: back to the previous rate");
-        (await _k.Ok(_k.Get($"{Rates}?from=USD&to=PKR"), "list")).Items().Should().ContainSingle("a deleted rate is not listed");
-        (await _k.Delete($"{Rates}/{juneId}")).Status.Should().Be(HttpStatusCode.NotFound, "already deleted");
-
-        var reAdded = await _k.Post(Rates, Rate("USD", "PKR", 282m, "2026-06-01"));
-        reAdded.Status.Should().Be(HttpStatusCode.OK, $"the deleted rate no longer holds its day — {reAdded}");
-        (await Quote("USD", "PKR", "2026-12-31")).Rate.Should().Be(282m);
+        (await _k.Put($"{NewRates}/{june.G("id")}", new { rate = 281m, effectiveFrom = "2026-01-01", effectiveTo = (string?)null })).Status
+            .Should().Be(HttpStatusCode.Conflict, "moving it onto January's range overlaps the January row");
+        (await _k.Ok(_k.Get($"/api/currency-rates/history/{usd}"), "USD history")).Items().Should().HaveCount(2);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -269,9 +273,9 @@ public sealed class FinanceSetupE2ETests : IClassFixture<SapWebApplicationFactor
     [Fact]
     public async Task Only_finance_setup_managers_change_codes_and_rates_but_anyone_signed_in_reads_them()
     {
-        // GBP, not EUR: the exchange-rate fact asserts that EUR has no rate at all.
+        // GBP, not EUR: the exchange-rate fact asserts that EUR has no rate before it adds one.
         await _k.EnsureCurrencyAsync("PKR", "Pakistani Rupee", "Rs");
-        await _k.EnsureCurrencyAsync("GBP", "Pound Sterling", "£");
+        var gbp = await _k.EnsureCurrencyAsync("GBP", "Pound Sterling", "£");
 
         var auditor = await _k.LoginAsNewUserAsync((int)EnumRole.Auditor, "auditor");
         var requester = await _k.LoginAsNewUserAsync((int)EnumRole.Requester, "requester");
@@ -280,12 +284,13 @@ public sealed class FinanceSetupE2ETests : IClassFixture<SapWebApplicationFactor
         foreach (var (client, who) in new[] { (auditor, "an auditor"), (requester, "a requester") })
         {
             (await _k.Get(TaxCodes, client)).Status.Should().Be(HttpStatusCode.OK, $"{who} may read tax codes (they feed pickers)");
-            (await _k.Get(Rates, client)).Status.Should().Be(HttpStatusCode.OK, $"{who} may read rates");
+            (await _k.Get(Rates, client)).Status.Should().Be(HttpStatusCode.OK, $"{who} may read rates (legacy list)");
+            (await _k.Get(NewRates, client)).Status.Should().Be(HttpStatusCode.OK, $"{who} holds CURRENCY_RATE_VIEW (every role, D-16)");
             (await _k.Get($"{Rates}/quote?from=GBP&to=PKR&date=2026-03-01", client)).Status.Should().Be(HttpStatusCode.OK);
 
             (await _k.Post(TaxCodes, Code("NOPE1", 1m, "SALES"), client)).Status.Should().Be(HttpStatusCode.Forbidden, $"{who} lacks FINANCE_SETUP_MANAGE");
             (await _k.Post($"{TaxCodes}/from-rates-in-use", null, client)).Status.Should().Be(HttpStatusCode.Forbidden);
-            (await _k.Post(Rates, Rate("GBP", "PKR", 350m, "2026-02-01"), client)).Status.Should().Be(HttpStatusCode.Forbidden);
+            (await _k.Post(NewRates, NewRate(gbp, 350m, "2026-02-01"), client)).Status.Should().Be(HttpStatusCode.Forbidden, $"{who} lacks CURRENCY_RATE_MANAGE");
         }
 
         using (var anonymous = _k.F.CreateAnonymousClient())
@@ -293,11 +298,12 @@ public sealed class FinanceSetupE2ETests : IClassFixture<SapWebApplicationFactor
 
         var made = await _k.Post(TaxCodes, Code("FMTAX12", 12.5m, "PURCHASE"), financeManager);
         made.Status.Should().Be(HttpStatusCode.OK, $"a Finance Manager holds FINANCE_SETUP_MANAGE — {made}");
-        var rate = await _k.Post(Rates, Rate("GBP", "PKR", 350m, "2026-02-01"), financeManager);
-        rate.Status.Should().Be(HttpStatusCode.OK, rate.ToString());
+        var rate = await _k.Post(NewRates, NewRate(gbp, 350m, "2026-02-01"), financeManager);
+        rate.Status.Should().Be(HttpStatusCode.OK, $"FINANCE_SETUP_MANAGE holders get CURRENCY_RATE_MANAGE (D-16) — {rate}");
 
         (await _k.Put($"{TaxCodes}/{made.Result.G("uuid")}", Code("FMTAX12", 13m, "PURCHASE"), auditor)).Status.Should().Be(HttpStatusCode.Forbidden);
-        (await _k.Delete($"{Rates}/{rate.Result.G("uuid")}", auditor)).Status.Should().Be(HttpStatusCode.Forbidden);
+        (await _k.Put($"{NewRates}/{rate.Result.P("rate").G("id")}", new { rate = 351m, effectiveFrom = "2026-02-01" }, auditor)).Status
+            .Should().Be(HttpStatusCode.Forbidden);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -322,10 +328,15 @@ public sealed class FinanceSetupE2ETests : IClassFixture<SapWebApplicationFactor
         (await _k.Put(orgUrl, new { orgName = org.S("orgName"), baseCurrency = Guid.NewGuid() })).Status
             .Should().Be(HttpStatusCode.BadRequest, "a base currency must be a catalog currency with a code");
 
-        await _k.Ok(_k.Put(orgUrl, new { orgName = org.S("orgName"), clearBaseCurrency = true }), "clear base currency");
-        (await _k.Ok(_k.Get(orgUrl), "read org")).NG("baseCurrency").Should().BeNull();
-
-        await _k.SetBaseCurrencyAsync(pkr);
+        // A35 REV-06: clearing the profile base is refused (409) once any base or the rate currency is in use — here a rate
+        // exists (SAR, so no other fact's currencies are touched). "Clear is allowed when nothing is in use" is TEN's
+        // OrganizationCurrencySettingsTests.Clearing_the_profile_base_without_a_row_is_409_when_any_domain_is_in_use_and_allowed_otherwise.
+        await _k.EnsureCurrencyAsync("SAR", "Saudi Riyal", "SR");
+        await _k.CreateRateAsync("SAR", "PKR", 74m, new DateTime(2026, 1, 15));
+        var clear = await _k.Put(orgUrl, new { orgName = org.S("orgName"), clearBaseCurrency = true });
+        clear.Status.Should().Be(HttpStatusCode.Conflict, $"REV-06 — {clear}");
+        clear.Message.Should().StartWith("Cannot clear the base currency");
+        (await _k.Ok(_k.Get(orgUrl), "read org")).G("baseCurrency").Should().Be(pkr, "the refused clear changed nothing");
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -340,7 +351,7 @@ public sealed class FinanceSetupE2ETests : IClassFixture<SapWebApplicationFactor
         await _k.EnsureCurrencyAsync("AED", "UAE Dirham", "AED");
 
         var mine = (await _k.Ok(_k.Post(TaxCodes, Code("ISO9", 9m, "BOTH")), "org 1 code")).G("uuid");
-        var myRate = (await _k.Ok(_k.Post(Rates, Rate("AED", "PKR", 75m, "2026-02-02")), "org 1 rate")).G("uuid");
+        var myRate = (await _k.CreateRateAsync("AED", "PKR", 75m, new DateTime(2026, 2, 2))).G("id");
 
         // A second organization with its own admin (the invitation is accepted by hand: activate + password).
         var adminEmail = $"org2-{Guid.NewGuid():N}@sap-e2e.test";
@@ -360,12 +371,13 @@ public sealed class FinanceSetupE2ETests : IClassFixture<SapWebApplicationFactor
         quote.ValueKind.Should().Be(JsonValueKind.Null, "org 1's rate does not convert org 2's documents");
 
         (await _k.Put($"{TaxCodes}/{mine}", Code("ISO9", 1m, "BOTH"), other)).Status.Should().Be(HttpStatusCode.NotFound);
-        (await _k.Put($"{Rates}/{myRate}", Rate("AED", "PKR", 1m, "2026-02-02"), other)).Status.Should().Be(HttpStatusCode.NotFound);
-        (await _k.Delete($"{Rates}/{myRate}", other)).Status.Should().Be(HttpStatusCode.NotFound);
+        (await _k.Put($"{NewRates}/{myRate}", new { rate = 1m, effectiveFrom = "2026-02-02" }, other)).Status.Should().Be(HttpStatusCode.NotFound);
 
         var theirs = await _k.Post(TaxCodes, Code("ISO9", 12m, "BOTH"), other);
         theirs.Status.Should().Be(HttpStatusCode.OK, $"the same code in another organization is no clash — {theirs}");
-        (await _k.Post(Rates, Rate("AED", "PKR", 80m, "2026-02-02"), other)).Status.Should().Be(HttpStatusCode.OK, "nor the same pair and day");
+        var otherKit = new SapKit(_k.F, "O2", other);
+        await otherKit.EnsureOrgCurrencyAsync("AED", "UAE Dirham", "AED");
+        (await otherKit.CreateRateAsync("AED", "PKR", 80m, new DateTime(2026, 2, 2))).D("rate").Should().Be(80m, "nor the same currency and day");
 
         (await Quote("AED", "PKR", "2026-03-01")).Rate.Should().Be(75m, "org 1 still converts at its own rate");
         (await _k.Ok(_k.Get($"{Rates}/quote?from=AED&to=PKR&date=2026-03-01", other), "org 2 quote")).D("rate").Should().Be(80m);
@@ -390,9 +402,11 @@ public sealed class FinanceSetupE2ETests : IClassFixture<SapWebApplicationFactor
         code, name = name ?? $"{code} tax", description = (string?)null, ratePercent = rate, usage, isDefault, isActive
     };
 
-    private static object Rate(string from, string to, decimal rate, string? date) => new
+    private const string NewRates = "/api/currency-rates";
+
+    private static object NewRate(Guid currencyId, decimal rate, string? effectiveFrom) => new
     {
-        fromCurrencyCode = from, toCurrencyCode = to, rate, effectiveDate = date, notes = (string?)null
+        currencyId, rate, effectiveFrom, effectiveTo = (string?)null, notes = (string?)null
     };
 
     private async Task<JsonElement> Save(Guid uuid, object body) => await _k.Ok(_k.Put($"{TaxCodes}/{uuid}", body), $"update tax code {uuid}");

@@ -53,13 +53,14 @@ describe('Logistics routes', () => {
 
   // ── TC-21.5 ────────────────────────────────────────────────────────────────
 
-  it('leaves the existing carrier and shipment routes alone', () => {
-    // Four screens still depend on these until the cockpit replaces them.
+  it('keeps the carrier routes and the legacy shipments readable, but no longer creates a legacy shipment', () => {
+    // Legacy shipments stay viewable for history. Creating one was retired: it sat outside the
+    // Delivery → Consignment flow until the next startup backfill.
     expect(find('logistics/carriers')?.component).toBe(CarrierListComponent);
     expect(find('logistics/shipments')?.component).toBe(ShipmentListComponent);
     expect(find('logistics/shipments/:uuid')?.component).toBe(ShipmentDetailComponent);
     expect(find('logistics/carriers/create')).toBeDefined();
-    expect(find('logistics/shipments/create')).toBeDefined();
+    expect(find('logistics/shipments/create')).toBeUndefined();
   });
 
   it('does not route two components at the same path', () => {

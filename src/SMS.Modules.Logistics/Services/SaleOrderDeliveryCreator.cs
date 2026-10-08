@@ -154,6 +154,14 @@ internal sealed class SaleOrderDeliveryCreator : ISaleOrderDeliveryCreator
                 continue;
             }
 
+            // A34 PD-02 (C-3) — a make-to-order line's delivery comes from its production order (IProductionDeliveryCreator),
+            // never from confirm, the D-12 sweep or "Create deliveries": one delivery each would double-ship it.
+            if (route.IsManufacture)
+            {
+                skipped.Add(new(line.UUID, $"{label} is made to order: its delivery is created when its production order completes."));
+                continue;
+            }
+
             var outstanding = line.Quantity - line.FulfilledQty - inFlight.GetValueOrDefault(line.UUID);
             if (outstanding <= 0)
             {
@@ -275,7 +283,7 @@ internal sealed class SaleOrderDeliveryCreator : ISaleOrderDeliveryCreator
     /// takes what it holds, largest first, and whatever nothing holds yet (a back-to-back balance) rides with the
     /// largest hold, as a manual delivery would. A line nothing holds at all has no warehouse: release chooses.
     /// </summary>
-    private static IEnumerable<(Guid? Warehouse, decimal Qty)> SplitByWarehouse(
+    internal static IEnumerable<(Guid? Warehouse, decimal Qty)> SplitByWarehouse(
         Guid lineUuid, decimal outstanding, IReadOnlyList<ReservationSummary> holds)
     {
         var held = holds

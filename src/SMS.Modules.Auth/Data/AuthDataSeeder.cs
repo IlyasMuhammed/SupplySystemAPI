@@ -23,7 +23,42 @@ internal sealed class AuthDataSeeder
         await SeedPermissionsAsync();
         await SeedRolesAsync();
         await SeedRolePermissionsAsync();
+        await SeedCurrencyGrantsAsync();
         await SeedAdminUserAsync();
+    }
+
+    /// <summary>
+    /// A35 D-16 / REV-09 — every role (built-in and custom, any organization) gets <see cref="EveryRoleCodes"/>, and every
+    /// role allowed FINANCE_SETUP_MANAGE gets <see cref="FinanceSetupCodes"/>. Only MISSING grants are added: a row an
+    /// administrator switched off (IsAllowed = false) is left as they set it. Idempotent; runs on every start, so roles that
+    /// already exist in a database pick the grants up on the next start.
+    /// </summary>
+    internal async Task SeedCurrencyGrantsAsync()
+    {
+        var permIds = await _db.Permissions
+            .Where(p => EveryRoleCodes.Contains(p.Code) || FinanceSetupCodes.Contains(p.Code) || p.Code == PermissionCodes.FINANCE_SETUP_MANAGE)
+            .ToDictionaryAsync(p => p.Code, p => p.PermissionID);
+        if (!permIds.TryGetValue(PermissionCodes.FINANCE_SETUP_MANAGE, out var setupId)) setupId = -1;
+
+        var roleIds  = await _db.Roles.IgnoreQueryFilters().Select(r => r.RoleID).ToListAsync();
+        var existing = (await _db.RolePermissions.IgnoreQueryFilters().Select(rp => new { rp.RoleID, rp.PermissionID }).ToListAsync())
+            .Select(x => (x.RoleID, x.PermissionID)).ToHashSet();
+        var setupRoles = (await _db.RolePermissions.IgnoreQueryFilters()
+            .Where(rp => rp.PermissionID == setupId && rp.IsAllowed).Select(rp => rp.RoleID).ToListAsync()).ToHashSet();
+
+        foreach (var roleId in roleIds)
+        {
+            var codes = setupRoles.Contains(roleId) ? EveryRoleCodes.Concat(FinanceSetupCodes) : EveryRoleCodes;
+            foreach (var code in codes)
+            {
+                if (!permIds.TryGetValue(code, out var permId) || !existing.Add((roleId, permId))) continue;
+                _db.RolePermissions.Add(new RolePermission
+                {
+                    RoleID = roleId, PermissionID = permId, IsAllowed = true, OrganizationId = TenantDefaults.ScmDemoOrganizationId
+                });
+            }
+        }
+        await _db.SaveChangesAsync();
     }
 
     // ── 1. Permissions ────────────────────────────────────────────────────────
@@ -67,6 +102,7 @@ internal sealed class AuthDataSeeder
         ("View Inventory",                PermissionCodes.INVENTORY_VIEW,        "Read stock levels and item records"),
         ("Manage Stock",                  PermissionCodes.STOCK_MANAGE,          "Add and remove stock items"),
         ("Adjust Stock",                  PermissionCodes.STOCK_ADJUST,          "Record stock adjustments and write-offs"),
+        ("Manage Lead Time Defaults",     PermissionCodes.LEAD_TIME_DEFAULTS_MANAGE, "Change the organization's default pick/pack, shipping, buffer, QC and transfer days used to calculate delivery dates"),
         ("Manage Reorder Rules",          PermissionCodes.REORDER_MANAGE,        "Configure reorder points and safety stock"),
 
         ("Warehouse Transfer",            PermissionCodes.WAREHOUSE_TRANSFER,    "Transfer stock between warehouse locations"),
@@ -179,7 +215,21 @@ internal sealed class AuthDataSeeder
         ("Run Accounting Sync",           PermissionCodes.INTEGRATION_SYNC,   "Push a record to QuickBooks now and retry one that failed"),
 
         ("Manage Finance Setup",          PermissionCodes.FINANCE_SETUP_MANAGE, "Create and change tax codes and exchange rates — these decide the tax and conversion every new document uses"),
+
+        // A35 D-16 — multi-currency.
+        ("View Currencies",               PermissionCodes.CURRENCY_VIEW,         "See the organization's currencies (every document form's currency picker needs it)"),
+        ("Manage Currencies",             PermissionCodes.CURRENCY_MANAGE,       "Add currencies to the organization, change their formatting, activate or deactivate them"),
+        ("View Exchange Rates",           PermissionCodes.CURRENCY_RATE_VIEW,    "See exchange rates and convert amounts between currencies"),
+        ("Manage Exchange Rates",         PermissionCodes.CURRENCY_RATE_MANAGE,  "Enter new exchange rates and correct historical ones"),
+        ("Manage Base Currencies",        PermissionCodes.ORG_CURRENCY_SETTINGS_MANAGE, "Change the organization's sale/purchase/service base currencies and exchange-difference account codes"),
+        ("Run Exchange Revaluation",      PermissionCodes.EXCHANGE_REVALUATION_RUN, "Revalue open foreign-currency receivables and payables at a date's rates (unrealized exchange differences)"),
     ];
+
+    /// <summary>A35 D-16 — granted to every role, built-in or custom, existing or created later (document forms need them).</summary>
+    internal static readonly string[] EveryRoleCodes = [PermissionCodes.CURRENCY_VIEW, PermissionCodes.CURRENCY_RATE_VIEW];
+
+    /// <summary>A35 D-16 — granted to every role that holds FINANCE_SETUP_MANAGE (it already owned exchange rates).</summary>
+    internal static readonly string[] FinanceSetupCodes = [PermissionCodes.CURRENCY_RATE_MANAGE, PermissionCodes.EXCHANGE_REVALUATION_RUN];
 
     private async Task SeedPermissionsAsync()
     {
@@ -318,6 +368,8 @@ internal sealed class AuthDataSeeder
             PermissionCodes.SALE_ORDER_VIEW, PermissionCodes.SALE_ORDER_RESERVE, PermissionCodes.SALE_ORDER_RELEASE_RESERVATION,
             // A33 D-9 — the built-in role holding STOCK_MANAGE: decides how each product is fulfilled.
             PermissionCodes.FULFILLMENT_ROUTE_VIEW, PermissionCodes.FULFILLMENT_ROUTE_MANAGE, PermissionCodes.FULFILLMENT_ROUTE_ASSIGN,
+            // A34 D-24 — owns the organization's lead-time defaults (variant overrides already ride on STOCK_MANAGE).
+            PermissionCodes.LEAD_TIME_DEFAULTS_MANAGE,
         ],
 
         [(int)EnumRole.WarehouseOperator] =
@@ -395,6 +447,8 @@ internal sealed class AuthDataSeeder
             PermissionCodes.INTEGRATION_VIEW, PermissionCodes.INTEGRATION_MANAGE, PermissionCodes.INTEGRATION_SYNC,
             // Owns the tax codes and exchange rates every document is priced and converted with.
             PermissionCodes.FINANCE_SETUP_MANAGE,
+            // A35 D-16 — the role holding FINANCE_SETUP_MANAGE also enters rates and runs the revaluation.
+            PermissionCodes.CURRENCY_RATE_MANAGE, PermissionCodes.EXCHANGE_REVALUATION_RUN,
         ],
 
         // Org Admin is the full owner/operator of their own tenant: every business permission in
@@ -427,6 +481,8 @@ internal sealed class AuthDataSeeder
         [
             PermissionCodes.SALE_ORDER_CONFIG_READ,
             PermissionCodes.SALE_ORDER_CONFIG_WRITE,
+            // A34 D-24 — the lead-time defaults drive every quoted delivery date, next to the sale order settings.
+            PermissionCodes.LEAD_TIME_DEFAULTS_MANAGE,
         ],
     };
 

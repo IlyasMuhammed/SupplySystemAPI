@@ -14,6 +14,8 @@ internal sealed class SuppliersService : ISuppliersService
     private readonly IPhoneNumberValidationService _phoneValidator;
     private readonly IEnumerable<ISupplierReferenceChecker> _referenceCheckers;
     private readonly PartnerQuickBooksPublisher? _quickBooks;
+    // A35 BR-C4-01 — default currencies must be active currencies of the organization.
+    private readonly PartnerCurrencyRules _currencyRules;
 
     /// <param name="quickBooks">
     /// Tells the QuickBooks gateway about a partner after each save that changes what it would send.
@@ -24,8 +26,10 @@ internal sealed class SuppliersService : ISuppliersService
         ISupplierEventPublisher events,
         IPhoneNumberValidationService phoneValidator,
         IEnumerable<ISupplierReferenceChecker> referenceCheckers,
-        PartnerQuickBooksPublisher? quickBooks = null)
+        PartnerQuickBooksPublisher? quickBooks = null,
+        PartnerCurrencyRules? currencyRules = null)
     {
+        _currencyRules = currencyRules ?? new PartnerCurrencyRules();
         _repo = repo;
         _events = events;
         _phoneValidator = phoneValidator;
@@ -48,6 +52,8 @@ internal sealed class SuppliersService : ISuppliersService
 
     public async Task<Guid> CreateSupplierAsync(CreateSupplierRequest req, int createdBy)
     {
+        await _currencyRules.ValidateAsync(
+            req.DefaultSaleCurrencyId, false, PartnerCurrencyRules.Purchase(req.DefaultPurchaseCurrencyId, req.PreferredCurrency), false);
         var uuid = await _repo.CreateSupplierAsync(req, createdBy);
         await PublishToQuickBooksAsync(uuid);
         return uuid;
@@ -56,11 +62,20 @@ internal sealed class SuppliersService : ISuppliersService
     public Task<PaginatedResponse<SupplierListItemModel>> GetSuppliersAsync(SupplierListFilter filter) =>
         _repo.GetSuppliersAsync(filter);
 
-    public Task<SupplierDetailModel?> GetSupplierByIdAsync(Guid uuid) =>
-        _repo.GetSupplierByIdAsync(uuid);
+    public async Task<SupplierDetailModel?> GetSupplierByIdAsync(Guid uuid)
+    {
+        var detail = await _repo.GetSupplierByIdAsync(uuid);
+        await _currencyRules.FillCodesAsync(detail);
+        return detail;
+    }
 
     public async Task<bool> PatchSupplierAsync(Guid uuid, PatchSupplierRequest req, int modifiedBy)
     {
+        var current = await _repo.GetSupplierByIdAsync(uuid);
+        await _currencyRules.ValidateAsync(
+            req.DefaultSaleCurrencyId, req.ClearDefaultSaleCurrency,
+            PartnerCurrencyRules.Purchase(req.DefaultPurchaseCurrencyId, req.PreferredCurrency), req.ClearDefaultPurchaseCurrency,
+            current?.DefaultSaleCurrencyId, current?.DefaultPurchaseCurrencyId);
         var updated = await _repo.PatchSupplierAsync(uuid, req, modifiedBy);
         if (updated) await PublishToQuickBooksAsync(uuid);
         return updated;

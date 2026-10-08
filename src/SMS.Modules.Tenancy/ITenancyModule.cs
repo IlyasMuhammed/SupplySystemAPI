@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using SMS.Modules.Tenancy.Data;
 using SMS.Modules.Tenancy.Repositories;
 using SMS.Modules.Tenancy.Services;
@@ -36,6 +37,10 @@ public static class TenancyModuleExtensions
         // Lookups asks every checker before it deletes a currency or changes its code.
         services.AddScoped<ILookupReferenceChecker, TenancyCurrencyReferenceChecker>();
         services.AddScoped<TenancyDataSeeder>();
+        // A35 D-7 — organization currency settings (API + provisioning row).
+        services.AddScoped<IOrganizationCurrencySettingsService, OrganizationCurrencySettingsService>();
+        services.AddScoped<OrganizationCurrencySettingsProvisioningHandler>();
+        services.AddScoped<IOrganizationProvisionedHandler, OrganizationCurrencySettingsProvisioningHandler>();
 
         return services;
     }
@@ -48,6 +53,19 @@ public static class TenancyModuleExtensions
 
         var seeder = scope.ServiceProvider.GetRequiredService<TenancyDataSeeder>();
         seeder.SeedAsync().GetAwaiter().GetResult();
+
+        // A35 P1-14 — repairs a missed provisioning call: every organization with a base currency gets its settings row.
+        // Idempotent; a failure here must not stop the API (reads fall back to Organization.BaseCurrency ?? PKR).
+        try
+        {
+            scope.ServiceProvider.GetRequiredService<OrganizationCurrencySettingsProvisioningHandler>()
+                .BackfillAsync().GetAwaiter().GetResult();
+        }
+        catch (Exception ex)
+        {
+            scope.ServiceProvider.GetService<Microsoft.Extensions.Logging.ILoggerFactory>()?
+                .CreateLogger("SMS.Modules.Tenancy").LogError(ex, "Backfilling organization currency settings failed; retried at the next start.");
+        }
 
         return app;
     }

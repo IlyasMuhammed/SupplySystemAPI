@@ -318,6 +318,7 @@ app.UseHangfireDashboard("/hangfire", new DashboardOptions
 
 app.UseAuthModule();           // registers Hangfire jobs + seeds permissions/roles
 app.UseTenancyModule();        // migrates tenant schema + seeds org/feature catalog
+app.MigrateSuppliersSchema();  // A35 — migrates the suppliers schema only (UseSuppliersModule's seeder/job stay off)
 app.UseLookupsModule();        // seeds lookup types and values
 app.UseWorkflowEngineModule(); // migrates workflow schema + seeds default PR/PO/GRN definitions
 app.UseDemandModule();         // registers RFQ link expiry sweep (daily Hangfire job)

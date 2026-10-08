@@ -1,4 +1,4 @@
-using System.Reflection;
+﻿using System.Reflection;
 using FluentAssertions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -41,9 +41,6 @@ public class SapAlignmentEndpointSecurityAuditTests
         [typeof(TaxCodesController),      nameof(TaxCodesController.Create),                PermissionCodes.FINANCE_SETUP_MANAGE,     true],
         [typeof(TaxCodesController),      nameof(TaxCodesController.Update),                PermissionCodes.FINANCE_SETUP_MANAGE,     true],
         [typeof(TaxCodesController),      nameof(TaxCodesController.CreateFromRatesInUse),  PermissionCodes.FINANCE_SETUP_MANAGE,     true],
-        [typeof(ExchangeRatesController), nameof(ExchangeRatesController.Create),           PermissionCodes.FINANCE_SETUP_MANAGE,     true],
-        [typeof(ExchangeRatesController), nameof(ExchangeRatesController.Update),           PermissionCodes.FINANCE_SETUP_MANAGE,     true],
-        [typeof(ExchangeRatesController), nameof(ExchangeRatesController.Delete),           PermissionCodes.FINANCE_SETUP_MANAGE,     true],
         // S-7 actions.
         [typeof(SalesInvoicesController), nameof(SalesInvoicesController.Cancel),           PermissionCodes.SALES_INVOICE_MANAGE,     true],
         [typeof(InvoicesController),      nameof(InvoicesController.Reverse),               PermissionCodes.INVOICE_PROCESS,          true],
@@ -71,8 +68,6 @@ public class SapAlignmentEndpointSecurityAuditTests
         var routed = new[]
         {
             Action(typeof(TaxCodesController), nameof(TaxCodesController.Update)),
-            Action(typeof(ExchangeRatesController), nameof(ExchangeRatesController.Update)),
-            Action(typeof(ExchangeRatesController), nameof(ExchangeRatesController.Delete)),
             Action(typeof(SalesInvoicesController), nameof(SalesInvoicesController.Cancel)),
             Action(typeof(InvoicesController), nameof(InvoicesController.Reverse)),
         };

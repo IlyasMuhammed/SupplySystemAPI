@@ -37,14 +37,14 @@ public class DeliveryDocumentTests
         DeliveryDocumentService Documents,
         FakeStockReservationService Reservations);
 
-    private static Harness NewHarness(PoDocumentTemplateModel? template = null)
+    private static Harness NewHarness(PoDocumentTemplateModel? template = null, SMS.Shared.Common.IWarehouseDirectory? warehouses = null)
     {
         var (db, tenant, dbName) = LogisticsTestDb.New();
         var reservations = new FakeStockReservationService();
         var numbers      = new DocumentNumberGenerator(db, tenant);
 
         var deliveries = new DeliveryRepository(
-            db, numbers, new AddressNormalizer(new FakeCityLookup()));
+            db, numbers, new AddressNormalizer(new FakeCityLookup()), warehouses: warehouses, reservations: reservations);
         var packages   = new PackageRepository(db, numbers);
         var release    = new DeliveryReleaseRepository(db, reservations, numbers);
         var status     = new DeliveryStatusRepository(db, reservations);
@@ -68,7 +68,7 @@ public class DeliveryDocumentTests
     // ── Fixtures ──────────────────────────────────────────────────────────────
 
     /// <summary>A delivery picked and packed into one carton, ready for paper.</summary>
-    private static async Task<Guid> Packed(Harness h, decimal qty = 100m, bool withAddress = true)
+    private static async Task<Guid> Packed(Harness h, decimal qty = 100m, bool withAddress = true, bool withWarehouse = true)
     {
         var variantUuid = Guid.NewGuid();
         h.Reservations.SetAvailable(variantUuid, 1000m);
@@ -78,7 +78,7 @@ public class DeliveryDocumentTests
             SourceType   = "SRO",
             SourceUuid   = Guid.NewGuid(),
             SourceNumber = "SRO-2026-00042",
-            ShipFromWarehouseUuid = CentralUuid,
+            ShipFromWarehouseUuid = withWarehouse ? CentralUuid : null,
             ShipFromAddress = withAddress ? new AddressRequest
             {
                 ContactName = "Central Warehouse", Line1 = "12 Dock Road",
@@ -123,9 +123,9 @@ public class DeliveryDocumentTests
         return uuid;
     }
 
-    private static async Task<Guid> Staged(Harness h, decimal qty = 100m)
+    private static async Task<Guid> Staged(Harness h, decimal qty = 100m, bool withAddress = true, bool withWarehouse = true)
     {
-        var uuid = await Packed(h, qty);
+        var uuid = await Packed(h, qty, withAddress, withWarehouse);
         await h.GoodsIssue.StageAsync(uuid, User);
         h.Db.ChangeTracker.Clear();
         return uuid;
@@ -154,6 +154,61 @@ public class DeliveryDocumentTests
 
         var number = (await h.Deliveries.GetByUuidAsync(uuid))!.DeliveryNumber;
         fileName.Should().Be($"PackingList-{number}.pdf");
+    }
+
+    [Fact]
+    public async Task With_no_stored_ship_from_address_the_documents_fall_back_to_the_warehouse()
+    {
+        // A sale-order delivery stores only the warehouse it leaves from, never a ship-from address — which printed
+        // "Ship From: -". The documents now name the company and the warehouse and use the warehouse's own address.
+        var warehouses = new Mock<SMS.Shared.Common.IWarehouseDirectory>();
+        warehouses.Setup(w => w.FindAsync(CentralUuid, It.IsAny<CancellationToken>()))
+                  .ReturnsAsync(new SMS.Shared.Common.WarehouseContact(
+                      CentralUuid, "WH-01", "Central Warehouse", "12 Dock Road", "Karachi", "Pakistan",
+                      "Store Keeper", "+92 300 1234567", true));
+
+        var h = NewHarness(new PoDocumentTemplateModel { CompanyName = "Supply System (Pvt) Ltd" }, warehouses.Object);
+        var uuid = await Staged(h, withAddress: false);
+
+        var detail = (await h.Deliveries.GetByUuidAsync(uuid))!;
+        detail.ShipFromAddress.Should().BeNull("the fixture stores no address, as a sale-order delivery does not");
+        detail.ShipFromWarehouse.Should().NotBeNull();
+        detail.ShipFromWarehouse!.Name.Should().Be("Central Warehouse");
+        detail.ShipFromWarehouse.Address.Should().Be("12 Dock Road");
+
+        var (packingList, _) = await h.Documents.GeneratePackingListAsync(uuid);
+        var (gatePass, _)    = await h.Documents.GenerateGatePassAsync(uuid);
+
+        ShouldBeAPdf(packingList);
+        ShouldBeAPdf(gatePass);
+
+        // Set SMS_DOC_PREVIEW_DIR to look at the result by eye.
+        if (Environment.GetEnvironmentVariable("SMS_DOC_PREVIEW_DIR") is { Length: > 0 } dir)
+        {
+            await File.WriteAllBytesAsync(Path.Combine(dir, "PackingList-preview.pdf"), packingList);
+            await File.WriteAllBytesAsync(Path.Combine(dir, "GatePass-preview.pdf"), gatePass);
+        }
+    }
+
+    [Fact]
+    public async Task With_no_warehouse_on_the_header_the_ship_from_comes_from_where_the_stock_is_held()
+    {
+        // A delivery raised by hand from a sale order often records no warehouse at all. Its stock is still held
+        // somewhere, and that is where it leaves from.
+        var heldIn = FakeStockReservationService.StockLocation.Unplaced.WarehouseUuid;
+        var warehouses = new Mock<SMS.Shared.Common.IWarehouseDirectory>();
+        warehouses.Setup(w => w.FindAsync(heldIn, It.IsAny<CancellationToken>()))
+                  .ReturnsAsync(new SMS.Shared.Common.WarehouseContact(
+                      heldIn, "WH-02", "Korangi Store", "Plot 7, Sector 15", "Karachi", "Pakistan", null, null, true));
+
+        var h = NewHarness(new PoDocumentTemplateModel { CompanyName = "Supply System (Pvt) Ltd" }, warehouses.Object);
+        var uuid = await Staged(h, withAddress: false, withWarehouse: false);
+
+        var detail = (await h.Deliveries.GetByUuidAsync(uuid))!;
+        detail.ShipFromWarehouseUuid.Should().BeNull();
+        detail.ShipFromWarehouse!.Name.Should().Be("Korangi Store");
+
+        ShouldBeAPdf((await h.Documents.GenerateGatePassAsync(uuid)).Content);
     }
 
     [Fact]

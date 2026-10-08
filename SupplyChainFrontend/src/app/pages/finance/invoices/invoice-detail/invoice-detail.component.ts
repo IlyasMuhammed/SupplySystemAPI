@@ -27,6 +27,9 @@ import { TimelinePanelComponent } from '../../../../shared/timeline-panel/timeli
 import { AttachmentListComponent } from '../../../../shared/attachment-list/attachment-list.component';
 import { QboSyncBadgeComponent } from '../../../../shared/components/qbo-sync-badge/qbo-sync-badge.component';
 import { fromDateOnly, toDateOnly } from '../../../../shared/date-only';
+import { DocCurrencyPanelComponent } from '../../../../shared/doc-currency/doc-currency-panel.component';
+import { FxDifferenceComponent } from '../../../../shared/doc-currency/fx-difference.component';
+import { DocCurrencyInfo, cachedDocCurrency, missingRateOf, sumDifferences } from '../../../../shared/doc-currency/doc-currency';
 
 /** The reversal reason's column length on the server. */
 export const REVERSAL_REASON_MAX = 500;
@@ -43,7 +46,7 @@ const SETTLED_PAYMENT_STATUSES = ['Paid', 'FULLY_PAID', 'OVERPAID'];
     CardModule, DialogModule, TableModule,
     TooltipModule, DividerModule, ConfirmDialogModule,
     CalendarModule, DropdownModule, InputTextModule, TextareaModule, InputNumberModule, TimelinePanelComponent,
-    AttachmentListComponent, QboSyncBadgeComponent
+    AttachmentListComponent, QboSyncBadgeComponent, DocCurrencyPanelComponent, FxDifferenceComponent
   ],
   templateUrl: './invoice-detail.component.html',
   styleUrls: ['./invoice-detail.component.scss'],
@@ -55,6 +58,34 @@ export class InvoiceDetailComponent implements OnInit {
   showTimeline = false;
 
   newPayments: SupplierPaymentListItemModel[] = [];
+
+  // ── A35-E-06: currency, rate locked at approval (purchase base), realized exchange differences ──
+  private readonly mapCurrency = cachedDocCurrency((inv: InvoiceDetailModel) => ({
+    currencyId: inv.currencyId, currencyCode: inv.currency, exchangeRate: inv.exchangeRate,
+    baseCurrencyId: inv.baseCurrencyId, baseCurrencyCode: inv.baseCurrencyCode, rateLockedAt: inv.exchangeRateLockedAt
+  }));
+
+  get currencyInfo(): DocCurrencyInfo | null { return this.mapCurrency(this.invoice); }
+
+  /** The base currency (id, else code) the differences are in. */
+  get baseCurrencyRef(): string | null { return this.invoice?.baseCurrencyId || this.invoice?.baseCurrencyCode || null; }
+
+  /** True when the server sent a realized difference for any supplier payment allocated to this invoice. */
+  get hasPaymentFx(): boolean {
+    return (this.invoice?.supplierPayments ?? []).some(p => p.exchangeDifference !== null && p.exchangeDifference !== undefined);
+  }
+
+  /** The realized difference of one listed payment on this invoice (from supplierPayments[]), else null. */
+  paymentFx(paymentUuid: string): number | null {
+    return (this.invoice?.supplierPayments ?? []).find(p => p.paymentUuid === paymentUuid)?.exchangeDifference ?? null;
+  }
+
+  get realizedFx(): number | null {
+    const inv = this.invoice;
+    if (!inv) return null;
+    if (inv.realizedExchangeDifference !== null && inv.realizedExchangeDifference !== undefined) return inv.realizedExchangeDifference;
+    return sumDifferences((inv.supplierPayments ?? []).map(p => p.exchangeDifference));
+  }
   isLoadingNewPayments = false;
   /**
    * The supplier payments could not be read (GET needs PAYMENT_VIEW, which a custom role may lack): whether
@@ -167,6 +198,12 @@ export class InvoiceDetailComponent implements OnInit {
       },
       error: (err) => {
         this.isSaving = false;
+        // A35 D-5 — the invoice's currency has no rate on the approval date.
+        const missing = missingRateOf(err?.error?.message);
+        if (missing) {
+          this.messageService.add({ severity: 'error', summary: 'No exchange rate', detail: missing.message, life: 10000 });
+          return;
+        }
         this.messageService.add({ severity: 'error', summary: 'Error', detail: err?.error?.message || 'Failed.' });
       }
     });

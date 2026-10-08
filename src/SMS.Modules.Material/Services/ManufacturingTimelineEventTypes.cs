@@ -20,6 +20,8 @@ internal static class ManufacturingTimelineEventTypes
     public const string MiConfirmed       = "MI_CONFIRMED";
     public const string QiRecorded        = "QI_RECORDED";
     public const string FgrConfirmed      = "FGR_CONFIRMED";
+    /// <summary>A34 D-20 — a DRAFT delivery was created from this make-to-order order (ProductionDeliveryHandoff).</summary>
+    public const string ProdDeliveryCreated = "PROD_DELIVERY_CREATED";
 }
 
 /// <summary>The interface codes these events (and <see cref="SMS.Shared.Common.ITraceIdResolver"/>) are tagged with.</summary>

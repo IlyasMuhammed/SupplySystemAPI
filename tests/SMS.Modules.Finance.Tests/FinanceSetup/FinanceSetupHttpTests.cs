@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Reflection;
 using System.Security.Claims;
 using System.Text;
@@ -23,6 +23,7 @@ using Microsoft.Extensions.Options;
 using SMS.Modules.Demand.Data;
 using SMS.Modules.Finance.Controllers;
 using SMS.Modules.Finance.Data;
+using SMS.Modules.Finance.Domain;
 using SMS.Modules.Finance.Services;
 using SMS.Modules.Lookups.Services;
 using SMS.Shared.Authorization;
@@ -279,9 +280,6 @@ public class FinanceSetupHttpTests : IAsyncLifetime
         yield return [HttpMethod.Post,   "/api/finance/tax-codes"];
         yield return [HttpMethod.Put,    $"/api/finance/tax-codes/{id}"];
         yield return [HttpMethod.Post,   "/api/finance/tax-codes/from-rates-in-use"];
-        yield return [HttpMethod.Post,   "/api/finance/exchange-rates"];
-        yield return [HttpMethod.Put,    $"/api/finance/exchange-rates/{id}"];
-        yield return [HttpMethod.Delete, $"/api/finance/exchange-rates/{id}"];
     }
 
     [Theory]
@@ -439,107 +437,61 @@ public class FinanceSetupHttpTests : IAsyncLifetime
         result.GetProperty("skippedRates").EnumerateArray().Select(r => r.GetDecimal()).Should().Equal(0m);
     }
 
-    // ── Exchange rates over the wire ─────────────────────────────────────────
+    // ── Exchange rates over the wire (A35-E-02: reads only, served from finance.currency_rates) ──
 
-    [Fact]
-    public async Task A_rate_round_trips_with_its_effective_date_as_a_plain_date()
+    /// <summary>One organization with PKR as its rate currency and USD 278.5 from 2026-10-01.</summary>
+    private async Task SeedRatesAsync(Guid org, decimal usd = 278.5m)
     {
-        var created = await Send(HttpMethod.Post, "/api/finance/exchange-rates", new
-        {
-            fromCurrencyCode = "usd", toCurrencyCode = "PKR", rate = 278.5, effectiveDate = "2026-10-01", notes = "SBP"
-        });
-
-        created.StatusCode.Should().Be(HttpStatusCode.OK);
-        var result = (await Json(created)).GetProperty("result");
-        result.GetProperty("fromCurrencyCode").GetString().Should().Be("USD");
-        result.GetProperty("rate").GetDecimal().Should().Be(278.5m);
-        result.GetProperty("effectiveDate").GetString().Should().Be("2026-10-01");
-        result.GetProperty("source").GetString().Should().Be("MANUAL");
-        result.GetProperty("notes").GetString().Should().Be("SBP");
-        result.TryGetProperty("createdDate", out _).Should().BeTrue();
-        var uuid = result.GetProperty("uuid").GetGuid();
-
-        var list = await Json(await Send(HttpMethod.Get, "/api/finance/exchange-rates?from=USD&to=pkr", manage: false));
-        list.GetProperty("result").EnumerateArray().Single().GetProperty("effectiveDate").GetString().Should().Be("2026-10-01");
-
-        var updated = await Send(HttpMethod.Put, $"/api/finance/exchange-rates/{uuid}", new
-        {
-            fromCurrencyCode = "USD", toCurrencyCode = "PKR", rate = 279.25, effectiveDate = "2026-10-02"
-        });
-        updated.StatusCode.Should().Be(HttpStatusCode.OK);
-        (await Json(updated)).GetProperty("result").GetProperty("effectiveDate").GetString().Should().Be("2026-10-02");
-
-        (await Send(HttpMethod.Delete, $"/api/finance/exchange-rates/{uuid}")).StatusCode.Should().Be(HttpStatusCode.OK);
-        (await Send(HttpMethod.Delete, $"/api/finance/exchange-rates/{uuid}")).StatusCode.Should().Be(HttpStatusCode.NotFound);
-        (await Json(await Send(HttpMethod.Get, "/api/finance/exchange-rates"))).GetProperty("result").GetArrayLength().Should().Be(0);
-    }
-
-    [Fact]
-    public async Task A_second_rate_for_the_day_is_409_and_a_bad_rate_400()
-    {
-        var rate = new { fromCurrencyCode = "USD", toCurrencyCode = "PKR", rate = 278.5, effectiveDate = "2026-10-01" };
-        (await Send(HttpMethod.Post, "/api/finance/exchange-rates", rate)).StatusCode.Should().Be(HttpStatusCode.OK);
-
-        var clash = await Send(HttpMethod.Post, "/api/finance/exchange-rates", rate);
-        clash.StatusCode.Should().Be(HttpStatusCode.Conflict);
-        (await Message(clash)).Should().Contain("already a USD → PKR rate for 2026-10-01");
-
-        (await Send(HttpMethod.Post, "/api/finance/exchange-rates",
-            new { fromCurrencyCode = "USD", toCurrencyCode = "USD", rate = 1, effectiveDate = "2026-10-01" }))
-            .StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        await _world.For(org).Seed(
+            new OrgCurrency { OrganizationId = org, CurrencyId = SetupWorld.PkrId, Code = "PKR", Name = "Pakistani Rupee", Symbol = "Rs", DisplayOrder = 1 },
+            new OrgCurrency { OrganizationId = org, CurrencyId = SetupWorld.UsdId, Code = "USD", Name = "US Dollar", Symbol = "$", DisplayOrder = 2 },
+            new CurrencyRate { OrganizationId = org, CurrencyId = SetupWorld.PkrId, CurrencyCode = "PKR", Rate = 1m, InverseRate = 1m,
+                EffectiveFrom = CurrencyConventions.SystemStart, EffectiveTo = CurrencyConventions.OpenEnd, Source = "SYSTEM" },
+            new CurrencyRate { OrganizationId = org, CurrencyId = SetupWorld.UsdId, CurrencyCode = "USD", Rate = usd,
+                InverseRate = CurrencyConventions.RoundRate(1m / usd), EffectiveFrom = new DateOnly(2026, 10, 1),
+                EffectiveTo = CurrencyConventions.OpenEnd, Source = "MANUAL", Notes = "SBP" });
     }
 
     [Theory]
-    [InlineData("USD", "PKR", "278.123456789", "2026-10-01", "at most 8 decimals")]
-    [InlineData("USD", "PKR", "0", "2026-10-01", "greater than 0")]
-    [InlineData("USD", "usd", "1", "2026-10-01", "two different currencies")]
-    [InlineData("XYZ", "PKR", "1", "2026-10-01", "'XYZ' is not a currency")]
-    [InlineData("USD", "PKR", "278.5", "", "from which date")]
-    [InlineData("USD", "PKR", "278.5", "01/10/2026", "yyyy-MM-dd")]
-    public async Task Each_bad_exchange_rate_is_a_400_with_the_reason(string from, string to, string rate, string date, string why)
+    [InlineData("POST", "/api/finance/exchange-rates")]
+    [InlineData("PUT", "/api/finance/exchange-rates/00000000-0000-0000-0000-000000000001")]
+    [InlineData("DELETE", "/api/finance/exchange-rates/00000000-0000-0000-0000-000000000001")]
+    public async Task The_legacy_writes_are_gone(string method, string url)
     {
-        var response = await Send(HttpMethod.Post, "/api/finance/exchange-rates", new
-        {
-            fromCurrencyCode = from, toCurrencyCode = to, rate = decimal.Parse(rate, System.Globalization.CultureInfo.InvariantCulture), effectiveDate = date
-        });
-
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-        (await Message(response)).Should().Contain(why);
+        var response = await Send(new HttpMethod(method), url, new { });
+        response.StatusCode.Should().BeOneOf(HttpStatusCode.NotFound, HttpStatusCode.MethodNotAllowed);
     }
 
     [Fact]
-    public async Task An_eight_decimal_rate_survives_the_round_trip_exactly()
+    public async Task The_legacy_list_shows_each_range_against_the_rate_currency_with_its_start_as_a_plain_date()
     {
-        var created = await Send(HttpMethod.Post, "/api/finance/exchange-rates",
-            new { fromCurrencyCode = "PKR", toCurrencyCode = "USD", rate = 0.00359066m, effectiveDate = "2026-10-01" });
+        await SeedRatesAsync(Org);
 
-        created.StatusCode.Should().Be(HttpStatusCode.OK);
-        (await Json(created)).GetProperty("result").GetProperty("rate").GetDecimal().Should().Be(0.00359066m);
+        var list = (await Json(await Send(HttpMethod.Get, "/api/finance/exchange-rates?from=usd&to=PKR", manage: false)))
+            .GetProperty("result").EnumerateArray().ToList();
+        list.Should().ContainSingle();
+        list[0].GetProperty("fromCurrencyCode").GetString().Should().Be("USD");
+        list[0].GetProperty("toCurrencyCode").GetString().Should().Be("PKR");
+        list[0].GetProperty("rate").GetDecimal().Should().Be(278.5m);
+        list[0].GetProperty("effectiveDate").GetString().Should().Be("2026-10-01");
+        list[0].GetProperty("notes").GetString().Should().Be("SBP");
+
+        (await Json(await Send(HttpMethod.Get, "/api/finance/exchange-rates", manage: false)))
+            .GetProperty("result").GetArrayLength().Should().Be(1, "the rate currency's SYSTEM row is not a pair");
     }
 
     [Fact]
-    public async Task Changing_an_unknown_rate_is_404()
+    public async Task The_quote_answers_a_rate_its_reverse_or_a_null_result()
     {
-        (await Send(HttpMethod.Put, $"/api/finance/exchange-rates/{Guid.NewGuid()}",
-            new { fromCurrencyCode = "USD", toCurrencyCode = "PKR", rate = 1, effectiveDate = "2026-10-01" }))
-            .StatusCode.Should().Be(HttpStatusCode.NotFound);
-    }
-
-    [Fact]
-    public async Task The_quote_answers_a_rate_an_inverted_rate_or_a_null_result()
-    {
-        await Send(HttpMethod.Post, "/api/finance/exchange-rates",
-            new { fromCurrencyCode = "USD", toCurrencyCode = "PKR", rate = 278.5, effectiveDate = "2026-10-01" });
+        await SeedRatesAsync(Org);
 
         var direct = await Json(await Send(HttpMethod.Get, "/api/finance/exchange-rates/quote?from=USD&to=PKR&date=2026-10-15", manage: false));
         direct.GetProperty("result").GetProperty("rate").GetDecimal().Should().Be(278.5m);
         direct.GetProperty("result").GetProperty("effectiveDate").GetString().Should().Be("2026-10-01");
         direct.GetProperty("result").GetProperty("inverted").GetBoolean().Should().BeFalse();
 
-        var inverted = await Json(await Send(HttpMethod.Get, "/api/finance/exchange-rates/quote?from=pkr&to=usd&date=2026-10-15", manage: false));
-        inverted.GetProperty("result").GetProperty("rate").GetDecimal().Should().Be(0.00359066m);
-        inverted.GetProperty("result").GetProperty("inverted").GetBoolean().Should().BeTrue();
-        inverted.GetProperty("message").GetString().Should().Contain("Worked out from the USD → PKR rate");
+        var reverse = await Json(await Send(HttpMethod.Get, "/api/finance/exchange-rates/quote?from=pkr&to=usd&date=2026-10-15", manage: false));
+        reverse.GetProperty("result").GetProperty("rate").GetDecimal().Should().Be(0.0035906643m);
 
         var none = await Send(HttpMethod.Get, "/api/finance/exchange-rates/quote?from=USD&to=EUR&date=2026-10-15", manage: false);
         none.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -557,8 +509,7 @@ public class FinanceSetupHttpTests : IAsyncLifetime
     {
         var code = (await Json(await Send(HttpMethod.Post, "/api/finance/tax-codes",
             new { code = "GST17", name = "GST", ratePercent = 17, usage = "SALES", isDefault = true, isActive = true }))).GetProperty("result").GetProperty("uuid").GetGuid();
-        var rate = (await Json(await Send(HttpMethod.Post, "/api/finance/exchange-rates",
-            new { fromCurrencyCode = "USD", toCurrencyCode = "PKR", rate = 278.5, effectiveDate = "2026-10-01" }))).GetProperty("result").GetProperty("uuid").GetGuid();
+        await SeedRatesAsync(Org);
 
         (await Json(await Send(HttpMethod.Get, "/api/finance/tax-codes?includeInactive=true", org: Other))).GetProperty("result").GetArrayLength().Should().Be(0);
         (await Json(await Send(HttpMethod.Get, "/api/finance/exchange-rates", org: Other))).GetProperty("result").GetArrayLength().Should().Be(0);
@@ -567,7 +518,6 @@ public class FinanceSetupHttpTests : IAsyncLifetime
 
         (await Send(HttpMethod.Put, $"/api/finance/tax-codes/{code}", new { code = "GST17", name = "x", ratePercent = 1, usage = "SALES", isActive = true }, org: Other))
             .StatusCode.Should().Be(HttpStatusCode.NotFound);
-        (await Send(HttpMethod.Delete, $"/api/finance/exchange-rates/{rate}", org: Other)).StatusCode.Should().Be(HttpStatusCode.NotFound);
 
         // Its own GST17 does not collide with ours, and becoming its default leaves ours alone.
         (await Send(HttpMethod.Post, "/api/finance/tax-codes",
@@ -583,28 +533,24 @@ public class FinanceSetupHttpTests : IAsyncLifetime
     {
         var code = (await Json(await Send(HttpMethod.Post, "/api/finance/tax-codes",
             new { code = "GST17", name = "GST", ratePercent = 17, usage = "SALES", isActive = true }))).GetProperty("result").GetProperty("uuid").GetGuid();
-        var rate = (await Json(await Send(HttpMethod.Post, "/api/finance/exchange-rates",
-            new { fromCurrencyCode = "USD", toCurrencyCode = "PKR", rate = 278.5, effectiveDate = "2026-10-01" }))).GetProperty("result").GetProperty("uuid").GetGuid();
+        await SeedRatesAsync(Org);
+        await SeedRatesAsync(Other, usd: 280m);
         _snapshots.Features.Clear(); // a super admin passes the module gate, as in the API
 
         // The tenant filter lets a super admin through; the services still answer for the organization in the token.
         (await Json(await Send(HttpMethod.Get, "/api/finance/tax-codes?includeInactive=true", org: Other, superAdmin: true))).GetProperty("result").GetArrayLength().Should().Be(0);
-        (await Json(await Send(HttpMethod.Get, "/api/finance/exchange-rates", org: Other, superAdmin: true))).GetProperty("result").GetArrayLength().Should().Be(0);
-        (await Json(await Send(HttpMethod.Get, "/api/finance/exchange-rates/quote?from=PKR&to=USD&date=2026-10-15", org: Other, superAdmin: true)))
-            .GetProperty("result").ValueKind.Should().Be(JsonValueKind.Null);
+        (await Json(await Send(HttpMethod.Get, "/api/finance/exchange-rates", org: Other, superAdmin: true)))
+            .GetProperty("result").EnumerateArray().Single().GetProperty("rate").GetDecimal().Should().Be(280m);
+        (await Json(await Send(HttpMethod.Get, "/api/finance/exchange-rates/quote?from=USD&to=PKR&date=2026-10-15", org: Other, superAdmin: true)))
+            .GetProperty("result").GetProperty("rate").GetDecimal().Should().Be(280m);
         (await Send(HttpMethod.Put, $"/api/finance/tax-codes/{code}", new { code = "GST17", name = "x", ratePercent = 1, usage = "SALES", isActive = true }, org: Other, superAdmin: true))
-            .StatusCode.Should().Be(HttpStatusCode.NotFound);
-        (await Send(HttpMethod.Put, $"/api/finance/exchange-rates/{rate}", new { fromCurrencyCode = "USD", toCurrencyCode = "PKR", rate = 1, effectiveDate = "2026-10-01" }, org: Other, superAdmin: true))
             .StatusCode.Should().Be(HttpStatusCode.NotFound);
 
         var theirs = await Send(HttpMethod.Post, "/api/finance/tax-codes", new { code = "GST17", name = "B's", ratePercent = 16, usage = "SALES", isActive = true }, org: Other, superAdmin: true);
         theirs.StatusCode.Should().Be(HttpStatusCode.OK, "B's GST17 is not A's");
-        var sameDay = await Send(HttpMethod.Post, "/api/finance/exchange-rates", new { fromCurrencyCode = "USD", toCurrencyCode = "PKR", rate = 280, effectiveDate = "2026-10-01" }, org: Other, superAdmin: true);
-        sameDay.StatusCode.Should().Be(HttpStatusCode.OK, "B's rate for the day is not A's");
 
         await using var auditor = _world.Auditor();
         (await auditor.TaxCodes.CountAsync(t => t.OrganizationId == Other)).Should().Be(1);
-        (await auditor.ExchangeRates.SingleAsync(r => r.OrganizationId == Other)).Rate.Should().Be(280m);
         (await auditor.TaxCodes.SingleAsync(t => t.OrganizationId == Org)).RatePercent.Should().Be(17m, "A's code was not touched");
     }
 }

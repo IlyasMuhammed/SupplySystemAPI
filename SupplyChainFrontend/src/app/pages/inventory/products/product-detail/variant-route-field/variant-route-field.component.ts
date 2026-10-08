@@ -2,21 +2,37 @@ import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { SelectModule } from 'primeng/select';
+import { TagModule } from 'primeng/tag';
 import { TooltipModule } from 'primeng/tooltip';
 
-import { FulfillmentRouteModel, FulfillmentRoutesService } from '../../../../../services/fulfillment-routes.service';
+import {
+  FulfillmentRouteCategory, FulfillmentRouteModel, FulfillmentRoutesService, routeCategoryLabel, routeCategoryOf,
+  routeCategorySeverity, routesForVariant
+} from '../../../../../services/fulfillment-routes.service';
 
-interface RouteOption { label: string; value: string; stepsText: string; inactive?: boolean; }
+interface RouteOption {
+  label: string;
+  value: string;
+  stepsText: string;
+  category: FulfillmentRouteCategory;
+  inactive?: boolean;
+  /** The variant already has it, but it would be refused today (D-3 / D-9). */
+  notAllowed?: boolean;
+}
 
 /**
  * A33-PB-04 — the variant's default fulfillment route, in the variant dialog (spec §4.3). A dropdown of the active
  * routes with the chosen route's steps under it; clearable. Editable only with FULFILLMENT_ROUTE_ASSIGN (the host
  * passes `canAssign`), read-only otherwise. The host saves it through PUT api/variants/{uuid}/fulfillment-route.
+ *
+ * A34-PA-06/PA-10 (contract §4.2): MANUFACTURE (make-to-order) routes are offered only when the product's supply method
+ * is MANUFACTURE (D-3) and the organization has MODULE_MANUFACTURING (D-9); the server refuses the rest with 400. The
+ * chosen route's category shows as a badge (Stock green, Manufacture orange).
  */
 @Component({
   selector: 'app-variant-route-field',
   standalone: true,
-  imports: [CommonModule, FormsModule, SelectModule, TooltipModule],
+  imports: [CommonModule, FormsModule, SelectModule, TagModule, TooltipModule],
   templateUrl: './variant-route-field.component.html',
   styleUrls: ['./variant-route-field.component.scss']
 })
@@ -26,10 +42,16 @@ export class VariantRouteFieldComponent implements OnInit {
   /** The variant's saved route, to show it even when it is no longer active or the routes can't be loaded. */
   @Input() currentCode: string | null = null;
   @Input() currentName: string | null = null;
+  /** A34 D-3: the product's supply method is MANUFACTURE. */
+  @Input() productManufactured = false;
+  /** A34 D-9: the organization has MODULE_MANUFACTURING. */
+  @Input() manufacturingEnabled = false;
   @Output() valueChange = new EventEmitter<string | null>();
 
   readonly infoText = 'This route determines the warehouse operations when this variant is sold. ' +
     'It can be overridden on each sale order line.';
+  readonly categoryLabel = routeCategoryLabel;
+  readonly categorySeverity = routeCategorySeverity;
 
   routes: FulfillmentRouteModel[] = [];
   loading = false;
@@ -46,10 +68,20 @@ export class VariantRouteFieldComponent implements OnInit {
   }
 
   get options(): RouteOption[] {
-    const options: RouteOption[] = this.routes.map(r => ({ label: `${r.name} (${r.code})`, value: r.uuid, stepsText: r.stepsText }));
+    const toOption = (r: FulfillmentRouteModel): RouteOption =>
+      ({ label: `${r.name} (${r.code})`, value: r.uuid, stepsText: r.stepsText, category: routeCategoryOf(r) });
+    const options = routesForVariant(this.routes, this.productManufactured, this.manufacturingEnabled).map(toOption);
     if (this.value && !options.some(o => o.value === this.value)) {
-      const name = this.currentName ?? 'Current route';
-      options.push({ label: `${name}${this.currentCode ? ` (${this.currentCode})` : ''} — inactive`, value: this.value, stepsText: '', inactive: true });
+      const saved = this.routes.find(r => r.uuid === this.value);
+      if (saved) {
+        options.push({ ...toOption(saved), notAllowed: true });
+      } else {
+        const name = this.currentName ?? 'Current route';
+        options.push({
+          label: `${name}${this.currentCode ? ` (${this.currentCode})` : ''} — inactive`, value: this.value, stepsText: '',
+          category: 'STOCK', inactive: true
+        });
+      }
     }
     return options;
   }
@@ -57,6 +89,11 @@ export class VariantRouteFieldComponent implements OnInit {
   get selected(): RouteOption | null { return this.options.find(o => o.value === this.value) ?? null; }
 
   get clearable(): boolean { return this.canAssign && !!this.value; }
+
+  /** Make-to-order routes exist but are held back because the product isn't manufactured (D-3). */
+  get manufactureRoutesHidden(): boolean {
+    return this.manufacturingEnabled && !this.productManufactured && this.routes.some(r => routeCategoryOf(r) === 'MANUFACTURE');
+  }
 
   onChange(value: string | null): void {
     if (!this.canAssign) return;

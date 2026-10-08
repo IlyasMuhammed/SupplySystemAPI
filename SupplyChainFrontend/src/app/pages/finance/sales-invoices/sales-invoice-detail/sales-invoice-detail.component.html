@@ -95,6 +95,8 @@
 
       <div class="card">
         <h3>Amounts <span class="cur">{{ inv.currencyCode }}</span></h3>
+        <!-- A35-E-06 — currency, the rate locked at issue, the sale base. -->
+        <app-doc-currency-panel [doc]="currencyInfo" lockPoint="issue" domain="SALE" [showToggle]="false"></app-doc-currency-panel>
         <dl>
           <dt>Subtotal</dt><dd>{{ inv.subtotal | number:'1.2-2' }}</dd>
           <dt>Discount</dt><dd>{{ inv.discountAmount | number:'1.2-2' }}</dd>
@@ -113,6 +115,10 @@
           <ng-container *ngIf="missingRate">
             <dt>In {{ inv.baseCurrencyCode }}</dt>
             <dd class="cur" data-testid="missing-rate">No {{ inv.currencyCode }} → {{ inv.baseCurrencyCode }} rate was on file when it was issued.</dd>
+          </ng-container>
+          <ng-container *ngIf="realizedFx !== null">
+            <dt>Realized exchange difference</dt>
+            <dd data-testid="realized-fx"><app-fx-difference [amount]="realizedFx" [currency]="inv.baseCurrencyId || inv.baseCurrencyCode"></app-fx-difference></dd>
           </ng-container>
         </dl>
       </div>
@@ -161,6 +167,7 @@
               <th>Date</th>
               <th>Method</th>
               <th class="text-right">Applied</th>
+              <th *ngIf="hasPaymentFx" class="text-right" pTooltip="Realized gain (+) or loss (−) in the base currency: the payment's rate against the rate locked at issue">Exchange diff.</th>
               <th>Status</th>
             </tr>
           </ng-template>
@@ -174,6 +181,7 @@
               <td>{{ p.paymentDate | date:'dd MMM yyyy' }}</td>
               <td>{{ formatStatus(p.paymentMethod) }}</td>
               <td class="text-right">{{ p.allocatedAmount | number:'1.2-2' }} <span class="cur">{{ inv.currencyCode }}</span></td>
+              <td *ngIf="hasPaymentFx" class="text-right" data-testid="payment-fx"><app-fx-difference [amount]="p.exchangeDifference" [currency]="inv.baseCurrencyId || inv.baseCurrencyCode"></app-fx-difference></td>
               <td><p-tag [value]="formatStatus(p.paymentStatus)" [severity]="getPaymentSeverity(p)"></p-tag></td>
             </tr>
           </ng-template>

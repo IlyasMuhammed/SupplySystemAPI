@@ -2,10 +2,12 @@ using Microsoft.AspNetCore.Hosting;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
+using SMS.Modules.Logistics.Domain;
 using SMS.Modules.Logistics.Models;
 using SMS.Modules.Logistics.Repositories;
 using SMS.Modules.Lookups.Models;
 using SMS.Modules.Lookups.Services;
+using SMS.Shared.Common;
 using SMS.Shared.Exceptions;
 
 namespace SMS.Modules.Logistics.Services;
@@ -58,11 +60,17 @@ internal sealed class DeliveryDocumentService : IDeliveryDocumentService
         _env        = env;
     }
 
+    /// <summary>One side of the movement as printed: who, which site of theirs, and where.</summary>
+    private sealed record Party(string? Name, string? Site, IReadOnlyList<string> AddressLines);
+
+    /// <summary>Both sides of the movement, worked out once per document.</summary>
+    private sealed record Parties(Party From, Party To);
+
     // ── Packing list ──────────────────────────────────────────────────────────
 
     public async Task<(byte[] Content, string FileName)> GeneratePackingListAsync(Guid deliveryUuid)
     {
-        var (delivery, packing, template, logo) = await LoadAsync(deliveryUuid);
+        var (delivery, packing, template, logo, parties) = await LoadAsync(deliveryUuid);
 
         var live = packing.Packages.Where(p => !p.IsVoided).ToList();
 
@@ -82,7 +90,7 @@ internal sealed class DeliveryDocumentService : IDeliveryDocumentService
                 page.DefaultTextStyle(x => x.FontSize(9.5f).LineHeight(1.35f));
 
                 page.Header().Element(c => ComposeHeader(c, template, delivery, logo, "PACKING LIST"));
-                page.Content().Element(c => ComposePackingContent(c, template, delivery, packing, live));
+                page.Content().Element(c => ComposePackingContent(c, template, delivery, packing, live, parties));
                 page.Footer().Element(c => ComposeFooter(c, template, delivery));
             });
         });
@@ -95,11 +103,12 @@ internal sealed class DeliveryDocumentService : IDeliveryDocumentService
         PoDocumentTemplateModel? template,
         DeliveryDetailModel delivery,
         DeliveryPackingModel packing,
-        IReadOnlyList<PackageModel> packages)
+        IReadOnlyList<PackageModel> packages,
+        Parties parties)
     {
         container.PaddingTop(14).Column(column =>
         {
-            ComposeAddresses(column, delivery);
+            ComposeAddresses(column, parties);
             ComposeSummaryStrip(column, packages);
 
             foreach (var package in packages)
@@ -212,7 +221,7 @@ internal sealed class DeliveryDocumentService : IDeliveryDocumentService
 
     public async Task<(byte[] Content, string FileName)> GenerateGatePassAsync(Guid deliveryUuid)
     {
-        var (delivery, packing, template, logo) = await LoadAsync(deliveryUuid);
+        var (delivery, packing, template, logo, parties) = await LoadAsync(deliveryUuid);
 
         var live = packing.Packages.Where(p => !p.IsVoided).ToList();
 
@@ -244,8 +253,8 @@ internal sealed class DeliveryDocumentService : IDeliveryDocumentService
                 page.Header().Element(c => ComposeHeader(c, template, delivery, logo, "GATE PASS"));
                 page.Content().Element(c =>
                 {
-                    if (isCollection) ComposeCollectionContent(c, template, delivery, packing, live);
-                    else              ComposeGatePassContent(c, template, delivery, packing, live);
+                    if (isCollection) ComposeCollectionContent(c, template, delivery, packing, live, parties);
+                    else              ComposeGatePassContent(c, template, delivery, packing, live, parties);
                 });
                 page.Footer().Element(c => ComposeFooter(c, template, delivery));
             });
@@ -261,7 +270,8 @@ internal sealed class DeliveryDocumentService : IDeliveryDocumentService
         PoDocumentTemplateModel? template,
         DeliveryDetailModel delivery,
         DeliveryPackingModel packing,
-        IReadOnlyList<PackageModel> packages)
+        IReadOnlyList<PackageModel> packages,
+        Parties parties)
     {
         container.PaddingTop(14).Column(column =>
         {
@@ -271,16 +281,16 @@ internal sealed class DeliveryDocumentService : IDeliveryDocumentService
 
             column.Item().PaddingBottom(14).Row(row =>
             {
-                row.RelativeItem().Column(col =>
-                {
-                    col.Item().Text("Collect From:").FontSize(8.5f).Bold().FontColor(Colors.Grey.Darken1);
-                    foreach (var line in AddressLines(delivery.ShipFromAddress))
-                        col.Item().PaddingTop(1).Text(line).FontSize(8.5f);
-                });
+                row.RelativeItem().Column(col => ComposeParty(col, "Collect From:", parties.From));
 
                 row.ConstantItem(20);
 
-                row.RelativeItem().Column(col => ComposeCollectorBlock(col, delivery));
+                row.RelativeItem().Column(col =>
+                {
+                    ComposeParty(col, "Customer:", parties.To);
+                    col.Item().PaddingTop(10);
+                    ComposeCollectorBlock(col, delivery);
+                });
             });
 
             column.Item().PaddingBottom(12).Text($"ITEMS COLLECTED ({packages.Count} package{(packages.Count == 1 ? "" : "s")})")
@@ -356,11 +366,12 @@ internal sealed class DeliveryDocumentService : IDeliveryDocumentService
         PoDocumentTemplateModel? template,
         DeliveryDetailModel delivery,
         DeliveryPackingModel packing,
-        IReadOnlyList<PackageModel> packages)
+        IReadOnlyList<PackageModel> packages,
+        Parties parties)
     {
         container.PaddingTop(14).Column(column =>
         {
-            ComposeAddresses(column, delivery);
+            ComposeAddresses(column, parties);
             ComposeVehicleBlock(column);
 
             // Counted and identified, never itemised. Whoever checks a lorry out of the yard does
@@ -489,7 +500,8 @@ internal sealed class DeliveryDocumentService : IDeliveryDocumentService
     private async Task<(DeliveryDetailModel Delivery,
                         DeliveryPackingModel Packing,
                         PoDocumentTemplateModel? Template,
-                        byte[]? Logo)> LoadAsync(Guid deliveryUuid)
+                        byte[]? Logo,
+                        Parties Parties)> LoadAsync(Guid deliveryUuid)
     {
         var delivery = await _deliveries.GetByUuidAsync(deliveryUuid)
             ?? throw new NotFoundException("Delivery not found.");
@@ -499,7 +511,66 @@ internal sealed class DeliveryDocumentService : IDeliveryDocumentService
 
         var template = await _templates.GetActiveAsync();
 
-        return (delivery, packing, template, TryLoadLogoBytes(template?.CompanyLogoUrl));
+        var parties = ResolveParties(delivery, template);
+
+        return (delivery, packing, template, TryLoadLogoBytes(template?.CompanyLogoUrl), parties);
+    }
+
+    /// <summary>
+    /// Who is on each side of the movement, and where. The counterparty is named from the source document (the sale
+    /// order's customer, the PO's or return's supplier); our own side is the company and the warehouse. An address the
+    /// delivery never stored falls back to the warehouse's own (the delivery detail resolves which warehouse — sale-order
+    /// deliveries usually store no ship-from address), and our own side last of all to the letterhead's address.
+    /// </summary>
+    private static Parties ResolveParties(DeliveryDetailModel delivery, PoDocumentTemplateModel? template)
+    {
+        var fromWarehouse  = delivery.ShipFromWarehouse;
+        var toWarehouse    = delivery.ShipToWarehouse;
+        var company        = string.IsNullOrWhiteSpace(template?.CompanyName) ? null : template.CompanyName;
+        var companyAddress = string.IsNullOrWhiteSpace(template?.CompanyAddress) ? null : template.CompanyAddress.Trim();
+
+        var inbound = delivery.Direction == LogisticsCode.Of(DeliveryDirection.Inbound);
+
+        // Inbound (a PO's ASN): the supplier sends, we receive. Everything else leaves one of our warehouses.
+        var fromName = inbound ? delivery.VendorName : company;
+        var toName   = inbound
+            ? company
+            : delivery.CustomerName ?? delivery.VendorName ?? (toWarehouse is not null ? company : null);
+
+        var fromLines = PartyAddressLines(delivery.ShipFromAddress, fromWarehouse, inbound ? null : companyAddress);
+        var toLines   = PartyAddressLines(delivery.ShipToAddress,   toWarehouse,   inbound ? companyAddress : null);
+
+        return new Parties(
+            new Party(fromName, fromWarehouse?.Name, fromLines),
+            new Party(toName,   toWarehouse?.Name,   toLines));
+    }
+
+    /// <summary>
+    /// The stored address when there is one, else the warehouse's, else <paramref name="ownAddress"/> (our side only),
+    /// else nothing (the caller prints a dash).
+    /// </summary>
+    private static IReadOnlyList<string> PartyAddressLines(
+        AddressModel? stored, DeliveryWarehouseModel? warehouse, string? ownAddress)
+    {
+        // AddressLines answers an empty address with a lone dash; here that means "nothing stored", so keep looking.
+        if (stored is not null && AddressLines(stored) is var lines && lines is not ["-"]) return lines;
+
+        var fromWarehouse = warehouse is null ? [] : new[]
+            {
+                warehouse.Address,
+                string.Join(", ", new[] { warehouse.City, warehouse.Country }.Where(s => !string.IsNullOrWhiteSpace(s))),
+                warehouse.ContactName,
+                warehouse.ContactPhone
+            }
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .Select(s => s!.Trim())
+            .ToList();
+
+        // A warehouse with only a contact on file still says nothing about where it is.
+        if (warehouse is not null && (!string.IsNullOrWhiteSpace(warehouse.Address) || !string.IsNullOrWhiteSpace(warehouse.City)))
+            return fromWarehouse;
+
+        return ownAddress is not null ? [ownAddress, .. fromWarehouse] : fromWarehouse;
     }
 
     private byte[]? TryLoadLogoBytes(string? logoUrl)
@@ -578,26 +649,37 @@ internal sealed class DeliveryDocumentService : IDeliveryDocumentService
         });
     }
 
-    private static void ComposeAddresses(ColumnDescriptor column, DeliveryDetailModel delivery)
+    private static void ComposeAddresses(ColumnDescriptor column, Parties parties)
     {
         column.Item().PaddingBottom(14).Row(row =>
         {
-            row.RelativeItem().Column(col =>
-            {
-                col.Item().Text("Ship From:").FontSize(8.5f).Bold().FontColor(Colors.Grey.Darken1);
-                foreach (var line in AddressLines(delivery.ShipFromAddress))
-                    col.Item().PaddingTop(1).Text(line).FontSize(8.5f);
-            });
+            row.RelativeItem().Column(col => ComposeParty(col, "Ship From:", parties.From));
 
             row.ConstantItem(20);
 
-            row.RelativeItem().Column(col =>
-            {
-                col.Item().Text("Ship To:").FontSize(8.5f).Bold().FontColor(Colors.Grey.Darken1);
-                foreach (var line in AddressLines(delivery.ShipToAddress))
-                    col.Item().PaddingTop(1).Text(line).FontSize(8.5f);
-            });
+            row.RelativeItem().Column(col => ComposeParty(col, "Ship To:", parties.To));
         });
+    }
+
+    /// <summary>A labelled party: the name in bold, the site under it, then the address. A dash only when nothing is known.</summary>
+    private static void ComposeParty(ColumnDescriptor col, string label, Party party)
+    {
+        col.Item().Text(label).FontSize(8.5f).Bold().FontColor(Colors.Grey.Darken1);
+
+        if (party.Name is null && party.Site is null && party.AddressLines.Count == 0)
+        {
+            col.Item().PaddingTop(1).Text("-").FontSize(8.5f);
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(party.Name))
+            col.Item().PaddingTop(1).Text(party.Name).FontSize(10).Bold();
+
+        if (!string.IsNullOrWhiteSpace(party.Site))
+            col.Item().PaddingTop(1).Text(party.Site).FontSize(8.5f).FontColor(Colors.Grey.Darken1);
+
+        foreach (var line in party.AddressLines)
+            col.Item().PaddingTop(1).Text(line).FontSize(8.5f);
     }
 
     /// <summary>

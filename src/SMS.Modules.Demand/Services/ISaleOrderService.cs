@@ -71,4 +71,24 @@ public interface ISaleOrderService
     /// source and blocker recomputed; null = the order or line is not the caller's.
     /// </summary>
     Task<SaleOrderLineModel?> UpdateLineRouteAsync(Guid uuid, Guid lineUuid, Guid? fulfillmentRouteUuid, int userId);
+
+    // ── A34 (owner DEM) — lead time, make-to-order production (API-CONTRACT §5, §6) ──
+
+    /// <summary>
+    /// D-16 — calculate one DRAFT line's lead time (ILeadTimeCalculator, the line's effective route, the header's expected
+    /// date as the requested date) and store its Calculated* fields; the manual date is untouched. Null = not found.
+    /// </summary>
+    Task<SaleLineLeadTimeModel<SaleOrderLineModel>?> CalculateLineLeadTimeAsync(Guid uuid, Guid lineUuid, int userId);
+
+    /// <summary>
+    /// D-16 — set (null clears) one line's manual delivery date on a DRAFT / CONFIRMED / PARTIALLY_FULFILLED order, under
+    /// the order lock, with no re-pricing. An existing production order is not rescheduled (reported). Null = not found.
+    /// </summary>
+    Task<SaleOrderLineDeliveryDateResultModel?> UpdateLineDeliveryDateAsync(Guid uuid, Guid lineUuid, DateTime? manualDeliveryDate, int userId);
+
+    /// <summary>
+    /// D-17 recovery — create (idempotently) and plan the make-to-order production orders of a CONFIRMED /
+    /// PARTIALLY_FULFILLED order. Null = not found.
+    /// </summary>
+    Task<SaleOrderProductionCreationResultModel?> CreateProductionOrdersAsync(Guid uuid, int userId);
 }

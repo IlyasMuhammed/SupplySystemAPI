@@ -39,4 +39,8 @@ public static class ExchangeRateMath
 {
     public static decimal Convert(decimal amount, decimal rate) =>
         Math.Round(amount * rate, 2, MidpointRounding.AwayFromZero);
+
+    /// <summary>A35 D-13 — the same at the target currency's decimal places (0 for JPY, 3 for BHD).</summary>
+    public static decimal Convert(decimal amount, decimal rate, int decimalPlaces) =>
+        CurrencyConventions.RoundAmount(amount * rate, decimalPlaces);
 }

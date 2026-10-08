@@ -1,6 +1,10 @@
 using System.Data;
 using Hangfire;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.Extensions.Logging;
+using SMS.Modules.Demand.Data;
+using SMS.Modules.Demand.Domain;
 using SMS.Modules.Inventory.Data;
 using SMS.Modules.Inventory.Domain;
 using SMS.Modules.Inventory.Models;
@@ -39,12 +43,29 @@ internal sealed class FinishedGoodsReceiptService : IFinishedGoodsReceiptService
     private readonly IProductionOrderRepository _orders;
     private readonly IBackgroundJobClient?      _jobs;
     private readonly IManufacturingNotificationService? _notify;
+    // A34 (all optional, like every DI-only dependency here): the make-to-order completion hook.
+    private readonly DemandDbContext?               _demand;
+    private readonly IStockReservationService?      _reservations;
+    private readonly ISaleOrderDeliveryQuantities?  _deliveries;
+    private readonly IProductionDeliveryHandoff?    _handoff;
+    private readonly ILogger<FinishedGoodsReceiptService>? _log;
+    // A34 D-30 — Finance's A29 product ledger; optional so a host without Finance still receives.
+    private readonly IProductLedgerService?         _productLedger;
 
     public FinishedGoodsReceiptService(
         MaterialDbContext db, InventoryDbContext inv, IInventoryLedgerService ledger, IAllocationEngine engine,
         IDocumentNumberGenerator numbers, IProductionOrderRepository orders, IBackgroundJobClient? jobs = null,
-        IManufacturingNotificationService? notify = null)
+        IManufacturingNotificationService? notify = null, DemandDbContext? demand = null,
+        IStockReservationService? reservations = null, ISaleOrderDeliveryQuantities? deliveries = null,
+        IProductionDeliveryHandoff? handoff = null, ILogger<FinishedGoodsReceiptService>? log = null,
+        IProductLedgerService? productLedger = null)
     {
+        _productLedger = productLedger;
+        _demand       = demand;
+        _reservations = reservations;
+        _deliveries   = deliveries;
+        _handoff      = handoff;
+        _log          = log;
         _db      = db;
         _inv     = inv;
         _ledger  = ledger;
@@ -115,6 +136,8 @@ internal sealed class FinishedGoodsReceiptService : IFinishedGoodsReceiptService
     private async Task ConfirmCoreAsync(FinishedGoodsReceipt fgr, ProductionOrder po, QualityInspection qi, int userId, CancellationToken ct)
     {
         string productName = po.ProductUuid.ToString(), warehouseName = fgr.WarehouseUuid.ToString();
+        // Decided before the cross-context work, which an execution strategy may run more than once.
+        var completedBefore = po.Status == ProductionOrderStatus.Completed;
 
         await RunAcrossContextsAsync(async () =>
         {
@@ -149,6 +172,19 @@ internal sealed class FinishedGoodsReceiptService : IFinishedGoodsReceiptService
                 CreatedBy       = userId
             });
 
+            // A34 D-30 — the A29 product ledger too, or a manufactured good's ledger holds nothing and its sales invoice
+            // is refused. ADJUSTMENT / IN (the closed vocabulary has no production type) at the same unit cost as the
+            // inventory ledger above, inside this receipt's transaction so it commits or rolls back with it. Every FGR
+            // posts: make-to-order, A30 make-to-shortage and standalone alike. (No FGR reversal exists, so there is no
+            // matching OUT; material consumption posts no OUT either — a recorded gap.)
+            if (_productLedger is not null)
+                await _productLedger.AppendEntryAsync(new ProductLedgerPosting(
+                    po.ProductVariantUuid, ProductLedgerEntryTypes.Adjustment, ProductLedgerDirections.In, fgr.TotalQuantity,
+                    decimal.Round(item.UnitCost ?? 0m, 4), "FGR", fgr.UUID, fgr.FgrNumber, userId,
+                    ProductUuid: po.ProductUuid,
+                    Narration: $"Finished goods receipt {fgr.FgrNumber} for {po.ProductionNumber}"),
+                    _db.Database.IsRelational() ? _db.Database.CurrentTransaction?.GetDbTransaction() : null);
+
             fgr.Status   = FgrStatus.Confirmed;
             po.AcceptedQuantity += fgr.TotalQuantity;
             po.UpdatedAt = DateTime.UtcNow;
@@ -158,8 +194,12 @@ internal sealed class FinishedGoodsReceiptService : IFinishedGoodsReceiptService
             {
                 po.Status = ProductionOrderStatus.Completed;
                 po.ActualEndDate ??= DateTime.UtcNow;
+                // A34 D-20 — in this same commit, so a crash between here and the handoff below leaves the order
+                // visible to ProductionDeliverySweepJob rather than silently without a delivery.
+                if (!completedBefore && po.IsMakeToOrder) po.DeliveryCreationPendingSince = DateTime.UtcNow;
             }
         }, ct);
+        var turnedCompleted = !completedBefore && po.Status == ProductionOrderStatus.Completed;
 
         // A30-P5-07 — on the order's own trace.
         _jobs?.Enqueue<ITimelineAppendJob>(j => j.AppendAsync(
@@ -177,7 +217,77 @@ internal sealed class FinishedGoodsReceiptService : IFinishedGoodsReceiptService
         // After the commit: close whatever expected supply this order registered (harmless no-op if
         // none — see SupplyRequirementEngine), then let the engine assign the newly-arrived stock.
         await _engine.SupplyReceivedAsync(AllocationSupplyType.ProductionOrder, po.UUID, null, fgr.TotalQuantity, ct);
+        // A34 D-17a — a make-to-order line asks the engine for exactly what production has put into stock, just before
+        // the run, so the run holds this output for the line (and free stock can never fill it beyond that).
+        if (po.IsMakeToOrder) await RegisterMakeToOrderDemandAsync(po, fgr, userId, ct);
         await _engine.AllocateAsync(po.ProductVariantUuid, null, userId, ct);
+
+        // A34 D-20 — the delivery of a make-to-order order, once it turns COMPLETED. Only here, after RunAcrossContextsAsync
+        // cleared both contexts' transactions (A30 P4-21 bug 3): nothing is held, so Logistics can take the sale order lock
+        // on its own connection. The handoff never throws; a failure stays pending for the sweep.
+        if (turnedCompleted && po.IsMakeToOrder && _handoff is not null)
+            await _handoff.RunAsync(po.UUID, userId, ct);
+    }
+
+    /// <summary>
+    /// A34 D-17a (REV-01) — registers or extends the sale order line's SALES_ORDER allocation demand by this receipt, never
+    /// beyond what the line still needs (its quantity less what was fulfilled, what the line already holds and what its
+    /// deliveries hold). The demand's required quantity is cumulative and capped at what this order has received
+    /// (<see cref="ProductionOrder.AcceptedQuantity"/>), so free stock can never fill the line beyond production's output.
+    /// Only while the order is CONFIRMED / PARTIALLY_FULFILLED and the line is not cancelled, read with the PO's own
+    /// organization. Best effort: the receipt is already committed, so a failure is logged and the delivery's release
+    /// reserves at ship time instead.
+    /// </summary>
+    private async Task RegisterMakeToOrderDemandAsync(ProductionOrder po, FinishedGoodsReceipt fgr, int userId, CancellationToken ct)
+    {
+        if (_demand is null || po.SourceUuid is not { } soUuid || po.SourceLineUuid is not { } lineUuid) return;
+        // REV-09 (R-11) — the engine stamps a new demand with the caller's tenant, not the PO's. A super admin confirming
+        // another organization's receipt would leave the demand in the wrong organization (invisible to its owner's runs),
+        // so register only in the PO's own organization; otherwise the delivery's release reserves at ship time instead.
+        if (_db.TenantContext.OrganizationId != po.OrganizationId)
+        {
+            _log?.LogInformation("Receipt {FgrNumber} of {ProductionNumber} was confirmed from another organization; the sale order demand is left to the delivery's release.",
+                fgr.FgrNumber, po.ProductionNumber);
+            return;
+        }
+        try
+        {
+            var open = new[]
+            {
+                EnumCode<SaleOrderStatus>.Of(SaleOrderStatus.Confirmed),
+                EnumCode<SaleOrderStatus>.Of(SaleOrderStatus.PartiallyFulfilled)
+            };
+            var cancelledLine = EnumCode<SaleOrderLineStatus>.Of(SaleOrderLineStatus.Cancelled);
+            var line = await _demand.SaleOrderLines.IgnoreQueryFilters().AsNoTracking().Include(l => l.SaleOrder)
+                .FirstOrDefaultAsync(l => l.UUID == lineUuid && l.OrganizationId == po.OrganizationId &&
+                                          l.SaleOrder.UUID == soUuid && !l.SaleOrder.IsDeleted, ct);
+            if (line is null || !open.Contains(line.SaleOrder.Status) || line.Status == cancelledLine) return;
+
+            var existing = (await _engine.GetDemandsAsync(demandType: AllocationDemandType.SalesOrder, demandUuid: soUuid, ct: ct))
+                .FirstOrDefault(d => d.DemandLineUuid == lineUuid);
+
+            var lineHolds = 0m;
+            if (_reservations is not null)
+                lineHolds = (await _reservations.GetBySourceAsync(ReservationSourceType.SalesOrder, soUuid, ct))
+                    .Where(r => r.SourceLineUuid == lineUuid && r.Status == "ACTIVE").Sum(r => r.ReservedQty);
+            var deliveryHeld = 0m;
+            if (_deliveries is not null)
+                deliveryHeld = (await _deliveries.GetHeldBySoLineAsync(soUuid, ct)).GetValueOrDefault(lineUuid);
+
+            var stillNeeded = Math.Max(0m, line.Quantity - line.FulfilledQty - lineHolds - deliveryHeld);
+            var current     = existing?.RequiredQty ?? 0m;
+            var required    = Math.Min(Math.Min(current + Math.Min(fgr.TotalQuantity, stillNeeded), po.AcceptedQuantity), line.Quantity);
+            if (required <= current) return;
+
+            await _engine.RegisterDemandAsync(new AllocationDemandRegistration(
+                AllocationDemandType.SalesOrder, soUuid, lineUuid, line.SaleOrder.SoNumber, po.ProductVariantUuid,
+                fgr.WarehouseUuid, required, po.RequiredDate, po.Priority), userId, ct);
+        }
+        catch (Exception ex)
+        {
+            _log?.LogWarning(ex, "The sale order demand for receipt {FgrNumber} of {ProductionNumber} could not be registered.",
+                fgr.FgrNumber, po.ProductionNumber);
+        }
     }
 
     public async Task<FinishedGoodsReceiptModel?> GetAsync(Guid uuid)

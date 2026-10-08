@@ -135,6 +135,31 @@ public class SaleOrderDeliveryApiTests
     }
 
     [Fact]
+    public async Task A34_the_list_filters_by_production_order_and_list_and_detail_carry_it()
+    {
+        var h = await NewHarness();
+        var (so, _) = await SeedOrder(h, lines: [new L("PICK_ONLY"), new L("PICK_PACK_SHIP")]);
+        var (service, deliveries) = Wire(h);
+        var created = (await service.CreateRouteDeliveriesAsync(so.UUID, User))!.Created;
+
+        var po = Guid.NewGuid();
+        var fromPo = await h.Db.DeliveryOrders.IgnoreQueryFilters().SingleAsync(d => d.UUID == created[0].DeliveryUuid);
+        fromPo.ProductionOrderUuid = po;
+        await h.Db.SaveChangesAsync();
+        h.Db.ChangeTracker.Clear();
+
+        var list = await deliveries.GetListAsync(new DeliveryFilter { ProductionOrderUuid = po });
+        list.Data.Should().ContainSingle().Which.UUID.Should().Be(created[0].DeliveryUuid);
+        list.Data.Single().ProductionOrderUuid.Should().Be(po);
+
+        (await deliveries.GetListAsync(new DeliveryFilter { ProductionOrderUuid = Guid.NewGuid() })).Data.Should().BeEmpty();
+        (await deliveries.GetListAsync(new DeliveryFilter { SaleOrderUuid = so.UUID })).Data
+            .Single(d => d.UUID == created[1].DeliveryUuid).ProductionOrderUuid.Should().BeNull();
+
+        (await deliveries.GetByUuidAsync(created[0].DeliveryUuid))!.ProductionOrderUuid.Should().Be(po);
+    }
+
+    [Fact]
     public async Task The_detail_names_the_route_and_customer_and_a_non_sale_order_delivery_has_neither()
     {
         var h = await NewHarness();

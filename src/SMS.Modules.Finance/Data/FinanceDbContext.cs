@@ -35,6 +35,10 @@ internal sealed class FinanceDbContext : DbContext, ITenantScopedDbContext
     // SAP-alignment — finance master data (docs/finance/SAP-ALIGNMENT-PLAN.md).
     internal DbSet<TaxCode>      TaxCodes      => Set<TaxCode>();
     internal DbSet<ExchangeRate> ExchangeRates => Set<ExchangeRate>();
+    // A35 — multi-currency (docs/multi-currency/ADDENDUM-35-ANALYSIS.md D-1, D-3, D-15).
+    internal DbSet<OrgCurrency>        OrgCurrencies       => Set<OrgCurrency>();
+    internal DbSet<CurrencyRate>       CurrencyRates       => Set<CurrencyRate>();
+    internal DbSet<ExchangeDifference> ExchangeDifferences => Set<ExchangeDifference>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

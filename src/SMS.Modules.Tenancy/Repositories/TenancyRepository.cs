@@ -112,6 +112,8 @@ internal sealed class TenancyRepository : ITenancyRepository
             var conn = _db.Database.GetDbConnection();
             await using var sqlTx = await conn.BeginTransactionAsync(IsolationLevel.ReadCommitted);
             _db.Database.UseTransaction(sqlTx);
+            try
+            {
 
             var now = DateTime.UtcNow;
             var org = new Organization
@@ -170,6 +172,15 @@ internal sealed class TenancyRepository : ITenancyRepository
 
             result.OrganizationId = org.Id;
             result.AdminUserId    = adminUserId;
+            }
+            finally
+            {
+                // A35 — detach the transaction from the context, committed or not: otherwise TenancyDbContext keeps
+                // reporting it as CurrentTransaction for the rest of the request, and every later query in the same
+                // scope (the provisioning handlers' GetSettingsAsync, for one) fails with "the retrying execution
+                // strategy does not support user-initiated transactions".
+                _db.Database.UseTransaction(null);
+            }
         });
 
         return result;

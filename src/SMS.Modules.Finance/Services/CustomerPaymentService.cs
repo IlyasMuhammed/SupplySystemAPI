@@ -26,16 +26,31 @@ internal sealed class CustomerPaymentService : ICustomerPaymentService
     private readonly ISupplierNameLookupService _partnerNames;
     private readonly ILookupsService            _lookups;
     private readonly TimeProvider               _clock;
+    private readonly ICurrencyService?          _currency;
+    private readonly ExchangeDifferenceWriter?  _differences;
+    private readonly IPartnerCurrencyDefaults?  _partnerDefaults;
+    private readonly IOrgCurrencyLookup?        _orgCurrencies;
 
+    /// <param name="currency">
+    /// A35 (D-12, D-15) — when registered (always, in the host) a payment's rate is locked when it is recorded (sale base,
+    /// payment date; a foreign payment with no rate is refused, D-5) and each allocation books its realized exchange
+    /// difference through <paramref name="differences"/>. Without it (a hand-built harness) payments work as before A35.
+    /// </param>
     public CustomerPaymentService(
         FinanceDbContext db, ICustomerLedgerService ledger, ISupplierNameLookupService partnerNames,
-        ILookupsService lookups, TimeProvider? clock = null)
+        ILookupsService lookups, TimeProvider? clock = null,
+        ICurrencyService? currency = null, ExchangeDifferenceWriter? differences = null,
+        IPartnerCurrencyDefaults? partnerDefaults = null, IOrgCurrencyLookup? orgCurrencies = null)
     {
-        _db           = db;
-        _ledger       = ledger;
-        _partnerNames = partnerNames;
-        _lookups      = lookups;
-        _clock        = clock ?? TimeProvider.System;
+        _db              = db;
+        _ledger          = ledger;
+        _partnerNames    = partnerNames;
+        _lookups         = lookups;
+        _clock           = clock ?? TimeProvider.System;
+        _currency        = currency;
+        _differences     = differences ?? (currency is null ? null : new ExchangeDifferenceWriter(db, null, _clock));
+        _partnerDefaults = partnerDefaults;
+        _orgCurrencies   = orgCurrencies;
     }
 
     public async Task<CustomerPaymentRecorded> RecordPaymentAsync(
@@ -44,14 +59,26 @@ internal sealed class CustomerPaymentService : ICustomerPaymentService
         ArgumentNullException.ThrowIfNull(details);
 
         var paymentMethod = ValidateMethod(method, details);
-        var currency      = ResolveCurrency(details.CurrencyCode);
         ValidateAmount(amount, "The payment");
         ValidateManualAllocations(details.Allocations, amount);
+        var (currency, currencyId) = await ResolvePaymentCurrencyAsync(partnerId, details);
 
         var partnerName = await ResolvePartnerNameAsync(partnerId);
 
         var today       = _clock.GetUtcNow().UtcDateTime.Date;
         var paymentDate = details.PaymentDate?.Date ?? today;
+
+        // A35 D-12 — locked once, before anything is written: the sale base at the payment date (400 when foreign and no rate).
+        var organizationId = _db.TenantContext.OrganizationId;
+        DocumentRateLock? rateLock = null;
+        (string? Gain, string? Loss) accounts = (null, null);
+        if (_currency is not null)
+        {
+            if (currencyId is not { } id)
+                throw new BadRequestException($"'{currency}' is not a currency in the Lookups catalog, so the payment's exchange rate cannot be locked.");
+            rateLock = await _currency.LockRateAsync(organizationId, id, DateOnly.FromDateTime(paymentDate), TransactionDomain.Sale);
+            accounts = await _differences!.AccountsAsync(organizationId, realized: true);
+        }
 
         for (var attempt = 1; ; attempt++)
         {
@@ -75,13 +102,23 @@ internal sealed class CustomerPaymentService : ICustomerPaymentService
                 ChequeNumber  = Clean(details.ChequeNumber),
                 BankReference = Clean(details.BankReference),
                 CurrencyCode  = currency,
+                CurrencyId    = currencyId,
                 Notes         = Clean(details.Notes),
                 Status        = CustomerPaymentStatuses.Received,
                 CreatedBy     = userId,
                 CreatedDate   = now
             };
 
+            if (rateLock is not null)
+            {
+                payment.ExchangeRate       = rateLock.Rate;
+                payment.BaseCurrencyId     = rateLock.BaseCurrencyId;
+                payment.AmountBase         = rateLock.ToBase(amount);
+                payment.ExchangeDifference = 0m;
+            }
+
             var allocations = Apply(payment, plan, now, userId);
+            var differences = TrackRealized(organizationId, payment, allocations, rateLock, accounts, userId);
 
             _db.CustomerPayments.Add(payment);
 
@@ -99,6 +136,7 @@ internal sealed class CustomerPaymentService : ICustomerPaymentService
             try
             {
                 await _db.SaveChangesAsync();
+                await LinkDifferencesAsync(differences);
 
                 var applied = plan
                     .Select(p => new AppliedPaymentAllocation(
@@ -116,7 +154,7 @@ internal sealed class CustomerPaymentService : ICustomerPaymentService
                 // Forget everything this pass tracked; the next one starts from what is now committed.
                 // On the last attempt too, so a failed payment never lingers on the context waiting
                 // for some later save to commit half of it.
-                Detach([payment, entry, .. allocations, .. plan.Select(p => p.Invoice)]);
+                Detach([payment, entry, .. allocations, .. plan.Select(p => p.Invoice), .. differences.Select(d => d.Row)]);
                 if (attempt >= MaxAttempts) throw;
             }
         }
@@ -159,6 +197,12 @@ internal sealed class CustomerPaymentService : ICustomerPaymentService
             var existing = payment.Allocations.ToList();
             var added    = Apply(payment, plan, now, userId);
 
+            // A35 C7 — the money applied now settles at the rate the payment was locked at when it was received.
+            var organizationId = _db.TenantContext.OrganizationId;
+            var rateLock = await PaymentLockAsync(organizationId, payment);
+            (string? Gain, string? Loss) accounts = rateLock is null ? (null, null) : await _differences!.AccountsAsync(organizationId, realized: true);
+            var differences = TrackRealized(organizationId, payment, added, rateLock, accounts, userId);
+
             // A fresh value on the payment is what makes a stale second request fail its save.
             payment.ModifiedBy   = userId;
             payment.ModifiedDate = now;
@@ -166,6 +210,7 @@ internal sealed class CustomerPaymentService : ICustomerPaymentService
             try
             {
                 await _db.SaveChangesAsync();
+                await LinkDifferencesAsync(differences);
 
                 var applied = plan
                     .Select(p => new AppliedPaymentAllocation(
@@ -178,7 +223,7 @@ internal sealed class CustomerPaymentService : ICustomerPaymentService
             }
             catch (DbUpdateException)
             {
-                Detach([payment, .. existing, .. added, .. plan.Select(p => p.Invoice)]);
+                Detach([payment, .. existing, .. added, .. plan.Select(p => p.Invoice), .. differences.Select(d => d.Row)]);
                 if (attempt >= MaxAttempts) throw;
             }
         }
@@ -249,6 +294,10 @@ internal sealed class CustomerPaymentService : ICustomerPaymentService
                 Debit: payment.Amount, Credit: 0m, payment.CurrencyCode,
                 NarrateBounce(payment, reason), now, userId));
 
+            // A35 C7 — the money never arrived, so neither did its exchange differences: each is booked back, in the same save.
+            if (_differences is not null)
+                await _differences.TrackReversalAsync(_db.TenantContext.OrganizationId, ExchangeDifferenceRefs.CustomerPayment, payment.UUID, userId);
+
             try
             {
                 await _db.SaveChangesAsync();
@@ -258,7 +307,8 @@ internal sealed class CustomerPaymentService : ICustomerPaymentService
             }
             catch (DbUpdateException)
             {
-                Detach([payment, entry, .. payment.Allocations, .. payment.Allocations.Select(a => a.SalesInvoice)]);
+                Detach([payment, entry, .. payment.Allocations, .. payment.Allocations.Select(a => a.SalesInvoice),
+                        .. _db.ChangeTracker.Entries<ExchangeDifference>().Where(e => e.State == EntityState.Added).Select(e => (object)e.Entity).ToList()]);
                 if (attempt >= MaxAttempts) throw;
             }
         }
@@ -301,6 +351,14 @@ internal sealed class CustomerPaymentService : ICustomerPaymentService
             CreatedDate       = payment.CreatedDate,
             ModifiedBy        = payment.ModifiedBy,
             ModifiedDate      = payment.ModifiedDate,
+            CurrencyId         = payment.CurrencyId,
+            ExchangeRate       = payment.ExchangeRate,
+            BaseCurrencyId     = payment.BaseCurrencyId,
+            BaseCurrencyCode   = payment.BaseCurrencyId is { } baseId
+                ? _lookups.GetCurrencies().FirstOrDefault(c => c.Id == baseId)?.Code?.Trim()
+                : null,
+            AmountBase         = payment.AmountBase,
+            ExchangeDifference = payment.ExchangeDifference,
             Allocations = [.. payment.Allocations
                 .OrderBy(a => a.AllocatedAt).ThenBy(a => a.Id)
                 .Select(a => new CustomerPaymentAllocationModel
@@ -312,7 +370,8 @@ internal sealed class CustomerPaymentService : ICustomerPaymentService
                     AllocatedAt       = a.AllocatedAt,
                     AllocatedBy       = a.AllocatedBy,
                     InvoiceBalanceDue = a.SalesInvoice.BalanceDue,
-                    InvoiceStatus     = a.SalesInvoice.Status
+                    InvoiceStatus     = a.SalesInvoice.Status,
+                    ExchangeDifference = a.ExchangeDifference
                 })]
         };
     }
@@ -477,9 +536,10 @@ internal sealed class CustomerPaymentService : ICustomerPaymentService
                 throw new BadRequestException(
                     $"Sales invoice {invoice.InvoiceNumber} is {invoice.Status}. Only an ISSUED, PARTIALLY_PAID or OVERDUE invoice can be paid.");
 
-            if (invoice.CurrencyCode != currency)
+            // A35 D-14 — a payment is in one currency, and only pays invoices in it.
+            if (!string.Equals(invoice.CurrencyCode, currency, StringComparison.OrdinalIgnoreCase))
                 throw new BadRequestException(
-                    $"Sales invoice {invoice.InvoiceNumber} is in {invoice.CurrencyCode}, but the payment is in {currency}.");
+                    $"Payment is in {currency}; invoice {invoice.InvoiceNumber} is in {invoice.CurrencyCode}. Allocate it to invoices in the same currency.");
 
             if (request.Amount > invoice.BalanceDue)
                 throw new BadRequestException(
@@ -489,6 +549,139 @@ internal sealed class CustomerPaymentService : ICustomerPaymentService
         }
 
         return plan;
+    }
+
+    // ── A35: currency, lock, realized differences ────────────────────────────
+
+    /// <summary>
+    /// D-14 — what the payment is in: the id asked for, else the code asked for, else the first invoice it is allocated to,
+    /// else the customer's default sale currency, else the sale base. Returns the catalog code and its id (null id only for a
+    /// code the catalog has no row for — refused later when a rate must be locked).
+    /// </summary>
+    private async Task<(string Code, Guid? Id)> ResolvePaymentCurrencyAsync(Guid partnerId, CustomerPaymentDetails details)
+    {
+        var catalog = _lookups.GetCurrencies();
+
+        if (details.CurrencyId is { } askedId && askedId != Guid.Empty)
+        {
+            var row = catalog.FirstOrDefault(c => c.Id == askedId && !string.IsNullOrWhiteSpace(c.Code))
+                ?? throw new BadRequestException("The payment's currency is not a currency in the Lookups catalog.");
+            return (row.Code!.Trim(), row.Id);
+        }
+
+        if (!string.IsNullOrWhiteSpace(details.CurrencyCode))
+        {
+            var code = ResolveCurrency(details.CurrencyCode);
+            return (code, catalog.FirstOrDefault(c => string.Equals(c.Code?.Trim(), code, StringComparison.OrdinalIgnoreCase))?.Id);
+        }
+
+        if (details.Allocations is { Count: > 0 } allocations)
+        {
+            var first = allocations[0].InvoiceUuid;
+            var invoice = await _db.SalesInvoices.AsNoTracking().Where(i => i.UUID == first && !i.IsDelete)
+                .Select(i => new { i.CurrencyCode, i.CurrencyId }).FirstOrDefaultAsync();
+            if (invoice is not null)
+                return (invoice.CurrencyCode, invoice.CurrencyId
+                    ?? catalog.FirstOrDefault(c => string.Equals(c.Code?.Trim(), invoice.CurrencyCode, StringComparison.OrdinalIgnoreCase))?.Id);
+        }
+
+        var organizationId = _db.TenantContext.OrganizationId;
+        // Guid.Empty from either = "could not be resolved", never a currency.
+        Guid? fallback = null;
+        if (_partnerDefaults is not null)
+            fallback = await _partnerDefaults.ResolveDefaultCurrencyAsync(organizationId, partnerId, TransactionDomain.Sale);
+        if ((fallback is null || fallback == Guid.Empty) && _currency is not null)
+            fallback = await _currency.GetBaseCurrencyIdAsync(organizationId, TransactionDomain.Sale);
+        if (fallback == Guid.Empty) fallback = null;
+
+        var resolved = fallback is { } f ? catalog.FirstOrDefault(c => c.Id == f && !string.IsNullOrWhiteSpace(c.Code)) : null;
+        return resolved is null
+            ? throw new BadRequestException("The payment must say what currency it was received in.")
+            : (resolved.Code!.Trim(), resolved.Id);
+    }
+
+    /// <summary>
+    /// The rate the payment was locked at when it was received, for money applied later (BR-C5-06: it never changes). A
+    /// payment from before A35 that was never locked is locked now, at its own payment date. Null without the currency
+    /// service.
+    /// </summary>
+    private async Task<DocumentRateLock?> PaymentLockAsync(Guid organizationId, CustomerPayment payment)
+    {
+        if (_currency is null) return null;
+
+        var currencyId = payment.CurrencyId
+            ?? _lookups.GetCurrencies().FirstOrDefault(c => string.Equals(c.Code?.Trim(), payment.CurrencyCode, StringComparison.OrdinalIgnoreCase))?.Id
+            ?? throw new BadRequestException($"'{payment.CurrencyCode}' is not a currency in the Lookups catalog, so the payment's exchange rate cannot be locked.");
+
+        if (payment.ExchangeRate is { } stored && payment.BaseCurrencyId is { } baseId)
+        {
+            var catalog  = _lookups.GetCurrencies();
+            var baseCode = catalog.FirstOrDefault(c => c.Id == baseId)?.Code?.Trim() ?? string.Empty;
+            var baseDp   = _orgCurrencies is null ? CurrencyConventions.DefaultDecimalPlaces : await _orgCurrencies.GetDecimalPlacesAsync(organizationId, baseId);
+            var curDp    = _orgCurrencies is null ? CurrencyConventions.DefaultDecimalPlaces : await _orgCurrencies.GetDecimalPlacesAsync(organizationId, currencyId);
+            return new DocumentRateLock(currencyId, payment.CurrencyCode, baseId, baseCode, TransactionDomain.Sale, stored,
+                DateOnly.FromDateTime(payment.PaymentDate), currencyId == baseId, curDp, baseDp);
+        }
+
+        var fresh = await _currency.LockRateAsync(organizationId, currencyId, DateOnly.FromDateTime(payment.PaymentDate), TransactionDomain.Sale);
+        payment.CurrencyId         = currencyId;
+        payment.ExchangeRate       = fresh.Rate;
+        payment.BaseCurrencyId     = fresh.BaseCurrencyId;
+        payment.AmountBase         = fresh.ToBase(payment.Amount);
+        payment.ExchangeDifference ??= 0m;
+        return fresh;
+    }
+
+    /// <summary>
+    /// C7 — one realized difference per new allocation (tracked, unsaved; the caller's save books them with the payment).
+    /// Sets each allocation's difference (0 when there is none) and adds them to the payment's total.
+    /// </summary>
+    private List<(ExchangeDifference Row, PaymentAllocation Allocation)> TrackRealized(
+        Guid organizationId, CustomerPayment payment, IEnumerable<PaymentAllocation> allocations, DocumentRateLock? rateLock,
+        (string? Gain, string? Loss) accounts, int userId)
+    {
+        var rows = new List<(ExchangeDifference, PaymentAllocation)>();
+        if (rateLock is null || _differences is null) return rows;
+
+        foreach (var allocation in allocations)
+        {
+            var invoice = allocation.SalesInvoice;
+            // A pre-A35 invoice may carry its base only as a code.
+            var invoiceBase = invoice.BaseCurrencyId
+                ?? (string.Equals(invoice.BaseCurrencyCode, rateLock.BaseCurrencyCode, StringComparison.OrdinalIgnoreCase) ? rateLock.BaseCurrencyId : null);
+
+            var row = _differences.TrackRealized(organizationId, new RealizedAllocation(
+                ExchangeDifferenceSides.Receivable,
+                ExchangeDifferenceRefs.SalesInvoice, invoice.Id, invoice.UUID, invoice.InvoiceNumber,
+                ExchangeDifferenceRefs.CustomerPayment, payment.Id == 0 ? null : payment.Id, payment.UUID, payment.PaymentNumber,
+                allocation.Id == 0 ? null : allocation.Id, payment.PartnerId,
+                allocation.AllocatedAmount, invoice.ExchangeRate, invoiceBase), rateLock, accounts, userId);
+
+            allocation.ExchangeDifference = row?.DifferenceBase ?? 0m;
+            payment.ExchangeDifference    = (payment.ExchangeDifference ?? 0m) + allocation.ExchangeDifference;
+            if (row is not null) rows.Add((row, allocation));
+        }
+
+        return rows;
+    }
+
+    /// <summary>
+    /// The payment's and the allocations' ids exist only once they are saved; the register rows written with them are given
+    /// those ids now. The amounts were committed atomically with the payment; only these references follow, best-effort (the
+    /// rows already carry the payment's and the invoice's uuids).
+    /// </summary>
+    private async Task LinkDifferencesAsync(List<(ExchangeDifference Row, PaymentAllocation Allocation)> rows)
+    {
+        if (rows.Count == 0) return;
+
+        foreach (var (row, allocation) in rows)
+        {
+            row.PaymentId    = allocation.CustomerPaymentId;
+            row.AllocationId = allocation.Id;
+        }
+
+        try { await _db.SaveChangesAsync(); }
+        catch (DbUpdateException) { foreach (var (row, _) in rows) _db.Entry(row).State = EntityState.Detached; }
     }
 
     // ── Validation ───────────────────────────────────────────────────────────
