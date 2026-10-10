@@ -1,5 +1,6 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FLOW } from '../../shared/flow';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators, AbstractControl, ValidationErrors } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
@@ -32,7 +33,7 @@ const MAX_SIZE_MB   = 5;
   imports: [
     CommonModule, ReactiveFormsModule,
     ButtonModule, InputTextModule, PasswordModule,
-    ToastModule, TooltipModule
+    ToastModule, TooltipModule, ...FLOW
   ],
   templateUrl: './profile.component.html',
   styleUrls: ['./profile.component.scss'],

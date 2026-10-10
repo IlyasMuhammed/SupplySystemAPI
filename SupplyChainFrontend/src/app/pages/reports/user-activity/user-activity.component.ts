@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FLOW } from '../../../shared/flow';
 import { FormsModule } from '@angular/forms';
 import { TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
@@ -12,7 +13,7 @@ import { PdfService } from '../../../services/pdf.service';
 @Component({
   selector: 'app-user-activity',
   standalone: true,
-  imports: [CommonModule, FormsModule, TableModule, ButtonModule, ToastModule, CalendarModule],
+  imports: [CommonModule, FormsModule, TableModule, ButtonModule, ToastModule, CalendarModule, ...FLOW],
   templateUrl: './user-activity.component.html',
   styleUrls: ['./user-activity.component.scss'],
   providers: [MessageService]

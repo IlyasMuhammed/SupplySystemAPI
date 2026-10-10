@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FLOW } from '../../../shared/flow';
 import { FormsModule } from '@angular/forms';
 import { TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
@@ -18,7 +19,7 @@ import {
 @Component({
   selector: 'app-material-issue-register',
   standalone: true,
-  imports: [CommonModule, FormsModule, TableModule, ButtonModule, InputTextModule, TagModule, ToastModule, DropdownModule, TooltipModule],
+  imports: [CommonModule, FormsModule, TableModule, ButtonModule, InputTextModule, TagModule, ToastModule, DropdownModule, TooltipModule, ...FLOW],
   templateUrl: './material-issue-register.component.html',
   styleUrls: ['./material-issue-register.component.scss'],
   providers: [MessageService]

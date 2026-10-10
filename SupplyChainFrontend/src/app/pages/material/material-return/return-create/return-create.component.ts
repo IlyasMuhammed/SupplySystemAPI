@@ -18,6 +18,7 @@ import {
   CreateReturnLineRequest,
   CreateReturnRequest
 } from '../../../../services/material.service';
+import { FLOW } from '../../../../shared/flow';
 
 interface ReturnLine extends ReturnableLine {
   returnQty: number;
@@ -32,7 +33,8 @@ interface ReturnLine extends ReturnableLine {
   imports: [
     CommonModule, FormsModule, RouterModule,
     ButtonModule, InputTextModule, InputNumberModule, TextareaModule,
-    TagModule, ToastModule, SelectButtonModule, DropdownModule
+    TagModule, ToastModule, SelectButtonModule, DropdownModule,
+    ...FLOW
   ],
   templateUrl: './return-create.component.html',
   styleUrls: ['./return-create.component.scss'],

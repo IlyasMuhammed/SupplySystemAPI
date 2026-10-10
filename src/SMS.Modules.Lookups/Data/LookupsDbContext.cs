@@ -35,12 +35,14 @@ internal sealed class LookupsDbContext : DbContext, ITenantScopedDbContext
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
         this.StampTenantScopedEntities(_tenantContext);
+        this.StampModifiedAt(); // A37 D-16
         return base.SaveChanges(acceptAllChangesOnSuccess);
     }
 
     public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
         this.StampTenantScopedEntities(_tenantContext);
+        this.StampModifiedAt(); // A37 D-16
         return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
     }
 }

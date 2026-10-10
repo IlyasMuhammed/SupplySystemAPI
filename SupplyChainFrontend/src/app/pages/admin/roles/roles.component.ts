@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FLOW } from '../../../shared/flow';
 import { ReactiveFormsModule, FormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
@@ -18,11 +19,13 @@ import {
   RoleListItem,
   RoleDetail,
   PermissionGroup,
+  PermissionItem,
   CreateRoleRequest,
   UpdateRoleRequest,
   RoleDeactivateConflict
 } from '../../service/auth.service';
 import { TenantService } from '../../service/tenant.service';
+import { moduleName } from '../../../services/module.models';
 
 @Component({
   selector: 'app-roles',
@@ -31,7 +34,7 @@ import { TenantService } from '../../service/tenant.service';
     CommonModule, ReactiveFormsModule, FormsModule,
     ButtonModule, InputTextModule, TextareaModule, DialogModule,
     TableModule, TagModule, ToastModule, TooltipModule,
-    ConfirmDialogModule, CheckboxModule, DividerModule
+    ConfirmDialogModule, CheckboxModule, DividerModule, ...FLOW
   ],
   templateUrl: './roles.component.html',
   providers: [MessageService, ConfirmationService]
@@ -171,7 +174,7 @@ export class RolesComponent implements OnInit {
       next: res => {
         this.isLoadingDetail = false;
         this.roleDetail = res?.result ?? null;
-        this.permissionGroups = this.roleDetail?.permissionGroups ?? [];
+        this.permissionGroups = RolesComponent.groupByModule(this.roleDetail?.permissionGroups ?? []);
         this.allowedIds = new Set(
           this.permissionGroups
             .flatMap(g => g.permissions)
@@ -184,6 +187,49 @@ export class RolesComponent implements OnInit {
         this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to load role permissions.' });
       }
     });
+  }
+
+  /**
+   * A37 D-14 — regroups the permissions by the module they belong to (`moduleCode`), in the server's order. Groups
+   * whose permissions carry no module code keep their server group. A group of a switched-off module is flagged
+   * (greyed, tooltip) but stays assignable — the permission is simply inert until the module is back on.
+   * Built once per load (not a getter), so *ngFor keeps its rows.
+   */
+  static groupByModule(groups: PermissionGroup[]): PermissionGroup[] {
+    const anyCode = groups.some(g => g.permissions.some(p => !!p.moduleCode));
+    if (!anyCode) {
+      return groups.map(g => RolesComponent.flag({ ...g, permissions: g.permissions }, null));
+    }
+    const out: PermissionGroup[] = [];
+    const byCode = new Map<string, PermissionGroup>();
+    for (const g of groups) {
+      const loose: PermissionItem[] = [];
+      for (const p of g.permissions) {
+        if (!p.moduleCode) { loose.push(p); continue; }
+        let target = byCode.get(p.moduleCode);
+        if (!target) {
+          target = { module: moduleName(p.moduleCode), moduleCode: p.moduleCode, permissions: [] };
+          byCode.set(p.moduleCode, target);
+          out.push(target);
+        }
+        target.permissions.push(p);
+      }
+      if (loose.length) out.push({ module: g.module, moduleCode: null, permissions: loose });
+    }
+    return out.map(g => RolesComponent.flag(g, g.moduleCode ?? null));
+  }
+
+  private static flag(g: PermissionGroup, code: string | null): PermissionGroup {
+    // The group is "off" only when every permission in it is; single permissions are greyed on their own.
+    const enabled = g.permissions.length === 0 || g.permissions.some(p => p.moduleEnabled !== false);
+    const name = code ? moduleName(code) : (moduleName(g.permissions.find(p => p.moduleCode)?.moduleCode) || g.module);
+    return { ...g, moduleEnabled: enabled, disabledTip: `Enable the ${name} module to use this permission.` };
+  }
+
+  /** Tooltip of a permission whose module is switched off ('' otherwise). */
+  permTip(group: PermissionGroup, perm: PermissionItem): string {
+    if (perm.moduleEnabled !== false) return '';
+    return perm.moduleCode ? `Enable the ${moduleName(perm.moduleCode)} module to use this permission.` : (group.disabledTip ?? '');
   }
 
   isAllowed(permId: number): boolean {

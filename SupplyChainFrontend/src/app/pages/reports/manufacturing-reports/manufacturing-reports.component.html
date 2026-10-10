@@ -1,22 +1,20 @@
-<div class="report-page">
-  <p-toast />
-
-  <div class="page-header">
-    <div class="header-left">
-      <div class="header-icon icon-indigo"><i class="pi pi-cog"></i></div>
-      <div>
-        <h2 class="page-title">Manufacturing Reports</h2>
-        <p class="page-subtitle">Production efficiency · Quality &amp; scrap · Material issues · Finished goods · Ledger reconciliation · Chained manufacturing</p>
-      </div>
+<p-toast />
+<sf-page [crumbs]="['Reports', 'Manufacturing reports']">
+  <div class="sf-body">
+  <div class="sf-lr-head">
+    <div>
+      <h1>Manufacturing reports</h1>
+      <div class="sf-sub">Production efficiency · Quality &amp; scrap · Material issues · Finished goods · Ledger reconciliation · Chained manufacturing</div>
     </div>
   </div>
 
+  <div class="sf-card">
   <p-tabView>
 
     <!-- ── Tab 1: Production Efficiency ────────────────────────────────────── -->
     <p-tabPanel header="Production Efficiency">
       <div class="tab-content">
-        <div class="card filter-card">
+        <div class="sf-card flat quiet">
           <div class="filter-row">
             <div class="filter-group">
               <label>From Date</label>
@@ -33,18 +31,18 @@
           </div>
         </div>
 
-        <div class="summary-row" *ngIf="efficiency">
-          <div class="summary-card"><span class="s-label">Total Orders</span><span class="s-val">{{ efficiency.totalOrders }}</span></div>
-          <div class="summary-card"><span class="s-label">Planned Qty</span><span class="s-val">{{ efficiency.totalPlannedQuantity | number:'1.0-2' }}</span></div>
-          <div class="summary-card"><span class="s-label">Produced Qty</span><span class="s-val">{{ efficiency.totalProducedQuantity | number:'1.0-2' }}</span></div>
-          <div class="summary-card"><span class="s-label">Accepted Qty</span><span class="s-val">{{ efficiency.totalAcceptedQuantity | number:'1.0-2' }}</span></div>
-          <div class="summary-card"><span class="s-label">Rejected Qty</span><span class="s-val">{{ efficiency.totalRejectedQuantity | number:'1.0-2' }}</span></div>
-          <div class="summary-card"><span class="s-label">Yield</span><span class="s-val">{{ efficiency.overallYieldPercent != null ? (efficiency.overallYieldPercent + '%') : '—' }}</span></div>
-          <div class="summary-card"><span class="s-label">On-Time Completion</span><span class="s-val">{{ efficiency.onTimeCompletionPercent != null ? (efficiency.onTimeCompletionPercent + '%') : '—' }}</span></div>
-          <div class="summary-card"><span class="s-label">Avg Cycle Days</span><span class="s-val">{{ efficiency.averageCycleDays != null ? efficiency.averageCycleDays : '—' }}</span></div>
+        <div class="sf-grid sf-tiles" *ngIf="efficiency">
+          <div class="sf-tile"><span class="l">Total Orders</span><span class="v sm">{{ efficiency.totalOrders }}</span></div>
+          <div class="sf-tile"><span class="l">Planned Qty</span><span class="v sm">{{ efficiency.totalPlannedQuantity | number:'1.0-2' }}</span></div>
+          <div class="sf-tile"><span class="l">Produced Qty</span><span class="v sm">{{ efficiency.totalProducedQuantity | number:'1.0-2' }}</span></div>
+          <div class="sf-tile"><span class="l">Accepted Qty</span><span class="v sm">{{ efficiency.totalAcceptedQuantity | number:'1.0-2' }}</span></div>
+          <div class="sf-tile"><span class="l">Rejected Qty</span><span class="v sm">{{ efficiency.totalRejectedQuantity | number:'1.0-2' }}</span></div>
+          <div class="sf-tile"><span class="l">Yield</span><span class="v sm">{{ efficiency.overallYieldPercent != null ? (efficiency.overallYieldPercent + '%') : '—' }}</span></div>
+          <div class="sf-tile"><span class="l">On-Time Completion</span><span class="v sm">{{ efficiency.onTimeCompletionPercent != null ? (efficiency.onTimeCompletionPercent + '%') : '—' }}</span></div>
+          <div class="sf-tile"><span class="l">Avg Cycle Days</span><span class="v sm">{{ efficiency.averageCycleDays != null ? efficiency.averageCycleDays : '—' }}</span></div>
         </div>
 
-        <div class="card" *ngIf="efficiency">
+        <div class="sf-card p0 flat" *ngIf="efficiency">
           <p-table [value]="statusBreakdown" styleClass="p-datatable-sm">
             <ng-template pTemplate="header"><tr><th>Status</th><th class="text-right">Orders</th></tr></ng-template>
             <ng-template pTemplate="body" let-row>
@@ -59,7 +57,7 @@
     <!-- ── Tab 2: Quality & Scrap ──────────────────────────────────────────── -->
     <p-tabPanel header="Quality & Scrap">
       <div class="tab-content">
-        <div class="card filter-card">
+        <div class="sf-card flat quiet">
           <div class="filter-row">
             <div class="filter-group">
               <label>From Date</label>
@@ -76,16 +74,16 @@
           </div>
         </div>
 
-        <div class="summary-row" *ngIf="qualityScrap">
-          <div class="summary-card"><span class="s-label">Inspections</span><span class="s-val">{{ qualityScrap.totalInspections }}</span></div>
-          <div class="summary-card"><span class="s-label">Inspected Qty</span><span class="s-val">{{ qualityScrap.totalInspectedQty | number:'1.0-2' }}</span></div>
-          <div class="summary-card"><span class="s-label">Accepted Qty</span><span class="s-val">{{ qualityScrap.totalAcceptedQty | number:'1.0-2' }}</span></div>
-          <div class="summary-card"><span class="s-label">Rejected Qty</span><span class="s-val">{{ qualityScrap.totalRejectedQty | number:'1.0-2' }}</span></div>
-          <div class="summary-card"><span class="s-label">Acceptance Rate</span><span class="s-val">{{ qualityScrap.acceptanceRatePercent != null ? (qualityScrap.acceptanceRatePercent + '%') : '—' }}</span></div>
-          <div class="summary-card"><span class="s-label">Rejection Rate</span><span class="s-val flagged">{{ qualityScrap.rejectionRatePercent != null ? (qualityScrap.rejectionRatePercent + '%') : '—' }}</span></div>
+        <div class="sf-grid sf-tiles" *ngIf="qualityScrap">
+          <div class="sf-tile"><span class="l">Inspections</span><span class="v sm">{{ qualityScrap.totalInspections }}</span></div>
+          <div class="sf-tile"><span class="l">Inspected Qty</span><span class="v sm">{{ qualityScrap.totalInspectedQty | number:'1.0-2' }}</span></div>
+          <div class="sf-tile"><span class="l">Accepted Qty</span><span class="v sm">{{ qualityScrap.totalAcceptedQty | number:'1.0-2' }}</span></div>
+          <div class="sf-tile"><span class="l">Rejected Qty</span><span class="v sm">{{ qualityScrap.totalRejectedQty | number:'1.0-2' }}</span></div>
+          <div class="sf-tile"><span class="l">Acceptance Rate</span><span class="v sm">{{ qualityScrap.acceptanceRatePercent != null ? (qualityScrap.acceptanceRatePercent + '%') : '—' }}</span></div>
+          <div class="sf-tile"><span class="l">Rejection Rate</span><span class="v sm flagged">{{ qualityScrap.rejectionRatePercent != null ? (qualityScrap.rejectionRatePercent + '%') : '—' }}</span></div>
         </div>
 
-        <div class="card" *ngIf="qualityScrap">
+        <div class="sf-card p0 flat" *ngIf="qualityScrap">
           <p-table [value]="qualityScrap.byProduct" styleClass="p-datatable-sm">
             <ng-template pTemplate="header">
               <tr><th>Product</th><th class="text-right">Inspected</th><th class="text-right">Rejected</th><th class="text-right">Rejection Rate</th></tr>
@@ -107,7 +105,7 @@
     <!-- ── Tab 3: Material Issues ──────────────────────────────────────────── -->
     <p-tabPanel header="Material Issues">
       <div class="tab-content">
-        <div class="card filter-card">
+        <div class="sf-card flat quiet">
           <div class="filter-row">
             <div class="filter-group">
               <label>From Date</label>
@@ -128,7 +126,7 @@
           </div>
         </div>
 
-        <div class="card">
+        <div class="sf-card p0 flat">
           <p-table [value]="issues" [loading]="isLoadingIssues" [paginator]="true" [rows]="20" styleClass="p-datatable-sm">
             <ng-template pTemplate="header">
               <tr>
@@ -158,7 +156,7 @@
     <!-- ── Tab 4: Finished Goods Receipts ───────────────────────────────────── -->
     <p-tabPanel header="Finished Goods Receipts">
       <div class="tab-content">
-        <div class="card filter-card">
+        <div class="sf-card flat quiet">
           <div class="filter-row">
             <div class="filter-group">
               <label>From Date</label>
@@ -179,7 +177,7 @@
           </div>
         </div>
 
-        <div class="card">
+        <div class="sf-card p0 flat">
           <p-table [value]="fgrs" [loading]="isLoadingFgr" [paginator]="true" [rows]="20" styleClass="p-datatable-sm">
             <ng-template pTemplate="header">
               <tr><th>FGR No</th><th>Production No</th><th>Product</th><th>Warehouse</th><th>Status</th><th class="text-right">Qty</th><th>Received</th></tr>
@@ -204,7 +202,7 @@
     <!-- ── Tab 5: Ledger Reconciliation ─────────────────────────────────────── -->
     <p-tabPanel header="Ledger Reconciliation">
       <div class="tab-content">
-        <div class="card filter-card">
+        <div class="sf-card flat quiet">
           <div class="filter-row">
             <div class="filter-group">
               <label>From Date</label>
@@ -221,12 +219,12 @@
           </div>
         </div>
 
-        <div class="summary-row" *ngIf="reconciliation">
-          <div class="summary-card"><span class="s-label">Orders Checked</span><span class="s-val">{{ reconciliation.totalOrdersChecked }}</span></div>
-          <div class="summary-card"><span class="s-label">Flagged</span><span class="s-val" [class.flagged]="reconciliation.flaggedCount > 0">{{ reconciliation.flaggedCount }}</span></div>
+        <div class="sf-grid sf-tiles" *ngIf="reconciliation">
+          <div class="sf-tile"><span class="l">Orders Checked</span><span class="v sm">{{ reconciliation.totalOrdersChecked }}</span></div>
+          <div class="sf-tile"><span class="l">Flagged</span><span class="v sm" [class.flagged]="reconciliation.flaggedCount > 0">{{ reconciliation.flaggedCount }}</span></div>
         </div>
 
-        <div class="card" *ngIf="reconciliation">
+        <div class="sf-card p0 flat" *ngIf="reconciliation">
           <p-table [value]="reconciliation.flagged" styleClass="p-datatable-sm">
             <ng-template pTemplate="header">
               <tr><th>Production No</th><th>Status</th><th class="text-right">Accepted</th><th class="text-right">FGR Credited</th><th class="text-right">Rejected</th><th>Reason</th></tr>
@@ -250,7 +248,7 @@
     <!-- ── Tab 6: Chained Manufacturing ─────────────────────────────────────── -->
     <p-tabPanel header="Chained Manufacturing">
       <div class="tab-content">
-        <div class="card filter-card">
+        <div class="sf-card flat quiet">
           <div class="filter-row">
             <div class="filter-group" style="flex: 2;">
               <label>Production Order UUID</label>
@@ -262,14 +260,14 @@
           </div>
         </div>
 
-        <div class="summary-row" *ngIf="chained">
-          <div class="summary-card"><span class="s-label">Root Order</span><span class="s-val">{{ chained.rootProductionNumber }}</span></div>
-          <div class="summary-card"><span class="s-label">Orders in Chain</span><span class="s-val">{{ chained.totalOrdersInChain }}</span></div>
-          <div class="summary-card"><span class="s-label">Max Depth</span><span class="s-val">{{ chained.maxDepth }}</span></div>
-          <div class="summary-card"><span class="s-label">Total Cycle Days</span><span class="s-val">{{ chained.totalCycleDays != null ? chained.totalCycleDays : 'In progress' }}</span></div>
+        <div class="sf-grid sf-tiles" *ngIf="chained">
+          <div class="sf-tile"><span class="l">Root Order</span><span class="v sm">{{ chained.rootProductionNumber }}</span></div>
+          <div class="sf-tile"><span class="l">Orders in Chain</span><span class="v sm">{{ chained.totalOrdersInChain }}</span></div>
+          <div class="sf-tile"><span class="l">Max Depth</span><span class="v sm">{{ chained.maxDepth }}</span></div>
+          <div class="sf-tile"><span class="l">Total Cycle Days</span><span class="v sm">{{ chained.totalCycleDays != null ? chained.totalCycleDays : 'In progress' }}</span></div>
         </div>
 
-        <div class="card" *ngIf="chained">
+        <div class="sf-card p0 flat" *ngIf="chained">
           <p-table [value]="chainedRows" styleClass="p-datatable-sm">
             <ng-template pTemplate="header">
               <tr><th>Production No</th><th>Product</th><th class="text-right">Planned</th><th class="text-right">Accepted</th><th>Status</th><th class="text-right">Cycle Days</th></tr>
@@ -294,4 +292,6 @@
     </p-tabPanel>
 
   </p-tabView>
-</div>
+  </div>
+  </div>
+</sf-page>

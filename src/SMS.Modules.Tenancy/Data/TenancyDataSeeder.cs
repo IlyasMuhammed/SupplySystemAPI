@@ -23,11 +23,29 @@ internal sealed class TenancyDataSeeder
 
     public async Task SeedAsync()
     {
+        // A37 D-3 / M037.3 — a cycle or a broken parent stops the start here, before anything is written.
+        TenancyFeatureCatalog.Validate();
         await SyncFeatureDefinitionsAsync();
+        await SyncFeatureDependenciesAsync();
         await SyncPlanFeatureTemplatesAsync();
         await SeedDemoOrganizationAsync();
         await BackfillOrganizationFeaturesForAllOrgsAsync();
         await SeedSuperAdminAsync();
+    }
+
+    // A37 D-1 — the table mirrors the code list exactly (extra rows removed, missing rows added).
+    private async Task SyncFeatureDependenciesAsync()
+    {
+        var wanted = TenancyFeatureCatalog.Dependencies
+            .Select(d => (d.Dependent.ToUpperInvariant(), d.RequiredBy.ToUpperInvariant())).ToHashSet();
+        var existing = await _db.FeatureDependencies.ToListAsync();
+
+        _db.FeatureDependencies.RemoveRange(existing.Where(e => !wanted.Contains((e.FeatureCode.ToUpperInvariant(), e.DependsOnCode.ToUpperInvariant()))));
+        var have = existing.Select(e => (e.FeatureCode.ToUpperInvariant(), e.DependsOnCode.ToUpperInvariant())).ToHashSet();
+        foreach (var (code, dependsOn) in wanted.Where(w => !have.Contains(w)))
+            _db.FeatureDependencies.Add(new FeatureDependency { FeatureCode = code, DependsOnCode = dependsOn });
+
+        await _db.SaveChangesAsync();
     }
 
     // MT-007, FSD Section 7.1 Step 2 — one-time migration: designate the first existing System
@@ -63,6 +81,10 @@ internal sealed class TenancyDataSeeder
                 row.Description  = entry.Description;
                 row.IsCore       = entry.IsCore;
                 row.DisplayOrder = entry.DisplayOrder;
+                row.ParentModuleCode = entry.Parent;
+                row.IsAlwaysOn   = entry.IsAlwaysOn;
+                row.IsAvailable  = entry.IsAvailable;
+                row.Icon         = entry.Icon;
             }
             else
             {
@@ -74,7 +96,11 @@ internal sealed class TenancyDataSeeder
                     Category     = entry.Category,
                     Description  = entry.Description,
                     IsCore       = entry.IsCore,
-                    DisplayOrder = entry.DisplayOrder
+                    DisplayOrder = entry.DisplayOrder,
+                    ParentModuleCode = entry.Parent,
+                    IsAlwaysOn   = entry.IsAlwaysOn,
+                    IsAvailable  = entry.IsAvailable,
+                    Icon         = entry.Icon
                 });
             }
         }
@@ -161,25 +187,54 @@ internal sealed class TenancyDataSeeder
             .Select(x => (x.OrganizationId, x.FeatureDefinitionId))
             .ToHashSet();
 
+        var allRows = await _db.OrganizationFeatures.AsNoTracking().ToListAsync();
+        var codeById = features.ToDictionary(f => f.Id, f => f.FeatureCode);
+        var now = DateTime.UtcNow;
+
         foreach (var org in orgs)
         {
             var templateLookup = templates
                 .Where(t => string.Equals(t.Plan, org.Plan, StringComparison.OrdinalIgnoreCase))
                 .ToDictionary(t => t.FeatureDefinitionId, t => t.IsEnabledByDefault);
+            // A37 — what the org has today, by code (licensed AND on), for sub-features added after it was created.
+            var orgOn = allRows.Where(r => r.OrganizationId == org.Id && codeById.ContainsKey(r.FeatureDefinitionId))
+                .ToDictionary(r => codeById[r.FeatureDefinitionId], r => (r.IsLicensed, On: r.IsLicensed && r.IsEnabled),
+                    StringComparer.OrdinalIgnoreCase);
 
-            foreach (var feature in features)
+            // Modules first, so a new sub-feature of a new module sees its parent's fresh row.
+            foreach (var feature in features.OrderBy(f => f.ParentModuleCode is null ? 0 : 1))
             {
                 if (existingKeys.Contains((org.Id, feature.Id))) continue;
 
                 templateLookup.TryGetValue(feature.Id, out var isEnabledByDefault);
+                var isLicensed = isEnabledByDefault;
+                var systemManaged = false;
+
+                // A37 §1.3 — a sub-feature an existing org gains follows what the org has now, not its plan's default: its
+                // module's licence and switch (a Basic org given Logistics by hand gets pick lists); BOM management
+                // follows Manufacturing / Service Orders (MOD-08, system-managed). Unavailable entries stay off.
+                if (feature.ParentModuleCode is { } parent && orgOn.TryGetValue(parent, out var parentState))
+                {
+                    var isBom = feature.FeatureCode.Equals(ModuleCodes.BomManagement, StringComparison.OrdinalIgnoreCase);
+                    isLicensed = feature.IsAvailable && (parentState.IsLicensed || feature.IsCore);
+                    isEnabledByDefault = feature.IsAvailable && (isBom
+                        ? TenancyFeatureCatalog.BomManagementDrivers.Any(d => orgOn.TryGetValue(d, out var s) && s.On)
+                        : parentState.On || feature.IsCore);
+                    isLicensed |= isEnabledByDefault;
+                    systemManaged = isBom && isEnabledByDefault;
+                }
 
                 _db.OrganizationFeatures.Add(new OrganizationFeature
                 {
                     Id                  = Guid.NewGuid(),
                     OrganizationId      = org.Id,
                     FeatureDefinitionId = feature.Id,
-                    IsEnabled           = isEnabledByDefault
+                    IsEnabled           = isEnabledByDefault,
+                    IsLicensed          = isLicensed,
+                    EnabledAt           = isEnabledByDefault ? now : null,
+                    IsSystemManaged     = systemManaged
                 });
+                orgOn[feature.FeatureCode] = (isLicensed, isLicensed && isEnabledByDefault);
             }
         }
 

@@ -19,6 +19,7 @@ import { AuthService } from '../../../service/auth.service';
 import { AssigneeOption, MAX, assigneeOptions$, serverMessage, writeDate } from '../sale-inquiry.shared';
 import { MoneyService } from '../../../../services/money.service';
 import { DocCurrencyPicker } from '../../../../shared/doc-currency/doc-currency-picker';
+import { FLOW } from '../../../../shared/flow';
 
 export interface InquiryHeaderDraft {
   customer: BusinessPartnerModel | null;
@@ -39,7 +40,7 @@ export interface InquiryHeaderDraft {
   standalone: true,
   imports: [
     CommonModule, RouterModule, FormsModule, ReactiveFormsModule, ButtonModule, InputTextModule, TextareaModule, SelectModule,
-    DatePickerModule, AutoCompleteModule, ToastModule, TooltipModule
+    DatePickerModule, AutoCompleteModule, ToastModule, TooltipModule, ...FLOW
   ],
   templateUrl: './sale-inquiry-form.component.html',
   styleUrls: ['../sale-inquiry.shared.scss', './sale-inquiry-form.component.scss'],

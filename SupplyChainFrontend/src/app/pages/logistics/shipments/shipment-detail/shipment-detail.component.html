@@ -1,200 +1,145 @@
-<div class="shipment-detail-page">
-  <p-toast></p-toast>
+<p-toast></p-toast>
 
-  <div *ngIf="isLoading" class="loading-state">
-    <i class="pi pi-spin pi-spinner" style="font-size:2rem"></i>
-    <p class="mt-3">Loading shipment…</p>
+<div *ngIf="isLoading" class="sf-empty">
+  <i class="pi pi-spin pi-spinner" style="font-size:2rem"></i>
+  <p class="mt-3">Loading shipment…</p>
+</div>
+
+<sf-page *ngIf="!isLoading && shipment" [crumbs]="['Logistics', 'Shipments (legacy)', shipment.shipmentNumber]">
+
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <p-button label="Update status" icon="pi pi-sync" (onClick)="openStatusDialog()"></p-button>
+    <p-button label="Back to shipments" icon="pi pi-arrow-left" [text]="true"
+              routerLink="/portal/pages/logistics/shipments"></p-button>
   </div>
 
-  <ng-container *ngIf="!isLoading && shipment">
-
-    <!-- ── Header ──────────────────────────────────────────────────────────── -->
-    <div class="page-header">
-      <div class="header-left">
-        <div class="header-icon">
-          <i class="pi pi-box"></i>
+  <!-- ── Header ──────────────────────────────────────────────────────────── -->
+  <header class="sf-hdr">
+    <div class="sf-t">
+      <div>
+        <div class="sf-kicker">Shipment (legacy) · {{ shipment.shipmentType }}</div>
+        <h1>
+          <span class="sf-mono">{{ shipment.shipmentNumber }}</span>
+          <p-tag [value]="shipment.status" [severity]="getStatusSeverity(shipment.status)"></p-tag>
+        </h1>
+        <div class="sf-meta">
+          PO <strong class="sf-mono">{{ shipment.poNumber }}</strong>
+          <span *ngIf="shipment.carrierName"> · {{ shipment.carrierName }}</span>
         </div>
-        <div>
-          <div class="title-row">
-            <h1 class="page-title">{{ shipment.shipmentNumber }}</h1>
-            <p-tag [value]="shipment.status" [severity]="getStatusSeverity(shipment.status)"></p-tag>
-          </div>
-          <p class="page-subtitle">
-            PO: <strong class="mono">{{ shipment.poNumber }}</strong>
-            &nbsp;·&nbsp; {{ shipment.shipmentType }}
-            <span *ngIf="shipment.carrierName"> &nbsp;·&nbsp; {{ shipment.carrierName }}</span>
-          </p>
-        </div>
-      </div>
-      <div class="header-actions">
-        <p-button label="Update Status" icon="pi pi-sync" severity="warn" [outlined]="true"
-                  (onClick)="openStatusDialog()"></p-button>
-        <p-button label="Back" icon="pi pi-arrow-left" [text]="true" severity="secondary"
-                  routerLink="/portal/pages/logistics/shipments"></p-button>
       </div>
     </div>
 
     <!-- ── Status timeline ─────────────────────────────────────────────────── -->
-    <div class="timeline-card">
-      <div class="timeline-steps">
-        <div *ngFor="let step of timelineSteps; let last = last" class="timeline-step-wrap">
-          <div class="timeline-step" [class.active]="isStepActive(step)" [class.current]="isStepCurrent(step)">
-            <div class="step-dot">
-              <i class="pi" [ngClass]="isStepActive(step) ? 'pi-check' : step.icon"></i>
-            </div>
-            <span class="step-label">{{ step.label }}</span>
-          </div>
-          <div *ngIf="!last" class="step-connector" [class.active]="isStepActive(step)"></div>
-        </div>
-      </div>
-    </div>
+    <sf-stages [stages]="stages"></sf-stages>
 
     <!-- ── Quick facts ─────────────────────────────────────────────────────── -->
-    <div class="quick-facts">
-      <div class="qf-item">
-        <i class="pi pi-send qf-icon"></i>
-        <div>
-          <div class="qf-label">Dispatch Date</div>
-          <div class="qf-value">{{ shipment.dispatchDate | date:'dd MMM yyyy' }}</div>
-        </div>
+    <div class="sf-facts">
+      <div class="sf-kpi">
+        <span class="l">Dispatch date</span>
+        <span class="v sm">{{ shipment.dispatchDate | date:'dd MMM yyyy' }}</span>
       </div>
-      <div class="qf-divider"></div>
-      <div class="qf-item">
-        <i class="pi pi-calendar qf-icon"></i>
-        <div>
-          <div class="qf-label">Est. Arrival</div>
-          <div class="qf-value">{{ shipment.estimatedArrival | date:'dd MMM yyyy' }}</div>
-        </div>
+      <div class="sf-kpi">
+        <span class="l">Est. arrival</span>
+        <span class="v sm">{{ shipment.estimatedArrival | date:'dd MMM yyyy' }}</span>
       </div>
-      <div class="qf-divider"></div>
-      <div class="qf-item" [class.arrived]="shipment.actualArrival">
-        <i class="pi pi-check-circle qf-icon"></i>
-        <div>
-          <div class="qf-label">Actual Arrival</div>
-          <div class="qf-value">{{ shipment.actualArrival ? (shipment.actualArrival | date:'dd MMM yyyy') : 'Pending' }}</div>
-        </div>
+      <div class="sf-kpi">
+        <span class="l">Actual arrival</span>
+        <span class="v sm" [class.ok]="shipment.actualArrival">{{ shipment.actualArrival ? (shipment.actualArrival | date:'dd MMM yyyy') : 'Pending' }}</span>
       </div>
-      <div class="qf-divider"></div>
-      <div class="qf-item">
-        <i class="pi pi-truck qf-icon"></i>
-        <div>
-          <div class="qf-label">Carrier</div>
-          <div class="qf-value">{{ shipment.carrierName || '—' }}</div>
-        </div>
+      <div class="sf-kpi">
+        <span class="l">Carrier</span>
+        <span class="v sm">{{ shipment.carrierName || '—' }}</span>
       </div>
     </div>
+  </header>
 
-    <!-- ── Detail cards ────────────────────────────────────────────────────── -->
-    <div class="details-grid">
+  <!-- ── Detail cards ────────────────────────────────────────────────────── -->
+  <div class="sf-body">
+    <div class="sf-row">
 
       <!-- Shipment Info -->
-      <div class="detail-card">
-        <div class="card-header">
-          <i class="pi pi-info-circle"></i>
-          <span>Shipment Info</span>
+      <section class="sf-card">
+        <div class="sf-ch"><h2>Shipment info</h2></div>
+        <div class="sf-kv">
+          <span>Tracking Number</span>
+          <span>
+            <ng-container *ngIf="shipment.trackingUrl; else noLink">
+              <a [href]="shipment.trackingUrl" target="_blank">
+                {{ shipment.trackingNumber }} <i class="pi pi-external-link" style="font-size:.7rem"></i>
+              </a>
+            </ng-container>
+            <ng-template #noLink>{{ shipment.trackingNumber || '—' }}</ng-template>
+          </span>
+          <span>Shipment Type</span>
+          <span>{{ shipment.shipmentType }}</span>
+          <span>Destination</span>
+          <span>{{ shipment.destinationAddress }}</span>
+          <span>PO Number</span>
+          <span class="sf-mono">{{ shipment.poNumber }}</span>
         </div>
-        <div class="field-list">
-          <div class="field-row">
-            <span class="field-label">Tracking Number</span>
-            <span class="field-value">
-              <ng-container *ngIf="shipment.trackingUrl; else noLink">
-                <a [href]="shipment.trackingUrl" target="_blank" class="link-primary">
-                  {{ shipment.trackingNumber }} <i class="pi pi-external-link" style="font-size:.7rem"></i>
-                </a>
-              </ng-container>
-              <ng-template #noLink>{{ shipment.trackingNumber || '—' }}</ng-template>
-            </span>
-          </div>
-          <div class="field-row">
-            <span class="field-label">Shipment Type</span>
-            <span class="field-value">{{ shipment.shipmentType }}</span>
-          </div>
-          <div class="field-row">
-            <span class="field-label">Destination</span>
-            <span class="field-value addr">{{ shipment.destinationAddress }}</span>
-          </div>
-          <div class="field-row">
-            <span class="field-label">PO Number</span>
-            <span class="field-value mono">{{ shipment.poNumber }}</span>
-          </div>
-        </div>
-      </div>
+      </section>
 
       <!-- Weight, Volume & Cost -->
-      <div class="detail-card">
-        <div class="card-header">
-          <i class="pi pi-chart-bar"></i>
-          <span>Weight, Volume &amp; Cost</span>
-        </div>
-        <div class="metrics-grid">
-          <div class="metric-tile">
-            <div class="metric-icon"><i class="pi pi-arrows-v"></i></div>
-            <div class="metric-label">Weight</div>
-            <div class="metric-value">{{ shipment.weightKg != null ? (shipment.weightKg | number:'1.2-2') : '—' }}</div>
-            <div class="metric-unit">kg</div>
+      <section class="sf-card">
+        <div class="sf-ch"><h2>Weight, volume &amp; cost</h2></div>
+        <div class="sf-grid sf-tiles">
+          <div class="sf-tile">
+            <span class="l">Weight</span>
+            <span class="v">{{ shipment.weightKg != null ? (shipment.weightKg | number:'1.2-2') : '—' }}</span>
+            <span class="s">kg</span>
           </div>
-          <div class="metric-tile">
-            <div class="metric-icon"><i class="pi pi-th-large"></i></div>
-            <div class="metric-label">Volume</div>
-            <div class="metric-value">{{ shipment.volumeCbm != null ? (shipment.volumeCbm | number:'1.2-2') : '—' }}</div>
-            <div class="metric-unit">cbm</div>
+          <div class="sf-tile">
+            <span class="l">Volume</span>
+            <span class="v">{{ shipment.volumeCbm != null ? (shipment.volumeCbm | number:'1.2-2') : '—' }}</span>
+            <span class="s">cbm</span>
           </div>
-          <div class="metric-tile accent">
-            <div class="metric-icon"><i class="pi pi-money-bill"></i></div>
-            <div class="metric-label">Freight Cost</div>
-            <div class="metric-value">{{ shipment.freightCost != null ? (shipment.freightCost | number:'1.2-2') : '—' }}</div>
-            <div class="metric-unit">PKR</div>
+          <div class="sf-tile">
+            <span class="l">Freight Cost</span>
+            <span class="v">{{ shipment.freightCost != null ? (shipment.freightCost | number:'1.2-2') : '—' }}</span>
+            <span class="s">PKR</span>
           </div>
         </div>
-      </div>
-
-      <!-- Notes -->
-      <div class="detail-card" *ngIf="shipment.notes">
-        <div class="card-header">
-          <i class="pi pi-comment"></i>
-          <span>Notes</span>
-        </div>
-        <div class="notes-block">
-          <div class="notes-label"><i class="pi pi-info-circle"></i> Notes</div>
-          <p class="notes-text">{{ shipment.notes }}</p>
-        </div>
-      </div>
-
+      </section>
     </div>
 
-  </ng-container>
+    <!-- Notes -->
+    <section class="sf-card" *ngIf="shipment.notes">
+      <div class="sf-ch"><h2>Notes</h2></div>
+      <p class="notes-text">{{ shipment.notes }}</p>
+    </section>
+  </div>
+</sf-page>
 
-  <!-- ── Status dialog ───────────────────────────────────────────────────── -->
-  <p-dialog [(visible)]="showStatusDialog" [modal]="true" [style]="{width:'440px'}"
-            [draggable]="false" [resizable]="false" styleClass="sdlg">
-    <ng-template pTemplate="header">
-      <div class="sdlg-header">
-        <div class="sdlg-header-icon sdlg-icon-blue"><i class="pi pi-truck"></i></div>
-        <div class="sdlg-header-text">
-          <div class="sdlg-title">Update Shipment Status</div>
-          <div class="sdlg-subtitle" *ngIf="shipment">{{ shipment.shipmentNumber }}</div>
-        </div>
-      </div>
-    </ng-template>
-    <div class="sdlg-body">
-      <div class="sdlg-field">
-        <label>New Status</label>
-        <p-dropdown [options]="statusOptions" [(ngModel)]="newStatus"
-                    styleClass="w-full" appendTo="body"></p-dropdown>
-      </div>
-      <div class="sdlg-field" *ngIf="newStatus === 'Delivered'">
-        <label>Actual Arrival Date</label>
-        <p-calendar [(ngModel)]="actualArrivalVal" dateFormat="dd M yy"
-                    styleClass="w-full" [showIcon]="true" appendTo="body"></p-calendar>
+<!-- ── Status dialog ───────────────────────────────────────────────────── -->
+<p-dialog [(visible)]="showStatusDialog" [modal]="true" [style]="{width:'440px'}"
+          [draggable]="false" [resizable]="false" styleClass="sdlg">
+  <ng-template pTemplate="header">
+    <div class="sdlg-header">
+      <div class="sdlg-header-icon sdlg-icon-blue"><i class="pi pi-truck"></i></div>
+      <div class="sdlg-header-text">
+        <div class="sdlg-title">Update Shipment Status</div>
+        <div class="sdlg-subtitle" *ngIf="shipment">{{ shipment.shipmentNumber }}</div>
       </div>
     </div>
-    <ng-template pTemplate="footer">
-      <div class="sdlg-footer">
-        <div class="sdlg-footer-btns">
-          <p-button label="Cancel" [text]="true" severity="secondary" (onClick)="showStatusDialog=false"></p-button>
-          <p-button label="Save" icon="pi pi-check" [loading]="isSaving" (onClick)="saveStatus()"></p-button>
-        </div>
+  </ng-template>
+  <div class="sdlg-body">
+    <div class="sdlg-field">
+      <label>New Status</label>
+      <p-dropdown [options]="statusOptions" [(ngModel)]="newStatus"
+                  styleClass="w-full" appendTo="body"></p-dropdown>
+    </div>
+    <div class="sdlg-field" *ngIf="newStatus === 'Delivered'">
+      <label>Actual Arrival Date</label>
+      <p-calendar [(ngModel)]="actualArrivalVal" dateFormat="dd M yy"
+                  styleClass="w-full" [showIcon]="true" appendTo="body"></p-calendar>
+    </div>
+  </div>
+  <ng-template pTemplate="footer">
+    <div class="sdlg-footer">
+      <div class="sdlg-footer-btns">
+        <p-button label="Cancel" [text]="true" severity="secondary" (onClick)="showStatusDialog=false"></p-button>
+        <p-button label="Save" icon="pi pi-check" [loading]="isSaving" (onClick)="saveStatus()"></p-button>
       </div>
-    </ng-template>
-  </p-dialog>
-</div>
+    </div>
+  </ng-template>
+</p-dialog>

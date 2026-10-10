@@ -1,102 +1,92 @@
-<div class="po-list-page">
-  <p-toast></p-toast>
+<p-toast></p-toast>
 
-  <div class="page-header">
-    <div class="header-content">
-      <div class="header-left">
-        <h1 class="page-title"><i class="pi pi-shopping-cart"></i> Purchase Orders</h1>
-        <p class="page-subtitle">View and manage all purchase orders</p>
-      </div>
-      <div class="header-right">
-        <p-button label="New Purchase Order" icon="pi pi-plus"
-                  routerLink="/portal/pages/demand/purchase-orders/create"></p-button>
-      </div>
-    </div>
+<sf-page [crumbs]="['Procurement', 'Purchase orders']">
+  <!-- ── Command bar ─────────────────────────────────────────────────────────────────── -->
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <p-button label="New purchase order" icon="pi pi-plus"
+              routerLink="/portal/pages/demand/purchase-orders/create"></p-button>
+    <span class="sf-sep"></span>
+    <p-button icon="pi pi-refresh" label="Reset filters" [text]="true" (onClick)="resetFilters()"></p-button>
   </div>
 
-  <div class="stats-grid">
-    <div class="stat-card">
-      <div class="stat-icon"><i class="pi pi-shopping-cart"></i></div>
-      <div class="stat-content"><h3>{{ totalRecords }}</h3><p>Total POs</p></div>
+  <div class="sf-body">
+    <!-- Title + quick status filters -->
+    <div class="sf-lr-head">
+      <div>
+        <h1>Purchase orders <span class="sf-count">{{ totalRecords }}</span></h1>
+        <div class="sf-sub">Orders placed with suppliers and where each one stands</div>
+      </div>
+      <div class="sf-filters">
+        <button *ngFor="let s of statusOptions" type="button" class="sf-chip" [class.on]="selectedStatus === s.value"
+                (click)="selectedStatus = s.value; onFilterChange()" [attr.data-testid]="'status-chip-' + (s.value || 'ALL')">
+          {{ s.value ? s.label : 'All' }}
+        </button>
+      </div>
     </div>
-    <div class="stat-card">
-      <div class="stat-icon draft"><i class="pi pi-pencil"></i></div>
-      <div class="stat-content"><h3>{{ draftCount }}</h3><p>Drafts (this page)</p></div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-icon approved"><i class="pi pi-check-circle"></i></div>
-      <div class="stat-content"><h3>{{ approvedCount }}</h3><p>Approved (this page)</p></div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-icon value"><i class="pi pi-dollar"></i></div>
-      <div class="stat-content"><h3>{{ totalValue | number:'1.0-0' }}</h3><p>Total Value (this page)</p></div>
-    </div>
-  </div>
 
-  <div class="main-card mb-4">
-    <div class="filter-bar">
-      <p-iconfield class="flex-1">
+    <!-- KPI tiles -->
+    <div class="sf-grid sf-tiles">
+      <div class="sf-tile"><span class="l">Total POs</span><span class="v">{{ totalRecords }}</span><span class="s">matching the filters</span></div>
+      <div class="sf-tile"><span class="l">Drafts</span><span class="v">{{ draftCount }}</span><span class="s">this page</span></div>
+      <div class="sf-tile"><span class="l">Approved</span><span class="v ok">{{ approvedCount }}</span><span class="s">this page</span></div>
+      <div class="sf-tile"><span class="l">Total value</span><span class="v">{{ totalValue | number:'1.0-0' }}</span><span class="s">this page</span></div>
+    </div>
+
+    <!-- Search (status is the chips above) -->
+    <div class="sf-filters">
+      <p-iconfield class="sf-search">
         <p-inputicon styleClass="pi pi-search" />
         <input pInputText type="text" [(ngModel)]="searchText" (ngModelChange)="onSearchChange()"
-               placeholder="Search by PO number, supplier..." class="w-full" />
+               placeholder="Search by PO number, supplier..." />
       </p-iconfield>
+    </div>
 
-      <p-dropdown [options]="statusOptions" [(ngModel)]="selectedStatus"
-                  optionLabel="label" optionValue="value" placeholder="All Statuses"
-                  (onChange)="onFilterChange()" styleClass="filter-dropdown"
-                  appendTo="body"></p-dropdown>
+    <!-- Table -->
+    <div class="sf-card p0">
+      <p-table [value]="pos" [loading]="isLoading" [tableStyle]="{'min-width':'55rem'}"
+               [rows]="pageSize" [paginator]="true" [lazy]="true" [totalRecords]="totalRecords"
+               [rowsPerPageOptions]="[10,20,50]" [showCurrentPageReport]="true"
+               currentPageReportTemplate="Showing {first} to {last} of {totalRecords} purchase orders"
+               (onPage)="onPageChange($event)">
 
-      <p-button icon="pi pi-refresh" severity="secondary" [text]="true"
-                pTooltip="Reset" (onClick)="resetFilters()"></p-button>
+        <ng-template pTemplate="header">
+          <tr>
+            <th>PO Number</th>
+            <th>Title</th>
+            <th>Supplier</th>
+            <th>Status</th>
+            <th class="text-right">Total Amount</th>
+            <th>Delivery Date</th>
+            <th>Created</th>
+            <th style="width:5rem"></th>
+          </tr>
+        </ng-template>
+
+        <ng-template pTemplate="body" let-po>
+          <tr>
+            <td><a class="sf-mono" [routerLink]="['/portal/pages/demand/purchase-orders', po.uuid]"><strong>{{ po.poNumber }}</strong></a></td>
+            <td class="font-semibold">{{ po.title || '—' }}</td>
+            <td>{{ po.supplierName }}</td>
+            <td><p-tag [value]="po.status" [severity]="getStatusSeverity(po.status)"></p-tag></td>
+            <td class="text-right sf-num">{{ po.totalAmount | number:'1.2-2' }}<span *ngIf="po.currencyCode" class="sf-mu"> {{ po.currencyCode }}</span><div *ngIf="po.totalAmountBase != null && po.currencyCode" class="sf-mu sf-sm" data-testid="list-base-total">{{ po.totalAmountBase | number:'1.2-2' }} (base)</div></td>
+            <td>{{ po.deliveryDate ? (po.deliveryDate | date:'dd MMM yyyy') : '—' }}</td>
+            <td class="sf-mu">{{ po.createdDate | date:'dd MMM yyyy' }}</td>
+            <td class="text-center">
+              <p-button icon="pi pi-eye" size="small" [text]="true" severity="secondary" pTooltip="View Details"
+                        [routerLink]="['/portal/pages/demand/purchase-orders', po.uuid]"></p-button>
+            </td>
+          </tr>
+        </ng-template>
+
+        <ng-template pTemplate="emptymessage">
+          <tr>
+            <td colspan="8" class="sf-empty">
+              No purchase orders found.
+              <a routerLink="/portal/pages/demand/purchase-orders/create">Create one.</a>
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
     </div>
   </div>
-
-  <div class="main-card">
-    <p-table [value]="pos" [loading]="isLoading" [tableStyle]="{'min-width':'55rem'}"
-             [rows]="pageSize" [paginator]="true" [lazy]="true" [totalRecords]="totalRecords"
-             [rowsPerPageOptions]="[10,20,50]" [showCurrentPageReport]="true"
-             currentPageReportTemplate="Showing {first} to {last} of {totalRecords} purchase orders"
-             (onPage)="onPageChange($event)">
-
-      <ng-template pTemplate="header">
-        <tr>
-          <th>PO Number</th>
-          <th>Title</th>
-          <th>Supplier</th>
-          <th>Status</th>
-          <th class="text-right">Total Amount</th>
-          <th>Delivery Date</th>
-          <th>Created</th>
-          <th>Actions</th>
-        </tr>
-      </ng-template>
-
-      <ng-template pTemplate="body" let-po>
-        <tr>
-          <td><span class="po-number">{{ po.poNumber }}</span></td>
-          <td class="font-semibold">{{ po.title || '—' }}</td>
-          <td>{{ po.supplierName }}</td>
-          <td><p-tag [value]="po.status" [severity]="getStatusSeverity(po.status)"></p-tag></td>
-          <td class="text-right font-semibold amount-cell">{{ po.totalAmount | number:'1.2-2' }}<span *ngIf="po.currencyCode" class="cur"> {{ po.currencyCode }}</span><div *ngIf="po.totalAmountBase != null && po.currencyCode" class="base-sub" data-testid="list-base-total">{{ po.totalAmountBase | number:'1.2-2' }} (base)</div></td>
-          <td>{{ po.deliveryDate ? (po.deliveryDate | date:'dd MMM yyyy') : '—' }}</td>
-          <td class="text-secondary">{{ po.createdDate | date:'dd MMM yyyy' }}</td>
-          <td>
-            <p-button icon="pi pi-eye" size="small" [text]="true" pTooltip="View Details"
-                      [routerLink]="['/portal/pages/demand/purchase-orders', po.uuid]"></p-button>
-          </td>
-        </tr>
-      </ng-template>
-
-      <ng-template pTemplate="emptymessage">
-        <tr>
-          <td colspan="8" class="text-center p-8">
-            <i class="pi pi-shopping-cart text-4xl text-gray-400 block mb-2"></i>
-            <p class="text-gray-500">No purchase orders found.
-              <a routerLink="/portal/pages/demand/purchase-orders/create" class="text-primary">Create one.</a>
-            </p>
-          </td>
-        </tr>
-      </ng-template>
-    </p-table>
-  </div>
-</div>
+</sf-page>

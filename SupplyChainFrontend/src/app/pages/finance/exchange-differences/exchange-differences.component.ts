@@ -18,6 +18,7 @@ import { AuthService } from '../../service/auth.service';
 import { MoneyPipe } from '../../../shared/money/money.pipe';
 import { formatRate } from '../../../shared/doc-currency/doc-currency';
 import { fromDateOnly, toDateOnly } from '../../../shared/date-only';
+import { FLOW } from '../../../shared/flow';
 
 const PAGE_SIZE = 50;
 
@@ -32,7 +33,8 @@ const PAGE_SIZE = 50;
   standalone: true,
   imports: [
     CommonModule, FormsModule, RouterModule, ButtonModule, TableModule, DropdownModule, CalendarModule, DialogModule,
-    TagModule, TooltipModule, MoneyPipe
+    TagModule, TooltipModule, MoneyPipe,
+    ...FLOW
   ],
   templateUrl: './exchange-differences.component.html',
   styleUrls: ['./exchange-differences.component.scss']

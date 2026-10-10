@@ -1,0 +1,75 @@
+<p-toast></p-toast>
+
+<sf-page [crumbs]="['Sales', 'Customers']">
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <p-button *ngIf="canCreate" label="New customer" icon="pi pi-plus" (onClick)="showCreate = true" data-testid="new-customer"></p-button>
+    <p-button label="Export" icon="pi pi-download" [text]="true" [loading]="isExporting" (onClick)="exportCsv()"
+              pTooltip="CSV of every customer matching the filters" data-testid="export-customers"></p-button>
+    <span class="sf-sep"></span>
+    <p-button icon="pi pi-refresh" label="Reset filters" [text]="true" (onClick)="resetFilters()"></p-button>
+  </div>
+
+  <div class="sf-body">
+    <div class="sf-lr-head">
+      <div>
+        <h1>Customers <span class="sf-count" data-testid="customer-count">{{ totalRecords }}</span></h1>
+        <div class="sf-sub">Everyone you sell to, with their credit limit and what they owe</div>
+      </div>
+      <div class="sf-filters">
+        <button *ngFor="let s of statusOptions" type="button" class="sf-chip" [class.on]="status === s.value"
+                (click)="setStatus(s.value)" [attr.data-testid]="'status-chip-' + (s.value || 'ALL')">{{ s.label }}</button>
+      </div>
+    </div>
+
+    <div class="sf-filters">
+      <p-iconfield class="sf-search">
+        <p-inputicon styleClass="pi pi-search"></p-inputicon>
+        <input pInputText type="text" placeholder="Search code, name, phone or email…" [(ngModel)]="search"
+               (ngModelChange)="onSearchChange()" data-testid="customer-search" />
+      </p-iconfield>
+      <p-dropdown [options]="typeOptions" [(ngModel)]="type" (onChange)="applyFilters()" optionLabel="label" optionValue="value"
+                  placeholder="All types" data-testid="customer-type-filter"></p-dropdown>
+    </div>
+
+    <div class="sf-card p0">
+      <p-table [value]="customers" [loading]="isLoading" [lazy]="true" [totalRecords]="totalRecords" [rows]="pageSize"
+               (onLazyLoad)="onLazyLoad($event)" [paginator]="true" [rowsPerPageOptions]="[25, 50, 100]"
+               [tableStyle]="{ 'min-width': '64rem' }" data-testid="customer-table">
+        <ng-template pTemplate="header">
+          <tr>
+            <th pSortableColumn="code">Code <p-sortIcon field="code"></p-sortIcon></th>
+            <th pSortableColumn="name">Name <p-sortIcon field="name"></p-sortIcon></th>
+            <th pSortableColumn="customerType">Type <p-sortIcon field="customerType"></p-sortIcon></th>
+            <th>Phone</th>
+            <th>Email</th>
+            <th class="text-right" pSortableColumn="creditLimit">Credit limit <p-sortIcon field="creditLimit"></p-sortIcon></th>
+            <th class="text-right" pSortableColumn="balance">Balance <p-sortIcon field="balance"></p-sortIcon></th>
+            <th pSortableColumn="status">Status <p-sortIcon field="status"></p-sortIcon></th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-c>
+          <tr data-testid="customer-row">
+            <td><a class="sf-mono" [routerLink]="['/portal/pages/customers', c.uuid]"><strong>{{ c.code }}</strong></a></td>
+            <td>
+              {{ c.name }}
+              <span *ngIf="c.isSystem" class="sf-pill in" pTooltip="Seeded for counter sales; cannot be deactivated">System</span>
+            </td>
+            <td>{{ typeLabel(c.customerType) }}</td>
+            <td>{{ c.phone || c.mobile || '—' }}</td>
+            <td>{{ c.email || '—' }}</td>
+            <td class="text-right">{{ c.creditLimit | number:'1.2-2' }}</td>
+            <td class="text-right" [class.sf-mu]="!c.balance">
+              {{ c.balance | number:'1.2-2' }}<span *ngIf="c.currencyCode" class="sf-mu"> {{ c.currencyCode }}</span>
+            </td>
+            <td><p-tag [value]="c.isActive ? 'Active' : 'Inactive'" [severity]="c.isActive ? 'success' : 'secondary'"></p-tag></td>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="emptymessage">
+          <tr><td colspan="8" class="sf-empty">No customers found.</td></tr>
+        </ng-template>
+      </p-table>
+    </div>
+  </div>
+</sf-page>
+
+<app-customer-form-dialog [(visible)]="showCreate" [creditEnabled]="creditEnabled" (saved)="onCreated($event)"></app-customer-form-dialog>

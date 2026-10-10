@@ -10,6 +10,7 @@ import { InputTextModule } from 'primeng/inputtext';
 import { DialogModule } from 'primeng/dialog';
 import { MessageService } from 'primeng/api';
 import { MaterialService, WastageDetail } from '../../../../services/material.service';
+import { FLOW, FlowStage, flowStagesFrom } from '../../../../shared/flow';
 
 @Component({
   selector: 'app-wastage-detail',
@@ -17,7 +18,8 @@ import { MaterialService, WastageDetail } from '../../../../services/material.se
   imports: [
     CommonModule, FormsModule, RouterModule,
     ButtonModule, TagModule, ToastModule,
-    TextareaModule, InputTextModule, DialogModule
+    TextareaModule, InputTextModule, DialogModule,
+    ...FLOW
   ],
   templateUrl: './wastage-detail.component.html',
   styleUrls: ['./wastage-detail.component.scss'],
@@ -34,6 +36,14 @@ export class WastageDetailComponent implements OnInit {
   showRejectDialog   = false;
   approvalNotes      = '';
   rejectionReason    = '';
+
+  /** SMS Flow header strip: Recorded → Pending approval → Approved (rejected = red). */
+  get stages(): FlowStage[] {
+    const w = this.wastage;
+    if (!w) return [];
+    if (w.status === 'REJECTED') return flowStagesFrom(['Recorded', 'Rejected'], 1, { failed: true });
+    return flowStagesFrom(['Recorded', 'Pending approval', 'Approved'], w.status === 'APPROVED' ? 3 : 1);
+  }
 
   constructor(
     private route:           ActivatedRoute,

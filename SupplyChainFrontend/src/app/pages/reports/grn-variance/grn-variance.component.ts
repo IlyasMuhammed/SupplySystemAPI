@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FLOW } from '../../../shared/flow';
 import { FormsModule } from '@angular/forms';
 import { TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
@@ -14,7 +15,7 @@ import { PdfService } from '../../../services/pdf.service';
 @Component({
   selector: 'app-grn-variance',
   standalone: true,
-  imports: [CommonModule, FormsModule, TableModule, ButtonModule, InputTextModule, ToastModule, TagModule, CalendarModule],
+  imports: [CommonModule, FormsModule, TableModule, ButtonModule, InputTextModule, ToastModule, TagModule, CalendarModule, ...FLOW],
   templateUrl: './grn-variance.component.html',
   styleUrls: ['./grn-variance.component.scss'],
   providers: [MessageService]

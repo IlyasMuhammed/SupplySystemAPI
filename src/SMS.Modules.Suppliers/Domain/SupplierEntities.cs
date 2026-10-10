@@ -64,6 +64,16 @@ internal class BusinessPartner : ITenantScopedEntity
     public string? VehicleTypes      { get; set; }
     public string? ServiceCategories { get; set; }
 
+    // ── Customer master (A37 D-13; docs/module-registry/ADDENDUM-37-ANALYSIS.md) ──
+    /// <summary>WALK_IN | INDIVIDUAL | COMPANY | EMPLOYEE (<see cref="CustomerTypes"/>); null on rows that are not customers.</summary>
+    public string? CustomerType     { get; set; }
+    public string? Mobile           { get; set; }
+    public int     PaymentTermsDays { get; set; }
+    /// <summary>Seeded by the system (the per-organization walk-in customer): never deactivated, deleted or retyped (CUST-01).</summary>
+    public bool    IsSystem         { get; set; }
+    /// <summary>A37 D-16 — UTC, stamped by <c>SuppliersDbContext.SaveChanges</c> on every insert/update; the sync cursor.</summary>
+    public DateTime ModifiedAt      { get; set; }
+
     // ── Status & workflow ─────────────────────────────────────────────────────
     public string Status { get; set; } = "PENDING";
     public decimal? Rating { get; set; }

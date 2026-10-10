@@ -14,6 +14,7 @@ import {
   ChainOfCustodyResponse,
   IssueEventInfo
 } from '../../../services/material.service';
+import { FLOW } from '../../../shared/flow';
 
 @Component({
   selector: 'app-batch-serial-trace',
@@ -21,7 +22,8 @@ import {
   imports: [
     CommonModule, FormsModule, RouterModule,
     ButtonModule, InputTextModule, TagModule,
-    ToastModule, TimelineModule, CardModule
+    ToastModule, TimelineModule, CardModule,
+    ...FLOW
   ],
   templateUrl: './batch-serial-trace.component.html',
   styleUrls: ['./batch-serial-trace.component.scss'],
@@ -77,7 +79,7 @@ export class BatchSerialTraceComponent {
       events.push({
         label: 'GRN Receipt',
         icon:  'pi pi-truck',
-        color: '#10b981',
+        color: 'var(--sms-ok)',
         data:  this.result.grnReceipt
       });
     }
@@ -86,7 +88,7 @@ export class BatchSerialTraceComponent {
       events.push({
         label: 'Inventory Location',
         icon:  'pi pi-warehouse',
-        color: '#7c3aed',
+        color: 'var(--sms-primary)',
         data:  this.result.currentLocation
       });
     }
@@ -95,7 +97,7 @@ export class BatchSerialTraceComponent {
       events.push({
         label: `Issued — ${ev.issueNo}`,
         icon:  'pi pi-send',
-        color: ev.mivStatus === 'POSTED' ? '#f59e0b' : '#94a3b8',
+        color: ev.mivStatus === 'POSTED' ? 'var(--sms-warn)' : 'var(--sms-text-faint)',
         data:  ev
       });
     });

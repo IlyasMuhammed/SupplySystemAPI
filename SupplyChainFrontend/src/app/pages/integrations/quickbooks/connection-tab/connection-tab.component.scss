@@ -8,15 +8,16 @@
 .connect-row .hint { display: inline-flex; gap: .375rem; align-items: flex-start; max-width: 34rem; }
 
 // Stand-in for Intuit's branded "Connect to QuickBooks" button (see the TODO in the template).
+// The greens are Intuit's brand colours and stay the same in both modes.
 .qbo-connect-button {
   display: inline-flex; align-items: center; gap: .625rem;
   padding: .75rem 1.375rem; border: 0; border-radius: .375rem; cursor: pointer;
   background: #2ca01c; color: #fff; font-size: 1rem; font-weight: 700; letter-spacing: .01em;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, .12);
+  box-shadow: var(--sms-shadow);
   transition: background-color .12s, box-shadow .12s;
-  &:hover:not(:disabled) { background: #108000; box-shadow: 0 2px 6px rgba(0, 0, 0, .18); }
+  &:hover:not(:disabled) { background: #108000; box-shadow: var(--sms-shadow); }
   &:focus-visible { outline: 3px solid #b8e0b0; outline-offset: 2px; }
-  &:disabled { background: #9ca3af; cursor: not-allowed; box-shadow: none; }
+  &:disabled { background: var(--sms-text-faint); cursor: not-allowed; box-shadow: none; }
 }
 
 .tags { display: flex; gap: .375rem; flex-wrap: wrap; }
@@ -29,8 +30,8 @@
 }
 
 .test-result {
-  display: flex; gap: .5rem; align-items: center; margin-top: 1rem; font-size: .875rem; color: var(--green-700, #15803d);
-  &.bad { color: var(--red-600, #dc2626); }
+  display: flex; gap: .5rem; align-items: center; margin-top: 1rem; font-size: .875rem; color: var(--sms-ok);
+  &.bad { color: var(--sms-danger); }
 }
 
 @media (max-width: 720px) {

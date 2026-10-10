@@ -1,75 +1,58 @@
-<div class="warehouse-detail-page">
-  <p-toast></p-toast>
+<p-toast></p-toast>
 
-  <!-- ── Page Header ──────────────────────────────────────────────────────── -->
-  <div class="page-header-card">
-    <div class="ph-left">
-      <p-button icon="pi pi-arrow-left" [text]="true" severity="secondary"
-                (onClick)="goBack()"></p-button>
-      <div class="ph-icon-wrap"><i class="pi pi-building"></i></div>
+<sf-page [crumbs]="['Inventory', 'Warehouses', warehouse?.name]">
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <p-button label="Warehouses" icon="pi pi-arrow-left" [text]="true"
+              (onClick)="goBack()"></p-button>
+  </div>
+
+  <!-- ── Header ───────────────────────────────────────────────────────────── -->
+  <header class="sf-hdr">
+    <div class="sf-t">
       <div>
-        <div class="ph-name">
+        <div class="sf-kicker">Warehouse<ng-container *ngIf="warehouse"> · <span class="sf-mono">{{ warehouse.code }}</span></ng-container></div>
+        <h1>
           {{ warehouse?.name || 'Loading…' }}
           <p-tag *ngIf="warehouse"
                  [value]="warehouse.isActive ? 'Active' : 'Inactive'"
                  [severity]="warehouse.isActive ? 'success' : 'secondary'"></p-tag>
-        </div>
-        <div class="ph-sub" *ngIf="warehouse">
-          <span class="code-chip">{{ warehouse.code }}</span>
-        </div>
+        </h1>
+        <div class="sf-meta" *ngIf="warehouse?.address">{{ warehouse?.address }}</div>
       </div>
     </div>
-  </div>
 
+    <!-- ── Key facts ─────────────────────────────────────────────────────── -->
+    <div *ngIf="!isLoading && warehouse" class="sf-facts">
+      <div class="sf-kpi">
+        <span class="l">Location</span>
+        <span class="v sm">{{ getLocation() }}</span>
+      </div>
+      <div class="sf-kpi">
+        <span class="l">Contact</span>
+        <span class="v sm">{{ warehouse.contactName || '—' }}</span>
+        <span class="s">{{ warehouse.contactPhone || '' }}</span>
+      </div>
+      <div class="sf-kpi">
+        <span class="l">Created</span>
+        <span class="v sm">{{ warehouse.createdDate | date:'mediumDate' }}</span>
+      </div>
+      <div class="sf-kpi">
+        <span class="l">Total Stock Lines</span>
+        <span class="v sm">{{ totalRecords | number }}</span>
+        <span class="s">filtered results</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="sf-body">
   <!-- ── Loading ──────────────────────────────────────────────────────────── -->
-  <div *ngIf="isLoading" class="loading-state">
-    <i class="pi pi-spin pi-spinner" style="font-size:2rem;color:#6c63ff"></i>
+  <div *ngIf="isLoading" class="sf-card sf-empty">
+    <i class="pi pi-spin pi-spinner" style="font-size:2rem;color:var(--sms-primary-text)"></i>
     <p style="margin-top:.75rem;">Loading warehouse details…</p>
   </div>
 
-  <!-- ── Metric Cards ──────────────────────────────────────────────────────── -->
-  <div *ngIf="!isLoading && warehouse" class="metric-cards">
-
-    <div class="metric-card">
-      <div class="mc-icon purple"><i class="pi pi-map-marker"></i></div>
-      <div class="mc-body">
-        <p class="mc-label">Location</p>
-        <p class="mc-value">{{ getLocation() }}</p>
-        <p class="mc-sub" *ngIf="warehouse.address">{{ warehouse.address }}</p>
-      </div>
-    </div>
-
-    <div class="metric-card">
-      <div class="mc-icon blue"><i class="pi pi-user"></i></div>
-      <div class="mc-body">
-        <p class="mc-label">Contact</p>
-        <p class="mc-value">{{ warehouse.contactName || '—' }}</p>
-        <p class="mc-sub">{{ warehouse.contactPhone || '' }}</p>
-      </div>
-    </div>
-
-    <div class="metric-card">
-      <div class="mc-icon violet"><i class="pi pi-calendar"></i></div>
-      <div class="mc-body">
-        <p class="mc-label">Created</p>
-        <p class="mc-value">{{ warehouse.createdDate | date:'mediumDate' }}</p>
-        <p class="mc-sub">{{ warehouse.createdDate | date:'shortDate' }}</p>
-      </div>
-    </div>
-
-    <div class="metric-card">
-      <div class="mc-icon green"><i class="pi pi-chart-bar"></i></div>
-      <div class="mc-body">
-        <p class="mc-label">Total Stock Lines</p>
-        <p class="mc-value">{{ totalRecords | number }}</p>
-        <p class="mc-sub">filtered results</p>
-      </div>
-    </div>
-
-  </div>
-
   <!-- ── Tabs (Stock + Structure) ─────────────────────────────────────────── -->
-  <div *ngIf="!isLoading" class="detail-tabs">
+  <div *ngIf="!isLoading" class="sf-card p0 detail-tabs">
     <div class="tab-bar">
       <button class="tab-btn" [class.active]="activeTab === 'stock'"
               (click)="switchTab('stock')">
@@ -84,8 +67,8 @@
     <!-- ── Stock Tab ──────────────────────────────────────────────────────── -->
     <div *ngIf="activeTab === 'stock'" class="stock-section">
 
-      <div class="stock-header">
-        <h2 class="stock-title"><i class="pi pi-list"></i> Stock Levels</h2>
+      <div class="sf-ch stock-header">
+        <h2>Stock Levels</h2>
         <div class="filter-bar">
           <div class="filter-item">
             <p-dropdown [options]="categoryOptions" [(ngModel)]="selectedCategory"
@@ -149,7 +132,7 @@
               <p-tag *ngIf="item.isBelowReorder" value="Below Reorder" severity="warn"
                      styleClass="text-xs"></p-tag>
               <span *ngIf="!item.isBelowReorder" class="status-ok">
-                <i class="pi pi-check-circle" style="color:#16a34a"></i>
+                <i class="pi pi-check-circle" style="color:var(--sms-ok)"></i>
               </span>
             </td>
             <td class="text-nowrap">{{ item.lastUpdated | date:'short' }}</td>
@@ -158,8 +141,7 @@
 
         <ng-template pTemplate="emptymessage">
           <tr>
-            <td colspan="10" class="text-center py-5 text-secondary">
-              <i class="pi pi-inbox text-3xl mb-2 block opacity-40"></i>
+            <td colspan="10" class="sf-empty">
               No stock records match the current filters.
             </td>
           </tr>
@@ -170,8 +152,8 @@
     <!-- ── Structure Tab ──────────────────────────────────────────────────── -->
     <div *ngIf="activeTab === 'structure'" class="structure-section">
 
-      <div class="structure-header">
-        <h2 class="structure-title"><i class="pi pi-sitemap"></i> Warehouse Structure</h2>
+      <div class="sf-ch structure-header">
+        <h2>Warehouse Structure</h2>
         <div class="structure-actions">
           <p-button label="Add Zone" icon="pi pi-plus" size="small"
                     (onClick)="openAddZone()"></p-button>
@@ -333,9 +315,9 @@
   </div><!-- /detail-tabs -->
 
   <!-- ── Map (bottom of page) ─────────────────────────────────────────────── -->
-  <div *ngIf="!isLoading && warehouse && hasLocation" class="map-section">
-    <div class="map-section-header">
-      <span><i class="pi pi-map-marker"></i> Location</span>
+  <div *ngIf="!isLoading && warehouse && hasLocation" class="sf-card p0 map-section">
+    <div class="sf-ch">
+      <h2>Location</h2>
       <a [href]="mapsOpenUrl" target="_blank" rel="noopener noreferrer" class="open-maps-link">
         <i class="pi pi-external-link"></i> Open in Google Maps
       </a>
@@ -352,6 +334,8 @@
       </a>
     </div>
   </div>
+  </div>
+</sf-page>
 
   <!-- ── Node Dialog ─────────────────────────────────────────────────────── -->
   <p-dialog [(visible)]="showNodeDialog" [header]="nodeDialogTitle" [modal]="true"
@@ -420,5 +404,3 @@
   </p-dialog>
 
   <p-confirmDialog></p-confirmDialog>
-
-</div>

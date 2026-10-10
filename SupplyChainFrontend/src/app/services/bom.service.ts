@@ -29,6 +29,31 @@ export function bomStatusSeverity(status: string): 'success' | 'info' | 'warn' |
   }
 }
 
+/** A37 D-11 — which kind of order a BOM is meant for; advisory (pickers sort by it, nothing is hidden). */
+export type BomUsage = 'UNIVERSAL' | 'PRODUCTION_PREFERRED' | 'SERVICE_PREFERRED';
+
+export const BOM_USAGE_OPTIONS: { label: string; value: BomUsage }[] = [
+  { label: 'Universal',            value: 'UNIVERSAL' },
+  { label: 'Production preferred', value: 'PRODUCTION_PREFERRED' },
+  { label: 'Service preferred',    value: 'SERVICE_PREFERRED' }
+];
+
+export function bomUsageLabel(usage: string | null | undefined): string {
+  return BOM_USAGE_OPTIONS.find(o => o.value === (usage ?? 'UNIVERSAL'))?.label ?? (usage || 'Universal');
+}
+
+/** The short tag a picker shows next to a BOM: none for UNIVERSAL (the default). */
+export function bomUsageTag(usage: string | null | undefined): string | null {
+  switch (usage) {
+    case 'PRODUCTION_PREFERRED': return 'Production';
+    case 'SERVICE_PREFERRED':    return 'Service';
+    default:                     return null;
+  }
+}
+
+/** A37 — ?preferFor on GET /api/boms: matching usage first. */
+export type BomPreferFor = 'PRODUCTION' | 'SERVICE';
+
 export interface BomLineRequest {
   materialVariantUuid: string;
   quantity: number;
@@ -38,7 +63,20 @@ export interface BomLineRequest {
   alternateVariantUuid?: string;
   notes?: string;
   sequence?: number;
+  /** A36 D-4 — STOCK (default) | SUBCONTRACT | INTERNAL_LABOR; only service BOMs use the other two. */
+  sourceType?: BomLineSourceType;
+  /** A36 — the vendor (business partner) for a SUBCONTRACT line; null otherwise. */
+  subcontractSupplierUuid?: string | null;
 }
+
+/** A36 D-4 — where a BOM line's material comes from. */
+export type BomLineSourceType = 'STOCK' | 'SUBCONTRACT' | 'INTERNAL_LABOR';
+
+export const BOM_LINE_SOURCE_OPTIONS: { label: string; value: BomLineSourceType }[] = [
+  { label: 'Stock',          value: 'STOCK' },
+  { label: 'Subcontract',    value: 'SUBCONTRACT' },
+  { label: 'Internal labor', value: 'INTERNAL_LABOR' }
+];
 
 export interface CreateBomRequest {
   productUuid: string;
@@ -50,6 +88,8 @@ export interface CreateBomRequest {
   effectiveTo?: string;
   notes?: string;
   lines: BomLineRequest[];
+  /** A37 — UNIVERSAL when omitted. */
+  bomUsage?: BomUsage;
 }
 
 export interface UpdateBomRequest {
@@ -60,6 +100,8 @@ export interface UpdateBomRequest {
   clearEffectiveDates?: boolean;
   notes?: string;
   lines?: BomLineRequest[];
+  /** A37 — on a DRAFT/REJECTED BOM only; past that, setUsage (PUT /api/boms/{uuid}/usage). */
+  bomUsage?: BomUsage;
 }
 
 export interface BomListFilter {
@@ -68,6 +110,8 @@ export interface BomListFilter {
   search?: string;
   page?: number;
   pageSize?: number;
+  /** A37 — matching usage first, nothing hidden. */
+  preferFor?: BomPreferFor | null;
 }
 
 export interface BomListItem {
@@ -88,6 +132,8 @@ export interface BomListItem {
   createdAt: string;
   updatedAt: string;
   activatedAt?: string | null;
+  /** A37 D-11 — absent on older servers = UNIVERSAL. */
+  bomUsage?: BomUsage | null;
 }
 
 export interface BomLine {
@@ -109,6 +155,10 @@ export interface BomLine {
   alternateVariantUuid?: string | null;
   alternateVariantName?: string | null;
   notes?: string | null;
+  /** A36 D-4 — absent on older servers = STOCK. */
+  sourceType?: BomLineSourceType;
+  subcontractSupplierUuid?: string | null;
+  subcontractSupplierName?: string | null;
 }
 
 export interface BomDetail extends BomListItem {
@@ -200,6 +250,7 @@ export class BomService {
     if (filter.search)      params = params.set('search',      filter.search);
     if (filter.page)        params = params.set('page',        String(filter.page));
     if (filter.pageSize)    params = params.set('pageSize',    String(filter.pageSize));
+    if (filter.preferFor)   params = params.set('preferFor',   filter.preferFor);
     return this.http.get<ApiResponse<PaginatedResponse<BomListItem>>>(this.base, { params });
   }
 
@@ -215,6 +266,11 @@ export class BomService {
 
   updateBom(uuid: string, req: UpdateBomRequest): Observable<ApiResponse> {
     return this.http.put<ApiResponse>(`${this.base}/${uuid}`, req);
+  }
+
+  /** A37 — usage on a BOM past DRAFT/REJECTED (not OBSOLETE); a draft changes it through updateBom. */
+  setUsage(uuid: string, bomUsage: BomUsage): Observable<ApiResponse> {
+    return this.http.put<ApiResponse>(`${this.base}/${uuid}/usage`, { bomUsage });
   }
 
   deleteBom(uuid: string): Observable<ApiResponse> {

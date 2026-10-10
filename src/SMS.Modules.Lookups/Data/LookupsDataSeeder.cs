@@ -12,6 +12,7 @@ internal sealed class LookupsDataSeeder
     public async Task SeedAsync()
     {
         await _db.Database.EnsureCreatedAsync();
+        await EnsureModifiedAtColumnAsync();
 
         var types = new[]
         {
@@ -115,6 +116,17 @@ internal sealed class LookupsDataSeeder
         });
 
         await SeedCurrenciesAsync();
+    }
+
+    /// <summary>
+    /// A37 D-16 — Lookups never runs its migrations at startup (only this seeder runs), so the one column A37 adds is
+    /// ensured here, guarded and idempotent: added with a UTC default (no created/updated date exists to backfill from),
+    /// plus its sync index. The migration A37_LookupValueModifiedAt carries the same SQL for <c>dotnet ef database update</c>.
+    /// </summary>
+    internal async Task EnsureModifiedAtColumnAsync()
+    {
+        if (!_db.Database.IsRelational()) return;
+        await _db.Database.ExecuteSqlRawAsync(LookupValueModifiedAtSql.Up);
     }
 
     /// <summary>A35 §2.3 — the seed codes every organization's currency list is built from (D-1).</summary>

@@ -16,6 +16,7 @@ import {
 } from '../../../services/master-product-ledger.service';
 import { InventoryService, ProductListItemModel, CategoryModel, WarehouseModel } from '../../../services/inventory.service';
 import { ProductVariantPickerComponent, VariantPickerSelection } from '../../../shared/product-variant-picker/product-variant-picker.component';
+import { FLOW } from '../../../shared/flow';
 
 const TRANSACTION_TYPE_OPTIONS = [
   { label: 'GRN Receipt',       value: 'GRN_RECEIPT' },
@@ -49,7 +50,8 @@ const REFERENCE_ROUTES: Record<string, string> = {
   imports: [
     CommonModule, RouterModule, FormsModule,
     TableModule, ButtonModule, CalendarModule, DropdownModule,
-    TagModule, TooltipModule, DialogModule, ToastModule, ProductVariantPickerComponent
+    TagModule, TooltipModule, DialogModule, ToastModule, ProductVariantPickerComponent,
+    ...FLOW
   ],
   templateUrl: './master-product-ledger.component.html',
   styleUrls: ['./master-product-ledger.component.scss'],

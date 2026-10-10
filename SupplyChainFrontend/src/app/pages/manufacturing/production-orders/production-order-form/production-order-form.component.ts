@@ -15,6 +15,7 @@ import { MessageService } from 'primeng/api';
 
 import { PRIORITY_OPTIONS, ProductionOrderService } from '../../../../services/production-order.service';
 import { InventoryService, ProductListItemModel, ProductVariantModel, WarehouseModel } from '../../../../services/inventory.service';
+import { FLOW } from '../../../../shared/flow';
 
 /**
  * A30 §29.3 — raise a production order for a manufactured product. The recipe is snapshotted from
@@ -25,7 +26,8 @@ import { InventoryService, ProductListItemModel, ProductVariantModel, WarehouseM
   standalone: true,
   imports: [
     CommonModule, RouterModule, ReactiveFormsModule,
-    ButtonModule, CalendarModule, CheckboxModule, DropdownModule, InputNumberModule, TextareaModule, ToastModule
+    ButtonModule, CalendarModule, CheckboxModule, DropdownModule, InputNumberModule, TextareaModule, ToastModule,
+    ...FLOW
   ],
   templateUrl: './production-order-form.component.html',
   styleUrls: ['./production-order-form.component.scss'],

@@ -14,13 +14,15 @@ import {
   ConsumptionRegisterResponse,
   MirListItem
 } from '../../../services/material.service';
+import { FLOW } from '../../../shared/flow';
 
 @Component({
   selector: 'app-consumption-register',
   standalone: true,
   imports: [
     CommonModule, FormsModule, RouterModule,
-    ButtonModule, TableModule, TagModule, ToastModule, DividerModule, DropdownModule
+    ButtonModule, TableModule, TagModule, ToastModule, DividerModule, DropdownModule,
+    ...FLOW
   ],
   templateUrl: './consumption-register.component.html',
   styleUrls: ['./consumption-register.component.scss'],

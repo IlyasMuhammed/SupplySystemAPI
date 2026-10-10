@@ -15,6 +15,7 @@ import { MessageService } from 'primeng/api';
 import { DemandService, PatchQuotationRequest } from '../../../../services/demand.service';
 import { InventoryService, ProductListItemModel } from '../../../../services/inventory.service';
 import { ProductVariantPickerComponent, VariantPickerSelection } from '../../../../shared/product-variant-picker/product-variant-picker.component';
+import { FLOW } from '../../../../shared/flow';
 
 @Component({
   selector: 'app-quotation-edit',
@@ -23,7 +24,8 @@ import { ProductVariantPickerComponent, VariantPickerSelection } from '../../../
     CommonModule, RouterModule, ReactiveFormsModule,
     ButtonModule, InputTextModule, TextareaModule, InputNumberModule,
     DropdownModule, CalendarModule, DividerModule, ToastModule, TooltipModule,
-    ProductVariantPickerComponent
+    ProductVariantPickerComponent,
+    ...FLOW
   ],
   templateUrl: './quotation-edit.component.html',
   styleUrls: ['./quotation-edit.component.scss'],

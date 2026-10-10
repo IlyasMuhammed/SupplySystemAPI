@@ -1,13 +1,22 @@
 <p-toast></p-toast>
 
-<div class="qbo-page">
+<sf-page [crumbs]="['Settings', 'Integrations', 'QuickBooks']">
+
+  <!-- ── Command bar ──────────────────────────────────────────────────────── -->
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <span class="sf-mu sf-sm">QuickBooks Online</span>
+    <span class="sf-end">
+      <span class="sf-mu sf-sm company" *ngIf="connection?.companyName">
+        <i class="pi pi-building"></i> {{ connection?.companyName }}
+      </span>
+    </span>
+  </div>
 
   <!-- ── Header ───────────────────────────────────────────────────────────── -->
-  <div class="page-header">
-    <div class="page-icon"><i class="pi pi-sync"></i></div>
-    <div class="grow">
-      <h1 class="page-title">
-        QuickBooks Integration
+  <header class="sf-hdr sf-compact">
+    <div>
+      <h1>
+        QuickBooks integration
         <ng-container *ngIf="connection && !isLoading">
           <p-tag *ngIf="isConnected" [value]="mode === 'Live' ? 'Live' : 'Dry run'" [severity]="mode === 'Live' ? 'success' : 'info'"
                  [icon]="mode === 'Live' ? 'pi pi-bolt' : 'pi pi-eye'" data-testid="header-mode"></p-tag>
@@ -15,91 +24,92 @@
                  [severity]="mustReconnect ? 'danger' : 'secondary'" data-testid="header-status"></p-tag>
         </ng-container>
       </h1>
-      <p class="page-subtitle">Send customers, vendors, items, sales invoices and bills to QuickBooks Online.</p>
+      <div class="sf-meta">Send customers, vendors, items, sales invoices and bills to QuickBooks Online.</div>
     </div>
-    <div class="company" *ngIf="connection?.companyName">
-      <i class="pi pi-building"></i> {{ connection?.companyName }}
+  </header>
+
+  <div class="sf-body">
+    <!-- ── Loading and failure ──────────────────────────────────────────────── -->
+    <div class="sf-card sf-empty" *ngIf="isLoading" data-testid="loading">
+      <i class="pi pi-spin pi-spinner" style="font-size:2rem"></i>
+      <p>Loading the QuickBooks integration…</p>
     </div>
+
+    <div class="sf-card sf-empty" *ngIf="loadFailed" data-testid="load-failed">
+      <i class="pi pi-exclamation-triangle" style="font-size:2rem"></i>
+      <h2>The QuickBooks integration could not be loaded</h2>
+      <p>{{ loadError }}</p>
+      <div><p-button label="Try again" icon="pi pi-refresh" (onClick)="load()" data-testid="retry"></p-button></div>
+    </div>
+
+    <ng-container *ngIf="!isLoading && !loadFailed">
+
+      <!-- ── Setup checklist ───────────────────────────────────────────────── -->
+      <nav class="sf-card checklist" *ngIf="!isComplete" aria-label="Setup steps" data-testid="checklist">
+        <ol>
+          <li *ngFor="let s of steps; let i = index" [class.done]="s.done" [class.current]="current?.key === s.key"
+              [attr.data-testid]="'step-' + s.key" [attr.data-done]="s.done">
+            <button type="button" (click)="selectTab(s.tab)" [disabled]="!isUnlocked(s.tab)">
+              <span class="dot">
+                <i class="pi" [ngClass]="s.done ? 'pi-check' : (current?.key === s.key ? 'pi-arrow-right' : '')"></i>
+                <span *ngIf="!s.done && current?.key !== s.key">{{ i + 1 }}</span>
+              </span>
+              <span class="step-label">{{ s.label }}</span>
+            </button>
+          </li>
+        </ol>
+      </nav>
+
+      <!-- ── Tabs ───────────────────────────────────────────────────────────── -->
+      <section class="sf-card qbo-card">
+        <p-tabs [value]="activeTab" (valueChange)="selectTab($event)" [scrollable]="true" class="qbo-tabs">
+          <p-tablist>
+            <p-tab *ngFor="let t of tabs" [value]="t.key" [disabled]="!isUnlocked(t.key)"
+                   [pTooltip]="lockReason(t.key)" tooltipPosition="bottom" [attr.data-testid]="'tab-' + t.key">
+              <i [class]="t.icon"></i>
+              <span>{{ t.label }}</span>
+              <i class="pi pi-lock lock" *ngIf="!isUnlocked(t.key)"></i>
+            </p-tab>
+          </p-tablist>
+
+          <p-tabpanels>
+            <!-- Only the open tab's component exists, so only it loads. -->
+            <p-tabpanel value="connection">
+              <app-qbo-connection-tab *ngIf="activeTab === 'connection'" [connection]="connection" [canManage]="canManage"
+                                      (connectionChange)="onConnectionChange($event)"></app-qbo-connection-tab>
+            </p-tabpanel>
+
+            <p-tabpanel value="preflight">
+              <app-qbo-preflight-tab *ngIf="activeTab === 'preflight'" [preflight]="preflight" [canManage]="canManage"
+                                     [isConnected]="isConnected" (preflightChange)="onPreflightChange($event)"></app-qbo-preflight-tab>
+            </p-tabpanel>
+
+            <p-tabpanel value="mappings">
+              <app-qbo-mappings-tab *ngIf="activeTab === 'mappings'" [canManage]="canManage"
+                                    (settingsChange)="onSettingsChange($event)"></app-qbo-mappings-tab>
+            </p-tabpanel>
+
+            <p-tabpanel value="initial-sync">
+              <app-qbo-initial-sync-tab *ngIf="activeTab === 'initial-sync'" [canManage]="canManage" [mode]="mode"
+                                        (loaded)="refreshSummary()" (navigate)="selectTab($event)"></app-qbo-initial-sync-tab>
+            </p-tabpanel>
+
+            <p-tabpanel value="match">
+              <app-qbo-match-tab *ngIf="activeTab === 'match'" [canManage]="canManage" [settings]="settings"
+                                 (settingsChange)="onSettingsChange($event)"></app-qbo-match-tab>
+            </p-tabpanel>
+
+            <p-tabpanel value="sync">
+              <app-qbo-sync-tab *ngIf="activeTab === 'sync'" [canManage]="canManage" [canSync]="canSync" [settings]="settings"
+                                (settingsChange)="onSettingsChange($event)" (summaryChange)="onSummaryChange($event)"></app-qbo-sync-tab>
+            </p-tabpanel>
+
+            <p-tabpanel value="api-clients" *ngIf="canManage">
+              <app-qbo-api-clients-tab *ngIf="activeTab === 'api-clients'" [canManage]="canManage"></app-qbo-api-clients-tab>
+            </p-tabpanel>
+          </p-tabpanels>
+        </p-tabs>
+      </section>
+    </ng-container>
   </div>
-
-  <!-- ── Loading and failure ──────────────────────────────────────────────── -->
-  <div class="state-card" *ngIf="isLoading" data-testid="loading">
-    <i class="pi pi-spin pi-spinner"></i>
-    <p>Loading the QuickBooks integration…</p>
-  </div>
-
-  <div class="state-card" *ngIf="loadFailed" data-testid="load-failed">
-    <i class="pi pi-exclamation-triangle"></i>
-    <h2>The QuickBooks integration could not be loaded</h2>
-    <p>{{ loadError }}</p>
-    <p-button label="Try again" icon="pi pi-refresh" (onClick)="load()" data-testid="retry"></p-button>
-  </div>
-
-  <ng-container *ngIf="!isLoading && !loadFailed">
-
-    <!-- ── Setup checklist ───────────────────────────────────────────────── -->
-    <nav class="checklist" *ngIf="!isComplete" aria-label="Setup steps" data-testid="checklist">
-      <ol>
-        <li *ngFor="let s of steps; let i = index" [class.done]="s.done" [class.current]="current?.key === s.key"
-            [attr.data-testid]="'step-' + s.key" [attr.data-done]="s.done">
-          <button type="button" (click)="selectTab(s.tab)" [disabled]="!isUnlocked(s.tab)">
-            <span class="dot">
-              <i class="pi" [ngClass]="s.done ? 'pi-check' : (current?.key === s.key ? 'pi-arrow-right' : '')"></i>
-              <span *ngIf="!s.done && current?.key !== s.key">{{ i + 1 }}</span>
-            </span>
-            <span class="step-label">{{ s.label }}</span>
-          </button>
-        </li>
-      </ol>
-    </nav>
-
-    <!-- ── Tabs ───────────────────────────────────────────────────────────── -->
-    <p-tabs [value]="activeTab" (valueChange)="selectTab($event)" [scrollable]="true" class="qbo-tabs">
-      <p-tablist>
-        <p-tab *ngFor="let t of tabs" [value]="t.key" [disabled]="!isUnlocked(t.key)"
-               [pTooltip]="lockReason(t.key)" tooltipPosition="bottom" [attr.data-testid]="'tab-' + t.key">
-          <i [class]="t.icon"></i>
-          <span>{{ t.label }}</span>
-          <i class="pi pi-lock lock" *ngIf="!isUnlocked(t.key)"></i>
-        </p-tab>
-      </p-tablist>
-
-      <p-tabpanels>
-        <!-- Only the open tab's component exists, so only it loads. -->
-        <p-tabpanel value="connection">
-          <app-qbo-connection-tab *ngIf="activeTab === 'connection'" [connection]="connection" [canManage]="canManage"
-                                  (connectionChange)="onConnectionChange($event)"></app-qbo-connection-tab>
-        </p-tabpanel>
-
-        <p-tabpanel value="preflight">
-          <app-qbo-preflight-tab *ngIf="activeTab === 'preflight'" [preflight]="preflight" [canManage]="canManage"
-                                 [isConnected]="isConnected" (preflightChange)="onPreflightChange($event)"></app-qbo-preflight-tab>
-        </p-tabpanel>
-
-        <p-tabpanel value="mappings">
-          <app-qbo-mappings-tab *ngIf="activeTab === 'mappings'" [canManage]="canManage"
-                                (settingsChange)="onSettingsChange($event)"></app-qbo-mappings-tab>
-        </p-tabpanel>
-
-        <p-tabpanel value="initial-sync">
-          <app-qbo-initial-sync-tab *ngIf="activeTab === 'initial-sync'" [canManage]="canManage" [mode]="mode"
-                                    (loaded)="refreshSummary()" (navigate)="selectTab($event)"></app-qbo-initial-sync-tab>
-        </p-tabpanel>
-
-        <p-tabpanel value="match">
-          <app-qbo-match-tab *ngIf="activeTab === 'match'" [canManage]="canManage" [settings]="settings"
-                             (settingsChange)="onSettingsChange($event)"></app-qbo-match-tab>
-        </p-tabpanel>
-
-        <p-tabpanel value="sync">
-          <app-qbo-sync-tab *ngIf="activeTab === 'sync'" [canManage]="canManage" [canSync]="canSync" [settings]="settings"
-                            (settingsChange)="onSettingsChange($event)" (summaryChange)="onSummaryChange($event)"></app-qbo-sync-tab>
-        </p-tabpanel>
-
-        <p-tabpanel value="api-clients" *ngIf="canManage">
-          <app-qbo-api-clients-tab *ngIf="activeTab === 'api-clients'" [canManage]="canManage"></app-qbo-api-clients-tab>
-        </p-tabpanel>
-      </p-tabpanels>
-    </p-tabs>
-  </ng-container>
-</div>
+</sf-page>

@@ -1,218 +1,213 @@
-<div class="po-create-page">
-  <p-toast></p-toast>
+<p-toast></p-toast>
 
-  <div class="page-header">
-    <div class="header-content">
-      <div class="header-left">
-        <p-button icon="pi pi-arrow-left" [text]="true" severity="secondary"
-                  [routerLink]="['/portal/pages/demand/purchase-orders', uuid]" class="back-btn"></p-button>
-        <div>
-          <h1 class="page-title"><i class="pi pi-pencil"></i> Edit Purchase Order</h1>
-          <p class="page-subtitle">Update this DRAFT purchase order</p>
-        </div>
-      </div>
-    </div>
+<sf-page [crumbs]="['Procurement', 'Purchase orders', 'Edit purchase order']">
+
+  <header class="sf-hdr sf-compact">
+    <h1>Edit purchase order</h1>
+    <span class="sf-mu">Update this DRAFT purchase order</span>
+  </header>
+
+  <div *ngIf="isLoading" class="sf-empty">
+    <i class="pi pi-spin pi-spinner"></i> Loading...
   </div>
 
-  <div *ngIf="isLoading" class="loading-card" style="text-align:center;padding:3rem">
-    <i class="pi pi-spin pi-spinner" style="font-size:2rem;color:#e67e22"></i>
-    <p>Loading...</p>
-  </div>
+  <form *ngIf="!isLoading" [formGroup]="form" (ngSubmit)="onSubmit()" class="sf-form">
+    <div class="sf-body">
 
-  <form *ngIf="!isLoading" [formGroup]="form" (ngSubmit)="onSubmit()">
+      <!-- ── Vendor & General ──────────────────────────────────────────────── -->
+      <section class="sf-card">
+        <div class="sf-ch"><h2>Vendor &amp; general</h2></div>
+        <div class="sf-fields">
 
-    <!-- ── Vendor & General ──────────────────────────────────────────────── -->
-    <div class="form-card">
-      <h2 class="section-title"><i class="pi pi-building"></i> Vendor &amp; General</h2>
-      <div class="form-grid">
-
-        <div class="field col-span-2">
-          <label>Supplier Name <span class="required">*</span></label>
-          <p-autoComplete #poSupplierAc
-            [(ngModel)]="supplierAuto"
-            [ngModelOptions]="{standalone: true}"
-            [suggestions]="supplierSuggestions"
-            field="supplierName"
-            [minLength]="0"
-            (completeMethod)="searchSuppliers($event)"
-            (onFocus)="poSupplierAc.search($event, '', 'focus')"
-            (ngModelChange)="onSupplierChange($event)"
-            placeholder="Search or type supplier name..."
-            styleClass="w-full"
-            inputStyleClass="w-full"
-            [forceSelection]="false"
-            [class.p-invalid]="isInvalid('supplierName')">
-          </p-autoComplete>
-          <small class="p-error" *ngIf="isInvalid('supplierName')">Supplier name is required</small>
-        </div>
-
-        <!-- A35 P3-14 — PO currency; the rate is locked at approval against the purchase base. -->
-        <div class="field col-span-2" data-testid="po-currency-field">
-          <label>Currency</label>
-          <p-dropdown formControlName="currencyId" [options]="currency.options" optionLabel="label" optionValue="value"
-                      [filter]="true" filterBy="label" placeholder="Purchase base currency" styleClass="w-full"
-                      appendTo="body" data-testid="po-currency"></p-dropdown>
-          <app-doc-currency-panel *ngIf="currency.doc as cd" [doc]="cd" lockPoint="approval" domain="PURCHASE"></app-doc-currency-panel>
-        </div>
-
-        <div class="field">
-          <label>PO Title</label>
-          <input pInputText formControlName="title" placeholder="Optional title" class="w-full" maxlength="150" />
-        </div>
-
-        <div class="field">
-          <label>Delivery Date</label>
-          <p-calendar formControlName="deliveryDate" dateFormat="dd/mm/yy" [minDate]="minDate"
-                      [showIcon]="true" styleClass="w-full"></p-calendar>
-        </div>
-
-        <div class="field col-span-2">
-          <label>Delivery Warehouse <span class="hint">(default for all lines)</span></label>
-          <p-dropdown formControlName="deliveryWarehouseId"
-                      [options]="warehouseOptions" optionLabel="label" optionValue="value"
-                      [filter]="true" filterBy="label"
-                      placeholder="Select default warehouse…"
-                      [loading]="loadingWarehouses"
-                      [showClear]="true"
-                      styleClass="w-full"
-                      (onChange)="onHeaderWarehouseChange($event)">
-          </p-dropdown>
-          <small class="hint" *ngIf="headerWarehouseName">Lines without a per-line override will be received at <strong>{{ headerWarehouseName }}</strong>.</small>
-        </div>
-
-        <div class="field col-span-2">
-          <label>Notes</label>
-          <textarea pTextarea formControlName="notes" rows="2" class="w-full" maxlength="1000"></textarea>
-        </div>
-      </div>
-    </div>
-
-    <!-- ── Line Items ──────────────────────────────────────────────────────── -->
-    <div class="form-card">
-      <div class="section-header">
-        <h2 class="section-title"><i class="pi pi-list"></i> Line Items</h2>
-        <p-button label="Add Line" icon="pi pi-plus" severity="secondary" size="small"
-                  type="button" (onClick)="addLine()"></p-button>
-      </div>
-
-      <div formArrayName="lines">
-        <div *ngFor="let line of lines.controls; let i = index" [formGroupName]="i" class="line-card">
-
-          <div class="line-header">
-            <div class="line-num">{{ i + 1 }}</div>
-            <span class="line-title">Line {{ i + 1 }}</span>
-            <p-button icon="pi pi-times" severity="danger" [text]="true" size="small"
-                      type="button" (onClick)="removeLine(i)"
-                      [disabled]="lines.length === 1" pTooltip="Remove line" tooltipPosition="left"></p-button>
+          <div class="sf-fld full">
+            <label>Supplier Name <span class="required">*</span></label>
+            <p-autoComplete #poSupplierAc
+              [(ngModel)]="supplierAuto"
+              [ngModelOptions]="{standalone: true}"
+              [suggestions]="supplierSuggestions"
+              field="supplierName"
+              [minLength]="0"
+              (completeMethod)="searchSuppliers($event)"
+              smsOpenOnFocus
+              (ngModelChange)="onSupplierChange($event)"
+              placeholder="Search or type supplier name..."
+              styleClass="w-full"
+              inputStyleClass="w-full"
+              [forceSelection]="false"
+              [class.p-invalid]="isInvalid('supplierName')">
+            </p-autoComplete>
+            <small class="p-error" *ngIf="isInvalid('supplierName')">Supplier name is required</small>
           </div>
 
-          <div class="line-body">
-            <div class="line-grid">
+          <!-- A35 P3-14 — PO currency; the rate is locked at approval against the purchase base. -->
+          <div class="sf-fld full" data-testid="po-currency-field">
+            <label>Currency</label>
+            <p-dropdown formControlName="currencyId" [options]="currency.options" optionLabel="label" optionValue="value"
+                        [filter]="true" filterBy="label" placeholder="Purchase base currency" styleClass="w-full"
+                        appendTo="body" data-testid="po-currency"></p-dropdown>
+            <app-doc-currency-panel *ngIf="currency.doc as cd" [doc]="cd" lockPoint="approval" domain="PURCHASE"></app-doc-currency-panel>
+          </div>
 
-              <!-- Product — full width -->
-              <div class="field full">
-                <label>Product</label>
-                <app-product-variant-picker
-                  [products]="products"
-                  [productUuid]="line.get('productUuid')?.value"
-                  [variantUuid]="line.get('variantUuid')?.value"
-                  (selectionChange)="onLineVariantSelected(i, $event)">
-                </app-product-variant-picker>
-                <small style="font-size:.75rem;color:#94a3b8;">Selecting a product/variant auto-fills the fields below.</small>
-              </div>
+          <div class="sf-fld">
+            <label>PO Title</label>
+            <input pInputText formControlName="title" placeholder="Optional title" class="w-full" maxlength="150" />
+          </div>
 
-              <!-- Item Description | Specification -->
-              <div class="field">
-                <label>Item Description <span class="required">*</span></label>
-                <input pInputText formControlName="itemDescription"
-                       placeholder="Auto-filled from product, or enter manually"
-                       [class.p-invalid]="lineIsInvalid(i,'itemDescription')" class="w-full" maxlength="200" />
-                <small class="p-error" *ngIf="lineIsInvalid(i,'itemDescription')">Required</small>
-              </div>
-              <div class="field">
-                <label>Specification</label>
-                <input pInputText formControlName="specification"
-                       placeholder="Technical specs or details…"
-                       class="w-full" maxlength="300" />
-              </div>
+          <div class="sf-fld">
+            <label>Delivery Date</label>
+            <p-calendar formControlName="deliveryDate" dateFormat="dd/mm/yy" [minDate]="minDate"
+                        [showIcon]="true" styleClass="w-full"></p-calendar>
+          </div>
 
-              <!-- UOM | Quantity -->
-              <div class="field">
-                <label>UOM</label>
-                <p-dropdown formControlName="unitOfMeasure" [options]="uomOptions"
-                            optionLabel="label" optionValue="value" styleClass="w-full"></p-dropdown>
-              </div>
-              <div class="field">
-                <label>Quantity <span class="required">*</span></label>
-                <p-inputNumber formControlName="quantity" [minFractionDigits]="0" [maxFractionDigits]="4"
-                               [min]="0.0001" [max]="999999" [maxlength]="12" [class.p-invalid]="lineIsInvalid(i,'quantity')"
-                               styleClass="w-full"></p-inputNumber>
-                <small class="p-error" *ngIf="lineIsInvalid(i,'quantity')">Must be between 0 and 999,999</small>
-              </div>
+          <div class="sf-fld full">
+            <label>Delivery Warehouse <span class="hint">(default for all lines)</span></label>
+            <p-dropdown formControlName="deliveryWarehouseId"
+                        [options]="warehouseOptions" optionLabel="label" optionValue="value"
+                        [filter]="true" filterBy="label"
+                        placeholder="Select default warehouse…"
+                        [loading]="loadingWarehouses"
+                        [showClear]="true"
+                        styleClass="w-full"
+                        (onChange)="onHeaderWarehouseChange($event)">
+            </p-dropdown>
+            <small class="hint" *ngIf="headerWarehouseName">Lines without a per-line override will be received at <strong>{{ headerWarehouseName }}</strong>.</small>
+          </div>
 
-              <!-- Unit Price | Required Date -->
-              <div class="field">
-                <label>Unit Price <span class="required">*</span></label>
-                <p-inputNumber formControlName="unitPrice" mode="decimal"
-                               [minFractionDigits]="2" [maxFractionDigits]="4"
-                               [min]="0" [max]="9999999" styleClass="w-full"></p-inputNumber>
-              </div>
-              <div class="field">
-                <label>Required Date</label>
-                <p-calendar formControlName="requiredDate" dateFormat="dd/mm/yy" [minDate]="minDate"
-                            [showIcon]="true" styleClass="w-full" appendTo="body"></p-calendar>
-              </div>
-              <div class="field">
-                <label>Budget Code</label>
-                <input pInputText formControlName="budgetCode" placeholder="e.g. CAPEX-2025"
-                       class="w-full" maxlength="30" />
-              </div>
+          <div class="sf-fld full">
+            <label>Notes</label>
+            <textarea pTextarea formControlName="notes" rows="2" class="w-full" maxlength="1000"></textarea>
+          </div>
+        </div>
+      </section>
 
-              <!-- Notes — full width -->
-              <div class="field full">
-                <label>Line Notes</label>
-                <input pInputText formControlName="lineNotes"
-                       placeholder="Special instructions…"
-                       class="w-full" maxlength="500" />
-              </div>
+      <!-- ── Line Items ──────────────────────────────────────────────────────── -->
+      <section class="sf-card">
+        <div class="sf-ch">
+          <h2>Line items <span class="sf-pill">{{ lines.length }}</span></h2>
+          <div class="sf-ch-actions">
+            <span class="sf-mu sf-sm">Estimated total <strong class="sf-num" data-testid="po-estimated-total">{{ estimatedTotal | money:currency.code:moneyCode }}</strong></span>
+            <p-button label="Add Line" icon="pi pi-plus" severity="secondary" [text]="true" size="small"
+                      type="button" (onClick)="addLine()"></p-button>
+          </div>
+        </div>
 
-              <!-- Receiving Warehouse — full width -->
-              <div class="field full">
-                <label>Receiving Warehouse <span class="hint">(override)</span></label>
-                <p-dropdown formControlName="warehouseId"
-                            [options]="warehouseOptions" optionLabel="label" optionValue="value"
-                            [filter]="true" filterBy="label"
-                            [placeholder]="lineEffectiveWarehousePlaceholder(i)"
-                            [loading]="loadingWarehouses" [showClear]="true"
-                            styleClass="w-full line-warehouse-dd"
-                            (onChange)="onLineWarehouseChange(i, $event)">
-                </p-dropdown>
-              </div>
+        <div formArrayName="lines">
+          <div *ngFor="let line of lines.controls; let i = index" [formGroupName]="i" class="line-card">
 
-              <!-- Inspection requirement -->
-              <div class="field full line-inspection-toggle">
-                <p-checkbox formControlName="requiresInspection" [binary]="true" [inputId]="'requiresInspection-' + i"></p-checkbox>
-                <label [for]="'requiresInspection-' + i">Requires inspection at GRN</label>
-              </div>
-
+            <div class="line-header">
+              <div class="line-num">{{ i + 1 }}</div>
+              <span class="line-title">Line {{ i + 1 }}</span>
+              <p-button icon="pi pi-times" severity="danger" [text]="true" size="small"
+                        type="button" (onClick)="removeLine(i)"
+                        [disabled]="lines.length === 1" pTooltip="Remove line" tooltipPosition="left"></p-button>
             </div>
+
+            <div class="line-body">
+              <div class="sf-fields line-grid">
+
+                <!-- Product — full width -->
+                <div class="sf-fld full">
+                  <label>Product</label>
+                  <app-product-variant-picker
+                    [products]="products"
+                    [productUuid]="line.get('productUuid')?.value"
+                    [variantUuid]="line.get('variantUuid')?.value"
+                    (selectionChange)="onLineVariantSelected(i, $event)">
+                  </app-product-variant-picker>
+                  <small class="hint">Selecting a product/variant auto-fills the fields below.</small>
+                </div>
+
+                <!-- Item Description | Specification -->
+                <div class="sf-fld">
+                  <label>Item Description <span class="required">*</span></label>
+                  <input pInputText formControlName="itemDescription"
+                         placeholder="Auto-filled from product, or enter manually"
+                         [class.p-invalid]="lineIsInvalid(i,'itemDescription')" class="w-full" maxlength="200" />
+                  <small class="p-error" *ngIf="lineIsInvalid(i,'itemDescription')">Required</small>
+                </div>
+                <div class="sf-fld">
+                  <label>Specification</label>
+                  <input pInputText formControlName="specification"
+                         placeholder="Technical specs or details…"
+                         class="w-full" maxlength="300" />
+                </div>
+
+                <!-- UOM | Quantity -->
+                <div class="sf-fld">
+                  <label>UOM</label>
+                  <p-dropdown formControlName="unitOfMeasure" [options]="uomOptions"
+                              optionLabel="label" optionValue="value" styleClass="w-full"></p-dropdown>
+                </div>
+                <div class="sf-fld">
+                  <label>Quantity <span class="required">*</span></label>
+                  <p-inputNumber formControlName="quantity" [minFractionDigits]="0" [maxFractionDigits]="4"
+                                 [min]="0.0001" [max]="999999" [maxlength]="12" [class.p-invalid]="lineIsInvalid(i,'quantity')"
+                                 styleClass="w-full"></p-inputNumber>
+                  <small class="p-error" *ngIf="lineIsInvalid(i,'quantity')">Must be between 0 and 999,999</small>
+                </div>
+
+                <!-- Unit Price | Required Date -->
+                <div class="sf-fld">
+                  <label>Unit Price <span class="required">*</span></label>
+                  <p-inputNumber formControlName="unitPrice" mode="decimal"
+                                 [minFractionDigits]="2" [maxFractionDigits]="4"
+                                 [min]="0" [max]="9999999" styleClass="w-full"></p-inputNumber>
+                </div>
+                <div class="sf-fld">
+                  <label>Required Date</label>
+                  <p-calendar formControlName="requiredDate" dateFormat="dd/mm/yy" [minDate]="minDate"
+                              [showIcon]="true" styleClass="w-full" appendTo="body"></p-calendar>
+                </div>
+                <div class="sf-fld">
+                  <label>Budget Code</label>
+                  <input pInputText formControlName="budgetCode" placeholder="e.g. CAPEX-2025"
+                         class="w-full" maxlength="30" />
+                </div>
+
+                <!-- Notes — full width -->
+                <div class="sf-fld full">
+                  <label>Line Notes</label>
+                  <input pInputText formControlName="lineNotes"
+                         placeholder="Special instructions…"
+                         class="w-full" maxlength="500" />
+                </div>
+
+                <!-- Receiving Warehouse — full width -->
+                <div class="sf-fld full">
+                  <label>Receiving Warehouse <span class="hint">(override)</span></label>
+                  <p-dropdown formControlName="warehouseId"
+                              [options]="warehouseOptions" optionLabel="label" optionValue="value"
+                              [filter]="true" filterBy="label"
+                              [placeholder]="lineEffectiveWarehousePlaceholder(i)"
+                              [loading]="loadingWarehouses" [showClear]="true"
+                              styleClass="w-full line-warehouse-dd"
+                              (onChange)="onLineWarehouseChange(i, $event)">
+                  </p-dropdown>
+                </div>
+
+                <!-- Inspection requirement -->
+                <div class="sf-fld full line-inspection-toggle">
+                  <p-checkbox formControlName="requiresInspection" [binary]="true" [inputId]="'requiresInspection-' + i"></p-checkbox>
+                  <label [for]="'requiresInspection-' + i">Requires inspection at GRN</label>
+                </div>
+
+              </div>
+            </div>
+
           </div>
-
         </div>
-      </div>
-
-      <div class="total-bar">
-        <span class="total-label">Estimated Total</span>
-        <span class="total-amount" data-testid="po-estimated-total">{{ estimatedTotal | money:currency.code:moneyCode }}</span>
-      </div>
+      </section>
     </div>
 
     <!-- ── Actions ────────────────────────────────────────────────────────── -->
-    <div class="action-bar">
-      <p-button label="Cancel" severity="secondary" [text]="true" type="button"
-                [routerLink]="['/portal/pages/demand/purchase-orders', uuid]"></p-button>
-      <p-button label="Save Changes" icon="pi pi-check" type="submit"
-                [loading]="isSubmitting"></p-button>
+    <div class="sf-fbar">
+      <span class="sf-mu sf-sm">Only a draft purchase order can be edited.</span>
+      <span class="sf-end">
+        <p-button label="Cancel" severity="secondary" [text]="true" type="button"
+                  [routerLink]="['/portal/pages/demand/purchase-orders', uuid]"></p-button>
+        <p-button label="Save Changes" icon="pi pi-check" type="submit"
+                  [loading]="isSubmitting"></p-button>
+      </span>
     </div>
   </form>
-</div>
+</sf-page>

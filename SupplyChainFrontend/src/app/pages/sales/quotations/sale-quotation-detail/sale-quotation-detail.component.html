@@ -1,81 +1,107 @@
-<div class="detail-page">
-  <p-toast></p-toast>
+<p-toast></p-toast>
 
-  <div class="not-found" *ngIf="notFound" data-testid="not-found">
-    <i class="pi pi-inbox"></i>
-    <h2>Sale quotation not found</h2>
-    <p>It may belong to another organization, or the link may be wrong.</p>
-    <p-button label="Back to quotations" icon="pi pi-arrow-left" [text]="true" [routerLink]="quotationsRoute"></p-button>
+<div class="sf-empty" *ngIf="notFound" data-testid="not-found">
+  <i class="pi pi-inbox" style="font-size:2rem"></i>
+  <h2>Sale quotation not found</h2>
+  <p>It may belong to another organization, or the link may be wrong.</p>
+  <p-button label="Back to quotations" icon="pi pi-arrow-left" [text]="true" [routerLink]="quotationsRoute"></p-button>
+</div>
+
+<div *ngIf="isLoading && !quotation" class="sf-empty" data-testid="loading">
+  <i class="pi pi-spin pi-spinner"></i> Loading…
+</div>
+
+<sf-page *ngIf="quotation as q" [crumbs]="['Sales', 'Quotations', q.quotationNumber]">
+
+  <!-- ── Command bar: the next step first, then the rest ─────────────────────────────── -->
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <p-button *ngIf="canConvert" label="Convert to sale order" icon="pi pi-shopping-bag"
+              (onClick)="openConvertDialog()" data-testid="action-convert"></p-button>
+    <p-button *ngIf="canSend" label="Send to customer" icon="pi pi-send"
+              (onClick)="openSendDialog()" data-testid="action-send"></p-button>
+    <p-button *ngIf="canEdit" label="Edit header" icon="pi pi-pencil" [text]="true"
+              [routerLink]="[quotationsRoute, q.uuid, 'edit']" data-testid="action-edit"></p-button>
+    <p-button *ngIf="canCopy" label="Copy" icon="pi pi-copy" [text]="true" [loading]="isCopying"
+              pTooltip="A new draft with the same lines" (onClick)="copy()" data-testid="action-copy"></p-button>
   </div>
 
-  <div *ngIf="isLoading && !quotation" class="loading-state" data-testid="loading">
-    <i class="pi pi-spin pi-spinner"></i> Loading…
-  </div>
-
-  <ng-container *ngIf="quotation as q">
-    <!-- ── Header (§10.3) ─────────────────────────────────────────────────────── -->
-    <div class="page-header">
+  <!-- ── Dynamic header (§10.3) ──────────────────────────────────────────────────────── -->
+  <header class="sf-hdr">
+    <div class="sf-t">
       <div>
-        <h1 class="page-title">
-          <i class="pi pi-file-edit"></i>
-          <span class="font-mono" data-testid="number">{{ q.quotationNumber }}</span>
+        <div class="sf-kicker">
+          Customer quotation
+          <ng-container *ngIf="q.saleOrder"> · converted to <span data-testid="sale-order"><a class="sf-mono"
+                [routerLink]="[saleOrdersRoute, q.saleOrder.uuid]">{{ q.saleOrder.number }}</a></span></ng-container>
+        </div>
+        <h1>
+          <span class="sf-mono" data-testid="number">{{ q.quotationNumber }}</span>
           <p-tag [value]="formatStatus(q.status)" [severity]="getStatusSeverity(q.status)" data-testid="status"></p-tag>
-          <span *ngIf="q.sentAt" class="sent-badge" data-testid="sent-badge"
+          <span *ngIf="q.sentAt" class="sf-pill in" data-testid="sent-badge"
                 [pTooltip]="q.sentByUserName ? 'Sent by ' + q.sentByUserName : ''">
             <i class="pi pi-send"></i> Sent {{ q.sentAt | date:'dd MMM yyyy, HH:mm' }}
           </span>
         </h1>
-        <dl class="header-facts">
-          <div><dt>Customer</dt><dd data-testid="customer">{{ q.partnerName || q.partnerId }}</dd></div>
-          <div><dt>Valid</dt><dd data-testid="validity">{{ day(q.validFrom) | date:'dd MMM yyyy' }} — {{ day(q.validTo) | date:'dd MMM yyyy' }}</dd></div>
-          <div><dt>Currency</dt><dd data-testid="currency">{{ q.currencyCode || '—' }}</dd></div>
-          <div><dt>From inquiry</dt><dd data-testid="source-inquiry"><a *ngIf="q.sourceInquiry; else noInquiry" class="doc-link font-mono"
-                [routerLink]="[inquiriesRoute, q.sourceInquiry.uuid]">{{ q.sourceInquiry.number }}</a><ng-template #noInquiry>—</ng-template></dd></div>
-          <div *ngIf="q.saleOrder"><dt>Sale order</dt><dd data-testid="sale-order"><a class="doc-link font-mono"
-                [routerLink]="[saleOrdersRoute, q.saleOrder.uuid]">{{ q.saleOrder.number }}</a></dd></div>
-        </dl>
-      </div>
-
-      <div class="header-actions">
-        <p-button *ngIf="canEdit" label="Edit header" icon="pi pi-pencil" [text]="true" severity="secondary"
-                  [routerLink]="[quotationsRoute, q.uuid, 'edit']" data-testid="action-edit"></p-button>
-        <p-button *ngIf="canCopy" label="Copy" icon="pi pi-copy" [text]="true" severity="secondary" [loading]="isCopying"
-                  pTooltip="A new draft with the same lines" (onClick)="copy()" data-testid="action-copy"></p-button>
-        <p-button *ngIf="canSend" label="Send to Customer" icon="pi pi-send"
-                  (onClick)="openSendDialog()" data-testid="action-send"></p-button>
-        <p-button *ngIf="canConvert" label="Convert to Sale Order" icon="pi pi-shopping-bag"
-                  (onClick)="openConvertDialog()" data-testid="action-convert"></p-button>
+        <div class="sf-meta">
+          <span data-testid="customer">{{ q.partnerName || q.partnerId }}</span>
+          · <span data-testid="currency">{{ q.currencyCode || '—' }}</span>
+          · from inquiry <span data-testid="source-inquiry"><a *ngIf="q.sourceInquiry; else noInquiry" class="sf-mono"
+                [routerLink]="[inquiriesRoute, q.sourceInquiry.uuid]">{{ q.sourceInquiry.number }}</a><ng-template #noInquiry>—</ng-template></span>
+        </div>
       </div>
     </div>
 
+    <sf-stages [stages]="stages"></sf-stages>
+
+    <div class="sf-facts">
+      <div class="sf-kpi">
+        <span class="l">Total</span>
+        <span class="v">{{ q.grandTotal | number:'1.2-2' }}</span>
+        <span class="s">{{ q.currencyCode }} incl. tax</span>
+      </div>
+      <div class="sf-kpi" *ngIf="baseGrandTotal !== null">
+        <span class="l">In {{ q.baseCurrencyCode }}</span>
+        <span class="v">{{ baseGrandTotal | number:'1.2-2' }}</span>
+        <span class="s">sum of the line base totals</span>
+      </div>
+      <div class="sf-kpi">
+        <span class="l">Valid</span>
+        <span class="v sm" data-testid="validity">{{ day(q.validFrom) | date:'dd MMM yyyy' }} — {{ day(q.validTo) | date:'dd MMM yyyy' }}</span>
+        <span class="s">{{ rows.length }} line{{ rows.length === 1 ? '' : 's' }}</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="sf-body">
+    <section class="sf-card">
     <p-tabView styleClass="quotation-tabs" [(activeIndex)]="activeTab">
 
       <!-- ── Details ──────────────────────────────────────────────────────────── -->
       <p-tabPanel [header]="tabs[0]" leftIcon="pi pi-info-circle">
-        <div class="detail-grid">
-          <div class="card">
-            <h3>Quotation</h3>
-            <dl>
-              <dt>Customer reference</dt><dd>{{ q.customerReference || '—' }}</dd>
-              <dt>Reference date</dt><dd>{{ q.customerReferenceDate ? (day(q.customerReferenceDate) | date:'dd MMM yyyy') : '—' }}</dd>
-              <dt>Valid from</dt><dd>{{ day(q.validFrom) | date:'dd MMM yyyy' }}</dd>
-              <dt>Valid to</dt><dd>{{ day(q.validTo) | date:'dd MMM yyyy' }}</dd>
-              <dt>Currency</dt><dd>{{ q.currencyCode || '—' }}</dd>
-              <dt>Created</dt><dd>{{ q.createdDate | date:'dd MMM yyyy' }}</dd>
-              <dt>Sent</dt><dd>{{ q.sentAt ? (q.sentAt | date:'dd MMM yyyy, HH:mm') : 'Not yet' }}</dd>
-            </dl>
+        <div class="sf-row">
+          <div class="sf-card flat">
+            <div class="sf-ch"><h2>Quotation</h2></div>
+            <div class="sf-kv">
+              <span>Customer reference</span><span>{{ q.customerReference || '—' }}</span>
+              <span>Reference date</span><span>{{ q.customerReferenceDate ? (day(q.customerReferenceDate) | date:'dd MMM yyyy') : '—' }}</span>
+              <span>Valid from</span><span>{{ day(q.validFrom) | date:'dd MMM yyyy' }}</span>
+              <span>Valid to</span><span>{{ day(q.validTo) | date:'dd MMM yyyy' }}</span>
+              <span>Currency</span><span>{{ q.currencyCode || '—' }}</span>
+              <span>Created</span><span>{{ q.createdDate | date:'dd MMM yyyy' }}</span>
+              <span>Sent</span><span>{{ q.sentAt ? (q.sentAt | date:'dd MMM yyyy, HH:mm') : 'Not yet' }}</span>
+            </div>
           </div>
-          <div class="card">
-            <h3>Totals</h3>
-            <dl>
-              <dt>Subtotal</dt><dd>{{ q.subtotal | number:'1.2-2' }}</dd>
-              <dt>Discount</dt><dd>{{ q.discountAmount | number:'1.2-2' }}</dd>
-              <dt>Tax</dt><dd>{{ q.taxAmount | number:'1.2-2' }}</dd>
-              <dt>Grand total</dt><dd class="font-semibold">{{ q.grandTotal | number:'1.2-2' }} {{ q.currencyCode }}</dd>
+          <div class="sf-card flat">
+            <div class="sf-ch"><h2>Totals</h2></div>
+            <div class="sf-kv">
+              <span>Subtotal</span><span>{{ q.subtotal | number:'1.2-2' }}</span>
+              <span>Discount</span><span>{{ q.discountAmount | number:'1.2-2' }}</span>
+              <span>Tax</span><span>{{ q.taxAmount | number:'1.2-2' }}</span>
+              <span>Grand total</span><span class="font-semibold">{{ q.grandTotal | number:'1.2-2' }} {{ q.currencyCode }}</span>
               <ng-container *ngIf="baseGrandTotal !== null">
-                <dt>In {{ q.baseCurrencyCode }}</dt><dd data-testid="quotation-base-total">{{ baseGrandTotal | money:baseCurrencyRef:moneyCode }}</dd>
+                <span>In {{ q.baseCurrencyCode }}</span><span data-testid="quotation-base-total">{{ baseGrandTotal | money:baseCurrencyRef:moneyCode }}</span>
               </ng-container>
-            </dl>
+            </div>
             <!-- A35 — currency, the rate locked when the quotation is sent, the sale base. -->
             <app-doc-currency-panel [doc]="currencyInfo" lockPoint="sending" domain="SALE" [showToggle]="false"></app-doc-currency-panel>
             <p class="notes" *ngIf="q.internalNotes"><strong>Internal:</strong> {{ q.internalNotes }}</p>
@@ -94,7 +120,7 @@
                     data-testid="add-line"></p-button>
         </div>
 
-        <div class="table-card flush">
+        <div class="sf-card flat p0">
           <p-table [value]="rows" [tableStyle]="{'min-width':'72rem'}" data-testid="lines-table">
             <ng-template pTemplate="header">
               <tr>
@@ -177,12 +203,10 @@
 
       <!-- ── Terms ────────────────────────────────────────────────────────────── -->
       <p-tabPanel [header]="tabs[2]" leftIcon="pi pi-book">
-        <div class="card">
-          <dl>
-            <dt>Payment terms</dt><dd data-testid="payment-terms">{{ q.paymentTerms || '—' }}</dd>
-            <dt>Delivery terms</dt><dd data-testid="delivery-terms">{{ q.deliveryTerms || '—' }}</dd>
-            <dt>Notes to the customer</dt><dd class="pre" data-testid="terms-notes">{{ q.notes || '—' }}</dd>
-          </dl>
+        <div class="sf-kv">
+          <span>Payment terms</span><span data-testid="payment-terms">{{ q.paymentTerms || '—' }}</span>
+          <span>Delivery terms</span><span data-testid="delivery-terms">{{ q.deliveryTerms || '—' }}</span>
+          <span>Notes to the customer</span><span class="pre" data-testid="terms-notes">{{ q.notes || '—' }}</span>
         </div>
       </p-tabPanel>
 
@@ -191,7 +215,9 @@
         <app-attachment-list [interfaceCode]="attachmentCode" [documentId]="q.uuid" label="Quotation attachments"></app-attachment-list>
       </p-tabPanel>
     </p-tabView>
-  </ng-container>
+    </section>
+  </div>
+</sf-page>
 
   <!-- ── Line editor (A32-PC-12) ─────────────────────────────────────────────── -->
   <p-dialog [header]="editingLine ? 'Edit line ' + editingLine.lineNumber : 'Add line'" [(visible)]="lineDialogVisible"
@@ -264,4 +290,3 @@
                 (onClick)="confirmConvert()" data-testid="confirm-convert"></p-button>
     </ng-template>
   </p-dialog>
-</div>

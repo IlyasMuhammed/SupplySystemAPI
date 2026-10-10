@@ -1,0 +1,369 @@
+<p-toast></p-toast>
+<p-confirmDialog></p-confirmDialog>
+
+<div class="sf-empty" *ngIf="isLoading && !order" data-testid="loading"><i class="pi pi-spin pi-spinner"></i> Loading…</div>
+
+<div class="sf-empty" *ngIf="loadFailed && !isLoading" data-testid="load-failed">
+  <i class="pi pi-exclamation-triangle" style="font-size:2rem"></i>
+  <h2>This service order could not be loaded</h2>
+  <p-button label="Try again" icon="pi pi-refresh" (onClick)="load()"></p-button>
+</div>
+
+<sf-page *ngIf="order as o" [crumbs]="['Services', 'Service orders', o.serviceNumber]">
+
+  <!-- ── Command bar: the next step first ─────────────────────────────────────────── -->
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands" data-testid="actions">
+    <p-button *ngIf="canPlan"     label="Plan"     icon="pi pi-calendar-plus" [loading]="busy" (onClick)="plan()" data-testid="plan"></p-button>
+    <p-button *ngIf="canStart"    label="Start"    icon="pi pi-play"          [loading]="busy" (onClick)="start()" data-testid="start"></p-button>
+    <p-button *ngIf="canComplete" label="Complete" icon="pi pi-check"         [disabled]="busy" (onClick)="openCompletion()" data-testid="complete"></p-button>
+    <p-button *ngIf="canClose"    label="Close"    icon="pi pi-lock"          [loading]="busy" (onClick)="close()" data-testid="close"></p-button>
+    <p-button *ngIf="canEdit && !editing" label="Edit" icon="pi pi-pencil" [text]="true" [disabled]="busy" (onClick)="startEdit()" data-testid="edit"></p-button>
+    <span class="sf-sep" *ngIf="canCancel"></span>
+    <p-button *ngIf="canCancel"   label="Cancel order" icon="pi pi-ban" severity="danger" [text]="true" [disabled]="busy" (onClick)="openCancel()" data-testid="cancel"></p-button>
+    <span class="sf-end">
+      <p-button icon="pi pi-arrow-left" label="All service orders" [text]="true" [routerLink]="[route]"></p-button>
+    </span>
+  </div>
+
+  <!-- ── Header ────────────────────────────────────────────────────────────────────── -->
+  <header class="sf-hdr">
+    <div class="sf-t">
+      <div>
+        <div class="sf-kicker" data-testid="source">
+          Service order ·
+          <ng-container *ngIf="o.sourceType === 'SALES_ORDER' && o.sourceUuid; else manual">
+            for sale order <a class="sf-mono" [routerLink]="['/portal/pages/sales/orders', o.sourceUuid]" data-testid="source-link">{{ o.sourceReference || 'Sale order' }}</a>
+          </ng-container>
+          <ng-template #manual><span>created directly</span></ng-template>
+        </div>
+        <h1>
+          <span class="sf-mono">{{ o.serviceNumber }}</span>
+          <span class="sf-pill" [ngClass]="tone(o.status)" data-testid="status">{{ statusLabel(o.status) }}</span>
+          <span class="sf-pill" [ngClass]="o.priority >= 2 ? 'er' : ''" data-testid="priority">{{ priorityLabel(o.priority) }} priority</span>
+        </h1>
+        <div class="sf-meta" data-testid="meta">
+          {{ o.customerName }} · {{ o.serviceProductName }}<span *ngIf="o.serviceVariantName"> – {{ o.serviceVariantName }}</span>
+          · {{ assignedText }}
+          · <ng-container *ngIf="o.scheduledDate; else unscheduled">{{ o.scheduledDate | date:'dd MMM yyyy' }}<span *ngIf="o.scheduledTime"> {{ o.scheduledTime | slice:0:5 }}</span></ng-container>
+          <ng-template #unscheduled>not scheduled</ng-template>
+        </div>
+      </div>
+    </div>
+
+    <sf-stages [stages]="stages" data-testid="stages"></sf-stages>
+
+    <div class="sf-facts" data-testid="facts">
+      <div class="sf-kpi"><span class="l">Quantity</span><span class="v">{{ o.quantity | number:'1.0-4' }}</span></div>
+      <div class="sf-kpi">
+        <span class="l">Hours</span>
+        <span class="v">{{ o.actualHours != null ? (o.actualHours | number:'1.0-2') : '—' }}</span>
+        <span class="s">estimated {{ o.estimatedHours != null ? (o.estimatedHours | number:'1.0-2') : '—' }}</span>
+      </div>
+      <div class="sf-kpi" *ngIf="readiness(o.materialReadiness) as r" data-testid="readiness">
+        <span class="l">Materials</span>
+        <span class="v sm" [ngClass]="r.tone"><i class="pi" [ngClass]="r.icon"></i> {{ flowLabel(o.materialReadiness) }}</span>
+        <span class="s">{{ r.label }}</span>
+      </div>
+      <div class="sf-kpi" *ngIf="o.sourceType === 'SALES_ORDER' && o.sourceUuid">
+        <span class="l">Sale order</span>
+        <span class="v sm"><a class="sf-mono" [routerLink]="['/portal/pages/sales/orders', o.sourceUuid]">{{ o.sourceReference || 'Open' }}</a></span>
+      </div>
+    </div>
+  </header>
+
+  <sf-anchors [sections]="sections"></sf-anchors>
+
+  <div class="sf-body">
+
+    <!-- ══ Details ═══════════════════════════════════════════════════════════════════ -->
+    <section id="sec-details" class="sf-section sf-card" data-testid="sec-details">
+      <div class="sf-ch">
+        <h2>Details</h2>
+        <span *ngIf="editing" class="sf-mu sf-sm">{{ fullEdit ? 'Every field can be changed until work starts.' : 'Only the notes can be changed now.' }}</span>
+      </div>
+
+      <div class="sf-kv" *ngIf="!editing" data-testid="details-view">
+        <span>Customer</span><span>{{ o.customerName }}</span>
+        <span>Service</span><span>{{ o.serviceProductName }}<span *ngIf="o.serviceVariantName" class="sf-mu"> – {{ o.serviceVariantName }}</span></span>
+        <span>Quantity</span><span>{{ o.quantity | number:'1.0-4' }}</span>
+        <span>Warehouse</span><span>{{ o.warehouseName }}</span>
+        <span>Assigned</span><span>{{ assignedText }}</span>
+        <span>Scheduled</span><span>{{ o.scheduledDate ? (o.scheduledDate | date:'dd MMM yyyy') : '—' }} {{ o.scheduledTime ? (o.scheduledTime | slice:0:5) : '' }}</span>
+        <span>Priority</span><span>{{ priorityLabel(o.priority) }}</span>
+        <span>Estimated hours</span><span>{{ o.estimatedHours != null ? (o.estimatedHours | number:'1.0-2') : '—' }}</span>
+        <span>Invoicing</span><span>{{ o.invoicingPolicy ? flowLabel(o.invoicingPolicy) : '—' }}<span *ngIf="o.billingModel" class="sf-mu"> · {{ flowLabel(o.billingModel) }}</span></span>
+        <span>Service BOM</span><span>{{ o.bomNumber ? (o.bomNumber + ' v' + o.bomVersion) : 'None' }}</span>
+        <span>Started</span><span>{{ o.actualStartDate ? (o.actualStartDate | date:'medium') : '—' }}</span>
+        <span>Finished</span><span>{{ o.actualEndDate ? (o.actualEndDate | date:'medium') : '—' }}</span>
+        <span>Notes</span><span>{{ o.notes || '—' }}</span>
+      </div>
+
+      <ng-container *ngIf="editing">
+        <div class="sf-fields" *ngIf="fullEdit" data-testid="details-edit">
+          <div class="sf-fld">
+            <label for="e-customer" class="sf-req">Customer</label>
+            <p-dropdown inputId="e-customer" [options]="customerOptions" [(ngModel)]="edit.customerUuid" optionLabel="label" optionValue="value"
+                        [filter]="true" filterBy="label" styleClass="w-full" appendTo="body" data-testid="edit-customer"></p-dropdown>
+          </div>
+          <div class="sf-fld">
+            <label for="e-qty" class="sf-req">Quantity</label>
+            <p-inputnumber inputId="e-qty" [(ngModel)]="edit.quantity" [min]="0" [maxFractionDigits]="4" styleClass="w-full" data-testid="edit-qty"></p-inputnumber>
+          </div>
+          <div class="sf-fld">
+            <label for="e-wh" class="sf-req">Warehouse</label>
+            <p-dropdown inputId="e-wh" [options]="warehouseOptions" [(ngModel)]="edit.warehouseUuid" optionLabel="label" optionValue="value"
+                        styleClass="w-full" appendTo="body"></p-dropdown>
+          </div>
+          <div class="sf-fld">
+            <label for="e-user">Assigned to</label>
+            <p-dropdown inputId="e-user" [options]="userOptions" [(ngModel)]="edit.assignedUserId" (onChange)="onEditUserChange()"
+                        optionLabel="label" optionValue="value" [filter]="true" filterBy="label" [showClear]="true" placeholder="Nobody"
+                        styleClass="w-full" appendTo="body"></p-dropdown>
+          </div>
+          <div class="sf-fld">
+            <label for="e-role">Or team</label>
+            <p-dropdown inputId="e-role" [options]="roleOptions" [(ngModel)]="edit.assignedRoleId" (onChange)="onEditRoleChange()"
+                        optionLabel="label" optionValue="value" [showClear]="true" placeholder="No team" styleClass="w-full" appendTo="body"></p-dropdown>
+          </div>
+          <div class="sf-fld">
+            <label for="e-priority">Priority</label>
+            <p-dropdown inputId="e-priority" [options]="priorityOptions" [(ngModel)]="edit.priority" optionLabel="label" optionValue="value"
+                        styleClass="w-full" appendTo="body"></p-dropdown>
+          </div>
+          <div class="sf-fld">
+            <label for="e-date">Scheduled date</label>
+            <p-calendar inputId="e-date" [(ngModel)]="edit.scheduledDate" dateFormat="dd M yy" [showIcon]="true" [showButtonBar]="true"
+                        appendTo="body" styleClass="w-full"></p-calendar>
+          </div>
+          <div class="sf-fld">
+            <label for="e-time">Time</label>
+            <p-calendar inputId="e-time" [(ngModel)]="edit.scheduledTime" [timeOnly]="true" hourFormat="24" [disabled]="!edit.scheduledDate"
+                        appendTo="body" styleClass="w-full"></p-calendar>
+          </div>
+          <div class="sf-fld">
+            <label for="e-hours">Estimated hours</label>
+            <p-inputnumber inputId="e-hours" [(ngModel)]="edit.estimatedHours" [min]="0" [maxFractionDigits]="2" styleClass="w-full"></p-inputnumber>
+          </div>
+        </div>
+        <div class="sf-fields">
+          <div class="sf-fld span-3">
+            <label for="e-notes">Notes</label>
+            <textarea pTextarea id="e-notes" [(ngModel)]="edit.notes" rows="3" class="w-full" data-testid="edit-notes"></textarea>
+          </div>
+        </div>
+        <div class="sf-fbar">
+          <span class="sf-mu sf-sm">Saved against the version you opened; if someone else saved first, the page reloads.</span>
+          <span class="sf-end">
+            <p-button label="Discard" severity="secondary" [text]="true" (onClick)="cancelEdit()" data-testid="edit-cancel"></p-button>
+            <p-button label="Save" icon="pi pi-check" [loading]="busy" [disabled]="!canSaveEdit" (onClick)="saveEdit()" data-testid="edit-save"></p-button>
+          </span>
+        </div>
+      </ng-container>
+    </section>
+
+    <!-- ══ Materials ═════════════════════════════════════════════════════════════════ -->
+    <section id="sec-materials" class="sf-section" data-testid="sec-materials">
+      <div class="sf-card p0 block">
+        <div class="sf-ch">
+          <h2>Available <span class="sf-mu sf-sm">({{ availableMaterials.length }})</span></h2>
+          <p-button *ngIf="canReserve" label="Reserve all available" icon="pi pi-lock" size="small" [outlined]="true"
+                    [loading]="busy" (onClick)="reserveAll()" pTooltip="Hold free stock for every stock material on this order"
+                    data-testid="reserve-all"></p-button>
+        </div>
+        <ng-container *ngTemplateOutlet="materialTable; context: { $implicit: availableMaterials, kind: 'available' }"></ng-container>
+      </div>
+
+      <div class="sf-card p0 block">
+        <div class="sf-ch"><h2>Shortage <span class="sf-mu sf-sm">({{ shortageMaterials.length }})</span></h2></div>
+        <ng-container *ngTemplateOutlet="materialTable; context: { $implicit: shortageMaterials, kind: 'shortage' }"></ng-container>
+      </div>
+
+      <!-- P3-10: ad-hoc materials while the work is under way -->
+      <div class="sf-card p0" *ngIf="canAddMaterial" data-testid="adhoc-panel">
+        <div class="sf-ch"><div><h2><i class="pi pi-plus-circle"></i> Add material</h2>
+          <div class="sf-mu sf-sm">Something the BOM did not foresee. It is issued straight away when stock is free.</div></div></div>
+        <div class="adhoc">
+          <div class="field">
+            <label>Material</label>
+            <app-product-variant-picker [products]="materialProducts" [productUuid]="adhoc.productUuid" [variantUuid]="adhoc.variantUuid"
+                                        (selectionChange)="onAdhocPicked($event)"></app-product-variant-picker>
+          </div>
+          <div class="field">
+            <label>Quantity</label>
+            <p-inputnumber [(ngModel)]="adhoc.quantity" [min]="0" [maxFractionDigits]="4" styleClass="w-full" data-testid="adhoc-qty"></p-inputnumber>
+          </div>
+          <div class="field">
+            <label>Notes</label>
+            <input pInputText [(ngModel)]="adhoc.notes" class="w-full" placeholder="Why it was needed" data-testid="adhoc-notes" />
+          </div>
+          <p-button label="Add" icon="pi pi-plus" [loading]="busy" [disabled]="!canSubmitAdhoc" (onClick)="addAdhoc()" data-testid="adhoc-add"></p-button>
+        </div>
+      </div>
+      <p class="sf-mu" *ngIf="!o.materials.length && !canAddMaterial" data-testid="no-materials">
+        No materials. {{ o.status === 'DRAFT' ? 'Plan the order to explode its service BOM.' : '' }}
+      </p>
+    </section>
+
+    <!-- ══ Completion (P3-09) ════════════════════════════════════════════════════════ -->
+    <section id="sec-completion" class="sf-section sf-card" *ngIf="showCompletion" data-testid="sec-completion">
+      <div class="sf-ch">
+        <div><h2>Completion</h2>
+          <div class="sf-mu sf-sm">{{ completionEditable ? 'Enter what was actually used; the rest goes back to the warehouse.' : 'What was used on the job.' }}</div></div>
+      </div>
+      <div class="sf-card flat p0 block">
+        <p-table [value]="completionRows" styleClass="p-datatable-sm" data-testid="completion-table">
+          <ng-template pTemplate="header">
+            <tr><th>Material</th><th class="text-right">Issued</th><th class="text-right" style="width:11rem">Consumed</th><th class="text-right">Return</th></tr>
+          </ng-template>
+          <ng-template pTemplate="body" let-r>
+            <tr [attr.data-testid]="'completion-' + r.material.uuid">
+              <td>{{ r.material.productName }}<span *ngIf="r.material.variantName" class="sf-mu"> – {{ r.material.variantName }}</span></td>
+              <td class="text-right">{{ r.material.issuedQuantity | number:'1.0-4' }} {{ r.material.uom }}</td>
+              <td class="text-right">
+                <ng-container *ngIf="completionEditable; else consumedRo">
+                  <p-inputnumber [(ngModel)]="r.consumed" [min]="0" [max]="r.material.issuedQuantity" [maxFractionDigits]="4"
+                                 [inputStyle]="{ width: '8rem', textAlign: 'right' }" data-testid="consumed"></p-inputnumber>
+                  <div class="p-error" *ngIf="rowError(r) as err" data-testid="consumed-error">{{ err }}</div>
+                </ng-container>
+                <ng-template #consumedRo>{{ r.material.consumedQuantity | number:'1.0-4' }}</ng-template>
+              </td>
+              <td class="text-right" data-testid="return">{{ (completionEditable ? returnOf(r) : r.material.returnedQuantity) | number:'1.0-4' }}</td>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="emptymessage">
+            <tr><td colspan="4" class="sf-empty">Nothing was issued to this service.</td></tr>
+          </ng-template>
+        </p-table>
+      </div>
+
+      <div class="sf-fields" *ngIf="completionEditable; else completionRo">
+        <div class="sf-fld">
+          <label for="c-hours" [class.sf-req]="hoursRequired">Actual hours</label>
+          <p-inputnumber inputId="c-hours" [(ngModel)]="actualHours" [min]="0" [maxFractionDigits]="2" styleClass="w-full" data-testid="actual-hours"></p-inputnumber>
+          <span class="hint" *ngIf="hoursRequired">Required — this service is billed on time and material.</span>
+        </div>
+        <div class="sf-fld">
+          <label class="check"><p-checkbox [(ngModel)]="customerSignature" [binary]="true" inputId="c-sign" data-testid="signature"></p-checkbox> Customer signed off</label>
+        </div>
+        <div class="sf-fld span-3">
+          <label for="c-notes">Completion notes</label>
+          <textarea pTextarea id="c-notes" [(ngModel)]="completionNotes" rows="2" class="w-full" data-testid="completion-notes"></textarea>
+        </div>
+        <div class="sf-fld span-3">
+          <div class="p-error" *ngFor="let e of completionErrors" data-testid="completion-error">{{ e }}</div>
+          <div>
+            <p-button label="Complete service" icon="pi pi-check" [loading]="busy" [disabled]="!canSubmitCompletion" (onClick)="confirmComplete()" data-testid="confirm-complete"></p-button>
+          </div>
+        </div>
+      </div>
+      <ng-template #completionRo>
+        <div class="sf-kv" data-testid="completion-view">
+          <span>Actual hours</span><span>{{ o.actualHours != null ? (o.actualHours | number:'1.0-2') : '—' }}</span>
+          <span>Customer sign-off</span><span>{{ o.customerSignature ? 'Yes' : 'No' }}</span>
+          <span>Notes</span><span>{{ o.completionNotes || '—' }}</span>
+        </div>
+      </ng-template>
+    </section>
+
+    <!-- ══ Ledger (P4-05) ═══════════════════════════════════════════════════════════ -->
+    <section id="sec-ledger" class="sf-section" data-testid="sec-ledger">
+      <ng-container *ngIf="o.ledger.length; else noLedger">
+        <div class="sf-card p0 block">
+          <div class="sf-ch"><h2>Material ledger</h2><span class="sf-mu sf-sm">Returns are negative.</span></div>
+          <p-table [value]="o.ledger" styleClass="p-datatable-sm" data-testid="ledger-entries">
+            <ng-template pTemplate="header">
+              <tr><th>Date</th><th>Movement</th><th>Product</th><th class="text-right">Qty</th><th>UoM</th><th>Warehouse</th><th>Document</th></tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-e>
+              <tr data-testid="ledger-row">
+                <td>{{ e.transactionDate | date:'short' }}</td>
+                <td><span class="sf-pill" [ngClass]="isReturn(e) ? 'ok' : 'er'" data-testid="ledger-movement">{{ isReturn(e) ? 'Returned' : 'Consumed' }}</span></td>
+                <td>{{ e.productName }}</td>
+                <td class="text-right"><span [ngClass]="isReturn(e) ? 'qty-back' : 'qty-out'" data-testid="ledger-qty">{{ e.quantity | number:'1.0-4' }}</span></td>
+                <td>{{ e.uom }}</td>
+                <td>{{ e.warehouseName }}</td>
+                <td class="sf-mono">{{ e.sourceDocumentNumber }}</td>
+              </tr>
+            </ng-template>
+          </p-table>
+        </div>
+        <div class="sf-card p0">
+          <div class="sf-ch"><h2>Net by product</h2></div>
+          <p-table [value]="netByProduct" styleClass="p-datatable-sm" data-testid="ledger-net">
+            <ng-template pTemplate="header"><tr><th>Product</th><th class="text-right">Net consumed</th><th>UoM</th></tr></ng-template>
+            <ng-template pTemplate="body" let-n>
+              <tr><td>{{ n.productName }}</td><td class="text-right">{{ n.netQuantity | number:'1.0-4' }}</td><td>{{ n.uom }}</td></tr>
+            </ng-template>
+          </p-table>
+        </div>
+      </ng-container>
+      <ng-template #noLedger>
+        <div class="sf-card"><p class="sf-empty" data-testid="ledger-empty">No material consumption for this service.</p></div>
+      </ng-template>
+    </section>
+  </div>
+
+  <!-- ── Side panel (P4-06) ────────────────────────────────────────────────────────── -->
+  <sf-panel #panel [tabs]="['Timeline']">
+    <ng-container *ngIf="panel.active() === 'Timeline'">
+      <app-timeline-panel *ngIf="o.traceId; else byDocument" [traceId]="o.traceId" interfaceCode="SERVICE_ORDER" [inline]="true"></app-timeline-panel>
+      <ng-template #byDocument>
+        <app-timeline-panel [documentId]="o.uuid" interfaceCode="SERVICE_ORDER" [inline]="true"></app-timeline-panel>
+      </ng-template>
+    </ng-container>
+  </sf-panel>
+</sf-page>
+
+<!-- ── Material table (both groups) ─────────────────────────────────────────────────── -->
+<ng-template #materialTable let-rows let-kind="kind">
+  <p-table [value]="rows" styleClass="p-datatable-sm" dataKey="uuid" [attr.data-testid]="'materials-' + kind">
+    <ng-template pTemplate="header">
+      <tr>
+        <th>Material</th><th>Source</th><th class="text-right">Required</th><th class="text-right" pTooltip="Free stock in the warehouse now">Free</th>
+        <th class="text-right">Reserved</th><th class="text-right">Issued</th><th class="text-right">Short</th><th>Status</th><th>Supply</th><th></th>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="body" let-m>
+      <tr [attr.data-testid]="'material-' + m.uuid">
+        <td>
+          {{ m.productName }}<span *ngIf="m.variantName" class="sf-mu"> – {{ m.variantName }}</span>
+          <span *ngIf="m.isAdhoc" class="sf-pill vi" pTooltip="Added during the job{{ m.addedByName ? ' by ' + m.addedByName : '' }}" data-testid="adhoc-pill">Ad-hoc</span>
+          <span *ngIf="m.isCritical" class="sf-pill er">Critical</span>
+          <div class="sf-mu sf-sm sf-mono" *ngIf="m.sku">{{ m.sku }}</div>
+          <div class="sf-mu sf-sm" *ngIf="m.notes">{{ m.notes }}</div>
+        </td>
+        <td>{{ sourceLabel(m) }}</td>
+        <td class="text-right">{{ m.requiredQuantity | number:'1.0-4' }} {{ m.uom }}</td>
+        <td class="text-right">{{ m.sourceType === 'STOCK' ? (m.availableQuantity | number:'1.0-4') : '—' }}</td>
+        <td class="text-right">{{ m.reservedQuantity | number:'1.0-4' }}</td>
+        <td class="text-right">{{ m.issuedQuantity | number:'1.0-4' }}</td>
+        <td class="text-right"><span [class.short]="m.shortageQuantity > 0">{{ m.shortageQuantity | number:'1.0-4' }}</span></td>
+        <td><span class="sf-pill" [ngClass]="flowTone(m.status)">{{ flowLabel(m.status) }}</span></td>
+        <td data-testid="supply">
+          <ng-container *ngIf="m.supplyRequirementNumber; else noSupply">
+            <span class="sf-mono">{{ m.supplyRequirementNumber }}</span>
+            <span *ngIf="m.supplyRequirementStatus" class="sf-pill" [ngClass]="flowTone(m.supplyRequirementStatus)">{{ flowLabel(m.supplyRequirementStatus) }}</span>
+          </ng-container>
+          <ng-template #noSupply><span class="sf-mu">—</span></ng-template>
+        </td>
+        <td class="row-actions">
+          <p-button *ngIf="m.canRemove && canRemoveMaterials" icon="pi pi-trash" [text]="true" severity="danger" size="small"
+                    [disabled]="busy" pTooltip="Remove" (onClick)="removeMaterial(m)" data-testid="remove-material"></p-button>
+        </td>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="emptymessage">
+      <tr><td colspan="10" class="sf-empty">{{ kind === 'available' ? 'Nothing covered yet.' : 'Nothing short right now.' }}</td></tr>
+    </ng-template>
+  </p-table>
+</ng-template>
+
+<!-- ── Cancel dialog ───────────────────────────────────────────────────────────────── -->
+<p-dialog header="Cancel this service order" [(visible)]="cancelVisible" [modal]="true" [style]="{ width: '28rem' }" data-testid="cancel-dialog">
+  <p class="dialog-lead">Reservations are released, open supply requirements cancelled and anything issued is returned to the warehouse. This cannot be undone.</p>
+  <textarea pTextarea rows="3" [(ngModel)]="cancelReason" class="w-full" placeholder="Reason (required)" data-testid="cancel-reason"></textarea>
+  <ng-template pTemplate="footer">
+    <p-button label="Keep it" severity="secondary" [text]="true" (onClick)="cancelVisible = false"></p-button>
+    <p-button label="Cancel order" icon="pi pi-ban" severity="danger" [loading]="busy" [disabled]="!cancelReason.trim()" (onClick)="confirmCancel()" data-testid="confirm-cancel"></p-button>
+  </ng-template>
+</p-dialog>

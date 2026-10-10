@@ -19,6 +19,7 @@ import {
   CarrierListItemModel,
   CarrierServiceModel
 } from '../../../../services/logistics.service';
+import { FLOW } from '../../../../shared/flow';
 
 /**
  * The standing decisions that route goods to a carrier automatically.
@@ -33,7 +34,8 @@ import {
   imports: [
     CommonModule, RouterModule, FormsModule,
     ButtonModule, TagModule, TooltipModule, ToastModule, DialogModule,
-    InputTextModule, InputNumberModule, TextareaModule, SelectModule
+    InputTextModule, InputNumberModule, TextareaModule, SelectModule,
+    ...FLOW
   ],
   templateUrl: './shipping-rules.component.html',
   styleUrls: ['./shipping-rules.component.scss'],

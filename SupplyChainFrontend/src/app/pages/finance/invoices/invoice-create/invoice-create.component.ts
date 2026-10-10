@@ -25,6 +25,7 @@ import { WarehouseService, GrnListItemModel, GrnDetailModel } from '../../../../
 import { TenantService } from '../../../service/tenant.service';
 import { AttachmentListComponent } from '../../../../shared/attachment-list/attachment-list.component';
 import { toDateOnly } from '../../../../shared/date-only';
+import { FLOW } from '../../../../shared/flow';
 
 export interface InvoiceLineInput {
   poLineUuid:      string;
@@ -47,7 +48,8 @@ export interface InvoiceLineInput {
     ButtonModule, InputTextModule, DropdownModule,
     InputNumberModule, CalendarModule, ToastModule,
     CardModule, TextareaModule, TagModule,
-    DividerModule, TooltipModule, AttachmentListComponent
+    DividerModule, TooltipModule, AttachmentListComponent,
+    ...FLOW
   ],
   templateUrl: './invoice-create.component.html',
   styleUrls: ['./invoice-create.component.scss'],

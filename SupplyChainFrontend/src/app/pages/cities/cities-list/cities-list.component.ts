@@ -1,5 +1,6 @@
 import { Component, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FLOW } from '../../../shared/flow';
 import { RouterModule } from '@angular/router';
 import { Table, TableModule } from 'primeng/table';
 import { ToolbarModule } from 'primeng/toolbar';
@@ -18,7 +19,7 @@ import { AuthService } from '../../service/auth.service';
 @Component({
   selector: 'app-cities-list',
   standalone: true,
-  imports: [CommonModule, RouterModule, TableModule, ToolbarModule, TagModule, ButtonModule,
+  imports: [...FLOW, CommonModule, RouterModule, TableModule, ToolbarModule, TagModule, ButtonModule,
     InputTextModule, InputIconModule, IconFieldModule, ConfirmDialogModule, ToastModule, TooltipModule],
   templateUrl: './cities-list.component.html',
   styleUrls: ['./cities-list.component.scss'],

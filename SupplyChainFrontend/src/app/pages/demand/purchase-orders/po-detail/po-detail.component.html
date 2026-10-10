@@ -1,280 +1,253 @@
-<div class="po-detail-page">
-  <p-toast></p-toast>
-  <p-confirmDialog [style]="{width:'440px'}" [breakpoints]="{'960px':'75vw','640px':'90vw'}"></p-confirmDialog>
+<p-toast></p-toast>
+<p-confirmDialog [style]="{width:'440px'}" [breakpoints]="{'960px':'75vw','640px':'90vw'}"></p-confirmDialog>
 
-  <div *ngIf="isLoading" class="loading-card">
-    <i class="pi pi-spin pi-spinner"></i>
-    <p>Loading purchase order...</p>
+<div *ngIf="isLoading" class="sf-empty">
+  <i class="pi pi-spin pi-spinner"></i> Loading purchase order...
+</div>
+
+<div *ngIf="!isLoading && !po" class="sf-empty">
+  <i class="pi pi-exclamation-triangle" style="font-size:2rem;color:var(--sms-danger)"></i>
+  <p>Purchase order not found.</p>
+  <p-button label="Back to List" icon="pi pi-arrow-left" [text]="true" routerLink="/portal/pages/demand/purchase-orders"></p-button>
+</div>
+
+<sf-page *ngIf="!isLoading && po" [crumbs]="['Procurement', 'Purchase orders', po.poNumber]">
+
+  <!-- ── Command bar: the next step first, then the rest ─────────────────────────────── -->
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <ng-container *ngIf="po.status === 'DRAFT'">
+      <p-button label="Submit for Approval" icon="pi pi-send"
+                [loading]="isSubmitting" (onClick)="confirmSubmit()"></p-button>
+      <p-button label="Edit" icon="pi pi-pencil" [text]="true"
+                [routerLink]="['/portal/pages/demand/purchase-orders', uuid, 'edit']"></p-button>
+      <p-button label="Preview" icon="pi pi-eye" [text]="true"
+                (onClick)="openPreview()"></p-button>
+    </ng-container>
+    <ng-container *ngIf="po.status === 'PENDING_APPROVAL'">
+      <p-button label="Approve" icon="pi pi-check-circle" severity="success"
+                [loading]="isApproving" (onClick)="confirmApprove()"></p-button>
+    </ng-container>
+    <ng-container *ngIf="po.status === 'APPROVED'">
+      <p-button label="Send to Supplier" icon="pi pi-send"
+                [loading]="isSending" (onClick)="confirmSend()"></p-button>
+    </ng-container>
+
+    <p-button label="Download PDF" icon="pi pi-file-pdf" [text]="true"
+              [loading]="isDownloadingPdf" (onClick)="downloadPdf()"></p-button>
+    <p-button label="Timeline" icon="pi pi-history" [text]="true"
+              pTooltip="View Timeline" (onClick)="showTimeline = true"></p-button>
+
+    <ng-container *ngIf="po.status === 'PENDING_APPROVAL'">
+      <span class="sf-sep"></span>
+      <p-button label="Reject" icon="pi pi-times-circle" severity="danger" [text]="true"
+                [loading]="isRejecting" (onClick)="openRejectDialog()"></p-button>
+    </ng-container>
   </div>
 
-  <ng-container *ngIf="!isLoading && po">
-
-    <!-- ── Header ─────────────────────────────────────────────────────── -->
-    <div class="page-header">
-      <div class="header-left">
-        <p-button icon="pi pi-arrow-left" [text]="true" severity="secondary"
-                  routerLink="/portal/pages/demand/purchase-orders" class="back-btn"></p-button>
-        <div>
-          <div class="title-row">
-            <h1 class="page-title">{{ po.poNumber }}</h1>
-            <p-tag [value]="po.status" [severity]="getStatusSeverity(po.status)"></p-tag>
-          </div>
-          <p class="page-subtitle">{{ po.title || po.supplierName }}</p>
-        </div>
-      </div>
-
-      <div class="action-buttons">
-        <ng-container *ngIf="po.status === 'DRAFT'">
-          <p-button label="Edit" icon="pi pi-pencil" severity="secondary"
-                    [routerLink]="['/portal/pages/demand/purchase-orders', uuid, 'edit']"></p-button>
-          <p-button label="Preview" icon="pi pi-eye" severity="secondary" [outlined]="true"
-                    (onClick)="openPreview()"></p-button>
-          <p-button label="Submit for Approval" icon="pi pi-send"
-                    [loading]="isSubmitting" (onClick)="confirmSubmit()"></p-button>
-        </ng-container>
-        <ng-container *ngIf="po.status === 'PENDING_APPROVAL'">
-          <p-button label="Reject" icon="pi pi-times-circle" severity="danger" [outlined]="true"
-                    [loading]="isRejecting" (onClick)="openRejectDialog()"></p-button>
-          <p-button label="Approve" icon="pi pi-check-circle" severity="success"
-                    [loading]="isApproving" (onClick)="confirmApprove()"></p-button>
-        </ng-container>
-        <ng-container *ngIf="po.status === 'APPROVED'">
-          <p-button label="Send to Supplier" icon="pi pi-send" severity="warn"
-                    [loading]="isSending" (onClick)="confirmSend()"></p-button>
-        </ng-container>
-
-        <p-button label="Download PDF" icon="pi pi-file-pdf" severity="secondary" [outlined]="true"
-                  [loading]="isDownloadingPdf" (onClick)="downloadPdf()"></p-button>
-
-        <p-button icon="pi pi-history" [text]="true" severity="secondary"
-                  pTooltip="View Timeline" (onClick)="showTimeline = true"></p-button>
+  <!-- ── Dynamic header ──────────────────────────────────────────────────────────────── -->
+  <header class="sf-hdr">
+    <div class="sf-t">
+      <div>
+        <div class="sf-kicker">Purchase order<ng-container *ngIf="po.title"> · {{ po.title }}</ng-container></div>
+        <h1>
+          <span class="sf-mono">{{ po.poNumber }}</span>
+          <p-tag [value]="po.status" [severity]="getStatusSeverity(po.status)"></p-tag>
+        </h1>
+        <div class="sf-meta">{{ po.supplierName }} · created {{ po.createdDate | date:'dd MMM yyyy' }}</div>
       </div>
     </div>
 
-    <!-- ── Summary (supplier, financials, references — one compact strip) ─ -->
-    <div class="po-summary-card">
-      <div class="summary-top">
-        <div class="summary-supplier">
-          <div class="supplier-avatar">{{ po.supplierName.charAt(0).toUpperCase() }}</div>
-          <div class="supplier-meta">
-            <div class="supplier-name">{{ po.supplierName }}</div>
-            <div class="supplier-sub">Supplier</div>
-          </div>
-        </div>
+    <sf-stages [stages]="stages"></sf-stages>
 
-        <div class="summary-stats">
-          <div class="stat-item">
-            <span class="stat-label"><i class="pi pi-calendar"></i> Delivery</span>
-            <span class="stat-value">{{ po.deliveryDate ? (po.deliveryDate | date:'dd MMM yyyy') : '—' }}</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-label"><i class="pi pi-clock"></i> Created</span>
-            <span class="stat-value">{{ po.createdDate | date:'dd MMM yyyy' }}</span>
-          </div>
-        </div>
-
-        <div class="summary-total">
-          <span class="total-label">Order Total</span>
-          <span class="total-amount">{{ dual.primary(po.totalAmount, po.totalAmountBase) | money:dual.primaryCurrency:moneyCode }}</span>
-          <span class="total-base" *ngIf="dual.showBase">{{ dual.secondary(po.totalAmount, po.totalAmountBase) | money:dual.secondaryCurrency:moneyCode }}</span>
-        </div>
+    <div class="sf-facts">
+      <div class="sf-kpi">
+        <span class="l">Order total</span>
+        <span class="v">{{ dual.primary(po.totalAmount, po.totalAmountBase) | money:dual.primaryCurrency:moneyCode }}</span>
+        <span class="s" *ngIf="dual.showBase">{{ dual.secondary(po.totalAmount, po.totalAmountBase) | money:dual.secondaryCurrency:moneyCode }}</span>
       </div>
-
-      <div class="summary-refs" *ngIf="po.notes || po.linkedPrUuids?.length">
-        <div class="notes-inline" *ngIf="po.notes">
-          <i class="pi pi-align-left"></i>
-          <span>{{ po.notes }}</span>
-        </div>
-        <div class="pr-links-inline" *ngIf="po.linkedPrUuids?.length">
-          <i class="pi pi-file-edit pr-links-icon" [pTooltip]="'Linked requisitions'"></i>
-          <a *ngFor="let pr of po.linkedPrUuids"
-             [routerLink]="['/portal/pages/demand/requisitions', pr.uuid]"
-             class="pr-pill"
-             [pTooltip]="pr.prTitle" tooltipPosition="top">
-            <span>{{ pr.prNumber }}</span>
-          </a>
-        </div>
+      <div class="sf-kpi">
+        <span class="l">Received</span>
+        <span class="v" [class.ok]="receivedPct >= 100" [class.wn]="receivedPct > 0 && receivedPct < 100">{{ receivedPct }}%</span>
+        <span class="s">{{ po.lines.length }} line{{ po.lines.length !== 1 ? 's' : '' }}</span>
+      </div>
+      <div class="sf-kpi">
+        <span class="l">Delivery date</span>
+        <span class="v sm">{{ po.deliveryDate ? (po.deliveryDate | date:'dd MMM yyyy') : '—' }}</span>
       </div>
     </div>
+  </header>
 
-    <!-- A35 P3-14 — PO currency, the rate locked at approval, the purchase base, and the amount toggle. -->
-    <div class="currency-card">
-      <app-doc-currency-panel [doc]="po" lockPoint="approval" domain="PURCHASE" [(view)]="dual.view"></app-doc-currency-panel>
-    </div>
+  <sf-anchors #tabs mode="tabs" [sections]="sections"></sf-anchors>
 
-    <!-- ── Line Items ──────────────────────────────────────────────────── -->
-    <div class="lines-card">
+  <div class="sf-body">
 
-      <div class="lines-card-head">
-        <div class="ic-icon"><i class="pi pi-list"></i></div>
-        <div>
-          <div class="lines-title">Order Lines</div>
-          <div class="lines-sub">{{ po.lines.length }} line item{{ po.lines.length !== 1 ? 's' : '' }}</div>
-        </div>
+    <!-- ── Lines ──────────────────────────────────────────────────────────── -->
+    <section id="sec-lines" class="sf-section sf-card p0" *ngIf="tabs.isActive('sec-lines')">
+      <div class="sf-ch">
+        <h2>Order lines</h2>
+        <span class="sf-mu sf-sm">{{ po.lines.length }} line item{{ po.lines.length !== 1 ? 's' : '' }}</span>
       </div>
 
-      <div class="lines-table-wrap">
-        <table class="po-table">
+      <div class="sf-tw">
+        <table class="sf-t">
           <thead>
             <tr>
-              <th class="col-num">#</th>
+              <th style="width:3rem">#</th>
               <th>Description</th>
-              <th class="col-uom">UOM</th>
-              <th class="col-num-r">Ordered</th>
-              <th class="col-num-r">Received</th>
-              <th class="col-num-r">Invoiced</th>
-              <th class="col-num-r">Pending</th>
-              <th class="col-num-r">Unit Price</th>
-              <th class="col-num-r" data-testid="po-total-header-primary">{{ dual.showBase ? 'Total (' + dual.primaryCode + ')' : 'Total' }}</th>
-              <th class="col-num-r" *ngIf="dual.showBase" data-testid="po-total-header-secondary">Total ({{ dual.secondaryCode }})</th>
+              <th style="width:5rem">UOM</th>
+              <th class="sf-r">Ordered</th>
+              <th class="sf-r">Received</th>
+              <th class="sf-r">Invoiced</th>
+              <th class="sf-r">Pending</th>
+              <th class="sf-r">Unit Price</th>
+              <th class="sf-r" data-testid="po-total-header-primary">{{ dual.showBase ? 'Total (' + dual.primaryCode + ')' : 'Total' }}</th>
+              <th class="sf-r" *ngIf="dual.showBase" data-testid="po-total-header-secondary">Total ({{ dual.secondaryCode }})</th>
               <th>Budget Code</th>
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let line of po.lines" class="po-line">
-              <td class="col-num">
-                <span class="line-num-badge">{{ line.lineNo }}</span>
-              </td>
+            <tr *ngFor="let line of po.lines">
+              <td class="sf-mu">{{ line.lineNo }}</td>
               <td>
                 <div class="line-desc-row">
                   <img *ngIf="line.productImageUrl" [src]="resolveImageUrl(line.productImageUrl)"
                        alt="" class="line-thumb" />
                   <div>
-                    <div class="line-desc">{{ line.itemDescription }}</div>
-                    <div class="line-spec" *ngIf="line.specification">{{ line.specification }}</div>
+                    <strong>{{ line.itemDescription }}</strong>
+                    <div class="sf-mu sf-sm" *ngIf="line.specification">{{ line.specification }}</div>
                   </div>
                 </div>
               </td>
-              <td class="col-uom">
-                <span class="uom-pill" *ngIf="line.unitOfMeasure">{{ line.unitOfMeasure }}</span>
-                <span *ngIf="!line.unitOfMeasure" class="text-muted">—</span>
+              <td>
+                <span class="sf-pill" *ngIf="line.unitOfMeasure">{{ line.unitOfMeasure }}</span>
+                <span *ngIf="!line.unitOfMeasure" class="sf-mu">—</span>
               </td>
-              <td class="col-num-r">{{ line.quantity | number:'1.0-4' }}</td>
-              <td class="col-num-r">
-                <span class="qty-badge"
-                      [class.qty-full]="line.qtyReceived >= line.quantity"
-                      [class.qty-partial]="line.qtyReceived > 0 && line.qtyReceived < line.quantity"
-                      [class.qty-zero]="line.qtyReceived === 0">
+              <td class="sf-r sf-num">{{ line.quantity | number:'1.0-4' }}</td>
+              <td class="sf-r">
+                <span class="sf-pill sf-num"
+                      [class.ok]="line.qtyReceived >= line.quantity"
+                      [class.wn]="line.qtyReceived > 0 && line.qtyReceived < line.quantity">
                   {{ line.qtyReceived | number:'1.0-4' }}
                 </span>
               </td>
-              <td class="col-num-r">
-                <span class="qty-badge"
-                      [class.qty-full]="line.qtyInvoiced >= line.quantity"
-                      [class.qty-partial]="line.qtyInvoiced > 0 && line.qtyInvoiced < line.quantity"
-                      [class.qty-zero]="line.qtyInvoiced === 0">
+              <td class="sf-r">
+                <span class="sf-pill sf-num"
+                      [class.ok]="line.qtyInvoiced >= line.quantity"
+                      [class.wn]="line.qtyInvoiced > 0 && line.qtyInvoiced < line.quantity">
                   {{ line.qtyInvoiced | number:'1.0-4' }}
                 </span>
               </td>
-              <td class="col-num-r">
-                <span class="qty-badge"
-                      [class.qty-full]="line.qtyPending <= 0"
-                      [class.qty-pending]="line.qtyPending > 0">
+              <td class="sf-r">
+                <span class="sf-pill sf-num"
+                      [class.ok]="line.qtyPending <= 0"
+                      [class.er]="line.qtyPending > 0">
                   {{ line.qtyPending | number:'1.0-4' }}
                 </span>
               </td>
-              <td class="col-num-r price-cell" data-testid="po-line-unit-price">{{ dual.primary(line.unitPrice, line.unitPriceBase) | money:dual.primaryCurrency:moneyCode }}</td>
-              <td class="col-num-r total-cell" data-testid="po-line-total-primary">{{ dual.primary(line.lineTotal, line.lineTotalBase) | money:dual.primaryCurrency:moneyCode }}</td>
-              <td class="col-num-r total-cell" *ngIf="dual.showBase" data-testid="po-line-total-secondary">{{ dual.secondary(line.lineTotal, line.lineTotalBase) | money:dual.secondaryCurrency:moneyCode }}</td>
+              <td class="sf-r sf-num" data-testid="po-line-unit-price">{{ dual.primary(line.unitPrice, line.unitPriceBase) | money:dual.primaryCurrency:moneyCode }}</td>
+              <td class="sf-r sf-num total-cell" data-testid="po-line-total-primary">{{ dual.primary(line.lineTotal, line.lineTotalBase) | money:dual.primaryCurrency:moneyCode }}</td>
+              <td class="sf-r sf-num total-cell" *ngIf="dual.showBase" data-testid="po-line-total-secondary">{{ dual.secondary(line.lineTotal, line.lineTotalBase) | money:dual.secondaryCurrency:moneyCode }}</td>
               <td>{{ line.budgetCode || '—' }}</td>
             </tr>
-          </tbody>
-          <tfoot>
-            <tr class="po-total-row">
-              <td colspan="8" class="total-label-cell">Order Total</td>
-              <td class="total-amount-cell" data-testid="po-total">{{ dual.primary(totalAmount, po.totalAmountBase) | money:dual.primaryCurrency:moneyCode }}<span
+            <tr class="tot">
+              <td colspan="8" class="sf-r">Order Total</td>
+              <td class="sf-r sf-num" data-testid="po-total">{{ dual.primary(totalAmount, po.totalAmountBase) | money:dual.primaryCurrency:moneyCode }}<span
                   *ngIf="dual.showBase" class="total-base"> {{ dual.secondary(totalAmount, po.totalAmountBase) | money:dual.secondaryCurrency:moneyCode }}</span></td>
+              <td *ngIf="dual.showBase"></td>
               <td></td>
             </tr>
-          </tfoot>
+          </tbody>
         </table>
       </div>
+    </section>
 
-    </div>
+    <!-- ── Supplier & references ─────────────────────────────────────────── -->
+    <section id="sec-supplier" class="sf-section sf-card" *ngIf="tabs.isActive('sec-supplier')">
+      <div class="sf-ch"><h2>Supplier &amp; references</h2></div>
+      <div class="sf-kv">
+        <span>Supplier</span><span><strong>{{ po.supplierName }}</strong></span>
+        <ng-container *ngIf="po.title"><span>Title</span><span>{{ po.title }}</span></ng-container>
+        <span>Delivery date</span><span>{{ po.deliveryDate ? (po.deliveryDate | date:'dd MMM yyyy') : '—' }}</span>
+        <span>Created</span><span>{{ po.createdDate | date:'dd MMM yyyy' }}</span>
+        <ng-container *ngIf="po.linkedPrUuids?.length">
+          <span>Linked requisitions</span>
+          <span class="pr-links-inline">
+            <a *ngFor="let pr of po.linkedPrUuids"
+               [routerLink]="['/portal/pages/demand/requisitions', pr.uuid]"
+               class="sf-pill in sf-mono"
+               [pTooltip]="pr.prTitle" tooltipPosition="top">{{ pr.prNumber }}</a>
+          </span>
+        </ng-container>
+        <ng-container *ngIf="po.notes"><span>Notes</span><span>{{ po.notes }}</span></ng-container>
+      </div>
+    </section>
 
-    <!-- ── Workflow Approval Progress ──────────────────────────────────── -->
-    <div class="approval-panel" *ngIf="po.status === 'PENDING_APPROVAL'">
-      <div class="approval-panel-head">
-        <div class="ic-icon ic-icon--amber"><i class="pi pi-sitemap"></i></div>
-        <div>
-          <div class="approval-title">Approval Progress</div>
-          <div class="approval-sub">Workflow steps for this purchase order</div>
-        </div>
+    <!-- A35 P3-14 — PO currency, the rate locked at approval, the purchase base, and the amount toggle. -->
+    <section id="sec-currency" class="sf-section sf-card" *ngIf="tabs.isActive('sec-currency')">
+      <div class="sf-ch"><h2>Currency</h2></div>
+      <app-doc-currency-panel [doc]="po" lockPoint="approval" domain="PURCHASE" [(view)]="dual.view"></app-doc-currency-panel>
+    </section>
+
+    <!-- ── Workflow approval progress (an approver acts on it, so it stays in view) ── -->
+    <section id="sec-approval" class="sf-section sf-card" *ngIf="po.status === 'PENDING_APPROVAL' && tabs.isActive('sec-approval')">
+      <div class="sf-ch">
+        <h2>Approval progress</h2>
+        <span class="sf-mu sf-sm">Workflow steps for this purchase order</span>
       </div>
 
-      <div *ngIf="isLoadingApproval" class="approval-loading">
+      <div *ngIf="isLoadingApproval" class="sf-mu">
         <i class="pi pi-spin pi-spinner"></i> Loading workflow status...
       </div>
 
-      <div *ngIf="!isLoadingApproval && !approvalDetail" class="approval-no-workflow">
-        <i class="pi pi-exclamation-circle"></i>
+      <div *ngIf="!isLoadingApproval && !approvalDetail" class="sf-mu">
+        <i class="pi pi-exclamation-circle" style="color:var(--sms-warn)"></i>
         No active workflow definition found for this PO. Go to
-        <a routerLink="/portal/pages/workflow-admin/workflows/new" class="approval-link">Workflow Admin</a>
+        <a routerLink="/portal/pages/workflow-admin/workflows/new">Workflow Admin</a>
         to set one up.
       </div>
 
-      <div *ngIf="!isLoadingApproval && approvalDetail" class="approval-steps">
-        <div *ngFor="let step of approvalDetail.steps; let last = last"
-             class="wf-step"
+      <div *ngIf="!isLoadingApproval && approvalDetail" class="sf-tl">
+        <div *ngFor="let step of approvalDetail.steps" class="sf-tl-e wf-step"
              [class.wf-step--current]="step.isCurrentStep"
              [class.wf-step--done]="step.status === 'APPROVED'"
              [class.wf-step--rejected]="step.status === 'REJECTED'">
-
-          <div class="wf-step-track">
-            <div class="wf-dot">
-              <i *ngIf="step.status === 'APPROVED'" class="pi pi-check"></i>
-              <i *ngIf="step.status === 'REJECTED'" class="pi pi-times"></i>
-              <i *ngIf="step.status === 'SKIPPED'"  class="pi pi-forward"></i>
-              <span *ngIf="!['APPROVED','REJECTED','SKIPPED'].includes(step.status)">{{ step.stepNumber }}</span>
-            </div>
-            <div class="wf-line" *ngIf="!last"></div>
+          <div class="wf-dot">
+            <i *ngIf="step.status === 'APPROVED'" class="pi pi-check"></i>
+            <i *ngIf="step.status === 'REJECTED'" class="pi pi-times"></i>
+            <i *ngIf="step.status === 'SKIPPED'"  class="pi pi-forward"></i>
+            <span *ngIf="!['APPROVED','REJECTED','SKIPPED'].includes(step.status)">{{ step.stepNumber }}</span>
           </div>
-
           <div class="wf-step-body">
             <div class="wf-step-header">
-              <span class="wf-step-name">{{ step.stepName }}</span>
+              <strong>{{ step.stepName }}</strong>
               <p-tag [value]="step.status" [severity]="getStepSeverity(step.status)" styleClass="wf-badge"></p-tag>
             </div>
-            <div class="wf-step-meta">
-              <span *ngIf="step.assignedRole" class="wf-meta-chip wf-meta-role">
-                <i class="pi pi-id-card"></i> {{ step.assignedRole }}
-              </span>
-              <span *ngIf="step.resolvedApproverName" class="wf-meta-chip">
-                <i class="pi pi-user"></i> {{ step.resolvedApproverName }}
-              </span>
-              <span *ngIf="step.actedAt" class="wf-meta-chip">
-                <i class="pi pi-clock"></i> {{ step.actedAt | date:'dd MMM yyyy, HH:mm' }}
-              </span>
-              <span *ngIf="step.isCurrentStep && step.dueAt" class="wf-meta-chip wf-meta-due">
-                <i class="pi pi-calendar"></i> Due: {{ step.dueAt | date:'dd MMM yyyy' }}
-              </span>
+            <div class="sf-mu sf-sm wf-step-meta">
+              <span *ngIf="step.assignedRole"><i class="pi pi-id-card"></i> {{ step.assignedRole }}</span>
+              <span *ngIf="step.resolvedApproverName"><i class="pi pi-user"></i> {{ step.resolvedApproverName }}</span>
+              <span *ngIf="step.actedAt"><i class="pi pi-clock"></i> {{ step.actedAt | date:'dd MMM yyyy, HH:mm' }}</span>
+              <span *ngIf="step.isCurrentStep && step.dueAt" style="color:var(--sms-danger)"><i class="pi pi-calendar"></i> Due: {{ step.dueAt | date:'dd MMM yyyy' }}</span>
             </div>
-            <div class="wf-step-comments" *ngIf="step.comments">
-              <i class="pi pi-comment"></i> {{ step.comments }}
-            </div>
+            <div class="sf-mu sf-sm" *ngIf="step.comments"><i class="pi pi-comment"></i> <em>{{ step.comments }}</em></div>
           </div>
         </div>
       </div>
-    </div>
+    </section>
 
-    <!-- ── Attachments — kept below the lines a reader actually came for, since ── -->
-    <!-- its list can run long and used to stretch the short info cards above it. -->
-    <div class="info-card attachments-card">
-      <div class="ic-head">
-        <div class="ic-icon ic-icon--indigo"><i class="pi pi-paperclip"></i></div>
-        <span class="ic-title">Attachments</span>
-      </div>
+    <!-- ── Attachments ───────────────────────────────────────────────────── -->
+    <section id="sec-files" class="sf-section sf-card" *ngIf="tabs.isActive('sec-files')">
+      <div class="sf-ch"><h2>Attachments</h2></div>
       <app-attachment-list interfaceCode="PO" [documentId]="po.uuid" [compact]="true"></app-attachment-list>
-    </div>
-
-  </ng-container>
-
-  <div *ngIf="!isLoading && !po" class="loading-card">
-    <i class="pi pi-exclamation-triangle" style="color:#e74c3c"></i>
-    <p>Purchase order not found.</p>
-    <p-button label="Back to List" severity="secondary" routerLink="/portal/pages/demand/purchase-orders" class="mt-3"></p-button>
+    </section>
   </div>
-</div>
+
+  <!-- ── Side panel ──────────────────────────────────────────────────────────────────── -->
+  <sf-panel #panel [tabs]="['Activity']">
+    <ng-container *ngIf="panel.active() === 'Activity'">
+      <app-timeline-panel [inline]="true" [documentId]="uuid" interfaceCode="PO"></app-timeline-panel>
+    </ng-container>
+  </sf-panel>
+</sf-page>
 
 <!-- ── Send to Supplier dialog ────────────────────────────────────────────── -->
 <p-dialog [(visible)]="showSendDialog" [modal]="true" [style]="{width:'480px'}"
@@ -340,9 +313,9 @@
     <div class="sdlg-footer">
       <div class="sdlg-footer-btns">
         <p-button label="Cancel" severity="secondary" [text]="true" (onClick)="showSendDialog=false"></p-button>
-        <p-button label="Send to Supplier" icon="pi pi-send" severity="warn"
+        <p-button label="Send to Supplier" icon="pi pi-send"
                   [disabled]="isLoadingSendContacts || !selectedSendContact?.isMobileValid"
-                  [loading]="isSending" (onClick)="sendPo()" severity="warn"></p-button>
+                  [loading]="isSending" (onClick)="sendPo()"></p-button>
       </div>
     </div>
   </ng-template>

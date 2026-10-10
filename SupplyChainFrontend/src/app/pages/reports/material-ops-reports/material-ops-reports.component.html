@@ -1,22 +1,20 @@
-<div class="report-page">
-  <p-toast />
-
-  <div class="page-header">
-    <div class="header-left">
-      <div class="header-icon icon-amber"><i class="pi pi-exclamation-triangle"></i></div>
-      <div>
-        <h2 class="page-title">Material Operations Reports</h2>
-        <p class="page-subtitle">Returns · Wastage · Reserved stock register</p>
-      </div>
+<p-toast />
+<sf-page [crumbs]="['Reports', 'Material operations']">
+  <div class="sf-body">
+  <div class="sf-lr-head">
+    <div>
+      <h1>Material operations reports</h1>
+      <div class="sf-sub">Returns · Wastage · Reserved stock register</div>
     </div>
   </div>
 
+  <div class="sf-card">
   <p-tabView>
 
     <!-- ── Tab 1: Material Returns ────────────────────────────────────────── -->
     <p-tabPanel header="Material Returns">
       <div class="tab-content">
-        <div class="card filter-card">
+        <div class="sf-card flat quiet">
           <div class="filter-row">
             <div class="filter-group">
               <label>From Date</label>
@@ -45,7 +43,7 @@
           </div>
         </div>
 
-        <div class="card">
+        <div class="sf-card p0 flat">
           <p-table [value]="returns" [loading]="isLoadingReturns" [paginator]="true" [rows]="20" sortMode="multiple" styleClass="p-datatable-sm">
             <ng-template pTemplate="header">
               <tr>
@@ -101,7 +99,7 @@
     <!-- ── Tab 2: Wastage ─────────────────────────────────────────────────── -->
     <p-tabPanel header="Wastage">
       <div class="tab-content">
-        <div class="card filter-card">
+        <div class="sf-card flat quiet">
           <div class="filter-row">
             <div class="filter-group">
               <label>From Date</label>
@@ -130,7 +128,7 @@
           </div>
         </div>
 
-        <div class="card">
+        <div class="sf-card p0 flat">
           <p-table [value]="wastages" [loading]="isLoadingWastage" [paginator]="true" [rows]="20" sortMode="multiple" styleClass="p-datatable-sm">
             <ng-template pTemplate="header">
               <tr>
@@ -184,7 +182,7 @@
     <!-- ── Tab 3: Reserved Stock ──────────────────────────────────────────── -->
     <p-tabPanel header="Reserved Stock">
       <div class="tab-content">
-        <div class="card filter-card">
+        <div class="sf-card flat quiet">
           <div class="filter-row">
             <div class="filter-group">
               <label>From Date</label>
@@ -205,13 +203,13 @@
           </div>
         </div>
 
-        <div class="summary-row" *ngIf="reserved.length > 0">
-          <div class="summary-card"><span class="s-label">Active Reservations</span><span class="s-val">{{ reserved.length }}</span></div>
-          <div class="summary-card"><span class="s-label">Total Reserved Qty</span><span class="s-val">{{ reservedTotal | number:'1.2-2' }}</span></div>
-          <div class="summary-card"><span class="s-label">Flagged</span><span class="s-val flagged">{{ flaggedCount }}</span></div>
+        <div class="sf-grid sf-tiles" *ngIf="reserved.length > 0">
+          <div class="sf-tile"><span class="l">Active Reservations</span><span class="v sm">{{ reserved.length }}</span></div>
+          <div class="sf-tile"><span class="l">Total Reserved Qty</span><span class="v sm">{{ reservedTotal | number:'1.2-2' }}</span></div>
+          <div class="sf-tile"><span class="l">Flagged</span><span class="v sm flagged">{{ flaggedCount }}</span></div>
         </div>
 
-        <div class="card">
+        <div class="sf-card p0 flat">
           <p-table [value]="reserved" [loading]="isLoadingReserved" [paginator]="true" [rows]="20" sortMode="multiple" styleClass="p-datatable-sm">
             <ng-template pTemplate="header">
               <tr>
@@ -258,4 +256,6 @@
     </p-tabPanel>
 
   </p-tabView>
-</div>
+  </div>
+  </div>
+</sf-page>

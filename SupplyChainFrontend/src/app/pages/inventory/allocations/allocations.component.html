@@ -1,22 +1,32 @@
 <p-toast></p-toast>
 
-<div class="allocations-page">
+<sf-page [crumbs]="['Inventory', 'Allocations']">
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <p-button *ngIf="canRun" label="Run allocation" icon="pi pi-play" [loading]="isRunning"
+              [disabled]="!variantUuid" (onClick)="run()" data-testid="run"></p-button>
+    <p-button *ngIf="canRun" label="Register demand" icon="pi pi-plus" [text]="true"
+              [disabled]="!variantUuid" (onClick)="openRegister()" data-testid="register"></p-button>
+    <span class="sf-sep" *ngIf="selection || selectedWarehouseUuid || filterDemandType"></span>
+    <p-button *ngIf="selection || selectedWarehouseUuid || filterDemandType" label="Clear filters" icon="pi pi-filter-slash"
+              [text]="true" (onClick)="clearFilters()" data-testid="clear-filters"></p-button>
+  </div>
 
+  <div class="sf-body allocations-page">
   <!-- ── Header ───────────────────────────────────────────────────────────── -->
-  <div class="page-header">
-    <div class="page-icon"><i class="pi pi-share-alt"></i></div>
-    <div class="grow">
-      <h1 class="page-title">Allocations</h1>
-      <p class="page-subtitle">Who gets scarce stock: what is on hand, what is expected, who is asking, and who has been given what.</p>
+  <div class="sf-lr-head">
+    <div>
+      <h1>Allocations</h1>
+      <div class="sf-sub">Who gets scarce stock: what is on hand, what is expected, who is asking, and who has been given what.</div>
     </div>
   </div>
 
+  <div class="sf-card">
   <p-tabView [activeIndex]="activeTab" (onChange)="onTabChange($event.index)">
 
     <!-- ══ Dashboard ══════════════════════════════════════════════════════ -->
     <p-tabPanel header="Dashboard" leftIcon="pi pi-chart-bar">
 
-      <div class="form-card">
+      <div class="tab-block">
         <div class="picker-row">
           <div class="picker-field">
             <label>Filter by product and variant</label>
@@ -40,24 +50,15 @@
                         optionLabel="label" optionValue="value" [showClear]="true" placeholder="Every kind"
                         styleClass="w-full" appendTo="body" (onChange)="onDemandTypeFilterChange()" data-testid="demand-type-filter"></p-dropdown>
           </div>
-          <div class="picker-actions">
-            <p-button *ngIf="selection || selectedWarehouseUuid || filterDemandType" label="Clear filters" icon="pi pi-filter-slash"
-                      severity="secondary" [text]="true" (onClick)="clearFilters()" data-testid="clear-filters"></p-button>
-            <p-button *ngIf="canRun" label="Register demand" icon="pi pi-plus" severity="secondary" [outlined]="true"
-                      [disabled]="!variantUuid" (onClick)="openRegister()" data-testid="register"></p-button>
-            <p-button *ngIf="canRun" label="Run allocation" icon="pi pi-play" [loading]="isRunning"
-                      [disabled]="!variantUuid" (onClick)="run()" data-testid="run"></p-button>
-          </div>
         </div>
       </div>
 
       <!-- Open allocation requests — every open demand across the catalogue by default; the row
            above narrows it. Inspecting one opens its own availability/holds panel below without
            narrowing this listing. -->
-      <div class="form-card flush">
-        <div class="card-head padded">
-          <div class="card-icon"><i class="pi pi-inbox"></i></div>
-          <div><div class="card-title">Open allocation requests</div><div class="card-sub">In the order the rules would serve them. Filter above, or inspect one for its variant's availability and holds.</div></div>
+      <div class="sf-card p0 tab-block">
+        <div class="sf-ch">
+          <div><h2>Open allocation requests</h2><div class="sf-mu sf-sm">In the order the rules would serve them. Filter above, or inspect one for its variant's availability and holds.</div></div>
         </div>
 
         <div class="state-card" *ngIf="isLoadingDemands" data-testid="demands-loading">
@@ -130,13 +131,13 @@
       <ng-container *ngIf="variantUuid && !isLoading && !loadFailed">
 
         <!-- Availability -->
-        <div class="stat-grid" *ngIf="availability" data-testid="availability">
-          <div class="stat"><span class="stat-label">On hand</span><span class="stat-value">{{ availability.onHand | number:'1.0-4' }}</span></div>
-          <div class="stat"><span class="stat-label">Reserved</span><span class="stat-value">{{ availability.reserved | number:'1.0-4' }}</span></div>
-          <div class="stat accent"><span class="stat-label">Available</span><span class="stat-value">{{ availability.available | number:'1.0-4' }}</span></div>
-          <div class="stat"><span class="stat-label">Incoming</span><span class="stat-value">{{ availability.incoming | number:'1.0-4' }}</span></div>
-          <div class="stat"><span class="stat-label">Open demand</span><span class="stat-value">{{ availability.openDemand | number:'1.0-4' }}</span></div>
-          <div class="stat" [class.danger]="availability.unallocated > 0"><span class="stat-label">Not covered</span><span class="stat-value">{{ availability.unallocated | number:'1.0-4' }}</span></div>
+        <div class="sf-grid sf-tiles tab-block" *ngIf="availability" data-testid="availability">
+          <div class="sf-tile"><span class="l">On hand</span><span class="v">{{ availability.onHand | number:'1.0-4' }}</span></div>
+          <div class="sf-tile"><span class="l">Reserved</span><span class="v">{{ availability.reserved | number:'1.0-4' }}</span></div>
+          <div class="sf-tile"><span class="l">Available</span><span class="v in">{{ availability.available | number:'1.0-4' }}</span></div>
+          <div class="sf-tile"><span class="l">Incoming</span><span class="v">{{ availability.incoming | number:'1.0-4' }}</span></div>
+          <div class="sf-tile"><span class="l">Open demand</span><span class="v">{{ availability.openDemand | number:'1.0-4' }}</span></div>
+          <div class="sf-tile"><span class="l">Not covered</span><span class="v" [class.er]="availability.unallocated > 0">{{ availability.unallocated | number:'1.0-4' }}</span></div>
         </div>
 
         <p-message *ngIf="lastRun" severity="info" styleClass="run-note" data-testid="last-run">
@@ -144,10 +145,9 @@
         </p-message>
 
         <!-- Allocations -->
-        <div class="form-card flush">
-          <div class="card-head padded">
-            <div class="card-icon"><i class="pi pi-lock"></i></div>
-            <div><div class="card-title">Allocations</div><div class="card-sub">{{ allocationsTotal }} record(s). A hold is real stock set aside; a plan leans on supply that has not arrived.</div></div>
+        <div class="sf-card p0 tab-block">
+          <div class="sf-ch">
+            <div><h2>Allocations</h2><div class="sf-mu sf-sm">{{ allocationsTotal }} record(s). A hold is real stock set aside; a plan leans on supply that has not arrived.</div></div>
           </div>
           <p-table [value]="allocations" styleClass="p-datatable-sm" dataKey="uuid" data-testid="allocations">
             <ng-template pTemplate="header">
@@ -192,12 +192,11 @@
 
     <!-- ══ Rules ══════════════════════════════════════════════════════════ -->
     <p-tabPanel header="Priority rules" leftIcon="pi pi-sort-amount-down">
-      <div class="form-card">
-        <div class="card-head">
-          <div class="card-icon"><i class="pi pi-sort-amount-down"></i></div>
+      <div class="rules-block">
+        <div class="sf-ch">
           <div>
-            <div class="card-title">How competing demands are ranked</div>
-            <div class="card-sub">Rules are applied in order; the first that tells two demands apart decides. No rules means the built-in defaults: business priority, then required date, then customer orders before production, then oldest first.</div>
+            <h2>How competing demands are ranked</h2>
+            <div class="sf-mu sf-sm">Rules are applied in order; the first that tells two demands apart decides. No rules means the built-in defaults: business priority, then required date, then customer orders before production, then oldest first.</div>
           </div>
         </div>
 
@@ -245,7 +244,9 @@
     </p-tabPanel>
 
   </p-tabView>
-</div>
+  </div>
+  </div>
+</sf-page>
 
 <!-- ── Release ──────────────────────────────────────────────────────────────── -->
 <p-dialog header="Release this allocation" [visible]="releaseTarget !== null" (visibleChange)="!$event && (releaseTarget = null)"

@@ -15,7 +15,7 @@
 .detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr)); gap: 1rem; margin-bottom: 1rem; }
 
 .card {
-  background: var(--surface-0); border: 1px solid var(--surface-200);
+  background: var(--sms-surface); border: 1px solid var(--sms-border);
   border-radius: .625rem; padding: 1.25rem;
 }
 .card.block { margin-bottom: 1rem; }
@@ -25,7 +25,7 @@
 dl { display: grid; grid-template-columns: auto 1fr; gap: .5rem 1rem; margin: 0; font-size: .875rem; }
 dt { color: var(--text-color-secondary); }
 dd { margin: 0; }
-.balance-owing { color: var(--orange-700, #c2410c); }
+.balance-owing { color: var(--sms-warn); }
 
 .notes { margin: 1rem 0 0; font-size: .875rem; color: var(--text-color-secondary); font-style: italic; }
 
@@ -36,12 +36,12 @@ dd { margin: 0; }
 // SAP alignment (S-7) — a cancelled invoice says so, and why, above everything else.
 .cancelled-banner {
   display: flex; align-items: flex-start; gap: .75rem; margin-bottom: 1rem; padding: .875rem 1rem;
-  border: 1px solid var(--red-200, #fecaca); background: var(--red-50, #fef2f2); color: var(--red-800, #991b1b);
+  border: 1px solid color-mix(in srgb, var(--sms-danger) 30%, transparent); background: var(--sms-danger-soft); color: var(--sms-danger);
   border-radius: .625rem; font-size: .875rem;
 }
 .cancelled-banner > i { margin-top: .125rem; }
 .cancelled-banner .cancel-reason { margin-top: .375rem; white-space: pre-line; }
-.required { color: var(--red-500, #ef4444); }
+.required { color: var(--sms-danger); }
 
 .dialog-hint { font-size: .875rem; color: var(--text-color-secondary); margin: 0 0 1rem; }
 .dialog-label { display: block; font-size: .8125rem; font-weight: 600; margin-bottom: .375rem; }

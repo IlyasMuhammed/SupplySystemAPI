@@ -21,6 +21,7 @@ import {
   CarrierServiceModel,
   CarrierListItemModel
 } from '../../../../services/logistics.service';
+import { FLOW } from '../../../../shared/flow';
 
 type Severity = 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast';
 
@@ -51,7 +52,8 @@ interface LaneDraft {
   imports: [
     CommonModule, RouterModule, FormsModule,
     ButtonModule, TagModule, TableModule, TooltipModule, ToastModule, DialogModule,
-    InputTextModule, InputNumberModule, SelectModule, DatePickerModule
+    InputTextModule, InputNumberModule, SelectModule, DatePickerModule,
+    ...FLOW
   ],
   templateUrl: './rate-cards.component.html',
   styleUrls: ['./rate-cards.component.scss'],

@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace SMS.Modules.Inventory.Models;
 
 // ── Category ──────────────────────────────────────────────────────────────────
@@ -136,10 +138,64 @@ public class ProductDetailModel : ProductListItemModel
     public bool IsManufacturable { get; set; }
     public int? DefaultProductionWarehouseId { get; set; }
     public string? DefaultProductionWarehouseName { get; set; }
+    // A36 D-2 — service configuration (null/false for non-service products).
+    public string? ServiceInvoicingPolicy { get; set; }
+    public string? ServiceBillingModel { get; set; }
+    public decimal? EstimatedDurationHours { get; set; }
+    public bool HasServiceBom { get; set; }
+    public bool IsSubcontractable { get; set; }
+    /// <summary>
+    /// A36 D-3 (read-only) — a service with <see cref="HasServiceBom"/> that has an ACTIVE, effective BOM (for any of its
+    /// variants or product-general). False → the UI warns "no active service BOM"; service orders then plan ad hoc.
+    /// Filled by InventoryService from Material's IBomStructureReader; always false without Material in the host.
+    /// </summary>
+    public bool HasActiveServiceBom { get; set; }
+    // A37 D-10 — read-only, derived: ProductType == SERVICE.
+    public bool IsServiceable => ProductType == SMS.Shared.Common.ProductType.Service;
+    public string? ServiceCategory { get; set; }
+    public bool RequiresSiteVisit { get; set; }
     public string? Notes { get; set; }
     public DateTime? UpdatedDate { get; set; }
+    public DateTime ModifiedAt { get; set; }
     public int CreatedBy { get; set; }
     public List<ProductVariantModel> Variants { get; set; } = [];
+
+    /// <summary>
+    /// A37 D-10 (PRD-CAP-03) — present only while MODULE_MANUFACTURING / MODULE_SERVICES is enabled for the caller's
+    /// organization; otherwise null, and a null is left out of the JSON (key absent, not null). Set by InventoryService.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ProductProductionSettingsModel? ProductionSettings { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ProductServiceSettingsModel? ServiceSettings { get; set; }
+
+    // The product's organization — whose modules decide the two blocks above. Internal, so never serialized.
+    internal Guid OrganizationId { get; set; }
+}
+
+/// <summary>A37 §2 — the manufacturing view of a product (flat fields stay on the detail for compatibility).</summary>
+public class ProductProductionSettingsModel
+{
+    public string SupplyMethod { get; set; } = string.Empty;
+    public int? DefaultProductionWarehouseId { get; set; }
+    public string? DefaultProductionWarehouseName { get; set; }
+    public Guid? ActiveBomUuid { get; set; }
+    public string? ActiveBomNumber { get; set; }
+    /// <summary>The default variant's A34 override, else Product.LeadTimeDays for a MANUFACTURE product, else null.</summary>
+    public int? ManufacturingLeadTimeDays { get; set; }
+}
+
+/// <summary>A37 §2 — the service view of a product (A36 fields + the A37 two).</summary>
+public class ProductServiceSettingsModel
+{
+    public string? InvoicingPolicy { get; set; }
+    public string? BillingModel { get; set; }
+    public decimal? EstimatedDurationHours { get; set; }
+    public bool HasServiceBom { get; set; }
+    public bool IsSubcontractable { get; set; }
+    public string? ServiceCategory { get; set; }
+    public bool RequiresSiteVisit { get; set; }
+    public Guid? ActiveServiceBomUuid { get; set; }
 }
 
 // ── Product Variants (FSD Addendum 26 / PV-001) ────────────────────────────────
@@ -366,6 +422,16 @@ public class CreateProductRequest
     public bool? IsStockable { get; set; }
     public int? DefaultProductionWarehouseId { get; set; }
 
+    // ── Service configuration (A36 D-2, SVC-P-01..07) — only for ProductType SERVICE ──
+    public string? ServiceInvoicingPolicy { get; set; }
+    public string? ServiceBillingModel { get; set; }
+    public decimal? EstimatedDurationHours { get; set; }
+    public bool? HasServiceBom { get; set; }
+    public bool? IsSubcontractable { get; set; }
+    // A37 D-10 — service only (a ServiceCategory code; the site-visit flag).
+    public string? ServiceCategory { get; set; }
+    public bool? RequiresSiteVisit { get; set; }
+
     // ── Variant seeding (PV-001) ────────────────────────────────────────────────
     // If Variants is supplied (non-empty), those exact variants are created and exactly one
     // must have IsDefault=true. Otherwise, a single default variant is auto-created using
@@ -407,6 +473,47 @@ public class PatchProductRequest
     public bool? IsPurchasable { get; set; }
     public bool? IsStockable { get; set; }
     public int? DefaultProductionWarehouseId { get; set; }
+    // A36 D-2 — overlaid on the product's current service configuration and validated as a whole (SVC-P-01..07).
+    // The two codes and the duration: omitted = unchanged, an explicit null clears (System.Text.Json calls a setter
+    // only for a property present in the body, so the setters record that it was sent). The flags: null = unchanged,
+    // false clears. When the product stops being a SERVICE, its stored service configuration is cleared.
+    private string?  _serviceInvoicingPolicy;
+    private string?  _serviceBillingModel;
+    private decimal? _estimatedDurationHours;
+
+    public string? ServiceInvoicingPolicy
+    {
+        get => _serviceInvoicingPolicy;
+        set { _serviceInvoicingPolicy = value; ServiceInvoicingPolicySent = true; }
+    }
+    public string? ServiceBillingModel
+    {
+        get => _serviceBillingModel;
+        set { _serviceBillingModel = value; ServiceBillingModelSent = true; }
+    }
+    public decimal? EstimatedDurationHours
+    {
+        get => _estimatedDurationHours;
+        set { _estimatedDurationHours = value; EstimatedDurationHoursSent = true; }
+    }
+    public bool? HasServiceBom { get; set; }
+    public bool? IsSubcontractable { get; set; }
+    // A37 D-10 — same rules: the category omitted = unchanged, explicit null clears; the flag null = unchanged.
+    private string? _serviceCategory;
+    public string? ServiceCategory
+    {
+        get => _serviceCategory;
+        set { _serviceCategory = value; ServiceCategorySent = true; }
+    }
+    public bool? RequiresSiteVisit { get; set; }
+
+    internal bool ServiceInvoicingPolicySent { get; private set; }
+    internal bool ServiceBillingModelSent    { get; private set; }
+    internal bool EstimatedDurationHoursSent { get; private set; }
+    internal bool ServiceCategorySent        { get; private set; }
+    internal bool AnyServiceFieldSent =>
+        ServiceInvoicingPolicySent || ServiceBillingModelSent || EstimatedDurationHoursSent ||
+        HasServiceBom.HasValue || IsSubcontractable.HasValue || ServiceCategorySent || RequiresSiteVisit.HasValue;
 }
 
 // A30 §28.1 — PATCH /api/products/{id}/manufacturing-config. Type and supply method are required;

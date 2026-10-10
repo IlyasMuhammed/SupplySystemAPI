@@ -10,6 +10,7 @@ import { DropdownModule } from 'primeng/dropdown';
 import { CalendarModule } from 'primeng/calendar';
 import { MessageService } from 'primeng/api';
 import { MaterialService, WastageListItem, WastageListFilter } from '../../../../services/material.service';
+import { FLOW } from '../../../../shared/flow';
 
 @Component({
   selector: 'app-wastage-list',
@@ -17,7 +18,8 @@ import { MaterialService, WastageListItem, WastageListFilter } from '../../../..
   imports: [
     CommonModule, FormsModule, RouterModule,
     ButtonModule, TagModule, ToastModule,
-    TableModule, DropdownModule, CalendarModule
+    TableModule, DropdownModule, CalendarModule,
+    ...FLOW
   ],
   templateUrl: './wastage-list.component.html',
   styleUrls: ['./wastage-list.component.scss'],

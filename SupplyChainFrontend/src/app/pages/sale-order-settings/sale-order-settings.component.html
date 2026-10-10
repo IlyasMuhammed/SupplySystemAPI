@@ -1,30 +1,30 @@
 <p-toast></p-toast>
 
-<div class="settings-page">
+<sf-page [crumbs]="['Settings', 'Sale order settings']">
 
   <!-- ── Header ───────────────────────────────────────────────────────────── -->
-  <div class="page-header">
-    <div class="page-icon"><i class="pi pi-sliders-h"></i></div>
+  <header class="sf-hdr sf-compact">
     <div class="grow">
-      <h1 class="page-title">
-        Sale Order Settings
+      <h1>
+        Sale order settings
         <p-tag *ngIf="config && !canEdit" value="View only" severity="secondary" icon="pi pi-lock" data-testid="view-only"></p-tag>
       </h1>
-      <p class="page-subtitle">How sale orders are filled, when purchase orders are raised for shortfalls, and who is told.</p>
+      <div class="sf-meta">How sale orders are filled, when purchase orders are raised for shortfalls, and who is told.</div>
     </div>
-    <div class="last-changed" *ngIf="config" data-testid="last-changed">
+    <div class="sf-mu sf-sm" *ngIf="config" data-testid="last-changed">
       <ng-container *ngIf="config.updatedAt; else neverChanged">Last changed {{ config.updatedAt | date:'medium' }}</ng-container>
       <ng-template #neverChanged>Still on the default settings</ng-template>
     </div>
-  </div>
+  </header>
 
+  <div class="sf-body">
   <!-- ── Loading and failure ──────────────────────────────────────────────── -->
-  <div class="state-card" *ngIf="isLoading" data-testid="loading">
+  <div class="sf-card sf-empty state-card"*ngIf="isLoading" data-testid="loading">
     <i class="pi pi-spin pi-spinner"></i>
     <p>Loading the settings…</p>
   </div>
 
-  <div class="state-card" *ngIf="loadFailed" data-testid="load-failed">
+  <div class="sf-card sf-empty state-card"*ngIf="loadFailed" data-testid="load-failed">
     <i class="pi pi-exclamation-triangle"></i>
     <h2>The settings could not be loaded</h2>
     <p>Check your connection and try again.</p>
@@ -76,12 +76,11 @@
           </ng-template>
 
           <!-- ── Purchasing for shortfalls ─────────────────────────────────── -->
-          <section class="form-card" data-testid="purchasing-card">
-            <div class="card-head">
-              <div class="card-icon"><i class="pi pi-shopping-cart"></i></div>
-              <div class="grow">
-                <div class="card-title">Purchasing for shortfalls</div>
-                <div class="card-sub">What happens when a confirmed sale order needs more stock than the warehouse has.</div>
+          <section class="sf-card" data-testid="purchasing-card">
+            <div class="sf-ch">
+              <div>
+                <h2><i class="pi pi-shopping-cart"></i> Purchasing for shortfalls</h2>
+                <div class="sf-mu sf-sm">What happens when a confirmed sale order needs more stock than the warehouse has.</div>
               </div>
             </div>
 
@@ -108,12 +107,11 @@
           </section>
 
           <!-- ── Fulfilment ────────────────────────────────────────────────── -->
-          <section class="form-card" data-testid="fulfilment-card">
-            <div class="card-head">
-              <div class="card-icon"><i class="pi pi-truck"></i></div>
-              <div class="grow">
-                <div class="card-title">Fulfilment</div>
-                <div class="card-sub">How confirmed orders are filled, and how long stock is held for them.</div>
+          <section class="sf-card" data-testid="fulfilment-card">
+            <div class="sf-ch">
+              <div>
+                <h2><i class="pi pi-truck"></i> Fulfilment</h2>
+                <div class="sf-mu sf-sm">How confirmed orders are filled, and how long stock is held for them.</div>
               </div>
             </div>
 
@@ -165,12 +163,11 @@
           </section>
 
           <!-- ── Notifications ─────────────────────────────────────────────── -->
-          <section class="form-card" data-testid="notifications-card">
-            <div class="card-head">
-              <div class="card-icon"><i class="pi pi-envelope"></i></div>
-              <div class="grow">
-                <div class="card-title">Notifications</div>
-                <div class="card-sub">Who is told about sale orders.</div>
+          <section class="sf-card" data-testid="notifications-card">
+            <div class="sf-ch">
+              <div>
+                <h2><i class="pi pi-envelope"></i> Notifications</h2>
+                <div class="sf-mu sf-sm">Who is told about sale orders.</div>
               </div>
             </div>
 
@@ -214,7 +211,7 @@
           </section>
 
           <!-- ── Save bar ──────────────────────────────────────────────────── -->
-          <div class="action-bar" *ngIf="canEdit" data-testid="action-bar">
+          <div class="sf-fbar action-bar" *ngIf="canEdit" data-testid="action-bar">
             <span class="unsaved" *ngIf="dirty" data-testid="unsaved">
               <i class="pi pi-circle-fill"></i>
               {{ changes.length }} unsaved {{ changes.length === 1 ? 'change' : 'changes' }}
@@ -222,18 +219,19 @@
             <span class="saved" *ngIf="!dirty" data-testid="all-saved">
               <i class="pi pi-check"></i> All changes saved
             </span>
-            <span class="grow"></span>
-            <p-button label="Discard changes" [outlined]="true" severity="secondary"
-                      [disabled]="!dirty || isSaving" (onClick)="discard()" data-testid="discard"></p-button>
-            <p-button type="submit" label="Review and save" icon="pi pi-check"
-                      [disabled]="!dirty || isSaving" data-testid="save"></p-button>
+            <span class="sf-end">
+              <p-button label="Discard changes" [text]="true" severity="secondary"
+                        [disabled]="!dirty || isSaving" (onClick)="discard()" data-testid="discard"></p-button>
+              <p-button type="submit" label="Review and save" icon="pi pi-check"
+                        [disabled]="!dirty || isSaving" data-testid="save"></p-button>
+            </span>
           </div>
         </form>
       </p-tabPanel>
 
       <!-- ══ History ════════════════════════════════════════════════════════ -->
       <p-tabPanel header="History" leftIcon="pi pi-history">
-        <div class="form-card flush" data-testid="history">
+        <div class="sf-card p0" data-testid="history">
           <div class="state-inline" *ngIf="auditFailed" data-testid="audit-failed">
             <i class="pi pi-exclamation-triangle"></i>
             The history could not be loaded.
@@ -261,7 +259,7 @@
             </ng-template>
             <ng-template pTemplate="emptymessage">
               <tr>
-                <td colspan="5" class="empty" data-testid="audit-empty">
+                <td colspan="5" class="sf-empty" data-testid="audit-empty">
                   No change has been made yet. The settings are still as they were first set up.
                 </td>
               </tr>
@@ -275,7 +273,8 @@
       </p-tabPanel>
     </p-tabView>
   </ng-container>
-</div>
+  </div>
+</sf-page>
 
 <!-- ── Review before saving ─────────────────────────────────────────────────── -->
 <p-dialog header="Review changes" [(visible)]="reviewVisible" [modal]="true" [draggable]="false"

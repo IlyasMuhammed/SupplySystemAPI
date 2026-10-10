@@ -17,6 +17,8 @@ internal sealed class InventoryService : IInventoryService
     private readonly VariantQuickBooksPublisher? _quickBooks;
     private readonly IFulfillmentRouteLookup? _routeLookup;
     private readonly ITenantContext? _tenantContext;
+    private readonly IBomStructureReader? _bomReader;
+    private readonly IModuleGate? _modules;
 
     /// <param name="quickBooks">
     /// Tells the QuickBooks gateway about variants after each save that changes what it would send. Optional
@@ -27,11 +29,22 @@ internal sealed class InventoryService : IInventoryService
     /// route uuid is still shown, with no code or name (D-11).
     /// </param>
     /// <param name="tenantContext">A34 §4.3 — whose routes the <c>routeCategory</c> filter reads (the caller's own organization).</param>
+    /// <param name="bomReader">
+    /// A36 D-3 — Material's active-BOM reader, for the product detail's read-only <c>hasActiveServiceBom</c>. Material
+    /// registers it; without it the flag reads false.
+    /// </param>
+    /// <param name="modules">
+    /// A37 D-10 — decides whether the product detail carries <c>productionSettings</c> / <c>serviceSettings</c>. Tenancy
+    /// registers it; a host without it treats every module as enabled.
+    /// </param>
     public InventoryService(
         IInventoryRepository repo, IProductSearchIndexService searchIndex, IBackgroundJobClient jobs,
         IEnumerable<IVariantReferenceChecker> variantCheckers, VariantQuickBooksPublisher? quickBooks = null,
-        IFulfillmentRouteLookup? routeLookup = null, ITenantContext? tenantContext = null)
+        IFulfillmentRouteLookup? routeLookup = null, ITenantContext? tenantContext = null,
+        IBomStructureReader? bomReader = null, IModuleGate? modules = null)
     {
+        _bomReader       = bomReader;
+        _modules         = modules;
         _repo            = repo;
         _searchIndex     = searchIndex;
         _jobs            = jobs;
@@ -111,9 +124,63 @@ internal sealed class InventoryService : IInventoryService
     public async Task<ProductDetailModel?> GetProductByIdAsync(int id)
     {
         var detail = await _repo.GetProductByIdAsync(id);
-        if (detail is not null) await NameVariantRoutesAsync(detail.Variants);
+        if (detail is null) return null;
+
+        await NameVariantRoutesAsync(detail.Variants);
+
+        // A37 D-10 (PRD-CAP-03) — each module block only while its module is enabled for the caller's organization (the
+        // product's own when the caller has none, e.g. a super admin); left null otherwise, which the JSON omits.
+        var org = _tenantContext?.OrganizationId is { } o && o != Guid.Empty ? o : detail.OrganizationId;
+        var manufacturing = await IsEnabledAsync(org, ModuleCodes.Manufacturing);
+        var services      = await IsEnabledAsync(org, ModuleCodes.Services);
+
+        // One reader call serves A36's hasActiveServiceBom and both blocks; asked only when an active BOM can matter.
+        var serviceBom = detail.ProductType == ProductType.Service && detail.HasServiceBom;
+        var active = await ActiveBomsAsync(detail, serviceBom || (manufacturing && detail.SupplyMethod == SupplyMethod.Manufacture));
+        // A36 D-3 — an ACTIVE, effective BOM for any variant (variant-specific or product-general), Material's rule.
+        detail.HasActiveServiceBom = serviceBom && active.Count > 0;
+        var bom = detail.Variants.OrderByDescending(v => v.IsDefault)
+            .Select(v => active.TryGetValue(v.Uuid, out var b) ? b : null).FirstOrDefault(b => b is not null);
+
+        if (manufacturing)
+        {
+            var defaultVariant = detail.Variants.FirstOrDefault(v => v.IsDefault) ?? detail.Variants.FirstOrDefault();
+            detail.ProductionSettings = new ProductProductionSettingsModel
+            {
+                SupplyMethod                   = detail.SupplyMethod,
+                DefaultProductionWarehouseId   = detail.DefaultProductionWarehouseId,
+                DefaultProductionWarehouseName = detail.DefaultProductionWarehouseName,
+                ActiveBomUuid                  = bom?.BomUuid,
+                ActiveBomNumber                = bom?.BomNumber,
+                // A34 D-11/D-12 stored data: the variant override, else the product's days for a MANUFACTURE product.
+                ManufacturingLeadTimeDays      = defaultVariant?.ManufacturingLeadTimeDays
+                    ?? (detail.SupplyMethod == SupplyMethod.Manufacture ? detail.LeadTimeDays : null)
+            };
+        }
+
+        if (services)
+            detail.ServiceSettings = new ProductServiceSettingsModel
+            {
+                InvoicingPolicy        = detail.ServiceInvoicingPolicy,
+                BillingModel           = detail.ServiceBillingModel,
+                EstimatedDurationHours = detail.EstimatedDurationHours,
+                HasServiceBom          = detail.HasServiceBom,
+                IsSubcontractable      = detail.IsSubcontractable,
+                ServiceCategory        = detail.ServiceCategory,
+                RequiresSiteVisit      = detail.RequiresSiteVisit,
+                ActiveServiceBomUuid   = serviceBom ? bom?.BomUuid : null
+            };
+
         return detail;
     }
+
+    private async Task<bool> IsEnabledAsync(Guid org, string code) =>
+        _modules is null || org == Guid.Empty || await _modules.IsEnabledAsync(org, code);
+
+    private async Task<IReadOnlyDictionary<Guid, BomStructure>> ActiveBomsAsync(ProductDetailModel detail, bool needed) =>
+        !needed || _bomReader is null || detail.Variants.Count == 0
+            ? new Dictionary<Guid, BomStructure>()
+            : await _bomReader.GetActiveBomsAsync(detail.Variants[0].OrganizationId, detail.Variants.Select(v => v.Uuid).ToList());
 
     // A33 C2 — each variant's route code and name, read from Logistics for the variant's own organization (the
     // route belongs to it: BR-C2-01). A route that is gone keeps its uuid and gets no name.

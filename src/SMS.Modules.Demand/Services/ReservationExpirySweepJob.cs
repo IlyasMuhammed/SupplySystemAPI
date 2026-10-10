@@ -1,4 +1,4 @@
-using Hangfire;
+﻿using Hangfire;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SMS.Modules.Demand.Data;
@@ -38,12 +38,14 @@ internal sealed class ReservationExpirySweepJob
     private readonly INotificationService _notifications;
     private readonly ILogger<ReservationExpirySweepJob> _log;
     private readonly ISaleOrderDeliveryQuantities? _deliveries;
+    private readonly IModuleGate? _gate;
 
     public ReservationExpirySweepJob(
         DemandDbContext db, IStockReservationService stock,
         INotificationService notifications, ILogger<ReservationExpirySweepJob> log,
-        ISaleOrderDeliveryQuantities? deliveries = null)
+        ISaleOrderDeliveryQuantities? deliveries = null, IModuleGate? gate = null)
     {
+        _gate          = gate;
         _db            = db;
         _stock         = stock;
         _notifications = notifications;
@@ -89,8 +91,10 @@ internal sealed class ReservationExpirySweepJob
         if (expired.Count == 0) return 0;
 
         var released = 0;
+        // A37 D-9 — organizations without MODULE_DEMAND keep their holds until it is back (grace counts as off).
+        var skipped = await _gate.SkippedAmongAsync(expired.Select(r => r.OrganizationId), ModuleCodes.Demand, _log, nameof(ReservationExpirySweepJob));
 
-        foreach (var orgGroup in expired.GroupBy(r => r.OrganizationId))
+        foreach (var orgGroup in expired.Where(r => !skipped.Contains(r.OrganizationId)).GroupBy(r => r.OrganizationId))
         {
             HangfireTenantScope.OrganizationId = orgGroup.Key;
             try
@@ -142,8 +146,9 @@ internal sealed class ReservationExpirySweepJob
         if (expiring.Count == 0) return 0;
 
         var sent = 0;
+        var skipped = await _gate.SkippedAmongAsync(expiring.Select(r => r.OrganizationId), ModuleCodes.Demand, _log, nameof(ReservationExpirySweepJob));
 
-        foreach (var orgGroup in expiring.GroupBy(r => r.OrganizationId))
+        foreach (var orgGroup in expiring.Where(r => !skipped.Contains(r.OrganizationId)).GroupBy(r => r.OrganizationId))
         {
             HangfireTenantScope.OrganizationId = orgGroup.Key;
             try

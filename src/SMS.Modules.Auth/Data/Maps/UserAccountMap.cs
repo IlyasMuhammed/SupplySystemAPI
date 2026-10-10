@@ -95,6 +95,7 @@ internal sealed class PermissionMap : IEntityTypeConfiguration<Permission>
         builder.Property(x => x.Code).HasMaxLength(100).IsRequired();
         builder.HasIndex(x => x.Code).IsUnique();
         builder.Property(x => x.Description).HasMaxLength(500);
+        builder.Property(x => x.ModuleCode).HasMaxLength(50);
     }
 }
 

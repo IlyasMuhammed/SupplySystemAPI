@@ -1,218 +1,207 @@
-<div class="quotation-create-page">
-  <p-toast></p-toast>
+<p-toast></p-toast>
 
-  <div class="page-header">
-    <div class="header-content">
-      <div class="header-left">
-        <p-button icon="pi pi-arrow-left" [text]="true" severity="secondary"
-                  routerLink="/portal/pages/demand/quotations" class="back-btn"></p-button>
-        <div>
-          <h1 class="page-title"><i class="pi pi-envelope"></i> New RFQ</h1>
-          <p class="page-subtitle">Create a request-for-quotation and add the items to be quoted</p>
-        </div>
-      </div>
-    </div>
-  </div>
+<sf-page [crumbs]="['Procurement', 'Supplier quotes (RFQ)', 'New RFQ']">
 
-  <form [formGroup]="form" (ngSubmit)="onSubmit()">
+  <header class="sf-hdr sf-compact">
+    <h1>New RFQ</h1>
+    <span class="sf-mu">Create a request-for-quotation and add the items to be quoted</span>
+  </header>
 
-    <!-- ── General Information ──────────────────────────────────────────── -->
-    <div class="form-card">
+  <form [formGroup]="form" (ngSubmit)="onSubmit()" class="sf-form">
+    <div class="sf-body">
 
-      <!-- Card header -->
-      <div class="gi-header">
-        <div class="gi-icon"><i class="pi pi-envelope"></i></div>
-        <div class="gi-text">
-          <div class="gi-title">General Information</div>
-          <div class="gi-sub">Set the quotation title, source type, and response deadline</div>
-        </div>
-      </div>
-
-      <div class="gi-grid">
-
-        <!-- Title — full width -->
-        <div class="field full">
-          <label>Quotation Title <span class="required">*</span></label>
-          <input pInputText formControlName="title" placeholder="e.g. Office Equipment RFQ Q3"
-                 [class.p-invalid]="isInvalid('title')" class="w-full" maxlength="150" />
-          <small class="p-error" *ngIf="isInvalid('title')">Title is required (min 3 chars)</small>
+      <!-- ── General Information ──────────────────────────────────────────── -->
+      <section class="sf-card">
+        <div class="sf-ch">
+          <h2>General information</h2>
+          <span class="sf-mu sf-sm">Set the quotation title, source type, and response deadline</span>
         </div>
 
-        <!-- Source Type | Response Due Date -->
-        <div class="field">
-          <label>Source Type <span class="required">*</span></label>
-          <p-dropdown formControlName="sourceType" [options]="sourceTypeOptions"
-                      optionLabel="label" optionValue="value" styleClass="w-full"></p-dropdown>
-        </div>
-        <div class="field">
-          <label>Response Due Date</label>
-          <p-calendar formControlName="dueDate" dateFormat="dd/mm/yy" [minDate]="minDate"
-                      [showIcon]="true" placeholder="Deadline for vendor responses"
-                      styleClass="w-full" appendTo="body"></p-calendar>
-        </div>
+        <div class="sf-fields">
 
-        <!-- PR Dropdown (conditional) -->
-        <div class="field full" *ngIf="sourceType === 'PR'">
-          <label>Select Requisition <span class="required">*</span></label>
-          <p-dropdown formControlName="sourceId"
-                      [options]="prOptions" optionLabel="label" optionValue="value"
-                      placeholder="Search and select an approved requisition…"
-                      [filter]="true" filterBy="label" [loading]="loadingPrs"
-                      [showClear]="true" styleClass="w-full"
-                      (onChange)="onPrSelected($event.value)">
-          </p-dropdown>
-          <small class="hint">Only approved requisitions are shown. Selecting one auto-populates the line items below.</small>
-          <div *ngIf="loadingPrLines" class="pr-lines-loading">
-            <p-progressSpinner [style]="{ width: '18px', height: '18px' }" strokeWidth="4"></p-progressSpinner>
-            <span>Loading requisition lines…</span>
-          </div>
-          <div *ngIf="selectedPrLabel && !loadingPrLines" class="pr-loaded-banner">
-            <i class="pi pi-check-circle"></i>
-            Lines imported from: <strong>{{ selectedPrLabel }}</strong>
-          </div>
-        </div>
-
-        <!-- PO Dropdown (conditional) -->
-        <div class="field full" *ngIf="sourceType === 'PO'">
-          <label>Select Purchase Order</label>
-          <p-dropdown formControlName="sourceId"
-                      [options]="poOptions" optionLabel="label" optionValue="value"
-                      placeholder="Search and select a purchase order…"
-                      [filter]="true" filterBy="label" [loading]="loadingPos"
-                      [showClear]="true" styleClass="w-full"
-                      (onChange)="onPoSelected($event.value)">
-          </p-dropdown>
-          <small class="hint">Optional — links this RFQ to an existing purchase order.</small>
-          <div *ngIf="selectedPoLabel" class="pr-loaded-banner">
-            <i class="pi pi-check-circle"></i>
-            Linked to: <strong>{{ selectedPoLabel }}</strong>
-          </div>
-        </div>
-
-        <!-- Notes — full width -->
-        <div class="field full">
-          <label>Notes</label>
-          <textarea pTextarea formControlName="notes" rows="3"
-                    placeholder="Any special instructions or context for suppliers…"
-                    class="w-full" maxlength="1000"></textarea>
-        </div>
-
-      </div>
-    </div>
-
-    <!-- ── Attachments ──────────────────────────────────────────────────── -->
-    <div class="form-card">
-      <app-attachment-list interfaceCode="QUOTATION" [documentId]="quotationUuid" label="Attachments"></app-attachment-list>
-    </div>
-
-    <!-- ── Line Items ───────────────────────────────────────────────────── -->
-    <div class="form-card">
-      <div class="section-header">
-        <h2 class="section-title" style="margin-bottom:0;"><i class="pi pi-list"></i> Items to Quote</h2>
-      </div>
-
-      <div formArrayName="lines">
-        <div *ngFor="let line of lines.controls; let i = index" [formGroupName]="i" class="line-card">
-
-          <!-- Card header -->
-          <div class="line-header">
-            <div class="line-num">{{ i + 1 }}</div>
-            <span class="line-title">Line {{ i + 1 }}</span>
-            <span *ngIf="line.get('sourcePrLineUuid')?.value" class="pr-line-badge">
-              <i class="pi pi-link"></i> From PR
-            </span>
-            <p-button icon="pi pi-times" severity="danger" [text]="true" size="small"
-                      type="button" (onClick)="removeLine(i)"
-                      [disabled]="lines.length === 1" pTooltip="Remove line" tooltipPosition="left"></p-button>
+          <!-- Title — full width -->
+          <div class="sf-fld full">
+            <label>Quotation Title <span class="required">*</span></label>
+            <input pInputText formControlName="title" placeholder="e.g. Office Equipment RFQ Q3"
+                   [class.p-invalid]="isInvalid('title')" class="w-full" maxlength="150" />
+            <small class="p-error" *ngIf="isInvalid('title')">Title is required (min 3 chars)</small>
           </div>
 
-          <!-- Card body -->
-          <div class="line-body">
-            <div class="line-grid">
+          <!-- Source Type | Response Due Date -->
+          <div class="sf-fld">
+            <label>Source Type <span class="required">*</span></label>
+            <p-dropdown formControlName="sourceType" [options]="sourceTypeOptions"
+                        optionLabel="label" optionValue="value" styleClass="w-full"></p-dropdown>
+          </div>
+          <div class="sf-fld">
+            <label>Response Due Date</label>
+            <p-calendar formControlName="dueDate" dateFormat="dd/mm/yy" [minDate]="minDate"
+                        [showIcon]="true" placeholder="Deadline for vendor responses"
+                        styleClass="w-full" appendTo="body"></p-calendar>
+          </div>
 
-              <!-- Product → Variant (PV-004 two-level picker) | Quantity -->
-              <div class="field">
-                <label>Product</label>
-                <app-product-variant-picker
-                  [products]="products"
-                  [productUuid]="line.get('productUuid')?.value"
-                  [variantUuid]="line.get('variantUuid')?.value"
-                  (selectionChange)="onLineVariantSelected(i, $event)">
-                </app-product-variant-picker>
-              </div>
-              <div class="field">
-                <label>Quantity <span class="required">*</span></label>
-                <p-inputNumber formControlName="quantity" [minFractionDigits]="0" [maxFractionDigits]="4"
-                               [min]="0.0001" [max]="999999" [maxlength]="12" [class.p-invalid]="lineIsInvalid(i, 'quantity')"
-                               styleClass="w-full"></p-inputNumber>
-                <small class="p-error" *ngIf="lineIsInvalid(i, 'quantity')">Must be between 0 and 999,999</small>
-              </div>
-
-              <!-- Description | Specification -->
-              <div class="field">
-                <label>Item Description <span class="required">*</span></label>
-                <input pInputText formControlName="itemDescription"
-                       placeholder="Item description…"
-                       [class.p-invalid]="lineIsInvalid(i, 'itemDescription')" class="w-full" maxlength="200" />
-                <small class="p-error" *ngIf="lineIsInvalid(i, 'itemDescription')">Required</small>
-              </div>
-              <div class="field">
-                <label>Specification</label>
-                <input pInputText formControlName="specification"
-                       placeholder="Technical specs or details…"
-                       class="w-full" maxlength="300" />
-              </div>
-
-              <!-- UoM | Required Date -->
-              <div class="field">
-                <label>Unit of Measure</label>
-                <p-dropdown formControlName="unitOfMeasure" [options]="uomOptions"
-                            optionLabel="label" optionValue="value" styleClass="w-full"></p-dropdown>
-              </div>
-              <div class="field">
-                <label>Required By Date</label>
-                <p-calendar formControlName="requiredDate" dateFormat="dd/mm/yy" [minDate]="minDate"
-                            [showIcon]="true" placeholder="When is this needed?"
-                            styleClass="w-full" appendTo="body"></p-calendar>
-              </div>
-              <div class="field">
-                <label>Budget Code</label>
-                <input pInputText formControlName="budgetCode" placeholder="e.g. CAPEX-2025"
-                       class="w-full" maxlength="30" />
-              </div>
-
-              <!-- Notes — full width -->
-              <div class="field full">
-                <label>Line Notes</label>
-                <input pInputText formControlName="lineNotes"
-                       placeholder="Special instructions for this item…"
-                       class="w-full" maxlength="500" />
-              </div>
-
+          <!-- PR Dropdown (conditional) -->
+          <div class="sf-fld full" *ngIf="sourceType === 'PR'">
+            <label>Select Requisition <span class="required">*</span></label>
+            <p-dropdown formControlName="sourceId"
+                        [options]="prOptions" optionLabel="label" optionValue="value"
+                        placeholder="Search and select an approved requisition…"
+                        [filter]="true" filterBy="label" [loading]="loadingPrs"
+                        [showClear]="true" styleClass="w-full"
+                        (onChange)="onPrSelected($event.value)">
+            </p-dropdown>
+            <small class="hint">Only approved requisitions are shown. Selecting one auto-populates the line items below.</small>
+            <div *ngIf="loadingPrLines" class="pr-lines-loading">
+              <p-progressSpinner [style]="{ width: '18px', height: '18px' }" strokeWidth="4"></p-progressSpinner>
+              <span>Loading requisition lines…</span>
+            </div>
+            <div *ngIf="selectedPrLabel && !loadingPrLines" class="pr-loaded-banner">
+              <i class="pi pi-check-circle"></i>
+              Lines imported from: <strong>{{ selectedPrLabel }}</strong>
             </div>
           </div>
 
+          <!-- PO Dropdown (conditional) -->
+          <div class="sf-fld full" *ngIf="sourceType === 'PO'">
+            <label>Select Purchase Order</label>
+            <p-dropdown formControlName="sourceId"
+                        [options]="poOptions" optionLabel="label" optionValue="value"
+                        placeholder="Search and select a purchase order…"
+                        [filter]="true" filterBy="label" [loading]="loadingPos"
+                        [showClear]="true" styleClass="w-full"
+                        (onChange)="onPoSelected($event.value)">
+            </p-dropdown>
+            <small class="hint">Optional — links this RFQ to an existing purchase order.</small>
+            <div *ngIf="selectedPoLabel" class="pr-loaded-banner">
+              <i class="pi pi-check-circle"></i>
+              Linked to: <strong>{{ selectedPoLabel }}</strong>
+            </div>
+          </div>
+
+          <!-- Notes — full width -->
+          <div class="sf-fld full">
+            <label>Notes</label>
+            <textarea pTextarea formControlName="notes" rows="3"
+                      placeholder="Any special instructions or context for suppliers…"
+                      class="w-full" maxlength="1000"></textarea>
+          </div>
+
         </div>
-      </div>
+      </section>
 
-      <!-- Add line -->
-      <button class="add-line-btn" type="button" (click)="addLine()">
-        <i class="pi pi-plus"></i> Add Line Item
-      </button>
+      <!-- ── Line Items ───────────────────────────────────────────────────── -->
+      <section class="sf-card">
+        <div class="sf-ch">
+          <h2>Items to quote <span class="sf-pill">{{ lines.length }}</span></h2>
+          <span class="sf-mu sf-sm">{{ lines.length }} line{{ lines.length !== 1 ? 's' : '' }} added — vendors will quote prices for each item</span>
+        </div>
 
-      <div class="lines-summary">
-        <i class="pi pi-info-circle"></i>
-        {{ lines.length }} line{{ lines.length !== 1 ? 's' : '' }} added — vendors will quote prices for each item
-      </div>
+        <div formArrayName="lines">
+          <div *ngFor="let line of lines.controls; let i = index" [formGroupName]="i" class="line-card">
+
+            <!-- Card header -->
+            <div class="line-header">
+              <div class="line-num">{{ i + 1 }}</div>
+              <span class="line-title">Line {{ i + 1 }}</span>
+              <span *ngIf="line.get('sourcePrLineUuid')?.value" class="sf-pill in">
+                <i class="pi pi-link"></i> From PR
+              </span>
+              <p-button icon="pi pi-times" severity="danger" [text]="true" size="small"
+                        type="button" (onClick)="removeLine(i)"
+                        [disabled]="lines.length === 1" pTooltip="Remove line" tooltipPosition="left"></p-button>
+            </div>
+
+            <!-- Card body -->
+            <div class="line-body">
+              <div class="sf-fields line-grid">
+
+                <!-- Product → Variant (PV-004 two-level picker) | Quantity -->
+                <div class="sf-fld">
+                  <label>Product</label>
+                  <app-product-variant-picker
+                    [products]="products"
+                    [productUuid]="line.get('productUuid')?.value"
+                    [variantUuid]="line.get('variantUuid')?.value"
+                    (selectionChange)="onLineVariantSelected(i, $event)">
+                  </app-product-variant-picker>
+                </div>
+                <div class="sf-fld">
+                  <label>Quantity <span class="required">*</span></label>
+                  <p-inputNumber formControlName="quantity" [minFractionDigits]="0" [maxFractionDigits]="4"
+                                 [min]="0.0001" [max]="999999" [maxlength]="12" [class.p-invalid]="lineIsInvalid(i, 'quantity')"
+                                 styleClass="w-full"></p-inputNumber>
+                  <small class="p-error" *ngIf="lineIsInvalid(i, 'quantity')">Must be between 0 and 999,999</small>
+                </div>
+
+                <!-- Description | Specification -->
+                <div class="sf-fld">
+                  <label>Item Description <span class="required">*</span></label>
+                  <input pInputText formControlName="itemDescription"
+                         placeholder="Item description…"
+                         [class.p-invalid]="lineIsInvalid(i, 'itemDescription')" class="w-full" maxlength="200" />
+                  <small class="p-error" *ngIf="lineIsInvalid(i, 'itemDescription')">Required</small>
+                </div>
+                <div class="sf-fld">
+                  <label>Specification</label>
+                  <input pInputText formControlName="specification"
+                         placeholder="Technical specs or details…"
+                         class="w-full" maxlength="300" />
+                </div>
+
+                <!-- UoM | Required Date -->
+                <div class="sf-fld">
+                  <label>Unit of Measure</label>
+                  <p-dropdown formControlName="unitOfMeasure" [options]="uomOptions"
+                              optionLabel="label" optionValue="value" styleClass="w-full"></p-dropdown>
+                </div>
+                <div class="sf-fld">
+                  <label>Required By Date</label>
+                  <p-calendar formControlName="requiredDate" dateFormat="dd/mm/yy" [minDate]="minDate"
+                              [showIcon]="true" placeholder="When is this needed?"
+                              styleClass="w-full" appendTo="body"></p-calendar>
+                </div>
+                <div class="sf-fld">
+                  <label>Budget Code</label>
+                  <input pInputText formControlName="budgetCode" placeholder="e.g. CAPEX-2025"
+                         class="w-full" maxlength="30" />
+                </div>
+
+                <!-- Notes — full width -->
+                <div class="sf-fld full">
+                  <label>Line Notes</label>
+                  <input pInputText formControlName="lineNotes"
+                         placeholder="Special instructions for this item…"
+                         class="w-full" maxlength="500" />
+                </div>
+
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Add line -->
+        <button class="add-line-btn" type="button" (click)="addLine()">
+          <i class="pi pi-plus"></i> Add Line Item
+        </button>
+      </section>
+
+      <!-- ── Attachments ──────────────────────────────────────────────────── -->
+      <section class="sf-card">
+        <app-attachment-list interfaceCode="QUOTATION" [documentId]="quotationUuid" label="Attachments"></app-attachment-list>
+      </section>
     </div>
 
     <!-- ── Actions ─────────────────────────────────────────────────────── -->
-    <div class="action-bar">
-      <p-button label="Cancel" severity="secondary" [text]="true" type="button"
-                routerLink="/portal/pages/demand/quotations"></p-button>
-      <p-button label="Create Quotation Request" icon="pi pi-check" type="submit"
-                [loading]="isSubmitting"></p-button>
+    <div class="sf-fbar">
+      <span class="sf-mu sf-sm">Fields marked <span class="required">*</span> are required.</span>
+      <span class="sf-end">
+        <p-button label="Cancel" severity="secondary" [text]="true" type="button"
+                  routerLink="/portal/pages/demand/quotations"></p-button>
+        <p-button label="Create Quotation Request" icon="pi pi-check" type="submit"
+                  [loading]="isSubmitting"></p-button>
+      </span>
     </div>
 
   </form>
-</div>
+</sf-page>

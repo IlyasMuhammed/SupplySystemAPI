@@ -17,6 +17,7 @@ import {
   FreightAccrualSummaryModel,
   UnaccruableConsignmentModel
 } from '../../../../services/logistics.service';
+import { FLOW } from '../../../../shared/flow';
 
 /**
  * What is owed to carriers for movements that have already happened.
@@ -31,7 +32,8 @@ import {
   imports: [
     CommonModule, RouterModule, FormsModule,
     ButtonModule, TagModule, TableModule, TooltipModule, ToastModule, DialogModule,
-    TextareaModule, DatePickerModule
+    TextareaModule, DatePickerModule,
+    ...FLOW
   ],
   templateUrl: './freight-accruals.component.html',
   styleUrls: ['./freight-accruals.component.scss'],

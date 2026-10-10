@@ -20,6 +20,7 @@ import {
   ExceptionSummaryModel,
   CarrierListItemModel
 } from '../../../../services/logistics.service';
+import { FLOW } from '../../../../shared/flow';
 
 type Severity = 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast';
 
@@ -42,7 +43,8 @@ type ExceptionAction = 'assign' | 'resolve' | 'withdraw';
   imports: [
     CommonModule, RouterModule, FormsModule,
     ButtonModule, TagModule, TableModule, TooltipModule, ToastModule, DialogModule,
-    InputTextModule, InputNumberModule, TextareaModule, SelectModule
+    InputTextModule, InputNumberModule, TextareaModule, SelectModule,
+    ...FLOW
   ],
   templateUrl: './exception-queue.component.html',
   styleUrls: ['./exception-queue.component.scss'],

@@ -22,6 +22,7 @@ import { AuthService } from '../../../service/auth.service';
 import { formatCode } from '../../../../shared/format-code';
 import { toDateOnly } from '../../../../shared/date-only';
 import { PAYMENT_STATUS_OPTIONS, PAYMENT_STATUS_SEVERITY, Severity } from '../../receivables/receivables.shared';
+import { FLOW } from '../../../../shared/flow';
 
 @Component({
   selector: 'app-customer-payment-list',
@@ -29,7 +30,8 @@ import { PAYMENT_STATUS_OPTIONS, PAYMENT_STATUS_SEVERITY, Severity } from '../..
   imports: [
     CommonModule, RouterModule, FormsModule,
     TableModule, ButtonModule, InputTextModule, InputIconModule, IconFieldModule,
-    TagModule, TooltipModule, ToastModule, DropdownModule, CalendarModule, CheckboxModule
+    TagModule, TooltipModule, ToastModule, DropdownModule, CalendarModule, CheckboxModule,
+    ...FLOW
   ],
   templateUrl: './customer-payment-list.component.html',
   styleUrls: ['./customer-payment-list.component.scss'],

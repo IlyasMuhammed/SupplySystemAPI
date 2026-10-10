@@ -1,26 +1,24 @@
 <p-toast />
-<div class="inv-reports-page">
-
-  <div class="page-header">
-    <div class="header-left">
-      <div class="header-icon">
-        <i class="pi pi-box"></i>
-      </div>
-      <div>
-        <h2 class="page-title">Inventory Reports</h2>
-        <p class="page-subtitle">Monitor stock levels, reorder alerts and warehouse valuation</p>
-      </div>
-    </div>
+<sf-page [crumbs]="['Reports', 'Inventory reports']">
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
     <p-button
       label="Refresh"
       icon="pi pi-refresh"
-      severity="secondary"
-      [outlined]="true"
+      [text]="true"
       (onClick)="load()"
       [loading]="isLoadingStock || isLoadingReorder || isLoadingVal">
     </p-button>
   </div>
 
+  <div class="sf-body">
+  <div class="sf-lr-head">
+    <div>
+      <h1>Inventory reports</h1>
+      <div class="sf-sub">Monitor stock levels, reorder alerts and warehouse valuation</div>
+    </div>
+  </div>
+
+  <div class="sf-card">
   <p-tabView>
     <p-tabPanel header="Stock Levels">
       <div class="tab-toolbar">
@@ -123,5 +121,6 @@
       </p-table>
     </p-tabPanel>
   </p-tabView>
-
-</div>
+  </div>
+  </div>
+</sf-page>

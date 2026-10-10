@@ -11,6 +11,7 @@ import { CalendarModule } from 'primeng/calendar';
 import { DropdownModule } from 'primeng/dropdown';
 import { MessageService } from 'primeng/api';
 import { MaterialService, CostLedgerEntry, CostLedgerFilter } from '../../../services/material.service';
+import { FLOW } from '../../../shared/flow';
 
 @Component({
   selector: 'app-department-cost-ledger',
@@ -18,7 +19,8 @@ import { MaterialService, CostLedgerEntry, CostLedgerFilter } from '../../../ser
   imports: [
     CommonModule, FormsModule, RouterModule,
     ButtonModule, InputTextModule, TagModule,
-    ToastModule, TableModule, CalendarModule, DropdownModule
+    ToastModule, TableModule, CalendarModule, DropdownModule,
+    ...FLOW
   ],
   templateUrl: './department-cost-ledger.component.html',
   styleUrls: ['./department-cost-ledger.component.scss'],

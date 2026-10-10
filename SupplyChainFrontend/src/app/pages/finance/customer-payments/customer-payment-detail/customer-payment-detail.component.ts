@@ -21,6 +21,7 @@ import { DocCurrencyPanelComponent } from '../../../../shared/doc-currency/doc-c
 import { FxDifferenceComponent } from '../../../../shared/doc-currency/fx-difference.component';
 import { DocCurrencyInfo, cachedDocCurrency, hasBaseAmounts } from '../../../../shared/doc-currency/doc-currency';
 import { MoneyPipe } from '../../../../shared/money/money.pipe';
+import { FLOW, FlowSection, FlowStage, flowStagesFrom } from '../../../../shared/flow';
 
 @Component({
   selector: 'app-customer-payment-detail',
@@ -28,7 +29,8 @@ import { MoneyPipe } from '../../../../shared/money/money.pipe';
   imports: [
     CommonModule, RouterModule,
     TableModule, ButtonModule, TagModule, TooltipModule, ToastModule,
-    PaymentAllocationEditorComponent, DocCurrencyPanelComponent, FxDifferenceComponent, MoneyPipe
+    PaymentAllocationEditorComponent, DocCurrencyPanelComponent, FxDifferenceComponent, MoneyPipe,
+    ...FLOW
   ],
   templateUrl: './customer-payment-detail.component.html',
   styleUrls: ['./customer-payment-detail.component.scss'],
@@ -196,6 +198,31 @@ export class CustomerPaymentDetailComponent implements OnInit {
     const invoices = `${count} invoice${count === 1 ? '' : 's'}`;
     return `${applied.toFixed(2)} applied to ${invoices}; ${done.unallocatedAmount.toFixed(2)} still on account.`;
   }
+
+  // ── SMS Flow header ─────────────────────────────────────────────────────────
+
+  /** Received → Applying → Fully applied; a bounced or reversed payment ends red. */
+  get stages(): FlowStage[] {
+    const p = this.payment;
+    if (!p) return [];
+    if (p.status !== 'RECEIVED') return flowStagesFrom(['Received', this.formatStatus(p.status)], 1, { failed: true });
+    const pct = p.amount > 0 ? Math.round((p.allocatedAmount / p.amount) * 100) : 0;
+    const current = p.unallocatedAmount > 0 ? 1 : 3;
+    return flowStagesFrom(['Received', 'Applying', 'Fully applied'], current, { subs: [null, current === 1 ? `${pct}% applied` : null, null] });
+  }
+
+  get sections(): FlowSection[] {
+    return this.canApply ? this.applySections : this.plainSections;
+  }
+  private readonly plainSections: FlowSection[] = [
+    { id: 'sec-applied', label: 'Applied to' },
+    { id: 'sec-details', label: 'Payment' }
+  ];
+  private readonly applySections: FlowSection[] = [
+    { id: 'sec-applied', label: 'Applied to' },
+    { id: 'sec-apply', label: 'Apply what is left' },
+    { id: 'sec-details', label: 'Payment' }
+  ];
 
   // ── Display ─────────────────────────────────────────────────────────────────
 

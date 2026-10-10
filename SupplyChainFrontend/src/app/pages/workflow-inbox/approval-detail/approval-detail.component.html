@@ -1,74 +1,72 @@
-<div class="approval-detail-page">
-  <p-toast></p-toast>
+<p-toast></p-toast>
 
-  <!-- Loading -->
-  <div *ngIf="isLoadingDetail" class="loading-center">
-    <i class="pi pi-spin pi-spinner" style="font-size:2.5rem;color:#2980b9"></i>
-    <p>Loading approval...</p>
+<!-- Loading -->
+<div *ngIf="isLoadingDetail" class="sf-empty">
+  <i class="pi pi-spin pi-spinner"></i> Loading approval...
+</div>
+
+<sf-page *ngIf="!isLoadingDetail && detail" [crumbs]="['Workflow', 'Approval inbox', detail.documentNumber]">
+
+  <!-- ── Command bar: the decision first ─────────────────────────────────────────────── -->
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <ng-container *ngIf="canApprove">
+      <p-button label="Approve" icon="pi pi-check" severity="success"
+                (onClick)="approveRemarks=''; showApproveDialog=true"></p-button>
+      <p-button *ngIf="canRecall" label="Recall" icon="pi pi-replay" severity="secondary"
+                [text]="true" (onClick)="recallReason=''; showRecallDialog=true"></p-button>
+      <ng-container *ngIf="canReject">
+        <span class="sf-sep"></span>
+        <p-button label="Reject" icon="pi pi-times" severity="danger"
+                  [text]="true" (onClick)="rejectReason=''; showRejectDialog=true"></p-button>
+      </ng-container>
+    </ng-container>
+    <span class="sf-end">
+      <p-button label="Back to inbox" icon="pi pi-inbox" [text]="true" routerLink="/portal/pages/workflow-inbox"></p-button>
+    </span>
   </div>
 
-  <ng-container *ngIf="!isLoadingDetail && detail">
-
-    <!-- Header -->
-    <div class="page-header">
-      <div class="header-content">
-        <div class="header-left">
-          <div class="breadcrumb">
-            <a routerLink="/portal/pages/workflow-inbox" class="crumb-link">Approval Inbox</a>
-            <i class="pi pi-chevron-right crumb-sep"></i>
-            <span>{{ detail.documentNumber }}</span>
-          </div>
-          <h1 class="page-title">
-            <p-tag [value]="detail.interfaceCode" severity="info" styleClass="mr-2"></p-tag>
-            {{ detail.documentNumber }}
-            <span class="revision-badge">Rev. {{ detail.revisionNo }}</span>
-          </h1>
-          <p class="page-subtitle" *ngIf="detail.workflowName">
-            {{ detail.workflowName }} &bull; {{ detail.totalSteps }} steps
-          </p>
+  <!-- ── Dynamic header ──────────────────────────────────────────────────────────────── -->
+  <header class="sf-hdr">
+    <div class="sf-t">
+      <div>
+        <div class="sf-kicker">
+          Approval<ng-container *ngIf="detail.workflowName"> · {{ detail.workflowName }} &bull; {{ detail.totalSteps }} steps</ng-container>
         </div>
-        <div class="header-right">
-          <p-tag [value]="detail.status" [severity]="getStatusSeverity(detail.status)"
-                 styleClass="status-large"></p-tag>
-        </div>
-      </div>
-    </div>
-
-    <!-- Action Banner (if pending) -->
-    <div class="action-banner" *ngIf="canApprove">
-      <div class="action-banner-info">
-        <i class="pi pi-clock"></i>
-        <span *ngIf="currentStep">Awaiting: <strong>{{ currentStep.stepName }}</strong>
+        <h1>
+          <p-tag [value]="detail.interfaceCode" severity="info"></p-tag>
+          <span class="sf-mono">{{ detail.documentNumber }}</span>
+          <span class="sf-pill">Rev. {{ detail.revisionNo }}</span>
+          <p-tag [value]="detail.status" [severity]="getStatusSeverity(detail.status)"></p-tag>
+          <p-tag *ngIf="detail.isEscalated" value="ESCALATED" severity="danger"></p-tag>
+        </h1>
+        <div class="sf-meta" *ngIf="canApprove && currentStep">
+          Awaiting: <strong>{{ currentStep.stepName }}</strong>
           (Step {{ detail.currentStepNumber }} of {{ detail.totalSteps }})
-        </span>
-      </div>
-      <div class="action-banner-btns">
-        <p-button label="Approve" icon="pi pi-check" severity="success"
-                  (onClick)="approveRemarks=''; showApproveDialog=true"></p-button>
-        <p-button *ngIf="canReject" label="Reject" icon="pi pi-times" severity="danger"
-                  [outlined]="true" (onClick)="rejectReason=''; showRejectDialog=true"></p-button>
-        <p-button *ngIf="canRecall" label="Recall" icon="pi pi-replay" severity="secondary"
-                  [text]="true" (onClick)="recallReason=''; showRecallDialog=true"></p-button>
+        </div>
       </div>
     </div>
 
-    <!-- Meta Info -->
-    <div class="meta-row">
-      <div class="meta-item"><span class="meta-label">Initiated by</span><span class="meta-value">{{ detail.initiatedByName || 'Unknown user' }}</span></div>
-      <div class="meta-item"><span class="meta-label">Initiated at</span><span class="meta-value">{{ detail.initiatedAt | date:'dd MMM yyyy HH:mm' }}</span></div>
-      <div class="meta-item" *ngIf="detail.slaDeadline">
-        <span class="meta-label">Overall SLA</span>
-        <span class="meta-value">{{ detail.slaDeadline | date:'dd MMM yyyy HH:mm' }}</span>
+    <sf-stages [stages]="stages"></sf-stages>
+
+    <div class="sf-facts">
+      <div class="sf-kpi">
+        <span class="l">Initiated by</span>
+        <span class="v sm">{{ detail.initiatedByName || 'Unknown user' }}</span>
+        <span class="s">{{ detail.initiatedAt | date:'dd MMM yyyy HH:mm' }}</span>
       </div>
-      <div class="meta-item" *ngIf="detail.completedAt">
-        <span class="meta-label">Completed</span>
-        <span class="meta-value">{{ detail.completedAt | date:'dd MMM yyyy HH:mm' }}</span>
+      <div class="sf-kpi" *ngIf="detail.slaDeadline">
+        <span class="l">Overall SLA</span>
+        <span class="v sm">{{ detail.slaDeadline | date:'dd MMM yyyy HH:mm' }}</span>
       </div>
-      <div class="meta-item" *ngIf="detail.isEscalated">
-        <p-tag value="ESCALATED" severity="danger"></p-tag>
+      <div class="sf-kpi" *ngIf="detail.completedAt">
+        <span class="l">Completed</span>
+        <span class="v sm">{{ detail.completedAt | date:'dd MMM yyyy HH:mm' }}</span>
       </div>
     </div>
+  </header>
 
+  <div class="sf-body">
+  <section class="sf-card">
     <!-- Tabs -->
     <p-tabView [(activeIndex)]="activeTab" (onChange)="onTabChange($event)">
 
@@ -138,7 +136,8 @@
           <i class="pi pi-spin pi-spinner"></i>
         </div>
         <div *ngIf="!isLoadingAudit">
-          <table class="audit-table" *ngIf="auditLog.length">
+          <div class="sf-tw" *ngIf="auditLog.length">
+          <table class="sf-t">
             <thead>
               <tr>
                 <th>#Step</th><th>Action</th><th>Performed By</th>
@@ -161,7 +160,8 @@
               </tr>
             </tbody>
           </table>
-          <div *ngIf="!auditLog.length" class="empty-tab">No audit entries found.</div>
+          </div>
+          <div *ngIf="!auditLog.length" class="sf-empty">No audit entries found.</div>
         </div>
       </p-tabPanel>
 
@@ -198,13 +198,14 @@
               </div>
             </div>
           </div>
-          <div *ngIf="!history.length" class="empty-tab">No revision history found.</div>
+          <div *ngIf="!history.length" class="sf-empty">No revision history found.</div>
         </div>
       </p-tabPanel>
 
     </p-tabView>
-
-  </ng-container>
+  </section>
+  </div>
+</sf-page>
 
   <!-- ── Approve Dialog ──────────────────────────────────────────────────── -->
   <p-dialog [(visible)]="showApproveDialog" [modal]="true" [style]="{'width':'460px'}"
@@ -311,5 +312,3 @@
       </div>
     </ng-template>
   </p-dialog>
-
-</div>

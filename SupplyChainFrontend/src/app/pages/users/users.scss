@@ -1,131 +1,8 @@
-// ── Page layout ────────────────────────────────────────────────────────────────
-.um-page {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 2rem 1.5rem;
-}
+// Page frame, command bar, tiles and cards come from the SMS Flow kit (_flow.scss).
 
-// ── Header ─────────────────────────────────────────────────────────────────────
-.um-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-
-  .um-title {
-    font-size: 1.625rem;
-    font-weight: 700;
-    margin: 0 0 0.3rem;
-    color: var(--text-color);
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    i { color: var(--primary-color); font-size: 1.4rem; }
-  }
-
-  .um-subtitle {
-    margin: 0;
-    color: var(--text-color-secondary);
-    font-size: 0.875rem;
-  }
-
-  .um-header-actions {
-    display: flex;
-    gap: 0.75rem;
-    flex-shrink: 0;
-    align-items: center;
-  }
-}
-
-// ── Stats ──────────────────────────────────────────────────────────────────────
-.um-stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-
-  @media (max-width: 600px) {
-    grid-template-columns: 1fr;
-  }
-}
-
-.stat-card {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 1.25rem 1.5rem;
-  background: var(--surface-0);
-  border: 1px solid var(--surface-200);
-  border-radius: 0.875rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-}
-
-.stat-icon {
-  width: 3rem;
-  height: 3rem;
-  border-radius: 0.625rem;
-  background: var(--primary-50, #eef2ff);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  i { font-size: 1.25rem; color: var(--primary-color); }
-
-  &--green {
-    background: var(--green-50, #f0fdf4);
-    i { color: var(--green-500, #22c55e); }
-  }
-  &--red {
-    background: var(--red-50, #fef2f2);
-    i { color: var(--red-500, #ef4444); }
-  }
-}
-
-.stat-body {
-  .stat-value {
-    font-size: 1.75rem;
-    font-weight: 700;
-    color: var(--text-color);
-    margin: 0 0 0.15rem;
-    line-height: 1;
-  }
-  .stat-label {
-    font-size: 0.8125rem;
-    color: var(--text-color-secondary);
-    margin: 0;
-  }
-}
-
-// ── Table card ─────────────────────────────────────────────────────────────────
-.um-card {
-  background: var(--surface-0);
-  border: 1px solid var(--surface-200);
-  border-radius: 0.875rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  overflow: hidden;
-}
-
-// ── Toolbar ────────────────────────────────────────────────────────────────────
-.um-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 1rem 1.25rem;
-  border-bottom: 1px solid var(--surface-200);
-  background: var(--surface-50);
-
-  @media (max-width: 700px) {
-    flex-direction: column;
-    align-items: stretch;
-  }
-}
-
+// ── Search ─────────────────────────────────────────────────────────────────────
 .um-search-wrap {
   position: relative;
-  flex: 1;
-  max-width: 320px;
 
   .um-search-icon {
     position: absolute;
@@ -143,13 +20,6 @@
   }
 }
 
-.um-filter-wrap {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
 // ── Table cells ────────────────────────────────────────────────────────────────
 .user-cell {
   display: flex;
@@ -161,8 +31,8 @@
   width: 2.25rem;
   height: 2.25rem;
   border-radius: 50%;
-  background: var(--primary-color);
-  color: #fff;
+  background: var(--sms-primary);
+  color: var(--sms-on-primary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -196,22 +66,14 @@
   gap: 0.125rem;
 }
 
-.um-empty {
-  text-align: center;
-  padding: 3.5rem 1rem;
-  color: var(--text-color-secondary);
-  i { font-size: 3rem; display: block; margin-bottom: 1rem; opacity: 0.25; }
-  p { margin: 0; font-size: 0.9375rem; }
-}
-
 // ── Dialog shared styles ───────────────────────────────────────────────────────
 .dlg-header {
   display: flex;
   align-items: center;
   gap: 0.875rem;
   padding: 1.125rem 1.5rem;
-  border-bottom: 1px solid var(--surface-200);
-  background: var(--surface-50);
+  border-bottom: 1px solid var(--sms-border);
+  background: var(--sms-surface-2);
   flex-shrink: 0; // pinned — never compressed by flex parent
 }
 
@@ -219,16 +81,16 @@
   width: 2.75rem;
   height: 2.75rem;
   border-radius: 0.5rem;
-  background: var(--primary-50, #eef2ff);
+  background: var(--sms-primary-soft);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  i { font-size: 1.15rem; color: var(--primary-color); }
+  i { font-size: 1.15rem; color: var(--sms-primary-text); }
 
   &--edit {
-    background: var(--blue-50, #eff6ff);
-    i { color: var(--blue-600, #2563eb); }
+    background: var(--sms-primary-soft);
+    i { color: var(--sms-primary-text); }
   }
 }
 
@@ -264,7 +126,7 @@
   color: var(--text-color-secondary);
   transition: background 0.12s;
   flex-shrink: 0;
-  &:hover { background: var(--surface-200); }
+  &:hover { background: var(--sms-row-hover); }
   i { font-size: 0.875rem; }
 }
 
@@ -282,8 +144,8 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 0.875rem;
-  background: var(--surface-100);
-  border: 1px solid var(--surface-200);
+  background: var(--sms-surface-2);
+  border: 1px solid var(--sms-border);
   border-radius: 0.375rem;
   font-size: 0.875rem;
   color: var(--text-color-secondary);
@@ -312,14 +174,14 @@
 .dlg-label {
   font-size: .82rem;
   font-weight: 600;
-  color: #374151;
+  color: var(--sms-text);
 }
 
-.req { color: var(--red-500); }
+.req { color: var(--sms-danger); }
 
 .dlg-error {
   font-size: 0.78rem;
-  color: var(--red-500);
+  color: var(--sms-danger);
 }
 
 .dlg-hint {
@@ -339,8 +201,31 @@
   justify-content: flex-end;
   gap: 0.75rem;
   padding-top: 1rem;
-  border-top: 1px solid var(--surface-200);
+  border-top: 1px solid var(--sms-border);
   flex-shrink: 0; // always visible — never pushed off screen
+}
+
+// ── Set password dialog ────────────────────────────────────────────────────────
+.sp-body {
+  gap: 0.85rem;
+  overflow-y: auto;
+}
+
+.sp-hint { margin: 0; }
+
+.pw-rules {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 0.2rem 1rem;
+  font-size: 0.78rem;
+  color: var(--sms-text-muted);
+
+  li { display: flex; align-items: center; gap: 0.4rem; }
+  li i { font-size: 0.7rem; }
+  li.ok { color: var(--sms-ok); }
 }
 
 // ── Temp password dialog body ──────────────────────────────────────────────────
@@ -359,12 +244,12 @@
   margin: 0 auto 1.25rem;
 
   &--green {
-    background: var(--green-50, #f0fdf4);
-    i { font-size: 1.5rem; color: var(--green-500, #22c55e); }
+    background: var(--sms-ok-soft);
+    i { font-size: 1.5rem; color: var(--sms-ok); }
   }
   &--warn {
-    background: var(--orange-50, #fff7ed);
-    i { font-size: 1.5rem; color: var(--orange-500, #f97316); }
+    background: var(--sms-warn-soft);
+    i { font-size: 1.5rem; color: var(--sms-warn); }
   }
 }
 
@@ -376,8 +261,8 @@
 }
 
 .temp-pwd-box {
-  background: var(--surface-100);
-  border: 1px solid var(--surface-300);
+  background: var(--sms-surface-2);
+  border: 1px solid var(--sms-border);
   border-radius: 0.5rem;
   padding: 1rem 1.25rem;
   text-align: left;
@@ -397,7 +282,7 @@
     font-family: 'Courier New', 'Consolas', monospace;
     font-size: 1.125rem;
     font-weight: 700;
-    color: var(--primary-color);
+    color: var(--sms-primary-text);
     letter-spacing: 0.05em;
     word-break: break-all;
   }

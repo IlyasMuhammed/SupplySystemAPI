@@ -117,12 +117,17 @@ export interface LineRouteFields {
   routeBlocker?: ConfirmBlockerCode | null;
   effectiveRouteName?: string | null;
   effectiveRouteCode?: string | null;
+  /** A36 §4 — a service line: route-exempt like a drop-shipped one. */
+  isService?: boolean | null;
 }
 
 export function lineRouteDisplay(line: LineRouteFields): LineRouteDisplay {
   const source = line.routeSource ?? null;
   const name = line.effectiveRouteName || line.effectiveRouteCode || null;
 
+  if (line.isService && !line.routeBlocker) {
+    return { kind: 'exempt', source, icon: '', name: null, hint: 'Service — no delivery; a service order carries it' };
+  }
   if (line.fulfillmentMode === 'DROP_SHIP' && !line.routeBlocker) {
     return { kind: 'exempt', source, icon: '', name: null, hint: 'Drop-shipped by the supplier — no route needed' };
   }

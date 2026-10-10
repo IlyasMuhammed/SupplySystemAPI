@@ -17,6 +17,7 @@ import { FinanceService, InvoiceListItemModel, InvoiceFilter, INVOICE_MATCH_STAT
 import { QboSyncBadgeComponent } from '../../../../shared/components/qbo-sync-badge/qbo-sync-badge.component';
 import { QboSyncStatusStore } from '../../../../shared/components/qbo-sync-badge/qbo-sync-status.store';
 import { AuthService } from '../../../service/auth.service';
+import { FLOW } from '../../../../shared/flow';
 
 @Component({
   selector: 'app-invoice-list',
@@ -25,7 +26,8 @@ import { AuthService } from '../../../service/auth.service';
     CommonModule, RouterModule, FormsModule,
     TableModule, ButtonModule, InputTextModule,
     InputIconModule, IconFieldModule, TagModule,
-    TooltipModule, ToastModule, DropdownModule, QboSyncBadgeComponent
+    TooltipModule, ToastModule, DropdownModule, QboSyncBadgeComponent,
+    ...FLOW
   ],
   templateUrl: './invoice-list.component.html',
   styleUrls: ['./invoice-list.component.scss'],

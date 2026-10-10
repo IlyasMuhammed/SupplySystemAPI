@@ -17,6 +17,7 @@ import {
   ProductionOrderService, priorityLabel, productionStatusSeverity
 } from '../../../../services/production-order.service';
 import { AuthService } from '../../../service/auth.service';
+import { FLOW } from '../../../../shared/flow';
 
 /** A30 §29.3 — every production order, filterable by status, priority and text. */
 @Component({
@@ -24,7 +25,8 @@ import { AuthService } from '../../../service/auth.service';
   standalone: true,
   imports: [
     CommonModule, RouterModule, FormsModule,
-    ButtonModule, DropdownModule, IconFieldModule, InputIconModule, InputTextModule, TableModule, TagModule, ToastModule, TooltipModule
+    ButtonModule, DropdownModule, IconFieldModule, InputIconModule, InputTextModule, TableModule, TagModule, ToastModule, TooltipModule,
+    ...FLOW
   ],
   templateUrl: './production-order-list.component.html',
   styleUrls: ['./production-order-list.component.scss'],

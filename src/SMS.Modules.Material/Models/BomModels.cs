@@ -15,6 +15,10 @@ public class BomLineRequest
     public Guid?    AlternateVariantUuid { get; set; }
     public string?  Notes                { get; set; }
     public int?     Sequence             { get; set; }
+    /// <summary>A36 D-4 — STOCK (default when omitted), SUBCONTRACT or INTERNAL_LABOR. Non-STOCK only on a service BOM.</summary>
+    public string?  SourceType           { get; set; }
+    /// <summary>A36 SVC-BOM-02/03 — the vendor partner a SUBCONTRACT line is bought from; must be null otherwise.</summary>
+    public Guid?    SubcontractSupplierUuid { get; set; }
 }
 
 public class CreateBomRequest
@@ -28,6 +32,8 @@ public class CreateBomRequest
     public DateTime? EffectiveFrom      { get; set; }
     public DateTime? EffectiveTo        { get; set; }
     public string?   Notes              { get; set; }
+    /// <summary>A37 D-11 — UNIVERSAL (default when omitted), PRODUCTION_PREFERRED or SERVICE_PREFERRED.</summary>
+    public string?   BomUsage           { get; set; }
     public List<BomLineRequest> Lines   { get; set; } = [];
 }
 
@@ -40,7 +46,15 @@ public class UpdateBomRequest
     public DateTime? EffectiveTo   { get; set; }
     public bool      ClearEffectiveDates { get; set; }
     public string?   Notes         { get; set; }
+    /// <summary>A37 D-11 — null = unchanged. Outside DRAFT/REJECTED use PUT api/boms/{uuid}/usage.</summary>
+    public string?   BomUsage      { get; set; }
     public List<BomLineRequest>? Lines { get; set; }
+}
+
+/// <summary>A37 D-11 — PUT api/boms/{uuid}/usage: the advisory usage, in any status but OBSOLETE.</summary>
+public class SetBomUsageRequest
+{
+    public string BomUsage { get; set; } = string.Empty;
 }
 
 public class RejectBomRequest
@@ -60,6 +74,8 @@ public class BomListFilter
     public Guid?   ProductUuid { get; set; }
     public string? Status      { get; set; }
     public string? Search      { get; set; }
+    /// <summary>A37 D-11 (BOM-SHR-04) — PRODUCTION or SERVICE: BOMs preferred for it first, then UNIVERSAL, then the rest. Nothing is hidden.</summary>
+    public string? PreferFor   { get; set; }
     public int     Page        { get; set; } = 1;
     public int     PageSize    { get; set; } = 20;
 }
@@ -85,6 +101,10 @@ public class BomListItemModel
     public DateTime  CreatedAt          { get; set; }
     public DateTime  UpdatedAt          { get; set; }
     public DateTime? ActivatedAt        { get; set; }
+    /// <summary>A37 D-11 — UNIVERSAL, PRODUCTION_PREFERRED or SERVICE_PREFERRED.</summary>
+    public string    BomUsage           { get; set; } = string.Empty;
+    /// <summary>A37 D-16.</summary>
+    public DateTime  ModifiedAt         { get; set; }
 }
 
 public class BomLineModel
@@ -108,6 +128,11 @@ public class BomLineModel
     public Guid?    AlternateVariantUuid { get; set; }
     public string?  AlternateVariantName { get; set; }
     public string?  Notes                { get; set; }
+    /// <summary>A36 D-4 — STOCK, SUBCONTRACT or INTERNAL_LABOR.</summary>
+    public string   SourceType           { get; set; } = string.Empty;
+    public Guid?    SubcontractSupplierUuid { get; set; }
+    /// <summary>The subcontract supplier's name (Suppliers' partner name lookup); null when none or unknown.</summary>
+    public string?  SubcontractSupplierName { get; set; }
 }
 
 public class BomDetailModel : BomListItemModel
@@ -138,6 +163,7 @@ public class BomVersionModel
     public DateTime  CreatedAt   { get; set; }
     public DateTime? ActivatedAt { get; set; }
     public DateTime? ObsoletedAt { get; set; }
+    public string    BomUsage    { get; set; } = string.Empty;
 }
 
 /// <summary>§8.4 — what changed between two versions of a product's recipe.</summary>

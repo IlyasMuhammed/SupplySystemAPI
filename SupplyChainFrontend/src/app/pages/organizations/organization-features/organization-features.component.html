@@ -1,57 +1,115 @@
-<div class="card">
-
-  <!-- ── Page Header ──────────────────────────────────────────────────────── -->
-  <div class="md-header">
-    <p-button icon="pi pi-arrow-left" [text]="true" severity="secondary"
+<sf-page [crumbs]="['Settings', 'Organizations', org?.orgName || 'Manage features']">
+  <!-- ── Command bar ───────────────────────────────────────────────────────── -->
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <p-button icon="pi pi-arrow-left" label="Organizations" [text]="true"
               routerLink="/portal/pages/organizations"></p-button>
-    <div class="md-icon"><i class="pi pi-sliders-h"></i></div>
-    <div class="md-title-wrap">
-      <h2 class="md-title">{{ org?.orgName || 'Manage Features' }}</h2>
-      <p class="md-subtitle" *ngIf="org">
-        <span class="font-mono">{{ org.orgCode }}</span> &bull;
-        <p-tag [value]="org.plan" [severity]="planSeverity(org.plan)"></p-tag>
-      </p>
-    </div>
-    <p-button label="Reset to Plan Defaults" icon="pi pi-refresh" severity="secondary" [outlined]="true"
+    <span class="sf-sep"></span>
+    <p-button label="Reset to Plan Defaults" icon="pi pi-refresh" [text]="true"
               [loading]="isApplyingTemplate" (onClick)="confirmApplyPlanTemplate()"></p-button>
   </div>
 
-  <hr class="md-sep" />
+  <!-- ── Header ────────────────────────────────────────────────────────────── -->
+  <header class="sf-hdr sf-compact">
+    <div>
+      <div class="sf-kicker">Features &amp; licence</div>
+      <h1>{{ org?.orgName || 'Manage Features' }}</h1>
+    </div>
+    <span class="sf-meta md-subtitle" *ngIf="org">
+      <span class="sf-mono">{{ org.orgCode }}</span> &bull;
+      <p-tag [value]="org.plan" [severity]="planSeverity(org.plan)"></p-tag>
+    </span>
+  </header>
 
-  <div *ngIf="isLoading" class="md-empty">
-    <i class="pi pi-spin pi-spinner md-empty-icon"></i>
-    <p class="md-empty-text">Loading features…</p>
-  </div>
+  <div class="sf-body">
+    <div class="sf-filters">
+      <button type="button" class="sf-chip" [class.on]="tab === 'features'" (click)="showTab('features')" data-testid="tab-features">Features</button>
+      <button type="button" class="sf-chip" [class.on]="tab === 'history'" (click)="showTab('history')" data-testid="tab-history">History</button>
+    </div>
 
-  <div class="features-body" *ngIf="!isLoading">
-    <div class="feature-group" *ngFor="let group of groupedFeatures">
-      <h3 class="feature-group-title">{{ categoryLabel(group.category) }}</h3>
-
-      <div class="feature-row" *ngFor="let f of group.items">
-        <div class="feature-checkbox">
-          <p-checkbox [(ngModel)]="f.isEnabled" [binary]="true"
-                      [disabled]="savingCode === f.featureCode"
-                      (onChange)="onToggle(f, f.isEnabled)"></p-checkbox>
-        </div>
-        <div class="feature-info">
-          <div class="feature-name-row">
-            <span class="feature-name">{{ f.featureName }}</span>
-            <span class="core-badge" *ngIf="f.isCore" pTooltip="Core feature — always enabled" tooltipPosition="top">
-              <i class="pi pi-lock"></i> Core
-            </span>
-            <span class="feature-code">{{ f.featureCode }}</span>
-          </div>
-          <p class="feature-description" *ngIf="f.description">{{ f.description }}</p>
-        </div>
+    <ng-container *ngIf="tab === 'features'">
+      <div class="sf-card flat lic-note">
+        <i class="pi pi-info-circle"></i>
+        <span>A tick <strong>licenses</strong> the module or feature for this organization. Its own administrator can then
+          switch licensed modules off and on again in <strong>Settings › Modules</strong> (status column).</span>
       </div>
-    </div>
 
-    <div class="md-empty" *ngIf="!groupedFeatures.length">
-      <i class="pi pi-inbox md-empty-icon"></i>
-      <p class="md-empty-text">No features found</p>
+      <div *ngIf="isLoading" class="sf-card sf-empty">
+        <i class="pi pi-spin pi-spinner"></i> Loading features…
+      </div>
+
+      <ng-container *ngIf="!isLoading">
+        <section class="sf-card feature-group" *ngFor="let group of groupedFeatures; trackBy: trackGroup"
+                 [attr.data-testid]="'group-' + group.key">
+          <div class="sf-ch"><h2>{{ group.title }}</h2></div>
+
+          <div>
+            <ng-container *ngIf="group.module as m">
+              <ng-container *ngTemplateOutlet="rowTpl; context: { $implicit: m, isModule: true }"></ng-container>
+            </ng-container>
+            <div [class.feature-children]="!!group.module">
+              <ng-container *ngFor="let r of group.items; trackBy: trackRow">
+                <ng-container *ngTemplateOutlet="rowTpl; context: { $implicit: r, isModule: false }"></ng-container>
+              </ng-container>
+            </div>
+          </div>
+        </section>
+
+        <div class="sf-card sf-empty" *ngIf="!groupedFeatures.length">No features found</div>
+      </ng-container>
+    </ng-container>
+
+    <ng-container *ngIf="tab === 'history'">
+      <section class="sf-card" data-testid="history-card">
+        <div class="sf-ch"><h2>History</h2><span class="sf-mu sf-sm">Licence, switch and grace changes — newest first</span></div>
+        <div *ngIf="historyLoading" class="sf-empty"><i class="pi pi-spin pi-spinner"></i> Loading…</div>
+        <div *ngIf="!historyLoading && !historyRows.length" class="sf-empty">No changes recorded yet.</div>
+        <div class="sf-tw" *ngIf="!historyLoading && historyRows.length">
+          <table class="sf-t" data-testid="history-table">
+            <thead><tr><th>When</th><th>Module / feature</th><th>Change</th><th>By</th><th>Notes</th></tr></thead>
+            <tbody>
+              <tr *ngFor="let h of historyRows">
+                <td class="sf-num">{{ h.when | date:'d MMM y, HH:mm' }}</td>
+                <td>{{ h.target }}</td>
+                <td><span class="sf-pill" [ngClass]="h.tone">{{ h.action }}</span>
+                  <span class="sf-mu sf-sm" *ngIf="h.graceDays !== null"> · grace {{ h.graceDays }} days</span></td>
+                <td>{{ h.by }}</td>
+                <td class="sf-mu">{{ h.notes || '—' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </ng-container>
+  </div>
+</sf-page>
+
+<ng-template #rowTpl let-r let-isModule="isModule">
+  <div class="feature-row" [class.feature-module]="isModule" [attr.data-testid]="'row-' + r.f.featureCode">
+    <div class="feature-checkbox">
+      <p-checkbox [(ngModel)]="r.f.isEnabled" [binary]="true"
+                  [disabled]="savingCode === r.f.featureCode || r.comingSoon"
+                  (onChange)="onToggle(r.f, r.f.isEnabled)"></p-checkbox>
+    </div>
+    <div class="feature-info">
+      <div class="feature-name-row">
+        <span class="feature-name">{{ r.f.featureName }}</span>
+        <span class="sf-pill" [ngClass]="r.statusTone" [attr.data-testid]="'status-' + r.f.featureCode">{{ r.statusLabel }}</span>
+        <span class="sf-pill wn" *ngIf="r.f.isCore" pTooltip="Core feature — always enabled" tooltipPosition="top">
+          <i class="pi pi-lock"></i> Core
+        </span>
+        <span class="sf-pill te" *ngIf="r.alwaysOn && !r.f.isCore" pTooltip="The organization cannot switch this off" tooltipPosition="top">
+          <i class="pi pi-lock"></i> Always on
+        </span>
+        <span class="sf-pill in" *ngIf="r.comingSoon">Coming soon</span>
+        <span class="feature-code">{{ r.f.featureCode }}</span>
+      </div>
+      <p class="feature-description" *ngIf="r.f.description">{{ r.f.description }}</p>
+      <p class="feature-description grace" *ngIf="r.f.status === 'GRACE' && r.f.graceEndsAt">
+        Grace period until {{ r.f.graceEndsAt | date:'d MMM y' }}
+      </p>
     </div>
   </div>
-</div>
+</ng-template>
 
 <p-confirmDialog [style]="{width:'460px'}"></p-confirmDialog>
 <p-toast></p-toast>

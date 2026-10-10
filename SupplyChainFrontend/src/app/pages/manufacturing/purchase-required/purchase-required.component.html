@@ -1,16 +1,19 @@
 <p-toast></p-toast>
 
-<div class="bom-page">
-  <div class="page-header">
-    <div class="page-icon"><i class="pi pi-shopping-cart"></i></div>
-    <div class="grow">
-      <h1 class="page-title">Purchase Required</h1>
-      <p class="page-subtitle">Shortages aggregated per material across every open production order — one purchase order per product, not one per order.</p>
-    </div>
-    <p-button icon="pi pi-refresh" [text]="true" severity="secondary" (onClick)="load()" pTooltip="Refresh"></p-button>
+<sf-page [crumbs]="['Manufacturing', 'Purchase required']">
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <p-button icon="pi pi-refresh" label="Refresh" [text]="true" (onClick)="load()" pTooltip="Refresh"></p-button>
   </div>
 
-  <div class="filter-bar">
+  <div class="sf-body">
+  <div class="sf-lr-head">
+    <div>
+      <h1>Purchase required <span class="sf-count">{{ lines.length }}</span></h1>
+      <div class="sf-sub">Shortages aggregated per material across every open production order — one purchase order per product, not one per order.</div>
+    </div>
+  </div>
+
+  <div class="sf-filters filter-bar">
     <div class="filter-field">
       <label>Supplier</label>
       <p-autoComplete #prSupplierAc
@@ -20,7 +23,7 @@
         field="supplierName"
         [minLength]="0"
         (completeMethod)="searchSuppliers($event)"
-        (onFocus)="prSupplierAc.search($event, '', 'focus')"
+        smsOpenOnFocus
         (ngModelChange)="onSupplierFilterChange($event)"
         placeholder="All suppliers"
         [forceSelection]="true"
@@ -37,7 +40,7 @@
     </div>
   </div>
 
-  <div class="form-card flush">
+  <div class="sf-card p0">
     <p-table [value]="lines" [loading]="isLoading" styleClass="p-datatable-sm" dataKey="variantUuid" data-testid="purchase-required-table">
       <ng-template pTemplate="header">
         <tr>
@@ -78,11 +81,12 @@
         </tr>
       </ng-template>
       <ng-template pTemplate="emptymessage">
-        <tr><td colspan="8" class="empty">Nothing needs purchasing right now.</td></tr>
+        <tr><td colspan="8" class="sf-empty">Nothing needs purchasing right now.</td></tr>
       </ng-template>
     </p-table>
   </div>
-</div>
+  </div>
+</sf-page>
 
 <!-- ══ Affected production orders drawer ══════════════════════════════════════ -->
 <p-dialog header="Affected production orders" [(visible)]="drawerVisible" [modal]="true" [style]="{ width: '38rem' }" data-testid="affected-dialog">
@@ -123,7 +127,7 @@
         field="supplierName"
         [minLength]="0"
         (completeMethod)="searchSuppliers($event)"
-        (onFocus)="createSupplierAc.search($event, '', 'focus')"
+        smsOpenOnFocus
         (ngModelChange)="onCreateSupplierChange($event)"
         placeholder="Search supplier..."
         styleClass="w-full" inputStyleClass="w-full"
@@ -146,7 +150,9 @@
 
     <div class="field" style="margin-top:.75rem">
       <label>Required by</label>
-      <p-calendar [(ngModel)]="createRequiredBy" dateFormat="dd M yy" [showIcon]="true" styleClass="w-full" appendTo="body"></p-calendar>
+      <p-calendar [(ngModel)]="createRequiredBy" dateFormat="dd M yy" [showIcon]="true" styleClass="w-full" appendTo="body"
+                  [minDate]="today" data-testid="create-required-by"></p-calendar>
+      <span class="hint" *ngIf="requiredByInPast" data-testid="create-required-by-past">Pick today or a later date.</span>
     </div>
 
     <div class="field" style="margin-top:.75rem">

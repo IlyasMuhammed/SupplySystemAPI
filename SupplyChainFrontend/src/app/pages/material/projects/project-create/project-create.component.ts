@@ -11,6 +11,7 @@ import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
 import { MaterialService, CreateProjectRequest, PatchProjectRequest, ProjectDetail } from '../../../../services/material.service';
 import { UserService, UserListItem } from '../../../../services/user.service';
+import { FLOW } from '../../../../shared/flow';
 
 @Component({
   selector: 'app-project-create',
@@ -18,7 +19,8 @@ import { UserService, UserListItem } from '../../../../services/user.service';
   imports: [
     CommonModule, RouterModule, FormsModule,
     ButtonModule, InputTextModule, TextareaModule,
-    InputNumberModule, DropdownModule, ToastModule
+    InputNumberModule, DropdownModule, ToastModule,
+    ...FLOW
   ],
   templateUrl: './project-create.component.html',
   styleUrls: ['./project-create.component.scss'],

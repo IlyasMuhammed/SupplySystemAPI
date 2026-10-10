@@ -8,13 +8,15 @@ import { TableModule } from 'primeng/table';
 import { MessageService } from 'primeng/api';
 import { MaterialService, ReturnDetail } from '../../../../services/material.service';
 import { downloadReturnPdf } from '../return-pdf.util';
+import { FLOW, FlowStage, flowStagesFrom } from '../../../../shared/flow';
 
 @Component({
   selector: 'app-return-detail',
   standalone: true,
   imports: [
     CommonModule, RouterModule,
-    ButtonModule, TagModule, ToastModule, TableModule
+    ButtonModule, TagModule, ToastModule, TableModule,
+    ...FLOW
   ],
   templateUrl: './return-detail.component.html',
   styleUrls: ['./return-detail.component.scss'],
@@ -27,6 +29,14 @@ export class ReturnDetailComponent implements OnInit {
   isDownloadPdf = false;
   returnDetail: ReturnDetail | null = null;
   uuid = '';
+
+  /** SMS Flow header strip: Draft → Posted (cancelled = red). */
+  get stages(): FlowStage[] {
+    const r = this.returnDetail;
+    if (!r) return [];
+    if (r.status === 'CANCELLED') return flowStagesFrom(['Draft', 'Cancelled'], 1, { failed: true });
+    return flowStagesFrom(['Draft', 'Posted'], r.status === 'POSTED' ? 2 : 0);
+  }
 
   constructor(
     private route:           ActivatedRoute,

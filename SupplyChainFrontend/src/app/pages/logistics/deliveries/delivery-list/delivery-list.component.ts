@@ -15,6 +15,7 @@ import { MessageService } from 'primeng/api';
 
 import { LogisticsService, DeliveryListItemModel, DeliveryFilter } from '../../../../services/logistics.service';
 import { FulfillmentRoutesService } from '../../../../services/fulfillment-routes.service';
+import { FLOW } from '../../../../shared/flow';
 
 type Severity = 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast';
 
@@ -50,7 +51,8 @@ export const DELIVERY_STATUS_SEVERITY: Record<string, Severity> = {
     CommonModule, RouterModule, FormsModule,
     TableModule, ButtonModule, InputTextModule,
     InputIconModule, IconFieldModule, TagModule,
-    TooltipModule, ToastModule, DropdownModule
+    TooltipModule, ToastModule, DropdownModule,
+    ...FLOW
   ],
   templateUrl: './delivery-list.component.html',
   styleUrls: ['./delivery-list.component.scss'],

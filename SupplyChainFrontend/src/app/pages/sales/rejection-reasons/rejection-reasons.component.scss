@@ -1,36 +1,17 @@
-.setup-page { padding: 1.5rem; max-width: 64rem; }
-.page-header { display: flex; align-items: flex-start; gap: 1rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
-.page-icon {
-  width: 2.75rem; height: 2.75rem; border-radius: .625rem; display: flex; align-items: center; justify-content: center;
-  background: var(--surface-100, #f1f5f9); color: var(--primary-color); font-size: 1.25rem; flex-shrink: 0;
-}
-.grow { flex: 1; min-width: 0; }
-.page-title { font-size: 1.5rem; font-weight: 700; margin: 0; }
-.page-subtitle { color: var(--text-color-secondary); font-size: .875rem; margin: .25rem 0 0; max-width: 44rem; }
-.page-actions { display: flex; gap: .5rem; }
-
-.table-card { background: var(--surface-0); border: 1px solid var(--surface-200); border-radius: .625rem; overflow: hidden; }
-.table-toolbar { display: flex; align-items: center; gap: .75rem; padding: .75rem 1rem; border-bottom: 1px solid var(--surface-200); }
 .check-row { display: flex; align-items: center; gap: .5rem; font-size: .875rem; }
 .state-inline { padding: 1rem; display: flex; align-items: center; gap: .5rem; color: var(--text-color-secondary); }
 
 .mono { font-family: monospace; font-weight: 600; }
 .upper { text-transform: uppercase; }
 .text-right { text-align: right; }
-.muted { color: var(--text-color-secondary); font-size: .8125rem; }
-.empty { text-align: center; padding: 2rem; }
 tr.inactive-row td { color: var(--text-color-secondary); }
 .row-actions { display: flex; justify-content: flex-end; gap: .125rem; }
-.system { font-size: .72rem; color: var(--text-color-secondary); border: 1px solid var(--surface-300, #cbd5e1); border-radius: 999px; padding: .1rem .5rem; }
+.system { font-size: .72rem; color: var(--text-color-secondary); border: 1px solid var(--sms-border); border-radius: 999px; padding: .1rem .5rem; }
 
 .field { display: flex; flex-direction: column; gap: .375rem; margin-bottom: 1rem; }
 .field label { font-size: .8125rem; font-weight: 600; }
 .field input { width: 100%; }
 :host ::ng-deep .w-full { width: 100%; }
 .hint { color: var(--text-color-secondary); font-size: .75rem; }
-.required, .p-error { color: var(--red-500, #ef4444); }
+.required, .p-error { color: var(--sms-danger); }
 small.p-error { display: block; font-size: .78rem; margin-top: .25rem; }
-
-@media (max-width: 640px) {
-  .setup-page { padding: 1rem; }
-}

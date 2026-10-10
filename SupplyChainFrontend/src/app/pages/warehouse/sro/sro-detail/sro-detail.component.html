@@ -1,160 +1,82 @@
-<div class="sro-detail-page">
-  <p-toast></p-toast>
+<p-toast></p-toast>
 
-  <!-- Loading -->
-  <div *ngIf="isLoading" class="loading-state">
-    <i class="pi pi-spin pi-spinner"></i>
-    <span>Loading return order...</span>
-  </div>
+<!-- Loading -->
+<div *ngIf="isLoading" class="sf-empty">
+  <i class="pi pi-spin pi-spinner"></i> Loading return order...
+</div>
 
-  <ng-container *ngIf="!isLoading && sro">
+<sf-page *ngIf="!isLoading && sro" [crumbs]="['Warehouse', 'Supplier returns', sro.sroNumber]">
 
-    <!-- Header -->
-    <div class="page-header">
-      <div class="header-left">
-        <div class="header-icon icon-rose">
-          <i class="pi pi-reply"></i>
-        </div>
+    <!-- ── Command bar: the next step first, then the rest ──────────────── -->
+    <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+        <p-button *ngIf="canApprove" label="Approve" icon="pi pi-check"
+                  (onClick)="openApproveDialog()"></p-button>
+        <p-button *ngIf="canDispatch" label="Mark as Dispatched" icon="pi pi-send"
+                  (onClick)="openDispatchDialog()"></p-button>
+        <p-button *ngIf="canConfirmReceipt" label="Confirm Supplier Receipt" icon="pi pi-check-circle"
+                  (onClick)="openConfirmReceiptDialog()"></p-button>
+        <p-button *ngIf="canResolve" label="Resolve" icon="pi pi-check-square"
+                  (onClick)="openResolveDialog()"></p-button>
+        <p-button *ngIf="canExpectReplacement" label="Expect Replacement" icon="pi pi-truck" [text]="true"
+                  [loading]="isExpectingReplacement" (onClick)="expectReplacement()"></p-button>
+        <p-button *ngIf="canCreateCreditNote" label="Raise Credit Note" icon="pi pi-file-edit" [text]="true"
+                  (onClick)="openCreditNoteDialog()"></p-button>
+        <p-button *ngIf="canCreateDebitNote" label="Raise Debit Note" icon="pi pi-file-edit" [text]="true"
+                  (onClick)="openDebitNoteDialog()"></p-button>
+        <p-button label="Back to list" icon="pi pi-arrow-left" [text]="true"
+                  routerLink="/portal/pages/warehouse/sro"></p-button>
+        <span class="sf-sep" *ngIf="canApprove"></span>
+        <p-button *ngIf="canApprove" label="Reject" icon="pi pi-times" severity="danger" [text]="true"
+                  (onClick)="openRejectDialog()"></p-button>
+    </div>
+
+    <!-- ── Dynamic header ────────────────────────────────────────────────── -->
+    <header class="sf-hdr">
+      <div class="sf-t">
         <div>
-          <div class="header-meta">
-            <p-button icon="pi pi-arrow-left" [text]="true" severity="secondary" size="small"
-                      routerLink="/portal/pages/warehouse/sro"></p-button>
-            <span class="sro-number">{{ sro.sroNumber }}</span>
+          <div class="sf-kicker">
+            Supplier return · {{ getSroTypeLabel(sro.sroType) }}
+            <ng-container *ngIf="sro.originalGrnId">
+              · for
+              <a class="sf-mono" [routerLink]="['/portal/pages/warehouse/grn', sro.originalGrnId]">{{ sro.originalGrnNumber }}</a>
+            </ng-container>
+          </div>
+          <h1>
+            <span class="sf-mono">{{ sro.sroNumber }}</span>
             <p-tag [value]="getStatusLabel(sro.status)" [severity]="getStatusSeverity(sro.status)"></p-tag>
             <p-tag [value]="getSroTypeLabel(sro.sroType)" severity="secondary"></p-tag>
-          </div>
-          <p class="page-subtitle">{{ sro.supplierName }} &bull; Created {{ sro.createdDate | date:'dd MMM yyyy' }}</p>
-        </div>
-      </div>
-      <div class="header-actions">
-        <p-button *ngIf="canApprove" label="Approve" icon="pi pi-check" severity="success"
-                  (onClick)="openApproveDialog()"></p-button>
-        <p-button *ngIf="canApprove" label="Reject" icon="pi pi-times" severity="danger" [outlined]="true"
-                  (onClick)="openRejectDialog()"></p-button>
-        <p-button *ngIf="canDispatch" label="Mark as Dispatched" icon="pi pi-send" severity="info"
-                  (onClick)="openDispatchDialog()"></p-button>
-        <p-button *ngIf="canConfirmReceipt" label="Confirm Supplier Receipt" icon="pi pi-check-circle" severity="success"
-                  (onClick)="openConfirmReceiptDialog()"></p-button>
-        <p-button *ngIf="canResolve" label="Resolve" icon="pi pi-check-square" severity="warn"
-                  (onClick)="openResolveDialog()"></p-button>
-        <p-button *ngIf="canExpectReplacement" label="Expect Replacement" icon="pi pi-truck" severity="info" [outlined]="true"
-                  [loading]="isExpectingReplacement" (onClick)="expectReplacement()"></p-button>
-        <p-button *ngIf="canCreateDebitNote" label="Raise Debit Note" icon="pi pi-file-edit" severity="danger" [outlined]="true"
-                  (onClick)="openDebitNoteDialog()"></p-button>
-        <p-button *ngIf="canCreateCreditNote" label="Raise Credit Note" icon="pi pi-file-edit" severity="success" [outlined]="true"
-                  (onClick)="openCreditNoteDialog()"></p-button>
-      </div>
-    </div>
-
-    <!-- Info cards -->
-    <div class="info-grid">
-
-      <div class="info-card">
-        <div class="info-section-title">Return Information</div>
-        <div class="info-row">
-          <span class="info-label">Return Reason</span>
-          <span class="info-value">{{ getReasonLabel(sro.returnReason) }}</span>
-        </div>
-        <div class="info-row" *ngIf="sro.returnReasonDetail">
-          <span class="info-label">Details</span>
-          <span class="info-value">{{ sro.returnReasonDetail }}</span>
-        </div>
-        <div class="info-row" *ngIf="sro.notes">
-          <span class="info-label">Notes</span>
-          <span class="info-value">{{ sro.notes }}</span>
-        </div>
-        <div class="info-row" *ngIf="sro.approvedAt">
-          <span class="info-label">Approved At</span>
-          <span class="info-value">{{ sro.approvedAt | date:'dd MMM yyyy HH:mm' }}</span>
-        </div>
-        <div class="info-row" *ngIf="sro.rejectionReason">
-          <span class="info-label">Rejection Reason</span>
-          <span class="info-value danger">{{ sro.rejectionReason }}</span>
+          </h1>
+          <div class="sf-meta">{{ sro.supplierName }} &bull; Created {{ sro.createdDate | date:'dd MMM yyyy' }}</div>
         </div>
       </div>
 
-      <div class="info-card">
-        <div class="info-section-title">Reference Documents</div>
-        <div class="info-row">
-          <span class="info-label">GRN Reference</span>
-          <span class="info-value">
-            <a *ngIf="sro.originalGrnId; else noGrn"
-               [routerLink]="['/portal/pages/warehouse/grn', sro.originalGrnId]"
-               class="link">{{ sro.originalGrnNumber }}</a>
-            <ng-template #noGrn>—</ng-template>
-          </span>
+      <sf-stages [stages]="stages"></sf-stages>
+
+      <div class="sf-facts">
+        <div class="sf-kpi">
+          <span class="l">Lines</span>
+          <span class="v">{{ sro.lines.length }}</span>
         </div>
-        <div class="info-row">
-          <span class="info-label">PO Reference</span>
-          <span class="info-value font-mono">{{ sro.originalPoNumber || '—' }}</span>
+        <div class="sf-kpi">
+          <span class="l">Return reason</span>
+          <span class="v sm">{{ getReasonLabel(sro.returnReason) }}</span>
         </div>
-        <div class="info-row">
-          <span class="info-label">RMA Number</span>
-          <span class="info-value font-mono">{{ sro.rmaNumber || '—' }}</span>
+        <div class="sf-kpi" *ngIf="sro.slaDeadline">
+          <span class="l">SLA deadline</span>
+          <span class="v sm" [class.er]="isSlaOverdue">{{ sro.slaDeadline | date:'dd MMM yyyy' }}</span>
+          <span class="s" *ngIf="isSlaOverdue">overdue</span>
         </div>
       </div>
+    </header>
 
-      <div class="info-card" *ngIf="sro.dispatchDate">
-        <div class="info-section-title">Dispatch Details</div>
-        <div class="info-row">
-          <span class="info-label">Dispatch Date</span>
-          <span class="info-value">{{ sro.dispatchDate | date:'dd MMM yyyy' }}</span>
-        </div>
-        <div class="info-row" *ngIf="sro.slaDeadline">
-          <span class="info-label">SLA Deadline</span>
-          <span class="info-value" [class.danger]="isSlaOverdue">
-            {{ sro.slaDeadline | date:'dd MMM yyyy' }}
-            <span *ngIf="isSlaOverdue" class="overdue-badge">OVERDUE</span>
-          </span>
-        </div>
-        <div class="info-row" *ngIf="sro.dispatchCarrier">
-          <span class="info-label">Carrier</span>
-          <span class="info-value">{{ sro.dispatchCarrier }}</span>
-        </div>
-        <div class="info-row" *ngIf="sro.dispatchTrackingRef">
-          <span class="info-label">Tracking Ref</span>
-          <span class="info-value font-mono">{{ sro.dispatchTrackingRef }}</span>
-        </div>
-      </div>
+    <sf-anchors [sections]="sections"></sf-anchors>
 
-      <div class="info-card" *ngIf="sro.dispatchDate">
-        <div class="info-section-title">Supplier Acknowledgment</div>
-        <div class="info-row">
-          <span class="info-label">Status</span>
-          <span class="info-value">{{ sro.acknowledgedAt ? 'Acknowledged' : 'Pending' }}</span>
-        </div>
-        <div class="info-row" *ngIf="sro.acknowledgedAt">
-          <span class="info-label">Acknowledged At</span>
-          <span class="info-value">{{ sro.acknowledgedAt | date:'dd MMM yyyy HH:mm' }}</span>
-        </div>
-        <div class="info-row" *ngIf="sro.ackReceivedDate">
-          <span class="info-label">Received Date</span>
-          <span class="info-value">{{ sro.ackReceivedDate | date:'dd MMM yyyy' }}</span>
-        </div>
-        <div class="info-row" *ngIf="sro.acknowledgmentRemarks">
-          <span class="info-label">Remarks</span>
-          <span class="info-value">{{ sro.acknowledgmentRemarks }}</span>
-        </div>
-      </div>
-
-      <div class="info-card" *ngIf="sro.resolutionType">
-        <div class="info-section-title">Resolution</div>
-        <div class="info-row">
-          <span class="info-label">Resolution Type</span>
-          <span class="info-value">{{ sro.resolutionType }}</span>
-        </div>
-        <div class="info-row" *ngIf="sro.resolvedAt">
-          <span class="info-label">Resolved At</span>
-          <span class="info-value">{{ sro.resolvedAt | date:'dd MMM yyyy HH:mm' }}</span>
-        </div>
-      </div>
-
-    </div>
+    <div class="sf-body">
 
     <!-- Lines table -->
-    <div class="table-card">
-      <div class="table-header">
-        <h3>Return Lines <span class="count-badge">{{ sro.lines.length }}</span></h3>
+    <section id="sec-lines" class="sf-section sf-card p0">
+      <div class="sf-ch">
+        <h2>Return lines <span class="sf-count sf-mu sf-sm">{{ sro.lines.length }}</span></h2>
       </div>
       <p-table [value]="sro.lines" [tableStyle]="{'min-width':'50rem'}">
         <ng-template pTemplate="header">
@@ -183,18 +105,83 @@
         </ng-template>
         <ng-template pTemplate="emptymessage">
           <tr>
-            <td colspan="7" class="text-center" style="padding:2rem; color:var(--text-color-secondary)">
+            <td colspan="7" class="sf-empty">
               No return lines found.
             </td>
           </tr>
         </ng-template>
       </p-table>
-    </div>
+    </section>
+
+    <!-- Details: return info, references, dispatch, acknowledgment, resolution -->
+    <section id="sec-details" class="sf-section sf-row">
+
+      <div class="sf-card">
+        <div class="sf-ch"><h2>Return information</h2></div>
+        <div class="sf-kv">
+          <span>Return reason</span><span>{{ getReasonLabel(sro.returnReason) }}</span>
+          <ng-container *ngIf="sro.returnReasonDetail"><span>Details</span><span>{{ sro.returnReasonDetail }}</span></ng-container>
+          <ng-container *ngIf="sro.notes"><span>Notes</span><span>{{ sro.notes }}</span></ng-container>
+          <ng-container *ngIf="sro.approvedAt"><span>Approved at</span><span>{{ sro.approvedAt | date:'dd MMM yyyy HH:mm' }}</span></ng-container>
+          <ng-container *ngIf="sro.rejectionReason"><span>Rejection reason</span><span class="danger">{{ sro.rejectionReason }}</span></ng-container>
+        </div>
+      </div>
+
+      <div class="sf-card">
+        <div class="sf-ch"><h2>Reference documents</h2></div>
+        <div class="sf-kv">
+          <span>GRN reference</span>
+          <span>
+            <a *ngIf="sro.originalGrnId; else noGrn"
+               [routerLink]="['/portal/pages/warehouse/grn', sro.originalGrnId]"
+               class="sf-mono">{{ sro.originalGrnNumber }}</a>
+            <ng-template #noGrn>—</ng-template>
+          </span>
+          <span>PO reference</span><span class="sf-mono">{{ sro.originalPoNumber || '—' }}</span>
+          <span>RMA number</span><span class="sf-mono">{{ sro.rmaNumber || '—' }}</span>
+        </div>
+      </div>
+
+      <div class="sf-card" *ngIf="sro.dispatchDate">
+        <div class="sf-ch"><h2>Dispatch details</h2></div>
+        <div class="sf-kv">
+          <span>Dispatch date</span><span>{{ sro.dispatchDate | date:'dd MMM yyyy' }}</span>
+          <ng-container *ngIf="sro.slaDeadline">
+            <span>SLA deadline</span>
+            <span [class.danger]="isSlaOverdue">
+              {{ sro.slaDeadline | date:'dd MMM yyyy' }}
+              <span *ngIf="isSlaOverdue" class="sf-pill er">OVERDUE</span>
+            </span>
+          </ng-container>
+          <ng-container *ngIf="sro.dispatchCarrier"><span>Carrier</span><span>{{ sro.dispatchCarrier }}</span></ng-container>
+          <ng-container *ngIf="sro.dispatchTrackingRef"><span>Tracking ref</span><span class="sf-mono">{{ sro.dispatchTrackingRef }}</span></ng-container>
+        </div>
+      </div>
+
+      <div class="sf-card" *ngIf="sro.dispatchDate">
+        <div class="sf-ch"><h2>Supplier acknowledgment</h2></div>
+        <div class="sf-kv">
+          <span>Status</span><span>{{ sro.acknowledgedAt ? 'Acknowledged' : 'Pending' }}</span>
+          <ng-container *ngIf="sro.acknowledgedAt"><span>Acknowledged at</span><span>{{ sro.acknowledgedAt | date:'dd MMM yyyy HH:mm' }}</span></ng-container>
+          <ng-container *ngIf="sro.ackReceivedDate"><span>Received date</span><span>{{ sro.ackReceivedDate | date:'dd MMM yyyy' }}</span></ng-container>
+          <ng-container *ngIf="sro.acknowledgmentRemarks"><span>Remarks</span><span>{{ sro.acknowledgmentRemarks }}</span></ng-container>
+        </div>
+      </div>
+
+      <div class="sf-card" *ngIf="sro.resolutionType">
+        <div class="sf-ch"><h2>Resolution</h2></div>
+        <div class="sf-kv">
+          <span>Resolution type</span><span>{{ sro.resolutionType }}</span>
+          <ng-container *ngIf="sro.resolvedAt"><span>Resolved at</span><span>{{ sro.resolvedAt | date:'dd MMM yyyy HH:mm' }}</span></ng-container>
+        </div>
+      </div>
+
+    </section>
 
     <!-- Audit Trail -->
-    <div class="table-card" style="margin-top:1.25rem">
-      <div class="table-header" style="display:flex;justify-content:space-between;align-items:center">
-        <h3 style="margin:0">Audit Trail</h3>
+    <section id="sec-audit" class="sf-section sf-card p0">
+      <div class="sf-ch">
+        <h2>Audit trail</h2>
         <p-button label="Load Audit Trail" icon="pi pi-history" severity="secondary" size="small"
                   [text]="true" [loading]="isLoadingAudit" (onClick)="loadAuditTrail()"></p-button>
       </div>
@@ -217,25 +204,26 @@
         </thead>
         <tbody>
           <tr *ngFor="let entry of auditTrail">
-            <td style="white-space:nowrap;color:#64748b;font-size:.82rem">{{ entry.timestamp | date:'dd MMM yy HH:mm' }}</td>
+            <td style="white-space:nowrap;color:var(--sms-text-muted);font-size:.82rem">{{ entry.timestamp | date:'dd MMM yy HH:mm' }}</td>
             <td><p-tag [value]="entry.action" [severity]="getAuditActionSeverity(entry.action)" styleClass="tag-xs"></p-tag></td>
             <td style="font-size:.85rem">{{ entry.userName || 'Unknown user' }}</td>
-            <td style="font-size:.82rem;color:#64748b">{{ entry.fieldChanged || '—' }}</td>
-            <td style="font-size:.82rem;color:#64748b">{{ entry.oldValue || '—' }}</td>
-            <td style="font-size:.82rem;color:#64748b">{{ entry.newValue || '—' }}</td>
-            <td style="font-size:.82rem;color:#64748b;max-width:220px">{{ entry.notes || '—' }}</td>
+            <td style="font-size:.82rem;color:var(--sms-text-muted)">{{ entry.fieldChanged || '—' }}</td>
+            <td style="font-size:.82rem;color:var(--sms-text-muted)">{{ entry.oldValue || '—' }}</td>
+            <td style="font-size:.82rem;color:var(--sms-text-muted)">{{ entry.newValue || '—' }}</td>
+            <td style="font-size:.82rem;color:var(--sms-text-muted);max-width:220px">{{ entry.notes || '—' }}</td>
           </tr>
           <tr *ngIf="auditTrail.length === 0">
-            <td colspan="7" style="text-align:center;padding:1.5rem;color:#94a3b8">No audit entries found.</td>
+            <td colspan="7" style="text-align:center;padding:1.5rem;color:var(--sms-text-faint)">No audit entries found.</td>
           </tr>
         </tbody>
       </table>
-    </div>
+    </section>
 
-  </ng-container>
+    </div>
+</sf-page>
 
   <!-- Not found -->
-  <div *ngIf="!isLoading && !sro" class="not-found">
+  <div *ngIf="!isLoading && !sro" class="sf-empty not-found">
     <i class="pi pi-exclamation-circle"></i>
     <p>Supplier return order not found.</p>
     <p-button label="Back to List" icon="pi pi-arrow-left" severity="secondary"
@@ -421,5 +409,3 @@
                 (onClick)="confirmCreateCreditNote()"></p-button>
     </ng-template>
   </p-dialog>
-
-</div>

@@ -26,6 +26,7 @@ import {
   WarehouseModel
 } from '../../../services/inventory.service';
 import { ProductVariantPickerComponent, VariantPickerSelection } from '../../../shared/product-variant-picker/product-variant-picker.component';
+import { FLOW } from '../../../shared/flow';
 
 @Component({
   selector: 'app-stock-adjustments',
@@ -47,7 +48,8 @@ import { ProductVariantPickerComponent, VariantPickerSelection } from '../../../
     CardModule,
     DividerModule,
     TooltipModule,
-    ProductVariantPickerComponent
+    ProductVariantPickerComponent,
+    ...FLOW
   ],
   templateUrl: './stock-adjustments.component.html',
   styleUrls: ['./stock-adjustments.component.scss'],

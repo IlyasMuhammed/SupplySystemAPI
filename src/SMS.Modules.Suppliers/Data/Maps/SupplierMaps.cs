@@ -64,6 +64,14 @@ internal sealed class BusinessPartnerMap : IEntityTypeConfiguration<BusinessPart
         b.Property(x => x.ServiceCategories).HasMaxLength(500);
         b.HasIndex(x => new { x.OrganizationId, x.PartnerType, x.IsActive });
         b.HasIndex(x => new { x.OrganizationId, x.IsVendor, x.IsCustomer, x.IsCarrier, x.IsServiceProvider });
+
+        // A37 D-13/D-16 — customer master columns; ModifiedAt is the sync cursor (GET /api/sync/customers).
+        b.Property(x => x.CustomerType).HasMaxLength(20);
+        b.Property(x => x.Mobile).HasMaxLength(20);
+        b.Property(x => x.PaymentTermsDays).HasDefaultValue(0);
+        b.Property(x => x.IsSystem).HasDefaultValue(false);
+        b.Property(x => x.ModifiedAt).HasDefaultValueSql("SYSUTCDATETIME()");
+        b.HasIndex(x => new { x.OrganizationId, x.ModifiedAt }).HasDatabaseName("IX_BusinessPartners_OrganizationId_ModifiedAt");
     }
 }
 

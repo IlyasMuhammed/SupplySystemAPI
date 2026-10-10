@@ -11,6 +11,7 @@ import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
 
 import { LogisticsService, PickListListItemModel } from '../../../../services/logistics.service';
+import { FLOW } from '../../../../shared/flow';
 
 type Severity = 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast';
 
@@ -27,7 +28,8 @@ export const PICK_LIST_STATUS_SEVERITY: Record<string, Severity> = {
   standalone: true,
   imports: [
     CommonModule, RouterModule, FormsModule,
-    TableModule, ButtonModule, TagModule, SelectModule, InputTextModule, ToastModule
+    TableModule, ButtonModule, TagModule, SelectModule, InputTextModule, ToastModule,
+    ...FLOW
   ],
   templateUrl: './pick-list-queue.component.html',
   styleUrls: ['./pick-list-queue.component.scss'],

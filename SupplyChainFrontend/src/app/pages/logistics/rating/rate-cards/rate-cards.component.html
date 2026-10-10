@@ -1,97 +1,105 @@
-<div class="rate-cards-page">
-  <p-toast></p-toast>
+<p-toast></p-toast>
 
-  <div class="page-header">
-    <div>
-      <h1 class="page-title">
-        <i class="pi pi-book"></i>
-        Carrier Tariffs
-      </h1>
-      <p class="page-subtitle">
-        {{ carrier?.name || 'This carrier' }} — the negotiated tariff. It prices carriage when the
-        carrier will not quote, and is what its own quote gets checked against when it will.
-      </p>
-    </div>
-
-    <div class="header-actions">
-      <p-button label="Try a weight" icon="pi pi-calculator" severity="secondary" [outlined]="true"
-                (onClick)="openQuoteDialog()" data-testid="action-try"></p-button>
-      <p-button label="New rate card" icon="pi pi-plus" (onClick)="openCreate()"
-                data-testid="action-new"></p-button>
-    </div>
+<sf-page [crumbs]="['Logistics', 'Carriers', carrier?.name, 'Tariffs']">
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <p-button label="New rate card" icon="pi pi-plus" (onClick)="openCreate()"
+              data-testid="action-new"></p-button>
+    <p-button label="Try a weight" icon="pi pi-calculator" [text]="true"
+              (onClick)="openQuoteDialog()" data-testid="action-try"></p-button>
+    <p-button label="Back to carriers" icon="pi pi-arrow-left" [text]="true"
+              routerLink="/portal/pages/logistics/carriers"></p-button>
   </div>
 
-  <div *ngIf="isLoading" class="loading-state" data-testid="loading">
-    <i class="pi pi-spin pi-spinner"></i> Loading…
-  </div>
-
-  <div class="empty-state" *ngIf="!isLoading && !cards.length" data-testid="no-cards">
-    <i class="pi pi-book"></i>
-    <p>No rate cards for this carrier.</p>
-    <p class="muted">
-      Without one, this carrier can only be priced by its own rate API — and most carriers have none.
-    </p>
-  </div>
-
-  <section class="card" *ngFor="let c of cards" data-testid="rate-card">
-    <div class="card-head">
-      <h2 class="card-title">
-        {{ c.name }}
-        <p-tag [value]="statusOf(c).label" [severity]="statusOf(c).severity"
-               data-testid="card-status"></p-tag>
-        <p-tag *ngIf="c.serviceCode" [value]="c.serviceCode" severity="secondary"></p-tag>
-      </h2>
-
-      <div class="card-head-actions">
-        <p-button icon="pi pi-pencil" [text]="true" size="small" severity="secondary"
-                  pTooltip="Edit" (onClick)="openEdit(c)" data-testid="action-edit"></p-button>
-        <p-button [icon]="c.isActive ? 'pi pi-ban' : 'pi pi-check'" [text]="true" size="small"
-                  severity="secondary" [disabled]="isSubmitting"
-                  [pTooltip]="c.isActive ? 'Switch off' : 'Switch on'"
-                  (onClick)="toggleActive(c)" data-testid="action-toggle"></p-button>
-        <p-button icon="pi pi-trash" [text]="true" size="small" severity="danger"
-                  [disabled]="isSubmitting" pTooltip="Remove" (onClick)="remove(c)"
-                  data-testid="action-remove"></p-button>
+  <div class="sf-body">
+    <div class="sf-lr-head">
+      <div>
+        <h1>Carrier tariffs <span class="sf-count">{{ cards.length }}</span></h1>
+        <div class="sf-sub">
+          {{ carrier?.name || 'This carrier' }} — the negotiated tariff. It prices carriage when the
+          carrier will not quote, and is what its own quote gets checked against when it will.
+        </div>
       </div>
     </div>
 
-    <dl class="terms">
-      <dt>Applies</dt>
-      <dd>
-        {{ c.effectiveFrom | date:'dd MMM yyyy' }} —
-        {{ c.effectiveTo ? (c.effectiveTo | date:'dd MMM yyyy') : 'further notice' }}
-      </dd>
-
-      <dt>Currency</dt>
-      <dd>{{ c.currency }}</dd>
-
-      <dt *ngIf="c.minimumCharge">Minimum charge</dt>
-      <dd *ngIf="c.minimumCharge">{{ c.minimumCharge | number:'1.2-2' }}</dd>
-
-      <dt *ngIf="c.fuelSurchargePercent">Fuel</dt>
-      <dd *ngIf="c.fuelSurchargePercent">{{ c.fuelSurchargePercent }}% of the base rate</dd>
-
-      <dt *ngIf="c.codFeePercent || c.codFeeMinimum">Cash on delivery</dt>
-      <dd *ngIf="c.codFeePercent || c.codFeeMinimum">
-        <span *ngIf="c.codFeePercent">{{ c.codFeePercent }}%</span>
-        <span *ngIf="c.codFeePercent && c.codFeeMinimum">, </span>
-        <span *ngIf="c.codFeeMinimum">minimum {{ c.codFeeMinimum | number:'1.2-2' }}</span>
-      </dd>
-    </dl>
-
-    <div class="lane" *ngFor="let lane of c.lanes" data-testid="rate-card-lane">
-      <h3>{{ laneLabel(lane) }}</h3>
-      <table class="breaks">
-        <tr *ngFor="let b of lane.breaks">
-          <td class="from">from {{ b.fromWeightKg | number:'1.0-3' }} kg</td>
-          <td class="amount">
-            {{ b.amount | number:'1.2-2' }} {{ c.currency }}
-            <span class="muted">{{ basisLabel(b.basis) }}</span>
-          </td>
-        </tr>
-      </table>
+    <div *ngIf="isLoading" class="sf-empty" data-testid="loading">
+      <i class="pi pi-spin pi-spinner"></i> Loading…
     </div>
-  </section>
+
+    <div class="sf-card sf-empty" *ngIf="!isLoading && !cards.length" data-testid="no-cards">
+      <i class="pi pi-book" style="font-size:1.75rem"></i>
+      <p>No rate cards for this carrier.</p>
+      <p class="sf-sm">
+        Without one, this carrier can only be priced by its own rate API — and most carriers have none.
+      </p>
+    </div>
+
+    <section class="sf-card" *ngFor="let c of cards" data-testid="rate-card">
+      <div class="sf-ch">
+        <h2>
+          {{ c.name }}
+          <p-tag [value]="statusOf(c).label" [severity]="statusOf(c).severity"
+                 data-testid="card-status"></p-tag>
+          <p-tag *ngIf="c.serviceCode" [value]="c.serviceCode" severity="secondary"></p-tag>
+        </h2>
+
+        <div class="sf-ch-actions">
+          <p-button icon="pi pi-pencil" [text]="true" size="small" severity="secondary"
+                    pTooltip="Edit" (onClick)="openEdit(c)" data-testid="action-edit"></p-button>
+          <p-button [icon]="c.isActive ? 'pi pi-ban' : 'pi pi-check'" [text]="true" size="small"
+                    severity="secondary" [disabled]="isSubmitting"
+                    [pTooltip]="c.isActive ? 'Switch off' : 'Switch on'"
+                    (onClick)="toggleActive(c)" data-testid="action-toggle"></p-button>
+          <p-button icon="pi pi-trash" [text]="true" size="small" severity="danger"
+                    [disabled]="isSubmitting" pTooltip="Remove" (onClick)="remove(c)"
+                    data-testid="action-remove"></p-button>
+        </div>
+      </div>
+
+      <div class="sf-kv">
+        <span>Applies</span>
+        <span>
+          {{ c.effectiveFrom | date:'dd MMM yyyy' }} —
+          {{ c.effectiveTo ? (c.effectiveTo | date:'dd MMM yyyy') : 'further notice' }}
+        </span>
+
+        <span>Currency</span>
+        <span>{{ c.currency }}</span>
+
+        <ng-container *ngIf="c.minimumCharge">
+          <span>Minimum charge</span>
+          <span>{{ c.minimumCharge | number:'1.2-2' }}</span>
+        </ng-container>
+
+        <ng-container *ngIf="c.fuelSurchargePercent">
+          <span>Fuel</span>
+          <span>{{ c.fuelSurchargePercent }}% of the base rate</span>
+        </ng-container>
+
+        <ng-container *ngIf="c.codFeePercent || c.codFeeMinimum">
+          <span>Cash on delivery</span>
+          <span>
+            <span *ngIf="c.codFeePercent">{{ c.codFeePercent }}%</span>
+            <span *ngIf="c.codFeePercent && c.codFeeMinimum">, </span>
+            <span *ngIf="c.codFeeMinimum">minimum {{ c.codFeeMinimum | number:'1.2-2' }}</span>
+          </span>
+        </ng-container>
+      </div>
+
+      <div class="lane" *ngFor="let lane of c.lanes" data-testid="rate-card-lane">
+        <h3>{{ laneLabel(lane) }}</h3>
+        <table class="breaks">
+          <tr *ngFor="let b of lane.breaks">
+            <td class="from">from {{ b.fromWeightKg | number:'1.0-3' }} kg</td>
+            <td class="amount">
+              {{ b.amount | number:'1.2-2' }} {{ c.currency }}
+              <span class="muted">{{ basisLabel(b.basis) }}</span>
+            </td>
+          </tr>
+        </table>
+      </div>
+    </section>
+  </div>
+</sf-page>
 
   <!-- ── Editor ──────────────────────────────────────────────────────────────── -->
 
@@ -317,4 +325,3 @@
                 (onClick)="runQuote()" data-testid="confirm-quote"></p-button>
     </ng-template>
   </p-dialog>
-</div>

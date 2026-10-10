@@ -9,42 +9,41 @@
     gap: .625rem;
     padding-bottom: .75rem;
     margin-bottom: .125rem;
-    border-bottom: 1px solid #f1f5f9;
+    border-bottom: 1px solid var(--sms-border-soft);
   }
 
   .ah-icon {
     width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0;
-    background: linear-gradient(135deg, #6c63ff, #a78bfa);
+    background: var(--sms-primary);
     display: flex; align-items: center; justify-content: center;
-    box-shadow: 0 2px 6px rgba(108,99,255,.28);
-    i { font-size: .78rem; color: #fff; }
+    i { font-size: .78rem; color: var(--sms-on-primary); }
   }
 
   .attachment-label {
     font-size: .88rem;
     font-weight: 700;
-    color: #2c3e50;
+    color: var(--sms-text);
   }
 
   .attachment-count-badge {
     margin-left: auto;
     font-size: .7rem;
     font-weight: 700;
-    color: #6c63ff;
-    background: #f5f3ff;
+    color: var(--sms-primary-text);
+    background: var(--sms-primary-soft);
     border-radius: 999px;
     padding: .1rem .5rem;
   }
 
   .attachment-hint {
     font-size: .8rem;
-    color: #9aa1a9;
+    color: var(--sms-text-faint);
     display: flex;
     align-items: center;
     gap: .4rem;
     padding: .4rem 0;
 
-    i { color: #6c63ff; }
+    i { color: var(--sms-primary-text); }
   }
 
   .attachment-items {
@@ -61,14 +60,14 @@
     flex-direction: column;
     gap: .35rem;
     padding: .625rem .75rem;
-    background: #fff;
-    border: 1px solid #eef0f4;
+    background: var(--sms-surface);
+    border: 1px solid var(--sms-border);
     border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(0,0,0,.04);
+    box-shadow: var(--sms-shadow);
     font-size: .8rem;
     transition: box-shadow .15s, border-color .15s;
 
-    &:hover { border-color: #e0d9fc; box-shadow: 0 4px 12px rgba(108,99,255,.08); }
+    &:hover { border-color: var(--sms-primary-soft-border); box-shadow: var(--sms-shadow); }
   }
 
   .attachment-item-row {
@@ -79,9 +78,9 @@
 
   .attachment-file-icon {
     width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
-    background: #f5f3ff;
+    background: var(--sms-primary-soft);
     display: flex; align-items: center; justify-content: center;
-    i { font-size: .82rem; color: #6c63ff; }
+    i { font-size: .82rem; color: var(--sms-primary-text); }
   }
 
   .attachment-meta {
@@ -89,7 +88,7 @@
     align-items: center;
     gap: .9rem;
     font-size: .72rem;
-    color: #9aa1a9;
+    color: var(--sms-text-faint);
     padding-left: 2.35rem;
   }
 
@@ -102,13 +101,13 @@
 
   .attachment-notes {
     font-size: .76rem;
-    color: #4a5568;
+    color: var(--sms-text-muted);
     padding-left: 2.35rem;
     display: flex;
     align-items: flex-start;
     gap: .35rem;
 
-    i { color: #b8afff; font-size: .72rem; margin-top: .2rem; }
+    i { color: var(--sms-text-faint); font-size: .72rem; margin-top: .2rem; }
   }
 
   .attachment-notes-input {
@@ -120,7 +119,7 @@
   .attachment-file-link {
     display: flex;
     flex-direction: column;
-    color: #374151;
+    color: var(--sms-text);
     text-decoration: none;
     overflow: hidden;
     flex: 1;
@@ -129,7 +128,7 @@
     // to be asked for rather than inherited from the link.
     cursor: pointer;
 
-    &:hover .attachment-file-name { color: #6c63ff; text-decoration: underline; }
+    &:hover .attachment-file-name { color: var(--sms-primary-text); text-decoration: underline; }
   }
 
   .attachment-file-name {
@@ -137,12 +136,12 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     font-weight: 600;
-    color: #374151;
+    color: var(--sms-text);
     transition: color .15s;
   }
 
   .attachment-file-size {
-    color: #9aa1a9;
+    color: var(--sms-text-faint);
     font-size: .7rem;
     white-space: nowrap;
   }
@@ -154,16 +153,16 @@
     gap: .4rem;
     width: 100%;
     padding: .55rem;
-    border: 1.5px dashed #c4b5fd;
+    border: 1.5px dashed var(--sms-primary-soft-border);
     border-radius: 10px;
     background: transparent;
     font-size: .82rem;
     font-weight: 600;
-    color: #6c63ff;
+    color: var(--sms-primary-text);
     cursor: pointer;
     transition: background .15s, border-color .15s;
 
-    &:hover { background: #f5f3ff; border-color: #6c63ff; }
+    &:hover { background: var(--sms-primary-soft); border-color: var(--sms-primary); }
     &.uploading { opacity: .7; pointer-events: none; }
     i { font-size: .85rem; }
   }
@@ -189,13 +188,13 @@
     gap: .35rem;
     font-size: .82rem;
     font-weight: 600;
-    color: #64748b;
+    color: var(--sms-text-muted);
     flex-shrink: 0;
 
-    i { color: #6c63ff; font-size: .78rem; }
+    i { color: var(--sms-primary-text); font-size: .78rem; }
   }
 
-  .attachment-inline-loading { color: #6c63ff; font-size: .8rem; }
+  .attachment-inline-loading { color: var(--sms-primary-text); font-size: .8rem; }
 
   .attachment-chip {
     display: inline-flex;
@@ -203,8 +202,8 @@
     gap: .4rem;
     padding: .3rem .6rem;
     border-radius: 999px;
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
+    background: var(--sms-surface-2);
+    border: 1px solid var(--sms-border);
     font-size: .78rem;
     max-width: 220px;
   }
@@ -213,7 +212,7 @@
     display: inline-flex;
     align-items: center;
     gap: .3rem;
-    color: #374151;
+    color: var(--sms-text);
     text-decoration: none;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -221,28 +220,28 @@
     min-width: 0;
     cursor: pointer;
 
-    i { color: #6c63ff; font-size: .72rem; flex-shrink: 0; }
-    &:hover { color: #6c63ff; text-decoration: underline; }
+    i { color: var(--sms-primary-text); font-size: .72rem; flex-shrink: 0; }
+    &:hover { color: var(--sms-primary-text); text-decoration: underline; }
   }
 
   .attachment-chip-remove {
-    color: #cbd5e1;
+    color: var(--sms-text-faint);
     font-size: .68rem;
     cursor: pointer;
     flex-shrink: 0;
 
-    &:hover { color: #ef4444; }
+    &:hover { color: var(--sms-danger); }
   }
 
   .attachment-chip--add {
-    border: 1.5px dashed #c4b5fd;
+    border: 1.5px dashed var(--sms-primary-soft-border);
     background: transparent;
-    color: #6c63ff;
+    color: var(--sms-primary-text);
     font-weight: 600;
     cursor: pointer;
     white-space: nowrap;
 
-    &:hover { background: #f5f3ff; border-color: #6c63ff; }
+    &:hover { background: var(--sms-primary-soft); border-color: var(--sms-primary); }
     &.uploading { opacity: .7; pointer-events: none; }
     i { font-size: .74rem; }
   }

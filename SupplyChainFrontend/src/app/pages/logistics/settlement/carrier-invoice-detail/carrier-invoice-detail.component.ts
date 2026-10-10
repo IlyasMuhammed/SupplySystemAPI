@@ -19,6 +19,7 @@ import {
   MatchCandidateModel,
   ThreeWayMatchModel
 } from '../../../../services/logistics.service';
+import { FLOW, FlowStage, flowStagesFrom } from '../../../../shared/flow';
 
 type Severity = 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast';
 
@@ -36,7 +37,8 @@ type Severity = 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast
   standalone: true,
   imports: [
     CommonModule, RouterModule, FormsModule,
-    ButtonModule, TagModule, TableModule, TooltipModule, ToastModule, DialogModule, TextareaModule
+    ButtonModule, TagModule, TableModule, TooltipModule, ToastModule, DialogModule, TextareaModule,
+    ...FLOW
   ],
   templateUrl: './carrier-invoice-detail.component.html',
   styleUrls: ['./carrier-invoice-detail.component.scss'],
@@ -114,6 +116,15 @@ export class CarrierInvoiceDetailComponent implements OnInit {
   }
 
   // ── Reading ─────────────────────────────────────────────────────────────────
+
+  /** SMS Flow status strip: Received → Matched (disputed stops it in red, withdrawn ends it). */
+  get stages(): FlowStage[] {
+    const status = this.invoice?.status;
+    if (!status) return [];
+    if (status === 'CANCELLED') return flowStagesFrom(['Received', 'Withdrawn'], 1, { failed: true });
+    const current = status === 'MATCHED' ? 2 : 1;
+    return flowStagesFrom(['Received', 'Matched'], current, { failed: status === 'DISPUTED', subs: [null, status === 'DISPUTED' ? 'Disputed' : null] });
+  }
 
   get isWithdrawn(): boolean {
     return this.invoice?.status === 'CANCELLED';

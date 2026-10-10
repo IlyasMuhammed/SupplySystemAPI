@@ -10,11 +10,12 @@ import { CalendarModule } from 'primeng/calendar';
 import { DropdownModule } from 'primeng/dropdown';
 import { MessageService } from 'primeng/api';
 import { ReportsService, AuditLogItemModel, AuditLogFilter, PaginatedResponse } from '../../../services/reports.service';
+import { FLOW } from '../../../shared/flow';
 
 @Component({
   selector: 'app-audit-trail',
   standalone: true,
-  imports: [CommonModule, FormsModule, TableModule, ButtonModule, InputTextModule, ToastModule, TagModule, CalendarModule, DropdownModule],
+  imports: [CommonModule, FormsModule, TableModule, ButtonModule, InputTextModule, ToastModule, TagModule, CalendarModule, DropdownModule, ...FLOW],
   templateUrl: './audit-trail.component.html',
   styleUrls: ['./audit-trail.component.scss'],
   providers: [MessageService]

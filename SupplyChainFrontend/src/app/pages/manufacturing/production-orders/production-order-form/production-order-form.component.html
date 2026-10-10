@@ -1,97 +1,96 @@
 <p-toast></p-toast>
 
-<div class="bom-page">
-  <div class="page-header">
-    <p-button icon="pi pi-arrow-left" [text]="true" severity="secondary" (onClick)="cancel()"></p-button>
-    <div class="page-icon"><i class="pi pi-cog"></i></div>
-    <div class="grow">
-      <h1 class="page-title">New Production Order</h1>
-      <p class="page-subtitle">What to make, how much, and by when. The recipe comes from the product's active BOM.</p>
+<sf-page [crumbs]="['Manufacturing', 'Production orders', 'New production order']">
+  <header class="sf-hdr sf-compact">
+    <p-button icon="pi pi-arrow-left" [text]="true" severity="secondary" (onClick)="cancel()" ariaLabel="Back"></p-button>
+    <div>
+      <h1>New production order</h1>
+      <div class="sf-meta">What to make, how much, and by when. The recipe comes from the product's active BOM.</div>
     </div>
-  </div>
+  </header>
 
-  <div class="state-card" *ngIf="isLoading" data-testid="loading"><i class="pi pi-spin pi-spinner"></i><p>Loading…</p></div>
+  <div class="sf-empty" *ngIf="isLoading" data-testid="loading"><i class="pi pi-spin pi-spinner"></i> Loading…</div>
 
-  <form [formGroup]="form" (ngSubmit)="save()" novalidate *ngIf="!isLoading" data-testid="form">
-    <div class="form-card">
-      <div class="card-head">
-        <div class="card-icon"><i class="pi pi-box"></i></div>
-        <div><div class="card-title">What to make</div><div class="card-sub">Only manufactured products with an active recipe can be produced.</div></div>
-      </div>
-      <div class="grid-3">
-        <div class="field">
-          <label for="product">Product <span class="required">*</span></label>
-          <p-dropdown inputId="product" [options]="productOptions" formControlName="productUuid" optionLabel="label" optionValue="value"
-                      [filter]="true" filterBy="label" placeholder="Choose a manufactured product" styleClass="w-full" appendTo="body"
-                      (onChange)="onProductChange()" data-testid="product"></p-dropdown>
+  <form [formGroup]="form" (ngSubmit)="save()" novalidate *ngIf="!isLoading" data-testid="form" class="sf-form">
+    <div class="sf-body">
+      <section class="sf-card">
+        <div class="sf-ch">
+          <div><h2><i class="pi pi-box"></i> What to make</h2><div class="sf-mu sf-sm">Only manufactured products with an active recipe can be produced.</div></div>
         </div>
-        <div class="field">
-          <label for="variant">Variant</label>
-          <p-dropdown inputId="variant" [options]="variantOptions" formControlName="productVariantUuid" optionLabel="label" optionValue="value"
-                      styleClass="w-full" appendTo="body"></p-dropdown>
+        <div class="sf-fields">
+          <div class="sf-fld">
+            <label for="product" class="sf-req">Product</label>
+            <p-dropdown inputId="product" [options]="productOptions" formControlName="productUuid" optionLabel="label" optionValue="value"
+                        [filter]="true" filterBy="label" placeholder="Choose a manufactured product" styleClass="w-full" appendTo="body"
+                        (onChange)="onProductChange()" data-testid="product"></p-dropdown>
+          </div>
+          <div class="sf-fld">
+            <label for="variant">Variant</label>
+            <p-dropdown inputId="variant" [options]="variantOptions" formControlName="productVariantUuid" optionLabel="label" optionValue="value"
+                        styleClass="w-full" appendTo="body"></p-dropdown>
+          </div>
+          <div class="sf-fld">
+            <label for="qty" class="sf-req">Planned quantity</label>
+            <p-inputnumber inputId="qty" formControlName="plannedQuantity" [min]="0" [minFractionDigits]="0" [maxFractionDigits]="4" styleClass="w-full" data-testid="qty"></p-inputnumber>
+          </div>
         </div>
-        <div class="field">
-          <label for="qty">Planned quantity <span class="required">*</span></label>
-          <p-inputnumber inputId="qty" formControlName="plannedQuantity" [min]="0" [minFractionDigits]="0" [maxFractionDigits]="4" styleClass="w-full" data-testid="qty"></p-inputnumber>
-        </div>
-      </div>
-    </div>
+      </section>
 
-    <div class="form-card">
-      <div class="card-head">
-        <div class="card-icon"><i class="pi pi-map-marker"></i></div>
-        <div><div class="card-title">Where</div><div class="card-sub">Materials are drawn from and made in this warehouse.</div></div>
-      </div>
-      <div class="grid-3">
-        <div class="field">
-          <label for="warehouse">Production warehouse</label>
-          <p-dropdown inputId="warehouse" [options]="warehouseOptions" formControlName="warehouseUuid" optionLabel="label" optionValue="value"
-                      styleClass="w-full" appendTo="body" data-testid="warehouse"></p-dropdown>
-          <span class="hint">Defaults to the product's own production warehouse; required if it has none.</span>
+      <section class="sf-card">
+        <div class="sf-ch">
+          <div><h2><i class="pi pi-map-marker"></i> Where</h2><div class="sf-mu sf-sm">Materials are drawn from and made in this warehouse.</div></div>
         </div>
-        <div class="field">
-          <label for="outputWarehouse">Output warehouse</label>
-          <p-dropdown inputId="outputWarehouse" [options]="warehouseOptions" formControlName="outputWarehouseUuid" optionLabel="label" optionValue="value"
-                      styleClass="w-full" appendTo="body"></p-dropdown>
-          <span class="hint">Leave as the production warehouse unless the output lands somewhere else.</span>
+        <div class="sf-fields">
+          <div class="sf-fld">
+            <label for="warehouse">Production warehouse</label>
+            <p-dropdown inputId="warehouse" [options]="warehouseOptions" formControlName="warehouseUuid" optionLabel="label" optionValue="value"
+                        styleClass="w-full" appendTo="body" data-testid="warehouse"></p-dropdown>
+            <span class="hint">Defaults to the product's own production warehouse; required if it has none.</span>
+          </div>
+          <div class="sf-fld">
+            <label for="outputWarehouse">Output warehouse</label>
+            <p-dropdown inputId="outputWarehouse" [options]="warehouseOptions" formControlName="outputWarehouseUuid" optionLabel="label" optionValue="value"
+                        styleClass="w-full" appendTo="body"></p-dropdown>
+            <span class="hint">Leave as the production warehouse unless the output lands somewhere else.</span>
+          </div>
         </div>
-      </div>
-    </div>
+      </section>
 
-    <div class="form-card">
-      <div class="card-head">
-        <div class="card-icon"><i class="pi pi-calendar"></i></div>
-        <div><div class="card-title">When</div><div class="card-sub"></div></div>
-      </div>
-      <div class="grid-3">
-        <div class="field">
-          <label for="required">Required date <span class="required">*</span></label>
-          <p-calendar inputId="required" formControlName="requiredDate" dateFormat="yy-mm-dd" [showIcon]="true" appendTo="body" styleClass="w-full" data-testid="required-date"></p-calendar>
+      <section class="sf-card">
+        <div class="sf-ch"><h2><i class="pi pi-calendar"></i> When</h2></div>
+        <div class="sf-fields">
+          <div class="sf-fld">
+            <label for="required" class="sf-req">Required date</label>
+            <p-calendar inputId="required" formControlName="requiredDate" dateFormat="yy-mm-dd" [showIcon]="true" appendTo="body" styleClass="w-full" data-testid="required-date"></p-calendar>
+          </div>
+          <div class="sf-fld">
+            <label for="start">Planned start</label>
+            <p-calendar inputId="start" formControlName="plannedStartDate" dateFormat="yy-mm-dd" [showIcon]="true" appendTo="body" styleClass="w-full"></p-calendar>
+            <span class="hint">Materials are needed by this date; the required date otherwise.</span>
+          </div>
+          <div class="sf-fld">
+            <label for="priority" class="sf-req">Priority</label>
+            <p-dropdown inputId="priority" [options]="priorityOptions" formControlName="priority" optionLabel="label" optionValue="value"
+                        styleClass="w-full" appendTo="body"></p-dropdown>
+          </div>
+          <div class="sf-fld span-3">
+            <label for="notes">Notes</label>
+            <textarea pTextarea id="notes" formControlName="notes" rows="2" class="w-full"></textarea>
+          </div>
+          <div class="sf-fld">
+            <label class="check"><p-checkbox formControlName="plan" [binary]="true" inputId="plan"></p-checkbox> Plan immediately</label>
+            <span class="hint">Explodes the recipe, holds materials and raises supply for what is short, right after creating the order.</span>
+          </div>
         </div>
-        <div class="field">
-          <label for="start">Planned start</label>
-          <p-calendar inputId="start" formControlName="plannedStartDate" dateFormat="yy-mm-dd" [showIcon]="true" appendTo="body" styleClass="w-full"></p-calendar>
-          <span class="hint">Materials are needed by this date; the required date otherwise.</span>
-        </div>
-        <div class="field">
-          <label for="priority">Priority <span class="required">*</span></label>
-          <p-dropdown inputId="priority" [options]="priorityOptions" formControlName="priority" optionLabel="label" optionValue="value"
-                      styleClass="w-full" appendTo="body"></p-dropdown>
-        </div>
-        <div class="field span-3">
-          <label for="notes">Notes</label>
-          <textarea pTextarea id="notes" formControlName="notes" rows="2" class="w-full"></textarea>
-        </div>
-        <div class="field">
-          <label class="check"><p-checkbox formControlName="plan" [binary]="true" inputId="plan"></p-checkbox> Plan immediately</label>
-          <span class="hint">Explodes the recipe, holds materials and raises supply for what is short, right after creating the order.</span>
-        </div>
-      </div>
+      </section>
     </div>
 
-    <div class="form-actions">
-      <p-button label="Cancel" severity="secondary" [text]="true" (onClick)="cancel()"></p-button>
-      <p-button type="submit" label="Create order" icon="pi pi-check" [loading]="isSaving" [disabled]="!canSave" data-testid="save"></p-button>
+    <div class="sf-fbar">
+      <span class="sf-mu sf-sm">Fields marked * are required.</span>
+      <span class="sf-end">
+        <p-button label="Cancel" severity="secondary" [text]="true" (onClick)="cancel()"></p-button>
+        <p-button type="submit" label="Create order" icon="pi pi-check" [loading]="isSaving" [disabled]="!canSave" data-testid="save"></p-button>
+      </span>
     </div>
   </form>
-</div>
+</sf-page>

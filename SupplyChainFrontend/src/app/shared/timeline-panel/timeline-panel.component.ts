@@ -30,17 +30,19 @@ const ACTOR_LABELS: Record<string, string> = {
 
 // Interface-code prefixes this panel understands; anything else falls back to a neutral colour/label.
 const INTERFACE_META: Record<string, { label: string; color: string; route: string }> = {
-  PR:           { label: 'Purchase Requisition',            color: '#3b82f6', route: '/portal/pages/demand/requisitions' },
-  QUOTATION:    { label: 'Quotation',                        color: '#14b8a6', route: '/portal/pages/demand/quotations' },
-  PO:           { label: 'Purchase Order',                   color: '#1e3a8a', route: '/portal/pages/demand/purchase-orders' },
-  GRN:          { label: 'GRN',                               color: '#22c55e', route: '/portal/pages/warehouse/grn' },
-  GRN_QC:       { label: 'GRN (QC)',                          color: '#22c55e', route: '/portal/pages/warehouse/grn' },
-  INVOICE:      { label: 'Invoice',                           color: '#f59e0b', route: '/portal/pages/finance/invoices' },
-  SUPPLIER_PAYMENT: { label: 'Supplier Payment',              color: '#10b981', route: '/portal/pages/finance/payments' },
-  MIR_GENERAL:  { label: 'Material Issue Request',            color: '#8b5cf6', route: '/portal/pages/material/mir' },
-  MIR_PROJECT:  { label: 'Material Issue Request (Project)',  color: '#8b5cf6', route: '/portal/pages/material/mir' },
-  DELIVERY:     { label: 'Delivery',                          color: '#0ea5e9', route: '/portal/pages/logistics/deliveries' },
-  SO:           { label: 'Sale Order',                        color: '#f97316', route: '/portal/pages/sales/orders' }
+  PR:           { label: 'Purchase Requisition',            color: 'var(--sms-primary)', route: '/portal/pages/demand/requisitions' },
+  QUOTATION:    { label: 'Quotation',                        color: 'var(--sms-teal)', route: '/portal/pages/demand/quotations' },
+  PO:           { label: 'Purchase Order',                   color: 'var(--sms-primary-hover)', route: '/portal/pages/demand/purchase-orders' },
+  GRN:          { label: 'GRN',                               color: 'var(--sms-ok)', route: '/portal/pages/warehouse/grn' },
+  GRN_QC:       { label: 'GRN (QC)',                          color: 'var(--sms-ok)', route: '/portal/pages/warehouse/grn' },
+  INVOICE:      { label: 'Invoice',                           color: 'var(--sms-warn)', route: '/portal/pages/finance/invoices' },
+  SUPPLIER_PAYMENT: { label: 'Supplier Payment',              color: 'var(--sms-ok)', route: '/portal/pages/finance/payments' },
+  MIR_GENERAL:  { label: 'Material Issue Request',            color: 'var(--sms-violet)', route: '/portal/pages/material/mir' },
+  MIR_PROJECT:  { label: 'Material Issue Request (Project)',  color: 'var(--sms-violet)', route: '/portal/pages/material/mir' },
+  DELIVERY:     { label: 'Delivery',                          color: 'var(--sms-teal)', route: '/portal/pages/logistics/deliveries' },
+  SO:           { label: 'Sale Order',                        color: 'var(--sms-danger)', route: '/portal/pages/sales/orders' },
+  // A36 D-14 — service orders write their events under this code (documentId = the order's UUID).
+  SERVICE_ORDER: { label: 'Service Order',                    color: 'var(--sms-violet)', route: '/portal/pages/services/service-orders' }
 };
 
 @Component({
@@ -165,7 +167,7 @@ export class TimelinePanelComponent implements OnInit, OnChanges {
   }
 
   colorFor(code: string): string {
-    return INTERFACE_META[(code || '').toUpperCase()]?.color ?? '#94a3b8';
+    return INTERFACE_META[(code || '').toUpperCase()]?.color ?? 'var(--sms-text-faint)';
   }
 
   interfaceLabel(code: string): string {

@@ -61,8 +61,9 @@ public class ControllerAuthorizationTests
     public void Every_controller_is_behind_the_module_feature_flag()
     {
         foreach (var controller in LogisticsControllers())
-            controller.GetCustomAttribute<RequiresFeatureAttribute>()
-                      .Should().NotBeNull($"{controller.Name} must declare [RequiresFeature]");
+            // A37 §1.3 — sub-feature gates sit next to the module gate, so a controller may carry several.
+            controller.GetCustomAttributes<RequiresFeatureAttribute>().Select(a => a.FeatureCode)
+                      .Should().Contain("MODULE_LOGISTICS", $"{controller.Name} must declare [RequiresFeature(\"MODULE_LOGISTICS\")]");
     }
 
     [Fact]

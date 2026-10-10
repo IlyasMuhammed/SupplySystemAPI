@@ -90,11 +90,11 @@ import {
     :host { display: block; }
     .daf-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0 1.25rem; }
     .daf-field { display: flex; flex-direction: column; gap: .35rem; margin-bottom: 1.1rem; }
-    .daf-label { font-size: .88rem; font-weight: 600; color: #495057; }
-    .daf-required { color: #e74c3c; margin-left: .15rem; }
-    .daf-error { color: #e74c3c; font-size: .78rem; }
-    .daf-empty { color: #94a3b8; font-size: .85rem; padding: 1rem 0; display: flex; align-items: center; gap: .5rem; }
-    .daf-loading { color: #94a3b8; font-size: .85rem; padding: 1rem 0; display: flex; align-items: center; gap: .5rem; }
+    .daf-label { font-size: .88rem; font-weight: 600; color: var(--sms-text); }
+    .daf-required { color: var(--sms-danger); margin-left: .15rem; }
+    .daf-error { color: var(--sms-danger); font-size: .78rem; }
+    .daf-empty { color: var(--sms-text-faint); font-size: .85rem; padding: 1rem 0; display: flex; align-items: center; gap: .5rem; }
+    .daf-loading { color: var(--sms-text-faint); font-size: .85rem; padding: 1rem 0; display: flex; align-items: center; gap: .5rem; }
     .w-full { width: 100%; }
   `]
 })

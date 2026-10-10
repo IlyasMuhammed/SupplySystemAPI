@@ -15,6 +15,7 @@ import {
   InvoiceLineMatchModel,
   CarrierListItemModel
 } from '../../../../services/logistics.service';
+import { FLOW } from '../../../../shared/flow';
 
 type Severity = 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast';
 
@@ -29,7 +30,8 @@ type Severity = 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast
   standalone: true,
   imports: [
     CommonModule, RouterModule, FormsModule,
-    ButtonModule, TagModule, TableModule, TooltipModule, ToastModule, SelectModule
+    ButtonModule, TagModule, TableModule, TooltipModule, ToastModule, SelectModule,
+    ...FLOW
   ],
   templateUrl: './match-queue.component.html',
   styleUrls: ['./match-queue.component.scss'],

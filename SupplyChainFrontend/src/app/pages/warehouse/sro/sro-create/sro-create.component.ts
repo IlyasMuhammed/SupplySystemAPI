@@ -17,6 +17,7 @@ import { AutoCompleteCompleteEvent } from 'primeng/autocomplete';
 import { WarehouseService, CreateSroRequest, GrnDetailModel } from '../../../../services/warehouse.service';
 import { InventoryService, WarehouseModel, ProductListItemModel } from '../../../../services/inventory.service';
 import { SupplierService } from '../../../../services/supplier.service';
+import { FLOW } from '../../../../shared/flow';
 import { DemandService, PoDetailModel } from '../../../../services/demand.service';
 
 @Component({
@@ -26,7 +27,7 @@ import { DemandService, PoDetailModel } from '../../../../services/demand.servic
     CommonModule, RouterModule, FormsModule, ReactiveFormsModule,
     ButtonModule, InputTextModule, TextareaModule, DropdownModule,
     InputNumberModule, AutoCompleteModule, ToastModule, TooltipModule,
-    ProgressSpinnerModule, MessageModule
+    ProgressSpinnerModule, MessageModule, ...FLOW
   ],
   templateUrl: './sro-create.component.html',
   styleUrls: ['./sro-create.component.scss'],

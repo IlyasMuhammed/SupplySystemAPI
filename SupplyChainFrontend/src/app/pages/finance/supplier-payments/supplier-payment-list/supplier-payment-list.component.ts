@@ -12,6 +12,7 @@ import { CalendarModule } from 'primeng/calendar';
 import { MessageService } from 'primeng/api';
 import { FinanceService, SupplierPaymentListItemModel, SupplierPaymentFilter } from '../../../../services/finance.service';
 import { AuthService } from '../../../service/auth.service';
+import { FLOW } from '../../../../shared/flow';
 
 @Component({
   selector: 'app-supplier-payment-list',
@@ -19,7 +20,8 @@ import { AuthService } from '../../../service/auth.service';
   imports: [
     CommonModule, RouterModule, FormsModule,
     TableModule, ButtonModule, TagModule,
-    TooltipModule, ToastModule, DropdownModule, CalendarModule
+    TooltipModule, ToastModule, DropdownModule, CalendarModule,
+    ...FLOW
   ],
   templateUrl: './supplier-payment-list.component.html',
   styleUrls: ['./supplier-payment-list.component.scss'],

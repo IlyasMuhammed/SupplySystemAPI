@@ -14,6 +14,7 @@ import { IconFieldModule } from 'primeng/iconfield';
 import { MessageService } from 'primeng/api';
 import { TableLazyLoadEvent } from 'primeng/table';
 import { MaterialService, MivListItem, MivListFilter } from '../../../../services/material.service';
+import { FLOW } from '../../../../shared/flow';
 
 @Component({
   selector: 'app-miv-list',
@@ -22,7 +23,8 @@ import { MaterialService, MivListItem, MivListFilter } from '../../../../service
     CommonModule, RouterModule, FormsModule,
     TableModule, ButtonModule, TagModule,
     TooltipModule, ToastModule, DropdownModule,
-    InputTextModule, InputIconModule, IconFieldModule
+    InputTextModule, InputIconModule, IconFieldModule,
+    ...FLOW
   ],
   templateUrl: './miv-list.component.html',
   styleUrls: ['./miv-list.component.scss'],

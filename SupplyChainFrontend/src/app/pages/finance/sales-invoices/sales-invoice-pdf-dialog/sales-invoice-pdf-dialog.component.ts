@@ -33,7 +33,7 @@ import { SalesInvoiceService } from '../../../../services/sales-invoice.service'
   `,
   styles: [`
     .pdf-state { text-align: center; padding: 3rem 1rem; color: var(--text-color-secondary); }
-    .pdf-frame { width: 100%; height: 70vh; border: 1px solid var(--surface-200); border-radius: .375rem; background: var(--surface-0); }
+    .pdf-frame { width: 100%; height: 70vh; border: 1px solid var(--sms-border); border-radius: .375rem; background: var(--surface-0); }
   `]
 })
 export class SalesInvoicePdfDialogComponent implements OnChanges, OnDestroy {

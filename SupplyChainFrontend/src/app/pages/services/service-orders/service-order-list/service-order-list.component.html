@@ -1,0 +1,82 @@
+<p-toast></p-toast>
+
+<sf-page [crumbs]="['Services', 'Service orders']">
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <p-button *ngIf="canCreate" label="New service order" icon="pi pi-plus" [routerLink]="[route, 'new']" data-testid="new"></p-button>
+    <p-button label="Dashboard" icon="pi pi-chart-bar" [text]="true" [routerLink]="[route, 'dashboard']" data-testid="dashboard-link"></p-button>
+    <span class="sf-sep"></span>
+    <p-button icon="pi pi-filter-slash" label="Clear filters" [text]="true" (onClick)="resetFilters()" data-testid="reset"></p-button>
+  </div>
+
+  <div class="sf-body">
+    <div class="sf-lr-head">
+      <div>
+        <h1>Service orders <span class="sf-count">{{ totalRecords }}</span></h1>
+        <div class="sf-sub">Jobs for customers, who does them, when, and whether their materials are ready</div>
+      </div>
+      <div class="sf-filters">
+        <button type="button" class="sf-chip" [class.on]="selectedStatuses.size === 0" (click)="toggleStatus(null)"
+                data-testid="status-chip-ALL">All</button>
+        <button *ngFor="let s of statuses" type="button" class="sf-chip" [class.on]="isOn(s.value)"
+                (click)="toggleStatus(s.value)" [attr.data-testid]="'status-chip-' + s.value">{{ s.label }}</button>
+      </div>
+    </div>
+
+    <div class="sf-filters">
+      <p-iconfield class="sf-search">
+        <p-inputicon styleClass="pi pi-search"></p-inputicon>
+        <input pInputText type="text" [(ngModel)]="search" (ngModelChange)="onSearchChange()"
+               placeholder="Search number, product or customer" data-testid="search" />
+      </p-iconfield>
+      <p-dropdown [options]="customerOptions" [(ngModel)]="customerUuid" optionLabel="label" optionValue="value"
+                  [filter]="true" filterBy="label" [showClear]="true" placeholder="All customers"
+                  (onChange)="onFilterChange()" appendTo="body" data-testid="customer"></p-dropdown>
+      <p-dropdown [options]="userOptions" [(ngModel)]="assignedUserId" optionLabel="label" optionValue="value"
+                  [filter]="true" filterBy="label" [showClear]="true" placeholder="Anyone assigned"
+                  (onChange)="onFilterChange()" appendTo="body" data-testid="assigned"></p-dropdown>
+      <p-calendar [(ngModel)]="dateRange" selectionMode="range" [readonlyInput]="true" [showIcon]="true" [showButtonBar]="true"
+                  dateFormat="dd M yy" placeholder="Scheduled between" (ngModelChange)="onDateChange()" appendTo="body"
+                  data-testid="dates"></p-calendar>
+      <p-dropdown [options]="priorityOptions" [(ngModel)]="priority" optionLabel="label" optionValue="value"
+                  (onChange)="onFilterChange()" appendTo="body" data-testid="priority"></p-dropdown>
+    </div>
+
+    <div class="sf-card p0">
+      <p-table [value]="orders" [lazy]="true" (onLazyLoad)="onPageChange($event)" [paginator]="true" [rows]="pageSize"
+               [totalRecords]="totalRecords" [loading]="isLoading" [rowsPerPageOptions]="[25, 50, 100]"
+               styleClass="p-datatable-sm" dataKey="uuid" [tableStyle]="{ 'min-width': '64rem' }" data-testid="orders">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Service order</th><th>Service</th><th>Customer</th><th>Scheduled</th><th>Assigned to</th>
+            <th class="text-right">Qty</th><th>Priority</th><th>Status</th>
+            <th class="text-center" pTooltip="Material readiness">Mat.</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-o>
+          <tr [attr.data-testid]="'order-' + o.serviceNumber">
+            <td><a class="sf-mono" [routerLink]="[route, o.uuid]"><strong>{{ o.serviceNumber }}</strong></a></td>
+            <td>{{ o.serviceProductName }}<div class="sf-mu sf-sm" *ngIf="o.serviceVariantName">{{ o.serviceVariantName }}</div></td>
+            <td>{{ o.customerName }}</td>
+            <td>
+              <ng-container *ngIf="o.scheduledDate; else noDate">{{ o.scheduledDate | date:'dd MMM yyyy' }}
+                <span class="sf-mu" *ngIf="o.scheduledTime"> {{ o.scheduledTime | slice:0:5 }}</span></ng-container>
+              <ng-template #noDate><span class="sf-mu">—</span></ng-template>
+            </td>
+            <td>{{ o.assignedUserName || '—' }}</td>
+            <td class="text-right">{{ o.quantity | number:'1.0-4' }}</td>
+            <td>{{ priorityLabel(o.priority) }}</td>
+            <td><span class="sf-pill" [ngClass]="tone(o.status)" data-testid="status">{{ statusLabel(o.status) }}</span></td>
+            <td class="text-center">
+              <i *ngIf="readiness(o.materialReadiness) as r" class="pi" [ngClass]="r.icon" [style.color]="r.color"
+                 [pTooltip]="r.label" [attr.aria-label]="r.label" role="img"
+                 [attr.data-readiness]="o.materialReadiness" data-testid="readiness"></i>
+            </td>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="emptymessage">
+          <tr><td colspan="9" class="sf-empty">No service orders found.</td></tr>
+        </ng-template>
+      </p-table>
+    </div>
+  </div>
+</sf-page>

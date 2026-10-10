@@ -24,6 +24,20 @@ internal static class ManufacturingTimelineEventTypes
     public const string ProdDeliveryCreated = "PROD_DELIVERY_CREATED";
 }
 
+/// <summary>A36 D-14 — service order timeline events, under interface code SERVICE_ORDER (documentId = the order's UUID).</summary>
+internal static class ServiceTimelineEventTypes
+{
+    public const string InterfaceCode  = "SERVICE_ORDER";
+    public const string Created        = "SERVICE_ORDER_CREATED";
+    public const string Planned        = "SERVICE_ORDER_PLANNED";
+    public const string Started        = "SERVICE_ORDER_STARTED";
+    public const string MaterialIssued = "SERVICE_ORDER_MATERIAL_ISSUED";
+    public const string Waiting        = "SERVICE_ORDER_WAITING";
+    public const string Completed      = "SERVICE_ORDER_COMPLETED";
+    public const string Closed         = "SERVICE_ORDER_CLOSED";
+    public const string Cancelled      = "SERVICE_ORDER_CANCELLED";
+}
+
 /// <summary>The interface codes these events (and <see cref="SMS.Shared.Common.ITraceIdResolver"/>) are tagged with.</summary>
 internal static class ManufacturingInterfaceCodes
 {

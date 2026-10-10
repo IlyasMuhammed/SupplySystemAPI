@@ -1,8 +1,9 @@
-using Hangfire;
+﻿using Hangfire;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SMS.Modules.Finance.Data;
 using SMS.Modules.Finance.Domain;
+using SMS.Shared.Common;
 
 namespace SMS.Modules.Finance.Services;
 
@@ -50,9 +51,11 @@ internal sealed class InvoiceOverdueJob
     private readonly FinanceDbContext _db;
     private readonly ILogger<InvoiceOverdueJob> _log;
     private readonly TimeProvider _clock;
+    private readonly IModuleGate? _gate;
 
-    public InvoiceOverdueJob(FinanceDbContext db, ILogger<InvoiceOverdueJob> log, TimeProvider? clock = null)
+    public InvoiceOverdueJob(FinanceDbContext db, ILogger<InvoiceOverdueJob> log, TimeProvider? clock = null, IModuleGate? gate = null)
     {
+        _gate  = gate;
         _db    = db;
         _log   = log;
         _clock = clock ?? TimeProvider.System;
@@ -77,6 +80,13 @@ internal sealed class InvoiceOverdueJob
         var now   = _clock.GetUtcNow().UtcDateTime;
         var today = now.Date;
 
+        // A37 D-9 — organizations without MODULE_FINANCE (grace counts as off) are left as they are.
+        var skipped = _gate is null ? [] : (await _gate.SkippedAmongAsync(
+            await _db.SalesInvoices.IgnoreQueryFilters()
+                .Where(i => !i.IsDelete && Candidates.Contains(i.Status) && i.DueDate < today && i.BalanceDue > 0m)
+                .Select(i => i.OrganizationId).Distinct().ToListAsync(),
+            ModuleCodes.Finance, _log, nameof(InvoiceOverdueJob))).ToList();
+
         var flagged = 0;
         var lastId  = 0;
 
@@ -90,7 +100,8 @@ internal sealed class InvoiceOverdueJob
                          && !i.IsDelete
                          && Candidates.Contains(i.Status)
                          && i.DueDate < today
-                         && i.BalanceDue > 0m)
+                         && i.BalanceDue > 0m
+                         && !skipped.Contains(i.OrganizationId))
                 .OrderBy(i => i.Id)
                 .Take(BatchSize)
                 .ToListAsync();

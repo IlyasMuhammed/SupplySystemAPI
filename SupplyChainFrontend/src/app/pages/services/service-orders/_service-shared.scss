@@ -1,0 +1,21 @@
+// Shared bits for the service order pages (A36). Page structure comes from the SMS Flow kit (_flow.scss).
+.sf-form { display: flex; flex-direction: column; flex-grow: 1; }
+.span-3 { grid-column: 1 / -1; }
+.w-full { width: 100%; }
+.num, .text-right { text-align: right; font-variant-numeric: tabular-nums; }
+.text-center { text-align: center; }
+.hint { color: var(--sms-text-muted); font-size: .8125rem; }
+.p-error { color: var(--sms-danger); font-size: .8125rem; }
+.check { display: flex; align-items: center; gap: .5rem; font-weight: 500; cursor: pointer; margin-top: .45rem; color: var(--sms-text); }
+.field { display: flex; flex-direction: column; gap: .375rem; min-width: 0; }
+.field > label { font-size: .875rem; font-weight: 600; }
+.dialog-lead { margin: 0 0 1rem; color: var(--sms-text-muted); font-size: .9rem; line-height: 1.5; }
+.block { margin-bottom: 1rem; }
+.qty-out { color: var(--sms-danger); font-weight: 600; }
+.qty-back { color: var(--sms-ok); font-weight: 600; }
+.short { color: var(--sms-danger); font-weight: 700; }
+.row-actions { white-space: nowrap; text-align: right; }
+.adhoc { display: grid; grid-template-columns: minmax(0, 2fr) minmax(7rem, 1fr) minmax(0, 2fr) auto; gap: .75rem; align-items: end; padding: 12px 16px; }
+@media (max-width: 900px) { .adhoc { grid-template-columns: 1fr; } }
+.list-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--sms-border); }
+.list-row:last-child { border-bottom: 0; }

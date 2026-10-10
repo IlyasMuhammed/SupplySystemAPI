@@ -15,6 +15,7 @@ import { CalendarModule } from 'primeng/calendar';
 import { DividerModule } from 'primeng/divider';
 import { TooltipModule } from 'primeng/tooltip';
 import { AutoCompleteModule } from 'primeng/autocomplete';
+import { AutoCompleteOpenOnFocusDirective } from '../../../../shared/directives/autocomplete-open-on-focus.directive';
 import { DropdownModule } from 'primeng/dropdown';
 import { CheckboxModule } from 'primeng/checkbox';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
@@ -39,6 +40,7 @@ import {
 import { TimelinePanelComponent } from '../../../../shared/timeline-panel/timeline-panel.component';
 import { AttachmentListComponent } from '../../../../shared/attachment-list/attachment-list.component';
 import { AttachmentService } from '../../../../services/attachment.service';
+import { FLOW, FlowSection, FlowStage, flowStagesFrom } from '../../../../shared/flow';
 
 interface SendSupplierRow {
   supplierId: string;
@@ -62,7 +64,8 @@ function emptyRow(): SendSupplierRow {
     ButtonModule, CardModule, TagModule, ToastModule, DialogModule,
     InputTextModule, InputNumberModule, TextareaModule, TableModule,
     CalendarModule, DividerModule, TooltipModule, ConfirmDialogModule,
-    AutoCompleteModule, DropdownModule, CheckboxModule, TimelinePanelComponent, AttachmentListComponent
+    AutoCompleteModule, AutoCompleteOpenOnFocusDirective, DropdownModule, CheckboxModule, TimelinePanelComponent, AttachmentListComponent,
+    ...FLOW
   ],
   templateUrl: './quotation-detail.component.html',
   styleUrls: ['./quotation-detail.component.scss'],
@@ -231,6 +234,38 @@ export class QuotationDetailComponent implements OnInit, OnDestroy {
   }
   get canCancel():       boolean { return ['DRAFT','SENT'].includes(this.quotation?.status ?? ''); }
   get canConvertToPo():  boolean { return this.quotation?.status === 'AWARDED'; }
+
+  // ── SMS Flow header ───────────────────────────────────────────────────────
+
+  get stages(): FlowStage[] {
+    const q = this.quotation;
+    if (!q) return [];
+    if (q.status === 'CANCELLED') return flowStagesFrom(['Draft', 'Cancelled'], 1, { failed: true });
+    const current = q.status === 'DRAFT' ? 0 : q.status === 'SENT' ? (q.bidsOpenedAt ? 2 : 1) : q.status === 'AWARDED' ? 4 : 0;
+    return flowStagesFrom(['Draft', 'Collecting bids', 'Bids opened', 'Awarded'], current, {
+      subs: [null, current >= 1 ? `${q.submittedResponseCount ?? 0} received` : null, null, null]
+    });
+  }
+
+  get sections(): FlowSection[] {
+    const q = this.quotation;
+    const notes = !!q && !!(q.notes || q.cancellationReason);
+    const links = q?.status === 'SENT' || q?.status === 'AWARDED';
+    const key = `${notes}|${links}`;
+    let s = this.sectionCache.get(key);
+    if (!s) {
+      s = [
+        { id: 'sec-lines', label: 'Lines' },
+        { id: 'sec-details', label: 'Details & suppliers' },
+        ...(notes ? [{ id: 'sec-notes', label: 'Notes' }] : []),
+        ...(links ? [{ id: 'sec-links', label: 'Access links' }] : []),
+        { id: 'sec-files', label: 'Files' }
+      ];
+      this.sectionCache.set(key, s);
+    }
+    return s;
+  }
+  private readonly sectionCache = new Map<string, FlowSection[]>();
   get filledSupplierCount(): number { return this.sendRows.filter(r => r.supplierName.trim()).length; }
 
   get sendContactsValid(): boolean {
@@ -635,7 +670,7 @@ export class QuotationDetailComponent implements OnInit, OnDestroy {
   confirmAward(r: VendorResponseModel) {
     const { supplied, total } = this.coverageFor(r);
     const coverageWarning = supplied < total
-      ? `<br><br><span style="color:#dc2626;font-weight:600;">Note: this supplier can only supply ${supplied} of ${total} line items.</span>`
+      ? `<br><br><span style="color:var(--sms-danger);font-weight:600;">Note: this supplier can only supply ${supplied} of ${total} line items.</span>`
       : '';
     this.confirmationService.confirm({
       header: 'Award Quotation',

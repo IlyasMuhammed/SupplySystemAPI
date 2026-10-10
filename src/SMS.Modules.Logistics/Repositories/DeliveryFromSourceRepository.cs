@@ -49,6 +49,10 @@ internal sealed class DeliveryFromSourceRepository : IDeliveryFromSourceReposito
     private static readonly string DropShipLine =
         Demand.Domain.EnumCode<Demand.Domain.SaleOrderLineFulfillmentMode>.Of(Demand.Domain.SaleOrderLineFulfillmentMode.DropShip);
 
+    // A36 D-10 — a service line is performed by a service order, never delivered.
+    private static readonly string ServiceLine =
+        Demand.Domain.EnumCode<Demand.Domain.SaleOrderLineFulfillmentMode>.Of(Demand.Domain.SaleOrderLineFulfillmentMode.Service);
+
     private const string ActiveReservation = "ACTIVE";
 
     private readonly LogisticsDbContext       _db;
@@ -394,7 +398,7 @@ internal sealed class DeliveryFromSourceRepository : IDeliveryFromSourceReposito
         // A drop-ship line never touches this warehouse — the vendor sends it straight to the
         // customer (§4.3 scenario 4) — and a cancelled line has nothing to send.
         var deliverable = so.Lines
-            .Where(l => l.Status != CancelledSoLine && l.FulfillmentMode != DropShipLine)
+            .Where(l => l.Status != CancelledSoLine && l.FulfillmentMode != DropShipLine && l.FulfillmentMode != ServiceLine)
             .OrderBy(l => l.Id)
             .ToList();
 

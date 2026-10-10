@@ -13,6 +13,7 @@ import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { TooltipModule } from 'primeng/tooltip';
 import { MessageService, ConfirmationService } from 'primeng/api';
 import { PaymentTermsService, PaymentTermModel } from '../../services/payment-terms.service';
+import { FLOW } from '../../shared/flow';
 
 @Component({
   selector: 'app-payment-terms',
@@ -20,7 +21,7 @@ import { PaymentTermsService, PaymentTermModel } from '../../services/payment-te
   imports: [
     CommonModule, ReactiveFormsModule,
     TableModule, ButtonModule, InputTextModule, InputNumberModule, InputIconModule, IconFieldModule, DialogModule,
-    ToastModule, ConfirmDialogModule, TooltipModule
+    ToastModule, ConfirmDialogModule, TooltipModule, ...FLOW
   ],
   templateUrl: './payment-terms.component.html',
   styleUrls: ['./payment-terms.component.scss'],

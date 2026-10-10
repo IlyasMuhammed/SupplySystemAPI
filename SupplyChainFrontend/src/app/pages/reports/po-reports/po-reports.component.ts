@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FLOW } from '../../../shared/flow';
 import { FormsModule } from '@angular/forms';
 import { TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
@@ -14,7 +15,7 @@ import { PdfService } from '../../../services/pdf.service';
 @Component({
   selector: 'app-po-reports',
   standalone: true,
-  imports: [CommonModule, FormsModule, TableModule, ButtonModule, TabViewModule, ToastModule, TagModule, CalendarModule],
+  imports: [CommonModule, FormsModule, TableModule, ButtonModule, TabViewModule, ToastModule, TagModule, CalendarModule, ...FLOW],
   templateUrl: './po-reports.component.html',
   styleUrls: ['./po-reports.component.scss'],
   providers: [MessageService]

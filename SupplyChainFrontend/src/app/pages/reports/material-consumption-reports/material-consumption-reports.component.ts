@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FLOW } from '../../../shared/flow';
 import { FormsModule } from '@angular/forms';
 import { TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
@@ -23,7 +24,7 @@ import {
   selector: 'app-material-consumption-reports',
   standalone: true,
   imports: [CommonModule, FormsModule, TableModule, ButtonModule, InputTextModule,
-            TabViewModule, TagModule, ToastModule, DropdownModule],
+            TabViewModule, TagModule, ToastModule, DropdownModule, ...FLOW],
   templateUrl: './material-consumption-reports.component.html',
   styleUrls: ['./material-consumption-reports.component.scss'],
   providers: [MessageService]

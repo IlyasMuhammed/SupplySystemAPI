@@ -10,6 +10,7 @@ import { ToastModule } from 'primeng/toast';
 import { CardModule } from 'primeng/card';
 import { MessageService } from 'primeng/api';
 import { LogisticsService, CreateCarrierRequest } from '../../../../services/logistics.service';
+import { FLOW } from '../../../../shared/flow';
 
 @Component({
   selector: 'app-carrier-create',
@@ -17,7 +18,8 @@ import { LogisticsService, CreateCarrierRequest } from '../../../../services/log
   imports: [
     CommonModule, RouterModule, FormsModule,
     ButtonModule, InputTextModule, DropdownModule,
-    InputNumberModule, ToastModule, CardModule
+    InputNumberModule, ToastModule, CardModule,
+    ...FLOW
   ],
   templateUrl: './carrier-create.component.html',
   styleUrls: ['./carrier-create.component.scss'],

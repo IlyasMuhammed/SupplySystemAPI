@@ -1,84 +1,89 @@
 <p-toast></p-toast>
 
-<div class="settings-page">
-  <div class="page-header">
-    <div class="page-icon"><i class="pi pi-clock"></i></div>
+<sf-page [crumbs]="['Settings', 'Lead time defaults']">
+  <header class="sf-hdr sf-compact">
     <div class="grow">
-      <h1 class="page-title">
-        Lead Time Defaults
+      <h1>
+        Lead time defaults
         <p-tag *ngIf="model && !canEdit" value="View only" severity="secondary" icon="pi pi-lock"></p-tag>
       </h1>
-      <p class="page-subtitle" data-testid="ltd-intro">
+      <div class="sf-meta" data-testid="ltd-intro">
         These defaults apply to all products that don't have variant-level overrides.
-      </p>
+      </div>
     </div>
-    <div class="last-changed" *ngIf="model?.isSaved && model?.modifiedDate" data-testid="ltd-last-changed">
+    <div class="sf-mu sf-sm" *ngIf="model?.isSaved && model?.modifiedDate" data-testid="ltd-last-changed">
       Last changed {{ model!.modifiedDate | date:'medium' }}
     </div>
-  </div>
+  </header>
 
-  <div class="state-card" *ngIf="isLoading" data-testid="ltd-loading">
-    <i class="pi pi-spin pi-spinner"></i>
-    <p>Loading the lead time defaults…</p>
-  </div>
+  <div class="sf-body" *ngIf="isLoading || (loadFailed && !isLoading)">
+    <div class="sf-card sf-empty" *ngIf="isLoading" data-testid="ltd-loading">
+      <i class="pi pi-spin pi-spinner"></i>
+      <p>Loading the lead time defaults…</p>
+    </div>
 
-  <div class="state-card" *ngIf="loadFailed && !isLoading" data-testid="ltd-load-failed">
-    <i class="pi pi-exclamation-triangle"></i>
-    <h2>The lead time defaults could not be loaded</h2>
-    <p>Check your connection and try again.</p>
-    <p-button label="Try again" icon="pi pi-refresh" (onClick)="load()"></p-button>
+    <div class="sf-card sf-empty" *ngIf="loadFailed && !isLoading" data-testid="ltd-load-failed">
+      <i class="pi pi-exclamation-triangle"></i>
+      <h2>The lead time defaults could not be loaded</h2>
+      <p>Check your connection and try again.</p>
+      <p-button label="Try again" icon="pi pi-refresh" (onClick)="load()"></p-button>
+    </div>
   </div>
 
   <ng-container *ngIf="model && !isLoading && !loadFailed">
-    <p-message *ngIf="!canEdit" severity="info" styleClass="read-only-note" data-testid="ltd-read-only">
-      You can see these defaults but not change them. Changing them needs the "manage lead time defaults" permission.
-    </p-message>
+    <form [formGroup]="form" (ngSubmit)="save()" novalidate class="sf-form">
+      <div class="sf-body">
+        <p-message *ngIf="!canEdit" severity="info" styleClass="read-only-note" data-testid="ltd-read-only">
+          You can see these defaults but not change them. Changing them needs the "manage lead time defaults" permission.
+        </p-message>
 
-    <p-message *ngIf="!model.isSaved" severity="secondary" styleClass="read-only-note" data-testid="ltd-system-defaults">
-      Nothing has been saved for your organization yet: these are the system defaults.
-    </p-message>
+        <p-message *ngIf="!model.isSaved" severity="secondary" styleClass="read-only-note" data-testid="ltd-system-defaults">
+          Nothing has been saved for your organization yet: these are the system defaults.
+        </p-message>
 
-    <form [formGroup]="form" (ngSubmit)="save()" novalidate>
-      <section class="form-card">
-        <div class="card-head">
-          <div class="card-icon"><i class="pi pi-calendar-clock"></i></div>
-          <div class="grow">
-            <div class="card-title">Default days per step</div>
-            <div class="card-sub">Whole days from 0 to {{ maxDays }}. A variant can override any of them on its Lead Times tab.</div>
+        <section class="sf-card">
+          <div class="sf-ch">
+            <div>
+              <h2><i class="pi pi-calendar-clock"></i> Default days per step</h2>
+              <div class="sf-mu sf-sm">Whole days from 0 to {{ maxDays }}. A variant can override any of them on its Lead Times tab.</div>
+            </div>
           </div>
-        </div>
 
-        <div class="day-row" *ngFor="let f of fields" [attr.data-testid]="'ltd-row-' + f.field">
-          <div class="day-text">
-            <label [attr.for]="'ltd-' + f.field">{{ f.label }}</label>
-            <span class="hint">{{ f.hint }}</span>
+          <div>
+            <div class="day-row" *ngFor="let f of fields" [attr.data-testid]="'ltd-row-' + f.field">
+              <div class="day-text">
+                <label [attr.for]="'ltd-' + f.field">{{ f.label }}</label>
+                <span class="hint">{{ f.hint }}</span>
+              </div>
+              <div class="day-input">
+                <p-inputNumber [inputId]="'ltd-' + f.field" [formControlName]="f.field" [min]="0" [max]="maxDays"
+                               [maxFractionDigits]="0" [useGrouping]="false" [showButtons]="true" inputStyleClass="days-input"
+                               [attr.data-testid]="'ltd-' + f.field"></p-inputNumber>
+                <span class="unit">days</span>
+              </div>
+            </div>
           </div>
-          <div class="day-input">
-            <p-inputNumber [inputId]="'ltd-' + f.field" [formControlName]="f.field" [min]="0" [max]="maxDays"
-                           [maxFractionDigits]="0" [useGrouping]="false" [showButtons]="true" inputStyleClass="days-input"
-                           [attr.data-testid]="'ltd-' + f.field"></p-inputNumber>
-            <span class="unit">days</span>
-          </div>
-        </div>
 
-        <p class="note" data-testid="ltd-variant-note">
-          <i class="pi pi-info-circle"></i>
-          Note: Supplier lead time and manufacturing lead time are always set at the product/variant level — they vary too
-          much across products for a meaningful org default.
-        </p>
-      </section>
+          <p class="note" data-testid="ltd-variant-note">
+            <i class="pi pi-info-circle"></i>
+            Note: Supplier lead time and manufacturing lead time are always set at the product/variant level — they vary too
+            much across products for a meaningful org default.
+          </p>
+        </section>
 
-      <small class="p-error" *ngIf="submitted && problem" data-testid="ltd-problem">{{ problem }}</small>
+        <small class="p-error" *ngIf="submitted && problem" data-testid="ltd-problem">{{ problem }}</small>
+      </div>
 
-      <div class="action-bar" *ngIf="canEdit">
+      <div class="sf-fbar" *ngIf="canEdit">
         <span class="unsaved" *ngIf="dirty"><i class="pi pi-circle-fill"></i> Unsaved changes</span>
         <span class="saved" *ngIf="!dirty && model.isSaved"><i class="pi pi-check"></i> All changes saved</span>
-        <span class="grow"></span>
-        <p-button label="Discard changes" [outlined]="true" severity="secondary" [disabled]="!dirty || isSaving"
-                  (onClick)="discard()" data-testid="ltd-discard"></p-button>
-        <p-button type="submit" label="Save" icon="pi pi-check" [loading]="isSaving"
-                  [disabled]="isSaving || (!dirty && model.isSaved)" data-testid="ltd-save"></p-button>
+        <span class="sf-end">
+          <p-button label="Discard changes" [text]="true" severity="secondary" [disabled]="!dirty || isSaving"
+                    (onClick)="discard()" data-testid="ltd-discard"></p-button>
+          <p-button type="submit" label="Save" icon="pi pi-check" [loading]="isSaving"
+                    [disabled]="isSaving || (!dirty && model.isSaved)" data-testid="ltd-save"></p-button>
+        </span>
       </div>
     </form>
   </ng-container>
-</div>
+</sf-page>

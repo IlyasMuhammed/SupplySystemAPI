@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using SMS.Modules.Auth.Authorization;
 using SMS.Modules.Auth.Models;
 using SMS.Modules.Auth.Services;
 using SMS.Shared.Authorization;
@@ -24,11 +25,15 @@ public class RolesController : ControllerBase
     // filter on Role: an Org Admin only ever sees global roles plus their own org's custom ones.
 
     // ── GET /api/roles ────────────────────────────────────────────────────────
+    // ?assignable=true — only the roles the caller may give a user (the create/edit user picker). The Roles screen
+    // keeps the full list: an Org Admin still sees System Admin and Organization Admin there, they just can't hand them out.
     [HttpGet]
     [RequirePermission(PermissionCodes.USER_MANAGE)]
-    public async Task<IActionResult> GetRoles()
+    public async Task<IActionResult> GetRoles([FromQuery] bool assignable = false)
     {
-        var result = await _authService.GetRolesAsync();
+        var result = assignable
+            ? await _authService.GetAssignableRolesAsync(AuthCaller.From(User))
+            : await _authService.GetRolesAsync();
         return Ok(ApiResponse<List<RoleListItemModel>>.Ok(result, "Roles retrieved successfully."));
     }
 

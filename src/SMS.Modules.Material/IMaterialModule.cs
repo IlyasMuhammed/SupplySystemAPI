@@ -88,7 +88,19 @@ public static class MaterialModuleExtensions
         // (FGR hook, "Create delivery now"), and the sweep that retries a hand-off that never settled. Neither depends on
         // the FGR or QI services (no DI cycle with the hook).
         services.AddScoped<IProductionDeliveryHandoff, ProductionDeliveryHandoff>();
+
+        // A36 — service orders. One scoped instance behind both interfaces; it resolves its collaborators lazily (no DI
+        // cycle into Demand, which takes IServiceOrderDemandService). Readiness after every allocation run / receipt (X-03).
+        services.AddScoped<ServiceOrderService>();
+        services.AddScoped<IServiceOrderService>(sp => sp.GetRequiredService<ServiceOrderService>());
+        services.AddScoped<IServiceOrderDemandService>(sp => sp.GetRequiredService<ServiceOrderService>());
+        services.AddScoped<IAllocationRunListener, ServiceReadinessListener>();
+        services.AddScoped<IAllocationReceiptListener, ServiceReadinessListener>();
         services.AddScoped<ProductionDeliverySweepJob>();
+
+        // A37 D-18 — in-flight production / service orders for Tenancy's pre-disable impact check.
+        services.AddScoped<IModuleImpactProvider, ProductionOrderImpactProvider>();
+        services.AddScoped<IModuleImpactProvider, ServiceOrderImpactProvider>();
 
         // Workflow status handlers (MIR_PROJECT and MIR_GENERAL)
         services.AddScoped<IDocumentStatusHandler, MirProjectStatusHandler>();
@@ -104,6 +116,7 @@ public static class MaterialModuleExtensions
         services.AddScoped<ITraceIdResolver, BomTraceIdResolver>();
         services.AddScoped<ITraceIdResolver, ProdTraceIdResolver>();
         services.AddScoped<ITraceIdResolver, SrTraceIdResolver>();
+        services.AddScoped<ITraceIdResolver, ServiceOrderTraceIdResolver>();
 
         // PV-007 — lets Inventory ask "has this variant ever been transacted" cross-module
         services.AddScoped<IVariantReferenceChecker, MirLineVariantReferenceChecker>();

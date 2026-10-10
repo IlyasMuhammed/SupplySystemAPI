@@ -6,10 +6,10 @@
 
   <ng-container *ngIf="!loadFailed; else failed">
     <p-select inputId="variantRoute" [options]="options" [ngModel]="value" (ngModelChange)="onChange($event)"
-              optionLabel="label" optionValue="value" [showClear]="clearable" [disabled]="!canAssign" [loading]="loading"
+              optionLabel="label" optionValue="value" optionDisabled="disabled" [showClear]="clearable" [disabled]="!canAssign" [loading]="loading"
               placeholder="No route" appendTo="body" styleClass="w-full" data-testid="route-select">
       <ng-template let-option #item>
-        <span class="route-option">
+        <span class="route-option" [class.route-option-off]="option.disabled" [attr.data-testid]="option.disabled ? 'route-option-unavailable' : null">
           {{ option.label }}
           <p-tag *ngIf="option.category === 'MANUFACTURE'" value="Manufacture" severity="warn" styleClass="mini-tag"></p-tag>
         </span>
@@ -21,7 +21,11 @@
       </span>
       <small class="steps" *ngIf="selected.stepsText" data-testid="route-steps">Steps: {{ selected.stepsText }}</small>
     </div>
-    <small class="hint" *ngIf="selected?.category === 'MANUFACTURE' && !selected?.notAllowed" data-testid="route-make-to-order">
+    <small class="hint warn" *ngIf="selected?.unavailableReason" data-testid="route-unavailable">
+      This route is not available: {{ selected?.unavailableReason }}. Sale orders for this variant use the organization's
+      default stock route instead.
+    </small>
+    <small class="hint" *ngIf="selected?.category === 'MANUFACTURE' && !selected?.notAllowed && !selected?.unavailableReason" data-testid="route-make-to-order">
       Make to order: confirming a sale order raises a production order for the full quantity; the delivery is created when
       it completes.
     </small>

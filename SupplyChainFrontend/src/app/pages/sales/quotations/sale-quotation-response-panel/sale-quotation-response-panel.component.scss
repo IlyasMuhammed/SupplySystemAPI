@@ -1,5 +1,5 @@
 .response-panel {
-  border: 1px solid var(--primary-200, #c7d2fe); background: var(--primary-50, #f5f7ff);
+  border: 1px solid var(--sms-primary-soft-border); background: var(--sms-primary-soft);
   border-radius: .625rem; padding: 1rem 1.25rem; margin-bottom: 1rem;
 }
 .panel-title { font-weight: 700; }
@@ -7,7 +7,7 @@
 
 .response-table { width: 100%; border-collapse: collapse; font-size: .875rem; }
 .response-table th { text-align: left; font-size: .75rem; text-transform: uppercase; letter-spacing: .03em; color: var(--text-color-secondary); padding: .375rem .5rem; }
-.response-table td { padding: .375rem .5rem; border-top: 1px solid var(--surface-200); vertical-align: middle; }
+.response-table td { padding: .375rem .5rem; border-top: 1px solid var(--sms-border); vertical-align: middle; }
 .response-table tr.detail-row td { border-top: 0; padding-top: 0; }
 .response-cell { width: 11rem; }
 :host ::ng-deep .response-dropdown { width: 100%; }
@@ -20,8 +20,8 @@
 
 .panel-actions { display: flex; justify-content: flex-end; gap: .625rem; flex-wrap: wrap; margin-top: 1rem; }
 
-.required { color: var(--red-500, #ef4444); }
-.p-error { color: var(--red-500, #ef4444); font-size: .8125rem; }
+.required { color: var(--sms-danger); }
+.p-error { color: var(--sms-danger); font-size: .8125rem; }
 .block { display: block; margin-top: .5rem; }
 .w-full { width: 100%; }
 .text-right { text-align: right; }

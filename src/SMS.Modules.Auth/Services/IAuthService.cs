@@ -24,6 +24,8 @@ public interface IAuthService
     Task PatchUserAsync(int userId, PatchUserRequest dto, AuthCaller caller);
     Task AssignRoleAsync(int userId, int newRoleId, AuthCaller caller);
     Task AdminResetPasswordAsync(int userId, AuthCaller caller);
+    /// <summary>Platform super admins only: set another user's password (activates a pending invite, ends their sessions).</summary>
+    Task SetPasswordAsSuperAdminAsync(int userId, string newPassword, AuthCaller caller);
     Task SoftDeleteUserAsync(int userId, AuthCaller caller);
 
     // ── Registration / activation / password flows ────────────────────────────
@@ -48,6 +50,8 @@ public interface IAuthService
 
     // ── Role CRUD ─────────────────────────────────────────────────────────────
     Task<List<RoleListItemModel>> GetRolesAsync();
+    /// <summary>The roles the caller may assign (the user create/edit picker): no Org Admin or platform roles unless a super admin.</summary>
+    Task<List<RoleListItemModel>> GetAssignableRolesAsync(AuthCaller caller);
     Task<RoleDetailModel> GetRoleDetailAsync(int roleId);
     Task<RoleListItemModel> CreateRoleAsync(CreateRoleRequest req);
     Task<bool> UpdateRoleAsync(int roleId, UpdateRoleRequest req);

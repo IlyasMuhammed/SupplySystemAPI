@@ -1,36 +1,31 @@
-<div class="grn-create-page">
-  <p-toast></p-toast>
+<p-toast></p-toast>
 
-  <form [formGroup]="form" (ngSubmit)="submit()">
+<sf-page [crumbs]="['Warehouse', 'Goods receipts', 'New GRN']">
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <p-button label="Back to goods receipts" icon="pi pi-arrow-left" [text]="true"
+              routerLink="/portal/pages/warehouse/grn"></p-button>
+    <span class="sf-end" *ngIf="selectedPo">
+      <span class="sf-mu sf-sm">PO {{ selectedPo.poNumber }} · {{ selectedPo.supplierName }}</span>
+    </span>
+  </div>
 
-    <!-- ── Page Header ────────────────────────────────────────────────────── -->
-    <div class="page-header-card">
-      <div class="ph-left">
-        <p-button icon="pi pi-arrow-left" [text]="true" severity="secondary" size="small"
-                  routerLink="/portal/pages/warehouse/grn"></p-button>
-        <div class="ph-icon-wrap"><i class="pi pi-inbox"></i></div>
-        <div>
-          <div class="ph-name">New Goods Receipt Note</div>
-          <div class="ph-sub">Record a delivery against an approved purchase order</div>
-        </div>
-      </div>
-      <div class="ph-actions">
-        <p-button label="Cancel" severity="secondary" [outlined]="true" type="button"
-                  routerLink="/portal/pages/warehouse/grn"></p-button>
-        <p-button label="Create GRN" icon="pi pi-check" type="submit"
-                  [loading]="isSaving" [disabled]="!selectedPo || poBlockedByStatus"></p-button>
-      </div>
+  <header class="sf-hdr sf-compact">
+    <div>
+      <h1>New goods receipt note</h1>
+      <div class="sf-meta">Record a delivery against an approved purchase order</div>
     </div>
+  </header>
+
+  <form [formGroup]="form" (ngSubmit)="submit()" class="form-col">
+    <div class="sf-body">
 
     <!-- ── Step 1 — Purchase Order ───────────────────────────────────────── -->
-    <div class="section-card">
-      <div class="section-card-head">
-        <div class="sc-step">1</div>
-        <div class="sc-icon-wrap"><i class="pi pi-file-edit"></i></div>
-        <span class="sc-title">Purchase Order</span>
-        <span class="sc-hint">search or browse receivable POs</span>
+    <section class="sf-card section-card">
+      <div class="sf-ch">
+        <h2><span class="sc-step">1</span> Purchase order</h2>
+        <span class="sf-mu sf-sm">search or browse receivable POs</span>
       </div>
-      <div class="section-card-body">
+      <div>
 
         <div class="field">
           <label><i class="pi pi-search"></i> Search Purchase Order <span class="req">*</span></label>
@@ -43,7 +38,7 @@
             (completeMethod)="searchPos($event)"
             (onSelect)="onPoSelect($event)"
             (onClear)="onPoClear()"
-            (onFocus)="!selectedPo && poAc.search($event, '', 'focus')"
+            [smsOpenOnFocus]="!selectedPo"
             placeholder="Focus to browse receivable POs, or type to search…"
             styleClass="full-width"
             inputStyleClass="full-width"
@@ -98,16 +93,14 @@
         </div>
 
       </div>
-    </div>
+    </section>
 
     <!-- ── Step 2 — Receiving Location & Delivery ──────────────────────── -->
-    <div class="section-card">
-      <div class="section-card-head">
-        <div class="sc-step">2</div>
-        <div class="sc-icon-wrap"><i class="pi pi-truck"></i></div>
-        <span class="sc-title">Receiving Location &amp; Delivery</span>
+    <section class="sf-card section-card">
+      <div class="sf-ch">
+        <h2><span class="sc-step">2</span> Receiving location &amp; delivery</h2>
       </div>
-      <div class="section-card-body">
+      <div>
         <div class="form-grid cols-3">
 
           <div class="field col-span-2">
@@ -173,23 +166,20 @@
 
         </div>
       </div>
-    </div>
+    </section>
 
     <!-- ── Step 3 — Received Quantities ───────────────────────────────── -->
-    <div class="section-card" *ngIf="selectedPo">
-      <div class="section-card-head">
-        <div class="sc-step">3</div>
-        <div class="sc-icon-wrap"><i class="pi pi-list"></i></div>
-        <span class="sc-title">Received Quantities</span>
-        <span class="sc-spacer"></span>
+    <section class="sf-card section-card" *ngIf="selectedPo">
+      <div class="sf-ch">
+        <h2><span class="sc-step">3</span> Received quantities</h2>
         <span *ngIf="loadingLines" class="loading-hint">
           <i class="pi pi-spin pi-spinner"></i> Loading lines…
         </span>
-        <span *ngIf="!loadingLines && lineInputs.length > 0" class="lines-count-badge">
+        <span *ngIf="!loadingLines && lineInputs.length > 0" class="sf-pill in">
           {{ lineInputs.length }} line{{ lineInputs.length > 1 ? 's' : '' }}
         </span>
       </div>
-      <div class="section-card-body">
+      <div>
 
         <p class="section-hint" *ngIf="!loadingLines && lineInputs.length > 0">
           Enter the quantity received for each item. Accepted quantity is auto-calculated from received minus rejected.
@@ -338,7 +328,18 @@
         </div>
 
       </div>
+    </section>
+
     </div>
 
+    <div class="sf-fbar">
+      <span class="sf-mu sf-sm">Select a purchase order, the receiving warehouse and the quantities that arrived.</span>
+      <span class="sf-end">
+        <p-button label="Cancel" severity="secondary" [text]="true" type="button"
+                  routerLink="/portal/pages/warehouse/grn"></p-button>
+        <p-button label="Create GRN" icon="pi pi-check" type="submit"
+                  [loading]="isSaving" [disabled]="!selectedPo || poBlockedByStatus"></p-button>
+      </span>
+    </div>
   </form>
-</div>
+</sf-page>

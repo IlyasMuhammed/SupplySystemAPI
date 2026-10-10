@@ -1,47 +1,55 @@
-<div class="walk-page">
-  <p-toast></p-toast>
+<p-toast></p-toast>
 
-  <div class="not-found" *ngIf="notFound" data-testid="not-found">
-    <i class="pi pi-inbox"></i>
-    <h2>Pick list not found</h2>
-    <p>It may have been cancelled, or the link may be wrong.</p>
-    <p-button label="Back to picking" icon="pi pi-arrow-left" [text]="true"
-              routerLink="/portal/pages/logistics/picking"></p-button>
+<div class="sf-empty" *ngIf="notFound" data-testid="not-found">
+  <i class="pi pi-inbox" style="font-size:2rem"></i>
+  <h2>Pick list not found</h2>
+  <p>It may have been cancelled, or the link may be wrong.</p>
+  <p-button label="Back to picking" icon="pi pi-arrow-left" [text]="true"
+            routerLink="/portal/pages/logistics/picking"></p-button>
+</div>
+
+<div *ngIf="isLoading && !pickList" class="sf-empty" data-testid="loading">
+  <i class="pi pi-spin pi-spinner"></i> Loading…
+</div>
+
+<sf-page *ngIf="pickList as pl" [crumbs]="['Logistics', 'Picking', pl.pickListNumber]">
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <p-button *ngIf="!current && isComplete" label="Go to the pack station" icon="pi pi-box"
+              [routerLink]="['/portal/pages/logistics/deliveries', pl.deliveryUuid, 'pack']"></p-button>
+    <p-button label="Open delivery" icon="pi pi-truck" [text]="true"
+              [routerLink]="['/portal/pages/logistics/deliveries', pl.deliveryUuid]"></p-button>
+    <span class="sf-sep" *ngIf="isLive"></span>
+    <p-button *ngIf="isLive" label="Cancel pick list" icon="pi pi-times" severity="danger"
+              [text]="true" [disabled]="isSubmitting"
+              (onClick)="cancelDialogVisible = true" data-testid="action-cancel"></p-button>
   </div>
 
-  <div *ngIf="isLoading && !pickList" class="loading-state" data-testid="loading">
-    <i class="pi pi-spin pi-spinner"></i> Loading…
-  </div>
-
-  <ng-container *ngIf="pickList as pl">
-    <div class="page-header">
+  <header class="sf-hdr">
+    <div class="sf-t">
       <div>
-        <h1 class="page-title">
-          <i class="pi pi-list-check"></i>
-          <span class="font-mono">{{ pl.pickListNumber }}</span>
+        <div class="sf-kicker">
+          Pick list · for
+          <a [routerLink]="['/portal/pages/logistics/deliveries', pl.deliveryUuid]" class="sf-mono">{{ pl.deliveryNumber }}</a>
+        </div>
+        <h1>
+          <span class="sf-mono">{{ pl.pickListNumber }}</span>
           <p-tag [value]="formatStatus(pl.status)"
                  [severity]="getStatusSeverity(pl.status)"></p-tag>
         </h1>
-        <p class="page-subtitle">
-          <a [routerLink]="['/portal/pages/logistics/deliveries', pl.deliveryUuid]" class="link">
-            <span class="font-mono">{{ pl.deliveryNumber }}</span>
-          </a>
-          <ng-container *ngIf="pl.warehouseName"> · {{ pl.warehouseName }}</ng-container>
-        </p>
-      </div>
-
-      <div class="header-actions">
-        <p-button *ngIf="isLive" label="Cancel pick list" icon="pi pi-times" severity="danger"
-                  [text]="true" [disabled]="isSubmitting"
-                  (onClick)="cancelDialogVisible = true" data-testid="action-cancel"></p-button>
+        <div class="sf-meta" *ngIf="pl.warehouseName">{{ pl.warehouseName }}</div>
       </div>
     </div>
+
+    <sf-stages [stages]="stages"></sf-stages>
 
     <!-- Progress across the whole walk -->
     <div class="progress-strip" data-testid="progress">
-      <div class="bar"><div class="fill" [style.width.%]="progressPercent"></div></div>
-      <span class="count">{{ confirmedCount }} of {{ lines.length }} confirmed</span>
+      <div class="sf-pb"><span [style.width.%]="progressPercent"></span></div>
+      <span class="sf-mu sf-sm count">{{ confirmedCount }} of {{ lines.length }} confirmed</span>
     </div>
+  </header>
+
+  <div class="sf-body">
 
     <!-- ── The instruction in front of the picker ─────────────────────────── -->
 
@@ -56,16 +64,16 @@
         <h2 class="item">{{ line.itemDescription }}</h2>
 
         <div class="chips">
-          <span class="chip" *ngIf="line.batchNumber">
-            Batch <span class="font-mono">{{ line.batchNumber }}</span>
+          <span class="sf-pill" *ngIf="line.batchNumber">
+            Batch <span class="sf-mono">{{ line.batchNumber }}</span>
           </span>
-          <span class="chip" *ngIf="line.serialNumber">
-            Serial <span class="font-mono">{{ line.serialNumber }}</span>
+          <span class="sf-pill" *ngIf="line.serialNumber">
+            Serial <span class="sf-mono">{{ line.serialNumber }}</span>
           </span>
-          <span class="chip" *ngIf="line.expiryDate">
+          <span class="sf-pill" *ngIf="line.expiryDate">
             Expires {{ line.expiryDate | date:'dd MMM yyyy' }}
           </span>
-          <span class="chip muted">Delivery line {{ line.deliveryLineNo }}</span>
+          <span class="sf-pill">Delivery line {{ line.deliveryLineNo }}</span>
         </div>
 
         <div class="take">
@@ -134,8 +142,8 @@
 
     <!-- ── The whole walk ─────────────────────────────────────────────────── -->
 
-    <section class="card">
-      <h2 class="card-title">All instructions</h2>
+    <section class="sf-card">
+      <div class="sf-ch"><h2>All instructions</h2><span class="sf-mu sf-sm">{{ lines.length }}</span></div>
 
       <ol class="instructions">
         <li *ngFor="let line of lines"
@@ -148,7 +156,7 @@
             <div class="where">{{ location(line) }}</div>
             <div class="what">
               {{ line.itemDescription }}
-              <span class="font-mono batch" *ngIf="line.batchNumber">{{ line.batchNumber }}</span>
+              <span class="sf-mono batch" *ngIf="line.batchNumber">{{ line.batchNumber }}</span>
             </div>
             <div class="short-note" *ngIf="line.qtyShort > 0">
               Short {{ line.qtyShort | number:'1.0-3' }} — {{ reasonLabel(line.shortReasonCode) }}
@@ -173,30 +181,30 @@
         </li>
       </ol>
     </section>
-  </ng-container>
+  </div>
+</sf-page>
 
-  <!-- ── Cancel ─────────────────────────────────────────────────────────────── -->
+<!-- ── Cancel ─────────────────────────────────────────────────────────────── -->
 
-  <p-dialog header="Cancel this pick list" [(visible)]="cancelDialogVisible" [modal]="true"
-            [style]="{ width: '30rem' }" [draggable]="false" data-testid="cancel-dialog">
-    <div class="dialog-body">
-      <p class="dialog-hint">
-        The delivery goes back to Released and its stock <strong>stays reserved</strong> — only the
-        instruction sheet is torn up. A new pick list can then be generated.
-      </p>
-      <div class="field">
-        <label for="cancel-reason">Reason</label>
-        <textarea pTextarea id="cancel-reason" [(ngModel)]="cancelReason" rows="3"
-                  data-testid="field-cancel-reason"></textarea>
-      </div>
+<p-dialog header="Cancel this pick list" [(visible)]="cancelDialogVisible" [modal]="true"
+          [style]="{ width: '30rem' }" [draggable]="false" data-testid="cancel-dialog">
+  <div class="dialog-body">
+    <p class="dialog-hint">
+      The delivery goes back to Released and its stock <strong>stays reserved</strong> — only the
+      instruction sheet is torn up. A new pick list can then be generated.
+    </p>
+    <div class="field">
+      <label for="cancel-reason">Reason</label>
+      <textarea pTextarea id="cancel-reason" [(ngModel)]="cancelReason" rows="3"
+                data-testid="field-cancel-reason"></textarea>
     </div>
+  </div>
 
-    <ng-template pTemplate="footer">
-      <p-button label="Back" [text]="true" severity="secondary"
-                (onClick)="cancelDialogVisible = false"></p-button>
-      <p-button label="Cancel pick list" icon="pi pi-times" severity="danger"
-                [disabled]="!cancelReason.trim() || isSubmitting" [loading]="isSubmitting"
-                (onClick)="confirmCancel()" data-testid="confirm-cancel"></p-button>
-    </ng-template>
-  </p-dialog>
-</div>
+  <ng-template pTemplate="footer">
+    <p-button label="Back" [text]="true" severity="secondary"
+              (onClick)="cancelDialogVisible = false"></p-button>
+    <p-button label="Cancel pick list" icon="pi pi-times" severity="danger"
+              [disabled]="!cancelReason.trim() || isSubmitting" [loading]="isSubmitting"
+              (onClick)="confirmCancel()" data-testid="confirm-cancel"></p-button>
+  </ng-template>
+</p-dialog>

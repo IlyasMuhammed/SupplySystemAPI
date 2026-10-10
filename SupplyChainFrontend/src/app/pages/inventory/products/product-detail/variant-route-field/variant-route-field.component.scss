@@ -4,9 +4,11 @@
 :host ::ng-deep .w-full { width: 100%; }
 .steps { font-size: .78rem; color: var(--text-color); }
 .hint { color: var(--text-color-secondary); font-size: .75rem; }
-.warn { color: var(--orange-600, #ea580c); }
+.warn { color: var(--sms-warn); }
 .readonly-value { display: flex; flex-direction: column; gap: .125rem; font-size: .875rem; }
 // A34 — category badge
 .route-meta { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
 .route-option { display: inline-flex; align-items: center; gap: .375rem; }
 :host ::ng-deep .mini-tag { font-size: .65rem; padding: .05rem .35rem; }
+
+.route-option-off { color: var(--sms-text-muted); }

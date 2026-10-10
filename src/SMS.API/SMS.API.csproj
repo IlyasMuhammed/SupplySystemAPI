@@ -22,6 +22,20 @@
     </PackageReference>
   </ItemGroup>
 
+  <!--
+    wwwroot\uploads is runtime data (attachments, profile pictures, invoices, supplier documents), not project content.
+    Left in the project, every upload added a file to it: Visual Studio's Hot Reload saw a project change it could not
+    apply and stopped, rebuilt and restarted the API mid-request ("uploading a file stops the API"). Excluded here, the
+    files are still written to and served from wwwroot\uploads exactly as before; the project just no longer sees them.
+  -->
+  <ItemGroup>
+    <Content Remove="wwwroot\uploads\**" />
+    <None Remove="wwwroot\uploads\**" />
+    <Compile Remove="wwwroot\uploads\**" />
+    <EmbeddedResource Remove="wwwroot\uploads\**" />
+    <Watch Remove="wwwroot\uploads\**" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\SMS.Shared\SMS.Shared.csproj" />
     <ProjectReference Include="..\SMS.Modules.Auth\SMS.Modules.Auth.csproj" />

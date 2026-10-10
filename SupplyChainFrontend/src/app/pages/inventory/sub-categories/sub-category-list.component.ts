@@ -15,6 +15,7 @@ import { CheckboxModule } from 'primeng/checkbox';
 import { IconFieldModule } from 'primeng/iconfield';
 import { InputIconModule } from 'primeng/inputicon';
 import { MessageService, ConfirmationService } from 'primeng/api';
+import { FLOW } from '../../../shared/flow';
 import {
   InventoryService,
   CategoryModel,
@@ -31,7 +32,8 @@ import {
     CommonModule, ReactiveFormsModule, FormsModule,
     ButtonModule, InputTextModule, TextareaModule, DialogModule,
     TableModule, TagModule, ToastModule, TooltipModule, DropdownModule,
-    ConfirmDialogModule, CheckboxModule, IconFieldModule, InputIconModule
+    ConfirmDialogModule, CheckboxModule, IconFieldModule, InputIconModule,
+    ...FLOW
   ],
   templateUrl: './sub-category-list.component.html',
   styleUrls: ['./sub-category-list.component.scss'],

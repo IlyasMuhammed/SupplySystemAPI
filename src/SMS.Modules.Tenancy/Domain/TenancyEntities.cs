@@ -41,19 +41,73 @@ internal class FeatureDefinition
     // not overridable per-org (see OrganizationFeature — deliberately has no IsCore column).
     public bool IsCore { get; set; }
     public int DisplayOrder { get; set; }
+    // A37 D-1 — the module this sub-feature belongs to (null for a module).
+    public string? ParentModuleCode { get; set; }
+    // A37 D-5 — an org admin cannot switch it off (a super admin can still unlicense it).
+    public bool IsAlwaysOn { get; set; }
+    // A37 D-2 — false = "Coming soon": cannot be licensed or enabled.
+    public bool IsAvailable { get; set; } = true;
+    public string? Icon { get; set; }
+}
+
+// A37 D-1/D-3 — the dependency graph, reconciled from TenancyFeatureCatalog.Dependencies on every start (code is the
+// source of truth; the table makes it queryable). FeatureCode may only be on while DependsOnCode is on.
+internal class FeatureDependency
+{
+    public string FeatureCode { get; set; } = string.Empty;
+    public string DependsOnCode { get; set; } = string.Empty;
 }
 
 // Per-organization toggle state for one FeatureDefinition. Rows are created in bulk when an org
 // is created (cloned from its plan's PlanFeatureTemplate) and backfilled on every startup for any
 // FeatureDefinition added since — see TenancyDataSeeder.BackfillOrganizationFeaturesAsync.
+// A37 D-4/D-7 — IsLicensed is the super admin's licence; IsEnabled the switch (an org admin may switch a licensed
+// module off and on). Usable = licensed AND enabled AND (for a sub-feature) its module usable. Grace only while off.
 internal class OrganizationFeature
 {
     public Guid Id { get; set; }
     public Guid OrganizationId { get; set; }
     public Guid FeatureDefinitionId { get; set; }
     public bool IsEnabled { get; set; }
+    public bool IsLicensed { get; set; }
+    public DateTime? EnabledAt { get; set; }
+    public int? EnabledBy { get; set; }
+    // Set on every switch-off and kept until the next switch-on: "the organization once had it" (read access, D-6).
+    public DateTime? DisabledAt { get; set; }
+    public int? DisabledBy { get; set; }
+    public DateTime? GracePeriodEndsAt { get; set; }
+    // A37 MOD-08 — the current state was set by the system (BOM_MANAGEMENT follows Manufacturing / Service Orders);
+    // false once an administrator switches it by hand, which the system then leaves alone.
+    public bool IsSystemManaged { get; set; }
     public int? ModifiedBy { get; set; }
     public DateTime? ModifiedDate { get; set; }
+    public byte[] RowVersion { get; set; } = [];
+}
+
+// A37 D-8 — every licence / switch change, by a super admin, an org admin or the system (PerformedBy null).
+internal class OrganizationFeatureHistory
+{
+    public Guid Id { get; set; }
+    public Guid OrganizationId { get; set; }
+    public string FeatureCode { get; set; } = string.Empty;
+    public string Action { get; set; } = string.Empty;
+    public int? PerformedBy { get; set; }
+    public DateTime PerformedAt { get; set; }
+    public int? GraceDays { get; set; }
+    public string? Notes { get; set; }
+}
+
+internal static class FeatureHistoryActions
+{
+    public const string Enabled         = "ENABLED";
+    public const string Disabled        = "DISABLED";
+    public const string FeatureEnabled  = "FEATURE_ENABLED";
+    public const string FeatureDisabled = "FEATURE_DISABLED";
+    public const string Licensed        = "LICENSED";
+    public const string Unlicensed      = "UNLICENSED";
+    public const string GraceExpired    = "GRACE_EXPIRED";
+    public const string AutoEnabled     = "AUTO_ENABLED";
+    public const string AutoDisabled    = "AUTO_DISABLED";
 }
 
 // Seed-managed default feature set per plan tier — drives the initial OrganizationFeatures rows

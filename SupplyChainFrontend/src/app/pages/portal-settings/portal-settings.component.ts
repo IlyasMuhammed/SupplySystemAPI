@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FLOW } from '../../shared/flow';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
 import { InputNumberModule } from 'primeng/inputnumber';
@@ -13,7 +14,7 @@ const MAX_DAYS = 90;
 @Component({
   selector: 'app-portal-settings',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, ButtonModule, InputNumberModule, ToastModule],
+  imports: [...FLOW, CommonModule, ReactiveFormsModule, ButtonModule, InputNumberModule, ToastModule],
   templateUrl: './portal-settings.component.html',
   styleUrls: ['./portal-settings.component.scss'],
   providers: [MessageService]

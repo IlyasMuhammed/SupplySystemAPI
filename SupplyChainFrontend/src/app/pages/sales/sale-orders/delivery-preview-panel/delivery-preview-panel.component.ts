@@ -85,7 +85,7 @@ import { DeliveryPreviewView, PreviewLineRef, buildDeliveryPreviewView, previewH
     </section>
   `,
   styles: [`
-    .preview-panel { border: 1px solid var(--surface-200); border-radius: .625rem; background: var(--surface-0); margin: 1rem 0; }
+    .preview-panel { border: 1px solid var(--sms-border); border-radius: .625rem; background: var(--sms-surface); margin: 1rem 0; }
     .preview-head {
       display: flex; align-items: center; gap: .5rem; width: 100%; padding: .75rem 1rem; border: 0; background: none;
       cursor: pointer; text-align: left; font: inherit; color: inherit;
@@ -96,16 +96,16 @@ import { DeliveryPreviewView, PreviewLineRef, buildDeliveryPreviewView, previewH
     .preview-groups, .preview-unroutable { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .5rem; }
     .group-head { display: flex; flex-wrap: wrap; gap: .375rem; align-items: baseline; }
     .group-no { font-family: monospace; color: var(--text-color-secondary); }
-    .mode { font-size: .8125rem; padding: 0 .375rem; border-radius: .25rem; background: var(--surface-100); }
+    .mode { font-size: .8125rem; padding: 0 .375rem; border-radius: .25rem; background: var(--sms-surface-2); }
     .group-lines { font-size: .8125rem; color: var(--text-color-secondary); margin-left: 1rem; }
-    .preview-unroutable { margin-top: .625rem; color: var(--orange-700, #c2410c); font-size: .875rem; }
-    .preview-warn { color: var(--orange-700, #c2410c); font-size: .875rem; }
+    .preview-unroutable { margin-top: .625rem; color: var(--sms-warn); font-size: .875rem; }
+    .preview-warn { color: var(--sms-warn); font-size: .875rem; }
     .muted { color: var(--text-color-secondary); font-size: .8125rem; }
     .preview-production {
-      margin-top: .625rem; padding: .5rem .75rem; border-left: 3px solid var(--orange-500, #f97316);
-      background: var(--orange-50, #fff7ed); border-radius: .375rem; color: var(--orange-800, #9a3412);
+      margin-top: .625rem; padding: .5rem .75rem; border-left: 3px solid var(--sms-warn);
+      background: var(--sms-warn-soft); border-radius: .375rem; color: var(--sms-warn);
     }
-    .preview-production .group-head { color: var(--orange-800, #9a3412); }
+    .preview-production .group-head { color: var(--sms-warn); }
     .production-note { margin: .25rem 0; font-size: .8125rem; }
   `]
 })

@@ -1,11 +1,12 @@
-import { Component, OnInit, OnDestroy, HostListener } from '@angular/core';
+import { Component, OnInit, OnDestroy, HostListener, inject } from '@angular/core';
 import { MenuItem } from 'primeng/api';
 import { RouterModule } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { StyleClassModule } from 'primeng/styleclass';
-import { AppConfigurator } from './app.configurator';
 import { LayoutService } from '../service/layout.service';
+import { ThemeModeService } from '../../theme/theme-mode.service';
+import { FlowCrumbsService } from '../../shared/flow/flow-crumbs.service';
 import { AuthService } from '../../pages/service/auth.service';
 import { Router } from '@angular/router';
 import { Subject, forkJoin, of, EMPTY } from 'rxjs';
@@ -19,7 +20,7 @@ import { TenantService } from '../../pages/service/tenant.service';
 @Component({
     selector: 'app-topbar',
     standalone: true,
-    imports: [RouterModule, CommonModule, FormsModule, StyleClassModule, AppConfigurator],
+    imports: [RouterModule, CommonModule, FormsModule, StyleClassModule],
     template: `
     <div class="layout-topbar">
 
@@ -40,14 +41,26 @@ import { TenantService } from '../../pages/service/tenant.service';
                         <path d="M-4.673e-05 8.88887L3.73084 -1.91434L-8.00806 17.0473L-4.673e-05 8.88887ZM27 18.3652L26.4253 6.95109L27 18.3652ZM54 8.88887L61.2673 17.7127L50.2691 -1.91434L54 8.88887Z" fill="var(--primary-color)" />
                     </g>
                 </svg>
+</a>
+            <!-- SMS Flow: breadcrumbs set by the page (<sf-page [crumbs]>); the organization name otherwise -->
+            <nav class="sf-crumbs" aria-label="Breadcrumb" *ngIf="crumbs.crumbs().length; else orgName" data-testid="topbar-crumbs">
+                <ng-container *ngFor="let c of crumbs.crumbs(); let last = last; let i = index">
+                    <strong *ngIf="last; else crumbPart">{{ c }}</strong>
+                    <ng-template #crumbPart>
+                        <a *ngIf="i === 1 && crumbs.crumbs().length > 2 && listUrl; else plainCrumb" [routerLink]="listUrl" class="sf-crumb-link">{{ c }}</a>
+                        <ng-template #plainCrumb><span>{{ c }}</span></ng-template>
+                        <span class="sf-crumb-sep">›</span>
+                    </ng-template>
+                </ng-container>
+            </nav>
+            <ng-template #orgName>
                 <div class="brand-block">
                     <span class="brand-name" *ngIf="tenantService.tenant() as t; else plainBrand">
                         {{ t.orgName }} ({{ t.orgCode }})
                     </span>
                     <ng-template #plainBrand><span class="brand-name">Supply Chain</span></ng-template>
-                    <span class="brand-tag">ERP</span>
                 </div>
-            </a>
+            </ng-template>
         </div>
 
         <!-- ── Search trigger ──────────────────────────────────────────────────── -->
@@ -148,21 +161,26 @@ import { TenantService } from '../../pages/service/tenant.service';
                 </div>
             </div>
 
-            <!-- Theme config -->
-            <div class="layout-config-menu">
-                <button type="button" class="layout-topbar-action" (click)="toggleDarkMode()" title="Toggle theme">
-                    <i [ngClass]="{ 'pi': true, 'pi-moon': layoutService.isDarkTheme(), 'pi-sun': !layoutService.isDarkTheme() }"></i>
-                </button>
-                <div class="relative">
-                    <button class="layout-topbar-action layout-topbar-action-highlight"
+            <!-- Appearance: light / dark / match my computer -->
+            <div class="layout-config-menu relative">
+                <button type="button" class="layout-topbar-action" title="Appearance" aria-label="Appearance"
                         pStyleClass="@next"
                         enterFromClass="hidden" enterActiveClass="animate-scalein"
                         leaveToClass="hidden" leaveActiveClass="animate-fadeout"
-                        [hideOnOutsideClick]="true"
-                        title="Customize theme">
-                        <i class="pi pi-palette"></i>
-                    </button>
-                    <app-configurator />
+                        [hideOnOutsideClick]="true" data-testid="theme-menu-btn">
+                    <i [class]="currentThemeIcon"></i>
+                </button>
+                <div class="user-dropdown theme-dropdown hidden" role="menu" aria-label="Appearance">
+                    <ul class="user-dropdown-menu">
+                        <li *ngFor="let o of themeMode.options">
+                            <button class="user-dropdown-item" role="menuitemradio" [attr.aria-checked]="themeMode.mode() === o.value"
+                                    (click)="themeMode.setMode(o.value)" [attr.data-testid]="'theme-' + o.value">
+                                <i [class]="o.icon"></i>
+                                <span>{{ o.label }}</span>
+                                <i *ngIf="themeMode.mode() === o.value" class="pi pi-check theme-check"></i>
+                            </button>
+                        </li>
+                    </ul>
                 </div>
             </div>
 
@@ -317,6 +335,16 @@ import { TenantService } from '../../pages/service/tenant.service';
             white-space: nowrap;
         }
 
+        .sf-crumbs {
+            display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; min-width: 0;
+            font-size: 0.93rem; color: var(--sms-text-muted); margin-left: 0.5rem; overflow: hidden;
+            span, strong { white-space: nowrap; }
+            strong { color: var(--sms-text); font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+            .sf-crumb-sep { opacity: .7; }
+            .sf-crumb-link { color: var(--sms-text-muted); white-space: nowrap; }
+            .sf-crumb-link:hover { color: var(--sms-primary-text); text-decoration: underline; }
+        }
+
         .brand-tag {
             font-size: 0.6rem;
             font-weight: 700;
@@ -338,7 +366,7 @@ import { TenantService } from '../../pages/service/tenant.service';
             position: absolute;
             top: 2px; right: 2px;
             min-width: 17px; height: 17px;
-            background: #ef4444;
+            background: #d93a30;
             color: #fff;
             font-size: 0.58rem;
             font-weight: 700;
@@ -346,9 +374,8 @@ import { TenantService } from '../../pages/service/tenant.service';
             display: flex; align-items: center; justify-content: center;
             padding: 0 4px;
             line-height: 1;
-            border: 2px solid var(--surface-card, #fff);
+            border: 2px solid var(--sms-surface);
             pointer-events: none;
-            box-shadow: 0 1px 4px rgba(239,68,68,.4);
             z-index: 1;
             animation: badgePop .2s cubic-bezier(.34,1.56,.64,1);
         }
@@ -366,8 +393,8 @@ import { TenantService } from '../../pages/service/tenant.service';
             width: 400px;
             background: var(--surface-card);
             border: 1px solid var(--surface-border);
-            border-radius: 14px;
-            box-shadow: 0 16px 48px rgba(0,0,0,.2), 0 4px 12px rgba(0,0,0,.08);
+            border-radius: var(--sms-radius);
+            box-shadow: var(--sms-shadow-lg);
             z-index: 99999;
             overflow: hidden;
             animation: notifSlideIn .18s cubic-bezier(.22,.68,0,1.2);
@@ -609,6 +636,9 @@ import { TenantService } from '../../pages/service/tenant.service';
             overflow: hidden;
         }
 
+        /* .layout-topbar-action hides every span (icon-only buttons); the initials must stay visible. */
+        .user-menu-btn .user-avatar span { display: inline; font-size: 0.75rem; }
+
         .ua-img {
             width: 100%; height: 100%;
             object-fit: cover; border-radius: 50%;
@@ -635,10 +665,10 @@ import { TenantService } from '../../pages/service/tenant.service';
             top: calc(100% + 0.5rem);
             right: 0;
             min-width: 240px;
-            background-color: var(--surface-card, var(--surface-0, #ffffff));
-            border: 1px solid var(--surface-border, var(--surface-200, #e2e8f0));
-            border-radius: 0.625rem;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+            background-color: var(--sms-surface);
+            border: 1px solid var(--sms-border);
+            border-radius: var(--sms-radius);
+            box-shadow: var(--sms-shadow-lg);
             z-index: 9999;
             overflow: hidden;
         }
@@ -648,7 +678,7 @@ import { TenantService } from '../../pages/service/tenant.service';
             align-items: center;
             gap: 0.75rem;
             padding: 0.875rem 1rem;
-            background-color: var(--surface-ground, var(--surface-50, #f8fafc));
+            background-color: var(--sms-surface-2);
         }
 
         .user-dropdown-avatar {
@@ -711,34 +741,37 @@ import { TenantService } from '../../pages/service/tenant.service';
             border: none;
             cursor: pointer;
             font-size: 0.875rem;
-            color: var(--text-color, #1e293b);
+            color: var(--sms-text);
             text-align: left;
             transition: background-color 0.12s;
 
-            i { font-size: 0.875rem; color: var(--text-color-secondary, #64748b); }
+            i { font-size: 0.875rem; color: var(--sms-text-muted); }
         }
 
         .user-dropdown-item:hover {
-            background-color: var(--surface-hover, var(--surface-100, #f1f5f9));
+            background-color: var(--sms-row-hover);
         }
 
         .user-dropdown-item--danger {
-            color: var(--red-500, #ef4444);
+            color: var(--sms-danger);
         }
 
         .user-dropdown-item--danger i {
-            color: var(--red-500, #ef4444);
+            color: var(--sms-danger);
         }
 
         .user-dropdown-item--danger:hover {
-            background-color: var(--red-50, #fef2f2);
+            background-color: var(--sms-danger-soft);
         }
+
+        .theme-dropdown { min-width: 220px; }
+        .theme-check { margin-left: auto; color: var(--sms-primary-text) !important; }
 
         /* ── Global Search Overlay ── */
         .search-overlay {
             position: fixed;
             inset: 0;
-            background: rgba(0, 0, 0, 0.45);
+            background: rgba(9, 17, 28, 0.45);
             z-index: 100000;
             display: flex;
             align-items: flex-start;
@@ -753,7 +786,7 @@ import { TenantService } from '../../pages/service/tenant.service';
             background: var(--surface-card);
             border: 1px solid var(--surface-border);
             border-radius: 12px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+            box-shadow: var(--sms-shadow-lg);
             overflow: hidden;
         }
 
@@ -1020,8 +1053,23 @@ export class AppTopbar implements OnInit, OnDestroy {
         this.router.navigate(['/portal/pages/notifications']);
     }
 
-    toggleDarkMode() {
-        this.layoutService.layoutConfig.update((state) => ({ ...state, darkTheme: !state.darkTheme }));
+    readonly themeMode = inject(ThemeModeService);
+    readonly crumbs = inject(FlowCrumbsService);
+
+    /**
+     * Where the "list" breadcrumb of a record page leads: the current URL without its record part
+     * (…/orders/<uuid>/edit → …/orders, …/orders/new → …/orders). Null when nothing would be left to strip.
+     */
+    get listUrl(): string | null {
+        const path = this.router.url.split(/[?#]/)[0].split('/').filter((s) => !!s);
+        const isRecordPart = (s: string) => /^(new|create|edit|[0-9a-f]{8}-[0-9a-f-]{27,}|\d+)$/i.test(s);
+        let n = path.length;
+        while (n > 0 && isRecordPart(path[n - 1])) n--;
+        return n > 0 && n < path.length ? '/' + path.slice(0, n).join('/') : null;
+    }
+
+    get currentThemeIcon(): string {
+        return this.themeMode.options.find((o) => o.value === this.themeMode.mode())?.icon ?? 'pi pi-sun';
     }
 
     goToProfile() {

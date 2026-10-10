@@ -11,6 +11,7 @@ namespace SMS.Modules.Demand.Controllers;
 [ApiController]
 [Route("api/quotations")]
 [RequiresFeature("MODULE_DEMAND")]
+[RequiresFeature("FEATURE_RFQ_MANAGEMENT")]   // A37 §1.3 — internal RFQ management; the supplier portal (RfqPortalController) stays open
 public class QuotationsController : ControllerBase
 {
     private readonly IQuotationService _service;

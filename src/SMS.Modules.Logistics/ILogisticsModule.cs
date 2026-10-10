@@ -126,6 +126,8 @@ public static class LogisticsModuleExtensions
         services.AddScoped<IFulfillmentRouteSeeder, FulfillmentRouteSeeder>();
         services.AddScoped<IOrganizationProvisionedHandler, FulfillmentRouteProvisioningHandler>();
         services.AddScoped<IFulfillmentRouteLookup, FulfillmentRouteLookup>();
+        // A37 D-18 — open deliveries / consignments for Tenancy's pre-disable impact check of MODULE_LOGISTICS.
+        services.AddScoped<IModuleImpactProvider, LogisticsModuleImpact>();
         // A33 C4 (FLOW) — the sale order's DRAFT deliveries by route × warehouse, and their cancellation with the order.
         // SMS.Shared contracts, called by Demand (confirm, the D-12 sweep, cancel) without a project reference.
         services.AddScoped<ISaleOrderDeliveryCreator, SaleOrderDeliveryCreator>();

@@ -41,12 +41,19 @@ public static class TenancyModuleExtensions
         services.AddScoped<IOrganizationCurrencySettingsService, OrganizationCurrencySettingsService>();
         services.AddScoped<OrganizationCurrencySettingsProvisioningHandler>();
         services.AddScoped<IOrganizationProvisionedHandler, OrganizationCurrencySettingsProvisioningHandler>();
+        // A37 — module registry: org-admin module switches, the jobs' module gate, the daily grace expiry.
+        services.AddScoped<IModuleRegistryService, ModuleRegistryService>();
+        services.AddScoped<IModuleGate, ModuleGate>();
+        services.AddScoped<ModuleGraceExpiryJob>();
 
         return services;
     }
 
+    /// <summary>Call after <c>app.UseHangfireDashboard()</c> (registers the daily module grace expiry job).</summary>
     public static IApplicationBuilder UseTenancyModule(this IApplicationBuilder app)
     {
+        ModuleGraceExpiryJob.Schedule();
+
         using var scope = app.ApplicationServices.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<TenancyDbContext>();
         db.Database.Migrate();

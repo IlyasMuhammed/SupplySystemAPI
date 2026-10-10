@@ -1,0 +1,549 @@
+// ── SMS Flow page kit ──────────────────────────────────────────────────────────────────────────────────────────
+// The page structure from the SMS Flow design (docs: src/app/shared/flow/README.md). Everything is prefixed sf- so it
+// never collides with older page styles. Colours are --sms-* tokens, so light and dark both work.
+//
+//   <sf-page> (component) ─┬─ .sf-cmd          command bar: primary action first, then the rest, .sf-sep, .sf-end
+//                          ├─ .sf-hdr          dynamic header: .sf-kicker, h1, .sf-meta, status pill, <sf-stages>, .sf-facts/.sf-kpi
+//                          ├─ <sf-anchors>     section tabs (scroll + highlight)
+//                          ├─ .sf-body         content: .sf-card sections (.sf-ch heading row), .sf-grid tiles, tables
+//                          └─ <sf-panel>       right side panel with tabs (activity, files, related…)
+//   List report: .sf-cmd, then .sf-body with .sf-lr-head (title + chips), .sf-grid KPI tiles, .sf-card.p0 table.
+
+// ── Page frame (full-bleed under the top bar) ─────────────────────────────────────────────────────────────────
+.sf-page {
+    margin: calc(-1 * var(--sms-pad)) calc(-1 * var(--sms-pad)) 0;
+    min-height: calc(100vh - var(--sms-topbar-h));
+    display: flex;
+    flex-direction: column;
+    background: var(--sms-bg);
+    color: var(--sms-text);
+    font-size: 1rem;
+}
+
+.sf-page-row {
+    display: flex;
+    flex-grow: 1;
+    flex-wrap: wrap;
+    min-width: 0;
+    align-items: stretch;
+}
+
+.sf-page-main {
+    flex: 999 1 600px;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.sf-compact .sf-page,
+.sf-page.sf-compact {
+    --sms-pad: 0.85rem;
+}
+
+// ── Command bar ───────────────────────────────────────────────────────────────────────────────────────────────
+.sf-cmd {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex-wrap: wrap;
+    background: var(--sms-surface);
+    border-bottom: 1px solid var(--sms-border);
+    padding: 4px calc(var(--sms-pad) - 8px);
+    min-height: 46px;
+    position: sticky;
+    top: var(--sms-topbar-h);
+    z-index: 20;
+
+    > button:not(.p-button),
+    > a.sf-c {
+        font: inherit;
+        font-size: 0.93rem;
+        background: none;
+        border: 0;
+        padding: 8px 10px;
+        border-radius: 6px;
+        color: var(--sms-text);
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+
+        &:hover { background: var(--sms-bg); text-decoration: none; }
+        &:disabled { opacity: 0.45; cursor: not-allowed; }
+        &.sf-pri { background: var(--sms-primary); color: var(--sms-on-primary); font-weight: 600; }
+        &.sf-pri:hover { background: var(--sms-primary-hover); }
+        &.sf-danger { color: var(--sms-danger); }
+    }
+
+    // PrimeNG buttons inside the bar: the first solid one stays primary, outlined/text ones read as flat commands.
+    .p-button {
+        font-size: 0.93rem;
+        padding: 0.45rem 0.8rem;
+        border-radius: 6px;
+    }
+    .p-button.p-button-text:not(.p-button-danger),
+    .p-button.p-button-outlined:not(.p-button-danger) {
+        color: var(--sms-text);
+        border-color: transparent;
+        background: transparent;
+        &:not(:disabled):hover { background: var(--sms-bg); }
+    }
+    .p-button.p-button-secondary:not(.p-button-text):not(.p-button-outlined) {
+        background: transparent;
+        border-color: transparent;
+        color: var(--sms-text);
+        &:not(:disabled):hover { background: var(--sms-bg); }
+    }
+
+    .sf-sep { width: 1px; height: 22px; background: var(--sms-border); margin: 0 6px; }
+    .sf-end { margin-left: auto; display: flex; gap: 2px; align-items: center; }
+}
+
+// ── Dynamic header ────────────────────────────────────────────────────────────────────────────────────────────
+.sf-hdr {
+    background: var(--sms-surface);
+    border-bottom: 1px solid var(--sms-border);
+    padding: 16px var(--sms-pad) 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+
+    .sf-t {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 16px;
+        flex-wrap: wrap;
+    }
+    .sf-t-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    h1 {
+        margin: 0;
+        font-size: 1.575rem;
+        font-weight: 700;
+        letter-spacing: -0.005em;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        line-height: 1.3;
+    }
+    .sf-kicker { font-size: 0.86rem; color: var(--sms-text-muted); margin-bottom: 2px; }
+    .sf-meta { color: var(--sms-text-muted); margin-top: 2px; }
+    .sf-meta a, .sf-kicker a { color: var(--sms-primary-text); }
+
+    &.sf-compact {
+        padding: 10px var(--sms-pad);
+        flex-direction: row;
+        align-items: center;
+        flex-wrap: wrap;
+        h1 { font-size: 1.2rem; }
+    }
+}
+
+.sf-facts {
+    display: flex;
+    gap: 36px;
+    flex-wrap: wrap;
+    align-items: flex-start;
+}
+
+.sf-kpi {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+
+    .l { font-size: 0.86rem; color: var(--sms-text-muted); }
+    .v { font-size: 1.85rem; font-weight: 300; font-variant-numeric: tabular-nums; line-height: 1.2; color: var(--sms-text); }
+    .v.sm { font-size: 1.3rem; }
+    .s { font-size: 0.86rem; color: var(--sms-text-muted); }
+    .v.ok { color: var(--sms-ok); }
+    .v.wn { color: var(--sms-warn); }
+    .v.er { color: var(--sms-danger); }
+    .v.in { color: var(--sms-primary-text); }
+}
+
+// key/value grid (facts, detail fields)
+.sf-kv {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 7px 16px;
+    font-size: 0.93rem;
+    align-content: start;
+
+    > :nth-child(odd) { color: var(--sms-text-muted); }
+    > :nth-child(even) { color: var(--sms-text); min-width: 0; overflow-wrap: anywhere; }
+}
+
+.sf-fields {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 14px 24px;
+}
+.sf-fld {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.93rem;
+    color: var(--sms-text-muted);
+    min-width: 0;
+
+    > .v { font-size: 1rem; color: var(--sms-text); overflow-wrap: anywhere; }
+}
+.sf-req::after { content: ' *'; color: var(--sms-danger); }
+
+// ── Process stages ────────────────────────────────────────────────────────────────────────────────────────────
+.sf-stages {
+    display: flex;
+    background: var(--sms-surface);
+    border: 1px solid var(--sms-border);
+    border-radius: var(--sms-radius);
+    overflow: hidden;
+    flex-wrap: wrap;
+}
+.sf-stg {
+    flex: 1 1 110px;
+    padding: 9px 14px;
+    font-size: 0.93rem;
+    color: var(--sms-text-muted);
+    border-right: 1px solid var(--sms-border);
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+
+    &:last-child { border-right: 0; }
+    b { font-weight: 600; color: var(--sms-text); font-size: 0.93rem; }
+    span { font-size: 0.86rem; }
+    &.done b { color: var(--sms-ok); }
+    &.on { background: var(--sms-nav-active); color: #d6e6fa; }
+    &.on b { color: #ffffff; }
+    &.bad { background: var(--sms-danger-soft); }
+    &.bad b { color: var(--sms-danger); }
+}
+
+// ── Section anchors ───────────────────────────────────────────────────────────────────────────────────────────
+.sf-anch {
+    display: flex;
+    gap: 4px;
+    background: var(--sms-surface);
+    border-bottom: 1px solid var(--sms-border);
+    padding: 0 var(--sms-pad);
+    overflow-x: auto;
+    position: sticky;
+    top: calc(var(--sms-topbar-h) + 46px);
+    z-index: 19;
+
+    a, button {
+        padding: 11px 12px;
+        font: inherit;
+        font-size: 1rem;
+        color: var(--sms-text);
+        border: 0;
+        background: none;
+        border-bottom: 3px solid transparent;
+        white-space: nowrap;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+
+        &:hover { text-decoration: none; color: var(--sms-primary-text); }
+        &.on { color: var(--sms-primary-text); border-bottom-color: var(--sms-primary); font-weight: 600; }
+        .sf-count { font-size: 0.78rem; font-weight: 600; color: var(--sms-text-muted); background: var(--sms-surface-2); border: 1px solid var(--sms-border); border-radius: 999px; padding: 0 6px; }
+    }
+}
+// sections scrolled to by the anchors land below the sticky bars
+.sf-section { scroll-margin-top: calc(var(--sms-topbar-h) + 46px + 50px); }
+
+// ── Body, cards, grids ────────────────────────────────────────────────────────────────────────────────────────
+.sf-body {
+    padding: var(--sms-pad);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    flex-grow: 1;
+    min-width: 0;
+}
+.sf-row { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; }
+.sf-row > * { flex: 1 1 320px; min-width: 0; }
+.sf-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+.sf-grid.sf-tiles { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+
+.sf-card {
+    background: var(--sms-surface);
+    border: 1px solid var(--sms-border);
+    border-radius: var(--sms-radius);
+    box-shadow: var(--sms-shadow);
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+    color: var(--sms-text);
+
+    &.flat { box-shadow: none; }
+    &.p0 { padding: 0; overflow: hidden; gap: 0; }
+    &.quiet { background: var(--sms-surface-2); box-shadow: none; }
+    h2, h3 { margin: 0; font-size: 1.07rem; font-weight: 700; }
+    .sf-pad { padding: 14px 18px; }
+    // PrimeNG tables inside a p0 card sit flush
+    .p-datatable .p-datatable-table-container, .p-datatable-wrapper { border-radius: 0; }
+}
+.sf-ch {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    h2, h3 { margin: 0; font-size: 1.07rem; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+    .sf-ch-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+}
+.sf-card.p0 > .sf-ch { padding: 12px 18px; border-bottom: 1px solid var(--sms-border); }
+
+// KPI tile (list reports)
+.sf-tile {
+    background: var(--sms-surface);
+    border: 1px solid var(--sms-border);
+    border-radius: var(--sms-radius);
+    box-shadow: var(--sms-shadow);
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    color: var(--sms-text);
+    min-width: 0;
+
+    .l { font-size: 0.86rem; color: var(--sms-text-muted); }
+    .v { font-size: 1.85rem; font-weight: 300; font-variant-numeric: tabular-nums; line-height: 1.25; }
+    .s { font-size: 0.82rem; color: var(--sms-text-muted); }
+    .v.ok { color: var(--sms-ok); } .v.wn { color: var(--sms-warn); } .v.er { color: var(--sms-danger); } .v.in { color: var(--sms-primary-text); }
+    &.sf-click { cursor: pointer; }
+    &.sf-click:hover { border-color: var(--sms-primary); }
+    &.on { border-color: var(--sms-primary); box-shadow: 0 0 0 2px var(--sms-primary-soft); }
+}
+
+// list-report title row: title (+count) left, filter chips right
+.sf-lr-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+
+    h1 { margin: 0; font-size: 1.575rem; font-weight: 700; display: flex; align-items: baseline; gap: 10px; }
+    h1 .sf-count { font-size: 1rem; font-weight: 400; color: var(--sms-text-muted); }
+    .sf-sub { color: var(--sms-text-muted); font-size: 0.93rem; margin-top: 2px; }
+}
+// filter row: search + selects + chips
+.sf-filters {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+
+    .sf-search { flex: 1 1 260px; max-width: 420px; }
+    .sf-search input, .sf-search .p-inputtext { width: 100%; }
+}
+
+// ── Pills, chips, progress ────────────────────────────────────────────────────────────────────────────────────
+.sf-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    padding: 2px 9px;
+    border-radius: 999px;
+    white-space: nowrap;
+    background: var(--sms-border-soft);
+    color: var(--sms-text-muted);
+    line-height: 1.5;
+
+    &.ok { background: var(--sms-ok-soft); color: var(--sms-ok); }
+    &.wn { background: var(--sms-warn-soft); color: var(--sms-warn); }
+    &.er { background: var(--sms-danger-soft); color: var(--sms-danger); }
+    &.in { background: var(--sms-primary-soft); color: var(--sms-primary-text); }
+    &.vi { background: var(--sms-violet-soft); color: var(--sms-violet); }
+    &.te { background: var(--sms-teal-soft); color: var(--sms-teal); }
+}
+h1 .sf-pill { font-size: 0.86rem; }
+
+.sf-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font: inherit;
+    font-size: 0.93rem;
+    padding: 4px 10px;
+    border: 1px solid var(--sms-border);
+    border-radius: 999px;
+    background: var(--sms-surface);
+    color: var(--sms-text);
+    cursor: pointer;
+
+    &.on { background: var(--sms-primary-soft); border-color: var(--sms-primary-soft-border); color: var(--sms-primary-text); font-weight: 600; }
+}
+
+.sf-pb {
+    height: 6px;
+    border-radius: 3px;
+    background: var(--sms-border-soft);
+    overflow: hidden;
+    min-width: 70px;
+    > span { display: block; height: 6px; background: var(--sms-primary); }
+}
+
+.sf-mu { color: var(--sms-text-muted); }
+.sf-sm { font-size: 0.86rem; }
+.sf-num { font-variant-numeric: tabular-nums; }
+.sf-r { text-align: right; }
+.sf-mono { font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace; }
+.sf-empty { padding: 2.5rem 1rem; text-align: center; color: var(--sms-text-muted); }
+
+// plain HTML tables (PrimeNG tables are styled globally in styles.scss)
+.sf-tw { overflow-x: auto; }
+table.sf-t {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: inherit;
+
+    th { text-align: left; font-weight: 600; font-size: 0.86rem; color: var(--sms-text-muted); padding: 9px 12px; background: var(--sms-surface-2); border-bottom: 1px solid var(--sms-border); white-space: nowrap; }
+    td { padding: 10px 12px; border-bottom: 1px solid var(--sms-border-soft); vertical-align: middle; color: var(--sms-text); }
+    tr:hover td { background: var(--sms-row-hover); }
+    tr.sel td { background: var(--sms-primary-soft); }
+    tr.tot td { background: var(--sms-surface-2); font-weight: 700; }
+    .r, .sf-r { text-align: right; }
+}
+// totals rows in PrimeNG tables (put them in pTemplate="footer")
+.p-datatable .sf-tot > td {
+    background: var(--sms-surface-2) !important;
+    font-weight: 600;
+    padding-top: 0.45rem !important;
+    padding-bottom: 0.45rem !important;
+    border-bottom: 1px solid var(--sms-border-soft) !important;
+    border-top: 0 !important;
+}
+.p-datatable .sf-tot:last-child > td { font-weight: 700; }
+
+// ── Timeline ──────────────────────────────────────────────────────────────────────────────────────────────────
+.sf-tl { display: flex; flex-direction: column; }
+.sf-tl-e {
+    display: flex;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--sms-border-soft);
+    font-size: 0.93rem;
+    line-height: 1.5;
+    &:last-child { border-bottom: 0; }
+}
+
+// ── Side panel (component sf-panel) ───────────────────────────────────────────────────────────────────────────
+.sf-panel {
+    flex: 1 1 300px;
+    max-width: 380px;
+    background: var(--sms-surface);
+    border-left: 1px solid var(--sms-border);
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+
+    .sf-panel-tabs {
+        display: flex;
+        border-bottom: 1px solid var(--sms-border);
+        position: sticky;
+        top: calc(var(--sms-topbar-h) + 46px);
+        background: var(--sms-surface);
+        z-index: 5;
+
+        button {
+            flex: 1;
+            font: inherit;
+            font-size: 0.93rem;
+            border: 0;
+            background: none;
+            padding: 11px 6px;
+            color: var(--sms-text-muted);
+            border-bottom: 2px solid transparent;
+            cursor: pointer;
+            white-space: nowrap;
+            &.on { color: var(--sms-text); font-weight: 600; border-bottom-color: var(--sms-primary); }
+            &.sf-panel-close { flex: 0 0 40px; }
+        }
+    }
+    .sf-panel-body { padding: 14px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+}
+.sf-panel-rail {
+    flex: 0 0 44px;
+    background: var(--sms-surface);
+    border-left: 1px solid var(--sms-border);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 8px;
+
+    button {
+        width: 36px; height: 36px; border-radius: 8px; border: 0; background: none; cursor: pointer;
+        color: var(--sms-text-muted);
+        &:hover { background: var(--sms-bg); color: var(--sms-text); }
+    }
+}
+@media (max-width: 991px) {
+    .sf-panel { max-width: none; border-left: 0; border-top: 1px solid var(--sms-border); }
+    .sf-panel-rail { display: none; }
+}
+
+// ── Flexible column layout (list beside detail) ───────────────────────────────────────────────────────────────
+.sf-fcl { display: flex; flex-grow: 1; min-height: 0; flex-wrap: wrap; align-items: stretch; }
+.sf-col {
+    background: var(--sms-surface);
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    border-right: 1px solid var(--sms-border);
+    &:last-child { border-right: 0; }
+}
+.sf-colh {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--sms-border);
+    min-height: 32px;
+    .sf-end { margin-left: auto; display: flex; gap: 2px; }
+}
+.sf-li {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 11px 14px;
+    border-bottom: 1px solid var(--sms-border-soft);
+    color: var(--sms-text);
+    cursor: pointer;
+    &:hover { background: var(--sms-row-hover); text-decoration: none; }
+    &.sel { background: var(--sms-primary-soft); box-shadow: inset 3px 0 0 var(--sms-primary); }
+    .sf-li-top { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+}
+
+// ── Footer action bar (forms) ─────────────────────────────────────────────────────────────────────────────────
+.sf-fbar {
+    background: var(--sms-surface);
+    border-top: 1px solid var(--sms-border);
+    padding: 10px var(--sms-pad);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    position: sticky;
+    bottom: 0;
+    z-index: 20;
+    .sf-end { margin-left: auto; display: flex; gap: 8px; }
+}
+
+// icon button
+.sf-ib {
+    width: 34px; height: 34px; border-radius: 8px; border: 0; background: none;
+    color: var(--sms-text-muted);
+    display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+    &:hover { background: var(--sms-bg); color: var(--sms-text); }
+}

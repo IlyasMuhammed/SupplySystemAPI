@@ -24,6 +24,7 @@ namespace SMS.Modules.Logistics.Controllers;
 [ApiController]
 [Route("api/logistics/consignments/{consignmentUuid:guid}/tracking-link")]
 [RequiresFeature("MODULE_LOGISTICS")]
+[RequiresFeature("FEATURE_SHIPMENT_TRACKING")]   // A37 §1.3
 public class TrackingLinksController : ControllerBase
 {
     private readonly IPublicTrackingService _tracking;

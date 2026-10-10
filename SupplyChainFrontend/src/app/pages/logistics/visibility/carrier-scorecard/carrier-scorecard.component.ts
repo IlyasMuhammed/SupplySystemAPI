@@ -17,6 +17,7 @@ import {
   CarrierScoreModel,
   CarrierListItemModel
 } from '../../../../services/logistics.service';
+import { FLOW } from '../../../../shared/flow';
 
 type Severity = 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast';
 
@@ -37,7 +38,8 @@ type Severity = 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast
   imports: [
     CommonModule, RouterModule, FormsModule,
     ButtonModule, TagModule, TableModule, TooltipModule, ToastModule,
-    SelectModule, DatePickerModule
+    SelectModule, DatePickerModule,
+    ...FLOW
   ],
   templateUrl: './carrier-scorecard.component.html',
   styleUrls: ['./carrier-scorecard.component.scss'],

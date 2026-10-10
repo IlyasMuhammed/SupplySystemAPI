@@ -1,79 +1,93 @@
-<div class="detail-page">
-  <p-toast></p-toast>
+<p-toast></p-toast>
 
-  <div class="not-found" *ngIf="notFound" data-testid="not-found">
-    <i class="pi pi-inbox"></i>
-    <h2>Sale inquiry not found</h2>
-    <p>It may belong to another organization, or the link may be wrong.</p>
-    <p-button label="Back to inquiries" icon="pi pi-arrow-left" [text]="true" routerLink="/portal/pages/sales/inquiries"></p-button>
+<div class="sf-empty" *ngIf="notFound" data-testid="not-found">
+  <i class="pi pi-inbox" style="font-size:2rem"></i>
+  <h2>Sale inquiry not found</h2>
+  <p>It may belong to another organization, or the link may be wrong.</p>
+  <p-button label="Back to inquiries" icon="pi pi-arrow-left" [text]="true" routerLink="/portal/pages/sales/inquiries"></p-button>
+</div>
+
+<div *ngIf="isLoading && !inquiry" class="sf-empty" data-testid="loading">
+  <i class="pi pi-spin pi-spinner"></i> Loading…
+</div>
+
+<sf-page *ngIf="inquiry as i" [crumbs]="['Sales', 'Inquiries', i.inquiryNumber]">
+
+  <!-- ── Command bar: the next step first, then the rest ─────────────────────────────── -->
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <p-button *ngIf="canCreateQuotation" label="Create quotation" icon="pi pi-file-edit" (onClick)="openQuotationDialog()"
+              data-testid="action-create-quotation"></p-button>
+    <p-button *ngIf="showStartReview" label="Start review" icon="pi pi-play" [disabled]="!!startReviewBlocker || !!busyStatus"
+              [loading]="busyStatus === 'UNDER_REVIEW'" [pTooltip]="startReviewBlocker ?? undefined" tooltipPosition="bottom"
+              (onClick)="changeStatus('UNDER_REVIEW')" data-testid="action-start-review"></p-button>
+    <p-button *ngIf="showComplete" label="Mark review complete" icon="pi pi-check-circle" [disabled]="!!completeBlocker || !!busyStatus"
+              [loading]="busyStatus === 'REVIEW_COMPLETE'" [pTooltip]="completeBlocker ?? undefined" tooltipPosition="bottom"
+              (onClick)="changeStatus('REVIEW_COMPLETE')" data-testid="action-complete"></p-button>
+    <span class="sf-sep" *ngIf="showDecline"></span>
+    <p-button *ngIf="showDecline" label="Decline inquiry" icon="pi pi-times-circle" severity="danger" [text]="true"
+              [disabled]="!!declineBlocker || !!busyStatus" [pTooltip]="declineBlocker ?? undefined" tooltipPosition="bottom"
+              (onClick)="openDeclineDialog()" data-testid="action-decline"></p-button>
+    <span class="sf-end">
+      <p-button icon="pi pi-arrow-left" label="All inquiries" [text]="true" routerLink="/portal/pages/sales/inquiries"
+                pTooltip="Back to inquiries"></p-button>
+    </span>
   </div>
 
-  <div *ngIf="isLoading && !inquiry" class="loading-state" data-testid="loading">
-    <i class="pi pi-spin pi-spinner"></i> Loading…
-  </div>
-
-  <ng-container *ngIf="inquiry as i">
-    <!-- ── Header ─────────────────────────────────────────────────────────────── -->
-    <div class="page-header" data-testid="inquiry-header">
-      <div class="header-main">
-        <h1 class="page-title">
-          <p-button icon="pi pi-arrow-left" [text]="true" severity="secondary" routerLink="/portal/pages/sales/inquiries"
-                    pTooltip="Back to inquiries"></p-button>
-          <i class="pi pi-inbox"></i>
-          <span class="font-mono">{{ i.inquiryNumber }}</span>
+  <!-- ── Dynamic header ──────────────────────────────────────────────────────────────── -->
+  <header class="sf-hdr" data-testid="inquiry-header">
+    <div class="sf-t">
+      <div>
+        <div class="sf-kicker">
+          Sale inquiry · received {{ displayDate(i.receivedDate) }}
+          <ng-container *ngIf="i.quotations.length">
+            · quotation{{ i.quotations.length === 1 ? '' : 's' }}
+            <span data-testid="quotation-links">
+              <a *ngFor="let qt of i.quotations; let last = last" class="sf-mono"
+                 [routerLink]="['/portal/pages/sales/quotations', qt.uuid]">{{ qt.number }}<span class="sf-mu"> ({{ statusLabel(qt.status) }})</span>{{ last ? '' : ', ' }}</a>
+            </span>
+          </ng-container>
+        </div>
+        <h1>
+          <span class="sf-mono">{{ i.inquiryNumber }}</span>
           <span class="status-badge" [ngClass]="'st-' + statusColor(i.status)" data-testid="status-badge">
             <span class="dot"></span>{{ statusLabel(i.status) }}
           </span>
         </h1>
-
-        <dl class="header-grid">
-          <dt>Customer</dt><dd data-testid="customer">{{ i.partnerName || i.partnerId }}</dd>
-          <dt>Customer ref</dt>
-          <dd>{{ i.customerReference || '—' }}<span class="muted" *ngIf="i.customerReferenceDate"> · {{ displayDate(i.customerReferenceDate) }}</span></dd>
-          <dt>Received</dt><dd>{{ displayDate(i.receivedDate) }}</dd>
-          <ng-container *ngIf="i.currencyCode"><dt>Currency</dt><dd data-testid="inquiry-currency">{{ i.currencyCode }}</dd></ng-container>
-          <dt>Deadline</dt><dd>{{ displayDate(i.responseDeadline) }}</dd>
-          <dt>Assigned to</dt><dd data-testid="assignee">{{ assigneeName }}</dd>
-          <ng-container *ngIf="i.quotations.length">
-            <dt>Quotation{{ i.quotations.length === 1 ? '' : 's' }}</dt>
-            <dd data-testid="quotation-links">
-              <a *ngFor="let qt of i.quotations; let last = last" class="doc-link font-mono"
-                 [routerLink]="['/portal/pages/sales/quotations', qt.uuid]">{{ qt.number }}<span class="muted"> ({{ statusLabel(qt.status) }})</span>{{ last ? '' : ', ' }}</a>
-            </dd>
-          </ng-container>
-        </dl>
-      </div>
-
-      <div class="header-actions">
-        <div class="action" *ngIf="showStartReview">
-          <p-button label="Start Review" icon="pi pi-play" [outlined]="true" [disabled]="!!startReviewBlocker || !!busyStatus"
-                    [loading]="busyStatus === 'UNDER_REVIEW'" [pTooltip]="startReviewBlocker ?? undefined" tooltipPosition="bottom"
-                    (onClick)="changeStatus('UNDER_REVIEW')" data-testid="action-start-review"></p-button>
-          <small class="blocker" *ngIf="startReviewBlocker" data-testid="start-review-blocker">{{ startReviewBlocker }}</small>
-        </div>
-
-        <div class="action" *ngIf="showComplete">
-          <p-button label="Mark Review Complete" icon="pi pi-check-circle" [disabled]="!!completeBlocker || !!busyStatus"
-                    [loading]="busyStatus === 'REVIEW_COMPLETE'" [pTooltip]="completeBlocker ?? undefined" tooltipPosition="bottom"
-                    (onClick)="changeStatus('REVIEW_COMPLETE')" data-testid="action-complete"></p-button>
-          <small class="blocker" *ngIf="completeBlocker" data-testid="complete-blocker">{{ completeBlocker }}</small>
-        </div>
-
-        <div class="action" *ngIf="canCreateQuotation">
-          <p-button label="Create Quotation" icon="pi pi-file-edit" (onClick)="openQuotationDialog()"
-                    data-testid="action-create-quotation"></p-button>
-        </div>
-
-        <div class="action" *ngIf="showDecline">
-          <p-button label="Decline Inquiry" icon="pi pi-times-circle" severity="danger" [outlined]="true"
-                    [disabled]="!!declineBlocker || !!busyStatus" [pTooltip]="declineBlocker ?? undefined" tooltipPosition="bottom"
-                    (onClick)="openDeclineDialog()" data-testid="action-decline"></p-button>
-          <small class="blocker" *ngIf="declineBlocker" data-testid="decline-blocker">{{ declineBlocker }}</small>
+        <div class="sf-meta">
+          <span data-testid="customer">{{ i.partnerName || i.partnerId }}</span>
+          · ref {{ i.customerReference || '—' }}<span *ngIf="i.customerReferenceDate"> of {{ displayDate(i.customerReferenceDate) }}</span>
+          <ng-container *ngIf="i.currencyCode"> · <span data-testid="inquiry-currency">{{ i.currencyCode }}</span></ng-container>
+          · assigned to <span data-testid="assignee">{{ assigneeName }}</span>
         </div>
       </div>
     </div>
 
-    <div class="note" *ngIf="!i.isEditable" data-testid="read-only-note">
+    <sf-stages [stages]="stages"></sf-stages>
+
+    <div class="sf-facts">
+      <div class="sf-kpi">
+        <span class="l">Lines</span>
+        <span class="v">{{ i.lines.length }}</span>
+        <span class="s">requested by the customer</span>
+      </div>
+      <div class="sf-kpi">
+        <span class="l">Response deadline</span>
+        <span class="v sm">{{ displayDate(i.responseDeadline) }}</span>
+        <span class="s">received {{ displayDate(i.receivedDate) }}</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="sf-body">
+    <!-- Why a step cannot be taken yet. -->
+    <div class="sf-card quiet blockers"
+         *ngIf="(showStartReview && startReviewBlocker) || (showComplete && completeBlocker) || (showDecline && declineBlocker)">
+      <small class="blocker" *ngIf="showStartReview && startReviewBlocker" data-testid="start-review-blocker"><strong>Start review:</strong> {{ startReviewBlocker }}</small>
+      <small class="blocker" *ngIf="showComplete && completeBlocker" data-testid="complete-blocker"><strong>Review complete:</strong> {{ completeBlocker }}</small>
+      <small class="blocker" *ngIf="showDecline && declineBlocker" data-testid="decline-blocker"><strong>Decline:</strong> {{ declineBlocker }}</small>
+    </div>
+
+    <div class="sf-card quiet note" *ngIf="!i.isEditable" data-testid="read-only-note">
       <i class="pi pi-lock"></i>
       <div>
         This inquiry is {{ statusLabel(i.status) | lowercase }} and can no longer be changed.
@@ -84,30 +98,31 @@
     </div>
 
     <!-- ── Tabs ───────────────────────────────────────────────────────────────── -->
+    <section class="sf-card">
     <p-tabView styleClass="inquiry-tabs" [(activeIndex)]="activeTab">
 
       <p-tabPanel header="Details" leftIcon="pi pi-info-circle">
-        <div class="card" *ngIf="!editingHeader">
-          <div class="card-head">
-            <h3>Inquiry</h3>
+        <div class="sf-card flat details" *ngIf="!editingHeader">
+          <div class="sf-ch">
+            <h2>Inquiry</h2>
             <p-button *ngIf="canEdit" label="Edit" icon="pi pi-pencil" [text]="true" size="small" (onClick)="startHeaderEdit()"
                       data-testid="edit-header"></p-button>
           </div>
-          <dl>
-            <dt>Customer</dt><dd>{{ i.partnerName || i.partnerId }}</dd>
-            <dt>Customer reference</dt><dd>{{ i.customerReference || '—' }}</dd>
-            <dt>Reference date</dt><dd>{{ displayDate(i.customerReferenceDate) }}</dd>
-            <dt>Received</dt><dd>{{ displayDate(i.receivedDate) }}</dd>
-            <dt>Response deadline</dt><dd>{{ displayDate(i.responseDeadline) }}</dd>
-            <dt>Assigned to</dt><dd>{{ assigneeName }}</dd>
-            <dt>Created</dt><dd>{{ i.createdDate | date:'dd MMM yyyy, HH:mm' }}</dd>
-          </dl>
+          <div class="sf-kv">
+            <span>Customer</span><span>{{ i.partnerName || i.partnerId }}</span>
+            <span>Customer reference</span><span>{{ i.customerReference || '—' }}</span>
+            <span>Reference date</span><span>{{ displayDate(i.customerReferenceDate) }}</span>
+            <span>Received</span><span>{{ displayDate(i.receivedDate) }}</span>
+            <span>Response deadline</span><span>{{ displayDate(i.responseDeadline) }}</span>
+            <span>Assigned to</span><span>{{ assigneeName }}</span>
+            <span>Created</span><span>{{ i.createdDate | date:'dd MMM yyyy, HH:mm' }}</span>
+          </div>
           <p class="notes" *ngIf="i.notes">{{ i.notes }}</p>
         </div>
 
-        <div class="card" *ngIf="editingHeader" data-testid="header-form">
-          <h3>Edit inquiry</h3>
-          <div class="grid">
+        <div class="sf-card flat details" *ngIf="editingHeader" data-testid="header-form">
+          <div class="sf-ch"><h2>Edit inquiry</h2></div>
+          <div class="sf-fields">
             <div class="field">
               <label for="hdRef">Customer reference</label>
               <input pInputText id="hdRef" [(ngModel)]="header.customerReference" [maxlength]="max.customerReference" />
@@ -155,8 +170,9 @@
                              label="Customer documents"></app-attachment-list>
       </p-tabPanel>
     </p-tabView>
-  </ng-container>
-</div>
+    </section>
+  </div>
+</sf-page>
 
 <!-- ══ Decline ════════════════════════════════════════════════════════════════ -->
 <p-dialog header="Decline inquiry" [(visible)]="declineDialogVisible" [modal]="true" [draggable]="false"

@@ -67,6 +67,11 @@ export interface SaleOrderLineModel {
   routeSource?: FulfillmentRouteSource;
   /** Why this line blocks confirmation; null when it doesn't. */
   routeBlocker?: ConfirmBlockerCode | null;
+  /**
+   * A37 RTE-03 (docs/module-registry/API-CONTRACT.md §4) — set when the configured route is unavailable (its module is
+   * off) and a fallback, or nothing, applies.
+   */
+  routeWarning?: string | null;
   // A34 (docs/route-classification/API-CONTRACT.md §5.1, §6.1). Optional so older fixtures compile.
   /** STOCK | MANUFACTURE — live while DRAFT, the confirm-time snapshot afterwards; null for DROP_SHIP lines and lines with no route. */
   effectiveRouteCategory?: RouteCategory | null;
@@ -85,6 +90,19 @@ export interface SaleOrderLineModel {
   // A35 (docs/multi-currency/API-CONTRACT.md §6) — in the sale base; null until the rate is locked at confirmation.
   unitPriceBase?: number | null;
   lineTotalBase?: number | null;
+  /** A36 §4 — a service product line: no route, no delivery; a service order carries it instead. */
+  isService?: boolean;
+}
+
+/** A36 §4 — a service order raised from a service line of the sale order. */
+export interface SaleOrderServiceOrderModel {
+  serviceOrderUuid: string;
+  serviceNumber: string;
+  soLineUuid?: string | null;
+  lineNumber?: number | null;
+  /** DRAFT … CLOSED, CANCELLED */
+  status: string;
+  quantity: number;
 }
 
 /** A34 — a route's category (API-CONTRACT.md §1). BUY / DROPSHIP are reserved and never reach a sale order. */
@@ -221,6 +239,8 @@ export interface SaleOrderModel {
   productionOrders?: SaleOrderProductionOrderModel[];
   /** A34 D-17 — confirmed, but its make-to-order production orders were not (all) created yet. */
   productionCreationPending?: boolean;
+  /** A36 §4 — the service orders raised for its service lines (empty for drafts / without MODULE_SERVICES). */
+  serviceOrders?: SaleOrderServiceOrderModel[];
   // A35 (API-CONTRACT.md §6, D-10..D-12) — the rate is locked at CONFIRMED (re-locked, not inherited from the quotation).
   // Base fields are null until then. Optional so older fixtures compile.
   currencyCode?: string | null;
@@ -296,6 +316,8 @@ export interface DeliveryPreviewLineModel {
   effectiveRouteSteps: string[];
   routeSource: FulfillmentRouteSource;
   routeBlocker?: ConfirmBlockerCode | null;
+  /** A37 RTE-03 — the line's route is unavailable (module off); a fallback, or nothing, applies. */
+  routeWarning?: string | null;
   /** A34 — STOCK | MANUFACTURE; a MANUFACTURE line is in productionLines, not in a group. */
   effectiveRouteCategory?: RouteCategory | null;
 }

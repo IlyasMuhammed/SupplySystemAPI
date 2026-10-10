@@ -1,26 +1,23 @@
-<div class="mir-create-page">
-  <p-toast></p-toast>
+<p-toast></p-toast>
 
-  <div class="page-header">
-    <div class="header-left">
-      <div class="header-icon icon-teal"><i class="pi pi-file-export"></i></div>
-      <div>
-        <h1 class="page-title">New Material Issue Request</h1>
-        <p class="page-subtitle">Request materials for a project, department, or maintenance task</p>
-      </div>
+<sf-page [crumbs]="['Material', 'Material issue requests', 'New MIR']">
+  <header class="sf-hdr sf-compact">
+    <div class="grow">
+      <h1>New material issue request</h1>
+      <div class="sf-meta">Request materials for a project, department, or maintenance task</div>
     </div>
-    <p-button label="Back to MIR List" icon="pi pi-arrow-left" [outlined]="true" severity="secondary"
+    <p-button label="Back to MIR List" icon="pi pi-arrow-left" [text]="true" severity="secondary"
               routerLink="/portal/pages/material/mir"></p-button>
+  </header>
+
+  <div *ngIf="isLoading" class="sf-empty">
+    <i class="pi pi-spin pi-spinner"></i><span> Loading reference data...</span>
   </div>
 
-  <div *ngIf="isLoading" class="loading-state">
-    <i class="pi pi-spin pi-spinner"></i><span>Loading reference data...</span>
-  </div>
-
-  <div *ngIf="!isLoading">
+  <div class="sf-body" *ngIf="!isLoading">
     <!-- Header Section -->
-    <div class="form-card">
-      <div class="form-section-title">Request Details</div>
+    <section class="sf-card">
+      <div class="sf-ch"><h2>Request details</h2></div>
 
       <div class="form-grid">
         <div class="form-field">
@@ -71,13 +68,13 @@
         <label>Notes</label>
         <textarea pTextarea [(ngModel)]="notes" rows="3" placeholder="Additional notes..." style="width:100%"></textarea>
       </div>
-    </div>
+    </section>
 
     <!-- Lines Section -->
-    <div class="form-card lines-card">
-      <div class="lines-header">
-        <div class="form-section-title" style="margin-bottom:0">Material Lines</div>
-        <p-button label="Add Line" icon="pi pi-plus" severity="contrast" size="small"
+    <section class="sf-card lines-card">
+      <div class="sf-ch">
+        <h2>Material lines</h2>
+        <p-button label="Add Line" icon="pi pi-plus" [outlined]="true" size="small"
                   (onClick)="addLine()"></p-button>
       </div>
 
@@ -178,13 +175,16 @@
           <i class="pi pi-times"></i>
         </button>
       </div>
-    </div>
-
-    <div class="form-actions">
-      <p-button label="Cancel" icon="pi pi-times" [outlined]="true" severity="secondary"
-                routerLink="/portal/pages/material/mir"></p-button>
-      <p-button label="Create MIR" icon="pi pi-check" severity="contrast"
-                [loading]="isSaving" (onClick)="onSubmit()"></p-button>
-    </div>
+    </section>
   </div>
-</div>
+
+  <div class="sf-fbar" *ngIf="!isLoading">
+    <span class="sf-mu sf-sm">Estimated total {{ getTotalEstimated() | number:'1.2-2' }}</span>
+    <span class="sf-end">
+      <p-button label="Cancel" icon="pi pi-times" [text]="true" severity="secondary"
+                routerLink="/portal/pages/material/mir"></p-button>
+      <p-button label="Create MIR" icon="pi pi-check"
+                [loading]="isSaving" (onClick)="onSubmit()"></p-button>
+    </span>
+  </div>
+</sf-page>

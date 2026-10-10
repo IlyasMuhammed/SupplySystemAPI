@@ -864,6 +864,12 @@ namespace SMS.Modules.Inventory.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<decimal?>("EstimatedDurationHours")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<bool>("HasServiceBom")
+                        .HasColumnType("bit");
+
                     b.Property<string>("ImageUrl")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
@@ -892,6 +898,9 @@ namespace SMS.Modules.Inventory.Migrations
                     b.Property<bool>("IsStockable")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("IsSubcontractable")
+                        .HasColumnType("bit");
+
                     b.Property<int?>("LeadTimeDays")
                         .HasColumnType("int");
 
@@ -900,6 +909,9 @@ namespace SMS.Modules.Inventory.Migrations
 
                     b.Property<decimal?>("MinStockLevel")
                         .HasColumnType("decimal(18,4)");
+
+                    b.Property<DateTime>("ModifiedAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -926,6 +938,21 @@ namespace SMS.Modules.Inventory.Migrations
 
                     b.Property<decimal?>("ReorderQty")
                         .HasColumnType("decimal(18,4)");
+
+                    b.Property<bool>("RequiresSiteVisit")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("ServiceBillingModel")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("ServiceCategory")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("ServiceInvoicingPolicy")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
 
                     b.Property<int?>("ShelfLifeDays")
                         .HasColumnType("int");
@@ -978,6 +1005,8 @@ namespace SMS.Modules.Inventory.Migrations
                     b.HasIndex("Uuid")
                         .IsUnique();
 
+                    b.HasIndex("OrganizationId", "ModifiedAt");
+
                     b.HasIndex("OrganizationId", "Sku")
                         .IsUnique();
 
@@ -1009,6 +1038,9 @@ namespace SMS.Modules.Inventory.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
+                    b.Property<DateTime>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -1023,6 +1055,8 @@ namespace SMS.Modules.Inventory.Migrations
 
                     b.HasIndex("OrganizationId", "Code")
                         .IsUnique();
+
+                    b.HasIndex("OrganizationId", "ModifiedAt");
 
                     b.ToTable("ProductCategories", "inventory");
                 });
@@ -1221,6 +1255,9 @@ namespace SMS.Modules.Inventory.Migrations
                     b.Property<int?>("ManufacturingLeadTimeDays")
                         .HasColumnType("int");
 
+                    b.Property<DateTime>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<Guid>("OrganizationId")
                         .HasColumnType("uniqueidentifier");
 
@@ -1289,6 +1326,8 @@ namespace SMS.Modules.Inventory.Migrations
                     b.HasIndex("OrganizationId", "FulfillmentRouteUuid")
                         .HasDatabaseName("IX_ProductVariants_OrganizationId_FulfillmentRouteUuid")
                         .HasFilter("[FulfillmentRouteUuid] IS NOT NULL");
+
+                    b.HasIndex("OrganizationId", "ModifiedAt");
 
                     b.HasIndex("OrganizationId", "Sku")
                         .IsUnique();
@@ -1778,6 +1817,9 @@ namespace SMS.Modules.Inventory.Migrations
                     b.Property<decimal?>("Longitude")
                         .HasColumnType("decimal(9,6)");
 
+                    b.Property<DateTime>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -1798,6 +1840,8 @@ namespace SMS.Modules.Inventory.Migrations
 
                     b.HasIndex("OrganizationId", "Code")
                         .IsUnique();
+
+                    b.HasIndex("OrganizationId", "ModifiedAt");
 
                     b.ToTable("Warehouses", "inventory");
                 });

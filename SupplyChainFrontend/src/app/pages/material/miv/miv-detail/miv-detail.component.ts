@@ -7,13 +7,15 @@ import { ToastModule } from 'primeng/toast';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { MessageService, ConfirmationService } from 'primeng/api';
 import { MaterialService, MivDetail } from '../../../../services/material.service';
+import { FLOW, FlowStage, flowStagesFrom } from '../../../../shared/flow';
 
 @Component({
   selector: 'app-miv-detail',
   standalone: true,
   imports: [
     CommonModule, RouterModule,
-    ButtonModule, TagModule, ToastModule, ConfirmDialogModule
+    ButtonModule, TagModule, ToastModule, ConfirmDialogModule,
+    ...FLOW
   ],
   templateUrl: './miv-detail.component.html',
   styleUrls: ['./miv-detail.component.scss'],
@@ -25,6 +27,13 @@ export class MivDetailComponent implements OnInit {
   isPosting  = false;
   isCancelling = false;
   isDownloadingPdf = false;
+
+  /** SMS Flow header strip: Draft → Posted (cancelled = red). */
+  get stages(): FlowStage[] {
+    if (!this.miv) return [];
+    if (this.miv.status === 'CANCELLED') return flowStagesFrom(['Draft', 'Cancelled'], 1, { failed: true });
+    return flowStagesFrom(['Draft', 'Posted'], this.miv.status === 'POSTED' ? 2 : 0);
+  }
 
   constructor(
     private route:           ActivatedRoute,

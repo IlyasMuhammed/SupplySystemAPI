@@ -48,8 +48,10 @@ public class TenantControllerTests
         var org = new OrganizationDetailModel { Id = orgId, OrgCode = "SCM-DEMO", OrgName = "SCM Demo", Plan = "ENTERPRISE", IsActive = true };
         var features = new List<OrganizationFeatureModel>
         {
-            new() { FeatureCode = "MODULE_MIR", IsEnabled = true },
+            new() { FeatureCode = "MODULE_MIR", IsEnabled = true, IsUsable = true },
             new() { FeatureCode = "MODULE_LOGISTICS", IsEnabled = false },
+            // A37 D-6 — switched on but its module is off (or in grace): not usable, not listed.
+            new() { FeatureCode = "FEATURE_PICK_LISTS", IsEnabled = true, IsUsable = false },
         };
 
         var controller = NewController(org, features, orgId, isSuperAdmin: false, roleName: "Procurement Officer",

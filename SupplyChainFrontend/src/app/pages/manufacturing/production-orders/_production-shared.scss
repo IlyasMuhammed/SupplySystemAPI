@@ -1,73 +1,28 @@
-// Shared look for the production order pages, matching the BOM pages (A30 §29.3).
-.bom-page { padding: 1.5rem; max-width: 80rem; }
-
+// Shared bits for the production order pages (A30 §29.3). Page structure comes from the SMS Flow kit (_flow.scss).
 .grow { flex: 1; min-width: 0; }
 .w-full { width: 100%; }
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .85rem; }
 
-.page-header { display: flex; align-items: flex-start; gap: 1rem; margin-bottom: 1.25rem; }
-.page-icon {
-  width: 2.75rem; height: 2.75rem; border-radius: .625rem; flex-shrink: 0;
-  background: var(--primary-50, #eef2ff); color: var(--primary-color);
-  display: flex; align-items: center; justify-content: center;
-  i { font-size: 1.2rem; }
-}
-.page-title { font-size: 1.5rem; font-weight: 700; margin: 0; display: flex; align-items: center; gap: .625rem; flex-wrap: wrap; }
-.page-subtitle { color: var(--text-color-secondary); font-size: .875rem; margin: .25rem 0 0; }
-.header-actions { display: flex; gap: .5rem; flex-wrap: wrap; justify-content: flex-end; }
-
+// line tables inside dialogs
 .form-card {
-  background: var(--surface-0); border: 1px solid var(--surface-200);
+  background: var(--sms-surface); border: 1px solid var(--sms-border);
   border-radius: .625rem; padding: 1.25rem; margin-bottom: 1rem;
   &.flush { padding: 0; overflow: hidden; }
-}
-.card-head { display: flex; align-items: center; gap: .875rem; margin-bottom: 1.125rem; &.padded { padding: 1rem 1.25rem .5rem; margin-bottom: 0; } }
-.card-icon {
-  width: 2.25rem; height: 2.25rem; border-radius: .5rem; background: var(--primary-50, #f4f3ff);
-  color: var(--primary-color, #6c63ff); display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-}
-.card-title { font-weight: 700; }
-.card-sub { font-size: .8125rem; color: var(--text-color-secondary); }
-
-.state-card {
-  text-align: center; padding: 3rem 1rem; color: var(--text-color-secondary);
-  background: var(--surface-0); border: 1px solid var(--surface-200); border-radius: .625rem; margin-bottom: 1rem;
-  i { font-size: 2rem; display: block; margin-bottom: .625rem; opacity: .6; }
-  h2 { font-size: 1.125rem; font-weight: 600; margin: 0 0 .25rem; color: var(--text-color); }
-  p { margin: 0 0 1rem; }
 }
 
 .field { display: flex; flex-direction: column; gap: .375rem; min-width: 0; }
 .field > label { font-size: .875rem; font-weight: 600; }
 .hint { color: var(--text-color-secondary); font-size: .8125rem; }
-.p-error { color: var(--red-500, #ef4444); font-size: .8125rem; }
-.required { color: var(--red-500, #ef4444); }
-.grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
+.p-error { color: var(--sms-danger); font-size: .8125rem; }
+.required { color: var(--sms-danger); }
 .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
-@media (max-width: 900px) { .grid-3, .grid-2 { grid-template-columns: 1fr; } }
+@media (max-width: 900px) { .grid-2 { grid-template-columns: 1fr; } }
 
 .ref { font-weight: 600; }
 .sub { font-size: .75rem; color: var(--text-color-secondary); }
 .num { text-align: right; font-variant-numeric: tabular-nums; }
 .empty { text-align: center; color: var(--text-color-secondary); padding: 1.5rem; }
 .actions { white-space: nowrap; text-align: right; }
-.critical { color: var(--red-600, #dc2626); font-weight: 700; }
+.critical { color: var(--sms-danger); font-weight: 700; }
 
 .dialog-lead { margin: 0 0 1rem; color: var(--text-color-secondary); font-size: .9rem; line-height: 1.5; }
-
-.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: .75rem; margin-bottom: 1rem; }
-.stat {
-  background: var(--surface-0); border: 1px solid var(--surface-200); border-radius: .625rem; padding: .875rem 1rem;
-  display: flex; flex-direction: column; gap: .25rem;
-  &.accent  { border-color: var(--primary-color); .stat-value { color: var(--primary-color); } }
-  &.warn    { border-color: var(--orange-500, #f97316); .stat-value { color: var(--orange-600, #ea580c); } }
-  &.danger  { border-color: var(--red-500, #ef4444); .stat-value { color: var(--red-600, #dc2626); } }
-  &.success { border-color: var(--green-500, #22c55e); .stat-value { color: var(--green-600, #16a34a); } }
-}
-.stat-label { font-size: .75rem; text-transform: uppercase; letter-spacing: .04em; color: var(--text-color-secondary); }
-.stat-value { font-size: 1.375rem; font-weight: 700; }
-
-.audit { display: flex; flex-direction: column; gap: .4rem; font-size: .875rem; }
-.audit-row { display: flex; gap: 1rem; }
-.audit-label { width: 6rem; flex-shrink: 0; color: var(--text-color-secondary); font-weight: 600; }
-.notes { white-space: pre-line; }

@@ -8,13 +8,15 @@ import { ToastModule } from 'primeng/toast';
 import { AccordionModule } from 'primeng/accordion';
 import { MessageService } from 'primeng/api';
 import { WorkflowService, DocumentApprovalHistoryItem } from '../../../services/workflow.service';
+import { FLOW } from '../../../shared/flow';
 
 @Component({
   selector: 'app-document-history',
   standalone: true,
   imports: [
     CommonModule, RouterModule, FormsModule,
-    ButtonModule, TagModule, ToastModule, AccordionModule
+    ButtonModule, TagModule, ToastModule, AccordionModule,
+    ...FLOW
   ],
   templateUrl: './document-history.component.html',
   styleUrls: ['./document-history.component.scss'],

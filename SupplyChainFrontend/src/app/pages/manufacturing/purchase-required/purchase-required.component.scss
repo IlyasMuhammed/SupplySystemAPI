@@ -1,7 +1,7 @@
 @use '../production-orders/production-shared' as *;
 
-.filter-bar { display: flex; align-items: flex-end; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.filter-bar { align-items: flex-end; gap: 1rem; }
 .filter-field { display: flex; flex-direction: column; gap: .375rem; min-width: 12rem; }
 .filter-field > label { font-size: .8125rem; font-weight: 600; color: var(--text-color-secondary); }
-.ack-badge { display: inline-flex; align-items: center; gap: .375rem; color: var(--green-600, #16a34a); font-size: .8125rem; }
+.ack-badge { display: inline-flex; align-items: center; gap: .375rem; color: var(--sms-ok); font-size: .8125rem; }
 .affected-link { cursor: pointer; text-decoration: underline; }

@@ -1,29 +1,29 @@
-<div class="card">
-
-  <!-- ── Page Header ──────────────────────────────────────────────────────── -->
-  <div class="md-header">
-    <div class="md-icon"><i class="pi pi-sitemap"></i></div>
-    <div class="md-title-wrap">
-      <h2 class="md-title">Organizations</h2>
-      <p class="md-subtitle">Manage tenant organizations and their subscription plan</p>
-    </div>
+<sf-page [crumbs]="['Settings', 'Organizations']">
+  <!-- ── Command bar ───────────────────────────────────────────────────────── -->
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
     <p-button label="Add Organization" icon="pi pi-plus" (onClick)="openNew()"></p-button>
   </div>
 
-  <hr class="md-sep" />
+  <div class="sf-body">
+  <div class="sf-lr-head">
+    <div>
+      <h1>Organizations <span class="sf-count" *ngIf="!isLoading">{{ orgs.length }}</span></h1>
+      <div class="sf-sub">Manage tenant organizations and their subscription plan</div>
+    </div>
+  </div>
 
   <!-- ── Search Bar ────────────────────────────────────────────────────────── -->
-  <div class="md-toolbar">
-    <p-iconfield>
+  <div class="sf-filters">
+    <p-iconfield class="sf-search">
       <p-inputicon styleClass="pi pi-search" />
       <input #gf pInputText type="text"
              (input)="dt.filterGlobal(gf.value, 'contains')"
              placeholder="Search organizations…" />
     </p-iconfield>
-    <span class="md-count" *ngIf="!isLoading">{{ orgs.length }} organizations</span>
   </div>
 
   <!-- ── Data Table ────────────────────────────────────────────────────────── -->
+  <div class="sf-card p0">
   <p-table #dt [value]="orgs" [loading]="isLoading"
            [paginator]="true" [rows]="15" [rowsPerPageOptions]="[10, 15, 50]"
            [showCurrentPageReport]="true"
@@ -45,7 +45,7 @@
 
     <ng-template pTemplate="body" let-o>
       <tr>
-        <td class="font-mono">{{ o.orgCode }}</td>
+        <td class="sf-mono">{{ o.orgCode }}</td>
         <td class="font-medium">{{ o.orgName }}</td>
         <td><p-tag [value]="o.plan" [severity]="planSeverity(o.plan)"></p-tag></td>
         <td>{{ o.contactEmail || '—' }}</td>
@@ -82,18 +82,17 @@
 
     <ng-template pTemplate="emptymessage">
       <tr>
-        <td colspan="6">
-          <div class="md-empty">
-            <i class="pi pi-sitemap md-empty-icon"></i>
-            <p class="md-empty-text">No organizations found</p>
-            <small class="md-empty-hint">Click "Add Organization" to create one.</small>
-          </div>
+        <td colspan="6" class="sf-empty">
+          No organizations found<br />
+          <small>Click "Add Organization" to create one.</small>
         </td>
       </tr>
     </ng-template>
 
   </p-table>
-</div>
+  </div>
+  </div>
+</sf-page>
 
 <!-- ── Create / Edit Dialog ─────────────────────────────────────────────────── -->
 <p-dialog [(visible)]="showDialog" [modal]="true" [style]="{ width: '520px' }"
@@ -216,7 +215,7 @@
 </p-dialog>
 
 <!-- ── View / Change Organization Admin Dialog ─────────────────────────────── -->
-<p-dialog [(visible)]="showAdminDialog" [modal]="true" [style]="{ width: '480px' }"
+<p-dialog [(visible)]="showAdminDialog" [modal]="true" [style]="{ width: '540px', maxWidth: '95vw' }"
           [showHeader]="false" [closable]="false" [draggable]="false"
           [contentStyle]="{ padding: '0', borderRadius: '0.875rem', overflow: 'hidden' }">
 
@@ -232,17 +231,87 @@
             (click)="showAdminDialog = false"></button>
   </div>
 
-  <div class="dlg-body">
+  <div class="dlg-body adm-body">
     <div *ngIf="isLoadingAdmin" class="md-empty">
       <p class="md-empty-text">Loading…</p>
     </div>
 
     <ng-container *ngIf="!isLoadingAdmin">
       <p class="dlg-section-title">Current Admin</p>
-      <p *ngIf="currentAdmin" class="dlg-hint">
-        {{ currentAdmin.firstName }} {{ currentAdmin.lastName }} — {{ currentAdmin.email }}
-      </p>
+      <div *ngIf="currentAdmin" class="adm-current">
+        <p class="dlg-hint">
+          {{ currentAdmin.firstName }} {{ currentAdmin.lastName }} — {{ currentAdmin.email }}
+        </p>
+        <span data-testid="admin-status" class="sf-pill"
+              [class.wn]="adminStatus === 'pending'" [class.ok]="adminStatus === 'active'">
+          <ng-container [ngSwitch]="adminStatus">
+            <ng-container *ngSwitchCase="'pending'">
+              <i class="pi pi-envelope"></i>
+              Invite pending<ng-container *ngIf="inviteExpiry"> — link {{ inviteExpired ? 'expired' : 'expires' }} {{ inviteExpiry | date:'MMM d, y, h:mm a' }}</ng-container>
+            </ng-container>
+            <ng-container *ngSwitchCase="'active'"><i class="pi pi-check-circle"></i> Active</ng-container>
+            <ng-container *ngSwitchDefault><i class="pi pi-ban"></i> Inactive</ng-container>
+          </ng-container>
+        </span>
+      </div>
       <p *ngIf="!currentAdmin" class="dlg-hint">No user currently holds the Org Admin role in this organization.</p>
+
+      <!-- Resend invite: only while the invite is pending or the account is not active -->
+      <div *ngIf="showReinvite" class="sf-card quiet adm-section" data-testid="reinvite-section">
+        <p class="dlg-section-title">Resend invite</p>
+        <p class="dlg-hint">Sends a fresh link valid for 7 days; the previous link stops working. Correct the address first if it was mistyped.</p>
+        <div class="sf-fields">
+          <label class="sf-fld">
+            E-mail
+            <input pInputText type="email" class="w-full" maxlength="150" data-testid="reinvite-email"
+                   [(ngModel)]="reinviteEmail" (ngModelChange)="reinviteError = ''" />
+          </label>
+        </div>
+        <small class="dlg-error" *ngIf="reinviteError" data-testid="reinvite-error">{{ reinviteError }}</small>
+        <div class="adm-actions">
+          <p-button label="Send new invite" icon="pi pi-send" type="button" [outlined]="true"
+                    data-testid="reinvite-send"
+                    [disabled]="!reinviteEmail.trim()" [loading]="isReinviting"
+                    (onClick)="sendReinvite()"></p-button>
+        </div>
+      </div>
+
+      <!-- Set password: for an admin who never got, or can't reach, the invite or reset e-mail -->
+      <div *ngIf="currentAdmin" class="sf-card quiet adm-section" data-testid="set-password-section">
+        <p class="dlg-section-title">Set password</p>
+        <p class="dlg-hint">Sets the admin's password directly{{ currentAdmin.invitePending ? ', activating the account and voiding the invite link' : '' }}. Their other sessions are signed out. Share it with them securely.</p>
+        <div class="sf-fields">
+          <label class="sf-fld">
+            New password
+            <p-password [(ngModel)]="newPassword" (ngModelChange)="setPasswordError = ''"
+                        [feedback]="false" [toggleMask]="true" autocomplete="new-password"
+                        styleClass="w-full" inputStyleClass="w-full"
+                        data-testid="set-password-new"></p-password>
+          </label>
+          <label class="sf-fld">
+            Confirm password
+            <p-password [(ngModel)]="confirmPassword" (ngModelChange)="setPasswordError = ''"
+                        [feedback]="false" [toggleMask]="true" autocomplete="new-password"
+                        styleClass="w-full" inputStyleClass="w-full"
+                        data-testid="set-password-confirm"></p-password>
+          </label>
+        </div>
+        <ul class="pw-rules" data-testid="set-password-rules">
+          <li *ngFor="let c of passwordChecks" [class.ok]="c.ok" [attr.data-testid]="'set-password-rule-' + c.id">
+            <i class="pi" [ngClass]="c.ok ? 'pi-check' : 'pi-circle'"></i> {{ c.label }}
+          </li>
+          <li [class.ok]="passwordsMatch" data-testid="set-password-rule-match">
+            <i class="pi" [ngClass]="passwordsMatch ? 'pi-check' : 'pi-circle'"></i> Confirmation matches
+          </li>
+        </ul>
+        <small class="dlg-error" *ngIf="setPasswordError" data-testid="set-password-error">{{ setPasswordError }}</small>
+        <div class="adm-actions">
+          <p-button label="Set password" icon="pi pi-lock" type="button" [outlined]="true"
+                    data-testid="set-password-submit"
+                    [disabled]="!canSetPassword" [loading]="isSettingPassword"
+                    (onClick)="setAdminPassword()"></p-button>
+        </div>
+      </div>
 
       <hr class="md-sep" />
 

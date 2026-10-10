@@ -55,7 +55,7 @@ internal class LookupType
 // currencies/UOMs) or a tenant-owned custom row (IsGlobal=false, OrganizationId set). LookupType
 // itself stays global/shared in all cases — the distinguishing signal is per-row provenance, not
 // which LookupType a value hangs off.
-internal class LookupValue : IGloballyExemptTenantScopedEntity
+internal class LookupValue : IGloballyExemptTenantScopedEntity, IHasModifiedAt
 {
     public Guid Id { get; set; }
     public Guid TypeId { get; set; }
@@ -65,6 +65,8 @@ internal class LookupValue : IGloballyExemptTenantScopedEntity
     public int SortOrder { get; set; }
     public bool IsGlobal { get; set; } = true;
     public Guid? OrganizationId { get; set; }
+    /// <summary>A37 D-16 — UTC, set by LookupsDbContext on every insert/update (sync delta for tax codes and UoMs).</summary>
+    public DateTime ModifiedAt { get; set; } = DateTime.UtcNow;
 
     public LookupType Type { get; set; } = null!;
 }

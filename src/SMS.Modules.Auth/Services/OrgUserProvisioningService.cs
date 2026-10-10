@@ -88,8 +88,47 @@ internal sealed class OrgUserProvisioningService : IOrgUserProvisioningService
             join r in _db.Roles on u.RoleID equals r.RoleID
             where u.OrganizationId == organizationId && !u.IsDelete
             orderby u.FirstName
-            select new OrgUserSummary(u.UserID, u.FirstName, u.LastName, u.Email, r.RoleID, r.Name, u.IsActive)
+            select new OrgUserSummary(u.UserID, u.FirstName, u.LastName, u.Email, r.RoleID, r.Name, u.IsActive,
+                u.InviteToken != null, u.InviteTokenExpiresAt)
         ).ToListAsync();
+
+    public async Task<OrgUserSummary> ReinviteUserAsync(Guid organizationId, int userId, string? newEmail, string organizationName)
+    {
+        var user = await _db.UserAccounts.SingleOrDefaultAsync(u =>
+            u.UserID == userId && u.OrganizationId == organizationId && !u.IsDelete)
+            ?? throw new BadRequestException("Selected user was not found in this organization.");
+
+        // Set up = a password was chosen (invite accepted) or the account has been used. A new invite to another
+        // address would then hand the account to that address; a super admin sets the password instead.
+        if (user.InviteToken == null && (user.IsActive || user.LastLoginAt != null))
+            throw new BadRequestException(
+                $"{user.Email} has already set up their account, so a new invite is not sent. Use Set password instead.");
+
+        if (!string.IsNullOrWhiteSpace(newEmail))
+        {
+            var normalized = newEmail.Trim().ToLowerInvariant();
+            if (normalized.Length > 150 || !System.Net.Mail.MailAddress.TryCreate(normalized, out var parsed) || parsed.Address != normalized)
+                throw new BadRequestException($"'{newEmail.Trim()}' is not a valid e-mail address.");
+            if (normalized != user.Email
+                && await _db.UserAccounts.AnyAsync(u => u.Email == normalized && !u.IsDelete && u.UserID != user.UserID))
+                throw new BadRequestException($"An account with email '{normalized}' already exists.");
+            user.Email = normalized;
+        }
+
+        var token = Guid.NewGuid().ToString("N");
+        user.InviteToken          = token;
+        user.InviteTokenExpiresAt = DateTime.UtcNow.AddDays(7);
+        user.UpdateDate           = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+
+        var email = user.Email;
+        var firstName = user.FirstName;
+        BackgroundJob.Enqueue(() => _emailService.SendOrgAdminInviteEmail(email, firstName, organizationName, token));
+
+        var roleName = await _db.Roles.Where(r => r.RoleID == user.RoleID).Select(r => r.Name).FirstOrDefaultAsync() ?? string.Empty;
+        return new OrgUserSummary(user.UserID, user.FirstName, user.LastName, user.Email, user.RoleID, roleName, user.IsActive,
+            true, user.InviteTokenExpiresAt);
+    }
 
     public async Task ReassignOrgAdminAsync(Guid organizationId, int newAdminUserId)
     {

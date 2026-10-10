@@ -1,0 +1,123 @@
+<p-toast></p-toast>
+<p-confirmDialog></p-confirmDialog>
+
+<sf-page [crumbs]="['Sales', 'Customers', customer?.code || '…']">
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <ng-container *ngIf="customer">
+      <p-button *ngIf="canEdit" label="Edit" icon="pi pi-pencil" (onClick)="showEdit = true" data-testid="edit-customer"></p-button>
+      <a *ngIf="canViewLedger" class="p-button p-button-text" [routerLink]="['/portal/pages/finance/customer-ledger', customer.uuid]"
+         data-testid="ledger-link-cmd"><i class="pi pi-book"></i>&nbsp;Ledger</a>
+    </ng-container>
+    <p-button label="Customers" icon="pi pi-arrow-left" [text]="true" (onClick)="back()"></p-button>
+    <ng-container *ngIf="customer && canChangeStatus">
+      <span class="sf-sep"></span>
+      <p-button *ngIf="customer.isActive" label="Deactivate" icon="pi pi-ban" severity="danger" [text]="true"
+                [disabled]="isWalkIn || statusBusy" [pTooltip]="isWalkIn ? 'The walk-in customer cannot be deactivated.' : ''"
+                (onClick)="toggleStatus()" data-testid="deactivate-customer"></p-button>
+      <p-button *ngIf="!customer.isActive" label="Activate" icon="pi pi-check-circle" [text]="true" [disabled]="statusBusy"
+                (onClick)="toggleStatus()" data-testid="activate-customer"></p-button>
+    </ng-container>
+  </div>
+
+  <div class="sf-body" *ngIf="isLoading || loadError">
+    <div class="sf-card sf-empty" *ngIf="isLoading"><i class="pi pi-spin pi-spinner"></i> Loading customer…</div>
+    <div class="sf-card sf-empty" *ngIf="loadError" data-testid="customer-load-error">{{ loadError }}</div>
+  </div>
+
+  <ng-container *ngIf="!isLoading && customer as c">
+    <header class="sf-hdr">
+      <div class="sf-t"><div>
+        <div class="sf-kicker">Customer · {{ typeLabel(c.customerType) }}<ng-container *ngIf="c.isVendor"> · also a vendor</ng-container></div>
+        <h1 data-testid="customer-title">
+          <span class="sf-mono">{{ c.code }}</span> {{ c.name }}
+          <p-tag [value]="c.isActive ? 'Active' : 'Inactive'" [severity]="c.isActive ? 'success' : 'secondary'" data-testid="customer-status"></p-tag>
+          <span *ngIf="c.isSystem" class="sf-pill in" data-testid="customer-system">System</span>
+        </h1>
+        <div class="sf-meta">{{ c.phone || c.mobile || 'No phone' }} · {{ c.email || 'No email' }}</div>
+      </div></div>
+      <div class="sf-facts">
+        <div class="sf-kpi" data-testid="kpi-balance">
+          <span class="l">Balance</span>
+          <span class="v sm" [class.er]="overCredit">{{ balanceValue | number:'1.2-2' }} {{ balanceCurrency }}</span>
+          <span class="s" *ngIf="balance">{{ balance.overdue | number:'1.2-2' }} overdue</span>
+        </div>
+        <div class="sf-kpi" data-testid="kpi-credit">
+          <span class="l">Credit limit</span>
+          <span class="v sm">{{ c.creditLimit | number:'1.2-2' }}</span>
+          <span class="s">{{ creditEnabled ? (overCredit ? 'exceeded' : 'enforced') : 'credit management off' }}</span>
+        </div>
+        <div class="sf-kpi">
+          <span class="l">Payment terms</span>
+          <span class="v sm">{{ c.paymentTermsDays }} days</span>
+        </div>
+      </div>
+    </header>
+
+    <sf-anchors [sections]="sections"></sf-anchors>
+
+    <div class="sf-body">
+      <section id="sec-details" class="sf-section sf-card" data-testid="section-details">
+        <div class="sf-ch"><h2>Details</h2></div>
+        <div class="sf-kv">
+          <span>Code</span><span class="sf-mono">{{ c.code }}</span>
+          <span>Name</span><span>{{ c.name }}</span>
+          <span>Type</span><span data-testid="detail-type">{{ typeLabel(c.customerType) }}</span>
+          <span>Phone</span><span>{{ c.phone || '—' }}</span>
+          <span>Mobile</span><span>{{ c.mobile || '—' }}</span>
+          <span>Email</span><span>{{ c.email || '—' }}</span>
+          <span>Tax ID</span><span>{{ c.taxId || '—' }}</span>
+          <span>Address</span><span>{{ address || '—' }}</span>
+          <span>Notes</span><span>{{ c.notes || '—' }}</span>
+          <span>Created</span><span>{{ c.createdAt | date:'dd MMM yyyy, HH:mm' }}</span>
+          <span>Last changed</span><span>{{ c.modifiedAt ? (c.modifiedAt | date:'dd MMM yyyy, HH:mm') : '—' }}</span>
+        </div>
+      </section>
+
+      <section id="sec-financial" class="sf-section sf-card" data-testid="section-financial">
+        <div class="sf-ch"><h2>Financial</h2></div>
+        <div class="sf-kv">
+          <span>Credit limit</span>
+          <span data-testid="financial-credit">
+            {{ c.creditLimit | number:'1.2-2' }}
+            <small class="sf-mu" *ngIf="!creditEnabled" data-testid="credit-off-note">
+              — credit management is switched off, so the limit is neither enforced nor editable.
+            </small>
+            <small class="sf-mu" *ngIf="creditEnabled && isWalkIn">— walk-in customers cannot have a credit limit.</small>
+          </span>
+          <span>Balance</span><span data-testid="financial-balance">{{ balanceValue | number:'1.2-2' }} {{ balanceCurrency }}</span>
+          <span>Overdue</span><span>{{ balance ? (balance.overdue | number:'1.2-2') : '—' }}</span>
+          <span>Payment terms</span><span>{{ c.paymentTermsDays }} days</span>
+        </div>
+        <p *ngIf="canViewLedger" style="margin: .75rem 0 0">
+          <a [routerLink]="['/portal/pages/finance/customer-ledger', c.uuid]" data-testid="ledger-link">
+            <i class="pi pi-book"></i> Open the customer ledger
+          </a>
+        </p>
+      </section>
+
+      <section id="sec-orders" class="sf-section sf-card p0" data-testid="section-orders">
+        <div class="sf-ch"><h2>Sale orders</h2><span class="sf-mu sf-sm" *ngIf="ordersTotal > orders.length">latest {{ orders.length }} of {{ ordersTotal }}</span></div>
+        <div *ngIf="!canViewOrders" class="sf-empty" data-testid="orders-no-access">Viewing sale orders needs the sale order view permission.</div>
+        <div *ngIf="canViewOrders && ordersFailed" class="sf-empty" data-testid="orders-failed">The sale orders could not be loaded.</div>
+        <p-table *ngIf="canViewOrders && !ordersFailed" [value]="orders" [loading]="ordersLoading" data-testid="orders-table">
+          <ng-template pTemplate="header">
+            <tr><th>Order</th><th>Date</th><th class="text-right">Total</th><th>Status</th></tr>
+          </ng-template>
+          <ng-template pTemplate="body" let-o>
+            <tr>
+              <td><a class="sf-mono" [routerLink]="['/portal/pages/sales/orders', o.uuid]">{{ o.soNumber }}</a></td>
+              <td>{{ o.orderDate | date:'dd MMM yyyy' }}</td>
+              <td class="text-right">{{ o.grandTotal | number:'1.2-2' }}<span *ngIf="o.currencyCode" class="sf-mu"> {{ o.currencyCode }}</span></td>
+              <td><p-tag [value]="formatCode(o.status)" [severity]="orderSeverity(o.status)"></p-tag></td>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="emptymessage">
+            <tr><td colspan="4" class="sf-empty">No sale orders for this customer yet.</td></tr>
+          </ng-template>
+        </p-table>
+      </section>
+    </div>
+  </ng-container>
+</sf-page>
+
+<app-customer-form-dialog [(visible)]="showEdit" [customer]="customer" [creditEnabled]="creditEnabled" (saved)="onSaved()"></app-customer-form-dialog>

@@ -1,38 +1,25 @@
-<div class="miv-create-page">
-  <p-toast></p-toast>
+<p-toast></p-toast>
 
-  <!-- Header -->
-  <div class="page-header">
-    <div class="header-left">
-      <div class="header-icon icon-purple">
-        <i class="pi pi-receipt"></i>
-      </div>
-      <div>
-        <h1 class="page-title">New Issue Voucher</h1>
-        <p class="page-subtitle" *ngIf="mirData">
-          MIR: <strong>{{ mirData.requestNo }}</strong>
-          <span *ngIf="mirData.projectName"> &mdash; {{ mirData.projectName }}</span>
-          <span *ngIf="mirData.department"> &mdash; {{ mirData.department }}</span>
-        </p>
+<sf-page [crumbs]="['Material', 'Material issue vouchers', 'New issue voucher']">
+  <header class="sf-hdr sf-compact">
+    <div class="grow">
+      <h1>New issue voucher</h1>
+      <div class="sf-meta" *ngIf="mirData">
+        MIR: <strong class="sf-mono">{{ mirData.requestNo }}</strong>
+        <span *ngIf="mirData.projectName"> &mdash; {{ mirData.projectName }}</span>
+        <span *ngIf="mirData.department"> &mdash; {{ mirData.department }}</span>
       </div>
     </div>
-    <div class="header-actions">
-      <p-button label="Cancel" icon="pi pi-times" [outlined]="true" severity="secondary" (onClick)="cancel()"></p-button>
-      <p-button label="Save Draft" icon="pi pi-save" severity="contrast"
-                [disabled]="hasErrors || isSaving || isLoading"
-                [loading]="isSaving"
-                (onClick)="save()"></p-button>
-    </div>
-  </div>
+  </header>
 
+  <div class="sf-body">
   <!-- Loading skeleton -->
-  <div *ngIf="isLoading" class="loading-card">
-    <i class="pi pi-spin pi-spinner"></i>
-    <span>Loading issuable data&hellip;</span>
+  <div *ngIf="isLoading" class="sf-card sf-empty">
+    <span><i class="pi pi-spin pi-spinner"></i> Loading issuable data&hellip;</span>
   </div>
 
   <!-- No data -->
-  <div *ngIf="!isLoading && !mirData" class="no-data-card">
+  <div *ngIf="!isLoading && !mirData" class="sf-card sf-empty no-data-card">
     <i class="pi pi-exclamation-circle"></i>
     <p>No issuable lines found. The MIR may not be in an approved state.</p>
     <p-button label="Back to MIR" [routerLink]="['/portal/pages/material/mir', mirUuid]" severity="secondary" [outlined]="true"></p-button>
@@ -41,8 +28,8 @@
   <ng-container *ngIf="!isLoading && mirData">
 
     <!-- Issue details -->
-    <div class="card section-card">
-      <h3 class="section-title">Issue Details</h3>
+    <section class="sf-card">
+      <div class="sf-ch"><h2>Issue details</h2></div>
       <div class="detail-grid">
         <div class="field-group">
           <label>Issued To</label>
@@ -57,7 +44,7 @@
           <input pInputText [(ngModel)]="notes" placeholder="Optional notes" />
         </div>
       </div>
-    </div>
+    </section>
 
     <!-- Lines -->
     <div *ngFor="let line of lines" class="line-card" [class.line-card-error]="!!line.error || !isBatchSelectionValid(line) || !isSerialSelectionValid(line)">
@@ -222,11 +209,21 @@
 
     </div>
 
-    <!-- Footer total -->
-    <div class="footer-total card">
+  </ng-container>
+  </div>
+
+  <!-- Footer: total + form buttons -->
+  <div class="sf-fbar">
+    <span class="footer-total" *ngIf="!isLoading && mirData">
       <span>Total Issue Value:</span>
       <strong>{{ totalValue | number:'1.2-2' }}</strong>
-    </div>
-
-  </ng-container>
-</div>
+    </span>
+    <span class="sf-end">
+      <p-button label="Cancel" icon="pi pi-times" [text]="true" severity="secondary" (onClick)="cancel()"></p-button>
+      <p-button label="Save Draft" icon="pi pi-save"
+                [disabled]="hasErrors || isSaving || isLoading"
+                [loading]="isSaving"
+                (onClick)="save()"></p-button>
+    </span>
+  </div>
+</sf-page>

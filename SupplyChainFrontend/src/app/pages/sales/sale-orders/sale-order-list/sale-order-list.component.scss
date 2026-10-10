@@ -6,11 +6,11 @@
 .filter-bar { display: flex; align-items: center; gap: .75rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
 .search-input { width: 300px; }
 .filter-dropdown { width: 180px; }
-.table-card { background: var(--surface-0); border: 1px solid var(--surface-200); border-radius: .625rem; overflow: hidden; }
+.table-card { background: var(--surface-0); border: 1px solid var(--sms-border); border-radius: .625rem; overflow: hidden; }
 
 .mode { display: inline-flex; align-items: center; gap: .375rem; font-size: .8125rem; }
 .mode i { font-size: .75rem; color: var(--text-color-secondary); }
-.mode-pickup i { color: var(--orange-600, #ea580c); }
+.mode-pickup i { color: var(--sms-warn); }
 
 .text-right { text-align: right; }
 
@@ -21,4 +21,4 @@
 }
 
 // A35 — the total in the domain base, under the document-currency total.
-.base-sub { font-size: .75rem; font-weight: 400; color: var(--p-text-muted-color, #64748b); }
+.base-sub { font-size: .75rem; font-weight: 400; color: var(--sms-text-muted); }

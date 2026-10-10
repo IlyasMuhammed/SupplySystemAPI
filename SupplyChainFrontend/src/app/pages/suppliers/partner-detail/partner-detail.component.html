@@ -1,112 +1,96 @@
-<div class="partner-detail-page">
-  <p-toast></p-toast>
+<p-toast></p-toast>
 
-  <!-- ── Page Header ─────────────────────────────────────────────────────── -->
-  <div class="page-header-card">
-    <div class="ph-left">
-      <p-button icon="pi pi-arrow-left" [text]="true" severity="secondary" (onClick)="goBack()"></p-button>
-      <div class="ph-icon-wrap"><i class="pi pi-sitemap"></i></div>
+<sf-page [crumbs]="['Procurement', 'Business partners', partner.companyName]">
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <p-button *ngIf="!isLoading" label="Edit" icon="pi pi-pencil"
+              [routerLink]="['/portal/pages/suppliers/partner-edit', uuid]"></p-button>
+    <p-button label="Back to partners" icon="pi pi-arrow-left" [text]="true" (onClick)="goBack()"></p-button>
+    <span class="sf-end">
+      <!-- QuickBooks sync state (renders nothing when the integration is off or not connected) -->
+      <app-qbo-sync-badge *ngIf="partner.isCustomer" kind="Customer" [externalId]="partner.uuid || uuid"
+                          label="QuickBooks customer"></app-qbo-sync-badge>
+      <app-qbo-sync-badge *ngIf="partner.isVendor" kind="Vendor" [externalId]="partner.uuid || uuid"
+                          label="QuickBooks vendor"></app-qbo-sync-badge>
+    </span>
+  </div>
+
+  <!-- ── Dynamic header ──────────────────────────────────────────────────── -->
+  <header class="sf-hdr">
+    <div class="sf-t">
       <div>
-        <div class="ph-name">
+        <div class="sf-kicker">Business partner<ng-container *ngIf="partner.partnerType"> · {{ partner.partnerType }}</ng-container></div>
+        <h1>
           {{ partner.companyName || 'Loading…' }}
           <p-tag *ngFor="let t of capabilityTags()" [value]="t.label" [severity]="t.severity"></p-tag>
-        </div>
-        <div class="ph-sub">
-          <span *ngIf="partner.partnerCode" class="ph-code-chip">{{ partner.partnerCode }}</span>
-          <span *ngIf="partner.partnerType">Type: {{ partner.partnerType }}</span>
-          <!-- QuickBooks sync state (renders nothing when the integration is off or not connected) -->
-          <app-qbo-sync-badge *ngIf="partner.isCustomer" kind="Customer" [externalId]="partner.uuid || uuid"
-                              label="QuickBooks customer"></app-qbo-sync-badge>
-          <app-qbo-sync-badge *ngIf="partner.isVendor" kind="Vendor" [externalId]="partner.uuid || uuid"
-                              label="QuickBooks vendor"></app-qbo-sync-badge>
+        </h1>
+        <div class="sf-meta">
+          <span *ngIf="partner.partnerCode" class="sf-mono">{{ partner.partnerCode }}</span>
+          <ng-container *ngIf="partner.uuid"> · {{ partner.isActive ? 'Active' : 'Inactive' }}</ng-container>
         </div>
       </div>
     </div>
-    <div class="ph-actions" *ngIf="!isLoading">
-      <p-button label="Edit" icon="pi pi-pencil" severity="secondary" [outlined]="true"
-                [routerLink]="['/portal/pages/suppliers/partner-edit', uuid]"></p-button>
+
+    <div class="sf-facts" *ngIf="ledgerBalance">
+      <div class="sf-kpi">
+        <span class="l">Net balance (owed)</span>
+        <span class="v" [class.er]="ledgerBalance.netBalance > 0">{{ ledgerBalance.netBalance | number:'1.2-2' }}</span>
+      </div>
+      <div class="sf-kpi">
+        <span class="l">Advance credit</span>
+        <span class="v">{{ ledgerBalance.availableAdvanceCredit | number:'1.2-2' }}</span>
+      </div>
     </div>
-  </div>
+  </header>
 
   <!-- ── Loading ─────────────────────────────────────────────────────────── -->
-  <div class="loading-state" *ngIf="isLoading">
-    <i class="pi pi-spin pi-spinner"></i>
-    <p>Loading business partner…</p>
+  <div class="sf-body" *ngIf="isLoading">
+    <div class="sf-empty"><i class="pi pi-spin pi-spinner"></i> Loading business partner…</div>
   </div>
 
-  <!-- ── Tabs ────────────────────────────────────────────────────────────── -->
-  <p-tabView styleClass="partner-tabs" *ngIf="!isLoading">
+  <ng-container *ngIf="!isLoading">
+    <sf-anchors [sections]="sections"></sf-anchors>
 
-    <p-tabPanel header="Overview" leftIcon="pi pi-info-circle">
-      <div class="tab-content">
-        <div class="info-grid">
-          <div class="info-field">
-            <div class="cell-label">Company Name</div>
-            <div class="cell-value">{{ partner.companyName || '—' }}</div>
+    <div class="sf-body">
+      <section id="sec-overview" class="sf-section sf-card">
+        <div class="sf-ch"><h2>Overview</h2></div>
+        <div class="sf-fields">
+          <div class="sf-fld">Company name<span class="v">{{ partner.companyName || '—' }}</span></div>
+          <div class="sf-fld">Partner code<span class="v sf-mono">{{ partner.partnerCode || '—' }}</span></div>
+          <div class="sf-fld">Partner type<span class="v">{{ partner.partnerType || '—' }}</span></div>
+          <div class="sf-fld">Status
+            <span class="v"><p-tag [value]="partner.isActive ? 'Active' : 'Inactive'"
+                   [severity]="partner.isActive ? 'success' : 'secondary'"></p-tag></span>
           </div>
-          <div class="info-field">
-            <div class="cell-label">Partner Code</div>
-            <div class="cell-value">{{ partner.partnerCode || '—' }}</div>
-          </div>
-          <div class="info-field">
-            <div class="cell-label">Partner Type</div>
-            <div class="cell-value">{{ partner.partnerType || '—' }}</div>
-          </div>
-          <div class="info-field">
-            <div class="cell-label">Status</div>
-            <p-tag [value]="partner.isActive ? 'Active' : 'Inactive'"
-                   [severity]="partner.isActive ? 'success' : 'secondary'"></p-tag>
-          </div>
-          <div class="info-field" *ngIf="partner.isCarrier">
-            <div class="cell-label">Vehicle Types</div>
-            <div class="cell-value">{{ partner.vehicleTypes || '—' }}</div>
-          </div>
-          <div class="info-field" *ngIf="partner.isServiceProvider">
-            <div class="cell-label">Service Categories</div>
-            <div class="cell-value">{{ partner.serviceCategories || '—' }}</div>
-          </div>
+          <div class="sf-fld" *ngIf="partner.isCarrier">Vehicle types<span class="v">{{ partner.vehicleTypes || '—' }}</span></div>
+          <div class="sf-fld" *ngIf="partner.isServiceProvider">Service categories<span class="v">{{ partner.serviceCategories || '—' }}</span></div>
         </div>
-      </div>
-    </p-tabPanel>
+      </section>
 
-    <!-- ══ A35-P2-09 — default sale / purchase currency (spec §11.6), for every partner type ══ -->
-    <p-tabPanel header="Currency" leftIcon="pi pi-dollar">
-      <div class="tab-content">
+      <!-- ══ A35-P2-09 — default sale / purchase currency (spec §11.6), for every partner type ══ -->
+      <section id="sec-currency" class="sf-section sf-card">
+        <div class="sf-ch"><h2>Currency</h2></div>
         <app-partner-currency-tab *ngIf="partner.uuid" [partner]="partner" (saved)="loadPartner()"></app-partner-currency-tab>
-      </div>
-    </p-tabPanel>
+      </section>
 
-    <!-- ══ Ledger — reuses the existing FinanceService supplier-ledger API verbatim ══ -->
-    <p-tabPanel header="Ledger" leftIcon="pi pi-book">
-      <div class="tab-content">
-
-        <div class="ledger-balance-grid" *ngIf="ledgerBalance">
-          <div class="balance-card">
-            <div class="cell-label">Total Debits</div>
-            <div class="cell-value">{{ ledgerBalance.totalDebits | number:'1.2-2' }}</div>
-          </div>
-          <div class="balance-card">
-            <div class="cell-label">Total Credits</div>
-            <div class="cell-value">{{ ledgerBalance.totalCredits | number:'1.2-2' }}</div>
-          </div>
-          <div class="balance-card" [class.balance-owed]="ledgerBalance.netBalance > 0">
-            <div class="cell-label">Net Balance (Owed)</div>
-            <div class="cell-value">{{ ledgerBalance.netBalance | number:'1.2-2' }}</div>
-          </div>
-          <div class="balance-card">
-            <div class="cell-label">Available Advance Credit</div>
-            <div class="cell-value">{{ ledgerBalance.availableAdvanceCredit | number:'1.2-2' }}</div>
-          </div>
-        </div>
-
-        <div class="tab-toolbar">
-          <span class="tab-section-title">Ledger Entries</span>
-          <div class="ledger-filters">
+      <!-- ══ Ledger — reuses the existing FinanceService supplier-ledger API verbatim ══ -->
+      <section id="sec-ledger" class="sf-section sf-card p0">
+        <div class="sf-ch">
+          <h2>Ledger entries</h2>
+          <div class="sf-ch-actions">
             <p-calendar [(ngModel)]="ledgerDateFrom" placeholder="From" dateFormat="dd/mm/yy"
                         [showIcon]="true" [showClear]="true" appendTo="body"></p-calendar>
             <p-calendar [(ngModel)]="ledgerDateTo" placeholder="To" dateFormat="dd/mm/yy"
                         [showIcon]="true" [showClear]="true" appendTo="body"></p-calendar>
             <p-button label="Apply" icon="pi pi-search" size="small" (onClick)="onLedgerFilterChange()"></p-button>
+          </div>
+        </div>
+
+        <div class="sf-pad" *ngIf="ledgerBalance">
+          <div class="sf-grid sf-tiles">
+            <div class="sf-tile"><span class="l">Total debits</span><span class="v">{{ ledgerBalance.totalDebits | number:'1.2-2' }}</span></div>
+            <div class="sf-tile"><span class="l">Total credits</span><span class="v">{{ ledgerBalance.totalCredits | number:'1.2-2' }}</span></div>
+            <div class="sf-tile"><span class="l">Net balance (owed)</span><span class="v" [class.er]="ledgerBalance.netBalance > 0">{{ ledgerBalance.netBalance | number:'1.2-2' }}</span></div>
+            <div class="sf-tile"><span class="l">Available advance credit</span><span class="v">{{ ledgerBalance.availableAdvanceCredit | number:'1.2-2' }}</span></div>
           </div>
         </div>
 
@@ -120,9 +104,9 @@
               <th>Date</th>
               <th>Type</th>
               <th>Reference</th>
-              <th class="text-right">Debit</th>
-              <th class="text-right">Credit</th>
-              <th class="text-right">Balance After</th>
+              <th class="sf-r">Debit</th>
+              <th class="sf-r">Credit</th>
+              <th class="sf-r">Balance after</th>
             </tr>
           </ng-template>
           <ng-template pTemplate="body" let-e>
@@ -130,20 +114,17 @@
               <td>{{ e.entryDate | date:'dd MMM yyyy, HH:mm' }}</td>
               <td><p-tag [value]="getLedgerTypeLabel(e.transactionType)" [severity]="getLedgerTypeSeverity(e.transactionType)"></p-tag></td>
               <td>{{ e.referenceNo || '—' }}</td>
-              <td class="text-right">{{ e.debitAmount ? (e.debitAmount | number:'1.2-2') : '—' }}</td>
-              <td class="text-right">{{ e.creditAmount ? (e.creditAmount | number:'1.2-2') : '—' }}</td>
-              <td class="text-right mono">{{ e.balanceAfter | number:'1.2-2' }}</td>
+              <td class="sf-r sf-num">{{ e.debitAmount ? (e.debitAmount | number:'1.2-2') : '—' }}</td>
+              <td class="sf-r sf-num">{{ e.creditAmount ? (e.creditAmount | number:'1.2-2') : '—' }}</td>
+              <td class="sf-r sf-num">{{ e.balanceAfter | number:'1.2-2' }}</td>
             </tr>
           </ng-template>
         </p-table>
 
-        <div *ngIf="!ledgerEntries.length && !isLoadingLedger" class="empty-state">
-          <i class="pi pi-book"></i>
-          <p>No ledger entries yet. Entries are created automatically when invoices, credit notes, debit notes, or payments are approved for this partner.</p>
+        <div *ngIf="!ledgerEntries.length && !isLoadingLedger" class="sf-empty">
+          No ledger entries yet. Entries are created automatically when invoices, credit notes, debit notes, or payments are approved for this partner.
         </div>
-
-      </div>
-    </p-tabPanel>
-
-  </p-tabView>
-</div>
+      </section>
+    </div>
+  </ng-container>
+</sf-page>

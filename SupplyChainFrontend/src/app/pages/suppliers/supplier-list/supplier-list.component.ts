@@ -19,6 +19,7 @@ import {
   SupplierListItemModel,
   SupplierListFilter
 } from '../../../services/supplier.service';
+import { FLOW } from '../../../shared/flow';
 
 @Component({
   selector: 'app-supplier-list',
@@ -28,7 +29,7 @@ import {
     TableModule, ButtonModule, ToolbarModule,
     InputTextModule, InputIconModule, IconFieldModule,
     TagModule, TooltipModule, ToastModule, DropdownModule,
-    ConfirmDialogModule
+    ConfirmDialogModule, ...FLOW
   ],
   templateUrl: './supplier-list.component.html',
   styleUrls: ['./supplier-list.component.scss'],

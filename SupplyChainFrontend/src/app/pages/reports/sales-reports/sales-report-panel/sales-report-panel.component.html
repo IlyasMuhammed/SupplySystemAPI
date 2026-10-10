@@ -1,7 +1,8 @@
 <section class="panel" [attr.data-report]="definition.key">
   <p-toast></p-toast>
 
-  <header class="panel-head">
+  <div class="sf-card">
+  <header class="sf-ch">
     <div>
       <h2 class="panel-title">
         <span class="code">{{ definition.code }}</span>
@@ -54,13 +55,14 @@
                 pTooltip="Download the whole report as a workbook" data-testid="export-excel"></p-button>
     </div>
   </form>
+  </div>
 
   <!-- ── Results ───────────────────────────────────────────────────────────────── -->
-  <div class="state" *ngIf="isLoading && !report" data-testid="loading">
+  <div class="sf-card sf-empty state" *ngIf="isLoading && !report" data-testid="loading">
     <i class="pi pi-spin pi-spinner"></i> Running the report…
   </div>
 
-  <div class="state" *ngIf="!isLoading && !report" data-testid="not-run">
+  <div class="sf-card sf-empty state" *ngIf="!isLoading && !report" data-testid="not-run">
     <i class="pi pi-filter"></i> {{ problem() || 'Set the filters and run the report.' }}
   </div>
 
@@ -70,15 +72,17 @@
     </p>
 
     <div class="charts" *ngIf="charts.length" data-testid="charts">
-      <div class="chart-card" *ngFor="let c of charts" data-testid="chart-card">
-        <h3>{{ c.title }}</h3>
-        <small *ngIf="c.subtitle">{{ c.subtitle }}</small>
+      <div class="sf-card chart-card" *ngFor="let c of charts" data-testid="chart-card">
+        <div>
+          <h3>{{ c.title }}</h3>
+          <small *ngIf="c.subtitle">{{ c.subtitle }}</small>
+        </div>
         <p-chart [type]="c.type" [data]="c.data" [options]="c.options" height="20rem" data-testid="chart"></p-chart>
       </div>
     </div>
 
-    <div class="section" *ngFor="let s of sections" [attr.data-section]="s.id">
-      <h3 class="section-title">{{ s.title }}</h3>
+    <div class="sf-card p0 section" *ngFor="let s of sections" [attr.data-section]="s.id">
+      <div class="sf-ch"><h3>{{ s.title }}</h3></div>
 
       <div class="table-card">
         <p-table [value]="rowsOf(s)" [lazy]="!!s.paged" [lazyLoadOnInit]="false" [paginator]="!!s.paged"

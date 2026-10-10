@@ -29,6 +29,7 @@ import { AllocationService } from '../../../../services/allocation.service';
 import { DeliveryListItemModel, LogisticsService } from '../../../../services/logistics.service';
 import { DELIVERY_STATUS_SEVERITY } from '../../../logistics/deliveries/delivery-list/delivery-list.component';
 import { formatCode } from '../../../../shared/format-code';
+import { FLOW, FlowStage, flowStagesFrom } from '../../../../shared/flow';
 
 /** A34 — statuses after a quality inspection has been recorded: accepted and yield mean something. */
 const INSPECTED_STATUSES = ['QUALITY_INSPECTION', 'COMPLETED', 'CLOSED'];
@@ -40,7 +41,8 @@ const INSPECTED_STATUSES = ['QUALITY_INSPECTION', 'COMPLETED', 'CLOSED'];
   imports: [
     CommonModule, RouterModule, FormsModule,
     ButtonModule, ConfirmDialogModule, DialogModule, DropdownModule, InputNumberModule, InputTextModule, MessageModule,
-    TableModule, TabViewModule, TagModule, TextareaModule, ToastModule, TooltipModule
+    TableModule, TabViewModule, TagModule, TextareaModule, ToastModule, TooltipModule,
+    ...FLOW
   ],
   templateUrl: './production-order-detail.component.html',
   styleUrls: ['./production-order-detail.component.scss'],
@@ -136,6 +138,21 @@ export class ProductionOrderDetailComponent implements OnInit {
   get canInspect(): boolean { return this.has('QI_APPROVE') && this.is('QUALITY_INSPECTION') && !this.qi; }
   get canReceive(): boolean { return this.has('FGR_CREATE') && this.is('QUALITY_INSPECTION') && !!this.qi && this.qi.outstandingForFgr > 0; }
   canConfirmFgr(status: string): boolean { return this.has('FGR_CONFIRM') && status === 'DRAFT'; }
+
+  /** SMS Flow header strip: Draft → Planned → In progress → Inspection → Completed (cancelled = red). */
+  get stages(): FlowStage[] {
+    const o = this.order;
+    if (!o) return [];
+    if (o.status === 'CANCELLED') return flowStagesFrom(['Draft', 'Cancelled'], 1, { failed: true });
+    const order: Record<string, number> = {
+      DRAFT: 0, PLANNED: 1, MATERIAL_PENDING: 1, READY: 1, IN_PROGRESS: 2, QUALITY_INSPECTION: 3, COMPLETED: 5, CLOSED: 5
+    };
+    const planSub = o.status === 'MATERIAL_PENDING' ? 'materials pending' : o.status === 'READY' ? 'ready' : null;
+    const made = o.plannedQuantity > 0 ? `${Math.round((o.producedQuantity / o.plannedQuantity) * 100)}% made` : null;
+    return flowStagesFrom(['Draft', 'Planned', 'In progress', 'Inspection', 'Completed'], order[o.status] ?? 0, {
+      subs: [null, planSub, o.status === 'IN_PROGRESS' ? made : null, null, null]
+    });
+  }
 
   // ── Loading ───────────────────────────────────────────────────────────────
 

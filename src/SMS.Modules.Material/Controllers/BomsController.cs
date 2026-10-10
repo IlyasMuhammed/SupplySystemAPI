@@ -8,10 +8,14 @@ using SMS.Shared.Pagination;
 
 namespace SMS.Modules.Material.Controllers;
 
-/// <summary>A30 §28.2 — bills of materials.</summary>
+/// <summary>
+/// A30 §28.2 — bills of materials. A36 D-4: service BOMs share these endpoints. A37 D-11 (BOM-SHR-02/03): reading needs only
+/// MODULE_INVENTORY; every write additionally needs FEATURE_BOM_MANAGEMENT (auto-on with Manufacturing or Services, MOD-08).
+/// The action-level gate relies on REG's all-must-pass <see cref="RequiresFeatureAttribute"/> semantics.
+/// </summary>
 [ApiController]
 [Route("api/boms")]
-[RequiresFeature("MODULE_MANUFACTURING")]
+[RequiresFeature(ModuleCodes.Inventory)]
 public class BomsController : ControllerBase
 {
     private readonly IBomService     _service;
@@ -24,6 +28,7 @@ public class BomsController : ControllerBase
     }
 
     [HttpPost]
+    [RequiresFeature(ModuleCodes.BomManagement)]
     [RequirePermission(PermissionCodes.BOM_CREATE)]
     public async Task<IActionResult> Create([FromBody] CreateBomRequest req)
     {
@@ -57,6 +62,7 @@ public class BomsController : ControllerBase
     }
 
     [HttpPut("{uuid:guid}")]
+    [RequiresFeature(ModuleCodes.BomManagement)]
     [RequirePermission(PermissionCodes.BOM_EDIT)]
     public async Task<IActionResult> Update(Guid uuid, [FromBody] UpdateBomRequest req)
     {
@@ -65,6 +71,7 @@ public class BomsController : ControllerBase
     }
 
     [HttpDelete("{uuid:guid}")]
+    [RequiresFeature(ModuleCodes.BomManagement)]
     [RequirePermission(PermissionCodes.BOM_EDIT)]
     public async Task<IActionResult> Delete(Guid uuid)
     {
@@ -73,6 +80,7 @@ public class BomsController : ControllerBase
     }
 
     [HttpPost("{uuid:guid}/submit")]
+    [RequiresFeature(ModuleCodes.BomManagement)]
     [RequirePermission(PermissionCodes.BOM_SUBMIT)]
     public async Task<IActionResult> Submit(Guid uuid)
     {
@@ -81,6 +89,7 @@ public class BomsController : ControllerBase
     }
 
     [HttpPost("{uuid:guid}/approve")]
+    [RequiresFeature(ModuleCodes.BomManagement)]
     [RequirePermission(PermissionCodes.BOM_APPROVE)]
     public async Task<IActionResult> Approve(Guid uuid)
     {
@@ -89,6 +98,7 @@ public class BomsController : ControllerBase
     }
 
     [HttpPost("{uuid:guid}/reject")]
+    [RequiresFeature(ModuleCodes.BomManagement)]
     [RequirePermission(PermissionCodes.BOM_APPROVE)]
     public async Task<IActionResult> Reject(Guid uuid, [FromBody] RejectBomRequest req)
     {
@@ -97,6 +107,7 @@ public class BomsController : ControllerBase
     }
 
     [HttpPost("{uuid:guid}/activate")]
+    [RequiresFeature(ModuleCodes.BomManagement)]
     [RequirePermission(PermissionCodes.BOM_ACTIVATE)]
     public async Task<IActionResult> Activate(Guid uuid)
     {
@@ -105,6 +116,7 @@ public class BomsController : ControllerBase
     }
 
     [HttpPost("{uuid:guid}/obsolete")]
+    [RequiresFeature(ModuleCodes.BomManagement)]
     [RequirePermission(PermissionCodes.BOM_OBSOLETE)]
     public async Task<IActionResult> Obsolete(Guid uuid, [FromBody] ObsoleteBomRequest? req)
     {
@@ -113,11 +125,22 @@ public class BomsController : ControllerBase
     }
 
     [HttpPost("{uuid:guid}/new-version")]
+    [RequiresFeature(ModuleCodes.BomManagement)]
     [RequirePermission(PermissionCodes.BOM_CREATE)]
     public async Task<IActionResult> NewVersion(Guid uuid)
     {
         var created = await _service.NewVersionAsync(uuid, User.GetUserId());
         return Ok(ApiResponse<Guid>.Ok(created, "New version drafted."));
+    }
+
+    /// <summary>A37 D-11 — the advisory usage (UNIVERSAL / PRODUCTION_PREFERRED / SERVICE_PREFERRED), any status but OBSOLETE.</summary>
+    [HttpPut("{uuid:guid}/usage")]
+    [RequiresFeature(ModuleCodes.BomManagement)]
+    [RequirePermission(PermissionCodes.BOM_EDIT)]
+    public async Task<IActionResult> SetUsage(Guid uuid, [FromBody] SetBomUsageRequest req)
+    {
+        await _service.SetUsageAsync(uuid, req.BomUsage, User.GetUserId());
+        return Ok(ApiResponse.Ok("BOM usage updated."));
     }
 
     [HttpGet("{uuid:guid}/compare/{otherUuid:guid}")]

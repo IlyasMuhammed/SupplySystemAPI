@@ -1,618 +1,407 @@
-<div class="supplier-detail-page">
-  <p-toast></p-toast>
-  <p-confirmDialog [style]="{width:'420px'}"></p-confirmDialog>
+<p-toast></p-toast>
+<p-confirmDialog [style]="{width:'420px'}"></p-confirmDialog>
 
-  <!-- ── Page Header ─────────────────────────────────────────────────────── -->
-  <div class="page-header-card">
-    <div class="ph-left">
-      <p-button icon="pi pi-arrow-left" [text]="true" severity="secondary"
-                (onClick)="goBack()"></p-button>
-      <div class="ph-icon-wrap"><i class="pi pi-building"></i></div>
+<sf-page [crumbs]="['Procurement', 'Suppliers', supplier.supplierName]">
+
+  <!-- ── Command bar: the next status step first, then the rest ──────────── -->
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <ng-container *ngIf="!isLoading">
+      <p-button *ngIf="canApprove()" label="Approve supplier" icon="pi pi-check-circle"
+                (onClick)="approveSupplier()"></p-button>
+      <p-button label="Edit information" icon="pi pi-pencil" [text]="true"
+                (onClick)="openEditDialog()" [loading]="isLoadingLookups">
+      </p-button>
+    </ng-container>
+    <p-button label="Back to suppliers" icon="pi pi-arrow-left" [text]="true"
+              (onClick)="goBack()"></p-button>
+    <ng-container *ngIf="!isLoading">
+      <span class="sf-sep" *ngIf="canReject() || canBlacklist() || canSuspend() || canDelete()"></span>
+      <p-button *ngIf="canSuspend()" label="Suspend" icon="pi pi-pause-circle" severity="warn" [text]="true"
+                (onClick)="openSuspendDialog()"></p-button>
+      <p-button *ngIf="canReject()" label="Reject" icon="pi pi-times-circle" severity="danger" [text]="true"
+                (onClick)="openRejectDialog()"></p-button>
+      <p-button *ngIf="canBlacklist()" label="Blacklist" icon="pi pi-ban" severity="danger" [text]="true"
+                (onClick)="openBlacklistDialog()"></p-button>
+      <p-button *ngIf="canDelete()" label="Delete supplier" icon="pi pi-trash" severity="danger" [text]="true"
+                (onClick)="deleteSupplier()"></p-button>
+      <span class="sf-end"
+            *ngIf="!canApprove() && !canReject() && !canBlacklist() && !canSuspend() && !canDelete()">
+        <span class="sf-mu sf-sm"><i class="pi pi-lock"></i> No status actions are available for the current status.</span>
+      </span>
+    </ng-container>
+  </div>
+
+  <!-- ── Dynamic header ──────────────────────────────────────────────────── -->
+  <header class="sf-hdr">
+    <div class="sf-t">
       <div>
-        <div class="ph-name">
+        <div class="sf-kicker">
+          Supplier<ng-container *ngIf="supplier.createdDate"> · onboarded {{ supplier.createdDate | date:'mediumDate' }}</ng-container>
+        </div>
+        <h1>
           {{ supplier.supplierName || 'Loading…' }}
           <p-tag *ngIf="supplier.status" [value]="supplier.status"
                  [severity]="getStatusSeverity(supplier.status)"></p-tag>
-          <span *ngIf="supplier.isPreferredSupplier" class="preferred-badge">
+          <span *ngIf="supplier.isPreferredSupplier" class="sf-pill wn">
             <i class="pi pi-star-fill"></i> Preferred
           </span>
-        </div>
-        <div class="ph-sub">
-          <span *ngIf="supplier.supplierCode" class="ph-code-chip">{{ supplier.supplierCode }}</span>
-          <span *ngIf="supplier.createdDate">Onboarded {{ supplier.createdDate | date:'mediumDate' }}</span>
+        </h1>
+        <div class="sf-meta">
+          <span *ngIf="supplier.supplierCode" class="sf-mono">{{ supplier.supplierCode }}</span>
+          <ng-container *ngIf="supplier.city || supplier.country"> · {{ supplier.city }}{{ supplier.city && supplier.country ? ', ' : '' }}{{ supplier.country }}</ng-container>
         </div>
       </div>
     </div>
-    <div class="ph-actions" *ngIf="!isLoading">
-      <p-button label="Edit Information" icon="pi pi-pencil"
-                severity="secondary" [outlined]="true"
-                (onClick)="openEditDialog()" [loading]="isLoadingLookups">
-      </p-button>
-    </div>
-  </div>
 
-  <!-- ── Grade F warning banner (SC-007) ────────────────────────────────── -->
-  <div class="grade-f-banner" *ngIf="!isLoading && scoreGrade === 'F'">
-    <i class="pi pi-exclamation-triangle"></i>
-    <span>This supplier is rated F (Disqualification Candidate). Review the Scorecard before placing new orders.</span>
-  </div>
+    <div class="sf-facts" *ngIf="!isLoading">
+      <div class="sf-kpi" *ngIf="scoreGrade">
+        <span class="l">Scorecard grade</span>
+        <span class="v" [class.ok]="scoreGrade === 'A' || scoreGrade === 'B'" [class.wn]="scoreGrade === 'C' || scoreGrade === 'D'"
+              [class.er]="scoreGrade === 'F'">{{ scoreGrade }}</span>
+      </div>
+      <div class="sf-kpi" *ngIf="ledgerBalance">
+        <span class="l">We owe</span>
+        <span class="v" [class.er]="ledgerBalance.netBalance > 0">{{ ledgerBalance.netBalance | number:'1.2-2' }}</span>
+        <span class="s">advance credit {{ ledgerBalance.availableAdvanceCredit | number:'1.2-2' }}</span>
+      </div>
+      <div class="sf-kpi">
+        <span class="l">Outstanding invoices</span>
+        <span class="v">{{ outstandingInvoices.length }}</span>
+      </div>
+      <div class="sf-kpi">
+        <span class="l">Credit limit</span>
+        <span class="v">{{ supplier.creditLimit != null ? (supplier.creditLimit | number:'1.2-2') : '—' }}</span>
+        <span class="s" *ngIf="supplier.leadTimeDays">lead time {{ supplier.leadTimeDays }} days</span>
+      </div>
+    </div>
+  </header>
 
   <!-- ── Loading ─────────────────────────────────────────────────────────── -->
-  <div *ngIf="isLoading" class="loading-state">
-    <i class="pi pi-spin pi-spinner" style="font-size:2rem;color:#6c63ff"></i>
-    <p>Loading supplier details…</p>
+  <div *ngIf="isLoading" class="sf-body">
+    <div class="sf-empty"><i class="pi pi-spin pi-spinner"></i> Loading supplier details…</div>
   </div>
 
-  <!-- ── Tab View ────────────────────────────────────────────────────────── -->
-  <div *ngIf="!isLoading && supplier" class="tab-card">
-    <p-tabView styleClass="supplier-tabs">
+  <ng-container *ngIf="!isLoading && supplier">
+    <sf-anchors [sections]="sections"></sf-anchors>
 
-      <!-- ══ TAB 1 · Information ══════════════════════════════════════════ -->
-      <p-tabPanel header="Information" leftIcon="pi pi-info-circle">
-        <div class="tab-content">
+    <div class="sf-body">
 
-          <!-- Basic Details -->
-          <div class="info-card">
-            <div class="info-card-header">
-              <i class="pi pi-id-card"></i>
-              <span>Basic Details</span>
-              <p-button label="Edit" icon="pi pi-pencil" size="small" [text]="true"
-                        (onClick)="openEditDialog()" [loading]="isLoadingLookups"></p-button>
-            </div>
-            <div class="info-card-body cols-3">
-              <div class="detail-cell">
-                <div class="cell-label">Supplier Name</div>
-                <div class="cell-value">{{ supplier.supplierName || '—' }}</div>
-              </div>
-              <div class="detail-cell">
-                <div class="cell-label">Supplier Code</div>
-                <div class="cell-value mono">{{ supplier.supplierCode || '—' }}</div>
-              </div>
-              <div class="detail-cell">
-                <div class="cell-label">Registration No.</div>
-                <div class="cell-value mono">{{ supplier.registrationNo || '—' }}</div>
-              </div>
-              <div class="detail-cell">
-                <div class="cell-label">Tax ID (NTN)</div>
-                <div class="cell-value mono">{{ supplier.taxId || '—' }}</div>
-              </div>
-              <div class="detail-cell">
-                <div class="cell-label">Preferred Supplier</div>
-                <div class="cell-value">
-                  <i [class]="supplier.isPreferredSupplier ? 'pi pi-star-fill' : 'pi pi-star'"
-                     [style.color]="supplier.isPreferredSupplier ? '#f59e0b' : '#cbd5e1'"></i>
-                  {{ supplier.isPreferredSupplier ? 'Yes' : 'No' }}
-                </div>
-              </div>
-            </div>
-          </div>
+      <!-- ── Grade F warning banner (SC-007) ────────────────────────────── -->
+      <div class="sf-card quiet grade-f-banner" *ngIf="scoreGrade === 'F'">
+        <span><i class="pi pi-exclamation-triangle"></i>
+          This supplier is rated F (Disqualification Candidate). Review the Scorecard before placing new orders.</span>
+      </div>
 
-          <!-- Address -->
-          <div class="info-card">
-            <div class="info-card-header">
-              <i class="pi pi-map-marker"></i>
-              <span>Address</span>
-            </div>
-            <div class="info-card-body cols-3">
-              <div class="detail-cell">
-                <div class="cell-label">Country</div>
-                <div class="cell-value">{{ supplier.country || '—' }}</div>
-              </div>
-              <div class="detail-cell">
-                <div class="cell-label">Province / State</div>
-                <div class="cell-value muted">{{ supplier.provinceState || '—' }}</div>
-              </div>
-              <div class="detail-cell">
-                <div class="cell-label">City</div>
-                <div class="cell-value muted">{{ supplier.city || '—' }}</div>
-              </div>
-              <div class="detail-cell span-2">
-                <div class="cell-label">Address</div>
-                <div class="cell-value muted">
-                  <ng-container *ngIf="supplier.addressLine1; else noAddr">
-                    {{ supplier.addressLine1 }}
-                    <ng-container *ngIf="supplier.addressLine2">, {{ supplier.addressLine2 }}</ng-container>
-                    <ng-container *ngIf="supplier.postalCode"> — {{ supplier.postalCode }}</ng-container>
-                  </ng-container>
-                  <ng-template #noAddr>—</ng-template>
-                </div>
-              </div>
-              <div class="detail-cell">
-                <div class="cell-label">Postal Code</div>
-                <div class="cell-value mono">{{ supplier.postalCode || '—' }}</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Contact Information -->
-          <div class="info-card">
-            <div class="info-card-header">
-              <i class="pi pi-phone"></i>
-              <span>Contact Information</span>
-            </div>
-            <div class="info-card-body cols-4">
-              <div class="detail-cell">
-                <div class="cell-label">Phone</div>
-                <div class="cell-value">{{ supplier.phone || '—' }}</div>
-              </div>
-              <div class="detail-cell">
-                <div class="cell-label">Fax</div>
-                <div class="cell-value muted">{{ supplier.fax || '—' }}</div>
-              </div>
-              <div class="detail-cell">
-                <div class="cell-label">Email</div>
-                <div class="cell-value">
-                  <a *ngIf="supplier.email" [href]="'mailto:' + supplier.email">{{ supplier.email }}</a>
-                  <span *ngIf="!supplier.email" class="muted">—</span>
-                </div>
-              </div>
-              <div class="detail-cell">
-                <div class="cell-label">Website</div>
-                <div class="cell-value">
-                  <a *ngIf="supplier.website" [href]="supplier.website" target="_blank">{{ supplier.website }}</a>
-                  <span *ngIf="!supplier.website" class="muted">—</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Primary Contact Person -->
-          <div class="info-card">
-            <div class="info-card-header">
-              <i class="pi pi-user"></i>
-              <span>Primary Contact Person</span>
-            </div>
-            <div class="info-card-body cols-4">
-              <div class="detail-cell">
-                <div class="cell-label">Contact Name</div>
-                <div class="cell-value">{{ supplier.primaryContactName || '—' }}</div>
-              </div>
-              <div class="detail-cell">
-                <div class="cell-label">Title / Position</div>
-                <div class="cell-value muted">{{ supplier.primaryContactTitle || '—' }}</div>
-              </div>
-              <div class="detail-cell">
-                <div class="cell-label">Contact Phone</div>
-                <div class="cell-value">{{ supplier.primaryContactPhone || '—' }}</div>
-              </div>
-              <div class="detail-cell">
-                <div class="cell-label">Contact Email</div>
-                <div class="cell-value">{{ supplier.primaryContactEmail || '—' }}</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Commercial Terms -->
-          <div class="info-card">
-            <div class="info-card-header">
-              <i class="pi pi-dollar"></i>
-              <span>Commercial Terms</span>
-            </div>
-            <div class="info-card-body cols-4">
-              <div class="detail-cell">
-                <div class="cell-label">Payment Terms</div>
-                <div class="cell-value">{{ resolveLookupLabel(paymentTermsOptions, supplier.preferredPaymentTerms) }}</div>
-              </div>
-              <div class="detail-cell">
-                <div class="cell-label">Currency</div>
-                <div class="cell-value">{{ resolveLookupLabel(currencyOptions, supplier.preferredCurrency) }}</div>
-              </div>
-              <div class="detail-cell">
-                <div class="cell-label">Credit Limit</div>
-                <div class="cell-value purple">
-                  {{ supplier.creditLimit != null ? (supplier.creditLimit | number:'1.2-2') : '—' }}
-                </div>
-              </div>
-              <div class="detail-cell">
-                <div class="cell-label">Lead Time (days)</div>
-                <div class="cell-value">{{ supplier.leadTimeDays || '—' }}</div>
-              </div>
-              <div class="detail-cell">
-                <div class="cell-label">Rating</div>
-                <div class="cell-value">{{ supplier.rating || '—' }}</div>
-              </div>
-              <div class="detail-cell">
-                <div class="cell-label">Onboarding Date</div>
-                <div class="cell-value muted">{{ (supplier.onboardingDate | date:'mediumDate') || '—' }}</div>
-              </div>
-              <div class="detail-cell">
-                <div class="cell-label">Last Review</div>
-                <div class="cell-value muted">{{ (supplier.lastReviewDate | date:'mediumDate') || '—' }}</div>
-              </div>
-              <div class="detail-cell">
-                <div class="cell-label">Created</div>
-                <div class="cell-value muted">{{ supplier.createdDate | date:'mediumDate' }}</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Notes -->
-          <div *ngIf="supplier.notes" class="info-card">
-            <div class="info-card-header">
-              <i class="pi pi-file-edit"></i>
-              <span>Notes</span>
-            </div>
-            <div style="padding:1rem 1.4rem;">
-              <div class="detail-cell">
-                <div class="cell-value muted" style="font-weight:400;line-height:1.65;">{{ supplier.notes }}</div>
-              </div>
-            </div>
-          </div>
-
+      <!-- ══ General ══════════════════════════════════════════════════════ -->
+      <section id="sec-general" class="sf-section sf-card">
+        <div class="sf-ch">
+          <h2>Basic details</h2>
+          <p-button label="Edit" icon="pi pi-pencil" size="small" [text]="true"
+                    (onClick)="openEditDialog()" [loading]="isLoadingLookups"></p-button>
         </div>
-      </p-tabPanel>
-
-      <!-- ══ TAB 2 · Status & Actions ═══════════════════════════════════════ -->
-      <p-tabPanel header="Status &amp; Actions" leftIcon="pi pi-cog">
-        <div class="tab-content">
-
-          <!-- Current status hero -->
-          <div class="status-hero">
-            <div class="sh-icon"
-                 [ngClass]="{
-                   'sh-success': supplier.status === 'ACTIVE',
-                   'sh-warn':    supplier.status === 'PENDING' || supplier.status === 'SUSPENDED',
-                   'sh-danger':  supplier.status === 'REJECTED' || supplier.status === 'BLACKLISTED',
-                   'sh-info':    supplier.status === 'INACTIVE',
-                   'sh-muted':   !supplier.status
-                 }">
-              <i class="pi"
-                 [ngClass]="{
-                   'pi-check-circle': supplier.status === 'ACTIVE',
-                   'pi-clock':        supplier.status === 'PENDING',
-                   'pi-pause-circle': supplier.status === 'SUSPENDED',
-                   'pi-times-circle': supplier.status === 'REJECTED' || supplier.status === 'BLACKLISTED',
-                   'pi-minus-circle': supplier.status === 'INACTIVE',
-                   'pi-question-circle': !supplier.status
-                 }"></i>
-            </div>
-            <div class="sh-info-wrap">
-              <div class="sh-label">Current Status</div>
-              <div class="sh-status">{{ supplier.status || 'UNKNOWN' }}</div>
-            </div>
-          </div>
-
-          <!-- Action Cards -->
-          <div class="action-grid">
-            <button *ngIf="canApprove()" class="action-card approve" (click)="approveSupplier()">
-              <div class="ac-icon"><i class="pi pi-check-circle"></i></div>
-              <div class="ac-label">Approve Supplier</div>
-            </button>
-            <button *ngIf="canReject()" class="action-card reject" (click)="openRejectDialog()">
-              <div class="ac-icon"><i class="pi pi-times-circle"></i></div>
-              <div class="ac-label">Reject Supplier</div>
-            </button>
-            <button *ngIf="canBlacklist()" class="action-card blacklist" (click)="openBlacklistDialog()">
-              <div class="ac-icon"><i class="pi pi-ban"></i></div>
-              <div class="ac-label">Blacklist Supplier</div>
-            </button>
-            <button *ngIf="canSuspend()" class="action-card suspend" (click)="openSuspendDialog()">
-              <div class="ac-icon"><i class="pi pi-pause-circle"></i></div>
-              <div class="ac-label">Suspend Supplier</div>
-            </button>
-            <button *ngIf="canDelete()" class="action-card reject" (click)="deleteSupplier()">
-              <div class="ac-icon"><i class="pi pi-trash"></i></div>
-              <div class="ac-label">Delete Supplier</div>
-            </button>
-          </div>
-
-          <div class="no-actions-hint"
-               *ngIf="!canApprove() && !canReject() && !canBlacklist() && !canSuspend() && !canDelete()">
-            <i class="pi pi-lock"></i>
-            No status actions are available for the current status.
-          </div>
-
-        </div>
-      </p-tabPanel>
-
-      <!-- ══ TAB 3 · Contacts ══════════════════════════════════════════════ -->
-      <p-tabPanel header="Contacts" leftIcon="pi pi-users">
-        <div class="tab-content">
-
-          <div class="tab-toolbar">
-            <span class="tab-section-title">Contact Persons</span>
-            <p-button label="Add Contact" icon="pi pi-plus" size="small"
-                      (onClick)="openContactDialog()"></p-button>
-          </div>
-
-          <div class="contact-grid" *ngIf="supplier.contacts.length">
-            <div *ngFor="let contact of supplier.contacts" class="contact-card">
-              <div class="cc-header">
-                <div class="cc-avatar"><i class="pi pi-user"></i></div>
-                <div>
-                  <div class="cc-name">
-                    {{ contact.contactName }}
-                    <p-tag *ngIf="contact.isPrimary" value="Primary" severity="success"
-                           styleClass="text-xs"></p-tag>
-                  </div>
-                  <div class="cc-title">{{ contact.title || 'No title' }}</div>
-                </div>
-              </div>
-              <div class="cc-body">
-                <div class="cc-row" *ngIf="contact.phone">
-                  <i class="pi pi-phone"></i> {{ contact.phone }}
-                </div>
-                <div class="cc-row" *ngIf="contact.email">
-                  <i class="pi pi-envelope"></i> {{ contact.email }}
-                </div>
-                <div class="cc-row" *ngIf="!contact.phone && !contact.email"
-                     style="color:#cbd5e1;font-style:italic;">
-                  No contact details
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div *ngIf="!supplier.contacts.length" class="empty-state">
-            <i class="pi pi-users"></i>
-            <p>No contacts added yet.</p>
-          </div>
-
-        </div>
-      </p-tabPanel>
-
-      <!-- ══ TAB 4 · Bank Details ══════════════════════════════════════════ -->
-      <p-tabPanel header="Bank Details" leftIcon="pi pi-credit-card">
-        <div class="tab-content">
-
-          <div *ngIf="bankAccessDenied" class="empty-state">
-            <i class="pi pi-lock"></i>
-            <p>You do not have permission to view bank details.</p>
-          </div>
-
-          <ng-container *ngIf="!bankAccessDenied">
-
-            <div class="tab-toolbar">
-              <span class="tab-section-title">Bank Account Information</span>
-              <p-button [label]="bankDetail ? 'Edit Bank Details' : 'Add Bank Details'"
-                        [icon]="bankDetail ? 'pi pi-pencil' : 'pi pi-plus'"
-                        size="small" [outlined]="true"
-                        (onClick)="openBankEditDialog()"></p-button>
-            </div>
-
-            <div *ngIf="bankDetail; else noBankDetail" class="info-card">
-              <div class="info-card-header">
-                <i class="pi pi-credit-card"></i>
-                <span>Account Details</span>
-              </div>
-              <div class="info-card-body cols-2">
-                <div class="detail-cell">
-                  <div class="cell-label">Bank Name</div>
-                  <div class="cell-value">{{ bankDetail.bankName || '—' }}</div>
-                </div>
-                <div class="detail-cell">
-                  <div class="cell-label">Account Number</div>
-                  <div class="cell-value mono">{{ bankDetail.bankAccountNo || '—' }}</div>
-                </div>
-                <div class="detail-cell">
-                  <div class="cell-label">IBAN</div>
-                  <div class="cell-value mono">{{ bankDetail.bankIban || '—' }}</div>
-                </div>
-                <div class="detail-cell">
-                  <div class="cell-label">SWIFT / BIC</div>
-                  <div class="cell-value mono">{{ bankDetail.bankSwift || '—' }}</div>
-                </div>
-                <div class="detail-cell">
-                  <div class="cell-label">Created At</div>
-                  <div class="cell-value muted">{{ bankDetail.createdAt | date:'medium' }}</div>
-                </div>
-                <div class="detail-cell" *ngIf="bankDetail.updatedAt">
-                  <div class="cell-label">Last Updated</div>
-                  <div class="cell-value muted">{{ bankDetail.updatedAt | date:'medium' }}</div>
-                </div>
-              </div>
-            </div>
-
-            <ng-template #noBankDetail>
-              <div class="empty-state">
-                <i class="pi pi-credit-card"></i>
-                <p>No bank details on record. Click "Add Bank Details" above.</p>
-              </div>
-            </ng-template>
-
-          </ng-container>
-        </div>
-      </p-tabPanel>
-
-      <!-- ══ TAB 5 · Documents ═════════════════════════════════════════════ -->
-      <p-tabPanel header="Documents" leftIcon="pi pi-file">
-        <div class="tab-content">
-
-          <div class="tab-toolbar">
-            <span class="tab-section-title">Attached Documents</span>
-            <p-button label="Attach Document" icon="pi pi-paperclip" size="small"
-                      (onClick)="openDocumentDialog()"></p-button>
-          </div>
-
-          <div class="doc-list" *ngIf="documents.length">
-            <div *ngFor="let doc of documents" class="doc-row">
-              <div class="doc-icon-wrap"><i class="pi pi-file-pdf"></i></div>
-              <div class="doc-info">
-                <p class="doc-name">{{ doc.fileName }}</p>
-                <div class="doc-meta">
-                  <span *ngIf="doc.documentType" class="doc-type-badge">{{ doc.documentType }}</span>
-                  {{ doc.uploadedAt | date:'mediumDate' }}
-                </div>
-              </div>
-              <div class="doc-actions">
-                <a [href]="resolveDocUrl(doc.fileUrl)" target="_blank">
-                  <p-button icon="pi pi-download" [text]="true" size="small"
-                            pTooltip="Download" tooltipPosition="left"></p-button>
-                </a>
-                <p-button icon="pi pi-trash" [text]="true" severity="danger" size="small"
-                          pTooltip="Delete" tooltipPosition="left"
-                          (onClick)="deleteDocument(doc)"></p-button>
-              </div>
-            </div>
-          </div>
-
-          <div *ngIf="!documents.length" class="empty-state">
-            <i class="pi pi-file"></i>
-            <p>No documents attached yet.</p>
-          </div>
-
-        </div>
-      </p-tabPanel>
-
-      <!-- ══ TAB 6 · Supplier Ledger (SFM-002) ════════════════════════════ -->
-      <p-tabPanel header="Ledger" leftIcon="pi pi-book">
-        <div class="tab-content">
-
-          <div class="ledger-balance-grid" *ngIf="ledgerBalance">
-            <div class="balance-card">
-              <div class="cell-label">Total Debits</div>
-              <div class="cell-value">{{ ledgerBalance.totalDebits | number:'1.2-2' }}</div>
-            </div>
-            <div class="balance-card">
-              <div class="cell-label">Total Credits</div>
-              <div class="cell-value">{{ ledgerBalance.totalCredits | number:'1.2-2' }}</div>
-            </div>
-            <div class="balance-card" [class.balance-owed]="ledgerBalance.netBalance > 0">
-              <div class="cell-label">Net Balance (Owed)</div>
-              <div class="cell-value">{{ ledgerBalance.netBalance | number:'1.2-2' }}</div>
-            </div>
-            <div class="balance-card">
-              <div class="cell-label">Available Advance Credit</div>
-              <div class="cell-value">{{ ledgerBalance.availableAdvanceCredit | number:'1.2-2' }}</div>
-            </div>
-          </div>
-
-          <div class="tab-toolbar">
-            <span class="tab-section-title">Ledger Entries</span>
-            <div class="ledger-filters">
-              <p-calendar [(ngModel)]="ledgerDateFrom" placeholder="From" dateFormat="dd/mm/yy"
-                          [showIcon]="true" [showClear]="true" appendTo="body"></p-calendar>
-              <p-calendar [(ngModel)]="ledgerDateTo" placeholder="To" dateFormat="dd/mm/yy"
-                          [showIcon]="true" [showClear]="true" appendTo="body"></p-calendar>
-              <p-button label="Apply" icon="pi pi-search" size="small" (onClick)="onLedgerFilterChange()"></p-button>
-            </div>
-          </div>
-
-          <p-table [value]="ledgerEntries" [loading]="isLoadingLedger"
-                   [paginator]="true" [rows]="ledgerPageSize" [totalRecords]="ledgerTotalRecords"
-                   [lazy]="true" (onPage)="onLedgerPageChange($event)" [rowsPerPageOptions]="[20,50,100]"
-                   styleClass="p-datatable-sm" *ngIf="ledgerEntries.length || isLoadingLedger">
-            <ng-template pTemplate="header">
-              <tr>
-                <th>Date</th>
-                <th>Type</th>
-                <th>Reference</th>
-                <th class="text-right">Debit</th>
-                <th class="text-right">Credit</th>
-                <th class="text-right">Balance After</th>
-              </tr>
-            </ng-template>
-            <ng-template pTemplate="body" let-e>
-              <tr>
-                <td>{{ e.entryDate | date:'dd MMM yyyy, HH:mm' }}</td>
-                <td><p-tag [value]="getLedgerTypeLabel(e.transactionType)" [severity]="getLedgerTypeSeverity(e.transactionType)"></p-tag></td>
-                <td>{{ e.referenceNo || '—' }}</td>
-                <td class="text-right">{{ e.debitAmount ? (e.debitAmount | number:'1.2-2') : '—' }}</td>
-                <td class="text-right">{{ e.creditAmount ? (e.creditAmount | number:'1.2-2') : '—' }}</td>
-                <td class="text-right mono">{{ e.balanceAfter | number:'1.2-2' }}</td>
-              </tr>
-            </ng-template>
-          </p-table>
-
-          <div *ngIf="!ledgerEntries.length && !isLoadingLedger" class="empty-state">
-            <i class="pi pi-book"></i>
-            <p>No ledger entries yet. Entries are created automatically when invoices, credit notes, debit notes, or payments are approved for this supplier.</p>
-          </div>
-
-        </div>
-      </p-tabPanel>
-
-      <!-- ══ TAB 7 · Outstanding Invoices (SFM-003) ═══════════════════════════ -->
-      <p-tabPanel header="Outstanding Invoices" leftIcon="pi pi-file-invoice">
-        <div class="tab-content">
-          <div class="tab-toolbar">
-            <span class="tab-section-title">Outstanding Invoices</span>
-            <p-button label="Record Payment" icon="pi pi-credit-card" size="small"
-                      *ngIf="outstandingInvoices.length && canRecordPayment"
-                      [routerLink]="['/portal/pages/finance/payments/create']"
-                      [queryParams]="{supplierId: uuid}"></p-button>
-          </div>
-
-          <p-table [value]="outstandingInvoices" [loading]="isLoadingOutstanding" styleClass="p-datatable-sm"
-                   *ngIf="outstandingInvoices.length || isLoadingOutstanding">
-            <ng-template pTemplate="header">
-              <tr>
-                <th>Invoice #</th>
-                <th class="text-right">Total</th>
-                <th class="text-right">Outstanding</th>
-                <th>Due Date</th>
-                <th>Status</th>
-                <th class="text-center">Action</th>
-              </tr>
-            </ng-template>
-            <ng-template pTemplate="body" let-inv>
-              <tr>
-                <td class="font-mono">{{ inv.invoiceNumber }}</td>
-                <td class="text-right">{{ inv.totalAmount | number:'1.2-2' }}</td>
-                <td class="text-right font-semibold">{{ inv.outstandingAmount | number:'1.2-2' }}</td>
-                <td>{{ inv.dueDate | date:'dd MMM yyyy' }}</td>
-                <td><p-tag [value]="inv.paymentStatus"></p-tag></td>
-                <td class="text-center">
-                  <p-button *ngIf="canRecordPayment" label="Pay" icon="pi pi-credit-card" size="small" [text]="true"
-                            [routerLink]="['/portal/pages/finance/payments/create']"
-                            [queryParams]="{supplierId: uuid, invoiceUuid: inv.invoiceUuid}"></p-button>
-                </td>
-              </tr>
-            </ng-template>
-          </p-table>
-
-          <div *ngIf="!outstandingInvoices.length && !isLoadingOutstanding" class="empty-state">
-            <i class="pi pi-check-circle"></i>
-            <p>{{ noPayablesHint }}</p>
+        <div class="sf-fields">
+          <div class="sf-fld">Supplier name<span class="v">{{ supplier.supplierName || '—' }}</span></div>
+          <div class="sf-fld">Supplier code<span class="v sf-mono">{{ supplier.supplierCode || '—' }}</span></div>
+          <div class="sf-fld">Registration no.<span class="v sf-mono">{{ supplier.registrationNo || '—' }}</span></div>
+          <div class="sf-fld">Tax ID (NTN)<span class="v sf-mono">{{ supplier.taxId || '—' }}</span></div>
+          <div class="sf-fld">Preferred supplier
+            <span class="v">
+              <i [class]="supplier.isPreferredSupplier ? 'pi pi-star-fill' : 'pi pi-star'"
+                 [style.color]="supplier.isPreferredSupplier ? 'var(--sms-warn)' : 'var(--sms-text-faint)'"></i>
+              {{ supplier.isPreferredSupplier ? 'Yes' : 'No' }}
+            </span>
           </div>
         </div>
-      </p-tabPanel>
 
-      <!-- ══ TAB 8 · Activity Timeline ═════════════════════════════════════════ -->
-      <p-tabPanel header="Activity Timeline" leftIcon="pi pi-history">
-        <div class="tab-content">
-          <div class="tab-toolbar">
-            <span class="tab-section-title">Workflow History</span>
+        <h3>Address</h3>
+        <div class="sf-fields">
+          <div class="sf-fld">Country<span class="v">{{ supplier.country || '—' }}</span></div>
+          <div class="sf-fld">Province / state<span class="v">{{ supplier.provinceState || '—' }}</span></div>
+          <div class="sf-fld">City<span class="v">{{ supplier.city || '—' }}</span></div>
+          <div class="sf-fld">Address
+            <span class="v">
+              <ng-container *ngIf="supplier.addressLine1; else noAddr">
+                {{ supplier.addressLine1 }}
+                <ng-container *ngIf="supplier.addressLine2">, {{ supplier.addressLine2 }}</ng-container>
+                <ng-container *ngIf="supplier.postalCode"> — {{ supplier.postalCode }}</ng-container>
+              </ng-container>
+              <ng-template #noAddr>—</ng-template>
+            </span>
           </div>
+          <div class="sf-fld">Postal code<span class="v sf-mono">{{ supplier.postalCode || '—' }}</span></div>
+        </div>
 
-          <p class="text-secondary" style="margin:0 0 1rem;font-size:.85rem;">
-            Merged lifecycle history across this supplier's purchase orders and invoices
-            (each PO's chain already includes its own PR, GRN, and Invoice events).
-          </p>
-
-          <ul class="timeline-feed" *ngIf="timelineEvents.length">
-            <li class="timeline-feed-item" *ngFor="let e of timelineEvents" (click)="goToTimelineEvent(e)">
-              <div class="timeline-feed-dot"></div>
-              <div class="timeline-feed-body">
-                <div class="timeline-feed-head">
-                  <span class="timeline-feed-doc">{{ e.documentNumber || e.documentId }}</span>
-                  <p-tag [value]="e.interfaceCode" severity="secondary"></p-tag>
-                  <span class="timeline-feed-event">{{ timelineEventLabel(e) }}</span>
-                </div>
-                <div class="timeline-feed-meta">
-                  {{ e.occurredAt | date:'dd MMM yyyy, HH:mm' }}
-                  <ng-container *ngIf="e.performedByName">&bull; {{ e.performedByName }}</ng-container>
-                </div>
-                <div class="timeline-feed-notes" *ngIf="e.notes">{{ e.notes }}</div>
-              </div>
-            </li>
-          </ul>
-
-          <div *ngIf="!timelineEvents.length && !isLoadingTimeline" class="empty-state">
-            <i class="pi pi-history"></i>
-            <p>No workflow activity recorded yet for this supplier.</p>
+        <h3>Contact information</h3>
+        <div class="sf-fields">
+          <div class="sf-fld">Phone<span class="v">{{ supplier.phone || '—' }}</span></div>
+          <div class="sf-fld">Fax<span class="v">{{ supplier.fax || '—' }}</span></div>
+          <div class="sf-fld">Email
+            <span class="v">
+              <a *ngIf="supplier.email" [href]="'mailto:' + supplier.email">{{ supplier.email }}</a>
+              <span *ngIf="!supplier.email" class="sf-mu">—</span>
+            </span>
           </div>
-
-          <div *ngIf="isLoadingTimeline" class="empty-state">
-            <i class="pi pi-spin pi-spinner"></i>
-            <p>Loading timeline…</p>
+          <div class="sf-fld">Website
+            <span class="v">
+              <a *ngIf="supplier.website" [href]="supplier.website" target="_blank">{{ supplier.website }}</a>
+              <span *ngIf="!supplier.website" class="sf-mu">—</span>
+            </span>
           </div>
         </div>
-      </p-tabPanel>
 
-    </p-tabView>
-  </div>
-</div>
+        <h3>Primary contact person</h3>
+        <div class="sf-fields">
+          <div class="sf-fld">Contact name<span class="v">{{ supplier.primaryContactName || '—' }}</span></div>
+          <div class="sf-fld">Title / position<span class="v">{{ supplier.primaryContactTitle || '—' }}</span></div>
+          <div class="sf-fld">Contact phone<span class="v">{{ supplier.primaryContactPhone || '—' }}</span></div>
+          <div class="sf-fld">Contact email<span class="v">{{ supplier.primaryContactEmail || '—' }}</span></div>
+        </div>
+
+        <ng-container *ngIf="supplier.notes">
+          <h3>Notes</h3>
+          <p class="sf-mu notes">{{ supplier.notes }}</p>
+        </ng-container>
+      </section>
+
+      <!-- ══ Purchasing (commercial terms) ════════════════════════════════ -->
+      <section id="sec-purchasing" class="sf-section sf-card">
+        <div class="sf-ch"><h2>Purchasing</h2></div>
+        <div class="sf-fields">
+          <div class="sf-fld">Payment terms<span class="v">{{ resolveLookupLabel(paymentTermsOptions, supplier.preferredPaymentTerms) }}</span></div>
+          <div class="sf-fld">Currency<span class="v">{{ resolveLookupLabel(currencyOptions, supplier.preferredCurrency) }}</span></div>
+          <div class="sf-fld">Credit limit
+            <span class="v sf-num">{{ supplier.creditLimit != null ? (supplier.creditLimit | number:'1.2-2') : '—' }}</span>
+          </div>
+          <div class="sf-fld">Lead time (days)<span class="v">{{ supplier.leadTimeDays || '—' }}</span></div>
+          <div class="sf-fld">Rating<span class="v">{{ supplier.rating || '—' }}</span></div>
+          <div class="sf-fld">Onboarding date<span class="v">{{ (supplier.onboardingDate | date:'mediumDate') || '—' }}</span></div>
+          <div class="sf-fld">Last review<span class="v">{{ (supplier.lastReviewDate | date:'mediumDate') || '—' }}</span></div>
+          <div class="sf-fld">Created<span class="v">{{ supplier.createdDate | date:'mediumDate' }}</span></div>
+        </div>
+      </section>
+
+      <!-- ══ Contacts ═════════════════════════════════════════════════════ -->
+      <section id="sec-contacts" class="sf-section sf-card">
+        <div class="sf-ch">
+          <h2>Contact persons</h2>
+          <p-button label="Add contact" icon="pi pi-plus" size="small" [text]="true"
+                    (onClick)="openContactDialog()"></p-button>
+        </div>
+
+        <div class="sf-grid" *ngIf="supplier.contacts.length">
+          <div *ngFor="let contact of supplier.contacts" class="sf-card flat contact-card">
+            <div>
+              <strong>{{ contact.contactName }}</strong>
+              <p-tag *ngIf="contact.isPrimary" value="Primary" severity="success"
+                     styleClass="text-xs"></p-tag>
+              <div class="sf-mu sf-sm">{{ contact.title || 'No title' }}</div>
+            </div>
+            <div class="sf-sm">
+              <div *ngIf="contact.phone"><i class="pi pi-phone"></i> {{ contact.phone }}</div>
+              <div *ngIf="contact.email"><i class="pi pi-envelope"></i> {{ contact.email }}</div>
+              <div *ngIf="!contact.phone && !contact.email" class="sf-mu"><em>No contact details</em></div>
+            </div>
+          </div>
+        </div>
+
+        <div *ngIf="!supplier.contacts.length" class="sf-empty">No contacts added yet.</div>
+      </section>
+
+      <!-- ══ Bank details ═════════════════════════════════════════════════ -->
+      <section id="sec-bank" class="sf-section sf-card">
+        <div class="sf-ch">
+          <h2>Bank account</h2>
+          <p-button *ngIf="!bankAccessDenied" [label]="bankDetail ? 'Edit Bank Details' : 'Add Bank Details'"
+                    [icon]="bankDetail ? 'pi pi-pencil' : 'pi pi-plus'"
+                    size="small" [text]="true"
+                    (onClick)="openBankEditDialog()"></p-button>
+        </div>
+
+        <div *ngIf="bankAccessDenied" class="sf-empty">
+          <i class="pi pi-lock"></i> You do not have permission to view bank details.
+        </div>
+
+        <ng-container *ngIf="!bankAccessDenied">
+          <div *ngIf="bankDetail; else noBankDetail" class="sf-fields">
+            <div class="sf-fld">Bank name<span class="v">{{ bankDetail.bankName || '—' }}</span></div>
+            <div class="sf-fld">Account number<span class="v sf-mono">{{ bankDetail.bankAccountNo || '—' }}</span></div>
+            <div class="sf-fld">IBAN<span class="v sf-mono">{{ bankDetail.bankIban || '—' }}</span></div>
+            <div class="sf-fld">SWIFT / BIC<span class="v sf-mono">{{ bankDetail.bankSwift || '—' }}</span></div>
+            <div class="sf-fld">Created at<span class="v">{{ bankDetail.createdAt | date:'medium' }}</span></div>
+            <div class="sf-fld" *ngIf="bankDetail.updatedAt">Last updated<span class="v">{{ bankDetail.updatedAt | date:'medium' }}</span></div>
+          </div>
+
+          <ng-template #noBankDetail>
+            <div class="sf-empty">No bank details on record. Click "Add Bank Details" above.</div>
+          </ng-template>
+        </ng-container>
+      </section>
+
+      <!-- ══ Documents ════════════════════════════════════════════════════ -->
+      <section id="sec-documents" class="sf-section sf-card p0">
+        <div class="sf-ch">
+          <h2>Attached documents</h2>
+          <p-button label="Attach document" icon="pi pi-paperclip" size="small" [text]="true"
+                    (onClick)="openDocumentDialog()"></p-button>
+        </div>
+
+        <div *ngIf="documents.length">
+          <div *ngFor="let doc of documents" class="doc-row">
+            <i class="pi pi-file-pdf doc-icon"></i>
+            <div class="doc-info">
+              <div class="doc-name">{{ doc.fileName }}</div>
+              <div class="sf-mu sf-sm">
+                <span *ngIf="doc.documentType" class="sf-pill in">{{ doc.documentType }}</span>
+                {{ doc.uploadedAt | date:'mediumDate' }}
+              </div>
+            </div>
+            <div class="doc-actions">
+              <a [href]="resolveDocUrl(doc.fileUrl)" target="_blank">
+                <p-button icon="pi pi-download" [text]="true" size="small"
+                          pTooltip="Download" tooltipPosition="left"></p-button>
+              </a>
+              <p-button icon="pi pi-trash" [text]="true" severity="danger" size="small"
+                        pTooltip="Delete" tooltipPosition="left"
+                        (onClick)="deleteDocument(doc)"></p-button>
+            </div>
+          </div>
+        </div>
+
+        <div *ngIf="!documents.length" class="sf-empty">No documents attached yet.</div>
+      </section>
+
+      <!-- ══ Supplier Ledger (SFM-002) ════════════════════════════════════ -->
+      <section id="sec-ledger" class="sf-section sf-card p0">
+        <div class="sf-ch">
+          <h2>Ledger entries</h2>
+          <div class="sf-ch-actions">
+            <p-calendar [(ngModel)]="ledgerDateFrom" placeholder="From" dateFormat="dd/mm/yy"
+                        [showIcon]="true" [showClear]="true" appendTo="body"></p-calendar>
+            <p-calendar [(ngModel)]="ledgerDateTo" placeholder="To" dateFormat="dd/mm/yy"
+                        [showIcon]="true" [showClear]="true" appendTo="body"></p-calendar>
+            <p-button label="Apply" icon="pi pi-search" size="small" (onClick)="onLedgerFilterChange()"></p-button>
+          </div>
+        </div>
+
+        <div class="sf-pad" *ngIf="ledgerBalance">
+          <div class="sf-grid sf-tiles">
+            <div class="sf-tile"><span class="l">Total debits</span><span class="v">{{ ledgerBalance.totalDebits | number:'1.2-2' }}</span></div>
+            <div class="sf-tile"><span class="l">Total credits</span><span class="v">{{ ledgerBalance.totalCredits | number:'1.2-2' }}</span></div>
+            <div class="sf-tile"><span class="l">Net balance (owed)</span><span class="v" [class.er]="ledgerBalance.netBalance > 0">{{ ledgerBalance.netBalance | number:'1.2-2' }}</span></div>
+            <div class="sf-tile"><span class="l">Available advance credit</span><span class="v">{{ ledgerBalance.availableAdvanceCredit | number:'1.2-2' }}</span></div>
+          </div>
+        </div>
+
+        <p-table [value]="ledgerEntries" [loading]="isLoadingLedger"
+                 [paginator]="true" [rows]="ledgerPageSize" [totalRecords]="ledgerTotalRecords"
+                 [lazy]="true" (onPage)="onLedgerPageChange($event)" [rowsPerPageOptions]="[20,50,100]"
+                 styleClass="p-datatable-sm" *ngIf="ledgerEntries.length || isLoadingLedger">
+          <ng-template pTemplate="header">
+            <tr>
+              <th>Date</th>
+              <th>Type</th>
+              <th>Reference</th>
+              <th class="sf-r">Debit</th>
+              <th class="sf-r">Credit</th>
+              <th class="sf-r">Balance after</th>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="body" let-e>
+            <tr>
+              <td>{{ e.entryDate | date:'dd MMM yyyy, HH:mm' }}</td>
+              <td><p-tag [value]="getLedgerTypeLabel(e.transactionType)" [severity]="getLedgerTypeSeverity(e.transactionType)"></p-tag></td>
+              <td>{{ e.referenceNo || '—' }}</td>
+              <td class="sf-r sf-num">{{ e.debitAmount ? (e.debitAmount | number:'1.2-2') : '—' }}</td>
+              <td class="sf-r sf-num">{{ e.creditAmount ? (e.creditAmount | number:'1.2-2') : '—' }}</td>
+              <td class="sf-r sf-num">{{ e.balanceAfter | number:'1.2-2' }}</td>
+            </tr>
+          </ng-template>
+        </p-table>
+
+        <div *ngIf="!ledgerEntries.length && !isLoadingLedger" class="sf-empty">
+          No ledger entries yet. Entries are created automatically when invoices, credit notes, debit notes, or payments are approved for this supplier.
+        </div>
+      </section>
+
+      <!-- ══ Outstanding Invoices (SFM-003) ═══════════════════════════════ -->
+      <section id="sec-invoices" class="sf-section sf-card p0">
+        <div class="sf-ch">
+          <h2>Outstanding invoices</h2>
+          <p-button label="Record Payment" icon="pi pi-credit-card" size="small"
+                    *ngIf="outstandingInvoices.length && canRecordPayment"
+                    [routerLink]="['/portal/pages/finance/payments/create']"
+                    [queryParams]="{supplierId: uuid}"></p-button>
+        </div>
+
+        <p-table [value]="outstandingInvoices" [loading]="isLoadingOutstanding" styleClass="p-datatable-sm"
+                 *ngIf="outstandingInvoices.length || isLoadingOutstanding">
+          <ng-template pTemplate="header">
+            <tr>
+              <th>Invoice #</th>
+              <th class="sf-r">Total</th>
+              <th class="sf-r">Outstanding</th>
+              <th>Due date</th>
+              <th>Status</th>
+              <th class="text-center">Action</th>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="body" let-inv>
+            <tr>
+              <td class="sf-mono">{{ inv.invoiceNumber }}</td>
+              <td class="sf-r sf-num">{{ inv.totalAmount | number:'1.2-2' }}</td>
+              <td class="sf-r sf-num"><strong>{{ inv.outstandingAmount | number:'1.2-2' }}</strong></td>
+              <td>{{ inv.dueDate | date:'dd MMM yyyy' }}</td>
+              <td><p-tag [value]="inv.paymentStatus"></p-tag></td>
+              <td class="text-center">
+                <p-button *ngIf="canRecordPayment" label="Pay" icon="pi pi-credit-card" size="small" [text]="true"
+                          [routerLink]="['/portal/pages/finance/payments/create']"
+                          [queryParams]="{supplierId: uuid, invoiceUuid: inv.invoiceUuid}"></p-button>
+              </td>
+            </tr>
+          </ng-template>
+        </p-table>
+
+        <div *ngIf="!outstandingInvoices.length && !isLoadingOutstanding" class="sf-empty">
+          <i class="pi pi-check-circle"></i> {{ noPayablesHint }}
+        </div>
+      </section>
+    </div>
+  </ng-container>
+
+  <!-- ── Side panel: activity timeline ───────────────────────────────────── -->
+  <sf-panel #panel [tabs]="['Activity']">
+    <ng-container *ngIf="panel.active() === 'Activity'">
+      <span class="sf-mu sf-sm">
+        Merged lifecycle history across this supplier's purchase orders and invoices
+        (each PO's chain already includes its own PR, GRN, and Invoice events).
+      </span>
+
+      <div class="sf-tl" *ngIf="timelineEvents.length">
+        <div class="sf-tl-e timeline-item" *ngFor="let e of timelineEvents" (click)="goToTimelineEvent(e)">
+          <span class="timeline-dot"></span>
+          <div>
+            <strong>{{ e.documentNumber || e.documentId }}</strong>
+            <p-tag [value]="e.interfaceCode" severity="secondary"></p-tag>
+            <span class="sf-mu"> {{ timelineEventLabel(e) }}</span>
+            <div class="sf-mu sf-sm">
+              {{ e.occurredAt | date:'dd MMM yyyy, HH:mm' }}
+              <ng-container *ngIf="e.performedByName">&bull; {{ e.performedByName }}</ng-container>
+            </div>
+            <div class="sf-mu sf-sm" *ngIf="e.notes">{{ e.notes }}</div>
+          </div>
+        </div>
+      </div>
+
+      <div *ngIf="!timelineEvents.length && !isLoadingTimeline" class="sf-empty">
+        No workflow activity recorded yet for this supplier.
+      </div>
+
+      <div *ngIf="isLoadingTimeline" class="sf-empty">
+        <i class="pi pi-spin pi-spinner"></i> Loading timeline…
+      </div>
+    </ng-container>
+  </sf-panel>
+</sf-page>
 
 
 <!-- ══════════════════════════════════════════════════════════════════════ -->
@@ -629,15 +418,15 @@
   <div class="edit-dialog-body" *ngIf="showEditDialog">
 
     <!-- Custom header -->
-    <div class="edit-section-header" style="padding:1rem 1.5rem;border-radius:0;border-bottom:2px solid #ede9fe;">
-      <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#6c63ff,#a78bfa);
-                  display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(108,99,255,.28);">
-        <i class="pi pi-pencil" style="color:#fff;font-size:.9rem;"></i>
+    <div class="edit-section-header" style="padding:1rem 1.5rem;border-radius:0;border-bottom:2px solid var(--sms-border);">
+      <div style="width:36px;height:36px;border-radius:10px;background:var(--sms-primary);
+                  display:flex;align-items:center;justify-content:center;">
+        <i class="pi pi-pencil" style="color:var(--sms-on-primary);font-size:.9rem;"></i>
       </div>
       <div style="flex:1;margin-left:.1rem;">
-        <div style="font-size:1rem;font-weight:700;color:#0f172a;text-transform:none;letter-spacing:0;">Edit Supplier</div>
-        <div style="font-size:.78rem;color:#94a3b8;font-weight:400;text-transform:none;letter-spacing:0;">
-          Update information for <strong style="color:#6c63ff;">{{ supplier.supplierName }}</strong>
+        <div style="font-size:1rem;font-weight:700;color:var(--sms-text);text-transform:none;letter-spacing:0;">Edit Supplier</div>
+        <div style="font-size:.78rem;color:var(--sms-text-faint);font-weight:400;text-transform:none;letter-spacing:0;">
+          Update information for <strong style="color:var(--sms-primary-text);">{{ supplier.supplierName }}</strong>
         </div>
       </div>
       <p-button icon="pi pi-times" [text]="true" severity="secondary"
@@ -653,7 +442,7 @@
             <label class="field-label">Supplier Name <span class="req">*</span></label>
             <input pInputText formControlName="supplierName" class="w-full" placeholder="e.g. Acme Corporation"
                    [class.ng-invalid]="ef['supplierName'].invalid && ef['supplierName'].touched" />
-            <small style="color:#ef4444;font-size:.78rem;"
+            <small style="color:var(--sms-danger);font-size:.78rem;"
                    *ngIf="ef['supplierName'].invalid && ef['supplierName'].touched">
               Required (min 2 characters).
             </small>
@@ -722,7 +511,7 @@
             <label class="field-label">Email</label>
             <input pInputText formControlName="email" class="w-full" placeholder="info@company.com"
                    [class.ng-invalid]="ef['email'].invalid && ef['email'].touched" />
-            <small style="color:#ef4444;font-size:.78rem;"
+            <small style="color:var(--sms-danger);font-size:.78rem;"
                    *ngIf="ef['email'].invalid && ef['email'].touched">Valid email required.</small>
           </div>
           <div class="field">
@@ -752,7 +541,7 @@
             <input pInputText formControlName="primaryContactEmail" class="w-full"
                    placeholder="contact@company.com"
                    [class.ng-invalid]="ef['primaryContactEmail'].invalid && ef['primaryContactEmail'].touched" />
-            <small style="color:#ef4444;font-size:.78rem;"
+            <small style="color:var(--sms-danger);font-size:.78rem;"
                    *ngIf="ef['primaryContactEmail'].invalid && ef['primaryContactEmail'].touched">
               Valid email required.
             </small>
@@ -800,7 +589,7 @@
                            optionLabel="label" optionValue="value"
                            placeholder="Select supplier types" [filter]="true" filterBy="label"
                            styleClass="w-full" appendTo="body"></p-multiselect>
-            <small style="font-size:.75rem;color:#94a3b8;">First selected is marked as primary.</small>
+            <small style="font-size:.75rem;color:var(--sms-text-faint);">First selected is marked as primary.</small>
           </div>
           <div class="field">
             <label class="field-label">Industry Categories</label>
@@ -808,7 +597,7 @@
                            optionLabel="label" optionValue="value"
                            placeholder="Select industries" [filter]="true" filterBy="label"
                            styleClass="w-full" appendTo="body"></p-multiselect>
-            <small style="font-size:.75rem;color:#94a3b8;">First selected is marked as primary.</small>
+            <small style="font-size:.75rem;color:var(--sms-text-faint);">First selected is marked as primary.</small>
           </div>
         </div>
       </div>
@@ -823,7 +612,7 @@
           </div>
           <div class="field" style="flex-direction:row;align-items:center;gap:.5rem;">
             <p-checkbox formControlName="isPreferredSupplier" [binary]="true" inputId="editPreferred"></p-checkbox>
-            <label for="editPreferred" style="cursor:pointer;font-size:.875rem;font-weight:500;color:#374151;">
+            <label for="editPreferred" style="cursor:pointer;font-size:.875rem;font-weight:500;color:var(--sms-text);">
               Mark as Preferred Supplier
             </label>
           </div>
@@ -884,7 +673,7 @@
               placeholder="State the reason for suspension…" class="w-full"></textarea>
   </div>
   <div class="field">
-    <label class="field-label">Review Date <span style="color:#94a3b8;font-weight:400;">(optional)</span></label>
+    <label class="field-label">Review Date <span style="color:var(--sms-text-faint);font-weight:400;">(optional)</span></label>
     <input type="date" class="w-full p-inputtext"
            [value]="suspendReviewDate ? (suspendReviewDate | date:'yyyy-MM-dd') : ''"
            (change)="suspendReviewDate = $any($event.target).valueAsDate" />
@@ -906,7 +695,7 @@
         <label class="field-label">Contact Name <span class="req">*</span></label>
         <input pInputText formControlName="contactName" class="w-full" placeholder="Full name"
                [class.ng-invalid]="contactForm.controls['contactName'].invalid && contactForm.controls['contactName'].touched" />
-        <small style="color:#ef4444;font-size:.78rem;"
+        <small style="color:var(--sms-danger);font-size:.78rem;"
                *ngIf="contactForm.controls['contactName'].invalid && contactForm.controls['contactName'].touched">
           Contact name is required.
         </small>
@@ -925,7 +714,7 @@
       </div>
       <div class="field" style="flex-direction:row;align-items:center;gap:.5rem;grid-column:span 2;">
         <p-checkbox formControlName="isPrimary" [binary]="true" inputId="isPrimary"></p-checkbox>
-        <label for="isPrimary" style="cursor:pointer;font-size:.875rem;font-weight:500;color:#374151;">
+        <label for="isPrimary" style="cursor:pointer;font-size:.875rem;font-weight:500;color:var(--sms-text);">
           Primary Contact
         </label>
       </div>
@@ -991,7 +780,7 @@
         <p class="file-drop-hint">PDF, Word, Excel, images — max 20 MB</p>
       </ng-container>
       <ng-container *ngIf="selectedFile">
-        <i class="pi pi-file-check file-drop-icon" style="color:#22c55e"></i>
+        <i class="pi pi-file-check file-drop-icon" style="color:var(--sms-ok)"></i>
         <p class="file-drop-label">{{ selectedFile.name }}</p>
         <p class="file-drop-hint">{{ (selectedFile.size / 1024 / 1024).toFixed(2) }} MB &bull; Click to change</p>
       </ng-container>

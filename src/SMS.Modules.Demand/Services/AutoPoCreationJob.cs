@@ -85,6 +85,14 @@ internal sealed class AutoPoCreationJob : IAutoPoCreationJob
             return;
         }
 
+        // A36 D-10 — nor a service line: its service order performs it.
+        if (SaleOrderServiceLines.IsService(line))
+        {
+            _log.LogInformation("Auto-PO: sale order {So} line {Line} is a service line; its service order performs it.",
+                saleOrderUuid, saleOrderLineUuid);
+            return;
+        }
+
         // What is short NOW, not what was short when the job was enqueued: stock may have arrived, or
         // a GRN reserved against it, in between.
         var deficit = line.DeficitQty ?? 0m;

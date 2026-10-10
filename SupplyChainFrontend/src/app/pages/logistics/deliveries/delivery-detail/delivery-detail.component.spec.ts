@@ -978,7 +978,7 @@ describe('DeliveryDetailComponent', () => {
       }));
       fixture.detectChanges();
 
-      const headers = Array.from(fixture.nativeElement.querySelectorAll('.table-card thead th'))
+      const headers = Array.from(fixture.nativeElement.querySelectorAll('[data-testid="lines-table"] thead th'))
         .map((th: any) => th.textContent.trim());
       expect(headers).toEqual(jasmine.arrayContaining(['Picked', 'Packed', 'Shipped']));
       expect(q('qty-picked').textContent.trim()).toBe('600');

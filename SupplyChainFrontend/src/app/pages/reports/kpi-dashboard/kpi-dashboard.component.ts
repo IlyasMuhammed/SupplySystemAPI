@@ -9,6 +9,7 @@ import { TooltipModule } from 'primeng/tooltip';
 import { ChartModule } from 'primeng/chart';
 import { MessageService } from 'primeng/api';
 import { ReportsService, KpiDashboardModel, KpiMetric, OperationsKpiModel } from '../../../services/reports.service';
+import { FLOW } from '../../../shared/flow';
 
 /** Everything the page reads a KPI from: the original KPIs and the operations KPIs. */
 export interface KpiSources {
@@ -51,7 +52,7 @@ const basis  = (m: KpiMetric | null | undefined) => (m ? m.basis : null);
 @Component({
   selector: 'app-kpi-dashboard',
   standalone: true,
-  imports: [CommonModule, ButtonModule, SkeletonModule, ToastModule, TooltipModule, ChartModule],
+  imports: [CommonModule, ButtonModule, SkeletonModule, ToastModule, TooltipModule, ChartModule, ...FLOW],
   templateUrl: './kpi-dashboard.component.html',
   styleUrls: ['./kpi-dashboard.component.scss'],
   providers: [MessageService]
@@ -74,7 +75,7 @@ export class KpiDashboardComponent implements OnInit {
 
   readonly sections: KpiSection[] = [
     {
-      id: 'sales', title: 'Sales', icon: 'pi pi-chart-line', color: '#8b5cf6',
+      id: 'sales', title: 'Sales', icon: 'pi pi-chart-line', color: 'var(--sms-violet)',
       available: s => !!s.ops?.sales,
       cards: [
         {
@@ -104,7 +105,7 @@ export class KpiDashboardComponent implements OnInit {
       ]
     },
     {
-      id: 'fulfilment', title: 'Fulfilment', icon: 'pi pi-truck', color: '#0ea5e9',
+      id: 'fulfilment', title: 'Fulfilment', icon: 'pi pi-truck', color: 'var(--sms-primary-text)',
       available: s => !!s.ops?.fulfilment,
       cards: [
         {
@@ -128,7 +129,7 @@ export class KpiDashboardComponent implements OnInit {
       ]
     },
     {
-      id: 'manufacturing', title: 'Manufacturing', icon: 'pi pi-cog', color: '#f97316',
+      id: 'manufacturing', title: 'Manufacturing', icon: 'pi pi-cog', color: 'var(--sms-warn)',
       available: s => !!s.ops?.manufacturing,
       cards: [
         {
@@ -158,7 +159,7 @@ export class KpiDashboardComponent implements OnInit {
       ]
     },
     {
-      id: 'receivables', title: 'Receivables', icon: 'pi pi-wallet', color: '#14b8a6',
+      id: 'receivables', title: 'Receivables', icon: 'pi pi-wallet', color: 'var(--sms-teal)',
       available: s => !!s.ops?.receivables,
       cards: [
         {
@@ -176,7 +177,7 @@ export class KpiDashboardComponent implements OnInit {
       ]
     },
     {
-      id: 'procurement', title: 'Procurement', icon: 'pi pi-shopping-cart', color: '#7c3aed',
+      id: 'procurement', title: 'Procurement', icon: 'pi pi-shopping-cart', color: 'var(--sms-violet)',
       available: s => !!s.core,
       cards: [
         {
@@ -202,7 +203,7 @@ export class KpiDashboardComponent implements OnInit {
       ]
     },
     {
-      id: 'inventory', title: 'Inventory & Receiving', icon: 'pi pi-box', color: '#059669',
+      id: 'inventory', title: 'Inventory & Receiving', icon: 'pi pi-box', color: 'var(--sms-ok)',
       available: s => !!s.core,
       cards: [
         {
@@ -228,7 +229,7 @@ export class KpiDashboardComponent implements OnInit {
       ]
     },
     {
-      id: 'payables', title: 'Payables', icon: 'pi pi-credit-card', color: '#d97706',
+      id: 'payables', title: 'Payables', icon: 'pi pi-credit-card', color: 'var(--sms-warn)',
       available: s => !!s.core,
       cards: [
         {
@@ -411,12 +412,17 @@ export class KpiDashboardComponent implements OnInit {
   }
 
   private buildCharts(): void {
+    // Chart.js cannot read CSS vars: take the SMS Flow tokens' values now. A chart built before a light/dark switch
+    // keeps these until it is built again (next load/refresh).
+    const css = getComputedStyle(document.documentElement);
+    const token = (name: string, fallback: string) => css.getPropertyValue(name).trim() || fallback;
+    const surface = token('--sms-surface', '#ffffff');
     this.donutData = {
       labels: ['On Track', 'Watch', 'Alert'],
       datasets: [{
         data: [this.goodCount, this.warnCount, this.badCount],
-        backgroundColor: ['#10b981', '#f59e0b', '#ef4444'],
-        borderColor: ['#ffffff', '#ffffff', '#ffffff'],
+        backgroundColor: ['#1d7a4a', '#c27a00', '#b3261e'],
+        borderColor: [surface, surface, surface],
         borderWidth: 3,
         hoverOffset: 10
       }]
@@ -428,7 +434,7 @@ export class KpiDashboardComponent implements OnInit {
       plugins: {
         legend: { display: false },
         tooltip: {
-          backgroundColor: '#1e293b', titleColor: '#f8fafc', bodyColor: '#cbd5e1',
+          backgroundColor: token('--sms-navy', '#13233a'), titleColor: '#ffffff', bodyColor: token('--sms-navy-text', '#c3cfdc'),
           padding: 14, cornerRadius: 12, boxPadding: 4,
           callbacks: { label: (ctx: any) => ` ${ctx.raw} KPI${ctx.raw !== 1 ? 's' : ''} — ${ctx.label}` }
         }

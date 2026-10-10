@@ -21,6 +21,7 @@ import {
   CodSummaryModel,
   CarrierListItemModel
 } from '../../../../services/logistics.service';
+import { FLOW } from '../../../../shared/flow';
 
 type Severity = 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast';
 
@@ -39,7 +40,8 @@ type CodAction = 'collected' | 'remitted' | 'write-off';
   imports: [
     CommonModule, RouterModule, FormsModule,
     ButtonModule, TagModule, TableModule, TooltipModule, ToastModule, DialogModule,
-    InputTextModule, InputNumberModule, TextareaModule, SelectModule, DatePickerModule
+    InputTextModule, InputNumberModule, TextareaModule, SelectModule, DatePickerModule,
+    ...FLOW
   ],
   templateUrl: './cod-reconciliation.component.html',
   styleUrls: ['./cod-reconciliation.component.scss'],

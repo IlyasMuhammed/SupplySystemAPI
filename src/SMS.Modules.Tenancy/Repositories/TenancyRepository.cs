@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using SMS.Modules.Tenancy.Data;
 using SMS.Modules.Tenancy.Domain;
 using SMS.Modules.Tenancy.Models;
+using SMS.Modules.Tenancy.Services;
 using SMS.Shared.Common;
 using SMS.Shared.Pagination;
 
@@ -145,12 +146,17 @@ internal sealed class TenancyRepository : ITenancyRepository
             foreach (var feature in features)
             {
                 templates.TryGetValue(feature.Id, out var isEnabledByDefault);
+                // A37 D-4 — the plan is the licence; MOD-08 — BOM management from the plan is the system's.
                 _db.OrganizationFeatures.Add(new OrganizationFeature
                 {
                     Id                  = Guid.NewGuid(),
                     OrganizationId      = org.Id,
                     FeatureDefinitionId = feature.Id,
-                    IsEnabled           = isEnabledByDefault
+                    IsEnabled           = isEnabledByDefault,
+                    IsLicensed          = isEnabledByDefault,
+                    EnabledAt           = isEnabledByDefault ? now : null,
+                    EnabledBy           = isEnabledByDefault ? createdBy : null,
+                    IsSystemManaged     = isEnabledByDefault && feature.FeatureCode == ModuleCodes.BomManagement
                 });
             }
 
@@ -248,15 +254,16 @@ internal sealed class TenancyRepository : ITenancyRepository
             .Where(t => t.Plan.ToLower() == org.Plan.ToLower())
             .ToDictionaryAsync(t => t.FeatureDefinitionId, t => t.IsEnabledByDefault);
 
-        var orgFeatures = await _db.OrganizationFeatures.Where(f => f.OrganizationId == id).ToListAsync();
-        var now = DateTime.UtcNow;
-
-        foreach (var of in orgFeatures)
+        // A37 D-4 — resets the licence (and the switch with it); only rows that change are written and logged.
+        var writer = await OrgFeatureWriter.LoadAsync(_db, id, DateTime.UtcNow);
+        foreach (var state in writer.States.Where(s => s.Row is not null).ToList())
         {
-            if (!templates.TryGetValue(of.FeatureDefinitionId, out var isEnabledByDefault)) continue;
-            of.IsEnabled    = isEnabledByDefault;
-            of.ModifiedBy   = modifiedBy;
-            of.ModifiedDate = now;
+            if (!templates.TryGetValue(state.Definition.Id, out var isEnabledByDefault)) continue;
+            var row = state.Row!;
+            if (row.IsLicensed == isEnabledByDefault && row.IsEnabled == isEnabledByDefault) continue;
+            writer.SetLicence(state.Code, isEnabledByDefault, modifiedBy, $"Plan template {org.Plan} applied.");
+            if (isEnabledByDefault && state.Code.Equals(ModuleCodes.BomManagement, StringComparison.OrdinalIgnoreCase))
+                row.IsSystemManaged = true;
         }
 
         await _db.SaveChangesAsync();
@@ -305,24 +312,32 @@ internal sealed class TenancyRepository : ITenancyRepository
 
     public async Task<List<OrganizationFeatureModel>> GetOrganizationFeaturesAsync(Guid orgId)
     {
-        var features = await _db.FeatureDefinitions.OrderBy(f => f.Category).ThenBy(f => f.DisplayOrder).ToListAsync();
-        var orgFeatures = await _db.OrganizationFeatures
-            .Where(f => f.OrganizationId == orgId)
-            .ToDictionaryAsync(f => f.FeatureDefinitionId);
+        var now = DateTime.UtcNow;
+        var states = await ModuleState.LoadAsync(_db, orgId, track: false);
+        var access = ModuleState.Evaluate(states, now);
 
-        return features.Select(f =>
+        return states.OrderBy(s => s.Definition.Category).ThenBy(s => s.Definition.DisplayOrder).Select(s =>
         {
-            orgFeatures.TryGetValue(f.Id, out var of);
+            var f = s.Definition;
+            var of = s.Row;
+            var status = ModuleState.Status(s, now);
             return new OrganizationFeatureModel
             {
-                FeatureCode  = f.FeatureCode,
-                FeatureName  = f.FeatureName,
-                Category     = f.Category,
-                Description  = f.Description,
-                IsCore       = f.IsCore,
-                DisplayOrder = f.DisplayOrder,
-                IsEnabled    = of?.IsEnabled ?? false,
-                ModifiedDate = of?.ModifiedDate
+                FeatureCode      = f.FeatureCode,
+                FeatureName      = f.FeatureName,
+                Category         = f.Category,
+                Description      = f.Description,
+                IsCore           = f.IsCore,
+                DisplayOrder     = f.DisplayOrder,
+                IsEnabled        = of?.IsEnabled ?? false,
+                ModifiedDate     = of?.ModifiedDate,
+                IsLicensed       = of?.IsLicensed ?? false,
+                Status           = status,
+                GraceEndsAt      = status == ModuleState.StatusGrace ? of!.GracePeriodEndsAt : null,
+                ParentModuleCode = f.ParentModuleCode,
+                IsAlwaysOn       = f.IsAlwaysOn,
+                IsAvailable      = f.IsAvailable,
+                IsUsable         = access[f.FeatureCode].Level == FeatureAccessLevel.Full
             };
         }).ToList();
     }
@@ -330,42 +345,19 @@ internal sealed class TenancyRepository : ITenancyRepository
     // Writes only the changed rows (the service layer has already computed the diff) in one
     // SaveChangesAsync — single DbContext, already atomic, no cross-context transaction needed
     // here unlike CreateOrganizationWithAdminAsync.
+    // A37 D-4/D-8 — the super admin's toggle is the licence (licensed + switched on together), logged LICENSED /
+    // UNLICENSED, and MOD-08 follows Manufacturing / Service Orders.
     public async Task SaveFeatureChangesAsync(Guid orgId, Dictionary<string, bool> changes, int modifiedBy)
     {
         if (changes.Count == 0) return;
 
-        var featureIds = await _db.FeatureDefinitions
-            .Where(f => changes.Keys.Contains(f.FeatureCode))
-            .ToDictionaryAsync(f => f.FeatureCode, f => f.Id, StringComparer.OrdinalIgnoreCase);
+        var writer = await OrgFeatureWriter.LoadAsync(_db, orgId, DateTime.UtcNow);
+        foreach (var (featureCode, licensed) in changes)
+            if (writer.Find(featureCode) is not null)
+                writer.SetLicence(featureCode, licensed, modifiedBy);
 
-        var existingRows = await _db.OrganizationFeatures
-            .Where(f => f.OrganizationId == orgId && featureIds.Values.Contains(f.FeatureDefinitionId))
-            .ToDictionaryAsync(f => f.FeatureDefinitionId);
-
-        var now = DateTime.UtcNow;
-        foreach (var (featureCode, isEnabled) in changes)
-        {
-            if (!featureIds.TryGetValue(featureCode, out var featureId)) continue;
-
-            if (existingRows.TryGetValue(featureId, out var row))
-            {
-                row.IsEnabled    = isEnabled;
-                row.ModifiedBy   = modifiedBy;
-                row.ModifiedDate = now;
-            }
-            else
-            {
-                _db.OrganizationFeatures.Add(new OrganizationFeature
-                {
-                    Id                  = Guid.NewGuid(),
-                    OrganizationId      = orgId,
-                    FeatureDefinitionId = featureId,
-                    IsEnabled           = isEnabled,
-                    ModifiedBy          = modifiedBy,
-                    ModifiedDate        = now
-                });
-            }
-        }
+        if (changes.Keys.Any(c => TenancyFeatureCatalog.BomManagementDrivers.Contains(c, StringComparer.OrdinalIgnoreCase)))
+            writer.ApplyBomRule("the licence change");
 
         await _db.SaveChangesAsync();
     }

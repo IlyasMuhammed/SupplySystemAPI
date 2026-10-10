@@ -1,65 +1,92 @@
-<div class="product-detail-page">
-  <p-toast></p-toast>
-  <p-confirmDialog></p-confirmDialog>
+<p-toast></p-toast>
+<p-confirmDialog></p-confirmDialog>
 
-  <!-- ── Page Header ──────────────────────────────────────────────────────── -->
-  <div class="page-header">
-    <div class="header-content">
-      <div class="header-left">
-        <p-button icon="pi pi-arrow-left" [text]="true" severity="secondary"
-                  (onClick)="goBack()" styleClass="mr-2 back-btn"></p-button>
+<sf-page class="product-detail-page" [crumbs]="['Inventory', 'Products', product?.name]">
+  <!-- ── Command bar ──────────────────────────────────────────────────────── -->
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <ng-container *ngIf="!isLoading && product">
+      <p-button
+        label="Add Adjustment"
+        icon="pi pi-sync"
+        (onClick)="openAdjustmentDialog()">
+      </p-button>
+      <p-button
+        label="Edit"
+        icon="pi pi-pencil"
+        [text]="true"
+        [loading]="isLoadingLookups"
+        (onClick)="openEditDialog()">
+      </p-button>
+    </ng-container>
+    <p-button label="Products" icon="pi pi-arrow-left" [text]="true"
+              (onClick)="goBack()"></p-button>
+    <ng-container *ngIf="!isLoading && product && product.status?.toUpperCase() === 'ACTIVE'">
+      <span class="sf-sep"></span>
+      <p-button
+        label="Deactivate"
+        icon="pi pi-ban"
+        severity="danger"
+        [text]="true"
+        (onClick)="confirmDeactivate()">
+      </p-button>
+    </ng-container>
+  </div>
+
+  <!-- ── Header ───────────────────────────────────────────────────────────── -->
+  <header class="sf-hdr">
+    <div class="sf-t">
+      <div class="hdr-ident">
         <img *ngIf="product?.imageUrl" [src]="resolveImageUrl(product!.imageUrl!)"
              alt="Product image" class="product-thumb" />
         <div>
-          <h1 class="page-title">
-            <i class="pi pi-box" *ngIf="!product?.imageUrl"></i>
+          <div class="sf-kicker">Product<ng-container *ngIf="product"> · <span class="sf-mono">{{ product.sku }}</span></ng-container></div>
+          <h1>
             {{ product?.name || 'Loading...' }}
+            <p-tag *ngIf="product" [value]="product.status"
+                   [severity]="getStatusSeverity(product.status)"></p-tag>
           </h1>
-          <p class="page-subtitle" *ngIf="product">
-            <span class="sku-chip">{{ product.sku }}</span>
-            <p-tag [value]="product.status"
-                   [severity]="getStatusSeverity(product.status)"
-                   styleClass="ml-2"></p-tag>
-          </p>
+          <div class="sf-meta" *ngIf="product">
+            {{ product.categoryName || 'Uncategorised' }}<ng-container *ngIf="product.subCategoryName"> › {{ product.subCategoryName }}</ng-container>
+            <ng-container *ngIf="product.brand"> · {{ product.brand }}</ng-container>
+            <ng-container *ngIf="product.uomCode"> · {{ product.uomCode }}</ng-container>
+          </div>
         </div>
       </div>
+    </div>
 
-      <div class="header-actions" *ngIf="!isLoading && product">
-        <p-button
-          label="Add Adjustment"
-          icon="pi pi-sync"
-          severity="warn"
-          [outlined]="true"
-          (onClick)="openAdjustmentDialog()">
-        </p-button>
-        <p-button
-          label="Edit"
-          icon="pi pi-pencil"
-          severity="secondary"
-          [outlined]="true"
-          [loading]="isLoadingLookups"
-          (onClick)="openEditDialog()">
-        </p-button>
-        <p-button
-          *ngIf="product.status?.toUpperCase() === 'ACTIVE'"
-          label="Deactivate"
-          icon="pi pi-ban"
-          severity="danger"
-          [outlined]="true"
-          (onClick)="confirmDeactivate()">
-        </p-button>
+    <div class="sf-facts" *ngIf="!isLoading && product">
+      <div class="sf-kpi">
+        <span class="l">Purchase price</span>
+        <span class="v sm">{{ defaultVariant?.purchasePrice != null ? (defaultVariant!.purchasePrice | number:'1.2-2') : '—' }}</span>
+        <span class="s">default variant</span>
+      </div>
+      <div class="sf-kpi">
+        <span class="l">Selling price</span>
+        <span class="v sm">{{ defaultVariant?.sellingPrice != null ? (defaultVariant!.sellingPrice | number:'1.2-2') : '—' }}</span>
+        <span class="s">default variant</span>
+      </div>
+      <div class="sf-kpi">
+        <span class="l">On hand</span>
+        <span class="v sm">{{ totalOnHand | number }}</span>
+        <span class="s">{{ totalAvailable | number }} available</span>
+      </div>
+      <div class="sf-kpi">
+        <span class="l">Variants</span>
+        <span class="v sm">{{ product.variants.length }}</span>
       </div>
     </div>
-  </div>
+  </header>
 
+  <div class="sf-body">
   <!-- ── Loading ──────────────────────────────────────────────────────────── -->
-  <div *ngIf="isLoading" class="loading-state">
-    <i class="pi pi-spin pi-spinner text-4xl text-primary"></i>
-    <p class="mt-3 text-secondary">Loading product details...</p>
+  <div *ngIf="isLoading" class="sf-card sf-empty">
+    <i class="pi pi-spin pi-spinner" style="font-size:2rem;color:var(--sms-primary-text)"></i>
+    <p>Loading product details...</p>
   </div>
 
   <!-- ── Tab View ─────────────────────────────────────────────────────────── -->
-  <p-tabView *ngIf="!isLoading && product" (onChange)="onTabChange($event)">
+  <div class="sf-card" *ngIf="!isLoading && product">
+  <p-tabView (onChange)="onTabChange($event)">
 
     <!-- TAB 1: Product Info ─────────────────────────────────────────────── -->
     <p-tabPanel header="Product Info" leftIcon="pi pi-box">
@@ -67,8 +94,8 @@
 
         <!-- Basic Info card -->
         <div class="info-card">
-          <div class="info-card-header">
-            <i class="pi pi-id-card"></i><span>Basic Info</span>
+          <div class="sf-ch">
+            <h2>Basic Info</h2>
           </div>
           <div class="info-card-body cols-3">
             <div class="detail-cell">
@@ -121,8 +148,8 @@
 
         <!-- Classification card (A31-C2 — Manufacturing & Supply merged in below, was its own card) -->
         <div class="info-card" data-testid="manufacturing-card">
-          <div class="info-card-header">
-            <i class="pi pi-tags"></i><span>Classification</span>
+          <div class="sf-ch">
+            <h2>Classification</h2>
           </div>
           <div class="info-card-body cols-3">
             <div class="detail-cell">
@@ -151,27 +178,91 @@
               <div class="cell-label">Supply Method</div>
               <div class="cell-value">{{ supplyMethodLabel(product.supplyMethod) }}</div>
             </div>
-            <div class="detail-cell">
-              <div class="cell-label">Default Production Warehouse</div>
-              <div class="cell-value {{ !product.defaultProductionWarehouseName ? 'muted' : '' }}">{{ product.defaultProductionWarehouseName || '—' }}</div>
-            </div>
             <div class="detail-cell span-full">
               <div class="cell-label">Capabilities</div>
-              <div class="cell-value" style="display:flex; gap:.4rem; flex-wrap:wrap;">
+              <!-- A37 PRD-CAP — the flags are always shown; one whose module is off is marked dormant. -->
+              <div class="cell-value" style="display:flex; gap:.4rem; flex-wrap:wrap;" data-testid="capability-flags">
                 <p-tag [value]="product.isSaleable ? 'Sellable' : 'Not sold'" [severity]="product.isSaleable ? 'success' : 'secondary'"></p-tag>
                 <p-tag [value]="product.isPurchasable ? 'Purchasable' : 'Not purchased'" [severity]="product.isPurchasable ? 'info' : 'secondary'"></p-tag>
                 <p-tag [value]="product.isStockable ? 'Held in stock' : 'Not stocked'" [severity]="product.isStockable ? 'info' : 'secondary'"></p-tag>
-                <p-tag *ngIf="product.isManufacturable" value="Manufactured here" severity="warn"></p-tag>
+                <p-tag *ngIf="product.isManufacturable" value="Manufactured here" severity="warn" data-testid="flag-manufacturable"></p-tag>
+                <span *ngIf="product.isManufacturable && !hasProductionSettings" class="sf-pill" data-testid="flag-manufacturable-dormant"
+                      pTooltip="Manufacturing is switched off for your organization; the production settings are kept and come back when it is on."
+                      tooltipPosition="top">Manufacturing off</span>
+                <p-tag *ngIf="isServiceable" value="Serviceable" severity="info" data-testid="flag-serviceable"></p-tag>
+                <span *ngIf="isServiceable && !hasServiceSettings" class="sf-pill" data-testid="flag-serviceable-dormant"
+                      pTooltip="Services is switched off for your organization; the service settings are kept and come back when it is on."
+                      tooltipPosition="top">Services off</span>
               </div>
             </div>
           </div>
+
+          <!-- A37 PRD-CAP-02 — Production settings: only with MODULE_MANUFACTURING (productionSettings key) and isManufacturable -->
+          <ng-container *ngIf="showProductionSection">
+            <p-divider align="left" type="solid" styleClass="section-divider">
+              <span class="section-divider-label"><i class="pi pi-cog"></i> Production settings</span>
+            </p-divider>
+            <div class="info-card-body cols-3" data-testid="production-settings-view">
+              <div class="detail-cell">
+                <div class="cell-label">Default Production Warehouse</div>
+                <div class="cell-value {{ !productionWarehouseName ? 'muted' : '' }}">{{ productionWarehouseName || '—' }}</div>
+              </div>
+              <div class="detail-cell">
+                <div class="cell-label">Active BOM</div>
+                <div class="cell-value {{ !product.productionSettings?.activeBomNumber ? 'muted' : 'mono' }}">{{ product.productionSettings?.activeBomNumber || 'None' }}</div>
+              </div>
+              <div class="detail-cell">
+                <div class="cell-label">Manufacturing Lead Time</div>
+                <div class="cell-value">{{ product.productionSettings?.manufacturingLeadTimeDays != null ? product.productionSettings!.manufacturingLeadTimeDays + ' days' : '—' }}</div>
+              </div>
+            </div>
+          </ng-container>
+
+          <!-- A36-P1-05 — Service settings; A37 PRD-CAP-02: only with MODULE_SERVICES (serviceSettings key) and a serviceable product -->
+          <ng-container *ngIf="showServiceSection">
+            <p-divider align="left" type="solid" styleClass="section-divider">
+              <span class="section-divider-label"><i class="pi pi-wrench"></i> Service settings</span>
+            </p-divider>
+            <div class="info-card-body cols-3" data-testid="service-settings-view">
+              <div class="detail-cell">
+                <div class="cell-label">Invoicing Policy</div>
+                <div class="cell-value">{{ serviceInvoicingPolicyLabel(product.serviceInvoicingPolicy) }}</div>
+              </div>
+              <div class="detail-cell">
+                <div class="cell-label">Billing Model</div>
+                <div class="cell-value">{{ serviceBillingModelLabel(product.serviceBillingModel) }}</div>
+              </div>
+              <div class="detail-cell">
+                <div class="cell-label">Estimated Duration</div>
+                <div class="cell-value">{{ product.estimatedDurationHours != null ? (product.estimatedDurationHours | number:'1.0-2') + ' h' : '—' }}</div>
+              </div>
+              <div class="detail-cell">
+                <div class="cell-label">Service Category</div>
+                <div class="cell-value" data-testid="service-category-view">{{ serviceCategoryLabel(product.serviceCategory ?? product.serviceSettings?.serviceCategory) }}</div>
+              </div>
+              <div class="detail-cell span-full">
+                <div class="cell-label">Options</div>
+                <div class="cell-value" style="display:flex; gap:.4rem; flex-wrap:wrap;">
+                  <p-tag [value]="product.hasServiceBom ? 'Has service BOM' : 'No service BOM'" [severity]="product.hasServiceBom ? 'info' : 'secondary'"></p-tag>
+                  <p-tag [value]="product.isSubcontractable ? 'Subcontractable' : 'In-house only'" [severity]="product.isSubcontractable ? 'info' : 'secondary'"></p-tag>
+                  <p-tag [value]="requiresSiteVisit ? 'Requires site visit' : 'No site visit'" [severity]="requiresSiteVisit ? 'info' : 'secondary'"
+                         data-testid="site-visit-tag"></p-tag>
+                </div>
+              </div>
+              <div class="detail-cell span-full" *ngIf="missingActiveServiceBom">
+                <div class="sf-pill wn" data-testid="no-active-service-bom">
+                  <i class="pi pi-exclamation-triangle"></i> No active service BOM — orders run with ad-hoc materials until one is activated.
+                </div>
+              </div>
+            </div>
+          </ng-container>
         </div>
 
         <!-- Pricing card — sourced from the default variant (PV-001: pricing moved off Product) -->
         <div class="info-card">
-          <div class="info-card-header">
-            <i class="pi pi-dollar"></i><span>Pricing</span>
-            <span class="header-hint" *ngIf="product.variantCount > 1">(default variant — {{ product.variantCount }} variants total)</span>
+          <div class="sf-ch">
+            <h2>Pricing</h2>
+            <span class="sf-mu sf-sm" *ngIf="product.variantCount > 1">(default variant — {{ product.variantCount }} variants total)</span>
           </div>
           <div class="info-card-body cols-2">
             <div class="detail-cell">
@@ -191,8 +282,8 @@
 
         <!-- Inventory Rules card -->
         <div class="info-card">
-          <div class="info-card-header">
-            <i class="pi pi-sliders-h"></i><span>Inventory Rules</span>
+          <div class="sf-ch">
+            <h2>Inventory Rules</h2>
           </div>
           <div class="info-card-body cols-4">
             <div class="detail-cell">
@@ -216,8 +307,8 @@
 
         <!-- Dates card -->
         <div class="info-card">
-          <div class="info-card-header">
-            <i class="pi pi-calendar"></i><span>Dates</span>
+          <div class="sf-ch">
+            <h2>Dates</h2>
           </div>
           <div class="info-card-body cols-3">
             <div class="detail-cell">
@@ -328,27 +419,18 @@
       <div class="tab-content" style="padding-top:1.25rem">
 
         <!-- Summary mini-cards -->
-        <div class="stock-summary-row">
-          <div class="stock-mini-card">
-            <div class="mini-card-icon"><i class="pi pi-box"></i></div>
-            <div class="mini-card-body">
-              <p class="mini-card-label">Total On-Hand</p>
-              <p class="mini-card-value">{{ totalOnHand | number }}</p>
-            </div>
+        <div class="sf-grid sf-tiles">
+          <div class="sf-tile">
+            <span class="l">Total On-Hand</span>
+            <span class="v">{{ totalOnHand | number }}</span>
           </div>
-          <div class="stock-mini-card">
-            <div class="mini-card-icon available"><i class="pi pi-check-circle"></i></div>
-            <div class="mini-card-body">
-              <p class="mini-card-label">Total Available</p>
-              <p class="mini-card-value">{{ totalAvailable | number }}</p>
-            </div>
+          <div class="sf-tile">
+            <span class="l">Total Available</span>
+            <span class="v ok">{{ totalAvailable | number }}</span>
           </div>
-          <div class="stock-mini-card">
-            <div class="mini-card-icon warehouses"><i class="pi pi-building"></i></div>
-            <div class="mini-card-body">
-              <p class="mini-card-label">Warehouses</p>
-              <p class="mini-card-value">{{ stockLevels.length }}</p>
-            </div>
+          <div class="sf-tile">
+            <span class="l">Warehouses</span>
+            <span class="v">{{ stockLevels.length }}</span>
           </div>
         </div>
 
@@ -390,8 +472,7 @@
 
           <ng-template pTemplate="emptymessage">
             <tr>
-              <td colspan="6" class="text-center py-5 text-secondary">
-                <i class="pi pi-inbox text-3xl mb-2 block opacity-40"></i>
+              <td colspan="6" class="sf-empty">
                 No stock records found.
               </td>
             </tr>
@@ -409,13 +490,12 @@
           <i class="pi pi-sync"></i>
           <p class="placeholder-title">Stock Adjustments</p>
           <p class="placeholder-text">
-            Use the <strong>"Add Adjustment"</strong> button above to record stock changes for this product.<br>
+            Use the <strong>"Add Adjustment"</strong> command above to record stock changes for this product.<br>
             Adjustments exceeding 100 units or 50,000 PKR in value require Inventory Manager approval.
           </p>
           <p-button
             label="Add Adjustment"
             icon="pi pi-plus"
-            severity="warn"
             [outlined]="true"
             styleClass="mt-3"
             (onClick)="openAdjustmentDialog()">
@@ -501,8 +581,8 @@
         <p-divider></p-divider>
 
         <!-- Price Preview Calculator ─────────────────────────────────────── -->
-        <div class="pricing-preview-card">
-          <h3 class="tab-section-title"><i class="pi pi-calculator mr-2"></i>Price Preview Calculator</h3>
+        <div class="sf-card quiet pricing-preview-card">
+          <div class="sf-ch"><h3>Price Preview Calculator</h3></div>
           <p class="text-secondary" style="margin:.25rem 0 1rem">
             Shows exactly what §2.3's resolution would pick right now — without creating or changing anything.
           </p>
@@ -555,20 +635,34 @@
       </ng-template>
     </p-tabPanel>
 
+    <!-- TAB: Routes (A37 D-12) — each variant's configured and effective route; loads when first opened -->
+    <p-tabPanel header="Routes" leftIcon="pi pi-directions" *ngIf="canViewProductRoutes" data-testid="routes-tab">
+      <ng-template pTemplate="content">
+        <div class="tab-content" style="padding-top:1.25rem">
+          <app-product-routes-panel [productUuid]="product.uuid" (forbidden)="productRoutesForbidden = true"></app-product-routes-panel>
+        </div>
+      </ng-template>
+    </p-tabPanel>
+
     <!-- TAB: Bill of Materials (A31-C4) — inline, replaces the standalone BOM module UI -->
-    <p-tabPanel header="Bill of Materials" leftIcon="pi pi-sitemap" *ngIf="product.isManufacturable" data-testid="bom-tab">
+    <!-- A36-P1-09 (D-4) — also for a SERVICE product with a service BOM -->
+    <p-tabPanel header="Bill of Materials" leftIcon="pi pi-sitemap" *ngIf="showBomTab" data-testid="bom-tab">
       <div class="tab-content" style="padding-top:1.25rem">
         <app-bom-manager
           [productUuid]="product.uuid"
           [productName]="product.name"
           [productUomCode]="product.uomCode ?? null"
-          [isManufacturable]="product.isManufacturable">
+          [isManufacturable]="!!product.isManufacturable"
+          [isServiceBom]="isServiceBomProduct"
+          [readOnly]="!bomManagementEnabled">
         </app-bom-manager>
       </div>
     </p-tabPanel>
 
   </p-tabView>
-</div>
+  </div>
+  </div>
+</sf-page>
 
 <!-- ── Pricing Rule Dialog (A29-P2-06) ─────────────────────────────────────── -->
 <p-dialog [(visible)]="showPriceRuleDialog" [modal]="true" [style]="{width:'32rem'}"
@@ -783,6 +877,14 @@
                 </label>
               </div>
             </div>
+
+            <!-- A36-P1-05 — Service settings (SERVICE products only) -->
+            <ng-container *ngIf="editIsService">
+              <p-divider align="left" type="solid" styleClass="section-divider">
+                <span class="section-divider-label"><i class="pi pi-wrench"></i> Service settings</span>
+              </p-divider>
+              <app-service-settings-fields [group]="editForm" data-testid="edit-service-settings"></app-service-settings-fields>
+            </ng-container>
           </div>
         </div>
 

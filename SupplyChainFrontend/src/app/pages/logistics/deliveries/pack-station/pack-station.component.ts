@@ -24,6 +24,7 @@ import {
 } from '../../../../services/logistics.service';
 import { DELIVERY_STATUS_SEVERITY } from '../delivery-list/delivery-list.component';
 import { packagesAmendableWhileStaged } from '../delivery-detail/delivery-detail.component';
+import { FLOW } from '../../../../shared/flow';
 
 /** The fields of a carton the packer can correct after packing (PATCH: a field left empty stays as it is). */
 interface PackageEdit {
@@ -62,7 +63,8 @@ interface PackLineDraft {
   imports: [
     CommonModule, RouterModule, FormsModule,
     TableModule, ButtonModule, TagModule, TooltipModule, ToastModule,
-    DialogModule, TextareaModule, SelectModule, InputNumberModule, InputTextModule
+    DialogModule, TextareaModule, SelectModule, InputNumberModule, InputTextModule,
+    ...FLOW
   ],
   templateUrl: './pack-station.component.html',
   styleUrls: ['./pack-station.component.scss'],

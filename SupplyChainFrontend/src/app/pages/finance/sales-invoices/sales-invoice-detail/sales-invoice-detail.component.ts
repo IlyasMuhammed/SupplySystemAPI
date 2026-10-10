@@ -26,6 +26,7 @@ import { QboSyncBadgeComponent } from '../../../../shared/components/qbo-sync-ba
 import { DocCurrencyPanelComponent } from '../../../../shared/doc-currency/doc-currency-panel.component';
 import { FxDifferenceComponent } from '../../../../shared/doc-currency/fx-difference.component';
 import { DocCurrencyInfo, cachedDocCurrency, missingRateOf, sumDifferences } from '../../../../shared/doc-currency/doc-currency';
+import { FLOW, FlowSection, FlowStage, flowStagesFrom } from '../../../../shared/flow';
 
 @Component({
   selector: 'app-sales-invoice-detail',
@@ -33,7 +34,8 @@ import { DocCurrencyInfo, cachedDocCurrency, missingRateOf, sumDifferences } fro
   imports: [
     CommonModule, RouterModule, FormsModule,
     TableModule, ButtonModule, TagModule, TooltipModule, ToastModule, DialogModule, CalendarModule, TextareaModule,
-    AttachmentListComponent, SalesInvoicePdfDialogComponent, QboSyncBadgeComponent, DocCurrencyPanelComponent, FxDifferenceComponent
+    AttachmentListComponent, SalesInvoicePdfDialogComponent, QboSyncBadgeComponent, DocCurrencyPanelComponent, FxDifferenceComponent,
+    ...FLOW
   ],
   templateUrl: './sales-invoice-detail.component.html',
   styleUrls: ['./sales-invoice-detail.component.scss'],
@@ -145,6 +147,34 @@ export class SalesInvoiceDetailComponent implements OnInit {
   }
 
   get isCancelled(): boolean { return this.invoice?.status === 'CANCELLED'; }
+
+  // ── SMS Flow header ─────────────────────────────────────────────────────────
+
+  /** Draft → Issued → Collecting → Paid; a cancelled invoice ends red at "Cancelled". */
+  get stages(): FlowStage[] {
+    const inv = this.invoice;
+    if (!inv) return [];
+    const day = (d: string | Date | null | undefined) =>
+      d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : null;
+    if (this.isCancelled) {
+      return flowStagesFrom(['Draft', 'Issued', 'Cancelled'], 2, { subs: [null, day(inv.invoiceDate), day(inv.cancelledAt)], failed: true });
+    }
+    const paidPct = inv.grandTotal > 0 ? Math.round((inv.amountPaid / inv.grandTotal) * 100) : 0;
+    const current = this.isDraft ? 0 : inv.status === 'PAID' || inv.balanceDue <= 0 ? 4 : 2;
+    return flowStagesFrom(['Draft', 'Issued', 'Collecting', 'Paid'], current, {
+      subs: [null, this.isDraft ? null : day(inv.invoiceDate), current === 2 ? `${paidPct}% paid` : null, null]
+    });
+  }
+
+  get sections(): FlowSection[] {
+    return this.isDraft ? this.draftSections : this.issuedSections;
+  }
+  private readonly draftSections: FlowSection[] = [
+    { id: 'sec-lines', label: 'Lines' },
+    { id: 'sec-currency', label: 'Currency & notes' },
+    { id: 'sec-payments', label: 'Payments' }
+  ];
+  private readonly issuedSections: FlowSection[] = [...this.draftSections, { id: 'sec-files', label: 'Files' }];
 
   /** The invoice's value in the organization's base currency, worth showing only when that is another currency. */
   get showBaseTotal(): boolean {

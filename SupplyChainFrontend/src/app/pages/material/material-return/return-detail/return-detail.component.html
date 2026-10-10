@@ -1,82 +1,76 @@
-<div class="return-detail-page">
-  <p-toast></p-toast>
+<p-toast></p-toast>
 
-  <div *ngIf="isLoading" class="loading-state">
-    <i class="pi pi-spin pi-spinner" style="font-size:2rem;color:#7c3aed"></i>
-    <p>Loading return voucher...</p>
+<div *ngIf="isLoading" class="sf-empty">
+  <i class="pi pi-spin pi-spinner" style="font-size:2rem;color:var(--sms-primary-text)"></i>
+  <p>Loading return voucher...</p>
+</div>
+
+<sf-page *ngIf="returnDetail && !isLoading" [crumbs]="['Material', 'Material return vouchers', returnDetail.returnNo]">
+
+  <!-- ── Command bar ─────────────────────────────────────────────────────────────────── -->
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <ng-container *ngIf="returnDetail.status === 'DRAFT'">
+      <p-button label="Post Return" icon="pi pi-check-circle" [loading]="isPosting"
+                (onClick)="post()"></p-button>
+    </ng-container>
+    <p-button *ngIf="returnDetail.status === 'POSTED'"
+              label="Download PDF" icon="pi pi-file-pdf" [text]="true"
+              (onClick)="downloadPdf()"></p-button>
+    <ng-container *ngIf="returnDetail.status === 'DRAFT'">
+      <span class="sf-sep"></span>
+      <p-button label="Cancel" icon="pi pi-times" [loading]="isCancelling"
+                (onClick)="cancel()" severity="danger" [text]="true"></p-button>
+    </ng-container>
+    <span class="sf-end">
+      <p-button icon="pi pi-arrow-left" [text]="true" label="Back" routerLink="/portal/pages/material/returns"></p-button>
+    </span>
   </div>
 
-  <ng-container *ngIf="returnDetail && !isLoading">
-
-    <!-- Header -->
-    <div class="page-header">
-      <div class="header-left">
-        <div class="header-icon icon-purple"><i class="pi pi-replay"></i></div>
-        <div>
-          <h1 class="page-title">{{ returnDetail.returnNo }}</h1>
-          <p class="page-subtitle">
-            Return from <strong>{{ returnDetail.issueNo }}</strong> &bull;
-            {{ returnDetail.returnDate | date:'dd MMM yyyy' }}
-          </p>
+  <!-- ── Dynamic header ──────────────────────────────────────────────────────────────── -->
+  <header class="sf-hdr">
+    <div class="sf-t">
+      <div>
+        <div class="sf-kicker">
+          Material return voucher · from
+          <a [routerLink]="['/portal/pages/material/miv', returnDetail.mivUuid]" class="sf-mono">{{ returnDetail.issueNo }}</a>
         </div>
-      </div>
-      <div class="header-actions">
-        <p-tag [value]="returnDetail.status" [severity]="getStatusSeverity(returnDetail.status)"
-               styleClass="status-tag"></p-tag>
-        <ng-container *ngIf="returnDetail.status === 'DRAFT'">
-          <p-button label="Post Return" icon="pi pi-check-circle" [loading]="isPosting"
-                    (onClick)="post()" severity="success"></p-button>
-          <p-button label="Cancel" icon="pi pi-times" [loading]="isCancelling"
-                    (onClick)="cancel()" severity="danger" [outlined]="true"></p-button>
-        </ng-container>
-        <p-button *ngIf="returnDetail.status === 'POSTED'"
-                  label="Download PDF" icon="pi pi-file-pdf"
-                  severity="danger" [outlined]="true"
-                  (onClick)="downloadPdf()"></p-button>
-        <a routerLink="/portal/pages/material/returns">
-          <p-button icon="pi pi-arrow-left" [outlined]="true" severity="secondary" label="Back"></p-button>
-        </a>
+        <h1>
+          <span class="sf-mono">{{ returnDetail.returnNo }}</span>
+          <p-tag [value]="returnDetail.status" [severity]="getStatusSeverity(returnDetail.status)"></p-tag>
+        </h1>
+        <div class="sf-meta">Returned {{ returnDetail.returnDate | date:'dd MMM yyyy' }}</div>
       </div>
     </div>
 
-    <!-- Info cards -->
-    <div class="info-row">
-      <div class="info-card">
-        <span class="info-label">Issue Voucher</span>
-        <a [routerLink]="['/portal/pages/material/miv', returnDetail.mivUuid]" class="info-link">
-          {{ returnDetail.issueNo }}
-        </a>
+    <sf-stages [stages]="stages"></sf-stages>
+
+    <div class="sf-facts">
+      <div class="sf-kpi">
+        <span class="l">Total value</span>
+        <span class="v">{{ totalValue | number:'1.2-2' }}</span>
       </div>
-      <div class="info-card">
-        <span class="info-label">Return Date</span>
-        <span class="info-val">{{ returnDetail.returnDate | date:'dd MMM yyyy' }}</span>
+      <div class="sf-kpi">
+        <span class="l">Return date</span>
+        <span class="v sm">{{ returnDetail.returnDate | date:'dd MMM yyyy' }}</span>
       </div>
-      <div class="info-card">
-        <span class="info-label">Total Value</span>
-        <span class="info-val primary">{{ totalValue | number:'1.2-2' }}</span>
-      </div>
-      <div class="info-card" *ngIf="returnDetail.postedDate">
-        <span class="info-label">Posted Date</span>
-        <span class="info-val">{{ returnDetail.postedDate | date:'dd MMM yyyy HH:mm' }}</span>
+      <div class="sf-kpi" *ngIf="returnDetail.postedDate">
+        <span class="l">Posted</span>
+        <span class="v sm">{{ returnDetail.postedDate | date:'dd MMM yyyy HH:mm' }}</span>
       </div>
     </div>
+  </header>
 
-    <!-- Notes -->
-    <div class="card" *ngIf="returnDetail.notes">
-      <div class="detail-label">Notes</div>
-      <p class="notes-text">{{ returnDetail.notes }}</p>
-    </div>
-
+  <div class="sf-body">
     <!-- Post info for DAMAGED lines -->
-    <div class="info-banner damaged" *ngIf="hasDamagedLines">
+    <div class="sf-card quiet info-banner" *ngIf="hasDamagedLines">
       <i class="pi pi-info-circle"></i>
       <span>DAMAGED lines have auto-created <strong>Wastage</strong> records awaiting supervisor approval.
-        <a routerLink="/portal/pages/material/wastage" class="wastage-link">View Wastage Records</a></span>
+        <a routerLink="/portal/pages/material/wastage">View Wastage Records</a></span>
     </div>
 
     <!-- Return lines table -->
-    <div class="card">
-      <h3 class="section-title">Return Lines</h3>
+    <section class="sf-card p0">
+      <div class="sf-ch"><h2>Return lines</h2></div>
       <p-table [value]="returnDetail.lines" styleClass="p-datatable-sm">
         <ng-template pTemplate="header">
           <tr>
@@ -99,18 +93,23 @@
             <td style="text-align:right">{{ line.returnedQty | number:'1.0-4' }}</td>
             <td style="text-align:right">{{ line.unitCost | number:'1.2-4' }}</td>
             <td style="text-align:right"><strong>{{ line.lineValue | number:'1.2-2' }}</strong></td>
-            <td class="reason-cell">{{ line.reason || '—' }}</td>
+            <td class="sf-mu sf-sm">{{ line.reason || '—' }}</td>
           </tr>
         </ng-template>
         <ng-template pTemplate="footer">
-          <tr>
-            <td colspan="5" style="text-align:right;font-weight:700">Total:</td>
-            <td style="text-align:right;font-weight:700">{{ totalValue | number:'1.2-2' }}</td>
+          <tr class="sf-tot">
+            <td colspan="5" style="text-align:right">Total:</td>
+            <td style="text-align:right">{{ totalValue | number:'1.2-2' }}</td>
             <td></td>
           </tr>
         </ng-template>
       </p-table>
-    </div>
+    </section>
 
-  </ng-container>
-</div>
+    <!-- Notes -->
+    <section class="sf-card" *ngIf="returnDetail.notes">
+      <div class="sf-ch"><h2>Notes</h2></div>
+      <p class="notes-text">{{ returnDetail.notes }}</p>
+    </section>
+  </div>
+</sf-page>

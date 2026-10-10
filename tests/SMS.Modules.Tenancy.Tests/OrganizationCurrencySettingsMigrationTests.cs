@@ -36,14 +36,17 @@ public class OrganizationCurrencySettingsMigrationTests
         ops.OfType<SqlOperation>().Select(o => o.Sql).ToList();
 
     [Fact]
-    public void The_migration_is_the_last_one_and_uses_only_guarded_sql()
+    public void The_migration_and_every_later_one_use_only_guarded_sql()
     {
-        Migrations().Last().GetType().Name.Should().Be(MigrationName);
-
-        var up = Target().UpOperations;
-        up.Should().NotBeEmpty();
-        up.Should().OnlyContain(op => op is SqlOperation, "raw guarded SQL only — a plain CreateTable fails on a re-run");
-        up.Should().NotContain(op => op is DropTableOperation || op is DropColumnOperation || op is AlterColumnOperation);
+        // A37 added A37_ModuleRegistry after it; it follows the same rule.
+        foreach (var migration in Migrations().SkipWhile(m => m.GetType().Name != MigrationName))
+        {
+            var up = migration.UpOperations;
+            up.Should().NotBeEmpty();
+            up.Should().OnlyContain(op => op is SqlOperation, "raw guarded SQL only — a plain CreateTable fails on a re-run");
+            up.Should().NotContain(op => op is DropTableOperation || op is DropColumnOperation || op is AlterColumnOperation);
+        }
+        Migrations().Should().Contain(m => m.GetType().Name == MigrationName);
     }
 
     [Fact]

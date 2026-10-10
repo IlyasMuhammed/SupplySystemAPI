@@ -1,34 +1,34 @@
 <p-toast />
 <p-confirmDialog />
 
-<div class="card">
-
-  <!-- ── Page Header ──────────────────────────────────────────────────────── -->
-  <div class="md-header">
-    <div class="md-icon"><i class="pi pi-tags"></i></div>
-    <div class="md-title-wrap">
-      <h2 class="md-title">Lookup Values</h2>
-      <p class="md-subtitle">Manage configurable values assigned to lookup types</p>
-    </div>
+<sf-page [crumbs]="['Settings', 'Lookup values']">
+  <!-- ── Command bar ───────────────────────────────────────────────────────── -->
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
     <p-button label="New Value" icon="pi pi-plus"
               routerLink="../lookup-values-create">
     </p-button>
   </div>
 
-  <hr class="md-sep" />
+  <div class="sf-body">
+  <div class="sf-lr-head">
+    <div>
+      <h1>Lookup values <span class="sf-count" *ngIf="!isLoading()">{{ lookupValues().length }}</span></h1>
+      <div class="sf-sub">Manage configurable values assigned to lookup types</div>
+    </div>
+  </div>
 
   <!-- ── Search Bar ────────────────────────────────────────────────────────── -->
-  <div class="md-toolbar">
-    <p-iconfield>
+  <div class="sf-filters">
+    <p-iconfield class="sf-search">
       <p-inputicon styleClass="pi pi-search" />
       <input pInputText type="text"
              (input)="onGlobalFilter($event)"
              placeholder="Search lookup values…" />
     </p-iconfield>
-    <span class="md-count" *ngIf="!isLoading()">{{ lookupValues().length }} values</span>
   </div>
 
   <!-- ── Data Table ────────────────────────────────────────────────────────── -->
+  <div class="sf-card p0">
   <p-table
     #dt
     [value]="lookupValues()"
@@ -66,15 +66,14 @@
 
     <ng-template pTemplate="emptymessage">
       <tr>
-        <td colspan="2">
-          <div class="md-empty">
-            <i class="pi pi-tags md-empty-icon"></i>
-            <p class="md-empty-text">No lookup values found</p>
-            <small class="md-empty-hint">Click "New Value" to create one.</small>
-          </div>
+        <td colspan="2" class="sf-empty">
+          No lookup values found<br />
+          <small>Click "New Value" to create one.</small>
         </td>
       </tr>
     </ng-template>
 
   </p-table>
-</div>
+  </div>
+  </div>
+</sf-page>

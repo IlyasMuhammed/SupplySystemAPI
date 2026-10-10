@@ -124,8 +124,8 @@ export class ScorecardDetailPanelComponent implements OnChanges {
     if (!this.detail) return;
     const d = this.detail;
     const documentStyle = getComputedStyle(document.documentElement);
-    const textColor = documentStyle.getPropertyValue('--text-color') || '#334155';
-    const surfaceBorder = documentStyle.getPropertyValue('--surface-border') || '#e2e8f0';
+    const textColor = documentStyle.getPropertyValue('--sms-text-muted').trim() || '#5a6b7d';
+    const surfaceBorder = documentStyle.getPropertyValue('--sms-border').trim() || '#dce2e9';
 
     const dims = [
       { label: 'Delivery',      value: d.deliveryScore,      max: DIMENSION_MAX['Delivery'] },
@@ -140,10 +140,10 @@ export class ScorecardDetailPanelComponent implements OnChanges {
       datasets: [{
         label: 'Score (% of max)',
         data: dims.map(x => x.max > 0 ? Math.round((x.value / x.max) * 100) : 0),
-        backgroundColor: 'rgba(59, 130, 246, 0.2)',
-        borderColor: '#3b82f6',
-        pointBackgroundColor: '#3b82f6',
-        pointBorderColor: '#3b82f6'
+        backgroundColor: 'rgba(0, 100, 217, 0.2)',
+        borderColor: '#0064d9',
+        pointBackgroundColor: '#0064d9',
+        pointBorderColor: '#0064d9'
       }]
     };
     this.radarOptions = {
@@ -167,8 +167,8 @@ export class ScorecardDetailPanelComponent implements OnChanges {
         label: 'Composite Score',
         data: d.trendHistory.map(p => p.compositeScore),
         fill: false,
-        borderColor: '#6366f1',
-        backgroundColor: '#6366f1',
+        borderColor: '#0064d9',
+        backgroundColor: '#0064d9',
         tension: 0.3
       }]
     };

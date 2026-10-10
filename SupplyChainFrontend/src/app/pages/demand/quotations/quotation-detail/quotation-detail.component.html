@@ -1,105 +1,92 @@
-<div class="quotation-detail-page">
-  <p-toast></p-toast>
-  <p-confirmDialog></p-confirmDialog>
+<p-toast></p-toast>
+<p-confirmDialog></p-confirmDialog>
 
-  <div *ngIf="isLoading" class="loading-card">
-    <i class="pi pi-spin pi-spinner" style="font-size:2rem;color:#0984e3"></i>
-    <p>Loading quotation...</p>
+<div *ngIf="isLoading" class="sf-empty">
+  <i class="pi pi-spin pi-spinner"></i> Loading quotation...
+</div>
+
+<sf-page *ngIf="!isLoading && quotation" [crumbs]="['Procurement', 'Supplier quotes (RFQ)', quotation.quotationNumber]">
+
+  <!-- ── Command bar: the next step first, then the rest ─────────────────────────────── -->
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <p-button *ngIf="canSend" label="Send to Suppliers" icon="pi pi-send"
+              (onClick)="openSendDialog()"></p-button>
+    <p-button *ngIf="canOpenBids" label="Open Bids" icon="pi pi-lock-open"
+              severity="warn" (onClick)="openBidsDialog()"></p-button>
+    <span *ngIf="canAward"
+          [pTooltip]="hasResponses ? '' : 'No vendor responses have been submitted yet. At least one response is required to compare and award.'"
+          tooltipPosition="top"
+          style="display:inline-block">
+      <p-button label="Compare & Award" icon="pi pi-trophy"
+                severity="success"
+                [disabled]="!hasResponses"
+                (onClick)="openComparison()"></p-button>
+    </span>
+    <p-button *ngIf="canConvertToPo" label="Convert to Purchase Order" icon="pi pi-shopping-cart"
+              styleClass="convert-po-btn"
+              [loading]="isConvertingToPo && !showConvertToPoDialog"
+              (onClick)="openConvertToPoDialog()"></p-button>
+    <p-button *ngIf="canRespond" label="Record Response" icon="pi pi-reply" [text]="true"
+              (onClick)="openResponseDialog()"></p-button>
+    <p-button *ngIf="canEdit" label="Edit" icon="pi pi-pencil" [text]="true"
+              [routerLink]="['/portal/pages/demand/quotations', uuid, 'edit']"></p-button>
+    <p-button label="Timeline" icon="pi pi-history" [text]="true"
+              pTooltip="View Timeline" (onClick)="showTimeline = true"></p-button>
+
+    <ng-container *ngIf="canCancel">
+      <span class="sf-sep"></span>
+      <p-button label="Cancel" icon="pi pi-ban"
+                severity="danger" [text]="true" (onClick)="openCancelDialog()"></p-button>
+    </ng-container>
+
+    <span class="sf-end" *ngIf="isSealed">
+      <span [pTooltip]="hasResponses ? 'Pricing stays hidden from everyone, including admins, until bids are opened.' : 'No vendor responses have been submitted yet. At least one response is required to open bids.'"
+            tooltipPosition="top" class="sf-pill wn">
+        <i class="pi pi-lock"></i>
+        {{ quotation.submittedResponseCount }} quotation(s) received &bull; bids sealed
+      </span>
+    </span>
   </div>
 
-  <ng-container *ngIf="!isLoading && quotation">
-
-    <!-- ── Header ──────────────────────────────────────────────────────────── -->
-    <div class="page-header">
-      <div class="header-left">
-        <p-button icon="pi pi-arrow-left" [text]="true" severity="secondary"
-                  routerLink="/portal/pages/demand/quotations"></p-button>
-        <div>
-          <div class="title-row">
-            <h1 class="page-title">{{ quotation.quotationNumber }}</h1>
-            <p-tag [value]="quotation.status" [severity]="getStatusSeverity(quotation.status)"></p-tag>
-            <span class="source-badge">{{ quotation.sourceType }}</span>
-          </div>
-          <p class="page-subtitle">{{ quotation.title }}</p>
-        </div>
-      </div>
-
-      <div class="action-buttons">
-        <p-button *ngIf="canEdit" label="Edit" icon="pi pi-pencil" severity="secondary"
-                  [routerLink]="['/portal/pages/demand/quotations', uuid, 'edit']"></p-button>
-
-        <p-button *ngIf="canSend" label="Send to Suppliers" icon="pi pi-send"
-                  (onClick)="openSendDialog()"></p-button>
-        <p-button *ngIf="canRespond" label="Record Response" icon="pi pi-reply"
-                  severity="secondary" (onClick)="openResponseDialog()"></p-button>
-        <span *ngIf="isSealed"
-              [pTooltip]="hasResponses ? 'Pricing stays hidden from everyone, including admins, until bids are opened.' : 'No vendor responses have been submitted yet. At least one response is required to open bids.'"
-              tooltipPosition="top" class="sealed-indicator">
-          <i class="pi pi-lock"></i>
-          {{ quotation.submittedResponseCount }} quotation(s) received &bull; bids sealed
-        </span>
-        <p-button *ngIf="canOpenBids" label="Open Bids" icon="pi pi-lock-open"
-                  severity="warn" (onClick)="openBidsDialog()"></p-button>
-        <span *ngIf="canAward"
-              [pTooltip]="hasResponses ? '' : 'No vendor responses have been submitted yet. At least one response is required to compare and award.'"
-              tooltipPosition="top"
-              style="display:inline-block">
-          <p-button label="Compare & Award" icon="pi pi-trophy"
-                    severity="success"
-                    [disabled]="!hasResponses"
-                    (onClick)="openComparison()"></p-button>
-        </span>
-        <p-button *ngIf="canConvertToPo" label="Convert to Purchase Order" icon="pi pi-shopping-cart"
-                  styleClass="convert-po-btn"
-                  [loading]="isConvertingToPo && !showConvertToPoDialog"
-                  (onClick)="openConvertToPoDialog()"></p-button>
-        <p-button *ngIf="canCancel" label="Cancel" icon="pi pi-ban"
-                  severity="danger" [outlined]="true" (onClick)="openCancelDialog()"></p-button>
-
-        <p-button icon="pi pi-history" [text]="true" severity="secondary"
-                  pTooltip="View Timeline" (onClick)="showTimeline = true"></p-button>
+  <!-- ── Dynamic header ──────────────────────────────────────────────────────────────── -->
+  <header class="sf-hdr">
+    <div class="sf-t">
+      <div>
+        <div class="sf-kicker">Request for quotation · source <span class="sf-pill vi">{{ quotation.sourceType }}</span></div>
+        <h1>
+          <span class="sf-mono">{{ quotation.quotationNumber }}</span>
+          <p-tag [value]="quotation.status" [severity]="getStatusSeverity(quotation.status)"></p-tag>
+        </h1>
+        <div class="sf-meta">{{ quotation.title }} · created {{ quotation.createdDate | date:'dd MMM yyyy' }}</div>
       </div>
     </div>
 
-    <!-- ── Info cards ───────────────────────────────────────────────────────── -->
-    <div class="info-grid">
-      <div class="info-card">
-        <h3>Details</h3>
-        <div class="info-rows">
-          <div class="info-row"><span>Source</span><strong>{{ quotation.sourceType }}</strong></div>
-          <div class="info-row"><span>Due Date</span><strong>{{ quotation.dueDate ? (quotation.dueDate | date:'dd MMM yyyy') : '—' }}</strong></div>
-          <div class="info-row"><span>Created</span><strong>{{ quotation.createdDate | date:'dd MMM yyyy' }}</strong></div>
-        </div>
-      </div>
+    <sf-stages [stages]="stages"></sf-stages>
 
-      <div class="info-card">
-        <h3>Invited Suppliers ({{ quotation.invitedSuppliers.length }})</h3>
-        <div *ngIf="quotation.invitedSuppliers.length === 0" class="empty-note">No suppliers invited yet.</div>
-        <div *ngFor="let s of quotation.invitedSuppliers" class="supplier-chip">
-          <i class="pi pi-building"></i> {{ s.supplierName }}
-          <span class="invited-at">{{ s.invitedAt | date:'dd MMM' }}</span>
-        </div>
+    <div class="sf-facts">
+      <div class="sf-kpi">
+        <span class="l">Responses</span>
+        <span class="v" [class.ok]="hasResponses">{{ quotation.submittedResponseCount }}</span>
+        <span class="s">from {{ quotation.invitedSuppliers.length }} invited</span>
       </div>
-
-      <div class="info-card" *ngIf="quotation.notes || quotation.cancellationReason">
-        <h3>Notes</h3>
-        <div class="info-rows">
-          <div class="info-row col" *ngIf="quotation.notes"><span>Notes</span><strong>{{ quotation.notes }}</strong></div>
-          <div class="info-row col cancel" *ngIf="quotation.cancellationReason">
-            <span>Cancellation Reason</span><strong>{{ quotation.cancellationReason }}</strong>
-          </div>
-        </div>
+      <div class="sf-kpi">
+        <span class="l">Due date</span>
+        <span class="v sm">{{ quotation.dueDate ? (quotation.dueDate | date:'dd MMM yyyy') : '—' }}</span>
       </div>
-
-      <div class="info-card">
-        <h3>Attachments</h3>
-        <app-attachment-list interfaceCode="QUOTATION" [documentId]="quotation.uuid" [compact]="true"></app-attachment-list>
+      <div class="sf-kpi">
+        <span class="l">Lines</span>
+        <span class="v sm">{{ quotation.lines.length }}</span>
       </div>
     </div>
+  </header>
+
+  <sf-anchors [sections]="sections"></sf-anchors>
+
+  <div class="sf-body">
 
     <!-- ── Lines table ──────────────────────────────────────────────────────── -->
-    <div class="lines-card">
-      <h2 class="section-title"><i class="pi pi-list"></i> Quotation Lines</h2>
+    <section id="sec-lines" class="sf-section sf-card p0">
+      <div class="sf-ch"><h2>Quotation lines</h2><span class="sf-mu sf-sm">{{ quotation.lines.length }} line{{ quotation.lines.length !== 1 ? 's' : '' }}</span></div>
       <p-table [value]="quotation.lines" [tableStyle]="{'min-width':'40rem'}">
         <ng-template pTemplate="header">
           <tr>
@@ -125,12 +112,46 @@
           </tr>
         </ng-template>
       </p-table>
-    </div>
+    </section>
+
+    <!-- ── Details + invited suppliers ──────────────────────────────────────── -->
+    <section id="sec-details" class="sf-section sf-row">
+      <div class="sf-card">
+        <div class="sf-ch"><h2>Details</h2></div>
+        <div class="sf-kv">
+          <span>Source</span><span>{{ quotation.sourceType }}</span>
+          <span>Due Date</span><span>{{ quotation.dueDate ? (quotation.dueDate | date:'dd MMM yyyy') : '—' }}</span>
+          <span>Created</span><span>{{ quotation.createdDate | date:'dd MMM yyyy' }}</span>
+        </div>
+      </div>
+
+      <div class="sf-card">
+        <div class="sf-ch"><h2>Invited suppliers <span class="sf-pill">{{ quotation.invitedSuppliers.length }}</span></h2></div>
+        <div *ngIf="quotation.invitedSuppliers.length === 0" class="sf-mu">No suppliers invited yet.</div>
+        <div class="sf-kv" *ngIf="quotation.invitedSuppliers.length > 0">
+          <ng-container *ngFor="let s of quotation.invitedSuppliers">
+            <span><i class="pi pi-building"></i> {{ s.supplierName }}</span>
+            <span class="sf-mu">invited {{ s.invitedAt | date:'dd MMM' }}</span>
+          </ng-container>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Notes ────────────────────────────────────────────────────────────── -->
+    <section id="sec-notes" class="sf-section sf-card" *ngIf="quotation.notes || quotation.cancellationReason">
+      <div class="sf-ch"><h2>Notes</h2></div>
+      <div class="sf-kv">
+        <ng-container *ngIf="quotation.notes"><span>Notes</span><span>{{ quotation.notes }}</span></ng-container>
+        <ng-container *ngIf="quotation.cancellationReason">
+          <span>Cancellation Reason</span><span style="color:var(--sms-danger)">{{ quotation.cancellationReason }}</span>
+        </ng-container>
+      </div>
+    </section>
 
     <!-- ── Access Links ────────────────────────────────────────────────────── -->
-    <div class="lines-card" *ngIf="quotation.status === 'SENT' || quotation.status === 'AWARDED'">
-      <div class="access-links-header">
-        <h2 class="section-title"><i class="pi pi-link"></i> Access Links</h2>
+    <section id="sec-links" class="sf-section sf-card p0" *ngIf="quotation.status === 'SENT' || quotation.status === 'AWARDED'">
+      <div class="sf-ch">
+        <h2>Access links</h2>
         <p-button label="Load Links" icon="pi pi-refresh" size="small" severity="secondary"
                   [outlined]="true" [loading]="isLoadingAccessLinks"
                   (onClick)="loadAccessLinks()"></p-button>
@@ -216,9 +237,22 @@
         <i class="pi pi-link"></i>
         <span>No access links generated yet. Click "Load Links" to fetch.</span>
       </div>
-    </div>
+    </section>
 
-  </ng-container>
+    <!-- ── Attachments ──────────────────────────────────────────────────────── -->
+    <section id="sec-files" class="sf-section sf-card">
+      <div class="sf-ch"><h2>Attachments</h2></div>
+      <app-attachment-list interfaceCode="QUOTATION" [documentId]="quotation.uuid" [compact]="true"></app-attachment-list>
+    </section>
+  </div>
+
+  <!-- ── Side panel ──────────────────────────────────────────────────────────────────── -->
+  <sf-panel #panel [tabs]="['Activity']">
+    <ng-container *ngIf="panel.active() === 'Activity'">
+      <app-timeline-panel [inline]="true" [documentId]="uuid" interfaceCode="QUOTATION"></app-timeline-panel>
+    </ng-container>
+  </sf-panel>
+</sf-page>
 
   <!-- ══════════════════════════════════════════════════════════════════════════ -->
   <!-- SEND DIALOG                                                               -->
@@ -277,7 +311,7 @@
                 field="supplierName"
                 [minLength]="0"
                 (completeMethod)="searchSuppliersSend($event, i)"
-                (onFocus)="sendSupplierAc.search($event, '', 'focus')"
+                smsOpenOnFocus
                 (ngModelChange)="onSendSupplierChange($event, i)"
                 placeholder="Search or type supplier name…"
                 styleClass="w-full"
@@ -417,7 +451,7 @@
         <span>Add or update the contact's email address. A valid email is required to send the RFQ invitation. Changes are saved to the supplier record immediately.</span>
       </div>
       <div class="sdlg-field" style="margin-bottom:.85rem">
-        <label>Email Address <span style="color:#ef4444;font-size:0.8rem;margin-left:4px;">Required for sending</span></label>
+        <label>Email Address <span style="color:var(--sms-danger);font-size:0.8rem;margin-left:4px;">Required for sending</span></label>
         <input pInputText [(ngModel)]="editEmail" placeholder="contact@supplier.com" class="w-full" />
       </div>
       <div class="sdlg-field">
@@ -470,7 +504,7 @@
             field="supplierName"
             [minLength]="0"
             (completeMethod)="searchSuppliers($event)"
-            (onFocus)="responseSupplierAc.search($event, '', 'focus')"
+            smsOpenOnFocus
             (ngModelChange)="onResponseSupplierChange($event)"
             placeholder="Search or type supplier name…"
             styleClass="w-full"
@@ -943,5 +977,3 @@
 
   <!-- ── Timeline panel (TL-010) ────────────────────────────────────────────── -->
   <app-timeline-panel [(visible)]="showTimeline" [documentId]="uuid" interfaceCode="QUOTATION"></app-timeline-panel>
-
-</div>

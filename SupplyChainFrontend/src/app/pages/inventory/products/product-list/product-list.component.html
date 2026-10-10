@@ -1,60 +1,58 @@
-﻿<div class="product-list-page">
-  <p-toast></p-toast>
-  <p-confirmDialog></p-confirmDialog>
+﻿<p-toast></p-toast>
+<p-confirmDialog></p-confirmDialog>
 
-  <!-- Page Header -->
-  <div class="page-header">
-    <div class="header-content">
-      <div class="header-left">
-        <h1 class="page-title"><i class="pi pi-box"></i> Product Catalog</h1>
-        <p class="page-subtitle">Manage your inventory products and catalog</p>
-      </div>
-      <div class="header-right">
-        <p-button
-          label="Add Product"
-          icon="pi pi-plus"
-          severity="success"
-          (onClick)="createProduct()">
-        </p-button>
-      </div>
+<sf-page [crumbs]="['Inventory', 'Products']">
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <p-button
+      label="Add Product"
+      icon="pi pi-plus"
+      (onClick)="createProduct()">
+    </p-button>
+    <span class="sf-sep"></span>
+    <p-button
+      label="Reset filters"
+      icon="pi pi-refresh"
+      [text]="true"
+      (onClick)="resetFilters()">
+    </p-button>
+  </div>
+
+  <div class="sf-body product-list-page">
+  <!-- Title + quick status filters -->
+  <div class="sf-lr-head">
+    <div>
+      <h1>Product catalog <span class="sf-count">{{ totalRecords }}</span></h1>
+      <div class="sf-sub">Manage your inventory products and catalog</div>
+    </div>
+    <div class="sf-filters">
+      <button *ngFor="let s of statusOptions" type="button" class="sf-chip" [class.on]="selectedStatus === s.value"
+              (click)="selectedStatus = s.value; onFilterChange()" [attr.data-testid]="'status-chip-' + (s.value || 'ALL')">
+        {{ s.value ? s.label : 'All' }}
+      </button>
     </div>
   </div>
 
   <!-- Stats Row -->
-  <div class="stats-grid">
-    <div class="stat-card stat-card--blue">
-      <div class="stat-icon">
-        <i class="pi pi-box"></i>
-      </div>
-      <div class="stat-content">
-        <h3>{{ totalRecords }}</h3>
-        <p>Total Products</p>
-      </div>
+  <div class="sf-grid sf-tiles">
+    <div class="sf-tile">
+      <span class="l">Total Products</span>
+      <span class="v">{{ totalRecords }}</span>
     </div>
-    <div class="stat-card stat-card--green">
-      <div class="stat-icon">
-        <i class="pi pi-check-circle"></i>
-      </div>
-      <div class="stat-content">
-        <h3>{{ activeCount }}</h3>
-        <p>Active (this page)</p>
-      </div>
+    <div class="sf-tile">
+      <span class="l">Active</span>
+      <span class="v ok">{{ activeCount }}</span>
+      <span class="s">this page</span>
     </div>
-    <div class="stat-card stat-card--gray">
-      <div class="stat-icon">
-        <i class="pi pi-ban"></i>
-      </div>
-      <div class="stat-content">
-        <h3>{{ inactiveCount }}</h3>
-        <p>Inactive (this page)</p>
-      </div>
+    <div class="sf-tile">
+      <span class="l">Inactive</span>
+      <span class="v">{{ inactiveCount }}</span>
+      <span class="s">this page</span>
     </div>
   </div>
 
   <!-- Filter Bar -->
-  <div class="main-card mb-4">
-    <div class="filter-bar">
-      <p-iconfield class="filter-search">
+  <div class="sf-filters">
+      <p-iconfield class="sf-search">
         <p-inputicon styleClass="pi pi-search" />
         <input
           pInputText
@@ -75,16 +73,6 @@
         styleClass="filter-dropdown" appendTo="body">
       </p-dropdown>
 
-      <p-dropdown
-        [options]="statusOptions"
-        [(ngModel)]="selectedStatus"
-        optionLabel="label"
-        optionValue="value"
-        placeholder="All Statuses"
-        (onChange)="onFilterChange()"
-        styleClass="filter-dropdown" appendTo="body">
-      </p-dropdown>
-
       <!-- A34-PA-10 — products whose variants have a route of this category -->
       <p-dropdown
         *ngIf="routesEnabled"
@@ -99,20 +87,10 @@
         styleClass="filter-dropdown" appendTo="body"
         data-testid="route-category-filter">
       </p-dropdown>
-
-      <p-button
-        icon="pi pi-refresh"
-        severity="secondary"
-        [text]="true"
-        pTooltip="Reset filters"
-        tooltipPosition="top"
-        (onClick)="resetFilters()">
-      </p-button>
-    </div>
   </div>
 
   <!-- Products Table -->
-  <div class="main-card">
+  <div class="sf-card p0">
     <p-table
       [value]="products"
       [loading]="isLoading"
@@ -125,13 +103,13 @@
       [showCurrentPageReport]="true"
       currentPageReportTemplate="Showing {first} to {last} of {totalRecords} products"
       (onPage)="onPageChange($event)"
-      styleClass="p-datatable-gridlines p-datatable-sm">
+      styleClass="p-datatable-sm">
 
       <ng-template pTemplate="header">
         <tr>
           <th style="width: 56px"></th>
-          <th style="width: 130px">SKU</th>
           <th>Name</th>
+          <th style="width: 130px">SKU</th>
           <th>Category</th>
           <th style="width: 110px; text-align: center">Variants</th>
           <th style="width: 100px">UOM</th>
@@ -151,11 +129,11 @@
             </div>
           </td>
           <td>
-            <span class="sku-chip">{{ product.sku || '—' }}</span>
+            <a class="product-name" href="javascript:void(0)" (click)="viewProduct(product.id)">{{ product.name }}</a>
+            <span *ngIf="product.brand" class="product-brand">{{ product.brand }}</span>
           </td>
           <td>
-            <span class="product-name">{{ product.name }}</span>
-            <span *ngIf="product.brand" class="product-brand">{{ product.brand }}</span>
+            <span class="sf-mono">{{ product.sku || '—' }}</span>
           </td>
           <td>
             <span *ngIf="product.categoryName; else noCat">{{ product.categoryName }}</span>
@@ -184,8 +162,8 @@
             <p-button
               icon="pi pi-eye"
               size="small"
-              severity="info"
-              [outlined]="true"
+              severity="secondary"
+              [text]="true"
               pTooltip="View Product"
               tooltipPosition="top"
               (onClick)="viewProduct(product.id)"
@@ -215,7 +193,6 @@
             <p-button
               label="Add Product"
               icon="pi pi-plus"
-              severity="success"
               size="small"
               (onClick)="createProduct()">
             </p-button>
@@ -232,5 +209,6 @@
     </p-table>
   </div>
 
-</div>
+  </div>
+</sf-page>
 

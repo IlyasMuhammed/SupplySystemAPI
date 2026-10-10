@@ -79,56 +79,52 @@
       <div class="sp-rfq-number">{{ payload.sroNumber }}</div>
     </header>
 
-    <div class="sp-content">
+    <!-- ── Dynamic header ───────────────────────────────────────────────── -->
+    <header class="sf-hdr sp-hdr">
+      <div class="sf-t">
+        <div>
+          <div class="sf-kicker">Supplier return · for {{ payload.supplierName }}</div>
+          <h1><span class="sf-mono">{{ payload.sroNumber }}</span> <span class="sf-pill in">Dispatched to you</span></h1>
+          <div class="sf-meta">Dispatched {{ formatDate(payload.dispatchDate) }}<ng-container *ngIf="payload.dispatchCarrier"> · {{ payload.dispatchCarrier }}</ng-container></div>
+        </div>
+      </div>
+      <div class="sf-facts">
+        <div class="sf-kpi">
+          <span class="l">Items</span>
+          <span class="v sm">{{ payload.lines.length }}</span>
+        </div>
+        <div class="sf-kpi">
+          <span class="l">RMA number</span>
+          <span class="v sm">{{ payload.rmaNumber ?? '—' }}</span>
+        </div>
+        <div class="sf-kpi">
+          <span class="l">Link expires</span>
+          <span class="v sm er"><i class="pi pi-calendar"></i> {{ formatDate(payload.expiresAt) }}</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="sf-body sp-content">
 
       <!-- ── Dispatch details card ───────────────────────────────────────── -->
-      <section class="sp-card sp-header-card">
-        <h3 class="sp-section-title">
-          <i class="pi pi-truck"></i> Dispatch Details
-        </h3>
-
-        <div class="sp-meta-grid">
-          <div class="sp-meta-item">
-            <span class="sp-meta-label">Return Number</span>
-            <span class="sp-meta-value sp-rfq-badge">{{ payload.sroNumber }}</span>
-          </div>
-          <div class="sp-meta-item">
-            <span class="sp-meta-label">Supplier</span>
-            <span class="sp-meta-value">{{ payload.supplierName }}</span>
-          </div>
-          <div class="sp-meta-item">
-            <span class="sp-meta-label">RMA Number</span>
-            <span class="sp-meta-value">{{ payload.rmaNumber ?? '—' }}</span>
-          </div>
-          <div class="sp-meta-item">
-            <span class="sp-meta-label">Dispatch Date</span>
-            <span class="sp-meta-value">{{ formatDate(payload.dispatchDate) }}</span>
-          </div>
-          <div class="sp-meta-item">
-            <span class="sp-meta-label">Carrier</span>
-            <span class="sp-meta-value">{{ payload.dispatchCarrier ?? '—' }}</span>
-          </div>
-          <div class="sp-meta-item">
-            <span class="sp-meta-label">Tracking Reference</span>
-            <span class="sp-meta-value">{{ payload.dispatchTrackingRef ?? '—' }}</span>
-          </div>
-          <div class="sp-meta-item">
-            <span class="sp-meta-label">Link Expires</span>
-            <span class="sp-meta-value sp-closing-date">
-              <i class="pi pi-calendar"></i>
-              {{ formatDate(payload.expiresAt) }}
-            </span>
-          </div>
+      <section class="sf-card">
+        <div class="sf-ch"><h2>Dispatch details</h2></div>
+        <div class="sf-kv">
+          <span>Return number</span><span class="sf-mono">{{ payload.sroNumber }}</span>
+          <span>Supplier</span><span>{{ payload.supplierName }}</span>
+          <span>RMA number</span><span>{{ payload.rmaNumber ?? '—' }}</span>
+          <span>Dispatch date</span><span>{{ formatDate(payload.dispatchDate) }}</span>
+          <span>Carrier</span><span>{{ payload.dispatchCarrier ?? '—' }}</span>
+          <span>Tracking reference</span><span>{{ payload.dispatchTrackingRef ?? '—' }}</span>
+          <span>Link expires</span><span class="sp-closing-date">{{ formatDate(payload.expiresAt) }}</span>
         </div>
       </section>
 
       <!-- ── Item grid (read-only) ───────────────────────────────────────── -->
-      <section class="sp-card">
-        <h3 class="sp-section-title">
-          <i class="pi pi-list"></i> Items Being Returned
-        </h3>
+      <section class="sf-card p0">
+        <div class="sf-ch"><h2>Items being returned</h2></div>
 
-        <div class="sp-table-wrap">
+        <div class="sf-tw">
           <table class="sp-table">
             <thead>
               <tr>
@@ -150,57 +146,58 @@
             </tbody>
           </table>
         </div>
-
-        <!-- Acknowledgment form -->
-        <div class="sp-attachments">
-          <h3 class="sp-section-title">
-            <i class="pi pi-check-square"></i> Confirm Receipt
-          </h3>
-          <p class="sp-grid-hint">
-            Please confirm you have received the items above. Remarks and received date are optional.
-          </p>
-
-          <div class="sp-ack-fields">
-            <div class="sp-ack-field">
-              <label class="sp-meta-label" for="receivedDate">Date Received</label>
-              <input id="receivedDate" type="date" class="sp-input" [(ngModel)]="receivedDate" name="receivedDate" />
-            </div>
-            <div class="sp-ack-field sp-ack-field--full">
-              <label class="sp-meta-label" for="remarks">Remarks (optional)</label>
-              <textarea id="remarks" class="sp-input sp-textarea" rows="3"
-                        placeholder="Any comments about the condition of the returned items…"
-                        [(ngModel)]="remarks" name="remarks"></textarea>
-            </div>
-          </div>
-        </div>
-
-        <!-- Submit failure (transport/server error — not a rejected link) -->
-        <div class="sp-validation-errors" *ngIf="submitError">
-          <i class="pi pi-times-circle"></i>
-          <div>
-            <strong>We couldn't record your acknowledgment.</strong>
-            <p style="margin:.25rem 0 0;">{{ submitError }}</p>
-          </div>
-        </div>
-
-        <!-- Submit bar -->
-        <div class="sp-submit-bar">
-          <p class="sp-submit-hint">
-            Once confirmed, this cannot be undone. Contact your procurement representative if you need to make changes afterward.
-          </p>
-          <p-button
-            label="Confirm Receipt"
-            icon="pi pi-check"
-            [loading]="acknowledging"
-            [disabled]="acknowledging"
-            styleClass="sp-submit-btn"
-            (onClick)="acknowledge()">
-          </p-button>
-        </div>
-
       </section>
 
+      <!-- Acknowledgment form -->
+      <section class="sf-card">
+        <div class="sf-ch">
+          <h2>Confirm receipt</h2>
+          <span class="sf-mu sf-sm">
+            Please confirm you have received the items above. Remarks and received date are optional.
+          </span>
+        </div>
+
+        <div class="sf-fields">
+          <div class="sf-fld">
+            <label for="receivedDate">Date received</label>
+            <input id="receivedDate" type="date" class="sp-input" [(ngModel)]="receivedDate" name="receivedDate" />
+          </div>
+          <div class="sf-fld sp-ack-field--full">
+            <label for="remarks">Remarks (optional)</label>
+            <textarea id="remarks" class="sp-input sp-textarea" rows="3"
+                      placeholder="Any comments about the condition of the returned items…"
+                      [(ngModel)]="remarks" name="remarks"></textarea>
+          </div>
+        </div>
+      </section>
+
+      <!-- Submit failure (transport/server error — not a rejected link) -->
+      <div class="sp-validation-errors" *ngIf="submitError">
+        <i class="pi pi-times-circle"></i>
+        <div>
+          <strong>We couldn't record your acknowledgment.</strong>
+          <p style="margin:.25rem 0 0;">{{ submitError }}</p>
+        </div>
+      </div>
+
     </div><!-- /sp-content -->
+
+    <!-- Submit bar -->
+    <div class="sf-fbar">
+      <span class="sf-mu sf-sm">
+        Once confirmed, this cannot be undone. Contact your procurement representative if you need to make changes afterward.
+      </span>
+      <span class="sf-end">
+        <p-button
+          label="Confirm Receipt"
+          icon="pi pi-check"
+          [loading]="acknowledging"
+          [disabled]="acknowledging"
+          styleClass="sp-submit-btn"
+          (onClick)="acknowledge()">
+        </p-button>
+      </span>
+    </div>
   </ng-container>
 
 </div><!-- /sp-shell -->

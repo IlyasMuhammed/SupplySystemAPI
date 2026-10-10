@@ -49,6 +49,12 @@ describe('PoDetailComponent — A35 currency and dual amounts', () => {
   const qa = (id: string): HTMLElement[] => Array.from(fixture.nativeElement.querySelectorAll(`[data-testid="${id}"]`));
   const text = (el: Element | null) => (el?.textContent ?? '').replace(/\s+/g, ' ').trim();
 
+  /** Lines, Supplier, Currency, (Approval), Files are tabs: open one before reading what it shows. */
+  function tab(sectionId: string): void {
+    (q('anchor-' + sectionId) as HTMLButtonElement).click();
+    fixture.detectChanges();
+  }
+
   async function setup(model: PoDetailModel) {
     demand = jasmine.createSpyObj<DemandService>('DemandService', ['getPoById', 'approvePo']);
     demand.getPoById.and.returnValue(of({ success: true, message: '', result: model } as any));
@@ -83,6 +89,7 @@ describe('PoDetailComponent — A35 currency and dual amounts', () => {
 
   it('shows the currency, the rate locked at approval and the purchase base', async () => {
     await setup(po());
+    tab('sec-currency');
     expect(text(q('dc-currency'))).toBe('AED - UAE Dirham');
     expect(text(q('dc-rate'))).toBe('0.2723 (locked 7 Oct 2026)');
     expect(text(q('dc-base'))).toBe('USD');
@@ -94,8 +101,10 @@ describe('PoDetailComponent — A35 currency and dual amounts', () => {
     expect(qa('po-line-total-secondary').map(text)).toEqual(['USD 272.30']);
     expect(text(q('po-total'))).toBe('AED 1,000.00 USD 272.30');
 
+    tab('sec-currency');
     (Array.from(q('dc-toggle')!.querySelectorAll('button'))[1] as HTMLButtonElement).click();
     fixture.detectChanges();
+    tab('sec-lines');
     expect(qa('po-line-unit-price').map(text)).toEqual(['USD 27.23']);
     expect(qa('po-line-total-primary').map(text)).toEqual(['USD 272.30']);
     expect(text(q('po-total-header-primary'))).toBe('Total (USD)');
@@ -104,11 +113,28 @@ describe('PoDetailComponent — A35 currency and dual amounts', () => {
 
   it('a draft PO says the rate locks at approval and shows one set of amounts', async () => {
     await setup(po({ status: 'DRAFT', exchangeRate: null, baseCurrencyId: null, baseCurrencyCode: null, rateLockedAt: null, totalAmountBase: null }));
+    tab('sec-currency');
     expect(text(q('dc-rate'))).toBe('Locked at approval');
     expect(text(q('dc-base'))).toBe('USD');
     expect(q('dc-toggle')).toBeNull();
+    tab('sec-lines');
     expect(qa('po-line-total-secondary').length).toBe(0);
     expect(text(q('po-total'))).toBe('AED 1,000.00');
+  });
+
+  it('shows Lines, Supplier, Currency and Files as tabs: one section at a time, Lines first', async () => {
+    await setup(po());
+    const sectionsShown = () => Array.from(fixture.nativeElement.querySelectorAll('section.sf-section')).map((s: any) => s.id);
+    expect(qa('anchor-sec-lines').length + qa('anchor-sec-supplier').length + qa('anchor-sec-currency').length + qa('anchor-sec-files').length).toBe(4);
+    expect(q('anchor-sec-lines')!.getAttribute('role')).toBe('tab');
+    expect(sectionsShown()).toEqual(['sec-lines']);
+    tab('sec-supplier');
+    await Promise.resolve();             // nothing queued afterwards may switch the tab back
+    fixture.detectChanges();
+    expect(sectionsShown()).toEqual(['sec-supplier']);
+    expect(q('anchor-sec-supplier')!.getAttribute('aria-selected')).toBe('true');
+    tab('sec-files');
+    expect(sectionsShown()).toEqual(['sec-files']);
   });
 
   it('approving without a rate says so plainly (D-5)', async () => {

@@ -407,6 +407,17 @@ internal sealed class InventoryRepository : IInventoryRepository
                 IsManufacturable    = p.IsManufacturable,
                 DefaultProductionWarehouseId   = p.DefaultProductionWarehouseId,
                 DefaultProductionWarehouseName = p.DefaultProductionWarehouse != null ? p.DefaultProductionWarehouse.Name : null,
+                // A36 D-2 (HasActiveServiceBom is filled by InventoryService from Material).
+                ServiceInvoicingPolicy = p.ServiceInvoicingPolicy,
+                ServiceBillingModel    = p.ServiceBillingModel,
+                EstimatedDurationHours = p.EstimatedDurationHours,
+                HasServiceBom          = p.HasServiceBom,
+                IsSubcontractable      = p.IsSubcontractable,
+                // A37 D-10 / D-16.
+                ServiceCategory        = p.ServiceCategory,
+                RequiresSiteVisit      = p.RequiresSiteVisit,
+                ModifiedAt             = p.ModifiedAt,
+                OrganizationId         = p.OrganizationId,
                 Notes               = p.Notes,
                 ImageUrl            = p.ImageUrl,
                 Status              = p.Status,
@@ -609,6 +620,12 @@ internal sealed class InventoryRepository : IInventoryRepository
             req.ProductType, req.SupplyMethod, req.IsSaleable, req.IsPurchasable, req.IsStockable,
             req.DefaultProductionWarehouseId, current: null, redefaultFlags: true);
 
+        // A36 SVC-P-01..04, 07 (SVC-P-06 once the default variant is built, below).
+        var service = ServiceProductRules.Resolve(
+            classification.ProductType, current: null,
+            req.ServiceInvoicingPolicy, req.ServiceBillingModel, req.EstimatedDurationHours,
+            req.HasServiceBom, req.IsSubcontractable, req.ServiceCategory, req.RequiresSiteVisit);
+
         var entity = new Product
         {
             Sku                 = sku,
@@ -646,6 +663,9 @@ internal sealed class InventoryRepository : IInventoryRepository
         };
 
         entity.Variants = await BuildVariantsAsync(req, sku, userId, classification.ProductType);
+
+        service.ApplyTo(entity);
+        ServiceProductRules.EnsureHourlyRate(service, entity.Variants.FirstOrDefault(v => v.IsDefault)?.SellingPrice);
 
         _db.Products.Add(entity);
         await _db.SaveChangesAsync();
@@ -721,6 +741,10 @@ internal sealed class InventoryRepository : IInventoryRepository
         entity.IsStockable      = resolved.IsStockable;
         entity.IsManufacturable = resolved.SupplyMethod == SupplyMethod.Manufacture;
         entity.DefaultProductionWarehouseId = resolved.DefaultProductionWarehouseId;
+
+        // A36 D-2 — a product that is no longer a service keeps no service configuration.
+        if (resolved.ProductType != ProductType.Service)
+            ServiceConfiguration.None.ApplyTo(entity);
     }
 
     public async Task<bool> SetManufacturingConfigAsync(int id, ManufacturingConfigRequest req)
@@ -875,6 +899,23 @@ internal sealed class InventoryRepository : IInventoryRepository
                 req.ProductType, req.SupplyMethod, req.IsSaleable, req.IsPurchasable, req.IsStockable,
                 req.DefaultProductionWarehouseId, Current(entity), redefaultFlags: false);
             await ApplyClassificationAsync(entity, resolved);
+        }
+
+        // A36 SVC-P-01..07 — against the product's (possibly just changed) type, overlaid on what it has.
+        if (req.AnyServiceFieldSent || entity.ProductType == ProductType.Service)
+        {
+            var service = ServiceProductRules.Resolve(
+                entity.ProductType, ServiceConfiguration.Of(entity),
+                req.ServiceInvoicingPolicy, req.ServiceInvoicingPolicySent,
+                req.ServiceBillingModel, req.ServiceBillingModelSent,
+                req.EstimatedDurationHours, req.EstimatedDurationHoursSent,
+                req.HasServiceBom, req.IsSubcontractable,
+                req.ServiceCategory, req.ServiceCategorySent, req.RequiresSiteVisit);
+            if (service.IsTimeAndMaterial)
+                ServiceProductRules.EnsureHourlyRate(service, await _db.ProductVariants
+                    .Where(v => v.ProductId == entity.Id && v.IsDefault)
+                    .Select(v => v.SellingPrice).FirstOrDefaultAsync());
+            service.ApplyTo(entity);
         }
 
         entity.UpdatedDate = DateTime.UtcNow;

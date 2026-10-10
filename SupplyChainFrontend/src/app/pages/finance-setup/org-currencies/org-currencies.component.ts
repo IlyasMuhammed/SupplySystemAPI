@@ -24,6 +24,7 @@ import {
   MAX_CURRENCY_NAME, MAX_CURRENCY_SYMBOL, OrgCurrencyDraft, SYMBOL_POSITIONS, currencyLockText, orgCurrencyProblem
 } from '../currency-setup.shared';
 import { formatMoney } from '../../../shared/money/money-format';
+import { FLOW } from '../../../shared/flow';
 
 /**
  * A35-P1-05 — Settings → Finance Setup → Currencies (spec §11.2): the organization's currencies (api/currencies, D-1) with
@@ -36,7 +37,8 @@ import { formatMoney } from '../../../shared/money/money-format';
   standalone: true,
   imports: [
     CommonModule, FormsModule, ButtonModule, DialogModule, InputNumberModule, InputTextModule, SelectModule, TableModule, TagModule,
-    ToastModule, ToggleSwitchModule, TooltipModule
+    ToastModule, ToggleSwitchModule, TooltipModule,
+    ...FLOW
   ],
   templateUrl: './org-currencies.component.html',
   styleUrls: ['../finance-setup.scss', './org-currencies.component.scss'],

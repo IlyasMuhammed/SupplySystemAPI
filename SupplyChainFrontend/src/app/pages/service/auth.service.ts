@@ -33,11 +33,20 @@ export interface PermissionItem {
   name: string;
   code: string;
   isAllowed: boolean;
+  /** A37 §7 — the module (MODULE_*) this permission belongs to; absent for cross-module ones. */
+  moduleCode?: string | null;
+  /** A37 §7 — false while that module is switched off for the current organization (still assignable, inert). */
+  moduleEnabled?: boolean;
 }
 
 export interface PermissionGroup {
   module: string;
   permissions: PermissionItem[];
+  /** A37 — set when the role editor regroups by module (RolesComponent). */
+  moduleCode?: string | null;
+  moduleEnabled?: boolean;
+  /** Tooltip for the permissions of a switched-off module. */
+  disabledTip?: string;
 }
 
 export interface RoleDetail {
@@ -145,8 +154,14 @@ export class AuthService {
   // ── Role CRUD (ROLE-001) ───────────────────────────────────────────────────
   private readonly rolesBase = `${environment.apiUrl}/roles`;
 
-  getRoleList(): Observable<ApiResponse<RoleListItem[]>> {
-    return this.http.get<ApiResponse<RoleListItem[]>>(this.rolesBase);
+  /**
+   * The role catalog. `assignableOnly` asks for just the roles the signed-in user may give a user (the create/edit
+   * user picker): for an Org Admin that leaves out System Admin and Organization Admin; a super admin gets all.
+   */
+  getRoleList(assignableOnly = false): Observable<ApiResponse<RoleListItem[]>> {
+    return assignableOnly
+      ? this.http.get<ApiResponse<RoleListItem[]>>(this.rolesBase, { params: { assignable: 'true' } })
+      : this.http.get<ApiResponse<RoleListItem[]>>(this.rolesBase);
   }
   getRoleDetail(id: number): Observable<ApiResponse<RoleDetail>> {
     return this.http.get<ApiResponse<RoleDetail>>(`${this.rolesBase}/${id}`);

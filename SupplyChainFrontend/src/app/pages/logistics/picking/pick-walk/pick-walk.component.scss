@@ -1,55 +1,37 @@
-.walk-page { padding: 1.5rem; max-width: 60rem; }
-
-.page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
-.page-title { font-size: 1.5rem; font-weight: 700; display: flex; align-items: center; gap: .625rem; margin: 0; flex-wrap: wrap; }
-.page-subtitle { color: var(--text-color-secondary); font-size: .875rem; margin: .25rem 0 0; }
-
-.loading-state, .not-found { text-align: center; padding: 4rem 1rem; color: var(--text-color-secondary); }
-.not-found i { font-size: 2.5rem; display: block; margin-bottom: .75rem; opacity: .6; }
-.not-found h2 { font-size: 1.125rem; font-weight: 600; margin: 0 0 .25rem; color: var(--text-color); }
-
-.font-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-.link { color: var(--primary-color); text-decoration: none; }
-.link:hover { text-decoration: underline; }
-
-.progress-strip { display: flex; align-items: center; gap: .75rem; margin-bottom: 1.25rem; }
-.progress-strip .bar { flex: 1; height: .5rem; border-radius: 999px; background: var(--surface-200); overflow: hidden; }
-.progress-strip .fill { height: 100%; background: var(--primary-color); transition: width .2s ease; }
-.progress-strip .count { font-size: .8125rem; color: var(--text-color-secondary); white-space: nowrap; }
+.progress-strip { display: flex; align-items: center; gap: .75rem; }
+.progress-strip .sf-pb { flex: 1; height: .5rem; }
+.progress-strip .sf-pb > span { height: .5rem; }
+.progress-strip .count { white-space: nowrap; }
 
 // ── The one instruction in front of the picker ──────────────────────────────
 // Deliberately large. This is read at arm's length, in a warehouse, possibly on a handheld.
 
 .current-card {
   display: flex; gap: 1rem;
-  background: var(--surface-0); border: 2px solid var(--primary-color);
-  border-radius: .75rem; padding: 1.25rem; margin-bottom: 1.25rem;
+  background: var(--sms-surface); border: 2px solid var(--sms-primary);
+  border-radius: var(--sms-radius); padding: 1.25rem;
+  max-width: 60rem;
 }
 .current-card .seq {
   flex: 0 0 3rem; height: 3rem; border-radius: .5rem;
   display: flex; align-items: center; justify-content: center;
-  background: var(--primary-color); color: var(--primary-color-text);
+  background: var(--sms-primary); color: var(--sms-on-primary);
   font-size: 1.25rem; font-weight: 700;
 }
 .current-card .body { flex: 1; min-width: 0; }
 
 .current-card .location {
-  font-size: 1.125rem; font-weight: 700; color: var(--primary-color);
+  font-size: 1.125rem; font-weight: 700; color: var(--sms-primary-text);
   display: flex; align-items: center; gap: .375rem;
 }
 .current-card .item { font-size: 1.375rem; font-weight: 600; margin: .375rem 0 .625rem; }
 
 .chips { display: flex; flex-wrap: wrap; gap: .375rem; margin-bottom: .875rem; }
-.chip {
-  font-size: .75rem; padding: .1875rem .5rem; border-radius: 999px;
-  background: var(--surface-100); color: var(--text-color);
-}
-.chip.muted { color: var(--text-color-secondary); }
 
 .take { display: flex; align-items: baseline; gap: .5rem; margin-bottom: 1rem; }
-.take .label { font-size: .75rem; text-transform: uppercase; letter-spacing: .04em; color: var(--text-color-secondary); }
+.take .label { font-size: .75rem; text-transform: uppercase; letter-spacing: .04em; color: var(--sms-text-muted); }
 .take .qty { font-size: 2rem; font-weight: 700; line-height: 1; }
-.take .uom { font-size: 1rem; color: var(--text-color-secondary); }
+.take .uom { font-size: 1rem; color: var(--sms-text-muted); }
 
 .confirm-row { display: flex; align-items: flex-end; gap: .75rem; flex-wrap: wrap; }
 .confirm-row .field { min-width: 8rem; }
@@ -62,73 +44,64 @@
 .inline-warning {
   display: flex; align-items: center; gap: .5rem;
   margin-top: .875rem; padding: .5rem .75rem; border-radius: .375rem; font-size: .8125rem;
-  background: var(--yellow-50, #fefce8);
-  border: 1px solid var(--yellow-200, #fef08a);
-  color: var(--yellow-800, #854d0e);
+  background: var(--sms-warn-soft);
+  border: 1px solid color-mix(in srgb, var(--sms-warn) 30%, transparent);
+  color: var(--sms-warn);
 }
 .inline-warning.danger {
-  background: var(--red-50, #fef2f2);
-  border-color: var(--red-200, #fecaca);
-  color: var(--red-800, #991b1b);
+  background: var(--sms-danger-soft);
+  border-color: color-mix(in srgb, var(--sms-danger) 30%, transparent);
+  color: var(--sms-danger);
 }
 
 // ── Finished ────────────────────────────────────────────────────────────────
 
 .done-card {
-  text-align: center; padding: 2.5rem 1.25rem; margin-bottom: 1.25rem;
-  background: var(--green-50, #f0fdf4);
-  border: 1px solid var(--green-200, #bbf7d0);
-  border-radius: .75rem;
+  text-align: center; padding: 2.5rem 1.25rem;
+  background: var(--sms-ok-soft);
+  border: 1px solid color-mix(in srgb, var(--sms-ok) 30%, transparent);
+  border-radius: var(--sms-radius);
 }
-.done-card i { font-size: 2.5rem; color: var(--green-600, #16a34a); }
+.done-card i { font-size: 2.5rem; color: var(--sms-ok); }
 .done-card h2 { font-size: 1.25rem; font-weight: 700; margin: .625rem 0 .25rem; }
-.done-card p { color: var(--text-color-secondary); font-size: .875rem; margin: 0 0 1rem; }
+.done-card p { color: var(--sms-text-muted); font-size: .875rem; margin: 0 0 1rem; }
 .done-card.muted {
-  background: var(--surface-50); border-color: var(--surface-200);
+  background: var(--sms-surface-2); border-color: var(--sms-border);
 }
-.done-card.muted i { color: var(--text-color-secondary); }
+.done-card.muted i { color: var(--sms-text-muted); }
 
 // ── The whole walk ──────────────────────────────────────────────────────────
-
-.card {
-  background: var(--surface-0); border: 1px solid var(--surface-200);
-  border-radius: .625rem; padding: 1.25rem;
-}
-.card-title {
-  font-size: .875rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
-  color: var(--text-color-secondary); margin: 0 0 .875rem;
-}
 
 ol.instructions { list-style: none; margin: 0; padding: 0; }
 ol.instructions li {
   display: flex; align-items: center; gap: .875rem;
-  padding: .625rem .5rem; border-bottom: 1px solid var(--surface-100);
+  padding: .625rem .5rem; border-bottom: 1px solid var(--sms-border-soft);
 }
 ol.instructions li:last-child { border-bottom: 0; }
-ol.instructions li.active { background: var(--primary-50, #eef2ff); border-radius: .375rem; }
+ol.instructions li.active { background: var(--sms-primary-soft); border-radius: .375rem; }
 // Confirmed lines fade rather than vanish: the picker still needs to find one to correct it.
 ol.instructions li.confirmed .detail { opacity: .6; }
 
 .seq-small {
   flex: 0 0 1.75rem; height: 1.75rem; border-radius: .375rem;
   display: flex; align-items: center; justify-content: center;
-  background: var(--surface-200); font-size: .8125rem; font-weight: 600;
+  background: var(--sms-surface-2); font-size: .8125rem; font-weight: 600;
 }
-ol.instructions li.confirmed .seq-small { background: var(--green-100, #dcfce7); }
+ol.instructions li.confirmed .seq-small { background: var(--sms-ok-soft); }
 
 .instructions .detail { flex: 1; min-width: 0; }
-.instructions .where { font-size: .75rem; color: var(--text-color-secondary); }
+.instructions .where { font-size: .75rem; color: var(--sms-text-muted); }
 .instructions .what { font-size: .875rem; }
-.instructions .batch { font-size: .75rem; color: var(--text-color-secondary); margin-left: .375rem; }
-.instructions .short-note { font-size: .75rem; color: var(--yellow-800, #854d0e); margin-top: .125rem; }
+.instructions .batch { font-size: .75rem; color: var(--sms-text-muted); margin-left: .375rem; }
+.instructions .short-note { font-size: .75rem; color: var(--sms-warn); margin-top: .125rem; }
 
 .instructions .numbers { font-size: .875rem; white-space: nowrap; }
 .instructions .numbers .picked { font-weight: 700; }
-.instructions .numbers .of { color: var(--text-color-secondary); }
+.instructions .numbers .of { color: var(--sms-text-muted); }
 
 .instructions .state { display: flex; align-items: center; gap: .25rem; min-width: 5.5rem; justify-content: flex-end; }
-.instructions .state i { color: var(--green-600, #16a34a); }
-.instructions .state i.warn { color: var(--yellow-600, #ca8a04); }
+.instructions .state i { color: var(--sms-ok); }
+.instructions .state i.warn { color: var(--sms-warn); }
 
 .dialog-body { display: flex; flex-direction: column; gap: 1rem; }
-.dialog-hint { font-size: .875rem; color: var(--text-color-secondary); margin: 0; }
+.dialog-hint { font-size: .875rem; color: var(--sms-text-muted); margin: 0; }

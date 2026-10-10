@@ -20,6 +20,7 @@ import {
 } from '../../../../services/inventory.service';
 import { AttachmentService } from '../../../../services/attachment.service';
 import { TenantService } from '../../../service/tenant.service';
+import { FLOW } from '../../../../shared/flow';
 
 type RouteCategoryFilter = 'STOCK' | 'MANUFACTURE';
 
@@ -30,7 +31,8 @@ type RouteCategoryFilter = 'STOCK' | 'MANUFACTURE';
     CommonModule, FormsModule,
     ButtonModule, TableModule, TagModule, ToastModule,
     DropdownModule, InputTextModule, ConfirmDialogModule,
-    TooltipModule, InputIconModule, IconFieldModule
+    TooltipModule, InputIconModule, IconFieldModule,
+    ...FLOW
   ],
   templateUrl: './product-list.component.html',
   styleUrls: ['./product-list.component.scss'],

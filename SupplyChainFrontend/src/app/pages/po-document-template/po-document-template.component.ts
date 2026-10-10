@@ -1,5 +1,6 @@
 import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FLOW } from '../../shared/flow';
 import { ReactiveFormsModule, FormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
@@ -26,7 +27,7 @@ const DEFAULT_BODY_HTML =
   selector: 'app-po-document-template',
   standalone: true,
   imports: [
-    CommonModule, ReactiveFormsModule, FormsModule,
+    ...FLOW, CommonModule, ReactiveFormsModule, FormsModule,
     ButtonModule, InputTextModule, TextareaModule, CheckboxModule, DropdownModule, TooltipModule, ToastModule
   ],
   templateUrl: './po-document-template.component.html',

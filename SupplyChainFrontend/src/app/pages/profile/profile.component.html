@@ -1,10 +1,17 @@
 <p-toast></p-toast>
 
-<div class="profile-page">
+<sf-page [crumbs]="['My profile', activeTab === 'password' ? 'Change password' : activeTab === 'account' ? 'Account details' : 'Edit profile']">
+  <!-- ── Header ─────────────────────────────────────────────── -->
+  <header class="sf-hdr sf-compact">
+    <h1>{{ userFullName }} <span class="sf-pill in"><i class="pi pi-shield"></i>{{ user?.role?.value || 'User' }}</span></h1>
+    <span class="sf-mu">{{ user?.email || '—' }}</span>
+  </header>
+
+  <div class="sf-body">
   <div class="profile-layout">
 
     <!-- ══════════════════════════════════════ LEFT SIDEBAR ══ -->
-    <aside class="profile-sidebar">
+    <aside class="profile-sidebar sf-card p0">
 
       <!-- Hidden file input (accessible from entire sidebar template scope) -->
       <input #picInput type="file" accept="image/jpeg,image/png,image/webp"
@@ -125,12 +132,11 @@
     <div class="profile-content">
 
       <!-- ── Edit Profile ──────────────────────────────────── -->
-      <div *ngIf="activeTab === 'profile'" class="content-card">
-        <div class="content-card-head">
-          <div class="cch-icon purple"><i class="pi pi-user-edit"></i></div>
+      <div *ngIf="activeTab === 'profile'" class="content-card sf-card p0">
+        <div class="sf-ch">
           <div>
-            <div class="cch-title">Personal Information</div>
-            <div class="cch-sub">Update your name, email address and phone number</div>
+            <h2>Personal information</h2>
+            <div class="sf-mu sf-sm">Update your name, email address and phone number</div>
           </div>
         </div>
         <div class="content-card-body">
@@ -187,12 +193,11 @@
       </div>
 
       <!-- ── Change Password ───────────────────────────────── -->
-      <div *ngIf="activeTab === 'password'" class="content-card">
-        <div class="content-card-head">
-          <div class="cch-icon amber"><i class="pi pi-shield"></i></div>
+      <div *ngIf="activeTab === 'password'" class="content-card sf-card p0">
+        <div class="sf-ch">
           <div>
-            <div class="cch-title">Change Password</div>
-            <div class="cch-sub">After saving you will be logged out and prompted to sign in again</div>
+            <h2>Change password</h2>
+            <div class="sf-mu sf-sm">After saving you will be logged out and prompted to sign in again</div>
           </div>
         </div>
         <div class="content-card-body">
@@ -265,60 +270,32 @@
       </div>
 
       <!-- ── Account Details ───────────────────────────────── -->
-      <div *ngIf="activeTab === 'account'" class="content-card">
-        <div class="content-card-head">
-          <div class="cch-icon blue"><i class="pi pi-id-card"></i></div>
+      <div *ngIf="activeTab === 'account'" class="content-card sf-card p0">
+        <div class="sf-ch">
           <div>
-            <div class="cch-title">Account Details</div>
-            <div class="cch-sub">Read-only information about your account</div>
+            <h2>Account details</h2>
+            <div class="sf-mu sf-sm">Read-only information about your account</div>
           </div>
         </div>
         <div class="content-card-body">
 
-          <div class="account-grid">
+          <div class="sf-kv">
+            <span>Full name</span>
+            <span>{{ userFullName }}</span>
 
-            <div class="account-card">
-              <div class="ac-icon purple"><i class="pi pi-user"></i></div>
-              <div class="ac-body">
-                <span class="ac-label">Full Name</span>
-                <span class="ac-value">{{ userFullName }}</span>
-              </div>
-            </div>
+            <span>Email address</span>
+            <span>{{ user?.email || '—' }}</span>
 
-            <div class="account-card">
-              <div class="ac-icon blue"><i class="pi pi-envelope"></i></div>
-              <div class="ac-body">
-                <span class="ac-label">Email Address</span>
-                <span class="ac-value">{{ user?.email || '—' }}</span>
-              </div>
-            </div>
+            <span>Phone number</span>
+            <span>{{ user?.phoneNo || '—' }}</span>
 
-            <div class="account-card">
-              <div class="ac-icon green"><i class="pi pi-phone"></i></div>
-              <div class="ac-body">
-                <span class="ac-label">Phone Number</span>
-                <span class="ac-value">{{ user?.phoneNo || '—' }}</span>
-              </div>
-            </div>
+            <span>Role</span>
+            <span><span class="sf-pill in">{{ user?.role?.value || '—' }}</span></span>
 
-            <div class="account-card">
-              <div class="ac-icon amber"><i class="pi pi-shield"></i></div>
-              <div class="ac-body">
-                <span class="ac-label">Role</span>
-                <span class="ac-value">
-                  <span class="role-badge">{{ user?.role?.value || '—' }}</span>
-                </span>
-              </div>
-            </div>
-
-            <div class="account-card" *ngIf="user?.address">
-              <div class="ac-icon slate"><i class="pi pi-map-marker"></i></div>
-              <div class="ac-body">
-                <span class="ac-label">Address</span>
-                <span class="ac-value">{{ user?.address }}</span>
-              </div>
-            </div>
-
+            <ng-container *ngIf="user?.address">
+              <span>Address</span>
+              <span>{{ user?.address }}</span>
+            </ng-container>
           </div>
 
         </div>
@@ -326,4 +303,5 @@
 
     </div>
   </div>
-</div>
+  </div>
+</sf-page>

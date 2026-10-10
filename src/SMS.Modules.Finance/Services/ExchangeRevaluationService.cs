@@ -1,4 +1,4 @@
-using Hangfire;
+﻿using Hangfire;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SMS.Modules.Finance.Data;
@@ -179,11 +179,13 @@ internal sealed class ExchangeRevaluationJob
     private readonly IExchangeRevaluationService  _revaluation;
     private readonly ILogger<ExchangeRevaluationJob> _log;
     private readonly TimeProvider                 _clock;
+    private readonly IModuleGate?                 _gate;
 
     public ExchangeRevaluationJob(
         IExchangeRevaluationService revaluation, ILogger<ExchangeRevaluationJob> log,
-        IOrganizationDirectory? organizations = null, TimeProvider? clock = null)
+        IOrganizationDirectory? organizations = null, TimeProvider? clock = null, IModuleGate? gate = null)
     {
+        _gate          = gate;
         _revaluation   = revaluation;
         _log           = log;
         _organizations = organizations;
@@ -200,7 +202,10 @@ internal sealed class ExchangeRevaluationJob
         if (_organizations is null) return;
 
         var date = DateOnly.FromDateTime(_clock.GetUtcNow().UtcDateTime);
-        foreach (var org in await _organizations.GetOrganizationIdsAsync())
+        var organizations = await _organizations.GetOrganizationIdsAsync();
+        // A37 D-9 — not for organizations without MODULE_FINANCE (grace counts as off).
+        var skipped = await _gate.SkippedAmongAsync(organizations, ModuleCodes.Finance, _log, nameof(ExchangeRevaluationJob));
+        foreach (var org in organizations.Where(o => !skipped.Contains(o)))
         {
             HangfireTenantScope.OrganizationId = org;
             try

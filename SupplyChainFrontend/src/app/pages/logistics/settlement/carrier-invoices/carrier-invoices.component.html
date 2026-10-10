@@ -1,93 +1,100 @@
-<div class="invoices-page">
-  <p-toast></p-toast>
+<p-toast></p-toast>
 
-  <div class="page-header">
-    <div>
-      <h1 class="page-title"><i class="pi pi-file"></i> Carrier invoices</h1>
-      <p class="page-subtitle">
-        What carriers have billed — the third leg of the three-way match, against what was quoted
-        and what the carrier agreed when it accepted the booking.
-      </p>
-    </div>
-
-    <div class="header-actions">
-      <p-button label="Unmatched lines" icon="pi pi-inbox" severity="secondary" [outlined]="true"
-                routerLink="/portal/pages/logistics/settlement/match-queue"
-                data-testid="action-queue"></p-button>
-      <p-button label="Record a bill" icon="pi pi-plus" (onClick)="openCreate()"
-                data-testid="action-new"></p-button>
-    </div>
+<sf-page [crumbs]="['Logistics', 'Carrier invoices']">
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <p-button label="Record a bill" icon="pi pi-plus" (onClick)="openCreate()"
+              data-testid="action-new"></p-button>
+    <p-button label="Unmatched lines" icon="pi pi-inbox" [text]="true"
+              routerLink="/portal/pages/logistics/settlement/match-queue"
+              data-testid="action-queue"></p-button>
   </div>
 
-  <div class="filters">
-    <p-select [options]="carrierOptions" [(ngModel)]="filter.carrierUuid" optionLabel="label"
-              optionValue="value" (onChange)="search()" styleClass="filter"
-              data-testid="filter-carrier"></p-select>
+  <div class="sf-body">
+    <div class="sf-lr-head">
+      <div>
+        <h1>Carrier invoices <span class="sf-count">{{ total }}</span></h1>
+        <div class="sf-sub">
+          What carriers have billed — the third leg of the three-way match, against what was quoted
+          and what the carrier agreed when it accepted the booking.
+        </div>
+      </div>
+      <div class="sf-filters" data-testid="filter-status">
+        <button *ngFor="let s of statusOptions" type="button" class="sf-chip" [class.on]="filter.status === s.value"
+                (click)="filter.status = s.value; search()" [attr.data-testid]="'status-chip-' + (s.value || 'ALL')">
+          {{ s.value ? s.label : 'All' }}
+        </button>
+      </div>
+    </div>
 
-    <p-select [options]="statusOptions" [(ngModel)]="filter.status" optionLabel="label"
-              optionValue="value" (onChange)="search()" styleClass="filter"
-              data-testid="filter-status"></p-select>
+    <div class="sf-filters">
+      <p-select [options]="carrierOptions" [(ngModel)]="filter.carrierUuid" optionLabel="label"
+                optionValue="value" (onChange)="search()" styleClass="filter"
+                data-testid="filter-carrier"></p-select>
 
-    <input pInputText [(ngModel)]="filter.search" (keyup.enter)="search()"
-           placeholder="Invoice number, carrier, or airway bill" class="filter-search"
-           data-testid="filter-search" />
+      <input pInputText [(ngModel)]="filter.search" (keyup.enter)="search()"
+             placeholder="Invoice number, carrier, or airway bill" class="sf-search"
+             data-testid="filter-search" />
 
-    <p-button icon="pi pi-search" [text]="true" (onClick)="search()"></p-button>
+      <p-button icon="pi pi-search" [text]="true" (onClick)="search()"></p-button>
+    </div>
+
+    <div class="sf-card p0">
+      <p-table [value]="invoices" [lazy]="true" (onLazyLoad)="load($event)" [paginator]="true"
+               [rows]="pageSize" [totalRecords]="total" [loading]="isLoading"
+               styleClass="p-datatable-sm" data-testid="invoice-table">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Invoice</th>
+            <th>Carrier</th>
+            <th>Issued</th>
+            <th class="amount">Total</th>
+            <th>Lines</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </ng-template>
+
+        <ng-template pTemplate="body" let-i>
+          <tr data-testid="invoice-row">
+            <td>
+              <a [routerLink]="['/portal/pages/logistics/settlement/carrier-invoices', i.uuid]"
+                 class="sf-mono"><strong>{{ i.invoiceNumber }}</strong></a>
+              <div class="muted" *ngIf="i.source === 'IMPORT'">imported</div>
+            </td>
+            <td>{{ i.carrierName }}</td>
+            <td>
+              {{ i.invoiceDate | date:'dd MMM yyyy' }}
+              <div class="muted" *ngIf="i.dueDate">due {{ i.dueDate | date:'dd MMM' }}</div>
+            </td>
+            <td class="amount">{{ i.totalAmount | number:'1.2-2' }} {{ i.currency }}</td>
+            <td>{{ i.lineCount }}</td>
+            <td>
+              <p-tag [value]="formatStatus(i.status)" [severity]="statusSeverity(i.status)"
+                     data-testid="invoice-status"></p-tag>
+            </td>
+            <td class="text-right">
+              <p-button *ngIf="i.status !== 'CANCELLED'" icon="pi pi-ban" [text]="true" size="small"
+                        severity="danger" pTooltip="Withdraw" (onClick)="openCancel(i)"
+                        data-testid="action-cancel"></p-button>
+            </td>
+          </tr>
+        </ng-template>
+
+        <ng-template pTemplate="emptymessage">
+          <tr>
+            <td colspan="7">
+              <div class="sf-empty" data-testid="no-invoices">
+                <i class="pi pi-file" style="font-size:1.75rem"></i>
+                <p>No carrier bills recorded.</p>
+                <p class="sf-sm">Until one is, nothing checks what carriers are charging.</p>
+              </div>
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </div>
   </div>
-
-  <p-table [value]="invoices" [lazy]="true" (onLazyLoad)="load($event)" [paginator]="true"
-           [rows]="pageSize" [totalRecords]="total" [loading]="isLoading"
-           styleClass="p-datatable-sm" data-testid="invoice-table">
-    <ng-template pTemplate="header">
-      <tr>
-        <th>Invoice</th>
-        <th>Carrier</th>
-        <th>Issued</th>
-        <th class="amount">Total</th>
-        <th>Lines</th>
-        <th>Status</th>
-        <th></th>
-      </tr>
-    </ng-template>
-
-    <ng-template pTemplate="body" let-i>
-      <tr data-testid="invoice-row">
-        <td>
-          <a [routerLink]="['/portal/pages/logistics/settlement/carrier-invoices', i.uuid]"
-             class="font-mono link">{{ i.invoiceNumber }}</a>
-          <div class="muted" *ngIf="i.source === 'IMPORT'">imported</div>
-        </td>
-        <td>{{ i.carrierName }}</td>
-        <td>
-          {{ i.invoiceDate | date:'dd MMM yyyy' }}
-          <div class="muted" *ngIf="i.dueDate">due {{ i.dueDate | date:'dd MMM' }}</div>
-        </td>
-        <td class="amount">{{ i.totalAmount | number:'1.2-2' }} {{ i.currency }}</td>
-        <td>{{ i.lineCount }}</td>
-        <td>
-          <p-tag [value]="formatStatus(i.status)" [severity]="statusSeverity(i.status)"
-                 data-testid="invoice-status"></p-tag>
-        </td>
-        <td class="text-right">
-          <p-button *ngIf="i.status !== 'CANCELLED'" icon="pi pi-ban" [text]="true" size="small"
-                    severity="danger" pTooltip="Withdraw" (onClick)="openCancel(i)"
-                    data-testid="action-cancel"></p-button>
-        </td>
-      </tr>
-    </ng-template>
-
-    <ng-template pTemplate="emptymessage">
-      <tr>
-        <td colspan="7">
-          <div class="empty-state" data-testid="no-invoices">
-            <i class="pi pi-file"></i>
-            <p>No carrier bills recorded.</p>
-            <p class="muted">Until one is, nothing checks what carriers are charging.</p>
-          </div>
-        </td>
-      </tr>
-    </ng-template>
-  </p-table>
+</sf-page>
 
   <!-- ── Keying a bill ───────────────────────────────────────────────────────── -->
 
@@ -235,4 +242,3 @@
                 data-testid="confirm-cancel"></p-button>
     </ng-template>
   </p-dialog>
-</div>

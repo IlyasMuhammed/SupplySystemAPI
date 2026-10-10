@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FLOW } from '../../../shared/flow';
 import { FormsModule } from '@angular/forms';
 import { TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
@@ -12,7 +13,7 @@ import { PdfService } from '../../../services/pdf.service';
 @Component({
   selector: 'app-supplier-performance',
   standalone: true,
-  imports: [CommonModule, FormsModule, TableModule, ButtonModule, ToastModule, CalendarModule],
+  imports: [CommonModule, FormsModule, TableModule, ButtonModule, ToastModule, CalendarModule, ...FLOW],
   templateUrl: './supplier-performance.component.html',
   styleUrls: ['./supplier-performance.component.scss'],
   providers: [MessageService]

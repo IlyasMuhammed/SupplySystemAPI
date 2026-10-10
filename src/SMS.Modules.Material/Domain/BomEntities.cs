@@ -21,12 +21,24 @@ internal static class BomStatus
     public static bool IsLive(string status) => status is Draft or Submitted or Approved or Active;
 }
 
+/// <summary>A36 SVC-BOM-01..05 — the user-facing refusals (API-CONTRACT §2).</summary>
+internal static class ServiceBomMessages
+{
+    public const string NotEnabled                    = "This product does not have service BOM enabled";
+    public const string SupplierRequired              = "Subcontract supplier is required for subcontracted BOM lines";
+    public const string SupplierOnlyForSubcontract    = "Supplier reference is only valid for subcontracted lines";
+    public const string SubcontractMaterialNotService = "Subcontracted line material must be a service-type product";
+    public const string LaborNotHours                 = "Internal labor lines must use hours (HR) as unit of measure";
+    public const string SupplierNotVendor             = "Subcontract supplier must be a vendor of your organization";
+    public const string SourceOnlyOnServiceBom        = "Subcontracted and internal labor lines are only allowed on a service BOM";
+}
+
 /// <summary>
 /// How a manufactured product is made (A30 §7): one version of the recipe. Versions are immutable
 /// once they leave DRAFT — a change to a used recipe is a new version, so a production order that
 /// snapshotted this one is never rewritten underneath it.
 /// </summary>
-internal class BillOfMaterial : ITenantScopedEntity
+internal class BillOfMaterial : ITenantScopedEntity, IHasModifiedAt
 {
     public int       Id                 { get; set; }
     public Guid      UUID               { get; set; } = Guid.NewGuid();
@@ -48,6 +60,13 @@ internal class BillOfMaterial : ITenantScopedEntity
     public int       CreatedBy          { get; set; }
     public DateTime  CreatedAt          { get; set; } = DateTime.UtcNow;
     public DateTime  UpdatedAt          { get; set; } = DateTime.UtcNow;
+    /// <summary>A37 D-16 — UTC, set by MaterialDbContext on every insert/update (sync delta).</summary>
+    public DateTime  ModifiedAt         { get; set; } = DateTime.UtcNow;
+    /// <summary>
+    /// A37 D-11 — UNIVERSAL (default), PRODUCTION_PREFERRED or SERVICE_PREFERRED (<see cref="SMS.Shared.Common.BomUsage"/>):
+    /// which pickers list it first. Advisory; editable in any status but OBSOLETE.
+    /// </summary>
+    public string    BomUsage           { get; set; } = SMS.Shared.Common.BomUsage.Universal;
     public int?      SubmittedBy        { get; set; }
     public DateTime? SubmittedAt        { get; set; }
     public int?      ApprovedBy         { get; set; }
@@ -65,7 +84,7 @@ internal class BillOfMaterial : ITenantScopedEntity
 }
 
 /// <summary>One input of the recipe: this much of that variant per <see cref="BillOfMaterial.BaseQuantity"/> of output.</summary>
-internal class BillOfMaterialLine : ITenantScopedEntity
+internal class BillOfMaterialLine : ITenantScopedEntity, IHasModifiedAt
 {
     public int      Id                   { get; set; }
     public Guid     UUID                 { get; set; } = Guid.NewGuid();
@@ -83,6 +102,15 @@ internal class BillOfMaterialLine : ITenantScopedEntity
     public bool     IsCritical           { get; set; } = true;
     public Guid?    AlternateVariantUuid { get; set; }
     public string?  Notes                { get; set; }
+    /// <summary>
+    /// A36 D-4 — STOCK (default), SUBCONTRACT or INTERNAL_LABOR (<see cref="BomLineSourceType"/>). Only a service BOM
+    /// may carry non-STOCK lines.
+    /// </summary>
+    public string   SourceType           { get; set; } = BomLineSourceType.Stock;
+    /// <summary>A36 D-4 — the vendor (business partner UUID, no FK) a SUBCONTRACT line is bought from; null otherwise.</summary>
+    public Guid?    SubcontractSupplierUuid { get; set; }
+    /// <summary>A37 D-16 — UTC, set by MaterialDbContext on every insert/update.</summary>
+    public DateTime ModifiedAt           { get; set; } = DateTime.UtcNow;
 
     public BillOfMaterial Bom { get; set; } = null!;
 }

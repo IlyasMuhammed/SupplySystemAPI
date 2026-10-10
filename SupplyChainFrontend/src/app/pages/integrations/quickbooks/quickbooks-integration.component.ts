@@ -26,6 +26,7 @@ import { InitialSyncTabComponent } from './initial-sync-tab/initial-sync-tab.com
 import { MatchTabComponent } from './match-tab/match-tab.component';
 import { SyncTabComponent } from './sync-tab/sync-tab.component';
 import { ApiClientsTabComponent } from './api-clients-tab/api-clients-tab.component';
+import { FLOW } from '../../../shared/flow';
 
 interface TabDef {
   key: QboTabKey;
@@ -57,7 +58,8 @@ const TABS: TabDef[] = [
   imports: [
     CommonModule, ButtonModule, TabsModule, TagModule, ToastModule, TooltipModule,
     ConnectionTabComponent, PreflightTabComponent, MappingsTabComponent, InitialSyncTabComponent, MatchTabComponent,
-    SyncTabComponent, ApiClientsTabComponent
+    SyncTabComponent, ApiClientsTabComponent,
+    ...FLOW
   ],
   templateUrl: './quickbooks-integration.component.html',
   styleUrls: ['./quickbooks-integration.component.scss'],

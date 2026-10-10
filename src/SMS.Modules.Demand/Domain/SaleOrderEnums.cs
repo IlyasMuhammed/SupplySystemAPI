@@ -88,7 +88,11 @@ internal enum SaleOrderLineFulfillmentMode
     [Code("SPLIT")]        Split,
     // A34 D-1: the line's effective route is MANUFACTURE. Nothing reserved, DeficitQty = Quantity, no deficit job, no
     // delivery at confirm: one production order for the full quantity, whose completion creates the delivery.
-    [Code("MAKE_TO_ORDER")] MakeToOrder
+    [Code("MAKE_TO_ORDER")] MakeToOrder,
+    // A36 D-10: the variant's product is a SERVICE. Set when the line is built (and re-checked at confirm) from the product
+    // type. Route-exempt like DROP_SHIP (no route, no blocker, no delivery), never reserved or allocated, no deficit job:
+    // a service order performs it, and its COMPLETED/CLOSED service orders are what fulfil the line.
+    [Code("SERVICE")] Service
 }
 
 internal enum SaleOrderLineStatus

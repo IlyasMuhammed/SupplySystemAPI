@@ -8,11 +8,11 @@
 .code-name { margin-top: .125rem; }
 .code-usage { font-size: .75rem; }
 .suggestion { display: flex; align-items: center; gap: .25rem; flex-wrap: wrap; margin-top: .25rem; }
-.sub-table-head { padding: 1.25rem 1.25rem .5rem; border-top: 1px solid var(--surface-border, #e5e7eb); }
+.sub-table-head { padding: 1.25rem 1.25rem .5rem; border-top: 1px solid var(--sms-border); }
 .card-title.small { font-size: .9375rem; }
-.unmapped-count { color: var(--orange-700, #c2410c); font-size: .8125rem; font-weight: 600; display: inline-flex; gap: .375rem; align-items: center; }
+.unmapped-count { color: var(--sms-warn); font-size: .8125rem; font-weight: 600; display: inline-flex; gap: .375rem; align-items: center; }
 
-:host ::ng-deep tr.unmapped > td { background: var(--orange-50, #fff7ed); }
-:host ::ng-deep tr.unmapped > td:first-child { box-shadow: inset 3px 0 0 var(--orange-400, #fb923c); }
+:host ::ng-deep tr.unmapped > td { background: var(--sms-warn-soft); }
+:host ::ng-deep tr.unmapped > td:first-child { box-shadow: inset 3px 0 0 var(--sms-warn); }
 :host ::ng-deep .rate-input { width: 7rem; }
 :host ::ng-deep .p-selectbutton { flex-wrap: wrap; }

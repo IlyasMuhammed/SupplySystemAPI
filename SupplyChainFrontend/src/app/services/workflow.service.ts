@@ -115,6 +115,10 @@ export interface WorkflowDefinitionListItemModel {
   conditionValueMax: number | null;
   stepCount: number;
   createdDate: string;
+  /** A37 §8 — module derived from the interface code (PR/PO → MODULE_DEMAND, GRN → MODULE_WAREHOUSE…). */
+  moduleCode?: string | null;
+  /** A37 §8 — false while that module is switched off: the definition is dormant (no documents can be created). */
+  moduleEnabled?: boolean;
 }
 
 export interface WorkflowStepModel {
@@ -237,6 +241,9 @@ export interface InterfaceSummaryDto {
   activeVersion: number | null;
   stepCount: number | null;
   hasActiveWorkflow: boolean;
+  /** A37 §8 — module of the interface; `moduleEnabled: false` = dormant while that module is off. */
+  moduleCode?: string | null;
+  moduleEnabled?: boolean;
 }
 
 export interface InterfaceWorkflowVersionDto {

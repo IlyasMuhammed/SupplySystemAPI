@@ -1,85 +1,65 @@
 <p-toast />
-<div class="notif-page">
-
-  <!-- ── Hero ─────────────────────────────────────────────────────────────── -->
-  <div class="notif-hero">
-    <div class="notif-hero-bg"></div>
-    <div class="notif-hero-content">
-      <div class="notif-hero-left">
-        <div class="notif-hero-icon">
-          <i class="pi pi-bell"></i>
-          <span *ngIf="notifService.unreadCount() > 0" class="hero-badge">
-            {{ notifService.unreadCount() }}
-          </span>
-        </div>
-        <div>
-          <h1 class="notif-hero-title">Notifications</h1>
-          <p class="notif-hero-sub">Approvals, rejections, and system events — all in one place</p>
-        </div>
-      </div>
-      <div class="notif-hero-actions">
-        <button class="hero-btn hero-btn--ghost"
-                (click)="refreshLists()"
-                [disabled]="isLoadingAll || isLoadingUnread">
-          <i class="pi" [class.pi-refresh]="!isLoadingAll && !isLoadingUnread"
-                        [class.pi-spin]="isLoadingAll || isLoadingUnread"></i>
-          Refresh
-        </button>
-        <button class="hero-btn hero-btn--primary"
-                (click)="markAllRead()"
-                [disabled]="notifService.unreadCount() === 0">
-          <i class="pi pi-check-circle"></i>
-          Mark all read
-        </button>
-      </div>
-    </div>
-
-    <!-- Stats strip -->
-    <div class="notif-stats">
-      <div class="stat-item">
-        <span class="stat-value">{{ allTotal }}</span>
-        <span class="stat-label">Total</span>
-      </div>
-      <div class="stat-divider"></div>
-      <div class="stat-item stat-item--accent">
-        <span class="stat-value">{{ notifService.unreadCount() }}</span>
-        <span class="stat-label">Unread</span>
-      </div>
-      <div class="stat-divider"></div>
-      <div class="stat-item stat-item--muted">
-        <span class="stat-value">{{ allTotal - notifService.unreadCount() }}</span>
-        <span class="stat-label">Read</span>
-      </div>
-    </div>
+<sf-page [crumbs]="['Notifications']">
+  <!-- ── Command bar ──────────────────────────────────────────────────────── -->
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <p-button label="Mark all read" icon="pi pi-check-circle"
+              (onClick)="markAllRead()"
+              [disabled]="notifService.unreadCount() === 0"></p-button>
+    <p-button label="Refresh" icon="pi pi-refresh" [text]="true"
+              (onClick)="refreshLists()"
+              [loading]="isLoadingAll || isLoadingUnread"
+              [disabled]="isLoadingAll || isLoadingUnread"></p-button>
   </div>
 
   <!-- ── Body ─────────────────────────────────────────────────────────────── -->
-  <div class="notif-body">
+  <div class="sf-body notif-body">
 
-    <!-- Toolbar: tabs + category filters -->
-    <div class="notif-toolbar">
-      <div class="notif-tabs">
-        <button class="ntab" [class.ntab--active]="activeTab === 'all'" (click)="switchTab('all')">
+    <!-- Title + All / Unread -->
+    <div class="sf-lr-head">
+      <div>
+        <h1>Notifications <span class="sf-count">{{ allTotal }}</span></h1>
+        <div class="sf-sub">Approvals, rejections, and system events — all in one place</div>
+      </div>
+      <div class="sf-filters">
+        <button type="button" class="sf-chip" [class.on]="activeTab === 'all'" (click)="switchTab('all')">
           All
-          <span class="ntab-chip">{{ allTotal }}</span>
+          <span class="sf-mu">{{ allTotal }}</span>
         </button>
-        <button class="ntab" [class.ntab--active]="activeTab === 'unread'" (click)="switchTab('unread')">
+        <button type="button" class="sf-chip" [class.on]="activeTab === 'unread'" (click)="switchTab('unread')">
           Unread
-          <span *ngIf="notifService.unreadCount() > 0" class="ntab-chip ntab-chip--red">
+          <span *ngIf="notifService.unreadCount() > 0" class="sf-pill er">
             {{ notifService.unreadCount() }}
           </span>
         </button>
       </div>
+    </div>
 
-      <div class="notif-cat-filters">
-        <button *ngFor="let cat of categories"
-                class="nfilt"
-                [class.nfilt--active]="selectedCategory === cat.value"
-                (click)="selectedCategory = cat.value">
-          <i [class]="cat.icon"></i>
-          {{ cat.label }}
-        </button>
+    <!-- KPI tiles -->
+    <div class="sf-grid sf-tiles">
+      <div class="sf-tile">
+        <span class="l">Total</span>
+        <span class="v">{{ allTotal }}</span>
       </div>
+      <div class="sf-tile">
+        <span class="l">Unread</span>
+        <span class="v in">{{ notifService.unreadCount() }}</span>
+      </div>
+      <div class="sf-tile">
+        <span class="l">Read</span>
+        <span class="v">{{ allTotal - notifService.unreadCount() }}</span>
+      </div>
+    </div>
+
+    <!-- Category filters -->
+    <div class="sf-filters">
+      <button *ngFor="let cat of categories"
+              type="button"
+              class="sf-chip"
+              [class.on]="selectedCategory === cat.value"
+              (click)="selectedCategory = cat.value">
+        <i [class]="cat.icon"></i>
+        {{ cat.label }}
+      </button>
     </div>
 
     <!-- ── All tab ──────────────────────────────────────────────────────────── -->
@@ -231,4 +211,4 @@
     </ng-container>
 
   </div>
-</div>
+</sf-page>

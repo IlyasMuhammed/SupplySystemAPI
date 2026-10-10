@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FLOW } from '../../../shared/flow';
 import { FormsModule } from '@angular/forms';
 import { TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
@@ -15,9 +16,8 @@ import { PdfService } from '../../../services/pdf.service';
 @Component({
   selector: 'app-inventory-reports',
   standalone: true,
-  imports: [CommonModule, FormsModule, TableModule, ButtonModule, InputTextModule, TabViewModule, ToastModule, CardModule, TagModule],
+  imports: [CommonModule, FormsModule, TableModule, ButtonModule, InputTextModule, TabViewModule, ToastModule, CardModule, TagModule, ...FLOW],
   templateUrl: './inventory-reports.component.html',
-  styleUrls: ['./inventory-reports.component.scss'],
   providers: [MessageService]
 })
 export class InventoryReportsComponent implements OnInit {

@@ -1,42 +1,33 @@
-<div class="trace-page">
-  <p-toast></p-toast>
+<p-toast></p-toast>
 
-  <!-- Header -->
-  <div class="page-header">
-    <div class="header-left">
-      <div class="header-icon icon-purple">
-        <i class="pi pi-search"></i>
-      </div>
-      <div>
-        <h1 class="page-title">Batch / Serial Trace</h1>
-        <p class="page-subtitle">Full chain-of-custody: GRN receipt &rarr; inventory &rarr; issue voucher</p>
-      </div>
+<sf-page [crumbs]="['Material', 'Batch / serial trace']">
+  <div class="sf-body">
+  <div class="sf-lr-head">
+    <div>
+      <h1>Batch / serial trace</h1>
+      <div class="sf-sub">Full chain-of-custody: GRN receipt &rarr; inventory &rarr; issue voucher</div>
     </div>
   </div>
 
   <!-- Search box -->
-  <div class="card search-card">
-    <label class="search-label">Enter Batch Number or Serial Number</label>
-    <div class="search-row">
-      <input pInputText
-             [(ngModel)]="reference"
-             placeholder="e.g. BATCH-001 or SN-20240101-001"
-             class="search-input"
-             (keyup.enter)="search()" />
-      <p-button label="Trace" icon="pi pi-search" (onClick)="search()"
-                [loading]="isSearching" [disabled]="!reference.trim()"></p-button>
-    </div>
+  <div class="sf-filters">
+    <input pInputText
+           [(ngModel)]="reference"
+           placeholder="Batch or serial number, e.g. BATCH-001 or SN-20240101-001"
+           aria-label="Enter Batch Number or Serial Number"
+           class="search-input"
+           (keyup.enter)="search()" />
+    <p-button label="Trace" icon="pi pi-search" (onClick)="search()"
+              [loading]="isSearching" [disabled]="!reference.trim()"></p-button>
   </div>
 
   <!-- Loading -->
-  <div *ngIf="isSearching" class="loading-card">
-    <i class="pi pi-spin pi-spinner"></i>
-    <span>Tracing&hellip;</span>
+  <div *ngIf="isSearching" class="sf-card sf-empty">
+    <span><i class="pi pi-spin pi-spinner"></i> Tracing&hellip;</span>
   </div>
 
   <!-- Not found -->
-  <div *ngIf="!isSearching && searched && !result" class="no-data-card">
-    <i class="pi pi-search-minus"></i>
+  <div *ngIf="!isSearching && searched && !result" class="sf-card sf-empty">
     <p>No inventory records found for <strong>"{{ reference }}"</strong>.</p>
   </div>
 
@@ -44,7 +35,7 @@
   <ng-container *ngIf="result">
 
     <!-- Product summary -->
-    <div class="card product-card">
+    <div class="sf-card product-card">
       <div class="product-header">
         <div class="ref-badge" [class.ref-serial]="result.referenceType === 'SERIAL'">
           <i class="pi" [class.pi-qrcode]="result.referenceType === 'SERIAL'" [class.pi-box]="result.referenceType === 'BATCH'"></i>
@@ -82,8 +73,8 @@
     </div>
 
     <!-- Timeline -->
-    <div class="card timeline-card">
-      <h3 class="section-title">Chain of Custody</h3>
+    <div class="sf-card timeline-card">
+      <div class="sf-ch"><h2>Chain of custody</h2></div>
       <p-timeline [value]="timelineEvents" align="left">
         <ng-template pTemplate="marker" let-event>
           <div class="timeline-marker" [style.background]="event.color">
@@ -176,11 +167,11 @@
         </ng-template>
       </p-timeline>
 
-      <div *ngIf="timelineEvents.length === 0" class="no-data-card" style="border:none;padding:1rem;">
-        <i class="pi pi-info-circle"></i>
+      <div *ngIf="timelineEvents.length === 0" class="sf-empty">
         <p>No trace history available for this reference.</p>
       </div>
     </div>
 
   </ng-container>
-</div>
+  </div>
+</sf-page>

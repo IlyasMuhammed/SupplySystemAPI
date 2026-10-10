@@ -1,191 +1,154 @@
-<div class="detail-page">
-  <p-toast></p-toast>
-  <p-confirmDialog [style]="{width:'440px'}" [breakpoints]="{'960px':'75vw','640px':'90vw'}"></p-confirmDialog>
+<p-toast></p-toast>
+<p-confirmDialog [style]="{width:'440px'}" [breakpoints]="{'960px':'75vw','640px':'90vw'}"></p-confirmDialog>
 
-  <div *ngIf="isLoading" class="loading-card">
-    <i class="pi pi-spin pi-spinner"></i>
-    <p>Loading payment...</p>
-  </div>
-
-  <div *ngIf="!isLoading && !payment" class="loading-card">
-    <i class="pi pi-exclamation-circle"></i>
-    <p>Payment not found.</p>
-  </div>
-
-  <ng-container *ngIf="!isLoading && payment">
-
-    <!-- ── Header ─────────────────────────────────────────────────────── -->
-    <div class="page-header">
-      <div class="header-left">
-        <p-button icon="pi pi-arrow-left" [text]="true" severity="secondary"
-                  routerLink="/portal/pages/finance/payments" class="back-btn"></p-button>
-        <div>
-          <div class="title-row">
-            <h1 class="page-title">{{ payment.paymentNumber }}</h1>
-            <p-tag [value]="payment.status" [severity]="getStatusSeverity(payment.status)"></p-tag>
-          </div>
-          <p class="page-subtitle">{{ payment.supplierName }}</p>
-        </div>
-      </div>
-
-      <div class="action-buttons">
-        <p-button label="Approve" icon="pi pi-check" severity="success"
-                  *ngIf="canApprove"
-                  [loading]="isActioning" (onClick)="confirmApprove()"></p-button>
-        <p-button label="Post" icon="pi pi-send" severity="warn"
-                  *ngIf="canPost"
-                  [loading]="isActioning" (onClick)="confirmPost()"></p-button>
-        <p-button label="Bounce" icon="pi pi-exclamation-triangle" severity="danger" [outlined]="true"
-                  *ngIf="canBounce"
-                  [loading]="isActioning" (onClick)="confirmBounce()"></p-button>
-        <p-button label="Cancel" icon="pi pi-times" severity="secondary" [outlined]="true"
-                  *ngIf="canCancel"
-                  [loading]="isActioning" (onClick)="confirmCancel()"></p-button>
-        <p-button icon="pi pi-history" [text]="true" severity="secondary"
-                  pTooltip="View Timeline" (onClick)="showTimeline = true"></p-button>
-      </div>
-    </div>
-
-    <!-- ── Info cards ──────────────────────────────────────────────────── -->
-    <div class="info-grid">
-
-      <!-- Supplier -->
-      <div class="info-card">
-        <div class="ic-head">
-          <div class="ic-icon"><i class="pi pi-building"></i></div>
-          <span class="ic-title">Supplier</span>
-        </div>
-        <div class="supplier-display">
-          <div class="supplier-avatar">{{ payment.supplierName.charAt(0).toUpperCase() }}</div>
-          <div class="supplier-meta">
-            <div class="supplier-name">{{ payment.supplierName }}</div>
-            <div class="supplier-sub">Vendor / Supplier</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Payment details -->
-      <div class="info-card">
-        <div class="ic-head">
-          <div class="ic-icon ic-icon--green"><i class="pi pi-wallet"></i></div>
-          <span class="ic-title">Payment Details</span>
-        </div>
-        <div class="total-hero">
-          <span class="total-hero-label">Total Amount</span>
-          <span class="total-hero-amount">{{ payment.totalAmount | number:'1.2-2' }} <small *ngIf="payment.currencyCode">{{ payment.currencyCode }}</small></span>
-        </div>
-        <!-- A35-E-06 — currency, the rate locked at posting, the purchase base. -->
-        <app-doc-currency-panel [doc]="currencyInfo" lockPoint="posting" domain="PURCHASE" [showToggle]="false"></app-doc-currency-panel>
-        <div class="meta-rows">
-          <div class="meta-row">
-            <span><i class="pi pi-calendar"></i> Payment Date</span>
-            <strong>{{ payment.paymentDate | date:'dd MMM yyyy' }}</strong>
-          </div>
-          <div class="meta-row">
-            <span><i class="pi pi-credit-card"></i> Method</span>
-            <strong>{{ payment.paymentMethod }}</strong>
-          </div>
-          <div class="meta-row">
-            <span><i class="pi pi-tag"></i> Type</span>
-            <strong>{{ payment.paymentType }}</strong>
-          </div>
-          <div class="meta-row" *ngIf="showAmountBase">
-            <span><i class="pi pi-globe"></i> In {{ payment.baseCurrencyCode }}</span>
-            <strong data-testid="amount-base">{{ payment.amountBase | money:baseCurrencyRef:moneyCode }}</strong>
-          </div>
-          <div class="meta-row" *ngIf="payment.exchangeDifference !== null && payment.exchangeDifference !== undefined">
-            <span><i class="pi pi-sort-alt"></i> Realized exchange difference</span>
-            <strong data-testid="payment-fx"><app-fx-difference [amount]="payment.exchangeDifference" [currency]="baseCurrencyRef"></app-fx-difference></strong>
-          </div>
-          <div class="meta-row" *ngIf="payment.bankAccount">
-            <span><i class="pi pi-building-columns"></i> Bank Account</span>
-            <strong>{{ payment.bankAccount }}</strong>
-          </div>
-          <div class="meta-row" *ngIf="payment.chequeNo">
-            <span><i class="pi pi-hashtag"></i> Cheque No</span>
-            <strong>{{ payment.chequeNo }}</strong>
-          </div>
-          <div class="meta-row" *ngIf="payment.chequeDate">
-            <span><i class="pi pi-calendar-times"></i> Cheque Date</span>
-            <strong>{{ payment.chequeDate | date:'dd MMM yyyy' }}</strong>
-          </div>
-        </div>
-      </div>
-
-      <!-- Notes -->
-      <div class="info-card" *ngIf="payment.notes">
-        <div class="ic-head">
-          <div class="ic-icon ic-icon--indigo"><i class="pi pi-align-left"></i></div>
-          <span class="ic-title">Notes</span>
-        </div>
-        <div class="notes-block">
-          <div class="notes-text">{{ payment.notes }}</div>
-        </div>
-      </div>
-
-      <!-- Timeline -->
-      <div class="info-card">
-        <div class="ic-head">
-          <div class="ic-icon ic-icon--amber"><i class="pi pi-history"></i></div>
-          <span class="ic-title">Timeline</span>
-        </div>
-        <div class="timeline-list">
-          <div class="timeline-row"><i class="pi pi-plus-circle"></i> <span>Created</span> <strong>{{ payment.createdDate | date:'dd MMM yyyy, HH:mm' }}</strong></div>
-          <div class="timeline-row" *ngIf="payment.approvedAt"><i class="pi pi-check-circle"></i> <span>Approved</span> <strong>{{ payment.approvedAt | date:'dd MMM yyyy, HH:mm' }}</strong></div>
-          <div class="timeline-row" *ngIf="payment.postedAt"><i class="pi pi-send"></i> <span>Posted</span> <strong>{{ payment.postedAt | date:'dd MMM yyyy, HH:mm' }}</strong></div>
-          <div class="timeline-row" *ngIf="payment.bouncedAt"><i class="pi pi-exclamation-triangle"></i> <span>Bounced</span> <strong>{{ payment.bouncedAt | date:'dd MMM yyyy, HH:mm' }}</strong></div>
-        </div>
-      </div>
-
-    </div>
-
-    <!-- ── Allocated Invoices ─────────────────────────────────────────────── -->
-    <div class="lines-card">
-      <div class="lines-card-head">
-        <div class="ic-icon ic-icon--green"><i class="pi pi-file"></i></div>
-        <div>
-          <div class="lines-title">Allocated Invoices</div>
-          <div class="lines-sub">{{ payment.lines.length }} line{{ payment.lines.length !== 1 ? 's' : '' }}</div>
-        </div>
-      </div>
-
-      <div class="lines-table-wrap">
-        <p-table [value]="payment.lines" [tableStyle]="{'min-width':'40rem'}">
-          <ng-template pTemplate="header">
-            <tr>
-              <th>Invoice #</th>
-              <th class="text-right">Outstanding Before</th>
-              <th class="text-right">Allocated</th>
-              <th *ngIf="hasLineFx" class="text-right">Exchange diff.</th>
-              <th>Notes</th>
-            </tr>
-          </ng-template>
-          <ng-template pTemplate="body" let-l>
-            <tr>
-              <td class="font-mono">{{ l.invoiceNumber }}</td>
-              <td class="text-right">{{ l.outstandingBeforeAllocation | number:'1.2-2' }}</td>
-              <td class="text-right font-semibold">{{ l.allocatedAmount | number:'1.2-2' }}</td>
-              <td *ngIf="hasLineFx" class="text-right" data-testid="line-fx"><app-fx-difference [amount]="l.exchangeDifference" [currency]="baseCurrencyRef"></app-fx-difference></td>
-              <td>{{ l.notes || '—' }}</td>
-            </tr>
-          </ng-template>
-          <ng-template pTemplate="emptymessage">
-            <tr><td colspan="4" class="text-center text-secondary" style="padding:2rem">No invoice lines — free-standing payment (e.g. advance).</td></tr>
-          </ng-template>
-        </p-table>
-      </div>
-    </div>
-
-    <!-- ── Payment Evidence ───────────────────────────────────────────────── -->
-    <div class="info-card mt-section">
-      <div class="ic-head">
-        <div class="ic-icon ic-icon--indigo"><i class="pi pi-paperclip"></i></div>
-        <span class="ic-title">Payment Evidence</span>
-      </div>
-      <app-attachment-list interfaceCode="SUPPLIER_PAYMENT" [documentId]="payment.uuid"
-                            [readOnly]="payment.status === 'CANCELLED'"></app-attachment-list>
-    </div>
-
-    <app-timeline-panel [(visible)]="showTimeline" [documentId]="payment.uuid" interfaceCode="SUPPLIER_PAYMENT"></app-timeline-panel>
-  </ng-container>
+<div *ngIf="isLoading" class="sf-empty">
+  <i class="pi pi-spin pi-spinner"></i>
+  <p>Loading payment...</p>
 </div>
+
+<div *ngIf="!isLoading && !payment" class="sf-empty">
+  <i class="pi pi-exclamation-circle" style="font-size:2rem"></i>
+  <p>Payment not found.</p>
+  <p-button label="Back to payments" icon="pi pi-arrow-left" [text]="true"
+            routerLink="/portal/pages/finance/payments"></p-button>
+</div>
+
+<sf-page *ngIf="!isLoading && payment" [crumbs]="['Finance', 'Supplier payments', payment.paymentNumber]">
+
+  <!-- ── Command bar: the next step first, then the rest ─────────────────────────────── -->
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <p-button label="Approve" icon="pi pi-check"
+              *ngIf="canApprove"
+              [loading]="isActioning" (onClick)="confirmApprove()"></p-button>
+    <p-button label="Post" icon="pi pi-send"
+              *ngIf="canPost"
+              [loading]="isActioning" (onClick)="confirmPost()"></p-button>
+    <p-button icon="pi pi-history" [text]="true"
+              pTooltip="View Timeline" (onClick)="showTimeline = true"></p-button>
+    <span class="sf-sep" *ngIf="canBounce || canCancel"></span>
+    <p-button label="Bounce" icon="pi pi-exclamation-triangle" severity="danger" [text]="true"
+              *ngIf="canBounce"
+              [loading]="isActioning" (onClick)="confirmBounce()"></p-button>
+    <p-button label="Cancel" icon="pi pi-times" severity="danger" [text]="true"
+              *ngIf="canCancel"
+              [loading]="isActioning" (onClick)="confirmCancel()"></p-button>
+    <span class="sf-end">
+      <p-button icon="pi pi-arrow-left" [text]="true" pTooltip="Back to payments"
+                routerLink="/portal/pages/finance/payments"></p-button>
+    </span>
+  </div>
+
+  <!-- ── Dynamic header ──────────────────────────────────────────────────────────────── -->
+  <header class="sf-hdr">
+    <div class="sf-t">
+      <div>
+        <div class="sf-kicker">Supplier payment · {{ payment.paymentType }}</div>
+        <h1>
+          <span class="sf-mono">{{ payment.paymentNumber }}</span>
+          <p-tag [value]="payment.status" [severity]="getStatusSeverity(payment.status)"></p-tag>
+        </h1>
+        <div class="sf-meta">
+          {{ payment.supplierName }} · paid {{ payment.paymentDate | date:'dd MMM yyyy' }} · {{ payment.paymentMethod }}
+        </div>
+      </div>
+    </div>
+
+    <sf-stages [stages]="stages"></sf-stages>
+
+    <div class="sf-facts">
+      <div class="sf-kpi">
+        <span class="l">Total amount</span>
+        <span class="v">{{ payment.totalAmount | number:'1.2-2' }}</span>
+        <span class="s">{{ payment.currencyCode }}</span>
+      </div>
+      <div class="sf-kpi">
+        <span class="l">Invoices</span>
+        <span class="v">{{ payment.lines.length }}</span>
+        <span class="s">allocated line{{ payment.lines.length !== 1 ? 's' : '' }}</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="sf-body">
+    <!-- ── Allocated invoices ─────────────────────────────────────────────── -->
+    <section id="sec-lines" class="sf-section sf-card p0">
+      <div class="sf-ch">
+        <h2>Allocated invoices</h2>
+        <span class="sf-mu sf-sm">{{ payment.lines.length }} line{{ payment.lines.length !== 1 ? 's' : '' }}</span>
+      </div>
+      <p-table [value]="payment.lines" [tableStyle]="{'min-width':'40rem'}">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Invoice #</th>
+            <th class="text-right">Outstanding before</th>
+            <th class="text-right">Allocated</th>
+            <th *ngIf="hasLineFx" class="text-right">Exchange diff.</th>
+            <th>Notes</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-l>
+          <tr>
+            <td class="sf-mono">{{ l.invoiceNumber }}</td>
+            <td class="text-right">{{ l.outstandingBeforeAllocation | number:'1.2-2' }}</td>
+            <td class="text-right"><strong>{{ l.allocatedAmount | number:'1.2-2' }}</strong></td>
+            <td *ngIf="hasLineFx" class="text-right" data-testid="line-fx"><app-fx-difference [amount]="l.exchangeDifference" [currency]="baseCurrencyRef"></app-fx-difference></td>
+            <td>{{ l.notes || '—' }}</td>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="emptymessage">
+          <tr><td colspan="4" class="sf-empty">No invoice lines — free-standing payment (e.g. advance).</td></tr>
+        </ng-template>
+      </p-table>
+    </section>
+
+    <!-- ── Payment details ─────────────────────────────────────────────── -->
+    <section id="sec-details" class="sf-section sf-card">
+      <div class="sf-ch"><h2>Payment details</h2></div>
+      <!-- A35-E-06 — currency, the rate locked at posting, the purchase base. -->
+      <app-doc-currency-panel [doc]="currencyInfo" lockPoint="posting" domain="PURCHASE" [showToggle]="false"></app-doc-currency-panel>
+      <div class="sf-kv">
+        <span>Supplier</span><span>{{ payment.supplierName }}</span>
+        <span>Payment date</span><span>{{ payment.paymentDate | date:'dd MMM yyyy' }}</span>
+        <span>Method</span><span>{{ payment.paymentMethod }}</span>
+        <span>Type</span><span>{{ payment.paymentType }}</span>
+        <ng-container *ngIf="showAmountBase">
+          <span>In {{ payment.baseCurrencyCode }}</span>
+          <span data-testid="amount-base">{{ payment.amountBase | money:baseCurrencyRef:moneyCode }}</span>
+        </ng-container>
+        <ng-container *ngIf="payment.exchangeDifference !== null && payment.exchangeDifference !== undefined">
+          <span>Realized exchange difference</span>
+          <span data-testid="payment-fx"><app-fx-difference [amount]="payment.exchangeDifference" [currency]="baseCurrencyRef"></app-fx-difference></span>
+        </ng-container>
+        <ng-container *ngIf="payment.bankAccount">
+          <span>Bank account</span><span>{{ payment.bankAccount }}</span>
+        </ng-container>
+        <ng-container *ngIf="payment.chequeNo">
+          <span>Cheque no</span><span>{{ payment.chequeNo }}</span>
+        </ng-container>
+        <ng-container *ngIf="payment.chequeDate">
+          <span>Cheque date</span><span>{{ payment.chequeDate | date:'dd MMM yyyy' }}</span>
+        </ng-container>
+      </div>
+      <p class="sf-mu" *ngIf="payment.notes">{{ payment.notes }}</p>
+    </section>
+
+    <!-- ── Payment evidence ───────────────────────────────────────────────── -->
+    <section id="sec-files" class="sf-section sf-card">
+      <div class="sf-ch"><h2>Payment evidence</h2></div>
+      <app-attachment-list interfaceCode="SUPPLIER_PAYMENT" [documentId]="payment.uuid"
+                           [readOnly]="payment.status === 'CANCELLED'"></app-attachment-list>
+    </section>
+  </div>
+
+  <!-- ── Side panel ──────────────────────────────────────────────────────────────────── -->
+  <sf-panel #panel [tabs]="['Activity']">
+    <div class="sf-tl" *ngIf="panel.active() === 'Activity'">
+      <div class="sf-tl-e"><i class="pi pi-plus-circle"></i> <span>Created<br><span class="sf-mu sf-sm">{{ payment.createdDate | date:'dd MMM yyyy, HH:mm' }}</span></span></div>
+      <div class="sf-tl-e" *ngIf="payment.approvedAt"><i class="pi pi-check-circle"></i> <span>Approved<br><span class="sf-mu sf-sm">{{ payment.approvedAt | date:'dd MMM yyyy, HH:mm' }}</span></span></div>
+      <div class="sf-tl-e" *ngIf="payment.postedAt"><i class="pi pi-send"></i> <span>Posted<br><span class="sf-mu sf-sm">{{ payment.postedAt | date:'dd MMM yyyy, HH:mm' }}</span></span></div>
+      <div class="sf-tl-e" *ngIf="payment.bouncedAt"><i class="pi pi-exclamation-triangle"></i> <span>Bounced<br><span class="sf-mu sf-sm">{{ payment.bouncedAt | date:'dd MMM yyyy, HH:mm' }}</span></span></div>
+    </div>
+  </sf-panel>
+</sf-page>
+
+<app-timeline-panel [(visible)]="showTimeline" [documentId]="payment?.uuid" interfaceCode="SUPPLIER_PAYMENT"></app-timeline-panel>

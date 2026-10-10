@@ -265,6 +265,8 @@ internal sealed class SaleOrderReservationService : ISaleOrderReservationService
             return $"A {line.Status} line cannot hold stock.";
         if (line.FulfillmentMode == DropShip)
             return "A drop-ship line is shipped by the supplier; there is no stock of ours to hold.";
+        if (SaleOrderServiceLines.IsService(line))   // A36 D-10
+            return "A service line is performed by a service order; there is no stock to hold for it.";
         return null;
     }
 

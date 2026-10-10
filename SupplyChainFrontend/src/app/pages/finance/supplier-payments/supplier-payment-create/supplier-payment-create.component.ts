@@ -18,6 +18,7 @@ import {
 import { SupplierService, SupplierListItemModel } from '../../../../services/supplier.service';
 import { AttachmentListComponent } from '../../../../shared/attachment-list/attachment-list.component';
 import { toDateOnly } from '../../../../shared/date-only';
+import { FLOW } from '../../../../shared/flow';
 
 export interface PaymentLineInput {
   invoiceUuid: string;
@@ -34,7 +35,8 @@ export interface PaymentLineInput {
     CommonModule, RouterModule, FormsModule,
     ButtonModule, InputTextModule, DropdownModule,
     InputNumberModule, CalendarModule, ToastModule,
-    TagModule, TextareaModule, TableModule, AttachmentListComponent
+    TagModule, TextareaModule, TableModule, AttachmentListComponent,
+    ...FLOW
   ],
   templateUrl: './supplier-payment-create.component.html',
   styleUrls: ['./supplier-payment-create.component.scss'],

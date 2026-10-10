@@ -1,0 +1,82 @@
+<p-toast></p-toast>
+
+<sf-page [crumbs]="['Services', 'Service orders', 'Dashboard']">
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <p-button *ngIf="canCreate" label="New service order" icon="pi pi-plus" [routerLink]="[route, 'new']"></p-button>
+    <p-button label="All service orders" icon="pi pi-list" [text]="true" [routerLink]="[route]"></p-button>
+    <span class="sf-sep"></span>
+    <p-button label="Refresh" icon="pi pi-refresh" [text]="true" [loading]="isLoading" (onClick)="load()" data-testid="refresh"></p-button>
+  </div>
+
+  <div class="sf-body">
+    <div class="sf-lr-head">
+      <div>
+        <h1>Service dashboard</h1>
+        <div class="sf-sub">Today's jobs, what is held up by materials, and how the week is going</div>
+      </div>
+    </div>
+
+    <div class="sf-empty" *ngIf="isLoading && !data"><i class="pi pi-spin pi-spinner"></i> Loading…</div>
+    <div class="sf-empty" *ngIf="loadFailed && !isLoading" data-testid="load-failed">The dashboard could not be loaded.</div>
+
+    <ng-container *ngIf="data as d">
+      <div class="sf-grid sf-tiles" data-testid="tiles">
+        <div class="sf-tile"><span class="l">Today</span><span class="v in" data-testid="tile-today">{{ d.today.length }}</span><span class="s">scheduled for today</span></div>
+        <div class="sf-tile"><span class="l">Waiting for materials</span><span class="v" [class.wn]="d.waitingForMaterials.length > 0" data-testid="tile-waiting">{{ d.waitingForMaterials.length }}</span><span class="s">held up</span></div>
+        <div class="sf-tile"><span class="l">Assigned to me</span><span class="v" data-testid="tile-mine">{{ d.mine.length }}</span><span class="s">open</span></div>
+        <div class="sf-tile"><span class="l">Completion this week</span><span class="v ok" data-testid="tile-rate">{{ percent }}%</span>
+          <span class="s">{{ d.completionRate.completedThisWeek }} of {{ d.completionRate.scheduledThisWeek }}</span></div>
+      </div>
+
+      <div class="sf-grid" style="grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px">
+        <!-- Today's services, by status -->
+        <section class="sf-card" data-testid="card-today">
+          <div class="sf-ch"><h2><i class="pi pi-calendar"></i> Today's services</h2></div>
+          <p class="sf-empty" *ngIf="!todayGroups.length">Nothing scheduled for today.</p>
+          <div *ngFor="let g of todayGroups" class="block" [attr.data-testid]="'today-group-' + g.status">
+            <div><span class="sf-pill" [ngClass]="tone(g.status)">{{ g.label }}</span> <span class="sf-mu sf-sm">{{ g.orders.length }}</span></div>
+            <ng-container *ngTemplateOutlet="rows; context: { $implicit: g.orders }"></ng-container>
+          </div>
+        </section>
+
+        <!-- Waiting for materials -->
+        <section class="sf-card" data-testid="card-waiting">
+          <div class="sf-ch"><h2><i class="pi pi-exclamation-triangle"></i> Waiting for materials</h2></div>
+          <p class="sf-empty" *ngIf="!d.waitingForMaterials.length">Nothing is held up by materials.</p>
+          <ng-container *ngTemplateOutlet="rows; context: { $implicit: d.waitingForMaterials }"></ng-container>
+        </section>
+
+        <!-- Mine -->
+        <section class="sf-card" data-testid="card-mine">
+          <div class="sf-ch"><h2><i class="pi pi-user"></i> My assigned services</h2></div>
+          <p class="sf-empty" *ngIf="!d.mine.length">Nothing assigned to you.</p>
+          <ng-container *ngTemplateOutlet="rows; context: { $implicit: d.mine }"></ng-container>
+        </section>
+
+        <!-- Completion rate -->
+        <section class="sf-card" data-testid="card-rate">
+          <div class="sf-ch"><h2><i class="pi pi-chart-line"></i> Completion rate</h2><span class="sf-mu sf-sm">this week</span></div>
+          <div class="sf-num" data-testid="rate-figures">
+            <strong>{{ d.completionRate.completedThisWeek }}</strong>
+            <span class="sf-mu"> of {{ d.completionRate.scheduledThisWeek }} completed</span>
+            <span style="float:right;font-weight:600" data-testid="rate-percent">{{ percent }}%</span>
+          </div>
+          <div class="sf-pb"><span [style.width.%]="percent" data-testid="rate-bar"></span></div>
+        </section>
+      </div>
+    </ng-container>
+  </div>
+</sf-page>
+
+<ng-template #rows let-orders>
+  <div class="list-row" *ngFor="let o of orders" [attr.data-testid]="'dash-order-' + o.serviceNumber">
+    <div>
+      <a class="sf-mono" [routerLink]="[route, o.uuid]"><strong>{{ o.serviceNumber }}</strong></a>
+      <div class="sf-mu sf-sm">{{ o.serviceProductName }} · {{ o.customerName }}<ng-container *ngIf="o.scheduledTime"> · {{ o.scheduledTime | slice:0:5 }}</ng-container></div>
+    </div>
+    <span>
+      <i *ngIf="readiness(o.materialReadiness) as r" class="pi" [ngClass]="r.icon" [style.color]="r.color" [attr.aria-label]="r.label" role="img"></i>
+      <span class="sf-pill" [ngClass]="tone(o.status)">{{ statusLabel(o.status) }}</span>
+    </span>
+  </div>
+</ng-template>

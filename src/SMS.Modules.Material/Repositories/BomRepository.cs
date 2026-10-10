@@ -33,13 +33,20 @@ internal sealed class BomRepository : IBomRepository
     // PurchaseOrderRepository's own InventoryDbContext): production DI always supplies it, and this
     // repository's own pre-existing unit tests construct it directly without one.
     private readonly IBackgroundJobClient?    _jobs;
+    // A36 — Suppliers' partner lookups (SVC-BOM-02 vendor check, subcontract supplier names). Optional for the same
+    // reason as _jobs; without the role lookup a subcontract supplier cannot be verified and is refused.
+    private readonly IPartnerRoleLookup?         _partners;
+    private readonly ISupplierNameLookupService? _supplierNames;
 
-    public BomRepository(MaterialDbContext db, InventoryDbContext inv, IDocumentNumberGenerator numbers, IBackgroundJobClient? jobs = null)
+    public BomRepository(MaterialDbContext db, InventoryDbContext inv, IDocumentNumberGenerator numbers, IBackgroundJobClient? jobs = null,
+        IPartnerRoleLookup? partners = null, ISupplierNameLookupService? supplierNames = null)
     {
-        _db      = db;
-        _inv     = inv;
-        _numbers = numbers;
-        _jobs    = jobs;
+        _db            = db;
+        _inv           = inv;
+        _numbers       = numbers;
+        _jobs          = jobs;
+        _partners      = partners;
+        _supplierNames = supplierNames;
     }
 
     // ── Create / update / delete ──────────────────────────────────────────────
@@ -48,14 +55,14 @@ internal sealed class BomRepository : IBomRepository
     {
         ArgumentNullException.ThrowIfNull(req);
 
-        var product     = await ManufacturedProductAsync(req.ProductUuid);
+        var product     = await EligibleOutputProductAsync(req.ProductUuid);
         var variantUuid = await OutputVariantAsync(product.Id, req.ProductVariantUuid);
         // A31-C5 — a new BOM's effective_from defaults to today rather than staying NULL; an
         // existing BOM with a NULL effective_from is left alone (this only applies at creation).
         var effectiveFrom = req.EffectiveFrom ?? DateTime.UtcNow.Date;
         ValidateHeader(req.BaseQuantity, effectiveFrom, req.EffectiveTo);
 
-        var lines = await BuildLinesAsync(req.Lines, product.Uuid, product.Name, currentBomId: null);
+        var lines = await BuildLinesAsync(req.Lines, product.Uuid, product.Name, currentBomId: null, serviceBom: product.IsService);
 
         var latest = await _db.BillsOfMaterials
             .Where(b => b.ProductUuid == product.Uuid && b.ProductVariantUuid == variantUuid)
@@ -74,6 +81,7 @@ internal sealed class BomRepository : IBomRepository
             BaseQuantity       = req.BaseQuantity,
             BaseUom            = Uom(req.BaseUom, product.UomCode),
             Notes              = req.Notes?.Trim(),
+            BomUsage           = Usage(req.BomUsage) ?? BomUsage.Universal,
             CreatedBy          = userId,
             CreatedAt          = now,
             UpdatedAt          = now,
@@ -91,7 +99,7 @@ internal sealed class BomRepository : IBomRepository
         var bom = await LoadAsync(uuid);
         EnsureEditable(bom);
 
-        var product = await ManufacturedProductAsync(bom.ProductUuid);
+        var product = await EligibleOutputProductAsync(bom.ProductUuid);
 
         var baseQuantity  = req.BaseQuantity ?? bom.BaseQuantity;
         var effectiveFrom = req.ClearEffectiveDates ? null : req.EffectiveFrom ?? bom.EffectiveFrom;
@@ -100,7 +108,7 @@ internal sealed class BomRepository : IBomRepository
 
         if (req.Lines is not null)
         {
-            var lines = await BuildLinesAsync(req.Lines, bom.ProductUuid, product.Name, bom.Id);
+            var lines = await BuildLinesAsync(req.Lines, bom.ProductUuid, product.Name, bom.Id, serviceBom: product.IsService);
             _db.BillOfMaterialLines.RemoveRange(bom.Lines);
             bom.Lines = lines;
         }
@@ -110,6 +118,7 @@ internal sealed class BomRepository : IBomRepository
         bom.EffectiveFrom = effectiveFrom;
         bom.EffectiveTo   = effectiveTo;
         if (req.Notes is not null) bom.Notes = req.Notes.Trim();
+        if (Usage(req.BomUsage) is { } usage) bom.BomUsage = usage;
 
         // §9.1 — a rejected recipe goes back to the drawing board the moment it is revised.
         bom.Status    = BomStatus.Draft;
@@ -190,7 +199,7 @@ internal sealed class BomRepository : IBomRepository
             throw new BadRequestException($"BOM {bom.BomNumber} expired on {to:yyyy-MM-dd}; it cannot be activated.");
 
         // The chain may have changed since this was approved.
-        var product = await ManufacturedProductAsync(bom.ProductUuid);
+        var product = await EligibleOutputProductAsync(bom.ProductUuid);
         await EnsureNoCycleAsync(bom.ProductUuid, product.Name, bom.Lines.Select(l => l.MaterialProductUuid), bom.Id);
 
         var now = DateTime.UtcNow;
@@ -240,6 +249,30 @@ internal sealed class BomRepository : IBomRepository
         await _db.SaveChangesAsync();
     }
 
+    /// <summary>A37 D-11 — the advisory usage changes in any status but OBSOLETE (it never alters what the recipe says).</summary>
+    public async Task SetUsageAsync(Guid uuid, string bomUsage, int userId)
+    {
+        var usage = Usage(bomUsage) ?? throw new BadRequestException(UsageProblem(bomUsage));
+        var bom   = await LoadAsync(uuid);
+        if (bom.Status == BomStatus.Obsolete)
+            throw new BadRequestException($"BOM {bom.BomNumber} is obsolete; its usage can no longer change.");
+
+        bom.BomUsage  = usage;
+        bom.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+    }
+
+    /// <summary>A37 D-11 — a usage code, normalised; null when omitted. An unknown code is refused.</summary>
+    internal static string? Usage(string? code)
+    {
+        if (string.IsNullOrWhiteSpace(code)) return null;
+        var normalised = code.Trim().ToUpperInvariant();
+        return BomUsage.IsKnown(normalised) ? normalised : throw new BadRequestException(UsageProblem(code));
+    }
+
+    private static string UsageProblem(string? code) =>
+        $"'{code?.Trim()}' is not a BOM usage. Use one of: {string.Join(", ", BomUsage.All)}.";
+
     // ── Versioning (§8) ───────────────────────────────────────────────────────
 
     public async Task<Guid> NewVersionAsync(Guid uuid, int userId)
@@ -266,6 +299,7 @@ internal sealed class BomRepository : IBomRepository
             BaseQuantity       = source.BaseQuantity,
             BaseUom            = source.BaseUom,
             Notes              = source.Notes,
+            BomUsage           = source.BomUsage,
             CreatedBy          = userId,
             CreatedAt          = now,
             UpdatedAt          = now,
@@ -279,7 +313,9 @@ internal sealed class BomRepository : IBomRepository
                 ScrapPercentage      = l.ScrapPercentage,
                 IsCritical           = l.IsCritical,
                 AlternateVariantUuid = l.AlternateVariantUuid,
-                Notes                = l.Notes
+                Notes                = l.Notes,
+                SourceType              = l.SourceType,
+                SubcontractSupplierUuid = l.SubcontractSupplierUuid
             }).ToList()
         };
 
@@ -319,6 +355,8 @@ internal sealed class BomRepository : IBomRepository
             if (before.ScrapPercentage != after.ScrapPercentage)         fields.Add("Scrap %");
             if (before.IsCritical != after.IsCritical)                   fields.Add("Critical");
             if (before.AlternateVariantUuid != after.AlternateVariantUuid) fields.Add("Alternate");
+            if (before.SourceType != after.SourceType)                   fields.Add("Source");
+            if (before.SubcontractSupplierUuid != after.SubcontractSupplierUuid) fields.Add("Supplier");
             if (fields.Count > 0)
                 result.Changed.Add(new BomLineChangeModel
                 {
@@ -357,9 +395,21 @@ internal sealed class BomRepository : IBomRepository
         var page     = Math.Max(1, filter.Page);
         var pageSize = Math.Clamp(filter.PageSize, 1, 200);
 
-        var boms = await query
+        // A37 D-11 (BOM-SHR-04) — ?preferFor=PRODUCTION|SERVICE: matching usage first, then UNIVERSAL, then the rest.
+        var preferred = filter.PreferFor?.Trim().ToUpperInvariant() switch
+        {
+            null or ""   => null,
+            "PRODUCTION" => BomUsage.ProductionPreferred,
+            "SERVICE"    => BomUsage.ServicePreferred,
+            _ => throw new BadRequestException($"'{filter.PreferFor}' is not a preference. Use PRODUCTION or SERVICE.")
+        };
+        var ordered = preferred is null
+            ? query.OrderByDescending(b => b.UpdatedAt)
+            : query.OrderBy(b => b.BomUsage == preferred ? 0 : b.BomUsage == BomUsage.Universal ? 1 : 2)
+                   .ThenByDescending(b => b.UpdatedAt);
+
+        var boms = await ordered.ThenByDescending(b => b.Id)
             .Include(b => b.Lines)
-            .OrderByDescending(b => b.UpdatedAt).ThenByDescending(b => b.Id)
             .Skip((page - 1) * pageSize).Take(pageSize)
             .ToListAsync();
 
@@ -408,7 +458,8 @@ internal sealed class BomRepository : IBomRepository
             .Select(b => new BomVersionModel
             {
                 UUID = b.UUID, BomNumber = b.BomNumber, Version = b.Version, Status = b.Status,
-                LineCount = b.Lines.Count, CreatedAt = b.CreatedAt, ActivatedAt = b.ActivatedAt, ObsoletedAt = b.ObsoletedAt
+                LineCount = b.Lines.Count, CreatedAt = b.CreatedAt, ActivatedAt = b.ActivatedAt, ObsoletedAt = b.ObsoletedAt,
+                BomUsage = b.BomUsage
             })
             .ToListAsync();
     }
@@ -441,25 +492,29 @@ internal sealed class BomRepository : IBomRepository
             throw new BadRequestException("Effective from must be before effective to.");
     }
 
-    /// <summary>V-B01 — the output must be something this organization makes.</summary>
-    private async Task<ProductFacts> ManufacturedProductAsync(Guid productUuid)
+    /// <summary>
+    /// V-B01 — the output must be something this organization makes (SVC-BOM-06: unchanged for manufactured products),
+    /// or — A36 D-4, SVC-BOM-01 — a service with service BOM enabled.
+    /// </summary>
+    private async Task<CatalogProductFacts> EligibleOutputProductAsync(Guid productUuid)
     {
-        var product = await _inv.Products.AsNoTracking()
-            .Where(p => p.Uuid == productUuid)
-            .Select(p => new ProductFacts(p.Id, p.Uuid, p.Name, p.UomCode, p.SupplyMethod, p.IsActive))
-            .FirstOrDefaultAsync()
+        var product = await CatalogProductReader.FindAsync(_inv, productUuid)
             ?? throw new NotFoundException("Product", productUuid);
 
         if (!product.IsActive)
             throw new BadRequestException($"Product {product.Name} is inactive.");
-        if (product.SupplyMethod != SupplyMethod.Manufacture)
+        if (product.IsService)
+        {
+            if (!product.HasServiceBom)
+                throw new BadRequestException(ServiceBomMessages.NotEnabled);
+            return product;
+        }
+        if (!product.IsManufactured)
             throw new BadRequestException(
                 $"Product {product.Name} is not configured for manufacturing (supply method {product.SupplyMethod}). Set its supply method to MANUFACTURE first.");
 
         return product;
     }
-
-    private sealed record ProductFacts(int Id, Guid Uuid, string Name, string? UomCode, string SupplyMethod, bool IsActive);
 
     private async Task<Guid?> OutputVariantAsync(int productId, Guid? variantUuid)
     {
@@ -471,11 +526,15 @@ internal sealed class BomRepository : IBomRepository
     }
 
     private sealed record MaterialFacts(Guid Uuid, string Sku, string VariantName, bool IsActive, bool IsAvailableForProduction,
-        Guid ProductUuid, string ProductName, string? UomCode);
+        bool IsAvailableForServices, Guid ProductUuid, string ProductName, string? UomCode, string ProductType);
 
-    /// <summary>V-B02, V-B03, V-B04 and the duplicates, then the cross-recipe circular walk.</summary>
+    /// <summary>
+    /// V-B02, V-B03, V-B04 and the duplicates, then the cross-recipe circular walk. A36 (D-4): a service BOM's inputs may
+    /// be available for services instead of production, and its lines carry a source type (SVC-BOM-02..05); a
+    /// manufacturing BOM's lines stay STOCK (SVC-BOM-06).
+    /// </summary>
     private async Task<List<BillOfMaterialLine>> BuildLinesAsync(
-        List<BomLineRequest> requests, Guid outputProductUuid, string outputProductName, int? currentBomId)
+        List<BomLineRequest> requests, Guid outputProductUuid, string outputProductName, int? currentBomId, bool serviceBom)
     {
         ArgumentNullException.ThrowIfNull(requests);
 
@@ -492,7 +551,7 @@ internal sealed class BomRepository : IBomRepository
             : await _inv.ProductVariants.AsNoTracking()
                 .Where(v => wanted.Contains(v.Uuid))
                 .Select(v => new MaterialFacts(v.Uuid, v.Sku, v.VariantName, v.IsActive, v.IsAvailableForProduction,
-                    v.Product.Uuid, v.Product.Name, v.Product.UomCode))
+                    v.IsAvailableForServices, v.Product.Uuid, v.Product.Name, v.Product.UomCode, v.Product.ProductType))
                 .ToDictionaryAsync(f => f.Uuid);
 
         var lines = new List<BillOfMaterialLine>();
@@ -505,9 +564,17 @@ internal sealed class BomRepository : IBomRepository
             var name = $"{material.ProductName} – {material.VariantName}";
             if (!material.IsActive)
                 throw new BadRequestException($"Material {name} is inactive.");
-            if (!material.IsAvailableForProduction)
+            if (serviceBom)
+            {
+                if (!material.IsAvailableForProduction && !material.IsAvailableForServices)
+                    throw new BadRequestException(
+                        $"Material {name} is not configured as a service input. Tick 'Available for services' on the variant first.");
+            }
+            else if (!material.IsAvailableForProduction)
                 throw new BadRequestException(
                     $"Material {name} is not configured as a BOM input. Tick 'Available for production' on the variant first.");
+
+            var sourceType = await ValidateSourceAsync(req, material, name, serviceBom);
             if (material.ProductUuid == outputProductUuid)
                 throw new BadRequestException($"Circular BOM reference detected: {outputProductName} cannot be an input of itself.");
             if (req.Quantity <= 0)
@@ -535,12 +602,64 @@ internal sealed class BomRepository : IBomRepository
                 ScrapPercentage      = req.ScrapPercentage,
                 IsCritical           = req.IsCritical,
                 AlternateVariantUuid = req.AlternateVariantUuid,
-                Notes                = req.Notes?.Trim()
+                Notes                = req.Notes?.Trim(),
+                SourceType              = sourceType,
+                SubcontractSupplierUuid = sourceType == BomLineSourceType.Subcontract ? req.SubcontractSupplierUuid : null
             });
         }
 
         await EnsureNoCycleAsync(outputProductUuid, outputProductName, lines.Select(l => l.MaterialProductUuid), currentBomId);
         return lines;
+    }
+
+    /// <summary>A36 D-4 — the line's source type (normalised) after SVC-BOM-02..05; non-STOCK only on a service BOM.</summary>
+    private async Task<string> ValidateSourceAsync(BomLineRequest req, MaterialFacts material, string name, bool serviceBom)
+    {
+        var sourceType = string.IsNullOrWhiteSpace(req.SourceType) ? BomLineSourceType.Stock : req.SourceType.Trim().ToUpperInvariant();
+        if (!BomLineSourceType.IsKnown(sourceType))
+            throw new BadRequestException(
+                $"'{req.SourceType!.Trim()}' is not a BOM line source type. Use one of: {string.Join(", ", BomLineSourceType.All)}.");
+
+        if (!serviceBom && sourceType != BomLineSourceType.Stock)
+            throw new BadRequestException(ServiceBomMessages.SourceOnlyOnServiceBom);
+
+        // SVC-BOM-03
+        if (sourceType != BomLineSourceType.Subcontract && req.SubcontractSupplierUuid.HasValue)
+            throw new BadRequestException(ServiceBomMessages.SupplierOnlyForSubcontract);
+
+        switch (sourceType)
+        {
+            case BomLineSourceType.Subcontract:
+                // SVC-BOM-02 — required, and an active vendor partner of the caller's organization.
+                if (req.SubcontractSupplierUuid is not { } supplier || supplier == Guid.Empty)
+                    throw new BadRequestException(ServiceBomMessages.SupplierRequired);
+                // SVC-BOM-04
+                if (material.ProductType != ProductType.Service)
+                    throw new BadRequestException(ServiceBomMessages.SubcontractMaterialNotService);
+                var partner = _partners is null ? null : await _partners.GetAsync(supplier);
+                if (partner is null || !partner.IsVendor)
+                    throw new BadRequestException(ServiceBomMessages.SupplierNotVendor);
+                if (!partner.IsActive)
+                    throw new BadRequestException($"Subcontract supplier {partner.Name} is inactive.");
+                break;
+
+            case BomLineSourceType.InternalLabor:
+                // SVC-BOM-05 — the quantity is hours: the material is measured in HR, and so is the line.
+                var lineUom = Uom(req.Uom, material.UomCode);
+                if (!string.Equals(material.UomCode?.Trim(), BomLineSourceType.LaborUom, StringComparison.OrdinalIgnoreCase) ||
+                    lineUom != BomLineSourceType.LaborUom)
+                    throw new BadRequestException(ServiceBomMessages.LaborNotHours);
+                break;
+
+            default:
+                // A service is not held in stock, so a service BOM cannot reserve one: it is subcontracted or labour.
+                if (serviceBom && material.ProductType == ProductType.Service)
+                    throw new BadRequestException(
+                        $"Material {name} is a service and cannot be a stock line. Make it a subcontracted or internal labor line.");
+                break;
+        }
+
+        return sourceType;
     }
 
     /// <summary>
@@ -582,7 +701,8 @@ internal sealed class BomRepository : IBomRepository
 
     private sealed record Names(
         Dictionary<Guid, (string Name, string Sku, string ProductType, string SupplyMethod)> Products,
-        Dictionary<Guid, (string Sku, string VariantName, Guid ProductUuid, string? ImageUrl)> Variants);
+        Dictionary<Guid, (string Sku, string VariantName, Guid ProductUuid, string? ImageUrl)> Variants,
+        IReadOnlyDictionary<Guid, string> Suppliers);
 
     private async Task<Names> NamesAsync(IReadOnlyList<BillOfMaterial> boms)
     {
@@ -604,7 +724,14 @@ internal sealed class BomRepository : IBomRepository
                 .Select(v => new { v.Uuid, v.Sku, v.VariantName, ProductUuid = v.Product.Uuid, v.Product.ImageUrl })
                 .ToDictionaryAsync(v => v.Uuid, v => (v.Sku, v.VariantName, v.ProductUuid, v.ImageUrl));
 
-        return new Names(products, variants);
+        // A36 — subcontract suppliers by name (Suppliers' lookup, keyed by business partner UUID).
+        var supplierUuids = boms.SelectMany(b => b.Lines).Where(l => l.SubcontractSupplierUuid.HasValue)
+            .Select(l => l.SubcontractSupplierUuid!.Value).Distinct().ToList();
+        var suppliers = supplierUuids.Count == 0 || _supplierNames is null
+            ? new Dictionary<Guid, string>()
+            : await _supplierNames.GetNamesAsync(supplierUuids);
+
+        return new Names(products, variants, suppliers);
     }
 
     private static T Fill<T>(T model, BillOfMaterial b, Names names) where T : BomListItemModel
@@ -627,6 +754,8 @@ internal sealed class BomRepository : IBomRepository
         model.CreatedAt          = b.CreatedAt;
         model.UpdatedAt          = b.UpdatedAt;
         model.ActivatedAt        = b.ActivatedAt;
+        model.BomUsage           = b.BomUsage;
+        model.ModifiedAt         = b.ModifiedAt;
         return model;
     }
 
@@ -653,7 +782,10 @@ internal sealed class BomRepository : IBomRepository
             IsCritical           = l.IsCritical,
             AlternateVariantUuid = l.AlternateVariantUuid,
             AlternateVariantName = l.AlternateVariantUuid is { } a ? names.Variants.GetValueOrDefault(a).VariantName : null,
-            Notes                = l.Notes
+            Notes                = l.Notes,
+            SourceType              = l.SourceType,
+            SubcontractSupplierUuid = l.SubcontractSupplierUuid,
+            SubcontractSupplierName = l.SubcontractSupplierUuid is { } s ? names.Suppliers.GetValueOrDefault(s) : null
         };
     }
 }

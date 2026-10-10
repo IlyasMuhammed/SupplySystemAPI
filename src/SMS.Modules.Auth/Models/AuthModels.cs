@@ -115,6 +115,10 @@ public class PermissionModel
     public string Code { get; set; } = string.Empty;
     public string? Description { get; set; }
     public bool IsAllowed { get; set; }
+    // A37 §7 — the permission's module and whether it is switched on for the caller's organization (a permission of a
+    // switched-off module stays assignable, it just has no effect).
+    public string? ModuleCode { get; set; }
+    public bool ModuleEnabled { get; set; } = true;
 }
 
 // ── User management (POST /api/users, GET /api/users, etc.) ──────────────────
@@ -198,6 +202,12 @@ public class AssignRoleRequest
     public int RoleID { get; set; }
 }
 
+/// <summary>POST api/users/{id}/set-password — platform super admins only.</summary>
+public class SetUserPasswordRequest
+{
+    public string NewPassword { get; set; } = string.Empty;
+}
+
 // ── Role CRUD (ROLE-001) ──────────────────────────────────────────────────────
 
 public class RoleListItemModel
@@ -238,6 +248,9 @@ public class PermissionItemModel
     public string Name { get; set; } = string.Empty;
     public string Code { get; set; } = string.Empty;
     public bool IsAllowed { get; set; }
+    // A37 §7
+    public string? ModuleCode { get; set; }
+    public bool ModuleEnabled { get; set; } = true;
 }
 
 public class CreateRoleRequest

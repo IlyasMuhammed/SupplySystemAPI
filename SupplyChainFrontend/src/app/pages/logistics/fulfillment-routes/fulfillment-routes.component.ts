@@ -15,13 +15,14 @@ import { Observable } from 'rxjs';
 
 import {
   AssignRouteByCategoryResult, FulfillmentRouteCategory, FulfillmentRouteModel, FulfillmentRoutesService, routeCategoryLabel,
-  routeCategoryOf, routeCategorySeverity, routesVisibleToOrg
+  isRouteAvailable, routeCategoryOf, routeCategorySeverity, routeUnavailableReason, routesVisibleToOrg
 } from '../../../services/fulfillment-routes.service';
 import { AuthService } from '../../service/auth.service';
 import { TenantService } from '../../service/tenant.service';
 import { FulfillmentRouteEditorComponent, RouteSavedEvent } from './fulfillment-route-editor/fulfillment-route-editor.component';
 import { FulfillmentRouteAssignComponent } from './fulfillment-route-assign/fulfillment-route-assign.component';
 import { abbreviatedSteps, defaultClassLabel } from './fulfillment-routes.shared';
+import { FLOW } from '../../../shared/flow';
 
 /**
  * A33-PA-07 — Settings → Fulfillment Routes (spec §10.1, contract §3). Lists every route of the organization with its
@@ -39,7 +40,8 @@ import { abbreviatedSteps, defaultClassLabel } from './fulfillment-routes.shared
   standalone: true,
   imports: [
     CommonModule, FormsModule, ButtonModule, CheckboxModule, ConfirmDialogModule, DialogModule, SelectModule, TableModule,
-    TagModule, ToastModule, TooltipModule, FulfillmentRouteEditorComponent, FulfillmentRouteAssignComponent
+    TagModule, ToastModule, TooltipModule, FulfillmentRouteEditorComponent, FulfillmentRouteAssignComponent,
+    ...FLOW
   ],
   templateUrl: './fulfillment-routes.component.html',
   styleUrls: ['./fulfillment-routes.component.scss'],
@@ -90,7 +92,13 @@ export class FulfillmentRoutesComponent implements OnInit {
   isManufacture(route: FulfillmentRouteModel): boolean { return routeCategoryOf(route) === 'MANUFACTURE'; }
 
   /** The routes this organization may see (D-9). */
-  private get orgRoutes(): FulfillmentRouteModel[] { return routesVisibleToOrg(this.routes, this.manufacturingEnabled); }
+  /** A37 RTE-01 — a route the server marks unavailable stays listed, tagged with the reason. */
+  private get orgRoutes(): FulfillmentRouteModel[] {
+    return this.routes.filter(r => !isRouteAvailable(r) || routesVisibleToOrg([r], this.manufacturingEnabled).length > 0);
+  }
+
+  isUnavailable(r: FulfillmentRouteModel): boolean { return !isRouteAvailable(r); }
+  unavailableReason(r: FulfillmentRouteModel): string { return routeUnavailableReason(r); }
 
   get visibleRoutes(): FulfillmentRouteModel[] {
     return this.orgRoutes.filter(r =>

@@ -97,18 +97,8 @@ public class PartnersController : ControllerBase
 // IsVendor filter added to SuppliersRepository.GetSuppliersAsync in this same task. The three
 // aliases below are genuinely new routes, so they raise no such conflict.
 
-[ApiController]
-[Route("api/customers")]
-[RequiresFeature("MODULE_SUPPLIERS")]
-public class CustomersAliasController : ControllerBase
-{
-    private readonly IBusinessPartnerService _service;
-    public CustomersAliasController(IBusinessPartnerService service) => _service = service;
-
-    [HttpGet]
-    public async Task<IActionResult> GetCustomers() =>
-        Ok(ApiResponse<List<BusinessPartnerModel>>.Ok(await _service.GetCustomersAsync()));
-}
+// A37 — the former GET api/customers alias (an ungated list of BusinessPartnerModel, called by no screen) is replaced by
+// the customer master facade, CustomersController (API-CONTRACT §5), which owns the route now.
 
 [ApiController]
 [Route("api/carriers")]

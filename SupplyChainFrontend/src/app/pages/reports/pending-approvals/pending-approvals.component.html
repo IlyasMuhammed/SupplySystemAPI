@@ -1,53 +1,49 @@
 <p-toast />
-<div class="report-page">
+<sf-page [crumbs]="['Reports', 'Approval backlog']">
+  <!-- Command bar -->
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <p-button label="Refresh" icon="pi pi-refresh" [text]="true"
+              (onClick)="load()" [loading]="isLoading"></p-button>
+    <p-button label="Download PDF" icon="pi pi-file-pdf" [text]="true"
+              (onClick)="downloadPdf()" [disabled]="!items.length"></p-button>
+  </div>
 
-  <!-- Page Header -->
-  <div class="page-header">
-    <div class="header-left">
-      <div class="header-icon icon-amber">
-        <i class="pi pi-clock"></i>
-      </div>
+  <div class="sf-body">
+    <div class="sf-lr-head">
       <div>
-        <h2 class="page-title">Approval Backlog (All)</h2>
-        <p class="page-subtitle">Track items awaiting approval across all modules</p>
+        <h1>Approval backlog (all) <span class="sf-count">{{ items.length }}</span></h1>
+        <div class="sf-sub">Track items awaiting approval across all modules</div>
       </div>
     </div>
-    <div class="flex gap-2">
-      <p-button label="Download PDF" icon="pi pi-file-pdf" severity="secondary" [outlined]="true"
-                (onClick)="downloadPdf()" [disabled]="!items.length"></p-button>
-      <p-button label="Refresh" icon="pi pi-refresh" severity="secondary" [outlined]="true"
-                (onClick)="load()" [loading]="isLoading"></p-button>
+
+    <!-- Table -->
+    <div class="sf-card p0">
+      <p-table [value]="items" [loading]="isLoading" [paginator]="true" [rows]="20"
+               responsiveLayout="scroll" styleClass="p-datatable-sm p-datatable-striped">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Module</th>
+            <th>Type</th>
+            <th>Reference</th>
+            <th>Status</th>
+            <th>Created Date</th>
+            <th>Description</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-row>
+          <tr>
+            <td><p-tag [value]="row.module" severity="info" /></td>
+            <td>{{ row.entityType }}</td>
+            <td class="sf-mono font-semibold">{{ row.entityNumber }}</td>
+            <td><p-tag [value]="row.status" severity="warn" /></td>
+            <td>{{ row.createdDate | date:'dd MMM yyyy' }}</td>
+            <td class="sf-mu">{{ row.description || '–' }}</td>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="emptymessage">
+          <tr><td colspan="6" class="sf-empty">No pending approvals — all clear!</td></tr>
+        </ng-template>
+      </p-table>
     </div>
   </div>
-
-  <!-- Table -->
-  <div class="table-card">
-    <p-table [value]="items" [loading]="isLoading" [paginator]="true" [rows]="20"
-             responsiveLayout="scroll" styleClass="p-datatable-sm p-datatable-striped">
-      <ng-template pTemplate="header">
-        <tr>
-          <th>Module</th>
-          <th>Type</th>
-          <th>Reference</th>
-          <th>Status</th>
-          <th>Created Date</th>
-          <th>Description</th>
-        </tr>
-      </ng-template>
-      <ng-template pTemplate="body" let-row>
-        <tr>
-          <td><p-tag [value]="row.module" severity="info" /></td>
-          <td>{{ row.entityType }}</td>
-          <td class="font-mono font-semibold">{{ row.entityNumber }}</td>
-          <td><p-tag [value]="row.status" severity="warn" /></td>
-          <td>{{ row.createdDate | date:'dd MMM yyyy' }}</td>
-          <td class="text-color-secondary">{{ row.description || '–' }}</td>
-        </tr>
-      </ng-template>
-      <ng-template pTemplate="emptymessage">
-        <tr><td colspan="6"><div class="empty-state"><i class="pi pi-check-circle"></i><p>No pending approvals — all clear!</p></div></td></tr>
-      </ng-template>
-    </p-table>
-  </div>
-
-</div>
+</sf-page>

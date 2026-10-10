@@ -20,6 +20,7 @@ import { DemandService, CreateQuotationRequest, PrListItemModel, PoListItemModel
 import { InventoryService, ProductListItemModel } from '../../../../services/inventory.service';
 import { AttachmentListComponent } from '../../../../shared/attachment-list/attachment-list.component';
 import { ProductVariantPickerComponent, VariantPickerSelection } from '../../../../shared/product-variant-picker/product-variant-picker.component';
+import { FLOW } from '../../../../shared/flow';
 
 @Component({
   selector: 'app-quotation-create',
@@ -29,7 +30,8 @@ import { ProductVariantPickerComponent, VariantPickerSelection } from '../../../
     ButtonModule, CardModule, InputTextModule, TextareaModule,
     InputNumberModule, DropdownModule, CalendarModule,
     DividerModule, ToastModule, TooltipModule, MessageModule, ProgressSpinnerModule, AttachmentListComponent,
-    ProductVariantPickerComponent
+    ProductVariantPickerComponent,
+    ...FLOW
   ],
   templateUrl: './quotation-create.component.html',
   styleUrls: ['./quotation-create.component.scss'],

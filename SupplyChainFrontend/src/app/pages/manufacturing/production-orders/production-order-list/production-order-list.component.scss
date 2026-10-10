@@ -1,6 +1,5 @@
 @use '../production-shared' as *;
 
-.filters { display: flex; gap: .75rem; align-items: center; }
 :host ::ng-deep .status-filter { min-width: 11rem; }
 .row-link { cursor: pointer; }
 

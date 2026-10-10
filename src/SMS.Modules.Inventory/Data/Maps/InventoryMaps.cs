@@ -18,6 +18,8 @@ internal sealed class ProductCategoryMap : IEntityTypeConfiguration<ProductCateg
         b.HasIndex(x => new { x.OrganizationId, x.Code }).IsUnique();
         b.Property(x => x.OrganizationId).IsRequired();
         b.HasIndex(x => x.OrganizationId);
+        // A37 D-16 — the sync delta reads "this org's rows changed after X".
+        b.HasIndex(x => new { x.OrganizationId, x.ModifiedAt });
     }
 }
 
@@ -67,6 +69,14 @@ internal sealed class ProductMap : IEntityTypeConfiguration<Product>
         b.Property(x => x.ProductType).HasMaxLength(20).IsRequired();
         b.Property(x => x.SupplyMethod).HasMaxLength(20).IsRequired();
         b.HasIndex(x => new { x.OrganizationId, x.SupplyMethod });
+        // A36 D-2 — service configuration (bools: same no-HasDefaultValue rule as above).
+        b.Property(x => x.ServiceInvoicingPolicy).HasMaxLength(30);
+        b.Property(x => x.ServiceBillingModel).HasMaxLength(30);
+        b.Property(x => x.EstimatedDurationHours).HasColumnType("decimal(18,4)");
+        // A37 D-10 — service category code (RequiresSiteVisit: same no-HasDefaultValue rule).
+        b.Property(x => x.ServiceCategory).HasMaxLength(30);
+        // A37 D-16 — the sync delta reads "this org's rows changed after X".
+        b.HasIndex(x => new { x.OrganizationId, x.ModifiedAt });
         b.HasIndex(x => x.Uuid).IsUnique();
         // Composite, not global — each org curates its own SKU catalog.
         b.HasIndex(x => new { x.OrganizationId, x.Sku }).IsUnique();
@@ -118,6 +128,8 @@ internal sealed class ProductVariantMap : IEntityTypeConfiguration<ProductVarian
         b.Property(x => x.OrganizationId).IsRequired();
         b.HasIndex(x => x.ProductId);
         b.HasIndex(x => x.DefaultSupplierId);
+        // A37 D-16 — the sync delta reads "this org's rows changed after X".
+        b.HasIndex(x => new { x.OrganizationId, x.ModifiedAt });
         // A33 C2 — "which of this organization's variants use route X" (the in-use count Logistics asks before it
         // deactivates or deletes a route). Filtered: most variants have no route.
         b.HasIndex(x => new { x.OrganizationId, x.FulfillmentRouteUuid })
@@ -354,6 +366,8 @@ internal sealed class WarehouseMap : IEntityTypeConfiguration<Warehouse>
         b.HasIndex(x => new { x.OrganizationId, x.Code }).IsUnique();
         b.Property(x => x.OrganizationId).IsRequired();
         b.HasIndex(x => x.OrganizationId);
+        // A37 D-16 — the sync delta reads "this org's rows changed after X".
+        b.HasIndex(x => new { x.OrganizationId, x.ModifiedAt });
     }
 }
 

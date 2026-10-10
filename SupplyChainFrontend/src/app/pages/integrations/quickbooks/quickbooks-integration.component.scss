@@ -1,61 +1,38 @@
-.qbo-page { padding: 1.5rem; max-width: 80rem; }
+.company { display: inline-flex; gap: .375rem; align-items: center; padding: 0 .5rem; font-weight: 600; }
 
-.grow { flex: 1; min-width: 0; }
-
-// ── Header (as Sale Order Settings) ─────────────────────────────────────────
-.page-header { display: flex; align-items: flex-start; gap: 1rem; margin-bottom: 1.25rem; }
-.page-icon {
-  width: 2.75rem; height: 2.75rem; border-radius: .625rem; flex-shrink: 0;
-  background: #e8f5e3; color: #2ca01c;
-  display: flex; align-items: center; justify-content: center;
-  i { font-size: 1.2rem; }
-}
-.page-title { font-size: 1.5rem; font-weight: 700; display: flex; align-items: center; gap: .625rem; margin: 0; flex-wrap: wrap; }
-.page-subtitle { color: var(--text-color-secondary); font-size: .875rem; margin: .25rem 0 0; }
-.company { font-size: .875rem; font-weight: 600; color: var(--text-color-secondary); padding-top: .5rem; display: flex; gap: .375rem; align-items: center; }
-
-.state-card {
-  text-align: center; padding: 3.5rem 1rem; color: var(--text-color-secondary);
-  background: var(--surface-0); border: 1px solid var(--surface-200); border-radius: .625rem;
-  > i { font-size: 2rem; display: block; margin-bottom: .625rem; opacity: .6; }
-  h2 { font-size: 1.125rem; font-weight: 600; margin: 0 0 .25rem; color: var(--text-color); }
-  p { margin: 0 0 1rem; }
-}
+.sf-empty h2 { font-size: 1.125rem; font-weight: 600; margin: 0 0 .25rem; color: var(--sms-text); }
 
 // ── Checklist ───────────────────────────────────────────────────────────────
 .checklist {
-  background: var(--surface-0); border: 1px solid var(--surface-200); border-radius: .625rem;
-  padding: .75rem 1rem; margin-bottom: 1rem; overflow-x: auto;
+  padding: .75rem 1rem; overflow-x: auto;
 
   ol { list-style: none; display: flex; gap: .25rem; margin: 0; padding: 0; min-width: max-content; }
   li { display: flex; align-items: center; }
-  li + li::before { content: ''; width: 1.5rem; height: 2px; background: var(--surface-300, #d1d5db); margin: 0 .25rem; }
-  li.done + li::before { background: var(--green-400, #4ade80); }
+  li + li::before { content: ''; width: 1.5rem; height: 2px; background: var(--sms-border); margin: 0 .25rem; }
+  li.done + li::before { background: var(--sms-ok); }
 
   button {
     display: inline-flex; align-items: center; gap: .5rem; background: none; border: 0; cursor: pointer;
-    padding: .375rem .5rem; border-radius: .5rem; color: var(--text-color-secondary); font-size: .875rem;
-    &:hover:not(:disabled) { background: var(--surface-50, #fafafa); }
+    padding: .375rem .5rem; border-radius: .5rem; color: var(--sms-text-muted); font-size: .875rem;
+    &:hover:not(:disabled) { background: var(--sms-row-hover); }
     &:disabled { cursor: default; opacity: .7; }
-    &:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 1px; }
+    &:focus-visible { outline: 2px solid var(--sms-primary); outline-offset: 1px; }
   }
   .dot {
     width: 1.625rem; height: 1.625rem; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center;
-    border: 2px solid var(--surface-300, #d1d5db); font-size: .75rem; font-weight: 700;
+    border: 2px solid var(--sms-border); font-size: .75rem; font-weight: 700;
     i { font-size: .75rem; }
   }
-  li.done .dot { background: var(--green-500, #22c55e); border-color: var(--green-500, #22c55e); color: #fff; }
-  li.done .step-label { color: var(--text-color); }
-  li.current .dot { border-color: var(--primary-color); color: var(--primary-color); }
-  li.current .step-label { color: var(--text-color); font-weight: 700; }
+  li.done .dot { background: var(--sms-ok); border-color: var(--sms-ok); color: var(--sms-surface); }
+  li.done .step-label { color: var(--sms-text); }
+  li.current .dot { border-color: var(--sms-primary); color: var(--sms-primary-text); }
+  li.current .step-label { color: var(--sms-text); font-weight: 700; }
 }
 
-// ── Tabs ────────────────────────────────────────────────────────────────────
+// ── Tabs (inside an sf-card) ────────────────────────────────────────────────
+.qbo-card { padding-top: .25rem; }
 :host ::ng-deep .qbo-tabs .p-tab { display: inline-flex; align-items: center; gap: .5rem; white-space: nowrap; }
 :host ::ng-deep .qbo-tabs .p-tab .lock { font-size: .75rem; opacity: .7; }
+:host ::ng-deep .qbo-tabs .p-tablist-tab-list,
+:host ::ng-deep .qbo-tabs .p-tablist-content { background: transparent; }
 :host ::ng-deep .qbo-tabs .p-tabpanels { padding: 1.25rem 0 0; background: transparent; }
-
-@media (max-width: 640px) {
-  .qbo-page { padding: 1rem; }
-  .page-header { flex-wrap: wrap; }
-}

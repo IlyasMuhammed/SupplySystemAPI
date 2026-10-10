@@ -41,6 +41,12 @@ internal sealed class MaterialDbContext : DbContext, ITenantScopedDbContext
     internal DbSet<QualityInspection>             QualityInspections             => Set<QualityInspection>();
     internal DbSet<QualityInspectionLine>         QualityInspectionLines         => Set<QualityInspectionLine>();
     internal DbSet<FinishedGoodsReceipt>          FinishedGoodsReceipts          => Set<FinishedGoodsReceipt>();
+    // A36 — service orders, what they need, what moved, and the immutable ledger of what they consumed.
+    internal DbSet<ServiceOrder>                  ServiceOrders                  => Set<ServiceOrder>();
+    internal DbSet<ServiceMaterialRequirement>    ServiceMaterialRequirements    => Set<ServiceMaterialRequirement>();
+    internal DbSet<ServiceMaterialIssue>          ServiceMaterialIssues          => Set<ServiceMaterialIssue>();
+    internal DbSet<ServiceMaterialIssueLine>      ServiceMaterialIssueLines      => Set<ServiceMaterialIssueLine>();
+    internal DbSet<ServiceLedgerEntry>            ServiceLedgerEntries           => Set<ServiceLedgerEntry>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -56,12 +62,23 @@ internal sealed class MaterialDbContext : DbContext, ITenantScopedDbContext
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
         this.StampTenantScopedEntities(_tenantContext);
+        this.StampModifiedAt(); // A37 D-16 (BOM header + lines)
+        GuardServiceLedger();
         return base.SaveChanges(acceptAllChangesOnSuccess);
     }
 
     public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
         this.StampTenantScopedEntities(_tenantContext);
+        this.StampModifiedAt(); // A37 D-16 (BOM header + lines)
+        GuardServiceLedger();
         return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+
+    /// <summary>A36 D-9 / SVC-LED-02 — service ledger entries are written once; a correction is an offsetting entry.</summary>
+    private void GuardServiceLedger()
+    {
+        if (ChangeTracker.Entries<ServiceLedgerEntry>().Any(e => e.State is EntityState.Modified or EntityState.Deleted))
+            throw new InvalidOperationException("Service ledger entries are immutable; post an offsetting entry instead.");
     }
 }

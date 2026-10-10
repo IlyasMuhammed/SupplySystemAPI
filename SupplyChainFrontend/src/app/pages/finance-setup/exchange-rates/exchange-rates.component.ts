@@ -22,6 +22,7 @@ import { fromIsoDate, setupErrorMessage, toIsoDate } from '../finance-setup.shar
 import {
   MAX_RATE_NOTES, RateDraft, dayText, formatCurrencyRate, inverseText, previousRateNotice, rateProblem
 } from '../currency-setup.shared';
+import { FLOW } from '../../../shared/flow';
 
 interface Option {
   label: string;
@@ -40,7 +41,8 @@ interface Option {
   standalone: true,
   imports: [
     CommonModule, FormsModule, ButtonModule, DatePickerModule, DialogModule, InputNumberModule, RadioButtonModule, SelectModule,
-    TableModule, TagModule, TextareaModule, ToastModule, TooltipModule
+    TableModule, TagModule, TextareaModule, ToastModule, TooltipModule,
+    ...FLOW
   ],
   templateUrl: './exchange-rates.component.html',
   styleUrls: ['../finance-setup.scss', './exchange-rates.component.scss'],

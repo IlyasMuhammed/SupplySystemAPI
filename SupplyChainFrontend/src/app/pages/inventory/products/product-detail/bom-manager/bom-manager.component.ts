@@ -18,9 +18,11 @@ import { TooltipModule } from 'primeng/tooltip';
 import { ConfirmationService, MessageService } from 'primeng/api';
 
 import {
-  BomComparison, BomDetail, BomLineRequest, BomListItem, BomService, BomVersion, bomStatusSeverity
+  BOM_LINE_SOURCE_OPTIONS, BOM_USAGE_OPTIONS, BomComparison, BomDetail, BomLineRequest, BomLineSourceType, BomListItem, BomService,
+  BomUsage, BomVersion, bomStatusSeverity, bomUsageTag
 } from '../../../../../services/bom.service';
 import { InventoryService, ProductListItemModel } from '../../../../../services/inventory.service';
+import { BusinessPartnerService } from '../../../../../services/business-partner.service';
 import { AuthService } from '../../../../service/auth.service';
 import {
   ProductVariantPickerComponent, VariantPickerSelection
@@ -51,8 +53,26 @@ export class BomManagerComponent implements OnChanges {
   @Input() productUomCode: string | null = null;
   /** A31-BR-C4-01 — only when this is true is a BOM actually mandatory for this product. */
   @Input() isManufacturable = false;
+  /** A36 D-4 — a SERVICE product's BOM: lines get a Source (stock / subcontract / internal labor). */
+  @Input() isServiceBom = false;
+  /**
+   * A37 BOM-SHR-02/03 — FEATURE_BOM_MANAGEMENT is off: the BOMs can be read, nothing can be created, edited or moved
+   * through the workflow.
+   */
+  @Input() readOnly = false;
+
+  readonly usageOptions = BOM_USAGE_OPTIONS;
+  readonly usageTag = bomUsageTag;
+  /** A37 D-11 — the selected BOM's usage (advisory). Kept outside the form: it stays editable after approval. */
+  bomUsage: BomUsage = 'UNIVERSAL';
+  savingUsage = false;
 
   readonly severity = bomStatusSeverity;
+  readonly sourceOptions = BOM_LINE_SOURCE_OPTIONS;
+
+  /** A36 — vendors for SUBCONTRACT lines (business partners with isVendor), loaded once for service BOMs. */
+  vendorOptions: { label: string; value: string }[] = [];
+  private vendorsLoaded = false;
 
   boms: BomListItem[] = [];
   isLoadingList = true;
@@ -84,6 +104,7 @@ export class BomManagerComponent implements OnChanges {
     private service: BomService,
     private inventoryService: InventoryService,
     private authService: AuthService,
+    private partnerService: BusinessPartnerService,
     private messageService: MessageService,
     private confirmationService: ConfirmationService
   ) {
@@ -108,7 +129,7 @@ export class BomManagerComponent implements OnChanges {
     }
   }
 
-  private has(code: string): boolean { return this.authService.hasPermission(code); }
+  private has(code: string): boolean { return !this.readOnly && this.authService.hasPermission(code); }
   private is(...statuses: string[]): boolean { return !!this.bom && statuses.includes(this.bom.status); }
 
   get canEdit(): boolean     { return this.has('BOM_EDIT')     && (this.isNew || this.is('DRAFT', 'REJECTED')); }
@@ -118,9 +139,16 @@ export class BomManagerComponent implements OnChanges {
   get canObsolete(): boolean { return !this.isNew && this.has('BOM_OBSOLETE') && this.is('ACTIVE', 'APPROVED'); }
   get canVersion(): boolean  { return !this.isNew && this.has('BOM_CREATE')   && this.is('APPROVED', 'ACTIVE', 'OBSOLETE', 'REJECTED'); }
   get canDelete(): boolean   { return !this.isNew && this.has('BOM_EDIT')     && this.is('DRAFT', 'REJECTED'); }
+  /** A37 — usage is editable in any non-terminal status (OBSOLETE is the only terminal one). */
+  get canChangeUsage(): boolean { return this.has('BOM_EDIT') && (this.isNew || (!!this.bom && this.bom.status !== 'OBSOLETE')); }
+  /** Past draft, a usage change is saved on its own at once; on a draft it goes with Save. */
+  private get usageSavesAlone(): boolean { return !this.isNew && !!this.bom && !['DRAFT', 'REJECTED'].includes(this.bom.status); }
 
   /** A31-BR-C4-01 — the mandatory-BOM warning: manufacturable, but nothing has ever been drafted. */
-  get needsFirstBom(): boolean { return this.isManufacturable && !this.isLoadingList && this.boms.length === 0; }
+  get needsFirstBom(): boolean { return !this.readOnly && this.isManufacturable && !this.isLoadingList && this.boms.length === 0; }
+
+  /** A37 BOM-SHR-04 — the list asks for the BOMs this product's orders would prefer first. */
+  private get preferFor(): 'PRODUCTION' | 'SERVICE' { return this.isServiceBom ? 'SERVICE' : 'PRODUCTION'; }
 
   get compareOptions(): { label: string; value: string }[] {
     return this.versions.filter(v => v.uuid !== this.selectedUuid).map(v => ({ label: `v${v.version} — ${v.bomNumber} (${v.status})`, value: v.uuid }));
@@ -129,22 +157,58 @@ export class BomManagerComponent implements OnChanges {
   private ensureMaterialsLoaded(): void {
     if (this.materialsLoaded) return;
     this.materialsLoaded = true;
-    this.inventoryService.getProducts({ activeOnly: true, pageSize: 500, availableFor: 'PRODUCTION' })
+    // A36 — a service BOM mixes stock parts, subcontracted services and labor hours, so it is not limited to the
+    // Production channel; the server decides what each source may use (SVC-BOM-04/05).
+    this.inventoryService.getProducts(this.isServiceBom
+        ? { activeOnly: true, pageSize: 500 }
+        : { activeOnly: true, pageSize: 500, availableFor: 'PRODUCTION' })
       .pipe(catchError(() => of(null)))
       .subscribe(res => { this.materials = res?.result?.data ?? []; });
+    this.ensureVendorsLoaded();
+  }
+
+  private ensureVendorsLoaded(): void {
+    if (!this.isServiceBom || this.vendorsLoaded) return;
+    this.vendorsLoaded = true;
+    this.partnerService.getPartners({ isVendor: true, pageSize: 500 })
+      .pipe(catchError(() => of(null)))
+      .subscribe(res => {
+        this.vendorOptions = (res?.result?.data ?? [])
+          .filter(p => !!p.uuid)
+          .map(p => ({ label: p.companyName, value: p.uuid! }));
+      });
+  }
+
+  /** The material channel the picker filters variants by: none for service BOMs. */
+  get materialChannel(): 'PRODUCTION' | null { return this.isServiceBom ? null : 'PRODUCTION'; }
+
+  supplierName(index: number): string {
+    const line = this.lines.at(index);
+    const uuid = line?.get('subcontractSupplierUuid')?.value;
+    return line?.get('subcontractSupplierName')?.value || this.vendorOptions.find(o => o.value === uuid)?.label || '—';
+  }
+
+  sourceOf(index: number): BomLineSourceType { return this.lines.at(index)?.get('sourceType')?.value ?? 'STOCK'; }
+
+  /** A36 — leaving SUBCONTRACT drops the supplier (SVC-BOM-03); INTERNAL_LABOR is counted in hours (SVC-BOM-05). */
+  onSourceChange(index: number): void {
+    const line = this.lines.at(index);
+    const source = line.get('sourceType')?.value as BomLineSourceType;
+    if (source !== 'SUBCONTRACT') line.patchValue({ subcontractSupplierUuid: null, subcontractSupplierName: '' });
+    if (source === 'INTERNAL_LABOR') line.patchValue({ uom: 'HR' });
   }
 
   // ── List ──────────────────────────────────────────────────────────────────
 
   loadList(): void {
     this.isLoadingList = true;
-    this.service.getBoms({ productUuid: this.productUuid, pageSize: 100 }).subscribe({
+    this.service.getBoms({ productUuid: this.productUuid, pageSize: 100, preferFor: this.preferFor }).subscribe({
       next: (res) => {
         this.isLoadingList = false;
         this.boms = (res.result?.data ?? []).sort((a, b) => b.version - a.version);
         if (this.selectedUuid && this.boms.some(b => b.uuid === this.selectedUuid)) this.loadDetail(this.selectedUuid);
         else if (this.boms.length > 0) this.selectBom(this.boms.find(b => b.status === 'ACTIVE')?.uuid ?? this.boms[0].uuid);
-        else this.startNewBom();
+        else if (!this.readOnly) this.startNewBom();
       },
       error: () => {
         this.isLoadingList = false;
@@ -179,6 +243,7 @@ export class BomManagerComponent implements OnChanges {
   }
 
   private applyBom(bom: BomDetail): void {
+    this.bomUsage = bom.bomUsage ?? 'UNIVERSAL';
     this.form.reset({
       baseQuantity: bom.baseQuantity,
       baseUom: bom.baseUom,
@@ -192,7 +257,10 @@ export class BomManagerComponent implements OnChanges {
         materialProductUuid: line.materialProductUuid, materialVariantUuid: line.materialVariantUuid,
         materialName: `${line.materialProductName} – ${line.materialVariantName}`,
         quantity: line.quantity, uom: line.uom, scrapPercentage: line.scrapPercentage,
-        isCritical: line.isCritical, notes: line.notes ?? ''
+        isCritical: line.isCritical, notes: line.notes ?? '',
+        sourceType: line.sourceType ?? 'STOCK',
+        subcontractSupplierUuid: line.subcontractSupplierUuid ?? null,
+        subcontractSupplierName: line.subcontractSupplierName ?? ''
       }));
     }
     if (bom.status !== 'DRAFT' && bom.status !== 'REJECTED') this.form.disable();
@@ -202,6 +270,8 @@ export class BomManagerComponent implements OnChanges {
   // ── New draft ─────────────────────────────────────────────────────────────
 
   startNewBom(): void {
+    if (this.readOnly) return;
+    this.bomUsage = 'UNIVERSAL';
     this.isNew = true;
     this.selectedUuid = null;
     this.bom = null;
@@ -220,8 +290,12 @@ export class BomManagerComponent implements OnChanges {
   newLine(preset?: Partial<{
     materialProductUuid: string; materialVariantUuid: string; materialName: string; quantity: number;
     uom: string; scrapPercentage: number; isCritical: boolean; notes: string;
+    sourceType: BomLineSourceType; subcontractSupplierUuid: string | null; subcontractSupplierName: string;
   }>): FormGroup {
     return this.fb.group({
+      sourceType:              [preset?.sourceType ?? 'STOCK'],
+      subcontractSupplierUuid: [preset?.subcontractSupplierUuid ?? null],
+      subcontractSupplierName: [preset?.subcontractSupplierName ?? ''],
       materialProductUuid: [preset?.materialProductUuid ?? null],
       materialVariantUuid: [preset?.materialVariantUuid ?? null, Validators.required],
       materialName:        [preset?.materialName ?? ''],
@@ -259,6 +333,9 @@ export class BomManagerComponent implements OnChanges {
     const variants = this.lines.controls.map(l => l.get('materialVariantUuid')?.value).filter(Boolean);
     if (new Set(variants).size !== variants.length) return 'The same material appears on more than one line.';
     if (this.lines.controls.some(l => l.get('materialProductUuid')?.value === this.productUuid)) return 'A product cannot be an input of its own recipe.';
+    if (this.isServiceBom && this.lines.controls.some(l => l.get('sourceType')?.value === 'SUBCONTRACT' && !l.get('subcontractSupplierUuid')?.value)) {
+      return 'Subcontract supplier is required for subcontracted BOM lines.';
+    }
     return null;
   }
 
@@ -271,7 +348,11 @@ export class BomManagerComponent implements OnChanges {
   private linesPayload(): BomLineRequest[] {
     return this.lines.controls.map((l, i) => {
       const v = l.value;
+      // A36 — manufacturing BOM lines are always STOCK; only a service BOM offers the other sources.
+      const sourceType: BomLineSourceType = this.isServiceBom ? (v.sourceType ?? 'STOCK') : 'STOCK';
       return {
+        sourceType,
+        subcontractSupplierUuid: sourceType === 'SUBCONTRACT' ? (v.subcontractSupplierUuid ?? null) : null,
         materialVariantUuid: v.materialVariantUuid,
         quantity: v.quantity,
         uom: v.uom || undefined,
@@ -301,7 +382,8 @@ export class BomManagerComponent implements OnChanges {
         effectiveFrom: this.isoDate(v.effectiveFrom),
         effectiveTo: this.isoDate(v.effectiveTo),
         notes: v.notes || undefined,
-        lines: this.linesPayload()
+        lines: this.linesPayload(),
+        bomUsage: this.bomUsage
       }).subscribe({
         next: (res) => {
           this.isSaving = false;
@@ -326,7 +408,8 @@ export class BomManagerComponent implements OnChanges {
       effectiveTo: this.isoDate(v.effectiveTo),
       clearEffectiveDates: !v.effectiveFrom && !v.effectiveTo,
       notes: v.notes ?? '',
-      lines: this.linesPayload()
+      lines: this.linesPayload(),
+      bomUsage: this.bomUsage
     }).subscribe({
       next: () => {
         this.isSaving = false;
@@ -336,6 +419,29 @@ export class BomManagerComponent implements OnChanges {
       error: (err) => {
         this.isSaving = false;
         this.messageService.add({ severity: 'error', summary: 'Not saved', detail: err.error?.message || 'The bill of materials could not be saved.' });
+      }
+    });
+  }
+
+  /** A37 — a draft keeps the choice for Save; past draft (not OBSOLETE) it is saved at once via PUT /api/boms/{uuid}/usage. */
+  onUsageChange(usage: BomUsage): void {
+    if (!this.canChangeUsage) return;
+    const previous = this.bomUsage;
+    this.bomUsage = usage;
+    if (!this.usageSavesAlone || !this.selectedUuid || usage === previous) return;
+    this.savingUsage = true;
+    this.service.setUsage(this.selectedUuid, usage).subscribe({
+      next: () => {
+        this.savingUsage = false;
+        const row = this.boms.find(b => b.uuid === this.selectedUuid);
+        if (row) row.bomUsage = usage;
+        if (this.bom) this.bom.bomUsage = usage;
+        this.messageService.add({ severity: 'success', summary: 'Saved', detail: 'BOM usage updated.' });
+      },
+      error: (err) => {
+        this.savingUsage = false;
+        this.bomUsage = previous;
+        this.fail(err);
       }
     });
   }

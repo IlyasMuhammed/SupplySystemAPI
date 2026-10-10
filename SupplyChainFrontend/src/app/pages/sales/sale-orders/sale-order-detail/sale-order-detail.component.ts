@@ -1,5 +1,5 @@
 import { Component, DestroyRef, Inject, LOCALE_ID, OnInit, inject } from '@angular/core';
-import { CommonModule, formatNumber } from '@angular/common';
+import { CommonModule, formatDate, formatNumber } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, ParamMap, Router, RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -27,9 +27,11 @@ import {
   SaleOrderService, SaleOrderModel, SaleOrderLineModel, SaleOrderLineAvailabilityModel, SaleOrderSourceType,
   DeliveryIndicator, CustomerPoDuplicateModel, SaleOrderLineReservationModel, ConfirmBlockerCode, ConfirmBlockerModel,
   SaleOrderDeliveryPreviewModel, SkippedSaleOrderLineModel, SaleOrderCancelResultModel,
-  SaleOrderConfirmResultModel, CreatedSaleOrderDeliveryModel, SaleOrderProductionOrderModel
+  SaleOrderConfirmResultModel, CreatedSaleOrderDeliveryModel, SaleOrderProductionOrderModel, SaleOrderServiceOrderModel
 } from '../../../../services/sale-order.service';
-import { FulfillmentRoutesService, FulfillmentRouteModel, routesVisibleToOrg } from '../../../../services/fulfillment-routes.service';
+import {
+  FulfillmentRoutesService, FulfillmentRouteModel, routesVisibleToOrg, unavailableRouteOptions
+} from '../../../../services/fulfillment-routes.service';
 import { TenantService } from '../../../service/tenant.service';
 import {
   LINE_BLOCKER_REASONS, LineRouteDisplay, ROUTE_LEGEND, confirmBlockedSummary, confirmReadyTooltip, inheritPlaceholder,
@@ -50,6 +52,7 @@ import {
 } from '../../../../services/logistics.service';
 import { ProductionOrderService, ProductionOrderListItem, productionStatusSeverity } from '../../../../services/production-order.service';
 import { AuthService } from '../../../service/auth.service';
+import { serviceStatusTone } from '../../../../services/service-order.service';
 import { DELIVERY_STATUS_SEVERITY } from '../../../logistics/deliveries/delivery-list/delivery-list.component';
 import { SALE_ORDER_STATUS_SEVERITY, formatCode } from '../sale-order-list/sale-order-list.component';
 import { INVOICE_STATUS_SEVERITY } from '../../../finance/receivables/receivables.shared';
@@ -59,6 +62,8 @@ import {
 } from '../../../../shared/doc-currency/doc-currency';
 import { MoneyPipe } from '../../../../shared/money/money.pipe';
 import { MoneyService } from '../../../../services/money.service';
+import { FLOW, FlowSection, FlowStage, flowStagesFrom } from '../../../../shared/flow';
+import { TimelineService } from '../../../../services/timeline.service';
 
 type Severity = 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast';
 
@@ -170,7 +175,7 @@ export interface PendingPartialReservation {
     TableModule, ButtonModule, TagModule, TooltipModule, ToastModule,
     DialogModule, DropdownModule, CheckboxModule, InputNumberModule, InputTextModule, CalendarModule, TextareaModule,
     TabViewModule, TimelinePanelComponent, AttachmentListComponent, DeliveryPreviewPanelComponent, LeadTimePopoverComponent,
-    DocCurrencyPanelComponent, MoneyPipe
+    DocCurrencyPanelComponent, MoneyPipe, ...FLOW
   ],
   templateUrl: './sale-order-detail.component.html',
   styleUrls: ['./sale-order-detail.component.scss'],
@@ -257,6 +262,8 @@ export class SaleOrderDetailComponent implements OnInit {
   // ── A33: routes, preview, confirm gate, fulfillment ─────────────────────────
 
   activeRoutes: FulfillmentRouteModel[] = [];
+  /** A37 RTE-01 — routes the server marks unavailable (module off): listed disabled with the reason. */
+  unavailableRoutes: FulfillmentRouteModel[] = [];
   private routesRequested = false;
   /** The line whose route change is being saved; every route dropdown waits for it. */
   savingRouteLineUuid: string | null = null;
@@ -415,6 +422,7 @@ export class SaleOrderDetailComponent implements OnInit {
           this.loadShipTo(res.result);
           this.loadDeliveries();
           this.loadProductionOrders();
+          this.loadStageActors();
           this.ensureRoutesLoaded();
           this.loadPreview();
           // Whatever the order did just now may have changed what has been billed.
@@ -571,6 +579,38 @@ export class SaleOrderDetailComponent implements OnInit {
   get canViewProduction(): boolean { return this.authService.hasPermission('PROD_VIEW'); }
   get canViewInvoices(): boolean   { return this.authService.hasPermission('SALES_INVOICE_VIEW'); }
   get canViewPayments(): boolean   { return this.authService.hasPermission('CUSTOMER_PAYMENT_VIEW'); }
+  get canViewServiceOrders(): boolean { return this.authService.hasPermission('SERVICE_ORDER_VIEW'); }
+  readonly flowToneOf = serviceStatusTone;
+
+  // ── A36-P5-07: service lines carry a service order instead of a delivery ──────────────
+
+  /** The (latest) service order raised for this service line, if any. */
+  serviceOrderFor(line: SaleOrderLineModel): SaleOrderServiceOrderModel | null {
+    const all = (this.order?.serviceOrders ?? []).filter(s => s.soLineUuid === line.uuid);
+    return all.length ? all[all.length - 1] : null;
+  }
+
+  /** Pill for a service line: pending grey · in progress blue · waiting amber · completed green · cancelled red. */
+  serviceIndicator(line: SaleOrderLineModel): { label: string; tone: string } {
+    const status = this.serviceOrderFor(line)?.status;
+    switch (status) {
+      case 'IN_PROGRESS':      return { label: 'Service in progress', tone: 'in' };
+      case 'MATERIAL_PENDING':
+      case 'WAITING':          return { label: 'Service waiting', tone: 'wn' };
+      case 'COMPLETED':
+      case 'CLOSED':           return { label: 'Service completed', tone: 'ok' };
+      case 'CANCELLED':        return { label: 'Service cancelled', tone: 'er' };
+      default:                 return { label: 'Service pending', tone: '' };
+    }
+  }
+
+  /** Fulfilment side panel: completed + closed of all the order's service orders. */
+  get serviceSummary(): { total: number; done: number; percent: number } | null {
+    const all = this.order?.serviceOrders ?? [];
+    if (!all.length) return null;
+    const done = all.filter(s => s.status === 'COMPLETED' || s.status === 'CLOSED').length;
+    return { total: all.length, done, percent: Math.round((done / all.length) * 100) };
+  }
 
   get canEdit(): boolean {
     return this.order?.status === 'DRAFT' && this.authService.hasPermission('SALE_ORDER_EDIT');
@@ -1240,6 +1280,82 @@ export class SaleOrderDetailComponent implements OnInit {
 
   formatStatus(code?: string | null): string { return formatCode(code); }
 
+  // ── SMS Flow header ─────────────────────────────────────────────────────────
+
+  /** Draft → Confirmed → Fulfilling → Fulfilled → Invoiced (closed = all done); a cancelled order stops red. */
+  /**
+   * Who did each step of the status strip, from the order's timeline (SO_CREATED → Draft, SO_CONFIRMED → Confirmed,
+   * the first SO_DELIVERIES_CREATED → Fulfilling, SO_FULFILLED → Fulfilled, the latest SO_INVOICED → Invoiced).
+   * Keyed by stage label; a step done by a background job shows "System".
+   */
+  stageActors: Record<string, { name: string; at?: string }> = {};
+  private readonly timelineService = inject(TimelineService);
+
+  private static readonly STAGE_EVENTS: { stage: string; event: string; verb: string; latest?: boolean }[] = [
+    { stage: 'Draft', event: 'SO_CREATED', verb: 'Created by' },
+    { stage: 'Confirmed', event: 'SO_CONFIRMED', verb: 'Confirmed by' },
+    { stage: 'Fulfilling', event: 'SO_DELIVERIES_CREATED', verb: 'Shipping started by' },
+    { stage: 'Fulfilled', event: 'SO_FULFILLED', verb: 'Fulfilled by' },
+    { stage: 'Invoiced', event: 'SO_INVOICED', verb: 'Invoiced by', latest: true }
+  ];
+
+  private loadStageActors() {
+    const uuid = this.uuid;
+    this.stageActors = {};
+    const timeline$ = this.timelineService.getByDocument('SO', uuid);
+    if (!timeline$) return; // a stubbed service in tests
+    timeline$.subscribe({
+      next: (res) => {
+        if (uuid !== this.uuid) return;
+        const events = (res?.result?.events ?? []).filter(e => !e.documentId || e.documentId === uuid);
+        const actors: Record<string, { name: string; at?: string }> = {};
+        for (const m of SaleOrderDetailComponent.STAGE_EVENTS) {
+          const hits = events.filter(e => e.eventType === m.event)
+            .sort((a, b) => (a.occurredAt ?? '').localeCompare(b.occurredAt ?? ''));
+          const e = m.latest ? hits[hits.length - 1] : hits[0];
+          if (!e) continue;
+          const name = e.performedByName?.trim() || (!e.performedBy ? 'System' : '');
+          if (name) actors[m.stage] = { name, at: e.occurredAt };
+        }
+        this.stageActors = actors;
+      },
+      error: () => { /* the strip just shows no names */ }
+    });
+  }
+
+  /** Hover text for a reached step: "Confirmed by Usman Khan on 2 Sep 2026, 14:05". */
+  private stageTooltip(stage: string, reached: boolean): string | null {
+    const who = reached ? this.stageActors[stage] : undefined;
+    if (!who) return null;
+    const verb = SaleOrderDetailComponent.STAGE_EVENTS.find(m => m.stage === stage)?.verb ?? `${stage} by`;
+    const when = who.at ? formatDate(who.at, 'd MMM yyyy, HH:mm', this.locale) : null;
+    return when ? `${verb} ${who.name} on ${when}` : `${verb} ${who.name}`;
+  }
+
+  get stages(): FlowStage[] {
+    const o = this.order;
+    if (!o) return [];
+    if (o.status === 'CANCELLED') {
+      return flowStagesFrom(['Draft', 'Confirmed', 'Cancelled'], 2, {
+        failed: true, tooltips: [this.stageTooltip('Draft', true), this.stageTooltip('Confirmed', true), null]
+      });
+    }
+    const at: Record<string, number> = { DRAFT: 0, CONFIRMED: 1, PARTIALLY_FULFILLED: 2, FULFILLED: 3, INVOICED: 4, CLOSED: 5 };
+    const current = at[o.status] ?? 0;
+    const labels = ['Draft', 'Confirmed', 'Fulfilling', 'Fulfilled', 'Invoiced'];
+    return flowStagesFrom(labels, current, {
+      subs: [null, null, current === 2 ? `${this.fulfilledPercent}% delivered` : null, null, null],
+      tooltips: labels.map((s, i) => this.stageTooltip(s, i <= current))
+    });
+  }
+
+  readonly sections: FlowSection[] = [
+    { id: 'sec-items', label: 'Items' },
+    { id: 'sec-order', label: 'Order' },
+    { id: 'sec-po', label: 'Customer PO' },
+    { id: 'sec-currency', label: 'Currency' }
+  ];
+
   /** "Plot 12, Korangi, Karachi 74900, Pakistan" */
   formatAddress(a: AddressModel): string {
     const cityLine = [a.cityName, a.postalCode].filter(Boolean).join(' ');
@@ -1268,20 +1384,27 @@ export class SaleOrderDetailComponent implements OnInit {
     // A34 D-9 — MANUFACTURE routes only for an organization with manufacturing.
     const manufacturing = !!this.tenantService.tenant()?.enabledFeatureCodes?.includes('MODULE_MANUFACTURING');
     this.routesService.getRoutes().subscribe({
-      next: (res) => { this.activeRoutes = routesVisibleToOrg(res.result ?? [], manufacturing); },
-      error: () => { this.activeRoutes = []; }
+      next: (res) => {
+        this.activeRoutes = routesVisibleToOrg(res.result ?? [], manufacturing);
+        this.unavailableRoutes = (res.result ?? []).filter(r => r.isAvailable === false);
+      },
+      error: () => { this.activeRoutes = []; this.unavailableRoutes = []; }
     });
   }
 
   /** The active routes, and the line's own override when it is no longer among them (inactive, deleted). */
-  routeOptionsFor(line: SaleOrderLineModel): { label: string; value: string }[] {
-    const options = this.activeRoutes.map(r => ({ label: r.name, value: r.uuid }));
+  routeOptionsFor(line: SaleOrderLineModel): { label: string; value: string; disabled?: boolean }[] {
+    const options: { label: string; value: string; disabled?: boolean }[] = this.activeRoutes.map(r => ({ label: r.name, value: r.uuid }));
     const own = line.fulfillmentRouteUuid;
     if (own && !options.some(o => o.value === own)) {
-      const name = line.effectiveRouteName || line.effectiveRouteCode || 'Route';
-      const why = line.routeBlocker === 'ROUTE_INACTIVE' ? ' (inactive)' : line.routeBlocker === 'ROUTE_UNKNOWN' ? ' (no longer available)' : '';
+      const unavailable = this.unavailableRoutes.find(r => r.uuid === own);
+      const name = unavailable?.name || line.effectiveRouteName || line.effectiveRouteCode || 'Route';
+      const why = unavailable ? ` — ${unavailable.unavailableReason || 'not available'}`
+        : line.routeBlocker === 'ROUTE_INACTIVE' ? ' (inactive)' : line.routeBlocker === 'ROUTE_UNKNOWN' ? ' (no longer available)' : '';
       options.push({ label: name + why, value: own });
     }
+    // A37 — the unavailable ones are shown, disabled, so it is clear why they cannot be picked.
+    options.push(...unavailableRouteOptions(this.unavailableRoutes, options.map(o => o.value)));
     return options;
   }
 

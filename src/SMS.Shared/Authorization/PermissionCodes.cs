@@ -313,6 +313,30 @@ public static class PermissionCodes
     /// <summary>Running the unrealized exchange revaluation by hand.</summary>
     public const string EXCHANGE_REVALUATION_RUN      = "EXCHANGE_REVALUATION_RUN";
 
+    // ── Service orders (Addendum 36, D-12; docs/service-orders/ADDENDUM-36-ANALYSIS.md) ──
+    /// <summary>Reading service orders, their materials, ledger and the dashboard.</summary>
+    public const string SERVICE_ORDER_VIEW     = "SERVICE_ORDER_VIEW";
+    public const string SERVICE_ORDER_CREATE   = "SERVICE_ORDER_CREATE";
+    /// <summary>Updating, planning, starting, ad-hoc materials, reserving and closing a service order.</summary>
+    public const string SERVICE_ORDER_EDIT     = "SERVICE_ORDER_EDIT";
+    /// <summary>Recording completion: consumed materials, actual hours, signature.</summary>
+    public const string SERVICE_ORDER_COMPLETE = "SERVICE_ORDER_COMPLETE";
+    public const string SERVICE_ORDER_CANCEL   = "SERVICE_ORDER_CANCEL";
+
+    // ── Customer master (Addendum 37, D-17; docs/module-registry/API-CONTRACT.md §5) — added by CUS, seeded by REG ──
+    /// <summary>Reading customers (list, detail, search, balance, sync).</summary>
+    public const string CUSTOMER_VIEW       = "CUSTOMER_VIEW";
+    public const string CUSTOMER_CREATE     = "CUSTOMER_CREATE";
+    public const string CUSTOMER_EDIT       = "CUSTOMER_EDIT";
+    /// <summary>Deactivating and reactivating a customer.</summary>
+    public const string CUSTOMER_DEACTIVATE = "CUSTOMER_DEACTIVATE";
+
+    // ── Module registry (Addendum 37, D-17; docs/module-registry/API-CONTRACT.md §1.1) ──
+    /// <summary>Seeing the organization's modules, their history and the impact of switching one off.</summary>
+    public const string MODULES_VIEW   = "MODULES_VIEW";
+    /// <summary>Switching licensed modules and their features on and off for the organization.</summary>
+    public const string MODULES_MANAGE = "MODULES_MANAGE";
+
     // ── All codes (used by System Admin seed) ─────────────────────────────────
     public static readonly IReadOnlyList<string> All =
     [
@@ -351,5 +375,8 @@ public static class PermissionCodes
         FINANCE_SETUP_MANAGE,
         CURRENCY_VIEW, CURRENCY_MANAGE, CURRENCY_RATE_VIEW, CURRENCY_RATE_MANAGE,
         ORG_CURRENCY_SETTINGS_MANAGE, EXCHANGE_REVALUATION_RUN,
+        SERVICE_ORDER_VIEW, SERVICE_ORDER_CREATE, SERVICE_ORDER_EDIT, SERVICE_ORDER_COMPLETE, SERVICE_ORDER_CANCEL,
+        CUSTOMER_VIEW, CUSTOMER_CREATE, CUSTOMER_EDIT, CUSTOMER_DEACTIVATE,
+        MODULES_VIEW, MODULES_MANAGE,
     ];
 }

@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FLOW } from '../../../shared/flow';
 import { TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
 import { TagModule } from 'primeng/tag';
@@ -12,9 +13,8 @@ import { PdfService } from '../../../services/pdf.service';
 @Component({
   selector: 'app-pending-approvals',
   standalone: true,
-  imports: [CommonModule, TableModule, ButtonModule, TagModule, ToastModule, CardModule],
+  imports: [CommonModule, TableModule, ButtonModule, TagModule, ToastModule, CardModule, ...FLOW],
   templateUrl: './pending-approvals.component.html',
-  styleUrls: ['./pending-approvals.component.scss'],
   providers: [MessageService]
 })
 export class PendingApprovalsComponent implements OnInit {

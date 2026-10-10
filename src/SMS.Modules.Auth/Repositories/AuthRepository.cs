@@ -216,8 +216,11 @@ internal sealed class AuthRepository : IAuthRepository
                     PermissionID = p.PermissionID,
                     Name = p.Name,
                     Code = p.Code,
-                    IsAllowed = rp != null && rp.IsAllowed
-                }).ToList();
+                    IsAllowed = rp != null && rp.IsAllowed,
+                    ModuleCode = p.ModuleCode
+                }).AsEnumerable()
+                .Select(p => { p.ModuleCode ??= ModuleCodeMap.ForPermission(p.Code); return p; })
+                .ToList();
     }
 
     // Merge, never delete: only the listed permissions change. AuthService.SaveRolePermissionsAsync has
@@ -293,7 +296,8 @@ internal sealed class AuthRepository : IAuthRepository
                 Name = p.Name,
                 Code = p.Code,
                 Description = p.Description,
-                IsAllowed = userOverride?.IsAllowed ?? rolePerm?.IsAllowed ?? false
+                IsAllowed = userOverride?.IsAllowed ?? rolePerm?.IsAllowed ?? false,
+                ModuleCode = p.ModuleCode ?? ModuleCodeMap.ForPermission(p.Code)
             };
         }).ToList();
     }
@@ -676,10 +680,11 @@ internal sealed class AuthRepository : IAuthRepository
             PermissionId = p.PermissionID,
             Name         = p.Name,
             Code         = p.Code,
-            IsAllowed    = rolePerms.FirstOrDefault(rp => rp.PermissionID == p.PermissionID)?.IsAllowed ?? false
+            IsAllowed    = rolePerms.FirstOrDefault(rp => rp.PermissionID == p.PermissionID)?.IsAllowed ?? false,
+            ModuleCode   = p.ModuleCode ?? ModuleCodeMap.ForPermission(p.Code)
         }).ToList();
 
-        var moduleOrder = new[] { "System", "Locations", "Suppliers", "RFQ", "Contracts", "Purchase Orders", "Requisitions", "Budget", "Inventory", "Warehouse", "GRN Approvals", "Material Management", "Finance", "Logistics", "Reports", "Workflow", "Sale Orders", "Sale Order Administration" };
+        var moduleOrder = new[] { "System", "Locations", "Suppliers", "RFQ", "Contracts", "Purchase Orders", "Requisitions", "Budget", "Inventory", "Warehouse", "GRN Approvals", "Material Management", "Finance", "Logistics", "Reports", "Workflow", "Sale Orders", "Sale Order Administration", "Service Orders" };
         var groups = items
             .GroupBy(i => GetPermissionModule(i.Code))
             .OrderBy(g => Array.IndexOf(moduleOrder, g.Key) is var idx && idx >= 0 ? idx : 99)
@@ -897,6 +902,8 @@ internal sealed class AuthRepository : IAuthRepository
         var c when c.StartsWith("SALE_ORDER_")  => "Sale Orders",
         var c when c.StartsWith("SALE_INQUIRY_")   => "Sale Inquiries",
         var c when c.StartsWith("SALE_QUOTATION_") => "Sale Quotations",
+        // A36 D-12
+        var c when c.StartsWith("SERVICE_ORDER_")  => "Service Orders",
         _                                       => "Other"
     };
 }

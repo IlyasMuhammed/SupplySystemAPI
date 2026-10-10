@@ -31,6 +31,8 @@ public static class LookupsModuleExtensions
         services.AddScoped<ICityLookupService, CityLookupService>();
         // Same arrangement for currency codes — consumed by the QuickBooks gateway's preflight.
         services.AddScoped<ICurrencyCodeLookup, CurrencyCodeLookup>();
+        // A37 §6 — tax codes and units of measure for Inventory's catalog sync.
+        services.AddScoped<ISyncLookupReader, SyncLookupReader>();
 
         return services;
     }

@@ -29,4 +29,11 @@ public static class InventoryTransactionType
     public const string ProductionScrap       = "PRODUCTION_SCRAP";
     /// <summary>Unused issued material returned from the production floor to stock.</summary>
     public const string ProductionReturn      = "PRODUCTION_RETURN";
+
+    // A36 D-7 — service orders. Same shape as the production pair: an issue takes stock out, a return puts unused
+    // issued material back.
+    /// <summary>Materials issued from stock to a service order.</summary>
+    public const string ServiceIssue          = "SERVICE_ISSUE";
+    /// <summary>Unused issued material returned from a service order to stock.</summary>
+    public const string ServiceReturn         = "SERVICE_RETURN";
 }

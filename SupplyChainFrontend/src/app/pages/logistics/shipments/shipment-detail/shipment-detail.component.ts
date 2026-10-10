@@ -13,6 +13,7 @@ import { TextareaModule } from 'primeng/textarea';
 import { TooltipModule } from 'primeng/tooltip';
 import { MessageService } from 'primeng/api';
 import { LogisticsService, ShipmentDetailModel, PatchShipmentRequest } from '../../../../services/logistics.service';
+import { FLOW, FlowStage, flowStagesFrom } from '../../../../shared/flow';
 
 @Component({
   selector: 'app-shipment-detail',
@@ -21,7 +22,8 @@ import { LogisticsService, ShipmentDetailModel, PatchShipmentRequest } from '../
     CommonModule, RouterModule, FormsModule,
     ButtonModule, TagModule, ToastModule,
     CardModule, DialogModule, DropdownModule,
-    CalendarModule, TextareaModule, TooltipModule
+    CalendarModule, TextareaModule, TooltipModule,
+    ...FLOW
   ],
   templateUrl: './shipment-detail.component.html',
   styleUrls: ['./shipment-detail.component.scss'],
@@ -64,6 +66,15 @@ export class ShipmentDetailComponent implements OnInit {
 
   isStepCurrent(step: { value: string }): boolean {
     return this.shipment?.status === step.value;
+  }
+
+  /** SMS Flow status strip from the same steps (Delivered = all done; Returned stops it in red). */
+  get stages(): FlowStage[] {
+    const status = this.shipment?.status ?? '';
+    if (status === 'Returned') return flowStagesFrom(['Shipped', 'Returned'], 1, { failed: true });
+    const at = this.statusOrder.indexOf(status);
+    const current = status === 'Delivered' ? this.statusOrder.length : Math.max(at, 0);
+    return flowStagesFrom(this.timelineSteps.map(s => s.label), current);
   }
 
   constructor(

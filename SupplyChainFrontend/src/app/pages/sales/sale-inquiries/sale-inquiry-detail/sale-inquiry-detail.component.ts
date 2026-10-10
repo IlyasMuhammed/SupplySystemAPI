@@ -28,6 +28,7 @@ import {
   AssigneeOption, INQUIRY_STATUS_COLOR, MAX, StatusColor, assigneeOptions$, displayDate, readDate, serverMessage, statusLabel,
   undecidedLineCount, writeDate
 } from '../sale-inquiry.shared';
+import { FLOW, FlowStage, flowStagesFrom } from '../../../../shared/flow';
 
 const TABS = { details: 0, lines: 1, attachments: 2 } as const;
 
@@ -63,7 +64,8 @@ export interface QuotationDraft {
   standalone: true,
   imports: [
     CommonModule, RouterModule, FormsModule, ButtonModule, TooltipModule, ToastModule, DialogModule, SelectModule,
-    DatePickerModule, InputTextModule, TextareaModule, TabViewModule, AttachmentListComponent, SaleInquiryLinesComponent
+    DatePickerModule, InputTextModule, TextareaModule, TabViewModule, AttachmentListComponent, SaleInquiryLinesComponent,
+    ...FLOW
   ],
   templateUrl: './sale-inquiry-detail.component.html',
   styleUrls: ['../sale-inquiry.shared.scss', './sale-inquiry-detail.component.scss'],
@@ -207,6 +209,16 @@ export class SaleInquiryDetailComponent implements OnInit {
   // ── Display ─────────────────────────────────────────────────────────────────
 
   statusColor(status: SaleInquiryStatus): StatusColor { return INQUIRY_STATUS_COLOR[status] ?? 'grey'; }
+
+  /** Received → Under review → Reviewed → Quoted (all done); a declined inquiry stops red. */
+  get stages(): FlowStage[] {
+    const i = this.inquiry;
+    if (!i) return [];
+    if (i.status === 'DECLINED') return flowStagesFrom(['Received', 'Under review', 'Declined'], 2, { failed: true });
+    const at: Record<string, number> = { RECEIVED: 0, UNDER_REVIEW: 1, REVIEW_COMPLETE: 2, QUOTED: 4 };
+    return flowStagesFrom(['Received', 'Under review', 'Reviewed', 'Quoted'], at[i.status] ?? 0,
+      { subs: [displayDate(i.receivedDate)] });
+  }
 
   get assigneeName(): string {
     const i = this.inquiry;

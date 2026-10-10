@@ -27,6 +27,7 @@ namespace SMS.Modules.Logistics.Controllers;
 [ApiController]
 [Route("api/logistics/consignments")]
 [RequiresFeature("MODULE_LOGISTICS")]
+[RequiresFeature("FEATURE_SHIPMENT_TRACKING")]   // A37 §1.3 — consignments and carrier tracking
 public class ConsignmentsController : ControllerBase
 {
     private readonly IConsignmentService        _svc;

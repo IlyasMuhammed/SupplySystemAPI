@@ -23,6 +23,7 @@ import {
   InterfaceSummaryDto,
   AddWorkflowStepRequest
 } from '../../../services/workflow.service';
+import { FLOW } from '../../../shared/flow';
 
 @Component({
   selector: 'app-workflow-form',
@@ -31,7 +32,8 @@ import {
     CommonModule, RouterModule, ReactiveFormsModule,
     ButtonModule, InputTextModule, TextareaModule,
     CheckboxModule, DropdownModule, ToastModule,
-    DividerModule, TooltipModule, InputNumberModule, TagModule
+    DividerModule, TooltipModule, InputNumberModule, TagModule,
+    ...FLOW
   ],
   templateUrl: './workflow-form.component.html',
   styleUrls: ['./workflow-form.component.scss'],

@@ -294,6 +294,9 @@ internal sealed class SaleOrderEmailService : ISaleOrderEmailService
         // A34 D-1 — nothing reserved: the line's production order makes the full quantity.
         if (line.FulfillmentMode == EnumCode<SaleOrderLineFulfillmentMode>.Of(SaleOrderLineFulfillmentMode.MakeToOrder))
             return $"Made to order: a production order makes all {line.Quantity:0.####} unit(s).";
+        // A36 D-10 — nothing reserved or bought: a service order performs it.
+        if (SaleOrderServiceLines.IsService(line))
+            return $"Service: a service order performs all {line.Quantity:0.####} unit(s).";
         return "Not yet confirmed.";
     }
 

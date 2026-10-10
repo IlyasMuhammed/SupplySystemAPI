@@ -27,10 +27,11 @@ interface MenuChangeEvent {
 })
 export class LayoutService {
     _config: layoutConfig = {
-        preset: 'Aura',
+        preset: 'SmsFlow',
         primary: 'blue',
         surface: null,
-        darkTheme: false,
+        // index.html already applied the saved mode; ThemeModeService keeps this in step from here on.
+        darkTheme: typeof document !== 'undefined' && document.documentElement.classList.contains('app-dark'),
         menuMode: 'static'
     };
 

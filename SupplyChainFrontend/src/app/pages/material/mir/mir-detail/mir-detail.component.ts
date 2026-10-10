@@ -26,6 +26,7 @@ import { InventoryService, ProductListItemModel, VariantWarehouseStockModel } fr
 import { AttachmentService } from '../../../../services/attachment.service';
 import { TimelinePanelComponent } from '../../../../shared/timeline-panel/timeline-panel.component';
 import { ProductVariantPickerComponent, VariantPickerSelection } from '../../../../shared/product-variant-picker/product-variant-picker.component';
+import { FLOW, FlowSection, FlowStage, flowStagesFrom } from '../../../../shared/flow';
 
 interface EditMirLine {
   // Populated for newly added lines (via the two-level picker); left blank for lines that
@@ -68,7 +69,8 @@ interface LineApprovalRow {
     ButtonModule, TagModule, ToastModule, DialogModule,
     InputTextModule, InputNumberModule, TextareaModule, TableModule,
     ConfirmDialogModule, ProgressSpinnerModule, TooltipModule,
-    DropdownModule, CalendarModule, TimelinePanelComponent, ProductVariantPickerComponent
+    DropdownModule, CalendarModule, TimelinePanelComponent, ProductVariantPickerComponent,
+    ...FLOW
   ],
   templateUrl: './mir-detail.component.html',
   styleUrls: ['./mir-detail.component.scss'],
@@ -96,6 +98,38 @@ export class MirDetailComponent implements OnInit {
 
   mivs: MivListItem[] = [];
   mivsLoading = false;
+
+  /** SMS Flow header strip: Draft → Approval → Approved → Issued (rejected / cancelled = red). */
+  get stages(): FlowStage[] {
+    const m = this.mir;
+    if (!m) return [];
+    if (m.status === 'CANCELLED') return flowStagesFrom(['Draft', 'Cancelled'], 1, { failed: true });
+    if (m.status === 'REJECTED') return flowStagesFrom(['Draft', 'Approval', 'Rejected'], 2, { failed: true });
+    const at: Record<string, number> = {
+      DRAFT: 0, PENDING_APPROVAL: 1, APPROVED: 2, PARTIALLY_APPROVED: 2, PARTIALLY_ISSUED: 3, FULLY_ISSUED: 4
+    };
+    const current = at[m.status] ?? 0;
+    return flowStagesFrom(['Draft', 'Approval', 'Approved', 'Issued'], current, {
+      subs: [null, current === 1 && m.activeStepName ? `step ${m.activeStepNumber}` : null,
+             m.status === 'PARTIALLY_APPROVED' ? 'partially' : null, m.status === 'PARTIALLY_ISSUED' ? 'partially' : null]
+    });
+  }
+
+  get sections(): FlowSection[] {
+    const showVouchers = this.mivs.length > 0 || this.mivsLoading;
+    const key = `${showVouchers}|${this.mivs.length}|${this.mir?.lines.length ?? 0}`;
+    if (key !== this.sectionsKey) {
+      this.sectionsKey = key;
+      this.sectionsCache = [
+        { id: 'sec-details', label: 'Details' },
+        ...(showVouchers ? [{ id: 'sec-vouchers', label: 'Issue vouchers', count: this.mivs.length }] : []),
+        { id: 'sec-lines', label: 'Material lines', count: this.mir?.lines.length ?? 0 }
+      ];
+    }
+    return this.sectionsCache;
+  }
+  private sectionsKey = '';
+  private sectionsCache: FlowSection[] = [];
 
   // ── Edit Dialog ────────────────────────────────────────────────────────────
   showEditDialog = false;

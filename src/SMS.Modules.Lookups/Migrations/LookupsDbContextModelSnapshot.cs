@@ -166,6 +166,9 @@ namespace SMS.Modules.Lookups.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(true);
 
+                    b.Property<DateTime>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("Notes")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
@@ -185,7 +188,7 @@ namespace SMS.Modules.Lookups.Migrations
 
                     b.HasIndex("OrganizationId");
 
-                    b.HasIndex("TypeId");
+                    b.HasIndex("TypeId", "ModifiedAt");
 
                     b.ToTable("LookupValues", "lookups");
                 });

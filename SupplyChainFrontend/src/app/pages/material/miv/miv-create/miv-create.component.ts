@@ -20,6 +20,7 @@ import {
   AvailableBatchRow,
   AvailableSerialRow
 } from '../../../../services/material.service';
+import { FLOW } from '../../../../shared/flow';
 
 interface IssueLine extends MirLineIssuable {
   issuedQtyInput: number;
@@ -39,7 +40,8 @@ interface IssueLine extends MirLineIssuable {
     CommonModule, RouterModule, FormsModule,
     ButtonModule, InputTextModule, InputNumberModule,
     CalendarModule, TagModule, ToastModule,
-    ProgressSpinnerModule, CheckboxModule
+    ProgressSpinnerModule, CheckboxModule,
+    ...FLOW
   ],
   templateUrl: './miv-create.component.html',
   styleUrls: ['./miv-create.component.scss'],

@@ -1,5 +1,6 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FLOW } from '../../shared/flow';
 import { RouterModule } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
@@ -12,7 +13,7 @@ import { takeUntil } from 'rxjs/operators';
 @Component({
   selector: 'app-notifications',
   standalone: true,
-  imports: [CommonModule, RouterModule, ButtonModule, ProgressSpinnerModule, ToastModule],
+  imports: [CommonModule, RouterModule, ButtonModule, ProgressSpinnerModule, ToastModule, ...FLOW],
   providers: [MessageService],
   templateUrl: './notifications.component.html',
   styleUrl: './notifications.component.scss'

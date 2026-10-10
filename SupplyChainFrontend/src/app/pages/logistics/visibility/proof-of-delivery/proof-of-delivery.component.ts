@@ -20,6 +20,7 @@ import {
   ProofGapModel,
   DeliveryProofModel
 } from '../../../../services/logistics.service';
+import { FLOW } from '../../../../shared/flow';
 
 type Severity = 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast';
 
@@ -38,7 +39,8 @@ type Severity = 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast
   imports: [
     CommonModule, RouterModule, FormsModule,
     ButtonModule, TagModule, TableModule, TooltipModule, ToastModule, DialogModule,
-    InputTextModule, TextareaModule, SelectModule, DatePickerModule
+    InputTextModule, TextareaModule, SelectModule, DatePickerModule,
+    ...FLOW
   ],
   templateUrl: './proof-of-delivery.component.html',
   styleUrls: ['./proof-of-delivery.component.scss'],

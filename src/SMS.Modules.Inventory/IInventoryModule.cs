@@ -90,6 +90,8 @@ public static class InventoryModuleExtensions
         services.AddScoped<VariantFulfillmentRoutes>();
         services.AddScoped<IVariantFulfillmentRoutes>(sp => sp.GetRequiredService<VariantFulfillmentRoutes>());
         services.AddScoped<IFulfillmentRouteUsage>(sp => sp.GetRequiredService<VariantFulfillmentRoutes>());
+        // A37 D-27 — a product's variants and routes for Logistics' GET api/products/{id}/routes.
+        services.AddScoped<IProductVariantRoutes>(sp => sp.GetRequiredService<VariantFulfillmentRoutes>());
         // A34 C3 — lead-time defaults (one row per org, D-10) and a variant's 8 components (D-26). The loader reads
         // Suppliers' ISupplierLeadTimeLookup / ISupplierNameLookupService when the host registers them (both optional).
         services.AddScoped(sp => new LeadTimeInputsLoader(
@@ -113,6 +115,9 @@ public static class InventoryModuleExtensions
             sp.GetService<IBomStructureReader>()));
         services.AddScoped<ILeadTimeCalculator>(sp => sp.GetRequiredService<LeadTimeCalculator>());
         services.AddScoped<IManufacturingLeadTimeCalculator>(sp => sp.GetRequiredService<LeadTimeCalculator>());
+        // A37 §6 — the catalog delta; tax codes / units of measure from Lookups' ISyncLookupReader when registered.
+        services.AddScoped<ICatalogSyncService>(sp => new CatalogSyncService(
+            sp.GetRequiredService<InventoryDbContext>(), sp.GetService<ISyncLookupReader>()));
         services.AddScoped<InventoryDataSeeder>();
         services.AddScoped<StaleRateAlertJob>();
         services.AddScoped<RateExpiryNotificationJob>();

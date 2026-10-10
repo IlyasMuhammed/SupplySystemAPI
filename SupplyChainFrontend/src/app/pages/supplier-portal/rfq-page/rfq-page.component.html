@@ -80,62 +80,58 @@
       <div class="sp-rfq-number">{{ payload.quotationNumber }}</div>
     </header>
 
-    <div class="sp-content">
+    <!-- ── Dynamic header ───────────────────────────────────────────────── -->
+    <header class="sf-hdr sp-hdr">
+      <div class="sf-t">
+        <div>
+          <div class="sf-kicker">Request for quotation<ng-container *ngIf="payload.supplierName"> · for {{ payload.supplierName }}</ng-container></div>
+          <h1><span class="sf-mono">{{ payload.quotationNumber }}</span> <span class="sf-pill in">Awaiting your response</span></h1>
+          <div class="sf-meta">{{ payload.title }} · issued {{ formatDate(payload.issueDate) }}</div>
+        </div>
+      </div>
+      <div class="sf-facts">
+        <div class="sf-kpi">
+          <span class="l">Closing date</span>
+          <span class="v sm er"><i class="pi pi-calendar"></i> {{ formatDate(payload.dueDate) }}</span>
+        </div>
+        <div class="sf-kpi">
+          <span class="l">Items</span>
+          <span class="v sm">{{ rows.length }}</span>
+        </div>
+        <div class="sf-kpi">
+          <span class="l">Link expires</span>
+          <span class="v sm">{{ formatDate(payload.expiresAt) }}</span>
+        </div>
+      </div>
+    </header>
 
-      <!-- ── RFQ Header card ─────────────────────────────────────────────── -->
-      <section class="sp-card sp-header-card">
-        <h3 class="sp-section-title">
-          <i class="pi pi-file-pdf"></i> RFQ Details
-        </h3>
+    <div class="sf-body sp-content">
 
-        <div class="sp-meta-grid">
-          <div class="sp-meta-item">
-            <span class="sp-meta-label">RFQ Number</span>
-            <span class="sp-meta-value sp-rfq-badge">{{ payload.quotationNumber }}</span>
-          </div>
-          <div class="sp-meta-item">
-            <span class="sp-meta-label">Title</span>
-            <span class="sp-meta-value">{{ payload.title }}</span>
-          </div>
-          <div class="sp-meta-item">
-            <span class="sp-meta-label">Supplier</span>
-            <span class="sp-meta-value">{{ payload.supplierName ?? '—' }}</span>
-          </div>
-          <div class="sp-meta-item">
-            <span class="sp-meta-label">Issue Date</span>
-            <span class="sp-meta-value">{{ formatDate(payload.issueDate) }}</span>
-          </div>
-          <div class="sp-meta-item">
-            <span class="sp-meta-label">Closing Date</span>
-            <span class="sp-meta-value sp-closing-date">
-              <i class="pi pi-calendar"></i>
-              {{ formatDate(payload.dueDate) }}
-            </span>
-          </div>
-          <div class="sp-meta-item">
-            <span class="sp-meta-label">Link Expires</span>
-            <span class="sp-meta-value">{{ formatDate(payload.expiresAt) }}</span>
-          </div>
-          <div class="sp-meta-item sp-meta-full" *ngIf="payload.notes">
-            <span class="sp-meta-label">Terms / Notes</span>
-            <span class="sp-meta-value">{{ payload.notes }}</span>
-          </div>
+      <!-- ── RFQ details ─────────────────────────────────────────────────── -->
+      <section class="sf-card">
+        <div class="sf-ch"><h2>RFQ details</h2></div>
+        <div class="sf-kv">
+          <span>RFQ number</span><span class="sf-mono">{{ payload.quotationNumber }}</span>
+          <span>Title</span><span>{{ payload.title }}</span>
+          <span>Supplier</span><span>{{ payload.supplierName ?? '—' }}</span>
+          <span>Issue date</span><span>{{ formatDate(payload.issueDate) }}</span>
+          <span>Closing date</span><span class="sp-closing-date">{{ formatDate(payload.dueDate) }}</span>
+          <span>Link expires</span><span>{{ formatDate(payload.expiresAt) }}</span>
+          <ng-container *ngIf="payload.notes"><span>Terms / notes</span><span>{{ payload.notes }}</span></ng-container>
         </div>
       </section>
 
       <!-- ── Item grid ───────────────────────────────────────────────────── -->
-      <section class="sp-card">
-        <h3 class="sp-section-title">
-          <i class="pi pi-list"></i> Items — Enter Your Prices
-        </h3>
+      <section class="sf-card p0">
+        <div class="sf-ch">
+          <h2>Items — enter your prices</h2>
+          <span class="sf-mu sf-sm">
+            Fill in Unit Price, Delivery Days, and Remarks for each item.
+            Toggle <strong>Can Supply</strong> off if you cannot fulfil an item.
+          </span>
+        </div>
 
-        <p class="sp-grid-hint">
-          Fill in Unit Price, Delivery Days, and Remarks for each item.
-          Toggle <strong>Can Supply</strong> off if you cannot fulfil an item.
-          All fields are optional — you may leave any field blank.
-        </p>
-
-        <div class="sp-table-wrap">
+        <div class="sf-tw">
           <table class="sp-table">
             <thead>
               <tr>
@@ -203,15 +199,17 @@
             </tbody>
           </table>
         </div>
+      </section>
 
-        <!-- Supporting documents -->
-        <div class="sp-attachments">
-          <h3 class="sp-section-title">
-            <i class="pi pi-paperclip"></i> Supporting Documents
-          </h3>
-          <p class="sp-grid-hint">
+      <!-- Supporting documents -->
+      <section class="sf-card">
+        <div class="sf-ch">
+          <h2>Supporting documents</h2>
+          <span class="sf-mu sf-sm">
             Optionally attach spec sheets, certificates, or other supporting documents (max 20 MB each).
-          </p>
+          </span>
+        </div>
+        <div>
 
           <label class="sp-upload-btn" for="rfqFileUpload">
             <i class="pi pi-upload"></i> Attach File
@@ -226,6 +224,7 @@
             </li>
           </ul>
         </div>
+      </section>
 
         <!-- Validation errors -->
         <div class="sp-validation-errors" *ngIf="clientValidationErrors.length">
@@ -247,25 +246,25 @@
           </div>
         </div>
 
-        <!-- Submit bar -->
-        <div class="sp-submit-bar">
-          <p class="sp-submit-hint">
-            Once submitted, this form cannot be edited. Price and delivery days are required for
-            any item you can supply — toggle <strong>Can Supply</strong> off to skip an item.
-          </p>
-          <p-button
-            label="Submit Quotation Response"
-            icon="pi pi-send"
-            [loading]="submitting"
-            [disabled]="submitting"
-            styleClass="sp-submit-btn"
-            (onClick)="submit()">
-          </p-button>
-        </div>
-
-      </section>
-
     </div><!-- /sp-content -->
+
+    <!-- Submit bar -->
+    <div class="sf-fbar">
+      <span class="sf-mu sf-sm">
+        Once submitted, this form cannot be edited. Price and delivery days are required for
+        any item you can supply — toggle <strong>Can Supply</strong> off to skip an item.
+      </span>
+      <span class="sf-end">
+        <p-button
+          label="Submit Quotation Response"
+          icon="pi pi-send"
+          [loading]="submitting"
+          [disabled]="submitting"
+          styleClass="sp-submit-btn"
+          (onClick)="submit()">
+        </p-button>
+      </span>
+    </div>
   </ng-container>
 
 </div><!-- /sp-shell -->

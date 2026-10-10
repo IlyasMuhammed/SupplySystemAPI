@@ -14,6 +14,7 @@ import { IconFieldModule } from 'primeng/iconfield';
 import { MessageService } from 'primeng/api';
 import { TableLazyLoadEvent } from 'primeng/table';
 import { MaterialService, ProjectListItem, ProjectListFilter } from '../../../../services/material.service';
+import { FLOW } from '../../../../shared/flow';
 
 @Component({
   selector: 'app-project-list',
@@ -22,7 +23,8 @@ import { MaterialService, ProjectListItem, ProjectListFilter } from '../../../..
     CommonModule, RouterModule, FormsModule,
     TableModule, ButtonModule, TagModule,
     TooltipModule, ToastModule, DropdownModule,
-    InputTextModule, InputIconModule, IconFieldModule
+    InputTextModule, InputIconModule, IconFieldModule,
+    ...FLOW
   ],
   templateUrl: './project-list.component.html',
   styleUrls: ['./project-list.component.scss'],

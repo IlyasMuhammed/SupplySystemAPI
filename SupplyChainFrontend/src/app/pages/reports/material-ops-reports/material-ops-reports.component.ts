@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FLOW } from '../../../shared/flow';
 import { FormsModule } from '@angular/forms';
 import { TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
@@ -23,7 +24,7 @@ import {
   selector: 'app-material-ops-reports',
   standalone: true,
   imports: [CommonModule, FormsModule, TableModule, ButtonModule, InputTextModule,
-            TabViewModule, TagModule, ToastModule, DropdownModule],
+            TabViewModule, TagModule, ToastModule, DropdownModule, ...FLOW],
   templateUrl: './material-ops-reports.component.html',
   styleUrls: ['./material-ops-reports.component.scss'],
   providers: [MessageService]

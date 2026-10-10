@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using SMS.Modules.Logistics.Services;
 using SMS.Shared.Common;
 
@@ -29,11 +29,16 @@ internal sealed class DeliveryExceptionSweepJob
     private readonly IDeliveryProgressService           _progress;
     private readonly ITenantContext                     _tenant;
     private readonly ILogger<DeliveryExceptionSweepJob> _log;
+    private readonly IModuleGate?                       _gate;
+    private readonly IOrganizationDirectory?            _organizations;
 
     public DeliveryExceptionSweepJob(
         IDeliveryExceptionService exceptions, IDeliveryProofService proofs,
-        IDeliveryProgressService progress, ITenantContext tenant, ILogger<DeliveryExceptionSweepJob> log)
+        IDeliveryProgressService progress, ITenantContext tenant, ILogger<DeliveryExceptionSweepJob> log,
+        IModuleGate? gate = null, IOrganizationDirectory? organizations = null)
     {
+        _gate          = gate;
+        _organizations = organizations;
         _exceptions = exceptions;
         _proofs     = proofs;
         _progress   = progress;
@@ -41,7 +46,14 @@ internal sealed class DeliveryExceptionSweepJob
         _log        = log;
     }
 
-    public async Task RunAsync()
+    /// <summary>
+    /// A37 D-9 — organizations without MODULE_LOGISTICS (grace counts as off) are skipped: when any is, the sweep runs
+    /// once per enabled organization under its tenant scope instead of once across all of them.
+    /// </summary>
+    public Task RunAsync() =>
+        _gate.RunForEnabledOrganizationsAsync(_organizations, ModuleCodes.Logistics, _log, nameof(DeliveryExceptionSweepJob), SweepOnceAsync);
+
+    private async Task SweepOnceAsync()
     {
         var fromCarrier = await _exceptions.SweepFromTrackingAsync(SystemUserId);
 

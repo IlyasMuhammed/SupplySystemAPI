@@ -18,6 +18,7 @@ import { MessageService, ConfirmationService } from 'primeng/api';
 import { TableLazyLoadEvent } from 'primeng/table';
 import { LogisticsService, CarrierListItemModel, CarrierDetailModel, PatchCarrierRequest, CreateCarrierRequest } from '../../../../services/logistics.service';
 import { SupplierService } from '../../../../services/supplier.service';
+import { FLOW } from '../../../../shared/flow';
 
 @Component({
   selector: 'app-carrier-list',
@@ -27,7 +28,8 @@ import { SupplierService } from '../../../../services/supplier.service';
     TableModule, ButtonModule, InputTextModule,
     InputIconModule, IconFieldModule, TagModule,
     TooltipModule, ToastModule, DropdownModule,
-    ConfirmDialogModule, DialogModule, InputNumberModule
+    ConfirmDialogModule, DialogModule, InputNumberModule,
+    ...FLOW
   ],
   templateUrl: './carrier-list.component.html',
   styleUrls: ['./carrier-list.component.scss'],

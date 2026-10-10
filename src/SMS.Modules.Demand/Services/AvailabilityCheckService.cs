@@ -56,13 +56,22 @@ internal sealed class AvailabilityCheckService : IAvailabilityCheckService
         var dropShipCode   = EnumCode<SaleOrderLineFulfillmentMode>.Of(SaleOrderLineFulfillmentMode.DropShip);
         var backToBackCode = EnumCode<SaleOrderLineFulfillmentMode>.Of(SaleOrderLineFulfillmentMode.BackToBack);
 
-        var variantUuids = order.Lines.Select(l => l.VariantUuid).Distinct().ToList();
-        var available = await _stock.GetAvailableAsync(variantUuids, warehouseUuid: null);
+        var variantUuids = order.Lines.Where(l => !SaleOrderServiceLines.IsService(l)).Select(l => l.VariantUuid).Distinct().ToList();
+        IReadOnlyList<VariantAvailability> available = variantUuids.Count == 0 ? [] : await _stock.GetAvailableAsync(variantUuids, warehouseUuid: null);
         var byVariant = available.ToDictionary(a => a.VariantUuid);
         var reserved  = new List<LineReservation>();
 
         foreach (var line in order.Lines)
         {
+            // A36 D-10 — a service line is performed by a service order: nothing to reserve, no deficit (so no auto-PO).
+            if (SaleOrderServiceLines.IsService(line))
+            {
+                line.AvailableQtyAtConfirm = null;
+                line.DeficitQty            = 0m;
+                line.Status                = EnumCode<SaleOrderLineStatus>.Of(SaleOrderLineStatus.Open);
+                continue;
+            }
+
             // §4.3's fourth scenario — only reachable if a line already asked for it before
             // confirm; no impact on stock or the reservation ledger either way.
             if (line.FulfillmentMode == dropShipCode && config.DropShipEnabled)

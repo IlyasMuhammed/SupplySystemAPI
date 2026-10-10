@@ -30,6 +30,7 @@ import { ProductVariantPickerComponent, VariantPickerSelection } from '../../../
 import { AllocationService, AllocationRunResult } from '../../../../services/allocation.service';
 import { AuthService } from '../../../service/auth.service';
 import { firstValueFrom } from 'rxjs';
+import { FLOW, FlowSection, FlowStage, flowStagesFrom } from '../../../../shared/flow';
 
 export interface InspectionRowState {
   lineUuid: string;
@@ -50,7 +51,7 @@ export interface InspectionRowState {
     ButtonModule, TagModule, ToastModule, TableModule, DialogModule, MessageModule,
     InputTextModule, InputNumberModule, ToggleButtonModule,
     TextareaModule, TooltipModule, DropdownModule, CalendarModule, ConfirmDialogModule, ProgressSpinnerModule,
-    TimelinePanelComponent, AttachmentListComponent, ProductVariantPickerComponent
+    TimelinePanelComponent, AttachmentListComponent, ProductVariantPickerComponent, ...FLOW
   ],
   templateUrl: './grn-detail.component.html',
   styleUrls: ['./grn-detail.component.scss'],
@@ -760,6 +761,38 @@ export class GrnDetailComponent implements OnInit {
   get canFinanceReject(): boolean { return this.grn?.status === 'PENDING_FINANCE'; }
   get canApprove():       boolean { return this.grn?.status === 'PENDING_APPROVAL'; }
   get canReject():        boolean { return this.grn?.status === 'PENDING_APPROVAL'; }
+
+  // ── SMS Flow header: lifecycle stages + section anchors ────────────────────
+  get stages(): FlowStage[] {
+    const g = this.grn;
+    if (!g) return [];
+    const finance = !!g.financeApprovalRequired;
+    const labels = finance ? ['Draft', 'QC', 'Finance', 'Approval', 'Approved'] : ['Draft', 'QC', 'Approval', 'Approved'];
+    const at = (label: string) => labels.indexOf(label);
+    if (g.status === 'REJECTED') {
+      // Where it stopped: QC never confirmed → QC; finance never approved → Finance; otherwise final approval.
+      const failedAt = !g.qcConfirmedAt ? at('QC') : finance && !g.financeApprovedAt ? at('Finance') : at('Approval');
+      const subs = labels.map((_, i) => (i === failedAt ? 'Rejected' : null));
+      return flowStagesFrom(labels, failedAt, { subs, failed: true });
+    }
+    const current: Record<string, number> = {
+      DRAFT: at('Draft'), PENDING_QC: at('QC'), PENDING_FINANCE: at('Finance'), PENDING_APPROVAL: at('Approval'), APPROVED: labels.length
+    };
+    return flowStagesFrom(labels, current[g.status] ?? 0);
+  }
+
+  get sections(): FlowSection[] {
+    return this.grn?.requiresInspection && this.grn.status !== 'DRAFT' ? this.sectionsWithInspection : this.sectionsPlain;
+  }
+  private readonly sectionsPlain: FlowSection[] = [
+    { id: 'sec-lines', label: 'Lines' },
+    { id: 'sec-details', label: 'Details' },
+    { id: 'sec-files', label: 'Documents' },
+    { id: 'sec-audit', label: 'Audit trail' }
+  ];
+  private readonly sectionsWithInspection: FlowSection[] = [
+    this.sectionsPlain[0], { id: 'sec-inspection', label: 'Inspection' }, ...this.sectionsPlain.slice(1)
+  ];
 
   get lf() { return this.lineForm.controls; }
 

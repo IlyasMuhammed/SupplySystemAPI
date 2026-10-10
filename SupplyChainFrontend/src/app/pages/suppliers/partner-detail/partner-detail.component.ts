@@ -18,6 +18,7 @@ import {
 } from '../../../services/finance.service';
 import { QboSyncBadgeComponent } from '../../../shared/components/qbo-sync-badge/qbo-sync-badge.component';
 import { PartnerCurrencyTabComponent } from '../partner-currency-tab/partner-currency-tab.component';
+import { FLOW, FlowSection } from '../../../shared/flow';
 
 // Addendum 29 §1.6 — "Partner detail page with ledger tab." The ledger tab reuses
 // FinanceService.getSupplierLedger/getSupplierBalance verbatim: a BusinessPartner's UUID is the
@@ -29,7 +30,7 @@ import { PartnerCurrencyTabComponent } from '../partner-currency-tab/partner-cur
   imports: [
     CommonModule, FormsModule, RouterModule,
     ButtonModule, CardModule, TagModule, TabViewModule, TableModule, CalendarModule, ToastModule,
-    QboSyncBadgeComponent, PartnerCurrencyTabComponent
+    QboSyncBadgeComponent, PartnerCurrencyTabComponent, ...FLOW
   ],
   templateUrl: './partner-detail.component.html',
   styleUrls: ['./partner-detail.component.scss'],
@@ -83,6 +84,13 @@ export class PartnerDetailComponent implements OnInit {
       }
     });
   }
+
+  /** SMS Flow section anchors. */
+  readonly sections: FlowSection[] = [
+    { id: 'sec-overview', label: 'Overview' },
+    { id: 'sec-currency', label: 'Currency' },
+    { id: 'sec-ledger', label: 'Ledger' }
+  ];
 
   goBack() {
     this.router.navigate(['/portal/pages/suppliers/partner-list']);

@@ -1,155 +1,152 @@
-<div class="quotation-create-page">
-  <p-toast></p-toast>
+<p-toast></p-toast>
 
-  <div class="page-header">
-    <div class="header-content">
-      <div class="header-left">
-        <p-button icon="pi pi-arrow-left" [text]="true" severity="secondary"
-                  [routerLink]="['/portal/pages/demand/quotations', uuid]" class="back-btn"></p-button>
-        <div>
-          <h1 class="page-title"><i class="pi pi-pencil"></i> Edit Supplier Quote</h1>
-          <p class="page-subtitle">Update this DRAFT quotation / RFQ</p>
-        </div>
-      </div>
-    </div>
+<sf-page [crumbs]="['Procurement', 'Supplier quotes (RFQ)', 'Edit RFQ']">
+
+  <header class="sf-hdr sf-compact">
+    <h1>Edit supplier quote</h1>
+    <span class="sf-mu">Update this DRAFT quotation / RFQ</span>
+  </header>
+
+  <div *ngIf="isLoading" class="sf-empty">
+    <i class="pi pi-spin pi-spinner"></i> Loading...
   </div>
 
-  <div *ngIf="isLoading" class="loading-card" style="text-align:center;padding:3rem">
-    <i class="pi pi-spin pi-spinner" style="font-size:2rem;color:#0984e3"></i>
-    <p>Loading...</p>
-  </div>
+  <form *ngIf="!isLoading" [formGroup]="form" (ngSubmit)="onSubmit()" class="sf-form">
+    <div class="sf-body">
 
-  <form *ngIf="!isLoading" [formGroup]="form" (ngSubmit)="onSubmit()">
+      <!-- ── General ──────────────────────────────────────────────────────── -->
+      <section class="sf-card">
+        <div class="sf-ch"><h2>General information</h2></div>
+        <div class="sf-fields">
 
-    <!-- ── General ──────────────────────────────────────────────────────── -->
-    <div class="form-card">
-      <h2 class="section-title"><i class="pi pi-info-circle"></i> General Information</h2>
-      <div class="form-grid">
-
-        <div class="field col-span-2">
-          <label>Quotation Title <span class="required">*</span></label>
-          <input pInputText formControlName="title" placeholder="e.g. Office Equipment RFQ Q3"
-                 [class.p-invalid]="isInvalid('title')" class="w-full" maxlength="150" />
-          <small class="p-error" *ngIf="isInvalid('title')">Title is required (min 3 chars)</small>
-        </div>
-
-        <div class="field">
-          <label>Response Due Date</label>
-          <p-calendar formControlName="dueDate" dateFormat="dd/mm/yy" [minDate]="minDate"
-                      [showIcon]="true" placeholder="Deadline for vendor responses"
-                      styleClass="w-full"></p-calendar>
-        </div>
-
-        <div class="field col-span-3">
-          <label>Notes</label>
-          <textarea pTextarea formControlName="notes" rows="3"
-                    placeholder="Any special instructions or context for suppliers..."
-                    class="w-full" maxlength="1000"></textarea>
-        </div>
-
-      </div>
-    </div>
-
-    <!-- ── Line Items ────────────────────────────────────────────────────── -->
-    <div class="form-card">
-      <div class="section-header">
-        <h2 class="section-title"><i class="pi pi-list"></i> Items to Quote</h2>
-        <p-button label="Add Line" icon="pi pi-plus" severity="secondary" size="small"
-                  type="button" (onClick)="addLine()"></p-button>
-      </div>
-
-      <div formArrayName="lines">
-        <div *ngFor="let line of lines.controls; let i = index" [formGroupName]="i" class="line-card">
-
-          <div class="line-header">
-            <div class="line-num">{{ i + 1 }}</div>
-            <span class="line-title">Line {{ i + 1 }}</span>
-            <p-button icon="pi pi-times" severity="danger" [text]="true" size="small"
-                      type="button" (onClick)="removeLine(i)"
-                      [disabled]="lines.length === 1" pTooltip="Remove line" tooltipPosition="left"></p-button>
+          <div class="sf-fld wide">
+            <label>Quotation Title <span class="required">*</span></label>
+            <input pInputText formControlName="title" placeholder="e.g. Office Equipment RFQ Q3"
+                   [class.p-invalid]="isInvalid('title')" class="w-full" maxlength="150" />
+            <small class="p-error" *ngIf="isInvalid('title')">Title is required (min 3 chars)</small>
           </div>
 
-          <div class="line-body">
-            <div class="line-grid">
+          <div class="sf-fld">
+            <label>Response Due Date</label>
+            <p-calendar formControlName="dueDate" dateFormat="dd/mm/yy" [minDate]="minDate"
+                        [showIcon]="true" placeholder="Deadline for vendor responses"
+                        styleClass="w-full"></p-calendar>
+          </div>
 
-              <!-- Product → Variant (PV-004 two-level picker) — full width -->
-              <div class="field full">
-                <label>Product</label>
-                <app-product-variant-picker
-                  [products]="products"
-                  [productUuid]="line.get('productUuid')?.value"
-                  [variantUuid]="line.get('variantUuid')?.value"
-                  (selectionChange)="onLineVariantSelected(i, $event)">
-                </app-product-variant-picker>
-                <small style="font-size:.75rem;color:#94a3b8;">Selecting a product auto-fills the fields below.</small>
-              </div>
+          <div class="sf-fld full">
+            <label>Notes</label>
+            <textarea pTextarea formControlName="notes" rows="3"
+                      placeholder="Any special instructions or context for suppliers..."
+                      class="w-full" maxlength="1000"></textarea>
+          </div>
 
-              <!-- Description | Specification -->
-              <div class="field">
-                <label>Item Description <span class="required">*</span></label>
-                <input pInputText formControlName="itemDescription"
-                       placeholder="Auto-filled from product, or enter manually"
-                       [class.p-invalid]="lineIsInvalid(i,'itemDescription')" class="w-full" maxlength="200" />
-                <small class="p-error" *ngIf="lineIsInvalid(i,'itemDescription')">Required</small>
-              </div>
-              <div class="field">
-                <label>Specification</label>
-                <input pInputText formControlName="specification"
-                       placeholder="Technical specs or details…"
-                       class="w-full" maxlength="300" />
-              </div>
+        </div>
+      </section>
 
-              <!-- UoM | Quantity -->
-              <div class="field">
-                <label>Unit of Measure</label>
-                <p-dropdown formControlName="unitOfMeasure" [options]="uomOptions"
-                            optionLabel="label" optionValue="value" styleClass="w-full"></p-dropdown>
-              </div>
-              <div class="field">
-                <label>Quantity <span class="required">*</span></label>
-                <p-inputNumber formControlName="quantity" [minFractionDigits]="0" [maxFractionDigits]="4"
-                               [min]="0.0001" [max]="999999" [maxlength]="12"
-                               [class.p-invalid]="lineIsInvalid(i,'quantity')"
-                               styleClass="w-full"></p-inputNumber>
-                <small class="p-error" *ngIf="lineIsInvalid(i,'quantity')">Must be between 0 and 999,999</small>
-              </div>
+      <!-- ── Line Items ────────────────────────────────────────────────────── -->
+      <section class="sf-card">
+        <div class="sf-ch">
+          <h2>Items to quote <span class="sf-pill">{{ lines.length }}</span></h2>
+          <p-button label="Add Line" icon="pi pi-plus" severity="secondary" [text]="true" size="small"
+                    type="button" (onClick)="addLine()"></p-button>
+        </div>
 
-              <!-- Required By Date | Notes -->
-              <div class="field">
-                <label>Required By Date</label>
-                <p-calendar formControlName="requiredDate" dateFormat="dd/mm/yy" [minDate]="minDate"
-                            [showIcon]="true" styleClass="w-full" appendTo="body"></p-calendar>
-              </div>
-              <div class="field">
-                <label>Line Notes</label>
-                <input pInputText formControlName="lineNotes"
-                       placeholder="Special instructions…"
-                       class="w-full" maxlength="500" />
-              </div>
-              <div class="field">
-                <label>Budget Code</label>
-                <input pInputText formControlName="budgetCode" placeholder="e.g. CAPEX-2025"
-                       class="w-full" maxlength="30" />
-              </div>
+        <div formArrayName="lines">
+          <div *ngFor="let line of lines.controls; let i = index" [formGroupName]="i" class="line-card">
 
+            <div class="line-header">
+              <div class="line-num">{{ i + 1 }}</div>
+              <span class="line-title">Line {{ i + 1 }}</span>
+              <p-button icon="pi pi-times" severity="danger" [text]="true" size="small"
+                        type="button" (onClick)="removeLine(i)"
+                        [disabled]="lines.length === 1" pTooltip="Remove line" tooltipPosition="left"></p-button>
             </div>
+
+            <div class="line-body">
+              <div class="sf-fields line-grid">
+
+                <!-- Product → Variant (PV-004 two-level picker) — full width -->
+                <div class="sf-fld full">
+                  <label>Product</label>
+                  <app-product-variant-picker
+                    [products]="products"
+                    [productUuid]="line.get('productUuid')?.value"
+                    [variantUuid]="line.get('variantUuid')?.value"
+                    (selectionChange)="onLineVariantSelected(i, $event)">
+                  </app-product-variant-picker>
+                  <small class="hint">Selecting a product auto-fills the fields below.</small>
+                </div>
+
+                <!-- Description | Specification -->
+                <div class="sf-fld">
+                  <label>Item Description <span class="required">*</span></label>
+                  <input pInputText formControlName="itemDescription"
+                         placeholder="Auto-filled from product, or enter manually"
+                         [class.p-invalid]="lineIsInvalid(i,'itemDescription')" class="w-full" maxlength="200" />
+                  <small class="p-error" *ngIf="lineIsInvalid(i,'itemDescription')">Required</small>
+                </div>
+                <div class="sf-fld">
+                  <label>Specification</label>
+                  <input pInputText formControlName="specification"
+                         placeholder="Technical specs or details…"
+                         class="w-full" maxlength="300" />
+                </div>
+
+                <!-- UoM | Quantity -->
+                <div class="sf-fld">
+                  <label>Unit of Measure</label>
+                  <p-dropdown formControlName="unitOfMeasure" [options]="uomOptions"
+                              optionLabel="label" optionValue="value" styleClass="w-full"></p-dropdown>
+                </div>
+                <div class="sf-fld">
+                  <label>Quantity <span class="required">*</span></label>
+                  <p-inputNumber formControlName="quantity" [minFractionDigits]="0" [maxFractionDigits]="4"
+                                 [min]="0.0001" [max]="999999" [maxlength]="12"
+                                 [class.p-invalid]="lineIsInvalid(i,'quantity')"
+                                 styleClass="w-full"></p-inputNumber>
+                  <small class="p-error" *ngIf="lineIsInvalid(i,'quantity')">Must be between 0 and 999,999</small>
+                </div>
+
+                <!-- Required By Date | Notes -->
+                <div class="sf-fld">
+                  <label>Required By Date</label>
+                  <p-calendar formControlName="requiredDate" dateFormat="dd/mm/yy" [minDate]="minDate"
+                              [showIcon]="true" styleClass="w-full" appendTo="body"></p-calendar>
+                </div>
+                <div class="sf-fld">
+                  <label>Line Notes</label>
+                  <input pInputText formControlName="lineNotes"
+                         placeholder="Special instructions…"
+                         class="w-full" maxlength="500" />
+                </div>
+                <div class="sf-fld">
+                  <label>Budget Code</label>
+                  <input pInputText formControlName="budgetCode" placeholder="e.g. CAPEX-2025"
+                         class="w-full" maxlength="30" />
+                </div>
+
+              </div>
+            </div>
+
           </div>
-
         </div>
-      </div>
 
-      <button class="add-line-btn" type="button" (click)="addLine()">
-        <i class="pi pi-plus"></i> Add Line Item
-      </button>
+        <button class="add-line-btn" type="button" (click)="addLine()">
+          <i class="pi pi-plus"></i> Add Line Item
+        </button>
+      </section>
     </div>
 
     <!-- ── Actions ──────────────────────────────────────────────────────── -->
-    <div class="action-bar">
-      <p-button label="Cancel" severity="secondary" [text]="true" type="button"
-                [routerLink]="['/portal/pages/demand/quotations', uuid]"></p-button>
-      <p-button label="Save Changes" icon="pi pi-check" type="submit"
-                [loading]="isSubmitting"></p-button>
+    <div class="sf-fbar">
+      <span class="sf-mu sf-sm">Only a draft quotation can be edited.</span>
+      <span class="sf-end">
+        <p-button label="Cancel" severity="secondary" [text]="true" type="button"
+                  [routerLink]="['/portal/pages/demand/quotations', uuid]"></p-button>
+        <p-button label="Save Changes" icon="pi pi-check" type="submit"
+                  [loading]="isSubmitting"></p-button>
+      </span>
     </div>
 
   </form>
-</div>
+</sf-page>

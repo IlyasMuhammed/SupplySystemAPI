@@ -1,62 +1,7 @@
-.rate-cards-page {
-  padding: 1.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-}
-
-.page-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
-
-  .page-title {
-    font-size: 1.3rem;
-    font-weight: 700;
-    margin: 0 0 0.25rem;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-
-    i { color: var(--primary-color); }
-  }
-
-  .page-subtitle {
-    margin: 0;
-    font-size: 0.85rem;
-    color: var(--text-color-secondary);
-  }
-}
-
-.filter-bar {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
+// Page layout comes from the SMS Flow kit (src/assets/layout/_flow.scss).
 
 .supplier-dropdown {
   min-width: 280px;
-}
-
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 3rem 1rem;
-  color: var(--text-color-secondary);
-
-  i { font-size: 2.5rem; color: var(--surface-400); }
-  p { margin: 0; font-size: 0.9rem; }
-}
-
-.empty-cell {
-  text-align: center;
-  padding: 2rem;
-  color: var(--text-color-secondary);
 }
 
 .product-cell {
@@ -64,10 +9,10 @@
   flex-direction: column;
 
   .product-name { font-weight: 600; }
-  .variant-name { font-size: 0.78rem; color: var(--text-color-secondary); }
+  .variant-name { font-size: 0.78rem; color: var(--sms-text-muted); }
 }
 
-.font-mono { font-family: 'Courier New', monospace; font-size: 0.85rem; }
+.font-mono { font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace; font-size: 0.85rem; }
 
 .cell-input {
   width: 100%;
@@ -78,26 +23,26 @@
 
 // ── Last PO Price comparison highlighting ────────────────────────────────────
 .po-price-match {
-  background: #f0fdf4;
-  color: #166534;
+  background: var(--sms-ok-soft);
+  color: var(--sms-ok);
   font-weight: 600;
 }
 
 .po-price-mismatch {
-  background: #fffbeb;
-  color: #b45309;
+  background: var(--sms-warn-soft);
+  color: var(--sms-warn);
   font-weight: 600;
 }
 
 .po-price-none {
-  background: #f8fafc;
-  color: var(--text-color-secondary);
+  background: var(--sms-surface-2);
+  color: var(--sms-text-muted);
 }
 
 .reason-hint {
   margin: 0 0 0.75rem;
   font-size: 0.85rem;
-  color: var(--text-color-secondary);
+  color: var(--sms-text-muted);
 }
 
 .reason-textarea {
@@ -110,22 +55,22 @@
 .comparison-row {
   cursor: pointer;
 
-  &:hover { background: var(--surface-100); }
+  &:hover { background: var(--sms-row-hover); }
 }
 
 .lowest-row {
-  background: #f0fdf4;
+  background: var(--sms-ok-soft);
 
-  &:hover { background: #dcfce7; }
+  &:hover { background: color-mix(in srgb, var(--sms-ok) 18%, var(--sms-surface)); }
 }
 
 .lowest-label {
-  color: #166534;
+  color: var(--sms-ok);
   font-weight: 700;
 }
 
 .preferred-star {
-  color: #f59e0b;
+  color: var(--sms-warn);
   margin-left: 0.4rem;
   font-size: 0.8rem;
 }
@@ -135,7 +80,7 @@
 .bulk-hint {
   margin: 0 0 1rem;
   font-size: 0.85rem;
-  color: var(--text-color-secondary);
+  color: var(--sms-text-muted);
 }
 
 .bulk-field {
@@ -147,7 +92,7 @@
   label {
     font-size: 0.8rem;
     font-weight: 600;
-    color: var(--text-color-secondary);
+    color: var(--sms-text-muted);
   }
 
   input, textarea {
@@ -155,30 +100,30 @@
     box-sizing: border-box;
   }
 
-  .req { color: #dc2626; }
+  .req { color: var(--sms-danger); }
 }
 
 .bulk-summary {
   margin-bottom: 0.9rem;
   padding: 0.7rem 0.9rem;
-  background: #f8fafc;
+  background: var(--sms-surface-2);
   border-radius: 8px;
-  border-left: 3px solid #6c63ff;
+  border-left: 3px solid var(--sms-primary);
   font-size: 0.88rem;
 }
 
-.bulk-preview-row { background: #fffbeb; }
+.bulk-preview-row { background: var(--sms-warn-soft); }
 
-.bulk-new-rate { font-weight: 700; color: #1e293b; }
+.bulk-new-rate { font-weight: 700; color: var(--sms-text); }
 
-.impact-positive { color: #b45309; font-weight: 700; }
-.impact-negative { color: #16a34a; font-weight: 700; }
+.impact-positive { color: var(--sms-warn); font-weight: 700; }
+.impact-negative { color: var(--sms-ok); font-weight: 700; }
 
 .bulk-history-loading {
   display: flex;
   justify-content: center;
   padding: 1.5rem;
-  color: var(--text-color-secondary);
+  color: var(--sms-text-muted);
 }
 
 .bulk-history-list {
@@ -190,7 +135,7 @@
 }
 
 .bulk-history-row {
-  border: 1px solid #eef0f4;
+  border: 1px solid var(--sms-border);
   border-radius: 8px;
   padding: 0.7rem 0.9rem;
 }
@@ -201,18 +146,18 @@
   gap: 0.7rem;
   font-size: 0.92rem;
   font-weight: 700;
-  color: #1e293b;
+  color: var(--sms-text);
 }
 
 .bulk-history-count {
   font-weight: 500;
-  color: var(--text-color-secondary);
+  color: var(--sms-text-muted);
   font-size: 0.82rem;
 }
 
 .bulk-history-meta {
   font-size: 0.78rem;
-  color: var(--text-color-secondary);
+  color: var(--sms-text-muted);
   margin-top: 0.25rem;
 }
 
@@ -227,7 +172,7 @@
 
 .bulk-empty-inline {
   font-size: 0.82rem;
-  color: var(--text-color-secondary);
+  color: var(--sms-text-muted);
   text-align: center;
   padding: 0.8rem 0;
 }
@@ -237,13 +182,13 @@
 .import-file-name {
   margin: 0.75rem 0 0;
   font-size: 0.85rem;
-  color: var(--text-color-secondary);
+  color: var(--sms-text-muted);
 }
 
 .import-error-msg {
   margin-top: 0.25rem;
   font-size: 0.76rem;
-  color: #b91c1c;
+  color: var(--sms-danger);
 }
 
 // ── RC-007: Stale Rate Alerts ─────────────────────────────────────────────────

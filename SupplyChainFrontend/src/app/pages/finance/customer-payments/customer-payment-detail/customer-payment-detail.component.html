@@ -1,143 +1,171 @@
-<div class="detail-page">
-  <p-toast></p-toast>
+<p-toast></p-toast>
 
-  <div class="not-found" *ngIf="notFound" data-testid="not-found">
-    <i class="pi pi-inbox"></i>
-    <h2>Customer payment not found</h2>
-    <p>It may have been deleted, or the link may be wrong.</p>
-    <p-button label="Back to customer payments" icon="pi pi-arrow-left" [text]="true"
-              routerLink="/portal/pages/finance/customer-payments"></p-button>
+<div class="sf-empty" *ngIf="notFound" data-testid="not-found">
+  <i class="pi pi-inbox" style="font-size:2rem"></i>
+  <h2>Customer payment not found</h2>
+  <p>It may have been deleted, or the link may be wrong.</p>
+  <p-button label="Back to customer payments" icon="pi pi-arrow-left" [text]="true"
+            routerLink="/portal/pages/finance/customer-payments"></p-button>
+</div>
+
+<div *ngIf="isLoading && !payment" class="sf-empty" data-testid="loading">
+  <i class="pi pi-spin pi-spinner"></i> Loading…
+</div>
+
+<sf-page *ngIf="payment as p" [crumbs]="['Finance', 'Customer payments', p.paymentNumber]">
+
+  <!-- ── Command bar ─────────────────────────────────────────────────────────────────── -->
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <span class="sf-mu sf-sm" *ngIf="!canApply">Payment received {{ p.paymentDate | date:'dd MMM yyyy' }}</span>
+    <span class="sf-mu sf-sm" *ngIf="canApply">{{ p.unallocatedAmount | number:'1.2-2' }} {{ p.currencyCode }} still on account — apply it below</span>
+    <span class="sf-end">
+      <p-button label="Back" icon="pi pi-arrow-left" [text]="true"
+                routerLink="/portal/pages/finance/customer-payments"></p-button>
+    </span>
   </div>
 
-  <div *ngIf="isLoading && !payment" class="loading-state" data-testid="loading">
-    <i class="pi pi-spin pi-spinner"></i> Loading…
-  </div>
-
-  <ng-container *ngIf="payment as p">
-    <div class="page-header">
+  <!-- ── Dynamic header ──────────────────────────────────────────────────────────────── -->
+  <header class="sf-hdr">
+    <div class="sf-t">
       <div>
-        <h1 class="page-title">
-          <i class="pi pi-wallet"></i>
-          <span class="font-mono">{{ p.paymentNumber }}</span>
+        <div class="sf-kicker">Customer payment · {{ formatStatus(p.paymentMethod) }}</div>
+        <h1>
+          <span class="sf-mono">{{ p.paymentNumber }}</span>
           <p-tag [value]="formatStatus(p.status)" [severity]="getStatusSeverity(p.status)"></p-tag>
         </h1>
-        <p class="page-subtitle">
+        <div class="sf-meta">
           <a *ngIf="canViewLedger; else plainCustomer" [routerLink]="['/portal/pages/finance/customer-ledger', p.partnerId]"
-             class="source-link" data-testid="customer-link">{{ p.partnerName }}</a>
+             data-testid="customer-link">{{ p.partnerName }}</a>
           <ng-template #plainCustomer><span data-testid="customer-name">{{ p.partnerName }}</span></ng-template>
-        </p>
+          · received {{ p.paymentDate | date:'dd MMM yyyy' }}
+        </div>
       </div>
     </div>
 
-    <div class="detail-grid">
-      <div class="card">
-        <h3>Payment</h3>
-        <dl>
-          <dt>Received</dt><dd>{{ p.paymentDate | date:'dd MMM yyyy' }}</dd>
-          <dt>Method</dt><dd data-testid="method">{{ formatStatus(p.paymentMethod) }}</dd>
-          <dt *ngIf="p.chequeNumber">Cheque #</dt><dd *ngIf="p.chequeNumber" class="font-mono" data-testid="cheque-number">{{ p.chequeNumber }}</dd>
-          <dt *ngIf="p.bankReference">Bank reference</dt><dd *ngIf="p.bankReference" class="font-mono" data-testid="bank-reference">{{ p.bankReference }}</dd>
-          <dt>Recorded</dt><dd>{{ p.createdDate | date:'dd MMM yyyy, HH:mm' }}</dd>
-        </dl>
-        <p class="notes" *ngIf="p.notes" data-testid="notes">{{ p.notes }}</p>
-      </div>
+    <sf-stages [stages]="stages"></sf-stages>
 
-      <div class="card">
-        <h3>Amounts <span class="cur">{{ p.currencyCode }}</span></h3>
-        <!-- A35-E-06 — currency, the rate locked at posting, the sale base. -->
-        <app-doc-currency-panel [doc]="currencyInfo" lockPoint="posting" domain="SALE" [showToggle]="false"></app-doc-currency-panel>
-        <dl>
-          <dt>Received</dt><dd class="font-semibold" data-testid="amount">{{ p.amount | number:'1.2-2' }}</dd>
-          <dt>Applied to invoices</dt><dd data-testid="allocated">{{ p.allocatedAmount | number:'1.2-2' }}</dd>
-          <dt>Held on account</dt>
-          <dd class="font-semibold" [class.on-account]="p.unallocatedAmount > 0" data-testid="unallocated">{{ p.unallocatedAmount | number:'1.2-2' }}</dd>
-          <ng-container *ngIf="showAmountBase">
-            <dt>In {{ p.baseCurrencyCode }}</dt><dd data-testid="amount-base">{{ p.amountBase | money:baseCurrencyRef:moneyCode }}</dd>
-          </ng-container>
-          <ng-container *ngIf="p.exchangeDifference !== null && p.exchangeDifference !== undefined">
-            <dt>Realized exchange difference</dt>
-            <dd data-testid="payment-fx"><app-fx-difference [amount]="p.exchangeDifference" [currency]="baseCurrencyRef"></app-fx-difference></dd>
-          </ng-container>
-        </dl>
-        <p class="muted" *ngIf="isHistoryOnly" data-testid="history-note">
-          This payment is {{ formatStatus(p.status) }}, so none of it is applied to an invoice or held on account any more.
-          The lines below are what it was applied to before.
-        </p>
+    <div class="sf-facts">
+      <div class="sf-kpi">
+        <span class="l">Received</span>
+        <span class="v" data-testid="amount">{{ p.amount | number:'1.2-2' }}</span>
+        <span class="s">{{ p.currencyCode }}</span>
+      </div>
+      <div class="sf-kpi">
+        <span class="l">Applied to invoices</span>
+        <span class="v ok" data-testid="allocated">{{ p.allocatedAmount | number:'1.2-2' }}</span>
+        <span class="s">{{ p.allocations.length }} invoice{{ p.allocations.length === 1 ? '' : 's' }}</span>
+      </div>
+      <div class="sf-kpi">
+        <span class="l">Held on account</span>
+        <span class="v" [class.wn]="p.unallocatedAmount > 0" data-testid="unallocated">{{ p.unallocatedAmount | number:'1.2-2' }}</span>
+        <span class="s">{{ p.currencyCode }}</span>
       </div>
     </div>
+  </header>
 
-    <div class="card block">
-      <h3>Applied to</h3>
-      <div class="table-card flush">
-        <p-table [value]="p.allocations" [tableStyle]="{'min-width':'44rem'}" data-testid="allocations-table">
-          <ng-template pTemplate="header">
-            <tr>
-              <th>Invoice #</th>
-              <th>Applied on</th>
-              <th class="text-right">Amount applied</th>
-              <th *ngIf="hasAllocationFx" class="text-right" pTooltip="Realized gain (+) or loss (−) in the base: this payment's rate against the invoice's">Exchange diff.</th>
-              <th class="text-right">Invoice balance now</th>
-              <th>Invoice status</th>
-            </tr>
-          </ng-template>
-          <ng-template pTemplate="body" let-a>
-            <tr [class.history]="isHistoryOnly">
-              <td class="font-mono font-semibold">
-                <a *ngIf="canViewInvoices; else plainInvoice" class="source-link"
-                   [routerLink]="['/portal/pages/finance/sales-invoices', a.invoiceUuid]" data-testid="invoice-link">{{ a.invoiceNumber }}</a>
-                <ng-template #plainInvoice>{{ a.invoiceNumber }}</ng-template>
-              </td>
-              <td>{{ a.allocatedAt | date:'dd MMM yyyy, HH:mm' }}</td>
-              <td class="text-right">{{ a.allocatedAmount | number:'1.2-2' }} <span class="cur">{{ p.currencyCode }}</span></td>
-              <td *ngIf="hasAllocationFx" class="text-right" data-testid="allocation-fx"><app-fx-difference [amount]="a.exchangeDifference" [currency]="baseCurrencyRef"></app-fx-difference></td>
-              <td class="text-right">{{ a.invoiceBalanceDue | number:'1.2-2' }}</td>
-              <td><p-tag [value]="formatStatus(a.invoiceStatus)" [severity]="getInvoiceSeverity(a.invoiceStatus)"></p-tag></td>
-            </tr>
-          </ng-template>
-          <ng-template pTemplate="emptymessage">
-            <tr>
-              <td colspan="5" class="text-center text-secondary" style="padding:2rem">
-                This payment has not been applied to any invoice.
-              </td>
-            </tr>
-          </ng-template>
-        </p-table>
-      </div>
-    </div>
+  <sf-anchors [sections]="sections"></sf-anchors>
+
+  <div class="sf-body">
+    <!-- ── Applied to ──────────────────────────────────────────────────────────── -->
+    <section id="sec-applied" class="sf-section sf-card p0">
+      <div class="sf-ch"><h2>Applied to</h2></div>
+      <p class="sf-pad sf-mu sf-sm" style="margin:0" *ngIf="isHistoryOnly" data-testid="history-note">
+        This payment is {{ formatStatus(p.status) }}, so none of it is applied to an invoice or held on account any more.
+        The lines below are what it was applied to before.
+      </p>
+      <p-table [value]="p.allocations" [tableStyle]="{'min-width':'44rem'}" data-testid="allocations-table">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Invoice #</th>
+            <th>Applied on</th>
+            <th class="text-right">Amount applied</th>
+            <th *ngIf="hasAllocationFx" class="text-right" pTooltip="Realized gain (+) or loss (−) in the base: this payment's rate against the invoice's">Exchange diff.</th>
+            <th class="text-right">Invoice balance now</th>
+            <th>Invoice status</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-a>
+          <tr [class.history]="isHistoryOnly">
+            <td class="sf-mono">
+              <a *ngIf="canViewInvoices; else plainInvoice"
+                 [routerLink]="['/portal/pages/finance/sales-invoices', a.invoiceUuid]" data-testid="invoice-link"><strong>{{ a.invoiceNumber }}</strong></a>
+              <ng-template #plainInvoice>{{ a.invoiceNumber }}</ng-template>
+            </td>
+            <td>{{ a.allocatedAt | date:'dd MMM yyyy, HH:mm' }}</td>
+            <td class="text-right">{{ a.allocatedAmount | number:'1.2-2' }} <span class="sf-mu sf-sm">{{ p.currencyCode }}</span></td>
+            <td *ngIf="hasAllocationFx" class="text-right" data-testid="allocation-fx"><app-fx-difference [amount]="a.exchangeDifference" [currency]="baseCurrencyRef"></app-fx-difference></td>
+            <td class="text-right">{{ a.invoiceBalanceDue | number:'1.2-2' }}</td>
+            <td><p-tag [value]="formatStatus(a.invoiceStatus)" [severity]="getInvoiceSeverity(a.invoiceStatus)"></p-tag></td>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="emptymessage">
+          <tr>
+            <td colspan="5" class="sf-empty">This payment has not been applied to any invoice.</td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </section>
 
     <!-- ── Apply what is left ──────────────────────────────────────────────────── -->
-    <div class="card block" *ngIf="canApply" data-testid="apply-panel">
-      <h3>Apply what is left</h3>
-      <p class="muted top">
+    <section id="sec-apply" class="sf-section sf-card" *ngIf="canApply" data-testid="apply-panel">
+      <div class="sf-ch">
+        <h2>Apply what is left</h2>
+        <div class="sf-ch-actions">
+          <p-button label="Apply oldest first" icon="pi pi-sort-amount-up" [disabled]="isApplying" [loading]="isApplying"
+                    (onClick)="applyOldestFirst()" data-testid="apply-oldest"></p-button>
+        </div>
+      </div>
+      <p class="sf-mu sf-sm" style="margin:0">
         {{ p.unallocatedAmount | number:'1.2-2' }} {{ p.currencyCode }} of this payment is held on the customer's account.
         Apply it to their unpaid {{ p.currencyCode }} invoices, oldest first or the ones you choose. Applying it does not change
         what the customer owes: the whole payment was credited to their ledger when it was recorded.
       </p>
 
-      <div class="apply-actions">
-        <p-button label="Apply oldest first" icon="pi pi-sort-amount-up" [disabled]="isApplying" [loading]="isApplying"
-                  (onClick)="applyOldestFirst()" data-testid="apply-oldest"></p-button>
-      </div>
-
       <ng-container *ngIf="canChooseInvoices">
-        <div class="hint" *ngIf="isLoadingInvoices" data-testid="loading-invoices">
+        <div class="sf-mu sf-sm" *ngIf="isLoadingInvoices" data-testid="loading-invoices">
           <i class="pi pi-spin pi-spinner"></i> Loading their invoices…
         </div>
-        <p class="hint warn" *ngIf="invoicesFailed" data-testid="invoices-failed">
+        <p class="sf-sm hint-warn" *ngIf="invoicesFailed" data-testid="invoices-failed">
           <i class="pi pi-info-circle"></i> Their invoices could not be loaded. You can still apply it oldest first.
         </p>
 
         <ng-container *ngIf="!isLoadingInvoices && !invoicesFailed">
-          <h4>Or choose the invoices</h4>
+          <h3>Or choose the invoices</h3>
           <app-payment-allocation-editor [invoices]="openInvoices" [available]="p.unallocatedAmount"
                                          [currencyCode]="p.currencyCode" [(amounts)]="amounts"
                                          data-testid="allocation-editor"></app-payment-allocation-editor>
-          <div class="apply-actions">
+          <div>
             <p-button label="Apply these amounts" icon="pi pi-check" [disabled]="!canApplyChosen"
                       (onClick)="applyChosen()" data-testid="apply-chosen"></p-button>
           </div>
         </ng-container>
       </ng-container>
-    </div>
-  </ng-container>
-</div>
+    </section>
+
+    <!-- ── Payment details ─────────────────────────────────────────────────────── -->
+    <section id="sec-details" class="sf-section sf-card">
+      <div class="sf-ch"><h2>Payment <span class="sf-pill in">{{ p.currencyCode }}</span></h2></div>
+      <!-- A35-E-06 — currency, the rate locked at posting, the sale base. -->
+      <app-doc-currency-panel [doc]="currencyInfo" lockPoint="posting" domain="SALE" [showToggle]="false"></app-doc-currency-panel>
+      <div class="sf-kv">
+        <span>Received</span><span>{{ p.paymentDate | date:'dd MMM yyyy' }}</span>
+        <span>Method</span><span data-testid="method">{{ formatStatus(p.paymentMethod) }}</span>
+        <ng-container *ngIf="p.chequeNumber">
+          <span>Cheque #</span><span class="sf-mono" data-testid="cheque-number">{{ p.chequeNumber }}</span>
+        </ng-container>
+        <ng-container *ngIf="p.bankReference">
+          <span>Bank reference</span><span class="sf-mono" data-testid="bank-reference">{{ p.bankReference }}</span>
+        </ng-container>
+        <ng-container *ngIf="showAmountBase">
+          <span>In {{ p.baseCurrencyCode }}</span><span data-testid="amount-base">{{ p.amountBase | money:baseCurrencyRef:moneyCode }}</span>
+        </ng-container>
+        <ng-container *ngIf="p.exchangeDifference !== null && p.exchangeDifference !== undefined">
+          <span>Realized exchange difference</span>
+          <span data-testid="payment-fx"><app-fx-difference [amount]="p.exchangeDifference" [currency]="baseCurrencyRef"></app-fx-difference></span>
+        </ng-container>
+        <span>Recorded</span><span>{{ p.createdDate | date:'dd MMM yyyy, HH:mm' }}</span>
+      </div>
+      <p class="sf-mu" *ngIf="p.notes" data-testid="notes">{{ p.notes }}</p>
+    </section>
+  </div>
+</sf-page>

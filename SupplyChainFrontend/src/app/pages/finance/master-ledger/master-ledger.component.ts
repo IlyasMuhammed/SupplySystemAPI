@@ -6,6 +6,7 @@ import { TableModule, TableLazyLoadEvent } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
 import { CalendarModule } from 'primeng/calendar';
 import { AutoCompleteModule } from 'primeng/autocomplete';
+import { AutoCompleteOpenOnFocusDirective } from '../../../shared/directives/autocomplete-open-on-focus.directive';
 import { MultiSelectModule } from 'primeng/multiselect';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { TagModule } from 'primeng/tag';
@@ -16,6 +17,7 @@ import {
   MasterLedgerService, MasterLedgerEntryModel, MasterLedgerFilter, MasterLedgerSummaryModel
 } from '../../../services/master-ledger.service';
 import { SupplierService, SupplierListItemModel } from '../../../services/supplier.service';
+import { FLOW } from '../../../shared/flow';
 
 const TRANSACTION_TYPE_OPTIONS = [
   { label: 'Invoice Approved',     value: 'INVOICE_APPROVED' },
@@ -43,8 +45,9 @@ const REFERENCE_ROUTES: Record<string, string> = {
   standalone: true,
   imports: [
     CommonModule, RouterModule, FormsModule,
-    TableModule, ButtonModule, CalendarModule, AutoCompleteModule,
-    MultiSelectModule, InputNumberModule, TagModule, TooltipModule, ToastModule
+    TableModule, ButtonModule, CalendarModule, AutoCompleteModule, AutoCompleteOpenOnFocusDirective,
+    MultiSelectModule, InputNumberModule, TagModule, TooltipModule, ToastModule,
+    ...FLOW
   ],
   templateUrl: './master-ledger.component.html',
   styleUrls: ['./master-ledger.component.scss'],

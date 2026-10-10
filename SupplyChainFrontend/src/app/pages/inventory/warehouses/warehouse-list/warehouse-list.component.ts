@@ -16,6 +16,8 @@ import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { CheckboxModule } from 'primeng/checkbox';
 import { MessageService, ConfirmationService } from 'primeng/api';
 import { DropdownModule } from 'primeng/dropdown';
+import { TableModule } from 'primeng/table';
+import { FLOW } from '../../../../shared/flow';
 import {
   InventoryService,
   WarehouseModel,
@@ -31,7 +33,8 @@ import { CitiesService, CityModel } from '../../../../services/cities.service';
     CommonModule, RouterModule, FormsModule, ReactiveFormsModule,
     ButtonModule, CardModule, TagModule, ToastModule,
     DialogModule, InputTextModule, TooltipModule, DividerModule,
-    ConfirmDialogModule, CheckboxModule, DropdownModule
+    ConfirmDialogModule, CheckboxModule, DropdownModule, TableModule,
+    ...FLOW
   ],
   templateUrl: './warehouse-list.component.html',
   styleUrls: ['./warehouse-list.component.scss'],

@@ -55,8 +55,8 @@ import { STATE_DESCRIPTION, stateLabel, stateSeverity, stateTagClass } from './q
     .qbo-badge-trigger:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 2px; }
     .qbo-badge-caret { font-size: .7rem; color: var(--text-color-secondary); }
     :host ::ng-deep .p-tag { white-space: nowrap; font-size: .75rem; }
-    :host ::ng-deep .p-tag.qbo-tone-teal { background: #ccfbf1; color: #115e59; }
-    :host ::ng-deep .p-tag.qbo-tone-grey { background: var(--surface-100, #f3f4f6); color: var(--text-color-secondary, #6b7280); }
+    :host ::ng-deep .p-tag.qbo-tone-teal { background: var(--sms-teal-soft); color: var(--sms-teal); }
+    :host ::ng-deep .p-tag.qbo-tone-grey { background: var(--sms-surface-2); color: var(--sms-text-muted); }
   `]
 })
 export class QboSyncBadgeComponent {

@@ -23,6 +23,7 @@ import {
   CourierProviderModel,
   CARRIER_CAPABILITIES
 } from '../../../../services/logistics.service';
+import { FLOW } from '../../../../shared/flow';
 
 /** Null means "whatever the adapter says"; the tri-state the server actually stores. */
 type Override = boolean | null;
@@ -41,7 +42,8 @@ type Override = boolean | null;
   imports: [
     CommonModule, RouterModule, FormsModule,
     ButtonModule, TagModule, TooltipModule, ToastModule, DialogModule,
-    InputTextModule, TextareaModule, SelectModule, DatePickerModule, CheckboxModule
+    InputTextModule, TextareaModule, SelectModule, DatePickerModule, CheckboxModule,
+    ...FLOW
   ],
   templateUrl: './carrier-accounts.component.html',
   styleUrls: ['./carrier-accounts.component.scss'],

@@ -33,10 +33,17 @@ public interface IOrgUserProvisioningService
     // table, so no shared cross-context transaction is needed). Throws BadRequestException if
     // newAdminUserId doesn't belong to (or isn't active in) this organization.
     Task ReassignOrgAdminAsync(Guid organizationId, int newAdminUserId);
+
+    // Sends a fresh 7-day invite (new token; the old link stops working) to a user of this organization who has not
+    // set up their account yet — optionally to a corrected e-mail address first. Refused once the account is set up
+    // (a password chosen): pointing a new invite at another address would hand that account to it. Throws
+    // BadRequestException for an unknown user, a set-up account, an invalid address or one already in use.
+    Task<OrgUserSummary> ReinviteUserAsync(Guid organizationId, int userId, string? newEmail, string organizationName);
 }
 
 public sealed record CreateOrgAdminUserRequest(
     string FirstName, string LastName, string Email, Guid OrganizationId, string OrganizationName, int RoleId);
 
 public sealed record OrgUserSummary(
-    int UserId, string FirstName, string? LastName, string Email, int RoleId, string RoleName, bool IsActive);
+    int UserId, string FirstName, string? LastName, string Email, int RoleId, string RoleName, bool IsActive,
+    bool InvitePending = false, DateTime? InviteExpiresAt = null);

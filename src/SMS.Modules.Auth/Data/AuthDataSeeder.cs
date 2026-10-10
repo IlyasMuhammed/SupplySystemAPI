@@ -24,6 +24,7 @@ internal sealed class AuthDataSeeder
         await SeedRolesAsync();
         await SeedRolePermissionsAsync();
         await SeedCurrencyGrantsAsync();
+        await SeedCustomerGrantsAsync();
         await SeedAdminUserAsync();
     }
 
@@ -223,6 +224,21 @@ internal sealed class AuthDataSeeder
         ("Manage Exchange Rates",         PermissionCodes.CURRENCY_RATE_MANAGE,  "Enter new exchange rates and correct historical ones"),
         ("Manage Base Currencies",        PermissionCodes.ORG_CURRENCY_SETTINGS_MANAGE, "Change the organization's sale/purchase/service base currencies and exchange-difference account codes"),
         ("Run Exchange Revaluation",      PermissionCodes.EXCHANGE_REVALUATION_RUN, "Revalue open foreign-currency receivables and payables at a date's rates (unrealized exchange differences)"),
+
+        // A36 D-12 — service orders.
+        ("View Service Orders",           PermissionCodes.SERVICE_ORDER_VIEW,     "Read service orders, their materials and ledger, and the service dashboard"),
+        ("Create Service Orders",         PermissionCodes.SERVICE_ORDER_CREATE,   "Raise a service order by hand"),
+        ("Edit Service Orders",           PermissionCodes.SERVICE_ORDER_EDIT,     "Update, plan and start a service order, add or remove ad-hoc materials, reserve stock and close it"),
+        ("Complete Service Orders",       PermissionCodes.SERVICE_ORDER_COMPLETE, "Record what a service order consumed, its actual hours and the customer's sign-off"),
+        ("Cancel Service Orders",         PermissionCodes.SERVICE_ORDER_CANCEL,   "Cancel a service order, releasing its reservations and returning issued material"),
+
+        // A37 D-17 — module registry and the customer master.
+        ("View Modules",                  PermissionCodes.MODULES_VIEW,           "See the organization's modules, their history and what switching one off affects"),
+        ("Manage Modules",                PermissionCodes.MODULES_MANAGE,         "Switch licensed modules and their features on and off for the organization"),
+        ("View Customers",                PermissionCodes.CUSTOMER_VIEW,          "Read customers, their balances and the customer search"),
+        ("Create Customers",              PermissionCodes.CUSTOMER_CREATE,        "Add new customers"),
+        ("Edit Customers",                PermissionCodes.CUSTOMER_EDIT,          "Update existing customers"),
+        ("Deactivate Customers",          PermissionCodes.CUSTOMER_DEACTIVATE,    "Deactivate and reactivate customers"),
     ];
 
     /// <summary>A35 D-16 — granted to every role, built-in or custom, existing or created later (document forms need them).</summary>
@@ -231,12 +247,58 @@ internal sealed class AuthDataSeeder
     /// <summary>A35 D-16 — granted to every role that holds FINANCE_SETUP_MANAGE (it already owned exchange rates).</summary>
     internal static readonly string[] FinanceSetupCodes = [PermissionCodes.CURRENCY_RATE_MANAGE, PermissionCodes.EXCHANGE_REVALUATION_RUN];
 
+    /// <summary>
+    /// A37 D-17 — customers are business partners (D-13), so whoever handles partners today handles customers: each
+    /// customer code goes to every role (built-in or custom) allowed its supplier counterpart.
+    /// </summary>
+    internal static readonly (string Customer, string Supplier)[] CustomerGrantPairs =
+    [
+        (PermissionCodes.CUSTOMER_VIEW,       PermissionCodes.SUPPLIER_VIEW),
+        (PermissionCodes.CUSTOMER_CREATE,     PermissionCodes.SUPPLIER_CREATE),
+        (PermissionCodes.CUSTOMER_EDIT,       PermissionCodes.SUPPLIER_EDIT),
+        (PermissionCodes.CUSTOMER_DEACTIVATE, PermissionCodes.SUPPLIER_MANAGE),
+    ];
+
     private async Task SeedPermissionsAsync()
     {
         foreach (var (name, code, desc) in PermissionSeed)
         {
             if (!await _db.Permissions.AnyAsync(p => p.Code == code))
                 _db.Permissions.Add(new Permission { Name = name, Code = code, Description = desc });
+        }
+        await _db.SaveChangesAsync();
+
+        // A37 D-14 — every permission's module, from the code-prefix map (kept in step on every start).
+        foreach (var permission in await _db.Permissions.ToListAsync())
+        {
+            var module = ModuleCodeMap.ForPermission(permission.Code);
+            if (permission.ModuleCode != module) permission.ModuleCode = module;
+        }
+        await _db.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// A37 D-17 — see <see cref="CustomerGrantPairs"/>. Like <see cref="SeedCurrencyGrantsAsync"/>, only MISSING grants
+    /// are added: a grant an administrator switched off (IsAllowed = false) stays off. Idempotent, every start.
+    /// </summary>
+    internal async Task SeedCustomerGrantsAsync()
+    {
+        var codes = CustomerGrantPairs.SelectMany(p => new[] { p.Customer, p.Supplier }).ToList();
+        var permIds = await _db.Permissions.Where(p => codes.Contains(p.Code)).ToDictionaryAsync(p => p.Code, p => p.PermissionID);
+        var grants = await _db.RolePermissions.IgnoreQueryFilters().Select(rp => new { rp.RoleID, rp.PermissionID, rp.IsAllowed }).ToListAsync();
+        var existing = grants.Select(g => (g.RoleID, g.PermissionID)).ToHashSet();
+
+        foreach (var (customer, supplier) in CustomerGrantPairs)
+        {
+            if (!permIds.TryGetValue(customer, out var customerId) || !permIds.TryGetValue(supplier, out var supplierId)) continue;
+            foreach (var roleId in grants.Where(g => g.PermissionID == supplierId && g.IsAllowed).Select(g => g.RoleID).Distinct())
+            {
+                if (!existing.Add((roleId, customerId))) continue;
+                _db.RolePermissions.Add(new RolePermission
+                {
+                    RoleID = roleId, PermissionID = customerId, IsAllowed = true, OrganizationId = TenantDefaults.ScmDemoOrganizationId
+                });
+            }
         }
         await _db.SaveChangesAsync();
     }
@@ -332,6 +394,8 @@ internal sealed class AuthDataSeeder
             PermissionCodes.SUPPLY_VIEW, PermissionCodes.SUPPLY_CREATE, PermissionCodes.SUPPLY_CANCEL,
             PermissionCodes.REPORT_VIEW,      PermissionCodes.REPORT_EXPORT,
             PermissionCodes.WORKFLOW_VIEW,
+            // A36 D-12 — sees the service orders whose subcontracted labour turns into purchase orders.
+            PermissionCodes.SERVICE_ORDER_VIEW,
         ],
 
         [(int)EnumRole.PurchaseOfficer] =
@@ -343,6 +407,7 @@ internal sealed class AuthDataSeeder
             PermissionCodes.INVENTORY_VIEW,
             PermissionCodes.DELIVERY_TRACK,   PermissionCodes.DELIVERY_VIEW,
             PermissionCodes.REPORT_VIEW,
+            PermissionCodes.SERVICE_ORDER_VIEW, // A36 D-12
         ],
 
         [(int)EnumRole.InventoryManager] =
@@ -370,6 +435,9 @@ internal sealed class AuthDataSeeder
             PermissionCodes.FULFILLMENT_ROUTE_VIEW, PermissionCodes.FULFILLMENT_ROUTE_MANAGE, PermissionCodes.FULFILLMENT_ROUTE_ASSIGN,
             // A34 D-24 — owns the organization's lead-time defaults (variant overrides already ride on STOCK_MANAGE).
             PermissionCodes.LEAD_TIME_DEFAULTS_MANAGE,
+            // A36 D-12 — the spec's SERVICE_MANAGER: every service order action.
+            PermissionCodes.SERVICE_ORDER_VIEW, PermissionCodes.SERVICE_ORDER_CREATE, PermissionCodes.SERVICE_ORDER_EDIT,
+            PermissionCodes.SERVICE_ORDER_COMPLETE, PermissionCodes.SERVICE_ORDER_CANCEL,
         ],
 
         [(int)EnumRole.WarehouseOperator] =
@@ -389,6 +457,8 @@ internal sealed class AuthDataSeeder
             // Recording what a check found, and receiving the accepted output — the decision
             // (QI_APPROVE) stays with whoever supervises the floor, same separation as production.
             PermissionCodes.QI_CREATE, PermissionCodes.FGR_CREATE, PermissionCodes.FGR_CONFIRM,
+            // A36 D-12 — the spec's TECHNICIAN: works the service order (plan, start, materials) and completes it.
+            PermissionCodes.SERVICE_ORDER_VIEW, PermissionCodes.SERVICE_ORDER_EDIT, PermissionCodes.SERVICE_ORDER_COMPLETE,
         ],
 
         [(int)EnumRole.FinanceOfficer] =
@@ -404,6 +474,7 @@ internal sealed class AuthDataSeeder
             PermissionCodes.GRN_FINANCE_APPROVE,
             // Sees what reached QuickBooks and can push/retry; connecting and mappings stay with management.
             PermissionCodes.INTEGRATION_VIEW, PermissionCodes.INTEGRATION_SYNC,
+            PermissionCodes.SERVICE_ORDER_VIEW, // A36 D-12
         ],
 
         [(int)EnumRole.Requester] =
@@ -430,6 +501,7 @@ internal sealed class AuthDataSeeder
             PermissionCodes.REPORT_VIEW,    PermissionCodes.REPORT_EXPORT,
             PermissionCodes.WORKFLOW_VIEW,
             PermissionCodes.INTEGRATION_VIEW,
+            PermissionCodes.SERVICE_ORDER_VIEW, // A36 D-12
         ],
 
         [(int)EnumRole.FinanceManager] =
@@ -449,6 +521,7 @@ internal sealed class AuthDataSeeder
             PermissionCodes.FINANCE_SETUP_MANAGE,
             // A35 D-16 — the role holding FINANCE_SETUP_MANAGE also enters rates and runs the revaluation.
             PermissionCodes.CURRENCY_RATE_MANAGE, PermissionCodes.EXCHANGE_REVALUATION_RUN,
+            PermissionCodes.SERVICE_ORDER_VIEW, // A36 D-12
         ],
 
         // Org Admin is the full owner/operator of their own tenant: every business permission in

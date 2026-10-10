@@ -1,130 +1,142 @@
-<div class="accruals-page">
-  <p-toast></p-toast>
+<p-toast></p-toast>
 
-  <div class="page-header">
-    <div>
-      <h1 class="page-title"><i class="pi pi-book"></i> Freight accruals</h1>
-      <p class="page-subtitle">
-        What is owed to carriers for movements that have already happened and have not yet been
-        billed. Without it, freight cost lands in the month the invoice is keyed rather than the
-        month the goods moved.
-      </p>
-    </div>
-
-    <div class="header-actions">
-      <p-button label="Cash on delivery" icon="pi pi-wallet" severity="secondary" [outlined]="true"
-                routerLink="/portal/pages/logistics/settlement/cod"
-                data-testid="action-cod"></p-button>
-      <p-button label="Carrier invoices" icon="pi pi-file" severity="secondary" [outlined]="true"
-                routerLink="/portal/pages/logistics/settlement/carrier-invoices"
-                data-testid="action-invoices"></p-button>
-    </div>
-  </div>
-
-  <!-- The date is the first control, because a month-end figure has to be asked for as at month
-       end — a balance struck today cannot be reconciled to a closed period. -->
-  <div class="as-of">
-    <label for="asOf">Balance as at</label>
-    <p-datepicker inputId="asOf" [(ngModel)]="asOf" dateFormat="dd M yy" [showClear]="true"
-                  placeholder="Today" (onSelect)="load()" (onClear)="clearDate()"
-                  data-testid="field-as-of"></p-datepicker>
-
-    <span class="historic" *ngIf="isHistoric" data-testid="historic-note">
-      Showing what was outstanding then, not now.
-    </span>
-
-    <p-button icon="pi pi-refresh" [text]="true" (onClick)="load()" pTooltip="Refresh"
+<sf-page [crumbs]="['Logistics', 'Freight accruals']">
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <p-button icon="pi pi-refresh" label="Refresh" [text]="true" (onClick)="load()"
               data-testid="action-refresh"></p-button>
+    <span class="sf-sep"></span>
+    <p-button label="Cash on delivery" icon="pi pi-wallet" [text]="true"
+              routerLink="/portal/pages/logistics/settlement/cod"
+              data-testid="action-cod"></p-button>
+    <p-button label="Carrier invoices" icon="pi pi-file" [text]="true"
+              routerLink="/portal/pages/logistics/settlement/carrier-invoices"
+              data-testid="action-invoices"></p-button>
   </div>
 
-  <div *ngIf="isLoading && !summary" class="loading-state" data-testid="loading">
-    <i class="pi pi-spin pi-spinner"></i> Loading…
-  </div>
-
-  <ng-container *ngIf="summary as s">
-    <div class="summary">
-      <div class="headline">
-        <span class="label">Owed to carriers</span>
-        <span class="value" data-testid="open-total">
-          <ng-container *ngIf="s.currency; else mixed">
-            {{ s.openTotal | number:'1.2-2' }} {{ s.currency }}
-          </ng-container>
-          <!-- No exchange rate exists here, so a grand total across currencies would be a number
-               nobody could defend. -->
-          <ng-template #mixed>
-            <span class="mixed" data-testid="mixed-currency">per currency, below</span>
-          </ng-template>
-        </span>
-        <span class="label">across {{ s.openCount }} movement(s)</span>
-      </div>
-
-      <table class="by-carrier" *ngIf="s.byCarrier.length" data-testid="by-carrier">
-        <tr *ngFor="let c of s.byCarrier">
-          <td>{{ c.carrierName }}</td>
-          <td class="muted">{{ c.count }}</td>
-          <td class="amount">{{ c.total | number:'1.2-2' }} {{ c.currency }}</td>
-        </tr>
-      </table>
-
-      <div class="empty-state" *ngIf="!s.byCarrier.length" data-testid="nothing-accrued">
-        <i class="pi pi-check-circle"></i>
-        <p>Nothing is outstanding.</p>
-        <p class="muted">Every movement that has happened has been billed or written back.</p>
-      </div>
-
-      <div class="warnings" *ngIf="s.warnings.length" data-testid="summary-warnings">
-        <p *ngFor="let w of s.warnings"><i class="pi pi-info-circle"></i> {{ w }}</p>
+  <div class="sf-body">
+    <div class="sf-lr-head">
+      <div>
+        <h1>Freight accruals</h1>
+        <div class="sf-sub">
+          What is owed to carriers for movements that have already happened and have not yet been
+          billed. Without it, freight cost lands in the month the invoice is keyed rather than the
+          month the goods moved.
+        </div>
       </div>
     </div>
 
-    <!-- ── What is missing from the balance ─────────────────────────────────── -->
+    <!-- The date is the first control, because a month-end figure has to be asked for as at month
+         end — a balance struck today cannot be reconciled to a closed period. -->
+    <div class="sf-filters">
+      <label for="asOf" class="as-of-label">Balance as at</label>
+      <p-datepicker inputId="asOf" [(ngModel)]="asOf" dateFormat="dd M yy" [showClear]="true"
+                    placeholder="Today" (onSelect)="load()" (onClear)="clearDate()"
+                    data-testid="field-as-of"></p-datepicker>
 
-    <section class="card" *ngIf="s.couldNotAccrue.length" data-testid="could-not-accrue">
-      <div class="card-head">
-        <h2 class="card-title">
-          <i class="pi pi-exclamation-triangle"></i>
-          Moved, never priced ({{ s.couldNotAccrue.length }})
-        </h2>
+      <span class="sf-pill wn" *ngIf="isHistoric" data-testid="historic-note">
+        Showing what was outstanding then, not now.
+      </span>
+    </div>
+
+    <div *ngIf="isLoading && !summary" class="sf-empty" data-testid="loading">
+      <i class="pi pi-spin pi-spinner"></i> Loading…
+    </div>
+
+    <ng-container *ngIf="summary as s">
+      <div class="sf-grid sf-tiles">
+        <div class="sf-tile">
+          <span class="l">Owed to carriers</span>
+          <span class="v" data-testid="open-total">
+            <ng-container *ngIf="s.currency; else mixed">
+              {{ s.openTotal | number:'1.2-2' }} {{ s.currency }}
+            </ng-container>
+            <!-- No exchange rate exists here, so a grand total across currencies would be a number
+                 nobody could defend. -->
+            <ng-template #mixed>
+              <span class="mixed" data-testid="mixed-currency">per currency, below</span>
+            </ng-template>
+          </span>
+          <span class="s">across {{ s.openCount }} movement(s)</span>
+        </div>
+        <div class="sf-tile" *ngIf="s.couldNotAccrue.length">
+          <span class="l">Moved, never priced</span>
+          <span class="v wn">{{ s.couldNotAccrue.length }}</span>
+          <span class="s">not in the total</span>
+        </div>
       </div>
 
-      <p class="card-hint">
-        These are <strong>not</strong> in the total above, so what is owed is understated by
-        whatever they come to. Accruing them at zero would look correct and be wrong — price each
-        one, then accrue it.
-      </p>
+      <section class="sf-card">
+        <div class="sf-ch"><h2>By carrier</h2></div>
 
-      <p-table [value]="s.couldNotAccrue" styleClass="p-datatable-sm"
-               data-testid="could-not-accrue-table">
-        <ng-template pTemplate="header">
-          <tr>
-            <th>Consignment</th>
-            <th>Carrier</th>
-            <th>Airway bill</th>
-            <th>Dispatched</th>
-            <th>Status</th>
-            <th></th>
+        <table class="by-carrier" *ngIf="s.byCarrier.length" data-testid="by-carrier">
+          <tr *ngFor="let c of s.byCarrier">
+            <td>{{ c.carrierName }}</td>
+            <td class="muted">{{ c.count }}</td>
+            <td class="amount">{{ c.total | number:'1.2-2' }} {{ c.currency }}</td>
           </tr>
-        </ng-template>
+        </table>
 
-        <ng-template pTemplate="body" let-c>
-          <tr data-testid="unaccruable-row">
-            <td>
-              <a [routerLink]="['/portal/pages/logistics/consignments', c.consignmentUuid]"
-                 class="font-mono link">{{ c.consignmentNumber }}</a>
-            </td>
-            <td>{{ c.carrierName || '—' }}</td>
-            <td class="font-mono">{{ c.masterAwb || '—' }}</td>
-            <td>{{ (c.dispatchedAt | date:'dd MMM yyyy') || '—' }}</td>
-            <td>{{ c.status }}</td>
-            <td class="text-right">
-              <p-button label="Accrue" size="small" [text]="true" [disabled]="isSubmitting"
-                        (onClick)="openAccrue(c)" data-testid="action-accrue"></p-button>
-            </td>
-          </tr>
-        </ng-template>
-      </p-table>
-    </section>
-  </ng-container>
+        <div class="sf-empty" *ngIf="!s.byCarrier.length" data-testid="nothing-accrued">
+          <i class="pi pi-check-circle" style="font-size:1.75rem"></i>
+          <p>Nothing is outstanding.</p>
+          <p class="sf-sm">Every movement that has happened has been billed or written back.</p>
+        </div>
+
+        <div class="warnings" *ngIf="s.warnings.length" data-testid="summary-warnings">
+          <p *ngFor="let w of s.warnings"><i class="pi pi-info-circle"></i> {{ w }}</p>
+        </div>
+      </section>
+
+      <!-- ── What is missing from the balance ─────────────────────────────────── -->
+
+      <section class="sf-card p0 missing" *ngIf="s.couldNotAccrue.length" data-testid="could-not-accrue">
+        <div class="sf-ch">
+          <h2>
+            <i class="pi pi-exclamation-triangle"></i>
+            Moved, never priced ({{ s.couldNotAccrue.length }})
+          </h2>
+        </div>
+
+        <p class="card-hint">
+          These are <strong>not</strong> in the total above, so what is owed is understated by
+          whatever they come to. Accruing them at zero would look correct and be wrong — price each
+          one, then accrue it.
+        </p>
+
+        <p-table [value]="s.couldNotAccrue" styleClass="p-datatable-sm"
+                 data-testid="could-not-accrue-table">
+          <ng-template pTemplate="header">
+            <tr>
+              <th>Consignment</th>
+              <th>Carrier</th>
+              <th>Airway bill</th>
+              <th>Dispatched</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </ng-template>
+
+          <ng-template pTemplate="body" let-c>
+            <tr data-testid="unaccruable-row">
+              <td>
+                <a [routerLink]="['/portal/pages/logistics/consignments', c.consignmentUuid]"
+                   class="sf-mono"><strong>{{ c.consignmentNumber }}</strong></a>
+              </td>
+              <td>{{ c.carrierName || '—' }}</td>
+              <td class="sf-mono">{{ c.masterAwb || '—' }}</td>
+              <td>{{ (c.dispatchedAt | date:'dd MMM yyyy') || '—' }}</td>
+              <td>{{ c.status }}</td>
+              <td class="text-right">
+                <p-button label="Accrue" size="small" [text]="true" [disabled]="isSubmitting"
+                          (onClick)="openAccrue(c)" data-testid="action-accrue"></p-button>
+              </td>
+            </tr>
+          </ng-template>
+        </p-table>
+      </section>
+    </ng-container>
+  </div>
+</sf-page>
 
   <!-- ── Accruing one that was missed ────────────────────────────────────────── -->
 
@@ -172,4 +184,3 @@
                 data-testid="confirm-reverse"></p-button>
     </ng-template>
   </p-dialog>
-</div>

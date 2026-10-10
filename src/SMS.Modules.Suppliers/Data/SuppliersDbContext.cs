@@ -46,12 +46,34 @@ internal sealed class SuppliersDbContext : DbContext, ITenantScopedDbContext
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
         this.StampTenantScopedEntities(_tenantContext);
+        StampPartners();
         return base.SaveChanges(acceptAllChangesOnSuccess);
     }
 
     public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
         this.StampTenantScopedEntities(_tenantContext);
+        StampPartners();
         return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+
+    /// <summary>
+    /// A37 D-16 — ModifiedAt is maintained here, not by a trigger (EF's OUTPUT clause fails on tables with triggers), so
+    /// every write path moves the sync cursor. A37 CUST-01/04 — the walk-in protections are enforced on every save.
+    /// </summary>
+    /// <summary>The clock ModifiedAt is stamped from (tests set a fixed one).</summary>
+    internal TimeProvider Clock { get; set; } = TimeProvider.System;
+
+    private void StampPartners()
+    {
+        var now = Clock.GetUtcNow().UtcDateTime;
+        foreach (var entry in ChangeTracker.Entries<BusinessPartner>())
+        {
+            if (entry.State is not (EntityState.Added or EntityState.Modified)) continue;
+            // A customer made through /api/partners or the supplier screens has no type yet: COMPANY, as the backfill.
+            if (entry.Entity.IsCustomer && entry.Entity.CustomerType is null) entry.Entity.CustomerType = CustomerTypes.Company;
+            CustomerTypes.EnsureInvariants(entry.Entity);
+            entry.Entity.ModifiedAt = now;
+        }
     }
 }

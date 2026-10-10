@@ -3,47 +3,48 @@
 
 .track-page {
   min-height: 100vh;
-  background: #f4f5f7;
+  background: var(--sms-bg);
   display: flex;
   justify-content: center;
   padding: 2rem 1rem;
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  color: #1f2430;
+  color: var(--sms-text);
 }
 
 .card {
-  background: #fff;
+  background: var(--sms-surface);
   border-radius: .75rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, .08);
+  border: 1px solid var(--sms-border);
+  box-shadow: var(--sms-shadow);
   padding: 2rem;
   width: 100%;
   max-width: 34rem;
   align-self: flex-start;
 }
 
-.loading { color: #6b7280; margin: 0; }
+.loading { color: var(--sms-text-muted); margin: 0; }
 
 .message h1 { font-size: 1.25rem; margin: 0 0 .5rem; }
-.message p  { color: #6b7280; margin: 0; line-height: 1.5; }
+.message p  { color: var(--sms-text-muted); margin: 0; line-height: 1.5; }
 
 // ── The answer ──────────────────────────────────────────────────────────────
 
-.head { border-bottom: 1px solid #e5e7eb; padding-bottom: 1rem; margin-bottom: 1rem; }
+.head { border-bottom: 1px solid var(--sms-border); padding-bottom: 1rem; margin-bottom: 1rem; }
 
 .reference {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: .8125rem; color: #6b7280; margin: 0 0 .25rem;
+  font-size: .8125rem; color: var(--sms-text-muted); margin: 0 0 .25rem;
 }
 
 .status { font-size: 1.75rem; font-weight: 700; margin: 0; line-height: 1.15; }
-.status.settled { color: #15803d; }
+.status.settled { color: var(--sms-ok); }
 
-.carrier { color: #6b7280; font-size: .875rem; margin: .375rem 0 0; }
+.carrier { color: var(--sms-text-muted); font-size: .875rem; margin: .375rem 0 0; }
 
 .headline { font-size: 1rem; margin: 0 0 1.25rem; }
-.headline.muted { color: #6b7280; font-size: .875rem; }
+.headline.muted { color: var(--sms-text-muted); font-size: .875rem; }
 
-.muted { color: #6b7280; font-size: .875rem; }
+.muted { color: var(--sms-text-muted); font-size: .875rem; }
 
 // ── The timeline ────────────────────────────────────────────────────────────
 
@@ -54,15 +55,15 @@ ol.timeline li {
   grid-template-columns: 7.5rem 1fr;
   gap: .25rem 1rem;
   padding: .5rem 0;
-  border-top: 1px solid #f1f2f4;
+  border-top: 1px solid var(--sms-border-soft);
   font-size: .875rem;
 }
 
-ol.timeline .when { color: #6b7280; font-variant-numeric: tabular-nums; }
+ol.timeline .when { color: var(--sms-text-muted); font-variant-numeric: tabular-nums; }
 ol.timeline .what { font-weight: 600; }
-ol.timeline .where { grid-column: 2; color: #6b7280; font-size: .8125rem; }
+ol.timeline .where { grid-column: 2; color: var(--sms-text-muted); font-size: .8125rem; }
 
-.updated { color: #9ca3af; font-size: .75rem; margin: 1.25rem 0 0; }
+.updated { color: var(--sms-text-faint); font-size: .75rem; margin: 1.25rem 0 0; }
 
 @media (max-width: 30rem) {
   .card { padding: 1.25rem; }

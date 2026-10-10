@@ -71,6 +71,9 @@ internal sealed class VariantFulfillmentRouteService : IVariantFulfillmentRouteS
                     "That fulfillment route was not found: the route must belong to your organization.");
             if (!route.IsActive)
                 throw new BadRequestException($"Fulfillment route '{route.Code}' is inactive. Choose an active route.");
+            // A37 D-12 (RTE-01) — Logistics' lookup marks a route whose module is off (MANUFACTURE without Manufacturing).
+            if (!route.IsAvailable)
+                throw new BadRequestException(FulfillmentRouteAvailability.ManufacturingOffMessage);
 
             // A34 D-9 then D-3 (API-CONTRACT §4.2): a make-to-order route needs the module and a manufactured product.
             // The product's flags are validated, never written from the route.
@@ -110,6 +113,8 @@ internal sealed class VariantFulfillmentRouteService : IVariantFulfillmentRouteS
             ?? throw new NotFoundException("Fulfillment route not found.");
         if (!route.IsActive)
             throw new BadRequestException($"Fulfillment route '{route.Code}' is inactive. Activate it before assigning it.");
+        if (!route.IsAvailable) // A37 D-12 (RTE-01)
+            throw new BadRequestException(FulfillmentRouteAvailability.ManufacturingOffMessage);
 
         if (!await _db.ProductCategories.AnyAsync(c => c.Id == request.CategoryId && c.OrganizationId == org, ct))
             throw new BadRequestException("Product category not found.");
@@ -136,7 +141,8 @@ internal sealed class VariantFulfillmentRouteService : IVariantFulfillmentRouteS
             // transaction, so "skipped" is exactly the in-scope variants that already had a route.
             var updated = await assignable
                 .Where(v => v.FulfillmentRouteUuid == null)
-                .ExecuteUpdateAsync(s => s.SetProperty(v => v.FulfillmentRouteUuid, assigned), ct);
+                .ExecuteUpdateAsync(s => s.SetProperty(v => v.FulfillmentRouteUuid, assigned)
+                                          .SetProperty(v => v.ModifiedAt, DateTime.UtcNow), ct); // A37 D-16: bypasses SaveChanges
             var total = await inScope.CountAsync(ct);
 
             return new FulfillmentRouteBulkAssignResult
@@ -248,11 +254,28 @@ internal sealed class VariantFulfillmentRouteService : IVariantFulfillmentRouteS
 /// organization explicitly and answer for it alone, whoever the ambient caller is — a super admin (no tenant filter),
 /// a Hangfire job (D-12 sweep) — so the EF tenant filter is set aside for the explicit one (R-12, R-13).
 /// </summary>
-internal sealed class VariantFulfillmentRoutes : IVariantFulfillmentRoutes, IFulfillmentRouteUsage
+internal sealed class VariantFulfillmentRoutes : IVariantFulfillmentRoutes, IFulfillmentRouteUsage, IProductVariantRoutes
 {
     private readonly InventoryDbContext _db;
 
     public VariantFulfillmentRoutes(InventoryDbContext db) => _db = db;
+
+    /// <summary>A37 D-12 / D-27 — a product's active variants and their configured routes, for Logistics' product routes view.</summary>
+    public async Task<IReadOnlyList<ProductVariantRoute>?> GetForProductAsync(
+        Guid organizationId, int? productId, Guid? productUuid, CancellationToken ct = default)
+    {
+        var products = _db.Products.IgnoreQueryFilters().Where(p => p.OrganizationId == organizationId);
+        products = productId is { } id ? products.Where(p => p.Id == id) : products.Where(p => p.Uuid == productUuid);
+        var product = await products.Select(p => (int?)p.Id).FirstOrDefaultAsync(ct);
+        if (product is null) return null;
+
+        // The product page's order (ProductDetail: SortOrder, then Id).
+        return await _db.ProductVariants.IgnoreQueryFilters()
+            .Where(v => v.ProductId == product && v.OrganizationId == organizationId && v.IsActive)
+            .OrderBy(v => v.SortOrder ?? 0).ThenBy(v => v.Id)
+            .Select(v => new ProductVariantRoute(v.Uuid, v.VariantName, v.Sku, v.FulfillmentRouteUuid))
+            .ToListAsync(ct);
+    }
 
     public async Task<IReadOnlyDictionary<Guid, Guid>> GetRouteUuidsAsync(
         Guid organizationId, IReadOnlyCollection<Guid> variantUuids, CancellationToken ct = default)

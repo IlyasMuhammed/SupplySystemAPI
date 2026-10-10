@@ -52,7 +52,8 @@ internal sealed class A34SoHarness
     public IEnumerable<Job> AutoPoJobs => Jobs.Where(j => j.Type == typeof(IAutoPoCreationJob));
 
     public static A34SoHarness Create(bool manufacturing = true, bool production = true, Guid? org = null, string? dbName = null,
-        A34Routes? routes = null, A34Tenants? tenants = null, FakeProduction? fakeProduction = null)
+        A34Routes? routes = null, A34Tenants? tenants = null, FakeProduction? fakeProduction = null,
+        IServiceVariantClassifier? serviceVariants = null, IServiceOrderDemandService? serviceOrders = null)
     {
         dbName ??= Guid.NewGuid().ToString();
         var tenant = new StaticTenantContext { OrganizationId = org ?? Guid.NewGuid() };
@@ -136,7 +137,8 @@ internal sealed class A34SoHarness
             jobClient.Object, availability, Mock.Of<IPurchaseOrderService>(), Mock.Of<ISaleOrderEmailService>(),
             routes: resolver, deliveryCreator: creator.Object, deliveryCanceller: canceller.Object,
             leadTimes: leadTimes, production: production ? fakeProduction : null, allocation: allocation.Object,
-            tenants: tenants, notifications: notifier.Object, levelDays: levelDays);
+            tenants: tenants, notifications: notifier.Object, levelDays: levelDays,
+            serviceVariants: serviceVariants, serviceOrders: serviceOrders);
 
         return new A34SoHarness
         {

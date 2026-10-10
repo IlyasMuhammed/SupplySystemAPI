@@ -20,6 +20,7 @@ import {
 import { BusinessPartnerService, BusinessPartnerModel } from '../../../../services/business-partner.service';
 import { AuthService } from '../../../service/auth.service';
 import { INQUIRY_STATUS_COLOR, StatusColor, displayDate, statusLabel, writeDate } from '../sale-inquiry.shared';
+import { FLOW } from '../../../../shared/flow';
 
 /**
  * A32-PB-08 — Sales → Inquiries (spec §10.1). Number, customer, received date, status badge in the spec's colours,
@@ -31,7 +32,7 @@ import { INQUIRY_STATUS_COLOR, StatusColor, displayDate, statusLabel, writeDate 
   imports: [
     CommonModule, RouterModule, FormsModule,
     TableModule, ButtonModule, InputTextModule, InputIconModule, IconFieldModule,
-    TooltipModule, ToastModule, SelectModule, DatePickerModule, AutoCompleteModule
+    TooltipModule, ToastModule, SelectModule, DatePickerModule, AutoCompleteModule, ...FLOW
   ],
   templateUrl: './sale-inquiry-list.component.html',
   styleUrls: ['../sale-inquiry.shared.scss', './sale-inquiry-list.component.scss'],

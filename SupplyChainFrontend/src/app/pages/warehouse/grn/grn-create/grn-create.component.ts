@@ -9,6 +9,7 @@ import { CalendarModule } from 'primeng/calendar';
 import { TextareaModule } from 'primeng/textarea';
 import { DropdownModule } from 'primeng/dropdown';
 import { AutoCompleteModule } from 'primeng/autocomplete';
+import { AutoCompleteOpenOnFocusDirective } from '../../../../shared/directives/autocomplete-open-on-focus.directive';
 import { ToastModule } from 'primeng/toast';
 import { TagModule } from 'primeng/tag';
 import { TooltipModule } from 'primeng/tooltip';
@@ -18,6 +19,7 @@ import { DemandService, PoSearchItemModel, PoLineModel } from '../../../../servi
 import { InventoryService, WarehouseModel } from '../../../../services/inventory.service';
 import { HttpErrorResponse } from '@angular/common/http';
 import { AttachmentListComponent } from '../../../../shared/attachment-list/attachment-list.component';
+import { FLOW } from '../../../../shared/flow';
 
 export interface LineInput {
   poLineUuid: string;
@@ -51,8 +53,8 @@ const RECEIVABLE_STATUSES = new Set(['SENT', 'PARTIALLY_RECEIVED']);
   imports: [
     CommonModule, RouterModule, ReactiveFormsModule, FormsModule,
     ButtonModule, InputTextModule, InputNumberModule, CalendarModule,
-    TextareaModule, DropdownModule, AutoCompleteModule,
-    ToastModule, TagModule, TooltipModule, AttachmentListComponent
+    TextareaModule, DropdownModule, AutoCompleteModule, AutoCompleteOpenOnFocusDirective,
+    ToastModule, TagModule, TooltipModule, AttachmentListComponent, ...FLOW
   ],
   templateUrl: './grn-create.component.html',
   styleUrls: ['./grn-create.component.scss'],

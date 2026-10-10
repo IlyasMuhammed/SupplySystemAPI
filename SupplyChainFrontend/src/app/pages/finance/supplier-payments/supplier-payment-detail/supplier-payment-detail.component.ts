@@ -18,6 +18,7 @@ import { DocCurrencyPanelComponent } from '../../../../shared/doc-currency/doc-c
 import { FxDifferenceComponent } from '../../../../shared/doc-currency/fx-difference.component';
 import { DocCurrencyInfo, cachedDocCurrency, hasBaseAmounts, missingRateOf } from '../../../../shared/doc-currency/doc-currency';
 import { MoneyPipe } from '../../../../shared/money/money.pipe';
+import { FLOW, FlowStage, flowStagesFrom } from '../../../../shared/flow';
 
 @Component({
   selector: 'app-supplier-payment-detail',
@@ -26,7 +27,8 @@ import { MoneyPipe } from '../../../../shared/money/money.pipe';
     CommonModule, RouterModule, FormsModule,
     ButtonModule, TagModule, ToastModule,
     TableModule, TooltipModule, ConfirmDialogModule, AttachmentListComponent, TimelinePanelComponent,
-    DocCurrencyPanelComponent, FxDifferenceComponent, MoneyPipe
+    DocCurrencyPanelComponent, FxDifferenceComponent, MoneyPipe,
+    ...FLOW
   ],
   templateUrl: './supplier-payment-detail.component.html',
   styleUrls: ['./supplier-payment-detail.component.scss'],
@@ -74,6 +76,17 @@ export class SupplierPaymentDetailComponent implements OnInit {
   /** A posted cheque only: bouncing reverses its ledger entry and the invoices' paid amounts. */
   get canBounce(): boolean  { return this.status === 'POSTED' && this.payment?.paymentMethod === 'CHEQUE' && this.can('PAYMENT_PROCESS'); }
   get canCancel(): boolean  { return (this.status === 'DRAFT' || this.status === 'APPROVED') && this.can('PAYMENT_PROCESS'); }
+
+  /** SMS Flow header: Draft → Approved → Posted; a cancelled or bounced payment ends red. */
+  get stages(): FlowStage[] {
+    const p = this.payment;
+    if (!p) return [];
+    const day = (d: string | null | undefined) => (d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : null);
+    if (this.status === 'CANCELLED') return flowStagesFrom(['Draft', 'Cancelled'], 1, { failed: true });
+    if (this.status === 'BOUNCED') return flowStagesFrom(['Draft', 'Approved', 'Posted', 'Bounced'], 3, { subs: [null, day(p.approvedAt), day(p.postedAt), day(p.bouncedAt)], failed: true });
+    const current = this.status === 'POSTED' ? 3 : this.status === 'APPROVED' ? 1 : 0;
+    return flowStagesFrom(['Draft', 'Approved', 'Posted'], current, { subs: [day(p.createdDate), day(p.approvedAt), day(p.postedAt)] });
+  }
 
   load(uuid: string) {
     this.isLoading = true;

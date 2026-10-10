@@ -84,13 +84,13 @@ export interface VariantPickerSelection {
     .pvp-fields { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .4rem; }
     .pvp-thumb {
       width: 38px; height: 38px; object-fit: cover; border-radius: 8px;
-      border: 1px solid #e5e7eb; flex-shrink: 0; margin-top: .1rem;
+      border: 1px solid var(--sms-border); flex-shrink: 0; margin-top: .1rem;
     }
     .pvp-variant { margin-top: 0; }
     .pvp-single-variant {
-      font-size: .8rem; color: #64748b; display: flex; align-items: center; gap: .35rem;
+      font-size: .8rem; color: var(--sms-text-muted); display: flex; align-items: center; gap: .35rem;
     }
-    .pvp-sku { color: #94a3b8; }
+    .pvp-sku { color: var(--sms-text-faint); }
     .w-full { width: 100%; }
   `]
 })

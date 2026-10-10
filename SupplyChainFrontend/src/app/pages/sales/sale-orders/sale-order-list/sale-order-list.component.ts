@@ -19,6 +19,7 @@ import { SaleOrderService, SaleOrderModel, SaleOrderFilter } from '../../../../s
 import { BusinessPartnerService } from '../../../../services/business-partner.service';
 import { AuthService } from '../../../service/auth.service';
 import { formatCode } from '../../../../shared/format-code';
+import { FLOW } from '../../../../shared/flow';
 
 type Severity = 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast';
 
@@ -41,7 +42,7 @@ export { formatCode };
   imports: [
     CommonModule, RouterModule, FormsModule,
     TableModule, ButtonModule, InputTextModule, InputIconModule, IconFieldModule,
-    TagModule, TooltipModule, ToastModule, DropdownModule
+    TagModule, TooltipModule, ToastModule, DropdownModule, ...FLOW
   ],
   templateUrl: './sale-order-list.component.html',
   styleUrls: ['./sale-order-list.component.scss'],

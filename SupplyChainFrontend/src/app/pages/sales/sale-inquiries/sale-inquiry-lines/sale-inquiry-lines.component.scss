@@ -12,7 +12,7 @@
 .sub { font-size: .75rem; color: var(--text-color-secondary); margin-top: .125rem; }
 .sub i { font-size: .7rem; }
 
-tr.detail-row td { background: var(--surface-50, #f8fafc); padding-top: .4rem; padding-bottom: .6rem; }
+tr.detail-row td { background: var(--sms-surface-2); padding-top: .4rem; padding-bottom: .6rem; }
 .line-detail { list-style: none; margin: 0; padding: 0; font-size: .82rem; display: flex; flex-direction: column; gap: .2rem; }
 .line-detail i { font-size: .7rem; color: var(--text-color-secondary); }
 .reviewed { font-size: .72rem; color: var(--text-color-secondary); margin-top: .35rem; }

@@ -1,0 +1,183 @@
+<p-toast></p-toast>
+
+<sf-page [crumbs]="['Settings', 'Modules']">
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <p-button label="Refresh" icon="pi pi-refresh" [text]="true" (onClick)="load()" data-testid="refresh"></p-button>
+  </div>
+
+  <div class="sf-body">
+    <div class="sf-lr-head">
+      <div>
+        <h1>Module management <span class="sf-count">{{ activeCount }} active</span></h1>
+        <div class="sf-sub">
+          <span *ngIf="orgName">{{ orgName }} · </span>Switch the modules in your plan on and off. Nothing is deleted when a module is switched off.
+        </div>
+      </div>
+    </div>
+
+    <div class="sf-card flat mod-note" *ngIf="!canManage && !isLoading" data-testid="read-only-note">
+      <i class="pi pi-info-circle"></i>
+      <span>You can see the modules but not change them — that needs the <strong>Manage modules</strong> permission.</span>
+    </div>
+
+    <div *ngIf="isLoading" class="sf-card sf-empty"><i class="pi pi-spin pi-spinner"></i> Loading modules…</div>
+
+    <ng-container *ngIf="!isLoading">
+      <section class="mod-section" *ngFor="let s of sections; trackBy: trackSection" [attr.data-testid]="'section-' + s.key">
+        <div class="mod-section-head">
+          <h2>{{ s.title }} <span class="sf-count">{{ s.cards.length }}</span></h2>
+          <span class="sf-mu sf-sm">{{ s.sub }}</span>
+        </div>
+
+        <div class="mod-grid">
+          <article class="sf-card mod-card" *ngFor="let vm of s.cards; trackBy: trackCard"
+                   [class.mod-off]="!vm.card.isEnabled && vm.card.status !== 'GRACE'"
+                   [attr.data-testid]="'card-' + vm.card.code">
+            <div class="mod-top">
+              <span class="mod-icon"><i [class]="'pi ' + (vm.card.icon || 'pi-th-large')"></i></span>
+              <div class="mod-title">
+                <h3>{{ vm.card.name }}</h3>
+                <span class="sf-pill" [ngClass]="vm.tone" [attr.data-testid]="'badge-' + vm.card.code">
+                  <i class="pi pi-lock" *ngIf="vm.card.status === 'ALWAYS_ON'"></i>
+                  <i class="pi pi-clock" *ngIf="vm.card.status === 'GRACE'"></i>
+                  {{ vm.badge }}
+                </span>
+              </div>
+              <p-toggleswitch *ngIf="vm.toggleable"
+                              [ngModel]="vm.on" (ngModelChange)="onToggle(vm, $event)"
+                              [disabled]="!canManage || busy === vm.card.code"
+                              [pTooltip]="canManage ? '' : 'Needs the Manage modules permission'"
+                              [attr.data-testid]="'toggle-' + vm.card.code"></p-toggleswitch>
+            </div>
+
+            <p class="mod-desc" *ngIf="vm.card.description">{{ vm.card.description }}</p>
+
+            <div class="mod-facts sf-sm">
+              <span *ngIf="vm.requires" [attr.data-testid]="'requires-' + vm.card.code">{{ vm.requires }}</span>
+              <span *ngIf="vm.featuresText" class="sf-mu" [attr.data-testid]="'features-' + vm.card.code">{{ vm.featuresText }}</span>
+              <span *ngIf="vm.card.status === 'GRACE' && vm.card.graceEndsAt" class="mod-grace" [attr.data-testid]="'grace-' + vm.card.code">
+                Open records can be finished until {{ vm.card.graceEndsAt | date:'d MMM y' }}; nothing new can be created.
+              </span>
+              <span *ngIf="vm.card.disabledAt && !vm.card.isEnabled" class="sf-mu">
+                Switched off {{ vm.card.disabledAt | date:'d MMM y' }}<ng-container *ngIf="vm.card.disabledByName"> by {{ vm.card.disabledByName }}</ng-container>
+              </span>
+              <span *ngIf="vm.card.status === 'NOT_LICENSED'" class="sf-mu" [attr.data-testid]="'unlicensed-' + vm.card.code">
+                Not included in your plan — contact your administrator.
+              </span>
+            </div>
+
+            <div class="mod-actions" *ngIf="vm.card.status !== 'COMING_SOON'">
+              <p-button *ngIf="vm.features.length" [label]="vm.expanded ? 'Hide features' : 'Manage features'"
+                        [icon]="vm.expanded ? 'pi pi-chevron-up' : 'pi pi-chevron-down'" iconPos="right"
+                        [text]="true" size="small" (onClick)="toggleExpanded(vm)"
+                        [attr.data-testid]="'manage-' + vm.card.code"></p-button>
+              <span class="sf-end">
+                <p-button label="History" icon="pi pi-history" [text]="true" size="small" severity="secondary"
+                          (onClick)="openHistory(vm)" [attr.data-testid]="'history-' + vm.card.code"></p-button>
+              </span>
+            </div>
+
+            <div class="mod-features sf-tw" *ngIf="vm.expanded" [attr.data-testid]="'feature-list-' + vm.card.code">
+              <table class="sf-t">
+                <thead><tr><th>Feature</th><th>Status</th><th>Availability</th><th>Depends</th></tr></thead>
+                <tbody>
+                  <tr *ngFor="let fv of vm.features; trackBy: trackFeature" [class.mod-frow-off]="fv.disabled && !fv.locked"
+                      [attr.data-testid]="'feature-' + fv.f.code">
+                    <td>
+                      <strong>{{ fv.f.name }}</strong>
+                      <div class="sf-mu sf-sm" *ngIf="fv.f.description">{{ fv.f.description }}</div>
+                      <div class="sf-sm mod-fnote" *ngIf="fv.note" [attr.data-testid]="'fnote-' + fv.f.code">{{ fv.note }}</div>
+                    </td>
+                    <td>
+                      <span *ngIf="fv.locked" class="sf-pill ok" [attr.data-testid]="'flock-' + fv.f.code"><i class="pi pi-lock"></i> On</span>
+                      <p-toggleswitch *ngIf="!fv.locked" [ngModel]="fv.on" (ngModelChange)="onFeatureToggle(vm, fv, $event)"
+                                      [disabled]="fv.disabled || busy === vm.card.code"
+                                      [attr.data-testid]="'ftoggle-' + fv.f.code"></p-toggleswitch>
+                    </td>
+                    <td><span class="sf-pill" [ngClass]="fv.availabilityTone">{{ fv.availability }}</span></td>
+                    <td class="sf-sm">
+                      <div *ngIf="fv.requiresName">Requires: {{ fv.requiresName }}</div>
+                      <div *ngIf="fv.requiredByNames.length" class="sf-mu">Required by: {{ fv.requiredByNames.join(', ') }}</div>
+                      <span *ngIf="!fv.requiresName && !fv.requiredByNames.length" class="sf-mu">—</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <div class="sf-card sf-empty" *ngIf="!sections.length">No modules found.</div>
+    </ng-container>
+  </div>
+</sf-page>
+
+<!-- Disable confirmation (spec §11.3.3) -->
+<p-dialog [header]="'Disable ' + (disableVm?.card?.name || '') + '?'" [(visible)]="showDisable" [modal]="true"
+          [style]="{ width: '520px' }" [draggable]="false" [resizable]="false" (onHide)="onDisableHide()">
+  <div class="mod-dlg" *ngIf="impact" data-testid="disable-dialog">
+    <div *ngIf="impact.willBlock?.length">
+      <h4>This will:</h4>
+      <ul data-testid="will-block"><li *ngFor="let w of impact.willBlock">{{ w }}</li></ul>
+    </div>
+    <div *ngIf="impact.notAffected?.length">
+      <h4>This will NOT:</h4>
+      <ul data-testid="not-affected"><li *ngFor="let n of impact.notAffected">{{ n }}</li></ul>
+    </div>
+    <div *ngIf="impact.inProgress?.length" data-testid="in-progress">
+      <h4>In-progress records:</h4>
+      <div class="mod-inprog" *ngFor="let p of impact.inProgress">
+        <i class="pi pi-info-circle"></i>
+        <span><strong>{{ p.count }}</strong> {{ p.label }}</span>
+      </div>
+      <div class="sf-mu sf-sm">They can be finished during the grace period; nothing new can be created.</div>
+    </div>
+    <div class="mod-grace-row">
+      <label for="graceDays">Grace period</label>
+      <p-inputnumber inputId="graceDays" [(ngModel)]="graceDays" [min]="0" [max]="365" [useGrouping]="false"
+                     [showButtons]="true" suffix=" days" data-testid="grace-input"></p-inputnumber>
+    </div>
+    <small class="mod-err" *ngIf="!graceValid" data-testid="grace-error">Grace period must be between 0 and 365 days.</small>
+    <div class="mod-notes">
+      <label for="disableNotes">Notes (optional)</label>
+      <textarea pTextarea id="disableNotes" rows="2" [(ngModel)]="notes" maxlength="500" class="w-full"></textarea>
+    </div>
+  </div>
+  <ng-template pTemplate="footer">
+    <p-button label="Cancel" [text]="true" (onClick)="cancelDisable()" data-testid="cancel-disable"></p-button>
+    <p-button label="Disable module" severity="danger" icon="pi pi-power-off" [disabled]="!graceValid"
+              [loading]="busy === disableVm?.card?.code" (onClick)="confirmDisable()" data-testid="confirm-disable"></p-button>
+  </ng-template>
+</p-dialog>
+
+<!-- Blocking dialog: enabled dependents -->
+<p-dialog [header]="'Cannot disable ' + blockedName" [(visible)]="showBlocked" [modal]="true"
+          [style]="{ width: '460px' }" [draggable]="false" [resizable]="false">
+  <div class="mod-dlg" data-testid="block-dialog">
+    <p>These modules depend on {{ blockedName }} and are switched on:</p>
+    <ul data-testid="blocked-by"><li *ngFor="let d of blockedBy">{{ d.name }}</li></ul>
+    <p><strong>Disable {{ blockedNames }} first.</strong></p>
+  </div>
+  <ng-template pTemplate="footer">
+    <p-button label="OK" (onClick)="showBlocked = false"></p-button>
+  </ng-template>
+</p-dialog>
+
+<!-- History drawer -->
+<p-drawer [(visible)]="showHistory" position="right" [header]="historyName + ' — history'" styleClass="mod-history"
+          data-testid="history-drawer">
+  <div *ngIf="historyLoading" class="sf-empty"><i class="pi pi-spin pi-spinner"></i> Loading…</div>
+  <div *ngIf="!historyLoading && !historyRows.length" class="sf-empty">No changes recorded yet.</div>
+  <div class="sf-tl" *ngIf="!historyLoading && historyRows.length" data-testid="history-list">
+    <div class="sf-tl-e" *ngFor="let h of historyRows">
+      <span class="sf-pill" [ngClass]="h.tone">{{ h.action }}</span>
+      <span>
+        <span *ngIf="h.target"><strong>{{ h.target }}</strong><br></span>
+        <span class="sf-mu sf-sm">{{ h.when | date:'d MMM y, HH:mm' }} · {{ h.by }}</span>
+        <span class="sf-mu sf-sm" *ngIf="h.graceDays !== null"> · grace {{ h.graceDays }} days</span>
+        <span class="sf-sm" *ngIf="h.notes"><br>{{ h.notes }}</span>
+      </span>
+    </div>
+  </div>
+</p-drawer>

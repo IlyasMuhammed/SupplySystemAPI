@@ -176,6 +176,31 @@ describe('SaleOrderDetailComponent', () => {
     expect(component.deliveries.length).toBe(1);
   });
 
+  it('says who did each reached step of the status strip, on hover', async () => {
+    await setup(order({ status: 'FULFILLED' } as any));
+    timeline.getByDocument.and.returnValue(ok({
+      traceId: 't-1', firstEventAt: '', lastEventAt: '', totalEventCount: 4,
+      events: [
+        { eventType: 'SO_CREATED', interfaceCode: 'SO', documentId: UUID, occurredAt: '2026-09-01T00:00:00Z', performedBy: 7, performedByName: 'Sara Ali' },
+        { eventType: 'SO_CONFIRMED', interfaceCode: 'SO', documentId: UUID, occurredAt: '2026-09-02T00:00:00Z', performedBy: 9, performedByName: 'Usman Khan' },
+        { eventType: 'SO_DELIVERIES_CREATED', interfaceCode: 'SO', documentId: UUID, occurredAt: '2026-09-02T00:00:01Z', performedBy: 9, performedByName: 'Usman Khan' },
+        { eventType: 'SO_FULFILLED', interfaceCode: 'SO', documentId: UUID, occurredAt: '2026-09-05T00:00:00Z', performedBy: 0 }
+      ]
+    }));
+    fixture.detectChanges();
+
+    expect(timeline.getByDocument).toHaveBeenCalledWith('SO', UUID);
+    expect(component.stages.map(s => s.label)).toEqual(['Draft', 'Confirmed', 'Fulfilling', 'Fulfilled', 'Invoiced']);
+    const tips = component.stages.map(s => s.tooltip ?? null);
+    expect(tips[0]).toMatch(/^Created by Sara Ali on 1 Sep 2026, \d\d:\d\d$/);
+    expect(tips[1]).toMatch(/^Confirmed by Usman Khan on 2 Sep 2026/);
+    expect(tips[2]).toMatch(/^Shipping started by Usman Khan on /);
+    expect(tips[3]).toMatch(/^Fulfilled by System on /);
+    expect(tips[4]).toBeNull();                                       // not reached yet
+    const strip = fixture.nativeElement.querySelectorAll('.sf-stg');
+    expect(strip[1].getAttribute('aria-label')).toContain('Confirmed by Usman Khan');
+  });
+
   it('renders without a customer name when the partner lookup fails', async () => {
     await setup();
     partners.getPartnerById.and.returnValue(throwError(() => ({ status: 500 })));

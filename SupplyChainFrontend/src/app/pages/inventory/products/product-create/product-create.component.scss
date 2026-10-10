@@ -1,68 +1,20 @@
 .product-create-page {
-  padding: 1.5rem;
 
-  // ── Page Header ──────────────────────────────────────────────────────────────
-  .page-header {
-    margin-bottom: 1.5rem;
-
-    .header-nav {
-      margin-bottom: 0.5rem;
-    }
-
-    .page-title {
-      font-size: 1.75rem;
-      font-weight: 700;
-      display: flex;
-      align-items: center;
-      gap: 0.6rem;
-      margin: 0 0 0.25rem 0;
-      color: #2c3e50;
-
-      i {
-        color: #27ae60;
-        font-size: 1.5rem;
-      }
-
-      .page-title-name {
-        font-weight: 500;
-        color: #7f8c8d;
-        font-size: 1.4rem;
-      }
-    }
-
-    .page-subtitle {
-      color: var(--text-color-secondary);
-      margin: 0;
-      font-size: 0.95rem;
-    }
+  .page-title-name {
+    font-weight: 500;
+    color: var(--sms-text-muted);
   }
 
-  // ── Loading Overlay ───────────────────────────────────────────────────────────
-  .loading-overlay {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 6rem 2rem;
-    color: #7f8c8d;
-
-    .loading-spinner {
-      font-size: 3rem;
-      color: #27ae60;
-      margin-bottom: 1rem;
-    }
-
-    p {
-      font-size: 1rem;
-      margin: 0;
-    }
+  .loading-spinner {
+    font-size: 2.5rem;
+    color: var(--sms-primary-text);
   }
 
   // ── Section Hint ─────────────────────────────────────────────────────────────
   .section-hint {
-    color: var(--text-color-secondary);
+    color: var(--sms-text-muted);
     font-size: 0.875rem;
-    margin: 0 0 1.25rem 0;
+    margin: 0;
   }
 
   // ── Form Grid ─────────────────────────────────────────────────────────────────
@@ -88,18 +40,18 @@
   .field-label {
     font-weight: 500;
     font-size: 0.875rem;
-    color: #374151;
+    color: var(--sms-text);
   }
 
   .field-hint {
     font-size: 0.8rem;
-    color: #9ca3af;
+    color: var(--sms-text-faint);
     font-weight: 400;
     margin-left: 0.25rem;
   }
 
   .req {
-    color: var(--red-500);
+    color: var(--sms-danger);
   }
 
   // ── Product image upload ─────────────────────────────────────────────────────
@@ -121,7 +73,7 @@
       height: 100%;
       object-fit: cover;
       border-radius: 10px;
-      border: 1px solid #e5e7eb;
+      border: 1px solid var(--sms-border);
     }
 
     p-button {
@@ -139,10 +91,10 @@
     align-items: center;
     justify-content: center;
     border-radius: 10px;
-    border: 1.5px dashed #d1d5db;
-    color: #9ca3af;
+    border: 1.5px dashed var(--sms-border);
+    color: var(--sms-text-faint);
     font-size: 1.75rem;
-    background: #f9fafb;
+    background: var(--sms-surface-2);
   }
 
   .product-image-actions {
@@ -154,8 +106,8 @@
 
   // ── Additional variant cards ─────────────────────────────────────────────────
   .variant-card {
-    background: #f9fafb;
-    border: 1.5px solid #e5e7eb;
+    background: var(--sms-surface-2);
+    border: 1.5px solid var(--sms-border);
     border-radius: 12px;
     padding: 1rem 1.25rem;
     margin-bottom: 1rem;
@@ -171,41 +123,19 @@
   .variant-card-title {
     font-weight: 600;
     font-size: 0.9rem;
-    color: #374151;
+    color: var(--sms-text);
   }
 
   .readonly-value {
     font-size: 0.95rem;
     font-weight: 600;
-    color: #2c3e50;
+    color: var(--sms-text);
     padding: 0.6rem 0.75rem;
-    background: var(--surface-50);
-    border: 1px solid var(--surface-200);
+    background: var(--sms-surface-2);
+    border: 1px solid var(--sms-border);
     border-radius: 6px;
   }
 
-  // ── Action Bar ────────────────────────────────────────────────────────────────
-  .action-bar {
-    display: flex;
-    justify-content: flex-end;
-    gap: 0.75rem;
-    margin-bottom: 2rem;
-    padding-top: 0.5rem;
-  }
-}
-
-// ── Card Section Header ───────────────────────────────────────────────────────
-// Shared with supplier-create style
-.card-section-header {
-  padding: 1rem 1.25rem;
-  font-size: 1rem;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  border-bottom: 1px solid var(--surface-200);
-  background: var(--surface-50);
-  color: #2c3e50;
 }
 
 // A31-C2 — the sub-section divider between a card's own fields and its merged-in
@@ -219,7 +149,7 @@
   gap: 0.5rem;
   font-size: 0.875rem;
   font-weight: 600;
-  color: var(--text-color-secondary);
+  color: var(--sms-text-muted);
 }
 
 // ── Responsive ───────────────────────────────────────────────────────────────
@@ -236,8 +166,6 @@
 
 @media (max-width: 640px) {
   .product-create-page {
-    padding: 1rem;
-
     .form-grid {
       &--2,
       &--3,
@@ -245,12 +173,6 @@
 
       .col-span-2,
       .col-span-3 { grid-column: span 1; }
-    }
-
-    .action-bar {
-      flex-direction: column-reverse;
-
-      p-button { width: 100%; }
     }
   }
 }

@@ -1,4 +1,4 @@
-using Hangfire;
+﻿using Hangfire;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -31,10 +31,13 @@ internal sealed class ProductionDeliverySweepJob
     private readonly MaterialDbContext          _db;
     private readonly IProductionDeliveryHandoff _handoff;
     private readonly ILogger                    _log;
+    private readonly IModuleGate?               _gate;
 
     public ProductionDeliverySweepJob(
-        MaterialDbContext db, IProductionDeliveryHandoff handoff, ILogger<ProductionDeliverySweepJob>? log = null)
+        MaterialDbContext db, IProductionDeliveryHandoff handoff, ILogger<ProductionDeliverySweepJob>? log = null,
+        IModuleGate? gate = null)
     {
+        _gate    = gate;
         _db      = db;
         _handoff = handoff;
         _log     = log ?? (ILogger)NullLogger.Instance;
@@ -45,8 +48,16 @@ internal sealed class ProductionDeliverySweepJob
     public async Task<int> RunAsync()
     {
         var cutoff = DateTime.UtcNow - SweepDelay;
-        var due = await _db.ProductionOrders.IgnoreQueryFilters().AsNoTracking()
-            .Where(p => p.DeliveryCreationPendingSince != null && p.DeliveryCreationPendingSince <= cutoff)
+        var pending = _db.ProductionOrders.IgnoreQueryFilters().AsNoTracking()
+            .Where(p => p.DeliveryCreationPendingSince != null && p.DeliveryCreationPendingSince <= cutoff);
+
+        // A37 D-9 — organizations without MODULE_MANUFACTURING (grace counts as off) are left out, still pending; they
+        // resume when it is back. Excluded in the query so they cannot fill the batch.
+        var skipped = _gate is null ? [] : (await _gate.SkippedAmongAsync(
+            await pending.Select(p => p.OrganizationId).Distinct().ToListAsync(),
+            ModuleCodes.Manufacturing, _log, nameof(ProductionDeliverySweepJob))).ToList();
+
+        var due = await pending.Where(p => !skipped.Contains(p.OrganizationId))
             .OrderBy(p => p.DeliveryCreationPendingSince)
             .Select(p => new { p.OrganizationId, p.UUID })
             .Take(BatchSize)

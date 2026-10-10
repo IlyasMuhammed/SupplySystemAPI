@@ -26,6 +26,7 @@ import {
   FINANCE_SETUP_MANAGE, MAX_TAX_CODE_LENGTH, MAX_TAX_DESCRIPTION_LENGTH, MAX_TAX_NAME_LENGTH, TaxCodeDraft, USAGE_OPTIONS,
   defaultsTakenOver, formatPercent, normalizeTaxCode, roundRatePercent, setupErrorMessage, taxCodeProblem, usageAllows, usageLabel
 } from '../finance-setup.shared';
+import { FLOW } from '../../../shared/flow';
 
 type SideFilter = 'ALL' | 'SALES' | 'PURCHASE';
 
@@ -41,7 +42,8 @@ type SideFilter = 'ALL' | 'SALES' | 'PURCHASE';
   imports: [
     CommonModule, FormsModule, ButtonModule, CheckboxModule, ConfirmDialogModule, DialogModule, IconFieldModule, InputIconModule,
     InputNumberModule, InputTextModule, SelectModule, SelectButtonModule, TableModule, TagModule, TextareaModule, ToastModule,
-    TooltipModule
+    TooltipModule,
+    ...FLOW
   ],
   templateUrl: './tax-codes.component.html',
   styleUrls: ['../finance-setup.scss', './tax-codes.component.scss'],

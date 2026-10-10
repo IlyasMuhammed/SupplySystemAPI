@@ -3,12 +3,12 @@
 .w-full { width: 100%; }
 .field { display: flex; flex-direction: column; gap: .375rem; margin-bottom: 1.25rem; }
 .field > label { font-size: .875rem; font-weight: 600; }
-.hint { color: var(--text-color-secondary); font-size: .8125rem; }
+.hint { color: var(--sms-text-muted); font-size: .8125rem; }
 .note {
   display: flex; gap: .5rem; align-items: flex-start; padding: .625rem .75rem; border-radius: .5rem; font-size: .8125rem; line-height: 1.45;
-  background: var(--blue-50, #eff6ff); color: var(--blue-900, #1e3a8a);
+  background: var(--sms-primary-soft); color: var(--sms-primary-text);
   i { margin-top: .125rem; }
 }
 .actions { display: flex; align-items: center; justify-content: flex-end; gap: 1rem; flex-wrap: wrap; }
-.p-error { color: var(--red-500, #ef4444); font-size: .8125rem; }
-.ok { color: var(--green-700, #15803d); font-size: .8125rem; }
+.p-error { color: var(--sms-danger); font-size: .8125rem; }
+.ok { color: var(--sms-ok); font-size: .8125rem; }

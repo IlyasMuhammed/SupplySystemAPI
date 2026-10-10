@@ -1,10 +1,11 @@
-import { Component, computed } from '@angular/core';
+import { Component, Optional, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { MenuItem } from 'primeng/api';
 import { AppMenuitem } from './app.menuitem';
 import { AuthService } from '../../pages/service/auth.service';
 import { TenantService } from '../../pages/service/tenant.service';
+import { ModuleService } from '../../services/module.service';
 
 /**
  * MenuItem extended with:
@@ -46,7 +47,13 @@ const REPORT_PERMS = ['REPORT_VIEW', 'REPORT_EXPORT', 'AUDIT_LOG_VIEW'];
     </ul> `
 })
 export class AppMenu {
-    constructor(private authService: AuthService, private tenantService: TenantService) {}
+    constructor(
+        private authService: AuthService,
+        private tenantService: TenantService,
+        // A37 — optional so the filtering can be unit-tested with plain fakes. ModuleService.refresh() also reloads
+        // GET /api/tenant/current, whose enabledFeatureCodes drive the gates below.
+        @Optional() private moduleService?: ModuleService
+    ) {}
 
     // Static structure — the underlying nav tree never changes mid-session, only its filtered
     // visibility does (see `model`), so this is built once rather than in ngOnInit.
@@ -80,11 +87,16 @@ export class AppMenu {
         },
 
         // ── Sales (Addendum 29) ───────────────────────────────────────────
-        // Order-to-cash starts here. Sale orders live in the Demand module, so the same feature gate as procurement.
+        // Order-to-cash starts here. Sale orders live in the Demand module, so the same feature gate as procurement —
+        // set per item, not on the group, so the always-on Customers item stays visible without Demand (A37 R-1).
         {
             label: 'Sales',
-            featureCode: 'MODULE_DEMAND',
             items: [
+                // A37 D-13 — the Customer Master (always-on module); same code as the route.
+                { label: 'Customers', icon: 'pi pi-fw pi-users',
+                  routerLink: ['/portal/pages/customers'],
+                  featureCode: 'MODULE_CUSTOMERS',
+                  permRequired: ['CUSTOMER_VIEW'] },
                 // A32-PB-08 — customer inquiries, first step of the pre-order chain; same code as the route.
                 { label: 'Inquiries', icon: 'pi pi-fw pi-inbox',
                   routerLink: ['/portal/pages/sales/inquiries'],
@@ -93,10 +105,12 @@ export class AppMenu {
                 // A32-PC-10 — seller-side quotations (not the procurement RFQ quotations); same code as the route.
                 { label: 'Customer Quotations', icon: 'pi pi-fw pi-file-edit',
                   routerLink: ['/portal/pages/sales/quotations'],
+                  featureCode: 'MODULE_DEMAND',
                   permRequired: ['SALE_QUOTATION_VIEW'] },
                 {
                     label: 'Sale Orders',
                     icon: 'pi pi-fw pi-shopping-bag',
+                    featureCode: 'MODULE_DEMAND',
                     items: [
                         { label: 'All Sale Orders', icon: 'pi pi-fw pi-list',
                           routerLink: ['/portal/pages/sales/orders'],
@@ -133,6 +147,30 @@ export class AppMenu {
             ]
         },
 
+        // ── Services (Addendum 36 D-15) ───────────────────────────────────────
+        // Service orders: field/workshop jobs, their materials and what they consumed.
+        {
+            label: 'Services',
+            featureCode: 'MODULE_SERVICES',
+            items: [
+                {
+                    label: 'Service Orders',
+                    icon: 'pi pi-fw pi-wrench',
+                    items: [
+                        { label: 'New Service Order', icon: 'pi pi-fw pi-plus',
+                          routerLink: ['/portal/pages/services/service-orders/new'],
+                          permRequired: ['SERVICE_ORDER_CREATE'] },
+                        { label: 'All Service Orders', icon: 'pi pi-fw pi-list',
+                          routerLink: ['/portal/pages/services/service-orders'],
+                          permRequired: ['SERVICE_ORDER_VIEW'] },
+                        { label: 'Dashboard', icon: 'pi pi-fw pi-chart-bar',
+                          routerLink: ['/portal/pages/services/service-orders/dashboard'],
+                          permRequired: ['SERVICE_ORDER_VIEW'] }
+                    ]
+                }
+            ]
+        },
+
         // ── Procurement ───────────────────────────────────────────────────
         // Requisitions/Quotations/POs are backed by the Demand module (MODULE_DEMAND) — the
         // ticket's own catalog names MODULE_PROCUREMENT as an unimplemented placeholder ("functionality
@@ -158,7 +196,8 @@ export class AppMenu {
                     // Quotes suppliers send us. Not the Sales "Customer Quotations" (quotes we send).
                     label: 'Supplier Quotes (RFQ)',
                     icon: 'pi pi-fw pi-envelope',
-                    featureCode: 'MODULE_DEMAND',
+                    // A37 §1.3 — RFQs are a switchable sub-feature of Demand.
+                    featureCode: ['MODULE_DEMAND', 'FEATURE_RFQ_MANAGEMENT'],
                     items: [
                         { label: 'New RFQ', icon: 'pi pi-fw pi-plus',
                           routerLink: ['/portal/pages/demand/quotations/create'],
@@ -275,7 +314,8 @@ export class AppMenu {
                 {
                     label: 'Supplier Returns',
                     icon: 'pi pi-fw pi-reply',
-                    featureCode: 'MODULE_WAREHOUSE',
+                    // A37 §1.3 — SROs are the Purchase Returns sub-feature of Warehouse.
+                    featureCode: ['MODULE_WAREHOUSE', 'FEATURE_PURCHASE_RETURNS'],
                     items: [
                         { label: 'New Return Order', icon: 'pi pi-fw pi-plus',
                           routerLink: ['/portal/pages/warehouse/sro/create'],
@@ -375,6 +415,7 @@ export class AppMenu {
                         // picking earns a menu entry of its own: a picker starts from the queue.
                         { label: 'Picking', icon: 'pi pi-fw pi-list-check',
                           routerLink: ['/portal/pages/logistics/picking'],
+                          featureCode: 'FEATURE_PICK_LISTS',   // A37 §1.3
                           permRequired: ['PICKING'] }
                     ]
                 },
@@ -382,6 +423,8 @@ export class AppMenu {
                 {
                     label: 'Tracking',
                     icon: 'pi pi-fw pi-map',
+                    // Not gated by FEATURE_SHIPMENT_TRACKING: that sub-feature guards consignments and tracking links
+                    // (no menu entry of their own), not exceptions, POD or carrier scorecards (A37 §1.3).
                     items: [
                         { label: 'Exception Queue', icon: 'pi pi-fw pi-exclamation-triangle',
                           routerLink: ['/portal/pages/logistics/exceptions'],
@@ -751,7 +794,11 @@ export class AppMenu {
                                   permRequired: ['SYSTEM_CONFIGURE'] },
                                 { label: 'Portal Settings', icon: 'pi pi-fw pi-link',
                                   routerLink: ['/portal/pages/portal-settings'],
-                                  permRequired: ['SYSTEM_CONFIGURE'] }
+                                  permRequired: ['SYSTEM_CONFIGURE'] },
+                                // A37 — the organization's modules (org admin switches licensed modules on/off).
+                                { label: 'Modules', icon: 'pi pi-fw pi-th-large',
+                                  routerLink: ['/portal/pages/settings/modules'],
+                                  permRequired: ['MODULES_VIEW', 'MODULES_MANAGE'] }
                             ]
                         },
                         {
@@ -798,6 +845,8 @@ export class AppMenu {
 
     readonly model = computed<NavItem[]>(() => {
         const tenant = this.tenantService.tenant();
+        // A37 — re-evaluate whenever the enabled modules are reloaded (Settings › Modules, a module 403).
+        this.moduleService?.version();
         // Nothing renders until GET /api/tenant/current resolves — avoids a flash of the wrong
         // (fully-open or fully-closed) sidebar while it's in flight.
         if (!tenant) return [];

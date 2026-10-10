@@ -23,6 +23,7 @@ import { DemandService } from '../../../../services/demand.service';
 import { WarehouseService } from '../../../../services/warehouse.service';
 import { MaterialService } from '../../../../services/material.service';
 import { InventoryService } from '../../../../services/inventory.service';
+import { FLOW } from '../../../../shared/flow';
 
 /** What raises the delivery. TRANSFER has no document to read lines from, same as MANUAL. */
 type Mode = 'MANUAL' | 'PO' | 'SRO' | 'MIV' | 'TRANSFER';
@@ -70,7 +71,8 @@ interface PreviewLine {
     CommonModule, RouterModule, FormsModule,
     ButtonModule, InputTextModule, DropdownModule,
     InputNumberModule, CalendarModule, ToastModule,
-    TextareaModule, TooltipModule
+    TextareaModule, TooltipModule,
+    ...FLOW
   ],
   templateUrl: './delivery-create.component.html',
   styleUrls: ['./delivery-create.component.scss'],

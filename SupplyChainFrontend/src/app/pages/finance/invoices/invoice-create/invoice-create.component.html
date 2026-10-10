@@ -1,116 +1,118 @@
-<div class="create-page">
-  <p-toast></p-toast>
+<p-toast></p-toast>
 
-  <div class="page-header">
-    <div>
-      <h1 class="page-title"><i class="pi pi-file-invoice"></i> New Invoice</h1>
-      <p class="page-subtitle">Register a supplier invoice with line-level detail for 3-way matching</p>
-    </div>
-    <p-button label="Back to Invoices" icon="pi pi-arrow-left" [text]="true" severity="secondary"
-              routerLink="/portal/pages/finance/invoices"></p-button>
+<sf-page [crumbs]="['Finance', 'Supplier invoices', 'New invoice']">
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <span class="sf-end">
+      <p-button label="Back to Invoices" icon="pi pi-arrow-left" [text]="true"
+                routerLink="/portal/pages/finance/invoices"></p-button>
+    </span>
   </div>
 
-  <p-card>
-    <div class="form-body">
+  <header class="sf-hdr sf-compact">
+    <div>
+      <h1>New supplier invoice</h1>
+      <div class="sf-meta">Register a supplier invoice with line-level detail for 3-way matching</div>
+    </div>
+  </header>
 
-      <!-- ── Invoice Reference ─────────────────────────────────────────────── -->
-      <div class="section-header"><i class="pi pi-file"></i> Invoice Reference</div>
-      <div class="grid grid-cols-2 gap-4">
-        <div>
-          <label class="field-label">Supplier <span class="req">*</span></label>
+  <div class="sf-body">
+
+    <!-- ── Invoice reference ─────────────────────────────────────────────── -->
+    <section class="sf-card">
+      <div class="sf-ch"><h2>Invoice reference</h2></div>
+      <div class="sf-fields">
+        <div class="sf-fld">
+          <label class="sf-req">Supplier</label>
           <p-dropdown [options]="supplierOptions" [(ngModel)]="form.supplierId"
                       placeholder="Select supplier" [filter]="true" styleClass="w-full"></p-dropdown>
         </div>
-        <div>
-          <label class="field-label">Supplier Invoice No</label>
+        <div class="sf-fld">
+          <label>Supplier invoice no</label>
           <input pInputText class="w-full" [(ngModel)]="form.supplierInvoiceNo"
                  placeholder="Supplier's own invoice number" maxlength="50" />
         </div>
-      </div>
-
-      <div class="grid grid-cols-2 gap-4 mt-4">
-        <div>
-          <label class="field-label">Purchase Order</label>
+        <div class="sf-fld">
+          <label>Purchase order</label>
           <p-dropdown [options]="poOptions" [(ngModel)]="form.poUuid"
                       placeholder="Select PO (optional)" [filter]="true" [showClear]="true" styleClass="w-full"
                       (onChange)="onPoChange()" data-testid="invoice-po"></p-dropdown>
-          <small class="field-hint" *ngIf="!form.poUuid">
+          <small class="sf-mu sf-sm" *ngIf="!form.poUuid">
             Leave empty for a bill with no purchase order behind it (a freight bill, say) — it stays Pending until approved.
           </small>
-          <div class="po-status-hint" *ngIf="selectedPoStatus">
-            <span class="status-badge"
-                  [ngClass]="{'status-received': selectedPoStatus==='RECEIVED',
-                              'status-partial-r': selectedPoStatus==='PARTIALLY_RECEIVED',
-                              'status-partial-i': selectedPoStatus==='PARTIALLY_INVOICED'}">
+          <div *ngIf="selectedPoStatus">
+            <span class="sf-pill"
+                  [ngClass]="{'ok': selectedPoStatus==='RECEIVED',
+                              'in': selectedPoStatus==='PARTIALLY_RECEIVED',
+                              'wn': selectedPoStatus==='PARTIALLY_INVOICED'}">
               {{ selectedPoStatus }}
             </span>
           </div>
         </div>
-        <div>
-          <label class="field-label">GRN for 3-Way Matching</label>
+        <div class="sf-fld">
+          <label>GRN for 3-way matching</label>
           <p-dropdown [options]="grnMatchingOptions" [(ngModel)]="form.grnUuid"
                       placeholder="Select APPROVED GRN (optional)" styleClass="w-full"></p-dropdown>
-          <small class="field-hint" *ngIf="form.poUuid && grnFetchOptions.length === 0">
+          <small class="sf-mu sf-sm" *ngIf="form.poUuid && grnFetchOptions.length === 0">
             No approved GRNs for this PO yet.
           </small>
         </div>
       </div>
+    </section>
 
-      <!-- ── Dates ─────────────────────────────────────────────────────────── -->
-      <div class="section-header mt-6"><i class="pi pi-calendar"></i> Dates</div>
-      <div class="grid grid-cols-3 gap-4">
-        <div>
-          <label class="field-label">Invoice Date <span class="req">*</span></label>
+    <!-- ── Dates ─────────────────────────────────────────────────────────── -->
+    <section class="sf-card">
+      <div class="sf-ch"><h2>Dates</h2></div>
+      <div class="sf-fields">
+        <div class="sf-fld">
+          <label class="sf-req">Invoice date</label>
           <p-calendar [(ngModel)]="invoiceDateVal" dateFormat="dd/mm/yy"
                       styleClass="w-full" [showIcon]="true"></p-calendar>
         </div>
-        <div>
-          <label class="field-label">Received Date <span class="req">*</span></label>
+        <div class="sf-fld">
+          <label class="sf-req">Received date</label>
           <p-calendar [(ngModel)]="receivedDateVal" dateFormat="dd/mm/yy"
                       styleClass="w-full" [showIcon]="true"></p-calendar>
         </div>
-        <div>
-          <label class="field-label">Due Date <span class="req">*</span></label>
+        <div class="sf-fld">
+          <label class="sf-req">Due date</label>
           <p-calendar [(ngModel)]="dueDateVal" dateFormat="dd/mm/yy"
                       styleClass="w-full" [showIcon]="true"></p-calendar>
         </div>
       </div>
+    </section>
 
-      <!-- ── Invoice Details (Line Items) ──────────────────────────────────── -->
-      <div class="section-header mt-6">
-        <i class="pi pi-list"></i> Invoice Details
-        <span class="section-header-hint">Load items from a GRN or PO, then adjust quantities and prices as needed</span>
+    <!-- ── Invoice lines ──────────────────────────────────────────────────── -->
+    <section class="sf-card p0">
+      <div class="sf-ch">
+        <h2>Lines</h2>
+        <span class="sf-mu sf-sm">Load items from a GRN or PO, then adjust quantities and prices as needed</span>
       </div>
 
       <!-- Fetch actions -->
-      <div class="fetch-bar">
-        <div class="fetch-group">
-          <label class="fetch-label">Fetch from GRN</label>
-          <p-dropdown [options]="grnFetchOptions" [(ngModel)]="selectedGrnForFetch"
-                      placeholder="Select approved GRN…" styleClass="fetch-dropdown"
-                      [disabled]="grnFetchOptions.length === 0"></p-dropdown>
-          <p-button label="Load GRN Items" icon="pi pi-download" size="small"
-                    severity="info" [loading]="loadingLines"
-                    (onClick)="fetchFromGrn()"
-                    [disabled]="!form.poUuid || !selectedGrnForFetch"></p-button>
-        </div>
+      <div class="sf-pad sf-filters fetch-bar">
+        <span class="sf-mu sf-sm">Fetch from GRN</span>
+        <p-dropdown [options]="grnFetchOptions" [(ngModel)]="selectedGrnForFetch"
+                    placeholder="Select approved GRN…" styleClass="fetch-dropdown"
+                    [disabled]="grnFetchOptions.length === 0"></p-dropdown>
+        <p-button label="Load GRN Items" icon="pi pi-download" size="small"
+                  severity="secondary" [outlined]="true" [loading]="loadingLines"
+                  (onClick)="fetchFromGrn()"
+                  [disabled]="!form.poUuid || !selectedGrnForFetch"></p-button>
         <p-divider layout="vertical" styleClass="mx-2"></p-divider>
-        <div class="fetch-group">
-          <label class="fetch-label">Fetch from PO</label>
-          <p-button label="Load PO Items" icon="pi pi-download" size="small"
-                    severity="secondary" [loading]="loadingLines"
-                    (onClick)="fetchFromPo()" [disabled]="!form.poUuid"></p-button>
-          <small class="fetch-hint">Loads received-but-not-yet-invoiced lines</small>
-        </div>
-        <div class="ml-auto" *ngIf="invoiceLines.length > 0">
+        <span class="sf-mu sf-sm">Fetch from PO</span>
+        <p-button label="Load PO Items" icon="pi pi-download" size="small"
+                  severity="secondary" [outlined]="true" [loading]="loadingLines"
+                  (onClick)="fetchFromPo()" [disabled]="!form.poUuid"></p-button>
+        <small class="sf-mu sf-sm">Loads received-but-not-yet-invoiced lines</small>
+        <span class="ml-auto" *ngIf="invoiceLines.length > 0">
           <p-button label="Clear Lines" icon="pi pi-trash" size="small"
                     severity="danger" [text]="true" (onClick)="clearLines()"></p-button>
-        </div>
+        </span>
       </div>
 
       <!-- Lines table -->
-      <div class="lines-wrap" *ngIf="invoiceLines.length > 0">
-        <table class="inv-lines-table">
+      <div class="sf-tw" *ngIf="invoiceLines.length > 0">
+        <table class="sf-t inv-lines-table">
           <colgroup>
             <col style="width:2.5rem">
             <col>
@@ -124,29 +126,29 @@
           <thead>
             <tr>
               <th>#</th>
-              <th>Item Description</th>
+              <th>Item description</th>
               <th>UOM</th>
-              <th class="qty-col">Qty Accepted</th>
-              <th class="qty-col">Qty Invoiced <span class="req">*</span></th>
-              <th class="price-col">Unit Price</th>
-              <th class="total-col">Line Total</th>
-              <th class="action-col"></th>
+              <th class="sf-r">Qty accepted</th>
+              <th class="sf-r sf-req">Qty invoiced</th>
+              <th>Unit price</th>
+              <th class="sf-r">Line total</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
             <tr *ngFor="let line of invoiceLines; let i = index">
-              <td class="line-no">{{ i + 1 }}</td>
+              <td class="sf-mu">{{ i + 1 }}</td>
               <td class="desc-col">
                 <div class="desc-text">{{ line.itemDescription }}</div>
-                <div class="grn-badge" *ngIf="line.grnLineUuid">
+                <div class="sf-sm" style="color:var(--sms-ok)" *ngIf="line.grnLineUuid">
                   <i class="pi pi-link"></i> GRN linked
                 </div>
               </td>
               <td>{{ line.unitOfMeasure || '—' }}</td>
-              <td class="qty-col text-secondary">
+              <td class="sf-r sf-mu">
                 {{ (line.qtyAccepted || 0) | number:'1.0-4' }}
               </td>
-              <td class="qty-col">
+              <td class="sf-r">
                 <p-inputNumber [(ngModel)]="line.qtyInvoiced"
                                [minFractionDigits]="0" [maxFractionDigits]="4"
                                [min]="0" [max]="line.qtyAccepted || 999999"
@@ -154,50 +156,50 @@
                                (onInput)="onLineQtyChange(line)">
                 </p-inputNumber>
               </td>
-              <td class="price-col">
+              <td>
                 <p-inputNumber [(ngModel)]="line.unitPrice"
                                mode="decimal" [minFractionDigits]="2" [maxFractionDigits]="4"
                                [min]="0" [max]="9999999" styleClass="line-input"
                                (onInput)="onLinePriceChange(line)">
                 </p-inputNumber>
               </td>
-              <td class="total-col font-semibold">
+              <td class="sf-r sf-num">
                 {{ line.lineTotal | number:'1.2-2' }}
               </td>
-              <td class="action-col">
+              <td style="text-align:center">
                 <p-button icon="pi pi-trash" [text]="true" severity="danger"
                           size="small" pTooltip="Remove line"
                           (onClick)="removeLine(i)"></p-button>
               </td>
             </tr>
-          </tbody>
-          <tfoot>
-            <tr class="subtotal-row">
-              <td colspan="6" class="text-right font-bold">Lines Subtotal</td>
-              <td class="total-col font-bold">{{ linesSubtotal | number:'1.2-2' }}</td>
+            <tr class="tot">
+              <td colspan="6" class="sf-r">Lines subtotal</td>
+              <td class="sf-r sf-num">{{ linesSubtotal | number:'1.2-2' }}</td>
               <td></td>
             </tr>
-          </tfoot>
+          </tbody>
         </table>
       </div>
 
-      <div class="no-lines-hint" *ngIf="invoiceLines.length === 0">
+      <div class="sf-empty" *ngIf="invoiceLines.length === 0">
         <i class="pi pi-info-circle"></i>
         No invoice lines added yet. Use the buttons above to load items, or enter a manual subtotal below.
       </div>
+    </section>
 
-      <!-- ── Amounts ────────────────────────────────────────────────────────── -->
-      <div class="section-header mt-6"><i class="pi pi-dollar"></i> Invoice Amounts</div>
-      <div class="grid grid-cols-2 gap-4">
-        <div>
-          <label class="field-label">Currency <span class="req">*</span></label>
+    <!-- ── Amounts ────────────────────────────────────────────────────────── -->
+    <section class="sf-card">
+      <div class="sf-ch"><h2>Invoice amounts</h2></div>
+      <div class="sf-fields">
+        <div class="sf-fld">
+          <label class="sf-req">Currency</label>
           <p-dropdown [options]="currencyOptions" [(ngModel)]="form.currency" [filter]="true"
                       filterBy="label" styleClass="w-full" data-testid="invoice-currency"></p-dropdown>
         </div>
-        <div>
-          <label class="field-label">
-            Subtotal <span class="req">*</span>
-            <span class="field-hint-inline" *ngIf="invoiceLines.length > 0">(computed from lines)</span>
+        <div class="sf-fld">
+          <label>
+            <span class="sf-req">Subtotal</span>
+            <span class="sf-mu sf-sm" *ngIf="invoiceLines.length > 0"> (computed from lines)</span>
           </label>
           <p-inputNumber *ngIf="invoiceLines.length === 0"
                          [(ngModel)]="form.subtotal" mode="decimal" [minFractionDigits]="2"
@@ -206,18 +208,16 @@
             {{ linesSubtotal | number:'1.2-2' }}
           </div>
         </div>
-      </div>
-      <div class="grid grid-cols-2 gap-4 mt-4">
-        <div>
-          <label class="field-label">Purchase Tax Code</label>
+        <div class="sf-fld">
+          <label>Purchase tax code</label>
           <p-dropdown [options]="taxCodeOptions" [(ngModel)]="form.taxCodeUuid" styleClass="w-full"
                       placeholder="No tax code — enter the amount" data-testid="invoice-tax-code"></p-dropdown>
-          <small class="field-hint">The default purchase code is pre-selected; choose none to enter the tax by hand.</small>
+          <small class="sf-mu sf-sm">The default purchase code is pre-selected; choose none to enter the tax by hand.</small>
         </div>
-        <div>
-          <label class="field-label">
-            Tax Amount
-            <span class="field-hint-inline" *ngIf="selectedTaxCode">
+        <div class="sf-fld">
+          <label>
+            Tax amount
+            <span class="sf-mu sf-sm" *ngIf="selectedTaxCode">
               ({{ selectedTaxCode.code }} · {{ selectedTaxCode.ratePercent }}% of the subtotal)
             </span>
           </label>
@@ -228,38 +228,44 @@
           </div>
         </div>
       </div>
-      <div class="total-row mt-3">
-        <span class="total-label">Total Amount:</span>
-        <span class="total-value">{{ totalAmount | number:'1.2-2' }} {{ form.currency }}</span>
+      <div class="sf-facts">
+        <div class="sf-kpi">
+          <span class="l">Total amount</span>
+          <span class="v">{{ totalAmount | number:'1.2-2' }} {{ form.currency }}</span>
+        </div>
       </div>
+    </section>
 
-      <!-- ── Payment ────────────────────────────────────────────────────────── -->
-      <div class="section-header mt-6"><i class="pi pi-credit-card"></i> Payment</div>
-      <div class="grid grid-cols-2 gap-4">
-        <div>
-          <label class="field-label">Preferred Payment Method</label>
+    <!-- ── Payment ────────────────────────────────────────────────────────── -->
+    <section class="sf-card">
+      <div class="sf-ch"><h2>Payment</h2></div>
+      <div class="sf-fields">
+        <div class="sf-fld">
+          <label>Preferred payment method</label>
           <p-dropdown [options]="paymentMethodOptions" [(ngModel)]="form.paymentMethod"
                       placeholder="Select method (optional)" styleClass="w-full"></p-dropdown>
         </div>
-        <div>
-          <label class="field-label">Notes</label>
+        <div class="sf-fld">
+          <label>Notes</label>
           <input pInputText class="w-full" [(ngModel)]="form.notes" [maxlength]="notesMax" data-testid="invoice-notes" />
-          <small class="field-hint">{{ (form.notes ?? '').length }} / {{ notesMax }}</small>
+          <small class="sf-mu sf-sm">{{ (form.notes ?? '').length }} / {{ notesMax }}</small>
         </div>
       </div>
+    </section>
 
-      <div class="section-header mt-6"><i class="pi pi-paperclip"></i> Attachments</div>
+    <section class="sf-card">
+      <div class="sf-ch"><h2>Attachments</h2></div>
       <app-attachment-list interfaceCode="INVOICE" [documentId]="invoiceUuid" [compact]="true"></app-attachment-list>
+    </section>
+  </div>
 
-    </div>
-
-    <ng-template pTemplate="footer">
-      <div class="flex justify-end gap-3">
-        <p-button label="Cancel" [text]="true" severity="secondary"
-                  routerLink="/portal/pages/finance/invoices"></p-button>
-        <p-button label="Create Invoice" icon="pi pi-check" [loading]="isSaving"
-                  (onClick)="save()"></p-button>
-      </div>
-    </ng-template>
-  </p-card>
-</div>
+  <div class="sf-fbar">
+    <span class="sf-mu sf-sm"><span class="sf-req"></span> required</span>
+    <span class="sf-end">
+      <p-button label="Cancel" [text]="true" severity="secondary"
+                routerLink="/portal/pages/finance/invoices"></p-button>
+      <p-button label="Create Invoice" icon="pi pi-check" [loading]="isSaving"
+                (onClick)="save()"></p-button>
+    </span>
+  </div>
+</sf-page>

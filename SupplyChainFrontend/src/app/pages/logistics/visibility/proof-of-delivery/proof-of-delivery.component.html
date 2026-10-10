@@ -1,58 +1,61 @@
-<div class="pod-page">
-  <p-toast></p-toast>
+<p-toast></p-toast>
 
-  <div class="page-header">
-    <div>
-      <h1 class="page-title"><i class="pi pi-verified"></i> Proof of delivery</h1>
-      <p class="page-subtitle">
-        Who took the goods, when, and the artefacts that show it — stored here, not linked to
-        somewhere nobody controls. The list below is what could not be demonstrated if it were
-        denied.
-      </p>
-    </div>
-
-    <div class="header-actions">
-      <p-button label="Exceptions" icon="pi pi-exclamation-triangle" severity="secondary" [outlined]="true"
-                routerLink="/portal/pages/logistics/exceptions"
-                data-testid="action-exceptions"></p-button>
-    </div>
+<sf-page [crumbs]="['Logistics', 'Proof of delivery']">
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <p-button label="Exceptions" icon="pi pi-exclamation-triangle" [text]="true"
+              routerLink="/portal/pages/logistics/exceptions"
+              data-testid="action-exceptions"></p-button>
   </div>
 
-  <!-- ── Where it stands ──────────────────────────────────────────────────────── -->
-
-  <div class="summary" *ngIf="coverage as c">
-    <div class="tiles">
-      <div class="tile">
-        <span class="value" data-testid="tile-delivered">{{ c.delivered }}</span>
-        <span class="label">delivered</span>
-      </div>
-
-      <!-- A name and an artefact. One of the two is recorded and is not evidence. -->
-      <div class="tile">
-        <span class="value" data-testid="tile-defensible">
-          {{ c.defensible }}<span class="pct" *ngIf="defensiblePercent !== null"> · {{ defensiblePercent }}%</span>
-        </span>
-        <span class="label">can be demonstrated</span>
-      </div>
-
-      <div class="tile" [class.alarm]="c.weak > 0">
-        <span class="value" data-testid="tile-weak">{{ c.weak }}</span>
-        <span class="label">recorded, but thin</span>
-      </div>
-
-      <div class="tile" [class.alarm]="c.withoutProof > 0">
-        <span class="value" data-testid="tile-none">{{ c.withoutProof }}</span>
-        <span class="label">nothing at all</span>
+  <div class="sf-body">
+    <div class="sf-lr-head">
+      <div>
+        <h1>Proof of delivery <span class="sf-count">{{ coverage ? coverage.gaps.length : 0 }}</span></h1>
+        <div class="sf-sub">
+          Who took the goods, when, and the artefacts that show it — stored here, not linked to
+          somewhere nobody controls. The list below is what could not be demonstrated if it were
+          denied.
+        </div>
       </div>
     </div>
 
-    <div class="warnings" *ngIf="c.warnings.length" data-testid="summary-warnings">
-      <p *ngFor="let w of c.warnings"><i class="pi pi-info-circle"></i> {{ w }}</p>
-    </div>
-  </div>
+    <!-- ── Where it stands ──────────────────────────────────────────────────────── -->
 
-  <!-- ── The gaps ─────────────────────────────────────────────────────────────── -->
+    <ng-container *ngIf="coverage as c">
+      <div class="sf-grid sf-tiles">
+        <div class="sf-tile">
+          <span class="l">Delivered</span>
+          <span class="v" data-testid="tile-delivered">{{ c.delivered }}</span>
+        </div>
 
+        <!-- A name and an artefact. One of the two is recorded and is not evidence. -->
+        <div class="sf-tile">
+          <span class="l">Can be demonstrated</span>
+          <span class="v ok" data-testid="tile-defensible">
+            {{ c.defensible }}<span class="pct" *ngIf="defensiblePercent !== null"> · {{ defensiblePercent }}%</span>
+          </span>
+        </div>
+
+        <div class="sf-tile">
+          <span class="l">Recorded, but thin</span>
+          <span class="v" [class.er]="c.weak > 0" data-testid="tile-weak">{{ c.weak }}</span>
+        </div>
+
+        <div class="sf-tile">
+          <span class="l">Nothing at all</span>
+          <span class="v" [class.er]="c.withoutProof > 0" data-testid="tile-none">{{ c.withoutProof }}</span>
+        </div>
+      </div>
+
+      <div class="warnings" *ngIf="c.warnings.length" data-testid="summary-warnings">
+        <p *ngFor="let w of c.warnings"><i class="pi pi-info-circle"></i> {{ w }}</p>
+      </div>
+    </ng-container>
+
+    <!-- ── The gaps ─────────────────────────────────────────────────────────────── -->
+
+    <div class="sf-card p0">
+      <div class="sf-ch"><h2>What could not be demonstrated</h2></div>
   <p-table [value]="coverage?.gaps ?? []" [loading]="isLoading"
            styleClass="p-datatable-sm" data-testid="gap-table">
 
@@ -70,7 +73,7 @@
       <tr [attr.data-testid]="'row-' + g.consignmentUuid">
         <td>
           <a [routerLink]="['/portal/pages/logistics/consignments', g.consignmentUuid]"
-             class="font-mono link">{{ g.consignmentNumber }}</a>
+             class="sf-mono"><strong>{{ g.consignmentNumber }}</strong></a>
           <div class="muted font-mono" *ngIf="g.masterAwb">{{ g.masterAwb }}</div>
         </td>
 
@@ -100,13 +103,16 @@
 
     <ng-template pTemplate="emptymessage">
       <tr>
-        <td colspan="5" class="empty" data-testid="empty">
+        <td colspan="5" class="sf-empty" data-testid="empty">
           Every delivery can be demonstrated. Carrier scans become proofs within ten minutes of
           arriving.
         </td>
       </tr>
     </ng-template>
   </p-table>
+    </div>
+  </div>
+</sf-page>
 
   <!-- ── Recording a handover ─────────────────────────────────────────────────── -->
 
@@ -223,4 +229,3 @@
       <p-button label="Close" severity="secondary" (onClick)="detailVisible = false"></p-button>
     </ng-template>
   </p-dialog>
-</div>

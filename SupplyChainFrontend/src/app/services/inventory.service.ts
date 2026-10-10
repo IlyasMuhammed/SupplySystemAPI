@@ -117,6 +117,22 @@ export interface ProductDetailModel extends ProductListItemModel {
   isManufacturable?: boolean;
   defaultProductionWarehouseId?: number;
   defaultProductionWarehouseName?: string;
+  // A36 D-2 — service settings (null/false for non-service products).
+  serviceInvoicingPolicy?: ServiceInvoicingPolicy | null;
+  serviceBillingModel?: ServiceBillingModel | null;
+  estimatedDurationHours?: number | null;
+  hasServiceBom?: boolean;
+  isSubcontractable?: boolean;
+  /** A36 D-3 — read-only: false with hasServiceBom ⇒ orders run with ad-hoc materials. */
+  hasActiveServiceBom?: boolean;
+  // A37 D-10 (API-CONTRACT §2) — isServiceable is derived (= productType SERVICE), read-only.
+  isServiceable?: boolean;
+  serviceCategory?: ServiceCategory | null;
+  requiresSiteVisit?: boolean;
+  /** Key present only while MODULE_MANUFACTURING is enabled (PRD-CAP-03). */
+  productionSettings?: ProductProductionSettings;
+  /** Key present only while MODULE_SERVICES is enabled (PRD-CAP-03). */
+  serviceSettings?: ProductServiceSettings;
   notes?: string;
   updatedDate?: string;
   createdBy: number;
@@ -270,6 +286,16 @@ export interface CreateProductRequest {
   isStockable?: boolean;
   defaultProductionWarehouseId?: number;
 
+  // A36 D-2 — service products only; the server refuses them on any other type.
+  serviceInvoicingPolicy?: ServiceInvoicingPolicy | null;
+  serviceBillingModel?: ServiceBillingModel | null;
+  estimatedDurationHours?: number | null;
+  hasServiceBom?: boolean;
+  isSubcontractable?: boolean;
+  // A37 D-10 — service products only.
+  serviceCategory?: ServiceCategory | null;
+  requiresSiteVisit?: boolean;
+
   // Variant seeding (PV-001) — supply Variants for a multi-SKU product (exactly one
   // isDefault=true), or omit it and supply purchasePrice for a single auto-created default
   // variant (simple products, e.g. Cement).
@@ -308,7 +334,45 @@ export interface PatchProductRequest {
   isPurchasable?: boolean;
   isStockable?: boolean;
   defaultProductionWarehouseId?: number;
+  // A36 D-2 — service products only; null/false clears them when the type moves away from SERVICE.
+  serviceInvoicingPolicy?: ServiceInvoicingPolicy | null;
+  serviceBillingModel?: ServiceBillingModel | null;
+  estimatedDurationHours?: number | null;
+  hasServiceBom?: boolean;
+  isSubcontractable?: boolean;
+  // A37 D-10 — service products only (400 "Service category is only applicable to service products").
+  serviceCategory?: ServiceCategory | null;
+  requiresSiteVisit?: boolean;
 }
+
+/** A37 D-10 — a service product's category. */
+export type ServiceCategory = 'GENERAL' | 'INSTALLATION' | 'REPAIR' | 'MAINTENANCE' | 'CONSULTING';
+
+/** A37 API-CONTRACT §2 — the product's production extension (MODULE_MANUFACTURING). */
+export interface ProductProductionSettings {
+  supplyMethod: string;
+  defaultProductionWarehouseId?: number | null;
+  defaultProductionWarehouseName?: string | null;
+  activeBomUuid?: string | null;
+  activeBomNumber?: string | null;
+  manufacturingLeadTimeDays?: number | null;
+}
+
+/** A37 API-CONTRACT §2 — the product's service extension (MODULE_SERVICES). */
+export interface ProductServiceSettings {
+  invoicingPolicy?: ServiceInvoicingPolicy | null;
+  billingModel?: ServiceBillingModel | null;
+  estimatedDurationHours?: number | null;
+  hasServiceBom: boolean;
+  isSubcontractable: boolean;
+  serviceCategory?: ServiceCategory | null;
+  requiresSiteVisit: boolean;
+  activeServiceBomUuid?: string | null;
+}
+
+/** A36 D-2 — a service product's invoicing policy and billing model codes. */
+export type ServiceInvoicingPolicy = 'FIXED_PRICE' | 'COST_PLUS' | 'TIME_AND_MATERIAL';
+export type ServiceBillingModel = 'INCLUSIVE' | 'PASS_THROUGH';
 
 // A30 §28.1 — PATCH /api/products/{id}/manufacturing-config. Flags left out are re-defaulted from
 // the new type on the server.

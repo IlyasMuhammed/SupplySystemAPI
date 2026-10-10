@@ -1,41 +1,76 @@
-<div class="invoice-detail-page">
-  <p-toast></p-toast>
+<p-toast></p-toast>
 
-  <div class="not-found" *ngIf="notFound" data-testid="not-found">
-    <i class="pi pi-file"></i>
-    <h2>Bill not found</h2>
-    <p-button label="Back to carrier invoices" icon="pi pi-arrow-left" [text]="true"
-              routerLink="/portal/pages/logistics/settlement/carrier-invoices"></p-button>
+<div class="sf-empty" *ngIf="notFound" data-testid="not-found">
+  <i class="pi pi-file" style="font-size:2rem"></i>
+  <h2>Bill not found</h2>
+  <p-button label="Back to carrier invoices" icon="pi pi-arrow-left" [text]="true"
+            routerLink="/portal/pages/logistics/settlement/carrier-invoices"></p-button>
+</div>
+
+<div *ngIf="isLoading && !invoice" class="sf-empty" data-testid="loading">
+  <i class="pi pi-spin pi-spinner"></i> Loading…
+</div>
+
+<sf-page *ngIf="invoice as inv" [crumbs]="['Logistics', 'Carrier invoices', inv.invoiceNumber]">
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <p-button *ngIf="canWork" label="Compare" icon="pi pi-equals" [loading]="isMatching"
+              (onClick)="runThreeWay()" data-testid="action-three-way"></p-button>
+    <p-button *ngIf="canWork" label="Match lines" icon="pi pi-link"
+              [text]="true" [loading]="isMatching" (onClick)="runMatching()"
+              data-testid="action-match"></p-button>
+    <p-button label="Unmatched lines" icon="pi pi-inbox" [text]="true"
+              routerLink="/portal/pages/logistics/settlement/match-queue"></p-button>
   </div>
 
-  <div *ngIf="isLoading && !invoice" class="loading-state" data-testid="loading">
-    <i class="pi pi-spin pi-spinner"></i> Loading…
-  </div>
-
-  <ng-container *ngIf="invoice as inv">
-    <div class="page-header">
+  <header class="sf-hdr">
+    <div class="sf-t">
       <div>
-        <h1 class="page-title">
-          <i class="pi pi-file"></i>
-          <span class="font-mono">{{ inv.invoiceNumber }}</span>
+        <div class="sf-kicker">Carrier invoice · {{ inv.carrierName }}</div>
+        <h1>
+          <span class="sf-mono">{{ inv.invoiceNumber }}</span>
           <p-tag [value]="inv.status" [severity]="statusSeverity(inv.status)"
                  data-testid="invoice-status"></p-tag>
         </h1>
-        <p class="page-subtitle">
-          {{ inv.carrierName }} · issued {{ inv.invoiceDate | date:'dd MMM yyyy' }}
+        <div class="sf-meta">
+          issued {{ inv.invoiceDate | date:'dd MMM yyyy' }}
           <span *ngIf="inv.dueDate">· due {{ inv.dueDate | date:'dd MMM yyyy' }}</span>
-        </p>
-      </div>
-
-      <div class="header-actions">
-        <p-button *ngIf="canWork" label="Match lines" icon="pi pi-link" severity="secondary"
-                  [outlined]="true" [loading]="isMatching" (onClick)="runMatching()"
-                  data-testid="action-match"></p-button>
-        <p-button *ngIf="canWork" label="Compare" icon="pi pi-equals" [loading]="isMatching"
-                  (onClick)="runThreeWay()" data-testid="action-three-way"></p-button>
+        </div>
       </div>
     </div>
 
+    <sf-stages [stages]="stages"></sf-stages>
+
+    <!-- ── The money ───────────────────────────────────────────────────────── -->
+
+    <div class="sf-facts">
+      <div class="sf-kpi">
+        <span class="l">Billed</span>
+        <span class="v" data-testid="invoice-total">
+          {{ inv.totalAmount | number:'1.2-2' }} {{ inv.currency }}
+        </span>
+      </div>
+
+      <div class="sf-kpi" *ngIf="threeWay as t">
+        <span class="l">Expected</span>
+        <span class="v">{{ t.expectedTotal | number:'1.2-2' }} {{ inv.currency }}</span>
+      </div>
+
+      <div class="sf-kpi" *ngIf="threeWay as t">
+        <span class="l">Difference</span>
+        <span class="v" [class.er]="t.varianceTotal > 0" [class.wn]="t.varianceTotal < 0"
+              data-testid="variance-total">
+          {{ t.varianceTotal | number:'1.2-2' }} {{ inv.currency }}
+        </span>
+      </div>
+
+      <div class="sf-kpi" *ngIf="inv.taxAmount">
+        <span class="l">Tax</span>
+        <span class="v">{{ inv.taxAmount | number:'1.2-2' }}</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="sf-body">
     <div class="banner warn" *ngIf="isWithdrawn" data-testid="banner-withdrawn">
       <i class="pi pi-ban"></i>
       <span>
@@ -44,40 +79,11 @@
       </span>
     </div>
 
-    <!-- ── The money ───────────────────────────────────────────────────────── -->
-
-    <div class="totals">
-      <div class="total">
-        <span class="label">Billed</span>
-        <span class="value" data-testid="invoice-total">
-          {{ inv.totalAmount | number:'1.2-2' }} {{ inv.currency }}
-        </span>
-      </div>
-
-      <div class="total" *ngIf="threeWay as t">
-        <span class="label">Expected</span>
-        <span class="value">{{ t.expectedTotal | number:'1.2-2' }} {{ inv.currency }}</span>
-      </div>
-
-      <div class="total" *ngIf="threeWay as t" [class.over]="t.varianceTotal > 0"
-           [class.under]="t.varianceTotal < 0">
-        <span class="label">Difference</span>
-        <span class="value" data-testid="variance-total">
-          {{ t.varianceTotal | number:'1.2-2' }} {{ inv.currency }}
-        </span>
-      </div>
-
-      <div class="total" *ngIf="inv.taxAmount">
-        <span class="label">Tax</span>
-        <span class="value">{{ inv.taxAmount | number:'1.2-2' }}</span>
-      </div>
-    </div>
-
     <!-- ── The comparison ──────────────────────────────────────────────────── -->
 
-    <section class="card" *ngIf="threeWay as t" data-testid="comparison-card">
-      <div class="card-head">
-        <h2 class="card-title">
+    <section class="sf-card" *ngIf="threeWay as t" data-testid="comparison-card">
+      <div class="sf-ch">
+        <h2>
           What was expected, and what was billed
           <p-tag *ngIf="t.isClean" value="Agrees" severity="success"></p-tag>
         </h2>
@@ -146,9 +152,9 @@
 
     <!-- ── The lines ───────────────────────────────────────────────────────── -->
 
-    <section class="card" data-testid="lines-card">
-      <div class="card-head">
-        <h2 class="card-title">Charges ({{ inv.lineCount }})</h2>
+    <section class="sf-card" data-testid="lines-card">
+      <div class="sf-ch">
+        <h2>Charges <span class="sf-pill">{{ inv.lineCount }}</span></h2>
         <span class="muted" *ngIf="matches as m" data-testid="match-counts">
           {{ m.matched }} matched · {{ m.unmatched + m.ambiguous }} needing a person ·
           {{ m.excluded }} set aside
@@ -214,7 +220,8 @@
         <p *ngFor="let w of matches!.warnings"><i class="pi pi-exclamation-triangle"></i> {{ w }}</p>
       </div>
     </section>
-  </ng-container>
+  </div>
+</sf-page>
 
   <!-- ── Deciding a line ─────────────────────────────────────────────────────── -->
 
@@ -272,4 +279,3 @@
                 (onClick)="confirmLine()" data-testid="confirm-line"></p-button>
     </ng-template>
   </p-dialog>
-</div>

@@ -1,4 +1,4 @@
-namespace SMS.Modules.Demand.Models;
+﻿namespace SMS.Modules.Demand.Models;
 
 // A29-P3-05 §4.1/§4.2 — read-shape DTOs, for AutoMapper's entity projection and this task's
 // FluentValidation rules.
@@ -208,6 +208,21 @@ public class SaleOrderModel
     public List<SaleOrderProductionOrderModel> ProductionOrders { get; set; } = [];
     /// <summary>ProductionCreationPendingSince is set: show the banner and "Create production orders".</summary>
     public bool ProductionCreationPending { get; set; }
+
+    /// <summary>A36 §4 (detail only): the order's service orders, in creation order; empty for drafts or without the feature.</summary>
+    public List<SaleOrderServiceOrderModel> ServiceOrders { get; set; } = [];
+}
+
+/// <summary>A36 §4 — a service order raised for a service line of the order.</summary>
+public class SaleOrderServiceOrderModel
+{
+    public Guid    ServiceOrderUuid { get; set; }
+    public string  ServiceNumber    { get; set; } = string.Empty;
+    public Guid    SoLineUuid       { get; set; }
+    /// <summary>1-based by line Id, as A33's "Line N".</summary>
+    public int?    LineNumber       { get; set; }
+    public string  Status           { get; set; } = string.Empty;
+    public decimal Quantity         { get; set; }
 }
 
 /// <summary>A33: one reason a DRAFT order cannot be confirmed (API-CONTRACT.md §5).</summary>
@@ -289,6 +304,8 @@ public class DeliveryPreviewLineModel
     public List<string> EffectiveRouteSteps { get; set; } = [];
     public string  RouteSource          { get; set; } = "NONE";
     public string? RouteBlocker         { get; set; }
+    /// <summary>A37 RTE-03 — the configured route is unavailable (Manufacturing off) and the default (or nothing) applies.</summary>
+    public string? RouteWarning         { get; set; }
     /// <summary>A34: STOCK | MANUFACTURE; null without a route.</summary>
     public string? EffectiveRouteCategory { get; set; }
 }
@@ -340,6 +357,10 @@ public class SaleOrderConfirmResultModel
     public List<SaleOrderProductionOrderModel> ProductionOrders { get; set; } = [];
     public bool    ProductionCreationFailed { get; set; }
     public string? ProductionMessage        { get; set; }
+
+    // A36 D-10 (additive): some service line's service order could not be raised; retried on the next detail load.
+    public bool    ServiceOrderCreationFailed { get; set; }
+    public string? ServiceOrderMessage        { get; set; }
 }
 
 public class SaleOrderDeliveryRefModel
@@ -359,6 +380,10 @@ public class SaleOrderCancelResultModel
     public List<SaleOrderProductionOrderModel> CancelledProductionOrders { get; set; } = [];
     public List<SaleOrderProductionOrderModel> RunningProductionOrders   { get; set; } = [];
     public int CancelledAllocationDemands { get; set; }
+
+    // A36 D-10 (additive).
+    public List<SaleOrderServiceOrderModel> CancelledServiceOrders { get; set; } = [];
+    public List<SaleOrderServiceOrderModel> RunningServiceOrders   { get; set; } = [];
 }
 
 public class SaleOrderLineModel
@@ -415,6 +440,8 @@ public class SaleOrderLineModel
     public string   RouteSource           { get; set; } = "NONE";
     /// <summary>A <see cref="ConfirmBlockerCodes"/> value when this line blocks confirmation.</summary>
     public string?  RouteBlocker          { get; set; }
+    /// <summary>A37 RTE-03 — the configured route is unavailable (Manufacturing off) and the default (or nothing) applies.</summary>
+    public string?  RouteWarning          { get; set; }
 
     // A34 (API-CONTRACT §5.1, §6.1).
     /// <summary>STOCK | MANUFACTURE: live from the effective route while DRAFT, the confirm snapshot after; null without a route.</summary>
@@ -429,6 +456,9 @@ public class SaleOrderLineModel
     public DateTime? EffectiveDeliveryDate  { get; set; }
     /// <summary>MANUAL | CALCULATED | NONE.</summary>
     public string    DeliveryDateSource     { get; set; } = DeliveryDateSources.None;
+
+    /// <summary>A36 §4 — the product is a SERVICE: no route, no delivery, fulfilled by its service orders.</summary>
+    public bool      IsService              { get; set; }
 }
 
 // ── A34 (API-CONTRACT §5, §6) ───────────────────────────────────────────────

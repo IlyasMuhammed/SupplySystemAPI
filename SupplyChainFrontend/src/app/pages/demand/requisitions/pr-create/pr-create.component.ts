@@ -18,6 +18,7 @@ import { DemandService, CreatePrRequest } from '../../../../services/demand.serv
 import { InventoryService, ProductListItemModel } from '../../../../services/inventory.service';
 import { AttachmentListComponent } from '../../../../shared/attachment-list/attachment-list.component';
 import { ProductVariantPickerComponent, VariantPickerSelection } from '../../../../shared/product-variant-picker/product-variant-picker.component';
+import { FLOW } from '../../../../shared/flow';
 
 @Component({
   selector: 'app-pr-create',
@@ -27,7 +28,8 @@ import { ProductVariantPickerComponent, VariantPickerSelection } from '../../../
     ButtonModule, CardModule, InputTextModule, TextareaModule,
     InputNumberModule, CheckboxModule, DropdownModule,
     CalendarModule, DividerModule, ToastModule, TooltipModule, AttachmentListComponent,
-    ProductVariantPickerComponent
+    ProductVariantPickerComponent,
+    ...FLOW
   ],
   templateUrl: './pr-create.component.html',
   styleUrls: ['./pr-create.component.scss'],

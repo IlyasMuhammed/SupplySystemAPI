@@ -1,46 +1,49 @@
-<div class="accounts-page">
-  <p-toast></p-toast>
+<p-toast></p-toast>
 
-  <div class="not-found" *ngIf="notFound" data-testid="not-found">
-    <i class="pi pi-inbox"></i>
-    <h2>Carrier not found</h2>
-    <p>It may have been deleted, or the link may be wrong.</p>
+<div class="sf-empty" *ngIf="notFound" data-testid="not-found">
+  <i class="pi pi-inbox" style="font-size:2rem"></i>
+  <h2>Carrier not found</h2>
+  <p>It may have been deleted, or the link may be wrong.</p>
+  <p-button label="Back to carriers" icon="pi pi-arrow-left" [text]="true"
+            routerLink="/portal/pages/logistics/carriers"></p-button>
+</div>
+
+<div *ngIf="isLoading && !carrier" class="sf-empty" data-testid="loading">
+  <i class="pi pi-spin pi-spinner"></i> Loading…
+</div>
+
+<sf-page *ngIf="carrier as c" [crumbs]="['Logistics', 'Carriers', c.name]">
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <p-button label="Add account" icon="pi pi-plus" [disabled]="isSubmitting"
+              (onClick)="openCreate()" data-testid="add-account"></p-button>
     <p-button label="Back to carriers" icon="pi pi-arrow-left" [text]="true"
               routerLink="/portal/pages/logistics/carriers"></p-button>
   </div>
 
-  <div *ngIf="isLoading && !carrier" class="loading-state" data-testid="loading">
-    <i class="pi pi-spin pi-spinner"></i> Loading…
-  </div>
-
-  <ng-container *ngIf="carrier as c">
-    <div class="page-header">
+  <header class="sf-hdr">
+    <div class="sf-t">
       <div>
-        <h1 class="page-title">
-          <i class="pi pi-id-card"></i>
+        <div class="sf-kicker">Carrier accounts</div>
+        <h1>
           {{ c.name }}
           <p-tag *ngIf="providerSummary as provider" [value]="provider" severity="secondary"
                  data-testid="provider-tag"></p-tag>
         </h1>
-        <p class="page-subtitle">
-          Carrier accounts — which contract a booking goes out on, and what it may be asked for.
-        </p>
-      </div>
-
-      <div class="header-actions">
-        <p-button label="Back" icon="pi pi-arrow-left" [text]="true" severity="secondary"
-                  routerLink="/portal/pages/logistics/carriers"></p-button>
-        <p-button label="Add account" icon="pi pi-plus" [disabled]="isSubmitting"
-                  (onClick)="openCreate()" data-testid="add-account"></p-button>
+        <div class="sf-meta">
+          Which contract a booking goes out on, and what it may be asked for.
+        </div>
       </div>
     </div>
+  </header>
+
+  <div class="sf-body">
 
     <!-- ── How this carrier is booked ───────────────────────────────────────── -->
 
-    <section class="integration" *ngIf="integration as i" data-testid="integration">
-      <h2>How this carrier is booked</h2>
+    <section class="sf-card" *ngIf="integration as i" data-testid="integration">
+      <div class="sf-ch"><h2>How this carrier is booked</h2></div>
 
-      <div class="integration-fields">
+      <div class="sf-fields">
         <div class="field">
           <label for="integration-mode">Booking</label>
           <p-select inputId="integration-mode" [options]="modeOptions" optionLabel="label" optionValue="value"
@@ -63,9 +66,9 @@
         </p>
         <ul>
           <li *ngFor="let c of p.credentials" [attr.data-testid]="'hint-' + c.key">
-            <span class="font-mono">{{ c.key }}</span>
-            <span class="tag required" *ngIf="c.required">required</span>
-            <span class="tag secret" *ngIf="c.isSecret">secret</span>
+            <span class="sf-mono">{{ c.key }}</span>
+            <span class="sf-pill wn" *ngIf="c.required">required</span>
+            <span class="sf-pill" *ngIf="c.isSecret">secret</span>
             <span class="hint"> — {{ c.description }}</span>
           </li>
         </ul>
@@ -93,10 +96,10 @@
       </span>
     </div>
 
-    <div class="empty-state" *ngIf="!accounts.length && !isLoading" data-testid="no-accounts">
-      <i class="pi pi-id-card"></i>
+    <div class="sf-card sf-empty" *ngIf="!accounts.length && !isLoading" data-testid="no-accounts">
+      <i class="pi pi-id-card" style="font-size:2rem"></i>
       <p>No accounts yet.</p>
-      <p class="hint">
+      <p class="sf-sm">
         A manual carrier needs none — there is nothing to authenticate against. An API carrier
         cannot be booked until one exists.
       </p>
@@ -104,7 +107,7 @@
 
     <!-- ── One account ─────────────────────────────────────────────────────── -->
 
-    <section class="account" *ngFor="let a of accounts"
+    <section class="sf-card account" *ngFor="let a of accounts"
              [class.inactive]="!a.isActive" data-testid="account">
       <div class="account-head">
         <div class="identity">
@@ -186,38 +189,39 @@
             can be replaced, not read.
           </p>
 
-          <table class="credential-table" *ngIf="credentialsFor(a).length"
-                 data-testid="credential-table">
-            <tr>
-              <th>Key</th>
-              <th>Note</th>
-              <th style="width: 10rem">Expires</th>
-              <th style="width: 11rem">Set</th>
-              <th style="width: 10rem"></th>
-            </tr>
-            <tr *ngFor="let cred of credentialsFor(a)" [class.expired]="cred.isExpired"
-                data-testid="credential-row">
-              <td class="key">{{ cred.key }}</td>
-              <td class="note">{{ cred.description || '—' }}</td>
-              <td>
-                <span *ngIf="cred.expiresAt">{{ cred.expiresAt | date:'dd MMM yyyy' }}</span>
-                <span *ngIf="!cred.expiresAt">—</span>
-                <i class="pi pi-exclamation-triangle" *ngIf="cred.isExpired"
-                   pTooltip="Every booking on this account fails until it is replaced"></i>
-              </td>
-              <td class="muted">{{ cred.setAt | date:'dd MMM yyyy' }}</td>
-              <td class="row-actions">
-                <p-button label="Replace" [text]="true" size="small"
-                          [disabled]="isSubmitting" (onClick)="openCredential(a, cred.key)"
-                          data-testid="replace-credential"></p-button>
-                <p-button icon="pi pi-trash" [text]="true" severity="danger" size="small"
-                          [disabled]="isSubmitting" (onClick)="removeCredential(a, cred)"
-                          data-testid="remove-credential"></p-button>
-              </td>
-            </tr>
-          </table>
+          <div class="sf-tw" *ngIf="credentialsFor(a).length">
+            <table class="sf-t credential-table" data-testid="credential-table">
+              <tr>
+                <th>Key</th>
+                <th>Note</th>
+                <th style="width: 10rem">Expires</th>
+                <th style="width: 11rem">Set</th>
+                <th style="width: 10rem"></th>
+              </tr>
+              <tr *ngFor="let cred of credentialsFor(a)" [class.expired]="cred.isExpired"
+                  data-testid="credential-row">
+                <td class="key">{{ cred.key }}</td>
+                <td class="sf-mu">{{ cred.description || '—' }}</td>
+                <td>
+                  <span *ngIf="cred.expiresAt">{{ cred.expiresAt | date:'dd MMM yyyy' }}</span>
+                  <span *ngIf="!cred.expiresAt">—</span>
+                  <i class="pi pi-exclamation-triangle" *ngIf="cred.isExpired"
+                     pTooltip="Every booking on this account fails until it is replaced"></i>
+                </td>
+                <td class="sf-mu">{{ cred.setAt | date:'dd MMM yyyy' }}</td>
+                <td class="row-actions">
+                  <p-button label="Replace" [text]="true" size="small"
+                            [disabled]="isSubmitting" (onClick)="openCredential(a, cred.key)"
+                            data-testid="replace-credential"></p-button>
+                  <p-button icon="pi pi-trash" [text]="true" severity="danger" size="small"
+                            [disabled]="isSubmitting" (onClick)="removeCredential(a, cred)"
+                            data-testid="remove-credential"></p-button>
+                </td>
+              </tr>
+            </table>
+          </div>
 
-          <p class="muted" *ngIf="!credentialsFor(a).length" data-testid="no-credentials">
+          <p class="sf-mu sf-sm" *ngIf="!credentialsFor(a).length" data-testid="no-credentials">
             Nothing set. An API carrier needs whatever its adapter asks for.
           </p>
 
@@ -227,120 +231,120 @@
         </div>
       </div>
     </section>
-  </ng-container>
+  </div>
+</sf-page>
 
-  <!-- ── Account dialog ──────────────────────────────────────────────────────── -->
+<!-- ── Account dialog ──────────────────────────────────────────────────────── -->
 
-  <p-dialog [header]="editingUuid ? 'Edit account' : 'Add account'"
-            [(visible)]="accountDialogVisible" [modal]="true" [style]="{ width: '40rem' }"
-            [draggable]="false" data-testid="account-dialog">
-    <div class="dialog-body">
-      <div class="field-grid">
-        <div class="field">
-          <label for="name">Account name</label>
-          <input pInputText id="name" [(ngModel)]="form.accountName"
-                 placeholder="Domestic, International, Sandbox…" data-testid="field-name" />
-          <small>Two accounts of one carrier cannot share a name.</small>
-        </div>
-
-        <div class="field">
-          <label for="number">Account number</label>
-          <input pInputText id="number" [(ngModel)]="form.accountNumber" />
-          <small>The carrier's own identifier. Not a secret.</small>
-        </div>
-
-        <div class="field">
-          <label for="service">Default service code</label>
-          <input pInputText id="service" [(ngModel)]="form.defaultServiceCode" />
-          <small>Used when a consignment names none.</small>
-        </div>
-      </div>
-
-      <div class="field-inline">
-        <p-checkbox [(ngModel)]="form.isSandbox" [binary]="true" inputId="sandbox"
-                    data-testid="field-sandbox"></p-checkbox>
-        <label for="sandbox">
-          Sandbox account — a test account at the carrier. Nothing real ships on it.
-        </label>
-      </div>
-
-      <h3 class="dialog-section">What this account may be asked for</h3>
-      <p class="dialog-hint">
-        Switching one off narrows what the adapter can do. It can never add something the adapter
-        cannot do — the server enforces that, whatever is set here.
-      </p>
-
-      <div class="override" *ngFor="let cap of capabilityMeta">
-        <p-checkbox [binary]="true" [inputId]="'cap-' + cap.code"
-                    [ngModel]="form.overrides[cap.code] !== false"
-                    (ngModelChange)="form.overrides[cap.code] = $event ? null : false"
-                    data-testid="override"></p-checkbox>
-        <label [for]="'cap-' + cap.code">
-          <strong>{{ cap.label }}</strong>
-          <span class="hint">{{ cap.hint }}</span>
-        </label>
+<p-dialog [header]="editingUuid ? 'Edit account' : 'Add account'"
+          [(visible)]="accountDialogVisible" [modal]="true" [style]="{ width: '40rem' }"
+          [draggable]="false" data-testid="account-dialog">
+  <div class="dialog-body">
+    <div class="field-grid">
+      <div class="field">
+        <label for="name">Account name</label>
+        <input pInputText id="name" [(ngModel)]="form.accountName"
+               placeholder="Domestic, International, Sandbox…" data-testid="field-name" />
+        <small>Two accounts of one carrier cannot share a name.</small>
       </div>
 
       <div class="field">
-        <label for="notes">Notes</label>
-        <textarea pTextarea id="notes" [(ngModel)]="form.notes" rows="2"></textarea>
+        <label for="number">Account number</label>
+        <input pInputText id="number" [(ngModel)]="form.accountNumber" />
+        <small>The carrier's own identifier. Not a secret.</small>
+      </div>
+
+      <div class="field">
+        <label for="service">Default service code</label>
+        <input pInputText id="service" [(ngModel)]="form.defaultServiceCode" />
+        <small>Used when a consignment names none.</small>
       </div>
     </div>
 
-    <ng-template pTemplate="footer">
-      <p-button label="Cancel" [text]="true" severity="secondary"
-                (onClick)="accountDialogVisible = false"></p-button>
-      <p-button label="Save" icon="pi pi-check" [disabled]="!canSaveAccount"
-                [loading]="isSubmitting" (onClick)="saveAccount()"
-                data-testid="save-account"></p-button>
-    </ng-template>
-  </p-dialog>
-
-  <!-- ── Credential dialog ───────────────────────────────────────────────────── -->
-
-  <p-dialog header="Set a credential" [(visible)]="credentialDialogVisible" [modal]="true"
-            [style]="{ width: '34rem' }" [draggable]="false" data-testid="credential-dialog">
-    <div class="dialog-body">
-      <p class="dialog-hint danger">
-        <i class="pi pi-lock"></i>
-        This is encrypted as soon as it is saved and can never be read back — only replaced. Make
-        sure it is right before saving.
-      </p>
-
-      <div class="field">
-        <label for="cred-key">Key</label>
-        <input pInputText id="cred-key" [(ngModel)]="credentialForm.key"
-               placeholder="ApiKey, ClientSecret…" data-testid="field-cred-key" />
-        <small>The name the adapter asks for it by. Setting an existing key replaces its value.</small>
-      </div>
-
-      <div class="field">
-        <label for="cred-value">Value</label>
-        <!-- type=password so it is not shoulder-surfed or captured by a screenshot. -->
-        <input pInputText type="password" id="cred-value" [(ngModel)]="credentialForm.value"
-               autocomplete="new-password" data-testid="field-cred-value" />
-      </div>
-
-      <div class="field">
-        <label for="cred-note">Note</label>
-        <input pInputText id="cred-note" [(ngModel)]="credentialForm.description"
-               placeholder="Issued by the account manager, rotate before renewal…" />
-      </div>
-
-      <div class="field">
-        <label for="cred-expiry">Expires</label>
-        <p-datepicker inputId="cred-expiry" [(ngModel)]="credentialForm.expiresAt"
-                      dateFormat="dd M yy" appendTo="body" [showClear]="true"></p-datepicker>
-        <small>If the carrier says. A credential that lapses takes every booking with it.</small>
-      </div>
+    <div class="field-inline">
+      <p-checkbox [(ngModel)]="form.isSandbox" [binary]="true" inputId="sandbox"
+                  data-testid="field-sandbox"></p-checkbox>
+      <label for="sandbox">
+        Sandbox account — a test account at the carrier. Nothing real ships on it.
+      </label>
     </div>
 
-    <ng-template pTemplate="footer">
-      <p-button label="Cancel" [text]="true" severity="secondary"
-                (onClick)="credentialDialogVisible = false"></p-button>
-      <p-button label="Save credential" icon="pi pi-lock" [disabled]="!canSaveCredential"
-                [loading]="isSubmitting" (onClick)="saveCredential()"
-                data-testid="save-credential"></p-button>
-    </ng-template>
-  </p-dialog>
-</div>
+    <h3 class="dialog-section">What this account may be asked for</h3>
+    <p class="dialog-hint">
+      Switching one off narrows what the adapter can do. It can never add something the adapter
+      cannot do — the server enforces that, whatever is set here.
+    </p>
+
+    <div class="override" *ngFor="let cap of capabilityMeta">
+      <p-checkbox [binary]="true" [inputId]="'cap-' + cap.code"
+                  [ngModel]="form.overrides[cap.code] !== false"
+                  (ngModelChange)="form.overrides[cap.code] = $event ? null : false"
+                  data-testid="override"></p-checkbox>
+      <label [for]="'cap-' + cap.code">
+        <strong>{{ cap.label }}</strong>
+        <span class="hint">{{ cap.hint }}</span>
+      </label>
+    </div>
+
+    <div class="field">
+      <label for="notes">Notes</label>
+      <textarea pTextarea id="notes" [(ngModel)]="form.notes" rows="2"></textarea>
+    </div>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <p-button label="Cancel" [text]="true" severity="secondary"
+              (onClick)="accountDialogVisible = false"></p-button>
+    <p-button label="Save" icon="pi pi-check" [disabled]="!canSaveAccount"
+              [loading]="isSubmitting" (onClick)="saveAccount()"
+              data-testid="save-account"></p-button>
+  </ng-template>
+</p-dialog>
+
+<!-- ── Credential dialog ───────────────────────────────────────────────────── -->
+
+<p-dialog header="Set a credential" [(visible)]="credentialDialogVisible" [modal]="true"
+          [style]="{ width: '34rem' }" [draggable]="false" data-testid="credential-dialog">
+  <div class="dialog-body">
+    <p class="dialog-hint danger">
+      <i class="pi pi-lock"></i>
+      This is encrypted as soon as it is saved and can never be read back — only replaced. Make
+      sure it is right before saving.
+    </p>
+
+    <div class="field">
+      <label for="cred-key">Key</label>
+      <input pInputText id="cred-key" [(ngModel)]="credentialForm.key"
+             placeholder="ApiKey, ClientSecret…" data-testid="field-cred-key" />
+      <small>The name the adapter asks for it by. Setting an existing key replaces its value.</small>
+    </div>
+
+    <div class="field">
+      <label for="cred-value">Value</label>
+      <!-- type=password so it is not shoulder-surfed or captured by a screenshot. -->
+      <input pInputText type="password" id="cred-value" [(ngModel)]="credentialForm.value"
+             autocomplete="new-password" data-testid="field-cred-value" />
+    </div>
+
+    <div class="field">
+      <label for="cred-note">Note</label>
+      <input pInputText id="cred-note" [(ngModel)]="credentialForm.description"
+             placeholder="Issued by the account manager, rotate before renewal…" />
+    </div>
+
+    <div class="field">
+      <label for="cred-expiry">Expires</label>
+      <p-datepicker inputId="cred-expiry" [(ngModel)]="credentialForm.expiresAt"
+                    dateFormat="dd M yy" appendTo="body" [showClear]="true"></p-datepicker>
+      <small>If the carrier says. A credential that lapses takes every booking with it.</small>
+    </div>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <p-button label="Cancel" [text]="true" severity="secondary"
+              (onClick)="credentialDialogVisible = false"></p-button>
+    <p-button label="Save credential" icon="pi pi-lock" [disabled]="!canSaveCredential"
+              [loading]="isSubmitting" (onClick)="saveCredential()"
+              data-testid="save-credential"></p-button>
+  </ng-template>
+</p-dialog>

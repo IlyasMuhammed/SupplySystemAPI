@@ -47,6 +47,73 @@ public sealed record ProductTypeCapabilities(
     bool CanManufacture,
     bool CanBeBomInput);
 
+/// <summary>A36 D-2 — how a service product is invoiced. Stored on <c>inventory.Products.ServiceInvoicingPolicy</c>.</summary>
+public static class ServiceInvoicingPolicy
+{
+    public const string FixedPrice       = "FIXED_PRICE";
+    public const string CostPlus         = "COST_PLUS";
+    public const string TimeAndMaterial  = "TIME_AND_MATERIAL";
+
+    public static readonly IReadOnlyList<string> All = [FixedPrice, CostPlus, TimeAndMaterial];
+
+    public static bool IsKnown(string? code) => code is not null && All.Contains(code);
+}
+
+/// <summary>A36 D-2 — whether materials are included in the service price or passed through to the customer.</summary>
+public static class ServiceBillingModel
+{
+    public const string Inclusive   = "INCLUSIVE";
+    public const string PassThrough = "PASS_THROUGH";
+
+    public static readonly IReadOnlyList<string> All = [Inclusive, PassThrough];
+
+    public static bool IsKnown(string? code) => code is not null && All.Contains(code);
+}
+
+/// <summary>
+/// A36 D-4 — where a BOM line's input comes from. Stored on <c>material.BillOfMaterialLines.SourceType</c>.
+/// Only a service BOM may carry non-STOCK lines; manufacturing BOMs stay STOCK only (SVC-BOM-06).
+/// </summary>
+public static class BomLineSourceType
+{
+    public const string Stock         = "STOCK";
+    public const string Subcontract   = "SUBCONTRACT";
+    public const string InternalLabor = "INTERNAL_LABOR";
+
+    public static readonly IReadOnlyList<string> All = [Stock, Subcontract, InternalLabor];
+
+    public static bool IsKnown(string? code) => code is not null && All.Contains(code);
+
+    /// <summary>The unit of measure an INTERNAL_LABOR line must use (SVC-BOM-05).</summary>
+    public const string LaborUom = "HR";
+}
+
+/// <summary>A37 D-10 — what kind of service a SERVICE product is (classification only, service products only).</summary>
+public static class ServiceCategory
+{
+    public const string General      = "GENERAL";
+    public const string Installation = "INSTALLATION";
+    public const string Repair       = "REPAIR";
+    public const string Maintenance  = "MAINTENANCE";
+    public const string Consulting   = "CONSULTING";
+
+    public static readonly IReadOnlyList<string> All = [General, Installation, Repair, Maintenance, Consulting];
+
+    public static bool IsKnown(string? code) => code is not null && All.Contains(code);
+}
+
+/// <summary>A37 D-11 — which pickers a BOM is offered to first (advisory; nothing is hidden, BOM-SHR-04).</summary>
+public static class BomUsage
+{
+    public const string Universal           = "UNIVERSAL";
+    public const string ProductionPreferred = "PRODUCTION_PREFERRED";
+    public const string ServicePreferred    = "SERVICE_PREFERRED";
+
+    public static readonly IReadOnlyList<string> All = [Universal, ProductionPreferred, ServicePreferred];
+
+    public static bool IsKnown(string? code) => code is not null && All.Contains(code);
+}
+
 public static class ProductTypeRules
 {
     private static readonly IReadOnlyDictionary<string, ProductTypeCapabilities> Table =

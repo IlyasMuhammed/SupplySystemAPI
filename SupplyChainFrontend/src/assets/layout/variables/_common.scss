@@ -1,4 +1,58 @@
+// ── SMS Flow design tokens ───────────────────────────────────────────────────────────────────────────────
+// The one place colours are decided. Pages use these (never raw hex) so light and dark both work:
+//   surfaces   --sms-bg (page) · --sms-surface (cards) · --sms-surface-2 (table heads, quiet panels) · --sms-input-bg
+//   lines      --sms-border · --sms-border-soft (row separators)
+//   text       --sms-text · --sms-text-muted · --sms-text-faint · --sms-on-primary (text on a primary/solid fill)
+//   brand      --sms-primary (fills) · --sms-primary-hover · --sms-primary-text (links/accents) · --sms-primary-soft(+-border)
+//   status     --sms-ok / --sms-warn / --sms-danger / --sms-violet / --sms-teal, each with a -soft background
+//   effects    --sms-row-hover · --sms-shadow · --sms-shadow-lg · --sms-radius · --sms-radius-sm
+//   navigation --sms-navy · --sms-navy-2 · --sms-navy-text · --sms-navy-muted · --sms-nav-active
 :root {
+    --sms-bg: #f3f5f8;
+    --sms-surface: #ffffff;
+    --sms-surface-2: #f8f9fb;
+    --sms-input-bg: #ffffff;
+    --sms-border: #dce2e9;
+    --sms-border-soft: #edf0f4;
+    --sms-text: #1b2b3c;
+    --sms-text-muted: #5a6b7d;
+    --sms-text-faint: #8797a8;
+    --sms-on-primary: #ffffff;
+
+    --sms-primary: #0064d9;
+    --sms-primary-hover: #004fae;
+    --sms-primary-text: #0064d9;
+    --sms-primary-soft: #e8f1fc;
+    --sms-primary-soft-border: #cfe2f8;
+
+    --sms-ok: #1d7a4a;
+    --sms-ok-soft: #e2f3e9;
+    --sms-warn: #9a5500;
+    --sms-warn-soft: #fff1dc;
+    --sms-danger: #b3261e;
+    --sms-danger-soft: #fdecea;
+    --sms-violet: #5b3fc4;
+    --sms-violet-soft: #efebfd;
+    --sms-teal: #0f766e;
+    --sms-teal-soft: #e0f4f1;
+
+    --sms-row-hover: #f6f9fd;
+    --sms-shadow: 0 1px 2px rgba(19, 35, 58, 0.06), 0 2px 6px rgba(19, 35, 58, 0.06);
+    --sms-shadow-lg: 0 16px 48px rgba(19, 35, 58, 0.16), 0 4px 12px rgba(19, 35, 58, 0.08);
+    --sms-radius: 10px;
+    --sms-radius-sm: 6px;
+    --sms-pad: 1.25rem;
+
+    --sms-navy: #13233a;
+    --sms-navy-2: #1d3352;
+    --sms-navy-text: #c3cfdc;
+    --sms-navy-muted: #8197ae;
+    --sms-nav-active: #0064d9;
+
+    --sms-sidebar-w: 16.5rem;
+    --sms-topbar-h: 3.75rem;
+
+    // Sakai / PrimeNG bridges (older code uses these names)
     --primary-color: var(--p-primary-color);
     --primary-contrast-color: var(--p-primary-contrast-color);
     --primary-color-text: var(--p-primary-contrast-color);
@@ -8,8 +62,8 @@
     --surface-card: var(--p-content-background);
     --surface-hover: var(--p-content-hover-background);
     --surface-overlay: var(--p-overlay-popover-background);
-    --surface-0:   #ffffff;
-    --surface-50:  var(--p-surface-50);
+    --surface-0: var(--sms-surface);
+    --surface-50: var(--p-surface-50);
     --surface-100: var(--p-surface-100);
     --surface-200: var(--p-surface-200);
     --surface-300: var(--p-surface-300);
@@ -25,4 +79,45 @@
     --focus-ring-color: var(--p-focus-ring-color);
     --focus-ring-offset: var(--p-focus-ring-offset);
     --focus-ring-shadow: var(--p-focus-ring-shadow);
+}
+
+:root.app-dark {
+    --sms-bg: #0e1622;
+    --sms-surface: #162130;
+    --sms-surface-2: #1b2838;
+    --sms-input-bg: #0f1824;
+    --sms-border: #2a3a4e;
+    --sms-border-soft: #223044;
+    --sms-text: #e3e9f0;
+    --sms-text-muted: #9aabbf;
+    --sms-text-faint: #7f93a8;
+
+    --sms-primary: #2f7de1;
+    --sms-primary-hover: #4c95ec;
+    --sms-primary-text: #6cb0ff;
+    --sms-primary-soft: #13304f;
+    --sms-primary-soft-border: #1f4573;
+
+    --sms-ok: #62d497;
+    --sms-ok-soft: #12382a;
+    --sms-warn: #f3b562;
+    --sms-warn-soft: #3b2a10;
+    --sms-danger: #ff8f86;
+    --sms-danger-soft: #3e1b1b;
+    --sms-violet: #b9a3ff;
+    --sms-violet-soft: #29224d;
+    --sms-teal: #5eead4;
+    --sms-teal-soft: #0f2f2c;
+
+    --sms-row-hover: #1c2a3c;
+    --sms-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+    --sms-shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.5), 0 4px 12px rgba(0, 0, 0, 0.3);
+
+    --sms-navy: #09111c;
+    --sms-navy-2: #16233a;
+    --sms-navy-text: #b8c6d6;
+    --sms-navy-muted: #7f93a8;
+    --sms-nav-active: #1d6ad1;
+
+    color-scheme: dark;
 }

@@ -56,6 +56,11 @@ namespace SMS.Modules.Material.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<string>("BomUsage")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -66,6 +71,9 @@ namespace SMS.Modules.Material.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<DateTime?>("EffectiveTo")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("ModifiedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("Notes")
@@ -138,6 +146,8 @@ namespace SMS.Modules.Material.Migrations
                     b.HasIndex("OrganizationId", "BomNumber")
                         .IsUnique();
 
+                    b.HasIndex("OrganizationId", "ModifiedAt");
+
                     b.HasIndex("OrganizationId", "ProductUuid", "Status");
 
                     b.HasIndex("OrganizationId", "ProductUuid", "ProductVariantUuid", "Version")
@@ -170,6 +180,9 @@ namespace SMS.Modules.Material.Migrations
                     b.Property<Guid>("MaterialVariantUuid")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTime>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("Notes")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
@@ -185,6 +198,14 @@ namespace SMS.Modules.Material.Migrations
 
                     b.Property<int>("Sequence")
                         .HasColumnType("int");
+
+                    b.Property<string>("SourceType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid?>("SubcontractSupplierUuid")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("UUID")
                         .HasColumnType("uniqueidentifier");
@@ -1751,6 +1772,484 @@ namespace SMS.Modules.Material.Migrations
                     b.ToTable("quality_inspection_lines", "material");
                 });
 
+            modelBuilder.Entity("SMS.Modules.Material.Domain.ServiceLedgerEntry", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("EntryType")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("MovementType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ProductName")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("ProductType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<Guid>("ProductUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("ServiceNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("ServiceOrderId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SourceDocumentNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("SourceDocumentType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid>("SourceDocumentUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TraceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("TransactionDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Uom")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid>("VariantUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("WarehouseName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid>("WarehouseUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.HasIndex("ServiceOrderId", "EntryType", "TransactionDate");
+
+                    b.HasIndex("OrganizationId", "ProductUuid", "EntryType", "TransactionDate");
+
+                    b.ToTable("service_ledger_entries", "material");
+                });
+
+            modelBuilder.Entity("SMS.Modules.Material.Domain.ServiceMaterialIssue", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("IssueNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("IssueType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("ServiceOrderId")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("UUID")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("WarehouseUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.HasIndex("UUID")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "IssueNumber")
+                        .IsUnique();
+
+                    b.HasIndex("ServiceOrderId", "IssueType");
+
+                    b.ToTable("service_material_issues", "material");
+                });
+
+            modelBuilder.Entity("SMS.Modules.Material.Domain.ServiceMaterialIssueLine", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("IssueId")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("MaterialVariantUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<int>("RequirementId")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("UUID")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("UnitCost")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("Uom")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IssueId");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.HasIndex("RequirementId");
+
+                    b.HasIndex("UUID")
+                        .IsUnique();
+
+                    b.ToTable("service_material_issue_lines", "material");
+                });
+
+            modelBuilder.Entity("SMS.Modules.Material.Domain.ServiceMaterialRequirement", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("AddedBy")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("AllocationDemandUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("BomLineId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("ConsumedQuantity")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsAdhoc")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsCritical")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal>("IssuedQuantity")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<Guid>("MaterialProductUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("MaterialVariantUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("NetQuantity")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("RequiredDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("RequiredQuantity")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("ReservedQuantity")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("ReturnedQuantity")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("ScrapAllowance")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<int>("Sequence")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ServiceOrderId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("ShortageQuantity")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("SourceType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<Guid?>("SubcontractSupplierUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("UUID")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Uom")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("WarehouseUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AllocationDemandUuid");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.HasIndex("UUID")
+                        .IsUnique();
+
+                    b.HasIndex("MaterialProductUuid", "MaterialVariantUuid");
+
+                    b.HasIndex("ServiceOrderId", "Status");
+
+                    b.HasIndex("OrganizationId", "MaterialVariantUuid", "WarehouseUuid", "ShortageQuantity")
+                        .HasFilter("[ShortageQuantity] > 0");
+
+                    b.ToTable("service_material_requirements", "material");
+                });
+
+            modelBuilder.Entity("SMS.Modules.Material.Domain.ServiceOrder", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("ActualEndDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal?>("ActualHours")
+                        .HasColumnType("decimal(8,2)");
+
+                    b.Property<DateTime?>("ActualStartDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("AssignedRoleId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("AssignedUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("BillingModel")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<int?>("BomId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("BomVersion")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CompletionNotes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("CustomerSignature")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("CustomerUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal?>("EstimatedHours")
+                        .HasColumnType("decimal(8,2)");
+
+                    b.Property<string>("InvoicingPolicy")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("MaterialReadiness")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Priority")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime?>("ScheduledDate")
+                        .HasColumnType("date");
+
+                    b.Property<TimeSpan?>("ScheduledTime")
+                        .HasColumnType("time(0)");
+
+                    b.Property<string>("ServiceNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid>("ServiceProductUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ServiceVariantUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("SourceLineUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("SourceReference")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("SourceType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<Guid?>("SourceUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<Guid>("TraceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("UUID")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("WarehouseUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssignedUserId")
+                        .HasFilter("[AssignedUserId] IS NOT NULL");
+
+                    b.HasIndex("BomId");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.HasIndex("TraceId");
+
+                    b.HasIndex("UUID")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "CustomerUuid");
+
+                    b.HasIndex("OrganizationId", "ServiceNumber")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "ServiceProductUuid");
+
+                    b.HasIndex("OrganizationId", "SourceType", "SourceUuid");
+
+                    b.HasIndex("OrganizationId", "Status", "ScheduledDate");
+
+                    b.ToTable("service_orders", "material");
+                });
+
             modelBuilder.Entity("SMS.Modules.Material.Domain.StockReservation", b =>
                 {
                     b.Property<int>("Id")
@@ -2332,6 +2831,66 @@ namespace SMS.Modules.Material.Migrations
                     b.Navigation("Inspection");
                 });
 
+            modelBuilder.Entity("SMS.Modules.Material.Domain.ServiceLedgerEntry", b =>
+                {
+                    b.HasOne("SMS.Modules.Material.Domain.ServiceOrder", null)
+                        .WithMany()
+                        .HasForeignKey("ServiceOrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SMS.Modules.Material.Domain.ServiceMaterialIssue", b =>
+                {
+                    b.HasOne("SMS.Modules.Material.Domain.ServiceOrder", "ServiceOrder")
+                        .WithMany()
+                        .HasForeignKey("ServiceOrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ServiceOrder");
+                });
+
+            modelBuilder.Entity("SMS.Modules.Material.Domain.ServiceMaterialIssueLine", b =>
+                {
+                    b.HasOne("SMS.Modules.Material.Domain.ServiceMaterialIssue", "Issue")
+                        .WithMany("Lines")
+                        .HasForeignKey("IssueId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SMS.Modules.Material.Domain.ServiceMaterialRequirement", "Requirement")
+                        .WithMany()
+                        .HasForeignKey("RequirementId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Issue");
+
+                    b.Navigation("Requirement");
+                });
+
+            modelBuilder.Entity("SMS.Modules.Material.Domain.ServiceMaterialRequirement", b =>
+                {
+                    b.HasOne("SMS.Modules.Material.Domain.ServiceOrder", "ServiceOrder")
+                        .WithMany("Materials")
+                        .HasForeignKey("ServiceOrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ServiceOrder");
+                });
+
+            modelBuilder.Entity("SMS.Modules.Material.Domain.ServiceOrder", b =>
+                {
+                    b.HasOne("SMS.Modules.Material.Domain.BillOfMaterial", "Bom")
+                        .WithMany()
+                        .HasForeignKey("BomId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Bom");
+                });
+
             modelBuilder.Entity("SMS.Modules.Material.Domain.StockReservation", b =>
                 {
                     b.HasOne("SMS.Modules.Material.Domain.MaterialIssueRequest", "MaterialIssueRequest")
@@ -2408,6 +2967,16 @@ namespace SMS.Modules.Material.Migrations
             modelBuilder.Entity("SMS.Modules.Material.Domain.QualityInspection", b =>
                 {
                     b.Navigation("Lines");
+                });
+
+            modelBuilder.Entity("SMS.Modules.Material.Domain.ServiceMaterialIssue", b =>
+                {
+                    b.Navigation("Lines");
+                });
+
+            modelBuilder.Entity("SMS.Modules.Material.Domain.ServiceOrder", b =>
+                {
+                    b.Navigation("Materials");
                 });
 #pragma warning restore 612, 618
         }

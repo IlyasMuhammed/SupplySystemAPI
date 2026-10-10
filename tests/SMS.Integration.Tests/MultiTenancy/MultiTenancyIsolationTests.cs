@@ -95,8 +95,12 @@ public class MultiTenancyIsolationTests : IClassFixture<MultiTenancyIsolationFix
 
         try
         {
+            // A37 D-6: an organization that once had the module keeps reading its records; every write is refused.
             var during = await _fx.OrgBClient.GetAsync("/api/supplier-payments");
-            during.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            during.StatusCode.Should().Be(HttpStatusCode.OK);
+            var write = await _fx.OrgBClient.PostAsync($"/api/supplier-payments/{Guid.NewGuid()}/cancel", null);
+            write.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            (await write.Content.ReadAsStringAsync()).Should().Contain("MODULE_NOT_LICENSED");
         }
         finally
         {

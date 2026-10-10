@@ -257,33 +257,8 @@ internal sealed class ProductionMaterialIssueService : IProductionMaterialIssueS
     /// InMemory database) there is no such thing as a shared connection, so this just runs the work
     /// and saves each context in turn.
     /// </summary>
-    private async Task RunAcrossContextsAsync(Func<Task> work, CancellationToken ct)
-    {
-        if (!_db.Database.IsRelational())
-        {
-            await work();
-            await _db.SaveChangesAsync(ct);
-            await _inv.SaveChangesAsync(ct);
-            return;
-        }
-
-        var strategy = _db.Database.CreateExecutionStrategy();
-        await strategy.ExecuteAsync(async () =>
-        {
-            await _db.Database.OpenConnectionAsync(ct);
-            var conn = _db.Database.GetDbConnection();
-            await using var sqlTx = await conn.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
-            _db.Database.UseTransaction(sqlTx);
-            _inv.Database.SetDbConnection(conn);
-            _inv.Database.UseTransaction(sqlTx);
-
-            await work();
-
-            await _db.SaveChangesAsync(ct);
-            await _inv.SaveChangesAsync(ct);
-            await sqlTx.CommitAsync(ct);
-        });
-    }
+    private Task RunAcrossContextsAsync(Func<Task> work, CancellationToken ct) =>
+        MaterialStockMovements.RunAcrossContextsAsync(_db, _inv, work, ct);
 
     public async Task<ProductionIssueModel?> GetAsync(Guid uuid)
     {
@@ -330,90 +305,20 @@ internal sealed class ProductionMaterialIssueService : IProductionMaterialIssueS
         DeductOnHandAsync(line.MaterialVariantUuid, warehouseUuid, line.Quantity, issue, ct, reversalNote: reversal ? reason : null);
 
     /// <summary>Always a material-leaves-stock movement; the reversal note is what distinguishes an undo from an original issue.</summary>
-    private async Task<decimal> DeductOnHandAsync(
+    private Task<decimal> DeductOnHandAsync(
         Guid variantUuid, Guid warehouseUuid, decimal quantity, ProductionMaterialIssue issue,
-        CancellationToken ct, string? reversalNote = null)
-    {
-        if (quantity <= 0) return 0m;
-
-        var variant   = await _inv.ProductVariants.AsNoTracking().FirstOrDefaultAsync(v => v.Uuid == variantUuid, ct)
-            ?? throw new BadRequestException($"Variant {variantUuid} does not exist.");
-        var warehouse = await _inv.Warehouses.AsNoTracking().FirstOrDefaultAsync(w => w.Uuid == warehouseUuid, ct)
-            ?? throw new BadRequestException($"Warehouse {warehouseUuid} does not exist.");
-
-        var rows = await _inv.InventoryItems
-            .Where(i => i.VariantId == variant.Id && i.WarehouseId == warehouse.Id)
-            .OrderBy(i => i.ExpiryDate ?? DateTime.MaxValue).ThenBy(i => i.Id)
-            .ToListAsync(ct);
-
-        var totalFree = rows.Sum(r => Math.Max(0m, r.QtyOnHand));
-        if (totalFree < quantity)
-            throw new BadRequestException($"Only {totalFree:0.####} of variant {variant.Sku} is on hand in {warehouse.Name}.");
-
-        var remaining = quantity;
-        var lastCost  = 0m;
-        foreach (var row in rows)
-        {
-            if (remaining <= 0) break;
-            var take = Math.Min(remaining, row.QtyOnHand);
-            if (take <= 0) continue;
-
-            row.QtyOnHand   -= take;
-            row.LastUpdated  = DateTime.UtcNow;
-            lastCost         = row.UnitCost ?? lastCost;
-            remaining       -= take;
-
-            await _ledger.CreateEntryAsync(new LedgerEntryCommand
-            {
-                VariantId       = row.VariantId,
-                WarehouseId     = row.WarehouseId,
-                TransactionType = InventoryTransactionType.ProductionIssue,
-                ReferenceType   = "PRODUCTION_ISSUE",
-                ReferenceId     = issue.UUID,
-                ReferenceNumber = issue.IssueNumber,
-                QuantityOut     = take,
-                UnitCost        = lastCost,
-                Notes           = reversalNote is null ? $"Production issue {issue.IssueNumber}" : $"Reversal: {reversalNote}",
-                CreatedBy       = issue.ConfirmedBy ?? issue.CreatedBy
-            });
-        }
-
-        return lastCost;
-    }
+        CancellationToken ct, string? reversalNote = null) =>
+        MaterialStockMovements.DeductOnHandAsync(_inv, _ledger, variantUuid, warehouseUuid, quantity,
+            new MaterialStockMovements.Reference(InventoryTransactionType.ProductionIssue, "PRODUCTION_ISSUE", issue.UUID, issue.IssueNumber,
+                issue.ConfirmedBy ?? issue.CreatedBy),
+            reversalNote is null ? $"Production issue {issue.IssueNumber}" : $"Reversal: {reversalNote}", ct);
 
     /// <summary>RETURN — gives issued material back to stock.</summary>
-    private async Task ReturnStockAsync(
+    private Task ReturnStockAsync(
         Guid warehouseUuid, ProductionMaterialIssueLine line, ProductionMaterialIssue issue, int userId, CancellationToken ct,
-        bool reversal = false, string? reason = null)
-    {
-        var variant   = await _inv.ProductVariants.AsNoTracking().FirstOrDefaultAsync(v => v.Uuid == line.MaterialVariantUuid, ct)
-            ?? throw new BadRequestException($"Variant {line.MaterialVariantUuid} does not exist.");
-        var warehouse = await _inv.Warehouses.AsNoTracking().FirstOrDefaultAsync(w => w.Uuid == warehouseUuid, ct)
-            ?? throw new BadRequestException($"Warehouse {warehouseUuid} does not exist.");
-
-        var item = await _inv.InventoryItems.FirstOrDefaultAsync(i =>
-            i.VariantId == variant.Id && i.WarehouseId == warehouse.Id && i.BatchNumber == null && i.SerialNumber == null, ct);
-        if (item is null)
-        {
-            item = new InventoryItem { VariantId = variant.Id, WarehouseId = warehouse.Id, QtyOnHand = 0, QtyReserved = 0, QtyOnOrder = 0, LastUpdated = DateTime.UtcNow };
-            _inv.InventoryItems.Add(item);
-        }
-
-        item.QtyOnHand  += line.Quantity;
-        item.LastUpdated = DateTime.UtcNow;
-
-        await _ledger.CreateEntryAsync(new LedgerEntryCommand
-        {
-            VariantId       = variant.Id,
-            WarehouseId     = warehouse.Id,
-            TransactionType = InventoryTransactionType.ProductionReturn,
-            ReferenceType   = "PRODUCTION_ISSUE",
-            ReferenceId     = issue.UUID,
-            ReferenceNumber = issue.IssueNumber,
-            QuantityIn      = line.Quantity,
-            UnitCost        = item.UnitCost ?? line.UnitCost,
-            Notes           = reversal ? $"Reversal: {reason}" : $"Return against production issue {issue.IssueNumber}",
-            CreatedBy       = issue.ConfirmedBy ?? issue.CreatedBy
-        });
-    }
+        bool reversal = false, string? reason = null) =>
+        MaterialStockMovements.ReturnToStockAsync(_inv, _ledger, line.MaterialVariantUuid, warehouseUuid, line.Quantity, line.UnitCost,
+            new MaterialStockMovements.Reference(InventoryTransactionType.ProductionReturn, "PRODUCTION_ISSUE", issue.UUID, issue.IssueNumber,
+                issue.ConfirmedBy ?? issue.CreatedBy),
+            reversal ? $"Reversal: {reason}" : $"Return against production issue {issue.IssueNumber}", ct);
 }

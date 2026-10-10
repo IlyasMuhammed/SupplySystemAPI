@@ -1,81 +1,85 @@
 <p-toast></p-toast>
 
-<div class="setup-page">
+<sf-page [crumbs]="['Settings', 'Finance setup', 'Currencies']">
 
-  <!-- ── Header ───────────────────────────────────────────────────────────── -->
-  <div class="page-header">
-    <div class="page-icon"><i class="pi pi-dollar"></i></div>
-    <div class="grow">
-      <h1 class="page-title">Currencies</h1>
-      <p class="page-subtitle">
-        The currencies your documents can use, and how amounts in each are written: symbol, decimal places and where the
-        symbol goes. A base currency cannot be switched off, and a currency is never deleted — switch it off instead, and old
-        documents keep it.
-      </p>
-    </div>
-    <div class="page-actions" *ngIf="canManage">
-      <p-button label="Add currency" icon="pi pi-plus" (onClick)="openCreate()" data-testid="add-currency"></p-button>
-    </div>
+  <!-- ── Command bar ──────────────────────────────────────────────────────── -->
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <p-button *ngIf="canManage" label="Add currency" icon="pi pi-plus" (onClick)="openCreate()" data-testid="add-currency"></p-button>
+    <span class="sf-mu sf-sm" *ngIf="!canManage">Read only</span>
   </div>
 
-  <div class="note info" *ngIf="!canManage" data-testid="read-only">
-    <i class="pi pi-lock"></i>
-    <div class="note-body">You can see the currencies. Changing them needs the Manage Currencies permission.</div>
-  </div>
-
-  <section class="form-card flush">
-    <div class="state-inline" *ngIf="loadFailed" data-testid="load-failed">
-      <i class="pi pi-exclamation-triangle"></i> The currencies could not be loaded.
-      <p-button label="Try again" [text]="true" size="small" (onClick)="load()"></p-button>
+  <div class="sf-body">
+    <div class="sf-lr-head">
+      <div>
+        <h1>Currencies <span class="sf-count" *ngIf="!isLoading">{{ currencies.length }}</span></h1>
+        <div class="sf-sub">
+          The currencies your documents can use, and how amounts in each are written: symbol, decimal places and where the
+          symbol goes. A base currency cannot be switched off, and a currency is never deleted — switch it off instead, and old
+          documents keep it.
+        </div>
+      </div>
     </div>
 
-    <p-table [value]="currencies" [loading]="isLoading" dataKey="currencyId" styleClass="p-datatable-sm"
-             [tableStyle]="{ 'min-width': '46rem' }" *ngIf="!loadFailed">
-      <ng-template pTemplate="header">
-        <tr>
-          <th style="width: 4.5rem">Order</th>
-          <th style="width: 5rem">Code</th>
-          <th>Name</th>
-          <th style="width: 5rem">Symbol</th>
-          <th style="width: 4rem" class="text-right">Dec.</th>
-          <th style="width: 9rem">Example</th>
-          <th style="width: 6rem">Active</th>
-          <th style="width: 6rem"></th>
-        </tr>
-      </ng-template>
-      <ng-template pTemplate="body" let-c>
-        <tr [attr.data-testid]="'cur-' + c.code" [class.inactive-row]="!c.isActive">
-          <td>{{ c.displayOrder }}</td>
-          <td class="mono">{{ c.code }}</td>
-          <td>
-            {{ c.name }}
-            <p-tag *ngIf="c.isRateCurrency" value="Rate currency" severity="info" styleClass="ml-tag"
-                   pTooltip="Every exchange rate is in this currency; its own rate is always 1.0." tooltipPosition="top"></p-tag>
-          </td>
-          <td>{{ c.symbol }}</td>
-          <td class="text-right">{{ c.decimalPlaces }}</td>
-          <td class="nowrap muted">{{ example(c) }}</td>
-          <td>
-            <p-toggleswitch [ngModel]="c.isActive" (ngModelChange)="toggleActive(c, $event)" [disabled]="!canToggle(c)"
-                            [attr.data-testid]="'active-' + c.code"></p-toggleswitch>
-          </td>
-          <td>
-            <div class="row-actions">
-              <i *ngIf="lockText(c) as why" class="pi pi-lock muted lock" [pTooltip]="why + ' — cannot deactivate.'" tooltipPosition="left"
-                 [attr.data-testid]="'lock-' + c.code"></i>
-              <p-button *ngIf="canManage" icon="pi pi-pencil" [text]="true" [rounded]="true" size="small" pTooltip="Edit" tooltipPosition="top"
-                        (onClick)="openEdit(c)" [attr.data-testid]="'edit-' + c.code"></p-button>
-            </div>
-          </td>
-        </tr>
-      </ng-template>
-      <ng-template pTemplate="emptymessage">
-        <tr><td colspan="8" class="empty" data-testid="empty">No currencies are set up for this organization yet.</td></tr>
-      </ng-template>
-    </p-table>
-  </section>
-  <p class="hint">🔒 = used as a base currency or the rate currency (cannot be deactivated).</p>
-</div>
+    <div class="note info" *ngIf="!canManage" data-testid="read-only">
+      <i class="pi pi-lock"></i>
+      <div class="note-body">You can see the currencies. Changing them needs the Manage Currencies permission.</div>
+    </div>
+
+    <section class="sf-card p0">
+      <div class="sf-ch"><h2>Active currencies</h2></div>
+      <div class="state-inline" *ngIf="loadFailed" data-testid="load-failed">
+        <i class="pi pi-exclamation-triangle"></i> The currencies could not be loaded.
+        <p-button label="Try again" [text]="true" size="small" (onClick)="load()"></p-button>
+      </div>
+
+      <p-table [value]="currencies" [loading]="isLoading" dataKey="currencyId" styleClass="p-datatable-sm"
+               [tableStyle]="{ 'min-width': '46rem' }" *ngIf="!loadFailed">
+        <ng-template pTemplate="header">
+          <tr>
+            <th style="width: 4.5rem">Order</th>
+            <th style="width: 5rem">Code</th>
+            <th>Name</th>
+            <th style="width: 5rem">Symbol</th>
+            <th style="width: 4rem" class="text-right">Dec.</th>
+            <th style="width: 9rem">Example</th>
+            <th style="width: 6rem">Active</th>
+            <th style="width: 6rem"></th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-c>
+          <tr [attr.data-testid]="'cur-' + c.code" [class.inactive-row]="!c.isActive">
+            <td>{{ c.displayOrder }}</td>
+            <td class="sf-mono"><strong>{{ c.code }}</strong></td>
+            <td>
+              {{ c.name }}
+              <p-tag *ngIf="c.isRateCurrency" value="Rate currency" severity="info" styleClass="ml-tag"
+                     pTooltip="Every exchange rate is in this currency; its own rate is always 1.0." tooltipPosition="top"></p-tag>
+            </td>
+            <td>{{ c.symbol }}</td>
+            <td class="text-right">{{ c.decimalPlaces }}</td>
+            <td class="nowrap sf-mu">{{ example(c) }}</td>
+            <td>
+              <p-toggleswitch [ngModel]="c.isActive" (ngModelChange)="toggleActive(c, $event)" [disabled]="!canToggle(c)"
+                              [attr.data-testid]="'active-' + c.code"></p-toggleswitch>
+            </td>
+            <td>
+              <div class="row-actions">
+                <i *ngIf="lockText(c) as why" class="pi pi-lock sf-mu lock" [pTooltip]="why + ' — cannot deactivate.'" tooltipPosition="left"
+                   [attr.data-testid]="'lock-' + c.code"></i>
+                <p-button *ngIf="canManage" icon="pi pi-pencil" [text]="true" [rounded]="true" size="small" pTooltip="Edit" tooltipPosition="top"
+                          (onClick)="openEdit(c)" [attr.data-testid]="'edit-' + c.code"></p-button>
+              </div>
+            </td>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="emptymessage">
+          <tr><td colspan="8" class="sf-empty" data-testid="empty">No currencies are set up for this organization yet.</td></tr>
+        </ng-template>
+      </p-table>
+    </section>
+    <p class="hint">🔒 = used as a base currency or the rate currency (cannot be deactivated).</p>
+  </div>
+</sf-page>
 
 <!-- ══ Add / edit ══════════════════════════════════════════════════════════ -->
 <p-dialog [header]="editing ? 'Edit ' + editing.code : 'Add currency'" [(visible)]="dialogVisible" [modal]="true" [draggable]="false"

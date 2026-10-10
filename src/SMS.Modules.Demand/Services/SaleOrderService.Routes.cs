@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SMS.Modules.Demand.Domain;
 using SMS.Modules.Demand.Models;
@@ -73,6 +73,9 @@ internal sealed partial class SaleOrderService
             if (!summary.IsActive)
                 throw new BadRequestException(
                     $"Line {number}: fulfillment route '{summary.Code}' is inactive. Choose an active route, or leave the line to inherit its route.");
+            // A37 RTE-01 — a make-to-order route while Manufacturing is switched off.
+            if (!summary.IsAvailable)
+                throw new BadRequestException($"Line {number}: '{summary.Code}' — {FulfillmentRouteAvailability.ManufacturingOffMessage}");
         }
     }
 
@@ -114,6 +117,7 @@ internal sealed partial class SaleOrderService
                 FillEffective(line, resolved.Route, resolved.RouteUuid, resolved.Route?.Code);
                 line.RouteSource  = resolved.Source;
                 line.RouteBlocker = resolved.Blocker;
+                line.RouteWarning = resolved.Warning;
                 // A34 §6.1 — live while DRAFT; null for exempt (DROP_SHIP) lines and lines with no known route.
                 line.EffectiveRouteCategory = resolved.Exempt ? null : resolved.Route?.Category;
             }
@@ -288,9 +292,14 @@ internal sealed partial class SaleOrderService
 
         // What each line would be saved as (the organization's default sourcing), so drop-ship lines are exempt here too.
         var lineMode = DefaultLineMode(config, mode);
+        // A36 D-10 — and service lines are exempt too.
+        IReadOnlySet<Guid> services = _serviceVariants is null || (req.Lines ?? []).Count == 0
+            ? new HashSet<Guid>()
+            : await _serviceVariants.ServiceVariantsAsync(_tenantContext.OrganizationId, req.Lines!.Select(l => l.VariantUuid).Distinct().ToList());
         var lines = (req.Lines ?? []).Select((l, i) => new RouteLineInput(
             null, i + 1, l.VariantUuid, l.Quantity,
-            l.FulfillmentRouteUuid is { } r && r != Guid.Empty ? r : null, lineMode)).ToList();
+            l.FulfillmentRouteUuid is { } r && r != Guid.Empty ? r : null,
+            services.Contains(l.VariantUuid) ? SaleOrderServiceLines.Code : lineMode)).ToList();
 
         var routing = await ResolveLinesAsync(lines, EnumCode<DeliveryMode>.Of(mode), req.ShippingAddressId, config);
         return await BuildPreviewAsync(routing, new Dictionary<Guid, IReadOnlyList<Guid>>());
@@ -330,6 +339,7 @@ internal sealed partial class SaleOrderService
             EffectiveRouteSteps  = r.Route is null ? [] : [.. r.Route.Steps],
             RouteSource          = r.Source,
             RouteBlocker         = r.Blocker,
+            RouteWarning         = r.Warning,
             EffectiveRouteCategory = r.Exempt ? null : r.Route?.Category
         }).ToList();
 

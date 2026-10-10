@@ -1,20 +1,40 @@
 <p-toast></p-toast>
 
-<div class="rate-cards-page">
-
-  <div class="page-header">
-    <div>
-      <h1 class="page-title"><i class="pi pi-tags"></i> Supplier Price Lists</h1>
-      <p class="page-subtitle">Review and edit supplier rates, compared against last purchase order prices.</p>
-    </div>
-    <p-selectButton [options]="viewModeOptions" [(ngModel)]="viewMode"
-                     optionLabel="label" optionValue="value"></p-selectButton>
+<sf-page [crumbs]="['Procurement', 'Supplier price lists']">
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <ng-container *ngIf="viewMode === 'supplier' && selectedSupplierId">
+      <p-button label="Add Rate Card" icon="pi pi-plus"
+                (onClick)="openAddDialog()"></p-button>
+      <p-button label="Bulk Adjust" icon="pi pi-percentage" [text]="true"
+                [disabled]="selectedRows.length === 0" (onClick)="openBulkDialog()"></p-button>
+      <p-button label="Bulk History" icon="pi pi-history"
+                [text]="true" (onClick)="showBulkHistoryDialog = true"></p-button>
+      <span class="sf-sep"></span>
+      <p-button label="Export to Excel" icon="pi pi-file-excel"
+                [text]="true" (onClick)="exportRateCards()"></p-button>
+      <p-button label="Import" icon="pi pi-upload"
+                [text]="true" (onClick)="openImportDialog()"></p-button>
+      <p-button label="Copy from Supplier" icon="pi pi-copy"
+                [text]="true" (onClick)="openCopyDialog()"></p-button>
+    </ng-container>
+    <p-button *ngIf="viewMode === 'product' && selectedVariantUuid" label="Export to Excel" icon="pi pi-file-excel"
+              [text]="true" (onClick)="exportComparison()"></p-button>
   </div>
+
+  <div class="sf-body">
+    <div class="sf-lr-head">
+      <div>
+        <h1>Supplier price lists <span class="sf-count" *ngIf="viewMode === 'supplier' && selectedSupplierId">{{ totalRecords }}</span></h1>
+        <div class="sf-sub">Review and edit supplier rates, compared against last purchase order prices.</div>
+      </div>
+      <p-selectButton [options]="viewModeOptions" [(ngModel)]="viewMode"
+                       optionLabel="label" optionValue="value"></p-selectButton>
+    </div>
 
   <!-- ── Supplier View (RC-002) ─────────────────────────────────────────── -->
   <ng-container *ngIf="viewMode === 'supplier'">
 
-  <div class="filter-bar">
+  <div class="sf-filters">
     <p-dropdown
       [options]="supplierOptions"
       [(ngModel)]="selectedSupplierId"
@@ -25,35 +45,21 @@
       styleClass="supplier-dropdown">
     </p-dropdown>
 
-    <p-iconfield *ngIf="selectedSupplierId">
+    <p-iconfield *ngIf="selectedSupplierId" class="sf-search">
       <p-inputicon styleClass="pi pi-search" />
       <input pInputText type="text" [(ngModel)]="searchText" (input)="onSearchInput()"
              placeholder="Search product, SKU, or vendor part no…" />
     </p-iconfield>
-
-    <p-button *ngIf="selectedSupplierId" label="Add Rate Card" icon="pi pi-plus"
-              (onClick)="openAddDialog()"></p-button>
-    <p-button *ngIf="selectedSupplierId" label="Bulk Adjust" icon="pi pi-percentage"
-              [disabled]="selectedRows.length === 0" (onClick)="openBulkDialog()"></p-button>
-    <p-button *ngIf="selectedSupplierId" label="Bulk History" icon="pi pi-history"
-              severity="secondary" [outlined]="true" (onClick)="showBulkHistoryDialog = true"></p-button>
-    <p-button *ngIf="selectedSupplierId" label="Export to Excel" icon="pi pi-file-excel"
-              severity="secondary" [outlined]="true" (onClick)="exportRateCards()"></p-button>
-    <p-button *ngIf="selectedSupplierId" label="Import" icon="pi pi-upload"
-              severity="secondary" [outlined]="true" (onClick)="openImportDialog()"></p-button>
-    <p-button *ngIf="selectedSupplierId" label="Copy from Supplier" icon="pi pi-copy"
-              severity="secondary" [outlined]="true" (onClick)="openCopyDialog()"></p-button>
   </div>
 
-  <div class="empty-state" *ngIf="!selectedSupplierId">
-    <i class="pi pi-tags"></i>
-    <p>Select a supplier above to view and edit their rate cards.</p>
+  <div class="sf-card sf-empty" *ngIf="!selectedSupplierId">
+    Select a supplier above to view and edit their rate cards.
   </div>
 
   <p-contextMenu #cm [model]="contextMenuItems"></p-contextMenu>
 
+  <div class="sf-card p0" *ngIf="selectedSupplierId">
   <p-table
-    *ngIf="selectedSupplierId"
     [value]="visibleRows"
     [loading]="isLoading"
     editMode="cell"
@@ -166,28 +172,27 @@
 
     <ng-template pTemplate="emptymessage">
       <tr>
-        <td colspan="13" class="empty-cell">No rate cards found for this supplier.</td>
+        <td colspan="14" class="sf-empty">No rate cards found for this supplier.</td>
       </tr>
     </ng-template>
   </p-table>
+  </div>
 
   </ng-container>
 
   <!-- ── Product Comparison View (RC-003) ──────────────────────────────────── -->
   <ng-container *ngIf="viewMode === 'product'">
 
-  <div class="filter-bar">
+  <div class="sf-filters">
     <app-product-variant-picker [products]="products" (selectionChange)="onVariantSelected($event)"></app-product-variant-picker>
-    <p-button *ngIf="selectedVariantUuid" label="Export to Excel" icon="pi pi-file-excel"
-              severity="secondary" [outlined]="true" (onClick)="exportComparison()"></p-button>
   </div>
 
-  <div class="empty-state" *ngIf="!selectedVariantUuid">
-    <i class="pi pi-sitemap"></i>
-    <p>Select a product/variant above to compare every supplier's rate for it.</p>
+  <div class="sf-card sf-empty" *ngIf="!selectedVariantUuid">
+    Select a product/variant above to compare every supplier's rate for it.
   </div>
 
-  <p-table *ngIf="selectedVariantUuid" [value]="comparisonRows" [loading]="isLoadingComparison"
+  <div class="sf-card p0" *ngIf="selectedVariantUuid">
+  <p-table [value]="comparisonRows" [loading]="isLoadingComparison"
            dataKey="uuid" responsiveLayout="scroll">
     <ng-template pTemplate="header">
       <tr>
@@ -223,12 +228,15 @@
 
     <ng-template pTemplate="emptymessage">
       <tr>
-        <td colspan="8" class="empty-cell">No suppliers have an active rate card for this variant.</td>
+        <td colspan="8" class="sf-empty">No suppliers have an active rate card for this variant.</td>
       </tr>
     </ng-template>
   </p-table>
+  </div>
 
   </ng-container>
+  </div>
+</sf-page>
 
   <!-- ── Add Rate Card (first-time supplier+variant link creation) ──────────── -->
   <p-dialog
@@ -557,5 +565,3 @@
   </p-dialog>
 
   <p-confirmDialog></p-confirmDialog>
-
-</div>

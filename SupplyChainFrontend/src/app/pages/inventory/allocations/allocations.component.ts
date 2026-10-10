@@ -28,6 +28,7 @@ import { AuthService } from '../../service/auth.service';
 import {
   ProductVariantPickerComponent, VariantPickerSelection
 } from '../../../shared/product-variant-picker/product-variant-picker.component';
+import { FLOW } from '../../../shared/flow';
 
 const RUN_PERMISSION   = 'ALLOCATION_RUN';
 const ADMIN_PERMISSION = 'ALLOCATION_ADMIN';
@@ -43,7 +44,8 @@ const ADMIN_PERMISSION = 'ALLOCATION_ADMIN';
     CommonModule, FormsModule, ReactiveFormsModule,
     ButtonModule, CalendarModule, DialogModule, DropdownModule, InputNumberModule, InputTextModule, MessageModule,
     TableModule, TabViewModule, TagModule, TextareaModule, ToastModule, ToggleSwitchModule, TooltipModule,
-    ProductVariantPickerComponent
+    ProductVariantPickerComponent,
+    ...FLOW
   ],
   templateUrl: './allocations.component.html',
   styleUrls: ['./allocations.component.scss'],

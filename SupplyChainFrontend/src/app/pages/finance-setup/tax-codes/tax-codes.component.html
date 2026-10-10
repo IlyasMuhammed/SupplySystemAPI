@@ -1,124 +1,129 @@
 <p-toast></p-toast>
 <p-confirmDialog key="tax-codes" [style]="{ width: '32rem', maxWidth: '96vw' }"></p-confirmDialog>
 
-<div class="setup-page">
+<sf-page [crumbs]="['Settings', 'Finance setup', 'Tax codes']">
 
-  <!-- ── Header ───────────────────────────────────────────────────────────── -->
-  <div class="page-header">
-    <div class="page-icon"><i class="pi pi-percentage"></i></div>
-    <div class="grow">
-      <h1 class="page-title">Tax Codes</h1>
-      <p class="page-subtitle">
-        The tax rates your organization charges and pays. Sale-order lines and supplier invoices pick a code and keep its
-        rate, so changing a rate here never changes a document already raised. Codes are deactivated, never deleted.
-      </p>
-    </div>
-    <div class="page-actions" *ngIf="canManage">
-      <p-button label="Create codes from rates already used" icon="pi pi-bolt" [outlined]="true" [loading]="isCreatingFromRates"
-                (onClick)="confirmFromRates()" data-testid="from-rates"></p-button>
+  <!-- ── Command bar ──────────────────────────────────────────────────────── -->
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <ng-container *ngIf="canManage">
       <p-button label="New tax code" icon="pi pi-plus" (onClick)="openCreate()" data-testid="new-code"></p-button>
-    </div>
+      <p-button label="Create codes from rates already used" icon="pi pi-bolt" [text]="true" [loading]="isCreatingFromRates"
+                (onClick)="confirmFromRates()" data-testid="from-rates"></p-button>
+    </ng-container>
+    <span class="sf-mu sf-sm" *ngIf="!canManage">Read only</span>
   </div>
 
-  <div class="note info" *ngIf="!canManage" data-testid="read-only">
-    <i class="pi pi-lock"></i>
-    <div class="note-body">You can see the tax codes. Changing them needs the Manage Finance Setup permission.</div>
-  </div>
-
-  <!-- ── Result of "codes from rates already used" ────────────────────────── -->
-  <div class="note" [class.success]="fromRatesResult.created.length" *ngIf="fromRatesResult" data-testid="from-rates-result">
-    <i class="pi" [ngClass]="fromRatesResult.created.length ? 'pi-check-circle' : 'pi-info-circle'"></i>
-    <div class="note-body">
-      <div class="note-title">{{ fromRatesMessage }}</div>
-      <div *ngIf="fromRatesResult.created.length" data-testid="from-rates-created">
-        Created:
-        <span *ngFor="let c of fromRatesResult.created; let last = last"><span class="mono">{{ c.code }}</span> ({{ formatPercent(c.ratePercent) }}%){{ last ? '' : ', ' }}</span>.
-        They are sales codes; make one the default or widen it to purchases by editing it.
-      </div>
-      <div *ngIf="fromRatesResult.skippedRates.length" data-testid="from-rates-skipped">
-        Already covered by a code: {{ skippedText(fromRatesResult.skippedRates) }}.
+  <div class="sf-body">
+    <div class="sf-lr-head">
+      <div>
+        <h1>Tax codes <span class="sf-count">{{ codes.length }}</span></h1>
+        <div class="sf-sub">
+          The tax rates your organization charges and pays. Sale-order lines and supplier invoices pick a code and keep its
+          rate, so changing a rate here never changes a document already raised. Codes are deactivated, never deleted.
+        </div>
       </div>
     </div>
-    <p-button icon="pi pi-times" [text]="true" [rounded]="true" size="small" severity="secondary" (onClick)="dismissFromRates()"
-              ariaLabel="Dismiss"></p-button>
-  </div>
 
-  <!-- ── The codes ──────────────────────────────────────────────────────────── -->
-  <section class="form-card flush">
-    <div class="table-toolbar">
-      <p-iconfield>
+    <div class="note info" *ngIf="!canManage" data-testid="read-only">
+      <i class="pi pi-lock"></i>
+      <div class="note-body">You can see the tax codes. Changing them needs the Manage Finance Setup permission.</div>
+    </div>
+
+    <!-- ── Result of "codes from rates already used" ────────────────────────── -->
+    <div class="note" [class.success]="fromRatesResult.created.length" *ngIf="fromRatesResult" data-testid="from-rates-result">
+      <i class="pi" [ngClass]="fromRatesResult.created.length ? 'pi-check-circle' : 'pi-info-circle'"></i>
+      <div class="note-body">
+        <div class="note-title">{{ fromRatesMessage }}</div>
+        <div *ngIf="fromRatesResult.created.length" data-testid="from-rates-created">
+          Created:
+          <span *ngFor="let c of fromRatesResult.created; let last = last"><span class="mono">{{ c.code }}</span> ({{ formatPercent(c.ratePercent) }}%){{ last ? '' : ', ' }}</span>.
+          They are sales codes; make one the default or widen it to purchases by editing it.
+        </div>
+        <div *ngIf="fromRatesResult.skippedRates.length" data-testid="from-rates-skipped">
+          Already covered by a code: {{ skippedText(fromRatesResult.skippedRates) }}.
+        </div>
+      </div>
+      <p-button icon="pi pi-times" [text]="true" [rounded]="true" size="small" severity="secondary" (onClick)="dismissFromRates()"
+                ariaLabel="Dismiss"></p-button>
+    </div>
+
+    <!-- ── Filters ──────────────────────────────────────────────────────────── -->
+    <div class="sf-filters">
+      <p-iconfield class="sf-search">
         <p-inputicon styleClass="pi pi-search"></p-inputicon>
         <input pInputText type="text" [(ngModel)]="search" placeholder="Search code or name" data-testid="search" />
       </p-iconfield>
       <p-select [options]="sideOptions" [(ngModel)]="sideFilter" optionLabel="label" optionValue="value" appendTo="body"
                 data-testid="side-filter"></p-select>
-      <div class="check-row inline">
+      <label class="sf-chip" for="showInactive">
         <p-checkbox inputId="showInactive" [binary]="true" [(ngModel)]="showInactive" data-testid="show-inactive"></p-checkbox>
-        <label for="showInactive">Show deactivated ({{ inactiveCount }})</label>
+        Show deactivated ({{ inactiveCount }})
+      </label>
+      <span class="sf-mu sf-sm" style="margin-left:auto" *ngIf="!isLoading">{{ visibleCodes.length }} of {{ codes.length }}</span>
+    </div>
+
+    <!-- ── The codes ──────────────────────────────────────────────────────────── -->
+    <section class="sf-card p0">
+      <div class="state-inline" *ngIf="loadFailed" data-testid="load-failed">
+        <i class="pi pi-exclamation-triangle"></i> The tax codes could not be loaded.
+        <p-button label="Try again" [text]="true" size="small" (onClick)="load()"></p-button>
       </div>
-      <span class="grow"></span>
-      <span class="muted" *ngIf="!isLoading">{{ visibleCodes.length }} of {{ codes.length }}</span>
-    </div>
 
-    <div class="state-inline" *ngIf="loadFailed" data-testid="load-failed">
-      <i class="pi pi-exclamation-triangle"></i> The tax codes could not be loaded.
-      <p-button label="Try again" [text]="true" size="small" (onClick)="load()"></p-button>
-    </div>
-
-    <p-table [value]="visibleCodes" [loading]="isLoading" dataKey="uuid" styleClass="p-datatable-sm" [tableStyle]="{ 'min-width': '48rem' }"
-             *ngIf="!loadFailed">
-      <ng-template pTemplate="header">
-        <tr>
-          <th style="width: 9rem">Code</th>
-          <th>Name</th>
-          <th style="width: 6rem" class="text-right">Rate</th>
-          <th style="width: 11rem">Used on</th>
-          <th style="width: 10rem">Default</th>
-          <th style="width: 7rem">Status</th>
-          <th style="width: 7rem" *ngIf="canManage"></th>
-        </tr>
-      </ng-template>
-      <ng-template pTemplate="body" let-c>
-        <tr [class.inactive-row]="!c.isActive" [attr.data-testid]="'code-' + c.code">
-          <td class="mono">{{ c.code }}</td>
-          <td>
-            <div>{{ c.name }}</div>
-            <small class="muted" *ngIf="c.description">{{ c.description }}</small>
-          </td>
-          <td class="text-right nowrap">{{ formatPercent(c.ratePercent) }}%</td>
-          <td><p-tag [value]="usageLabel(c.usage)" [severity]="usageSeverity(c.usage)"></p-tag></td>
-          <td>
-            <span *ngIf="c.isDefault" class="default-mark" data-testid="default-mark"><i class="pi pi-star-fill"></i> {{ defaultLabel(c) }}</span>
-          </td>
-          <td><p-tag [value]="c.isActive ? 'Active' : 'Deactivated'" [severity]="c.isActive ? 'success' : 'secondary'"></p-tag></td>
-          <td *ngIf="canManage">
-            <div class="row-actions">
-              <p-button icon="pi pi-pencil" [text]="true" [rounded]="true" size="small" pTooltip="Edit" tooltipPosition="top"
-                        (onClick)="openEdit(c)" [attr.data-testid]="'edit-' + c.code"></p-button>
-              <p-button *ngIf="c.isActive" icon="pi pi-ban" [text]="true" [rounded]="true" size="small" severity="danger"
-                        pTooltip="Deactivate" tooltipPosition="top" [disabled]="!!busy[c.uuid]" (onClick)="confirmDeactivate(c)"
-                        [attr.data-testid]="'deactivate-' + c.code"></p-button>
-              <p-button *ngIf="!c.isActive" icon="pi pi-replay" [text]="true" [rounded]="true" size="small" severity="success"
-                        pTooltip="Reactivate" tooltipPosition="top" [disabled]="!!busy[c.uuid]" (onClick)="reactivate(c)"
-                        [attr.data-testid]="'reactivate-' + c.code"></p-button>
-            </div>
-          </td>
-        </tr>
-      </ng-template>
-      <ng-template pTemplate="emptymessage">
-        <tr>
-          <td [attr.colspan]="canManage ? 7 : 6" class="empty" data-testid="empty">
-            <ng-container *ngIf="codes.length; else none">No tax code matches these filters.</ng-container>
-            <ng-template #none>
-              No tax codes yet.
-              <ng-container *ngIf="canManage">Add one, or create them from the rates your sale orders already use.</ng-container>
-            </ng-template>
-          </td>
-        </tr>
-      </ng-template>
-    </p-table>
-  </section>
-</div>
+      <p-table [value]="visibleCodes" [loading]="isLoading" dataKey="uuid" styleClass="p-datatable-sm" [tableStyle]="{ 'min-width': '48rem' }"
+               *ngIf="!loadFailed">
+        <ng-template pTemplate="header">
+          <tr>
+            <th style="width: 9rem">Code</th>
+            <th>Name</th>
+            <th style="width: 6rem" class="text-right">Rate</th>
+            <th style="width: 11rem">Used on</th>
+            <th style="width: 10rem">Default</th>
+            <th style="width: 7rem">Status</th>
+            <th style="width: 7rem" *ngIf="canManage"></th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-c>
+          <tr [class.inactive-row]="!c.isActive" [attr.data-testid]="'code-' + c.code">
+            <td class="sf-mono"><strong>{{ c.code }}</strong></td>
+            <td>
+              <div>{{ c.name }}</div>
+              <small class="sf-mu" *ngIf="c.description">{{ c.description }}</small>
+            </td>
+            <td class="text-right nowrap">{{ formatPercent(c.ratePercent) }}%</td>
+            <td><p-tag [value]="usageLabel(c.usage)" [severity]="usageSeverity(c.usage)"></p-tag></td>
+            <td>
+              <span *ngIf="c.isDefault" class="default-mark" data-testid="default-mark"><i class="pi pi-star-fill"></i> {{ defaultLabel(c) }}</span>
+            </td>
+            <td><p-tag [value]="c.isActive ? 'Active' : 'Deactivated'" [severity]="c.isActive ? 'success' : 'secondary'"></p-tag></td>
+            <td *ngIf="canManage">
+              <div class="row-actions">
+                <p-button icon="pi pi-pencil" [text]="true" [rounded]="true" size="small" pTooltip="Edit" tooltipPosition="top"
+                          (onClick)="openEdit(c)" [attr.data-testid]="'edit-' + c.code"></p-button>
+                <p-button *ngIf="c.isActive" icon="pi pi-ban" [text]="true" [rounded]="true" size="small" severity="danger"
+                          pTooltip="Deactivate" tooltipPosition="top" [disabled]="!!busy[c.uuid]" (onClick)="confirmDeactivate(c)"
+                          [attr.data-testid]="'deactivate-' + c.code"></p-button>
+                <p-button *ngIf="!c.isActive" icon="pi pi-replay" [text]="true" [rounded]="true" size="small" severity="success"
+                          pTooltip="Reactivate" tooltipPosition="top" [disabled]="!!busy[c.uuid]" (onClick)="reactivate(c)"
+                          [attr.data-testid]="'reactivate-' + c.code"></p-button>
+              </div>
+            </td>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="emptymessage">
+          <tr>
+            <td [attr.colspan]="canManage ? 7 : 6" class="sf-empty" data-testid="empty">
+              <ng-container *ngIf="codes.length; else none">No tax code matches these filters.</ng-container>
+              <ng-template #none>
+                No tax codes yet.
+                <ng-container *ngIf="canManage">Add one, or create them from the rates your sale orders already use.</ng-container>
+              </ng-template>
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </section>
+  </div>
+</sf-page>
 
 <!-- ══ Add / edit ══════════════════════════════════════════════════════════ -->
 <p-dialog [header]="editing ? 'Edit ' + editing.code : 'New tax code'" [(visible)]="dialogVisible" [modal]="true" [draggable]="false"

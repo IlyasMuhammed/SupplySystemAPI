@@ -24,6 +24,7 @@ import {
   AttributeDeleteConflictResult
 } from '../../../services/inventory.service';
 import { DynamicAttributeFormComponent } from '../../../shared/dynamic-attribute-form/dynamic-attribute-form.component';
+import { FLOW } from '../../../shared/flow';
 
 // Working item shape for both PickList panels — the source (available) side just shows the
 // attribute's own catalog defaults; the target (linked) side carries the live, editable
@@ -63,7 +64,8 @@ const FIELD_TYPE_PRESETS: FieldTypePreset[] = [
     CommonModule, RouterModule, FormsModule,
     PickListModule, ButtonModule, TagModule, ToastModule, ToggleSwitchModule,
     DialogModule, InputTextModule, TextareaModule, DropdownModule, TooltipModule, ConfirmDialogModule,
-    DynamicAttributeFormComponent
+    DynamicAttributeFormComponent,
+    ...FLOW
   ],
   templateUrl: './category-attributes-config.component.html',
   styleUrls: ['./category-attributes-config.component.scss'],

@@ -21,6 +21,7 @@ import { CurrenciesService, CurrencyModel } from '../../../services/currencies.s
 import { PaymentTermsService, PaymentTermModel } from '../../../services/payment-terms.service';
 import { CountriesService } from '../../../services/countries.service';
 import { CitiesService, CityModel } from '../../../services/cities.service';
+import { FLOW } from '../../../shared/flow';
 
 @Component({
   selector: 'app-supplier-create',
@@ -28,7 +29,7 @@ import { CitiesService, CityModel } from '../../../services/cities.service';
   imports: [
     CommonModule, ReactiveFormsModule,
     ButtonModule, InputTextModule, TextareaModule, CardModule, ToastModule,
-    DropdownModule, MultiSelectModule, CheckboxModule, InputNumberModule, DividerModule
+    DropdownModule, MultiSelectModule, CheckboxModule, InputNumberModule, DividerModule, ...FLOW
   ],
   templateUrl: './supplier-create.component.html',
   styleUrls: ['./supplier-create.component.scss'],

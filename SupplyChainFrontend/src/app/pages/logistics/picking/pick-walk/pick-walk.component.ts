@@ -20,6 +20,7 @@ import {
   PICK_SHORT_REASONS
 } from '../../../../services/logistics.service';
 import { PICK_LIST_STATUS_SEVERITY } from '../pick-list-queue/pick-list-queue.component';
+import { FLOW, FlowStage, flowStagesFrom } from '../../../../shared/flow';
 
 type Severity = 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast';
 
@@ -37,7 +38,8 @@ type Severity = 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast
   imports: [
     CommonModule, RouterModule, FormsModule,
     ButtonModule, TagModule, TooltipModule, ToastModule,
-    DialogModule, SelectModule, InputNumberModule, InputTextModule, TextareaModule
+    DialogModule, SelectModule, InputNumberModule, InputTextModule, TextareaModule,
+    ...FLOW
   ],
   templateUrl: './pick-walk.component.html',
   styleUrls: ['./pick-walk.component.scss'],
@@ -119,6 +121,15 @@ export class PickWalkComponent implements OnInit {
 
   get isLive(): boolean {
     return this.pickList?.status === 'OPEN' || this.pickList?.status === 'IN_PROGRESS';
+  }
+
+  /** SMS Flow status strip: Open → Picking → Completed (Cancelled stops it in red). */
+  get stages(): FlowStage[] {
+    const status = this.pickList?.status;
+    if (!status) return [];
+    if (status === 'CANCELLED') return flowStagesFrom(['Open', 'Cancelled'], 1, { failed: true });
+    const current = status === 'COMPLETED' ? 3 : status === 'IN_PROGRESS' ? 1 : 0;
+    return flowStagesFrom(['Open', 'Picking', 'Completed'], current);
   }
 
   get progressPercent(): number {

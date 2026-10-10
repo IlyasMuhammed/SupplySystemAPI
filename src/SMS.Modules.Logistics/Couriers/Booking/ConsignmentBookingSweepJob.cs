@@ -1,9 +1,10 @@
-using Hangfire;
+﻿using Hangfire;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SMS.Modules.Logistics.Constants;
 using SMS.Modules.Logistics.Data;
 using SMS.Modules.Logistics.Domain;
+using SMS.Shared.Common;
 
 namespace SMS.Modules.Logistics.Couriers.Booking;
 
@@ -21,11 +22,13 @@ internal sealed class ConsignmentBookingSweepJob
     private readonly ICourierProviderRegistry            _registry;
     private readonly IConsignmentBookingScheduler        _scheduler;
     private readonly ILogger<ConsignmentBookingSweepJob> _logger;
+    private readonly IModuleGate?                        _gate;
 
     public ConsignmentBookingSweepJob(
         LogisticsDbContext db, ICarrierCommandLedger ledger, ICourierProviderRegistry registry,
-        IConsignmentBookingScheduler scheduler, ILogger<ConsignmentBookingSweepJob> logger)
+        IConsignmentBookingScheduler scheduler, ILogger<ConsignmentBookingSweepJob> logger, IModuleGate? gate = null)
     {
+        _gate      = gate;
         _db        = db;
         _ledger    = ledger;
         _registry  = registry;
@@ -64,8 +67,11 @@ internal sealed class ConsignmentBookingSweepJob
             .ToListAsync(ct);
 
         var requeued = 0;
+        // A37 D-9 — not for organizations without MODULE_LOGISTICS (grace counts as off). Lease expiry above is ledger
+        // housekeeping and stays global.
+        var skipped = await _gate.SkippedAmongAsync(stalled.Select(c => c.OrganizationId), ModuleCodes.Logistics, _logger, nameof(ConsignmentBookingSweepJob), ct);
 
-        foreach (var consignment in stalled)
+        foreach (var consignment in stalled.Where(c => !skipped.Contains(c.OrganizationId)))
         {
             var command = consignment.BookingIdempotencyKey is null
                 ? null

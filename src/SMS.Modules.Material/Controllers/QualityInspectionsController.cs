@@ -13,10 +13,12 @@ namespace SMS.Modules.Material.Controllers;
 /// implementation has no separate draft-then-decide step, since nothing here needs one — see
 /// <see cref="QualityInspectionService"/>'s own note), so the write is gated QI_APPROVE, the
 /// permission for the decision itself; QI_CREATE, per the spec's own table, gates reading one back.
+/// A37 §1.3 — and FEATURE_QUALITY_INSPECTION (every [RequiresFeature] must pass).
 /// </summary>
 [ApiController]
 [Route("api")]
 [RequiresFeature("MODULE_MANUFACTURING")]
+[RequiresFeature(ModuleCodes.QualityInspection)]
 public class QualityInspectionsController : ControllerBase
 {
     private readonly IQualityInspectionService _service;

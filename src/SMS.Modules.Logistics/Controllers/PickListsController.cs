@@ -19,6 +19,7 @@ namespace SMS.Modules.Logistics.Controllers;
 [ApiController]
 [Route("api/logistics/pick-lists")]
 [RequiresFeature("MODULE_LOGISTICS")]
+[RequiresFeature("FEATURE_PICK_LISTS")]   // A37 §1.3
 public class PickListsController : ControllerBase
 {
     private readonly IPickListService _svc;

@@ -6,8 +6,8 @@ import { TagModule } from 'primeng/tag';
 import { TooltipModule } from 'primeng/tooltip';
 
 import {
-  FulfillmentRouteCategory, FulfillmentRouteModel, FulfillmentRoutesService, routeCategoryLabel, routeCategoryOf,
-  routeCategorySeverity, routesForVariant
+  FulfillmentRouteCategory, FulfillmentRouteModel, FulfillmentRoutesService, isRouteAvailable, routeCategoryLabel, routeCategoryOf,
+  routeCategorySeverity, routeUnavailableReason, routesForVariant, unavailableRouteOptions
 } from '../../../../../services/fulfillment-routes.service';
 
 interface RouteOption {
@@ -18,6 +18,9 @@ interface RouteOption {
   inactive?: boolean;
   /** The variant already has it, but it would be refused today (D-3 / D-9). */
   notAllowed?: boolean;
+  /** A37 RTE-01 — the server marks it unavailable (its module is off): listed disabled, or kept when it is the variant's own. */
+  disabled?: boolean;
+  unavailableReason?: string;
 }
 
 /**
@@ -70,10 +73,13 @@ export class VariantRouteFieldComponent implements OnInit {
   get options(): RouteOption[] {
     const toOption = (r: FulfillmentRouteModel): RouteOption =>
       ({ label: `${r.name} (${r.code})`, value: r.uuid, stepsText: r.stepsText, category: routeCategoryOf(r) });
-    const options = routesForVariant(this.routes, this.productManufactured, this.manufacturingEnabled).map(toOption);
+    const available = this.routes.filter(r => isRouteAvailable(r));
+    const options = routesForVariant(available, this.productManufactured, this.manufacturingEnabled).map(toOption);
     if (this.value && !options.some(o => o.value === this.value)) {
       const saved = this.routes.find(r => r.uuid === this.value);
-      if (saved) {
+      if (saved && !isRouteAvailable(saved)) {
+        options.push({ ...toOption(saved), unavailableReason: routeUnavailableReason(saved) });
+      } else if (saved) {
         options.push({ ...toOption(saved), notAllowed: true });
       } else {
         const name = this.currentName ?? 'Current route';
@@ -82,6 +88,11 @@ export class VariantRouteFieldComponent implements OnInit {
           category: 'STOCK', inactive: true
         });
       }
+    }
+    // A37 — the other unavailable routes are shown, disabled, with the reason.
+    for (const u of unavailableRouteOptions(this.routes, options.map(o => o.value), true)) {
+      const route = this.routes.find(r => r.uuid === u.value)!;
+      options.push({ ...toOption(route), label: u.label, disabled: true, unavailableReason: u.reason });
     }
     return options;
   }

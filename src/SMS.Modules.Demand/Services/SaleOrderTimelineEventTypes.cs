@@ -55,4 +55,14 @@ public static class SaleOrderTimelineEventTypes
     public const string SoDeliveryFromProduction = "SO_DELIVERY_FROM_PRODUCTION";
     /// <summary>D-21 — production accepted less than the line (also zero yield).</summary>
     public const string SoProductionShortfall = "SO_PRODUCTION_SHORTFALL";
+
+    // A36 D-10 — service lines. Outside §13.3's seven.
+    /// <summary>The order's service lines got their service orders (confirm, or the retry on the next detail load).</summary>
+    public const string SoServiceOrdersCreated = "SO_SERVICE_ORDERS_CREATED";
+    /// <summary>Creating them failed; the next load of the order's detail retries (idempotent).</summary>
+    public const string SoServiceOrdersFailed = "SO_SERVICE_ORDERS_FAILED";
+    /// <summary>Cancelling the order cancelled its service orders that had not started; started ones are listed.</summary>
+    public const string SoServiceOrdersCancelled = "SO_SERVICE_ORDERS_CANCELLED";
+    /// <summary>A service line's service orders reached COMPLETED/CLOSED for some or all of its quantity.</summary>
+    public const string SoServiceCompleted = "SO_SERVICE_COMPLETED";
 }

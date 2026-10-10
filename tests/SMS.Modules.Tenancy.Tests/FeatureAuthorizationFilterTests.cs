@@ -91,7 +91,7 @@ public class FeatureAuthorizationFilterTests
     }
 
     [Fact]
-    public async Task OnActionExecutionAsync_FeatureDisabled_ThrowsForbiddenException_AndDoesNotCallNext()
+    public async Task OnActionExecutionAsync_FeatureDisabled_Returns403ModuleNotLicensed_AndDoesNotCallNext()
     {
         var orgId = Guid.NewGuid();
         var tenantContext = new Mock<ITenantContext>();
@@ -105,8 +105,14 @@ public class FeatureAuthorizationFilterTests
         var filter = new FeatureAuthorizationFilter(tenantContext.Object, snapshots.Object);
 
         var (context, next, nextWasCalled) = NewContext(new RequiresFeatureAttribute("MODULE_MIR"));
-        await Assert.ThrowsAsync<ForbiddenException>(() => filter.OnActionExecutionAsync(context, next));
+        await filter.OnActionExecutionAsync(context, next);
 
+        // A37 §1.4 — the module 403 body is the action result (not a ForbiddenException), so other 403s keep their shape.
+        var result = context.Result.Should().BeOfType<Microsoft.AspNetCore.Mvc.ObjectResult>().Subject;
+        result.StatusCode.Should().Be(403);
+        var body = result.Value.Should().BeOfType<ModuleNotEnabledResponse>().Subject;
+        body.ErrorCode.Should().Be("MODULE_NOT_LICENSED");
+        body.Result.Module.Should().Be("MODULE_MIR");
         nextWasCalled().Should().BeFalse();
     }
 

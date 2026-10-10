@@ -1,4 +1,4 @@
-using System.Data;
+﻿using System.Data;
 using System.Text.RegularExpressions;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
@@ -35,15 +35,36 @@ internal sealed partial class FulfillmentRouteService : IFulfillmentRouteService
     private readonly LogisticsDbContext _db;
     private readonly ITenantContext _tenant;
     private readonly IReadOnlyList<IFulfillmentRouteUsage> _usages;
+    private readonly IModuleGate? _gate;
+    private readonly ITenantSnapshotProvider? _tenants;
+    private readonly IProductVariantRoutes? _productVariants;
 
-    public FulfillmentRouteService(LogisticsDbContext db, ITenantContext tenant, IEnumerable<IFulfillmentRouteUsage> usages)
+    public FulfillmentRouteService(
+        LogisticsDbContext db, ITenantContext tenant, IEnumerable<IFulfillmentRouteUsage> usages,
+        IModuleGate? gate = null, ITenantSnapshotProvider? tenants = null, IProductVariantRoutes? productVariants = null)
     {
-        _db     = db;
-        _tenant = tenant;
-        _usages = usages.ToList();
+        _productVariants = productVariants;
+        _db      = db;
+        _tenant  = tenant;
+        _usages  = usages.ToList();
+        _gate    = gate;
+        _tenants = tenants;
     }
 
     private Guid Org => _tenant.OrganizationId;
+
+    /// <summary>A37 D-12 — MANUFACTURE routes are available only while the organization has MODULE_MANUFACTURING.</summary>
+    private Task<bool> ManufacturingOnAsync() => FulfillmentRouteAvailability.ManufacturingOnAsync(_gate, _tenants, Org);
+
+    private async Task<FulfillmentRouteModel> ToAvailableModelAsync(FulfillmentRoute row) =>
+        Stamp(ToModel(row), await ManufacturingOnAsync());
+
+    /// <summary>A37 RTE-01 — a new route, or a category change, to MANUFACTURE while Manufacturing is off is a 400.</summary>
+    private async Task RequireAvailableAsync(string category)
+    {
+        if (FulfillmentRouteAvailability.UnavailableReason(category, await ManufacturingOnAsync()) is not null)
+            throw new BadRequestException(FulfillmentRouteAvailability.ManufacturingOffMessage);
+    }
 
     private IQueryable<FulfillmentRoute> Own() =>
         _db.FulfillmentRoutes.IgnoreQueryFilters().Where(r => r.OrganizationId == Org).Include(r => r.Steps);
@@ -63,14 +84,65 @@ internal sealed partial class FulfillmentRouteService : IFulfillmentRouteService
         }
 
         var rows = await query.OrderBy(r => r.DisplayOrder).ThenBy(r => r.Code).ToListAsync();
-        return rows.Select(ToModel).ToList();
+        var manufacturingOn = await ManufacturingOnAsync();
+        return rows.Select(r => Stamp(ToModel(r), manufacturingOn)).ToList();
     }
 
     public async Task<FulfillmentRouteModel?> GetByUuidAsync(Guid uuid)
     {
         var row = await Own().AsNoTracking().FirstOrDefaultAsync(r => r.UUID == uuid);
-        return row is null ? null : ToModel(row);
+        return row is null ? null : await ToAvailableModelAsync(row);
     }
+
+    /// <summary>
+    /// A37 D-12 — each variant's configured route and the route an order line would actually use: the configured one
+    /// when available, else the organization's SHIP default (RTE-02). Null when the product is not the organization's, or
+    /// no variant reader is registered (Inventory's <see cref="IProductVariantRoutes"/>).
+    /// </summary>
+    public async Task<IReadOnlyList<ProductVariantRouteModel>?> GetProductRoutesAsync(int? productId, Guid? productUuid)
+    {
+        if (_productVariants is null) return null;
+        var variants = await _productVariants.GetForProductAsync(Org, productId, productUuid);
+        if (variants is null) return null;
+
+        var wanted = variants.Where(v => v.RouteUuid is not null).Select(v => v.RouteUuid!.Value).Distinct().ToList();
+        var routes = wanted.Count == 0
+            ? new Dictionary<Guid, FulfillmentRoute>()
+            : await Own().AsNoTracking().Where(r => wanted.Contains(r.UUID)).ToDictionaryAsync(r => r.UUID);
+        var fallback = await Own().AsNoTracking().FirstOrDefaultAsync(r => r.IsDefault && r.IsActive && r.RequiresShipping);
+        var manufacturingOn = await ManufacturingOnAsync();
+
+        return variants.Select(v =>
+        {
+            var route  = v.RouteUuid is { } u ? routes.GetValueOrDefault(u) : null;
+            var reason = route is null ? null : FulfillmentRouteAvailability.UnavailableReason(route.RouteCategory, manufacturingOn);
+            var effective = route is not null && reason is null ? route : fallback;
+            return new ProductVariantRouteModel
+            {
+                VariantUuid        = v.VariantUuid,
+                VariantName        = v.VariantName,
+                Sku                = v.Sku,
+                RouteUuid          = route?.UUID,
+                RouteName          = route?.Name,
+                Category           = route?.RouteCategory,
+                IsAvailable        = reason is null,
+                UnavailableReason  = reason,
+                EffectiveRouteUuid = effective?.UUID,
+                EffectiveRouteName = effective?.Name,
+                Warning            = RouteWarning(route?.Code, reason, effective?.Code)
+            };
+        }).ToList();
+    }
+
+    /// <summary>A37 RTE-03 — the words for a variant whose route is unavailable, or that has nothing to fall back on.</summary>
+    internal static string? RouteWarning(string? routeCode, string? unavailableReason, string? fallbackCode) =>
+        (unavailableReason, fallbackCode) switch
+        {
+            (not null, not null) => $"'{routeCode}' is not available ({unavailableReason}); orders use the default route '{fallbackCode}'.",
+            (not null, null)     => $"'{routeCode}' is not available ({unavailableReason}) and there is no default route, so orders for it can't be confirmed.",
+            (null, null) when routeCode is null => "No route and no default route, so orders for it can't be confirmed.",
+            _                    => null
+        };
 
     // ── Writes ───────────────────────────────────────────────────────────────
 
@@ -83,6 +155,7 @@ internal sealed partial class FulfillmentRouteService : IFulfillmentRouteService
         var category    = string.IsNullOrWhiteSpace(req.RouteCategory)
             ? FulfillmentRouteCategory.Stock
             : AvailableCategory(req.RouteCategory);
+        await RequireAvailableAsync(category);
 
         // BR-C1-01 — a clear message here; the unique index (OrganizationId, Code) holds under a race.
         if (await Own().AnyAsync(r => r.Code == code))
@@ -118,7 +191,7 @@ internal sealed partial class FulfillmentRouteService : IFulfillmentRouteService
             throw DuplicateCode(code);   // lost the race to another request creating the same code
         }
 
-        return ToModel(row);
+        return await ToAvailableModelAsync(row);
     }
 
     public async Task<FulfillmentRouteModel?> UpdateAsync(Guid uuid, UpdateFulfillmentRouteRequest req, int userId)
@@ -133,6 +206,8 @@ internal sealed partial class FulfillmentRouteService : IFulfillmentRouteService
         var category = string.IsNullOrWhiteSpace(req.RouteCategory) ? row.RouteCategory : AvailableCategory(req.RouteCategory);
         if (category != row.RouteCategory)
         {
+            await RequireAvailableAsync(category);
+
             if (row.IsSystem)
                 throw new ConflictException(
                     $"'{row.Code}' is a system route: its category can't be changed. Create a custom route instead.");
@@ -184,14 +259,14 @@ internal sealed partial class FulfillmentRouteService : IFulfillmentRouteService
         row.ModifiedDate = DateTime.UtcNow;
         await _db.SaveChangesAsync();
 
-        return ToModel(row);
+        return await ToAvailableModelAsync(row);
     }
 
     public async Task<FulfillmentRouteModel?> SetActiveAsync(Guid uuid, bool isActive, int userId)
     {
         var row = await Own().FirstOrDefaultAsync(r => r.UUID == uuid);
         if (row is null) return null;
-        if (row.IsActive == isActive) return ToModel(row);
+        if (row.IsActive == isActive) return await ToAvailableModelAsync(row);
 
         if (!isActive)
         {
@@ -211,7 +286,7 @@ internal sealed partial class FulfillmentRouteService : IFulfillmentRouteService
         row.ModifiedDate = DateTime.UtcNow;
         await _db.SaveChangesAsync();
 
-        return ToModel(row);
+        return await ToAvailableModelAsync(row);
     }
 
     public Task<FulfillmentRouteModel?> SetDefaultAsync(Guid uuid, int userId) =>
@@ -515,12 +590,27 @@ internal sealed partial class FulfillmentRouteService : IFulfillmentRouteService
         };
     }
 
-    internal static FulfillmentRouteSummary ToSummary(FulfillmentRoute r) => new(
-        r.UUID, r.Code, r.Name, r.IsActive, r.IsDefault, r.IsSystem, r.RequiresPacking, r.RequiresShipping,
-        r.OrderedStepCodes())
+    /// <summary>A37 D-12 — <c>isAvailable</c> / <c>unavailableReason</c> for the organization's module state.</summary>
+    internal static FulfillmentRouteModel Stamp(FulfillmentRouteModel model, bool manufacturingOn)
     {
-        Category = r.RouteCategory
-    };
+        model.UnavailableReason = FulfillmentRouteAvailability.UnavailableReason(model.RouteCategory, manufacturingOn);
+        model.IsAvailable       = model.UnavailableReason is null;
+        return model;
+    }
+
+    internal static FulfillmentRouteSummary ToSummary(FulfillmentRoute r) => ToSummary(r, manufacturingOn: true);
+
+    internal static FulfillmentRouteSummary ToSummary(FulfillmentRoute r, bool manufacturingOn)
+    {
+        var reason = FulfillmentRouteAvailability.UnavailableReason(r.RouteCategory, manufacturingOn);
+        return new(r.UUID, r.Code, r.Name, r.IsActive, r.IsDefault, r.IsSystem, r.RequiresPacking, r.RequiresShipping,
+            r.OrderedStepCodes())
+        {
+            Category          = r.RouteCategory,
+            IsAvailable       = reason is null,
+            UnavailableReason = reason
+        };
+    }
 }
 
 /// <summary>
@@ -639,7 +729,22 @@ internal sealed class FulfillmentRouteProvisioningHandler : IOrganizationProvisi
 internal sealed class FulfillmentRouteLookup : IFulfillmentRouteLookup
 {
     private readonly LogisticsDbContext _db;
-    public FulfillmentRouteLookup(LogisticsDbContext db) => _db = db;
+    private readonly IModuleGate? _gate;
+    private readonly ITenantSnapshotProvider? _tenants;
+
+    /// <param name="gate">A37 D-12 — summaries carry <c>IsAvailable</c> for the organization's module state.</param>
+    public FulfillmentRouteLookup(LogisticsDbContext db, IModuleGate? gate = null, ITenantSnapshotProvider? tenants = null)
+    {
+        _db      = db;
+        _gate    = gate;
+        _tenants = tenants;
+    }
+
+    private async Task<Func<FulfillmentRoute, FulfillmentRouteSummary>> SummaryAsync(Guid organizationId, CancellationToken ct)
+    {
+        var on = await FulfillmentRouteAvailability.ManufacturingOnAsync(_gate, _tenants, organizationId, ct);
+        return r => FulfillmentRouteService.ToSummary(r, on);
+    }
 
     private IQueryable<FulfillmentRoute> Of(Guid organizationId) =>
         _db.FulfillmentRoutes.IgnoreQueryFilters().AsNoTracking()
@@ -653,21 +758,23 @@ internal sealed class FulfillmentRouteLookup : IFulfillmentRouteLookup
         if (wanted.Count == 0) return new Dictionary<Guid, FulfillmentRouteSummary>();
 
         var rows = await Of(organizationId).Where(r => wanted.Contains(r.UUID)).ToListAsync(ct);
-        return rows.ToDictionary(r => r.UUID, FulfillmentRouteService.ToSummary);
+        var summary = await SummaryAsync(organizationId, ct);
+        return rows.ToDictionary(r => r.UUID, summary);
     }
 
     public async Task<FulfillmentRouteDefaults> GetOrgDefaultsAsync(Guid organizationId, CancellationToken ct = default)
     {
         var rows = await Of(organizationId).Where(r => r.IsDefault && r.IsActive).ToListAsync(ct);
         return new FulfillmentRouteDefaults(
-            rows.Where(r => r.RequiresShipping).Select(FulfillmentRouteService.ToSummary).FirstOrDefault(),
-            rows.Where(r => !r.RequiresShipping).Select(FulfillmentRouteService.ToSummary).FirstOrDefault());
+            rows.Where(r => r.RequiresShipping).Select(r => FulfillmentRouteService.ToSummary(r)).FirstOrDefault(),
+            rows.Where(r => !r.RequiresShipping).Select(r => FulfillmentRouteService.ToSummary(r)).FirstOrDefault());
     }
 
     public async Task<IReadOnlyList<FulfillmentRouteSummary>> ListActiveAsync(Guid organizationId, CancellationToken ct = default)
     {
         var rows = await Of(organizationId).Where(r => r.IsActive)
             .OrderBy(r => r.DisplayOrder).ThenBy(r => r.Code).ToListAsync(ct);
-        return rows.Select(FulfillmentRouteService.ToSummary).ToList();
+        var summary = await SummaryAsync(organizationId, ct);
+        return rows.Select(summary).ToList();
     }
 }

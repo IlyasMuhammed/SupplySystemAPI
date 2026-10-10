@@ -1,85 +1,114 @@
-<div class="grn-detail-page">
-  <p-toast></p-toast>
-  <p-confirmDialog [style]="{width:'420px'}"></p-confirmDialog>
+<p-toast></p-toast>
+<p-confirmDialog [style]="{width:'420px'}"></p-confirmDialog>
 
-  <div *ngIf="isLoading" class="loading-card">
-    <i class="pi pi-spin pi-spinner" style="font-size:2rem;color:#e67e22"></i>
-    <p>Loading GRN...</p>
-  </div>
+<div *ngIf="isLoading" class="sf-empty">
+  <i class="pi pi-spin pi-spinner"></i> Loading GRN...
+</div>
 
-  <ng-container *ngIf="!isLoading && grn">
+<sf-page *ngIf="!isLoading && grn" [crumbs]="['Warehouse', 'Goods receipts', grn.grnNumber]">
 
-    <!-- ── Header ─────────────────────────────────────────────────────────── -->
-    <div class="page-header">
-      <div class="header-left">
-        <p-button icon="pi pi-arrow-left" [text]="true" severity="secondary"
-                  routerLink="/portal/pages/warehouse/grn"></p-button>
-        <div>
-          <div class="title-row">
-            <h1 class="page-title">{{ grn.grnNumber }}</h1>
-            <p-tag [value]="getStatusLabel(grn.status)" [severity]="getStatusSeverity(grn.status)"></p-tag>
-            <span *ngIf="grn.isPartialReceipt" class="partial-badge">
-              <i class="pi pi-exclamation-triangle"></i> Partial Receipt
-            </span>
-            <span *ngIf="grn.financeApprovalRequired" class="finance-badge">
-              <i class="pi pi-dollar"></i> Finance Review
-            </span>
-          </div>
-          <p class="page-subtitle">PO: {{ grn.poNumber }} &bull; {{ grn.supplierName }}</p>
-          <p *ngIf="grn.approvalDeadline" class="deadline-hint">
-            <i class="pi pi-clock"></i> Approval SLA: {{ grn.approvalDeadline | date:'dd MMM yyyy HH:mm' }}
-          </p>
-        </div>
-      </div>
-
-      <div class="header-actions">
-        <!-- DRAFT: Edit + Delete -->
-        <p-button *ngIf="canEdit" label="Edit" icon="pi pi-pencil" severity="secondary"
-                  [routerLink]="['/portal/pages/warehouse/grn', grn.uuid, 'edit']"></p-button>
-        <p-button *ngIf="canEdit" icon="pi pi-trash" severity="danger" [outlined]="true"
-                  pTooltip="Delete GRN" [loading]="isDeleting"
-                  (onClick)="confirmDelete()"></p-button>
-
+    <!-- ── Command bar: the next step first, then the rest ──────────────── -->
+    <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
         <!-- DRAFT: Submit for QC -->
         <p-button *ngIf="canSubmit" label="Submit for QC" icon="pi pi-send"
-                  severity="info" [loading]="isSubmitting" [disabled]="hasUncheckedLines"
+                  [loading]="isSubmitting" [disabled]="hasUncheckedLines"
                   [pTooltip]="hasUncheckedLines ? 'Record a receiving check (Pass/Fail/Partial) for every line before submitting' : 'Move to PENDING_QC'"
                   (onClick)="submitGrn()"></p-button>
 
-        <!-- PENDING_QC: QC Confirm + QC Reject -->
+        <!-- PENDING_QC: QC Confirm -->
         <p-button *ngIf="canQcConfirm" label="QC Confirm" icon="pi pi-check-circle"
-                  severity="success" [disabled]="hasUninspectedLines"
+                  [disabled]="hasUninspectedLines"
                   [pTooltip]="hasUninspectedLines ? 'Save the inspection result for every line before confirming QC' : 'Goods passed quality inspection'"
                   (onClick)="openQcConfirmDialog()"></p-button>
-        <p-button *ngIf="canQcReject" label="QC Reject" icon="pi pi-times-circle"
-                  severity="danger"
-                  pTooltip="Goods failed quality inspection"
-                  (onClick)="openQcRejectDialog()"></p-button>
 
-        <!-- PENDING_FINANCE: Finance Approve + Finance Reject -->
+        <!-- PENDING_FINANCE: Finance Approve -->
         <p-button *ngIf="canFinanceApprove" label="Finance Approve" icon="pi pi-dollar"
-                  severity="success"
                   pTooltip="Approve high-value GRN as Finance Officer"
                   (onClick)="openFinanceApproveDialog()"></p-button>
-        <p-button *ngIf="canFinanceReject" label="Finance Reject" icon="pi pi-times"
-                  severity="danger"
-                  pTooltip="Reject high-value GRN as Finance Officer"
-                  (onClick)="openFinanceRejectDialog()"></p-button>
 
-        <!-- PENDING_APPROVAL: IM Approve + IM Reject -->
+        <!-- PENDING_APPROVAL: IM Approve -->
         <p-button *ngIf="canApprove" label="Approve GRN" icon="pi pi-check-circle"
-                  severity="success"
                   pTooltip="Final approval — posts stock to inventory"
                   (onClick)="openApproveDialog()"></p-button>
+
+        <!-- DRAFT: Edit -->
+        <p-button *ngIf="canEdit" label="Edit" icon="pi pi-pencil" [text]="true"
+                  [routerLink]="['/portal/pages/warehouse/grn', grn.uuid, 'edit']"></p-button>
+        <p-button label="Timeline" icon="pi pi-history" [text]="true"
+                  pTooltip="View Timeline" (onClick)="showTimeline = true"></p-button>
+        <p-button label="Back to list" icon="pi pi-arrow-left" [text]="true"
+                  routerLink="/portal/pages/warehouse/grn"></p-button>
+
+        <span class="sf-sep" *ngIf="canEdit || canQcReject || canFinanceReject || canReject"></span>
+        <p-button *ngIf="canQcReject" label="QC Reject" icon="pi pi-times-circle"
+                  severity="danger" [text]="true"
+                  pTooltip="Goods failed quality inspection"
+                  (onClick)="openQcRejectDialog()"></p-button>
+        <p-button *ngIf="canFinanceReject" label="Finance Reject" icon="pi pi-times"
+                  severity="danger" [text]="true"
+                  pTooltip="Reject high-value GRN as Finance Officer"
+                  (onClick)="openFinanceRejectDialog()"></p-button>
         <p-button *ngIf="canReject" label="Reject GRN" icon="pi pi-times"
-                  severity="danger"
+                  severity="danger" [text]="true"
                   pTooltip="Reject and create supplier return order"
                   (onClick)="openRejectDialog()"></p-button>
-
-        <p-button icon="pi pi-history" [text]="true" severity="secondary"
-                  pTooltip="View Timeline" (onClick)="showTimeline = true"></p-button>
-      </div>
+        <!-- DRAFT: Delete -->
+        <p-button *ngIf="canEdit" label="Delete" icon="pi pi-trash" severity="danger" [text]="true"
+                  pTooltip="Delete GRN" [loading]="isDeleting"
+                  (onClick)="confirmDelete()"></p-button>
     </div>
+
+    <!-- ── Dynamic header ────────────────────────────────────────────────── -->
+    <header class="sf-hdr">
+      <div class="sf-t">
+        <div>
+          <div class="sf-kicker">
+            Goods receipt · for PO
+            <a class="sf-mono" [routerLink]="['/portal/pages/demand/purchase-orders', grn.poUuid]">{{ grn.poNumber }}</a>
+          </div>
+          <h1>
+            <span class="sf-mono">{{ grn.grnNumber }}</span>
+            <p-tag [value]="getStatusLabel(grn.status)" [severity]="getStatusSeverity(grn.status)"></p-tag>
+            <span *ngIf="grn.isPartialReceipt" class="sf-pill wn">
+              <i class="pi pi-exclamation-triangle"></i> Partial receipt
+            </span>
+            <span *ngIf="grn.financeApprovalRequired" class="sf-pill vi">
+              <i class="pi pi-dollar"></i> Finance review
+            </span>
+          </h1>
+          <div class="sf-meta">
+            {{ grn.supplierName }} · {{ getWarehouseName(grn.warehouseUuid) }}
+            · received {{ grn.receivedAt | date:'dd MMM yyyy, HH:mm' }}
+            <span *ngIf="grn.approvalDeadline" class="deadline-hint">
+              · <i class="pi pi-clock"></i> Approval SLA: {{ grn.approvalDeadline | date:'dd MMM yyyy HH:mm' }}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <sf-stages [stages]="stages"></sf-stages>
+
+      <div class="sf-facts">
+        <div class="sf-kpi">
+          <span class="l">Lines</span>
+          <span class="v">{{ grn.lines.length }}</span>
+          <span class="s" *ngIf="canEdit">{{ checkedLineCount }} checked</span>
+        </div>
+        <div class="sf-kpi" *ngIf="grn.requiresInspection && grn.status !== 'DRAFT'">
+          <span class="l">Inspected</span>
+          <span class="v" [class.ok]="grn.inspectionComplete">{{ grn.inspectedLineCount }} / {{ grn.totalLineCount }}</span>
+        </div>
+        <div class="sf-kpi" *ngIf="grn.status !== 'DRAFT' && grn.status !== 'PENDING_QC'">
+          <span class="l">QC</span>
+          <span class="v sm" [class.ok]="grn.qcPassed" [class.er]="!grn.qcPassed">{{ grn.qcPassed ? 'Passed' : 'Failed' }}</span>
+          <span class="s" *ngIf="grn.qcConfirmedAt">{{ grn.qcConfirmedAt | date:'dd MMM yyyy HH:mm' }}</span>
+        </div>
+      </div>
+    </header>
+
+    <sf-anchors [sections]="sections"></sf-anchors>
+
+    <div class="sf-body">
 
     <!-- ── A31 C10 §12.3 — a receipt no longer runs allocation by itself ────── -->
     <p-message *ngIf="canRunAllocation" severity="warn" styleClass="note" data-testid="allocation-banner">
@@ -96,8 +125,8 @@
     </p-message>
 
     <!-- What the last run in this session actually did — the checkable answer to "is this working". -->
-    <div class="allocation-results" *ngIf="lastAllocationResults && lastAllocationResults.length > 0" data-testid="allocation-results">
-      <div class="allocation-results-title"><i class="pi pi-list-check"></i> Last allocation run</div>
+    <div class="sf-card allocation-results" *ngIf="lastAllocationResults && lastAllocationResults.length > 0" data-testid="allocation-results">
+      <div class="sf-ch"><h2><i class="pi pi-list-check"></i> Last allocation run</h2></div>
       <table class="allocation-results-table">
         <thead>
           <tr><th>Material</th><th>Demands checked</th><th>Reserved</th><th>Planned (awaiting supply)</th><th>Still short</th></tr>
@@ -116,122 +145,31 @@
         No open demand was found for this material at all — nothing was waiting on it, so there was nothing to reserve.
       </p>
     </div>
-    <div class="allocation-results allocation-results-error" *ngIf="lastAllocationFailures.length > 0" data-testid="allocation-failures">
-      <div class="allocation-results-title"><i class="pi pi-exclamation-triangle"></i> Failed to run</div>
+    <div class="sf-card allocation-results-error" *ngIf="lastAllocationFailures.length > 0" data-testid="allocation-failures">
+      <div class="sf-ch"><h2><i class="pi pi-exclamation-triangle"></i> Failed to run</h2></div>
       <div *ngFor="let f of lastAllocationFailures">{{ f.materialName }} — {{ f.message }}</div>
     </div>
 
-    <!-- ── Info cards ──────────────────────────────────────────────────────── -->
-    <div class="info-grid">
-      <div class="info-card">
-        <h3><i class="pi pi-truck"></i> Delivery Info</h3>
-        <div class="info-rows">
-          <div class="info-row"><span>Warehouse</span><strong>{{ getWarehouseName(grn.warehouseUuid) }}</strong></div>
-          <div class="info-row"><span>Received At</span><strong>{{ grn.receivedAt | date:'dd-MMM-yyyy, HH:mm' }}</strong></div>
-          <div class="info-row">
-            <span>Inspection</span>
-            <strong [class]="grn.requiresInspection ? 'text-success' : 'text-warn'">
-              <i [class]="grn.requiresInspection ? 'pi pi-check-circle' : 'pi pi-times-circle'"></i>
-              {{ grn.requiresInspection ? 'Required' : 'Skipped' }}
-            </strong>
-          </div>
-          <div class="info-row"><span>Delivery Note</span><strong>{{ grn.deliveryNoteNo || '—' }}</strong></div>
-          <div class="info-row"><span>Invoice No.</span><strong>{{ grn.invoiceNo || '—' }}</strong></div>
-          <div class="info-row"><span>Vehicle</span><strong>{{ grn.vehicleNo || '—' }}</strong></div>
-          <div class="info-row"><span>Driver</span><strong>{{ grn.driverName || '—' }}</strong></div>
-        </div>
-      </div>
-
-      <div class="info-card">
-        <h3><i class="pi pi-building"></i> Supplier &amp; PO</h3>
-        <div class="info-rows">
-          <div class="info-row"><span>Supplier</span><strong>{{ grn.supplierName }}</strong></div>
-          <div class="info-row">
-            <span>Purchase Order</span>
-            <strong>
-              <span class="font-mono">{{ grn.poNumber }}</span>
-              <p-button icon="pi pi-eye" size="small" [text]="true" pTooltip="View PO"
-                        [routerLink]="['/portal/pages/demand/purchase-orders', grn.poUuid]"></p-button>
-            </strong>
-          </div>
-          <div class="info-row"><span>Created</span><strong>{{ grn.createdDate | date:'dd MMM yyyy' }}</strong></div>
-        </div>
-      </div>
-
-      <!-- QC Result card — visible once QC is done -->
-      <div class="info-card" *ngIf="grn.status !== 'DRAFT' && grn.status !== 'PENDING_QC'">
-        <h3><i class="pi pi-search"></i> QC Result</h3>
-        <div class="info-rows">
-          <div class="info-row">
-            <span>QC Outcome</span>
-            <strong [class]="grn.qcPassed ? 'text-success' : 'text-danger'">
-              <i [class]="grn.qcPassed ? 'pi pi-check-circle' : 'pi pi-times-circle'"></i>
-              {{ grn.qcPassed ? 'Passed' : 'Failed' }}
-            </strong>
-          </div>
-          <div class="info-row col" *ngIf="grn.qcNotes"><span>QC Notes</span><strong>{{ grn.qcNotes }}</strong></div>
-          <div class="info-row" *ngIf="grn.qcConfirmedAt">
-            <span>Confirmed At</span><strong>{{ grn.qcConfirmedAt | date:'dd MMM yyyy HH:mm' }}</strong>
-          </div>
-        </div>
-      </div>
-
-      <!-- Finance Approval card -->
-      <div class="info-card" *ngIf="grn.financeApprovalRequired">
-        <h3><i class="pi pi-dollar"></i> Finance Approval</h3>
-        <div class="info-rows">
-          <div class="info-row">
-            <span>Required</span>
-            <strong class="text-warn"><i class="pi pi-dollar"></i> Yes (High-value GRN)</strong>
-          </div>
-          <div class="info-row" *ngIf="grn.financeApprovedAt">
-            <span>Approved At</span><strong>{{ grn.financeApprovedAt | date:'dd MMM yyyy HH:mm' }}</strong>
-          </div>
-        </div>
-      </div>
-
-      <!-- Approval info card -->
-      <div class="info-card" *ngIf="grn.status === 'APPROVED'">
-        <h3><i class="pi pi-check-circle"></i> Approval</h3>
-        <div class="info-rows">
-          <div class="info-row">
-            <span>Final Approval</span>
-            <strong class="text-success"><i class="pi pi-check-circle"></i> Approved</strong>
-          </div>
-          <div class="info-row" *ngIf="grn.approvedAt">
-            <span>Approved At</span><strong>{{ grn.approvedAt | date:'dd MMM yyyy HH:mm' }}</strong>
-          </div>
-        </div>
-      </div>
-
-      <!-- Rejection reason card -->
-      <div class="info-card rejection-card" *ngIf="grn.status === 'REJECTED' && grn.rejectionReason">
-        <h3><i class="pi pi-times-circle"></i> Rejection Reason</h3>
-        <p class="notes-text text-danger">{{ grn.rejectionReason }}</p>
-      </div>
-
-      <div class="info-card" *ngIf="grn.notes">
-        <h3><i class="pi pi-file-edit"></i> Notes</h3>
-        <p class="notes-text">{{ grn.notes }}</p>
-      </div>
-
+    <!-- Rejection reason -->
+    <div class="sf-card quiet rejection-banner" *ngIf="grn.status === 'REJECTED' && grn.rejectionReason">
+      <div><strong><i class="pi pi-times-circle"></i> Rejected</strong> — {{ grn.rejectionReason }}</div>
     </div>
 
     <!-- ── Lines table ─────────────────────────────────────────────────────── -->
-    <div class="lines-card">
-      <div class="lines-header">
-        <div class="inspection-title-group">
-          <h2 class="section-title"><i class="pi pi-list"></i> Receipt Lines</h2>
+    <section id="sec-lines" class="sf-section sf-card p0 lines-card">
+      <div class="sf-ch">
+        <h2>
+          Receipt lines
           <span *ngIf="canEdit" class="inspection-progress-badge"
                 [class.complete]="!hasUncheckedLines"
                 [class.partial]="hasUncheckedLines && checkedLineCount > 0">
             <i [class]="hasUncheckedLines ? 'pi pi-clock' : 'pi pi-check-circle'"></i>
             {{ checkedLineCount }} / {{ grn.lines.length }} lines checked
           </span>
-        </div>
-        <p class="lines-hint" *ngIf="canEdit">
+        </h2>
+        <span class="lines-hint" *ngIf="canEdit">
           <i class="pi pi-pencil"></i> Click a line to record what actually arrived and a Pass/Fail/Partial check — required before this GRN can go to QC. Formal QC inspection happens after submission, below.
-        </p>
+        </span>
       </div>
 
       <p-table [value]="grn.lines" [tableStyle]="{'min-width':'72rem'}">
@@ -310,20 +248,22 @@
           </tr>
         </ng-template>
       </p-table>
-    </div>
+    </section>
 
     <!-- ── Inspection Results ─────────────────────────────────────────────── -->
-    <div class="inspection-grid-card" *ngIf="grn.requiresInspection && grn.status !== 'DRAFT'">
-      <div class="inspection-grid-header">
-        <div class="inspection-title-group">
-          <h2 class="section-title"><i class="pi pi-search"></i> Inspection Results</h2>
+    <section id="sec-inspection" class="sf-section sf-card p0" *ngIf="grn.requiresInspection && grn.status !== 'DRAFT'">
+      <div class="sf-ch">
+        <h2>
+          Inspection results
           <span class="inspection-progress-badge"
                 [class.complete]="grn.inspectionComplete"
                 [class.partial]="!grn.inspectionComplete && grn.inspectedLineCount > 0">
             <i [class]="grn.inspectionComplete ? 'pi pi-check-circle' : 'pi pi-clock'"></i>
             {{ grn.inspectedLineCount }} / {{ grn.totalLineCount }} lines inspected
           </span>
-        </div>
+        </h2>
+      </div>
+      <div class="sf-pad inspection-notes" *ngIf="canInspect || grn.inspectionCompletedAt">
         <div class="inspection-hint" *ngIf="canInspect">
           <i class="pi pi-info-circle"></i>
           Select an Inspection Result per line and save. Pass auto-sets Accepted = Received; Fail auto-sets Rejected = Received.
@@ -505,21 +445,90 @@
           </tbody>
         </table>
       </div>
-    </div>
+    </section>
+
+    <!-- ── Details: delivery, supplier & PO, QC, finance, approval ─────────── -->
+    <section id="sec-details" class="sf-section sf-row">
+      <div class="sf-card">
+        <div class="sf-ch"><h2>Delivery</h2></div>
+        <div class="sf-kv">
+          <span>Warehouse</span><span>{{ getWarehouseName(grn.warehouseUuid) }}</span>
+          <span>Received at</span><span>{{ grn.receivedAt | date:'dd-MMM-yyyy, HH:mm' }}</span>
+          <span>Inspection</span>
+          <span [class]="grn.requiresInspection ? 'text-success' : 'text-warn'">
+            <i [class]="grn.requiresInspection ? 'pi pi-check-circle' : 'pi pi-times-circle'"></i>
+            {{ grn.requiresInspection ? 'Required' : 'Skipped' }}
+          </span>
+          <span>Delivery note</span><span>{{ grn.deliveryNoteNo || '—' }}</span>
+          <span>Invoice no.</span><span>{{ grn.invoiceNo || '—' }}</span>
+          <span>Vehicle</span><span>{{ grn.vehicleNo || '—' }}</span>
+          <span>Driver</span><span>{{ grn.driverName || '—' }}</span>
+        </div>
+      </div>
+
+      <div class="sf-card">
+        <div class="sf-ch"><h2>Supplier &amp; PO</h2></div>
+        <div class="sf-kv">
+          <span>Supplier</span><span>{{ grn.supplierName }}</span>
+          <span>Purchase order</span>
+          <span>
+            <span class="sf-mono">{{ grn.poNumber }}</span>
+            <p-button icon="pi pi-eye" size="small" [text]="true" pTooltip="View PO"
+                      [routerLink]="['/portal/pages/demand/purchase-orders', grn.poUuid]"></p-button>
+          </span>
+          <span>Created</span><span>{{ grn.createdDate | date:'dd MMM yyyy' }}</span>
+        </div>
+      </div>
+
+      <!-- QC / finance / approval — what has been decided so far -->
+      <div class="sf-card" *ngIf="(grn.status !== 'DRAFT' && grn.status !== 'PENDING_QC') || grn.financeApprovalRequired">
+        <div class="sf-ch"><h2>Decisions</h2></div>
+        <div class="sf-kv">
+          <ng-container *ngIf="grn.status !== 'DRAFT' && grn.status !== 'PENDING_QC'">
+            <span>QC outcome</span>
+            <span [class]="grn.qcPassed ? 'text-success' : 'text-danger'">
+              <i [class]="grn.qcPassed ? 'pi pi-check-circle' : 'pi pi-times-circle'"></i>
+              {{ grn.qcPassed ? 'Passed' : 'Failed' }}
+            </span>
+            <ng-container *ngIf="grn.qcNotes"><span>QC notes</span><span>{{ grn.qcNotes }}</span></ng-container>
+            <ng-container *ngIf="grn.qcConfirmedAt">
+              <span>QC confirmed at</span><span>{{ grn.qcConfirmedAt | date:'dd MMM yyyy HH:mm' }}</span>
+            </ng-container>
+          </ng-container>
+          <ng-container *ngIf="grn.financeApprovalRequired">
+            <span>Finance approval</span>
+            <span class="text-warn"><i class="pi pi-dollar"></i> Required (High-value GRN)</span>
+            <ng-container *ngIf="grn.financeApprovedAt">
+              <span>Finance approved at</span><span>{{ grn.financeApprovedAt | date:'dd MMM yyyy HH:mm' }}</span>
+            </ng-container>
+          </ng-container>
+          <ng-container *ngIf="grn.status === 'APPROVED'">
+            <span>Final approval</span>
+            <span class="text-success"><i class="pi pi-check-circle"></i> Approved</span>
+            <ng-container *ngIf="grn.approvedAt">
+              <span>Approved at</span><span>{{ grn.approvedAt | date:'dd MMM yyyy HH:mm' }}</span>
+            </ng-container>
+          </ng-container>
+        </div>
+      </div>
+
+      <div class="sf-card" *ngIf="grn.notes">
+        <div class="sf-ch"><h2>Notes</h2></div>
+        <p class="notes-text">{{ grn.notes }}</p>
+      </div>
+    </section>
 
     <!-- Driver / Loader Documents — kept below the lines/inspection a reader ── -->
     <!-- actually came for, since its list can run long. -->
-    <div class="info-card attachments-card">
-      <h3><i class="pi pi-paperclip"></i> Driver / Loader Documents</h3>
-      <div class="attachments-card-body">
-        <app-attachment-list interfaceCode="GRN" [documentId]="grn.uuid" [compact]="true"></app-attachment-list>
-      </div>
-    </div>
+    <section id="sec-files" class="sf-section sf-card">
+      <div class="sf-ch"><h2>Driver / loader documents</h2></div>
+      <app-attachment-list interfaceCode="GRN" [documentId]="grn.uuid" [compact]="true"></app-attachment-list>
+    </section>
 
     <!-- Audit Trail -->
-    <div class="audit-trail-card">
-      <div class="audit-trail-header">
-        <h3>Audit Trail</h3>
+    <section id="sec-audit" class="sf-section sf-card p0">
+      <div class="sf-ch">
+        <h2>Audit trail</h2>
         <p-button label="Load Audit Trail" icon="pi pi-history" severity="secondary" size="small"
                   [text]="true" [loading]="isLoadingAudit" (onClick)="loadAuditTrail()"></p-button>
       </div>
@@ -542,25 +551,26 @@
         </thead>
         <tbody>
           <tr *ngFor="let entry of auditTrail">
-            <td style="white-space:nowrap;font-size:.82rem;color:#64748b">{{ entry.timestamp | date:'dd MMM yy HH:mm' }}</td>
+            <td style="white-space:nowrap;font-size:.82rem;color:var(--sms-text-muted)">{{ entry.timestamp | date:'dd MMM yy HH:mm' }}</td>
             <td><p-tag [value]="entry.action" [severity]="getAuditActionSeverity(entry.action)"></p-tag></td>
             <td style="font-size:.85rem">{{ entry.userName || 'Unknown user' }}</td>
-            <td style="font-size:.82rem;color:#64748b">{{ entry.fieldChanged || '—' }}</td>
-            <td style="font-size:.82rem;color:#64748b">{{ entry.oldValue || '—' }}</td>
-            <td style="font-size:.82rem;color:#64748b">{{ entry.newValue || '—' }}</td>
-            <td style="font-size:.82rem;color:#64748b;max-width:220px">{{ entry.notes || '—' }}</td>
+            <td style="font-size:.82rem;color:var(--sms-text-muted)">{{ entry.fieldChanged || '—' }}</td>
+            <td style="font-size:.82rem;color:var(--sms-text-muted)">{{ entry.oldValue || '—' }}</td>
+            <td style="font-size:.82rem;color:var(--sms-text-muted)">{{ entry.newValue || '—' }}</td>
+            <td style="font-size:.82rem;color:var(--sms-text-muted);max-width:220px">{{ entry.notes || '—' }}</td>
           </tr>
           <tr *ngIf="auditTrail.length === 0">
-            <td colspan="7" style="text-align:center;padding:1.5rem;color:#94a3b8">No audit entries found.</td>
+            <td colspan="7" style="text-align:center;padding:1.5rem;color:var(--sms-text-faint)">No audit entries found.</td>
           </tr>
         </tbody>
       </table>
+    </section>
+
     </div>
+</sf-page>
 
-  </ng-container>
-
-  <div *ngIf="!isLoading && !grn" class="loading-card">
-    <i class="pi pi-exclamation-triangle" style="font-size:2rem;color:#e74c3c"></i>
+  <div *ngIf="!isLoading && !grn" class="sf-empty">
+    <i class="pi pi-exclamation-triangle" style="font-size:2rem;color:var(--sms-danger)"></i>
     <p>GRN not found.</p>
     <p-button label="Back to List" severity="secondary" routerLink="/portal/pages/warehouse/grn" class="mt-3"></p-button>
   </div>
@@ -763,7 +773,7 @@
         </div>
         <div class="approve-summary-item">
           <span class="approve-summary-label">QC Result</span>
-          <span class="approve-summary-value" [style.color]="grn?.qcPassed ? '#2e7d32' : '#c62828'">
+          <span class="approve-summary-value" [style.color]="grn?.qcPassed ? 'var(--sms-ok)' : 'var(--sms-danger)'">
             <i [class]="grn?.qcPassed ? 'pi pi-check-circle' : 'pi pi-times-circle'"></i>
             {{ grn?.qcPassed ? 'Passed' : 'Failed' }}
           </span>
@@ -772,21 +782,21 @@
 
       <div class="approve-effect-box">
         <div class="approve-effect-item">
-          <i class="pi pi-box" style="color:#1565c0"></i>
+          <i class="pi pi-box" style="color:var(--sms-primary-text)"></i>
           <span>Accepted quantities will be <strong>posted to inventory</strong></span>
         </div>
         <div class="approve-effect-item">
-          <i class="pi pi-file-edit" style="color:#1565c0"></i>
+          <i class="pi pi-file-edit" style="color:var(--sms-primary-text)"></i>
           <span>Purchase order receipt status will be <strong>updated</strong></span>
         </div>
         <div class="approve-effect-item">
-          <i class="pi pi-lock" style="color:#c62828"></i>
+          <i class="pi pi-lock" style="color:var(--sms-danger)"></i>
           <span>This action <strong>cannot be undone</strong></span>
         </div>
       </div>
 
       <div class="field mt-3">
-        <label class="field-label-sm">Remarks <span style="color:#6c757d;font-weight:400">(optional)</span></label>
+        <label class="field-label-sm">Remarks <span style="color:var(--sms-text-muted);font-weight:400">(optional)</span></label>
         <textarea pTextarea [(ngModel)]="approveRemarks" rows="2"
                   placeholder="Any notes about this approval..."
                   class="w-full" [disabled]="isApproving"></textarea>
@@ -827,5 +837,3 @@
 
   <!-- ── Timeline panel (TL-010) ────────────────────────────────────────────── -->
   <app-timeline-panel [(visible)]="showTimeline" [documentId]="uuid" interfaceCode="GRN"></app-timeline-panel>
-
-</div>

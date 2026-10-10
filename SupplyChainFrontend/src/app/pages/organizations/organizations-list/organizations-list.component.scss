@@ -1,62 +1,11 @@
-// ── Page Header ──────────────────────────────────────────────────────────────
-.md-header {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 1.375rem 1.5rem 1.25rem;
-}
-
-.md-icon {
-  width: 2.75rem;
-  height: 2.75rem;
-  border-radius: 0.625rem;
-  background: var(--primary-50, #eef2ff);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-
-  i { font-size: 1.2rem; color: var(--primary-color); }
-}
-
-.md-title-wrap { flex: 1; min-width: 0; }
-
-.md-title {
-  font-size: 1.0625rem;
-  font-weight: 700;
-  margin: 0 0 0.125rem;
-  color: var(--text-color);
-}
-
-.md-subtitle {
-  margin: 0;
-  font-size: 0.8125rem;
-  color: var(--text-color-secondary);
-}
-
+// Page frame, command bar and cards come from the SMS Flow kit (_flow.scss); the dialogs keep their own styles.
 .md-sep {
   border: none;
-  border-top: 1px solid var(--surface-200);
+  border-top: 1px solid var(--sms-border);
   margin: 0;
 }
 
-.md-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.875rem 1.5rem;
-  flex-wrap: wrap;
-}
-
-.md-count {
-  font-size: 0.8125rem;
-  color: var(--text-color-secondary);
-  white-space: nowrap;
-}
-
-.font-mono { font-family: monospace; }
-
+// "Loading…" in the admin dialog
 .md-empty {
   display: flex;
   flex-direction: column;
@@ -65,22 +14,11 @@
   text-align: center;
 }
 
-.md-empty-icon {
-  font-size: 2.75rem;
-  color: var(--surface-400);
-  margin-bottom: 0.875rem;
-}
-
 .md-empty-text {
   font-size: 0.9375rem;
   font-weight: 600;
-  color: var(--text-color);
+  color: var(--sms-text);
   margin: 0 0 0.25rem;
-}
-
-.md-empty-hint {
-  font-size: 0.8125rem;
-  color: var(--text-color-secondary);
 }
 
 // ── Dialog styles ──────────────────────────────────────────────────────────────
@@ -89,14 +27,14 @@
   align-items: flex-start;
   gap: 0.875rem;
   padding: 1.375rem 1.5rem 1.125rem;
-  border-bottom: 1px solid var(--surface-200);
-  background: var(--surface-50, #fafafa);
+  border-bottom: 1px solid var(--sms-border);
+  background: var(--sms-surface-2);
 
   .dlg-icon {
     width: 2.75rem;
     height: 2.75rem;
     border-radius: 0.5rem;
-    background: var(--primary-50, #eef2ff);
+    background: var(--sms-primary-soft);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -104,7 +42,7 @@
 
     i {
       font-size: 1.2rem;
-      color: var(--primary-color);
+      color: var(--sms-primary-text);
     }
   }
 
@@ -159,7 +97,7 @@
   color: var(--text-color);
 }
 
-.req { color: var(--red-500); }
+.req { color: var(--sms-danger); }
 
 .dlg-section-title {
   font-size: 0.8125rem;
@@ -174,7 +112,54 @@
 }
 
 .dlg-hint.warn {
-  color: var(--orange-700, #c2410c);
+  color: var(--sms-warn);
+}
+
+.dlg-error {
+  font-size: 0.78rem;
+  color: var(--sms-danger);
+}
+
+// ── Admin dialog: status, resend invite, set password ─────────────────────────
+.adm-body {
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.adm-current {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+
+  .dlg-hint { margin: 0; }
+}
+
+.adm-section {
+  gap: 0.6rem;
+
+  .dlg-hint { margin: 0; }
+}
+
+.adm-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.pw-rules {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 0.2rem 1rem;
+  font-size: 0.78rem;
+  color: var(--sms-text-muted);
+
+  li { display: flex; align-items: center; gap: 0.4rem; }
+  li i { font-size: 0.7rem; }
+  li.ok { color: var(--sms-ok); }
 }
 
 .dlg-footer {
@@ -183,6 +168,6 @@
   align-items: center;
   gap: 0.75rem;
   padding-top: 1rem;
-  border-top: 1px solid var(--surface-200);
+  border-top: 1px solid var(--sms-border);
   margin-top: 0.25rem;
 }

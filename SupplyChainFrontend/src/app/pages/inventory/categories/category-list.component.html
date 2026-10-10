@@ -1,28 +1,28 @@
-<div class="categories-page" style="padding:1.5rem;">
-  <p-toast></p-toast>
-  <p-confirmDialog [style]="{width:'460px'}"></p-confirmDialog>
+<p-toast></p-toast>
+<p-confirmDialog [style]="{width:'460px'}"></p-confirmDialog>
 
-  <!-- Header -->
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;">
-    <div>
-      <h2 style="margin:0;font-size:1.5rem;font-weight:600;">
-        <i class="pi pi-tags" style="margin-right:0.5rem;"></i>Product Categories
-      </h2>
-      <p style="margin:0.25rem 0 0;color:var(--text-color-secondary);font-size:0.9rem;">
-        Manage product categories and sub-categories.
-      </p>
-    </div>
+<sf-page [crumbs]="['Inventory', 'Categories']">
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
     <p-button label="Add Category" icon="pi pi-plus" (onClick)="openAddCategory()"></p-button>
   </div>
 
+  <div class="sf-body">
+    <div class="sf-lr-head">
+      <div>
+        <h1>Product categories <span class="sf-count">{{ categories.length }}</span></h1>
+        <div class="sf-sub">Manage product categories and sub-categories.</div>
+      </div>
+    </div>
+
   <!-- Categories Table -->
+  <div class="sf-card p0">
   <p-table
     [value]="categories"
     [loading]="isLoading"
     dataKey="id"
     [expandedRowKeys]="expandedRows"
     [rowExpandMode]="'multiple'"
-    styleClass="p-datatable-sm p-datatable-gridlines">
+    styleClass="p-datatable-sm">
 
     <ng-template pTemplate="header">
       <tr>
@@ -39,15 +39,14 @@
     <ng-template pTemplate="body" let-cat let-expanded="expanded">
       <tr>
         <td>
-          <button type="button"
+          <button type="button" class="sf-ib"
             [pRowToggler]="cat"
-            pTooltip="View sub-categories" tooltipPosition="top"
-            style="background:transparent;border:none;cursor:pointer;color:var(--text-color-secondary);padding:0.35rem;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;">
-            <i [class]="expanded ? 'pi pi-chevron-down' : 'pi pi-chevron-right'" style="font-size:0.9rem;"></i>
+            pTooltip="View sub-categories" tooltipPosition="top">
+            <i [class]="expanded ? 'pi pi-chevron-down' : 'pi pi-chevron-right'"></i>
           </button>
         </td>
         <td><strong>{{ cat.name }}</strong></td>
-        <td><code>{{ cat.code }}</code></td>
+        <td><span class="sf-mono">{{ cat.code }}</span></td>
         <td>{{ cat.description || '—' }}</td>
         <td style="text-align:center;">
           <p-tag [value]="cat.isActive ? 'Active' : 'Inactive'"
@@ -73,10 +72,10 @@
     <!-- PrimeNG 19 names the row-expansion template "expandedrow"; "rowexpansion" is silently ignored. -->
     <ng-template pTemplate="expandedrow" let-cat>
       <tr>
-        <td colspan="7" style="padding:0 0 0 3rem;background:var(--surface-ground);">
+        <td colspan="7" style="padding:0 0 0 3rem;background:var(--sms-surface-2);">
           <div style="padding:0.75rem 1rem;">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.6rem;">
-              <span style="font-size:0.85rem;font-weight:600;color:var(--text-color-secondary);">
+            <div class="sf-ch" style="margin-bottom:0.6rem;">
+              <span class="sf-mu sf-sm" style="font-weight:600;">
                 <i class="pi pi-list" style="margin-right:0.3rem;"></i>
                 Sub-categories of <strong>{{ cat.name }}</strong> ({{ cat.subCategories?.length ?? 0 }})
               </span>
@@ -117,7 +116,7 @@
               </p-table>
             </ng-container>
             <ng-template #noSubs>
-              <p style="margin:0.25rem 0;color:var(--text-color-secondary);font-style:italic;font-size:0.875rem;">
+              <p class="sf-mu sf-sm" style="margin:0.25rem 0;font-style:italic;">
                 No sub-categories yet.
                 <a href="javascript:void(0)" (click)="openAddSubCategory(cat)">Add one</a>
               </p>
@@ -129,12 +128,15 @@
 
     <ng-template pTemplate="emptymessage">
       <tr>
-        <td colspan="7" style="text-align:center;padding:2rem;color:var(--text-color-secondary);">
+        <td colspan="7" class="sf-empty">
           No categories found. <a href="javascript:void(0)" (click)="openAddCategory()">Add the first one.</a>
         </td>
       </tr>
     </ng-template>
   </p-table>
+  </div>
+  </div>
+</sf-page>
 
   <!-- ── Create Category Dialog ────────────────────────────────────────── -->
   <p-dialog [(visible)]="showCreateCategoryDialog" [modal]="true"
@@ -294,7 +296,7 @@
         <div class="spc-icon"><i class="pi pi-tags"></i></div>
         <div class="spc-text">
           <div class="spc-label">Parent Category</div>
-          <div class="spc-name">{{ selectedCategory.name }} <code style="font-size:.75rem;color:#94a3b8;margin-left:.3rem;">{{ selectedCategory.code }}</code></div>
+          <div class="spc-name">{{ selectedCategory.name }} <code style="font-size:.75rem;color:var(--sms-text-faint);margin-left:.3rem;">{{ selectedCategory.code }}</code></div>
         </div>
         <span class="spc-badge">{{ selectedCategory!.subCategories.length }} existing</span>
       </div>
@@ -437,5 +439,3 @@
       </div>
     </ng-template>
   </p-dialog>
-
-</div>

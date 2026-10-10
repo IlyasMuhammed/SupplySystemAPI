@@ -124,6 +124,14 @@ export class UserService {
     return this.http.post<ApiResponse>(`${this.baseUrl}/${id}/reset-password`, {});
   }
 
+  /**
+   * Platform super admins only: sets the user's password outright (completes a pending invite, clears a
+   * lockout and signs the user's sessions out). The server refuses your own account and a weak password.
+   */
+  setUserPassword(id: number, newPassword: string): Observable<ApiResponse> {
+    return this.http.post<ApiResponse>(`${this.baseUrl}/${id}/set-password`, { newPassword });
+  }
+
   deleteUser(id: number): Observable<ApiResponse> {
     return this.http.delete<ApiResponse>(`${this.baseUrl}/${id}`);
   }

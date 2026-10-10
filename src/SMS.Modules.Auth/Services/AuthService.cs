@@ -28,6 +28,10 @@ internal sealed class AuthService : IAuthService
     private readonly IOrganizationStatusService _orgStatusService;
     private readonly ISuperAdminService _superAdminService;
     private readonly PasswordResetThrottle _resetThrottle;
+    // A37 §7 — which modules are switched on, for the permission lists' moduleEnabled. Optional: without them every
+    // permission reads as enabled.
+    private readonly ITenantSnapshotProvider? _snapshots;
+    private readonly ITenantContext? _tenant;
 
     /// <param name="resetThrottle">
     /// The app-wide reset-code throttle (a singleton — AddAuthModule registers it). Optional so a host or a
@@ -41,8 +45,12 @@ internal sealed class AuthService : IAuthService
         IPasswordHasher<UserAccount> hasher,
         IOrganizationStatusService orgStatusService,
         ISuperAdminService superAdminService,
-        PasswordResetThrottle? resetThrottle = null)
+        PasswordResetThrottle? resetThrottle = null,
+        ITenantSnapshotProvider? snapshots = null,
+        ITenantContext? tenant = null)
     {
+        _snapshots = snapshots;
+        _tenant = tenant;
         _repo = repo;
         _emailService = emailService;
         _settings = settings.Value;
@@ -305,6 +313,41 @@ internal sealed class AuthService : IAuthService
         BackgroundJob.Enqueue(() => _emailService.SendPasswordResetEmail(email, code));
     }
 
+    /// <summary>
+    /// A platform super admin sets another user's password directly — the way into an organization whose admin never
+    /// received (or cannot reach) the invite e-mail. Super admins only: an Org Admin keeps the e-mailed reset code,
+    /// which cannot hand them someone else's account. A pending invite is completed by this (account activated, link
+    /// voided, since it would otherwise still let whoever holds the e-mail set the password); any lockout is cleared
+    /// and the user's sessions end. Your own password goes through Change Password, which asks for the current one.
+    /// The caller has already checked the password against the strength rule.
+    /// </summary>
+    public async Task SetPasswordAsSuperAdminAsync(int userId, string newPassword, AuthCaller caller)
+    {
+        if (!caller.IsSuperAdmin)
+            throw new ForbiddenException("Only a platform super admin can set another user's password.");
+
+        var user = await RequireManageableUserAsync(userId, caller);
+        if (IsSelf(user, caller))
+            throw new ForbiddenException("Use Change Password to change your own password.");
+
+        user.Password = _hasher.HashPassword(user, newPassword);
+        if (user.InviteToken != null)
+        {
+            user.IsActive             = true;
+            user.InviteToken          = null;
+            user.InviteTokenExpiresAt = null;
+        }
+        user.PasswordResetToken     = null;
+        user.PasswordResetTokenTime = null;
+        user.FailedLoginAttempts    = 0;
+        user.LastFailedAt           = null;
+        user.LockedUntil            = null;
+        user.UpdateDate             = DateTime.UtcNow;
+        await _repo.SaveAsync(user);
+        await _repo.RevokeAllUserSessionsAsync(user.UserID);
+        _resetThrottle.Clear(user.Email);
+    }
+
     public async Task SoftDeleteUserAsync(int userId, AuthCaller caller)
     {
         var target = await RequireManageableUserAsync(userId, caller);
@@ -361,12 +404,41 @@ internal sealed class AuthService : IAuthService
 
         if (caller.IsSuperAdmin) return;
 
+        // Who runs an organization is the platform's decision (Organizations → Change Admin), not its users': an Org
+        // Admin can no longer make more Org Admins.
+        if (role.RoleCode == OrgAdminRoleCode)
+            throw new ForbiddenException(
+                $"Only a platform super admin can appoint an {role.Name} (Organizations → Change Admin).");
+
         var platformCodes = (await _repo.GetGrantedPermissionCodesForRoleAsync(roleId))
             .Intersect(AuthRepository.SuperAdminOnlyPermissionCodes)
             .ToList();
         if (platformCodes.Count > 0)
             throw new ForbiddenException(
                 $"The role '{role.Name}' carries platform permissions ({string.Join(", ", platformCodes)}); only a super admin can assign it.");
+    }
+
+    private const string OrgAdminRoleCode = "ORG_ADMIN";
+
+    /// <summary>
+    /// The roles the caller may give someone — what the user create/edit role picker offers. Everything for a super
+    /// admin; for anyone else the visible roles minus the ones <see cref="EnsureRoleAssignableAsync"/> would refuse
+    /// (Organization Admin, and any role carrying a platform permission such as System Admin).
+    /// </summary>
+    public async Task<List<RoleListItemModel>> GetAssignableRolesAsync(AuthCaller caller)
+    {
+        var roles = await _repo.GetRolesAsync();
+        if (caller.IsSuperAdmin) return roles;
+
+        var assignable = new List<RoleListItemModel>();
+        foreach (var role in roles)
+        {
+            if (role.RoleCode == OrgAdminRoleCode) continue;
+            var codes = await _repo.GetGrantedPermissionCodesForRoleAsync(role.RoleId);
+            if (codes.Intersect(AuthRepository.SuperAdminOnlyPermissionCodes).Any()) continue;
+            assignable.Add(role);
+        }
+        return assignable;
     }
 
     /// <summary>
@@ -553,7 +625,19 @@ internal sealed class AuthService : IAuthService
     public async Task<List<PermissionModel>> GetPermissionsByRoleAsync(int roleId, AuthCaller caller)
     {
         await RequireVisibleRoleAsync(roleId, caller);
-        return _repo.GetPermissionsByRole(roleId);
+        var permissions = _repo.GetPermissionsByRole(roleId);
+        var enabled = await ModuleEnabledAsync(caller.OrganizationId);
+        permissions.ForEach(p => p.ModuleEnabled = enabled(p.ModuleCode));
+        return permissions;
+    }
+
+    /// <summary>A37 §7 — "is this permission's module switched on" for one organization; no module = always.</summary>
+    private async Task<Func<string?, bool>> ModuleEnabledAsync(Guid? organizationId)
+    {
+        var orgId = organizationId ?? _tenant?.OrganizationId;
+        if (_snapshots is null || orgId is null) return _ => true;
+        var snapshot = await _snapshots.GetSnapshotAsync(orgId.Value);
+        return code => code is null || snapshot is null || snapshot.EnabledFeatureCodes.Contains(code);
     }
 
     public async Task SaveRolePermissionsAsync(int roleId, List<PermissionModel> permissions, AuthCaller caller)
@@ -579,7 +663,10 @@ internal sealed class AuthService : IAuthService
         if (user == null || user.IsDelete || (!caller.IsSuperAdmin && user.OrganizationId != caller.OrganizationId))
             throw new NotFoundException(StaticResponseMessage.accountNotFound);
 
-        return _repo.GetUserPermissions(userId);
+        var permissions = _repo.GetUserPermissions(userId);
+        var enabled = await ModuleEnabledAsync(user.OrganizationId);
+        permissions.ForEach(p => p.ModuleEnabled = enabled(p.ModuleCode));
+        return permissions;
     }
 
     public async Task SaveUserPermissionsAsync(int userId, List<PermissionModel> permissions, AuthCaller caller)
@@ -612,6 +699,9 @@ internal sealed class AuthService : IAuthService
     {
         var detail = await _repo.GetRoleDetailAsync(roleId);
         if (detail == null) throw new NotFoundException($"Role {roleId} not found.");
+        var enabled = await ModuleEnabledAsync(null);
+        foreach (var item in detail.PermissionGroups.SelectMany(g => g.Permissions))
+            item.ModuleEnabled = enabled(item.ModuleCode);
         return detail;
     }
 

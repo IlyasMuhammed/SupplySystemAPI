@@ -24,6 +24,7 @@ import {
 import { CurrenciesService } from '../../../../services/currencies.service';
 import { AuthService } from '../../../service/auth.service';
 import { toDateOnly } from '../../../../shared/date-only';
+import { FLOW } from '../../../../shared/flow';
 import { PaymentAllocationEditorComponent } from '../payment-allocation-editor/payment-allocation-editor.component';
 import {
   AllocationAmounts, allocationProblem, planOldestFirst, roundMoney, toAllocations
@@ -51,7 +52,8 @@ function customerPicked(control: AbstractControl): ValidationErrors | null {
     CommonModule, RouterModule, ReactiveFormsModule, FormsModule,
     ButtonModule, ToastModule, TooltipModule, DropdownModule, CalendarModule,
     InputNumberModule, InputTextModule, TextareaModule, AutoCompleteModule, SelectButtonModule,
-    PaymentAllocationEditorComponent
+    PaymentAllocationEditorComponent,
+    ...FLOW
   ],
   templateUrl: './customer-payment-form.component.html',
   styleUrls: ['./customer-payment-form.component.scss'],

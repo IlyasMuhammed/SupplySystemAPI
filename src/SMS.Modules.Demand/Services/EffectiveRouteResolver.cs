@@ -1,4 +1,4 @@
-using SMS.Modules.Demand.Domain;
+﻿using SMS.Modules.Demand.Domain;
 using SMS.Modules.Demand.Models;
 using SMS.Shared.Common;
 
@@ -19,9 +19,14 @@ internal sealed record RouteOrderContext(string DeliveryMode, Guid? ShippingAddr
 /// <param name="RouteUuid">The uuid the tier pointed at, even when the route is unknown.</param>
 /// <param name="Source">LINE_OVERRIDE | VARIANT | ORG_DEFAULT | NONE.</param>
 /// <param name="Blocker">A <see cref="ConfirmBlockerCodes"/> value when the line blocks confirmation.</param>
-/// <param name="Exempt">DROP_SHIP (D-5): no route, no blocker, no delivery.</param>
+/// <param name="Exempt">DROP_SHIP (D-5) or SERVICE (A36 D-10): no route, no blocker, no delivery.</param>
+/// <param name="Warning">
+/// A37 RTE-03 — the line's own or its variant's route is unavailable (Manufacturing switched off): what it fell back to,
+/// or that there is nothing to fall back to.
+/// </param>
 internal sealed record ResolvedLineRoute(
-    RouteLineInput Line, FulfillmentRouteSummary? Route, Guid? RouteUuid, string Source, string? Blocker, bool Exempt)
+    RouteLineInput Line, FulfillmentRouteSummary? Route, Guid? RouteUuid, string Source, string? Blocker, bool Exempt,
+    string? Warning = null)
 {
     /// <summary>A usable route: known and active. Only these are snapshotted and sent to the delivery creator.</summary>
     public bool IsRoutable => !Exempt && Blocker is null && Route is { IsActive: true };
@@ -63,11 +68,13 @@ internal sealed class EffectiveRouteResolver : IEffectiveRouteResolver
     private readonly IVariantFulfillmentRoutes? _variants;
     private readonly ITenantSnapshotProvider? _tenants;
     private readonly IManufacturingReadiness? _readiness;
+    private readonly IModuleGate? _gate;
 
     public EffectiveRouteResolver(
         IFulfillmentRouteLookup? lookup = null, IVariantFulfillmentRoutes? variants = null, ITenantSnapshotProvider? tenants = null,
-        IManufacturingReadiness? readiness = null)
+        IManufacturingReadiness? readiness = null, IModuleGate? gate = null)
     {
+        _gate      = gate;
         _lookup    = lookup;
         _variants  = variants;
         _tenants   = tenants;
@@ -99,7 +106,9 @@ internal sealed class EffectiveRouteResolver : IEffectiveRouteResolver
                 lines.Select(l => new ResolvedLineRoute(l, null, null, FulfillmentRouteSource.None, null, Exempt: false)).ToList(), []);
 
         var dropShip = EnumCode<SaleOrderLineFulfillmentMode>.Of(SaleOrderLineFulfillmentMode.DropShip);
-        bool IsExempt(RouteLineInput l) => order.DropShipEnabled && l.FulfillmentMode == dropShip;
+        // A36 D-10 — a service line is exempt the same way: no route, no blocker, no delivery.
+        var service = EnumCode<SaleOrderLineFulfillmentMode>.Of(SaleOrderLineFulfillmentMode.Service);
+        bool IsExempt(RouteLineInput l) => (order.DropShipEnabled && l.FulfillmentMode == dropShip) || l.FulfillmentMode == service;
 
         // Tier 2, for every line that has no override of its own — one read.
         var needVariant = lines.Where(l => !IsExempt(l) && l.OverrideRouteUuid is null).Select(l => l.VariantUuid).Distinct().ToList();
@@ -113,9 +122,13 @@ internal sealed class EffectiveRouteResolver : IEffectiveRouteResolver
             .Where(u => u is not null).Select(u => u!.Value).Distinct().ToList();
         var routes = await GetRoutesAsync(organizationId, pointedAt, ct);
 
+        // A37 RTE-02 — a pointed-at route that is unavailable (MANUFACTURE with Manufacturing off) falls back to tier 3.
+        Guid? PointedAt(RouteLineInput l) => l.OverrideRouteUuid ?? (variantRoutes.TryGetValue(l.VariantUuid, out var v) ? v : (Guid?)null);
+        FulfillmentRouteSummary? Unavailable(Guid? u) => u is { } x && routes.TryGetValue(x, out var s) && !s.IsAvailable ? s : null;
+
         // Tier 3 only when some line needs it — at most one read.
         FulfillmentRouteSummary? orgDefault = null;
-        if (lines.Any(l => !IsExempt(l) && l.OverrideRouteUuid is null && !variantRoutes.ContainsKey(l.VariantUuid)))
+        if (lines.Any(l => !IsExempt(l) && (PointedAt(l) is null || Unavailable(PointedAt(l)) is not null)))
             orgDefault = (await _lookup!.GetOrgDefaultsAsync(organizationId, ct)).For(order.DeliveryMode);
 
         var resolved = new List<ResolvedLineRoute>(lines.Count);
@@ -132,6 +145,20 @@ internal sealed class EffectiveRouteResolver : IEffectiveRouteResolver
                 : orgDefault is not null ? (orgDefault.Uuid, FulfillmentRouteSource.OrgDefault)
                 : ((Guid?)null, FulfillmentRouteSource.None);
 
+            string? warning = null;
+            if (source != FulfillmentRouteSource.OrgDefault && Unavailable(uuid) is { } off)
+            {
+                // A default is never MANUFACTURE (A34 D-6), so the fallback is always a stock route.
+                warning = orgDefault is not null
+                    ? $"Fulfillment route '{off.Code}' is not available ({off.UnavailableReason ?? FulfillmentRouteAvailability.ManufacturingOffReason}); " +
+                      $"the default route '{orgDefault.Code}' is used instead."
+                    : $"Fulfillment route '{off.Code}' is not available ({off.UnavailableReason ?? FulfillmentRouteAvailability.ManufacturingOffReason}) " +
+                      "and there is no default route to use instead.";
+                (uuid, source) = orgDefault is not null
+                    ? (orgDefault.Uuid, FulfillmentRouteSource.OrgDefault)
+                    : ((Guid?)null, FulfillmentRouteSource.None);
+            }
+
             var route = uuid is { } u
                 ? (source == FulfillmentRouteSource.OrgDefault ? orgDefault : routes.GetValueOrDefault(u))
                 : null;
@@ -143,7 +170,7 @@ internal sealed class EffectiveRouteResolver : IEffectiveRouteResolver
               : !route.RequiresShipping && !order.SelfPickupEnabled ? ConfirmBlockerCodes.SelfPickupDisabled
               : null;
 
-            resolved.Add(new ResolvedLineRoute(line, route, uuid, source, blocker, Exempt: false));
+            resolved.Add(new ResolvedLineRoute(line, route, uuid, source, blocker, Exempt: false, warning));
         }
 
         var items = await ManufacturingGateAsync(organizationId, resolved, ct);
@@ -187,13 +214,12 @@ internal sealed class EffectiveRouteResolver : IEffectiveRouteResolver
         return names;
     }
 
-    /// <summary>D-9 — make-to-order needs MODULE_MANUFACTURING; with no snapshot provider (unit hosts) it is taken as on.</summary>
-    private async Task<bool> ManufacturingEnabledAsync(Guid organizationId)
-    {
-        if (_tenants is null) return true;
-        var tenant = await _tenants.GetSnapshotAsync(organizationId);
-        return tenant is not null && tenant.EnabledFeatureCodes.Contains(ManufacturingFeature);
-    }
+    /// <summary>
+    /// D-9 — make-to-order needs MODULE_MANUFACTURING: the A37 module gate when registered (grace counts as off), else the
+    /// snapshot; with neither (unit hosts) it is taken as on.
+    /// </summary>
+    private Task<bool> ManufacturingEnabledAsync(Guid organizationId) =>
+        FulfillmentRouteAvailability.ManufacturingOnAsync(_gate, _tenants, organizationId);
 
     /// <summary>
     /// The 400's content, in its order (API-CONTRACT.md §5): each line's own route problem, in line order; then every

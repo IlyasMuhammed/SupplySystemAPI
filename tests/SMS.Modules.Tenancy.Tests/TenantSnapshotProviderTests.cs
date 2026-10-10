@@ -23,7 +23,7 @@ public class TenantSnapshotProviderTests
 
         db.Organizations.Add(new Organization { Id = orgId, OrgCode = "T1", OrgName = "Test Org", IsActive = orgActive, CreatedBy = 1, CreatedDate = DateTime.UtcNow });
         db.FeatureDefinitions.Add(new FeatureDefinition { Id = featureDefId, FeatureCode = "MODULE_MIR", FeatureName = "MIR", Category = "MODULE" });
-        db.OrganizationFeatures.Add(new OrganizationFeature { Id = Guid.NewGuid(), OrganizationId = orgId, FeatureDefinitionId = featureDefId, IsEnabled = featureEnabled });
+        db.OrganizationFeatures.Add(new OrganizationFeature { Id = Guid.NewGuid(), OrganizationId = orgId, FeatureDefinitionId = featureDefId, IsEnabled = featureEnabled, IsLicensed = true });
         await db.SaveChangesAsync();
 
         return orgId;

@@ -1,4 +1,4 @@
-import { Component, OnInit, computed, inject } from '@angular/core';
+import { Component, Injector, OnInit, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators, FormsModule } from '@angular/forms';
@@ -55,6 +55,16 @@ import { AuthService } from '../../../service/auth.service';
 import { TenantService } from '../../../service/tenant.service';
 import { VariantRouteFieldComponent } from './variant-route-field/variant-route-field.component';
 import { LeadTimesTabComponent } from './lead-times-tab/lead-times-tab.component';
+import { FLOW } from '../../../../shared/flow';
+import {
+  ServiceSettingsFieldsComponent, clearServiceSettingsUnlessService, serviceBillingModelLabel, serviceCategoryLabel,
+  serviceInvoicingPolicyLabel, serviceSettingsControls, serviceSettingsPayload
+} from '../service-settings-fields/service-settings-fields.component';
+import { ProductRoutesPanelComponent } from './product-routes-panel/product-routes-panel.component';
+import { BomService } from '../../../../services/bom.service';
+
+/** A37 — reading GET /api/products/{uuid}/routes accepts any of these. */
+const PRODUCT_ROUTES_VIEW_CODES = ['FULFILLMENT_ROUTE_VIEW', 'FULFILLMENT_ROUTE_MANAGE', 'FULFILLMENT_ROUTE_ASSIGN'];
 
 /** A34 — any of these may call api/lead-time/calculate-manufacturing (API-CONTRACT §2). */
 const LEAD_TIME_CALCULATE_CODES = [
@@ -71,7 +81,8 @@ const LEAD_TIME_CALCULATE_CODES = [
     DialogModule, InputTextModule, TextareaModule, InputNumberModule,
     DividerModule, TooltipModule, ConfirmDialogModule, DropdownModule, TableModule,
     CheckboxModule, CalendarModule, DynamicAttributeFormComponent, BomManagerComponent, QboSyncBadgeComponent,
-    VariantRouteFieldComponent, LeadTimesTabComponent
+    VariantRouteFieldComponent, LeadTimesTabComponent, ServiceSettingsFieldsComponent, ProductRoutesPanelComponent,
+    ...FLOW
   ],
   templateUrl: './product-detail.component.html',
   styleUrls: ['./product-detail.component.scss'],
@@ -116,6 +127,55 @@ export class ProductDetailComponent implements OnInit {
     return this.editForm?.get('supplyMethod')?.value === 'MANUFACTURE';
   }
 
+  // ── A36 — service products ────────────────────────────────────────────────
+  readonly serviceInvoicingPolicyLabel = serviceInvoicingPolicyLabel;
+  readonly serviceBillingModelLabel = serviceBillingModelLabel;
+
+  get isService(): boolean { return this.product?.productType === 'SERVICE'; }
+  get editIsService(): boolean { return this.editForm?.get('productType')?.value === 'SERVICE'; }
+  /** D-4 — a BOM is eligible for a SERVICE product once it has a service BOM. */
+  get isServiceBomProduct(): boolean { return this.isService && !!this.product?.hasServiceBom; }
+  /**
+   * A37 — with FEATURE_BOM_MANAGEMENT the tab follows the product (manufactured, or a service with a service BOM);
+   * without it the BOMs are read only (BOM-SHR-03), so the tab shows only when the product has any.
+   */
+  get showBomTab(): boolean {
+    if (!this.bomManagementEnabled) return this.bomExists;
+    return !!this.product?.isManufacturable || this.isServiceBomProduct;
+  }
+
+  // ── A37 PRD-CAP — module-dependent sections (API-CONTRACT §2) ──────────────
+  readonly serviceCategoryLabel = serviceCategoryLabel;
+  /** The server sends `productionSettings` only while MODULE_MANUFACTURING is enabled (PRD-CAP-03). */
+  get hasProductionSettings(): boolean { return !!this.product && this.product.productionSettings != null; }
+  /** The server sends `serviceSettings` only while MODULE_SERVICES is enabled (PRD-CAP-03). */
+  get hasServiceSettings(): boolean { return !!this.product && this.product.serviceSettings != null; }
+  /** Derived on the server (= SERVICE type); the type itself when an older server leaves it out. */
+  get isServiceable(): boolean { return this.product?.isServiceable ?? this.isService; }
+  /** PRD-CAP-02 — the section needs both the module (key present) and the flag. */
+  get showProductionSection(): boolean { return this.hasProductionSettings && !!this.product?.isManufacturable; }
+  get showServiceSection(): boolean { return this.hasServiceSettings && this.isServiceable; }
+  get productionWarehouseName(): string | null {
+    return this.product?.productionSettings?.defaultProductionWarehouseName ?? this.product?.defaultProductionWarehouseName ?? null;
+  }
+  get requiresSiteVisit(): boolean {
+    return !!(this.product?.requiresSiteVisit ?? this.product?.serviceSettings?.requiresSiteVisit);
+  }
+
+  /** A37 D-11 — create/edit/workflow on BOMs need FEATURE_BOM_MANAGEMENT; reading them does not. */
+  get bomManagementEnabled(): boolean { return this.tenantService.hasFeature('FEATURE_BOM_MANAGEMENT'); }
+  /** Checked only while BOM management is off: does the product have a BOM to show read-only? */
+  bomExists = false;
+  private readonly injector = inject(Injector);
+
+  /** Set when GET /api/products/{uuid}/routes answers 403: the Routes tab is then hidden. */
+  productRoutesForbidden = false;
+  get canViewProductRoutes(): boolean {
+    return !this.productRoutesForbidden && this.routesEnabled && PRODUCT_ROUTES_VIEW_CODES.some(code => this.authService.hasPermission(code));
+  }
+  /** D-3 — the product page's warning instead of refusing the save. */
+  get missingActiveServiceBom(): boolean { return this.isServiceBomProduct && !this.product?.hasActiveServiceBom; }
+
   supplyMethodDisabled(method: SupplyMethodCode): boolean {
     return !isSupplyMethodAllowed(this.editForm?.get('productType')?.value, method);
   }
@@ -128,6 +188,7 @@ export class ProductDetailComponent implements OnInit {
       isPurchasable: defaults.isPurchasable,
       isStockable: defaults.isStockable
     });
+    clearServiceSettingsUnlessService(this.editForm);
   }
 
   uomOptions: { label: string; value: string }[] = [
@@ -306,7 +367,8 @@ export class ProductDetailComponent implements OnInit {
       isSaleable:     [true],
       isPurchasable:  [true],
       isStockable:    [true],
-      defaultProductionWarehouseId: [null]
+      defaultProductionWarehouseId: [null],
+      ...serviceSettingsControls()
     });
 
     this.adjustmentForm = this.fb.group({
@@ -373,6 +435,7 @@ export class ProductDetailComponent implements OnInit {
           if (!this.pricingVariantUuid) {
             this.pricingVariantUuid = this.defaultVariant?.uuid ?? this.product.variants?.[0]?.uuid ?? null;
           }
+          this.checkBomExists();
           this.loadStock();
         } else {
           this.isLoading = false;
@@ -383,6 +446,15 @@ export class ProductDetailComponent implements OnInit {
         this.isLoading = false;
         this.messageService.add({ severity: 'error', summary: 'Error', detail: err.error?.message || 'Failed to load product.' });
       }
+    });
+  }
+
+  /** A37 BOM-SHR-03 — only when BOM management is off; the BOM service is fetched lazily for that case alone. */
+  private checkBomExists(): void {
+    if (this.bomManagementEnabled || !this.product?.uuid) { this.bomExists = false; return; }
+    this.injector.get(BomService).getBoms({ productUuid: this.product.uuid, pageSize: 1 }).subscribe({
+      next: (res) => { this.bomExists = (res.result?.totalRecords ?? res.result?.data?.length ?? 0) > 0; },
+      error: () => { this.bomExists = false; }
     });
   }
 
@@ -461,7 +533,14 @@ export class ProductDetailComponent implements OnInit {
       isSaleable:     this.product.isSaleable      ?? true,
       isPurchasable:  this.product.isPurchasable   ?? true,
       isStockable:    this.product.isStockable     ?? true,
-      defaultProductionWarehouseId: this.product.defaultProductionWarehouseId ?? null
+      defaultProductionWarehouseId: this.product.defaultProductionWarehouseId ?? null,
+      serviceInvoicingPolicy: this.product.serviceInvoicingPolicy ?? null,
+      serviceBillingModel:    this.product.serviceBillingModel    ?? null,
+      estimatedDurationHours: this.product.estimatedDurationHours ?? null,
+      hasServiceBom:          !!this.product.hasServiceBom,
+      isSubcontractable:      !!this.product.isSubcontractable,
+      serviceCategory:        this.product.serviceCategory ?? this.product.serviceSettings?.serviceCategory ?? null,
+      requiresSiteVisit:      !!(this.product.requiresSiteVisit ?? this.product.serviceSettings?.requiresSiteVisit)
     });
     this.loadLookups().then(() => {
       this.loadSuppliers();
@@ -526,7 +605,8 @@ export class ProductDetailComponent implements OnInit {
       isSaleable:    !!raw.isSaleable,
       isPurchasable: !!raw.isPurchasable,
       isStockable:   !!raw.isStockable,
-      defaultProductionWarehouseId: raw.defaultProductionWarehouseId ?? undefined
+      defaultProductionWarehouseId: raw.defaultProductionWarehouseId ?? undefined,
+      ...serviceSettingsPayload(raw)
     };
     this.isSaving = true;
     this.inventoryService.patchProduct(this.productId, payload).subscribe({

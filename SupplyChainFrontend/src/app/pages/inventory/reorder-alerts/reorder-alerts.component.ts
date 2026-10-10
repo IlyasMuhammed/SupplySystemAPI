@@ -20,6 +20,7 @@ import {
   ReorderAlertModel,
   CreateAdjustmentRequest
 } from '../../../services/inventory.service';
+import { FLOW } from '../../../shared/flow';
 
 export type UrgencyLevel = 'critical' | 'low' | 'normal';
 
@@ -40,7 +41,8 @@ export type UrgencyLevel = 'critical' | 'low' | 'normal';
     TextareaModule,
     DialogModule,
     CardModule,
-    TooltipModule
+    TooltipModule,
+    ...FLOW
   ],
   templateUrl: './reorder-alerts.component.html',
   styleUrls: ['./reorder-alerts.component.scss'],

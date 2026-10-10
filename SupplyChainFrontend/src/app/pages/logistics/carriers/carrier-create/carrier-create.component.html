@@ -1,70 +1,67 @@
-<div class="create-page">
-  <p-toast></p-toast>
+<p-toast></p-toast>
 
-  <div class="page-header">
-    <div>
-      <h1 class="page-title"><i class="pi pi-send"></i> New Carrier</h1>
-      <p class="page-subtitle">Add a shipping carrier to the master list</p>
-    </div>
-    <p-button label="Back to Carriers" icon="pi pi-arrow-left" [text]="true" severity="secondary"
+<sf-page [crumbs]="['Logistics', 'Carriers', 'New carrier']">
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <p-button label="Back to carriers" icon="pi pi-arrow-left" [text]="true"
               routerLink="/portal/pages/logistics/carriers"></p-button>
   </div>
 
-  <p-card>
-    <div class="form-grid">
+  <header class="sf-hdr sf-compact">
+    <h1>New carrier</h1>
+    <span class="sf-mu">Add a shipping carrier to the master list</span>
+  </header>
 
-      <!-- Identity -->
-      <div class="section-header"><i class="pi pi-id-card"></i> Carrier Identity</div>
-      <div class="grid grid-cols-2 gap-4">
-        <div>
-          <label class="field-label">Name <span class="req">*</span></label>
+  <div class="sf-body">
+    <section class="sf-card">
+      <div class="sf-ch"><h2>Carrier identity</h2></div>
+      <div class="sf-fields">
+        <div class="sf-fld">
+          <label class="sf-req">Name</label>
           <input pInputText class="w-full" [(ngModel)]="form.name" placeholder="e.g. DHL Express" maxlength="100" />
         </div>
-        <div>
-          <label class="field-label">Code <span class="req">*</span></label>
+        <div class="sf-fld">
+          <label class="sf-req">Code</label>
           <input pInputText class="w-full" [(ngModel)]="form.code" placeholder="e.g. DHL" maxlength="20" />
         </div>
-      </div>
-      <div class="grid grid-cols-2 gap-4 mt-4">
-        <div>
-          <label class="field-label">Service Type</label>
+        <div class="sf-fld">
+          <label>Service Type</label>
           <p-dropdown [options]="serviceTypeOptions" [(ngModel)]="form.serviceType"
                       placeholder="Select service type" styleClass="w-full"></p-dropdown>
         </div>
+        <div class="sf-fld full-width">
+          <label>Tracking URL Template</label>
+          <input pInputText class="w-full" [(ngModel)]="form.trackingUrlTemplate"
+                 placeholder="https://carrier.com/track/{tracking}" maxlength="500" />
+          <small class="sf-mu">Use <code>{{ '{' }}tracking{{ '}' }}</code> as the placeholder for the tracking number.</small>
+        </div>
       </div>
-      <div class="mt-4">
-        <label class="field-label">Tracking URL Template</label>
-        <input pInputText class="w-full" [(ngModel)]="form.trackingUrlTemplate"
-               placeholder="https://carrier.com/track/{tracking}" maxlength="500" />
-        <small class="text-secondary">Use <code>{{ '{' }}tracking{{ '}' }}</code> as the placeholder for the tracking number.</small>
-      </div>
+    </section>
 
-      <!-- Contact -->
-      <div class="section-header mt-6"><i class="pi pi-user"></i> Contact Details</div>
-      <div class="grid grid-cols-3 gap-4">
-        <div>
-          <label class="field-label">Contact Name</label>
+    <section class="sf-card">
+      <div class="sf-ch"><h2>Contact details</h2></div>
+      <div class="sf-fields">
+        <div class="sf-fld">
+          <label>Contact Name</label>
           <input pInputText class="w-full" [(ngModel)]="form.contactName" maxlength="150" />
         </div>
-        <div>
-          <label class="field-label">Contact Phone</label>
+        <div class="sf-fld">
+          <label>Contact Phone</label>
           <input pInputText class="w-full" [(ngModel)]="form.contactPhone" maxlength="25" />
         </div>
-        <div>
-          <label class="field-label">Contact Email</label>
+        <div class="sf-fld">
+          <label>Contact Email</label>
           <input pInputText class="w-full" [(ngModel)]="form.contactEmail" maxlength="150" />
         </div>
       </div>
+    </section>
+  </div>
 
-    </div>
-
-    <ng-template pTemplate="footer">
-      <div class="flex justify-end gap-3">
-        <p-button label="Cancel" [text]="true" severity="secondary"
-                  routerLink="/portal/pages/logistics/carriers"></p-button>
-        <p-button label="Create Carrier" icon="pi pi-check" [loading]="isSaving"
-                  (onClick)="save()"></p-button>
-      </div>
-    </ng-template>
-  </p-card>
-</div>
+  <div class="sf-fbar">
+    <span class="sf-end">
+      <p-button label="Cancel" [text]="true" severity="secondary"
+                routerLink="/portal/pages/logistics/carriers"></p-button>
+      <p-button label="Create carrier" icon="pi pi-check" [loading]="isSaving"
+                (onClick)="save()"></p-button>
+    </span>
+  </div>
+</sf-page>

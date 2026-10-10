@@ -29,6 +29,10 @@ import {
 } from '../../../../shared/product-classification';
 import { AttachmentService } from '../../../../services/attachment.service';
 import { DynamicAttributeFormComponent } from '../../../../shared/dynamic-attribute-form/dynamic-attribute-form.component';
+import { FLOW } from '../../../../shared/flow';
+import {
+  ServiceSettingsFieldsComponent, clearServiceSettingsUnlessService, serviceSettingsControls, serviceSettingsPayload
+} from '../service-settings-fields/service-settings-fields.component';
 
 // UOM options from FSD Section 6.5 — static, no API call needed
 const UOM_OPTIONS = [
@@ -49,7 +53,8 @@ const UOM_OPTIONS = [
     CommonModule, ReactiveFormsModule,
     ButtonModule, InputTextModule, TextareaModule, CardModule, ToastModule,
     DropdownModule, InputNumberModule, DividerModule, CheckboxModule, TooltipModule,
-    DynamicAttributeFormComponent
+    DynamicAttributeFormComponent, ServiceSettingsFieldsComponent,
+    ...FLOW
   ],
   templateUrl: './product-create.component.html',
   styleUrls: ['./product-create.component.scss'],
@@ -81,6 +86,11 @@ export class ProductCreateComponent implements OnInit {
     return this.productForm?.get('supplyMethod')?.value === 'MANUFACTURE';
   }
 
+  /** A36 — the Service settings card shows only for SERVICE products. */
+  get isService(): boolean {
+    return this.productForm?.get('productType')?.value === 'SERVICE';
+  }
+
   supplyMethodDisabled(method: SupplyMethodCode): boolean {
     return !isSupplyMethodAllowed(this.productForm?.get('productType')?.value, method);
   }
@@ -94,6 +104,7 @@ export class ProductCreateComponent implements OnInit {
       isPurchasable: defaults.isPurchasable,
       isStockable: defaults.isStockable
     });
+    clearServiceSettingsUnlessService(this.productForm);
   }
 
   // Static from FSD — no API required
@@ -192,6 +203,9 @@ export class ProductCreateComponent implements OnInit {
       isPurchasable:       [true],
       isStockable:         [true],
       defaultProductionWarehouseId: [null],
+
+      // A36 D-2 — service settings (SERVICE only).
+      ...serviceSettingsControls(),
 
       // Stock Parameters
       reorderPoint:        [null, Validators.min(0)],
@@ -358,7 +372,14 @@ export class ProductCreateComponent implements OnInit {
             isPurchasable:       p.isPurchasable       ?? true,
             isStockable:         p.isStockable         ?? true,
             defaultProductionWarehouseId: p.defaultProductionWarehouseId ?? null,
-            reorderPoint:        p.reorderPoint        ?? null,
+            serviceInvoicingPolicy: p.serviceInvoicingPolicy ?? null,
+            serviceBillingModel:    p.serviceBillingModel    ?? null,
+            estimatedDurationHours: p.estimatedDurationHours ?? null,
+            hasServiceBom:          !!p.hasServiceBom,
+            isSubcontractable:      !!p.isSubcontractable,
+            serviceCategory:        p.serviceCategory ?? null,
+            requiresSiteVisit:      !!p.requiresSiteVisit,
+            reorderPoint:      p.reorderPoint        ?? null,
             reorderQty:          p.reorderQty          ?? null,
             minStockLevel:       p.minStockLevel       ?? null,
             maxStockLevel:       p.maxStockLevel       ?? null,
@@ -422,6 +443,7 @@ export class ProductCreateComponent implements OnInit {
         isPurchasable:       !!raw.isPurchasable,
         isStockable:         !!raw.isStockable,
         defaultProductionWarehouseId: raw.defaultProductionWarehouseId ?? undefined,
+        ...serviceSettingsPayload(raw),
         reorderPoint:        raw.reorderPoint        ?? undefined,
         reorderQty:          raw.reorderQty          ?? undefined,
         minStockLevel:       raw.minStockLevel       ?? undefined,
@@ -524,6 +546,7 @@ export class ProductCreateComponent implements OnInit {
         isPurchasable:       !!raw.isPurchasable,
         isStockable:         !!raw.isStockable,
         defaultProductionWarehouseId: raw.defaultProductionWarehouseId ?? undefined,
+        ...serviceSettingsPayload(raw),
         reorderPoint:        raw.reorderPoint        ?? undefined,
         reorderQty:          raw.reorderQty          ?? undefined,
         minStockLevel:       raw.minStockLevel       ?? undefined,

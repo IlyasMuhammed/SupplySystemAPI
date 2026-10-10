@@ -5,11 +5,11 @@
 :host ::ng-deep .w-full { width: 100%; }
 .state-inline { display: flex; align-items: center; gap: .5rem; color: var(--text-color-secondary); font-size: .875rem; }
 .counts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .75rem; }
-.count { display: flex; flex-direction: column; gap: .125rem; border: 1px solid var(--surface-200); border-radius: .5rem; padding: .75rem; }
+.count { display: flex; flex-direction: column; gap: .125rem; border: 1px solid var(--sms-border); border-radius: .5rem; padding: .75rem; }
 .num { font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 .lbl { font-size: .75rem; color: var(--text-color-secondary); }
 .actions { display: flex; justify-content: flex-end; gap: .5rem; margin-top: .75rem; }
-.required, .p-error { color: var(--red-500, #ef4444); }
+.required, .p-error { color: var(--sms-danger); }
 small.p-error { display: block; font-size: .78rem; }
 
 @media (max-width: 480px) {
@@ -17,4 +17,4 @@ small.p-error { display: block; font-size: .78rem; }
 }
 
 // A34 — make-to-order note
-.intro.mto { color: var(--orange-800, #9a3412); background: var(--orange-50, #fff7ed); border-radius: .375rem; padding: .5rem .625rem; }
+.intro.mto { color: var(--sms-warn); background: var(--sms-warn-soft); border-radius: .375rem; padding: .5rem .625rem; }

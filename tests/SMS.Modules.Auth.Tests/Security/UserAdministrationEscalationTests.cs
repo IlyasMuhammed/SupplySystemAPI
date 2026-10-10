@@ -69,8 +69,39 @@ public class UserAdministrationEscalationTests
         await bed.As(OrgAdminA, s => s.AssignRoleAsync(RequesterAId, OrgACustomRole, OrgAdminA));
         bed.User(RequesterAId).RoleID.Should().Be(OrgACustomRole);
 
-        await bed.As(OrgAdminA, s => s.AdminCreateUserAsync(NewUser(OrgAdminRole), OrgAdminA));
+        await bed.As(OrgAdminA, s => s.AdminCreateUserAsync(NewUser(RequesterRole), OrgAdminA));
         Exists(bed, "new.hire@a.test").Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task An_org_admin_cannot_appoint_another_org_admin_only_a_super_admin_can()
+    {
+        var bed = new SecurityTestBed();
+
+        var create = () => bed.As(OrgAdminA, s => s.AdminCreateUserAsync(NewUser(OrgAdminRole), OrgAdminA));
+        await create.Should().ThrowAsync<ForbiddenException>();
+        Exists(bed, "new.hire@a.test").Should().BeFalse();
+
+        var promote = () => bed.As(OrgAdminA, s => s.AssignRoleAsync(RequesterAId, OrgAdminRole, OrgAdminA));
+        await promote.Should().ThrowAsync<ForbiddenException>();
+        bed.User(RequesterAId).RoleID.Should().Be(RequesterRole);
+
+        await bed.As(SuperAdmin, s => s.AssignRoleAsync(RequesterAId, OrgAdminRole, SuperAdmin));
+        bed.User(RequesterAId).RoleID.Should().Be(OrgAdminRole);
+    }
+
+    [Fact]
+    public async Task The_role_picker_offers_an_org_admin_neither_system_admin_nor_organization_admin()
+    {
+        var bed = new SecurityTestBed();
+
+        var forOrgAdmin = await bed.As(OrgAdminA, s => s.GetAssignableRolesAsync(OrgAdminA));
+        forOrgAdmin.Select(r => r.RoleId).Should().NotContain(new[] { SystemAdminRole, OrgAdminRole })
+            .And.Contain(new[] { RequesterRole, SupplyDeptAdminRole, OrgACustomRole })
+            .And.NotContain(OrgBPowerRole); // another organization's role is not even visible
+
+        var forSuperAdmin = await bed.As(SuperAdmin, s => s.GetAssignableRolesAsync(SuperAdmin));
+        forSuperAdmin.Select(r => r.RoleId).Should().Contain(new[] { SystemAdminRole, OrgAdminRole });
     }
 
     [Fact]

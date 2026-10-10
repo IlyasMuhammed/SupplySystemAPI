@@ -51,10 +51,24 @@ namespace SMS.Modules.Tenancy.Migrations
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)");
 
+                    b.Property<string>("Icon")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<bool>("IsAlwaysOn")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsAvailable")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("IsCore")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
+
+                    b.Property<string>("ParentModuleCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.HasKey("Id");
 
@@ -62,6 +76,22 @@ namespace SMS.Modules.Tenancy.Migrations
                         .IsUnique();
 
                     b.ToTable("FeatureDefinitions", "tenant");
+                });
+
+            modelBuilder.Entity("SMS.Modules.Tenancy.Domain.FeatureDependency", b =>
+                {
+                    b.Property<string>("FeatureCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("DependsOnCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.HasKey("FeatureCode", "DependsOnCode")
+                        .HasName("PK_feature_dependencies");
+
+                    b.ToTable("feature_dependencies", "tenant");
                 });
 
             modelBuilder.Entity("SMS.Modules.Tenancy.Domain.Organization", b =>
@@ -189,13 +219,34 @@ namespace SMS.Modules.Tenancy.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTime?>("DisabledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("DisabledBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("EnabledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("EnabledBy")
+                        .HasColumnType("int");
+
                     b.Property<Guid>("FeatureDefinitionId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("GracePeriodEndsAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<bool>("IsEnabled")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
+
+                    b.Property<bool>("IsLicensed")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsSystemManaged")
+                        .HasColumnType("bit");
 
                     b.Property<int?>("ModifiedBy")
                         .HasColumnType("int");
@@ -206,12 +257,62 @@ namespace SMS.Modules.Tenancy.Migrations
                     b.Property<Guid>("OrganizationId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
                     b.HasKey("Id");
 
                     b.HasIndex("OrganizationId", "FeatureDefinitionId")
                         .IsUnique();
 
-                    b.ToTable("OrganizationFeatures", "tenant");
+                    b.ToTable("OrganizationFeatures", "tenant", t =>
+                        {
+                            t.HasCheckConstraint("CK_OrganizationFeatures_GraceOnlyWhenDisabled", "[GracePeriodEndsAt] IS NULL OR [IsEnabled] = 0");
+                        });
+                });
+
+            modelBuilder.Entity("SMS.Modules.Tenancy.Domain.OrganizationFeatureHistory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("FeatureCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int?>("GraceDays")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("PerformedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("PerformedBy")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id")
+                        .HasName("PK_organization_feature_history");
+
+                    b.HasIndex("OrganizationId", "FeatureCode", "PerformedAt")
+                        .HasDatabaseName("IX_organization_feature_history_org_code_at");
+
+                    b.ToTable("organization_feature_history", "tenant");
                 });
 
             modelBuilder.Entity("SMS.Modules.Tenancy.Domain.OrganizationSettings", b =>

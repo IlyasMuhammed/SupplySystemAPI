@@ -20,6 +20,7 @@ import {
   SaleOrderConfigService, SaleOrderConfigModel, SaleOrderConfigAuditModel, DepartmentOptionModel
 } from '../../services/sale-order-config.service';
 import { AuthService } from '../service/auth.service';
+import { FLOW } from '../../shared/flow';
 import {
   APPROVAL_MODE_OPTIONS, ChoiceOption, FULFILMENT_MODE_OPTIONS, ImpactNote, MAX_CC_LENGTH, MAX_RESERVATION_HOURS,
   MIN_RESERVATION_HOURS, SUPPLIER_SELECTION_OPTIONS, SettingChange, SettingsValue,
@@ -38,7 +39,8 @@ const AUTO_PO_DEPENDENTS = ['supplierSelectionMode', 'autoPoApprovalMode'];
   imports: [
     CommonModule, ReactiveFormsModule,
     ButtonModule, DialogModule, DropdownModule, InputNumberModule, MessageModule, PaginatorModule, TableModule,
-    TabViewModule, TagModule, TextareaModule, ToastModule, ToggleSwitchModule, TooltipModule
+    TabViewModule, TagModule, TextareaModule, ToastModule, ToggleSwitchModule, TooltipModule,
+    ...FLOW
   ],
   templateUrl: './sale-order-settings.component.html',
   styleUrls: ['./sale-order-settings.component.scss'],

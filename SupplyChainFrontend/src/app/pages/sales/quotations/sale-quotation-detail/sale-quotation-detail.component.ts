@@ -36,6 +36,7 @@ import { SaleQuotationResponsePanelComponent } from '../sale-quotation-response-
 import { DocCurrencyPanelComponent } from '../../../../shared/doc-currency/doc-currency-panel.component';
 import { DocCurrencyInfo, cachedDocCurrency, hasBaseAmounts, missingRateOf, sumDifferences } from '../../../../shared/doc-currency/doc-currency';
 import { MoneyPipe } from '../../../../shared/money/money.pipe';
+import { FLOW, FlowStage, flowStagesFrom } from '../../../../shared/flow';
 
 const TAB_LINES = 1;
 
@@ -60,7 +61,7 @@ export interface ConvertForm {
     TableModule, ButtonModule, TagModule, TooltipModule, ToastModule, DialogModule, DropdownModule, CalendarModule,
     InputTextModule, SelectButtonModule, TabViewModule,
     AttachmentListComponent, SaleQuotationLineEditorComponent, SaleQuotationResponsePanelComponent,
-    DocCurrencyPanelComponent, MoneyPipe
+    DocCurrencyPanelComponent, MoneyPipe, ...FLOW
   ],
   templateUrl: './sale-quotation-detail.component.html',
   styleUrls: ['./sale-quotation-detail.component.scss'],
@@ -196,6 +197,18 @@ export class SaleQuotationDetailComponent implements OnInit {
   }
 
   formatStatus(code?: string | null): string { return formatCode(code); }
+
+  /** Draft → Sent → Accepted → Converted; a rejected or expired quotation stops red after Sent. */
+  get stages(): FlowStage[] {
+    const q = this.quotation;
+    if (!q) return [];
+    const sent = q.sentAt ? new Date(q.sentAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : null;
+    if (q.status === 'REJECTED' || q.status === 'EXPIRED') {
+      return flowStagesFrom(['Draft', 'Sent', this.formatStatus(q.status)], 2, { subs: [null, sent], failed: true });
+    }
+    const at: Record<string, number> = { DRAFT: 0, SENT: 1, ACCEPTED: 2, CONVERTED: 4 };
+    return flowStagesFrom(['Draft', 'Sent', 'Accepted', 'Converted'], at[q.status] ?? 0, { subs: [null, sent] });
+  }
 
   getStatusSeverity(status: string): Severity {
     return SALE_QUOTATION_STATUS_SEVERITY[status as keyof typeof SALE_QUOTATION_STATUS_SEVERITY] ?? 'secondary';

@@ -14,6 +14,7 @@ import { IconFieldModule } from 'primeng/iconfield';
 import { MessageService } from 'primeng/api';
 import { TableLazyLoadEvent } from 'primeng/table';
 import { MaterialService, MirListItem, MirListFilter } from '../../../../services/material.service';
+import { FLOW } from '../../../../shared/flow';
 
 @Component({
   selector: 'app-mir-list',
@@ -22,7 +23,8 @@ import { MaterialService, MirListItem, MirListFilter } from '../../../../service
     CommonModule, RouterModule, FormsModule,
     TableModule, ButtonModule, TagModule,
     TooltipModule, ToastModule, DropdownModule,
-    InputTextModule, InputIconModule, IconFieldModule
+    InputTextModule, InputIconModule, IconFieldModule,
+    ...FLOW
   ],
   templateUrl: './mir-list.component.html',
   styleUrls: ['./mir-list.component.scss'],

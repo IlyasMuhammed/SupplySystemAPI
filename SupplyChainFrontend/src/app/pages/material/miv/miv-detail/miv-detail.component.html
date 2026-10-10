@@ -1,115 +1,114 @@
-<div class="miv-detail-page">
-  <p-toast></p-toast>
-  <p-confirmDialog></p-confirmDialog>
+<p-toast></p-toast>
+<p-confirmDialog></p-confirmDialog>
 
-  <!-- Loading -->
-  <div *ngIf="isLoading" class="loading-card">
-    <i class="pi pi-spin pi-spinner"></i>
-    <span>Loading&hellip;</span>
+<!-- Loading -->
+<div *ngIf="isLoading" class="sf-empty">
+  <i class="pi pi-spin pi-spinner"></i> Loading&hellip;
+</div>
+
+<sf-page *ngIf="!isLoading && miv" [crumbs]="['Material', 'Material issue vouchers', miv.issueNo]">
+
+  <!-- ── Command bar ─────────────────────────────────────────────────────────────────── -->
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <ng-container *ngIf="miv.status === 'DRAFT'">
+      <p-button label="Post Voucher" icon="pi pi-check"
+                [loading]="isPosting" (onClick)="confirmPost()"></p-button>
+    </ng-container>
+    <p-button *ngIf="miv.status === 'POSTED'"
+              label="Download PDF" icon="pi pi-file-pdf" [text]="true"
+              [loading]="isDownloadingPdf" [disabled]="isDownloadingPdf" (onClick)="downloadPdf()"></p-button>
+    <ng-container *ngIf="miv.status === 'DRAFT'">
+      <span class="sf-sep"></span>
+      <p-button label="Cancel" icon="pi pi-times" severity="danger" [text]="true"
+                [loading]="isCancelling" (onClick)="confirmCancel()"></p-button>
+    </ng-container>
+    <span class="sf-end">
+      <p-button label="Back to MIV List" icon="pi pi-arrow-left" [text]="true"
+                routerLink="/portal/pages/material/miv"></p-button>
+    </span>
   </div>
 
-  <ng-container *ngIf="!isLoading && miv">
-
-    <!-- Header -->
-    <div class="page-header">
-      <div class="header-left">
-        <div class="header-icon icon-purple">
-          <i class="pi pi-receipt"></i>
+  <!-- ── Dynamic header ──────────────────────────────────────────────────────────────── -->
+  <header class="sf-hdr">
+    <div class="sf-t">
+      <div>
+        <div class="sf-kicker">
+          Material issue voucher · for
+          <a class="sf-mono" [routerLink]="['/portal/pages/material/mir', miv.mirUuid]">{{ miv.mirRequestNo }}</a>
+          <span *ngIf="miv.mirProjectName"> &mdash; {{ miv.mirProjectName }}</span>
         </div>
-        <div>
-          <h1 class="page-title">{{ miv.issueNo }}</h1>
-          <p class="page-subtitle">
-            MIR: <a class="mir-link" [routerLink]="['/portal/pages/material/mir', miv.mirUuid]">{{ miv.mirRequestNo }}</a>
-            <span *ngIf="miv.mirProjectName"> &mdash; {{ miv.mirProjectName }}</span>
-          </p>
-        </div>
-      </div>
-      <div class="header-right">
-        <p-tag [value]="miv.status | titlecase" [severity]="getStatusSeverity(miv.status)" class="status-tag"></p-tag>
-        <ng-container *ngIf="miv.status === 'DRAFT'">
-          <p-button label="Post Voucher" icon="pi pi-check" severity="success"
-                    [loading]="isPosting" (onClick)="confirmPost()"></p-button>
-          <p-button label="Cancel" icon="pi pi-times" severity="danger" [outlined]="true"
-                    [loading]="isCancelling" (onClick)="confirmCancel()"></p-button>
-        </ng-container>
-        <p-button *ngIf="miv.status === 'POSTED'"
-                  label="Download PDF" icon="pi pi-file-pdf" severity="danger" [outlined]="true"
-                  [loading]="isDownloadingPdf" [disabled]="isDownloadingPdf" (onClick)="downloadPdf()"></p-button>
-        <p-button label="Back to MIV List" icon="pi pi-arrow-left" severity="secondary" [outlined]="true"
-                  routerLink="/portal/pages/material/miv"></p-button>
+        <h1>
+          <span class="sf-mono">{{ miv.issueNo }}</span>
+          <p-tag [value]="miv.status | titlecase" [severity]="getStatusSeverity(miv.status)"></p-tag>
+        </h1>
+        <div class="sf-meta">Issued to {{ miv.issuedTo || '—' }} · {{ miv.issueDate | date:'dd MMM yyyy' }}</div>
       </div>
     </div>
 
+    <sf-stages [stages]="stages"></sf-stages>
+
+    <div class="sf-facts">
+      <div class="sf-kpi">
+        <span class="l">Total value</span>
+        <span class="v">{{ miv.totalValue | number:'1.2-2' }}</span>
+      </div>
+      <div class="sf-kpi">
+        <span class="l">Lines</span>
+        <span class="v">{{ miv.lines.length }}</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="sf-body">
     <!-- Summary card -->
-    <div class="card">
-      <h3 class="section-title">Voucher Details</h3>
-      <div class="detail-grid">
-        <div class="detail-cell">
-          <span class="dc-label">Issued To</span>
-          <span class="dc-value">{{ miv.issuedTo || '—' }}</span>
-        </div>
-        <div class="detail-cell">
-          <span class="dc-label">Issue Date</span>
-          <span class="dc-value">{{ miv.issueDate | date:'dd MMM yyyy' }}</span>
-        </div>
-        <div class="detail-cell">
-          <span class="dc-label">Total Value</span>
-          <span class="dc-value value-amount">{{ miv.totalValue | number:'1.2-2' }}</span>
-        </div>
-        <div class="detail-cell">
-          <span class="dc-label">Status</span>
-          <span class="dc-value"><p-tag [value]="miv.status | titlecase" [severity]="getStatusSeverity(miv.status)"></p-tag></span>
-        </div>
-        <div class="detail-cell" *ngIf="miv.notes">
-          <span class="dc-label">Notes</span>
-          <span class="dc-value">{{ miv.notes }}</span>
-        </div>
-        <div class="detail-cell">
-          <span class="dc-label">Created</span>
-          <span class="dc-value">{{ miv.createdDate | date:'dd MMM yyyy HH:mm' }}</span>
-        </div>
-        <div class="detail-cell" *ngIf="miv.postedDate">
-          <span class="dc-label">Posted</span>
-          <span class="dc-value">{{ miv.postedDate | date:'dd MMM yyyy HH:mm' }}</span>
-        </div>
+    <section class="sf-card">
+      <div class="sf-ch"><h2>Voucher details</h2></div>
+      <div class="sf-kv">
+        <span>Issued To</span><span>{{ miv.issuedTo || '—' }}</span>
+        <span>Issue Date</span><span>{{ miv.issueDate | date:'dd MMM yyyy' }}</span>
+        <span>Total Value</span><span class="sf-num">{{ miv.totalValue | number:'1.2-2' }}</span>
+        <span>Status</span><span><p-tag [value]="miv.status | titlecase" [severity]="getStatusSeverity(miv.status)"></p-tag></span>
+        <ng-container *ngIf="miv.notes"><span>Notes</span><span>{{ miv.notes }}</span></ng-container>
+        <span>Created</span><span>{{ miv.createdDate | date:'dd MMM yyyy HH:mm' }}</span>
+        <ng-container *ngIf="miv.postedDate"><span>Posted</span><span>{{ miv.postedDate | date:'dd MMM yyyy HH:mm' }}</span></ng-container>
       </div>
-    </div>
+    </section>
 
     <!-- Lines -->
-    <div class="card">
-      <h3 class="section-title">Issue Lines</h3>
-      <div class="lines-table">
-        <div class="lines-header">
-          <span class="col-desc">Item</span>
-          <span class="col-uom">UOM</span>
-          <span class="col-wh">Warehouse</span>
-          <span class="col-qty num-col">Issued Qty</span>
-          <span class="col-qty num-col">Unit Cost</span>
-          <span class="col-qty num-col">Line Value</span>
-          <span class="col-notes">Notes</span>
-        </div>
-        <div *ngFor="let line of miv.lines" class="line-row">
-          <span class="col-desc item-name">{{ line.itemDescription }}</span>
-          <span class="col-uom text-muted">{{ line.unitOfMeasure || '—' }}</span>
-          <span class="col-wh wh-chip">{{ line.warehouseName || '—' }}</span>
-          <span class="col-qty num-col font-semibold">{{ line.issuedQty | number:'1.0-4' }}</span>
-          <span class="col-qty num-col">{{ line.unitCost | number:'1.2-4' }}</span>
-          <span class="col-qty num-col">{{ line.lineValue | number:'1.2-2' }}</span>
-          <span class="col-notes text-muted">{{ line.notes || '—' }}</span>
-        </div>
-
-        <!-- Total row -->
-        <div class="total-row">
-          <span class="col-desc"></span>
-          <span class="col-uom"></span>
-          <span class="col-wh"></span>
-          <span class="col-qty num-col"></span>
-          <span class="col-qty num-col total-label">Total</span>
-          <span class="col-qty num-col total-value">{{ miv.totalValue | number:'1.2-2' }}</span>
-          <span class="col-notes"></span>
-        </div>
+    <section class="sf-card p0">
+      <div class="sf-ch"><h2>Issue lines</h2><span class="sf-mu sf-sm">{{ miv.lines.length }} line{{ miv.lines.length === 1 ? '' : 's' }}</span></div>
+      <div class="sf-tw">
+        <table class="sf-t">
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th>UOM</th>
+              <th>Warehouse</th>
+              <th class="sf-r">Issued Qty</th>
+              <th class="sf-r">Unit Cost</th>
+              <th class="sf-r">Line Value</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let line of miv.lines">
+              <td><strong>{{ line.itemDescription }}</strong></td>
+              <td class="sf-mu">{{ line.unitOfMeasure || '—' }}</td>
+              <td><span class="sf-pill in">{{ line.warehouseName || '—' }}</span></td>
+              <td class="sf-r sf-num"><strong>{{ line.issuedQty | number:'1.0-4' }}</strong></td>
+              <td class="sf-r sf-num">{{ line.unitCost | number:'1.2-4' }}</td>
+              <td class="sf-r sf-num">{{ line.lineValue | number:'1.2-2' }}</td>
+              <td class="sf-mu">{{ line.notes || '—' }}</td>
+            </tr>
+            <!-- Total row -->
+            <tr class="tot">
+              <td colspan="5" class="sf-r">Total</td>
+              <td class="sf-r sf-num">{{ miv.totalValue | number:'1.2-2' }}</td>
+              <td></td>
+            </tr>
+          </tbody>
+        </table>
       </div>
-    </div>
-
-  </ng-container>
-</div>
+    </section>
+  </div>
+</sf-page>

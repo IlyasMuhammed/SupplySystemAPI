@@ -1,48 +1,24 @@
-.form-page { padding: 1.5rem; max-width: 72rem; }
+// The form wraps the body and the sticky footer bar, so it fills the page column.
+.sf-form { display: flex; flex-direction: column; flex-grow: 1; min-width: 0; }
 
-.page-header { display: flex; align-items: flex-start; gap: .5rem; margin-bottom: 1.25rem; }
-.page-title { font-size: 1.5rem; font-weight: 700; display: flex; align-items: center; gap: .625rem; margin: 0; flex-wrap: wrap; }
-.page-subtitle { color: var(--text-color-secondary); font-size: .875rem; margin: .25rem 0 0; }
-
-.state-card {
-  text-align: center; padding: 3.5rem 1rem; color: var(--text-color-secondary);
-  background: var(--surface-0); border: 1px solid var(--surface-200); border-radius: .625rem;
-}
-.state-card i { font-size: 2rem; display: block; margin-bottom: .625rem; opacity: .6; }
-.state-card h2 { font-size: 1.125rem; font-weight: 600; margin: 0 0 .25rem; color: var(--text-color); }
-
-.form-card {
-  background: var(--surface-0); border: 1px solid var(--surface-200);
-  border-radius: .625rem; padding: 1.25rem; margin-bottom: 1rem;
-}
-.card-head { display: flex; align-items: center; gap: .875rem; margin-bottom: 1.125rem; }
-.card-head .grow { flex: 1; }
-.card-icon {
-  width: 2.25rem; height: 2.25rem; border-radius: .5rem; background: var(--primary-50, #f4f3ff);
-  color: var(--primary-color, #6c63ff); display: flex; align-items: center; justify-content: center;
-}
-.card-title { font-weight: 700; }
-.card-sub { font-size: .8125rem; color: var(--text-color-secondary); }
-
-.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem 1.25rem; }
 .field { display: flex; flex-direction: column; gap: .375rem; min-width: 0; }
 .field.full { grid-column: 1 / -1; }
 .field label, .line-field label, .line-item label { font-size: .8125rem; font-weight: 600; }
-.required { color: var(--red-500, #ef4444); }
+.required { color: var(--sms-danger); }
 .hint { color: var(--text-color-secondary); font-size: .8125rem; }
-.p-error { color: var(--red-500, #ef4444); font-size: .8125rem; }
+.p-error { color: var(--sms-danger); font-size: .8125rem; }
 .w-full { width: 100%; }
 
 .address-row { display: flex; gap: .625rem; align-items: center; }
 .address-row p-dropdown { flex: 1; min-width: 0; }
 
 // A line is a card, not a table row: the item picker is two dropdowns tall and needs room.
-.lines { display: flex; flex-direction: column; gap: .75rem; margin-top: .75rem; }
+.lines { display: flex; flex-direction: column; gap: .75rem; }
 .line-card {
   // The third small column is the tax: a code dropdown over its rate when the organization has codes.
   display: grid; grid-template-columns: 2rem minmax(16rem, 2.4fr) repeat(2, minmax(6rem, .9fr)) minmax(9rem, 1.3fr) minmax(9rem, 1.2fr) 2.5rem;
   gap: .75rem 1rem; align-items: start;
-  border: 1px solid var(--surface-200); border-radius: .5rem; padding: .875rem; background: var(--surface-50, #fafafa);
+  border: 1px solid var(--sms-border); border-radius: .5rem; padding: .875rem; background: var(--sms-surface-2);
 }
 .line-index { font-weight: 700; color: var(--text-color-secondary); padding-top: 1.7rem; text-align: center; }
 .line-item, .line-field { display: flex; flex-direction: column; gap: .375rem; min-width: 0; }
@@ -55,7 +31,7 @@
 .line-price .total { font-weight: 600; }
 .line-price .muted { color: var(--text-color-secondary); }
 .line-price .note { display: block; color: var(--text-color-secondary); font-size: .75rem; margin-top: .125rem; }
-.line-price .warn { color: var(--orange-700, #c2410c); font-size: .8125rem; display: inline-flex; gap: .375rem; align-items: flex-start; }
+.line-price .warn { color: var(--sms-warn); font-size: .8125rem; display: inline-flex; gap: .375rem; align-items: flex-start; }
 .line-card > p-button { padding-top: 1.5rem; }
 
 // ── A33 PC-07: the Route field, between the tax and the price ────────────────
@@ -68,39 +44,24 @@
   label { font-size: .8125rem; font-weight: 600; }
 }
 .route-hint { font-size: .75rem; color: var(--text-color-secondary); display: flex; gap: .25rem; align-items: baseline; }
-.route-hint.blocking { color: var(--orange-700, #c2410c); }
+.route-hint.blocking { color: var(--sms-warn); }
 .route-source { font-weight: 700; }
 .route-legend {
-  display: flex; flex-wrap: wrap; gap: .25rem 1rem; margin: .75rem 0 0; font-size: .75rem; color: var(--text-color-secondary);
+  display: flex; flex-wrap: wrap; gap: .25rem 1rem; margin: 0; font-size: .75rem; color: var(--text-color-secondary);
   .legend-title { font-weight: 600; }
 }
 
-.totals { display: flex; align-items: baseline; justify-content: flex-end; gap: 1rem; flex-wrap: wrap; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--surface-200); }
+.totals { display: flex; align-items: baseline; justify-content: flex-end; gap: 1rem; flex-wrap: wrap; padding-top: 1rem; border-top: 1px solid var(--sms-border); }
 .totals-label { color: var(--text-color-secondary); margin-right: .5rem; }
 .totals strong { font-size: 1.125rem; }
-
-.form-actions { display: flex; justify-content: flex-end; gap: .625rem; margin-top: 1rem; }
 
 .dialog-hint { font-size: .875rem; color: var(--text-color-secondary); margin: 0 0 1rem; }
 
 // ── A32 PD-07: source, quotation picker, customer PO ─────────────────────────
-.form-card > .hint { display: block; margin-top: .5rem; }
 .muted { color: var(--text-color-secondary); font-size: .8125rem; }
 .text-right { text-align: right; }
-.po-warning { color: var(--orange-700, #c2410c); font-size: .8125rem; display: flex; gap: .375rem; align-items: flex-start; flex-wrap: wrap; }
+.po-warning { color: var(--sms-warn); font-size: .8125rem; display: flex; gap: .375rem; align-items: flex-start; flex-wrap: wrap; }
 .quotation-option { display: flex; flex-direction: column; gap: .125rem; }
-.quotation-summary {
-  display: grid; grid-template-columns: auto 1fr; gap: .375rem 1rem; margin: 1rem 0; font-size: .875rem;
-  dt { color: var(--text-color-secondary); }
-  dd { margin: 0; }
-}
-.quotation-lines {
-  width: 100%; border-collapse: collapse; font-size: .875rem; margin-bottom: .5rem;
-  th, td { padding: .5rem .625rem; border-bottom: 1px solid var(--surface-200); }
-  th { font-size: .75rem; text-transform: uppercase; letter-spacing: .03em; color: var(--text-color-secondary); text-align: left; }
-  th.text-right { text-align: right; }
-  tfoot td { border-bottom: 0; }
-}
 .address-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .875rem 1rem; }
 
 @media (max-width: 960px) {
@@ -111,7 +72,6 @@
 }
 
 @media (max-width: 640px) {
-  .form-page { padding: 1rem; }
-  .grid, .address-grid { grid-template-columns: 1fr; }
+  .address-grid { grid-template-columns: 1fr; }
   .address-row { flex-direction: column; align-items: stretch; }
 }

@@ -1,5 +1,6 @@
 import { Component, OnInit, ViewChild, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FLOW } from '../../../shared/flow';
 import { RouterModule } from '@angular/router';
 import { Table, TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
@@ -17,7 +18,7 @@ import { LookupTypesService, LookupType } from '../../../services/lookup-types.s
 @Component({
   selector: 'app-lookup-types-list',
   standalone: true,
-  imports: [CommonModule, RouterModule, TableModule, ButtonModule, ToolbarModule,
+  imports: [...FLOW, CommonModule, RouterModule, TableModule, ButtonModule, ToolbarModule,
     InputTextModule, InputIconModule, IconFieldModule, TagModule, RippleModule,
     ConfirmDialogModule, ToastModule],
   templateUrl: './lookup-types-list.component.html',

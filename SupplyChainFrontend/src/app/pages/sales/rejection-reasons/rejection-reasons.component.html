@@ -1,29 +1,30 @@
 <p-toast></p-toast>
 <p-confirmDialog key="rejection-reasons" [style]="{ width: '30rem', maxWidth: '96vw' }"></p-confirmDialog>
 
-<div class="setup-page">
-  <div class="page-header">
-    <div class="page-icon"><i class="pi pi-ban"></i></div>
-    <div class="grow">
-      <h1 class="page-title">Rejection Reasons</h1>
-      <p class="page-subtitle">
-        Why inquiry and quotation lines are turned down. The codes feed the "why are we declining?" analysis, so a code
-        never changes. The ten standard reasons can be renamed and deactivated but not deleted.
-      </p>
-    </div>
-    <div class="page-actions" *ngIf="canManage">
-      <p-button label="New reason" icon="pi pi-plus" (onClick)="openCreate()" data-testid="new-reason"></p-button>
-    </div>
+<sf-page [crumbs]="['Sales', 'Rejection reasons']">
+  <!-- ── Command bar ─────────────────────────────────────────────────────────────────── -->
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <p-button *ngIf="canManage" label="New reason" icon="pi pi-plus" (onClick)="openCreate()" data-testid="new-reason"></p-button>
   </div>
 
-  <section class="table-card">
-    <div class="table-toolbar">
+  <div class="sf-body">
+    <div class="sf-lr-head">
+      <div>
+        <h1>Rejection reasons <span class="sf-count">{{ reasons.length }}</span></h1>
+        <div class="sf-sub">
+          Why inquiry and quotation lines are turned down. The codes feed the "why are we declining?" analysis, so a code
+          never changes. The ten standard reasons can be renamed and deactivated but not deleted.
+        </div>
+      </div>
+    </div>
+
+  <section class="sf-card p0">
+    <div class="sf-ch">
       <div class="check-row">
         <p-checkbox inputId="showInactive" [binary]="true" [(ngModel)]="showInactive" data-testid="show-inactive"></p-checkbox>
         <label for="showInactive">Show deactivated ({{ inactiveCount }})</label>
       </div>
-      <span class="grow"></span>
-      <span class="muted" *ngIf="!isLoading">{{ visibleReasons.length }} of {{ reasons.length }}</span>
+      <span class="sf-mu sf-sm" *ngIf="!isLoading">{{ visibleReasons.length }} of {{ reasons.length }}</span>
     </div>
 
     <div class="state-inline" *ngIf="loadFailed" data-testid="load-failed">
@@ -68,11 +69,12 @@
         </tr>
       </ng-template>
       <ng-template pTemplate="emptymessage">
-        <tr><td [attr.colspan]="canManage ? 6 : 5" class="empty muted">No rejection reasons.</td></tr>
+        <tr><td [attr.colspan]="canManage ? 6 : 5" class="sf-empty">No rejection reasons.</td></tr>
       </ng-template>
     </p-table>
   </section>
-</div>
+  </div>
+</sf-page>
 
 <p-dialog [header]="editing ? 'Edit ' + editing.code : 'New rejection reason'" [(visible)]="dialogVisible" [modal]="true"
           [draggable]="false" [closable]="!isSaving" [style]="{ width: '30rem', maxWidth: '96vw' }" data-testid="reason-dialog">

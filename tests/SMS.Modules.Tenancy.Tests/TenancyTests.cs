@@ -124,7 +124,10 @@ public class SeederTests
         var orgFeatures = db.OrganizationFeatures.Where(f => f.OrganizationId == org.Id).ToList();
 
         orgFeatures.Should().HaveCount(db.FeatureDefinitions.Count());
-        orgFeatures.Should().OnlyContain(f => f.IsEnabled);
+        // A37 — every AVAILABLE entry; "Coming soon" ones cannot be on.
+        var available = db.FeatureDefinitions.Where(f => f.IsAvailable).Select(f => f.Id).ToHashSet();
+        orgFeatures.Where(f => available.Contains(f.FeatureDefinitionId)).Should().OnlyContain(f => f.IsEnabled && f.IsLicensed);
+        orgFeatures.Where(f => !available.Contains(f.FeatureDefinitionId)).Should().OnlyContain(f => !f.IsEnabled);
     }
 
     [Fact]
@@ -161,7 +164,9 @@ public class SeederTests
         var enterpriseRows = db.PlanFeatureTemplates.Where(t => t.Plan == "ENTERPRISE").ToList();
 
         enterpriseRows.Should().HaveCount(db.FeatureDefinitions.Count());
-        enterpriseRows.Should().OnlyContain(t => t.IsEnabledByDefault);
+        // A37 — everything available; "Coming soon" entries are in no plan.
+        var unavailable = db.FeatureDefinitions.Where(f => !f.IsAvailable).Select(f => f.Id).ToHashSet();
+        enterpriseRows.Should().OnlyContain(t => t.IsEnabledByDefault != unavailable.Contains(t.FeatureDefinitionId));
     }
 
     [Fact]
@@ -236,8 +241,15 @@ public class UpdateFeaturesTests
         await seeder.SeedAsync();
         var org = db.Organizations.Single(o => o.OrgCode == "SCM-DEMO");
 
-        // Start from a clean slate: both off.
+        // Start from a clean slate: both off. Manufacturing and Service Orders depend on Inventory too, so they
+        // go first — Inventory cannot be disabled while either is on.
         await ToggleOneAsync(service, org.Id, "MODULE_MIR", false);
+        await ToggleOneAsync(service, org.Id, "MODULE_MANUFACTURING", false);
+        await ToggleOneAsync(service, org.Id, "MODULE_SERVICES", false);
+        // A37 D-3 — Demand, Warehouse and (through Warehouse) Logistics depend on Inventory too.
+        await ToggleOneAsync(service, org.Id, "MODULE_LOGISTICS", false);
+        await ToggleOneAsync(service, org.Id, "MODULE_WAREHOUSE", false);
+        await ToggleOneAsync(service, org.Id, "MODULE_DEMAND", false);
         await ToggleOneAsync(service, org.Id, "MODULE_INVENTORY", false);
 
         var result = await service.UpdateFeaturesAsync(

@@ -24,6 +24,7 @@ import { orgActiveCurrencyOptions } from '../../../../shared/doc-currency/doc-cu
 import { TenantService } from '../../../service/tenant.service';
 import { fromDateOnly, toDateOnly } from '../../../../shared/date-only';
 import { QUOTATIONS_ROUTE } from '../sale-quotation.shared';
+import { FLOW } from '../../../../shared/flow';
 
 /** The customer must be one picked from the list, not text typed into the box. */
 function customerPicked(control: AbstractControl): ValidationErrors | null {
@@ -47,7 +48,7 @@ function validToNotBeforeFrom(group: AbstractControl): ValidationErrors | null {
   standalone: true,
   imports: [
     CommonModule, RouterModule, ReactiveFormsModule, ButtonModule, ToastModule, DropdownModule, CalendarModule,
-    InputTextModule, TextareaModule, AutoCompleteModule
+    InputTextModule, TextareaModule, AutoCompleteModule, ...FLOW
   ],
   templateUrl: './sale-quotation-form.component.html',
   styleUrls: ['./sale-quotation-form.component.scss'],

@@ -117,6 +117,15 @@ public class OrganizationsController : ControllerBase
         return Ok(ApiResponse<UpdateFeaturesResult>.Ok(result, "Feature configuration updated."));
     }
 
+    // A37 §1.2 — every licence / switch change for the organization, newest first.
+    [HttpGet("{id:guid}/features/history")]
+    public async Task<IActionResult> GetFeatureHistory(Guid id, [FromServices] IModuleRegistryService modules, CancellationToken ct)
+    {
+        var org = await _svc.GetOrganizationByIdAsync(id);
+        if (org is null) return NotFound(ApiResponse.Fail(StaticResponseMessage.recordNotFound));
+        return Ok(ApiResponse<List<ModuleHistoryEntryModel>>.Ok(await modules.GetHistoryAsync(id, null, ct)));
+    }
+
     // ── Organization admin (view/change who holds the OrgAdmin role in this org) ───────────
 
     // Returns every active user in the org (with their role) — the caller derives "who's
@@ -134,5 +143,17 @@ public class OrganizationsController : ControllerBase
     {
         await _orgUsers.ReassignOrgAdminAsync(id, req.NewAdminUserId);
         return Ok(ApiResponse.Ok("Organization admin updated."));
+    }
+
+    // A fresh invite link for a user who never set up their account — e.g. the admin's address was mistyped or the
+    // e-mail never arrived. Optionally corrects the address first. The old link stops working.
+    [HttpPost("{id:guid}/users/{userId:int}/reinvite")]
+    public async Task<IActionResult> ReinviteUser(Guid id, int userId, [FromBody] ReinviteOrgUserRequest? req)
+    {
+        var org = await _svc.GetOrganizationByIdAsync(id);
+        if (org is null) return NotFound(ApiResponse.Fail(StaticResponseMessage.recordNotFound));
+
+        var result = await _orgUsers.ReinviteUserAsync(id, userId, req?.Email, org.OrgName);
+        return Ok(ApiResponse<OrgUserSummary>.Ok(result, $"A new invite was sent to {result.Email}."));
     }
 }

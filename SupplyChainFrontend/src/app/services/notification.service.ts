@@ -171,13 +171,13 @@ export class NotificationService {
 
   categoryColor(category: string): string {
     const map: Record<string, string> = {
-      Procurement: '#3b82f6',
-      Finance:     '#10b981',
-      Warehouse:   '#8b5cf6',
-      Logistics:   '#f59e0b',
-      System:      '#64748b'
+      Procurement: 'var(--sms-primary)',
+      Finance:     'var(--sms-ok)',
+      Warehouse:   'var(--sms-violet)',
+      Logistics:   'var(--sms-warn)',
+      System:      'var(--sms-text-muted)'
     };
-    return map[category] ?? '#64748b';
+    return map[category] ?? 'var(--sms-text-muted)';
   }
 
   timeAgo(dateStr: string): string {

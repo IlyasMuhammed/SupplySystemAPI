@@ -25,6 +25,7 @@ import { INVOICE_STATUS_OPTIONS, INVOICE_STATUS_SEVERITY, Severity } from '../..
 import { SalesInvoicePdfDialogComponent } from '../sales-invoice-pdf-dialog/sales-invoice-pdf-dialog.component';
 import { QboSyncBadgeComponent } from '../../../../shared/components/qbo-sync-badge/qbo-sync-badge.component';
 import { QboSyncStatusStore } from '../../../../shared/components/qbo-sync-badge/qbo-sync-status.store';
+import { FLOW } from '../../../../shared/flow';
 
 /** A delivery that has reached the customer, as the "new invoice" box offers it. */
 export interface DeliveryChoice {
@@ -39,7 +40,8 @@ export interface DeliveryChoice {
     CommonModule, RouterModule, FormsModule,
     TableModule, ButtonModule, InputTextModule, InputIconModule, IconFieldModule,
     TagModule, TooltipModule, ToastModule, DropdownModule, CalendarModule, DialogModule, AutoCompleteModule,
-    SalesInvoicePdfDialogComponent, QboSyncBadgeComponent
+    SalesInvoicePdfDialogComponent, QboSyncBadgeComponent,
+    ...FLOW
   ],
   templateUrl: './sales-invoice-list.component.html',
   styleUrls: ['./sales-invoice-list.component.scss'],

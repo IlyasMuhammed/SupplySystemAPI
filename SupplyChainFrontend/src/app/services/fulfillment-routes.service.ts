@@ -82,9 +82,62 @@ export function routeCategoryOptions(manufacturingEnabled: boolean, current?: st
       : { label: ROUTE_CATEGORY_LABELS[c], value: c, disabled: true, tooltip: RESERVED_CATEGORY_TOOLTIP });
 }
 
-/** D-9 — MANUFACTURE routes are hidden from an organization without MODULE_MANUFACTURING. */
-export function routesVisibleToOrg<T extends { routeCategory?: string | null }>(routes: readonly T[], manufacturingEnabled: boolean): T[] {
-  return routes.filter(r => manufacturingEnabled || routeCategoryOf(r) !== 'MANUFACTURE');
+/**
+ * D-9 — MANUFACTURE routes are hidden from an organization without MODULE_MANUFACTURING. A37 RTE-01: so is any route
+ * the server marks unavailable (pickers list those separately, disabled — see unavailableRouteOptions).
+ */
+export function routesVisibleToOrg<T extends { routeCategory?: string | null; isAvailable?: boolean | null }>(
+  routes: readonly T[], manufacturingEnabled: boolean): T[] {
+  return routes.filter(r => isRouteAvailable(r) && (manufacturingEnabled || routeCategoryOf(r) !== 'MANUFACTURE'));
+}
+
+// ── A37 D-12 — module-aware routes (docs/module-registry/API-CONTRACT.md §4) ───────────────────────────────
+
+/** Absent on older servers = available. */
+export function isRouteAvailable(route: { isAvailable?: boolean | null } | null | undefined): boolean {
+  return route?.isAvailable !== false;
+}
+
+/** The server's reason, or a generic one. */
+export function routeUnavailableReason(route: { unavailableReason?: string | null } | null | undefined): string {
+  return route?.unavailableReason || 'Not available';
+}
+
+/** A picker option for a route that cannot be chosen: shown, disabled, with the reason in the label. */
+export interface UnavailableRouteOption {
+  label: string;
+  value: string;
+  disabled: true;
+  reason: string;
+}
+
+/** A37 — the routes the server marks unavailable, as disabled picker options ("Name — reason"), minus `except`. */
+export function unavailableRouteOptions(
+  routes: readonly FulfillmentRouteModel[], except: readonly string[] = [], withCode = false): UnavailableRouteOption[] {
+  return routes
+    .filter(r => !isRouteAvailable(r) && !except.includes(r.uuid))
+    .map(r => {
+      const reason = routeUnavailableReason(r);
+      const name = withCode ? `${r.name} (${r.code})` : r.name;
+      return { label: `${name} — ${reason}`, value: r.uuid, disabled: true as const, reason };
+    });
+}
+
+/** GET /api/products/{productUuid}/routes — one row per variant (FULFILLMENT_ROUTE_VIEW). */
+export interface ProductVariantRouteModel {
+  variantUuid: string;
+  variantName: string;
+  sku: string;
+  /** The variant's own route; null = none (the organization default applies). */
+  routeUuid?: string | null;
+  routeName?: string | null;
+  category?: FulfillmentRouteCategory | null;
+  /** The configured route is usable (true with no route of its own). */
+  isAvailable: boolean;
+  effectiveRouteUuid?: string | null;
+  effectiveRouteName?: string | null;
+  /** e.g. the configured route is unavailable and the organization default STOCK route applies (RTE-02/03). */
+  warning?: string | null;
 }
 
 /**
@@ -132,6 +185,10 @@ export interface FulfillmentRouteModel {
   requiresShipping: boolean;
   /** A34 C1. Absent / null reads as STOCK (see routeCategoryOf). */
   routeCategory?: FulfillmentRouteCategory | null;
+  /** A37 RTE-01 — false when the route's module is off (MANUFACTURE without Manufacturing). Absent = available. */
+  isAvailable?: boolean;
+  /** A37 — why not, e.g. "Manufacturing is switched off". */
+  unavailableReason?: string | null;
   displayOrder: number;
   /** In step order. */
   steps: FulfillmentRouteStepModel[];
@@ -227,6 +284,11 @@ export class FulfillmentRoutesService {
     if (includeInactive) params = params.set('includeInactive', 'true');
     if (category) params = params.set('category', category);
     return this.http.get<ApiResponse<FulfillmentRouteModel[]>>(this.baseUrl, { params });
+  }
+
+  /** A37 D-12 — each variant's configured and effective route, with availability. */
+  getProductRoutes(productUuid: string): Observable<ApiResponse<ProductVariantRouteModel[]>> {
+    return this.http.get<ApiResponse<ProductVariantRouteModel[]>>(`${environment.apiUrl}/products/${productUuid}/routes`);
   }
 
   getRoute(uuid: string): Observable<ApiResponse<FulfillmentRouteModel>> {

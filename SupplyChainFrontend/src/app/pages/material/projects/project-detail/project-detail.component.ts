@@ -12,6 +12,7 @@ import { MessageService, ConfirmationService } from 'primeng/api';
 import {
   MaterialService, ProjectDetail, CostLedgerEntry, CostLedgerFilter
 } from '../../../../services/material.service';
+import { FLOW } from '../../../../shared/flow';
 
 @Component({
   selector: 'app-project-detail',
@@ -19,7 +20,8 @@ import {
   imports: [
     CommonModule, RouterModule, FormsModule,
     ButtonModule, TagModule, ToastModule, ConfirmDialogModule,
-    TableModule, CalendarModule
+    TableModule, CalendarModule,
+    ...FLOW
   ],
   templateUrl: './project-detail.component.html',
   styleUrls: ['./project-detail.component.scss'],

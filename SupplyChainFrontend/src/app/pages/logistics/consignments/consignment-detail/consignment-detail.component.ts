@@ -30,6 +30,7 @@ import {
   ShippingRuleDecisionModel
 } from '../../../../services/logistics.service';
 import { AuthService } from '../../../service/auth.service';
+import { FLOW, FlowSection, FlowStage, flowStagesFrom } from '../../../../shared/flow';
 
 type Severity = 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast';
 
@@ -69,7 +70,8 @@ export const SHIPMENT_STATUS_SEVERITY: Record<string, Severity> = {
     CommonModule, RouterModule, FormsModule,
     ButtonModule, TagModule, TooltipModule, ToastModule, DialogModule,
     InputTextModule, TextareaModule, SelectModule,
-    TableModule, InputNumberModule, DatePickerModule, CheckboxModule
+    TableModule, InputNumberModule, DatePickerModule, CheckboxModule,
+    ...FLOW
   ],
   templateUrl: './consignment-detail.component.html',
   styleUrls: ['./consignment-detail.component.scss'],
@@ -816,6 +818,39 @@ export class ConsignmentDetailComponent implements OnInit, OnDestroy {
   }
 
   // ── Display ─────────────────────────────────────────────────────────────────
+
+  /** SMS Flow status strip: Draft → Booked → Picked up → In transit → Delivered. */
+  get stages(): FlowStage[] {
+    const status = this.consignment?.status;
+    if (!status) return [];
+    if (['EXCEPTION', 'RETURNED_TO_ORIGIN', 'LOST', 'CANCELLED'].includes(status)) {
+      return flowStagesFrom(['Open', this.formatStatus(status)], 1, { failed: true });
+    }
+    const at: Record<string, number> = {
+      DRAFT: 0, RATED: 0, BOOKING: 0, BOOKING_FAILED: 0,
+      BOOKED: 2, LABEL_READY: 2, PICKUP_REQUESTED: 2,
+      PICKED_UP: 3, IN_TRANSIT: 3, OUT_FOR_DELIVERY: 4, DELIVERY_ATTEMPTED: 4, DELIVERED: 5
+    };
+    return flowStagesFrom(['Draft', 'Booked', 'Picked up', 'In transit', 'Delivered'], at[status] ?? 0,
+      { failed: status === 'BOOKING_FAILED' });
+  }
+
+  /** Cached, so the anchors are not re-observed on every change-detection pass. */
+  get sections(): FlowSection[] {
+    const compare = !!this.shop;
+    if (compare !== this.sectionsCompare || !this.sectionsCache.length) {
+      this.sectionsCompare = compare;
+      this.sectionsCache = [
+        { id: 'sec-details', label: 'Booking & movement' },
+        { id: 'sec-cost', label: 'Cost' },
+        ...(compare ? [{ id: 'sec-compare', label: 'Comparison' }] : []),
+        { id: 'sec-rules', label: 'Shipping rules' }
+      ];
+    }
+    return this.sectionsCache;
+  }
+  private sectionsCache: FlowSection[] = [];
+  private sectionsCompare = false;
 
   getStatusSeverity(status: string): Severity {
     return SHIPMENT_STATUS_SEVERITY[status] ?? 'secondary';

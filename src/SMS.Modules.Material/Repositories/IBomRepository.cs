@@ -18,4 +18,5 @@ internal interface IBomRepository
     Task                                      ObsoleteAsync(Guid uuid, int userId, string? reason);
     Task<Guid>                                NewVersionAsync(Guid uuid, int userId);
     Task<BomComparisonModel>                  CompareAsync(Guid leftUuid, Guid rightUuid);
+    Task                                      SetUsageAsync(Guid uuid, string bomUsage, int userId);
 }

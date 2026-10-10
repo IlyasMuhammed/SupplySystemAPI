@@ -1,0 +1,101 @@
+<p-toast></p-toast>
+
+<sf-page [crumbs]="['Services', 'Service orders', 'New service order']">
+  <header class="sf-hdr sf-compact">
+    <p-button icon="pi pi-arrow-left" [text]="true" severity="secondary" (onClick)="cancel()" ariaLabel="Back"></p-button>
+    <div>
+      <h1>New service order</h1>
+      <div class="sf-meta">Which service, for whom, by whom and when. Materials come from the service's active BOM when it is planned.</div>
+    </div>
+  </header>
+
+  <div class="sf-empty" *ngIf="isLoading" data-testid="loading"><i class="pi pi-spin pi-spinner"></i> Loading…</div>
+
+  <form (ngSubmit)="save()" novalidate *ngIf="!isLoading" data-testid="form" class="sf-form">
+    <div class="sf-body">
+      <section class="sf-card">
+        <div class="sf-ch">
+          <div><h2><i class="pi pi-wrench"></i> Service</h2><div class="sf-mu sf-sm">Only service products can be ordered here.</div></div>
+        </div>
+        <div class="sf-fields">
+          <div class="sf-fld span-3" data-testid="product">
+            <label class="sf-req">Service product</label>
+            <app-product-variant-picker [products]="serviceProducts" [productUuid]="productUuid" [variantUuid]="variantUuid"
+                                        [required]="true" (selectionChange)="onProductPicked($event)"></app-product-variant-picker>
+            <span class="hint" *ngIf="!serviceProducts.length" data-testid="no-services">No active service products yet — create one under Inventory › Products.</span>
+          </div>
+          <div class="sf-fld">
+            <label for="customer" class="sf-req">Customer</label>
+            <p-dropdown inputId="customer" [options]="customerOptions" [(ngModel)]="customerUuid" name="customer"
+                        optionLabel="label" optionValue="value" [filter]="true" filterBy="label" placeholder="Choose a customer"
+                        styleClass="w-full" appendTo="body" data-testid="customer"></p-dropdown>
+          </div>
+          <div class="sf-fld">
+            <label for="qty" class="sf-req">Quantity</label>
+            <p-inputnumber inputId="qty" [(ngModel)]="quantity" name="quantity" [min]="0" [minFractionDigits]="0" [maxFractionDigits]="4"
+                           (ngModelChange)="onQuantityChange()" styleClass="w-full" data-testid="qty"></p-inputnumber>
+          </div>
+          <div class="sf-fld">
+            <label for="warehouse" class="sf-req">Warehouse</label>
+            <p-dropdown inputId="warehouse" [options]="warehouseOptions" [(ngModel)]="warehouseUuid" name="warehouse"
+                        optionLabel="label" optionValue="value" placeholder="Where materials come from"
+                        styleClass="w-full" appendTo="body" data-testid="warehouse"></p-dropdown>
+          </div>
+        </div>
+      </section>
+
+      <section class="sf-card">
+        <div class="sf-ch">
+          <div><h2><i class="pi pi-user"></i> Who and when</h2><div class="sf-mu sf-sm">Assign a person or a team (role) — not both.</div></div>
+        </div>
+        <div class="sf-fields">
+          <div class="sf-fld">
+            <label for="user">Assigned to</label>
+            <p-dropdown inputId="user" [options]="userOptions" [(ngModel)]="assignedUserId" name="user" (onChange)="onUserChange()"
+                        optionLabel="label" optionValue="value" [filter]="true" filterBy="label" [showClear]="true" placeholder="Nobody yet"
+                        styleClass="w-full" appendTo="body" data-testid="user"></p-dropdown>
+          </div>
+          <div class="sf-fld">
+            <label for="role">Or team</label>
+            <p-dropdown inputId="role" [options]="roleOptions" [(ngModel)]="assignedRoleId" name="role" (onChange)="onRoleChange()"
+                        optionLabel="label" optionValue="value" [showClear]="true" placeholder="No team"
+                        styleClass="w-full" appendTo="body" data-testid="role"></p-dropdown>
+          </div>
+          <div class="sf-fld">
+            <label for="priority" class="sf-req">Priority</label>
+            <p-dropdown inputId="priority" [options]="priorityOptions" [(ngModel)]="priority" name="priority"
+                        optionLabel="label" optionValue="value" styleClass="w-full" appendTo="body" data-testid="priority"></p-dropdown>
+          </div>
+          <div class="sf-fld">
+            <label for="date">Scheduled date</label>
+            <p-calendar inputId="date" [(ngModel)]="scheduledDate" name="date" dateFormat="dd M yy" [showIcon]="true"
+                        appendTo="body" styleClass="w-full" data-testid="date"></p-calendar>
+          </div>
+          <div class="sf-fld">
+            <label for="time">Time</label>
+            <p-calendar inputId="time" [(ngModel)]="scheduledTime" name="time" [timeOnly]="true" hourFormat="24"
+                        [disabled]="!scheduledDate" appendTo="body" styleClass="w-full" data-testid="time"></p-calendar>
+          </div>
+          <div class="sf-fld">
+            <label for="hours">Estimated hours</label>
+            <p-inputnumber inputId="hours" [(ngModel)]="estimatedHours" name="hours" [min]="0" [minFractionDigits]="0" [maxFractionDigits]="2"
+                           (onInput)="onHoursEdited()" styleClass="w-full" data-testid="hours"></p-inputnumber>
+            <span class="hint" *ngIf="durationPerUnit" data-testid="hours-hint">{{ durationPerUnit | number:'1.0-2' }} h per unit × quantity.</span>
+          </div>
+          <div class="sf-fld span-3">
+            <label for="notes">Notes</label>
+            <textarea pTextarea id="notes" [(ngModel)]="notes" name="notes" rows="2" class="w-full" data-testid="notes"></textarea>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="sf-fbar">
+      <span class="sf-mu sf-sm">Fields marked * are required. The order starts as a draft; plan it from its page.</span>
+      <span class="sf-end">
+        <p-button label="Cancel" severity="secondary" [text]="true" (onClick)="cancel()"></p-button>
+        <p-button type="submit" label="Create service order" icon="pi pi-check" [loading]="isSaving" [disabled]="!canSave" data-testid="save"></p-button>
+      </span>
+    </div>
+  </form>
+</sf-page>

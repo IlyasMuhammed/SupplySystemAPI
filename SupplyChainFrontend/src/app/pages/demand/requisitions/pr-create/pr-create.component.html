@@ -1,235 +1,220 @@
-<div class="pr-create-page">
-  <p-toast></p-toast>
+<p-toast></p-toast>
 
-  <div class="page-header">
-    <div class="header-content">
-      <div class="header-left">
-        <p-button icon="pi pi-arrow-left" [text]="true" severity="secondary"
-                  routerLink="/portal/pages/demand/requisitions" class="back-btn"></p-button>
-        <div>
-          <h1 class="page-title"><i class="pi pi-file-plus"></i> New Purchase Requisition</h1>
-          <p class="page-subtitle">Fill in the details below and add line items</p>
-        </div>
-      </div>
-    </div>
-  </div>
+<sf-page [crumbs]="['Procurement', 'Purchase requisitions', 'New requisition']">
 
-  <form [formGroup]="form" (ngSubmit)="onSubmit()">
+  <header class="sf-hdr sf-compact">
+    <h1>New purchase requisition</h1>
+    <span class="sf-mu">Fill in the details below and add line items</span>
+  </header>
 
-    <!-- ── Header card ─────────────────────────────────────────────────── -->
-    <div class="form-card">
+  <form [formGroup]="form" (ngSubmit)="onSubmit()" class="sf-form">
+    <div class="sf-body">
 
-      <div class="gi-header">
-        <div class="gi-icon"><i class="pi pi-file-plus"></i></div>
-        <div class="gi-text">
-          <div class="gi-title">General Information</div>
-          <div class="gi-sub">Title, department, priority, budget, and justification</div>
-        </div>
-      </div>
-
-      <div class="gi-grid">
-
-        <!-- Title — full width -->
-        <div class="field full">
-          <label>Requisition Title <span class="required">*</span></label>
-          <input pInputText formControlName="prTitle" placeholder="e.g. Office Supplies Q3"
-                 [class.p-invalid]="isInvalid('prTitle')" class="w-full" maxlength="150" />
-          <small class="p-error" *ngIf="isInvalid('prTitle')">Title is required (min 3 chars)</small>
+      <!-- ── General information ─────────────────────────────────────────── -->
+      <section class="sf-card">
+        <div class="sf-ch">
+          <h2>General information</h2>
+          <span class="sf-mu sf-sm">Title, department, priority, budget, and justification</span>
         </div>
 
-        <!-- Department | Requested Date -->
-        <div class="field">
-          <label>Department</label>
-          <p-dropdown formControlName="department" [options]="departmentOptions"
-                      optionLabel="label" optionValue="value"
-                      placeholder="Select department"
-                      styleClass="w-full"></p-dropdown>
-        </div>
-        <div class="field">
-          <label>Requested Date <span class="required">*</span></label>
-          <p-calendar formControlName="requestedDate" dateFormat="dd/mm/yy" [minDate]="minDate"
-                      [showIcon]="true" placeholder="Select date"
-                      [class.p-invalid]="isInvalid('requestedDate')"
-                      styleClass="w-full" appendTo="body"></p-calendar>
-          <small class="p-error" *ngIf="isInvalid('requestedDate')">Date is required</small>
-        </div>
+        <div class="sf-fields">
 
-        <!-- Priority | PR Type -->
-        <div class="field">
-          <label>Priority</label>
-          <p-dropdown formControlName="priority" [options]="priorityOptions"
-                      optionLabel="label" optionValue="value" styleClass="w-full"></p-dropdown>
-        </div>
-        <div class="field">
-          <label>PR Type</label>
-          <p-dropdown formControlName="prType" [options]="prTypeOptions"
-                      optionLabel="label" optionValue="value" styleClass="w-full"></p-dropdown>
-        </div>
-
-        <!-- Delivery Warehouse (left) | Requires Quotation (right) — same row -->
-        <div class="field">
-          <label>Delivery Warehouse <span style="color:#94a3b8;font-weight:400;">(optional)</span></label>
-          <p-dropdown formControlName="warehouseUuid" [options]="warehouseOptions"
-                      optionLabel="label" optionValue="value"
-                      placeholder="Select delivery warehouse" styleClass="w-full"></p-dropdown>
-        </div>
-
-        <div class="field">
-          <label>&nbsp;</label>
-          <div class="gi-toggle">
-            <p-checkbox formControlName="requiresQuotation" [binary]="true" inputId="reqQuot"></p-checkbox>
-            <label for="reqQuot" style="cursor:pointer;margin:0;">
-              Requires Quotation
-              <span class="gi-toggle-hint">Formal RFQ needed before PO conversion</span>
-            </label>
-          </div>
-        </div>
-
-        <!-- Justification | Notes -->
-        <div class="field">
-          <label>Justification</label>
-          <textarea pTextarea formControlName="justification" rows="3"
-                    placeholder="Why is this purchase needed?" class="w-full" maxlength="1000"></textarea>
-        </div>
-        <div class="field">
-          <label>Notes</label>
-          <textarea pTextarea formControlName="notes" rows="3"
-                    placeholder="Any additional notes…" class="w-full" maxlength="500"></textarea>
-        </div>
-
-        <!-- Attachments — single line, no longer its own separate card -->
-        <div class="field full">
-          <app-attachment-list interfaceCode="PR" [documentId]="prUuid" label="Attachments" [inline]="true"></app-attachment-list>
-        </div>
-
-      </div>
-    </div>
-
-    <!-- ── Lines card ──────────────────────────────────────────────────── -->
-    <div class="form-card">
-      <div class="section-header">
-        <h2 class="section-title" style="margin-bottom:0;"><i class="pi pi-list"></i> Line Items</h2>
-      </div>
-
-      <div formArrayName="lines">
-        <div *ngFor="let line of lines.controls; let i = index" [formGroupName]="i" class="line-card">
-
-          <!-- Card header -->
-          <div class="line-header">
-            <div class="line-num">{{ i + 1 }}</div>
-            <span class="line-title">Line {{ i + 1 }}</span>
-            <span *ngIf="line.get('sourcePrLineUuid')?.value" class="pr-line-badge">
-              <i class="pi pi-link"></i> From PR
-            </span>
-            <p-button icon="pi pi-times" severity="danger" [text]="true" size="small"
-                      type="button" (onClick)="removeLine(i)"
-                      [disabled]="lines.length === 1" pTooltip="Remove line" tooltipPosition="left"></p-button>
+          <!-- Title — full width -->
+          <div class="sf-fld full">
+            <label>Requisition Title <span class="required">*</span></label>
+            <input pInputText formControlName="prTitle" placeholder="e.g. Office Supplies Q3"
+                   [class.p-invalid]="isInvalid('prTitle')" class="w-full" maxlength="150" />
+            <small class="p-error" *ngIf="isInvalid('prTitle')">Title is required (min 3 chars)</small>
           </div>
 
-          <!-- Card body -->
-          <div class="line-body">
-            <div class="line-grid">
+          <!-- Department | Requested Date -->
+          <div class="sf-fld">
+            <label>Department</label>
+            <p-dropdown formControlName="department" [options]="departmentOptions"
+                        optionLabel="label" optionValue="value"
+                        placeholder="Select department"
+                        styleClass="w-full"></p-dropdown>
+          </div>
+          <div class="sf-fld">
+            <label>Requested Date <span class="required">*</span></label>
+            <p-calendar formControlName="requestedDate" dateFormat="dd/mm/yy" [minDate]="minDate"
+                        [showIcon]="true" placeholder="Select date"
+                        [class.p-invalid]="isInvalid('requestedDate')"
+                        styleClass="w-full" appendTo="body"></p-calendar>
+            <small class="p-error" *ngIf="isInvalid('requestedDate')">Date is required</small>
+          </div>
 
-              <!-- Product → Variant (PV-004 two-level picker) | Quantity -->
-              <div class="field">
-                <label>Product</label>
-                <app-product-variant-picker
-                  [products]="products"
-                  [productUuid]="line.get('productUuid')?.value"
-                  [variantUuid]="line.get('variantUuid')?.value"
-                  (selectionChange)="onLineVariantSelected(i, $event)">
-                </app-product-variant-picker>
-              </div>
-              <div class="field">
-                <label>Quantity <span class="required">*</span></label>
-                <p-inputNumber formControlName="quantity" [minFractionDigits]="0" [maxFractionDigits]="4"
-                               [min]="0.0001" [max]="999999" [maxlength]="12" [class.p-invalid]="lineIsInvalid(i,'quantity')"
-                               styleClass="w-full"></p-inputNumber>
-                <small class="p-error" *ngIf="lineIsInvalid(i,'quantity')">Must be between 0 and 999,999</small>
-              </div>
+          <!-- Priority | PR Type -->
+          <div class="sf-fld">
+            <label>Priority</label>
+            <p-dropdown formControlName="priority" [options]="priorityOptions"
+                        optionLabel="label" optionValue="value" styleClass="w-full"></p-dropdown>
+          </div>
+          <div class="sf-fld">
+            <label>PR Type</label>
+            <p-dropdown formControlName="prType" [options]="prTypeOptions"
+                        optionLabel="label" optionValue="value" styleClass="w-full"></p-dropdown>
+          </div>
 
-              <!-- Description | Specification -->
-              <div class="field">
-                <label>Item Description <span class="required">*</span></label>
-                <input pInputText formControlName="itemDescription"
-                       placeholder="Item description…"
-                       [class.p-invalid]="lineIsInvalid(i,'itemDescription')" class="w-full" maxlength="200" />
-                <small class="p-error" *ngIf="lineIsInvalid(i,'itemDescription')">Required</small>
-              </div>
-              <div class="field">
-                <label>Specification</label>
-                <input pInputText formControlName="specification"
-                       placeholder="Technical specs or details…"
-                       class="w-full" maxlength="300" />
-              </div>
+          <!-- Delivery Warehouse | Requires Quotation -->
+          <div class="sf-fld">
+            <label>Delivery Warehouse <span class="hint">(optional)</span></label>
+            <p-dropdown formControlName="warehouseUuid" [options]="warehouseOptions"
+                        optionLabel="label" optionValue="value"
+                        placeholder="Select delivery warehouse" styleClass="w-full"></p-dropdown>
+          </div>
 
-              <!-- UoM | Est. Unit Price -->
-              <div class="field">
-                <label>Unit of Measure</label>
-                <p-dropdown formControlName="unitOfMeasure" [options]="uomOptions"
-                            optionLabel="label" optionValue="value" styleClass="w-full"></p-dropdown>
-              </div>
-              <div class="field">
-                <label>Est. Unit Price</label>
-                <p-inputNumber formControlName="estimatedUnitPrice" mode="decimal"
-                               [minFractionDigits]="2" [maxFractionDigits]="2" [min]="0" [max]="9999999"
-                               styleClass="w-full"></p-inputNumber>
-              </div>
-
-              <!-- Required Date | Notes -->
-              <div class="field">
-                <label>Required Date</label>
-                <p-calendar formControlName="requiredDate" dateFormat="dd/mm/yy" [minDate]="minDate"
-                            [showIcon]="true" placeholder="When is this needed?"
-                            styleClass="w-full" appendTo="body"></p-calendar>
-              </div>
-              <div class="field">
-                <label>Line Notes</label>
-                <input pInputText formControlName="lineNotes"
-                       placeholder="Special instructions…"
-                       class="w-full" maxlength="500" />
-              </div>
-              <div class="field">
-                <label>Budget Code</label>
-                <input pInputText formControlName="budgetCode" placeholder="e.g. CAPEX-2025"
-                       class="w-full" maxlength="30" />
-              </div>
-
-              <!-- Requires Quotation -->
-              <div class="field full">
-                <div class="flex items-center gap-2">
-                  <p-checkbox formControlName="requiresQuotation" [binary]="true" [inputId]="'lineQuot-' + i"></p-checkbox>
-                  <label [for]="'lineQuot-' + i" class="cursor-pointer" style="font-size:.8rem;font-weight:400;color:#6b7280;">
-                    Requires quotation before PO conversion
-                  </label>
-                </div>
-              </div>
-
+          <div class="sf-fld">
+            <label>&nbsp;</label>
+            <div class="gi-toggle">
+              <p-checkbox formControlName="requiresQuotation" [binary]="true" inputId="reqQuot"></p-checkbox>
+              <label for="reqQuot" style="cursor:pointer;margin:0;">
+                Requires Quotation
+                <span class="gi-toggle-hint">Formal RFQ needed before PO conversion</span>
+              </label>
             </div>
           </div>
 
+          <!-- Justification | Notes -->
+          <div class="sf-fld">
+            <label>Justification</label>
+            <textarea pTextarea formControlName="justification" rows="3"
+                      placeholder="Why is this purchase needed?" class="w-full" maxlength="1000"></textarea>
+          </div>
+          <div class="sf-fld">
+            <label>Notes</label>
+            <textarea pTextarea formControlName="notes" rows="3"
+                      placeholder="Any additional notes…" class="w-full" maxlength="500"></textarea>
+          </div>
+
+          <!-- Attachments — single line -->
+          <div class="sf-fld full">
+            <app-attachment-list interfaceCode="PR" [documentId]="prUuid" label="Attachments" [inline]="true"></app-attachment-list>
+          </div>
+
         </div>
-      </div>
+      </section>
 
-      <!-- Add line -->
-      <button class="add-line-btn" type="button" (click)="addLine()">
-        <i class="pi pi-plus"></i> Add Line Item
-      </button>
+      <!-- ── Lines ───────────────────────────────────────────────────────── -->
+      <section class="sf-card">
+        <div class="sf-ch">
+          <h2>Line items <span class="sf-pill">{{ lines.length }}</span></h2>
+          <span class="sf-mu sf-sm">Estimated total <strong class="sf-num">{{ estimatedTotal | number:'1.2-2' }}</strong></span>
+        </div>
 
-      <!-- Estimated total -->
-      <div class="total-bar">
-        <span class="total-label">Estimated Total</span>
-        <span class="total-amount">{{ estimatedTotal | number:'1.2-2' }}</span>
-      </div>
+        <div formArrayName="lines">
+          <div *ngFor="let line of lines.controls; let i = index" [formGroupName]="i" class="line-card">
+
+            <!-- Card header -->
+            <div class="line-header">
+              <div class="line-num">{{ i + 1 }}</div>
+              <span class="line-title">Line {{ i + 1 }}</span>
+              <span *ngIf="line.get('sourcePrLineUuid')?.value" class="sf-pill in">
+                <i class="pi pi-link"></i> From PR
+              </span>
+              <p-button icon="pi pi-times" severity="danger" [text]="true" size="small"
+                        type="button" (onClick)="removeLine(i)"
+                        [disabled]="lines.length === 1" pTooltip="Remove line" tooltipPosition="left"></p-button>
+            </div>
+
+            <!-- Card body -->
+            <div class="line-body">
+              <div class="sf-fields line-grid">
+
+                <!-- Product → Variant (PV-004 two-level picker) | Quantity -->
+                <div class="sf-fld">
+                  <label>Product</label>
+                  <app-product-variant-picker
+                    [products]="products"
+                    [productUuid]="line.get('productUuid')?.value"
+                    [variantUuid]="line.get('variantUuid')?.value"
+                    (selectionChange)="onLineVariantSelected(i, $event)">
+                  </app-product-variant-picker>
+                </div>
+                <div class="sf-fld">
+                  <label>Quantity <span class="required">*</span></label>
+                  <p-inputNumber formControlName="quantity" [minFractionDigits]="0" [maxFractionDigits]="4"
+                                 [min]="0.0001" [max]="999999" [maxlength]="12" [class.p-invalid]="lineIsInvalid(i,'quantity')"
+                                 styleClass="w-full"></p-inputNumber>
+                  <small class="p-error" *ngIf="lineIsInvalid(i,'quantity')">Must be between 0 and 999,999</small>
+                </div>
+
+                <!-- Description | Specification -->
+                <div class="sf-fld">
+                  <label>Item Description <span class="required">*</span></label>
+                  <input pInputText formControlName="itemDescription"
+                         placeholder="Item description…"
+                         [class.p-invalid]="lineIsInvalid(i,'itemDescription')" class="w-full" maxlength="200" />
+                  <small class="p-error" *ngIf="lineIsInvalid(i,'itemDescription')">Required</small>
+                </div>
+                <div class="sf-fld">
+                  <label>Specification</label>
+                  <input pInputText formControlName="specification"
+                         placeholder="Technical specs or details…"
+                         class="w-full" maxlength="300" />
+                </div>
+
+                <!-- UoM | Est. Unit Price -->
+                <div class="sf-fld">
+                  <label>Unit of Measure</label>
+                  <p-dropdown formControlName="unitOfMeasure" [options]="uomOptions"
+                              optionLabel="label" optionValue="value" styleClass="w-full"></p-dropdown>
+                </div>
+                <div class="sf-fld">
+                  <label>Est. Unit Price</label>
+                  <p-inputNumber formControlName="estimatedUnitPrice" mode="decimal"
+                                 [minFractionDigits]="2" [maxFractionDigits]="2" [min]="0" [max]="9999999"
+                                 styleClass="w-full"></p-inputNumber>
+                </div>
+
+                <!-- Required Date | Notes -->
+                <div class="sf-fld">
+                  <label>Required Date</label>
+                  <p-calendar formControlName="requiredDate" dateFormat="dd/mm/yy" [minDate]="minDate"
+                              [showIcon]="true" placeholder="When is this needed?"
+                              styleClass="w-full" appendTo="body"></p-calendar>
+                </div>
+                <div class="sf-fld">
+                  <label>Line Notes</label>
+                  <input pInputText formControlName="lineNotes"
+                         placeholder="Special instructions…"
+                         class="w-full" maxlength="500" />
+                </div>
+                <div class="sf-fld">
+                  <label>Budget Code</label>
+                  <input pInputText formControlName="budgetCode" placeholder="e.g. CAPEX-2025"
+                         class="w-full" maxlength="30" />
+                </div>
+
+                <!-- Requires Quotation -->
+                <div class="sf-fld full line-inspection-toggle">
+                  <p-checkbox formControlName="requiresQuotation" [binary]="true" [inputId]="'lineQuot-' + i"></p-checkbox>
+                  <label [for]="'lineQuot-' + i">Requires quotation before PO conversion</label>
+                </div>
+
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Add line -->
+        <button class="add-line-btn" type="button" (click)="addLine()">
+          <i class="pi pi-plus"></i> Add Line Item
+        </button>
+      </section>
     </div>
 
     <!-- ── Actions ─────────────────────────────────────────────────────── -->
-    <div class="action-bar">
-      <p-button label="Cancel" severity="secondary" [text]="true" type="button"
-                routerLink="/portal/pages/demand/requisitions"></p-button>
-      <p-button label="Create Requisition" icon="pi pi-check" type="submit"
-                [loading]="isSubmitting"></p-button>
+    <div class="sf-fbar">
+      <span class="sf-mu sf-sm">Fields marked <span class="required">*</span> are required.</span>
+      <span class="sf-end">
+        <p-button label="Cancel" severity="secondary" [text]="true" type="button"
+                  routerLink="/portal/pages/demand/requisitions"></p-button>
+        <p-button label="Create Requisition" icon="pi pi-check" type="submit"
+                  [loading]="isSubmitting"></p-button>
+      </span>
     </div>
 
   </form>
-</div>
+</sf-page>

@@ -35,6 +35,21 @@ internal sealed class FeatureDefinitionMap : IEntityTypeConfiguration<FeatureDef
         b.Property(x => x.Category).HasMaxLength(20).IsRequired();
         b.Property(x => x.Description).HasMaxLength(500);
         b.Property(x => x.IsCore).HasDefaultValue(false);
+        // A37 — no EF default on the bools (a store default would swallow an explicit false); the migration's SQL
+        // defaults only cover rows written by older code.
+        b.Property(x => x.ParentModuleCode).HasMaxLength(50);
+        b.Property(x => x.Icon).HasMaxLength(50);
+    }
+}
+
+internal sealed class FeatureDependencyMap : IEntityTypeConfiguration<FeatureDependency>
+{
+    public void Configure(EntityTypeBuilder<FeatureDependency> b)
+    {
+        b.ToTable("feature_dependencies");
+        b.HasKey(x => new { x.FeatureCode, x.DependsOnCode }).HasName("PK_feature_dependencies");
+        b.Property(x => x.FeatureCode).HasMaxLength(50);
+        b.Property(x => x.DependsOnCode).HasMaxLength(50);
     }
 }
 
@@ -42,10 +57,26 @@ internal sealed class OrganizationFeatureMap : IEntityTypeConfiguration<Organiza
 {
     public void Configure(EntityTypeBuilder<OrganizationFeature> b)
     {
-        b.ToTable("OrganizationFeatures");
+        b.ToTable("OrganizationFeatures", t =>
+            t.HasCheckConstraint("CK_OrganizationFeatures_GraceOnlyWhenDisabled", "[GracePeriodEndsAt] IS NULL OR [IsEnabled] = 0"));
         b.HasKey(x => x.Id);
         b.Property(x => x.IsEnabled).HasDefaultValue(false);
+        b.Property(x => x.RowVersion).IsRowVersion();
         b.HasIndex(x => new { x.OrganizationId, x.FeatureDefinitionId }).IsUnique();
+    }
+}
+
+internal sealed class OrganizationFeatureHistoryMap : IEntityTypeConfiguration<OrganizationFeatureHistory>
+{
+    public void Configure(EntityTypeBuilder<OrganizationFeatureHistory> b)
+    {
+        // No FK to Organizations: an audit trail outlives what it describes (and test cleanups delete organizations).
+        b.ToTable("organization_feature_history");
+        b.HasKey(x => x.Id).HasName("PK_organization_feature_history");
+        b.Property(x => x.FeatureCode).HasMaxLength(50).IsRequired();
+        b.Property(x => x.Action).HasMaxLength(30).IsRequired();
+        b.Property(x => x.Notes).HasMaxLength(500);
+        b.HasIndex(x => new { x.OrganizationId, x.FeatureCode, x.PerformedAt }).HasDatabaseName("IX_organization_feature_history_org_code_at");
     }
 }
 

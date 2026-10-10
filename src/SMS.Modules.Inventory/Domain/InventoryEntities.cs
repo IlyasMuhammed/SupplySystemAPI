@@ -2,7 +2,7 @@ using SMS.Shared.Common;
 
 namespace SMS.Modules.Inventory.Domain;
 
-internal class ProductCategory : ITenantScopedEntity
+internal class ProductCategory : ITenantScopedEntity, IHasModifiedAt
 {
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
@@ -10,6 +10,8 @@ internal class ProductCategory : ITenantScopedEntity
     public string? Description { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
+    /// <summary>A37 D-16 — UTC, set by InventoryDbContext on every insert/update (sync delta).</summary>
+    public DateTime ModifiedAt { get; set; } = DateTime.UtcNow;
     public Guid OrganizationId { get; set; }
 
     public ICollection<ProductSubCategory> SubCategories { get; set; } = new List<ProductSubCategory>();
@@ -32,7 +34,7 @@ internal class ProductSubCategory : ITenantScopedEntity
     public ICollection<Product> Products { get; set; } = new List<Product>();
 }
 
-internal class Product : ITenantScopedEntity
+internal class Product : ITenantScopedEntity, IHasModifiedAt
 {
     public int Id { get; set; }
     public Guid Uuid { get; set; } = Guid.NewGuid();
@@ -71,6 +73,16 @@ internal class Product : ITenantScopedEntity
     public bool   IsStockable      { get; set; } = true;
     public bool   IsManufacturable { get; set; }
     public int?   DefaultProductionWarehouseId { get; set; }
+    // A36 D-2 — service configuration, meaningful only when ProductType == SERVICE (SVC-P-01..07).
+    // Codes from SMS.Shared.Common.ServiceInvoicingPolicy / ServiceBillingModel.
+    public string?  ServiceInvoicingPolicy { get; set; }
+    public string?  ServiceBillingModel    { get; set; }
+    public decimal? EstimatedDurationHours { get; set; }
+    public bool     HasServiceBom          { get; set; }
+    public bool     IsSubcontractable      { get; set; }
+    // A37 D-10 — service-only too: a ServiceCategory code (SMS.Shared.Common.ServiceCategory) and the site-visit flag.
+    public string?  ServiceCategory        { get; set; }
+    public bool     RequiresSiteVisit      { get; set; }
     // Meta
     public string Status { get; set; } = "ACTIVE";
     public bool IsActive { get; set; } = true;
@@ -78,6 +90,8 @@ internal class Product : ITenantScopedEntity
     public string? ImageUrl { get; set; }
     public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedDate { get; set; }
+    /// <summary>A37 D-16 — UTC, set by InventoryDbContext on every insert/update (sync delta).</summary>
+    public DateTime ModifiedAt { get; set; } = DateTime.UtcNow;
     public int CreatedBy { get; set; }
 
     public ProductCategory? Category { get; set; }
@@ -90,7 +104,7 @@ internal class Product : ITenantScopedEntity
 // container (family); every variant carries its own SKU, barcode, and pricing. A product with no
 // real variants (e.g. Cement) still gets exactly one auto-created is_default=true variant, so
 // every downstream module can always transact against a variant_id, never a bare product_id.
-internal class ProductVariant : ITenantScopedEntity
+internal class ProductVariant : ITenantScopedEntity, IHasModifiedAt
 {
     public int      Id             { get; set; }
     public Guid     Uuid           { get; set; } = Guid.NewGuid();
@@ -120,6 +134,8 @@ internal class ProductVariant : ITenantScopedEntity
     public decimal? ReorderPoint   { get; set; }
     public int?     SortOrder      { get; set; }
     public DateTime CreatedDate    { get; set; } = DateTime.UtcNow;
+    /// <summary>A37 D-16 — UTC, set by InventoryDbContext on every insert/update (sync delta).</summary>
+    public DateTime ModifiedAt     { get; set; } = DateTime.UtcNow;
     public int      CreatedBy      { get; set; }
 
     // A29-P2-01 §2.1 — the vendor to preselect on a new PO line for this variant. Unenforced
@@ -375,7 +391,7 @@ internal class ProductSearchIndex : ITenantScopedEntity
     public Product        Product { get; set; } = null!;
 }
 
-internal class Warehouse : ITenantScopedEntity
+internal class Warehouse : ITenantScopedEntity, IHasModifiedAt
 {
     public int Id { get; set; }
     public Guid Uuid { get; set; } = Guid.NewGuid();
@@ -392,6 +408,8 @@ internal class Warehouse : ITenantScopedEntity
     public decimal? Longitude { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
+    /// <summary>A37 D-16 — UTC, set by InventoryDbContext on every insert/update (sync delta).</summary>
+    public DateTime ModifiedAt { get; set; } = DateTime.UtcNow;
     public int CreatedBy { get; set; }
 
     public ICollection<Zone> Zones { get; set; } = new List<Zone>();

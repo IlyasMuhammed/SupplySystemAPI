@@ -86,6 +86,8 @@ public static class DemandModuleExtensions
         services.AddScoped<IEffectiveRouteResolver, EffectiveRouteResolver>();
         services.AddScoped<SaleOrderDeliverySweepJob>();
         services.AddScoped<IFulfillmentRouteUsage, SaleOrderRouteUsage>();
+        // A37 D-18 — open purchase / sale orders for Tenancy's pre-disable impact check of MODULE_DEMAND.
+        services.AddScoped<IModuleImpactProvider, DemandModuleImpact>();
         // A34 — the ⏱ endpoints of inquiry and quotation lines (D-16; sale order lines are on ISaleOrderService).
         services.AddScoped<ISalesLineLeadTimeService, SalesLineLeadTimeService>();
         // A34 D-17 — the sweep creating make-to-order production orders a confirm could not; D-21 — Material's production
@@ -93,6 +95,10 @@ public static class DemandModuleExtensions
         services.AddScoped<SaleOrderProductionSweepJob>();
         services.AddScoped<IManufacturingLevelDays, InventoryManufacturingLevelDays>();   // D-19 / REV-08
         services.AddScoped<ISaleOrderProductionFeedback, SaleOrderProductionFeedback>();
+        // A36 D-10 — which sale order lines are services (Inventory's product type), and the listener Material calls when a
+        // sale-order-sourced service order completes, closes or is cancelled. IServiceOrderDemandService is Material's.
+        services.AddScoped<IServiceVariantClassifier, InventoryServiceVariantClassifier>();
+        services.AddScoped<ISaleOrderServiceFulfillmentListener, SaleOrderServiceFulfillmentListener>();
 
         // Workflow engine handlers
         services.AddScoped<IDocumentStatusHandler, PrStatusHandler>();

@@ -27,6 +27,7 @@ import { MoneyService } from '../../../../services/money.service';
 import { DocCurrencyPicker } from '../../../../shared/doc-currency/doc-currency-picker';
 import { DocCurrencyPanelComponent } from '../../../../shared/doc-currency/doc-currency-panel.component';
 import { MoneyPipe } from '../../../../shared/money/money.pipe';
+import { FLOW } from '../../../../shared/flow';
 
 @Component({
   selector: 'app-po-create',
@@ -36,7 +37,8 @@ import { MoneyPipe } from '../../../../shared/money/money.pipe';
     ButtonModule, InputTextModule, TextareaModule, InputNumberModule,
     DropdownModule, CalendarModule, DividerModule, ToastModule, TooltipModule,
     DialogModule, CheckboxModule, AttachmentListComponent, ProductVariantPickerComponent,
-    DocCurrencyPanelComponent, MoneyPipe
+    DocCurrencyPanelComponent, MoneyPipe,
+    ...FLOW
   ],
   templateUrl: './po-create.component.html',
   styleUrls: ['./po-create.component.scss'],

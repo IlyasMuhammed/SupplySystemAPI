@@ -219,19 +219,19 @@ public sealed class ManufactureConfirmE2ETests : IClassFixture<SapWebApplication
         // …but assigning one is refused…
         var assign = await k2.AssignVariantRoute(other.VariantUuid, mfg2);
         assign.ShouldBe(HttpStatusCode.BadRequest, "D-9: no make-to-order without the module");
-        assign.Message.Should().Contain("Manufacturing is not enabled for your organization");
-        // …and the line already carrying one blocks confirm.
+        // A37 D-35: Logistics marks the route unavailable first, with the shared RTE-01 message.
+        assign.Message.Should().Contain("Manufacturing is switched off for your organization");
+        // …and the line already carrying one falls back to the organization's stock default (A37 RTE-02/D-26, which
+        // replaced A34 D-5's MANUFACTURING_DISABLED blocker for a route made unavailable): a warning, no blocker.
         var draft = await k2.GetSaleOrderAsync(so);
-        draft.BlockerCodes().Should().Equal(new (int?, string?)[] { (1, "MANUFACTURING_DISABLED") });
-        var refused = await k2.TryConfirm(so);
-        refused.ShouldBe(HttpStatusCode.BadRequest, "D-5: MANUFACTURING_DISABLED");
-        refused.Message.Should().Contain($"Line 1: '{MfgPickShip}' is a make-to-order route, but manufacturing is not enabled for your organization");
+        draft.BlockerCodes().Should().BeEmpty();
+        var line = draft.LineOf(fg);
+        (line.S("routeSource"), line.S("effectiveRouteCategory")).Should().Be(("ORG_DEFAULT", "STOCK"));
+        line.S("routeWarning").Should().Contain(MfgPickShip);
         (await k2.TryCreateProductionOrders(so)).Status.Should().Be(HttpStatusCode.BadRequest, "a DRAFT order has no production to create");
 
-        // The escape hatch still works: a stock route on the line confirms (to a delivery, no production).
-        await k2.Ok(k2.Put($"/api/sale-orders/{so}/lines/{draft.LineOf(fg).G("uuid")}/fulfillment-route",
-            new { FulfillmentRouteUuid = await k2.RouteUuidAsync(PickAndShip) }), "override to a stock route");
-        var confirmed = await k2.Ok(k2.TryConfirm(so), "confirm with a stock route");
+        // Confirm snapshots the stock fallback: a delivery, no production.
+        var confirmed = await k2.Ok(k2.TryConfirm(so), "confirm on the stock fallback");
         confirmed.A("productionOrders").Should().BeEmpty();
         confirmed.B("productionCreationFailed").Should().BeFalse();
     }

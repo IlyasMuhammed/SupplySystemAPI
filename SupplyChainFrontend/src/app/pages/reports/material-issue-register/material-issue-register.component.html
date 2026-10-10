@@ -1,106 +1,105 @@
-<div class="report-page">
-  <p-toast />
+<p-toast />
+<sf-page [crumbs]="['Reports', 'Material issue register']">
+  <!-- Command bar -->
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <button pButton label="Run Report" icon="pi pi-play" (click)="load()" [loading]="isLoading" class="p-button-primary"></button>
+    <button pButton label="Clear" icon="pi pi-times" (click)="clear()" class="p-button-text"></button>
+  </div>
 
-  <!-- Header -->
-  <div class="page-header">
-    <div class="header-left">
-      <div class="header-icon icon-indigo"><i class="pi pi-file-edit"></i></div>
+  <div class="sf-body">
+    <div class="sf-lr-head">
       <div>
-        <h2 class="page-title">Material Issue Register</h2>
-        <p class="page-subtitle">All material issue vouchers — date range, status, type</p>
+        <h1>Material issue register <span class="sf-count">{{ items.length }}</span></h1>
+        <div class="sf-sub">All material issue vouchers — date range, status, type</div>
       </div>
     </div>
-  </div>
 
-  <!-- Filters -->
-  <div class="card filter-card">
-    <div class="filter-row">
-      <div class="filter-group">
-        <label>From Date</label>
-        <input pInputText type="date" [(ngModel)]="filter.dateFrom" class="filter-input" />
-      </div>
-      <div class="filter-group">
-        <label>To Date</label>
-        <input pInputText type="date" [(ngModel)]="filter.dateTo" class="filter-input" />
-      </div>
-      <div class="filter-group">
-        <label>Status</label>
-        <p-dropdown [options]="statusOptions" [(ngModel)]="filter.status" optionLabel="label" optionValue="value" class="filter-input" />
-      </div>
-      <div class="filter-group">
-        <label>Request Type</label>
-        <p-dropdown [options]="requestTypeOptions" [(ngModel)]="filter.requestType" optionLabel="label" optionValue="value" class="filter-input" />
-      </div>
-      <div class="filter-group">
-        <label>Search</label>
-        <input pInputText type="text" [(ngModel)]="filter.search" placeholder="Issue No / MIR No" class="filter-input" />
-      </div>
-      <div class="filter-actions">
-        <button pButton label="Run Report" icon="pi pi-play" (click)="load()" [loading]="isLoading" class="p-button-primary"></button>
-        <button pButton label="Clear" icon="pi pi-times" (click)="clear()" class="p-button-outlined p-button-secondary"></button>
+    <!-- Filters -->
+    <div class="sf-card">
+      <div class="sf-fields">
+        <div class="sf-fld">
+          <label>From date</label>
+          <input pInputText type="date" [(ngModel)]="filter.dateFrom" class="filter-input" />
+        </div>
+        <div class="sf-fld">
+          <label>To date</label>
+          <input pInputText type="date" [(ngModel)]="filter.dateTo" class="filter-input" />
+        </div>
+        <div class="sf-fld">
+          <label>Status</label>
+          <p-dropdown [options]="statusOptions" [(ngModel)]="filter.status" optionLabel="label" optionValue="value" class="filter-input" />
+        </div>
+        <div class="sf-fld">
+          <label>Request type</label>
+          <p-dropdown [options]="requestTypeOptions" [(ngModel)]="filter.requestType" optionLabel="label" optionValue="value" class="filter-input" />
+        </div>
+        <div class="sf-fld">
+          <label>Search</label>
+          <input pInputText type="text" [(ngModel)]="filter.search" placeholder="Issue No / MIR No" class="filter-input" />
+        </div>
       </div>
     </div>
-  </div>
 
-  <!-- Summary Cards -->
-  <div class="summary-row">
-    <div class="summary-card">
-      <span class="s-label">Total Vouchers</span>
-      <span class="s-val">{{ items.length }}</span>
+    <!-- KPI tiles -->
+    <div class="sf-grid sf-tiles">
+      <div class="sf-tile">
+        <span class="l">Total vouchers</span>
+        <span class="v">{{ items.length }}</span>
+      </div>
+      <div class="sf-tile">
+        <span class="l">Total lines</span>
+        <span class="v">{{ totalLines }}</span>
+      </div>
+      <div class="sf-tile">
+        <span class="l">Total value (PKR)</span>
+        <span class="v in">{{ totalValue | number:'1.2-2' }}</span>
+      </div>
+      <div class="sf-tile">
+        <span class="l">Posted</span>
+        <span class="v ok">{{ postedCount }}</span>
+      </div>
     </div>
-    <div class="summary-card">
-      <span class="s-label">Total Lines</span>
-      <span class="s-val">{{ totalLines }}</span>
-    </div>
-    <div class="summary-card">
-      <span class="s-label">Total Value (PKR)</span>
-      <span class="s-val value">{{ totalValue | number:'1.2-2' }}</span>
-    </div>
-    <div class="summary-card">
-      <span class="s-label">Posted</span>
-      <span class="s-val posted">{{ postedCount }}</span>
-    </div>
-  </div>
 
-  <!-- Table -->
-  <div class="card">
-    <p-table [value]="items" [loading]="isLoading" [paginator]="true" [rows]="20"
-             [rowsPerPageOptions]="[10,20,50]" sortMode="multiple" styleClass="p-datatable-sm">
-      <ng-template pTemplate="header">
-        <tr>
-          <th pSortableColumn="issueNo">Issue No <p-sortIcon field="issueNo" /></th>
-          <th pSortableColumn="mirNo">MIR No <p-sortIcon field="mirNo" /></th>
-          <th>Request Type</th>
-          <th>Items</th>
-          <th>Issued To</th>
-          <th pSortableColumn="issueDate">Issue Date <p-sortIcon field="issueDate" /></th>
-          <th>Status</th>
-          <th pSortableColumn="lineCount">Lines <p-sortIcon field="lineCount" /></th>
-          <th pSortableColumn="totalValue" class="text-right">Total Value <p-sortIcon field="totalValue" /></th>
-        </tr>
-      </ng-template>
-      <ng-template pTemplate="body" let-row>
-        <tr>
-          <td><span class="ref-no">{{ row.issueNo }}</span></td>
-          <td><span class="ref-no secondary">{{ row.mirNo }}</span></td>
-          <td>{{ row.requestType }}</td>
-          <td class="items-summary" pTooltip="{{ row.itemsSummary }}" tooltipPosition="top">{{ row.itemsSummary || '—' }}</td>
-          <td>{{ row.issuedTo ?? '—' }}</td>
-          <td>{{ row.issueDate | date:'dd MMM yyyy' }}</td>
-          <td><p-tag [value]="row.status" [severity]="getStatusSeverity(row.status)" /></td>
-          <td class="text-center">{{ row.lineCount }}</td>
-          <td class="text-right amount">{{ row.totalValue | number:'1.2-2' }}</td>
-        </tr>
-      </ng-template>
-      <ng-template pTemplate="emptymessage">
-        <tr><td colspan="9" class="empty-msg">No vouchers found. Adjust filters and run the report.</td></tr>
-      </ng-template>
-      <ng-template pTemplate="footer">
-        <tr *ngIf="items.length > 0">
-          <td colspan="8" class="total-label">Grand Total</td>
-          <td class="text-right amount total">{{ totalValue | number:'1.2-2' }}</td>
-        </tr>
-      </ng-template>
-    </p-table>
+    <!-- Table -->
+    <div class="sf-card p0">
+      <p-table [value]="items" [loading]="isLoading" [paginator]="true" [rows]="20"
+               [rowsPerPageOptions]="[10,20,50]" sortMode="multiple" styleClass="p-datatable-sm">
+        <ng-template pTemplate="header">
+          <tr>
+            <th pSortableColumn="issueNo">Issue No <p-sortIcon field="issueNo" /></th>
+            <th pSortableColumn="mirNo">MIR No <p-sortIcon field="mirNo" /></th>
+            <th>Request Type</th>
+            <th>Items</th>
+            <th>Issued To</th>
+            <th pSortableColumn="issueDate">Issue Date <p-sortIcon field="issueDate" /></th>
+            <th>Status</th>
+            <th pSortableColumn="lineCount">Lines <p-sortIcon field="lineCount" /></th>
+            <th pSortableColumn="totalValue" class="text-right">Total Value <p-sortIcon field="totalValue" /></th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-row>
+          <tr>
+            <td><span class="ref-no">{{ row.issueNo }}</span></td>
+            <td><span class="ref-no secondary">{{ row.mirNo }}</span></td>
+            <td>{{ row.requestType }}</td>
+            <td class="items-summary" pTooltip="{{ row.itemsSummary }}" tooltipPosition="top">{{ row.itemsSummary || '—' }}</td>
+            <td>{{ row.issuedTo ?? '—' }}</td>
+            <td>{{ row.issueDate | date:'dd MMM yyyy' }}</td>
+            <td><p-tag [value]="row.status" [severity]="getStatusSeverity(row.status)" /></td>
+            <td class="text-center">{{ row.lineCount }}</td>
+            <td class="text-right amount">{{ row.totalValue | number:'1.2-2' }}</td>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="emptymessage">
+          <tr><td colspan="9" class="sf-empty">No vouchers found. Adjust filters and run the report.</td></tr>
+        </ng-template>
+        <ng-template pTemplate="footer">
+          <tr *ngIf="items.length > 0" class="sf-tot">
+            <td colspan="8" class="total-label">Grand Total</td>
+            <td class="text-right amount total">{{ totalValue | number:'1.2-2' }}</td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </div>
   </div>
-</div>
+</sf-page>

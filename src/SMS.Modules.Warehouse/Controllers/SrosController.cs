@@ -11,6 +11,7 @@ namespace SMS.Modules.Warehouse.Controllers;
 [ApiController]
 [Route("api/sros")]
 [RequiresFeature("MODULE_WAREHOUSE")]
+[RequiresFeature("FEATURE_PURCHASE_RETURNS")]   // A37 §1.3 (OPSB)
 public class SrosController : ControllerBase
 {
     private readonly ISroService          _service;

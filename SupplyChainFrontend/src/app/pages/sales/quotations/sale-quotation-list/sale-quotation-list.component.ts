@@ -25,6 +25,7 @@ import { fromDateOnly, toDateOnly } from '../../../../shared/date-only';
 import {
   SALE_QUOTATION_STATUS_SEVERITY, Severity, QUOTATIONS_ROUTE, INQUIRIES_ROUTE
 } from '../sale-quotation.shared';
+import { FLOW } from '../../../../shared/flow';
 
 /** A32-PC-10 — sale quotations (seller-side; not the buyer-side RFQ quotations). */
 @Component({
@@ -33,7 +34,7 @@ import {
   imports: [
     CommonModule, RouterModule, FormsModule,
     TableModule, ButtonModule, InputTextModule, InputIconModule, IconFieldModule,
-    TagModule, TooltipModule, ToastModule, DropdownModule, CalendarModule, AutoCompleteModule
+    TagModule, TooltipModule, ToastModule, DropdownModule, CalendarModule, AutoCompleteModule, ...FLOW
   ],
   templateUrl: './sale-quotation-list.component.html',
   styleUrls: ['./sale-quotation-list.component.scss'],

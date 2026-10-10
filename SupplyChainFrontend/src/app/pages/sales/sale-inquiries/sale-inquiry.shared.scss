@@ -1,13 +1,13 @@
 // A32 — the spec's status colours (§10.1, §10.2) for inquiry badges and line dots. PrimeNG tag severities have
 // no purple, so these are plain spans driven by a colour class (st-blue … st-grey).
 
-.st-blue   { --st: var(--blue-500, #3b82f6);   --st-bg: color-mix(in srgb, var(--blue-500, #3b82f6) 14%, transparent); }
-.st-orange { --st: var(--orange-500, #f97316); --st-bg: color-mix(in srgb, var(--orange-500, #f97316) 14%, transparent); }
-.st-green  { --st: var(--green-500, #22c55e);  --st-bg: color-mix(in srgb, var(--green-500, #22c55e) 14%, transparent); }
-.st-purple { --st: var(--purple-500, #a855f7); --st-bg: color-mix(in srgb, var(--purple-500, #a855f7) 14%, transparent); }
-.st-red    { --st: var(--red-500, #ef4444);    --st-bg: color-mix(in srgb, var(--red-500, #ef4444) 14%, transparent); }
-.st-yellow { --st: var(--yellow-500, #eab308); --st-bg: color-mix(in srgb, var(--yellow-500, #eab308) 16%, transparent); }
-.st-grey   { --st: var(--surface-400, #9ca3af); --st-bg: color-mix(in srgb, var(--surface-400, #9ca3af) 16%, transparent); }
+.st-blue   { --st: var(--sms-primary-text);   --st-bg: color-mix(in srgb, var(--sms-primary-text) 14%, transparent); }
+.st-orange { --st: var(--sms-warn); --st-bg: color-mix(in srgb, var(--sms-warn) 14%, transparent); }
+.st-green  { --st: var(--sms-ok);  --st-bg: color-mix(in srgb, var(--sms-ok) 14%, transparent); }
+.st-purple { --st: var(--sms-violet); --st-bg: color-mix(in srgb, var(--sms-violet) 14%, transparent); }
+.st-red    { --st: var(--sms-danger);    --st-bg: color-mix(in srgb, var(--sms-danger) 14%, transparent); }
+.st-yellow { --st: var(--sms-warn); --st-bg: color-mix(in srgb, var(--sms-warn) 16%, transparent); }
+.st-grey   { --st: var(--sms-text-faint); --st-bg: color-mix(in srgb, var(--sms-text-faint) 16%, transparent); }
 
 .status-badge {
   display: inline-flex; align-items: center; gap: .4rem; white-space: nowrap;
@@ -23,6 +23,6 @@
 .text-right { text-align: right; }
 .muted { color: var(--text-color-secondary); }
 .font-mono { font-family: monospace; }
-.p-error { color: var(--red-500, #ef4444); font-size: .78rem; }
+.p-error { color: var(--sms-danger); font-size: .78rem; }
 .hint { color: var(--text-color-secondary); font-size: .78rem; }
-.required { color: var(--red-500, #ef4444); }
+.required { color: var(--sms-danger); }

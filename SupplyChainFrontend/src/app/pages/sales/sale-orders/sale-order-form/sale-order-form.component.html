@@ -1,48 +1,49 @@
-<div class="form-page">
-  <p-toast></p-toast>
+<p-toast></p-toast>
 
-  <div class="page-header">
+<sf-page [crumbs]="['Sales', 'Sale orders', isEdit ? (order?.soNumber ?? 'Edit') : 'New sale order']">
+  <header class="sf-hdr sf-compact">
     <p-button icon="pi pi-arrow-left" [text]="true" severity="secondary" [routerLink]="backLink"
               pTooltip="Back" data-testid="back"></p-button>
     <div>
-      <h1 class="page-title">
-        <i class="pi" [ngClass]="isEdit ? 'pi-pencil' : 'pi-plus-circle'"></i>
+      <h1>
         <ng-container *ngIf="!isEdit">New sale order</ng-container>
-        <ng-container *ngIf="isEdit">Edit <span class="font-mono">{{ order?.soNumber }}</span></ng-container>
+        <ng-container *ngIf="isEdit">Edit <span class="sf-mono">{{ order?.soNumber }}</span></ng-container>
       </h1>
-      <p class="page-subtitle">
+      <div class="sf-mu sf-sm">
         <ng-container *ngIf="!isEdit && !isFromQuotation">The order is saved as a draft. Confirming it, which reserves stock, is a separate step.</ng-container>
         <ng-container *ngIf="isFromQuotation">The lines the customer accepted become a draft order at the quoted prices. Confirming it is a separate step.</ng-container>
         <ng-container *ngIf="isEdit">Only a draft can be changed. Saving re-prices every line.</ng-container>
-      </p>
+      </div>
+    </div>
+  </header>
+
+  <div class="sf-body" *ngIf="isLoading || notFound || notEditable">
+    <div class="sf-card sf-empty" *ngIf="isLoading" data-testid="loading"><i class="pi pi-spin pi-spinner"></i> Loading…</div>
+
+    <div class="sf-card sf-empty" *ngIf="notFound" data-testid="not-found">
+      <i class="pi pi-inbox" style="font-size:2rem"></i>
+      <h2>Sale order not found</h2>
+      <p-button label="Back to sale orders" icon="pi pi-arrow-left" [text]="true" routerLink="/portal/pages/sales/orders"></p-button>
+    </div>
+
+    <div class="sf-card sf-empty" *ngIf="notEditable" data-testid="not-editable">
+      <i class="pi pi-lock" style="font-size:2rem"></i>
+      <h2>{{ order?.soNumber }} can no longer be edited</h2>
+      <p>Only a draft can be changed, and this order has been confirmed or closed.</p>
+      <p-button label="Open the order" icon="pi pi-arrow-right" [text]="true"
+                [routerLink]="['/portal/pages/sales/orders', uuid]"></p-button>
     </div>
   </div>
 
-  <div class="state-card" *ngIf="isLoading" data-testid="loading"><i class="pi pi-spin pi-spinner"></i> Loading…</div>
-
-  <div class="state-card" *ngIf="notFound" data-testid="not-found">
-    <i class="pi pi-inbox"></i>
-    <h2>Sale order not found</h2>
-    <p-button label="Back to sale orders" icon="pi pi-arrow-left" [text]="true" routerLink="/portal/pages/sales/orders"></p-button>
-  </div>
-
-  <div class="state-card" *ngIf="notEditable" data-testid="not-editable">
-    <i class="pi pi-lock"></i>
-    <h2>{{ order?.soNumber }} can no longer be edited</h2>
-    <p>Only a draft can be changed, and this order has been confirmed or closed.</p>
-    <p-button label="Open the order" icon="pi pi-arrow-right" [text]="true"
-              [routerLink]="['/portal/pages/sales/orders', uuid]"></p-button>
-  </div>
-
-  <form *ngIf="!isLoading && !notFound && !notEditable" [formGroup]="form" (ngSubmit)="save()" novalidate>
+  <form *ngIf="!isLoading && !notFound && !notEditable" class="sf-form" [formGroup]="form" (ngSubmit)="save()" novalidate>
+  <div class="sf-body">
 
     <!-- ── A32 PD-07: how the order is made ─────────────────────────────────────── -->
-    <div class="form-card" *ngIf="!isEdit">
-      <div class="card-head">
-        <div class="card-icon"><i class="pi pi-sitemap"></i></div>
-        <div class="grow">
-          <div class="card-title">Source</div>
-          <div class="card-sub">Type the order in, or make it from a quotation the customer accepted</div>
+    <section class="sf-card" *ngIf="!isEdit">
+      <div class="sf-ch">
+        <div>
+          <h2>Source</h2>
+          <div class="sf-mu sf-sm">Type the order in, or make it from a quotation the customer accepted</div>
         </div>
       </div>
       <p-selectButton [options]="sourceModeOptions" [formControl]="createModeControl" optionLabel="label" optionValue="value"
@@ -51,14 +52,13 @@
       <small class="hint" *ngIf="!canUseQuotations" data-testid="quotation-route-hint">
         Making an order from a quotation needs permission to view sale quotations.
       </small>
-    </div>
+    </section>
 
-    <div class="form-card" *ngIf="isFromQuotation" data-testid="quotation-card">
-      <div class="card-head">
-        <div class="card-icon"><i class="pi pi-file-import"></i></div>
-        <div class="grow">
-          <div class="card-title">Quotation</div>
-          <div class="card-sub">Only accepted quotations are offered; the customer, currency and accepted lines come from it</div>
+    <section class="sf-card" *ngIf="isFromQuotation" data-testid="quotation-card">
+      <div class="sf-ch">
+        <div>
+          <h2>Quotation</h2>
+          <div class="sf-mu sf-sm">Only accepted quotations are offered; the customer, currency and accepted lines come from it</div>
         </div>
       </div>
 
@@ -81,15 +81,16 @@
       </div>
 
       <ng-container *ngIf="selectedQuotation as q">
-        <dl class="quotation-summary" data-testid="quotation-summary">
-          <dt>Customer</dt><dd>{{ q.partnerName || q.partnerId }}</dd>
-          <dt>Currency</dt><dd>{{ q.currencyCode || q.currencyId }}</dd>
-          <dt>Valid to</dt><dd>{{ dateOnly(q.validTo) | date:'dd MMM yyyy' }}</dd>
-          <ng-container *ngIf="q.sourceInquiry as i"><dt>Inquiry</dt><dd class="font-mono">{{ i.number }}</dd></ng-container>
-          <ng-container *ngIf="q.customerReference"><dt>Customer reference</dt><dd>{{ q.customerReference }}</dd></ng-container>
-        </dl>
+        <div class="sf-kv" data-testid="quotation-summary">
+          <span>Customer</span><span>{{ q.partnerName || q.partnerId }}</span>
+          <span>Currency</span><span>{{ q.currencyCode || q.currencyId }}</span>
+          <span>Valid to</span><span>{{ dateOnly(q.validTo) | date:'dd MMM yyyy' }}</span>
+          <ng-container *ngIf="q.sourceInquiry as i"><span>Inquiry</span><span class="sf-mono">{{ i.number }}</span></ng-container>
+          <ng-container *ngIf="q.customerReference"><span>Customer reference</span><span>{{ q.customerReference }}</span></ng-container>
+        </div>
 
-        <table class="quotation-lines" *ngIf="acceptedLines.length; else noAccepted">
+        <div class="sf-tw" *ngIf="acceptedLines.length; else noAccepted">
+        <table class="sf-t">
           <thead>
             <tr>
               <th>Item</th>
@@ -111,9 +112,10 @@
             </tr>
           </tbody>
           <tfoot>
-            <tr><td colspan="5" class="text-right">Accepted lines total</td><td class="text-right"><strong>{{ acceptedTotal | number:'1.2-2' }}</strong></td></tr>
+            <tr class="tot"><td colspan="5" class="text-right">Accepted lines total</td><td class="text-right"><strong>{{ acceptedTotal | number:'1.2-2' }}</strong></td></tr>
           </tfoot>
         </table>
+        </div>
         <ng-template #noAccepted>
           <small class="p-error" data-testid="no-accepted-lines">The customer accepted no line on this quotation, so there is nothing to convert.</small>
         </ng-template>
@@ -121,19 +123,18 @@
           Only the lines the customer accepted are carried over, at the quoted prices. Lines with a counter offer are not.
         </small>
       </ng-container>
-    </div>
+    </section>
 
     <!-- ── Customer and delivery ─────────────────────────────────────────────── -->
-    <div class="form-card">
-      <div class="card-head">
-        <div class="card-icon"><i class="pi pi-user"></i></div>
+    <section class="sf-card">
+      <div class="sf-ch">
         <div>
-          <div class="card-title">Customer &amp; delivery</div>
-          <div class="card-sub">Who the order is for and how the goods reach them</div>
+          <h2>Customer &amp; delivery</h2>
+          <div class="sf-mu sf-sm">Who the order is for and how the goods reach them</div>
         </div>
       </div>
 
-      <div class="grid">
+      <div class="sf-fields">
         <div class="field full" *ngIf="!isFromQuotation">
           <label>Customer <span class="required">*</span></label>
           <p-autoComplete formControlName="customer" [suggestions]="customerSuggestions" field="companyName"
@@ -230,15 +231,14 @@
                       styleClass="w-full" appendTo="body" data-testid="customer-po-date"></p-calendar>
         </div>
       </div>
-    </div>
+    </section>
 
     <!-- ── Line items ────────────────────────────────────────────────────────── -->
-    <div class="form-card" *ngIf="!isFromQuotation" data-testid="line-items-card">
-      <div class="card-head">
-        <div class="card-icon"><i class="pi pi-list"></i></div>
-        <div class="grow">
-          <div class="card-title">Line items</div>
-          <div class="card-sub">Prices come from the pricing rules for this customer; the figures here are a preview</div>
+    <section class="sf-card" *ngIf="!isFromQuotation" data-testid="line-items-card">
+      <div class="sf-ch">
+        <div>
+          <h2>Line items</h2>
+          <div class="sf-mu sf-sm">Prices come from the pricing rules for this customer; the figures here are a preview</div>
         </div>
         <p-button label="Add line" icon="pi pi-plus" [outlined]="true" size="small" (onClick)="addLine()"
                   data-testid="add-line"></p-button>
@@ -320,13 +320,16 @@
           <div class="line-field line-route" *ngIf="routesEnabled" data-testid="route-field">
             <label>Route</label>
             <p-dropdown formControlName="fulfillmentRouteUuid" [options]="routeOptionsFor(i)" optionLabel="label" optionValue="value"
-                        [showClear]="true" [placeholder]="inheritedRouteLabel(i)"
+                        optionDisabled="disabled" [showClear]="true" [placeholder]="inheritedRouteLabel(i)"
                         [class.p-invalid]="lineRouteDisplayFor(i)?.kind === 'blocked'"
                         [pTooltip]="canChangeRoute ? '' : 'You do not have permission to change the route.'"
                         styleClass="w-full" appendTo="body" data-testid="route"></p-dropdown>
             <small *ngIf="lineRouteDisplayFor(i) as d" class="route-hint" [class.blocking]="d.kind === 'blocked'" data-testid="route-hint">
               <span class="route-source" [attr.data-source]="d.source" data-testid="route-source">{{ d.icon }}</span>
               {{ d.hint }}
+            </small>
+            <small *ngIf="lineRouteWarning(i) as w" class="route-hint blocking" data-testid="route-warning">
+              <i class="pi pi-exclamation-triangle"></i> {{ w }}
             </small>
           </div>
 
@@ -389,15 +392,20 @@
       <app-delivery-preview-panel *ngIf="routesEnabled && (preview || isLoadingPreview || previewFailed)"
                                   [preview]="preview" [loading]="isLoadingPreview" [failed]="previewFailed"
                                   [lineRef]="previewLineRef"></app-delivery-preview-panel>
-    </div>
+    </section>
+  </div>
 
-    <div class="form-actions">
-      <p-button label="Cancel" [text]="true" severity="secondary" [routerLink]="backLink" data-testid="cancel"></p-button>
-      <p-button type="submit" [label]="isFromQuotation ? 'Create order from quotation' : (isEdit ? 'Save changes' : 'Save draft')"
-                icon="pi pi-check" [loading]="isSaving"
-                [disabled]="isSaving || (!isFromQuotation && hasLineQtyLimitErrors())" data-testid="save"></p-button>
+    <div class="sf-fbar">
+      <span class="sf-mu sf-sm">{{ isEdit ? 'Saving re-prices every line.' : 'Saved as a draft; confirming the order is a separate step.' }}</span>
+      <span class="sf-end">
+        <p-button label="Cancel" [text]="true" severity="secondary" [routerLink]="backLink" data-testid="cancel"></p-button>
+        <p-button type="submit" [label]="isFromQuotation ? 'Create order from quotation' : (isEdit ? 'Save changes' : 'Save draft')"
+                  icon="pi pi-check" [loading]="isSaving"
+                  [disabled]="isSaving || (!isFromQuotation && hasLineQtyLimitErrors())" data-testid="save"></p-button>
+      </span>
     </div>
   </form>
+</sf-page>
 
   <!-- ── New address ───────────────────────────────────────────────────────────── -->
   <p-dialog header="New shipping address" [(visible)]="addressDialogVisible" [modal]="true"
@@ -453,4 +461,3 @@
                 (onClick)="saveAddress()" data-testid="save-address"></p-button>
     </ng-template>
   </p-dialog>
-</div>

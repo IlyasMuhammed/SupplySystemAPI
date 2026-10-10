@@ -22,23 +22,34 @@ export interface ChartSpec {
 export const CHART_TOP_N = 10;
 
 export const AGING_LABELS = ['0-30', '31-60', '61-90', '90+'];
-const AGING_COLORS = ['#10b981', '#f59e0b', '#f97316', '#ef4444'];
+// Series colours: the aging scale and the margin/loss pair are pinned by sales-report-charts.spec.ts, so they stay.
+const AGING_COLORS = ['#2e9d62', '#c27a00', '#d9631e', '#c62f25'];
 
-const REVENUE_COLOR = '#3b82f6';
-const COST_COLOR    = '#94a3b8';
-const MARGIN_COLOR  = '#10b981';
-const LOSS_COLOR    = '#ef4444';
-const TEXT_COLOR    = '#64748b';
-const GRID_COLOR    = 'rgba(148, 163, 184, 0.25)';
+const REVENUE_COLOR = '#0064d9';
+const COST_COLOR    = '#8797a8';
+const MARGIN_COLOR  = '#2e9d62';
+const LOSS_COLOR    = '#c62f25';
+
+/** An SMS Flow token's current value (Chart.js cannot read CSS vars). Read when a chart is built, so a chart drawn
+ *  before a light/dark switch keeps its old axis colours until it is built again. */
+function token(name: string, fallback: string): string {
+  try {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+  } catch {
+    return fallback;
+  }
+}
+const textColor = () => token('--sms-text-muted', '#5a6b7d');
+const gridColor = () => token('--sms-border', '#dce2e9');
 
 const money = (v: number) => Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const percent = (v: number) => `${Number(v ?? 0).toFixed(1)}%`;
 const compact = (v: number | string) => Number(v).toLocaleString(undefined, { notation: 'compact', maximumFractionDigits: 1 });
 
-const tooltip = {
-  backgroundColor: '#1e293b', titleColor: '#f8fafc', bodyColor: '#cbd5e1',
+const tooltip = () => ({
+  backgroundColor: token('--sms-navy', '#13233a'), titleColor: '#ffffff', bodyColor: token('--sms-navy-text', '#c3cfdc'),
   padding: 12, cornerRadius: 10, boxPadding: 4
-};
+});
 
 /** A tooltip line: money for a money series, a percentage for the series drawn against the percentage axis. */
 function label(currency: string) {
@@ -51,19 +62,20 @@ function label(currency: string) {
 
 /** Vertical bars, with the percentage axis on the right when a series asks for it. */
 function verticalOptions(currency: string, withPercent: boolean, legend = true): any {
+  const text = textColor();
   return {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: { display: legend, position: 'bottom', labels: { color: TEXT_COLOR, usePointStyle: true } },
-      tooltip: { ...tooltip, callbacks: { label: label(currency) } }
+      legend: { display: legend, position: 'bottom', labels: { color: text, usePointStyle: true } },
+      tooltip: { ...tooltip(), callbacks: { label: label(currency) } }
     },
     scales: {
-      x: { ticks: { color: TEXT_COLOR }, grid: { display: false } },
-      y: { beginAtZero: true, ticks: { color: TEXT_COLOR, callback: compact }, grid: { color: GRID_COLOR } },
+      x: { ticks: { color: text }, grid: { display: false } },
+      y: { beginAtZero: true, ticks: { color: text, callback: compact }, grid: { color: gridColor() } },
       ...(withPercent ? {
         percent: {
-          position: 'right', ticks: { color: TEXT_COLOR, callback: (v: number | string) => `${v}%` },
+          position: 'right', ticks: { color: text, callback: (v: number | string) => `${v}%` },
           grid: { drawOnChartArea: false }
         }
       } : {})
@@ -73,17 +85,18 @@ function verticalOptions(currency: string, withPercent: boolean, legend = true):
 
 /** Horizontal bars, one per row, which is what a ranking or a customer's name wants: room to be read. */
 function horizontalOptions(currency: string, stacked: boolean, legend: boolean, extra?: (ctx: any) => string): any {
+  const text = textColor();
   return {
     indexAxis: 'y',
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: { display: legend, position: 'bottom', labels: { color: TEXT_COLOR, usePointStyle: true } },
-      tooltip: { ...tooltip, callbacks: { label: label(currency), ...(extra ? { afterLabel: extra } : {}) } }
+      legend: { display: legend, position: 'bottom', labels: { color: text, usePointStyle: true } },
+      tooltip: { ...tooltip(), callbacks: { label: label(currency), ...(extra ? { afterLabel: extra } : {}) } }
     },
     scales: {
-      x: { stacked, beginAtZero: true, ticks: { color: TEXT_COLOR, callback: compact }, grid: { color: GRID_COLOR } },
-      y: { stacked, ticks: { color: TEXT_COLOR }, grid: { display: false } }
+      x: { stacked, beginAtZero: true, ticks: { color: text, callback: compact }, grid: { color: gridColor() } },
+      y: { stacked, ticks: { color: text }, grid: { display: false } }
     }
   };
 }

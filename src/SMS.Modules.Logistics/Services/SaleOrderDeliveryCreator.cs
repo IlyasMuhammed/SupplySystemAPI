@@ -43,6 +43,9 @@ internal sealed class SaleOrderDeliveryCreator : ISaleOrderDeliveryCreator
     private static readonly string DropShipLine =
         DemandDomain.EnumCode<DemandDomain.SaleOrderLineFulfillmentMode>.Of(DemandDomain.SaleOrderLineFulfillmentMode.DropShip);
 
+    private static readonly string ServiceLine =
+        DemandDomain.EnumCode<DemandDomain.SaleOrderLineFulfillmentMode>.Of(DemandDomain.SaleOrderLineFulfillmentMode.Service);
+
     private readonly LogisticsDbContext       _db;
     private readonly DemandDbContext          _demand;
     private readonly IDocumentNumberGenerator _numbers;
@@ -143,6 +146,13 @@ internal sealed class SaleOrderDeliveryCreator : ISaleOrderDeliveryCreator
             if (line.FulfillmentMode == DropShipLine)
             {
                 skipped.Add(new(line.UUID, $"{label} is drop-shipped: the vendor delivers it straight to the customer."));
+                continue;
+            }
+
+            // A36 D-10 — Demand never sends one (it has no route), but a stale or hand-built list must not deliver it either.
+            if (line.FulfillmentMode == ServiceLine)
+            {
+                skipped.Add(new(line.UUID, $"{label} is a service: its service order performs it, nothing is delivered."));
                 continue;
             }
 

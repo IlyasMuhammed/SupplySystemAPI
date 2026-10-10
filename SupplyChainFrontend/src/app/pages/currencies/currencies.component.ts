@@ -14,6 +14,7 @@ import { TooltipModule } from 'primeng/tooltip';
 import { TagModule } from 'primeng/tag';
 import { MessageService, ConfirmationService } from 'primeng/api';
 import { CurrenciesService, CurrencyModel } from '../../services/currencies.service';
+import { FLOW } from '../../shared/flow';
 
 @Component({
   selector: 'app-currencies',
@@ -21,7 +22,7 @@ import { CurrenciesService, CurrencyModel } from '../../services/currencies.serv
   imports: [
     CommonModule, ReactiveFormsModule, RouterModule,
     TableModule, ButtonModule, InputTextModule, InputIconModule, IconFieldModule, DialogModule,
-    ToastModule, ConfirmDialogModule, TooltipModule, TagModule
+    ToastModule, ConfirmDialogModule, TooltipModule, TagModule, ...FLOW
   ],
   templateUrl: './currencies.component.html',
   styleUrls: ['./currencies.component.scss'],

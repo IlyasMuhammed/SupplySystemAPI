@@ -1,177 +1,170 @@
-<div class="create-page">
-  <p-toast></p-toast>
+<p-toast></p-toast>
 
-  <div class="page-header">
-    <div class="header-content">
-      <div class="header-left">
-        <p-button icon="pi pi-arrow-left" [text]="true" severity="secondary"
-                  routerLink="/portal/pages/finance/payments" class="back-btn"></p-button>
-        <div>
-          <h1 class="page-title"><i class="pi pi-credit-card"></i> Record Payment</h1>
-          <p class="page-subtitle">Allocate a payment against one or more outstanding invoices, or record a free-standing advance</p>
-        </div>
-      </div>
-    </div>
+<sf-page [crumbs]="['Finance', 'Supplier payments', 'Record payment']">
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <span class="sf-end">
+      <p-button icon="pi pi-arrow-left" label="Back" [text]="true"
+                routerLink="/portal/pages/finance/payments"></p-button>
+    </span>
   </div>
 
-  <div class="panel">
-    <div class="gi-header">
-      <div class="gi-icon"><i class="pi pi-building"></i></div>
-      <div class="gi-text">
-        <div class="gi-title">Supplier</div>
+  <header class="sf-hdr sf-compact">
+    <div>
+      <h1>Record payment</h1>
+      <div class="sf-meta">Allocate a payment against one or more outstanding invoices, or record a free-standing advance</div>
+    </div>
+  </header>
+
+  <div class="sf-body">
+    <section class="sf-card">
+      <div class="sf-ch"><h2>Supplier</h2></div>
+
+      <div class="sf-fld" *ngIf="!supplierLocked">
+        <label class="sf-req">Supplier</label>
+        <p-dropdown
+          [(ngModel)]="selectedSupplierId"
+          [ngModelOptions]="{standalone: true}"
+          [options]="supplierOptions" optionLabel="label" optionValue="value"
+          [filter]="true" filterBy="label"
+          placeholder="Search and select a supplier…"
+          [loading]="loadingSuppliers"
+          [showClear]="true"
+          styleClass="full-width"
+          (onChange)="onSupplierChange($event)"
+          (onClear)="onSupplierClear()"></p-dropdown>
       </div>
-    </div>
 
-    <div class="field" *ngIf="!supplierLocked">
-      <label>Supplier <span class="req">*</span></label>
-      <p-dropdown
-        [(ngModel)]="selectedSupplierId"
-        [ngModelOptions]="{standalone: true}"
-        [options]="supplierOptions" optionLabel="label" optionValue="value"
-        [filter]="true" filterBy="label"
-        placeholder="Search and select a supplier…"
-        [loading]="loadingSuppliers"
-        [showClear]="true"
-        styleClass="full-width"
-        (onChange)="onSupplierChange($event)"
-        (onClear)="onSupplierClear()"></p-dropdown>
-    </div>
+      <div *ngIf="supplierLocked">
+        <i class="pi pi-building sf-mu"></i>
+        <strong>{{ selectedSupplierName || 'Loading…' }}</strong>
+      </div>
+    </section>
 
-    <div class="supplier-locked-info" *ngIf="supplierLocked">
-      <i class="pi pi-building"></i>
-      <span class="font-semibold">{{ selectedSupplierName || 'Loading…' }}</span>
-    </div>
-  </div>
+    <ng-container *ngIf="selectedSupplierId">
+      <section class="sf-card p0">
+        <div class="sf-ch"><h2>Outstanding invoices</h2></div>
 
-  <ng-container *ngIf="selectedSupplierId">
-    <div class="panel">
-      <div class="gi-header">
-        <div class="gi-icon teal"><i class="pi pi-file"></i></div>
-        <div class="gi-text">
-          <div class="gi-title">Outstanding Invoices</div>
+        <div class="sf-pad" style="display:flex;flex-direction:column;gap:10px">
+          <small class="sf-mu sf-sm" data-testid="payment-only-approved">{{ onlyApprovedHint }} Each one is listed with what is still owed on it.</small>
+
+          <div class="sf-filters">
+            <p-dropdown [options]="addableInvoices" optionLabel="invoiceNumber" optionValue="invoiceUuid"
+                        [(ngModel)]="selectedInvoiceToAdd" [ngModelOptions]="{standalone: true}"
+                        placeholder="Select an invoice to add…" styleClass="add-line-dropdown" appendTo="body">
+              <ng-template let-inv pTemplate="item">
+                {{ inv.invoiceNumber }} — outstanding {{ inv.outstandingAmount | number:'1.2-2' }}
+              </ng-template>
+            </p-dropdown>
+            <p-button label="Add Line" icon="pi pi-plus" size="small" severity="secondary" [outlined]="true"
+                      [disabled]="!selectedInvoiceToAdd"
+                      (onClick)="addLine(selectedInvoiceToAdd)"></p-button>
+          </div>
+
+          <div class="sf-mu" *ngIf="!isLoadingInvoices && !outstandingInvoices.length" data-testid="payment-no-invoices">
+            Nothing to pay on this supplier's invoices. {{ onlyApprovedHint }} Approve an invoice first, or record a
+            free-standing Advance Payment below.
+          </div>
         </div>
-      </div>
 
-      <small class="field-hint" data-testid="payment-only-approved">{{ onlyApprovedHint }} Each one is listed with what is still owed on it.</small>
-
-      <div class="add-line-row">
-        <p-dropdown [options]="addableInvoices" optionLabel="invoiceNumber" optionValue="invoiceUuid"
-                    [(ngModel)]="selectedInvoiceToAdd" [ngModelOptions]="{standalone: true}"
-                    placeholder="Select an invoice to add…" styleClass="add-line-dropdown" appendTo="body">
-          <ng-template let-inv pTemplate="item">
-            {{ inv.invoiceNumber }} — outstanding {{ inv.outstandingAmount | number:'1.2-2' }}
+        <p-table [value]="lineInputs" [tableStyle]="{'min-width':'40rem'}" *ngIf="lineInputs.length">
+          <ng-template pTemplate="header">
+            <tr>
+              <th>Invoice #</th>
+              <th class="text-right">Outstanding</th>
+              <th class="text-right">Allocate</th>
+              <th></th>
+            </tr>
           </ng-template>
-        </p-dropdown>
-        <p-button label="Add Line" icon="pi pi-plus" size="small"
-                  [disabled]="!selectedInvoiceToAdd"
-                  (onClick)="addLine(selectedInvoiceToAdd)"></p-button>
-      </div>
+          <ng-template pTemplate="body" let-l let-i="rowIndex">
+            <tr>
+              <td class="sf-mono">{{ l.invoiceNumber }}</td>
+              <td class="text-right">{{ l.outstandingAmount | number:'1.2-2' }}</td>
+              <td class="text-right">
+                <p-inputNumber [(ngModel)]="l.allocatedAmount" [ngModelOptions]="{standalone: true}"
+                               mode="decimal" [minFractionDigits]="2" [maxFractionDigits]="2"
+                               [min]="0" [max]="l.outstandingAmount" [style]="{width:'120px'}"></p-inputNumber>
+              </td>
+              <td class="text-center">
+                <p-button icon="pi pi-trash" [text]="true" severity="danger" size="small"
+                          pTooltip="Remove line" (onClick)="removeLine(i)"></p-button>
+              </td>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="footer">
+            <tr class="sf-tot">
+              <td colspan="2" class="text-right">Total allocated</td>
+              <td class="text-right">{{ totalAmount | number:'1.2-2' }}</td>
+              <td></td>
+            </tr>
+          </ng-template>
+        </p-table>
+      </section>
 
-      <div class="empty-hint" *ngIf="!isLoadingInvoices && !outstandingInvoices.length" data-testid="payment-no-invoices">
-        Nothing to pay on this supplier's invoices. {{ onlyApprovedHint }} Approve an invoice first, or record a
-        free-standing Advance Payment below.
-      </div>
+      <section class="sf-card">
+        <div class="sf-ch"><h2>Payment details</h2></div>
 
-      <p-table [value]="lineInputs" [tableStyle]="{'min-width':'40rem'}" *ngIf="lineInputs.length">
-        <ng-template pTemplate="header">
-          <tr>
-            <th>Invoice #</th>
-            <th class="text-right">Outstanding</th>
-            <th class="text-right">Allocate</th>
-            <th></th>
-          </tr>
-        </ng-template>
-        <ng-template pTemplate="body" let-l let-i="rowIndex">
-          <tr>
-            <td class="font-mono">{{ l.invoiceNumber }}</td>
-            <td class="text-right">{{ l.outstandingAmount | number:'1.2-2' }}</td>
-            <td class="text-right">
-              <p-inputNumber [(ngModel)]="l.allocatedAmount" [ngModelOptions]="{standalone: true}"
-                             mode="decimal" [minFractionDigits]="2" [maxFractionDigits]="2"
-                             [min]="0" [max]="l.outstandingAmount" [style]="{width:'120px'}"></p-inputNumber>
-            </td>
-            <td class="text-center">
-              <p-button icon="pi pi-trash" [text]="true" severity="danger" size="small"
-                        pTooltip="Remove line" (onClick)="removeLine(i)"></p-button>
-            </td>
-          </tr>
-        </ng-template>
-        <ng-template pTemplate="footer">
-          <tr class="totals-row">
-            <td colspan="2" class="text-right font-bold">Total Allocated</td>
-            <td class="text-right font-bold">{{ totalAmount | number:'1.2-2' }}</td>
-            <td></td>
-          </tr>
-        </ng-template>
-      </p-table>
-    </div>
+        <div class="sf-fields">
+          <div class="sf-fld">
+            <label class="sf-req">Payment type</label>
+            <p-dropdown [options]="paymentTypeOptions" [(ngModel)]="paymentType" [ngModelOptions]="{standalone: true}"
+                        styleClass="full-width" appendTo="body"></p-dropdown>
+          </div>
 
-    <div class="panel">
-      <div class="gi-header">
-        <div class="gi-icon"><i class="pi pi-wallet"></i></div>
-        <div class="gi-text">
-          <div class="gi-title">Payment Details</div>
-        </div>
-      </div>
+          <div class="sf-fld">
+            <label class="sf-req">Payment date</label>
+            <p-calendar [(ngModel)]="paymentDateVal" [ngModelOptions]="{standalone: true}"
+                        dateFormat="dd/mm/yy" [showIcon]="true" styleClass="full-width" appendTo="body"></p-calendar>
+          </div>
 
-      <div class="form-grid">
-        <div class="field">
-          <label>Payment Type <span class="req">*</span></label>
-          <p-dropdown [options]="paymentTypeOptions" [(ngModel)]="paymentType" [ngModelOptions]="{standalone: true}"
-                      styleClass="full-width" appendTo="body"></p-dropdown>
-        </div>
+          <div class="sf-fld">
+            <label class="sf-req">Payment method</label>
+            <p-dropdown [options]="paymentMethodOptions" [(ngModel)]="paymentMethod" [ngModelOptions]="{standalone: true}"
+                        styleClass="full-width" appendTo="body"></p-dropdown>
+          </div>
 
-        <div class="field">
-          <label>Payment Date <span class="req">*</span></label>
-          <p-calendar [(ngModel)]="paymentDateVal" [ngModelOptions]="{standalone: true}"
-                      dateFormat="dd/mm/yy" [showIcon]="true" styleClass="full-width" appendTo="body"></p-calendar>
-        </div>
+          <div class="sf-fld" *ngIf="!lineInputs.length">
+            <label class="sf-req">Total amount</label>
+            <p-inputNumber [(ngModel)]="manualTotalAmount" [ngModelOptions]="{standalone: true}"
+                           mode="decimal" [minFractionDigits]="2" [maxFractionDigits]="2" [min]="0"
+                           styleClass="full-width"></p-inputNumber>
+          </div>
+          <div class="sf-fld" *ngIf="lineInputs.length">
+            <label>Total amount</label>
+            <div class="v"><strong>{{ totalAmount | number:'1.2-2' }}</strong> <span class="sf-mu sf-sm">(sum of allocated lines)</span></div>
+          </div>
 
-        <div class="field">
-          <label>Payment Method <span class="req">*</span></label>
-          <p-dropdown [options]="paymentMethodOptions" [(ngModel)]="paymentMethod" [ngModelOptions]="{standalone: true}"
-                      styleClass="full-width" appendTo="body"></p-dropdown>
-        </div>
+          <div class="sf-fld" *ngIf="showBankField">
+            <label class="sf-req">Bank account</label>
+            <input pInputText [(ngModel)]="bankAccount" [ngModelOptions]="{standalone: true}" class="full-width" />
+          </div>
 
-        <div class="field" *ngIf="!lineInputs.length">
-          <label>Total Amount <span class="req">*</span></label>
-          <p-inputNumber [(ngModel)]="manualTotalAmount" [ngModelOptions]="{standalone: true}"
-                         mode="decimal" [minFractionDigits]="2" [maxFractionDigits]="2" [min]="0"
-                         styleClass="full-width"></p-inputNumber>
-        </div>
-        <div class="field" *ngIf="lineInputs.length">
-          <label>Total Amount</label>
-          <div class="locked-total">{{ totalAmount | number:'1.2-2' }} <span class="hint">(sum of allocated lines)</span></div>
+          <div class="sf-fld" *ngIf="showChequeFields">
+            <label class="sf-req">Cheque no</label>
+            <input pInputText [(ngModel)]="chequeNo" [ngModelOptions]="{standalone: true}" class="full-width" />
+          </div>
+          <div class="sf-fld" *ngIf="showChequeFields">
+            <label class="sf-req">Cheque date</label>
+            <p-calendar [(ngModel)]="chequeDateVal" [ngModelOptions]="{standalone: true}"
+                        dateFormat="dd/mm/yy" [showIcon]="true" styleClass="full-width" appendTo="body"></p-calendar>
+          </div>
+
+          <div class="sf-fld" style="grid-column:1 / -1">
+            <label>Notes</label>
+            <textarea pTextarea [(ngModel)]="notes" [ngModelOptions]="{standalone: true}" rows="2" class="full-width"></textarea>
+          </div>
         </div>
 
-        <div class="field" *ngIf="showBankField">
-          <label>Bank Account <span class="req">*</span></label>
-          <input pInputText [(ngModel)]="bankAccount" [ngModelOptions]="{standalone: true}" class="full-width" />
-        </div>
+        <app-attachment-list interfaceCode="SUPPLIER_PAYMENT" [documentId]="paymentUuid"
+                             label="Payment Evidence"></app-attachment-list>
+      </section>
+    </ng-container>
+  </div>
 
-        <div class="field" *ngIf="showChequeFields">
-          <label>Cheque No <span class="req">*</span></label>
-          <input pInputText [(ngModel)]="chequeNo" [ngModelOptions]="{standalone: true}" class="full-width" />
-        </div>
-        <div class="field" *ngIf="showChequeFields">
-          <label>Cheque Date <span class="req">*</span></label>
-          <p-calendar [(ngModel)]="chequeDateVal" [ngModelOptions]="{standalone: true}"
-                      dateFormat="dd/mm/yy" [showIcon]="true" styleClass="full-width" appendTo="body"></p-calendar>
-        </div>
-
-        <div class="field full-width">
-          <label>Notes</label>
-          <textarea pTextarea [(ngModel)]="notes" [ngModelOptions]="{standalone: true}" rows="2" class="full-width"></textarea>
-        </div>
-      </div>
-
-      <app-attachment-list interfaceCode="SUPPLIER_PAYMENT" [documentId]="paymentUuid"
-                            label="Payment Evidence"></app-attachment-list>
-
-      <div class="form-actions">
-        <p-button label="Cancel" severity="secondary" [outlined]="true" routerLink="/portal/pages/finance/payments"></p-button>
-        <p-button label="Record Payment" icon="pi pi-check" [loading]="isSaving" (onClick)="save()"></p-button>
-      </div>
-    </div>
-  </ng-container>
-</div>
+  <div class="sf-fbar" *ngIf="selectedSupplierId">
+    <span class="sf-mu sf-sm"><span class="sf-req"></span> required</span>
+    <span class="sf-end">
+      <p-button label="Cancel" severity="secondary" [text]="true" routerLink="/portal/pages/finance/payments"></p-button>
+      <p-button label="Record Payment" icon="pi pi-check" [loading]="isSaving" (onClick)="save()"></p-button>
+    </span>
+  </div>
+</sf-page>

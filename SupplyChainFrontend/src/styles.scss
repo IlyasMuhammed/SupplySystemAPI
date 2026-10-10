@@ -4,6 +4,8 @@
 @use 'primeicons/primeicons.css';
 @use './assets/demo/demo.scss';
 
+// Every colour below is an SMS Flow token (assets/layout/variables/_common.scss), so light and dark both work.
+
 // ── Global p-dropdown symmetry ─────────────────────────────────────────────────
 // Ensures all dropdowns across the application have identical appearance.
 .p-dropdown {
@@ -11,28 +13,28 @@
   min-height: 2.5rem !important;
 
   .p-dropdown-label {
-    font-size: .875rem;
-    color: #374151;
+    font-size: 1rem;
+    color: var(--sms-text);
     align-self: center;
   }
 
   &.p-disabled .p-dropdown-label {
-    color: #9ca3af;
+    color: var(--sms-text-faint);
   }
 }
 
 .p-dropdown-panel {
   border-radius: 10px !important;
-  box-shadow: 0 8px 24px rgba(0,0,0,.12) !important;
-  border: 1px solid #e8edf5 !important;
+  box-shadow: var(--sms-shadow-lg) !important;
+  border: 1px solid var(--sms-border) !important;
 
   .p-dropdown-filter {
     border-radius: 6px !important;
-    font-size: .875rem;
+    font-size: 1rem;
   }
 
   .p-dropdown-items .p-dropdown-item {
-    font-size: .875rem;
+    font-size: 1rem;
     border-radius: 6px;
     margin: 1px 4px;
   }
@@ -43,128 +45,122 @@
   display: flex;
   justify-content: flex-end;
   padding: .5rem 0 .75rem;
-  border-bottom: 1px solid var(--surface-200);
+  border-bottom: 1px solid var(--sms-border);
   margin-bottom: .875rem;
 }
 
-// ── Global table color lightening ──────────────────────────────────────────────
+// ── Tables — SMS Flow: quiet header, thin separators, blue-tinted hover ──────────
 .p-datatable {
-  // Header — very light warm tint instead of flat white/grey
   .p-datatable-thead > tr > th {
-    background: #fdf6ee !important;
-    color: #4a3728;
-    border-bottom-color: #f0dece !important;
-    font-weight: 700;
-    font-size: .82rem;
-    letter-spacing: .03em;
-    text-transform: uppercase;
+    background: var(--sms-surface-2) !important;
+    color: var(--sms-text-muted);
+    border-bottom-color: var(--sms-border) !important;
+    font-weight: 600;
+    font-size: .86rem;
+    letter-spacing: .01em;
+    text-transform: none;
+    white-space: nowrap;
   }
 
-  // Body rows — barely-there warm stripe on even rows
   &.p-datatable-striped .p-datatable-tbody > tr:nth-child(even) > td {
-    background: #fdf9f5;
+    background: var(--sms-surface-2);
   }
 
-  // Row hover — a whisper of warm colour
-  .p-datatable-tbody > tr:not(.p-highlight):hover > td {
-    background: #fff4ea !important;
+  .p-datatable-tbody > tr:not(.p-highlight):not(.p-datatable-row-selected):hover > td {
+    background: var(--sms-row-hover) !important;
     cursor: default;
   }
 
-  // Cell vertical padding — a touch more breathing room
   .p-datatable-tbody > tr > td {
     padding-top: .6rem;
     padding-bottom: .6rem;
+    border-bottom-color: var(--sms-border-soft);
   }
 }
 
+// Numbers line up in columns.
+.p-datatable td, .num, .text-right { font-variant-numeric: tabular-nums; }
+
 // ── Global Dialog Design System ("sdlg") ────────────────────────────────────
-// The canonical popup design (icon-chip header, white body, right-aligned footer
-// buttons) — originally hand-duplicated per-page and already drifting (different
-// color variants defined in different files). Centralized here so every dialog
-// in the app — custom "sdlg" dialogs, PrimeNG's confirmDialog, and any plain
-// p-dialog that opts in via styleClass="sdlg" — shares one definition and can't
-// drift again. Component-level .scss files may still keep their own duplicate
-// copies (harmless — identical rules just apply twice); new dialogs should rely
-// on this global definition instead of redeclaring it locally.
+// The canonical popup design (icon-chip header, body, right-aligned footer buttons), centralized so every dialog
+// in the app — custom "sdlg" dialogs, PrimeNG's confirmDialog, and any plain p-dialog that opts in via
+// styleClass="sdlg" — shares one definition. Component-level copies are harmless; new dialogs rely on this one.
 
 .sdlg {
-  border-radius: 20px !important;
+  border-radius: 14px !important;
   overflow: hidden;
-  box-shadow: 0 24px 80px rgba(0,0,0,.18) !important;
-  border: none !important;
+  box-shadow: var(--sms-shadow-lg) !important;
+  border: 1px solid var(--sms-border) !important;
 
-  .p-dialog-header  { padding: 0 !important; border-bottom: 1px solid #e8edf5; }
+  .p-dialog-header  { padding: 0 !important; border-bottom: 1px solid var(--sms-border); }
   .p-dialog-content { padding: 0 !important; }
-  .p-dialog-footer  { padding: 0 !important; border-top: 1px solid #e8edf5; }
+  .p-dialog-footer  { padding: 0 !important; border-top: 1px solid var(--sms-border); }
 }
 
 .sdlg-header {
   display: flex;
   align-items: center;
   gap: 1rem;
-  padding: 1.5rem 1.75rem;
+  padding: 1.25rem 1.5rem;
 
   .sdlg-header-icon {
-    width: 48px; height: 48px; border-radius: 14px; flex-shrink: 0;
-    background: linear-gradient(135deg, #6c63ff, #a78bfa);
+    width: 44px; height: 44px; border-radius: 10px; flex-shrink: 0;
+    background: var(--sms-primary-soft);
     display: flex; align-items: center; justify-content: center;
-    box-shadow: 0 4px 14px rgba(108,99,255,.32);
-    i { font-size: 1.2rem; color: #fff; }
+    i { font-size: 1.15rem; color: var(--sms-primary-text); }
 
-    // Semantic color variants — union of every variant used across the app,
-    // defined once so no page can invent a one-off shade again.
-    &.sdlg-icon-red    { background: linear-gradient(135deg,#dc2626,#ef4444); box-shadow: 0 4px 14px rgba(220,38,38,.32); }
-    &.sdlg-icon-blue   { background: linear-gradient(135deg,#1d4ed8,#3b82f6); box-shadow: 0 4px 14px rgba(29,78,216,.32); }
-    &.sdlg-icon-green  { background: linear-gradient(135deg,#059669,#10b981); box-shadow: 0 4px 14px rgba(5,150,105,.32); }
-    &.sdlg-icon-purple { background: linear-gradient(135deg,#7c3aed,#a78bfa); box-shadow: 0 4px 14px rgba(124,58,237,.32); }
-    &.sdlg-icon-amber  { background: linear-gradient(135deg,#d97706,#f59e0b); box-shadow: 0 4px 14px rgba(217,119,6,.32); }
-    &.sdlg-icon-teal   { background: linear-gradient(135deg,#0891b2,#06b6d4); box-shadow: 0 4px 14px rgba(8,145,178,.32); }
+    // Semantic variants — one definition so no page invents a one-off shade.
+    &.sdlg-icon-red    { background: var(--sms-danger-soft); i { color: var(--sms-danger); } }
+    &.sdlg-icon-blue   { background: var(--sms-primary-soft); i { color: var(--sms-primary-text); } }
+    &.sdlg-icon-green  { background: var(--sms-ok-soft); i { color: var(--sms-ok); } }
+    &.sdlg-icon-purple { background: var(--sms-violet-soft); i { color: var(--sms-violet); } }
+    &.sdlg-icon-amber  { background: var(--sms-warn-soft); i { color: var(--sms-warn); } }
+    &.sdlg-icon-teal   { background: var(--sms-teal-soft); i { color: var(--sms-teal); } }
   }
 
   .sdlg-header-text {
     min-width: 0;
     .sdlg-title {
-      font-size: 1.05rem; font-weight: 700; color: #0f172a; line-height: 1.2;
+      font-size: 1.15rem; font-weight: 700; color: var(--sms-text); line-height: 1.25;
     }
     .sdlg-subtitle {
-      font-size: .78rem; color: #94a3b8; margin-top: .18rem;
+      font-size: .86rem; color: var(--sms-text-muted); margin-top: .18rem;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
   }
 }
 
-.sdlg-body { padding: 1.5rem 1.75rem 1.25rem; }
+.sdlg-body { padding: 1.25rem 1.5rem 1.1rem; }
 
 .sdlg-info-banner {
   display: flex; align-items: flex-start; gap: .65rem;
-  background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px;
-  padding: .85rem 1rem; margin-bottom: 1.5rem;
-  font-size: .82rem; color: #1e40af; line-height: 1.5;
-  i { font-size: .9rem; color: #3b82f6; margin-top: .07rem; flex-shrink: 0; }
+  background: var(--sms-primary-soft); border: 1px solid var(--sms-primary-soft-border); border-radius: 10px;
+  padding: .85rem 1rem; margin-bottom: 1.25rem;
+  font-size: .93rem; color: var(--sms-text); line-height: 1.5;
+  i { font-size: .95rem; color: var(--sms-primary-text); margin-top: .1rem; flex-shrink: 0; }
 }
 
 .sdlg-success-banner {
   display: flex; align-items: flex-start; gap: .65rem;
-  background: #f0fdf4; border: 1px solid #86efac; border-radius: 12px;
+  background: var(--sms-ok-soft); border: 1px solid color-mix(in srgb, var(--sms-ok) 35%, transparent); border-radius: 10px;
   padding: .85rem 1rem; margin-bottom: 1.25rem;
-  font-size: .82rem; color: #166534; line-height: 1.55;
-  i { font-size: 1rem; color: #22c55e; margin-top: .07rem; flex-shrink: 0; }
+  font-size: .93rem; color: var(--sms-text); line-height: 1.55;
+  i { font-size: 1rem; color: var(--sms-ok); margin-top: .1rem; flex-shrink: 0; }
 }
 
 .sdlg-warn-banner {
   display: flex; align-items: flex-start; gap: .65rem;
-  background: #fff7ed; border: 1px solid #fed7aa; border-radius: 12px;
+  background: var(--sms-warn-soft); border: 1px solid color-mix(in srgb, var(--sms-warn) 35%, transparent); border-radius: 10px;
   padding: .85rem 1rem; margin-bottom: 1.25rem;
-  font-size: .82rem; color: #92400e; line-height: 1.5;
-  i { font-size: .9rem; color: #f97316; margin-top: .07rem; flex-shrink: 0; }
+  font-size: .93rem; color: var(--sms-text); line-height: 1.5;
+  i { font-size: .95rem; color: var(--sms-warn); margin-top: .1rem; flex-shrink: 0; }
 }
 
 .sdlg-field {
   display: flex; flex-direction: column; gap: .4rem; margin-bottom: 1rem;
-  label { font-size: .82rem; font-weight: 600; color: #374151; }
-  .sdlg-required { color: #ef4444; margin-left: .1rem; }
-  .sdlg-optional { font-size: .73rem; font-weight: 400; color: #94a3b8; margin-left: .25rem; }
+  label { font-size: .93rem; font-weight: 600; color: var(--sms-text-muted); }
+  .sdlg-required { color: var(--sms-danger); margin-left: .1rem; }
+  .sdlg-optional { font-size: .82rem; font-weight: 400; color: var(--sms-text-faint); margin-left: .25rem; }
 }
 
 .sdlg-readonly { opacity: .6; cursor: not-allowed; }
@@ -177,30 +173,30 @@
 .sdlg-section-sep {
   display: flex; align-items: center; gap: .6rem;
   margin: 1.25rem 0 .85rem;
-  font-size: .75rem; font-weight: 700; color: #475569;
+  font-size: .8rem; font-weight: 600; color: var(--sms-text-muted);
   text-transform: uppercase; letter-spacing: .07em;
-  i { color: #6366f1; font-size: .82rem; }
-  &::after { content: ''; flex: 1; height: 1px; background: #e2e8f0; }
+  i { color: var(--sms-primary-text); font-size: .86rem; }
+  &::after { content: ''; flex: 1; height: 1px; background: var(--sms-border); }
 }
 
 .sdlg-divider {
   display: flex; align-items: center; gap: .75rem;
   margin-bottom: .85rem;
-  font-size: .72rem; color: #94a3b8; font-weight: 600;
+  font-size: .8rem; color: var(--sms-text-faint); font-weight: 600;
   letter-spacing: .04em; text-transform: uppercase;
-  &::before, &::after { content: ''; flex: 1; height: 1px; background: #e2e8f0; }
+  &::before, &::after { content: ''; flex: 1; height: 1px; background: var(--sms-border); }
 }
 
-.sdlg-table { border-radius: 10px; overflow: hidden; border: 1px solid #e2e8f0; }
+.sdlg-table { border-radius: 10px; overflow: hidden; border: 1px solid var(--sms-border); }
 
 .sdlg-all-row {
   display: flex; align-items: center; justify-content: space-between;
-  background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px;
+  background: var(--sms-surface-2); border: 1px solid var(--sms-border); border-radius: 10px;
   padding: .75rem 1rem; margin-bottom: .85rem;
   .sdlg-all-label {
     display: flex; align-items: center; gap: .55rem;
-    font-size: .82rem; font-weight: 600; color: #475569;
-    i { font-size: .9rem; color: #6366f1; }
+    font-size: .93rem; font-weight: 600; color: var(--sms-text-muted);
+    i { font-size: .95rem; color: var(--sms-primary-text); }
   }
 }
 
@@ -208,21 +204,20 @@
 
 .sdlg-row {
   display: flex; align-items: center; gap: .75rem;
-  background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px;
+  background: var(--sms-surface-2); border: 1px solid var(--sms-border); border-radius: 10px;
   padding: .55rem .85rem;
   transition: border-color .18s, background .18s, box-shadow .18s;
 
   &:focus-within {
-    border-color: #3b82f6; background: #fff;
-    box-shadow: 0 0 0 3px rgba(59,130,246,.12);
+    border-color: var(--sms-primary); background: var(--sms-surface);
+    box-shadow: 0 0 0 3px var(--sms-primary-soft);
   }
 
   .sdlg-row-num {
     width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0;
-    background: linear-gradient(135deg, #6366f1, #8b5cf6);
-    color: #fff; font-size: .68rem; font-weight: 800;
+    background: var(--sms-primary);
+    color: var(--sms-on-primary); font-size: .75rem; font-weight: 700;
     display: flex; align-items: center; justify-content: center;
-    box-shadow: 0 2px 6px rgba(99,102,241,.35);
   }
 
   .sdlg-row-field { flex: 1; min-width: 0; }
@@ -240,9 +235,9 @@
   width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
   border: none; cursor: pointer; background: transparent;
   display: flex; align-items: center; justify-content: center;
-  color: #94a3b8; transition: background .15s, color .15s;
-  i { font-size: .78rem; }
-  &:hover:not(:disabled) { background: #fee2e2; color: #dc2626; }
+  color: var(--sms-text-faint); transition: background .15s, color .15s;
+  i { font-size: .85rem; }
+  &:hover:not(:disabled) { background: var(--sms-danger-soft); color: var(--sms-danger); }
   &:disabled { opacity: .3; cursor: not-allowed; }
 }
 
@@ -250,101 +245,85 @@
   width: 100%;
   display: flex; align-items: center; justify-content: center; gap: .6rem;
   padding: .7rem 1rem;
-  border: 1.5px dashed #cbd5e1; border-radius: 12px;
+  border: 1.5px dashed var(--sms-border); border-radius: 10px;
   background: transparent; cursor: pointer;
-  color: #64748b; font-size: .82rem; font-weight: 600; letter-spacing: .01em;
+  color: var(--sms-text-muted); font-size: .93rem; font-weight: 600;
   transition: border-color .15s, color .15s, background .15s;
-  i { font-size: .95rem; color: #6366f1; transition: color .15s; }
+  i { font-size: 1rem; color: var(--sms-primary-text); }
   &:hover {
-    border-color: #6366f1; color: #4338ca; background: #f5f3ff;
-    i { color: #4338ca; }
+    border-color: var(--sms-primary); color: var(--sms-primary-text); background: var(--sms-primary-soft);
   }
 }
 
 .sdlg-loading {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: .6rem; padding: 3rem 1rem; color: #94a3b8; font-size: .88rem;
-  i { font-size: 1.8rem; color: #6c63ff; }
+  gap: .6rem; padding: 3rem 1rem; color: var(--sms-text-muted); font-size: 1rem;
+  i { font-size: 1.8rem; color: var(--sms-primary-text); }
 }
 
 .sdlg-empty {
   display: flex; flex-direction: column; align-items: center; gap: .6rem;
-  padding: 2.5rem 1rem; color: #94a3b8; font-size: .88rem;
-  i { font-size: 1.8rem; color: #cbd5e1; }
+  padding: 2.5rem 1rem; color: var(--sms-text-muted); font-size: 1rem;
+  i { font-size: 1.8rem; color: var(--sms-text-faint); }
 }
 
 .sdlg-footer {
-  display: flex; align-items: center; padding: 1rem 1.75rem; gap: 1rem;
+  display: flex; align-items: center; padding: .9rem 1.5rem; gap: 1rem;
 
   .sdlg-count-pill {
     display: flex; align-items: center; gap: .45rem;
-    font-size: .78rem; font-weight: 600; color: #0369a1;
-    background: #e0f2fe; border: 1px solid #bae6fd;
+    font-size: .86rem; font-weight: 600; color: var(--sms-primary-text);
+    background: var(--sms-primary-soft); border: 1px solid var(--sms-primary-soft-border);
     padding: .3rem .8rem; border-radius: 20px; flex-shrink: 0;
-    i { font-size: .76rem; }
-    &.pill-valid { color: #15803d !important; background: #f0fdf4 !important; border-color: #bbf7d0 !important; }
+    i { font-size: .82rem; }
+    &.pill-valid { color: var(--sms-ok) !important; background: var(--sms-ok-soft) !important; border-color: transparent !important; }
   }
 
   .sdlg-footer-btns { display: flex; gap: .65rem; align-items: center; margin-left: auto; }
 }
 
-// ── Global Confirmation Dialog Design ────────────────────────────────────────
-// Applies to every p-confirmDialog automatically. Restyled to share the sdlg
-// system's shell (rounded-square icon chip, clean white header, same button
-// language) instead of its own one-off full-gradient-banner header — the icon
-// and message stay in PrimeNG's fixed content slot (can't be relocated into the
-// header without ejecting into a fully custom template), but every color,
-// radius, and spacing token now matches sdlg exactly.
-
-// Blurred backdrop overlay for ALL dialogs
+// ── Dialog backdrop ──────────────────────────────────────────────────────────
 .p-dialog-mask {
-  background: rgba(15, 23, 42, 0.42) !important;
-  backdrop-filter: blur(4px);
+  background: rgba(9, 17, 28, 0.45) !important;
+  backdrop-filter: blur(3px);
 }
 
-// Core dialog shell
+// ── Confirmation dialog — same shell as sdlg ─────────────────────────────────
 .p-confirmdialog {
-  // Applies to every confirm dialog app-wide (Submit for Approval on PO/PR, Delete/Deactivate
-  // confirms, etc.) — without this, PrimeNG auto-sizes the dialog to its message length, so a
-  // short confirm (PO's "Submit PO ... for approval?") renders visibly smaller than a longer one
-  // on another page even though they're the same kind of action. This keeps every confirm dialog
-  // at least as wide as that PO reference size, regardless of message length.
+  // Every confirm dialog at least as wide as the PO "Submit for approval" one, whatever its message length.
   min-width: 420px !important;
-  border-radius: 20px !important;
-  box-shadow: 0 24px 80px rgba(0, 0, 0, .18) !important;
-  border: none !important;
+  border-radius: 14px !important;
+  box-shadow: var(--sms-shadow-lg) !important;
+  border: 1px solid var(--sms-border) !important;
   overflow: hidden !important;
 
-  // ── Header: clean white bar, matches .sdlg-header ──────────────────────
   .p-dialog-header {
-    background: #fff !important;
-    padding: 1.5rem 1.75rem !important;
-    border-bottom: 1px solid #e8edf5 !important;
+    background: var(--sms-surface) !important;
+    padding: 1.25rem 1.5rem !important;
+    border-bottom: 1px solid var(--sms-border) !important;
 
     .p-dialog-title {
-      color: #0f172a !important;
-      font-size: 1.05rem !important;
+      color: var(--sms-text) !important;
+      font-size: 1.15rem !important;
       font-weight: 700 !important;
-      line-height: 1.2;
+      line-height: 1.25;
     }
 
-    // Close ✕ button
     .p-dialog-header-close,
     .p-dialog-header-icon {
-      color: #94a3b8 !important;
+      color: var(--sms-text-muted) !important;
       border-radius: 8px !important;
 
       &:hover {
-        background: #f1f5f9 !important;
-        color: #475569 !important;
+        background: var(--sms-bg) !important;
+        color: var(--sms-text) !important;
       }
     }
   }
 
-  // ── Content: icon chip + message, matches .sdlg-body ───────────────────
   .p-dialog-content {
-    background: #fff !important;
-    padding: 1.5rem 1.75rem 1.25rem !important;
+    background: var(--sms-surface) !important;
+    padding: 1.5rem 1.5rem 1.25rem !important;
     display: flex !important;
     flex-direction: column !important;
     align-items: center !important;
@@ -352,98 +331,78 @@
     gap: 0 !important;
   }
 
-  // Icon: rounded-square chip, same shape/gradient as .sdlg-header-icon
   .p-confirmdialog-icon {
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
-    width: 56px !important;
-    height: 56px !important;
-    border-radius: 16px !important;
-    background: linear-gradient(135deg, #6c63ff, #a78bfa) !important;
-    font-size: 1.4rem !important;
-    color: #fff !important;
-    margin: 0 auto 1.2rem !important;
+    width: 52px !important;
+    height: 52px !important;
+    border-radius: 12px !important;
+    background: var(--sms-primary-soft) !important;
+    font-size: 1.35rem !important;
+    color: var(--sms-primary-text) !important;
+    margin: 0 auto 1.1rem !important;
     flex-shrink: 0 !important;
-    box-shadow: 0 4px 14px rgba(108, 99, 255, .32) !important;
   }
 
-  // Message text
   .p-confirmdialog-message {
-    font-size: .9375rem !important;
-    color: #374151 !important;
-    line-height: 1.65 !important;
+    font-size: 1.05rem !important;
+    color: var(--sms-text) !important;
+    line-height: 1.6 !important;
     max-width: 380px;
 
-    strong { color: #1e293b; }
+    strong { color: var(--sms-text); }
   }
 
-  // ── Footer: matches .sdlg-footer ────────────────────────────────────────
   .p-dialog-footer {
-    background: #fff !important;
-    border-top: 1px solid #e8edf5 !important;
-    padding: 1rem 1.75rem !important;
+    background: var(--sms-surface) !important;
+    border-top: 1px solid var(--sms-border) !important;
+    padding: .9rem 1.5rem !important;
     display: flex !important;
     justify-content: flex-end !important;
-    gap: .65rem !important;
+    gap: .6rem !important;
 
     .p-button {
-      border-radius: 10px !important;
-      font-size: .875rem !important;
+      border-radius: 8px !important;
+      font-size: 1rem !important;
       font-weight: 600 !important;
-      padding: .55rem 1.4rem !important;
+      padding: .5rem 1.25rem !important;
       min-width: 84px;
-      transition: transform .15s ease, box-shadow .15s ease, background .15s ease !important;
 
-      // No / Cancel button — outlined neutral
+      // No / Cancel — outlined neutral
       &.p-button-text {
-        background: #fff !important;
-        color: #64748b !important;
-        border: 1.5px solid #e2e8f0 !important;
+        background: var(--sms-surface) !important;
+        color: var(--sms-text) !important;
+        border: 1px solid var(--sms-border) !important;
         box-shadow: none !important;
 
-        .p-button-label { color: #64748b !important; }
+        .p-button-label { color: var(--sms-text) !important; }
 
-        &:hover {
-          background: #f1f5f9 !important;
-          border-color: #cbd5e1 !important;
-          color: #475569 !important;
-          .p-button-label { color: #475569 !important; }
-        }
+        &:hover { background: var(--sms-bg) !important; }
       }
 
       // Danger confirm (delete / irreversible)
       &.p-button-danger {
-        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
+        background: #c62f25 !important;
         border: none !important;
-        color: #fff !important;
-        box-shadow: 0 4px 12px rgba(239, 68, 68, .28) !important;
+        color: #ffffff !important;
 
-        &:hover {
-          background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%) !important;
-          box-shadow: 0 6px 16px rgba(239, 68, 68, .38) !important;
-          transform: translateY(-1px);
-        }
+        &:hover { background: #a8261d !important; }
       }
 
-      // Default accept (purple gradient — submit / approve / confirm)
+      // Default accept — the primary blue
       &:not(.p-button-text):not(.p-button-outlined):not(.p-button-danger) {
-        background: linear-gradient(135deg, #6c63ff 0%, #a78bfa 100%) !important;
+        background: var(--sms-primary) !important;
         border: none !important;
-        color: #fff !important;
-        box-shadow: 0 4px 12px rgba(108, 99, 255, .28) !important;
+        color: var(--sms-on-primary) !important;
 
-        &:hover {
-          background: linear-gradient(135deg, #5b52e8 0%, #9168f5 100%) !important;
-          box-shadow: 0 6px 16px rgba(108, 99, 255, .38) !important;
-          transform: translateY(-1px);
-        }
+        &:hover { background: var(--sms-primary-hover) !important; }
       }
     }
   }
 }
 
-// ── Page-background warmth (overrides the cold grey-blue gradient) ─────────────
+// ── Page background — every page sits on the SMS Flow ground colour ─────────────
 .pr-list-page, .pr-detail-page, .pr-create-page,
 .po-list-page, .po-detail-page, .po-create-page,
 .grn-list-page, .grn-detail-page, .grn-create-page, .grn-edit-page,
@@ -462,5 +421,5 @@
 .inv-reports-page, .cities-list-page,
 .list-page, .detail-page, .create-page, .report-page, .grn-page,
 .form-page {
-  background: linear-gradient(135deg, #faf7f3 0%, #ede6db 100%) !important;
+  background: var(--sms-bg) !important;
 }

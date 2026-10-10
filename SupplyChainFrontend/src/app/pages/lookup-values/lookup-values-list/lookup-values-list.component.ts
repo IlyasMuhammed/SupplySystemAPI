@@ -1,5 +1,6 @@
 import { Component, OnInit, ViewChild, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FLOW } from '../../../shared/flow';
 import { RouterModule } from '@angular/router';
 import { Table, TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
@@ -17,7 +18,7 @@ import { LookupValuesService, LookupValue } from '../../../services/lookup-value
 @Component({
   selector: 'app-lookup-values-list',
   standalone: true,
-  imports: [CommonModule, RouterModule, TableModule, ButtonModule, ToolbarModule,
+  imports: [...FLOW, CommonModule, RouterModule, TableModule, ButtonModule, ToolbarModule,
     InputTextModule, InputIconModule, IconFieldModule, TagModule, RippleModule, ConfirmDialogModule, ToastModule],
   templateUrl: './lookup-values-list.component.html',
   styleUrls: ['./lookup-values-list.component.scss'],

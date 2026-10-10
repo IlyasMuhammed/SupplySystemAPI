@@ -1,5 +1,6 @@
 import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FLOW } from '../../../shared/flow';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { TooltipModule } from 'primeng/tooltip';
 import { Subscription } from 'rxjs';
@@ -14,7 +15,7 @@ const BASE = '/portal/pages/reports/sales-reports';
 @Component({
   selector: 'app-sales-reports',
   standalone: true,
-  imports: [CommonModule, RouterModule, TooltipModule, SalesReportPanelComponent],
+  imports: [CommonModule, RouterModule, TooltipModule, SalesReportPanelComponent, ...FLOW],
   templateUrl: './sales-reports.component.html',
   styleUrls: ['./sales-reports.component.scss']
 })

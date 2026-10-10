@@ -412,6 +412,30 @@ public class ProductionDeliveryHandoffTests
 
     // ── The sweep (D-20 recovery) ────────────────────────────────────────────
 
+    private sealed class OffGate(Guid off, string code) : IModuleGate
+    {
+        public Task<bool> IsEnabledAsync(Guid organizationId, string featureCode, CancellationToken ct = default) =>
+            Task.FromResult(!(organizationId == off && featureCode == code));
+    }
+
+    [Fact]
+    public async Task A37_D9_the_sweep_leaves_an_organization_without_manufacturing_pending()
+    {
+        var h = New(dbName: Guid.NewGuid().ToString());
+        Guid on = Guid.NewGuid(), off = Guid.NewGuid();
+        var old = DateTime.UtcNow.AddMinutes(-30);
+        var kept    = await SeedPo(h, org: on, pendingSince: old);
+        var skipped = await SeedPo(h, org: off, pendingSince: old.AddMinutes(-5));
+        h.Creator.Respond = r => FakeCreator.Created(r.AcceptedQuantity, "DLV-2026-00078");
+        h.Db.ChangeTracker.Clear();
+
+        var settled = await new ProductionDeliverySweepJob(h.Db, h.Handoff, gate: new OffGate(off, ModuleCodes.Manufacturing)).RunAsync();
+
+        settled.Should().Be(1);
+        h.Creator.Calls.Select(c => c.Request.ProductionOrderUuid).Should().Equal(kept.UUID);
+        (await Reload(h, skipped.UUID)).DeliveryCreationPendingSince.Should().NotBeNull("it resumes when the module is back");
+    }
+
     [Fact]
     public async Task The_sweep_settles_due_pos_per_organization_leaves_recent_ones_and_requeues_a_failure()
     {

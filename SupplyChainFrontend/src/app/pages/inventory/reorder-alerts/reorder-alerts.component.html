@@ -1,62 +1,50 @@
-<div class="reorder-alerts-page">
-  <p-toast></p-toast>
+<p-toast></p-toast>
 
-  <!-- ── Page Header ─────────────────────────────────────────────────────── -->
-  <div class="page-header">
-    <div class="header-left">
-      <div class="header-icon">
-        <i class="pi pi-exclamation-triangle"></i>
-      </div>
-      <div>
-        <h1 class="page-title">Reorder Alerts</h1>
-        <p class="page-subtitle">Products at or below their reorder point — action required</p>
-      </div>
-    </div>
+<sf-page [crumbs]="['Inventory', 'Reorder alerts']">
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
     <p-button
       label="Refresh"
       icon="pi pi-refresh"
-      severity="secondary"
-      [outlined]="true"
+      [text]="true"
       [loading]="isLoading"
       (onClick)="loadAlerts()">
     </p-button>
   </div>
 
+  <div class="sf-body reorder-alerts-page">
+  <div class="sf-lr-head">
+    <div>
+      <h1>Reorder alerts <span class="sf-count">{{ alerts.length }}</span></h1>
+      <div class="sf-sub">Products at or below their reorder point — action required</div>
+    </div>
+  </div>
+
   <!-- ── Stats Row (click to filter) ─────────────────────────────────────── -->
-  <div class="stats-grid">
+  <div class="sf-grid sf-tiles">
 
-    <button type="button" class="stat-card total" [class.active]="urgencyFilter === 'all'"
+    <button type="button" class="sf-tile sf-click stat-card" [class.on]="urgencyFilter === 'all'"
             (click)="setUrgencyFilter('all')">
-      <div class="stat-icon"><i class="pi pi-list"></i></div>
-      <div class="stat-content">
-        <h3>{{ alerts.length }}</h3>
-        <p>Total Alerts</p>
-      </div>
+      <span class="l">Total Alerts</span>
+      <span class="v">{{ alerts.length }}</span>
     </button>
 
-    <button type="button" class="stat-card critical" [class.active]="urgencyFilter === 'critical'"
+    <button type="button" class="sf-tile sf-click stat-card" [class.on]="urgencyFilter === 'critical'"
             [disabled]="criticalCount === 0" (click)="setUrgencyFilter('critical')">
-      <div class="stat-icon"><i class="pi pi-times-circle"></i></div>
-      <div class="stat-content">
-        <h3>{{ criticalCount }}</h3>
-        <p>Out of Stock</p>
-      </div>
+      <span class="l">Out of Stock</span>
+      <span class="v er">{{ criticalCount }}</span>
     </button>
 
-    <button type="button" class="stat-card low" [class.active]="urgencyFilter === 'low'"
+    <button type="button" class="sf-tile sf-click stat-card" [class.on]="urgencyFilter === 'low'"
             [disabled]="lowCount === 0" (click)="setUrgencyFilter('low')">
-      <div class="stat-icon"><i class="pi pi-exclamation-circle"></i></div>
-      <div class="stat-content">
-        <h3>{{ lowCount }}</h3>
-        <p>Low Stock</p>
-      </div>
+      <span class="l">Low Stock</span>
+      <span class="v wn">{{ lowCount }}</span>
     </button>
 
   </div>
 
   <!-- ── Toolbar: Search ─────────────────────────────────────────────────── -->
-  <div class="toolbar-row">
-    <div class="search-wrapper">
+  <div class="sf-filters">
+    <div class="search-wrapper sf-search">
       <i class="pi pi-search search-icon"></i>
       <input
         pInputText
@@ -74,26 +62,26 @@
         <i class="pi pi-times"></i>
       </button>
     </div>
-    <span class="result-count" *ngIf="!isLoading">
+    <span class="result-count sf-mu sf-sm" *ngIf="!isLoading">
       Showing <strong>{{ filteredAlerts.length }}</strong> of {{ alerts.length }}
     </span>
   </div>
 
   <!-- ── Loading State ───────────────────────────────────────────────────── -->
-  <div *ngIf="isLoading" class="loading-state">
+  <div *ngIf="isLoading" class="sf-card sf-empty">
     <i class="pi pi-spin pi-spinner"></i>
     <p>Loading reorder alerts…</p>
   </div>
 
   <!-- ── Empty / All Clear State ────────────────────────────────────────── -->
-  <div *ngIf="!isLoading && alerts.length === 0" class="all-clear-state">
+  <div *ngIf="!isLoading && alerts.length === 0" class="sf-card all-clear-state">
     <div class="state-icon-circle success"><i class="pi pi-check-circle"></i></div>
     <h3>All products are adequately stocked</h3>
     <p>No products are at or below their reorder point. Great job keeping inventory healthy.</p>
   </div>
 
   <!-- ── No Search Results ───────────────────────────────────────────────── -->
-  <div *ngIf="!isLoading && alerts.length > 0 && filteredAlerts.length === 0" class="no-results-state">
+  <div *ngIf="!isLoading && alerts.length > 0 && filteredAlerts.length === 0" class="sf-card no-results-state">
     <div class="state-icon-circle neutral"><i class="pi pi-search"></i></div>
     <h3>No matching alerts</h3>
     <p>Nothing matches "<strong>{{ searchText }}</strong>"{{ urgencyFilter !== 'all' ? ' in this filter' : '' }}.</p>
@@ -107,7 +95,7 @@
   <div *ngIf="!isLoading && filteredAlerts.length > 0" class="alerts-grid">
 
     <div *ngFor="let alert of filteredAlerts"
-         class="alert-card"
+         class="sf-card p0 alert-card"
          [class.urgency-critical]="getUrgencyLevel(alert) === 'critical'"
          [class.urgency-low]="getUrgencyLevel(alert) === 'low'"
          [class.urgency-normal]="getUrgencyLevel(alert) === 'normal'">
@@ -207,7 +195,8 @@
 
   </div>
 
-</div>
+  </div>
+</sf-page>
 
 <!-- ══════════════════════════════════════════════════════════════════════════ -->
 <!-- CREATE ADJUSTMENT DIALOG                                                   -->

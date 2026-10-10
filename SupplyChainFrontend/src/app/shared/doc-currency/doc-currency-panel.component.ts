@@ -28,11 +28,11 @@ import { AmountView, DocCurrencyInfo, hasBaseAmounts, rateText } from './doc-cur
   styles: [`
     .doc-currency { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1.5rem; padding: .5rem 0; }
     .dc-item { display: flex; flex-direction: column; min-width: 8rem; }
-    .dc-label { font-size: .75rem; color: var(--p-text-muted-color, #64748b); text-transform: uppercase; letter-spacing: .02em; }
+    .dc-label { font-size: .75rem; color: var(--sms-text-muted); text-transform: uppercase; letter-spacing: .02em; }
     .dc-value { font-weight: 500; }
-    .dc-toggle { display: inline-flex; margin-left: auto; border: 1px solid var(--p-content-border-color, #cbd5e1); border-radius: 6px; overflow: hidden; }
+    .dc-toggle { display: inline-flex; margin-left: auto; border: 1px solid var(--sms-border); border-radius: 6px; overflow: hidden; }
     .dc-toggle button { border: 0; background: transparent; padding: .35rem .75rem; cursor: pointer; color: inherit; font: inherit; }
-    .dc-toggle button.active { background: var(--p-primary-color, #3b82f6); color: var(--p-primary-contrast-color, #fff); }
+    .dc-toggle button.active { background: var(--sms-primary); color: var(--sms-on-primary); }
   `]
 })
 export class DocCurrencyPanelComponent {

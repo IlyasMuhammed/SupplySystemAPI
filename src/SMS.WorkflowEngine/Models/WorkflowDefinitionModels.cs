@@ -131,6 +131,10 @@ public class WorkflowDefinitionListItemModel
     public decimal? ConditionValueMax { get; set; }
     public int StepCount { get; set; }
     public DateTime CreatedDate { get; set; }
+    // A37 §8 / D-14 — derived from InterfaceCode; a definition of a switched-off module is dormant (its documents
+    // cannot be created).
+    public string? ModuleCode { get; set; }
+    public bool ModuleEnabled { get; set; } = true;
 }
 
 public class WorkflowDefinitionDetailModel

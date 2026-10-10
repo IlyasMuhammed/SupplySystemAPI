@@ -16,6 +16,7 @@ import { DividerModule } from 'primeng/divider';
 import { TooltipModule } from 'primeng/tooltip';
 import { TableModule } from 'primeng/table';
 import { AutoCompleteModule } from 'primeng/autocomplete';
+import { AutoCompleteOpenOnFocusDirective } from '../../../../shared/directives/autocomplete-open-on-focus.directive';
 import { SidebarModule } from 'primeng/sidebar';
 import { MessageService, ConfirmationService } from 'primeng/api';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
@@ -32,6 +33,7 @@ import { MaterialService, PrLineDisbursement } from '../../../../services/materi
 import { TimelinePanelComponent } from '../../../../shared/timeline-panel/timeline-panel.component';
 import { AttachmentListComponent } from '../../../../shared/attachment-list/attachment-list.component';
 import { AttachmentService } from '../../../../services/attachment.service';
+import { FLOW, FlowSection, FlowStage, flowStagesFrom } from '../../../../shared/flow';
 
 @Component({
   selector: 'app-pr-detail',
@@ -41,7 +43,8 @@ import { AttachmentService } from '../../../../services/attachment.service';
     ButtonModule, CardModule, TagModule, ToastModule, DialogModule,
     InputTextModule, TextareaModule, InputNumberModule, DropdownModule,
     CalendarModule, DividerModule, TooltipModule, TableModule, ConfirmDialogModule,
-    AutoCompleteModule, SidebarModule, TimelinePanelComponent, AttachmentListComponent
+    AutoCompleteModule, AutoCompleteOpenOnFocusDirective, SidebarModule, TimelinePanelComponent, AttachmentListComponent,
+    ...FLOW
   ],
   templateUrl: './pr-detail.component.html',
   styleUrls: ['./pr-detail.component.scss'],
@@ -331,4 +334,35 @@ export class PrDetailComponent implements OnInit {
   get totalEstimated(): number {
     return (this.pr?.lines ?? []).reduce((s, l) => s + l.lineTotal, 0);
   }
+
+  // ── SMS Flow header ───────────────────────────────────────────────────────
+
+  get stages(): FlowStage[] {
+    const s = this.pr?.status;
+    if (!s) return [];
+    if (s === 'REJECTED' || s === 'CANCELLED') {
+      return flowStagesFrom(['Draft', 'Approval', s === 'REJECTED' ? 'Rejected' : 'Cancelled'], 2, { failed: true });
+    }
+    const index: Record<string, number> = { DRAFT: 0, SUBMITTED: 1, APPROVED: 3, PARTIALLY_CONVERTED: 3, FULLY_CONVERTED: 4 };
+    const current = index[s] ?? 0;
+    return flowStagesFrom(['Draft', 'Approval', 'Approved', 'Converted to PO'], current, {
+      subs: [null, null, null, s === 'PARTIALLY_CONVERTED' ? 'partially' : null]
+    });
+  }
+
+  get sections(): FlowSection[] {
+    const p = this.pr;
+    return p && (p.justification || p.notes || p.rejectionReason) ? this.notedSections : this.plainSections;
+  }
+  private readonly plainSections: FlowSection[] = [
+    { id: 'sec-lines', label: 'Lines' },
+    { id: 'sec-general', label: 'General' },
+    { id: 'sec-files', label: 'Files' }
+  ];
+  private readonly notedSections: FlowSection[] = [
+    { id: 'sec-lines', label: 'Lines' },
+    { id: 'sec-general', label: 'General' },
+    { id: 'sec-notes', label: 'Notes' },
+    { id: 'sec-files', label: 'Files' }
+  ];
 }

@@ -7,9 +7,9 @@
   padding: 0.75rem 1rem;
   margin-bottom: 1rem;
   border-radius: 6px;
-  background: #fff7ed;
-  border: 1px solid #fed7aa;
-  color: #9a3412;
+  background: var(--sms-warn-soft);
+  border: 1px solid color-mix(in srgb, var(--sms-warn) 35%, transparent);
+  color: var(--sms-warn);
   font-size: 0.875rem;
   font-weight: 600;
 }
@@ -28,10 +28,10 @@
 .bom-list-panel {
   flex: 0 0 35%;
   min-width: 260px;
-  border: 1px solid var(--surface-200, #e5e7eb);
+  border: 1px solid var(--sms-border);
   border-radius: 8px;
   overflow: hidden;
-  background: #fff;
+  background: var(--sms-surface);
 }
 
 .bom-list-header {
@@ -39,15 +39,15 @@
   align-items: center;
   justify-content: space-between;
   padding: 0.75rem 1rem;
-  background: linear-gradient(90deg, #f8f7ff 0%, #f5f7fa 100%);
-  border-bottom: 1px solid #ede9fe;
+  background: var(--sms-surface-2);
+  border-bottom: 1px solid var(--sms-border);
   font-weight: 600;
   font-size: 0.85rem;
 }
 
 .bom-list-empty {
   padding: 1.5rem 1rem;
-  color: var(--text-color-secondary, #6b7280);
+  color: var(--text-color-secondary);
   font-size: 0.85rem;
   text-align: center;
 }
@@ -64,19 +64,19 @@
   border-left: 3px solid transparent;
   margin-bottom: 0.2rem;
 
-  &:hover { background: var(--surface-50, #f9fafb); }
+  &:hover { background: var(--sms-row-hover); }
 
   &.active {
-    background: var(--surface-100, #f3f4f6);
-    border-left-color: #6c63ff;
+    background: var(--sms-primary-soft);
+    border-left-color: var(--sms-primary);
   }
 
-  &.is-active-bom { border-left-color: #22c55e; }
+  &.is-active-bom { border-left-color: var(--sms-ok); }
 
   &.new-draft {
     cursor: default;
-    background: var(--surface-50, #f9fafb);
-    border-left-color: #94a3b8;
+    background: var(--sms-surface-2);
+    border-left-color: var(--sms-text-faint);
   }
 }
 
@@ -87,7 +87,7 @@
 }
 
 .bom-number { font-weight: 600; font-size: 0.85rem; }
-.bom-version { font-size: 0.72rem; color: var(--text-color-secondary, #6b7280); }
+.bom-version { font-size: 0.72rem; color: var(--text-color-secondary); }
 
 .bom-compare-link {
   display: flex;
@@ -96,39 +96,39 @@
   width: 100%;
   padding: 0.6rem 1rem;
   border: none;
-  border-top: 1px solid var(--surface-200, #e5e7eb);
+  border-top: 1px solid var(--sms-border);
   background: transparent;
-  color: #6c63ff;
+  color: var(--sms-primary-text);
   font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
 
-  &:hover { background: var(--surface-50, #f9fafb); }
+  &:hover { background: var(--sms-row-hover); }
 }
 
 // ── Panel 2 — editor ──────────────────────────────────────────────────────────
 .bom-editor-panel {
   flex: 1 1 65%;
   min-width: 0;
-  border: 1px solid var(--surface-200, #e5e7eb);
+  border: 1px solid var(--sms-border);
   border-radius: 8px;
   padding: 1.25rem;
-  background: #fff;
+  background: var(--sms-surface);
 }
 
 .bom-empty-state {
   text-align: center;
   padding: 3rem 1.5rem;
-  color: var(--text-color-secondary, #6b7280);
+  color: var(--text-color-secondary);
 
-  i { font-size: 2.5rem; color: #cbd5e1; margin-bottom: 1rem; display: block; }
+  i { font-size: 2.5rem; color: var(--sms-text-faint); margin-bottom: 1rem; display: block; }
   p { max-width: 360px; margin: 0 auto 1.25rem auto; }
 }
 
 .bom-editor-loading {
   padding: 2rem;
   text-align: center;
-  color: var(--text-color-secondary, #6b7280);
+  color: var(--text-color-secondary);
 }
 
 .bom-editor-head {
@@ -143,13 +143,13 @@
   font-weight: 700;
 }
 
-.bom-number-big { color: #1e293b; }
-.bom-version-big { color: var(--text-color-secondary, #6b7280); font-weight: 500; font-size: 0.9rem; }
+.bom-number-big { color: var(--sms-text); }
+.bom-version-big { color: var(--text-color-secondary); font-weight: 500; font-size: 0.9rem; }
 
 .bom-warn {
   margin-top: 0.4rem;
   font-size: 0.8rem;
-  color: #b45309;
+  color: var(--sms-warn);
 }
 
 .bom-lines-head {
@@ -168,13 +168,13 @@
 // row instead of competing for space with the numeric fields in one cramped grid track. Matches the
 // same card-per-line pattern already used for PO lines (po-edit.component.scss's own .line-card).
 .bom-line-card {
-  background: #fff;
-  border: 1px solid var(--surface-200, #e5e7eb);
+  background: var(--sms-surface);
+  border: 1px solid var(--sms-border);
   border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  box-shadow: var(--sms-shadow);
   transition: box-shadow 0.18s;
 
-  &:hover { box-shadow: 0 4px 16px rgba(108, 99, 255, 0.1); }
+  &:hover { box-shadow: var(--sms-shadow-lg); }
 }
 
 .bom-line-card-header {
@@ -182,8 +182,8 @@
   align-items: center;
   gap: 0.6rem;
   padding: 0.55rem 0.9rem;
-  background: linear-gradient(90deg, #f5f3ff 0%, #f9fafb 100%);
-  border-bottom: 1px solid #ede9fe;
+  background: var(--sms-surface-2);
+  border-bottom: 1px solid var(--sms-border);
   border-radius: 10px 10px 0 0;
 }
 
@@ -192,16 +192,16 @@
   height: 22px;
   border-radius: 6px;
   flex-shrink: 0;
-  background: linear-gradient(135deg, #6c63ff, #a78bfa);
+  background: var(--sms-primary);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 0.68rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--sms-on-primary);
 }
 
-.bom-line-title { flex: 1; font-size: 0.8rem; font-weight: 600; color: #374151; }
+.bom-line-title { flex: 1; font-size: 0.8rem; font-weight: 600; color: var(--sms-text); }
 
 .bom-line-card-body {
   padding: 0.9rem;
@@ -233,8 +233,10 @@
   gap: 0.3rem;
   min-width: 0;
 
-  label { font-size: 0.68rem; color: var(--text-color-secondary, #6b7280); font-weight: 600; text-transform: uppercase; }
+  label { font-size: 0.68rem; color: var(--text-color-secondary); font-weight: 600; text-transform: uppercase; }
 }
+
+.bom-line-supplier { grid-column: span 3; }
 
 .bom-line-critical {
   justify-content: center;
@@ -244,15 +246,15 @@
 .bom-line-remove {
   border: none;
   background: transparent;
-  color: #ef4444;
+  color: var(--sms-danger);
   cursor: pointer;
   padding: 0.3rem;
   border-radius: 6px;
   flex-shrink: 0;
   display: flex;
 
-  &:hover:not(:disabled) { background: #fef2f2; }
-  &:disabled { color: #cbd5e1; cursor: not-allowed; }
+  &:hover:not(:disabled) { background: var(--sms-danger-soft); }
+  &:disabled { color: var(--sms-text-faint); cursor: not-allowed; }
 }
 
 .bom-editor-actions {
@@ -261,7 +263,7 @@
   gap: 0.5rem;
   margin-top: 1.5rem;
   padding-top: 1rem;
-  border-top: 1px solid var(--surface-200, #e5e7eb);
+  border-top: 1px solid var(--sms-border);
 }
 
 // ── Shared field-grid classes (same shape as product-detail's own edit form) ──
@@ -269,8 +271,8 @@
 .ef-grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .ef-span-2 { grid-column: span 2; }
 .ef-field { display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; }
-.ef-label { font-size: 0.78rem; font-weight: 600; color: #475569; }
-.req { color: #ef4444; }
+.ef-label { font-size: 0.78rem; font-weight: 600; color: var(--sms-text-muted); }
+.req { color: var(--sms-danger); }
 
 @media (max-width: 700px) {
   .ef-grid-2 { grid-template-columns: 1fr; }
@@ -301,9 +303,9 @@
   letter-spacing: 0.05em;
   margin: 1rem 0 0.5rem 0;
 
-  &.compare-added { color: #16a34a; }
-  &.compare-removed { color: #dc2626; }
-  &.compare-changed { color: #d97706; }
+  &.compare-added { color: var(--sms-ok); }
+  &.compare-removed { color: var(--sms-danger); }
+  &.compare-changed { color: var(--sms-warn); }
 }
 
 .compare-line-row {
@@ -312,19 +314,24 @@
   font-size: 0.85rem;
   margin-bottom: 0.25rem;
 
-  &.compare-added { background: #f0fdf4; }
-  &.compare-removed { background: #fef2f2; }
-  &.compare-changed { background: #fffbeb; }
+  &.compare-added { background: var(--sms-ok-soft); }
+  &.compare-removed { background: var(--sms-danger-soft); }
+  &.compare-changed { background: var(--sms-warn-soft); }
 }
 
 .compare-detail {
   display: block;
   font-size: 0.78rem;
-  color: var(--text-color-secondary, #6b7280);
+  color: var(--text-color-secondary);
 }
 
 .compare-empty {
   text-align: center;
-  color: var(--text-color-secondary, #6b7280);
+  color: var(--text-color-secondary);
   padding: 1.5rem;
 }
+
+// A37 — BOM usage tag in the list, read-only note when BOM management is off.
+.bom-list-tags { display: inline-flex; align-items: center; gap: .3rem; }
+:host ::ng-deep .bom-usage-tag { font-size: .68rem; padding: .05rem .4rem; }
+.bom-readonly-note { display: flex; align-items: center; gap: .4rem; margin-bottom: .75rem; }

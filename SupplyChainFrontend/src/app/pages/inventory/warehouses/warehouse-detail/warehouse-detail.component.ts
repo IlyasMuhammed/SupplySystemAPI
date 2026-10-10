@@ -16,6 +16,7 @@ import { CheckboxModule } from 'primeng/checkbox';
 import { DialogModule } from 'primeng/dialog';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { MessageService, ConfirmationService } from 'primeng/api';
+import { FLOW } from '../../../../shared/flow';
 import {
   InventoryService,
   WarehouseModel,
@@ -64,7 +65,8 @@ interface NodeForm {
     CommonModule, RouterModule, FormsModule,
     ButtonModule, CardModule, TagModule, ToastModule,
     TableModule, InputTextModule, TooltipModule, DividerModule,
-    DropdownModule, CheckboxModule, DialogModule, ConfirmDialogModule
+    DropdownModule, CheckboxModule, DialogModule, ConfirmDialogModule,
+    ...FLOW
   ],
   templateUrl: './warehouse-detail.component.html',
   styleUrls: ['./warehouse-detail.component.scss'],

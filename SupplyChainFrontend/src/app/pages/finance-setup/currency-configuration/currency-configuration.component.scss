@@ -1,4 +1,8 @@
-.base-row { max-width: 32rem; }
-.base-input { display: flex; align-items: center; gap: .5rem; }
+// Settings rows (SMS Flow X04): label + hint on the left, the control on the right.
+.setting-row {
+  display: flex; justify-content: space-between; align-items: center; gap: 20px; flex-wrap: wrap;
+  padding: 12px 0; border-bottom: 1px solid var(--sms-border-soft);
+  &:last-child { border-bottom: 0; }
+}
+.base-input { display: flex; align-items: center; gap: .5rem; min-width: 16rem; }
 .select-wrap { flex: 1; min-width: 0; display: block; }
-.actions { display: flex; justify-content: flex-end; align-items: center; gap: 1rem; flex-wrap: wrap; }

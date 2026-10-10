@@ -34,11 +34,13 @@ internal sealed class QuotationExpiryJob
 
     private readonly DemandDbContext _db;
     private readonly ILogger<QuotationExpiryJob> _log;
+    private readonly IModuleGate? _gate;
 
-    public QuotationExpiryJob(DemandDbContext db, ILogger<QuotationExpiryJob> log)
+    public QuotationExpiryJob(DemandDbContext db, ILogger<QuotationExpiryJob> log, IModuleGate? gate = null)
     {
-        _db  = db;
-        _log = log;
+        _db   = db;
+        _log  = log;
+        _gate = gate;
     }
 
     [AutomaticRetry(Attempts = 3)]
@@ -55,8 +57,11 @@ internal sealed class QuotationExpiryJob
             .Distinct()
             .ToListAsync();
 
+        // A37 D-9 — not for organizations without MODULE_DEMAND (grace counts as off).
+        var skipped = await _gate.SkippedAmongAsync(organizations, ModuleCodes.Demand, _log, nameof(QuotationExpiryJob));
+
         var expired = 0;
-        foreach (var org in organizations)
+        foreach (var org in organizations.Where(o => !skipped.Contains(o)))
         {
             HangfireTenantScope.OrganizationId = org;
             try

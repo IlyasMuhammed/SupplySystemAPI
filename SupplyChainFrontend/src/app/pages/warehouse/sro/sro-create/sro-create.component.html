@@ -1,28 +1,25 @@
-<div class="sro-create-page">
-  <p-toast></p-toast>
+<p-toast></p-toast>
 
-  <!-- Header -->
-  <div class="page-header">
-    <div class="header-left">
-      <div class="header-icon icon-rose">
-        <i class="pi pi-reply"></i>
-      </div>
-      <div>
-        <div class="title-row">
-          <p-button icon="pi pi-arrow-left" [text]="true" severity="secondary" size="small"
-                    routerLink="/portal/pages/warehouse/sro"></p-button>
-          <h1 class="page-title">New Supplier Return Order</h1>
-        </div>
-        <p class="page-subtitle">Select a GRN or PO to auto-populate return lines, or add them manually</p>
-      </div>
-    </div>
+<sf-page [crumbs]="['Warehouse', 'Supplier returns', 'New return order']">
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <p-button label="Back to supplier returns" icon="pi pi-arrow-left" [text]="true"
+              routerLink="/portal/pages/warehouse/sro"></p-button>
   </div>
 
-  <form [formGroup]="form" (ngSubmit)="submit()">
+  <!-- Header -->
+  <header class="sf-hdr sf-compact">
+    <div>
+      <h1>New supplier return order</h1>
+      <div class="sf-meta">Select a GRN or PO to auto-populate return lines, or add them manually</div>
+    </div>
+  </header>
+
+  <form [formGroup]="form" (ngSubmit)="submit()" class="form-col">
+    <div class="sf-body">
 
     <!-- Return Details -->
-    <div class="form-card">
-      <div class="section-title">Return Details</div>
+    <section class="sf-card">
+      <div class="sf-ch"><h2>Return details</h2></div>
       <div class="form-grid">
 
         <div class="form-field">
@@ -94,13 +91,13 @@
         </div>
 
       </div>
-    </div>
+    </section>
 
     <!-- Return Lines -->
-    <div class="form-card">
-      <div class="section-header">
-        <div class="section-title">Return Lines</div>
-        <p-button label="Add Line" icon="pi pi-plus" [outlined]="true" size="small"
+    <section class="sf-card">
+      <div class="sf-ch">
+        <h2>Return lines <span class="sf-mu sf-sm">{{ linesArray.length }}</span></h2>
+        <p-button label="Add Line" icon="pi pi-plus" [text]="true" size="small"
                   type="button" (onClick)="addLine()"></p-button>
       </div>
 
@@ -213,15 +210,19 @@
 
         </div>
       </div>
+    </section>
     </div>
 
     <!-- Form actions -->
-    <div class="form-actions">
-      <p-button label="Cancel" [outlined]="true" severity="secondary" type="button"
-                routerLink="/portal/pages/warehouse/sro"></p-button>
-      <p-button label="Create Return Order" icon="pi pi-save"
-                [loading]="isSubmitting" [disabled]="form.invalid" type="submit"></p-button>
+    <div class="sf-fbar">
+      <span class="sf-mu sf-sm">Stock is deducted from the source warehouse when the return is dispatched.</span>
+      <span class="sf-end">
+        <p-button label="Cancel" [text]="true" severity="secondary" type="button"
+                  routerLink="/portal/pages/warehouse/sro"></p-button>
+        <p-button label="Create Return Order" icon="pi pi-save"
+                  [loading]="isSubmitting" [disabled]="form.invalid" type="submit"></p-button>
+      </span>
     </div>
 
   </form>
-</div>
+</sf-page>

@@ -259,7 +259,9 @@ public sealed class FulfillmentRouteGateE2ETests : IClassFixture<SapWebApplicati
         // …and with Logistics off there is no gate at all (D-11).
         await _k.Ok(_k.Put($"/api/system/organizations/{org2}/features",
             new { features = new[] { new { featureCode = "MODULE_LOGISTICS", isEnabled = false } } }), "switch Logistics off for org 2");
-        (await k2.Get("/api/fulfillment-routes")).ShouldBe(HttpStatusCode.Forbidden, "the routes API is a Logistics feature");
+        // A37 D-6: the organization once had Logistics, so its routes stay readable; writes are refused.
+        (await k2.Get("/api/fulfillment-routes")).ShouldBe(HttpStatusCode.OK, "A37 D-6: read-only once unlicensed");
+        (await k2.TryCreateRouteAsync("NOLOGX", "No-Log route", ["PICK", "GOODS_ISSUE"])).ShouldBe(HttpStatusCode.Forbidden, "the routes API is a Logistics feature");
         var off = await k2.GetSaleOrderAsync(so);
         off.B("routesEnabled").Should().BeFalse();
         off.A("confirmBlockers").Should().BeEmpty();

@@ -84,6 +84,8 @@ internal sealed class LookupValueMap : IEntityTypeConfiguration<LookupValue>
         b.Property(x => x.SortOrder).HasDefaultValue(0);
         b.Property(x => x.IsGlobal).HasDefaultValue(true);
         b.HasIndex(x => x.OrganizationId);
+        // A37 D-16 — the sync delta reads "this type's rows changed after X".
+        b.HasIndex(x => new { x.TypeId, x.ModifiedAt });
 
         b.HasOne(x => x.Type)
          .WithMany(x => x.Values)

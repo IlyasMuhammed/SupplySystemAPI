@@ -31,6 +31,10 @@ internal sealed class BillOfMaterialMap : IEntityTypeConfiguration<BillOfMateria
         b.HasIndex(x => new { x.OrganizationId, x.ProductUuid, x.ProductVariantUuid, x.Version }).IsUnique();
         // §27.3 IX_BOM_Product_Active — the "which recipe is live for this product" lookup.
         b.HasIndex(x => new { x.OrganizationId, x.ProductUuid, x.Status });
+        // A37 D-11 — no HasDefaultValue (the CLR default would be dropped from the INSERT); the migration's DEFAULT
+        // constraint fills the BOMs that predate the column. D-16 — sync delta index.
+        b.Property(x => x.BomUsage).HasMaxLength(30).IsRequired();
+        b.HasIndex(x => new { x.OrganizationId, x.ModifiedAt });
 
         b.HasMany(x => x.Lines)
          .WithOne(x => x.Bom)
@@ -52,6 +56,9 @@ internal sealed class BillOfMaterialLineMap : IEntityTypeConfiguration<BillOfMat
         b.Property(x => x.ScrapPercentage).HasColumnType("decimal(5,2)");
         b.Property(x => x.Uom).HasMaxLength(20).IsRequired();
         b.Property(x => x.Notes).HasMaxLength(500);
+        // A36 D-4 — no HasDefaultValue (a CLR default would be dropped from the INSERT); the migration's DEFAULT
+        // constraint only fills the lines that predate the column.
+        b.Property(x => x.SourceType).HasMaxLength(20).IsRequired();
         b.Property(x => x.OrganizationId).IsRequired();
         b.HasIndex(x => x.OrganizationId);
         // The circular-reference walk asks "which live BOMs consume this product".

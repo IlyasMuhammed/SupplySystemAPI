@@ -26,8 +26,7 @@ public class PartnerCurrencyDefaultsMigrationTests
         var assembly = db.GetService<IMigrationsAssembly>();
         var all = assembly.Migrations.OrderBy(m => m.Key, StringComparer.Ordinal)
             .Select(m => assembly.CreateMigration(m.Value, "Microsoft.EntityFrameworkCore.SqlServer")).ToList();
-        all.Last().GetType().Name.Should().Be(MigrationName);
-        return all.Last();
+        return all.Single(m => m.GetType().Name == MigrationName);
     }
 
     [Fact]

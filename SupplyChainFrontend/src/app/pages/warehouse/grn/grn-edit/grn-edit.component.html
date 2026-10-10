@@ -1,44 +1,48 @@
-<div class="grn-edit-page">
-  <p-toast></p-toast>
+<p-toast></p-toast>
 
-  <!-- ── Header ─────────────────────────────────────────────────────────────── -->
-  <div class="page-header">
-    <p-button icon="pi pi-arrow-left" [text]="true" severity="secondary"
+<sf-page [crumbs]="['Warehouse', 'Goods receipts', grn ? grn.grnNumber : null, 'Edit']">
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <p-button label="Back to GRN" icon="pi pi-arrow-left" [text]="true"
               [routerLink]="['/portal/pages/warehouse/grn', uuid]"></p-button>
-    <div>
-      <h1 class="page-title"><i class="pi pi-pencil"></i> Edit GRN</h1>
-      <p class="page-subtitle">
-        <span *ngIf="grn">{{ grn.grnNumber }} &bull; {{ grn.supplierName }}</span>
-        <span *ngIf="!grn && !isLoading">Update this DRAFT goods receipt note</span>
-      </p>
-    </div>
   </div>
 
+  <!-- ── Header ─────────────────────────────────────────────────────────────── -->
+  <header class="sf-hdr sf-compact">
+    <div>
+      <h1>Edit GRN <span class="sf-mono" *ngIf="grn">{{ grn.grnNumber }}</span></h1>
+      <div class="sf-meta">
+        <span *ngIf="grn">{{ grn.supplierName }} &bull; PO {{ grn.poNumber }}</span>
+        <span *ngIf="!grn && !isLoading">Update this DRAFT goods receipt note</span>
+      </div>
+    </div>
+  </header>
+
   <!-- ── Loading ────────────────────────────────────────────────────────────── -->
-  <div *ngIf="isLoading" class="loading-card">
-    <i class="pi pi-spin pi-spinner" style="font-size:2rem;color:#e67e22"></i>
-    <p>Loading GRN…</p>
+  <div *ngIf="isLoading" class="sf-body">
+    <div class="sf-empty"><i class="pi pi-spin pi-spinner"></i> Loading GRN…</div>
   </div>
 
   <!-- ── Form ───────────────────────────────────────────────────────────────── -->
-  <form *ngIf="!isLoading && grn" [formGroup]="form" (ngSubmit)="onSubmit()">
+  <form *ngIf="!isLoading && grn" [formGroup]="form" (ngSubmit)="onSubmit()" class="form-col">
+    <div class="sf-body">
 
     <!-- Info banner -->
-    <div class="info-banner">
-      <i class="pi pi-info-circle"></i>
-      The purchase order reference (<strong>{{ grn.poNumber }}</strong>) and supplier cannot be changed.
-      Only delivery details can be updated on a DRAFT GRN.
+    <div class="sf-card quiet info-banner">
+      <span>
+        <i class="pi pi-info-circle"></i>
+        The purchase order reference (<strong>{{ grn.poNumber }}</strong>) and supplier cannot be changed.
+        Only delivery details can be updated on a DRAFT GRN.
+      </span>
     </div>
 
     <!-- ── Delivery Details ──────────────────────────────────────────────────── -->
-    <div class="form-card">
-      <h3 class="section-title"><i class="pi pi-truck"></i> Delivery Details</h3>
-      <hr class="section-divider" />
+    <section class="sf-card">
+      <div class="sf-ch"><h2>Delivery details</h2></div>
 
-      <div class="form-grid">
+      <div class="sf-fields">
 
-        <div class="field">
-          <label>Receiving Warehouse <span class="required">*</span></label>
+        <div class="sf-fld">
+          <label class="sf-req">Receiving warehouse</label>
           <p-dropdown formControlName="warehouseUuid"
                       [options]="warehouseOptions"
                       placeholder="Select warehouse"
@@ -54,8 +58,8 @@
           </small>
         </div>
 
-        <div class="field">
-          <label>Received At <span class="required">*</span></label>
+        <div class="sf-fld">
+          <label class="sf-req">Received at</label>
           <p-calendar formControlName="receivedAt" [showIcon]="true"
                       dateFormat="dd M yy" [showTime]="true" hourFormat="24"
                       styleClass="full-width"
@@ -63,46 +67,47 @@
           <small class="error" *ngIf="isInvalid('receivedAt')">Received date and time is required.</small>
         </div>
 
-        <div class="field">
-          <label>Delivery Note No.</label>
+        <div class="sf-fld">
+          <label>Delivery note no.</label>
           <input pInputText formControlName="deliveryNoteNo"
                  placeholder="e.g. DN-2025-001" class="full-width" maxlength="50" />
         </div>
 
-        <div class="field">
-          <label>Invoice No.</label>
+        <div class="sf-fld">
+          <label>Invoice no.</label>
           <input pInputText formControlName="invoiceNo"
                  placeholder="Supplier invoice number" class="full-width" maxlength="50" />
         </div>
 
-        <div class="field">
-          <label>Vehicle No.</label>
+        <div class="sf-fld">
+          <label>Vehicle no.</label>
           <input pInputText formControlName="vehicleNo"
                  placeholder="e.g. ABC-1234" class="full-width" maxlength="30" />
         </div>
 
-        <div class="field">
-          <label>Driver Name</label>
+        <div class="sf-fld">
+          <label>Driver name</label>
           <input pInputText formControlName="driverName"
                  placeholder="Driver's full name" class="full-width" maxlength="100" />
         </div>
 
       </div>
 
-      <div class="field mt-1">
+      <div class="sf-fld">
         <label>Notes</label>
         <textarea pTextarea formControlName="notes" rows="3" maxlength="300"
                   placeholder="Any delivery notes or observations…" class="full-width"></textarea>
       </div>
-    </div>
+    </section>
 
     <!-- ── Receipt Lines ─────────────────────────────────────────────────────── -->
-    <div class="form-card" *ngIf="grn?.lines?.length">
-      <h3 class="section-title"><i class="pi pi-list"></i> Receipt Lines</h3>
-      <p class="lines-hint">
-        Link each line to a catalogue product variant. Lines without a variant link cannot have stock posted on approval.
-      </p>
-      <hr class="section-divider" />
+    <section class="sf-card" *ngIf="grn?.lines?.length">
+      <div class="sf-ch">
+        <h2>Receipt lines</h2>
+        <span class="sf-mu sf-sm">
+          Link each line to a catalogue product variant. Lines without a variant link cannot have stock posted on approval.
+        </span>
+      </div>
 
       <div class="lines-summary">
         <div class="line-card" *ngFor="let line of grn!.lines; let i = index">
@@ -138,15 +143,19 @@
           </div>
         </div>
       </div>
+    </section>
     </div>
 
     <!-- ── Actions ────────────────────────────────────────────────────────────── -->
-    <div class="form-actions">
-      <p-button label="Cancel" severity="secondary" [text]="true" type="button"
-                [routerLink]="['/portal/pages/warehouse/grn', uuid]"></p-button>
-      <p-button label="Save Changes" icon="pi pi-check" type="submit"
-                severity="warn" [loading]="isSubmitting"></p-button>
+    <div class="sf-fbar">
+      <span class="sf-mu sf-sm">Only a DRAFT GRN can be edited.</span>
+      <span class="sf-end">
+        <p-button label="Cancel" severity="secondary" [text]="true" type="button"
+                  [routerLink]="['/portal/pages/warehouse/grn', uuid]"></p-button>
+        <p-button label="Save Changes" icon="pi pi-check" type="submit"
+                  [loading]="isSubmitting"></p-button>
+      </span>
     </div>
 
   </form>
-</div>
+</sf-page>

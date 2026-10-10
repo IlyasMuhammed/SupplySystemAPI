@@ -19,6 +19,8 @@ import {
   WorkflowDefinitionListItemModel,
   InterfaceSummaryDto
 } from '../../../services/workflow.service';
+import { FLOW } from '../../../shared/flow';
+import { moduleName } from '../../../services/module.models';
 
 @Component({
   selector: 'app-workflow-list',
@@ -28,7 +30,8 @@ import {
     TableModule, ButtonModule, TagModule,
     ToastModule, TooltipModule, DropdownModule,
     InputTextModule, InputIconModule, IconFieldModule,
-    ConfirmDialogModule
+    ConfirmDialogModule,
+    ...FLOW
   ],
   templateUrl: './workflow-list.component.html',
   styleUrls: ['./workflow-list.component.scss'],
@@ -155,6 +158,12 @@ export class WorkflowListComponent implements OnInit {
     const op = def.conditionOperator ?? '';
     if (op === 'BETWEEN') return `${def.conditionField} BETWEEN ${def.conditionValueMin} – ${def.conditionValueMax}`;
     return `${def.conditionField} ${op} ${def.conditionValue}`;
+  }
+
+  /** A37 D-14 — why a definition is greyed: its module is switched off, so no document can start it. */
+  moduleOffTip(def: { moduleCode?: string | null }): string {
+    const name = def.moduleCode ? moduleName(def.moduleCode) : 'its';
+    return `The ${name} module is switched off — this workflow is dormant until it is switched on again.`;
   }
 
   getSeverity(isActive: boolean): 'success' | 'danger' {

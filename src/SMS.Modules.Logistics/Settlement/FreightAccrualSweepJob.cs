@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using SMS.Shared.Common;
 
 namespace SMS.Modules.Logistics.Settlement;
@@ -26,18 +26,30 @@ internal sealed class FreightAccrualSweepJob
     private readonly ICodReconciliationService       _cod;
     private readonly ITenantContext                  _tenant;
     private readonly ILogger<FreightAccrualSweepJob> _log;
+    private readonly IModuleGate?                    _gate;
+    private readonly IOrganizationDirectory?         _organizations;
 
     public FreightAccrualSweepJob(
         IFreightAccrualService accruals, ICodReconciliationService cod,
-        ITenantContext tenant, ILogger<FreightAccrualSweepJob> log)
+        ITenantContext tenant, ILogger<FreightAccrualSweepJob> log,
+        IModuleGate? gate = null, IOrganizationDirectory? organizations = null)
     {
+        _gate          = gate;
+        _organizations = organizations;
         _accruals = accruals;
         _cod      = cod;
         _tenant   = tenant;
         _log      = log;
     }
 
-    public async Task RunAsync()
+    /// <summary>
+    /// A37 D-9 — organizations without MODULE_LOGISTICS (grace counts as off) are skipped: when any is, the sweep runs
+    /// once per enabled organization under its tenant scope instead of once across all of them.
+    /// </summary>
+    public Task RunAsync() =>
+        _gate.RunForEnabledOrganizationsAsync(_organizations, ModuleCodes.Logistics, _log, nameof(FreightAccrualSweepJob), SweepOnceAsync);
+
+    private async Task SweepOnceAsync()
     {
         var result = await _accruals.SweepAsync(SystemUserId);
 

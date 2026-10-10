@@ -1,59 +1,102 @@
-<div class="detail-page">
-  <p-toast></p-toast>
+<p-toast></p-toast>
 
-  <div class="not-found" *ngIf="notFound" data-testid="not-found">
-    <i class="pi pi-inbox"></i>
-    <h2>Sale order not found</h2>
-    <p>It may have been deleted, or the link may be wrong.</p>
-    <p-button label="Back to sale orders" icon="pi pi-arrow-left" [text]="true"
-              routerLink="/portal/pages/sales/orders"></p-button>
+<div class="sf-empty" *ngIf="notFound" data-testid="not-found">
+  <i class="pi pi-inbox" style="font-size:2rem"></i>
+  <h2>Sale order not found</h2>
+  <p>It may have been deleted, or the link may be wrong.</p>
+  <p-button label="Back to sale orders" icon="pi pi-arrow-left" [text]="true"
+            routerLink="/portal/pages/sales/orders"></p-button>
+</div>
+
+<div *ngIf="isLoading && !order" class="sf-empty" data-testid="loading">
+  <i class="pi pi-spin pi-spinner"></i> Loading…
+</div>
+
+<sf-page *ngIf="order as o" [crumbs]="['Sales', 'Sale orders', o.soNumber]">
+
+  <!-- ── Command bar: the next step first, then the rest ─────────────────────────────── -->
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <!-- A33 PC-09: disabled, never hidden, while anything blocks it; the wrapper carries the tooltip a disabled
+         button cannot show. -->
+    <span *ngIf="canConfirm" [pTooltip]="confirmTooltip" tooltipPosition="bottom" data-testid="confirm-wrap">
+      <p-button label="Confirm order" icon="pi pi-check-circle" [disabled]="isConfirmBlocked"
+                (onClick)="openConfirmDialog()" data-testid="action-confirm"></p-button>
+    </span>
+
+    <p-button *ngIf="canCreateDelivery" label="Create delivery" icon="pi pi-truck"
+              (onClick)="openCreateDialog()" data-testid="action-create-delivery"></p-button>
+
+    <span *ngIf="!canCreateDelivery && hasUnavailableLines" class="delivery-unavailable-hint"
+          pTooltip="Nothing on this order is available to deliver yet — it's still waiting on production or purchase."
+          data-testid="delivery-unavailable-hint">
+      <i class="pi pi-info-circle"></i> Not ready to deliver
+    </span>
+
+    <p-button *ngIf="canEdit" label="Edit" icon="pi pi-pencil" [text]="true"
+              [routerLink]="['/portal/pages/sales/orders', o.uuid, 'edit']" data-testid="action-edit"></p-button>
+
+    <span class="sf-sep" *ngIf="canCancel"></span>
+    <p-button *ngIf="canCancel" label="Cancel order" icon="pi pi-times-circle" severity="danger" [text]="true"
+              (onClick)="openCancelDialog()" data-testid="action-cancel"></p-button>
   </div>
 
-  <div *ngIf="isLoading && !order" class="loading-state" data-testid="loading">
-    <i class="pi pi-spin pi-spinner"></i> Loading…
-  </div>
-
-  <ng-container *ngIf="order as o">
-    <div class="page-header">
+  <!-- ── Dynamic header ──────────────────────────────────────────────────────────────── -->
+  <header class="sf-hdr">
+    <div class="sf-t">
       <div>
-        <h1 class="page-title">
-          <i class="pi pi-shopping-bag"></i>
-          <span class="font-mono">{{ o.soNumber }}</span>
+        <div class="sf-kicker">
+          Sale order
+          <ng-container *ngIf="o.sourceQuotation as q">
+            · from
+            <a *ngIf="canViewQuotations; else plainKickerQuotation" class="sf-mono"
+               [routerLink]="['/portal/pages/sales/quotations', q.uuid]">{{ q.number }}</a>
+            <ng-template #plainKickerQuotation><span class="sf-mono">{{ q.number }}</span></ng-template>
+          </ng-container>
+        </div>
+        <h1>
+          <span class="sf-mono">{{ o.soNumber }}</span>
           <p-tag [value]="formatStatus(o.status)" [severity]="getStatusSeverity(o.status)"></p-tag>
           <p-tag [value]="sourceLabel(sourceType)" [severity]="sourceSeverity(sourceType)" [rounded]="true"
                  pTooltip="How the order was made" data-testid="source-badge"></p-tag>
         </h1>
-        <p class="page-subtitle">
+        <div class="sf-meta">
           <span *ngIf="partnerName" data-testid="partner-name">{{ partnerName }}</span>
-          <span *ngIf="!partnerName" class="font-mono">{{ o.partnerId }}</span>
+          <span *ngIf="!partnerName" class="sf-mono">{{ o.partnerId }}</span>
           · {{ o.deliveryMode === 'SELF_PICKUP' ? 'Customer collects' : 'Ship to customer' }}
-        </p>
-      </div>
-
-      <div class="header-actions">
-        <p-button *ngIf="canEdit" label="Edit" icon="pi pi-pencil" [text]="true" severity="secondary"
-                  [routerLink]="['/portal/pages/sales/orders', o.uuid, 'edit']" data-testid="action-edit"></p-button>
-
-        <p-button *ngIf="canCancel" label="Cancel order" icon="pi pi-times-circle" severity="danger" [outlined]="true"
-                  (onClick)="openCancelDialog()" data-testid="action-cancel"></p-button>
-
-        <!-- A33 PC-09: disabled, never hidden, while anything blocks it; the wrapper carries the tooltip a disabled
-             button cannot show. -->
-        <span *ngIf="canConfirm" [pTooltip]="confirmTooltip" tooltipPosition="bottom" data-testid="confirm-wrap">
-          <p-button label="Confirm order" icon="pi pi-check-circle" [disabled]="isConfirmBlocked"
-                    (onClick)="openConfirmDialog()" data-testid="action-confirm"></p-button>
-        </span>
-
-        <p-button *ngIf="canCreateDelivery" label="Create delivery" icon="pi pi-truck"
-                  (onClick)="openCreateDialog()" data-testid="action-create-delivery"></p-button>
-
-        <span *ngIf="!canCreateDelivery && hasUnavailableLines" class="delivery-unavailable-hint"
-              pTooltip="Nothing on this order is available to deliver yet — it's still waiting on production or purchase."
-              data-testid="delivery-unavailable-hint">
-          <i class="pi pi-info-circle"></i> Not ready to deliver
-        </span>
+          · ordered {{ o.orderDate | date:'dd MMM yyyy' }}
+        </div>
       </div>
     </div>
+
+    <sf-stages [stages]="stages"></sf-stages>
+
+    <div class="sf-facts">
+      <div class="sf-kpi">
+        <span class="l">Total</span>
+        <span class="v">{{ o.grandTotal | number:'1.2-2' }}</span>
+        <span class="s">{{ o.currencyCode }} incl. tax</span>
+      </div>
+      <div class="sf-kpi" *ngIf="showBase">
+        <span class="l">In {{ o.baseCurrencyCode }}</span>
+        <span class="v">{{ o.grandTotalBase | number:'1.2-2' }}</span>
+        <span class="s">at the rate locked on confirmation</span>
+      </div>
+      <div class="sf-kpi">
+        <span class="l">Expected</span>
+        <span class="v">{{ o.expectedDeliveryDate ? (o.expectedDeliveryDate | date:'dd MMM') : '—' }}</span>
+        <span class="s">{{ o.expectedDeliveryDate ? (o.expectedDeliveryDate | date:'yyyy') : 'no date set' }}</span>
+      </div>
+      <div class="sf-kpi">
+        <span class="l">Fulfilled</span>
+        <span class="v" [class.ok]="fulfilledPercent === 100">{{ fulfilledPercent }}%</span>
+        <span class="s">{{ fulfilledQty | number:'1.0-3' }} of {{ orderedQty | number:'1.0-3' }} delivered</span>
+      </div>
+    </div>
+  </header>
+
+  <sf-anchors [sections]="sections"></sf-anchors>
+
+  <div class="sf-body">
 
     <!-- A33 PC-09: why the order cannot be confirmed yet. -->
     <div class="route-warning" *ngIf="isConfirmBlocked" role="status" data-testid="confirm-blockers-banner">
@@ -156,101 +199,8 @@
       </span>
     </div>
 
-    <!-- A35 P3-13 / §11.5 — currency, the rate locked at confirmation, the sale base, and the amount toggle. -->
-    <div class="card currency-card">
-      <app-doc-currency-panel [doc]="o" lockPoint="confirmation" domain="SALE" [(view)]="amountView"></app-doc-currency-panel>
-    </div>
-
-    <div class="detail-grid">
-      <div class="card">
-        <h3>Order</h3>
-        <dl>
-          <dt>Order date</dt><dd>{{ o.orderDate | date:'dd MMM yyyy' }}</dd>
-          <dt>Expected</dt><dd>{{ o.expectedDeliveryDate ? (o.expectedDeliveryDate | date:'dd MMM yyyy') : '—' }}</dd>
-          <dt>Delivery mode</dt><dd>{{ formatStatus(o.deliveryMode) }}</dd>
-          <!-- A collected order can still carry an address: a line routed to Ship needs one (D-4). -->
-          <ng-container *ngIf="o.deliveryMode === 'SHIP' || o.shippingAddressId">
-            <dt>Ship to</dt>
-            <dd data-testid="ship-to">{{ shipTo ? formatAddress(shipTo) : (o.shippingAddressId ? 'Address on file' : '—') }}</dd>
-          </ng-container>
-          <!-- A35 §11.5: each total in the order's currency and, once the rate is locked, in the sale base. -->
-          <dt>Subtotal</dt>
-          <dd data-testid="order-subtotal">{{ primaryAmount(o.subtotal, o.subtotalBase) | money:primaryCurrency:moneyCode }}<span
-              *ngIf="showBase" class="base-amount"> {{ secondaryAmount(o.subtotal, o.subtotalBase) | money:secondaryCurrency:moneyCode }}</span></dd>
-          <dt>Tax</dt>
-          <dd data-testid="order-tax">{{ primaryAmount(o.taxAmount, o.taxAmountBase) | money:primaryCurrency:moneyCode }}<span
-              *ngIf="showBase" class="base-amount"> {{ secondaryAmount(o.taxAmount, o.taxAmountBase) | money:secondaryCurrency:moneyCode }}</span></dd>
-          <dt>Discount</dt>
-          <dd data-testid="order-discount">{{ primaryAmount(o.discountAmount, o.discountAmountBase) | money:primaryCurrency:moneyCode }}<span
-              *ngIf="showBase" class="base-amount"> {{ secondaryAmount(o.discountAmount, o.discountAmountBase) | money:secondaryCurrency:moneyCode }}</span></dd>
-          <dt>Grand total</dt>
-          <dd class="font-semibold" data-testid="order-grand-total">{{ primaryAmount(o.grandTotal, o.grandTotalBase) | money:primaryCurrency:moneyCode }}<span
-              *ngIf="showBase" class="base-amount"> {{ secondaryAmount(o.grandTotal, o.grandTotalBase) | money:secondaryCurrency:moneyCode }}</span></dd>
-        </dl>
-        <p class="notes" *ngIf="o.notes">{{ o.notes }}</p>
-      </div>
-
-      <div class="card">
-        <h3>Fulfilment</h3>
-        <div class="progress-figures" data-testid="fulfilment-figures">
-          <span class="big">{{ fulfilledQty | number:'1.0-3' }}</span>
-          <span class="of">of {{ orderedQty | number:'1.0-3' }} delivered</span>
-          <span class="percent">{{ fulfilledPercent }}%</span>
-        </div>
-        <div class="progress-track"><div class="progress-fill" [style.width.%]="fulfilledPercent"></div></div>
-        <p class="muted" *ngIf="deliveries.length">
-          {{ deliveries.length }} deliver{{ deliveries.length === 1 ? 'y' : 'ies' }} raised.
-        </p>
-        <p class="muted" *ngIf="!deliveries.length && !isLoadingDeliveries && canViewDeliveries">No delivery raised yet.</p>
-      </div>
-
-      <!-- ── A32 PD-06: where the order came from, and the customer's own PO ────── -->
-      <div class="card" data-testid="customer-po">
-        <div class="card-title-row">
-          <h3>Source &amp; customer PO</h3>
-          <p-button *ngIf="canEditCustomerPo" label="Edit" icon="pi pi-pencil" [text]="true" size="small"
-                    severity="secondary" (onClick)="openCustomerPoDialog()" data-testid="edit-customer-po"></p-button>
-        </div>
-        <dl>
-          <dt>Source</dt><dd>{{ sourceLabel(sourceType) }}</dd>
-          <ng-container *ngIf="o.sourceQuotation as q">
-            <dt>Quotation</dt>
-            <dd data-testid="source-quotation">
-              <a *ngIf="canViewQuotations; else plainQuotation" class="source-link font-mono"
-                 [routerLink]="['/portal/pages/sales/quotations', q.uuid]" data-testid="source-quotation-link">{{ q.number }}</a>
-              <ng-template #plainQuotation><span class="font-mono">{{ q.number }}</span></ng-template>
-            </dd>
-          </ng-container>
-          <ng-container *ngIf="o.sourceInquiry as i">
-            <dt>Inquiry</dt>
-            <dd data-testid="source-inquiry">
-              <a *ngIf="canViewInquiries; else plainInquiry" class="source-link font-mono"
-                 [routerLink]="['/portal/pages/sales/inquiries', i.uuid]" data-testid="source-inquiry-link">{{ i.number }}</a>
-              <ng-template #plainInquiry><span class="font-mono">{{ i.number }}</span></ng-template>
-            </dd>
-          </ng-container>
-          <dt>PO reference</dt>
-          <dd class="font-mono" data-testid="po-reference">{{ o.customerPoReference || '—' }}</dd>
-          <dt>PO date</dt>
-          <dd data-testid="po-date">{{ o.customerPoDate ? (dateOnly(o.customerPoDate) | date:'dd MMM yyyy') : '—' }}</dd>
-          <dt>PO document</dt>
-          <dd data-testid="po-document">
-            <ng-container *ngIf="o.customerPoAttachmentUuid; else noPoFile">
-              <ng-container *ngIf="linkedPoFile as f; else poFilePending">
-                <a *ngIf="poFileHref(f) as href; else poFileName" class="source-link" [href]="href" target="_blank"
-                   rel="noopener" data-testid="po-document-link"><i class="pi pi-paperclip"></i> {{ f.fileName }}</a>
-                <ng-template #poFileName><i class="pi pi-paperclip"></i> {{ f.fileName }}</ng-template>
-              </ng-container>
-              <ng-template #poFilePending><span class="muted">Linked file</span></ng-template>
-            </ng-container>
-            <ng-template #noPoFile>—</ng-template>
-          </dd>
-        </dl>
-        <app-attachment-list [interfaceCode]="customerPoInterface" [documentId]="o.uuid" [compact]="true"
-                             label="Customer PO files"></app-attachment-list>
-      </div>
-    </div>
-
+    <!-- Items, and how the order is being fulfilled, delivered, billed and paid. -->
+    <section id="sec-items" class="sf-section sf-card">
     <p-tabView styleClass="order-tabs" [(activeIndex)]="activeTab" (onChange)="onTabChange($event)">
 
       <!-- ── Lines ─────────────────────────────────────────────────────────────── -->
@@ -312,7 +262,7 @@
                   <ng-container *ngIf="routeDisplay(line) as d">
                     <div class="route-value">
                       <p-dropdown *ngIf="canChangeRoute && d.kind !== 'exempt'; else routeName"
-                                  [options]="routeOptionsFor(line)" optionLabel="label" optionValue="value"
+                                  [options]="routeOptionsFor(line)" optionLabel="label" optionValue="value" optionDisabled="disabled"
                                   [ngModel]="line.fulfillmentRouteUuid ?? null" (ngModelChange)="changeLineRoute(line, $event)"
                                   [showClear]="true" [placeholder]="inheritedRouteLabel(line)" [disabled]="!!savingRouteLineUuid"
                                   [class.p-invalid]="d.kind === 'blocked'" appendTo="body" styleClass="route-select"
@@ -329,9 +279,24 @@
                     </div>
                     <div class="route-hint" [class.blocking]="d.kind === 'blocked'" data-testid="line-route-hint">{{ d.hint }}</div>
                   </ng-container>
+                  <!-- A37 RTE-03 — the configured route is unavailable; the server applied a fallback (or none). -->
+                  <div *ngIf="line.routeWarning" class="route-hint blocking" data-testid="line-route-warning">
+                    <i class="pi pi-exclamation-triangle"></i> {{ line.routeWarning }}
+                  </div>
                 </td>
                 <!-- A34 PC-07/08/09: the line's delivery date and where it comes from; ⏱ on a draft, ✎ while it is open. -->
                 <td class="delivery-cell" data-testid="line-delivery">
+                  <!-- A36-P5-07: a service line has no delivery; its service order is shown instead. -->
+                  <ng-container *ngIf="line.isService; else deliveryInfo">
+                    <span class="sf-pill" [ngClass]="serviceIndicator(line).tone" data-testid="line-service-indicator">{{ serviceIndicator(line).label }}</span>
+                    <div *ngIf="serviceOrderFor(line) as so">
+                      <a *ngIf="canViewServiceOrders; else plainService" class="source-link sf-sm"
+                         [routerLink]="['/portal/pages/services/service-orders', so.serviceOrderUuid]"
+                         data-testid="line-service-link">View service order</a>
+                      <ng-template #plainService><span class="sf-mono sf-sm">{{ so.serviceNumber }}</span></ng-template>
+                    </div>
+                  </ng-container>
+                  <ng-template #deliveryInfo>
                   <app-lead-time-popover [variantUuid]="line.variantUuid" [quantity]="line.quantity"
                                          [manualDate]="line.manualDeliveryDate" [calculatedDate]="line.calculatedDeliveryDate"
                                          [calculatedDays]="line.calculatedLeadTimeDays" [calculatedAt]="line.leadTimeCalculatedAt"
@@ -340,6 +305,7 @@
                                          [label]="lineLabel(line, i)"
                                          (calculated)="onLineLeadTime(line, $event)"
                                          (manualDateChange)="setLineDeliveryDate(line, $event)"></app-lead-time-popover>
+                  </ng-template>
                 </td>
                 <td><p-tag [value]="formatStatus(line.status)" severity="secondary"></p-tag></td>
                 <td class="text-center">
@@ -710,7 +676,155 @@
       </p-tabPanel>
 
     </p-tabView>
-  </ng-container>
+    </section>
+
+    <div class="sf-row">
+      <!-- Order details and totals -->
+      <section id="sec-order" class="sf-section sf-card">
+        <div class="sf-ch"><h2>Order</h2></div>
+        <div class="sf-kv">
+          <span>Order date</span><span>{{ o.orderDate | date:'dd MMM yyyy' }}</span>
+          <span>Expected</span><span>{{ o.expectedDeliveryDate ? (o.expectedDeliveryDate | date:'dd MMM yyyy') : '—' }}</span>
+          <span>Delivery mode</span><span>{{ formatStatus(o.deliveryMode) }}</span>
+          <!-- A collected order can still carry an address: a line routed to Ship needs one (D-4). -->
+          <ng-container *ngIf="o.deliveryMode === 'SHIP' || o.shippingAddressId">
+            <span>Ship to</span>
+            <span data-testid="ship-to">{{ shipTo ? formatAddress(shipTo) : (o.shippingAddressId ? 'Address on file' : '—') }}</span>
+          </ng-container>
+          <!-- A35 §11.5: each total in the order's currency and, once the rate is locked, in the sale base. -->
+          <span>Subtotal</span>
+          <span data-testid="order-subtotal">{{ primaryAmount(o.subtotal, o.subtotalBase) | money:primaryCurrency:moneyCode }}<span
+              *ngIf="showBase" class="base-amount"> {{ secondaryAmount(o.subtotal, o.subtotalBase) | money:secondaryCurrency:moneyCode }}</span></span>
+          <span>Tax</span>
+          <span data-testid="order-tax">{{ primaryAmount(o.taxAmount, o.taxAmountBase) | money:primaryCurrency:moneyCode }}<span
+              *ngIf="showBase" class="base-amount"> {{ secondaryAmount(o.taxAmount, o.taxAmountBase) | money:secondaryCurrency:moneyCode }}</span></span>
+          <span>Discount</span>
+          <span data-testid="order-discount">{{ primaryAmount(o.discountAmount, o.discountAmountBase) | money:primaryCurrency:moneyCode }}<span
+              *ngIf="showBase" class="base-amount"> {{ secondaryAmount(o.discountAmount, o.discountAmountBase) | money:secondaryCurrency:moneyCode }}</span></span>
+          <span>Grand total</span>
+          <span class="font-semibold" data-testid="order-grand-total">{{ primaryAmount(o.grandTotal, o.grandTotalBase) | money:primaryCurrency:moneyCode }}<span
+              *ngIf="showBase" class="base-amount"> {{ secondaryAmount(o.grandTotal, o.grandTotalBase) | money:secondaryCurrency:moneyCode }}</span></span>
+        </div>
+        <p class="sf-mu" style="margin:0;font-style:italic" *ngIf="o.notes">{{ o.notes }}</p>
+      </section>
+
+      <!-- ── A32 PD-06: where the order came from, and the customer's own PO ────── -->
+      <section id="sec-po" class="sf-section sf-card" data-testid="customer-po">
+        <div class="sf-ch">
+          <h2>Source &amp; customer PO</h2>
+          <p-button *ngIf="canEditCustomerPo" label="Edit" icon="pi pi-pencil" [text]="true" size="small"
+                    severity="secondary" (onClick)="openCustomerPoDialog()" data-testid="edit-customer-po"></p-button>
+        </div>
+        <div class="sf-kv">
+          <span>Source</span><span>{{ sourceLabel(sourceType) }}</span>
+          <ng-container *ngIf="o.sourceQuotation as q">
+            <span>Quotation</span>
+            <span data-testid="source-quotation">
+              <a *ngIf="canViewQuotations; else plainQuotation" class="source-link font-mono"
+                 [routerLink]="['/portal/pages/sales/quotations', q.uuid]" data-testid="source-quotation-link">{{ q.number }}</a>
+              <ng-template #plainQuotation><span class="font-mono">{{ q.number }}</span></ng-template>
+            </span>
+          </ng-container>
+          <ng-container *ngIf="o.sourceInquiry as i">
+            <span>Inquiry</span>
+            <span data-testid="source-inquiry">
+              <a *ngIf="canViewInquiries; else plainInquiry" class="source-link font-mono"
+                 [routerLink]="['/portal/pages/sales/inquiries', i.uuid]" data-testid="source-inquiry-link">{{ i.number }}</a>
+              <ng-template #plainInquiry><span class="font-mono">{{ i.number }}</span></ng-template>
+            </span>
+          </ng-container>
+          <span>PO reference</span>
+          <span class="font-mono" data-testid="po-reference">{{ o.customerPoReference || '—' }}</span>
+          <span>PO date</span>
+          <span data-testid="po-date">{{ o.customerPoDate ? (dateOnly(o.customerPoDate) | date:'dd MMM yyyy') : '—' }}</span>
+          <span>PO document</span>
+          <span data-testid="po-document">
+            <ng-container *ngIf="o.customerPoAttachmentUuid; else noPoFile">
+              <ng-container *ngIf="linkedPoFile as f; else poFilePending">
+                <a *ngIf="poFileHref(f) as href; else poFileName" class="source-link" [href]="href" target="_blank"
+                   rel="noopener" data-testid="po-document-link"><i class="pi pi-paperclip"></i> {{ f.fileName }}</a>
+                <ng-template #poFileName><i class="pi pi-paperclip"></i> {{ f.fileName }}</ng-template>
+              </ng-container>
+              <ng-template #poFilePending><span class="sf-mu">Linked file</span></ng-template>
+            </ng-container>
+            <ng-template #noPoFile>—</ng-template>
+          </span>
+        </div>
+        <app-attachment-list [interfaceCode]="customerPoInterface" [documentId]="o.uuid" [compact]="true"
+                             label="Customer PO files"></app-attachment-list>
+      </section>
+    </div>
+
+    <!-- A35 P3-13 / §11.5 — currency, the rate locked at confirmation, the sale base, and the amount toggle. -->
+    <section id="sec-currency" class="sf-section sf-card">
+      <div class="sf-ch"><h2>Currency <span class="sf-pill in" *ngIf="o.currencyCode">{{ o.currencyCode }}</span></h2></div>
+      <app-doc-currency-panel [doc]="o" lockPoint="confirmation" domain="SALE" [(view)]="amountView"></app-doc-currency-panel>
+    </section>
+  </div>
+
+  <!-- ── Side panel: fulfilment at a glance (the tabs hold the detail) ───────────────── -->
+  <sf-panel #panel [tabs]="['Fulfilment']">
+    <ng-container *ngIf="panel.active() === 'Fulfilment'">
+      <div class="sf-card flat" style="padding:12px 14px;gap:6px">
+        <span class="sf-mu sf-sm">Delivered</span>
+        <div class="sf-num" data-testid="fulfilment-figures">
+          <strong>{{ fulfilledQty | number:'1.0-3' }}</strong>
+          <span class="sf-mu"> of {{ orderedQty | number:'1.0-3' }} delivered</span>
+          <span style="float:right;font-weight:600">{{ fulfilledPercent }}%</span>
+        </div>
+        <div class="sf-pb"><span [style.width.%]="fulfilledPercent"></span></div>
+        <span class="sf-mu sf-sm" *ngIf="deliveries.length">
+          {{ deliveries.length }} deliver{{ deliveries.length === 1 ? 'y' : 'ies' }} raised.
+        </span>
+        <span class="sf-mu sf-sm" *ngIf="!deliveries.length && !isLoadingDeliveries && canViewDeliveries">No delivery raised yet.</span>
+      </div>
+
+      <!-- A36-P5-07: the order's service orders, completed + closed of all. -->
+      <div class="sf-card flat" *ngIf="serviceSummary as s" style="padding:12px 14px;gap:6px" data-testid="service-summary">
+        <span class="sf-mu sf-sm">Service orders</span>
+        <div class="sf-num" data-testid="service-figures">
+          <strong>{{ s.done }}</strong>
+          <span class="sf-mu"> of {{ s.total }} completed</span>
+          <span style="float:right;font-weight:600" data-testid="service-percent">{{ s.percent }}%</span>
+        </div>
+        <div class="sf-pb"><span [style.width.%]="s.percent"></span></div>
+        <span *ngFor="let so of o.serviceOrders" style="display:flex;justify-content:space-between;gap:8px" data-testid="service-row">
+          <a *ngIf="canViewServiceOrders; else plainPanelSvc" class="sf-mono"
+             [routerLink]="['/portal/pages/services/service-orders', so.serviceOrderUuid]"><strong>{{ so.serviceNumber }}</strong></a>
+          <ng-template #plainPanelSvc><strong class="sf-mono">{{ so.serviceNumber }}</strong></ng-template>
+          <span class="sf-pill" [ngClass]="flowToneOf(so.status)">{{ formatStatus(so.status) }}</span>
+        </span>
+      </div>
+
+      <div class="sf-card flat" *ngFor="let p of productionRows" style="padding:12px 14px;gap:4px">
+        <span class="sf-mu sf-sm">Production</span>
+        <span style="display:flex;justify-content:space-between;gap:8px">
+          <a *ngIf="canViewProduction; else plainPanelProd" class="sf-mono"
+             [routerLink]="['/portal/pages/manufacturing/production-orders', p.uuid]"><strong>{{ p.number }}</strong></a>
+          <ng-template #plainPanelProd><strong class="sf-mono">{{ p.number }}</strong></ng-template>
+          <p-tag [value]="formatStatus(p.status)" [severity]="productionSeverity(p.status)"></p-tag>
+        </span>
+        <span class="sf-mu sf-sm">{{ p.what }} · {{ p.plannedQuantity | number:'1.0-4' }} planned</span>
+      </div>
+
+      <div class="sf-card flat" *ngFor="let d of deliveries" style="padding:12px 14px;gap:4px">
+        <span class="sf-mu sf-sm">Delivery</span>
+        <span style="display:flex;justify-content:space-between;gap:8px">
+          <a class="sf-mono" [routerLink]="['/portal/pages/logistics/deliveries', d.uuid]"><strong>{{ d.deliveryNumber }}</strong></a>
+          <p-tag [value]="formatStatus(d.status)" [severity]="getDeliverySeverity(d.status)"></p-tag>
+        </span>
+        <span class="sf-mu sf-sm">{{ d.lineCount }} line{{ d.lineCount === 1 ? '' : 's' }}<ng-container *ngIf="d.requestedDate">
+          · requested {{ dateOnly(d.requestedDate) | date:'dd MMM' }}</ng-container></span>
+      </div>
+
+      <div class="sf-card flat" *ngFor="let t of invoiceTotals" style="padding:12px 14px;gap:4px">
+        <span class="sf-mu sf-sm">Billing · {{ t.currencyCode }}</span>
+        <span class="sf-num">Invoiced <strong>{{ t.invoiced | number:'1.2-2' }}</strong> · paid <strong>{{ t.paid | number:'1.2-2' }}</strong></span>
+        <span class="sf-mu sf-sm">Balance due {{ t.balance | number:'1.2-2' }}</span>
+      </div>
+    </ng-container>
+  </sf-panel>
+</sf-page>
 
   <!-- ── Confirm ───────────────────────────────────────────────────────────────── -->
 
@@ -926,4 +1040,3 @@
                 (onClick)="confirmPartial()" data-testid="confirm-partial"></p-button>
     </ng-template>
   </p-dialog>
-</div>

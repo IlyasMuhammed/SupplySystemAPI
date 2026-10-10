@@ -1,30 +1,35 @@
-<div class="cac-page">
-  <p-toast></p-toast>
-  <p-confirmDialog></p-confirmDialog>
+<p-toast></p-toast>
+<p-confirmDialog></p-confirmDialog>
 
-  <div class="cac-header">
-    <div class="cac-header-left">
-      <a [routerLink]="['/portal/pages/inventory/categories']" class="cac-back"><i class="pi pi-arrow-left"></i> Categories</a>
-      <h1 class="cac-title">
-        <i class="pi pi-sliders-h"></i> Configure Attributes
-        <span class="cac-cat-name" *ngIf="category">— {{ category.name }}</span>
-      </h1>
-      <p class="cac-subtitle">Choose which attributes appear on the dynamic product form for this category, and in what order.</p>
-    </div>
-    <div class="cac-header-actions">
-      <p-button label="New Attribute" icon="pi pi-plus" severity="secondary" [outlined]="true"
-                (onClick)="openNewAttributeDialog()"></p-button>
-      <p-button label="Save" icon="pi pi-check" [loading]="isSaving" (onClick)="save()"></p-button>
-    </div>
+<sf-page [crumbs]="['Inventory', 'Categories', category?.name, 'Attributes']">
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <p-button label="Save" icon="pi pi-check" [loading]="isSaving" (onClick)="save()"></p-button>
+    <p-button label="New Attribute" icon="pi pi-plus" [text]="true"
+              (onClick)="openNewAttributeDialog()"></p-button>
+    <span class="sf-sep"></span>
+    <p-button label="Categories" icon="pi pi-arrow-left" [text]="true"
+              [routerLink]="['/portal/pages/inventory/categories']"></p-button>
   </div>
 
-  <div class="cac-loading" *ngIf="isLoading"><i class="pi pi-spin pi-spinner"></i> Loading…</div>
+  <header class="sf-hdr sf-compact">
+    <div>
+      <div class="sf-kicker">Category attributes</div>
+      <h1>
+        Configure Attributes
+        <span class="cac-cat-name" *ngIf="category">— {{ category.name }}</span>
+      </h1>
+      <div class="sf-meta">Choose which attributes appear on the dynamic product form for this category, and in what order.</div>
+    </div>
+  </header>
+
+  <div class="sf-body">
+  <div class="sf-card sf-empty" *ngIf="isLoading"><i class="pi pi-spin pi-spinner"></i> Loading…</div>
 
   <div class="cac-body" *ngIf="!isLoading">
 
     <!-- Available / Linked pick list -->
-    <div class="cac-panel">
-      <div class="cac-panel-hdr"><i class="pi pi-list"></i> Attributes</div>
+    <div class="sf-card">
+      <div class="sf-ch"><h2>Attributes</h2></div>
       <p-pickList
         [source]="source" [target]="target"
         sourceHeader="Available Attributes" targetHeader="Linked to this Category (drag to reorder)"
@@ -56,13 +61,15 @@
     </div>
 
     <!-- Live preview -->
-    <div class="cac-panel cac-preview">
-      <div class="cac-panel-hdr"><i class="pi pi-eye"></i> Live Preview</div>
-      <p class="cac-preview-hint">Exactly what end users will see on the product/variant form for this category.</p>
+    <div class="sf-card cac-preview">
+      <div class="sf-ch"><h2>Live Preview</h2></div>
+      <p class="sf-mu sf-sm" style="margin:0">Exactly what end users will see on the product/variant form for this category.</p>
       <app-dynamic-attribute-form [attributes]="previewAttributes"></app-dynamic-attribute-form>
     </div>
 
   </div>
+  </div>
+</sf-page>
 
   <!-- New Attribute dialog — creates a catalog-level AttributeDefinition. It only appears in
        "Available Attributes" afterwards; it still needs to be dragged into "Linked" + Saved
@@ -118,4 +125,3 @@
                 [disabled]="!newAttributeCanSave" (onClick)="submitNewAttribute()"></p-button>
     </ng-template>
   </p-dialog>
-</div>

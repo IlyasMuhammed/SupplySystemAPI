@@ -93,6 +93,10 @@ internal sealed class SaleOrderDeliveryService : ISaleOrderDeliveryService
     private static readonly string DropShipLine =
         Demand.Domain.EnumCode<Demand.Domain.SaleOrderLineFulfillmentMode>.Of(Demand.Domain.SaleOrderLineFulfillmentMode.DropShip);
 
+    // A36 D-10 — a service line is performed by a service order, never delivered.
+    private static readonly string ServiceLine =
+        Demand.Domain.EnumCode<Demand.Domain.SaleOrderLineFulfillmentMode>.Of(Demand.Domain.SaleOrderLineFulfillmentMode.Service);
+
     private static readonly string[] DeliverableSoStatuses =
     [
         Demand.Domain.EnumCode<Demand.Domain.SaleOrderStatus>.Of(Demand.Domain.SaleOrderStatus.Confirmed),
@@ -116,7 +120,7 @@ internal sealed class SaleOrderDeliveryService : ISaleOrderDeliveryService
             throw new SMS.Shared.Exceptions.ConflictException("Creating deliveries by route is not available here.");
 
         var lines = so.Lines
-            .Where(l => l.Status != CancelledLine && l.FulfillmentMode != DropShipLine)
+            .Where(l => l.Status != CancelledLine && l.FulfillmentMode != DropShipLine && l.FulfillmentMode != ServiceLine)
             .OrderBy(l => l.Id)
             .ToList();
 

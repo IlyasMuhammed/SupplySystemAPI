@@ -1,26 +1,28 @@
-<div class="inbox-page">
-  <p-toast></p-toast>
+<p-toast></p-toast>
 
-  <!-- Header -->
-  <div class="page-header">
-    <div class="header-content">
-      <div class="header-left">
-        <h1 class="page-title">
-          <i class="pi pi-inbox"></i> Approval Inbox
-          <span class="badge-count" *ngIf="pendingCount > 0">{{ pendingCount }}</span>
-        </h1>
-        <p class="page-subtitle">Documents awaiting your approval action</p>
-      </div>
-    </div>
+<sf-page [crumbs]="['Workflow', 'My approvals']">
+  <!-- ── Command bar ─────────────────────────────────────────────────────────────────── -->
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <p-button icon="pi pi-refresh" label="Reset filters" [text]="true" (onClick)="resetFilters()"></p-button>
   </div>
 
-  <!-- Filters -->
-  <div class="main-card mb-4">
-    <div class="filter-bar">
-      <p-dropdown [options]="interfaceCodeOptions" [(ngModel)]="filterCode"
-                  optionLabel="label" optionValue="value" placeholder="All Interfaces"
-                  (onChange)="onFilterChange()" styleClass="filter-dropdown" appendTo="body"></p-dropdown>
+  <div class="sf-body">
+    <!-- Title + interface chips -->
+    <div class="sf-lr-head">
+      <div>
+        <h1>Approval inbox <span class="sf-count" *ngIf="pendingCount > 0">{{ pendingCount }} pending</span></h1>
+        <div class="sf-sub">Documents awaiting your approval action</div>
+      </div>
+      <div class="sf-filters">
+        <button *ngFor="let o of interfaceCodeOptions" type="button" class="sf-chip" [class.on]="filterCode === o.value"
+                (click)="filterCode = o.value; onFilterChange()" [attr.data-testid]="'interface-chip-' + (o.value || 'ALL')">
+          {{ o.value ? o.label : 'All' }}
+        </button>
+      </div>
+    </div>
 
+    <!-- Date filters -->
+    <div class="sf-filters">
       <p-calendar [(ngModel)]="filterFromDate" placeholder="From date"
                   (onSelect)="onFilterChange()" [showIcon]="true" dateFormat="dd/mm/yy"
                   styleClass="filter-cal" appendTo="body"></p-calendar>
@@ -28,14 +30,10 @@
       <p-calendar [(ngModel)]="filterToDate" placeholder="To date"
                   (onSelect)="onFilterChange()" [showIcon]="true" dateFormat="dd/mm/yy"
                   styleClass="filter-cal" appendTo="body"></p-calendar>
-
-      <p-button icon="pi pi-refresh" severity="secondary" [text]="true"
-                pTooltip="Reset" (onClick)="resetFilters()"></p-button>
     </div>
-  </div>
 
   <!-- Table -->
-  <div class="main-card">
+  <div class="sf-card p0">
     <p-table [value]="items" [loading]="isLoading" [tableStyle]="{'min-width':'60rem'}"
              [rows]="pageSize" [paginator]="true" [lazy]="true" [totalRecords]="totalRecords"
              [rowsPerPageOptions]="[10,20,50]" [showCurrentPageReport]="true"
@@ -64,7 +62,7 @@
 
           <!-- Document number -->
           <td>
-            <span class="doc-number">{{ item.documentNumber }}</span>
+            <a class="sf-mono" [routerLink]="['/portal/pages/workflow-inbox', item.approvalUUID]"><strong>{{ item.documentNumber }}</strong></a>
           </td>
 
           <!-- Step name -->
@@ -121,16 +119,16 @@
 
       <ng-template pTemplate="emptymessage">
         <tr>
-          <td colspan="8">
-            <div class="empty-inbox">
-              <i class="pi pi-check-circle"></i>
-              <p>Your inbox is empty — no pending approvals.</p>
-            </div>
+          <td colspan="8" class="sf-empty">
+            <i class="pi pi-check-circle" style="color:var(--sms-ok)"></i>
+            Your inbox is empty — no pending approvals.
           </td>
         </tr>
       </ng-template>
     </p-table>
   </div>
+  </div>
+</sf-page>
 
   <!-- ── Approve Dialog ─────────────────────────────────────────────────── -->
   <p-dialog [(visible)]="showApproveDialog" [modal]="true" [style]="{'width':'480px'}"
@@ -206,5 +204,3 @@
       </div>
     </ng-template>
   </p-dialog>
-
-</div>

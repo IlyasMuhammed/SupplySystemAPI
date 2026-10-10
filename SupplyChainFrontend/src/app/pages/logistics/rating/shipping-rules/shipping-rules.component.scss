@@ -1,29 +1,14 @@
-.shipping-rules-page { padding: 1.5rem; max-width: 56rem; }
+.sf-empty p { margin: .25rem 0; }
 
-.page-header {
-  display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem;
-  margin-bottom: 1.25rem; flex-wrap: wrap;
-}
-.page-title {
-  font-size: 1.5rem; font-weight: 700; display: flex; align-items: center; gap: .625rem; margin: 0;
-}
-.page-subtitle { color: var(--text-color-secondary); font-size: .875rem; margin: .25rem 0 0; max-width: 40rem; }
-.header-actions { display: flex; align-items: center; gap: .5rem; }
-
-.loading-state { text-align: center; padding: 3rem 1rem; color: var(--text-color-secondary); }
-.empty-state { text-align: center; padding: 3rem 1rem; color: var(--text-color-secondary); font-size: .875rem; }
-.empty-state i { font-size: 1.75rem; display: block; margin-bottom: .5rem; opacity: .5; }
-.empty-state p { margin: .25rem 0; }
-
-.muted { color: var(--text-color-secondary); }
+.muted { color: var(--sms-text-muted); }
 
 .banner {
   display: flex; align-items: flex-start; gap: .625rem; padding: .75rem .875rem;
-  border-radius: var(--border-radius, .5rem); font-size: .875rem; margin-bottom: 1rem;
+  border-radius: var(--sms-radius); font-size: .875rem;
 }
 .banner.warn {
-  background: var(--yellow-50, #fefce8); border: 1px solid var(--yellow-200, #fef08a);
-  color: var(--yellow-900, #713f12);
+  background: var(--sms-warn-soft); border: 1px solid color-mix(in srgb, var(--sms-warn) 30%, transparent);
+  color: var(--sms-warn);
 }
 
 // ── The list, in the order they are tried ───────────────────────────────────
@@ -32,16 +17,16 @@ ol.rules { list-style: none; margin: 0; padding: 0; }
 
 ol.rules li {
   display: flex; align-items: flex-start; gap: .875rem;
-  background: var(--surface-card); border: 1px solid var(--surface-border);
-  border-left: 3px solid var(--primary-color);
-  border-radius: var(--border-radius, .5rem);
-  padding: .75rem .875rem; margin-bottom: .625rem;
+  border-left: 3px solid var(--sms-primary);
+  border-bottom: 1px solid var(--sms-border-soft);
+  padding: .75rem .875rem;
 }
-ol.rules li.inactive { border-left-color: var(--surface-300); opacity: .65; }
+ol.rules li:last-child { border-bottom: 0; }
+ol.rules li.inactive { border-left-color: var(--sms-border); opacity: .65; }
 
 .priority {
   flex: 0 0 2.25rem; text-align: center; font-weight: 700; font-size: .875rem;
-  color: var(--text-color-secondary); padding-top: .125rem;
+  color: var(--sms-text-muted); padding-top: .125rem;
 }
 
 .rule-body { flex: 1; min-width: 0; }
@@ -59,14 +44,14 @@ ol.rules li.inactive { border-left-color: var(--surface-300); opacity: .65; }
 .field label { font-size: .8125rem; font-weight: 600; }
 .field.narrow { flex: 0 0 8rem; }
 .field-row { display: flex; gap: .875rem; flex-wrap: wrap; }
-.field-hint { font-size: .75rem; color: var(--text-color-secondary); margin: 0 0 .5rem; }
+.field-hint { font-size: .75rem; color: var(--sms-text-muted); margin: 0 0 .5rem; }
 
-.section { border-top: 1px solid var(--surface-200); padding-top: .875rem; }
+.section { border-top: 1px solid var(--sms-border); padding-top: .875rem; }
 .section h3 { font-size: .875rem; font-weight: 600; margin: 0 0 .25rem; }
 
 .validation {
   font-size: .8125rem; margin: 0; display: flex; gap: .375rem; align-items: baseline;
-  color: var(--yellow-800, #854d0e);
+  color: var(--sms-warn);
 }
 
 @media (max-width: 40rem) {

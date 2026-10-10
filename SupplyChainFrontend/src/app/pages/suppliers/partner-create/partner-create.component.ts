@@ -11,6 +11,7 @@ import { CheckboxModule } from 'primeng/checkbox';
 import { DividerModule } from 'primeng/divider';
 import { MessageService } from 'primeng/api';
 import { BusinessPartnerService, BusinessPartnerModel } from '../../../services/business-partner.service';
+import { FLOW } from '../../../shared/flow';
 
 // Addendum 29 §1.6 — "Partner create/edit form with dynamic fields based on type flags." One form
 // serves both: no :uuid route param is CREATE, a :uuid param loads that partner and switches to
@@ -22,7 +23,7 @@ import { BusinessPartnerService, BusinessPartnerModel } from '../../../services/
   imports: [
     CommonModule, ReactiveFormsModule, RouterModule,
     ButtonModule, InputTextModule, TextareaModule, CardModule, ToastModule,
-    CheckboxModule, DividerModule
+    CheckboxModule, DividerModule, ...FLOW
   ],
   templateUrl: './partner-create.component.html',
   styleUrls: ['./partner-create.component.scss'],

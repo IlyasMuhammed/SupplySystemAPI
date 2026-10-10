@@ -15,12 +15,12 @@
     overflow-y: auto;
     scrollbar-gutter: stable;
     scrollbar-width: thin;
-    scrollbar-color: #c7d2e0 transparent;
+    scrollbar-color: var(--sms-border) transparent;
 
     &::-webkit-scrollbar { width: 8px; }
     &::-webkit-scrollbar-track { background: transparent; }
-    &::-webkit-scrollbar-thumb { background-color: #c7d2e0; border-radius: 4px; }
-    &::-webkit-scrollbar-thumb:hover { background-color: #94a3b8; }
+    &::-webkit-scrollbar-thumb { background-color: var(--sms-border); border-radius: 4px; }
+    &::-webkit-scrollbar-thumb:hover { background-color: var(--sms-text-faint); }
   }
 }
 
@@ -29,8 +29,8 @@
   align-items: center;
   gap: .5rem;
 
-  i { color: #6c63ff; }
-  .rep-title { font-size: 1.05rem; font-weight: 700; color: #2c3e50; }
+  i { color: var(--sms-primary-text); }
+  .rep-title { font-size: 1.05rem; font-weight: 700; color: var(--sms-text); }
 }
 
 .rep-loading, .rep-empty {
@@ -39,7 +39,7 @@
   align-items: center;
   gap: .5rem;
   padding: 2.5rem 1rem;
-  color: #7f8c8d;
+  color: var(--sms-text-muted);
   text-align: center;
 
   i { font-size: 1.5rem; }
@@ -52,11 +52,11 @@
 }
 
 .rep-subject {
-  border-bottom: 1px solid #eef0f4;
+  border-bottom: 1px solid var(--sms-border);
   padding-bottom: .75rem;
 
-  .rep-product { font-size: 1.05rem; font-weight: 700; color: #1e293b; }
-  .rep-sku { font-size: .8rem; color: #94a3b8; font-family: 'Courier New', monospace; }
+  .rep-product { font-size: 1.05rem; font-weight: 700; color: var(--sms-text); }
+  .rep-sku { font-size: .8rem; color: var(--sms-text-faint); font-family: 'Courier New', monospace; }
 }
 
 .rep-reviewed-row {
@@ -69,11 +69,11 @@
 
 .rep-reviewed-meta {
   font-size: .78rem;
-  color: #64748b;
+  color: var(--sms-text-muted);
 }
 
 .rep-section {
-  border: 1px solid #eef0f4;
+  border: 1px solid var(--sms-border);
   border-radius: 8px;
   padding: .9rem 1rem;
 }
@@ -84,10 +84,10 @@
   gap: .45rem;
   font-size: .92rem;
   font-weight: 700;
-  color: #334155;
+  color: var(--sms-text);
   margin: 0 0 .8rem;
 
-  i { color: #6c63ff; font-size: .85rem; }
+  i { color: var(--sms-primary-text); font-size: .85rem; }
 }
 
 .rep-grid {
@@ -104,7 +104,7 @@
   label {
     font-size: .75rem;
     font-weight: 600;
-    color: #64748b;
+    color: var(--sms-text-muted);
   }
 
   input, textarea, p-dropdown, p-calendar {
@@ -120,7 +120,7 @@
   }
 }
 
-.rep-required span { color: #dc2626; }
+.rep-required span { color: var(--sms-danger); }
 
 // ── Discount tier editor ──────────────────────────────────────────────────────
 
@@ -137,7 +137,7 @@
 .rep-tier-header span {
   font-size: .7rem;
   font-weight: 700;
-  color: #94a3b8;
+  color: var(--sms-text-faint);
   text-transform: uppercase;
 }
 
@@ -147,24 +147,24 @@
   gap: .4rem;
   margin-top: .5rem;
   padding: .5rem .7rem;
-  background: #fef2f2;
+  background: var(--sms-danger-soft);
   border-radius: 6px;
-  color: #991b1b;
+  color: var(--sms-danger);
   font-size: .78rem;
 }
 
 .rep-tier-preview {
   margin-top: .8rem;
   padding: .7rem .9rem;
-  background: #f8fafc;
+  background: var(--sms-surface-2);
   border-radius: 8px;
-  border-left: 3px solid #6c63ff;
+  border-left: 3px solid var(--sms-primary);
 }
 
 .rep-tier-preview-title {
   font-size: .72rem;
   font-weight: 700;
-  color: #64748b;
+  color: var(--sms-text-muted);
   text-transform: uppercase;
   margin-bottom: .4rem;
 }
@@ -175,16 +175,16 @@
   font-size: .82rem;
   padding: .15rem 0;
 
-  .rep-tier-preview-range { font-weight: 600; color: #1e293b; min-width: 5.5rem; }
-  .rep-tier-preview-price { color: #16a34a; font-weight: 700; }
-  .rep-tier-preview-pct { color: #94a3b8; }
+  .rep-tier-preview-range { font-weight: 600; color: var(--sms-text); min-width: 5.5rem; }
+  .rep-tier-preview-price { color: var(--sms-ok); font-weight: 700; }
+  .rep-tier-preview-pct { color: var(--sms-text-faint); }
 }
 
 // ── Notes ──────────────────────────────────────────────────────────────────────
 
 .rep-notes-meta {
   font-size: .72rem;
-  color: #94a3b8;
+  color: var(--sms-text-faint);
   margin-top: .4rem;
 }
 
@@ -200,7 +200,7 @@
   display: flex;
   justify-content: center;
   padding: 1rem;
-  color: #94a3b8;
+  color: var(--sms-text-faint);
 }
 
 .rep-timeline {
@@ -221,8 +221,8 @@
   width: 2rem;
   height: 2rem;
   border-radius: 50%;
-  background: #ede9fe;
-  color: #6c63ff;
+  background: var(--sms-primary-soft);
+  color: var(--sms-primary-text);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -238,30 +238,30 @@
   gap: .5rem;
   font-size: .78rem;
 
-  .rep-timeline-actor { font-weight: 700; color: #334155; }
-  .rep-timeline-date { color: #94a3b8; white-space: nowrap; }
+  .rep-timeline-actor { font-weight: 700; color: var(--sms-text); }
+  .rep-timeline-date { color: var(--sms-text-faint); white-space: nowrap; }
 }
 
 .rep-timeline-change {
   font-size: .82rem;
-  color: #475569;
+  color: var(--sms-text-muted);
   margin-top: .15rem;
 
-  .rep-old-value { color: #ef4444; text-decoration: line-through; }
-  .rep-new-value { color: #16a34a; font-weight: 600; }
-  i { font-size: .68rem; margin: 0 .3rem; color: #94a3b8; }
+  .rep-old-value { color: var(--sms-danger); text-decoration: line-through; }
+  .rep-new-value { color: var(--sms-ok); font-weight: 600; }
+  i { font-size: .68rem; margin: 0 .3rem; color: var(--sms-text-faint); }
 }
 
 .rep-timeline-reason {
   font-size: .78rem;
   font-style: italic;
-  color: #64748b;
+  color: var(--sms-text-muted);
   margin-top: .2rem;
 }
 
 .rep-empty-inline {
   font-size: .82rem;
-  color: #94a3b8;
+  color: var(--sms-text-faint);
   text-align: center;
   padding: .8rem 0;
 }
@@ -273,12 +273,12 @@
   grid-template-columns: repeat(4, 1fr);
   gap: .5rem;
   padding: .7rem .9rem;
-  background: #f8fafc;
+  background: var(--sms-surface-2);
   border-radius: 8px;
   cursor: pointer;
   transition: background .15s;
 
-  &:hover { background: #f1f5f9; }
+  &:hover { background: var(--sms-row-hover); }
 }
 
 .rep-po-cell {
@@ -290,18 +290,18 @@
 .rep-meta-label {
   font-size: .68rem;
   font-weight: 700;
-  color: #94a3b8;
+  color: var(--sms-text-faint);
   text-transform: uppercase;
 }
 
 .rep-meta-value {
   font-size: .85rem;
   font-weight: 600;
-  color: #1e293b;
+  color: var(--sms-text);
 }
 
 .rep-po-link {
-  color: #6c63ff;
+  color: var(--sms-primary-text);
   text-decoration: underline;
 }
 

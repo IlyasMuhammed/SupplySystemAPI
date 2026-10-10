@@ -21,9 +21,10 @@ internal sealed record SaleOrderLineHolds(
     public decimal ReservedFor(Guid lineUuid) => Reserved.GetValueOrDefault(lineUuid);
     public decimal InFlightFor(Guid lineUuid) => InFlight.GetValueOrDefault(lineUuid);
 
-    /// <summary>Quantity − fulfilled − held by the order − on its open deliveries, never below zero.</summary>
-    public decimal ReservableFor(SaleOrderLine line) =>
-        Math.Max(0m, line.Quantity - line.FulfilledQty - ReservedFor(line.UUID) - InFlightFor(line.UUID));
+    /// <summary>Quantity − fulfilled − held by the order − on its open deliveries, never below zero. A36: 0 for a service line.</summary>
+    public decimal ReservableFor(SaleOrderLine line) => SaleOrderServiceLines.IsService(line)
+        ? 0m
+        : Math.Max(0m, line.Quantity - line.FulfilledQty - ReservedFor(line.UUID) - InFlightFor(line.UUID));
 
     public string IndicatorFor(SaleOrder order, SaleOrderLine line) =>
         SaleOrderHolds.Indicator(order.Status, line.Status, line.Quantity, line.FulfilledQty,

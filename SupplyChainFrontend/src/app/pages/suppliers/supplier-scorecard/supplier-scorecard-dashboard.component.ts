@@ -13,6 +13,7 @@ import {
   SupplierScorecardRankingItem
 } from '../../../services/scorecard.service';
 import { ScorecardDetailPanelComponent } from './scorecard-detail-panel/scorecard-detail-panel.component';
+import { FLOW } from '../../../shared/flow';
 
 type Preset = '3m' | '6m' | '12m' | 'custom';
 
@@ -23,7 +24,7 @@ interface GradeCount { grade: string; count: number; }
   standalone: true,
   imports: [
     CommonModule, FormsModule, ButtonModule, TableModule, TagModule,
-    CalendarModule, SkeletonModule, ToastModule, ScorecardDetailPanelComponent
+    CalendarModule, SkeletonModule, ToastModule, ScorecardDetailPanelComponent, ...FLOW
   ],
   templateUrl: './supplier-scorecard-dashboard.component.html',
   styleUrls: ['./supplier-scorecard-dashboard.component.scss'],

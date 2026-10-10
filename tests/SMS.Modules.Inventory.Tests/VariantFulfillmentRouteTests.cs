@@ -418,7 +418,9 @@ internal sealed class FakeFulfillmentRouteLookup : IFulfillmentRouteLookup
     private readonly Dictionary<Guid, FulfillmentRouteSummary> _shippingDefaults = [];
 
     /// <param name="category">A34 — the route's category (STOCK unless a MANUFACTURE route is wanted).</param>
-    public FulfillmentRouteSummary Add(Guid org, string code, bool isActive = true, string category = FulfillmentRouteCategory.Stock)
+    /// <param name="isAvailable">A37 D-12 — what Logistics' lookup reports when the route's module is off.</param>
+    public FulfillmentRouteSummary Add(Guid org, string code, bool isActive = true, string category = FulfillmentRouteCategory.Stock,
+        bool isAvailable = true)
     {
         var ships = code.EndsWith("SHIP", StringComparison.Ordinal);
         IReadOnlyList<string> steps = ships
@@ -426,7 +428,11 @@ internal sealed class FakeFulfillmentRouteLookup : IFulfillmentRouteLookup
             : [FulfillmentStepCode.Pick, FulfillmentStepCode.GoodsIssue];
         var route = new FulfillmentRouteSummary(
             Guid.NewGuid(), code, $"Route {code}", isActive, IsDefault: false, IsSystem: false,
-            RequiresPacking: false, RequiresShipping: ships, steps) { Category = category };
+            RequiresPacking: false, RequiresShipping: ships, steps)
+        {
+            Category = category, IsAvailable = isAvailable,
+            UnavailableReason = isAvailable ? null : FulfillmentRouteAvailability.ManufacturingOffReason
+        };
         _routes.Add((org, route));
         return route;
     }

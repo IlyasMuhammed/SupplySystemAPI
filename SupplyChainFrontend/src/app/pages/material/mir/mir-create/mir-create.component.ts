@@ -15,6 +15,7 @@ import { forkJoin } from 'rxjs';
 import { MaterialService, CreateMirRequest, PrLineSearchResult } from '../../../../services/material.service';
 import { InventoryService, ProductListItemModel, VariantWarehouseStockModel } from '../../../../services/inventory.service';
 import { ProductVariantPickerComponent, VariantPickerSelection } from '../../../../shared/product-variant-picker/product-variant-picker.component';
+import { FLOW } from '../../../../shared/flow';
 
 interface MirLine {
   productUuid: string;
@@ -44,7 +45,8 @@ interface MirLine {
     CommonModule, RouterModule, FormsModule,
     ButtonModule, InputTextModule, InputNumberModule,
     DropdownModule, CalendarModule, TextareaModule,
-    ToastModule, DividerModule, ProductVariantPickerComponent
+    ToastModule, DividerModule, ProductVariantPickerComponent,
+    ...FLOW
   ],
   templateUrl: './mir-create.component.html',
   styleUrls: ['./mir-create.component.scss'],

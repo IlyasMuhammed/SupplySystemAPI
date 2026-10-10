@@ -1,133 +1,135 @@
 <p-toast></p-toast>
 
-<div class="setup-page">
+<sf-page [crumbs]="['Settings', 'Finance setup', 'Exchange rates']">
 
-  <!-- ── Header ───────────────────────────────────────────────────────────── -->
-  <div class="page-header">
-    <div class="page-icon"><i class="pi pi-arrow-right-arrow-left"></i></div>
-    <div class="grow">
-      <h1 class="page-title">Exchange Rates</h1>
-      <p class="page-subtitle">
-        How many {{ rateCurrencyCode || 'rate-currency' }} one unit of each currency is worth, from one date to another. Adding a
-        current rate ends the previous one the day before, so every day has exactly one rate. A document fixes the rate of its
-        date when it is confirmed, approved or issued — changing a rate here never changes it.
-      </p>
-    </div>
-    <div class="page-actions" *ngIf="canManage">
-      <p-button label="Add rate" icon="pi pi-plus" (onClick)="openCreate()" data-testid="add-rate"></p-button>
-    </div>
+  <!-- ── Command bar ──────────────────────────────────────────────────────── -->
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <p-button *ngIf="canManage" label="Add rate" icon="pi pi-plus" (onClick)="openCreate()" data-testid="add-rate"></p-button>
+    <p-button *ngIf="hasFilters" label="Clear filters" icon="pi pi-filter-slash" [text]="true" (onClick)="clearFilters()" data-testid="clear-filters"></p-button>
+    <span class="sf-end">
+      <span class="sf-mu sf-sm" *ngIf="rateCurrencyCode">All rates are 1 unit = x {{ rateCurrencyCode }}</span>
+    </span>
   </div>
 
-  <div class="note info" *ngIf="!canManage" data-testid="read-only">
-    <i class="pi pi-lock"></i>
-    <div class="note-body">You can see the rates. Changing them needs the Manage Exchange Rates permission.</div>
-  </div>
-
-  <div class="note warn" *ngIf="currenciesFailed" data-testid="currencies-failed">
-    <i class="pi pi-exclamation-triangle"></i>
-    <div class="note-body">The currency list could not be loaded, so currencies cannot be chosen. Reload the page to try again.</div>
-  </div>
-
-  <!-- ── Rate on a date ─────────────────────────────────────────────────────── -->
-  <section class="form-card">
-    <div class="card-head">
-      <div class="card-icon"><i class="pi pi-calculator"></i></div>
-      <div class="grow">
-        <div class="card-title">Rate on a date</div>
-        <div class="card-sub">The rate a document dated that day would lock.</div>
+  <div class="sf-body">
+    <div class="sf-lr-head">
+      <div>
+        <h1>Exchange rates <span class="sf-count" *ngIf="!isLoading">{{ rates.length }}</span></h1>
+        <div class="sf-sub">
+          How many {{ rateCurrencyCode || 'rate-currency' }} one unit of each currency is worth, from one date to another. Adding a
+          current rate ends the previous one the day before, so every day has exactly one rate. A document fixes the rate of its
+          date when it is confirmed, approved or issued — changing a rate here never changes it.
+        </div>
       </div>
     </div>
-    <div class="quote-row">
-      <p-select [options]="filterOptions" [(ngModel)]="quoteCurrencyId" (ngModelChange)="onQuoteInputChange()" optionLabel="label"
-                optionValue="value" placeholder="Currency" [filter]="filterOptions.length > 8" filterBy="label" appendTo="body"
-                styleClass="currency" data-testid="quote-currency"></p-select>
-      <p-datepicker [(ngModel)]="quoteDate" (ngModelChange)="onQuoteInputChange()" dateFormat="dd/mm/yy" [showIcon]="true"
-                    appendTo="body" inputId="quoteDate" data-testid="quote-date"></p-datepicker>
-      <p-button label="Check" icon="pi pi-search" [disabled]="!canQuote" [loading]="isQuoting" (onClick)="checkQuote()"
-                data-testid="quote-check"></p-button>
-    </div>
-    <div class="quote-answer" *ngIf="quoteChecked" data-testid="quote-answer">
-      <ng-container *ngIf="quote; else noQuote">
-        <div class="quote-value">1 {{ quote.currencyCode }} = <strong>{{ rateText(quote.rate) }}</strong> {{ quote.rateCurrencyCode }}</div>
-        <div class="hint">
-          The rate from {{ dayText(quote.effectiveFrom) }}
-          <ng-container *ngIf="isOpenEnd(quote.effectiveTo); else closedTo">(current).</ng-container>
-          <ng-template #closedTo>to {{ dayText(quote.effectiveTo) }}.</ng-template>
-        </div>
-      </ng-container>
-      <ng-template #noQuote>
-        <div class="quote-none"><i class="pi pi-info-circle"></i> {{ quoteMessage || 'No rate covers that date.' }}</div>
-      </ng-template>
-    </div>
-  </section>
 
-  <!-- ── The rates ──────────────────────────────────────────────────────────── -->
-  <section class="form-card flush">
-    <div class="table-toolbar">
+    <div class="note info" *ngIf="!canManage" data-testid="read-only">
+      <i class="pi pi-lock"></i>
+      <div class="note-body">You can see the rates. Changing them needs the Manage Exchange Rates permission.</div>
+    </div>
+
+    <div class="note warn" *ngIf="currenciesFailed" data-testid="currencies-failed">
+      <i class="pi pi-exclamation-triangle"></i>
+      <div class="note-body">The currency list could not be loaded, so currencies cannot be chosen. Reload the page to try again.</div>
+    </div>
+
+    <!-- ── Rate on a date ─────────────────────────────────────────────────────── -->
+    <section class="sf-card">
+      <div class="sf-ch">
+        <h2>Rate on a date</h2>
+        <span class="sf-mu sf-sm">The rate a document dated that day would lock.</span>
+      </div>
+      <div class="sf-filters">
+        <p-select [options]="filterOptions" [(ngModel)]="quoteCurrencyId" (ngModelChange)="onQuoteInputChange()" optionLabel="label"
+                  optionValue="value" placeholder="Currency" [filter]="filterOptions.length > 8" filterBy="label" appendTo="body"
+                  styleClass="currency" data-testid="quote-currency"></p-select>
+        <p-datepicker [(ngModel)]="quoteDate" (ngModelChange)="onQuoteInputChange()" dateFormat="dd/mm/yy" [showIcon]="true"
+                      appendTo="body" inputId="quoteDate" data-testid="quote-date"></p-datepicker>
+        <p-button label="Check" icon="pi pi-search" severity="secondary" [outlined]="true" [disabled]="!canQuote" [loading]="isQuoting" (onClick)="checkQuote()"
+                  data-testid="quote-check"></p-button>
+      </div>
+      <div class="sf-card quiet flat" *ngIf="quoteChecked" data-testid="quote-answer">
+        <ng-container *ngIf="quote; else noQuote">
+          <div class="quote-value">1 {{ quote.currencyCode }} = <strong class="sf-num">{{ rateText(quote.rate) }}</strong> {{ quote.rateCurrencyCode }}</div>
+          <div class="hint">
+            The rate from {{ dayText(quote.effectiveFrom) }}
+            <ng-container *ngIf="isOpenEnd(quote.effectiveTo); else closedTo">(current).</ng-container>
+            <ng-template #closedTo>to {{ dayText(quote.effectiveTo) }}.</ng-template>
+          </div>
+        </ng-container>
+        <ng-template #noQuote>
+          <div class="quote-none"><i class="pi pi-info-circle"></i> {{ quoteMessage || 'No rate covers that date.' }}</div>
+        </ng-template>
+      </div>
+    </section>
+
+    <!-- ── Filters ──────────────────────────────────────────────────────────── -->
+    <div class="sf-filters">
       <p-select [options]="filterOptions" [(ngModel)]="filterCurrencyId" (ngModelChange)="onFilterChange()" optionLabel="label"
                 optionValue="value" placeholder="All currencies" [showClear]="true" [filter]="filterOptions.length > 8" filterBy="label"
                 appendTo="body" styleClass="currency" data-testid="filter-currency"></p-select>
       <p-datepicker [(ngModel)]="filterMonth" (ngModelChange)="onFilterChange()" view="month" dateFormat="M yy" placeholder="Any period"
                     [showIcon]="true" [showClear]="true" [readonlyInput]="true" appendTo="body" data-testid="filter-month"></p-datepicker>
-      <p-button *ngIf="hasFilters" label="Clear" [text]="true" size="small" (onClick)="clearFilters()" data-testid="clear-filters"></p-button>
-      <span class="grow"></span>
-      <span class="muted" *ngIf="!isLoading">{{ rates.length }} {{ rates.length === 1 ? 'rate' : 'rates' }}</span>
+      <span class="sf-mu sf-sm" style="margin-left:auto" *ngIf="!isLoading">{{ rates.length }} {{ rates.length === 1 ? 'rate' : 'rates' }}</span>
     </div>
 
-    <div class="state-inline" *ngIf="loadFailed" data-testid="load-failed">
-      <i class="pi pi-exclamation-triangle"></i> The rates could not be loaded.
-      <p-button label="Try again" [text]="true" size="small" (onClick)="load()"></p-button>
-    </div>
+    <!-- ── The rates ──────────────────────────────────────────────────────────── -->
+    <section class="sf-card p0">
+      <div class="state-inline" *ngIf="loadFailed" data-testid="load-failed">
+        <i class="pi pi-exclamation-triangle"></i> The rates could not be loaded.
+        <p-button label="Try again" [text]="true" size="small" (onClick)="load()"></p-button>
+      </div>
 
-    <p-table [value]="rates" [loading]="isLoading" dataKey="id" styleClass="p-datatable-sm" [tableStyle]="{ 'min-width': '52rem' }"
-             [paginator]="rates.length > 50" [rows]="50" *ngIf="!loadFailed">
-      <ng-template pTemplate="header">
-        <tr>
-          <th style="width: 5rem">Code</th>
-          <th>Name</th>
-          <th class="text-right" style="width: 11rem" data-testid="rate-col">Rate ({{ rateCurrencyCode }})</th>
-          <th style="width: 8.5rem">From</th>
-          <th style="width: 8.5rem">To</th>
-          <th style="width: 6rem">Source</th>
-          <th>Notes</th>
-          <th style="width: 4rem" *ngIf="canManage"></th>
-        </tr>
-      </ng-template>
-      <ng-template pTemplate="body" let-r>
-        <tr [attr.data-testid]="'rate-' + r.id">
-          <td class="mono">{{ r.currencyCode }}</td>
-          <td>{{ r.currencyName }}</td>
-          <td class="text-right nowrap mono"
-              [pTooltip]="'1 ' + r.currencyCode + ' = ' + rateText(r.rate) + ' ' + r.rateCurrencyCode + ' · 1 ' + r.rateCurrencyCode + ' = ' + rateText(r.inverseRate) + ' ' + r.currencyCode"
-              tooltipPosition="top">{{ rateText(r.rate) }}</td>
-          <td class="nowrap">{{ dayText(r.effectiveFrom) }}</td>
-          <td class="nowrap">
-            <p-tag *ngIf="isOpenEnd(r.effectiveTo); else toDay" value="● Current" severity="success" [attr.data-testid]="'current-' + r.id"></p-tag>
-            <ng-template #toDay>{{ dayText(r.effectiveTo) }}</ng-template>
-          </td>
-          <td><p-tag [value]="r.source === 'SYSTEM' ? 'System' : 'Manual'" [severity]="r.source === 'SYSTEM' ? 'info' : 'secondary'"></p-tag></td>
-          <td class="muted">{{ r.notes }}</td>
-          <td *ngIf="canManage">
-            <div class="row-actions">
-              <p-button *ngIf="canEdit(r)" icon="pi pi-pencil" [text]="true" [rounded]="true" size="small" pTooltip="Edit" tooltipPosition="top"
-                        (onClick)="openEdit(r)" [attr.data-testid]="'edit-' + r.id"></p-button>
-              <i *ngIf="!canEdit(r)" class="pi pi-lock muted" pTooltip="The rate currency's rate is always 1.0." tooltipPosition="left"></i>
-            </div>
-          </td>
-        </tr>
-      </ng-template>
-      <ng-template pTemplate="emptymessage">
-        <tr>
-          <td [attr.colspan]="canManage ? 8 : 7" class="empty" data-testid="empty">
-            <ng-container *ngIf="hasFilters; else none">No rate for this currency or period.</ng-container>
-            <ng-template #none>No exchange rates yet. A document in a foreign currency cannot be confirmed until its currency has a rate.</ng-template>
-          </td>
-        </tr>
-      </ng-template>
-    </p-table>
-  </section>
-  <p class="hint">● Current = the rate in force from its start date onwards (no end date yet).</p>
-</div>
+      <p-table [value]="rates" [loading]="isLoading" dataKey="id" styleClass="p-datatable-sm" [tableStyle]="{ 'min-width': '52rem' }"
+               [paginator]="rates.length > 50" [rows]="50" *ngIf="!loadFailed">
+        <ng-template pTemplate="header">
+          <tr>
+            <th style="width: 5rem">Code</th>
+            <th>Name</th>
+            <th class="text-right" style="width: 11rem" data-testid="rate-col">Rate ({{ rateCurrencyCode }})</th>
+            <th style="width: 8.5rem">From</th>
+            <th style="width: 8.5rem">To</th>
+            <th style="width: 6rem">Source</th>
+            <th>Notes</th>
+            <th style="width: 4rem" *ngIf="canManage"></th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-r>
+          <tr [attr.data-testid]="'rate-' + r.id">
+            <td class="sf-mono"><strong>{{ r.currencyCode }}</strong></td>
+            <td>{{ r.currencyName }}</td>
+            <td class="text-right nowrap sf-mono"
+                [pTooltip]="'1 ' + r.currencyCode + ' = ' + rateText(r.rate) + ' ' + r.rateCurrencyCode + ' · 1 ' + r.rateCurrencyCode + ' = ' + rateText(r.inverseRate) + ' ' + r.currencyCode"
+                tooltipPosition="top">{{ rateText(r.rate) }}</td>
+            <td class="nowrap">{{ dayText(r.effectiveFrom) }}</td>
+            <td class="nowrap">
+              <p-tag *ngIf="isOpenEnd(r.effectiveTo); else toDay" value="● Current" severity="success" [attr.data-testid]="'current-' + r.id"></p-tag>
+              <ng-template #toDay>{{ dayText(r.effectiveTo) }}</ng-template>
+            </td>
+            <td><p-tag [value]="r.source === 'SYSTEM' ? 'System' : 'Manual'" [severity]="r.source === 'SYSTEM' ? 'info' : 'secondary'"></p-tag></td>
+            <td class="sf-mu">{{ r.notes }}</td>
+            <td *ngIf="canManage">
+              <div class="row-actions">
+                <p-button *ngIf="canEdit(r)" icon="pi pi-pencil" [text]="true" [rounded]="true" size="small" pTooltip="Edit" tooltipPosition="top"
+                          (onClick)="openEdit(r)" [attr.data-testid]="'edit-' + r.id"></p-button>
+                <i *ngIf="!canEdit(r)" class="pi pi-lock sf-mu" pTooltip="The rate currency's rate is always 1.0." tooltipPosition="left"></i>
+              </div>
+            </td>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="emptymessage">
+          <tr>
+            <td [attr.colspan]="canManage ? 8 : 7" class="sf-empty" data-testid="empty">
+              <ng-container *ngIf="hasFilters; else none">No rate for this currency or period.</ng-container>
+              <ng-template #none>No exchange rates yet. A document in a foreign currency cannot be confirmed until its currency has a rate.</ng-template>
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </section>
+    <p class="hint">● Current = the rate in force from its start date onwards (no end date yet).</p>
+  </div>
+</sf-page>
 
 <!-- ══ Add / edit ══════════════════════════════════════════════════════════ -->
 <p-dialog [header]="editing ? 'Edit exchange rate' : 'Add exchange rate'" [(visible)]="dialogVisible" [modal]="true" [draggable]="false"

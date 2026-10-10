@@ -59,6 +59,12 @@ public static class SuppliersModuleExtensions
         // A35 D-9 — partner default currencies (resolution for Demand/Finance, BR-C4-01 validation).
         services.AddScoped<IPartnerCurrencyDefaults, PartnerCurrencyDefaultsService>();
         services.AddScoped<PartnerCurrencyRules>();
+        // A37 D-13 — customer master facade, the per-organization walk-in customer (CUST-01) and customer balances
+        // (TryAdd: Finance may register its own ICustomerBalanceLookup and it wins).
+        services.AddScoped<ICustomerService, CustomerService>();
+        services.AddScoped<WalkInCustomerSeeder>();
+        services.AddScoped<IOrganizationProvisionedHandler>(sp => sp.GetRequiredService<WalkInCustomerSeeder>());
+        services.TryAddScoped<ICustomerBalanceLookup, SalesInvoiceCustomerBalanceLookup>();
 
         // Replaces Warehouse's NullGrnEventPublisher registration — must run AFTER AddWarehouseModule()
         // in Program.cs for this override to win (last registration for a given service type wins).
@@ -89,7 +95,21 @@ public static class SuppliersModuleExtensions
         var log = scope.ServiceProvider.GetService<Microsoft.Extensions.Logging.ILoggerFactory>()?
                       .CreateLogger("SMS.Modules.Suppliers.Migrations")
                   ?? (Microsoft.Extensions.Logging.ILogger)Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance;
-        SuppliersSchemaMigrator.MigrateIfSafe(scope.ServiceProvider.GetRequiredService<SuppliersDbContext>(), log);
+        if (!SuppliersSchemaMigrator.MigrateIfSafe(scope.ServiceProvider.GetRequiredService<SuppliersDbContext>(), log)) return app;
+
+        // A37 CUST-01 — every organization's walk-in customer (idempotent). Tenancy migrates first, so its organizations
+        // exist. A failure is logged, never fatal: the customer API also creates the row lazily.
+        try
+        {
+            var organizations = scope.ServiceProvider.GetService<IOrganizationDirectory>();
+            if (organizations is not null)
+                scope.ServiceProvider.GetRequiredService<WalkInCustomerSeeder>()
+                    .EnsureForAllAsync(organizations.GetOrganizationIdsAsync().GetAwaiter().GetResult()).GetAwaiter().GetResult();
+        }
+        catch (Exception ex)
+        {
+            Microsoft.Extensions.Logging.LoggerExtensions.LogError(log, ex, "Walk-in customers could not be seeded at startup; the customer API creates them on first use.");
+        }
         return app;
     }
 

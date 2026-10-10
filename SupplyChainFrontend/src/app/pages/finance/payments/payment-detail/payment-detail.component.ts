@@ -10,6 +10,7 @@ import { DividerModule } from 'primeng/divider';
 import { TooltipModule } from 'primeng/tooltip';
 import { MessageService } from 'primeng/api';
 import { FinanceService, PaymentDetailModel } from '../../../../services/finance.service';
+import { FLOW } from '../../../../shared/flow';
 
 // Read-only legacy payment history (pre-SFM-003 flow). No write actions here —
 // see SupplierPaymentDetailComponent for the live approve/post/bounce lifecycle.
@@ -19,10 +20,10 @@ import { FinanceService, PaymentDetailModel } from '../../../../services/finance
   imports: [
     CommonModule, RouterModule, FormsModule,
     ButtonModule, TagModule, ToastModule,
-    CardModule, DividerModule, TooltipModule
+    CardModule, DividerModule, TooltipModule,
+    ...FLOW
   ],
   templateUrl: './payment-detail.component.html',
-  styleUrls: ['./payment-detail.component.scss'],
   providers: [MessageService]
 })
 export class PaymentDetailComponent implements OnInit {

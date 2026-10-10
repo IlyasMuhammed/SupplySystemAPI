@@ -1,83 +1,84 @@
-<div class="carrier-list-page">
-  <p-toast></p-toast>
-  <p-confirmDialog [style]="{width:'420px'}"></p-confirmDialog>
+<p-toast></p-toast>
+<p-confirmDialog [style]="{width:'420px'}"></p-confirmDialog>
 
-  <!-- ── Page Header ──────────────────────────────────────────────────────── -->
-  <div class="page-header-card">
-    <div class="ph-left">
-      <div class="ph-icon-wrap"><i class="pi pi-send"></i></div>
+<sf-page [crumbs]="['Logistics', 'Carriers']">
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <p-button label="New carrier" icon="pi pi-plus" (onClick)="openCreate()"></p-button>
+    <span class="sf-sep"></span>
+    <p-button icon="pi pi-refresh" label="Reset filters" [text]="true" (onClick)="resetFilters()"></p-button>
+  </div>
+
+  <div class="sf-body">
+    <div class="sf-lr-head">
       <div>
-        <div class="ph-name">Carriers</div>
-        <div class="ph-sub">Manage shipping carrier master data</div>
+        <h1>Carriers <span class="sf-count">{{ totalRecords }}</span></h1>
+        <div class="sf-sub">Manage shipping carrier master data</div>
+      </div>
+      <div class="sf-filters">
+        <button *ngFor="let s of statusOptions" type="button" class="sf-chip" [class.on]="selectedStatus === s.value"
+                (click)="selectedStatus = s.value; onFilterChange()" [attr.data-testid]="'status-chip-' + (s.value || 'ALL')">
+          {{ s.value ? s.label : 'All' }}
+        </button>
       </div>
     </div>
-    <p-button label="New Carrier" icon="pi pi-plus" (onClick)="openCreate()"></p-button>
-  </div>
 
-  <!-- ── Filter Bar ───────────────────────────────────────────────────────── -->
-  <div class="filter-bar">
-    <p-iconfield>
-      <p-inputicon styleClass="pi pi-search"></p-inputicon>
-      <input pInputText type="text" placeholder="Search name or code…"
-             [(ngModel)]="searchText" (ngModelChange)="onSearchChange()"
-             class="search-input" />
-    </p-iconfield>
-    <p-dropdown [options]="statusOptions" [(ngModel)]="selectedStatus"
-                (ngModelChange)="onFilterChange()" placeholder="All Statuses"
-                styleClass="filter-dropdown" appendTo="body"></p-dropdown>
-    <p-button icon="pi pi-refresh" [text]="true" severity="secondary"
-              pTooltip="Reset filters" (onClick)="resetFilters()"></p-button>
-  </div>
+    <div class="sf-filters">
+      <p-iconfield class="sf-search">
+        <p-inputicon styleClass="pi pi-search"></p-inputicon>
+        <input pInputText type="text" placeholder="Search name or code…"
+               [(ngModel)]="searchText" (ngModelChange)="onSearchChange()" />
+      </p-iconfield>
+    </div>
 
-  <!-- ── Table ────────────────────────────────────────────────────────────── -->
-  <div class="table-card">
-    <p-table [value]="carriers" [loading]="isLoading" [lazy]="true"
-             [totalRecords]="totalRecords" [rows]="pageSize"
-             (onLazyLoad)="onPageChange($event)"
-             [paginator]="true" [rowsPerPageOptions]="[10,20,50]"
-             [tableStyle]="{'min-width':'50rem'}"
-             styleClass="p-datatable-sm p-datatable-striped">
-      <ng-template pTemplate="header">
-        <tr>
-          <th>Name</th>
-          <th>Code</th>
-          <th>Service Type</th>
-          <th>Status</th>
-          <th class="text-center">Actions</th>
-        </tr>
-      </ng-template>
-      <ng-template pTemplate="body" let-c>
-        <tr>
-          <td class="font-semibold">{{ c.name }}</td>
-          <td><span class="code-chip">{{ c.code }}</span></td>
-          <td>{{ c.serviceType || '—' }}</td>
-          <td><p-tag [value]="c.status" [severity]="getStatusSeverity(c.status)"></p-tag></td>
-          <td class="text-center">
-            <p-button icon="pi pi-id-card" [text]="true" severity="secondary" size="small"
-                      pTooltip="Accounts and credentials"
-                      [routerLink]="['/portal/pages/logistics/carriers', c.uuid, 'accounts']"
-                      data-testid="carrier-accounts-link"></p-button>
-            <p-button icon="pi pi-book" [text]="true" severity="secondary" size="small"
-                      pTooltip="Carrier tariffs"
-                      [routerLink]="['/portal/pages/logistics/carriers', c.uuid, 'rate-cards']"
-                      data-testid="carrier-rate-cards-link"></p-button>
-            <p-button icon="pi pi-pencil" [text]="true" severity="secondary" size="small"
-                      pTooltip="Edit" (onClick)="openEdit(c)"></p-button>
-            <p-button icon="pi pi-trash" [text]="true" severity="danger" size="small"
-                      pTooltip="Delete" (onClick)="confirmDelete(c)"></p-button>
-          </td>
-        </tr>
-      </ng-template>
-      <ng-template pTemplate="emptymessage">
-        <tr>
-          <td colspan="6" class="text-center" style="padding:3rem;color:#94a3b8">
-            No carriers found.
-          </td>
-        </tr>
-      </ng-template>
-    </p-table>
+    <div class="sf-card p0">
+      <p-table [value]="carriers" [loading]="isLoading" [lazy]="true"
+               [totalRecords]="totalRecords" [rows]="pageSize"
+               (onLazyLoad)="onPageChange($event)"
+               [paginator]="true" [rowsPerPageOptions]="[10,20,50]"
+               [tableStyle]="{'min-width':'50rem'}"
+               styleClass="p-datatable-sm">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Name</th>
+            <th>Code</th>
+            <th>Service Type</th>
+            <th>Status</th>
+            <th class="text-center">Actions</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-c>
+          <tr>
+            <td><a class="row-link" role="button" tabindex="0" (click)="openEdit(c)" (keydown.enter)="openEdit(c)"><strong>{{ c.name }}</strong></a></td>
+            <td><span class="sf-pill in sf-mono">{{ c.code }}</span></td>
+            <td>{{ c.serviceType || '—' }}</td>
+            <td><p-tag [value]="c.status" [severity]="getStatusSeverity(c.status)"></p-tag></td>
+            <td class="text-center">
+              <p-button icon="pi pi-id-card" [text]="true" severity="secondary" size="small"
+                        pTooltip="Accounts and credentials"
+                        [routerLink]="['/portal/pages/logistics/carriers', c.uuid, 'accounts']"
+                        data-testid="carrier-accounts-link"></p-button>
+              <p-button icon="pi pi-book" [text]="true" severity="secondary" size="small"
+                        pTooltip="Carrier tariffs"
+                        [routerLink]="['/portal/pages/logistics/carriers', c.uuid, 'rate-cards']"
+                        data-testid="carrier-rate-cards-link"></p-button>
+              <p-button icon="pi pi-pencil" [text]="true" severity="secondary" size="small"
+                        pTooltip="Edit" (onClick)="openEdit(c)"></p-button>
+              <p-button icon="pi pi-trash" [text]="true" severity="danger" size="small"
+                        pTooltip="Delete" (onClick)="confirmDelete(c)"></p-button>
+            </td>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="emptymessage">
+          <tr>
+            <td colspan="5" class="sf-empty">
+              No carriers found.
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </div>
   </div>
-</div>
+</sf-page>
 
 
 <!-- ══════════════════════════════════════════════════════════════════════════ -->

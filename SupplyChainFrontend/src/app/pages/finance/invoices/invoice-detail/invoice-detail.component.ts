@@ -30,6 +30,7 @@ import { fromDateOnly, toDateOnly } from '../../../../shared/date-only';
 import { DocCurrencyPanelComponent } from '../../../../shared/doc-currency/doc-currency-panel.component';
 import { FxDifferenceComponent } from '../../../../shared/doc-currency/fx-difference.component';
 import { DocCurrencyInfo, cachedDocCurrency, missingRateOf, sumDifferences } from '../../../../shared/doc-currency/doc-currency';
+import { FLOW, FlowSection, FlowStage, flowStagesFrom } from '../../../../shared/flow';
 
 /** The reversal reason's column length on the server. */
 export const REVERSAL_REASON_MAX = 500;
@@ -46,7 +47,8 @@ const SETTLED_PAYMENT_STATUSES = ['Paid', 'FULLY_PAID', 'OVERPAID'];
     CardModule, DialogModule, TableModule,
     TooltipModule, DividerModule, ConfirmDialogModule,
     CalendarModule, DropdownModule, InputTextModule, TextareaModule, InputNumberModule, TimelinePanelComponent,
-    AttachmentListComponent, QboSyncBadgeComponent, DocCurrencyPanelComponent, FxDifferenceComponent
+    AttachmentListComponent, QboSyncBadgeComponent, DocCurrencyPanelComponent, FxDifferenceComponent,
+    ...FLOW
   ],
   templateUrl: './invoice-detail.component.html',
   styleUrls: ['./invoice-detail.component.scss'],
@@ -453,6 +455,39 @@ export class InvoiceDetailComponent implements OnInit {
       type: 'Credit Note', number: c.creditNoteNumber, reason: null, amount: c.creditAmount, date: c.creditDate
     }));
     return [...debits, ...credits];
+  }
+
+  /** SMS Flow header: captured → matched → approved → paid (rejected / reversed end the flow in red). */
+  get stages(): FlowStage[] {
+    const inv = this.invoice;
+    if (!inv) return [];
+    const day = (d: string | null | undefined) => (d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : null);
+    if (this.is('Rejected')) return flowStagesFrom(['Captured', 'Match', 'Rejected'], 2, { subs: [day(inv.receivedDate), null, null], failed: true });
+    if (this.is('Reversed')) return flowStagesFrom(['Captured', 'Approved', 'Reversed'], 2, { subs: [day(inv.receivedDate), day(inv.approvedAt), day(inv.reversedAt)], failed: true });
+    const settled = SETTLED_PAYMENT_STATUSES.includes(inv.paymentStatus);
+    const current = this.is('Approved') ? (settled ? 4 : 3) : this.is('Matched') ? 2 : 1;
+    return flowStagesFrom(['Captured', 'Match', 'Approve', 'Pay'], current, {
+      subs: [day(inv.receivedDate), this.is('Variance') ? 'variance' : null, day(inv.approvedAt), current === 3 ? inv.paymentStatus : null],
+      failed: this.is('Variance')
+    });
+  }
+
+  private sectionsCache: { key: string; value: FlowSection[] } = { key: '', value: [] };
+
+  /** Same array while nothing it shows changes, so <sf-anchors> is not re-wired on every change detection. */
+  get sections(): FlowSection[] {
+    const inv = this.invoice;
+    if (!inv) return [];
+    const key = `${inv.uuid}|${inv.lines?.length ?? 0}|${this.newPayments.length}|${(inv.debitNotes?.length ?? 0) + (inv.creditNotes?.length ?? 0)}`;
+    if (this.sectionsCache.key === key) return this.sectionsCache.value;
+    this.sectionsCache = { key, value: [
+      { id: 'sec-match', label: '3-way match' },
+      ...(inv.lines?.length ? [{ id: 'sec-lines', label: 'Lines', count: inv.lines.length }] : []),
+      { id: 'sec-details', label: 'Details' },
+      { id: 'sec-payments', label: 'Payments', count: this.newPayments.length || null },
+      ...(inv.debitNotes?.length || inv.creditNotes?.length ? [{ id: 'sec-deductions', label: 'Deductions' }] : [])
+    ] };
+    return this.sectionsCache.value;
   }
 
   get totalDeducted(): number {

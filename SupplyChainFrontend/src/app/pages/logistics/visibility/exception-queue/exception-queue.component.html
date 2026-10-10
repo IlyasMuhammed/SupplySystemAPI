@@ -1,88 +1,96 @@
-<div class="exception-page">
-  <p-toast></p-toast>
+<p-toast></p-toast>
 
-  <div class="page-header">
-    <div>
-      <h1 class="page-title"><i class="pi pi-exclamation-triangle"></i> Delivery exceptions</h1>
-      <p class="page-subtitle">
-        What has gone wrong with a movement, named and owned until it is settled. Worst first,
-        then oldest — the order it should be worked in.
-      </p>
-    </div>
-
-    <div class="header-actions">
-      <p-button label="Proof of delivery" icon="pi pi-verified" severity="secondary" [outlined]="true"
-                routerLink="/portal/pages/logistics/proof-of-delivery"
-                data-testid="action-pod"></p-button>
-    </div>
+<sf-page [crumbs]="['Logistics', 'Delivery exceptions']">
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <p-button label="Refresh" icon="pi pi-refresh" [text]="true" (onClick)="search()"></p-button>
+    <p-button label="Proof of delivery" icon="pi pi-verified" [text]="true"
+              routerLink="/portal/pages/logistics/proof-of-delivery"
+              data-testid="action-pod"></p-button>
   </div>
 
-  <!-- ── What is outstanding ─────────────────────────────────────────────────── -->
-
-  <div class="summary" *ngIf="summary as s">
-    <div class="tiles">
-      <div class="tile">
-        <span class="value" data-testid="tile-open">{{ s.open }}</span>
-        <span class="label">open</span>
-      </div>
-      <div class="tile">
-        <span class="value" data-testid="tile-waiting">{{ s.waiting }}</span>
-        <span class="label">waiting on others</span>
-      </div>
-      <div class="tile" [class.alarm]="s.critical > 0">
-        <span class="value" data-testid="tile-critical">{{ s.critical }}</span>
-        <span class="label">critical</span>
-      </div>
-      <!-- The ones that sit untouched for a week are always the ones nobody owns. -->
-      <div class="tile" [class.alarm]="s.unassigned > 0">
-        <span class="value" data-testid="tile-unassigned">{{ s.unassigned }}</span>
-        <span class="label">nobody owns</span>
+  <div class="sf-body">
+    <div class="sf-lr-head">
+      <div>
+        <h1>Delivery exceptions <span class="sf-count">{{ total }}</span></h1>
+        <div class="sf-sub">
+          What has gone wrong with a movement, named and owned until it is settled. Worst first,
+          then oldest — the order it should be worked in.
+        </div>
       </div>
     </div>
 
-    <table class="by-type" *ngIf="s.byType.length" data-testid="by-type">
-      <tr>
-        <th>Kind</th><th>Open</th><th>Critical</th><th>Unowned</th><th>Oldest</th>
-      </tr>
-      <tr *ngFor="let t of s.byType">
-        <td>{{ typeLabel(t.exceptionType) }}</td>
-        <td>{{ t.open }}</td>
-        <td [class.alarm]="t.critical > 0">{{ t.critical }}</td>
-        <td [class.alarm]="t.unassigned > 0">{{ t.unassigned }}</td>
-        <!-- A small count of something a week old is exactly what a total hides. -->
-        <td class="muted">
-          {{ t.oldestHours < 48 ? (t.oldestHours | number:'1.0-0') + ' hours'
-                                : (t.oldestHours / 24 | number:'1.0-0') + ' days' }}
-        </td>
-      </tr>
-    </table>
+    <!-- ── What is outstanding ─────────────────────────────────────────────────── -->
 
-    <div class="warnings" *ngIf="s.warnings.length" data-testid="summary-warnings">
-      <p *ngFor="let w of s.warnings"><i class="pi pi-info-circle"></i> {{ w }}</p>
+    <ng-container *ngIf="summary as s">
+      <div class="sf-grid sf-tiles">
+        <div class="sf-tile">
+          <span class="l">Open</span>
+          <span class="v" data-testid="tile-open">{{ s.open }}</span>
+        </div>
+        <div class="sf-tile">
+          <span class="l">Waiting on others</span>
+          <span class="v" data-testid="tile-waiting">{{ s.waiting }}</span>
+        </div>
+        <div class="sf-tile">
+          <span class="l">Critical</span>
+          <span class="v" [class.er]="s.critical > 0" data-testid="tile-critical">{{ s.critical }}</span>
+        </div>
+        <!-- The ones that sit untouched for a week are always the ones nobody owns. -->
+        <div class="sf-tile">
+          <span class="l">Nobody owns</span>
+          <span class="v" [class.er]="s.unassigned > 0" data-testid="tile-unassigned">{{ s.unassigned }}</span>
+        </div>
+      </div>
+
+      <section class="sf-card" *ngIf="s.byType.length || s.warnings.length">
+        <div class="sf-ch"><h2>By kind</h2></div>
+        <div class="sf-tw" *ngIf="s.byType.length">
+          <table class="sf-t" data-testid="by-type">
+            <tr>
+              <th>Kind</th><th>Open</th><th>Critical</th><th>Unowned</th><th>Oldest</th>
+            </tr>
+            <tr *ngFor="let t of s.byType">
+              <td>{{ typeLabel(t.exceptionType) }}</td>
+              <td>{{ t.open }}</td>
+              <td [class.alarm]="t.critical > 0">{{ t.critical }}</td>
+              <td [class.alarm]="t.unassigned > 0">{{ t.unassigned }}</td>
+              <!-- A small count of something a week old is exactly what a total hides. -->
+              <td class="muted">
+                {{ t.oldestHours < 48 ? (t.oldestHours | number:'1.0-0') + ' hours'
+                                      : (t.oldestHours / 24 | number:'1.0-0') + ' days' }}
+              </td>
+            </tr>
+          </table>
+        </div>
+
+        <div class="warnings" *ngIf="s.warnings.length" data-testid="summary-warnings">
+          <p *ngFor="let w of s.warnings"><i class="pi pi-info-circle"></i> {{ w }}</p>
+        </div>
+      </section>
+    </ng-container>
+
+    <!-- ── Narrowing it ─────────────────────────────────────────────────────────── -->
+
+    <div class="sf-filters">
+      <p-select [options]="carrierOptions" [(ngModel)]="filter.carrierUuid" (onChange)="search()"
+                placeholder="Every carrier" styleClass="filter" data-testid="filter-carrier"></p-select>
+
+      <p-select [options]="typeOptions" [(ngModel)]="filter.exceptionType" (onChange)="search()"
+                placeholder="Every kind" styleClass="filter" data-testid="filter-type"></p-select>
+
+      <p-select [options]="severityOptions" [(ngModel)]="filter.severity" (onChange)="search()"
+                placeholder="Any severity" styleClass="filter" data-testid="filter-severity"></p-select>
+
+      <p-select [options]="statusOptions" [(ngModel)]="filter.status" (onChange)="search()"
+                placeholder="Still needs work" styleClass="filter" data-testid="filter-status"></p-select>
+
+      <p-select [options]="ownerOptions" [(ngModel)]="filter.unassigned" (onChange)="search()"
+                placeholder="Owned or not" styleClass="filter" data-testid="filter-owner"></p-select>
     </div>
-  </div>
 
-  <!-- ── Narrowing it ─────────────────────────────────────────────────────────── -->
+    <!-- ── The queue ────────────────────────────────────────────────────────────── -->
 
-  <div class="filters">
-    <p-select [options]="carrierOptions" [(ngModel)]="filter.carrierUuid" (onChange)="search()"
-              placeholder="Every carrier" styleClass="filter" data-testid="filter-carrier"></p-select>
-
-    <p-select [options]="typeOptions" [(ngModel)]="filter.exceptionType" (onChange)="search()"
-              placeholder="Every kind" styleClass="filter" data-testid="filter-type"></p-select>
-
-    <p-select [options]="severityOptions" [(ngModel)]="filter.severity" (onChange)="search()"
-              placeholder="Any severity" styleClass="filter" data-testid="filter-severity"></p-select>
-
-    <p-select [options]="statusOptions" [(ngModel)]="filter.status" (onChange)="search()"
-              placeholder="Still needs work" styleClass="filter" data-testid="filter-status"></p-select>
-
-    <p-select [options]="ownerOptions" [(ngModel)]="filter.unassigned" (onChange)="search()"
-              placeholder="Owned or not" styleClass="filter" data-testid="filter-owner"></p-select>
-  </div>
-
-  <!-- ── The queue ────────────────────────────────────────────────────────────── -->
-
+    <div class="sf-card p0">
   <p-table [value]="exceptions" [lazy]="true" (onLazyLoad)="load($event)"
            [paginator]="true" [rows]="pageSize" [totalRecords]="total" [loading]="isLoading"
            [rowsPerPageOptions]="[20, 50, 100]" dataKey="uuid"
@@ -104,7 +112,7 @@
       <tr [attr.data-testid]="'row-' + e.uuid" [class.stale]="isStale(e)">
         <td>
           <a [routerLink]="['/portal/pages/logistics/consignments', e.consignmentUuid]"
-             class="font-mono link">{{ e.consignmentNumber }}</a>
+             class="sf-mono"><strong>{{ e.consignmentNumber }}</strong></a>
           <div class="muted" *ngIf="e.carrierName">{{ e.carrierName }}</div>
           <div class="muted font-mono" *ngIf="e.masterAwb">{{ e.masterAwb }}</div>
         </td>
@@ -169,12 +177,15 @@
 
     <ng-template pTemplate="emptymessage">
       <tr>
-        <td colspan="7" class="empty" data-testid="empty">
+        <td colspan="7" class="sf-empty" data-testid="empty">
           Nothing needs working. Exceptions raised by a carrier scan appear here within ten minutes.
         </td>
       </tr>
     </ng-template>
   </p-table>
+    </div>
+  </div>
+</sf-page>
 
   <!-- ── Acting on one ────────────────────────────────────────────────────────── -->
 
@@ -237,4 +248,3 @@
                 (onClick)="confirm()" data-testid="dialog-confirm"></p-button>
     </ng-template>
   </p-dialog>
-</div>

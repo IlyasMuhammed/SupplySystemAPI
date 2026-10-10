@@ -22,6 +22,7 @@ import {
 } from '../../../../services/warehouse.service';
 import { FinanceService, CreateDebitNoteRequest, CreateCreditNoteRequest } from '../../../../services/finance.service';
 import { ReportsService, AuditLogItemModel } from '../../../../services/reports.service';
+import { FLOW, FlowSection, FlowStage, flowStagesFrom } from '../../../../shared/flow';
 
 @Component({
   selector: 'app-sro-detail',
@@ -30,7 +31,7 @@ import { ReportsService, AuditLogItemModel } from '../../../../services/reports.
     CommonModule, RouterModule, FormsModule,
     ButtonModule, TagModule, ToastModule, TableModule, DialogModule,
     InputTextModule, TextareaModule, TooltipModule, DropdownModule,
-    CalendarModule, InputNumberModule, ProgressSpinnerModule
+    CalendarModule, InputNumberModule, ProgressSpinnerModule, ...FLOW
   ],
   templateUrl: './sro-detail.component.html',
   styleUrls: ['./sro-detail.component.scss'],
@@ -454,6 +455,25 @@ export class SroDetailComponent implements OnInit {
     if (!this.sro?.slaDeadline) return false;
     return new Date(this.sro.slaDeadline) < new Date();
   }
+
+  // ── SMS Flow header: lifecycle stages + section anchors ────────────────────
+  get stages(): FlowStage[] {
+    const s = this.sro?.status;
+    if (!s) return [];
+    const labels = ['Draft', 'Approved', 'Dispatched', 'Supplier received', 'Resolved'];
+    if (s === 'REJECTED') return flowStagesFrom(labels, 1, { subs: [null, 'Rejected'], failed: true });
+    if (s === 'ESCALATED') return flowStagesFrom(labels, 3, { subs: [null, null, null, 'Escalated'], failed: true });
+    if (s === 'AWAITING_REPLACEMENT') return flowStagesFrom(labels, 4, { subs: [null, null, null, null, 'Awaiting replacement'] });
+    if (s.startsWith('RESOLVED')) return flowStagesFrom(labels, labels.length);
+    const current: Record<string, number> = { DRAFT: 0, APPROVED: 1, DISPATCHED: 2, SUPPLIER_RECEIVED: 3 };
+    return flowStagesFrom(labels, current[s] ?? 0);
+  }
+
+  readonly sections: FlowSection[] = [
+    { id: 'sec-lines', label: 'Lines' },
+    { id: 'sec-details', label: 'Details' },
+    { id: 'sec-audit', label: 'Audit trail' }
+  ];
 
   // ── Audit Trail ───────────────────────────────────────────────────────────
 

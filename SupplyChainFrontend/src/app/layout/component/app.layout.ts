@@ -8,12 +8,15 @@ import { AppFooter } from './app.footer';
 import { LayoutService } from '../service/layout.service';
 import { NotificationService } from '../../services/notification.service';
 import { TenantService } from '../../pages/service/tenant.service';
+import { ModuleService } from '../../services/module.service';
+import { ToastModule } from 'primeng/toast';
 
 @Component({
     selector: 'app-layout',
     standalone: true,
-    imports: [CommonModule, AppTopbar, AppSidebar, RouterModule, AppFooter],
-    template: `<div class="layout-wrapper" [ngClass]="containerClass">
+    imports: [CommonModule, AppTopbar, AppSidebar, RouterModule, AppFooter, ToastModule],
+    template: `<p-toast key="sms-global" position="top-right"></p-toast>
+    <div class="layout-wrapper" [ngClass]="containerClass">
         <app-topbar></app-topbar>
         <app-sidebar></app-sidebar>
         <div class="layout-main-container">
@@ -39,7 +42,8 @@ export class AppLayout implements OnInit {
         public renderer: Renderer2,
         public router: Router,
         private notifService: NotificationService,
-        private tenantService: TenantService
+        private tenantService: TenantService,
+        private moduleService: ModuleService
     ) {
         this.overlayMenuOpenSubscription = this.layoutService.overlayOpen$.subscribe(() => {
             if (!this.menuOutsideClickListener) {
@@ -65,6 +69,8 @@ export class AppLayout implements OnInit {
         // MT-005: the sidebar (rendered as a sibling below) reads TenantService.tenant() reactively,
         // so it re-filters itself the moment this resolves rather than needing to fire its own call.
         this.tenantService.loadCurrent().subscribe({ error: () => {} });
+        // A37 D-15 — the enabled modules/features for *smsIfModule and ModuleService.isEnabled().
+        this.moduleService.load().subscribe();
     }
 
     isOutsideClicked(event: MouseEvent) {

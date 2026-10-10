@@ -1,110 +1,118 @@
 <p-toast></p-toast>
 
-<div class="setup-page">
+<sf-page [crumbs]="['Settings', 'Finance setup', 'Currency configuration']">
 
-  <div class="page-header">
-    <div class="page-icon"><i class="pi pi-globe"></i></div>
-    <div class="grow">
-      <h1 class="page-title">Currency Configuration</h1>
-      <p class="page-subtitle">
-        The base currency each kind of document converts to for accounting, and the accounts exchange gains and losses are
-        recorded against. Once documents have locked an exchange rate against a base currency, that base cannot change.
-      </p>
-    </div>
-  </div>
-
-  <div class="note info" *ngIf="!canManage" data-testid="read-only">
-    <i class="pi pi-lock"></i>
-    <div class="note-body">You can see the configuration. Changing it needs the Manage Currency Settings permission.</div>
-  </div>
-
-  <div class="state-inline" *ngIf="loadFailed" data-testid="load-failed">
-    <i class="pi pi-exclamation-triangle"></i> The currency configuration could not be loaded.
-    <p-button label="Try again" [text]="true" size="small" (onClick)="load()"></p-button>
-  </div>
-  <div class="state-inline" *ngIf="isLoading"><i class="pi pi-spin pi-spinner"></i> Loading…</div>
-
-  <ng-container *ngIf="model && !loadFailed">
-    <div class="note warn" *ngIf="!model.isStored" data-testid="not-stored">
-      <i class="pi pi-info-circle"></i>
-      <div class="note-body">Not saved yet — these are the organization's defaults. Saving stores them.</div>
-    </div>
-
-    <!-- ── Base currencies ───────────────────────────────────────────────── -->
-    <section class="form-card">
-      <div class="card-head">
-        <div class="card-icon"><i class="pi pi-money-bill"></i></div>
-        <div class="grow">
-          <div class="card-title">Base Currencies</div>
-          <div class="card-sub">Usually all three are the same. Different bases are for organizations that buy, sell or bill in different home currencies.</div>
-        </div>
-      </div>
-
-      <div class="field base-row" *ngFor="let d of domains">
-        <label [for]="'base-' + d.key">{{ d.label }} Base Currency</label>
-        <div class="base-input">
-          <span [pTooltip]="lockTooltip(d.key) ?? undefined" tooltipPosition="top" class="select-wrap">
-            <p-select [inputId]="'base-' + d.key" [options]="options" [(ngModel)]="form[d.field]" optionLabel="label" optionValue="value"
-                      [disabled]="!canManage || isLocked(d.key)" [filter]="options.length > 8" filterBy="label" appendTo="body"
-                      styleClass="w-full" [attr.data-testid]="'base-' + d.key"></p-select>
-          </span>
-          <i *ngIf="isLocked(d.key)" class="pi pi-lock muted" [pTooltip]="lockTooltip(d.key) ?? undefined" tooltipPosition="left"
-             [attr.data-testid]="'lock-' + d.key"></i>
-        </div>
-        <small class="hint">{{ d.hint }}</small>
-      </div>
-
-      <div class="note warn" *ngFor="let w of warnings" data-testid="base-warning">
-        <i class="pi pi-exclamation-triangle"></i>
-        <div class="note-body">{{ w }}</div>
-      </div>
-
-      <div class="field">
-        <label>Rate currency</label>
-        <div data-testid="rate-currency">
-          <strong>{{ model.rateCurrencyCode }}</strong>
-          <span class="muted"> — every exchange rate is entered as {{ model.rateCurrencyCode }} per 1 unit of the other currency; its own rate is always 1.0.</span>
-        </div>
-      </div>
-    </section>
-
-    <!-- ── Exchange difference accounts ──────────────────────────────────── -->
-    <section class="form-card">
-      <div class="card-head">
-        <div class="card-icon"><i class="pi pi-book"></i></div>
-        <div class="grow">
-          <div class="card-title">Exchange Difference Accounts</div>
-          <div class="card-sub">Account codes recorded on each exchange gain or loss (from payments, and from month-end revaluation).</div>
-        </div>
-      </div>
-      <div class="field-grid">
-        <div class="field">
-          <label for="gain">Realized Gain</label>
-          <input pInputText id="gain" [(ngModel)]="form.exchangeGainAccountCode" [maxlength]="maxAccountCode" [disabled]="!canManage"
-                 placeholder="e.g. 7110" data-testid="acc-gain" />
-        </div>
-        <div class="field">
-          <label for="loss">Realized Loss</label>
-          <input pInputText id="loss" [(ngModel)]="form.exchangeLossAccountCode" [maxlength]="maxAccountCode" [disabled]="!canManage"
-                 placeholder="e.g. 7120" data-testid="acc-loss" />
-        </div>
-        <div class="field">
-          <label for="ugain">Unrealized Gain</label>
-          <input pInputText id="ugain" [(ngModel)]="form.unrealizedGainAccountCode" [maxlength]="maxAccountCode" [disabled]="!canManage"
-                 placeholder="e.g. 7130" data-testid="acc-ugain" />
-        </div>
-        <div class="field">
-          <label for="uloss">Unrealized Loss</label>
-          <input pInputText id="uloss" [(ngModel)]="form.unrealizedLossAccountCode" [maxlength]="maxAccountCode" [disabled]="!canManage"
-                 placeholder="e.g. 7140" data-testid="acc-uloss" />
-        </div>
-      </div>
-    </section>
-
-    <div class="actions" *ngIf="canManage">
-      <small class="p-error" *ngIf="problem" data-testid="problem">{{ problem }}</small>
+  <!-- ── Command bar ──────────────────────────────────────────────────────── -->
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <ng-container *ngIf="model && !loadFailed && canManage">
       <p-button label="Save Settings" icon="pi pi-check" [loading]="isSaving" [disabled]="!!problem || isSaving" (onClick)="save()"
                 data-testid="save"></p-button>
+      <small class="p-error" *ngIf="problem" data-testid="problem" style="margin-left:.5rem">{{ problem }}</small>
+    </ng-container>
+    <span class="sf-mu sf-sm" *ngIf="!canManage">Read only</span>
+  </div>
+
+  <header class="sf-hdr sf-compact">
+    <div>
+      <h1>Currency configuration</h1>
+      <div class="sf-meta">
+        The base currency each kind of document converts to for accounting, and the accounts exchange gains and losses are
+        recorded against. Once documents have locked an exchange rate against a base currency, that base cannot change.
+      </div>
     </div>
-  </ng-container>
-</div>
+  </header>
+
+  <div class="sf-body">
+    <div class="note info" *ngIf="!canManage" data-testid="read-only">
+      <i class="pi pi-lock"></i>
+      <div class="note-body">You can see the configuration. Changing it needs the Manage Currency Settings permission.</div>
+    </div>
+
+    <div class="state-inline" *ngIf="loadFailed" data-testid="load-failed">
+      <i class="pi pi-exclamation-triangle"></i> The currency configuration could not be loaded.
+      <p-button label="Try again" [text]="true" size="small" (onClick)="load()"></p-button>
+    </div>
+    <div class="state-inline" *ngIf="isLoading"><i class="pi pi-spin pi-spinner"></i> Loading…</div>
+
+    <ng-container *ngIf="model && !loadFailed">
+      <div class="note warn" *ngIf="!model.isStored" data-testid="not-stored">
+        <i class="pi pi-info-circle"></i>
+        <div class="note-body">Not saved yet — these are the organization's defaults. Saving stores them.</div>
+      </div>
+
+      <!-- ── Base currencies ───────────────────────────────────────────────── -->
+      <section class="sf-card">
+        <div class="sf-ch">
+          <div>
+            <h2>Base currencies</h2>
+            <div class="sf-mu sf-sm">Usually all three are the same. Different bases are for organizations that buy, sell or bill in different home currencies.</div>
+          </div>
+        </div>
+
+        <div class="setting-row" *ngFor="let d of domains">
+          <div>
+            <label [for]="'base-' + d.key"><strong>{{ d.label }} Base Currency</strong></label>
+            <div class="sf-mu sf-sm">{{ d.hint }}</div>
+          </div>
+          <div class="base-input">
+            <span [pTooltip]="lockTooltip(d.key) ?? undefined" tooltipPosition="top" class="select-wrap">
+              <p-select [inputId]="'base-' + d.key" [options]="options" [(ngModel)]="form[d.field]" optionLabel="label" optionValue="value"
+                        [disabled]="!canManage || isLocked(d.key)" [filter]="options.length > 8" filterBy="label" appendTo="body"
+                        styleClass="w-full" [attr.data-testid]="'base-' + d.key"></p-select>
+            </span>
+            <i *ngIf="isLocked(d.key)" class="pi pi-lock sf-mu" [pTooltip]="lockTooltip(d.key) ?? undefined" tooltipPosition="left"
+               [attr.data-testid]="'lock-' + d.key"></i>
+          </div>
+        </div>
+
+        <div class="note warn" *ngFor="let w of warnings" data-testid="base-warning">
+          <i class="pi pi-exclamation-triangle"></i>
+          <div class="note-body">{{ w }}</div>
+        </div>
+
+        <div class="setting-row">
+          <div>
+            <strong>Rate currency</strong>
+            <div class="sf-mu sf-sm">Set once — every rate reads “1 unit = x {{ model.rateCurrencyCode }}”</div>
+          </div>
+          <div data-testid="rate-currency">
+            <span class="sf-pill">{{ model.rateCurrencyCode }} · locked</span>
+            <span class="sf-mu sf-sm"> — every exchange rate is entered as {{ model.rateCurrencyCode }} per 1 unit of the other currency; its own rate is always 1.0.</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Exchange difference accounts ──────────────────────────────────── -->
+      <section class="sf-card">
+        <div class="sf-ch">
+          <div>
+            <h2>Exchange difference accounts</h2>
+            <div class="sf-mu sf-sm">Account codes recorded on each exchange gain or loss (from payments, and from month-end revaluation).</div>
+          </div>
+        </div>
+        <div class="sf-fields">
+          <div class="sf-fld">
+            <label for="gain">Realized gain</label>
+            <input pInputText id="gain" [(ngModel)]="form.exchangeGainAccountCode" [maxlength]="maxAccountCode" [disabled]="!canManage"
+                   placeholder="e.g. 7110" data-testid="acc-gain" />
+          </div>
+          <div class="sf-fld">
+            <label for="loss">Realized loss</label>
+            <input pInputText id="loss" [(ngModel)]="form.exchangeLossAccountCode" [maxlength]="maxAccountCode" [disabled]="!canManage"
+                   placeholder="e.g. 7120" data-testid="acc-loss" />
+          </div>
+          <div class="sf-fld">
+            <label for="ugain">Unrealized gain</label>
+            <input pInputText id="ugain" [(ngModel)]="form.unrealizedGainAccountCode" [maxlength]="maxAccountCode" [disabled]="!canManage"
+                   placeholder="e.g. 7130" data-testid="acc-ugain" />
+          </div>
+          <div class="sf-fld">
+            <label for="uloss">Unrealized loss</label>
+            <input pInputText id="uloss" [(ngModel)]="form.unrealizedLossAccountCode" [maxlength]="maxAccountCode" [disabled]="!canManage"
+                   placeholder="e.g. 7140" data-testid="acc-uloss" />
+          </div>
+        </div>
+      </section>
+    </ng-container>
+  </div>
+</sf-page>

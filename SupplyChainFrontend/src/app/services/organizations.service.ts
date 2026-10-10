@@ -117,6 +117,24 @@ export interface OrganizationFeatureModel {
   displayOrder: number;
   isEnabled: boolean;
   modifiedDate?: string;
+  // ── A37 (API-CONTRACT §1.2) — the super admin's toggle is the licence; the org admin switches licensed ones ──
+  isLicensed?: boolean;
+  status?: 'ALWAYS_ON' | 'ACTIVE' | 'GRACE' | 'DISABLED' | 'NOT_LICENSED' | 'COMING_SOON';
+  graceEndsAt?: string | null;
+  /** Null for modules; the module a screen/feature belongs to otherwise. */
+  parentModuleCode?: string | null;
+  isAlwaysOn?: boolean;
+  isAvailable?: boolean;
+}
+
+/** A37 — GET …/features/history (newest first). */
+export interface OrganizationFeatureHistoryEntry {
+  performedAt: string;
+  action: string;
+  featureCode?: string | null;
+  performedByName: string;
+  graceDays?: number | null;
+  notes?: string | null;
 }
 
 export interface FeatureToggleItem {
@@ -139,6 +157,10 @@ export interface OrgUserSummary {
   roleId: number;
   roleName: string;
   isActive: boolean;
+  /** True while the user has an invite they have not accepted yet (no password set). */
+  invitePending?: boolean;
+  /** When the pending invite link expires (UTC ISO); null when there is none. */
+  inviteExpiresAt?: string | null;
 }
 
 // Mirrors SMS.Shared.Common.Enums.EnumRole.OrgAdmin = 10 (backend seeds/assigns this value).
@@ -198,6 +220,11 @@ export class OrganizationsService {
     return this.http.put<ApiResponse<UpdateFeaturesResult>>(`${BASE}/${orgId}/features`, { features });
   }
 
+  /** A37 — every licence / switch / grace change of the organization's modules and features, newest first. */
+  getFeatureHistory(orgId: string): Observable<ApiResponse<OrganizationFeatureHistoryEntry[]>> {
+    return this.http.get<ApiResponse<OrganizationFeatureHistoryEntry[]>>(`${BASE}/${orgId}/features/history`);
+  }
+
   // ── Organization admin (view/change who holds the OrgAdmin role) ────────────────────
 
   getOrgUsers(orgId: string): Observable<ApiResponse<OrgUserSummary[]>> {
@@ -206,5 +233,14 @@ export class OrganizationsService {
 
   updateAdmin(orgId: string, newAdminUserId: number): Observable<ApiResponse<null>> {
     return this.http.put<ApiResponse<null>>(`${BASE}/${orgId}/admin`, { newAdminUserId });
+  }
+
+  /**
+   * Sends the user a fresh 7-day invite link (the old one stops working) — optionally to a corrected e-mail,
+   * which is saved first. 400 when the user has already set up their account (use Set password instead).
+   */
+  reinviteOrgUser(orgId: string, userId: number, email?: string | null): Observable<ApiResponse<OrgUserSummary>> {
+    return this.http.post<ApiResponse<OrgUserSummary>>(
+      `${BASE}/${orgId}/users/${userId}/reinvite`, { email: email?.trim() || null });
   }
 }

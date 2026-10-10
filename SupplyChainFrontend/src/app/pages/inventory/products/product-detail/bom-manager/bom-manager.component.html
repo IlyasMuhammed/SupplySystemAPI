@@ -3,6 +3,11 @@
 
 <div class="bom-manager" *ngIf="!isLoadingList; else loading">
 
+  <!-- A37 BOM-SHR-03 — FEATURE_BOM_MANAGEMENT off: read only -->
+  <div class="sf-pill in bom-readonly-note" *ngIf="readOnly" data-testid="bom-readonly">
+    <i class="pi pi-lock"></i> BOM management is switched off for your organization — bills of materials can be viewed, not changed.
+  </div>
+
   <!-- Mandatory-BOM warning (A31-BR-C4-01) -->
   <div class="bom-mandatory-warning" *ngIf="needsFirstBom">
     <i class="pi pi-exclamation-triangle"></i>
@@ -15,7 +20,7 @@
     <div class="bom-list-panel">
       <div class="bom-list-header">
         <span>Bills of Materials</span>
-        <p-button icon="pi pi-plus" label="New BOM" size="small" [text]="true" (onClick)="startNewBom()" data-testid="new-bom"></p-button>
+        <p-button *ngIf="!readOnly" icon="pi pi-plus" label="New BOM" size="small" [text]="true" (onClick)="startNewBom()" data-testid="new-bom"></p-button>
       </div>
 
       <div class="bom-list-empty" *ngIf="boms.length === 0 && !isNew">
@@ -31,7 +36,11 @@
             <span class="bom-number">{{ b.bomNumber }}</span>
             <span class="bom-version">v{{ b.version }}</span>
           </div>
-          <p-tag [value]="b.status" [severity]="severity(b.status)" [rounded]="true"></p-tag>
+          <span class="bom-list-tags">
+            <p-tag *ngIf="usageTag(b.bomUsage) as u" [value]="u" severity="secondary" styleClass="bom-usage-tag"
+                   [attr.data-testid]="'bom-usage-' + b.uuid"></p-tag>
+            <p-tag [value]="b.status" [severity]="severity(b.status)" [rounded]="true"></p-tag>
+          </span>
         </div>
       </div>
 
@@ -53,8 +62,10 @@
       <!-- Empty state: manufacturable product, no BOM yet, not currently drafting one -->
       <div class="bom-empty-state" *ngIf="boms.length === 0 && !isNew">
         <i class="pi pi-sitemap"></i>
-        <p>Add a Bill of Materials to define the components required to manufacture this product.</p>
-        <p-button label="Create First BOM" icon="pi pi-plus" (onClick)="startNewBom()"></p-button>
+        <p>{{ isServiceBom
+          ? 'Add a Bill of Materials to define the parts, subcontracted work and labor hours this service uses.'
+          : 'Add a Bill of Materials to define the components required to manufacture this product.' }}</p>
+        <p-button *ngIf="!readOnly" label="Create First BOM" icon="pi pi-plus" (onClick)="startNewBom()"></p-button>
       </div>
 
       <div *ngIf="isLoadingDetail" class="bom-editor-loading">Loading…</div>
@@ -89,6 +100,15 @@
             <label class="ef-label">Effective To</label>
             <p-calendar formControlName="effectiveTo" dateFormat="yy-mm-dd" [showIcon]="true" styleClass="w-full" appendTo="body"></p-calendar>
           </div>
+          <div class="ef-field">
+            <label class="ef-label" for="bomUsage">Usage
+              <i class="pi pi-info-circle" style="font-size:.8rem;color:var(--sms-text-muted)" tooltipPosition="top"
+                 pTooltip="Which orders should pick this BOM first. Advisory: every BOM stays available to both."></i>
+            </label>
+            <p-dropdown inputId="bomUsage" [options]="usageOptions" [ngModel]="bomUsage" [ngModelOptions]="{ standalone: true }"
+                        (ngModelChange)="onUsageChange($event)" optionLabel="label" optionValue="value"
+                        [disabled]="!canChangeUsage || savingUsage" styleClass="w-full" appendTo="body" data-testid="bom-usage"></p-dropdown>
+          </div>
           <div class="ef-field ef-span-2">
             <label class="ef-label">Notes</label>
             <textarea pTextarea formControlName="notes" rows="2" class="w-full"></textarea>
@@ -118,7 +138,7 @@
               <div class="bom-line-material">
                 <label class="ef-label">Material <span class="req">*</span></label>
                 <ng-container *ngIf="canEdit; else materialReadOnly">
-                  <app-product-variant-picker [products]="materials" channel="PRODUCTION"
+                  <app-product-variant-picker [products]="materials" [channel]="materialChannel"
                                               [productUuid]="line.get('materialProductUuid')?.value"
                                               [variantUuid]="line.get('materialVariantUuid')?.value"
                                               (selectionChange)="onMaterialSelected(i, $event)"></app-product-variant-picker>
@@ -128,9 +148,26 @@
                 </ng-template>
               </div>
 
+              <!-- A36 D-4 — service BOMs only: where the line comes from; a subcontracted line names its vendor. -->
+              <div class="bom-line-grid" *ngIf="isServiceBom">
+                <div class="bom-line-field">
+                  <label>Source</label>
+                  <p-dropdown [options]="sourceOptions" formControlName="sourceType" optionLabel="label" optionValue="value"
+                              styleClass="w-full" appendTo="body" (onChange)="onSourceChange(i)"
+                              [attr.data-testid]="'line-source-' + i"></p-dropdown>
+                </div>
+                <div class="bom-line-field bom-line-supplier" *ngIf="sourceOf(i) === 'SUBCONTRACT'" [attr.data-testid]="'line-supplier-' + i">
+                  <label>Subcontract supplier <span class="req">*</span></label>
+                  <p-dropdown *ngIf="canEdit; else supplierReadOnly" [options]="vendorOptions" formControlName="subcontractSupplierUuid"
+                              optionLabel="label" optionValue="value" [filter]="true" filterBy="label"
+                              placeholder="Select supplier" styleClass="w-full" appendTo="body"></p-dropdown>
+                  <ng-template #supplierReadOnly><span>{{ supplierName(i) }}</span></ng-template>
+                </div>
+              </div>
+
               <div class="bom-line-grid">
                 <div class="bom-line-field">
-                  <label>Qty <span class="req">*</span></label>
+                  <label [attr.data-testid]="'line-qty-label-' + i">{{ sourceOf(i) === 'INTERNAL_LABOR' ? 'Hours' : 'Qty' }} <span class="req">*</span></label>
                   <p-inputnumber formControlName="quantity" mode="decimal" [minFractionDigits]="0" [maxFractionDigits]="6" [min]="0.000001" styleClass="w-full"></p-inputnumber>
                 </div>
                 <div class="bom-line-field">

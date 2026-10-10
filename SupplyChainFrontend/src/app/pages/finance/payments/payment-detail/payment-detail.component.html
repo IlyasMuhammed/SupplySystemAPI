@@ -1,144 +1,95 @@
-<div class="payment-detail-page">
-  <p-toast></p-toast>
+<p-toast></p-toast>
 
-  <!-- Loading -->
-  <div *ngIf="isLoading" class="loading-state">
-    <i class="pi pi-spin pi-spinner" style="font-size:2rem"></i>
-    <p class="mt-3">Loading payment…</p>
+<!-- Loading -->
+<div *ngIf="isLoading" class="sf-empty">
+  <i class="pi pi-spin pi-spinner" style="font-size:2rem"></i>
+  <p>Loading payment…</p>
+</div>
+
+<sf-page *ngIf="!isLoading && payment" [crumbs]="['Finance', 'Legacy payments', payment.paymentNumber]">
+
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <span class="sf-mu sf-sm">Read-only legacy payment</span>
+    <span class="sf-end">
+      <p-button label="Back" icon="pi pi-arrow-left" [text]="true"
+                routerLink="/portal/pages/finance/payments-legacy"></p-button>
+    </span>
   </div>
 
-  <ng-container *ngIf="!isLoading && payment">
-
-    <!-- ── Header ──────────────────────────────────────────────────────────── -->
-    <div class="page-header">
-      <div class="header-left">
-        <div class="header-icon">
-          <i class="pi pi-credit-card"></i>
+  <!-- ── Dynamic header ──────────────────────────────────────────────────────────────── -->
+  <header class="sf-hdr">
+    <div class="sf-t">
+      <div>
+        <div class="sf-kicker">
+          Supplier payment (legacy) · for invoice
+          <a class="sf-mono" [routerLink]="['/portal/pages/finance/invoices', payment.invoiceUuid]">{{ payment.invoiceNumber }}</a>
         </div>
-        <div>
-          <div class="title-row">
-            <h1 class="page-title">{{ payment.paymentNumber }}</h1>
-            <p-tag [value]="payment.status" [severity]="getStatusSeverity(payment.status)"></p-tag>
-          </div>
-          <p class="page-subtitle">
-            {{ payment.supplierName }}&nbsp;·&nbsp;Invoice&nbsp;
-            <a [routerLink]="['/portal/pages/finance/invoices', payment.invoiceUuid]"
-               class="link-primary">{{ payment.invoiceNumber }}</a>
-          </p>
-        </div>
-      </div>
-      <div class="header-actions">
-        <p-button label="Back" icon="pi pi-arrow-left" [text]="true" severity="secondary"
-                  routerLink="/portal/pages/finance/payments-legacy"></p-button>
+        <h1>
+          <span class="sf-mono">{{ payment.paymentNumber }}</span>
+          <p-tag [value]="payment.status" [severity]="getStatusSeverity(payment.status)"></p-tag>
+        </h1>
+        <div class="sf-meta">{{ payment.supplierName }} · paid {{ payment.paymentDate | date:'dd MMM yyyy' }}</div>
       </div>
     </div>
 
-    <!-- ── Amount hero + quick facts ──────────────────────────────────────── -->
-    <div class="hero-row">
-      <div class="amount-hero">
-        <span class="amount-label">Amount Paid</span>
-        <span class="amount-value">{{ payment.amountPaid | number:'1.2-2' }}</span>
-        <span class="amount-method">via {{ payment.paymentMethod }}</span>
+    <div class="sf-facts">
+      <div class="sf-kpi">
+        <span class="l">Amount paid</span>
+        <span class="v">{{ payment.amountPaid | number:'1.2-2' }}</span>
+        <span class="s">via {{ payment.paymentMethod }}</span>
       </div>
-      <div class="quick-facts">
-        <div class="qf-item">
-          <i class="pi pi-calendar qf-icon"></i>
-          <div>
-            <div class="qf-label">Payment Date</div>
-            <div class="qf-value">{{ payment.paymentDate | date:'dd MMM yyyy' }}</div>
-          </div>
-        </div>
-        <div class="qf-divider"></div>
-        <div class="qf-item">
-          <i class="pi pi-clock qf-icon"></i>
-          <div>
-            <div class="qf-label">Processed At</div>
-            <div class="qf-value">{{ payment.processedAt | date:'dd MMM yyyy, HH:mm' }}</div>
-          </div>
-        </div>
-        <div class="qf-divider"></div>
-        <div class="qf-item">
-          <i class="pi pi-building qf-icon"></i>
-          <div>
-            <div class="qf-label">Supplier</div>
-            <div class="qf-value">{{ payment.supplierName }}</div>
-          </div>
-        </div>
+      <div class="sf-kpi">
+        <span class="l">Payment date</span>
+        <span class="v sm">{{ payment.paymentDate | date:'dd MMM yyyy' }}</span>
+      </div>
+      <div class="sf-kpi">
+        <span class="l">Processed at</span>
+        <span class="v sm">{{ payment.processedAt | date:'dd MMM yyyy, HH:mm' }}</span>
       </div>
     </div>
+  </header>
 
-    <!-- ── Details grid ────────────────────────────────────────────────────── -->
-    <div class="details-grid">
+  <div class="sf-body">
+    <div class="sf-row">
+      <!-- Payment details -->
+      <section class="sf-card">
+        <div class="sf-ch"><h2>Payment details</h2></div>
+        <div class="sf-kv">
+          <span>Payment method</span><span>{{ payment.paymentMethod }}</span>
+          <ng-container *ngIf="payment.bankReference">
+            <span>Bank reference</span><span class="sf-mono">{{ payment.bankReference }}</span>
+          </ng-container>
+          <ng-container *ngIf="payment.chequeNumber">
+            <span>Cheque number</span><span class="sf-mono">{{ payment.chequeNumber }}</span>
+          </ng-container>
+          <ng-container *ngIf="payment.accountDebited">
+            <span>Account debited</span><span>{{ payment.accountDebited }}</span>
+          </ng-container>
+          <span>Status</span><span><p-tag [value]="payment.status" [severity]="getStatusSeverity(payment.status)"></p-tag></span>
+          <span>Created date</span><span>{{ payment.createdDate | date:'dd MMM yyyy' }}</span>
+        </div>
+      </section>
 
-      <!-- Payment Details -->
-      <div class="detail-card">
-        <div class="card-header">
-          <i class="pi pi-wallet"></i>
-          <span>Payment Details</span>
-        </div>
-        <div class="field-list">
-          <div class="field-row">
-            <span class="field-label">Payment Method</span>
-            <span class="field-value">{{ payment.paymentMethod }}</span>
-          </div>
-          <div class="field-row" *ngIf="payment.bankReference">
-            <span class="field-label">Bank Reference</span>
-            <span class="field-value mono">{{ payment.bankReference }}</span>
-          </div>
-          <div class="field-row" *ngIf="payment.chequeNumber">
-            <span class="field-label">Cheque Number</span>
-            <span class="field-value mono">{{ payment.chequeNumber }}</span>
-          </div>
-          <div class="field-row" *ngIf="payment.accountDebited">
-            <span class="field-label">Account Debited</span>
-            <span class="field-value">{{ payment.accountDebited }}</span>
-          </div>
-          <div class="field-row">
-            <span class="field-label">Status</span>
-            <span class="field-value">
-              <p-tag [value]="payment.status" [severity]="getStatusSeverity(payment.status)"></p-tag>
-            </span>
-          </div>
-          <div class="field-row">
-            <span class="field-label">Created Date</span>
-            <span class="field-value">{{ payment.createdDate | date:'dd MMM yyyy' }}</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Invoice Reference -->
-      <div class="detail-card">
-        <div class="card-header">
-          <i class="pi pi-file-invoice"></i>
-          <span>Invoice Reference</span>
-        </div>
-        <div class="invoice-ref-block">
-          <a [routerLink]="['/portal/pages/finance/invoices', payment.invoiceUuid]"
-             class="invoice-link">
-            <i class="pi pi-external-link"></i>
-            {{ payment.invoiceNumber }}
-          </a>
-          <p class="invoice-ref-supplier">{{ payment.supplierName }}</p>
-        </div>
-        <div class="field-list mt-1">
-          <div class="field-row">
-            <span class="field-label">Supplier</span>
-            <span class="field-value">{{ payment.supplierName }}</span>
-          </div>
-          <div class="field-row">
-            <span class="field-label">Invoice UUID</span>
-            <span class="field-value mono uuid-text">{{ payment.invoiceUuid }}</span>
-          </div>
+      <!-- Invoice reference -->
+      <section class="sf-card">
+        <div class="sf-ch"><h2>Invoice reference</h2></div>
+        <div class="sf-kv">
+          <span>Invoice</span>
+          <span>
+            <a class="sf-mono" [routerLink]="['/portal/pages/finance/invoices', payment.invoiceUuid]">
+              <i class="pi pi-external-link"></i> {{ payment.invoiceNumber }}
+            </a>
+          </span>
+          <span>Supplier</span><span>{{ payment.supplierName }}</span>
+          <span>Invoice UUID</span><span class="sf-mono sf-sm">{{ payment.invoiceUuid }}</span>
         </div>
 
         <!-- Notes -->
-        <div *ngIf="payment.notes" class="notes-block">
-          <div class="notes-label"><i class="pi pi-info-circle"></i> Notes</div>
-          <p class="notes-text">{{ payment.notes }}</p>
+        <div *ngIf="payment.notes" class="sf-card quiet flat">
+          <span class="sf-mu sf-sm"><i class="pi pi-info-circle"></i> Notes</span>
+          <span>{{ payment.notes }}</span>
         </div>
-      </div>
-
+      </section>
     </div>
-
-  </ng-container>
-</div>
+  </div>
+</sf-page>

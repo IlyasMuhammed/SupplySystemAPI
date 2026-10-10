@@ -1,80 +1,44 @@
-.allocations-page { padding: 1.5rem; max-width: 80rem; }
-
 .grow { flex: 1; min-width: 0; }
 .w-full { width: 100%; }
 
-// ── Header ──────────────────────────────────────────────────────────────────
-.page-header { display: flex; align-items: flex-start; gap: 1rem; margin-bottom: 1.25rem; }
-.page-icon {
-  width: 2.75rem; height: 2.75rem; border-radius: .625rem; flex-shrink: 0;
-  background: var(--primary-50, #eef2ff); color: var(--primary-color);
-  display: flex; align-items: center; justify-content: center;
-  i { font-size: 1.2rem; }
-}
-.page-title { font-size: 1.5rem; font-weight: 700; margin: 0; }
-.page-subtitle { color: var(--text-color-secondary); font-size: .875rem; margin: .25rem 0 0; }
-
-// ── Cards ───────────────────────────────────────────────────────────────────
-.form-card {
-  background: var(--surface-0); border: 1px solid var(--surface-200);
-  border-radius: .625rem; padding: 1.25rem; margin-bottom: 1rem;
-  &.flush { padding: 0; overflow: hidden; }
-}
-.card-head { display: flex; align-items: center; gap: .875rem; margin-bottom: 1.125rem; &.padded { padding: 1rem 1.25rem .5rem; margin-bottom: 0; } }
-.card-icon {
-  width: 2.25rem; height: 2.25rem; border-radius: .5rem; background: var(--primary-50, #f4f3ff);
-  color: var(--primary-color, #6c63ff); display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-}
-.card-title { font-weight: 700; }
-.card-sub { font-size: .8125rem; color: var(--text-color-secondary); }
+// Blocks inside the tab panels (the tabs sit in an sf-card)
+.tab-block { margin-bottom: 1rem; }
+.rules-block { display: flex; flex-direction: column; gap: 1rem; }
 
 .state-card {
-  text-align: center; padding: 3rem 1rem; color: var(--text-color-secondary);
-  background: var(--surface-0); border: 1px solid var(--surface-200); border-radius: .625rem; margin-bottom: 1rem;
+  text-align: center; padding: 3rem 1rem; color: var(--sms-text-muted);
+  background: var(--sms-surface); border: 1px solid var(--sms-border); border-radius: var(--sms-radius); margin-bottom: 1rem;
   i { font-size: 2rem; display: block; margin-bottom: .625rem; opacity: .6; }
-  h2 { font-size: 1.125rem; font-weight: 600; margin: 0 0 .25rem; color: var(--text-color); }
+  h2 { font-size: 1.125rem; font-weight: 600; margin: 0 0 .25rem; color: var(--sms-text); }
   p { margin: 0 0 1rem; }
 }
+// A state card inside a p0 card needs no frame of its own.
+.sf-card.p0 > .state-card { border: 0; border-radius: 0; margin-bottom: 0; }
 
 :host ::ng-deep .read-only-note, :host ::ng-deep .run-note { display: block; margin-bottom: 1rem; }
 
 // ── Picker row ──────────────────────────────────────────────────────────────
-.picker-row { display: grid; grid-template-columns: minmax(0, 2fr) minmax(10rem, 1fr) minmax(10rem, 1fr) auto; gap: 1rem; align-items: end; }
+.picker-row { display: grid; grid-template-columns: minmax(0, 2fr) minmax(10rem, 1fr) minmax(10rem, 1fr); gap: 1rem; align-items: end; }
 .picker-field { display: flex; flex-direction: column; gap: .375rem; min-width: 0; label { font-size: .875rem; font-weight: 600; } }
-.picker-actions { display: flex; gap: .5rem; }
-.hint { color: var(--text-color-secondary); font-size: .8125rem; }
-.required { color: var(--red-500, #ef4444); }
+.hint { color: var(--sms-text-muted); font-size: .8125rem; }
+.required { color: var(--sms-danger); }
 
 @media (max-width: 900px) {
   .picker-row { grid-template-columns: 1fr; }
 }
 
-// ── Availability ────────────────────────────────────────────────────────────
-.stat-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: .75rem; margin-bottom: 1rem; }
-.stat {
-  background: var(--surface-0); border: 1px solid var(--surface-200); border-radius: .625rem; padding: .875rem 1rem;
-  display: flex; flex-direction: column; gap: .25rem;
-  &.accent { border-color: var(--primary-color); .stat-value { color: var(--primary-color); } }
-  &.danger { border-color: var(--red-400, #f87171); .stat-value { color: var(--red-600, #dc2626); } }
-}
-.stat-label { font-size: .75rem; text-transform: uppercase; letter-spacing: .04em; color: var(--text-color-secondary); }
-.stat-value { font-size: 1.375rem; font-weight: 700; }
-
-@media (max-width: 1100px) { .stat-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-@media (max-width: 600px)  { .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-
 // ── Tables ──────────────────────────────────────────────────────────────────
 .ref { font-weight: 600; }
-.sub { font-size: .75rem; color: var(--text-color-secondary); }
+.sub { font-size: .75rem; color: var(--sms-text-muted); }
 .num { text-align: right; font-variant-numeric: tabular-nums; }
-.short { color: var(--red-600, #dc2626); font-weight: 600; }
-.empty { text-align: center; color: var(--text-color-secondary); padding: 1.5rem; }
+.short { color: var(--sms-danger); font-weight: 600; }
+.empty { text-align: center; color: var(--sms-text-muted); padding: 1.5rem; }
 .actions { white-space: nowrap; text-align: right; }
 
-.rules-actions { display: flex; gap: .5rem; align-items: center; margin-top: 1rem; }
+.rules-actions { display: flex; gap: .5rem; align-items: center; }
 
 // ── Dialogs ─────────────────────────────────────────────────────────────────
-.dialog-lead { margin: 0 0 1rem; color: var(--text-color-secondary); font-size: .9rem; line-height: 1.5; }
+.dialog-lead { margin: 0 0 1rem; color: var(--sms-text-muted); font-size: .9rem; line-height: 1.5; }
 .field { display: flex; flex-direction: column; gap: .375rem; min-width: 0; margin-top: .75rem; }
 .field > label { font-size: .875rem; font-weight: 600; }
 .two-col { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 1rem; }

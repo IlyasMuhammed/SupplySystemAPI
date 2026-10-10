@@ -29,6 +29,7 @@ internal sealed class BomService : IBomService
     public Task                                      ObsoleteAsync(Guid uuid, int userId, string? reason)      => _repo.ObsoleteAsync(uuid, userId, reason);
     public Task<Guid>                                NewVersionAsync(Guid uuid, int userId)                    => _repo.NewVersionAsync(uuid, userId);
     public Task<BomComparisonModel>                  CompareAsync(Guid leftUuid, Guid rightUuid)               => _repo.CompareAsync(leftUuid, rightUuid);
+    public Task                                      SetUsageAsync(Guid uuid, string bomUsage, int userId)     => _repo.SetUsageAsync(uuid, bomUsage, userId);
 }
 
 /// <summary>

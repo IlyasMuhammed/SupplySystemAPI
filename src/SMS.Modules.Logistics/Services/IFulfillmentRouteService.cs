@@ -42,6 +42,12 @@ public interface IFulfillmentRouteService
     /// delivery already carries is a 409 — deactivate it instead.
     /// </summary>
     Task<bool> DeleteAsync(Guid uuid, int userId);
+
+    /// <summary>
+    /// A37 D-12 — <c>GET /api/products/{id}/routes</c>: each active variant's configured route with its availability and
+    /// the effective route (the configured one, else the SHIP default). Exactly one of the keys is given. Null = 404.
+    /// </summary>
+    Task<IReadOnlyList<ProductVariantRouteModel>?> GetProductRoutesAsync(int? productId, Guid? productUuid);
 }
 
 /// <summary>

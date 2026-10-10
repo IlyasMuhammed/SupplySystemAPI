@@ -20,6 +20,14 @@ internal interface ISupplyRequirementEngine
     Task<SupplyRequirement?> EnsureForShortageAsync(
         ProductionMaterialRequirement pmr, ProductionOrder productionOrder, int userId, int depth, CancellationToken ct = default);
 
+    /// <summary>
+    /// A36 D-6 / SVC-SR-01..02 — the same idempotent raise-or-refresh for a service order requirement
+    /// (demand source SERVICE_ORDER, one live SR per requirement). A SUBCONTRACT requirement is always bought
+    /// (PURCHASE) from the BOM line's own vendor; a STOCK shortage follows the material's supply method, as production.
+    /// </summary>
+    Task<SupplyRequirement?> EnsureForServiceAsync(
+        ServiceMaterialRequirement smr, ServiceOrder serviceOrder, int userId, CancellationToken ct = default);
+
     /// <summary>A person raising a supply requirement directly, with nothing behind it but their own say-so.</summary>
     Task<Guid> CreateManualAsync(CreateSupplyRequirementRequest req, int userId, CancellationToken ct = default);
 

@@ -15,6 +15,7 @@ import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { MessageService, ConfirmationService } from 'primeng/api';
 import { TableLazyLoadEvent } from 'primeng/table';
 import { WarehouseService, GrnListItemModel, GrnListFilter } from '../../../../services/warehouse.service';
+import { FLOW } from '../../../../shared/flow';
 
 @Component({
   selector: 'app-grn-list',
@@ -23,7 +24,7 @@ import { WarehouseService, GrnListItemModel, GrnListFilter } from '../../../../s
     CommonModule, RouterModule, FormsModule,
     TableModule, ButtonModule, InputTextModule,
     InputIconModule, IconFieldModule, TagModule,
-    TooltipModule, ToastModule, DropdownModule, ConfirmDialogModule
+    TooltipModule, ToastModule, DropdownModule, ConfirmDialogModule, ...FLOW
   ],
   templateUrl: './grn-list.component.html',
   styleUrls: ['./grn-list.component.scss'],

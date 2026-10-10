@@ -40,6 +40,8 @@ public static class AuthModuleExtensions
         services.AddScoped<IEmailSender, EmailSender>();
         services.AddScoped<IUserLookupService, UserLookupService>();
         services.AddScoped<IUserQueryService, UserQueryService>();
+        // A36 — "Team: …" on service orders (a team is an auth role).
+        services.AddScoped<IRoleNameLookup, RoleNameLookup>();
         services.AddScoped<IOrgChartService, OrgChartService>();
         services.AddScoped<IOrgUserProvisioningService, OrgUserProvisioningService>();
         services.AddScoped<IUserSupplierAccessService, UserSupplierAccessService>();

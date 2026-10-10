@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FLOW } from '../../../shared/flow';
 import { Router } from '@angular/router';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { TableModule } from 'primeng/table';
@@ -19,6 +20,9 @@ import {
 } from '../../../services/organizations.service';
 import { CountriesService } from '../../../services/countries.service';
 import { CurrenciesService } from '../../../services/currencies.service';
+import { UserService } from '../../../services/user.service';
+import { PasswordModule } from 'primeng/password';
+import { isStrongPassword, passwordChecks, PasswordCheck } from '../../../shared/password-rule';
 
 @Component({
   selector: 'app-organizations-list',
@@ -26,7 +30,7 @@ import { CurrenciesService } from '../../../services/currencies.service';
   imports: [
     CommonModule, FormsModule, ReactiveFormsModule,
     TableModule, ButtonModule, InputTextModule, InputIconModule, IconFieldModule, DropdownModule,
-    DialogModule, TagModule, ToastModule, ConfirmDialogModule, TooltipModule
+    DialogModule, TagModule, ToastModule, ConfirmDialogModule, TooltipModule, PasswordModule, ...FLOW
   ],
   templateUrl: './organizations-list.component.html',
   styleUrls: ['./organizations-list.component.scss'],
@@ -50,6 +54,17 @@ export class OrganizationsListComponent implements OnInit {
   currentAdmin: OrgUserSummary | null = null;
   selectedNewAdminId: number | null = null;
 
+  // Resend invite (only while the admin's invite is pending or the account is not active)
+  reinviteEmail = '';
+  isReinviting = false;
+  reinviteError = '';
+
+  // Set password for the admin (platform super admin; the page itself is super-admin only)
+  newPassword = '';
+  confirmPassword = '';
+  isSettingPassword = false;
+  setPasswordError = '';
+
   planOptions: { label: string; value: OrgPlan }[] = [
     { label: 'Basic',      value: 'BASIC' },
     { label: 'Standard',   value: 'STANDARD' },
@@ -71,6 +86,7 @@ export class OrganizationsListComponent implements OnInit {
   constructor(
     private fb: FormBuilder,
     private service: OrganizationsService,
+    private userService: UserService,
     private countriesService: CountriesService,
     private currenciesService: CurrenciesService,
     private messageService: MessageService,
@@ -298,20 +314,122 @@ export class OrganizationsListComponent implements OnInit {
     this.orgUsers = [];
     this.currentAdmin = null;
     this.selectedNewAdminId = null;
+    this.reinviteEmail = '';
+    this.reinviteError = '';
+    this.clearPasswordFields();
     this.isLoadingAdmin = true;
     this.showAdminDialog = true;
+    this.loadOrgUsers(org.id);
+  }
 
-    this.service.getOrgUsers(org.id).subscribe({
+  private loadOrgUsers(orgId: string) {
+    this.service.getOrgUsers(orgId).subscribe({
       next: (res) => {
         this.isLoadingAdmin = false;
         this.orgUsers = res.result ?? [];
         this.currentAdmin = this.orgUsers.find(u => u.roleId === ORG_ADMIN_ROLE_ID) ?? null;
+        this.reinviteEmail = this.currentAdmin?.email ?? '';
       },
       error: (err) => {
         this.isLoadingAdmin = false;
         this.messageService.add({ severity: 'error', summary: 'Error', detail: err.error?.message || 'Failed to load organization users' });
       }
     });
+  }
+
+  // ── Admin status / resend invite / set password ──────────────────────────────────────
+
+  /** Pending invite wins over the active flag: an invited admin has no password yet. */
+  get adminStatus(): 'pending' | 'active' | 'inactive' | null {
+    const a = this.currentAdmin;
+    if (!a) return null;
+    if (a.invitePending) return 'pending';
+    return a.isActive ? 'active' : 'inactive';
+  }
+
+  /** The invite expiry as a Date; the server sends UTC, so a string without a zone is read as UTC. */
+  get inviteExpiry(): Date | null {
+    const raw = this.currentAdmin?.inviteExpiresAt;
+    if (!raw) return null;
+    const d = new Date(/(?:[zZ]|[+-]\d\d:?\d\d)$/.test(raw) ? raw : raw + 'Z');
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  get inviteExpired(): boolean {
+    const d = this.inviteExpiry;
+    return !!d && d.getTime() < Date.now();
+  }
+
+  get showReinvite(): boolean {
+    return !!this.currentAdmin && (!!this.currentAdmin.invitePending || !this.currentAdmin.isActive);
+  }
+
+  sendReinvite() {
+    if (!this.adminOrg || !this.currentAdmin || this.isReinviting) return;
+    const email = this.reinviteEmail.trim();
+    if (!email) { this.reinviteError = 'Enter the e-mail address to send the invite to.'; return; }
+    const orgId = this.adminOrg.id;
+    const userId = this.currentAdmin.userId;
+    const changed = email.toLowerCase() !== (this.currentAdmin.email ?? '').toLowerCase();
+    this.reinviteError = '';
+    this.isReinviting = true;
+    this.service.reinviteOrgUser(orgId, userId, changed ? email : null).subscribe({
+      next: (res) => {
+        this.isReinviting = false;
+        if (!res.success) { this.reinviteError = res.message || 'The invite was not sent.'; return; }
+        this.messageService.add({ severity: 'success', summary: 'Invite sent', detail: res.message || `A new invite was sent to ${email}` });
+        const updated = res.result;
+        if (updated && this.currentAdmin?.userId === updated.userId) {
+          this.currentAdmin = { ...this.currentAdmin, ...updated };
+          this.orgUsers = this.orgUsers.map(u => u.userId === updated.userId ? { ...u, ...updated } : u);
+          this.reinviteEmail = updated.email;
+        } else {
+          this.loadOrgUsers(orgId);
+        }
+      },
+      error: (err) => {
+        this.isReinviting = false;
+        this.reinviteError = err?.error?.message || 'The invite was not sent.';
+      }
+    });
+  }
+
+  get passwordChecks(): PasswordCheck[] {
+    return passwordChecks(this.newPassword);
+  }
+
+  get passwordsMatch(): boolean {
+    return !!this.confirmPassword && this.newPassword === this.confirmPassword;
+  }
+
+  get canSetPassword(): boolean {
+    return !!this.currentAdmin && isStrongPassword(this.newPassword) && this.passwordsMatch && !this.isSettingPassword;
+  }
+
+  setAdminPassword() {
+    if (!this.adminOrg || !this.currentAdmin || !this.canSetPassword) return;
+    const orgId = this.adminOrg.id;
+    this.setPasswordError = '';
+    this.isSettingPassword = true;
+    this.userService.setUserPassword(this.currentAdmin.userId, this.newPassword).subscribe({
+      next: (res) => {
+        this.isSettingPassword = false;
+        if (!res.success) { this.setPasswordError = res.message || 'The password was not set.'; return; }
+        this.messageService.add({ severity: 'success', summary: 'Password set', detail: res.message || 'Password set.' });
+        this.clearPasswordFields();
+        this.loadOrgUsers(orgId);
+      },
+      error: (err) => {
+        this.isSettingPassword = false;
+        this.setPasswordError = err?.error?.message || 'The password was not set.';
+      }
+    });
+  }
+
+  private clearPasswordFields() {
+    this.newPassword = '';
+    this.confirmPassword = '';
+    this.setPasswordError = '';
   }
 
   // Candidates to promote — everyone active in the org except whoever already holds OrgAdmin.

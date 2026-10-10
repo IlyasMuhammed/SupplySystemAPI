@@ -23,6 +23,7 @@ import {
   CategoryDeleteConflictResult,
   SubCategoryDeleteConflictResult
 } from '../../../services/inventory.service';
+import { FLOW } from '../../../shared/flow';
 
 @Component({
   selector: 'app-category-list',
@@ -31,7 +32,8 @@ import {
     CommonModule, RouterModule, ReactiveFormsModule, FormsModule,
     ButtonModule, InputTextModule, TextareaModule, DialogModule,
     TableModule, TagModule, ToastModule, TooltipModule, DividerModule,
-    ConfirmDialogModule, MessageModule, CheckboxModule, DropdownModule
+    ConfirmDialogModule, MessageModule, CheckboxModule, DropdownModule,
+    ...FLOW
   ],
   templateUrl: './category-list.component.html',
   styleUrls: ['./category-list.component.scss'],

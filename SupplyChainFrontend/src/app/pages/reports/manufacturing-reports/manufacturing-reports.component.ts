@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FLOW } from '../../../shared/flow';
 import { FormsModule } from '@angular/forms';
 import { TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
@@ -32,7 +33,7 @@ interface ChainedRow {
   selector: 'app-manufacturing-reports',
   standalone: true,
   imports: [CommonModule, FormsModule, TableModule, ButtonModule, InputTextModule,
-            TabViewModule, TagModule, ToastModule, DropdownModule],
+            TabViewModule, TagModule, ToastModule, DropdownModule, ...FLOW],
   templateUrl: './manufacturing-reports.component.html',
   styleUrls: ['./manufacturing-reports.component.scss'],
   providers: [MessageService]

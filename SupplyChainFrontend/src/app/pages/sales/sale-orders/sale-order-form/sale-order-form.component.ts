@@ -29,7 +29,7 @@ import {
   DeliveryPreviewLineModel
 } from '../../../../services/sale-order.service';
 import {
-  FulfillmentRoutesService, FulfillmentRouteModel, FulfillmentRouteSource, routesVisibleToOrg
+  FulfillmentRoutesService, FulfillmentRouteModel, FulfillmentRouteSource, routesVisibleToOrg, unavailableRouteOptions
 } from '../../../../services/fulfillment-routes.service';
 import {
   LineRouteDisplay, PreviewLineRef, ROUTE_LEGEND, inheritPlaceholder, lineRouteDisplay
@@ -55,6 +55,7 @@ import { LeadTimeCalculation, LeadTimePopoverComponent } from '../../lead-time-p
 import { MoneyService } from '../../../../services/money.service';
 import { DocCurrencyPanelComponent } from '../../../../shared/doc-currency/doc-currency-panel.component';
 import { DocCurrencyInfo } from '../../../../shared/doc-currency/doc-currency';
+import { FLOW } from '../../../../shared/flow';
 
 /** A35 D-9 — a customer's default sale currency (API-CONTRACT.md §5); absent on servers before A35. */
 type PartnerWithSaleCurrency = BusinessPartnerModel & { defaultSaleCurrencyId?: string | null };
@@ -190,7 +191,8 @@ const CUSTOMER_PO_MAX_LENGTH = 50;
     CommonModule, RouterModule, ReactiveFormsModule,
     ButtonModule, ToastModule, TooltipModule, DialogModule, DropdownModule, CalendarModule,
     InputNumberModule, InputTextModule, TextareaModule, AutoCompleteModule, SelectButtonModule,
-    ProductVariantPickerComponent, DeliveryPreviewPanelComponent, LeadTimePopoverComponent, DocCurrencyPanelComponent
+    ProductVariantPickerComponent, DeliveryPreviewPanelComponent, LeadTimePopoverComponent, DocCurrencyPanelComponent,
+    ...FLOW
   ],
   templateUrl: './sale-order-form.component.html',
   styleUrls: ['./sale-order-form.component.scss'],
@@ -279,6 +281,8 @@ export class SaleOrderFormComponent implements OnInit {
 
   /** The organization's active routes, for each line's Route dropdown. */
   activeRoutes: FulfillmentRouteModel[] = [];
+  /** A37 RTE-01 — routes the server marks unavailable (module off): listed disabled with the reason. */
+  unavailableRoutes: FulfillmentRouteModel[] = [];
   private routesRequested = false;
   /** A loaded line's override that is no longer offered (deactivated, deleted), named as the server last knew it. */
   private retiredRouteLabels = new Map<string, string>();
@@ -729,7 +733,8 @@ export class SaleOrderFormComponent implements OnInit {
         calculatedLeadTimeDays: l.calculatedLeadTimeDays ?? null,
         calculatedDeliveryDate: l.calculatedDeliveryDate ? l.calculatedDeliveryDate.slice(0, 10) : null,
         leadTimeCalculatedAt: l.leadTimeCalculatedAt ?? null,
-        leadTimeBasis: l.calculatedDeliveryDate ? leadTimeBasis(l.variantUuid, l.quantity) : null
+        leadTimeBasis: l.calculatedDeliveryDate ? leadTimeBasis(l.variantUuid, l.quantity) : null,
+        routeWarning: l.routeWarning ?? null
       });
       this.lines.push(group);
 
@@ -984,7 +989,9 @@ export class SaleOrderFormComponent implements OnInit {
       calculatedLeadTimeDays: [null as number | null],
       calculatedDeliveryDate: [null as string | null],
       leadTimeCalculatedAt:   [null as string | null],
-      leadTimeBasis:          [null as string | null]
+      leadTimeBasis:          [null as string | null],
+      // A37 — UI-only, never submitted: the loaded line's routeWarning (API-CONTRACT §4).
+      routeWarning:           [null as string | null]
     });
   }
 
@@ -1504,20 +1511,37 @@ export class SaleOrderFormComponent implements OnInit {
     this.routesRequested = true;
     this.routesService.getRoutes().subscribe({
       // A34 D-9 — MANUFACTURE routes only for an organization with manufacturing.
-      next: (res) => { this.activeRoutes = routesVisibleToOrg(res.result ?? [], this.manufacturingOn); },
+      next: (res) => {
+        this.activeRoutes = routesVisibleToOrg(res.result ?? [], this.manufacturingOn);
+        this.unavailableRoutes = (res.result ?? []).filter(r => r.isAvailable === false);
+      },
       // Without the list the line can still inherit, and keeps the override it has.
-      error: () => { this.activeRoutes = []; }
+      error: () => { this.activeRoutes = []; this.unavailableRoutes = []; }
     });
   }
 
   /** The active routes, and the route a loaded line already carries when it is no longer among them. */
-  routeOptionsFor(i: number): { label: string; value: string }[] {
-    const options = this.activeRoutes.map(r => ({ label: r.name, value: r.uuid }));
+  routeOptionsFor(i: number): { label: string; value: string; disabled?: boolean }[] {
+    const options: { label: string; value: string; disabled?: boolean }[] = this.activeRoutes.map(r => ({ label: r.name, value: r.uuid }));
     const own = this.lineControl(i, 'fulfillmentRouteUuid').value as string | null;
     if (own && !options.some(o => o.value === own)) {
-      options.push({ label: this.retiredRouteLabels.get(own) ?? 'Route no longer offered', value: own });
+      const unavailable = this.unavailableRoutes.find(r => r.uuid === own);
+      const label = unavailable ? `${unavailable.name} — ${unavailable.unavailableReason || 'not available'}` : null;
+      options.push({ label: label ?? this.retiredRouteLabels.get(own) ?? 'Route no longer offered', value: own });
     }
+    // A37 — the unavailable ones are shown, disabled, so it is clear why they cannot be picked.
+    options.push(...unavailableRouteOptions(this.unavailableRoutes, options.map(o => o.value)));
     return options;
+  }
+
+  /**
+   * A37 RTE-03 — the server's warning when the line's route is unavailable (fallback or nothing applies): the live
+   * delivery preview's answer, else the one the saved line came with.
+   */
+  lineRouteWarning(i: number): string | null {
+    const preview = this.previewLineFor(i);
+    if (preview) return preview.routeWarning ?? null;
+    return (this.lineControl(i, 'routeWarning')?.value as string | null) ?? null;
   }
 
   /** The preview's answer for line `i`, if the line was in the last request. */

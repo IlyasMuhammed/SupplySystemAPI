@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import { ModulesComponent } from './settings/modules/modules.component';
 import { PrListComponent } from './demand/requisitions/pr-list/pr-list.component';
 import { PrCreateComponent } from './demand/requisitions/pr-create/pr-create.component';
 import { PrDetailComponent } from './demand/requisitions/pr-detail/pr-detail.component';
@@ -56,6 +57,10 @@ import { ProductionOrderFormComponent } from './manufacturing/production-orders/
 import { ProductionOrderDetailComponent } from './manufacturing/production-orders/production-order-detail/production-order-detail.component';
 import { PurchaseRequiredComponent } from './manufacturing/purchase-required/purchase-required.component';
 import { ManufacturingReportsComponent } from './reports/manufacturing-reports/manufacturing-reports.component';
+import { ServiceOrderListComponent } from './services/service-orders/service-order-list/service-order-list.component';
+import { ServiceOrderFormComponent } from './services/service-orders/service-order-form/service-order-form.component';
+import { ServiceOrderDetailComponent } from './services/service-orders/service-order-detail/service-order-detail.component';
+import { ServiceOrderDashboardComponent } from './services/service-orders/service-order-dashboard/service-order-dashboard.component';
 import { OrganizationsListComponent } from './organizations/organizations-list/organizations-list.component';
 import { OrganizationFeaturesComponent } from './organizations/organization-features/organization-features.component';
 import { permissionGuard } from './gaurds/permission.guard';
@@ -113,6 +118,8 @@ import { CustomerPaymentListComponent } from './finance/customer-payments/custom
 import { CustomerPaymentFormComponent } from './finance/customer-payments/customer-payment-form/customer-payment-form.component';
 import { CustomerPaymentDetailComponent } from './finance/customer-payments/customer-payment-detail/customer-payment-detail.component';
 import { CustomerLedgerComponent } from './finance/customer-ledger/customer-ledger.component';
+import { CustomerListComponent } from './customers/customer-list/customer-list.component';
+import { CustomerDetailComponent } from './customers/customer-detail/customer-detail.component';
 import { ExchangeDifferencesComponent } from './finance/exchange-differences/exchange-differences.component';
 import { SupplierPaymentDetailComponent } from './finance/supplier-payments/supplier-payment-detail/supplier-payment-detail.component';
 import { KpiDashboardComponent } from './reports/kpi-dashboard/kpi-dashboard.component';
@@ -160,6 +167,9 @@ const P = {
   SYSTEM_CONFIGURE:     'SYSTEM_CONFIGURE',
   PLATFORM_SUPER_ADMIN: 'PLATFORM_SUPER_ADMIN',
   USER_MANAGE:          'USER_MANAGE',
+  // A37 — Settings › Modules (VIEW opens it read-only; MANAGE switches modules/features).
+  MODULES_VIEW:         'MODULES_VIEW',
+  MODULES_MANAGE:       'MODULES_MANAGE',
   AUDIT_LOG_VIEW:       'AUDIT_LOG_VIEW',
   LOCATION_MANAGE:      'LOCATION_MANAGE',
   SUPPLIER_VIEW:        'SUPPLIER_VIEW',
@@ -182,6 +192,8 @@ const P = {
   PROD_VIEW:            'PROD_VIEW',
   PROD_CREATE:          'PROD_CREATE',
   PROD_LEDGER_VIEW:     'PROD_LEDGER_VIEW',
+  SERVICE_ORDER_VIEW:   'SERVICE_ORDER_VIEW',     // A36 D-12
+  SERVICE_ORDER_CREATE: 'SERVICE_ORDER_CREATE',
   SUPPLY_VIEW:          'SUPPLY_VIEW',
   REQUISITION_CREATE:   'REQUISITION_CREATE',
   REQUISITION_VIEW_OWN: 'REQUISITION_VIEW_OWN',
@@ -289,6 +301,12 @@ export default [
     { path: 'admin/roles', component: RolesComponent,
       canActivate: [permissionGuard(P.USER_MANAGE)] },
 
+    // ── Customers (A37 D-13, API-CONTRACT §5) — the Customer Master over business partners. ──
+    { path: 'customers', component: CustomerListComponent,
+      canActivate: [permissionGuard('CUSTOMER_VIEW')] },
+    { path: 'customers/:uuid', component: CustomerDetailComponent,
+      canActivate: [permissionGuard('CUSTOMER_VIEW')] },
+
     // ── Suppliers ─────────────────────────────────────────────────────────────
     { path: 'suppliers/supplier-list', component: SupplierListComponent,
       canActivate: [permissionGuard(P.SUPPLIER_VIEW, P.SUPPLIER_CREATE, P.SUPPLIER_EDIT, P.SUPPLIER_MANAGE)] },
@@ -344,6 +362,9 @@ export default [
       canActivate: [permissionGuard(P.SYSTEM_CONFIGURE)] },
     { path: 'portal-settings', component: PortalSettingsComponent,
       canActivate: [permissionGuard(P.SYSTEM_CONFIGURE)] },
+    // A37 — Settings › Modules (docs/module-registry/API-CONTRACT.md §1.1).
+    { path: 'settings/modules', component: ModulesComponent,
+      canActivate: [permissionGuard(P.MODULES_VIEW, P.MODULES_MANAGE)] },
     { path: 'sale-order-settings', component: SaleOrderSettingsComponent,
       canActivate: [permissionGuard(P.SALE_ORDER_CONFIG_READ)] },
     // A33 — Settings → Fulfillment Routes (API-CONTRACT.md §2). VIEW or MANAGE opens it; writes are gated on the page
@@ -405,6 +426,17 @@ export default [
       canActivate: [permissionGuard(P.SUPPLY_VIEW)] },
     { path: 'manufacturing/production-orders/:uuid', component: ProductionOrderDetailComponent,
       canActivate: [permissionGuard(P.PROD_VIEW)] },
+
+    // ── Services — Service Orders (A36 D-15) ──────────────────────────────────
+    // "new" and "dashboard" ahead of ":uuid".
+    { path: 'services/service-orders', component: ServiceOrderListComponent,
+      canActivate: [permissionGuard(P.SERVICE_ORDER_VIEW)] },
+    { path: 'services/service-orders/new', component: ServiceOrderFormComponent,
+      canActivate: [permissionGuard(P.SERVICE_ORDER_CREATE)] },
+    { path: 'services/service-orders/dashboard', component: ServiceOrderDashboardComponent,
+      canActivate: [permissionGuard(P.SERVICE_ORDER_VIEW)] },
+    { path: 'services/service-orders/:uuid', component: ServiceOrderDetailComponent,
+      canActivate: [permissionGuard(P.SERVICE_ORDER_VIEW)] },
     { path: 'reports/manufacturing', component: ManufacturingReportsComponent,
       canActivate: [permissionGuard(P.PROD_LEDGER_VIEW)] },
     { path: 'inventory/warehouses', component: WarehouseListComponent,

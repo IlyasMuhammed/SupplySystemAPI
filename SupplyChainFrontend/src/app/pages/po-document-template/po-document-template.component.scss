@@ -1,90 +1,14 @@
-// ── Page Header ──────────────────────────────────────────────────────────────
-.md-header {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 1.375rem 1.5rem 1.25rem;
-}
-
-.md-icon {
-  width: 2.75rem;
-  height: 2.75rem;
-  border-radius: 0.625rem;
-  background: var(--primary-50, #eef2ff);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-
-  i { font-size: 1.2rem; color: var(--primary-color); }
-}
-
-.md-title-wrap { flex: 1; min-width: 0; }
-
-.md-title {
-  font-size: 1.0625rem;
-  font-weight: 700;
-  margin: 0 0 0.125rem;
-  color: var(--text-color);
-}
-
-.md-subtitle {
-  margin: 0;
-  font-size: 0.8125rem;
-  color: var(--text-color-secondary);
-}
-
-.md-sep {
-  border: none;
-  border-top: 1px solid var(--surface-200);
-  margin: 0;
-}
-
-.md-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 3rem 1rem;
-  text-align: center;
-}
-
-.md-empty-icon {
-  font-size: 2.75rem;
-  color: var(--surface-400);
-  margin-bottom: 0.875rem;
-}
-
-.md-empty-text {
-  font-size: 0.9375rem;
-  font-weight: 600;
-  color: var(--text-color);
-  margin: 0 0 0.25rem;
-}
-
-// ── Template form body ────────────────────────────────────────────────────────
-.tpl-body {
-  padding: 1.25rem 1.5rem 1.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1.75rem;
-}
-
-.tpl-section-title {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.9375rem;
-  font-weight: 700;
-  color: var(--text-color);
-  margin: 0 0 1rem;
-
-  i { color: var(--primary-color); font-size: 0.9rem; }
-}
+// Page frame, header, cards and footer bar come from the SMS Flow kit (_flow.scss).
+// The form wraps the body and the footer bar, so it must not add a box of its own.
+.sf-form { display: contents; }
+.tpl-body { max-width: 980px; }
 
 .tpl-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 1rem;
+
+  @media (max-width: 640px) { grid-template-columns: 1fr; }
 }
 
 .tpl-span-2 { grid-column: 1 / -1; }
@@ -93,23 +17,22 @@
   display: flex;
   align-items: center;
   gap: 1.25rem;
-  margin-bottom: 1.25rem;
 }
 
 .tpl-logo-preview {
   width: 84px;
   height: 84px;
-  border: 1px dashed var(--surface-300);
+  border: 1px dashed var(--sms-border);
   border-radius: 0.5rem;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
   flex-shrink: 0;
-  background: var(--surface-50, #fafafa);
+  background: var(--sms-surface-2);
 
   img { width: 100%; height: 100%; object-fit: contain; }
-  i { font-size: 1.75rem; color: var(--surface-400); }
+  i { font-size: 1.75rem; color: var(--sms-text-faint); }
 }
 
 .tpl-upload-btn {
@@ -118,16 +41,16 @@
   gap: 0.4rem;
   font-size: 0.8125rem;
   font-weight: 600;
-  color: var(--primary-color);
-  border: 1px solid var(--primary-color);
+  color: var(--sms-primary-text);
+  border: 1px solid var(--sms-primary);
   border-radius: 0.5rem;
   padding: 0.45rem 0.875rem;
   cursor: pointer;
 
-  &:hover { background: var(--primary-50, #eef2ff); }
+  &:hover { background: var(--sms-primary-soft); }
 }
 
-// ── Shared field styles (same convention as payment-terms) ────────────────────
+// ── Fields ─────────────────────────────────────────────────────────────────────
 .dlg-field {
   display: flex;
   flex-direction: column;
@@ -138,28 +61,18 @@
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--text-color);
+  font-size: 0.86rem;
+  color: var(--sms-text-muted);
 }
 
 .dlg-hint {
-  font-size: 0.75rem;
-  color: var(--text-color-secondary);
-}
-
-.dlg-footer {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 0.75rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--surface-200);
+  font-size: 0.78rem;
+  color: var(--sms-text-muted);
 }
 
 // ── Rich-text body editor ──────────────────────────────────────────────────────
 .tpl-body-hint {
-  margin: 0 0 0.875rem;
+  margin: 0;
   line-height: 1.5;
 }
 
@@ -168,10 +81,10 @@
   align-items: center;
   gap: 0.35rem;
   padding: 0.5rem;
-  border: 1px solid var(--surface-300);
+  border: 1px solid var(--sms-border);
   border-bottom: none;
   border-radius: 0.5rem 0.5rem 0 0;
-  background: var(--surface-50, #fafafa);
+  background: var(--sms-surface-2);
   flex-wrap: wrap;
 }
 
@@ -184,10 +97,10 @@
   border: 1px solid transparent;
   border-radius: 0.4rem;
   background: transparent;
-  color: var(--text-color-secondary);
+  color: var(--sms-text-muted);
   cursor: pointer;
 
-  &:hover { background: var(--surface-100, #f1f5f9); color: var(--primary-color); }
+  &:hover { background: var(--sms-row-hover); color: var(--sms-primary-text); }
   i { font-size: 0.85rem; }
 
   &.rte-btn--glyph {
@@ -200,7 +113,7 @@
 .rte-sep {
   width: 1px;
   height: 1.5rem;
-  background: var(--surface-300);
+  background: var(--sms-border);
   margin: 0 0.25rem;
 }
 
@@ -209,14 +122,14 @@
 .rte-editor {
   min-height: 220px;
   padding: 0.875rem 1rem;
-  border: 1px solid var(--surface-300);
+  border: 1px solid var(--sms-border);
   border-radius: 0 0 0.5rem 0.5rem;
   font-size: 0.875rem;
   line-height: 1.6;
-  color: var(--text-color);
+  color: var(--sms-text);
   overflow-y: auto;
 
-  &:focus { outline: none; border-color: var(--primary-color); }
+  &:focus { outline: none; border-color: var(--sms-primary); }
 
   p { margin: 0 0 0.6rem; }
   ul { margin: 0 0 0.6rem; padding-left: 1.25rem; }
@@ -227,7 +140,6 @@
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  margin-bottom: 1rem;
 
-  label { font-size: 0.875rem; font-weight: 600; color: var(--text-color); cursor: pointer; }
+  label { font-size: 0.875rem; font-weight: 600; color: var(--sms-text); cursor: pointer; }
 }

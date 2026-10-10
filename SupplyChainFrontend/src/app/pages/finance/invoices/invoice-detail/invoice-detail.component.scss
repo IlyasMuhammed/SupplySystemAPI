@@ -1,35 +1,7 @@
-.detail-page { padding: 1.5rem; }
-.page-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 1.5rem; gap: 1rem; flex-wrap: wrap; }
-.page-title { font-size: 1.5rem; font-weight: 700; display: flex; align-items: center; gap: .5rem; margin: 0; flex-wrap: wrap; }
-.page-subtitle { color: var(--text-color-secondary); font-size: .875rem; margin: .25rem 0 0; }
-.loading-state { display: flex; flex-direction: column; align-items: center; padding: 4rem 1rem; }
-.detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
-.info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .875rem 1.5rem; }
-.detail-group .detail-label { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .055em; color: var(--text-color-secondary); margin-bottom: .2rem; }
-.detail-group .detail-value { font-size: .9375rem; line-height: 1.5; }
-.amounts-grid { display: flex; flex-direction: column; gap: .375rem; }
-.amount-row { display: flex; justify-content: space-between; font-size: .9rem; &.total { font-weight: 700; font-size: 1rem; padding-top: .375rem; border-top: 1px solid var(--surface-200); } }
-.match-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
-.match-item { padding: .75rem 1rem; background: var(--surface-50); border-radius: .5rem; border: 1px solid var(--surface-200); }
-.match-label { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-color-secondary); }
-.match-value { font-size: 1.05rem; font-weight: 700; margin-top: .2rem; }
-.notes-block { padding: .75rem 1rem; background: var(--surface-50); border: 1px solid var(--surface-200); border-radius: .5rem; font-size: .9375rem; }
-.link-primary { color: var(--primary-color); text-decoration: none; &:hover { text-decoration: underline; } }
-.field-label { display: block; font-weight: 500; font-size: .875rem; margin-bottom: .3rem; }
-.edit-field { display: flex; flex-direction: column; gap: .35rem; label { font-size: .85rem; font-weight: 600; color: var(--text-color); } }
-.req { color: var(--red-500); }
-.file-drop-zone { display: flex; flex-direction: column; align-items: center; padding: 2rem; border: 2px dashed var(--surface-300); border-radius: 10px; cursor: pointer; background: var(--surface-50); &:hover { border-color: var(--primary-color); } }
-.file-drop-icon { font-size: 2rem; color: var(--primary-color); margin-bottom: .5rem; }
+.text-right { text-align: right; }
+.file-drop-zone { display: flex; flex-direction: column; align-items: center; padding: 2rem; border: 2px dashed var(--sms-border); border-radius: 10px; cursor: pointer; background: var(--sms-surface-2); &:hover { border-color: var(--sms-primary); } }
+.file-drop-icon { font-size: 2rem; color: var(--sms-primary); margin-bottom: .5rem; }
 .file-drop-label { font-weight: 600; margin: 0; }
-.file-drop-hint { font-size: .78rem; color: var(--text-color-secondary); margin: .25rem 0 0; }
-.amount-row.base { font-size: .8rem; color: var(--text-color-secondary); }
-.computed-amount { padding: .5rem .75rem; background: var(--surface-50); border: 1px solid var(--surface-200); border-radius: .375rem; font-weight: 600; }
-.sdlg-note { padding: .625rem .75rem; margin-bottom: .875rem; background: var(--surface-50); border: 1px solid var(--surface-200); border-radius: .5rem; font-size: .82rem; line-height: 1.5; color: var(--text-color-secondary); }
-.reversal-banner {
-  display: flex; gap: .75rem; align-items: flex-start; margin-bottom: 1.25rem; padding: .875rem 1rem;
-  border: 1px solid var(--surface-300); border-left: 4px solid var(--text-color); border-radius: .5rem; background: var(--surface-50);
-  > i { font-size: 1.25rem; margin-top: .1rem; }
-  .reversal-title { font-weight: 700; }
-  .reversal-reason { margin-top: .2rem; }
-  .reversal-note { margin-top: .4rem; font-size: .8rem; color: var(--text-color-secondary); line-height: 1.5; }
-}
+.file-drop-hint { font-size: .78rem; color: var(--sms-text-muted); margin: .25rem 0 0; }
+.computed-amount { padding: .5rem .75rem; background: var(--sms-surface-2); border: 1px solid var(--sms-border); border-radius: .375rem; font-weight: 600; }
+.sdlg-note { padding: .625rem .75rem; margin-bottom: .875rem; background: var(--sms-surface-2); border: 1px solid var(--sms-border); border-radius: .5rem; font-size: .82rem; line-height: 1.5; color: var(--sms-text-muted); }

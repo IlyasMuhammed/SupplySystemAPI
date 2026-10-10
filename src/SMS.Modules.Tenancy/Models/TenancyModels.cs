@@ -132,6 +132,12 @@ public class UpdateOrgAdminRequest
     public int NewAdminUserId { get; set; }
 }
 
+/// <summary>Resend the invite to a user who has not set up their account; Email, when given, corrects the address first.</summary>
+public class ReinviteOrgUserRequest
+{
+    public string? Email { get; set; }
+}
+
 // ── Organization response models ────────────────────────────────────────────
 
 public class OrganizationListItemModel
@@ -197,6 +203,15 @@ public class OrganizationFeatureModel
     public int DisplayOrder { get; set; }
     public bool IsEnabled { get; set; }
     public DateTime? ModifiedDate { get; set; }
+    // A37 §1.2
+    public bool IsLicensed { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public DateTime? GraceEndsAt { get; set; }
+    public string? ParentModuleCode { get; set; }
+    public bool IsAlwaysOn { get; set; }
+    public bool IsAvailable { get; set; }
+    /// <summary>Usable now: licensed, on, and its module usable too (what the menu and the API gates go by).</summary>
+    public bool IsUsable { get; set; }
 }
 
 public class PlanFeatureTemplateModel
@@ -229,6 +244,111 @@ public class UpdateFeaturesResult
 {
     public List<OrganizationFeatureModel> UpdatedFeatures { get; set; } = new();
     public List<string> AutoEnabledDependencies { get; set; } = new();
+}
+
+// ── A37 module registry (API-CONTRACT §1.1) ─────────────────────────────────
+
+public class EnabledModulesModel
+{
+    public List<string> Modules { get; set; } = new();
+    public List<string> Features { get; set; } = new();
+    public List<ModuleGraceModel> Grace { get; set; } = new();
+}
+
+public class ModuleGraceModel
+{
+    public string Code { get; set; } = string.Empty;
+    public DateTime GraceEndsAt { get; set; }
+}
+
+public class ModuleCardModel
+{
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public string? Icon { get; set; }
+    public bool IsAlwaysOn { get; set; }
+    public bool IsAvailable { get; set; }
+    public bool IsLicensed { get; set; }
+    public bool IsEnabled { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public DateTime? GraceEndsAt { get; set; }
+    public DateTime? DisabledAt { get; set; }
+    public string? DisabledByName { get; set; }
+    public DateTime? EnabledAt { get; set; }
+    public List<ModuleRefModel> DependsOn { get; set; } = new();
+    public List<ModuleRefModel> Dependents { get; set; } = new();
+    public List<ModuleFeatureModel> Features { get; set; } = new();
+    public int FeatureCount { get; set; }
+    public int EnabledFeatureCount { get; set; }
+    public string RowVersion { get; set; } = string.Empty;
+    internal int DisplayOrder { get; set; }
+}
+
+public class ModuleRefModel
+{
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public bool IsEnabled { get; set; }
+}
+
+public class ModuleFeatureModel
+{
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public bool IsCore { get; set; }
+    public bool IsAvailable { get; set; }
+    public bool IsLicensed { get; set; }
+    public bool IsEnabled { get; set; }
+    public string? RequiresCode { get; set; }
+    public List<string> RequiredBy { get; set; } = new();
+    public bool AutoManaged { get; set; }
+}
+
+public class ModuleHistoryEntryModel
+{
+    public DateTime PerformedAt { get; set; }
+    public string Action { get; set; } = string.Empty;
+    public string? FeatureCode { get; set; }
+    public string PerformedByName { get; set; } = string.Empty;
+    public int? GraceDays { get; set; }
+    public string? Notes { get; set; }
+}
+
+public class ModuleImpactModel
+{
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public List<ModuleRefModel> Dependents { get; set; } = new();
+    public List<ModuleImpactLineModel> InProgress { get; set; } = new();
+    public List<string> WillBlock { get; set; } = new();
+    public List<string> NotAffected { get; set; } = new();
+    public int DefaultGraceDays { get; set; } = 30;
+}
+
+public class ModuleImpactLineModel
+{
+    public string Label { get; set; } = string.Empty;
+    public int Count { get; set; }
+}
+
+public class EnableModuleRequest
+{
+    public string? RowVersion { get; set; }
+}
+
+public class DisableModuleRequest
+{
+    public int? GraceDays { get; set; }
+    public string? Notes { get; set; }
+    public string? RowVersion { get; set; }
+}
+
+public class ToggleModuleFeatureRequest
+{
+    public bool Enabled { get; set; }
+    public string? RowVersion { get; set; }
 }
 
 // ── GET /api/tenant/current ──────────────────────────────────────────────────

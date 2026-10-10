@@ -35,8 +35,8 @@ import { LayoutService } from '../service/layout.service';
                 (click)="itemClick($event)"
                 [ngClass]="item.styleClass"
                 [routerLink]="item.routerLink"
-                routerLinkActive="active-route"
-                [routerLinkActiveOptions]="item.routerLinkActiveOptions || { paths: 'subset', queryParams: 'ignored', matrixParams: 'ignored', fragment: 'ignored' }"
+                [class.active-route]="routeActive"
+                [attr.aria-current]="routeActive ? 'page' : null"
                 [fragment]="item.fragment"
                 [queryParamsHandling]="item.queryParamsHandling"
                 [preserveFragment]="item.preserveFragment"
@@ -55,7 +55,7 @@ import { LayoutService } from '../service/layout.service';
 
             <ul *ngIf="item.items && item.visible !== false" [@children]="submenuAnimation">
                 <ng-template ngFor let-child let-i="index" [ngForOf]="item.items">
-                    <li app-menuitem [item]="child" [index]="i" [parentKey]="key" [class]="child['badgeClass']"></li>
+                    <li app-menuitem [item]="child" [index]="i" [parentKey]="key" [siblings]="item.items" [class]="child['badgeClass']"></li>
                 </ng-template>
             </ul>
         </ng-container>
@@ -87,7 +87,49 @@ export class AppMenuitem {
 
     @Input() parentKey!: string;
 
+    /** The items at this item's own level, so a more specific sibling link can take the highlight. */
+    @Input() siblings: MenuItem[] | undefined;
+
     active = false;
+
+    private static readonly SUBSET = { paths: 'subset', queryParams: 'ignored', matrixParams: 'ignored', fragment: 'ignored' } as const;
+
+    private static linkOf(item: MenuItem): string | null {
+        const link = Array.isArray(item.routerLink) ? item.routerLink[0] : item.routerLink;
+        return typeof link === 'string' && link ? link : null;
+    }
+
+    /**
+     * Highlighted when the current URL is this link or below it ('subset', so a record page keeps its list item lit) —
+     * unless a sibling's link is longer, starts with this one and matches too: "New Order" (…/production-orders/new)
+     * wins over "All Orders" (…/production-orders), so only one item at a level is ever highlighted.
+     * <para>
+     * Query parameters count too: "New Warehouse" (…/warehouses?action=create) and "All Warehouses" (…/warehouses)
+     * share a path, so an item with queryParams is lit only while the URL carries them, and its plain sibling steps
+     * aside while it is.
+     * </para>
+     */
+    get routeActive(): boolean {
+        const link = AppMenuitem.linkOf(this.item);
+        if (!link) return false;
+        const opts = this.item.routerLinkActiveOptions ?? AppMenuitem.SUBSET;
+        if (!this.router.isActive(link, opts)) return false;
+        if (this.item.queryParams && !this.queryParamsMatch(this.item.queryParams)) return false;
+        return !(this.siblings ?? []).some((s) => {
+            if (s === this.item || s.items || s.visible === false) return false;
+            const other = AppMenuitem.linkOf(s);
+            if (!other) return false;
+            // Same path, but the sibling names query params the URL has (and this item doesn't): the sibling wins.
+            if (other === link && s.queryParams && !this.item.queryParams && this.queryParamsMatch(s.queryParams)) return true;
+            return other.length > link.length && other.startsWith(link + '/') && this.router.isActive(other, AppMenuitem.SUBSET);
+        });
+    }
+
+    /** Every query param the item names is in the current URL with the same value. */
+    private queryParamsMatch(wanted: Record<string, any>): boolean {
+        const current = this.router.parseUrl(this.router.url).queryParams;
+        return Object.entries(wanted).every(([k, v]) => v == null ? !(k in current) : String(current[k]) === String(v));
+    }
 
     menuSourceSubscription: Subscription;
 
@@ -140,7 +182,11 @@ export class AppMenuitem {
         // any of those, leaving every department collapsed on the very pages people spend the most
         // time on. Segment-aware, so it can't accidentally match an unrelated sibling route that
         // merely shares a text prefix (e.g. grn vs grn-returns).
-        let activeRoute = this.router.isActive(this.item.routerLink[0], { paths: 'subset', queryParams: 'ignored', matrixParams: 'ignored', fragment: 'ignored' });
+        // A plain link defers to a more specific sibling (routeActive), so on ".../new" only "New Order" — not also
+        // "All Orders" — claims the route and is marked open.
+        let activeRoute = this.item.items
+            ? this.router.isActive(this.item.routerLink[0], { paths: 'subset', queryParams: 'ignored', matrixParams: 'ignored', fragment: 'ignored' })
+            : this.routeActive;
 
         if (activeRoute) {
             this.layoutService.onMenuStateChange({ key: this.key, routeEvent: true });

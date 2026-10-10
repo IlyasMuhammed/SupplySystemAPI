@@ -285,13 +285,15 @@ internal sealed class SaleOrderProductionSweepJob
     private readonly ITenantSnapshotProvider? _tenants;
     private readonly INotificationService? _notifications;
     private readonly IManufacturingLevelDays? _levelDays;
+    private readonly IModuleGate? _gate;
 
     public SaleOrderProductionSweepJob(
         DemandDbContext db, IBackgroundJobClient jobs, ILogger<SaleOrderProductionSweepJob> log,
         ISaleOrderProductionService? production = null, ILeadTimeCalculator? leadTimes = null,
         ITenantSnapshotProvider? tenants = null, INotificationService? notifications = null,
-        IManufacturingLevelDays? levelDays = null)
+        IManufacturingLevelDays? levelDays = null, IModuleGate? gate = null)
     {
+        _gate          = gate;
         _levelDays     = levelDays;
         _db            = db;
         _jobs          = jobs;
@@ -310,9 +312,17 @@ internal sealed class SaleOrderProductionSweepJob
         var confirmed = EnumCode<SaleOrderStatus>.Of(SaleOrderStatus.Confirmed);
         var partial   = EnumCode<SaleOrderStatus>.Of(SaleOrderStatus.PartiallyFulfilled);
 
-        var due = await _db.SaleOrders.IgnoreQueryFilters().AsNoTracking()
+        var pending = _db.SaleOrders.IgnoreQueryFilters().AsNoTracking()
             .Where(o => o.ProductionCreationPendingSince != null && o.ProductionCreationPendingSince <= cutoff && !o.IsDeleted
-                     && (o.Status == confirmed || o.Status == partial))
+                     && (o.Status == confirmed || o.Status == partial));
+
+        // A37 D-9 (D-19) — organizations without MODULE_MANUFACTURING per the module gate (grace counts as off) are left
+        // out, their orders still pending. The snapshot check below (no gate registered) keeps the A34 "stop waiting".
+        var skipped = _gate is null ? [] : (await _gate.SkippedAmongAsync(
+            await pending.Select(o => o.OrganizationId).Distinct().ToListAsync(),
+            ModuleCodes.Manufacturing, _log, nameof(SaleOrderProductionSweepJob))).ToList();
+
+        var due = await pending.Where(o => !skipped.Contains(o.OrganizationId))
             .OrderBy(o => o.ProductionCreationPendingSince)
             .Select(o => new { o.OrganizationId, o.UUID })
             .Take(BatchSize)

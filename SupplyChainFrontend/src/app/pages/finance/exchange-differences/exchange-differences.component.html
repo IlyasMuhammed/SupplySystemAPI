@@ -1,108 +1,115 @@
-<div class="xd-page">
-  <div class="xd-header">
-    <div>
-      <h1>Exchange Differences</h1>
-      <p class="muted">Gains and losses from exchange-rate movements: realized when a payment settles a foreign-currency
-        invoice, unrealized when open invoices are revalued. Amounts are in each document's base currency (+ gain, − loss).</p>
-    </div>
+<sf-page [crumbs]="['Finance', 'Exchange differences']">
+  <!-- ── Command bar ─────────────────────────────────────────────────────────────────── -->
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
     <p-button *ngIf="canRun" label="Run revaluation" icon="pi pi-refresh" (onClick)="openRun()" data-testid="xd-run"></p-button>
+    <span class="sf-sep" *ngIf="canRun"></span>
+    <p-button label="Clear" icon="pi pi-filter-slash" [text]="true" (onClick)="clearFilters()"></p-button>
   </div>
 
-  <div class="xd-filters">
-    <p-dropdown [options]="kindOptions" [(ngModel)]="filterKind" optionLabel="label" optionValue="value" [showClear]="true"
-                placeholder="All kinds" (onChange)="applyFilters()" data-testid="xd-filter-kind"></p-dropdown>
-    <p-dropdown [options]="sideOptions" [(ngModel)]="filterSide" optionLabel="label" optionValue="value" [showClear]="true"
-                placeholder="Receivables and payables" (onChange)="applyFilters()" data-testid="xd-filter-side"></p-dropdown>
-    <p-calendar [(ngModel)]="filterFrom" dateFormat="dd M yy" [showIcon]="true" placeholder="From" (onSelect)="applyFilters()"
-                [showClear]="true" (onClear)="applyFilters()"></p-calendar>
-    <p-calendar [(ngModel)]="filterTo" dateFormat="dd M yy" [showIcon]="true" placeholder="To" (onSelect)="applyFilters()"
-                [showClear]="true" (onClear)="applyFilters()"></p-calendar>
-    <p-button label="Clear" [text]="true" severity="secondary" (onClick)="clearFilters()"></p-button>
-  </div>
-
-  <div class="xd-error" *ngIf="loadError" role="alert" data-testid="xd-load-error">{{ loadError }}</div>
-
-  <div class="xd-table-card">
-    <p-table [value]="rows" [lazy]="true" [paginator]="true" [rows]="pageSize" [totalRecords]="totalRecords"
-             [loading]="isLoading" (onLazyLoad)="onPage($event)" [tableStyle]="{ 'min-width': '70rem' }" data-testid="xd-table">
-      <ng-template pTemplate="header">
-        <tr>
-          <th>Date</th>
-          <th>Kind</th>
-          <th>Document</th>
-          <th>Payment</th>
-          <th class="text-right">Amount</th>
-          <th class="text-right" pTooltip="Rate booked on the document → rate at settlement or revaluation">Rates</th>
-          <th class="text-right">Booked (base)</th>
-          <th class="text-right">Settled / revalued (base)</th>
-          <th class="text-right">Difference</th>
-          <th>Account</th>
-        </tr>
-      </ng-template>
-      <ng-template pTemplate="body" let-d>
-        <tr>
-          <td data-testid="xd-date">{{ rowDate(d) | date:'d MMM yyyy' }}</td>
-          <td>
-            <p-tag [value]="d.kind === 'REALIZED' ? 'Realized' : 'Unrealized'" [severity]="d.kind === 'REALIZED' ? 'info' : 'secondary'"></p-tag>
-            <div class="sub">{{ d.side === 'RECEIVABLE' ? 'Receivable' : 'Payable' }}</div>
-          </td>
-          <td data-testid="xd-document">
-            <a *ngIf="documentLink(d) as link; else plainDoc" [routerLink]="link" class="font-mono">{{ d.documentNo }}</a>
-            <ng-template #plainDoc><span class="font-mono">{{ d.documentNo || '—' }}</span></ng-template>
-          </td>
-          <td data-testid="xd-payment">
-            <a *ngIf="paymentLink(d) as link; else plainPay" [routerLink]="link" class="font-mono">{{ d.paymentNo }}</a>
-            <ng-template #plainPay><span class="font-mono">{{ d.paymentNo || '—' }}</span></ng-template>
-          </td>
-          <td class="text-right" data-testid="xd-amount">{{ d.amountCurrency | money:d.currencyId:moneyCode }}</td>
-          <td class="text-right" data-testid="xd-rates">{{ formatRate(d.bookedRate) }} → {{ formatRate(d.settlementRate) }}</td>
-          <td class="text-right">{{ d.bookedAmountBase | money:d.baseCurrencyId:moneyCode }}</td>
-          <td class="text-right">{{ d.settledAmountBase | money:d.baseCurrencyId:moneyCode }}</td>
-          <td class="text-right" data-testid="xd-difference" [class.gain]="d.differenceBase > 0" [class.loss]="d.differenceBase < 0">{{
-            d.differenceBase > 0 ? '+' : '' }}{{ d.differenceBase | money:d.baseCurrencyId:moneyCode }}</td>
-          <td class="font-mono">{{ d.accountCode || '—' }}</td>
-        </tr>
-      </ng-template>
-      <ng-template pTemplate="emptymessage">
-        <tr><td colspan="10" class="empty">No exchange differences{{ filterKind || filterSide || filterFrom || filterTo ? ' match these filters' : ' yet' }}.</td></tr>
-      </ng-template>
-    </p-table>
-  </div>
-
-  <p-dialog header="Run revaluation" [(visible)]="runVisible" [modal]="true" [style]="{ width: '34rem' }" [draggable]="false"
-            data-testid="xd-run-dialog">
-    <p class="muted">Revalues every open foreign-currency receivable and payable at the rate on this date. Running a date
-      again replaces that date's unrealized rows.</p>
-    <div class="field">
-      <label>Revaluation date</label>
-      <p-calendar [(ngModel)]="runDate" dateFormat="dd M yy" [showIcon]="true" appendTo="body" data-testid="xd-run-date"></p-calendar>
-    </div>
-
-    <div class="xd-error" *ngIf="runError" role="alert" data-testid="xd-run-error">{{ runError }}</div>
-
-    <div class="xd-result" *ngIf="runResult as r" data-testid="xd-run-result">
-      <p data-testid="xd-run-summary">
-        {{ r.receivablesRevalued }} receivable{{ r.receivablesRevalued === 1 ? '' : 's' }} and
-        {{ r.payablesRevalued }} payable{{ r.payablesRevalued === 1 ? '' : 's' }} revalued as of
-        {{ r.revaluationDate }} — {{ r.rowsWritten }} row{{ r.rowsWritten === 1 ? '' : 's' }} written{{
-          r.rowsReplaced ? ', ' + r.rowsReplaced + ' replaced' : '' }}.
-      </p>
-      <ul data-testid="xd-run-totals" *ngIf="r.totals.length">
-        <li *ngFor="let t of r.totals">
-          {{ t.baseCurrencyCode }}: gain {{ t.gain | money:t.baseCurrencyCode:moneyCode }},
-          loss {{ t.loss | money:t.baseCurrencyCode:moneyCode }}, net {{ t.net | money:t.baseCurrencyCode:moneyCode }}
-        </li>
-      </ul>
-      <div *ngIf="r.skipped.length" class="xd-skipped">
-        <p><i class="pi pi-exclamation-triangle"></i> Skipped (no rate on that date):</p>
-        <ul><li *ngFor="let s of r.skipped" data-testid="xd-run-skipped">{{ s.documentNo }} — {{ s.reason }}</li></ul>
+  <div class="sf-body">
+    <div class="sf-lr-head">
+      <div>
+        <h1>Exchange differences <span class="sf-count">{{ totalRecords }}</span></h1>
+        <div class="sf-sub">Gains and losses from exchange-rate movements: realized when a payment settles a foreign-currency
+          invoice, unrealized when open invoices are revalued. Amounts are in each document's base currency (+ gain, − loss).</div>
       </div>
     </div>
 
-    <ng-template pTemplate="footer">
-      <p-button label="Close" [text]="true" severity="secondary" (onClick)="runVisible = false"></p-button>
-      <p-button label="Run" icon="pi pi-play" [loading]="isRunning" [disabled]="isRunning || !runDate" (onClick)="run()"
-                data-testid="xd-run-confirm"></p-button>
-    </ng-template>
-  </p-dialog>
-</div>
+    <div class="sf-filters">
+      <p-dropdown [options]="kindOptions" [(ngModel)]="filterKind" optionLabel="label" optionValue="value" [showClear]="true"
+                  placeholder="All kinds" (onChange)="applyFilters()" data-testid="xd-filter-kind"></p-dropdown>
+      <p-dropdown [options]="sideOptions" [(ngModel)]="filterSide" optionLabel="label" optionValue="value" [showClear]="true"
+                  placeholder="Receivables and payables" (onChange)="applyFilters()" data-testid="xd-filter-side"></p-dropdown>
+      <p-calendar [(ngModel)]="filterFrom" dateFormat="dd M yy" [showIcon]="true" placeholder="From" (onSelect)="applyFilters()"
+                  [showClear]="true" (onClear)="applyFilters()"></p-calendar>
+      <p-calendar [(ngModel)]="filterTo" dateFormat="dd M yy" [showIcon]="true" placeholder="To" (onSelect)="applyFilters()"
+                  [showClear]="true" (onClear)="applyFilters()"></p-calendar>
+    </div>
+
+    <div class="xd-error" *ngIf="loadError" role="alert" data-testid="xd-load-error">{{ loadError }}</div>
+
+    <div class="sf-card p0">
+      <p-table [value]="rows" [lazy]="true" [paginator]="true" [rows]="pageSize" [totalRecords]="totalRecords"
+               [loading]="isLoading" (onLazyLoad)="onPage($event)" [tableStyle]="{ 'min-width': '70rem' }" data-testid="xd-table">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Date</th>
+            <th>Kind</th>
+            <th>Document</th>
+            <th>Payment</th>
+            <th class="text-right">Amount</th>
+            <th class="text-right" pTooltip="Rate booked on the document → rate at settlement or revaluation">Rates</th>
+            <th class="text-right">Booked (base)</th>
+            <th class="text-right">Settled / revalued (base)</th>
+            <th class="text-right">Difference</th>
+            <th>Account</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-d>
+          <tr>
+            <td data-testid="xd-date">{{ rowDate(d) | date:'d MMM yyyy' }}</td>
+            <td>
+              <p-tag [value]="d.kind === 'REALIZED' ? 'Realized' : 'Unrealized'" [severity]="d.kind === 'REALIZED' ? 'info' : 'secondary'"></p-tag>
+              <div class="sf-mu sf-sm">{{ d.side === 'RECEIVABLE' ? 'Receivable' : 'Payable' }}</div>
+            </td>
+            <td data-testid="xd-document">
+              <a *ngIf="documentLink(d) as link; else plainDoc" [routerLink]="link" class="sf-mono">{{ d.documentNo }}</a>
+              <ng-template #plainDoc><span class="sf-mono">{{ d.documentNo || '—' }}</span></ng-template>
+            </td>
+            <td data-testid="xd-payment">
+              <a *ngIf="paymentLink(d) as link; else plainPay" [routerLink]="link" class="sf-mono">{{ d.paymentNo }}</a>
+              <ng-template #plainPay><span class="sf-mono">{{ d.paymentNo || '—' }}</span></ng-template>
+            </td>
+            <td class="text-right sf-num" data-testid="xd-amount">{{ d.amountCurrency | money:d.currencyId:moneyCode }}</td>
+            <td class="text-right sf-num" data-testid="xd-rates">{{ formatRate(d.bookedRate) }} → {{ formatRate(d.settlementRate) }}</td>
+            <td class="text-right sf-num">{{ d.bookedAmountBase | money:d.baseCurrencyId:moneyCode }}</td>
+            <td class="text-right sf-num">{{ d.settledAmountBase | money:d.baseCurrencyId:moneyCode }}</td>
+            <td class="text-right sf-num" data-testid="xd-difference" [class.gain]="d.differenceBase > 0" [class.loss]="d.differenceBase < 0">{{
+              d.differenceBase > 0 ? '+' : '' }}{{ d.differenceBase | money:d.baseCurrencyId:moneyCode }}</td>
+            <td class="sf-mono">{{ d.accountCode || '—' }}</td>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="emptymessage">
+          <tr><td colspan="10" class="sf-empty">No exchange differences{{ filterKind || filterSide || filterFrom || filterTo ? ' match these filters' : ' yet' }}.</td></tr>
+        </ng-template>
+      </p-table>
+    </div>
+  </div>
+</sf-page>
+
+<p-dialog header="Run revaluation" [(visible)]="runVisible" [modal]="true" [style]="{ width: '34rem' }" [draggable]="false"
+          data-testid="xd-run-dialog">
+  <p class="muted">Revalues every open foreign-currency receivable and payable at the rate on this date. Running a date
+    again replaces that date's unrealized rows.</p>
+  <div class="field">
+    <label>Revaluation date</label>
+    <p-calendar [(ngModel)]="runDate" dateFormat="dd M yy" [showIcon]="true" appendTo="body" data-testid="xd-run-date"></p-calendar>
+  </div>
+
+  <div class="xd-error" *ngIf="runError" role="alert" data-testid="xd-run-error">{{ runError }}</div>
+
+  <div class="xd-result" *ngIf="runResult as r" data-testid="xd-run-result">
+    <p data-testid="xd-run-summary">
+      {{ r.receivablesRevalued }} receivable{{ r.receivablesRevalued === 1 ? '' : 's' }} and
+      {{ r.payablesRevalued }} payable{{ r.payablesRevalued === 1 ? '' : 's' }} revalued as of
+      {{ r.revaluationDate }} — {{ r.rowsWritten }} row{{ r.rowsWritten === 1 ? '' : 's' }} written{{
+        r.rowsReplaced ? ', ' + r.rowsReplaced + ' replaced' : '' }}.
+    </p>
+    <ul data-testid="xd-run-totals" *ngIf="r.totals.length">
+      <li *ngFor="let t of r.totals">
+        {{ t.baseCurrencyCode }}: gain {{ t.gain | money:t.baseCurrencyCode:moneyCode }},
+        loss {{ t.loss | money:t.baseCurrencyCode:moneyCode }}, net {{ t.net | money:t.baseCurrencyCode:moneyCode }}
+      </li>
+    </ul>
+    <div *ngIf="r.skipped.length" class="xd-skipped">
+      <p><i class="pi pi-exclamation-triangle"></i> Skipped (no rate on that date):</p>
+      <ul><li *ngFor="let s of r.skipped" data-testid="xd-run-skipped">{{ s.documentNo }} — {{ s.reason }}</li></ul>
+    </div>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <p-button label="Close" [text]="true" severity="secondary" (onClick)="runVisible = false"></p-button>
+    <p-button label="Run" icon="pi pi-play" [loading]="isRunning" [disabled]="isRunning || !runDate" (onClick)="run()"
+              data-testid="xd-run-confirm"></p-button>
+  </ng-template>
+</p-dialog>

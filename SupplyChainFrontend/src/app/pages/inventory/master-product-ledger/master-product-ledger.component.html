@@ -1,97 +1,84 @@
-<div class="ledger-page">
-  <p-toast></p-toast>
+<p-toast></p-toast>
 
-  <div class="page-header">
-    <div class="header-left">
-      <div class="header-icon"><i class="pi pi-sitemap"></i></div>
-      <div>
-        <h1 class="page-title">Master Product Ledger</h1>
-        <p class="page-subtitle">Organization-wide product movement history with source &amp; destination visibility</p>
-      </div>
-    </div>
-    <div class="header-actions">
-      <p-button label="Export PDF" icon="pi pi-file-pdf" severity="secondary" [outlined]="true"
-                [loading]="isExportingPdf" (onClick)="exportPdf()"></p-button>
-      <p-button label="Export Excel" icon="pi pi-file-excel" severity="secondary" [outlined]="true"
-                [loading]="isExportingExcel" (onClick)="exportExcel()"></p-button>
+<sf-page [crumbs]="['Inventory', 'Master product ledger']">
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <p-button label="Export PDF" icon="pi pi-file-pdf" [text]="true"
+              [loading]="isExportingPdf" (onClick)="exportPdf()"></p-button>
+    <p-button label="Export Excel" icon="pi pi-file-excel" [text]="true"
+              [loading]="isExportingExcel" (onClick)="exportExcel()"></p-button>
+  </div>
+
+  <div class="sf-body ledger-page">
+  <div class="sf-lr-head">
+    <div>
+      <h1>Master product ledger <span class="sf-count">{{ totalRecords }}</span></h1>
+      <div class="sf-sub">Organization-wide product movement history with source &amp; destination visibility</div>
     </div>
   </div>
 
   <!-- ── Summary cards ────────────────────────────────────────────────────── -->
-  <div class="summary-grid" *ngIf="summary">
-    <div class="summary-card in">
-      <div class="summary-icon"><i class="pi pi-arrow-down-left"></i></div>
-      <div class="summary-content">
-        <span class="summary-value">{{ summary.totalReceiptsQty | number:'1.2-2' }}</span>
-        <span class="summary-label">Total Receipts (Qty In)</span>
-      </div>
+  <div class="sf-grid sf-tiles" *ngIf="summary">
+    <div class="sf-tile">
+      <span class="l">Total Receipts (Qty In)</span>
+      <span class="v ok">{{ summary.totalReceiptsQty | number:'1.2-2' }}</span>
     </div>
-    <div class="summary-card out">
-      <div class="summary-icon"><i class="pi pi-arrow-up-right"></i></div>
-      <div class="summary-content">
-        <span class="summary-value">{{ summary.totalIssuesQty | number:'1.2-2' }}</span>
-        <span class="summary-label">Total Issues (Qty Out)</span>
-      </div>
+    <div class="sf-tile">
+      <span class="l">Total Issues (Qty Out)</span>
+      <span class="v wn">{{ summary.totalIssuesQty | number:'1.2-2' }}</span>
     </div>
-    <div class="summary-card net">
-      <div class="summary-icon"><i class="pi pi-sync"></i></div>
-      <div class="summary-content">
-        <span class="summary-value">{{ summary.netMovement | number:'1.2-2' }}</span>
-        <span class="summary-label">Net Movement</span>
-      </div>
+    <div class="sf-tile">
+      <span class="l">Net Movement</span>
+      <span class="v in">{{ summary.netMovement | number:'1.2-2' }}</span>
     </div>
-    <div class="summary-card value">
-      <div class="summary-icon"><i class="pi pi-wallet"></i></div>
-      <div class="summary-content">
-        <span class="summary-value">{{ summary.totalValueMoved | number:'1.2-2' }}</span>
-        <span class="summary-label">Total Value Moved</span>
-      </div>
+    <div class="sf-tile">
+      <span class="l">Total Value Moved</span>
+      <span class="v">{{ summary.totalValueMoved | number:'1.2-2' }}</span>
     </div>
   </div>
 
   <!-- ── Filter panel ─────────────────────────────────────────────────────── -->
-  <div class="filter-panel">
-    <div class="filter-grid">
-      <div class="filter-field">
+  <div class="sf-card">
+    <div class="sf-fields filter-grid">
+      <div class="sf-fld filter-field">
         <label>From</label>
         <p-calendar [(ngModel)]="dateFrom" placeholder="Any date" dateFormat="dd/mm/yy"
                     [showIcon]="true" [showClear]="true" appendTo="body" styleClass="w-full"></p-calendar>
       </div>
-      <div class="filter-field">
+      <div class="sf-fld filter-field">
         <label>To</label>
         <p-calendar [(ngModel)]="dateTo" placeholder="Any date" dateFormat="dd/mm/yy"
                     [showIcon]="true" [showClear]="true" appendTo="body" styleClass="w-full"></p-calendar>
       </div>
-      <div class="filter-field">
+      <div class="sf-fld filter-field">
         <label>Product / Variant</label>
         <app-product-variant-picker
           [products]="products"
           (selectionChange)="onVariantSelected($event)">
         </app-product-variant-picker>
       </div>
-      <div class="filter-field">
+      <div class="sf-fld filter-field">
         <label>Category</label>
         <p-dropdown [options]="categories" [(ngModel)]="selectedCategoryId" optionLabel="name" optionValue="id"
                     placeholder="All categories" [showClear]="true" appendTo="body" styleClass="w-full"></p-dropdown>
       </div>
-      <div class="filter-field">
+      <div class="sf-fld filter-field">
         <label>Warehouse</label>
         <p-dropdown [options]="warehouses" [(ngModel)]="selectedWarehouseId" optionLabel="name" optionValue="id"
                     placeholder="All warehouses" [showClear]="true" appendTo="body" styleClass="w-full"></p-dropdown>
       </div>
-      <div class="filter-field">
+      <div class="sf-fld filter-field">
         <label>Transaction Type</label>
         <p-dropdown [options]="transactionTypeOptions" [(ngModel)]="selectedTransactionType"
                     optionLabel="label" optionValue="value" placeholder="All types"
                     [showClear]="true" appendTo="body" styleClass="w-full"></p-dropdown>
       </div>
-      <div class="filter-field">
+      <div class="sf-fld filter-field">
         <label>Source Type</label>
         <p-dropdown [options]="partyTypeOptions" [(ngModel)]="selectedSourceType"
                     optionLabel="label" optionValue="value" placeholder="Any source"
                     [showClear]="true" appendTo="body" styleClass="w-full"></p-dropdown>
       </div>
-      <div class="filter-field">
+      <div class="sf-fld filter-field">
         <label>Destination Type</label>
         <p-dropdown [options]="partyTypeOptions" [(ngModel)]="selectedDestinationType"
                     optionLabel="label" optionValue="value" placeholder="Any destination"
@@ -109,7 +96,7 @@
   </div>
 
   <!-- ── Ledger table ─────────────────────────────────────────────────────── -->
-  <div class="table-card">
+  <div class="sf-card p0">
     <p-table [value]="entries" [loading]="isLoading" [lazy]="true"
              [totalRecords]="totalRecords" [rows]="pageSize"
              (onLazyLoad)="onPageChange($event)"
@@ -172,11 +159,12 @@
         </tr>
       </ng-template>
       <ng-template pTemplate="emptymessage">
-        <tr><td colspan="8" class="text-center text-secondary" style="padding:3rem">No ledger entries found.</td></tr>
+        <tr><td colspan="8" class="sf-empty">No ledger entries found.</td></tr>
       </ng-template>
     </p-table>
   </div>
-</div>
+  </div>
+</sf-page>
 
 <!-- ── Product Journey dialog ──────────────────────────────────────────────── -->
 <p-dialog [(visible)]="showJourneyDialog" [modal]="true" [style]="{width:'820px'}"

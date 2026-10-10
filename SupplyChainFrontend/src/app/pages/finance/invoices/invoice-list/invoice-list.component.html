@@ -1,73 +1,85 @@
-﻿<div class="list-page">
-  <p-toast></p-toast>
+<p-toast></p-toast>
 
-  <div class="page-header">
-    <div>
-      <h1 class="page-title"><i class="pi pi-file-invoice"></i> Invoices</h1>
-      <p class="page-subtitle">3-way matching: Invoice ↔ PO ↔ GRN</p>
-    </div>
-    <p-button *ngIf="canCreate" label="New Invoice" icon="pi pi-plus" severity="warn"
+<sf-page [crumbs]="['Finance', 'Supplier invoices']">
+  <!-- ── Command bar ─────────────────────────────────────────────────────────────────── -->
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <p-button *ngIf="canCreate" label="New Invoice" icon="pi pi-plus"
               routerLink="/portal/pages/finance/invoices/create" data-testid="invoice-new"></p-button>
+    <span class="sf-sep" *ngIf="canCreate"></span>
+    <p-button icon="pi pi-refresh" label="Reset filters" [text]="true" (onClick)="resetFilters()"></p-button>
   </div>
 
-  <div class="filter-bar">
-    <p-iconfield>
-      <p-inputicon styleClass="pi pi-search"></p-inputicon>
-      <input pInputText type="text" placeholder="Search INV#, supplier..."
-             [(ngModel)]="searchText" (ngModelChange)="onSearchChange()" class="search-input" />
-    </p-iconfield>
-    <p-dropdown [options]="matchOptions" [(ngModel)]="selectedMatch"
-                (ngModelChange)="onFilterChange()" placeholder="Match Status" styleClass="filter-dropdown" appendTo="body"></p-dropdown>
-    <p-dropdown [options]="paymentOptions" [(ngModel)]="selectedPayment"
-                (ngModelChange)="onFilterChange()" placeholder="Payment Status" styleClass="filter-dropdown" appendTo="body"></p-dropdown>
-    <p-button icon="pi pi-refresh" [text]="true" severity="secondary"
-              pTooltip="Reset filters" (onClick)="resetFilters()"></p-button>
-  </div>
+  <div class="sf-body">
+    <!-- Title + quick match filters -->
+    <div class="sf-lr-head">
+      <div>
+        <h1>Supplier invoices <span class="sf-count">{{ totalRecords }}</span></h1>
+        <div class="sf-sub">3-way matching: invoice ↔ PO ↔ GRN</div>
+      </div>
+      <div class="sf-filters">
+        <button *ngFor="let m of matchOptions" type="button" class="sf-chip" [class.on]="selectedMatch === m.value"
+                (click)="selectedMatch = m.value; onFilterChange()" [attr.data-testid]="'match-chip-' + (m.value || 'ALL')">
+          {{ m.value ? m.label : 'All' }}
+        </button>
+      </div>
+    </div>
 
-  <div class="table-card">
-    <p-table [value]="invoices" [loading]="isLoading" [lazy]="true"
-             [totalRecords]="totalRecords" [rows]="pageSize"
-             (onLazyLoad)="onPageChange($event)"
-             [paginator]="true" [rowsPerPageOptions]="[10,20,50]"
-             [tableStyle]="{'min-width':'72rem'}">
-      <ng-template pTemplate="header">
-        <tr>
-          <th>Invoice #</th>
-          <th>Supplier Inv #</th>
-          <th>Supplier</th>
-          <th>PO #</th>
-          <th>Invoice Date</th>
-          <th>Due Date</th>
-          <th>Total</th>
-          <th>Match</th>
-          <th>Payment</th>
-          <th *ngIf="qboAvailable()">QuickBooks</th>
-          <th class="text-center">Actions</th>
-        </tr>
-      </ng-template>
-      <ng-template pTemplate="body" let-inv>
-        <tr>
-          <td class="font-mono font-semibold">{{ inv.invoiceNumber }}</td>
-          <td class="font-mono text-sm">{{ inv.supplierInvoiceNo || '—' }}</td>
-          <td>{{ inv.supplierName }}</td>
-          <td class="font-mono" data-testid="invoice-row-po">{{ inv.poNumber || '—' }}</td>
-          <td>{{ inv.invoiceDate | date:'dd MMM yyyy' }}</td>
-          <td>{{ inv.dueDate | date:'dd MMM yyyy' }}</td>
-          <td class="font-semibold">{{ inv.totalAmount | number:'1.2-2' }} {{ inv.currency }}</td>
-          <td><p-tag [value]="inv.matchStatus" [severity]="getMatchSeverity(inv.matchStatus)"></p-tag></td>
-          <td><p-tag [value]="inv.paymentStatus" [severity]="getPaymentSeverity(inv.paymentStatus)"></p-tag></td>
-          <td *ngIf="qboAvailable()"><app-qbo-sync-badge kind="Bill" [externalId]="inv.uuid"></app-qbo-sync-badge></td>
-          <td class="text-center">
-            <p-button icon="pi pi-eye" [text]="true" severity="info" size="small"
-                      pTooltip="View Invoice"
-                      [routerLink]="['/portal/pages/finance/invoices', inv.uuid]"></p-button>
-          </td>
-        </tr>
-      </ng-template>
-      <ng-template pTemplate="emptymessage">
-        <tr><td [attr.colspan]="qboAvailable() ? 11 : 10" class="text-center text-secondary" style="padding:3rem">No invoices found.</td></tr>
-      </ng-template>
-    </p-table>
-  </div>
-</div>
+    <!-- Search + payment status -->
+    <div class="sf-filters">
+      <p-iconfield class="sf-search">
+        <p-inputicon styleClass="pi pi-search"></p-inputicon>
+        <input pInputText type="text" placeholder="Search INV#, supplier..."
+               [(ngModel)]="searchText" (ngModelChange)="onSearchChange()" />
+      </p-iconfield>
+      <p-dropdown [options]="paymentOptions" [(ngModel)]="selectedPayment"
+                  (ngModelChange)="onFilterChange()" placeholder="Payment Status" styleClass="filter-dropdown" appendTo="body"></p-dropdown>
+    </div>
 
+    <!-- Table -->
+    <div class="sf-card p0">
+      <p-table [value]="invoices" [loading]="isLoading" [lazy]="true"
+               [totalRecords]="totalRecords" [rows]="pageSize"
+               (onLazyLoad)="onPageChange($event)"
+               [paginator]="true" [rowsPerPageOptions]="[10,20,50]"
+               [tableStyle]="{'min-width':'72rem'}">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Invoice</th>
+            <th>Supplier inv #</th>
+            <th>Supplier</th>
+            <th>PO</th>
+            <th>Invoice date</th>
+            <th>Due date</th>
+            <th class="text-right">Total</th>
+            <th>Match</th>
+            <th>Payment</th>
+            <th *ngIf="qboAvailable()">QuickBooks</th>
+            <th class="text-center" style="width:5rem"></th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-inv>
+          <tr>
+            <td><a class="sf-mono" [routerLink]="['/portal/pages/finance/invoices', inv.uuid]"><strong>{{ inv.invoiceNumber }}</strong></a></td>
+            <td class="sf-mono sf-sm">{{ inv.supplierInvoiceNo || '—' }}</td>
+            <td>{{ inv.supplierName }}</td>
+            <td class="sf-mono" data-testid="invoice-row-po">{{ inv.poNumber || '—' }}</td>
+            <td>{{ inv.invoiceDate | date:'dd MMM yyyy' }}</td>
+            <td>{{ inv.dueDate | date:'dd MMM yyyy' }}</td>
+            <td class="text-right">{{ inv.totalAmount | number:'1.2-2' }} <span class="sf-mu sf-sm">{{ inv.currency }}</span></td>
+            <td><p-tag [value]="inv.matchStatus" [severity]="getMatchSeverity(inv.matchStatus)"></p-tag></td>
+            <td><p-tag [value]="inv.paymentStatus" [severity]="getPaymentSeverity(inv.paymentStatus)"></p-tag></td>
+            <td *ngIf="qboAvailable()"><app-qbo-sync-badge kind="Bill" [externalId]="inv.uuid"></app-qbo-sync-badge></td>
+            <td class="text-center">
+              <p-button icon="pi pi-eye" [text]="true" severity="secondary" size="small"
+                        pTooltip="View Invoice"
+                        [routerLink]="['/portal/pages/finance/invoices', inv.uuid]"></p-button>
+            </td>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="emptymessage">
+          <tr><td [attr.colspan]="qboAvailable() ? 11 : 10" class="sf-empty">No invoices found.</td></tr>
+        </ng-template>
+      </p-table>
+    </div>
+  </div>
+</sf-page>

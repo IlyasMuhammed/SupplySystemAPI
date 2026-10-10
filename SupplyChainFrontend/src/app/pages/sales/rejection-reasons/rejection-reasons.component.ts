@@ -16,6 +16,7 @@ import { Observable } from 'rxjs';
 
 import { SalesPreorderService, RejectionReason } from '../../../services/sales-preorder.service';
 import { AuthService } from '../../service/auth.service';
+import { FLOW } from '../../../shared/flow';
 
 export interface RejectionReasonDraft {
   code: string;
@@ -37,7 +38,7 @@ const MAX_DESCRIPTION = 200;
   standalone: true,
   imports: [
     CommonModule, FormsModule, ButtonModule, CheckboxModule, ConfirmDialogModule, DialogModule, InputNumberModule,
-    InputTextModule, TableModule, TagModule, ToastModule, TooltipModule
+    InputTextModule, TableModule, TagModule, ToastModule, TooltipModule, ...FLOW
   ],
   templateUrl: './rejection-reasons.component.html',
   styleUrls: ['./rejection-reasons.component.scss'],

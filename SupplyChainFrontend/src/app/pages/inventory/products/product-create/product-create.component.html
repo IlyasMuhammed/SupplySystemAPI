@@ -1,43 +1,44 @@
-<div class="product-create-page">
-  <p-toast></p-toast>
+<p-toast></p-toast>
+
+<sf-page class="product-create-page" [crumbs]="['Inventory', 'Products', isEditMode ? (editProductSku || 'Edit') : 'New product']">
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <p-button
+      label="Products"
+      icon="pi pi-arrow-left"
+      [text]="true"
+      (onClick)="goBack()"
+      pTooltip="Back to Products"
+      tooltipPosition="right">
+    </p-button>
+  </div>
 
   <!-- Page Header -->
-  <div class="page-header">
-    <div class="header-nav">
-      <p-button
-        icon="pi pi-arrow-left"
-        severity="secondary"
-        [text]="true"
-        (onClick)="goBack()"
-        pTooltip="Back to Products"
-        tooltipPosition="right">
-      </p-button>
+  <header class="sf-hdr sf-compact">
+    <div>
+      <h1>
+        <span *ngIf="!isEditMode">Create New Product</span>
+        <span *ngIf="isEditMode">Edit Product<span *ngIf="editProductSku" class="page-title-name"> — {{ editProductSku }}</span></span>
+      </h1>
+      <div class="sf-meta">
+        {{ isEditMode ? 'Update the product details below' : 'Fill in the product details to add it to the catalog' }}
+      </div>
     </div>
-    <h1 class="page-title">
-      <i class="pi pi-box"></i>
-      <span *ngIf="!isEditMode">Create New Product</span>
-      <span *ngIf="isEditMode">Edit Product<span *ngIf="editProductSku" class="page-title-name"> — {{ editProductSku }}</span></span>
-    </h1>
-    <p class="page-subtitle">
-      {{ isEditMode ? 'Update the product details below' : 'Fill in the product details to add it to the catalog' }}
-    </p>
-  </div>
+  </header>
 
   <!-- Loading overlay for product fetch in edit mode -->
-  <div *ngIf="isLoadingProduct" class="loading-overlay">
-    <i class="pi pi-spin pi-spinner loading-spinner"></i>
-    <p>Loading product...</p>
+  <div *ngIf="isLoadingProduct" class="sf-body">
+    <div class="sf-card sf-empty">
+      <i class="pi pi-spin pi-spinner loading-spinner"></i>
+      <p>Loading product...</p>
+    </div>
   </div>
 
-  <form [formGroup]="productForm" (ngSubmit)="onSubmit()" *ngIf="!isLoadingProduct">
+  <form [formGroup]="productForm" (ngSubmit)="onSubmit()" *ngIf="!isLoadingProduct" class="product-create-form">
+  <div class="sf-body">
 
     <!-- SECTION 1: Basic Information -->
-    <p-card styleClass="mb-4">
-      <ng-template pTemplate="header">
-        <div class="card-section-header">
-          <i class="pi pi-info-circle"></i> Basic Information
-        </div>
-      </ng-template>
+    <section class="sf-card">
+      <div class="sf-ch"><h2>Basic Information</h2></div>
 
       <div class="form-grid form-grid--3">
 
@@ -118,15 +119,11 @@
         </div>
 
       </div>
-    </p-card>
+    </section>
 
     <!-- SECTION 2: Classification -->
-    <p-card styleClass="mb-4">
-      <ng-template pTemplate="header">
-        <div class="card-section-header">
-          <i class="pi pi-tags"></i> Classification
-        </div>
-      </ng-template>
+    <section class="sf-card">
+      <div class="sf-ch"><h2>Classification</h2></div>
 
       <div class="form-grid form-grid--2">
 
@@ -276,15 +273,17 @@
         </div>
 
       </div>
-    </p-card>
+    </section>
+
+    <!-- A36-P1-05 — Service settings (SERVICE products only) -->
+    <section class="sf-card" *ngIf="isService" data-testid="service-settings-card">
+      <div class="sf-ch"><h2>Service settings</h2></div>
+      <app-service-settings-fields [group]="productForm"></app-service-settings-fields>
+    </section>
 
     <!-- SECTION 3: Pricing (default variant) -->
-    <p-card styleClass="mb-4" *ngIf="!isEditMode">
-      <ng-template pTemplate="header">
-        <div class="card-section-header">
-          <i class="pi pi-dollar"></i> Pricing
-        </div>
-      </ng-template>
+    <section class="sf-card" *ngIf="!isEditMode">
+      <div class="sf-ch"><h2>Pricing</h2></div>
 
       <p class="section-hint">
         Seeds this product's single default variant (FSD Addendum 26 — every product transacts through a
@@ -373,16 +372,12 @@
         </div>
         <small class="text-gray-400 field-hint-block">Which channels this product can be used from — e.g. check "Production" so it can be picked as a Bill of Materials ingredient, or "Retailer" so it can be sold on a sale order.</small>
       </div>
-    </p-card>
+    </section>
 
     <!-- SECTION 3b: Additional Variants — the Pricing card above becomes the default variant;
          anything added here creates alongside it in the same request. -->
-    <p-card styleClass="mb-4" *ngIf="!isEditMode">
-      <ng-template pTemplate="header">
-        <div class="card-section-header">
-          <i class="pi pi-th-large"></i> Additional Variants
-        </div>
-      </ng-template>
+    <section class="sf-card" *ngIf="!isEditMode">
+      <div class="sf-ch"><h2>Additional Variants</h2></div>
 
       <p class="section-hint">
         Optional. Add extra SKUs (sizes, colors, configurations…) for this product now, or skip this
@@ -470,15 +465,11 @@
 
       <p-button label="Add Variant" icon="pi pi-plus" severity="secondary" [outlined]="true"
                 type="button" (onClick)="addVariant()"></p-button>
-    </p-card>
+    </section>
 
     <!-- Read-only pricing summary in edit mode — no endpoint yet to patch an existing variant -->
-    <p-card styleClass="mb-4" *ngIf="isEditMode && editDefaultVariant">
-      <ng-template pTemplate="header">
-        <div class="card-section-header">
-          <i class="pi pi-dollar"></i> Pricing (default variant — read only)
-        </div>
-      </ng-template>
+    <section class="sf-card" *ngIf="isEditMode && editDefaultVariant">
+      <div class="sf-ch"><h2>Pricing (default variant — read only)</h2></div>
       <div class="form-grid form-grid--3">
         <div class="field">
           <label class="field-label">SKU</label>
@@ -493,15 +484,11 @@
           <div class="readonly-value">{{ editDefaultVariant.sellingPrice != null ? (editDefaultVariant.sellingPrice | number:'1.2-2') : '—' }}</div>
         </div>
       </div>
-    </p-card>
+    </section>
 
     <!-- SECTION 4: Physical Attributes -->
-    <p-card styleClass="mb-4">
-      <ng-template pTemplate="header">
-        <div class="card-section-header">
-          <i class="pi pi-box"></i> Physical Attributes
-        </div>
-      </ng-template>
+    <section class="sf-card">
+      <div class="sf-ch"><h2>Physical Attributes</h2></div>
 
       <div class="form-grid form-grid--3">
 
@@ -544,31 +531,23 @@
         </div>
 
       </div>
-    </p-card>
+    </section>
 
     <!-- SECTION: Dynamic Attributes (FSD Addendum 26 §5) — driven entirely by the selected
          category's configured attributes; clears and reloads whenever category changes. -->
-    <p-card styleClass="mb-4" *ngIf="f['categoryId'].value">
-      <ng-template pTemplate="header">
-        <div class="card-section-header">
-          <i class="pi pi-list-check"></i> Category Attributes
-        </div>
-      </ng-template>
+    <section class="sf-card" *ngIf="f['categoryId'].value">
+      <div class="sf-ch"><h2>Category Attributes</h2></div>
       <app-dynamic-attribute-form
         [categoryId]="f['categoryId'].value"
         [variantUuid]="editDefaultVariant?.uuid ?? null"
         (valuesChange)="onAttributeValuesChange($event)"
         (validityChange)="onAttributeValidityChange($event)">
       </app-dynamic-attribute-form>
-    </p-card>
+    </section>
 
     <!-- SECTION 5: Tracking -->
-    <p-card styleClass="mb-4">
-      <ng-template pTemplate="header">
-        <div class="card-section-header">
-          <i class="pi pi-qrcode"></i> Tracking
-        </div>
-      </ng-template>
+    <section class="sf-card">
+      <div class="sf-ch"><h2>Tracking</h2></div>
 
       <p class="section-hint">Enable tracking options to manage lots, batches, or individual serial numbers for this product.</p>
 
@@ -599,15 +578,11 @@
         </div>
 
       </div>
-    </p-card>
+    </section>
 
     <!-- SECTION 6: Stock Parameters -->
-    <p-card styleClass="mb-4">
-      <ng-template pTemplate="header">
-        <div class="card-section-header">
-          <i class="pi pi-chart-line"></i> Stock Parameters
-        </div>
-      </ng-template>
+    <section class="sf-card">
+      <div class="sf-ch"><h2>Stock Parameters</h2></div>
 
       <p class="section-hint">Define stock thresholds and automatic reorder triggers.</p>
 
@@ -691,15 +666,11 @@
         </div>
 
       </div>
-    </p-card>
+    </section>
 
     <!-- SECTION 7: Supplier & Notes -->
-    <p-card styleClass="mb-4">
-      <ng-template pTemplate="header">
-        <div class="card-section-header">
-          <i class="pi pi-truck"></i> Supplier &amp; Notes
-        </div>
-      </ng-template>
+    <section class="sf-card">
+      <div class="sf-ch"><h2>Supplier &amp; Notes</h2></div>
 
       <div class="form-grid form-grid--2">
 
@@ -734,25 +705,30 @@
         </div>
 
       </div>
-    </p-card>
+    </section>
+
+  </div>
 
     <!-- Action Buttons -->
-    <div class="action-bar">
-      <p-button
-        label="Cancel"
-        icon="pi pi-times"
-        severity="secondary"
-        type="button"
-        (onClick)="goBack()">
-      </p-button>
-      <p-button
-        [label]="isEditMode ? 'Save Changes' : 'Create Product'"
-        [icon]="isEditMode ? 'pi pi-check' : 'pi pi-plus'"
-        type="submit"
-        [loading]="isSubmitting"
-        [disabled]="isLoadingLookups">
-      </p-button>
+    <div class="sf-fbar">
+      <span class="sf-mu sf-sm">Fields marked <span class="req">*</span> are required.</span>
+      <span class="sf-end">
+        <p-button
+          label="Cancel"
+          icon="pi pi-times"
+          [text]="true"
+          type="button"
+          (onClick)="goBack()">
+        </p-button>
+        <p-button
+          [label]="isEditMode ? 'Save Changes' : 'Create Product'"
+          [icon]="isEditMode ? 'pi pi-check' : 'pi pi-plus'"
+          type="submit"
+          [loading]="isSubmitting"
+          [disabled]="isLoadingLookups">
+        </p-button>
+      </span>
     </div>
 
   </form>
-</div>
+</sf-page>

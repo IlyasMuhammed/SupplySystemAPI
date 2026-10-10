@@ -20,6 +20,7 @@ import {
   StepDetailDto,
   DocumentApprovalHistoryItem
 } from '../../../services/workflow.service';
+import { FLOW, FlowStage } from '../../../shared/flow';
 
 interface StepGroup {
   stepNumber: number;
@@ -41,7 +42,8 @@ interface StepGroup {
     CommonModule, RouterModule, FormsModule,
     ButtonModule, TagModule, ToastModule,
     TooltipModule, DialogModule, TextareaModule,
-    DividerModule, TabViewModule, TimelineModule, CardModule
+    DividerModule, TabViewModule, TimelineModule, CardModule,
+    ...FLOW
   ],
   templateUrl: './approval-detail.component.html',
   styleUrls: ['./approval-detail.component.scss'],
@@ -228,13 +230,13 @@ export class ApprovalDetailComponent implements OnInit {
   }
 
   getStepColor(step: StepDetailDto): string {
-    if (step.isCurrentStep) return '#f59e0b';
+    if (step.isCurrentStep) return 'var(--sms-warn)';
     const colors: Record<string, string> = {
-      APPROVED: '#10b981', REJECTED: '#ef4444',
-      SKIPPED: '#94a3b8', RECALLED: '#64748b',
-      ESCALATED: '#ef4444', PENDING: '#e5e7eb'
+      APPROVED: 'var(--sms-ok)', REJECTED: 'var(--sms-danger)',
+      SKIPPED: 'var(--sms-text-faint)', RECALLED: 'var(--sms-text-muted)',
+      ESCALATED: 'var(--sms-danger)', PENDING: 'var(--sms-border)'
     };
-    return colors[step.status] ?? '#e5e7eb';
+    return colors[step.status] ?? 'var(--sms-border)';
   }
 
   getAuditIcon(action: string): string {
@@ -293,14 +295,23 @@ export class ApprovalDetailComponent implements OnInit {
     return Array.from(map.values()).sort((a, b) => a.stepNumber - b.stepNumber);
   }
 
+  /** SMS Flow header: one stage per workflow step, from the grouped step statuses. */
+  get stages(): FlowStage[] {
+    return this.groupedSteps.map((g): FlowStage => ({
+      label: g.stepName,
+      sub: g.isCurrentStep ? 'current' : g.status === 'PENDING' ? null : g.status.charAt(0) + g.status.slice(1).toLowerCase(),
+      state: g.status === 'REJECTED' ? 'bad' : g.isCurrentStep ? 'on' : g.status === 'APPROVED' ? 'done' : 'todo'
+    }));
+  }
+
   getGroupColor(group: { isCurrentStep: boolean; status: string }): string {
-    if (group.isCurrentStep) return '#f59e0b';
+    if (group.isCurrentStep) return 'var(--sms-warn)';
     const colors: Record<string, string> = {
-      APPROVED: '#10b981', REJECTED: '#ef4444',
-      SKIPPED: '#94a3b8', RECALLED: '#64748b',
-      ESCALATED: '#ef4444', PENDING: '#e5e7eb'
+      APPROVED: 'var(--sms-ok)', REJECTED: 'var(--sms-danger)',
+      SKIPPED: 'var(--sms-text-faint)', RECALLED: 'var(--sms-text-muted)',
+      ESCALATED: 'var(--sms-danger)', PENDING: 'var(--sms-border)'
     };
-    return colors[group.status] ?? '#e5e7eb';
+    return colors[group.status] ?? 'var(--sms-border)';
   }
 
   getGroupIcon(group: { isCurrentStep: boolean; status: string }): string {

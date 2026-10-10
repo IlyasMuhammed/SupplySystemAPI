@@ -18,13 +18,15 @@ import { AuthService } from '../../service/auth.service';
 import { formatCode } from '../../../shared/format-code';
 import { toDateOnly } from '../../../shared/date-only';
 import { LEDGER_ENTRY_SEVERITY, Severity } from '../receivables/receivables.shared';
+import { FLOW } from '../../../shared/flow';
 
 @Component({
   selector: 'app-customer-ledger',
   standalone: true,
   imports: [
     CommonModule, RouterModule, FormsModule,
-    TableModule, ButtonModule, TagModule, TooltipModule, ToastModule, CalendarModule, AutoCompleteModule
+    TableModule, ButtonModule, TagModule, TooltipModule, ToastModule, CalendarModule, AutoCompleteModule,
+    ...FLOW
   ],
   templateUrl: './customer-ledger.component.html',
   styleUrls: ['./customer-ledger.component.scss'],

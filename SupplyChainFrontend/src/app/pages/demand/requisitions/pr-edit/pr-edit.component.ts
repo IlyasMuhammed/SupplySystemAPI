@@ -16,6 +16,7 @@ import { MessageService } from 'primeng/api';
 import { DemandService, PatchPrRequest } from '../../../../services/demand.service';
 import { InventoryService, ProductListItemModel } from '../../../../services/inventory.service';
 import { ProductVariantPickerComponent, VariantPickerSelection } from '../../../../shared/product-variant-picker/product-variant-picker.component';
+import { FLOW } from '../../../../shared/flow';
 
 @Component({
   selector: 'app-pr-edit',
@@ -25,7 +26,8 @@ import { ProductVariantPickerComponent, VariantPickerSelection } from '../../../
     ButtonModule, InputTextModule, TextareaModule,
     InputNumberModule, CheckboxModule, DropdownModule,
     CalendarModule, DividerModule, ToastModule, TooltipModule,
-    ProductVariantPickerComponent
+    ProductVariantPickerComponent,
+    ...FLOW
   ],
   templateUrl: './pr-edit.component.html',
   styleUrls: ['./pr-edit.component.scss'],

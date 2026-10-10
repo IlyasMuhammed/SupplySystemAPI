@@ -64,8 +64,13 @@ internal sealed partial class SaleOrderService : ISaleOrderService
         IAllocationEngine? allocation = null, ITenantSnapshotProvider? tenants = null, INotificationService? notifications = null,
         IManufacturingLevelDays? levelDays = null,
         ICurrencyService? currency = null, IPartnerCurrencyDefaults? partnerCurrencies = null,
-        IOrgCurrencyLookup? orgCurrencies = null)
+        IOrgCurrencyLookup? orgCurrencies = null,
+        IServiceVariantClassifier? serviceVariants = null, IServiceOrderDemandService? serviceOrders = null)
     {
+        // A36 D-10 — Inventory's product type (which lines are services) and Material's service orders. Optional: without
+        // the classifier no line is a service line; without Material's service none gets a service order (D-11).
+        _serviceVariants    = serviceVariants;
+        _serviceOrders      = serviceOrders;
         // A35 — Finance's rate locking and org currencies, Suppliers' customer default currency. Optional like the rest:
         // without them a foreign-currency order confirms unlocked and the customer default falls back to the sale base.
         _currency           = currency;
@@ -170,6 +175,7 @@ internal sealed partial class SaleOrderService : ISaleOrderService
         var context  = new LineBuildContext(currencyId, orderDate) { Decimals = await AmountDecimalsAsync(currencyId) };
         foreach (var lineReq in req.Lines)
             order.Lines.Add(await BuildLineAsync(lineReq, req.PartnerId, lineMode, context));
+        await MarkServiceLinesAsync(order.Lines, lineMode);   // A36 D-10
 
         ApplyTotals(order, context.Decimals);
 
@@ -225,6 +231,7 @@ internal sealed partial class SaleOrderService : ISaleOrderService
         var rebuilt  = new List<SaleOrderLine>(req.Lines.Count);
         foreach (var lineReq in req.Lines)
             rebuilt.Add(await BuildLineAsync(lineReq, order.PartnerId, lineMode, context));
+        await MarkServiceLinesAsync(rebuilt, lineMode);   // A36 D-10
 
         _db.SaleOrderLines.RemoveRange(order.Lines);
         order.Lines.Clear();
@@ -293,6 +300,9 @@ internal sealed partial class SaleOrderService : ISaleOrderService
 
         // A34 D-25 — the order's production orders, readable with the detail's own permission, and whether creation is due.
         await ApplyProductionAsync(order, model);
+
+        // A36 D-10 — the order's service orders (and the idempotent retry of any a confirm could not raise).
+        await ApplyServiceOrdersAsync(order, model);
 
         return model;
     }
@@ -363,11 +373,13 @@ internal sealed partial class SaleOrderService : ISaleOrderService
         // §13.4 — SO_CONFIRMED carries the outcome ("60 reserved, 40 deficit"), and each reservation
         // it made gets its own SO_STOCK_RESERVED event, in that order. A34: make-to-order quantity is named apart.
         var reservedQty = reservations.Sum(r => r.ReservedQty);
-        var deficitQty  = order.Lines.Where(l => l.FulfillmentMode != makeToOrderCode).Sum(l => l.DeficitQty ?? 0m);
+        var deficitQty  = order.Lines.Where(l => l.FulfillmentMode != makeToOrderCode && !SaleOrderServiceLines.IsService(l)).Sum(l => l.DeficitQty ?? 0m);
         var madeQty     = order.Lines.Where(l => l.FulfillmentMode == makeToOrderCode).Sum(l => l.Quantity);
+        var serviceQty  = order.Lines.Where(SaleOrderServiceLines.IsService).Sum(l => l.Quantity);   // A36 D-10
         var confirmedNote = madeQty > 0m
             ? $"{reservedQty:0.####} reserved, {deficitQty:0.####} deficit, {madeQty:0.####} made to order"
             : $"{reservedQty:0.####} reserved, {deficitQty:0.####} deficit";
+        if (serviceQty > 0m) confirmedNote += $", {serviceQty:0.####} by service order";
         _jobs.Enqueue<ITimelineAppendJob>(j => j.AppendAsync(
             order.TraceId,
             new TimelineEvent(
@@ -391,7 +403,8 @@ internal sealed partial class SaleOrderService : ISaleOrderService
 
         // §4.3 — "create auto-POs for deficit (delegates to Phase 5)." A34 C-1 / D-2 — never for a make-to-order line: its
         // production order (below) makes the whole quantity.
-        foreach (var line in order.Lines.Where(l => l.DeficitQty is > 0 && l.FulfillmentMode != makeToOrderCode))
+        // A36 D-10 — nor for a service line: a service order performs it.
+        foreach (var line in order.Lines.Where(l => l.DeficitQty is > 0 && l.FulfillmentMode != makeToOrderCode && !SaleOrderServiceLines.IsService(l)))
             _jobs.Enqueue<IAutoPoCreationJob>(j => j.CreateForDeficitAsync(order.UUID, line.UUID, userId));
 
         // §4.5/A29-P4-07 — the real confirmation email: renders, logs a SaleOrderIntimations row,
@@ -419,6 +432,17 @@ internal sealed partial class SaleOrderService : ISaleOrderService
             result.ProductionMessage        = production.Outcome.Message;
         }
 
+        // A36 D-10 / D-11 — the service lines' service orders, at the same moment and in the same style as production:
+        // under the order's lock, best effort; a failure leaves the order confirmed and is retried on the next detail load.
+        if (_serviceOrders is not null && SaleOrderServiceLines.Live(order).Count > 0
+            && await FeatureEnabledAsync(SaleOrderServiceLines.ServicesFeature))
+        {
+            var services = await SaleOrderServiceLines.RunAsync(
+                _db, _serviceOrders, _jobs, _log, _tenantContext.OrganizationId, order.UUID, userId, interactive: true);
+            result.ServiceOrderCreationFailed = services.Failed;
+            result.ServiceOrderMessage        = services.Message;
+        }
+
         return result;
     }
 
@@ -438,6 +462,11 @@ internal sealed partial class SaleOrderService : ISaleOrderService
         if (order.DeliveryMode == EnumCode<DeliveryMode>.Of(DeliveryMode.SelfPickup) && !config.SelfPickupEnabled)
             throw new BadRequestException(
                 "Customer pickup is switched off for this organization. Change the order to be shipped before confirming it.");
+
+        // A36 D-10 — service lines re-checked against the product type now (a draft saved before A36, or a product changed
+        // since): they are route-exempt in the gate below and skipped by the reservation step.
+        await MarkServiceLinesAsync(order.Lines,
+            DefaultLineMode(config, EnumCode<DeliveryMode>.TryParse(order.DeliveryMode, out var orderMode) ? orderMode : DeliveryMode.Ship));
 
         // A33 PC-04 — the route gate (BR-C3-02, D-4), before anything is reserved, and re-checked here rather than trusted
         // from the form: a route may have been deactivated since the line was saved (R-8). Every blocker in one 400.
@@ -506,6 +535,7 @@ internal sealed partial class SaleOrderService : ISaleOrderService
             _db, uuid, () => CancelHeldAsync(uuid, userId, reason));
         if (held is null) return null;
         var (order, deliveries, production, cancelledDemands) = held;
+        var services = held.Services;
 
         // §4.5 — "cancel linked DRAFT POs." Checked here, not left to PurchaseOrderService.CancelAsync's
         // own guard, so one line's PO having already moved past DRAFT (approved, sent — outside
@@ -547,6 +577,15 @@ internal sealed partial class SaleOrderService : ISaleOrderService
                 ProductionCancelledNote(production));
         }
 
+        // A36 D-10 — the same for its service orders.
+        if (services is not null && (services.Cancelled.Count > 0 || services.KeptRunning.Count > 0))
+        {
+            result.CancelledServiceOrders = ServiceOrderModels(order, services.Cancelled);
+            result.RunningServiceOrders   = ServiceOrderModels(order, services.KeptRunning);
+            SaleOrderProductionCreation.Timeline(_jobs, order, SaleOrderTimelineEventTypes.SoServiceOrdersCancelled, userId,
+                SaleOrderServiceLines.CancelledNote(services));
+        }
+
         // §4.5 — "enqueue cancellation email."
         _jobs.Enqueue<ISaleOrderEmailJob>(j => j.SendCancellationEmailAsync(order.UUID, reason, userId));
 
@@ -554,7 +593,11 @@ internal sealed partial class SaleOrderService : ISaleOrderService
     }
 
     private sealed record CancelOutcome(
-        SaleOrder Order, SaleOrderDeliveryCancellationResult? Deliveries, SaleOrderProductionCancellation? Production, int CancelledDemands);
+        SaleOrder Order, SaleOrderDeliveryCancellationResult? Deliveries, SaleOrderProductionCancellation? Production, int CancelledDemands)
+    {
+        /// <summary>A36 D-10 — what cancelling did to the order's service orders; null when not asked (draft, no Material).</summary>
+        public SaleOrderServiceCancellation? Services { get; init; }
+    }
 
     private async Task<CancelOutcome?> CancelHeldAsync(Guid uuid, int userId, string? reason)
     {
@@ -597,12 +640,17 @@ internal sealed partial class SaleOrderService : ISaleOrderService
         // goods can never be re-parented onto a cancelled order. Like the delivery canceller: inside this lock, before
         // anything here is written and before the hold release; neither callee takes this lock; both are idempotent.
         SaleOrderProductionCancellation? production = null;
+        SaleOrderServiceCancellation? services = null;
         var cancelledDemands = 0;
         if (order.Status != EnumCode<SaleOrderStatus>.Of(SaleOrderStatus.Draft))
         {
             if (_production is not null)
                 production = await _production.CancelForSaleOrderAsync(
                     _tenantContext.OrganizationId, order.UUID, reason ?? "Sale order cancelled.", userId);
+            // A36 D-10 — service orders not yet started are cancelled, started ones kept and reported (like production).
+            // Not gated on MODULE_SERVICES: orders raised while it was on still belong to this order.
+            if (_serviceOrders is not null)
+                services = await _serviceOrders.CancelForSaleOrderAsync(order.UUID, reason ?? "Sale order cancelled.", userId);
             if (_allocation is not null)
             {
                 var demands = await _allocation.GetDemandsAsync(
@@ -636,7 +684,7 @@ internal sealed partial class SaleOrderService : ISaleOrderService
             line.Status = EnumCode<SaleOrderLineStatus>.Of(SaleOrderLineStatus.Cancelled);
 
         await _db.SaveChangesAsync();
-        return new CancelOutcome(order, deliveries, production, cancelledDemands);
+        return new CancelOutcome(order, deliveries, production, cancelledDemands) { Services = services };
     }
 
     public async Task<TimelineDetail?> GetTimelineAsync(Guid uuid)
@@ -1050,6 +1098,7 @@ internal sealed partial class SaleOrderService : ISaleOrderService
             };
             order.Lines.Add(await BuildLineAsync(lineReq, quotation.PartnerId, lineMode, context, quoted.UnitPrice));
         }
+        await MarkServiceLinesAsync(order.Lines, lineMode);   // A36 D-10
 
         ApplyTotals(order, context.Decimals);
 
@@ -1237,7 +1286,8 @@ internal sealed partial class SaleOrderService : ISaleOrderService
                   CalculatedLeadTimeDays = l.CalculatedLeadTimeDays, CalculatedDeliveryDate = l.CalculatedDeliveryDate,
                   LeadTimeCalculatedAt = l.LeadTimeCalculatedAt, ManualDeliveryDate = l.ManualDeliveryDate,
                   EffectiveDeliveryDate = DeliveryDateSources.Effective(l.ManualDeliveryDate, l.CalculatedDeliveryDate),
-                  DeliveryDateSource = DeliveryDateSources.Of(l.ManualDeliveryDate, l.CalculatedDeliveryDate)
+                  DeliveryDateSource = DeliveryDateSources.Of(l.ManualDeliveryDate, l.CalculatedDeliveryDate),
+                  IsService = SaleOrderServiceLines.IsService(l)   // A36 D-10
               }).ToList()
             : []
     };

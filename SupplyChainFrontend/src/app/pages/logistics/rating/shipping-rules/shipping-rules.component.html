@@ -1,75 +1,78 @@
-<div class="shipping-rules-page">
-  <p-toast></p-toast>
+<p-toast></p-toast>
 
-  <div class="page-header">
-    <div>
-      <h1 class="page-title">
-        <i class="pi pi-sitemap"></i>
-        Shipping rules
-      </h1>
-      <p class="page-subtitle">
-        Standing decisions about how goods ship. They are tried in order and the first one that
-        matches wins — the rest are never looked at.
-      </p>
-    </div>
-
-    <div class="header-actions">
-      <p-button label="New rule" icon="pi pi-plus" (onClick)="openCreate()"
-                data-testid="action-new"></p-button>
-    </div>
+<sf-page [crumbs]="['Logistics', 'Shipping rules']">
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <p-button label="New rule" icon="pi pi-plus" (onClick)="openCreate()"
+              data-testid="action-new"></p-button>
   </div>
 
-  <div *ngIf="isLoading" class="loading-state" data-testid="loading">
-    <i class="pi pi-spin pi-spinner"></i> Loading…
-  </div>
-
-  <div class="empty-state" *ngIf="!isLoading && !rules.length" data-testid="no-rules">
-    <i class="pi pi-sitemap"></i>
-    <p>No shipping rules.</p>
-    <p class="muted">Until there is one, every consignment has its carrier chosen by hand.</p>
-  </div>
-
-  <!-- A list with no catch-all leaves some consignments unroutable, and the symptom only shows
-       up when somebody tries to apply a rule to one of them. -->
-  <div class="banner warn" *ngIf="missingCatchAll" data-testid="no-catch-all">
-    <i class="pi pi-exclamation-triangle"></i>
-    <span>
-      No rule matches everything. A consignment that fits none of these cannot be routed
-      automatically — add a rule with no conditions at the lowest priority.
-    </span>
-  </div>
-
-  <ol class="rules" *ngIf="rules.length">
-    <li *ngFor="let r of rules" [class.inactive]="!r.isActive" data-testid="rule">
-      <div class="priority">{{ r.priority }}</div>
-
-      <div class="rule-body">
-        <div class="rule-head">
-          <strong>{{ r.name }}</strong>
-          <p-tag *ngIf="!r.isActive" value="Switched off" severity="secondary"
-                 data-testid="rule-inactive"></p-tag>
+  <div class="sf-body">
+    <div class="sf-lr-head">
+      <div>
+        <h1>Shipping rules <span class="sf-count">{{ rules.length }}</span></h1>
+        <div class="sf-sub">
+          Standing decisions about how goods ship. They are tried in order and the first one that
+          matches wins — the rest are never looked at.
         </div>
-
-        <!-- The rule's own sentence, from the server. A list decoded column by column is a list
-             nobody audits. -->
-        <div class="summary" data-testid="rule-summary">{{ r.summary }}</div>
-
-        <div class="description muted" *ngIf="r.description">{{ r.description }}</div>
       </div>
+    </div>
 
-      <div class="rule-actions">
-        <p-button icon="pi pi-pencil" [text]="true" size="small" severity="secondary"
-                  pTooltip="Edit" (onClick)="openEdit(r)" data-testid="action-edit"></p-button>
-        <p-button [icon]="r.isActive ? 'pi pi-ban' : 'pi pi-check'" [text]="true" size="small"
-                  severity="secondary" [disabled]="isSubmitting"
-                  [pTooltip]="r.isActive ? 'Switch off' : 'Switch on'"
-                  (onClick)="toggleActive(r)" data-testid="action-toggle"></p-button>
-        <p-button icon="pi pi-trash" [text]="true" size="small" severity="danger"
-                  [disabled]="isSubmitting" pTooltip="Remove" (onClick)="remove(r)"
-                  data-testid="action-remove"></p-button>
-      </div>
-    </li>
-  </ol>
+    <div *ngIf="isLoading" class="sf-empty" data-testid="loading">
+      <i class="pi pi-spin pi-spinner"></i> Loading…
+    </div>
+
+    <div class="sf-card sf-empty" *ngIf="!isLoading && !rules.length" data-testid="no-rules">
+      <i class="pi pi-sitemap" style="font-size:1.75rem"></i>
+      <p>No shipping rules.</p>
+      <p class="sf-sm">Until there is one, every consignment has its carrier chosen by hand.</p>
+    </div>
+
+    <!-- A list with no catch-all leaves some consignments unroutable, and the symptom only shows
+         up when somebody tries to apply a rule to one of them. -->
+    <div class="banner warn" *ngIf="missingCatchAll" data-testid="no-catch-all">
+      <i class="pi pi-exclamation-triangle"></i>
+      <span>
+        No rule matches everything. A consignment that fits none of these cannot be routed
+        automatically — add a rule with no conditions at the lowest priority.
+      </span>
+    </div>
+
+    <div class="sf-card p0" *ngIf="rules.length">
+      <div class="sf-ch"><h2>In the order they are tried</h2></div>
+      <ol class="rules">
+        <li *ngFor="let r of rules" [class.inactive]="!r.isActive" data-testid="rule">
+          <div class="priority">{{ r.priority }}</div>
+
+          <div class="rule-body">
+            <div class="rule-head">
+              <strong>{{ r.name }}</strong>
+              <p-tag *ngIf="!r.isActive" value="Switched off" severity="secondary"
+                     data-testid="rule-inactive"></p-tag>
+            </div>
+
+            <!-- The rule's own sentence, from the server. A list decoded column by column is a list
+                 nobody audits. -->
+            <div class="summary" data-testid="rule-summary">{{ r.summary }}</div>
+
+            <div class="description muted" *ngIf="r.description">{{ r.description }}</div>
+          </div>
+
+          <div class="rule-actions">
+            <p-button icon="pi pi-pencil" [text]="true" size="small" severity="secondary"
+                      pTooltip="Edit" (onClick)="openEdit(r)" data-testid="action-edit"></p-button>
+            <p-button [icon]="r.isActive ? 'pi pi-ban' : 'pi pi-check'" [text]="true" size="small"
+                      severity="secondary" [disabled]="isSubmitting"
+                      [pTooltip]="r.isActive ? 'Switch off' : 'Switch on'"
+                      (onClick)="toggleActive(r)" data-testid="action-toggle"></p-button>
+            <p-button icon="pi pi-trash" [text]="true" size="small" severity="danger"
+                      [disabled]="isSubmitting" pTooltip="Remove" (onClick)="remove(r)"
+                      data-testid="action-remove"></p-button>
+          </div>
+        </li>
+      </ol>
+    </div>
+  </div>
+</sf-page>
 
   <!-- ── Editor ──────────────────────────────────────────────────────────────── -->
 
@@ -212,4 +215,3 @@
                 [loading]="isSubmitting" (onClick)="save()" data-testid="confirm-save"></p-button>
     </ng-template>
   </p-dialog>
-</div>

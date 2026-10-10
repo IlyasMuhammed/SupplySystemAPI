@@ -1,81 +1,84 @@
-<div class="card">
+<sf-page [crumbs]="['Settings', 'Finance setup', 'Payment terms']">
 
-  <!-- ── Page Header ──────────────────────────────────────────────────────── -->
-  <div class="md-header">
-    <div class="md-icon"><i class="pi pi-credit-card"></i></div>
-    <div class="md-title-wrap">
-      <h2 class="md-title">Payment Terms</h2>
-      <p class="md-subtitle">Define payment due-day periods for purchase orders</p>
-    </div>
+  <!-- ── Command bar ──────────────────────────────────────────────────────── -->
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
     <p-button label="Add Payment Term" icon="pi pi-plus" (onClick)="openNew()"></p-button>
   </div>
 
-  <hr class="md-sep" />
+  <div class="sf-body">
+    <div class="sf-lr-head">
+      <div>
+        <h1>Payment terms <span class="sf-count" *ngIf="!isLoading">{{ terms.length }}</span></h1>
+        <div class="sf-sub">Define payment due-day periods for purchase orders</div>
+      </div>
+    </div>
 
-  <!-- ── Search Bar ────────────────────────────────────────────────────────── -->
-  <div class="md-toolbar">
-    <p-iconfield>
-      <p-inputicon styleClass="pi pi-search" />
-      <input #gf pInputText type="text"
-             (input)="dt.filterGlobal(gf.value, 'contains')"
-             placeholder="Search payment terms…" />
-    </p-iconfield>
-    <span class="md-count" *ngIf="!isLoading">{{ terms.length }} terms</span>
+    <!-- ── Search Bar ────────────────────────────────────────────────────────── -->
+    <div class="sf-filters">
+      <p-iconfield class="sf-search">
+        <p-inputicon styleClass="pi pi-search" />
+        <input #gf pInputText type="text"
+               (input)="dt.filterGlobal(gf.value, 'contains')"
+               placeholder="Search payment terms…" />
+      </p-iconfield>
+    </div>
+
+    <!-- ── Data Table ────────────────────────────────────────────────────────── -->
+    <div class="sf-card p0">
+      <p-table #dt [value]="terms" [loading]="isLoading"
+               [paginator]="true" [rows]="15" [rowsPerPageOptions]="[10, 15, 50]"
+               [showCurrentPageReport]="true"
+               currentPageReportTemplate="{first}–{last} of {totalRecords}"
+               [globalFilterFields]="['name']"
+               [rowHover]="true"
+               dataKey="id" responsiveLayout="scroll">
+
+        <ng-template pTemplate="header">
+          <tr>
+            <th pSortableColumn="name">Term Name <p-sortIcon field="name"></p-sortIcon></th>
+            <th pSortableColumn="days" style="width: 11rem">Net Days <p-sortIcon field="days"></p-sortIcon></th>
+            <th style="width: 8rem">Actions</th>
+          </tr>
+        </ng-template>
+
+        <ng-template pTemplate="body" let-t>
+          <tr>
+            <td class="font-medium">{{ t.name }}</td>
+            <td>
+              <span class="sf-pill in" *ngIf="t.days != null">{{ t.days }} days</span>
+              <span class="sf-mu" *ngIf="t.days == null">—</span>
+            </td>
+            <td>
+              <button pButton icon="pi pi-pencil"
+                      class="p-button-rounded p-button-text p-button-sm mr-1"
+                      pTooltip="Edit" tooltipPosition="top"
+                      (click)="openEdit(t)">
+              </button>
+              <button pButton icon="pi pi-trash"
+                      class="p-button-rounded p-button-text p-button-danger p-button-sm"
+                      pTooltip="Delete" tooltipPosition="top"
+                      (click)="confirmDelete(t)">
+              </button>
+            </td>
+          </tr>
+        </ng-template>
+
+        <ng-template pTemplate="emptymessage">
+          <tr>
+            <td colspan="3">
+              <div class="sf-empty">
+                <i class="pi pi-credit-card" style="font-size:2rem"></i>
+                <p><strong>No payment terms found</strong></p>
+                <small>Click "Add Payment Term" to create one.</small>
+              </div>
+            </td>
+          </tr>
+        </ng-template>
+
+      </p-table>
+    </div>
   </div>
-
-  <!-- ── Data Table ────────────────────────────────────────────────────────── -->
-  <p-table #dt [value]="terms" [loading]="isLoading"
-           [paginator]="true" [rows]="15" [rowsPerPageOptions]="[10, 15, 50]"
-           [showCurrentPageReport]="true"
-           currentPageReportTemplate="{first}–{last} of {totalRecords}"
-           [globalFilterFields]="['name']"
-           [rowHover]="true"
-           dataKey="id" responsiveLayout="scroll">
-
-    <ng-template pTemplate="header">
-      <tr>
-        <th pSortableColumn="name">Term Name <p-sortIcon field="name"></p-sortIcon></th>
-        <th pSortableColumn="days" style="width: 11rem">Net Days <p-sortIcon field="days"></p-sortIcon></th>
-        <th style="width: 8rem">Actions</th>
-      </tr>
-    </ng-template>
-
-    <ng-template pTemplate="body" let-t>
-      <tr>
-        <td class="font-medium">{{ t.name }}</td>
-        <td>
-          <span class="md-days-badge" *ngIf="t.days != null">{{ t.days }} days</span>
-          <span class="text-color-secondary" *ngIf="t.days == null">—</span>
-        </td>
-        <td>
-          <button pButton icon="pi pi-pencil"
-                  class="p-button-rounded p-button-text p-button-sm mr-1"
-                  pTooltip="Edit" tooltipPosition="top"
-                  (click)="openEdit(t)">
-          </button>
-          <button pButton icon="pi pi-trash"
-                  class="p-button-rounded p-button-text p-button-danger p-button-sm"
-                  pTooltip="Delete" tooltipPosition="top"
-                  (click)="confirmDelete(t)">
-          </button>
-        </td>
-      </tr>
-    </ng-template>
-
-    <ng-template pTemplate="emptymessage">
-      <tr>
-        <td colspan="3">
-          <div class="md-empty">
-            <i class="pi pi-credit-card md-empty-icon"></i>
-            <p class="md-empty-text">No payment terms found</p>
-            <small class="md-empty-hint">Click "Add Payment Term" to create one.</small>
-          </div>
-        </td>
-      </tr>
-    </ng-template>
-
-  </p-table>
-</div>
+</sf-page>
 
 <!-- ── Create / Edit Dialog ─────────────────────────────────────────────────── -->
 <p-dialog [(visible)]="showDialog" [modal]="true" [style]="{ width: '440px' }"

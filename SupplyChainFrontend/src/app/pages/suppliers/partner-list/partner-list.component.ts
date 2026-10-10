@@ -20,6 +20,7 @@ import {
 } from '../../../services/business-partner.service';
 import { QboSyncBadgeComponent } from '../../../shared/components/qbo-sync-badge/qbo-sync-badge.component';
 import { QboSyncStatusStore } from '../../../shared/components/qbo-sync-badge/qbo-sync-status.store';
+import { FLOW } from '../../../shared/flow';
 
 // Addendum 29 §1.6 — "type filter tabs (All/Vendors/Customers/Carriers/Service Providers)". Each
 // tab is a pure filter selector, not separate content — the same table below is re-queried on
@@ -33,7 +34,7 @@ type PartnerTypeTab = 'ALL' | 'VENDOR' | 'CUSTOMER' | 'CARRIER' | 'SERVICE_PROVI
     CommonModule, RouterModule, FormsModule,
     TableModule, ButtonModule, ToolbarModule,
     InputTextModule, InputIconModule, IconFieldModule,
-    TagModule, TabViewModule, ToastModule, ConfirmDialogModule, QboSyncBadgeComponent
+    TagModule, TabViewModule, ToastModule, ConfirmDialogModule, QboSyncBadgeComponent, ...FLOW
   ],
   templateUrl: './partner-list.component.html',
   styleUrls: ['./partner-list.component.scss'],

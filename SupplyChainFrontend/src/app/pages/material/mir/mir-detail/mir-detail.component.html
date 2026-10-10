@@ -1,4 +1,3 @@
-<div class="mir-detail-page">
   <p-toast></p-toast>
   <p-confirmDialog></p-confirmDialog>
 
@@ -257,114 +256,106 @@
     </ng-template>
   </p-dialog>
 
-  <div class="loading-state" *ngIf="isLoading">
-    <i class="pi pi-spin pi-spinner"></i><span>Loading MIR...</span>
+  <div class="sf-empty" *ngIf="isLoading">
+    <i class="pi pi-spin pi-spinner"></i><span> Loading MIR...</span>
   </div>
 
-  <ng-container *ngIf="mir && !isLoading">
-    <!-- Page Header -->
-    <div class="page-header">
-      <div class="header-left">
-        <div class="header-icon icon-teal"><i class="pi pi-file-export"></i></div>
-        <div>
-          <h1 class="page-title">{{ mir.requestNo }}</h1>
-          <p class="page-subtitle">Material Issue Request · {{ getTypeLabel(mir.requestType) }}</p>
-        </div>
-      </div>
-      <div class="header-actions">
-        <p-button label="Back" icon="pi pi-arrow-left" [outlined]="true" severity="secondary"
+  <sf-page *ngIf="mir && !isLoading" [crumbs]="['Material', 'Material issue requests', mir.requestNo]">
+    <!-- ── Command bar: the next step first, then the rest ─────────────────────────────── -->
+    <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+      <p-button label="Submit for Approval" icon="pi pi-send"
+                *ngIf="mir.status === 'DRAFT'"
+                [loading]="submitting" [disabled]="submitting" (onClick)="submit()"></p-button>
+      <p-button label="Approve Step" icon="pi pi-check"
+                *ngIf="mir.status === 'PENDING_APPROVAL'"
+                [loading]="approving" [disabled]="approving" (onClick)="openApprove()"></p-button>
+      <p-button label="Create Issue Voucher" icon="pi pi-receipt"
+                *ngIf="mir.status === 'APPROVED' || mir.status === 'PARTIALLY_APPROVED' || mir.status === 'PARTIALLY_ISSUED'"
+                (onClick)="createIssueVoucher()"></p-button>
+      <p-button label="Edit" icon="pi pi-pencil" [text]="true"
+                *ngIf="mir.status === 'DRAFT'"
+                (onClick)="openEdit()"></p-button>
+      <p-button label="Download PDF" icon="pi pi-file-pdf" [text]="true"
+                [loading]="isDownloadingPdf" (onClick)="downloadPdf()"></p-button>
+      <p-button label="Timeline" icon="pi pi-history" [text]="true"
+                pTooltip="View Timeline" (onClick)="showTimeline = true"></p-button>
+      <span class="sf-sep" *ngIf="mir.status === 'DRAFT' || mir.status === 'PENDING_APPROVAL' || mir.status === 'APPROVED' || mir.status === 'PARTIALLY_APPROVED'"></span>
+      <p-button label="Reject" icon="pi pi-times" severity="danger" [text]="true"
+                *ngIf="mir.status === 'PENDING_APPROVAL'"
+                [loading]="rejecting" [disabled]="rejecting" (onClick)="openReject()"></p-button>
+      <p-button label="Cancel" icon="pi pi-ban" severity="danger" [text]="true"
+                *ngIf="mir.status === 'DRAFT' || mir.status === 'PENDING_APPROVAL' || mir.status === 'APPROVED' || mir.status === 'PARTIALLY_APPROVED'"
+                [loading]="cancelling" [disabled]="cancelling" (onClick)="cancel()"></p-button>
+      <span class="sf-end">
+        <p-button label="Back" icon="pi pi-arrow-left" [text]="true"
                   routerLink="/portal/pages/material/mir"></p-button>
-        <p-button label="Edit" icon="pi pi-pencil" severity="secondary"
-                  *ngIf="mir.status === 'DRAFT'"
-                  (onClick)="openEdit()"></p-button>
-        <p-button label="Submit for Approval" icon="pi pi-send" severity="contrast"
-                  *ngIf="mir.status === 'DRAFT'"
-                  [loading]="submitting" [disabled]="submitting" (onClick)="submit()"></p-button>
-        <p-button label="Approve Step" icon="pi pi-check" severity="success"
-                  *ngIf="mir.status === 'PENDING_APPROVAL'"
-                  [loading]="approving" [disabled]="approving" (onClick)="openApprove()"></p-button>
-        <p-button label="Reject" icon="pi pi-times" severity="danger" [outlined]="true"
-                  *ngIf="mir.status === 'PENDING_APPROVAL'"
-                  [loading]="rejecting" [disabled]="rejecting" (onClick)="openReject()"></p-button>
-        <p-button label="Create Issue Voucher" icon="pi pi-receipt" severity="info"
-                  *ngIf="mir.status === 'APPROVED' || mir.status === 'PARTIALLY_APPROVED' || mir.status === 'PARTIALLY_ISSUED'"
-                  (onClick)="createIssueVoucher()"></p-button>
-        <p-button label="Cancel" icon="pi pi-ban" severity="danger" [outlined]="true"
-                  *ngIf="mir.status === 'DRAFT' || mir.status === 'PENDING_APPROVAL' || mir.status === 'APPROVED' || mir.status === 'PARTIALLY_APPROVED'"
-                  [loading]="cancelling" [disabled]="cancelling" (onClick)="cancel()"></p-button>
-
-        <p-button label="Download PDF" icon="pi pi-file-pdf" severity="secondary" [outlined]="true"
-                  [loading]="isDownloadingPdf" (onClick)="downloadPdf()"></p-button>
-
-        <p-button icon="pi pi-history" [text]="true" severity="secondary"
-                  pTooltip="View Timeline" (onClick)="showTimeline = true"></p-button>
-      </div>
+      </span>
     </div>
 
+    <!-- ── Dynamic header ──────────────────────────────────────────────────────────────── -->
+    <header class="sf-hdr">
+      <div class="sf-t">
+        <div>
+          <div class="sf-kicker">Material issue request · {{ getTypeLabel(mir.requestType) }}</div>
+          <h1>
+            <span class="sf-mono">{{ mir.requestNo }}</span>
+            <p-tag [value]="getStatusLabel(mir.status)" [severity]="getStatusSeverity(mir.status)"></p-tag>
+          </h1>
+          <div class="sf-meta">
+            {{ mir.projectName || mir.department || mir.maintenanceRef || '—' }} · {{ getPriorityLabel(mir.priority) }} priority
+            · needed {{ mir.requiredDate ? (mir.requiredDate | date:'dd MMM yyyy') : '—' }}
+          </div>
+        </div>
+      </div>
+
+      <sf-stages [stages]="stages"></sf-stages>
+
+      <div class="sf-facts">
+        <div class="sf-kpi">
+          <span class="l">Estimated value</span>
+          <span class="v">{{ mir.estimatedValue | number:'1.2-2' }}</span>
+        </div>
+        <div class="sf-kpi">
+          <span class="l">Lines</span>
+          <span class="v">{{ mir.lines.length }}</span>
+        </div>
+        <div class="sf-kpi">
+          <span class="l">Issue vouchers</span>
+          <span class="v">{{ mivs.length }}</span>
+        </div>
+      </div>
+    </header>
+
+    <sf-anchors [sections]="sections"></sf-anchors>
+
+    <div class="sf-body">
     <!-- Workflow step indicator -->
-    <div class="workflow-banner" *ngIf="mir.status === 'PENDING_APPROVAL' && mir.activeStepName">
+    <div class="sf-card quiet workflow-banner" *ngIf="mir.status === 'PENDING_APPROVAL' && mir.activeStepName">
       <i class="pi pi-hourglass"></i>
       <span>Awaiting <strong>Step {{ mir.activeStepNumber }}</strong>: {{ mir.activeStepName }}</span>
     </div>
 
     <!-- Summary card -->
-    <div class="detail-card">
-      <div class="detail-header">
-        <div class="detail-header-bg"></div>
-        <div class="detail-header-content">
-          <p-tag [value]="getStatusLabel(mir.status)" [severity]="getStatusSeverity(mir.status)" styleClass="status-tag"></p-tag>
-          <span class="mir-no-badge">{{ mir.requestNo }}</span>
-        </div>
+    <section id="sec-details" class="sf-section sf-card">
+      <div class="sf-ch"><h2>Details</h2></div>
+      <div class="sf-kv">
+        <span>Type</span><span>{{ getTypeLabel(mir.requestType) }}</span>
+        <span>{{ mir.requestType === 'PROJECT' ? 'Project' : mir.requestType === 'DEPARTMENT' ? 'Department' : 'Maintenance Ref' }}</span>
+        <span>{{ mir.projectName || mir.department || mir.maintenanceRef || '—' }}</span>
+        <span>Priority</span><span>{{ getPriorityLabel(mir.priority) }}</span>
+        <span>Required By</span><span>{{ mir.requiredDate ? (mir.requiredDate | date:'dd MMM yyyy') : '—' }}</span>
+        <span>Estimated Value</span><span class="sf-num">{{ mir.estimatedValue | number:'1.2-2' }}</span>
+        <span>Created</span><span>{{ mir.createdDate | date:'dd MMM yyyy, HH:mm' }}</span>
+        <ng-container *ngIf="mir.purpose"><span>Purpose</span><span>{{ mir.purpose }}</span></ng-container>
+        <ng-container *ngIf="mir.rejectionReason"><span>Rejection Reason</span><span class="rejection">{{ mir.rejectionReason }}</span></ng-container>
+        <ng-container *ngIf="mir.approverRemarks"><span>Approver Remarks</span><span>{{ mir.approverRemarks }}</span></ng-container>
       </div>
-      <div class="detail-body">
-        <div class="detail-grid">
-          <div class="detail-cell">
-            <span class="cell-label">Type</span>
-            <span class="cell-value">{{ getTypeLabel(mir.requestType) }}</span>
-          </div>
-          <div class="detail-cell">
-            <span class="cell-label">{{ mir.requestType === 'PROJECT' ? 'Project' : mir.requestType === 'DEPARTMENT' ? 'Department' : 'Maintenance Ref' }}</span>
-            <span class="cell-value">{{ mir.projectName || mir.department || mir.maintenanceRef || '—' }}</span>
-          </div>
-          <div class="detail-cell">
-            <span class="cell-label">Priority</span>
-            <span class="cell-value">{{ getPriorityLabel(mir.priority) }}</span>
-          </div>
-          <div class="detail-cell">
-            <span class="cell-label">Required By</span>
-            <span class="cell-value">{{ mir.requiredDate ? (mir.requiredDate | date:'dd MMM yyyy') : '—' }}</span>
-          </div>
-          <div class="detail-cell">
-            <span class="cell-label">Estimated Value</span>
-            <span class="cell-value value-highlight">{{ mir.estimatedValue | number:'1.2-2' }}</span>
-          </div>
-          <div class="detail-cell">
-            <span class="cell-label">Created</span>
-            <span class="cell-value">{{ mir.createdDate | date:'dd MMM yyyy, HH:mm' }}</span>
-          </div>
-        </div>
-
-        <div class="detail-cell full-width" *ngIf="mir.purpose">
-          <span class="cell-label">Purpose</span>
-          <span class="cell-value">{{ mir.purpose }}</span>
-        </div>
-
-        <div class="detail-cell full-width" *ngIf="mir.rejectionReason">
-          <span class="cell-label">Rejection Reason</span>
-          <span class="cell-value rejection">{{ mir.rejectionReason }}</span>
-        </div>
-
-        <div class="detail-cell full-width" *ngIf="mir.approverRemarks">
-          <span class="cell-label">Approver Remarks</span>
-          <span class="cell-value">{{ mir.approverRemarks }}</span>
-        </div>
-      </div>
-    </div>
+    </section>
 
     <!-- Issue Vouchers for this MIR -->
-    <div class="detail-card" *ngIf="mivs.length > 0 || mivsLoading">
-      <div class="lines-section-title">Issue Vouchers</div>
-      <div *ngIf="mivsLoading" class="miv-loading"><i class="pi pi-spin pi-spinner"></i></div>
+    <section id="sec-vouchers" class="sf-section sf-card p0" *ngIf="mivs.length > 0 || mivsLoading">
+      <div class="sf-ch"><h2>Issue vouchers</h2></div>
+      <div *ngIf="mivsLoading" class="sf-empty"><i class="pi pi-spin pi-spinner"></i></div>
       <p-table *ngIf="!mivsLoading" [value]="mivs" [tableStyle]="{'min-width':'52rem'}">
         <ng-template pTemplate="header">
           <tr>
@@ -378,24 +369,24 @@
         </ng-template>
         <ng-template pTemplate="body" let-miv>
           <tr>
-            <td class="font-mono font-semibold">{{ miv.issueNo }}</td>
+            <td><a class="sf-mono" [routerLink]="['/portal/pages/material/miv', miv.uuid]"><strong>{{ miv.issueNo }}</strong></a></td>
             <td><p-tag [value]="miv.status | titlecase" [severity]="getMivStatusSeverity(miv.status)"></p-tag></td>
             <td>{{ miv.issuedTo || '—' }}</td>
             <td>{{ miv.issueDate | date:'dd MMM yyyy' }}</td>
             <td style="text-align:right">{{ miv.totalValue | number:'1.2-2' }}</td>
             <td class="text-center">
-              <p-button icon="pi pi-eye" [text]="true" severity="info" size="small"
+              <p-button icon="pi pi-eye" [text]="true" severity="secondary" size="small"
                         pTooltip="View Voucher"
                         [routerLink]="['/portal/pages/material/miv', miv.uuid]"></p-button>
             </td>
           </tr>
         </ng-template>
       </p-table>
-    </div>
+    </section>
 
     <!-- Lines -->
-    <div class="detail-card">
-      <div class="lines-section-title">Material Lines</div>
+    <section id="sec-lines" class="sf-section sf-card p0">
+      <div class="sf-ch"><h2>Material lines</h2><span class="sf-mu sf-sm">{{ mir.lines.length }} line{{ mir.lines.length === 1 ? '' : 's' }}</span></div>
       <p-table [value]="mir.lines" [tableStyle]="{'min-width':'55rem'}">
         <ng-template pTemplate="header">
           <tr>
@@ -432,16 +423,16 @@
           </tr>
         </ng-template>
         <ng-template pTemplate="footer">
-          <tr>
-            <td colspan="7" class="text-right font-semibold">Total Estimated</td>
-            <td class="text-right total-cell">{{ mir.estimatedValue | number:'1.2-2' }}</td>
+          <tr class="sf-tot">
+            <td colspan="7" class="text-right">Total Estimated</td>
+            <td class="text-right">{{ mir.estimatedValue | number:'1.2-2' }}</td>
             <td></td>
           </tr>
         </ng-template>
       </p-table>
+    </section>
     </div>
-  </ng-container>
+  </sf-page>
 
   <!-- ── Timeline panel (TL-010) ────────────────────────────────────────────── -->
   <app-timeline-panel [(visible)]="showTimeline" [documentId]="uuid" interfaceCode="MIR_GENERAL"></app-timeline-panel>
-</div>

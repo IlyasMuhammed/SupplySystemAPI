@@ -1,4 +1,5 @@
 import { CommonModule } from '@angular/common';
+import { FLOW } from '../../shared/flow';
 import { Component, OnInit, ViewChild, signal } from '@angular/core';
 import { AbstractControl, FormBuilder, FormGroup, ReactiveFormsModule, Validators, FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
@@ -20,7 +21,10 @@ import { ToastModule } from 'primeng/toast';
 import { TooltipModule } from 'primeng/tooltip';
 import { UserListItem, UserService, CreateUserRequest } from '../../services/user.service';
 import { AuthService } from '../service/auth.service';
+import { TenantService } from '../service/tenant.service';
 import { SupplierService } from '../../services/supplier.service';
+import { PasswordModule } from 'primeng/password';
+import { isStrongPassword, passwordChecks, PasswordCheck } from '../../shared/password-rule';
 
 @Component({
     selector: 'app-users',
@@ -30,7 +34,7 @@ import { SupplierService } from '../../services/supplier.service';
         TableModule, ButtonModule, RippleModule, ToastModule,
         InputTextModule, DialogModule, InputIconModule, IconFieldModule,
         ConfirmDialogModule, TagModule, CheckboxModule, DividerModule,
-        DropdownModule, TooltipModule, MultiSelectModule
+        DropdownModule, TooltipModule, MultiSelectModule, PasswordModule, ...FLOW
     ],
     templateUrl: './users.html',
     styleUrls: ['./users.scss'],
@@ -89,6 +93,14 @@ export class UsersComponent implements OnInit {
     resetTempPassword     = '';
     resetForUser: UserListItem | null = null;
 
+    // Set password (platform super admins only)
+    showSetPasswordDialog = false;
+    setPasswordFor: UserListItem | null = null;
+    spNewPassword = '';
+    spConfirmPassword = '';
+    spError = '';
+    isSettingPassword = false;
+
     // Department dropdown options (value = name string, matches CreateUserRequest.department)
     readonly departments: { label: string; value: string }[] = [
         { label: 'Administration',          value: 'Administration' },
@@ -114,6 +126,7 @@ export class UsersComponent implements OnInit {
     constructor(
         private userService: UserService,
         private authService: AuthService,
+        private tenantService: TenantService,
         private supplierService: SupplierService,
         private messageService: MessageService,
         private confirmationService: ConfirmationService,
@@ -126,6 +139,27 @@ export class UsersComponent implements OnInit {
     // checks. Match that: permission-based, not role-name-based.
     get isAdmin(): boolean {
         return this.authService.hasPermission('USER_MANAGE');
+    }
+
+    // Set password is platform-super-admin only. The server demands both the PLATFORM_SUPER_ADMIN permission
+    // ([RequirePermission], the same code the Organizations route is guarded by) and the is_super_admin claim
+    // ([RequireSuperAdmin], surfaced to the app as TenantService.isSuperAdmin()) — the permission alone is also
+    // carried by the global System Admin role, so both are checked here too.
+    get isPlatformSuperAdmin(): boolean {
+        return this.authService.hasPermission('PLATFORM_SUPER_ADMIN') && this.tenantService.isSuperAdmin();
+    }
+
+    get showActions(): boolean {
+        return this.isAdmin || this.isPlatformSuperAdmin;
+    }
+
+    /** Not for your own row — the server refuses it ("Use Change Password to change your own password."). */
+    canSetPasswordFor(user: UserListItem): boolean {
+        if (!this.isPlatformSuperAdmin) return false;
+        const me = this.authService.getUserData();
+        if (!me) return true;
+        if (me.userId != null && user.userID === me.userId) return false;
+        return !(me.email && user.email && me.email.toLowerCase() === user.email.toLowerCase());
     }
 
     get activeCount(): number {
@@ -214,7 +248,9 @@ export class UsersComponent implements OnInit {
         // approver-options endpoint (WORKFLOW_ADMIN-gated, and backed by a raw un-scoped SQL
         // query) — an Org Admin has USER_MANAGE but not WORKFLOW_ADMIN, and this list only needs
         // the shared role catalog, not the cross-org user/group data approver-options also returns.
-        this.authService.getRoleList().subscribe({
+        // assignableOnly: the server leaves out what this user may not hand out (an Org Admin gets no System Admin or
+        // Organization Admin) — the same rule it enforces when the user is saved.
+        this.authService.getRoleList(true).subscribe({
             next: (res) => {
                 if (res.success && res.result?.length) {
                     this.availableRoles    = res.result.filter(r => r.isActive).map(r => ({ label: r.name, value: r.roleId }));
@@ -224,6 +260,12 @@ export class UsersComponent implements OnInit {
             error: () => {}
         });
     }
+
+    /**
+     * Edit dialog role options: the assignable roles, plus the user's current role when it is not one of them (e.g.
+     * editing the Org Admin), so the field still shows it. Keeping it is not a change, so saving sends no role update.
+     */
+    editRoleOptions: { label: string; value: number }[] = [];
 
     loadUsersLazy(event: { first?: number; rows?: number | null }) {
         this.first = event.first ?? 0;
@@ -360,6 +402,9 @@ export class UsersComponent implements OnInit {
     openEditDialog(user: UserListItem) {
         this.editingUser    = user;
         this.originalRoleId = user.role?.id ?? null;
+        this.editRoleOptions = user.role && !this.availableRoles.some(r => r.value === user.role!.id)
+            ? [{ label: user.role.value, value: user.role.id }, ...this.availableRoles]
+            : [...this.availableRoles];
         this.editForm.reset({
             firstName:  user.firstName,
             lastName:   user.lastName   || '',
@@ -471,6 +516,50 @@ export class UsersComponent implements OnInit {
                     },
                     error: (err) => this.messageService.add({ severity: 'error', summary: 'Error', detail: err.error?.message || 'Reset failed' })
                 });
+            }
+        });
+    }
+
+    // ── Set Password (platform super admins) ──────────────────────────────────
+
+    openSetPasswordDialog(user: UserListItem) {
+        this.setPasswordFor = user;
+        this.spNewPassword = '';
+        this.spConfirmPassword = '';
+        this.spError = '';
+        this.isSettingPassword = false;
+        this.showSetPasswordDialog = true;
+    }
+
+    get spChecks(): PasswordCheck[] {
+        return passwordChecks(this.spNewPassword);
+    }
+
+    get spMatch(): boolean {
+        return !!this.spConfirmPassword && this.spNewPassword === this.spConfirmPassword;
+    }
+
+    get canSubmitSetPassword(): boolean {
+        return !!this.setPasswordFor && isStrongPassword(this.spNewPassword) && this.spMatch && !this.isSettingPassword;
+    }
+
+    submitSetPassword() {
+        if (!this.canSubmitSetPassword || !this.setPasswordFor) return;
+        this.spError = '';
+        this.isSettingPassword = true;
+        this.userService.setUserPassword(this.setPasswordFor.userID, this.spNewPassword).subscribe({
+            next: (res) => {
+                this.isSettingPassword = false;
+                if (!res.success) { this.spError = res.message || 'The password was not set.'; return; }
+                this.messageService.add({ severity: 'success', summary: 'Password set', detail: res.message || 'Password set.' });
+                this.showSetPasswordDialog = false;
+                this.spNewPassword = '';
+                this.spConfirmPassword = '';
+                this.loadUsers();
+            },
+            error: (err) => {
+                this.isSettingPassword = false;
+                this.spError = err?.error?.message || 'The password was not set.';
             }
         });
     }

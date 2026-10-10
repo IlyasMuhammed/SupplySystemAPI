@@ -88,6 +88,16 @@ public sealed record FulfillmentRouteSummary(
     /// <summary>A34 — the route makes to order (D-1).</summary>
     public bool IsManufacture => FulfillmentRouteCategory.IsManufacture(Category);
 
+    /// <summary>
+    /// A37 D-12 (RTE-01) — false when the route's category needs a module the organization has switched off (MANUFACTURE
+    /// without MODULE_MANUFACTURING). Set by Logistics' lookup; anything built without it reads as available. An
+    /// unavailable route cannot be assigned, and the resolver falls back to the org default STOCK route (RTE-02).
+    /// </summary>
+    public bool IsAvailable { get; init; } = true;
+
+    /// <summary>A37 — why <see cref="IsAvailable"/> is false ("Manufacturing is switched off"); null when available.</summary>
+    public string? UnavailableReason { get; init; }
+
     public bool HasStep(string stepCode) => Steps.Contains(stepCode, StringComparer.Ordinal);
 
     /// <summary>"Pick → Pack → Goods Issue → Ship" — the wording every screen uses.</summary>
@@ -151,6 +161,25 @@ public interface IVariantFulfillmentRoutes
     /// <summary>Route uuid per variant uuid, for variants of <paramref name="organizationId"/> that have one; others are absent.</summary>
     Task<IReadOnlyDictionary<Guid, Guid>> GetRouteUuidsAsync(
         Guid organizationId, IReadOnlyCollection<Guid> variantUuids, CancellationToken ct = default);
+}
+
+/// <summary>A37 D-12 — one variant of a product and its configured default route (null = none).</summary>
+public sealed record ProductVariantRoute(Guid VariantUuid, string VariantName, string Sku, Guid? RouteUuid);
+
+/// <summary>
+/// A37 D-12 — the variants of one product with their default routes, for <c>GET /api/products/{id}/routes</c> (served by
+/// Logistics). To be implemented in Inventory (owns variants). Optional-safe: without an implementation the endpoint
+/// answers 404.
+/// </summary>
+public interface IProductVariantRoutes
+{
+    /// <summary>
+    /// Active variants of the product named by its int id (the <c>api/products/{id:int}</c> routes) or its uuid —
+    /// exactly one is given. Ordered as the product page lists them. Null when the product is not one of
+    /// <paramref name="organizationId"/>'s (another organization's product reads as absent).
+    /// </summary>
+    Task<IReadOnlyList<ProductVariantRoute>?> GetForProductAsync(
+        Guid organizationId, int? productId, Guid? productUuid, CancellationToken ct = default);
 }
 
 /// <summary>How many records of one kind still point at a route — one entry of the "in use" refusal (BR-C1-07).</summary>

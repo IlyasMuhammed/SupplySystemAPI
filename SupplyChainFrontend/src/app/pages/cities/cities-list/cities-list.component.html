@@ -1,31 +1,31 @@
-<div class="card">
-
-  <!-- ── Page Header ──────────────────────────────────────────────────────── -->
-  <div class="md-header">
-    <div class="md-icon"><i class="pi pi-map-marker"></i></div>
-    <div class="md-title-wrap">
-      <h2 class="md-title">Cities</h2>
-      <p class="md-subtitle">Manage city master data linked to countries</p>
-    </div>
+<sf-page [crumbs]="['Settings', 'Cities']">
+  <!-- ── Command bar ───────────────────────────────────────────────────────── -->
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
     <p-button label="Add City" icon="pi pi-plus"
               routerLink="/portal/pages/cities/cities-create">
     </p-button>
   </div>
 
-  <hr class="md-sep" />
+  <div class="sf-body">
+  <div class="sf-lr-head">
+    <div>
+      <h1>Cities <span class="sf-count" *ngIf="!isLoading">{{ cities.length }}</span></h1>
+      <div class="sf-sub">Manage city master data linked to countries</div>
+    </div>
+  </div>
 
   <!-- ── Search Bar ────────────────────────────────────────────────────────── -->
-  <div class="md-toolbar">
-    <p-iconfield>
+  <div class="sf-filters">
+    <p-iconfield class="sf-search">
       <p-inputicon styleClass="pi pi-search" />
       <input #gf pInputText type="text"
              (input)="dt.filterGlobal(gf.value, 'contains')"
              placeholder="Search cities…" />
     </p-iconfield>
-    <span class="md-count" *ngIf="!isLoading">{{ cities.length }} cities</span>
   </div>
 
   <!-- ── Data Table ────────────────────────────────────────────────────────── -->
+  <div class="sf-card p0">
   <p-table
     #dt
     [value]="cities"
@@ -56,7 +56,7 @@
           <span class="md-country-badge" *ngIf="city.countryName">
             <i class="pi pi-globe"></i> {{ city.countryName }}
           </span>
-          <span class="text-color-secondary" *ngIf="!city.countryName">—</span>
+          <span class="sf-mu" *ngIf="!city.countryName">—</span>
         </td>
         <td>
           <p-tag [value]="city.isActive ? 'Active' : 'Inactive'"
@@ -83,18 +83,17 @@
 
     <ng-template pTemplate="emptymessage">
       <tr>
-        <td colspan="4">
-          <div class="md-empty">
-            <i class="pi pi-map-marker md-empty-icon"></i>
-            <p class="md-empty-text">No cities found</p>
-            <small class="md-empty-hint">Click "Add City" to create one.</small>
-          </div>
+        <td colspan="4" class="sf-empty">
+          No cities found<br />
+          <small>Click "Add City" to create one.</small>
         </td>
       </tr>
     </ng-template>
 
   </p-table>
-</div>
+  </div>
+  </div>
+</sf-page>
 
 <p-confirmDialog></p-confirmDialog>
 <p-toast></p-toast>

@@ -67,6 +67,25 @@ public class FulfillmentRouteStepModel
     public string? Description { get; set; }
 }
 
+/// <summary>A37 D-12 — one row of <c>GET /api/products/{id}/routes</c> (API-CONTRACT §4).</summary>
+public class ProductVariantRouteModel
+{
+    public Guid    VariantUuid        { get; set; }
+    public string  VariantName        { get; set; } = string.Empty;
+    public string  Sku                { get; set; } = string.Empty;
+    /// <summary>The variant's configured default route; null when it has none.</summary>
+    public Guid?   RouteUuid          { get; set; }
+    public string? RouteName          { get; set; }
+    public string? Category           { get; set; }
+    /// <summary>False when the configured route needs a module that is switched off. True when nothing is configured.</summary>
+    public bool    IsAvailable        { get; set; } = true;
+    public string? UnavailableReason  { get; set; }
+    /// <summary>What a shipped order line would use: the configured route when available, else the SHIP default.</summary>
+    public Guid?   EffectiveRouteUuid { get; set; }
+    public string? EffectiveRouteName { get; set; }
+    public string? Warning            { get; set; }
+}
+
 public class FulfillmentRouteModel
 {
     public Guid    Uuid        { get; set; }
@@ -84,6 +103,11 @@ public class FulfillmentRouteModel
 
     /// <summary>A34 — STOCK | MANUFACTURE (| BUY | DROPSHIP, reserved). A MANUFACTURE route is never a default (D-6).</summary>
     public string RouteCategory  { get; set; } = SMS.Shared.Common.FulfillmentRouteCategory.Stock;
+
+    /// <summary>A37 D-12 — false for a MANUFACTURE route while Manufacturing is switched off; pickers hide it.</summary>
+    public bool    IsAvailable       { get; set; } = true;
+    /// <summary>A37 — "Manufacturing is switched off" when <see cref="IsAvailable"/> is false.</summary>
+    public string? UnavailableReason { get; set; }
 
     public List<FulfillmentRouteStepModel> Steps { get; set; } = [];
 

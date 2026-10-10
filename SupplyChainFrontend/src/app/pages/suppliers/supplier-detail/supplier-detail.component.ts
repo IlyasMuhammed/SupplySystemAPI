@@ -43,6 +43,7 @@ import {
 import { AuthService } from '../../service/auth.service';
 import { ReportsService } from '../../../services/reports.service';
 import { TimelineEvent } from '../../../services/timeline.service';
+import { FLOW, FlowSection } from '../../../shared/flow';
 
 @Component({
   selector: 'app-supplier-detail',
@@ -52,7 +53,7 @@ import { TimelineEvent } from '../../../services/timeline.service';
     ButtonModule, CardModule, TabViewModule, TagModule, ToastModule,
     DialogModule, InputTextModule, TextareaModule, InputNumberModule,
     CheckboxModule, DividerModule, TooltipModule, ConfirmDialogModule,
-    DropdownModule, MultiSelectModule, TableModule, CalendarModule
+    DropdownModule, MultiSelectModule, TableModule, CalendarModule, ...FLOW
   ],
   templateUrl: './supplier-detail.component.html',
   styleUrls: ['./supplier-detail.component.scss'],
@@ -156,6 +157,17 @@ export class SupplierDetailComponent implements OnInit {
     private messageService: MessageService,
     private confirmationService: ConfirmationService
   ) {}
+
+  /** SMS Flow section anchors. */
+  readonly sections: FlowSection[] = [
+    { id: 'sec-general', label: 'General' },
+    { id: 'sec-purchasing', label: 'Purchasing' },
+    { id: 'sec-contacts', label: 'Contacts' },
+    { id: 'sec-bank', label: 'Bank' },
+    { id: 'sec-documents', label: 'Documents' },
+    { id: 'sec-ledger', label: 'Ledger' },
+    { id: 'sec-invoices', label: 'Outstanding invoices' }
+  ];
 
   private createEmptySupplier(): SupplierDetailModel {
     return {

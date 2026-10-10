@@ -1,61 +1,88 @@
-<div class="consignment-page">
-  <p-toast></p-toast>
+<p-toast></p-toast>
 
-  <div class="not-found" *ngIf="notFound" data-testid="not-found">
-    <i class="pi pi-inbox"></i>
-    <h2>Consignment not found</h2>
-    <p>It may have been deleted, or the link may be wrong.</p>
-    <p-button label="Back to deliveries" icon="pi pi-arrow-left" [text]="true"
-              routerLink="/portal/pages/logistics/deliveries"></p-button>
+<div class="sf-empty" *ngIf="notFound" data-testid="not-found">
+  <i class="pi pi-inbox" style="font-size:2rem"></i>
+  <h2>Consignment not found</h2>
+  <p>It may have been deleted, or the link may be wrong.</p>
+  <p-button label="Back to deliveries" icon="pi pi-arrow-left" [text]="true"
+            routerLink="/portal/pages/logistics/deliveries"></p-button>
+</div>
+
+<div *ngIf="isLoading && !consignment" class="sf-empty" data-testid="loading">
+  <i class="pi pi-spin pi-spinner"></i> Loading…
+</div>
+
+<sf-page *ngIf="consignment as c" [crumbs]="['Logistics', 'Consignments', c.consignmentNumber]">
+
+  <!-- ── Command bar: the next step first, then the rest ─────────────────────────────── -->
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <p-button *ngIf="canBook" label="Book with carrier" icon="pi pi-send"
+              [disabled]="isSubmitting" (onClick)="openBookDialog()"
+              data-testid="action-book"></p-button>
+
+    <p-button *ngIf="canBookManually" label="Record airway bill" icon="pi pi-pencil"
+              [disabled]="isSubmitting" (onClick)="openManualDialog()"
+              data-testid="action-book-manual"></p-button>
+
+    <p-button *ngIf="canRecordHandover" label="Record handover" icon="pi pi-check-circle"
+              [disabled]="isSubmitting"
+              (onClick)="openHandoverDialog()" data-testid="action-handover"></p-button>
+
+    <p-button *ngIf="canRate" label="Price it" icon="pi pi-calculator"
+              [text]="true" [loading]="isRating"
+              (onClick)="rateNow()" data-testid="action-rate"></p-button>
+
+    <p-button *ngIf="canRate" label="Compare carriers" icon="pi pi-sort-amount-down"
+              [text]="true" [loading]="isShopping"
+              (onClick)="openShopDialog()" data-testid="action-shop"></p-button>
+
+    <p-button *ngIf="canPrintLabel" label="Print label" icon="pi pi-print"
+              [text]="true" (onClick)="printLabel()"
+              data-testid="action-label"></p-button>
   </div>
 
-  <div *ngIf="isLoading && !consignment" class="loading-state" data-testid="loading">
-    <i class="pi pi-spin pi-spinner"></i> Loading…
-  </div>
-
-  <ng-container *ngIf="consignment as c">
-    <div class="page-header">
+  <!-- ── Dynamic header ──────────────────────────────────────────────────────────────── -->
+  <header class="sf-hdr">
+    <div class="sf-t">
       <div>
-        <h1 class="page-title">
-          <i class="pi pi-send"></i>
-          <span class="font-mono">{{ c.consignmentNumber }}</span>
+        <div class="sf-kicker">Consignment · {{ formatStatus(c.mode) }}</div>
+        <h1>
+          <span class="sf-mono">{{ c.consignmentNumber }}</span>
           <p-tag [value]="formatStatus(c.status)" [severity]="getStatusSeverity(c.status)"></p-tag>
           <p-tag *ngIf="booking?.isSandbox" value="Sandbox" severity="warn"
                  data-testid="sandbox-badge"></p-tag>
         </h1>
-        <p class="page-subtitle">
+        <div class="sf-meta">
           {{ c.carrierName || 'No carrier' }}
           <span *ngIf="c.carrierServiceCode">· {{ c.carrierServiceCode }}</span>
-          <span>· {{ formatStatus(c.mode) }}</span>
-        </p>
-      </div>
-
-      <div class="header-actions">
-        <p-button *ngIf="canBook" label="Book with carrier" icon="pi pi-send"
-                  [disabled]="isSubmitting" (onClick)="openBookDialog()"
-                  data-testid="action-book"></p-button>
-
-        <p-button *ngIf="canBookManually" label="Record airway bill" icon="pi pi-pencil"
-                  [disabled]="isSubmitting" (onClick)="openManualDialog()"
-                  data-testid="action-book-manual"></p-button>
-
-        <p-button *ngIf="canRecordHandover" label="Record handover" icon="pi pi-check-circle"
-                  severity="success" [outlined]="true" [disabled]="isSubmitting"
-                  (onClick)="openHandoverDialog()" data-testid="action-handover"></p-button>
-
-        <p-button *ngIf="canRate" label="Price it" icon="pi pi-calculator"
-                  severity="secondary" [outlined]="true" [loading]="isRating"
-                  (onClick)="rateNow()" data-testid="action-rate"></p-button>
-
-        <p-button *ngIf="canRate" label="Compare carriers" icon="pi pi-sort-amount-down"
-                  severity="secondary" [outlined]="true" [loading]="isShopping"
-                  (onClick)="openShopDialog()" data-testid="action-shop"></p-button>
-
-        <p-button *ngIf="canPrintLabel" label="Print label" icon="pi pi-print"
-                  severity="secondary" [outlined]="true" (onClick)="printLabel()"
-                  data-testid="action-label"></p-button>
+          <span>· {{ formatStatus(c.freightTerms) }}</span>
+        </div>
       </div>
     </div>
+
+    <sf-stages [stages]="stages"></sf-stages>
+
+    <div class="sf-facts">
+      <div class="sf-kpi">
+        <span class="l">Freight cost</span>
+        <span class="v">{{ isRated ? (rate?.freightCost | number:'1.2-2') : '—' }}</span>
+        <span class="s">{{ isRated ? rate?.freightCurrency : 'not priced yet' }}</span>
+      </div>
+      <div class="sf-kpi">
+        <span class="l">Airway bill</span>
+        <span class="v sm sf-mono">{{ booking?.masterAwb || '—' }}</span>
+        <span class="s">{{ booking?.attemptCount || 0 }} attempt(s)</span>
+      </div>
+      <div class="sf-kpi">
+        <span class="l">ETA</span>
+        <span class="v sm">{{ (c.eta | date:'dd MMM yyyy') || '—' }}</span>
+      </div>
+    </div>
+  </header>
+
+  <sf-anchors [sections]="sections"></sf-anchors>
+
+  <div class="sf-body">
 
     <!-- ── While the carrier is being contacted ──────────────────────────────── -->
 
@@ -100,80 +127,88 @@
       <span>{{ booking?.failureReason }}</span>
     </div>
 
-    <div class="detail-grid">
+    <div id="sec-details" class="sf-section sf-row">
       <!-- ── Booking ────────────────────────────────────────────────────────── -->
 
-      <section class="card">
-        <h2 class="card-title">Booking</h2>
+      <section class="sf-card">
+        <div class="sf-ch"><h2>Booking</h2></div>
 
-        <dl>
-          <dt>Airway bill</dt>
-          <dd>
+        <div class="sf-kv">
+          <span>Airway bill</span>
+          <span>
             <a *ngIf="booking?.trackingUrl as url" [href]="url" target="_blank" rel="noopener"
-               class="font-mono link" data-testid="tracking-link">{{ booking?.masterAwb }}</a>
-            <span *ngIf="!booking?.trackingUrl" class="font-mono">
+               class="sf-mono" data-testid="tracking-link">{{ booking?.masterAwb }}</a>
+            <span *ngIf="!booking?.trackingUrl" class="sf-mono">
               {{ booking?.masterAwb || '—' }}
             </span>
-          </dd>
+          </span>
 
-          <dt>Carrier reference</dt>
-          <dd class="font-mono">{{ c.carrierReference || '—' }}</dd>
+          <span>Carrier reference</span>
+          <span class="sf-mono">{{ c.carrierReference || '—' }}</span>
 
-          <dt>Account</dt>
-          <dd>
+          <span>Account</span>
+          <span>
             {{ booking?.carrierAccountName || '—' }}
             <span class="sandbox-note" *ngIf="booking?.isSandbox">sandbox — nothing really ships</span>
-          </dd>
+          </span>
 
-          <dt>Attempts</dt>
-          <dd>
+          <span>Attempts</span>
+          <span>
             {{ booking?.attemptCount || 0 }}
-            <span class="muted" *ngIf="booking?.lastAttemptAt">
+            <span class="sf-mu" *ngIf="booking?.lastAttemptAt">
               · last {{ booking?.lastAttemptAt | date:'dd MMM yyyy HH:mm' }}
             </span>
-          </dd>
+          </span>
 
-          <dt *ngIf="booking?.commandStatus">Carrier call</dt>
-          <dd *ngIf="booking?.commandStatus">{{ formatStatus(booking?.commandStatus) }}</dd>
+          <ng-container *ngIf="booking?.commandStatus">
+            <span>Carrier call</span>
+            <span>{{ formatStatus(booking?.commandStatus) }}</span>
+          </ng-container>
 
-          <dt>Freight terms</dt>
-          <dd>{{ formatStatus(c.freightTerms) }}</dd>
+          <span>Freight terms</span>
+          <span>{{ formatStatus(c.freightTerms) }}</span>
 
-          <dt *ngIf="c.codAmount">Cash on delivery</dt>
-          <dd *ngIf="c.codAmount">{{ c.codAmount | number:'1.0-2' }} {{ c.codCurrency }}</dd>
-        </dl>
+          <ng-container *ngIf="c.codAmount">
+            <span>Cash on delivery</span>
+            <span>{{ c.codAmount | number:'1.0-2' }} {{ c.codCurrency }}</span>
+          </ng-container>
+        </div>
       </section>
 
       <!-- ── Route ──────────────────────────────────────────────────────────── -->
 
-      <section class="card">
-        <h2 class="card-title">Movement</h2>
+      <section class="sf-card">
+        <div class="sf-ch"><h2>Movement</h2></div>
 
-        <dl>
-          <dt>Pickup window</dt>
-          <dd>
+        <div class="sf-kv">
+          <span>Pickup window</span>
+          <span>
             <span *ngIf="c.pickupWindowStart">
               {{ c.pickupWindowStart | date:'dd MMM HH:mm' }}
               <span *ngIf="c.pickupWindowEnd">– {{ c.pickupWindowEnd | date:'HH:mm' }}</span>
             </span>
             <span *ngIf="!c.pickupWindowStart">—</span>
-          </dd>
+          </span>
 
-          <dt>ETD</dt>
-          <dd>{{ (c.etd | date:'dd MMM yyyy HH:mm') || '—' }}</dd>
+          <span>ETD</span>
+          <span>{{ (c.etd | date:'dd MMM yyyy HH:mm') || '—' }}</span>
 
-          <dt>ETA</dt>
-          <dd>{{ (c.eta | date:'dd MMM yyyy HH:mm') || '—' }}</dd>
+          <span>ETA</span>
+          <span>{{ (c.eta | date:'dd MMM yyyy HH:mm') || '—' }}</span>
 
-          <dt *ngIf="c.vehicleNumber">Vehicle</dt>
-          <dd *ngIf="c.vehicleNumber" class="font-mono">{{ c.vehicleNumber }}</dd>
+          <ng-container *ngIf="c.vehicleNumber">
+            <span>Vehicle</span>
+            <span class="sf-mono">{{ c.vehicleNumber }}</span>
+          </ng-container>
 
-          <dt *ngIf="c.driverName">Driver</dt>
-          <dd *ngIf="c.driverName">
-            {{ c.driverName }}
-            <span class="muted" *ngIf="c.driverPhone">· {{ c.driverPhone }}</span>
-          </dd>
-        </dl>
+          <ng-container *ngIf="c.driverName">
+            <span>Driver</span>
+            <span>
+              {{ c.driverName }}
+              <span class="sf-mu" *ngIf="c.driverPhone">· {{ c.driverPhone }}</span>
+            </span>
+          </ng-container>
+        </div>
 
         <p class="notes" *ngIf="c.notes">{{ c.notes }}</p>
       </section>
@@ -181,11 +216,11 @@
 
     <!-- ── What it costs ───────────────────────────────────────────────────── -->
 
-    <section class="card" data-testid="cost-card">
-      <div class="card-head">
-        <h2 class="card-title">What it costs to move</h2>
+    <section id="sec-cost" class="sf-section sf-card" data-testid="cost-card">
+      <div class="sf-ch">
+        <h2>What it costs to move</h2>
 
-        <div class="card-head-actions" *ngIf="canRate">
+        <div class="sf-ch-actions" *ngIf="canRate">
           <p-button label="Price from rate card" icon="pi pi-book" [text]="true" size="small"
                     [loading]="isRating" (onClick)="rateNow(true)"
                     pTooltip="Skips the carrier and prices from the negotiated tariff — the figure an invoice gets checked against."
@@ -203,7 +238,7 @@
       <div class="empty-state" *ngIf="!isRated" data-testid="not-rated">
         <i class="pi pi-calculator"></i>
         <p>Not priced yet.</p>
-        <p class="muted" *ngIf="canRate">
+        <p class="sf-mu" *ngIf="canRate">
           The carrier is asked first; a rate card answers if it will not.
         </p>
       </div>
@@ -234,16 +269,18 @@
             </tr>
           </table>
 
-          <dl class="rate-meta">
-            <dt>Priced on</dt>
-            <dd>{{ r.chargeableWeightKg | number:'1.0-3' }} kg chargeable</dd>
+          <div class="sf-kv">
+            <span>Priced on</span>
+            <span>{{ r.chargeableWeightKg | number:'1.0-3' }} kg chargeable</span>
 
-            <dt *ngIf="r.serviceCode">Service</dt>
-            <dd *ngIf="r.serviceCode" class="font-mono">{{ r.serviceCode }}</dd>
+            <ng-container *ngIf="r.serviceCode">
+              <span>Service</span>
+              <span class="sf-mono">{{ r.serviceCode }}</span>
+            </ng-container>
 
-            <dt>Quoted</dt>
-            <dd>{{ r.ratedAt | date:'dd MMM yyyy HH:mm' }}</dd>
-          </dl>
+            <span>Quoted</span>
+            <span>{{ r.ratedAt | date:'dd MMM yyyy HH:mm' }}</span>
+          </div>
 
           <div class="warnings" *ngIf="r.warnings.length" data-testid="rate-warnings">
             <p *ngFor="let w of r.warnings"><i class="pi pi-exclamation-triangle"></i> {{ w }}</p>
@@ -258,10 +295,10 @@
           <summary data-testid="weight-summary">
             {{ w.totalChargeableKg | number:'1.0-3' }} kg chargeable across
             {{ w.packageCount }} package(s)
-            <span class="muted" *ngIf="w.chargesVolumetricWeight">
+            <span class="sf-mu" *ngIf="w.chargesVolumetricWeight">
               · volume charged at ÷{{ w.dimDivisor }}
             </span>
-            <span class="muted" *ngIf="!w.chargesVolumetricWeight">· actual weight only</span>
+            <span class="sf-mu" *ngIf="!w.chargesVolumetricWeight">· actual weight only</span>
           </summary>
 
           <p-table [value]="w.packages" styleClass="p-datatable-sm" data-testid="weight-table">
@@ -276,19 +313,19 @@
             </ng-template>
             <ng-template pTemplate="body" let-p>
               <tr>
-                <td class="font-mono">{{ p.packageBarcode }}</td>
+                <td class="sf-mono">{{ p.packageBarcode }}</td>
                 <td class="amount">{{ (p.actualKg | number:'1.0-3') || '—' }}</td>
                 <td class="amount">{{ (p.volumetricKg | number:'1.0-3') || '—' }}</td>
                 <td class="amount"><strong>{{ (p.chargeableKg | number:'1.0-3') || '—' }}</strong></td>
                 <td>
                   <p-tag [value]="basisLabel(p.basis)" [severity]="basisSeverity(p.basis)"></p-tag>
-                  <span class="muted" *ngFor="let pw of p.warnings"> · {{ pw }}</span>
+                  <span class="sf-mu" *ngFor="let pw of p.warnings"> · {{ pw }}</span>
                 </td>
               </tr>
             </ng-template>
           </p-table>
 
-          <p class="muted incomplete" *ngIf="!w.isComplete" data-testid="weight-incomplete">
+          <p class="sf-mu incomplete" *ngIf="!w.isComplete" data-testid="weight-incomplete">
             Not every package could be weighed, so this is a floor rather than a quote.
           </p>
         </details>
@@ -297,11 +334,11 @@
 
     <!-- ── Comparing carriers ──────────────────────────────────────────────── -->
 
-    <section class="card" *ngIf="shop as s" data-testid="shop-card">
-      <div class="card-head">
-        <h2 class="card-title">
+    <section id="sec-compare" class="sf-section sf-card" *ngIf="shop as s" data-testid="shop-card">
+      <div class="sf-ch">
+        <h2>
           Carrier comparison
-          <span class="muted">· {{ s.strategy === 'FASTEST' ? 'fastest first' : 'cheapest first' }}</span>
+          <span class="sf-mu sf-sm">· {{ s.strategy === 'FASTEST' ? 'fastest first' : 'cheapest first' }}</span>
         </h2>
         <p-button label="Close" icon="pi pi-times" [text]="true" size="small"
                   (onClick)="shop = null" data-testid="action-close-shop"></p-button>
@@ -330,10 +367,10 @@
             <td>{{ o.rank || '—' }}</td>
             <td>
               {{ o.carrierName }}
-              <div class="muted" *ngIf="o.carrierAccountName">{{ o.carrierAccountName }}</div>
+              <div class="sf-mu" *ngIf="o.carrierAccountName">{{ o.carrierAccountName }}</div>
             </td>
             <td>
-              <span class="font-mono">{{ o.serviceCode || '—' }}</span>
+              <span class="sf-mono">{{ o.serviceCode || '—' }}</span>
               <p-tag *ngIf="o.source === 'RATE_CARD'" value="Card" severity="info"></p-tag>
               <p-tag *ngIf="o.isGuaranteed" value="Guaranteed" severity="success"></p-tag>
             </td>
@@ -341,7 +378,7 @@
             <td class="amount">
               <span *ngIf="o.rank && o.rank > 1">
                 +{{ o.moreThanBest | number:'1.2-2' }}
-                <span class="muted" *ngIf="o.moreThanBestPercent"> ({{ o.moreThanBestPercent }}%)</span>
+                <span class="sf-mu" *ngIf="o.moreThanBestPercent"> ({{ o.moreThanBestPercent }}%)</span>
               </span>
               <span *ngIf="o.rank === 1">—</span>
             </td>
@@ -349,11 +386,11 @@
               <span *ngIf="o.transitDays !== null && o.transitDays !== undefined">
                 {{ o.transitDays }} day(s)
               </span>
-              <div class="muted" *ngIf="o.estimatedDelivery">
+              <div class="sf-mu" *ngIf="o.estimatedDelivery">
                 {{ o.estimatedDelivery | date:'dd MMM' }}
               </div>
             </td>
-            <td class="muted why">{{ o.note }}</td>
+            <td class="sf-mu why">{{ o.note }}</td>
             <td>
               <p-button label="Accept" size="small" [text]="true" [disabled]="isSubmitting || !canRate"
                         (onClick)="acceptOption(o)" data-testid="action-accept-option"></p-button>
@@ -369,9 +406,9 @@
         <ul>
           <li *ngFor="let e of s.excluded">
             <strong>{{ e.carrierName }}</strong>
-            <span class="font-mono" *ngIf="e.serviceCode"> {{ e.serviceCode }}</span>
+            <span class="sf-mono" *ngIf="e.serviceCode"> {{ e.serviceCode }}</span>
             <span *ngIf="e.totalAmount"> — {{ e.totalAmount | number:'1.2-2' }} {{ e.currency }}</span>
-            <div class="muted">{{ e.reason }}</div>
+            <div class="sf-mu">{{ e.reason }}</div>
           </li>
         </ul>
       </div>
@@ -383,10 +420,10 @@
 
     <!-- ── Which rule would route it ───────────────────────────────────────── -->
 
-    <section class="card" data-testid="rules-card">
-      <div class="card-head">
-        <h2 class="card-title">Shipping rules</h2>
-        <div class="card-head-actions">
+    <section id="sec-rules" class="sf-section sf-card" data-testid="rules-card">
+      <div class="sf-ch">
+        <h2>Shipping rules</h2>
+        <div class="sf-ch-actions">
           <p-button label="Check the rules" icon="pi pi-sitemap" [text]="true" size="small"
                     [loading]="isShopping" (onClick)="evaluateRules()"
                     data-testid="action-evaluate-rules"></p-button>
@@ -399,13 +436,13 @@
       <div class="empty-state" *ngIf="!ruleDecision" data-testid="rules-unchecked">
         <i class="pi pi-sitemap"></i>
         <p>Nothing checked yet.</p>
-        <p class="muted">Rules choose a carrier automatically, and say which one fired.</p>
+        <p class="sf-mu">Rules choose a carrier automatically, and say which one fired.</p>
       </div>
 
       <ng-container *ngIf="ruleDecision as d">
-        <dl class="rate-meta">
-          <dt>Judged on</dt>
-          <dd>
+        <div class="sf-kv">
+          <span>Judged on</span>
+          <span>
             {{ d.chargeableWeightKg | number:'1.0-3' }} kg
             <span *ngIf="d.declaredValue">· worth {{ d.declaredValue | number:'1.0-2' }}</span>
             <span *ngIf="d.isHazardous">· hazardous</span>
@@ -413,11 +450,13 @@
             <span *ngIf="d.destinationCountryIso">
               · to {{ d.destinationCountryIso }} {{ d.destinationPostcode }}
             </span>
-          </dd>
+          </span>
 
-          <dt *ngIf="d.selection">Narrowed to</dt>
-          <dd *ngIf="d.selection">{{ d.selection }}</dd>
-        </dl>
+          <ng-container *ngIf="d.selection">
+            <span>Narrowed to</span>
+            <span>{{ d.selection }}</span>
+          </ng-container>
+        </div>
 
         <!-- The rules that did not fire, and why, are the point. A decision naming only the
              winner leaves somebody reading conditions out of a database. -->
@@ -428,15 +467,15 @@
               <strong>{{ v.name }}</strong>
               <p-tag *ngIf="v.matched" value="Fired" severity="success"></p-tag>
             </div>
-            <div class="muted">{{ v.reason }}</div>
+            <div class="sf-mu">{{ v.reason }}</div>
           </li>
         </ol>
 
         <p class="recommendation" *ngIf="d.recommended as r" data-testid="rule-recommendation">
           <i class="pi pi-check-circle"></i>
-          {{ r.carrierName }} <span class="font-mono">{{ r.serviceCode }}</span> at
+          {{ r.carrierName }} <span class="sf-mono">{{ r.serviceCode }}</span> at
           {{ r.totalAmount | number:'1.2-2' }} {{ r.currency }}.
-          <span class="muted" *ngIf="r.note">{{ r.note }}</span>
+          <span class="sf-mu" *ngIf="r.note">{{ r.note }}</span>
         </p>
 
         <div class="excluded" *ngIf="d.excluded.length" data-testid="rule-excluded">
@@ -444,9 +483,9 @@
           <ul>
             <li *ngFor="let e of d.excluded">
               <strong>{{ e.carrierName }}</strong>
-              <span class="font-mono" *ngIf="e.serviceCode"> {{ e.serviceCode }}</span>
+              <span class="sf-mono" *ngIf="e.serviceCode"> {{ e.serviceCode }}</span>
               <span *ngIf="e.totalAmount"> — {{ e.totalAmount | number:'1.2-2' }} {{ e.currency }}</span>
-              <div class="muted">{{ e.reason }}</div>
+              <div class="sf-mu">{{ e.reason }}</div>
             </li>
           </ul>
         </div>
@@ -456,30 +495,13 @@
         </div>
       </ng-container>
     </section>
+  </div>
 
-    <!-- ── Deliveries on board ─────────────────────────────────────────────── -->
-
-    <section class="card" *ngIf="c.deliveries?.length">
-      <h2 class="card-title">Deliveries on this consignment ({{ c.deliveries.length }})</h2>
-
-      <table class="deliveries">
-        <tr *ngFor="let d of c.deliveries" data-testid="consignment-delivery">
-          <td class="seq">{{ d.sequence }}</td>
-          <td>
-            <a [routerLink]="['/portal/pages/logistics/deliveries', d.deliveryUuid]"
-               class="font-mono link">{{ d.deliveryNumber }}</a>
-          </td>
-          <td>{{ formatStatus(d.status) }}</td>
-        </tr>
-      </table>
-    </section>
-
-    <!-- ── Tracking ────────────────────────────────────────────────────────── -->
-
-    <section class="card">
-      <div class="card-head">
-        <h2 class="card-title">Tracking</h2>
-        <p-button *ngIf="canRefreshTracking" label="Refresh" icon="pi pi-refresh" [text]="true"
+  <!-- ── Side panel: tracking and the deliveries on board ────────────────────────────── -->
+  <sf-panel #panel [tabs]="['Tracking', 'Deliveries']">
+    <ng-container *ngIf="panel.active() === 'Tracking'">
+      <div class="panel-head" *ngIf="canRefreshTracking">
+        <p-button label="Refresh" icon="pi pi-refresh" [text]="true"
                   size="small" [loading]="isRefreshingTracking" (onClick)="refreshTracking()"
                   data-testid="action-refresh-tracking"></p-button>
       </div>
@@ -501,8 +523,8 @@
             </div>
             <div class="event-body">
               <span *ngIf="e.description">{{ e.description }}</span>
-              <span class="muted" *ngIf="e.location">· {{ e.location }}</span>
-              <span class="muted" *ngIf="e.signedBy">· signed {{ e.signedBy }}</span>
+              <span class="sf-mu" *ngIf="e.location">· {{ e.location }}</span>
+              <span class="sf-mu" *ngIf="e.signedBy">· signed {{ e.signedBy }}</span>
             </div>
             <div class="event-meta">
               {{ sourceLabel(e.source) }}
@@ -512,244 +534,254 @@
           </div>
         </li>
       </ol>
-    </section>
-  </ng-container>
+    </ng-container>
 
-  <!-- ── Compare carriers ────────────────────────────────────────────────────── -->
-
-  <p-dialog header="Compare carriers" [(visible)]="shopDialogVisible" [modal]="true"
-            [style]="{ width: '30rem' }" [draggable]="false" data-testid="shop-dialog">
-    <div class="dialog-body">
-      <p class="dialog-hint">
-        Nothing is committed. Every carrier is priced and ranked, and you choose from the list.
-      </p>
-
-      <div class="field">
-        <label for="strategy">Rank by</label>
-        <p-select inputId="strategy" [options]="strategyOptions" [(ngModel)]="shopForm.strategy"
-                  optionLabel="label" optionValue="value" appendTo="body"
-                  data-testid="field-strategy"></p-select>
+    <ng-container *ngIf="panel.active() === 'Deliveries'">
+      <p class="sf-mu sf-sm" *ngIf="!c.deliveries?.length">No deliveries on this consignment.</p>
+      <div class="sf-card flat delivery-row" *ngFor="let d of c.deliveries" data-testid="consignment-delivery">
+        <span class="sf-mu">{{ d.sequence }}</span>
+        <a [routerLink]="['/portal/pages/logistics/deliveries', d.deliveryUuid]"
+           class="sf-mono">{{ d.deliveryNumber }}</a>
+        <span class="sf-pill">{{ formatStatus(d.status) }}</span>
       </div>
+    </ng-container>
+  </sf-panel>
+</sf-page>
 
-      <div class="field">
-        <label for="requiredBy">Needed by</label>
-        <p-datepicker inputId="requiredBy" [(ngModel)]="shopForm.requiredBy" dateFormat="dd M yy"
-                      [showClear]="true" appendTo="body" data-testid="field-required-by"></p-datepicker>
-        <small class="field-hint">
-          Options arriving later are still listed, with their price, so you can weigh the shortfall
-          against the cost.
-        </small>
-      </div>
+<!-- ── Compare carriers ────────────────────────────────────────────────────── -->
 
-      <div class="field checkbox-field">
-        <p-checkbox inputId="cardOnly" [(ngModel)]="shopForm.rateCardOnly" [binary]="true"
-                    data-testid="field-card-only"></p-checkbox>
-        <label for="cardOnly">Rate cards only — do not ask any carrier</label>
-      </div>
+<p-dialog header="Compare carriers" [(visible)]="shopDialogVisible" [modal]="true"
+          [style]="{ width: '30rem' }" [draggable]="false" data-testid="shop-dialog">
+  <div class="dialog-body">
+    <p class="dialog-hint">
+      Nothing is committed. Every carrier is priced and ranked, and you choose from the list.
+    </p>
+
+    <div class="field">
+      <label for="strategy">Rank by</label>
+      <p-select inputId="strategy" [options]="strategyOptions" [(ngModel)]="shopForm.strategy"
+                optionLabel="label" optionValue="value" appendTo="body"
+                data-testid="field-strategy"></p-select>
     </div>
 
-    <ng-template pTemplate="footer">
-      <p-button label="Cancel" [text]="true" severity="secondary"
-                (onClick)="shopDialogVisible = false"></p-button>
-      <p-button label="Compare" icon="pi pi-sort-amount-down" [loading]="isShopping"
-                (onClick)="runShop()" data-testid="confirm-shop"></p-button>
-    </ng-template>
-  </p-dialog>
-
-  <!-- ── A price obtained outside the system ─────────────────────────────────── -->
-
-  <p-dialog header="Enter a freight cost" [(visible)]="manualRateDialogVisible" [modal]="true"
-            [style]="{ width: '30rem' }" [draggable]="false" data-testid="manual-rate-dialog">
-    <div class="dialog-body">
-      <p class="dialog-hint">
-        For a price emailed or given over the telephone. Say where it came from — a figure with no
-        source behind it cannot be defended when the invoice disagrees.
-      </p>
-
-      <div class="field">
-        <label for="rateAmount">Amount</label>
-        <p-inputNumber inputId="rateAmount" [(ngModel)]="manualRateForm.amount" mode="decimal"
-                       [minFractionDigits]="2" [maxFractionDigits]="2"
-                       data-testid="field-rate-amount"></p-inputNumber>
-      </div>
-
-      <div class="field">
-        <label for="rateCurrency">Currency</label>
-        <input pInputText id="rateCurrency" [(ngModel)]="manualRateForm.currency" maxlength="3"
-               placeholder="PKR" data-testid="field-rate-currency" />
-      </div>
-
-      <div class="field">
-        <label for="rateNote">Where it came from</label>
-        <textarea pTextarea id="rateNote" [(ngModel)]="manualRateForm.note" rows="3"
-                  placeholder="Quotation reference, or who quoted it"
-                  data-testid="field-rate-note"></textarea>
-      </div>
+    <div class="field">
+      <label for="requiredBy">Needed by</label>
+      <p-datepicker inputId="requiredBy" [(ngModel)]="shopForm.requiredBy" dateFormat="dd M yy"
+                    [showClear]="true" appendTo="body" data-testid="field-required-by"></p-datepicker>
+      <small class="field-hint">
+        Options arriving later are still listed, with their price, so you can weigh the shortfall
+        against the cost.
+      </small>
     </div>
 
-    <ng-template pTemplate="footer">
-      <p-button label="Cancel" [text]="true" severity="secondary"
-                (onClick)="manualRateDialogVisible = false"></p-button>
-      <p-button label="Record" icon="pi pi-check" [disabled]="!canSaveManualRate"
-                [loading]="isSubmitting" (onClick)="confirmManualRate()"
-                data-testid="confirm-manual-rate"></p-button>
-    </ng-template>
-  </p-dialog>
+    <div class="field checkbox-field">
+      <p-checkbox inputId="cardOnly" [(ngModel)]="shopForm.rateCardOnly" [binary]="true"
+                  data-testid="field-card-only"></p-checkbox>
+      <label for="cardOnly">Rate cards only — do not ask any carrier</label>
+    </div>
+  </div>
 
-  <!-- ── Book ────────────────────────────────────────────────────────────────── -->
+  <ng-template pTemplate="footer">
+    <p-button label="Cancel" [text]="true" severity="secondary"
+              (onClick)="shopDialogVisible = false"></p-button>
+    <p-button label="Compare" icon="pi pi-sort-amount-down" [loading]="isShopping"
+              (onClick)="runShop()" data-testid="confirm-shop"></p-button>
+  </ng-template>
+</p-dialog>
 
-  <p-dialog header="Book with the carrier" [(visible)]="bookDialogVisible" [modal]="true"
-            [style]="{ width: '32rem' }" [draggable]="false" data-testid="book-dialog">
-    <div class="dialog-body">
-      <p class="dialog-hint">
-        This commits money to the carrier. The call happens in the background — the screen updates
-        itself when the carrier answers.
-      </p>
+<!-- ── A price obtained outside the system ─────────────────────────────────── -->
 
-      <div class="field">
-        <label for="account">Account</label>
-        <p-select inputId="account" [options]="accountOptions"
-                  [(ngModel)]="bookForm.carrierAccountUuid" optionLabel="label"
-                  optionValue="value" appendTo="body" data-testid="field-account"></p-select>
-      </div>
+<p-dialog header="Enter a freight cost" [(visible)]="manualRateDialogVisible" [modal]="true"
+          [style]="{ width: '30rem' }" [draggable]="false" data-testid="manual-rate-dialog">
+  <div class="dialog-body">
+    <p class="dialog-hint">
+      For a price emailed or given over the telephone. Say where it came from — a figure with no
+      source behind it cannot be defended when the invoice disagrees.
+    </p>
 
-      <div class="field">
-        <label for="service">Service code</label>
-        <input pInputText id="service" [(ngModel)]="bookForm.serviceCode"
-               placeholder="Leave blank for the account's default" />
-      </div>
+    <div class="field">
+      <label for="rateAmount">Amount</label>
+      <p-inputNumber inputId="rateAmount" [(ngModel)]="manualRateForm.amount" mode="decimal"
+                     [minFractionDigits]="2" [maxFractionDigits]="2"
+                     data-testid="field-rate-amount"></p-inputNumber>
     </div>
 
-    <ng-template pTemplate="footer">
-      <p-button label="Cancel" [text]="true" severity="secondary"
-                (onClick)="bookDialogVisible = false"></p-button>
-      <p-button label="Book" icon="pi pi-send" [disabled]="isSubmitting" [loading]="isSubmitting"
-                (onClick)="confirmBook()" data-testid="confirm-book"></p-button>
-    </ng-template>
-  </p-dialog>
-
-  <!-- ── Manual airway bill ──────────────────────────────────────────────────── -->
-
-  <p-dialog header="Record the airway bill" [(visible)]="manualDialogVisible" [modal]="true"
-            [style]="{ width: '30rem' }" [draggable]="false" data-testid="manual-dialog">
-    <div class="dialog-body">
-      <p class="dialog-hint">
-        For a carrier booked by phone, portal or paper note. Nothing is sent to the carrier — this
-        records the number they gave you.
-      </p>
-
-      <div class="field">
-        <label for="awb">Airway bill</label>
-        <input pInputText id="awb" [(ngModel)]="manualForm.awb" data-testid="field-awb" />
-      </div>
-
-      <div class="field">
-        <label for="ref">Carrier reference</label>
-        <input pInputText id="ref" [(ngModel)]="manualForm.carrierReference" />
-      </div>
+    <div class="field">
+      <label for="rateCurrency">Currency</label>
+      <input pInputText id="rateCurrency" [(ngModel)]="manualRateForm.currency" maxlength="3"
+             placeholder="PKR" data-testid="field-rate-currency" />
     </div>
 
-    <ng-template pTemplate="footer">
-      <p-button label="Cancel" [text]="true" severity="secondary"
-                (onClick)="manualDialogVisible = false"></p-button>
-      <p-button label="Save" icon="pi pi-check" [disabled]="!canSaveManual"
-                [loading]="isSubmitting" (onClick)="confirmManual()"
-                data-testid="confirm-manual"></p-button>
-    </ng-template>
-  </p-dialog>
+    <div class="field">
+      <label for="rateNote">Where it came from</label>
+      <textarea pTextarea id="rateNote" [(ngModel)]="manualRateForm.note" rows="3"
+                placeholder="Quotation reference, or who quoted it"
+                data-testid="field-rate-note"></textarea>
+    </div>
+  </div>
 
-  <!-- ── Handover ────────────────────────────────────────────────────────────── -->
+  <ng-template pTemplate="footer">
+    <p-button label="Cancel" [text]="true" severity="secondary"
+              (onClick)="manualRateDialogVisible = false"></p-button>
+    <p-button label="Record" icon="pi pi-check" [disabled]="!canSaveManualRate"
+              [loading]="isSubmitting" (onClick)="confirmManualRate()"
+              data-testid="confirm-manual-rate"></p-button>
+  </ng-template>
+</p-dialog>
 
-  <p-dialog header="Record the handover" [(visible)]="handoverDialogVisible" [modal]="true"
-            [style]="{ width: '32rem' }" [draggable]="false" data-testid="handover-dialog">
-    <div class="dialog-body">
-      <p class="dialog-hint">
-        The goods reached the customer. This marks the consignment delivered, and its delivery, the
-        sale order and the invoice behind it follow. Record it only once somebody has actually taken
-        the parcel — it cannot be taken back.
-      </p>
+<!-- ── Book ────────────────────────────────────────────────────────────────── -->
 
-      <div class="field">
-        <label for="received-by">Received by</label>
-        <input pInputText id="received-by" [(ngModel)]="handoverForm.receivedBy"
-               placeholder="Who signed for it" data-testid="field-received-by" />
-      </div>
+<p-dialog header="Book with the carrier" [(visible)]="bookDialogVisible" [modal]="true"
+          [style]="{ width: '32rem' }" [draggable]="false" data-testid="book-dialog">
+  <div class="dialog-body">
+    <p class="dialog-hint">
+      This commits money to the carrier. The call happens in the background — the screen updates
+      itself when the carrier answers.
+    </p>
 
-      <div class="field">
-        <label for="relationship">Relationship to the customer</label>
-        <input pInputText id="relationship" [(ngModel)]="handoverForm.relationship"
-               placeholder="Customer, receptionist, security…" data-testid="field-relationship" />
-      </div>
-
-      <div class="field">
-        <label for="delivered-at">Handed over at</label>
-        <p-datepicker inputId="delivered-at" [(ngModel)]="handoverForm.deliveredAt" [showTime]="true"
-                      dateFormat="dd M yy" [maxDate]="today" [showClear]="true" appendTo="body"
-                      data-testid="field-delivered-at"></p-datepicker>
-        <small class="field-hint">Leave empty to use the time you record it.</small>
-      </div>
-
-      <div class="field">
-        <label for="handover-notes">Notes</label>
-        <textarea pTextarea id="handover-notes" [(ngModel)]="handoverForm.notes" rows="2"
-                  class="w-full" data-testid="field-handover-notes"></textarea>
-      </div>
+    <div class="field">
+      <label for="account">Account</label>
+      <p-select inputId="account" [options]="accountOptions"
+                [(ngModel)]="bookForm.carrierAccountUuid" optionLabel="label"
+                optionValue="value" appendTo="body" data-testid="field-account"></p-select>
     </div>
 
-    <ng-template pTemplate="footer">
-      <p-button label="Cancel" [text]="true" severity="secondary"
-                (onClick)="handoverDialogVisible = false"></p-button>
-      <p-button label="Record handover" icon="pi pi-check" severity="success"
-                [disabled]="!canSaveHandover" [loading]="isSubmitting" (onClick)="confirmHandover()"
-                data-testid="confirm-handover"></p-button>
-    </ng-template>
-  </p-dialog>
+    <div class="field">
+      <label for="service">Service code</label>
+      <input pInputText id="service" [(ngModel)]="bookForm.serviceCode"
+             placeholder="Leave blank for the account's default" />
+    </div>
+  </div>
 
-  <!-- ── Resolve an unknown outcome ──────────────────────────────────────────── -->
+  <ng-template pTemplate="footer">
+    <p-button label="Cancel" [text]="true" severity="secondary"
+              (onClick)="bookDialogVisible = false"></p-button>
+    <p-button label="Book" icon="pi pi-send" [disabled]="isSubmitting" [loading]="isSubmitting"
+              (onClick)="confirmBook()" data-testid="confirm-book"></p-button>
+  </ng-template>
+</p-dialog>
 
-  <p-dialog header="What did the carrier say?" [(visible)]="resolveDialogVisible" [modal]="true"
-            [style]="{ width: '34rem' }" [draggable]="false" data-testid="resolve-dialog">
-    <div class="dialog-body">
-      <p class="dialog-hint danger">
-        <i class="pi pi-exclamation-triangle"></i>
-        Only record this once somebody has actually checked with the carrier. Guessing here either
-        strands a real parcel or books a second one.
-      </p>
+<!-- ── Manual airway bill ──────────────────────────────────────────────────── -->
 
-      <div class="choice">
-        <label>
-          <input type="radio" name="booked" [value]="true" [(ngModel)]="resolveForm.carrierBooked"
-                 data-testid="resolve-yes" />
-          The carrier <strong>has</strong> the booking
-        </label>
-        <label>
-          <input type="radio" name="booked" [value]="false" [(ngModel)]="resolveForm.carrierBooked"
-                 data-testid="resolve-no" />
-          The carrier has <strong>no record</strong> of it
-        </label>
-      </div>
+<p-dialog header="Record the airway bill" [(visible)]="manualDialogVisible" [modal]="true"
+          [style]="{ width: '30rem' }" [draggable]="false" data-testid="manual-dialog">
+  <div class="dialog-body">
+    <p class="dialog-hint">
+      For a carrier booked by phone, portal or paper note. Nothing is sent to the carrier — this
+      records the number they gave you.
+    </p>
 
-      <div class="field" *ngIf="resolveForm.carrierBooked">
-        <label for="resolve-awb">Airway bill they confirmed</label>
-        <input pInputText id="resolve-awb" [(ngModel)]="resolveForm.awb"
-               data-testid="field-resolve-awb" />
-        <small>Without it there is nothing to track or prove the consignment.</small>
-      </div>
-
-      <div class="field">
-        <label for="resolve-note">How was it confirmed?</label>
-        <textarea pTextarea id="resolve-note" [(ngModel)]="resolveForm.note" rows="3"
-                  placeholder="Who at the carrier, or what their portal shows"
-                  data-testid="field-resolve-note"></textarea>
-      </div>
+    <div class="field">
+      <label for="awb">Airway bill</label>
+      <input pInputText id="awb" [(ngModel)]="manualForm.awb" data-testid="field-awb" />
     </div>
 
-    <ng-template pTemplate="footer">
-      <p-button label="Cancel" [text]="true" severity="secondary"
-                (onClick)="resolveDialogVisible = false"></p-button>
-      <p-button label="Record it" icon="pi pi-check" [disabled]="!canResolve"
-                [loading]="isSubmitting" (onClick)="confirmResolve()"
-                data-testid="confirm-resolve"></p-button>
-    </ng-template>
-  </p-dialog>
-</div>
+    <div class="field">
+      <label for="ref">Carrier reference</label>
+      <input pInputText id="ref" [(ngModel)]="manualForm.carrierReference" />
+    </div>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <p-button label="Cancel" [text]="true" severity="secondary"
+              (onClick)="manualDialogVisible = false"></p-button>
+    <p-button label="Save" icon="pi pi-check" [disabled]="!canSaveManual"
+              [loading]="isSubmitting" (onClick)="confirmManual()"
+              data-testid="confirm-manual"></p-button>
+  </ng-template>
+</p-dialog>
+
+<!-- ── Handover ────────────────────────────────────────────────────────────── -->
+
+<p-dialog header="Record the handover" [(visible)]="handoverDialogVisible" [modal]="true"
+          [style]="{ width: '32rem' }" [draggable]="false" data-testid="handover-dialog">
+  <div class="dialog-body">
+    <p class="dialog-hint">
+      The goods reached the customer. This marks the consignment delivered, and its delivery, the
+      sale order and the invoice behind it follow. Record it only once somebody has actually taken
+      the parcel — it cannot be taken back.
+    </p>
+
+    <div class="field">
+      <label for="received-by">Received by</label>
+      <input pInputText id="received-by" [(ngModel)]="handoverForm.receivedBy"
+             placeholder="Who signed for it" data-testid="field-received-by" />
+    </div>
+
+    <div class="field">
+      <label for="relationship">Relationship to the customer</label>
+      <input pInputText id="relationship" [(ngModel)]="handoverForm.relationship"
+             placeholder="Customer, receptionist, security…" data-testid="field-relationship" />
+    </div>
+
+    <div class="field">
+      <label for="delivered-at">Handed over at</label>
+      <p-datepicker inputId="delivered-at" [(ngModel)]="handoverForm.deliveredAt" [showTime]="true"
+                    dateFormat="dd M yy" [maxDate]="today" [showClear]="true" appendTo="body"
+                    data-testid="field-delivered-at"></p-datepicker>
+      <small class="field-hint">Leave empty to use the time you record it.</small>
+    </div>
+
+    <div class="field">
+      <label for="handover-notes">Notes</label>
+      <textarea pTextarea id="handover-notes" [(ngModel)]="handoverForm.notes" rows="2"
+                class="w-full" data-testid="field-handover-notes"></textarea>
+    </div>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <p-button label="Cancel" [text]="true" severity="secondary"
+              (onClick)="handoverDialogVisible = false"></p-button>
+    <p-button label="Record handover" icon="pi pi-check" severity="success"
+              [disabled]="!canSaveHandover" [loading]="isSubmitting" (onClick)="confirmHandover()"
+              data-testid="confirm-handover"></p-button>
+  </ng-template>
+</p-dialog>
+
+<!-- ── Resolve an unknown outcome ──────────────────────────────────────────── -->
+
+<p-dialog header="What did the carrier say?" [(visible)]="resolveDialogVisible" [modal]="true"
+          [style]="{ width: '34rem' }" [draggable]="false" data-testid="resolve-dialog">
+  <div class="dialog-body">
+    <p class="dialog-hint danger">
+      <i class="pi pi-exclamation-triangle"></i>
+      Only record this once somebody has actually checked with the carrier. Guessing here either
+      strands a real parcel or books a second one.
+    </p>
+
+    <div class="choice">
+      <label>
+        <input type="radio" name="booked" [value]="true" [(ngModel)]="resolveForm.carrierBooked"
+               data-testid="resolve-yes" />
+        The carrier <strong>has</strong> the booking
+      </label>
+      <label>
+        <input type="radio" name="booked" [value]="false" [(ngModel)]="resolveForm.carrierBooked"
+               data-testid="resolve-no" />
+        The carrier has <strong>no record</strong> of it
+      </label>
+    </div>
+
+    <div class="field" *ngIf="resolveForm.carrierBooked">
+      <label for="resolve-awb">Airway bill they confirmed</label>
+      <input pInputText id="resolve-awb" [(ngModel)]="resolveForm.awb"
+             data-testid="field-resolve-awb" />
+      <small>Without it there is nothing to track or prove the consignment.</small>
+    </div>
+
+    <div class="field">
+      <label for="resolve-note">How was it confirmed?</label>
+      <textarea pTextarea id="resolve-note" [(ngModel)]="resolveForm.note" rows="3"
+                placeholder="Who at the carrier, or what their portal shows"
+                data-testid="field-resolve-note"></textarea>
+    </div>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <p-button label="Cancel" [text]="true" severity="secondary"
+              (onClick)="resolveDialogVisible = false"></p-button>
+    <p-button label="Record it" icon="pi pi-check" [disabled]="!canResolve"
+              [loading]="isSubmitting" (onClick)="confirmResolve()"
+              data-testid="confirm-resolve"></p-button>
+  </ng-template>
+</p-dialog>

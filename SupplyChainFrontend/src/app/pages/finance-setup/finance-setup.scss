@@ -1,84 +1,44 @@
-// Styles the Tax Codes and Exchange Rates settings pages share (each lists this file first in its
-// styleUrls). Follows the QuickBooks / Sale Order Settings pages: a header with an icon block, white
-// cards on the surface, muted hints.
+// Styles the Finance Setup pages share (each lists this file first in its styleUrls): the page frame is the SMS Flow
+// kit (sf-*); what is left here is the inline notes, the dialog fields and a few table helpers.
 
 :host { display: block; }
 
-.setup-page { padding: 1.5rem; max-width: 80rem; }
-
-.grow { flex: 1; min-width: 0; }
 .w-full { width: 100%; }
-.muted { color: var(--text-color-secondary); }
+.muted { color: var(--sms-text-muted); }
 .mono { font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace); font-size: .8125rem; }
 .nowrap { white-space: nowrap; }
 .text-right { text-align: right; }
 
-// ── Header ──────────────────────────────────────────────────────────────────
-.page-header { display: flex; align-items: flex-start; gap: 1rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
-.page-icon {
-  width: 2.75rem; height: 2.75rem; border-radius: .625rem; flex-shrink: 0;
-  background: var(--primary-50, #f4f3ff); color: var(--primary-color, #6c63ff);
-  display: flex; align-items: center; justify-content: center;
-  i { font-size: 1.2rem; }
-}
-.page-title { font-size: 1.5rem; font-weight: 700; display: flex; align-items: center; gap: .625rem; margin: 0; flex-wrap: wrap; }
-.page-subtitle { color: var(--text-color-secondary); font-size: .875rem; margin: .25rem 0 0; max-width: 52rem; line-height: 1.45; }
-.page-actions { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
-
-// ── Cards ───────────────────────────────────────────────────────────────────
-.form-card {
-  background: var(--surface-0); border: 1px solid var(--surface-200);
-  border-radius: .625rem; padding: 1.25rem; margin-bottom: 1rem;
-  &.flush { padding: 0; overflow: hidden; }
-}
-.card-head { display: flex; align-items: center; gap: .875rem; margin-bottom: 1rem; flex-wrap: wrap; }
-.card-icon {
-  width: 2.25rem; height: 2.25rem; border-radius: .5rem; background: var(--primary-50, #f4f3ff); flex-shrink: 0;
-  color: var(--primary-color, #6c63ff); display: flex; align-items: center; justify-content: center;
-}
-.card-title { font-weight: 700; }
-.card-sub { font-size: .8125rem; color: var(--text-color-secondary); }
-
 // ── Loading and failure ─────────────────────────────────────────────────────
-.state-inline { display: flex; align-items: center; gap: .5rem; padding: 1rem 1.25rem; color: var(--text-color-secondary); flex-wrap: wrap; }
+.state-inline { display: flex; align-items: center; gap: .5rem; padding: 1rem 1.25rem; color: var(--sms-text-muted); flex-wrap: wrap; }
 
-// ── Fields ──────────────────────────────────────────────────────────────────
+// ── Fields (dialogs) ────────────────────────────────────────────────────────
 .field { display: flex; flex-direction: column; gap: .375rem; min-width: 0; margin-bottom: 1rem; }
 .field > label { font-size: .875rem; font-weight: 600; }
 .field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 1.25rem; }
-.hint { color: var(--text-color-secondary); font-size: .8125rem; line-height: 1.4; }
-.p-error { color: var(--red-500, #ef4444); font-size: .8125rem; display: block; }
-.required { color: var(--red-500, #ef4444); }
+.hint { color: var(--sms-text-muted); font-size: .8125rem; line-height: 1.4; margin: 0; }
+.p-error { color: var(--sms-danger); font-size: .8125rem; display: block; }
+.required { color: var(--sms-danger); }
 .check-row { display: flex; align-items: flex-start; gap: .5rem; margin-bottom: .75rem; label { font-size: .875rem; cursor: pointer; } }
 
 // ── Notes ───────────────────────────────────────────────────────────────────
 .note {
   display: flex; gap: .625rem; align-items: flex-start; padding: .75rem .875rem; border-radius: .5rem;
-  font-size: .8125rem; line-height: 1.45; margin-bottom: 1rem;
-  background: var(--surface-50, #fafafa); color: var(--text-color-secondary);
+  font-size: .8125rem; line-height: 1.45;
+  background: var(--sms-surface-2); color: var(--sms-text-muted);
   i { margin-top: .125rem; }
-  &.info { background: var(--blue-50, #eff6ff); color: var(--blue-900, #1e3a8a); }
-  &.warn { background: var(--orange-50, #fff7ed); color: var(--orange-900, #7c2d12); }
-  &.success { background: var(--green-50, #f0fdf4); color: var(--green-900, #14532d); }
+  &.info { background: var(--sms-primary-soft); color: var(--sms-primary-text); }
+  &.warn { background: var(--sms-warn-soft); color: var(--sms-warn); }
+  &.success { background: var(--sms-ok-soft); color: var(--sms-ok); }
   .note-body { flex: 1; min-width: 0; }
   .note-title { font-weight: 700; margin-bottom: .125rem; }
 }
+p-dialog .note, .p-dialog .note { margin-bottom: 1rem; }
 
 // ── Tables ──────────────────────────────────────────────────────────────────
-.empty { text-align: center; padding: 2rem 1rem; color: var(--text-color-secondary); }
-.table-toolbar {
-  display: flex; align-items: center; gap: .625rem; flex-wrap: wrap;
-  padding: 1rem 1.25rem; border-bottom: 1px solid var(--surface-100, #f3f4f6);
-}
 .row-actions { display: flex; gap: .125rem; justify-content: flex-end; flex-wrap: nowrap; }
 .inactive-row td { opacity: .6; }
 
-.dialog-hint { font-size: .875rem; color: var(--text-color-secondary); margin: 0 0 1rem; line-height: 1.45; }
-
 @media (max-width: 900px) {
   .field-grid { grid-template-columns: 1fr; }
-}
-
-@media (max-width: 640px) {
-  .setup-page { padding: 1rem; }
 }

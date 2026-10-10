@@ -85,6 +85,8 @@ internal class Permission
     public string Name { get; set; } = string.Empty;
     public string Code { get; set; } = string.Empty;
     public string? Description { get; set; }
+    // A37 D-14 — the module the permission belongs to (SMS.Shared ModuleCodeMap.ForPermission), set by the seeder.
+    public string? ModuleCode { get; set; }
 }
 
 // Either a global role (IsGlobal=true, OrganizationId=null — the shared seeded catalog: System

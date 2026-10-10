@@ -111,11 +111,13 @@ internal sealed class SaleOrderDeliverySweepJob
     private readonly ILogger<SaleOrderDeliverySweepJob> _log;
     private readonly IEffectiveRouteResolver? _routes;
     private readonly ISaleOrderDeliveryCreator? _creator;
+    private readonly IModuleGate? _gate;
 
     public SaleOrderDeliverySweepJob(
         DemandDbContext db, IBackgroundJobClient jobs, ILogger<SaleOrderDeliverySweepJob> log,
-        IEffectiveRouteResolver? routes = null, ISaleOrderDeliveryCreator? creator = null)
+        IEffectiveRouteResolver? routes = null, ISaleOrderDeliveryCreator? creator = null, IModuleGate? gate = null)
     {
+        _gate    = gate;
         _db      = db;
         _jobs    = jobs;
         _log     = log;
@@ -133,9 +135,17 @@ internal sealed class SaleOrderDeliverySweepJob
         var confirmed = EnumCode<SaleOrderStatus>.Of(SaleOrderStatus.Confirmed);
         var partial   = EnumCode<SaleOrderStatus>.Of(SaleOrderStatus.PartiallyFulfilled);
 
-        var due = await _db.SaleOrders.IgnoreQueryFilters().AsNoTracking()
+        var pending = _db.SaleOrders.IgnoreQueryFilters().AsNoTracking()
             .Where(o => o.DeliveryCreationPendingSince != null && o.DeliveryCreationPendingSince <= cutoff && !o.IsDeleted
-                     && (o.Status == confirmed || o.Status == partial))
+                     && (o.Status == confirmed || o.Status == partial));
+
+        // A37 D-9 (D-19) — organizations without MODULE_LOGISTICS (grace counts as off) are left out of the batch, their
+        // orders still pending: they resume when the module is back. Excluded in the query so they cannot fill the batch.
+        var skipped = _gate is null ? [] : (await _gate.SkippedAmongAsync(
+            await pending.Select(o => o.OrganizationId).Distinct().ToListAsync(),
+            ModuleCodes.Logistics, _log, nameof(SaleOrderDeliverySweepJob))).ToList();
+
+        var due = await pending.Where(o => !skipped.Contains(o.OrganizationId))
             .OrderBy(o => o.DeliveryCreationPendingSince)
             .Select(o => new { o.OrganizationId, o.UUID })
             .Take(BatchSize)

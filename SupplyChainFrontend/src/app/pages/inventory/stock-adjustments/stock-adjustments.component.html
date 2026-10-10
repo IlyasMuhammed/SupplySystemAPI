@@ -1,40 +1,41 @@
-<div class="stock-adjustments-page">
-  <p-toast></p-toast>
-  <p-confirmDialog></p-confirmDialog>
+<p-toast></p-toast>
+<p-confirmDialog></p-confirmDialog>
 
-  <!-- ── Page Header ─────────────────────────────────────────────────────── -->
-  <div class="page-header">
-    <div class="header-content">
-      <div class="header-left">
-        <h1 class="page-title">
-          <i class="pi pi-sliders-h"></i>
-          Stock Adjustments
-        </h1>
-        <p class="page-subtitle">Record inventory increases, decreases, and corrections</p>
-      </div>
-      <div class="header-stats">
-        <div class="mini-stat">
-          <span class="mini-stat-value">{{ recentAdjustments.length }}</span>
-          <span class="mini-stat-label">This Session</span>
-        </div>
-        <div class="mini-stat warn" *ngIf="pendingApprovals.length > 0">
-          <span class="mini-stat-value">{{ pendingApprovals.length }}</span>
-          <span class="mini-stat-label">Pending Approval</span>
-        </div>
-      </div>
-    </div>
+<sf-page [crumbs]="['Inventory', 'Stock adjustments']">
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <p-button label="Refresh approvals" icon="pi pi-refresh" [text]="true"
+              [loading]="isLoadingPending" (onClick)="loadPendingApprovals()"></p-button>
   </div>
 
+  <!-- ── Header ──────────────────────────────────────────────────────────── -->
+  <header class="sf-hdr">
+    <div class="sf-t">
+      <div>
+        <div class="sf-kicker">Inventory</div>
+        <h1>Stock Adjustments</h1>
+        <div class="sf-meta">Record inventory increases, decreases, and corrections</div>
+      </div>
+    </div>
+    <div class="sf-facts">
+      <div class="sf-kpi">
+        <span class="l">This Session</span>
+        <span class="v">{{ recentAdjustments.length }}</span>
+      </div>
+      <div class="sf-kpi" *ngIf="pendingApprovals.length > 0">
+        <span class="l">Pending Approval</span>
+        <span class="v wn">{{ pendingApprovals.length }}</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="sf-body stock-adjustments-page">
   <!-- ── Main Content ────────────────────────────────────────────────────── -->
-  <div class="main-layout">
+  <div class="sf-row main-layout">
 
     <!-- ── LEFT PANEL: Create Adjustment Form ─────────────────────────────── -->
     <div class="panel-left">
-      <div class="form-card">
-        <div class="form-card-header">
-          <div class="fch-icon"><i class="pi pi-plus-circle"></i></div>
-          <span>New Stock Adjustment</span>
-        </div>
+      <div class="sf-card form-card">
+        <div class="sf-ch"><h2>New Stock Adjustment</h2></div>
 
         <div class="form-card-body">
           <form [formGroup]="adjustmentForm" (ngSubmit)="onSubmit()">
@@ -182,14 +183,12 @@
 
     <!-- ── RIGHT PANEL: Pending Approvals ─────────────────────────────────── -->
     <div class="panel-right">
-      <p-card styleClass="pending-card">
-        <ng-template pTemplate="header">
-          <div class="card-section-header orange">
-            <i class="pi pi-clock"></i>
-            Pending Approvals
-            <span class="count-badge" *ngIf="pendingApprovals.length > 0">{{ pendingApprovals.length }}</span>
-          </div>
-        </ng-template>
+      <div class="sf-card pending-card">
+        <div class="sf-ch">
+          <h2>Pending Approvals
+            <span class="sf-pill wn" *ngIf="pendingApprovals.length > 0">{{ pendingApprovals.length }}</span>
+          </h2>
+        </div>
 
         <div *ngIf="isLoadingPending" class="pending-loading">
           <i class="pi pi-spin pi-spinner"></i> Loading...
@@ -246,21 +245,17 @@
 
           </div>
         </div>
-      </p-card>
+      </div>
     </div>
 
   </div>
 
   <!-- ── Session History ─────────────────────────────────────────────────── -->
-  <div class="history-section">
-    <p-card styleClass="history-card">
-      <ng-template pTemplate="header">
-        <div class="card-section-header blue">
-          <i class="pi pi-history"></i>
-          Recent Adjustments
-          <span class="session-label">This session only</span>
-        </div>
-      </ng-template>
+  <div class="sf-card p0 history-section">
+      <div class="sf-ch">
+        <h2>Recent Adjustments</h2>
+        <span class="sf-mu sf-sm" style="font-style:italic">This session only</span>
+      </div>
 
       <p-table
         [value]="recentAdjustments"
@@ -315,18 +310,17 @@
 
         <ng-template pTemplate="emptymessage">
           <tr>
-            <td colspan="7" class="text-center p-8">
-              <i class="pi pi-sliders-h text-4xl text-color-secondary block mb-3" style="opacity: 0.3"></i>
-              <p class="text-color-secondary">Submit your first adjustment above.</p>
+            <td colspan="7" class="sf-empty">
+              Submit your first adjustment above.
             </td>
           </tr>
         </ng-template>
 
       </p-table>
-    </p-card>
   </div>
 
-</div>
+  </div>
+</sf-page>
 
 <!-- ══════════════════════════════════════════════════════════════════════════ -->
 <!-- REJECT DIALOG                                                              -->

@@ -30,6 +30,7 @@ import { SalesInvoiceService } from '../../../../services/sales-invoice.service'
 import { AuthService } from '../../../service/auth.service';
 import { DELIVERY_STATUS_SEVERITY } from '../delivery-list/delivery-list.component';
 import { SHIPMENT_STATUS_SEVERITY } from '../../consignments/consignment-detail/consignment-detail.component';
+import { FLOW, FlowSection, FlowStage, flowStagesFrom } from '../../../../shared/flow';
 
 type Severity = 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast';
 
@@ -116,7 +117,8 @@ const ADVANCE_SUCCESS: Partial<Record<DeliveryNextAction, string>> = {
     CommonModule, RouterModule, FormsModule,
     TableModule, ButtonModule, TagModule, TooltipModule, ToastModule,
     DialogModule, TextareaModule, DropdownModule, InputTextModule,
-    TimelinePanelComponent, AttachmentListComponent
+    TimelinePanelComponent, AttachmentListComponent,
+    ...FLOW
   ],
   templateUrl: './delivery-detail.component.html',
   styleUrls: ['./delivery-detail.component.scss'],
@@ -806,6 +808,43 @@ export class DeliveryDetailComponent implements OnInit {
   }
 
   // ── Display ─────────────────────────────────────────────────────────────────
+
+  /** SMS Flow status strip for a delivery with no route (a routed one shows its own step tracker). */
+  get stages(): FlowStage[] {
+    const d = this.delivery;
+    if (!d) return [];
+    if (d.status === 'CANCELLED' || d.status === 'SHORT_CLOSED') {
+      return flowStagesFrom(['Open', this.formatStatus(d.status)], 1, { failed: true });
+    }
+    const labels = ['Draft', 'Released', 'Picking', 'Packing', 'Goods issue', 'Delivery'];
+    const at: Record<string, number> = {
+      DRAFT: 0, RELEASED: 1, PICKING: 2, PICKED: 3, PACKED: 4, STAGED: 4, PENDING_APPROVAL: 4,
+      GOODS_ISSUED: 5, IN_TRANSIT: 5, PARTIALLY_DELIVERED: 5, DELIVERED: 6, CLOSED: 6
+    };
+    const held = d.status === 'ON_HOLD';
+    const current = at[held ? (d.statusBeforeHold ?? '') : d.status] ?? 0;
+    return flowStagesFrom(labels, current, { failed: held });
+  }
+
+  /** Cached, so the anchors are not re-observed on every change-detection pass. */
+  get sections(): FlowSection[] {
+    const d = this.delivery;
+    const shipment = !!d && !!(d.consignments?.length || this.canCreateConsignment);
+    const lines = d?.lines?.length ?? null;
+    if (shipment !== this.sectionsShipment || lines !== this.sectionsLines || !this.sectionsCache.length) {
+      this.sectionsShipment = shipment;
+      this.sectionsLines = lines;
+      this.sectionsCache = [
+        { id: 'sec-details', label: 'Details' },
+        ...(shipment ? [{ id: 'sec-shipment', label: 'Shipment' }] : []),
+        { id: 'sec-lines', label: 'Lines', count: lines }
+      ];
+    }
+    return this.sectionsCache;
+  }
+  private sectionsCache: FlowSection[] = [];
+  private sectionsShipment = false;
+  private sectionsLines: number | null = null;
 
   getStatusSeverity(status: string): Severity {
     return DELIVERY_STATUS_SEVERITY[status] ?? 'secondary';

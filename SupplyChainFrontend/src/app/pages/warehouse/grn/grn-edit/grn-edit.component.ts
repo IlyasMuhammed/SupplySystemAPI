@@ -14,6 +14,7 @@ import { MessageService } from 'primeng/api';
 import { WarehouseService, GrnDetailModel, PatchGrnRequest } from '../../../../services/warehouse.service';
 import { InventoryService, WarehouseModel, ProductListItemModel } from '../../../../services/inventory.service';
 import { ProductVariantPickerComponent, VariantPickerSelection } from '../../../../shared/product-variant-picker/product-variant-picker.component';
+import { FLOW } from '../../../../shared/flow';
 
 @Component({
   selector: 'app-grn-edit',
@@ -21,7 +22,7 @@ import { ProductVariantPickerComponent, VariantPickerSelection } from '../../../
   imports: [
     CommonModule, RouterModule, ReactiveFormsModule, FormsModule,
     ButtonModule, InputTextModule, CalendarModule,
-    DropdownModule, TextareaModule, ToastModule, ProductVariantPickerComponent
+    DropdownModule, TextareaModule, ToastModule, ProductVariantPickerComponent, ...FLOW
   ],
   templateUrl: './grn-edit.component.html',
   styleUrls: ['./grn-edit.component.scss'],

@@ -1,79 +1,70 @@
 <p-toast></p-toast>
 <p-confirmDialog></p-confirmDialog>
 
-<div class="um-page">
-
-  <!-- ── Header ───────────────────────────────────────────────────────────── -->
-  <div class="um-header">
-    <div class="um-header-info">
-      <h1 class="um-title"><i class="pi pi-users"></i> Users Management</h1>
-      <p class="um-subtitle">Manage application users, roles, and access permissions.</p>
-    </div>
-    <div class="um-header-actions">
-      <p-button label="Export CSV" icon="pi pi-download" severity="secondary" [outlined]="true"
-                (onClick)="exportCSV()"></p-button>
-      <p-button *ngIf="isAdmin" label="Add User" icon="pi pi-plus"
-                (onClick)="openCreateDialog()"></p-button>
-    </div>
+<sf-page [crumbs]="['Settings', 'Users']">
+  <!-- ── Command bar ─────────────────────────────────────────────────────────── -->
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <p-button *ngIf="isAdmin" label="Add User" icon="pi pi-plus"
+              (onClick)="openCreateDialog()"></p-button>
+    <p-button label="Export CSV" icon="pi pi-download" [text]="true"
+              (onClick)="exportCSV()"></p-button>
+    <span class="sf-sep"></span>
+    <p-button icon="pi pi-filter-slash" label="Clear filters" [text]="true"
+              (onClick)="clearFilters()">
+    </p-button>
   </div>
 
-  <!-- ── Stats ─────────────────────────────────────────────────────────────── -->
-  <div class="um-stats">
-    <div class="stat-card">
-      <div class="stat-icon"><i class="pi pi-users"></i></div>
-      <div class="stat-body">
-        <p class="stat-value">{{ totalRecords }}</p>
-        <p class="stat-label">Total Users</p>
+  <div class="sf-body">
+    <!-- Title -->
+    <div class="sf-lr-head">
+      <div>
+        <h1>Users <span class="sf-count">{{ totalRecords }}</span></h1>
+        <div class="sf-sub">Manage application users, roles, and access permissions.</div>
       </div>
     </div>
-    <div class="stat-card">
-      <div class="stat-icon stat-icon--green"><i class="pi pi-check-circle"></i></div>
-      <div class="stat-body">
-        <p class="stat-value">{{ activeCount }}</p>
-        <p class="stat-label">Active</p>
-      </div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-icon stat-icon--red"><i class="pi pi-ban"></i></div>
-      <div class="stat-body">
-        <p class="stat-value">{{ inactiveCount }}</p>
-        <p class="stat-label">Inactive</p>
-      </div>
-    </div>
-  </div>
 
-  <!-- ── Table card ────────────────────────────────────────────────────────── -->
-  <div class="um-card">
+    <!-- ── KPI tiles ──────────────────────────────────────────────────────────── -->
+    <div class="sf-grid sf-tiles">
+      <div class="sf-tile">
+        <span class="l">Total users</span>
+        <span class="v">{{ totalRecords }}</span>
+      </div>
+      <div class="sf-tile">
+        <span class="l">Active</span>
+        <span class="v ok">{{ activeCount }}</span>
+      </div>
+      <div class="sf-tile">
+        <span class="l">Inactive</span>
+        <span class="v er">{{ inactiveCount }}</span>
+      </div>
+    </div>
 
-    <!-- Toolbar -->
-    <div class="um-toolbar">
-      <div class="um-search-wrap">
+    <!-- Filters -->
+    <div class="sf-filters">
+      <div class="um-search-wrap sf-search">
         <i class="pi pi-search um-search-icon"></i>
         <input pInputText class="um-search-input" placeholder="Search by name or email…"
                [value]="searchText" (input)="onSearch($event)" />
       </div>
-      <div class="um-filter-wrap">
-        <p-dropdown [options]="roleFilterOptions" [(ngModel)]="selectedRoleFilter"
-                    optionLabel="label" optionValue="value"
-                    placeholder="All Roles" [showClear]="true"
-                    (onChange)="applyFilters()" styleClass="um-filter-dd">
-        </p-dropdown>
-        <p-dropdown [options]="statusFilterOptions" [(ngModel)]="selectedStatusFilter"
-                    optionLabel="label" optionValue="value"
-                    placeholder="All Status" [showClear]="true"
-                    (onChange)="applyFilters()" styleClass="um-filter-dd">
-        </p-dropdown>
-        <p-dropdown [options]="supplierTypeOptions" [(ngModel)]="selectedSupplierTypeFilter"
-                    optionLabel="label" optionValue="value"
-                    placeholder="All Supplier Types" [showClear]="true"
-                    (onChange)="applyFilters()" styleClass="um-filter-dd">
-        </p-dropdown>
-        <p-button icon="pi pi-filter-slash" [text]="true" [rounded]="true"
-                  pTooltip="Clear filters" tooltipPosition="top"
-                  (onClick)="clearFilters()">
-        </p-button>
-      </div>
+      <p-dropdown [options]="roleFilterOptions" [(ngModel)]="selectedRoleFilter"
+                  optionLabel="label" optionValue="value"
+                  placeholder="All Roles" [showClear]="true"
+                  (onChange)="applyFilters()" styleClass="um-filter-dd">
+      </p-dropdown>
+      <p-dropdown [options]="statusFilterOptions" [(ngModel)]="selectedStatusFilter"
+                  optionLabel="label" optionValue="value"
+                  placeholder="All Status" [showClear]="true"
+                  (onChange)="applyFilters()" styleClass="um-filter-dd">
+      </p-dropdown>
+      <p-dropdown [options]="supplierTypeOptions" [(ngModel)]="selectedSupplierTypeFilter"
+                  optionLabel="label" optionValue="value"
+                  placeholder="All Supplier Types" [showClear]="true"
+                  (onChange)="applyFilters()" styleClass="um-filter-dd">
+      </p-dropdown>
     </div>
+
+  <!-- ── Table card ────────────────────────────────────────────────────────── -->
+  <div class="sf-card p0">
 
     <!-- Table -->
     <p-table
@@ -101,7 +92,7 @@
           <th>Supplier Type</th>
           <th>Status</th>
           <th>Last Login</th>
-          <th *ngIf="isAdmin" style="width: 120px; text-align: right">Actions</th>
+          <th *ngIf="showActions" style="width: 160px; text-align: right">Actions</th>
         </tr>
       </ng-template>
 
@@ -135,17 +126,24 @@
           <td class="um-date">
             {{ user.lastLoginAt ? (user.lastLoginAt | date:'MMM d, y') : 'Never' }}
           </td>
-          <td *ngIf="isAdmin">
+          <td *ngIf="showActions">
             <div class="action-btns">
-              <p-button icon="pi pi-pencil" [rounded]="true" [text]="true"
-                        pTooltip="Edit user" tooltipPosition="top"
-                        (onClick)="openEditDialog(user)">
+              <ng-container *ngIf="isAdmin">
+                <p-button icon="pi pi-pencil" [rounded]="true" [text]="true"
+                          pTooltip="Edit user" tooltipPosition="top"
+                          (onClick)="openEditDialog(user)">
+                </p-button>
+                <p-button icon="pi pi-key" [rounded]="true" [text]="true" severity="warn"
+                          pTooltip="Reset password" tooltipPosition="top"
+                          (onClick)="confirmResetPassword(user)">
+                </p-button>
+              </ng-container>
+              <p-button *ngIf="canSetPasswordFor(user)" icon="pi pi-lock" [rounded]="true" [text]="true" severity="info"
+                        pTooltip="Set password" tooltipPosition="top"
+                        [attr.data-testid]="'set-password-action-' + user.userID"
+                        (onClick)="openSetPasswordDialog(user)">
               </p-button>
-              <p-button icon="pi pi-key" [rounded]="true" [text]="true" severity="warn"
-                        pTooltip="Reset password" tooltipPosition="top"
-                        (onClick)="confirmResetPassword(user)">
-              </p-button>
-              <p-button icon="pi pi-trash" [rounded]="true" [text]="true" severity="danger"
+              <p-button *ngIf="isAdmin" icon="pi pi-trash" [rounded]="true" [text]="true" severity="danger"
                         pTooltip="Delete user" tooltipPosition="top"
                         (onClick)="confirmDelete(user)">
               </p-button>
@@ -156,16 +154,14 @@
 
       <ng-template pTemplate="emptymessage">
         <tr>
-          <td [attr.colspan]="isAdmin ? 8 : 7" class="um-empty">
-            <i class="pi pi-users"></i>
-            <p>No users found.</p>
-          </td>
+          <td [attr.colspan]="showActions ? 8 : 7" class="sf-empty">No users found.</td>
         </tr>
       </ng-template>
     </p-table>
 
-  </div><!-- /.um-card -->
-</div><!-- /.um-page -->
+  </div><!-- /.sf-card -->
+  </div><!-- /.sf-body -->
+</sf-page>
 
 
 <!-- ══════════════════════════════════════════════════════════════════════════ -->
@@ -370,7 +366,7 @@
 
       <div class="dlg-field">
         <label class="dlg-label">Role</label>
-        <p-dropdown [options]="availableRoles" formControlName="roleID"
+        <p-dropdown [options]="editRoleOptions" formControlName="roleID"
                     optionLabel="label" optionValue="value"
                     placeholder="Select role" [showClear]="true" styleClass="w-full"
                     appendTo="body">
@@ -420,6 +416,64 @@
                 [loading]="isSaving"></p-button>
     </div>
   </form>
+</p-dialog>
+
+<!-- ── Set Password (platform super admins) ─────────────────────────────── -->
+<p-dialog [(visible)]="showSetPasswordDialog" [modal]="true" [draggable]="false" [resizable]="false"
+          [style]="{ width: '440px', maxWidth: '95vw' }" [showHeader]="false" [closable]="false"
+          [contentStyle]="{ padding: '0', borderRadius: '0.875rem', overflow: 'hidden', display: 'flex', flexDirection: 'column', maxHeight: '90vh' }">
+
+  <div class="dlg-header">
+    <div class="dlg-icon"><i class="pi pi-lock"></i></div>
+    <div class="dlg-title-wrap">
+      <h3 class="dlg-title">Set Password</h3>
+      <p class="dlg-subtitle">{{ setPasswordFor?.firstName }} {{ setPasswordFor?.lastName }} — {{ setPasswordFor?.email }}</p>
+    </div>
+    <button class="dlg-close" (click)="showSetPasswordDialog = false">
+      <i class="pi pi-times"></i>
+    </button>
+  </div>
+
+  <div class="dlg-body sp-body" *ngIf="showSetPasswordDialog" data-testid="set-password-dialog">
+    <p class="dlg-hint sp-hint">
+      Sets this user's password directly. A pending invite is completed (the account is activated and the old link
+      stops working), any lockout is cleared and the user's sessions are signed out. Share the password securely.
+    </p>
+    <div class="sf-fields">
+      <label class="sf-fld">
+        New password
+        <p-password [(ngModel)]="spNewPassword" (ngModelChange)="spError = ''"
+                    [feedback]="false" [toggleMask]="true" autocomplete="new-password"
+                    styleClass="w-full" inputStyleClass="w-full"
+                    data-testid="set-password-new"></p-password>
+      </label>
+      <label class="sf-fld">
+        Confirm password
+        <p-password [(ngModel)]="spConfirmPassword" (ngModelChange)="spError = ''"
+                    [feedback]="false" [toggleMask]="true" autocomplete="new-password"
+                    styleClass="w-full" inputStyleClass="w-full"
+                    data-testid="set-password-confirm"></p-password>
+      </label>
+    </div>
+    <ul class="pw-rules" data-testid="set-password-rules">
+      <li *ngFor="let c of spChecks" [class.ok]="c.ok" [attr.data-testid]="'set-password-rule-' + c.id">
+        <i class="pi" [ngClass]="c.ok ? 'pi-check' : 'pi-circle'"></i> {{ c.label }}
+      </li>
+      <li [class.ok]="spMatch" data-testid="set-password-rule-match">
+        <i class="pi" [ngClass]="spMatch ? 'pi-check' : 'pi-circle'"></i> Confirmation matches
+      </li>
+    </ul>
+    <small class="dlg-error" *ngIf="spError" data-testid="set-password-error">{{ spError }}</small>
+
+    <div class="dlg-footer">
+      <p-button label="Cancel" severity="secondary" [text]="true" type="button"
+                (onClick)="showSetPasswordDialog = false"></p-button>
+      <p-button label="Set password" icon="pi pi-check" type="button"
+                data-testid="set-password-submit"
+                [disabled]="!canSubmitSetPassword" [loading]="isSettingPassword"
+                (onClick)="submitSetPassword()"></p-button>
+    </div>
+  </div>
 </p-dialog>
 
 <!-- ── Temp Password (after create) ─────────────────────────────────────── -->

@@ -21,6 +21,8 @@ import {
 } from '../../../services/purchase-required.service';
 import { SupplierService, SupplierListItemModel } from '../../../services/supplier.service';
 import { AuthService } from '../../service/auth.service';
+import { FLOW } from '../../../shared/flow';
+import { AutoCompleteOpenOnFocusDirective } from '../../../shared/directives/autocomplete-open-on-focus.directive';
 
 /** A31 C9 §11 — shortages aggregated per material variant across every open production order, so
  * procurement raises one purchase order for a product short across several orders instead of one
@@ -31,7 +33,8 @@ import { AuthService } from '../../service/auth.service';
   imports: [
     CommonModule, RouterModule, FormsModule,
     ButtonModule, TableModule, TagModule, TooltipModule, ToastModule, DialogModule,
-    DropdownModule, InputNumberModule, InputTextModule, TextareaModule, CalendarModule, AutoCompleteModule
+    DropdownModule, InputNumberModule, InputTextModule, TextareaModule, CalendarModule, AutoCompleteModule,
+    AutoCompleteOpenOnFocusDirective, ...FLOW
   ],
   templateUrl: './purchase-required.component.html',
   styleUrls: ['./purchase-required.component.scss'],
@@ -142,7 +145,10 @@ export class PurchaseRequiredComponent implements OnInit {
       : null;
     this.createQty = line.totalShortageQty;
     this.createUnitPrice = null;
-    this.createRequiredBy = new Date(line.earliestRequiredDate);
+    this.today = PurchaseRequiredComponent.startOfToday();
+    // The earliest production need can already be past; a PO can't be required by a past date, so start at today then.
+    const earliest = line.earliestRequiredDate ? new Date(line.earliestRequiredDate) : null;
+    this.createRequiredBy = earliest && !isNaN(earliest.getTime()) && earliest >= this.today ? earliest : this.today;
     this.createNotes = `Purchase for production shortage — ${line.affectedPoCount} production order${line.affectedPoCount === 1 ? '' : 's'} affected.`;
     this.createVisible = true;
   }
@@ -151,9 +157,24 @@ export class PurchaseRequiredComponent implements OnInit {
     this.createSupplier = val && typeof val === 'object' ? val : null;
   }
 
+  /** Start of today, local time — the earliest a purchase order can be required by. A field, not a getter, so the
+   * date picker's [minDate] keeps one reference; refreshed each time the dialog opens. */
+  today = PurchaseRequiredComponent.startOfToday();
+
+  private static startOfToday(): Date {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
+
+  /** A date typed into the field can get past the picker's minDate; it is refused here too. */
+  get requiredByInPast(): boolean {
+    return !!this.createRequiredBy && this.createRequiredBy < this.today;
+  }
+
   get canSubmitCreate(): boolean {
     return !!this.createSupplier?.uuid && !!this.createQty && this.createQty > 0
-        && !!this.createUnitPrice && this.createUnitPrice > 0 && !this.isCreating;
+        && !!this.createUnitPrice && this.createUnitPrice > 0 && !this.requiredByInPast && !this.isCreating;
   }
 
   submitCreate(): void {

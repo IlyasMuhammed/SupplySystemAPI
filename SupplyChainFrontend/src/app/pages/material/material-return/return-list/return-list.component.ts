@@ -12,6 +12,7 @@ import { TooltipModule } from 'primeng/tooltip';
 import { MessageService } from 'primeng/api';
 import { MaterialService, ReturnListItem } from '../../../../services/material.service';
 import { downloadReturnPdf } from '../return-pdf.util';
+import { FLOW } from '../../../../shared/flow';
 
 @Component({
   selector: 'app-return-list',
@@ -19,7 +20,8 @@ import { downloadReturnPdf } from '../return-pdf.util';
   imports: [
     CommonModule, FormsModule, RouterModule,
     ButtonModule, InputTextModule, TagModule,
-    ToastModule, TableModule, DropdownModule, TooltipModule
+    ToastModule, TableModule, DropdownModule, TooltipModule,
+    ...FLOW
   ],
   templateUrl: './return-list.component.html',
   styleUrls: ['./return-list.component.scss'],

@@ -12,6 +12,7 @@ import {
   LEAD_TIME_DEFAULT_FIELDS, LeadTimeDefaultsModel, LeadTimeDefaultsValues, LeadTimeService, MAX_DEFAULT_LEAD_DAYS
 } from '../../services/lead-time.service';
 import { AuthService } from '../service/auth.service';
+import { FLOW } from '../../shared/flow';
 
 const WRITE_PERMISSION = 'LEAD_TIME_DEFAULTS_MANAGE';
 
@@ -27,7 +28,7 @@ const wholeNumber = (control: AbstractControl): ValidationErrors | null =>
 @Component({
   selector: 'app-lead-time-defaults',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, ButtonModule, InputNumberModule, MessageModule, TagModule, ToastModule],
+  imports: [CommonModule, ReactiveFormsModule, ButtonModule, InputNumberModule, MessageModule, TagModule, ToastModule, ...FLOW],
   templateUrl: './lead-time-defaults.component.html',
   styleUrls: ['./lead-time-defaults.component.scss'],
   providers: [MessageService]

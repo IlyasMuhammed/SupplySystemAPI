@@ -12,6 +12,7 @@ import { SupplierService } from '../../../../services/supplier.service';
 import { QboSyncStatusStore } from '../../../../shared/components/qbo-sync-badge/qbo-sync-status.store';
 import { AuthService } from '../../../service/auth.service';
 import { TenantService } from '../../../service/tenant.service';
+import { BomService } from '../../../../services/bom.service';
 
 /**
  * A33-PB-04 — the variant dialog's fulfillment route. The route is saved through its own gated call
@@ -58,6 +59,8 @@ describe('ProductDetailComponent — variant fulfillment route (A33-PB-04)', () 
         { provide: CurrenciesService, useValue: {} },
         { provide: BusinessPartnerService, useValue: {} },
         { provide: SupplierService, useValue: {} },
+        // A37 — without FEATURE_BOM_MANAGEMENT the page asks whether the product has a BOM (read-only tab).
+        { provide: BomService, useValue: { getBoms: () => ok({ data: [], totalRecords: 0 }) } },
         { provide: QboSyncStatusStore, useValue: { isAvailable: () => false } },
         { provide: AuthService, useValue: { hasPermission: (c: string) => permissions.includes(c) } },
         { provide: TenantService, useValue: { hasFeature: (c: string) => features.includes(c) } }

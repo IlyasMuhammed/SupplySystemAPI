@@ -12,6 +12,7 @@ import { DividerModule } from 'primeng/divider';
 import { ToastModule } from 'primeng/toast';
 import { TooltipModule } from 'primeng/tooltip';
 import { AutoCompleteModule } from 'primeng/autocomplete';
+import { AutoCompleteOpenOnFocusDirective } from '../../../../shared/directives/autocomplete-open-on-focus.directive';
 import { CheckboxModule } from 'primeng/checkbox';
 import { MessageService } from 'primeng/api';
 import { DemandService, PatchPoRequest } from '../../../../services/demand.service';
@@ -20,6 +21,7 @@ import { MoneyService } from '../../../../services/money.service';
 import { DocCurrencyPicker } from '../../../../shared/doc-currency/doc-currency-picker';
 import { DocCurrencyPanelComponent } from '../../../../shared/doc-currency/doc-currency-panel.component';
 import { MoneyPipe } from '../../../../shared/money/money.pipe';
+import { FLOW } from '../../../../shared/flow';
 import { InventoryService, ProductListItemModel, WarehouseModel } from '../../../../services/inventory.service';
 import { ProductVariantPickerComponent, VariantPickerSelection } from '../../../../shared/product-variant-picker/product-variant-picker.component';
 
@@ -30,8 +32,9 @@ import { ProductVariantPickerComponent, VariantPickerSelection } from '../../../
     CommonModule, RouterModule, ReactiveFormsModule, FormsModule,
     ButtonModule, InputTextModule, TextareaModule, InputNumberModule,
     DropdownModule, CalendarModule, DividerModule, ToastModule,
-    TooltipModule, AutoCompleteModule, CheckboxModule, ProductVariantPickerComponent,
-    DocCurrencyPanelComponent, MoneyPipe
+    TooltipModule, AutoCompleteModule, AutoCompleteOpenOnFocusDirective, CheckboxModule, ProductVariantPickerComponent,
+    DocCurrencyPanelComponent, MoneyPipe,
+    ...FLOW
   ],
   templateUrl: './po-edit.component.html',
   styleUrls: ['./po-edit.component.scss'],

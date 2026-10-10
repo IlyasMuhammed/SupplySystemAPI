@@ -63,6 +63,10 @@ namespace SMS.Modules.Suppliers.Migrations
                     b.Property<decimal?>("CreditLimit")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<string>("CustomerType")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
                     b.Property<Guid?>("DefaultSaleCurrency")
                         .HasColumnType("uniqueidentifier");
 
@@ -100,6 +104,11 @@ namespace SMS.Modules.Suppliers.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
 
+                    b.Property<bool>("IsSystem")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
                     b.Property<bool>("IsVendor")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
@@ -110,6 +119,15 @@ namespace SMS.Modules.Suppliers.Migrations
 
                     b.Property<int?>("LeadTimeDays")
                         .HasColumnType("int");
+
+                    b.Property<string>("Mobile")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime>("ModifiedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
 
                     b.Property<int?>("ModifiedBy")
                         .HasColumnType("int");
@@ -133,6 +151,11 @@ namespace SMS.Modules.Suppliers.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)")
                         .HasDefaultValue("VENDOR");
+
+                    b.Property<int>("PaymentTermsDays")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
 
                     b.Property<string>("Phone")
                         .HasMaxLength(20)
@@ -234,6 +257,9 @@ namespace SMS.Modules.Suppliers.Migrations
 
                     b.HasIndex("UUID")
                         .IsUnique();
+
+                    b.HasIndex("OrganizationId", "ModifiedAt")
+                        .HasDatabaseName("IX_BusinessPartners_OrganizationId_ModifiedAt");
 
                     b.HasIndex("OrganizationId", "SupplierCode")
                         .IsUnique();

@@ -141,6 +141,83 @@ internal sealed class SupplyRequirementEngine : ISupplyRequirementEngine
         return sr;
     }
 
+    public async Task<SupplyRequirement?> EnsureForServiceAsync(
+        ServiceMaterialRequirement smr, ServiceOrder serviceOrder, int userId, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(smr);
+        ArgumentNullException.ThrowIfNull(serviceOrder);
+
+        var existing = await _db.SupplyRequirements.IgnoreQueryFilters().FirstOrDefaultAsync(s =>
+            s.OrganizationId == serviceOrder.OrganizationId && s.DemandSourceType == SupplyDemandSourceType.ServiceOrder &&
+            s.DemandSourceUuid == smr.UUID && SupplyRequirementStatus.LiveStatuses.Contains(s.Status), ct);
+
+        var shortage = smr.ShortageQuantity;
+        if (shortage <= 0)
+        {
+            // Same rule as production: only paperwork nobody acted on yet is dropped.
+            if (existing is { Status: SupplyRequirementStatus.Open or SupplyRequirementStatus.Planned })
+            {
+                existing.Status    = SupplyRequirementStatus.Cancelled;
+                existing.UpdatedAt = DateTime.UtcNow;
+                await _db.SaveChangesAsync(ct);
+            }
+            return null;
+        }
+
+        if (existing is not null)
+        {
+            if (existing.Status == SupplyRequirementStatus.Open)
+            {
+                existing.QuantityRequired = shortage;
+                existing.UpdatedAt        = DateTime.UtcNow;
+                await _db.SaveChangesAsync(ct);
+            }
+            return existing;
+        }
+
+        var material = await _inv.Products.IgnoreQueryFilters().AsNoTracking()
+            .Where(p => p.Uuid == smr.MaterialProductUuid)
+            .Select(p => new { p.Name, p.SupplyMethod })
+            .FirstOrDefaultAsync(ct);
+        var subcontract  = smr.SourceType == BomLineSourceType.Subcontract;
+        var supplyMethod = !subcontract && material?.SupplyMethod is SMS.Shared.Common.SupplyMethod.Manufacture or SMS.Shared.Common.SupplyMethod.Transfer
+            ? material.SupplyMethod
+            : SMS.Shared.Common.SupplyMethod.Purchase;
+
+        var now = DateTime.UtcNow;
+        var sr = new SupplyRequirement
+        {
+            OrganizationId   = serviceOrder.OrganizationId,
+            TraceId          = serviceOrder.TraceId,
+            SupplyNumber     = await _numbers.NextAsync(ManufacturingDocumentPrefix.SupplyRequirement, now, serviceOrder.OrganizationId),
+            ProductUuid      = smr.MaterialProductUuid,
+            VariantUuid      = smr.MaterialVariantUuid,
+            QuantityRequired = shortage,
+            DemandSourceType = SupplyDemandSourceType.ServiceOrder,
+            DemandSourceUuid = smr.UUID,
+            DemandReference  = serviceOrder.ServiceNumber,
+            SupplyMethod     = supplyMethod,
+            WarehouseUuid    = smr.WarehouseUuid,
+            RequiredDate     = smr.RequiredDate,
+            Priority         = serviceOrder.Priority,
+            Status           = SupplyRequirementStatus.Open,
+            Notes            = subcontract ? "Subcontracted labour for a service order." : null,
+            CreatedBy        = userId,
+            CreatedAt        = now,
+            UpdatedAt        = now
+        };
+        _db.SupplyRequirements.Add(sr);
+        await _db.SaveChangesAsync(ct);
+        EnqueueTimeline(sr, userId);
+        if (_notify is not null) await _notify.SupplyRequirementCreatedAsync(sr, material?.Name ?? sr.ProductUuid.ToString());
+
+        if (supplyMethod == SMS.Shared.Common.SupplyMethod.Purchase)
+            await ActPurchaseAsync(sr, userId, ct, subcontract ? smr.SubcontractSupplierUuid : null);
+        else
+            await ActAsync(sr, null, userId, 0, ct);
+        return sr;
+    }
+
     public async Task<Guid> CreateManualAsync(CreateSupplyRequirementRequest req, int userId, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(req);
@@ -224,7 +301,9 @@ internal sealed class SupplyRequirementEngine : ISupplyRequirementEngine
             _                                          => ActPurchaseAsync(sr, userId, ct)
         };
 
-    private async Task ActPurchaseAsync(SupplyRequirement sr, int userId, CancellationToken ct)
+    /// <param name="supplierOverride">A36 — a subcontracted service line names its vendor on the BOM line; when given it
+    /// wins over the variant default / purchase history tiers.</param>
+    private async Task ActPurchaseAsync(SupplyRequirement sr, int userId, CancellationToken ct, Guid? supplierOverride = null)
     {
         var variant = await _inv.ProductVariants.AsNoTracking().Include(v => v.Product)
             .FirstOrDefaultAsync(v => v.Uuid == sr.VariantUuid, ct);
@@ -233,7 +312,7 @@ internal sealed class SupplyRequirementEngine : ISupplyRequirementEngine
         // A31-C3 §5.4 — tier 1: the variant's own configured default. Tier 2: whoever this variant
         // was last actually bought from (a real prior purchase, not just a rate card). Tier 3: give up
         // and leave a note — there is nothing here for a person to act on differently than before.
-        var supplierId = variant.DefaultSupplierId ?? await _purchaseOrders.GetLastSupplierForVariantAsync(sr.VariantUuid);
+        var supplierId = supplierOverride ?? variant.DefaultSupplierId ?? await _purchaseOrders.GetLastSupplierForVariantAsync(sr.VariantUuid);
         if (supplierId is not { } resolvedSupplierId)
         {
             sr.Notes     = AppendNote(sr.Notes, "No default supplier is set on this variant, and it has no purchase history; raise the purchase order manually.");
@@ -274,7 +353,8 @@ internal sealed class SupplyRequirementEngine : ISupplyRequirementEngine
             DeliveryDate          = sr.RequiredDate,
             DeliveryWarehouseId   = sr.WarehouseUuid,
             DeliveryWarehouseName = warehouseName,
-            Title                 = $"Production supply — {sr.SupplyNumber}",
+            Title                 = sr.DemandSourceType == SupplyDemandSourceType.ServiceOrder
+                                        ? $"Service supply — {sr.SupplyNumber}" : $"Production supply — {sr.SupplyNumber}",
             Notes                 = $"Raised automatically for supply requirement {sr.SupplyNumber} ({sr.DemandReference})."
         }, userId);
 

@@ -1,147 +1,118 @@
-<div class="detail-page">
-  <p-toast></p-toast>
+<p-toast></p-toast>
 
-  <!-- Not found: a real answer, not an empty shell that looks like it is still loading. -->
-  <div class="not-found" *ngIf="notFound" data-testid="not-found">
-    <i class="pi pi-inbox"></i>
-    <h2>Delivery not found</h2>
-    <p>It may have been deleted, or the link may be wrong.</p>
-    <p-button label="Back to deliveries" icon="pi pi-arrow-left" [text]="true"
-              routerLink="/portal/pages/logistics/deliveries"></p-button>
+<!-- Not found: a real answer, not an empty shell that looks like it is still loading. -->
+<div class="sf-empty" *ngIf="notFound" data-testid="not-found">
+  <i class="pi pi-inbox" style="font-size:2rem"></i>
+  <h2>Delivery not found</h2>
+  <p>It may have been deleted, or the link may be wrong.</p>
+  <p-button label="Back to deliveries" icon="pi pi-arrow-left" [text]="true"
+            routerLink="/portal/pages/logistics/deliveries"></p-button>
+</div>
+
+<div *ngIf="isLoading && !delivery" class="sf-empty" data-testid="loading">
+  <i class="pi pi-spin pi-spinner"></i> Loading…
+</div>
+
+<sf-page *ngIf="delivery as d" [crumbs]="['Logistics', 'Deliveries', d.deliveryNumber]">
+
+  <!-- ── Command bar: the next step first, then the rest ─────────────────────────────── -->
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <!-- A33: a routed delivery's step buttons come from its route (nextActions), first in flow order is primary,
+         each gated on the operation's own permission. Today's step buttons below are for deliveries with no route. -->
+    <ng-container *ngIf="hasRoute">
+      <p-button *ngFor="let a of routeActions; let first = first"
+                [label]="a.label" [icon]="a.icon" [text]="!first"
+                [disabled]="isSubmitting" (onClick)="performRouteAction(a.action)"
+                [attr.data-testid]="first ? 'route-action-primary' : 'route-action-secondary'"></p-button>
+    </ng-container>
+
+    <p-button *ngIf="canResume" label="Resume" icon="pi pi-play"
+              [disabled]="isSubmitting" (onClick)="resume()" data-testid="action-resume"></p-button>
+
+    <p-button *ngIf="!hasRoute && canRelease" label="Release" icon="pi pi-lock"
+              [disabled]="isSubmitting" (onClick)="openReleaseDialog()"
+              data-testid="action-release"></p-button>
+
+    <p-button *ngIf="!hasRoute && canGeneratePickList" label="Generate pick list" icon="pi pi-list-check"
+              [disabled]="isSubmitting" (onClick)="generatePickList()"
+              data-testid="action-generate-pick-list"></p-button>
+
+    <p-button *ngIf="!hasRoute && canRecordPickup" label="Record collection" icon="pi pi-user-plus"
+              [disabled]="isSubmitting" (onClick)="openPickupDialog()"
+              data-testid="action-record-pickup"></p-button>
+
+    <p-button *ngIf="canCreateInvoice" label="Create invoice" icon="pi pi-file"
+              [disabled]="isSubmitting" (onClick)="createInvoice()"
+              data-testid="action-create-invoice"></p-button>
+
+    <p-button *ngIf="!hasRoute && canCreateConsignment" label="Create consignment" icon="pi pi-send"
+              [text]="true" [disabled]="isSubmitting"
+              (onClick)="openConsignmentDialog()" data-testid="action-create-consignment"></p-button>
+
+    <p-button *ngIf="showPackStationLink" label="Pack station" icon="pi pi-box" [text]="true"
+              [routerLink]="['/portal/pages/logistics/deliveries', uuid, 'pack']"
+              data-testid="action-pack-station"></p-button>
+
+    <p-button *ngIf="canDownloadGatePass" label="Gate pass" icon="pi pi-file-pdf" [text]="true"
+              (onClick)="openGatePass()" data-testid="action-gate-pass"></p-button>
+
+    <p-button icon="pi pi-history" label="Timeline" [text]="true"
+              (onClick)="timelineVisible = true"></p-button>
+
+    <span class="sf-sep" *ngIf="canHold || canShortClose || canCancel"></span>
+
+    <p-button *ngIf="canHold" label="Hold" icon="pi pi-pause" severity="warn" [text]="true"
+              [disabled]="isSubmitting" (onClick)="openReasonDialog('hold')"
+              data-testid="action-hold"></p-button>
+
+    <p-button *ngIf="canShortClose" label="Short close" icon="pi pi-flag" severity="danger"
+              [text]="true" [disabled]="isSubmitting"
+              (onClick)="openReasonDialog('short-close')" data-testid="action-short-close"></p-button>
+
+    <p-button *ngIf="canCancel" label="Cancel" icon="pi pi-times" severity="danger"
+              [text]="true" [disabled]="isSubmitting"
+              (onClick)="openReasonDialog('cancel')" data-testid="action-cancel"></p-button>
   </div>
 
-  <div *ngIf="isLoading && !delivery" class="loading-state" data-testid="loading">
-    <i class="pi pi-spin pi-spinner"></i> Loading…
-  </div>
-
-  <ng-container *ngIf="delivery as d">
-    <div class="page-header">
+  <!-- ── Dynamic header ──────────────────────────────────────────────────────────────── -->
+  <header class="sf-hdr">
+    <div class="sf-t">
       <div>
-        <h1 class="page-title">
-          <i class="pi pi-truck"></i>
-          <span class="font-mono">{{ d.deliveryNumber }}</span>
-          <p-tag [value]="formatStatus(d.status)" [severity]="getStatusSeverity(d.status)"></p-tag>
-        </h1>
-        <p class="page-subtitle">
-          {{ formatStatus(d.direction) }} · {{ d.sourceType }}
+        <div class="sf-kicker">
+          {{ formatStatus(d.direction) }} delivery · {{ d.sourceType }}
           <!-- A sale-order delivery links back to its order, where the rest of the fulfilment is. -->
-          <a *ngIf="d.saleOrderUuid; else plainSource" class="font-mono source-link"
+          <a *ngIf="d.saleOrderUuid; else plainSource" class="sf-mono"
              [routerLink]="['/portal/pages/sales/orders', d.saleOrderUuid]"
              data-testid="sale-order-link">{{ d.sourceNumber }}</a>
           <ng-template #plainSource>
-            <span *ngIf="d.sourceNumber" class="font-mono">{{ d.sourceNumber }}</span>
+            <span *ngIf="d.sourceNumber" class="sf-mono">{{ d.sourceNumber }}</span>
           </ng-template>
+        </div>
+        <h1>
+          <span class="sf-mono">{{ d.deliveryNumber }}</span>
+          <p-tag [value]="formatStatus(d.status)" [severity]="getStatusSeverity(d.status)"></p-tag>
+        </h1>
+        <div class="sf-meta">
           <span *ngIf="d.deliveryMode" class="mode-chip" [class.mode-pickup]="isSelfPickup" data-testid="delivery-mode">
             <i class="pi" [ngClass]="isSelfPickup ? 'pi-shopping-cart' : 'pi-truck'"></i>
             {{ isSelfPickup ? 'Customer collects' : 'Ship to customer' }}
           </span>
-        </p>
-        <!-- A33: the route the delivery runs on (a snapshot, D-10) and who it is for. -->
-        <p class="header-facts" *ngIf="d.fulfillmentRouteCode || d.customerName">
-          <span class="fact" *ngIf="d.fulfillmentRouteCode">
-            <span class="fact-label">Route</span>
-            <span class="route-badge font-mono" data-testid="route-badge">{{ d.fulfillmentRouteCode }}</span>
+          <!-- A33: the route the delivery runs on (a snapshot, D-10) and who it is for. -->
+          <ng-container *ngIf="d.fulfillmentRouteCode">
+            · Route
+            <span class="sf-pill in sf-mono" data-testid="route-badge">{{ d.fulfillmentRouteCode }}</span>
             <span *ngIf="d.fulfillmentRouteName" data-testid="route-name">{{ d.fulfillmentRouteName }}</span>
+          </ng-container>
+          <span *ngIf="d.customerName" data-testid="customer-name">
+            · Customer {{ d.customerName }}
           </span>
-          <span class="fact" *ngIf="d.customerName" data-testid="customer-name">
-            <span class="fact-label">Customer</span> {{ d.customerName }}
-          </span>
-        </p>
+        </div>
       </div>
-
-      <div class="header-actions">
-        <p-button icon="pi pi-history" label="Timeline" [text]="true" severity="secondary"
-                  (onClick)="timelineVisible = true"></p-button>
-
-        <p-button *ngIf="canDownloadGatePass" label="Gate pass" icon="pi pi-file-pdf" [text]="true"
-                  severity="secondary" (onClick)="openGatePass()" data-testid="action-gate-pass"></p-button>
-
-        <p-button *ngIf="canCreateInvoice" label="Create invoice" icon="pi pi-file" severity="success"
-                  [disabled]="isSubmitting" (onClick)="createInvoice()"
-                  data-testid="action-create-invoice"></p-button>
-
-        <!-- A33: a routed delivery's step buttons come from its route (nextActions), first in flow order is primary,
-             each gated on the operation's own permission. Today's step buttons below are for deliveries with no route. -->
-        <ng-container *ngIf="hasRoute">
-          <p-button *ngFor="let a of routeActions; let first = first"
-                    [label]="a.label" [icon]="a.icon" [outlined]="!first"
-                    [severity]="first ? 'success' : 'secondary'"
-                    [disabled]="isSubmitting" (onClick)="performRouteAction(a.action)"
-                    [attr.data-testid]="first ? 'route-action-primary' : 'route-action-secondary'"></p-button>
-        </ng-container>
-
-        <p-button *ngIf="!hasRoute && canCreateConsignment" label="Create consignment" icon="pi pi-send"
-                  severity="success" [outlined]="true" [disabled]="isSubmitting"
-                  (onClick)="openConsignmentDialog()" data-testid="action-create-consignment"></p-button>
-
-        <p-button *ngIf="!hasRoute && canRecordPickup" label="Record collection" icon="pi pi-user-plus" severity="success"
-                  [disabled]="isSubmitting" (onClick)="openPickupDialog()"
-                  data-testid="action-record-pickup"></p-button>
-
-        <p-button *ngIf="showPackStationLink" label="Pack station" icon="pi pi-box"
-                  severity="secondary" [outlined]="true"
-                  [routerLink]="['/portal/pages/logistics/deliveries', uuid, 'pack']"
-                  data-testid="action-pack-station"></p-button>
-
-        <p-button *ngIf="canResume" label="Resume" icon="pi pi-play" severity="success"
-                  [disabled]="isSubmitting" (onClick)="resume()" data-testid="action-resume"></p-button>
-
-        <p-button *ngIf="!hasRoute && canRelease" label="Release" icon="pi pi-lock" severity="success"
-                  [disabled]="isSubmitting" (onClick)="openReleaseDialog()"
-                  data-testid="action-release"></p-button>
-
-        <p-button *ngIf="!hasRoute && canGeneratePickList" label="Generate pick list" icon="pi pi-list-check"
-                  [disabled]="isSubmitting" (onClick)="generatePickList()"
-                  data-testid="action-generate-pick-list"></p-button>
-
-        <p-button *ngIf="canHold" label="Hold" icon="pi pi-pause" severity="warn" [outlined]="true"
-                  [disabled]="isSubmitting" (onClick)="openReasonDialog('hold')"
-                  data-testid="action-hold"></p-button>
-
-        <p-button *ngIf="canShortClose" label="Short close" icon="pi pi-flag" severity="warn"
-                  [outlined]="true" [disabled]="isSubmitting"
-                  (onClick)="openReasonDialog('short-close')" data-testid="action-short-close"></p-button>
-
-        <p-button *ngIf="canCancel" label="Cancel" icon="pi pi-times" severity="danger"
-                  [outlined]="true" [disabled]="isSubmitting"
-                  (onClick)="openReasonDialog('cancel')" data-testid="action-cancel"></p-button>
-      </div>
-    </div>
-
-    <!-- Held deliveries say where they will go back to, so "Resume" is not a guess. -->
-    <div class="hold-banner" *ngIf="d.status === 'ON_HOLD'" data-testid="hold-banner">
-      <i class="pi pi-pause-circle"></i>
-      <span>
-        On hold<span *ngIf="d.holdReason">: {{ d.holdReason }}</span>.
-        <ng-container *ngIf="d.statusBeforeHold">
-          Resuming returns it to <strong>{{ formatStatus(d.statusBeforeHold) }}</strong>.
-        </ng-container>
-      </span>
-    </div>
-
-    <!-- Who walked out with the goods. This is what the gate pass and any later dispute rest on. -->
-    <div class="collected-banner" *ngIf="isCollected" data-testid="collected-banner">
-      <i class="pi pi-check-circle"></i>
-      <span>
-        Collected by <strong>{{ d.pickupPersonName }}</strong>
-        ({{ d.pickupPersonIdType }} {{ d.pickupPersonIdNumber }})
-        on {{ d.pickedUpAt | date:'dd MMM yyyy HH:mm' }}<ng-container *ngIf="d.pickupAuthorization">
-        · authorization: {{ d.pickupAuthorization }}</ng-container>.
-      </span>
-    </div>
-
-    <div class="lines-unknown-banner" *ngIf="d.linesUnknown" data-testid="lines-unknown-banner">
-      <i class="pi pi-exclamation-triangle"></i>
-      <span>
-        Migrated from a legacy shipment. The header is accurate; its lines were never recorded,
-        so this delivery cannot be picked or packed.
-      </span>
     </div>
 
     <!-- A33-PE-04: only the route's own steps, then Complete (BR-C5-04, D-2). States come from the server, which maps
-         them onto the real statuses (contract §8). No route, no tracker: the status tag above is today's view. -->
-    <div class="card tracker-card" *ngIf="hasRoute" data-testid="route-tracker">
-      <h3>Fulfillment progress</h3>
+         them onto the real statuses (contract §8). No route, no tracker: the status strip below is today's view. -->
+    <div class="route-progress" *ngIf="hasRoute; else plainStages" data-testid="route-tracker">
       <ol class="route-tracker" aria-label="Fulfillment progress">
         <li *ngFor="let s of trackerSteps; let last = last; trackBy: trackStep" class="route-step"
             [class.done]="s.state === 'DONE'" [class.current]="s.state === 'CURRENT'"
@@ -166,34 +137,85 @@
         <i class="pi pi-lock"></i> Next: <strong>{{ b.label }}</strong>. Someone with permission for it has to take this step.
       </p>
     </div>
+    <ng-template #plainStages><sf-stages [stages]="stages"></sf-stages></ng-template>
 
-    <div class="detail-grid">
-      <div class="card">
-        <h3>Delivery</h3>
-        <dl>
-          <dt>Direction</dt><dd>{{ formatStatus(d.direction) }}</dd>
-          <dt>Source</dt>
-          <dd>{{ d.sourceType }} <span class="font-mono" *ngIf="d.sourceNumber">{{ d.sourceNumber }}</span></dd>
-          <dt>Priority</dt><dd>{{ formatStatus(d.priority) }}</dd>
-          <dt>Incoterm</dt><dd>{{ d.incoterm || '—' }}</dd>
-          <dt>Requested</dt><dd>{{ d.requestedDate ? (d.requestedDate | date:'dd MMM yyyy') : '—' }}</dd>
-          <dt>Promised</dt><dd>{{ d.promisedDate ? (d.promisedDate | date:'dd MMM yyyy') : '—' }}</dd>
-          <dt>Posts stock movement</dt>
-          <dd>
+    <div class="sf-facts">
+      <div class="sf-kpi">
+        <span class="l">Lines</span>
+        <span class="v">{{ d.linesUnknown ? '—' : d.lines.length }}</span>
+        <span class="s">{{ formatStatus(d.priority) }} priority</span>
+      </div>
+      <div class="sf-kpi">
+        <span class="l">Requested</span>
+        <span class="v sm">{{ d.requestedDate ? (d.requestedDate | date:'dd MMM yyyy') : '—' }}</span>
+      </div>
+      <div class="sf-kpi">
+        <span class="l">Promised</span>
+        <span class="v sm">{{ d.promisedDate ? (d.promisedDate | date:'dd MMM yyyy') : '—' }}</span>
+      </div>
+    </div>
+  </header>
+
+  <sf-anchors *ngIf="sections.length >= 3" [sections]="sections"></sf-anchors>
+
+  <div class="sf-body">
+    <!-- Held deliveries say where they will go back to, so "Resume" is not a guess. -->
+    <div class="banner warn" *ngIf="d.status === 'ON_HOLD'" data-testid="hold-banner">
+      <i class="pi pi-pause-circle"></i>
+      <span>
+        On hold<span *ngIf="d.holdReason">: {{ d.holdReason }}</span>.
+        <ng-container *ngIf="d.statusBeforeHold">
+          Resuming returns it to <strong>{{ formatStatus(d.statusBeforeHold) }}</strong>.
+        </ng-container>
+      </span>
+    </div>
+
+    <!-- Who walked out with the goods. This is what the gate pass and any later dispute rest on. -->
+    <div class="banner ok" *ngIf="isCollected" data-testid="collected-banner">
+      <i class="pi pi-check-circle"></i>
+      <span>
+        Collected by <strong>{{ d.pickupPersonName }}</strong>
+        ({{ d.pickupPersonIdType }} {{ d.pickupPersonIdNumber }})
+        on {{ d.pickedUpAt | date:'dd MMM yyyy HH:mm' }}<ng-container *ngIf="d.pickupAuthorization">
+        · authorization: {{ d.pickupAuthorization }}</ng-container>.
+      </span>
+    </div>
+
+    <div class="banner warn" *ngIf="d.linesUnknown" data-testid="lines-unknown-banner">
+      <i class="pi pi-exclamation-triangle"></i>
+      <span>
+        Migrated from a legacy shipment. The header is accurate; its lines were never recorded,
+        so this delivery cannot be picked or packed.
+      </span>
+    </div>
+
+    <div id="sec-details" class="sf-section sf-row">
+      <section class="sf-card">
+        <div class="sf-ch"><h2>Delivery</h2></div>
+        <div class="sf-kv">
+          <span>Direction</span><span>{{ formatStatus(d.direction) }}</span>
+          <span>Source</span>
+          <span>{{ d.sourceType }} <span class="sf-mono" *ngIf="d.sourceNumber">{{ d.sourceNumber }}</span></span>
+          <span>Priority</span><span>{{ formatStatus(d.priority) }}</span>
+          <span>Incoterm</span><span>{{ d.incoterm || '—' }}</span>
+          <span>Requested</span><span>{{ d.requestedDate ? (d.requestedDate | date:'dd MMM yyyy') : '—' }}</span>
+          <span>Promised</span><span>{{ d.promisedDate ? (d.promisedDate | date:'dd MMM yyyy') : '—' }}</span>
+          <span>Posts stock movement</span>
+          <span>
             <!-- Derived from the source type on the server. Shown because it decides whether
                  goods issue will move stock or only record the movement. -->
             <span [class.posts-yes]="d.postsGoodsIssue">{{ d.postsGoodsIssue ? 'Yes' : 'No — the source document does' }}</span>
-          </dd>
-        </dl>
-        <p class="notes" *ngIf="d.notes">{{ d.notes }}</p>
-      </div>
+          </span>
+        </div>
+        <p class="sf-mu notes" *ngIf="d.notes">{{ d.notes }}</p>
+      </section>
 
       <!-- Where the goods leave from: the stored address, else the warehouse (sale-order deliveries store only that). -->
-      <div class="card" data-testid="ship-from-card">
-        <h3>Ship from</h3>
+      <section class="sf-card" data-testid="ship-from-card">
+        <div class="sf-ch"><h2>Ship from</h2></div>
         <p class="party-name" *ngIf="d.direction === 'INBOUND' && d.vendorName" data-testid="ship-from-party">{{ d.vendorName }}</p>
         <p class="party-site" *ngIf="d.shipFromWarehouse as w" data-testid="ship-from-warehouse">
-          {{ w.name }} <span class="font-mono muted">{{ w.code }}</span>
+          {{ w.name }} <span class="sf-mono sf-mu">{{ w.code }}</span>
         </p>
         <ng-container *ngIf="d.shipFromAddress as a; else warehouseAddress">
           <address>
@@ -203,7 +225,7 @@
           </address>
           <p class="contact" *ngIf="a.contactName || a.contactPhoneE164">
             {{ a.contactName }}
-            <span class="font-mono" *ngIf="a.contactPhoneE164"> {{ a.contactPhoneE164 }}</span>
+            <span class="sf-mono" *ngIf="a.contactPhoneE164"> {{ a.contactPhoneE164 }}</span>
           </p>
         </ng-container>
         <ng-template #warehouseAddress>
@@ -214,24 +236,24 @@
             </address>
             <p class="contact" *ngIf="w.contactName || w.contactPhone">
               {{ w.contactName }}
-              <span class="font-mono" *ngIf="w.contactPhone"> {{ w.contactPhone }}</span>
+              <span class="sf-mono" *ngIf="w.contactPhone"> {{ w.contactPhone }}</span>
             </p>
           </ng-container>
         </ng-template>
         <ng-template #noFromAddress>
-          <p class="muted" data-testid="no-ship-from">
+          <p class="sf-mu sf-sm muted" data-testid="no-ship-from">
             {{ d.shipFromWarehouse ? 'This warehouse has no address on file — add one in the warehouse settings.' : 'No ship-from address or warehouse recorded.' }}
           </p>
         </ng-template>
-      </div>
+      </section>
 
-      <div class="card">
-        <h3>Ship to</h3>
+      <section class="sf-card">
+        <div class="sf-ch"><h2>Ship to</h2></div>
         <p class="party-name" *ngIf="d.direction !== 'INBOUND' && (d.customerName || d.vendorName)" data-testid="ship-to-party">
           {{ d.customerName || d.vendorName }}
         </p>
         <p class="party-site" *ngIf="d.shipToWarehouse as w">
-          {{ w.name }} <span class="font-mono muted">{{ w.code }}</span>
+          {{ w.name }} <span class="sf-mono sf-mu">{{ w.code }}</span>
         </p>
         <ng-container *ngIf="d.shipToAddress as a; else noAddress">
           <address>
@@ -241,7 +263,7 @@
           </address>
           <p class="contact" *ngIf="a.contactName || a.contactPhoneE164">
             {{ a.contactName }}
-            <span class="font-mono" *ngIf="a.contactPhoneE164"> {{ a.contactPhoneE164 }}</span>
+            <span class="sf-mono" *ngIf="a.contactPhoneE164"> {{ a.contactPhoneE164 }}</span>
           </p>
           <!-- An address that could not be confirmed cannot be used to book a courier, so say
                so here rather than at the point of failure. -->
@@ -250,40 +272,40 @@
             <span>{{ a.validationNotes || 'This address has not been confirmed.' }}</span>
           </div>
         </ng-container>
-        <ng-template #noAddress><p class="muted">No delivery address recorded.</p></ng-template>
-      </div>
+        <ng-template #noAddress><p class="sf-mu sf-sm muted">No delivery address recorded.</p></ng-template>
+      </section>
     </div>
 
     <!-- The carrier's side of this delivery. The delivery is moved by its consignment, so this is
          where a shipped delivery is followed once the goods have left. -->
-    <div class="card shipment-card" *ngIf="d.consignments?.length || canCreateConsignment"
-         data-testid="shipment-card">
-      <h3>Shipment</h3>
+    <section id="sec-shipment" class="sf-section sf-card" *ngIf="d.consignments?.length || canCreateConsignment"
+             data-testid="shipment-card">
+      <div class="sf-ch"><h2>Shipment</h2></div>
 
       <ul class="consignment-list" *ngIf="d.consignments?.length; else noConsignment">
         <li *ngFor="let c of d.consignments" data-testid="consignment-row">
-          <a class="font-mono source-link" [routerLink]="['/portal/pages/logistics/consignments', c.consignmentUuid]"
+          <a class="sf-mono" [routerLink]="['/portal/pages/logistics/consignments', c.consignmentUuid]"
              data-testid="consignment-link">{{ c.consignmentNumber }}</a>
           <p-tag [value]="formatStatus(c.status)" [severity]="getShipmentSeverity(c.status)"></p-tag>
-          <span class="muted" *ngIf="c.carrierName">{{ c.carrierName }}</span>
-          <span class="muted font-mono" *ngIf="c.masterAwb">AWB {{ c.masterAwb }}</span>
+          <span class="sf-mu" *ngIf="c.carrierName">{{ c.carrierName }}</span>
+          <span class="sf-mu sf-mono" *ngIf="c.masterAwb">AWB {{ c.masterAwb }}</span>
         </li>
       </ul>
       <ng-template #noConsignment>
-        <p class="muted" data-testid="no-consignment">
+        <p class="sf-mu sf-sm muted" data-testid="no-consignment">
           Not handed to a carrier yet. Create a consignment to book one and follow the parcel from here.
         </p>
       </ng-template>
 
-      <p class="muted follow-note" *ngIf="followsConsignment" data-testid="follows-consignment">
+      <p class="sf-mu sf-sm muted" *ngIf="followsConsignment" data-testid="follows-consignment">
         This delivery follows its consignment: it becomes In transit when the carrier collects the
         parcel, and Delivered when the handover is recorded.
       </p>
-    </div>
+    </section>
 
-    <div class="table-card">
-      <h3>Lines</h3>
-      <p-table [value]="d.lines" [tableStyle]="{'min-width':'60rem'}">
+    <section id="sec-lines" class="sf-section sf-card p0">
+      <div class="sf-ch"><h2>Lines</h2><span class="sf-mu sf-sm">{{ d.lines.length }} line{{ d.lines.length === 1 ? '' : 's' }}</span></div>
+      <p-table [value]="d.lines" [tableStyle]="{'min-width':'60rem'}" data-testid="lines-table">
         <ng-template pTemplate="header">
           <tr>
             <th style="width:4rem">#</th>
@@ -303,9 +325,9 @@
             <td>
               {{ line.itemDescription }}
               <div class="line-flags">
-                <span *ngIf="line.isHazardous" class="flag hazard">Hazardous</span>
-                <span *ngIf="line.isFragile" class="flag">Fragile</span>
-                <span *ngIf="line.isTemperatureControlled" class="flag">Temp. controlled</span>
+                <span *ngIf="line.isHazardous" class="sf-pill er">Hazardous</span>
+                <span *ngIf="line.isFragile" class="sf-pill">Fragile</span>
+                <span *ngIf="line.isTemperatureControlled" class="sf-pill">Temp. controlled</span>
               </div>
             </td>
             <td>{{ line.unitOfMeasure || '—' }}</td>
@@ -322,202 +344,205 @@
         </ng-template>
         <ng-template pTemplate="emptymessage">
           <tr>
-            <td colspan="9" class="text-center text-secondary" style="padding:2rem">
+            <td colspan="9" class="sf-empty">
               {{ d.linesUnknown ? 'This delivery was migrated without line detail.' : 'No lines.' }}
             </td>
           </tr>
         </ng-template>
       </p-table>
-    </div>
+    </section>
+  </div>
 
-    <div class="card">
+  <!-- ── Side panel ──────────────────────────────────────────────────────────────────── -->
+  <sf-panel #panel [tabs]="['Files']">
+    <ng-container *ngIf="panel.active() === 'Files'">
       <app-attachment-list interfaceCode="DELIVERY" [documentId]="d.uuid"></app-attachment-list>
-    </div>
+    </ng-container>
+  </sf-panel>
+</sf-page>
 
-    <!-- The trace id is already on the detail, so the panel can skip resolving it. -->
-    <app-timeline-panel [traceId]="d.traceId" interfaceCode="DELIVERY"
-                        [(visible)]="timelineVisible"></app-timeline-panel>
+<!-- The trace id is already on the detail, so the panel can skip resolving it. -->
+<app-timeline-panel *ngIf="delivery as d" [traceId]="d.traceId" interfaceCode="DELIVERY"
+                    [(visible)]="timelineVisible"></app-timeline-panel>
+
+<p-dialog [(visible)]="reasonDialogVisible" [modal]="true" [style]="{width:'32rem'}"
+          [header]="reasonDialogTitle" [draggable]="false">
+  <p class="dialog-hint">{{ reasonDialogHint }}</p>
+  <label for="reason" class="dialog-label">Reason</label>
+  <textarea pTextarea id="reason" [(ngModel)]="reasonText" rows="3"
+            placeholder="Why is this happening? Someone downstream will ask."
+            class="w-full" data-testid="reason-input"></textarea>
+
+  <ng-template pTemplate="footer">
+    <p-button label="Back" [text]="true" severity="secondary"
+              (onClick)="reasonDialogVisible = false"></p-button>
+    <!-- Disabled until a reason is typed: the server requires one, and finding that out via a
+         400 after committing to the action is a poor way to learn it. -->
+    <p-button label="Confirm" icon="pi pi-check"
+              [disabled]="!reasonText.trim() || isSubmitting"
+              (onClick)="confirmReason()" data-testid="reason-confirm"></p-button>
+  </ng-template>
+</p-dialog>
+
+<!-- ── Self-pickup collection (A29 §8.2) ───────────────────────────────────── -->
+
+<p-dialog header="Record the collection" [(visible)]="pickupDialogVisible" [modal]="true"
+          [style]="{width:'34rem'}" [draggable]="false" data-testid="pickup-dialog">
+  <p class="dialog-hint">
+    The customer is collecting. If the stock has not been issued yet, this issues it; the delivery
+    is then marked as delivered and the gate pass names the collector.
+  </p>
+
+  <label for="pickup-name" class="dialog-label">Collected by</label>
+  <input pInputText id="pickup-name" [(ngModel)]="pickup.pickupPersonName" class="w-full"
+         placeholder="Full name as on the ID" data-testid="pickup-name" />
+
+  <div class="dialog-row two-col">
+    <div>
+      <label for="pickup-id-type" class="dialog-label">ID type</label>
+      <p-dropdown inputId="pickup-id-type" [options]="idTypes" optionLabel="label" optionValue="code"
+                  [(ngModel)]="pickup.pickupPersonIdType" appendTo="body" styleClass="w-full"
+                  data-testid="pickup-id-type"></p-dropdown>
+    </div>
+    <div>
+      <label for="pickup-id-number" class="dialog-label">ID number</label>
+      <input pInputText id="pickup-id-number" [(ngModel)]="pickup.pickupPersonIdNumber" class="w-full"
+             data-testid="pickup-id-number" />
+    </div>
+  </div>
+
+  <div class="dialog-row">
+    <label for="pickup-authorization" class="dialog-label">Authorization</label>
+    <textarea pTextarea id="pickup-authorization" [(ngModel)]="pickup.pickupAuthorization" rows="2"
+              class="w-full" placeholder="Only if someone other than the customer is collecting — the letter or the person authorising them."
+              data-testid="pickup-authorization"></textarea>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <p-button label="Back" [text]="true" severity="secondary" (onClick)="pickupDialogVisible = false"></p-button>
+    <p-button label="Hand over" icon="pi pi-check" severity="success" [disabled]="!canSubmitPickup"
+              (onClick)="submitPickup()" data-testid="pickup-confirm"></p-button>
+  </ng-template>
+</p-dialog>
+
+<!-- ── Consignment ────────────────────────────────────────────────────────── -->
+
+<p-dialog header="Create a consignment" [(visible)]="consignmentDialogVisible" [modal]="true"
+          [style]="{width:'32rem'}" [draggable]="false" data-testid="consignment-dialog">
+  <p class="dialog-hint">
+    A consignment is the carrier's side of this delivery. Create it, then book the carrier, print
+    the label and follow the parcel from its page.
+  </p>
+
+  <label for="consignment-carrier" class="dialog-label">Carrier</label>
+  <p-dropdown inputId="consignment-carrier" [options]="carriers" optionLabel="name" optionValue="uuid"
+              [(ngModel)]="consignment.carrierUuid" [showClear]="true" placeholder="Choose later"
+              appendTo="body" styleClass="w-full" data-testid="consignment-carrier"></p-dropdown>
+
+  <div class="dialog-row">
+    <label for="consignment-notes" class="dialog-label">Notes</label>
+    <textarea pTextarea id="consignment-notes" [(ngModel)]="consignment.notes" rows="2" class="w-full"
+              placeholder="Anything the carrier or the driver should know."
+              data-testid="consignment-notes"></textarea>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <p-button label="Back" [text]="true" severity="secondary" (onClick)="consignmentDialogVisible = false"></p-button>
+    <p-button label="Create" icon="pi pi-check" severity="success" [disabled]="isSubmitting"
+              (onClick)="submitConsignment()" data-testid="consignment-confirm"></p-button>
+  </ng-template>
+</p-dialog>
+
+<!-- ── A33: goods issue from the route's button — asked first, as at the pack station ── -->
+
+<p-dialog header="Issue the goods" [(visible)]="issueDialogVisible" [modal]="true"
+          [style]="{width:'32rem'}" [draggable]="false" data-testid="issue-dialog">
+  <p class="dialog-hint danger">
+    <i class="pi pi-exclamation-triangle"></i>
+    This is the point of no return. The stock leaves the books and the delivery can no longer be cancelled.
+  </p>
+
+  <ng-template pTemplate="footer">
+    <p-button label="Back" [text]="true" severity="secondary" (onClick)="issueDialogVisible = false"></p-button>
+    <p-button label="Issue goods" icon="pi pi-check-circle" severity="success"
+              [disabled]="isSubmitting" [loading]="isSubmitting" (onClick)="confirmGoodsIssue()"
+              data-testid="confirm-goods-issue"></p-button>
+  </ng-template>
+</p-dialog>
+
+<!-- ── Release ────────────────────────────────────────────────────────────── -->
+
+<p-dialog header="Release this delivery" [(visible)]="releaseDialogVisible" [modal]="true"
+          [style]="{width:'40rem'}" [draggable]="false" data-testid="release-dialog">
+  <p class="dialog-hint">
+    Releasing hard-reserves the stock, so nothing else can promise the same units.
+  </p>
+
+  <div *ngIf="isCheckingAvailability" class="loading-state" data-testid="checking-availability">
+    <i class="pi pi-spin pi-spinner"></i> Checking stock…
+  </div>
+
+  <ng-container *ngIf="!isCheckingAvailability && availability as a">
+    <p class="dialog-hint" *ngIf="!a.requiresStock" data-testid="inbound-note">
+      This is an inbound delivery — the goods are arriving, so there is nothing to reserve.
+    </p>
+
+    <p-table *ngIf="a.lines.length" [value]="a.lines" styleClass="p-datatable-sm"
+             data-testid="availability-table">
+      <ng-template pTemplate="header">
+        <tr>
+          <th style="width:3.5rem">Ln</th>
+          <th>Item</th>
+          <th>Warehouse</th>
+          <th class="text-right" style="width:7rem">Ordered</th>
+          <th class="text-right" style="width:7rem">Available</th>
+          <th class="text-right" style="width:7rem">Short</th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-line>
+        <tr [class.short-line]="line.shortfall > 0">
+          <td>{{ line.lineNo }}</td>
+          <td>
+            {{ line.itemDescription }}
+            <div class="line-warning" *ngIf="line.warning">{{ line.warning }}</div>
+          </td>
+          <td>{{ line.warehouseName || '—' }}</td>
+          <td class="text-right">{{ line.qtyOrdered | number:'1.0-3' }}</td>
+          <td class="text-right">{{ line.qtyAvailable | number:'1.0-3' }}</td>
+          <td class="text-right">
+            <strong *ngIf="line.shortfall > 0">{{ line.shortfall | number:'1.0-3' }}</strong>
+            <span *ngIf="line.shortfall <= 0">—</span>
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+
+    <div class="shortfall-note" *ngIf="shortLines.length" data-testid="shortfall-note">
+      <i class="pi pi-exclamation-triangle"></i>
+      <span>
+        {{ shortLines.length }} line(s) cannot be covered in full.
+        <ng-container *ngIf="a.canReleasePartially">
+          Splitting releases what stock covers and moves the balance to a new draft delivery
+          against the same source.
+        </ng-container>
+        <ng-container *ngIf="!a.canReleasePartially">
+          Nothing is available, so there is nothing to split.
+        </ng-container>
+      </span>
+    </div>
   </ng-container>
 
-  <p-dialog [(visible)]="reasonDialogVisible" [modal]="true" [style]="{width:'32rem'}"
-            [header]="reasonDialogTitle" [draggable]="false">
-    <p class="dialog-hint">{{ reasonDialogHint }}</p>
-    <label for="reason" class="dialog-label">Reason</label>
-    <textarea pTextarea id="reason" [(ngModel)]="reasonText" rows="3"
-              placeholder="Why is this happening? Someone downstream will ask."
-              class="w-full" data-testid="reason-input"></textarea>
+  <ng-template pTemplate="footer">
+    <p-button label="Back" [text]="true" severity="secondary"
+              (onClick)="releaseDialogVisible = false"></p-button>
 
-    <ng-template pTemplate="footer">
-      <p-button label="Back" [text]="true" severity="secondary"
-                (onClick)="reasonDialogVisible = false"></p-button>
-      <!-- Disabled until a reason is typed: the server requires one, and finding that out via a
-           400 after committing to the action is a poor way to learn it. -->
-      <p-button label="Confirm" icon="pi pi-check"
-                [disabled]="!reasonText.trim() || isSubmitting"
-                (onClick)="confirmReason()" data-testid="reason-confirm"></p-button>
-    </ng-template>
-  </p-dialog>
+    <!-- Offered only when the server says a split would achieve something. -->
+    <p-button *ngIf="availability?.canReleasePartially" label="Release what is available"
+              icon="pi pi-scissors" severity="warn" [outlined]="true"
+              [disabled]="isSubmitting" (onClick)="release('SPLIT')"
+              data-testid="release-split"></p-button>
 
-  <!-- ── Self-pickup collection (A29 §8.2) ───────────────────────────────────── -->
-
-  <p-dialog header="Record the collection" [(visible)]="pickupDialogVisible" [modal]="true"
-            [style]="{width:'34rem'}" [draggable]="false" data-testid="pickup-dialog">
-    <p class="dialog-hint">
-      The customer is collecting. If the stock has not been issued yet, this issues it; the delivery
-      is then marked as delivered and the gate pass names the collector.
-    </p>
-
-    <label for="pickup-name" class="dialog-label">Collected by</label>
-    <input pInputText id="pickup-name" [(ngModel)]="pickup.pickupPersonName" class="w-full"
-           placeholder="Full name as on the ID" data-testid="pickup-name" />
-
-    <div class="dialog-row two-col">
-      <div>
-        <label for="pickup-id-type" class="dialog-label">ID type</label>
-        <p-dropdown inputId="pickup-id-type" [options]="idTypes" optionLabel="label" optionValue="code"
-                    [(ngModel)]="pickup.pickupPersonIdType" appendTo="body" styleClass="w-full"
-                    data-testid="pickup-id-type"></p-dropdown>
-      </div>
-      <div>
-        <label for="pickup-id-number" class="dialog-label">ID number</label>
-        <input pInputText id="pickup-id-number" [(ngModel)]="pickup.pickupPersonIdNumber" class="w-full"
-               data-testid="pickup-id-number" />
-      </div>
-    </div>
-
-    <div class="dialog-row">
-      <label for="pickup-authorization" class="dialog-label">Authorization</label>
-      <textarea pTextarea id="pickup-authorization" [(ngModel)]="pickup.pickupAuthorization" rows="2"
-                class="w-full" placeholder="Only if someone other than the customer is collecting — the letter or the person authorising them."
-                data-testid="pickup-authorization"></textarea>
-    </div>
-
-    <ng-template pTemplate="footer">
-      <p-button label="Back" [text]="true" severity="secondary" (onClick)="pickupDialogVisible = false"></p-button>
-      <p-button label="Hand over" icon="pi pi-check" severity="success" [disabled]="!canSubmitPickup"
-                (onClick)="submitPickup()" data-testid="pickup-confirm"></p-button>
-    </ng-template>
-  </p-dialog>
-
-  <!-- ── Consignment ────────────────────────────────────────────────────────── -->
-
-  <p-dialog header="Create a consignment" [(visible)]="consignmentDialogVisible" [modal]="true"
-            [style]="{width:'32rem'}" [draggable]="false" data-testid="consignment-dialog">
-    <p class="dialog-hint">
-      A consignment is the carrier's side of this delivery. Create it, then book the carrier, print
-      the label and follow the parcel from its page.
-    </p>
-
-    <label for="consignment-carrier" class="dialog-label">Carrier</label>
-    <p-dropdown inputId="consignment-carrier" [options]="carriers" optionLabel="name" optionValue="uuid"
-                [(ngModel)]="consignment.carrierUuid" [showClear]="true" placeholder="Choose later"
-                appendTo="body" styleClass="w-full" data-testid="consignment-carrier"></p-dropdown>
-
-    <div class="dialog-row">
-      <label for="consignment-notes" class="dialog-label">Notes</label>
-      <textarea pTextarea id="consignment-notes" [(ngModel)]="consignment.notes" rows="2" class="w-full"
-                placeholder="Anything the carrier or the driver should know."
-                data-testid="consignment-notes"></textarea>
-    </div>
-
-    <ng-template pTemplate="footer">
-      <p-button label="Back" [text]="true" severity="secondary" (onClick)="consignmentDialogVisible = false"></p-button>
-      <p-button label="Create" icon="pi pi-check" severity="success" [disabled]="isSubmitting"
-                (onClick)="submitConsignment()" data-testid="consignment-confirm"></p-button>
-    </ng-template>
-  </p-dialog>
-
-  <!-- ── A33: goods issue from the route's button — asked first, as at the pack station ── -->
-
-  <p-dialog header="Issue the goods" [(visible)]="issueDialogVisible" [modal]="true"
-            [style]="{width:'32rem'}" [draggable]="false" data-testid="issue-dialog">
-    <p class="dialog-hint danger">
-      <i class="pi pi-exclamation-triangle"></i>
-      This is the point of no return. The stock leaves the books and the delivery can no longer be cancelled.
-    </p>
-
-    <ng-template pTemplate="footer">
-      <p-button label="Back" [text]="true" severity="secondary" (onClick)="issueDialogVisible = false"></p-button>
-      <p-button label="Issue goods" icon="pi pi-check-circle" severity="success"
-                [disabled]="isSubmitting" [loading]="isSubmitting" (onClick)="confirmGoodsIssue()"
-                data-testid="confirm-goods-issue"></p-button>
-    </ng-template>
-  </p-dialog>
-
-  <!-- ── Release ────────────────────────────────────────────────────────────── -->
-
-  <p-dialog header="Release this delivery" [(visible)]="releaseDialogVisible" [modal]="true"
-            [style]="{width:'40rem'}" [draggable]="false" data-testid="release-dialog">
-    <p class="dialog-hint">
-      Releasing hard-reserves the stock, so nothing else can promise the same units.
-    </p>
-
-    <div *ngIf="isCheckingAvailability" class="loading-state" data-testid="checking-availability">
-      <i class="pi pi-spin pi-spinner"></i> Checking stock…
-    </div>
-
-    <ng-container *ngIf="!isCheckingAvailability && availability as a">
-      <p class="dialog-hint" *ngIf="!a.requiresStock" data-testid="inbound-note">
-        This is an inbound delivery — the goods are arriving, so there is nothing to reserve.
-      </p>
-
-      <p-table *ngIf="a.lines.length" [value]="a.lines" styleClass="p-datatable-sm"
-               data-testid="availability-table">
-        <ng-template pTemplate="header">
-          <tr>
-            <th style="width:3.5rem">Ln</th>
-            <th>Item</th>
-            <th>Warehouse</th>
-            <th class="text-right" style="width:7rem">Ordered</th>
-            <th class="text-right" style="width:7rem">Available</th>
-            <th class="text-right" style="width:7rem">Short</th>
-          </tr>
-        </ng-template>
-        <ng-template pTemplate="body" let-line>
-          <tr [class.short-line]="line.shortfall > 0">
-            <td>{{ line.lineNo }}</td>
-            <td>
-              {{ line.itemDescription }}
-              <div class="line-warning" *ngIf="line.warning">{{ line.warning }}</div>
-            </td>
-            <td>{{ line.warehouseName || '—' }}</td>
-            <td class="text-right">{{ line.qtyOrdered | number:'1.0-3' }}</td>
-            <td class="text-right">{{ line.qtyAvailable | number:'1.0-3' }}</td>
-            <td class="text-right">
-              <strong *ngIf="line.shortfall > 0">{{ line.shortfall | number:'1.0-3' }}</strong>
-              <span *ngIf="line.shortfall <= 0">—</span>
-            </td>
-          </tr>
-        </ng-template>
-      </p-table>
-
-      <div class="shortfall-note" *ngIf="shortLines.length" data-testid="shortfall-note">
-        <i class="pi pi-exclamation-triangle"></i>
-        <span>
-          {{ shortLines.length }} line(s) cannot be covered in full.
-          <ng-container *ngIf="a.canReleasePartially">
-            Splitting releases what stock covers and moves the balance to a new draft delivery
-            against the same source.
-          </ng-container>
-          <ng-container *ngIf="!a.canReleasePartially">
-            Nothing is available, so there is nothing to split.
-          </ng-container>
-        </span>
-      </div>
-    </ng-container>
-
-    <ng-template pTemplate="footer">
-      <p-button label="Back" [text]="true" severity="secondary"
-                (onClick)="releaseDialogVisible = false"></p-button>
-
-      <!-- Offered only when the server says a split would achieve something. -->
-      <p-button *ngIf="availability?.canReleasePartially" label="Release what is available"
-                icon="pi pi-scissors" severity="warn" [outlined]="true"
-                [disabled]="isSubmitting" (onClick)="release('SPLIT')"
-                data-testid="release-split"></p-button>
-
-      <p-button label="Release" icon="pi pi-check" [disabled]="isSubmitting"
-                (onClick)="release('BLOCK')" data-testid="release-block"></p-button>
-    </ng-template>
-  </p-dialog>
-</div>
+    <p-button label="Release" icon="pi pi-check" [disabled]="isSubmitting"
+              (onClick)="release('BLOCK')" data-testid="release-block"></p-button>
+  </ng-template>
+</p-dialog>

@@ -18,6 +18,8 @@ public interface IBomService
     Task                                      ObsoleteAsync(Guid uuid, int userId, string? reason);
     Task<Guid>                                NewVersionAsync(Guid uuid, int userId);
     Task<BomComparisonModel>                  CompareAsync(Guid leftUuid, Guid rightUuid);
+    /// <summary>A37 D-11 — the advisory usage, in any status but OBSOLETE.</summary>
+    Task                                      SetUsageAsync(Guid uuid, string bomUsage, int userId);
 }
 
 /// <summary>A30-P2-08 — what one base quantity of a recipe costs in materials, rolled up through chained recipes.</summary>

@@ -23,6 +23,7 @@ import { AttachmentService } from '../../../../services/attachment.service';
 import { DocCurrencyPanelComponent } from '../../../../shared/doc-currency/doc-currency-panel.component';
 import { DualAmounts, missingRateOf } from '../../../../shared/doc-currency/doc-currency';
 import { MoneyPipe } from '../../../../shared/money/money.pipe';
+import { FLOW, FlowSection, FlowStage, flowStagesFrom } from '../../../../shared/flow';
 
 @Component({
   selector: 'app-po-detail',
@@ -32,7 +33,8 @@ import { MoneyPipe } from '../../../../shared/money/money.pipe';
     ButtonModule, TagModule, ToastModule,
     TableModule, DividerModule, TooltipModule,
     ConfirmDialogModule, DialogModule, TextareaModule, DropdownModule, TimelinePanelComponent,
-    AttachmentListComponent, DocCurrencyPanelComponent, MoneyPipe
+    AttachmentListComponent, DocCurrencyPanelComponent, MoneyPipe,
+    ...FLOW
   ],
   templateUrl: './po-detail.component.html',
   styleUrls: ['./po-detail.component.scss'],
@@ -365,4 +367,46 @@ export class PoDetailComponent implements OnInit, OnDestroy {
   get totalAmount(): number {
     return (this.po?.lines ?? []).reduce((s, l) => s + l.lineTotal, 0);
   }
+
+  // ── SMS Flow header ─────────────────────────────────────────────────────────
+
+  /** Share of the ordered quantity received so far, 0–100. */
+  get receivedPct(): number {
+    const lines = this.po?.lines ?? [];
+    const ordered = lines.reduce((s, l) => s + (l.quantity || 0), 0);
+    const received = lines.reduce((s, l) => s + Math.min(l.qtyReceived || 0, l.quantity || 0), 0);
+    return ordered > 0 ? Math.round((received / ordered) * 100) : 0;
+  }
+
+  get stages(): FlowStage[] {
+    const s = this.po?.status;
+    if (!s) return [];
+    if (s === 'REJECTED' || s === 'CANCELLED') {
+      return flowStagesFrom(['Draft', 'Approval', s === 'REJECTED' ? 'Rejected' : 'Cancelled'], 2, { failed: true });
+    }
+    const labels = ['Draft', 'Approval', 'Approved', 'Sent', 'Received', 'Closed'];
+    const index: Record<string, number> = {
+      DRAFT: 0, PENDING_APPROVAL: 1, APPROVED: 2, SENT: 3, PARTIALLY_RECEIVED: 4,
+      RECEIVED: 5, PARTIALLY_INVOICED: 5, CLOSED: 6
+    };
+    const current = index[s] ?? 0;
+    return flowStagesFrom(labels, current, { subs: [null, null, null, null, current === 4 ? `${this.receivedPct}% received` : null, null] });
+  }
+
+  get sections(): FlowSection[] {
+    return this.po?.status === 'PENDING_APPROVAL' ? this.pendingSections : this.baseSections;
+  }
+  private readonly baseSections: FlowSection[] = [
+    { id: 'sec-lines', label: 'Lines' },
+    { id: 'sec-supplier', label: 'Supplier' },
+    { id: 'sec-currency', label: 'Currency' },
+    { id: 'sec-files', label: 'Files' }
+  ];
+  private readonly pendingSections: FlowSection[] = [
+    { id: 'sec-lines', label: 'Lines' },
+    { id: 'sec-supplier', label: 'Supplier' },
+    { id: 'sec-currency', label: 'Currency' },
+    { id: 'sec-approval', label: 'Approval' },
+    { id: 'sec-files', label: 'Files' }
+  ];
 }

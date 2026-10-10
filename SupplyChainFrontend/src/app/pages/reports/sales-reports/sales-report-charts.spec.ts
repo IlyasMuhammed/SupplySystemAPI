@@ -36,7 +36,7 @@ describe('sales report charts', () => {
     it('colours the buckets from green to red, so the older the debt the redder', () => {
       const [chart] = agingCharts(report({ totals: [bucket('PKR', 1, 1, 1, 1)] }));
 
-      expect(chart.data.datasets[0].backgroundColor).toEqual(['#10b981', '#f59e0b', '#f97316', '#ef4444']);
+      expect(chart.data.datasets[0].backgroundColor).toEqual(['#2e9d62', '#c27a00', '#d9631e', '#c62f25']);
     });
 
     it('stacks the customers who owe most, biggest first, each bar split by age', () => {
@@ -194,7 +194,7 @@ describe('sales report charts', () => {
     it('colours a loss red and a profit green', () => {
       const [chart] = profitabilityCharts(report([product(1, 'A', 'PKR', 100, 10), product(2, 'B', 'PKR', -40, -4)]));
 
-      expect(chart.data.datasets[0].backgroundColor).toEqual(['#10b981', '#ef4444']);
+      expect(chart.data.datasets[0].backgroundColor).toEqual(['#2e9d62', '#c62f25']);
     });
 
     it('says the margin in the tooltip, and nothing when there is none', () => {

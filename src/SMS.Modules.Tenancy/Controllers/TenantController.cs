@@ -40,7 +40,8 @@ public class TenantController : ControllerBase
             OrgName             = org.OrgName,
             Plan                = org.Plan,
             BaseCurrency        = org.BaseCurrency,
-            EnabledFeatureCodes = features.Where(f => f.IsEnabled).Select(f => f.FeatureCode).ToList(),
+            // A37 D-6 — usable now (licensed, on, its module on; a module in grace is not listed).
+            EnabledFeatureCodes = features.Where(f => f.IsUsable).Select(f => f.FeatureCode).ToList(),
             IsSuperAdmin        = _tenantContext.IsSuperAdmin,
             RoleName            = User.GetRoleName(),
             Permissions         = User.GetPermissions().ToList()

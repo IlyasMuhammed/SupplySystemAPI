@@ -29,6 +29,7 @@ import { CurrenciesService, CurrencyModel } from '../../../services/currencies.s
 import { InventoryService, ProductListItemModel } from '../../../services/inventory.service';
 import { ProductVariantPickerComponent, VariantPickerSelection } from '../../../shared/product-variant-picker/product-variant-picker.component';
 import { RateEditPanelComponent } from '../rate-edit-panel/rate-edit-panel.component';
+import { FLOW } from '../../../shared/flow';
 
 const CHANGE_REASON_THRESHOLD = 0.10;
 
@@ -41,7 +42,7 @@ const CHANGE_REASON_THRESHOLD = 0.10;
     InputIconModule, IconFieldModule, TagModule, TooltipModule,
     ToastModule, DropdownModule, DialogModule, SelectButtonModule,
     CheckboxModule, ConfirmDialogModule, FileUploadModule, ContextMenuModule, CalendarModule,
-    ProductVariantPickerComponent, RateEditPanelComponent
+    ProductVariantPickerComponent, RateEditPanelComponent, ...FLOW
   ],
   templateUrl: './rate-cards.component.html',
   styleUrls: ['./rate-cards.component.scss'],

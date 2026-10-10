@@ -1,10 +1,11 @@
-using Hangfire;
+﻿using Hangfire;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using SMS.Modules.Logistics.Constants;
 using SMS.Modules.Logistics.Data;
 using SMS.Modules.Logistics.Domain;
+using SMS.Shared.Common;
 using SMS.Shared.Exceptions;
 
 namespace SMS.Modules.Logistics.Couriers.Tracking;
@@ -57,11 +58,13 @@ internal sealed class ConsignmentTrackingPoller
     private readonly ILogger<ConsignmentTrackingPoller> _logger;
     private readonly TimeSpan                           _callTimeout;
     private readonly int                                _batchSize;
+    private readonly IModuleGate?                       _gate;
 
     public ConsignmentTrackingPoller(
         LogisticsDbContext db, ICarrierAccountResolver resolver, ITrackingEventRecorder recorder,
-        IConfiguration configuration, ILogger<ConsignmentTrackingPoller> logger)
+        IConfiguration configuration, ILogger<ConsignmentTrackingPoller> logger, IModuleGate? gate = null)
     {
+        _gate     = gate;
         _db       = db;
         _resolver = resolver;
         _recorder = recorder;
@@ -91,11 +94,21 @@ internal sealed class ConsignmentTrackingPoller
     {
         var api = LogisticsCode.Of(CarrierIntegrationMode.Api);
 
+        // A37 D-9 — organizations without MODULE_LOGISTICS (grace counts as off) are neither polled nor re-evaluated;
+        // excluded in the queries so their consignments cannot fill the batch.
+        var skipped = _gate is null ? [] : (await _gate.SkippedAmongAsync(
+            await _db.Consignments.IgnoreQueryFilters()
+                .Where(c => !c.IsDelete && c.Carrier != null && c.Carrier.IntegrationMode == api
+                         && (TrackingPolicy.PollableCodes.Contains(c.Status) || c.StuckSince != null))
+                .Select(c => c.OrganizationId).Distinct().ToListAsync(ct),
+            ModuleCodes.Logistics, _logger, nameof(ConsignmentTrackingPoller), ct)).ToList();
+
         // Longest overdue first, never-polled before all of them, so a backlog drains fairly.
         var due = await _db.Consignments
             .IgnoreQueryFilters()
             .AsNoTracking()
             .Where(c => !c.IsDelete
+                     && !skipped.Contains(c.OrganizationId)
                      && TrackingPolicy.PollableCodes.Contains(c.Status)
                      && c.MasterAwb != null
                      && c.Carrier != null && c.Carrier.IntegrationMode == api
@@ -127,7 +140,7 @@ internal sealed class ConsignmentTrackingPoller
             }
         }
 
-        var (nowStuck, noLongerStuck) = await EvaluateStuckAsync(now, ct);
+        var (nowStuck, noLongerStuck) = await EvaluateStuckAsync(now, ct, skipped);
 
         return new TrackingSweepResult(polled, failed, nowStuck, noLongerStuck);
     }
@@ -233,15 +246,18 @@ internal sealed class ConsignmentTrackingPoller
     /// Re-evaluates every live consignment on an API carrier: flags the newly quiet, clears the
     /// ones that have moved. Stuck is a state, not an event — it goes away by itself.
     /// </summary>
-    internal async Task<(int nowStuck, int noLongerStuck)> EvaluateStuckAsync(DateTime now, CancellationToken ct = default)
+    internal async Task<(int nowStuck, int noLongerStuck)> EvaluateStuckAsync(
+        DateTime now, CancellationToken ct = default, IReadOnlyCollection<Guid>? skippedOrganizations = null)
     {
         var api = LogisticsCode.Of(CarrierIntegrationMode.Api);
+        var skipped = skippedOrganizations?.ToList() ?? [];
 
         // Manual carriers are left out: with no tracking feed, every one of them would read as
         // never collected, and a list where everything is stuck is a list nobody reads.
         var candidates = await _db.Consignments
             .IgnoreQueryFilters()
             .Where(c => !c.IsDelete
+                     && !skipped.Contains(c.OrganizationId)
                      && c.Carrier != null && c.Carrier.IntegrationMode == api
                      && (TrackingPolicy.PollableCodes.Contains(c.Status) || c.StuckSince != null))
             .ToListAsync(ct);

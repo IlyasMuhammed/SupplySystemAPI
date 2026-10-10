@@ -107,6 +107,22 @@ public class UsersController : ControllerBase
         return Ok(ApiResponse.Ok(StaticResponseMessage.passwordResetTokenSendToYourAccount));
     }
 
+    // ── POST /api/users/:id/set-password ─────────────────────────────────────
+    // Platform super admins only (the permission code alone is held by roles any organization can have, hence
+    // RequireSuperAdmin as on api/system/organizations). For an account whose owner never got, or can't reach,
+    // the invite or reset e-mail. The service refuses your own account and anyone outside reach.
+    [HttpPost("{id:int}/set-password")]
+    [RequirePermission(PermissionCodes.PLATFORM_SUPER_ADMIN)]
+    [RequireSuperAdmin]
+    public async Task<IActionResult> SetPassword(int id, [FromBody] SetUserPasswordRequest dto)
+    {
+        if (!AuthController.IsStrongPassword(dto?.NewPassword))
+            return BadRequest(ApiResponse.Fail(StaticResponseMessage.passwordMustBeAtLeast8CharactersLongContainAnUppercaseLetterALowercaseLetterANumberAndASpecialCharacter));
+
+        await _authService.SetPasswordAsSuperAdminAsync(id, dto!.NewPassword, AuthCaller.From(User));
+        return Ok(ApiResponse.Ok("Password set. The user's other sessions were signed out."));
+    }
+
     // ── DELETE /api/users/:id ─────────────────────────────────────────────────
     [HttpDelete("{id:int}")]
    // [RequirePermission(PermissionCodes.USER_MANAGE)]

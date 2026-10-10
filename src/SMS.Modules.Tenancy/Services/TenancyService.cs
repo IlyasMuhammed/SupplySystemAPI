@@ -210,6 +210,8 @@ internal sealed class TenancyService : ITenancyService
             requested[item.FeatureCode] = item.IsEnabled;
             if (!item.IsEnabled && feature.IsCore)
                 errors.Add($"'{item.FeatureCode}' is a core feature and cannot be disabled.");
+            if (item.IsEnabled && !feature.IsAvailable)
+                errors.Add($"{feature.FeatureName} is not yet available.");
         }
 
         foreach (var (code, isEnabled) in requested)
@@ -245,10 +247,16 @@ internal sealed class TenancyService : ITenancyService
         if (errors.Count > 0)
             throw new UnprocessableEntityException(string.Join(" ", errors));
 
+        // A37 D-4 — this is the licence: "on" means licensed AND switched on, "off" means neither. A requested code is
+        // written whenever its row differs from that (e.g. licensed but switched off by the org admin, then re-licensed).
         var changesToWrite = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
         foreach (var f in current)
-            if (finalState[f.FeatureCode] != f.IsEnabled)
-                changesToWrite[f.FeatureCode] = finalState[f.FeatureCode];
+        {
+            var target = finalState[f.FeatureCode];
+            var differs = target ? !(f.IsLicensed && f.IsEnabled) : (f.IsLicensed || f.IsEnabled);
+            if (differs && (requested.ContainsKey(f.FeatureCode) || target != f.IsEnabled))
+                changesToWrite[f.FeatureCode] = target;
+        }
 
         await _repo.SaveFeatureChangesAsync(orgId, changesToWrite, modifiedBy);
         if (changesToWrite.Count > 0) _snapshots.Invalidate(orgId);

@@ -53,9 +53,9 @@ describe('InvoiceDetailComponent', () => {
     return fixture.nativeElement.querySelector(`[data-testid="${testId}"]`);
   }
 
-  /** The labels of the buttons in the page header, as the user sees them offered. */
+  /** The labels of the buttons in the page's command bar, as the user sees them offered. */
   function actions(): string[] {
-    return Array.from(fixture.nativeElement.querySelectorAll('.page-header p-button') as NodeListOf<HTMLElement>)
+    return Array.from(fixture.nativeElement.querySelectorAll('.sf-cmd p-button') as NodeListOf<HTMLElement>)
       .map(b => b.getAttribute('label') ?? '')
       .filter(l => !!l);
   }

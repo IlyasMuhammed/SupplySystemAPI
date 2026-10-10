@@ -196,6 +196,7 @@ describe('AppMenu filtering (MT-005)', () => {
 
     it('reaches the logistics tracking and freight settlement screens from the menu', () => {
         authService.permissions = ['DELIVERY_VIEW', 'FREIGHT_INVOICE_VIEW', 'SHIPMENT_RATE_VIEW', 'SHIPPING_RULE_MANAGE', 'DELIVERY_TRACK'];
+        // A37 — the Tracking screens need only Logistics (FEATURE_SHIPMENT_TRACKING guards consignments, not these).
         tenantService.tenant.set(baseTenant({ enabledFeatureCodes: ['MODULE_LOGISTICS'], permissions: authService.permissions }));
 
         const labels = allLabels(menu.model());
@@ -238,7 +239,7 @@ describe('AppMenu filtering (MT-005)', () => {
         tenantService.tenant.set(baseTenant({ isSuperAdmin: true, enabledFeatureCodes: [] }));
 
         expect(menu.model().map((g: any) => g.label)).toEqual([
-            'Home', 'Sales', 'Manufacturing', 'Procurement', 'Warehouse & Inventory', 'Material Management',
+            'Home', 'Sales', 'Manufacturing', 'Services', 'Procurement', 'Warehouse & Inventory', 'Material Management',
             'Logistics', 'Finance', 'Reports & Analytics', 'Administration', 'System Administration'
         ]);
     });
@@ -319,6 +320,67 @@ describe('AppMenu filtering (MT-005)', () => {
         authService.permissions = ['INVENTORY_VIEW', 'REPORT_EXPORT'];
         tenantService.tenant.set(baseTenant({ enabledFeatureCodes: features, permissions: authService.permissions }));
         expect(allLabels(menu.model())).toContain('Stock Movement / Ledger');
+    });
+
+    // ── A37: module sub-features, Settings › Modules, refresh ─────────────
+
+    it('hides RFQs, picking, tracking and supplier returns when their sub-feature is switched off', () => {
+        authService.permissions = ['RFQ_VIEW', 'PO_VIEW', 'PICKING', 'DELIVERY_VIEW', 'GOODS_RECEIVE'];
+        const modulesOnly = ['MODULE_DEMAND', 'MODULE_LOGISTICS', 'MODULE_WAREHOUSE'];
+        tenantService.tenant.set(baseTenant({ enabledFeatureCodes: modulesOnly, permissions: authService.permissions }));
+
+        let labels = allLabels(menu.model());
+        expect(labels).toContain('Purchase Orders');
+        expect(labels).toContain('All Deliveries');
+        expect(labels).toContain('Goods Receipts');
+        expect(labels).toContain('Exception Queue');
+        for (const hidden of ['Supplier Quotes (RFQ)', 'Picking', 'Supplier Returns']) {
+            expect(labels).withContext(hidden).not.toContain(hidden);
+        }
+
+        tenantService.tenant.set(baseTenant({
+            enabledFeatureCodes: [...modulesOnly, 'FEATURE_RFQ_MANAGEMENT', 'FEATURE_PICK_LISTS', 'FEATURE_SHIPMENT_TRACKING', 'FEATURE_PURCHASE_RETURNS'],
+            permissions: authService.permissions
+        }));
+        labels = allLabels(menu.model());
+        for (const shown of ['Supplier Quotes (RFQ)', 'Picking', 'Supplier Returns']) {
+            expect(labels).withContext(shown).toContain(shown);
+        }
+    });
+
+    it('keeps Customers under Sales when Demand is off, hiding only the Demand items', () => {
+        authService.permissions = ['CUSTOMER_VIEW', 'SALE_INQUIRY_VIEW', 'SALE_QUOTATION_VIEW', 'SALE_ORDER_VIEW'];
+        tenantService.tenant.set(baseTenant({ enabledFeatureCodes: ['MODULE_CUSTOMERS'], permissions: authService.permissions }));
+
+        const labels = allLabels(menu.model());
+        expect(labels).toContain('Sales');
+        expect(labels).toContain('Customers');
+        for (const hidden of ['Inquiries', 'Customer Quotations', 'Sale Orders', 'All Sale Orders']) {
+            expect(labels).withContext(hidden).not.toContain(hidden);
+        }
+    });
+
+    it('offers Settings › System › Modules to MODULES_VIEW holders only', () => {
+        authService.permissions = ['MODULES_VIEW'];
+        tenantService.tenant.set(baseTenant({ enabledFeatureCodes: [], permissions: authService.permissions }));
+        expect(allLabels(menu.model())).toContain('Modules');
+
+        authService.permissions = ['USER_MANAGE'];
+        tenantService.tenant.set(baseTenant({ enabledFeatureCodes: ['SCREEN_USER_MANAGEMENT'], permissions: authService.permissions }));
+        expect(allLabels(menu.model())).not.toContain('Modules');
+    });
+
+    it('re-evaluates when ModuleService reloads', () => {
+        const version = signal(0);
+        let calls = 0;
+        const fakeModules = { version: () => { calls++; return version(); } };
+        const withModules = new AppMenu(authService as any, tenantService as any, fakeModules as any);
+        tenantService.tenant.set(baseTenant({ enabledFeatureCodes: [] }));
+        withModules.model();
+        const before = calls;
+        version.set(1);
+        withModules.model();
+        expect(calls).toBeGreaterThan(before);
     });
 
     it('Organization Admin is a real permission holder, not a blanket bypass — sees only what its default grants (USER_MANAGE, PO_TEMPLATE_MANAGE) justify', () => {

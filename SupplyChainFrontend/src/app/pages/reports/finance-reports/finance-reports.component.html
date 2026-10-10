@@ -1,182 +1,177 @@
 <p-toast />
-<div class="report-page">
-
-  <!-- Page Header -->
-  <div class="page-header">
-    <div class="header-left">
-      <div class="header-icon icon-emerald">
-        <i class="pi pi-dollar"></i>
-      </div>
-      <div>
-        <h2 class="page-title">Finance Reports</h2>
-        <p class="page-subtitle">Review invoice ageing, payment summaries and budget utilisation</p>
-      </div>
-    </div>
-    <p-button label="Refresh" icon="pi pi-refresh" severity="secondary" [outlined]="true"
+<sf-page [crumbs]="['Reports', 'Finance reports']">
+  <!-- Command bar -->
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <p-button label="Refresh" icon="pi pi-refresh" [text]="true"
               (onClick)="load()" [loading]="isLoadingAging || isLoadingPayment || isLoadingBudget"></p-button>
   </div>
 
-  <!-- Filter Bar -->
-  <div class="filter-card">
-    <div class="filter-title"><i class="pi pi-filter"></i> Filter by Date Range</div>
-    <div class="filter-controls">
-      <div class="filter-field">
-        <label>Date From</label>
-        <p-calendar [(ngModel)]="dateFrom" dateFormat="dd/mm/yy" [showIcon]="true" [showClear]="true"
-                    placeholder="Select start date" styleClass="w-full" appendTo="body"></p-calendar>
-      </div>
-      <div class="filter-field">
-        <label>Date To</label>
-        <p-calendar [(ngModel)]="dateTo" dateFormat="dd/mm/yy" [showIcon]="true" [showClear]="true"
-                    placeholder="Select end date" styleClass="w-full" appendTo="body"></p-calendar>
-      </div>
-      <div class="filter-actions">
-        <p-button label="Apply" icon="pi pi-search" (onClick)="load()" [loading]="isLoadingAging || isLoadingPayment || isLoadingBudget"></p-button>
-        <p-button label="Reset" icon="pi pi-times" severity="secondary" [outlined]="true" (onClick)="resetFilters()"></p-button>
+  <div class="sf-body">
+    <div class="sf-lr-head">
+      <div>
+        <h1>Finance reports</h1>
+        <div class="sf-sub">Review invoice ageing, payment summaries and budget utilisation</div>
       </div>
     </div>
+
+    <!-- Filters -->
+    <div class="sf-filters">
+      <p-calendar [(ngModel)]="dateFrom" dateFormat="dd/mm/yy" [showIcon]="true" [showClear]="true"
+                  placeholder="Date from" appendTo="body"></p-calendar>
+      <p-calendar [(ngModel)]="dateTo" dateFormat="dd/mm/yy" [showIcon]="true" [showClear]="true"
+                  placeholder="Date to" appendTo="body"></p-calendar>
+      <p-button label="Apply" icon="pi pi-search" (onClick)="load()" [loading]="isLoadingAging || isLoadingPayment || isLoadingBudget"></p-button>
+      <p-button label="Reset" icon="pi pi-times" [text]="true" (onClick)="resetFilters()"></p-button>
+    </div>
+
+    <div class="sf-card">
+      <p-tabView>
+
+        <!-- Invoice Aging -->
+        <p-tabPanel header="Invoice Ageing">
+          <div class="tab-body">
+            <div class="sf-ch">
+              <p class="sf-mu sf-sm m-0" data-testid="aging-approved-only">
+                Approved supplier invoices with something still owed — an invoice is payable, and aged, only once it is approved.
+              </p>
+              <p-button label="Download PDF" icon="pi pi-file-pdf" [text]="true" size="small"
+                        (onClick)="downloadAgingPdf()" [disabled]="!agingItems.length"></p-button>
+            </div>
+            <div *ngIf="agingBuckets.length" class="sf-grid sf-tiles">
+              <div class="sf-tile summary-card" *ngFor="let b of agingBuckets">
+                <span class="l">{{ b.bucket }}</span>
+                <span class="v">{{ b.count }}</span>
+                <span class="s">{{ b.totalAmount | number:'1.2-2' }} still owed</span>
+              </div>
+            </div>
+            <div class="sf-card p0 flat">
+              <p-table [value]="agingItems" [loading]="isLoadingAging" [paginator]="true" [rows]="20"
+                       responsiveLayout="scroll" styleClass="p-datatable-sm p-datatable-striped">
+                <ng-template pTemplate="header">
+                  <tr>
+                    <th>Invoice #</th>
+                    <th>Supplier</th>
+                    <th>Due Date</th>
+                    <th class="text-right">Invoice total</th>
+                    <th class="text-right">Outstanding</th>
+                    <th class="text-center">Payment Status</th>
+                    <th class="text-right">Days Overdue</th>
+                    <th>Bucket</th>
+                  </tr>
+                </ng-template>
+                <ng-template pTemplate="body" let-row>
+                  <tr>
+                    <td class="sf-mono font-semibold">{{ row.invoiceNumber }}</td>
+                    <td>{{ row.supplierName }}</td>
+                    <td>{{ row.dueDate | date:'dd MMM yyyy' }}</td>
+                    <td class="text-right" data-testid="aging-total">{{ row.totalAmount | number:'1.2-2' }}</td>
+                    <td class="text-right font-semibold" data-testid="aging-outstanding">{{ row.outstandingAmount | number:'1.2-2' }}</td>
+                    <td class="text-center"><p-tag [value]="row.paymentStatus" /></td>
+                    <td class="text-right" [class.text-red-500]="row.daysOverdue > 0">{{ row.daysOverdue }}</td>
+                    <td>{{ row.agingBucket }}</td>
+                  </tr>
+                </ng-template>
+                <ng-template pTemplate="emptymessage">
+                  <tr><td colspan="8" class="sf-empty">No ageing invoices. {{ onlyApprovedHint }}</td></tr>
+                </ng-template>
+              </p-table>
+            </div>
+          </div>
+        </p-tabPanel>
+
+        <!-- Payment Summary -->
+        <p-tabPanel header="Payment Summary">
+          <div class="tab-body">
+            <div *ngIf="paymentSummary && !isLoadingPayment" class="sf-grid sf-tiles">
+              <div class="sf-tile summary-card">
+                <span class="l">Processed</span>
+                <span class="v ok">{{ paymentSummary.processedCount }}</span>
+                <span class="s">{{ paymentSummary.totalProcessed | number:'1.2-2' }}</span>
+              </div>
+              <div class="sf-tile summary-card">
+                <span class="l">Pending</span>
+                <span class="v wn">{{ paymentSummary.pendingCount }}</span>
+                <span class="s">{{ paymentSummary.totalPending | number:'1.2-2' }}</span>
+              </div>
+              <div class="sf-tile summary-card">
+                <span class="l">Reversed</span>
+                <span class="v er">{{ paymentSummary.reversedCount }}</span>
+                <span class="s">{{ paymentSummary.totalReversed | number:'1.2-2' }}</span>
+              </div>
+            </div>
+            <div class="sf-card p0 flat">
+              <p-table *ngIf="paymentSummary" [value]="paymentSummary.byMethod" [loading]="isLoadingPayment"
+                       responsiveLayout="scroll" styleClass="p-datatable-sm p-datatable-striped">
+                <ng-template pTemplate="header">
+                  <tr>
+                    <th>Payment Method</th>
+                    <th class="text-right">Count</th>
+                    <th class="text-right">Total Amount</th>
+                  </tr>
+                </ng-template>
+                <ng-template pTemplate="body" let-row>
+                  <tr>
+                    <td>{{ row.method }}</td>
+                    <td class="text-right">{{ row.count }}</td>
+                    <td class="text-right font-semibold">{{ row.totalAmount | number:'1.2-2' }}</td>
+                  </tr>
+                </ng-template>
+                <ng-template pTemplate="emptymessage">
+                  <tr><td colspan="3" class="sf-empty">No payment data found.</td></tr>
+                </ng-template>
+              </p-table>
+            </div>
+          </div>
+        </p-tabPanel>
+
+        <!-- Budget Utilisation -->
+        <p-tabPanel header="Budget Utilisation">
+          <div class="tab-body">
+            <div class="sf-ch">
+              <span></span>
+              <p-button label="Download PDF" icon="pi pi-file-pdf" [text]="true" size="small"
+                        (onClick)="downloadBudgetPdf()" [disabled]="!budgetItems.length"></p-button>
+            </div>
+            <div class="sf-card p0 flat">
+              <p-table [value]="budgetItems" [loading]="isLoadingBudget" [paginator]="true" [rows]="20"
+                       responsiveLayout="scroll" styleClass="p-datatable-sm p-datatable-striped">
+                <ng-template pTemplate="header">
+                  <tr>
+                    <th>Budget Code</th>
+                    <th>Department</th>
+                    <th class="text-right">POs</th>
+                    <th class="text-right">Estimated</th>
+                    <th class="text-right">Actual Spend</th>
+                    <th class="text-right">Variance</th>
+                    <th class="text-right">Variance %</th>
+                  </tr>
+                </ng-template>
+                <ng-template pTemplate="body" let-row>
+                  <tr>
+                    <td class="sf-mono">{{ row.budgetCode || '–' }}</td>
+                    <td>{{ row.department || '–' }}</td>
+                    <td class="text-right">{{ row.poCount }}</td>
+                    <td class="text-right">{{ row.estimatedAmount | number:'1.2-2' }}</td>
+                    <td class="text-right font-semibold">{{ row.actualSpend | number:'1.2-2' }}</td>
+                    <td class="text-right font-semibold"
+                        [class.text-red-500]="row.varianceAmount > 0"
+                        [class.text-green-600]="row.varianceAmount <= 0">
+                      {{ row.varianceAmount | number:'1.2-2' }}
+                    </td>
+                    <td class="text-right" [class.text-red-500]="row.variancePercent > 5">
+                      {{ row.variancePercent | number:'1.1-1' }}%
+                    </td>
+                  </tr>
+                </ng-template>
+                <ng-template pTemplate="emptymessage">
+                  <tr><td colspan="7" class="sf-empty">No budget data found.</td></tr>
+                </ng-template>
+              </p-table>
+            </div>
+          </div>
+        </p-tabPanel>
+
+      </p-tabView>
+    </div>
   </div>
-
-  <p-tabView>
-
-    <!-- Invoice Aging -->
-    <p-tabPanel header="Invoice Ageing">
-      <div class="tab-toolbar">
-        <p-button label="Download PDF" icon="pi pi-file-pdf" severity="secondary" [outlined]="true" size="small"
-                  (onClick)="downloadAgingPdf()" [disabled]="!agingItems.length"></p-button>
-      </div>
-      <div *ngIf="agingBuckets.length" class="summary-cards">
-        <div class="summary-card" *ngFor="let b of agingBuckets">
-          <div class="summary-label">{{ b.bucket }}</div>
-          <div class="summary-count">{{ b.count }}</div>
-          <div class="summary-amount">{{ b.totalAmount | number:'1.2-2' }}</div>
-          <div class="summary-caption">still owed</div>
-        </div>
-      </div>
-      <p class="text-secondary text-sm" data-testid="aging-approved-only">
-        Approved supplier invoices with something still owed — an invoice is payable, and aged, only once it is approved.
-      </p>
-      <div class="table-card">
-        <p-table [value]="agingItems" [loading]="isLoadingAging" [paginator]="true" [rows]="20"
-                 responsiveLayout="scroll" styleClass="p-datatable-sm p-datatable-striped">
-          <ng-template pTemplate="header">
-            <tr>
-              <th>Invoice #</th>
-              <th>Supplier</th>
-              <th>Due Date</th>
-              <th class="text-right">Invoice total</th>
-              <th class="text-right">Outstanding</th>
-              <th class="text-center">Payment Status</th>
-              <th class="text-right">Days Overdue</th>
-              <th>Bucket</th>
-            </tr>
-          </ng-template>
-          <ng-template pTemplate="body" let-row>
-            <tr>
-              <td class="font-mono font-semibold">{{ row.invoiceNumber }}</td>
-              <td>{{ row.supplierName }}</td>
-              <td>{{ row.dueDate | date:'dd MMM yyyy' }}</td>
-              <td class="text-right" data-testid="aging-total">{{ row.totalAmount | number:'1.2-2' }}</td>
-              <td class="text-right font-semibold" data-testid="aging-outstanding">{{ row.outstandingAmount | number:'1.2-2' }}</td>
-              <td class="text-center"><p-tag [value]="row.paymentStatus" /></td>
-              <td class="text-right" [class.text-red-500]="row.daysOverdue > 0">{{ row.daysOverdue }}</td>
-              <td>{{ row.agingBucket }}</td>
-            </tr>
-          </ng-template>
-          <ng-template pTemplate="emptymessage">
-            <tr><td colspan="8"><div class="empty-state"><i class="pi pi-inbox"></i><p>No ageing invoices. {{ onlyApprovedHint }}</p></div></td></tr>
-          </ng-template>
-        </p-table>
-      </div>
-    </p-tabPanel>
-
-    <!-- Payment Summary -->
-    <p-tabPanel header="Payment Summary">
-      <div *ngIf="paymentSummary && !isLoadingPayment" class="summary-cards">
-        <div class="summary-card success">
-          <div class="summary-label">Processed</div>
-          <div class="summary-count text-green-600">{{ paymentSummary.processedCount }}</div>
-          <div class="summary-amount">{{ paymentSummary.totalProcessed | number:'1.2-2' }}</div>
-        </div>
-        <div class="summary-card warn">
-          <div class="summary-label">Pending</div>
-          <div class="summary-count text-orange-500">{{ paymentSummary.pendingCount }}</div>
-          <div class="summary-amount">{{ paymentSummary.totalPending | number:'1.2-2' }}</div>
-        </div>
-        <div class="summary-card danger">
-          <div class="summary-label">Reversed</div>
-          <div class="summary-count text-red-500">{{ paymentSummary.reversedCount }}</div>
-          <div class="summary-amount">{{ paymentSummary.totalReversed | number:'1.2-2' }}</div>
-        </div>
-      </div>
-      <div class="table-card">
-        <p-table *ngIf="paymentSummary" [value]="paymentSummary.byMethod" [loading]="isLoadingPayment"
-                 responsiveLayout="scroll" styleClass="p-datatable-sm p-datatable-striped">
-          <ng-template pTemplate="header">
-            <tr>
-              <th>Payment Method</th>
-              <th class="text-right">Count</th>
-              <th class="text-right">Total Amount</th>
-            </tr>
-          </ng-template>
-          <ng-template pTemplate="body" let-row>
-            <tr>
-              <td>{{ row.method }}</td>
-              <td class="text-right">{{ row.count }}</td>
-              <td class="text-right font-semibold">{{ row.totalAmount | number:'1.2-2' }}</td>
-            </tr>
-          </ng-template>
-          <ng-template pTemplate="emptymessage">
-            <tr><td colspan="3"><div class="empty-state"><i class="pi pi-inbox"></i><p>No payment data found.</p></div></td></tr>
-          </ng-template>
-        </p-table>
-      </div>
-    </p-tabPanel>
-
-    <!-- Budget Utilisation -->
-    <p-tabPanel header="Budget Utilisation">
-      <div class="tab-toolbar">
-        <p-button label="Download PDF" icon="pi pi-file-pdf" severity="secondary" [outlined]="true" size="small"
-                  (onClick)="downloadBudgetPdf()" [disabled]="!budgetItems.length"></p-button>
-      </div>
-      <div class="table-card">
-        <p-table [value]="budgetItems" [loading]="isLoadingBudget" [paginator]="true" [rows]="20"
-                 responsiveLayout="scroll" styleClass="p-datatable-sm p-datatable-striped">
-          <ng-template pTemplate="header">
-            <tr>
-              <th>Budget Code</th>
-              <th>Department</th>
-              <th class="text-right">POs</th>
-              <th class="text-right">Estimated</th>
-              <th class="text-right">Actual Spend</th>
-              <th class="text-right">Variance</th>
-              <th class="text-right">Variance %</th>
-            </tr>
-          </ng-template>
-          <ng-template pTemplate="body" let-row>
-            <tr>
-              <td class="font-mono">{{ row.budgetCode || '–' }}</td>
-              <td>{{ row.department || '–' }}</td>
-              <td class="text-right">{{ row.poCount }}</td>
-              <td class="text-right">{{ row.estimatedAmount | number:'1.2-2' }}</td>
-              <td class="text-right font-semibold">{{ row.actualSpend | number:'1.2-2' }}</td>
-              <td class="text-right font-semibold"
-                  [class.text-red-500]="row.varianceAmount > 0"
-                  [class.text-green-600]="row.varianceAmount <= 0">
-                {{ row.varianceAmount | number:'1.2-2' }}
-              </td>
-              <td class="text-right" [class.text-red-500]="row.variancePercent > 5">
-                {{ row.variancePercent | number:'1.1-1' }}%
-              </td>
-            </tr>
-          </ng-template>
-          <ng-template pTemplate="emptymessage">
-            <tr><td colspan="7"><div class="empty-state"><i class="pi pi-inbox"></i><p>No budget data found.</p></div></td></tr>
-          </ng-template>
-        </p-table>
-      </div>
-    </p-tabPanel>
-
-  </p-tabView>
-
-</div>
+</sf-page>

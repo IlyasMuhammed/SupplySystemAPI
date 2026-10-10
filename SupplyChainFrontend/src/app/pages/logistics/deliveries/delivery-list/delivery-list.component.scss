@@ -1,52 +1,14 @@
-.list-page { padding: 1.5rem; }
-.page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
-.page-title { font-size: 1.5rem; font-weight: 700; display: flex; align-items: center; gap: .5rem; margin: 0; }
-.page-subtitle { color: var(--text-color-secondary); font-size: .875rem; margin: .25rem 0 0; }
-.filter-bar { display: flex; align-items: center; gap: .75rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
-.search-input { width: 300px; }
 .filter-dropdown { width: 160px; }
-.table-card { background: var(--surface-0); border: 1px solid var(--surface-200); border-radius: .625rem; overflow: hidden; }
 
-// The source document, shown as a quiet label plus the number it refers to.
-.source-type { font-size: .75rem; font-weight: 600; color: var(--text-color-secondary); }
-.source-number { font-size: .8125rem; }
-
-// Backfilled deliveries. Amber rather than red: the row is not wrong, it is incomplete.
-.lines-unknown {
-  display: inline-flex; align-items: center; gap: .25rem;
-  font-size: .75rem; font-weight: 600;
-  color: var(--yellow-700, #a16207);
-  white-space: nowrap;
-}
-
-// A33 — the sale order and the route a delivery runs on.
-.so-link { color: var(--primary-color); text-decoration: none; font-size: .8125rem; }
-.so-link:hover { text-decoration: underline; }
-.so-customer { font-size: .75rem; color: var(--text-color-secondary); margin-top: .125rem; }
-.route-badge {
-  display: inline-block; padding: .0625rem .4375rem; border-radius: .25rem;
-  font-size: .6875rem; font-weight: 600; letter-spacing: .02em; white-space: nowrap;
-  background: var(--primary-50, #eef2ff); color: var(--primary-700, #4338ca);
-  border: 1px solid var(--primary-200, #c7d2fe);
-}
-.filter-chip {
-  display: inline-flex; align-items: center; gap: .375rem;
-  padding: .25rem .375rem .25rem .625rem; border-radius: 1rem; font-size: .8125rem;
-  background: var(--surface-100); border: 1px solid var(--surface-300);
-}
 .chip-clear {
   border: 0; background: transparent; cursor: pointer; padding: .125rem .25rem; line-height: 1;
-  color: var(--text-color-secondary); border-radius: 50%;
+  color: inherit; border-radius: 50%;
 }
-.chip-clear:hover { background: var(--surface-200); color: var(--text-color); }
+.chip-clear:hover { background: var(--sms-surface-2); color: var(--sms-text); }
 
-.priority-urgent { font-weight: 700; color: var(--red-600, #dc2626); }
-.priority-high   { font-weight: 600; color: var(--orange-600, #ea580c); }
+.priority-urgent { font-weight: 700; color: var(--sms-danger); }
+.priority-high   { font-weight: 600; color: var(--sms-warn); }
 
-// The filter bar is the only row that would otherwise force a sideways scroll on a phone; the
-// table keeps its own horizontal scroll, which is appropriate for a dense grid.
 @media (max-width: 640px) {
-  .list-page { padding: 1rem; }
-  .search-input, .filter-dropdown { width: 100%; }
-  .filter-bar { gap: .5rem; }
+  .filter-dropdown { width: 100%; }
 }

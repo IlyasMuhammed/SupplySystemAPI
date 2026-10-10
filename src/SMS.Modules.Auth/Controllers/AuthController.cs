@@ -50,7 +50,7 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>The same rule register and accept-invite always applied, now also on reset and change.</summary>
-    private static bool IsStrongPassword(string? password) =>
+    internal static bool IsStrongPassword(string? password) =>
         password is { Length: >= 8 }
         && password.Any(char.IsUpper) && password.Any(char.IsLower) && password.Any(char.IsDigit)
         && Regex.IsMatch(password, @"[!@#$%^&*]");

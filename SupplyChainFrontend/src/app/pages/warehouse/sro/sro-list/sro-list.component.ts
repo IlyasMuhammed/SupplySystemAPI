@@ -14,6 +14,7 @@ import { IconFieldModule } from 'primeng/iconfield';
 import { MessageService } from 'primeng/api';
 import { TableLazyLoadEvent } from 'primeng/table';
 import { WarehouseService, SroListItemModel, SroListFilter } from '../../../../services/warehouse.service';
+import { FLOW } from '../../../../shared/flow';
 
 @Component({
   selector: 'app-sro-list',
@@ -22,7 +23,7 @@ import { WarehouseService, SroListItemModel, SroListFilter } from '../../../../s
     CommonModule, RouterModule, FormsModule,
     TableModule, ButtonModule, TagModule,
     TooltipModule, ToastModule, DropdownModule,
-    InputTextModule, InputIconModule, IconFieldModule
+    InputTextModule, InputIconModule, IconFieldModule, ...FLOW
   ],
   templateUrl: './sro-list.component.html',
   styleUrls: ['./sro-list.component.scss'],

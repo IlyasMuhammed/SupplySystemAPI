@@ -1,101 +1,79 @@
-<div class="pr-detail-page">
-  <p-toast></p-toast>
-  <p-confirmDialog></p-confirmDialog>
+<p-toast></p-toast>
+<p-confirmDialog></p-confirmDialog>
 
-  <!-- ── Loading ───────────────────────────────────────────────────────────── -->
-  <div *ngIf="isLoading" class="loading-card">
-    <i class="pi pi-spin pi-spinner" style="font-size:2rem;color:#6c63ff"></i>
-    <p>Loading requisition...</p>
+<!-- ── Loading ───────────────────────────────────────────────────────────── -->
+<div *ngIf="isLoading" class="sf-empty">
+  <i class="pi pi-spin pi-spinner"></i> Loading requisition...
+</div>
+
+<sf-page *ngIf="!isLoading && pr" [crumbs]="['Procurement', 'Purchase requisitions', pr.prNumber]">
+
+  <!-- ── Command bar: the next step first, then the rest ─────────────────────────────── -->
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <p-button *ngIf="canSubmit" label="Submit for Approval" icon="pi pi-send"
+              (onClick)="onSubmit()" [loading]="isActioning"></p-button>
+
+    <p-button *ngIf="canApprove" label="Approve" icon="pi pi-check-circle"
+              severity="success" (onClick)="onApprove()" [loading]="isActioning"></p-button>
+
+    <p-button *ngIf="canConvert" label="Convert to PO" icon="pi pi-shopping-cart"
+              (onClick)="openConvertDialog()"></p-button>
+
+    <p-button *ngIf="canConvert" label="Split by Vendor" icon="pi pi-share-alt" [text]="true"
+              (onClick)="openSplitDialog()"></p-button>
+
+    <p-button *ngIf="canEdit" label="Edit" icon="pi pi-pencil" [text]="true"
+              [routerLink]="['/portal/pages/demand/requisitions', uuid, 'edit']"></p-button>
+
+    <p-button label="Timeline" icon="pi pi-history" [text]="true"
+              pTooltip="View Timeline" (onClick)="showTimeline = true"></p-button>
+
+    <ng-container *ngIf="canReject">
+      <span class="sf-sep"></span>
+      <p-button label="Reject" icon="pi pi-times-circle"
+                severity="danger" [text]="true" (onClick)="openRejectDialog()"></p-button>
+    </ng-container>
   </div>
 
-  <ng-container *ngIf="!isLoading && pr">
-
-    <!-- ── Page header ──────────────────────────────────────────────────────── -->
-    <div class="page-header">
-      <div class="header-left">
-        <p-button icon="pi pi-arrow-left" [text]="true" severity="secondary"
-                  routerLink="/portal/pages/demand/requisitions"></p-button>
-        <div>
-          <div class="title-row">
-            <h1 class="page-title">{{ pr.prNumber }}</h1>
-            <p-tag [value]="pr.status" [severity]="getStatusSeverity(pr.status)"></p-tag>
-          </div>
-          <p class="page-subtitle">{{ pr.prTitle }}</p>
-        </div>
-      </div>
-
-      <div class="action-buttons">
-        <p-button *ngIf="canEdit" label="Edit" icon="pi pi-pencil" severity="secondary"
-                  [routerLink]="['/portal/pages/demand/requisitions', uuid, 'edit']"></p-button>
-
-        <p-button *ngIf="canSubmit" label="Submit for Approval" icon="pi pi-send"
-                  (onClick)="onSubmit()" [loading]="isActioning"></p-button>
-
-        <p-button *ngIf="canApprove" label="Approve" icon="pi pi-check-circle"
-                  severity="success" (onClick)="onApprove()" [loading]="isActioning"></p-button>
-
-        <p-button *ngIf="canReject" label="Reject" icon="pi pi-times-circle"
-                  severity="danger" [outlined]="true" (onClick)="openRejectDialog()"></p-button>
-
-        <p-button *ngIf="canConvert" label="Convert to PO" icon="pi pi-shopping-cart"
-                  (onClick)="openConvertDialog()"></p-button>
-
-        <p-button *ngIf="canConvert" label="Split by Vendor" icon="pi pi-share-alt"
-                  severity="secondary" (onClick)="openSplitDialog()"></p-button>
-
-        <p-button icon="pi pi-history" [text]="true" severity="secondary"
-                  pTooltip="View Timeline" (onClick)="showTimeline = true"></p-button>
+  <!-- ── Dynamic header ──────────────────────────────────────────────────────────────── -->
+  <header class="sf-hdr">
+    <div class="sf-t">
+      <div>
+        <div class="sf-kicker">Purchase requisition<ng-container *ngIf="pr.department"> · {{ pr.department }}</ng-container></div>
+        <h1>
+          <span class="sf-mono">{{ pr.prNumber }}</span>
+          <p-tag [value]="pr.status" [severity]="getStatusSeverity(pr.status)"></p-tag>
+        </h1>
+        <div class="sf-meta">{{ pr.prTitle }} · created {{ pr.createdDate | date:'dd MMM yyyy' }}</div>
       </div>
     </div>
 
-    <!-- ── Info grid ────────────────────────────────────────────────────────── -->
-    <div class="info-grid">
-      <div class="info-card">
-        <h3>General</h3>
-        <div class="info-rows">
-          <div class="info-row"><span>Department</span><strong>{{ pr.department || '—' }}</strong></div>
-          <div class="info-row"><span>Priority</span><strong>{{ pr.priority || '—' }}</strong></div>
-          <div class="info-row"><span>PR Type</span><strong>{{ pr.prType || 'STANDARD' }}</strong></div>
-          <div class="info-row"><span>Requires Quotation</span>
-            <strong>
-              <i class="pi" [class.pi-check-circle]="pr.requiresQuotation"
-                            [class.pi-minus-circle]="!pr.requiresQuotation"
-                            [style.color]="pr.requiresQuotation ? '#00b894' : '#aaa'"></i>
-            </strong>
-          </div>
-        </div>
-      </div>
+    <sf-stages [stages]="stages"></sf-stages>
 
-      <div class="info-card">
-        <h3>Dates &amp; Totals</h3>
-        <div class="info-rows">
-          <div class="info-row"><span>Requested Date</span><strong>{{ pr.requestedDate | date:'dd MMM yyyy' }}</strong></div>
-          <div class="info-row"><span>Created</span><strong>{{ pr.createdDate | date:'dd MMM yyyy' }}</strong></div>
-          <div class="info-row" *ngIf="pr.approvedAt"><span>Approved At</span><strong>{{ pr.approvedAt | date:'dd MMM yyyy' }}</strong></div>
-          <div class="info-row"><span>Estimated Total</span><strong class="amount">{{ totalEstimated | number:'1.2-2' }}</strong></div>
-        </div>
+    <div class="sf-facts">
+      <div class="sf-kpi">
+        <span class="l">Estimated total</span>
+        <span class="v">{{ totalEstimated | number:'1.2-2' }}</span>
+        <span class="s">{{ pr.lines.length }} line{{ pr.lines.length !== 1 ? 's' : '' }}</span>
       </div>
-
-      <div class="info-card" *ngIf="pr.justification || pr.notes || pr.rejectionReason">
-        <h3>Notes</h3>
-        <div class="info-rows">
-          <div class="info-row col" *ngIf="pr.justification"><span>Justification</span><strong>{{ pr.justification }}</strong></div>
-          <div class="info-row col" *ngIf="pr.notes"><span>Notes</span><strong>{{ pr.notes }}</strong></div>
-          <div class="info-row col rejection" *ngIf="pr.rejectionReason">
-            <span>Rejection Reason</span><strong>{{ pr.rejectionReason }}</strong>
-          </div>
-        </div>
+      <div class="sf-kpi">
+        <span class="l">Requested</span>
+        <span class="v sm">{{ pr.requestedDate | date:'dd MMM yyyy' }}</span>
       </div>
-
-      <div class="info-card">
-        <h3>Attachments</h3>
-        <app-attachment-list interfaceCode="PR" [documentId]="pr.uuid" [compact]="true"></app-attachment-list>
+      <div class="sf-kpi">
+        <span class="l">Priority</span>
+        <span class="v sm">{{ pr.priority || '—' }}</span>
       </div>
     </div>
+  </header>
+
+  <sf-anchors [sections]="sections"></sf-anchors>
+
+  <div class="sf-body">
 
     <!-- ── Lines table ──────────────────────────────────────────────────────── -->
-    <div class="lines-card">
-      <h2 class="section-title"><i class="pi pi-list"></i> Line Items</h2>
+    <section id="sec-lines" class="sf-section sf-card p0">
+      <div class="sf-ch"><h2>Line items</h2><span class="sf-mu sf-sm">{{ pr.lines.length }} line{{ pr.lines.length !== 1 ? 's' : '' }}</span></div>
       <p-table [value]="pr.lines" [tableStyle]="{'min-width':'50rem'}">
         <ng-template pTemplate="header">
           <tr>
@@ -135,7 +113,7 @@
             <td>
               <i class="pi" [class.pi-check-circle]="line.requiresQuotation"
                             [class.pi-minus]="!line.requiresQuotation"
-                            [style.color]="line.requiresQuotation ? '#6c63ff' : '#ccc'"></i>
+                            [style.color]="line.requiresQuotation ? 'var(--sms-primary-text)' : 'var(--sms-text-faint)'"></i>
             </td>
             <td>
               <p-tag *ngIf="line.quotationStatus" [value]="line.quotationStatus" severity="info"></p-tag>
@@ -157,16 +135,61 @@
           </tr>
         </ng-template>
         <ng-template pTemplate="footer">
-          <tr>
-            <td colspan="6" class="text-right font-bold">TOTAL</td>
-            <td class="text-right font-bold total-amount">{{ totalEstimated | number:'1.2-2' }}</td>
-            <td colspan="3"></td>
+          <tr class="sf-tot">
+            <td colspan="6" class="text-right">Total</td>
+            <td class="text-right">{{ totalEstimated | number:'1.2-2' }}</td>
+            <td colspan="5"></td>
           </tr>
         </ng-template>
       </p-table>
-    </div>
+    </section>
 
-  </ng-container>
+    <!-- ── General ──────────────────────────────────────────────────────────── -->
+    <section id="sec-general" class="sf-section sf-card">
+      <div class="sf-ch"><h2>General</h2></div>
+      <div class="sf-kv">
+        <span>Department</span><span>{{ pr.department || '—' }}</span>
+        <span>Priority</span><span>{{ pr.priority || '—' }}</span>
+        <span>PR Type</span><span>{{ pr.prType || 'STANDARD' }}</span>
+        <span>Requires Quotation</span>
+        <span>
+          <i class="pi" [class.pi-check-circle]="pr.requiresQuotation"
+                        [class.pi-minus-circle]="!pr.requiresQuotation"
+                        [style.color]="pr.requiresQuotation ? 'var(--sms-ok)' : 'var(--sms-text-faint)'"></i>
+        </span>
+        <span>Requested Date</span><span>{{ pr.requestedDate | date:'dd MMM yyyy' }}</span>
+        <span>Created</span><span>{{ pr.createdDate | date:'dd MMM yyyy' }}</span>
+        <ng-container *ngIf="pr.approvedAt"><span>Approved At</span><span>{{ pr.approvedAt | date:'dd MMM yyyy' }}</span></ng-container>
+        <span>Estimated Total</span><span><strong>{{ totalEstimated | number:'1.2-2' }}</strong></span>
+      </div>
+    </section>
+
+    <!-- ── Notes ────────────────────────────────────────────────────────────── -->
+    <section id="sec-notes" class="sf-section sf-card" *ngIf="pr.justification || pr.notes || pr.rejectionReason">
+      <div class="sf-ch"><h2>Notes</h2></div>
+      <div class="sf-kv">
+        <ng-container *ngIf="pr.justification"><span>Justification</span><span>{{ pr.justification }}</span></ng-container>
+        <ng-container *ngIf="pr.notes"><span>Notes</span><span>{{ pr.notes }}</span></ng-container>
+        <ng-container *ngIf="pr.rejectionReason">
+          <span>Rejection Reason</span><span style="color:var(--sms-danger)">{{ pr.rejectionReason }}</span>
+        </ng-container>
+      </div>
+    </section>
+
+    <!-- ── Attachments ──────────────────────────────────────────────────────── -->
+    <section id="sec-files" class="sf-section sf-card">
+      <div class="sf-ch"><h2>Attachments</h2></div>
+      <app-attachment-list interfaceCode="PR" [documentId]="pr.uuid" [compact]="true"></app-attachment-list>
+    </section>
+  </div>
+
+  <!-- ── Side panel ──────────────────────────────────────────────────────────────────── -->
+  <sf-panel #panel [tabs]="['Activity']">
+    <ng-container *ngIf="panel.active() === 'Activity'">
+      <app-timeline-panel [inline]="true" [documentId]="uuid" interfaceCode="PR"></app-timeline-panel>
+    </ng-container>
+  </sf-panel>
+</sf-page>
 
   <!-- ══════════════════════════════════════════════════════════════════════════ -->
   <!-- REJECT DIALOG                                                             -->
@@ -245,7 +268,7 @@
           field="supplierName"
           [minLength]="0"
           (completeMethod)="searchSuppliers($event)"
-          (onFocus)="convertSupplierAc.search($event, '', 'focus')"
+          smsOpenOnFocus
           (ngModelChange)="onConvertSupplierChange($event)"
           placeholder="Search or type supplier name…"
           styleClass="w-full"
@@ -317,7 +340,7 @@
             field="supplierName"
             [minLength]="0"
             (completeMethod)="searchSuppliers($event)"
-            (onFocus)="splitSupplierAc.search($event, '', 'focus')"
+            smsOpenOnFocus
             (ngModelChange)="onSplitSupplierChange($event, i)"
             placeholder="Search or type supplier…"
             styleClass="w-full"
@@ -377,5 +400,3 @@
 
   <!-- ── Timeline panel (TL-010) ────────────────────────────────────────────── -->
   <app-timeline-panel [(visible)]="showTimeline" [documentId]="uuid" interfaceCode="PR"></app-timeline-panel>
-
-</div>

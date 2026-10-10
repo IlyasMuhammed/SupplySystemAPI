@@ -16,6 +16,7 @@ import { BadgeModule } from 'primeng/badge';
 import { MessageService } from 'primeng/api';
 import { TableLazyLoadEvent } from 'primeng/table';
 import { WorkflowService, InboxItemDto } from '../../../services/workflow.service';
+import { FLOW } from '../../../shared/flow';
 
 export interface SlaStatus {
   label: string;
@@ -31,7 +32,8 @@ export interface SlaStatus {
     TableModule, ButtonModule, TagModule,
     ToastModule, TooltipModule, DropdownModule,
     DialogModule, TextareaModule, InputTextModule,
-    CalendarModule, BadgeModule
+    CalendarModule, BadgeModule,
+    ...FLOW
   ],
   templateUrl: './approval-inbox.component.html',
   styleUrls: ['./approval-inbox.component.scss'],

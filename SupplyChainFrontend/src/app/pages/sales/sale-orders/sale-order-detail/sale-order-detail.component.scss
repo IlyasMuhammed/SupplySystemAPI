@@ -1,46 +1,20 @@
-.detail-page { padding: 1.5rem; }
-
-.page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
-.page-title { font-size: 1.5rem; font-weight: 700; display: flex; align-items: center; gap: .625rem; margin: 0; flex-wrap: wrap; }
-.page-subtitle { color: var(--text-color-secondary); font-size: .875rem; margin: .25rem 0 0; display: flex; gap: .375rem; }
-.header-actions { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
-
 .delivery-unavailable-hint {
   display: inline-flex; align-items: center; gap: .4rem;
-  font-size: .82rem; color: var(--text-color-secondary, #6b7280);
-  padding: .4rem .7rem; border-radius: 6px; background: var(--surface-100, #f3f4f6);
+  font-size: .82rem; color: var(--text-color-secondary);
+  padding: .4rem .7rem; border-radius: 6px; background: var(--sms-surface-2);
   cursor: default;
 }
 
-.loading-state, .not-found { text-align: center; padding: 4rem 1rem; color: var(--text-color-secondary); }
-.not-found i { font-size: 2.5rem; display: block; margin-bottom: .75rem; opacity: .6; }
-.not-found h2 { font-size: 1.125rem; font-weight: 600; margin: 0 0 .25rem; color: var(--text-color); }
-
-.detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr)); gap: 1rem; margin-bottom: 1.25rem; }
-
-.card {
-  background: var(--surface-0); border: 1px solid var(--surface-200);
-  border-radius: .625rem; padding: 1.25rem;
-}
-.card h3 { font-size: .875rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--text-color-secondary); margin: 0 0 .875rem; }
-
-dl { display: grid; grid-template-columns: auto 1fr; gap: .5rem 1rem; margin: 0; font-size: .875rem; }
-dt { color: var(--text-color-secondary); }
-dd { margin: 0; }
-
-.notes { margin: 1rem 0 0; font-size: .875rem; color: var(--text-color-secondary); font-style: italic; }
 .muted { color: var(--text-color-secondary); font-size: .875rem; margin: .75rem 0 0; }
 
-// Fulfilment: one big number and a bar, because "how much is left" is the whole question.
-.progress-figures { display: flex; align-items: baseline; gap: .5rem; flex-wrap: wrap; }
-.progress-figures .big { font-size: 1.75rem; font-weight: 700; }
-.progress-figures .of { font-size: .875rem; color: var(--text-color-secondary); }
-.progress-figures .percent { margin-left: auto; font-weight: 600; font-size: .875rem; }
-.progress-track { height: .5rem; border-radius: .25rem; background: var(--surface-200); margin-top: .625rem; overflow: hidden; }
-.progress-fill { height: 100%; background: var(--green-500, #22c55e); transition: width .2s ease; }
+// Banners sit in the flow body, which spaces them already.
+.sf-body > .route-warning, .sf-body > .cancel-result, .sf-body > .po-warning { margin: 0; }
+
+.progress-track { height: .5rem; border-radius: .25rem; background: var(--sms-border); margin-top: .625rem; overflow: hidden; }
+.progress-fill { height: 100%; background: var(--sms-ok); transition: width .2s ease; }
 
 .table-card {
-  background: var(--surface-0); border: 1px solid var(--surface-200);
+  background: var(--surface-0); border: 1px solid var(--sms-border);
   border-radius: .625rem; padding: 1.25rem;
 }
 .table-card.flush { padding: 0; border: 0; }
@@ -64,7 +38,7 @@ tr.line-excluded td { color: var(--text-color-secondary); }
 .totals-strip { display: flex; flex-wrap: wrap; gap: .75rem; margin-bottom: 1rem; }
 .total-chip {
   display: flex; align-items: baseline; gap: .375rem; flex-wrap: wrap;
-  background: var(--surface-50, #f8fafc); border: 1px solid var(--surface-200); border-radius: .5rem; padding: .625rem .875rem;
+  background: var(--sms-surface-2); border: 1px solid var(--sms-border); border-radius: .5rem; padding: .625rem .875rem;
   font-size: .875rem;
 }
 .total-chip .chip-label { color: var(--text-color-secondary); margin-left: .5rem; }
@@ -73,10 +47,10 @@ tr.line-excluded td { color: var(--text-color-secondary); }
 
 .dialog-loading { color: var(--text-color-secondary); font-size: .875rem; padding: 1rem 0; }
 .dialog-warning {
-  font-size: .8125rem; color: var(--orange-700, #c2410c); margin: .875rem 0 0;
+  font-size: .8125rem; color: var(--sms-warn); margin: .875rem 0 0;
   display: flex; align-items: flex-start; gap: .5rem;
 }
-tr.line-short td { background: var(--orange-50, #fff7ed); }
+tr.line-short td { background: var(--sms-warn-soft); }
 
 .dialog-hint { font-size: .875rem; color: var(--text-color-secondary); margin: 0 0 1rem; }
 .dialog-label { display: block; font-size: .8125rem; font-weight: 600; margin-bottom: .375rem; }
@@ -84,35 +58,25 @@ tr.line-short td { background: var(--orange-50, #fff7ed); }
 :host ::ng-deep .qty-input { width: 7rem; text-align: right; }
 
 // ── A32: source & customer PO, delivery indicator, reservations ──────────────
-.card-title-row { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: .875rem; }
-.card-title-row h3 { margin: 0; }
-.card app-attachment-list { display: block; margin-top: 1rem; }
-
 .po-warning {
   display: flex; align-items: flex-start; gap: .5rem; margin-bottom: 1rem;
   padding: .75rem 1rem; border-radius: .5rem; font-size: .875rem;
-  background: var(--orange-50, #fff7ed); border: 1px solid var(--orange-200, #fed7aa); color: var(--orange-800, #9a3412);
+  background: var(--sms-warn-soft); border: 1px solid color-mix(in srgb, var(--sms-warn) 30%, transparent); color: var(--sms-warn);
 }
 .po-warning i { margin-top: .15rem; }
 
 .ind-dot { display: inline-block; width: .75rem; height: .75rem; border-radius: 50%; vertical-align: middle; cursor: help; }
-.ind-green  { background: var(--green-500, #22c55e); }
-.ind-blue   { background: var(--blue-500, #3b82f6); }
-.ind-yellow { background: var(--yellow-500, #eab308); }
-.ind-red    { background: var(--red-500, #ef4444); }
-.ind-grey   { background: var(--surface-400, #9ca3af); }
+.ind-green  { background: var(--sms-ok); }
+.ind-blue   { background: var(--sms-primary); }
+.ind-yellow { background: var(--sms-warn); }
+.ind-red    { background: var(--sms-danger); }
+.ind-grey   { background: var(--sms-text-faint); }
 
 .line-actions { white-space: nowrap; }
 .line-actions > span + span { margin-left: .375rem; }
 .reserve-bar { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; padding: 1rem 0 0; }
 .reserve-bar .muted { margin: 0; }
 .partial-message { font-size: 1rem; font-weight: 600; margin: 1rem 0 .5rem; }
-
-@media (max-width: 640px) {
-  .detail-page { padding: 1rem; }
-  .detail-grid { grid-template-columns: 1fr; }
-  .header-actions { width: 100%; }
-}
 
 // ── A33: routes, confirm gate, fulfillment ────────────────────────────────────
 .route-warning, .cancel-result {
@@ -122,8 +86,8 @@ tr.line-short td { background: var(--orange-50, #fff7ed); }
   p { margin: 0 0 .25rem; }
   .grow { flex: 1; }
 }
-.route-warning { background: var(--orange-50, #fff7ed); border: 1px solid var(--orange-200, #fed7aa); color: var(--orange-900, #7c2d12); }
-.cancel-result { background: var(--surface-50, #fafafa); border: 1px solid var(--surface-200); }
+.route-warning { background: var(--sms-warn-soft); border: 1px solid color-mix(in srgb, var(--sms-warn) 30%, transparent); color: var(--sms-warn); }
+.cancel-result { background: var(--sms-surface-2); border: 1px solid var(--sms-border); }
 .route-cell { min-width: 13rem; }
 // A34 — route category tag, shortfall badge, delivery date cell, "awaiting production".
 :host ::ng-deep .route-category { font-size: .6875rem; padding: .05rem .375rem; }
@@ -131,11 +95,11 @@ tr.line-short td { background: var(--orange-50, #fff7ed); }
 .delivery-cell { min-width: 11rem; }
 .awaiting-production {
   display: flex; gap: .5rem; align-items: center; margin: 0 0 1rem; padding: .5rem .75rem; border-radius: .5rem;
-  font-size: .875rem; background: var(--orange-50, #fff7ed); color: var(--orange-900, #7c2d12);
+  font-size: .875rem; background: var(--sms-warn-soft); color: var(--sms-warn);
 }
 .route-value { display: flex; align-items: center; gap: .375rem; }
 .route-source { font-weight: 700; cursor: help; }
-.route-source.blocking, .route-hint.blocking { color: var(--orange-700, #c2410c); }
+.route-source.blocking, .route-hint.blocking { color: var(--sms-warn); }
 .route-hint { font-size: .75rem; color: var(--text-color-secondary); margin-top: .125rem; }
 :host ::ng-deep .route-select { width: 100%; min-width: 11rem; }
 .route-legend {
@@ -145,7 +109,7 @@ tr.line-short td { background: var(--orange-50, #fff7ed); }
 }
 .dialog-error {
   margin-top: 1rem; padding: .75rem 1rem; border-radius: .5rem; font-size: .875rem;
-  background: var(--red-50, #fef2f2); border: 1px solid var(--red-200, #fecaca); color: var(--red-800, #991b1b);
+  background: var(--sms-danger-soft); border: 1px solid color-mix(in srgb, var(--sms-danger) 30%, transparent); color: var(--sms-danger);
   p { margin: 0 0 .375rem; font-weight: 600; }
   ul { margin: 0; padding-left: 1.125rem; }
   li { white-space: pre-line; }
@@ -160,14 +124,13 @@ tr.line-short td { background: var(--orange-50, #fff7ed); }
   h4 { margin: 0; font-size: .9375rem; font-weight: 700; }
   .grow { flex: 1; }
 }
-.delivery-expansion-row > td { background: var(--surface-50, #fafafa); }
+.delivery-expansion-row > td { background: var(--sms-surface-2); }
 .delivery-lines {
   width: 100%; border-collapse: collapse; font-size: .8125rem; margin-top: .25rem;
-  th, td { padding: .375rem .5rem; border-bottom: 1px solid var(--surface-200); }
+  th, td { padding: .375rem .5rem; border-bottom: 1px solid var(--sms-border); }
   th { font-size: .6875rem; text-transform: uppercase; letter-spacing: .03em; color: var(--text-color-secondary); text-align: left; }
   th.text-right { text-align: right; }
 }
 
 // A35 §11.5 — the base-currency amount beside the order-currency one.
-.base-amount { margin-left: .5rem; color: var(--p-text-muted-color, #64748b); font-weight: 400; }
-.currency-card { margin-bottom: 1rem; }
+.base-amount { margin-left: .5rem; color: var(--sms-text-muted); font-weight: 400; }
