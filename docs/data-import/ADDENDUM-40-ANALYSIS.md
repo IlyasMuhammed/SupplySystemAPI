@@ -1,6 +1,19 @@
 # Addendum 40 — Data Import & Upload Framework: reality check & proposed tasks
 
-Spec: SMS-FSD-ADD-040 v1.0 (C1–C9) · Register: 353 tasks · Status: **analysis only — nothing built**.
+Spec: SMS-FSD-ADD-040 v1.0 (C1–C9) · Register: 353 tasks · Contract: [API-CONTRACT.md](API-CONTRACT.md) · Tasks: [ADDENDUM-40-TASKS.md](ADDENDUM-40-TASKS.md) · Shared seam: `src/SMS.Shared/Common/ImportContracts.cs`.
+**Status 2026-10-11: user said "start" — the 4 decisions below are ADOPTED as recommended.**
+
+## Adopted decisions
+- **D-1** Chart of accounts, GL opening balance, employees: dropped (no GL / HR).
+- **D-2** Entity codes (`ImportEntityTypes`): UNIT, PRODUCT_CATEGORY, PRODUCT, WAREHOUSE, WAREHOUSE_LOCATION, TAX_CODE, CUSTOMER, SUPPLIER, SUPPLIER_CONTACT, PRICING_RULE, OPENING_STOCK, CUSTOMER_OPENING_BALANCE, SUPPLIER_OPENING_BALANCE (wizard order).
+- **D-3** `IImportTarget` per entity in its owning module (Describe / GetTemplateLists / Validate / Apply-in-one-transaction). Profiles + fields are code-defined by the targets and reconciled into `import.profiles` at startup (like the A37 catalog); an org may override only duplicate strategy / limits (custom profile row).
+- **D-4** Imported suppliers are created APPROVED (active vendors), recorded in the partner status history as "Imported".
+- **D-5** Customer / supplier opening balances become real open documents: an issued sales invoice (SourceType OPENING, no stock, no COGS) and a supplier invoice/bill (SourceType OPENING, no PO/GRN), both in aging and payable/receivable as normal; customer/supplier ledgers get OPENING_BAL entries.
+- **D-6** Price list items → `PricingRule` rows (variant SKU, optional customer code, price type, min qty, price, currency, valid from/to).
+- **D-7** Opening balance date: one per org, owned by Finance (`api/finance/opening-balance-date`), read via `IOpeningBalanceDateProvider`; opening imports refused until it is set. Opening stock: stock IN at the date (inventory ledger OPENING_STOCK + master product ledger) + Finance product ledger IN at unit cost (so later sales cost correctly). One opening per variant+warehouse (IMP-OB-03 → duplicate = error).
+- **D-8** Products: one default variant per row (sku/barcode/prices on it); categories: `parent_code` → the row is a sub-category of that category (2 levels); units: Lookups `uom` values (code + name); warehouse locations: zone_code (+ bin_code) per warehouse_code.
+- **D-9** Permissions `IMPORT_PROFILE_VIEW IMPORT_PROFILE_MANAGE IMPORT_UPLOAD IMPORT_EXECUTE IMPORT_MANAGE IMPORT_OPENING_BALANCE`; grants: all built-in roles with any write permission get VIEW+UPLOAD; Finance Officer/Manager, Inventory Manager, Procurement Manager + EXECUTE; Finance Manager + OPENING_BALANCE; Org/System Admin all. Module `MODULE_DATA_IMPORT` (always on), sub-feature `FEATURE_OPENING_BALANCE_IMPORT` (Standard/Enterprise).
+- **D-10** Files are parsed in memory (never saved under wwwroot); rows stored as JSON in `import.rows`; session rows older than 90 days purged by a daily job.
 
 ## Part A — the 16 import targets vs. this system
 
