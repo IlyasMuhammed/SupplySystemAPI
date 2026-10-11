@@ -371,6 +371,9 @@ namespace SMS.Modules.Integration.Migrations
                     b.Property<bool>("AutoPushItems")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("AutoPushPosSales")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("AutoPushSalesInvoices")
                         .HasColumnType("bit");
 

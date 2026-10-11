@@ -1,0 +1,148 @@
+<div class="sell" [attr.data-tab]="mobileTab()" data-testid="pos-sell">
+    <!-- ── products ── -->
+    <section class="products" aria-label="Products">
+        <pos-product-grid [showCamera]="cameraSupported" (picked)="tap($event.item, $event.barcode)" (code)="searchCode($event)" (camera)="openCamera()"></pos-product-grid>
+    </section>
+
+    <!-- ── cart ── -->
+    <aside class="cart" aria-label="Cart" data-testid="pos-cart">
+        <div class="cart-head">
+            <button class="pos-btn grow" type="button" (click)="openCustomer()" data-testid="pos-customer">
+                <i class="pi pi-user"></i>
+                <span class="grow" style="text-align:left">{{ cart.customer()?.name || 'Walk-in customer' }}</span>
+            </button>
+            @if (cart.customer()) {
+                <button class="pos-btn ghost" type="button" (click)="pickCustomer(null)" aria-label="Back to walk-in"><i class="pi pi-times"></i></button>
+            }
+        </div>
+
+        <div class="lines">
+            @for (l of cart.lines(); track l.localLineId; let idx = $index) {
+                <div class="line" [attr.data-testid]="'pos-line-' + l.sku">
+                    <div class="top">
+                        <span class="nm">{{ l.name }}</span>
+                        <span class="tot">{{ lineTotal(idx) | posMoney }}</span>
+                    </div>
+                    <div class="sub">
+                        {{ l.quantity | posQty }}@if (l.isWeighable) { {{ l.uomCode || 'kg' }} } × {{ l.unitPrice | posMoney }}
+                        @if (lineDiscount(idx) > 0) { · <span style="color: var(--sms-ok)">−{{ lineDiscount(idx) | posMoney }}</span> }
+                        @if (l.discountType === 'PERCENT') { ({{ l.discountValue }}%) }
+                    </div>
+                    <div class="ctl">
+                        <button class="pos-btn" type="button" (click)="cart.increment(l.localLineId, -1)" [disabled]="l.isWeighable" aria-label="Less" data-testid="pos-minus"><i class="pi pi-minus"></i></button>
+                        <button class="pos-btn ghost q" type="button" (click)="editQty(l)" aria-label="Quantity">{{ l.quantity | posQty }}</button>
+                        <button class="pos-btn" type="button" (click)="cart.increment(l.localLineId, 1)" [disabled]="l.isWeighable" aria-label="More" data-testid="pos-plus"><i class="pi pi-plus"></i></button>
+                        <span class="grow"></span>
+                        @if (canDiscount()) {
+                            <button class="pos-btn ghost" type="button" (click)="openDiscount(l)" aria-label="Line discount" data-testid="pos-line-discount"><i class="pi pi-percentage"></i></button>
+                        }
+                        <button class="pos-btn ghost" type="button" (click)="cart.remove(l.localLineId)" aria-label="Remove"><i class="pi pi-trash"></i></button>
+                    </div>
+                </div>
+            } @empty {
+                <div class="empty"><i class="pi pi-shopping-cart" style="font-size: 2rem"></i><br />Tap a product or scan a barcode.</div>
+            }
+        </div>
+
+        <div class="totals" data-testid="pos-totals">
+            <span class="muted">Subtotal</span><span>{{ cart.totals().subtotal | posMoney }}</span>
+            @if (cart.totals().discountAmount > 0) {
+                <span class="muted">Order discount</span><span>−{{ cart.totals().discountAmount | posMoney }}</span>
+            }
+            <span class="muted">Tax {{ state.taxPercent() }}%{{ state.taxInclusive() ? ' (included)' : '' }}</span><span>{{ cart.totals().taxTotal | posMoney }}</span>
+            <span class="big">Total</span><span class="big" data-testid="pos-grand-total">{{ cart.totals().grandTotal | posMoney: currency() }}</span>
+        </div>
+        @if (cart.note()) { <div class="faint" style="padding: 0 .75rem .4rem"><i class="pi pi-comment"></i> {{ cart.note() }}</div> }
+        <div class="cart-actions">
+            @if (canDiscount()) {
+                <button class="pos-btn" type="button" (click)="openDiscount('order')" [disabled]="cart.isEmpty()" data-testid="pos-order-discount"><i class="pi pi-percentage"></i> Discount</button>
+            }
+            <button class="pos-btn" type="button" (click)="openNote()"><i class="pi pi-comment"></i> Note</button>
+            @if (canReturn()) {
+                <button class="pos-btn" type="button" (click)="startReturn()" data-testid="pos-return"><i class="pi pi-replay"></i> Return</button>
+            }
+            <button class="pos-btn danger" type="button" (click)="clearCart()" [disabled]="cart.isEmpty()"><i class="pi pi-trash"></i> Clear</button>
+        </div>
+        <button class="pos-btn primary lg pay" type="button" (click)="pay()" [disabled]="cart.isEmpty()" data-testid="pos-pay">
+            PAY {{ cart.totals().grandTotal | posMoney: currency() }}
+        </button>
+    </aside>
+
+    <!-- ── phones: bottom nav ── -->
+    <nav class="pos-bottom" aria-label="Selling">
+        <button type="button" [class.on]="mobileTab() === 'products'" (click)="mobileTab.set('products')"><i class="pi pi-th-large"></i>Products</button>
+        <button type="button" [class.on]="mobileTab() === 'cart'" (click)="mobileTab.set('cart')"><i class="pi pi-shopping-cart"></i>Cart
+            @if (cart.lines().length) { <span class="badge">{{ cart.lines().length }}</span> }</button>
+        <button type="button" (click)="pay()" [disabled]="cart.isEmpty()"><i class="pi pi-wallet"></i>Pay</button>
+        <button type="button" [class.on]="mobileTab() === 'more'" (click)="mobileTab.set('more')"><i class="pi pi-ellipsis-h"></i>More</button>
+    </nav>
+</div>
+
+<!-- weighable quantity -->
+<p-dialog [visible]="!!weighItem()" (onHide)="weighItem.set(null)" [modal]="true" [header]="weighItem() ? label(weighItem()!) : ''" [style]="{ width: 'min(380px, 95vw)' }">
+    <div class="stack">
+        <label class="pos-lbl" for="pos-weight">Quantity ({{ weighItem()?.uomCode || 'kg' }})</label>
+        <input id="pos-weight" class="pos-input" type="number" inputmode="decimal" step="0.001" min="0" [(ngModel)]="weighQty" (keyup.enter)="confirmWeight()" autofocus data-testid="pos-weight" />
+        <button class="pos-btn primary lg block" type="button" [disabled]="!weighQty || weighQty <= 0" (click)="confirmWeight()">Add</button>
+    </div>
+</p-dialog>
+
+<!-- quantity -->
+<p-dialog [visible]="!!qtyLine()" (onHide)="qtyLine.set(null)" [modal]="true" header="Quantity" [style]="{ width: 'min(360px, 95vw)' }">
+    <div class="stack">
+        <input class="pos-input" type="number" inputmode="decimal" [step]="qtyLine()?.isWeighable ? 0.001 : 1" min="0" [(ngModel)]="qtyValue" (keyup.enter)="confirmQty()" autofocus />
+        <p class="faint">0 removes the line.</p>
+        <button class="pos-btn primary lg block" type="button" (click)="confirmQty()">OK</button>
+    </div>
+</p-dialog>
+
+<!-- discount -->
+<p-dialog [visible]="!!discountTarget()" (onHide)="discountTarget.set(null)" [modal]="true" [header]="discountTarget() === 'order' ? 'Order discount' : 'Line discount'" [style]="{ width: 'min(380px, 95vw)' }">
+    <div class="stack">
+        <div class="row">
+            <button class="pos-btn grow" type="button" [class.on]="discountType === 'PERCENT'" (click)="discountType = 'PERCENT'">%</button>
+            <button class="pos-btn grow" type="button" [class.on]="discountType === 'AMOUNT'" (click)="discountType = 'AMOUNT'">Amount</button>
+        </div>
+        <input class="pos-input" type="number" inputmode="decimal" step="0.01" min="0" [max]="discountType === 'PERCENT' ? 100 : null" [(ngModel)]="discountValue" (keyup.enter)="applyDiscount()" autofocus data-testid="pos-discount-value" />
+        <div class="row">
+            <button class="pos-btn danger" type="button" (click)="applyDiscount(true)">Remove</button>
+            <span class="grow"></span>
+            <button class="pos-btn primary" type="button" (click)="applyDiscount()" data-testid="pos-discount-apply">Apply</button>
+        </div>
+    </div>
+</p-dialog>
+
+<!-- customer -->
+<p-dialog [visible]="customerOpen()" (onHide)="customerOpen.set(false)" [modal]="true" header="Customer" [style]="{ width: 'min(520px, 95vw)' }">
+    <div class="stack">
+        <input class="pos-input" type="search" placeholder="Name, code, phone or email" [(ngModel)]="customerQuery" (ngModelChange)="searchCustomers()" autofocus data-testid="pos-customer-search" />
+        <button class="pos-btn block" type="button" (click)="pickCustomer(null)"><i class="pi pi-user"></i> Walk-in customer</button>
+        <div class="result">
+            @for (c of customerResults(); track c.uuid) {
+                <button class="pos-btn block" type="button" style="justify-content: space-between" (click)="pickCustomer(c)">
+                    <span><strong>{{ c.name }}</strong> <span class="faint">{{ c.code }} {{ c.mobile || c.phone || '' }}</span></span>
+                    @if (c.allowPosCredit) { <span class="pos-pill in">Credit</span> }
+                </button>
+            } @empty {
+                <p class="faint">No matching customers on this device.</p>
+            }
+        </div>
+    </div>
+</p-dialog>
+
+<!-- note -->
+<p-dialog [visible]="noteOpen()" (onHide)="noteOpen.set(false)" [modal]="true" header="Order note" [style]="{ width: 'min(440px, 95vw)' }">
+    <div class="stack">
+        <textarea class="pos-input" rows="3" maxlength="500" [(ngModel)]="noteText"></textarea>
+        <button class="pos-btn primary block" type="button" (click)="saveNote()">Save</button>
+    </div>
+</p-dialog>
+
+<!-- camera -->
+<p-dialog [visible]="cameraOpen()" (onHide)="closeCamera()" [modal]="true" header="Scan a barcode" [style]="{ width: 'min(520px, 95vw)' }">
+    @if (cameraError()) {
+        <p class="err-text">{{ cameraError() }}</p>
+    } @else {
+        <video #video playsinline muted></video>
+    }
+</p-dialog>

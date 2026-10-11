@@ -43,11 +43,35 @@
   <header class="sf-hdr">
     <div class="sf-t">
       <div>
-        <div class="sf-kicker">
-          Customer invoice · for
-          <a *ngIf="canViewOrder; else plainOrder" class="sf-mono"
-             [routerLink]="['/portal/pages/sales/orders', inv.saleOrderUuid]" data-testid="order-link">{{ inv.saleOrderNumber }}</a>
-          <ng-template #plainOrder><span class="sf-mono">{{ inv.saleOrderNumber }}</span></ng-template>
+        <div class="sf-kicker" data-testid="invoice-kicker">
+          <!-- A38 — credit note: links the invoice it credits -->
+          <ng-container *ngIf="isCreditNote">
+            Credit note<ng-container *ngIf="inv.originalInvoiceUuid"> · credits
+              <a class="sf-mono" [routerLink]="['/portal/pages/finance/sales-invoices', inv.originalInvoiceUuid]"
+                 data-testid="original-invoice-link">{{ inv.originalInvoiceNumber || 'the original invoice' }}</a></ng-container>
+            <ng-container *ngIf="isPos || inv.saleOrderUuid || inv.sourceNumber"> · </ng-container>
+          </ng-container>
+          <ng-container *ngIf="!isCreditNote">Customer invoice · </ng-container>
+          <!-- A38 — POS: the POS order (by number), no sale order -->
+          <ng-container *ngIf="isPos; else soSource">
+            <span class="sf-pill in" data-testid="pos-pill">POS</span>
+            <ng-container *ngIf="inv.sourceNumber">
+              <a *ngIf="canViewPosOrders && posOrderUuid" class="sf-mono" [routerLink]="['/portal/pages/pos/orders', posOrderUuid]"
+                 data-testid="pos-order-link">{{ inv.sourceNumber }}</a>
+              <a *ngIf="canViewPosOrders && !posOrderUuid" class="sf-mono" [routerLink]="['/portal/pages/pos/orders']"
+                 [queryParams]="{ search: inv.sourceNumber }" data-testid="pos-order-search-link">{{ inv.sourceNumber }}</a>
+              <span *ngIf="!canViewPosOrders" class="sf-mono" data-testid="pos-order-number">{{ inv.sourceNumber }}</span>
+            </ng-container>
+          </ng-container>
+          <ng-template #soSource>
+            <ng-container *ngIf="inv.saleOrderUuid; else noOrder">
+              <ng-container *ngIf="!isCreditNote">for </ng-container>
+              <a *ngIf="canViewOrder; else plainOrder" class="sf-mono"
+                 [routerLink]="['/portal/pages/sales/orders', inv.saleOrderUuid]" data-testid="order-link">{{ inv.saleOrderNumber }}</a>
+              <ng-template #plainOrder><span class="sf-mono">{{ inv.saleOrderNumber }}</span></ng-template>
+            </ng-container>
+            <ng-template #noOrder><span class="sf-mono" data-testid="source-number">{{ inv.saleOrderNumber || inv.sourceNumber || '' }}</span></ng-template>
+          </ng-template>
           <ng-container *ngIf="inv.deliveryUuid && inv.deliveryNumber">
             · delivery
             <a *ngIf="canViewDelivery; else plainDelivery" class="sf-mono"
@@ -86,6 +110,11 @@
         <span class="l">Balance due</span>
         <span class="v" [class.wn]="inv.balanceDue > 0" data-testid="balance-due">{{ inv.balanceDue | number:'1.2-2' }}</span>
         <span class="s">{{ inv.currencyCode }}</span>
+      </div>
+      <div class="sf-kpi" *ngIf="!isCreditNote && (inv.returnedAmount ?? 0) > 0" data-testid="returned-amount">
+        <span class="l">Returned</span>
+        <span class="v wn">{{ inv.returnedAmount | number:'1.2-2' }}</span>
+        <span class="s">{{ inv.currencyCode }} credited back</span>
       </div>
       <div class="sf-kpi" *ngIf="showBaseTotal" data-testid="base-total">
         <span class="l">In {{ inv.baseCurrencyCode }}</span>
@@ -129,8 +158,12 @@
             <td>{{ l.description }}</td>
             <td class="text-right">{{ l.quantity | number:'1.0-4' }}</td>
             <td class="text-right">{{ l.unitPrice | number:'1.2-2' }}</td>
-            <td class="text-right">{{ l.discountPercent | number:'1.0-2' }}</td>
-            <td class="text-right" data-testid="line-tax">{{ taxLabel(l) }}</td>
+            <td class="text-right">
+              {{ l.discountPercent | number:'1.0-2' }}
+              <div *ngIf="l.discountAmount" class="sf-mu sf-sm" data-testid="line-discount-amount">− {{ l.discountAmount | number:'1.2-2' }}</div>
+            </td>
+            <td class="text-right" data-testid="line-tax">{{ taxLabel(l) }}<div *ngIf="l.taxAmount != null" class="sf-mu sf-sm"
+                 data-testid="line-tax-amount">{{ l.taxAmount | number:'1.2-2' }}</div></td>
             <td class="text-right">{{ l.lineTotal | number:'1.2-2' }}</td>
           </tr>
         </ng-template>

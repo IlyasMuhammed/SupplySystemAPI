@@ -161,9 +161,47 @@ internal sealed class ProductLedgerQueryService : IProductLedgerQueryService
             select new
             {
                 g.Key.VariantUuid, g.Key.CurrencyCode,
-                Gross    = g.Sum(x => x.Quantity * x.UnitPrice),
-                Discount = g.Sum(x => x.Quantity * x.UnitPrice * x.DiscountPercent / 100m)
+                // A38 (FIN) — a POS line (TaxAmount set) carries absolute amounts: its revenue is LineTotal − tax.
+                Gross    = g.Sum(x => x.TaxAmount == null ? x.Quantity * x.UnitPrice : 0m),
+                Discount = g.Sum(x => x.TaxAmount == null ? x.Quantity * x.UnitPrice * x.DiscountPercent / 100m : 0m),
+                Net      = g.Sum(x => x.TaxAmount != null ? x.LineTotal - (x.TaxAmount ?? 0m) : 0m)
             }).ToListAsync();
+
+        // A38 (FIN) — POS returns and voids: customer credit notes take their goods back with RETURN_IN entries (reference
+        // SalesCreditNote) at the cost the sale booked. In the period of the RETURN_IN, the returned cost comes off the cost
+        // of goods sold and the credit-note lines' net comes off revenue — the same pairing as sales: only lines whose
+        // variant has a RETURN_IN on that credit note. Sale-order rows are untouched (they have no credit notes).
+        var returns = _db.ProductLedgerEntries.AsNoTracking()
+            .Where(e => e.EntryType == ProductLedgerEntryTypes.ReturnIn && e.ReferenceType == CounterSaleReferences.CreditNote);
+        if (start is { } rFrom)       returns = returns.Where(e => e.EntryDate >= rFrom);
+        if (endExclusive is { } rEnd) returns = returns.Where(e => e.EntryDate < rEnd);
+
+        var creditNotes = _db.SalesInvoices.AsNoTracking().Where(i => !i.IsDelete && i.Status == SalesInvoiceStatuses.CreditNote);
+
+        var returnedCost = await (
+            from e in returns
+            join i in creditNotes on e.ReferenceId equals i.UUID
+            group e by new { e.ProductUuid, e.VariantUuid, i.CurrencyCode } into g
+            select new
+            {
+                g.Key.ProductUuid, g.Key.VariantUuid, g.Key.CurrencyCode,
+                Quantity = g.Sum(x => x.Quantity),
+                Cost     = g.Sum(x => x.TotalCost)
+            }).ToListAsync();
+
+        var credited = await (
+            from l in _db.SalesInvoiceLines.AsNoTracking()
+            where !l.SalesInvoice.IsDelete && l.SalesInvoice.Status == SalesInvoiceStatuses.CreditNote
+               && returns.Any(e => e.ReferenceId == l.SalesInvoice.UUID && e.VariantUuid == l.VariantUuid)
+            group l by new { l.VariantUuid, l.SalesInvoice.CurrencyCode } into g
+            select new { g.Key.VariantUuid, g.Key.CurrencyCode, Net = g.Sum(x => x.LineTotal - (x.TaxAmount ?? 0m)) })
+            .ToListAsync();
+
+        cost = [.. cost, .. returnedCost.Select(r => new
+        {
+            r.ProductUuid, r.VariantUuid, r.CurrencyCode, Quantity = -r.Quantity, Cost = -r.Cost
+        })];
+        revenue = [.. revenue, .. credited.Select(c => new { c.VariantUuid, c.CurrencyCode, Gross = 0m, Discount = 0m, Net = -c.Net })];
 
         var revenueOf = revenue.ToLookup(r => (r.VariantUuid, r.CurrencyCode));
 
@@ -171,12 +209,13 @@ internal sealed class ProductLedgerQueryService : IProductLedgerQueryService
             .GroupBy(c => (c.ProductUuid, c.CurrencyCode))
             .Select(g =>
             {
-                var invoiced = g.SelectMany(c => revenueOf[(c.VariantUuid, c.CurrencyCode)]).ToList();
+                var invoiced = g.Select(c => c.VariantUuid).Distinct().SelectMany(v => revenueOf[(v, g.Key.CurrencyCode)]).ToList();
 
                 // Rounded once, on the product's total, the way an invoice rounds its own header:
                 // revenue is the gross less the discount, each to the cent.
                 var revenueTotal = WeightedAverageCosting.Money(invoiced.Sum(r => r.Gross))
-                                 - WeightedAverageCosting.Money(invoiced.Sum(r => r.Discount));
+                                 - WeightedAverageCosting.Money(invoiced.Sum(r => r.Discount))
+                                 + invoiced.Sum(r => r.Net);
                 var costTotal    = g.Sum(c => c.Cost);
                 var profit       = revenueTotal - costTotal;
 

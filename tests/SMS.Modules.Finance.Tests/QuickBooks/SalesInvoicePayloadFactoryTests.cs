@@ -113,6 +113,22 @@ public class SalesInvoicePayloadFactoryTests
 
         json.Should().NotContain("TaxCode", "a null code is omitted so stored payloads keep their fingerprints");
         json.Should().NotContain("ExchangeRate", "an invoice without a rate snapshot carries none either");
+        json.Should().NotContain("SourceType", "a back-office invoice's payload (and fingerprint) is unchanged by the POS switch");
+    }
+
+    [Fact]
+    public void A_POS_invoice_is_marked_POS_for_the_gateway_and_others_are_not()
+    {
+        var pos = Built((1m, 10m, 0m, 17m));
+        pos.SourceType   = SalesInvoiceSources.Pos;
+        pos.SourceNumber = "POS-0007";
+
+        var p = SalesInvoicePayloadFactory.Build(pos);
+        p.SourceType.Should().Be(SalesInvoicePayloadSources.Pos);
+        SalesInvoicePayloadSources.IsPos(p.SourceType).Should().BeTrue();
+        p.PrivateNote.Should().Be("POS POS-0007");
+
+        SalesInvoicePayloadFactory.Build(Built((1m, 10m, 0m, 17m))).SourceType.Should().BeNull();
     }
 
     // ── SAP alignment S-5 / S-10: the rate fixed at issue travels with the invoice ──────────

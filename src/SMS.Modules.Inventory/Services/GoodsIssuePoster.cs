@@ -78,10 +78,12 @@ internal sealed class GoodsIssuePoster : IGoodsIssuePoster
                 var qty      = reservation.ReservedQty;
                 var unitCost = item.UnitCost ?? 0m;
 
-                // Out of the source row. Clamped at zero: a negative on-hand is never a truthful
-                // number, and if the counters have already drifted, driving them further negative
-                // buries the evidence rather than surfacing it.
-                item.QtyOnHand   = Math.Max(0m, item.QtyOnHand - qty);
+                // Out of the source row. On-hand takes the full issued quantity even when that
+                // drives it (further) below zero: since A38 a POS sale may legitimately leave a row
+                // short of its reservations (D-9, D-24), and flooring here silently erased that
+                // shortfall while the ledger still recorded it (R-5). With enough stock the result
+                // is identical to before. Reservations keep their floor — a hold is never negative.
+                item.QtyOnHand  -= qty;
                 item.QtyReserved = Math.Max(0m, item.QtyReserved - qty);
                 item.LastUpdated = now;
 

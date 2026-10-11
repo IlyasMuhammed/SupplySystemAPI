@@ -10,6 +10,7 @@
 .suggestion { display: flex; align-items: center; gap: .25rem; flex-wrap: wrap; margin-top: .25rem; }
 .sub-table-head { padding: 1.25rem 1.25rem .5rem; border-top: 1px solid var(--sms-border); }
 .card-title.small { font-size: .9375rem; }
+.pos-waiting { color: var(--sms-warn); font-size: .8125rem; font-weight: 600; display: inline-flex; gap: .375rem; align-items: center; margin-top: .25rem; }
 .unmapped-count { color: var(--sms-warn); font-size: .8125rem; font-weight: 600; display: inline-flex; gap: .375rem; align-items: center; }
 
 :host ::ng-deep tr.unmapped > td { background: var(--sms-warn-soft); }

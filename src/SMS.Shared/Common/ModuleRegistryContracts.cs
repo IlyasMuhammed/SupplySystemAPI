@@ -24,6 +24,8 @@ public static class ModuleCodes
     public const string Reports        = "MODULE_REPORTS";
     public const string Notifications  = "MODULE_NOTIFICATIONS";
     public const string Integration    = "MODULE_INTEGRATION";
+    /// <summary>A38 — Point of Sale.</summary>
+    public const string Pos            = "MODULE_POS";
 
     // Sub-features that are enforced on real endpoints (API-CONTRACT §1.3).
     public const string BomManagement      = "FEATURE_BOM_MANAGEMENT";
@@ -45,6 +47,8 @@ public static class ModuleCodeMap
     // Order matters: the first matching prefix wins (CUSTOMER_PAYMENT_ before CUSTOMER_).
     private static readonly (string Prefix, string Module)[] PermissionPrefixes =
     [
+        // A38 D-13 — first, so no shorter prefix (PO_, POD_) could ever claim a POS code.
+        ("POS_", ModuleCodes.Pos),
         ("MODULES_", ModuleCodes.MasterData), ("SYSTEM_", ModuleCodes.MasterData), ("USER_", ModuleCodes.MasterData),
         ("AUDIT_", ModuleCodes.MasterData), ("PLATFORM_", ModuleCodes.MasterData), ("LOCATION_", ModuleCodes.MasterData),
         ("CURRENCY_", ModuleCodes.MasterData), ("ORG_CURRENCY_", ModuleCodes.MasterData), ("FINANCE_SETUP_", ModuleCodes.MasterData),

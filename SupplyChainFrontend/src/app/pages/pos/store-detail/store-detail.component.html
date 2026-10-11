@@ -1,0 +1,405 @@
+<p-toast></p-toast>
+<p-confirmDialog></p-confirmDialog>
+
+<sf-page [crumbs]="['Point of Sale', 'Stores', store?.code || '…']">
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <p-button *ngIf="store && canManage" label="Edit" icon="pi pi-pencil" (onClick)="showEdit = true" data-testid="edit-store"></p-button>
+    <p-button label="Stores" icon="pi pi-arrow-left" [text]="true" (onClick)="back()"></p-button>
+    <ng-container *ngIf="store && canManage">
+      <span class="sf-sep"></span>
+      <p-button *ngIf="store.isActive" label="Deactivate" icon="pi pi-ban" severity="danger" [text]="true" [disabled]="statusBusy"
+                (onClick)="toggleStatus()" data-testid="deactivate-store"></p-button>
+      <p-button *ngIf="!store.isActive" label="Activate" icon="pi pi-check-circle" [text]="true" [disabled]="statusBusy"
+                (onClick)="toggleStatus()" data-testid="activate-store"></p-button>
+    </ng-container>
+  </div>
+
+  <div class="sf-body" *ngIf="isLoading || loadError">
+    <div class="sf-card sf-empty" *ngIf="isLoading"><i class="pi pi-spin pi-spinner"></i> Loading store…</div>
+    <div class="sf-card sf-empty" *ngIf="loadError" data-testid="store-load-error">{{ loadError }}</div>
+  </div>
+
+  <ng-container *ngIf="!isLoading && store as s">
+    <header class="sf-hdr">
+      <div class="sf-t"><div>
+        <div class="sf-kicker">POS store · sells from {{ s.warehouseName }}</div>
+        <h1 data-testid="store-title">
+          <span class="sf-mono">{{ s.code }}</span> {{ s.name }}
+          <p-tag [value]="s.isActive ? 'Active' : 'Inactive'" [severity]="s.isActive ? 'success' : 'secondary'" data-testid="store-status"></p-tag>
+        </h1>
+        <div class="sf-meta">{{ s.city || 'No city' }} · {{ s.timezone }} · {{ s.currencyCode }}</div>
+      </div></div>
+      <div class="sf-facts">
+        <div class="sf-kpi"><span class="l">Terminals</span><span class="v sm">{{ s.terminalCount }}</span></div>
+        <div class="sf-kpi"><span class="l">Active shifts</span><span class="v sm">{{ s.activeShiftCount }}</span></div>
+        <div class="sf-kpi" data-testid="kpi-tax">
+          <span class="l">Tax</span>
+          <span class="v sm">{{ s.defaultTaxCode || 'None' }} {{ s.defaultTaxPercent | number:'1.0-2' }}%</span>
+          <span class="s">{{ s.taxInclusivePricing ? 'prices include tax' : 'tax added at checkout' }}</span>
+        </div>
+      </div>
+    </header>
+
+    <sf-anchors [sections]="sections"></sf-anchors>
+
+    <div class="sf-body">
+      <!-- General -->
+      <section id="sec-general" class="sf-section sf-card" data-testid="section-general">
+        <div class="sf-ch"><h2>General</h2></div>
+        <div class="sf-kv">
+          <span>Code</span><span class="sf-mono">{{ s.code }}</span>
+          <span>Name</span><span>{{ s.name }}</span>
+          <span>Warehouse</span><span data-testid="general-warehouse">{{ s.warehouseName }}</span>
+          <span>Address</span>
+          <span data-testid="general-address">{{ address || '—' }}</span>
+          <span>City</span><span>{{ s.city || '—' }}</span>
+          <span>Phone</span><span>{{ s.phone || '—' }}</span>
+          <span>Email</span><span>{{ s.email || '—' }}</span>
+          <span>Timezone</span><span>{{ s.timezone }}</span>
+          <span>Currency</span><span>{{ s.currencyCode }} <small class="sf-mu">— the organization's sale base currency</small></span>
+          <span>Created</span><span>{{ s.createdAt | date:'dd MMM yyyy, HH:mm' }}</span>
+          <span>Last changed</span><span>{{ s.modifiedAt ? (s.modifiedAt | date:'dd MMM yyyy, HH:mm') : '—' }}</span>
+        </div>
+      </section>
+
+      <!-- Configuration -->
+      <section id="sec-config" class="sf-section sf-card" data-testid="section-config">
+        <div class="sf-ch"><h2>Configuration</h2><span class="sf-mu sf-sm" *ngIf="!canManage">read only</span></div>
+        <div class="sf-pill er sd-err" *ngIf="configError" role="alert" data-testid="config-error">{{ configError }}</div>
+        <div class="sf-fields" *ngIf="config">
+          <div class="sf-fld sd-check">
+            <p-checkbox inputId="cfgIncl" [(ngModel)]="config.taxInclusivePricing" [binary]="true" [disabled]="!canManage"
+                        data-testid="cfg-inclusive"></p-checkbox>
+            <label for="cfgIncl">Shelf prices include tax</label>
+          </div>
+          <div class="sf-fld">
+            <label for="cfgTax">Default sales tax code</label>
+            <p-dropdown inputId="cfgTax" [options]="taxOptions" [(ngModel)]="config.defaultTaxCodeUuid" optionLabel="label" optionValue="value"
+                        [showClear]="true" placeholder="No tax" [disabled]="!canManage" appendTo="body" styleClass="w-full"
+                        data-testid="cfg-tax"></p-dropdown>
+          </div>
+          <div class="sf-fld">
+            <label for="cfgTol">Offline credit tolerance (%)</label>
+            <p-inputnumber inputId="cfgTol" [(ngModel)]="config.offlineCreditTolerancePct" [min]="0" [max]="100" [maxFractionDigits]="2"
+                           [disabled]="!canManage" styleClass="w-full" data-testid="cfg-tolerance"></p-inputnumber>
+            <small class="sf-mu">Offline, a credit sale may go this far over the cached available credit.</small>
+          </div>
+          <div class="sf-fld">
+            <label for="cfgAuto">Auto-close shifts after (hours)</label>
+            <p-inputnumber inputId="cfgAuto" [(ngModel)]="config.autoCloseShiftHours" [min]="1" [max]="168" [useGrouping]="false"
+                           [disabled]="!canManage" styleClass="w-full" data-testid="cfg-autoclose"></p-inputnumber>
+            <small class="sf-mu">1 to 168. A shift open longer is flagged as stale to the store's supervisors.</small>
+          </div>
+          <div class="sf-fld">
+            <label for="cfgVar">Cash variance threshold</label>
+            <p-inputnumber inputId="cfgVar" [(ngModel)]="config.varianceThreshold" [min]="0" mode="decimal" [minFractionDigits]="2"
+                           [maxFractionDigits]="2" [disabled]="!canManage" styleClass="w-full" data-testid="cfg-variance"></p-inputnumber>
+            <small class="sf-mu">A closing count further off than this puts the shift in dispute; within it the shift is reconciled at close.</small>
+          </div>
+          <div class="sf-fld sd-wide">
+            <label for="cfgHead">Receipt header</label>
+            <textarea pTextarea id="cfgHead" rows="2" [(ngModel)]="config.receiptHeader" [disabled]="!canManage" maxlength="500"
+                      data-testid="cfg-header"></textarea>
+          </div>
+          <div class="sf-fld sd-wide">
+            <label for="cfgFoot">Receipt footer</label>
+            <textarea pTextarea id="cfgFoot" rows="2" [(ngModel)]="config.receiptFooter" [disabled]="!canManage" maxlength="500"
+                      data-testid="cfg-footer"></textarea>
+          </div>
+        </div>
+        <div class="sf-fbar" *ngIf="canManage" style="margin-top: 1rem">
+          <span class="sf-mu sf-sm">Terminals pick changes up on their next sync.</span>
+          <span class="sf-end">
+            <p-button label="Undo changes" [text]="true" severity="secondary" (onClick)="resetConfig()"></p-button>
+            <p-button label="Save configuration" icon="pi pi-check" [loading]="configSaving" (onClick)="saveConfig()" data-testid="save-config"></p-button>
+          </span>
+        </div>
+      </section>
+
+      <!-- Terminals -->
+      <section id="sec-terminals" class="sf-section sf-card p0" data-testid="section-terminals">
+        <div class="sf-ch">
+          <h2>Terminals</h2>
+          <p-button *ngIf="canManageTerminals" label="New terminal" icon="pi pi-plus" size="small" [text]="true" (onClick)="openTerminal(null)"
+                    data-testid="new-terminal"></p-button>
+        </div>
+        <div *ngIf="!canViewTerminals" class="sf-empty" data-testid="terminals-no-access">Viewing terminals needs the POS terminal view permission.</div>
+        <div *ngIf="canViewTerminals && terminalsFailed" class="sf-empty">The terminals could not be loaded.</div>
+        <p-table *ngIf="canViewTerminals && !terminalsFailed" [value]="terminals" [loading]="terminalsLoading" [tableStyle]="{ 'min-width': '60rem' }"
+                 data-testid="terminal-table">
+          <ng-template pTemplate="header">
+            <tr><th>Code</th><th>Name</th><th>Online</th><th>Device</th><th>Shift</th><th>Last sync</th><th>Status</th><th></th></tr>
+          </ng-template>
+          <ng-template pTemplate="body" let-t>
+            <tr [attr.data-testid]="'terminal-' + t.code">
+              <td class="sf-mono">{{ t.code }}</td>
+              <td>{{ t.name }}</td>
+              <td data-testid="terminal-online">
+                <span class="sd-dot" [class.on]="t.online"></span>{{ t.online ? 'Online' : 'Offline' }}
+                <div class="sf-mu sf-sm" *ngIf="t.lastSeenAt">seen {{ t.lastSeenAt | date:'dd MMM, HH:mm' }}</div>
+              </td>
+              <td data-testid="terminal-device">
+                <ng-container *ngIf="t.deviceBound; else unbound">
+                  <span class="sf-pill in">Bound</span>
+                  <div class="sf-mu sf-sm sf-mono" *ngIf="t.deviceUuid">{{ t.deviceUuid }}</div>
+                </ng-container>
+                <ng-template #unbound><span class="sf-pill">Not bound</span></ng-template>
+              </td>
+              <td>
+                <a *ngIf="t.activeShiftUuid && canViewShifts; else noShift" class="sf-mono" [routerLink]="[posRoute, 'shifts', t.activeShiftUuid]">{{ t.activeShiftNumber || 'Open shift' }}</a>
+                <ng-template #noShift><span class="sf-mu">{{ t.activeShiftNumber || '—' }}</span></ng-template>
+              </td>
+              <td>{{ t.lastSyncAt ? (t.lastSyncAt | date:'dd MMM, HH:mm') : '—' }}</td>
+              <td>
+                <p-tag [value]="t.isActive ? 'Active' : 'Inactive'" [severity]="t.isActive ? 'success' : 'secondary'"></p-tag>
+                <span *ngIf="t.locked" class="sf-pill er" [pTooltip]="'PIN locked until ' + (t.pinLockedUntil | date:'HH:mm')" data-testid="terminal-locked">Locked</span>
+              </td>
+              <td>
+                <div class="sd-actions">
+                  <p-button *ngIf="canManageTerminals" icon="pi pi-pencil" [text]="true" size="small" pTooltip="Edit" (onClick)="openTerminal(t)"
+                            data-testid="terminal-edit"></p-button>
+                  <p-button *ngIf="canUnlock && t.locked" icon="pi pi-lock-open" [text]="true" size="small" pTooltip="Clear the PIN lockout"
+                            [disabled]="terminalBusy" (onClick)="unlock(t)" data-testid="terminal-unlock"></p-button>
+                  <p-button *ngIf="canManageTerminals" icon="pi pi-sync" [text]="true" size="small" pTooltip="Force sync"
+                            [disabled]="terminalBusy" (onClick)="openForceSync(t)" data-testid="terminal-sync"></p-button>
+                  <p-button *ngIf="canManageTerminals" icon="pi pi-sign-out" [text]="true" size="small" pTooltip="Force logout"
+                            [disabled]="terminalBusy" (onClick)="openForceLogout(t)" data-testid="terminal-logout"></p-button>
+                  <p-button *ngIf="canManageTerminals && t.deviceBound" icon="pi pi-link" severity="danger" [text]="true" size="small"
+                            pTooltip="Unbind the device" [disabled]="terminalBusy" (onClick)="unbind(t)" data-testid="terminal-unbind"></p-button>
+                </div>
+              </td>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="emptymessage">
+            <tr><td colspan="8" class="sf-empty">No terminals yet. A terminal is bound to a device the first time the POS app is opened on it.</td></tr>
+          </ng-template>
+        </p-table>
+      </section>
+
+      <!-- Staff -->
+      <section id="sec-staff" class="sf-section sf-card p0" data-testid="section-staff">
+        <div class="sf-ch">
+          <h2>Staff</h2>
+          <p-button *ngIf="canManage" label="Add staff" icon="pi pi-user-plus" size="small" [text]="true" (onClick)="openStaff(null)"
+                    data-testid="add-staff"></p-button>
+        </div>
+        <div *ngIf="staffFailed" class="sf-empty">The staff could not be loaded.</div>
+        <p-table *ngIf="!staffFailed" [value]="staff" [loading]="staffLoading" [tableStyle]="{ 'min-width': '48rem' }" data-testid="staff-table">
+          <ng-template pTemplate="header">
+            <tr><th>Name</th><th>Email</th><th>User role</th><th>POS role</th><th>PIN</th><th>Status</th><th></th></tr>
+          </ng-template>
+          <ng-template pTemplate="body" let-m>
+            <tr [attr.data-testid]="'staff-' + m.userId">
+              <td>{{ m.name }}</td>
+              <td>{{ m.email }}</td>
+              <td>{{ m.roleName || '—' }}</td>
+              <td><span class="sf-pill" [ngClass]="m.posRole === 'SUPERVISOR' ? 'vi' : 'in'">{{ roleLabel(m.posRole) }}</span></td>
+              <td>
+                <span *ngIf="m.hasPin" class="sf-pill ok">Set</span>
+                <span *ngIf="!m.hasPin" class="sf-pill wn" pTooltip="Cannot sign in at a terminal until a PIN is set">Not set</span>
+              </td>
+              <td><p-tag [value]="m.isActive ? 'Active' : 'Inactive'" [severity]="m.isActive ? 'success' : 'secondary'"></p-tag></td>
+              <td>
+                <div class="sd-actions" *ngIf="canManage">
+                  <p-button [icon]="m.isActive ? 'pi pi-key' : 'pi pi-user-plus'" [text]="true" size="small"
+                            [pTooltip]="!m.isActive ? 'Reactivate' : m.hasPin ? 'Change role / reset PIN' : 'Change role / set PIN'"
+                            (onClick)="openStaff(m)" data-testid="staff-edit"></p-button>
+                  <p-button *ngIf="m.isActive" icon="pi pi-user-minus" severity="danger" [text]="true" size="small" pTooltip="Remove from store"
+                            (onClick)="removeStaff(m)" data-testid="staff-remove"></p-button>
+                </div>
+              </td>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="emptymessage">
+            <tr><td colspan="7" class="sf-empty">Nobody works here yet. Add the cashiers and supervisors who sell at this store.</td></tr>
+          </ng-template>
+        </p-table>
+      </section>
+
+      <!-- Shifts -->
+      <section id="sec-shifts" class="sf-section sf-card p0" data-testid="section-shifts">
+        <div class="sf-ch">
+          <h2>Shifts</h2>
+          <span class="sf-mu sf-sm" *ngIf="shiftsTotal > shifts.length">latest {{ shifts.length }} of {{ shiftsTotal }} ·
+            <a [routerLink]="[posRoute, 'shifts']" [queryParams]="{ store: uuid }">all shifts</a></span>
+        </div>
+        <div *ngIf="!canViewShifts" class="sf-empty" data-testid="shifts-no-access">Viewing shifts needs the POS shift view permission.</div>
+        <div *ngIf="canViewShifts && shiftsFailed" class="sf-empty">The shifts could not be loaded.</div>
+        <p-table *ngIf="canViewShifts && !shiftsFailed" [value]="shifts" [loading]="shiftsLoading" [tableStyle]="{ 'min-width': '56rem' }"
+                 data-testid="shift-table">
+          <ng-template pTemplate="header">
+            <tr><th>Shift</th><th>Terminal</th><th>Opened</th><th>Closed</th><th class="text-right">Orders</th>
+                <th class="text-right">Net sales</th><th class="text-right">Variance</th><th>Status</th></tr>
+          </ng-template>
+          <ng-template pTemplate="body" let-sh>
+            <tr>
+              <td><a class="sf-mono" [routerLink]="[posRoute, 'shifts', sh.uuid]">{{ sh.shiftNumber }}</a></td>
+              <td>{{ sh.terminalName }}</td>
+              <td>{{ sh.openedAt | date:'dd MMM, HH:mm' }}<div class="sf-mu sf-sm">{{ sh.openedByName }}</div></td>
+              <td>{{ sh.closedAt ? (sh.closedAt | date:'dd MMM, HH:mm') : '—' }}</td>
+              <td class="text-right">{{ sh.orderCount }}</td>
+              <td class="text-right">{{ sh.netTotal | number:'1.2-2' }}</td>
+              <td class="text-right" [class.sd-var]="sh.varianceHigh">{{ sh.cashVariance != null ? (sh.cashVariance | number:'1.2-2') : '—' }}</td>
+              <td><span class="sf-pill" [ngClass]="tone(sh.status)">{{ label(sh.status) }}</span></td>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="emptymessage">
+            <tr><td colspan="8" class="sf-empty">No shifts yet.</td></tr>
+          </ng-template>
+        </p-table>
+      </section>
+
+      <!-- Reports -->
+      <section id="sec-reports" class="sf-section sf-card p0" data-testid="section-reports">
+        <div class="sf-ch">
+          <h2>Daily totals</h2>
+          <p-calendar *ngIf="canViewShifts" [(ngModel)]="reportRange" selectionMode="range" [readonlyInput]="true" [showIcon]="true"
+                      dateFormat="dd M yy" (ngModelChange)="onReportRange()" appendTo="body" data-testid="report-range"></p-calendar>
+        </div>
+        <div *ngIf="!canViewShifts" class="sf-empty">The totals are built from shifts; viewing them needs the POS shift view permission.</div>
+        <div *ngIf="canViewShifts && reportFailed" class="sf-empty">The totals could not be loaded.</div>
+        <div *ngIf="canViewShifts && reportTruncated" class="sf-empty sf-sm" data-testid="report-truncated">
+          Only the latest 500 shifts of the range are counted — pick a shorter range.
+        </div>
+        <p-table *ngIf="canViewShifts && !reportFailed" [value]="reportRows" [loading]="reportLoading" [tableStyle]="{ 'min-width': '64rem' }"
+                 data-testid="report-table">
+          <ng-template pTemplate="header">
+            <tr>
+              <th>Day</th><th class="text-right">Shifts</th><th class="text-right">Orders</th><th class="text-right">Cash</th>
+              <th class="text-right">Card</th><th class="text-right">Mobile</th><th class="text-right">Other</th><th class="text-right">Credit</th>
+              <th class="text-right">Refunds</th><th class="text-right">Net</th><th class="text-right">Variance</th>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="body" let-d>
+            <tr data-testid="report-row">
+              <td>{{ d.date | date:'EEE dd MMM yyyy' }}</td>
+              <td class="text-right">{{ d.shifts }}</td>
+              <td class="text-right">{{ d.orders }}</td>
+              <td class="text-right">{{ d.cash | number:'1.2-2' }}</td>
+              <td class="text-right">{{ d.card | number:'1.2-2' }}</td>
+              <td class="text-right">{{ d.mobile | number:'1.2-2' }}</td>
+              <td class="text-right">{{ d.other | number:'1.2-2' }}</td>
+              <td class="text-right">{{ d.credit | number:'1.2-2' }}</td>
+              <td class="text-right">{{ (d.cashRefunds + d.otherRefunds) | number:'1.2-2' }}</td>
+              <td class="text-right"><strong>{{ d.net | number:'1.2-2' }}</strong></td>
+              <td class="text-right" [class.sd-var]="d.variance !== 0">{{ d.variance | number:'1.2-2' }}</td>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="footer">
+            <tr *ngIf="reportTotal as t" class="sd-total" data-testid="report-total">
+              <td>Total</td>
+              <td class="text-right">{{ t.shifts }}</td>
+              <td class="text-right">{{ t.orders }}</td>
+              <td class="text-right">{{ t.cash | number:'1.2-2' }}</td>
+              <td class="text-right">{{ t.card | number:'1.2-2' }}</td>
+              <td class="text-right">{{ t.mobile | number:'1.2-2' }}</td>
+              <td class="text-right">{{ t.other | number:'1.2-2' }}</td>
+              <td class="text-right">{{ t.credit | number:'1.2-2' }}</td>
+              <td class="text-right">{{ (t.cashRefunds + t.otherRefunds) | number:'1.2-2' }}</td>
+              <td class="text-right">{{ t.net | number:'1.2-2' }}</td>
+              <td class="text-right">{{ t.variance | number:'1.2-2' }}</td>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="emptymessage">
+            <tr><td colspan="11" class="sf-empty">No shifts in this range.</td></tr>
+          </ng-template>
+        </p-table>
+      </section>
+
+      <!-- Returns (A39): organization default vs store-specific return policy -->
+      <section id="sec-returns" class="sf-section sf-card" data-testid="section-returns">
+        <div class="sf-ch"><h2>Return policy</h2></div>
+        <app-pos-store-returns [storeUuid]="s.uuid" [storeName]="s.name" [canManage]="canManagePolicy"></app-pos-store-returns>
+      </section>
+    </div>
+  </ng-container>
+</sf-page>
+
+<app-pos-store-form-dialog [(visible)]="showEdit" [store]="store" (saved)="onEdited($event)"></app-pos-store-form-dialog>
+
+<!-- Terminal create / edit -->
+<p-dialog [header]="terminalEditing ? 'Edit terminal' : 'New terminal'" [(visible)]="terminalDialog" [modal]="true" [style]="{ width: '28rem' }"
+          data-testid="terminal-dialog">
+  <div class="sf-pill er sd-err" *ngIf="terminalError" role="alert" data-testid="terminal-error">{{ terminalError }}</div>
+  <div class="sf-fields">
+    <div class="sf-fld">
+      <label for="tCode" class="sf-req">Code</label>
+      <input pInputText id="tCode" [(ngModel)]="terminalModel.code" maxlength="20" data-testid="terminal-code" />
+    </div>
+    <div class="sf-fld">
+      <label for="tName" class="sf-req">Name</label>
+      <input pInputText id="tName" [(ngModel)]="terminalModel.name" maxlength="100" data-testid="terminal-name" />
+    </div>
+    <div class="sf-fld sd-check" *ngIf="terminalEditing">
+      <p-checkbox inputId="tActive" [(ngModel)]="terminalModel.isActive" [binary]="true"></p-checkbox>
+      <label for="tActive">Active</label>
+    </div>
+  </div>
+  <ng-template pTemplate="footer">
+    <p-button label="Cancel" severity="secondary" [text]="true" (onClick)="terminalDialog = false"></p-button>
+    <p-button label="Save" icon="pi pi-check" [loading]="terminalBusy" [disabled]="!terminalCanSave" (onClick)="saveTerminal()"
+              data-testid="terminal-save"></p-button>
+  </ng-template>
+</p-dialog>
+
+<!-- Force sync -->
+<p-dialog header="Force sync" [(visible)]="syncDialog" [modal]="true" [style]="{ width: '26rem' }" data-testid="sync-dialog">
+  <p class="dialog-lead">{{ syncTarget?.name }} reloads its data the next time it is online.</p>
+  <p-dropdown [options]="syncTypes" [(ngModel)]="syncType" optionLabel="label" optionValue="value" appendTo="body" styleClass="w-full"
+              data-testid="sync-type"></p-dropdown>
+  <ng-template pTemplate="footer">
+    <p-button label="Cancel" severity="secondary" [text]="true" (onClick)="syncDialog = false"></p-button>
+    <p-button label="Send" icon="pi pi-sync" (onClick)="confirmForceSync()" data-testid="confirm-sync"></p-button>
+  </ng-template>
+</p-dialog>
+
+<!-- Force logout -->
+<p-dialog header="Force logout" [(visible)]="logoutDialog" [modal]="true" [style]="{ width: '28rem' }" data-testid="logout-dialog">
+  <p class="dialog-lead">The cashier on {{ logoutTarget?.name }} is signed out. Sales not yet synced stay on the device.</p>
+  <textarea pTextarea rows="2" [(ngModel)]="logoutReason" class="w-full" placeholder="Reason (required, shown to the cashier)"
+            data-testid="logout-reason"></textarea>
+  <ng-template pTemplate="footer">
+    <p-button label="Cancel" severity="secondary" [text]="true" (onClick)="logoutDialog = false"></p-button>
+    <p-button label="Sign out" icon="pi pi-sign-out" severity="danger" [disabled]="!logoutReason.trim()" (onClick)="confirmForceLogout()"
+              data-testid="confirm-logout"></p-button>
+  </ng-template>
+</p-dialog>
+
+<!-- Staff add / edit -->
+<p-dialog [header]="staffEditing ? (staffEditing.isActive ? 'Staff — ' : 'Reactivate — ') + staffEditing.name : 'Add staff'" [(visible)]="staffDialog" [modal]="true"
+          [style]="{ width: '32rem' }" [breakpoints]="{ '640px': '96vw' }" data-testid="staff-dialog">
+  <div class="sf-pill er sd-err" *ngIf="staffError" role="alert" data-testid="staff-error">{{ staffError }}</div>
+  <div class="sf-fields">
+    <div class="sf-fld sd-wide" *ngIf="!staffEditing">
+      <label for="stfUser" class="sf-req">User</label>
+      <p-dropdown inputId="stfUser" [options]="candidates" [(ngModel)]="staffModel.userId" optionLabel="label" optionValue="value"
+                  [filter]="true" filterBy="label" placeholder="Pick an active user of the organization" appendTo="body" styleClass="w-full"
+                  emptyMessage="Everyone is already staff of this store" data-testid="staff-user"></p-dropdown>
+    </div>
+    <div class="sf-fld sd-wide">
+      <label for="stfRole" class="sf-req">POS role</label>
+      <p-dropdown inputId="stfRole" [options]="roleOptions" [(ngModel)]="staffModel.posRole" optionLabel="label" optionValue="value"
+                  appendTo="body" styleClass="w-full" data-testid="staff-role"></p-dropdown>
+      <small class="sf-mu">What the person may do on the till still comes from their user role's permissions.</small>
+    </div>
+    <div class="sf-fld">
+      <label for="stfPin">{{ staffEditing?.hasPin ? 'New PIN' : 'PIN' }}</label>
+      <input pInputText id="stfPin" type="password" inputmode="numeric" autocomplete="new-password" maxlength="6"
+             [ngModel]="staffModel.pin" (ngModelChange)="staffModel.pin = digitsOnly($event)" data-testid="staff-pin" />
+    </div>
+    <div class="sf-fld">
+      <label for="stfPin2">Repeat PIN</label>
+      <input pInputText id="stfPin2" type="password" inputmode="numeric" autocomplete="new-password" maxlength="6"
+             [ngModel]="staffModel.pinConfirm" (ngModelChange)="staffModel.pinConfirm = digitsOnly($event)" data-testid="staff-pin2" />
+    </div>
+    <small class="sf-mu sd-wide" *ngIf="!pinError">
+      4 to 6 digits. One PIN per person, used at every store they work in, so it must not clash with anyone's PIN in those stores.{{ staffEditing?.hasPin ? ' Leave empty to keep the current PIN.' : '' }}
+    </small>
+    <small class="sd-wide sd-var" *ngIf="pinError" data-testid="pin-error">{{ pinError }}</small>
+  </div>
+  <ng-template pTemplate="footer">
+    <p-button label="Cancel" severity="secondary" [text]="true" (onClick)="staffDialog = false"></p-button>
+    <p-button [label]="staffEditing ? 'Save' : 'Add'" icon="pi pi-check" [loading]="staffBusy" [disabled]="!staffCanSave"
+              (onClick)="saveStaff()" data-testid="staff-save"></p-button>
+  </ng-template>
+</p-dialog>

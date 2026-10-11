@@ -111,7 +111,8 @@ public class ModuleRegistryTests
     {
         var codes = TenancyFeatureCatalog.GetDefaultEnabledCodes(plan);
         codes.Contains(Bom).Should().Be(expected);
-        codes.Should().NotContain("MODULE_POS").And.NotContain("FEATURE_BLANKET_ORDERS");
+        // A38 D-2 made MODULE_POS available (PosModuleCatalogTests); a coming-soon entry is never in a plan.
+        codes.Should().NotContain("FEATURE_POS_ANALYTICS").And.NotContain("FEATURE_BLANKET_ORDERS");
     }
 
     [Fact]
@@ -268,7 +269,8 @@ public class ModuleRegistryTests
     public async Task Coming_soon_and_unlicensed_modules_cannot_be_enabled()
     {
         var b = await NewAsync(TenancyFeatureCatalog.PlanBasic);
-        (await RefusalAsync(() => b.Modules.EnableAsync(b.OrgId, "MODULE_POS", new(), Admin))).Should().Be("Point of Sale is not yet available.");
+        // A38 made Point of Sale available; Demand Planning is still coming soon.
+        (await RefusalAsync(() => b.Modules.EnableAsync(b.OrgId, "MODULE_DEMAND_PLANNING", new(), Admin))).Should().Be("Demand Planning is not yet available.");
         (await RefusalAsync(() => b.Modules.EnableAsync(b.OrgId, Mfg, new(), Admin)))
             .Should().Be("Manufacturing is not included in your plan — contact your administrator.");
     }
@@ -344,7 +346,7 @@ public class ModuleRegistryTests
         var rows = await b.Tenancy.GetOrganizationFeaturesAsync(b.OrgId);
         rows.Single(r => r.FeatureCode == ModuleCodes.Integration).Status.Should().Be("NOT_LICENSED");
         rows.Single(r => r.FeatureCode == PickLists).ParentModuleCode.Should().Be(Logistics);
-        rows.Single(r => r.FeatureCode == "MODULE_POS").Status.Should().Be("COMING_SOON");
+        rows.Single(r => r.FeatureCode == "MODULE_DEMAND_PLANNING").Status.Should().Be("COMING_SOON");
 
         var all = await b.Modules.GetHistoryAsync(b.OrgId, null);
         all.Should().Contain(h => h.FeatureCode == ModuleCodes.Integration && h.Action == "UNLICENSED");
@@ -417,7 +419,7 @@ public class ModuleRegistryTests
     // ── Filter rules (D-6) ───────────────────────────────────────────────────
 
     private static async Task<(bool Passed, ObjectResult? Refusal)> FilterAsync(
-        TenantSnapshot snapshot, string method, bool routeParam, DateTime now, params RequiresFeatureAttribute[] attributes)
+        TenantSnapshot snapshot, string method, bool routeParam, DateTime now, params object[] attributes)
     {
         var tenant = new Mock<ITenantContext>();
         tenant.SetupGet(t => t.OrganizationId).Returns(Guid.NewGuid());
@@ -461,6 +463,26 @@ public class ModuleRegistryTests
         var later = now.AddDays(31);
         (await FilterAsync(snapshot, "GET", false, later, gate)).Passed.Should().BeTrue();
         (await FilterAsync(snapshot, "PUT", true, later, gate)).Passed.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Filter_grace_markers_override_the_route_rule_for_writes_only_during_grace()
+    {
+        var b = await NewAsync();
+        await Disable(b, Logistics, 30);
+        var snapshot = await SnapshotAsync(b);
+        var now = b.Clock.Utc;
+        var gate = new RequiresFeatureAttribute(Logistics);
+
+        // A38: pushing sales already made passes although its route names no record; starting new work is refused
+        // although it does; Block wins over Allow.
+        (await FilterAsync(snapshot, "POST", false, now, gate, new AllowDuringGraceAttribute())).Passed.Should().BeTrue();
+        (await FilterAsync(snapshot, "POST", true, now, gate, new BlockDuringGraceAttribute())).Passed.Should().BeFalse();
+        (await FilterAsync(snapshot, "POST", false, now, gate, new AllowDuringGraceAttribute(), new BlockDuringGraceAttribute())).Passed.Should().BeFalse();
+        (await FilterAsync(snapshot, "GET", false, now, gate, new BlockDuringGraceAttribute())).Passed.Should().BeTrue("reads are never blocked by the marker");
+
+        // After grace the markers change nothing: reads only.
+        (await FilterAsync(snapshot, "POST", false, now.AddDays(31), gate, new AllowDuringGraceAttribute())).Passed.Should().BeFalse();
     }
 
     [Fact]

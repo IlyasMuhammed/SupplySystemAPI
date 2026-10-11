@@ -134,6 +134,17 @@
           </div>
           <p-toggleswitch [inputId]="row.name" [formControlName]="row.name" [attr.data-testid]="row.name"></p-toggleswitch>
         </div>
+        <!-- A38: POS sales go only when this and "Sales invoices" are both on; held until then. -->
+        <div class="switch-row" data-testid="pos-sales-row">
+          <div class="switch-text">
+            <label class="switch-label" for="autoPushPosSales">Sync POS sales</label>
+            <span class="hint" data-testid="pos-sales-hint">{{ posSalesHint }}</span>
+            <span class="pos-waiting" *ngIf="posSalesWaiting > 0" data-testid="pos-sales-waiting">
+              <i class="pi pi-clock"></i> POS sales waiting: {{ posSalesWaiting }}
+            </span>
+          </div>
+          <p-toggleswitch inputId="autoPushPosSales" formControlName="autoPushPosSales" data-testid="autoPushPosSales"></p-toggleswitch>
+        </div>
       </div>
 
       <div class="action-bar" *ngIf="canManage" data-testid="settings-actions">

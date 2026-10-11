@@ -54,6 +54,30 @@ the sandbox, and the accountant's sign-off.
 - **Migration:** `20260930190343_QBI_InitialIntegrationSchema` (14 tables, schema `integration`) —
   applied, re-applied (no-op), rolled back and re-applied on LocalDB. It reaches the shared database on
   the next API start.
+- **2026-10-10 — "Sync POS sales" (A38 POS invoices, user decision):** new per-organization switch
+  `IntegrationSettings.AutoPushPosSales`, default **off** for new and existing organizations (migration
+  `20261010170000_QBI_AutoPushPosSales`, guarded by `COL_LENGTH`). POS payments are not synced (D-8), so POS
+  sales would show as open A/R in QuickBooks — the admin opts in. A POS invoice (payload `SourceType = "POS"`,
+  set by Finance's `SalesInvoicePayloadFactory` only for `SalesInvoice.SourceType = 'POS'`; null — omitted from the
+  stored JSON — for every other invoice, so back-office fingerprints are unchanged) goes only while this switch
+  **and** `AutoPushSalesInvoices` are on. Rules (`Core/Sync/PosSales.cs`):
+  - Off: the gateway **holds** it after the start-date/skip/void checks — payload stored, map `NotSynced` with
+    `LastErrorCode = POS_SALES_HELD`, nothing queued, no dependencies requested. The settings API returns
+    `posSalesWaiting` (the Mappings tab shows "POS sales waiting: N"). Retry is refused and Push now keeps it held.
+    The blocked-record re-validator leaves POS records alone while off.
+  - On: `PosSales.ReleaseAsync` asks the sales-invoice sources (`PushAsync`) for every held SCM POS sale; they come
+    back through the gateway and are queued — once (admission clears the marker; one open outbox entry per map).
+    Run after every settings save (no-op unless both switches are on) **and** by every hourly reconciliation, so
+    nothing depends on one trigger. A held sale cancelled meanwhile is voided locally — nothing is sent.
+  - Turned off again: queued-but-unsent POS upserts are held (entries closed); voids still go; what QuickBooks
+    already has stays. Records held for an API client (non-SCM source system) are not released — the client resends.
+- **2026-10-10 — service products:** a SERVICE product syncs and matches like any other product (no separate
+  switch). Inventory's `VariantPayloadFactory` sends `Kind = Service`; `QboObjectBuilder` makes it a QuickBooks
+  **Service** item (other products follow `ItemTypeDefault`); no price is required; matching does not filter by type
+  on either side; invoice lines use the linked item's id whatever its QuickBooks type. One fix: an item **adopted**
+  from the accountant's records (matching Link, or a duplicate-name link) no longer sends `Type` on later sparse
+  updates (`RemoteItem.KeepRemoteType`), so a change in SCM never tries to convert the accountant's item (QuickBooks
+  refuses converting an Inventory item; Service/NonInventory would have flipped silently).
 - **Confirm in the sandbox (QBI-35):** exact-name lookups of inactive records (QuickBooks renames them
   "(deleted)"), `Sku` filtering on Item queries, backslash escaping in queries, and the provider's
   judgement calls (403 and 6190 treated as a revoked connection).

@@ -87,6 +87,11 @@ public static class FinanceModuleExtensions
         services.AddScoped<ISalesInvoiceDocumentService, SalesInvoiceDocumentService>();
         services.AddScoped<ISalesInvoiceDocumentArchive, SalesInvoiceDocumentArchive>();
         services.AddScoped<ICustomerPaymentService, CustomerPaymentService>();
+        // A38 (FIN, D-8/D-9/D-10) — POS counter sales, returns and voids. It reuses the two services' internals (the issue
+        // bookings, allocation, payment reversal), so they are registered as themselves too (same scoped context).
+        services.AddScoped<SalesInvoiceService>();
+        services.AddScoped<CustomerPaymentService>();
+        services.AddScoped<ICounterSaleService, CounterSaleService>();
         services.AddScoped<InvoiceOverdueJob>();
         // SAP alignment (S-7) — Demand asks it before cancelling a sale order that has been billed.
         services.AddScoped<ISaleOrderInvoiceLookup, SaleOrderInvoiceLookup>();

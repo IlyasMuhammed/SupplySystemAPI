@@ -1,5 +1,6 @@
 import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
-import { ApplicationConfig } from '@angular/core';
+import { ApplicationConfig, isDevMode } from '@angular/core';
+import { provideServiceWorker } from '@angular/service-worker';
 import { DATE_PIPE_DEFAULT_TIMEZONE } from '@angular/common';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { provideRouter, withEnabledBlockingInitialNavigation, withInMemoryScrolling } from '@angular/router';
@@ -20,6 +21,8 @@ export const appConfig: ApplicationConfig = {
         MessageService,
         provideAnimationsAsync(),
         providePrimeNG({ theme: { preset: SmsFlow, options: { darkModeSelector: '.app-dark' } } }),
+        // A38 — app shell cache for the offline POS (ngsw-config.json). Production builds only; API data lives in Dexie.
+        provideServiceWorker('ngsw-worker.js', { enabled: !isDevMode(), registrationStrategy: 'registerWhenStable:30000' }),
         { provide: DATE_PIPE_DEFAULT_TIMEZONE, useValue: '+0500' }
     ]
 };

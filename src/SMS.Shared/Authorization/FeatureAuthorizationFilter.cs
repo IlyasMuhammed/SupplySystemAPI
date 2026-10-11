@@ -49,8 +49,11 @@ public sealed class FeatureAuthorizationFilter : IAsyncActionFilter
             var snapshot = context.HttpContext.Items[TenantMiddleware.SnapshotItemKey] as TenantSnapshot
                 ?? await _snapshots.GetSnapshotAsync(_tenantContext.OrganizationId);
 
+            var metadata = context.ActionDescriptor.EndpointMetadata;
+            bool? graceWrite = metadata.OfType<BlockDuringGraceAttribute>().Any() ? false
+                             : metadata.OfType<AllowDuringGraceAttribute>().Any() ? true : null;
             var refusal = Evaluate(snapshot, attributes, context.HttpContext.Request.Method,
-                context.RouteData.Values.Keys.Any(k => !RouteValuesThatAreNotRecords.Contains(k)), _clock.GetUtcNow().UtcDateTime);
+                context.RouteData.Values.Keys.Any(k => !RouteValuesThatAreNotRecords.Contains(k)), _clock.GetUtcNow().UtcDateTime, graceWrite);
 
             if (refusal is not null)
             {
@@ -62,9 +65,12 @@ public sealed class FeatureAuthorizationFilter : IAsyncActionFilter
         await next();
     }
 
-    /// <summary>The access that refuses the request, or null when every attribute passes.</summary>
+    /// <summary>The access that refuses the request, or null when every attribute passes. <paramref name="graceWrite"/>
+    /// overrides the route rule for writes during grace: true = allowed (<see cref="AllowDuringGraceAttribute"/>),
+    /// false = refused (<see cref="BlockDuringGraceAttribute"/>), null = writes pass only on a route naming a record.</summary>
     public static FeatureAccess? Evaluate(
-        TenantSnapshot? snapshot, IReadOnlyList<RequiresFeatureAttribute> attributes, string method, bool actsOnRecord, DateTime utcNow)
+        TenantSnapshot? snapshot, IReadOnlyList<RequiresFeatureAttribute> attributes, string method, bool actsOnRecord, DateTime utcNow,
+        bool? graceWrite = null)
     {
         var isRead = HttpMethods.IsGet(method) || HttpMethods.IsHead(method) || HttpMethods.IsOptions(method);
 
@@ -78,7 +84,7 @@ public sealed class FeatureAuthorizationFilter : IAsyncActionFilter
             var allowed = best.Level switch
             {
                 FeatureAccessLevel.Full     => true,
-                FeatureAccessLevel.Grace    => isRead || actsOnRecord,
+                FeatureAccessLevel.Grace    => isRead || (graceWrite ?? actsOnRecord),
                 FeatureAccessLevel.ReadOnly => isRead,
                 _                           => false
             };
@@ -88,6 +94,16 @@ public sealed class FeatureAuthorizationFilter : IAsyncActionFilter
         return null;
     }
 }
+
+/// <summary>A38 — a write that only completes work done before the switch-off (e.g. pushing sales made offline) and
+/// must pass during the grace period even though its route names no record.</summary>
+[AttributeUsage(AttributeTargets.Method | AttributeTargets.Class)]
+public sealed class AllowDuringGraceAttribute : Attribute { }
+
+/// <summary>A38 — a write that starts new work (opening a shift, adding a terminal) and is refused during the grace
+/// period even though its route names an existing record. Wins over <see cref="AllowDuringGraceAttribute"/>.</summary>
+[AttributeUsage(AttributeTargets.Method | AttributeTargets.Class)]
+public sealed class BlockDuringGraceAttribute : Attribute { }
 
 /// <summary>A37 API-CONTRACT §1.4 — the 403 body for a module / feature that is not enabled.</summary>
 public sealed class ModuleNotEnabledResponse

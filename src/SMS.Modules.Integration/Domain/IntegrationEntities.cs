@@ -113,6 +113,13 @@ internal class IntegrationSettings : ITenantScopedEntity
     public bool            AutoPushItems         { get; set; } = true;
     public bool            AutoPushSalesInvoices { get; set; } = true;
     public bool            AutoPushBills         { get; set; } = true;
+    /// <summary>
+    /// "Sync POS sales": point-of-sale invoices (payload SourceType POS) go only while this <b>and</b>
+    /// <see cref="AutoPushSalesInvoices"/> are on. Off by default (new and existing organizations) — POS payments
+    /// are not synced, so the sales would show in QuickBooks as open invoices. While off they are held
+    /// (<c>PosSales.HeldCode</c>), and sent once it is turned on.
+    /// </summary>
+    public bool            AutoPushPosSales      { get; set; }
     public ItemTypeDefault ItemTypeDefault { get; set; } = ItemTypeDefault.NonInventory;
     public PartnerScope    PartnerScope    { get; set; } = PartnerScope.OnlyWhenReferenced;
 

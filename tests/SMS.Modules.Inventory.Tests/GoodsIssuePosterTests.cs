@@ -284,10 +284,10 @@ public class GoodsIssuePosterTests
     }
 
     [Fact]
-    public async Task On_hand_is_never_driven_negative()
+    public async Task A_short_row_goes_negative_by_the_issued_quantity_instead_of_being_floored()
     {
-        // If the counters have already drifted, deducting further buries the evidence instead of
-        // surfacing it.
+        // A38 R-5 — formerly floored at 0, which hid the shortfall while the ledger still recorded
+        // the full issue. The on-hand now tells the same story as the ledger.
         var h  = await NewHarness();
         var wh = await NewWarehouse(h, "Central");
         var id = await SeedRow(h, wh, 100m, batch: "B-1");
@@ -305,7 +305,9 @@ public class GoodsIssuePosterTests
 
         await h.Poster.PostAsync(ReservationSourceType.Delivery, source, Posting(), User);
 
-        (await Row(h, id)).QtyOnHand.Should().Be(0m);
+        var after = await Row(h, id);
+        after.QtyOnHand.Should().Be(-60m);
+        after.QtyReserved.Should().Be(0m, "a hold is never negative");
     }
 
     // ── Transfers ─────────────────────────────────────────────────────────────

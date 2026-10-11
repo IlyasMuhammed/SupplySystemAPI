@@ -79,6 +79,10 @@ internal sealed class ReconciliationJob
                 }
             }
 
+            // POS sales held while "Sync POS sales" was off: offered again whenever it is on (with sales invoices), so
+            // nothing depends on the settings change alone. Idempotent — a no-op when none are held.
+            await PosSales.ReleaseAsync(sp, connection.Id, _logger, ct);
+
             if (!complete) return;
 
             // Re-read: a source's gateway calls may have reset this context's change tracker.

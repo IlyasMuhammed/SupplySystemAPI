@@ -1,0 +1,29 @@
+:host { display: block; height: 100%; }
+
+.sell { display: grid; grid-template-columns: minmax(0, 1fr) 400px; height: 100%; min-height: 0; }
+.products { display: flex; flex-direction: column; min-height: 0; padding: .75rem; gap: .6rem; }
+.cart { display: flex; flex-direction: column; min-height: 0; border-left: 1px solid var(--sms-border); background: var(--sms-surface); }
+.cart-head { padding: .6rem .75rem; border-bottom: 1px solid var(--sms-border); display: flex; align-items: center; gap: .5rem; }
+.lines { flex: 1 1 auto; overflow: auto; min-height: 0; }
+.line { padding: .55rem .75rem; border-bottom: 1px solid var(--sms-border-soft);
+    .top { display: flex; gap: .5rem; align-items: baseline; }
+    .nm { flex: 1 1 auto; font-weight: 600; min-width: 0; }
+    .tot { font-weight: 700; font-variant-numeric: tabular-nums; }
+    .sub { font-size: .8rem; color: var(--sms-text-muted); }
+    .ctl { display: flex; gap: .35rem; align-items: center; margin-top: .35rem; .q { min-width: 3.5rem; text-align: center; font-weight: 650; } }
+}
+.empty { padding: 2rem 1rem; text-align: center; color: var(--sms-text-faint); }
+.totals { border-top: 1px solid var(--sms-border); padding: .6rem .75rem; display: grid; grid-template-columns: 1fr auto; gap: .2rem .75rem; font-variant-numeric: tabular-nums;
+    .big { font-size: 1.35rem; font-weight: 750; }
+}
+.cart-actions { display: flex; gap: .4rem; padding: 0 .75rem .5rem; flex-wrap: wrap; .pos-btn { flex: 1 1 auto; } }
+.pay { margin: 0 .75rem .75rem; }
+.result { display: flex; flex-direction: column; gap: .4rem; max-height: 50vh; overflow: auto; }
+video { width: 100%; border-radius: var(--sms-radius-sm); background: var(--sms-navy); }
+
+@media (max-width: 767.98px) {
+    .sell { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto; }
+    .sell[data-tab='products'] .cart, .sell[data-tab='cart'] .products, .sell[data-tab='more'] .products { display: none; }
+    .sell[data-tab='more'] .cart .lines { display: none; }
+    .cart { border-left: 0; grid-row: 1; }
+}

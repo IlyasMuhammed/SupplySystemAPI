@@ -9,6 +9,8 @@ import { SaleOrderService } from '../../../services/sale-order.service';
 import { CurrenciesService } from '../../../services/currencies.service';
 import { AuthService } from '../../service/auth.service';
 import { ModuleService } from '../../../services/module.service';
+import { PosAdminService } from '../../../services/pos-admin.service';
+import { PosReturnsAdminService } from '../../../services/pos-returns-admin.service';
 
 /** A37 §15.4 — the customer object page: Details, Financial, Orders; activate / deactivate; walk-in rules. */
 describe('CustomerDetailComponent (A37)', () => {
@@ -17,6 +19,8 @@ describe('CustomerDetailComponent (A37)', () => {
   let el: HTMLElement;
   let service: jasmine.SpyObj<CustomerService>;
   let orders: jasmine.SpyObj<SaleOrderService>;
+  let posSettings: jasmine.SpyObj<PosAdminService>;
+  let storeCredit: jasmine.SpyObj<PosReturnsAdminService>;
 
   const ok = (result: unknown) => of({ success: true, message: '', result } as any);
   const acme: CustomerDetail = {
@@ -33,6 +37,11 @@ describe('CustomerDetailComponent (A37)', () => {
     service.getCustomer.and.returnValue(ok(customer));
     service.getBalance.and.returnValue(ok({ balance: 1500, currencyCode: 'PKR', overdue: 200 }));
     service.setStatus.and.returnValue(ok(null));
+    posSettings = jasmine.createSpyObj<PosAdminService>('PosAdminService', ['getCustomerSettings', 'saveCustomerSettings']);
+    posSettings.getCustomerSettings.and.returnValue(ok({ allowPosCredit: false, requiresIdForCredit: false }));
+    storeCredit = jasmine.createSpyObj<PosReturnsAdminService>('PosReturnsAdminService', ['getCustomerStoreCredits']);
+    storeCredit.getCustomerStoreCredits.and.returnValue(ok([{ uuid: 'cn-1', number: 'CN-S1-1', status: 'ACTIVE', remainingBalance: 60,
+      originalAmount: 100, redeemedAmount: 40, currencyCode: 'PKR', issuedAt: '2026-10-10', issuedAtStoreName: 'Mall', issuedByName: 'Sara' }]));
     orders = jasmine.createSpyObj<SaleOrderService>('SaleOrderService', ['getSaleOrders']);
     orders.getSaleOrders.and.returnValue(ok({ data: [
       { uuid: 'so-1', soNumber: 'SO-0001', orderDate: '2026-10-02', grandTotal: 900, currencyCode: 'PKR', status: 'CONFIRMED' }
@@ -47,7 +56,9 @@ describe('CustomerDetailComponent (A37)', () => {
         { provide: SaleOrderService, useValue: orders },
         { provide: CurrenciesService, useValue: { getAll: () => ok([]) } },
         { provide: AuthService, useValue: { hasPermission: (c: string) => perms.includes(c) } },
-        { provide: ModuleService, useValue: { isFeatureEnabled: (c: string) => features.includes(c) } }
+        { provide: ModuleService, useValue: { isFeatureEnabled: (c: string) => features.includes(c) } },
+        { provide: PosAdminService, useValue: posSettings },
+        { provide: PosReturnsAdminService, useValue: storeCredit }
       ]
     }).compileComponents();
     fixture = TestBed.createComponent(CustomerDetailComponent);
@@ -116,6 +127,43 @@ describe('CustomerDetailComponent (A37)', () => {
     const toast = spyOn((component as any).messages, 'add');
     component.applyStatus(false);
     expect(toast).toHaveBeenCalledWith(jasmine.objectContaining({ detail: 'The walk-in customer cannot be deactivated.' }));
+  });
+
+  it('A38: the POS section needs MODULE_POS and POS_CUSTOMER_SETTINGS', async () => {
+    await setup(acme);
+    expect(q('section-pos')).toBeNull();
+    expect(posSettings.getCustomerSettings).not.toHaveBeenCalled();
+
+    const perms = ['CUSTOMER_VIEW', 'POS_CUSTOMER_SETTINGS'];
+    await setup(acme, { perms, features: ['MODULE_POS'] });
+    expect(component.sections.map(s => s.label)).toEqual(['Details', 'Financial', 'Orders', 'POS']);
+    expect(q('section-pos')).not.toBeNull();
+    expect(posSettings.getCustomerSettings).toHaveBeenCalledWith('c-1');
+    expect(q('cpos-feature-note')).not.toBeNull();   // FEATURE_POS_CREDIT_SALES off
+
+    await setup(acme, { perms: ['CUSTOMER_VIEW'], features: ['MODULE_POS'] });
+    expect(q('section-pos')).toBeNull();
+  });
+
+  it('A38: the walk-in customer\'s POS section cannot allow credit', async () => {
+    await setup(walkIn, { perms: ['CUSTOMER_VIEW', 'POS_CUSTOMER_SETTINGS'], features: ['MODULE_POS', 'FEATURE_POS_CREDIT_SALES'] });
+    expect(q('cpos-walkin-note')).not.toBeNull();
+    expect((q('cpos-allow')!.querySelector('input') as HTMLInputElement).disabled).toBeTrue();
+  });
+
+  it('A39: the Store credit section needs MODULE_POS, FEATURE_POS_CREDIT_NOTES and POS_CREDIT_NOTE_VIEW', async () => {
+    await setup(acme, { perms: ['CUSTOMER_VIEW', 'POS_CREDIT_NOTE_VIEW'], features: ['MODULE_POS'] });
+    expect(q('section-store-credit')).toBeNull();
+    expect(storeCredit.getCustomerStoreCredits).not.toHaveBeenCalled();
+
+    await setup(acme, { perms: ['CUSTOMER_VIEW', 'POS_CREDIT_NOTE_VIEW'], features: ['MODULE_POS', 'FEATURE_POS_CREDIT_NOTES'] });
+    expect(component.sections.map(s => s.label)).toEqual(['Details', 'Financial', 'Orders', 'Store credit']);
+    expect(storeCredit.getCustomerStoreCredits).toHaveBeenCalledWith('c-1');
+    expect(q('section-store-credit')!.textContent).toContain('CN-S1-1');
+    expect(q('section-store-credit')!.textContent).toContain('60.00');
+
+    await setup(acme, { perms: ['CUSTOMER_VIEW'], features: ['MODULE_POS', 'FEATURE_POS_CREDIT_NOTES'] });
+    expect(q('section-store-credit')).toBeNull();
   });
 
   it('a missing customer shows the error', async () => {

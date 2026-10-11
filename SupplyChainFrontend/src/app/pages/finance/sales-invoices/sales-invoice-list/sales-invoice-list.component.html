@@ -65,9 +65,25 @@
 
         <ng-template pTemplate="body" let-inv>
           <tr>
-            <td><a class="sf-mono" [routerLink]="['/portal/pages/finance/sales-invoices', inv.uuid]"><strong>{{ inv.invoiceNumber }}</strong></a></td>
+            <td>
+              <a class="sf-mono" [routerLink]="['/portal/pages/finance/sales-invoices', inv.uuid]"><strong>{{ inv.invoiceNumber }}</strong></a>
+              <span *ngIf="inv.status === 'CREDIT_NOTE'" class="sf-pill vi" data-testid="credit-note-pill">Credit note</span>
+            </td>
             <td data-testid="customer">{{ inv.partnerName }}</td>
-            <td class="sf-mono">{{ inv.saleOrderNumber }}</td>
+            <td data-testid="source">
+              <ng-container *ngIf="inv.status === 'CREDIT_NOTE' && inv.originalInvoiceUuid">
+                <span class="sf-mu sf-sm">credits </span>
+                <a class="sf-mono" [routerLink]="['/portal/pages/finance/sales-invoices', inv.originalInvoiceUuid]"
+                   data-testid="original-invoice-link">{{ inv.originalInvoiceNumber || 'original invoice' }}</a>
+                <br *ngIf="inv.sourceNumber || inv.saleOrderNumber">
+              </ng-container>
+              <ng-container *ngIf="inv.sourceType === 'POS'; else soCell">
+                <span class="sf-pill in" data-testid="pos-pill">POS</span>
+                <a *ngIf="inv.sourceNumber" class="sf-mono" [routerLink]="['/portal/pages/pos/orders']"
+                   [queryParams]="{ search: inv.sourceNumber }" data-testid="pos-order-link">{{ inv.sourceNumber }}</a>
+              </ng-container>
+              <ng-template #soCell><span class="sf-mono">{{ inv.saleOrderNumber || inv.sourceNumber || '—' }}</span></ng-template>
+            </td>
             <td class="sf-mono">{{ inv.deliveryNumber || '—' }}</td>
             <td>{{ inv.invoiceDate | date:'dd MMM yyyy' }}</td>
             <td>{{ inv.dueDate | date:'dd MMM yyyy' }}</td>

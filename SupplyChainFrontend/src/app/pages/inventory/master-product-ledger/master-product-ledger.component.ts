@@ -26,6 +26,10 @@ const TRANSACTION_TYPE_OPTIONS = [
   { label: 'Material Return',   value: 'MATERIAL_RETURN' },
   { label: 'Transfer Out',      value: 'TRANSFER_OUT' },
   { label: 'Transfer In',       value: 'TRANSFER_IN' },
+  // A38 — Point of Sale stock movements (store warehouse ⇄ customer).
+  { label: 'POS Sale',          value: 'POS_SALE' },
+  { label: 'POS Return',        value: 'POS_RETURN' },
+  { label: 'POS Void',          value: 'POS_VOID' },
 ];
 
 const PARTY_TYPE_OPTIONS = [
@@ -34,6 +38,7 @@ const PARTY_TYPE_OPTIONS = [
   { label: 'Project',     value: 'PROJECT' },
   { label: 'Department',  value: 'DEPARTMENT' },
   { label: 'Adjustment',  value: 'ADJUSTMENT' },
+  { label: 'Customer',    value: 'CUSTOMER' },
 ];
 
 // Reference types with a real detail page today — everything else renders as plain text.
@@ -266,10 +271,13 @@ export class MasterProductLedgerComponent implements OnInit {
       case 'GRN_RECEIPT':
       case 'MATERIAL_RETURN':
       case 'TRANSFER_IN':
+      case 'POS_RETURN':
+      case 'POS_VOID':
         return 'success'; // stock coming in
       case 'RETURN_DISPATCH':
       case 'MATERIAL_ISSUE':
       case 'TRANSFER_OUT':
+      case 'POS_SALE':
         return 'warn'; // stock going out
       default:
         return 'secondary';

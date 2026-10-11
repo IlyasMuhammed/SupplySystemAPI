@@ -25,6 +25,7 @@ using SMS.Modules.Suppliers;
 using SMS.Modules.Tenancy;
 using SMS.Modules.Warehouse;
 using SMS.Modules.Material;
+using SMS.Modules.Pos;
 using SMS.Shared.Common;
 using SMS.WorkflowEngine;
 using Swashbuckle.AspNetCore.SwaggerUI;
@@ -188,6 +189,7 @@ builder.Services.AddFinanceModule(builder.Configuration);
 builder.Services.AddReportsModule(builder.Configuration);
 builder.Services.AddWorkflowEngineModule(builder.Configuration);
 builder.Services.AddMaterialModule(builder.Configuration);
+builder.Services.AddPosModule(builder.Configuration); // A38 — Point of Sale
 // Last on purpose: it replaces the NullQuickBooksGateway the modules above TryAdd.
 builder.Services.AddIntegrationModule(builder.Configuration);
 
@@ -327,10 +329,12 @@ app.UseWarehouseModule();      // ensures warehouse schema migrations (SRO table
 app.UseFinanceModule();        // ensures finance schema migrations are applied; registers sales-invoice overdue sweep (daily Hangfire job)
 app.UseMaterialModule();       // ensures material schema migrations (projects, MIR tables) are applied
 app.UseLogisticsModule();      // ensures logistics schema migrations (delivery/consignment tables) are applied
+app.UsePosModule();            // A38: pos schema migrations + hourly stale-shift alert
 app.UseIntegrationModule();    // QuickBooks gateway: integration schema migrations + sync/token jobs
 
 app.MapControllers();
 app.MapHub<NotificationHub>("/hubs/notifications");
+app.MapPosHub();               // A38: /hubs/pos
 app.Run();
 
 public partial class Program { }

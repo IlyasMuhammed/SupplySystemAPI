@@ -33,6 +33,8 @@ internal sealed class SalesAnalysisReportService : ISalesAnalysisReportService
     internal const int MaxRows = 10_000;
 
     private const string InvoiceReferenceType = "SalesInvoice";
+    /// <summary>A38 (FIN) — the ledger reference of a customer credit note.</summary>
+    private const string CreditNoteReferenceType = CounterSaleReferences.CreditNote;
 
     /// <summary>An invoice whose sale stands. A draft has sold nothing; a cancelled or credit-noted invoice has been undone.</summary>
     private static readonly string[] LiveStatuses =
@@ -80,18 +82,32 @@ internal sealed class SalesAnalysisReportService : ISalesAnalysisReportService
         var invoices = LiveInvoices(start, endExclusive);
         if (filter.PartnerId is { } only) invoices = invoices.Where(i => i.PartnerId == only);
 
-        // What was invoiced, a variant and a currency at a time; the products come after.
-        var lines = await (
+        var credits = LiveCreditNotes(start, endExclusive);
+        if (filter.PartnerId is { } onlyCredits) credits = credits.Where(i => i.PartnerId == onlyCredits);
+
+        // What was invoiced, a variant and a currency at a time; the products come after. A38 (FIN): a POS line carries its
+        // absolute tax (TaxAmount), so its revenue is its net (LineTotal − tax); credit notes booked in the range come off.
+        var sold = await (
             from l in _finance.SalesInvoiceLines.AsNoTracking()
             where invoices.Any(i => i.Id == l.SalesInvoiceId)
             group l by new { l.VariantUuid, l.SalesInvoice.CurrencyCode } into g
-            select new
-            {
+            select new LineSum(
                 g.Key.VariantUuid, g.Key.CurrencyCode,
-                Quantity = g.Sum(x => x.Quantity),
-                Gross    = g.Sum(x => x.Quantity * x.UnitPrice),
-                Discount = g.Sum(x => x.Quantity * x.UnitPrice * x.DiscountPercent / 100m)
-            }).ToListAsync();
+                g.Sum(x => x.Quantity),
+                g.Sum(x => x.TaxAmount == null ? x.Quantity * x.UnitPrice : 0m),
+                g.Sum(x => x.TaxAmount == null ? x.Quantity * x.UnitPrice * x.DiscountPercent / 100m : 0m),
+                g.Sum(x => x.TaxAmount != null ? x.LineTotal - (x.TaxAmount ?? 0m) : 0m))).ToListAsync();
+
+        var credited = await (
+            from l in _finance.SalesInvoiceLines.AsNoTracking()
+            where credits.Any(i => i.Id == l.SalesInvoiceId)
+            group l by new { l.VariantUuid, l.SalesInvoice.CurrencyCode } into g
+            select new LineSum(
+                g.Key.VariantUuid, g.Key.CurrencyCode,
+                -g.Sum(x => x.Quantity), 0m, 0m,
+                -g.Sum(x => x.LineTotal - (x.TaxAmount ?? 0m)))).ToListAsync();
+
+        var lines = sold.Concat(credited).ToList();
 
         // A variant's product is the one the product ledger recorded it under when it was sold. A variant
         // the ledger never saw is its own product rather than dropped from the report.
@@ -117,7 +133,7 @@ internal sealed class SalesAnalysisReportService : ISalesAnalysisReportService
                 Variant      = g.Min(l => l.VariantUuid),
                 Quantity     = g.Sum(l => l.Quantity),
                 // Rounded once, on the product's total, the way an invoice rounds its own header.
-                Revenue      = Cents(g.Sum(l => l.Gross)) - Cents(g.Sum(l => l.Discount))
+                Revenue      = Cents(g.Sum(l => l.Gross)) - Cents(g.Sum(l => l.Discount)) + g.Sum(l => l.Net)
             })
             .OrderByDescending(r => r.Revenue).ThenBy(r => r.ProductUuid).ThenBy(r => r.CurrencyCode, StringComparer.Ordinal)
             .ToList();
@@ -179,16 +195,35 @@ internal sealed class SalesAnalysisReportService : ISalesAnalysisReportService
         // Revenue is the sum of what each invoice printed before tax (its subtotal less its discount), so
         // a customer's figure is the figure on their invoices. An order billed in several invoices, one
         // to a delivery, is still one order.
-        var sold = await LiveInvoices(start, endExclusive)
+        // A38 (FIN): a POS sale has no sale order — it is its own order. Credit notes booked in the range come off revenue.
+        var billed = await LiveInvoices(start, endExclusive)
             .GroupBy(i => new { i.PartnerId, i.CurrencyCode })
             .Select(g => new
             {
                 g.Key.PartnerId, g.Key.CurrencyCode,
-                Orders   = g.Select(i => i.SaleOrderUuid).Distinct().Count(),
+                Orders   = g.Select(i => i.SaleOrderUuid ?? i.UUID).Distinct().Count(),
                 Invoices = g.Count(),
                 Revenue  = g.Sum(i => i.Subtotal - i.DiscountAmount)
             })
             .ToListAsync();
+
+        var creditedBy = await LiveCreditNotes(start, endExclusive)
+            .GroupBy(i => new { i.PartnerId, i.CurrencyCode })
+            .Select(g => new { g.Key.PartnerId, g.Key.CurrencyCode, Revenue = g.Sum(i => i.Subtotal - i.DiscountAmount) })
+            .ToListAsync();
+
+        var sold = billed
+            .Select(b => new { b.PartnerId, b.CurrencyCode, b.Orders, b.Invoices, b.Revenue })
+            .Concat(creditedBy.Select(c => new { c.PartnerId, c.CurrencyCode, Orders = 0, Invoices = 0, Revenue = -c.Revenue }))
+            .GroupBy(x => (x.PartnerId, x.CurrencyCode))
+            .Select(g => new
+            {
+                g.Key.PartnerId, g.Key.CurrencyCode,
+                Orders   = g.Sum(x => x.Orders),
+                Invoices = g.Sum(x => x.Invoices),
+                Revenue  = g.Sum(x => x.Revenue)
+            })
+            .ToList();
 
         if (sold.Count > MaxRows)
             throw new BadRequestException(
@@ -261,7 +296,7 @@ internal sealed class SalesAnalysisReportService : ISalesAnalysisReportService
 
         // Each invoice that stands, with the day it was issued: revenue and cost are bucketed by the same
         // invoice on the same day, so a period's cost is always the cost of what its revenue sold.
-        var billed = await live
+        var invoicesBilled = await live
             .Select(i => new
             {
                 i.UUID, i.CurrencyCode,
@@ -269,6 +304,23 @@ internal sealed class SalesAnalysisReportService : ISalesAnalysisReportService
                 Day     = booked.Where(b => b.ReferenceId == i.UUID).Min(b => (DateTime?)b.EntryDate)
             })
             .ToListAsync();
+
+        // A38 (FIN) — credit notes booked in the range: revenue back off on the day they were booked, and their RETURN_IN
+        // (the goods back at the cost they left at) off the cost of goods sold.
+        var bookedCredits = BookedCreditNotes(start, endExclusive);
+        var credits       = LiveCreditNotes(start, endExclusive);
+        var creditsBilled = await credits
+            .Select(i => new
+            {
+                i.UUID, i.CurrencyCode,
+                Revenue = i.Subtotal - i.DiscountAmount,
+                Day     = bookedCredits.Where(b => b.ReferenceId == i.UUID).Min(b => (DateTime?)b.EntryDate)
+            })
+            .ToListAsync();
+
+        var billed = invoicesBilled.Select(b => (b.UUID, b.CurrencyCode, b.Revenue, b.Day, IsCredit: false))
+            .Concat(creditsBilled.Select(c => (c.UUID, c.CurrencyCode, Revenue: -c.Revenue, c.Day, IsCredit: true)))
+            .ToList();
 
         // What issuing each of them booked as the cost of the goods: one SALE entry to an invoice line.
         var costs = await (
@@ -278,7 +330,15 @@ internal sealed class SalesAnalysisReportService : ISalesAnalysisReportService
             group e by e.ReferenceId into g
             select new { InvoiceUuid = g.Key, Cost = g.Sum(x => x.TotalCost) }).ToListAsync();
 
+        var returned = await (
+            from e in _finance.ProductLedgerEntries.AsNoTracking()
+            where e.EntryType == ProductLedgerEntryTypes.ReturnIn && e.ReferenceType == CreditNoteReferenceType
+               && credits.Any(i => i.UUID == e.ReferenceId)
+            group e by e.ReferenceId into g
+            select new { InvoiceUuid = g.Key, Cost = g.Sum(x => x.TotalCost) }).ToListAsync();
+
         var costOf = costs.ToDictionary(c => c.InvoiceUuid, c => c.Cost);
+        foreach (var r in returned) costOf[r.InvoiceUuid] = -r.Cost;
 
         var rows = billed
             .GroupBy(b => (Start: PeriodStart(b.Day!.Value, period), b.CurrencyCode))
@@ -291,7 +351,7 @@ internal sealed class SalesAnalysisReportService : ISalesAnalysisReportService
                     PeriodStart        = g.Key.Start,
                     PeriodLabel        = PeriodLabel(g.Key.Start, period),
                     CurrencyCode       = g.Key.CurrencyCode,
-                    InvoiceCount       = g.Count(),
+                    InvoiceCount       = g.Count(b => !b.IsCredit),
                     Revenue            = revenue,
                     CostOfGoodsSold    = cost,
                     GrossMargin        = revenue - cost,
@@ -395,6 +455,31 @@ internal sealed class SalesAnalysisReportService : ISalesAnalysisReportService
         return _finance.SalesInvoices.AsNoTracking()
             .Where(i => !i.IsDelete && LiveStatuses.Contains(i.Status) && booked.Any(b => b.ReferenceId == i.UUID));
     }
+
+    /// <summary>A38 (FIN) — the CREDIT_NOTE ledger entries that booked a customer credit note, in the range.</summary>
+    private IQueryable<CustomerLedgerEntry> BookedCreditNotes(DateTime? start, DateTime? endExclusive)
+    {
+        var booked = _finance.CustomerLedgerEntries.Where(e =>
+            e.EntryType == CustomerLedgerEntryTypes.CreditNote && e.ReferenceType == CreditNoteReferenceType);
+
+        if (start is { } from)       booked = booked.Where(e => e.EntryDate >= from);
+        if (endExclusive is { } end) booked = booked.Where(e => e.EntryDate < end);
+        return booked;
+    }
+
+    /// <summary>
+    /// A38 (FIN) — customer credit notes (POS returns and voids) booked in the range: they net the sales reports, on the day
+    /// they were booked. (A cancelled invoice is not one of them — it simply stops being a live invoice.)
+    /// </summary>
+    private IQueryable<SalesInvoice> LiveCreditNotes(DateTime? start, DateTime? endExclusive)
+    {
+        var booked = BookedCreditNotes(start, endExclusive);
+
+        return _finance.SalesInvoices.AsNoTracking()
+            .Where(i => !i.IsDelete && i.Status == SalesInvoiceStatuses.CreditNote && booked.Any(b => b.ReferenceId == i.UUID));
+    }
+
+    private sealed record LineSum(Guid VariantUuid, string CurrencyCode, decimal Quantity, decimal Gross, decimal Discount, decimal Net);
 
     private static decimal Cents(decimal value) => Math.Round(value, 2, MidpointRounding.AwayFromZero);
 

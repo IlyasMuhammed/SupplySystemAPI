@@ -314,6 +314,56 @@ internal sealed class CustomerPaymentService : ICustomerPaymentService
         }
     }
 
+    /// <summary>
+    /// A38 (FIN, D-10) — undoes a RECEIVED payment that was taken in error or handed back (a POS void): status REVERSED,
+    /// its allocations <b>removed</b> (each invoice's paid amount and balance put back), and a PAYMENT debit that offsets
+    /// the credit written when it was received; realized exchange differences, if any, booked back. Tracked only — the
+    /// caller's single save commits it with the rest of its unit of work. The invoices' statuses are left to the caller,
+    /// which knows what else happens to them in the same unit (a void credits them in full right after).
+    /// </summary>
+    internal async Task<CustomerLedgerEntry> TrackReversalAsync(CustomerPayment payment, string reason, DateTime now, int userId)
+    {
+        if (payment.Status != CustomerPaymentStatuses.Received)
+            throw new ConflictException($"Payment {payment.PaymentNumber} is {payment.Status}. Only a RECEIVED payment can be reversed.");
+
+        foreach (var allocation in payment.Allocations.ToList())
+        {
+            var invoice = allocation.SalesInvoice;
+            invoice.AmountPaid  -= allocation.AllocatedAmount;
+            invoice.BalanceDue  += allocation.AllocatedAmount;
+            invoice.ModifiedBy   = userId;
+            invoice.ModifiedDate = now;
+
+            payment.Allocations.Remove(allocation);
+            invoice.Allocations.Remove(allocation);
+            _db.PaymentAllocations.Remove(allocation);
+        }
+
+        payment.Status       = CustomerPaymentStatuses.Reversed;
+        payment.Notes        = WithNote(payment.Notes, $"Reversed {now:yyyy-MM-dd}: {reason}");
+        payment.ModifiedBy   = userId;
+        payment.ModifiedDate = now;
+
+        if (_differences is not null)
+            await _differences.TrackReversalAsync(payment.OrganizationId, ExchangeDifferenceRefs.CustomerPayment, payment.UUID, userId);
+
+        var text = $"Payment {payment.PaymentNumber} reversed: {reason}";
+        return await _ledger.TrackEntryAsync(new CustomerLedgerPosting(
+            payment.PartnerId, CustomerLedgerEntryTypes.Payment,
+            "CustomerPayment", payment.UUID, payment.PaymentNumber,
+            Debit: payment.Amount, Credit: 0m, payment.CurrencyCode,
+            text.Length <= 500 ? text : text[..500], now, userId));
+    }
+
+    private static string WithNote(string? existing, string note)
+    {
+        if (note.Length > MaxNotesLength) note = note[..MaxNotesLength];
+        if (string.IsNullOrEmpty(existing)) return note;
+        var room = MaxNotesLength - note.Length - 1;
+        if (room <= 0) return note;
+        return (existing.Length <= room ? existing : existing[..room]) + "\n" + note;
+    }
+
     // ── Read ─────────────────────────────────────────────────────────────────
 
     public async Task<CustomerPaymentDetailModel?> GetAsync(Guid paymentUuid)
@@ -388,9 +438,9 @@ internal sealed class CustomerPaymentService : ICustomerPaymentService
                 $"'{filter.Status}' is not a payment status. Valid: {string.Join(", ", CustomerPaymentStatuses.All)}.");
 
         var method = filter.Method?.Trim().ToUpperInvariant();
-        if (!string.IsNullOrEmpty(method) && !CustomerPaymentMethods.All.Contains(method))
+        if (!string.IsNullOrEmpty(method) && !CustomerPaymentMethods.Recorded.Contains(method))
             throw new BadRequestException(
-                $"'{filter.Method}' is not a payment method. Valid: {string.Join(", ", CustomerPaymentMethods.All)}.");
+                $"'{filter.Method}' is not a payment method. Valid: {string.Join(", ", CustomerPaymentMethods.Recorded)}.");
 
         var query = _db.CustomerPayments.AsNoTracking().AsQueryable();
 
@@ -454,7 +504,7 @@ internal sealed class CustomerPaymentService : ICustomerPaymentService
     /// Turns a plan into allocation rows and moves each invoice's balance and status — in one place,
     /// so recording a payment and applying one later cannot disagree about what "paid" means.
     /// </summary>
-    private static List<PaymentAllocation> Apply(
+    internal static List<PaymentAllocation> Apply(
         CustomerPayment payment, IEnumerable<(SalesInvoice Invoice, decimal Amount)> plan, DateTime now, int userId)
     {
         var added = new List<PaymentAllocation>();
@@ -690,6 +740,11 @@ internal sealed class CustomerPaymentService : ICustomerPaymentService
     {
         var normalized = method?.Trim().ToUpperInvariant() ?? string.Empty;
 
+        // A39 (XFIN) — store credit and exchange value are POS-internal: they come from the counter-sale service only.
+        if (CustomerPaymentMethods.NonCash.Contains(normalized))
+            throw new BadRequestException(
+                $"'{normalized}' is recorded by the POS only (store credit / exchange), not as a back-office receipt.");
+
         if (!CustomerPaymentMethods.All.Contains(normalized))
             throw new BadRequestException(
                 $"'{method}' is not a payment method. Valid: {string.Join(", ", CustomerPaymentMethods.All)}.");
@@ -788,7 +843,7 @@ internal sealed class CustomerPaymentService : ICustomerPaymentService
         return $"{prefix}{highest + 1:D4}";
     }
 
-    private static string Narrate(CustomerPayment payment, IReadOnlyList<string> invoiceNumbers)
+    internal static string Narrate(CustomerPayment payment, IReadOnlyList<string> invoiceNumbers)
     {
         var reference = payment.ChequeNumber ?? payment.BankReference;
         var text = $"Payment {payment.PaymentNumber} received by {payment.PaymentMethod}"

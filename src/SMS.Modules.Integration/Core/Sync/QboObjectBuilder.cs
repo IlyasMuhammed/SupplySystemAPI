@@ -140,6 +140,8 @@ internal sealed class QboObjectBuilder : IQboObjectBuilder
             Type        = p.Kind == ItemPayloadKind.Service
                               ? RemoteItemType.Service
                               : settings.ItemTypeDefault == ItemTypeDefault.Service ? RemoteItemType.Service : RemoteItemType.NonInventory,
+            // Only on creates (and updates of items SCM created): an item linked to an existing QuickBooks one keeps its type.
+            KeepRemoteType = map.RemoteId is not null && map.LinkOrigin == LinkOrigin.Adopted,
             Description = Trim(p.Description),
             Active      = p.IsActive
         };

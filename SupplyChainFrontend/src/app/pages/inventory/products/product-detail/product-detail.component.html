@@ -644,6 +644,15 @@
       </ng-template>
     </p-tabPanel>
 
+    <!-- TAB: POS (A38 §17.7.5) — MODULE_POS, a saleable product and POS_PRODUCT_SETTINGS; loads when first opened -->
+    <p-tabPanel header="POS" leftIcon="pi pi-shop" *ngIf="showPosTab" data-testid="pos-tab-panel">
+      <ng-template pTemplate="content">
+        <div class="tab-content" style="padding-top:1.25rem">
+          <app-product-pos-tab [productUuid]="product.uuid" [variant]="defaultVariant"></app-product-pos-tab>
+        </div>
+      </ng-template>
+    </p-tabPanel>
+
     <!-- TAB: Bill of Materials (A31-C4) — inline, replaces the standalone BOM module UI -->
     <!-- A36-P1-09 (D-4) — also for a SERVICE product with a service BOM -->
     <p-tabPanel header="Bill of Materials" leftIcon="pi pi-sitemap" *ngIf="showBomTab" data-testid="bom-tab">

@@ -137,6 +137,12 @@ internal sealed class RemoteItem : RemoteEntity
     public string         Name             { get; set; } = string.Empty;
     public string?        Sku              { get; set; }
     public RemoteItemType Type             { get; set; } = RemoteItemType.NonInventory;
+    /// <summary>
+    /// True for an update of an item adopted from the accountant's QuickBooks records (matching, or a duplicate-name
+    /// link): its type — Service, NonInventory, Inventory or any other — is theirs and is not sent, so a later change
+    /// in SCM never tries to convert it (QuickBooks refuses converting an Inventory item; others would change silently).
+    /// </summary>
+    public bool           KeepRemoteType   { get; set; }
     public string?        Description      { get; set; }
     public decimal?       UnitPrice        { get; set; }
     public string?        PurchaseDesc     { get; set; }

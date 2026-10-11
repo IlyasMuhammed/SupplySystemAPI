@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild } from '@angular/core';
+import { Component, Injector, OnInit, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -15,8 +15,9 @@ import { MessageService } from 'primeng/api';
 import { AttachmentListComponent } from '../../../../shared/attachment-list/attachment-list.component';
 import {
   SalesInvoiceService, SalesInvoiceDetailModel, SalesInvoicePaymentModel, SalesInvoiceLineModel,
-  PAYABLE_INVOICE_STATUSES, CANCELLABLE_INVOICE_STATUSES
+  PAYABLE_INVOICE_STATUSES, CANCELLABLE_INVOICE_STATUSES, isCreditNote, isPosInvoice
 } from '../../../../services/sales-invoice.service';
+import { PosAdminService } from '../../../../services/pos-admin.service';
 import { AuthService } from '../../../service/auth.service';
 import { formatCode } from '../../../../shared/format-code';
 import { fromDateOnly, toDateOnly } from '../../../../shared/date-only';
@@ -70,6 +71,9 @@ export class SalesInvoiceDetailComponent implements OnInit {
 
   isFiling = false;
 
+  /** PosAdminService is fetched only for a POS invoice (keeps the page's other uses free of it). */
+  private readonly injector = inject(Injector);
+
   constructor(
     private route: ActivatedRoute,
     private router: Router,
@@ -94,6 +98,7 @@ export class SalesInvoiceDetailComponent implements OnInit {
         if (res.success && res.result) {
           this.invoice = res.result;
           this.notFound = false;
+          this.resolvePosOrder(res.result);
         } else {
           this.invoice = null;
           this.notFound = true;
@@ -140,6 +145,7 @@ export class SalesInvoiceDetailComponent implements OnInit {
   get canCancel(): boolean {
     const inv = this.invoice;
     return !!inv
+        && !isPosInvoice(inv)            // A38 — POS sales are reversed by a void / return at the till; the server refuses this
         && CANCELLABLE_INVOICE_STATUSES.includes(inv.status)
         && inv.amountPaid === 0
         && !(inv.payments ?? []).some(p => p.paymentStatus === 'RECEIVED')
@@ -147,6 +153,23 @@ export class SalesInvoiceDetailComponent implements OnInit {
   }
 
   get isCancelled(): boolean { return this.invoice?.status === 'CANCELLED'; }
+
+  // ── A38 — POS invoices and credit notes ─────────────────────────────────────
+  get isPos(): boolean { return isPosInvoice(this.invoice); }
+  get isCreditNote(): boolean { return isCreditNote(this.invoice); }
+  get canViewPosOrders(): boolean { return this.can('POS_ORDER_VIEW'); }
+  /** The POS order behind a POS invoice, resolved by number through the orders list (the invoice carries no order uuid). */
+  posOrderUuid: string | null = null;
+
+  private resolvePosOrder(inv: SalesInvoiceDetailModel): void {
+    this.posOrderUuid = null;
+    if (!isPosInvoice(inv) || !inv.sourceNumber || !this.canViewPosOrders) return;
+    const number = inv.sourceNumber;
+    this.injector.get(PosAdminService).getOrders({ search: number, page: 1, pageSize: 5 }).subscribe({
+      next: res => { this.posOrderUuid = (res.result?.data ?? []).find(o => o.orderNumber === number)?.uuid ?? null; },
+      error: () => { this.posOrderUuid = null; }
+    });
+  }
 
   // ── SMS Flow header ─────────────────────────────────────────────────────────
 
@@ -156,6 +179,9 @@ export class SalesInvoiceDetailComponent implements OnInit {
     if (!inv) return [];
     const day = (d: string | Date | null | undefined) =>
       d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : null;
+    if (this.isCreditNote) {
+      return flowStagesFrom(['Issued', 'Credited'], 2, { subs: [day(inv.invoiceDate), null] });
+    }
     if (this.isCancelled) {
       return flowStagesFrom(['Draft', 'Issued', 'Cancelled'], 2, { subs: [null, day(inv.invoiceDate), day(inv.cancelledAt)], failed: true });
     }

@@ -55,6 +55,11 @@ internal class UserAccount : ITenantScopedEntity
     // "INTERNAL" | "EXTERNAL", following the same plain-string-with-app-level-validation
     // convention as Supplier.Status rather than a mapped enum type.
     public string SupplierType { get; set; } = "INTERNAL";
+
+    // A38 D-4 — the cashier's POS PIN (4–6 digits), hashed with the same IPasswordHasher as the password (ASP.NET
+    // Identity v3 format, so the POS PWA can verify it offline with WebCrypto). Null = no PIN. Never logged. PIN lockout
+    // is per terminal in the POS module and does not touch FailedLoginAttempts/LockedUntil (the password lockout).
+    public string? PosPinHash { get; set; }
 }
 
 internal class Department : ITenantScopedEntity

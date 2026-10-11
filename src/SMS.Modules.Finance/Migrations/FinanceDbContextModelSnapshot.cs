@@ -379,6 +379,9 @@ namespace SMS.Modules.Finance.Migrations
                         .HasMaxLength(25)
                         .HasColumnType("nvarchar(25)");
 
+                    b.Property<Guid?>("SourceUuid")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
@@ -402,6 +405,81 @@ namespace SMS.Modules.Finance.Migrations
                     b.HasIndex("OrganizationId", "PartnerId", "PaymentDate");
 
                     b.ToTable("customer_payments", "finance");
+                });
+
+            modelBuilder.Entity("SMS.Modules.Finance.Domain.CustomerRefund", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreditNoteUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CurrencyCode")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("Method")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("PartnerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Reference")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("RefundDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("RefundNumber")
+                        .IsRequired()
+                        .HasMaxLength(25)
+                        .HasColumnType("nvarchar(25)");
+
+                    b.Property<Guid?>("SourceUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("UUID")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.HasIndex("UUID")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "CreditNoteUuid");
+
+                    b.HasIndex("OrganizationId", "RefundNumber")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "PartnerId", "RefundDate");
+
+                    b.ToTable("customer_refunds", "finance");
                 });
 
             modelBuilder.Entity("SMS.Modules.Finance.Domain.DebitNote", b =>
@@ -1663,6 +1741,11 @@ namespace SMS.Modules.Finance.Migrations
                     b.Property<DateTime>("CreatedDate")
                         .HasColumnType("datetime2");
 
+                    b.Property<decimal>("CreditedAmount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,2)")
+                        .HasDefaultValue(0m);
+
                     b.Property<string>("CurrencyCode")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
@@ -1725,6 +1808,9 @@ namespace SMS.Modules.Finance.Migrations
                     b.Property<Guid>("OrganizationId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("OriginalInvoiceUuid")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("PartnerId")
                         .HasColumnType("uniqueidentifier");
 
@@ -1733,12 +1819,31 @@ namespace SMS.Modules.Finance.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<decimal>("ReturnedAmount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,2)")
+                        .HasDefaultValue(0m);
+
                     b.Property<string>("SaleOrderNumber")
                         .IsRequired()
                         .HasMaxLength(25)
                         .HasColumnType("nvarchar(25)");
 
-                    b.Property<Guid>("SaleOrderUuid")
+                    b.Property<Guid?>("SaleOrderUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("SourceNumber")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("SourceType")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("SALE_ORDER");
+
+                    b.Property<Guid?>("SourceUuid")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Status")
@@ -1776,7 +1881,14 @@ namespace SMS.Modules.Finance.Migrations
                     b.HasIndex("OrganizationId", "InvoiceNumber")
                         .IsUnique();
 
+                    b.HasIndex("OrganizationId", "OriginalInvoiceUuid")
+                        .HasFilter("[OriginalInvoiceUuid] IS NOT NULL");
+
                     b.HasIndex("OrganizationId", "SaleOrderUuid");
+
+                    b.HasIndex("OrganizationId", "SourceUuid")
+                        .IsUnique()
+                        .HasFilter("[SourceUuid] IS NOT NULL");
 
                     b.HasIndex("OrganizationId", "DueDate", "BalanceDue");
 
@@ -1798,6 +1910,9 @@ namespace SMS.Modules.Finance.Migrations
                         .HasMaxLength(300)
                         .HasColumnType("nvarchar(300)");
 
+                    b.Property<decimal?>("DiscountAmount")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<decimal>("DiscountPercent")
                         .HasColumnType("decimal(5,2)");
 
@@ -1810,14 +1925,23 @@ namespace SMS.Modules.Finance.Migrations
                     b.Property<Guid>("OrganizationId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("OriginalLineUuid")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<decimal>("Quantity")
                         .HasColumnType("decimal(18,4)");
 
                     b.Property<int>("SalesInvoiceId")
                         .HasColumnType("int");
 
-                    b.Property<Guid>("SoLineUuid")
+                    b.Property<Guid?>("SoLineUuid")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("SourceLineUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal?>("TaxAmount")
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("TaxCode")
                         .HasMaxLength(20)
@@ -1841,6 +1965,9 @@ namespace SMS.Modules.Finance.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("OrganizationId");
+
+                    b.HasIndex("OriginalLineUuid")
+                        .HasFilter("[OriginalLineUuid] IS NOT NULL");
 
                     b.HasIndex("SoLineUuid");
 

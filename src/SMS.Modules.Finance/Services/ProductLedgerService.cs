@@ -23,6 +23,13 @@ internal interface IProductLedgerWriter : IProductLedgerService
     /// ask again.
     /// </summary>
     Task<ProductLedgerEntry> TrackEntryAsync(ProductLedgerPosting posting);
+
+    /// <summary>
+    /// A38 (FIN, D-9) — as <see cref="TrackEntryAsync(ProductLedgerPosting)"/>, but with <paramref name="allowNegative"/> an
+    /// OUT larger than the running quantity is not refused: it is costed by <see cref="WeightedAverageCosting.OutAllowingNegative"/>
+    /// and the running quantity goes below zero. Only POS counter sales pass true.
+    /// </summary>
+    Task<ProductLedgerEntry> TrackEntryAsync(ProductLedgerPosting posting, bool allowNegative) => TrackEntryAsync(posting);
 }
 
 /// <summary>
@@ -61,7 +68,9 @@ internal sealed class ProductLedgerService : IProductLedgerWriter
 
     // ── Write ────────────────────────────────────────────────────────────────
 
-    public async Task<ProductLedgerEntry> TrackEntryAsync(ProductLedgerPosting posting)
+    public Task<ProductLedgerEntry> TrackEntryAsync(ProductLedgerPosting posting) => TrackEntryAsync(posting, allowNegative: false);
+
+    public async Task<ProductLedgerEntry> TrackEntryAsync(ProductLedgerPosting posting, bool allowNegative)
     {
         ArgumentNullException.ThrowIfNull(posting);
         Validate(posting);
@@ -71,8 +80,8 @@ internal sealed class ProductLedgerService : IProductLedgerWriter
         var prevVal = last?.RunningValue ?? 0m;
 
         // Checked before anything is looked up in Inventory: there is no cost to take goods out at
-        // unless the ledger holds them.
-        if (posting.Direction == ProductLedgerDirections.Out && posting.Quantity > prevQty)
+        // unless the ledger holds them. A38 D-9: a POS counter sale may sell what the ledger does not hold.
+        if (posting.Direction == ProductLedgerDirections.Out && posting.Quantity > prevQty && !allowNegative)
             throw new ConflictException(
                 $"Cannot take {posting.Quantity:0.####} out of variant {posting.VariantUuid}'s product ledger: " +
                 $"it holds {prevQty:0.####}. An outgoing entry is costed at the weighted-average cost of what is " +
@@ -82,7 +91,9 @@ internal sealed class ProductLedgerService : IProductLedgerWriter
 
         var step = posting.Direction == ProductLedgerDirections.In
             ? WeightedAverageCosting.In(prevQty, prevVal, posting.Quantity, posting.UnitCost!.Value)
-            : WeightedAverageCosting.Out(prevQty, prevVal, posting.Quantity);
+            : posting.Quantity > prevQty
+                ? WeightedAverageCosting.OutAllowingNegative(prevQty, prevVal, posting.Quantity, last?.UnitCost ?? 0m)
+                : WeightedAverageCosting.Out(prevQty, prevVal, posting.Quantity);
 
         var now = _clock.GetUtcNow().UtcDateTime;
 

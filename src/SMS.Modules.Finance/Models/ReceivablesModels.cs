@@ -47,8 +47,16 @@ public class SalesInvoiceListItemModel
 {
     public Guid     Uuid            { get; set; }
     public string   InvoiceNumber   { get; set; } = string.Empty;
-    public Guid     SaleOrderUuid   { get; set; }
+    /// <summary>Null on a POS counter sale or a customer credit note (A38).</summary>
+    public Guid?    SaleOrderUuid   { get; set; }
     public string   SaleOrderNumber { get; set; } = string.Empty;
+    /// <summary>A38 — SALE_ORDER or POS; with the POS order / return number.</summary>
+    public string   SourceType      { get; set; } = "SALE_ORDER";
+    public string?  SourceNumber    { get; set; }
+    /// <summary>A38 — on a credit note (status CREDIT_NOTE): the invoice it credits.</summary>
+    public Guid?    OriginalInvoiceUuid { get; set; }
+    /// <summary>A38 — on an invoice: the total of the credit notes raised against it.</summary>
+    public decimal  ReturnedAmount  { get; set; }
     public Guid?    DeliveryUuid    { get; set; }
     public string?  DeliveryNumber  { get; set; }
     public Guid     PartnerId       { get; set; }
@@ -77,8 +85,12 @@ public class CancelSalesInvoiceRequest
 public class SalesInvoiceLineModel
 {
     public int     LineNo          { get; set; }
-    public Guid    SoLineUuid      { get; set; }
+    /// <summary>Null on a POS / credit-note line (A38).</summary>
+    public Guid?   SoLineUuid      { get; set; }
     public Guid    VariantUuid     { get; set; }
+    /// <summary>A38 — absolute discount and tax of a POS / credit-note line (null on sale-order lines).</summary>
+    public decimal? DiscountAmount { get; set; }
+    public decimal? TaxAmount      { get; set; }
     public string  Description     { get; set; } = string.Empty;
     public decimal Quantity        { get; set; }
     public decimal UnitPrice       { get; set; }

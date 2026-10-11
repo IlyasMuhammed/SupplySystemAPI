@@ -53,6 +53,7 @@
     <ProjectReference Include="..\SMS.WorkflowEngine\SMS.WorkflowEngine.csproj" />
     <ProjectReference Include="..\SMS.Modules.Material\SMS.Modules.Material.csproj" />
     <ProjectReference Include="..\SMS.Modules.Integration\SMS.Modules.Integration.csproj" />
+    <ProjectReference Include="..\SMS.Modules.Pos\SMS.Modules.Pos.csproj" />
   </ItemGroup>
 
 </Project>

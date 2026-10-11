@@ -19,6 +19,7 @@ namespace SMS.Modules.Integration.Gateway;
 /// <item>Auto-push for the kind off, the record skipped in matching, or a document dated before the
 /// start date → Disabled.</item>
 /// <item>Same payload as last pushed (and in QuickBooks) → Accepted(Synced), nothing queued.</item>
+/// <item>A POS sale while "Sync POS sales" is off → stored and held (<see cref="PosSales"/>), Accepted(NotSynced).</item>
 /// <item>Validation fails → Invalid; the payload is still stored, as Blocked, so the dashboard shows it.</item>
 /// <item>Customer/vendor/item out of scope (D-6) → stored, Accepted(NotSynced).</item>
 /// <item>Document whose customer/vendor/items are not in QuickBooks yet → WaitingOnDependency; they are requested.</item>
@@ -168,6 +169,17 @@ internal sealed class QuickBooksGateway : IQuickBooksGateway
         else if (dryRun && map.State == SyncState.DryRunOk && map.PayloadFingerprint == fingerprint)
         {
             return GatewayResult.Accepted(SyncState.DryRunOk);
+        }
+
+        // "Sync POS sales" off: a POS sale is held — stored (so it is counted, and a cancel voids it here), never queued.
+        // Turning the switch on offers every held one again (PosSales.ReleaseAsync).
+        if (PosSales.IsHeld(settings, kind, payload))
+        {
+            StorePayload(map, payload, json, fingerprint, now);
+            map.Warning = null;
+            await PosSales.HoldAsync(_outbox, map, now, ct);
+            await _db.SaveChangesAsync(ct);
+            return GatewayResult.Accepted(map.State);
         }
 
         var validation = await _validator.ValidateAsync(kind, payload, map, connection, settings, ct);

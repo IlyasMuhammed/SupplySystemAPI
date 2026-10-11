@@ -299,6 +299,7 @@ internal sealed class SyncAdminService : IQuickBooksSyncAdminService
         if (ids.Count == 0) throw new BadRequestException("Send at least one ExternalId.");
 
         var connection = await RequireUsableConnectionAsync(ct);
+        var settings   = await _connections.GetOrCreateSettingsAsync(connection, ct);
         var now = Now;
 
         foreach (var id in ids)
@@ -325,7 +326,10 @@ internal sealed class SyncAdminService : IQuickBooksSyncAdminService
             // Explicitly wanted: overrides the partner/item scope from now on.
             map.RequestedAt = now;
 
-            if (map.PayloadJson is not null && map.State != SyncState.Voided && !await _outbox.HasRunningEntryAsync(map, ct))
+            // A held POS sale is not queued directly: the source's fresh send below goes through the gateway, which
+            // holds it while "Sync POS sales" is off and queues it once it is on.
+            if (map.PayloadJson is not null && map.State != SyncState.Voided && map.LastErrorCode != PosSales.HeldCode
+                && !await _outbox.HasRunningEntryAsync(map, ct))
             {
                 await _ledger.ForgetRefusalsAsync(map, ct);
                 await _outbox.EnqueueAsync(map, OutboxOperation.Upsert, now, ct: ct);
@@ -391,6 +395,16 @@ internal sealed class SyncAdminService : IQuickBooksSyncAdminService
         var connection = await _db.Connections.FirstOrDefaultAsync(c => c.Id == map.ConnectionId, ct);
         if (connection is null || !connection.IsUsable())
             throw new ConflictException("QuickBooks is not connected. Reconnect, then retry.");
+
+        if (map.LastErrorCode == PosSales.HeldCode)
+        {
+            var settings = await _connections.GetOrCreateSettingsAsync(connection, ct);
+            if (!PosSales.Enabled(settings))
+                throw new BadRequestException(
+                    "This POS sale is held because \"Sync POS sales\" (or sales invoices) is off in the QuickBooks settings. " +
+                    "Turn it on there; the held sales are then sent.");
+            ClearErrors(map, Now);
+        }
 
         // A person asked for another try: forget "QuickBooks said no to exactly this" so it really is sent.
         await _ledger.ForgetRefusalsAsync(map, ct);

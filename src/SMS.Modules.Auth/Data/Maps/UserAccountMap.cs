@@ -41,6 +41,7 @@ internal sealed class UserAccountMap : IEntityTypeConfiguration<UserAccount>
         builder.Property(x => x.InviteToken).HasMaxLength(64);
         builder.Property(x => x.InviteTokenExpiresAt);
         builder.Property(x => x.SupplierType).HasMaxLength(20).HasDefaultValue("INTERNAL").IsRequired();
+        builder.Property(x => x.PosPinHash).HasMaxLength(256);   // A38 D-4
     }
 }
 

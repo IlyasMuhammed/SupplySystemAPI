@@ -98,7 +98,8 @@ public class ServiceOrdersFeatureTests
         await seeder.SeedAsync();
         var org = db.Organizations.Single(o => o.OrgCode == "SCM-DEMO");
         // A37 D-3 — Demand, Warehouse and (through Warehouse) Logistics depend on Inventory too.
-        foreach (var code in new[] { Services, "MODULE_MANUFACTURING", "MODULE_MIR", "MODULE_LOGISTICS", "MODULE_WAREHOUSE", "MODULE_DEMAND", Inventory })
+        // A38 D-2 — Point of Sale depends on Inventory too.
+        foreach (var code in new[] { Services, "MODULE_MANUFACTURING", "MODULE_MIR", "MODULE_LOGISTICS", "MODULE_WAREHOUSE", "MODULE_DEMAND", "MODULE_POS", Inventory })
             await service.UpdateFeaturesAsync(org.Id, [new FeatureToggleItem { FeatureCode = code, IsEnabled = false }], modifiedBy: 1);
 
         var result = await service.UpdateFeaturesAsync(

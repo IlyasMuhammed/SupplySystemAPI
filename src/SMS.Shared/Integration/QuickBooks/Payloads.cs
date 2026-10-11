@@ -97,6 +97,24 @@ public sealed class SalesInvoicePayload
     /// <summary>The currency <see cref="ExchangeRate"/> converts into (SCM: its base currency). Omitted when null.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string?                        ExchangeRateCurrencyCode { get; set; }
+    /// <summary>
+    /// Where the invoice came from, when the gateway treats it differently: <see cref="SalesInvoicePayloadSources.Pos"/>
+    /// for a point-of-sale sale (SCM: SalesInvoice.SourceType 'POS'), which is sent only while the organization's
+    /// "Sync POS sales" switch is on and held until then. Null for every other invoice — omitted from the stored
+    /// JSON, so the fingerprints of back-office invoices are unchanged.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string?                        SourceType               { get; set; }
+}
+
+/// <summary>Values of <see cref="SalesInvoicePayload.SourceType"/>.</summary>
+public static class SalesInvoicePayloadSources
+{
+    /// <summary>A point-of-sale (counter) sale.</summary>
+    public const string Pos = "POS";
+
+    public static bool IsPos(string? sourceType) =>
+        string.Equals(sourceType?.Trim(), Pos, StringComparison.OrdinalIgnoreCase);
 }
 
 public sealed class SalesInvoiceLinePayload

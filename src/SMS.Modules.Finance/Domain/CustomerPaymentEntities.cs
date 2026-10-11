@@ -15,8 +15,22 @@ internal static class CustomerPaymentMethods
     public const string BankTransfer = "BANK_TRANSFER";
     public const string Card         = "CARD";
     public const string Online       = "ONLINE";
+    /// <summary>A38 (D-8) — mobile wallet / mobile money taken at a POS counter.</summary>
+    public const string Mobile       = "MOBILE";
 
-    public static readonly IReadOnlyList<string> All = [Cash, Cheque, BankTransfer, Card, Online];
+    /// <summary>A39 (XFIN, D-3) — POS store credit redeemed as a payment / issued as a refund. No money moves.</summary>
+    public const string StoreCredit  = "STORE_CREDIT";
+    /// <summary>A39 (XFIN, D-6) — the value an exchange carries from its return part (refund) to its new sale (payment). No money moves.</summary>
+    public const string Exchange     = "EXCHANGE";
+
+    /// <summary>What a person can record in the back office (money that really came in).</summary>
+    public static readonly IReadOnlyList<string> All = [Cash, Cheque, BankTransfer, Card, Online, Mobile];
+
+    /// <summary>A39 — internal POS methods: recorded only by the counter-sale service, never keyed by hand, never cash.</summary>
+    public static readonly IReadOnlyList<string> NonCash = [StoreCredit, Exchange];
+
+    /// <summary>Every method a stored payment / refund can carry (list filters, labels).</summary>
+    public static readonly IReadOnlyList<string> Recorded = [.. All, .. NonCash];
 }
 
 internal static class CustomerPaymentStatuses
@@ -64,6 +78,9 @@ internal class CustomerPayment : ITenantScopedEntity
     /// <summary>See <see cref="CustomerPaymentStatuses"/>.</summary>
     public string   Status         { get; set; } = CustomerPaymentStatuses.Received;
 
+    /// <summary>A38 — the POS tender this payment was recorded for (null for a back-office receipt).</summary>
+    public Guid?    SourceUuid     { get; set; }
+
     public int       CreatedBy    { get; set; }
     public DateTime  CreatedDate  { get; set; }
     public int?      ModifiedBy   { get; set; }
@@ -95,4 +112,34 @@ internal class PaymentAllocation : ITenantScopedEntity
 
     /// <summary>A35 C7 — realized gain (+) / loss (−) on this allocation in the sale base (null before A35).</summary>
     public decimal? ExchangeDifference { get; set; }
+}
+
+/// <summary>
+/// A38 (FIN, D-10) — money paid back to a customer against a credit note (a POS return refunded in cash, card, …). Its
+/// customer-ledger entry is a REFUND debit: the credit note took the amount off what the customer owes, the refund puts
+/// it back because the customer has been paid. Append-only; never allocated to invoices.
+/// </summary>
+internal class CustomerRefund : ITenantScopedEntity
+{
+    public int  Id             { get; set; }
+    public Guid UUID           { get; set; }
+    public Guid OrganizationId { get; set; }
+
+    /// <summary>CRF-YYYYMMDD-NNNN.</summary>
+    public string   RefundNumber  { get; set; } = string.Empty;
+    public Guid     PartnerId     { get; set; }
+    /// <summary>The credit note this refund pays out (a sales_invoices row with status CREDIT_NOTE). Bare UUID.</summary>
+    public Guid     CreditNoteUuid { get; set; }
+    public DateTime RefundDate    { get; set; }
+    public decimal  Amount        { get; set; }
+    /// <summary>See <see cref="CustomerPaymentMethods"/>.</summary>
+    public string   Method        { get; set; } = string.Empty;
+    public string?  Reference     { get; set; }
+    public string   CurrencyCode  { get; set; } = "PKR";
+    /// <summary>The POS refund tender it was recorded for.</summary>
+    public Guid?    SourceUuid    { get; set; }
+    public string?  Notes         { get; set; }
+
+    public int      CreatedBy     { get; set; }
+    public DateTime CreatedDate   { get; set; }
 }

@@ -338,7 +338,16 @@ internal sealed class AuthRepository : IAuthRepository
         var rolePerms = await _db.RolePermissions.Where(rp => rp.RoleID == user.RoleID).ToListAsync();
         var userPerms = await _db.UserPermissions.Where(up => up.UserID == userId).ToListAsync();
 
-        return allPerms
+        return ComputeAllowedPermissions(allPerms, rolePerms, userPerms);
+    }
+
+    /// <summary>
+    /// The effective permission codes the access token carries: a user override wins, else the role's grant, else not
+    /// allowed. Shared with the POS PIN service (A38) so a PIN sign-in and the POS user list see exactly what the token does.
+    /// </summary>
+    internal static List<string> ComputeAllowedPermissions(
+        IEnumerable<Permission> allPerms, IReadOnlyCollection<RolePermission> rolePerms, IReadOnlyCollection<UserPermission> userPerms) =>
+        allPerms
             .Where(p =>
             {
                 var userOverride = userPerms.FirstOrDefault(up => up.PermissionID == p.PermissionID);
@@ -347,7 +356,6 @@ internal sealed class AuthRepository : IAuthRepository
             })
             .Select(p => p.Code)
             .ToList();
-    }
 
     public async Task<UserSession?> FindActiveSessionByHashAsync(string tokenHash) =>
         await _db.UserSessions
@@ -684,7 +692,7 @@ internal sealed class AuthRepository : IAuthRepository
             ModuleCode   = p.ModuleCode ?? ModuleCodeMap.ForPermission(p.Code)
         }).ToList();
 
-        var moduleOrder = new[] { "System", "Locations", "Suppliers", "RFQ", "Contracts", "Purchase Orders", "Requisitions", "Budget", "Inventory", "Warehouse", "GRN Approvals", "Material Management", "Finance", "Logistics", "Reports", "Workflow", "Sale Orders", "Sale Order Administration", "Service Orders" };
+        var moduleOrder = new[] { "System", "Locations", "Suppliers", "RFQ", "Contracts", "Purchase Orders", "Requisitions", "Budget", "Inventory", "Warehouse", "GRN Approvals", "Material Management", "Finance", "Logistics", "Reports", "Workflow", "Sale Orders", "Sale Order Administration", "Service Orders", "Point of Sale" };
         var groups = items
             .GroupBy(i => GetPermissionModule(i.Code))
             .OrderBy(g => Array.IndexOf(moduleOrder, g.Key) is var idx && idx >= 0 ? idx : 99)
@@ -904,6 +912,8 @@ internal sealed class AuthRepository : IAuthRepository
         var c when c.StartsWith("SALE_QUOTATION_") => "Sale Quotations",
         // A36 D-12
         var c when c.StartsWith("SERVICE_ORDER_")  => "Service Orders",
-        _                                       => "Other"
+        // A38 D-13
+        var c when c.StartsWith("POS_")            => "Point of Sale",
+        _                                      => "Other"
     };
 }

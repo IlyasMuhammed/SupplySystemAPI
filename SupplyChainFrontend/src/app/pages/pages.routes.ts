@@ -161,6 +161,16 @@ import { ReturnDetailComponent } from './material/material-return/return-detail/
 import { WastageListComponent } from './material/wastage/wastage-list/wastage-list.component';
 import { WastageDetailComponent } from './material/wastage/wastage-detail/wastage-detail.component';
 import { ConsumptionRegisterComponent } from './material/consumption-register/consumption-register.component';
+import { PosStoreListComponent } from './pos/store-list/store-list.component';
+import { PosStoreDetailComponent } from './pos/store-detail/store-detail.component';
+import { PosShiftListComponent } from './pos/shift-list/shift-list.component';
+import { PosShiftDetailComponent } from './pos/shift-detail/shift-detail.component';
+import { PosOrderListComponent } from './pos/order-list/order-list.component';
+import { PosOrderDetailComponent } from './pos/order-detail/order-detail.component';
+import { PosReturnPolicyPageComponent } from './pos/return-policy-page/return-policy-page.component';
+import { PosReturnReasonsComponent } from './pos/return-reasons/return-reasons.component';
+import { PosStoreCreditListComponent } from './pos/store-credit-list/store-credit-list.component';
+import { PosStoreCreditDetailComponent } from './pos/store-credit-detail/store-credit-detail.component';
 
 // Permission code constants (mirrors PermissionCodes.cs)
 const P = {
@@ -292,6 +302,14 @@ const P = {
   CURRENCY_RATE_MANAGE:         'CURRENCY_RATE_MANAGE',
   ORG_CURRENCY_SETTINGS_MANAGE: 'ORG_CURRENCY_SETTINGS_MANAGE',
   EXCHANGE_REVALUATION_RUN:     'EXCHANGE_REVALUATION_RUN',
+  // Addendum 38 — Point of Sale back office (docs/pos/API-CONTRACT.md §9).
+  POS_STORE_VIEW:  'POS_STORE_VIEW',
+  POS_SHIFT_VIEW:  'POS_SHIFT_VIEW',
+  POS_ORDER_VIEW:  'POS_ORDER_VIEW',
+  // Addendum 39 — returns, exchanges & store credit (docs/pos-returns/API-CONTRACT.md §8).
+  POS_RETURN_POLICY_MANAGE: 'POS_RETURN_POLICY_MANAGE',
+  POS_RETURN_REASON_MANAGE: 'POS_RETURN_REASON_MANAGE',
+  POS_CREDIT_NOTE_VIEW:     'POS_CREDIT_NOTE_VIEW',
 } as const;
 
 export default [
@@ -796,6 +814,29 @@ export default [
     // ── Material — Consumption Register ──────────────────────────────────────
     { path: 'material/consumption-register', component: ConsumptionRegisterComponent,
       canActivate: [permissionGuard(P.MATERIAL_VIEW, P.MATERIAL_MANAGE)] },
+
+    // ── Point of Sale — back office (A38, docs/pos/API-CONTRACT.md §11). The /pos PWA lives outside the portal. ──
+    { path: 'pos/stores', component: PosStoreListComponent,
+      canActivate: [permissionGuard(P.POS_STORE_VIEW)] },
+    { path: 'pos/stores/:uuid', component: PosStoreDetailComponent,
+      canActivate: [permissionGuard(P.POS_STORE_VIEW)] },
+    { path: 'pos/shifts', component: PosShiftListComponent,
+      canActivate: [permissionGuard(P.POS_SHIFT_VIEW)] },
+    { path: 'pos/shifts/:uuid', component: PosShiftDetailComponent,
+      canActivate: [permissionGuard(P.POS_SHIFT_VIEW)] },
+    { path: 'pos/orders', component: PosOrderListComponent,
+      canActivate: [permissionGuard(P.POS_ORDER_VIEW)] },
+    { path: 'pos/orders/:uuid', component: PosOrderDetailComponent,
+      canActivate: [permissionGuard(P.POS_ORDER_VIEW)] },
+    // A39 — returns, exchanges & store credit (docs/pos-returns/API-CONTRACT.md §8). "credit-notes" = POS store credit (CN-…).
+    { path: 'pos/return-policy', component: PosReturnPolicyPageComponent,
+      canActivate: [permissionGuard(P.POS_RETURN_POLICY_MANAGE)] },
+    { path: 'pos/return-reasons', component: PosReturnReasonsComponent,
+      canActivate: [permissionGuard(P.POS_RETURN_REASON_MANAGE)] },
+    { path: 'pos/credit-notes', component: PosStoreCreditListComponent,
+      canActivate: [permissionGuard(P.POS_CREDIT_NOTE_VIEW)] },
+    { path: 'pos/credit-notes/:uuid', component: PosStoreCreditDetailComponent,
+      canActivate: [permissionGuard(P.POS_CREDIT_NOTE_VIEW)] },
 
     { path: '**', redirectTo: '/notfound' }
 ] as Routes;

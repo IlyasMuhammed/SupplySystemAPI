@@ -1,0 +1,164 @@
+<p-toast></p-toast>
+
+<sf-page [crumbs]="['Point of Sale', 'Shifts', shift?.shiftNumber || '…']">
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <p-button *ngIf="showReconcile" label="Reconcile" icon="pi pi-check-square" (onClick)="openNote('reconcile')" data-testid="reconcile"></p-button>
+    <p-button *ngIf="showAddNote" label="Add note" icon="pi pi-comment" [text]="showReconcile" (onClick)="openNote('note')" data-testid="add-note"></p-button>
+    <a *ngIf="shift && canViewOrders" class="p-button p-button-text" [routerLink]="[posRoute, 'orders']" [queryParams]="{ shift: shift.uuid }"
+       data-testid="shift-orders-link"><i class="pi pi-receipt"></i>&nbsp;Orders</a>
+    <p-button label="Shifts" icon="pi pi-arrow-left" [text]="true" (onClick)="back()"></p-button>
+  </div>
+
+  <div class="sf-body" *ngIf="isLoading || loadError">
+    <div class="sf-card sf-empty" *ngIf="isLoading"><i class="pi pi-spin pi-spinner"></i> Loading shift…</div>
+    <div class="sf-card sf-empty" *ngIf="loadError" data-testid="shift-load-error">{{ loadError }}</div>
+  </div>
+
+  <ng-container *ngIf="!isLoading && shift as s">
+    <header class="sf-hdr">
+      <div class="sf-t"><div>
+        <div class="sf-kicker">POS shift · <a [routerLink]="[posRoute, 'stores', s.storeUuid]">{{ s.storeName }}</a> · {{ s.terminalName }}</div>
+        <h1 data-testid="shift-title">
+          <span class="sf-mono">{{ s.shiftNumber }}</span>
+          <span class="sf-pill" [ngClass]="tone(s.status)" data-testid="shift-status">{{ label(s.status) }}</span>
+        </h1>
+        <div class="sf-meta">
+          Opened {{ s.openedAt | date:'dd MMM yyyy, HH:mm' }} by {{ s.openedByName }}
+          <ng-container *ngIf="s.closedAt"> · closed {{ s.closedAt | date:'dd MMM, HH:mm' }}<ng-container *ngIf="s.closedByName"> by {{ s.closedByName }}</ng-container></ng-container>
+        </div>
+      </div></div>
+      <sf-stages [stages]="stages"></sf-stages>
+      <div class="sf-facts">
+        <div class="sf-kpi"><span class="l">Net sales</span><span class="v sm">{{ s.netTotal | number:'1.2-2' }}</span>
+          <span class="s">{{ s.orderCount }} orders · {{ s.refundCount }} refunds</span></div>
+        <div class="sf-kpi" data-testid="kpi-variance">
+          <span class="l">Cash variance</span>
+          <span class="v sm" [class.er]="varianceHigh">{{ s.cashVariance != null ? (s.cashVariance | number:'1.2-2') : '—' }}</span>
+          <span class="s">threshold {{ s.varianceThreshold | number:'1.2-2' }}</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="sf-body" style="padding-bottom: 0">
+      <div class="sf-grid sf-tiles" data-testid="shift-tiles">
+        <div class="sf-tile"><span class="l">Opening float</span><span class="v">{{ s.openingFloat | number:'1.2-2' }}</span></div>
+        <div class="sf-tile"><span class="l">Cash sales</span><span class="v">{{ s.totalCashSales | number:'1.2-2' }}</span>
+          <span class="s">− {{ s.totalCashRefunds | number:'1.2-2' }} refunded</span></div>
+        <div class="sf-tile"><span class="l">Cash in / out</span><span class="v">{{ (s.totalCashIn - s.totalCashOut) | number:'1.2-2' }}</span>
+          <span class="s">+{{ s.totalCashIn | number:'1.2-2' }} / −{{ s.totalCashOut | number:'1.2-2' }}</span></div>
+        <div class="sf-tile" data-testid="tile-expected"><span class="l">Expected cash</span><span class="v">{{ s.expectedCashClosing | number:'1.2-2' }}</span></div>
+        <div class="sf-tile" data-testid="tile-counted"><span class="l">Counted</span>
+          <span class="v">{{ s.actualCashClosing != null ? (s.actualCashClosing | number:'1.2-2') : '—' }}</span></div>
+        <div class="sf-tile"><span class="l">Card / mobile / other</span>
+          <span class="v">{{ (s.totalCardSales + s.totalMobileSales + s.totalOtherSales) | number:'1.2-2' }}</span>
+          <span class="s">{{ s.totalCardSales | number:'1.2-2' }} · {{ s.totalMobileSales | number:'1.2-2' }} · {{ s.totalOtherSales | number:'1.2-2' }}</span></div>
+        <div class="sf-tile"><span class="l">On account</span><span class="v">{{ s.totalCreditSales | number:'1.2-2' }}</span></div>
+        <div class="sf-tile"><span class="l">Gross</span><span class="v">{{ s.grossTotal | number:'1.2-2' }}</span></div>
+        <!-- A39 §7 — store credit (CN-…), not cash: outside the expected cash -->
+        <div class="sf-tile" *ngIf="s.totalStoreCreditIssued != null" data-testid="tile-credit-issued">
+          <span class="l">Store credit issued</span><span class="v">{{ s.totalStoreCreditIssued | number:'1.2-2' }}</span>
+          <span class="s">refunds as store credit</span></div>
+        <div class="sf-tile" *ngIf="s.totalStoreCreditRedeemed != null" data-testid="tile-credit-redeemed">
+          <span class="l">Store credit redeemed</span><span class="v">{{ s.totalStoreCreditRedeemed | number:'1.2-2' }}</span>
+          <span class="s">sales paid by store credit</span></div>
+      </div>
+    </div>
+
+    <sf-anchors [sections]="sections"></sf-anchors>
+
+    <div class="sf-body">
+      <section id="sec-methods" class="sf-section sf-card p0" data-testid="section-methods">
+        <div class="sf-ch"><h2>By payment method</h2></div>
+        <div *ngIf="!summary" class="sf-empty">The summary is not available.</div>
+        <p-table *ngIf="summary" [value]="summary.byMethod" data-testid="method-table">
+          <ng-template pTemplate="header">
+            <tr><th>Method</th><th class="text-right">Sales</th><th class="text-right">Refunds</th><th class="text-right">Net</th></tr>
+          </ng-template>
+          <ng-template pTemplate="body" let-m>
+            <tr><td>{{ methodLabel(m.method) }}</td><td class="text-right">{{ m.sales | number:'1.2-2' }}</td>
+                <td class="text-right">{{ m.refunds | number:'1.2-2' }}</td><td class="text-right"><strong>{{ m.net | number:'1.2-2' }}</strong></td></tr>
+          </ng-template>
+          <ng-template pTemplate="emptymessage"><tr><td colspan="4" class="sf-empty">No payments in this shift.</td></tr></ng-template>
+        </p-table>
+      </section>
+
+      <section id="sec-cashiers" class="sf-section sf-card p0" data-testid="section-cashiers">
+        <div class="sf-ch"><h2>By cashier</h2></div>
+        <p-table [value]="byCashier" [tableStyle]="{ 'min-width': '52rem' }" data-testid="cashier-table">
+          <ng-template pTemplate="header">
+            <tr><th>Cashier</th><th>From</th><th>To</th><th class="text-right">Orders</th><th class="text-right">Cash</th>
+                <th class="text-right">Card</th><th class="text-right">Mobile</th><th class="text-right">Credit</th><th class="text-right">Refunds</th></tr>
+          </ng-template>
+          <ng-template pTemplate="body" let-c>
+            <tr>
+              <td>{{ c.userName }} <span *ngIf="c.isActive" class="sf-pill in">Signed in</span></td>
+              <td>{{ c.startedAt | date:'dd MMM, HH:mm' }}</td>
+              <td>{{ c.endedAt ? (c.endedAt | date:'HH:mm') : '—' }}</td>
+              <td class="text-right">{{ c.orderCount }}</td>
+              <td class="text-right">{{ c.cashSales | number:'1.2-2' }}</td>
+              <td class="text-right">{{ c.cardSales | number:'1.2-2' }}</td>
+              <td class="text-right">{{ c.mobileSales | number:'1.2-2' }}</td>
+              <td class="text-right">{{ c.creditSales | number:'1.2-2' }}</td>
+              <td class="text-right">{{ c.refundTotal | number:'1.2-2' }}</td>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="emptymessage"><tr><td colspan="9" class="sf-empty">No cashier sessions.</td></tr></ng-template>
+        </p-table>
+      </section>
+
+      <section id="sec-movements" class="sf-section sf-card p0" data-testid="section-movements">
+        <div class="sf-ch"><h2>Cash movements</h2></div>
+        <p-table [value]="movements" data-testid="movement-table">
+          <ng-template pTemplate="header">
+            <tr><th>When</th><th>Direction</th><th>Reason</th><th class="text-right">Amount</th><th>By</th><th>Note</th></tr>
+          </ng-template>
+          <ng-template pTemplate="body" let-m>
+            <tr>
+              <td>{{ m.performedAt | date:'dd MMM, HH:mm' }}</td>
+              <td><span class="sf-pill" [ngClass]="m.direction === 'IN' ? 'ok' : 'wn'">{{ m.direction === 'IN' ? 'In' : 'Out' }}</span></td>
+              <td>{{ label(m.reason) }}</td>
+              <td class="text-right">{{ m.amount | number:'1.2-2' }}</td>
+              <td>{{ m.performedByName }}</td>
+              <td>{{ m.note || '—' }}</td>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="emptymessage"><tr><td colspan="6" class="sf-empty">No float top-ups, safe drops or petty cash.</td></tr></ng-template>
+        </p-table>
+      </section>
+
+      <section id="sec-details" class="sf-section sf-card" data-testid="section-details">
+        <div class="sf-ch"><h2>Details</h2></div>
+        <div class="sf-kv">
+          <span>Store</span><span>{{ s.storeName }}</span>
+          <span>Terminal</span><span>{{ s.terminalName }}</span>
+          <span>Opened</span><span>{{ s.openedAt | date:'dd MMM yyyy, HH:mm' }} · {{ s.openedByName }}</span>
+          <span>Closing started</span><span>{{ s.closingStartedAt ? (s.closingStartedAt | date:'dd MMM yyyy, HH:mm') : '—' }}</span>
+          <span>Closed</span><span>{{ s.closedAt ? (s.closedAt | date:'dd MMM yyyy, HH:mm') + ' · ' + (s.closedByName || '') : '—' }}</span>
+          <span>Reconciled</span><span>{{ s.reconciledAt ? (s.reconciledAt | date:'dd MMM yyyy, HH:mm') + ' · ' + (s.reconciledByName || '') : '—' }}</span>
+          <span>Expected cash</span><span>{{ s.expectedCashClosing | number:'1.2-2' }} <small class="sf-mu">= float + cash sales + cash in − cash out − cash refunds</small></span>
+          <span>Counted cash</span><span>{{ s.actualCashClosing != null ? (s.actualCashClosing | number:'1.2-2') : '—' }}</span>
+          <span>Variance</span><span [class.shd-var]="varianceHigh">{{ s.cashVariance != null ? (s.cashVariance | number:'1.2-2') : '—' }}</span>
+          <span>Closing note</span><span class="shd-note" data-testid="shift-close-note">{{ s.varianceNote || '—' }}</span>
+          <span>Reconcile notes</span><span class="shd-note" data-testid="shift-notes">{{ s.reconcileNotes || '—' }}</span>
+        </div>
+      </section>
+    </div>
+  </ng-container>
+</sf-page>
+
+<p-dialog [header]="noteMode === 'reconcile' ? 'Reconcile shift' : 'Add a note'" [visible]="noteMode !== null" (visibleChange)="!$event && closeNote()"
+          [modal]="true" [style]="{ width: '30rem' }" data-testid="note-dialog">
+  <p class="dialog-lead" *ngIf="noteMode === 'reconcile'">
+    Accept the counted cash of {{ shift?.actualCashClosing | number:'1.2-2' }} against {{ shift?.expectedCashClosing | number:'1.2-2' }} expected.
+    Explain the variance — the note is kept with the shift.
+  </p>
+  <p class="dialog-lead" *ngIf="noteMode === 'note'">The note is added after the existing ones with your name and the time; nothing is changed or removed.</p>
+  <div class="sf-pill er shd-err" *ngIf="noteError" role="alert" data-testid="note-error">{{ noteError }}</div>
+  <textarea pTextarea rows="3" [(ngModel)]="noteText" class="w-full" style="width: 100%" placeholder="Note (required)" maxlength="1000"
+            data-testid="note-text"></textarea>
+  <ng-template pTemplate="footer">
+    <p-button label="Cancel" severity="secondary" [text]="true" (onClick)="closeNote()"></p-button>
+    <p-button [label]="noteMode === 'reconcile' ? 'Reconcile' : 'Add note'" icon="pi pi-check" [loading]="noteBusy" [disabled]="!noteValid"
+              (onClick)="submitNote()" data-testid="confirm-note"></p-button>
+  </ng-template>
+</p-dialog>

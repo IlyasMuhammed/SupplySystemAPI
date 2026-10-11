@@ -18,7 +18,7 @@ internal sealed class AuthService : IAuthService
     private const int LockoutThreshold = 5;
     private static readonly TimeSpan LockoutWindow = TimeSpan.FromMinutes(15);
     private static readonly TimeSpan LockoutDuration = TimeSpan.FromMinutes(30);
-    private static readonly TimeSpan RefreshTokenTtl = TimeSpan.FromDays(7);
+    internal static readonly TimeSpan RefreshTokenTtl = TimeSpan.FromDays(7);
 
     private readonly IAuthRepository _repo;
     private readonly IEmailService _emailService;

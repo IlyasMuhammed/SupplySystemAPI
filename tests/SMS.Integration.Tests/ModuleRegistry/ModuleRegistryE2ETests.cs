@@ -69,7 +69,8 @@ public sealed class ModuleRegistryE2ETests : IClassFixture<SapWebApplicationFact
         // TS-01: the cards
         var cards = await k.ModulesAsync();
         cards.Select(c => c.S("code")).Should().NotContain("MODULE_PROCUREMENT", "the empty placeholder is hidden (D-36)");
-        cards.Single(c => c.S("code") == "MODULE_POS").S("status").Should().Be("COMING_SOON");
+        // A38 made Point of Sale available; Demand Planning is still coming soon.
+        cards.Single(c => c.S("code") == "MODULE_DEMAND_PLANNING").S("status").Should().Be("COMING_SOON");
         cards.Single(c => c.S("code") == Inventory).S("status").Should().Be("ALWAYS_ON");
         cards.Single(c => c.S("code") == Logistics).S("status").Should().Be("ACTIVE");
         var ranks = cards.Select(c => c.S("status") switch { "ALWAYS_ON" => 0, "ACTIVE" => 1, "GRACE" => 2, "DISABLED" => 3, "NOT_LICENSED" => 4, _ => 5 }).ToList();
@@ -82,7 +83,7 @@ public sealed class ModuleRegistryE2ETests : IClassFixture<SapWebApplicationFact
         (await k.Disable(Inventory)).ShouldFail(HttpStatusCode.BadRequest, "MOD-01", "Inventory is always on.");
         (await k.Disable(Customers)).ShouldFail(HttpStatusCode.BadRequest, "MOD-01", "Customers is always on.");
         (await k.Disable("MODULE_MASTER_DATA")).ShouldFail(HttpStatusCode.BadRequest, "core", "Master Data is always on.");
-        (await k.Enable("MODULE_POS")).ShouldFail(HttpStatusCode.BadRequest, "TS-28", "Point of Sale is not yet available.");
+        (await k.Enable("MODULE_DEMAND_PLANNING")).ShouldFail(HttpStatusCode.BadRequest, "TS-28", "Demand Planning is not yet available.");
         (await k.Enable("MODULE_PROCUREMENT")).Status.Should().Be(HttpStatusCode.NotFound, "a hidden module is not offered");
 
         // TS-03: disabling a module others depend on

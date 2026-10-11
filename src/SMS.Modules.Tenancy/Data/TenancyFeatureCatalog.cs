@@ -37,7 +37,19 @@ internal static class TenancyFeatureCatalog
         ("MODULE_WAREHOUSE", "MODULE_INVENTORY"),
         ("MODULE_LOGISTICS", "MODULE_WAREHOUSE"),
         ("MODULE_INTEGRATION", "MODULE_FINANCE"),
+        // A38 D-2 — a POS sale moves stock, sells to a customer and becomes a sales invoice with payments.
+        ("MODULE_POS", "MODULE_INVENTORY"),
+        ("MODULE_POS", "MODULE_CUSTOMERS"),
+        ("MODULE_POS", "MODULE_FINANCE"),
     ];
+
+    /// <summary>
+    /// A38 D-2 — modules an organization that already exists gets only when the super admin licenses it: the startup
+    /// backfill creates their missing rows unlicensed and off whatever the org's plan says. New organizations still get
+    /// them from their plan template.
+    /// </summary>
+    internal static readonly IReadOnlySet<string> LicensedByHandForExistingOrgs =
+        new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ModuleCodes.Pos };
 
     /// <summary>A37 MOD-08 — switched on by the system while any of these modules is on.</summary>
     internal static readonly IReadOnlyList<string> BomManagementDrivers = [ModuleCodes.Manufacturing, ModuleCodes.Services];
@@ -64,7 +76,8 @@ internal static class TenancyFeatureCatalog
         new("MODULE_INTEGRATION",     "QuickBooks Integration",   CategoryModule, "Sync customers, vendors, items, sales invoices and bills to QuickBooks Online.", false, 125, Icon: "pi pi-sync"),
         // A37 D-2 — spec modules that are not built: listed as "Coming soon".
         new("MODULE_DEMAND_PLANNING", "Demand Planning",          CategoryModule, "Demand forecasting, reorder point planning and MRP.",                   false, 130, IsAvailable: false, Icon: "pi pi-chart-line"),
-        new("MODULE_POS",             "Point of Sale",            CategoryModule, "Counter sales, cash registers and receipts.",                           false, 135, IsAvailable: false, Icon: "pi pi-shopping-bag"),
+        // A38 D-2 — built: stores, terminals, shifts, counter sales (online and offline), returns and receipts.
+        new("MODULE_POS",             "Point of Sale",            CategoryModule, "Counter sales at store terminals: shifts and cash, PIN sign-in, receipts, returns and offline selling.", false, 135, Icon: "pi pi-shopping-bag"),
         new("MODULE_PROJECTS",        "Projects",                 CategoryModule, "Project planning, budgets and time tracking.",                          false, 140, IsAvailable: false, Icon: "pi pi-folder"),
         new("MODULE_CRM",             "CRM",                      CategoryModule, "Leads, opportunities and customer interactions.",                       false, 145, IsAvailable: false, Icon: "pi pi-comments"),
         new("MODULE_MAINTENANCE",     "Maintenance",              CategoryModule, "Asset register and preventive maintenance.",                            false, 150, IsAvailable: false, Icon: "pi pi-hammer"),
@@ -108,6 +121,23 @@ internal static class TenancyFeatureCatalog
         new("FEATURE_BANK_RECONCILIATION", "Bank Reconciliation",  CategoryFeature, "Matching bank statements to payments.",                 false, 461, Parent: "MODULE_FINANCE", IsAvailable: false),
         new("FEATURE_CREDIT_MANAGEMENT",   "Credit Management",    CategoryFeature, "Customer credit limits.",                               false, 470, Parent: "MODULE_CUSTOMERS"),
         new("FEATURE_LOYALTY_PROGRAM",     "Loyalty Program",      CategoryFeature, "Customer points and rewards.",                          false, 471, Parent: "MODULE_CUSTOMERS", IsAvailable: false),
+
+        // A38 D-2 / API-CONTRACT §10 — POS sub-features: core (always part of POS), toggleable, coming soon.
+        new("FEATURE_POS_ORDERS",          "POS Orders",           CategoryFeature, "Ringing up sales at a terminal.",                        true,  480, Parent: "MODULE_POS"),
+        new("FEATURE_POS_SHIFTS",          "Shifts & Cash",        CategoryFeature, "Opening and closing shifts, cash movements and variance.", true, 481, Parent: "MODULE_POS"),
+        new("FEATURE_POS_CASHIER_PIN",     "Cashier PIN Sign-in",  CategoryFeature, "Cashiers switch at a terminal with a PIN.",              true,  482, Parent: "MODULE_POS"),
+        new("FEATURE_POS_PAYMENTS",        "POS Payments",         CategoryFeature, "Cash, card, mobile and split tenders with change.",      true,  483, Parent: "MODULE_POS"),
+        new("FEATURE_POS_OFFLINE",         "Offline Selling",      CategoryFeature, "Terminals keep selling without a connection and sync later.", true, 484, Parent: "MODULE_POS"),
+        new(PosFeatureCodes.Returns,       "POS Returns",          CategoryFeature, "Taking goods back against a POS sale and refunding.",    false, 485, Parent: "MODULE_POS"),
+        new(PosFeatureCodes.CreditSales,   "POS Credit Sales",     CategoryFeature, "Selling on account to customers allowed POS credit.",    false, 486, Parent: "MODULE_POS"),
+        new(PosFeatureCodes.Barcode,       "Barcode Scanning",     CategoryFeature, "Adding items by scanner or camera barcode.",             false, 487, Parent: "MODULE_POS"),
+        new(PosFeatureCodes.MultiStore,    "Multiple Stores",      CategoryFeature, "More than one active store (off = one store at most).", false, 488, Parent: "MODULE_POS"),
+        new("FEATURE_POS_ANALYTICS",       "POS Analytics",        CategoryFeature, "Sales analytics dashboards for stores.",                 false, 489, Parent: "MODULE_POS", IsAvailable: false),
+        new("FEATURE_POS_PROMOTIONS",      "POS Promotions",       CategoryFeature, "Promotions and automatic discounts.",                    false, 490, Parent: "MODULE_POS", IsAvailable: false),
+        new("FEATURE_POS_LOYALTY",         "POS Loyalty",          CategoryFeature, "Loyalty points earned and redeemed at the till.",       false, 491, Parent: "MODULE_POS", IsAvailable: false),
+        // A39 D-2 / D-7 — toggleable; on wherever POS is on (existing orgs: the sub-feature backfill rule above).
+        new(PosFeatureCodes.CreditNotes,       "Store Credit",         CategoryFeature, "Refunding returns as store credit and accepting store credit as payment.", false, 492, Parent: "MODULE_POS"),
+        new(PosFeatureCodes.CrossStoreReturns, "Cross-Store Returns",  CategoryFeature, "Taking back goods sold at another store of the organization.",          false, 493, Parent: "MODULE_POS"),
     };
 
     internal static readonly IReadOnlyDictionary<string, Entry> ByCode =
@@ -125,6 +155,7 @@ internal static class TenancyFeatureCatalog
     {
         "MODULE_FINANCE", "MODULE_MIR", "MODULE_MANUFACTURING", "MODULE_SERVICES", "MODULE_LOGISTICS", "MODULE_NOTIFICATIONS", "MODULE_PROCUREMENT",
         "MODULE_INTEGRATION",
+        "MODULE_POS", // A38 D-2
         "SCREEN_SUPPLIER_SCORECARD", "SCREEN_AUDIT_LOG", "SCREEN_PO_DOCUMENT_TEMPLATE",
         "SCREEN_WORKFLOW_CONFIG", "SCREEN_BUDGET_MONITOR", "FEATURE_WHATSAPP", "FEATURE_MASTER_LEDGERS"
     };

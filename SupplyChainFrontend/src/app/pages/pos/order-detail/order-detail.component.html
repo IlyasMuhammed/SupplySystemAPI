@@ -1,0 +1,317 @@
+<p-toast></p-toast>
+
+<sf-page [crumbs]="['Point of Sale', 'POS orders', order?.orderNumber || '…']">
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <p-button *ngIf="showReturn" label="Return items" icon="pi pi-replay" (onClick)="openReturn()" data-testid="return-order"></p-button>
+    <a *ngIf="order?.salesInvoiceUuid && canOpenInvoice" class="p-button p-button-text"
+       [routerLink]="['/portal/pages/finance/sales-invoices', order!.salesInvoiceUuid]" data-testid="invoice-link-cmd">
+      <i class="pi pi-file"></i>&nbsp;Sales invoice</a>
+    <p-button label="POS orders" icon="pi pi-arrow-left" [text]="true" (onClick)="back()"></p-button>
+    <ng-container *ngIf="showVoid">
+      <span class="sf-sep"></span>
+      <p-button label="Void" icon="pi pi-ban" severity="danger" [text]="true" (onClick)="openVoid()" data-testid="void-order"></p-button>
+    </ng-container>
+  </div>
+
+  <div class="sf-body" *ngIf="isLoading || loadError">
+    <div class="sf-card sf-empty" *ngIf="isLoading"><i class="pi pi-spin pi-spinner"></i> Loading order…</div>
+    <div class="sf-card sf-empty" *ngIf="loadError" data-testid="order-load-error">{{ loadError }}</div>
+  </div>
+
+  <ng-container *ngIf="!isLoading && order as o">
+    <header class="sf-hdr">
+      <div class="sf-t"><div>
+        <div class="sf-kicker">
+          {{ kindLabel }} · {{ o.storeName }} · {{ o.terminalName }}
+          <ng-container *ngIf="o.originalOrderUuid"> · of <a class="sf-mono" [routerLink]="[posRoute, 'orders', o.originalOrderUuid]"
+            data-testid="original-link">{{ o.originalOrderNumber }}</a></ng-container>
+          <span *ngIf="o.isCrossStore" class="sf-pill vi" data-testid="cross-store-badge"
+                [title]="'Sold at ' + (o.originalStoreName || 'another store')">Cross-store · sold at {{ o.originalStoreName || 'another store' }}</span>
+        </div>
+        <h1 data-testid="order-title">
+          <span class="sf-mono">{{ o.orderNumber }}</span>
+          <span class="sf-pill" [ngClass]="tone(o.status)" data-testid="order-status">{{ label(o.status) }}</span>
+          <span class="sf-pill" [ngClass]="tone(o.paymentStatus)">{{ label(o.paymentStatus) }}</span>
+        </h1>
+        <div class="sf-meta">
+          {{ o.createdAtLocal | date:'dd MMM yyyy, HH:mm' }} · {{ o.cashierName }} · {{ o.customerName }}<ng-container *ngIf="o.isWalkIn"> (walk-in)</ng-container>
+          <ng-container *ngIf="o.offlineNumber"> · offline no. <span class="sf-mono">{{ o.offlineNumber }}</span></ng-container>
+        </div>
+        <div class="sf-meta" *ngIf="flagPills.length" data-testid="order-flags">
+          <span *ngFor="let f of flagPills" class="sf-pill" [ngClass]="f.tone" [pTooltip]="f.hint" [attr.data-flag]="f.code">{{ f.label }}</span>
+        </div>
+      </div></div>
+      <div class="sf-facts">
+        <div class="sf-kpi"><span class="l">Total</span><span class="v sm">{{ o.grandTotal | number:'1.2-2' }}</span>
+          <span class="s">tax {{ o.taxTotal | number:'1.2-2' }} {{ o.taxInclusive ? 'included' : 'added' }}</span></div>
+        <div class="sf-kpi" *ngIf="!isExchange"><span class="l">{{ o.orderType === 'RETURN' ? 'Refunded' : 'Paid' }}</span><span class="v sm">{{ o.paidAmount | number:'1.2-2' }}</span>
+          <span class="s" *ngIf="o.changeAmount">change {{ o.changeAmount | number:'1.2-2' }}</span></div>
+        <div class="sf-kpi" *ngIf="isExchange" data-testid="kpi-net"><span class="l">Net</span>
+          <span class="v sm">{{ (o.netAmount ?? 0) | number:'1.2-2' }}</span><span class="s">{{ settlementLabel }}</span></div>
+        <div class="sf-kpi" *ngIf="o.restockingFeeAmount" data-testid="kpi-fee"><span class="l">Restocking fee</span>
+          <span class="v sm">{{ o.restockingFeeAmount | number:'1.2-2' }}</span><span class="s">kept from the refund</span></div>
+        <div class="sf-kpi" *ngIf="o.balanceDue"><span class="l">On account</span><span class="v sm">{{ o.balanceDue | number:'1.2-2' }}</span></div>
+      </div>
+    </header>
+
+    <div class="sf-body" *ngIf="o.postingError || !o.stockPosted || !o.financePosted" style="padding-bottom: 0">
+      <div class="sf-card" data-testid="posting-state">
+        <span class="sf-pill" [ngClass]="o.stockPosted ? 'ok' : 'wn'">Stock {{ o.stockPosted ? 'posted' : 'pending' }}</span>
+        <span class="sf-pill" [ngClass]="o.financePosted ? 'ok' : 'wn'">Finance {{ o.financePosted ? 'posted' : 'pending' }}</span>
+        <span class="sf-mu sf-sm" *ngIf="!o.postingError"> The posting is retried automatically every 15 minutes.</span>
+        <div class="sf-pill er od-err" *ngIf="o.postingError" style="margin-top: .5rem" data-testid="posting-error">{{ o.postingError }}</div>
+      </div>
+    </div>
+
+    <sf-anchors [sections]="sections"></sf-anchors>
+
+    <div class="sf-body">
+      <section id="sec-lines" class="sf-section sf-card p0" data-testid="section-lines">
+        <div class="sf-ch"><h2>Lines</h2></div>
+        <!-- A39 exchange: the items taken back and the new ones -->
+        <ng-container *ngIf="isExchange">
+          <h3 class="od-sub">Returning</h3>
+          <p-table [value]="returningLines" [tableStyle]="{ 'min-width': '48rem' }" data-testid="exchange-returning">
+            <ng-template pTemplate="header">
+              <tr><th>Item</th><th class="text-right">Qty</th><th class="text-right">Price</th><th class="text-right">Tax</th><th class="text-right">Total</th></tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-l>
+              <tr><td>{{ l.productName }}<span *ngIf="l.variantName" class="sf-mu"> · {{ l.variantName }}</span><div class="sf-mu sf-sm sf-mono">{{ l.sku }}</div></td>
+                <td class="text-right">{{ l.quantity | number:'1.0-3' }}</td><td class="text-right">{{ l.unitPrice | number:'1.2-2' }}</td>
+                <td class="text-right">{{ l.taxAmount | number:'1.2-2' }}</td><td class="text-right"><strong>{{ l.lineTotal | number:'1.2-2' }}</strong></td></tr>
+            </ng-template>
+            <ng-template pTemplate="emptymessage"><tr><td colspan="5" class="sf-empty">Nothing returned.</td></tr></ng-template>
+          </p-table>
+          <h3 class="od-sub">New items</h3>
+          <p-table [value]="newLines" [tableStyle]="{ 'min-width': '48rem' }" data-testid="exchange-new">
+            <ng-template pTemplate="header">
+              <tr><th>Item</th><th class="text-right">Qty</th><th class="text-right">Price</th><th class="text-right">Tax</th><th class="text-right">Total</th></tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-l>
+              <tr><td>{{ l.productName }}<span *ngIf="l.variantName" class="sf-mu"> · {{ l.variantName }}</span><div class="sf-mu sf-sm sf-mono">{{ l.sku }}</div></td>
+                <td class="text-right">{{ l.quantity | number:'1.0-3' }}</td><td class="text-right">{{ l.unitPrice | number:'1.2-2' }}</td>
+                <td class="text-right">{{ l.taxAmount | number:'1.2-2' }}</td><td class="text-right"><strong>{{ l.lineTotal | number:'1.2-2' }}</strong></td></tr>
+            </ng-template>
+            <ng-template pTemplate="emptymessage"><tr><td colspan="5" class="sf-empty">No new items.</td></tr></ng-template>
+          </p-table>
+          <div class="sf-kv" style="padding: .75rem 1rem" data-testid="exchange-settlement">
+            <span>Restocking fee</span><span>{{ (o.restockingFeeAmount || 0) | number:'1.2-2' }}</span>
+            <span>Net</span><span><strong>{{ (o.netAmount ?? 0) | number:'1.2-2' }}</strong> <span class="sf-mu">{{ settlementLabel }}</span></span>
+          </div>
+        </ng-container>
+        <p-table *ngIf="!isExchange" [value]="o.lines" [tableStyle]="{ 'min-width': '64rem' }" data-testid="line-table">
+          <ng-template pTemplate="header">
+            <tr><th>#</th><th>Item</th><th class="text-right">Qty</th><th class="text-right">Price</th><th class="text-right">Discount</th>
+                <th class="text-right">Net</th><th class="text-right">Tax</th><th class="text-right">Total</th>
+                <th class="text-right" *ngIf="o.orderType === 'SALE'">Returned</th></tr>
+          </ng-template>
+          <ng-template pTemplate="body" let-l>
+            <tr>
+              <td>{{ l.lineNumber }}</td>
+              <td>{{ l.productName }}<span *ngIf="l.variantName" class="sf-mu"> · {{ l.variantName }}</span>
+                <div class="sf-mu sf-sm sf-mono">{{ l.sku }}<ng-container *ngIf="l.barcode"> · {{ l.barcode }}</ng-container></div>
+                <div class="sf-mu sf-sm" *ngIf="l.note">{{ l.note }}</div></td>
+              <td class="text-right">{{ l.quantity | number:'1.0-3' }}</td>
+              <td class="text-right">{{ l.unitPrice | number:'1.2-2' }}</td>
+              <td class="text-right">{{ l.discountAmount ? (l.discountAmount | number:'1.2-2') : '—' }}</td>
+              <td class="text-right">{{ l.netAmount | number:'1.2-2' }}</td>
+              <td class="text-right">{{ l.taxAmount | number:'1.2-2' }}<div class="sf-mu sf-sm">{{ l.taxPercent | number:'1.0-2' }}%</div></td>
+              <td class="text-right"><strong>{{ l.lineTotal | number:'1.2-2' }}</strong></td>
+              <td class="text-right" *ngIf="o.orderType === 'SALE'">{{ l.returnedQuantity ? (l.returnedQuantity | number:'1.0-3') : '—' }}</td>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="footer">
+            <tr><td colspan="7" class="text-right">Subtotal</td><td class="text-right">{{ o.subtotal | number:'1.2-2' }}</td><td *ngIf="o.orderType === 'SALE'"></td></tr>
+            <tr *ngIf="o.discountAmount"><td colspan="7" class="text-right">Order discount
+              <span class="sf-mu" *ngIf="o.discountType === 'PERCENT'">({{ o.discountValue | number:'1.0-2' }}%)</span></td>
+              <td class="text-right">−{{ o.discountAmount | number:'1.2-2' }}</td><td *ngIf="o.orderType === 'SALE'"></td></tr>
+            <tr><td colspan="7" class="text-right">Tax{{ o.taxCode ? ' (' + o.taxCode + ')' : '' }}{{ o.taxInclusive ? ' — included' : '' }}</td>
+              <td class="text-right">{{ o.taxTotal | number:'1.2-2' }}</td><td *ngIf="o.orderType === 'SALE'"></td></tr>
+            <tr><td colspan="7" class="text-right"><strong>Total</strong></td><td class="text-right"><strong>{{ o.grandTotal | number:'1.2-2' }}</strong></td>
+              <td *ngIf="o.orderType === 'SALE'"></td></tr>
+          </ng-template>
+        </p-table>
+      </section>
+
+      <section id="sec-payments" class="sf-section sf-card p0" data-testid="section-payments">
+        <div class="sf-ch"><h2>{{ o.orderType === 'RETURN' ? 'Refunds' : isExchange ? 'Settlement' : 'Payments' }}</h2></div>
+        <p-table [value]="o.payments" data-testid="payment-table">
+          <ng-template pTemplate="header">
+            <tr><th>Method</th><th class="text-right">Amount</th><th class="text-right">Change</th><th>Reference</th><th>When</th></tr>
+          </ng-template>
+          <ng-template pTemplate="body" let-p>
+            <tr>
+              <td>{{ label(p.method) }} <span *ngIf="p.isRefund" class="sf-pill vi">Refund</span>
+                <a *ngIf="p.creditNoteUuid && canViewStoreCredit" class="sf-sm" [routerLink]="[creditRoute, p.creditNoteUuid]"
+                   data-testid="payment-store-credit">store credit</a></td>
+              <td class="text-right">{{ p.amount | number:'1.2-2' }}</td>
+              <td class="text-right">{{ p.changeGiven ? (p.changeGiven | number:'1.2-2') : '—' }}</td>
+              <td>{{ p.reference || '—' }}</td>
+              <td>{{ p.createdAt | date:'dd MMM, HH:mm' }}</td>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="emptymessage"><tr><td colspan="5" class="sf-empty">Nothing paid — the whole order is on account.</td></tr></ng-template>
+        </p-table>
+      </section>
+
+      <section *ngIf="o.orderType === 'SALE'" id="sec-returns" class="sf-section sf-card p0" data-testid="section-returns">
+        <div class="sf-ch"><h2>Returns</h2></div>
+        <p-table [value]="o.returns" data-testid="returns-table">
+          <ng-template pTemplate="header"><tr><th>Return</th><th class="text-right">Total</th></tr></ng-template>
+          <ng-template pTemplate="body" let-r>
+            <tr><td><a class="sf-mono" [routerLink]="[posRoute, 'orders', r.uuid]">{{ r.orderNumber }}</a>
+                  <span *ngIf="r.orderType === 'EXCHANGE'" class="sf-pill te">Exchange</span></td>
+                <td class="text-right">{{ r.grandTotal | number:'1.2-2' }}</td></tr>
+          </ng-template>
+          <ng-template pTemplate="emptymessage"><tr><td colspan="2" class="sf-empty">Nothing returned.</td></tr></ng-template>
+        </p-table>
+      </section>
+
+      <section id="sec-info" class="sf-section sf-card" data-testid="section-info">
+        <div class="sf-ch"><h2>Details</h2></div>
+        <div class="sf-kv">
+          <span>Customer</span><span>{{ o.customerName }} <span class="sf-mono sf-mu">{{ o.customerCode }}</span></span>
+          <span>Shift</span><span><a class="sf-mono" [routerLink]="[posRoute, 'shifts', o.shiftUuid]">{{ o.shiftNumber }}</a></span>
+          <span>Sales invoice</span>
+          <span data-testid="invoice-ref">
+            <a *ngIf="o.salesInvoiceUuid && canOpenInvoice; else invText" class="sf-mono"
+               [routerLink]="['/portal/pages/finance/sales-invoices', o.salesInvoiceUuid]" data-testid="invoice-link">{{ o.salesInvoiceNumber || 'Open' }}</a>
+            <ng-template #invText>{{ o.salesInvoiceNumber || (o.financePosted ? '—' : 'not posted yet') }}</ng-template>
+          </span>
+          <span>Finance credit note</span>
+          <span data-testid="credit-note-ref">
+            <a *ngIf="o.creditNoteUuid && canOpenInvoice; else cnText" class="sf-mono"
+               [routerLink]="['/portal/pages/finance/sales-invoices', o.creditNoteUuid]" data-testid="credit-note-link">{{ o.creditNoteNumber || 'Open' }}</a>
+            <ng-template #cnText><span class="sf-mono">{{ o.creditNoteNumber || '—' }}</span></ng-template>
+          </span>
+          <span>Rung up</span><span>{{ o.createdAtLocal | date:'dd MMM yyyy, HH:mm:ss' }}<ng-container *ngIf="o.isOffline"> (offline)</ng-container></span>
+          <span>Synced</span><span>{{ o.syncedAt | date:'dd MMM yyyy, HH:mm:ss' }}</span>
+          <span *ngIf="o.voidReason">Void reason</span><span *ngIf="o.voidReason" data-testid="void-reason">{{ o.voidReason }}</span>
+          <ng-container *ngIf="o.returnReasonName || o.returnReason">
+            <span>Return reason</span><span data-testid="order-return-reason">{{ o.returnReasonName || o.returnReason }}<ng-container
+              *ngIf="o.returnReasonName && o.returnReason && o.returnReason !== o.returnReasonName"> <span class="sf-mu">— {{ o.returnReason }}</span></ng-container></span>
+          </ng-container>
+          <ng-container *ngIf="isReturnLike">
+            <span>Authorised by</span>
+            <span data-testid="authorized-by">{{ o.authorizedByName ? o.authorizedByName + (o.authorizedAt ? ' · ' + (o.authorizedAt | date:'dd MMM yyyy, HH:mm') : '') : '—' }}</span>
+            <span>Restocking fee</span><span data-testid="restocking-fee">{{ (o.restockingFeeAmount || 0) | number:'1.2-2' }}</span>
+            <span *ngIf="o.isCrossStore">Sold at</span><span *ngIf="o.isCrossStore" data-testid="original-store">{{ o.originalStoreName || '—' }} (cross-store return)</span>
+            <span>Store credit</span>
+            <span data-testid="store-credit-ref">
+              <ng-container *ngIf="o.storeCredit as cn; else noCn">
+                <a *ngIf="canViewStoreCredit; else cnPlain" class="sf-mono" [routerLink]="[creditRoute, cn.uuid]" data-testid="store-credit-link">{{ cn.number }}</a>
+                <ng-template #cnPlain><span class="sf-mono">{{ cn.number }}</span></ng-template>
+                · {{ cn.amount | number:'1.2-2' }} issued, {{ cn.balance | number:'1.2-2' }} left<ng-container *ngIf="cn.expiresAt">, expires {{ cn.expiresAt | date:'dd MMM yyyy' }}</ng-container>
+              </ng-container>
+              <ng-template #noCn>—</ng-template>
+            </span>
+          </ng-container>
+          <span>Note</span><span>{{ o.note || '—' }}</span>
+          <span>Local id</span><span class="sf-mono sf-mu">{{ o.localId }}</span>
+        </div>
+      </section>
+    </div>
+  </ng-container>
+</sf-page>
+
+<!-- Void -->
+<p-dialog header="Void this sale" [(visible)]="voidDialog" [modal]="true" [style]="{ width: '28rem' }" data-testid="void-dialog">
+  <p class="dialog-lead">The whole sale is reversed: stock goes back, payments are reversed and a credit note cancels the invoice.
+    Only possible within the order's own shift.</p>
+  <div class="sf-pill er od-err" *ngIf="voidError" role="alert" data-testid="void-error">{{ voidError }}</div>
+  <textarea pTextarea rows="3" [(ngModel)]="voidReason" style="width: 100%" placeholder="Reason (required)" maxlength="500"
+            data-testid="void-reason-input"></textarea>
+  <ng-template pTemplate="footer">
+    <p-button label="Keep it" severity="secondary" [text]="true" (onClick)="voidDialog = false"></p-button>
+    <p-button label="Void sale" icon="pi pi-ban" severity="danger" [loading]="voidBusy" [disabled]="!voidReason.trim()" (onClick)="confirmVoid()"
+              data-testid="confirm-void"></p-button>
+  </ng-template>
+</p-dialog>
+
+<!-- Return -->
+<p-dialog header="Return items" [(visible)]="returnDialog" [modal]="true" [style]="{ width: '50rem' }" [breakpoints]="{ '820px': '96vw' }"
+          data-testid="return-dialog">
+  <div class="sf-pill er od-err" *ngIf="returnError" role="alert" data-testid="return-error">{{ returnError }}</div>
+  <p-table [value]="returnLines" styleClass="p-datatable-sm" data-testid="return-lines">
+    <ng-template pTemplate="header">
+      <tr><th>Item</th><th class="text-right">Sold</th><th class="text-right">Returnable</th><th style="width: 9rem">Return</th></tr>
+    </ng-template>
+    <ng-template pTemplate="body" let-r let-i="rowIndex">
+      <tr>
+        <td>{{ r.line.productName }}<span *ngIf="r.line.variantName" class="sf-mu"> · {{ r.line.variantName }}</span></td>
+        <td class="text-right">{{ r.line.quantity | number:'1.0-3' }}</td>
+        <td class="text-right">{{ r.line.returnableQuantity | number:'1.0-3' }}</td>
+        <td><p-inputnumber [(ngModel)]="r.quantity" (ngModelChange)="onQuantityChange()" [min]="0" [max]="r.line.returnableQuantity"
+                           [maxFractionDigits]="3" [showButtons]="false" styleClass="w-full" [attr.data-testid]="'return-qty-' + i"></p-inputnumber></td>
+      </tr>
+    </ng-template>
+  </p-table>
+  <p style="margin: .5rem 0"><p-button label="Return everything" [text]="true" size="small" (onClick)="returnAll()" data-testid="return-all"></p-button></p>
+
+  <!-- Reason (A39: from the list; free text only when the list is unavailable) -->
+  <div class="od-refund" style="margin-top: .75rem">
+    <div class="sf-fld" *ngIf="reasonsLoaded">
+      <label for="retReasonPick" class="sf-req">Reason</label>
+      <p-dropdown inputId="retReasonPick" [options]="reasonOptions" [(ngModel)]="reasonUuid" (onChange)="onReasonChange()" optionLabel="label"
+                  optionValue="value" placeholder="Why is it coming back?" appendTo="body" styleClass="w-full" data-testid="return-reason-pick"></p-dropdown>
+      <small class="sf-mu" *ngIf="selectedReason?.description">{{ selectedReason?.description }}</small>
+    </div>
+    <div class="sf-fld" *ngIf="reasonsLoaded">
+      <label for="retNote" [class.sf-req]="selectedReason?.requiresNote">Note</label>
+      <textarea pTextarea id="retNote" rows="2" [(ngModel)]="returnNote" style="width: 100%" maxlength="400" data-testid="return-note"></textarea>
+    </div>
+    <div class="sf-fld" *ngIf="!reasonsLoaded" style="grid-column: 1 / -1">
+      <label for="retReason" class="sf-req">Reason</label>
+      <textarea pTextarea id="retReason" rows="2" [(ngModel)]="returnReason" style="width: 100%" maxlength="500" data-testid="return-reason"></textarea>
+    </div>
+  </div>
+
+  <!-- Refund (A39: one method, as the store's policy allows) -->
+  <h3 style="margin: .75rem 0 .5rem">Refund</h3>
+  <div class="od-refund">
+    <div class="sf-fld">
+      <label for="retMethod">Refund method</label>
+      <p-dropdown inputId="retMethod" [options]="refundMethodOptions" [(ngModel)]="refundMethod" optionLabel="label" optionValue="value"
+                  appendTo="body" styleClass="w-full" data-testid="refund-method"></p-dropdown>
+    </div>
+    <div class="sf-fld">
+      <label for="retRef">Reference</label>
+      <input pInputText id="retRef" [(ngModel)]="refundReference" maxlength="100" placeholder="Card slip, transfer no. …" data-testid="refund-reference" />
+    </div>
+  </div>
+  <small class="sf-mu od-hint" *ngIf="refundMethod === 'STORE_CREDIT'" data-testid="store-credit-hint">
+    A store credit (CN-…) for the refund is issued to {{ order?.isWalkIn ? 'the bearer (walk-in sale)' : order?.customerName }}<ng-container
+      *ngIf="policy?.creditNoteExpiryDays != null">, valid {{ policy?.creditNoteExpiryDays }} days</ng-container>.
+  </small>
+  <small class="sf-mu od-hint" *ngIf="policy?.refundToOriginalMethod" data-testid="original-method-hint">
+    This store refunds to the original payment method only.</small>
+  <small class="sf-mu od-hint" *ngIf="policyNote" data-testid="policy-note">{{ policyNote }}</small>
+
+  <div class="od-sum"><span>Return total</span><strong data-testid="return-total">{{ returnTotal | number:'1.2-2' }}</strong></div>
+  <div class="od-sum" data-testid="fee-row"><span>Restocking fee{{ feePct ? ' (' + feePct + '%)' : '' }}</span>
+    <strong data-testid="restocking-fee-preview">−{{ restockingFee | number:'1.2-2' }}</strong></div>
+  <div class="od-sum"><span>Refund</span><strong data-testid="refund-total">{{ refundAmount | number:'1.2-2' }}</strong></div>
+  <small class="sf-mu">Each line refunds its share of the line total; returning a line's last units refunds exactly what is left of it.
+    The restocking fee is kept from that.</small>
+
+  <div class="sf-pill wn od-err od-hint" *ngIf="managerHints.length" data-testid="manager-hints">
+    Needs a manager: {{ managerHints.join('; ') }}.{{ canOverride ? ' You hold the return override, so you can record it.' : ' Only a user with the return override permission can record it.' }}
+  </div>
+  <div class="sf-pill er od-err od-hint" *ngIf="managerReasons.length" role="alert" data-testid="manager-required">
+    A manager must authorise this return: {{ managerReasons.join('; ') }}. Ask a user with the return override permission to record it.
+  </div>
+
+  <div class="sf-fld" style="margin-top: .75rem" *ngIf="returnShiftOptions.length">
+    <label for="retShift">Book to shift</label>
+    <p-dropdown inputId="retShift" [options]="returnShiftOptions" [(ngModel)]="returnShiftUuid" optionLabel="label" optionValue="value"
+                appendTo="body" styleClass="w-full" data-testid="return-shift"></p-dropdown>
+    <small class="sf-mu">An open shift of this store; cash refunds come out of that till.</small>
+  </div>
+  <small class="od-bad" *ngIf="returnProblem as p" data-testid="return-problem">{{ p }}</small>
+
+  <ng-template pTemplate="footer">
+    <p-button label="Cancel" severity="secondary" [text]="true" (onClick)="returnDialog = false"></p-button>
+    <p-button label="Record return" icon="pi pi-replay" [loading]="returnBusy" [disabled]="!!returnProblem" (onClick)="confirmReturn()"
+              data-testid="confirm-return"></p-button>
+  </ng-template>
+</p-dialog>

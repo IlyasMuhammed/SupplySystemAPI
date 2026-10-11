@@ -31,6 +31,8 @@ export const appRoutes: Routes = [
     { path: 'track/:token', component: TrackDeliveryComponent },
     { path: 'supplier-portal/rfq/:token', component: RfqPageComponent },
     { path: 'supplier-portal/sro-ack/:token', component: SroAckComponent },
+    // A38 — the Point of Sale PWA: full screen, own device/cashier sign-in (no portal guard or layout), works offline.
+    { path: 'pos', loadChildren: () => import('./app/pos/pos.routes') },
     { path: 'activation/:token', component: ActivationComponent },
     { path: 'sign-up', component: SignUp, canActivate: [noAuthGuard] },
     { path: 'forgot-password', component: ForgotPassword, canActivate: [noAuthGuard] },

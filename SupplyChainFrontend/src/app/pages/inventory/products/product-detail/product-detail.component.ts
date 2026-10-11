@@ -62,6 +62,7 @@ import {
 } from '../service-settings-fields/service-settings-fields.component';
 import { ProductRoutesPanelComponent } from './product-routes-panel/product-routes-panel.component';
 import { BomService } from '../../../../services/bom.service';
+import { ProductPosTabComponent } from '../../../pos/product-pos-tab/product-pos-tab.component';
 
 /** A37 — reading GET /api/products/{uuid}/routes accepts any of these. */
 const PRODUCT_ROUTES_VIEW_CODES = ['FULFILLMENT_ROUTE_VIEW', 'FULFILLMENT_ROUTE_MANAGE', 'FULFILLMENT_ROUTE_ASSIGN'];
@@ -82,7 +83,7 @@ const LEAD_TIME_CALCULATE_CODES = [
     DividerModule, TooltipModule, ConfirmDialogModule, DropdownModule, TableModule,
     CheckboxModule, CalendarModule, DynamicAttributeFormComponent, BomManagerComponent, QboSyncBadgeComponent,
     VariantRouteFieldComponent, LeadTimesTabComponent, ServiceSettingsFieldsComponent, ProductRoutesPanelComponent,
-    ...FLOW
+    ProductPosTabComponent, ...FLOW
   ],
   templateUrl: './product-detail.component.html',
   styleUrls: ['./product-detail.component.scss'],
@@ -172,6 +173,11 @@ export class ProductDetailComponent implements OnInit {
   productRoutesForbidden = false;
   get canViewProductRoutes(): boolean {
     return !this.productRoutesForbidden && this.routesEnabled && PRODUCT_ROUTES_VIEW_CODES.some(code => this.authService.hasPermission(code));
+  }
+  /** A38 §17.7.5 — the POS tab: MODULE_POS, a saleable product, and POS_PRODUCT_SETTINGS (its GET needs it). */
+  get showPosTab(): boolean {
+    return !!this.product && (this.product.isSaleable ?? true) && this.tenantService.hasFeature('MODULE_POS')
+      && this.authService.hasPermission('POS_PRODUCT_SETTINGS');
   }
   /** D-3 — the product page's warning instead of refusing the save. */
   get missingActiveServiceBom(): boolean { return this.isServiceBomProduct && !this.product?.hasActiveServiceBom; }

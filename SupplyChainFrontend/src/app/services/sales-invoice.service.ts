@@ -8,11 +8,31 @@ import { ApiResponse, PaginatedResponse } from './logistics.service';
 // A29 §9 — sales invoices (/api/sales-invoices, Finance): the read side the sale order's Invoices and
 // Payments tabs use, and the receivables screens' raise, issue, edit and delete.
 
+export type SalesInvoiceSourceType = 'SALE_ORDER' | 'POS';
+
+/** A38 — a POS invoice (no back-office cancel; the server refuses it). */
+export function isPosInvoice(inv: { sourceType?: string | null } | null | undefined): boolean { return inv?.sourceType === 'POS'; }
+
+/** A38 — a customer credit note (status CREDIT_NOTE). */
+export function isCreditNote(inv: { status?: string | null } | null | undefined): boolean { return inv?.status === 'CREDIT_NOTE'; }
+
 export interface SalesInvoiceListItemModel {
   uuid: string;
   invoiceNumber: string;
-  saleOrderUuid: string;
-  saleOrderNumber: string;
+  /** A38 — null for POS invoices and credit notes (counter sales have no sale order). */
+  saleOrderUuid: string | null;
+  saleOrderNumber: string | null;
+  /** A38 — where the invoice came from; absent on older servers = SALE_ORDER. */
+  sourceType?: SalesInvoiceSourceType | null;
+  /** A38 — the source document's number, e.g. the POS order number. */
+  sourceNumber?: string | null;
+  /** A38 — on a credit note (status CREDIT_NOTE, number SCN-…): the invoice it credits. */
+  originalInvoiceUuid?: string | null;
+  originalInvoiceNumber?: string | null;
+  /** A38 — on an invoice: Σ of its credit notes / returns. */
+  returnedAmount?: number | null;
+  /** A38 — on an invoice: the credited amount. */
+  creditedAmount?: number | null;
   deliveryUuid?: string | null;
   deliveryNumber?: string | null;
   partnerId: string;
@@ -29,7 +49,11 @@ export interface SalesInvoiceListItemModel {
 
 export interface SalesInvoiceLineModel {
   lineNo: number;
-  soLineUuid: string;
+  /** A38 — null on POS invoice and credit-note lines. */
+  soLineUuid: string | null;
+  /** A38 — line discount and tax amounts, when the server sends them. */
+  discountAmount?: number | null;
+  taxAmount?: number | null;
   variantUuid: string;
   description: string;
   quantity: number;

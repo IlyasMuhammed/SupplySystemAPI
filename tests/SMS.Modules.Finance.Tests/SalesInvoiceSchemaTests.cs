@@ -163,7 +163,9 @@ public class SalesInvoiceSchemaTests
         invoice.FindProperty(nameof(SalesInvoice.CurrencyCode))!.GetDefaultValue().Should().Be("PKR");
         invoice.FindProperty(nameof(SalesInvoice.AmountPaid))!.GetDefaultValue().Should().Be(0m);
         invoice.FindProperty(nameof(SalesInvoice.Notes))!.IsNullable.Should().BeTrue();
-        invoice.FindProperty(nameof(SalesInvoice.SaleOrderUuid))!.IsNullable.Should().BeFalse("an invoice always bills an order");
+        // A38 (FIN) — a POS counter sale and a customer credit note have no sale order.
+        invoice.FindProperty(nameof(SalesInvoice.SaleOrderUuid))!.IsNullable.Should().BeTrue("a POS counter sale bills no order");
+        invoice.FindProperty(nameof(SalesInvoice.SourceType))!.GetDefaultValue().Should().Be("SALE_ORDER");
     }
 
     [Fact]

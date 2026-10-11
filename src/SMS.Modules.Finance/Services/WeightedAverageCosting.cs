@@ -40,4 +40,32 @@ internal static class WeightedAverageCosting
 
         return new CostingStep(Wac(previousQty, previousValue), total, previousQty - qty, previousValue - total);
     }
+
+    /// <summary>
+    /// A38 (FIN, D-9/D-17) — an OUT larger than the running quantity (POS counter sales only). The units the ledger holds
+    /// leave with all of their value; the units it does not hold (the shortfall) leave at the current weighted-average cost —
+    /// <c>value / qty</c> while something is on hand, else <paramref name="lastUnitCost"/> (the unit cost of the variant's
+    /// latest entry: the last receipt's cost or the cost the last sale left at; 0 when the variant has no history).
+    /// The running quantity goes negative and the running value with it (−shortfall × cost), so
+    /// <c>running value = previous − total cost</c> still holds exactly.
+    /// <para>
+    /// <b>A later IN onto a negative quantity</b> uses <see cref="In"/> unchanged: <c>running value += qty × receipt cost</c>.
+    /// The difference between the provisional cost the short units left at and what they really cost stays in the running
+    /// value and is released through the WAC of the next sales — value is conserved (every unit of cost received leaves as
+    /// cost of sales exactly once) and an IN entry's total cost is still exactly what was received.
+    /// </para>
+    /// </summary>
+    internal static CostingStep OutAllowingNegative(decimal previousQty, decimal previousValue, decimal qty, decimal lastUnitCost)
+    {
+        if (qty <= previousQty) return Out(previousQty, previousValue, qty);
+
+        var unit = previousQty > 0m ? Wac(previousQty, previousValue) : Math.Max(0m, lastUnitCost);
+        if (unit < 0m) unit = 0m;
+
+        var covered   = previousQty > 0m ? previousQty : 0m;
+        var shortfall = qty - covered;
+        var total     = (covered > 0m ? previousValue : 0m) + Money(shortfall * unit);
+
+        return new CostingStep(unit, total, previousQty - qty, previousValue - total);
+    }
 }

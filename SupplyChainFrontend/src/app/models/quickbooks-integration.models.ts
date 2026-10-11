@@ -166,6 +166,10 @@ export interface IntegrationSettingsModel {
   autoPushItems: boolean;
   autoPushSalesInvoices: boolean;
   autoPushBills: boolean;
+  /** "Sync POS sales" — off by default; POS sales are held (not sent) while it is off. */
+  autoPushPosSales?: boolean;
+  /** POS sales held and waiting to be sent. */
+  posSalesWaiting?: number;
   itemTypeDefault: ItemTypeDefault;
   partnerScope: PartnerScope;
   defaultIncomeAccountId?: string | null;
@@ -183,6 +187,8 @@ export interface UpdateIntegrationSettingsRequest {
   autoPushItems: boolean;
   autoPushSalesInvoices: boolean;
   autoPushBills: boolean;
+  /** "Sync POS sales". Left out = unchanged on the server. */
+  autoPushPosSales?: boolean;
   itemTypeDefault: ItemTypeDefault;
   partnerScope: PartnerScope;
   defaultIncomeAccountId: string | null;

@@ -95,7 +95,14 @@ export interface MappingFormValue {
   autoPushItems: boolean;
   autoPushSalesInvoices: boolean;
   autoPushBills: boolean;
+  /** "Sync POS sales" — off by default. */
+  autoPushPosSales: boolean;
 }
+
+/** The hint under the "Sync POS sales" switch. */
+export const POS_SALES_HINT =
+  'While off, POS sales are held and not sent. Turning it on sends the held sales (from the document start date). ' +
+  'Payments are not synced, so POS sales appear as open invoices in QuickBooks.';
 
 /** The request the settings form saves: every setting, with blanks sent as null and the start date as yyyy-MM-dd. */
 export function toSettingsRequest(v: MappingFormValue): UpdateIntegrationSettingsRequest {
@@ -106,6 +113,7 @@ export function toSettingsRequest(v: MappingFormValue): UpdateIntegrationSetting
     autoPushItems: !!v.autoPushItems,
     autoPushSalesInvoices: !!v.autoPushSalesInvoices,
     autoPushBills: !!v.autoPushBills,
+    autoPushPosSales: !!v.autoPushPosSales,
     itemTypeDefault: v.itemTypeDefault,
     partnerScope: v.partnerScope,
     defaultIncomeAccountId: id(v.defaultIncomeAccountId),
@@ -162,6 +170,10 @@ export class MappingsTabComponent implements OnInit {
     { name: 'autoPushSalesInvoices', label: 'Sales invoices', hint: 'When an invoice is issued, changed while issued, or cancelled.' },
     { name: 'autoPushBills', label: 'Bills', hint: 'When a supplier invoice is approved, or changed while approved.' }
   ];
+  readonly posSalesHint = POS_SALES_HINT;
+
+  /** POS sales held and waiting to be sent, as the server last reported. */
+  get posSalesWaiting(): number { return this.settings?.posSalesWaiting ?? 0; }
 
   isLoading = true;
   loadFailed = false;
@@ -220,7 +232,8 @@ export class MappingsTabComponent implements OnInit {
       autoPushVendors: [true],
       autoPushItems: [true],
       autoPushSalesInvoices: [true],
-      autoPushBills: [true]
+      autoPushBills: [true],
+      autoPushPosSales: [false]
     });
   }
 
@@ -297,7 +310,8 @@ export class MappingsTabComponent implements OnInit {
       autoPushVendors: s.autoPushVendors ?? true,
       autoPushItems: s.autoPushItems ?? true,
       autoPushSalesInvoices: s.autoPushSalesInvoices ?? true,
-      autoPushBills: s.autoPushBills ?? true
+      autoPushBills: s.autoPushBills ?? true,
+      autoPushPosSales: s.autoPushPosSales ?? false
     });
     if (this.canManage) this.form.enable({ emitEvent: false });
     else this.form.disable({ emitEvent: false });

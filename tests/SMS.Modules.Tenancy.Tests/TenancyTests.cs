@@ -250,6 +250,8 @@ public class UpdateFeaturesTests
         await ToggleOneAsync(service, org.Id, "MODULE_LOGISTICS", false);
         await ToggleOneAsync(service, org.Id, "MODULE_WAREHOUSE", false);
         await ToggleOneAsync(service, org.Id, "MODULE_DEMAND", false);
+        // A38 D-2 — and Point of Sale.
+        await ToggleOneAsync(service, org.Id, "MODULE_POS", false);
         await ToggleOneAsync(service, org.Id, "MODULE_INVENTORY", false);
 
         var result = await service.UpdateFeaturesAsync(

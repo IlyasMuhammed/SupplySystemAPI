@@ -44,7 +44,6 @@ public sealed class UngatedEndpointsRatchetTests : IClassFixture<SapWebApplicati
         new("TenantController", "GetCurrent",         "the caller's own organization, its enabled features and the caller's own permissions — what the menu is built from"),
         new("ModulesController", "GetEnabled",        "any signed-in user (A37 API-CONTRACT §1.1 #2): the caller's own organization's usable module/feature codes — what the frontend ModuleService gates the UI with, the same facts GetCurrent already returns"),
         new("DashboardController", "GetSummary",      "the home dashboard: every section is left out unless the caller holds that area's own view permission (DashboardService checks each one), so it reveals nothing the caller's list pages would not"),
-
         // ── A user's own notifications (the repository filters every query by the token's user) ──
         new("NotificationsController", "GetList",        "the caller's own notifications"),
         new("NotificationsController", "GetInbox",       "the caller's own unread notifications"),

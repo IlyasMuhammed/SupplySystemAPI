@@ -56,6 +56,18 @@ internal sealed class SalesInvoiceMap : IEntityTypeConfiguration<SalesInvoice>
         b.Property(x => x.BaseGrandTotal).HasColumnType("decimal(18,4)");
         b.Property(x => x.CancellationReason).HasMaxLength(500);
 
+        // A38 (FIN, D-8/D-10) — counter sales and customer credit notes. The source uuid is the POS order (or return / void)
+        // the document was posted for; unique per organization, it is what makes a repeated posting return the first one.
+        b.Property(x => x.SourceType).HasMaxLength(20).IsRequired().HasDefaultValue(SalesInvoiceSources.SaleOrder);
+        b.Property(x => x.SourceNumber).HasMaxLength(50);
+        b.HasIndex(x => new { x.OrganizationId, x.SourceUuid })
+         .IsUnique()
+         .HasFilter("[SourceUuid] IS NOT NULL");
+        b.HasIndex(x => new { x.OrganizationId, x.OriginalInvoiceUuid })
+         .HasFilter("[OriginalInvoiceUuid] IS NOT NULL");
+        b.Property(x => x.ReturnedAmount).HasColumnType("decimal(18,2)").HasDefaultValue(0m);
+        b.Property(x => x.CreditedAmount).HasColumnType("decimal(18,2)").HasDefaultValue(0m);
+
         // Optimistic concurrency without a new column: every writer that changes an invoice sets
         // ModifiedDate to a fresh value, so a save made from a stale read matches no row and fails
         // rather than overwriting. Payments, allocations, issue, the overdue sweep and edits all
@@ -98,6 +110,39 @@ internal sealed class SalesInvoiceLineMap : IEntityTypeConfiguration<SalesInvoic
         b.Property(x => x.TaxPercent).HasColumnType("decimal(5,2)");
         b.Property(x => x.LineTotal).HasColumnType("decimal(18,2)");
         b.Property(x => x.TaxCode).HasMaxLength(20);
+
+        // A38 (FIN) — POS lines carry absolute amounts; credit-note lines point at the line they credit.
+        b.Property(x => x.DiscountAmount).HasColumnType("decimal(18,2)");
+        b.Property(x => x.TaxAmount).HasColumnType("decimal(18,2)");
+        b.HasIndex(x => x.OriginalLineUuid).HasFilter("[OriginalLineUuid] IS NOT NULL");
+
+        b.Property(x => x.OrganizationId).IsRequired();
+        b.HasIndex(x => x.OrganizationId);
+    }
+}
+
+/// <summary>A38 (FIN, D-10) — refunds paid out against customer credit notes.</summary>
+internal sealed class CustomerRefundMap : IEntityTypeConfiguration<CustomerRefund>
+{
+    public void Configure(EntityTypeBuilder<CustomerRefund> b)
+    {
+        b.ToTable("customer_refunds");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.Id).ValueGeneratedOnAdd();
+
+        b.Property(x => x.UUID).IsRequired();
+        b.HasIndex(x => x.UUID).IsUnique();
+
+        b.Property(x => x.RefundNumber).HasMaxLength(25).IsRequired();
+        b.HasIndex(x => new { x.OrganizationId, x.RefundNumber }).IsUnique();
+        b.HasIndex(x => new { x.OrganizationId, x.CreditNoteUuid });
+        b.HasIndex(x => new { x.OrganizationId, x.PartnerId, x.RefundDate });
+
+        b.Property(x => x.Amount).HasColumnType("decimal(18,2)");
+        b.Property(x => x.Method).HasMaxLength(20).IsRequired();
+        b.Property(x => x.Reference).HasMaxLength(100);
+        b.Property(x => x.CurrencyCode).HasMaxLength(10).IsRequired();
+        b.Property(x => x.Notes).HasMaxLength(500);
 
         b.Property(x => x.OrganizationId).IsRequired();
         b.HasIndex(x => x.OrganizationId);

@@ -90,6 +90,8 @@ public class SalesSideRegistrationTests
         scope.ServiceProvider.GetRequiredService<ICustomerLedgerService>().Should().BeOfType<CustomerLedgerService>();
         scope.ServiceProvider.GetRequiredService<ISalesInvoiceService>().Should().BeOfType<SalesInvoiceService>();
         scope.ServiceProvider.GetRequiredService<ICustomerPaymentService>().Should().BeOfType<CustomerPaymentService>();
+        // A38 (FIN) — the POS counter-sale seam, built on the two services above.
+        scope.ServiceProvider.GetRequiredService<SMS.Shared.Common.ICounterSaleService>().Should().BeOfType<CounterSaleService>();
     }
 
     [Fact]

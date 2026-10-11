@@ -698,6 +698,8 @@ namespace SMS.Modules.Inventory.Migrations
 
                     b.HasIndex("WarehouseId");
 
+                    b.HasIndex("ReferenceId", "TransactionType");
+
                     b.HasIndex("VariantId", "WarehouseId", "CreatedAt");
 
                     b.ToTable("InventoryLedgerEntries", "inventory");

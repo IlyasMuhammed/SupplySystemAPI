@@ -14,6 +14,8 @@ import { SaleOrderModel, SaleOrderService } from '../../../services/sale-order.s
 import { AuthService } from '../../service/auth.service';
 import { ModuleService } from '../../../services/module.service';
 import { CustomerFormDialogComponent } from '../customer-form-dialog/customer-form-dialog.component';
+import { CustomerPosSectionComponent } from '../../pos/customer-pos-section/customer-pos-section.component';
+import { CustomerStoreCreditComponent } from '../../pos/customer-store-credit/customer-store-credit.component';
 import { FLOW, FlowSection } from '../../../shared/flow';
 import { formatCode } from '../../../shared/format-code';
 import { SALE_ORDER_STATUS_SEVERITY } from '../../sales/sale-orders/sale-order-list/sale-order-list.component';
@@ -24,7 +26,7 @@ import { SALE_ORDER_STATUS_SEVERITY } from '../../sales/sale-orders/sale-order-l
   standalone: true,
   imports: [
     CommonModule, RouterModule, ButtonModule, TagModule, ToastModule, TooltipModule, TableModule, ConfirmDialogModule,
-    CustomerFormDialogComponent, ...FLOW
+    CustomerFormDialogComponent, CustomerPosSectionComponent, CustomerStoreCreditComponent, ...FLOW
   ],
   templateUrl: './customer-detail.component.html',
   providers: [MessageService, ConfirmationService]
@@ -68,9 +70,23 @@ export class CustomerDetailComponent implements OnInit {
     return [
       { id: 'sec-details', label: 'Details' },
       { id: 'sec-financial', label: 'Financial' },
-      { id: 'sec-orders', label: 'Orders', count: this.canViewOrders ? this.ordersTotal : null }
+      { id: 'sec-orders', label: 'Orders', count: this.canViewOrders ? this.ordersTotal : null },
+      ...(this.showPos ? [{ id: 'sec-pos', label: 'POS' }] : []),
+      ...(this.showStoreCredit ? [{ id: 'sec-store-credit', label: 'Store credit' }] : [])
     ];
   }
+
+  /** A39 — the customer's POS store credit (CN-…). */
+  get showStoreCredit(): boolean {
+    return this.modules.isFeatureEnabled('MODULE_POS') && this.modules.isFeatureEnabled('FEATURE_POS_CREDIT_NOTES')
+      && this.auth.hasPermission('POS_CREDIT_NOTE_VIEW');
+  }
+
+  /** A38 §17.7.6 — the POS section: MODULE_POS on and POS_CUSTOMER_SETTINGS (the GET needs it too). */
+  get showPos(): boolean {
+    return this.modules.isFeatureEnabled('MODULE_POS') && this.auth.hasPermission('POS_CUSTOMER_SETTINGS');
+  }
+  get posCreditSalesEnabled(): boolean { return this.modules.isFeatureEnabled('FEATURE_POS_CREDIT_SALES'); }
 
   get address(): string {
     const c = this.customer;

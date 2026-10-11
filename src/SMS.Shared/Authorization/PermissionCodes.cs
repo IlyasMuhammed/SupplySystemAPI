@@ -337,6 +337,43 @@ public static class PermissionCodes
     /// <summary>Switching licensed modules and their features on and off for the organization.</summary>
     public const string MODULES_MANAGE = "MODULES_MANAGE";
 
+    // ── Point of Sale (Addendum 38, D-13; docs/pos/API-CONTRACT.md §9) ──
+    public const string POS_STORE_VIEW        = "POS_STORE_VIEW";
+    public const string POS_STORE_MANAGE      = "POS_STORE_MANAGE";
+    public const string POS_TERMINAL_VIEW     = "POS_TERMINAL_VIEW";
+    /// <summary>Terminals: create, bind/unbind devices, force sync / force logout.</summary>
+    public const string POS_TERMINAL_MANAGE   = "POS_TERMINAL_MANAGE";
+    public const string POS_SHIFT_OPEN        = "POS_SHIFT_OPEN";
+    public const string POS_SHIFT_CLOSE       = "POS_SHIFT_CLOSE";
+    /// <summary>Resolving a disputed shift and appending notes to reconciled ones.</summary>
+    public const string POS_SHIFT_RECONCILE   = "POS_SHIFT_RECONCILE";
+    public const string POS_SHIFT_VIEW        = "POS_SHIFT_VIEW";
+    /// <summary>Selling at a terminal (the cashier's permission; also needed for PIN sign-in and sync).</summary>
+    public const string POS_ORDER_CREATE      = "POS_ORDER_CREATE";
+    public const string POS_ORDER_VIEW        = "POS_ORDER_VIEW";
+    public const string POS_ORDER_VOID        = "POS_ORDER_VOID";
+    public const string POS_ORDER_RETURN      = "POS_ORDER_RETURN";
+    public const string POS_ORDER_DISCOUNT    = "POS_ORDER_DISCOUNT";
+    public const string POS_CASH_MOVEMENT     = "POS_CASH_MOVEMENT";
+    public const string POS_PRODUCT_SETTINGS  = "POS_PRODUCT_SETTINGS";
+    public const string POS_CUSTOMER_SETTINGS = "POS_CUSTOMER_SETTINGS";
+    public const string POS_REPORTS_VIEW      = "POS_REPORTS_VIEW";
+
+    // ── POS returns, exchanges & store credit (Addendum 39, D-9; docs/pos-returns/API-CONTRACT.md) ──
+    /// <summary>Processing a return of a sale made at another store of the organization.</summary>
+    public const string POS_RETURN_CROSS_STORE    = "POS_RETURN_CROSS_STORE";
+    /// <summary>Authorizing a return outside policy (manager PIN): window, amount, manager-only reasons.</summary>
+    public const string POS_RETURN_OVERRIDE       = "POS_RETURN_OVERRIDE";
+    public const string POS_RETURN_POLICY_MANAGE  = "POS_RETURN_POLICY_MANAGE";
+    public const string POS_RETURN_REASON_MANAGE  = "POS_RETURN_REASON_MANAGE";
+    public const string POS_RETURN_REPORTS        = "POS_RETURN_REPORTS";
+    /// <summary>Issuing store credit (standalone, or as a return's refund).</summary>
+    public const string POS_CREDIT_NOTE_ISSUE     = "POS_CREDIT_NOTE_ISSUE";
+    public const string POS_CREDIT_NOTE_REDEEM    = "POS_CREDIT_NOTE_REDEEM";
+    public const string POS_CREDIT_NOTE_CANCEL    = "POS_CREDIT_NOTE_CANCEL";
+    public const string POS_CREDIT_NOTE_VIEW      = "POS_CREDIT_NOTE_VIEW";
+    public const string POS_CREDIT_NOTE_REPORTS   = "POS_CREDIT_NOTE_REPORTS";
+
     // ── All codes (used by System Admin seed) ─────────────────────────────────
     public static readonly IReadOnlyList<string> All =
     [
@@ -378,5 +415,11 @@ public static class PermissionCodes
         SERVICE_ORDER_VIEW, SERVICE_ORDER_CREATE, SERVICE_ORDER_EDIT, SERVICE_ORDER_COMPLETE, SERVICE_ORDER_CANCEL,
         CUSTOMER_VIEW, CUSTOMER_CREATE, CUSTOMER_EDIT, CUSTOMER_DEACTIVATE,
         MODULES_VIEW, MODULES_MANAGE,
+        POS_STORE_VIEW, POS_STORE_MANAGE, POS_TERMINAL_VIEW, POS_TERMINAL_MANAGE,
+        POS_SHIFT_OPEN, POS_SHIFT_CLOSE, POS_SHIFT_RECONCILE, POS_SHIFT_VIEW,
+        POS_ORDER_CREATE, POS_ORDER_VIEW, POS_ORDER_VOID, POS_ORDER_RETURN, POS_ORDER_DISCOUNT,
+        POS_CASH_MOVEMENT, POS_PRODUCT_SETTINGS, POS_CUSTOMER_SETTINGS, POS_REPORTS_VIEW,
+        POS_RETURN_CROSS_STORE, POS_RETURN_OVERRIDE, POS_RETURN_POLICY_MANAGE, POS_RETURN_REASON_MANAGE, POS_RETURN_REPORTS,
+        POS_CREDIT_NOTE_ISSUE, POS_CREDIT_NOTE_REDEEM, POS_CREDIT_NOTE_CANCEL, POS_CREDIT_NOTE_VIEW, POS_CREDIT_NOTE_REPORTS,
     ];
 }

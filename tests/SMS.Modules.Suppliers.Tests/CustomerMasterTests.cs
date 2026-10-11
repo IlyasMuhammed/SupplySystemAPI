@@ -306,6 +306,64 @@ public class CustomerMasterTests
         (await lookup.GetAsync(org, [Guid.NewGuid()])).Should().BeEmpty();
     }
 
+    [Fact]
+    public async Task A38_balance_reads_pos_invoices_after_their_credit_notes_and_never_counts_a_credit_note()
+    {
+        var org = Guid.NewGuid();
+        var finance = new FinanceDbContext(new DbContextOptionsBuilder<FinanceDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,
+            new StaticTenantContext { OrganizationId = org });
+        var customer = Guid.NewGuid();
+        var today = new DateTime(2026, 10, 10, 0, 0, 0, DateTimeKind.Utc);
+        var original = Guid.NewGuid();
+
+        // A POS credit sale of 100, 40 returned on account: the invoice owes 60; the credit note itself owes nothing.
+        finance.SalesInvoices.Add(new SalesInvoice
+        {
+            UUID = original, OrganizationId = org, PartnerId = customer, Status = "PARTIALLY_PAID", SourceType = "POS",
+            GrandTotal = 100m, CreditedAmount = 40m, ReturnedAmount = 40m, BalanceDue = 60m, ExchangeRate = 1m,
+            DueDate = today.AddDays(10), InvoiceNumber = "SINV-1", BaseCurrencyCode = "PKR"
+        });
+        finance.SalesInvoices.Add(new SalesInvoice
+        {
+            UUID = Guid.NewGuid(), OrganizationId = org, PartnerId = customer, Status = "CREDIT_NOTE", SourceType = "POS",
+            OriginalInvoiceUuid = original, GrandTotal = 40m, CreditedAmount = 40m, BalanceDue = 0m, ExchangeRate = 1m,
+            DueDate = today, InvoiceNumber = "SCN-1", BaseCurrencyCode = "PKR"
+        });
+        // A voided POS sale: credited in full, settled.
+        finance.SalesInvoices.Add(new SalesInvoice
+        {
+            UUID = Guid.NewGuid(), OrganizationId = org, PartnerId = customer, Status = "PAID", SourceType = "POS",
+            GrandTotal = 70m, CreditedAmount = 70m, ReturnedAmount = 70m, BalanceDue = 0m, ExchangeRate = 1m,
+            DueDate = today, InvoiceNumber = "SINV-2", BaseCurrencyCode = "PKR"
+        });
+        await finance.SaveChangesAsync();
+
+        var result = await new SalesInvoiceCustomerBalanceLookup(finance, clock: new FixedClock(today)).GetAsync(org, [customer]);
+
+        result[customer].Should().Be(new CustomerBalanceInfo(60m, 0m, "PKR"));
+    }
+
+    [Fact]
+    public async Task A38_payment_terms_lookup_reads_the_partner_of_the_given_organization_only()
+    {
+        var org = Guid.NewGuid();
+        var name = Guid.NewGuid().ToString();
+        await using (var seed = new SuppliersDbContext(new DbContextOptionsBuilder<SuppliersDbContext>().UseInMemoryDatabase(name).Options,
+                         new StaticTenantContext { OrganizationId = org }))
+        {
+            seed.BusinessPartners.Add(new BusinessPartner { UUID = Guid.NewGuid(), OrganizationId = org, SupplierName = "Mine", SupplierCode = "C-1", IsCustomer = true, PaymentTermsDays = 45 });
+            await seed.SaveChangesAsync();
+        }
+
+        await using var db = new SuppliersDbContext(new DbContextOptionsBuilder<SuppliersDbContext>().UseInMemoryDatabase(name).Options,
+            new StaticTenantContext { IsSuperAdmin = true });
+        var partner = await db.BusinessPartners.IgnoreQueryFilters().Select(p => p.UUID).SingleAsync();
+        var lookup = new CustomerPaymentTermsLookup(db);
+
+        (await lookup.GetPaymentTermsDaysAsync(org, partner)).Should().Be(45);
+        (await lookup.GetPaymentTermsDaysAsync(Guid.NewGuid(), partner)).Should().BeNull("another organization's partner is absent");
+    }
+
     // ── Permissions & module gate metadata ───────────────────────────────────
 
     [Theory]

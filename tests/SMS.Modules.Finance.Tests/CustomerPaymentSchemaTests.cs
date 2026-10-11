@@ -151,7 +151,7 @@ public class CustomerPaymentSchemaTests
     [Fact]
     public void The_method_and_status_vocabularies_are_exactly_those_of_9_3()
     {
-        CustomerPaymentMethods.All.Should().BeEquivalentTo(["CASH", "CHEQUE", "BANK_TRANSFER", "CARD", "ONLINE"]);
+        CustomerPaymentMethods.All.Should().BeEquivalentTo(["CASH", "CHEQUE", "BANK_TRANSFER", "CARD", "ONLINE", "MOBILE"]); // MOBILE: A38 POS
         CustomerPaymentStatuses.All.Should().BeEquivalentTo(["RECEIVED", "BOUNCED", "REVERSED"]);
         CustomerPaymentMethods.All.Concat(CustomerPaymentStatuses.All).Should().OnlyContain(s => s.Length <= 20, "the columns are nvarchar(20)");
     }

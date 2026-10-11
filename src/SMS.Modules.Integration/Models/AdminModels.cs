@@ -104,6 +104,10 @@ public sealed class IntegrationSettingsModel
     public bool      AutoPushItems            { get; set; } = true;
     public bool      AutoPushSalesInvoices    { get; set; } = true;
     public bool      AutoPushBills            { get; set; } = true;
+    /// <summary>"Sync POS sales" — off by default; POS sales are held while it is off.</summary>
+    public bool      AutoPushPosSales         { get; set; }
+    /// <summary>POS sales held while "Sync POS sales" is off (or sales invoices are off), waiting to be sent.</summary>
+    public int       PosSalesWaiting          { get; set; }
     /// <summary>NonInventory | Service</summary>
     public string    ItemTypeDefault          { get; set; } = "NonInventory";
     /// <summary>OnlyWhenReferenced | AllActive</summary>
@@ -124,6 +128,8 @@ public sealed class UpdateIntegrationSettingsRequest
     public bool      AutoPushItems            { get; set; } = true;
     public bool      AutoPushSalesInvoices    { get; set; } = true;
     public bool      AutoPushBills            { get; set; } = true;
+    /// <summary>"Sync POS sales". Null (a client that does not know it) leaves it as it is.</summary>
+    public bool?     AutoPushPosSales         { get; set; }
     public string    ItemTypeDefault          { get; set; } = "NonInventory";
     public string    PartnerScope             { get; set; } = "OnlyWhenReferenced";
     public string?   DefaultIncomeAccountId   { get; set; }

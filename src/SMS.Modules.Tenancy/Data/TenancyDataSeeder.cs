@@ -28,8 +28,9 @@ internal sealed class TenancyDataSeeder
         await SyncFeatureDefinitionsAsync();
         await SyncFeatureDependenciesAsync();
         await SyncPlanFeatureTemplatesAsync();
-        await SeedDemoOrganizationAsync();
-        await BackfillOrganizationFeaturesForAllOrgsAsync();
+        var demoCreated = await SeedDemoOrganizationAsync();
+        // A38 D-2 — an SCM-DEMO created just now is a new organization: it gets its plan in full (POS included).
+        await BackfillOrganizationFeaturesForAllOrgsAsync(demoCreated ? TenantDefaults.ScmDemoOrganizationId : null);
         await SeedSuperAdminAsync();
     }
 
@@ -143,10 +144,10 @@ internal sealed class TenancyDataSeeder
         await _db.SaveChangesAsync();
     }
 
-    private async Task SeedDemoOrganizationAsync()
+    private async Task<bool> SeedDemoOrganizationAsync()
     {
         var exists = await _db.Organizations.AnyAsync(o => o.OrgCode == DemoOrgCode);
-        if (exists) return;
+        if (exists) return false;
 
         _db.Organizations.Add(new Organization
         {
@@ -168,6 +169,7 @@ internal sealed class TenancyDataSeeder
         });
 
         await _db.SaveChangesAsync();
+        return true;
     }
 
     // Ensures every active organization has an OrganizationFeatures row for every current
@@ -176,7 +178,7 @@ internal sealed class TenancyDataSeeder
     // every existing org — including SCM-DEMO — automatically gets a row for it on the next
     // deploy, keeping "SCM-DEMO has every feature enabled" true forever rather than just at
     // the moment this ticket first ran.
-    private async Task BackfillOrganizationFeaturesForAllOrgsAsync()
+    private async Task BackfillOrganizationFeaturesForAllOrgsAsync(Guid? newOrganizationId = null)
     {
         var orgs     = await _db.Organizations.Where(o => o.IsActive).ToListAsync();
         var features = await _db.FeatureDefinitions.ToListAsync();
@@ -207,6 +209,9 @@ internal sealed class TenancyDataSeeder
                 if (existingKeys.Contains((org.Id, feature.Id))) continue;
 
                 templateLookup.TryGetValue(feature.Id, out var isEnabledByDefault);
+                // A38 D-2 — a module the org must be licensed for by hand: the backfill never licenses it from the plan.
+                if (org.Id != newOrganizationId && TenancyFeatureCatalog.LicensedByHandForExistingOrgs.Contains(feature.FeatureCode))
+                    isEnabledByDefault = false;
                 var isLicensed = isEnabledByDefault;
                 var systemManaged = false;
 

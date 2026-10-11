@@ -118,6 +118,10 @@ public static class InventoryModuleExtensions
         // A37 §6 — the catalog delta; tax codes / units of measure from Lookups' ISyncLookupReader when registered.
         services.AddScoped<ICatalogSyncService>(sp => new CatalogSyncService(
             sp.GetRequiredService<InventoryDbContext>(), sp.GetService<ISyncLookupReader>()));
+        // A38 (INV) — POS stock postings (no reservation, may go negative, D-9) and the POS catalog read side (D-6).
+        // IPosChangeListener (POS-B) is resolved optionally by InventoryDbContext after each save / commit.
+        services.AddScoped<IPosStockPoster, PosStockPoster>();
+        services.AddScoped<IPosCatalogSource, PosCatalogSource>();
         services.AddScoped<InventoryDataSeeder>();
         services.AddScoped<StaleRateAlertJob>();
         services.AddScoped<RateExpiryNotificationJob>();

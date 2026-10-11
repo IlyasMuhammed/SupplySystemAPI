@@ -504,6 +504,8 @@ internal sealed class InventoryLedgerEntryMap : IEntityTypeConfiguration<Invento
         b.Property(x => x.Notes).HasMaxLength(500);
         b.Property(x => x.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
         b.HasIndex(x => new { x.VariantId, x.WarehouseId, x.CreatedAt });
+        // A38 (INV) — "has this document already moved stock under this type?" (POS idempotence, D-24).
+        b.HasIndex(x => new { x.ReferenceId, x.TransactionType });
         b.Property(x => x.OrganizationId).IsRequired();
         b.HasIndex(x => x.OrganizationId);
         b.HasOne(x => x.Variant).WithMany()

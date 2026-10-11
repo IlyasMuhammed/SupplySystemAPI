@@ -30,6 +30,25 @@ internal static class SalesInvoiceStatuses
         [Draft, Issued, PartiallyPaid, Paid, Overdue, Cancelled, CreditNote];
 }
 
+/// <summary>
+/// A38 (FIN, D-8) — what a sales invoice (or a customer credit note) was raised from. A sale-order invoice bills a delivery;
+/// a POS one is a counter sale (no sale order, no delivery) and carries the POS order's uuid as <see cref="SalesInvoice.SourceUuid"/>.
+/// </summary>
+internal static class SalesInvoiceSources
+{
+    public const string SaleOrder = "SALE_ORDER";
+    public const string Pos       = "POS";
+}
+
+/// <summary>A38 (FIN) — the customer ledger / product ledger reference types of the counter-sale documents.</summary>
+internal static class CounterSaleReferences
+{
+    /// <summary>A customer credit note (a <see cref="SalesInvoice"/> row whose status is CREDIT_NOTE).</summary>
+    public const string CreditNote = "SalesCreditNote";
+    /// <summary>Money paid back to a customer (<see cref="CustomerRefund"/>).</summary>
+    public const string Refund     = "CustomerRefund";
+}
+
 internal class SalesInvoice : ITenantScopedEntity
 {
     public int      Id             { get; set; }
@@ -42,10 +61,27 @@ internal class SalesInvoice : ITenantScopedEntity
     /// <summary>SINV-YYYYMMDD-NNNN.</summary>
     public string   InvoiceNumber  { get; set; } = string.Empty;
 
-    /// <summary>The sale order this bills. Bare UUID — sale orders live in Demand.</summary>
-    public Guid     SaleOrderUuid    { get; set; }
-    /// <summary>Denormalised so the invoice reads and prints without a call into Demand.</summary>
+    /// <summary>The sale order this bills. Bare UUID — sale orders live in Demand. Null on a POS counter sale or a credit note (A38).</summary>
+    public Guid?    SaleOrderUuid    { get; set; }
+    /// <summary>Denormalised so the invoice reads and prints without a call into Demand. Empty when there is no sale order.</summary>
     public string   SaleOrderNumber  { get; set; } = string.Empty;
+
+    // ── A38 (FIN, D-8/D-10): counter sales and customer credit notes ──
+    /// <summary>See <see cref="SalesInvoiceSources"/>.</summary>
+    public string   SourceType       { get; set; } = SalesInvoiceSources.SaleOrder;
+    /// <summary>The POS order (or POS return / void) this document was posted for. Unique per organization: the idempotency key.</summary>
+    public Guid?    SourceUuid       { get; set; }
+    public string?  SourceNumber     { get; set; }
+    /// <summary>On a credit note (Status CREDIT_NOTE): the invoice it credits.</summary>
+    public Guid?    OriginalInvoiceUuid { get; set; }
+    /// <summary>On an invoice: Σ GrandTotal of the credit notes raised against it (goods returned / voided).</summary>
+    public decimal  ReturnedAmount   { get; set; }
+    /// <summary>
+    /// On an invoice: the part of its credit notes applied to its balance (what a return took off what the customer owes).
+    /// On a credit note: the part of it applied to the original invoice (the rest was paid back as refunds).
+    /// An invoice's <see cref="BalanceDue"/> = GrandTotal − AmountPaid − CreditedAmount.
+    /// </summary>
+    public decimal  CreditedAmount   { get; set; }
 
     /// <summary>
     /// The delivery this invoice bills (A29-P7-04). Bare UUID — deliveries live in Logistics. At most
@@ -124,8 +160,15 @@ internal class SalesInvoiceLine : ITenantScopedEntity
 
     public int LineNo { get; set; }
 
-    /// <summary>The sale order line billed. What "invoiced qty ≤ delivered qty" (§9.5) is checked against.</summary>
-    public Guid SoLineUuid  { get; set; }
+    /// <summary>The sale order line billed. What "invoiced qty ≤ delivered qty" (§9.5) is checked against. Null on POS / credit-note lines (A38).</summary>
+    public Guid? SoLineUuid  { get; set; }
+    /// <summary>A38 — the POS order line (or return line) this line was posted for.</summary>
+    public Guid? SourceLineUuid   { get; set; }
+    /// <summary>A38 — on a credit-note line: the original invoice line it credits.</summary>
+    public Guid? OriginalLineUuid { get; set; }
+    /// <summary>A38 — absolute amounts as the POS calculator gave them (null on sale-order lines, which carry percentages).</summary>
+    public decimal? DiscountAmount { get; set; }
+    public decimal? TaxAmount      { get; set; }
     /// <summary>Bare UUID onto the Inventory variant.</summary>
     public Guid VariantUuid { get; set; }
 

@@ -199,6 +199,7 @@ describe('MappingsTabComponent', () => {
 
     expect(service.updateSettings).toHaveBeenCalledOnceWith({
       autoPushCustomers: true, autoPushVendors: false, autoPushItems: true, autoPushSalesInvoices: true, autoPushBills: false,
+      autoPushPosSales: false,
       itemTypeDefault: 'Service', partnerScope: 'AllActive',
       defaultIncomeAccountId: '79', defaultExpenseAccountId: '80', freightExpenseAccountId: null, discountAccountId: '86',
       defaultPurchaseTaxCodeId: null, documentStartDate: '2026-10-01'
@@ -206,6 +207,37 @@ describe('MappingsTabComponent', () => {
     expect(emitted.length).toBe(1);
     expect(component.form.pristine).toBeTrue();
     expect(toasts.calls.mostRecent().args[0].severity).toBe('success');
+  });
+
+  // ── Sync POS sales (A38) ───────────────────────────────────────────────────
+
+  it('shows "Sync POS sales" off by default under the auto-push switches, with its hint', async () => {
+    await setup();
+    expect(component.form.get('autoPushPosSales')!.value).toBeFalse();
+    expect(query('pos-sales-row')!.textContent).toContain('Sync POS sales');
+    expect(query('pos-sales-hint')!.textContent).toContain('While off, POS sales are held and not sent.');
+    expect(query('pos-sales-hint')!.textContent).toContain('Payments are not synced, so POS sales appear as open invoices in QuickBooks.');
+    expect(query('autoPushPosSales')).not.toBeNull();
+    expect(query('pos-sales-waiting')).toBeNull();
+  });
+
+  it('shows how many POS sales are waiting, and loads the saved switch', async () => {
+    await setup({ settings: settings({ autoPushPosSales: false, posSalesWaiting: 3 }) });
+    expect(query('pos-sales-waiting')!.textContent).toContain('POS sales waiting: 3');
+
+    await setup({ settings: settings({ autoPushPosSales: true, posSalesWaiting: 0 }) });
+    expect(component.form.get('autoPushPosSales')!.value).toBeTrue();
+    expect(query('pos-sales-waiting')).toBeNull();
+  });
+
+  it('saves the POS switch with the other settings', async () => {
+    await setup({ settings: settings({ defaultIncomeAccountId: '79', defaultExpenseAccountId: '80', posSalesWaiting: 2 }) });
+    component.form.patchValue({ autoPushPosSales: true });
+    component.form.markAsDirty();
+    component.saveSettings();
+
+    expect(service.updateSettings.calls.mostRecent().args[0].autoPushPosSales).toBeTrue();
+    expect(component.form.get('autoPushPosSales')!.value).toBeTrue();
   });
 
   it('keeps the form as it is when the server refuses', async () => {
@@ -580,10 +612,11 @@ describe('toSettingsRequest', () => {
     const req = toSettingsRequest({
       defaultIncomeAccountId: ' ', defaultExpenseAccountId: '80', freightExpenseAccountId: null, discountAccountId: undefined as any,
       defaultPurchaseTaxCodeId: '5', itemTypeDefault: 'NonInventory', partnerScope: 'OnlyWhenReferenced', documentStartDate: null,
-      autoPushCustomers: true, autoPushVendors: true, autoPushItems: false, autoPushSalesInvoices: true, autoPushBills: true
+      autoPushCustomers: true, autoPushVendors: true, autoPushItems: false, autoPushSalesInvoices: true, autoPushBills: true,
+      autoPushPosSales: true
     });
     expect(Object.keys(req).sort()).toEqual([
-      'autoPushBills', 'autoPushCustomers', 'autoPushItems', 'autoPushSalesInvoices', 'autoPushVendors',
+      'autoPushBills', 'autoPushCustomers', 'autoPushItems', 'autoPushPosSales', 'autoPushSalesInvoices', 'autoPushVendors',
       'defaultExpenseAccountId', 'defaultIncomeAccountId', 'defaultPurchaseTaxCodeId', 'discountAccountId',
       'documentStartDate', 'freightExpenseAccountId', 'itemTypeDefault', 'partnerScope'
     ]);

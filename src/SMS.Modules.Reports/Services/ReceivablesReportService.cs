@@ -208,9 +208,15 @@ internal sealed class ReceivablesReportService : IReceivablesReportService
                              && a.CustomerPayment.PaymentDate < end
                              && a.CustomerPayment.Status != CustomerPaymentStatuses.Reversed
                              && !bounces.Any(b => b.ReferenceId == a.CustomerPayment.UUID))
-                    .Sum(a => (decimal?)a.AllocatedAmount) ?? 0m
+                    .Sum(a => (decimal?)a.AllocatedAmount) ?? 0m,
+                // A38 (FIN) — what POS credit notes dated by then took off the balance (the ON_ACCOUNT part of a return or
+                // a void; a cash-refunded return leaves the balance alone, so its CreditedAmount is 0).
+                Credited = _finance.SalesInvoices
+                    .Where(c => c.Status == SalesInvoiceStatuses.CreditNote && !c.IsDelete
+                             && c.OriginalInvoiceUuid == i.UUID && c.InvoiceDate < end)
+                    .Sum(c => (decimal?)c.CreditedAmount) ?? 0m
             })
-            .Where(x => x.GrandTotal - x.Paid > 0m)
+            .Where(x => x.GrandTotal - x.Paid - x.Credited > 0m)
             .OrderBy(x => x.Id)
             .Take(MaxRows + 1)
             .ToListAsync();
@@ -246,7 +252,7 @@ internal sealed class ReceivablesReportService : IReceivablesReportService
                     Bucket          = AgingBuckets.For(daysPastDue),
                     GrandTotal      = x.GrandTotal,
                     AmountPaid      = x.Paid,
-                    Outstanding     = x.GrandTotal - x.Paid
+                    Outstanding     = x.GrandTotal - x.Paid - x.Credited
                 };
             })
             .OrderBy(i => i.CustomerName is null)

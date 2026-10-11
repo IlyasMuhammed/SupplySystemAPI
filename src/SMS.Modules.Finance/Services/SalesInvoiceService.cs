@@ -261,14 +261,15 @@ internal sealed class SalesInvoiceService : ISalesInvoiceService
     {
         if (soLineUuids.Count == 0) return [];
 
+        var nullable = soLineUuids.Select(u => (Guid?)u).ToList();
         return await _db.SalesInvoiceLines
-            .Where(l => soLineUuids.Contains(l.SoLineUuid)
+            .Where(l => nullable.Contains(l.SoLineUuid)
                      && !l.SalesInvoice.IsDelete
                      && l.SalesInvoice.Status != SalesInvoiceStatuses.Cancelled
                      && l.SalesInvoice.Status != SalesInvoiceStatuses.CreditNote)
             .GroupBy(l => l.SoLineUuid)
             .Select(g => new { SoLineUuid = g.Key, Quantity = g.Sum(x => x.Quantity) })
-            .ToDictionaryAsync(x => x.SoLineUuid, x => x.Quantity);
+            .ToDictionaryAsync(x => x.SoLineUuid!.Value, x => x.Quantity);
     }
 
     // ── Issue ────────────────────────────────────────────────────────────────
@@ -300,12 +301,7 @@ internal sealed class SalesInvoiceService : ISalesInvoiceService
                 // A35 D-12 — the rate is LOCKED now (issue date, sale base) and never changes again. Asked before
                 // anything is changed, and once: a missing rate for a foreign invoice refuses the issue (D-5, 400).
                 rateLock ??= await LockRateAsync(invoice, now);
-                invoice.CurrencyId           = rateLock.CurrencyId;
-                invoice.ExchangeRate         = rateLock.Rate;
-                invoice.BaseCurrencyId       = rateLock.BaseCurrencyId;
-                invoice.BaseCurrencyCode     = rateLock.BaseCurrencyCode;
-                invoice.BaseGrandTotal       = rateLock.ToBase(invoice.GrandTotal);
-                invoice.ExchangeRateLockedAt = now;
+                ApplyRateLock(invoice, rateLock, now);
             }
             else
             {
@@ -317,22 +313,7 @@ internal sealed class SalesInvoiceService : ISalesInvoiceService
                 invoice.BaseGrandTotal   = snapshot.Rate is { } rate ? ExchangeRateMath.Convert(invoice.GrandTotal, rate) : null;
             }
 
-            invoice.Status       = SalesInvoiceStatuses.Issued;
-            invoice.ModifiedBy   = userId;
-            invoice.ModifiedDate = now;
-
-            // §9.5 — the receivable is booked in the same transaction as the status change: one
-            // SaveChanges below commits both, or neither.
-            entry = await _ledger.TrackEntryAsync(new CustomerLedgerPosting(
-                invoice.PartnerId, CustomerLedgerEntryTypes.Invoice,
-                "SalesInvoice", invoice.UUID, invoice.InvoiceNumber,
-                Debit: invoice.GrandTotal, Credit: 0m, invoice.CurrencyCode,
-                $"Invoice {invoice.InvoiceNumber} for sale order {invoice.SaleOrderNumber}"
-                    + (invoice.DeliveryNumber is null ? "" : $" (delivery {invoice.DeliveryNumber})"),
-                now, userId));
-
-            // §11.2 — what the goods cost is booked in the same unit of work too, one SALE entry per line.
-            await TrackCostOfSalesAsync(invoice, now, userId, entry, costOfSales);
+            entry = await TrackIssueBookingsAsync(invoice, now, now, userId, costOfSales, allowNegativeStock: false);
 
             try
             {
@@ -351,15 +332,67 @@ internal sealed class SalesInvoiceService : ISalesInvoiceService
             }
         }
 
-        await RecordInvoicedQuantitiesAsync(issued);
-        RecordOnTimeline(issued, userId);
+        if (issued.SaleOrderUuid is not null)
+        {
+            await RecordInvoicedQuantitiesAsync(issued);
+            RecordOnTimeline(issued, userId);
+        }
 
-        // DRAFT → ISSUED: the invoice is now something QuickBooks should have. After the commit above and
-        // never able to fail the issue — the publisher logs and swallows whatever the gateway does.
-        if (_quickBooks is not null)
-            await _quickBooks.OnChangedAsync(issued, SalesInvoiceStatuses.Draft, contentChanged: false);
+        await PublishIssuedAsync(issued);
 
         return new SalesInvoiceIssued(issued.UUID, issued.InvoiceNumber, issued.Status, issued.GrandTotal, entry.RunningBalance);
+    }
+
+    /// <summary>A35 D-12 — the locked rate (sale base) stamped on the invoice.</summary>
+    internal static void ApplyRateLock(SalesInvoice invoice, DocumentRateLock rateLock, DateTime now)
+    {
+        invoice.CurrencyId           = rateLock.CurrencyId;
+        invoice.ExchangeRate         = rateLock.Rate;
+        invoice.BaseCurrencyId       = rateLock.BaseCurrencyId;
+        invoice.BaseCurrencyCode     = rateLock.BaseCurrencyCode;
+        invoice.BaseGrandTotal       = rateLock.ToBase(invoice.GrandTotal);
+        invoice.ExchangeRateLockedAt = now;
+    }
+
+    /// <summary>
+    /// The issue itself, shared by <see cref="IssueAsync"/> and the A38 counter sale (<see cref="CounterSaleService"/>): the
+    /// status becomes ISSUED, the customer's INVOICE debit and one product-ledger SALE per line are tracked on the shared
+    /// context — <b>unsaved</b>, so the caller's single save commits them with everything else of its unit of work.
+    /// <paramref name="entryDate"/> is the business date of the ledger entries (now for a back-office issue, the sale date
+    /// for a POS sale synced later). <paramref name="allowNegativeStock"/> = A38 D-9 (POS only).
+    /// </summary>
+    internal async Task<CustomerLedgerEntry> TrackIssueBookingsAsync(
+        SalesInvoice invoice, DateTime now, DateTime entryDate, int userId, List<ProductLedgerEntry> costOfSales, bool allowNegativeStock)
+    {
+        invoice.Status       = SalesInvoiceStatuses.Issued;
+        invoice.ModifiedBy   = userId;
+        invoice.ModifiedDate = now;
+
+        // §9.5 — the receivable is booked in the same transaction as the status change: one
+        // SaveChanges commits both, or neither.
+        var entry = await _ledger.TrackEntryAsync(new CustomerLedgerPosting(
+            invoice.PartnerId, CustomerLedgerEntryTypes.Invoice,
+            SalesInvoiceReferenceType, invoice.UUID, invoice.InvoiceNumber,
+            Debit: invoice.GrandTotal, Credit: 0m, invoice.CurrencyCode,
+            Truncate(invoice.SourceType == SalesInvoiceSources.Pos
+                ? $"Invoice {invoice.InvoiceNumber} for POS sale {invoice.SourceNumber}"
+                : $"Invoice {invoice.InvoiceNumber} for sale order {invoice.SaleOrderNumber}"
+                    + (invoice.DeliveryNumber is null ? "" : $" (delivery {invoice.DeliveryNumber})"), 500),
+            entryDate, userId));
+
+        // §11.2 — what the goods cost is booked in the same unit of work too, one SALE entry per line.
+        await TrackCostOfSalesAsync(invoice, entryDate, userId, entry, costOfSales, allowNegativeStock);
+        return entry;
+    }
+
+    /// <summary>
+    /// DRAFT → ISSUED: the invoice is now something QuickBooks should have. After the commit and never able to fail the
+    /// issue — the publisher logs and swallows whatever the gateway does.
+    /// </summary>
+    internal async Task PublishIssuedAsync(SalesInvoice issued)
+    {
+        if (_quickBooks is not null)
+            await _quickBooks.OnChangedAsync(issued, SalesInvoiceStatuses.Draft, contentChanged: false);
     }
 
     /// <summary>
@@ -452,7 +485,8 @@ internal sealed class SalesInvoiceService : ISalesInvoiceService
     /// would book revenue with no cost of sales behind it.
     /// </summary>
     private async Task TrackCostOfSalesAsync(
-        SalesInvoice invoice, DateTime now, int userId, CustomerLedgerEntry customerEntry, List<ProductLedgerEntry> tracked)
+        SalesInvoice invoice, DateTime now, int userId, CustomerLedgerEntry customerEntry, List<ProductLedgerEntry> tracked,
+        bool allowNegativeStock = false)
     {
         try
         {
@@ -463,7 +497,7 @@ internal sealed class SalesInvoiceService : ISalesInvoiceService
                     PartnerId: invoice.PartnerId,
                     Narration: Truncate(
                         $"Invoice {invoice.InvoiceNumber} line {line.LineNo}: {line.Quantity:0.####} sold at {line.UnitPrice:0.####}", 500),
-                    EntryDate: now)));
+                    EntryDate: now), allowNegativeStock));
         }
         catch (Exception ex)
         {
@@ -487,7 +521,7 @@ internal sealed class SalesInvoiceService : ISalesInvoiceService
     {
         try
         {
-            var soLineUuids = invoice.Lines.Select(l => l.SoLineUuid).ToList();
+            var soLineUuids = invoice.Lines.Where(l => l.SoLineUuid != null).Select(l => l.SoLineUuid!.Value).ToList();
             var soLines = await _demand.SaleOrderLines.Where(l => soLineUuids.Contains(l.UUID)).ToListAsync();
 
             foreach (var soLine in soLines)
@@ -517,7 +551,7 @@ internal sealed class SalesInvoiceService : ISalesInvoiceService
 
         var traceId  = invoice.TraceId;
         var evt      = new TimelineEvent(
-            SaleOrderTimelineEventTypes.SoInvoiced, "SO", invoice.SaleOrderUuid, invoice.SaleOrderNumber,
+            SaleOrderTimelineEventTypes.SoInvoiced, "SO", invoice.SaleOrderUuid ?? Guid.Empty, invoice.SaleOrderNumber,
             _clock.GetUtcNow().UtcDateTime, userId, notes);
         var soNumber = invoice.SaleOrderNumber;
         var orgId    = invoice.OrganizationId;
@@ -585,7 +619,9 @@ internal sealed class SalesInvoiceService : ISalesInvoiceService
                 TaxPercent      = l.TaxPercent,
                 TaxCodeUuid     = l.TaxCodeUuid,
                 TaxCode         = l.TaxCode,
-                LineTotal       = l.LineTotal
+                LineTotal       = l.LineTotal,
+                DiscountAmount  = l.DiscountAmount,
+                TaxAmount       = l.TaxAmount
             })],
             Payments           = payments,
             ExchangeRate       = invoice.ExchangeRate,
@@ -643,6 +679,10 @@ internal sealed class SalesInvoiceService : ISalesInvoiceService
                 InvoiceNumber   = i.InvoiceNumber,
                 SaleOrderUuid   = i.SaleOrderUuid,
                 SaleOrderNumber = i.SaleOrderNumber,
+                SourceType      = i.SourceType,
+                SourceNumber    = i.SourceNumber,
+                OriginalInvoiceUuid = i.OriginalInvoiceUuid,
+                ReturnedAmount  = i.ReturnedAmount,
                 DeliveryUuid    = i.DeliveryUuid,
                 DeliveryNumber  = i.DeliveryNumber,
                 PartnerId       = i.PartnerId,
@@ -787,8 +827,11 @@ internal sealed class SalesInvoiceService : ISalesInvoiceService
         }
 
         // After the commit, and never able to undo it — each logs rather than throws.
-        await RecordUninvoicedQuantitiesAsync(cancelled);
-        RecordCancellationOnTimeline(cancelled, userId, reason);
+        if (cancelled.SaleOrderUuid is not null)
+        {
+            await RecordUninvoicedQuantitiesAsync(cancelled);
+            RecordCancellationOnTimeline(cancelled, userId, reason);
+        }
 
         // ISSUED/OVERDUE → CANCELLED: QuickBooks voids its copy (SalesInvoiceQuickBooksRules). The publisher
         // logs and swallows whatever the gateway does.
@@ -807,6 +850,12 @@ internal sealed class SalesInvoiceService : ISalesInvoiceService
     private async Task EnsureCancellableAsync(SalesInvoice invoice)
     {
         var number = invoice.InvoiceNumber;
+
+        // A38 (FIN) — a POS counter sale is undone at the POS (void / return: credit note + stock back in Inventory), never
+        // by a back-office cancel, which would move neither the POS order nor the store's stock.
+        if (invoice.SourceType == SalesInvoiceSources.Pos && invoice.Status != SalesInvoiceStatuses.CreditNote)
+            throw new ConflictException(
+                $"Sales invoice {number} is a POS sale ({invoice.SourceNumber}). Void or return it at the POS instead of cancelling it.");
 
         switch (invoice.Status)
         {
@@ -880,7 +929,7 @@ internal sealed class SalesInvoiceService : ISalesInvoiceService
     {
         try
         {
-            var soLineUuids = invoice.Lines.Select(l => l.SoLineUuid).Distinct().ToList();
+            var soLineUuids = invoice.Lines.Where(l => l.SoLineUuid != null).Select(l => l.SoLineUuid!.Value).Distinct().ToList();
             var soLines = await _demand.SaleOrderLines.Where(l => soLineUuids.Contains(l.UUID)).ToListAsync();
 
             foreach (var soLine in soLines)
@@ -907,7 +956,7 @@ internal sealed class SalesInvoiceService : ISalesInvoiceService
 
             var traceId  = invoice.TraceId;
             var evt      = new TimelineEvent(
-                SaleOrderTimelineEventTypes.SoInvoiceCancelled, "SO", invoice.SaleOrderUuid, invoice.SaleOrderNumber,
+                SaleOrderTimelineEventTypes.SoInvoiceCancelled, "SO", invoice.SaleOrderUuid ?? Guid.Empty, invoice.SaleOrderNumber,
                 _clock.GetUtcNow().UtcDateTime, userId, notes);
             var soNumber = invoice.SaleOrderNumber;
             var orgId    = invoice.OrganizationId;
@@ -944,6 +993,10 @@ internal sealed class SalesInvoiceService : ISalesInvoiceService
         model.InvoiceNumber   = i.InvoiceNumber;
         model.SaleOrderUuid   = i.SaleOrderUuid;
         model.SaleOrderNumber = i.SaleOrderNumber;
+        model.SourceType      = i.SourceType;
+        model.SourceNumber    = i.SourceNumber;
+        model.OriginalInvoiceUuid = i.OriginalInvoiceUuid;
+        model.ReturnedAmount  = i.ReturnedAmount;
         model.DeliveryUuid    = i.DeliveryUuid;
         model.DeliveryNumber  = i.DeliveryNumber;
         model.PartnerId       = i.PartnerId;

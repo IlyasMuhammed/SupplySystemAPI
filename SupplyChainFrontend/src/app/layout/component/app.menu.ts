@@ -171,6 +171,38 @@ export class AppMenu {
             ]
         },
 
+        // ── Point of Sale (Addendum 38, docs/pos/API-CONTRACT.md §11) ──────────
+        // Back office for the tills; "Open POS" opens the full-screen /pos app (outside the portal) in a new tab.
+        {
+            label: 'Point of Sale',
+            featureCode: 'MODULE_POS',
+            items: [
+                { label: 'Stores', icon: 'pi pi-fw pi-shop',
+                  routerLink: ['/portal/pages/pos/stores'],
+                  permRequired: ['POS_STORE_VIEW'] },
+                { label: 'Shifts', icon: 'pi pi-fw pi-clock',
+                  routerLink: ['/portal/pages/pos/shifts'],
+                  permRequired: ['POS_SHIFT_VIEW'] },
+                { label: 'POS Orders', icon: 'pi pi-fw pi-receipt',
+                  routerLink: ['/portal/pages/pos/orders'],
+                  permRequired: ['POS_ORDER_VIEW'] },
+                // A39 — "credit notes" in the API are POS store credit (CN-…), labelled so to stay apart from Finance SCN-….
+                { label: 'Store credit', icon: 'pi pi-fw pi-wallet',
+                  routerLink: ['/portal/pages/pos/credit-notes'],
+                  featureCode: 'FEATURE_POS_CREDIT_NOTES',
+                  permRequired: ['POS_CREDIT_NOTE_VIEW'] },
+                { label: 'Return reasons', icon: 'pi pi-fw pi-list',
+                  routerLink: ['/portal/pages/pos/return-reasons'],
+                  permRequired: ['POS_RETURN_REASON_MANAGE'] },
+                { label: 'Return policy', icon: 'pi pi-fw pi-shield',
+                  routerLink: ['/portal/pages/pos/return-policy'],
+                  permRequired: ['POS_RETURN_POLICY_MANAGE'] },
+                { label: 'Open POS', icon: 'pi pi-fw pi-external-link',
+                  url: '/pos', target: '_blank',
+                  permRequired: ['POS_ORDER_CREATE'] }
+            ]
+        },
+
         // ── Procurement ───────────────────────────────────────────────────
         // Requisitions/Quotations/POs are backed by the Demand module (MODULE_DEMAND) — the
         // ticket's own catalog names MODULE_PROCUREMENT as an unimplemented placeholder ("functionality

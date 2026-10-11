@@ -45,7 +45,11 @@ export class StockReportsComponent implements OnInit {
     { label: 'Transfer Out',    value: 'TRANSFER_OUT' },
     { label: 'Transfer In',     value: 'TRANSFER_IN' },
     { label: 'Return',          value: 'RETURN_DISPATCH' },
-    { label: 'Stock Adjustment', value: 'STOCK_ADJUSTMENT' }
+    { label: 'Stock Adjustment', value: 'STOCK_ADJUSTMENT' },
+    // A38 — Point of Sale stock movements.
+    { label: 'POS Sale',        value: 'POS_SALE' },
+    { label: 'POS Return',      value: 'POS_RETURN' },
+    { label: 'POS Void',        value: 'POS_VOID' }
   ];
 
   constructor(private svc: ReportsService, private msg: MessageService) {}

@@ -239,6 +239,67 @@ internal sealed class AuthDataSeeder
         ("Create Customers",              PermissionCodes.CUSTOMER_CREATE,        "Add new customers"),
         ("Edit Customers",                PermissionCodes.CUSTOMER_EDIT,          "Update existing customers"),
         ("Deactivate Customers",          PermissionCodes.CUSTOMER_DEACTIVATE,    "Deactivate and reactivate customers"),
+
+        // A38 D-13 — point of sale.
+        ("View POS Stores",               PermissionCodes.POS_STORE_VIEW,         "See the organization's stores, their configuration and staff"),
+        ("Manage POS Stores",             PermissionCodes.POS_STORE_MANAGE,       "Create, change and deactivate stores and assign their staff and PINs"),
+        ("View POS Terminals",            PermissionCodes.POS_TERMINAL_VIEW,      "See a store's terminals and their status"),
+        ("Manage POS Terminals",          PermissionCodes.POS_TERMINAL_MANAGE,    "Create terminals, bind and unbind devices, force a sync or a logout"),
+        ("Open POS Shifts",               PermissionCodes.POS_SHIFT_OPEN,         "Open a shift on a terminal with an opening cash float"),
+        ("Close POS Shifts",              PermissionCodes.POS_SHIFT_CLOSE,        "Start closing, resume and close a shift with the counted cash"),
+        ("Reconcile POS Shifts",          PermissionCodes.POS_SHIFT_RECONCILE,    "Resolve a disputed shift's cash variance and add notes to reconciled shifts"),
+        ("View POS Shifts",               PermissionCodes.POS_SHIFT_VIEW,         "Read shifts, their cash movements and summaries"),
+        ("Sell at POS",                   PermissionCodes.POS_ORDER_CREATE,       "Sign in at a terminal with a PIN and ring up sales"),
+        ("View POS Orders",               PermissionCodes.POS_ORDER_VIEW,         "Read every POS order and receipt of the organization"),
+        ("Void POS Orders",               PermissionCodes.POS_ORDER_VOID,         "Void a sale within the same shift — reverses its invoice, payments and stock"),
+        ("Process POS Returns",           PermissionCodes.POS_ORDER_RETURN,       "Take goods back against a POS sale and refund the customer"),
+        ("Give POS Discounts",            PermissionCodes.POS_ORDER_DISCOUNT,     "Apply line and order discounts at the till"),
+        ("Record POS Cash Movements",     PermissionCodes.POS_CASH_MOVEMENT,      "Record cash paid into or taken out of a till during a shift"),
+        ("Manage POS Product Settings",   PermissionCodes.POS_PRODUCT_SETTINGS,   "Change how products appear on the POS (name, category, colour, favourites)"),
+        ("Manage POS Customer Settings",  PermissionCodes.POS_CUSTOMER_SETTINGS,  "Change a customer's POS credit settings"),
+        ("View POS Reports",              PermissionCodes.POS_REPORTS_VIEW,       "Read POS sales, shift and cashier reports"),
+
+        // A39 D-9 — POS returns, exchanges and store credit.
+        ("Process Cross-Store Returns",   PermissionCodes.POS_RETURN_CROSS_STORE,   "Take back goods sold at another store of the organization"),
+        ("Override POS Return Policy",    PermissionCodes.POS_RETURN_OVERRIDE,      "Authorize a return outside policy with a manager PIN — past the window, above the no-authorization limit or for a manager-only reason"),
+        ("Manage POS Return Policies",    PermissionCodes.POS_RETURN_POLICY_MANAGE, "Set the organization's default return policy and each store's own (windows, restocking fee, refund methods, store credit expiry)"),
+        ("Manage POS Return Reasons",     PermissionCodes.POS_RETURN_REASON_MANAGE, "Add, change, reorder and deactivate the reasons a return or exchange is made for"),
+        ("View POS Return Reports",       PermissionCodes.POS_RETURN_REPORTS,       "Read return and exchange reports and the cross-store reconciliation report"),
+        ("Issue Store Credit",            PermissionCodes.POS_CREDIT_NOTE_ISSUE,    "Issue store credit, standalone or as the refund of a return"),
+        ("Redeem Store Credit",           PermissionCodes.POS_CREDIT_NOTE_REDEEM,   "Accept store credit as payment at the till"),
+        ("Cancel Store Credit",           PermissionCodes.POS_CREDIT_NOTE_CANCEL,   "Cancel a store credit note's remaining balance"),
+        ("View Store Credit",             PermissionCodes.POS_CREDIT_NOTE_VIEW,     "Read store credit notes, their balances and transactions"),
+        ("View Store Credit Reports",     PermissionCodes.POS_CREDIT_NOTE_REPORTS,  "Read store credit reports (outstanding liability, issued, redeemed, expired)"),
+    ];
+
+    /// <summary>A38 D-13 — RoleSeed / RolePermissionSeed labels of the POS built-in roles (resolved by code like the rest).</summary>
+    internal const int PosCashierSeedId = 12, PosSupervisorSeedId = 13, StoreManagerSeedId = 14;
+
+    internal static readonly string[] PosCashierCodes =
+    [
+        PermissionCodes.POS_ORDER_CREATE,
+        PermissionCodes.POS_CREDIT_NOTE_REDEEM, // A39 D-9
+    ];
+
+    internal static readonly string[] PosSupervisorCodes =
+    [
+        .. PosCashierCodes,
+        PermissionCodes.POS_ORDER_VIEW, PermissionCodes.POS_ORDER_DISCOUNT, PermissionCodes.POS_ORDER_VOID, PermissionCodes.POS_ORDER_RETURN,
+        PermissionCodes.POS_SHIFT_OPEN, PermissionCodes.POS_SHIFT_CLOSE, PermissionCodes.POS_SHIFT_VIEW,
+        PermissionCodes.POS_CASH_MOVEMENT, PermissionCodes.POS_TERMINAL_VIEW, PermissionCodes.POS_STORE_VIEW,
+        // A39 D-9 (spec §16.2)
+        PermissionCodes.POS_RETURN_CROSS_STORE, PermissionCodes.POS_RETURN_REPORTS,
+        PermissionCodes.POS_CREDIT_NOTE_ISSUE, PermissionCodes.POS_CREDIT_NOTE_VIEW,
+    ];
+
+    internal static readonly string[] StoreManagerCodes =
+    [
+        .. PosSupervisorCodes,
+        PermissionCodes.POS_SHIFT_RECONCILE, PermissionCodes.POS_TERMINAL_MANAGE,
+        PermissionCodes.POS_PRODUCT_SETTINGS, PermissionCodes.POS_CUSTOMER_SETTINGS, PermissionCodes.POS_REPORTS_VIEW,
+        PermissionCodes.CUSTOMER_VIEW,
+        // A39 D-9 (spec §16.2)
+        PermissionCodes.POS_RETURN_OVERRIDE, PermissionCodes.POS_CREDIT_NOTE_CANCEL, PermissionCodes.POS_CREDIT_NOTE_REPORTS,
     ];
 
     /// <summary>A35 D-16 — granted to every role, built-in or custom, existing or created later (document forms need them).</summary>
@@ -318,6 +379,10 @@ internal sealed class AuthDataSeeder
         ((int)EnumRole.FinanceManager,     "Finance Manager",      "FINANCE_MANAGER",      "Managerial — approve supplier payments, manage budgets, all Finance Officer permissions"),
         ((int)EnumRole.OrgAdmin,           "Organization Admin",   "ORG_ADMIN",            "Full owner/operator of a tenant organization — every task in the app except platform-wide administration"),
         ((int)EnumRole.SupplyDeptAdmin,    "Supply Department Administrator", "SUPPLY_DEPT_ADMIN", "Owns sale order administration & configuration — Deputy Director / Director of Supply (§3.1)"),
+        // A38 D-13 — point of sale (spec §16.2).
+        (PosCashierSeedId,    "POS Cashier",    "POS_CASHIER",    "Point of sale — signs in at a terminal with a PIN and rings up sales"),
+        (PosSupervisorSeedId, "POS Supervisor", "POS_SUPERVISOR", "Point of sale — cashier plus discounts, voids, returns, shifts and cash movements"),
+        (StoreManagerSeedId,  "Store Manager",  "STORE_MANAGER",  "Point of sale — supervisor plus shift reconciliation, terminals, POS settings and reports"),
     ];
 
     // Matched by RoleCode, not RoleID: RoleID carries no DB identity (RoleMap.ValueGeneratedNever)
@@ -332,6 +397,14 @@ internal sealed class AuthDataSeeder
     {
         var existing = await _db.Roles.IgnoreQueryFilters().ToListAsync();
 
+        // A38 (XMOD) — RolePermissions and UserAccounts have no FK to Roles, and the live database has had roles deleted
+        // by hand: an id still carrying orphaned grants or users must not be handed to a NEW built-in role, which would
+        // silently inherit them. Taken = used by a role, a grant or a user.
+        var taken = existing.Select(r => r.RoleID)
+            .Concat(await _db.RolePermissions.IgnoreQueryFilters().Select(rp => rp.RoleID).Distinct().ToListAsync())
+            .Concat(await _db.UserAccounts.IgnoreQueryFilters().Select(u => u.RoleID).Distinct().ToListAsync())
+            .ToHashSet();
+
         foreach (var (id, name, code, desc) in RoleSeed)
         {
             var role = existing.FirstOrDefault(r => r.RoleCode == code)
@@ -344,7 +417,11 @@ internal sealed class AuthDataSeeder
                 // The built-in catalog is global (IsGlobal=true, OrganizationId=null) — usable and
                 // assignable by every organization. Org-owned custom roles (IsGlobal=false) are
                 // only ever created at runtime via RolesController, never seeded here.
-                var newId = existing.Any(r => r.RoleID == id) ? existing.Max(r => r.RoleID) + 1 : id;
+                // Pre-A38 built-in roles keep the old rule (only a role row blocks their seed id): users already pointing
+                // at a missing System Admin's id 1 were meant to be System Admins.
+                var free = id < PosCashierSeedId ? existing.All(r => r.RoleID != id) : !taken.Contains(id);
+                var newId = free ? id : taken.Max() + 1;
+                taken.Add(newId);
                 role = new Role
                 {
                     RoleID = newId, Name = name, RoleCode = code, Description = desc, IsActive = true,
@@ -557,6 +634,11 @@ internal sealed class AuthDataSeeder
             // A34 D-24 — the lead-time defaults drive every quoted delivery date, next to the sale order settings.
             PermissionCodes.LEAD_TIME_DEFAULTS_MANAGE,
         ],
+
+        // A38 D-13 — point of sale built-in roles (API-CONTRACT §9).
+        [PosCashierSeedId]    = PosCashierCodes,
+        [PosSupervisorSeedId] = PosSupervisorCodes,
+        [StoreManagerSeedId]  = StoreManagerCodes,
     };
 
     private async Task SeedRolePermissionsAsync()

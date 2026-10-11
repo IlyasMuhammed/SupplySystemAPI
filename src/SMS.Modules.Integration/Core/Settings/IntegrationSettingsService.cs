@@ -82,7 +82,7 @@ internal sealed partial class IntegrationSettingsService : IIntegrationSettingsS
 
         var settings = await _db.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.ConnectionId == connection.Id, ct)
                     ?? new IntegrationSettings();
-        return ToModel(settings);
+        return await ModelAsync(settings, connection.Id, ct);
     }
 
     public async Task<IntegrationSettingsModel> UpdateSettingsAsync(
@@ -111,14 +111,16 @@ internal sealed partial class IntegrationSettingsService : IIntegrationSettingsS
             if (taxCode is not null) RequireTaxCode(data, taxCode, "The default purchase tax code");
         }
 
-        var settings = await _accessor.GetOrCreateSettingsAsync(connection, ct);
-        var before   = Snapshot(settings);
+        var settings   = await _accessor.GetOrCreateSettingsAsync(connection, ct);
+        var before     = Snapshot(settings);
+        var posWasOn   = settings.AutoPushPosSales;
 
         settings.AutoPushCustomers        = request.AutoPushCustomers;
         settings.AutoPushVendors          = request.AutoPushVendors;
         settings.AutoPushItems            = request.AutoPushItems;
         settings.AutoPushSalesInvoices    = request.AutoPushSalesInvoices;
         settings.AutoPushBills            = request.AutoPushBills;
+        settings.AutoPushPosSales         = request.AutoPushPosSales ?? settings.AutoPushPosSales;
         settings.ItemTypeDefault          = itemType;
         settings.PartnerScope             = scope;
         settings.DefaultIncomeAccountId   = income;
@@ -133,9 +135,24 @@ internal sealed partial class IntegrationSettingsService : IIntegrationSettingsS
 
         IntegrationAudit.Add(_db, connection.Id, AuditAreas.Settings, "Updated", before, Snapshot(settings), userId);
         await _db.SaveChangesAsync(ct);
-        await RevalidateBlockedAsync(connection, ct);
 
-        return ToModel(settings);
+        // "Sync POS sales" turned off: what is queued but not sent yet is held too. Turned on (or on, with sales
+        // invoices just turned on): every held POS sale is offered again — idempotent, so it runs on every save.
+        if (posWasOn && !settings.AutoPushPosSales && _services.GetService<ISyncOutbox>() is { } outbox)
+            await PosSales.HoldQueuedAsync(_db, outbox, connection.Id, DateTime.UtcNow, ct);
+
+        await RevalidateBlockedAsync(connection, ct);
+        await PosSales.ReleaseAsync(_services, connection.Id, _logger, ct);
+
+        return await ModelAsync(settings, connection.Id, ct);
+    }
+
+    /// <summary>The settings as the screen shows them, with the count of POS sales waiting.</summary>
+    private async Task<IntegrationSettingsModel> ModelAsync(IntegrationSettings settings, int connectionId, CancellationToken ct)
+    {
+        var model = ToModel(settings);
+        model.PosSalesWaiting = await PosSales.CountHeldAsync(_db, connectionId, ct);
+        return model;
     }
 
     // ── Tax mappings ────────────────────────────────────────────────────────────────────────
@@ -533,7 +550,7 @@ internal sealed partial class IntegrationSettingsService : IIntegrationSettingsS
         await ConnectionPersistence.SaveWithRetryAsync(_db, connection,
             c => c.Status = ConnectionAfterModeChange(c.Status), ct);
 
-        return ToModel(settings);
+        return await ModelAsync(settings, connection.Id, ct);
     }
 
     public async Task<IntegrationSettingsModel> ConfirmMatchingAsync(
@@ -558,7 +575,7 @@ internal sealed partial class IntegrationSettingsService : IIntegrationSettingsS
             before, new { settings.MatchingConfirmedAt }, userId);
         await _db.SaveChangesAsync(ct);
 
-        return ToModel(settings);
+        return await ModelAsync(settings, connection.Id, ct);
     }
 
     private static ConnectionStatus ConnectionAfterModeChange(ConnectionStatus status) =>
@@ -624,7 +641,7 @@ internal sealed partial class IntegrationSettingsService : IIntegrationSettingsS
     private static object Snapshot(IntegrationSettings s) => new
     {
         Mode            = s.Mode.ToString(),
-        s.AutoPushCustomers, s.AutoPushVendors, s.AutoPushItems, s.AutoPushSalesInvoices, s.AutoPushBills,
+        s.AutoPushCustomers, s.AutoPushVendors, s.AutoPushItems, s.AutoPushSalesInvoices, s.AutoPushBills, s.AutoPushPosSales,
         ItemTypeDefault = s.ItemTypeDefault.ToString(),
         PartnerScope    = s.PartnerScope.ToString(),
         s.DefaultIncomeAccountId, s.DefaultExpenseAccountId, s.FreightExpenseAccountId, s.DiscountAccountId,
@@ -639,7 +656,8 @@ internal sealed partial class IntegrationSettingsService : IIntegrationSettingsS
         AutoPushItems            = s.AutoPushItems,
         AutoPushSalesInvoices    = s.AutoPushSalesInvoices,
         AutoPushBills            = s.AutoPushBills,
-        ItemTypeDefault          = s.ItemTypeDefault.ToString(),
+        AutoPushPosSales         = s.AutoPushPosSales,
+        ItemTypeDefault         = s.ItemTypeDefault.ToString(),
         PartnerScope             = s.PartnerScope.ToString(),
         DefaultIncomeAccountId   = s.DefaultIncomeAccountId,
         DefaultExpenseAccountId  = s.DefaultExpenseAccountId,

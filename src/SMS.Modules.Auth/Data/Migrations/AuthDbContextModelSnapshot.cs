@@ -257,6 +257,10 @@ namespace SMS.Modules.Auth.Data.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");
 
+                    b.Property<string>("PosPinHash")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
                     b.Property<string>("ProfilePictureUrl")
                         .HasMaxLength(512)
                         .HasColumnType("nvarchar(512)");

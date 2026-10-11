@@ -45,7 +45,10 @@ internal static class SalesInvoicePayloadFactory
             PrivateNote          = PrivateNote(invoice),
             // S-5/S-10: the rate fixed when the invoice was issued, so QuickBooks books it at the rate SMS did.
             ExchangeRate             = rate,
-            ExchangeRateCurrencyCode = rateCurrency
+            ExchangeRateCurrencyCode = rateCurrency,
+            // A38 / QuickBooks "Sync POS sales": the gateway holds POS sales until the organization opts in. Null for
+            // every other invoice, so their payloads (and fingerprints) are exactly what they were.
+            SourceType               = invoice.SourceType == SalesInvoiceSources.Pos ? SalesInvoicePayloadSources.Pos : null
         };
     }
 
@@ -98,6 +101,9 @@ internal static class SalesInvoicePayloadFactory
     /// <summary><c>SO {number}</c>, and <c> · DLV {number}</c> when the invoice bills a delivery.</summary>
     internal static string PrivateNote(SalesInvoice invoice)
     {
+        // A38 (FIN) — a POS counter sale has no sale order: the POS order number stands in.
+        if (invoice.SourceType == SalesInvoiceSources.Pos) return $"POS {invoice.SourceNumber}";
+
         var note = $"SO {invoice.SaleOrderNumber}";
         return string.IsNullOrWhiteSpace(invoice.DeliveryNumber) ? note : $"{note} · DLV {invoice.DeliveryNumber.Trim()}";
     }

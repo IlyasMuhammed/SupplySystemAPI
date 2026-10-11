@@ -65,6 +65,10 @@ public static class SuppliersModuleExtensions
         services.AddScoped<WalkInCustomerSeeder>();
         services.AddScoped<IOrganizationProvisionedHandler>(sp => sp.GetRequiredService<WalkInCustomerSeeder>());
         services.TryAddScoped<ICustomerBalanceLookup, SalesInvoiceCustomerBalanceLookup>();
+        // A38 — the customer master as the POS module reads it (explicit organization).
+        services.AddScoped<IPosCustomerSource, PosCustomerSource>();
+        // A38 (FIN) — payment terms for the due date of a POS credit sale.
+        services.AddScoped<SMS.Modules.Finance.Services.ICustomerPaymentTermsLookup, CustomerPaymentTermsLookup>();
 
         // Replaces Warehouse's NullGrnEventPublisher registration — must run AFTER AddWarehouseModule()
         // in Program.cs for this override to win (last registration for a given service type wins).

@@ -30,6 +30,8 @@ internal sealed class FinanceDbContext : DbContext, ITenantScopedDbContext
     internal DbSet<CustomerPayment>   CustomerPayments   => Set<CustomerPayment>();
     internal DbSet<PaymentAllocation> PaymentAllocations => Set<PaymentAllocation>();
     internal DbSet<CustomerLedgerEntry> CustomerLedgerEntries => Set<CustomerLedgerEntry>();
+    // A38 (FIN, D-10) — refunds paid out against customer credit notes.
+    internal DbSet<CustomerRefund>    CustomerRefunds    => Set<CustomerRefund>();
     // A29-P8-01 — per-variant cost and revenue history.
     internal DbSet<ProductLedgerEntry> ProductLedgerEntries => Set<ProductLedgerEntry>();
     // SAP-alignment — finance master data (docs/finance/SAP-ALIGNMENT-PLAN.md).

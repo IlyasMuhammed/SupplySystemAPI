@@ -116,6 +116,19 @@
           </ng-template>
         </p-table>
       </section>
+
+      <!-- A38 §17.7.6 — POS settings (MODULE_POS + POS_CUSTOMER_SETTINGS) -->
+      <section *ngIf="showPos" id="sec-pos" class="sf-section sf-card" data-testid="section-pos">
+        <div class="sf-ch"><h2>Point of sale</h2></div>
+        <app-customer-pos-section [customerUuid]="c.uuid" [isWalkIn]="isWalkIn" [creditSalesEnabled]="posCreditSalesEnabled">
+        </app-customer-pos-section>
+      </section>
+
+      <!-- A39 — POS store credit (CN-…): MODULE_POS + FEATURE_POS_CREDIT_NOTES + POS_CREDIT_NOTE_VIEW -->
+      <section *ngIf="showStoreCredit" id="sec-store-credit" class="sf-section sf-card" data-testid="section-store-credit">
+        <div class="sf-ch"><h2>Store credit</h2></div>
+        <app-customer-store-credit [customerUuid]="c.uuid"></app-customer-store-credit>
+      </section>
     </div>
   </ng-container>
 </sf-page>

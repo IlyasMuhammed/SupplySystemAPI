@@ -19,7 +19,8 @@ internal static class QboItemMapper
             Name              = source.Name,
             Sku               = Value(source.Sku),
             Type              = ToSdkType(source.Type),
-            TypeSpecified     = true,
+            // An adopted item keeps the accountant's type (sparse update: an unspecified field is left as it is).
+            TypeSpecified     = !source.KeepRemoteType,
             Description       = Value(source.Description),
             PurchaseDesc      = Value(source.PurchaseDesc),
             IncomeAccountRef  = Ref(source.IncomeAccountId),

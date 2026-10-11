@@ -237,7 +237,10 @@ internal sealed class RevalidationPass
         if (QuickBooksGateway.DocumentDate(payload) is { } date && settings.DocumentStartDate is { } start && date.Date < start.Date)
             return Outcome.Skipped;
 
-        var now         = _clock.GetUtcNow().UtcDateTime;
+        // A POS sale while "Sync POS sales" is off stays where it is; it is looked at again once the switch is on.
+        if (PosSales.IsHeld(settings, map.Kind, payload)) return Outcome.Skipped;
+
+        var now        = _clock.GetUtcNow().UtcDateTime;
         var fingerprint = map.PayloadFingerprint ?? SyncPayloads.Fingerprint(map.PayloadJson);
 
         if (map.RemoteId is not null && map.LastPushedFingerprint == fingerprint)
