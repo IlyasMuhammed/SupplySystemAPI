@@ -23,6 +23,9 @@ public class LedgerEntryCommand
     public string? SourceName { get; set; }
     public string? DestinationType { get; set; }
     public string? DestinationName { get; set; }
+
+    /// <summary>A40 (TINV) — the business date of the movement; null = now. Opening stock is dated at the opening balance date.</summary>
+    public DateTime? TransactionDate { get; set; }
 }
 
 public class InventoryLedgerEntryDto

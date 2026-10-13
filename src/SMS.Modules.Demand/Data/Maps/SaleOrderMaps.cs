@@ -52,6 +52,9 @@ internal sealed class SaleOrderMap : IEntityTypeConfiguration<SaleOrder>
          .HasForeignKey(x => x.SourceInquiryId)
          .OnDelete(DeleteBehavior.NoAction);
         b.HasIndex(x => x.SourceInquiryId).HasFilter("[SourceInquiryId] IS NOT NULL");
+        // A41 M14 / D-13 — the CRM reads an opportunity's orders.
+        b.HasIndex(x => new { x.OrganizationId, x.SourceOpportunityUuid }).HasFilter("[SourceOpportunityUuid] IS NOT NULL")
+            .HasDatabaseName("IX_sale_orders_SourceOpportunity");
 
         // A33 D-12: the sweep reads only the few orders still waiting for their deliveries.
         b.HasIndex(x => x.DeliveryCreationPendingSince).HasFilter("[DeliveryCreationPendingSince] IS NOT NULL");

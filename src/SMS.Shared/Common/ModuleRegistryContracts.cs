@@ -26,6 +26,14 @@ public static class ModuleCodes
     public const string Integration    = "MODULE_INTEGRATION";
     /// <summary>A38 — Point of Sale.</summary>
     public const string Pos            = "MODULE_POS";
+    /// <summary>A40 — Data import (core, always on).</summary>
+    public const string DataImport     = "MODULE_DATA_IMPORT";
+    /// <summary>A40 — importing opening stock and customer/supplier opening balances (Standard/Enterprise).</summary>
+    public const string OpeningBalanceImport = "FEATURE_OPENING_BALANCE_IMPORT";
+    /// <summary>A41 — CRM: leads, opportunities, activities (sub-features in <see cref="CrmFeatureCodes"/>).</summary>
+    public const string Crm            = "MODULE_CRM";
+    /// <summary>A42 — general ledger setup: chart of accounts, fiscal periods, GL opening balances (sub-feature of MODULE_FINANCE).</summary>
+    public const string GeneralLedger  = AccountingCodes.FeatureGeneralLedger;
 
     // Sub-features that are enforced on real endpoints (API-CONTRACT §1.3).
     public const string BomManagement      = "FEATURE_BOM_MANAGEMENT";
@@ -49,6 +57,12 @@ public static class ModuleCodeMap
     [
         // A38 D-13 — first, so no shorter prefix (PO_, POD_) could ever claim a POS code.
         ("POS_", ModuleCodes.Pos),
+        // A40 D-9
+        ("IMPORT_", ModuleCodes.DataImport),
+        // A41 D-3
+        ("CRM_", ModuleCodes.Crm),
+        // A42 D-14
+        ("GL_", ModuleCodes.Finance),
         ("MODULES_", ModuleCodes.MasterData), ("SYSTEM_", ModuleCodes.MasterData), ("USER_", ModuleCodes.MasterData),
         ("AUDIT_", ModuleCodes.MasterData), ("PLATFORM_", ModuleCodes.MasterData), ("LOCATION_", ModuleCodes.MasterData),
         ("CURRENCY_", ModuleCodes.MasterData), ("ORG_CURRENCY_", ModuleCodes.MasterData), ("FINANCE_SETUP_", ModuleCodes.MasterData),

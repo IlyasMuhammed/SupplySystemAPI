@@ -125,6 +125,8 @@ public class InvoiceListItemModel
     /// <summary>Pending | Matched | Variance | Approved | Rejected | Reversed.</summary>
     public string   MatchStatus       { get; set; } = string.Empty;
     public string   PaymentStatus     { get; set; } = string.Empty;
+    /// <summary>A40 — what raised a payable outside the PO flow: OPENING (imported opening balance), CARRIER_INVOICE; null otherwise.</summary>
+    public string?  SourceType        { get; set; }
 }
 
 public class InvoiceDetailModel
@@ -170,6 +172,8 @@ public class InvoiceDetailModel
     /// <summary>Pending | Matched | Variance | Approved | Rejected | Reversed.</summary>
     public string   MatchStatus       { get; set; } = string.Empty;
     public string   PaymentStatus     { get; set; } = string.Empty;
+    /// <summary>A40 — OPENING (imported opening balance), CARRIER_INVOICE; null for an ordinary invoice.</summary>
+    public string?  SourceType        { get; set; }
     public decimal  PaidAmount        { get; set; }
     public string?  PaymentMethod     { get; set; }
     public int?     ApprovedBy        { get; set; }

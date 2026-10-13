@@ -47,6 +47,9 @@ internal class SaleOrder : ITenantScopedEntity
     public DateTime? CustomerPoDate           { get; set; }
     /// <summary>The CUSTOMER_PO file in the generic attachment store (WorkflowEngine document_attachments.UUID).</summary>
     public Guid?     CustomerPoAttachmentUuid { get; set; }
+    /// <summary>A41 M14 / D-13 — the CRM opportunity (crm.Opportunities.Uuid, unenforced) this order serves: set on an
+    /// order typed from the opportunity (FROM_OPPORTUNITY) and carried from the quotation it was converted from.</summary>
+    public Guid?     SourceOpportunityUuid    { get; set; }
 
     /// <summary>
     /// A33 D-12 / REV-01: set (UTC) in the confirm's own commit when deliveries are to be created automatically, and

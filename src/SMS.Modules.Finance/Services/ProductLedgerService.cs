@@ -232,7 +232,7 @@ internal sealed class ProductLedgerService : IProductLedgerWriter
         // §11.2 fixes which way each kind of entry goes; only an adjustment can go either.
         var fixedDirection = p.EntryType switch
         {
-            ProductLedgerEntryTypes.Purchase or ProductLedgerEntryTypes.ReturnIn => ProductLedgerDirections.In,
+            ProductLedgerEntryTypes.Purchase or ProductLedgerEntryTypes.ReturnIn or ProductLedgerEntryTypes.OpeningStock => ProductLedgerDirections.In,
             ProductLedgerEntryTypes.Sale or ProductLedgerEntryTypes.ReturnOut or ProductLedgerEntryTypes.WriteOff => ProductLedgerDirections.Out,
             _ => null
         };

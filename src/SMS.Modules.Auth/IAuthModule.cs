@@ -47,6 +47,8 @@ public static class AuthModuleExtensions
         services.AddScoped<IUserSupplierAccessService, UserSupplierAccessService>();
         // A38 D-4 — cashier PINs and PIN sign-in tokens for the POS module.
         services.AddScoped<IPosPinService, PosPinService>();
+        // A41 D-5 — organization users for the CRM (assignment pickers, owner names).
+        services.AddScoped<IOrgUserDirectory, OrgUserDirectory>();
         services.AddScoped<SessionCleanupJob>();
         services.AddScoped<AuthDataSeeder>();
         services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();

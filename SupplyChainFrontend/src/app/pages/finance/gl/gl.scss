@@ -1,0 +1,197 @@
+// A42 — General Ledger pages. Tokens only (--sms-*), light and dark.
+
+.gl-note {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  padding: 0.6rem 0.8rem;
+  border-radius: var(--sms-radius-sm);
+  background: var(--sms-primary-soft);
+  color: var(--sms-text);
+  &.er { background: var(--sms-danger-soft); color: var(--sms-danger); }
+  &.wn { background: var(--sms-warn-soft); color: var(--sms-warn); }
+  &.ok { background: var(--sms-ok-soft); color: var(--sms-ok); }
+  a { color: var(--sms-primary-text); }
+  ul { margin: 0.25rem 0 0; padding-left: 1.1rem; }
+}
+
+// Wide tables and the tree scroll sideways on a phone instead of squeezing.
+.gl-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+}
+
+.gl-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+// ── Template cards ──
+.gl-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: 0.75rem;
+}
+
+.gl-tcard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--sms-border);
+  border-radius: var(--sms-radius);
+  background: var(--sms-surface);
+  .gl-tcard-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+  .gl-desc { flex: 1; color: var(--sms-text-muted); font-size: 0.85rem; }
+  .gl-tcard-foot { display: flex; flex-wrap: wrap; gap: 0.25rem; align-items: center; }
+  &.applied { border-color: var(--sms-primary); box-shadow: 0 0 0 1px var(--sms-primary-soft-border); }
+}
+
+.gl-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 1.5rem 1rem;
+  border: 2px dashed var(--sms-border);
+  border-radius: var(--sms-radius);
+  background: var(--sms-surface-2);
+  color: var(--sms-text-muted);
+  text-align: center;
+  cursor: pointer;
+  i { font-size: 1.5rem; color: var(--sms-primary-text); }
+  &.over { border-color: var(--sms-primary); background: var(--sms-primary-soft); }
+}
+
+// ── Wizard stepper (clickable sf-stages look) ──
+.gl-steps {
+  display: flex;
+  gap: 0.35rem;
+  overflow-x: auto;
+  padding-bottom: 0.15rem;
+  button {
+    flex: 1 0 8.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.1rem;
+    padding: 0.45rem 0.65rem;
+    border: 1px solid var(--sms-border);
+    border-radius: var(--sms-radius-sm);
+    background: var(--sms-surface-2);
+    color: var(--sms-text-muted);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    b { font-size: 0.8rem; color: var(--sms-text); }
+    span { font-size: 0.72rem; }
+    &.done { background: var(--sms-ok-soft); border-color: transparent; b { color: var(--sms-ok); } }
+    &.on { background: var(--sms-primary); border-color: var(--sms-primary); color: var(--sms-on-primary); b { color: var(--sms-on-primary); } }
+    &:disabled { cursor: not-allowed; opacity: 0.6; }
+  }
+}
+
+// ── Help panel ──
+.gl-help {
+  border: 1px solid var(--sms-primary-soft-border);
+  background: var(--sms-primary-soft);
+  border-radius: var(--sms-radius);
+  padding: 0.75rem 1rem;
+  color: var(--sms-text);
+  h3 { font-size: 0.85rem; margin: 0.5rem 0 0.15rem; color: var(--sms-primary-text); }
+  h3:first-child { margin-top: 0; }
+  p, ul { margin: 0; font-size: 0.85rem; }
+  ul { padding-left: 1.1rem; }
+}
+
+// ── CoA tree ──
+.gl-tree-name {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+}
+.gl-toggle {
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 0;
+  background: transparent;
+  color: var(--sms-text-muted);
+  cursor: pointer;
+  border-radius: var(--sms-radius-sm);
+  &:hover { background: var(--sms-row-hover); }
+}
+.gl-toggle-sp { display: inline-block; width: 1.5rem; }
+tr.gl-group td { font-weight: 600; }
+tr.gl-root td { background: var(--sms-surface-2); }
+tr.gl-inactive td { color: var(--sms-text-faint); }
+
+.gl-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+  align-items: center;
+  padding: 0.6rem 1rem;
+  border-top: 1px solid var(--sms-border-soft);
+  font-size: 0.85rem;
+  color: var(--sms-text-muted);
+  strong { color: var(--sms-text); }
+}
+
+// ── Opening balances ──
+.gl-ob-input { width: 9.5rem; }
+.gl-ob-input input { text-align: right; width: 100%; }
+tr.gl-plug td { background: var(--sms-surface-2); font-style: italic; }
+.gl-totals {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0.5rem 1rem;
+  .l { display: block; font-size: 0.75rem; color: var(--sms-text-muted); }
+  .v { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .v.er { color: var(--sms-danger); }
+  .v.ok { color: var(--sms-ok); }
+}
+.gl-check { display: inline-flex; align-items: center; gap: 0.4rem; cursor: pointer; }
+.gl-sub { color: var(--sms-text-muted); font-size: 0.78rem; }
+
+.gl-checklist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  li {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 0.25rem;
+    border-bottom: 1px solid var(--sms-border-soft);
+    &:last-child { border-bottom: 0; }
+  }
+  .st { width: 1.5rem; text-align: center; font-size: 1.05rem; color: var(--sms-text-faint); }
+  .done .st { color: var(--sms-ok); }
+  .grow { flex: 1; min-width: 0; }
+}
+
+.gl-links {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+  gap: 0.6rem;
+  a {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.75rem 0.9rem;
+    border: 1px solid var(--sms-border);
+    border-radius: var(--sms-radius);
+    background: var(--sms-surface);
+    color: var(--sms-text);
+    text-decoration: none;
+    i { color: var(--sms-primary-text); }
+    &:hover { background: var(--sms-row-hover); }
+  }
+}
+
+.gl-year-head { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; justify-content: space-between; }
+.gl-actions { display: inline-flex; gap: 0.15rem; flex-wrap: wrap; }
+
+@media (max-width: 640px) {
+  .gl-steps button { flex-basis: 7rem; }
+  .gl-ob-input { width: 7.5rem; }
+}

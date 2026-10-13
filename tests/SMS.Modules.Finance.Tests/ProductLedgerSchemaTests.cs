@@ -205,7 +205,8 @@ public class ProductLedgerSchemaTests
     public void The_entry_type_and_direction_vocabularies_are_exactly_those_of_section_11_1()
     {
         ProductLedgerEntryTypes.All.Should().BeEquivalentTo(
-            ["PURCHASE", "SALE", "RETURN_IN", "RETURN_OUT", "ADJUSTMENT", "WRITE_OFF"]);
+            // A40 (TFIN) — OPENING_STOCK: stock on hand imported at go-live.
+            ["PURCHASE", "SALE", "RETURN_IN", "RETURN_OUT", "ADJUSTMENT", "WRITE_OFF", "OPENING_STOCK"]);
         ProductLedgerEntryTypes.All.Should().OnlyHaveUniqueItems();
         ProductLedgerEntryTypes.All.Should().OnlyContain(t => t.Length <= 20, "the column is nvarchar(20)");
 

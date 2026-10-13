@@ -331,7 +331,8 @@ internal sealed class InvoiceRepository : IInvoiceRepository
                 TaxCode           = x.TaxCode,
                 TaxPercent        = x.TaxPercent,
                 MatchStatus       = x.MatchStatus,
-                PaymentStatus     = x.PaymentStatus
+                PaymentStatus     = x.PaymentStatus,
+                SourceType        = x.SourceType
             })
             .ToListAsync();
 
@@ -425,6 +426,7 @@ internal sealed class InvoiceRepository : IInvoiceRepository
             VarianceAmount    = inv.VarianceAmount,
             MatchStatus       = inv.MatchStatus,
             PaymentStatus     = inv.PaymentStatus,
+            SourceType        = inv.SourceType,
             PaidAmount        = inv.PaidAmount,
             PaymentMethod     = inv.PaymentMethod,
             ApprovedBy        = inv.ApprovedBy,

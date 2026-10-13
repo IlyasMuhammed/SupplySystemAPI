@@ -717,6 +717,12 @@
         </div>
         <div class="sf-kv">
           <span>Source</span><span>{{ sourceLabel(sourceType) }}</span>
+          <ng-container *ngIf="o.sourceOpportunityUuid as opp">
+            <span>Opportunity</span>
+            <span data-testid="source-opportunity">
+              <a class="source-link" [routerLink]="['/portal/pages/crm/opportunities', opp]" data-testid="source-opportunity-link">Open in CRM</a>
+            </span>
+          </ng-container>
           <ng-container *ngIf="o.sourceQuotation as q">
             <span>Quotation</span>
             <span data-testid="source-quotation">

@@ -239,7 +239,7 @@ describe('AppMenu filtering (MT-005)', () => {
         tenantService.tenant.set(baseTenant({ isSuperAdmin: true, enabledFeatureCodes: [] }));
 
         expect(menu.model().map((g: any) => g.label)).toEqual([
-            'Home', 'Sales', 'Manufacturing', 'Services', 'Point of Sale', 'Procurement', 'Warehouse & Inventory', 'Material Management',
+            'Home', 'Sales', 'CRM', 'Manufacturing', 'Services', 'Point of Sale', 'Procurement', 'Warehouse & Inventory', 'Material Management',
             'Logistics', 'Finance', 'Reports & Analytics', 'Administration', 'System Administration'
         ]);
     });

@@ -29,6 +29,8 @@ internal sealed class TenancyDataSeeder
         await SyncFeatureDependenciesAsync();
         await SyncPlanFeatureTemplatesAsync();
         var demoCreated = await SeedDemoOrganizationAsync();
+        // A41 D-6 — before the backfill, so the new module's sub-features are created against its new state.
+        await ApplyNewlyAvailableModulesAsync();
         // A38 D-2 — an SCM-DEMO created just now is a new organization: it gets its plan in full (POS included).
         await BackfillOrganizationFeaturesForAllOrgsAsync(demoCreated ? TenantDefaults.ScmDemoOrganizationId : null);
         await SeedSuperAdminAsync();
@@ -172,6 +174,53 @@ internal sealed class TenancyDataSeeder
         return true;
     }
 
+    /// <summary>
+    /// A41 D-6 — a module that was "Coming soon" already has an unlicensed, off row in every existing organization, so
+    /// the backfill below (missing rows only) would never give it to them. Each such row that nobody ever changed (no
+    /// switch dates, no modification, no history) takes its plan's default once; the change is recorded as AUTO_ENABLED.
+    /// Idempotent: an applied row is modified, a Basic organization's row stays untouched and is re-checked harmlessly.
+    /// </summary>
+    internal async Task ApplyNewlyAvailableModulesAsync()
+    {
+        var codes = TenancyFeatureCatalog.BecameAvailable.ToList();
+        var features = await _db.FeatureDefinitions.Where(f => codes.Contains(f.FeatureCode) && f.IsAvailable).ToListAsync();
+        if (features.Count == 0) return;
+
+        var featureIds = features.Select(f => f.Id).ToList();
+        var orgs = await _db.Organizations.Where(o => o.IsActive).ToDictionaryAsync(o => o.Id, o => o.Plan);
+        var templates = await _db.PlanFeatureTemplates.Where(t => featureIds.Contains(t.FeatureDefinitionId)).ToListAsync();
+        var rows = await _db.OrganizationFeatures
+            .Where(r => featureIds.Contains(r.FeatureDefinitionId) && !r.IsLicensed && !r.IsEnabled
+                && r.EnabledAt == null && r.DisabledAt == null && r.ModifiedDate == null)
+            .ToListAsync();
+        var touched = (await _db.OrganizationFeatureHistory.Where(h => codes.Contains(h.FeatureCode))
+                .Select(h => new { h.OrganizationId, h.FeatureCode }).ToListAsync())
+            .Select(h => (h.OrganizationId, h.FeatureCode.ToUpperInvariant())).ToHashSet();
+
+        var now = DateTime.UtcNow;
+        foreach (var row in rows)
+        {
+            if (!orgs.TryGetValue(row.OrganizationId, out var plan)) continue;
+            var feature = features.First(f => f.Id == row.FeatureDefinitionId);
+            if (touched.Contains((row.OrganizationId, feature.FeatureCode.ToUpperInvariant()))) continue;
+            var planDefault = templates.Any(t => t.FeatureDefinitionId == row.FeatureDefinitionId && t.IsEnabledByDefault
+                && string.Equals(t.Plan, plan, StringComparison.OrdinalIgnoreCase));
+            if (!planDefault) continue;
+
+            row.IsLicensed = true;
+            row.IsEnabled = true;
+            row.EnabledAt = now;
+            row.ModifiedDate = now;
+            _db.OrganizationFeatureHistory.Add(new OrganizationFeatureHistory
+            {
+                Id = Guid.NewGuid(), OrganizationId = row.OrganizationId, FeatureCode = feature.FeatureCode,
+                Action = FeatureHistoryActions.AutoEnabled, PerformedBy = null, PerformedAt = now,
+                Notes = "The module became available; switched on from the organization's plan."
+            });
+        }
+        await _db.SaveChangesAsync();
+    }
+
     // Ensures every active organization has an OrganizationFeatures row for every current
     // FeatureDefinition, cloned from that org's plan template. Runs for ALL orgs on every
     // startup (not just at creation) so that when a future ticket adds a new FeatureDefinition,
@@ -227,6 +276,14 @@ internal sealed class TenancyDataSeeder
                         : parentState.On || feature.IsCore);
                     isLicensed |= isEnabledByDefault;
                     systemManaged = isBom && isEnabledByDefault;
+
+                    // A40 D-9 — a plan-tier sub-feature of an always-on module follows the org's plan, not the module.
+                    if (TenancyFeatureCatalog.PlanDefaultForExistingOrgs.Contains(feature.FeatureCode))
+                    {
+                        templateLookup.TryGetValue(feature.Id, out var planDefault);
+                        isLicensed = feature.IsAvailable && planDefault;
+                        isEnabledByDefault = isLicensed && parentState.On;
+                    }
                 }
 
                 _db.OrganizationFeatures.Add(new OrganizationFeature

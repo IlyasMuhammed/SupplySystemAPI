@@ -26,6 +26,20 @@ internal sealed class TaxCodeMap : IEntityTypeConfiguration<TaxCode>
     }
 }
 
+/// <summary>A40 (TFIN, D-7) — finance.org_settings: one row per organization.</summary>
+internal sealed class FinanceOrgSettingsMap : IEntityTypeConfiguration<FinanceOrgSettings>
+{
+    public void Configure(EntityTypeBuilder<FinanceOrgSettings> b)
+    {
+        b.ToTable("org_settings");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.Id).ValueGeneratedOnAdd();
+        b.Property(x => x.OrganizationId).IsRequired();
+        b.HasIndex(x => x.OrganizationId).IsUnique();
+        b.Property(x => x.OpeningBalanceDate).HasColumnType("date");
+    }
+}
+
 internal sealed class ExchangeRateMap : IEntityTypeConfiguration<ExchangeRate>
 {
     public void Configure(EntityTypeBuilder<ExchangeRate> b)

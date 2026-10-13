@@ -1,0 +1,102 @@
+<p-toast></p-toast>
+<sf-page [crumbs]="['Settings', 'Data import']">
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <p-button label="Migration wizard" icon="pi pi-list-check" [routerLink]="[importRoute, 'migration']" data-testid="open-migration"></p-button>
+    <p-button *ngIf="canUpload" label="Download migration workbook" icon="pi pi-download" [text]="true" [loading]="downloading"
+              (onClick)="downloadWorkbook()" data-testid="download-workbook"></p-button>
+    <span class="sf-sep"></span>
+    <p-button label="Refresh" icon="pi pi-refresh" [text]="true" (onClick)="load()"></p-button>
+  </div>
+
+  <div class="sf-body">
+    <div class="sf-lr-head">
+      <div>
+        <h1>Data import</h1>
+        <div class="sf-sub">Bring master data and opening balances in from Excel or CSV: upload, map columns, validate, import.</div>
+      </div>
+    </div>
+
+    <div class="sf-card sf-empty" *ngIf="isLoading"><i class="pi pi-spin pi-spinner"></i> Loading…</div>
+    <div class="sf-card sf-empty" *ngIf="loadFailed" data-testid="load-failed">
+      The import profiles could not be loaded. <p-button label="Try again" [text]="true" size="small" (onClick)="load()"></p-button>
+    </div>
+
+    <section class="sf-card" *ngIf="!isLoading && !loadFailed" data-testid="section-master">
+      <div class="sf-ch"><div><h2>Master data</h2><div class="sf-mu sf-sm">Import in this order — later entities refer to earlier ones.</div></div></div>
+      <div class="imp-cards">
+        <div class="imp-card" *ngFor="let c of cards; trackBy: trackCard" [attr.data-testid]="'card-' + c.profile.entityType">
+          <div class="imp-card-top">
+            <span class="imp-order">{{ c.profile.importOrder }}</span>
+            <i [class]="c.icon"></i>
+            <strong>{{ c.profile.name }}</strong>
+          </div>
+          <div class="sf-mu sf-sm imp-desc">{{ c.profile.description }}</div>
+          <div class="imp-card-foot">
+            <span class="sf-pill" [ngClass]="c.lastTone" [attr.data-testid]="'last-' + c.profile.entityType">{{ c.last }}</span>
+            <p-button *ngIf="canUpload" label="Import" icon="pi pi-upload" size="small" [routerLink]="[importRoute, c.profile.entityType]"
+                      [attr.data-testid]="'import-' + c.profile.entityType"></p-button>
+          </div>
+        </div>
+        <div class="sf-empty sf-sm" *ngIf="!cards.length">No importable entities are available.</div>
+      </div>
+    </section>
+
+    <section class="sf-card" *ngIf="!isLoading && !loadFailed && openingCards.length" data-testid="section-opening">
+      <div class="sf-ch">
+        <div>
+          <h2>Opening balances</h2>
+          <div class="sf-mu sf-sm">
+            Stock on hand and open customer / supplier balances at the opening balance date
+            <ng-container *ngIf="openingDate"> (<strong data-testid="opening-date">{{ openingDate | date:'dd MMM yyyy' }}</strong>)</ng-container>.
+            Import them after the master data. Opening balances cannot be updated once imported.
+          </div>
+        </div>
+      </div>
+      <div class="imp-cards">
+        <div class="imp-card" *ngFor="let c of openingCards; trackBy: trackCard" [attr.data-testid]="'card-' + c.profile.entityType">
+          <div class="imp-card-top">
+            <span class="imp-order">{{ c.profile.importOrder }}</span>
+            <i [class]="c.icon"></i>
+            <strong>{{ c.profile.name }}</strong>
+          </div>
+          <div class="sf-mu sf-sm imp-desc">{{ c.profile.description }}</div>
+          <div class="imp-blocked sf-sm" *ngIf="c.blocked" [attr.data-testid]="'blocked-' + c.profile.entityType">
+            <i class="pi pi-calendar"></i> {{ c.blocked }}
+            <a [routerLink]="openingDateRoute" [attr.data-testid]="'set-date-' + c.profile.entityType">Set it now</a>
+          </div>
+          <div class="imp-card-foot">
+            <span class="sf-pill" [ngClass]="c.lastTone">{{ c.last }}</span>
+            <p-button *ngIf="canUpload" label="Import" icon="pi pi-upload" size="small" [disabled]="!!c.blocked"
+                      [routerLink]="c.blocked ? null : [importRoute, c.profile.entityType]"
+                      [attr.data-testid]="'import-' + c.profile.entityType"></p-button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="sf-card p0" *ngIf="canUpload" data-testid="recent">
+      <div class="sf-ch sf-pad"><h2>Recent imports</h2></div>
+      <p-table [value]="recent" [loading]="recentLoading" [tableStyle]="{ 'min-width': '52rem' }">
+        <ng-template pTemplate="header">
+          <tr><th>File</th><th>Entity</th><th>Status</th><th class="text-right">Rows</th><th class="text-right">Imported</th>
+              <th class="text-right">Errors</th><th>When</th><th>By</th></tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-s>
+          <tr data-testid="recent-row">
+            <td><a [routerLink]="[importRoute, 'sessions', s.uuid]" data-testid="recent-link">{{ s.fileName }}</a></td>
+            <td>{{ s.entityName }}</td>
+            <td><span class="sf-pill" [ngClass]="s.statusTone" data-testid="recent-status">{{ s.statusLabel }}</span></td>
+            <td class="text-right">{{ s.totalRows | number }}</td>
+            <td class="text-right">{{ s.importedRows + s.updatedRows | number }}</td>
+            <td class="text-right">{{ s.invalidRows + s.errorRows | number }}</td>
+            <td>{{ s.createdAt | date:'dd MMM yyyy, HH:mm' }}</td>
+            <td>{{ s.createdByName }}</td>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="emptymessage">
+          <tr><td colspan="8" class="sf-empty">No imports yet.</td></tr>
+        </ng-template>
+      </p-table>
+    </section>
+  </div>
+</sf-page>

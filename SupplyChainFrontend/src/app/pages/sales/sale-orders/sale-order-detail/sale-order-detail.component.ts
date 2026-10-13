@@ -117,11 +117,12 @@ export const SALE_ORDER_SOURCE_LABELS: Record<SaleOrderSourceType, string> = {
   MANUAL:         'Manual',
   FROM_QUOTATION: 'From quotation',
   PORTAL:         'Customer portal',
-  INTER_TENANT:   'Inter-tenant'
+  INTER_TENANT:   'Inter-tenant',
+  FROM_OPPORTUNITY: 'From opportunity'   // A41 D-13
 };
 
 const SOURCE_SEVERITY: Record<SaleOrderSourceType, Severity> = {
-  MANUAL: 'secondary', FROM_QUOTATION: 'info', PORTAL: 'contrast', INTER_TENANT: 'contrast'
+  MANUAL: 'secondary', FROM_QUOTATION: 'info', PORTAL: 'contrast', INTER_TENANT: 'contrast', FROM_OPPORTUNITY: 'info'
 };
 
 /** §6.3 — what each delivery indicator colour means, for its tooltip. */

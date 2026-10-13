@@ -54,4 +54,10 @@ public class ProductMovementContext
 
     public string?  Notes           { get; set; }
     public int      CreatedBy       { get; set; }
+
+    /// <summary>
+    /// A40 (TFIN) — the business date of the movement (e.g. the opening balance date of imported opening stock). Null =
+    /// now, as every movement was dated before. CreatedDate is always now.
+    /// </summary>
+    public DateTime? TransactionDate { get; set; }
 }

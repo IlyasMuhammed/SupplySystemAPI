@@ -52,14 +52,14 @@ public sealed class A35DemandMigrationTests : IAsyncLifetime
     {
         await using var db = NewContext();
         var a35 = db.Database.GetMigrations().Single(m => m.EndsWith("_A35_MultiCurrencyOnDemandDocuments", StringComparison.Ordinal));
-        db.Database.GetMigrations().Last().Should().Be(a35, "it is Demand's latest migration");
+        var migrator = db.GetService<IMigrator>();
 
-        await db.Database.MigrateAsync();
+        // Up to A35 itself (later addenda have migrations after it).
+        await migrator.MigrateAsync(a35);
         var up = await ColumnsAsync(db);
         foreach (var (table, column, _) in A35_MultiCurrencyOnDemandDocuments.Columns)
             up.Should().Contain((table, column));
 
-        var migrator = db.GetService<IMigrator>();
         await migrator.MigrateAsync(A34);
         var down = await ColumnsAsync(db);
         foreach (var (table, column, _) in A35_MultiCurrencyOnDemandDocuments.Columns)
@@ -72,9 +72,9 @@ public sealed class A35DemandMigrationTests : IAsyncLifetime
         // Drift: the history forgets A35 but every column is there (SMSGlobal). It must run again cleanly.
         var history = db.GetService<IHistoryRepository>();
         await db.Database.ExecuteSqlRawAsync(history.GetDeleteScript(a35));
-        await db.Database.MigrateAsync();
+        await migrator.MigrateAsync(a35);
         (await ColumnsAsync(db)).Should().BeEquivalentTo(up);
-        (await db.Database.GetPendingMigrationsAsync()).Should().BeEmpty();
+        (await db.Database.GetAppliedMigrationsAsync()).Should().Contain(a35);
     }
 
     [Fact]

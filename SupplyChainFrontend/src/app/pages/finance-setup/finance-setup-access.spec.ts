@@ -12,6 +12,7 @@ import { FinanceSetupService } from '../../services/finance-setup.service';
 import { CurrenciesService } from '../../services/currencies.service';
 import { OrgCurrencyService } from '../../services/org-currency.service';
 import { MoneyService } from '../../services/money.service';
+import { ImportService } from '../../services/import.service';
 import { TaxCodesComponent } from './tax-codes/tax-codes.component';
 import { ExchangeRatesComponent } from './exchange-rates/exchange-rates.component';
 import { OrgCurrenciesComponent } from './org-currencies/org-currencies.component';
@@ -138,6 +139,7 @@ describe('Finance setup access', () => {
   describe('pages for a finance viewer (INVOICE_VIEW only)', () => {
     let service: jasmine.SpyObj<FinanceSetupService>;
     let currencyService: jasmine.SpyObj<OrgCurrencyService>;
+    let importService: jasmine.SpyObj<ImportService>;
 
     async function render<T>(component: new (...args: any[]) => T) {
       service = jasmine.createSpyObj<FinanceSetupService>('FinanceSetupService', [
@@ -167,6 +169,8 @@ describe('Finance setup access', () => {
       } }));
       const catalog = jasmine.createSpyObj<CurrenciesService>('CurrenciesService', ['getAll']);
       catalog.getAll.and.returnValue(of({ success: true, message: '', result: [] }));
+      importService = jasmine.createSpyObj<ImportService>('ImportService', ['getOpeningBalanceDate', 'setOpeningBalanceDate']);
+      importService.getOpeningBalanceDate.and.returnValue(of({ success: true, message: '', result: { date: '2026-01-01' } }));
 
       await TestBed.resetTestingModule().configureTestingModule({
         imports: [component],
@@ -176,7 +180,9 @@ describe('Finance setup access', () => {
           { provide: FinanceSetupService, useValue: service },
           { provide: OrgCurrencyService, useValue: currencyService },
           { provide: CurrenciesService, useValue: catalog },
-          { provide: MoneyService, useValue: jasmine.createSpyObj('MoneyService', ['reload']) }
+          { provide: MoneyService, useValue: jasmine.createSpyObj('MoneyService', ['reload']) },
+          // A40 — the opening balance date card on Currency Configuration.
+          { provide: ImportService, useValue: importService }
         ]
       }).compileComponents();
 
@@ -251,6 +257,10 @@ describe('Finance setup access', () => {
       expect(el.querySelector('[data-testid="save"]')).toBeNull();
       page.save();
       expect(currencyService.saveSettings).not.toHaveBeenCalled();
+      // A40 — the opening balance date is shown, without its Save (FINANCE_SETUP_MANAGE).
+      expect(el.querySelector('[data-testid="opening-date-card"]')).not.toBeNull();
+      expect(el.querySelector('[data-testid="opening-date-save"]')).toBeNull();
+      expect(importService.setOpeningBalanceDate).not.toHaveBeenCalled();
       fixture.destroy();
     });
   });

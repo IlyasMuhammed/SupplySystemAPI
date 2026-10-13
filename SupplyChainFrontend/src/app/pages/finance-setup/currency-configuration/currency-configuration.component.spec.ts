@@ -7,6 +7,7 @@ import { of, throwError } from 'rxjs';
 import { CurrencyConfigurationComponent } from './currency-configuration.component';
 import { OrgCurrencyModel, OrgCurrencyService, OrgCurrencySettingsModel } from '../../../services/org-currency.service';
 import { MoneyService } from '../../../services/money.service';
+import { ImportService } from '../../../services/import.service';
 import { AuthService } from '../../service/auth.service';
 
 function cur(code: string, o: Partial<OrgCurrencyModel> = {}): OrgCurrencyModel {
@@ -54,6 +55,8 @@ describe('CurrencyConfigurationComponent (A35-P2-05, §11.1)', () => {
         provideNoopAnimations(),
         { provide: OrgCurrencyService, useValue: service },
         { provide: MoneyService, useValue: money },
+        // A40 — the opening balance date card (own spec: opening-balance-date.component.spec.ts).
+        { provide: ImportService, useValue: { getOpeningBalanceDate: () => of({ success: true, message: '', result: { date: null } }) } },
         { provide: AuthService, useValue: { hasPermission: (p: string) => permissions.includes(p) } }
       ]
     }).compileComponents();

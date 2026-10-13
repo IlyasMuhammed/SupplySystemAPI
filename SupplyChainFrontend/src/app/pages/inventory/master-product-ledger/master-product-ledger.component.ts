@@ -30,6 +30,8 @@ const TRANSACTION_TYPE_OPTIONS = [
   { label: 'POS Sale',          value: 'POS_SALE' },
   { label: 'POS Return',        value: 'POS_RETURN' },
   { label: 'POS Void',          value: 'POS_VOID' },
+  // A40 — stock on hand brought in by the data import at the opening balance date.
+  { label: 'Opening stock',     value: 'OPENING_STOCK' },
 ];
 
 const PARTY_TYPE_OPTIONS = [
@@ -273,6 +275,7 @@ export class MasterProductLedgerComponent implements OnInit {
       case 'TRANSFER_IN':
       case 'POS_RETURN':
       case 'POS_VOID':
+      case 'OPENING_STOCK':
         return 'success'; // stock coming in
       case 'RETURN_DISPATCH':
       case 'MATERIAL_ISSUE':

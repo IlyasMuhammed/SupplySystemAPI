@@ -1,5 +1,9 @@
 import { Routes } from '@angular/router';
 import { ModulesComponent } from './settings/modules/modules.component';
+import { ImportDashboardComponent } from './settings/import/import-dashboard/import-dashboard.component';
+import { ImportWizardComponent } from './settings/import/import-wizard/import-wizard.component';
+import { ImportMigrationComponent } from './settings/import/import-migration/import-migration.component';
+import { ImportSessionDetailComponent } from './settings/import/import-session-detail/import-session-detail.component';
 import { PrListComponent } from './demand/requisitions/pr-list/pr-list.component';
 import { PrCreateComponent } from './demand/requisitions/pr-create/pr-create.component';
 import { PrDetailComponent } from './demand/requisitions/pr-detail/pr-detail.component';
@@ -171,6 +175,22 @@ import { PosReturnPolicyPageComponent } from './pos/return-policy-page/return-po
 import { PosReturnReasonsComponent } from './pos/return-reasons/return-reasons.component';
 import { PosStoreCreditListComponent } from './pos/store-credit-list/store-credit-list.component';
 import { PosStoreCreditDetailComponent } from './pos/store-credit-detail/store-credit-detail.component';
+import { LeadListComponent } from './crm/leads/lead-list.component';
+import { LeadDetailComponent } from './crm/leads/lead-detail.component';
+import { OpportunityListComponent } from './crm/opportunities/opportunity-list.component';
+import { OpportunityDetailComponent } from './crm/opportunities/opportunity-detail.component';
+import { CrmActivityListComponent } from './crm/activities/activity-list.component';
+import { CampaignListComponent } from './crm/campaigns/campaign-list.component';
+import { CrmSettingsComponent } from './crm/settings/crm-settings.component';
+import { GlDashboardComponent } from './finance/gl/dashboard/gl-dashboard.component';
+import { GlSetupWizardComponent } from './finance/gl/setup-wizard/gl-setup-wizard.component';
+import { GlAccountsComponent } from './finance/gl/accounts/gl-accounts.component';
+import { GlFiscalYearsComponent } from './finance/gl/fiscal-years/gl-fiscal-years.component';
+import { GlDefaultsComponent } from './finance/gl/defaults/gl-defaults.component';
+import { GlOpeningBalancesComponent } from './finance/gl/opening-balances/gl-opening-balances.component';
+import { GlIntegrationsComponent } from './finance/gl/integrations/gl-integrations.component';
+import { GlSetupStatusComponent } from './finance/gl/setup-status/gl-setup-status.component';
+import { glFeatureGuard, glSetupCompleteGuard } from './finance/gl/gl.guards';
 
 // Permission code constants (mirrors PermissionCodes.cs)
 const P = {
@@ -310,7 +330,25 @@ const P = {
   POS_RETURN_POLICY_MANAGE: 'POS_RETURN_POLICY_MANAGE',
   POS_RETURN_REASON_MANAGE: 'POS_RETURN_REASON_MANAGE',
   POS_CREDIT_NOTE_VIEW:     'POS_CREDIT_NOTE_VIEW',
+  // Addendum 40 — data import (docs/data-import/API-CONTRACT.md, D-9).
+  IMPORT_PROFILE_VIEW: 'IMPORT_PROFILE_VIEW',
+  IMPORT_UPLOAD:       'IMPORT_UPLOAD',
+  IMPORT_MANAGE:       'IMPORT_MANAGE',
+  // Addendum 41 — CRM (docs/crm/API-CONTRACT.md, D-3).
+  CRM_VIEW_LEADS:         'CRM_VIEW_LEADS',
+  CRM_VIEW_OPPORTUNITIES: 'CRM_VIEW_OPPORTUNITIES',
+  CRM_VIEW_ACTIVITIES:    'CRM_VIEW_ACTIVITIES',
+  CRM_VIEW_CAMPAIGNS:     'CRM_VIEW_CAMPAIGNS',
+  CRM_MANAGE_CAMPAIGNS:   'CRM_MANAGE_CAMPAIGNS',
+  CRM_ADMIN:              'CRM_ADMIN',
+  // Addendum 42 — General Ledger (docs/general-ledger/API-CONTRACT.md, D-14).
+  GL_VIEW:                'GL_VIEW',
+  GL_ACCOUNT_MANAGE:      'GL_ACCOUNT_MANAGE',
+  GL_SETUP_MANAGE:        'GL_SETUP_MANAGE',
 } as const;
+
+/** A42 — every GL page opens for any of the three GL codes (custom roles may hold only one). */
+const GL_READ = [P.GL_VIEW, P.GL_ACCOUNT_MANAGE, P.GL_SETUP_MANAGE];
 
 export default [
     // ── Users & Roles (System Admin only) ─────────────────────────────────────
@@ -383,6 +421,17 @@ export default [
     // A37 — Settings › Modules (docs/module-registry/API-CONTRACT.md §1.1).
     { path: 'settings/modules', component: ModulesComponent,
       canActivate: [permissionGuard(P.MODULES_VIEW, P.MODULES_MANAGE)] },
+    // A40 — Settings › Data Import (docs/data-import/API-CONTRACT.md). The dashboard and the migration checklist open
+    // with IMPORT_PROFILE_VIEW (their buttons need IMPORT_UPLOAD); the wizard needs IMPORT_UPLOAD; a session opens for
+    // its uploader (IMPORT_UPLOAD, own) or IMPORT_MANAGE. "migration" and "sessions" ahead of ":entityType".
+    { path: 'settings/import', component: ImportDashboardComponent,
+      canActivate: [permissionGuard(P.IMPORT_PROFILE_VIEW)] },
+    { path: 'settings/import/migration', component: ImportMigrationComponent,
+      canActivate: [permissionGuard(P.IMPORT_PROFILE_VIEW)] },
+    { path: 'settings/import/sessions/:uuid', component: ImportSessionDetailComponent,
+      canActivate: [permissionGuard(P.IMPORT_UPLOAD, P.IMPORT_MANAGE)] },
+    { path: 'settings/import/:entityType', component: ImportWizardComponent,
+      canActivate: [permissionGuard(P.IMPORT_UPLOAD)] },
     { path: 'sale-order-settings', component: SaleOrderSettingsComponent,
       canActivate: [permissionGuard(P.SALE_ORDER_CONFIG_READ)] },
     // A33 — Settings → Fulfillment Routes (API-CONTRACT.md §2). VIEW or MANAGE opens it; writes are gated on the page
@@ -447,6 +496,21 @@ export default [
 
     // ── Services — Service Orders (A36 D-15) ──────────────────────────────────
     // "new" and "dashboard" ahead of ":uuid".
+    // ── CRM (A41, docs/crm/API-CONTRACT.md) — same codes as the menu; the API also needs MODULE_CRM. ──
+    { path: 'crm/leads', component: LeadListComponent,
+      canActivate: [permissionGuard(P.CRM_VIEW_LEADS)] },
+    { path: 'crm/leads/:uuid', component: LeadDetailComponent,
+      canActivate: [permissionGuard(P.CRM_VIEW_LEADS)] },
+    { path: 'crm/opportunities', component: OpportunityListComponent,
+      canActivate: [permissionGuard(P.CRM_VIEW_OPPORTUNITIES)] },
+    { path: 'crm/opportunities/:uuid', component: OpportunityDetailComponent,
+      canActivate: [permissionGuard(P.CRM_VIEW_OPPORTUNITIES)] },
+    { path: 'crm/activities', component: CrmActivityListComponent,
+      canActivate: [permissionGuard(P.CRM_VIEW_ACTIVITIES)] },
+    { path: 'crm/campaigns', component: CampaignListComponent,
+      canActivate: [permissionGuard(P.CRM_VIEW_CAMPAIGNS, P.CRM_MANAGE_CAMPAIGNS)] },
+    { path: 'crm/settings', component: CrmSettingsComponent,
+      canActivate: [permissionGuard(P.CRM_ADMIN)] },
     { path: 'services/service-orders', component: ServiceOrderListComponent,
       canActivate: [permissionGuard(P.SERVICE_ORDER_VIEW)] },
     { path: 'services/service-orders/new', component: ServiceOrderFormComponent,
@@ -710,6 +774,26 @@ export default [
     // A35-E-06 — exchange differences register (API-CONTRACT.md §7.1, any of these codes).
     { path: 'finance/exchange-differences', component: ExchangeDifferencesComponent,
       canActivate: [permissionGuard(P.INVOICE_VIEW, P.SALES_INVOICE_VIEW, P.CUSTOMER_PAYMENT_VIEW, P.PAYMENT_VIEW, P.EXCHANGE_REVALUATION_RUN)] },
+
+    // ── General Ledger (A42 D-26, docs/general-ledger/API-CONTRACT.md) — GL_VIEW / GL_ACCOUNT_MANAGE / GL_SETUP_MANAGE + FEATURE_GENERAL_LEDGER on every page;
+    // writes are gated on the pages (GL_ACCOUNT_MANAGE / GL_SETUP_MANAGE) and by the server. The dashboard opens only once
+    // setup is Complete (else the wizard, with a banner naming the next step — D-4).
+    { path: 'finance/gl', component: GlDashboardComponent,
+      canActivate: [permissionGuard(...GL_READ), glFeatureGuard, glSetupCompleteGuard] },
+    { path: 'finance/gl/setup', component: GlSetupWizardComponent,
+      canActivate: [permissionGuard(...GL_READ), glFeatureGuard] },
+    { path: 'finance/gl/accounts', component: GlAccountsComponent,
+      canActivate: [permissionGuard(...GL_READ), glFeatureGuard] },
+    { path: 'finance/gl/fiscal-years', component: GlFiscalYearsComponent,
+      canActivate: [permissionGuard(...GL_READ), glFeatureGuard] },
+    { path: 'finance/gl/defaults', component: GlDefaultsComponent,
+      canActivate: [permissionGuard(...GL_READ), glFeatureGuard] },
+    { path: 'finance/gl/opening-balances', component: GlOpeningBalancesComponent,
+      canActivate: [permissionGuard(...GL_READ), glFeatureGuard] },
+    { path: 'finance/gl/integrations', component: GlIntegrationsComponent,
+      canActivate: [permissionGuard(...GL_READ), glFeatureGuard] },
+    { path: 'finance/gl/setup-status', component: GlSetupStatusComponent,
+      canActivate: [permissionGuard(...GL_READ), glFeatureGuard] },
 
     // ── Reports & Analytics ───────────────────────────────────────────────────
     { path: 'reports/kpi-dashboard', component: KpiDashboardComponent,

@@ -26,6 +26,9 @@ using SMS.Modules.Tenancy;
 using SMS.Modules.Warehouse;
 using SMS.Modules.Material;
 using SMS.Modules.Pos;
+using SMS.Modules.Import;
+using SMS.Modules.Crm;
+using SMS.Modules.Accounting;
 using SMS.Shared.Common;
 using SMS.WorkflowEngine;
 using Swashbuckle.AspNetCore.SwaggerUI;
@@ -49,6 +52,7 @@ builder.Services.AddCors(options =>
             (uri.Host == "localhost" || uri.Host == "127.0.0.1"))
         .AllowAnyMethod()
         .AllowAnyHeader()
+        .WithExposedHeaders("Content-Disposition") // A40 — lets the browser read server file names on downloads
         .AllowCredentials()));
 
 // ── App settings ──────────────────────────────────────────────────────────────
@@ -112,7 +116,8 @@ builder.Services.AddHangfire(config => config
         UseRecommendedIsolationLevel = true,
         DisableGlobalLocks = true
     }));
-builder.Services.AddHangfireServer();
+// A40 — the server also works the "import" queue (background data imports; see ImportExecutionJob).
+builder.Services.AddHangfireServer(options => options.Queues = new[] { "default", "import" });
 
 // ── Rate limiting — per-IP throttle for the public RFQ portal ────────────────
 builder.Services.AddRateLimiter(opts =>
@@ -190,6 +195,9 @@ builder.Services.AddReportsModule(builder.Configuration);
 builder.Services.AddWorkflowEngineModule(builder.Configuration);
 builder.Services.AddMaterialModule(builder.Configuration);
 builder.Services.AddPosModule(builder.Configuration); // A38 — Point of Sale
+builder.Services.AddImportModule(builder.Configuration); // A40 — Data import (targets are registered by their owning modules)
+builder.Services.AddCrmModule(builder.Configuration); // A41 — CRM: leads, pipeline, opportunities, activities
+builder.Services.AddAccountingModule(builder.Configuration); // A42 — GL setup: chart of accounts, fiscal periods, GL opening balances
 // Last on purpose: it replaces the NullQuickBooksGateway the modules above TryAdd.
 builder.Services.AddIntegrationModule(builder.Configuration);
 
@@ -331,10 +339,14 @@ app.UseMaterialModule();       // ensures material schema migrations (projects, 
 app.UseLogisticsModule();      // ensures logistics schema migrations (delivery/consignment tables) are applied
 app.UsePosModule();            // A38: pos schema migrations + hourly stale-shift alert
 app.UseIntegrationModule();    // QuickBooks gateway: integration schema migrations + sync/token jobs
+app.UseImportModule();         // A40: import schema migrations + profile reconcile + daily row purge
+app.UseCrmModule();            // A41: crm schema migrations + per-organization lead sources / pipeline stages
+app.UseAccountingModule();     // A42: GL tables in schema finance (guarded migration)
 
 app.MapControllers();
 app.MapHub<NotificationHub>("/hubs/notifications");
 app.MapPosHub();               // A38: /hubs/pos
+app.MapImportHub();            // A40: /hubs/import
 app.Run();
 
 public partial class Program { }

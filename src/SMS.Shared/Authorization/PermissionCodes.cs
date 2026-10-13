@@ -1,3 +1,5 @@
+using SMS.Shared.Common;
+
 namespace SMS.Shared.Authorization;
 
 /// <summary>
@@ -374,6 +376,54 @@ public static class PermissionCodes
     public const string POS_CREDIT_NOTE_VIEW      = "POS_CREDIT_NOTE_VIEW";
     public const string POS_CREDIT_NOTE_REPORTS   = "POS_CREDIT_NOTE_REPORTS";
 
+    // ── Data import (Addendum 40, D-9; docs/data-import/API-CONTRACT.md) ──
+    /// <summary>Reading the import profiles (entity cards, field reference).</summary>
+    public const string IMPORT_PROFILE_VIEW    = "IMPORT_PROFILE_VIEW";
+    /// <summary>Changing an import profile's duplicate strategy and limits for the organization.</summary>
+    public const string IMPORT_PROFILE_MANAGE  = "IMPORT_PROFILE_MANAGE";
+    /// <summary>Downloading templates, uploading files, mapping columns and reading one's own import sessions.</summary>
+    public const string IMPORT_UPLOAD          = "IMPORT_UPLOAD";
+    /// <summary>Validating and executing an import — this writes the organization's master data.</summary>
+    public const string IMPORT_EXECUTE         = "IMPORT_EXECUTE";
+    /// <summary>Seeing and cancelling every user's import sessions.</summary>
+    public const string IMPORT_MANAGE          = "IMPORT_MANAGE";
+    /// <summary>Importing opening stock and customer/supplier opening balances.</summary>
+    public const string IMPORT_OPENING_BALANCE = "IMPORT_OPENING_BALANCE";
+
+    // ── CRM (Addendum 41, D-3; docs/crm/API-CONTRACT.md) ──
+    public const string CRM_VIEW_LEADS          = "CRM_VIEW_LEADS";
+    public const string CRM_CREATE_LEAD         = "CRM_CREATE_LEAD";
+    /// <summary>Editing a lead and changing its status/stage — reps only their own (D-5).</summary>
+    public const string CRM_EDIT_LEAD           = "CRM_EDIT_LEAD";
+    /// <summary>Assigning leads — also the "manager" marker that lifts the own-records rule (D-5).</summary>
+    public const string CRM_ASSIGN_LEAD         = "CRM_ASSIGN_LEAD";
+    public const string CRM_QUALIFY_LEAD        = "CRM_QUALIFY_LEAD";
+    public const string CRM_CONVERT_LEAD        = "CRM_CONVERT_LEAD";
+    public const string CRM_DISQUALIFY_LEAD     = "CRM_DISQUALIFY_LEAD";
+    public const string CRM_REOPEN_LEAD         = "CRM_REOPEN_LEAD";
+    public const string CRM_DELETE_LEAD         = "CRM_DELETE_LEAD";
+    public const string CRM_VIEW_OPPORTUNITIES  = "CRM_VIEW_OPPORTUNITIES";
+    public const string CRM_EDIT_OPPORTUNITY    = "CRM_EDIT_OPPORTUNITY";
+    public const string CRM_CLOSE_OPPORTUNITY   = "CRM_CLOSE_OPPORTUNITY";
+    public const string CRM_REOPEN_OPPORTUNITY  = "CRM_REOPEN_OPPORTUNITY";
+    public const string CRM_VIEW_ACTIVITIES     = "CRM_VIEW_ACTIVITIES";
+    public const string CRM_CREATE_ACTIVITY     = "CRM_CREATE_ACTIVITY";
+    public const string CRM_EDIT_ACTIVITY       = "CRM_EDIT_ACTIVITY";
+    public const string CRM_DELETE_ACTIVITY     = "CRM_DELETE_ACTIVITY";
+    public const string CRM_EXPORT_TIMELINE     = "CRM_EXPORT_TIMELINE";
+    public const string CRM_VIEW_CAMPAIGNS      = "CRM_VIEW_CAMPAIGNS";
+    public const string CRM_MANAGE_CAMPAIGNS    = "CRM_MANAGE_CAMPAIGNS";
+    /// <summary>CRM configuration: lead sources, pipeline stages, sales teams, public API keys.</summary>
+    public const string CRM_ADMIN               = "CRM_ADMIN";
+
+    // ── General ledger setup (Addendum 42, D-14; docs/general-ledger/API-CONTRACT.md) ──
+    /// <summary>Reading the chart of accounts, templates, fiscal years, defaults, opening balances, mappings and setup status.</summary>
+    public const string GL_VIEW            = AccountingCodes.GlView;
+    /// <summary>Creating, editing and deleting accounts in the chart of accounts ("Finance.Write").</summary>
+    public const string GL_ACCOUNT_MANAGE  = AccountingCodes.GlAccountManage;
+    /// <summary>Applying/uploading a chart, fiscal years and periods, defaults, opening balances, complete/reset, mappings ("Finance.Admin").</summary>
+    public const string GL_SETUP_MANAGE    = AccountingCodes.GlSetupManage;
+
     // ── All codes (used by System Admin seed) ─────────────────────────────────
     public static readonly IReadOnlyList<string> All =
     [
@@ -421,5 +471,12 @@ public static class PermissionCodes
         POS_CASH_MOVEMENT, POS_PRODUCT_SETTINGS, POS_CUSTOMER_SETTINGS, POS_REPORTS_VIEW,
         POS_RETURN_CROSS_STORE, POS_RETURN_OVERRIDE, POS_RETURN_POLICY_MANAGE, POS_RETURN_REASON_MANAGE, POS_RETURN_REPORTS,
         POS_CREDIT_NOTE_ISSUE, POS_CREDIT_NOTE_REDEEM, POS_CREDIT_NOTE_CANCEL, POS_CREDIT_NOTE_VIEW, POS_CREDIT_NOTE_REPORTS,
+        IMPORT_PROFILE_VIEW, IMPORT_PROFILE_MANAGE, IMPORT_UPLOAD, IMPORT_EXECUTE, IMPORT_MANAGE, IMPORT_OPENING_BALANCE,
+        CRM_VIEW_LEADS, CRM_CREATE_LEAD, CRM_EDIT_LEAD, CRM_ASSIGN_LEAD, CRM_QUALIFY_LEAD, CRM_CONVERT_LEAD,
+        CRM_DISQUALIFY_LEAD, CRM_REOPEN_LEAD, CRM_DELETE_LEAD,
+        CRM_VIEW_OPPORTUNITIES, CRM_EDIT_OPPORTUNITY, CRM_CLOSE_OPPORTUNITY, CRM_REOPEN_OPPORTUNITY,
+        CRM_VIEW_ACTIVITIES, CRM_CREATE_ACTIVITY, CRM_EDIT_ACTIVITY, CRM_DELETE_ACTIVITY, CRM_EXPORT_TIMELINE,
+        CRM_VIEW_CAMPAIGNS, CRM_MANAGE_CAMPAIGNS, CRM_ADMIN,
+        GL_VIEW, GL_ACCOUNT_MANAGE, GL_SETUP_MANAGE,
     ];
 }

@@ -67,8 +67,16 @@ public static class SuppliersModuleExtensions
         services.TryAddScoped<ICustomerBalanceLookup, SalesInvoiceCustomerBalanceLookup>();
         // A38 — the customer master as the POS module reads it (explicit organization).
         services.AddScoped<IPosCustomerSource, PosCustomerSource>();
+        // A41 D-19/D-20 — accounts and contact persons for the CRM (lead conversion, duplicate check, pickers).
+        services.AddScoped<ICrmAccountGateway, CrmAccountGateway>();
         // A38 (FIN) — payment terms for the due date of a POS credit sale.
         services.AddScoped<SMS.Modules.Finance.Services.ICustomerPaymentTermsLookup, CustomerPaymentTermsLookup>();
+        // A40 (TFIN) — partners by code for Finance's customer / supplier opening-balance import targets.
+        services.AddScoped<SMS.Modules.Finance.Import.IImportPartnerLookup, ImportPartnerLookup>();
+        // A40 (TSUP) — data import targets: customers, suppliers (approved on import, D-4), supplier contacts.
+        services.AddScoped<IImportTarget, SMS.Modules.Suppliers.Import.CustomerImportTarget>();
+        services.AddScoped<IImportTarget, SMS.Modules.Suppliers.Import.SupplierImportTarget>();
+        services.AddScoped<IImportTarget, SMS.Modules.Suppliers.Import.SupplierContactImportTarget>();
 
         // Replaces Warehouse's NullGrnEventPublisher registration — must run AFTER AddWarehouseModule()
         // in Program.cs for this override to win (last registration for a given service type wins).

@@ -32,6 +32,9 @@ public sealed class AnonymousEndpointsTests : IClassFixture<SapWebApplicationFac
         ["WhatsAppWebhookController"] = ["*"],
         // Intuit's OAuth redirect: bound to a single-use, hashed state token.
         ["CallbackController"]        = ["*"],
+        // A41 D-16 — external lead capture: the X-Api-Key (stored hashed, per organization) picks the organization; every
+        // write carries that organization explicitly; per-key rate limit; create only, nothing is read back.
+        ["PublicLeadsController"]     = ["Create"],
     };
 
     private readonly SapWebApplicationFactory _f;

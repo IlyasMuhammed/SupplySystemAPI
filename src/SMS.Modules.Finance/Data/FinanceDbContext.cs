@@ -41,6 +41,8 @@ internal sealed class FinanceDbContext : DbContext, ITenantScopedDbContext
     internal DbSet<OrgCurrency>        OrgCurrencies       => Set<OrgCurrency>();
     internal DbSet<CurrencyRate>       CurrencyRates       => Set<CurrencyRate>();
     internal DbSet<ExchangeDifference> ExchangeDifferences => Set<ExchangeDifference>();
+    // A40 (TFIN, D-7) — per-organization Finance settings (the opening balance date).
+    internal DbSet<FinanceOrgSettings> OrgSettings => Set<FinanceOrgSettings>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

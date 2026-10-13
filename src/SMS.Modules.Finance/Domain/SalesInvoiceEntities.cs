@@ -38,6 +38,15 @@ internal static class SalesInvoiceSources
 {
     public const string SaleOrder = "SALE_ORDER";
     public const string Pos       = "POS";
+    /// <summary>
+    /// A40 (TFIN, D-5) — a customer's opening balance imported at go-live: an issued invoice of one non-stock line (no
+    /// variant: <see cref="SalesInvoiceLine.VariantUuid"/> is <see cref="Guid.Empty"/>), booked on the customer ledger as
+    /// OPENING_BAL, never on the product ledger and never sent to QuickBooks. <see cref="SalesInvoice.SourceNumber"/> = the
+    /// legacy invoice reference; <see cref="SalesInvoice.SourceUuid"/> = a key derived from (organization, customer, reference),
+    /// so the unique (organization, source uuid) index refuses a second opening invoice for the same reference.
+    /// The same value marks an opening supplier bill (<see cref="Invoice.SourceType"/>).
+    /// </summary>
+    public const string Opening   = "OPENING";
 }
 
 /// <summary>A38 (FIN) — the customer ledger / product ledger reference types of the counter-sale documents.</summary>

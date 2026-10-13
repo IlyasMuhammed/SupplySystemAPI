@@ -15,6 +15,7 @@ import { MoneyService } from '../../../services/money.service';
 import { AuthService } from '../../service/auth.service';
 import { setupErrorMessage } from '../finance-setup.shared';
 import { FLOW } from '../../../shared/flow';
+import { OpeningBalanceDateComponent } from '../opening-balance-date/opening-balance-date.component';
 
 export type BaseDomain = 'sale' | 'purchase' | 'service';
 
@@ -44,7 +45,7 @@ const DOMAINS: { key: BaseDomain; label: string; field: 'saleBaseCurrencyId' | '
 @Component({
   selector: 'app-currency-configuration',
   standalone: true,
-  imports: [CommonModule, FormsModule, ButtonModule, InputTextModule, SelectModule, ToastModule, TooltipModule, ...FLOW],
+  imports: [CommonModule, FormsModule, ButtonModule, InputTextModule, SelectModule, ToastModule, TooltipModule, OpeningBalanceDateComponent, ...FLOW],
   templateUrl: './currency-configuration.component.html',
   styleUrls: ['../finance-setup.scss', './currency-configuration.component.scss'],
   providers: [MessageService]

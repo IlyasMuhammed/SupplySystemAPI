@@ -10,12 +10,13 @@ import { appRoutes } from './app.routes';
 import { authInterceptor } from './app/pages/interceptors/auth.interceptor';
 import { tokenRefreshInterceptor } from './app/pages/interceptors/token-refresh.interceptor';
 import { moduleErrorInterceptor } from './app/pages/interceptors/module-error.interceptor';
+import { glSetupRequiredInterceptor } from './app/pages/finance/gl/gl.guards';
 import { MessageService } from 'primeng/api';
 
 export const appConfig: ApplicationConfig = {
     providers: [
         provideRouter(appRoutes, withInMemoryScrolling({ anchorScrolling: 'enabled', scrollPositionRestoration: 'enabled' }), withEnabledBlockingInitialNavigation()),
-        provideHttpClient(withFetch(), withInterceptors([authInterceptor, tokenRefreshInterceptor, moduleErrorInterceptor])),
+        provideHttpClient(withFetch(), withInterceptors([authInterceptor, tokenRefreshInterceptor, moduleErrorInterceptor, glSetupRequiredInterceptor])),
         // A37 — root instance for global notices (the shell's <p-toast key="sms-global">, e.g. module 403s).
         // Pages keep providing their own MessageService for their own toasts.
         MessageService,

@@ -186,7 +186,7 @@ export interface ConfirmBlockerModel {
 export type DeliveryIndicator = 'GREEN' | 'BLUE' | 'YELLOW' | 'RED' | 'GREY';
 
 /** MANUAL | FROM_QUOTATION | PORTAL | INTER_TENANT (A32 §5.4). */
-export type SaleOrderSourceType = 'MANUAL' | 'FROM_QUOTATION' | 'PORTAL' | 'INTER_TENANT';
+export type SaleOrderSourceType = 'MANUAL' | 'FROM_QUOTATION' | 'PORTAL' | 'INTER_TENANT' | 'FROM_OPPORTUNITY';
 
 /** A linked document in the chain inquiry → quotation → sale order. */
 export interface SalesDocumentLink {
@@ -228,6 +228,8 @@ export interface SaleOrderModel {
   customerPoDate?: string | null;
   /** The CUSTOMER_PO attachment (api/attachments) linked as the customer's PO document. */
   customerPoAttachmentUuid?: string | null;
+  /** A41 D-13 — the CRM opportunity this order serves — link to /pages/crm/opportunities/{uuid}. */
+  sourceOpportunityUuid?: string | null;
   /** Empty on list rows; the detail carries them. */
   lines: SaleOrderLineModel[];
   // A33 — optional so older fixtures compile; the detail read always sends them.
@@ -429,6 +431,8 @@ export interface CreateSaleOrderRequest {
   customerPoReference?: string;
   /** Date-only "yyyy-MM-dd" (shared date-only helpers, no UTC shift). */
   customerPoDate?: string;
+  /** A41 D-13 — typed from a CRM opportunity: the order is FROM_OPPORTUNITY and links back to it. */
+  sourceOpportunityUuid?: string;
   lines: SaleOrderLineRequest[];
 }
 

@@ -793,6 +793,39 @@ public class SaleQuotationServiceTests
         (await h.Db.SaleQuotations.CountAsync()).Should().Be(0);
     }
 
+    // ── A41 D-13 — the CRM opportunity travels down the chain ────────────────
+
+    [Fact]
+    public async Task A41_an_inquirys_opportunity_travels_to_the_quotation_made_from_it()
+    {
+        var h = NewHarness();
+        var reason = await Reason(h);
+        var inquiry = await ReviewedInquiry(h, reason);
+        var opportunity = Guid.NewGuid();
+        inquiry.SourceOpportunityUuid = opportunity;
+        await h.Db.SaveChangesAsync();
+
+        var uuid = await h.Svc.CreateFromInquiryAsync(inquiry.UUID, FromInquiry(), User);
+
+        (await Stored(h, uuid)).SourceOpportunityUuid.Should().Be(opportunity);
+        (await h.Svc.GetByIdAsync(uuid))!.SourceOpportunityUuid.Should().Be(opportunity);
+    }
+
+    [Fact]
+    public async Task A41_a_quotation_raised_for_an_opportunity_keeps_it_and_one_without_has_none()
+    {
+        var h = NewHarness();
+        var opportunity = Guid.NewGuid();
+        var header = Header(null, Normal(price: 50m));
+        header.SourceOpportunityUuid = opportunity;
+
+        var linked = await h.Svc.CreateAsync(header, User);
+        var plain = await h.Svc.CreateAsync(Header(null, Normal(price: 50m)), User);
+
+        (await Stored(h, linked)).SourceOpportunityUuid.Should().Be(opportunity);
+        (await Stored(h, plain)).SourceOpportunityUuid.Should().BeNull();
+    }
+
     // ── copy ─────────────────────────────────────────────────────────────────
 
     [Fact]

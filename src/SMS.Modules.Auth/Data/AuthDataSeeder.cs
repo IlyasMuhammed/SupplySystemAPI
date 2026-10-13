@@ -25,6 +25,8 @@ internal sealed class AuthDataSeeder
         await SeedRolePermissionsAsync();
         await SeedCurrencyGrantsAsync();
         await SeedCustomerGrantsAsync();
+        await SeedImportGrantsAsync();
+        await SeedGlGrantsAsync();
         await SeedAdminUserAsync();
     }
 
@@ -270,7 +272,170 @@ internal sealed class AuthDataSeeder
         ("Cancel Store Credit",           PermissionCodes.POS_CREDIT_NOTE_CANCEL,   "Cancel a store credit note's remaining balance"),
         ("View Store Credit",             PermissionCodes.POS_CREDIT_NOTE_VIEW,     "Read store credit notes, their balances and transactions"),
         ("View Store Credit Reports",     PermissionCodes.POS_CREDIT_NOTE_REPORTS,  "Read store credit reports (outstanding liability, issued, redeemed, expired)"),
+
+        // A40 D-9 — data import.
+        ("View Import Profiles",          PermissionCodes.IMPORT_PROFILE_VIEW,    "See what can be imported, the fields of each import and the migration checklist"),
+        ("Manage Import Profiles",        PermissionCodes.IMPORT_PROFILE_MANAGE,  "Change an import's duplicate handling and file limits for the organization"),
+        ("Upload Import Files",           PermissionCodes.IMPORT_UPLOAD,          "Download import templates, upload files, map their columns and follow one's own imports"),
+        ("Execute Imports",               PermissionCodes.IMPORT_EXECUTE,         "Validate and run an import — this creates and updates the organization's records"),
+        ("Manage All Imports",            PermissionCodes.IMPORT_MANAGE,          "See and cancel every user's imports"),
+        ("Import Opening Balances",       PermissionCodes.IMPORT_OPENING_BALANCE, "Import opening stock and customer/supplier opening balances"),
+
+        // A41 D-3 — CRM.
+        ("View Leads",                    PermissionCodes.CRM_VIEW_LEADS,          "See leads, their timeline, the lead kanban and the CRM lookups (sources, stages, teams)"),
+        ("Create Leads",                  PermissionCodes.CRM_CREATE_LEAD,         "Capture new leads"),
+        ("Edit Leads",                    PermissionCodes.CRM_EDIT_LEAD,           "Change a lead and move it through its stages — sales reps only their own"),
+        ("Assign Leads",                  PermissionCodes.CRM_ASSIGN_LEAD,         "Assign and reassign leads to salespeople and teams; may change any lead or opportunity"),
+        ("Qualify Leads",                 PermissionCodes.CRM_QUALIFY_LEAD,        "Mark a contacted lead as qualified"),
+        ("Convert Leads",                 PermissionCodes.CRM_CONVERT_LEAD,        "Turn a qualified lead into a customer, a contact person and an opportunity"),
+        ("Disqualify Leads",              PermissionCodes.CRM_DISQUALIFY_LEAD,     "Close a lead as not a valid prospect, with a reason"),
+        ("Re-open Leads",                 PermissionCodes.CRM_REOPEN_LEAD,         "Bring a disqualified lead back to New"),
+        ("Delete Leads",                  PermissionCodes.CRM_DELETE_LEAD,         "Remove a lead that was not converted"),
+        ("View Opportunities",            PermissionCodes.CRM_VIEW_OPPORTUNITIES,  "See opportunities, their pipeline and timeline"),
+        ("Edit Opportunities",            PermissionCodes.CRM_EDIT_OPPORTUNITY,    "Change an opportunity, move its stage and raise its inquiry, quotation or sale order — sales reps only their own"),
+        ("Close Opportunities",           PermissionCodes.CRM_CLOSE_OPPORTUNITY,   "Mark an opportunity won or lost — sales reps only their own"),
+        ("Re-open Opportunities",         PermissionCodes.CRM_REOPEN_OPPORTUNITY,  "Bring a lost opportunity back to Open"),
+        ("View Activities",               PermissionCodes.CRM_VIEW_ACTIVITIES,     "See calls, meetings, notes, tasks, documents and follow-ups"),
+        ("Log Activities",                PermissionCodes.CRM_CREATE_ACTIVITY,     "Record calls, meetings, notes, tasks and documents shared with a prospect"),
+        ("Edit Activities",               PermissionCodes.CRM_EDIT_ACTIVITY,       "Change or complete an activity — sales reps only their own"),
+        ("Delete Activities",             PermissionCodes.CRM_DELETE_ACTIVITY,     "Remove an activity"),
+        ("Export Timelines",              PermissionCodes.CRM_EXPORT_TIMELINE,     "Download a lead's or opportunity's timeline as an Excel workbook"),
+        ("View Campaigns",                PermissionCodes.CRM_VIEW_CAMPAIGNS,      "See marketing campaigns and the leads they brought"),
+        ("Manage Campaigns",              PermissionCodes.CRM_MANAGE_CAMPAIGNS,    "Create, change and remove campaigns"),
+        ("Administer CRM",                PermissionCodes.CRM_ADMIN,               "Configure lead sources, pipeline stages, sales teams and the public lead API keys"),
+
+        // A42 D-14 — general ledger setup.
+        ("View General Ledger",           PermissionCodes.GL_VIEW,                 "See the chart of accounts, templates, fiscal years, accounting defaults, opening balances, external mappings and the GL setup status"),
+        ("Manage Chart of Accounts",      PermissionCodes.GL_ACCOUNT_MANAGE,       "Add, change and remove accounts in the chart of accounts"),
+        ("Manage General Ledger Setup",   PermissionCodes.GL_SETUP_MANAGE,         "Apply or upload a chart of accounts, set fiscal years and periods, accounting defaults and opening balances, complete or reset the GL setup, and map accounts to external systems"),
     ];
+
+    /// <summary>
+    /// A42 D-14 — GL grants by built-in role CODE: the Finance Manager (holds FINANCE_SETUP_MANAGE) gets all three; the
+    /// Finance Officer (INVOICE_VIEW) and the Auditor get GL_VIEW. System Admin and Org Admin hold every code through
+    /// <see cref="PermissionCodes.All"/>. <see cref="SeedGlGrantsAsync"/> also extends the rule to custom roles by what
+    /// they hold. Only MISSING grants are added.
+    /// </summary>
+    internal static readonly (string RoleCode, string[] Codes)[] GlGrants =
+    [
+        ("FINANCE_MANAGER", [PermissionCodes.GL_VIEW, PermissionCodes.GL_ACCOUNT_MANAGE, PermissionCodes.GL_SETUP_MANAGE]),
+        ("FINANCE_OFFICER", [PermissionCodes.GL_VIEW]),
+        ("AUDITOR",         [PermissionCodes.GL_VIEW]),
+    ];
+
+    /// <summary>A42 D-14 — a role (built-in or custom) allowed FINANCE_SETUP_MANAGE gets every GL code.</summary>
+    internal static readonly string[] GlSetupHolderCodes = [PermissionCodes.GL_VIEW, PermissionCodes.GL_ACCOUNT_MANAGE, PermissionCodes.GL_SETUP_MANAGE];
+
+    /// <summary>A42 D-14 — a role (built-in or custom) allowed INVOICE_VIEW or SALES_INVOICE_VIEW gets GL_VIEW.</summary>
+    internal static readonly string[] GlViewSourceCodes = [PermissionCodes.INVOICE_VIEW, PermissionCodes.SALES_INVOICE_VIEW];
+
+    /// <summary>A42 — see <see cref="GlGrants"/>. Idempotent; a grant an administrator switched off stays off.</summary>
+    internal async Task SeedGlGrantsAsync()
+    {
+        var codes = GlSetupHolderCodes.Concat(GlViewSourceCodes).Append(PermissionCodes.FINANCE_SETUP_MANAGE).Distinct().ToList();
+        var permIds = await _db.Permissions.Where(p => codes.Contains(p.Code)).ToDictionaryAsync(p => p.Code, p => p.PermissionID);
+        var grants = await _db.RolePermissions.IgnoreQueryFilters().Select(rp => new { rp.RoleID, rp.PermissionID, rp.IsAllowed }).ToListAsync();
+        var existing = grants.Select(g => (g.RoleID, g.PermissionID)).ToHashSet();
+
+        var wanted = new List<(int RoleId, string Code)>();
+        var roleCodes = GlGrants.Select(g => g.RoleCode).ToList();
+        var roleIds = await _db.Roles.IgnoreQueryFilters().Where(r => roleCodes.Contains(r.RoleCode))
+            .ToDictionaryAsync(r => r.RoleCode, r => r.RoleID);
+        foreach (var (roleCode, grantCodes) in GlGrants)
+            if (roleIds.TryGetValue(roleCode, out var roleId)) wanted.AddRange(grantCodes.Select(c => (roleId, c)));
+
+        int? Id(string code) => permIds.TryGetValue(code, out var id) ? id : null;
+        var setupId = Id(PermissionCodes.FINANCE_SETUP_MANAGE);
+        var viewSourceIds = GlViewSourceCodes.Select(Id).Where(i => i is not null).Select(i => i!.Value).ToHashSet();
+        foreach (var g in grants.Where(g => g.IsAllowed))
+        {
+            if (g.PermissionID == setupId) wanted.AddRange(GlSetupHolderCodes.Select(c => (g.RoleID, c)));
+            else if (viewSourceIds.Contains(g.PermissionID)) wanted.Add((g.RoleID, PermissionCodes.GL_VIEW));
+        }
+
+        foreach (var (roleId, code) in wanted)
+        {
+            if (Id(code) is not { } permId || !existing.Add((roleId, permId))) continue;
+            _db.RolePermissions.Add(new RolePermission
+            {
+                RoleID = roleId, PermissionID = permId, IsAllowed = true, OrganizationId = TenantDefaults.ScmDemoOrganizationId
+            });
+        }
+        await _db.SaveChangesAsync();
+    }
+
+    /// <summary>A41 D-4 — RoleSeed / RolePermissionSeed labels of the CRM built-in roles (resolved by code like the rest).</summary>
+    internal const int SalesRepSeedId = 15, SalesManagerSeedId = 16;
+
+    /// <summary>A41 D-4 — Appendix A "Sales Rep" codes plus what raising a sales document from an opportunity needs.</summary>
+    internal static readonly string[] SalesRepCodes =
+    [
+        PermissionCodes.CRM_VIEW_LEADS, PermissionCodes.CRM_CREATE_LEAD, PermissionCodes.CRM_EDIT_LEAD,
+        PermissionCodes.CRM_QUALIFY_LEAD, PermissionCodes.CRM_CONVERT_LEAD, PermissionCodes.CRM_DISQUALIFY_LEAD,
+        PermissionCodes.CRM_VIEW_OPPORTUNITIES, PermissionCodes.CRM_EDIT_OPPORTUNITY, PermissionCodes.CRM_CLOSE_OPPORTUNITY,
+        PermissionCodes.CRM_VIEW_ACTIVITIES, PermissionCodes.CRM_CREATE_ACTIVITY, PermissionCodes.CRM_EDIT_ACTIVITY,
+        PermissionCodes.CRM_EXPORT_TIMELINE, PermissionCodes.CRM_VIEW_CAMPAIGNS,
+        PermissionCodes.CUSTOMER_VIEW,
+        PermissionCodes.SALE_INQUIRY_VIEW, PermissionCodes.SALE_INQUIRY_CREATE,
+        PermissionCodes.SALE_QUOTATION_VIEW, PermissionCodes.SALE_QUOTATION_CREATE,
+        PermissionCodes.SALE_ORDER_VIEW, PermissionCodes.SALE_ORDER_CREATE,
+    ];
+
+    /// <summary>A41 D-4 — every CRM code but CRM_ADMIN, the rep's sales codes, and editing/sending/confirming them.</summary>
+    internal static readonly string[] SalesManagerCodes =
+    [
+        .. SalesRepCodes,
+        PermissionCodes.CRM_ASSIGN_LEAD, PermissionCodes.CRM_REOPEN_LEAD, PermissionCodes.CRM_DELETE_LEAD,
+        PermissionCodes.CRM_REOPEN_OPPORTUNITY, PermissionCodes.CRM_DELETE_ACTIVITY, PermissionCodes.CRM_MANAGE_CAMPAIGNS,
+        PermissionCodes.CUSTOMER_CREATE, PermissionCodes.CUSTOMER_EDIT,
+        PermissionCodes.SALE_INQUIRY_EDIT, PermissionCodes.SALE_QUOTATION_EDIT, PermissionCodes.SALE_QUOTATION_SEND,
+        PermissionCodes.SALE_ORDER_EDIT, PermissionCodes.SALE_ORDER_CONFIRM,
+    ];
+
+    /// <summary>
+    /// A40 D-9 / D-11 (IMP) — import grants by built-in role CODE: every built-in role holding a write permission gets
+    /// view + upload; the finance, inventory and procurement managers/officers also execute; the Finance Manager imports
+    /// opening balances. System Admin and Org Admin hold every code through <see cref="PermissionCodes.All"/>. The read-only
+    /// Auditor and the POS till roles get none. Only MISSING grants are added (see <see cref="SeedImportGrantsAsync"/>).
+    /// </summary>
+    internal static readonly (string RoleCode, string[] Codes)[] ImportGrants =
+    [
+        ("PROCUREMENT_MANAGER", [PermissionCodes.IMPORT_PROFILE_VIEW, PermissionCodes.IMPORT_UPLOAD, PermissionCodes.IMPORT_EXECUTE]),
+        ("PURCHASE_OFFICER",    [PermissionCodes.IMPORT_PROFILE_VIEW, PermissionCodes.IMPORT_UPLOAD]),
+        ("INVENTORY_MANAGER",   [PermissionCodes.IMPORT_PROFILE_VIEW, PermissionCodes.IMPORT_UPLOAD, PermissionCodes.IMPORT_EXECUTE]),
+        ("WAREHOUSE_OPERATOR",  [PermissionCodes.IMPORT_PROFILE_VIEW, PermissionCodes.IMPORT_UPLOAD]),
+        ("FINANCE_OFFICER",     [PermissionCodes.IMPORT_PROFILE_VIEW, PermissionCodes.IMPORT_UPLOAD, PermissionCodes.IMPORT_EXECUTE]),
+        ("REQUESTER",           [PermissionCodes.IMPORT_PROFILE_VIEW, PermissionCodes.IMPORT_UPLOAD]),
+        ("FINANCE_MANAGER",     [PermissionCodes.IMPORT_PROFILE_VIEW, PermissionCodes.IMPORT_UPLOAD, PermissionCodes.IMPORT_EXECUTE,
+                                 PermissionCodes.IMPORT_OPENING_BALANCE]),
+        ("SUPPLY_DEPT_ADMIN",   [PermissionCodes.IMPORT_PROFILE_VIEW, PermissionCodes.IMPORT_UPLOAD]),
+    ];
+
+    /// <summary>A40 — see <see cref="ImportGrants"/>. Idempotent; a grant an administrator switched off stays off.</summary>
+    internal async Task SeedImportGrantsAsync()
+    {
+        var codes = ImportGrants.SelectMany(g => g.Codes).Distinct().ToList();
+        var permIds = await _db.Permissions.Where(p => codes.Contains(p.Code)).ToDictionaryAsync(p => p.Code, p => p.PermissionID);
+        var roleCodes = ImportGrants.Select(g => g.RoleCode).ToList();
+        var roleIds = await _db.Roles.IgnoreQueryFilters().Where(r => roleCodes.Contains(r.RoleCode))
+            .ToDictionaryAsync(r => r.RoleCode, r => r.RoleID);
+        var existing = (await _db.RolePermissions.IgnoreQueryFilters().Select(rp => new { rp.RoleID, rp.PermissionID }).ToListAsync())
+            .Select(x => (x.RoleID, x.PermissionID)).ToHashSet();
+
+        foreach (var (roleCode, grantCodes) in ImportGrants)
+        {
+            if (!roleIds.TryGetValue(roleCode, out var roleId)) continue;
+            foreach (var code in grantCodes)
+            {
+                if (!permIds.TryGetValue(code, out var permId) || !existing.Add((roleId, permId))) continue;
+                _db.RolePermissions.Add(new RolePermission
+                {
+                    RoleID = roleId, PermissionID = permId, IsAllowed = true, OrganizationId = TenantDefaults.ScmDemoOrganizationId
+                });
+            }
+        }
+        await _db.SaveChangesAsync();
+    }
 
     /// <summary>A38 D-13 — RoleSeed / RolePermissionSeed labels of the POS built-in roles (resolved by code like the rest).</summary>
     internal const int PosCashierSeedId = 12, PosSupervisorSeedId = 13, StoreManagerSeedId = 14;
@@ -383,6 +548,9 @@ internal sealed class AuthDataSeeder
         (PosCashierSeedId,    "POS Cashier",    "POS_CASHIER",    "Point of sale — signs in at a terminal with a PIN and rings up sales"),
         (PosSupervisorSeedId, "POS Supervisor", "POS_SUPERVISOR", "Point of sale — cashier plus discounts, voids, returns, shifts and cash movements"),
         (StoreManagerSeedId,  "Store Manager",  "STORE_MANAGER",  "Point of sale — supervisor plus shift reconciliation, terminals, POS settings and reports"),
+        // A41 D-4 — CRM (spec Appendix A).
+        (SalesRepSeedId,      "Sales Representative", "SALES_REP",     "CRM — captures and works own leads, logs activities, converts and closes own opportunities"),
+        (SalesManagerSeedId,  "Sales Manager",        "SALES_MANAGER", "CRM — every lead and opportunity: assigns, re-opens, deletes, manages campaigns; edits sales documents"),
     ];
 
     // Matched by RoleCode, not RoleID: RoleID carries no DB identity (RoleMap.ValueGeneratedNever)
@@ -639,6 +807,10 @@ internal sealed class AuthDataSeeder
         [PosCashierSeedId]    = PosCashierCodes,
         [PosSupervisorSeedId] = PosSupervisorCodes,
         [StoreManagerSeedId]  = StoreManagerCodes,
+
+        // A41 D-4 — CRM built-in roles.
+        [SalesRepSeedId]      = SalesRepCodes,
+        [SalesManagerSeedId]  = SalesManagerCodes,
     };
 
     private async Task SeedRolePermissionsAsync()

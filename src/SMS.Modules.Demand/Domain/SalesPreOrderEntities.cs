@@ -38,6 +38,8 @@ internal class SaleInquiry : ITenantScopedEntity
     /// quotation made from it inherits it. Null only on rows the migration could not resolve.
     /// </summary>
     public Guid?     CurrencyId            { get; set; }
+    /// <summary>A41 D-13 — the CRM opportunity (crm.Opportunities.Uuid, unenforced) the inquiry was raised from.</summary>
+    public Guid?     SourceOpportunityUuid { get; set; }
     public int       CreatedBy             { get; set; }
     public DateTime  CreatedDate           { get; set; } = DateTime.UtcNow;
     public int?      ModifiedBy            { get; set; }
@@ -123,6 +125,8 @@ internal class SaleQuotation : ITenantScopedEntity
     public decimal?  ExchangeRate          { get; set; }
     public Guid?     BaseCurrencyId        { get; set; }
     public DateTime? RateLockedAt          { get; set; }
+    /// <summary>A41 D-13 — the CRM opportunity it serves (raised from it, or carried from its inquiry).</summary>
+    public Guid?     SourceOpportunityUuid { get; set; }
     public int       CreatedBy             { get; set; }
     public DateTime  CreatedDate           { get; set; } = DateTime.UtcNow;
     public int?      ModifiedBy            { get; set; }

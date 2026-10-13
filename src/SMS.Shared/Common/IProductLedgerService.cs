@@ -11,9 +11,14 @@ public static class ProductLedgerEntryTypes
     public const string ReturnOut  = "RETURN_OUT";
     public const string Adjustment = "ADJUSTMENT";
     public const string WriteOff   = "WRITE_OFF";
+    /// <summary>
+    /// A40 (TFIN, D-7) — stock on hand at the opening balance date, imported at go-live. Always IN, at the imported unit
+    /// cost, and averaged into the WAC exactly like a purchase (the product ledger summary counts it with purchases).
+    /// </summary>
+    public const string OpeningStock = "OPENING_STOCK";
 
     public static readonly IReadOnlyList<string> All =
-        [Purchase, Sale, ReturnIn, ReturnOut, Adjustment, WriteOff];
+        [Purchase, Sale, ReturnIn, ReturnOut, Adjustment, WriteOff, OpeningStock];
 }
 
 public static class ProductLedgerDirections

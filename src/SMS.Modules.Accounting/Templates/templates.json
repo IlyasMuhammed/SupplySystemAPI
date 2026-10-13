@@ -1,0 +1,162 @@
+[
+  {
+    "templateCode": "GLOBAL_GENERAL",
+    "templateName": "Global — General Business",
+    "countryCode": null,
+    "businessType": "General",
+    "currencyCode": null,
+    "description": "A neutral chart for trading and general businesses in any country; start here if no country template fits.",
+    "version": "1.0",
+    "itemsFile": "GLOBAL_GENERAL.json"
+  },
+  {
+    "templateCode": "GLOBAL_SERVICES",
+    "templateName": "Global — Services",
+    "countryCode": null,
+    "businessType": "Services",
+    "currencyCode": null,
+    "description": "For consultancies, agencies and other service firms in any country that hold little or no inventory.",
+    "version": "1.0",
+    "itemsFile": null
+  },
+  {
+    "templateCode": "GLOBAL_NONPROFIT",
+    "templateName": "Global — Non-Profit",
+    "countryCode": null,
+    "businessType": "NonProfit",
+    "currencyCode": null,
+    "description": "For charities, associations and NGOs that track donations, grants and restricted funds.",
+    "version": "1.0",
+    "itemsFile": null
+  },
+  {
+    "templateCode": "US_GENERAL",
+    "templateName": "United States — General Business",
+    "countryCode": "USA",
+    "businessType": "General",
+    "currencyCode": "USD",
+    "description": "For US companies that buy and sell goods, with sales tax and payroll liability accounts in US terms.",
+    "version": "1.0",
+    "itemsFile": "US_GENERAL.json"
+  },
+  {
+    "templateCode": "US_RETAIL",
+    "templateName": "United States — Retail",
+    "countryCode": "USA",
+    "businessType": "Retail",
+    "currencyCode": "USD",
+    "description": "For US shops and e-commerce sellers with point-of-sale, merchandise inventory and sales tax.",
+    "version": "1.0",
+    "itemsFile": null
+  },
+  {
+    "templateCode": "US_MANUFACTURING",
+    "templateName": "United States — Manufacturing",
+    "countryCode": "USA",
+    "businessType": "Manufacturing",
+    "currencyCode": "USD",
+    "description": "For US manufacturers tracking raw materials, work in process, finished goods and production costs.",
+    "version": "1.0",
+    "itemsFile": null
+  },
+  {
+    "templateCode": "US_SERVICES",
+    "templateName": "United States — Services",
+    "countryCode": "USA",
+    "businessType": "Services",
+    "currencyCode": "USD",
+    "description": "For US professional and service businesses billing time and fees with little inventory.",
+    "version": "1.0",
+    "itemsFile": null
+  },
+  {
+    "templateCode": "GB_GENERAL",
+    "templateName": "United Kingdom — General Business",
+    "countryCode": "GBR",
+    "businessType": "General",
+    "currencyCode": "GBP",
+    "description": "For UK limited companies and sole traders, with VAT control accounts and PAYE/NIC liabilities.",
+    "version": "1.0",
+    "itemsFile": null
+  },
+  {
+    "templateCode": "GB_RETAIL",
+    "templateName": "United Kingdom — Retail",
+    "countryCode": "GBR",
+    "businessType": "Retail",
+    "currencyCode": "GBP",
+    "description": "For UK shops and online retailers with stock, till takings and VAT.",
+    "version": "1.0",
+    "itemsFile": null
+  },
+  {
+    "templateCode": "CA_GENERAL",
+    "templateName": "Canada — General Business",
+    "countryCode": "CAN",
+    "businessType": "General",
+    "currencyCode": "CAD",
+    "description": "For Canadian businesses, with GST/HST and PST accounts and payroll source deductions.",
+    "version": "1.0",
+    "itemsFile": null
+  },
+  {
+    "templateCode": "AU_GENERAL",
+    "templateName": "Australia — General Business",
+    "countryCode": "AUS",
+    "businessType": "General",
+    "currencyCode": "AUD",
+    "description": "For Australian businesses, with GST, PAYG withholding and superannuation accounts.",
+    "version": "1.0",
+    "itemsFile": null
+  },
+  {
+    "templateCode": "DE_GENERAL",
+    "templateName": "Germany — General Business (SKR04)",
+    "countryCode": "DEU",
+    "businessType": "General",
+    "currencyCode": "EUR",
+    "description": "For German businesses that want account numbering based on the DATEV SKR04 standard chart.",
+    "version": "1.0",
+    "itemsFile": null
+  },
+  {
+    "templateCode": "AE_GENERAL",
+    "templateName": "United Arab Emirates — General Business",
+    "countryCode": "ARE",
+    "businessType": "General",
+    "currencyCode": "AED",
+    "description": "For UAE businesses, with 5% VAT and corporate tax accounts.",
+    "version": "1.0",
+    "itemsFile": null
+  },
+  {
+    "templateCode": "SA_GENERAL",
+    "templateName": "Saudi Arabia — General Business",
+    "countryCode": "SAU",
+    "businessType": "General",
+    "currencyCode": "SAR",
+    "description": "For Saudi businesses, with 15% VAT, zakat and GOSI accounts.",
+    "version": "1.0",
+    "itemsFile": null
+  },
+  {
+    "templateCode": "IN_GENERAL",
+    "templateName": "India — General Business",
+    "countryCode": "IND",
+    "businessType": "General",
+    "currencyCode": "INR",
+    "description": "For Indian businesses, with CGST/SGST/IGST input and output accounts and TDS/TCS.",
+    "version": "1.0",
+    "itemsFile": null
+  },
+  {
+    "templateCode": "PK_GENERAL",
+    "templateName": "Pakistan — General Business",
+    "countryCode": "PAK",
+    "businessType": "General",
+    "currencyCode": "PKR",
+    "description": "For Pakistani businesses, with FBR and provincial sales tax, withholding income tax, EOBI, social security and WPPF accounts.",
+    "version": "1.0",
+    "itemsFile": "PK_GENERAL.json"
+  }
+]

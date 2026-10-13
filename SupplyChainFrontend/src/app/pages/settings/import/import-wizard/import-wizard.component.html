@@ -1,0 +1,305 @@
+<p-toast></p-toast>
+<sf-page [crumbs]="['Settings', 'Data import', profile?.name || entityType]">
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <p-button label="Download template" icon="pi pi-download" [text]="step > 0" [loading]="templateDownloading"
+              *ngIf="profile && !accessProblem && canUpload" (onClick)="downloadTemplate()" data-testid="download-template"></p-button>
+    <span class="sf-sep"></span>
+    <p-button label="Back to dashboard" icon="pi pi-arrow-left" [text]="true" (onClick)="backToDashboard()" data-testid="to-dashboard"></p-button>
+  </div>
+
+  <header class="sf-hdr">
+    <div class="sf-t"><div>
+      <div class="sf-kicker">Data import<ng-container *ngIf="profile?.isOpeningBalance"> · opening balances</ng-container></div>
+      <h1>Import {{ profile?.name || entityType }}</h1>
+      <div class="sf-meta" *ngIf="session">
+        <span class="sf-mono">{{ session.fileName }}</span> · {{ session.totalRows | number }} rows
+        <ng-container *ngIf="session.sheetName"> · sheet {{ session.sheetName }}</ng-container>
+      </div>
+    </div></div>
+    <sf-stages [stages]="stages" data-testid="stages"></sf-stages>
+  </header>
+
+  <div class="sf-body">
+    <div class="sf-card sf-empty" *ngIf="isLoading"><i class="pi pi-spin pi-spinner"></i> Loading…</div>
+    <div class="imp-note er" *ngIf="loadError" data-testid="load-error"><i class="pi pi-exclamation-triangle"></i><div>{{ loadError }}</div></div>
+    <div class="imp-note er" *ngIf="accessProblem" data-testid="access-problem"><i class="pi pi-lock"></i><div>{{ accessProblem }}</div></div>
+
+    <ng-container *ngIf="profile && !accessProblem">
+
+      <!-- ══ 1. Upload ══════════════════════════════════════════════════════ -->
+      <ng-container *ngIf="step === 0">
+        <div class="imp-note wn" *ngIf="openingDateMissing" data-testid="opening-date-missing">
+          <i class="pi pi-calendar"></i>
+          <div>{{ openingDateMessage }} <a [routerLink]="openingDateRoute">Open Finance settings</a></div>
+        </div>
+        <div class="imp-note wn" *ngIf="!canUpload" data-testid="no-upload"><i class="pi pi-lock"></i><div>Uploading needs the Upload imports permission.</div></div>
+
+        <section class="sf-card">
+          <div class="sf-ch"><div><h2>File</h2>
+            <div class="sf-mu sf-sm" data-testid="constraints">
+              .xlsx or .csv · up to {{ profile.maxFileSizeMb }} MB and {{ profile.maxRowsPerFile | number }} rows · column headers in the first row.
+              Start from the template so the columns match.
+            </div></div></div>
+
+          <div class="imp-drop" [class.over]="dragOver" [class.has-file]="!!file" (click)="browse()" (dragover)="onDragOver($event)"
+               (dragleave)="onDragLeave()" (drop)="onDrop($event)" role="button" tabindex="0" (keydown.enter)="browse()" data-testid="drop-zone">
+            <i class="pi" [ngClass]="file ? 'pi-file-excel' : 'pi-cloud-upload'"></i>
+            <ng-container *ngIf="!file">
+              <strong>Drop the file here</strong><span class="sf-sm">or click to choose one</span>
+            </ng-container>
+            <ng-container *ngIf="file">
+              <strong data-testid="file-name">{{ file.name }}</strong><span class="sf-sm">{{ fileSize }} · click to choose another</span>
+            </ng-container>
+          </div>
+          <input #fileInput type="file" accept=".xlsx,.csv" hidden (change)="onFileInput($event)" data-testid="file-input" />
+
+          <div class="imp-note er" *ngIf="fileError" data-testid="file-error" style="margin-top:.75rem">
+            <i class="pi pi-times-circle"></i><div>{{ fileError }}</div>
+          </div>
+
+          <div class="sf-sm sf-mu" *ngIf="requiredFields.length" style="margin-top:.75rem">
+            Required columns:
+            <span class="imp-chips" style="display:inline-flex">
+              <span class="sf-pill" *ngFor="let f of requiredFields">{{ f.displayName }}</span>
+            </span>
+          </div>
+        </section>
+
+        <section class="sf-card">
+          <div class="sf-ch"><h2>Options</h2></div>
+          <div class="sf-fields">
+            <div class="sf-fld" style="grid-column: 1 / -1">
+              <label>When a row matches an existing record</label>
+              <div class="imp-radios" data-testid="strategies">
+                <label *ngFor="let s of strategyOptions" [attr.data-testid]="'strategy-' + s.value" [pTooltip]="s.hint" tooltipPosition="top">
+                  <p-radiobutton name="dup" [value]="s.value" [(ngModel)]="duplicateStrategy" [inputId]="'dup-' + s.value"></p-radiobutton>
+                  {{ s.label }}
+                </label>
+              </div>
+              <div class="sf-mu sf-sm" *ngFor="let s of strategyOptions"><ng-container *ngIf="s.value === duplicateStrategy">{{ s.hint }}</ng-container></div>
+            </div>
+            <div class="sf-fld" *ngIf="presetOptions.length">
+              <label for="preset">Saved mapping</label>
+              <p-select inputId="preset" [options]="presetOptions" [(ngModel)]="mappingPreset" optionLabel="label" optionValue="value"
+                        [showClear]="true" placeholder="Map automatically" appendTo="body" data-testid="preset"></p-select>
+            </div>
+            <div class="sf-fld" style="grid-column: 1 / -1">
+              <label for="notes">Notes</label>
+              <textarea pTextarea id="notes" rows="2" [(ngModel)]="notes" maxlength="500" placeholder="Optional — what this file is"
+                        data-testid="notes"></textarea>
+            </div>
+          </div>
+        </section>
+
+        <section class="sf-card" *ngIf="showSheetPicker && session" data-testid="sheet-picker">
+          <div class="sf-ch"><div><h2>Choose the sheet</h2>
+            <div class="sf-mu sf-sm">The workbook has {{ session.sheetNames.length }} sheets. Which one holds the data?</div></div></div>
+          <div class="sf-fields">
+            <div class="sf-fld">
+              <label for="sheet">Sheet</label>
+              <p-select inputId="sheet" [options]="sheetOptions" [(ngModel)]="sheetChoice" optionLabel="label" optionValue="value"
+                        appendTo="body" data-testid="sheet-select"></p-select>
+            </div>
+          </div>
+        </section>
+
+        <div class="imp-note er" *ngIf="uploadError" data-testid="upload-error"><i class="pi pi-times-circle"></i><div>{{ uploadError }}</div></div>
+        <div *ngIf="uploading" data-testid="upload-progress">
+          <div class="imp-progress"><span [style.width.%]="uploadPercent"></span></div>
+          <div class="sf-sm sf-mu">Uploading… {{ uploadPercent }}%</div>
+        </div>
+      </ng-container>
+
+      <!-- ══ 2. Map ═════════════════════════════════════════════════════════ -->
+      <ng-container *ngIf="step === 1 && session">
+        <div class="sf-card sf-sm" data-testid="file-info">
+          <i class="pi pi-file-excel"></i> <strong>{{ session.fileName }}</strong>
+          · {{ session.fileType }} · {{ session.totalRows | number }} rows · {{ rows.length }} columns
+          <ng-container *ngIf="session.sheetName"> · sheet <strong>{{ session.sheetName }}</strong></ng-container>
+          <ng-container *ngIf="session.savedMappingName"> · mapping “{{ session.savedMappingName }}”</ng-container>
+        </div>
+
+        <div class="imp-note er" *ngIf="missingRequired.length" data-testid="missing-required">
+          <i class="pi pi-exclamation-circle"></i>
+          <div>Required fields not mapped:
+            <span class="imp-chips"><span class="sf-pill er" *ngFor="let f of missingRequired" [attr.data-testid]="'missing-' + f.fieldName">{{ f.displayName }}</span></span>
+          </div>
+        </div>
+        <div class="imp-note er" *ngFor="let p of problems" data-testid="map-problem"><i class="pi pi-times-circle"></i><div>{{ p }}</div></div>
+        <div class="imp-note er" *ngIf="mappingError" data-testid="mapping-error"><i class="pi pi-times-circle"></i><div>{{ mappingError }}</div></div>
+
+        <section class="sf-card p0">
+          <div class="sf-ch sf-pad"><div><h2>Columns</h2>
+            <div class="sf-mu sf-sm">✓ exact match · ~ close match (%) · — chosen by hand · ✗ not mapped. Ignored columns are not imported.</div></div>
+            <span class="sf-mu sf-sm" *ngIf="mappingSaving"><i class="pi pi-spin pi-spinner"></i> Saving…</span>
+          </div>
+          <p-table [value]="rows" [rowTrackBy]="trackRow" data-testid="mapping-table">
+            <ng-template pTemplate="header">
+              <tr><th style="width:4rem">#</th><th>Column in the file</th><th style="width:22rem">Imports into</th><th style="width:9rem">Match</th></tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-r>
+              <tr [class.imp-dup]="r.duplicate" [attr.data-testid]="'map-row-' + r.sourceColumnIndex">
+                <td class="sf-mu">{{ r.sourceColumnIndex + 1 }}</td>
+                <td><strong>{{ r.sourceColumnName }}</strong></td>
+                <td>
+                  <p-select [options]="targetOptions" [ngModel]="r.target" (ngModelChange)="onTargetChange(r, $event)" optionLabel="label"
+                            optionValue="value" [filter]="targetOptions.length > 10" filterBy="label" appendTo="body" styleClass="w-full"
+                            [disabled]="mappingSaving" [attr.data-testid]="'target-' + r.sourceColumnIndex"></p-select>
+                </td>
+                <td>
+                  <span class="imp-mark" [ngClass]="r.mark.mark === '✗' ? 'none' : r.mark.tone" [attr.data-testid]="'mark-' + r.sourceColumnIndex">
+                    {{ r.mark.mark }} <span class="sf-sm">{{ r.mark.label }}</span>
+                  </span>
+                </td>
+              </tr>
+            </ng-template>
+          </p-table>
+        </section>
+
+        <section class="sf-card">
+          <div class="sf-ch"><div><h2>Save mapping as…</h2><div class="sf-mu sf-sm">Reuse it next time you upload a file laid out the same way.</div></div></div>
+          <div class="sf-filters">
+            <input pInputText [(ngModel)]="presetName" maxlength="100" placeholder="e.g. Old ERP customers" data-testid="preset-name" />
+            <p-button label="Save mapping" icon="pi pi-save" [text]="true" [disabled]="!presetName.trim() || savingPreset || hasDuplicates"
+                      [loading]="savingPreset" (onClick)="savePreset()" data-testid="save-preset"></p-button>
+          </div>
+        </section>
+      </ng-container>
+
+      <!-- ══ 3. Validate ════════════════════════════════════════════════════ -->
+      <ng-container *ngIf="step === 2 && session">
+        <div class="imp-note wn" *ngIf="!canExecute" data-testid="no-execute">
+          <i class="pi pi-lock"></i><div>Validating and importing need the Execute imports permission. Someone who has it can finish this import from Recent imports.</div>
+        </div>
+
+        <div class="sf-grid sf-tiles" *ngIf="validated" data-testid="summary">
+          <div class="sf-tile"><span class="l">Valid rows</span><span class="v" data-testid="valid-rows">{{ session.validRows | number }}</span></div>
+          <div class="sf-tile"><span class="l">Rows with errors</span><span class="v" data-testid="invalid-rows">{{ session.invalidRows | number }}</span></div>
+          <div class="sf-tile"><span class="l">Total rows</span><span class="v" data-testid="total-rows">{{ session.totalRows | number }}</span></div>
+        </div>
+
+        <div class="imp-note er" *ngIf="actionError" data-testid="action-error">
+          <i class="pi pi-times-circle"></i>
+          <div>{{ actionError }} <a *ngIf="actionError === openingDateMessage" [routerLink]="openingDateRoute">Open Finance settings</a></div>
+        </div>
+
+        <section class="sf-card p0" *ngIf="errorGroups.length" data-testid="error-groups">
+          <div class="sf-ch sf-pad"><h2>Errors by type</h2></div>
+          <p-table [value]="errorGroups">
+            <ng-template pTemplate="header"><tr><th>Error</th><th class="text-right">Rows</th></tr></ng-template>
+            <ng-template pTemplate="body" let-g>
+              <tr data-testid="error-group"><td class="sf-mono">{{ g.code }}</td><td class="text-right">{{ g.count | number }}</td></tr>
+            </ng-template>
+          </p-table>
+        </section>
+
+        <section class="sf-card p0" *ngIf="firstErrors.length" data-testid="first-errors">
+          <div class="sf-ch sf-pad"><div><h2>First errors</h2>
+            <div class="sf-mu sf-sm">Download the error report for every row, with the reasons next to the data.</div></div></div>
+          <p-table [value]="firstErrors" [scrollable]="true" scrollHeight="20rem">
+            <ng-template pTemplate="header"><tr><th>Row</th><th>Field</th><th>Value</th><th>Problem</th></tr></ng-template>
+            <ng-template pTemplate="body" let-e>
+              <tr data-testid="first-error"><td>{{ e.rowNumber }}</td><td>{{ e.fieldName }}</td><td class="sf-mono">{{ e.sourceValue }}</td><td>{{ e.message }}</td></tr>
+            </ng-template>
+          </p-table>
+        </section>
+
+        <section class="sf-card p0">
+          <div class="sf-ch sf-pad"><div><h2>Preview</h2><div class="sf-mu sf-sm">The first 20 rows as they will be imported. Cells with a problem are marked.</div></div></div>
+          <p-table [value]="previewRows" [loading]="previewLoading" [scrollable]="true" data-testid="preview">
+            <ng-template pTemplate="header">
+              <tr><th>Row</th><th *ngFor="let c of preview?.columns">{{ c.displayName }}</th></tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-r>
+              <tr data-testid="preview-row">
+                <td>{{ r.rowNumber }} <i *ngIf="r.hasIssue" class="pi pi-exclamation-circle" style="color: var(--sms-danger)"></i></td>
+                <td *ngFor="let c of r.cells" [class.imp-issue]="!!c.issue" [pTooltip]="c.issue || ''" [tooltipDisabled]="!c.issue"
+                    [attr.data-issue]="c.issue">{{ c.value }}</td>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="emptymessage"><tr><td class="sf-empty">No rows to preview.</td></tr></ng-template>
+          </p-table>
+        </section>
+      </ng-container>
+
+      <!-- ══ 4. Results ═════════════════════════════════════════════════════ -->
+      <ng-container *ngIf="step === 3 && session">
+        <section class="sf-card" *ngIf="background" data-testid="progress">
+          <div class="sf-ch"><div><h2>Importing…</h2><div class="sf-mu sf-sm">Large files import in the background. You can leave this page — the result stays under Recent imports.</div></div></div>
+          <div class="imp-progress"><span [style.width.%]="progressPercent" data-testid="progress-bar"></span></div>
+          <div class="sf-sm sf-mu" data-testid="progress-text">{{ progressProcessed | number }} of {{ progressTotal | number }} rows · {{ progressPercent }}%</div>
+        </section>
+
+        <ng-container *ngIf="!background">
+          <div class="imp-note" [ngClass]="session.status === 'COMPLETED' ? 'ok' : session.status === 'COMPLETED_WITH_ERRORS' ? 'wn' : 'er'"
+               data-testid="result-status">
+            <i class="pi" [ngClass]="session.status === 'COMPLETED' ? 'pi-check-circle' : 'pi-exclamation-triangle'"></i>
+            <div>
+              <ng-container [ngSwitch]="session.status">
+                <span *ngSwitchCase="'COMPLETED'">Import completed.</span>
+                <span *ngSwitchCase="'COMPLETED_WITH_ERRORS'">Import completed with errors.</span>
+                <span *ngSwitchCase="'CANCELLED'">Import cancelled.</span>
+                <span *ngSwitchDefault>Import failed.</span>
+              </ng-container>
+              <ng-container *ngIf="duration"> Took <span data-testid="duration">{{ duration }}</span>.</ng-container>
+              <div *ngIf="session.errorMessage" data-testid="error-message">{{ session.errorMessage }}</div>
+            </div>
+          </div>
+
+          <div class="sf-grid sf-tiles" data-testid="result-cards">
+            <div class="sf-tile" *ngFor="let c of resultCards" [attr.data-testid]="'result-' + c.key">
+              <span class="l">{{ c.label }}</span><span class="v">{{ c.value | number }}</span>
+            </div>
+          </div>
+        </ng-container>
+      </ng-container>
+    </ng-container>
+  </div>
+
+  <!-- ── Footer: the step's buttons ───────────────────────────────────────── -->
+  <div class="sf-fbar" *ngIf="profile && !accessProblem">
+    <ng-container [ngSwitch]="step">
+      <ng-container *ngSwitchCase="0">
+        <span class="sf-mu sf-sm">Step 1 of 4 — upload the file.</span>
+        <span class="sf-end">
+          <p-button label="Cancel" [text]="true" (onClick)="backToDashboard()"></p-button>
+          <p-button *ngIf="!showSheetPicker" label="Upload" icon="pi pi-upload" [disabled]="!canSubmitUpload" [loading]="uploading"
+                    (onClick)="upload()" data-testid="upload"></p-button>
+          <p-button *ngIf="showSheetPicker" label="Use this sheet" icon="pi pi-arrow-right" [disabled]="!sheetChoice || uploading"
+                    [loading]="uploading" (onClick)="useSheet()" data-testid="use-sheet"></p-button>
+        </span>
+      </ng-container>
+      <ng-container *ngSwitchCase="1">
+        <span class="sf-mu sf-sm">Step 2 of 4 — map the columns. Required fields and a key field must be mapped.</span>
+        <span class="sf-end">
+          <p-button label="Back" [text]="true" (onClick)="backToUpload()"></p-button>
+          <p-button label="Next" icon="pi pi-arrow-right" iconPos="right" [disabled]="!canProceedFromMap" (onClick)="nextFromMap()"
+                    data-testid="map-next"></p-button>
+        </span>
+      </ng-container>
+      <ng-container *ngSwitchCase="2">
+        <span class="sf-mu sf-sm">Step 3 of 4 — validate, then import the valid rows.</span>
+        <span class="sf-end">
+          <p-button *ngIf="canCancel" label="Cancel import" severity="danger" [text]="true" [loading]="cancelling" (onClick)="cancelImport()"
+                    data-testid="cancel"></p-button>
+          <p-button label="Back to mapping" [text]="true" (onClick)="backToMap()" data-testid="back-map"></p-button>
+          <p-button *ngIf="validated && session && session.invalidRows > 0" label="Download error report" icon="pi pi-download" [text]="true"
+                    [loading]="errorsDownloading" (onClick)="downloadErrors()" data-testid="download-errors"></p-button>
+          <p-button *ngIf="canExecute" label="Run validation" icon="pi pi-check-square" [outlined]="validated" [loading]="validating"
+                    [disabled]="validating || executing" (onClick)="runValidation()" data-testid="run-validation"></p-button>
+          <p-button *ngIf="canExecute" [label]="'Import ' + ((session?.validRows ?? 0) | number) + ' valid rows'" icon="pi pi-play"
+                    [disabled]="!canImport" [loading]="executing" (onClick)="executeImport()" data-testid="execute"></p-button>
+        </span>
+      </ng-container>
+      <ng-container *ngSwitchCase="3">
+        <span class="sf-mu sf-sm">Step 4 of 4 — results.</span>
+        <span class="sf-end">
+          <p-button *ngIf="!background" label="Download results report" icon="pi pi-download" [text]="true" [loading]="resultsDownloading"
+                    (onClick)="downloadResults()" data-testid="download-results"></p-button>
+          <p-button label="Back to dashboard" [text]="true" (onClick)="backToDashboard()"></p-button>
+          <p-button label="Import more" icon="pi pi-plus" [disabled]="background" (onClick)="importMore()" data-testid="import-more"></p-button>
+        </span>
+      </ng-container>
+    </ng-container>
+  </div>
+</sf-page>

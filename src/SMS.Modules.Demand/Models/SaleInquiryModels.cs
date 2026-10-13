@@ -55,6 +55,8 @@ public class SaleInquiryModel
     /// <summary>A35 D-10/D-14 — the currency the customer asks in (informational; no rate). The quotation inherits it.</summary>
     public Guid?     CurrencyId            { get; set; }
     public string?   CurrencyCode          { get; set; }
+    /// <summary>A41 D-13 — the CRM opportunity it was raised from (link back).</summary>
+    public Guid?     SourceOpportunityUuid { get; set; }
     public int       CreatedBy             { get; set; }
     public DateTime  CreatedDate           { get; set; }
     public DateTime? ModifiedDate          { get; set; }
@@ -120,6 +122,8 @@ public class CreateSaleInquiryRequest
     public string?   Notes                 { get; set; }
     /// <summary>A35 D-14 — the customer's default sale currency when omitted, else the organization's sale base.</summary>
     public Guid?     CurrencyId            { get; set; }
+    /// <summary>A41 D-13 — the CRM opportunity the inquiry is raised from (CRM's create-inquiry sets it).</summary>
+    public Guid?     SourceOpportunityUuid { get; set; }
     public List<SaleInquiryLineRequest> Lines { get; set; } = [];
 }
 

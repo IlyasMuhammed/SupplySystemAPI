@@ -70,7 +70,11 @@
                  [routerLink]="['/portal/pages/sales/orders', inv.saleOrderUuid]" data-testid="order-link">{{ inv.saleOrderNumber }}</a>
               <ng-template #plainOrder><span class="sf-mono">{{ inv.saleOrderNumber }}</span></ng-template>
             </ng-container>
-            <ng-template #noOrder><span class="sf-mono" data-testid="source-number">{{ inv.saleOrderNumber || inv.sourceNumber || '' }}</span></ng-template>
+            <ng-template #noOrder>
+              <!-- A40 D-5 — opening balance brought in by the data import -->
+              <span *ngIf="inv.sourceType === 'OPENING'" class="sf-pill vi" data-testid="opening-pill">Opening balance</span>
+              <span class="sf-mono" data-testid="source-number">{{ inv.saleOrderNumber || inv.sourceNumber || '' }}</span>
+            </ng-template>
           </ng-template>
           <ng-container *ngIf="inv.deliveryUuid && inv.deliveryNumber">
             · delivery

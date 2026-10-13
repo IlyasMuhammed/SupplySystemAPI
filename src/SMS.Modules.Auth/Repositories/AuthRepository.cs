@@ -692,7 +692,7 @@ internal sealed class AuthRepository : IAuthRepository
             ModuleCode   = p.ModuleCode ?? ModuleCodeMap.ForPermission(p.Code)
         }).ToList();
 
-        var moduleOrder = new[] { "System", "Locations", "Suppliers", "RFQ", "Contracts", "Purchase Orders", "Requisitions", "Budget", "Inventory", "Warehouse", "GRN Approvals", "Material Management", "Finance", "Logistics", "Reports", "Workflow", "Sale Orders", "Sale Order Administration", "Service Orders", "Point of Sale" };
+        var moduleOrder = new[] { "System", "Locations", "Suppliers", "RFQ", "Contracts", "Purchase Orders", "Requisitions", "Budget", "Inventory", "Warehouse", "GRN Approvals", "Material Management", "Finance", "Logistics", "Reports", "Workflow", "Sale Orders", "Sale Order Administration", "Service Orders", "Point of Sale", "Data Import" };
         var groups = items
             .GroupBy(i => GetPermissionModule(i.Code))
             .OrderBy(g => Array.IndexOf(moduleOrder, g.Key) is var idx && idx >= 0 ? idx : 99)
@@ -914,6 +914,12 @@ internal sealed class AuthRepository : IAuthRepository
         var c when c.StartsWith("SERVICE_ORDER_")  => "Service Orders",
         // A38 D-13
         var c when c.StartsWith("POS_")            => "Point of Sale",
-        _                                      => "Other"
+        // A40 D-9
+        var c when c.StartsWith("IMPORT_")         => "Data Import",
+        // A41 D-3
+        var c when c.StartsWith("CRM_")            => "CRM",
+        // A42 D-14
+        var c when c.StartsWith("GL_")             => "General Ledger",
+        _                                    => "Other"
     };
 }

@@ -180,10 +180,11 @@ describe('SAP alignment consistency: statuses, permissions and navigation', () =
 
     const IN_SCOPE = /^\/portal\/pages\/(finance\/|finance-setup\/|integrations\/quickbooks|sales\/orders|organizations$)/;
 
-    function leaves(items: NavItem[], feature?: string): (NavItem & { feature?: string })[] {
+    // `features`: every feature gate on the way down (A42: Finance › General Ledger is MODULE_FINANCE + FEATURE_GENERAL_LEDGER).
+    function leaves(items: NavItem[], feature?: string, features: string[] = []): (NavItem & { feature?: string; features: string[] })[] {
       return items.flatMap(i => i.items?.length
-        ? leaves(i.items, i.featureCode ?? feature)
-        : [{ ...i, feature: i.featureCode ?? feature }]);
+        ? leaves(i.items, i.featureCode ?? feature, [...features, ...([] as string[]).concat(i.featureCode ?? [])])
+        : [{ ...i, feature: i.featureCode ?? feature, features: [...features, ...([] as string[]).concat(i.featureCode ?? [])] }]);
     }
 
     function menuLeaves() {
@@ -254,6 +255,11 @@ describe('SAP alignment consistency: statuses, permissions and navigation', () =
 
     it('the Finance pages sit behind MODULE_FINANCE in the menu, as their controllers do', () => {
       for (const l of menuLeaves().filter(x => /\/(finance|finance-setup)\//.test(x.routerLink![0]) && !/master-ledger/.test(x.routerLink![0]))) {
+        if (/\/finance\/gl(\/|$)/.test(l.routerLink![0])) {
+          // A42 — the GL pages are a sub-feature of Finance: both gates.
+          expect(l.features).withContext(`${l.label}`).toEqual(['MODULE_FINANCE', 'FEATURE_GENERAL_LEDGER']);
+          continue;
+        }
         expect(l.feature).withContext(`${l.label}`).toBe('MODULE_FINANCE');
       }
     });

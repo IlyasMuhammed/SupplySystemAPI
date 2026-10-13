@@ -47,7 +47,7 @@ internal sealed class InventoryLedgerService : IInventoryLedgerService
             LedgerId         = Guid.NewGuid(),
             VariantId        = cmd.VariantId,
             WarehouseId      = cmd.WarehouseId,
-            TransactionDate  = DateTime.UtcNow,
+            TransactionDate  = cmd.TransactionDate ?? DateTime.UtcNow,
             TransactionType  = cmd.TransactionType,
             ReferenceType    = cmd.ReferenceType,
             ReferenceId      = cmd.ReferenceId,
@@ -121,7 +121,9 @@ internal sealed class InventoryLedgerService : IInventoryLedgerService
                 DestinationType = cmd.DestinationType!,
                 DestinationName = cmd.DestinationName,
                 Notes           = cmd.Notes,
-                CreatedBy       = cmd.CreatedBy
+                CreatedBy       = cmd.CreatedBy,
+                // A40 — the business date (opening stock: the opening balance date); null = now.
+                TransactionDate = cmd.TransactionDate
             }, ambientTransaction?.GetDbTransaction());
         }
         // NOTE: SaveChangesAsync is intentionally NOT called here for _db — the caller owns the

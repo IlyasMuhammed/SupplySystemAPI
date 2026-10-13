@@ -123,6 +123,7 @@ internal sealed class SaleInquiryService : ISaleInquiryService
             PartnerId      = req.PartnerId,
             Status         = Received,
             CurrencyId     = await CurrencyAsync(req.CurrencyId, req.PartnerId, current: null),
+            SourceOpportunityUuid = req.SourceOpportunityUuid is { } opp && opp != Guid.Empty ? opp : null, // A41 D-13
             CreatedBy      = userId,
             CreatedDate    = DateTime.UtcNow
         };
@@ -214,6 +215,7 @@ internal sealed class SaleInquiryService : ISaleInquiryService
             CurrencyId            = inquiry.CurrencyId,
             CurrencyCode          = inquiry.CurrencyId is { } currencyId && _currencyCodes is not null
                                         ? (await _currencyCodes.GetCodeAsync(currencyId))?.Trim() : null,
+            SourceOpportunityUuid = inquiry.SourceOpportunityUuid,
             CreatedBy             = inquiry.CreatedBy,
             CreatedDate           = inquiry.CreatedDate,
             ModifiedDate          = inquiry.ModifiedDate,

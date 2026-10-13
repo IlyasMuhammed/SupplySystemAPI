@@ -41,7 +41,17 @@ internal static class TenancyFeatureCatalog
         ("MODULE_POS", "MODULE_INVENTORY"),
         ("MODULE_POS", "MODULE_CUSTOMERS"),
         ("MODULE_POS", "MODULE_FINANCE"),
+        // A41 D-6 — leads convert into customers.
+        (ModuleCodes.Crm, "MODULE_CUSTOMERS"),
     ];
+
+    /// <summary>
+    /// A41 D-6 — modules that were listed as "Coming soon" (so every existing organization already holds an unlicensed,
+    /// off row for them) and are now built. An organization whose row nobody ever changed gets its plan's default once
+    /// (<see cref="TenancyDataSeeder"/>); a row an administrator touched is left alone.
+    /// </summary>
+    internal static readonly IReadOnlySet<string> BecameAvailable =
+        new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ModuleCodes.Crm };
 
     /// <summary>
     /// A38 D-2 — modules an organization that already exists gets only when the super admin licenses it: the startup
@@ -50,6 +60,19 @@ internal static class TenancyFeatureCatalog
     /// </summary>
     internal static readonly IReadOnlySet<string> LicensedByHandForExistingOrgs =
         new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ModuleCodes.Pos };
+
+    /// <summary>
+    /// A40 D-9 — sub-features an existing organization gets from its PLAN (licence and switch), not from its parent
+    /// module's state: their module is always on everywhere, yet the sub-feature is a Standard/Enterprise one. Without
+    /// this the A37 sub-feature rule would switch it on for every Basic organization too.
+    /// </summary>
+    internal static readonly IReadOnlySet<string> PlanDefaultForExistingOrgs =
+        new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ModuleCodes.OpeningBalanceImport,
+            // A42 D-3 — the GL follows the org's plan (licensed where the plan includes Finance), switched on only while Finance is on.
+            ModuleCodes.GeneralLedger,
+        };
 
     /// <summary>A37 MOD-08 — switched on by the system while any of these modules is on.</summary>
     internal static readonly IReadOnlyList<string> BomManagementDrivers = [ModuleCodes.Manufacturing, ModuleCodes.Services];
@@ -78,8 +101,11 @@ internal static class TenancyFeatureCatalog
         new("MODULE_DEMAND_PLANNING", "Demand Planning",          CategoryModule, "Demand forecasting, reorder point planning and MRP.",                   false, 130, IsAvailable: false, Icon: "pi pi-chart-line"),
         // A38 D-2 — built: stores, terminals, shifts, counter sales (online and offline), returns and receipts.
         new("MODULE_POS",             "Point of Sale",            CategoryModule, "Counter sales at store terminals: shifts and cash, PIN sign-in, receipts, returns and offline selling.", false, 135, Icon: "pi pi-shopping-bag"),
-        new("MODULE_PROJECTS",        "Projects",                 CategoryModule, "Project planning, budgets and time tracking.",                          false, 140, IsAvailable: false, Icon: "pi pi-folder"),
-        new("MODULE_CRM",             "CRM",                      CategoryModule, "Leads, opportunities and customer interactions.",                       false, 145, IsAvailable: false, Icon: "pi pi-comments"),
+        // A40 D-9 — data import: core, always on (the wizard itself); opening balances are a Standard/Enterprise sub-feature.
+        new(ModuleCodes.DataImport,   "Data Import",              CategoryModule, "Importing master data and opening balances from Excel/CSV files, templates and the migration wizard.", true, 137, IsAlwaysOn: true, Icon: "pi pi-upload"),
+        new("MODULE_PROJECTS",       "Projects",                 CategoryModule, "Project planning, budgets and time tracking.",                          false, 140, IsAvailable: false, Icon: "pi pi-folder"),
+        // A41 D-6 — built: leads, pipeline, opportunities, activities and campaigns.
+        new(ModuleCodes.Crm,          "CRM",                      CategoryModule, "Leads, opportunities, sales pipeline, activities and campaigns.",       false, 145, Icon: "pi pi-comments"),
         new("MODULE_MAINTENANCE",     "Maintenance",              CategoryModule, "Asset register and preventive maintenance.",                            false, 150, IsAvailable: false, Icon: "pi pi-hammer"),
         new("MODULE_ECOMMERCE",       "E-commerce",               CategoryModule, "Online storefront and web orders.",                                     false, 155, IsAvailable: false, Icon: "pi pi-globe"),
 
@@ -119,6 +145,8 @@ internal static class TenancyFeatureCatalog
         new("FEATURE_SERVICE_CONTRACTS",   "Service Contracts",    CategoryFeature, "Recurring service agreements.",                         false, 451, Parent: "MODULE_SERVICES", IsAvailable: false),
         new("FEATURE_MULTI_CURRENCY",      "Multi-currency",       CategoryFeature, "Documents in foreign currencies with exchange rates.",  false, 460, Parent: "MODULE_FINANCE"),
         new("FEATURE_BANK_RECONCILIATION", "Bank Reconciliation",  CategoryFeature, "Matching bank statements to payments.",                 false, 461, Parent: "MODULE_FINANCE", IsAvailable: false),
+        // A42 D-3 — every plan that includes Finance; existing orgs follow their plan (PlanDefaultForExistingOrgs).
+        new(ModuleCodes.GeneralLedger,     "General Ledger",       CategoryFeature, "Chart of accounts, fiscal years and periods, accounting defaults and GL opening balances.", false, 462, Parent: ModuleCodes.Finance),
         new("FEATURE_CREDIT_MANAGEMENT",   "Credit Management",    CategoryFeature, "Customer credit limits.",                               false, 470, Parent: "MODULE_CUSTOMERS"),
         new("FEATURE_LOYALTY_PROGRAM",     "Loyalty Program",      CategoryFeature, "Customer points and rewards.",                          false, 471, Parent: "MODULE_CUSTOMERS", IsAvailable: false),
 
@@ -138,6 +166,18 @@ internal static class TenancyFeatureCatalog
         // A39 D-2 / D-7 — toggleable; on wherever POS is on (existing orgs: the sub-feature backfill rule above).
         new(PosFeatureCodes.CreditNotes,       "Store Credit",         CategoryFeature, "Refunding returns as store credit and accepting store credit as payment.", false, 492, Parent: "MODULE_POS"),
         new(PosFeatureCodes.CrossStoreReturns, "Cross-Store Returns",  CategoryFeature, "Taking back goods sold at another store of the organization.",          false, 493, Parent: "MODULE_POS"),
+        // A40 D-9 — Standard/Enterprise (not Basic); existing orgs follow their plan (PlanDefaultForExistingOrgs).
+        new(ModuleCodes.OpeningBalanceImport,  "Opening Balance Import", CategoryFeature, "Importing opening stock and customer/supplier opening balances at the opening balance date.", false, 495, Parent: ModuleCodes.DataImport),
+
+        // A41 D-6 — CRM sub-features: three core, campaigns toggleable, the Addendum 42 ones coming soon.
+        new(CrmFeatureCodes.LeadManagement,        "Lead Management",        CategoryFeature, "Capturing, qualifying and converting leads.",                       true,  500, Parent: ModuleCodes.Crm),
+        new(CrmFeatureCodes.OpportunityManagement, "Opportunity Management", CategoryFeature, "Deals moving through pipeline stages, revenue forecasting.",         true,  501, Parent: ModuleCodes.Crm),
+        new(CrmFeatureCodes.ActivityTracking,      "Activity & Timeline",    CategoryFeature, "Calls, meetings, notes, documents and the conversation timeline.",  true,  502, Parent: ModuleCodes.Crm),
+        new(CrmFeatureCodes.CampaignTracking,      "Campaign Tracking",      CategoryFeature, "Marketing campaigns and lead source attribution.",                  false, 503, Parent: ModuleCodes.Crm),
+        new(CrmFeatureCodes.LeadAssignment,        "Lead Assignment Rules",  CategoryFeature, "Automatic lead routing.",                                           false, 504, Parent: ModuleCodes.Crm, IsAvailable: false),
+        new(CrmFeatureCodes.LeadScoring,           "Lead Scoring",           CategoryFeature, "Rule-based lead scoring.",                                          false, 505, Parent: ModuleCodes.Crm, IsAvailable: false),
+        new(CrmFeatureCodes.LeadWidget,            "Embeddable Lead Widget", CategoryFeature, "Lead capture forms on external websites.",                          false, 506, Parent: ModuleCodes.Crm, IsAvailable: false),
+        new(CrmFeatureCodes.ExternalSync,          "External CRM Sync",      CategoryFeature, "Syncing leads with Odoo, SAP and Dynamics.",                        false, 507, Parent: ModuleCodes.Crm, IsAvailable: false),
     };
 
     internal static readonly IReadOnlyDictionary<string, Entry> ByCode =
@@ -156,6 +196,9 @@ internal static class TenancyFeatureCatalog
         "MODULE_FINANCE", "MODULE_MIR", "MODULE_MANUFACTURING", "MODULE_SERVICES", "MODULE_LOGISTICS", "MODULE_NOTIFICATIONS", "MODULE_PROCUREMENT",
         "MODULE_INTEGRATION",
         "MODULE_POS", // A38 D-2
+        ModuleCodes.OpeningBalanceImport, // A40 D-9
+        ModuleCodes.Crm, // A41 D-6 — its sub-features follow the module
+        ModuleCodes.GeneralLedger, // A42 D-3 — follows Finance (excluded above anyway; explicit for the existing-org backfill)
         "SCREEN_SUPPLIER_SCORECARD", "SCREEN_AUDIT_LOG", "SCREEN_PO_DOCUMENT_TEMPLATE",
         "SCREEN_WORKFLOW_CONFIG", "SCREEN_BUDGET_MONITOR", "FEATURE_WHATSAPP", "FEATURE_MASTER_LEDGERS"
     };

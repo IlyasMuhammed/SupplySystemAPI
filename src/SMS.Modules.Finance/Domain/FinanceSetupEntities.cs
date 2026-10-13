@@ -36,6 +36,24 @@ internal class TaxCode : ITenantScopedEntity
     public DateTime? ModifiedDate { get; set; }
 }
 
+/// <summary>
+/// A40 (TFIN, D-7) — Finance settings of one organization, one row per organization (unique). Today only the opening
+/// balance date: the "as at" date of customer / supplier opening balances and opening stock imported at go-live
+/// (<c>api/finance/opening-balance-date</c>, read by other modules through <see cref="IOpeningBalanceDateProvider"/>).
+/// Null = not set: opening-balance imports are refused until it is.
+/// </summary>
+internal class FinanceOrgSettings : ITenantScopedEntity
+{
+    public int       Id                 { get; set; }
+    public Guid      OrganizationId     { get; set; }
+    public DateOnly? OpeningBalanceDate { get; set; }
+
+    public int       CreatedBy    { get; set; }
+    public DateTime  CreatedDate  { get; set; } = DateTime.UtcNow;
+    public int?      ModifiedBy   { get; set; }
+    public DateTime? ModifiedDate { get; set; }
+}
+
 /// <summary>The Usage vocabulary, mirrored by SMS.Shared.Common.TaxCodeUsage.</summary>
 internal static class TaxCodeUsages
 {

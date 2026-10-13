@@ -50,6 +50,8 @@ public class SaleQuotationModel
     public SalesDocumentLinkModel? SourceInquiry { get; set; }
     /// <summary>The sale order it was converted to; null until CONVERTED.</summary>
     public SalesDocumentLinkModel? SaleOrder     { get; set; }
+    /// <summary>A41 D-13 — the CRM opportunity it serves (link back).</summary>
+    public Guid?     SourceOpportunityUuid { get; set; }
     public Guid      CurrencyId            { get; set; }
     public string?   CurrencyCode          { get; set; }
     public DateTime  ValidFrom             { get; set; }
@@ -147,6 +149,8 @@ public class CreateSaleQuotationRequest
     public string?   DeliveryTerms         { get; set; }
     public string?   Notes                 { get; set; }
     public string?   InternalNotes         { get; set; }
+    /// <summary>A41 D-13 — the CRM opportunity the quotation is raised from (CRM's create-quotation sets it).</summary>
+    public Guid?     SourceOpportunityUuid { get; set; }
     public List<SaleQuotationLineRequest> Lines { get; set; } = [];
 }
 

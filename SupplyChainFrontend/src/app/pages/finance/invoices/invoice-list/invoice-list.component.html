@@ -62,7 +62,11 @@
             <td><a class="sf-mono" [routerLink]="['/portal/pages/finance/invoices', inv.uuid]"><strong>{{ inv.invoiceNumber }}</strong></a></td>
             <td class="sf-mono sf-sm">{{ inv.supplierInvoiceNo || '—' }}</td>
             <td>{{ inv.supplierName }}</td>
-            <td class="sf-mono" data-testid="invoice-row-po">{{ inv.poNumber || '—' }}</td>
+            <td class="sf-mono" data-testid="invoice-row-po">
+              <!-- A40 D-5 — supplier opening balance from the data import (no PO) -->
+              <span *ngIf="inv.sourceType === 'OPENING' && !inv.poNumber; else poCell" class="sf-pill vi" data-testid="opening-pill">Opening balance</span>
+              <ng-template #poCell>{{ inv.poNumber || '—' }}</ng-template>
+            </td>
             <td>{{ inv.invoiceDate | date:'dd MMM yyyy' }}</td>
             <td>{{ inv.dueDate | date:'dd MMM yyyy' }}</td>
             <td class="text-right">{{ inv.totalAmount | number:'1.2-2' }} <span class="sf-mu sf-sm">{{ inv.currency }}</span></td>

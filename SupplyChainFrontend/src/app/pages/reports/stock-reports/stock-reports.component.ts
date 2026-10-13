@@ -49,7 +49,9 @@ export class StockReportsComponent implements OnInit {
     // A38 — Point of Sale stock movements.
     { label: 'POS Sale',        value: 'POS_SALE' },
     { label: 'POS Return',      value: 'POS_RETURN' },
-    { label: 'POS Void',        value: 'POS_VOID' }
+    { label: 'POS Void',        value: 'POS_VOID' },
+    // A40 — data import at the opening balance date.
+    { label: 'Opening stock',   value: 'OPENING_STOCK' }
   ];
 
   constructor(private svc: ReportsService, private msg: MessageService) {}

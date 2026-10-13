@@ -37,6 +37,9 @@ internal sealed class SaleInquiryMap : IEntityTypeConfiguration<SaleInquiry>
         b.HasIndex(x => new { x.OrganizationId, x.Status });
         b.HasIndex(x => x.PartnerId);
         b.HasIndex(x => x.AssignedToUserId).HasFilter("[AssignedToUserId] IS NOT NULL");
+        // A41 D-13 — the CRM reads an opportunity's inquiries.
+        b.HasIndex(x => new { x.OrganizationId, x.SourceOpportunityUuid }).HasFilter("[SourceOpportunityUuid] IS NOT NULL")
+            .HasDatabaseName("IX_sale_inquiries_SourceOpportunity");
 
         b.HasMany(x => x.Lines)
          .WithOne(x => x.SaleInquiry)
@@ -122,6 +125,9 @@ internal sealed class SaleQuotationMap : IEntityTypeConfiguration<SaleQuotation>
          .HasForeignKey(x => x.SourceInquiryId)
          .OnDelete(DeleteBehavior.NoAction);
         b.HasIndex(x => x.SourceInquiryId).HasFilter("[SourceInquiryId] IS NOT NULL");
+        // A41 D-13 — the CRM reads an opportunity's quotations.
+        b.HasIndex(x => new { x.OrganizationId, x.SourceOpportunityUuid }).HasFilter("[SourceOpportunityUuid] IS NOT NULL")
+            .HasDatabaseName("IX_sale_quotations_SourceOpportunity");
 
         b.HasMany(x => x.Lines)
          .WithOne(x => x.SaleQuotation)

@@ -8,7 +8,8 @@ import { ApiResponse, PaginatedResponse } from './logistics.service';
 // A29 §9 — sales invoices (/api/sales-invoices, Finance): the read side the sale order's Invoices and
 // Payments tabs use, and the receivables screens' raise, issue, edit and delete.
 
-export type SalesInvoiceSourceType = 'SALE_ORDER' | 'POS';
+/** A40 D-5 — OPENING: a customer opening balance from the data import (no sale order, no stock). */
+export type SalesInvoiceSourceType = 'SALE_ORDER' | 'POS' | 'OPENING';
 
 /** A38 — a POS invoice (no back-office cancel; the server refuses it). */
 export function isPosInvoice(inv: { sourceType?: string | null } | null | undefined): boolean { return inv?.sourceType === 'POS'; }

@@ -43,7 +43,7 @@
     <div class="sf-t">
       <div>
         <div class="sf-kicker">
-          Supplier invoice<ng-container *ngIf="invoice.poNumber"> · against <span class="sf-mono">{{ invoice.poNumber }}</span></ng-container><ng-container *ngIf="invoice.grnNumber"> and <span class="sf-mono">{{ invoice.grnNumber }}</span></ng-container>
+          Supplier invoice<ng-container *ngIf="invoice.sourceType === 'OPENING'"> · <span class="sf-pill vi" data-testid="opening-pill">Opening balance</span></ng-container><ng-container *ngIf="invoice.poNumber"> · against <span class="sf-mono">{{ invoice.poNumber }}</span></ng-container><ng-container *ngIf="invoice.grnNumber"> and <span class="sf-mono">{{ invoice.grnNumber }}</span></ng-container>
         </div>
         <h1>
           <span class="sf-mono">{{ invoice.invoiceNumber }}</span>

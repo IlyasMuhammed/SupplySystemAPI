@@ -6,6 +6,10 @@ import { AppMenuitem } from './app.menuitem';
 import { AuthService } from '../../pages/service/auth.service';
 import { TenantService } from '../../pages/service/tenant.service';
 import { ModuleService } from '../../services/module.service';
+import { AccountingService } from '../../services/accounting.service';
+
+/** A42 — the General Ledger group's first entry (Dashboard / "Set up general ledger"). */
+export const GL_DASHBOARD_ID = 'gl-dashboard';
 
 /**
  * MenuItem extended with:
@@ -52,7 +56,9 @@ export class AppMenu {
         private tenantService: TenantService,
         // A37 — optional so the filtering can be unit-tested with plain fakes. ModuleService.refresh() also reloads
         // GET /api/tenant/current, whose enabledFeatureCodes drive the gates below.
-        @Optional() private moduleService?: ModuleService
+        @Optional() private moduleService?: ModuleService,
+        // A42 — the GL setup status (the General Ledger group's first entry); optional for the same reason.
+        @Optional() private accounting?: AccountingService
     ) {}
 
     // Static structure — the underlying nav tree never changes mid-session, only its filtered
@@ -117,6 +123,28 @@ export class AppMenu {
                           permRequired: ['SALE_ORDER_VIEW', 'SALE_ORDER_CREATE', 'SALE_ORDER_EDIT', 'SALE_ORDER_CONFIRM'] }
                     ]
                 }
+            ]
+        },
+
+        // ── CRM (Addendum 41) ─────────────────────────────────────────────
+        // Before the sale: leads, the opportunity pipeline, the conversations with prospects, campaigns. Same codes as the routes.
+        {
+            label: 'CRM',
+            featureCode: 'MODULE_CRM',
+            items: [
+                { label: 'Leads', icon: 'pi pi-fw pi-user-plus',
+                  routerLink: ['/portal/pages/crm/leads'],
+                  permRequired: ['CRM_VIEW_LEADS'] },
+                { label: 'Opportunities', icon: 'pi pi-fw pi-chart-line',
+                  routerLink: ['/portal/pages/crm/opportunities'],
+                  permRequired: ['CRM_VIEW_OPPORTUNITIES'] },
+                { label: 'Activities', icon: 'pi pi-fw pi-calendar',
+                  routerLink: ['/portal/pages/crm/activities'],
+                  permRequired: ['CRM_VIEW_ACTIVITIES'] },
+                { label: 'Campaigns', icon: 'pi pi-fw pi-megaphone',
+                  routerLink: ['/portal/pages/crm/campaigns'],
+                  featureCode: 'FEATURE_CRM_CAMPAIGN_TRACKING',
+                  permRequired: ['CRM_VIEW_CAMPAIGNS', 'CRM_MANAGE_CAMPAIGNS'] }
             ]
         },
 
@@ -560,6 +588,31 @@ export class AppMenu {
                           routerLink: ['/portal/pages/finance/customer-payments'],
                           permRequired: ['CUSTOMER_PAYMENT_VIEW', 'CUSTOMER_PAYMENT_RECORD'] }
                     ]
+                },
+
+                // ── General Ledger (Addendum 42 D-26) — same codes as the routes. The first entry reads "Set up general
+                // ledger" (→ the wizard) until setup is Complete; see withGlState().
+                {
+                    label: 'General Ledger',
+                    icon: 'pi pi-fw pi-book',
+                    featureCode: 'FEATURE_GENERAL_LEDGER',
+                    permRequired: ['GL_VIEW', 'GL_ACCOUNT_MANAGE', 'GL_SETUP_MANAGE'],
+                    items: [
+                        { id: GL_DASHBOARD_ID, label: 'Dashboard', icon: 'pi pi-fw pi-chart-bar',
+                          routerLink: ['/portal/pages/finance/gl'] },
+                        { label: 'Chart of Accounts', icon: 'pi pi-fw pi-sitemap',
+                          routerLink: ['/portal/pages/finance/gl/accounts'] },
+                        { label: 'Fiscal Years', icon: 'pi pi-fw pi-calendar',
+                          routerLink: ['/portal/pages/finance/gl/fiscal-years'] },
+                        { label: 'Defaults', icon: 'pi pi-fw pi-sliders-h',
+                          routerLink: ['/portal/pages/finance/gl/defaults'] },
+                        { label: 'Opening Balances', icon: 'pi pi-fw pi-book',
+                          routerLink: ['/portal/pages/finance/gl/opening-balances'] },
+                        { label: 'Integrations', icon: 'pi pi-fw pi-link',
+                          routerLink: ['/portal/pages/finance/gl/integrations'] },
+                        { label: 'Setup Status', icon: 'pi pi-fw pi-list-check',
+                          routerLink: ['/portal/pages/finance/gl/setup-status'] }
+                    ]
                 }
             ]
         },
@@ -773,7 +826,12 @@ export class AppMenu {
                                 { label: 'Rejection Reasons', icon: 'pi pi-fw pi-ban',
                                   routerLink: ['/portal/pages/sales/rejection-reasons'],
                                   featureCode: 'MODULE_DEMAND',
-                                  permRequired: ['SALE_REJECTION_REASON_MANAGE'] }
+                                  permRequired: ['SALE_REJECTION_REASON_MANAGE'] },
+                                // A41 — lead sources, pipeline stages, sales teams, public lead API keys; same code as the route.
+                                { label: 'CRM Settings', icon: 'pi pi-fw pi-comments',
+                                  routerLink: ['/portal/pages/crm/settings'],
+                                  featureCode: 'MODULE_CRM',
+                                  permRequired: ['CRM_ADMIN'] }
                             ]
                         },
                         {
@@ -830,7 +888,12 @@ export class AppMenu {
                                 // A37 — the organization's modules (org admin switches licensed modules on/off).
                                 { label: 'Modules', icon: 'pi pi-fw pi-th-large',
                                   routerLink: ['/portal/pages/settings/modules'],
-                                  permRequired: ['MODULES_VIEW', 'MODULES_MANAGE'] }
+                                  permRequired: ['MODULES_VIEW', 'MODULES_MANAGE'] },
+                                // A40 — upload / map / validate / import master data and opening balances; same code as the route.
+                                { label: 'Data Import', icon: 'pi pi-fw pi-file-import',
+                                  routerLink: ['/portal/pages/settings/import'],
+                                  featureCode: 'MODULE_DATA_IMPORT',
+                                  permRequired: ['IMPORT_PROFILE_VIEW'] }
                             ]
                         },
                         {
@@ -883,10 +946,32 @@ export class AppMenu {
         // (fully-open or fully-closed) sidebar while it's in flight.
         if (!tenant) return [];
 
-        return this.filterItems(this.fullMenu, {
+        return this.withGlState(this.filterItems(this.fullMenu, {
             isSuperAdmin: tenant.isSuperAdmin
-        });
+        }));
     });
+
+    /**
+     * A42 — while GL setup is not Complete, the General Ledger group's first entry is "Set up general ledger" (→ the wizard).
+     * The status is read once when the group is visible (and refreshed by every GL page that reads it); unknown ⇒ "Dashboard".
+     */
+    private withGlState(items: NavItem[]): NavItem[] {
+        const state = this.accounting?.setupState();
+        let visible = false;
+        const walk = (list: NavItem[]): NavItem[] => list.map(item => {
+            if (item.id === GL_DASHBOARD_ID) {
+                visible = true;
+                if (state && state.status !== 'Complete') {
+                    return { ...item, label: 'Set up general ledger', icon: 'pi pi-fw pi-cog', routerLink: ['/portal/pages/finance/gl/setup'] };
+                }
+                return item;
+            }
+            return item.items?.length ? { ...item, items: walk(item.items) } : item;
+        });
+        const result = walk(items);
+        if (visible && !state) this.accounting?.ensureSetupState();
+        return result;
+    }
 
     private filterItems(items: NavItem[], ctx: { isSuperAdmin: boolean }): NavItem[] {
         const result: NavItem[] = [];

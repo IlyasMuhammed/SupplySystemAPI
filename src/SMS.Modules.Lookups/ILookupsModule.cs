@@ -33,6 +33,8 @@ public static class LookupsModuleExtensions
         services.AddScoped<ICurrencyCodeLookup, CurrencyCodeLookup>();
         // A37 §6 — tax codes and units of measure for Inventory's catalog sync.
         services.AddScoped<ISyncLookupReader, SyncLookupReader>();
+        // A40 (TINV) — units of measure are importable (the Import module resolves every IImportTarget).
+        services.AddScoped<IImportTarget, Import.UnitImportTarget>();
 
         return services;
     }

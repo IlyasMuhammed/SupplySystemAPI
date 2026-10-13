@@ -122,6 +122,16 @@ public static class InventoryModuleExtensions
         // IPosChangeListener (POS-B) is resolved optionally by InventoryDbContext after each save / commit.
         services.AddScoped<IPosStockPoster, PosStockPoster>();
         services.AddScoped<IPosCatalogSource, PosCatalogSource>();
+        // A40 (TINV) — what the Import module can load into Inventory, each through this module's own rules
+        // (docs/data-import). UNIT lives in Lookups; the opening-date provider and product ledger are Finance's (optional).
+        services.AddScoped<IImportTarget, Import.ProductCategoryImportTarget>();
+        services.AddScoped<IImportTarget, Import.ProductImportTarget>();
+        services.AddScoped<IImportTarget, Import.WarehouseImportTarget>();
+        services.AddScoped<IImportTarget, Import.WarehouseLocationImportTarget>();
+        services.AddScoped<IImportTarget, Import.PricingRuleImportTarget>();
+        services.AddScoped<IImportTarget, Import.OpeningStockImportTarget>();
+        // A40 QA-R1 (TFIN) — Finance's opening-date guard asks for the latest posted opening stock date.
+        services.AddScoped<IOpeningStockDateSource, Import.OpeningStockDateSource>();
         services.AddScoped<InventoryDataSeeder>();
         services.AddScoped<StaleRateAlertJob>();
         services.AddScoped<RateExpiryNotificationJob>();

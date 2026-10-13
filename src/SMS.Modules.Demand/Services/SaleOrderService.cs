@@ -129,8 +129,9 @@ internal sealed partial class SaleOrderService : ISaleOrderService
 
         // A32 BR-C3-01/02 — a direct order is MANUAL. One made from a quotation goes through the quotation's own
         // convert-to-order (which links it back); PORTAL and INTER_TENANT are not built yet (Addendum 33).
-        EnsureDirectSourceType(req.SourceType);
+        EnsureDirectSourceType(req.SourceType, req.SourceOpportunityUuid);
         var customerPo = NormalizeCustomerPo(req.CustomerPoReference);
+        var opportunity = req.SourceOpportunityUuid is { } opp && opp != Guid.Empty ? opp : (Guid?)null;
 
         var config       = await ReadConfigAsync();
         var deliveryMode = ResolveDeliveryMode(req.DeliveryMode, config, existing: null);
@@ -164,7 +165,9 @@ internal sealed partial class SaleOrderService : ISaleOrderService
             // The organization's notification department unless the order names another.
             IntimationDepartmentId = req.IntimationDepartmentId ?? config.IntimationDepartmentId,
             Notes                  = req.Notes,
-            SourceType             = EnumCode<SaleOrderSourceType>.Of(SaleOrderSourceType.Manual),
+            // A41 D-13 — typed from a CRM opportunity.
+            SourceType             = EnumCode<SaleOrderSourceType>.Of(opportunity is null ? SaleOrderSourceType.Manual : SaleOrderSourceType.FromOpportunity),
+            SourceOpportunityUuid  = opportunity,
             CustomerPoReference    = customerPo,
             CustomerPoDate         = req.CustomerPoDate?.Date,
             CreatedBy              = createdBy,
@@ -1078,6 +1081,7 @@ internal sealed partial class SaleOrderService : ISaleOrderService
             SourceType             = EnumCode<SaleOrderSourceType>.Of(SaleOrderSourceType.FromQuotation),
             SourceQuotationId      = quotation.Id,
             SourceInquiryId        = quotation.SourceInquiryId, // BR-C3-03 — chained from the quotation
+            SourceOpportunityUuid  = quotation.SourceOpportunityUuid, // A41 D-13 — so is the CRM opportunity
             CustomerPoReference    = customerPo,
             CustomerPoDate         = cmd.CustomerPoDate?.Date,
             CreatedBy              = createdBy,
@@ -1178,7 +1182,7 @@ internal sealed partial class SaleOrderService : ISaleOrderService
     internal const string CustomerPoInterfaceCode = "CUSTOMER_PO";
     internal const int CustomerPoReferenceMaxLength = 50;
 
-    private static void EnsureDirectSourceType(string? sourceType)
+    private static void EnsureDirectSourceType(string? sourceType, Guid? sourceOpportunityUuid = null)
     {
         if (string.IsNullOrWhiteSpace(sourceType)) return;
         if (!EnumCode<SaleOrderSourceType>.TryParse(sourceType.Trim().ToUpperInvariant(), out var parsed))
@@ -1187,6 +1191,11 @@ internal sealed partial class SaleOrderService : ISaleOrderService
         {
             case SaleOrderSourceType.Manual:
                 return;
+            // A41 D-13 — needs the opportunity it comes from.
+            case SaleOrderSourceType.FromOpportunity when sourceOpportunityUuid is { } o && o != Guid.Empty:
+                return;
+            case SaleOrderSourceType.FromOpportunity:
+                throw new BadRequestException("An order from an opportunity needs sourceOpportunityUuid.");
             case SaleOrderSourceType.FromQuotation:
                 throw new BadRequestException(
                     "An order from a quotation is made by converting the accepted quotation (POST /api/sale-quotations/{id}/convert-to-order).");
@@ -1269,6 +1278,7 @@ internal sealed partial class SaleOrderService : ISaleOrderService
         CustomerPoReference      = x.CustomerPoReference,
         CustomerPoDate           = x.CustomerPoDate,
         CustomerPoAttachmentUuid = x.CustomerPoAttachmentUuid,
+        SourceOpportunityUuid    = x.SourceOpportunityUuid,
         Lines = includeLines
             ? x.Lines.Select(l => new SaleOrderLineModel
               {

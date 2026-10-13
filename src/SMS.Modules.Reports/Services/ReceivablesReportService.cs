@@ -186,8 +186,11 @@ internal sealed class ReceivablesReportService : IReceivablesReportService
         // was one until the moment it was cancelled — when its credit note went on the ledger — so it counts
         // for a day that ended before then, as the customer ledger (R2) does; one cancelled before the date
         // was recorded has nothing to place it by and stays out.
+        // A40 (TFIN, D-5) — an imported opening balance is an invoice booked as OPENING_BAL (so the sales reports, which
+        // count INVOICE entries, leave it out); it is owed all the same.
         var booked = _finance.CustomerLedgerEntries.Where(e =>
-            e.EntryType == CustomerLedgerEntryTypes.Invoice && e.ReferenceType == InvoiceReferenceType && e.EntryDate < end);
+            (e.EntryType == CustomerLedgerEntryTypes.Invoice || e.EntryType == CustomerLedgerEntryTypes.OpeningBal)
+            && e.ReferenceType == InvoiceReferenceType && e.EntryDate < end);
         var bounces = _finance.CustomerLedgerEntries.Where(e =>
             e.EntryType == CustomerLedgerEntryTypes.Payment && e.ReferenceType == PaymentReferenceType
             && e.DebitAmount > 0m && e.EntryDate < end);

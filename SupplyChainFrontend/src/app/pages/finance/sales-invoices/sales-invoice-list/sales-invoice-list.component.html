@@ -82,7 +82,11 @@
                 <a *ngIf="inv.sourceNumber" class="sf-mono" [routerLink]="['/portal/pages/pos/orders']"
                    [queryParams]="{ search: inv.sourceNumber }" data-testid="pos-order-link">{{ inv.sourceNumber }}</a>
               </ng-container>
-              <ng-template #soCell><span class="sf-mono">{{ inv.saleOrderNumber || inv.sourceNumber || '—' }}</span></ng-template>
+              <ng-template #soCell>
+                <!-- A40 D-5 — opening balance brought in by the data import (no sale order) -->
+                <span *ngIf="inv.sourceType === 'OPENING'" class="sf-pill vi" data-testid="opening-pill">Opening balance</span>
+                <span class="sf-mono" *ngIf="inv.sourceType !== 'OPENING' || inv.sourceNumber">{{ inv.saleOrderNumber || inv.sourceNumber || '—' }}</span>
+              </ng-template>
             </td>
             <td class="sf-mono">{{ inv.deliveryNumber || '—' }}</td>
             <td>{{ inv.invoiceDate | date:'dd MMM yyyy' }}</td>

@@ -140,6 +140,7 @@ internal sealed class SaleQuotationService : ISaleQuotationService
             DeliveryTerms         = Text(req.DeliveryTerms, 200, "delivery terms"),
             Notes                 = Text(req.Notes, 2000, "notes"),
             InternalNotes         = Text(req.InternalNotes, 2000, "internal notes"),
+            SourceOpportunityUuid = req.SourceOpportunityUuid is { } opp && opp != Guid.Empty ? opp : null, // A41 D-13
             CreatedBy             = userId,
             CreatedDate           = DateTime.UtcNow
         };
@@ -191,6 +192,7 @@ internal sealed class SaleQuotationService : ISaleQuotationService
             CustomerReference     = inquiry.CustomerReference,
             CustomerReferenceDate = inquiry.CustomerReferenceDate,
             SourceInquiryId       = inquiry.Id,
+            SourceOpportunityUuid = inquiry.SourceOpportunityUuid, // A41 D-13 — the opportunity travels down the chain
             CurrencyId            = currencyId,
             ValidFrom             = validFrom,
             ValidTo               = validTo,
@@ -754,6 +756,7 @@ internal sealed class SaleQuotationService : ISaleQuotationService
                 ? new SalesDocumentLinkModel { Uuid = si.UUID, Number = si.InquiryNumber, Status = si.Status }
                 : null,
             SaleOrder             = order,
+            SourceOpportunityUuid = q.SourceOpportunityUuid,
             CurrencyId            = q.CurrencyId,
             CurrencyCode          = await CurrencyCodeAsync(q.CurrencyId),
             ValidFrom             = q.ValidFrom,

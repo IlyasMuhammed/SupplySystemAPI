@@ -884,6 +884,40 @@ namespace SMS.Modules.Finance.Migrations
                     b.ToTable("exchange_rates", "finance");
                 });
 
+            modelBuilder.Entity("SMS.Modules.Finance.Domain.FinanceOrgSettings", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ModifiedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ModifiedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateOnly?>("OpeningBalanceDate")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId")
+                        .IsUnique();
+
+                    b.ToTable("org_settings", "finance");
+                });
+
             modelBuilder.Entity("SMS.Modules.Finance.Domain.Invoice", b =>
                 {
                     b.Property<int>("Id")

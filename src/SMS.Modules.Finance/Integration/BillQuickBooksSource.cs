@@ -97,6 +97,9 @@ internal sealed class BillQuickBooksSource : IQuickBooksSource
     /// </summary>
     internal async Task<int> SendApprovedAsync(IReadOnlyList<Invoice> invoices, CancellationToken ct = default)
     {
+        // A40 (TFIN, D-14) — imported opening bills are never sent: QuickBooks (the GL) already holds the opening payables,
+        // and a header-only bill would land on the default expense account.
+        invoices = invoices.Where(i => !string.Equals(i.SourceType, SalesInvoiceSources.Opening, StringComparison.Ordinal)).ToList();
         if (invoices.Count == 0) return 0;
 
         var variants = await _poLines.GetAsync(BillPayloadFactory.PoLinesOf(invoices), ct);

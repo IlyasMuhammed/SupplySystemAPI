@@ -1,0 +1,46 @@
+{
+  "template_code": "MY_TEMPLATE",
+  "template_name": "My Chart of Accounts",
+  "country_code": null,
+  "currency_code": null,
+  "version": "1.0",
+  "accounts": [
+    {
+      "code": "1",
+      "name": "Assets",
+      "root_type": "Asset",
+      "level": 1,
+      "is_group": true,
+      "children": [
+        {
+          "code": "11",
+          "name": "Current Assets",
+          "root_type": "Asset",
+          "level": 2,
+          "is_group": true,
+          "children": [
+            {
+              "code": "111",
+              "name": "Cash and Cash Equivalents",
+              "root_type": "Asset",
+              "level": 3,
+              "is_group": true,
+              "children": [
+                {
+                  "code": "1111",
+                  "name": "Petty Cash",
+                  "root_type": "Asset",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "Cash",
+                  "description": "Example leaf account. Repeat the pattern for roots 2 Liabilities, 3 Equity, 4 Revenue and 5 Expenses.",
+                  "children": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

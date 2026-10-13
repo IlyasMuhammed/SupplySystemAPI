@@ -129,6 +129,8 @@ export interface InvoiceListItemModel {
   /** Null on a payable with no purchase order behind it (G10). */
   poNumber?: string | null;
   grnNumber?: string;
+  /** A40 D-5 — OPENING on a supplier opening balance from the data import (when the API sends it). */
+  sourceType?: string | null;
   invoiceDate: string;
   dueDate: string;
   totalAmount: number;
@@ -174,6 +176,8 @@ export interface InvoiceDetailModel {
   poNumber?: string | null;
   grnUuid?: string;
   grnNumber?: string;
+  /** A40 D-5 — OPENING on a supplier opening balance from the data import (when the API sends it). */
+  sourceType?: string | null;
   invoiceDate: string;
   receivedDate: string;
   dueDate: string;

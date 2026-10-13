@@ -80,6 +80,8 @@ public static class DemandModuleExtensions
         // A32 — sale quotations (PC-03..PC-09) and their daily expiry sweep.
         services.AddScoped<ISaleQuotationService, SaleQuotationService>();
         services.AddScoped<QuotationExpiryJob>();
+        // A41 D-13 — the CRM's inquiries / quotations from an opportunity, and the documents linked back to it.
+        services.AddScoped<ICrmSalesDocumentGateway, CrmSalesDocumentGateway>();
         // A33 — fulfillment routes on sale orders: the effective-route resolver (line → variant → org default, the confirm
         // gate), the D-12 sweep creating deliveries a confirm could not, and "open sale order lines" for Logistics'
         // in-use check (L-7; one IFulfillmentRouteUsage per module, Logistics injects them all).

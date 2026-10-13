@@ -55,10 +55,12 @@ internal enum SaleQuotationCustomerResponse
 /// <summary>§5.4 — how a sale order came to exist. PORTAL and INTER_TENANT are reserved (Addendum 33).</summary>
 internal enum SaleOrderSourceType
 {
-    [Code("MANUAL")]         Manual,
-    [Code("FROM_QUOTATION")] FromQuotation,
-    [Code("PORTAL")]         Portal,
-    [Code("INTER_TENANT")]   InterTenant
+    [Code("MANUAL")]           Manual,
+    [Code("FROM_QUOTATION")]   FromQuotation,
+    [Code("PORTAL")]           Portal,
+    [Code("INTER_TENANT")]     InterTenant,
+    /// <summary>A41 M14 / D-13 — typed on the sale order form opened from a CRM opportunity.</summary>
+    [Code("FROM_OPPORTUNITY")] FromOpportunity
 }
 
 /// <summary>§6.3 — computed per line at read time, never stored (BR-C4-07).</summary>

@@ -143,6 +143,19 @@ public static class FinanceModuleExtensions
         // Lookups asks every checker before it deletes a currency or changes its code.
         services.AddScoped<ILookupReferenceChecker, FinanceCurrencyReferenceChecker>();
 
+        // A40 (TFIN) — data import: the opening balance date (D-7, read by the other modules' opening imports) and Finance's
+        // import targets: tax codes, customer and supplier opening balances (D-5). The partner lookup they use is Suppliers'.
+        services.AddScoped<OpeningBalanceDateService>();
+        services.AddScoped<IOpeningBalanceDateService>(sp => sp.GetRequiredService<OpeningBalanceDateService>());
+        services.AddScoped<IOpeningBalanceDateProvider>(sp => sp.GetRequiredService<OpeningBalanceDateService>());
+        services.AddScoped<IImportTarget, Import.TaxCodeImportTarget>();
+        services.AddScoped<IImportTarget, Import.CustomerOpeningBalanceImportTarget>();
+        services.AddScoped<IImportTarget, Import.SupplierOpeningBalanceImportTarget>();
+        // A42 D-12 (FIN) — A40 sub-ledger opening totals for the GL setup wizard (Accounting reads them, info only).
+        services.AddScoped<IOpeningSubledgerTotals>(sp => new OpeningSubledgerTotalsService(
+            sp.GetRequiredService<FinanceDbContext>(), sp.GetService<ICurrencyService>(), sp.GetService<IOrgCurrencyLookup>(),
+            sp.GetService<TimeProvider>()));
+
         // QuickBooks — sales invoices, and approved supplier invoices as bills. TryAdd: in a host without
         // the Integration module the gateway is the Null one (every call answers Disabled); the Integration
         // module replaces it. Each source is registered once and exposed both as itself (for its publisher)

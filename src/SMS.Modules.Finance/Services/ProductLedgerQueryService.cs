@@ -85,15 +85,16 @@ internal sealed class ProductLedgerQueryService : IProductLedgerQueryService
             .Select(g => new { EntryType = g.Key, Quantity = g.Sum(x => x.Quantity), Cost = g.Sum(x => x.TotalCost) })
             .ToListAsync();
 
-        var purchased = totals.FirstOrDefault(t => t.EntryType == ProductLedgerEntryTypes.Purchase);
+        // A40 (TFIN) — opening stock imported at go-live is stock acquired like a purchase: it counts with purchases.
+        var purchased = totals.Where(t => t.EntryType is ProductLedgerEntryTypes.Purchase or ProductLedgerEntryTypes.OpeningStock).ToList();
         var sold      = totals.FirstOrDefault(t => t.EntryType == ProductLedgerEntryTypes.Sale);
 
         return new ProductLedgerSummaryModel
         {
             VariantUuid         = variantUuid,
             ProductUuid         = last.ProductUuid,
-            PurchasedQuantity   = purchased?.Quantity ?? 0m,
-            PurchasedCost       = purchased?.Cost ?? 0m,
+            PurchasedQuantity   = purchased.Sum(p => p.Quantity),
+            PurchasedCost       = purchased.Sum(p => p.Cost),
             SoldQuantity        = sold?.Quantity ?? 0m,
             CostOfGoodsSold     = sold?.Cost ?? 0m,
             CurrentQuantity     = last.RunningQty,

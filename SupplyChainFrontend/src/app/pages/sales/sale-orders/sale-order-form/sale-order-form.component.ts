@@ -424,7 +424,32 @@ export class SaleOrderFormComponent implements OnInit {
       const quotationUuid = query?.get('quotation');
       if (quotationUuid || query?.get('source') === 'quotation') this.setCreateMode('QUOTATION');
       if (quotationUuid && this.isFromQuotation) this.loadQuotation(quotationUuid);
+      // A41 D-13 — opened from a CRM opportunity: its customer, and the order is linked back to it (FROM_OPPORTUNITY).
+      const opportunity = query?.get('opportunity');
+      const customerUuid = query?.get('customer');
+      if (opportunity && customerUuid && !quotationUuid) this.startFromOpportunity(opportunity, customerUuid);
     }
+  }
+
+  /** A41 — the CRM opportunity this new order is typed for (null for an ordinary order). */
+  sourceOpportunityUuid: string | null = null;
+
+  private startFromOpportunity(opportunityUuid: string, customerUuid: string) {
+    this.sourceOpportunityUuid = opportunityUuid;
+    const customer = this.form.get('customer')!;
+    this.partnerService.getPartnerById(customerUuid).subscribe({
+      next: (res) => {
+        const partner = res.result ?? ({ uuid: customerUuid, companyName: customerUuid } as BusinessPartnerModel);
+        customer.setValue(partner);
+        customer.disable();
+        this.onCustomerSelected(partner);
+      },
+      error: () => {
+        customer.setValue({ uuid: customerUuid, companyName: customerUuid } as BusinessPartnerModel);
+        customer.disable();
+        this.loadAddresses(customerUuid);
+      }
+    });
   }
 
   get isEdit(): boolean { return !!this.uuid; }
@@ -1401,7 +1426,8 @@ export class SaleOrderFormComponent implements OnInit {
       deliveryMode: v.deliveryMode,
       shippingAddressId: withAddress ? v.shippingAddressId ?? undefined : undefined,
       notes,
-      // A32 — sourceType is left to the server's default, MANUAL: the only one this endpoint takes.
+      // A32 — sourceType is left to the server's default: MANUAL, or FROM_OPPORTUNITY when an opportunity is named (A41).
+      ...(this.sourceOpportunityUuid ? { sourceOpportunityUuid: this.sourceOpportunityUuid } : {}),
       ...this.customerPoFields(),
       lines: this.buildLines()
     };

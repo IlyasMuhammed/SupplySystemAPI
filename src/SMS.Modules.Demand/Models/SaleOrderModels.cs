@@ -53,6 +53,8 @@ public class CreateSaleOrderRequest
     /// <summary>The customer's PO number, free text up to 50 (BR-C3-04). A duplicate within the org is a warning, not an error.</summary>
     public string?   CustomerPoReference    { get; set; }
     public DateTime? CustomerPoDate         { get; set; }
+    /// <summary>A41 D-13 — the CRM opportunity the order is typed for (the form opened from it): SourceType becomes FROM_OPPORTUNITY.</summary>
+    public Guid?     SourceOpportunityUuid  { get; set; }
     public List<CreateSaleOrderLineRequest> Lines { get; set; } = [];
 }
 
@@ -196,6 +198,8 @@ public class SaleOrderModel
     public DateTime? CustomerPoDate           { get; set; }
     /// <summary>The CUSTOMER_PO attachment (api/attachments) linked as the customer's PO document.</summary>
     public Guid?     CustomerPoAttachmentUuid { get; set; }
+    /// <summary>A41 D-13 — the CRM opportunity this order serves (link back to /crm/opportunities/{uuid}).</summary>
+    public Guid?     SourceOpportunityUuid    { get; set; }
 
     public List<SaleOrderLineModel> Lines { get; set; } = [];
 

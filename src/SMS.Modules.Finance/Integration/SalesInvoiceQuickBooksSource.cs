@@ -95,6 +95,10 @@ internal sealed class SalesInvoiceQuickBooksSource : IQuickBooksSource
     {
         if (action == QuickBooksPushAction.None) return false;
 
+        // A40 (TFIN, D-14) — an imported opening balance is never sent: QuickBooks (the GL) already holds the organization's
+        // opening receivables, and its non-stock line names no item a QuickBooks invoice line could carry.
+        if (invoice.SourceType == SalesInvoiceSources.Opening) return false;
+
         var externalId = invoice.UUID.ToString();
 
         try

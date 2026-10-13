@@ -1,0 +1,138 @@
+// A40 — data import pages. Tokens only (--sms-*), light and dark.
+
+.imp-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 0.75rem;
+}
+
+.imp-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--sms-border);
+  border-radius: var(--sms-radius);
+  background: var(--sms-surface);
+
+  .imp-card-top {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    i { color: var(--sms-primary-text); }
+  }
+
+  .imp-desc { flex: 1; }
+
+  .imp-card-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-top: 0.25rem;
+  }
+}
+
+.imp-order {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: var(--sms-surface-2);
+  color: var(--sms-text-muted);
+  border: 1px solid var(--sms-border-soft);
+}
+
+.imp-blocked {
+  color: var(--sms-warn);
+  background: var(--sms-warn-soft);
+  border-radius: var(--sms-radius-sm);
+  padding: 0.35rem 0.5rem;
+  a { color: var(--sms-primary-text); margin-left: 0.25rem; }
+}
+
+.imp-note {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  padding: 0.6rem 0.8rem;
+  border-radius: var(--sms-radius-sm);
+  background: var(--sms-primary-soft);
+  color: var(--sms-text);
+  &.er { background: var(--sms-danger-soft); color: var(--sms-danger); }
+  &.wn { background: var(--sms-warn-soft); color: var(--sms-warn); }
+  &.ok { background: var(--sms-ok-soft); color: var(--sms-ok); }
+  a { color: var(--sms-primary-text); }
+}
+
+.imp-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 2rem 1rem;
+  border: 2px dashed var(--sms-border);
+  border-radius: var(--sms-radius);
+  background: var(--sms-surface-2);
+  color: var(--sms-text-muted);
+  text-align: center;
+  cursor: pointer;
+  i { font-size: 1.75rem; color: var(--sms-primary-text); }
+  &.over { border-color: var(--sms-primary); background: var(--sms-primary-soft); }
+  &.has-file { border-style: solid; }
+}
+
+.imp-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-weight: 600;
+  &.ok { color: var(--sms-ok); }
+  &.wn { color: var(--sms-warn); }
+  &.in { color: var(--sms-primary-text); }
+  &.none { color: var(--sms-danger); }
+}
+
+tr.imp-dup td { background: var(--sms-danger-soft); }
+td.imp-issue { background: var(--sms-danger-soft); color: var(--sms-danger); }
+
+.imp-progress {
+  height: 0.6rem;
+  border-radius: 999px;
+  background: var(--sms-surface-2);
+  border: 1px solid var(--sms-border-soft);
+  overflow: hidden;
+  > span { display: block; height: 100%; background: var(--sms-primary); transition: width 0.3s ease; }
+}
+
+.imp-radios {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  label { display: inline-flex; align-items: center; gap: 0.4rem; cursor: pointer; }
+}
+
+.imp-check {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  li {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.65rem 0.25rem;
+    border-bottom: 1px solid var(--sms-border-soft);
+    &:last-child { border-bottom: 0; }
+  }
+  .imp-state { width: 1.5rem; text-align: center; font-size: 1.1rem; }
+  .done .imp-state { color: var(--sms-ok); }
+  .next .imp-state { color: var(--sms-primary-text); }
+  .todo .imp-state { color: var(--sms-text-faint); }
+  .imp-grow { flex: 1; min-width: 0; }
+}
+
+.imp-chips { display: flex; flex-wrap: wrap; gap: 0.35rem; }

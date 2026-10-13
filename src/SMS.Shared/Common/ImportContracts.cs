@@ -76,3 +76,12 @@ public interface IOpeningBalanceDateProvider
 {
     Task<DateOnly?> GetAsync(Guid organizationId, CancellationToken ct = default);
 }
+
+/// <summary>
+/// A40 QA-R1 — the latest date of the organization's posted opening stock (inventory-ledger OPENING_STOCK entries), or null
+/// when none. Implemented in Inventory; Finance asks it before the opening balance date is cleared or moved earlier.
+/// </summary>
+public interface IOpeningStockDateSource
+{
+    Task<DateOnly?> GetLatestAsync(Guid organizationId, CancellationToken ct = default);
+}

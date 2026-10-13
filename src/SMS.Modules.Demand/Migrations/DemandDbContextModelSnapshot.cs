@@ -954,6 +954,9 @@ namespace SMS.Modules.Demand.Migrations
                     b.Property<DateTime?>("ResponseDeadline")
                         .HasColumnType("date");
 
+                    b.Property<Guid?>("SourceOpportunityUuid")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("Status")
                         .IsConcurrencyToken()
                         .IsRequired()
@@ -982,6 +985,10 @@ namespace SMS.Modules.Demand.Migrations
 
                     b.HasIndex("OrganizationId", "InquiryNumber")
                         .IsUnique();
+
+                    b.HasIndex("OrganizationId", "SourceOpportunityUuid")
+                        .HasDatabaseName("IX_sale_inquiries_SourceOpportunity")
+                        .HasFilter("[SourceOpportunityUuid] IS NOT NULL");
 
                     b.HasIndex("OrganizationId", "Status");
 
@@ -1214,6 +1221,9 @@ namespace SMS.Modules.Demand.Migrations
                     b.Property<int?>("SourceInquiryId")
                         .HasColumnType("int");
 
+                    b.Property<Guid?>("SourceOpportunityUuid")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<int?>("SourceQuotationId")
                         .HasColumnType("int");
 
@@ -1276,6 +1286,10 @@ namespace SMS.Modules.Demand.Migrations
 
                     b.HasIndex("OrganizationId", "SoNumber")
                         .IsUnique();
+
+                    b.HasIndex("OrganizationId", "SourceOpportunityUuid")
+                        .HasDatabaseName("IX_sale_orders_SourceOpportunity")
+                        .HasFilter("[SourceOpportunityUuid] IS NOT NULL");
 
                     b.HasIndex("OrganizationId", "Status", "OrderDate");
 
@@ -1697,6 +1711,9 @@ namespace SMS.Modules.Demand.Migrations
                     b.Property<int?>("SourceInquiryId")
                         .HasColumnType("int");
 
+                    b.Property<Guid?>("SourceOpportunityUuid")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("Status")
                         .IsConcurrencyToken()
                         .IsRequired()
@@ -1737,6 +1754,10 @@ namespace SMS.Modules.Demand.Migrations
 
                     b.HasIndex("OrganizationId", "QuotationNumber")
                         .IsUnique();
+
+                    b.HasIndex("OrganizationId", "SourceOpportunityUuid")
+                        .HasDatabaseName("IX_sale_quotations_SourceOpportunity")
+                        .HasFilter("[SourceOpportunityUuid] IS NOT NULL");
 
                     b.HasIndex("OrganizationId", "Status");
 

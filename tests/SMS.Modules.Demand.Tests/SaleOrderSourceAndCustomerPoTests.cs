@@ -99,6 +99,43 @@ public class SaleOrderSourceAndCustomerPoTests
         await act.Should().ThrowAsync<BadRequestException>();
     }
 
+    // ── A41 M14 / D-13 — orders typed from a CRM opportunity ─────────────────
+
+    [Fact]
+    public async Task A41_an_order_typed_for_an_opportunity_is_FROM_OPPORTUNITY_and_links_back()
+    {
+        var h = NewHarness();
+        var opportunity = Guid.NewGuid();
+        var req = Direct();
+        req.SourceOpportunityUuid = opportunity;
+
+        var uuid = await h.Service.CreateAsync(req, User);
+        var model = (await h.Service.GetByIdAsync(uuid))!;
+
+        model.SourceType.Should().Be("FROM_OPPORTUNITY");
+        model.SourceOpportunityUuid.Should().Be(opportunity);
+        (await h.Service.CreateAsync(Direct(sourceType: "FROM_OPPORTUNITY"), User).ContinueWith(t => t.Exception?.InnerException))
+            .Should().BeOfType<BadRequestException>("FROM_OPPORTUNITY needs the opportunity");
+        var named = Direct(sourceType: "FROM_OPPORTUNITY");
+        named.SourceOpportunityUuid = opportunity;
+        (await h.Service.GetByIdAsync(await h.Service.CreateAsync(named, User)))!.SourceType.Should().Be("FROM_OPPORTUNITY");
+    }
+
+    [Fact]
+    public async Task A41_an_order_converted_from_an_opportunitys_quotation_keeps_the_opportunity()
+    {
+        var h = NewHarness();
+        var q = await SeedAcceptedQuotationAsync(h);
+        var opportunity = Guid.NewGuid();
+        q.SourceOpportunityUuid = opportunity;
+        await h.Db.SaveChangesAsync();
+
+        var uuid = await h.Service.CreateFromQuotationAsync(Convert(q, new QuotedSaleOrderLine { VariantUuid = Guid.NewGuid(), Quantity = 1m, UnitPrice = 5m }), User);
+        var model = (await h.Service.GetByIdAsync(uuid))!;
+        model.SourceType.Should().Be("FROM_QUOTATION");
+        model.SourceOpportunityUuid.Should().Be(opportunity);
+    }
+
     [Fact]
     public async Task Manual_may_be_named_explicitly()
     {
