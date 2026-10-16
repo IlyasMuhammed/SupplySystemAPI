@@ -90,10 +90,14 @@ public static class OpeningEntryStatuses
     public static readonly IReadOnlyList<string> All = [Draft, Posted];
 }
 
-/// <summary>D-10 — journal entry types. A42 only ever writes OPENING_BALANCE; A43 adds the rest.</summary>
+/// <summary>D-10 — journal entry types. A42 only ever writes OPENING_BALANCE; A44 adds one per FinDocType (upper snake).</summary>
 public static class JournalEntryTypes
 {
     public const string OpeningBalance = "OPENING_BALANCE";
+
+    /// <summary>A44 §3 — FinDocType name → upper snake: SalesInvoice → SALES_INVOICE, POSSale → POS_SALE.</summary>
+    public static string For(string documentType) =>
+        System.Text.RegularExpressions.Regex.Replace(documentType, "(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])", "_").ToUpperInvariant();
 }
 
 /// <summary>D-10 / D-29 — journal entry status (A42 writes Posted only; Draft exists for A43 and the period-close check).</summary>

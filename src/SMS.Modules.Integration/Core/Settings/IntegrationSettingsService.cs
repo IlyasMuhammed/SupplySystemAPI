@@ -22,6 +22,8 @@ public interface IIntegrationSettingsService
 
     Task<List<TaxCodeMappingModel>> GetTaxMappingsAsync(CancellationToken ct = default);
     Task<List<TaxCodeMappingModel>> SaveTaxMappingsAsync(SaveTaxCodeMappingsRequest request, int userId, CancellationToken ct = default);
+    /// <summary>A44 D-18: suggests a QuickBooks code for every unmapped SMS code / rate and saves the unambiguous ones.</summary>
+    Task<TaxImportResultModel> ImportTaxMappingsAsync(int userId, CancellationToken ct = default);
 
     Task<List<TermMappingModel>> GetTermMappingsAsync(CancellationToken ct = default);
     Task<List<TermMappingModel>> SaveTermMappingsAsync(SaveTermMappingsRequest request, int userId, CancellationToken ct = default);
@@ -114,6 +116,7 @@ internal sealed partial class IntegrationSettingsService : IIntegrationSettingsS
         var settings   = await _accessor.GetOrCreateSettingsAsync(connection, ct);
         var before     = Snapshot(settings);
         var posWasOn   = settings.AutoPushPosSales;
+        var switches   = LegacySwitches(settings);
 
         settings.AutoPushCustomers        = request.AutoPushCustomers;
         settings.AutoPushVendors          = request.AutoPushVendors;
@@ -133,25 +136,104 @@ internal sealed partial class IntegrationSettingsService : IIntegrationSettingsS
         settings.ModifiedBy               = userId;
         settings.ModifiedDate             = DateTime.UtcNow;
 
+        // A44 D-14: the switches this save changed are written onto their sync-control rows (the screen that still sends
+        // them keeps working until it moves to the Sync control tab).
+        var enabledNow = await ApplyLegacySwitchesAsync(connection, settings, switches, userId, ct);
+
         IntegrationAudit.Add(_db, connection.Id, AuditAreas.Settings, "Updated", before, Snapshot(settings), userId);
         await _db.SaveChangesAsync(ct);
 
         // "Sync POS sales" turned off: what is queued but not sent yet is held too. Turned on (or on, with sales
         // invoices just turned on): every held POS sale is offered again — idempotent, so it runs on every save.
-        if (posWasOn && !settings.AutoPushPosSales && _services.GetService<ISyncOutbox>() is { } outbox)
-            await PosSales.HoldQueuedAsync(_db, outbox, connection.Id, DateTime.UtcNow, ct);
+        if (posWasOn && !settings.AutoPushPosSales)
+        {
+            await HeldRecords.HoldQueuedAsync(_services, _db, connection.Id, SyncControlDocumentTypes.PosSale, ct);
+            if (_services.GetService<IHeldRecordReleaser>() is not null)
+                await HeldRecords.HoldQueuedAsync(_services, _db, connection.Id, SyncControlDocumentTypes.PosReturn, ct);
+        }
 
         await RevalidateBlockedAsync(connection, ct);
-        await PosSales.ReleaseAsync(_services, connection.Id, _logger, ct);
+        foreach (var type in enabledNow)
+            await HeldRecords.ReleaseAsync(_services, connection.Id, type, _logger, ct);
 
         return await ModelAsync(settings, connection.Id, ct);
     }
 
-    /// <summary>The settings as the screen shows them, with the count of POS sales waiting.</summary>
+    /// <summary>The old switches and the sync-control types each one drives.</summary>
+    private static readonly (string[] Types, Func<IntegrationSettings, bool> Read)[] LegacyMap =
+    [
+        ([SyncControlDocumentTypes.Customer],     s => s.AutoPushCustomers),
+        ([SyncControlDocumentTypes.Vendor],       s => s.AutoPushVendors),
+        ([SyncControlDocumentTypes.Item],         s => s.AutoPushItems),
+        ([SyncControlDocumentTypes.SalesInvoice], s => s.AutoPushSalesInvoices),
+        ([SyncControlDocumentTypes.PurchaseBill], s => s.AutoPushBills),
+        // POS sales went only with both switches on.
+        ([SyncControlDocumentTypes.PosSale, SyncControlDocumentTypes.PosReturn], s => s.AutoPushPosSales && s.AutoPushSalesInvoices)
+    ];
+
+    private static bool[] LegacySwitches(IntegrationSettings s) => LegacyMap.Select(m => m.Read(s)).ToArray();
+
+    /// <summary>
+    /// Writes the switches the request changed onto their rows (creating a row where a type has none) — only those, so a
+    /// save from the old screen never undoes a change made on the Sync control tab. Returns the types that are enabled
+    /// after the save and may have held records to release (POS always: the old save released on every save). Does not save.
+    /// </summary>
+    private async Task<List<string>> ApplyLegacySwitchesAsync(
+        IntegrationConnection connection, IntegrationSettings settings, bool[] before, int userId, CancellationToken ct)
+    {
+        var rows = await _db.SyncControlConfigs.Where(c => c.ConnectionId == connection.Id).ToListAsync(ct);
+        var now  = DateTime.UtcNow;
+        var release = new List<string>();
+
+        for (var i = 0; i < LegacyMap.Length; i++)
+        {
+            var (types, read) = LegacyMap[i];
+            var value = read(settings);
+
+            foreach (var type in types)
+            {
+                var row = rows.FirstOrDefault(r => string.Equals(r.DocumentType, type, StringComparison.OrdinalIgnoreCase));
+
+                if (value != before[i])
+                {
+                    if (row is null)
+                    {
+                        row = new SyncControlConfig
+                        {
+                            OrganizationId   = connection.OrganizationId,
+                            ConnectionId     = connection.Id,
+                            DocumentType     = type,
+                            DisplayLabel     = SyncControlDefaults.Labels[type],
+                            HoldWhenDisabled = SyncControlDefaults.Legacy(settings, type)?.HoldWhenDisabled ?? false
+                        };
+                        _db.SyncControlConfigs.Add(row);
+                        rows.Add(row);
+                    }
+
+                    if (row.IsEnabled != value)
+                    {
+                        row.IsEnabled  = value;
+                        row.ModifiedBy = userId;
+                        row.ModifiedAt = now;
+                    }
+                }
+
+                var enabled = row?.IsEnabled ?? value;
+                if (enabled && (value != before[i] || type is SyncControlDocumentTypes.PosSale or SyncControlDocumentTypes.PosReturn))
+                    release.Add(type);
+            }
+        }
+
+        return release;
+    }
+
+    /// <summary>The settings as the screen shows them, with the count of POS sales waiting and the accounts in effect.</summary>
     private async Task<IntegrationSettingsModel> ModelAsync(IntegrationSettings settings, int connectionId, CancellationToken ct)
     {
         var model = ToModel(settings);
-        model.PosSalesWaiting = await PosSales.CountHeldAsync(_db, connectionId, ct);
+        model.PosSalesWaiting = await HeldRecords.CountAsync(_services, _db, connectionId, SyncControlDocumentTypes.PosSale, ct);
+        if (_services.GetService<IEffectiveAccountsResolver>() is { } accounts)
+            model.EffectiveAccounts = EffectiveAccountsModel.From(await accounts.ResolveAsync(settings, ct));
         return model;
     }
 
@@ -338,6 +420,124 @@ internal sealed partial class IntegrationSettingsService : IIntegrationSettingsS
         await RevalidateBlockedAsync(connection, ct);
 
         return await GetTaxMappingsAsync(ct);
+    }
+
+    /// <summary>
+    /// D-18 "Import &amp; suggest". For every code row and bare-rate row without a mapping: a positive rate → the active
+    /// QuickBooks codes with that single rate, narrowed by name when several share it; 0 % → QuickBooks' <c>NON</c> code
+    /// when the company has one (US companies), else the 0 % / non-taxable codes, preferring one whose name says
+    /// "exempt" or "zero" as the SMS code's name does. Exactly one candidate is saved (through the normal save, so it is
+    /// validated, audited and Blocked records re-checked); anything else is returned with its candidates for a person.
+    /// Existing mappings are never changed.
+    /// </summary>
+    public async Task<TaxImportResultModel> ImportTaxMappingsAsync(int userId, CancellationToken ct = default)
+    {
+        var connection = await RequireConnectionAsync(ct);
+        var data       = await RequireReferenceDataAsync(connection.Id, ct);
+        var rows       = await GetTaxMappingsAsync(ct);
+        var active     = data.TaxCodes.Where(t => t.Active).ToList();
+        var result     = new TaxImportResultModel();
+        var saves      = new List<TaxCodeMappingItem>();
+
+        static string Norm(string? s) => Matching.MatchNormalizer.Id(s);
+        static bool Says(string? name, string word) => (name ?? string.Empty).Contains(word, StringComparison.OrdinalIgnoreCase);
+        static ReferenceItemModel Item(RemoteTaxCode t) => new()
+        {
+            Id = t.Id, Name = t.Name, Type = t.Taxable ? "Taxable" : "NonTaxable", Rate = t.RatePercent, Active = t.Active
+        };
+
+        foreach (var row in rows)
+        {
+            if (row.QboTaxCodeId is not null)
+            {
+                result.AlreadyMapped++;
+                continue;
+            }
+
+            var rate    = StoredPayloadScanner.NormalizeRate(row.TaxPercent);
+            var scmName = row.SourceTaxCodeName ?? row.SourceTaxCode;
+            List<RemoteTaxCode> candidates;
+            RemoteTaxCode? pick = null;
+            string reason;
+
+            if (rate == 0m)
+            {
+                var non = active.FirstOrDefault(t => string.Equals(t.Id, "NON", StringComparison.OrdinalIgnoreCase)
+                                                  || string.Equals(t.Name, "NON", StringComparison.OrdinalIgnoreCase));
+                var zeros = active.Where(t => t.RatePercent is 0m || (t.RatePercent is null && !t.Taxable)).ToList();
+                var named = zeros.Where(t => Says(t.Name, "exempt") || Says(t.Name, "zero")).ToList();
+                var preferred = Says(scmName, "exempt") ? named.Where(t => Says(t.Name, "exempt")).ToList()
+                              : Says(scmName, "zero")   ? named.Where(t => Says(t.Name, "zero")).ToList()
+                              : named;
+
+                if (non is not null)
+                {
+                    pick = non;
+                    candidates = [non];
+                    reason = "0 % / exempt: QuickBooks' NON (non-taxable) code.";
+                }
+                else
+                {
+                    candidates = preferred.Count > 0 ? preferred : zeros;
+                    if (preferred.Count == 1) pick = preferred[0];
+                    reason = pick is not null
+                        ? $"0 % / exempt: the only 0 % QuickBooks code named like it ('{pick.Name}')."
+                        : candidates.Count == 0
+                            ? "0 %: QuickBooks has no active 0 % or non-taxable code. Create one in QuickBooks, refresh, then map it."
+                            : "0 %: more than one 0 % QuickBooks code could be meant — choose one.";
+                }
+            }
+            else
+            {
+                var byRate = active.Where(t => t.RatePercent is { } r && StoredPayloadScanner.NormalizeRate(r) == rate).ToList();
+                candidates = byRate;
+
+                if (byRate.Count == 1)
+                {
+                    pick   = byRate[0];
+                    reason = $"The only active QuickBooks code at {PreflightService.FormatRate(rate)}.";
+                }
+                else if (byRate.Count > 1)
+                {
+                    var keys   = new[] { Norm(row.SourceTaxCode), Norm(row.SourceTaxCodeName) }.Where(k => k.Length > 0).ToList();
+                    var byName = byRate.Where(t => keys.Any(k => Norm(t.Name) == k || Norm(t.Name).Contains(k, StringComparison.Ordinal))).ToList();
+                    if (byName.Count == 1) pick = byName[0];
+                    reason = pick is not null
+                        ? $"{byRate.Count} QuickBooks codes are {PreflightService.FormatRate(rate)}; '{pick.Name}' has the SMS code's name."
+                        : $"{byRate.Count} QuickBooks codes are {PreflightService.FormatRate(rate)} — choose one.";
+                }
+                else
+                {
+                    reason = $"No active QuickBooks code is {PreflightService.FormatRate(rate)}. Create one in QuickBooks, refresh, then map it.";
+                }
+            }
+
+            var line = new TaxImportRowModel
+            {
+                SourceTaxCode     = row.SourceTaxCode,
+                SourceTaxCodeName = row.SourceTaxCodeName,
+                TaxPercent        = row.TaxPercent,
+                QboTaxCodeId      = pick?.Id,
+                QboTaxCodeName    = pick?.Name,
+                Reason            = reason,
+                Candidates        = candidates.Select(Item).ToList()
+            };
+
+            if (pick is null)
+            {
+                result.NeedsReview.Add(line);
+                continue;
+            }
+
+            saves.Add(new TaxCodeMappingItem { SourceTaxCode = row.SourceTaxCode, TaxPercent = row.TaxPercent, QboTaxCodeId = pick.Id });
+            result.SavedRows.Add(line);
+        }
+
+        result.Saved    = saves.Count;
+        result.Mappings = saves.Count > 0
+            ? await SaveTaxMappingsAsync(new SaveTaxCodeMappingsRequest { Mappings = saves }, userId, ct)
+            : rows;
+        return result;
     }
 
     /// <summary>

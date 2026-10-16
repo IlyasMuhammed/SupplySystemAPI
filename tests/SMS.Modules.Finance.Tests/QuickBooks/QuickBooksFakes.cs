@@ -52,9 +52,37 @@ internal sealed class RecordingQuickBooksGateway : IQuickBooksGateway
     public Task<GatewayResult> UpsertBillAsync(BillPayload payload, CancellationToken ct = default) =>
         Record(Bills, payload, SyncKind.Bill, payload.ExternalId);
 
+    // A44 kinds.
+    public List<PaymentPayload>       Payments       { get; } = [];
+    public List<BillPaymentPayload>   BillPayments   { get; } = [];
+    public List<SalesReceiptPayload>  SalesReceipts  { get; } = [];
+    public List<CreditMemoPayload>    CreditMemos    { get; } = [];
+    public List<RefundReceiptPayload> RefundReceipts { get; } = [];
+    public List<VendorCreditPayload>  VendorCredits  { get; } = [];
+    /// <summary>VoidAsync(kind, id) calls, as "Kind:ExternalId".</summary>
+    public List<string>               KindVoids      { get; } = [];
+
+    public Task<GatewayResult> UpsertPaymentAsync(PaymentPayload payload, CancellationToken ct = default)             => Record(Payments, payload, SyncKind.Payment, payload.ExternalId);
+    public Task<GatewayResult> UpsertBillPaymentAsync(BillPaymentPayload payload, CancellationToken ct = default)     => Record(BillPayments, payload, SyncKind.BillPayment, payload.ExternalId);
+    public Task<GatewayResult> UpsertSalesReceiptAsync(SalesReceiptPayload payload, CancellationToken ct = default)   => Record(SalesReceipts, payload, SyncKind.SalesReceipt, payload.ExternalId);
+    public Task<GatewayResult> UpsertCreditMemoAsync(CreditMemoPayload payload, CancellationToken ct = default)       => Record(CreditMemos, payload, SyncKind.CreditMemo, payload.ExternalId);
+    public Task<GatewayResult> UpsertRefundReceiptAsync(RefundReceiptPayload payload, CancellationToken ct = default) => Record(RefundReceipts, payload, SyncKind.RefundReceipt, payload.ExternalId);
+    public Task<GatewayResult> UpsertVendorCreditAsync(VendorCreditPayload payload, CancellationToken ct = default)   => Record(VendorCredits, payload, SyncKind.VendorCredit, payload.ExternalId);
+    public Task<GatewayResult> VoidAsync(SyncKind kind, string externalId, CancellationToken ct = default)            => Record(KindVoids, $"{kind}:{externalId}", kind, externalId, $"Void{kind}");
+
+    /// <summary>External ids the gateway "knows" per kind (answered by GetStatusAsync as Synced).</summary>
+    public Dictionary<SyncKind, HashSet<string>> Known { get; } = [];
+
+    /// <summary>Exact statuses to answer per external id (wins over <see cref="Known"/>) — placeholders, held maps.</summary>
+    public Dictionary<string, SyncStatus> Statuses { get; } = [];
+
     public Task<IReadOnlyList<SyncStatus>> GetStatusAsync(
         SyncKind kind, IReadOnlyCollection<string> externalIds, CancellationToken ct = default) =>
-        Task.FromResult<IReadOnlyList<SyncStatus>>([]);
+        Task.FromResult<IReadOnlyList<SyncStatus>>(externalIds
+            .Select(id => Statuses.TryGetValue(id, out var s) && s.Kind == kind ? s
+                : Known.TryGetValue(kind, out var known) && known.Contains(id) ? new SyncStatus(kind, id, SyncState.Synced, "1", null, null, null, null, null)
+                : null)
+            .Where(s => s is not null).Select(s => s!).ToList());
 
     /// <summary>Every record flagged for the accountant: (kind, external id, reason).</summary>
     public List<(SyncKind Kind, string ExternalId, string Reason)> Flags { get; } = [];

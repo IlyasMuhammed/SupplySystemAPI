@@ -22,6 +22,7 @@ import { FxDifferenceComponent } from '../../../../shared/doc-currency/fx-differ
 import { DocCurrencyInfo, cachedDocCurrency, hasBaseAmounts } from '../../../../shared/doc-currency/doc-currency';
 import { MoneyPipe } from '../../../../shared/money/money.pipe';
 import { FLOW, FlowSection, FlowStage, flowStagesFrom } from '../../../../shared/flow';
+import { QboSyncBadgeComponent } from '../../../../shared/components/qbo-sync-badge/qbo-sync-badge.component';
 
 @Component({
   selector: 'app-customer-payment-detail',
@@ -29,7 +30,7 @@ import { FLOW, FlowSection, FlowStage, flowStagesFrom } from '../../../../shared
   imports: [
     CommonModule, RouterModule,
     TableModule, ButtonModule, TagModule, TooltipModule, ToastModule,
-    PaymentAllocationEditorComponent, DocCurrencyPanelComponent, FxDifferenceComponent, MoneyPipe,
+    PaymentAllocationEditorComponent, DocCurrencyPanelComponent, FxDifferenceComponent, MoneyPipe, QboSyncBadgeComponent,
     ...FLOW
   ],
   templateUrl: './customer-payment-detail.component.html',

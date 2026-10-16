@@ -27,6 +27,9 @@
       </p-tablist>
     </p-tabs>
     <span class="grow"></span>
+    <p-button *ngIf="canManage && remoteAvailable" label="Import from QuickBooks" icon="pi pi-download" [text]="true"
+              [loading]="isImporting" [disabled]="isImporting" (onClick)="importRemote()" data-testid="import-remote"
+              pTooltip="Read every QuickBooks record of this kind, to link the ones SCM does not know" tooltipPosition="top"></p-button>
     <p-button *ngIf="canManage" label="Scan QuickBooks" icon="pi pi-search" [outlined]="true" [loading]="isScanning"
               [disabled]="isScanning" (onClick)="scan()" data-testid="scan"></p-button>
   </div>
@@ -111,6 +114,67 @@
               (onClick)="save()" data-testid="save-decisions"></p-button>
   </div>
 </section>
+
+<!-- ══ A44 D-17: in QuickBooks only ═══════════════════════════════════════ -->
+<section class="form-card flush" *ngIf="remoteAvailable" data-testid="remote-card">
+  <div class="table-toolbar">
+    <div class="card-icon"><i class="pi pi-cloud"></i></div>
+    <div class="grow">
+      <div class="card-title">Only in QuickBooks</div>
+      <div class="card-sub">Imported QuickBooks {{ kindPlural }} not linked to anything in SCM. Link one to its SCM record; nothing is created on either side.</div>
+    </div>
+    <input pInputText type="text" [(ngModel)]="remoteSearch" placeholder="Name or id…" class="remote-search" data-testid="remote-search" />
+  </div>
+
+  <p-table [value]="filteredRemote" [loading]="isLoadingRemote" [paginator]="filteredRemote.length > 25" [rows]="25" dataKey="remoteId"
+           [tableStyle]="{ 'min-width': '36rem' }" data-testid="remote-table">
+    <ng-template pTemplate="header">
+      <tr>
+        <th>QuickBooks record</th>
+        <th style="width: 9rem">QuickBooks id</th>
+        <th>Details</th>
+        <th style="width: 8rem" class="text-right"></th>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="body" let-r>
+      <tr data-testid="remote-row">
+        <td class="label">
+          <a *ngIf="r.deepLink; else plainName" [href]="r.deepLink" target="_blank" rel="noopener">{{ r.name || '—' }} <i class="pi pi-external-link"></i></a>
+          <ng-template #plainName>{{ r.name || '—' }}</ng-template>
+        </td>
+        <td class="mono muted">{{ r.remoteId }}</td>
+        <td class="hint">{{ extraText(r) || '—' }}</td>
+        <td class="text-right">
+          <p-button *ngIf="canManage" label="Link" icon="pi pi-link" [text]="true" size="small" (onClick)="openLink(r)"
+                    [attr.data-testid]="'link-remote-' + r.remoteId"></p-button>
+        </td>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="emptymessage">
+      <tr><td colspan="4" class="empty" data-testid="remote-empty">
+        {{ remote === null ? 'Not imported yet. Use "Import from QuickBooks".' : 'Every imported QuickBooks ' + kindPlural + ' record is linked.' }}
+      </td></tr>
+    </ng-template>
+  </p-table>
+</section>
+
+<p-dialog header="Link to an SCM record" [(visible)]="linkVisible" [modal]="true" [draggable]="false" [closable]="!isLinking"
+          [style]="{ width: '30rem', maxWidth: '96vw' }" data-testid="link-dialog">
+  <p class="dialog-hint" *ngIf="linkRemoteItem">
+    QuickBooks <strong>{{ linkRemoteItem.name }}</strong> (id {{ linkRemoteItem.remoteId }}) becomes the QuickBooks record of the SCM record you choose.
+  </p>
+  <div class="field">
+    <label for="linkTarget">SCM record</label>
+    <p-select inputId="linkTarget" [options]="linkTargets" [(ngModel)]="linkExternalId" optionLabel="label" optionValue="value"
+              [filter]="true" placeholder="Choose…" appendTo="body" styleClass="w-full" data-testid="link-target"></p-select>
+    <small class="hint" *ngIf="!linkTargets.length">Every SCM record of this kind is already linked, or none has been loaded on the Initial sync tab.</small>
+  </div>
+  <ng-template pTemplate="footer">
+    <p-button label="Cancel" [text]="true" severity="secondary" [disabled]="isLinking" (onClick)="linkVisible = false"></p-button>
+    <p-button label="Link" icon="pi pi-link" [loading]="isLinking" [disabled]="!linkExternalId || isLinking" (onClick)="link()"
+              data-testid="link-submit"></p-button>
+  </ng-template>
+</p-dialog>
 
 <section class="form-card" *ngIf="canManage">
   <div class="card-head tight">

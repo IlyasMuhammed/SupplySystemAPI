@@ -30,6 +30,7 @@ internal sealed class CustomerPaymentService : ICustomerPaymentService
     private readonly ExchangeDifferenceWriter?  _differences;
     private readonly IPartnerCurrencyDefaults?  _partnerDefaults;
     private readonly IOrgCurrencyLookup?        _orgCurrencies;
+    private readonly Integration.Posting.CustomerPaymentPostings? _postings;
 
     /// <param name="currency">
     /// A35 (D-12, D-15) — when registered (always, in the host) a payment's rate is locked when it is recorded (sale base,
@@ -40,7 +41,8 @@ internal sealed class CustomerPaymentService : ICustomerPaymentService
         FinanceDbContext db, ICustomerLedgerService ledger, ISupplierNameLookupService partnerNames,
         ILookupsService lookups, TimeProvider? clock = null,
         ICurrencyService? currency = null, ExchangeDifferenceWriter? differences = null,
-        IPartnerCurrencyDefaults? partnerDefaults = null, IOrgCurrencyLookup? orgCurrencies = null)
+        IPartnerCurrencyDefaults? partnerDefaults = null, IOrgCurrencyLookup? orgCurrencies = null,
+        Integration.Posting.CustomerPaymentPostings? postings = null)
     {
         _db              = db;
         _ledger          = ledger;
@@ -51,7 +53,14 @@ internal sealed class CustomerPaymentService : ICustomerPaymentService
         _differences     = differences ?? (currency is null ? null : new ExchangeDifferenceWriter(db, null, _clock));
         _partnerDefaults = partnerDefaults;
         _orgCurrencies   = orgCurrencies;
+        _postings        = postings;
     }
+
+    /// <summary>
+    /// A44 (D-19) — after the commit: the payment to the financial posting gateway (record and allocate: a Payment
+    /// posting, the same key updated; bounce: its void). Never throws. Absent in a hand-built harness.
+    /// </summary>
+    private Task PublishAsync(Guid paymentUuid) => _postings is null ? Task.CompletedTask : _postings.PublishAsync(paymentUuid);
 
     public async Task<CustomerPaymentRecorded> RecordPaymentAsync(
         Guid partnerId, decimal amount, string method, CustomerPaymentDetails details, int userId)
@@ -137,6 +146,7 @@ internal sealed class CustomerPaymentService : ICustomerPaymentService
             {
                 await _db.SaveChangesAsync();
                 await LinkDifferencesAsync(differences);
+                await PublishAsync(payment.UUID);
 
                 var applied = plan
                     .Select(p => new AppliedPaymentAllocation(
@@ -211,6 +221,7 @@ internal sealed class CustomerPaymentService : ICustomerPaymentService
             {
                 await _db.SaveChangesAsync();
                 await LinkDifferencesAsync(differences);
+                await PublishAsync(payment.UUID);
 
                 var applied = plan
                     .Select(p => new AppliedPaymentAllocation(
@@ -301,6 +312,7 @@ internal sealed class CustomerPaymentService : ICustomerPaymentService
             try
             {
                 await _db.SaveChangesAsync();
+                await PublishAsync(payment.UUID);
 
                 return new CustomerPaymentBounced(
                     payment.UUID, payment.PaymentNumber, payment.Amount, reversed, entry.RunningBalance);

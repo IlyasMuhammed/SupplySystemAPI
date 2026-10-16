@@ -32,7 +32,7 @@ public class ReferenceDataServiceTests
 
         await using var check = h.OpenAs(OrgA);
         (await check.ReferenceSnapshots.Select(s => s.Kind).OrderBy(k => k).ToListAsync())
-            .Should().Equal("Accounts", "CompanyInfo", "Currencies", "Preferences", "TaxCodes", "Terms");
+            .Should().Equal("Accounts", "Classes", "CompanyInfo", "Currencies", "Departments", "PaymentMethods", "Preferences", "TaxCodes", "Terms");
         var stored = await check.Connections.SingleAsync();
         stored.CompanyName.Should().Be("UK Ltd");
         stored.HomeCurrencyCode.Should().Be("USD");
@@ -55,7 +55,7 @@ public class ReferenceDataServiceTests
         }
 
         await using var check = h.OpenAs(OrgA);
-        (await check.ReferenceSnapshots.CountAsync()).Should().Be(6);
+        (await check.ReferenceSnapshots.CountAsync()).Should().Be(9);
         (await check.Connections.SingleAsync()).CompanyName.Should().Be("Name 1");
     }
 

@@ -246,6 +246,14 @@ internal class JournalEntry : ITenantScopedEntity, IHasModifiedAt
     public DateTime  CreatedAt      { get; set; } = DateTime.UtcNow;
     public int?      CreatedBy      { get; set; }
     public DateTime  ModifiedAt     { get; set; } = DateTime.UtcNow;
+    /// <summary>A44 §3 — the module that posted it (finance, pos, suppliers, inventory); null for A42 opening balances.</summary>
+    public string?   SourceModule       { get; set; }
+    /// <summary>A44 — the source document's uuid.</summary>
+    public Guid?     SourceDocumentUuid { get; set; }
+    /// <summary>A44 D-13 — the posting key ("…:void" on a void reversal). Several versions of one document share it.</summary>
+    public string?   IdempotencyKey     { get; set; }
+    /// <summary>A44 (D-43) — set on a reversing journal: the journal it reverses.</summary>
+    public int?      ReversesEntryId    { get; set; }
 
     public ICollection<JournalEntryLine> Lines { get; set; } = new List<JournalEntryLine>();
 }

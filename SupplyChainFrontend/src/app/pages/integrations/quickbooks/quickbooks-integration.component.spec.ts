@@ -43,8 +43,17 @@ describe('QuickBooksIntegrationComponent', () => {
   } = {}) {
     service = jasmine.createSpyObj<QuickBooksIntegrationService>('QuickBooksIntegrationService', [
       'getConnection', 'getPreflight', 'getSettings', 'getSyncSummary', 'getReference', 'getTaxMappings', 'getTermMappings',
-      'getSyncItems', 'getMatchCandidates', 'getApiClients', 'connect', 'testConnection', 'disconnect'
+      'getSyncItems', 'getMatchCandidates', 'getApiClients', 'connect', 'testConnection', 'disconnect', 'getOwnAppKeys',
+      'getSyncControl', 'getRemote', 'getCoverage', 'getCallLog'
     ]);
+    service.getCallLog.and.returnValue(of({ data: [], totalRecords: 0, page: 1, pageSize: 50, totalPages: 0, hasNext: false, hasPrevious: false }));
+    // A44 — an older server: the Mappings tab keeps its switches, the Match tab hides "Only in QuickBooks".
+    service.getSyncControl.and.returnValue(throwError(() => ({ status: 404 })));
+    service.getRemote.and.returnValue(throwError(() => ({ status: 404 })));
+    service.getCoverage.and.returnValue(of({
+      ready: false, entities: [], warnings: [], blockingIssues: [{ code: 'TAX', message: 'Map GST17.', area: 'Tax', tab: 'tax' }]
+    }));
+    service.getOwnAppKeys.and.returnValue(of({ featureEnabled: false, hasOwnKeys: false, hasSecret: false, environment: 'Sandbox', connectedWithOwnKeys: false }));
     service.getConnection.and.returnValue(opts.connectionFails
       ? throwError(() => ({ status: 500, error: { message: 'Integration module is down.' } }))
       : of(opts.connection ?? connection({ status: 'NotConnected', isConnected: false })));
@@ -163,6 +172,61 @@ describe('QuickBooksIntegrationComponent', () => {
     component.onConnectionChange(connection({ status: 'NotConnected', isConnected: false }));
     expect(component.activeTab).toBe('connection');
     expect(component.isUnlocked('mappings')).toBeFalse();
+  });
+
+  // ── A44 D-30 ───────────────────────────────────────────────────────────────
+
+  it('opens the Accounts, Defaults, Sync control and Coverage tabs as soon as QuickBooks is connected', async () => {
+    await setup({ connection: connection(), preflight: PASSED, settings: settings() });
+    expect(component.tabs.map(t => t.key)).toEqual([
+      'connection', 'preflight', 'mappings', 'accounts', 'defaults', 'sync-control', 'initial-sync', 'match', 'sync', 'coverage', 'logs', 'api-clients'
+    ]);
+    for (const key of ['accounts', 'defaults', 'sync-control', 'coverage', 'logs']) expect(component.isUnlocked(key as any)).withContext(key).toBeTrue();
+    expect(component.isUnlocked('initial-sync')).toBeFalse();
+  });
+
+  it('keeps them locked while not connected', async () => {
+    await setup();
+    for (const key of ['accounts', 'defaults', 'sync-control', 'coverage']) expect(component.isUnlocked(key as any)).withContext(key).toBeFalse();
+    expect(component.lockReason('coverage')).toContain('Connected');
+  });
+
+  it('a Coverage "Fix on" button opens the tab that fixes it', async () => {
+    await setup({ connection: connection(), preflight: PASSED, settings: settings() });
+    component.selectTab('coverage');
+    fixture.detectChanges();
+    expect(service.getCoverage).toHaveBeenCalled();
+    (query('fix-TAX')!.querySelector('button') as HTMLButtonElement).click();
+    expect(component.activeTab).toBe('mappings');
+  });
+
+  it('?tab=logs (the "QuickBooks Logs" menu entry) opens the Logs tab once connected', async () => {
+    await setup({ connection: connection(), preflight: PASSED, settings: settings(), query: { tab: 'logs' } });
+    expect(component.activeTab).toBe('logs');
+    expect(service.getCallLog).toHaveBeenCalledWith(jasmine.objectContaining({ failedOnly: true }));
+  });
+
+  it('?tab=logs is ignored while not connected, and an unknown tab is ignored', async () => {
+    await setup({ query: { tab: 'logs' } });
+    expect(component.activeTab).toBe('connection');
+    await setup({ connection: connection(), preflight: PASSED, settings: settings(), query: { tab: 'nope' } });
+    expect(component.activeTab).toBe('mappings');
+  });
+
+  it('a log row\'s "Sync item" opens the Sync tab filtered on that record', async () => {
+    await setup({
+      connection: connection({ status: 'Live', mode: 'Live' }), preflight: { ...PASSED, canGoLive: true },
+      settings: settings({ mode: 'Live', defaultIncomeAccountId: '1', defaultExpenseAccountId: '2', matchingConfirmedAt: '2026-09-30' }),
+      summary: { ...EMPTY_SUMMARY, kinds: [{ kind: 'Customer', total: 3, countsByState: { Synced: 3 } }] }
+    });
+    component.selectTab('logs');
+    fixture.detectChanges();
+    service.getSyncItems.calls.reset();
+    component.onOpenSyncItem({ kind: 'Payment', search: 'pay-1' });
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(component.activeTab).toBe('sync');
+    expect(service.getSyncItems).toHaveBeenCalledWith(jasmine.objectContaining({ kind: 'Payment', search: 'pay-1' }));
   });
 
   it('says so when the page cannot load, and tries again', async () => {

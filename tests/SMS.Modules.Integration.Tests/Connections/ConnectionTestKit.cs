@@ -94,35 +94,57 @@ internal sealed class FakeAuthProvider : IAccountingAuthProvider
     public ConcurrentQueue<string> ExchangedCodes { get; } = new();
     public ConcurrentQueue<string> RefreshedWith  { get; } = new();
     public ConcurrentQueue<string> RevokedTokens  { get; } = new();
+    /// <summary>Every call's app, in order, as "Operation:ClientId:Source" (APP-CREDENTIALS D-3).</summary>
+    public ConcurrentQueue<string> AppsUsed       { get; } = new();
 
     public static TokenGrant Grant(string access, string refresh, TimeSpan? accessLife = null, TimeSpan? refreshLife = null) =>
         new(access, refresh,
             DateTime.UtcNow + (accessLife ?? TimeSpan.FromHours(1)),
             DateTime.UtcNow + (refreshLife ?? TimeSpan.FromDays(100)));
 
-    public string BuildConsentUrl(string state)
+    public string BuildConsentUrl(OAuthApp app, string state)
     {
+        AppsUsed.Enqueue($"Consent:{app.ClientId}:{app.Source}");
         ConsentStates.Enqueue(state);
         return ConsentUrl(state);
     }
 
-    public Task<TokenGrant> ExchangeCodeAsync(string code, CancellationToken ct = default)
+    public Task<TokenGrant> ExchangeCodeAsync(OAuthApp app, string code, CancellationToken ct = default)
     {
+        AppsUsed.Enqueue($"Exchange:{app.ClientId}:{app.Source}");
         ExchangedCodes.Enqueue(code);
         return Exchange(code, ct);
     }
 
-    public Task<TokenGrant> RefreshAsync(string refreshToken, CancellationToken ct = default)
+    public Task<TokenGrant> RefreshAsync(OAuthApp app, string refreshToken, CancellationToken ct = default)
     {
+        AppsUsed.Enqueue($"Refresh:{app.ClientId}:{app.Source}");
         RefreshedWith.Enqueue(refreshToken);
         return Refresh(refreshToken, ct);
     }
 
-    public Task RevokeAsync(string refreshToken, CancellationToken ct = default)
+    public Task RevokeAsync(OAuthApp app, string refreshToken, CancellationToken ct = default)
     {
+        AppsUsed.Enqueue($"Revoke:{app.ClientId}:{app.Source}");
         RevokedTokens.Enqueue(refreshToken);
         return Revoke(refreshToken, ct);
     }
+}
+
+/// <summary>One fixed platform app for every organization — for tests that build services by hand.</summary>
+internal sealed class StaticAppResolver : IQuickBooksAppResolver
+{
+    public static readonly OAuthApp App = new("test-client-id", "test-client-secret",
+        "https://localhost:7001/api/integrations/quickbooks/callback", IntegrationEnvironment.Sandbox, AppCredentialSource.Configuration);
+
+    public Task<OAuthApp?> ForNewConnectionAsync(Guid organizationId, CancellationToken ct = default) => Task.FromResult<OAuthApp?>(App);
+    public Task<OAuthApp?> ByClientIdAsync(Guid organizationId, string? clientId, CancellationToken ct = default) =>
+        Task.FromResult<OAuthApp?>(clientId is null || clientId == App.ClientId ? App : null);
+    public Task<OAuthApp?> PlatformAppAsync(CancellationToken ct = default) => Task.FromResult<OAuthApp?>(App);
+    public Task<string?> RedirectUriAsync(CancellationToken ct = default) => Task.FromResult<string?>(App.RedirectUri);
+    public Task<string?> FrontendReturnUrlAsync(CancellationToken ct = default) =>
+        Task.FromResult<string?>("http://localhost:4200/portal/pages/integrations/quickbooks");
+    public Task<bool> OwnAppEnabledAsync(Guid organizationId, CancellationToken ct = default) => Task.FromResult(false);
 }
 
 /// <summary>Stands in for the sync engine's outbox control.</summary>

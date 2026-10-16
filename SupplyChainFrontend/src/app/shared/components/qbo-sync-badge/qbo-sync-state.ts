@@ -15,8 +15,19 @@ export const PERM_SYNC = 'INTEGRATION_SYNC';
 // ── Record kinds ─────────────────────────────────────────────────────────────────────────────────
 
 export const KIND_LABEL: Record<SyncKind, string> = {
-  Customer: 'Customer', Vendor: 'Vendor', Item: 'Item', SalesInvoice: 'Sales invoice', Bill: 'Bill'
+  Customer: 'Customer', Vendor: 'Vendor', Item: 'Item', SalesInvoice: 'Sales invoice', Bill: 'Bill',
+  // A44 (D-19..D-24)
+  Payment: 'Payment', BillPayment: 'Bill payment', SalesReceipt: 'Sales receipt', CreditMemo: 'Credit memo',
+  RefundReceipt: 'Refund receipt', VendorCredit: 'Vendor credit'
 };
+
+/**
+ * A44 D-14 — a record held by sync control (or the older POS hold) is NotSynced with a "…_HELD" code
+ * (POS_SALES_HELD, SYNC_HELD): it is waiting, not missing.
+ */
+export function isHeldCode(code: string | null | undefined): boolean {
+  return /(^|_)HELD$/i.test((code ?? '').trim());
+}
 
 // ── States ───────────────────────────────────────────────────────────────────────────────────────
 

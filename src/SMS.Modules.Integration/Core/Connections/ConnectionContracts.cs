@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SMS.Modules.Integration.Core.Providers;
+using SMS.Modules.Integration.Core.Settings;
 using SMS.Modules.Integration.Data;
 using SMS.Modules.Integration.Domain;
 
@@ -98,6 +99,9 @@ internal sealed class ConnectionAccessor : IConnectionAccessor
             OrganizationId = connection.OrganizationId
         };
         _db.Settings.Add(settings);
+        // A44 D-14 / D-60: a connection's first settings row comes with its sync-control defaults (existing connections
+        // got theirs from the migration).
+        await SyncControlDefaults.SeedNewConnectionAsync(_db, connection, settings, ct);
         await _db.SaveChangesAsync(ct);
         return settings;
     }

@@ -260,18 +260,49 @@ internal sealed class ScriptedAccountingProvider : IAccountingProvider
                 && string.Equals(r.Name?.Trim(), name?.Trim(), StringComparison.OrdinalIgnoreCase)),
             SyncKind.SalesInvoice => Company.FirstOrDefault(r => r.Id != exceptId && r.Kind == SyncKind.SalesInvoice && r.DocNumber == doc),
             SyncKind.Bill => Company.FirstOrDefault(r => r.Id != exceptId && r.Kind == SyncKind.Bill && r.DocNumber == doc && r.VendorId == vendor),
-            _ => null
+            // A44 documents: a number QuickBooks already has for that kind is a duplicate.
+            var kind => doc is null ? null : Company.FirstOrDefault(r => r.Id != exceptId && r.Kind == kind && r.DocNumber == doc)
         };
     }
 
     private static (string? name, string? doc, string? vendor) Identity(RemoteEntity entity) => entity switch
     {
-        RemoteParty p   => (p.DisplayName, null, null),
-        RemoteItem i    => (i.Name, null, null),
-        RemoteInvoice s => (null, s.DocNumber, null),
-        RemoteBill b    => (null, b.DocNumber, b.VendorId),
-        _               => (null, null, null)
+        RemoteParty p         => (p.DisplayName, null, null),
+        RemoteItem i          => (i.Name, null, null),
+        RemoteInvoice s       => (null, s.DocNumber, null),
+        RemoteBill b          => (null, b.DocNumber, b.VendorId),
+        // A44: the new documents are identified by their number (payments: PaymentRefNum).
+        RemotePayment p       => (null, p.ReferenceNumber, null),
+        RemoteBillPayment bp  => (null, bp.DocNumber, bp.VendorId),
+        RemoteSalesDocument d => (null, d.DocNumber, null),
+        RemoteVendorCredit v  => (null, v.DocNumber, v.VendorId),
+        _                     => (null, null, null)
     };
+
+    /// <summary>A44: kinds passed to the generic void (and the ids), in order.</summary>
+    public List<(SyncKind Kind, string RemoteId)> GenericVoids { get; } = new();
+
+    public Task<ProviderResult<RemoteRecord>> VoidAsync(
+        ProviderContext ctx, SyncKind kind, string remoteId, string syncToken, CancellationToken ct = default)
+    {
+        if (kind == SyncKind.SalesInvoice) return VoidInvoiceAsync(ctx, remoteId, syncToken, ct);
+        lock (_lock)
+        {
+            Track(ctx, "Void", kind, null, remoteId, syncToken, null);
+            GenericVoids.Add((kind, remoteId));
+            var script = Next("Void");
+            if (script is { Outcome: not ProviderOutcomeKind.Succeeded }) return Done(Fail<RemoteRecord>(script));
+            if (kind is SyncKind.CreditMemo or SyncKind.VendorCredit)
+                return Done(ProviderResult<RemoteRecord>.Fail(ProviderOutcomeKind.Refused, IAccountingProvider.VoidUnsupportedCode, "Not voidable."));
+
+            var record = Find(remoteId);
+            if (record is null) return Done(ProviderResult<RemoteRecord>.Fail(ProviderOutcomeKind.NotFound, "610", "Object Not Found"));
+            record.Voided = true;
+            record.Active = false;
+            record.Token++;
+            return Done(ProviderResult<RemoteRecord>.Ok(ToRemote(record)));
+        }
+    }
 
     private Record Apply(RemoteEntity entity, Record? existing)
     {

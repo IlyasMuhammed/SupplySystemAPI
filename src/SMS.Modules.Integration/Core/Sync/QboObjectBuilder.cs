@@ -22,6 +22,9 @@ internal sealed class BuiltRemoteEntity
     /// <summary>Records this one references that have no QuickBooks id yet (live mode only — dry runs use placeholders).</summary>
     public IReadOnlyList<GatewayDependency> Unresolved { get; init; } = [];
 
+    /// <summary>A44 D-55a: items that need an income account in QuickBooks before this sales document is sent.</summary>
+    public IReadOnlyList<ItemIncomeFix> ItemFixes { get; set; } = [];
+
     public List<string> Warnings { get; } = new();
 }
 
@@ -42,15 +45,18 @@ internal sealed class QboObjectBuilder : IQboObjectBuilder
     /// <summary>What an unresolved reference looks like in dry-run output.</summary>
     public const string DryRunRefPrefix = "dry-run:";
 
-    private readonly IntegrationDbContext _db;
-    private readonly IRemoteNameResolver  _names;
-    private readonly ICurrencyRules       _currency;
+    private readonly IntegrationDbContext    _db;
+    private readonly IRemoteNameResolver     _names;
+    private readonly ICurrencyRules          _currency;
+    private readonly IDocumentDefaultsSource? _defaults;
 
-    public QboObjectBuilder(IntegrationDbContext db, IRemoteNameResolver names, ICurrencyRules currency)
+    /// <param name="defaults">A44 D-15 provider defaults. Optional: without it nothing extra is sent.</param>
+    public QboObjectBuilder(IntegrationDbContext db, IRemoteNameResolver names, ICurrencyRules currency, IDocumentDefaultsSource? defaults = null)
     {
         _db       = db;
         _names    = names;
         _currency = currency;
+        _defaults = defaults;
     }
 
     public async Task<BuiltRemoteEntity> BuildAsync(
@@ -58,13 +64,22 @@ internal sealed class QboObjectBuilder : IQboObjectBuilder
         CancellationToken ct = default) =>
         payload switch
         {
-            CustomerPayload c     => await BuildPartyAsync(map, c, new RemoteCustomer(), connection, ct),
-            VendorPayload v       => await BuildVendorAsync(map, v, connection, ct),
-            ItemPayload i         => await BuildItemAsync(map, i, settings, ct),
-            SalesInvoicePayload s => await BuildInvoiceAsync(map, s, connection, settings, dryRun, ct),
-            BillPayload b         => await BuildBillAsync(map, b, connection, settings, dryRun, ct),
+            CustomerPayload c      => await BuildPartyAsync(map, c, new RemoteCustomer(), connection, ct),
+            VendorPayload v        => await BuildVendorAsync(map, v, connection, ct),
+            ItemPayload i          => await BuildItemAsync(map, i, settings, ct),
+            SalesInvoicePayload s  => await BuildInvoiceAsync(map, s, connection, settings, dryRun, ct),
+            BillPayload b          => await BuildBillAsync(map, b, connection, settings, dryRun, ct),
+            PaymentPayload p       => await BuildPaymentAsync(map, p, connection, dryRun, ct),
+            BillPaymentPayload bp  => await BuildBillPaymentAsync(map, bp, connection, dryRun, ct),
+            SalesReceiptPayload r  => await BuildSalesDocumentAsync(map, SyncKind.SalesReceipt, r, connection, settings, dryRun, ct),
+            CreditMemoPayload m    => await BuildSalesDocumentAsync(map, SyncKind.CreditMemo, m, connection, settings, dryRun, ct),
+            RefundReceiptPayload f => await BuildSalesDocumentAsync(map, SyncKind.RefundReceipt, f, connection, settings, dryRun, ct),
+            VendorCreditPayload vc => await BuildVendorCreditAsync(map, vc, connection, settings, dryRun, ct),
             _ => throw new ArgumentException($"Unsupported payload type {payload.GetType().Name}.", nameof(payload))
         };
+
+    private async Task<DocumentDefaults> DefaultsAsync(IntegrationConnection connection, SyncKind kind, object payload, CancellationToken ct) =>
+        _defaults is null ? DocumentDefaults.None : await _defaults.GetAsync(connection.Id, SyncHolds.TypeOf(kind, payload), ct);
 
     // ── Parties ──────────────────────────────────────────────────────────────
 
@@ -84,7 +99,7 @@ internal sealed class QboObjectBuilder : IQboObjectBuilder
         party.Email        = Trim(p.Email);
         party.Phone        = Trim(p.Phone);
         party.Fax          = Trim(p.Fax);
-        party.Website      = Trim(p.Website);
+        party.Website      = PartyWebsite.Normalize(p.Website);
         party.TaxId        = Trim(p.TaxId);
         party.BillAddress  = Address(p.BillingAddress);
         party.CurrencyCode = Trim(p.CurrencyCode)?.ToUpperInvariant();
@@ -174,6 +189,8 @@ internal sealed class QboObjectBuilder : IQboObjectBuilder
         var currency = CurrencyRules.Normalize(p.CurrencyCode);
         var (rate, rateNote) = await ExchangeRateAsync(currency, p.TxnDate, (p.ExchangeRate, p.ExchangeRateCurrencyCode), connection, "invoice", ct);
 
+        var defaults = await DefaultsAsync(connection, SyncKind.SalesInvoice, p, ct);
+
         var invoice = new RemoteInvoice
         {
             CustomerId   = Ref(refs, SyncKind.Customer, p.CustomerExternalId, dryRun, missing),
@@ -183,25 +200,16 @@ internal sealed class QboObjectBuilder : IQboObjectBuilder
             CurrencyCode = currency,
             ExchangeRate = rate,
             CustomerMemo = Trim(p.CustomerMemo),
-            PrivateNote  = Trim(p.PrivateNote)
+            PrivateNote  = Trim(p.PrivateNote),
+            ClassId      = defaults.ClassId,
+            DepartmentId = defaults.DepartmentId,
+            SalesTermId  = defaults.SalesTermId
         };
 
         // Plan D-5: every line at gross — QuickBooks checks Amount against Qty × UnitPrice — and all the
         // discounts (per line and on the header) in one discount line. That line is the residue that makes
         // QuickBooks' total equal the caller's grand total; see InvoiceMath.
-        foreach (var line in p.Lines ?? [])
-        {
-            invoice.Lines.Add(new RemoteSalesLine
-            {
-                ItemId      = Ref(refs, SyncKind.Item, line.ItemExternalId, dryRun, missing),
-                Description = Trim(line.Description),
-                Quantity    = line.Quantity,
-                UnitPrice   = line.UnitPrice,
-                Amount      = SyncPayloads.Money(line.Quantity * line.UnitPrice),
-                // Plan S-11: by the line's tax code first, else by its rate.
-                TaxCodeId   = taxes.For(line.TaxCode, line.TaxPercent)
-            });
-        }
+        invoice.Lines.AddRange(SalesLines(p.Lines, refs, taxes, dryRun, missing));
 
         var math = InvoiceMath.Of(p);
         invoice.DiscountAmount    = math.DiscountLine;
@@ -220,8 +228,26 @@ internal sealed class QboObjectBuilder : IQboObjectBuilder
                 $"QuickBooks' total may differ from SCM's by {SyncPayloads.Amount(math.QuickBooksDifference)} because QuickBooks " +
                 "rounds each line separately.");
         if (rateNote is not null) built.Warnings.Add(rateNote);
+        built.ItemFixes = await ItemFixesAsync(map, p.Lines, settings, defaults, ct);
 
         return built;
+    }
+
+    /// <summary>
+    /// A44 D-55a: the items of a sales document that are in QuickBooks without an income account (SCM created them as not
+    /// for sale) and not fixed yet, with the account to add. None when there is no account (validation refuses then).
+    /// </summary>
+    private async Task<IReadOnlyList<ItemIncomeFix>> ItemFixesAsync(
+        EntityMap owner, IEnumerable<SalesInvoiceLinePayload>? lines, IntegrationSettings settings, DocumentDefaults defaults, CancellationToken ct)
+    {
+        var account = SaleableItems.IncomeAccount(settings, defaults);
+        if (account is null) return [];
+
+        var items = await SaleableItems.NotForSaleAsync(_db, owner, (lines ?? []).Select(l => l.ItemExternalId), ct);
+        return items
+            .Where(i => i.RemoteId is not null && (i.Warning is null || !i.Warning.Contains(SaleableItems.FixedMarker, StringComparison.Ordinal)))
+            .Select(i => new ItemIncomeFix(i.MapId, i.RemoteId!, i.Label, account))
+            .ToList();
     }
 
     // ── Bill ─────────────────────────────────────────────────────────────────
@@ -235,6 +261,7 @@ internal sealed class QboObjectBuilder : IQboObjectBuilder
         var missing  = new List<GatewayDependency>();
         var currency = CurrencyRules.Normalize(p.CurrencyCode);
         var (rate, rateNote) = await ExchangeRateAsync(currency, p.TxnDate, (p.ExchangeRate, p.ExchangeRateCurrencyCode), connection, "bill", ct);
+        var defaults = await DefaultsAsync(connection, SyncKind.Bill, p, ct);
 
         var bill = new RemoteBill
         {
@@ -244,33 +271,11 @@ internal sealed class QboObjectBuilder : IQboObjectBuilder
             DueDate      = p.DueDate,
             CurrencyCode = currency,
             ExchangeRate = rate,
-            PrivateNote  = Trim(p.PrivateNote)
+            PrivateNote  = Trim(p.PrivateNote),
+            DepartmentId = defaults.DepartmentId
         };
 
-        foreach (var line in p.Lines ?? [])
-        {
-            var remote = new RemoteBillLine
-            {
-                Description = Trim(line.Description),
-                Quantity    = line.Quantity,
-                UnitPrice   = line.UnitPrice,
-                Amount      = SyncPayloads.Money(line.Amount),
-                // Plan S-11: by the line's tax code first, else by its rate. Plan D-10: a line with neither
-                // → the default purchase tax code (which may be none).
-                TaxCodeId   = SyncPayloads.NormalizeTaxCode(line.TaxCode) is null && !line.TaxPercent.HasValue
-                    ? settings.DefaultPurchaseTaxCodeId
-                    : taxes.For(line.TaxCode, line.TaxPercent)
-            };
-
-            if (!string.IsNullOrWhiteSpace(line.ItemExternalId))
-                remote.ItemId = Ref(refs, SyncKind.Item, line.ItemExternalId, dryRun, missing);
-            else
-                remote.AccountId = line.Category == BillLineCategory.Freight
-                    ? settings.FreightExpenseAccountId
-                    : settings.DefaultExpenseAccountId;
-
-            bill.Lines.Add(remote);
-        }
+        bill.Lines.AddRange(ExpenseLines(p.Lines, refs, taxes, settings, defaults, expenseFallback: null, dryRun, missing));
 
         var vendorId = bill.VendorId.StartsWith(DryRunRefPrefix, StringComparison.Ordinal) ? null : bill.VendorId;
 
@@ -284,6 +289,272 @@ internal sealed class QboObjectBuilder : IQboObjectBuilder
         if (rateNote is not null) built.Warnings.Add(rateNote);
 
         return built;
+    }
+
+    // ── A44: shared line building ────────────────────────────────────────────
+
+    private static IEnumerable<RemoteSalesLine> SalesLines(
+        IEnumerable<SalesInvoiceLinePayload>? lines, Dictionary<(SyncKind, string), string?> refs, TaxCodeLookup taxes,
+        bool dryRun, List<GatewayDependency> missing) =>
+        (lines ?? []).Select(line => new RemoteSalesLine
+        {
+            ItemId      = Ref(refs, SyncKind.Item, line.ItemExternalId, dryRun, missing),
+            Description = Trim(line.Description),
+            Quantity    = line.Quantity,
+            UnitPrice   = line.UnitPrice,
+            Amount      = SyncPayloads.Money(line.Quantity * line.UnitPrice),
+            // Plan S-11: by the line's tax code first, else by its rate.
+            TaxCodeId   = taxes.For(line.TaxCode, line.TaxPercent)
+        }).ToList();
+
+    /// <param name="expenseFallback">A44 D-16: the account an un-itemised line goes to when the settings have none (vendor credits).</param>
+    private static IEnumerable<RemoteBillLine> ExpenseLines(
+        IEnumerable<BillLinePayload>? lines, Dictionary<(SyncKind, string), string?> refs, TaxCodeLookup taxes, IntegrationSettings settings,
+        DocumentDefaults defaults, string? expenseFallback, bool dryRun, List<GatewayDependency> missing)
+    {
+        var result = new List<RemoteBillLine>();
+        foreach (var line in lines ?? [])
+        {
+            var remote = new RemoteBillLine
+            {
+                Description = Trim(line.Description),
+                Quantity    = line.Quantity,
+                UnitPrice   = line.UnitPrice,
+                Amount      = SyncPayloads.Money(line.Amount),
+                // Plan S-11: by the line's tax code first, else by its rate. Plan D-10: a line with neither
+                // → the default purchase tax code (which may be none).
+                TaxCodeId   = SyncPayloads.NormalizeTaxCode(line.TaxCode) is null && !line.TaxPercent.HasValue
+                    ? settings.DefaultPurchaseTaxCodeId
+                    : taxes.For(line.TaxCode, line.TaxPercent),
+                ClassId     = defaults.ClassId
+            };
+
+            if (!string.IsNullOrWhiteSpace(line.ItemExternalId))
+                remote.ItemId = Ref(refs, SyncKind.Item, line.ItemExternalId, dryRun, missing);
+            else
+                remote.AccountId = line.Category == BillLineCategory.Freight
+                    ? settings.FreightExpenseAccountId ?? expenseFallback
+                    : settings.DefaultExpenseAccountId ?? expenseFallback;
+
+            result.Add(remote);
+        }
+        return result;
+    }
+
+    // ── A44: customer payment (D-19) ─────────────────────────────────────────
+
+    private async Task<BuiltRemoteEntity> BuildPaymentAsync(
+        EntityMap map, PaymentPayload p, IntegrationConnection connection, bool dryRun, CancellationToken ct)
+    {
+        var refs     = await LoadRefsAsync(map, SyncPayloads.DependenciesOf(SyncKind.Payment, p), ct);
+        var missing  = new List<GatewayDependency>();
+        var currency = CurrencyRules.Normalize(p.CurrencyCode);
+        var (rate, rateNote) = await ExchangeRateAsync(currency, p.TxnDate, (p.ExchangeRate, p.ExchangeRateCurrencyCode), connection, "payment", ct);
+        var defaults = await DefaultsAsync(connection, SyncKind.Payment, p, ct);
+
+        var payment = new RemotePayment
+        {
+            CustomerId         = Ref(refs, SyncKind.Customer, p.CustomerExternalId, dryRun, missing),
+            ReferenceNumber    = p.DocNumber.Trim(),
+            TxnDate            = p.TxnDate,
+            CurrencyCode       = currency,
+            ExchangeRate       = rate,
+            TotalAmount        = SyncPayloads.Money(p.Amount),
+            DepositToAccountId = defaults.DepositToAccountId(p.Method),
+            PaymentMethodId    = defaults.PaymentMethodId(p.Method),
+            PrivateNote        = Note(p.PrivateNote, p.Reference)
+        };
+
+        // One line per invoice, amounts merged when an invoice is listed twice.
+        foreach (var application in (p.Applications ?? []).Where(a => a.Amount > 0)
+                     .GroupBy(a => (a.InvoiceExternalId ?? string.Empty).Trim()))
+            payment.Lines.Add(new RemotePaymentLine
+            {
+                InvoiceId = Ref(refs, SyncKind.SalesInvoice, application.Key, dryRun, missing),
+                Amount    = SyncPayloads.Money(application.Sum(a => a.Amount))
+            });
+
+        var customerId = Real(payment.CustomerId);
+        var built = new BuiltRemoteEntity
+        {
+            Entity     = payment,
+            DocNumber  = payment.ReferenceNumber,
+            Lookup     = new RemoteLookup(DocNumber: payment.ReferenceNumber) { TxnDate = p.TxnDate.Date, CustomerRemoteId = customerId },
+            Unresolved = missing.Distinct().ToList()
+        };
+        if (rateNote is not null) built.Warnings.Add(rateNote);
+        var unapplied = payment.TotalAmount - payment.Lines.Sum(l => l.Amount);
+        if (unapplied > 0)
+            built.Warnings.Add($"{SyncPayloads.Amount(unapplied)} of this payment is not applied to an invoice; QuickBooks keeps it as the customer's unapplied credit.");
+        return built;
+    }
+
+    // ── A44: supplier payment (D-20) ─────────────────────────────────────────
+
+    private async Task<BuiltRemoteEntity> BuildBillPaymentAsync(
+        EntityMap map, BillPaymentPayload p, IntegrationConnection connection, bool dryRun, CancellationToken ct)
+    {
+        var refs     = await LoadRefsAsync(map, SyncPayloads.DependenciesOf(SyncKind.BillPayment, p), ct);
+        var missing  = new List<GatewayDependency>();
+        var currency = CurrencyRules.Normalize(p.CurrencyCode);
+        var (rate, rateNote) = await ExchangeRateAsync(currency, p.TxnDate, (p.ExchangeRate, p.ExchangeRateCurrencyCode), connection, "supplier payment", ct);
+        var defaults = await DefaultsAsync(connection, SyncKind.BillPayment, p, ct);
+
+        var payment = new RemoteBillPayment
+        {
+            VendorId     = Ref(refs, SyncKind.Vendor, p.VendorExternalId, dryRun, missing),
+            DocNumber    = p.DocNumber.Trim(),
+            TxnDate      = p.TxnDate,
+            CurrencyCode = currency,
+            ExchangeRate = rate,
+            TotalAmount  = SyncPayloads.Money(p.Amount),
+            PayType      = PayTypeOf(p.Method),
+            AccountId    = defaults.BankAccountId(p.Method),
+            PrivateNote  = Note(p.PrivateNote, p.Reference),
+            DepartmentId = defaults.DepartmentId
+        };
+
+        foreach (var application in (p.Applications ?? []).Where(a => a.Amount > 0)
+                     .GroupBy(a => (a.BillExternalId ?? string.Empty).Trim()))
+            payment.Lines.Add(new RemoteBillPaymentLine
+            {
+                BillId = Ref(refs, SyncKind.Bill, application.Key, dryRun, missing),
+                Amount = SyncPayloads.Money(application.Sum(a => a.Amount))
+            });
+
+        var built = new BuiltRemoteEntity
+        {
+            Entity     = payment,
+            DocNumber  = payment.DocNumber,
+            Lookup     = new RemoteLookup(DocNumber: payment.DocNumber, VendorRemoteId: Real(payment.VendorId)),
+            Unresolved = missing.Distinct().ToList()
+        };
+        if (rateNote is not null) built.Warnings.Add(rateNote);
+        return built;
+    }
+
+    /// <summary>D-20: a card payment is a CreditCard bill payment; everything else is paid from a bank account (Check).</summary>
+    public static RemoteBillPayType PayTypeOf(string? method) =>
+        string.Equals(method?.Trim(), PaymentMethodCodes.Card, StringComparison.OrdinalIgnoreCase)
+            ? RemoteBillPayType.CreditCard
+            : RemoteBillPayType.Check;
+
+    // ── A44: sales receipt / credit memo / refund receipt (D-21, D-23) ───────
+
+    private async Task<BuiltRemoteEntity> BuildSalesDocumentAsync(
+        EntityMap map, SyncKind kind, SalesDocumentPayload p, IntegrationConnection connection, IntegrationSettings settings, bool dryRun,
+        CancellationToken ct)
+    {
+        var refs     = await LoadRefsAsync(map, SyncPayloads.DependenciesOf(kind, p), ct);
+        var taxes    = await LoadTaxCodesAsync(connection, ct);
+        var missing  = new List<GatewayDependency>();
+        var currency = CurrencyRules.Normalize(p.CurrencyCode);
+        var what     = kind switch { SyncKind.SalesReceipt => "sales receipt", SyncKind.CreditMemo => "credit memo", _ => "refund receipt" };
+        var (rate, rateNote) = await ExchangeRateAsync(currency, p.TxnDate, (p.ExchangeRate, p.ExchangeRateCurrencyCode), connection, what, ct);
+        var defaults = await DefaultsAsync(connection, kind, p, ct);
+        var math     = InvoiceMath.Of(p);
+
+        RemoteSalesDocument document = p switch
+        {
+            SalesReceiptPayload r => new RemoteSalesReceipt
+            {
+                DepositToAccountId = defaults.DepositToAccountId(r.Method),
+                PaymentMethodId    = defaults.PaymentMethodId(r.Method)
+            },
+            CreditMemoPayload m => new RemoteCreditMemo
+            {
+                ApplyToInvoiceId = m.ApplyToOriginal && !string.IsNullOrWhiteSpace(m.OriginalInvoiceExternalId)
+                    ? Ref(refs, SyncKind.SalesInvoice, m.OriginalInvoiceExternalId, dryRun, missing)
+                    : null,
+                ApplyAmount = SyncPayloads.Money(m.AppliedAmount is > 0 and var applied ? Math.Min(applied, p.ExpectedTotal) : p.ExpectedTotal)
+            },
+            RefundReceiptPayload f => new RemoteRefundReceipt
+            {
+                RefundFromAccountId = defaults.RefundFromAccountId(f.Method),
+                PaymentMethodId     = defaults.PaymentMethodId(f.Method)
+            },
+            _ => throw new ArgumentException($"Unsupported sales document {p.GetType().Name}.", nameof(p))
+        };
+
+        document.CustomerId        = Ref(refs, SyncKind.Customer, SyncPayloads.CustomerOf(p), dryRun, missing);
+        document.DocNumber         = p.DocNumber.Trim();
+        document.TxnDate           = p.TxnDate;
+        document.CurrencyCode      = currency;
+        document.ExchangeRate      = rate;
+        document.PrivateNote       = Trim(p.PrivateNote);
+        document.ClassId           = defaults.ClassId;
+        document.DepartmentId      = defaults.DepartmentId;
+        document.Lines.AddRange(SalesLines(p.Lines, refs, taxes, dryRun, missing));
+        document.DiscountAmount    = math.DiscountLine;
+        document.DiscountAccountId = math.DiscountLine > 0 ? settings.DiscountAccountId : null;
+
+        var built = new BuiltRemoteEntity
+        {
+            Entity     = document,
+            DocNumber  = document.DocNumber,
+            Lookup     = new RemoteLookup(DocNumber: document.DocNumber) { CustomerRemoteId = Real(document.CustomerId) },
+            Unresolved = missing.Distinct().ToList()
+        };
+
+        if (math.QuickBooksTotalDiffers)
+            built.Warnings.Add(
+                $"QuickBooks' total may differ from SCM's by {SyncPayloads.Amount(math.QuickBooksDifference)} because QuickBooks " +
+                "rounds each line separately.");
+        if (rateNote is not null) built.Warnings.Add(rateNote);
+        if (p is RefundReceiptPayload && document is RemoteRefundReceipt { RefundFromAccountId: null })
+            built.Warnings.Add("No refund account is set for this payment method, so QuickBooks' own default is used. " +
+                               "Choose one under QuickBooks Integration → Defaults.");
+        built.ItemFixes = await ItemFixesAsync(map, p.Lines, settings, defaults, ct);
+        return built;
+    }
+
+    // ── A44: vendor credit (D-24) ────────────────────────────────────────────
+
+    private async Task<BuiltRemoteEntity> BuildVendorCreditAsync(
+        EntityMap map, VendorCreditPayload p, IntegrationConnection connection, IntegrationSettings settings, bool dryRun,
+        CancellationToken ct)
+    {
+        var refs     = await LoadRefsAsync(map, SyncPayloads.DependenciesOf(SyncKind.VendorCredit, p), ct);
+        var taxes    = await LoadTaxCodesAsync(connection, ct);
+        var missing  = new List<GatewayDependency>();
+        var currency = CurrencyRules.Normalize(p.CurrencyCode);
+        var (rate, rateNote) = await ExchangeRateAsync(currency, p.TxnDate, (p.ExchangeRate, p.ExchangeRateCurrencyCode), connection, "vendor credit", ct);
+        var defaults = await DefaultsAsync(connection, SyncKind.VendorCredit, p, ct);
+
+        var credit = new RemoteVendorCredit
+        {
+            VendorId     = Ref(refs, SyncKind.Vendor, p.VendorExternalId, dryRun, missing),
+            DocNumber    = p.DocNumber.Trim(),
+            TxnDate      = p.TxnDate,
+            CurrencyCode = currency,
+            ExchangeRate = rate,
+            PrivateNote  = Trim(p.PrivateNote),
+            DepartmentId = defaults.DepartmentId
+        };
+        // D-16: lines without an item go to the default expense account, else the account mapped to DEFAULT_PURCHASE.
+        credit.Lines.AddRange(ExpenseLines(p.Lines, refs, taxes, settings, defaults, defaults.MappedAccount("DEFAULT_PURCHASE"), dryRun, missing));
+
+        var built = new BuiltRemoteEntity
+        {
+            Entity     = credit,
+            DocNumber  = credit.DocNumber,
+            Lookup     = new RemoteLookup(DocNumber: credit.DocNumber, VendorRemoteId: Real(credit.VendorId)),
+            Unresolved = missing.Distinct().ToList()
+        };
+        if (rateNote is not null) built.Warnings.Add(rateNote);
+        return built;
+    }
+
+    /// <summary>A resolved reference, or null for a missing one / a dry-run placeholder.</summary>
+    private static string? Real(string? id) =>
+        string.IsNullOrEmpty(id) || id.StartsWith(DryRunRefPrefix, StringComparison.Ordinal) ? null : id;
+
+    private static string? Note(string? privateNote, string? reference)
+    {
+        var note = Trim(privateNote);
+        var refText = Trim(reference);
+        if (refText is null) return note;
+        return note is null ? $"Ref: {refText}" : $"{note} (Ref: {refText})";
     }
 
     /// <summary>

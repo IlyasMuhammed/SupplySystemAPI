@@ -177,12 +177,17 @@
             <a *ngIf="o.salesInvoiceUuid && canOpenInvoice; else invText" class="sf-mono"
                [routerLink]="['/portal/pages/finance/sales-invoices', o.salesInvoiceUuid]" data-testid="invoice-link">{{ o.salesInvoiceNumber || 'Open' }}</a>
             <ng-template #invText>{{ o.salesInvoiceNumber || (o.financePosted ? '—' : 'not posted yet') }}</ng-template>
+            <!-- A44 D-33 — paid at the till: a sales receipt; on account: an invoice -->
+            <app-qbo-sync-badge *ngIf="o.salesInvoiceUuid" kind="SalesInvoice" [alsoKinds]="qboSaleAlso" [externalId]="o.salesInvoiceUuid"
+                                label="QuickBooks" data-testid="invoice-qbo"></app-qbo-sync-badge>
           </span>
           <span>Finance credit note</span>
           <span data-testid="credit-note-ref">
             <a *ngIf="o.creditNoteUuid && canOpenInvoice; else cnText" class="sf-mono"
                [routerLink]="['/portal/pages/finance/sales-invoices', o.creditNoteUuid]" data-testid="credit-note-link">{{ o.creditNoteNumber || 'Open' }}</a>
             <ng-template #cnText><span class="sf-mono">{{ o.creditNoteNumber || '—' }}</span></ng-template>
+            <app-qbo-sync-badge *ngIf="o.creditNoteUuid" kind="CreditMemo" [alsoKinds]="qboReturnAlso" [externalId]="o.creditNoteUuid"
+                                label="QuickBooks" data-testid="credit-note-qbo"></app-qbo-sync-badge>
           </span>
           <span>Rung up</span><span>{{ o.createdAtLocal | date:'dd MMM yyyy, HH:mm:ss' }}<ng-container *ngIf="o.isOffline"> (offline)</ng-container></span>
           <span>Synced</span><span>{{ o.syncedAt | date:'dd MMM yyyy, HH:mm:ss' }}</span>

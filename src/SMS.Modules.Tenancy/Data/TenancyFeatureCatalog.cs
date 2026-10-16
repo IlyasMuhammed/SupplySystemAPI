@@ -74,6 +74,13 @@ internal static class TenancyFeatureCatalog
             ModuleCodes.GeneralLedger,
         };
 
+    /// <summary>
+    /// Sub-features in no plan at all, for new or existing organizations: only the super admin licenses them, by hand.
+    /// docs/quickbooks/APP-CREDENTIALS.md D-9 — an organization's own Intuit app is an exception, not a tier.
+    /// </summary>
+    internal static readonly IReadOnlySet<string> LicensedByHandOnly =
+        new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ModuleCodes.QuickBooksOwnApp };
+
     /// <summary>A37 MOD-08 — switched on by the system while any of these modules is on.</summary>
     internal static readonly IReadOnlyList<string> BomManagementDrivers = [ModuleCodes.Manufacturing, ModuleCodes.Services];
 
@@ -124,6 +131,8 @@ internal static class TenancyFeatureCatalog
         new("FEATURE_EMAIL_NOTIFICATIONS", "Email Notifications", CategoryFeature, "Outbound email notifications via SendGrid.",           false, 310, Parent: "MODULE_NOTIFICATIONS"),
         new("FEATURE_WHATSAPP",            "WhatsApp Notifications", CategoryFeature, "Outbound WhatsApp notifications.",                   false, 320, Parent: "MODULE_NOTIFICATIONS"),
         new("FEATURE_MASTER_LEDGERS",      "Master Ledgers",       CategoryFeature, "Cross-module inventory and cost ledger views.",         false, 330, Parent: "MODULE_INVENTORY"),
+        // docs/quickbooks/APP-CREDENTIALS.md D-9 — licensed by hand only (LicensedByHandOnly).
+        new(ModuleCodes.QuickBooksOwnApp,  "Own QuickBooks App",   CategoryFeature, "Connect QuickBooks through the organization's own Intuit developer app instead of the platform's.", false, 340, Parent: "MODULE_INTEGRATION"),
 
         // A37 §1.3 — module sub-features. Enforced ones gate real endpoints; the rest are catalog entries (R-2), and those
         // with no screen at all are "Coming soon" (D-19).
@@ -222,6 +231,7 @@ internal static class TenancyFeatureCatalog
         var modules = Catalog.Where(e => e.Parent is null && e.IsAvailable && !excluded.Contains(e.Code))
             .Select(e => e.Code).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var features = Catalog.Where(e => e.Parent is not null && e.IsAvailable && !excluded.Contains(e.Code)
+                && !LicensedByHandOnly.Contains(e.Code)
                 && modules.Contains(e.Parent)
                 && (!e.Code.Equals(ModuleCodes.BomManagement, StringComparison.OrdinalIgnoreCase) || BomManagementDrivers.Any(modules.Contains)))
             .Select(e => e.Code);

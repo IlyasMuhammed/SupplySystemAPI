@@ -1,0 +1,6 @@
+.table-actions { margin: 0; padding: .875rem 1.25rem; }
+.search { width: 14rem; max-width: 100%; }
+.unmapped-toggle { display: inline-flex; align-items: center; gap: .5rem; font-size: .875rem; cursor: pointer; }
+tr.unmapped td:first-child { box-shadow: inset 3px 0 0 var(--sms-warn); }
+:host ::ng-deep .auto-tag { margin-top: .25rem; font-size: .7rem; }
+.ambiguous-list { margin: .25rem 0 0; padding-left: 1.1rem; }

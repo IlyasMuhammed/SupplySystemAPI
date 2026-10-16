@@ -2,6 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SMS.Modules.Finance.Data;
 using SMS.Modules.Finance.Domain;
+using SMS.Modules.Finance.Integration.Posting;
+using SMS.Shared.Finance.Posting;
 using SMS.Shared.Integration.QuickBooks;
 
 namespace SMS.Modules.Finance.Integration;
@@ -20,16 +22,22 @@ internal sealed class BillQuickBooksSource : IQuickBooksSource
     private readonly IPurchaseOrderLineVariants    _poLines;
     private readonly IQuickBooksGateway            _gateway;
     private readonly ILogger<BillQuickBooksSource> _log;
+    private readonly IFinancialPostingGateway?     _posting;
 
+    /// <param name="posting">A44 — what approvals and edits go through (<see cref="PublishApprovedAsync"/>); the pull-back stays direct (D-3).</param>
     public BillQuickBooksSource(
         FinanceDbContext db, IPurchaseOrderLineVariants poLines, IQuickBooksGateway gateway,
-        ILogger<BillQuickBooksSource> log)
+        ILogger<BillQuickBooksSource> log, IFinancialPostingGateway? posting = null)
     {
         _db      = db;
         _poLines = poLines;
         _gateway = gateway;
         _log     = log;
+        _posting = posting;
     }
+
+    /// <summary>Whether a posting layer is in the host (the publisher reverses through it).</summary>
+    internal IFinancialPostingGateway? Posting => PostingSupport.IsActive(_posting) ? _posting : null;
 
     public IReadOnlyCollection<SyncKind> Kinds => SupportedKinds;
 
@@ -95,7 +103,17 @@ internal sealed class BillQuickBooksSource : IQuickBooksSource
     /// Builds and sends each invoice (lines loaded; callers pass approved ones), asking Demand about all
     /// their purchase order lines in a single query. Returns how many reached the gateway.
     /// </summary>
-    internal async Task<int> SendApprovedAsync(IReadOnlyList<Invoice> invoices, CancellationToken ct = default)
+    internal Task<int> SendApprovedAsync(IReadOnlyList<Invoice> invoices, CancellationToken ct = default) =>
+        SendApprovedAsync(invoices, publish: false, ct);
+
+    /// <summary>
+    /// A44 (D-25) — the invoice service's approval or edit, after its commit: each bill as a posting (GL lines + the
+    /// same payload) to the financial posting gateway; without a posting layer, straight to QuickBooks as before.
+    /// </summary>
+    internal Task<int> PublishApprovedAsync(IReadOnlyList<Invoice> invoices, CancellationToken ct = default) =>
+        SendApprovedAsync(invoices, publish: PostingSupport.IsActive(_posting), ct);
+
+    private async Task<int> SendApprovedAsync(IReadOnlyList<Invoice> invoices, bool publish, CancellationToken ct)
     {
         // A40 (TFIN, D-14) — imported opening bills are never sent: QuickBooks (the GL) already holds the opening payables,
         // and a header-only bill would land on the default expense account.
@@ -110,8 +128,16 @@ internal sealed class BillQuickBooksSource : IQuickBooksSource
             var externalId = invoice.UUID.ToString();
             try
             {
-                var result = await _gateway.UpsertBillAsync(BillPayloadFactory.Build(invoice, variants), ct);
-                QuickBooksSupport.LogResult(_log, result, SyncKind.Bill, externalId, invoice.InvoiceNumber);
+                var payload = BillPayloadFactory.Build(invoice, variants);
+                if (publish)
+                {
+                    await PostingSupport.SendAsync(_posting, _gateway, PurchasePostings.Bill(invoice, payload), _log, ct);
+                }
+                else
+                {
+                    var result = await _gateway.UpsertBillAsync(payload, ct);
+                    QuickBooksSupport.LogResult(_log, result, SyncKind.Bill, externalId, invoice.InvoiceNumber);
+                }
                 sent++;
             }
             catch (Exception ex) when (QuickBooksSupport.IsNotCancellation(ex, ct))

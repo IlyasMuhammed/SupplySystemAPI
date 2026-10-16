@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using SMS.Modules.Integration.Core.Connections;
+using SMS.Modules.Integration.Core.Settings;
 using SMS.Modules.Integration.Data;
 using SMS.Modules.Integration.Domain;
 using SMS.Modules.Integration.Gateway;
@@ -68,6 +69,10 @@ internal sealed class BlockedRecordRevalidator : IBlockedRecordRevalidator
         "CURRENCY_NOT_HOME",
         "CURRENCY_PARTY_MISMATCH",
         "PURCHASE_BASE_NOT_HOME",
+        // A44: a bill payment's bank account comes from the provider defaults / account mappings.
+        Gateway.Validation.PayloadValidator.BankAccountMissingCode,
+        // A44 D-55a: a not-for-sale product goes once a default income account exists (or the product is made saleable).
+        SaleableItems.NotSaleableCode,
         "VALIDATION_FAILED"
     ];
 
@@ -125,11 +130,14 @@ internal sealed class RevalidationPass
     private readonly RevalidationCursor               _cursor;
     private readonly TimeProvider                     _clock;
     private readonly ILogger<BlockedRecordRevalidator> _logger;
+    private readonly ISyncControlReader               _syncControl;
 
     public RevalidationPass(
         IntegrationDbContext db, IConnectionAccessor accessor, IPayloadValidator validator, ISyncAdmission admission,
-        ISyncOutbox outbox, RevalidationCursor cursor, TimeProvider clock, ILogger<BlockedRecordRevalidator> logger)
+        ISyncOutbox outbox, RevalidationCursor cursor, TimeProvider clock, ILogger<BlockedRecordRevalidator> logger,
+        ISyncControlReader syncControl)
     {
+        _syncControl = syncControl;
         _db        = db;
         _accessor  = accessor;
         _validator = validator;
@@ -221,7 +229,6 @@ internal sealed class RevalidationPass
 
         // What a fresh upsert would answer "Disabled" to (and so leave alone): auto-push off for the kind, the
         // record skipped in matching, a document dated before the start date.
-        if (!QuickBooksGateway.AutoPush(settings, map.Kind)) return Outcome.Skipped;
         if (await _db.MatchCandidates.AnyAsync(c => c.EntityMapId == map.Id && c.Decision == MatchDecision.Skip, ct)) return Outcome.Skipped;
 
         object payload;
@@ -234,11 +241,13 @@ internal sealed class RevalidationPass
             return Outcome.Skipped;
         }
 
-        if (QuickBooksGateway.DocumentDate(payload) is { } date && settings.DocumentStartDate is { } start && date.Date < start.Date)
+        // A44 D-14: a type switched off (Skip) is left alone; a held one (POS sales while "Sync POS sales" is off, and
+        // since A44 any type disabled with hold) stays where it is and is looked at again once the type is enabled.
+        if ((await _syncControl.CheckAsync(connection.Id, SyncHolds.TypeOf(map.Kind, payload), ct)).Action != SyncControlAction.Process)
             return Outcome.Skipped;
 
-        // A POS sale while "Sync POS sales" is off stays where it is; it is looked at again once the switch is on.
-        if (PosSales.IsHeld(settings, map.Kind, payload)) return Outcome.Skipped;
+        if (QuickBooksGateway.DocumentDate(payload) is { } date && settings.DocumentStartDate is { } start && date.Date < start.Date)
+            return Outcome.Skipped;
 
         var now        = _clock.GetUtcNow().UtcDateTime;
         var fingerprint = map.PayloadFingerprint ?? SyncPayloads.Fingerprint(map.PayloadJson);

@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using SMS.Shared.Finance.Posting;
 using SMS.Shared.Integration.QuickBooks;
 
 namespace SMS.Modules.Suppliers.Integration;
@@ -46,6 +47,43 @@ internal static class QuickBooksSupport
         log.LogDebug(
             "QuickBooks gateway: {Kind} {Label} ({ExternalId}) -> {Outcome} {State}.",
             kind, label, externalId, result.Outcome, result.State);
+    }
+
+    /// <summary>A44 D-13/D-77 — logged only: "{EntityType}:{Action}:{EntityId}:{ticks}".</summary>
+    internal static string IdempotencyKey(SyncEntityType type, SyncAction action, Guid entityId, long ticks) =>
+        $"{type}:{action}:{entityId}:{ticks}";
+
+    /// <summary>
+    /// What the entity sync gateway made of a request. A validation refusal is Information, like the
+    /// gateway's own <see cref="GatewayOutcome.Invalid"/>; "no target" / "not licensed" are routine; any
+    /// other failure is a warning — the hourly reconciliation offers the record again.
+    /// </summary>
+    internal static void LogSyncResult(ILogger log, EntitySyncResult? result, SyncEntityType type, Guid entityId, string? label)
+    {
+        if (result is null)
+        {
+            log.LogDebug("Entity sync gateway returned nothing for {EntityType} {Label} ({EntityId}).", type, label, entityId);
+            return;
+        }
+
+        if (result.Success || result.Outcome is EntitySyncOutcome.NoTargetConfigured or EntitySyncOutcome.ModuleNotLicensed
+                or EntitySyncOutcome.DuplicateSkipped or EntitySyncOutcome.Held)
+        {
+            log.LogDebug("Entity sync gateway: {EntityType} {Label} ({EntityId}) -> {Outcome}, {Targets} target(s).",
+                type, label, entityId, result.Outcome, result.TargetsQueued);
+            return;
+        }
+
+        if (result.Outcome == EntitySyncOutcome.ValidationFailed)
+        {
+            log.LogInformation("Accounting refused {EntityType} {Label} ({EntityId}): {Reasons}",
+                type, label, entityId, result.ErrorMessage);
+            return;
+        }
+
+        log.LogWarning("Entity sync gateway could not take {EntityType} {Label} ({EntityId}): {Outcome} {Error}; " +
+                       "the hourly reconciliation will offer it again.",
+            type, label, entityId, result.Outcome, result.ErrorMessage);
     }
 
     /// <summary>True for every exception except a cancellation the caller asked for.</summary>

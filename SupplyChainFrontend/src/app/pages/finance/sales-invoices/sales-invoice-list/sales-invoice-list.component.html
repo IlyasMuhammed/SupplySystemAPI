@@ -95,7 +95,7 @@
             <td class="text-right">{{ inv.amountPaid | number:'1.2-2' }}</td>
             <td class="text-right">{{ inv.balanceDue | number:'1.2-2' }}</td>
             <td><p-tag [value]="formatStatus(inv.status)" [severity]="getStatusSeverity(inv.status)"></p-tag></td>
-            <td *ngIf="qboAvailable()"><app-qbo-sync-badge kind="SalesInvoice" [externalId]="inv.uuid"></app-qbo-sync-badge></td>
+            <td *ngIf="qboAvailable()"><app-qbo-sync-badge [inlineAction]="false" kind="SalesInvoice" [externalId]="inv.uuid"></app-qbo-sync-badge></td>
             <td class="text-center">
               <p-button icon="pi pi-eye" [text]="true" severity="secondary" size="small" pTooltip="Open"
                         [routerLink]="['/portal/pages/finance/sales-invoices', inv.uuid]"

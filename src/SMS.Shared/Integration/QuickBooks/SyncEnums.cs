@@ -10,7 +10,14 @@ public enum SyncKind
     Vendor,
     Item,
     SalesInvoice,
-    Bill
+    Bill,
+    // A44 (D-19..D-24). Stored as strings (max 20).
+    Payment,
+    BillPayment,
+    SalesReceipt,
+    CreditMemo,
+    RefundReceipt,
+    VendorCredit
 }
 
 /// <summary>Where one record stands, as the gateway sees it.</summary>

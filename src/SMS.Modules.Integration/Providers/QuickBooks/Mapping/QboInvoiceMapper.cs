@@ -31,7 +31,11 @@ internal static class QboInvoiceMapper
             GlobalTaxCalculation         = GlobalTaxCalculationEnum.TaxExcluded,
             GlobalTaxCalculationSpecified = true,
             CustomerMemo                 = Has(source.CustomerMemo) ? new MemoRef { Value = source.CustomerMemo } : null,
-            PrivateNote                  = Value(source.PrivateNote)
+            PrivateNote                  = Value(source.PrivateNote),
+            // A44 D-15: provider defaults, only when configured (left unset otherwise, as before A44).
+            ClassRef                     = Ref(source.ClassId),
+            DepartmentRef                = Ref(source.DepartmentId),
+            SalesTermRef                 = Ref(source.SalesTermId)
         };
 
         if (source.DueDate is { } due)
@@ -57,7 +61,7 @@ internal static class QboInvoiceMapper
         return invoice;
     }
 
-    private static Line SalesLine(RemoteSalesLine source) => new()
+    internal static Line SalesLine(RemoteSalesLine source) => new()
     {
         Description         = Value(source.Description),
         Amount              = source.Amount,
@@ -71,11 +75,12 @@ internal static class QboInvoiceMapper
             QtySpecified    = true,
             AnyIntuitObject = source.UnitPrice,
             ItemElementName = ItemChoiceType.UnitPrice,
-            TaxCodeRef      = Ref(source.TaxCodeId)
+            TaxCodeRef      = Ref(source.TaxCodeId),
+            ClassRef        = Ref(source.ClassId)    // A44 D-58: per-line class tracking only; null = unset
         }
     };
 
-    private static Line DiscountLine(decimal amount, string? discountAccountId) => new()
+    internal static Line DiscountLine(decimal amount, string? discountAccountId) => new()
     {
         Amount              = amount,
         AmountSpecified     = true,

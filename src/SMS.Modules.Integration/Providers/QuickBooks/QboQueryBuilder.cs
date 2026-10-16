@@ -22,7 +22,9 @@ internal sealed class QboQueryBuilder
     /// <summary>Entities <see cref="SelectPage"/> may read — reference data only, never a caller-chosen name.</summary>
     private static readonly HashSet<string> ReferenceEntities = new(StringComparer.Ordinal)
     {
-        "Account", "TaxCode", "TaxRate", "Term", "CompanyCurrency"
+        "Account", "TaxCode", "TaxRate", "Term", "CompanyCurrency",
+        // A44 D-15 (CTRL): what provider defaults are chosen from.
+        "Class", "Department", "PaymentMethod"
     };
 
     /// <summary>Customer / Vendor by DisplayName, Item by Name — active and inactive.</summary>
@@ -46,6 +48,31 @@ internal sealed class QboQueryBuilder
     /// </summary>
     public string FindBillByDocNumber(string docNumber) =>
         $"select * from Bill where DocNumber = {Literal(docNumber)}";
+
+    /// <summary>
+    /// A44: the transactions found by DocNumber (BillPayment, SalesReceipt, CreditMemo, RefundReceipt, VendorCredit).
+    /// The entity name is chosen from a fixed list, never by the caller.
+    /// </summary>
+    public string FindTransactionByDocNumber(SyncKind kind, string docNumber)
+    {
+        var entity = kind switch
+        {
+            SyncKind.BillPayment   => "BillPayment",
+            SyncKind.SalesReceipt  => "SalesReceipt",
+            SyncKind.CreditMemo    => "CreditMemo",
+            SyncKind.RefundReceipt => "RefundReceipt",
+            SyncKind.VendorCredit  => "VendorCredit",
+            _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Not a transaction found by DocNumber.")
+        };
+        return $"select * from {entity} where DocNumber = {Literal(docNumber)}";
+    }
+
+    /// <summary>
+    /// A44 D-52: payments of one day. QuickBooks payments have no DocNumber and PaymentRefNum is not filterable, so the
+    /// provider filters these by reference number and customer.
+    /// </summary>
+    public string FindPaymentsOn(DateTime txnDate) =>
+        string.Create(CultureInfo.InvariantCulture, $"select * from Payment where TxnDate = '{txnDate:yyyy-MM-dd}' MAXRESULTS {MaxResultsCap}");
 
     /// <summary>One page of Customers / Vendors / Items, active and inactive. <paramref name="startPosition"/> is 1-based.</summary>
     public string ListPage(SyncKind kind, int startPosition, int maxResults)

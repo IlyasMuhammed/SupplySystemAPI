@@ -39,6 +39,8 @@ public class FinanceQuickBooksRegistrationTests
         services.AddSingleton(Mock.Of<ILookupsService>());
         services.AddSingleton(Mock.Of<IBackgroundJobClient>());
         services.AddSingleton(Mock.Of<IProductVariantResolver>());
+        services.AddSingleton(Mock.Of<INotificationService>());
+        services.AddSingleton(Mock.Of<IAuditService>());
         return services;
     }
 
@@ -71,7 +73,30 @@ public class FinanceQuickBooksRegistrationTests
             .Which.Should().BeSameAs(scope.ServiceProvider.GetRequiredService<SalesInvoiceQuickBooksSource>());
         sources.OfType<BillQuickBooksSource>().Should().ContainSingle()
             .Which.Should().BeSameAs(scope.ServiceProvider.GetRequiredService<BillQuickBooksSource>());
-        sources.SelectMany(s => s.Kinds).Should().BeEquivalentTo([SyncKind.SalesInvoice, SyncKind.Bill]);
+        // A44 (D-19..D-24): the new document kinds, each served once.
+        sources.SelectMany(s => s.Kinds).Should().BeEquivalentTo([
+            SyncKind.SalesInvoice, SyncKind.Bill, SyncKind.Payment, SyncKind.BillPayment,
+            SyncKind.SalesReceipt, SyncKind.CreditMemo, SyncKind.RefundReceipt, SyncKind.VendorCredit]);
+        sources.OfType<SMS.Modules.Finance.Integration.Posting.PosDocumentPostings>().Should().ContainSingle()
+            .Which.Should().BeSameAs(scope.ServiceProvider.GetRequiredService<SMS.Modules.Finance.Integration.Posting.PosDocumentPostings>());
+    }
+
+    [Fact]
+    public void Without_Accounting_the_posting_gateway_is_the_null_one_and_every_document_service_gets_its_postings()
+    {
+        using var provider = Services().BuildServiceProvider();
+        using var scope = provider.CreateScope();
+
+        object? Field(object service, string name) =>
+            service.GetType().GetField(name, BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(service);
+
+        scope.ServiceProvider.GetRequiredService<SMS.Shared.Finance.Posting.IFinancialPostingGateway>()
+            .Should().BeOfType<SMS.Shared.Finance.Posting.NullFinancialPostingGateway>();
+        Field(scope.ServiceProvider.GetRequiredService<ICustomerPaymentService>(), "_postings").Should().NotBeNull();
+        Field(scope.ServiceProvider.GetRequiredService<ISupplierPaymentService>(), "_postings").Should().NotBeNull();
+        Field(scope.ServiceProvider.GetRequiredService<ICreditNoteService>(), "_postings").Should().NotBeNull();
+        Field(scope.ServiceProvider.GetRequiredService<IDebitNoteService>(), "_postings").Should().NotBeNull();
+        Field(scope.ServiceProvider.GetRequiredService<ICounterSaleService>(), "_postings").Should().NotBeNull();
     }
 
     [Fact]

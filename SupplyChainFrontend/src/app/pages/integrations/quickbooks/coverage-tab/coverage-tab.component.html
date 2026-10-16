@@ -1,0 +1,84 @@
+<div class="state-card" *ngIf="isLoading && !coverage" data-testid="loading">
+  <i class="pi pi-spin pi-spinner big"></i>
+  <p>Checking coverage…</p>
+</div>
+
+<div class="state-card" *ngIf="loadFailed" data-testid="load-failed">
+  <i class="pi pi-exclamation-triangle big"></i>
+  <h2>Coverage could not be checked</h2>
+  <p>{{ loadError }}</p>
+  <p-button label="Try again" icon="pi pi-refresh" (onClick)="load()"></p-button>
+</div>
+
+<ng-container *ngIf="coverage && !loadFailed">
+  <section class="form-card readiness" [class.ready]="ready" data-testid="readiness">
+    <div class="card-head tight">
+      <div class="card-icon"><i class="pi" [ngClass]="ready ? 'pi-check-circle' : 'pi-exclamation-circle'"></i></div>
+      <div class="grow">
+        <div class="card-title">
+          <p-tag [value]="ready ? 'READY' : 'NOT READY'" [severity]="ready ? 'success' : 'danger'" data-testid="readiness-tag"></p-tag>
+          <span class="readiness-text">{{ ready ? 'Everything QuickBooks needs is in place.' : 'Some things must be fixed before documents can be sent.' }}</span>
+        </div>
+        <div class="card-sub">
+          <ng-container *ngIf="coverage.mode">{{ coverage.mode === 'Live' ? 'Live' : 'Dry run' }}</ng-container>
+          <ng-container *ngIf="coverage.referenceFetchedAt"> · QuickBooks lists read {{ coverage.referenceFetchedAt | date:'d MMM y, HH:mm' }}</ng-container>
+        </div>
+      </div>
+      <p-button label="Refresh" icon="pi pi-refresh" [outlined]="true" size="small" [loading]="isLoading" [disabled]="isLoading"
+                (onClick)="load()" data-testid="refresh"></p-button>
+    </div>
+
+    <ul class="issues" *ngIf="coverage.blockingIssues.length" data-testid="blocking-issues">
+      <li *ngFor="let i of coverage.blockingIssues" class="issue blocking" data-testid="blocking-issue">
+        <i class="pi pi-times-circle"></i>
+        <span class="grow">{{ i.message }}</span>
+        <p-button [label]="'Fix on ' + tabLabel(issueTab(i))" [text]="true" size="small" (onClick)="go(issueTab(i))"
+                  [attr.data-testid]="'fix-' + i.code"></p-button>
+      </li>
+    </ul>
+
+    <ul class="issues" *ngIf="coverage.warnings?.length" data-testid="warnings">
+      <li *ngFor="let i of coverage.warnings" class="issue warning" data-testid="warning">
+        <i class="pi pi-exclamation-triangle"></i>
+        <span class="grow">{{ i.message }}</span>
+        <p-button [label]="'Open ' + tabLabel(issueTab(i))" [text]="true" size="small" severity="secondary" (onClick)="go(issueTab(i))"></p-button>
+      </li>
+    </ul>
+  </section>
+
+  <section class="form-card" data-testid="kinds">
+    <div class="card-head tight">
+      <div class="card-icon"><i class="pi pi-chart-bar"></i></div>
+      <div class="grow">
+        <div class="card-title">Mapped so far</div>
+        <div class="card-sub">Active SCM records of each kind that are linked to QuickBooks (or skipped on purpose).</div>
+      </div>
+    </div>
+
+    <div class="state-inline" *ngIf="!rows.length" data-testid="kinds-empty">
+      <i class="pi pi-info-circle"></i> Nothing to report yet.
+    </div>
+
+    <div class="kind" *ngFor="let k of rows" [attr.data-testid]="'kind-' + k.kind">
+      <div class="kind-top">
+        <button type="button" class="kind-name" (click)="go(kindTab(k))">{{ kindLabel(k) }}</button>
+        <span class="info" *ngIf="k.informational">information only</span>
+        <span class="grow"></span>
+        <span class="counts">
+          {{ k.mapped }} of {{ k.total }} mapped<ng-container *ngIf="k.skipped"> · {{ k.skipped }} skipped</ng-container><ng-container *ngIf="k.pending"> · {{ k.pending }} pending</ng-container>
+        </span>
+        <span class="pct" [attr.data-testid]="'pct-' + k.kind">{{ percent(k) }}%</span>
+      </div>
+      <div class="bar" role="progressbar" [attr.aria-valuenow]="percent(k)" aria-valuemin="0" aria-valuemax="100"
+           [attr.aria-label]="kindLabel(k) + ' mapped'">
+        <span [class]="'fill ' + tone(k)" [style.width.%]="percent(k)"></span>
+      </div>
+      <div class="hint unmapped" *ngIf="k.kind === 'TaxCode' && unmappedTax.length" data-testid="unmapped-tax">
+        Not mapped: {{ unmappedTax.join(', ') }}
+      </div>
+      <div class="hint" *ngIf="k.remoteUnlinked" [attr.data-testid]="'remote-unlinked-' + k.kind">
+        {{ k.remoteUnlinked }} imported QuickBooks {{ k.remoteUnlinked === 1 ? 'record is' : 'records are' }} not linked to SCM.
+      </div>
+    </div>
+  </section>
+</ng-container>

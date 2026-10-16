@@ -2,6 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SMS.Modules.Finance.Data;
 using SMS.Modules.Finance.Domain;
+using SMS.Modules.Finance.Integration.Posting;
+using SMS.Shared.Finance.Posting;
 using SMS.Shared.Integration.QuickBooks;
 
 namespace SMS.Modules.Finance.Integration;
@@ -9,8 +11,15 @@ namespace SMS.Modules.Finance.Integration;
 /// <summary>
 /// Sales invoices, for the QuickBooks gateway. Called <b>by</b> the gateway — from background jobs, with the
 /// tenant set through <c>HangfireTenantScope</c> — for "Push now" and the hourly reconciliation. The sales
-/// invoice service's own changes go through <see cref="SendAsync"/> here too, so both paths build an
-/// invoice the same way.
+/// invoice service's own changes go through <see cref="PublishAsync"/> here, so both paths build an invoice
+/// the same way.
+/// <para>
+/// A44: the service's changes go to the financial posting gateway (<see cref="PublishAsync"/>: the GL and QuickBooks
+/// through one call, D-25); the gateway's pull-back (<see cref="PushAsync"/>, <see cref="PushAllAsync"/>) still calls
+/// the QuickBooks gateway directly (D-3). POS documents that are not invoices in QuickBooks — a sale paid in full at the
+/// till (a sales receipt, D-21) and POS credit notes (credit memo / refund receipt, D-23) — are served by
+/// <see cref="PosDocumentPostings"/>, not here; a voided POS sale is voided (D-22).
+/// </para>
 /// </summary>
 internal sealed class SalesInvoiceQuickBooksSource : IQuickBooksSource
 {
@@ -19,13 +28,17 @@ internal sealed class SalesInvoiceQuickBooksSource : IQuickBooksSource
     private readonly FinanceDbContext                      _db;
     private readonly IQuickBooksGateway                    _gateway;
     private readonly ILogger<SalesInvoiceQuickBooksSource> _log;
+    private readonly IFinancialPostingGateway?             _posting;
 
+    /// <param name="posting">A44 — the posting gateway the service's changes go through; without one (or the Null one) they go straight to QuickBooks as before.</param>
     public SalesInvoiceQuickBooksSource(
-        FinanceDbContext db, IQuickBooksGateway gateway, ILogger<SalesInvoiceQuickBooksSource> log)
+        FinanceDbContext db, IQuickBooksGateway gateway, ILogger<SalesInvoiceQuickBooksSource> log,
+        IFinancialPostingGateway? posting = null)
     {
         _db      = db;
         _gateway = gateway;
         _log     = log;
+        _posting = posting;
     }
 
     public IReadOnlyCollection<SyncKind> Kinds => SupportedKinds;
@@ -46,8 +59,9 @@ internal sealed class SalesInvoiceQuickBooksSource : IQuickBooksSource
             .Where(i => ids.Contains(i.UUID) && !i.IsDelete)
             .ToListAsync(ct);
 
+        var actions = await ActionsAsync(invoices, ct);
         foreach (var invoice in invoices)
-            await SendAsync(invoice, SalesInvoiceQuickBooksRules.ForCurrentState(invoice.Status), ct);
+            await SendAsync(invoice, actions[invoice.Id], ct);
     }
 
     /// <summary>
@@ -76,8 +90,9 @@ internal sealed class SalesInvoiceQuickBooksSource : IQuickBooksSource
                 .Include(i => i.Lines)
                 .ToListAsync(ct);
 
+            var actions = await ActionsAsync(batch, ct);
             foreach (var invoice in batch)
-                if (await SendAsync(invoice, SalesInvoiceQuickBooksRules.ForCurrentState(invoice.Status), ct))
+                if (await SendAsync(invoice, actions[invoice.Id], ct))
                     sent++;
 
             if (batch.Count < QuickBooksSupport.BatchSize) break;
@@ -88,8 +103,38 @@ internal sealed class SalesInvoiceQuickBooksSource : IQuickBooksSource
     }
 
     /// <summary>
-    /// Does <paramref name="action"/> for one invoice (lines loaded). False when nothing was sent — no
-    /// action, or the gateway failed, which is logged, never thrown.
+    /// What the pull-back does for each invoice: <see cref="SalesInvoiceQuickBooksRules.ForCurrentState"/>, except for
+    /// POS documents (D-73) — a POS credit note is not an invoice (skipped: it is a credit memo / refund receipt), a
+    /// voided POS sale is voided, and a POS sale paid in full at the till is a sales receipt (skipped) — unless the
+    /// QuickBooks gateway already holds it as an invoice (a sale from before A44), which stays one.
+    /// </summary>
+    private async Task<Dictionary<int, QuickBooksPushAction>> ActionsAsync(IReadOnlyList<SalesInvoice> invoices, CancellationToken ct)
+    {
+        var actions = invoices.ToDictionary(i => i.Id, i => SalesInvoiceQuickBooksRules.ForCurrentState(i.Status));
+
+        foreach (var credit in invoices.Where(i => PosDocuments.IsPos(i) && i.Status == SalesInvoiceStatuses.CreditNote))
+            actions[credit.Id] = QuickBooksPushAction.None;
+
+        var shapes = await PosDocuments.ShapeSalesAsync(_db, invoices, ct);
+        if (shapes.Count == 0) return actions;
+
+        var receipts = invoices.Where(i => shapes.TryGetValue(i.Id, out var s) && s.IsReceipt).ToList();
+        // REV-20: only a map that really carries a pre-A44 invoice counts — not an empty placeholder.
+        var legacy = await PosDocuments.LegacyInvoicesAsync(_gateway, receipts, ct);
+
+        foreach (var invoice in invoices)
+        {
+            if (!shapes.TryGetValue(invoice.Id, out var shape)) continue;
+            if (shape.IsVoided) actions[invoice.Id] = QuickBooksPushAction.Void;
+            else if (shape.IsReceipt && !legacy.Contains(invoice.UUID.ToString())) actions[invoice.Id] = QuickBooksPushAction.None;
+        }
+
+        return actions;
+    }
+
+    /// <summary>
+    /// Does <paramref name="action"/> for one invoice (lines loaded) straight at the QuickBooks gateway — the pull-back.
+    /// False when nothing was sent — no action, or the gateway failed, which is logged, never thrown.
     /// </summary>
     internal async Task<bool> SendAsync(SalesInvoice invoice, QuickBooksPushAction action, CancellationToken ct = default)
     {
@@ -115,6 +160,37 @@ internal sealed class SalesInvoiceQuickBooksSource : IQuickBooksSource
             _log.LogWarning(ex,
                 "Sales invoice {InvoiceUuid} ({InvoiceNumber}) could not be handed to the QuickBooks gateway ({Action}); " +
                 "the hourly reconciliation will offer it again.",
+                invoice.UUID, invoice.InvoiceNumber, action);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// A44 (D-25) — the service's change, after its commit: a posting of the issued invoice (GL lines + the same payload)
+    /// or a void of it, through the posting gateway; without a posting layer, <see cref="SendAsync"/>. Never throws.
+    /// </summary>
+    internal async Task<bool> PublishAsync(SalesInvoice invoice, QuickBooksPushAction action, CancellationToken ct = default)
+    {
+        if (!PostingSupport.IsActive(_posting)) return await SendAsync(invoice, action, ct);
+
+        if (action == QuickBooksPushAction.None) return false;
+        if (invoice.SourceType == SalesInvoiceSources.Opening) return false;
+
+        try
+        {
+            if (action == QuickBooksPushAction.Void)
+                await PostingSupport.VoidAsync(_posting, _gateway,
+                    SalesPostings.Void(invoice, FinDocType.SalesInvoice, invoice.CancellationReason ?? "Cancelled", invoice.CancelledBy, invoice.CancelledAt),
+                    _log, ct);
+            else
+                await PostingSupport.SendAsync(_posting, _gateway, SalesPostings.Invoice(invoice), _log, ct);
+            return true;
+        }
+        catch (Exception ex) when (QuickBooksSupport.IsNotCancellation(ex, ct))
+        {
+            _log.LogWarning(ex,
+                "Sales invoice {InvoiceUuid} ({InvoiceNumber}) could not be handed to the posting gateway ({Action}); " +
+                "the hourly reconciliation will offer it to QuickBooks again.",
                 invoice.UUID, invoice.InvoiceNumber, action);
             return false;
         }

@@ -9,9 +9,10 @@ namespace SMS.Modules.Suppliers.Integration;
 /// <summary>
 /// Business partners, for the QuickBooks gateway. Called <b>by</b> the gateway — from background jobs,
 /// with the tenant set through <c>HangfireTenantScope</c> — when an invoice or bill waits on a customer or
-/// vendor it has never been sent, for "Push now", and for the hourly reconciliation. The same class sends
-/// a partner's roles after an edit in this module (<see cref="SendRolesAsync"/>), so the two paths can
-/// never build a partner differently.
+/// vendor it has never been sent, for "Push now", and for the hourly reconciliation (A44 D-3: this pull-back
+/// stays on <see cref="IQuickBooksGateway"/>). The same class builds a partner's roles after an edit in this
+/// module (<see cref="BuildRoles"/>, sent by the publisher through the entity sync gateway), so the two
+/// paths can never build a partner differently.
 /// </summary>
 internal sealed class PartnerQuickBooksSource : IQuickBooksSource
 {
@@ -104,28 +105,33 @@ internal sealed class PartnerQuickBooksSource : IQuickBooksSource
     }
 
     /// <summary>
-    /// After an edit: the partner in every role it holds. A partner that is neither customer nor payee
-    /// sends nothing. Whether a role is in scope (already mapped, or "all active") is the gateway's call.
+    /// After an edit: the partner's payload in every role it holds, customer first — built exactly as
+    /// <see cref="PushAsync"/> builds them, so the publisher's entity sync requests carry the same payload
+    /// (and fingerprint) as the gateway's pull-back. A partner that is neither customer nor payee builds
+    /// nothing (and loads no currency catalog). Whether a role is in scope is the target's call.
     /// </summary>
-    internal async Task SendRolesAsync(BusinessPartner partner, CancellationToken ct = default)
+    internal IReadOnlyList<PartyPayload> BuildRoles(BusinessPartner partner)
     {
         var customer = PartnerPayloadFactory.IsCustomerRole(partner);
         var vendor   = PartnerPayloadFactory.IsVendorRole(partner);
-        if (!customer && !vendor) return;
+        if (!customer && !vendor) return [];
 
-        var codes = _currencies.Load();
-        if (customer) await SendAsync(SyncKind.Customer, partner, codes, ct);
-        if (vendor)   await SendAsync(SyncKind.Vendor,   partner, codes, ct);
+        var currency = CurrencyOf(partner, _currencies.Load());
+        var payloads = new List<PartyPayload>(2);
+        if (customer) payloads.Add(PartnerPayloadFactory.BuildCustomer(partner, currency));
+        if (vendor)   payloads.Add(PartnerPayloadFactory.BuildVendor(partner, currency));
+        return payloads;
     }
+
+    private static string? CurrencyOf(BusinessPartner partner, IReadOnlyDictionary<Guid, string> codes) =>
+        partner.PreferredCurrency is { } currencyId && codes.TryGetValue(currencyId, out var code) ? code : null;
 
     /// <summary>One partner, one role. A gateway failure is logged and reported as not sent, never thrown.</summary>
     private async Task<bool> SendAsync(
         SyncKind kind, BusinessPartner partner, IReadOnlyDictionary<Guid, string> codes, CancellationToken ct)
     {
         var externalId = partner.UUID.ToString();
-        var currency   = partner.PreferredCurrency is { } currencyId && codes.TryGetValue(currencyId, out var code)
-            ? code
-            : null;
+        var currency   = CurrencyOf(partner, codes);
 
         try
         {
@@ -142,6 +148,32 @@ internal sealed class PartnerQuickBooksSource : IQuickBooksSource
                 "Business partner {PartnerUuid} ({PartnerCode}) could not be handed to the QuickBooks gateway as a {Kind}; " +
                 "the hourly reconciliation will offer it again.",
                 partner.UUID, partner.SupplierCode, kind);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// REV-16 / D-75b fallback: a payload built by <see cref="BuildRoles"/>, straight to the QuickBooks gateway — the
+    /// pre-A44 edit path, used only when the host has no entity sync router. Never throws.
+    /// </summary>
+    internal async Task<bool> SendBuiltAsync(Guid partnerUuid, string? partnerCode, PartyPayload payload, CancellationToken ct = default)
+    {
+        var kind = payload is VendorPayload ? SyncKind.Vendor : SyncKind.Customer;
+        try
+        {
+            var result = payload is VendorPayload vendor
+                ? await _gateway.UpsertVendorAsync(vendor, ct)
+                : await _gateway.UpsertCustomerAsync((CustomerPayload)payload, ct);
+
+            QuickBooksSupport.LogResult(_log, result, kind, payload.ExternalId, partnerCode);
+            return true;
+        }
+        catch (Exception ex) when (QuickBooksSupport.IsNotCancellation(ex, ct))
+        {
+            _log.LogWarning(ex,
+                "Business partner {PartnerUuid} ({PartnerCode}) could not be handed to the QuickBooks gateway as a {Kind}; " +
+                "the hourly reconciliation will offer it again.",
+                partnerUuid, partnerCode, kind);
             return false;
         }
     }

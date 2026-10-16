@@ -10,6 +10,8 @@ import { PosAdminService, PosOrder } from '../../../services/pos-admin.service';
 import { EffectivePolicy, PosReturnsAdminService, ReturnReason } from '../../../services/pos-returns-admin.service';
 import { AuthService } from '../../service/auth.service';
 import { ModuleService } from '../../../services/module.service';
+import { By } from '@angular/platform-browser';
+import { QboSyncBadgeComponent } from '../../../shared/components/qbo-sync-badge/qbo-sync-badge.component';
 import { effectivePolicyFixture, fail400, lineFixture, ok, orderFixture, reasonFixture } from '../pos-fixtures.testing';
 
 const ALL = ['POS_ORDER_VIEW', 'POS_ORDER_VOID', 'POS_ORDER_RETURN', 'SALES_INVOICE_VIEW'];
@@ -60,6 +62,17 @@ describe('PosOrderDetailComponent (A38 + A39)', () => {
   }
 
   const q = (id: string) => el.querySelector(`[data-testid="${id}"]`) as HTMLElement | null;
+
+  it('A44 D-33: QuickBooks badges next to the sales invoice (invoice or sales receipt) and the credit note (memo or refund)', async () => {
+    await setup(orderFixture({ creditNoteUuid: 'cn-1', creditNoteNumber: 'SCN-1' } as Partial<PosOrder>));
+    const badges = fixture.debugElement.queryAll(By.directive(QboSyncBadgeComponent)).map(d => d.componentInstance as QboSyncBadgeComponent);
+    expect(badges.map(b => [b.kind(), b.alsoKinds(), b.externalId()])).toEqual([
+      ['SalesInvoice', ['SalesReceipt'], 'si-1'],
+      ['CreditMemo', ['RefundReceipt'], 'cn-1']
+    ]);
+    await setup(orderFixture({ salesInvoiceUuid: null, creditNoteUuid: null } as Partial<PosOrder>));
+    expect(fixture.debugElement.queryAll(By.directive(QboSyncBadgeComponent)).length).toBe(0);
+  });
 
   it('renders lines, payments, flags and the sales invoice link', async () => {
     await setup(orderFixture());

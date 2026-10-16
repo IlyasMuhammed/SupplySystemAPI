@@ -1,0 +1,114 @@
+<div class="state-card" *ngIf="isLoading" data-testid="loading">
+  <i class="pi pi-spin pi-spinner big"></i>
+  <p>Loading the account mappings…</p>
+</div>
+
+<div class="state-card" *ngIf="loadFailed" data-testid="load-failed">
+  <i class="pi pi-exclamation-triangle big"></i>
+  <h2>The account mappings could not be loaded</h2>
+  <p>{{ loadError }}</p>
+  <p-button label="Try again" icon="pi pi-refresh" (onClick)="load()"></p-button>
+</div>
+
+<ng-container *ngIf="!isLoading && !loadFailed">
+  <div class="state-card" *ngIf="!glAvailable" data-testid="no-chart">
+    <i class="pi pi-sitemap big"></i>
+    <h2>There is no chart of accounts yet</h2>
+    <p>Accounts are mapped from the general ledger's chart of accounts. Set up the general ledger first.</p>
+    <a class="p-button p-component" [routerLink]="glSetupRoute" data-testid="gl-setup-link">
+      <i class="pi pi-cog"></i>&nbsp; Set up general ledger
+    </a>
+  </div>
+
+  <ng-container *ngIf="glAvailable">
+    <div class="note info" data-testid="accounts-note">
+      <i class="pi pi-info-circle"></i>
+      <div class="note-body">
+        QuickBooks builds its ledger from items, so documents are sent without these mappings. They fill in the accounts the
+        Mappings and Defaults tabs leave empty (income, expense, discount, deposit and bank accounts).
+      </div>
+    </div>
+
+    <div class="note warn" *ngIf="unmappedCount" data-testid="unmapped-warning">
+      <i class="pi pi-exclamation-triangle"></i>
+      <div class="note-body">{{ unmappedCount }} of {{ rows.length }} {{ rows.length === 1 ? 'account is' : 'accounts are' }} not mapped to QuickBooks.
+        <ng-container *ngIf="invalidCount"> {{ invalidCount }} {{ invalidCount === 1 ? 'is' : 'are' }} mapped to an account QuickBooks no longer has active.</ng-container></div>
+    </div>
+
+    <div class="note warn" *ngIf="ambiguous.length" data-testid="ambiguous">
+      <i class="pi pi-question-circle"></i>
+      <div class="note-body">
+        <div class="note-title">More than one QuickBooks account matches — choose these yourself</div>
+        <ul class="ambiguous-list">
+          <li *ngFor="let a of ambiguous">{{ a.code }} {{ a.name }}: {{ ambiguousNames(a) }}</li>
+        </ul>
+      </div>
+    </div>
+
+    <section class="form-card flush" data-testid="accounts-card">
+      <div class="table-toolbar">
+        <p-iconfield>
+          <p-inputicon styleClass="pi pi-search"></p-inputicon>
+          <input pInputText type="text" [(ngModel)]="search" (ngModelChange)="applyFilter()" placeholder="Code or name…" class="search"
+                 data-testid="account-search" />
+        </p-iconfield>
+        <label class="unmapped-toggle">
+          <p-toggleswitch [(ngModel)]="unmappedOnly" (ngModelChange)="applyFilter()" data-testid="unmapped-only"></p-toggleswitch>
+          Unmapped only
+        </label>
+        <span class="grow"></span>
+        <ng-container *ngIf="canManage">
+          <p-button label="Import from QuickBooks" icon="pi pi-download" [text]="true" size="small" [loading]="isImporting"
+                    [disabled]="isImporting" (onClick)="importAccounts()" data-testid="import-accounts"></p-button>
+          <p-button label="Auto-map" icon="pi pi-bolt" [text]="true" size="small" [loading]="isAutoMapping"
+                    [disabled]="isAutoMapping || !qboAccounts.length"
+                    pTooltip="By account number, then by name" tooltipPosition="top" (onClick)="autoMap()" data-testid="auto-map"></p-button>
+        </ng-container>
+      </div>
+
+      <p-table [value]="filtered" [paginator]="filtered.length > 50" [rows]="50" dataKey="accountUuid"
+               [tableStyle]="{ 'min-width': '44rem' }" data-testid="accounts-table">
+        <ng-template pTemplate="header">
+          <tr>
+            <th style="width: 8rem">Code</th>
+            <th>GL account</th>
+            <th style="width: 10rem">Type</th>
+            <th>QuickBooks account</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-row>
+          <tr [class.unmapped]="!row.draft" data-testid="account-row">
+            <td class="mono">{{ row.code }}</td>
+            <td>
+              {{ row.name }}
+              <div class="hint" *ngIf="row.defaultKeys?.length">Default for {{ row.defaultKeys.join(', ') }}</div>
+            </td>
+            <td class="muted">{{ row.accountType || '—' }}</td>
+            <td>
+              <p-select [(ngModel)]="row.draft" (ngModelChange)="unmappedOnly && applyFilter()" [options]="qboOpts" optionLabel="label"
+                        optionValue="value" placeholder="Not mapped" [showClear]="true" [filter]="qboOpts.length > 8"
+                        [disabled]="!canManage" appendTo="body" styleClass="w-full"
+                        [attr.data-testid]="'map-' + row.code"></p-select>
+              <p-tag *ngIf="isInvalid(row)" value="Inactive in QuickBooks" severity="danger" styleClass="auto-tag"
+                     [attr.data-testid]="'invalid-' + row.code"></p-tag>
+            </td>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="emptymessage">
+          <tr><td colspan="4" class="empty" data-testid="accounts-empty">
+            {{ rows.length ? 'No account matches.' : 'The chart of accounts has no postable accounts yet.' }}
+          </td></tr>
+        </ng-template>
+      </p-table>
+
+      <div class="action-bar table-actions" *ngIf="canManage">
+        <span class="unsaved" *ngIf="dirty"><i class="pi pi-circle-fill"></i> {{ changed.length }} unsaved</span>
+        <span class="grow"></span>
+        <p-button label="Discard" [outlined]="true" severity="secondary" [disabled]="!dirty || isSaving" (onClick)="discard()"
+                  data-testid="discard-accounts"></p-button>
+        <p-button label="Save" icon="pi pi-check" [loading]="isSaving" [disabled]="!dirty || isSaving" (onClick)="save()"
+                  data-testid="save-accounts"></p-button>
+      </div>
+    </section>
+  </ng-container>
+</ng-container>

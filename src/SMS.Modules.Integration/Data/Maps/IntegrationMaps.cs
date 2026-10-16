@@ -23,6 +23,8 @@ internal sealed class IntegrationConnectionMap : IEntityTypeConfiguration<Integr
         b.Property(x => x.HomeCurrencyCode).HasMaxLength(10);
         b.Property(x => x.Country).HasMaxLength(10);
         b.Property(x => x.LastError).HasMaxLength(1000);
+        b.Property(x => x.AppClientId).HasMaxLength(200);
+        b.Property(x => x.AppSource).HasConversion<string>().HasMaxLength(20);
         b.Property(x => x.RowVersion).IsRowVersion();
     }
 }
@@ -35,6 +37,25 @@ internal sealed class OAuthStateTokenMap : IEntityTypeConfiguration<OAuthStateTo
         b.HasKey(x => x.Id);
         b.Property(x => x.TokenHash).HasMaxLength(64).IsRequired();
         b.HasIndex(x => x.TokenHash).IsUnique();
+        b.Property(x => x.AppClientId).HasMaxLength(200);
+    }
+}
+
+internal sealed class QuickBooksAppCredentialMap : IEntityTypeConfiguration<QuickBooksAppCredential>
+{
+    public void Configure(EntityTypeBuilder<QuickBooksAppCredential> b)
+    {
+        b.ToTable("QuickBooksAppCredentials");
+        b.HasKey(x => x.Id);
+        b.HasIndex(x => x.Uuid).IsUnique();
+        // D-1: SQL Server lets a unique index hold one NULL — exactly one platform row, one row per organization.
+        b.HasIndex(x => x.OrganizationId).IsUnique().HasFilter(null);
+        b.Property(x => x.ClientId).HasMaxLength(200).IsRequired();
+        b.Property(x => x.EncryptedClientSecret).HasMaxLength(2000).IsRequired();
+        b.Property(x => x.Environment).HasConversion<string>().HasMaxLength(20);
+        b.Property(x => x.RedirectUri).HasMaxLength(500);
+        b.Property(x => x.FrontendReturnUrl).HasMaxLength(500);
+        b.Property(x => x.RowVersion).IsRowVersion();
     }
 }
 
@@ -217,6 +238,63 @@ internal sealed class SyncLogEntryMap : IEntityTypeConfiguration<SyncLogEntry>
         b.Property(x => x.ErrorCode).HasMaxLength(100);
         b.Property(x => x.Message).HasMaxLength(2000);
         b.Property(x => x.IntuitTid).HasMaxLength(100);
+    }
+}
+
+internal sealed class SyncControlConfigMap : IEntityTypeConfiguration<SyncControlConfig>
+{
+    public void Configure(EntityTypeBuilder<SyncControlConfig> b)
+    {
+        b.ToTable("SyncControlConfigs");
+        b.HasKey(x => x.Id);
+        b.HasIndex(x => new { x.ConnectionId, x.DocumentType }).IsUnique();
+        b.Property(x => x.DocumentType).HasMaxLength(50).IsRequired();
+        b.Property(x => x.DisplayLabel).HasMaxLength(100).IsRequired();
+    }
+}
+
+internal sealed class ProviderDefaultMap : IEntityTypeConfiguration<ProviderDefault>
+{
+    public void Configure(EntityTypeBuilder<ProviderDefault> b)
+    {
+        b.ToTable("ProviderDefaults");
+        b.HasKey(x => x.Id);
+        b.HasIndex(x => new { x.ConnectionId, x.SettingKey }).IsUnique();
+        b.Property(x => x.SettingKey).HasMaxLength(100).IsRequired();
+        b.Property(x => x.SettingValue).HasMaxLength(200).IsRequired();
+        b.Property(x => x.Description).HasMaxLength(300);
+    }
+}
+
+internal sealed class DocumentOverrideMap : IEntityTypeConfiguration<DocumentOverride>
+{
+    public void Configure(EntityTypeBuilder<DocumentOverride> b)
+    {
+        b.ToTable("DocumentOverrides");
+        b.HasKey(x => x.Id);
+        b.HasIndex(x => new { x.ConnectionId, x.DocumentType, x.SettingKey }).IsUnique();
+        b.Property(x => x.DocumentType).HasMaxLength(50).IsRequired();
+        b.Property(x => x.SettingKey).HasMaxLength(100).IsRequired();
+        b.Property(x => x.SettingValue).HasMaxLength(200).IsRequired();
+    }
+}
+
+internal sealed class RemoteEntityRecordMap : IEntityTypeConfiguration<RemoteEntityRecord>
+{
+    public void Configure(EntityTypeBuilder<RemoteEntityRecord> b)
+    {
+        b.ToTable("RemoteEntities");
+        b.HasKey(x => x.Id);
+        b.HasIndex(x => new { x.ConnectionId, x.Kind, x.RemoteId }).IsUnique();
+        b.Property(x => x.Kind).HasConversion<string>().HasMaxLength(20);
+        b.Property(x => x.RemoteId).HasMaxLength(50).IsRequired();
+        b.Property(x => x.Name).HasMaxLength(200).IsRequired();
+        b.Property(x => x.CompanyName).HasMaxLength(200);
+        b.Property(x => x.Email).HasMaxLength(200);
+        b.Property(x => x.TaxId).HasMaxLength(50);
+        b.Property(x => x.AccountNumber).HasMaxLength(100);
+        b.Property(x => x.Sku).HasMaxLength(100);
+        b.Property(x => x.CurrencyCode).HasMaxLength(10);
     }
 }
 

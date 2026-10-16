@@ -19,6 +19,8 @@
     <span class="sf-mu sf-sm" *ngIf="!canApply">Payment received {{ p.paymentDate | date:'dd MMM yyyy' }}</span>
     <span class="sf-mu sf-sm" *ngIf="canApply">{{ p.unallocatedAmount | number:'1.2-2' }} {{ p.currencyCode }} still on account — apply it below</span>
     <span class="sf-end">
+      <!-- A44 D-19 / D-30 -->
+      <app-qbo-sync-badge kind="Payment" [externalId]="p.uuid || uuid" label="QuickBooks"></app-qbo-sync-badge>
       <p-button label="Back" icon="pi pi-arrow-left" [text]="true"
                 routerLink="/portal/pages/finance/customer-payments"></p-button>
     </span>

@@ -106,7 +106,7 @@ public sealed class LocalDbChartTests : IDisposable
             """)).Should().Be(0);
         (await ScalarAsync<int>($"SELECT COUNT(*) FROM finance.ChartOfAccounts WHERE OrganizationId = '{org}' AND MaterializedPath LIKE '/1/11/%'"))
             .Should().BeGreaterThan(5);
-        (await ScalarAsync<int>("SELECT COUNT(*) FROM sys.foreign_keys WHERE schema_id = SCHEMA_ID('finance') AND is_not_trusted = 0")).Should().Be(12);
+        (await ScalarAsync<int>("SELECT COUNT(*) FROM sys.foreign_keys WHERE schema_id = SCHEMA_ID('finance') AND is_not_trusted = 0")).Should().Be(14); // A42: 12; A44: posting targets → postings, journal → reversed journal
         (await ScalarAsync<int>($"SELECT COUNT(*) FROM finance.AccountingDefaults WHERE OrganizationId = '{org}' AND AccountId IS NOT NULL")).Should().Be(16);
 
         using (var scope = sp.CreateScope())

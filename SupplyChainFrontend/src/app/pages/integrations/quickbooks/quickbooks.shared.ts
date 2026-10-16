@@ -14,11 +14,15 @@ export * from '../../../shared/components/qbo-sync-badge/qbo-sync-state';
 // ── Record kinds ─────────────────────────────────────────────────────────────────────────────────
 
 export const KIND_PLURAL: Record<SyncKind, string> = {
-  Customer: 'customers', Vendor: 'vendors', Item: 'items', SalesInvoice: 'sales invoices', Bill: 'bills'
+  Customer: 'customers', Vendor: 'vendors', Item: 'items', SalesInvoice: 'sales invoices', Bill: 'bills',
+  Payment: 'payments', BillPayment: 'bill payments', SalesReceipt: 'sales receipts', CreditMemo: 'credit memos',
+  RefundReceipt: 'refund receipts', VendorCredit: 'vendor credits'
 };
 
 export const KIND_ICON: Record<SyncKind, string> = {
-  Customer: 'pi pi-users', Vendor: 'pi pi-truck', Item: 'pi pi-box', SalesInvoice: 'pi pi-file', Bill: 'pi pi-file-invoice'
+  Customer: 'pi pi-users', Vendor: 'pi pi-truck', Item: 'pi pi-box', SalesInvoice: 'pi pi-file', Bill: 'pi pi-file-invoice',
+  Payment: 'pi pi-wallet', BillPayment: 'pi pi-money-bill', SalesReceipt: 'pi pi-receipt', CreditMemo: 'pi pi-file-export',
+  RefundReceipt: 'pi pi-replay', VendorCredit: 'pi pi-file-import'
 };
 
 /** The order states are listed in on the dashboard: problems first. */
@@ -99,7 +103,18 @@ export function liveBlockers(preflight: PreflightResultModel | null | undefined,
 
 // ── Setup checklist and tabs ─────────────────────────────────────────────────────────────────────
 
-export type QboTabKey = 'connection' | 'preflight' | 'mappings' | 'initial-sync' | 'match' | 'sync' | 'api-clients';
+export type QboTabKey =
+  | 'connection' | 'preflight' | 'mappings' | 'initial-sync' | 'match' | 'sync' | 'api-clients'
+  // A44 D-30 — not setup steps: open once connected (see A44_TABS).
+  | 'accounts' | 'defaults' | 'sync-control' | 'coverage' | 'logs';
+
+/** A44 tabs: configuration and diagnostics useful before and after Live, so they open as soon as QuickBooks is connected. */
+export const A44_TABS: readonly QboTabKey[] = ['accounts', 'defaults', 'sync-control', 'coverage', 'logs'];
+
+/** `?tab=` values the page opens on (D-34: the "QuickBooks Logs" menu entry). */
+export const QBO_TAB_KEYS: readonly QboTabKey[] = [
+  'connection', 'preflight', 'mappings', 'accounts', 'defaults', 'sync-control', 'initial-sync', 'match', 'sync', 'coverage', 'logs', 'api-clients'
+];
 
 export type SetupStepKey = 'connected' | 'preflight' | 'mappings' | 'initialSync' | 'matching' | 'live';
 
@@ -357,6 +372,13 @@ export function sourceRoute(kind: SyncKind, externalId: string, sourceSystem?: s
     case 'SalesInvoice': return ['/portal/pages/finance/sales-invoices', externalId];
     case 'Bill':         return ['/portal/pages/finance/invoices', externalId];
     case 'Item':         return ['/portal/pages/inventory/products'];
+    // A44 — a POS sales receipt / credit memo / refund receipt is a SalesInvoice row (the POS invoice or its SCN).
+    case 'SalesReceipt':
+    case 'CreditMemo':
+    case 'RefundReceipt': return ['/portal/pages/finance/sales-invoices', externalId];
+    case 'Payment':      return ['/portal/pages/finance/customer-payments', externalId];
+    case 'BillPayment':  return ['/portal/pages/finance/payments', externalId];
+    // Supplier credit / debit notes have no page of their own (they show on the bill).
     default:             return null;
   }
 }

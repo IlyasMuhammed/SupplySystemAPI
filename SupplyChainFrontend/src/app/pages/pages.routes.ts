@@ -67,6 +67,7 @@ import { ServiceOrderDetailComponent } from './services/service-orders/service-o
 import { ServiceOrderDashboardComponent } from './services/service-orders/service-order-dashboard/service-order-dashboard.component';
 import { OrganizationsListComponent } from './organizations/organizations-list/organizations-list.component';
 import { OrganizationFeaturesComponent } from './organizations/organization-features/organization-features.component';
+import { QuickBooksAppSettingsComponent } from './system/quickbooks-app/quickbooks-app-settings.component';
 import { permissionGuard } from './gaurds/permission.guard';
 import { ProductListComponent } from './inventory/products/product-list/product-list.component';
 import { ProductCreateComponent } from './inventory/products/product-create/product-create.component';
@@ -190,7 +191,8 @@ import { GlDefaultsComponent } from './finance/gl/defaults/gl-defaults.component
 import { GlOpeningBalancesComponent } from './finance/gl/opening-balances/gl-opening-balances.component';
 import { GlIntegrationsComponent } from './finance/gl/integrations/gl-integrations.component';
 import { GlSetupStatusComponent } from './finance/gl/setup-status/gl-setup-status.component';
-import { glFeatureGuard, glSetupCompleteGuard } from './finance/gl/gl.guards';
+import { glFeatureGuard, glSetupCompleteGuard, postingFeatureGuard } from './finance/gl/gl.guards';
+import { GlPostingComponent } from './finance/gl/posting/gl-posting.component';
 
 // Permission code constants (mirrors PermissionCodes.cs)
 const P = {
@@ -466,6 +468,9 @@ export default [
     { path: 'organizations', component: OrganizationsListComponent,
       canActivate: [permissionGuard(P.PLATFORM_SUPER_ADMIN)] },
     { path: 'organizations/:id/features', component: OrganizationFeaturesComponent,
+      canActivate: [permissionGuard(P.PLATFORM_SUPER_ADMIN)] },
+    // docs/quickbooks/APP-CREDENTIALS.md D-7 — the platform's Intuit app keys (the API also demands a real super admin).
+    { path: 'system/quickbooks-app', component: QuickBooksAppSettingsComponent,
       canActivate: [permissionGuard(P.PLATFORM_SUPER_ADMIN)] },
 
     // ── Inventory — Products ──────────────────────────────────────────────────
@@ -794,6 +799,9 @@ export default [
       canActivate: [permissionGuard(...GL_READ), glFeatureGuard] },
     { path: 'finance/gl/setup-status', component: GlSetupStatusComponent,
       canActivate: [permissionGuard(...GL_READ), glFeatureGuard] },
+    // A44 D-30 / D-80 — the posting log serves the GL and QuickBooks targets: GL feature OR the integration module.
+    { path: 'finance/gl/posting', component: GlPostingComponent,
+      canActivate: [permissionGuard(...GL_READ, P.INTEGRATION_VIEW, P.INTEGRATION_MANAGE), postingFeatureGuard] },
 
     // ── Reports & Analytics ───────────────────────────────────────────────────
     { path: 'reports/kpi-dashboard', component: KpiDashboardComponent,

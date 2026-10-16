@@ -190,6 +190,12 @@ public class AllocateCustomerPaymentRequest
     public List<ManualPaymentAllocation>? Allocations { get; set; }
 }
 
+/// <summary>A44 QA-6 — <c>POST api/customer-payments/{uuid}/bounce</c>. The reason is optional, at most 200 characters.</summary>
+public class BounceCustomerPaymentRequest
+{
+    public string? Reason { get; set; }
+}
+
 /// <summary>
 /// <c>DateFrom</c>/<c>DateTo</c> bound the payment date in whole days, inclusive. <c>Unallocated</c>
 /// keeps only payments with money still on account — the ones worth applying. <c>Search</c> matches

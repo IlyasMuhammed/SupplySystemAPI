@@ -1,7 +1,9 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using SMS.Modules.Integration.Core.Connections;
 using SMS.Modules.Integration.Core.Providers;
+using SMS.Modules.Integration.Core.Settings;
 using SMS.Modules.Integration.Data;
 using SMS.Modules.Integration.Domain;
 using SMS.Modules.Integration.Models;
@@ -25,6 +27,18 @@ public interface IQuickBooksSyncAdminService
     Task<ManualPushResult> PushAsync(ManualPushRequest request, CancellationToken ct = default);
     Task<BackfillResult> BackfillAsync(SyncKind kind, CancellationToken ct = default);
     Task<StatusLookupResult> LookupStatusAsync(StatusLookupRequest request, CancellationToken ct = default);
+
+    // A44 (CTRL) — D-17 unlink, D-11 dead letter.
+    /// <summary>Forgets the link to the QuickBooks record (kept there). 409 (<see cref="UnlinkRefusedModel"/>) while open synced documents use it.</summary>
+    Task<SyncItemModel> UnlinkAsync(Guid itemId, int userId, CancellationToken ct = default);
+    /// <summary>Re-queues every Failed / NeedsResolution record (of one kind) that can be sent again.</summary>
+    Task<RetryFailedResult> RetryFailedAsync(RetryFailedRequest request, int userId, CancellationToken ct = default);
+    /// <summary>Dismisses one dead-letter record: nothing more is sent until its data changes.</summary>
+    Task<SyncItemModel> SkipAsync(Guid itemId, int userId, CancellationToken ct = default);
+
+    // A44 D-34 — the QuickBooks logs page: every call, across all records.
+    Task<PaginatedResponse<SyncLogItemModel>> GetCallLogAsync(SyncLogQuery query, CancellationToken ct = default);
+    Task<SyncLogItemModel> GetCallLogEntryAsync(Guid id, CancellationToken ct = default);
 }
 
 /// <summary>Parses the kind names used in routes and requests.</summary>
@@ -45,6 +59,18 @@ public static class SyncKindNames
             case "sales-invoices":
             case "salesinvoices":  kind = SyncKind.SalesInvoice; return true;
             case "bills":          kind = SyncKind.Bill;         return true;
+            // A44 kinds' path forms.
+            case "payments":       kind = SyncKind.Payment;       return true;
+            case "bill-payments":
+            case "billpayments":   kind = SyncKind.BillPayment;   return true;
+            case "sales-receipts":
+            case "salesreceipts":  kind = SyncKind.SalesReceipt;  return true;
+            case "credit-memos":
+            case "creditmemos":    kind = SyncKind.CreditMemo;    return true;
+            case "refund-receipts":
+            case "refundreceipts": kind = SyncKind.RefundReceipt; return true;
+            case "vendor-credits":
+            case "vendorcredits":  kind = SyncKind.VendorCredit;  return true;
         }
 
         return !int.TryParse(v, out _) && Enum.TryParse(v, ignoreCase: true, out kind) && Enum.IsDefined(kind);
@@ -53,7 +79,7 @@ public static class SyncKindNames
     public static SyncKind Parse(string? value) =>
         TryParse(value, out var kind)
             ? kind
-            : throw new BadRequestException($"Unknown kind '{value}'. Use Customer, Vendor, Item, SalesInvoice or Bill.");
+            : throw new BadRequestException($"Unknown kind '{value}'. Use one of: {string.Join(", ", Enum.GetNames<SyncKind>())}.");
 }
 
 internal sealed class SyncAdminService : IQuickBooksSyncAdminService
@@ -71,12 +97,14 @@ internal sealed class SyncAdminService : IQuickBooksSyncAdminService
     private readonly IEnumerable<IQuickBooksSource> _sources;
     private readonly TimeProvider                   _clock;
     private readonly ILogger<SyncAdminService>      _logger;
+    private readonly IServiceProvider               _services;
 
     public SyncAdminService(
         IntegrationDbContext db, IConnectionAccessor connections, IAccountingProviderRegistry providers, ISyncOutbox outbox,
         ISyncLedger ledger, ISyncExecutor executor, ISyncDependencies dependencies, IQuickBooksGateway gateway,
-        IEnumerable<IQuickBooksSource> sources, TimeProvider clock, ILogger<SyncAdminService> logger)
+        IEnumerable<IQuickBooksSource> sources, TimeProvider clock, ILogger<SyncAdminService> logger, IServiceProvider services)
     {
+        _services     = services;
         _db           = db;
         _connections  = connections;
         _providers    = providers;
@@ -157,6 +185,10 @@ internal sealed class SyncAdminService : IQuickBooksSyncAdminService
                 throw new BadRequestException($"Unknown state '{query.State}'.");
             maps = maps.Where(m => m.State == state);
         }
+
+        // D-11: the dead letter — retries ran out, refused, or the outcome needs a person.
+        if (query.DeadLetter == true)
+            maps = maps.Where(m => m.State == SyncState.Failed || m.State == SyncState.NeedsResolution);
 
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
@@ -301,12 +333,31 @@ internal sealed class SyncAdminService : IQuickBooksSyncAdminService
         var connection = await RequireUsableConnectionAsync(ct);
         var settings   = await _connections.GetOrCreateSettingsAsync(connection, ct);
         var now = Now;
+        var skipped = new List<string>();
+        var unseenDocuments = new List<string>();
 
         foreach (var id in ids)
         {
             var map = await _db.EntityMaps.FirstOrDefaultAsync(m => m.ConnectionId == connection.Id
                                                                  && m.SourceSystem == QuickBooksSourceSystems.Scm
                                                                  && m.Kind == kind && m.ExternalId == id, ct);
+
+            // "Skip" in matching means not synced — the gateway, the revalidator and dependencies all honour it, and so
+            // does a push (it once created skipped items in QuickBooks: found live, 2026-10-13).
+            if (map is not null && await _db.MatchCandidates.AnyAsync(c => c.EntityMapId == map.Id && c.Decision == MatchDecision.Skip, ct))
+            {
+                skipped.Add(id);
+                continue;
+            }
+
+            // REV-20 / D-69b: a document the gateway has never seen gets no placeholder — an empty document map misleads
+            // the callers' rules (an empty POS invoice next to a synced sales receipt). Only what SCM sends below creates it.
+            if (map is null && !SyncPayloads.IsMasterData(kind))
+            {
+                unseenDocuments.Add(id);
+                continue;
+            }
+
             if (map is null)
             {
                 map = new EntityMap
@@ -328,7 +379,7 @@ internal sealed class SyncAdminService : IQuickBooksSyncAdminService
 
             // A held POS sale is not queued directly: the source's fresh send below goes through the gateway, which
             // holds it while "Sync POS sales" is off and queues it once it is on.
-            if (map.PayloadJson is not null && map.State != SyncState.Voided && map.LastErrorCode != PosSales.HeldCode
+            if (map.PayloadJson is not null && map.State != SyncState.Voided && !SyncHolds.IsHeldCode(map.LastErrorCode)
                 && !await _outbox.HasRunningEntryAsync(map, ct))
             {
                 await _ledger.ForgetRefusalsAsync(map, ct);
@@ -339,19 +390,38 @@ internal sealed class SyncAdminService : IQuickBooksSyncAdminService
         await _db.SaveChangesAsync(ct);
 
         // Ask SCM for fresh data too; what it sends merges into the entries queued above.
-        foreach (var source in SourcesFor(kind))
+        var toPush = ids.Except(skipped).ToList();
+        if (toPush.Count > 0)
+            foreach (var source in SourcesFor(kind))
+            {
+                try
+                {
+                    await source.PushAsync(kind, toPush, ct);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger.LogError(ex, "QuickBooks source {Source} failed to push {Kind} records.", source.GetType().Name, kind);
+                }
+            }
+
+        // Documents seen for the first time: the map exists now only if SCM sent the document through the gateway. Those
+        // are marked wanted; the rest are reported — there was nothing to send.
+        var notFound = new List<string>();
+        if (unseenDocuments.Count > 0)
         {
-            try
-            {
-                await source.PushAsync(kind, ids, ct);
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                _logger.LogError(ex, "QuickBooks source {Source} failed to push {Kind} records.", source.GetType().Name, kind);
-            }
+            _db.ChangeTracker.Clear();
+            var arrived = await _db.EntityMaps
+                .Where(m => m.ConnectionId == connection.Id && m.SourceSystem == QuickBooksSourceSystems.Scm
+                         && m.Kind == kind && unseenDocuments.Contains(m.ExternalId))
+                .ToListAsync(ct);
+
+            foreach (var map in arrived) map.RequestedAt ??= now;
+            if (arrived.Count > 0) await _db.SaveChangesAsync(ct);
+
+            notFound = unseenDocuments.Except(arrived.Select(m => m.ExternalId), StringComparer.Ordinal).ToList();
         }
 
-        return new ManualPushResult { Requested = ids.Count };
+        return new ManualPushResult { Requested = toPush.Count - notFound.Count, SkippedInMatching = skipped, NotFound = notFound };
     }
 
     public async Task<BackfillResult> BackfillAsync(SyncKind kind, CancellationToken ct = default)
@@ -373,6 +443,272 @@ internal sealed class SyncAdminService : IQuickBooksSyncAdminService
         var items = await _gateway.GetStatusAsync(kind, ids, ct);
         return new StatusLookupResult { Items = items.ToList() };
     }
+
+    // ── A44: unlink, dead letter ─────────────────────────────────────────────
+
+    /// <summary>LastErrorCode of a dead-letter record a person dismissed (D-11).</summary>
+    public const string DismissedCode = "DISMISSED";
+
+    public async Task<SyncItemModel> UnlinkAsync(Guid itemId, int userId, CancellationToken ct = default)
+    {
+        var map = await FindMapAsync(itemId, ct);
+        if (!SyncPayloads.IsMasterData(map.Kind))
+            throw new BadRequestException($"Unlinking is for customers, vendors and items, not {map.Kind}. Void or flag the document instead.");
+        if (map.RemoteId is null)
+            throw new BadRequestException($"'{map.DisplayLabel}' is not linked to a QuickBooks record.");
+        await EnsureNotRunningAsync(map, ct);
+
+        // D-17: documents already in QuickBooks against this record would lose their party / item here.
+        var open = await OpenDocumentsUsingAsync(map, ct);
+        if (open.Count > 0)
+            throw new IntegrationConflictException(
+                $"'{map.DisplayLabel}' is used by {open.Count} open document(s) synced to QuickBooks "
+              + $"({string.Join(", ", open.Take(5))}{(open.Count > 5 ? ", …" : string.Empty)}). It cannot be unlinked while they are open.",
+                new UnlinkRefusedModel { OpenDocuments = open.Count, Examples = open.Take(20).ToList() });
+
+        var now    = Now;
+        var before = new { Kind = map.Kind.ToString(), map.ExternalId, map.RemoteId, map.RemoteName, LinkOrigin = map.LinkOrigin?.ToString() };
+
+        await _outbox.CloseOpenEntriesAsync(map, OutboxStatus.Done, "Unlinked by a user.", now, ct);
+        map.RemoteId              = null;
+        map.RemoteSyncToken       = null;
+        map.RemoteName            = null;
+        map.RemoteDocNumber       = null;
+        map.LinkOrigin            = null;
+        map.LinkedByUserId        = null;
+        map.LinkedAt              = null;
+        map.LastPushedFingerprint = null;
+        map.State                 = SyncState.NotSynced;
+        ClearErrors(map, now);
+
+        // The ledger would otherwise answer a later create with the old record ("already done"), and an old proposal
+        // would offer it again as decided: both go, so a rescan or a push starts clean.
+        _db.CommandClaims.RemoveRange(await _db.CommandClaims.Where(c => c.EntityMapId == map.Id).ToListAsync(ct));
+        _db.MatchCandidates.RemoveRange(await _db.MatchCandidates.Where(c => c.EntityMapId == map.Id).ToListAsync(ct));
+
+        IntegrationAudit.Add(_db, map.ConnectionId, AuditAreas.Link, $"Unlinked {map.Kind}", before,
+            new { Kind = map.Kind.ToString(), map.ExternalId, RemoteId = (string?)null }, userId);
+        await _db.SaveChangesAsync(ct);
+
+        return await ToModelAsync(map.Id, ct);
+    }
+
+    /// <summary>Labels of the synced, not voided documents (same source system) whose payload references the record.</summary>
+    private async Task<List<string>> OpenDocumentsUsingAsync(EntityMap map, CancellationToken ct)
+    {
+        var encoded = SyncPayloads.EncodedForContains(map.ExternalId);
+        var candidates = await _db.EntityMaps.AsNoTracking()
+            .Where(m => m.ConnectionId == map.ConnectionId && m.SourceSystem == map.SourceSystem
+                     && m.Kind != SyncKind.Customer && m.Kind != SyncKind.Vendor && m.Kind != SyncKind.Item
+                     && m.RemoteId != null && m.State != SyncState.Voided
+                     && m.PayloadJson != null && m.PayloadJson.Contains(encoded))
+            .Select(m => new { m.Kind, m.PayloadJson, m.DisplayLabel, m.RemoteDocNumber })
+            .ToListAsync(ct);
+
+        var open = new List<string>();
+        foreach (var c in candidates)
+        {
+            bool uses;
+            try
+            {
+                uses = SyncPayloads.DependenciesOf(c.Kind, SyncPayloads.Deserialize(c.Kind, c.PayloadJson!))
+                    .Any(d => d.Kind == map.Kind && string.Equals(d.ExternalId, map.ExternalId, StringComparison.Ordinal));
+            }
+            catch (Exception ex) when (ex is System.Text.Json.JsonException or ArgumentOutOfRangeException or NotSupportedException)
+            {
+                uses = true;   // cannot tell: refuse rather than orphan it
+            }
+            if (uses) open.Add(c.RemoteDocNumber ?? c.DisplayLabel);
+        }
+        return open;
+    }
+
+    public async Task<RetryFailedResult> RetryFailedAsync(RetryFailedRequest request, int userId, CancellationToken ct = default)
+    {
+        var connection = await RequireUsableConnectionAsync(ct);
+        var maps = _db.EntityMaps.Where(m => m.ConnectionId == connection.Id
+                                          && (m.State == SyncState.Failed || m.State == SyncState.NeedsResolution));
+        if (!string.IsNullOrWhiteSpace(request?.Kind))
+        {
+            var kind = SyncKindNames.Parse(request.Kind);
+            maps = maps.Where(m => m.Kind == kind);
+        }
+
+        var dead   = await maps.OrderBy(m => m.Id).Take(MaxIdsPerRequest).ToListAsync(ct);
+        var result = new RetryFailedResult { Found = dead.Count };
+
+        foreach (var map in dead)
+        {
+            try
+            {
+                await RequeueAsync(map, ct);
+                result.Requeued++;
+            }
+            catch (Exception ex) when (ex is BadRequestException or ConflictException)
+            {
+                result.Skipped.Add(new RetrySkippedItemModel
+                {
+                    Id = map.Uuid, Kind = map.Kind.ToString(), DisplayLabel = map.DisplayLabel, Reason = ex.Message
+                });
+            }
+        }
+
+        _logger.LogInformation("Bulk retry by user {UserId}: {Requeued} of {Found} dead-letter record(s) re-queued.", userId, result.Requeued, result.Found);
+        return result;
+    }
+
+    public async Task<SyncItemModel> SkipAsync(Guid itemId, int userId, CancellationToken ct = default)
+    {
+        var map = await FindMapAsync(itemId, ct);
+        if (map.State is not (SyncState.Failed or SyncState.NeedsResolution or SyncState.Blocked))
+            throw new BadRequestException($"Only failed, blocked or unresolved records can be dismissed; this one is {map.State}.");
+        await EnsureNotRunningAsync(map, ct);
+
+        var now      = Now;
+        var previous = map.LastError;
+        await _outbox.CloseOpenEntriesAsync(map, OutboxStatus.Done, "Dismissed by a user.", now, ct);
+
+        // What QuickBooks has stays as it is; nothing more goes until SCM's data changes (a new fingerprint).
+        map.State = map.RemoteId is null ? SyncState.NotSynced
+                  : await LastOperationAsync(map, ct) == OutboxOperation.Void ? SyncState.Voided : SyncState.Synced;
+        map.LastErrorCode = DismissedCode;
+        map.LastError     = SyncText.Clip($"Dismissed by user {userId} on {now:dd MMM yyyy HH:mm} UTC." + (previous is null ? "" : $" Was: {previous}"), 2000);
+        map.ModifiedDate  = now;
+        await _db.SaveChangesAsync(ct);
+
+        return await ToModelAsync(map.Id, ct);
+    }
+
+    // ── A44 D-34: the call log across all records ────────────────────────────
+
+    /// <summary>Outcomes that are not failures (the "failed only" filter leaves them out).</summary>
+    private static readonly string[] SuccessOutcomes = [nameof(ProviderOutcomeKind.Succeeded), "DryRun"];
+
+    /// <remarks>
+    /// Scoped to the current organization's connection explicitly (as the sync items are): the seek is on
+    /// (ConnectionId, CreatedAt) — the existing IX_SyncLog_ConnectionId_CreatedAt — newest first; the other filters are
+    /// residual over at most the 90 days the retention job keeps. Request/response bodies are left out of the list.
+    /// </remarks>
+    public async Task<PaginatedResponse<SyncLogItemModel>> GetCallLogAsync(SyncLogQuery query, CancellationToken ct = default)
+    {
+        query ??= new SyncLogQuery();
+        var page     = Math.Max(1, query.Page);
+        var pageSize = Math.Clamp(query.PageSize, 1, 200);
+        var response = new PaginatedResponse<SyncLogItemModel> { Page = page, PageSize = pageSize };
+
+        var connection = await _connections.GetCurrentAsync(ct);
+        if (connection is null) return response;
+
+        var rows = from l in _db.SyncLog.AsNoTracking().Where(l => l.ConnectionId == connection.Id)
+                   join m in _db.EntityMaps.AsNoTracking() on l.EntityMapId equals m.Id into maps
+                   from m in maps.DefaultIfEmpty()
+                   select new { Log = l, Map = m };
+
+        if (query.FailedOnly)
+            rows = rows.Where(r => !SuccessOutcomes.Contains(r.Log.Outcome));
+        // QA-7: what still needs a person — the record is not Synced / Voided now. Calls that belong to no record
+        // (matching scans, imports) were answered on the screen that made them and are left out too (D-69a).
+        if (query.UnresolvedOnly)
+            rows = rows.Where(r => r.Map != null && r.Map.State != SyncState.Synced && r.Map.State != SyncState.Voided);
+        if (!string.IsNullOrWhiteSpace(query.Kind))
+        {
+            var kind = SyncKindNames.Parse(query.Kind);
+            rows = rows.Where(r => r.Map != null && r.Map.Kind == kind);
+        }
+        if (!string.IsNullOrWhiteSpace(query.Operation))
+        {
+            var operation = query.Operation.Trim();
+            rows = rows.Where(r => r.Log.Operation == operation);
+        }
+        if (!string.IsNullOrWhiteSpace(query.Outcome))
+        {
+            var outcome = query.Outcome.Trim();
+            rows = rows.Where(r => r.Log.Outcome == outcome);
+        }
+        if (query.From is { } from) rows = rows.Where(r => r.Log.CreatedAt >= from);
+        if (query.To is { } to)
+        {
+            var end = to.TimeOfDay == TimeSpan.Zero ? to.Date.AddDays(1) : to.AddTicks(1);
+            rows = rows.Where(r => r.Log.CreatedAt < end);
+        }
+        if (!string.IsNullOrWhiteSpace(query.Search))
+        {
+            var s = query.Search.Trim();
+            rows = rows.Where(r => (r.Log.ErrorCode != null && r.Log.ErrorCode.Contains(s))
+                                || (r.Log.Message != null && r.Log.Message.Contains(s))
+                                || (r.Log.IntuitTid != null && r.Log.IntuitTid.Contains(s))
+                                || (r.Map != null && (r.Map.DisplayLabel.Contains(s)
+                                                   || r.Map.ExternalId.Contains(s)
+                                                   || (r.Map.RemoteDocNumber != null && r.Map.RemoteDocNumber.Contains(s))
+                                                   || (r.Map.RemoteName != null && r.Map.RemoteName.Contains(s)))));
+        }
+
+        response.TotalRecords = await rows.CountAsync(ct);
+        response.TotalPages   = (int)Math.Ceiling(response.TotalRecords / (double)pageSize);
+
+        var pageRows = await rows
+            .OrderByDescending(r => r.Log.CreatedAt)
+            .ThenByDescending(r => r.Log.Id)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(ct);
+
+        var provider = TryProvider(connection);
+        response.Data = pageRows.Select(r => ToLogModel(r.Log, r.Map, connection, provider, withBodies: false)).ToList();
+        return response;
+    }
+
+    public async Task<SyncLogItemModel> GetCallLogEntryAsync(Guid id, CancellationToken ct = default)
+    {
+        var connection = await _connections.GetCurrentAsync(ct) ?? throw new NotFoundException("Sync log entry", id);
+
+        // The current organization's connection only, as the list (a super admin's request bypasses the tenant filter).
+        var log = await _db.SyncLog.AsNoTracking().FirstOrDefaultAsync(l => l.Uuid == id && l.ConnectionId == connection.Id, ct)
+            ?? throw new NotFoundException("Sync log entry", id);
+        var map = log.EntityMapId is { } mapId ? await _db.EntityMaps.AsNoTracking().FirstOrDefaultAsync(m => m.Id == mapId, ct) : null;
+
+        return ToLogModel(log, map, connection, TryProvider(connection), withBodies: true);
+    }
+
+    private IAccountingProvider? TryProvider(IntegrationConnection connection)
+    {
+        try
+        {
+            return _providers.Get(connection.ProviderKey);
+        }
+        catch (Exception ex) when (ex is KeyNotFoundException or InvalidOperationException or ArgumentException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Bodies are returned as stored: every writer of SyncLog (SyncExecutor, MatchingService) passes message, request
+    /// and response through <c>Redactor</c> before saving (D-34 / plan: redacted at the boundary, never afterwards).
+    /// </summary>
+    private static SyncLogItemModel ToLogModel(
+        SyncLogEntry l, EntityMap? m, IntegrationConnection connection, IAccountingProvider? provider, bool withBodies) => new()
+    {
+        Id              = l.Uuid,
+        CreatedAt       = l.CreatedAt,
+        Kind            = m?.Kind.ToString(),
+        ItemId          = m?.Uuid,
+        ExternalId      = m?.ExternalId,
+        SourceSystem    = m?.SourceSystem,
+        DisplayLabel    = m?.DisplayLabel,
+        Operation       = l.Operation,
+        Outcome         = l.Outcome,
+        ErrorCode       = l.ErrorCode,
+        Message         = l.Message,
+        DurationMs      = l.DurationMs,
+        IntuitTid       = l.IntuitTid,
+        State           = m?.State.ToString(),
+        RemoteId        = m?.RemoteId,
+        RemoteDocNumber = m?.RemoteDocNumber,
+        DeepLink        = m?.RemoteId is { } remote ? provider?.BuildDeepLink(connection.Environment, m.Kind, remote) : null,
+        RequestJson     = withBodies ? l.RequestJson : null,
+        ResponseJson    = withBodies ? l.ResponseJson : null
+    };
 
     // ── Plumbing ─────────────────────────────────────────────────────────────
 
@@ -396,13 +732,26 @@ internal sealed class SyncAdminService : IQuickBooksSyncAdminService
         if (connection is null || !connection.IsUsable())
             throw new ConflictException("QuickBooks is not connected. Reconnect, then retry.");
 
-        if (map.LastErrorCode == PosSales.HeldCode)
+        // "Skip" in matching means not synced; a retry does not override it either.
+        if (await _db.MatchCandidates.AnyAsync(c => c.EntityMapId == map.Id && c.Decision == MatchDecision.Skip, ct))
+            throw new ConflictException(
+                $"{map.DisplayLabel ?? "This record"} was skipped in matching, so it is not sent to QuickBooks. " +
+                "Change its decision under Match existing first.");
+
+        // A44 D-14: held while its document type is off (POS sales, or any type disabled with hold).
+        if (SyncHolds.IsHeldCode(map.LastErrorCode))
         {
+            var type     = SyncHolds.TypeOf(map);
             var settings = await _connections.GetOrCreateSettingsAsync(connection, ct);
-            if (!PosSales.Enabled(settings))
-                throw new BadRequestException(
-                    "This POS sale is held because \"Sync POS sales\" (or sales invoices) is off in the QuickBooks settings. " +
-                    "Turn it on there; the held sales are then sent.");
+            var enabled  = _services.GetService<ISyncControlReader>() is { } reader
+                ? (await reader.CheckAsync(connection.Id, type, ct)).IsEnabled
+                : SyncControlDefaults.Effective(null, settings, type).IsEnabled;
+            if (!enabled)
+                throw new BadRequestException(SyncHolds.IsPosType(type)
+                    ? "This POS sale is held because \"Sync POS sales\" (or sales invoices) is off in the QuickBooks settings. " +
+                      "Turn it on there; the held sales are then sent."
+                    : $"This record is held because {SyncControlDefaults.Labels[type].ToLowerInvariant()} are turned off under Sync control. " +
+                      "Turn them on there; the held records are then sent.");
             ClearErrors(map, Now);
         }
 

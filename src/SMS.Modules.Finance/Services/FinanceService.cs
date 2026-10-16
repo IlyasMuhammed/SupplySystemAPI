@@ -1,5 +1,6 @@
 using Hangfire;
 using SMS.Modules.Finance.Integration;
+using SMS.Modules.Finance.Integration.Posting;
 using SMS.Modules.Finance.Models;
 using SMS.Modules.Finance.Repositories;
 using SMS.Shared.Pagination;
@@ -149,11 +150,18 @@ internal sealed class SupplierPaymentService : ISupplierPaymentService
 {
     private readonly ISupplierPaymentRepository _repo;
     private readonly IBackgroundJobClient _jobs;
-    public SupplierPaymentService(ISupplierPaymentRepository repo, IBackgroundJobClient jobs)
+    private readonly SupplierPaymentPostings? _postings;
+
+    /// <param name="postings">A44 (D-20) — after a post, bounce or cancel commits: the BillPayment posting or its void. Optional (hand-built harnesses).</param>
+    public SupplierPaymentService(ISupplierPaymentRepository repo, IBackgroundJobClient jobs, SupplierPaymentPostings? postings = null)
     {
         _repo = repo;
         _jobs = jobs;
+        _postings = postings;
     }
+
+    /// <summary>After the repository's own transaction has committed. Never throws (see the postings class).</summary>
+    private Task PublishAsync(Guid uuid) => _postings is null ? Task.CompletedTask : _postings.PublishAsync(uuid);
 
     public async Task<Guid> CreateAsync(CreateSupplierPaymentRequest req, int createdBy)
     {
@@ -176,6 +184,7 @@ internal sealed class SupplierPaymentService : ISupplierPaymentService
     {
         var ok = await _repo.CancelAsync(uuid, cancelledBy);
         if (ok) await AppendTimelineEventAsync(uuid, "PAYMENT_CANCELLED", cancelledBy);
+        if (ok) await PublishAsync(uuid);
         return ok;
     }
 
@@ -183,6 +192,7 @@ internal sealed class SupplierPaymentService : ISupplierPaymentService
     {
         var ok = await _repo.PostAsync(uuid, postedBy);
         if (ok) await AppendTimelineEventAsync(uuid, "PAYMENT_POSTED", postedBy);
+        if (ok) await PublishAsync(uuid);
         return ok;
     }
 
@@ -190,6 +200,7 @@ internal sealed class SupplierPaymentService : ISupplierPaymentService
     {
         var ok = await _repo.BounceAsync(uuid, bouncedBy);
         if (ok) await AppendTimelineEventAsync(uuid, "PAYMENT_BOUNCED", bouncedBy);
+        if (ok) await PublishAsync(uuid);
         return ok;
     }
 

@@ -26,7 +26,8 @@ namespace SMS.Modules.Integration.Providers.QuickBooks;
 /// It throws only for caller mistakes (null / blank arguments, an unsupported kind) and for the
 /// caller's own cancellation.
 /// </summary>
-internal sealed class QuickBooksAccountingProvider : IAccountingProvider
+/// <remarks>A44's payment and credit documents (applied credit memo, void / delete) are in the <c>.Documents.cs</c> part.</remarks>
+internal sealed partial class QuickBooksAccountingProvider : IAccountingProvider
 {
     public const string ProductionAppBaseUrl = "https://app.qbo.intuit.com";
     public const string SandboxAppBaseUrl    = "https://app.sandbox.qbo.intuit.com";
@@ -62,6 +63,8 @@ internal sealed class QuickBooksAccountingProvider : IAccountingProvider
     {
         ArgumentNullException.ThrowIfNull(entity);
         var sdk = QboEntityMapper.ToSdk(entity);
+        if (entity is RemoteCreditMemo { ApplyToInvoiceId: { Length: > 0 } } memo)
+            return CreateAppliedCreditMemoAsync(ctx, memo, sdk, ct);
         return WriteAsync(ctx, entity.Kind, sdk, QboOperation.Create, (client, e) => client.Add(e), ct);
     }
 
@@ -138,6 +141,12 @@ internal sealed class QuickBooksAccountingProvider : IAccountingProvider
                 SyncKind.Item         => client.Query<Qbo.Item>(query),
                 SyncKind.SalesInvoice => client.Query<Qbo.Invoice>(query),
                 SyncKind.Bill         => client.Query<Qbo.Bill>(query),
+                SyncKind.Payment      => client.Query<Qbo.Payment>(query),
+                SyncKind.BillPayment  => client.Query<Qbo.BillPayment>(query),
+                SyncKind.SalesReceipt => client.Query<Qbo.SalesReceipt>(query),
+                SyncKind.CreditMemo   => client.Query<Qbo.CreditMemo>(query),
+                SyncKind.RefundReceipt => client.Query<Qbo.RefundReceipt>(query),
+                SyncKind.VendorCredit => client.Query<Qbo.VendorCredit>(query),
                 _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown sync kind.")
             };
 
@@ -145,6 +154,16 @@ internal sealed class QuickBooksAccountingProvider : IAccountingProvider
             if (kind == SyncKind.Bill && QboMap.Has(lookup.VendorRemoteId))
                 candidates = returned.OfType<Qbo.Bill>()
                     .Where(b => string.Equals(b.VendorRef?.Value, lookup.VendorRemoteId, StringComparison.Ordinal));
+            // A44 D-52: the remaining filters are applied here, on what the query returned.
+            if (kind == SyncKind.Payment)
+                candidates = candidates.OfType<Qbo.Payment>()
+                    .Where(p => string.Equals(p.PaymentRefNum?.Trim(), lookup.DocNumber?.Trim(), StringComparison.OrdinalIgnoreCase));
+            if (QboMap.Has(lookup.CustomerRemoteId))
+                candidates = candidates.Where(e => CustomerOf(e) is not { } customer
+                                                   || string.Equals(customer, lookup.CustomerRemoteId, StringComparison.Ordinal));
+            if (kind is SyncKind.BillPayment or SyncKind.VendorCredit && QboMap.Has(lookup.VendorRemoteId))
+                candidates = candidates.Where(e => VendorOf(e) is not { } vendor
+                                                   || string.Equals(vendor, lookup.VendorRemoteId, StringComparison.Ordinal));
 
             var match = candidates
                 .Select(r => QboEntityMapper.ToRecord(kind, r))
@@ -175,10 +194,36 @@ internal sealed class QuickBooksAccountingProvider : IAccountingProvider
                 return QboMap.Has(lookup.DocNumber)
                     ? _queries.FindBillByDocNumber(lookup.DocNumber!)
                     : throw new ArgumentException("A bill is found by document number; the lookup has none.", nameof(lookup));
+            case SyncKind.Payment:
+                return QboMap.Has(lookup.DocNumber) && lookup.TxnDate is { } date
+                    ? _queries.FindPaymentsOn(date)
+                    : throw new ArgumentException("A payment is found by its date and reference number; the lookup lacks one.", nameof(lookup));
+            case SyncKind.BillPayment:
+            case SyncKind.SalesReceipt:
+            case SyncKind.CreditMemo:
+            case SyncKind.RefundReceipt:
+            case SyncKind.VendorCredit:
+                return QboMap.Has(lookup.DocNumber)
+                    ? _queries.FindTransactionByDocNumber(kind, lookup.DocNumber!)
+                    : throw new ArgumentException($"A {kind} is found by document number; the lookup has none.", nameof(lookup));
             default:
                 throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown sync kind.");
         }
     }
+
+    private static string? CustomerOf(Qbo.IntuitEntity entity) => entity switch
+    {
+        Qbo.Payment p          => p.CustomerRef?.Value,
+        Qbo.SalesTransaction s => s.CustomerRef?.Value,
+        _                      => null
+    };
+
+    private static string? VendorOf(Qbo.IntuitEntity entity) => entity switch
+    {
+        Qbo.BillPayment b      => b.VendorRef?.Value,
+        Qbo.PurchaseByVendor v => v.VendorRef?.Value,
+        _                      => null
+    };
 
     /// <summary>One page of Customers / Vendors / Items (active and inactive). maxResults is capped at 1000.</summary>
     public Task<ProviderResult<IReadOnlyList<RemoteListEntry>>> ListAsync(
@@ -241,7 +286,10 @@ internal sealed class QuickBooksAccountingProvider : IAccountingProvider
                 page1("TaxCode"),
                 page1("Term"),
                 page1("TaxRate") + " (optional)",
-                page1("CompanyCurrency") + " (optional, only when multicurrency is on)")
+                page1("CompanyCurrency") + " (optional, only when multicurrency is on)",
+                page1("Class") + " (optional)",
+                page1("Department") + " (optional)",
+                page1("PaymentMethod") + " (optional)")
         });
 
         return ExecuteAsync(ctx, QboOperation.Query, request, (client, token) =>
@@ -288,12 +336,36 @@ internal sealed class QuickBooksAccountingProvider : IAccountingProvider
                 }
             }
 
+            // A44 D-15 (CTRL): what provider defaults are chosen from. Optional — a company without classes, locations or a
+            // readable payment-method list still loads; the defaults screen just has nothing to offer for that part.
+            List<T> Optional<T>(string entity, string part, out JToken note) where T : class, Qbo.IEntity
+            {
+                try
+                {
+                    var rows = QueryAll<T>(client, entity, token);
+                    note = rows.Count;
+                    return rows;
+                }
+                catch (Exception ex) when (!IsCallerCancellation(ex, token))
+                {
+                    note = OptionalFailed(ctx, part, ex);
+                    return [];
+                }
+            }
+
+            var classes        = Optional<Qbo.Class>("Class", "classes", out var classesNote);
+            var departments    = Optional<Qbo.Department>("Department", "departments", out var departmentsNote);
+            var paymentMethods = Optional<Qbo.PaymentMethod>("PaymentMethod", "payment methods", out var paymentMethodsNote);
+
             var data = new RemoteReferenceData
             {
                 Accounts    = accounts.Select(QboReferenceMapper.ToAccount).ToList(),
                 TaxCodes    = taxCodes.Select(code => QboReferenceMapper.ToTaxCode(code, rates)).ToList(),
                 Terms       = terms.Select(QboReferenceMapper.ToTerm).ToList(),
                 Currencies  = currencies,
+                Classes        = classes.Select(QboReferenceMapper.ToClass).ToList(),
+                Departments    = departments.Select(QboReferenceMapper.ToDepartment).ToList(),
+                PaymentMethods = paymentMethods.Select(QboReferenceMapper.ToPaymentMethod).ToList(),
                 Preferences = preferences,
                 CompanyInfo = QboReferenceMapper.ToCompanyInfo(company)
             };
@@ -305,6 +377,9 @@ internal sealed class QuickBooksAccountingProvider : IAccountingProvider
                 ["terms"]       = terms.Count,
                 ["taxRates"]    = ratesNote,
                 ["currencies"]  = currenciesNote,
+                ["classes"]        = classesNote,
+                ["departments"]    = departmentsNote,
+                ["paymentMethods"] = paymentMethodsNote,
                 ["preferences"] = new JRaw(QboJson.Entity(prefs) ?? "null"),
                 ["companyInfo"] = new JRaw(QboJson.Entity(company) ?? "null")
             });
@@ -368,6 +443,12 @@ internal sealed class QuickBooksAccountingProvider : IAccountingProvider
             SyncKind.Vendor       => "/app/vendordetail?nameId=",
             SyncKind.SalesInvoice => "/app/invoice?txnId=",
             SyncKind.Bill         => "/app/bill?txnId=",
+            SyncKind.Payment      => "/app/recvpayment?txnId=",
+            SyncKind.BillPayment  => "/app/billpayment?txnId=",
+            SyncKind.SalesReceipt => "/app/salesreceipt?txnId=",
+            SyncKind.CreditMemo   => "/app/creditmemo?txnId=",
+            SyncKind.RefundReceipt => "/app/refundreceipt?txnId=",
+            SyncKind.VendorCredit => "/app/vendorcredit?txnId=",
             _                     => null   // Items have no detail page.
         };
         if (path is null) return null;

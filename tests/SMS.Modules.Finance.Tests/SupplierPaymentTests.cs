@@ -102,6 +102,34 @@ public class SupplierPayment_CreateAsync_Tests
         detail.Lines.Select(l => l.AllocatedAmount).Sum().Should().Be(6000m);
     }
 
+    // A44 QA-6 / QA-5 (D-75): a missing supplier name was a 500 from the insert; it is a 400 that says so, before anything runs.
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task A_Missing_SupplierName_Is_A_BadRequest_And_Nothing_Is_Written(string? name)
+    {
+        var db = Build.NewFinanceDb();
+        var req = Build.BaseRequest(Guid.NewGuid(), 100m);
+        req.SupplierName = name!;
+
+        await FluentActions.Invoking(() => Build.NewRepo(db).CreateAsync(req, createdBy: 1))
+            .Should().ThrowAsync<BadRequestException>().WithMessage("SupplierName is required.");
+        (await db.SupplierPayments.CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task A_Missing_SupplierId_Or_An_Overlong_SupplierName_Is_A_BadRequest()
+    {
+        var db = Build.NewFinanceDb();
+        var noId = Build.BaseRequest(Guid.Empty, 100m);
+        var longName = Build.BaseRequest(Guid.NewGuid(), 100m);
+        longName.SupplierName = new string('x', 201);
+
+        await FluentActions.Invoking(() => Build.NewRepo(db).CreateAsync(noId, 1)).Should().ThrowAsync<BadRequestException>().WithMessage("SupplierId is required.");
+        await FluentActions.Invoking(() => Build.NewRepo(db).CreateAsync(longName, 1)).Should().ThrowAsync<BadRequestException>().WithMessage("*longer than 200*");
+    }
+
     [Fact]
     public async Task Lines_Summing_To_Less_Than_TotalAmount_Returns_BadRequest()
     {

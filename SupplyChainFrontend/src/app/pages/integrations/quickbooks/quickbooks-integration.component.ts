@@ -1,4 +1,5 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
@@ -8,7 +9,7 @@ import { ToastModule } from 'primeng/toast';
 import { TooltipModule } from 'primeng/tooltip';
 import { MessageService } from 'primeng/api';
 import { forkJoin, of } from 'rxjs';
-import { catchError } from 'rxjs/operators';
+import { catchError, skip } from 'rxjs/operators';
 
 import {
   ConnectionStatusModel, IntegrationSettingsModel, PreflightResultModel, QuickBooksIntegrationService, SyncSummaryModel,
@@ -16,9 +17,14 @@ import {
 } from '../../../services/quickbooks-integration.service';
 import { AuthService } from '../../service/auth.service';
 import {
-  CONNECTION_STATUS_LABEL, PERM_MANAGE, PERM_SYNC, QboTabKey, SetupStep, currentStep, needsReconnect, setupComplete,
-  setupSteps, unlockedTabs
+  A44_TABS, CONNECTION_STATUS_LABEL, PERM_MANAGE, PERM_SYNC, QBO_TAB_KEYS, QboTabKey, SetupStep, currentStep, needsReconnect,
+  setupComplete, setupSteps, unlockedTabs
 } from './quickbooks.shared';
+import { LogsTabComponent, SyncItemFocus } from './logs-tab/logs-tab.component';
+import { SyncControlTabComponent } from './sync-control-tab/sync-control-tab.component';
+import { DefaultsTabComponent } from './defaults-tab/defaults-tab.component';
+import { AccountsTabComponent } from './accounts-tab/accounts-tab.component';
+import { CoverageTabComponent } from './coverage-tab/coverage-tab.component';
 import { ConnectionTabComponent } from './connection-tab/connection-tab.component';
 import { PreflightTabComponent } from './preflight-tab/preflight-tab.component';
 import { MappingsTabComponent } from './mappings-tab/mappings-tab.component';
@@ -38,9 +44,15 @@ const TABS: TabDef[] = [
   { key: 'connection',   label: 'Connection',     icon: 'pi pi-link' },
   { key: 'preflight',    label: 'Preflight',      icon: 'pi pi-verified' },
   { key: 'mappings',     label: 'Mappings',       icon: 'pi pi-arrow-right-arrow-left' },
+  // A44 D-30
+  { key: 'accounts',     label: 'Accounts',       icon: 'pi pi-sitemap' },
+  { key: 'defaults',     label: 'Defaults',       icon: 'pi pi-tags' },
+  { key: 'sync-control', label: 'Sync control',   icon: 'pi pi-sliders-h' },
   { key: 'initial-sync', label: 'Initial sync',   icon: 'pi pi-upload' },
   { key: 'match',        label: 'Match existing', icon: 'pi pi-link' },
   { key: 'sync',         label: 'Sync',           icon: 'pi pi-sync' },
+  { key: 'coverage',     label: 'Coverage',       icon: 'pi pi-chart-bar' },
+  { key: 'logs',         label: 'Logs',           icon: 'pi pi-history' },
   { key: 'api-clients',  label: 'API clients',    icon: 'pi pi-key' }
 ];
 
@@ -59,6 +71,7 @@ const TABS: TabDef[] = [
     CommonModule, ButtonModule, TabsModule, TagModule, ToastModule, TooltipModule,
     ConnectionTabComponent, PreflightTabComponent, MappingsTabComponent, InitialSyncTabComponent, MatchTabComponent,
     SyncTabComponent, ApiClientsTabComponent,
+    SyncControlTabComponent, DefaultsTabComponent, AccountsTabComponent, CoverageTabComponent, LogsTabComponent,
     ...FLOW
   ],
   templateUrl: './quickbooks-integration.component.html',
@@ -89,8 +102,26 @@ export class QuickBooksIntegrationComponent implements OnInit {
 
   ngOnInit(): void {
     // Back from Intuit's sign-in: the Connection tab shows what happened.
-    const cameBack = this.route.snapshot.queryParamMap.has('result');
-    this.load(cameBack ? 'connection' : null);
+    const q = this.route.snapshot.queryParamMap;
+    const cameBack = q.has('result');
+    // D-34 — ?tab=logs (the "QuickBooks Logs" menu entry), or any other tab, when it is open.
+    const asked = q.get('tab') as QboTabKey | null;
+    this.load(cameBack ? 'connection' : (asked && QBO_TAB_KEYS.includes(asked) ? asked : null));
+    // The menu entry while the page is already open only changes the query string.
+    this.route.queryParamMap?.pipe(skip(1), takeUntilDestroyed(this.destroyRef)).subscribe(p => {
+      const tab = p.get('tab') as QboTabKey | null;
+      if (tab && QBO_TAB_KEYS.includes(tab)) this.selectTab(tab);
+    });
+  }
+
+  private readonly destroyRef = inject(DestroyRef);
+
+  // ── D-34: a log row's "Sync item" opens the Sync tab on that record ─────────
+  syncFocus: SyncItemFocus | null = null;
+
+  onOpenSyncItem(focus: SyncItemFocus): void {
+    this.syncFocus = focus;
+    this.selectTab('sync');
   }
 
   // ── Permissions ─────────────────────────────────────────────────────────────
@@ -170,6 +201,8 @@ export class QuickBooksIntegrationComponent implements OnInit {
       connection: this.connection, preflight: this.preflight, settings: this.settings, summary: this.summary
     });
     this.unlocked = unlockedTabs(this.steps, this.canManage);
+    // A44 — the new tabs are not setup steps; they open once QuickBooks is connected.
+    if (this.isConnected) A44_TABS.forEach(t => this.unlocked.add(t));
     if (!this.unlocked.has(this.activeTab)) this.activeTab = 'connection';
   }
 

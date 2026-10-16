@@ -5,7 +5,7 @@ import { ConfirmationService, MessageService } from 'primeng/api';
 import { of, throwError } from 'rxjs';
 
 import { ConnectionTabComponent } from './connection-tab.component';
-import { ConnectionStatusModel, QuickBooksIntegrationService } from '../../../../services/quickbooks-integration.service';
+import { ConnectionStatusModel, QuickBooksIntegrationService, TenantAppKeysModel } from '../../../../services/quickbooks-integration.service';
 
 function connection(overrides: Partial<ConnectionStatusModel> = {}): ConnectionStatusModel {
   return {
@@ -28,8 +28,15 @@ describe('ConnectionTabComponent', () => {
     return fixture.nativeElement.querySelector(`[data-testid="${testId}"]`);
   }
 
-  async function setup(opts: { connection?: ConnectionStatusModel | null; canManage?: boolean; query?: Record<string, string> } = {}) {
-    service = jasmine.createSpyObj<QuickBooksIntegrationService>('QuickBooksIntegrationService', ['connect', 'testConnection', 'disconnect']);
+  async function setup(opts: {
+    connection?: ConnectionStatusModel | null; canManage?: boolean; query?: Record<string, string>; ownKeys?: TenantAppKeysModel;
+  } = {}) {
+    service = jasmine.createSpyObj<QuickBooksIntegrationService>('QuickBooksIntegrationService',
+      ['connect', 'testConnection', 'disconnect', 'getOwnAppKeys', 'getConnection']);
+    service.getOwnAppKeys.and.returnValue(of(opts.ownKeys ?? {
+      featureEnabled: false, hasOwnKeys: false, hasSecret: false, environment: 'Sandbox', connectedWithOwnKeys: false
+    }));
+    service.getConnection.and.returnValue(of(connection()));
     service.connect.and.returnValue(of({ consentUrl: 'https://appcenter.intuit.com/connect/oauth2?x=1' }));
     service.testConnection.and.returnValue(of({ ok: true, companyName: 'Acme Traders' }));
     service.disconnect.and.returnValue(of(connection({ status: 'NotConnected', isConnected: false, companyName: null })));
@@ -116,7 +123,8 @@ describe('ConnectionTabComponent', () => {
   it('disables Connect, and says why, when the server has no Intuit app keys', async () => {
     await setup({ connection: connection({ status: 'NotConnected', isConnected: false, appConfigured: false }) });
     expect((query('connect') as HTMLButtonElement).disabled).toBeTrue();
-    expect(query('not-configured')!.textContent).toContain('no Intuit app keys');
+    expect(query('not-configured')!.textContent).toContain('No Intuit app keys');
+    expect(query('not-configured')!.textContent).toContain('System Administration › QuickBooks App');
     component.connect();
     expect(service.connect).not.toHaveBeenCalled();
   });
@@ -220,5 +228,32 @@ describe('ConnectionTabComponent', () => {
     const confirm = spyOn(confirmation(), 'confirm');
     component.confirmDisconnect();
     expect(confirm).not.toHaveBeenCalled();
+  });
+
+  // ── Intuit app keys (docs/quickbooks/APP-CREDENTIALS.md) ───────────────────
+
+  it('says which Intuit app the connection was made with', async () => {
+    await setup({ connection: connection({ connectedWithAppSource: 'Tenant' }) });
+    expect(query('connected-app')!.textContent).toContain('Your own app');
+    await setup({ connection: connection({ connectedWithAppSource: null }) });
+    expect(query('connected-app')!.textContent).toContain("The platform's app");
+  });
+
+  it('hides the own-app card unless the administrator switched the feature on', async () => {
+    await setup();
+    expect(query('own-app-card')).toBeNull();
+    await setup({ ownKeys: { featureEnabled: true, hasOwnKeys: false, hasSecret: false, environment: 'Sandbox', connectedWithOwnKeys: false,
+                             redirectUriToRegister: 'https://api.example.com/api/integrations/quickbooks/callback' } });
+    expect(query('own-app-card')).not.toBeNull();
+    expect(query('redirect-uri')!.textContent).toContain('/api/integrations/quickbooks/callback');
+  });
+
+  it('refreshes the status after the own keys change, so Connect knows which app it will use', async () => {
+    await setup();
+    const emitted: ConnectionStatusModel[] = [];
+    component.connectionChange.subscribe(s => emitted.push(s));
+    service.getConnection.and.returnValue(of(connection({ appSource: 'Tenant' })));
+    component.refreshStatus();
+    expect(emitted[0].appSource).toBe('Tenant');
   });
 });

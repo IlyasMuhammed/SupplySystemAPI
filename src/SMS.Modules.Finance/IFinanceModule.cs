@@ -9,6 +9,7 @@ using SMS.Modules.Finance.Repositories;
 using SMS.Modules.Finance.Services;
 using SMS.Modules.Warehouse.Events;
 using SMS.Shared.Common;
+using SMS.Shared.Finance.Posting;
 using SMS.Shared.Integration.QuickBooks;
 
 namespace SMS.Modules.Finance;
@@ -168,6 +169,20 @@ public static class FinanceModuleExtensions
         services.AddScoped<BillQuickBooksSource>();
         services.AddScoped<IQuickBooksSource>(sp => sp.GetRequiredService<BillQuickBooksSource>());
         services.AddScoped<BillQuickBooksPublisher>();
+
+        // A44 (D-25) — every document with a financial effect goes, after its own commit, to the financial posting gateway
+        // (SMS.Modules.Accounting: the GL and QuickBooks). TryAdd: in a host without Accounting it is the Null one, and the
+        // publishers then send straight to the QuickBooks gateway as before A44 (D-70). The new document kinds' classes are
+        // both their publisher and their IQuickBooksSource (the gateway's pull-back), one per scope.
+        services.TryAddScoped<IFinancialPostingGateway, NullFinancialPostingGateway>();
+        services.AddScoped<Integration.Posting.CustomerPaymentPostings>();
+        services.AddScoped<IQuickBooksSource>(sp => sp.GetRequiredService<Integration.Posting.CustomerPaymentPostings>());
+        services.AddScoped<Integration.Posting.SupplierPaymentPostings>();
+        services.AddScoped<IQuickBooksSource>(sp => sp.GetRequiredService<Integration.Posting.SupplierPaymentPostings>());
+        services.AddScoped<Integration.Posting.PosDocumentPostings>();
+        services.AddScoped<IQuickBooksSource>(sp => sp.GetRequiredService<Integration.Posting.PosDocumentPostings>());
+        services.AddScoped<Integration.Posting.SupplierNotePostings>();
+        services.AddScoped<IQuickBooksSource>(sp => sp.GetRequiredService<Integration.Posting.SupplierNotePostings>());
 
         return services;
     }

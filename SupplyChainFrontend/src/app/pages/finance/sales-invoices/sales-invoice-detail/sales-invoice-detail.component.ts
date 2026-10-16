@@ -28,6 +28,11 @@ import { DocCurrencyPanelComponent } from '../../../../shared/doc-currency/doc-c
 import { FxDifferenceComponent } from '../../../../shared/doc-currency/fx-difference.component';
 import { DocCurrencyInfo, cachedDocCurrency, missingRateOf, sumDifferences } from '../../../../shared/doc-currency/doc-currency';
 import { FLOW, FlowSection, FlowStage, flowStagesFrom } from '../../../../shared/flow';
+import { SyncKind } from '../../../../models/quickbooks-integration.models';
+
+/** A44 — the other QuickBooks kinds a POS sale / a credit note may have been sent as. */
+const QBO_POS_ALSO: SyncKind[] = ['SalesReceipt'];
+const QBO_CREDIT_ALSO: SyncKind[] = ['RefundReceipt'];
 
 @Component({
   selector: 'app-sales-invoice-detail',
@@ -158,6 +163,13 @@ export class SalesInvoiceDetailComponent implements OnInit {
   get isPos(): boolean { return isPosInvoice(this.invoice); }
   get isCreditNote(): boolean { return isCreditNote(this.invoice); }
   get canViewPosOrders(): boolean { return this.can('POS_ORDER_VIEW'); }
+
+  // ── A44 D-21 / D-23 — which QuickBooks kind(s) this document may have been sent as (stable references for the badge) ──
+  get qboKind(): SyncKind { return this.isCreditNote ? 'CreditMemo' : 'SalesInvoice'; }
+  get qboAlsoKinds(): SyncKind[] | null {
+    if (this.isCreditNote) return QBO_CREDIT_ALSO;
+    return this.isPos ? QBO_POS_ALSO : null;
+  }
   /** The POS order behind a POS invoice, resolved by number through the orders list (the invoice carries no order uuid). */
   posOrderUuid: string | null = null;
 

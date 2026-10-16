@@ -40,7 +40,7 @@ internal sealed class ConnectionService : IQuickBooksConnectionService
     private readonly IEnumerable<IAccountingAuthProvider> _authProviders;
     private readonly IAccountingProviderRegistry          _providers;
     private readonly IConnectionHealth                    _health;
-    private readonly QuickBooksOptions                    _options;
+    private readonly IQuickBooksAppResolver               _apps;
     private readonly IntegrationJobOptions                _jobOptions;
     private readonly IServiceProvider                     _services;
     private readonly ILogger<ConnectionService>           _logger;
@@ -48,7 +48,7 @@ internal sealed class ConnectionService : IQuickBooksConnectionService
     public ConnectionService(
         IntegrationDbContext db, IConnectionAccessor accessor, ITenantContext tenant, IOAuthStateService states,
         ICredentialVault vault, IEnumerable<IAccountingAuthProvider> authProviders, IAccountingProviderRegistry providers,
-        IConnectionHealth health, IOptions<QuickBooksOptions> options, IOptions<IntegrationJobOptions> jobOptions,
+        IConnectionHealth health, IQuickBooksAppResolver apps, IOptions<IntegrationJobOptions> jobOptions,
         IServiceProvider services, ILogger<ConnectionService> logger)
     {
         _db            = db;
@@ -59,7 +59,7 @@ internal sealed class ConnectionService : IQuickBooksConnectionService
         _authProviders = authProviders;
         _providers     = providers;
         _health        = health;
-        _options       = options.Value;
+        _apps          = apps;
         _jobOptions    = jobOptions.Value;
         _services      = services;
         _logger        = logger;
@@ -87,10 +87,12 @@ internal sealed class ConnectionService : IQuickBooksConnectionService
 
     public async Task<ConnectResponse> ConnectAsync(int userId, CancellationToken ct = default)
     {
-        if (!_options.IsConfigured)
-            throw new ConflictException(
-                "QuickBooks is not configured on this server. An administrator must set QuickBooks:ClientId, "
-              + "QuickBooks:ClientSecret and QuickBooks:RedirectUri (user-secrets or the secret store) first.");
+        // D-2: the organization's own Intuit app when it has one (and may use it), else the platform's.
+        var app = await _apps.ForNewConnectionAsync(_tenant.OrganizationId, ct)
+            ?? throw new ConflictException(
+                "QuickBooks app keys are not set. A platform administrator must enter them under "
+              + "System Administration › QuickBooks App"
+              + (await _apps.OwnAppEnabledAsync(_tenant.OrganizationId, ct) ? ", or enter your own Intuit app keys on this page." : "."));
 
         var connection = await _accessor.GetCurrentAsync(ct);
 
@@ -104,18 +106,19 @@ internal sealed class ConnectionService : IQuickBooksConnectionService
             {
                 OrganizationId = _tenant.OrganizationId,
                 ProviderKey    = ProviderKeys.QuickBooksOnline,
-                Environment    = _options.IsProduction ? IntegrationEnvironment.Production : IntegrationEnvironment.Sandbox,
+                Environment    = app.Environment,
                 Status         = ConnectionStatus.NotConnected
             };
             _db.Connections.Add(connection);
         }
 
-        var state = _states.Issue(connection.OrganizationId, userId);
+        // D-3: the state remembers the app, so the callback exchanges the code with the same one.
+        var state = _states.Issue(connection.OrganizationId, userId, appClientId: app.ClientId);
 
         string consentUrl;
         try
         {
-            consentUrl = AuthProvider(connection.ProviderKey).BuildConsentUrl(state);
+            consentUrl = AuthProvider(connection.ProviderKey).BuildConsentUrl(app, state);
         }
         catch (AccountingAuthException ex)
         {
@@ -128,7 +131,7 @@ internal sealed class ConnectionService : IQuickBooksConnectionService
             await _db.SaveChangesAsync(ct);
 
         IntegrationAudit.Add(_db, connection.Id, AuditAreas.Connection, "ConnectStarted", null,
-            new { Environment = _options.IsProduction ? "Production" : "Sandbox" }, userId);
+            new { Environment = app.Environment.ToString(), AppSource = app.Source.ToString(), app.ClientId }, userId);
 
         // A Revoked or Expired connection keeps saying so until the new consent actually completes;
         // only a never-connected one shows "Connecting" meanwhile.
@@ -197,8 +200,11 @@ internal sealed class ConnectionService : IQuickBooksConnectionService
         {
             try
             {
+                // D-3: revoked as the app that issued the token; keys that are gone just mean no revoke call.
+                var app = await _apps.ByClientIdAsync(connection.OrganizationId, connection.AppClientId, ct)
+                    ?? throw new AccountingAuthException("The app keys this connection was made with are no longer stored.");
                 var refreshToken = _vault.ReadRefreshToken(connection);
-                await AuthProvider(connection.ProviderKey).RevokeAsync(refreshToken, ct);
+                await AuthProvider(connection.ProviderKey).RevokeAsync(app, refreshToken, ct);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -226,12 +232,15 @@ internal sealed class ConnectionService : IQuickBooksConnectionService
 
     private async Task<ConnectionStatusModel> ToModelAsync(IntegrationConnection? connection, CancellationToken ct)
     {
+        var app = await _apps.ForNewConnectionAsync(_tenant.OrganizationId, ct);
+
         if (connection is null)
             return new ConnectionStatusModel
             {
-                AppConfigured = _options.IsConfigured,
+                AppConfigured = app is not null,
+                AppSource     = app?.Source.ToString(),
                 Status        = ConnectionStatus.NotConnected.ToString(),
-                Environment   = (_options.IsProduction ? IntegrationEnvironment.Production : IntegrationEnvironment.Sandbox).ToString()
+                Environment   = (app?.Environment ?? IntegrationEnvironment.Sandbox).ToString()
             };
 
         var mode = await _db.Settings.AsNoTracking()
@@ -243,7 +252,9 @@ internal sealed class ConnectionService : IQuickBooksConnectionService
 
         return new ConnectionStatusModel
         {
-            AppConfigured         = _options.IsConfigured,
+            AppConfigured         = app is not null,
+            AppSource             = app?.Source.ToString(),
+            ConnectedWithAppSource = connection.AppSource?.ToString(),
             Status                = connection.Status.ToString(),
             IsConnected           = usable,
             CompanyName           = connection.CompanyName,

@@ -3,6 +3,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using SMS.Modules.Integration.Core.Connections;
+using SMS.Modules.Integration.Core.Reference;
+using SMS.Modules.Integration.Core.Settings;
 using SMS.Modules.Integration.Core.Sync;
 using SMS.Modules.Integration.Data;
 using SMS.Modules.Integration.Domain;
@@ -54,6 +56,10 @@ internal sealed class ReconciliationJob
 
             var settings = await accessor.GetOrCreateSettingsAsync(connection, ct);
             var since    = settings.LastReconciledAt ?? connection.ConnectedAt ?? startedAt;
+            // A44 D-14: which kinds are asked for follows sync control (a POS sale arrives as a SalesInvoice and is held by
+            // the gateway if POS sales are off).
+            var control  = await PostingReadiness.DecisionsAsync(sp, db, connection.Id, settings, ct);
+            bool Enabled(SyncKind kind) => control.TryGetValue(SyncControlDocumentTypes.For(kind, null), out var d) ? d.IsEnabled : false;
             var complete = true;
             var sent     = 0;
 
@@ -63,7 +69,7 @@ internal sealed class ReconciliationJob
             var fullItemPass = settings.LastReconciledAt is null || settings.LastReconciledAt.Value.Date < startedAt.Date;
 
             // Parties and items first, so documents sent in the same run find them.
-            foreach (var kind in Enum.GetValues<SyncKind>().Where(k => Enabled(settings, k)))
+            foreach (var kind in Enum.GetValues<SyncKind>().Where(Enabled))
             foreach (var source in sources.Where(s => s.Kinds.Contains(kind)))
             {
                 try
@@ -79,9 +85,10 @@ internal sealed class ReconciliationJob
                 }
             }
 
-            // POS sales held while "Sync POS sales" was off: offered again whenever it is on (with sales invoices), so
-            // nothing depends on the settings change alone. Idempotent — a no-op when none are held.
-            await PosSales.ReleaseAsync(sp, connection.Id, _logger, ct);
+            // Records held while their type was off (D-14, generalised from POS sales): offered again for every type that
+            // is on now, so nothing depends on the settings change alone. Idempotent — a no-op when none are held.
+            foreach (var type in SyncControlDocumentTypes.All.Where(t => control[t].IsEnabled))
+                await HeldRecords.ReleaseAsync(sp, connection.Id, type, _logger, ct);
 
             if (!complete) return;
 
@@ -95,14 +102,4 @@ internal sealed class ReconciliationJob
                     connection.Id, sent, since);
         }, ct);
     }
-
-    private static bool Enabled(IntegrationSettings s, SyncKind kind) => kind switch
-    {
-        SyncKind.Customer     => s.AutoPushCustomers,
-        SyncKind.Vendor       => s.AutoPushVendors,
-        SyncKind.Item         => s.AutoPushItems,
-        SyncKind.SalesInvoice => s.AutoPushSalesInvoices,
-        SyncKind.Bill         => s.AutoPushBills,
-        _                     => false
-    };
 }

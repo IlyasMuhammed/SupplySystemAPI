@@ -1,6 +1,4 @@
 using Intuit.Ipp.OAuth2PlatformClient;
-using Microsoft.Extensions.Options;
-using SMS.Modules.Integration.Configuration;
 using SMS.Modules.Integration.Core.Connections;
 using SMS.Modules.Integration.Core.Logging;
 using SMS.Modules.Integration.Core.Providers;
@@ -31,10 +29,10 @@ internal sealed record IntuitRevokeResponse(bool IsError, string? Error, int? Ht
 /// </summary>
 internal interface IIntuitOAuthClient
 {
-    string GetAuthorizationUrl(string state);
-    Task<IntuitTokenResponse> ExchangeCodeAsync(string code, CancellationToken ct);
-    Task<IntuitTokenResponse> RefreshAsync(string refreshToken, CancellationToken ct);
-    Task<IntuitRevokeResponse> RevokeAsync(string token, CancellationToken ct);
+    string GetAuthorizationUrl(OAuthApp app, string state);
+    Task<IntuitTokenResponse> ExchangeCodeAsync(OAuthApp app, string code, CancellationToken ct);
+    Task<IntuitTokenResponse> RefreshAsync(OAuthApp app, string refreshToken, CancellationToken ct);
+    Task<IntuitRevokeResponse> RevokeAsync(OAuthApp app, string token, CancellationToken ct);
 }
 
 /// <summary>
@@ -50,22 +48,19 @@ internal interface IIntuitOAuthClient
 /// (<c>EnableSerilogRequestResponseLoggingFor{Debug,Trace,Console,File}</c>, no <c>CustomLogger</c>):
 /// what it would log is token responses.
 /// </para>
+/// <para>The app keys come with every call (per organization, docs/quickbooks/APP-CREDENTIALS.md) — nothing is cached here.</para>
 /// </summary>
 internal sealed class SdkIntuitOAuthClient : IIntuitOAuthClient
 {
-    private readonly IOptions<QuickBooksOptions> _options;
-
-    public SdkIntuitOAuthClient(IOptions<QuickBooksOptions> options) => _options = options;
-
-    public string GetAuthorizationUrl(string state) =>
+    public string GetAuthorizationUrl(OAuthApp app, string state) =>
         // The overload taking the CSRF token uses it as the OAuth "state" parameter verbatim.
-        CreateClient().GetAuthorizationURL(new List<OidcScopes> { OidcScopes.Accounting }, state);
+        CreateClient(app).GetAuthorizationURL(new List<OidcScopes> { OidcScopes.Accounting }, state);
 
-    public async Task<IntuitTokenResponse> ExchangeCodeAsync(string code, CancellationToken ct)
+    public async Task<IntuitTokenResponse> ExchangeCodeAsync(OAuthApp app, string code, CancellationToken ct)
     {
         try
         {
-            var client   = await Task.Run(CreateClient, ct);
+            var client   = await Task.Run(() => CreateClient(app), ct);
             var response = await client.GetBearerTokenAsync(code, ct);
             return Map(response);
         }
@@ -75,11 +70,11 @@ internal sealed class SdkIntuitOAuthClient : IIntuitOAuthClient
         }
     }
 
-    public async Task<IntuitTokenResponse> RefreshAsync(string refreshToken, CancellationToken ct)
+    public async Task<IntuitTokenResponse> RefreshAsync(OAuthApp app, string refreshToken, CancellationToken ct)
     {
         try
         {
-            var client   = await Task.Run(CreateClient, ct);
+            var client   = await Task.Run(() => CreateClient(app), ct);
             var response = await client.RefreshTokenAsync(refreshToken, null, ct);
             return Map(response);
         }
@@ -89,11 +84,11 @@ internal sealed class SdkIntuitOAuthClient : IIntuitOAuthClient
         }
     }
 
-    public async Task<IntuitRevokeResponse> RevokeAsync(string token, CancellationToken ct)
+    public async Task<IntuitRevokeResponse> RevokeAsync(OAuthApp app, string token, CancellationToken ct)
     {
         try
         {
-            var client   = await Task.Run(CreateClient, ct);
+            var client   = await Task.Run(() => CreateClient(app), ct);
             var response = await client.RevokeTokenAsync(token, ct);
             return new IntuitRevokeResponse(response.IsError, response.Error, (int)response.HttpStatusCode);
         }
@@ -103,11 +98,10 @@ internal sealed class SdkIntuitOAuthClient : IIntuitOAuthClient
         }
     }
 
-    private OAuth2Client CreateClient()
+    private static OAuth2Client CreateClient(OAuthApp app)
     {
-        var options = _options.Value;
-        var client  = new OAuth2Client(
-            options.ClientId, options.ClientSecret, options.RedirectUri, options.IsProduction ? "Production" : "Sandbox");
+        var client = new OAuth2Client(
+            app.ClientId, app.ClientSecret, app.RedirectUri, app.Environment == IntegrationEnvironment.Production ? "Production" : "Sandbox");
 
         client.EnableSerilogRequestResponseLoggingForDebug   = false;
         client.EnableSerilogRequestResponseLoggingForTrace   = false;
@@ -171,24 +165,19 @@ internal sealed class QuickBooksAuthProvider : IAccountingAuthProvider
     /// <summary>Intuit documents 100 days; used only if a response ever omits <c>x_refresh_token_expires_in</c>.</summary>
     private const long FallbackRefreshSeconds = 100L * 24 * 3600;
 
-    private readonly IIntuitOAuthClient          _client;
-    private readonly IOptions<QuickBooksOptions> _options;
+    private readonly IIntuitOAuthClient _client;
 
-    public QuickBooksAuthProvider(IIntuitOAuthClient client, IOptions<QuickBooksOptions> options)
-    {
-        _client  = client;
-        _options = options;
-    }
+    public QuickBooksAuthProvider(IIntuitOAuthClient client) => _client = client;
 
     public string ProviderKey => ProviderKeys.QuickBooksOnline;
 
-    public string BuildConsentUrl(string state)
+    public string BuildConsentUrl(OAuthApp app, string state)
     {
-        EnsureConfigured();
+        EnsureConfigured(app);
 
         try
         {
-            return _client.GetAuthorizationUrl(state);
+            return _client.GetAuthorizationUrl(app, state);
         }
         catch (Exception ex)
         {
@@ -197,22 +186,22 @@ internal sealed class QuickBooksAuthProvider : IAccountingAuthProvider
         }
     }
 
-    public async Task<TokenGrant> ExchangeCodeAsync(string code, CancellationToken ct = default)
+    public async Task<TokenGrant> ExchangeCodeAsync(OAuthApp app, string code, CancellationToken ct = default)
     {
-        EnsureConfigured();
+        EnsureConfigured(app);
 
-        var response = await _client.ExchangeCodeAsync(code, ct);
+        var response = await _client.ExchangeCodeAsync(app, code, ct);
         if (response.IsError || string.IsNullOrEmpty(response.AccessToken) || string.IsNullOrEmpty(response.RefreshToken))
             throw new AccountingAuthException($"Intuit did not exchange the authorization code: {Describe(response)}.", response.Error);
 
         return ToGrant(response, DateTime.UtcNow);
     }
 
-    public async Task<TokenGrant> RefreshAsync(string refreshToken, CancellationToken ct = default)
+    public async Task<TokenGrant> RefreshAsync(OAuthApp app, string refreshToken, CancellationToken ct = default)
     {
-        EnsureConfigured();
+        EnsureConfigured(app);
 
-        var response = await _client.RefreshAsync(refreshToken, ct);
+        var response = await _client.RefreshAsync(app, refreshToken, ct);
 
         if (IsGrantGone(response))
             throw new AuthorizationRevokedException($"Intuit refused the refresh token: {Describe(response)}.");
@@ -223,11 +212,11 @@ internal sealed class QuickBooksAuthProvider : IAccountingAuthProvider
         return ToGrant(response, DateTime.UtcNow);
     }
 
-    public async Task RevokeAsync(string refreshToken, CancellationToken ct = default)
+    public async Task RevokeAsync(OAuthApp app, string refreshToken, CancellationToken ct = default)
     {
-        EnsureConfigured();
+        EnsureConfigured(app);
 
-        var response = await _client.RevokeAsync(refreshToken, ct);
+        var response = await _client.RevokeAsync(app, refreshToken, ct);
         if (response.IsError)
             throw new AccountingAuthException(
                 $"Intuit did not confirm the revocation ({Redactor.Redact(response.Error) ?? "no reason"}{(response.HttpStatus is { } s ? $", HTTP {s}" : "")}).",
@@ -273,10 +262,10 @@ internal sealed class QuickBooksAuthProvider : IAccountingAuthProvider
         return parts.Count == 0 ? "no reason given" : string.Join(", ", parts);
     }
 
-    private void EnsureConfigured()
+    private static void EnsureConfigured(OAuthApp? app)
     {
-        if (!_options.Value.IsConfigured)
+        if (app is null || !app.IsComplete)
             throw new AccountingAuthException(
-                "QuickBooks is not configured on this server: QuickBooks:ClientId, ClientSecret and RedirectUri must be set.");
+                "QuickBooks app keys are not set: a Client ID, Client Secret and callback URL are needed.");
     }
 }

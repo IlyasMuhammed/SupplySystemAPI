@@ -22,6 +22,7 @@ import { CANCELLABLE_INVOICE_STATUSES, PAYABLE_INVOICE_STATUSES, SalesInvoiceDet
 import { QboSyncStatusStore } from '../../shared/components/qbo-sync-badge/qbo-sync-status.store';
 import { AuthService } from '../service/auth.service';
 import { TenantService } from '../service/tenant.service';
+import { ModuleService } from '../../services/module.service';
 
 /**
  * Cross-page consistency (SAP alignment, S-7 "reverse, don't edit"): the new statuses (sales CANCELLED,
@@ -202,7 +203,10 @@ describe('SAP alignment consistency: statuses, permissions and navigation', () =
       TestBed.resetTestingModule().configureTestingModule({
         providers: [
           { provide: AuthService, useValue: auth(held) },
-          { provide: Router, useValue: { navigate: () => Promise.resolve(true) } }
+          { provide: Router, useValue: { navigate: () => Promise.resolve(true) } },
+          // A44 — feature guards (e.g. the posting page's) read the tenant: every feature on, so only permissions decide.
+          { provide: TenantService, useValue: { tenant: () => ({}), isSuperAdmin: () => false, hasFeature: () => true } },
+          { provide: ModuleService, useValue: { isFeatureEnabled: () => true } }
         ]
       });
       return (route.canActivate ?? []).every(g =>
@@ -255,6 +259,9 @@ describe('SAP alignment consistency: statuses, permissions and navigation', () =
 
     it('the Finance pages sit behind MODULE_FINANCE in the menu, as their controllers do', () => {
       for (const l of menuLeaves().filter(x => /\/(finance|finance-setup)\//.test(x.routerLink![0]) && !/master-ledger/.test(x.routerLink![0]))) {
+        // A44 D-80 — the posting log also serves QuickBooks-only organizations: a second entry under Settings › Integrations
+        // behind MODULE_INTEGRATION (the route's postingFeatureGuard admits either feature, as PostingController does).
+        if (l.routerLink![0] === '/portal/pages/finance/gl/posting' && l.features.join() === 'MODULE_INTEGRATION') continue;
         if (/\/finance\/gl(\/|$)/.test(l.routerLink![0])) {
           // A42 — the GL pages are a sub-feature of Finance: both gates.
           expect(l.features).withContext(`${l.label}`).toEqual(['MODULE_FINANCE', 'FEATURE_GENERAL_LEDGER']);

@@ -29,12 +29,18 @@ internal sealed record InvoiceMath(
 {
     public const decimal Tolerance = 0.01m;
 
-    public static InvoiceMath Of(SalesInvoicePayload p)
+    public static InvoiceMath Of(SalesInvoicePayload p) => Of(p.Lines, p.HeaderDiscountAmount, p.ExpectedTaxAmount, p.ExpectedTotal);
+
+    /// <summary>A44: sales receipts, credit memos and refund receipts are totalled exactly as invoices.</summary>
+    public static InvoiceMath Of(SalesDocumentPayload p) => Of(p.Lines, p.HeaderDiscountAmount, p.ExpectedTaxAmount, p.ExpectedTotal);
+
+    public static InvoiceMath Of(IReadOnlyList<SalesInvoiceLinePayload>? lines, decimal headerDiscount, decimal expectedTax, decimal expectedTotal)
     {
+        var p = (HeaderDiscountAmount: headerDiscount, ExpectedTaxAmount: expectedTax, ExpectedTotal: expectedTotal);
         decimal gross = 0m, discount = 0m, lineAmounts = 0m;
         var hasDiscount = p.HeaderDiscountAmount > 0;
 
-        foreach (var line in p.Lines ?? [])
+        foreach (var line in lines ?? [])
         {
             var lineGross = line.Quantity * line.UnitPrice;
             gross       += lineGross;
@@ -55,7 +61,9 @@ internal sealed record InvoiceMath(
     }
 
     /// <summary>The caller's lines agree with its own total (to the cent).</summary>
-    public bool AddsUp(SalesInvoicePayload p) => Math.Abs(ComputedTotal - p.ExpectedTotal) <= Tolerance;
+    public bool AddsUp(SalesInvoicePayload p) => AddsUp(p.ExpectedTotal);
+
+    public bool AddsUp(decimal expectedTotal) => Math.Abs(ComputedTotal - expectedTotal) <= Tolerance;
 
     /// <summary>QuickBooks' total (lines − discount line + tax) will not match the caller's to the cent.</summary>
     public bool QuickBooksTotalDiffers => Math.Abs(QuickBooksDifference) >= Tolerance;

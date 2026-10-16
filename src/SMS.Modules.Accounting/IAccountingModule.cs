@@ -5,6 +5,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using SMS.Modules.Accounting.Data;
+using SMS.Modules.Accounting.Posting;
 using SMS.Modules.Accounting.Services;
 
 namespace SMS.Modules.Accounting;
@@ -41,7 +42,17 @@ public static class AccountingModuleExtensions
 
         // Fiscal years, defaults, opening balances, mappings, dashboard (BE2) — Services/SetupServicesRegistration.cs.
         services.AddAccountingSetupServices();
+
+        // A44 — financial posting gateway, entity sync gateway, internal GL target, posting log — Posting/PostingRegistration.cs.
+        services.AddAccountingPostingServices();
     }
+
+    /// <summary>
+    /// A44 — makes the real IFinancialPostingGateway / IEntitySyncGateway / IExternalAccountMapReader win over the Null*
+    /// that callers TryAdd. Program.cs calls it after the last module registration (order-proof).
+    /// </summary>
+    public static IServiceCollection UseAccountingPostingGateway(this IServiceCollection services) =>
+        services.UseAccountingPostingSeams();
 
     /// <summary>Applies the A42 tables in schema finance (guarded/idempotent — shared database), then seeds the system
     /// chart of accounts templates (D-6, best effort: a seeding failure is logged and never stops the API).</summary>
@@ -58,6 +69,8 @@ public static class AccountingModuleExtensions
             scope.ServiceProvider.GetService<ILoggerFactory>()?.CreateLogger("SMS.Modules.Accounting")
                 .LogError(ex, "Chart of accounts templates could not be seeded at startup.");
         }
+        // A44 D-9 — failed posting targets retried every minute (backoff 30 s … 2 h, then DeadLetter).
+        PostingRetryJob.Register();
         return app;
     }
 }

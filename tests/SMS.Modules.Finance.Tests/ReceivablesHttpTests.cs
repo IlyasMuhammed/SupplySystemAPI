@@ -72,6 +72,8 @@ public class ReceivablesHttpTests : IAsyncLifetime
                  .ReturnsAsync(new CustomerPaymentRecorded(Id, "CPAY-20260920-0001", 1m, 0m, 1m, "PKR", [], 0m));
         _payments.Setup(s => s.AllocateAsync(It.IsAny<Guid>(), It.IsAny<IReadOnlyList<ManualPaymentAllocation>?>(), It.IsAny<int>()))
                  .ReturnsAsync(new CustomerPaymentAllocated(Id, "CPAY-20260920-0001", 1m, 1m, 0m, []));
+        _payments.Setup(s => s.BounceAsync(It.IsAny<Guid>(), It.IsAny<string?>(), It.IsAny<int>()))
+                 .ReturnsAsync(new CustomerPaymentBounced(Id, "CPAY-20260920-0001", 1m, [], 1m));
         _ledger.Setup(s => s.GetLedgerAsync(It.IsAny<Guid>(), It.IsAny<CustomerLedgerFilter>())).ReturnsAsync(new PaginatedResponse<CustomerLedgerEntryModel>());
 
         _host = await new HostBuilder().ConfigureWebHost(web =>
@@ -198,6 +200,7 @@ public class ReceivablesHttpTests : IAsyncLifetime
             (HttpMethod.Get,    "/api/customer-payments",                    PermissionCodes.CUSTOMER_PAYMENT_VIEW),
             (HttpMethod.Get,    $"/api/customer-payments/{id}",              PermissionCodes.CUSTOMER_PAYMENT_VIEW),
             (HttpMethod.Post,   $"/api/customer-payments/{id}/allocate",     PermissionCodes.CUSTOMER_PAYMENT_RECORD),
+            (HttpMethod.Post,   $"/api/customer-payments/{id}/bounce",       PermissionCodes.CUSTOMER_PAYMENT_RECORD),
             (HttpMethod.Get,    $"/api/partners/{id}/ledger",                PermissionCodes.CUSTOMER_LEDGER_VIEW),
         ];
         foreach (var (method, url, permission) in rows)
@@ -252,6 +255,25 @@ public class ReceivablesHttpTests : IAsyncLifetime
         (await Send(HttpMethod.Patch, $"/api/sales-invoices/{Id}")).StatusCode.Should().Be(HttpStatusCode.MethodNotAllowed);
         (await Send(HttpMethod.Delete, "/api/customer-payments/" + Id)).StatusCode.Should().Be(HttpStatusCode.MethodNotAllowed);
         (await Send(HttpMethod.Put, $"/api/customer-payments/{Id}/allocate")).StatusCode.Should().Be(HttpStatusCode.MethodNotAllowed);
+    }
+
+    // ── A44 QA-6: bounce ─────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task Bounce_binds_its_reason_and_takes_an_empty_body_too()
+    {
+        string? seen = "unset";
+        _payments.Setup(s => s.BounceAsync(Id, It.IsAny<string?>(), 42))
+                 .Callback<Guid, string?, int>((_, r, _) => seen = r)
+                 .ReturnsAsync(new CustomerPaymentBounced(Id, "CPAY-20260920-0001", 1m, [], 1m));
+
+        var response = await Send(HttpMethod.Post, $"/api/customer-payments/{Id}/bounce", """{ "reason": "Returned: insufficient funds" }""");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        seen.Should().Be("Returned: insufficient funds");
+        (await response.Content.ReadAsStringAsync()).Should().Contain("bounced");
+
+        (await Send(HttpMethod.Post, $"/api/customer-payments/{Id}/bounce", "{}")).StatusCode.Should().Be(HttpStatusCode.OK);
+        seen.Should().BeNull();
     }
 
     // ── Query-string binding ─────────────────────────────────────────────────

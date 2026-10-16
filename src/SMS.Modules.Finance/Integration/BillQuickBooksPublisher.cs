@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SMS.Modules.Finance.Data;
+using SMS.Modules.Finance.Integration.Posting;
 using SMS.Modules.Finance.Models;
 using SMS.Shared.Integration.QuickBooks;
 
@@ -58,7 +59,8 @@ internal sealed class BillQuickBooksPublisher
 
             if (invoice is null || !BillPayloadFactory.IsApproved(invoice)) return;
 
-            await _source.SendApprovedAsync([invoice]);
+            // A44 (D-25): a posting to the financial posting gateway (GL + QuickBooks) when the host has one.
+            await _source.PublishApprovedAsync([invoice]);
         }
         catch (Exception ex)
         {
@@ -85,7 +87,13 @@ internal sealed class BillQuickBooksPublisher
                 ? null
                 : (await _gateway.GetStatusAsync(SyncKind.Bill, [invoiceUuid.ToString()])).FirstOrDefault();
 
-            if (_gateway is not null)
+            // A44 (D-26): with a posting layer, a reversal — the GL reverses the bill's journal and QuickBooks flags the
+            // bill for the accountant with this very note (VoidRequest.Reason). Without one, the flag as before.
+            if (_source.Posting is { } posting)
+                PostingSupport.LogResult(_log,
+                    await posting.ReverseAsync(PurchasePostings.ReverseBill(invoiceUuid, invoiceNumber, AccountantNote(invoiceNumber, reason), null)),
+                    SMS.Shared.Finance.Posting.FinDocType.PurchaseBill, invoiceUuid, invoiceNumber);
+            else if (_gateway is not null)
                 await _gateway.FlagForAccountantAsync(SyncKind.Bill, invoiceUuid.ToString(), AccountantNote(invoiceNumber, reason));
 
             if (status is null)

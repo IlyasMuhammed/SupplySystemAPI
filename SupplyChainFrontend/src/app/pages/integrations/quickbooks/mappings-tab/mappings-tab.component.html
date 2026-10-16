@@ -12,8 +12,8 @@
 
 <ng-container *ngIf="!isLoading && !loadFailed">
 
-  <!-- D-8: payments are not synced -->
-  <div class="note info" data-testid="payments-note">
+  <!-- D-8: payments are not synced (true until the server has A44 sync control, which brings payment sync) -->
+  <div class="note info" *ngIf="!syncControlAvailable" data-testid="payments-note">
     <i class="pi pi-info-circle"></i>
     <div class="note-body">
       <div class="note-title">Payments are not sent to QuickBooks yet</div>
@@ -125,6 +125,20 @@
         </div>
       </div>
 
+      <!-- A44 D-14: the switches moved to the Sync control tab once the server has it. -->
+      <div class="note info moved" *ngIf="syncControlAvailable" data-testid="sync-control-moved">
+        <i class="pi pi-sliders-h"></i>
+        <div class="note-body">
+          What is sent automatically — customers, vendors, items, invoices, payments, POS sales, bills — is now set per
+          document type on the Sync control tab, with hold and release.
+          <div class="note-actions">
+            <p-button label="Open Sync control" icon="pi pi-arrow-right" size="small" [text]="true" (onClick)="navigate.emit('sync-control')"
+                      data-testid="open-sync-control"></p-button>
+          </div>
+        </div>
+      </div>
+
+      <ng-container *ngIf="!syncControlAvailable">
       <div class="group-title">Send automatically when SCM changes</div>
       <div class="auto-push">
         <div class="switch-row" *ngFor="let row of autoPushRows">
@@ -146,6 +160,7 @@
           <p-toggleswitch inputId="autoPushPosSales" formControlName="autoPushPosSales" data-testid="autoPushPosSales"></p-toggleswitch>
         </div>
       </div>
+      </ng-container>
 
       <div class="action-bar" *ngIf="canManage" data-testid="settings-actions">
         <span class="unsaved" *ngIf="settingsDirty"><i class="pi pi-circle-fill"></i> Unsaved changes</span>
@@ -176,6 +191,19 @@
       <p-button *ngIf="canManage && suggestableCount" label="Use suggestions" icon="pi pi-bolt" [text]="true" size="small"
                 pTooltip="Fill each unmapped code with the QuickBooks code its rate is mapped to" tooltipPosition="left"
                 (onClick)="useAllSuggestions()" data-testid="use-all-suggestions"></p-button>
+      <!-- A44 D-18 -->
+      <p-button *ngIf="canManage && syncControlAvailable" label="Import & suggest" icon="pi pi-download" [text]="true" size="small"
+                pTooltip="Suggest a QuickBooks code for every SMS tax code by rate and name; unambiguous ones are saved"
+                tooltipPosition="left" [loading]="isImportingTax" [disabled]="isImportingTax" (onClick)="importTax()"
+                data-testid="import-tax"></p-button>
+    </div>
+
+    <div class="note warn tax-suggestions" *ngIf="taxSuggestions.length" data-testid="tax-ambiguous">
+      <i class="pi pi-question-circle"></i>
+      <div class="note-body">
+        <div class="note-title">Choose these yourself</div>
+        <ul><li *ngFor="let s of taxSuggestions">{{ suggestionText(s) }}</li></ul>
+      </div>
     </div>
 
     <p-table [value]="taxCodeRows" [tableStyle]="{ 'min-width': '40rem' }" data-testid="tax-code-table">

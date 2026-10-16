@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using SMS.Modules.Suppliers.Integration;
+using SMS.Shared.Finance.Posting;
 using SMS.Shared.Integration.QuickBooks;
 
 namespace SMS.Modules.Suppliers.Tests.QuickBooks;
@@ -73,6 +74,54 @@ internal sealed class RecordingQuickBooksGateway : IQuickBooksGateway
         }
 
         return Task.FromResult(Result);
+    }
+}
+
+/// <summary>
+/// Stands in for the A44 entity sync router with only the QuickBooks target behind it: records every
+/// request, then hands its <see cref="EntitySyncRequest.Document"/> to the (recording) QuickBooks gateway the
+/// way the QuickBooks target does, so the existing gateway assertions keep proving the payloads. A gateway
+/// exception is passed on (a router that broke its never-throw promise); <see cref="Answer"/> replaces the
+/// forward entirely.
+/// </summary>
+internal sealed class QuickBooksEntitySyncBridge : IEntitySyncGateway
+{
+    private readonly IQuickBooksGateway _gateway;
+    public QuickBooksEntitySyncBridge(IQuickBooksGateway gateway) => _gateway = gateway;
+
+    public List<EntitySyncRequest> Requests { get; } = [];
+
+    /// <summary>When set, answered without forwarding.</summary>
+    public EntitySyncResult? Answer { get; set; }
+
+    public async Task<EntitySyncResult> PushAsync(EntitySyncRequest request, CancellationToken ct = default)
+    {
+        Requests.Add(request);
+        if (Answer is not null) return Answer;
+
+        var result = request.Document switch
+        {
+            CustomerPayload c => await _gateway.UpsertCustomerAsync(c, ct),
+            VendorPayload v   => await _gateway.UpsertVendorAsync(v, ct),
+            ItemPayload i     => await _gateway.UpsertItemAsync(i, ct),
+            _ => throw new InvalidOperationException($"Unexpected document {request.Document?.GetType().Name}.")
+        };
+
+        return result.Outcome == GatewayOutcome.Invalid
+            ? new EntitySyncResult
+              {
+                  Success = false, Outcome = EntitySyncOutcome.ValidationFailed,
+                  ErrorMessage = string.Join("; ", (result.Errors ?? []).Select(e => $"{e.Field} [{e.Code}]: {e.Message}"))
+              }
+            : new EntitySyncResult { Success = true, Outcome = EntitySyncOutcome.Queued, TargetsQueued = 1 };
+    }
+
+    public async Task<BatchEntitySyncResult> PushBatchAsync(IReadOnlyList<EntitySyncRequest> requests, CancellationToken ct = default)
+    {
+        var queued = 0;
+        foreach (var r in requests)
+            if ((await PushAsync(r, ct)).Outcome == EntitySyncOutcome.Queued) queued++;
+        return new BatchEntitySyncResult { TotalRequests = requests.Count, Queued = queued };
     }
 }
 

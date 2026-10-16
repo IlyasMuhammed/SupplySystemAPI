@@ -3,12 +3,18 @@ import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http'
 import { Observable, OperatorFunction, map } from 'rxjs';
 import { environment } from '../../environments/environment';
 import {
-  ApiClientModel, BackfillResult, ConfirmMatchesRequest, ConnectResponse, ConnectionStatusModel,
-  CreateApiClientRequest, IntegrationSettingsModel, IssueApiKeyRequest, IssuedApiKeyModel, ManualPushResult,
-  MatchCandidateModel, MatchDecision, MatchKind, MatchScanResultModel, PreflightResultModel, QboApiResponse, QboPage,
-  ReferenceDataModel, ResolveSyncItemRequest, SaveTaxCodeMappingsRequest, SaveTermMappingsRequest, StatusLookupResult,
-  SyncItemModel, SyncItemQuery, SyncKind, SyncLogModel, SyncMode, SyncSummaryModel, TaxCodeMappingModel,
-  TermMappingModel, TestConnectionResult, UpdateIntegrationSettingsRequest
+  AccountMappingRowModel, AccountMappingsModel, ApiClientModel, AutoMapAccountsRequest, AutoMapAccountsResult, BackfillResult,
+  ConfirmMatchesRequest, ProviderDefaultsModel,
+  ConnectResponse, ConnectionStatusModel, CoverageModel, CreateApiClientRequest, DocumentOverrideModel, IntegrationSettingsModel,
+  IssueApiKeyRequest, IssuedApiKeyModel, LinkRemoteRequest, ManualPushResult, MatchCandidateModel, MatchDecision, MatchKind,
+  MatchScanResultModel, PlatformAppKeysModel, PreflightResultModel, ProviderDefaultModel, QboApiResponse, QboPage,
+  ReferenceDataModel, ReleaseHeldResult, RemoteEntityModel, RemoteImportResultModel, ResolveSyncItemRequest, RetryFailedResult,
+  SaveAccountMappingsRequest, SaveDocumentOverridesRequest, SavePlatformAppKeysRequest, SaveProviderDefaultsRequest,
+  SaveTaxCodeMappingsRequest, SaveTenantAppKeysRequest, SaveTermMappingsRequest, StatusLookupResult, SyncControlDocumentType,
+  SyncControlRowModel, SyncItemModel, SyncItemQuery, SyncKind, SyncLogItemModel, SyncLogModel, SyncLogQuery, SyncMode,
+  SyncSummaryModel, TaxCodeMappingModel,
+  TaxImportResultModel, TenantAppKeysModel, TermMappingModel, TestConnectionResult, UpdateIntegrationSettingsRequest,
+  UpdateSyncControlRequest, UpdateSyncControlResult
 } from '../models/quickbooks-integration.models';
 
 export * from '../models/quickbooks-integration.models';
@@ -70,6 +76,7 @@ function unwrap<T>(): OperatorFunction<QboApiResponse<T>, T> {
 @Injectable({ providedIn: 'root' })
 export class QuickBooksIntegrationService {
   private readonly base = `${environment.apiUrl}/integrations/quickbooks`;
+  private readonly platformBase = `${environment.apiUrl}/system/integrations/quickbooks/app`;
 
   constructor(private http: HttpClient) {}
 
@@ -91,6 +98,35 @@ export class QuickBooksIntegrationService {
   /** Revokes the grant at Intuit and forgets the tokens. Links to QuickBooks records are kept. */
   disconnect(): Observable<ConnectionStatusModel> {
     return this.http.delete<QboApiResponse<ConnectionStatusModel>>(`${this.base}/connection`).pipe(unwrap());
+  }
+
+  // ── Intuit app keys (docs/quickbooks/APP-CREDENTIALS.md) ─────────────────────────────────────
+
+  /** The organization's own Intuit app (FEATURE_QBO_OWN_APP). */
+  getOwnAppKeys(): Observable<TenantAppKeysModel> {
+    return this.http.get<QboApiResponse<TenantAppKeysModel>>(`${this.base}/app-keys`).pipe(unwrap());
+  }
+
+  saveOwnAppKeys(body: SaveTenantAppKeysRequest): Observable<TenantAppKeysModel> {
+    return this.http.put<QboApiResponse<TenantAppKeysModel>>(`${this.base}/app-keys`, body).pipe(unwrap());
+  }
+
+  deleteOwnAppKeys(): Observable<TenantAppKeysModel> {
+    return this.http.delete<QboApiResponse<TenantAppKeysModel>>(`${this.base}/app-keys`).pipe(unwrap());
+  }
+
+  /** Super admin: the platform's Intuit app. */
+  getPlatformAppKeys(): Observable<PlatformAppKeysModel> {
+    return this.http.get<QboApiResponse<PlatformAppKeysModel>>(this.platformBase).pipe(unwrap());
+  }
+
+  savePlatformAppKeys(body: SavePlatformAppKeysRequest): Observable<PlatformAppKeysModel> {
+    return this.http.put<QboApiResponse<PlatformAppKeysModel>>(this.platformBase, body).pipe(unwrap());
+  }
+
+  deletePlatformAppKeys(confirmBreakingChange = false): Observable<PlatformAppKeysModel> {
+    const params = new HttpParams().set('confirmBreakingChange', String(confirmBreakingChange));
+    return this.http.delete<QboApiResponse<PlatformAppKeysModel>>(this.platformBase, { params }).pipe(unwrap());
   }
 
   // ── Reference data & preflight ────────────────────────────────────────────────────────────
@@ -196,7 +232,8 @@ export class QuickBooksIntegrationService {
   getSyncItems(query: SyncItemQuery = {}): Observable<QboPage<SyncItemModel>> {
     let params = new HttpParams();
     if (query.kind)   params = params.set('kind', query.kind);
-    if (query.state)  params = params.set('state', query.state);
+    if (query.deadLetter) params = params.set('deadLetter', 'true');
+    else if (query.state) params = params.set('state', query.state);
     if (query.search?.trim()) params = params.set('search', query.search.trim());
     params = params.set('page', String(query.page ?? 1));
     params = params.set('pageSize', String(query.pageSize ?? 25));
@@ -232,4 +269,171 @@ export class QuickBooksIntegrationService {
   lookupStatus(kind: SyncKind, externalIds: string[]): Observable<StatusLookupResult> {
     return this.http.post<QboApiResponse<StatusLookupResult>>(`${this.base}/status/lookup`, { kind, externalIds }).pipe(unwrap());
   }
+
+  // ══ Addendum 44 (API-CONTRACT §4, CTRL) ═══════════════════════════════════════════════════
+
+  // ── Dead letter (D-11) & unlink (D-17) ─────────────────────────────────────────────────────
+
+  /** Queues every Failed / NeedsResolution record again (of one kind, or all). */
+  retryFailed(kind?: SyncKind | null): Observable<RetryFailedResult> {
+    return this.http.post<QboApiResponse<RetryFailedResult>>(`${this.base}/sync/items/retry-failed`, kind ? { kind } : {}).pipe(unwrap());
+  }
+
+  /** Dismisses a dead-letter record: it is not tried again. */
+  skipSyncItem(itemId: string): Observable<SyncItemModel> {
+    return this.http.post<QboApiResponse<SyncItemModel>>(
+      `${this.base}/sync/items/${encodeURIComponent(itemId)}/skip`, {}).pipe(unwrap());
+  }
+
+  /** Forgets the link to the QuickBooks record (kept in QuickBooks). 409 while documents synced against it are open. */
+  unlinkSyncItem(itemId: string): Observable<SyncItemModel> {
+    return this.http.post<QboApiResponse<SyncItemModel>>(
+      `${this.base}/sync/items/${encodeURIComponent(itemId)}/unlink`, {}).pipe(unwrap());
+  }
+
+  // ── Sync control (D-14) ────────────────────────────────────────────────────────────────────
+
+  getSyncControl(): Observable<SyncControlRowModel[]> {
+    return this.http.get<QboApiResponse<SyncControlRowModel[] | { rows: SyncControlRowModel[] }>>(`${this.base}/sync-control`)
+      .pipe(unwrap(), map(r => listOf<SyncControlRowModel>(r, 'rows')));
+  }
+
+  updateSyncControl(documentType: SyncControlDocumentType, body: UpdateSyncControlRequest): Observable<UpdateSyncControlResult> {
+    return this.http.put<QboApiResponse<UpdateSyncControlResult | SyncControlRowModel>>(
+      `${this.base}/sync-control/${encodeURIComponent(documentType)}`, body).pipe(
+        unwrap(),
+        // { row, released } per the contract; a bare row is accepted too.
+        map(r => (r && 'row' in r ? r : { row: r as SyncControlRowModel, released: 0 })));
+  }
+
+  releaseHeld(documentType: SyncControlDocumentType): Observable<ReleaseHeldResult> {
+    return this.http.post<QboApiResponse<ReleaseHeldResult>>(
+      `${this.base}/sync-control/${encodeURIComponent(documentType)}/release`, {}).pipe(unwrap());
+  }
+
+  // ── Provider defaults & overrides (D-15) ───────────────────────────────────────────────────
+
+  getProviderDefaults(): Observable<ProviderDefaultsModel> {
+    return this.http.get<QboApiResponse<ProviderDefaultsModel>>(`${this.base}/provider-defaults`).pipe(unwrap(), map(normaliseDefaults));
+  }
+
+  /** Saves the values sent (null / empty removes one); answers the whole screen again. */
+  saveProviderDefaults(body: SaveProviderDefaultsRequest): Observable<ProviderDefaultsModel> {
+    return this.http.put<QboApiResponse<ProviderDefaultsModel>>(`${this.base}/provider-defaults`, body).pipe(unwrap(), map(normaliseDefaults));
+  }
+
+  getDocumentOverrides(): Observable<DocumentOverrideModel[]> {
+    return this.http.get<QboApiResponse<DocumentOverrideModel[] | { overrides: DocumentOverrideModel[] }>>(`${this.base}/document-overrides`)
+      .pipe(unwrap(), map(r => listOf<DocumentOverrideModel>(r, 'overrides')));
+  }
+
+  saveDocumentOverrides(body: SaveDocumentOverridesRequest): Observable<DocumentOverrideModel[]> {
+    return this.http.put<QboApiResponse<DocumentOverrideModel[] | { overrides: DocumentOverrideModel[] }>>(`${this.base}/document-overrides`, body)
+      .pipe(unwrap(), map(r => listOf<DocumentOverrideModel>(r, 'overrides')));
+  }
+
+  // ── Account mapping (D-16) ─────────────────────────────────────────────────────────────────
+
+  getAccountMappings(): Observable<AccountMappingsModel> {
+    return this.http.get<QboApiResponse<AccountMappingsModel>>(`${this.base}/accounts`).pipe(unwrap(), map(normaliseAccounts));
+  }
+
+  /** By AcctNum, then exact name, then normalised name; only unmapped accounts unless `overwrite`. */
+  autoMapAccounts(body: AutoMapAccountsRequest = {}): Observable<AutoMapAccountsResult> {
+    return this.http.post<QboApiResponse<AutoMapAccountsResult>>(`${this.base}/accounts/auto-map`, body).pipe(
+      unwrap(), map(r => ({ ...r, accounts: r?.accounts ? normaliseAccounts(r.accounts) : null })));
+  }
+
+  saveAccountMappings(body: SaveAccountMappingsRequest): Observable<AccountMappingsModel> {
+    return this.http.put<QboApiResponse<AccountMappingsModel>>(`${this.base}/accounts`, body).pipe(unwrap(), map(normaliseAccounts));
+  }
+
+  // ── Tax import (D-18) ──────────────────────────────────────────────────────────────────────
+
+  importTaxMappings(): Observable<TaxImportResultModel> {
+    return this.http.post<QboApiResponse<TaxImportResultModel>>(`${this.base}/tax-mappings/import`, {}).pipe(unwrap());
+  }
+
+  // ── Remote-only entities (D-17) ────────────────────────────────────────────────────────────
+
+  importRemote(kind: MatchKind): Observable<RemoteImportResultModel> {
+    return this.http.post<QboApiResponse<RemoteImportResultModel>>(`${this.base}/matching/${kind}/import`, {}).pipe(unwrap());
+  }
+
+  /** The imported QuickBooks records; `linked=false` gives only those not linked to an SCM record. */
+  getRemote(kind: MatchKind, linked: boolean | null = false, pageSize = 200): Observable<RemoteEntityModel[]> {
+    let params = new HttpParams();
+    if (linked !== null) params = params.set('linked', String(linked));
+    // Paged on the server (default 50): the page lists up to this many, then the search narrows it.
+    params = params.set('page', '1').set('pageSize', String(pageSize));
+    return this.http.get<QboApiResponse<RemoteEntityModel[] | QboPage<RemoteEntityModel>>>(`${this.base}/matching/${kind}/remote`, { params })
+      .pipe(unwrap(), map(r => listOf<RemoteEntityModel>(r, 'data')));
+  }
+
+  linkRemote(kind: MatchKind, remoteId: string, body: LinkRemoteRequest): Observable<unknown> {
+    return this.http.post<QboApiResponse<unknown>>(
+      `${this.base}/matching/${kind}/remote/${encodeURIComponent(remoteId)}/link`, body).pipe(unwrap());
+  }
+
+  // ── QuickBooks logs (D-34) ─────────────────────────────────────────────────────────────────
+
+  /** Every call to QuickBooks, newest first; failedOnly is sent explicitly (the server's default is true). */
+  getCallLog(query: SyncLogQuery = {}): Observable<QboPage<SyncLogItemModel>> {
+    let params = new HttpParams().set('failedOnly', String(query.failedOnly ?? true));
+    // D-69a / QA-7 — the server defaults to true: sent explicitly both ways (false = the full history).
+    params = params.set('unresolvedOnly', String(query.unresolvedOnly ?? true));
+    if (query.kind) params = params.set('kind', query.kind);
+    if (query.operation) params = params.set('operation', query.operation);
+    if (query.outcome) params = params.set('outcome', query.outcome);
+    if (query.from) params = params.set('from', query.from);
+    if (query.to) params = params.set('to', query.to);
+    if (query.search?.trim()) params = params.set('search', query.search.trim());
+    params = params.set('page', String(query.page ?? 1)).set('pageSize', String(query.pageSize ?? 50));
+    return this.http.get<QboApiResponse<QboPage<SyncLogItemModel>>>(`${this.base}/sync/log`, { params }).pipe(unwrap());
+  }
+
+  /** One call with its redacted request / response bodies. */
+  getCallLogEntry(id: string): Observable<SyncLogItemModel> {
+    return this.http.get<QboApiResponse<SyncLogItemModel>>(`${this.base}/sync/log/${encodeURIComponent(id)}`).pipe(unwrap());
+  }
+
+  // ── Coverage & validation (D-27) ───────────────────────────────────────────────────────────
+
+  getCoverage(): Observable<CoverageModel> {
+    return this.http.get<QboApiResponse<CoverageModel>>(`${this.base}/coverage`).pipe(unwrap(), map(c => ({
+      ...c,
+      ready: !!c?.ready,
+      entities: c?.entities ?? [],
+      blockingIssues: c?.blockingIssues ?? [],
+      warnings: c?.warnings ?? []
+    })));
+  }
+}
+
+function normaliseDefaults(d: ProviderDefaultsModel | ProviderDefaultModel[]): ProviderDefaultsModel {
+  if (Array.isArray(d)) return { defaults: d };
+  return { ...d, defaults: d?.defaults ?? [] };
+}
+
+/** An array, or the array under `key` of an object (the contract left the wrapping open). */
+export function listOf<T>(value: unknown, key: string): T[] {
+  if (Array.isArray(value)) return value as T[];
+  const inner = (value as Record<string, unknown> | null | undefined)?.[key];
+  if (Array.isArray(inner)) return inner as T[];
+  const items = (value as Record<string, unknown> | null | undefined)?.['items'];
+  return Array.isArray(items) ? items as T[] : [];
+}
+
+function normaliseAccounts(a: AccountMappingsModel): AccountMappingsModel {
+  const accounts: AccountMappingRowModel[] = a?.accounts ?? [];
+  return {
+    ...a,
+    glAvailable: a?.glAvailable ?? accounts.length > 0,
+    accounts,
+    qboAccounts: a?.qboAccounts ?? [],
+    totalAccounts: a?.totalAccounts ?? accounts.length,
+    mapped: a?.mapped ?? accounts.filter(r => !!r.qboAccountId).length,
+    unmapped: a?.unmapped ?? accounts.filter(r => !r.qboAccountId).length,
+    invalid: a?.invalid ?? accounts.filter(r => r.status === 'Invalid').length
+  };
 }

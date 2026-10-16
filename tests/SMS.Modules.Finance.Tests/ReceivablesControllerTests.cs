@@ -43,7 +43,7 @@ public class ReceivablesControllerTests
     public void The_controllers_and_their_actions_are_actually_found()
     {
         // Guards the guard: a reflection query that silently matches nothing passes every assertion below.
-        Controllers.SelectMany(ActionsOf).Should().HaveCount(14);
+        Controllers.SelectMany(ActionsOf).Should().HaveCount(15, "A44 QA-6 added POST customer-payments/{uuid}/bounce");
     }
 
     [Fact]
@@ -138,6 +138,7 @@ public class ReceivablesControllerTests
             "GET api/customer-payments",
             "GET api/customer-payments/{uuid:guid}",
             "POST api/customer-payments/{uuid:guid}/allocate",
+            "POST api/customer-payments/{uuid:guid}/bounce",
             "GET api/partners/{partnerId:guid}/ledger",
         ]);
     }

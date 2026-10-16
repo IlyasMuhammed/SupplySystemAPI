@@ -24,6 +24,22 @@ export const glFeatureGuard: CanActivateFn = (): boolean | UrlTree | Observable<
 };
 
 /**
+ * A44 (D-10, D-80) — the Posting page serves both targets: it opens with FEATURE_GENERAL_LEDGER **or** MODULE_INTEGRATION
+ * (an organization that only sends to QuickBooks still has a posting log). Neither → access denied.
+ */
+export const POSTING_FEATURES = [FEATURE_GENERAL_LEDGER, 'MODULE_INTEGRATION'];
+
+export const postingFeatureGuard: CanActivateFn = (): boolean | UrlTree | Observable<boolean | UrlTree> => {
+  const tenant = inject(TenantService);
+  const modules = inject(ModuleService, { optional: true });
+  const router = inject(Router);
+  const on = (code: string) => modules ? modules.isFeatureEnabled(code) : tenant.hasFeature(code);
+  const decide = () => (tenant.isSuperAdmin() || POSTING_FEATURES.some(on)) ? true : router.createUrlTree(['/portal/access-denied']);
+  if (tenant.tenant()) return decide();
+  return tenant.loadCurrent().pipe(map(() => decide()), catchError(() => of(router.createUrlTree(['/portal/access-denied']))));
+};
+
+/**
  * D-4 — the GL dashboard opens only once setup is Complete; otherwise the wizard, with a banner naming the next step
  * (`?gate=1&next=<step>`). A failed status read lets the page open (it shows its own error / the API's 403 redirect).
  */

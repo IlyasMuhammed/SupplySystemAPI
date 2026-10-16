@@ -1,8 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using SMS.Modules.Integration.Auth;
-using SMS.Modules.Integration.Configuration;
 using SMS.Modules.Integration.Core.Logging;
 using SMS.Modules.Integration.Core.Providers;
 using SMS.Modules.Integration.Core.Reference;
@@ -61,14 +59,17 @@ internal sealed class OAuthCallbackService : IQuickBooksCallbackService
     private readonly IEnumerable<IAccountingAuthProvider> _authProviders;
     private readonly IReferenceDataStore                  _reference;
     private readonly ITenantSnapshotProvider              _snapshots;
-    private readonly QuickBooksOptions                    _options;
+    private readonly IQuickBooksAppResolver               _apps;
     private readonly IServiceProvider                     _services;
     private readonly ILogger<OAuthCallbackService>        _logger;
+
+    /// <summary>Where the browser goes back to (D-5), read once per callback.</summary>
+    private string _returnUrl = "/";
 
     public OAuthCallbackService(
         IntegrationDbContext db, IConnectionAccessor accessor, IOAuthStateService states, ICredentialVault vault,
         IEnumerable<IAccountingAuthProvider> authProviders, IReferenceDataStore reference, ITenantSnapshotProvider snapshots,
-        IOptions<QuickBooksOptions> options, IServiceProvider services, ILogger<OAuthCallbackService> logger)
+        IQuickBooksAppResolver apps, IServiceProvider services, ILogger<OAuthCallbackService> logger)
     {
         _db            = db;
         _accessor      = accessor;
@@ -77,7 +78,7 @@ internal sealed class OAuthCallbackService : IQuickBooksCallbackService
         _authProviders = authProviders;
         _reference     = reference;
         _snapshots     = snapshots;
-        _options       = options.Value;
+        _apps          = apps;
         _services      = services;
         _logger        = logger;
     }
@@ -85,6 +86,15 @@ internal sealed class OAuthCallbackService : IQuickBooksCallbackService
     public async Task<string> HandleCallbackAsync(
         string? code, string? state, string? realmId, string? error, CancellationToken ct = default)
     {
+        try
+        {
+            _returnUrl = await _apps.FrontendReturnUrlAsync(ct) ?? "/";
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError("The QuickBooks return page could not be read ({ErrorType}); returning to /.", ex.GetType().Name);
+        }
+
         try
         {
             var redemption = await _states.RedeemAsync(state, ct: ct);
@@ -134,9 +144,12 @@ internal sealed class OAuthCallbackService : IQuickBooksCallbackService
             return Error(IsAccessDenied(error) ? CallbackReasons.AccessDenied : CallbackReasons.ExchangeFailed);
         }
 
-        if (!_options.IsConfigured)
+        // D-3: exactly the app the consent URL was built with — the code was issued to it.
+        var app = await _apps.ByClientIdAsync(redemption.OrganizationId, redemption.AppClientId, ct);
+        if (app is null)
         {
-            await AbandonAsync(connection, redemption.UserId, "QuickBooks app keys are not configured on the server.", ct);
+            await AbandonAsync(connection, redemption.UserId,
+                "The QuickBooks app keys this connection was started with are no longer stored. Press Connect again.", ct);
             return Error(CallbackReasons.NotConfigured);
         }
 
@@ -215,7 +228,7 @@ internal sealed class OAuthCallbackService : IQuickBooksCallbackService
         TokenGrant grant;
         try
         {
-            grant = await AuthProvider(connection.ProviderKey).ExchangeCodeAsync(code.Trim(), ct);
+            grant = await AuthProvider(connection.ProviderKey).ExchangeCodeAsync(app, code.Trim(), ct);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -236,7 +249,7 @@ internal sealed class OAuthCallbackService : IQuickBooksCallbackService
         var status = settings.MatchingConfirmedAt is not null ? ConnectionStatus.Live : ConnectionStatus.NeedsSetup;
 
         IntegrationAudit.Add(_db, connection.Id, AuditAreas.Connection, "Connected", before,
-            new { Status = status.ToString(), RealmId = realmId, Environment = EnvironmentFromOptions().ToString() },
+            new { Status = status.ToString(), RealmId = realmId, Environment = app.Environment.ToString(), AppSource = app.Source.ToString(), app.ClientId },
             redemption.UserId, redemption.OrganizationId);
 
         await ConnectionPersistence.SaveWithRetryAsync(_db, connection, c =>
@@ -252,7 +265,10 @@ internal sealed class OAuthCallbackService : IQuickBooksCallbackService
 
             _vault.Store(c, grant);
             c.RealmId           = realmId;
-            c.Environment       = EnvironmentFromOptions();
+            c.Environment       = app.Environment;
+            // D-3: refresh and revoke must use the app these tokens were issued to.
+            c.AppClientId       = app.ClientId;
+            c.AppSource         = app.Source;
             c.Status            = status;
             c.ConnectedByUserId = redemption.UserId;
             c.ConnectedAt       = now;
@@ -344,9 +360,6 @@ internal sealed class OAuthCallbackService : IQuickBooksCallbackService
         }, ct);
     }
 
-    private IntegrationEnvironment EnvironmentFromOptions() =>
-        _options.IsProduction ? IntegrationEnvironment.Production : IntegrationEnvironment.Sandbox;
-
     private IAccountingAuthProvider AuthProvider(string providerKey) =>
         _authProviders.FirstOrDefault(p => string.Equals(p.ProviderKey, providerKey, StringComparison.OrdinalIgnoreCase))
         ?? throw new AccountingAuthException($"No OAuth provider is registered for '{providerKey}'.");
@@ -362,7 +375,7 @@ internal sealed class OAuthCallbackService : IQuickBooksCallbackService
 
     private string Redirect(string query)
     {
-        var target = string.IsNullOrWhiteSpace(_options.FrontendReturnUrl) ? "/" : _options.FrontendReturnUrl.Trim();
+        var target = string.IsNullOrWhiteSpace(_returnUrl) ? "/" : _returnUrl.Trim();
         return target + (target.Contains('?') ? "&" : "?") + query;
     }
 }

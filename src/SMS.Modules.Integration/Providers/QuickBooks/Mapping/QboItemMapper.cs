@@ -42,6 +42,13 @@ internal static class QboItemMapper
         return item;
     }
 
+    /// <summary>A44 D-55a: only the income account — the sparse update leaves every other field of the item as it is.</summary>
+    public static Item ToSdk(RemoteItemIncomeAccountFix source)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        return new Item { IncomeAccountRef = Ref(source.IncomeAccountId) };
+    }
+
     public static ItemTypeEnum ToSdkType(RemoteItemType type) => type switch
     {
         RemoteItemType.NonInventory => ItemTypeEnum.NonInventory,

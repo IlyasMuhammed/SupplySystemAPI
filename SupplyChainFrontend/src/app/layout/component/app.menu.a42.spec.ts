@@ -49,7 +49,8 @@ function find(items: any[], label: string): any {
 }
 
 const GL = ['MODULE_FINANCE', 'FEATURE_GENERAL_LEDGER'];
-const ITEMS = ['Dashboard', 'Chart of Accounts', 'Fiscal Years', 'Defaults', 'Opening Balances', 'Integrations', 'Setup Status'];
+// A44 D-30 added "Posting".
+const ITEMS = ['Dashboard', 'Chart of Accounts', 'Fiscal Years', 'Defaults', 'Opening Balances', 'Integrations', 'Posting', 'Setup Status'];
 
 /** A42 D-26 — Finance › General Ledger (FEATURE_GENERAL_LEDGER + GL_VIEW); first entry "Set up general ledger" until Complete. */
 describe('AppMenu — A42 General Ledger', () => {
@@ -65,7 +66,7 @@ describe('AppMenu — A42 General Ledger', () => {
         menu = new AppMenu(authService as any, tenantService as any, undefined, accounting as any);
     });
 
-    it('shows the group under Finance with its seven entries for GL_VIEW on a GL tenant', () => {
+    it('shows the group under Finance with its eight entries for GL_VIEW on a GL tenant', () => {
         authService.permissions = ['GL_VIEW'];
         tenantService.tenant.set(tenant(GL));
         const gl = find(find(menu.model(), 'Finance').items, 'General Ledger');

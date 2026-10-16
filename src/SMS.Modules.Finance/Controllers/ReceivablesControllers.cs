@@ -197,6 +197,25 @@ public class CustomerPaymentsController : ControllerBase
         var result = await _svc.AllocateAsync(uuid, req?.Allocations, User.GetUserId());
         return Ok(ApiResponse<CustomerPaymentAllocated>.Ok(result, "Payment applied."));
     }
+
+    /// <summary>
+    /// A44 QA-6 (D-75) — a received cheque the bank returned. The invoices it paid are reopened and the customer's ledger
+    /// is debited back, in one save. After the commit the payment's posting is voided (D-19: the QuickBooks Payment, the
+    /// GL reversal). Rules:
+    /// <list type="bullet">
+    /// <item>A cheque only, else 400.</item>
+    /// <item>RECEIVED only, else 409.</item>
+    /// <item>Another organization's payment, or an unknown one: 404.</item>
+    /// </list>
+    /// The same permission as recording a payment.
+    /// </summary>
+    [HttpPost("{uuid:guid}/bounce")]
+    [RequirePermission(PermissionCodes.CUSTOMER_PAYMENT_RECORD)]
+    public async Task<IActionResult> Bounce(Guid uuid, [FromBody] BounceCustomerPaymentRequest? req)
+    {
+        var result = await _svc.BounceAsync(uuid, req?.Reason, User.GetUserId());
+        return Ok(ApiResponse<CustomerPaymentBounced>.Ok(result, "Cheque marked as bounced; the invoices it paid are open again."));
+    }
 }
 
 // ── Customer ledger ───────────────────────────────────────────────────────────

@@ -28,6 +28,7 @@ internal static class QboBillMapper
             GlobalTaxCalculation          = GlobalTaxCalculationEnum.TaxExcluded,
             GlobalTaxCalculationSpecified = true,
             PrivateNote                   = Value(source.PrivateNote),
+            DepartmentRef                 = Ref(source.DepartmentId),
             Line                          = source.Lines.Select(ToLine).ToArray()
         };
 
@@ -46,7 +47,7 @@ internal static class QboBillMapper
         return bill;
     }
 
-    private static Line ToLine(RemoteBillLine source)
+    internal static Line ToLine(RemoteBillLine source)
     {
         var line = new Line
         {
@@ -60,7 +61,8 @@ internal static class QboBillMapper
             var detail = new ItemBasedExpenseLineDetail
             {
                 ItemRef    = Ref(source.ItemId),
-                TaxCodeRef = Ref(source.TaxCodeId)
+                TaxCodeRef = Ref(source.TaxCodeId),
+                ClassRef   = Ref(source.ClassId)
             };
             if (source.Quantity is { } qty)
             {
@@ -83,7 +85,8 @@ internal static class QboBillMapper
             line.AnyIntuitObject     = new AccountBasedExpenseLineDetail
             {
                 AccountRef = Ref(source.AccountId),
-                TaxCodeRef = Ref(source.TaxCodeId)
+                TaxCodeRef = Ref(source.TaxCodeId),
+                ClassRef   = Ref(source.ClassId)
             };
         }
         return line;

@@ -43,14 +43,18 @@ internal sealed partial class PayloadValidator : IPayloadValidator
     private readonly IRemoteNameResolver   _names;
     private readonly ICurrencyRules        _currency;
     private readonly IBaseCurrencyResolver? _baseCurrency;
+    private readonly IDocumentDefaultsSource? _defaults;
 
     /// <param name="baseCurrency">A35 D-19 — the organization's purchase base, for the bill rule. Optional: without it no bill is refused for it.</param>
-    public PayloadValidator(IntegrationDbContext db, IRemoteNameResolver names, ICurrencyRules currency, IBaseCurrencyResolver? baseCurrency = null)
+    /// <param name="defaults">A44 D-15 provider defaults (bill-payment bank accounts). Optional.</param>
+    public PayloadValidator(IntegrationDbContext db, IRemoteNameResolver names, ICurrencyRules currency, IBaseCurrencyResolver? baseCurrency = null,
+                            IDocumentDefaultsSource? defaults = null)
     {
         _db           = db;
         _names        = names;
         _currency     = currency;
         _baseCurrency = baseCurrency;
+        _defaults     = defaults;
     }
 
     [GeneratedRegex(@"^[^@\s]+@[^@\s]+\.[^@\s]+$")]
@@ -76,10 +80,256 @@ internal sealed partial class PayloadValidator : IPayloadValidator
             case SyncKind.Bill:
                 await ValidateBillAsync((BillPayload)payload, map, connection, settings, result, ct);
                 break;
+            case SyncKind.Payment:
+                await ValidatePaymentAsync((PaymentPayload)payload, map, connection, result, ct);
+                break;
+            case SyncKind.BillPayment:
+                await ValidateBillPaymentAsync((BillPaymentPayload)payload, map, connection, result, ct);
+                break;
+            case SyncKind.SalesReceipt or SyncKind.CreditMemo or SyncKind.RefundReceipt:
+                await ValidateSalesDocumentAsync(kind, (SalesDocumentPayload)payload, map, connection, settings, result, ct);
+                break;
+            case SyncKind.VendorCredit:
+                await ValidateVendorCreditAsync((VendorCreditPayload)payload, map, connection, settings, result, ct);
+                break;
         }
 
         return result;
     }
+
+    // ── A44: payments (D-19, D-20) ───────────────────────────────────────────
+
+    /// <summary>Error code when a bill payment has no account to be paid from (re-checked when defaults change).</summary>
+    public const string BankAccountMissingCode = "BANK_ACCOUNT_MISSING";
+
+    private async Task ValidatePaymentAsync(
+        PaymentPayload p, EntityMap map, IntegrationConnection connection, PayloadValidationResult r, CancellationToken ct)
+    {
+        CheckDocNumber(p.DocNumber, "payment", r);
+
+        if (string.IsNullOrWhiteSpace(p.CustomerExternalId))
+            r.Error("customerExternalId", "CUSTOMER_REQUIRED", "The payment has no customer. Every QuickBooks payment needs one.");
+
+        CheckMethod(p.Method, "payment", r);
+        CheckPaymentAmounts(p.Amount, (p.Applications ?? []).Select(a => (a.InvoiceExternalId, a.Amount)).ToList(),
+            "payment", "invoice", "invoiceExternalId", r);
+
+        if (await CheckCurrencyAsync(p.CurrencyCode, connection, "currencyCode", "this payment", p.TxnDate, r, ct,
+                (p.ExchangeRate, p.ExchangeRateCurrencyCode)))
+            await CheckPartyCurrencyAsync(SyncKind.Customer, p.CustomerExternalId, p.CurrencyCode, map, connection, r, ct);
+    }
+
+    private async Task ValidateBillPaymentAsync(
+        BillPaymentPayload p, EntityMap map, IntegrationConnection connection, PayloadValidationResult r, CancellationToken ct)
+    {
+        CheckDocNumber(p.DocNumber, "supplier payment", r);
+        await CheckPurchaseBaseAsync(connection, r, ct);
+
+        if (string.IsNullOrWhiteSpace(p.VendorExternalId))
+            r.Error("vendorExternalId", "VENDOR_REQUIRED", "The supplier payment has no supplier. Every QuickBooks bill payment needs a vendor.");
+
+        CheckMethod(p.Method, "supplier payment", r);
+        CheckPaymentAmounts(p.Amount, (p.Applications ?? []).Select(a => (a.BillExternalId, a.Amount)).ToList(),
+            "supplier payment", "supplier invoice", "billExternalId", r);
+
+        // QuickBooks refuses a bill payment without the account it is paid from (BankAccountRef / CCAccountRef).
+        var defaults = await DefaultsAsync(connection, SyncKind.BillPayment, p, ct);
+        if (defaults.BankAccountId(p.Method) is null)
+        {
+            var card = QboObjectBuilder.PayTypeOf(p.Method) == Core.Providers.RemoteBillPayType.CreditCard;
+            r.Error("method", BankAccountMissingCode,
+                $"QuickBooks needs the {(card ? "credit-card" : "bank")} account a {p.Method?.Trim().ToUpperInvariant()} supplier payment is paid from, " +
+                "and none is chosen. Choose it under QuickBooks Integration → Defaults (bank account per payment method), or map " +
+                "DEFAULT_BANK / DEFAULT_CASH under Accounts; this payment is then checked again and sent by itself.");
+        }
+
+        if (await CheckCurrencyAsync(p.CurrencyCode, connection, "currencyCode", "this supplier payment", p.TxnDate, r, ct,
+                (p.ExchangeRate, p.ExchangeRateCurrencyCode)))
+            await CheckPartyCurrencyAsync(SyncKind.Vendor, p.VendorExternalId, p.CurrencyCode, map, connection, r, ct);
+    }
+
+    private static void CheckMethod(string? method, string what, PayloadValidationResult r)
+    {
+        var code = method?.Trim().ToUpperInvariant();
+        if (code is null || !PaymentMethodCodes.All.Contains(code))
+            r.Error("method", "PAYMENT_METHOD_INVALID",
+                $"The {what}'s method '{method}' is not one QuickBooks payments are sent with ({string.Join(", ", PaymentMethodCodes.All)}). " +
+                "Store-credit and exchange tenders move no money and are not sent.");
+    }
+
+    private static void CheckPaymentAmounts(
+        decimal amount, IReadOnlyList<(string? Id, decimal Amount)> applications, string what, string target, string field,
+        PayloadValidationResult r)
+    {
+        if (amount <= 0)
+            r.Error("amount", "AMOUNT_INVALID", $"The {what} amount is {SyncPayloads.Amount(amount)}; it must be more than zero.");
+
+        for (var i = 0; i < applications.Count; i++)
+        {
+            if (string.IsNullOrWhiteSpace(applications[i].Id))
+                r.Error($"applications[{i}].{field}", "APPLICATION_TARGET_REQUIRED", $"Allocation {i + 1} of the {what} names no {target}.");
+            if (applications[i].Amount < 0)
+                r.Error($"applications[{i}].amount", "APPLICATION_AMOUNT_INVALID",
+                    $"Allocation {i + 1} of the {what} is negative ({SyncPayloads.Amount(applications[i].Amount)}).");
+        }
+
+        var applied = applications.Sum(a => a.Amount);
+        if (applied - amount > Tolerance)
+            r.Error("applications", "APPLICATIONS_EXCEED_AMOUNT",
+                $"The {what} allocates {SyncPayloads.Amount(applied)} to {target}s but is only {SyncPayloads.Amount(amount)}. " +
+                "QuickBooks cannot apply more than was paid — correct the allocations.");
+    }
+
+    // ── A44: sales receipt / credit memo / refund receipt (D-21, D-23) ───────
+
+    private async Task ValidateSalesDocumentAsync(
+        SyncKind kind, SalesDocumentPayload p, EntityMap map, IntegrationConnection connection, IntegrationSettings settings,
+        PayloadValidationResult r, CancellationToken ct)
+    {
+        var what = kind switch { SyncKind.SalesReceipt => "sales receipt", SyncKind.CreditMemo => "credit note", _ => "refund" };
+        CheckDocNumber(p.DocNumber, what, r);
+
+        switch (p)
+        {
+            case SalesReceiptPayload receipt: CheckMethod(receipt.Method, what, r); break;
+            case RefundReceiptPayload refund: CheckMethod(refund.Method, what, r); break;
+            case CreditMemoPayload { ApplyToOriginal: true } memo when string.IsNullOrWhiteSpace(memo.OriginalInvoiceExternalId):
+                r.Error("originalInvoiceExternalId", "ORIGINAL_INVOICE_REQUIRED",
+                    "The credit note is to be applied to its original invoice, but names none.");
+                break;
+        }
+
+        // A walk-in document goes under the walk-in customer (or the POS default customer), whose currency is the home one.
+        if (await CheckCurrencyAsync(p.CurrencyCode, connection, "currencyCode", $"this {what}", p.TxnDate, r, ct,
+                (p.ExchangeRate, p.ExchangeRateCurrencyCode))
+            && !string.IsNullOrWhiteSpace(p.CustomerExternalId))
+            await CheckPartyCurrencyAsync(SyncKind.Customer, p.CustomerExternalId, p.CurrencyCode, map, connection, r, ct);
+
+        var lines = p.Lines ?? [];
+        if (lines.Count == 0)
+        {
+            r.Error("lines", "LINES_REQUIRED", $"The {what} has no lines. QuickBooks refuses an empty one.");
+            return;
+        }
+
+        for (var i = 0; i < lines.Count; i++)
+        {
+            var line  = lines[i];
+            var label = LineLabel(line.LineNo, i);
+            var field = $"lines[{i}]";
+
+            if (string.IsNullOrWhiteSpace(line.ItemExternalId))
+                r.Error($"{field}.itemExternalId", "LINE_ITEM_REQUIRED", $"{label} has no product. QuickBooks lines must name an item.");
+            if (line.Quantity <= 0)
+                r.Error($"{field}.quantity", "LINE_QUANTITY_INVALID", $"{label} has quantity {line.Quantity}; it must be more than zero.");
+            if (line.UnitPrice < 0)
+                r.Error($"{field}.unitPrice", "LINE_PRICE_INVALID", $"{label} has a negative unit price ({line.UnitPrice}).");
+            if (line.DiscountPercent is < 0 or > 100)
+                r.Error($"{field}.discountPercent", "LINE_DISCOUNT_INVALID",
+                    $"{label} has a discount of {line.DiscountPercent}%; it must be between 0 and 100.");
+        }
+
+        if (p.HeaderDiscountAmount < 0)
+            r.Error("headerDiscountAmount", "DISCOUNT_INVALID",
+                $"The {what} discount is negative ({SyncPayloads.Amount(p.HeaderDiscountAmount)}). It must be zero or more.");
+
+        await CheckTaxAsync(connection, lines.Select(l => (l.TaxCode, (decimal?)l.TaxPercent)), r, ct);
+        await CheckSaleableAsync(kind, p, map, connection, settings, lines.Select(l => l.ItemExternalId), r, ct);
+
+        var math = InvoiceMath.Of(p);
+        if (!math.AddsUp(p.ExpectedTotal))
+            r.Error("expectedTotal", "TOTAL_MISMATCH",
+                $"The {what} adds up to {SyncPayloads.Amount(math.ComputedTotal)} (subtotal {SyncPayloads.Amount(math.Subtotal)}, " +
+                $"less discounts {SyncPayloads.Amount(math.Discount)}, plus tax {SyncPayloads.Amount(p.ExpectedTaxAmount)}), " +
+                $"but its total is {SyncPayloads.Amount(p.ExpectedTotal)}. Nothing is sent until they agree.");
+
+        if (math.DiscountLine > 0 && string.IsNullOrWhiteSpace(settings.DiscountAccountId))
+            r.Error("settings.discountAccountId", "SETTINGS_ACCOUNT_MISSING",
+                $"This {what} has a discount, and QuickBooks posts discounts to an account that is not chosen yet. " +
+                "Choose the discount account under QuickBooks Integration → Mappings.");
+    }
+
+    // ── A44: vendor credit (D-24) ────────────────────────────────────────────
+
+    private async Task ValidateVendorCreditAsync(
+        VendorCreditPayload p, EntityMap map, IntegrationConnection connection, IntegrationSettings settings,
+        PayloadValidationResult r, CancellationToken ct)
+    {
+        var what = p.SourceKind == VendorCreditSources.DebitNote ? "debit note" : "supplier credit note";
+        CheckDocNumber(p.DocNumber, what, r);
+        await CheckPurchaseBaseAsync(connection, r, ct);
+
+        if (string.IsNullOrWhiteSpace(p.VendorExternalId))
+            r.Error("vendorExternalId", "VENDOR_REQUIRED", $"The {what} has no supplier. Every QuickBooks vendor credit needs a vendor.");
+
+        if (await CheckCurrencyAsync(p.CurrencyCode, connection, "currencyCode", $"this {what}", p.TxnDate, r, ct,
+                (p.ExchangeRate, p.ExchangeRateCurrencyCode)))
+            await CheckPartyCurrencyAsync(SyncKind.Vendor, p.VendorExternalId, p.CurrencyCode, map, connection, r, ct);
+
+        var lines = p.Lines ?? [];
+        if (lines.Count == 0)
+        {
+            r.Error("lines", "LINES_REQUIRED", $"The {what} has no lines. QuickBooks refuses an empty vendor credit.");
+            return;
+        }
+
+        var defaults = await DefaultsAsync(connection, SyncKind.VendorCredit, p, ct);
+        var expense  = settings.DefaultExpenseAccountId ?? defaults.MappedAccount("DEFAULT_PURCHASE");
+        decimal sum = 0m;
+        var needsFreight = false;
+        var needsExpense = false;
+
+        for (var i = 0; i < lines.Count; i++)
+        {
+            var line = lines[i];
+            if (line.Amount < 0)
+                r.Error($"lines[{i}].amount", "LINE_AMOUNT_INVALID",
+                    $"{LineLabel(line.LineNo, i)} has a negative amount ({SyncPayloads.Amount(line.Amount)}). A vendor credit's lines are positive.");
+            if (string.IsNullOrWhiteSpace(line.ItemExternalId))
+            {
+                if (line.Category == BillLineCategory.Freight) needsFreight = true;
+                else needsExpense = true;
+            }
+            sum += line.Amount;
+        }
+
+        if (needsFreight && string.IsNullOrWhiteSpace(settings.FreightExpenseAccountId) && string.IsNullOrWhiteSpace(expense))
+            r.Error("settings.freightExpenseAccountId", "SETTINGS_ACCOUNT_MISSING",
+                $"This {what} has freight, and the freight expense account is not chosen yet. Choose it under QuickBooks Integration → Mappings.");
+        if (needsExpense && string.IsNullOrWhiteSpace(expense))
+            r.Error("settings.defaultExpenseAccountId", "SETTINGS_ACCOUNT_MISSING",
+                $"This {what} has lines without a product, which QuickBooks posts to the default expense account — and none is chosen yet. " +
+                "Choose it under QuickBooks Integration → Mappings (or map DEFAULT_PURCHASE under Accounts).");
+
+        await CheckTaxAsync(connection, lines.Select(l => (l.TaxCode, l.TaxPercent)), r, ct);
+
+        var computed   = sum + p.ExpectedTaxAmount;
+        var difference = Math.Abs(computed - p.ExpectedTotal);
+        if (difference > BillTolerance(lines.Count))
+            r.Error("expectedTotal", "TOTAL_MISMATCH",
+                $"The lines add up to {SyncPayloads.Amount(computed)} (lines {SyncPayloads.Amount(sum)} plus tax " +
+                $"{SyncPayloads.Amount(p.ExpectedTaxAmount)}), but the {what} total is {SyncPayloads.Amount(p.ExpectedTotal)}. Nothing is sent until they agree.");
+    }
+
+    /// <summary>
+    /// A44 D-55a (QA-1): a sales document using a product SCM sends as not for sale needs an income account to give its
+    /// QuickBooks item (the executor adds it before sending). None configured → refused, re-checked when settings or the
+    /// account mappings change.
+    /// </summary>
+    private async Task CheckSaleableAsync(
+        SyncKind kind, object payload, EntityMap map, IntegrationConnection connection, IntegrationSettings settings,
+        IEnumerable<string?> itemIds, PayloadValidationResult r, CancellationToken ct)
+    {
+        var notForSale = await SaleableItems.NotForSaleAsync(_db, map, itemIds, ct);
+        if (notForSale.Count == 0) return;
+        if (SaleableItems.IncomeAccount(settings, await DefaultsAsync(connection, kind, payload, ct)) is not null) return;
+
+        foreach (var item in notForSale)
+            r.Error("lines.itemExternalId", SaleableItems.NotSaleableCode, SaleableItems.NotSaleableMessage(item.Label));
+    }
+
+    private async Task<DocumentDefaults> DefaultsAsync(IntegrationConnection connection, SyncKind kind, object payload, CancellationToken ct) =>
+        _defaults is null ? DocumentDefaults.None : await _defaults.GetAsync(connection.Id, SyncHolds.TypeOf(kind, payload), ct);
 
     // ── Customer / Vendor ────────────────────────────────────────────────────
 
@@ -110,17 +360,29 @@ internal sealed partial class PayloadValidator : IPayloadValidator
                     $"'{email}' is not a valid email address, and QuickBooks refuses invalid ones. Correct or clear it on the {what}.");
         }
 
+        // QuickBooks refuses the whole record for a malformed website; a bad one is left off instead (PartyWebsite).
+        if (PartyWebsite.IsDropped(p.Website))
+            r.Warnings.Add(
+                $"The website '{p.Website!.Trim()}' is not a valid web address, so the {what} is sent without it. " +
+                $"Correct it on the {what} (for example www.example.com).");
+
         await CheckCurrencyAsync(p.CurrencyCode, connection, "currencyCode", $"this {what}", documentDate: null, r, ct);
 
         if (!string.IsNullOrWhiteSpace(p.PaymentTermExternalId))
         {
             var termId = p.PaymentTermExternalId.Trim();
-            var mapped = await _db.PaymentTermMappings.AnyAsync(
-                t => t.ConnectionId == connection.Id && t.PaymentTermExternalId == termId && t.QboTermId != "", ct);
-            if (!mapped)
+            var term = await _db.PaymentTermMappings
+                .Where(t => t.ConnectionId == connection.Id && t.PaymentTermExternalId == termId)
+                .Select(t => new { t.QboTermId, t.PaymentTermName })
+                .FirstOrDefaultAsync(ct);
+            if (term is null || string.IsNullOrEmpty(term.QboTermId))
+            {
+                // The term's name when the mappings screen has seen it; its id only as a last resort.
+                var label = string.IsNullOrWhiteSpace(term?.PaymentTermName) ? termId : term.PaymentTermName.Trim();
                 r.Warnings.Add(
-                    $"Payment term '{termId}' is not mapped to a QuickBooks term, so the {what} is sent without one. " +
+                    $"Payment term '{label}' is not mapped to a QuickBooks term, so the {what} is sent without one. " +
                     "Map it under QuickBooks Integration → Mappings → Payment terms.");
+            }
         }
     }
 
@@ -209,6 +471,7 @@ internal sealed partial class PayloadValidator : IPayloadValidator
 
         // Plan S-11: a line with a tax code needs that code mapped; a line without one, its rate.
         await CheckTaxAsync(connection, lines.Select(l => (l.TaxCode, (decimal?)l.TaxPercent)), r, ct);
+        await CheckSaleableAsync(SyncKind.SalesInvoice, p, map, connection, settings, lines.Select(l => l.ItemExternalId), r, ct);
 
         // Checked the way the caller totals an invoice: rounded once over the whole invoice.
         var math = InvoiceMath.Of(p);

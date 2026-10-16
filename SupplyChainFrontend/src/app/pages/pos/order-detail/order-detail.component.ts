@@ -25,6 +25,12 @@ import {
 import { AuthService } from '../../service/auth.service';
 import { ModuleService } from '../../../services/module.service';
 import { FLOW, FlowSection, flowLabel, flowTone } from '../../../shared/flow';
+import { QboSyncBadgeComponent } from '../../../shared/components/qbo-sync-badge/qbo-sync-badge.component';
+import { SyncKind } from '../../../models/quickbooks-integration.models';
+
+/** A44 D-21 / D-23 — the other kinds a POS sale / its credit note may have been sent to QuickBooks as. */
+const QBO_SALE_ALSO: SyncKind[] = ['SalesReceipt'];
+const QBO_RETURN_ALSO: SyncKind[] = ['RefundReceipt'];
 
 export interface ReturnLineInput {
   line: PosOrderLine;
@@ -106,7 +112,7 @@ const DAY = 24 * 60 * 60 * 1000;
   standalone: true,
   imports: [
     CommonModule, RouterModule, FormsModule, ButtonModule, DialogModule, DropdownModule, InputNumberModule, InputTextModule, TableModule,
-    TextareaModule, ToastModule, TooltipModule, ...FLOW
+    TextareaModule, ToastModule, TooltipModule, QboSyncBadgeComponent, ...FLOW
   ],
   templateUrl: './order-detail.component.html',
   styles: [`
@@ -128,6 +134,9 @@ export class PosOrderDetailComponent implements OnInit {
   private readonly returnsApi = inject(PosReturnsAdminService);
   private readonly auth = inject(AuthService);
   private readonly modules = inject(ModuleService);
+
+  readonly qboSaleAlso = QBO_SALE_ALSO;
+  readonly qboReturnAlso = QBO_RETURN_ALSO;
   private readonly messages = inject(MessageService);
   private readonly destroyRef = inject(DestroyRef);
 

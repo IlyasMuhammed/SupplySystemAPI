@@ -174,6 +174,8 @@ internal sealed class FakeSourceState
     public void Has(ItemPayload p)         => Records[(SyncKind.Item, p.ExternalId)] = p;
     public void Has(SalesInvoicePayload p) => Records[(SyncKind.SalesInvoice, p.ExternalId)] = p;
     public void Has(BillPayload p)         => Records[(SyncKind.Bill, p.ExternalId)] = p;
+    /// <summary>A44: any payload, filed under the kind it is sent as.</summary>
+    public void Has(SyncKind kind, object p) { Records[(kind, ((SMS.Shared.Finance.Posting.IAccountingDocument)p).ExternalId)] = p; if (!Kinds.Contains(kind)) Kinds.Add(kind); }
 }
 
 /// <summary>An SCM source: answers the gateway's requests by calling the gateway back, as the real ones do.</summary>
@@ -220,6 +222,12 @@ internal sealed class FakeQuickBooksSource : IQuickBooksSource
         ItemPayload i         => _gateway.UpsertItemAsync(Clone(i), ct),
         SalesInvoicePayload s => _gateway.UpsertSalesInvoiceAsync(Clone(s), ct),
         BillPayload b         => _gateway.UpsertBillAsync(Clone(b), ct),
+        PaymentPayload p       => _gateway.UpsertPaymentAsync(Clone(p), ct),
+        BillPaymentPayload bp  => _gateway.UpsertBillPaymentAsync(Clone(bp), ct),
+        SalesReceiptPayload r  => _gateway.UpsertSalesReceiptAsync(Clone(r), ct),
+        CreditMemoPayload m    => _gateway.UpsertCreditMemoAsync(Clone(m), ct),
+        RefundReceiptPayload f => _gateway.UpsertRefundReceiptAsync(Clone(f), ct),
+        VendorCreditPayload vc => _gateway.UpsertVendorCreditAsync(Clone(vc), ct),
         _ => throw new ArgumentException(payload.GetType().Name)
     };
 

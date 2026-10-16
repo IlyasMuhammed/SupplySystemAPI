@@ -16,13 +16,14 @@ import { TooltipModule } from 'primeng/tooltip';
 import { ConfirmationService, MessageService } from 'primeng/api';
 
 import {
-  IntegrationSettingsModel, PreflightResultModel, QuickBooksIntegrationService, ResolveAction, SYNC_KINDS, SyncItemModel,
+  BACKFILL_KINDS, IntegrationSettingsModel, PreflightResultModel, QuickBooksIntegrationService, ResolveAction, SYNC_KINDS, SyncItemModel,
   SyncKind, SyncKindSummaryModel, SyncLogModel, SyncMode, SyncState, SyncSummaryModel, qboErrorMessage
 } from '../../../../services/quickbooks-integration.service';
 import {
-  KIND_ICON, KIND_LABEL, KIND_PLURAL, Option, STATE_DISPLAY_ORDER, liveBlockers, prettyJson, sourceRoute, stateLabel,
+  KIND_ICON, KIND_LABEL, KIND_PLURAL, Option, STATE_DISPLAY_ORDER, isHeldCode, liveBlockers, prettyJson, sourceRoute, stateLabel,
   stateSeverity, stateTagClass
 } from '../quickbooks.shared';
+import { isListed } from '../../../../shared/components/qbo-sync-badge/qbo-retry.service';
 
 interface KindCard {
   kind: SyncKind;
@@ -46,12 +47,22 @@ function buildCards(summary: SyncSummaryModel | null): KindCard[] {
         .map(state => ({ state, count: counts.get(state.toLowerCase()) ?? 0 }))
         .filter(x => x.count > 0)
     };
-  });
+  // A44 — the payment / credit kinds get a card once they have records, so a company not using them sees no clutter.
+  }).filter(c => BACKFILL_KINDS.includes(c.kind) || c.total > 0);
 }
 
 /** States a retry makes sense for. NeedsResolution is left to a person: a blind retry could create a duplicate. */
 const RETRYABLE: SyncState[] = ['Failed', 'Blocked', 'WaitingOnDependency'];
 const RESOLVABLE: SyncState[] = ['NeedsResolution', 'Failed'];
+/** A44 D-11 — the dead letter: what the outbox gave up on. Skip dismisses it. */
+const DEAD_LETTER: SyncState[] = ['Failed', 'NeedsResolution'];
+const SKIPPABLE: SyncState[] = ['Failed', 'NeedsResolution', 'Blocked'];
+/** A44 D-17 — kinds whose link to a QuickBooks record can be undone (master data). */
+const UNLINKABLE: SyncKind[] = ['Customer', 'Vendor', 'Item'];
+
+/** The state filter's extra entry: Failed + NeedsResolution together. */
+export const DEAD_LETTER_FILTER = 'DeadLetter' as const;
+export type StateFilter = SyncState | typeof DEAD_LETTER_FILTER | null;
 
 /** The sync dashboard: counts per kind, the Dry run ↔ Live switch, every record with its state and attempts. */
 @Component({
@@ -70,6 +81,8 @@ export class SyncTabComponent implements OnInit, OnDestroy {
   @Input() canManage = false;
   @Input() canSync = false;
   @Input() settings: IntegrationSettingsModel | null = null;
+  /** A44 D-34 — a record to show first (kind + search), from the Logs tab. */
+  @Input() focus: { kind: SyncKind | null; search: string } | null = null;
   @Output() settingsChange = new EventEmitter<IntegrationSettingsModel>();
   @Output() summaryChange = new EventEmitter<SyncSummaryModel>();
 
@@ -84,9 +97,10 @@ export class SyncTabComponent implements OnInit, OnDestroy {
     { label: 'Every kind', value: null },
     ...SYNC_KINDS.map(k => ({ label: KIND_LABEL[k], value: k as SyncKind | null }))
   ];
-  readonly stateOptions: Option<SyncState | null>[] = [
+  readonly stateOptions: Option<StateFilter>[] = [
     { label: 'Every state', value: null },
-    ...STATE_DISPLAY_ORDER.map(s => ({ label: stateLabel(s), value: s as SyncState | null }))
+    { label: 'Dead letter (failed + needs resolution)', value: DEAD_LETTER_FILTER },
+    ...STATE_DISPLAY_ORDER.map(s => ({ label: stateLabel(s), value: s as StateFilter }))
   ];
   readonly resolveActions: (Option<ResolveAction> & { description: string })[] = [
     { value: 'LinkRemote', label: 'Link to a QuickBooks record', description: 'It is already in QuickBooks: link this record to it by its QuickBooks id.' },
@@ -112,7 +126,8 @@ export class SyncTabComponent implements OnInit, OnDestroy {
   isLoadingItems = false;
   itemsFailed = false;
   kindFilter: SyncKind | null = null;
-  stateFilter: SyncState | null = null;
+  stateFilter: StateFilter = null;
+  isRetryingFailed = false;
   search = '';
   busy: Record<string, boolean> = {};
   private searchTimer: ReturnType<typeof setTimeout> | null = null;
@@ -139,6 +154,12 @@ export class SyncTabComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
+    // D-34 — opened from a log row: show that record (the table's first lazy load reads these filters).
+    if (this.focus) {
+      this.kindFilter = this.focus.kind ?? null;
+      this.search = this.focus.search ?? '';
+      this.stateFilter = null;
+    }
     this.loadSummary();
     this.loadPreflight();
   }
@@ -260,8 +281,11 @@ export class SyncTabComponent implements OnInit, OnDestroy {
   loadItems(page = 1): void {
     this.isLoadingItems = true;
     this.itemsFailed = false;
+    const deadLetter = this.stateFilter === DEAD_LETTER_FILTER;
     this.service.getSyncItems({
-      kind: this.kindFilter, state: this.stateFilter, search: this.search, page, pageSize: this.pageSize
+      kind: this.kindFilter, state: deadLetter ? null : this.stateFilter as SyncState | null,
+      ...(deadLetter ? { deadLetter: true } : {}),
+      search: this.search, page, pageSize: this.pageSize
     }).subscribe({
       next: (res) => {
         this.isLoadingItems = false;
@@ -297,6 +321,137 @@ export class SyncTabComponent implements OnInit, OnDestroy {
   labelOf(kind: string): string { return KIND_LABEL[kind as SyncKind] ?? kind; }
   iconOf(kind: string): string { return KIND_ICON[kind as SyncKind] ?? 'pi pi-circle'; }
 
+  /** "Sync all" re-sends SCM's records of a kind; the A44 kinds are sent by their documents only. */
+  canSyncAll(kind: SyncKind): boolean { return this.canManage && BACKFILL_KINDS.includes(kind); }
+
+  isHeld(item: SyncItemModel): boolean { return item.state === 'NotSynced' && isHeldCode(item.lastErrorCode); }
+
+  /** CTRL D-11: Failed / NeedsResolution / Blocked can be dismissed (lastErrorCode DISMISSED). */
+  canSkip(item: SyncItemModel): boolean { return this.canManage && SKIPPABLE.includes(item.state); }
+
+  canUnlink(item: SyncItemModel): boolean { return this.canManage && !!item.remoteId && UNLINKABLE.includes(item.kind); }
+
+  // ── A44 dead letter (D-11) ──────────────────────────────────────────────────
+
+  /** Failed + NeedsResolution records on the cards (all kinds, or the kind filtered on). */
+  get deadLetterCount(): number {
+    const states = DEAD_LETTER.map(s => s.toLowerCase());
+    return (this.cards ?? [])
+      .filter(c => !this.kindFilter || c.kind === this.kindFilter)
+      .reduce((n, c) => n + c.states.filter(s => states.includes(s.state.toLowerCase())).reduce((m, s) => m + s.count, 0), 0);
+  }
+
+  showDeadLetter(): void {
+    this.stateFilter = DEAD_LETTER_FILTER;
+    this.loadItems(1);
+  }
+
+  requestRetryFailed(): void {
+    if (!this.canManage || this.isRetryingFailed) return;
+    const kind = this.kindFilter;
+    const n = this.deadLetterCount;
+    this.confirmation.confirm({
+      key: 'qbo-sync',
+      header: 'Retry every failed record?',
+      icon: 'pi pi-replay',
+      message: `${n ? n : 'Every'} failed or unresolved ${n === 1 ? 'record' : 'records'}${kind ? ' (' + KIND_PLURAL[kind] + ')' : ''} ` +
+        `${n === 1 ? 'is' : 'are'} queued to be sent again. ` +
+        'Check records marked "Needs resolution" in QuickBooks first: if one is already there, a retry can create a duplicate.',
+      acceptLabel: 'Retry failed',
+      rejectLabel: 'Cancel',
+      rejectButtonStyleClass: 'p-button-text',
+      accept: () => this.retryFailed()
+    });
+  }
+
+  retryFailed(): void {
+    if (!this.canManage || this.isRetryingFailed) return;
+    this.isRetryingFailed = true;
+    this.service.retryFailed(this.kindFilter).subscribe({
+      next: (res) => {
+        this.isRetryingFailed = false;
+        const n = res?.requeued ?? 0;
+        this.messages.add({ severity: n ? 'success' : 'info', summary: n ? 'Queued' : 'Nothing to retry',
+          detail: n ? `${n} ${n === 1 ? 'record is' : 'records are'} queued to be tried again.` : 'No failed record was found.' });
+        this.loadItems(this.page);
+        this.loadSummary();
+      },
+      error: (err) => {
+        this.isRetryingFailed = false;
+        this.messages.add({ severity: 'error', summary: 'Not retried', detail: qboErrorMessage(err, 'The failed records could not be retried.') });
+      }
+    });
+  }
+
+  requestSkip(item: SyncItemModel): void {
+    if (!this.canSkip(item) || this.busy[item.id]) return;
+    this.confirmation.confirm({
+      key: 'qbo-sync',
+      header: 'Skip this record?',
+      icon: 'pi pi-ban',
+      message: `${item.displayLabel || 'The record'} is taken out of the dead letter and not tried again. Nothing changes in QuickBooks. ` +
+        'Push it again later if it still needs to go.',
+      acceptLabel: 'Skip',
+      rejectLabel: 'Cancel',
+      acceptButtonStyleClass: 'p-button-warn',
+      rejectButtonStyleClass: 'p-button-text',
+      accept: () => this.skip(item)
+    });
+  }
+
+  skip(item: SyncItemModel): void {
+    if (!this.canSkip(item) || this.busy[item.id]) return;
+    this.busy = { ...this.busy, [item.id]: true };
+    this.service.skipSyncItem(item.id).subscribe({
+      next: (updated) => {
+        this.busy = { ...this.busy, [item.id]: false };
+        if (updated) this.replace(updated);
+        this.messages.add({ severity: 'success', summary: 'Skipped', detail: `${item.displayLabel || 'The record'} will not be tried again.` });
+        this.loadSummary();
+      },
+      error: (err) => {
+        this.busy = { ...this.busy, [item.id]: false };
+        this.messages.add({ severity: 'error', summary: 'Not skipped', detail: qboErrorMessage(err, 'The record could not be skipped.') });
+      }
+    });
+  }
+
+  // ── A44 unlink (D-17) ───────────────────────────────────────────────────────
+
+  requestUnlink(item: SyncItemModel): void {
+    if (!this.canUnlink(item) || this.busy[item.id]) return;
+    this.confirmation.confirm({
+      key: 'qbo-sync',
+      header: 'Unlink from QuickBooks?',
+      icon: 'pi pi-link',
+      message: `${item.displayLabel || 'The record'} forgets QuickBooks record #${item.remoteId}. The QuickBooks record is kept; ` +
+        'the next sync links or creates it again. Not allowed while open documents were sent against it.',
+      acceptLabel: 'Unlink',
+      rejectLabel: 'Cancel',
+      acceptButtonStyleClass: 'p-button-danger',
+      rejectButtonStyleClass: 'p-button-text',
+      accept: () => this.unlink(item)
+    });
+  }
+
+  unlink(item: SyncItemModel): void {
+    if (!this.canUnlink(item) || this.busy[item.id]) return;
+    this.busy = { ...this.busy, [item.id]: true };
+    this.service.unlinkSyncItem(item.id).subscribe({
+      next: (updated) => {
+        this.busy = { ...this.busy, [item.id]: false };
+        this.replace(updated ?? { ...item, remoteId: null, remoteDocNumber: null, deepLink: null, state: 'NotSynced' });
+        this.messages.add({ severity: 'success', summary: 'Unlinked', detail: `${item.displayLabel || 'The record'} is no longer linked to QuickBooks.` });
+        this.loadSummary();
+      },
+      error: (err) => {
+        this.busy = { ...this.busy, [item.id]: false };
+        // 409: documents sent against it are still open — the server's message names how many.
+        this.messages.add({ severity: 'error', summary: 'Not unlinked', detail: qboErrorMessage(err, 'The record could not be unlinked.') });
+      }
+    });
+  }
+
   canRetry(item: SyncItemModel): boolean { return this.canSync && RETRYABLE.includes(item.state); }
   canResolve(item: SyncItemModel): boolean { return this.canManage && RESOLVABLE.includes(item.state); }
   /** Push now asks SCM for the record again, so only for records SCM sent. */
@@ -327,8 +482,19 @@ export class SyncTabComponent implements OnInit, OnDestroy {
     if (!this.canPush(item) || this.busy[item.id]) return;
     this.busy = { ...this.busy, [item.id]: true };
     this.service.pushNow(item.kind, [item.externalId]).subscribe({
-      next: () => {
+      next: (res) => {
         this.busy = { ...this.busy, [item.id]: false };
+        if (isListed(res?.notFound, item.externalId)) {
+          this.messages.add({ severity: 'info', summary: 'Nothing to send', detail: 'Nothing to send for this document.' });
+          return;
+        }
+        if (res?.skippedInMatching?.length) {
+          this.messages.add({
+            severity: 'warn', summary: 'Not pushed',
+            detail: `${item.displayLabel || 'The record'} was skipped in matching, so it is not sent to QuickBooks. Change its decision under Match existing first.`
+          });
+          return;
+        }
         this.messages.add({ severity: 'success', summary: 'Pushed', detail: `${item.displayLabel || 'The record'} was sent from SCM again.` });
         this.loadItems(this.page);
         this.loadSummary();

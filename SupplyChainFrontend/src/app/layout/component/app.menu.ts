@@ -610,6 +610,9 @@ export class AppMenu {
                           routerLink: ['/portal/pages/finance/gl/opening-balances'] },
                         { label: 'Integrations', icon: 'pi pi-fw pi-link',
                           routerLink: ['/portal/pages/finance/gl/integrations'] },
+                        // A44 D-30 — internal GL switches + the posting log across targets.
+                        { label: 'Posting', icon: 'pi pi-fw pi-send',
+                          routerLink: ['/portal/pages/finance/gl/posting'] },
                         { label: 'Setup Status', icon: 'pi pi-fw pi-list-check',
                           routerLink: ['/portal/pages/finance/gl/setup-status'] }
                     ]
@@ -903,7 +906,18 @@ export class AppMenu {
                                 { label: 'QuickBooks Integration', icon: 'pi pi-fw pi-sync',
                                   routerLink: ['/portal/pages/integrations/quickbooks'],
                                   featureCode: 'MODULE_INTEGRATION',
-                                  permRequired: ['INTEGRATION_VIEW'] }
+                                  permRequired: ['INTEGRATION_VIEW'] },
+                                // A44 D-34 — the QuickBooks page opened on its Logs tab.
+                                { label: 'QuickBooks Logs', icon: 'pi pi-fw pi-history',
+                                  routerLink: ['/portal/pages/integrations/quickbooks'], queryParams: { tab: 'logs' },
+                                  featureCode: 'MODULE_INTEGRATION',
+                                  permRequired: ['INTEGRATION_VIEW'] },
+                                // A44 D-80 — the same posting page, for organizations with QuickBooks but no general
+                                // ledger (the Finance › General Ledger group is hidden for them).
+                                { label: 'Posting Log', icon: 'pi pi-fw pi-send',
+                                  routerLink: ['/portal/pages/finance/gl/posting'],
+                                  featureCode: 'MODULE_INTEGRATION',
+                                  permRequired: ['INTEGRATION_VIEW', 'INTEGRATION_MANAGE', 'GL_VIEW', 'GL_ACCOUNT_MANAGE', 'GL_SETUP_MANAGE'] }
                             ]
                         }
                     ]
@@ -933,7 +947,10 @@ export class AppMenu {
             superAdminOnly: true,
             items: [
                 { label: 'Organizations', icon: 'pi pi-fw pi-sitemap',
-                  routerLink: ['/portal/pages/organizations'] }
+                  routerLink: ['/portal/pages/organizations'] },
+                // docs/quickbooks/APP-CREDENTIALS.md — the platform's Intuit app keys.
+                { label: 'QuickBooks App', icon: 'pi pi-fw pi-key',
+                  routerLink: ['/portal/pages/system/quickbooks-app'] }
             ]
         }
     ];

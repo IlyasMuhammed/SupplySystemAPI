@@ -35,7 +35,8 @@
               pTooltip="Reverse this invoice: the customer is credited and the goods go back on the ledger"
               (onClick)="openCancelDialog()" data-testid="action-cancel"></p-button>
     <span class="sf-end">
-      <app-qbo-sync-badge kind="SalesInvoice" [externalId]="inv.uuid" label="QuickBooks"></app-qbo-sync-badge>
+      <!-- A44 D-21 / D-23: a POS sale paid at the till goes as a sales receipt, a credit note as a credit memo or refund receipt -->
+      <app-qbo-sync-badge [kind]="qboKind" [alsoKinds]="qboAlsoKinds" [externalId]="inv.uuid" label="QuickBooks"></app-qbo-sync-badge>
     </span>
   </div>
 

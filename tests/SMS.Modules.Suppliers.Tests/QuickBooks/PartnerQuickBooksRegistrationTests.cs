@@ -10,6 +10,7 @@ using SMS.Modules.Suppliers.Integration;
 using SMS.Modules.Suppliers.Models;
 using SMS.Modules.Suppliers.Services;
 using SMS.Shared.Common;
+using SMS.Shared.Finance.Posting;
 using SMS.Shared.Integration.QuickBooks;
 using Xunit;
 
@@ -90,6 +91,25 @@ public class PartnerQuickBooksRegistrationTests
         using (var provider = services.BuildServiceProvider())
         using (var scope = provider.CreateScope())
             scope.ServiceProvider.GetRequiredService<IQuickBooksGateway>().Should().BeOfType<RecordingQuickBooksGateway>();
+    }
+
+    [Fact]
+    public void The_entity_sync_gateway_is_the_null_one_until_the_accounting_router_is_registered()
+    {
+        using (var provider = Services().BuildServiceProvider())
+        using (var scope = provider.CreateScope())
+            scope.ServiceProvider.GetRequiredService<IEntitySyncGateway>().Should().BeOfType<NullEntitySyncGateway>();
+
+        using (var provider = Services(s => s.AddScoped<IEntitySyncGateway>(_ => new QuickBooksEntitySyncBridge(new NullQuickBooksGateway())))
+                   .BuildServiceProvider())
+        using (var scope = provider.CreateScope())
+            scope.ServiceProvider.GetRequiredService<IEntitySyncGateway>().Should().BeOfType<QuickBooksEntitySyncBridge>("TryAdd keeps a router registered first");
+
+        var services = Services();
+        services.AddScoped<IEntitySyncGateway>(_ => new QuickBooksEntitySyncBridge(new NullQuickBooksGateway()));
+        using (var provider = services.BuildServiceProvider())
+        using (var scope = provider.CreateScope())
+            scope.ServiceProvider.GetRequiredService<IEntitySyncGateway>().Should().BeOfType<QuickBooksEntitySyncBridge>("a router registered later wins");
     }
 
     [Fact]

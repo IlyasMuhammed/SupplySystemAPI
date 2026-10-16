@@ -53,6 +53,11 @@ internal sealed class FakeQuickBooksCompany : IAccountingProvider
 
     public IReadOnlyList<Call> Writes => Calls.Where(c => c.Operation is "Create" or "Update" or "Void").ToList();
 
+    /// <summary>A44: the last built object QuickBooks received for a document of this kind and number.</summary>
+    public RemoteEntity? Last(SyncKind kind, string docNumber) =>
+        Calls.LastOrDefault(c => c.Operation is "Create" or "Update" && c.Kind == kind
+                                 && string.Equals(c.Name, docNumber, StringComparison.OrdinalIgnoreCase))?.Entity;
+
     public IReadOnlyList<Record> Records(SyncKind kind) { lock (_gate) return _records.Where(r => r.Kind == kind).ToList(); }
 
     /// <summary>Something the accountant already entered in QuickBooks before SCM connected.</summary>
@@ -81,7 +86,12 @@ internal sealed class FakeQuickBooksCompany : IAccountingProvider
                 new RemoteAccount("1", "Sales",           "Income",  "SalesOfProductIncome",  "Revenue", null, true),
                 new RemoteAccount("2", "Discounts given", "Income",  "DiscountsRefundsGiven", "Revenue", null, true),
                 new RemoteAccount("3", "Purchases",       "Expense", "SuppliesMaterials",     "Expense", null, true),
-                new RemoteAccount("4", "Freight",         "Expense", "ShippingFreightDelivery", "Expense", null, true)
+                new RemoteAccount("4", "Freight",         "Expense", "ShippingFreightDelivery", "Expense", null, true),
+                // A44 (QA): deposit / bank / refund accounts for payments, bill payments, receipts and refunds (D-15)
+                new RemoteAccount("5", "Checking",          "Bank",                 "Checking",        "Asset", null, true),
+                new RemoteAccount("6", "Savings",           "Bank",                 "Savings",         "Asset", null, true),
+                new RemoteAccount("7", "Undeposited Funds", "Other Current Asset",  "UndepositedFunds", "Asset", null, true),
+                new RemoteAccount("8", "Company Visa",      "Credit Card",          "CreditCard",      "Liability", null, true)
             ],
             TaxCodes =
             [
@@ -106,7 +116,7 @@ internal sealed class FakeQuickBooksCompany : IAccountingProvider
 
             if (_records.Any(r => SameKindFamily(r.Kind, entity.Kind) && string.Equals(r.Name, name, StringComparison.OrdinalIgnoreCase)))
                 return Task.FromResult(Fail<RemoteRecord>(ProviderOutcomeKind.Duplicate,
-                    entity.Kind is SyncKind.SalesInvoice or SyncKind.Bill ? "6140" : "6240", "Duplicate Name Exists Error"));
+                    IsDocument(entity.Kind) ? "6140" : "6240", "Duplicate Name Exists Error"));
 
             var record = new Record { Kind = entity.Kind, Id = (_nextId++).ToString(), Name = name, Entity = entity };
             _records.Add(record);
@@ -136,7 +146,9 @@ internal sealed class FakeQuickBooksCompany : IAccountingProvider
                 return Task.FromResult(Fail<RemoteRecord>(ProviderOutcomeKind.StaleObject, "5010", "Stale Object Error"));
 
             record.Name = NameOf(entity) ?? record.Name;
-            record.Entity = entity;
+            // A44 D-55a: the income-account fix-up is a sparse update; the item keeps what it was built with.
+            if (entity is RemoteItemIncomeAccountFix fix && record.Entity is RemoteItem built) built.IncomeAccountId = fix.IncomeAccountId;
+            else record.Entity = entity;
             record.SyncToken++;
             return Task.FromResult(ProviderResult<RemoteRecord>.Ok(ToRemote(record)));
         }
@@ -171,6 +183,28 @@ internal sealed class FakeQuickBooksCompany : IAccountingProvider
         {
             _calls.Add(new Call("Void", SyncKind.SalesInvoice, remoteId, null, syncToken));
             var record = _records.SingleOrDefault(r => r.Kind == SyncKind.SalesInvoice && r.Id == remoteId);
+            if (record is null) return Task.FromResult(Fail<RemoteRecord>(ProviderOutcomeKind.NotFound, "610", "Object Not Found"));
+            record.Active = false;
+            record.SyncToken++;
+            return Task.FromResult(ProviderResult<RemoteRecord>.Ok(ToRemote(record)));
+        }
+    }
+
+    /// <summary>
+    /// A44 D-51, as QuickBooks behaves through the integration: Payment / SalesReceipt are voided, BillPayment /
+    /// RefundReceipt deleted (both leave the record inactive here, recorded as "Void"), CreditMemo / VendorCredit refused.
+    /// </summary>
+    public Task<ProviderResult<RemoteRecord>> VoidAsync(
+        ProviderContext ctx, SyncKind kind, string remoteId, string syncToken, CancellationToken ct = default)
+    {
+        if (kind == SyncKind.SalesInvoice) return VoidInvoiceAsync(ctx, remoteId, syncToken, ct);
+        lock (_gate)
+        {
+            _calls.Add(new Call("Void", kind, remoteId, null, syncToken));
+            if (kind is not (SyncKind.Payment or SyncKind.SalesReceipt or SyncKind.BillPayment or SyncKind.RefundReceipt))
+                return Task.FromResult(Fail<RemoteRecord>(ProviderOutcomeKind.Refused, IAccountingProvider.VoidUnsupportedCode, $"{kind} is not voided."));
+
+            var record = _records.SingleOrDefault(r => r.Kind == kind && r.Id == remoteId);
             if (record is null) return Task.FromResult(Fail<RemoteRecord>(ProviderOutcomeKind.NotFound, "610", "Object Not Found"));
             record.Active = false;
             record.SyncToken++;
@@ -219,19 +253,31 @@ internal sealed class FakeQuickBooksCompany : IAccountingProvider
         RemoteItem    i => i.Name,
         RemoteInvoice v => v.DocNumber,
         RemoteBill    b => b.DocNumber,
+        // A44: documents are named by their number (payments: PaymentRefNum).
+        RemotePayment       p  => p.ReferenceNumber,
+        RemoteBillPayment   bp => bp.DocNumber,
+        RemoteSalesDocument d  => d.DocNumber,
+        RemoteVendorCredit  vc => vc.DocNumber,
         _               => null
     };
 
+    private static bool IsDocument(SyncKind kind) => kind is not (SyncKind.Customer or SyncKind.Vendor or SyncKind.Item);
+
     private static RemoteRecord ToRemote(Record r)
     {
-        var doc   = r.Kind is SyncKind.SalesInvoice or SyncKind.Bill ? r.Name : null;
+        var doc   = IsDocument(r.Kind) ? r.Name : null;
         var total = r.Entity switch
         {
-            RemoteInvoice inv => inv.Lines.Sum(l => l.Amount) - inv.DiscountAmount,
-            RemoteBill    bill => bill.Lines.Sum(l => l.Amount),
-            _                  => (decimal?)null
+            RemoteInvoice inv        => inv.Lines.Sum(l => l.Amount) - inv.DiscountAmount,
+            RemoteBill    bill       => bill.Lines.Sum(l => l.Amount),
+            RemoteSalesDocument sd   => sd.Lines.Sum(l => l.Amount) - sd.DiscountAmount,
+            RemoteVendorCredit vc    => vc.Lines.Sum(l => l.Amount),
+            RemotePayment p          => p.TotalAmount,
+            RemoteBillPayment bp     => bp.TotalAmount,
+            _                        => (decimal?)null
         };
-        return new RemoteRecord(r.Id, r.SyncToken.ToString(), r.Name, doc, total, r.Entity is RemoteInvoice or RemoteBill ? 0m : null, r.Active);
+        return new RemoteRecord(r.Id, r.SyncToken.ToString(), r.Name, doc, total,
+            r.Entity is RemoteInvoice or RemoteBill or RemoteSalesDocument or RemoteVendorCredit ? 0m : null, r.Active);
     }
 
     private static ProviderResult<T> Fail<T>(ProviderOutcomeKind kind, string code, string message) =>
@@ -246,21 +292,37 @@ internal sealed class FakeQuickBooksAuth : IAccountingAuthProvider
     public string ProviderKey => ProviderKeys.QuickBooksOnline;
 
     public List<string> ExchangedCodes { get; } = [];
+    /// <summary>Every call's app as "Operation:ClientId:Source:Environment" (docs/quickbooks/APP-CREDENTIALS.md D-3).</summary>
+    public List<string> AppsUsed { get; } = [];
 
-    public string BuildConsentUrl(string state) =>
-        $"https://appcenter.intuit.test/connect/oauth2?client_id=e2e&state={Uri.EscapeDataString(state)}";
-
-    public Task<TokenGrant> ExchangeCodeAsync(string code, CancellationToken ct = default)
+    private void Record(string operation, OAuthApp app)
     {
+        lock (AppsUsed) AppsUsed.Add($"{operation}:{app.ClientId}:{app.Source}:{app.Environment}");
+    }
+
+    public string BuildConsentUrl(OAuthApp app, string state)
+    {
+        Record("Consent", app);
+        return $"https://appcenter.intuit.test/connect/oauth2?client_id={Uri.EscapeDataString(app.ClientId)}&state={Uri.EscapeDataString(state)}";
+    }
+
+    public Task<TokenGrant> ExchangeCodeAsync(OAuthApp app, string code, CancellationToken ct = default)
+    {
+        Record("Exchange", app);
         lock (ExchangedCodes) ExchangedCodes.Add(code);
         return Task.FromResult(new TokenGrant($"AT-{code}", $"RT-{code}", DateTime.UtcNow.AddHours(1), DateTime.UtcNow.AddDays(100)));
     }
 
-    public Task<TokenGrant> RefreshAsync(string refreshToken, CancellationToken ct = default)
+    public Task<TokenGrant> RefreshAsync(OAuthApp app, string refreshToken, CancellationToken ct = default)
     {
+        Record("Refresh", app);
         var n = Interlocked.Increment(ref _refreshes);
         return Task.FromResult(new TokenGrant($"AT-refresh-{n}", $"RT-refresh-{n}", DateTime.UtcNow.AddHours(1), DateTime.UtcNow.AddDays(100)));
     }
 
-    public Task RevokeAsync(string refreshToken, CancellationToken ct = default) => Task.CompletedTask;
+    public Task RevokeAsync(OAuthApp app, string refreshToken, CancellationToken ct = default)
+    {
+        Record("Revoke", app);
+        return Task.CompletedTask;
+    }
 }

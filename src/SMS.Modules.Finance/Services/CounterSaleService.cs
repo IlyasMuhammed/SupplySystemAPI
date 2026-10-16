@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Logging;
 using SMS.Modules.Finance.Data;
 using SMS.Modules.Finance.Domain;
+using SMS.Modules.Finance.Integration.Posting;
 using SMS.Shared.Common;
 using SMS.Shared.Exceptions;
 
@@ -67,13 +68,20 @@ internal sealed class CounterSaleService : ICounterSaleService
     private readonly ILogger<CounterSaleService> _log;
     private readonly TimeProvider                _clock;
     private readonly ICustomerPaymentTermsLookup? _terms;
+    private readonly PosDocumentPostings?        _postings;
 
+    /// <param name="postings">
+    /// A44 (D-21..D-23) — after each commit: the sale as a sales receipt or an invoice with its tenders as payments, a
+    /// return as a credit memo / refund receipt, a void as voids, through the financial posting gateway. Without it (a
+    /// hand-built harness) a sale is published as the invoice it was before A44, and returns and voids send nothing.
+    /// </param>
     public CounterSaleService(
         FinanceDbContext db, SalesInvoiceService invoices, CustomerPaymentService payments,
         ICustomerLedgerService ledger, IProductLedgerWriter productLedger, ISupplierNameLookupService partnerNames,
         ICurrencyService currency, ILogger<CounterSaleService> log, TimeProvider? clock = null,
-        ICustomerPaymentTermsLookup? terms = null)
+        ICustomerPaymentTermsLookup? terms = null, PosDocumentPostings? postings = null)
     {
+        _postings      = postings;
         _db            = db;
         _invoices      = invoices;
         _payments      = payments;
@@ -222,7 +230,9 @@ internal sealed class CounterSaleService : ICounterSaleService
                 StampOrganization(org);
                 await _db.SaveChangesAsync(ct);
 
-                await _invoices.PublishIssuedAsync(invoice);
+                // A44 (D-21) — the tenders are committed with the sale, so its shape (receipt or invoice) is final here.
+                if (_postings is not null) await _postings.PublishSaleAsync(invoice.UUID, ct);
+                else await _invoices.PublishIssuedAsync(invoice);
                 return new CounterSaleResult(invoice.UUID, invoice.InvoiceNumber, invoice.GrandTotal, [.. payments.Select(p => p.UUID)]);
             }
             catch (Exception ex)
@@ -387,6 +397,9 @@ internal sealed class CounterSaleService : ICounterSaleService
                 await _db.SaveChangesAsync(ct);
                 _ = creditEntry;
 
+                // A44 (D-23) — the refunds are committed with the credit note: refund receipt or credit memo is final here.
+                if (_postings is not null) await _postings.PublishReturnAsync(creditNote.UUID, ct);
+
                 return new CounterReturnResult(creditNote.UUID, creditNote.InvoiceNumber, creditNote.GrandTotal, [.. refunds.Select(x => x.UUID)]);
             }
             catch (Exception ex)
@@ -438,6 +451,10 @@ internal sealed class CounterSaleService : ICounterSaleService
                 if (payments.FirstOrDefault(p => p.Allocations.Any(a => a.SalesInvoiceId != invoice.Id)) is { } shared)
                     throw new BadRequestException($"Payment {shared.PaymentNumber} is also applied to other invoices; it cannot be reversed by this void.");
 
+                // A44 (D-22, REV-9) — what the sale was posted as, read before the reversals remove its tender allocations,
+                // with the very rule the sale was posted by.
+                var shape = _postings is null ? null : (await PosDocuments.ShapeSalesAsync(_db, [invoice], ct)).GetValueOrDefault(invoice.Id);
+
                 // The money is handed back: each POS payment is reversed (REVERSED, allocations removed, PAYMENT debit) …
                 foreach (var payment in payments)
                     await _payments.TrackReversalAsync(payment, Truncate($"POS void of {invoice.SourceNumber}: {why}", 200), now, userId);
@@ -449,10 +466,13 @@ internal sealed class CounterSaleService : ICounterSaleService
                 var applied = Math.Min(invoice.GrandTotal, Math.Max(0m, invoice.BalanceDue));
 
                 var (creditNote, _) = await TrackCreditNoteAsync(
-                    org, invoice, lines, sourceUuid, Truncate($"VOID {invoice.SourceNumber}", 50), why, now, applied, now, userId, ct);
+                    org, invoice, lines, sourceUuid, Truncate($"{PosDocuments.VoidPrefix}{invoice.SourceNumber}", 50), why, now, applied, now, userId, ct);
 
                 StampOrganization(org);
                 await _db.SaveChangesAsync(ct);
+
+                if (_postings is not null && shape is not null)
+                    await _postings.PublishVoidAsync(invoice.UUID, shape.IsReceipt, shape.Tenders, Truncate($"POS void of {invoice.SourceNumber}: {why}", 200), userId, now, ct);
 
                 return new CounterReturnResult(creditNote.UUID, creditNote.InvoiceNumber, creditNote.GrandTotal, []);
             }

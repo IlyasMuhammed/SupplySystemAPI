@@ -165,7 +165,7 @@ public class ConnectionJobsTests
         seen.Select(s => s.Org).Should().BeEquivalentTo(new[] { OrgA, OrgB }, "a revoked connection is skipped");
 
         await using var db = h.OpenAll();
-        (await db.ReferenceSnapshots.IgnoreQueryFilters().CountAsync(s => s.ConnectionId == a.Id)).Should().Be(6);
+        (await db.ReferenceSnapshots.IgnoreQueryFilters().CountAsync(s => s.ConnectionId == a.Id)).Should().Be(9);
         (await db.ReferenceSnapshots.IgnoreQueryFilters().CountAsync(s => s.ConnectionId == b.Id)).Should().Be(0);
     }
 

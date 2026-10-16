@@ -11,6 +11,7 @@ using SMS.Modules.Suppliers.Repositories;
 using SMS.Modules.Suppliers.Services;
 using SMS.Modules.Warehouse.Events;
 using SMS.Shared.Common;
+using SMS.Shared.Finance.Posting;
 using SMS.Shared.Integration.QuickBooks;
 
 namespace SMS.Modules.Suppliers;
@@ -87,6 +88,9 @@ public static class SuppliersModuleExtensions
         // module replaces it with the real gateway. The source is registered once and exposed both as
         // itself (for the publisher) and as an IQuickBooksSource (for the gateway), one per scope.
         services.TryAddScoped<IQuickBooksGateway, NullQuickBooksGateway>();
+        // A44 D-25/D-76 — edits reach QuickBooks through the provider-neutral entity sync gateway (the
+        // Accounting router fans out to every active target). Null until the router replaces it.
+        services.TryAddScoped<IEntitySyncGateway, NullEntitySyncGateway>();
         services.AddScoped<IPartnerCurrencyCodes, LookupsPartnerCurrencyCodes>();
         services.AddScoped<PartnerQuickBooksSource>();
         services.AddScoped<IQuickBooksSource>(sp => sp.GetRequiredService<PartnerQuickBooksSource>());

@@ -71,7 +71,7 @@ public class LocalDbConcurrencyTests
     {
         var services = new ServiceCollection();
         if (outbox is not null) services.AddSingleton<IOutboxControl>(outbox);
-        return new TokenManager(holder.Db, new CredentialVault(TestEncryption.Instance), [auth],
+        return new TokenManager(holder.Db, new CredentialVault(TestEncryption.Instance), [auth], new StaticAppResolver(),
             Options.Create(new IntegrationJobOptions()), services.BuildServiceProvider(), NullLogger<TokenManager>.Instance);
     }
 

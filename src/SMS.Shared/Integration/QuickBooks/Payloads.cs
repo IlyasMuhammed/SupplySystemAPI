@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using SMS.Shared.Finance.Posting;
 
 namespace SMS.Shared.Integration.QuickBooks;
 
@@ -21,7 +22,7 @@ public sealed class AddressPayload
 }
 
 /// <summary>What customers and vendors have in common.</summary>
-public abstract class PartyPayload
+public abstract class PartyPayload : IAccountingDocument
 {
     public string          ExternalId            { get; set; } = string.Empty;
     public string          DisplayName           { get; set; } = string.Empty;
@@ -50,7 +51,7 @@ public sealed class VendorPayload : PartyPayload
     public string? AccountNumber { get; set; }
 }
 
-public sealed class ItemPayload
+public sealed class ItemPayload : IAccountingDocument
 {
     public string         ExternalId   { get; set; } = string.Empty;
     public string         Name         { get; set; } = string.Empty;
@@ -66,7 +67,7 @@ public sealed class ItemPayload
     public bool           IsActive     { get; set; } = true;
 }
 
-public sealed class SalesInvoicePayload
+public sealed class SalesInvoicePayload : IAccountingDocument
 {
     public string                         ExternalId           { get; set; } = string.Empty;
     public string                         DocNumber            { get; set; } = string.Empty;
@@ -136,7 +137,7 @@ public sealed class SalesInvoiceLinePayload
     public string? TaxCode         { get; set; }
 }
 
-public sealed class BillPayload
+public sealed class BillPayload : IAccountingDocument
 {
     public string                ExternalId        { get; set; } = string.Empty;
     /// <summary>The vendor's own invoice number where known.</summary>

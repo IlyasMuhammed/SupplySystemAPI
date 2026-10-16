@@ -127,7 +127,7 @@ public class ConnectionServiceTests
 
         var act = () => WithService(h, OrgA, s => s.ConnectAsync(7));
 
-        await act.Should().ThrowAsync<ConflictException>().WithMessage("*not configured*");
+        await act.Should().ThrowAsync<ConflictException>().WithMessage("*app keys are not set*System Administration*");
         h.Auth.ConsentStates.Should().BeEmpty();
     }
 

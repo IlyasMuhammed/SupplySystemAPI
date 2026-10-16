@@ -16,12 +16,12 @@ import { catchError, map } from 'rxjs/operators';
 
 import {
   IntegrationSettingsModel, QuickBooksIntegrationService, ReferenceDataModel, TaxCodeMappingItem, TaxCodeMappingModel,
-  TermMappingModel, UpdateIntegrationSettingsRequest, qboErrorMessage
+  TaxImportRowModel, TermMappingModel, UpdateIntegrationSettingsRequest, qboErrorMessage
 } from '../../../../services/quickbooks-integration.service';
 import { PaymentTermsService } from '../../../../services/payment-terms.service';
 import { fromDateOnly, toDateOnly } from '../../../../shared/date-only';
 import {
-  Option, ScmPaymentTerm, TermRow, accountOptions, formatPercent, mergeTermRows, suggestTermsByDays, taxCodeOptions,
+  Option, QboTabKey, ScmPaymentTerm, TermRow, accountOptions, formatPercent, mergeTermRows, suggestTermsByDays, taxCodeOptions,
   termOptions
 } from '../quickbooks.shared';
 
@@ -154,6 +154,18 @@ function withSaved(options: Option[], saved: Map<string, string | null>): Option
 export class MappingsTabComponent implements OnInit {
   @Input() canManage = false;
   @Output() settingsChange = new EventEmitter<IntegrationSettingsModel>();
+  /** A44 — "Open Sync control" (the switches moved there). */
+  @Output() navigate = new EventEmitter<QboTabKey>();
+
+  /**
+   * A44 D-14 — the server has sync control: the six "send automatically" switches (and the POS one) are replaced by the
+   * Sync control tab. Until it answers they stay here and keep working.
+   */
+  syncControlAvailable = false;
+
+  // ── A44 D-18 — tax "Import & suggest" ──
+  isImportingTax = false;
+  taxSuggestions: TaxImportRowModel[] = [];
 
   readonly itemTypeOptions: Option[] = [
     { label: 'Non-inventory', value: 'NonInventory' },
@@ -246,6 +258,11 @@ export class MappingsTabComponent implements OnInit {
   load(): void {
     this.isLoading = true;
     this.loadFailed = false;
+
+    // A44 — a 404 (older server) keeps the switches on this tab.
+    this.service.getSyncControl().pipe(catchError(() => of(null))).subscribe(rows => {
+      this.syncControlAvailable = rows !== null && rows !== undefined;
+    });
 
     forkJoin({
       reference: this.service.getReference().pipe(catchError(() => of(null))),
@@ -489,6 +506,38 @@ export class MappingsTabComponent implements OnInit {
         this.messages.add({ severity: 'error', summary: 'Not saved', detail: qboErrorMessage(err, 'The tax mappings could not be saved.') });
       }
     });
+  }
+
+  /**
+   * A44 D-18 — the server suggests a QuickBooks code for every SMS tax code (by rate and name; exempt / 0 % to NON or a
+   * matching 0 % code), saves the unambiguous ones and returns the rest. Unsaved edits in the tables are replaced.
+   */
+  importTax(): void {
+    if (!this.canManage || this.isImportingTax) return;
+    this.isImportingTax = true;
+    this.service.importTaxMappings().subscribe({
+      next: (res) => {
+        this.isImportingTax = false;
+        this.taxSuggestions = res?.needsReview ?? [];
+        const saved = res?.saved ?? 0;
+        const left = this.taxSuggestions.length;
+        this.messages.add({
+          severity: saved ? 'success' : 'info', summary: saved ? 'Imported' : 'Nothing new',
+          detail: `${saved} ${saved === 1 ? 'tax code was' : 'tax codes were'} mapped.${left ? ` ${left} need a decision below.` : ''}`
+        });
+        if (res?.mappings) this.applyTax(res.mappings);
+        else this.service.getTaxMappings().subscribe({ next: rows => this.applyTax(rows ?? []), error: () => { /* the table keeps what it had */ } });
+      },
+      error: (err) => {
+        this.isImportingTax = false;
+        this.messages.add({ severity: 'error', summary: 'Not imported', detail: qboErrorMessage(err, 'The tax codes could not be imported.') });
+      }
+    });
+  }
+
+  suggestionText(s: TaxImportRowModel): string {
+    const what = s.sourceTaxCode ? s.sourceTaxCode : formatPercent(s.taxPercent ?? 0);
+    return s.reason ? `${what}: ${s.reason}` : what;
   }
 
   // ── Payment terms ───────────────────────────────────────────────────────────

@@ -7,6 +7,7 @@ using Microsoft.Extensions.Options;
 using SMS.Modules.Integration.Configuration;
 using SMS.Modules.Integration.Controllers.Admin;
 using SMS.Modules.Integration.Core.ApiClients;
+using SMS.Modules.Integration.Core.Matching;
 using SMS.Modules.Integration.Core.Providers;
 using SMS.Modules.Integration.Core.Reference;
 using SMS.Modules.Integration.Core.Settings;
@@ -25,6 +26,9 @@ internal static class ConnectionsRegistration
         // The only code that touches plaintext tokens, and the state token behind the anonymous callback.
         services.AddScoped<ICredentialVault, CredentialVault>();
         services.AddScoped<IOAuthStateService, OAuthStateService>();
+        // Which Intuit app a call is made as — platform's or the organization's own (docs/quickbooks/APP-CREDENTIALS.md).
+        services.AddScoped<IQuickBooksAppResolver, QuickBooksAppResolver>();
+        services.AddScoped<IQuickBooksAppSettingsService, QuickBooksAppSettingsService>();
 
         // One instance serves the contract and the job's ForceRefreshAsync.
         services.AddScoped<TokenManager>();
@@ -45,6 +49,13 @@ internal static class ConnectionsRegistration
 
         services.AddScoped<IIntegrationSettingsService, IntegrationSettingsService>();
         services.AddScoped<IApiClientService, ApiClientService>();
+
+        // A44 (CTRL): sync control, provider defaults, effective accounts (the readers the gateway consumes too), account
+        // mapping, QuickBooks record import / link, coverage. Gateway-side services they use are resolved when used.
+        services.AddIntegrationSettingsReaders();
+        services.AddScoped<IQuickBooksAccountMappingService, AccountMappingService>();
+        services.AddScoped<IQuickBooksRemoteEntityService, RemoteEntityService>();
+        services.AddScoped<IQuickBooksCoverageService, CoverageService>();
 
         // QuickBooks' OAuth and per-call context (Providers/QuickBooks, owned here — see QuickBooksRegistration).
         // Singletons: stateless apart from options, and an OAuth2Client is built per operation anyway.

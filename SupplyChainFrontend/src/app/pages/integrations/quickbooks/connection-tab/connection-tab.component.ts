@@ -11,6 +11,7 @@ import {
   ConnectionStatusModel, QuickBooksIntegrationService, TestConnectionResult, qboErrorMessage
 } from '../../../../services/quickbooks-integration.service';
 import { CONNECTION_STATUS_LABEL, connectErrorMessage, needsReconnect } from '../quickbooks.shared';
+import { OwnAppKeysCardComponent } from '../own-app-keys/own-app-keys-card.component';
 
 /**
  * Connect, test and disconnect. Also where Intuit's OAuth callback lands: it redirects back to this
@@ -20,7 +21,7 @@ import { CONNECTION_STATUS_LABEL, connectErrorMessage, needsReconnect } from '..
 @Component({
   selector: 'app-qbo-connection-tab',
   standalone: true,
-  imports: [CommonModule, ButtonModule, ConfirmDialogModule, TagModule, TooltipModule],
+  imports: [CommonModule, ButtonModule, ConfirmDialogModule, TagModule, TooltipModule, OwnAppKeysCardComponent],
   templateUrl: './connection-tab.component.html',
   styleUrls: ['../quickbooks-tab.scss', './connection-tab.component.scss'],
   providers: [ConfirmationService]
@@ -109,6 +110,14 @@ export class ConnectionTabComponent implements OnInit {
         this.isConnecting = false;
         this.messages.add({ severity: 'error', summary: 'Not connected', detail: qboErrorMessage(err, 'The connection could not be started.') });
       }
+    });
+  }
+
+  /** After the organization's own app keys change: which keys the next Connect uses may have changed. */
+  refreshStatus(): void {
+    this.service.getConnection().subscribe({
+      next: (status) => this.connectionChange.emit(status),
+      error: () => { /* the card already said what happened; the status refreshes with the page */ }
     });
   }
 

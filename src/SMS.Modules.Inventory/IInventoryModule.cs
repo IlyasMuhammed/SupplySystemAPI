@@ -12,6 +12,7 @@ using SMS.Modules.Inventory.Repositories;
 using SMS.Modules.Inventory.Services;
 using SMS.Modules.Inventory.Services.LeadTimes;
 using SMS.Shared.Common;
+using SMS.Shared.Finance.Posting;
 using SMS.Shared.Integration.QuickBooks;
 
 namespace SMS.Modules.Inventory;
@@ -141,6 +142,9 @@ public static class InventoryModuleExtensions
         // source is registered once and exposed both as itself (for the publisher) and as an
         // IQuickBooksSource (for the gateway), one per scope.
         services.TryAddScoped<IQuickBooksGateway, NullQuickBooksGateway>();
+        // A44 D-25/D-76 — edits reach QuickBooks through the provider-neutral entity sync gateway (the
+        // Accounting router fans out to every active target). Null until the router replaces it.
+        services.TryAddScoped<IEntitySyncGateway, NullEntitySyncGateway>();
         services.AddScoped<VariantQuickBooksSource>();
         services.AddScoped<IQuickBooksSource>(sp => sp.GetRequiredService<VariantQuickBooksSource>());
         services.AddScoped<VariantQuickBooksPublisher>();

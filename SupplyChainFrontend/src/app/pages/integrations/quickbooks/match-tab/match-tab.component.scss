@@ -11,5 +11,6 @@
 .label { font-weight: 600; }
 .reason { font-size: .8125rem; color: var(--text-color-secondary); }
 .match-actions { margin: 0; padding: .875rem 1.25rem; }
+.remote-search { width: 13rem; max-width: 100%; }
 
 :host ::ng-deep tr.changed > td { background: var(--sms-primary-soft); }

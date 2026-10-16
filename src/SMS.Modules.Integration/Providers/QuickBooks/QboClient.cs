@@ -29,6 +29,12 @@ internal interface IQboClient
     /// <summary><c>DataService.Void</c> — POST /{entity}?operation=void. Invoice, SalesReceipt and Payment only.</summary>
     IEntity Void(IEntity entity);
 
+    /// <summary>
+    /// <c>DataService.Delete</c> — POST /{entity}?operation=delete with Id + SyncToken (A44 D-51: BillPayment and
+    /// RefundReceipt, which the SDK cannot void). The default throws, for test doubles written before A44.
+    /// </summary>
+    IEntity Delete(IEntity entity) => throw new NotSupportedException("Delete is not available on this client.");
+
     /// <summary><c>QueryService&lt;T&gt;.ExecuteIdsQuery</c> — POST /query with the query as the body.</summary>
     IReadOnlyList<T> Query<T>(string query) where T : class, IEntity;
 }
@@ -63,6 +69,8 @@ internal sealed class SdkQboClient : IQboClient
     public IEntity? FindById(IEntity entity) => Data.FindById(entity);
 
     public IEntity Void(IEntity entity) => Data.Void(entity);
+
+    public IEntity Delete(IEntity entity) => Data.Delete(entity);
 
     public IReadOnlyList<T> Query<T>(string query) where T : class, IEntity =>
         new QueryService<T>(_context).ExecuteIdsQuery(query);

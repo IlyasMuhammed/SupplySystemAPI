@@ -75,8 +75,8 @@
             </td>
             <td *ngIf="qboAvailable()">
               <span class="type-tags">
-                <app-qbo-sync-badge *ngIf="partner.isCustomer" kind="Customer" [externalId]="partner.uuid" label="Customer"></app-qbo-sync-badge>
-                <app-qbo-sync-badge *ngIf="partner.isVendor" kind="Vendor" [externalId]="partner.uuid" label="Vendor"></app-qbo-sync-badge>
+                <app-qbo-sync-badge [inlineAction]="false" *ngIf="partner.isCustomer" kind="Customer" [externalId]="partner.uuid" label="Customer"></app-qbo-sync-badge>
+                <app-qbo-sync-badge [inlineAction]="false" *ngIf="partner.isVendor" kind="Vendor" [externalId]="partner.uuid" label="Vendor"></app-qbo-sync-badge>
               </span>
             </td>
             <td>

@@ -3,6 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
+import { DialogModule } from 'primeng/dialog';
+import { InputTextModule } from 'primeng/inputtext';
 import { SelectModule } from 'primeng/select';
 import { SelectButtonModule } from 'primeng/selectbutton';
 import { TableModule } from 'primeng/table';
@@ -13,7 +15,7 @@ import { ConfirmationService, MessageService } from 'primeng/api';
 
 import {
   IntegrationSettingsModel, MatchCandidateModel, MatchConfidence, MatchDecisionChoice, MatchKind, MatchScanResultModel,
-  QuickBooksIntegrationService, qboErrorMessage
+  QuickBooksIntegrationService, RemoteEntityModel, qboErrorMessage
 } from '../../../../services/quickbooks-integration.service';
 import {
   CONFIDENCE_SEVERITY, DECISION_LABEL, DraftDecision, KIND_PLURAL, Option, buildDecisions, initialDraft, linkAllExact
@@ -29,8 +31,8 @@ type ConfidenceFilter = 'All' | MatchConfidence;
   selector: 'app-qbo-match-tab',
   standalone: true,
   imports: [
-    CommonModule, FormsModule, ButtonModule, ConfirmDialogModule, SelectModule, SelectButtonModule, TableModule, TabsModule,
-    TagModule, TooltipModule
+    CommonModule, FormsModule, ButtonModule, ConfirmDialogModule, DialogModule, InputTextModule, SelectModule, SelectButtonModule,
+    TableModule, TabsModule, TagModule, TooltipModule
   ],
   templateUrl: './match-tab.component.html',
   styleUrls: ['../quickbooks-tab.scss', './match-tab.component.scss'],
@@ -78,6 +80,114 @@ export class MatchTabComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadCandidates();
+    this.loadRemote();
+  }
+
+  // ── A44 D-17 — QuickBooks records not linked to anything in SCM ─────────────
+
+  /** Unlinked imported QuickBooks records of the current kind; null while not loaded. */
+  remote: RemoteEntityModel[] | null = null;
+  /** False when the server has no remote-entity endpoints (older server): the section is hidden. */
+  remoteAvailable = true;
+  isLoadingRemote = false;
+  isImporting = false;
+  remoteSearch = '';
+
+  linkVisible = false;
+  linkRemoteItem: RemoteEntityModel | null = null;
+  linkExternalId: string | null = null;
+  isLinking = false;
+
+  get filteredRemote(): RemoteEntityModel[] {
+    const term = this.remoteSearch.trim().toLowerCase();
+    const list = this.remote ?? [];
+    return term ? list.filter(r => (r.name ?? '').toLowerCase().includes(term) || r.remoteId.toLowerCase().includes(term)) : list;
+  }
+
+  /** SCM records of this kind that are not linked yet: the targets a QuickBooks record can be linked to. */
+  get linkTargets(): Option<string>[] {
+    return this.candidates
+      .filter(c => !(c.decision === 'Link' && c.remoteId))
+      .map(c => ({ label: c.localLabel, value: c.externalId }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }
+
+  extraText(r: RemoteEntityModel): string {
+    const parts: [string, string | null | undefined][] = [
+      ['Company', r.companyName !== r.name ? r.companyName : null], ['Email', r.email], ['Tax id', r.taxId],
+      ['Account', r.accountNumber], ['SKU', r.sku], ['Currency', r.currencyCode]
+    ];
+    const text = parts.filter(([, v]) => !!v).map(([k, v]) => `${k}: ${v}`);
+    if (r.active === false) text.push('inactive in QuickBooks');
+    return text.join(' · ');
+  }
+
+  loadRemote(): void {
+    const kind = this.kind;
+    this.isLoadingRemote = true;
+    this.service.getRemote(kind, false).subscribe({
+      next: (list) => {
+        if (kind !== this.kind) return;
+        this.isLoadingRemote = false;
+        this.remoteAvailable = true;
+        this.remote = list ?? [];
+      },
+      error: (err) => {
+        if (kind !== this.kind) return;
+        this.isLoadingRemote = false;
+        this.remote = null;
+        if (err?.status === 404) this.remoteAvailable = false;
+      }
+    });
+  }
+
+  /** Reads every QuickBooks record of this kind into SCM as remote-only (nothing is created in SCM). */
+  importRemote(): void {
+    if (!this.canManage || this.isImporting) return;
+    const kind = this.kind;
+    this.isImporting = true;
+    this.service.importRemote(kind).subscribe({
+      next: (res) => {
+        this.isImporting = false;
+        this.messages.add({
+          severity: 'success', summary: 'Imported',
+          detail: `${res?.read ?? 0} QuickBooks ${KIND_PLURAL[kind]} read${res?.unlinked != null ? `; ${res.unlinked} are not linked to SCM` : ''}.`
+        });
+        if (kind === this.kind) this.loadRemote();
+      },
+      error: (err) => {
+        this.isImporting = false;
+        this.messages.add({ severity: 'error', summary: 'Not imported', detail: qboErrorMessage(err, 'QuickBooks could not be read.') });
+      }
+    });
+  }
+
+  openLink(r: RemoteEntityModel): void {
+    if (!this.canManage) return;
+    this.linkRemoteItem = r;
+    const sameName = this.linkTargets.filter(t => t.label.trim().toLowerCase() === (r.name ?? '').trim().toLowerCase());
+    this.linkExternalId = sameName.length === 1 ? sameName[0].value : null;
+    this.linkVisible = true;
+  }
+
+  link(): void {
+    const r = this.linkRemoteItem;
+    if (!this.canManage || !r || !this.linkExternalId || this.isLinking) return;
+    const kind = this.kind;
+    this.isLinking = true;
+    this.service.linkRemote(kind, r.remoteId, { externalId: this.linkExternalId }).subscribe({
+      next: () => {
+        this.isLinking = false;
+        this.linkVisible = false;
+        this.messages.add({ severity: 'success', summary: 'Linked', detail: `${r.name || 'The QuickBooks record'} is linked. Nothing was changed in QuickBooks.` });
+        this.drafts[kind].clear();
+        if (kind === this.kind) { this.loadRemote(); this.loadCandidates(); }
+      },
+      error: (err) => {
+        this.isLinking = false;
+        this.messages.add({ severity: 'error', summary: 'Not linked', detail: qboErrorMessage(err, 'The records could not be linked.') });
+      }
+    });
   }
 
   // ── State ───────────────────────────────────────────────────────────────────
@@ -157,6 +267,9 @@ export class MatchTabComponent implements OnInit {
     this.kind = kind;
     this.confidenceFilter = 'All';
     this.loadCandidates();
+    this.remote = null;
+    this.remoteSearch = '';
+    if (this.remoteAvailable) this.loadRemote();
   }
 
   loadCandidates(): void {

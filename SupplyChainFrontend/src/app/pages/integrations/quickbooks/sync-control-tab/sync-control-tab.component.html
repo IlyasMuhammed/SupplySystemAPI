@@ -1,0 +1,71 @@
+<p-confirmDialog key="qbo-sync-control" [style]="{ width: '32rem', maxWidth: '96vw' }"></p-confirmDialog>
+
+<div class="state-card" *ngIf="isLoading" data-testid="loading">
+  <i class="pi pi-spin pi-spinner big"></i>
+  <p>Loading sync control…</p>
+</div>
+
+<div class="state-card" *ngIf="loadFailed" data-testid="load-failed">
+  <i class="pi pi-exclamation-triangle big"></i>
+  <h2>Sync control could not be loaded</h2>
+  <p>{{ loadError }}</p>
+  <p-button label="Try again" icon="pi pi-refresh" (onClick)="load()"></p-button>
+</div>
+
+<ng-container *ngIf="!isLoading && !loadFailed">
+  <section class="form-card flush" data-testid="sync-control-card">
+    <div class="table-toolbar">
+      <div class="card-icon"><i class="pi pi-sliders-h"></i></div>
+      <div class="grow">
+        <div class="card-title">Sync control</div>
+        <div class="card-sub">
+          Which documents go to QuickBooks. A type that is off can hold its records, to send them all when it is turned on;
+          without hold they are not sent at all.
+        </div>
+      </div>
+      <span class="held-total" *ngIf="totalHeld" data-testid="total-held"><i class="pi pi-clock"></i> {{ totalHeld }} held</span>
+    </div>
+
+    <div class="note warn release" *ngIf="releaseBanner" data-testid="release-banner">
+      <i class="pi pi-send"></i>
+      <div class="note-body">{{ releaseBanner }}</div>
+    </div>
+
+    <ul class="sc-list" data-testid="sync-control-list">
+      <li *ngFor="let r of rows" class="sc-row" [class.changed]="isChanged(r)" [attr.data-testid]="'sc-' + r.documentType">
+        <div class="sc-text">
+          <div class="sc-label">{{ label[r.documentType] }}</div>
+          <div class="hint">{{ hint[r.documentType] }}</div>
+        </div>
+        <div class="sc-status">
+          <p-tag [value]="draftStatus(r)" [severity]="tone[draftStatus(r)]" [attr.data-testid]="'sc-status-' + r.documentType"></p-tag>
+          <span class="held" *ngIf="r.heldCount" [attr.data-testid]="'sc-held-' + r.documentType">{{ r.heldCount }} held</span>
+          <p-button *ngIf="canManage && r.isEnabled && r.heldCount && !isChanged(r)" label="Release" icon="pi pi-send" [text]="true" size="small"
+                    [loading]="!!releasing[r.documentType]" [disabled]="!!releasing[r.documentType]" (onClick)="release(r)"
+                    [attr.data-testid]="'sc-release-' + r.documentType"></p-button>
+        </div>
+        <label class="sc-toggle">
+          <span>Sync</span>
+          <p-toggleswitch [ngModel]="draft(r).isEnabled" (ngModelChange)="setEnabled(r, $event)" [disabled]="!canManage || isSaving"
+                          [attr.data-testid]="'sc-enabled-' + r.documentType"></p-toggleswitch>
+        </label>
+        <label class="sc-toggle" [class.dim]="draft(r).isEnabled"
+               [pTooltip]="draft(r).isEnabled ? 'Applies while sync is off' : ''" tooltipPosition="top">
+          <span>Hold</span>
+          <p-toggleswitch [ngModel]="draft(r).holdWhenDisabled" (ngModelChange)="setHold(r, $event)" [disabled]="!canManage || isSaving"
+                          [attr.data-testid]="'sc-hold-' + r.documentType"></p-toggleswitch>
+        </label>
+      </li>
+    </ul>
+
+    <div class="action-bar table-actions" *ngIf="canManage" data-testid="sc-actions">
+      <span class="unsaved" *ngIf="dirty"><i class="pi pi-circle-fill"></i> {{ changedRows.length }} unsaved</span>
+      <span class="saved" *ngIf="!dirty"><i class="pi pi-check"></i> Saved</span>
+      <span class="grow"></span>
+      <p-button label="Discard" [outlined]="true" severity="secondary" [disabled]="!dirty || isSaving" (onClick)="discard()"
+                data-testid="sc-discard"></p-button>
+      <p-button label="Save" icon="pi pi-check" [loading]="isSaving" [disabled]="!dirty || isSaving" (onClick)="save()"
+                data-testid="sc-save"></p-button>
+    </div>
+  </section>
+</ng-container>

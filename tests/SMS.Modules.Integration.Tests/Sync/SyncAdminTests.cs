@@ -29,7 +29,9 @@ public class SyncAdminTests : IAsyncLifetime
         var summary = await Admin(s => s.GetSummaryAsync());
 
         summary.ConnectionStatus.Should().Be("NotConnected");
-        summary.Kinds.Select(k => k.Kind).Should().Equal("Customer", "Vendor", "Item", "SalesInvoice", "Bill");
+        // A44: the new document kinds are reported too.
+        summary.Kinds.Select(k => k.Kind).Should().Equal(Enum.GetNames<SyncKind>());
+        summary.Kinds.Select(k => k.Kind).Should().StartWith(["Customer", "Vendor", "Item", "SalesInvoice", "Bill"]);
         summary.Kinds.Should().OnlyContain(k => k.Total == 0 && k.CountsByState.Count == Enum.GetValues<SyncState>().Length);
     }
 
@@ -237,6 +239,40 @@ public class SyncAdminTests : IAsyncLifetime
 
         var bad = () => Admin(s => s.PushAsync(new ManualPushRequest { Kind = "Invoice", ExternalIds = ["x"] }));
         await bad.Should().ThrowAsync<BadRequestException>();
+    }
+
+    /// <summary>
+    /// Found live against a sandbox company (2026-10-13): "Push now" on items skipped in matching created them in
+    /// QuickBooks. Skip means not synced, whoever asks.
+    /// </summary>
+    [Fact]
+    public async Task Push_now_and_retry_never_send_a_record_skipped_in_matching()
+    {
+        var connection = await _h.ConnectAsync();
+        await _h.Send(TestPayloads.Customer());                    // stored, NotSynced (only when referenced)
+        await _h.Send(TestPayloads.Customer(id: "C-2", name: "Wanted"));
+        var map = await _h.MapAsync(SyncKind.Customer, "C-1");
+        await using (var db = _h.DbAs(_h.OrgId))
+        {
+            db.MatchCandidates.Add(new MatchCandidate { ConnectionId = connection.Id, EntityMapId = map.Id, Kind = SyncKind.Customer, Decision = MatchDecision.Skip });
+            await db.SaveChangesAsync();
+        }
+
+        var result = await Admin(s => s.PushAsync(new ManualPushRequest { Kind = "Customer", ExternalIds = ["C-1", "C-2"] }));
+
+        result.SkippedInMatching.Should().Equal("C-1");
+        result.Requested.Should().Be(1);
+        _h.Source.PushCalls.Should().ContainSingle(c => c.Ids.SequenceEqual(new[] { "C-2" }), "the skipped record is not even asked for");
+        (await _h.EntriesAsync(SyncKind.Customer, "C-1")).Should().BeEmpty("nothing is queued for it");
+        (await _h.MapAsync(SyncKind.Customer, "C-1")).State.Should().Be(SyncState.NotSynced);
+        (await _h.MapAsync(SyncKind.Customer, "C-2")).State.Should().Be(SyncState.Pending);
+
+        var retry = () => Admin(s => s.RetryAsync(map.Uuid));
+        (await retry.Should().ThrowAsync<ConflictException>()).Which.Message.Should().Contain("skipped in matching");
+
+        await _h.RunOutboxAsync();
+        _h.Provider.Company.Where(r => r.Kind == SyncKind.Customer).Should()
+            .ContainSingle("only the wanted customer reaches QuickBooks").Which.Name.Should().Contain("Wanted");
     }
 
     [Fact]

@@ -1,12 +1,12 @@
-import { Injectable, Injector, ProviderToken, inject } from '@angular/core';
+import { Injectable, Injector, ProviderToken, inject, signal } from '@angular/core';
 import { BehaviorSubject, Observable, of } from 'rxjs';
-import { catchError, distinctUntilChanged, map, shareReplay } from 'rxjs/operators';
+import { catchError, distinctUntilChanged, map, shareReplay, tap } from 'rxjs/operators';
 
 import { ConnectionStatusModel, SyncKind, SyncStatus } from '../../../models/quickbooks-integration.models';
 import { QuickBooksIntegrationService } from '../../../services/quickbooks-integration.service';
 import { AuthService } from '../../../pages/service/auth.service';
 import { TenantService } from '../../../pages/service/tenant.service';
-import { PERM_SYNC, PERM_VIEW, QBO_FEATURE } from './qbo-sync-state';
+import { PERM_MANAGE, PERM_SYNC, PERM_VIEW, QBO_FEATURE } from './qbo-sync-state';
 
 interface Entry {
   kind: SyncKind;
@@ -72,6 +72,18 @@ export class QboSyncStatusStore {
       return false;
     }
   }
+
+  /** A44 D-33 — the inline "Send to QuickBooks" / "Retry" button needs INTEGRATION_MANAGE. */
+  canRetry(): boolean {
+    try {
+      return this.auth?.hasPermission(PERM_MANAGE) === true;
+    } catch {
+      return false;
+    }
+  }
+
+  /** The org's connection is live (not revoked / expired): only then can a record be sent. Set by the first lookup. */
+  readonly connected = signal(false);
 
   /** One record's status: null until it is known, and null for good when it cannot be shown. */
   status(kind: SyncKind | null | undefined, externalId: string | null | undefined): Observable<SyncStatus | null> {
@@ -172,6 +184,7 @@ export class QboSyncStatusStore {
 
     this.connectedAt = Date.now();
     this.connected$ = api.getConnection().pipe(
+      tap((c: ConnectionStatusModel) => this.connected.set(!!c?.isConnected)),
       map((c: ConnectionStatusModel) => !!c && (c.isConnected || c.status === 'Revoked' || c.status === 'Expired')),
       catchError(() => of(false)),
       shareReplay(1)

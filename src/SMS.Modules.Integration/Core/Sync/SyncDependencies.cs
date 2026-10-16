@@ -178,7 +178,9 @@ internal sealed class SyncDependencies : ISyncDependencies
             result[(m.Kind, m.ExternalId)] = m;
 
         // Placeholders added earlier in this unit of work.
-        foreach (var m in _db.EntityMaps.Local.Where(m => m.Id == 0 && m.ConnectionId == connectionId && m.SourceSystem == sourceSystem))
+        // By tracking state, not Id == 0: some providers (EF in-memory) give an added row its key before it is saved.
+        foreach (var m in _db.EntityMaps.Local.Where(m => m.ConnectionId == connectionId && m.SourceSystem == sourceSystem
+                                                        && (m.Id == 0 || _db.Entry(m).State == EntityState.Added)))
             result.TryAdd((m.Kind, m.ExternalId), m);
 
         return result;

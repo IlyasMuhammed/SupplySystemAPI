@@ -24,7 +24,7 @@
                  [severity]="mustReconnect ? 'danger' : 'secondary'" data-testid="header-status"></p-tag>
         </ng-container>
       </h1>
-      <div class="sf-meta">Send customers, vendors, items, sales invoices and bills to QuickBooks Online.</div>
+      <div class="sf-meta">Send customers, vendors, items, invoices, payments, credits and bills to QuickBooks Online.</div>
     </div>
   </header>
 
@@ -86,7 +86,21 @@
 
             <p-tabpanel value="mappings">
               <app-qbo-mappings-tab *ngIf="activeTab === 'mappings'" [canManage]="canManage"
-                                    (settingsChange)="onSettingsChange($event)"></app-qbo-mappings-tab>
+                                    (settingsChange)="onSettingsChange($event)" (navigate)="selectTab($event)"></app-qbo-mappings-tab>
+            </p-tabpanel>
+
+            <!-- A44 D-30 -->
+            <p-tabpanel value="accounts">
+              <app-qbo-accounts-tab *ngIf="activeTab === 'accounts'" [canManage]="canManage"></app-qbo-accounts-tab>
+            </p-tabpanel>
+
+            <p-tabpanel value="defaults">
+              <app-qbo-defaults-tab *ngIf="activeTab === 'defaults'" [canManage]="canManage"></app-qbo-defaults-tab>
+            </p-tabpanel>
+
+            <p-tabpanel value="sync-control">
+              <app-qbo-sync-control-tab *ngIf="activeTab === 'sync-control'" [canManage]="canManage"
+                                        (changed)="refreshSummary()"></app-qbo-sync-control-tab>
             </p-tabpanel>
 
             <p-tabpanel value="initial-sync">
@@ -100,8 +114,16 @@
             </p-tabpanel>
 
             <p-tabpanel value="sync">
-              <app-qbo-sync-tab *ngIf="activeTab === 'sync'" [canManage]="canManage" [canSync]="canSync" [settings]="settings"
+              <app-qbo-sync-tab *ngIf="activeTab === 'sync'" [canManage]="canManage" [canSync]="canSync" [settings]="settings" [focus]="syncFocus"
                                 (settingsChange)="onSettingsChange($event)" (summaryChange)="onSummaryChange($event)"></app-qbo-sync-tab>
+            </p-tabpanel>
+
+            <p-tabpanel value="coverage">
+              <app-qbo-coverage-tab *ngIf="activeTab === 'coverage'" (navigate)="selectTab($event)"></app-qbo-coverage-tab>
+            </p-tabpanel>
+
+            <p-tabpanel value="logs">
+              <app-qbo-logs-tab *ngIf="activeTab === 'logs'" [canManage]="canManage" (openSyncItem)="onOpenSyncItem($event)"></app-qbo-logs-tab>
             </p-tabpanel>
 
             <p-tabpanel value="api-clients" *ngIf="canManage">

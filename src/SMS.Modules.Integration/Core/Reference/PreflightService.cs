@@ -32,6 +32,11 @@ internal static class PreflightCodes
     public const string TaxCodes          = "TAX_CODES";
     public const string AccountsMapped    = "ACCOUNTS_MAPPED";
     public const string MatchingConfirmed = "MATCHING_CONFIRMED";
+    // A44 D-27
+    public const string DepositAccounts   = "DEPOSIT_ACCOUNTS";
+    public const string BankAccounts      = "BANK_ACCOUNTS";
+    public const string ClassDefault      = "CLASS_DEFAULT";
+    public const string DepartmentDefault = "DEPARTMENT_DEFAULT";
 }
 
 /// <summary>
@@ -100,7 +105,8 @@ internal sealed class PreflightService : IPreflightService
         checks.Add(CustomTxnNumbersCheck(data));
         checks.Add(DiscountsCheck(data));
         checks.Add(TaxCodesCheck(data, facts, mappedCodes, mappedRates));
-        checks.Add(AccountsCheck(settings, data));
+        checks.Add(AccountsCheck(await EffectiveSettingsAsync(settings, ct), data));
+        checks.AddRange(await PostingDefaultsChecksAsync(connection, settings, data, ct));
         checks.Add(settings.MatchingConfirmedAt is { } confirmedAt
             ? Pass(PreflightCodes.MatchingConfirmed, "Existing records matched",
                 $"Matching was confirmed on {confirmedAt:dd MMM yyyy}.")
@@ -375,6 +381,53 @@ internal sealed class PreflightService : IPreflightService
         }
 
         return Pass(PreflightCodes.AccountsMapped, title, "Default income and expense accounts are set.");
+    }
+
+    /// <summary>
+    /// A44 D-16: the settings with each empty account replaced by the general ledger's mapped one, so a company that maps
+    /// its chart instead of choosing the four accounts passes (and the check still names a gone or inactive account).
+    /// </summary>
+    private async Task<IntegrationSettings> EffectiveSettingsAsync(IntegrationSettings settings, CancellationToken ct)
+    {
+        if (_services.GetService<IEffectiveAccountsResolver>() is not { } resolver) return settings;
+
+        var effective = await resolver.ResolveAsync(settings, ct);
+        return new IntegrationSettings
+        {
+            ConnectionId            = settings.ConnectionId,
+            DefaultIncomeAccountId  = effective.Income.AccountId,
+            DefaultExpenseAccountId = effective.Expense.AccountId,
+            FreightExpenseAccountId = settings.FreightExpenseAccountId ?? (effective.FreightExpense.Source == EffectiveAccounts.FromLedger ? effective.FreightExpense.AccountId : null),
+            DiscountAccountId       = effective.Discount.AccountId
+        };
+    }
+
+    /// <summary>
+    /// A44 D-27 (D-68): what the new document types need, for the payment methods stored records actually use — deposit
+    /// accounts for customer payments (else QuickBooks' Undeposited Funds), bank accounts for bill payments — and a class /
+    /// location default while the company tracks them. Warnings, not failures (like unmapped tax codes): only the
+    /// documents that need them are affected, and turning a document type off clears its warning.
+    /// </summary>
+    private async Task<List<PreflightCheckModel>> PostingDefaultsChecksAsync(
+        IntegrationConnection connection, IntegrationSettings settings, RemoteReferenceData? data, CancellationToken ct)
+    {
+        var checks   = new List<PreflightCheckModel>();
+        var issues   = await PostingReadiness.CheckAsync(_services, _db, connection.Id, settings, data, ct);
+
+        foreach (var group in issues.GroupBy(i => i.Code))
+        {
+            var (code, title) = group.Key switch
+            {
+                PostingReadiness.DepositAccounts => (PreflightCodes.DepositAccounts, "Deposit accounts"),
+                PostingReadiness.BankAccounts    => (PreflightCodes.BankAccounts, "Bill payment accounts"),
+                PostingReadiness.ClassDefault    => (PreflightCodes.ClassDefault, "Class"),
+                _                                => (PreflightCodes.DepartmentDefault, "Location")
+            };
+            checks.Add(Warn(code, title, string.Join(" ", group.Select(i => i.Message))));
+        }
+
+        // Only problems are listed (like the purchase-base check): nothing to say is no row.
+        return checks;
     }
 
     internal static string FormatRate(decimal rate) => rate.ToString("0.####", CultureInfo.InvariantCulture) + "%";

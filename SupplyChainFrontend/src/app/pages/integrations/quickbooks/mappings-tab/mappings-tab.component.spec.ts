@@ -90,8 +90,10 @@ describe('MappingsTabComponent', () => {
   } = {}) {
     service = jasmine.createSpyObj<QuickBooksIntegrationService>('QuickBooksIntegrationService', [
       'getReference', 'refreshReference', 'getSettings', 'updateSettings', 'getTaxMappings', 'saveTaxMappings',
-      'getTermMappings', 'saveTermMappings'
+      'getTermMappings', 'saveTermMappings', 'getSyncControl', 'importTaxMappings'
     ]);
+    // An older server without A44 sync control: the switches stay here.
+    service.getSyncControl.and.returnValue(throwError(() => ({ status: 404 })));
     service.getReference.and.returnValue(opts.reference === null ? throwError(() => ({ status: 404 })) : of(opts.reference ?? REFERENCE));
     service.getSettings.and.returnValue(of(opts.settings ?? settings()));
     service.getTaxMappings.and.returnValue(of(opts.tax ?? TAX));

@@ -43,6 +43,11 @@ public static class ModuleCodes
     public const string ShipmentTracking   = "FEATURE_SHIPMENT_TRACKING";
     public const string PurchaseReturns    = "FEATURE_PURCHASE_RETURNS";
     public const string CreditManagement   = "FEATURE_CREDIT_MANAGEMENT";
+    /// <summary>
+    /// The organization connects QuickBooks through its own Intuit app instead of the platform's (docs/quickbooks/APP-CREDENTIALS.md
+    /// D-9). Sub-feature of <see cref="Integration"/>, in no plan: the super admin licenses it by hand.
+    /// </summary>
+    public const string QuickBooksOwnApp   = "FEATURE_QBO_OWN_APP";
 }
 
 /// <summary>

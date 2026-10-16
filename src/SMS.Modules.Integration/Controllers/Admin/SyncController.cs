@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using SMS.Modules.Integration.Core.Settings;
 using SMS.Modules.Integration.Core.Sync;
 using SMS.Modules.Integration.Models;
 using SMS.Shared.Authorization;
@@ -44,6 +45,47 @@ public class SyncController : ControllerBase
     [HttpPost("sync/items/{id:guid}/resolve")]
     public async Task<IActionResult> Resolve(Guid id, [FromBody] ResolveSyncItemRequest request, CancellationToken ct) =>
         Ok(ApiResponse<SyncItemModel>.Ok(await _sync.ResolveAsync(id, request, User.GetUserId(), ct)));
+
+    // ── A44 (CTRL): unlink (D-17), dead letter (D-11) ───────────────────────────────────────
+
+    /// <summary>Forgets the QuickBooks link of a customer / vendor / item. 409 (result = { openDocuments, examples }) while open synced documents use it.</summary>
+    [RequirePermission(PermissionCodes.INTEGRATION_MANAGE)]
+    [HttpPost("sync/items/{id:guid}/unlink")]
+    public async Task<IActionResult> Unlink(Guid id, CancellationToken ct)
+    {
+        try
+        {
+            return Ok(ApiResponse<SyncItemModel>.Ok(await _sync.UnlinkAsync(id, User.GetUserId(), ct), "Unlinked."));
+        }
+        catch (IntegrationConflictException ex)
+        {
+            return PostingSetupController.ConflictResult(ex);
+        }
+    }
+
+    /// <summary>A44 D-34: every call to QuickBooks across all records, newest first; failed only by default.</summary>
+    [RequirePermission(PermissionCodes.INTEGRATION_VIEW)]
+    [HttpGet("sync/log")]
+    public async Task<IActionResult> CallLog([FromQuery] SyncLogQuery query, CancellationToken ct) =>
+        Ok(ApiResponse<PaginatedResponse<SyncLogItemModel>>.Ok(await _sync.GetCallLogAsync(query, ct)));
+
+    /// <summary>One call with its (redacted) request and response.</summary>
+    [RequirePermission(PermissionCodes.INTEGRATION_VIEW)]
+    [HttpGet("sync/log/{id:guid}")]
+    public async Task<IActionResult> CallLogEntry(Guid id, CancellationToken ct) =>
+        Ok(ApiResponse<SyncLogItemModel>.Ok(await _sync.GetCallLogEntryAsync(id, ct)));
+
+    /// <summary>Re-queues every Failed / NeedsResolution record (optionally of one kind).</summary>
+    [RequirePermission(PermissionCodes.INTEGRATION_MANAGE)]
+    [HttpPost("sync/items/retry-failed")]
+    public async Task<IActionResult> RetryFailed([FromBody] RetryFailedRequest? request, CancellationToken ct) =>
+        Ok(ApiResponse<RetryFailedResult>.Ok(await _sync.RetryFailedAsync(request ?? new RetryFailedRequest(), User.GetUserId(), ct)));
+
+    /// <summary>Dismisses a dead-letter record: nothing more is sent until its data changes.</summary>
+    [RequirePermission(PermissionCodes.INTEGRATION_MANAGE)]
+    [HttpPost("sync/items/{id:guid}/skip")]
+    public async Task<IActionResult> Skip(Guid id, CancellationToken ct) =>
+        Ok(ApiResponse<SyncItemModel>.Ok(await _sync.SkipAsync(id, User.GetUserId(), ct), "Dismissed."));
 
     /// <summary>"Push now": marks the records as wanted and asks SCM to send them.</summary>
     [RequirePermission(PermissionCodes.INTEGRATION_SYNC)]

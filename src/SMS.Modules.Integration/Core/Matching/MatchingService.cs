@@ -66,7 +66,7 @@ internal sealed class MatchingService : IQuickBooksMatchingService
             throw new ConflictException("QuickBooks is not connected. Connect it before matching existing records.");
 
         var now    = _clock.GetUtcNow().UtcDateTime;
-        var remote = await ReadAllAsync(connection, kind, now, ct);
+        var remote = await ReadAllAsync(_db, _providers, _health, _outboxControl, connection, kind, now, "Matching scan", ct);
 
         // A QuickBooks record already linked to another of our records is not offered again.
         var linked = (await _db.EntityMaps
@@ -131,9 +131,16 @@ internal sealed class MatchingService : IQuickBooksMatchingService
         return result;
     }
 
-    private async Task<List<RemoteListEntry>> ReadAllAsync(IntegrationConnection connection, SyncKind kind, DateTime now, CancellationToken ct)
+    /// <summary>
+    /// Every page of a kind from QuickBooks, each call logged. Throws <see cref="ConflictException"/> when QuickBooks cannot
+    /// be read (and marks the connection revoked when it refused our token). Shared with the remote-only import (D-17).
+    /// </summary>
+    internal static async Task<List<RemoteListEntry>> ReadAllAsync(
+        IntegrationDbContext db, IAccountingProviderRegistry providers, IConnectionHealth health, IOutboxControl outboxControl,
+        IntegrationConnection connection, SyncKind kind, DateTime now, string purpose, CancellationToken ct)
     {
-        var provider = _providers.Get(connection.ProviderKey);
+        var _db = db;
+        var provider = providers.Get(connection.ProviderKey);
         var context  = connection.ToProviderContext();
         var all      = new List<RemoteListEntry>();
 
@@ -149,7 +156,7 @@ internal sealed class MatchingService : IQuickBooksMatchingService
                 Operation      = "Query",
                 Outcome        = result.Outcome.ToString(),
                 ErrorCode      = SyncText.Clip(result.ErrorCode, 100),
-                Message        = SyncText.Clip(Redactor.Redact(result.Message ?? $"Matching scan: {kind} from {start}, {result.Value?.Count ?? 0} returned."), 2000),
+                Message        = SyncText.Clip(Redactor.Redact(result.Message ?? $"{purpose}: {kind} from {start}, {result.Value?.Count ?? 0} returned."), 2000),
                 RequestJson    = Redactor.Redact(result.RequestJson),
                 ResponseJson   = null, // a page of a thousand records is not worth keeping
                 DurationMs     = result.DurationMs,
@@ -164,13 +171,13 @@ internal sealed class MatchingService : IQuickBooksMatchingService
                 if (result.Outcome == ProviderOutcomeKind.AuthRevoked)
                 {
                     var reason = Redactor.Redact(result.Message) ?? "QuickBooks refused our access token.";
-                    await _health.MarkUnavailableAsync(connection.Id, ConnectionStatus.Revoked, reason, ct);
-                    await _outboxControl.SuspendAllAsync(connection.Id, $"QuickBooks refused our access ({reason}). Reconnect to resume.", ct);
-                    throw new ConflictException("QuickBooks refused our access — the connection has been revoked. Reconnect, then scan again.");
+                    await health.MarkUnavailableAsync(connection.Id, ConnectionStatus.Revoked, reason, ct);
+                    await outboxControl.SuspendAllAsync(connection.Id, $"QuickBooks refused our access ({reason}). Reconnect to resume.", ct);
+                    throw new ConflictException("QuickBooks refused our access — the connection has been revoked. Reconnect, then try again.");
                 }
 
                 throw new ConflictException(
-                    $"QuickBooks could not be read ({result.Outcome}: {Redactor.Redact(result.Message) ?? "no detail"}). Nothing was changed; try the scan again.");
+                    $"QuickBooks could not be read ({result.Outcome}: {Redactor.Redact(result.Message) ?? "no detail"}). Nothing was changed; try again.");
             }
 
             var rows = result.Value ?? [];

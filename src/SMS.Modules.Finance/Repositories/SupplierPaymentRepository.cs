@@ -80,6 +80,15 @@ internal sealed class SupplierPaymentRepository : ISupplierPaymentRepository
 
     public async Task<Guid> CreateAsync(CreateSupplierPaymentRequest req, int createdBy)
     {
+        // QA-5 (D-75): the supplier first, before anything uses it — a missing name used to reach the insert and fail
+        // there as a 500.
+        if (req.SupplierId == Guid.Empty)
+            throw new BadRequestException("SupplierId is required.");
+        if (string.IsNullOrWhiteSpace(req.SupplierName))
+            throw new BadRequestException("SupplierName is required.");
+        if (req.SupplierName.Trim().Length > 200)
+            throw new BadRequestException("SupplierName is longer than 200 characters.");
+
         if (req.TotalAmount <= 0)
             throw new BadRequestException("TotalAmount must be greater than zero.");
 
@@ -116,7 +125,7 @@ internal sealed class SupplierPaymentRepository : ISupplierPaymentRepository
             {
                 UUID          = req.PaymentUuid is { } pid && pid != Guid.Empty ? pid : Guid.NewGuid(),
                 SupplierId    = req.SupplierId,
-                SupplierName  = req.SupplierName,
+                SupplierName  = req.SupplierName.Trim(),
                 PaymentDate   = req.PaymentDate,
                 PaymentMethod = req.PaymentMethod,
                 TotalAmount   = req.TotalAmount,

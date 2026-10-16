@@ -14,6 +14,13 @@ internal static class AuditAreas
     public const string Mode        = "Mode";
     public const string Matching    = "Matching";
     public const string ApiClient   = "ApiClient";
+    /// <summary>The organization's own Intuit app keys (docs/quickbooks/APP-CREDENTIALS.md D-10) — never the secret.</summary>
+    public const string AppKeys     = "AppKeys";
+    // A44 — sync control (D-14), provider defaults / overrides (D-15), account mappings (D-16), unlink (D-17).
+    public const string SyncControl      = "SyncControl";
+    public const string ProviderDefaults = "ProviderDefaults";
+    public const string AccountMapping   = "AccountMapping";
+    public const string Link             = "Link";
 }
 
 /// <summary>

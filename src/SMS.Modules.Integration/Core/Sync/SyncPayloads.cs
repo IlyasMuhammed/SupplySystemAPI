@@ -46,8 +46,77 @@ internal static class SyncPayloads
         SyncKind.Item         => JsonSerializer.Deserialize<ItemPayload>(json, Canonical)!,
         SyncKind.SalesInvoice => JsonSerializer.Deserialize<SalesInvoicePayload>(json, Canonical)!,
         SyncKind.Bill         => JsonSerializer.Deserialize<BillPayload>(json, Canonical)!,
+        SyncKind.Payment       => JsonSerializer.Deserialize<PaymentPayload>(json, Canonical)!,
+        SyncKind.BillPayment   => JsonSerializer.Deserialize<BillPaymentPayload>(json, Canonical)!,
+        SyncKind.SalesReceipt  => JsonSerializer.Deserialize<SalesReceiptPayload>(json, Canonical)!,
+        SyncKind.CreditMemo    => JsonSerializer.Deserialize<CreditMemoPayload>(json, Canonical)!,
+        SyncKind.RefundReceipt => JsonSerializer.Deserialize<RefundReceiptPayload>(json, Canonical)!,
+        SyncKind.VendorCredit  => JsonSerializer.Deserialize<VendorCreditPayload>(json, Canonical)!,
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null)
     };
+
+    /// <summary>The kind a payload object is sent as (A44: one payload class per kind).</summary>
+    public static SyncKind? KindOf(object payload) => payload switch
+    {
+        CustomerPayload      => SyncKind.Customer,
+        VendorPayload        => SyncKind.Vendor,
+        ItemPayload          => SyncKind.Item,
+        SalesInvoicePayload  => SyncKind.SalesInvoice,
+        BillPayload          => SyncKind.Bill,
+        PaymentPayload       => SyncKind.Payment,
+        BillPaymentPayload   => SyncKind.BillPayment,
+        SalesReceiptPayload  => SyncKind.SalesReceipt,
+        CreditMemoPayload    => SyncKind.CreditMemo,
+        RefundReceiptPayload => SyncKind.RefundReceipt,
+        VendorCreditPayload  => SyncKind.VendorCredit,
+        _                    => null
+    };
+
+    /// <summary>A44: SourceType of a payload (POS documents follow the POSSale / POSReturn sync control, D-14).</summary>
+    public static string? SourceTypeOf(object payload) => payload switch
+    {
+        SalesInvoicePayload s  => s.SourceType,
+        SalesDocumentPayload d => d.SourceType,
+        PaymentPayload p       => p.SourceType,
+        _                      => null
+    };
+
+    /// <summary>The document number of a stored document payload (null for master data or unreadable JSON).</summary>
+    public static string? DocNumberOf(object payload) => payload switch
+    {
+        SalesInvoicePayload s  => s.DocNumber?.Trim(),
+        BillPayload b          => b.DocNumber?.Trim(),
+        PaymentPayload p       => p.DocNumber?.Trim(),
+        BillPaymentPayload bp  => bp.DocNumber?.Trim(),
+        SalesDocumentPayload d => d.DocNumber?.Trim(),
+        VendorCreditPayload v  => v.DocNumber?.Trim(),
+        _                      => null
+    };
+
+    /// <summary>The transaction date of a document payload; null for master data.</summary>
+    public static DateTime? DocumentDateOf(object payload) => payload switch
+    {
+        SalesInvoicePayload s  => s.TxnDate,
+        BillPayload b          => b.TxnDate,
+        PaymentPayload p       => p.TxnDate,
+        BillPaymentPayload bp  => bp.TxnDate,
+        SalesDocumentPayload d => d.TxnDate,
+        VendorCreditPayload v  => v.TxnDate,
+        _                      => null
+    };
+
+    /// <summary>
+    /// A44 D-54: the ExternalId of the "POS Walk-in" customer a sales receipt / credit memo / refund receipt without a
+    /// customer is sent under. The gateway keeps one map of it per connection and source system; when the connection
+    /// has a <c>PosDefaultCustomerRef</c> that map is linked to that QuickBooks customer, otherwise it is created once.
+    /// </summary>
+    public const string WalkInCustomerExternalId = "POS-WALK-IN";
+
+    public const string WalkInCustomerName = "POS Walk-in";
+
+    /// <summary>The customer a sales document is sent under: its own, else the walk-in customer.</summary>
+    public static string CustomerOf(SalesDocumentPayload document) =>
+        string.IsNullOrWhiteSpace(document.CustomerExternalId) ? WalkInCustomerExternalId : document.CustomerExternalId.Trim();
 
     /// <summary>A built QuickBooks object (or anything else) as log JSON.</summary>
     public static string ToLogJson(object value) => JsonSerializer.Serialize(value, value.GetType(), Log);
@@ -115,6 +184,42 @@ internal static class SyncPayloads
                     if (!string.IsNullOrWhiteSpace(line.ItemExternalId))
                         list.Add(new GatewayDependency(SyncKind.Item, line.ItemExternalId!.Trim()));
                 break;
+
+            // A44 (D-19..D-24): documents can depend on documents — a payment on the invoices it pays, a bill payment
+            // on its bills, an applied credit memo on its invoice. The dependency machinery treats them like master
+            // data: placeholder maps are asked of the SCM source that owns the kind (Finance for invoices and bills).
+            case PaymentPayload payment when kind == SyncKind.Payment:
+                if (!string.IsNullOrWhiteSpace(payment.CustomerExternalId))
+                    list.Add(new GatewayDependency(SyncKind.Customer, payment.CustomerExternalId.Trim()));
+                foreach (var application in payment.Applications ?? [])
+                    if (!string.IsNullOrWhiteSpace(application.InvoiceExternalId))
+                        list.Add(new GatewayDependency(SyncKind.SalesInvoice, application.InvoiceExternalId.Trim()));
+                break;
+
+            case BillPaymentPayload billPayment when kind == SyncKind.BillPayment:
+                if (!string.IsNullOrWhiteSpace(billPayment.VendorExternalId))
+                    list.Add(new GatewayDependency(SyncKind.Vendor, billPayment.VendorExternalId.Trim()));
+                foreach (var application in billPayment.Applications ?? [])
+                    if (!string.IsNullOrWhiteSpace(application.BillExternalId))
+                        list.Add(new GatewayDependency(SyncKind.Bill, application.BillExternalId.Trim()));
+                break;
+
+            case SalesDocumentPayload document when kind is SyncKind.SalesReceipt or SyncKind.CreditMemo or SyncKind.RefundReceipt:
+                list.Add(new GatewayDependency(SyncKind.Customer, CustomerOf(document)));
+                foreach (var line in document.Lines ?? [])
+                    if (!string.IsNullOrWhiteSpace(line.ItemExternalId))
+                        list.Add(new GatewayDependency(SyncKind.Item, line.ItemExternalId.Trim()));
+                if (document is CreditMemoPayload { ApplyToOriginal: true } memo && !string.IsNullOrWhiteSpace(memo.OriginalInvoiceExternalId))
+                    list.Add(new GatewayDependency(SyncKind.SalesInvoice, memo.OriginalInvoiceExternalId.Trim()));
+                break;
+
+            case VendorCreditPayload credit when kind == SyncKind.VendorCredit:
+                if (!string.IsNullOrWhiteSpace(credit.VendorExternalId))
+                    list.Add(new GatewayDependency(SyncKind.Vendor, credit.VendorExternalId.Trim()));
+                foreach (var line in credit.Lines ?? [])
+                    if (!string.IsNullOrWhiteSpace(line.ItemExternalId))
+                        list.Add(new GatewayDependency(SyncKind.Item, line.ItemExternalId!.Trim()));
+                break;
         }
 
         return list.Distinct().ToList();
@@ -122,7 +227,14 @@ internal static class SyncPayloads
 
     public static bool IsParty(SyncKind kind) => kind is SyncKind.Customer or SyncKind.Vendor;
     public static bool IsMasterData(SyncKind kind) => kind is SyncKind.Customer or SyncKind.Vendor or SyncKind.Item;
-    public static bool IsDocument(SyncKind kind) => kind is SyncKind.SalesInvoice or SyncKind.Bill;
+    public static bool IsDocument(SyncKind kind) => !IsMasterData(kind);
+
+    /// <summary>
+    /// A44 D-51: kinds QuickBooks lets the integration undo (void, or delete for BillPayment / RefundReceipt). Credit
+    /// memos and vendor credits are flagged for the accountant instead — they may be applied in QuickBooks already.
+    /// </summary>
+    public static bool IsVoidable(SyncKind kind) =>
+        kind is SyncKind.SalesInvoice or SyncKind.Payment or SyncKind.SalesReceipt or SyncKind.BillPayment or SyncKind.RefundReceipt;
 
     /// <summary>Money as QuickBooks keeps it: two places, half away from zero.</summary>
     public static decimal Money(decimal value) => Math.Round(value, 2, MidpointRounding.AwayFromZero);

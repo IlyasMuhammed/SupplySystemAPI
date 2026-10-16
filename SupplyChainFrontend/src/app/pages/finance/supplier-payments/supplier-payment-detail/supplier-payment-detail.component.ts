@@ -19,6 +19,7 @@ import { FxDifferenceComponent } from '../../../../shared/doc-currency/fx-differ
 import { DocCurrencyInfo, cachedDocCurrency, hasBaseAmounts, missingRateOf } from '../../../../shared/doc-currency/doc-currency';
 import { MoneyPipe } from '../../../../shared/money/money.pipe';
 import { FLOW, FlowStage, flowStagesFrom } from '../../../../shared/flow';
+import { QboSyncBadgeComponent } from '../../../../shared/components/qbo-sync-badge/qbo-sync-badge.component';
 
 @Component({
   selector: 'app-supplier-payment-detail',
@@ -27,7 +28,7 @@ import { FLOW, FlowStage, flowStagesFrom } from '../../../../shared/flow';
     CommonModule, RouterModule, FormsModule,
     ButtonModule, TagModule, ToastModule,
     TableModule, TooltipModule, ConfirmDialogModule, AttachmentListComponent, TimelinePanelComponent,
-    DocCurrencyPanelComponent, FxDifferenceComponent, MoneyPipe,
+    DocCurrencyPanelComponent, FxDifferenceComponent, MoneyPipe, QboSyncBadgeComponent,
     ...FLOW
   ],
   templateUrl: './supplier-payment-detail.component.html',

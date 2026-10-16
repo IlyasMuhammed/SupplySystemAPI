@@ -124,10 +124,15 @@ public class SeederTests
         var orgFeatures = db.OrganizationFeatures.Where(f => f.OrganizationId == org.Id).ToList();
 
         orgFeatures.Should().HaveCount(db.FeatureDefinitions.Count());
-        // A37 — every AVAILABLE entry; "Coming soon" ones cannot be on.
+        // A37 — every AVAILABLE entry; "Coming soon" ones cannot be on. APP-CREDENTIALS D-9: licensed-by-hand-only entries
+        // are in no plan, the demo organization's included.
+        var byHand = db.FeatureDefinitions.Where(f => TenancyFeatureCatalog.LicensedByHandOnly.Contains(f.FeatureCode)).Select(f => f.Id).ToHashSet();
+        byHand.Should().NotBeEmpty();
         var available = db.FeatureDefinitions.Where(f => f.IsAvailable).Select(f => f.Id).ToHashSet();
+        available.ExceptWith(byHand);
         orgFeatures.Where(f => available.Contains(f.FeatureDefinitionId)).Should().OnlyContain(f => f.IsEnabled && f.IsLicensed);
         orgFeatures.Where(f => !available.Contains(f.FeatureDefinitionId)).Should().OnlyContain(f => !f.IsEnabled);
+        orgFeatures.Where(f => byHand.Contains(f.FeatureDefinitionId)).Should().OnlyContain(f => !f.IsLicensed);
     }
 
     [Fact]
@@ -164,9 +169,10 @@ public class SeederTests
         var enterpriseRows = db.PlanFeatureTemplates.Where(t => t.Plan == "ENTERPRISE").ToList();
 
         enterpriseRows.Should().HaveCount(db.FeatureDefinitions.Count());
-        // A37 — everything available; "Coming soon" entries are in no plan.
-        var unavailable = db.FeatureDefinitions.Where(f => !f.IsAvailable).Select(f => f.Id).ToHashSet();
-        enterpriseRows.Should().OnlyContain(t => t.IsEnabledByDefault != unavailable.Contains(t.FeatureDefinitionId));
+        // A37 — everything available; "Coming soon" entries are in no plan, nor (APP-CREDENTIALS D-9) the licensed-by-hand ones.
+        var notInPlans = db.FeatureDefinitions
+            .Where(f => !f.IsAvailable || TenancyFeatureCatalog.LicensedByHandOnly.Contains(f.FeatureCode)).Select(f => f.Id).ToHashSet();
+        enterpriseRows.Should().OnlyContain(t => t.IsEnabledByDefault != notInPlans.Contains(t.FeatureDefinitionId));
     }
 
     [Fact]

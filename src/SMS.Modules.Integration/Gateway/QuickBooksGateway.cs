@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SMS.Modules.Integration.Core.Connections;
 using SMS.Modules.Integration.Core.Providers;
+using SMS.Modules.Integration.Core.Settings;
 using SMS.Modules.Integration.Core.Sync;
 using SMS.Modules.Integration.Data;
 using SMS.Modules.Integration.Domain;
@@ -16,14 +17,15 @@ namespace SMS.Modules.Integration.Gateway;
 /// own request. The HTTP data endpoints are a thin layer over this same class.
 /// <list type="number">
 /// <item>No usable connection → NotConnected.</item>
-/// <item>Auto-push for the kind off, the record skipped in matching, or a document dated before the
-/// start date → Disabled.</item>
+/// <item>Its sync-control type switched off (A44 D-14; before A44 the AutoPush* switch), the record skipped in
+/// matching, or a document dated before the start date → Disabled.</item>
 /// <item>Same payload as last pushed (and in QuickBooks) → Accepted(Synced), nothing queued.</item>
-/// <item>A POS sale while "Sync POS sales" is off → stored and held (<see cref="PosSales"/>), Accepted(NotSynced).</item>
+/// <item>Its type disabled with hold (POS sales while "Sync POS sales" is off, and since A44 any type) → stored and
+/// held (<see cref="SyncHolds"/>), Accepted(NotSynced).</item>
 /// <item>Validation fails → Invalid; the payload is still stored, as Blocked, so the dashboard shows it.</item>
 /// <item>Customer/vendor/item out of scope (D-6) → stored, Accepted(NotSynced).</item>
 /// <item>Document whose customer/vendor/items are not in QuickBooks yet → WaitingOnDependency; they are requested.</item>
-/// <item>Otherwise queued → Accepted(Pending).</item>
+/// <item>Otherwise queued → Accepted(Pending), and the outbox is kicked so it goes within seconds (A44 D-11).</item>
 /// </list>
 /// </summary>
 internal sealed class QuickBooksGateway : IQuickBooksGateway
@@ -42,11 +44,17 @@ internal sealed class QuickBooksGateway : IQuickBooksGateway
     private readonly IAccountingProviderRegistry _providers;
     private readonly TimeProvider                _clock;
     private readonly ILogger<QuickBooksGateway>  _logger;
+    private readonly ISyncControlReader          _syncControl;
+    private readonly IOutboxKick                 _kick;
+    private readonly IDocumentDefaultsSource?    _defaults;
 
+    /// <param name="syncControl">A44 D-14. Null (hosts without the registrations): read from the AutoPush* settings.</param>
+    /// <param name="kick">A44 D-11. Null: no immediate kick (the recurring outbox job still runs).</param>
     public QuickBooksGateway(
         IntegrationDbContext db, IConnectionAccessor connections, IGatewayCallerContext caller, IPayloadValidator validator,
         ISyncOutbox outbox, ISyncAdmission admission, ISyncLedger ledger, IAccountingProviderRegistry providers,
-        TimeProvider clock, ILogger<QuickBooksGateway> logger)
+        TimeProvider clock, ILogger<QuickBooksGateway> logger,
+        ISyncControlReader? syncControl = null, IOutboxKick? kick = null, IDocumentDefaultsSource? defaults = null)
     {
         _db           = db;
         _connections  = connections;
@@ -58,6 +66,9 @@ internal sealed class QuickBooksGateway : IQuickBooksGateway
         _providers    = providers;
         _clock        = clock;
         _logger       = logger;
+        _syncControl  = syncControl ?? new LegacySyncControlReader(db);
+        _kick         = kick ?? NoOutboxKick.Instance;
+        _defaults     = defaults;
     }
 
     public Task<GatewayResult> UpsertCustomerAsync(CustomerPayload payload, CancellationToken ct = default) =>
@@ -77,6 +88,25 @@ internal sealed class QuickBooksGateway : IQuickBooksGateway
 
     public Task<GatewayResult> UpsertBillAsync(BillPayload payload, CancellationToken ct = default) =>
         UpsertAsync(SyncKind.Bill, payload, payload?.ExternalId, ct);
+
+    // A44 (D-19..D-24)
+    public Task<GatewayResult> UpsertPaymentAsync(PaymentPayload payload, CancellationToken ct = default) =>
+        UpsertAsync(SyncKind.Payment, payload, payload?.ExternalId, ct);
+
+    public Task<GatewayResult> UpsertBillPaymentAsync(BillPaymentPayload payload, CancellationToken ct = default) =>
+        UpsertAsync(SyncKind.BillPayment, payload, payload?.ExternalId, ct);
+
+    public Task<GatewayResult> UpsertSalesReceiptAsync(SalesReceiptPayload payload, CancellationToken ct = default) =>
+        UpsertAsync(SyncKind.SalesReceipt, payload, payload?.ExternalId, ct);
+
+    public Task<GatewayResult> UpsertCreditMemoAsync(CreditMemoPayload payload, CancellationToken ct = default) =>
+        UpsertAsync(SyncKind.CreditMemo, payload, payload?.ExternalId, ct);
+
+    public Task<GatewayResult> UpsertRefundReceiptAsync(RefundReceiptPayload payload, CancellationToken ct = default) =>
+        UpsertAsync(SyncKind.RefundReceipt, payload, payload?.ExternalId, ct);
+
+    public Task<GatewayResult> UpsertVendorCreditAsync(VendorCreditPayload payload, CancellationToken ct = default) =>
+        UpsertAsync(SyncKind.VendorCredit, payload, payload?.ExternalId, ct);
 
     // ── Upsert ───────────────────────────────────────────────────────────────
 
@@ -119,7 +149,11 @@ internal sealed class QuickBooksGateway : IQuickBooksGateway
         if (connection is null || !connection.IsUsable()) return GatewayResult.NotConnected();
 
         var settings = await _connections.GetOrCreateSettingsAsync(connection, ct);
-        if (!AutoPush(settings, kind)) return GatewayResult.Disabled();
+
+        // A44 D-14: the sync control of the record's type — Skip is what "auto-push off" was; Hold is below.
+        var documentType = SyncHolds.TypeOf(kind, payload);
+        var control      = await _syncControl.CheckAsync(connection.Id, documentType, ct);
+        if (control.Action == SyncControlAction.Skip) return GatewayResult.Disabled();
 
         var now          = _clock.GetUtcNow().UtcDateTime;
         var sourceSystem = _caller.SourceSystem;
@@ -171,16 +205,21 @@ internal sealed class QuickBooksGateway : IQuickBooksGateway
             return GatewayResult.Accepted(SyncState.DryRunOk);
         }
 
-        // "Sync POS sales" off: a POS sale is held — stored (so it is counted, and a cancel voids it here), never queued.
-        // Turning the switch on offers every held one again (PosSales.ReleaseAsync).
-        if (PosSales.IsHeld(settings, kind, payload))
+        // Its type is disabled with hold (POS sales while "Sync POS sales" is off, and since A44 any type): held — stored
+        // (so it is counted, and a cancel voids it here), never queued. Enabling the type offers every held one again
+        // (IHeldRecordReleaser).
+        if (control.Action == SyncControlAction.Hold)
         {
             StorePayload(map, payload, json, fingerprint, now);
             map.Warning = null;
-            await PosSales.HoldAsync(_outbox, map, now, ct);
+            await SyncHolds.HoldAsync(_outbox, map, documentType, now, ct);
             await _db.SaveChangesAsync(ct);
             return GatewayResult.Accepted(map.State);
         }
+
+        // D-54: a sales receipt / credit memo / refund receipt without a customer goes under the walk-in customer.
+        if (payload is SalesDocumentPayload { CustomerExternalId: var customer } && string.IsNullOrWhiteSpace(customer))
+            await EnsureWalkInCustomerAsync(connection, sourceSystem, documentType, now, ct);
 
         var validation = await _validator.ValidateAsync(kind, payload, map, connection, settings, ct);
 
@@ -189,9 +228,70 @@ internal sealed class QuickBooksGateway : IQuickBooksGateway
 
         // Shared with the re-validation of Blocked records, so a record unblocked later is queued exactly
         // as it would have been had it passed now.
-        return validation.IsValid
-            ? await _admission.AdmitAsync(kind, payload, map, settings, now, ct)
-            : await _admission.RefuseAsync(map, validation, ct);
+        if (!validation.IsValid) return await _admission.RefuseAsync(map, validation, ct);
+
+        var admitted = await _admission.AdmitAsync(kind, payload, map, settings, now, ct);
+        if (admitted.State is SyncState.Pending or SyncState.WaitingOnDependency) _kick.Request(connection.Id);
+        return admitted;
+    }
+
+    /// <summary>
+    /// D-54: the one "POS Walk-in" customer map of this connection and caller. With a <c>PosDefaultCustomerRef</c>
+    /// default it is linked to that QuickBooks customer (nothing is created or changed there); otherwise it is queued
+    /// once and created by the executor (a QuickBooks customer of that name already there is adopted, as any duplicate
+    /// name is). Does not save — the caller's admission does.
+    /// </summary>
+    private async Task EnsureWalkInCustomerAsync(
+        IntegrationConnection connection, string sourceSystem, string documentType, DateTime now, CancellationToken ct)
+    {
+        var defaults = _defaults is null ? DocumentDefaults.None : await _defaults.GetAsync(connection.Id, documentType, ct);
+        var payload  = new CustomerPayload
+        {
+            ExternalId  = SyncPayloads.WalkInCustomerExternalId,
+            DisplayName = SyncPayloads.WalkInCustomerName,
+            Notes       = "Walk-in point-of-sale customer (SCM)."
+        };
+        var json        = SyncPayloads.Serialize(payload);
+        var fingerprint = SyncPayloads.Fingerprint(json);
+
+        var map = await FindMapAsync(connection.Id, sourceSystem, SyncKind.Customer, payload.ExternalId, ct)
+                  ?? _db.EntityMaps.Local.FirstOrDefault(m => m.ConnectionId == connection.Id && m.SourceSystem == sourceSystem
+                                                            && m.Kind == SyncKind.Customer && m.ExternalId == payload.ExternalId);
+        if (map is null)
+        {
+            map = new EntityMap
+            {
+                OrganizationId = connection.OrganizationId,
+                ConnectionId   = connection.Id,
+                SourceSystem   = sourceSystem,
+                Kind           = SyncKind.Customer,
+                ExternalId     = payload.ExternalId,
+                State          = SyncState.NotSynced,
+                CreatedDate    = now
+            };
+            _db.EntityMaps.Add(map);
+        }
+
+        if (map.PayloadJson is null) StorePayload(map, payload, json, fingerprint, now);
+
+        if (defaults.PosCustomerId is { } remoteId)
+        {
+            if (map.RemoteId == remoteId) return;
+            await _outbox.CloseOpenEntriesAsync(map, OutboxStatus.Done, "Linked to the POS default customer.", now, ct);
+            map.RemoteId              = remoteId;
+            map.RemoteSyncToken       = null;
+            map.LinkOrigin            = LinkOrigin.Adopted;
+            map.LinkedAt              = now;
+            map.State                 = SyncState.Synced;
+            // The accountant's customer is never updated from SCM's placeholder data.
+            map.LastPushedFingerprint = map.PayloadFingerprint;
+            map.LastErrorCode         = null;
+            map.LastError             = null;
+            return;
+        }
+
+        // No default: wanted (the documents reference it), so it is sent; the dependency step queues it.
+        map.RequestedAt ??= now;
     }
 
     // ── Flag for the accountant ──────────────────────────────────────────────
@@ -263,16 +363,39 @@ internal sealed class QuickBooksGateway : IQuickBooksGateway
 
     // ── Void ─────────────────────────────────────────────────────────────────
 
-    public async Task<GatewayResult> VoidSalesInvoiceAsync(string externalId, CancellationToken ct = default)
-    {
-        var idError = CheckExternalId(externalId);
-        if (idError is not null) return GatewayResult.Invalid([idError]);
+    public Task<GatewayResult> VoidSalesInvoiceAsync(string externalId, CancellationToken ct = default) =>
+        VoidAsync(SyncKind.SalesInvoice, externalId, ct);
 
+    /// <summary>
+    /// A44 D-51: undo a document in QuickBooks. Invoice, Payment, SalesReceipt → voided there; BillPayment,
+    /// RefundReceipt → deleted there (the SDK cannot void them). CreditMemo, VendorCredit and Bill are never undone by
+    /// the integration — a credit may already be applied, a bill paid — they are flagged for the accountant
+    /// (<see cref="FlagForAccountantAsync"/>). Master data cannot be voided.
+    /// </summary>
+    public Task<GatewayResult> VoidAsync(SyncKind kind, string externalId, CancellationToken ct = default)
+    {
+        if (SyncPayloads.IsMasterData(kind))
+            return Task.FromResult(GatewayResult.Invalid([new GatewayError("kind", "VOID_NOT_APPLICABLE",
+                $"A {kind} is not voided; deactivate it instead.")]));
+
+        if (!SyncPayloads.IsVoidable(kind))
+            return FlagForAccountantAsync(kind, externalId,
+                $"Cancelled in SCM. QuickBooks {kind} records are not voided by the integration — void or delete it in QuickBooks " +
+                "by hand (check first whether it was applied), then mark this resolved.", ct);
+
+        var idError = CheckExternalId(externalId);
+        if (idError is not null) return Task.FromResult(GatewayResult.Invalid([idError]));
+
+        return VoidWithRetryAsync(kind, externalId.Trim(), ct);
+    }
+
+    private async Task<GatewayResult> VoidWithRetryAsync(SyncKind kind, string externalId, CancellationToken ct)
+    {
         for (var attempt = 1; ; attempt++)
         {
             try
             {
-                return await VoidOnceAsync(externalId.Trim(), ct);
+                return await VoidOnceAsync(kind, externalId, ct);
             }
             catch (DbUpdateException) when (attempt < MaxSaveAttempts)
             {
@@ -281,16 +404,19 @@ internal sealed class QuickBooksGateway : IQuickBooksGateway
         }
     }
 
-    private async Task<GatewayResult> VoidOnceAsync(string externalId, CancellationToken ct)
+    private async Task<GatewayResult> VoidOnceAsync(SyncKind kind, string externalId, CancellationToken ct)
     {
         var connection = await _connections.GetCurrentAsync(ct);
         if (connection is null || !connection.IsUsable()) return GatewayResult.NotConnected();
 
-        var settings = await _connections.GetOrCreateSettingsAsync(connection, ct);
-        if (!settings.AutoPushSalesInvoices) return GatewayResult.Disabled();
-
         var now = _clock.GetUtcNow().UtcDateTime;
-        var map = await FindMapAsync(connection.Id, _caller.SourceSystem, SyncKind.SalesInvoice, externalId, ct);
+        var map = await FindMapAsync(connection.Id, _caller.SourceSystem, kind, externalId, ct);
+
+        // Voids go whether the type is enabled or held — only a type switched off entirely (Skip) leaves it alone, as
+        // "auto-push sales invoices off" did. The type comes from the stored payload (POS or not).
+        var documentType = map is null ? SyncControlDocumentTypes.For(kind, null) : SyncHolds.TypeOf(map);
+        if ((await _syncControl.CheckAsync(connection.Id, documentType, ct)).Action == SyncControlAction.Skip)
+            return GatewayResult.Disabled();
 
         // Never seen, or already void: nothing to do.
         if (map is null || map.State == SyncState.Voided) return GatewayResult.Accepted(SyncState.Voided);
@@ -305,6 +431,7 @@ internal sealed class QuickBooksGateway : IQuickBooksGateway
         {
             await _outbox.EnqueueAsync(map, OutboxOperation.Void, now, ct: ct);
             await _db.SaveChangesAsync(ct);
+            _kick.Request(connection.Id);
             return GatewayResult.Accepted(SyncState.Pending);
         }
 
@@ -382,17 +509,12 @@ internal sealed class QuickBooksGateway : IQuickBooksGateway
     {
         PartyPayload p        => string.IsNullOrWhiteSpace(p.DisplayName) ? p.ExternalId : p.DisplayName.Trim(),
         ItemPayload i         => string.IsNullOrWhiteSpace(i.Name) ? i.ExternalId : RemoteNameResolver.ItemBaseName(i),
-        SalesInvoicePayload s => string.IsNullOrWhiteSpace(s.DocNumber) ? s.ExternalId : s.DocNumber.Trim(),
-        BillPayload b         => string.IsNullOrWhiteSpace(b.DocNumber) ? b.ExternalId : b.DocNumber.Trim(),
+        Shared.Finance.Posting.IAccountingDocument d =>
+            SyncPayloads.DocNumberOf(payload) is { Length: > 0 } number ? number : d.ExternalId,
         _                     => string.Empty
     };
 
-    internal static DateTime? DocumentDate(object payload) => payload switch
-    {
-        SalesInvoicePayload s => s.TxnDate,
-        BillPayload b         => b.TxnDate,
-        _                     => null
-    };
+    internal static DateTime? DocumentDate(object payload) => SyncPayloads.DocumentDateOf(payload);
 
     internal static bool AutoPush(IntegrationSettings s, SyncKind kind) => kind switch
     {
@@ -421,6 +543,10 @@ internal sealed class QuickBooksGateway : IQuickBooksGateway
             case ItemPayload i:         i.ExternalId = externalId; break;
             case SalesInvoicePayload s: s.ExternalId = externalId; break;
             case BillPayload b:         b.ExternalId = externalId; break;
+            case PaymentPayload p:      p.ExternalId = externalId; break;
+            case BillPaymentPayload bp: bp.ExternalId = externalId; break;
+            case SalesDocumentPayload d: d.ExternalId = externalId; break;
+            case VendorCreditPayload v: v.ExternalId = externalId; break;
         }
     }
 }

@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
@@ -162,7 +162,7 @@ public class OAuthCallbackTests
         c.Country.Should().Be("PK");
         c.MultiCurrencyEnabled.Should().BeFalse();
         await using var db = h.OpenAll();
-        (await db.ReferenceSnapshots.IgnoreQueryFilters().CountAsync(s => s.ConnectionId == c.Id)).Should().Be(6);
+        (await db.ReferenceSnapshots.IgnoreQueryFilters().CountAsync(s => s.ConnectionId == c.Id)).Should().Be(9);
     }
 
     [Fact]

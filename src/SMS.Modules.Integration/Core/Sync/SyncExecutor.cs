@@ -218,10 +218,19 @@ internal sealed class SyncExecutor : ISyncExecutor
             return await WaitForDependenciesAsync(run, built.Unresolved, ct);
 
         if (run.DryRun)
+        {
+            foreach (var fix in built.ItemFixes)
+                run.Warnings.Add($"Product {fix.ItemLabel} has no income account in QuickBooks; it would be given account {fix.IncomeAccountId} first.");
             return await DryRunAsync(run, map.RemoteId is null ? "Create" : "Update", built.Entity, ct);
+        }
 
         run.Provider = _registry.Get(run.Connection.ProviderKey);
         run.Context  = run.Connection.ToProviderContext();
+
+        // A44 D-55a: items created as not for sale get their income account before a sales document uses them.
+        foreach (var fix in built.ItemFixes)
+            if (await FixItemIncomeAccountAsync(run, fix, built.DocNumber ?? map.ExternalId, ct) is { } failure)
+                return failure;
 
         var decision = await _ledger.ClaimAsync(map, OutboxOperation.Upsert, run.Fingerprint, run.Now, ct);
         run.Claim = decision.Claim;
@@ -307,6 +316,43 @@ internal sealed class SyncExecutor : ISyncExecutor
             await SaveMapAsync(map, m => m.RemoteName = SyncText.Clip(name, 200), ct);
 
         return await WriteAsync(run, ct);
+    }
+
+    /// <summary>
+    /// A44 D-55a: a sparse update of the item that only sets its income account, then a warning on the item's map (which
+    /// is also what marks it fixed). A failure is the document's: it is retried or reported like any failed call.
+    /// </summary>
+    private async Task<SyncExecutionResult?> FixItemIncomeAccountAsync(Run run, ItemIncomeFix fix, string documentNumber, CancellationToken ct)
+    {
+        var item = await _db.EntityMaps.FirstOrDefaultAsync(m => m.Id == fix.ItemMapId, ct);
+        if (item?.RemoteId is null) return null;
+
+        var entity = new RemoteItemIncomeAccountFix { IncomeAccountId = fix.IncomeAccountId };
+        for (var staleRetried = false; ; staleRetried = true)
+        {
+            var token = item.RemoteSyncToken;
+            if (token is null || staleRetried)
+            {
+                var current = await CallAsync(run, "Get", () => run.Provider.GetByIdAsync(run.Context, SyncKind.Item, item.RemoteId!, ct));
+                if (!current.IsSuccess) return await ProviderFailureAsync(run, current, "Get", ct);
+                token = current.Value!.SyncToken;
+            }
+
+            var remoteId = item.RemoteId!;
+            var result = await CallAsync(run, "Update", () => run.Provider.UpdateAsync(run.Context, entity, remoteId, token, ct));
+            if (result.IsSuccess)
+            {
+                item.RemoteSyncToken = result.Value!.SyncToken;
+                item.Warning         = SyncText.Clip(SaleableItems.FixedWarning(documentNumber), 1000);
+                item.ModifiedDate    = run.Now;
+                await _db.SaveChangesAsync(ct);
+                _logger.LogInformation("QuickBooks item {Item} given income account {Account} for {Document}.", fix.ItemLabel, fix.IncomeAccountId, documentNumber);
+                return null;
+            }
+
+            if (result.Outcome == ProviderOutcomeKind.StaleObject && !staleRetried) continue;
+            return await ProviderFailureAsync(run, result, "Update", ct);
+        }
     }
 
     /// <summary>The QuickBooks record backing another map of the same kind, if any (by that map's label).</summary>
@@ -438,7 +484,8 @@ internal sealed class SyncExecutor : ISyncExecutor
                 {
                     run.Provider = _registry.Get(run.Connection.ProviderKey);
                     run.Context  = run.Connection.ToProviderContext();
-                    var lookup = await CallAsync(run, "Find", () => run.Provider.FindAsync(run.Context, map.Kind, new RemoteLookup(DocNumber: docNumber), ct));
+                    var lookup = await CallAsync(run, "Find", () => run.Provider.FindAsync(run.Context, map.Kind,
+                        new RemoteLookup(DocNumber: docNumber) { TxnDate = DocumentDateOf(map) }, ct));
                     if (!lookup.IsSuccess) return await ProviderFailureAsync(run, lookup, "Find", ct);
                     if (lookup.Value is { } found)
                     {
@@ -492,7 +539,10 @@ internal sealed class SyncExecutor : ISyncExecutor
             }
 
             var remoteId = map.RemoteId!;
-            var result = await CallAsync(run, "Void", () => run.Provider.VoidInvoiceAsync(run.Context, remoteId, token, ct));
+            // A44 D-51: invoices as before; the other voidable kinds through the provider's generic void (or delete).
+            var result = map.Kind == SyncKind.SalesInvoice
+                ? await CallAsync(run, "Void", () => run.Provider.VoidInvoiceAsync(run.Context, remoteId, token, ct))
+                : await CallAsync(run, "Void", () => run.Provider.VoidAsync(run.Context, map.Kind, remoteId, token, ct));
 
             if (result.IsSuccess)
             {
@@ -521,17 +571,17 @@ internal sealed class SyncExecutor : ISyncExecutor
             m.LastError       = null;
         }, SyncExecutionStatus.Voided, ct);
 
-    private static string? DocNumberOf(EntityMap map)
+    private static string? DocNumberOf(EntityMap map) => StoredPayload(map) is { } p ? SyncPayloads.DocNumberOf(p) : null;
+
+    /// <summary>A44 D-52: payments are looked up by date (+ reference number).</summary>
+    private static DateTime? DocumentDateOf(EntityMap map) => StoredPayload(map) is { } p ? SyncPayloads.DocumentDateOf(p)?.Date : null;
+
+    private static object? StoredPayload(EntityMap map)
     {
         if (map.PayloadJson is null) return null;
         try
         {
-            return SyncPayloads.Deserialize(map.Kind, map.PayloadJson) switch
-            {
-                SalesInvoicePayload s => s.DocNumber?.Trim(),
-                BillPayload b         => b.DocNumber?.Trim(),
-                _                     => null
-            };
+            return SyncPayloads.Deserialize(map.Kind, map.PayloadJson);
         }
         catch (System.Text.Json.JsonException)
         {
@@ -552,6 +602,8 @@ internal sealed class SyncExecutor : ISyncExecutor
 
         var warnings = new List<string>(run.Warnings);
         if (note is not null) warnings.Add(note);
+        // A44 D-53: e.g. a credit memo created but not applied to its invoice.
+        if (record.Note is not null) warnings.Add(record.Note);
         if (map.Kind == SyncKind.SalesInvoice && run.Payload is SalesInvoicePayload invoice && record.TotalTax is { } qboTax
             && Math.Abs(qboTax - invoice.ExpectedTaxAmount) > PayloadValidator.Tolerance)
             warnings.Add(
@@ -591,6 +643,14 @@ internal sealed class SyncExecutor : ISyncExecutor
                 m.LastErrorCode = null;
                 m.LastError     = null;
                 m.Warning       = warning;
+
+                // A44 D-23 mixed tenders: sent, and now the accountant's to finish (nothing more is sent until resolved).
+                if (run.Payload is SalesDocumentPayload { FlagForAccountant: { Length: > 0 } reason })
+                {
+                    m.State         = SyncState.NeedsResolution;
+                    m.LastErrorCode = Gateway.QuickBooksGateway.AccountantActionCode;
+                    m.LastError     = SyncText.Clip(reason.Trim(), 2000);
+                }
             }
         }, ct);
 
@@ -981,8 +1041,14 @@ internal sealed class SyncExecutor : ISyncExecutor
         SyncKind.Customer     => "customer",
         SyncKind.Vendor       => "vendor",
         SyncKind.Item         => "item",
-        SyncKind.SalesInvoice => "invoice",
-        SyncKind.Bill         => "bill",
-        _                     => kind.ToString()
+        SyncKind.SalesInvoice  => "invoice",
+        SyncKind.Bill          => "bill",
+        SyncKind.Payment       => "payment",
+        SyncKind.BillPayment   => "bill payment",
+        SyncKind.SalesReceipt  => "sales receipt",
+        SyncKind.CreditMemo    => "credit memo",
+        SyncKind.RefundReceipt => "refund receipt",
+        SyncKind.VendorCredit  => "vendor credit",
+        _                      => kind.ToString()
     };
 }

@@ -56,7 +56,7 @@
       </button>
       <span class="muted small" *ngIf="!card.states.length">Nothing yet</span>
     </div>
-    <p-button *ngIf="canManage" [label]="'Sync all ' + kindPlural[card.kind]" icon="pi pi-sync" [text]="true" size="small"
+    <p-button *ngIf="canSyncAll(card.kind)" [label]="'Sync all ' + kindPlural[card.kind]" icon="pi pi-sync" [text]="true" size="small"
               [loading]="!!syncingAll[card.kind]" [disabled]="!!syncingAll[card.kind]"
               (onClick)="syncAll(card.kind)" [attr.data-testid]="'sync-all-' + card.kind"></p-button>
   </div>
@@ -76,6 +76,12 @@
     </p-iconfield>
     <p-button icon="pi pi-filter-slash" [text]="true" severity="secondary" pTooltip="Clear filters" (onClick)="clearFilters()"></p-button>
     <span class="grow"></span>
+    <!-- A44 D-11: the dead letter -->
+    <p-button *ngIf="deadLetterCount && stateFilter !== 'DeadLetter'" [label]="'Dead letter (' + deadLetterCount + ')'" icon="pi pi-inbox"
+              [text]="true" severity="danger" size="small" (onClick)="showDeadLetter()" data-testid="show-dead-letter"></p-button>
+    <p-button *ngIf="canManage" label="Retry failed" icon="pi pi-replay" [outlined]="true" size="small" severity="warn"
+              [loading]="isRetryingFailed" [disabled]="isRetryingFailed || !deadLetterCount" (onClick)="requestRetryFailed()"
+              pTooltip="Queue every failed record again" tooltipPosition="top" data-testid="retry-failed"></p-button>
     <p-button icon="pi pi-refresh" [text]="true" severity="secondary" pTooltip="Reload" (onClick)="loadItems(page); loadSummary()"></p-button>
   </div>
 
@@ -96,7 +102,7 @@
         <th style="width: 11rem">QuickBooks</th>
         <th style="width: 10rem">Last attempt</th>
         <th>Error</th>
-        <th style="width: 10rem" class="text-right">Actions</th>
+        <th style="width: 13rem" class="text-right">Actions</th>
       </tr>
     </ng-template>
     <ng-template pTemplate="body" let-item>
@@ -111,6 +117,7 @@
           <p-tag [value]="stateLabel(item.state)" [severity]="stateSeverity(item.state)" [styleClass]="stateTagClass(item.state)"
                  [attr.data-testid]="'state-' + item.id"></p-tag>
           <div class="hint" *ngIf="item.attemptCount > 1">{{ item.attemptCount }} attempts</div>
+          <div class="hint warn" *ngIf="isHeld(item)" [attr.data-testid]="'held-' + item.id"><i class="pi pi-clock"></i> Held by sync control</div>
         </td>
         <td>
           <ng-container *ngIf="item.remoteId || item.remoteDocNumber; else notInQbo">
@@ -139,6 +146,10 @@
                       [disabled]="!!busy[item.id]" (onClick)="pushNow(item)" [attr.data-testid]="'push-' + item.id"></p-button>
             <p-button *ngIf="canResolve(item)" icon="pi pi-wrench" [text]="true" size="small" severity="warn" pTooltip="Resolve"
                       tooltipPosition="top" (onClick)="openResolve(item)" [attr.data-testid]="'resolve-' + item.id"></p-button>
+            <p-button *ngIf="canSkip(item)" icon="pi pi-ban" [text]="true" size="small" severity="secondary" pTooltip="Skip (do not retry)"
+                      tooltipPosition="top" [disabled]="!!busy[item.id]" (onClick)="requestSkip(item)" [attr.data-testid]="'skip-' + item.id"></p-button>
+            <p-button *ngIf="canUnlink(item)" icon="pi pi-times-circle" [text]="true" size="small" severity="danger" pTooltip="Unlink from QuickBooks"
+                      tooltipPosition="top" [disabled]="!!busy[item.id]" (onClick)="requestUnlink(item)" [attr.data-testid]="'unlink-' + item.id"></p-button>
             <p-button icon="pi pi-list" [text]="true" size="small" severity="secondary" pTooltip="Attempt log" tooltipPosition="top"
                       (onClick)="openLog(item)" [attr.data-testid]="'log-' + item.id"></p-button>
           </div>

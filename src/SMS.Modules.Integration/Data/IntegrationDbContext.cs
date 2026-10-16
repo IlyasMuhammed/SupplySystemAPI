@@ -28,6 +28,11 @@ internal sealed class IntegrationDbContext : DbContext, ITenantScopedDbContext
     internal DbSet<SyncCommandClaim>      CommandClaims      => Set<SyncCommandClaim>();
     internal DbSet<SyncLogEntry>          SyncLog            => Set<SyncLogEntry>();
     internal DbSet<MatchCandidate>        MatchCandidates    => Set<MatchCandidate>();
+    internal DbSet<QuickBooksAppCredential> AppCredentials   => Set<QuickBooksAppCredential>();
+    internal DbSet<SyncControlConfig>     SyncControlConfigs => Set<SyncControlConfig>();
+    internal DbSet<ProviderDefault>       ProviderDefaults   => Set<ProviderDefault>();
+    internal DbSet<DocumentOverride>      DocumentOverrides  => Set<DocumentOverride>();
+    internal DbSet<RemoteEntityRecord>    RemoteEntities     => Set<RemoteEntityRecord>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

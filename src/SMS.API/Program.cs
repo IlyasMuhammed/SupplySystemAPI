@@ -200,6 +200,9 @@ builder.Services.AddCrmModule(builder.Configuration); // A41 — CRM: leads, pip
 builder.Services.AddAccountingModule(builder.Configuration); // A42 — GL setup: chart of accounts, fiscal periods, GL opening balances
 // Last on purpose: it replaces the NullQuickBooksGateway the modules above TryAdd.
 builder.Services.AddIntegrationModule(builder.Configuration);
+// A44 — after every module: the real financial posting / entity sync gateways and account map reader replace the
+// Null* that callers TryAdd (order-proof; Integration registers its posting targets, Accounting the GL target).
+builder.Services.UseAccountingPostingGateway();
 
 // ── JWT Authentication ─────────────────────────────────────────────────────────
 var key = Encoding.ASCII.GetBytes(appSettings.Secret);

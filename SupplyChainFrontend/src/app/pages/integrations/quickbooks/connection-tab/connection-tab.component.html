@@ -71,8 +71,8 @@
 
     <span class="hint" *ngIf="!appConfigured" data-testid="not-configured">
       <i class="pi pi-lock"></i>
-      This server has no Intuit app keys configured, so it cannot connect to QuickBooks yet.
-      Ask your system administrator to add the QuickBooks client id and secret.
+      No Intuit app keys are set up yet, so QuickBooks cannot be connected.
+      Ask the platform administrator to enter them under System Administration › QuickBooks App.
     </span>
     <span class="hint" *ngIf="appConfigured && !canManage" data-testid="no-manage">
       <i class="pi pi-lock"></i>
@@ -80,6 +80,7 @@
     </span>
     <span class="hint" *ngIf="appConfigured && canManage">
       You will sign in to Intuit and choose the company. You come back here afterwards.
+      <ng-container *ngIf="connection?.appSource === 'Tenant'"> Your organization's own Intuit app is used.</ng-container>
     </span>
   </div>
 </section>
@@ -113,6 +114,10 @@
       <dt>Sign-in valid until</dt>
       <dd>{{ connection?.refreshTokenExpiresAt ? (connection?.refreshTokenExpiresAt | date:'d MMM y') : '—' }}</dd>
     </div>
+    <div>
+      <dt>Intuit app</dt>
+      <dd data-testid="connected-app">{{ connection?.connectedWithAppSource === 'Tenant' ? 'Your own app' : "The platform's app" }}</dd>
+    </div>
   </dl>
 
   <div class="note" *ngIf="isConnected && connection?.lastError" data-testid="last-error">
@@ -133,3 +138,6 @@
               [disabled]="isDisconnecting" [loading]="isDisconnecting" (onClick)="confirmDisconnect()" data-testid="disconnect"></p-button>
   </div>
 </section>
+
+<!-- ══ Own Intuit app (FEATURE_QBO_OWN_APP; hidden unless the platform administrator switched it on) ══ -->
+<app-qbo-own-app-keys-card [canManage]="canManage" (keysChanged)="refreshStatus()"></app-qbo-own-app-keys-card>

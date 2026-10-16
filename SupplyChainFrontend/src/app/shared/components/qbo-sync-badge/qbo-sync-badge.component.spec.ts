@@ -263,7 +263,8 @@ describe('QboSyncBadgeComponent with QboSyncStatusStore', () => {
 
     expect(toasts).toHaveBeenCalledWith(jasmine.objectContaining({ severity: 'error', detail: 'Not connected.' }));
     fixture.detectChanges();
-    expect(badgeTexts()).toEqual(['Failed', 'Customer: Failed']);
+    // A44 D-33 — a Failed record on a live connection, with INTEGRATION_SYNC, also shows the inline "Retry".
+    expect(badgeTexts()).toEqual(['Failed Retry', 'Customer: Failed Retry']);
     expect(lookups().length).toBe(0);   // nothing is looked up again after a refused push
   }));
 

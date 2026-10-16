@@ -286,6 +286,14 @@ internal sealed class TenancyDataSeeder
                     }
                 }
 
+                // APP-CREDENTIALS D-9 — in no plan: only the super admin licenses it.
+                if (TenancyFeatureCatalog.LicensedByHandOnly.Contains(feature.FeatureCode))
+                {
+                    isLicensed = false;
+                    isEnabledByDefault = false;
+                    systemManaged = false;
+                }
+
                 _db.OrganizationFeatures.Add(new OrganizationFeature
                 {
                     Id                  = Guid.NewGuid(),

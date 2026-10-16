@@ -1,0 +1,213 @@
+<div class="state-card" *ngIf="isLoading" data-testid="loading">
+  <i class="pi pi-spin pi-spinner big"></i>
+  <p>Loading the QuickBooks defaults…</p>
+</div>
+
+<div class="state-card" *ngIf="loadFailed" data-testid="load-failed">
+  <i class="pi pi-exclamation-triangle big"></i>
+  <h2>The defaults could not be loaded</h2>
+  <p>{{ loadError }}</p>
+  <p-button label="Try again" icon="pi pi-refresh" (onClick)="load()"></p-button>
+</div>
+
+<ng-container *ngIf="!isLoading && !loadFailed">
+  <div class="note warn" *ngIf="referenceIncomplete" data-testid="reference-incomplete">
+    <i class="pi pi-exclamation-triangle"></i>
+    <div class="note-body">
+      <div class="note-title">Classes, locations and payment methods have not been read from QuickBooks yet</div>
+      Read them again so the lists below are complete and class / location tracking is known.
+      <div class="note-actions" *ngIf="canManage">
+        <p-button label="Read them from QuickBooks" icon="pi pi-refresh" size="small" severity="warn" [loading]="isRefreshing"
+                  (onClick)="refreshReference()" data-testid="refresh-reference"></p-button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ Header defaults ═══════════════════════════════════════════════ -->
+  <section class="form-card" data-testid="header-defaults">
+    <div class="card-head">
+      <div class="card-icon"><i class="pi pi-tags"></i></div>
+      <div class="grow">
+        <div class="card-title">Every transaction</div>
+        <div class="card-sub">Stamped on what SCM sends unless a document type overrides it below.</div>
+      </div>
+      <p-button *ngIf="canManage && !referenceIncomplete" icon="pi pi-refresh" [text]="true" severity="secondary" size="small"
+                pTooltip="Read from QuickBooks again" [loading]="isRefreshing" (onClick)="refreshReference()"></p-button>
+    </div>
+
+    <div class="field-grid">
+      <div class="field" *ngIf="tracksClasses" data-testid="class-field">
+        <label for="classRef">Class</label>
+        <p-select inputId="classRef" [(ngModel)]="values[keys.ClassRef]" [options]="classOpts" optionLabel="label" optionValue="value"
+                  placeholder="No class" [showClear]="true" [filter]="classOpts.length > 8" [disabled]="!canManage" appendTo="body"
+                  styleClass="w-full" data-testid="classRef"></p-select>
+        <small class="hint warn" *ngIf="warningFor(keys.ClassRef) as w" data-testid="class-warning">{{ w }}</small>
+      </div>
+      <div class="field" *ngIf="tracksDepartments" data-testid="department-field">
+        <label for="departmentRef">{{ departmentLabel }}</label>
+        <p-select inputId="departmentRef" [(ngModel)]="values[keys.DepartmentRef]" [options]="deptOpts" optionLabel="label" optionValue="value"
+                  [placeholder]="'No ' + departmentLabel.toLowerCase()" [showClear]="true" [filter]="deptOpts.length > 8" [disabled]="!canManage"
+                  appendTo="body" styleClass="w-full" data-testid="departmentRef"></p-select>
+        <small class="hint warn" *ngIf="warningFor(keys.DepartmentRef) as w">{{ w }}</small>
+      </div>
+      <div class="field">
+        <label for="salesTermRef">Sales terms</label>
+        <p-select inputId="salesTermRef" [(ngModel)]="values[keys.SalesTermRef]" [options]="termOpts" optionLabel="label" optionValue="value"
+                  placeholder="The customer's terms" [showClear]="true" [filter]="termOpts.length > 8" [disabled]="!canManage" appendTo="body"
+                  styleClass="w-full" data-testid="salesTermRef"></p-select>
+        <small class="hint">Used when the customer has no mapped payment term.</small>
+        <small class="hint warn" *ngIf="warningFor(keys.SalesTermRef) as w">{{ w }}</small>
+      </div>
+    </div>
+    <p class="hint tracking-hint" *ngIf="trackingOffText" data-testid="tracking-hint">{{ trackingOffText }}</p>
+  </section>
+
+  <!-- ══ Customer payments ═════════════════════════════════════════════ -->
+  <section class="form-card flush" data-testid="payment-defaults">
+    <div class="table-toolbar">
+      <div class="card-icon"><i class="pi pi-wallet"></i></div>
+      <div class="grow">
+        <div class="card-title">Customer payments</div>
+        <div class="card-sub">For each way a customer pays: the QuickBooks payment method, and the account the money is deposited to.</div>
+      </div>
+    </div>
+    <div class="method-grid">
+      <div class="method-row head" aria-hidden="true"><span>Method</span><span>Payment method</span><span>Deposit to</span></div>
+      <div class="method-row" *ngFor="let m of methods" [attr.data-testid]="'pay-' + m">
+        <span class="method-name">{{ methodLabel[m] }}</span>
+        <p-select [(ngModel)]="values[methodKey(keys.PaymentMethodRef, m)]" [options]="methodOpts" optionLabel="label" optionValue="value"
+                  placeholder="None" [showClear]="true" [disabled]="!canManage" appendTo="body" styleClass="w-full"
+                  [attr.aria-label]="methodLabel[m] + ' payment method'" [attr.data-testid]="'pm-' + m"></p-select>
+        <p-select [(ngModel)]="values[methodKey(keys.DepositToAccountRef, m)]" [options]="depositOpts" optionLabel="label" optionValue="value"
+                  placeholder="Cash / bank account mapping" [showClear]="true" [filter]="depositOpts.length > 8" [disabled]="!canManage"
+                  appendTo="body" styleClass="w-full" [attr.aria-label]="methodLabel[m] + ' deposit account'"
+                  [attr.data-testid]="'deposit-' + m"></p-select>
+        <small class="hint warn method-warn" *ngIf="warningFor(methodKey(keys.PaymentMethodRef, m)) || warningFor(methodKey(keys.DepositToAccountRef, m)) as w">{{ w }}</small>
+      </div>
+    </div>
+    <p class="hint pad" *ngIf="methodsWithoutDeposit.length" data-testid="deposit-fallback">
+      Without a deposit account, a payment goes to the QuickBooks account mapped to the GL cash (cash payments) or bank default.
+    </p>
+  </section>
+
+  <!-- ══ Bill payments ═════════════════════════════════════════════════ -->
+  <section class="form-card flush" data-testid="supplier-payment-defaults">
+    <div class="table-toolbar">
+      <div class="card-icon"><i class="pi pi-money-bill"></i></div>
+      <div class="grow">
+        <div class="card-title">Supplier payments</div>
+        <div class="card-sub">The bank (or credit card) account each way of paying a supplier is paid from.</div>
+      </div>
+    </div>
+    <div class="method-grid two">
+      <div class="method-row head" aria-hidden="true"><span>Method</span><span>Paid from</span></div>
+      <div class="method-row" *ngFor="let m of methods" [attr.data-testid]="'bill-' + m">
+        <span class="method-name">{{ methodLabel[m] }}</span>
+        <p-select [(ngModel)]="values[methodKey(keys.BankAccountRef, m)]" [options]="bankOpts" optionLabel="label" optionValue="value"
+                  placeholder="Bank account mapping" [showClear]="true" [filter]="bankOpts.length > 8" [disabled]="!canManage"
+                  appendTo="body" styleClass="w-full" [attr.aria-label]="methodLabel[m] + ' paid from'"
+                  [attr.data-testid]="'bank-' + m"></p-select>
+        <small class="hint warn method-warn" *ngIf="warningFor(methodKey(keys.BankAccountRef, m)) as w">{{ w }}</small>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ Refunds & POS ═════════════════════════════════════════════════ -->
+  <section class="form-card" data-testid="refund-defaults">
+    <div class="card-head">
+      <div class="card-icon"><i class="pi pi-replay"></i></div>
+      <div class="grow">
+        <div class="card-title">Refunds and POS</div>
+        <div class="card-sub">Cash refunds (refund receipts) and POS sales without a customer.</div>
+      </div>
+    </div>
+    <div class="field-grid">
+      <div class="field">
+        <label for="refundFrom">Refund from account</label>
+        <p-select inputId="refundFrom" [(ngModel)]="values[keys.RefundFromAccountRef]" [options]="refundOpts" optionLabel="label"
+                  optionValue="value" placeholder="Choose an account" [showClear]="true" [filter]="refundOpts.length > 8"
+                  [disabled]="!canManage" appendTo="body" styleClass="w-full" data-testid="refundFrom"></p-select>
+        <small class="hint">Refund receipts take the money out of this account, unless the method below has its own.</small>
+        <small class="hint warn" *ngIf="warningFor(keys.RefundFromAccountRef) as w">{{ w }}</small>
+      </div>
+      <div class="field">
+        <label for="posCustomer">POS walk-in customer</label>
+        <p-select *ngIf="customerOpts.length; else customerId" inputId="posCustomer" [(ngModel)]="values[keys.PosDefaultCustomerRef]"
+                  [options]="customerOpts" optionLabel="label" optionValue="value" placeholder="Choose a QuickBooks customer"
+                  [showClear]="true" [filter]="true" [disabled]="!canManage" appendTo="body" styleClass="w-full"
+                  data-testid="posCustomer"></p-select>
+        <ng-template #customerId>
+          <input pInputText id="posCustomer" [(ngModel)]="values[keys.PosDefaultCustomerRef]" [disabled]="!canManage"
+                 placeholder="QuickBooks customer id" data-testid="posCustomerId" />
+        </ng-template>
+        <small class="hint">POS sales with no customer are recorded against this QuickBooks customer.
+          <ng-container *ngIf="!customerOpts.length">Import customers on the Match existing tab to pick one by name.</ng-container></small>
+      </div>
+    </div>
+
+    <!-- D-35: refund account per method -->
+    <div class="group-title">Refund account per method</div>
+    <p class="hint lookup-hint" data-testid="refund-lookup-hint">
+      A refund by a method comes out of that method's refund account; if it has none, the refund account above; if that is
+      empty too, the method's deposit account.
+    </p>
+    <div class="method-grid two flat" data-testid="refund-methods">
+      <div class="method-row head" aria-hidden="true"><span>Method</span><span>Refund from</span></div>
+      <div class="method-row" *ngFor="let m of methods" [attr.data-testid]="'refund-' + m">
+        <span class="method-name">{{ methodLabel[m] }}</span>
+        <p-select [(ngModel)]="values[methodKey(keys.RefundFromAccountRef, m)]" [options]="refundOpts" optionLabel="label" optionValue="value"
+                  [placeholder]="refundPlaceholder(m)" [showClear]="true" [filter]="refundOpts.length > 8" [disabled]="!canManage"
+                  appendTo="body" styleClass="w-full" [attr.aria-label]="methodLabel[m] + ' refund account'"
+                  [attr.data-testid]="'refund-from-' + m"></p-select>
+        <small class="hint warn method-warn" *ngIf="warningFor(methodKey(keys.RefundFromAccountRef, m)) as w">{{ w }}</small>
+      </div>
+    </div>
+
+    <div class="action-bar" *ngIf="canManage" data-testid="defaults-actions">
+      <span class="unsaved" *ngIf="dirty"><i class="pi pi-circle-fill"></i> Unsaved changes</span>
+      <span class="saved" *ngIf="!dirty"><i class="pi pi-check"></i> Saved</span>
+      <span class="grow"></span>
+      <p-button label="Discard" [outlined]="true" severity="secondary" [disabled]="!dirty || isSaving" (onClick)="discard()"
+                data-testid="discard-defaults"></p-button>
+      <p-button label="Save defaults" icon="pi pi-check" [loading]="isSaving" [disabled]="!dirty || isSaving" (onClick)="save()"
+                data-testid="save-defaults"></p-button>
+    </div>
+  </section>
+
+  <!-- ══ Overrides ═════════════════════════════════════════════════════ -->
+  <section class="form-card flush" data-testid="overrides-card">
+    <div class="table-toolbar">
+      <div class="card-icon"><i class="pi pi-clone"></i></div>
+      <div class="grow">
+        <div class="card-title">Per document type</div>
+        <div class="card-sub">An override wins over the default above for that document type only.</div>
+      </div>
+      <p-button *ngIf="canManage" label="Add override" icon="pi pi-plus" [text]="true" size="small" (onClick)="addOverride()"
+                data-testid="add-override"></p-button>
+    </div>
+
+    <div class="state-inline" *ngIf="!overrides.length" data-testid="overrides-empty">
+      <i class="pi pi-info-circle"></i> No overrides: every document type uses the defaults.
+    </div>
+
+    <div class="override-row" *ngFor="let o of overrides; let i = index" [class.dup]="isDuplicate(o)" data-testid="override-row">
+      <p-select [(ngModel)]="o.documentType" [options]="documentTypeOpts" optionLabel="label" optionValue="value" [disabled]="!canManage"
+                appendTo="body" styleClass="w-full" aria-label="Document type" [attr.data-testid]="'ov-type-' + i"></p-select>
+      <p-select [(ngModel)]="o.settingKey" (ngModelChange)="onOverrideKey(o)" [options]="overrideKeyOpts" optionLabel="label" optionValue="value"
+                [disabled]="!canManage" appendTo="body" styleClass="w-full" aria-label="Setting" [attr.data-testid]="'ov-key-' + i"></p-select>
+      <p-select [(ngModel)]="o.settingValue" [options]="valueOpts(o.settingKey)" optionLabel="label" optionValue="value" placeholder="Choose…"
+                [showClear]="true" [filter]="valueOpts(o.settingKey).length > 8" [disabled]="!canManage" appendTo="body" styleClass="w-full"
+                aria-label="Value" [attr.data-testid]="'ov-value-' + i"></p-select>
+      <p-button *ngIf="canManage" icon="pi pi-trash" [text]="true" severity="danger" size="small" pTooltip="Remove" (onClick)="removeOverride(i)"
+                [attr.data-testid]="'ov-remove-' + i"></p-button>
+      <small class="hint warn dup-hint" *ngIf="isDuplicate(o)">Another row sets {{ keyLabel(o.settingKey) }} for this type; the last one is kept.</small>
+    </div>
+
+    <div class="action-bar table-actions" *ngIf="canManage">
+      <span class="grow"></span>
+      <span class="unsaved" *ngIf="overridesDirty"><i class="pi pi-circle-fill"></i> Unsaved</span>
+      <p-button label="Save overrides" icon="pi pi-check" [loading]="isSavingOverrides" [disabled]="!overridesDirty || isSavingOverrides"
+                (onClick)="saveOverrides()" data-testid="save-overrides"></p-button>
+    </div>
+  </section>
+</ng-container>

@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { ConfirmationService, MessageService } from 'primeng/api';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 
 import { MatchTabComponent } from './match-tab.component';
 import {
@@ -35,8 +35,10 @@ describe('MatchTabComponent', () => {
 
   async function setup(canManage = true) {
     service = jasmine.createSpyObj<QuickBooksIntegrationService>('QuickBooksIntegrationService', [
-      'getMatchCandidates', 'scanMatches', 'confirmMatches', 'confirmMatchingComplete'
+      'getMatchCandidates', 'scanMatches', 'confirmMatches', 'confirmMatchingComplete', 'getRemote', 'importRemote', 'linkRemote'
     ]);
+    // An older server without A44 remote entities: the "Only in QuickBooks" section stays hidden.
+    service.getRemote.and.returnValue(throwError(() => ({ status: 404 })));
     service.getMatchCandidates.and.callFake(kind => of(kind === 'Customer' ? CUSTOMERS.map(c => ({ ...c })) : [
       candidate({ id: 'v1', kind: 'Vendor', localLabel: 'Supplier A', remoteId: '9', confidence: 'Exact' })
     ]));

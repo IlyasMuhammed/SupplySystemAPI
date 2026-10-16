@@ -1,0 +1,29 @@
+.readiness { border-left: 4px solid var(--sms-danger); &.ready { border-left-color: var(--sms-ok); } }
+.card-title { display: flex; align-items: center; gap: .625rem; flex-wrap: wrap; }
+.readiness-text { font-weight: 600; font-size: .95rem; }
+
+.issues { list-style: none; margin: .5rem 0 0; padding: 0; }
+.issue {
+  display: flex; align-items: center; gap: .625rem; padding: .5rem .75rem; border-radius: var(--sms-radius-sm); margin-top: .375rem;
+  font-size: .875rem; flex-wrap: wrap;
+  &.blocking { background: var(--sms-danger-soft); color: var(--sms-danger); }
+  &.warning { background: var(--sms-warn-soft); color: var(--sms-warn); }
+}
+
+.kind { padding: .625rem 0; border-top: 1px solid var(--sms-border-soft); &:first-of-type { border-top: 0; } }
+.kind-top { display: flex; align-items: center; gap: .625rem; flex-wrap: wrap; margin-bottom: .375rem; }
+.kind-name {
+  border: 0; background: none; padding: 0; font: inherit; font-weight: 600; color: var(--sms-primary-text); cursor: pointer;
+  &:hover { text-decoration: underline; }
+}
+.info { font-size: .75rem; color: var(--sms-text-muted); }
+.counts { font-size: .8125rem; color: var(--sms-text-muted); }
+.pct { font-weight: 700; font-variant-numeric: tabular-nums; min-width: 3rem; text-align: right; }
+.bar { height: .5rem; border-radius: 999px; background: var(--sms-surface-2); overflow: hidden; }
+.fill {
+  display: block; height: 100%; border-radius: 999px; background: var(--sms-primary);
+  &.ok { background: var(--sms-ok); }
+  &.wn { background: var(--sms-warn); }
+  &.er { background: var(--sms-danger); }
+  &.info { background: var(--sms-primary); }
+}

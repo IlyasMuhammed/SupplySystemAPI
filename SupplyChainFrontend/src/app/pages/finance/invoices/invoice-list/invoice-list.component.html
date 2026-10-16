@@ -72,7 +72,7 @@
             <td class="text-right">{{ inv.totalAmount | number:'1.2-2' }} <span class="sf-mu sf-sm">{{ inv.currency }}</span></td>
             <td><p-tag [value]="inv.matchStatus" [severity]="getMatchSeverity(inv.matchStatus)"></p-tag></td>
             <td><p-tag [value]="inv.paymentStatus" [severity]="getPaymentSeverity(inv.paymentStatus)"></p-tag></td>
-            <td *ngIf="qboAvailable()"><app-qbo-sync-badge kind="Bill" [externalId]="inv.uuid"></app-qbo-sync-badge></td>
+            <td *ngIf="qboAvailable()"><app-qbo-sync-badge [inlineAction]="false" kind="Bill" [externalId]="inv.uuid"></app-qbo-sync-badge></td>
             <td class="text-center">
               <p-button icon="pi pi-eye" [text]="true" severity="secondary" size="small"
                         pTooltip="View Invoice"

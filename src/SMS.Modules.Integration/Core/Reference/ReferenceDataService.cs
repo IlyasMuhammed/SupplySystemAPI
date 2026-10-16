@@ -152,6 +152,9 @@ internal sealed class ReferenceDataService : IReferenceDataService, IReferenceDa
         Put(ReferenceKinds.Currencies,  data.Currencies);
         Put(ReferenceKinds.Preferences, data.Preferences);
         Put(ReferenceKinds.CompanyInfo, data.CompanyInfo);
+        Put(ReferenceKinds.Classes,        data.Classes);
+        Put(ReferenceKinds.Departments,    data.Departments);
+        Put(ReferenceKinds.PaymentMethods, data.PaymentMethods);
 
         // The connection carries the headline facts so the status card and preflight need no JSON.
         // Absent values keep what was known: a partial answer must not blank the company's name.
@@ -207,6 +210,10 @@ internal sealed class ReferenceDataService : IReferenceDataService, IReferenceDa
             TaxCodes    = Read<List<RemoteTaxCode>>(ReferenceKinds.TaxCodes)    ?? [],
             Terms       = Read<List<RemoteTerm>>(ReferenceKinds.Terms)          ?? [],
             Currencies  = Read<List<RemoteCurrency>>(ReferenceKinds.Currencies) ?? [],
+            // A44: absent in snapshots stored before the upgrade (empty until the next refresh).
+            Classes        = Read<List<RemoteClass>>(ReferenceKinds.Classes)                ?? [],
+            Departments    = Read<List<RemoteDepartment>>(ReferenceKinds.Departments)       ?? [],
+            PaymentMethods = Read<List<RemotePaymentMethod>>(ReferenceKinds.PaymentMethods) ?? [],
             Preferences = Read<RemotePreferences>(ReferenceKinds.Preferences),
             CompanyInfo = Read<RemoteCompanyInfo>(ReferenceKinds.CompanyInfo)
         };
@@ -221,7 +228,7 @@ internal sealed class ReferenceDataService : IReferenceDataService, IReferenceDa
             .OrderBy(a => a.AccountType).ThenBy(a => a.Name)
             .Select(a => new ReferenceItemModel
             {
-                Id = a.Id, Name = a.Name, Type = a.AccountType, SubType = a.AccountSubType, Active = a.Active
+                Id = a.Id, Name = a.Name, Type = a.AccountType, SubType = a.AccountSubType, Active = a.Active, AcctNum = a.AcctNum
             }).ToList(),
         TaxCodes = data.TaxCodes
             .OrderBy(t => t.Name)
@@ -236,7 +243,26 @@ internal sealed class ReferenceDataService : IReferenceDataService, IReferenceDa
         Currencies = data.Currencies
             .OrderBy(c => c.Code)
             .Select(c => new ReferenceItemModel { Id = c.Code, Name = c.Name })
-            .ToList()
+            .ToList(),
+        Classes = data.Classes
+            .OrderBy(c => c.FullyQualifiedName ?? c.Name)
+            .Select(c => new ReferenceItemModel { Id = c.Id, Name = c.Name, FullName = c.FullyQualifiedName, Active = c.Active })
+            .ToList(),
+        Departments = data.Departments
+            .OrderBy(d => d.FullyQualifiedName ?? d.Name)
+            .Select(d => new ReferenceItemModel { Id = d.Id, Name = d.Name, FullName = d.FullyQualifiedName, Active = d.Active })
+            .ToList(),
+        PaymentMethods = data.PaymentMethods
+            .OrderBy(p => p.Name)
+            .Select(p => new ReferenceItemModel { Id = p.Id, Name = p.Name, Type = p.Type, Active = p.Active })
+            .ToList(),
+        Tracking = new ReferenceTrackingModel
+        {
+            ClassTrackingPerTransaction = data.Preferences?.ClassTrackingPerTxn,
+            ClassTrackingPerLine        = data.Preferences?.ClassTrackingPerTxnLine,
+            DepartmentTracking          = data.Preferences?.TrackDepartments,
+            DepartmentTerminology       = data.Preferences?.DepartmentTerminology
+        }
     };
 
     private static string Truncate(string value, int max) => value.Length <= max ? value : value[..max];

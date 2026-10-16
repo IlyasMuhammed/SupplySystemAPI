@@ -283,10 +283,32 @@ public class DataEndpointTests : IAsyncLifetime
             ["SyncController.Resolve"]       = PermissionCodes.INTEGRATION_MANAGE,
             ["SyncController.Push"]          = PermissionCodes.INTEGRATION_SYNC,
             ["SyncController.Backfill"]      = PermissionCodes.INTEGRATION_MANAGE,
-            ["SyncController.StatusLookup"]  = PermissionCodes.INTEGRATION_VIEW
+            ["SyncController.StatusLookup"]  = PermissionCodes.INTEGRATION_VIEW,
+            // A44 (CTRL, D-31)
+            ["SyncController.Unlink"]        = PermissionCodes.INTEGRATION_MANAGE,
+            ["SyncController.RetryFailed"]   = PermissionCodes.INTEGRATION_MANAGE,
+            ["SyncController.Skip"]          = PermissionCodes.INTEGRATION_MANAGE,
+            ["SyncController.CallLog"]       = PermissionCodes.INTEGRATION_VIEW,
+            ["SyncController.CallLogEntry"]  = PermissionCodes.INTEGRATION_VIEW,
+            ["RemoteEntityController.Import"] = PermissionCodes.INTEGRATION_MANAGE,
+            ["RemoteEntityController.Remote"] = PermissionCodes.INTEGRATION_VIEW,
+            ["RemoteEntityController.Link"]   = PermissionCodes.INTEGRATION_MANAGE,
+            ["PostingSetupController.GetSyncControl"]    = PermissionCodes.INTEGRATION_VIEW,
+            ["PostingSetupController.UpdateSyncControl"] = PermissionCodes.INTEGRATION_MANAGE,
+            ["PostingSetupController.ReleaseHeld"]       = PermissionCodes.INTEGRATION_MANAGE,
+            ["PostingSetupController.GetDefaults"]       = PermissionCodes.INTEGRATION_VIEW,
+            ["PostingSetupController.SaveDefaults"]      = PermissionCodes.INTEGRATION_MANAGE,
+            ["PostingSetupController.GetOverrides"]      = PermissionCodes.INTEGRATION_VIEW,
+            ["PostingSetupController.SaveOverrides"]     = PermissionCodes.INTEGRATION_MANAGE,
+            ["PostingSetupController.GetAccounts"]       = PermissionCodes.INTEGRATION_VIEW,
+            ["PostingSetupController.AutoMapAccounts"]   = PermissionCodes.INTEGRATION_MANAGE,
+            ["PostingSetupController.SaveAccounts"]      = PermissionCodes.INTEGRATION_MANAGE,
+            ["PostingSetupController.ImportTaxMappings"] = PermissionCodes.INTEGRATION_MANAGE,
+            ["PostingSetupController.Coverage"]          = PermissionCodes.INTEGRATION_VIEW,
+            ["PostingSetupController.ValidationCheck"]   = PermissionCodes.INTEGRATION_VIEW
         };
 
-        foreach (var type in new[] { typeof(MatchingController), typeof(SyncController) })
+        foreach (var type in new[] { typeof(MatchingController), typeof(SyncController), typeof(RemoteEntityController), typeof(PostingSetupController) })
         {
             type.GetCustomAttribute<RequiresFeatureAttribute>()!.FeatureCode.Should().Be("MODULE_INTEGRATION");
             type.GetCustomAttribute<AllowAnonymousAttribute>().Should().BeNull();

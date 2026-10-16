@@ -38,11 +38,47 @@ internal class IntegrationConnection : ITenantScopedEntity
     public DateTime? ReconnectWarnedAt { get; set; }
     public string?   LastError         { get; set; }
 
+    /// <summary>
+    /// The Intuit app (Client ID) the stored tokens were issued to — refresh and revoke must use the same app
+    /// (docs/quickbooks/APP-CREDENTIALS.md D-3). Null for a connection made before app keys moved to the database.
+    /// </summary>
+    public string?   AppClientId { get; set; }
+    /// <summary>Where that app's keys came from: <see cref="AppCredentialSource"/>.</summary>
+    public AppCredentialSource? AppSource { get; set; }
+
     public DateTime  CreatedDate  { get; set; } = DateTime.UtcNow;
     public DateTime? ModifiedDate { get; set; }
 
     /// <summary>Stops two concurrent token refreshes from both persisting — the loser reloads.</summary>
     public byte[]   RowVersion { get; set; } = [];
+}
+
+/// <summary>
+/// Intuit app keys (docs/quickbooks/APP-CREDENTIALS.md). <see cref="OrganizationId"/> null = the platform's app; set = one
+/// organization's own app (FEATURE_QBO_OWN_APP). Deliberately not tenant-scoped: the platform row belongs to no tenant,
+/// so every query names its scope.
+/// </summary>
+internal class QuickBooksAppCredential
+{
+    public int       Id             { get; set; }
+    public Guid      Uuid           { get; set; } = Guid.NewGuid();
+    public Guid?     OrganizationId { get; set; }
+
+    public string    ClientId              { get; set; } = string.Empty;
+    /// <summary>Only <c>QuickBooksAppResolver</c> decrypts it; it is never returned by the API.</summary>
+    public string    EncryptedClientSecret { get; set; } = string.Empty;
+    public IntegrationEnvironment Environment { get; set; } = IntegrationEnvironment.Sandbox;
+
+    /// <summary>Platform row only (D-5): the callback URL registered on the Intuit app(s).</summary>
+    public string?   RedirectUri       { get; set; }
+    /// <summary>Platform row only (D-5): the SCM screen the callback sends the browser back to.</summary>
+    public string?   FrontendReturnUrl { get; set; }
+
+    public DateTime  CreatedAt  { get; set; } = DateTime.UtcNow;
+    public int?      CreatedBy  { get; set; }
+    public DateTime? ModifiedAt { get; set; }
+    public int?      ModifiedBy { get; set; }
+    public byte[]    RowVersion { get; set; } = [];
 }
 
 /// <summary>
@@ -59,6 +95,8 @@ internal class OAuthStateToken : ITenantScopedEntity
     public DateTime  CreatedAt      { get; set; } = DateTime.UtcNow;
     public DateTime  ExpiresAt      { get; set; }
     public DateTime? UsedAt         { get; set; }
+    /// <summary>The Intuit app the consent URL was built with; the callback exchanges the code with the same app (D-3).</summary>
+    public string?   AppClientId    { get; set; }
 }
 
 /// <summary>A system allowed to call the data endpoints (/api/gateway/quickbooks/v1) with an API key.</summary>
@@ -335,6 +373,77 @@ internal class MatchCandidate : ITenantScopedEntity
     public DateTime CreatedAt      { get; set; } = DateTime.UtcNow;
 }
 
+/// <summary>
+/// A44 D-14 — whether one document type is sent (and, when it is not, whether its records are held for later).
+/// One row per connection and type (<c>SyncControlDocumentTypes</c>); no row = enabled (BR-29). Replaces the six
+/// <c>AutoPush*</c> switches on <see cref="IntegrationSettings"/>, which are kept in step for now (R-1).
+/// </summary>
+internal class SyncControlConfig : ITenantScopedEntity
+{
+    public int       Id               { get; set; }
+    public Guid      OrganizationId   { get; set; }
+    public int       ConnectionId     { get; set; }
+    public string    DocumentType     { get; set; } = string.Empty;
+    public bool      IsEnabled        { get; set; } = true;
+    /// <summary>While disabled: true = store the payload and mark the map held (sent on enable); false = ignore it.</summary>
+    public bool      HoldWhenDisabled { get; set; }
+    public string    DisplayLabel     { get; set; } = string.Empty;
+    public int?      ModifiedBy       { get; set; }
+    public DateTime? ModifiedAt       { get; set; }
+}
+
+/// <summary>
+/// A44 D-15 — a connection-wide QuickBooks reference used when building documents (class, location, terms, payment
+/// method, deposit / bank account per payment method). Keys: <c>ProviderDefaultKeys</c>. Unique on (ConnectionId, SettingKey).
+/// </summary>
+internal class ProviderDefault : ITenantScopedEntity
+{
+    public int       Id             { get; set; }
+    public Guid      OrganizationId { get; set; }
+    public int       ConnectionId   { get; set; }
+    public string    SettingKey     { get; set; } = string.Empty;
+    /// <summary>A QuickBooks id from the reference snapshot.</summary>
+    public string    SettingValue   { get; set; } = string.Empty;
+    public string?   Description    { get; set; }
+    public int?      ModifiedBy     { get; set; }
+    public DateTime? ModifiedAt     { get; set; }
+}
+
+/// <summary>A44 D-15 — a provider default for one document type only; wins over <see cref="ProviderDefault"/> (BR-12).</summary>
+internal class DocumentOverride : ITenantScopedEntity
+{
+    public int       Id             { get; set; }
+    public Guid      OrganizationId { get; set; }
+    public int       ConnectionId   { get; set; }
+    public string    DocumentType   { get; set; } = string.Empty;
+    public string    SettingKey     { get; set; } = string.Empty;
+    public string    SettingValue   { get; set; } = string.Empty;
+    public int?      ModifiedBy     { get; set; }
+    public DateTime? ModifiedAt     { get; set; }
+}
+
+/// <summary>
+/// A44 D-17 — a QuickBooks customer, vendor or item read by "Import from QuickBooks": a remote-only candidate to link
+/// an SCM record to. Never creates anything in SCM (BR-18). Unique on (ConnectionId, Kind, RemoteId). Table RemoteEntities.
+/// </summary>
+internal class RemoteEntityRecord : ITenantScopedEntity
+{
+    public int      Id             { get; set; }
+    public Guid     OrganizationId { get; set; }
+    public int      ConnectionId   { get; set; }
+    public SyncKind Kind           { get; set; }
+    public string   RemoteId       { get; set; } = string.Empty;
+    public string   Name           { get; set; } = string.Empty;
+    public string?  CompanyName    { get; set; }
+    public string?  Email          { get; set; }
+    public string?  TaxId          { get; set; }
+    public string?  AccountNumber  { get; set; }
+    public string?  Sku            { get; set; }
+    public string?  CurrencyCode   { get; set; }
+    public bool     Active         { get; set; } = true;
+    public DateTime ImportedAt     { get; set; } = DateTime.UtcNow;
+}
+
 internal static class ProviderKeys
 {
     public const string QuickBooksOnline = "QBO";
@@ -349,6 +458,10 @@ internal static class ReferenceKinds
     public const string Currencies  = "Currencies";
     public const string Preferences = "Preferences";
     public const string CompanyInfo = "CompanyInfo";
+    // A44 D-15 — what the provider defaults are chosen from.
+    public const string Classes        = "Classes";
+    public const string Departments    = "Departments";
+    public const string PaymentMethods = "PaymentMethods";
 }
 
 /// <summary>API key scopes.</summary>

@@ -27,17 +27,19 @@ internal sealed class TokenManager : ITokenManager
     private readonly IntegrationDbContext                  _db;
     private readonly ICredentialVault                      _vault;
     private readonly IEnumerable<IAccountingAuthProvider>  _authProviders;
+    private readonly IQuickBooksAppResolver                _apps;
     private readonly IntegrationJobOptions                 _jobOptions;
     private readonly IServiceProvider                      _services;
     private readonly ILogger<TokenManager>                 _logger;
 
     public TokenManager(
-        IntegrationDbContext db, ICredentialVault vault, IEnumerable<IAccountingAuthProvider> authProviders,
+        IntegrationDbContext db, ICredentialVault vault, IEnumerable<IAccountingAuthProvider> authProviders, IQuickBooksAppResolver apps,
         IOptions<IntegrationJobOptions> jobOptions, IServiceProvider services, ILogger<TokenManager> logger)
     {
         _db            = db;
         _vault         = vault;
         _authProviders = authProviders;
+        _apps          = apps;
         _jobOptions    = jobOptions.Value;
         _services      = services;
         _logger        = logger;
@@ -101,7 +103,12 @@ internal sealed class TokenManager : ITokenManager
         TokenGrant grant;
         try
         {
-            grant = await provider.RefreshAsync(refreshToken, ct);
+            // D-3: the app the refresh token was issued to — never whichever app is current for new connections.
+            var app = await _apps.ByClientIdAsync(connection.OrganizationId, connection.AppClientId, ct)
+                ?? throw new AccountingAuthException(
+                    "The QuickBooks app keys this connection was made with are no longer stored. "
+                  + "Re-enter those keys, or disconnect and reconnect QuickBooks.");
+            grant = await provider.RefreshAsync(app, refreshToken, ct);
         }
         catch (AuthorizationRevokedException ex)
         {

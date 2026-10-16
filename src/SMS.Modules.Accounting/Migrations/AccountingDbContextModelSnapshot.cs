@@ -582,6 +582,200 @@ namespace SMS.Modules.Accounting.Migrations
                         });
                 });
 
+            modelBuilder.Entity("SMS.Modules.Accounting.Domain.FinancialPosting", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CurrencyCode")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("DocumentJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("DocumentPayloadType")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("DocumentType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("Fingerprint")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("IdempotencyKey")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<DateTime>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("PartnerName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("PartnerType")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid?>("PartnerUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("SourceDocumentNumber")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid>("SourceDocumentUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("SourceModule")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<DateOnly>("TransactionDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("TransactionJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("Uuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Uuid")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "IdempotencyKey")
+                        .IsUnique()
+                        .HasDatabaseName("UX_FinancialPostings_Org_Key");
+
+                    b.HasIndex("OrganizationId", "ModifiedAt")
+                        .HasDatabaseName("IX_FinancialPostings_Org_Modified");
+
+                    b.HasIndex("OrganizationId", "SourceDocumentUuid")
+                        .HasDatabaseName("IX_FinancialPostings_Org_Source");
+
+                    b.ToTable("FinancialPostings", "finance", t =>
+                        {
+                            t.HasCheckConstraint("CK_FinancialPostings_Kind", "[Kind] IN ('Post', 'Void', 'Reverse')");
+                        });
+                });
+
+            modelBuilder.Entity("SMS.Modules.Accounting.Domain.FinancialPostingTargetState", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ExternalDocNumber")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("ExternalId")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("InternalId")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("LastAttemptAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<bool>("MirroredFromTarget")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("NextAttemptAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("PostedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("PostedFingerprint")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<int>("PostingId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("TargetCode")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PostingId", "TargetCode")
+                        .IsUnique()
+                        .HasDatabaseName("UX_FinancialPostingTargets_Posting_Target");
+
+                    b.HasIndex("Status", "NextAttemptAt")
+                        .HasDatabaseName("IX_FinancialPostingTargets_Status_Next");
+
+                    b.HasIndex("OrganizationId", "TargetCode", "Status")
+                        .HasDatabaseName("IX_FinancialPostingTargets_Org_Target_Status");
+
+                    b.ToTable("FinancialPostingTargets", "finance", t =>
+                        {
+                            t.HasCheckConstraint("CK_FinancialPostingTargets_Attempts", "[Attempts] >= 0");
+
+                            t.HasCheckConstraint("CK_FinancialPostingTargets_Status", "[Status] IN ('Pending', 'Posted', 'Queued', 'Held', 'Failed', 'DeadLetter', 'Skipped')");
+                        });
+                });
+
             modelBuilder.Entity("SMS.Modules.Accounting.Domain.FiscalPeriod", b =>
                 {
                     b.Property<int>("Id")
@@ -798,6 +992,10 @@ namespace SMS.Modules.Accounting.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");
 
+                    b.Property<string>("IdempotencyKey")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
                     b.Property<DateTime>("ModifiedAt")
                         .HasColumnType("datetime2");
 
@@ -813,6 +1011,16 @@ namespace SMS.Modules.Accounting.Migrations
                     b.Property<string>("Reference")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
+
+                    b.Property<int?>("ReversesEntryId")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("SourceDocumentUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("SourceModule")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -830,6 +1038,10 @@ namespace SMS.Modules.Accounting.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ReversesEntryId")
+                        .HasDatabaseName("IX_JournalEntries_Reverses")
+                        .HasFilter("[ReversesEntryId] IS NOT NULL");
+
                     b.HasIndex("Uuid")
                         .IsUnique();
 
@@ -839,6 +1051,14 @@ namespace SMS.Modules.Accounting.Migrations
                     b.HasIndex("OrganizationId", "EntryNumber")
                         .IsUnique()
                         .HasDatabaseName("UX_JournalEntries_Org_Number");
+
+                    b.HasIndex("OrganizationId", "IdempotencyKey")
+                        .HasDatabaseName("IX_JournalEntries_Org_Key")
+                        .HasFilter("[IdempotencyKey] IS NOT NULL");
+
+                    b.HasIndex("OrganizationId", "SourceDocumentUuid")
+                        .HasDatabaseName("IX_JournalEntries_Org_Source")
+                        .HasFilter("[SourceDocumentUuid] IS NOT NULL");
 
                     b.HasIndex("OrganizationId", "EntryType", "Status")
                         .HasDatabaseName("IX_JournalEntries_Org_Type_Status");
@@ -983,6 +1203,51 @@ namespace SMS.Modules.Accounting.Migrations
                         });
                 });
 
+            modelBuilder.Entity("SMS.Modules.Accounting.Domain.TenantFinanceConfig", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("AutoPostToGL")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DefaultCurrencyCode")
+                        .HasMaxLength(3)
+                        .HasColumnType("nvarchar(3)");
+
+                    b.Property<int>("FiscalYearStartMonth")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("InternalAccountingEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ModifiedBy")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_TenantFinanceConfigs_OrgId");
+
+                    b.ToTable("TenantFinanceConfigs", "finance", t =>
+                        {
+                            t.HasCheckConstraint("CK_TenantFinanceConfigs_Month", "[FiscalYearStartMonth] BETWEEN 1 AND 12");
+                        });
+                });
+
             modelBuilder.Entity("SMS.Modules.Accounting.Domain.AccountingDefault", b =>
                 {
                     b.HasOne("SMS.Modules.Accounting.Domain.ChartOfAccount", "Account")
@@ -1049,6 +1314,17 @@ namespace SMS.Modules.Accounting.Migrations
                     b.Navigation("Account");
                 });
 
+            modelBuilder.Entity("SMS.Modules.Accounting.Domain.FinancialPostingTargetState", b =>
+                {
+                    b.HasOne("SMS.Modules.Accounting.Domain.FinancialPosting", "Posting")
+                        .WithMany("Targets")
+                        .HasForeignKey("PostingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Posting");
+                });
+
             modelBuilder.Entity("SMS.Modules.Accounting.Domain.FiscalPeriod", b =>
                 {
                     b.HasOne("SMS.Modules.Accounting.Domain.FiscalYear", "FiscalYear")
@@ -1058,6 +1334,14 @@ namespace SMS.Modules.Accounting.Migrations
                         .IsRequired();
 
                     b.Navigation("FiscalYear");
+                });
+
+            modelBuilder.Entity("SMS.Modules.Accounting.Domain.JournalEntry", b =>
+                {
+                    b.HasOne("SMS.Modules.Accounting.Domain.JournalEntry", null)
+                        .WithMany()
+                        .HasForeignKey("ReversesEntryId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("SMS.Modules.Accounting.Domain.JournalEntryLine", b =>
@@ -1105,6 +1389,11 @@ namespace SMS.Modules.Accounting.Migrations
             modelBuilder.Entity("SMS.Modules.Accounting.Domain.CoaTemplate", b =>
                 {
                     b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("SMS.Modules.Accounting.Domain.FinancialPosting", b =>
+                {
+                    b.Navigation("Targets");
                 });
 
             modelBuilder.Entity("SMS.Modules.Accounting.Domain.FiscalYear", b =>

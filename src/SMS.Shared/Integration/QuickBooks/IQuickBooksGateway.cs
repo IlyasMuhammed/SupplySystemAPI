@@ -35,6 +35,16 @@ public interface IQuickBooksGateway
     /// </summary>
     Task<GatewayResult> FlagForAccountantAsync(SyncKind kind, string externalId, string reason, CancellationToken ct = default) =>
         Task.FromResult(GatewayResult.Disabled());
+
+    // A44 (D-19..D-24). Defaults do nothing, so hosts and fakes without the Integration module compile unchanged.
+    Task<GatewayResult> UpsertPaymentAsync(PaymentPayload payload, CancellationToken ct = default)             => Task.FromResult(GatewayResult.Disabled());
+    Task<GatewayResult> UpsertBillPaymentAsync(BillPaymentPayload payload, CancellationToken ct = default)     => Task.FromResult(GatewayResult.Disabled());
+    Task<GatewayResult> UpsertSalesReceiptAsync(SalesReceiptPayload payload, CancellationToken ct = default)   => Task.FromResult(GatewayResult.Disabled());
+    Task<GatewayResult> UpsertCreditMemoAsync(CreditMemoPayload payload, CancellationToken ct = default)       => Task.FromResult(GatewayResult.Disabled());
+    Task<GatewayResult> UpsertRefundReceiptAsync(RefundReceiptPayload payload, CancellationToken ct = default) => Task.FromResult(GatewayResult.Disabled());
+    Task<GatewayResult> UpsertVendorCreditAsync(VendorCreditPayload payload, CancellationToken ct = default)   => Task.FromResult(GatewayResult.Disabled());
+    /// <summary>Void any voidable kind (SalesInvoice, Payment, BillPayment, SalesReceipt, CreditMemo, RefundReceipt).</summary>
+    Task<GatewayResult> VoidAsync(SyncKind kind, string externalId, CancellationToken ct = default)            => Task.FromResult(GatewayResult.Disabled());
 }
 
 /// <summary>

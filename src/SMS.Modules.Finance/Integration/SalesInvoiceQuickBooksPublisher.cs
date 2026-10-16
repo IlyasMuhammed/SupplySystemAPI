@@ -5,7 +5,8 @@ namespace SMS.Modules.Finance.Integration;
 
 /// <summary>
 /// What the sales invoice service calls once its own save has committed. Decides with
-/// <see cref="SalesInvoiceQuickBooksRules"/> whether QuickBooks hears about the change at all, then sends.
+/// <see cref="SalesInvoiceQuickBooksRules"/> whether the accounting targets hear about the change at all, then sends
+/// (A44: as a posting to the financial posting gateway — GL and QuickBooks — when the host has one).
 /// <para>
 /// <b>Never throws.</b> The invoice is issued (or whatever the change was) whatever QuickBooks makes of it;
 /// a failure is logged with the invoice's id and the gateway's hourly reconciliation offers it again.
@@ -31,7 +32,8 @@ internal sealed class SalesInvoiceQuickBooksPublisher
         try
         {
             var action = SalesInvoiceQuickBooksRules.OnChange(previousStatus, invoice.Status, contentChanged);
-            await _source.SendAsync(invoice, action);
+            // A44 (D-25): through the financial posting gateway (GL + QuickBooks) when the host has one.
+            await _source.PublishAsync(invoice, action);
         }
         catch (Exception ex)
         {

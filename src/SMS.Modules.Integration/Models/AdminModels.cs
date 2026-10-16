@@ -13,8 +13,15 @@ namespace SMS.Modules.Integration.Models;
 
 public sealed class ConnectionStatusModel
 {
-    /// <summary>False when the deployment has no Intuit app keys configured — the Connect button is disabled.</summary>
+    /// <summary>False when no Intuit app keys are available to this organization — the Connect button is disabled.</summary>
     public bool      AppConfigured        { get; set; }
+    /// <summary>
+    /// Which keys a new connection would use: Tenant (the organization's own Intuit app) | Platform | Configuration;
+    /// null when none (docs/quickbooks/APP-CREDENTIALS.md D-2).
+    /// </summary>
+    public string?   AppSource            { get; set; }
+    /// <summary>Which keys the current connection was made with (D-3); null for a connection from before, or none.</summary>
+    public string?   ConnectedWithAppSource { get; set; }
     /// <summary>NotConnected | Connecting | Connected | NeedsSetup | Live | Revoked | Expired</summary>
     public string    Status               { get; set; } = "NotConnected";
     public bool      IsConnected          { get; set; }
@@ -62,6 +69,10 @@ public sealed class ReferenceItemModel
     /// <summary>Terms: due days.</summary>
     public int?     Days     { get; set; }
     public bool     Active   { get; set; } = true;
+    /// <summary>Accounts: QuickBooks' account number, when used (A44 D-16).</summary>
+    public string?  AcctNum  { get; set; }
+    /// <summary>Classes / departments: the full "Parent:Child" name.</summary>
+    public string?  FullName { get; set; }
 }
 
 public sealed class ReferenceDataModel
@@ -72,6 +83,13 @@ public sealed class ReferenceDataModel
     public List<ReferenceItemModel> Terms      { get; set; } = new();
     /// <summary>Id = ISO code.</summary>
     public List<ReferenceItemModel> Currencies { get; set; } = new();
+    // A44 D-15 — empty until the reference data is refreshed after the upgrade.
+    public List<ReferenceItemModel> Classes        { get; set; } = new();
+    /// <summary>QuickBooks departments (shown as Locations).</summary>
+    public List<ReferenceItemModel> Departments    { get; set; } = new();
+    /// <summary>Type: CREDIT_CARD | NON_CREDIT_CARD when QuickBooks says.</summary>
+    public List<ReferenceItemModel> PaymentMethods { get; set; } = new();
+    public ReferenceTrackingModel   Tracking       { get; set; } = new();
 }
 
 public sealed class PreflightCheckModel
@@ -119,6 +137,32 @@ public sealed class IntegrationSettingsModel
     public string?   DefaultPurchaseTaxCodeId { get; set; }
     public DateTime? DocumentStartDate        { get; set; }
     public DateTime? MatchingConfirmedAt      { get; set; }
+    /// <summary>
+    /// A44 D-16: the accounts QuickBooks documents actually use — the ones above, or, where one is empty, the QuickBooks
+    /// account the general ledger's matching default is mapped to. Null when nothing could be resolved.
+    /// </summary>
+    public EffectiveAccountsModel? EffectiveAccounts { get; set; }
+}
+
+public sealed class EffectiveAccountsModel
+{
+    public string? IncomeAccountId         { get; set; }
+    /// <summary>Settings | GeneralLedger | null (none)</summary>
+    public string? IncomeSource            { get; set; }
+    public string? ExpenseAccountId        { get; set; }
+    public string? ExpenseSource           { get; set; }
+    public string? FreightExpenseAccountId { get; set; }
+    public string? FreightExpenseSource    { get; set; }
+    public string? DiscountAccountId       { get; set; }
+    public string? DiscountSource          { get; set; }
+
+    internal static EffectiveAccountsModel From(Core.Settings.EffectiveAccounts a) => new()
+    {
+        IncomeAccountId         = a.Income.AccountId,         IncomeSource         = a.Income.Source,
+        ExpenseAccountId        = a.Expense.AccountId,        ExpenseSource        = a.Expense.Source,
+        FreightExpenseAccountId = a.FreightExpense.AccountId, FreightExpenseSource = a.FreightExpense.Source,
+        DiscountAccountId       = a.Discount.AccountId,       DiscountSource       = a.Discount.Source
+    };
 }
 
 public sealed class UpdateIntegrationSettingsRequest
@@ -332,6 +376,8 @@ public sealed class SyncItemQuery
     public string? Kind     { get; set; }
     public string? State    { get; set; }
     public string? Search   { get; set; }
+    /// <summary>A44 D-11: true = only the dead letter (Failed and NeedsResolution).</summary>
+    public bool?   DeadLetter { get; set; }
     public int     Page     { get; set; } = 1;
     public int     PageSize { get; set; } = 25;
 }
@@ -386,6 +432,16 @@ public sealed class ManualPushRequest
 public sealed class ManualPushResult
 {
     public int Requested { get; set; }
+    /// <summary>
+    /// Records left alone because they were skipped in matching ("not synced"). A push never overrides that decision;
+    /// change it on Match existing first. Their ExternalIds.
+    /// </summary>
+    public List<string> SkippedInMatching { get; set; } = new();
+    /// <summary>
+    /// A44 D-69b: documents the gateway had never seen and SCM did not send when asked — nothing to send ("Nothing to send
+    /// for this document"). No record is created for them. Always empty for customers, vendors and items.
+    /// </summary>
+    public List<string> NotFound { get; set; } = new();
 }
 
 public sealed class BackfillResult

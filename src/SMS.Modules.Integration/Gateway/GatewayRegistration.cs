@@ -6,6 +6,8 @@ using Microsoft.Extensions.Options;
 using SMS.Modules.Integration.Configuration;
 using SMS.Modules.Integration.Core.Connections;
 using SMS.Modules.Integration.Core.Matching;
+using SMS.Modules.Integration.Core.Settings;
+using SMS.Shared.Finance.Posting;
 using SMS.Modules.Integration.Core.Sync;
 using SMS.Modules.Integration.Gateway.Validation;
 using SMS.Modules.Integration.Jobs;
@@ -42,6 +44,19 @@ internal static class GatewayRegistration
         services.AddScoped<ISyncExecutor, SyncExecutor>();
         services.AddScoped<IOutboxControl, OutboxControl>();
         services.AddScoped<IQuickBooksSyncAdminService, SyncAdminService>();
+
+        // A44 (D-11, D-14, D-15). The two readers are CTRL's (integration.SyncControlConfigs / ProviderDefaults); until
+        // they are registered these fallbacks keep pre-A44 behaviour. TryAdd: a reader registered before this call wins,
+        // and one registered after it with Add wins anyway (last registration).
+        services.TryAddScoped<ISyncControlReader, LegacySyncControlReader>();
+        services.TryAddScoped<IProviderDefaultsReader, EmptyProviderDefaultsReader>();
+        services.AddScoped<IDocumentDefaultsSource, DocumentDefaultsSource>();
+        services.AddScoped<IHeldRecordReleaser, HeldRecordReleaser>();
+        services.TryAddSingleton<IOutboxKick, HangfireOutboxKick>();
+
+        // A44 D-2: QuickBooks as a target of the financial posting / entity sync gateways (Accounting enumerates them).
+        services.AddScoped<IFinancialPostingTarget, QuickBooksPostingTarget>();
+        services.AddScoped<IEntitySyncTarget, QuickBooksEntitySyncTarget>();
 
         // Matching
         services.AddScoped<IQuickBooksMatchingService, MatchingService>();

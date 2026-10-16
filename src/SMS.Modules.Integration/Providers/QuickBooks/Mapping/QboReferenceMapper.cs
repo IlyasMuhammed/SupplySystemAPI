@@ -15,7 +15,20 @@ internal static class QboReferenceMapper
             Value(account.AccountSubType),
             account.ClassificationSpecified ? WireName(account.Classification) : null,
             Value(account.CurrencyRef?.Value),
-            ReadActive(account.Active, account.ActiveSpecified));
+            ReadActive(account.Active, account.ActiveSpecified))
+        {
+            AcctNum = Value(account.AcctNum)
+        };
+
+    // A44 D-15 (CTRL) — classes, departments (Locations) and payment methods for the provider defaults.
+    public static RemoteClass ToClass(Class c) =>
+        new(RequireId(c, "class"), c.Name ?? string.Empty, Value(c.FullyQualifiedName), ReadActive(c.Active, c.ActiveSpecified));
+
+    public static RemoteDepartment ToDepartment(Department d) =>
+        new(RequireId(d, "department"), d.Name ?? string.Empty, Value(d.FullyQualifiedName), ReadActive(d.Active, d.ActiveSpecified));
+
+    public static RemotePaymentMethod ToPaymentMethod(PaymentMethod p) =>
+        new(RequireId(p, "payment method"), p.Name ?? string.Empty, Value(p.Type), ReadActive(p.Active, p.ActiveSpecified));
 
     /// <summary>
     /// RatePercent is filled only when the code has exactly one sales rate and that rate's value is known
@@ -90,7 +103,12 @@ internal static class QboReferenceMapper
             preferences.SalesFormsPrefs is { CustomTxnNumbersSpecified: true, CustomTxnNumbers: true },
             preferences.TaxPrefs is { UsingSalesTaxSpecified: true, UsingSalesTax: true })
         {
-            DiscountsEnabled = preferences.SalesFormsPrefs is { AllowDiscountSpecified: true } prefs ? prefs.AllowDiscount : null
+            DiscountsEnabled = preferences.SalesFormsPrefs is { AllowDiscountSpecified: true } prefs ? prefs.AllowDiscount : null,
+            // A44 D-15 (CTRL): tracking preferences — a class / location default is sent only when tracked.
+            ClassTrackingPerTxn     = preferences.AccountingInfoPrefs is { ClassTrackingPerTxnSpecified: true } a1 ? a1.ClassTrackingPerTxn : null,
+            ClassTrackingPerTxnLine = preferences.AccountingInfoPrefs is { ClassTrackingPerTxnLineSpecified: true } a2 ? a2.ClassTrackingPerTxnLine : null,
+            TrackDepartments        = preferences.AccountingInfoPrefs is { TrackDepartmentsSpecified: true } a3 ? a3.TrackDepartments : null,
+            DepartmentTerminology   = Value(preferences.AccountingInfoPrefs?.DepartmentTerminology)
         };
 
     public static RemoteCompanyInfo ToCompanyInfo(CompanyInfo info) =>

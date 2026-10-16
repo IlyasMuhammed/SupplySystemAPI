@@ -25,6 +25,17 @@ internal enum IntegrationEnvironment
     Production
 }
 
+/// <summary>Where a set of Intuit app keys came from (docs/quickbooks/APP-CREDENTIALS.md D-2).</summary>
+internal enum AppCredentialSource
+{
+    /// <summary>The <c>QuickBooks:*</c> configuration section (environment variables, user-secrets) — the last fallback.</summary>
+    Configuration,
+    /// <summary>The platform row entered by the super admin.</summary>
+    Platform,
+    /// <summary>The organization's own Intuit app (FEATURE_QBO_OWN_APP).</summary>
+    Tenant
+}
+
 internal enum SyncMode
 {
     /// <summary>Build and validate every payload, log it, send nothing.</summary>

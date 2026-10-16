@@ -18,7 +18,8 @@ internal enum StateRedemptionStatus
     AlreadyUsed
 }
 
-internal sealed record StateRedemption(StateRedemptionStatus Status, Guid OrganizationId = default, int UserId = 0)
+/// <param name="AppClientId">The Intuit app the consent URL was built with (null for a token issued before D-3).</param>
+internal sealed record StateRedemption(StateRedemptionStatus Status, Guid OrganizationId = default, int UserId = 0, string? AppClientId = null)
 {
     public bool Succeeded => Status == StateRedemptionStatus.Redeemed;
 }
@@ -33,9 +34,10 @@ internal interface IOAuthStateService
     /// <summary>
     /// Mints a token for this organization and user and adds its row to the context <b>without saving</b>,
     /// so the caller commits it together with the connection's move to Connecting. Returns the raw token,
-    /// which from here on exists only in the consent URL.
+    /// which from here on exists only in the consent URL. <paramref name="appClientId"/> is the Intuit app the consent
+    /// URL is built with, so the callback exchanges the code with the same app (docs/quickbooks/APP-CREDENTIALS.md D-3).
     /// </summary>
-    string Issue(Guid organizationId, int userId, DateTime? utcNow = null);
+    string Issue(Guid organizationId, int userId, DateTime? utcNow = null, string? appClientId = null);
 
     /// <summary>
     /// Validates and burns a token. Looked up by its hash across every organization — the caller is
@@ -59,7 +61,7 @@ internal sealed class OAuthStateService : IOAuthStateService
         _options = options.Value;
     }
 
-    public string Issue(Guid organizationId, int userId, DateTime? utcNow = null)
+    public string Issue(Guid organizationId, int userId, DateTime? utcNow = null, string? appClientId = null)
     {
         var now = utcNow ?? DateTime.UtcNow;
 
@@ -72,7 +74,8 @@ internal sealed class OAuthStateService : IOAuthStateService
             UserId         = userId,
             TokenHash      = Hash(raw),
             CreatedAt      = now,
-            ExpiresAt      = now.AddMinutes(Math.Max(1, _options.StateTokenMinutes))
+            ExpiresAt      = now.AddMinutes(Math.Max(1, _options.StateTokenMinutes)),
+            AppClientId    = appClientId
         });
 
         return raw;
@@ -92,7 +95,7 @@ internal sealed class OAuthStateService : IOAuthStateService
             .IgnoreQueryFilters()
             .AsNoTracking()
             .Where(t => t.TokenHash == hash)
-            .Select(t => new { t.Id, t.OrganizationId, t.UserId, t.ExpiresAt, t.UsedAt })
+            .Select(t => new { t.Id, t.OrganizationId, t.UserId, t.ExpiresAt, t.UsedAt, t.AppClientId })
             .FirstOrDefaultAsync(ct);
 
         if (row is null)            return new StateRedemption(StateRedemptionStatus.Invalid);
@@ -100,7 +103,7 @@ internal sealed class OAuthStateService : IOAuthStateService
         if (row.ExpiresAt <= now)   return new StateRedemption(StateRedemptionStatus.Expired);
 
         return await ClaimAsync(row.Id, now, ct)
-            ? new StateRedemption(StateRedemptionStatus.Redeemed, row.OrganizationId, row.UserId)
+            ? new StateRedemption(StateRedemptionStatus.Redeemed, row.OrganizationId, row.UserId, row.AppClientId)
             : new StateRedemption(StateRedemptionStatus.AlreadyUsed);
     }
 

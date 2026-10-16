@@ -214,13 +214,20 @@ public sealed class QuickBooksProviderSdkLoopbackTests : IDisposable
             .Reply(200, QueryResponse("TaxCode", """{"Id":"3","SyncToken":"0","Name":"GST 17","Taxable":true,"Active":true,"SalesTaxRateList":{"TaxRateDetail":[{"TaxRateRef":{"value":"4"}}]}}"""))
             .Reply(200, QueryResponse("Term", """{"Id":"3","SyncToken":"0","Name":"Net 30","DueDays":30,"Active":true}"""))
             .Reply(200, QueryResponse("TaxRate", """{"Id":"4","SyncToken":"0","Name":"GST (Sales)","RateValue":17,"Active":true}"""))
-            .Reply(200, QueryResponse("CompanyCurrency", """{"Id":"1","SyncToken":"0","Code":"USD","Name":"United States Dollar","Active":true}"""));
+            .Reply(200, QueryResponse("CompanyCurrency", """{"Id":"1","SyncToken":"0","Code":"USD","Name":"United States Dollar","Active":true}"""))
+            // A44 D-15 (CTRL)
+            .Reply(200, QueryResponse("Class", """{"Id":"5","SyncToken":"0","Name":"Retail","FullyQualifiedName":"Sales:Retail","Active":true}"""))
+            .Reply(200, QueryResponse("Department", """{"Id":"2","SyncToken":"0","Name":"Lahore","FullyQualifiedName":"Lahore","Active":true}"""))
+            .Reply(200, QueryResponse("PaymentMethod", """{"Id":"1","SyncToken":"0","Name":"Cash","Type":"NON_CREDIT_CARD","Active":true}"""));
 
         var result = await _provider.GetReferenceDataAsync(Ctx());
 
         result.IsSuccess.Should().BeTrue(result.Message);
         var data = result.Value!;
         data.Preferences.Should().Be(new RemotePreferences("PKR", true, true, true));
+        data.Classes.Should().Equal(new RemoteClass("5", "Retail", "Sales:Retail", true));
+        data.Departments.Should().Equal(new RemoteDepartment("2", "Lahore", "Lahore", true));
+        data.PaymentMethods.Should().Equal(new RemotePaymentMethod("1", "Cash", "NON_CREDIT_CARD", true));
         data.CompanyInfo.Should().Be(new RemoteCompanyInfo("Sandbox Co", null, "PK", null));
         data.Accounts.Should().Equal(new RemoteAccount("79", "Sales", "Income", "SalesOfProductIncome", "Revenue", null, true));
         data.TaxCodes.Should().Equal(new RemoteTaxCode("3", "GST 17", null, true, 17m, true));
@@ -228,7 +235,7 @@ public sealed class QuickBooksProviderSdkLoopbackTests : IDisposable
         data.Currencies.Should().Equal(new RemoteCurrency("USD", "United States Dollar"));
 
         var requests = _server.Requests;
-        requests.Should().HaveCount(7);
+        requests.Should().HaveCount(10);
         requests[0].PathAndQuery.Should().StartWith(CompanyPath("preferences"));
         requests[1].PathAndQuery.Should().StartWith(CompanyPath($"companyinfo/{RealmId}"));
         requests.Skip(2).Select(r => r.Body).Should().Equal(
@@ -236,7 +243,10 @@ public sealed class QuickBooksProviderSdkLoopbackTests : IDisposable
             "select * from TaxCode STARTPOSITION 1 MAXRESULTS 1000",
             "select * from Term STARTPOSITION 1 MAXRESULTS 1000",
             "select * from TaxRate STARTPOSITION 1 MAXRESULTS 1000",
-            "select * from CompanyCurrency STARTPOSITION 1 MAXRESULTS 1000");
+            "select * from CompanyCurrency STARTPOSITION 1 MAXRESULTS 1000",
+            "select * from Class STARTPOSITION 1 MAXRESULTS 1000",
+            "select * from Department STARTPOSITION 1 MAXRESULTS 1000",
+            "select * from PaymentMethod STARTPOSITION 1 MAXRESULTS 1000");
     }
 
     // ── Failure paths: the exception shapes the translator depends on ──────────────────────

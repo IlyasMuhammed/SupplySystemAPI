@@ -31,6 +31,10 @@ internal sealed class AccountingDbContext : DbContext, ITenantScopedDbContext
     internal DbSet<JournalEntryLine>      JournalEntryLines      => Set<JournalEntryLine>();
     internal DbSet<ExternalSystemMapping> ExternalSystemMappings => Set<ExternalSystemMapping>();
     internal DbSet<GlSetupHistory>        GlSetupHistory         => Set<GlSetupHistory>();
+    // A44 — posting log + finance posting settings.
+    internal DbSet<FinancialPosting>            FinancialPostings       => Set<FinancialPosting>();
+    internal DbSet<FinancialPostingTargetState> FinancialPostingTargets => Set<FinancialPostingTargetState>();
+    internal DbSet<TenantFinanceConfig>         TenantFinanceConfigs    => Set<TenantFinanceConfig>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

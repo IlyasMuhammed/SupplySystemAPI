@@ -1,0 +1,122 @@
+<section class="form-card flush" data-testid="logs-card">
+  <div class="table-toolbar">
+    <label class="failed-toggle">
+      <p-toggleswitch [(ngModel)]="failedOnly" (ngModelChange)="reload()" data-testid="failed-only"></p-toggleswitch>
+      Failed only
+    </label>
+    <label class="failed-toggle" pTooltip="Leave out calls whose record has since been synced or voided, and calls that belong to no record (scans, imports)" tooltipPosition="top">
+      <p-toggleswitch [(ngModel)]="hideRecovered" (ngModelChange)="reload()" data-testid="hide-recovered"></p-toggleswitch>
+      Hide recovered
+    </label>
+    <p-select [options]="kindOptions" [(ngModel)]="kind" (ngModelChange)="reload()" optionLabel="label" optionValue="value"
+              appendTo="body" styleClass="filter" data-testid="log-kind"></p-select>
+    <p-select [options]="operationOptions" [(ngModel)]="operation" (ngModelChange)="reload()" optionLabel="label" optionValue="value"
+              appendTo="body" styleClass="filter" data-testid="log-operation"></p-select>
+    <p-select [options]="outcomeOptions" [(ngModel)]="outcome" (ngModelChange)="reload()" optionLabel="label" optionValue="value"
+              appendTo="body" styleClass="filter" data-testid="log-outcome"></p-select>
+    <input pInputText type="date" [(ngModel)]="from" (change)="reload()" aria-label="From" class="date" data-testid="log-from" />
+    <input pInputText type="date" [(ngModel)]="to" (change)="reload()" aria-label="To" class="date" data-testid="log-to" />
+    <input pInputText [(ngModel)]="search" (ngModelChange)="onSearch()" placeholder="Number, name, error, intuit_tid…" class="search"
+           data-testid="log-search" />
+    <p-button icon="pi pi-filter-slash" [text]="true" severity="secondary" pTooltip="Clear filters" (onClick)="clearFilters()"
+              data-testid="log-clear"></p-button>
+    <span class="grow"></span>
+    <p-button icon="pi pi-refresh" [text]="true" severity="secondary" pTooltip="Reload" (onClick)="load(page)" data-testid="log-reload"></p-button>
+  </div>
+
+  <div class="state-inline" *ngIf="loadError" data-testid="log-error">
+    <i class="pi pi-exclamation-triangle"></i> {{ loadError }}
+    <p-button label="Try again" [text]="true" size="small" (onClick)="load(page)"></p-button>
+  </div>
+
+  <p-table [value]="rows" [lazy]="true" (onLazyLoad)="onLazyLoad($event)" [loading]="isLoading" [paginator]="true" [rows]="pageSize"
+           [totalRecords]="total" [first]="(page - 1) * pageSize" [rowsPerPageOptions]="[50, 100, 200]"
+           [showCurrentPageReport]="true" currentPageReportTemplate="{first}–{last} of {totalRecords}"
+           dataKey="id" [expandedRowKeys]="expanded" [tableStyle]="{ 'min-width': '70rem' }" data-testid="log-table">
+    <ng-template pTemplate="header">
+      <tr>
+        <th style="width: 2.5rem"></th>
+        <th style="width: 9rem">Time</th>
+        <th>Document</th>
+        <th style="width: 7rem">Operation</th>
+        <th style="width: 8rem">Outcome</th>
+        <th>Error</th>
+        <th style="width: 5rem" class="text-right">Duration</th>
+        <th style="width: 10rem">Intuit tid</th>
+        <th style="width: 7rem" class="text-right"></th>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="body" let-r>
+      <tr [attr.data-testid]="'log-row-' + r.id">
+        <td>
+          <p-button [icon]="expanded[r.id] ? 'pi pi-chevron-down' : 'pi pi-chevron-right'" [text]="true" size="small" severity="secondary"
+                    [attr.aria-label]="expanded[r.id] ? 'Hide request and response' : 'Show request and response'"
+                    (onClick)="toggle(r)" [attr.data-testid]="'log-toggle-' + r.id"></p-button>
+        </td>
+        <td class="nowrap">{{ r.createdAt | date:'d MMM, HH:mm:ss' }}</td>
+        <td>
+          <ng-container *ngIf="r.kind; else noRecord">
+            <div class="hint">{{ kindLabel(r.kind) }}</div>
+            <a *ngIf="docRoute(r) as route; else plainDoc" [routerLink]="route" [attr.data-testid]="'log-doc-' + r.id">{{ r.displayLabel || r.externalId }}</a>
+            <ng-template #plainDoc>{{ r.displayLabel || r.externalId }}</ng-template>
+            <button type="button" class="link-btn" *ngIf="r.itemId" (click)="showItem(r)" [attr.data-testid]="'log-item-' + r.id">
+              Sync item<span *ngIf="r.state"> · {{ stateLabel(r.state) }}</span></button>
+          </ng-container>
+          <ng-template #noRecord><span class="muted">—</span></ng-template>
+        </td>
+        <td>{{ r.operation }}</td>
+        <td>
+          <p-tag [value]="r.outcome" [severity]="outcomeSeverity(r.outcome)" [attr.data-testid]="'log-outcome-' + r.id"></p-tag>
+          <p-tag *ngIf="!hideRecovered && isRecovered(r)" value="Recovered" severity="success" icon="pi pi-check" styleClass="recovered"
+                 [pTooltip]="'The record is ' + stateLabel(r.state).toLowerCase() + ' now'" [attr.data-testid]="'log-recovered-' + r.id"></p-tag>
+        </td>
+        <td>
+          <div class="mono" *ngIf="r.errorCode">{{ r.errorCode }}</div>
+          <div class="error-text" *ngIf="r.message">{{ r.message }}</div>
+          <span class="muted" *ngIf="!r.errorCode && !r.message">—</span>
+        </td>
+        <td class="text-right nowrap">{{ r.durationMs | number }} ms</td>
+        <td class="mono tid">{{ r.intuitTid || '—' }}</td>
+        <td>
+          <div class="row-actions">
+            <p-button *ngIf="canRetry(r)" icon="pi pi-replay" [text]="true" size="small" pTooltip="Retry (send to QuickBooks again)"
+                      tooltipPosition="top" [loading]="!!retrying[r.id]" [disabled]="!!retrying[r.id]" (onClick)="retry(r)"
+                      [attr.data-testid]="'log-retry-' + r.id"></p-button>
+            <a *ngIf="r.deepLink" class="p-button p-button-text p-button-sm" [href]="r.deepLink" target="_blank" rel="noopener"
+               pTooltip="Open in QuickBooks" tooltipPosition="top" [attr.data-testid]="'log-open-' + r.id"><i class="pi pi-external-link"></i></a>
+          </div>
+        </td>
+      </tr>
+    </ng-template>
+    <!-- PrimeNG 19 names the row-expansion template "expandedrow". -->
+    <ng-template pTemplate="expandedrow" let-r>
+      <tr class="detail-row">
+        <td colspan="9">
+          <div class="state-inline" *ngIf="isLoadingDetail(r)"><i class="pi pi-spin pi-spinner"></i> Loading…</div>
+          <div class="state-inline" *ngIf="detailFailed(r)" [attr.data-testid]="'log-detail-failed-' + r.id">
+            <i class="pi pi-exclamation-triangle"></i> The request and response could not be loaded.</div>
+          <div class="bodies" *ngIf="detailOf(r) as d" [attr.data-testid]="'log-detail-' + r.id">
+            <div class="body">
+              <div class="body-head"><strong>Request</strong>
+                <p-button *ngIf="d.requestJson" icon="pi pi-copy" label="Copy" [text]="true" size="small" (onClick)="copy(d.requestJson)"
+                          [attr.data-testid]="'copy-request-' + r.id"></p-button></div>
+              <pre *ngIf="d.requestJson; else noBody">{{ prettyJson(d.requestJson) }}</pre>
+            </div>
+            <div class="body">
+              <div class="body-head"><strong>Response</strong>
+                <p-button *ngIf="d.responseJson" icon="pi pi-copy" label="Copy" [text]="true" size="small" (onClick)="copy(d.responseJson)"
+                          [attr.data-testid]="'copy-response-' + r.id"></p-button></div>
+              <pre *ngIf="d.responseJson; else noBody">{{ prettyJson(d.responseJson) }}</pre>
+            </div>
+            <ng-template #noBody><span class="muted">Nothing recorded.</span></ng-template>
+          </div>
+        </td>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="emptymessage">
+      <tr><td colspan="9" class="empty" data-testid="log-empty">
+        {{ failedOnly && !hasFilters ? 'No failed call to QuickBooks' + (hideRecovered ? ' that is still unresolved' : '') + '. Turn off "Failed only" to see every call.' : 'No call matches.' }}
+      </td></tr>
+    </ng-template>
+  </p-table>
+</section>

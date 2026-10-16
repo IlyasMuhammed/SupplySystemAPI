@@ -244,6 +244,15 @@ internal sealed class JournalEntryMap : IEntityTypeConfiguration<JournalEntry>
         b.Property(x => x.TotalDebit).HasColumnType(GlColumn.Money);
         b.Property(x => x.TotalCredit).HasColumnType(GlColumn.Money);
         b.Property(x => x.CurrencyCode).HasMaxLength(3);
+        // A44 §3 — source / posting key / reversal link (guarded columns, A44_FinancialPosting).
+        b.Property(x => x.SourceModule).HasMaxLength(30);
+        b.Property(x => x.IdempotencyKey).HasMaxLength(200);
+        b.HasIndex(x => new { x.OrganizationId, x.IdempotencyKey }).HasFilter("[IdempotencyKey] IS NOT NULL")
+            .HasDatabaseName("IX_JournalEntries_Org_Key");
+        b.HasIndex(x => new { x.OrganizationId, x.SourceDocumentUuid }).HasFilter("[SourceDocumentUuid] IS NOT NULL")
+            .HasDatabaseName("IX_JournalEntries_Org_Source");
+        b.HasIndex(x => x.ReversesEntryId).HasFilter("[ReversesEntryId] IS NOT NULL").HasDatabaseName("IX_JournalEntries_Reverses");
+        b.HasOne<JournalEntry>().WithMany().HasForeignKey(x => x.ReversesEntryId).OnDelete(DeleteBehavior.Restrict);
         b.HasIndex(x => new { x.OrganizationId, x.EntryNumber }).IsUnique().HasDatabaseName("UX_JournalEntries_Org_Number");
         b.HasIndex(x => new { x.OrganizationId, x.EntryType, x.Status }).HasDatabaseName("IX_JournalEntries_Org_Type_Status");
         b.HasIndex(x => new { x.OrganizationId, x.EntryDate }).HasDatabaseName("IX_JournalEntries_Org_Date");
