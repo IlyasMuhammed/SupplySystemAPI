@@ -1,0 +1,127 @@
+- generic [ref=f24e4]:
+  - generic [ref=f24e5]:
+    - generic [ref=f24e6]:
+      - button "" [ref=f24e7] [cursor=pointer]
+      - link:
+        - /url: /portal/dashboard
+      - navigation "Breadcrumb" [ref=f24e9]:
+        - strong [ref=f24e10]: Home
+    - button " Search anything... Ctrl K" [ref=f24e12] [cursor=pointer]:
+      - generic [ref=f24e13]: 
+      - generic [ref=f24e14]: Search anything...
+      - generic [ref=f24e15]: Ctrl K
+    - generic [ref=f24e16]:
+      - generic [ref=f24e17]:
+        - button "" [ref=f24e18] [cursor=pointer]
+        - generic: "2"
+      - generic [ref=f24e20]:
+        - button "Appearance" [ref=f24e21] [cursor=pointer]:
+          - generic [ref=f24e22]: 
+        - text:    
+      - generic [ref=f24e24]:
+        - button "ES " [active] [ref=f24e25] [cursor=pointer]:
+          - generic [ref=f24e26]: ES
+          - generic [ref=f24e28]: 
+        - generic [ref=f24e97]:
+          - generic [ref=f24e98]:
+            - generic [ref=f24e99]: ES
+            - generic [ref=f24e101]:
+              - paragraph [ref=f24e102]: Ethan Storeadmin
+              - paragraph [ref=f24e103]: Store Manager
+          - list [ref=f24e105]:
+            - listitem [ref=f24e106]:
+              - button " Edit Profile" [ref=f24e107] [cursor=pointer]:
+                - generic [ref=f24e108]: 
+                - generic [ref=f24e109]: Edit Profile
+            - listitem [ref=f24e110]:
+              - button " Change Password" [ref=f24e111] [cursor=pointer]:
+                - generic [ref=f24e112]: 
+                - generic [ref=f24e113]: Change Password
+          - list [ref=f24e115]:
+            - listitem [ref=f24e116]:
+              - button " Sign Out" [ref=f24e117] [cursor=pointer]:
+                - generic [ref=f24e118]: 
+                - generic [ref=f24e119]: Sign Out
+  - generic [ref=f24e29]:
+    - generic [ref=f24e30]:
+      - generic [ref=f24e31]: 
+      - generic [ref=f24e33]:
+        - generic [ref=f24e34]: SupplyChain MS
+        - generic [ref=f24e120]: KFC Pakistan (KFC)
+    - list [ref=f24e122]:
+      - listitem [ref=f24e123]:
+        - button "Home " [expanded] [ref=f24e124] [cursor=pointer]:
+          - generic [ref=f24e125]: Home
+          - generic [ref=f24e126]: 
+        - list [ref=f24e127]:
+          - listitem [ref=f24e128]:
+            - link " Dashboard" [ref=f24e129] [cursor=pointer]:
+              - /url: /portal/dashboard
+              - generic [ref=f24e130]: 
+              - generic [ref=f24e131]: Dashboard
+          - listitem [ref=f24e132]:
+            - link " My Inbox" [ref=f24e133] [cursor=pointer]:
+              - /url: /portal/pages/workflow-inbox
+              - generic [ref=f24e134]: 
+              - generic [ref=f24e135]: My Inbox
+      - listitem [ref=f24e136]:
+        - button "Sales " [ref=f24e137] [cursor=pointer]:
+          - generic [ref=f24e138]: Sales
+          - generic [ref=f24e139]: 
+        - list:
+          - listitem [ref=f24e140]:
+            - link " Customers" [ref=f24e141] [cursor=pointer]:
+              - /url: /portal/pages/customers
+              - generic [ref=f24e142]: 
+              - generic [ref=f24e143]: Customers
+      - listitem [ref=f24e144]:
+        - button "Point of Sale " [ref=f24e145] [cursor=pointer]:
+          - generic [ref=f24e146]: Point of Sale
+          - generic [ref=f24e147]: 
+        - list:
+          - listitem [ref=f24e148]:
+            - link " Stores" [ref=f24e149] [cursor=pointer]:
+              - /url: /portal/pages/pos/stores
+              - generic [ref=f24e150]: 
+              - generic [ref=f24e151]: Stores
+          - listitem [ref=f24e152]:
+            - link " Shifts" [ref=f24e153] [cursor=pointer]:
+              - /url: /portal/pages/pos/shifts
+              - generic [ref=f24e154]: 
+              - generic [ref=f24e155]: Shifts
+          - listitem [ref=f24e156]:
+            - link " POS Orders" [ref=f24e157] [cursor=pointer]:
+              - /url: /portal/pages/pos/orders
+              - generic [ref=f24e158]: 
+              - generic [ref=f24e159]: POS Orders
+          - listitem [ref=f24e160]:
+            - link " Store credit" [ref=f24e161] [cursor=pointer]:
+              - /url: /portal/pages/pos/credit-notes
+              - generic [ref=f24e162]: 
+              - generic [ref=f24e163]: Store credit
+          - listitem [ref=f24e164]:
+            - link " Open POS" [ref=f24e165] [cursor=pointer]:
+              - /url: /pos
+              - generic [ref=f24e166]: 
+              - generic [ref=f24e167]: Open POS
+  - generic [ref=f24e36]:
+    - generic [ref=f24e39]:
+      - toolbar "Commands" [ref=f24e40]:
+        - button " Refresh" [ref=f24e87] [cursor=pointer]:
+          - generic [ref=f24e88]: 
+          - generic [ref=f24e47]: Refresh
+        - generic [ref=f24e89]: Live
+      - generic [ref=f24e50]:
+        - generic [ref=f24e52]:
+          - generic [ref=f24e53]: Saturday, 17 October 2026
+          - heading "Supply Chain Dashboard" [level=1] [ref=f24e54]
+        - generic [ref=f24e92] [cursor=pointer]:
+          - generic [ref=f24e93]:
+            - generic [ref=f24e94]: 
+            - text: Needs Attention
+          - generic [ref=f24e95]: "0"
+          - generic [ref=f24e96]: 0 queues waiting
+    - generic [ref=f24e85]:
+      - text: All Rights Reserved To
+      - link "Loading" [ref=f24e86] [cursor=pointer]:
+        - /url: https://primeng.org

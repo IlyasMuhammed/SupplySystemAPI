@@ -14,7 +14,7 @@ import { DialogModule } from 'primeng/dialog';
 import { TextareaModule } from 'primeng/textarea';
 import { DropdownModule } from 'primeng/dropdown';
 import { MessageService, ConfirmationService } from 'primeng/api';
-import { DemandService, PoDetailModel } from '../../../../services/demand.service';
+import { DemandService, PoDetailModel, PoLineModel } from '../../../../services/demand.service';
 import { WorkflowService, ApprovalDetailDto } from '../../../../services/workflow.service';
 import { SupplierService, EligibleContactModel } from '../../../../services/supplier.service';
 import { TimelinePanelComponent } from '../../../../shared/timeline-panel/timeline-panel.component';
@@ -22,6 +22,9 @@ import { AttachmentListComponent } from '../../../../shared/attachment-list/atta
 import { AttachmentService } from '../../../../services/attachment.service';
 import { DocCurrencyPanelComponent } from '../../../../shared/doc-currency/doc-currency-panel.component';
 import { DualAmounts, missingRateOf } from '../../../../shared/doc-currency/doc-currency';
+import { PRICE_SOURCE_LABELS, PriceSource, PricingSummary, PriceConversionInfo, conversionTooltip } from '../../../../services/purchase-pricing.service';
+import { fromDateOnly } from '../../../../shared/date-only';
+import { MoneyService } from '../../../../services/money.service';
 import { MoneyPipe } from '../../../../shared/money/money.pipe';
 import { FLOW, FlowSection, FlowStage, flowStagesFrom } from '../../../../shared/flow';
 
@@ -47,6 +50,26 @@ export class PoDetailComponent implements OnInit, OnDestroy {
   /** A35 P3-14 — PO currency vs purchase base (rate locked at approval); amounts written with the code, as §11.5. */
   readonly dual = new DualAmounts(() => this.po);
   readonly moneyCode = { display: 'code' } as const;
+  /** A45 — price provenance badge text (0 Manual, 1 Pricelist, 2 Override, 3 RFQ). */
+  priceSourceLabel(src: number | null | undefined): string { return PRICE_SOURCE_LABELS[src ?? 0] ?? 'Manual'; }
+  /** A46 C3 — unit prices read at 2dp; the tooltip carries the stored 4dp. */
+  readonly unitCode2 = { display: 'code', decimals: 2 } as const;
+  readonly unitCode4 = { display: 'code', decimals: 4 } as const;
+  readonly conversionTooltip = conversionTooltip;
+  /** A46 C5 / BR-30 — set when the user lands here from a PR conversion (router state); lines without a price are highlighted on request. */
+  pricingSummary: PricingSummary | null = null;
+  highlightUnpriced = false;
+  get orderDateValue(): Date | null { return this.po?.orderDate ? fromDateOnly(this.po.orderDate) : null; }
+  /** A line the conversion could not price (Manual source, or no price at all). */
+  isUnpriced(l: PoLineModel): boolean { return (l.priceSource ?? PriceSource.Manual) === PriceSource.Manual; }
+  convertedInfo(l: PoLineModel): PriceConversionInfo | null {
+    if (l.originalCurrencyPrice == null) return null;
+    return { code: l.originalCurrencyCode ?? (l.originalCurrencyId ? this.moneySvc.find(l.originalCurrencyId)?.code ?? null : null), price: l.originalCurrencyPrice, rate: l.exchangeRateUsed ?? null, date: l.exchangeRateDate ?? null };
+  }
+  viewUnpricedLines() {
+    this.highlightUnpriced = true;
+    setTimeout(() => document.querySelector('[data-unpriced="1"]')?.scrollIntoView?.({ block: 'center', behavior: 'smooth' }));
+  }
   isLoading    = true;
   isSubmitting = false;
   isApproving  = false;
@@ -80,7 +103,8 @@ export class PoDetailComponent implements OnInit, OnDestroy {
     private messageService: MessageService,
     private confirmationService: ConfirmationService,
     private sanitizer: DomSanitizer,
-    private attachmentService: AttachmentService
+    private attachmentService: AttachmentService,
+    private moneySvc: MoneyService
   ) {}
 
   resolveImageUrl(url: string): string {
@@ -88,6 +112,9 @@ export class PoDetailComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
+    const st = (typeof history !== 'undefined' ? history.state : null) as { pricingSummary?: PricingSummary } | null;
+    if (st?.pricingSummary) this.pricingSummary = st.pricingSummary;
+    if (this.route.snapshot?.queryParams?.['unpriced'] === '1') this.highlightUnpriced = true;
     this.route.params.subscribe(p => { this.uuid = p['uuid']; this.load(); });
   }
 

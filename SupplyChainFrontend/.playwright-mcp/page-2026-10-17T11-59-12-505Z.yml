@@ -1,0 +1,70 @@
+- generic [ref=f55e2]:
+  - banner [ref=f55e43]:
+    - generic [ref=f55e44]:
+      - generic [ref=f55e45]: 
+      - generic [ref=f55e46]:
+        - generic [ref=f55e47]: E2E Test Store 20261017
+        - generic [ref=f55e48]: E2E Till 1
+    - generic [ref=f55e49]: SH-E2E-1017-20261017-01 · Open
+    - generic [ref=f55e50]:
+      - generic [ref=f55e51]: 
+      - text: Online
+    - generic [ref=f55e52]:
+      - generic [ref=f55e53]: 
+      - text: Casey Cashier
+    - navigation [ref=f55e54]:
+      - link "Sell" [ref=f55e55] [cursor=pointer]:
+        - /url: /pos/sell
+        - generic [ref=f55e56]: 
+      - link "Shift" [ref=f55e58] [cursor=pointer]:
+        - /url: /pos/shift
+        - generic [ref=f55e59]: 
+      - link "History" [ref=f55e61] [cursor=pointer]:
+        - /url: /pos/history
+        - generic [ref=f55e62]: 
+      - link "Settings" [ref=f55e64] [cursor=pointer]:
+        - /url: /pos/settings
+        - generic [ref=f55e65]: 
+      - button "Lock" [ref=f55e66] [cursor=pointer]:
+        - generic [ref=f55e67]: 
+  - main [ref=f55e3]:
+    - generic [ref=f55e889]:
+      - generic [ref=f55e890]:
+        - link " Cart" [ref=f55e891] [cursor=pointer]:
+          - /url: /pos/sell
+          - generic [ref=f55e892]: 
+          - text: Cart
+        - heading "Payment" [level=1] [ref=f55e893]
+        - generic [ref=f55e894]: Walk-in customer
+      - generic [ref=f55e895]:
+        - generic [ref=f55e896]:
+          - generic [ref=f55e897]: Total
+          - generic [ref=f55e898]: GBP 260.00
+          - generic [ref=f55e899]: 1 items
+        - generic [ref=f55e900]:
+          - generic [ref=f55e901]: Paid
+          - generic [ref=f55e902]: "260.00"
+        - generic [ref=f55e903]:
+          - generic [ref=f55e904]: Due
+          - generic [ref=f55e905]: "0.00"
+        - generic [ref=f55e906]:
+          - generic [ref=f55e907]: Change
+          - generic [ref=f55e908]: "0.00"
+      - table [ref=f55e936]:
+        - rowgroup [ref=f55e937]:
+          - row [ref=f55e938]:
+            - columnheader "Method" [ref=f55e939]
+            - columnheader "Reference" [ref=f55e940]
+            - columnheader "Amount" [ref=f55e941]
+            - columnheader "Change" [ref=f55e942]
+            - columnheader [ref=f55e943]
+        - rowgroup [ref=f55e944]:
+          - row [ref=f55e945]:
+            - cell "Cash" [ref=f55e946]
+            - cell [ref=f55e947]
+            - cell "260.00" [ref=f55e948]
+            - cell [ref=f55e949]
+            - cell [ref=f55e950]:
+              - button "Remove" [ref=f55e951] [cursor=pointer]:
+                - generic [ref=f55e952]: 
+      - button "Complete sale" [ref=f55e953] [cursor=pointer]

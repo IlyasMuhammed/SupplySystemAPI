@@ -15,6 +15,11 @@ internal class PurchaseOrder : ITenantScopedEntity
     public string Status { get; set; } = "DRAFT"; // DRAFT | APPROVED | SENT | PARTIALLY_RECEIVED | RECEIVED | PARTIALLY_INVOICED | CLOSED | CANCELLED
     public decimal TotalAmount { get; set; }
     public DateTime? DeliveryDate { get; set; }
+    /// <summary>
+    /// A46 C1 / BR-20/21 — the date the order is dated for pricing and terms (date part only). Defaults to today (UTC) at creation,
+    /// editable only while DRAFT; every price resolution for this PO's lines uses it — never "today" and never CreatedDate.
+    /// </summary>
+    public DateTime OrderDate { get; set; } = DateTime.UtcNow.Date;
     public string? Notes { get; set; }
     public string? InternalNotes { get; set; }
     public Guid? DeliveryWarehouseId { get; set; }
@@ -106,6 +111,20 @@ internal class PurchaseOrderLine : ITenantScopedEntity
     /// <summary>A35 D-10 — UnitPrice / LineTotal × the PO's locked rate, at the purchase base's decimals; null until APPROVED.</summary>
     public decimal? UnitPriceBase { get; set; }
     public decimal? LineTotalBase { get; set; }
+    // A45 C2 / D-10 — where UnitPrice came from. SystemResolvedPrice is what the pricelist said (kept when the buyer overrides,
+    // BR-06); SupplierPricelistUuid references demand.SupplierPricelists.UUID with no FK (D-2) so a soft-deleted or later-removed
+    // row never blocks the line. Lines created before A45 read as Manual with the other three empty.
+    public PriceSource PriceSource { get; set; } = PriceSource.Manual;
+    public decimal? SystemResolvedPrice { get; set; }
+    public Guid? SupplierPricelistUuid { get; set; }
+    public string? PriceOverrideReason { get; set; }
+    // A46 C10 / BR-35 — when the price was converted into the PO's currency: the pricelist row's own currency and price, the rate
+    // applied (units of the PO currency per 1 of the original) and the date that rate was in force. All null when no conversion
+    // happened. Server-owned: nothing a client sends is stored here.
+    public Guid? OriginalCurrencyId { get; set; }
+    public decimal? OriginalCurrencyPrice { get; set; }
+    public decimal? ExchangeRateUsed { get; set; }
+    public DateTime? ExchangeRateDate { get; set; }
     public PurchaseOrder PurchaseOrder { get; set; } = null!;
 
     [System.ComponentModel.DataAnnotations.Schema.NotMapped]

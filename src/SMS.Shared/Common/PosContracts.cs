@@ -100,7 +100,9 @@ public interface IPosStockPoster
 public sealed record PosCatalogVariant(
     Guid VariantUuid, Guid ProductUuid, string Sku, string ProductName, string? VariantName, string? Barcode,
     int? CategoryId, string? CategoryName, string? UomCode, decimal Price, string? ImageUrl,
-    bool IsActive, bool IsSaleable, bool IsAvailableForPos, DateTime ModifiedAt);
+    bool IsActive, bool IsSaleable, bool IsAvailableForPos, DateTime ModifiedAt,
+    // False for prepared food, services and the like: they move no stock, so the till never shows them as "out of stock".
+    bool IsStockable = true);
 
 /// <summary>Inventory's read side for POS: variants (with their product) changed strictly after <c>since</c>, oldest first.</summary>
 public interface IPosCatalogSource

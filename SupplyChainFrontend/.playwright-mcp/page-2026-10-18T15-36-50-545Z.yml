@@ -1,0 +1,26 @@
+- generic [ref=f58e3]:
+  - button "Switch light / dark" [ref=f58e6] [cursor=pointer]:
+    - generic [ref=f58e7]: 
+  - generic [ref=f58e15]:
+    - generic [ref=f58e16]: "404"
+    - heading "Not Found" [level=1] [ref=f58e17]
+    - generic [ref=f58e18]: Requested resource is not available.
+    - link " Frequently Asked Questions Ultricies mi quis hendrerit dolor." [ref=f58e19] [cursor=pointer]:
+      - /url: /portal/dashboard
+      - generic [ref=f58e20]: 
+      - generic [ref=f58e22]:
+        - generic [ref=f58e23]: Frequently Asked Questions
+        - generic [ref=f58e24]: Ultricies mi quis hendrerit dolor.
+    - link " Solution Center Phasellus faucibus scelerisque eleifend." [ref=f58e25] [cursor=pointer]:
+      - /url: /portal/dashboard
+      - generic [ref=f58e26]: 
+      - generic [ref=f58e28]:
+        - generic [ref=f58e29]: Solution Center
+        - generic [ref=f58e30]: Phasellus faucibus scelerisque eleifend.
+    - link " Permission Manager Accumsan in nisl nisi scelerisque" [ref=f58e31] [cursor=pointer]:
+      - /url: /portal/dashboard
+      - generic [ref=f58e32]: 
+      - generic [ref=f58e34]:
+        - generic [ref=f58e35]: Permission Manager
+        - generic [ref=f58e36]: Accumsan in nisl nisi scelerisque
+    - button "Go to Dashboard" [ref=f58e38] [cursor=pointer]

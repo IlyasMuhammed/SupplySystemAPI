@@ -77,6 +77,28 @@ public class CrmPermissionSeedTests
     }
 
     [Fact]
+    public async Task The_read_only_auditor_sees_crm_but_can_change_nothing_and_a_switched_off_grant_stays_off()
+    {
+        var db = NewDb();
+        await SeedAsync(db);
+        var seeder = new AuthDataSeeder(db, new PasswordHasher<UserAccount>());
+        await seeder.SeedCrmViewGrantsAsync();
+
+        (await GrantsAsync(db, "AUDITOR")).Where(c => c.StartsWith("CRM_")).Should().BeEquivalentTo(
+            ["CRM_VIEW_LEADS", "CRM_VIEW_OPPORTUNITIES", "CRM_VIEW_ACTIVITIES", "CRM_VIEW_CAMPAIGNS", "CRM_EXPORT_TIMELINE"]);
+
+        // Idempotent, and an administrator's switch-off is respected on the next start.
+        var roleId = (await db.Roles.IgnoreQueryFilters().SingleAsync(r => r.RoleCode == "AUDITOR")).RoleID;
+        var perm = await db.Permissions.SingleAsync(p => p.Code == "CRM_VIEW_CAMPAIGNS");
+        (await db.RolePermissions.IgnoreQueryFilters().SingleAsync(rp => rp.RoleID == roleId && rp.PermissionID == perm.PermissionID)).IsAllowed = false;
+        await db.SaveChangesAsync();
+        var rows = await db.RolePermissions.IgnoreQueryFilters().CountAsync();
+        await seeder.SeedCrmViewGrantsAsync();
+        (await db.RolePermissions.IgnoreQueryFilters().CountAsync()).Should().Be(rows);
+        (await GrantsAsync(db, "AUDITOR")).Should().NotContain("CRM_VIEW_CAMPAIGNS");
+    }
+
+    [Fact]
     public async Task Re_seeding_adds_no_second_sales_role()
     {
         var db = NewDb();

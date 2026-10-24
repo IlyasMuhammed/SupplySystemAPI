@@ -1,0 +1,186 @@
+- generic [ref=f22e4]:
+  - generic [ref=f22e5]:
+    - generic [ref=f22e6]:
+      - button "" [ref=f22e7] [cursor=pointer]
+      - link:
+        - /url: /portal/dashboard
+      - navigation "Breadcrumb" [ref=f22e9]:
+        - generic [ref=f22e10]: Point of Sale
+        - generic [ref=f22e11]: ›
+        - link "POS orders" [ref=f22e12] [cursor=pointer]:
+          - /url: /portal/pages/pos/orders
+        - generic [ref=f22e13]: ›
+        - strong [ref=f22e14]: POS-E2E-1017-20261017-0001
+    - button " Search anything... Ctrl K" [ref=f22e16] [cursor=pointer]:
+      - generic [ref=f22e17]: 
+      - generic [ref=f22e18]: Search anything...
+      - generic [ref=f22e19]: Ctrl K
+    - generic [ref=f22e20]:
+      - generic [ref=f22e21]:
+        - button "" [ref=f22e22] [cursor=pointer]
+        - generic: "2"
+      - generic [ref=f22e24]:
+        - button "Appearance" [ref=f22e25] [cursor=pointer]:
+          - generic [ref=f22e26]: 
+        - text:    
+      - generic [ref=f22e28]:
+        - button "ES " [ref=f22e29] [cursor=pointer]:
+          - generic [ref=f22e30]: ES
+          - generic [ref=f22e32]: 
+        - text:   
+  - generic [ref=f22e33]:
+    - generic [ref=f22e34]:
+      - generic [ref=f22e35]: 
+      - generic [ref=f22e37]:
+        - generic [ref=f22e38]: SupplyChain MS
+        - generic [ref=f22e39]: KFC Pakistan (KFC)
+    - list [ref=f22e41]:
+      - listitem [ref=f22e42]:
+        - button "Home " [ref=f22e43] [cursor=pointer]:
+          - generic [ref=f22e44]: Home
+          - generic [ref=f22e45]: 
+        - list:
+          - listitem [ref=f22e46]:
+            - link " Dashboard" [ref=f22e47] [cursor=pointer]:
+              - /url: /portal/dashboard
+              - generic [ref=f22e48]: 
+              - generic [ref=f22e49]: Dashboard
+          - listitem [ref=f22e50]:
+            - link " My Inbox" [ref=f22e51] [cursor=pointer]:
+              - /url: /portal/pages/workflow-inbox
+              - generic [ref=f22e52]: 
+              - generic [ref=f22e53]: My Inbox
+      - listitem [ref=f22e54]:
+        - button "Sales " [ref=f22e55] [cursor=pointer]:
+          - generic [ref=f22e56]: Sales
+          - generic [ref=f22e57]: 
+        - list:
+          - listitem [ref=f22e58]:
+            - link " Customers" [ref=f22e59] [cursor=pointer]:
+              - /url: /portal/pages/customers
+              - generic [ref=f22e60]: 
+              - generic [ref=f22e61]: Customers
+      - listitem [ref=f22e62]:
+        - button "Point of Sale " [expanded] [ref=f22e63] [cursor=pointer]:
+          - generic [ref=f22e64]: Point of Sale
+          - generic [ref=f22e65]: 
+        - list [ref=f22e66]:
+          - listitem [ref=f22e67]:
+            - link " Stores" [ref=f22e68] [cursor=pointer]:
+              - /url: /portal/pages/pos/stores
+              - generic [ref=f22e69]: 
+              - generic [ref=f22e70]: Stores
+          - listitem [ref=f22e71]:
+            - link " Shifts" [ref=f22e72] [cursor=pointer]:
+              - /url: /portal/pages/pos/shifts
+              - generic [ref=f22e73]: 
+              - generic [ref=f22e74]: Shifts
+          - listitem [ref=f22e75]:
+            - link " POS Orders" [ref=f22e76] [cursor=pointer]:
+              - /url: /portal/pages/pos/orders
+              - generic [ref=f22e77]: 
+              - generic [ref=f22e78]: POS Orders
+          - listitem [ref=f22e79]:
+            - link " Store credit" [ref=f22e80] [cursor=pointer]:
+              - /url: /portal/pages/pos/credit-notes
+              - generic [ref=f22e81]: 
+              - generic [ref=f22e82]: Store credit
+          - listitem [ref=f22e83]:
+            - link " Open POS" [ref=f22e84] [cursor=pointer]:
+              - /url: /pos
+              - generic [ref=f22e85]: 
+              - generic [ref=f22e86]: Open POS
+  - generic [ref=f22e87]:
+    - generic [ref=f22e90]:
+      - toolbar "Commands" [ref=f22e91]:
+        - button " Return items" [ref=f22e93] [cursor=pointer]:
+          - generic [ref=f22e94]: 
+          - generic [ref=f22e95]: Return items
+        - button " POS orders" [ref=f22e97] [cursor=pointer]:
+          - generic [ref=f22e98]: 
+          - generic [ref=f22e99]: POS orders
+        - button " Void" [ref=f22e102] [cursor=pointer]:
+          - generic [ref=f22e103]: 
+          - generic [ref=f22e104]: Void
+      - generic [ref=f22e106]:
+        - banner [ref=f22e107]:
+          - generic [ref=f22e109]:
+            - generic [ref=f22e110]: POS sale · E2E Test Store 20261017 · E2E Till 1
+            - heading "POS-E2E-1017-20261017-0001 Completed Paid" [level=1] [ref=f22e111]:
+              - generic [ref=f22e112]: POS-E2E-1017-20261017-0001
+              - generic [ref=f22e113]: Completed
+              - generic [ref=f22e114]: Paid
+            - generic [ref=f22e115]: 17 Oct 2026, 08:25 · Casey Cashier · Walk-in Customer (walk-in) · offline no. POS-E2E-1017-OFF-E0D8447A
+          - generic [ref=f22e116]:
+            - generic [ref=f22e117]:
+              - generic [ref=f22e118]: Total
+              - generic [ref=f22e119]: 7,000.00
+              - generic [ref=f22e120]: tax 0.00 added
+            - generic [ref=f22e121]:
+              - generic [ref=f22e122]: Paid
+              - generic [ref=f22e123]: 10,000.00
+              - generic [ref=f22e124]: change 3,000.00
+        - generic [ref=f22e126]:
+          - generic [ref=f22e127]: Stock pending
+          - generic [ref=f22e128]: Finance pending
+          - generic [ref=f22e129]: The posting is retried automatically every 15 minutes.
+        - tablist "Tabs" [ref=f22e131]:
+          - tab "Lines 1" [selected] [ref=f22e132] [cursor=pointer]:
+            - text: Lines
+            - generic [ref=f22e133]: "1"
+          - tab "Payments 1" [ref=f22e134] [cursor=pointer]:
+            - text: Payments
+            - generic [ref=f22e135]: "1"
+          - tab "Returns 0" [ref=f22e136] [cursor=pointer]:
+            - text: Returns
+            - generic [ref=f22e137]: "0"
+          - tab "Details" [ref=f22e138] [cursor=pointer]
+        - generic [ref=f22e140]:
+          - heading "Lines" [level=2] [ref=f22e142]
+          - table [ref=f22e146]:
+            - rowgroup [ref=f22e147]:
+              - row [ref=f22e148]:
+                - columnheader "#" [ref=f22e149]
+                - columnheader "Item" [ref=f22e150]
+                - columnheader "Qty" [ref=f22e151]
+                - columnheader "Price" [ref=f22e152]
+                - columnheader "Discount" [ref=f22e153]
+                - columnheader "Net" [ref=f22e154]
+                - columnheader "Tax" [ref=f22e155]
+                - columnheader "Total" [ref=f22e156]
+                - columnheader "Returned" [ref=f22e157]
+            - rowgroup [ref=f22e158]:
+              - row [ref=f22e159]:
+                - cell "1" [ref=f22e160]
+                - cell "Sofa sofa · 9879874" [ref=f22e161]:
+                  - text: Sofa
+                  - generic [ref=f22e162]: sofa · 9879874
+                - cell "1" [ref=f22e163]
+                - cell "7,000.00" [ref=f22e164]
+                - cell "—" [ref=f22e165]
+                - cell "7,000.00" [ref=f22e166]
+                - cell "0.00 0%" [ref=f22e167]:
+                  - text: "0.00"
+                  - generic [ref=f22e168]: 0%
+                - cell [ref=f22e169]:
+                  - strong [ref=f22e170]: 7,000.00
+                - cell "—" [ref=f22e171]
+            - rowgroup [ref=f22e172]:
+              - row [ref=f22e173]:
+                - cell "Subtotal" [ref=f22e174]
+                - cell "7,000.00" [ref=f22e175]
+                - cell [ref=f22e176]
+              - row [ref=f22e177]:
+                - cell "Tax" [ref=f22e178]
+                - cell "0.00" [ref=f22e179]
+                - cell [ref=f22e180]
+              - row [ref=f22e181]:
+                - cell [ref=f22e182]:
+                  - strong [ref=f22e183]: Total
+                - cell [ref=f22e184]:
+                  - strong [ref=f22e185]: 7,000.00
+                - cell [ref=f22e186]
+    - generic [ref=f22e188]:
+      - text: All Rights Reserved To
+      - link "Loading" [ref=f22e189] [cursor=pointer]:
+        - /url: https://primeng.org

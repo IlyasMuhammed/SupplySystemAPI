@@ -176,3 +176,8 @@
     font-size: .8rem; color: var(--sms-text-muted);
   }
 }
+
+.pricing-summary { display: flex; align-items: flex-start; gap: .75rem; margin: 0 0 1rem; padding: .75rem 1rem; border: 1px solid var(--sms-info, #93c5fd); border-radius: 8px; background: color-mix(in srgb, var(--sms-info, #2563eb) 8%, transparent); }
+.pricing-summary > .pi-info-circle { color: var(--sms-info, #2563eb); margin-top: .2rem; }
+.pricing-summary-text { flex: 1; }
+

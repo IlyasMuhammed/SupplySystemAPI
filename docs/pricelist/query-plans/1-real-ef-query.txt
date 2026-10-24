@@ -1,0 +1,16 @@
+[1-real-ef-query] reads=22 rows=6 seek=True scan=False keyLookups=1 serverElapsed=0ms idx=IX_SupplierPricelists_Variant,IX_SupplierPricelists_Lookup,PK_SupplierPricelists
+-- SQL
+SELECT [s].[Id], [s].[CreatedBy], [s].[CreatedDate], [s].[CurrencyId], [s].[IsActive], [s].[LeadTimeDays], [s].[MinQuantity], [s].[ModifiedBy], [s].[ModifiedDate], [s].[Notes], [s].[OrganizationId], [s].[PricingDateBasis], [s].[Priority], [s].[ProductUuid], [s].[RowVersion], [s].[SupplierUuid], [s].[UUID], [s].[UnitPrice], [s].[ValidFrom], [s].[ValidTo], [s].[VariantUuid], [s].[VendorProductCode], [s].[VendorProductName]
+FROM [demand].[SupplierPricelists] AS [s]
+WHERE [s].[OrganizationId] = @__Org_0 AND [s].[IsActive] = CAST(1 AS bit) AND [s].[SupplierUuid] = @__request_SupplierUuid_1 AND [s].[MinQuantity] <= @__request_Quantity_2 AND [s].[ProductUuid] = @__p_3 AND ([s].[VariantUuid] = @__request_VariantUuid_4 OR [s].[VariantUuid] IS NULL)
+-- IO
+Table 'SupplierPricelists'. Scan count 1, logical reads 22, physical reads 0, page server reads 0, read-ahead reads 0, page server read-ahead reads 0, lob logical reads 0, lob physical reads 0, lob page server reads 0, lob read-ahead reads 0, lob page server read-ahead reads 0.
+-- TIME
+CPU time = 0 ms, elapsed time = 0 ms.
+   CPU time = 0 ms,  elapsed time = 0 ms.
+   CPU time = 0 ms, elapsed time = 0 ms.
+   CPU time = 0 ms,  elapsed time = 1 ms.
+   CPU time = 0 ms, elapsed time = 0 ms.
+   CPU time = 0 ms,  elapsed time = 0 ms.
+   CPU time = 0 ms, elapsed time = 0 ms.
+   CPU time = 0 ms,  elapsed time = 0 ms.

@@ -1,0 +1,16 @@
+- main [ref=f7e3]:
+  - generic [ref=f7e6]:
+    - generic [ref=f7e7]:
+      - generic [ref=f7e8]: 
+      - text: SMS POS
+      - generic [ref=f7e9]: Online
+    - generic [ref=f7e10]:
+      - heading "Sign in this device" [level=1] [ref=f7e11]
+      - paragraph [ref=f7e12]: A supervisor or store manager signs in once to connect this device to a terminal. Cashiers then use their PIN.
+      - generic [ref=f7e13]:
+        - generic [ref=f7e14]: Email
+        - textbox "Email" [ref=f7e15]
+      - generic [ref=f7e16]:
+        - generic [ref=f7e17]: Password
+        - textbox "Password" [ref=f7e18]
+      - button "Sign in" [disabled] [ref=f7e19]

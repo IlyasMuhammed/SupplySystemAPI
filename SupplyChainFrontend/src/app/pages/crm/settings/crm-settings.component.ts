@@ -250,7 +250,7 @@ export class CrmSettingsComponent implements OnInit {
 
   ngOnInit(): void {
     this.lookups.reset();
-    this.lookups.users().subscribe(u => this.userOptions = CrmLookupsService.userOptions(u));
+    this.lookups.assignableUsers().subscribe(u => this.userOptions = CrmLookupsService.userOptions(u));
     this.lookups.campaigns().subscribe(c => this.campaignOptions = c.map(x => ({ value: x.uuid, label: x.name })));
     this.load();
   }

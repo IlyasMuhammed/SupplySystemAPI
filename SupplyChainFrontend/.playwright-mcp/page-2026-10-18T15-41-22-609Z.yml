@@ -1,0 +1,1081 @@
+- generic [ref=f64e4]:
+  - generic [ref=f64e5]:
+    - generic [ref=f64e6]:
+      - button "" [ref=f64e7] [cursor=pointer]
+      - link:
+        - /url: /portal/dashboard
+      - navigation "Breadcrumb" [ref=f64e9]:
+        - generic [ref=f64e10]: Sales
+        - generic [ref=f64e11]: ›
+        - link "Sale orders" [ref=f64e12] [cursor=pointer]:
+          - /url: /portal/pages/sales/orders
+        - generic [ref=f64e13]: ›
+        - strong [ref=f64e14]: SO-2026-00003
+    - button " Search anything... Ctrl K" [ref=f64e16] [cursor=pointer]:
+      - generic [ref=f64e17]: 
+      - generic [ref=f64e18]: Search anything...
+      - generic [ref=f64e19]: Ctrl K
+    - generic [ref=f64e20]:
+      - generic [ref=f64e21]:
+        - button "" [ref=f64e22] [cursor=pointer]
+        - generic: "7"
+      - generic [ref=f64e24]:
+        - button "Appearance" [ref=f64e25] [cursor=pointer]:
+          - generic [ref=f64e26]: 
+        - text:    
+      - generic [ref=f64e28]:
+        - button "KP " [ref=f64e29] [cursor=pointer]:
+          - generic [ref=f64e30]: KP
+          - generic [ref=f64e32]: 
+        - text:   
+  - generic [ref=f64e33]:
+    - generic [ref=f64e34]:
+      - generic [ref=f64e35]: 
+      - generic [ref=f64e37]:
+        - generic [ref=f64e38]: SupplyChain MS
+        - generic [ref=f64e39]: KFC Pakistan (KFC)
+    - list [ref=f64e41]:
+      - listitem [ref=f64e42]:
+        - button "Home " [ref=f64e43] [cursor=pointer]:
+          - generic [ref=f64e44]: Home
+          - generic [ref=f64e45]: 
+        - list:
+          - listitem [ref=f64e46]:
+            - link " Dashboard" [ref=f64e47] [cursor=pointer]:
+              - /url: /portal/dashboard
+              - generic [ref=f64e48]: 
+              - generic [ref=f64e49]: Dashboard
+          - listitem [ref=f64e50]:
+            - link " My Inbox" [ref=f64e51] [cursor=pointer]:
+              - /url: /portal/pages/workflow-inbox
+              - generic [ref=f64e52]: 
+              - generic [ref=f64e53]: My Inbox
+          - listitem [ref=f64e54]:
+            - link " KPI Dashboard" [ref=f64e55] [cursor=pointer]:
+              - /url: /portal/pages/reports/kpi-dashboard
+              - generic [ref=f64e56]: 
+              - generic [ref=f64e57]: KPI Dashboard
+      - listitem [ref=f64e58]:
+        - button "Sales " [expanded] [ref=f64e59] [cursor=pointer]:
+          - generic [ref=f64e60]: Sales
+          - generic [ref=f64e61]: 
+        - list [ref=f64e62]:
+          - listitem [ref=f64e63]:
+            - link " Customers" [ref=f64e64] [cursor=pointer]:
+              - /url: /portal/pages/customers
+              - generic [ref=f64e65]: 
+              - generic [ref=f64e66]: Customers
+          - listitem [ref=f64e67]:
+            - link " Inquiries" [ref=f64e68] [cursor=pointer]:
+              - /url: /portal/pages/sales/inquiries
+              - generic [ref=f64e69]: 
+              - generic [ref=f64e70]: Inquiries
+          - listitem [ref=f64e71]:
+            - link " Customer Quotations" [ref=f64e72] [cursor=pointer]:
+              - /url: /portal/pages/sales/quotations
+              - generic [ref=f64e73]: 
+              - generic [ref=f64e74]: Customer Quotations
+          - listitem [ref=f64e75]:
+            - generic [ref=f64e76] [cursor=pointer]:
+              - generic [ref=f64e77]: 
+              - generic [ref=f64e78]: Sale Orders
+              - generic [ref=f64e79]: 
+            - list [ref=f64e80]:
+              - listitem [ref=f64e81]:
+                - link " All Sale Orders" [ref=f64e82] [cursor=pointer]:
+                  - /url: /portal/pages/sales/orders
+                  - generic [ref=f64e83]: 
+                  - generic [ref=f64e84]: All Sale Orders
+      - listitem [ref=f64e85]:
+        - button "CRM " [ref=f64e86] [cursor=pointer]:
+          - generic [ref=f64e87]: CRM
+          - generic [ref=f64e88]: 
+        - list:
+          - listitem [ref=f64e89]:
+            - link " Leads" [ref=f64e90] [cursor=pointer]:
+              - /url: /portal/pages/crm/leads
+              - generic [ref=f64e91]: 
+              - generic [ref=f64e92]: Leads
+          - listitem [ref=f64e93]:
+            - link " Opportunities" [ref=f64e94] [cursor=pointer]:
+              - /url: /portal/pages/crm/opportunities
+              - generic [ref=f64e95]: 
+              - generic [ref=f64e96]: Opportunities
+          - listitem [ref=f64e97]:
+            - link " Activities" [ref=f64e98] [cursor=pointer]:
+              - /url: /portal/pages/crm/activities
+              - generic [ref=f64e99]: 
+              - generic [ref=f64e100]: Activities
+          - listitem [ref=f64e101]:
+            - link " Campaigns" [ref=f64e102] [cursor=pointer]:
+              - /url: /portal/pages/crm/campaigns
+              - generic [ref=f64e103]: 
+              - generic [ref=f64e104]: Campaigns
+      - listitem [ref=f64e105]:
+        - button "Manufacturing " [ref=f64e106] [cursor=pointer]:
+          - generic [ref=f64e107]: Manufacturing
+          - generic [ref=f64e108]: 
+        - list:
+          - listitem [ref=f64e109]:
+            - generic [ref=f64e110] [cursor=pointer]:
+              - generic [ref=f64e111]: 
+              - generic [ref=f64e112]: Production Orders
+              - generic [ref=f64e113]: 
+            - list:
+              - listitem [ref=f64e114]:
+                - link " New Order" [ref=f64e115] [cursor=pointer]:
+                  - /url: /portal/pages/manufacturing/production-orders/new
+                  - generic [ref=f64e116]: 
+                  - generic [ref=f64e117]: New Order
+              - listitem [ref=f64e118]:
+                - link " All Orders" [ref=f64e119] [cursor=pointer]:
+                  - /url: /portal/pages/manufacturing/production-orders
+                  - generic [ref=f64e120]: 
+                  - generic [ref=f64e121]: All Orders
+              - listitem [ref=f64e122]:
+                - link " Purchase Required" [ref=f64e123] [cursor=pointer]:
+                  - /url: /portal/pages/manufacturing/purchase-required
+                  - generic [ref=f64e124]: 
+                  - generic [ref=f64e125]: Purchase Required
+      - listitem [ref=f64e126]:
+        - button "Services " [ref=f64e127] [cursor=pointer]:
+          - generic [ref=f64e128]: Services
+          - generic [ref=f64e129]: 
+        - list:
+          - listitem [ref=f64e130]:
+            - generic [ref=f64e131] [cursor=pointer]:
+              - generic [ref=f64e132]: 
+              - generic [ref=f64e133]: Service Orders
+              - generic [ref=f64e134]: 
+            - list:
+              - listitem [ref=f64e135]:
+                - link " New Service Order" [ref=f64e136] [cursor=pointer]:
+                  - /url: /portal/pages/services/service-orders/new
+                  - generic [ref=f64e137]: 
+                  - generic [ref=f64e138]: New Service Order
+              - listitem [ref=f64e139]:
+                - link " All Service Orders" [ref=f64e140] [cursor=pointer]:
+                  - /url: /portal/pages/services/service-orders
+                  - generic [ref=f64e141]: 
+                  - generic [ref=f64e142]: All Service Orders
+              - listitem [ref=f64e143]:
+                - link " Dashboard" [ref=f64e144] [cursor=pointer]:
+                  - /url: /portal/pages/services/service-orders/dashboard
+                  - generic [ref=f64e145]: 
+                  - generic [ref=f64e146]: Dashboard
+      - listitem [ref=f64e147]:
+        - button "Point of Sale " [ref=f64e148] [cursor=pointer]:
+          - generic [ref=f64e149]: Point of Sale
+          - generic [ref=f64e150]: 
+        - list:
+          - listitem [ref=f64e151]:
+            - link " Stores" [ref=f64e152] [cursor=pointer]:
+              - /url: /portal/pages/pos/stores
+              - generic [ref=f64e153]: 
+              - generic [ref=f64e154]: Stores
+          - listitem [ref=f64e155]:
+            - link " Shifts" [ref=f64e156] [cursor=pointer]:
+              - /url: /portal/pages/pos/shifts
+              - generic [ref=f64e157]: 
+              - generic [ref=f64e158]: Shifts
+          - listitem [ref=f64e159]:
+            - link " POS Orders" [ref=f64e160] [cursor=pointer]:
+              - /url: /portal/pages/pos/orders
+              - generic [ref=f64e161]: 
+              - generic [ref=f64e162]: POS Orders
+          - listitem [ref=f64e163]:
+            - link " Store credit" [ref=f64e164] [cursor=pointer]:
+              - /url: /portal/pages/pos/credit-notes
+              - generic [ref=f64e165]: 
+              - generic [ref=f64e166]: Store credit
+          - listitem [ref=f64e167]:
+            - link " Return reasons" [ref=f64e168] [cursor=pointer]:
+              - /url: /portal/pages/pos/return-reasons
+              - generic [ref=f64e169]: 
+              - generic [ref=f64e170]: Return reasons
+          - listitem [ref=f64e171]:
+            - link " Return policy" [ref=f64e172] [cursor=pointer]:
+              - /url: /portal/pages/pos/return-policy
+              - generic [ref=f64e173]: 
+              - generic [ref=f64e174]: Return policy
+          - listitem [ref=f64e175]:
+            - link " Open POS" [ref=f64e176] [cursor=pointer]:
+              - /url: /pos
+              - generic [ref=f64e177]: 
+              - generic [ref=f64e178]: Open POS
+      - listitem [ref=f64e179]:
+        - button "Procurement " [ref=f64e180] [cursor=pointer]:
+          - generic [ref=f64e181]: Procurement
+          - generic [ref=f64e182]: 
+        - list:
+          - listitem [ref=f64e183]:
+            - generic [ref=f64e184] [cursor=pointer]:
+              - generic [ref=f64e185]: 
+              - generic [ref=f64e186]: Requisitions
+              - generic [ref=f64e187]: 
+            - list:
+              - listitem [ref=f64e188]:
+                - link " New Requisition" [ref=f64e189] [cursor=pointer]:
+                  - /url: /portal/pages/demand/requisitions/create
+                  - generic [ref=f64e190]: 
+                  - generic [ref=f64e191]: New Requisition
+              - listitem [ref=f64e192]:
+                - link " All Requisitions" [ref=f64e193] [cursor=pointer]:
+                  - /url: /portal/pages/demand/requisitions
+                  - generic [ref=f64e194]: 
+                  - generic [ref=f64e195]: All Requisitions
+          - listitem [ref=f64e196]:
+            - generic [ref=f64e197] [cursor=pointer]:
+              - generic [ref=f64e198]: 
+              - generic [ref=f64e199]: Supplier Quotes (RFQ)
+              - generic [ref=f64e200]: 
+            - list:
+              - listitem [ref=f64e201]:
+                - link " New RFQ" [ref=f64e202] [cursor=pointer]:
+                  - /url: /portal/pages/demand/quotations/create
+                  - generic [ref=f64e203]: 
+                  - generic [ref=f64e204]: New RFQ
+              - listitem [ref=f64e205]:
+                - link " All Supplier Quotes" [ref=f64e206] [cursor=pointer]:
+                  - /url: /portal/pages/demand/quotations
+                  - generic [ref=f64e207]: 
+                  - generic [ref=f64e208]: All Supplier Quotes
+          - listitem [ref=f64e209]:
+            - generic [ref=f64e210] [cursor=pointer]:
+              - generic [ref=f64e211]: 
+              - generic [ref=f64e212]: Purchase Orders
+              - generic [ref=f64e213]: 
+            - list:
+              - listitem [ref=f64e214]:
+                - link " New Purchase Order" [ref=f64e215] [cursor=pointer]:
+                  - /url: /portal/pages/demand/purchase-orders/create
+                  - generic [ref=f64e216]: 
+                  - generic [ref=f64e217]: New Purchase Order
+              - listitem [ref=f64e218]:
+                - link " All Purchase Orders" [ref=f64e219] [cursor=pointer]:
+                  - /url: /portal/pages/demand/purchase-orders
+                  - generic [ref=f64e220]: 
+                  - generic [ref=f64e221]: All Purchase Orders
+          - listitem [ref=f64e222]:
+            - link " Supplier Pricelists" [ref=f64e223] [cursor=pointer]:
+              - /url: /portal/pages/demand/supplier-pricelists
+              - generic [ref=f64e224]: 
+              - generic [ref=f64e225]: Supplier Pricelists
+          - listitem [ref=f64e226]:
+            - generic [ref=f64e227] [cursor=pointer]:
+              - generic [ref=f64e228]: 
+              - generic [ref=f64e229]: Suppliers
+              - generic [ref=f64e230]: 
+            - list:
+              - listitem [ref=f64e231]:
+                - link " New Supplier" [ref=f64e232] [cursor=pointer]:
+                  - /url: /portal/pages/suppliers/supplier-create
+                  - generic [ref=f64e233]: 
+                  - generic [ref=f64e234]: New Supplier
+              - listitem [ref=f64e235]:
+                - link " All Suppliers" [ref=f64e236] [cursor=pointer]:
+                  - /url: /portal/pages/suppliers/supplier-list
+                  - generic [ref=f64e237]: 
+                  - generic [ref=f64e238]: All Suppliers
+              - listitem [ref=f64e239]:
+                - link " Supplier Scorecard" [ref=f64e240] [cursor=pointer]:
+                  - /url: /portal/pages/suppliers/supplier-scorecard
+                  - generic [ref=f64e241]: 
+                  - generic [ref=f64e242]: Supplier Scorecard
+              - listitem [ref=f64e243]:
+                - link " Supplier Price Lists" [ref=f64e244] [cursor=pointer]:
+                  - /url: /portal/pages/suppliers/rate-cards
+                  - generic [ref=f64e245]: 
+                  - generic [ref=f64e246]: Supplier Price Lists
+              - listitem [ref=f64e247]:
+                - link " New Business Partner" [ref=f64e248] [cursor=pointer]:
+                  - /url: /portal/pages/suppliers/partner-create
+                  - generic [ref=f64e249]: 
+                  - generic [ref=f64e250]: New Business Partner
+              - listitem [ref=f64e251]:
+                - link " Business Partners" [ref=f64e252] [cursor=pointer]:
+                  - /url: /portal/pages/suppliers/partner-list
+                  - generic [ref=f64e253]: 
+                  - generic [ref=f64e254]: Business Partners
+      - listitem [ref=f64e255]:
+        - button "Warehouse & Inventory " [ref=f64e256] [cursor=pointer]:
+          - generic [ref=f64e257]: Warehouse & Inventory
+          - generic [ref=f64e258]: 
+        - list:
+          - listitem [ref=f64e259]:
+            - generic [ref=f64e260] [cursor=pointer]:
+              - generic [ref=f64e261]: 
+              - generic [ref=f64e262]: Products
+              - generic [ref=f64e263]: 
+            - list:
+              - listitem [ref=f64e264]:
+                - link " New Product" [ref=f64e265] [cursor=pointer]:
+                  - /url: /portal/pages/inventory/products/new
+                  - generic [ref=f64e266]: 
+                  - generic [ref=f64e267]: New Product
+              - listitem [ref=f64e268]:
+                - link " All Products" [ref=f64e269] [cursor=pointer]:
+                  - /url: /portal/pages/inventory/products
+                  - generic [ref=f64e270]: 
+                  - generic [ref=f64e271]: All Products
+              - listitem [ref=f64e272]:
+                - link " Categories" [ref=f64e273] [cursor=pointer]:
+                  - /url: /portal/pages/inventory/categories
+                  - generic [ref=f64e274]: 
+                  - generic [ref=f64e275]: Categories
+              - listitem [ref=f64e276]:
+                - link " Sub-Categories" [ref=f64e277] [cursor=pointer]:
+                  - /url: /portal/pages/inventory/sub-categories
+                  - generic [ref=f64e278]: 
+                  - generic [ref=f64e279]: Sub-Categories
+          - listitem [ref=f64e280]:
+            - generic [ref=f64e281] [cursor=pointer]:
+              - generic [ref=f64e282]: 
+              - generic [ref=f64e283]: Allocations
+              - generic [ref=f64e284]: 
+            - list:
+              - listitem [ref=f64e285]:
+                - link " Allocation Dashboard" [ref=f64e286] [cursor=pointer]:
+                  - /url: /portal/pages/inventory/allocations
+                  - generic [ref=f64e287]: 
+                  - generic [ref=f64e288]: Allocation Dashboard
+          - listitem [ref=f64e289]:
+            - generic [ref=f64e290] [cursor=pointer]:
+              - generic [ref=f64e291]: 
+              - generic [ref=f64e292]: Warehouses
+              - generic [ref=f64e293]: 
+            - list:
+              - listitem [ref=f64e294]:
+                - link " New Warehouse" [ref=f64e295] [cursor=pointer]:
+                  - /url: /portal/pages/inventory/warehouses?action=create
+                  - generic [ref=f64e296]: 
+                  - generic [ref=f64e297]: New Warehouse
+              - listitem [ref=f64e298]:
+                - link " All Warehouses" [ref=f64e299] [cursor=pointer]:
+                  - /url: /portal/pages/inventory/warehouses
+                  - generic [ref=f64e300]: 
+                  - generic [ref=f64e301]: All Warehouses
+          - listitem [ref=f64e302]:
+            - generic [ref=f64e303] [cursor=pointer]:
+              - generic [ref=f64e304]: 
+              - generic [ref=f64e305]: Goods Receipts
+              - generic [ref=f64e306]: 
+            - list:
+              - listitem [ref=f64e307]:
+                - link " New GRN" [ref=f64e308] [cursor=pointer]:
+                  - /url: /portal/pages/warehouse/grn/create
+                  - generic [ref=f64e309]: 
+                  - generic [ref=f64e310]: New GRN
+              - listitem [ref=f64e311]:
+                - link " All GRNs" [ref=f64e312] [cursor=pointer]:
+                  - /url: /portal/pages/warehouse/grn
+                  - generic [ref=f64e313]: 
+                  - generic [ref=f64e314]: All GRNs
+          - listitem [ref=f64e315]:
+            - generic [ref=f64e316] [cursor=pointer]:
+              - generic [ref=f64e317]: 
+              - generic [ref=f64e318]: Supplier Returns
+              - generic [ref=f64e319]: 
+            - list:
+              - listitem [ref=f64e320]:
+                - link " New Return Order" [ref=f64e321] [cursor=pointer]:
+                  - /url: /portal/pages/warehouse/sro/create
+                  - generic [ref=f64e322]: 
+                  - generic [ref=f64e323]: New Return Order
+              - listitem [ref=f64e324]:
+                - link " All Return Orders" [ref=f64e325] [cursor=pointer]:
+                  - /url: /portal/pages/warehouse/sro
+                  - generic [ref=f64e326]: 
+                  - generic [ref=f64e327]: All Return Orders
+          - listitem [ref=f64e328]:
+            - link " Stock Adjustments" [ref=f64e329] [cursor=pointer]:
+              - /url: /portal/pages/inventory/stock-adjustments
+              - generic [ref=f64e330]: 
+              - generic [ref=f64e331]: Stock Adjustments
+          - listitem [ref=f64e332]:
+            - link " Reorder Alerts" [ref=f64e333] [cursor=pointer]:
+              - /url: /portal/pages/inventory/reorder-alerts
+              - generic [ref=f64e334]: 
+              - generic [ref=f64e335]: Reorder Alerts
+      - listitem [ref=f64e336]:
+        - button "Material Management " [ref=f64e337] [cursor=pointer]:
+          - generic [ref=f64e338]: Material Management
+          - generic [ref=f64e339]: 
+        - list:
+          - listitem [ref=f64e340]:
+            - generic [ref=f64e341] [cursor=pointer]:
+              - generic [ref=f64e342]: 
+              - generic [ref=f64e343]: Projects
+              - generic [ref=f64e344]: 
+            - list:
+              - listitem [ref=f64e345]:
+                - link " New Project" [ref=f64e346] [cursor=pointer]:
+                  - /url: /portal/pages/material/projects/new
+                  - generic [ref=f64e347]: 
+                  - generic [ref=f64e348]: New Project
+              - listitem [ref=f64e349]:
+                - link " All Projects" [ref=f64e350] [cursor=pointer]:
+                  - /url: /portal/pages/material/projects
+                  - generic [ref=f64e351]: 
+                  - generic [ref=f64e352]: All Projects
+          - listitem [ref=f64e353]:
+            - generic [ref=f64e354] [cursor=pointer]:
+              - generic [ref=f64e355]: 
+              - generic [ref=f64e356]: Issue Requests (MIR)
+              - generic [ref=f64e357]: 
+            - list:
+              - listitem [ref=f64e358]:
+                - link " New MIR" [ref=f64e359] [cursor=pointer]:
+                  - /url: /portal/pages/material/mir/create
+                  - generic [ref=f64e360]: 
+                  - generic [ref=f64e361]: New MIR
+              - listitem [ref=f64e362]:
+                - link " All MIRs" [ref=f64e363] [cursor=pointer]:
+                  - /url: /portal/pages/material/mir
+                  - generic [ref=f64e364]: 
+                  - generic [ref=f64e365]: All MIRs
+          - listitem [ref=f64e366]:
+            - generic [ref=f64e367] [cursor=pointer]:
+              - generic [ref=f64e368]: 
+              - generic [ref=f64e369]: Issue Vouchers (MIV)
+              - generic [ref=f64e370]: 
+            - list:
+              - listitem [ref=f64e371]:
+                - link " All MIVs" [ref=f64e372] [cursor=pointer]:
+                  - /url: /portal/pages/material/miv
+                  - generic [ref=f64e373]: 
+                  - generic [ref=f64e374]: All MIVs
+          - listitem [ref=f64e375]:
+            - link " Material Returns" [ref=f64e376] [cursor=pointer]:
+              - /url: /portal/pages/material/returns
+              - generic [ref=f64e377]: 
+              - generic [ref=f64e378]: Material Returns
+          - listitem [ref=f64e379]:
+            - link " Wastage Records" [ref=f64e380] [cursor=pointer]:
+              - /url: /portal/pages/material/wastage
+              - generic [ref=f64e381]: 
+              - generic [ref=f64e382]: Wastage Records
+      - listitem [ref=f64e383]:
+        - button "Logistics " [ref=f64e384] [cursor=pointer]:
+          - generic [ref=f64e385]: Logistics
+          - generic [ref=f64e386]: 
+        - list:
+          - listitem [ref=f64e387]:
+            - generic [ref=f64e388] [cursor=pointer]:
+              - generic [ref=f64e389]: 
+              - generic [ref=f64e390]: Deliveries
+              - generic [ref=f64e391]: 
+            - list:
+              - listitem [ref=f64e392]:
+                - link " New Delivery" [ref=f64e393] [cursor=pointer]:
+                  - /url: /portal/pages/logistics/deliveries/create
+                  - generic [ref=f64e394]: 
+                  - generic [ref=f64e395]: New Delivery
+              - listitem [ref=f64e396]:
+                - link " All Deliveries" [ref=f64e397] [cursor=pointer]:
+                  - /url: /portal/pages/logistics/deliveries
+                  - generic [ref=f64e398]: 
+                  - generic [ref=f64e399]: All Deliveries
+              - listitem [ref=f64e400]:
+                - link " Picking" [ref=f64e401] [cursor=pointer]:
+                  - /url: /portal/pages/logistics/picking
+                  - generic [ref=f64e402]: 
+                  - generic [ref=f64e403]: Picking
+          - listitem [ref=f64e404]:
+            - generic [ref=f64e405] [cursor=pointer]:
+              - generic [ref=f64e406]: 
+              - generic [ref=f64e407]: Tracking
+              - generic [ref=f64e408]: 
+            - list:
+              - listitem [ref=f64e409]:
+                - link " Exception Queue" [ref=f64e410] [cursor=pointer]:
+                  - /url: /portal/pages/logistics/exceptions
+                  - generic [ref=f64e411]: 
+                  - generic [ref=f64e412]: Exception Queue
+              - listitem [ref=f64e413]:
+                - link " Proof of Delivery" [ref=f64e414] [cursor=pointer]:
+                  - /url: /portal/pages/logistics/proof-of-delivery
+                  - generic [ref=f64e415]: 
+                  - generic [ref=f64e416]: Proof of Delivery
+              - listitem [ref=f64e417]:
+                - link " Carrier Scorecard" [ref=f64e418] [cursor=pointer]:
+                  - /url: /portal/pages/logistics/carrier-scorecard
+                  - generic [ref=f64e419]: 
+                  - generic [ref=f64e420]: Carrier Scorecard
+          - listitem [ref=f64e421]:
+            - generic [ref=f64e422] [cursor=pointer]:
+              - generic [ref=f64e423]: 
+              - generic [ref=f64e424]: Carriers
+              - generic [ref=f64e425]: 
+            - list:
+              - listitem [ref=f64e426]:
+                - link " New Carrier" [ref=f64e427] [cursor=pointer]:
+                  - /url: /portal/pages/logistics/carriers/create
+                  - generic [ref=f64e428]: 
+                  - generic [ref=f64e429]: New Carrier
+              - listitem [ref=f64e430]:
+                - link " All Carriers" [ref=f64e431] [cursor=pointer]:
+                  - /url: /portal/pages/logistics/carriers
+                  - generic [ref=f64e432]: 
+                  - generic [ref=f64e433]: All Carriers
+              - listitem [ref=f64e434]:
+                - link " Shipping Rules" [ref=f64e435] [cursor=pointer]:
+                  - /url: /portal/pages/logistics/shipping-rules
+                  - generic [ref=f64e436]: 
+                  - generic [ref=f64e437]: Shipping Rules
+          - listitem [ref=f64e438]:
+            - generic [ref=f64e439] [cursor=pointer]:
+              - generic [ref=f64e440]: 
+              - generic [ref=f64e441]: Freight Settlement
+              - generic [ref=f64e442]: 
+            - list:
+              - listitem [ref=f64e443]:
+                - link " Carrier Invoices" [ref=f64e444] [cursor=pointer]:
+                  - /url: /portal/pages/logistics/settlement/carrier-invoices
+                  - generic [ref=f64e445]: 
+                  - generic [ref=f64e446]: Carrier Invoices
+              - listitem [ref=f64e447]:
+                - link " Match Queue" [ref=f64e448] [cursor=pointer]:
+                  - /url: /portal/pages/logistics/settlement/match-queue
+                  - generic [ref=f64e449]: 
+                  - generic [ref=f64e450]: Match Queue
+              - listitem [ref=f64e451]:
+                - link " COD Reconciliation" [ref=f64e452] [cursor=pointer]:
+                  - /url: /portal/pages/logistics/settlement/cod
+                  - generic [ref=f64e453]: 
+                  - generic [ref=f64e454]: COD Reconciliation
+              - listitem [ref=f64e455]:
+                - link " Freight Accruals" [ref=f64e456] [cursor=pointer]:
+                  - /url: /portal/pages/logistics/settlement/freight-accruals
+                  - generic [ref=f64e457]: 
+                  - generic [ref=f64e458]: Freight Accruals
+          - listitem [ref=f64e459]:
+            - link " Shipments (Legacy)" [ref=f64e460] [cursor=pointer]:
+              - /url: /portal/pages/logistics/shipments
+              - generic [ref=f64e461]: 
+              - generic [ref=f64e462]: Shipments (Legacy)
+      - listitem [ref=f64e463]:
+        - button "Finance " [ref=f64e464] [cursor=pointer]:
+          - generic [ref=f64e465]: Finance
+          - generic [ref=f64e466]: 
+        - list:
+          - listitem [ref=f64e467]:
+            - generic [ref=f64e468] [cursor=pointer]:
+              - generic [ref=f64e469]: Invoices
+              - generic [ref=f64e470]: 
+            - list:
+              - listitem [ref=f64e471]:
+                - link " New Invoice" [ref=f64e472] [cursor=pointer]:
+                  - /url: /portal/pages/finance/invoices/create
+                  - generic [ref=f64e473]: 
+                  - generic [ref=f64e474]: New Invoice
+              - listitem [ref=f64e475]:
+                - link " All Invoices" [ref=f64e476] [cursor=pointer]:
+                  - /url: /portal/pages/finance/invoices
+                  - generic [ref=f64e477]: 
+                  - generic [ref=f64e478]: All Invoices
+          - listitem [ref=f64e479]:
+            - generic [ref=f64e480] [cursor=pointer]:
+              - generic [ref=f64e481]: 
+              - generic [ref=f64e482]: Payments
+              - generic [ref=f64e483]: 
+            - list:
+              - listitem [ref=f64e484]:
+                - link " Record Payment" [ref=f64e485] [cursor=pointer]:
+                  - /url: /portal/pages/finance/payments/create
+                  - generic [ref=f64e486]: 
+                  - generic [ref=f64e487]: Record Payment
+              - listitem [ref=f64e488]:
+                - link " All Payments" [ref=f64e489] [cursor=pointer]:
+                  - /url: /portal/pages/finance/payments
+                  - generic [ref=f64e490]: 
+                  - generic [ref=f64e491]: All Payments
+          - listitem [ref=f64e492]:
+            - link " Sales Invoices" [ref=f64e493] [cursor=pointer]:
+              - /url: /portal/pages/finance/sales-invoices
+              - generic [ref=f64e494]: 
+              - generic [ref=f64e495]: Sales Invoices
+          - listitem [ref=f64e496]:
+            - generic [ref=f64e497] [cursor=pointer]:
+              - generic [ref=f64e498]: 
+              - generic [ref=f64e499]: Customer Payments
+              - generic [ref=f64e500]: 
+            - list:
+              - listitem [ref=f64e501]:
+                - link " Record Payment" [ref=f64e502] [cursor=pointer]:
+                  - /url: /portal/pages/finance/customer-payments/new
+                  - generic [ref=f64e503]: 
+                  - generic [ref=f64e504]: Record Payment
+              - listitem [ref=f64e505]:
+                - link " All Customer Payments" [ref=f64e506] [cursor=pointer]:
+                  - /url: /portal/pages/finance/customer-payments
+                  - generic [ref=f64e507]: 
+                  - generic [ref=f64e508]: All Customer Payments
+          - listitem [ref=f64e509]:
+            - generic [ref=f64e510] [cursor=pointer]:
+              - generic [ref=f64e511]: 
+              - generic [ref=f64e512]: General Ledger
+              - generic [ref=f64e513]: 
+            - list:
+              - listitem [ref=f64e514]:
+                - link " Set up general ledger" [ref=f64e515] [cursor=pointer]:
+                  - /url: /portal/pages/finance/gl/setup
+                  - generic [ref=f64e516]: 
+                  - generic [ref=f64e517]: Set up general ledger
+              - listitem [ref=f64e518]:
+                - link " Chart of Accounts" [ref=f64e519] [cursor=pointer]:
+                  - /url: /portal/pages/finance/gl/accounts
+                  - generic [ref=f64e520]: 
+                  - generic [ref=f64e521]: Chart of Accounts
+              - listitem [ref=f64e522]:
+                - link " Fiscal Years" [ref=f64e523] [cursor=pointer]:
+                  - /url: /portal/pages/finance/gl/fiscal-years
+                  - generic [ref=f64e524]: 
+                  - generic [ref=f64e525]: Fiscal Years
+              - listitem [ref=f64e526]:
+                - link " Defaults" [ref=f64e527] [cursor=pointer]:
+                  - /url: /portal/pages/finance/gl/defaults
+                  - generic [ref=f64e528]: 
+                  - generic [ref=f64e529]: Defaults
+              - listitem [ref=f64e530]:
+                - link " Opening Balances" [ref=f64e531] [cursor=pointer]:
+                  - /url: /portal/pages/finance/gl/opening-balances
+                  - generic [ref=f64e532]: 
+                  - generic [ref=f64e533]: Opening Balances
+              - listitem [ref=f64e534]:
+                - link " Integrations" [ref=f64e535] [cursor=pointer]:
+                  - /url: /portal/pages/finance/gl/integrations
+                  - generic [ref=f64e536]: 
+                  - generic [ref=f64e537]: Integrations
+              - listitem [ref=f64e538]:
+                - link " Posting" [ref=f64e539] [cursor=pointer]:
+                  - /url: /portal/pages/finance/gl/posting
+                  - generic [ref=f64e540]: 
+                  - generic [ref=f64e541]: Posting
+              - listitem [ref=f64e542]:
+                - link " Setup Status" [ref=f64e543] [cursor=pointer]:
+                  - /url: /portal/pages/finance/gl/setup-status
+                  - generic [ref=f64e544]: 
+                  - generic [ref=f64e545]: Setup Status
+      - listitem [ref=f64e546]:
+        - button "Reports & Analytics " [ref=f64e547] [cursor=pointer]:
+          - generic [ref=f64e548]: Reports & Analytics
+          - generic [ref=f64e549]: 
+        - list:
+          - listitem [ref=f64e550]:
+            - generic [ref=f64e551] [cursor=pointer]:
+              - generic [ref=f64e552]: 
+              - generic [ref=f64e553]: Sales
+              - generic [ref=f64e554]: 
+            - list:
+              - listitem [ref=f64e555]:
+                - link " Sales Reports" [ref=f64e556] [cursor=pointer]:
+                  - /url: /portal/pages/reports/sales-reports
+                  - generic [ref=f64e557]: 
+                  - generic [ref=f64e558]: Sales Reports
+          - listitem [ref=f64e559]:
+            - generic [ref=f64e560] [cursor=pointer]:
+              - generic [ref=f64e561]: 
+              - generic [ref=f64e562]: Manufacturing
+              - generic [ref=f64e563]: 
+            - list:
+              - listitem [ref=f64e564]:
+                - link " Manufacturing Reports" [ref=f64e565] [cursor=pointer]:
+                  - /url: /portal/pages/reports/manufacturing
+                  - generic [ref=f64e566]: 
+                  - generic [ref=f64e567]: Manufacturing Reports
+          - listitem [ref=f64e568]:
+            - generic [ref=f64e569] [cursor=pointer]:
+              - generic [ref=f64e570]: 
+              - generic [ref=f64e571]: Procurement
+              - generic [ref=f64e572]: 
+            - list:
+              - listitem [ref=f64e573]:
+                - link " Supplier Performance" [ref=f64e574] [cursor=pointer]:
+                  - /url: /portal/pages/reports/supplier-performance
+                  - generic [ref=f64e575]: 
+                  - generic [ref=f64e576]: Supplier Performance
+              - listitem [ref=f64e577]:
+                - link " PO Summary & Spend" [ref=f64e578] [cursor=pointer]:
+                  - /url: /portal/pages/reports/po-reports
+                  - generic [ref=f64e579]: 
+                  - generic [ref=f64e580]: PO Summary & Spend
+              - listitem [ref=f64e581]:
+                - link " Approval Backlog (All)" [ref=f64e582] [cursor=pointer]:
+                  - /url: /portal/pages/reports/pending-approvals
+                  - generic [ref=f64e583]: 
+                  - generic [ref=f64e584]: Approval Backlog (All)
+          - listitem [ref=f64e585]:
+            - generic [ref=f64e586] [cursor=pointer]:
+              - generic [ref=f64e587]: 
+              - generic [ref=f64e588]: Inventory & Warehouse
+              - generic [ref=f64e589]: 
+            - list:
+              - listitem [ref=f64e590]:
+                - link " Stock Levels & Valuation" [ref=f64e591] [cursor=pointer]:
+                  - /url: /portal/pages/reports/inventory-reports
+                  - generic [ref=f64e592]: 
+                  - generic [ref=f64e593]: Stock Levels & Valuation
+              - listitem [ref=f64e594]:
+                - link " Stock Movement / Ledger" [ref=f64e595] [cursor=pointer]:
+                  - /url: /portal/pages/reports/stock-reports
+                  - generic [ref=f64e596]: 
+                  - generic [ref=f64e597]: Stock Movement / Ledger
+              - listitem [ref=f64e598]:
+                - link " Master Product Ledger" [ref=f64e599] [cursor=pointer]:
+                  - /url: /portal/pages/inventory/master-product-ledger
+                  - generic [ref=f64e600]: 
+                  - generic [ref=f64e601]: Master Product Ledger
+              - listitem [ref=f64e602]:
+                - link "GRN Variance" [ref=f64e603] [cursor=pointer]:
+                  - /url: /portal/pages/reports/grn-variance
+          - listitem [ref=f64e605]:
+            - generic [ref=f64e606] [cursor=pointer]:
+              - generic [ref=f64e607]: 
+              - generic [ref=f64e608]: Material
+              - generic [ref=f64e609]: 
+            - list:
+              - listitem [ref=f64e610]:
+                - link " Issue Register" [ref=f64e611] [cursor=pointer]:
+                  - /url: /portal/pages/reports/material-issue-register
+                  - generic [ref=f64e612]: 
+                  - generic [ref=f64e613]: Issue Register
+              - listitem [ref=f64e614]:
+                - link " Consumption (Detail)" [ref=f64e615] [cursor=pointer]:
+                  - /url: /portal/pages/material/consumption-register
+                  - generic [ref=f64e616]: 
+                  - generic [ref=f64e617]: Consumption (Detail)
+              - listitem [ref=f64e618]:
+                - link " Consumption (Summary)" [ref=f64e619] [cursor=pointer]:
+                  - /url: /portal/pages/reports/material-consumption-reports
+                  - generic [ref=f64e620]: 
+                  - generic [ref=f64e621]: Consumption (Summary)
+              - listitem [ref=f64e622]:
+                - link " Returns / Wastage / Reserved" [ref=f64e623] [cursor=pointer]:
+                  - /url: /portal/pages/reports/material-ops-reports
+                  - generic [ref=f64e624]: 
+                  - generic [ref=f64e625]: Returns / Wastage / Reserved
+              - listitem [ref=f64e626]:
+                - link " Batch / Serial Trace" [ref=f64e627] [cursor=pointer]:
+                  - /url: /portal/pages/material/batch-serial/trace
+                  - generic [ref=f64e628]: 
+                  - generic [ref=f64e629]: Batch / Serial Trace
+              - listitem [ref=f64e630]:
+                - link " Department Cost Ledger" [ref=f64e631] [cursor=pointer]:
+                  - /url: /portal/pages/material/cost-ledger/departments
+                  - generic [ref=f64e632]: 
+                  - generic [ref=f64e633]: Department Cost Ledger
+          - listitem [ref=f64e634]:
+            - generic [ref=f64e635] [cursor=pointer]:
+              - generic [ref=f64e636]: 
+              - generic [ref=f64e637]: Finance
+              - generic [ref=f64e638]: 
+            - list:
+              - listitem [ref=f64e639]:
+                - link "Invoice Aging & Payments" [ref=f64e640] [cursor=pointer]:
+                  - /url: /portal/pages/reports/finance-reports
+              - listitem [ref=f64e642]:
+                - link " Master Payables Ledger" [ref=f64e643] [cursor=pointer]:
+                  - /url: /portal/pages/finance/master-ledger
+                  - generic [ref=f64e644]: 
+                  - generic [ref=f64e645]: Master Payables Ledger
+              - listitem [ref=f64e646]:
+                - link " Customer Ledger" [ref=f64e647] [cursor=pointer]:
+                  - /url: /portal/pages/finance/customer-ledger
+                  - generic [ref=f64e648]: 
+                  - generic [ref=f64e649]: Customer Ledger
+              - listitem [ref=f64e650]:
+                - link " Exchange Differences" [ref=f64e651] [cursor=pointer]:
+                  - /url: /portal/pages/finance/exchange-differences
+                  - generic [ref=f64e652]: 
+                  - generic [ref=f64e653]: Exchange Differences
+          - listitem [ref=f64e654]:
+            - generic [ref=f64e655] [cursor=pointer]:
+              - generic [ref=f64e656]: 
+              - generic [ref=f64e657]: Audit & Compliance
+              - generic [ref=f64e658]: 
+            - list:
+              - listitem [ref=f64e659]:
+                - link " Audit Trail" [ref=f64e660] [cursor=pointer]:
+                  - /url: /portal/pages/reports/audit-trail
+                  - generic [ref=f64e661]: 
+                  - generic [ref=f64e662]: Audit Trail
+              - listitem [ref=f64e663]:
+                - link " User Activity" [ref=f64e664] [cursor=pointer]:
+                  - /url: /portal/pages/reports/user-activity
+                  - generic [ref=f64e665]: 
+                  - generic [ref=f64e666]: User Activity
+      - listitem [ref=f64e667]:
+        - button "Administration " [ref=f64e668] [cursor=pointer]:
+          - generic [ref=f64e669]: Administration
+          - generic [ref=f64e670]: 
+        - list:
+          - listitem [ref=f64e671]:
+            - generic [ref=f64e672] [cursor=pointer]:
+              - generic [ref=f64e673]: 
+              - generic [ref=f64e674]: Users & Access
+              - generic [ref=f64e675]: 
+            - list:
+              - listitem [ref=f64e676]:
+                - link " Users" [ref=f64e677] [cursor=pointer]:
+                  - /url: /portal/pages/users
+                  - generic [ref=f64e678]: 
+                  - generic [ref=f64e679]: Users
+              - listitem [ref=f64e680]:
+                - link " Roles" [ref=f64e681] [cursor=pointer]:
+                  - /url: /portal/pages/admin/roles
+                  - generic [ref=f64e682]: 
+                  - generic [ref=f64e683]: Roles
+          - listitem [ref=f64e684]:
+            - generic [ref=f64e685] [cursor=pointer]:
+              - generic [ref=f64e686]: 
+              - generic [ref=f64e687]: Master Data
+              - generic [ref=f64e688]: 
+            - list:
+              - listitem [ref=f64e689]:
+                - link " Countries" [ref=f64e690] [cursor=pointer]:
+                  - /url: /portal/pages/countries
+                  - generic [ref=f64e691]: 
+                  - generic [ref=f64e692]: Countries
+              - listitem [ref=f64e693]:
+                - link " Cities" [ref=f64e694] [cursor=pointer]:
+                  - /url: /portal/pages/cities/cities-list
+                  - generic [ref=f64e695]: 
+                  - generic [ref=f64e696]: Cities
+          - listitem [ref=f64e697]:
+            - generic [ref=f64e698] [cursor=pointer]:
+              - generic [ref=f64e699]: 
+              - generic [ref=f64e700]: Settings
+              - generic [ref=f64e701]: 
+            - list:
+              - listitem [ref=f64e702]:
+                - generic [ref=f64e703] [cursor=pointer]:
+                  - generic [ref=f64e704]: 
+                  - generic [ref=f64e705]: Sales & Fulfilment
+                  - generic [ref=f64e706]: 
+                - list:
+                  - listitem [ref=f64e707]:
+                    - link " Sale Order Settings" [ref=f64e708] [cursor=pointer]:
+                      - /url: /portal/pages/sale-order-settings
+                      - generic [ref=f64e709]: 
+                      - generic [ref=f64e710]: Sale Order Settings
+                  - listitem [ref=f64e711]:
+                    - link " Fulfillment Routes" [ref=f64e712] [cursor=pointer]:
+                      - /url: /portal/pages/logistics/fulfillment-routes
+                      - generic [ref=f64e713]: 
+                      - generic [ref=f64e714]: Fulfillment Routes
+                  - listitem [ref=f64e715]:
+                    - link " Lead Time Defaults" [ref=f64e716] [cursor=pointer]:
+                      - /url: /portal/pages/lead-time-defaults
+                      - generic [ref=f64e717]: 
+                      - generic [ref=f64e718]: Lead Time Defaults
+                  - listitem [ref=f64e719]:
+                    - link " Rejection Reasons" [ref=f64e720] [cursor=pointer]:
+                      - /url: /portal/pages/sales/rejection-reasons
+                      - generic [ref=f64e721]: 
+                      - generic [ref=f64e722]: Rejection Reasons
+                  - listitem [ref=f64e723]:
+                    - link " CRM Settings" [ref=f64e724] [cursor=pointer]:
+                      - /url: /portal/pages/crm/settings
+                      - generic [ref=f64e725]: 
+                      - generic [ref=f64e726]: CRM Settings
+              - listitem [ref=f64e727]:
+                - generic [ref=f64e728] [cursor=pointer]:
+                  - generic [ref=f64e729]: 
+                  - generic [ref=f64e730]: Finance Setup
+                  - generic [ref=f64e731]: 
+                - list:
+                  - listitem [ref=f64e732]:
+                    - link " Tax Codes" [ref=f64e733] [cursor=pointer]:
+                      - /url: /portal/pages/finance-setup/tax-codes
+                      - generic [ref=f64e734]: 
+                      - generic [ref=f64e735]: Tax Codes
+                  - listitem [ref=f64e736]:
+                    - link " Currencies" [ref=f64e737] [cursor=pointer]:
+                      - /url: /portal/pages/finance-setup/currencies
+                      - generic [ref=f64e738]: 
+                      - generic [ref=f64e739]: Currencies
+                  - listitem [ref=f64e740]:
+                    - link " Exchange Rates" [ref=f64e741] [cursor=pointer]:
+                      - /url: /portal/pages/finance-setup/exchange-rates
+                      - generic [ref=f64e742]: 
+                      - generic [ref=f64e743]: Exchange Rates
+                  - listitem [ref=f64e744]:
+                    - link " Currency Configuration" [ref=f64e745] [cursor=pointer]:
+                      - /url: /portal/pages/finance-setup/currency-configuration
+                      - generic [ref=f64e746]: 
+                      - generic [ref=f64e747]: Currency Configuration
+              - listitem [ref=f64e748]:
+                - generic [ref=f64e749] [cursor=pointer]:
+                  - generic [ref=f64e750]: 
+                  - generic [ref=f64e751]: Documents
+                  - generic [ref=f64e752]: 
+                - list:
+                  - listitem [ref=f64e753]:
+                    - link " Purchase Order Templates" [ref=f64e754] [cursor=pointer]:
+                      - /url: /portal/pages/po-document-template
+                      - generic [ref=f64e755]: 
+                      - generic [ref=f64e756]: Purchase Order Templates
+              - listitem [ref=f64e757]:
+                - generic [ref=f64e758] [cursor=pointer]:
+                  - generic [ref=f64e759]: 
+                  - generic [ref=f64e760]: System
+                  - generic [ref=f64e761]: 
+                - list:
+                  - listitem [ref=f64e762]:
+                    - link " Modules" [ref=f64e763] [cursor=pointer]:
+                      - /url: /portal/pages/settings/modules
+                      - generic [ref=f64e764]: 
+                      - generic [ref=f64e765]: Modules
+                  - listitem [ref=f64e766]:
+                    - link " Data Import" [ref=f64e767] [cursor=pointer]:
+                      - /url: /portal/pages/settings/import
+                      - generic [ref=f64e768]: 
+                      - generic [ref=f64e769]: Data Import
+              - listitem [ref=f64e770]:
+                - generic [ref=f64e771] [cursor=pointer]:
+                  - generic [ref=f64e772]: 
+                  - generic [ref=f64e773]: Integrations
+                  - generic [ref=f64e774]: 
+                - list:
+                  - listitem [ref=f64e775]:
+                    - link " QuickBooks Integration" [ref=f64e776] [cursor=pointer]:
+                      - /url: /portal/pages/integrations/quickbooks
+                      - generic [ref=f64e777]: 
+                      - generic [ref=f64e778]: QuickBooks Integration
+                  - listitem [ref=f64e779]:
+                    - link " QuickBooks Logs" [ref=f64e780] [cursor=pointer]:
+                      - /url: /portal/pages/integrations/quickbooks?tab=logs
+                      - generic [ref=f64e781]: 
+                      - generic [ref=f64e782]: QuickBooks Logs
+                  - listitem [ref=f64e783]:
+                    - link " Posting Log" [ref=f64e784] [cursor=pointer]:
+                      - /url: /portal/pages/finance/gl/posting
+                      - generic [ref=f64e785]: 
+                      - generic [ref=f64e786]: Posting Log
+          - listitem [ref=f64e787]:
+            - generic [ref=f64e788] [cursor=pointer]:
+              - generic [ref=f64e789]: 
+              - generic [ref=f64e790]: Workflow Engine
+              - generic [ref=f64e791]: 
+            - list:
+              - listitem [ref=f64e792]:
+                - link " Workflow Definitions" [ref=f64e793] [cursor=pointer]:
+                  - /url: /portal/pages/workflow-admin/workflows
+                  - generic [ref=f64e794]: 
+                  - generic [ref=f64e795]: Workflow Definitions
+              - listitem [ref=f64e796]:
+                - link " New Workflow" [ref=f64e797] [cursor=pointer]:
+                  - /url: /portal/pages/workflow-admin/workflows/new
+                  - generic [ref=f64e798]: 
+                  - generic [ref=f64e799]: New Workflow
+  - generic [ref=f64e800]:
+    - generic [ref=f64e803]:
+      - toolbar "Commands" [ref=f64e804]:
+        - button " Cancel order" [ref=f64e807] [cursor=pointer]:
+          - generic [ref=f64e808]: 
+          - generic [ref=f64e809]: Cancel order
+      - generic [ref=f64e810]:
+        - generic [ref=f64e811]:
+          - banner [ref=f64e812]:
+            - generic [ref=f64e814]:
+              - generic [ref=f64e815]: Sale order
+              - heading "SO-2026-00003 Fulfilled Manual" [level=1] [ref=f64e816]:
+                - generic [ref=f64e817]: SO-2026-00003
+                - generic [ref=f64e818]: Fulfilled
+                - generic [ref=f64e820]: Manual
+              - generic [ref=f64e822]: Asif · Customer collects · ordered 18 Oct 2026
+            - list "Progress" [ref=f64e824]:
+              - 'listitem "Draft: Created by KFC Pakistan on 18 Oct 2026, 20:38" [ref=f64e962]':
+                - generic [ref=f64e963]: ✓ Draft
+              - 'listitem "Confirmed: Confirmed by KFC Pakistan on 18 Oct 2026, 20:39" [ref=f64e964]':
+                - generic [ref=f64e965]: ✓ Confirmed
+              - 'listitem "Fulfilling: Shipping started by KFC Pakistan on 18 Oct 2026, 20:39" [ref=f64e966]':
+                - generic [ref=f64e967]: ✓ Fulfilling
+              - 'listitem "Fulfilled: Fulfilled by KFC Pakistan on 18 Oct 2026, 20:40" [ref=f64e968]':
+                - generic [ref=f64e969]: Fulfilled
+              - listitem [ref=f64e970]:
+                - generic [ref=f64e971]: Invoiced
+            - generic [ref=f64e835]:
+              - generic [ref=f64e836]:
+                - generic [ref=f64e837]: Total
+                - generic [ref=f64e838]: "3.50"
+                - generic [ref=f64e839]: GBP incl. tax
+              - generic [ref=f64e840]:
+                - generic [ref=f64e841]: Expected
+                - generic [ref=f64e842]: —
+                - generic [ref=f64e843]: no date set
+              - generic [ref=f64e844]:
+                - generic [ref=f64e845]: Fulfilled
+                - generic [ref=f64e846]: 100%
+                - generic [ref=f64e847]: 5 of 5 delivered
+          - tablist "Tabs" [ref=f64e849]:
+            - tab "Items" [selected] [ref=f64e850] [cursor=pointer]
+            - tab "Order" [ref=f64e851] [cursor=pointer]
+            - tab "Customer PO" [ref=f64e852] [cursor=pointer]
+            - tab "Currency" [ref=f64e853] [cursor=pointer]
+          - generic [ref=f64e854]:
+            - generic [ref=f64e856]:
+              - tablist [ref=f64e859]:
+                - tab " Lines" [ref=f64e860] [cursor=pointer]:
+                  - generic [ref=f64e861]: 
+                  - text: Lines
+                - tab " Deliveries" [ref=f64e863] [cursor=pointer]:
+                  - generic [ref=f64e864]: 
+                  - text: Deliveries
+                - tab " Invoices" [active] [selected] [ref=f64e865] [cursor=pointer]:
+                  - generic [ref=f64e866]: 
+                  - text: Invoices
+                - tab " Payments" [ref=f64e867] [cursor=pointer]:
+                  - generic [ref=f64e868]: 
+                  - text: Payments
+                - tab " Timeline" [ref=f64e869] [cursor=pointer]:
+                  - generic [ref=f64e870]: 
+                  - text: Timeline
+                - tab " Production" [ref=f64e871] [cursor=pointer]:
+                  - generic [ref=f64e872]: 
+                  - text: Production
+              - generic [ref=f64e873]:
+                - generic:  
+                - tabpanel " Invoices" [ref=f64e973]:
+                  - table [ref=f64e978]:
+                    - rowgroup [ref=f64e979]:
+                      - row [ref=f64e980]:
+                        - 'columnheader "Invoice #" [ref=f64e981]'
+                        - columnheader "Delivery" [ref=f64e982]
+                        - columnheader "Invoice date" [ref=f64e983]
+                        - columnheader "Due" [ref=f64e984]
+                        - columnheader "Total" [ref=f64e985]
+                        - columnheader "Paid" [ref=f64e986]
+                        - columnheader "Balance" [ref=f64e987]
+                        - columnheader "Status" [ref=f64e988]
+                        - columnheader "PDF" [ref=f64e989]
+                    - rowgroup [ref=f64e990]:
+                      - row [ref=f64e991]:
+                        - cell "Nothing has been invoiced for this order yet." [ref=f64e992]
+            - generic:   
+        - generic [ref=f64e937]:
+          - tablist [ref=f64e938]:
+            - tab "Fulfilment" [selected] [ref=f64e939] [cursor=pointer]
+            - button "Hide side panel" [ref=f64e940] [cursor=pointer]:
+              - generic [ref=f64e941]: 
+          - generic [ref=f64e942]:
+            - generic [ref=f64e943]:
+              - generic [ref=f64e944]: Delivered
+              - generic [ref=f64e945]:
+                - strong [ref=f64e946]: "5"
+                - text: of 5 delivered
+                - generic [ref=f64e947]: 100%
+              - generic [ref=f64e950]: 1 delivery raised.
+            - generic [ref=f64e951]:
+              - generic [ref=f64e952]: Delivery
+              - generic [ref=f64e953]:
+                - link [ref=f64e954] [cursor=pointer]:
+                  - /url: /portal/pages/logistics/deliveries/7c3ee641-2484-4c54-b29e-a11fba0bdcb9
+                  - strong [ref=f64e955]: DLV-2026-00003
+                - generic [ref=f64e956]: Delivered
+              - generic [ref=f64e958]: 1 line
+    - generic [ref=f64e960]:
+      - text: All Rights Reserved To
+      - link "Loading" [ref=f64e961] [cursor=pointer]:
+        - /url: https://primeng.org

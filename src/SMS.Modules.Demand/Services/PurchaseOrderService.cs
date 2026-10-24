@@ -57,6 +57,20 @@ internal sealed class PurchaseOrderService : IPurchaseOrderService
         return poUuids;
     }
 
+    public async Task<PoConversionResult> CreateFromPrWithSummaryAsync(Guid prUuid, ConvertPrToPoRequest req, int createdBy)
+    {
+        var result = await _repo.CreateFromPrWithSummaryAsync(prUuid, req, createdBy);
+        foreach (var poUuid in result.PoUuids) await EnqueuePoCreatedAsync(poUuid, createdBy);
+        return result;
+    }
+
+    public async Task<PoConversionResult> CreateFromPrSplitWithSummaryAsync(Guid prUuid, ConvertPrSplitRequest req, int createdBy)
+    {
+        var result = await _repo.CreateFromPrSplitWithSummaryAsync(prUuid, req, createdBy);
+        foreach (var poUuid in result.PoUuids) await EnqueuePoCreatedAsync(poUuid, createdBy);
+        return result;
+    }
+
     public async Task<Guid> CreateAsync(CreatePoRequest req, int createdBy)
     {
         var poUuid = await _repo.CreateAsync(req, createdBy);
@@ -75,9 +89,13 @@ internal sealed class PurchaseOrderService : IPurchaseOrderService
 
     public Task<Guid?> GetLastSupplierForVariantAsync(Guid variantUuid) => _repo.GetLastSupplierForVariantAsync(variantUuid);
 
-    public async Task<IReadOnlyList<PoFieldChange>> UpdateAsync(Guid uuid, PatchPoRequest req, int modifiedBy)
+    public async Task<IReadOnlyList<PoFieldChange>> UpdateAsync(Guid uuid, PatchPoRequest req, int modifiedBy) =>
+        (await UpdateWithPricingAsync(uuid, req, modifiedBy)).Changes;
+
+    public async Task<PoUpdateResult> UpdateWithPricingAsync(Guid uuid, PatchPoRequest req, int modifiedBy)
     {
-        var changes = await _repo.UpdateAsync(uuid, req, modifiedBy);
+        var update  = await _repo.UpdateWithPricingAsync(uuid, req, modifiedBy);
+        var changes = update.Changes;
 
         var po = await _repo.GetByIdAsync(uuid);
         if (po is not null)
@@ -91,7 +109,7 @@ internal sealed class PurchaseOrderService : IPurchaseOrderService
                 "PO", po.PoNumber));
         }
 
-        return changes;
+        return update;
     }
 
     public async Task<SplitPoResult> SplitAsync(Guid uuid, SplitPoRequest req, int userId)

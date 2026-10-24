@@ -1,0 +1,108 @@
+- generic [ref=f28e4]:
+  - generic [ref=f28e5]:
+    - generic [ref=f28e6]:
+      - button "" [ref=f28e7] [cursor=pointer]
+      - link:
+        - /url: /portal/dashboard
+      - generic [ref=f28e384]: KFC Pakistan (KFC)
+    - button " Search anything... Ctrl K" [ref=f28e16] [cursor=pointer]:
+      - generic [ref=f28e17]: 
+      - generic [ref=f28e18]: Search anything...
+      - generic [ref=f28e19]: Ctrl K
+    - generic [ref=f28e20]:
+      - button "" [ref=f28e22] [cursor=pointer]
+      - generic [ref=f28e24]:
+        - button "Appearance" [ref=f28e25] [cursor=pointer]:
+          - generic [ref=f28e26]: 
+        - text:    
+      - generic [ref=f28e28]:
+        - button "MC " [ref=f28e29] [cursor=pointer]:
+          - generic [ref=f28e30]: MC
+          - generic [ref=f28e32]: 
+        - text:   
+  - generic [ref=f28e33]:
+    - generic [ref=f28e34]:
+      - generic [ref=f28e35]: 
+      - generic [ref=f28e37]:
+        - generic [ref=f28e38]: SupplyChain MS
+        - generic [ref=f28e39]: KFC Pakistan (KFC)
+    - list [ref=f28e41]:
+      - listitem [ref=f28e42]:
+        - button "Home " [ref=f28e43] [cursor=pointer]:
+          - generic [ref=f28e44]: Home
+          - generic [ref=f28e45]: 
+        - list:
+          - listitem [ref=f28e46]:
+            - link " Dashboard" [ref=f28e47] [cursor=pointer]:
+              - /url: /portal/dashboard
+              - generic [ref=f28e48]: 
+              - generic [ref=f28e49]: Dashboard
+          - listitem [ref=f28e50]:
+            - link " My Inbox" [ref=f28e51] [cursor=pointer]:
+              - /url: /portal/pages/workflow-inbox
+              - generic [ref=f28e52]: 
+              - generic [ref=f28e53]: My Inbox
+      - listitem [ref=f28e54]:
+        - button "Sales " [expanded] [ref=f28e55] [cursor=pointer]:
+          - generic [ref=f28e56]: Sales
+          - generic [ref=f28e57]: 
+        - list [ref=f28e386]:
+          - listitem [ref=f28e58]:
+            - link " Customers" [ref=f28e59] [cursor=pointer]:
+              - /url: /portal/pages/customers
+              - generic [ref=f28e60]: 
+              - generic [ref=f28e61]: Customers
+          - listitem [ref=f28e62]:
+            - link " Inquiries" [ref=f28e63] [cursor=pointer]:
+              - /url: /portal/pages/sales/inquiries
+              - generic [ref=f28e64]: 
+              - generic [ref=f28e65]: Inquiries
+          - listitem [ref=f28e66]:
+            - link " Customer Quotations" [ref=f28e67] [cursor=pointer]:
+              - /url: /portal/pages/sales/quotations
+              - generic [ref=f28e68]: 
+              - generic [ref=f28e69]: Customer Quotations
+          - listitem [ref=f28e70]:
+            - generic [ref=f28e71] [cursor=pointer]:
+              - generic [ref=f28e72]: 
+              - generic [ref=f28e73]: Sale Orders
+              - generic [ref=f28e74]: 
+            - list:
+              - listitem [ref=f28e75]:
+                - link " All Sale Orders" [ref=f28e76] [cursor=pointer]:
+                  - /url: /portal/pages/sales/orders
+                  - generic [ref=f28e77]: 
+                  - generic [ref=f28e78]: All Sale Orders
+      - listitem [ref=f28e79]:
+        - button "CRM " [ref=f28e80] [cursor=pointer]:
+          - generic [ref=f28e81]: CRM
+          - generic [ref=f28e82]: 
+        - list:
+          - listitem [ref=f28e84]:
+            - link " Leads" [ref=f28e85] [cursor=pointer]:
+              - /url: /portal/pages/crm/leads
+              - generic [ref=f28e86]: 
+              - generic [ref=f28e87]: Leads
+          - listitem [ref=f28e88]:
+            - link " Opportunities" [ref=f28e89] [cursor=pointer]:
+              - /url: /portal/pages/crm/opportunities
+              - generic [ref=f28e90]: 
+              - generic [ref=f28e91]: Opportunities
+          - listitem [ref=f28e92]:
+            - link " Activities" [ref=f28e93] [cursor=pointer]:
+              - /url: /portal/pages/crm/activities
+              - generic [ref=f28e94]: 
+              - generic [ref=f28e95]: Activities
+          - listitem [ref=f28e96]:
+            - link " Campaigns" [ref=f28e97] [cursor=pointer]:
+              - /url: /portal/pages/crm/campaigns
+              - generic [ref=f28e98]: 
+              - generic [ref=f28e99]: Campaigns
+  - generic [ref=f28e100]:
+    - generic [ref=f28e388]:
+      - generic [ref=f28e389]: 
+      - text: Loading…
+    - generic [ref=f28e382]:
+      - text: All Rights Reserved To
+      - link "Loading" [ref=f28e383] [cursor=pointer]:
+        - /url: https://primeng.org

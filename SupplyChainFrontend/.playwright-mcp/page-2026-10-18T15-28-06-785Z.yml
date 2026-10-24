@@ -1,0 +1,25 @@
+- main [ref=f28e8]:
+  - generic [ref=f28e13]:
+    - progressbar "Loading" [ref=f28e21]
+    - generic [ref=f28e24]:
+      - generic [ref=f28e25]:
+        - list [ref=f28e26]:
+          - listitem [ref=f28e27]:
+            - link "Legal" [ref=f28e28] [cursor=pointer]:
+              - /url: https://www.intuit.com/legal/
+          - listitem [ref=f28e29]:
+            - link "Privacy" [ref=f28e30] [cursor=pointer]:
+              - /url: https://www.intuit.com/privacy/statement/
+          - listitem [ref=f28e31]:
+            - link "Security" [ref=f28e32] [cursor=pointer]:
+              - /url: https://security.intuit.com/
+        - list [ref=f28e33]:
+          - listitem [ref=f28e34]:
+            - link "Support" [ref=f28e35] [cursor=pointer]:
+              - /url: https://help.quickbooks.intuit.com/en_US/contact?pageContext=login
+          - listitem [ref=f28e36]:
+            - link "Software License Agreement" [ref=f28e37] [cursor=pointer]:
+              - /url: https://www.intuit.com/legal/terms/en-us/website/
+      - generic [ref=f28e38]:
+        - generic [ref=f28e39]: Intuit, QuickBooks, QB, TurboTax, ProConnect, Credit Karma, and Mailchimp are registered trademarks of Intuit Inc. Terms and conditions, features, support, pricing, and service options subject to change without notice.
+        - generic [ref=f28e40]: © 2026 Intuit, Inc. All rights reserved.

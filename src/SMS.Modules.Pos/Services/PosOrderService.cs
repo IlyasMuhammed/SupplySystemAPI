@@ -105,7 +105,11 @@ internal sealed partial class PosOrderService : IPosOrderService
         ArgumentNullException.ThrowIfNull(req);
         var localId = req.LocalId?.Trim();
         if (string.IsNullOrEmpty(localId) || localId.Length > 64) throw new BadRequestException("Every order needs a localId (up to 64 characters).");
-        if (await FindByLocalIdAsync(localId, ct) is { } replay) return Replayed(replay);
+        if (await FindByLocalIdAsync(localId, ct) is { } replay)
+        {
+            await FinishPendingPostingAsync(replay);
+            return Replayed(replay);
+        }
 
         var offline  = req.IsOffline;
         var warnings = new List<string>();
@@ -277,7 +281,9 @@ internal sealed partial class PosOrderService : IPosOrderService
                 session = await _db.CashierSessions.FirstAsync(s => s.LocalId == sessionLocalId, ct);
             }
         }
-        var number = await _numbers.NextNumberAsync(store, PosNumberPrefix.Order, now, ct);
+        // From here to the commit nothing observes the till's disconnect: a number taken and then a cancelled save left a
+        // hole in the receipt numbers (…0003, …0005), and the till's retry would find no order to replay.
+        var number = await _numbers.NextNumberAsync(store, PosNumberPrefix.Order, now, CancellationToken.None);
         var order = new PosOrder
         {
             OrganizationId = Org, OrderNumber = number, LocalId = localId, OfflineNumber = Clean(req.OfflineNumber, 50),
@@ -327,7 +333,7 @@ internal sealed partial class PosOrderService : IPosOrderService
         _db.Orders.Add(order);
         try
         {
-            await _db.SaveChangesAsync(ct);
+            await _db.SaveChangesAsync(CancellationToken.None);
         }
         catch (DbUpdateConcurrencyException) when (creditNotes.Count > 0)
         {
@@ -343,9 +349,12 @@ internal sealed partial class PosOrderService : IPosOrderService
             throw;
         }
 
-        if (late) await NoteLateOrderAsync(shift.Id, order, ct);
-        await _posting.PostAsync(order, ct);
-        await _totals.RecalculateAsync(shift.Id, ct);
+        // The order is committed: posting and the shift totals must finish even when the till gave up waiting (its request
+        // timeout cancels `ct`). Cancelled here they were silently dropped — the till's retry then replayed the saved order
+        // without ever posting it, leaving "Stock pending / Finance pending" until the 15-minute retry job.
+        if (late) await NoteLateOrderAsync(shift.Id, order, CancellationToken.None);
+        await _posting.PostAsync(order, CancellationToken.None);
+        await _totals.RecalculateAsync(shift.Id, CancellationToken.None);
 
         if (overLimit)
             await PosSupervisors.NotifyAsync(_db, _notifications, Org, store.Id, CreditOverLimitNotification, "POS credit over limit",
@@ -359,6 +368,21 @@ internal sealed partial class PosOrderService : IPosOrderService
             LocalId = localId, Success = true, OrderUuid = order.Uuid, OrderNumber = order.OrderNumber, Status = order.Status,
             Flags = order.FlagList.ToList(), Warnings = warnings
         };
+    }
+
+    /// <summary>
+    /// A till retrying a sale it never saw the answer to: when the saved order's posting was cut short, finish it now rather
+    /// than leave it to the retry job (posting is idempotent). Never fails the replay — the retry job is the backstop.
+    /// </summary>
+    private async Task FinishPendingPostingAsync(PosOrder saved)
+    {
+        if (saved.StockPosted && saved.FinancePosted) return;
+        try
+        {
+            var order = await Full().FirstOrDefaultAsync(o => o.Id == saved.Id, CancellationToken.None);
+            if (order is not null) await _posting.PostAsync(order, CancellationToken.None);
+        }
+        catch (Exception) { /* left for PosPostingRetryJob */ }
     }
 
     private static PosSyncResultModel Replayed(PosOrder o)

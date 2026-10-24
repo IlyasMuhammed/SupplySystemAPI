@@ -1,0 +1,198 @@
+- generic [ref=f30e3412]:
+  - generic [ref=f30e3413]:
+    - generic [ref=f30e3414]:
+      - button "" [ref=f30e3415] [cursor=pointer]
+      - link:
+        - /url: /portal/dashboard
+      - navigation "Breadcrumb" [ref=f30e3417]:
+        - strong [ref=f30e3418]: Home
+    - button " Search anything... Ctrl K" [ref=f30e3420] [cursor=pointer]:
+      - generic [ref=f30e3421]: 
+      - generic [ref=f30e3422]: Search anything...
+      - generic [ref=f30e3423]: Ctrl K
+    - generic [ref=f30e3424]:
+      - generic [ref=f30e3425]:
+        - button "" [ref=f30e3426] [cursor=pointer]
+        - generic: "2"
+      - generic [ref=f30e3428]:
+        - button "Appearance" [ref=f30e3429] [cursor=pointer]:
+          - generic [ref=f30e3430]: 
+        - text:    
+      - generic [ref=f30e3432]:
+        - button "SS " [ref=f30e3433] [cursor=pointer]:
+          - generic [ref=f30e3434]: SS
+          - generic [ref=f30e3436]: 
+        - text:   
+  - generic [ref=f30e3437]:
+    - generic [ref=f30e3438]:
+      - generic [ref=f30e3439]: 
+      - generic [ref=f30e3441]:
+        - generic [ref=f30e3442]: SupplyChain MS
+        - generic [ref=f30e3495]: KFC Pakistan (KFC)
+    - list [ref=f30e3497]:
+      - listitem [ref=f30e3498]:
+        - button "Home " [expanded] [ref=f30e3499] [cursor=pointer]:
+          - generic [ref=f30e3500]: Home
+          - generic [ref=f30e3501]: 
+        - list [ref=f30e3502]:
+          - listitem [ref=f30e3503]:
+            - link " Dashboard" [ref=f30e3504] [cursor=pointer]:
+              - /url: /portal/dashboard
+              - generic [ref=f30e3505]: 
+              - generic [ref=f30e3506]: Dashboard
+          - listitem [ref=f30e3507]:
+            - link " My Inbox" [ref=f30e3508] [cursor=pointer]:
+              - /url: /portal/pages/workflow-inbox
+              - generic [ref=f30e3509]: 
+              - generic [ref=f30e3510]: My Inbox
+      - listitem [ref=f30e3511]:
+        - button "Sales " [ref=f30e3512] [cursor=pointer]:
+          - generic [ref=f30e3513]: Sales
+          - generic [ref=f30e3514]: 
+        - list:
+          - listitem [ref=f30e3515]:
+            - link " Customers" [ref=f30e3516] [cursor=pointer]:
+              - /url: /portal/pages/customers
+              - generic [ref=f30e3517]: 
+              - generic [ref=f30e3518]: Customers
+          - listitem [ref=f30e3519]:
+            - link " Inquiries" [ref=f30e3520] [cursor=pointer]:
+              - /url: /portal/pages/sales/inquiries
+              - generic [ref=f30e3521]: 
+              - generic [ref=f30e3522]: Inquiries
+          - listitem [ref=f30e3523]:
+            - link " Customer Quotations" [ref=f30e3524] [cursor=pointer]:
+              - /url: /portal/pages/sales/quotations
+              - generic [ref=f30e3525]: 
+              - generic [ref=f30e3526]: Customer Quotations
+          - listitem [ref=f30e3527]:
+            - generic [ref=f30e3528] [cursor=pointer]:
+              - generic [ref=f30e3529]: 
+              - generic [ref=f30e3530]: Sale Orders
+              - generic [ref=f30e3531]: 
+            - list:
+              - listitem [ref=f30e3532]:
+                - link " All Sale Orders" [ref=f30e3533] [cursor=pointer]:
+                  - /url: /portal/pages/sales/orders
+                  - generic [ref=f30e3534]: 
+                  - generic [ref=f30e3535]: All Sale Orders
+      - listitem [ref=f30e3536]:
+        - button "CRM " [ref=f30e3537] [cursor=pointer]:
+          - generic [ref=f30e3538]: CRM
+          - generic [ref=f30e3539]: 
+        - list:
+          - listitem [ref=f30e3540]:
+            - link " Leads" [ref=f30e3541] [cursor=pointer]:
+              - /url: /portal/pages/crm/leads
+              - generic [ref=f30e3542]: 
+              - generic [ref=f30e3543]: Leads
+          - listitem [ref=f30e3544]:
+            - link " Opportunities" [ref=f30e3545] [cursor=pointer]:
+              - /url: /portal/pages/crm/opportunities
+              - generic [ref=f30e3546]: 
+              - generic [ref=f30e3547]: Opportunities
+          - listitem [ref=f30e3548]:
+            - link " Activities" [ref=f30e3549] [cursor=pointer]:
+              - /url: /portal/pages/crm/activities
+              - generic [ref=f30e3550]: 
+              - generic [ref=f30e3551]: Activities
+          - listitem [ref=f30e3552]:
+            - link " Campaigns" [ref=f30e3553] [cursor=pointer]:
+              - /url: /portal/pages/crm/campaigns
+              - generic [ref=f30e3554]: 
+              - generic [ref=f30e3555]: Campaigns
+  - generic [ref=f30e3444]:
+    - generic [ref=f30e3447]:
+      - toolbar "Commands" [ref=f30e3448]:
+        - button " Refresh" [ref=f30e3556] [cursor=pointer]:
+          - generic [ref=f30e3557]: 
+          - generic [ref=f30e3455]: Refresh
+        - generic [ref=f30e3558]: Live
+      - generic [ref=f30e3458]:
+        - generic [ref=f30e3460]:
+          - generic [ref=f30e3461]: Saturday, 17 October 2026
+          - heading "Supply Chain Dashboard" [level=1] [ref=f30e3462]
+        - generic [ref=f30e3463]:
+          - generic [ref=f30e3561] [cursor=pointer]:
+            - generic [ref=f30e3562]:
+              - generic [ref=f30e3563]: 
+              - text: Open Sale Orders
+            - generic [ref=f30e3564]: "1"
+            - generic [ref=f30e3565]: 1 this month · 1 late
+          - generic [ref=f30e3566] [cursor=pointer]:
+            - generic [ref=f30e3567]:
+              - generic [ref=f30e3568]: 
+              - text: Needs Attention
+            - generic [ref=f30e3569]: "2"
+            - generic [ref=f30e3570]: 2 queues waiting
+        - generic [ref=f30e3571]:
+          - heading " Needs attention 2" [level=2] [ref=f30e3573]:
+            - generic [ref=f30e3574]: 
+            - text: Needs attention
+            - generic [ref=f30e3575]: "2"
+          - generic [ref=f30e3576]:
+            - link " Sale orders past their delivery date 1" [ref=f30e3577] [cursor=pointer]:
+              - /url: /portal/pages/sales/orders
+              - generic [ref=f30e3578]: 
+              - generic [ref=f30e3579]: Sale orders past their delivery date
+              - generic [ref=f30e3580]: "1"
+            - link " Customer inquiries to review 1" [ref=f30e3581] [cursor=pointer]:
+              - /url: /portal/pages/sales/inquiries
+              - generic [ref=f30e3582]: 
+              - generic [ref=f30e3583]: Customer inquiries to review
+              - generic [ref=f30e3584]: "1"
+        - generic [ref=f30e3585]:
+          - generic [ref=f30e3586]:
+            - generic [ref=f30e3587]:
+              - heading "Sales pipeline" [level=2] [ref=f30e3588]
+              - link "Sale orders" [ref=f30e3589] [cursor=pointer]:
+                - /url: /portal/pages/sales/orders
+            - generic [ref=f30e3590]:
+              - generic [ref=f30e3591] [cursor=pointer]:
+                - generic [ref=f30e3592]: Inquiries open
+                - generic [ref=f30e3595]: "1"
+              - generic [ref=f30e3596] [cursor=pointer]:
+                - generic [ref=f30e3597]: Quotations sent
+                - generic [ref=f30e3599]: "0"
+              - generic [ref=f30e3600] [cursor=pointer]:
+                - generic [ref=f30e3601]: Quotations accepted
+                - generic [ref=f30e3603]: "0"
+              - generic [ref=f30e3604] [cursor=pointer]:
+                - generic [ref=f30e3605]: Orders in draft
+                - generic [ref=f30e3607]: "0"
+              - generic [ref=f30e3608] [cursor=pointer]:
+                - generic [ref=f30e3609]: Orders confirmed
+                - generic [ref=f30e3612]: "1"
+              - generic [ref=f30e3613] [cursor=pointer]:
+                - generic [ref=f30e3614]: Partly fulfilled
+                - generic [ref=f30e3616]: "0"
+              - generic [ref=f30e3617] [cursor=pointer]:
+                - generic [ref=f30e3618]: Fulfilled / invoiced
+                - generic [ref=f30e3620]: "0"
+            - generic [ref=f30e3621]:
+              - generic [ref=f30e3622]:
+                - generic [ref=f30e3623]: "1"
+                - generic [ref=f30e3624]: Orders this month
+              - generic [ref=f30e3626]:
+                - generic [ref=f30e3627]: "1"
+                - generic [ref=f30e3628]: Past delivery date
+              - generic [ref=f30e3630]:
+                - generic [ref=f30e3631]: "3"
+                - generic [ref=f30e3632]: Active customers
+          - generic [ref=f30e3633]:
+            - generic [ref=f30e3634]:
+              - heading "Recent sale orders" [level=2] [ref=f30e3635]
+              - link "View all" [ref=f30e3636] [cursor=pointer]:
+                - /url: /portal/pages/sales/orders
+            - list [ref=f30e3637]:
+              - listitem [ref=f30e3638] [cursor=pointer]:
+                - generic [ref=f30e3639]:
+                  - paragraph [ref=f30e3640]: SO-2026-00001
+                  - paragraph [ref=f30e3641]: Ordered 9 Oct 2026 · due 16 Oct
+                - generic [ref=f30e3642]:
+                  - paragraph [ref=f30e3643]: 562,716
+                  - generic [ref=f30e3644]: Confirmed
+    - generic [ref=f30e3493]:
+      - text: All Rights Reserved To
+      - link "Loading" [ref=f30e3494] [cursor=pointer]:
+        - /url: https://primeng.org

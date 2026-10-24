@@ -1,0 +1,241 @@
+- generic [ref=f38e4]:
+  - generic [ref=f38e5]:
+    - generic [ref=f38e6]:
+      - button "" [ref=f38e7] [cursor=pointer]
+      - link:
+        - /url: /portal/dashboard
+      - navigation "Breadcrumb" [ref=f38e9]:
+        - generic [ref=f38e391]: Sales
+        - generic [ref=f38e392]: ›
+        - link "Sale orders" [ref=f38e393] [cursor=pointer]:
+          - /url: /portal/pages/sales/orders
+        - generic [ref=f38e394]: ›
+        - strong [ref=f38e395]: New sale order
+    - button " Search anything... Ctrl K" [ref=f38e16] [cursor=pointer]:
+      - generic [ref=f38e17]: 
+      - generic [ref=f38e18]: Search anything...
+      - generic [ref=f38e19]: Ctrl K
+    - generic [ref=f38e20]:
+      - generic [ref=f38e21]:
+        - button "" [ref=f38e22] [cursor=pointer]
+        - generic: "1"
+      - generic [ref=f38e24]:
+        - button "Appearance" [ref=f38e25] [cursor=pointer]:
+          - generic [ref=f38e26]: 
+        - text:    
+      - generic [ref=f38e28]:
+        - button "MC " [ref=f38e29] [cursor=pointer]:
+          - generic [ref=f38e30]: MC
+          - generic [ref=f38e32]: 
+        - text:   
+  - generic [ref=f38e33]:
+    - generic [ref=f38e34]:
+      - generic [ref=f38e35]: 
+      - generic [ref=f38e37]:
+        - generic [ref=f38e38]: SupplyChain MS
+        - generic [ref=f38e39]: KFC Pakistan (KFC)
+    - list [ref=f38e41]:
+      - listitem [ref=f38e42]:
+        - button "Home " [ref=f38e43] [cursor=pointer]:
+          - generic [ref=f38e44]: Home
+          - generic [ref=f38e45]: 
+        - list:
+          - listitem [ref=f38e46]:
+            - link " Dashboard" [ref=f38e47] [cursor=pointer]:
+              - /url: /portal/dashboard
+              - generic [ref=f38e48]: 
+              - generic [ref=f38e49]: Dashboard
+          - listitem [ref=f38e50]:
+            - link " My Inbox" [ref=f38e51] [cursor=pointer]:
+              - /url: /portal/pages/workflow-inbox
+              - generic [ref=f38e52]: 
+              - generic [ref=f38e53]: My Inbox
+      - listitem [ref=f38e54]:
+        - button "Sales " [expanded] [ref=f38e55] [cursor=pointer]:
+          - generic [ref=f38e56]: Sales
+          - generic [ref=f38e57]: 
+        - list [ref=f38e396]:
+          - listitem [ref=f38e58]:
+            - link " Customers" [ref=f38e59] [cursor=pointer]:
+              - /url: /portal/pages/customers
+              - generic [ref=f38e60]: 
+              - generic [ref=f38e61]: Customers
+          - listitem [ref=f38e62]:
+            - link " Inquiries" [ref=f38e63] [cursor=pointer]:
+              - /url: /portal/pages/sales/inquiries
+              - generic [ref=f38e64]: 
+              - generic [ref=f38e65]: Inquiries
+          - listitem [ref=f38e66]:
+            - link " Customer Quotations" [ref=f38e67] [cursor=pointer]:
+              - /url: /portal/pages/sales/quotations
+              - generic [ref=f38e68]: 
+              - generic [ref=f38e69]: Customer Quotations
+          - listitem [ref=f38e70]:
+            - generic [ref=f38e71] [cursor=pointer]:
+              - generic [ref=f38e72]: 
+              - generic [ref=f38e73]: Sale Orders
+              - generic [ref=f38e74]: 
+            - list [ref=f38e397]:
+              - listitem [ref=f38e75]:
+                - link " All Sale Orders" [ref=f38e76] [cursor=pointer]:
+                  - /url: /portal/pages/sales/orders
+                  - generic [ref=f38e77]: 
+                  - generic [ref=f38e78]: All Sale Orders
+      - listitem [ref=f38e79]:
+        - button "CRM " [ref=f38e80] [cursor=pointer]:
+          - generic [ref=f38e81]: CRM
+          - generic [ref=f38e82]: 
+        - list:
+          - listitem [ref=f38e84]:
+            - link " Leads" [ref=f38e85] [cursor=pointer]:
+              - /url: /portal/pages/crm/leads
+              - generic [ref=f38e86]: 
+              - generic [ref=f38e87]: Leads
+          - listitem [ref=f38e88]:
+            - link " Opportunities" [ref=f38e89] [cursor=pointer]:
+              - /url: /portal/pages/crm/opportunities
+              - generic [ref=f38e90]: 
+              - generic [ref=f38e91]: Opportunities
+          - listitem [ref=f38e92]:
+            - link " Activities" [ref=f38e93] [cursor=pointer]:
+              - /url: /portal/pages/crm/activities
+              - generic [ref=f38e94]: 
+              - generic [ref=f38e95]: Activities
+          - listitem [ref=f38e96]:
+            - link " Campaigns" [ref=f38e97] [cursor=pointer]:
+              - /url: /portal/pages/crm/campaigns
+              - generic [ref=f38e98]: 
+              - generic [ref=f38e99]: Campaigns
+  - generic [ref=f38e100]:
+    - generic [ref=f38e401]:
+      - banner [ref=f38e402]:
+        - button "" [ref=f38e404] [cursor=pointer]
+        - generic [ref=f38e406]:
+          - heading "New sale order" [level=1] [ref=f38e407]
+          - generic [ref=f38e408]: The order is saved as a draft. Confirming it, which reserves stock, is a separate step.
+      - generic [ref=f38e409]:
+        - generic [ref=f38e410]:
+          - generic [ref=f38e411]:
+            - generic [ref=f38e413]:
+              - heading "Source" [level=2] [ref=f38e414]
+              - generic [ref=f38e415]: Type the order in, or make it from a quotation the customer accepted
+            - group [ref=f38e416]:
+              - generic [ref=f38e417] [cursor=pointer]: Create directly
+              - generic [ref=f38e420] [cursor=pointer]: From an accepted quotation
+          - generic [ref=f38e423]:
+            - generic [ref=f38e425]:
+              - heading "Customer & delivery" [level=2] [ref=f38e426]
+              - generic [ref=f38e427]: Who the order is for and how the goods reach them
+            - generic [ref=f38e428]:
+              - generic [ref=f38e429]:
+                - generic [ref=f38e430]: Customer *
+                - generic [ref=f38e431]:
+                  - generic:
+                    - combobox "Search customers by name…" [disabled]: E2E_A41 Alpha Traders
+                    - button [disabled]
+              - generic [ref=f38e438]:
+                - generic [ref=f38e439]: Delivery *
+                - group [ref=f38e440]:
+                  - generic [ref=f38e441] [cursor=pointer]: Ship to the customer
+                  - generic [ref=f38e444] [cursor=pointer]: Customer collects
+              - generic [ref=f38e447]:
+                - generic [ref=f38e448]: Shipping address *
+                - generic [ref=f38e449]:
+                  - generic [ref=f38e450] [cursor=pointer]:
+                    - combobox "Choose where it ships to…" [ref=f38e565]
+                    - button "dropdown trigger" [ref=f38e452]
+                  - button " New address" [ref=f38e457] [cursor=pointer]:
+                    - generic [ref=f38e458]: 
+                    - generic [ref=f38e459]: New address
+                - generic [ref=f38e569]: This customer has no saved address yet. Add one to ship to.
+              - generic [ref=f38e460]:
+                - generic [ref=f38e461]: Expected delivery
+                - generic [ref=f38e463]:
+                  - combobox [ref=f38e464]
+                  - button "Choose Date" [ref=f38e465] [cursor=pointer]
+              - generic [ref=f38e469]:
+                - generic [ref=f38e470]: Currency *
+                - generic [ref=f38e471] [cursor=pointer]:
+                  - combobox "British Pound (GBP) (GBP)" [ref=f38e570]
+                  - button "dropdown trigger" [ref=f38e473]
+                - generic [ref=f38e575]:
+                  - generic [ref=f38e576]:
+                    - generic [ref=f38e577]: Currency
+                    - generic [ref=f38e578]: GBP - British Pound (GBP)
+                  - generic [ref=f38e579]:
+                    - generic [ref=f38e580]: Exchange rate
+                    - generic [ref=f38e581]: Locked at confirmation
+                  - generic [ref=f38e582]:
+                    - generic [ref=f38e583]: Base currency
+                    - generic [ref=f38e584]: GBP
+              - generic [ref=f38e475]:
+                - generic [ref=f38e476]: Notes
+                - textbox "Optional — anything the customer or the warehouse should know." [ref=f38e477]
+              - generic [ref=f38e478]:
+                - generic [ref=f38e479]: Customer PO reference
+                - textbox "Customer PO reference" [ref=f38e480]:
+                  - /placeholder: Optional — e.g. GT-PO-2026-4521
+              - generic [ref=f38e481]:
+                - generic [ref=f38e482]: Customer PO date
+                - generic [ref=f38e484]:
+                  - combobox [ref=f38e485]
+                  - button "Choose Date" [ref=f38e486] [cursor=pointer]
+          - generic [ref=f38e490]:
+            - generic [ref=f38e491]:
+              - generic [ref=f38e492]:
+                - heading "Line items" [level=2] [ref=f38e493]
+                - generic [ref=f38e494]: Prices come from the pricing rules for this customer; the figures here are a preview
+              - button " Add line" [ref=f38e496] [cursor=pointer]:
+                - generic [ref=f38e497]: 
+                - generic [ref=f38e498]: Add line
+            - generic [ref=f38e500]:
+              - generic [ref=f38e501]: "1"
+              - generic [ref=f38e502]:
+                - generic [ref=f38e503]: Item
+                - generic [ref=f38e508] [cursor=pointer]:
+                  - combobox "Select product…" [ref=f38e509]
+                  - button "dropdown trigger" [ref=f38e510]
+              - generic [ref=f38e514]:
+                - generic [ref=f38e515]: Quantity *
+                - spinbutton [ref=f38e517]
+              - generic [ref=f38e518]:
+                - generic [ref=f38e519]: Discount %
+                - spinbutton [ref=f38e521]: "0"
+              - generic [ref=f38e522]:
+                - generic [ref=f38e523]: Tax %
+                - spinbutton [ref=f38e525]: "0"
+              - generic [ref=f38e526]:
+                - generic [ref=f38e527]: Route
+                - generic [ref=f38e528] [cursor=pointer]:
+                  - combobox "Inherit (variant or organization default)" [ref=f38e529]
+                  - button "dropdown trigger" [ref=f38e530]
+              - generic [ref=f38e534]: —
+              - button "" [ref=f38e536] [cursor=pointer]
+              - generic [ref=f38e538]:
+                - generic [ref=f38e539]: Delivery
+                - generic [ref=f38e541]:
+                  - generic [ref=f38e542]: —
+                  - generic [ref=f38e543]: — Not calculated
+                  - button "Set the delivery date" [ref=f38e544] [cursor=pointer]: ✎
+            - generic [ref=f38e545]:
+              - generic [ref=f38e546]:
+                - text: Estimated total
+                - strong [ref=f38e547]: "0.00"
+              - generic [ref=f38e548]: 1 line has no price to preview, so the total is only set when the order is saved.
+            - paragraph [ref=f38e549]:
+              - generic [ref=f38e550]: "Route:"
+              - generic [ref=f38e551]: ⓥ = inherited from the variant
+              - generic [ref=f38e552]: ✎ = overridden on the line
+              - generic [ref=f38e553]: ⊙ = organization default
+              - generic [ref=f38e554]: ⚠ = no usable route (blocks confirmation)
+        - generic [ref=f38e555]:
+          - generic [ref=f38e556]: Saved as a draft; confirming the order is a separate step.
+          - generic [ref=f38e557]:
+            - button "Cancel" [ref=f38e559] [cursor=pointer]
+            - button " Save draft" [ref=f38e562] [cursor=pointer]:
+              - generic [ref=f38e563]: 
+              - generic [ref=f38e564]: Save draft
+    - generic [ref=f38e389]:
+      - text: All Rights Reserved To
+      - link "Loading" [ref=f38e390] [cursor=pointer]:
+        - /url: https://primeng.org

@@ -1,0 +1,82 @@
+- generic [ref=f9e2]:
+  - banner [ref=f9e279]:
+    - generic [ref=f9e280]:
+      - generic [ref=f9e281]: 
+      - generic [ref=f9e282]:
+        - generic [ref=f9e283]: E2E Test Store 20261017
+        - generic [ref=f9e284]: E2E Till 1
+    - generic [ref=f9e285]: SH-E2E-1017-20261017-01 · Open
+    - generic [ref=f9e286]:
+      - generic [ref=f9e287]: 
+      - text: Offline
+    - generic [ref=f9e288]:
+      - generic [ref=f9e289]: 
+      - text: Casey Cashier
+    - navigation [ref=f9e290]:
+      - link "Sell" [ref=f9e291] [cursor=pointer]:
+        - /url: /pos/sell
+        - generic [ref=f9e292]: 
+      - link "Shift" [ref=f9e294] [cursor=pointer]:
+        - /url: /pos/shift
+        - generic [ref=f9e295]: 
+      - link "History" [ref=f9e297] [cursor=pointer]:
+        - /url: /pos/history
+        - generic [ref=f9e298]: 
+      - link "Settings" [ref=f9e300] [cursor=pointer]:
+        - /url: /pos/settings
+        - generic [ref=f9e301]: 
+      - button "Lock" [ref=f9e302] [cursor=pointer]:
+        - generic [ref=f9e303]: 
+  - main [ref=f9e3]:
+    - generic [ref=f9e428]:
+      - generic [ref=f9e429]:
+        - generic [ref=f9e430]: Synced
+        - button " Print" [ref=f9e431] [cursor=pointer]:
+          - generic [ref=f9e432]: 
+          - text: Print
+        - button " Email" [disabled] [ref=f9e434]:
+          - generic [ref=f9e435]: 
+          - text: Email
+        - button " New sale" [ref=f9e436] [cursor=pointer]:
+          - generic [ref=f9e437]: 
+          - text: New sale
+      - generic [ref=f9e438]:
+        - generic [ref=f9e439]: E2E Test Store 20261017
+        - separator [ref=f9e440]
+        - generic [ref=f9e441]:
+          - generic [ref=f9e442]: No.
+          - generic [ref=f9e443]: POS-E2E-1017-20261017-0001
+        - generic [ref=f9e444]:
+          - generic [ref=f9e445]: Date
+          - generic [ref=f9e446]: 17 Oct 2026 13:25
+        - generic [ref=f9e447]:
+          - generic [ref=f9e448]: Till
+          - generic [ref=f9e449]: E2E Till 1
+        - generic [ref=f9e450]:
+          - generic [ref=f9e451]: Cashier
+          - generic [ref=f9e452]: Casey Cashier
+        - generic [ref=f9e453]:
+          - generic [ref=f9e454]: Customer
+          - generic [ref=f9e455]: Walk-in customer
+        - separator [ref=f9e456]
+        - generic [ref=f9e457]: Sofa
+        - generic [ref=f9e458]:
+          - generic [ref=f9e459]: 1 × 7,000.00
+          - generic [ref=f9e460]: 7,000.00
+        - separator [ref=f9e461]
+        - generic [ref=f9e462]:
+          - generic [ref=f9e463]: Subtotal
+          - generic [ref=f9e464]: 7,000.00
+        - generic [ref=f9e465]:
+          - generic [ref=f9e466]: Tax 0%
+          - generic [ref=f9e467]: "0.00"
+        - generic [ref=f9e468]:
+          - generic [ref=f9e469]: TOTAL
+          - generic [ref=f9e470]: GBP 7,000.00
+        - separator [ref=f9e471]
+        - generic [ref=f9e472]:
+          - generic [ref=f9e473]: Cash
+          - generic [ref=f9e474]: 10,000.00
+        - generic [ref=f9e475]:
+          - generic [ref=f9e476]: Change
+          - generic [ref=f9e477]: 3,000.00

@@ -38,6 +38,12 @@ public static class DemandModuleExtensions
         services.AddScoped<IPurchaseOrderRepository, PurchaseOrderRepository>();
         services.AddScoped<IPurchaseOrderPriceLookupService, PurchaseOrderPriceLookupService>();
         services.AddScoped<IPurchaseOrderService, PurchaseOrderService>();
+        // A45 — supplier pricelists and the PO line price resolver.
+        services.AddScoped<IPurchasePriceResolver, PurchasePriceResolver>();
+        // A46 C4/C5 - the one place a PO line's price source is decided, and the only way a PO line is created.
+        services.AddScoped<IPurchaseOrderLinePricingMiddleware, PurchaseOrderLinePricingMiddleware>();
+        services.AddScoped<IPurchaseOrderLineFactory, PurchaseOrderLineFactory>();
+        services.AddScoped<ISupplierPricelistService, SupplierPricelistService>();
         services.AddScoped<IPoDocumentService, PoDocumentService>();
         services.AddScoped<IWhatsAppStatusUpdateHandler, DemandWhatsAppStatusHandler>();
         // A29-P3-03 — sale order administration & configuration (§3.2/§3.5).

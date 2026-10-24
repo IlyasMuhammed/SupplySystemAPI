@@ -279,8 +279,9 @@ export class CrmService {
 
   // §1 lookups
   getMeta(): Observable<ApiResponse<CrmMeta>> { return this.http.get<ApiResponse<CrmMeta>>(`${this.base}/meta`); }
-  getUsers(search?: string, limit = 100): Observable<ApiResponse<CrmUser[]>> {
-    return this.http.get<ApiResponse<CrmUser[]>>(`${this.base}/users`, { params: toParams({ search, limit }) });
+  /** `assignable` keeps only people who can work CRM records (owner / assignee / team-member pickers). */
+  getUsers(search?: string, limit = 100, assignable = false): Observable<ApiResponse<CrmUser[]>> {
+    return this.http.get<ApiResponse<CrmUser[]>>(`${this.base}/users`, { params: toParams({ search, limit, assignable: assignable ? true : undefined }) });
   }
   getAccountContacts(accountUuid: string): Observable<ApiResponse<CrmContact[]>> {
     return this.http.get<ApiResponse<CrmContact[]>>(`${this.base}/accounts/${accountUuid}/contacts`);

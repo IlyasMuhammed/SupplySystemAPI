@@ -1,4 +1,4 @@
-namespace SMS.Modules.Demand.Models;
+﻿namespace SMS.Modules.Demand.Models;
 
 // ── Request models ────────────────────────────────────────────────────────────
 
@@ -9,6 +9,8 @@ public class CreatePoRequest
     public List<Guid>? PrIds { get; set; }          // optional: link existing approved PRs
     public List<CreatePoLineRequest>? Lines { get; set; } // used when PrIds is absent
     public DateTime? DeliveryDate { get; set; }
+    // A46 C1 — the PO's order date (yyyy-MM-dd; the time part is ignored). Omitted = today (UTC). Prices resolve against it.
+    public DateTime? OrderDate { get; set; }
     public Guid? DeliveryWarehouseId { get; set; }
     public string? DeliveryWarehouseName { get; set; }
     public string? Title { get; set; }
@@ -26,6 +28,9 @@ public class CreatePoRequest
 
 public class CreatePoLineRequest
 {
+    // A46 C4 — optional: the uuid this line has on the PO today (as read). A PO edit replaces every line, so this is only how the server
+    // recognises which stored line a sent line is — to know a quantity or date changed. Omitted: matched by variant / description.
+    public Guid? Uuid { get; set; }
     public Guid? SourcePrLineUuid { get; set; }
     public Guid? VariantUuid { get; set; }
     public string ItemDescription { get; set; } = string.Empty;
@@ -41,6 +46,14 @@ public class CreatePoLineRequest
     public Guid? WarehouseId { get; set; }
     public string? WarehouseName { get; set; }
     public bool RequiresInspection { get; set; } = true;
+    // A45 C2/D-10 — optional claims about where UnitPrice came from. 0 Manual, 1 Pricelist, 2 Override, 3 RFQ; omitted = Manual.
+    // A46 E-7: 4 (BlanketOrder) is accepted but stored as Manual — only the server's own callers can create a blanket-order price.
+    // A46 C4: a price of 0 (or omitted) on a new line means 'price it for me' — the server resolves it from the pricelist.
+    // The server re-checks them on save (it never trusts a Pricelist/Override/RFQ claim blindly) and stores what it verified.
+    public int? PriceSource { get; set; }
+    public decimal? SystemResolvedPrice { get; set; }
+    public Guid? SupplierPricelistUuid { get; set; }
+    public string? PriceOverrideReason { get; set; }
 }
 
 public class SendPoRequest
@@ -58,6 +71,8 @@ public sealed record PoConsolidationResult(Guid PoUuid, string PoNumber, Guid Li
 
 public class PatchPoRequest
 {
+    // A46 C1 — DRAFT only: a different date on a PO that is no longer a draft is a 400.
+    public DateTime? OrderDate { get; set; }
     public string? SupplierName { get; set; }
     public Guid? SupplierId { get; set; }
     public string? Title { get; set; }
@@ -100,6 +115,8 @@ public class PoListItemModel
     public string? CurrencyCode { get; set; }
     public decimal? TotalAmountBase { get; set; }
     public DateTime? DeliveryDate { get; set; }
+    /// <summary>A46 C1 — yyyy-MM-dd.</summary>
+    public string OrderDate { get; set; } = string.Empty;
     public DateTime CreatedDate { get; set; }
 }
 
@@ -123,6 +140,8 @@ public class PoDetailModel
     public DateTime? RateLockedAt { get; set; }
     public decimal? TotalAmountBase { get; set; }
     public DateTime? DeliveryDate { get; set; }
+    /// <summary>A46 C1 / BR-20 — the PO's order date, yyyy-MM-dd. Editable only while DRAFT; every price on the PO resolves against it.</summary>
+    public string OrderDate { get; set; } = string.Empty;
     public Guid? DeliveryWarehouseId { get; set; }
     public string? DeliveryWarehouseName { get; set; }
     public string? Notes { get; set; }
@@ -245,4 +264,21 @@ public class PoLineModel
     public Guid? EffectiveWarehouseId { get; set; }
     public string? EffectiveWarehouseName { get; set; }
     public bool RequiresInspection { get; set; } = true;
+    // A45 C2 — 0 Manual, 1 Pricelist, 2 Override, 3 RFQ; the pricelist price the system resolved (kept when overridden, BR-06)
+    // and the pricelist row it came from (still readable after that row is soft-deleted, BR-16).
+    public int PriceSource { get; set; }
+    public decimal? SystemResolvedPrice { get; set; }
+    public Guid? SupplierPricelistUuid { get; set; }
+    public string? PriceOverrideReason { get; set; }
+    /// <summary>"OrderDate" or "DeliveryDate" — the date basis of the linked pricelist row; null when there is none (lets the edit page decide whether a delivery-date change re-looks-up the price).</summary>
+    public string? PricingDateBasis { get; set; }
+    // A46 C10 / BR-35 — server-owned audit of a currency conversion: the pricelist row's own currency + price, the rate applied
+    // (PO currency per 1 original) and the date it was in force. All null when the price was not converted.
+    public Guid? OriginalCurrencyId { get; set; }
+    public string? OriginalCurrencyCode { get; set; }
+    public decimal? OriginalCurrencyPrice { get; set; }
+    public decimal? ExchangeRateUsed { get; set; }
+    /// <summary>yyyy-MM-dd</summary>
+    public string? ExchangeRateDate { get; set; }
 }
+

@@ -1,0 +1,108 @@
+- generic [ref=f18e539]:
+  - generic [ref=f18e540]:
+    - generic [ref=f18e541]:
+      - button "" [ref=f18e542] [cursor=pointer]
+      - link:
+        - /url: /portal/dashboard
+      - navigation "Breadcrumb" [ref=f18e544]:
+        - strong [ref=f18e545]: Home
+    - button " Search anything... Ctrl K" [ref=f18e547] [cursor=pointer]:
+      - generic [ref=f18e548]: 
+      - generic [ref=f18e549]: Search anything...
+      - generic [ref=f18e550]: Ctrl K
+    - generic [ref=f18e551]:
+      - generic [ref=f18e552]:
+        - button "" [ref=f18e553] [cursor=pointer]
+        - generic: "2"
+      - generic [ref=f18e555]:
+        - button "Appearance" [ref=f18e556] [cursor=pointer]:
+          - generic [ref=f18e557]: 
+        - text:    
+      - generic [ref=f18e559]:
+        - button "ES " [ref=f18e560] [cursor=pointer]:
+          - generic [ref=f18e561]: ES
+          - generic [ref=f18e563]: 
+        - text:   
+  - generic [ref=f18e564]:
+    - generic [ref=f18e565]:
+      - generic [ref=f18e566]: 
+      - generic [ref=f18e568]:
+        - generic [ref=f18e569]: SupplyChain MS
+        - generic [ref=f18e599]: KFC Pakistan (KFC)
+    - list [ref=f18e601]:
+      - listitem [ref=f18e602]:
+        - button "Home " [expanded] [ref=f18e603] [cursor=pointer]:
+          - generic [ref=f18e604]: Home
+          - generic [ref=f18e605]: 
+        - list [ref=f18e606]:
+          - listitem [ref=f18e607]:
+            - link " Dashboard" [ref=f18e608] [cursor=pointer]:
+              - /url: /portal/dashboard
+              - generic [ref=f18e609]: 
+              - generic [ref=f18e610]: Dashboard
+          - listitem [ref=f18e611]:
+            - link " My Inbox" [ref=f18e612] [cursor=pointer]:
+              - /url: /portal/pages/workflow-inbox
+              - generic [ref=f18e613]: 
+              - generic [ref=f18e614]: My Inbox
+      - listitem [ref=f18e615]:
+        - button "Sales " [ref=f18e616] [cursor=pointer]:
+          - generic [ref=f18e617]: Sales
+          - generic [ref=f18e618]: 
+        - list:
+          - listitem [ref=f18e619]:
+            - link " Customers" [ref=f18e620] [cursor=pointer]:
+              - /url: /portal/pages/customers
+              - generic [ref=f18e621]: 
+              - generic [ref=f18e622]: Customers
+      - listitem [ref=f18e623]:
+        - button "Point of Sale " [ref=f18e624] [cursor=pointer]:
+          - generic [ref=f18e625]: Point of Sale
+          - generic [ref=f18e626]: 
+        - list:
+          - listitem [ref=f18e627]:
+            - link " Stores" [ref=f18e628] [cursor=pointer]:
+              - /url: /portal/pages/pos/stores
+              - generic [ref=f18e629]: 
+              - generic [ref=f18e630]: Stores
+          - listitem [ref=f18e631]:
+            - link " Shifts" [ref=f18e632] [cursor=pointer]:
+              - /url: /portal/pages/pos/shifts
+              - generic [ref=f18e633]: 
+              - generic [ref=f18e634]: Shifts
+          - listitem [ref=f18e635]:
+            - link " POS Orders" [ref=f18e636] [cursor=pointer]:
+              - /url: /portal/pages/pos/orders
+              - generic [ref=f18e637]: 
+              - generic [ref=f18e638]: POS Orders
+          - listitem [ref=f18e639]:
+            - link " Store credit" [ref=f18e640] [cursor=pointer]:
+              - /url: /portal/pages/pos/credit-notes
+              - generic [ref=f18e641]: 
+              - generic [ref=f18e642]: Store credit
+          - listitem [ref=f18e643]:
+            - link " Open POS" [ref=f18e644] [cursor=pointer]:
+              - /url: /pos
+              - generic [ref=f18e645]: 
+              - generic [ref=f18e646]: Open POS
+  - generic [ref=f18e571]:
+    - generic [ref=f18e574]:
+      - toolbar "Commands" [ref=f18e575]:
+        - button " Refresh" [ref=f18e577] [cursor=pointer]:
+          - generic [ref=f18e578]: 
+          - generic [ref=f18e579]: Refresh
+        - generic [ref=f18e580]: Live
+      - generic [ref=f18e585]:
+        - generic [ref=f18e587]:
+          - generic [ref=f18e588]: Saturday, 17 October 2026
+          - heading "Supply Chain Dashboard" [level=1] [ref=f18e589]
+        - generic [ref=f18e591] [cursor=pointer]:
+          - generic [ref=f18e592]:
+            - generic [ref=f18e593]: 
+            - text: Needs Attention
+          - generic [ref=f18e594]: "0"
+          - generic [ref=f18e595]: 0 queues waiting
+    - generic [ref=f18e597]:
+      - text: All Rights Reserved To
+      - link "Loading" [ref=f18e598] [cursor=pointer]:
+        - /url: https://primeng.org

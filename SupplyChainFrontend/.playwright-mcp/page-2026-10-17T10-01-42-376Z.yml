@@ -1,0 +1,351 @@
+- generic [ref=f30e4]:
+  - generic [ref=f30e5]:
+    - generic [ref=f30e6]:
+      - button "" [ref=f30e7] [cursor=pointer]
+      - link:
+        - /url: /portal/dashboard
+      - navigation "Breadcrumb" [ref=f30e2735]:
+        - generic [ref=f30e2736]: CRM
+        - generic [ref=f30e2737]: ›
+        - link "Opportunities" [ref=f30e2738] [cursor=pointer]:
+          - /url: /portal/pages/crm/opportunities
+        - generic [ref=f30e2739]: ›
+        - strong [ref=f30e2740]: OP-2026-00002
+    - button " Search anything... Ctrl K" [ref=f30e16] [cursor=pointer]:
+      - generic [ref=f30e17]: 
+      - generic [ref=f30e18]: Search anything...
+      - generic [ref=f30e19]: Ctrl K
+    - generic [ref=f30e20]:
+      - generic [ref=f30e21]:
+        - button "" [ref=f30e22] [cursor=pointer]
+        - generic: "1"
+      - generic [ref=f30e24]:
+        - button "Appearance" [ref=f30e25] [cursor=pointer]:
+          - generic [ref=f30e26]: 
+        - text:    
+      - generic [ref=f30e28]:
+        - button "MC " [ref=f30e29] [cursor=pointer]:
+          - generic [ref=f30e30]: MC
+          - generic [ref=f30e32]: 
+        - text:   
+  - generic [ref=f30e33]:
+    - generic [ref=f30e34]:
+      - generic [ref=f30e35]: 
+      - generic [ref=f30e37]:
+        - generic [ref=f30e38]: SupplyChain MS
+        - generic [ref=f30e39]: KFC Pakistan (KFC)
+    - list [ref=f30e41]:
+      - listitem [ref=f30e42]:
+        - button "Home " [ref=f30e43] [cursor=pointer]:
+          - generic [ref=f30e44]: Home
+          - generic [ref=f30e45]: 
+        - list:
+          - listitem [ref=f30e46]:
+            - link " Dashboard" [ref=f30e47] [cursor=pointer]:
+              - /url: /portal/dashboard
+              - generic [ref=f30e48]: 
+              - generic [ref=f30e49]: Dashboard
+          - listitem [ref=f30e50]:
+            - link " My Inbox" [ref=f30e51] [cursor=pointer]:
+              - /url: /portal/pages/workflow-inbox
+              - generic [ref=f30e52]: 
+              - generic [ref=f30e53]: My Inbox
+      - listitem [ref=f30e54]:
+        - button "Sales " [ref=f30e55] [cursor=pointer]:
+          - generic [ref=f30e56]: Sales
+          - generic [ref=f30e57]: 
+        - list:
+          - listitem [ref=f30e58]:
+            - link " Customers" [ref=f30e59] [cursor=pointer]:
+              - /url: /portal/pages/customers
+              - generic [ref=f30e60]: 
+              - generic [ref=f30e61]: Customers
+          - listitem [ref=f30e62]:
+            - link " Inquiries" [ref=f30e63] [cursor=pointer]:
+              - /url: /portal/pages/sales/inquiries
+              - generic [ref=f30e64]: 
+              - generic [ref=f30e65]: Inquiries
+          - listitem [ref=f30e66]:
+            - link " Customer Quotations" [ref=f30e67] [cursor=pointer]:
+              - /url: /portal/pages/sales/quotations
+              - generic [ref=f30e68]: 
+              - generic [ref=f30e69]: Customer Quotations
+          - listitem [ref=f30e70]:
+            - generic [ref=f30e71] [cursor=pointer]:
+              - generic [ref=f30e72]: 
+              - generic [ref=f30e73]: Sale Orders
+              - generic [ref=f30e74]: 
+            - list:
+              - listitem [ref=f30e75]:
+                - link " All Sale Orders" [ref=f30e76] [cursor=pointer]:
+                  - /url: /portal/pages/sales/orders
+                  - generic [ref=f30e77]: 
+                  - generic [ref=f30e78]: All Sale Orders
+      - listitem [ref=f30e79]:
+        - button "CRM " [expanded] [ref=f30e80] [cursor=pointer]:
+          - generic [ref=f30e81]: CRM
+          - generic [ref=f30e82]: 
+        - list [ref=f30e83]:
+          - listitem [ref=f30e84]:
+            - link " Leads" [ref=f30e85] [cursor=pointer]:
+              - /url: /portal/pages/crm/leads
+              - generic [ref=f30e86]: 
+              - generic [ref=f30e87]: Leads
+          - listitem [ref=f30e88]:
+            - link " Opportunities" [ref=f30e89] [cursor=pointer]:
+              - /url: /portal/pages/crm/opportunities
+              - generic [ref=f30e90]: 
+              - generic [ref=f30e91]: Opportunities
+          - listitem [ref=f30e92]:
+            - link " Activities" [ref=f30e93] [cursor=pointer]:
+              - /url: /portal/pages/crm/activities
+              - generic [ref=f30e94]: 
+              - generic [ref=f30e95]: Activities
+          - listitem [ref=f30e96]:
+            - link " Campaigns" [ref=f30e97] [cursor=pointer]:
+              - /url: /portal/pages/crm/campaigns
+              - generic [ref=f30e98]: 
+              - generic [ref=f30e99]: Campaigns
+  - generic [ref=f30e100]:
+    - generic [ref=f30e2732]:
+      - generic:
+        - alertdialog
+      - generic [ref=f30e2741]:
+        - toolbar "Commands" [ref=f30e2742]:
+          - button " Create inquiry" [ref=f30e2744] [cursor=pointer]:
+            - generic [ref=f30e2745]: 
+            - generic [ref=f30e2746]: Create inquiry
+          - button " Create quotation" [ref=f30e2748] [cursor=pointer]:
+            - generic [ref=f30e2749]: 
+            - generic [ref=f30e2750]: Create quotation
+          - button " Create order" [ref=f30e2752] [cursor=pointer]:
+            - generic [ref=f30e2753]: 
+            - generic [ref=f30e2754]: Create order
+          - button " Won" [ref=f30e2756] [cursor=pointer]:
+            - generic [ref=f30e2757]: 
+            - generic [ref=f30e2758]: Won
+          - button " Lost" [ref=f30e2760] [cursor=pointer]:
+            - generic [ref=f30e2761]: 
+            - generic [ref=f30e2762]: Lost
+          - button " Log activity" [ref=f30e2765] [cursor=pointer]:
+            - generic [ref=f30e2766]: 
+            - generic [ref=f30e2767]: Log activity
+          - button " Edit" [ref=f30e2769] [cursor=pointer]:
+            - generic [ref=f30e2770]: 
+            - generic [ref=f30e2771]: Edit
+          - button " All opportunities" [ref=f30e2774] [cursor=pointer]:
+            - generic [ref=f30e2775]: 
+            - generic [ref=f30e2776]: All opportunities
+        - generic [ref=f30e2777]:
+          - generic [ref=f30e2778]:
+            - banner [ref=f30e2779]:
+              - generic [ref=f30e2781]:
+                - generic [ref=f30e2782]:
+                  - text: Opportunity · from lead
+                  - link "LD-2026-00003" [ref=f30e2783] [cursor=pointer]:
+                    - /url: /portal/pages/crm/leads/881ad0e0-40b9-4449-ab00-be25002e32a6
+                - heading "OP-2026-00002 Open" [level=1] [ref=f30e2784]:
+                  - generic [ref=f30e2785]: OP-2026-00002
+                  - generic [ref=f30e2786]: Open
+                - generic [ref=f30e2787]: E2E_A41 Second inquiry - generators · E2E_A41 Alpha Traders · Mona Crmadmin
+              - generic [ref=f30e2788]:
+                - button "Needs Analysis 40%" [disabled] [ref=f30e2789]:
+                  - generic [ref=f30e2790]: Needs Analysis
+                  - generic [ref=f30e2791]: 40%
+                - button "Proposal / Quotation 60%" [ref=f30e2792] [cursor=pointer]:
+                  - generic [ref=f30e2793]: Proposal / Quotation
+                  - generic [ref=f30e2794]: 60%
+                - button "Negotiation 75%" [ref=f30e2795] [cursor=pointer]:
+                  - generic [ref=f30e2796]: Negotiation
+                  - generic [ref=f30e2797]: 75%
+                - button "Won 100%" [disabled] [ref=f30e2798]:
+                  - generic [ref=f30e2799]: Won
+                  - generic [ref=f30e2800]: 100%
+                - button "Lost 0%" [disabled] [ref=f30e2801]:
+                  - generic [ref=f30e2802]: Lost
+                  - generic [ref=f30e2803]: 0%
+              - generic [ref=f30e2804]:
+                - generic [ref=f30e2805]:
+                  - generic [ref=f30e2806]: Stage
+                  - generic [ref=f30e2807]: Needs Analysis
+                  - generic [ref=f30e2808]: 40%
+                - generic [ref=f30e2809]:
+                  - generic [ref=f30e2810]: Estimated
+                  - generic [ref=f30e2811]: 120,000 GBP
+            - navigation "Sections" [ref=f30e2813]:
+              - button "Details" [ref=f30e2814] [cursor=pointer]
+              - button "Timeline" [ref=f30e2815] [cursor=pointer]
+            - generic [ref=f30e2816]:
+              - generic [ref=f30e2817]:
+                - generic [ref=f30e2818]:
+                  - heading "Account" [level=2] [ref=f30e2820]
+                  - generic [ref=f30e2821]:
+                    - generic [ref=f30e2822]: Account
+                    - generic [ref=f30e2823]:
+                      - link "E2E_A41 Alpha Traders" [ref=f30e2824] [cursor=pointer]:
+                        - /url: /portal/pages/customers/4e02e15a-0690-4c96-9bfd-21f87a772193
+                      - text: C-00001
+                    - generic [ref=f30e2825]: Contact
+                    - generic [ref=f30e2826]: Ahmed Khan
+                    - generic [ref=f30e2827]: Email
+                    - generic [ref=f30e2828]: e2e.a41.ahmed@alpha-traders.example
+                    - generic [ref=f30e2829]: Phone
+                    - generic [ref=f30e2830]: "+923001200001"
+                  - heading "Ownership" [level=2] [ref=f30e2832]
+                  - generic [ref=f30e2833]:
+                    - generic [ref=f30e2834]: Assigned
+                    - generic [ref=f30e2835]: Mona Crmadmin
+                    - generic [ref=f30e2836]: Team
+                    - generic [ref=f30e2837]: —
+                    - generic [ref=f30e2838]: Created
+                    - generic [ref=f30e2839]: 17 Oct 2026 by Mona Crmadmin
+                - generic [ref=f30e2840]:
+                  - heading "Deal" [level=2] [ref=f30e2842]
+                  - generic [ref=f30e2843]:
+                    - generic [ref=f30e2844]: Topic
+                    - generic [ref=f30e2845]: E2E_A41 Second inquiry - generators
+                    - generic [ref=f30e2846]: Lead
+                    - link "LD-2026-00003" [ref=f30e2848] [cursor=pointer]:
+                      - /url: /portal/pages/crm/leads/881ad0e0-40b9-4449-ab00-be25002e32a6
+                    - generic [ref=f30e2849]: Campaign
+                    - generic [ref=f30e2850]: —
+                    - generic [ref=f30e2851]: Revenue
+                    - generic [ref=f30e2852]: 120,000 GBP
+                    - generic [ref=f30e2853]: Close by
+                    - generic [ref=f30e2854]: —
+                    - generic [ref=f30e2855]: Description
+                    - generic [ref=f30e2856]: —
+                  - heading "Linked documents" [level=2] [ref=f30e2858]
+                  - generic [ref=f30e2859]: No inquiry, quotation or sale order yet.
+              - generic [ref=f30e2861]:
+                - heading "Timeline" [level=2] [ref=f30e2863]
+                - generic [ref=f30e2865]:
+                  - generic [ref=f30e2866]:
+                    - generic [ref=f30e2867]:
+                      - button " Call" [ref=f30e2869] [cursor=pointer]:
+                        - generic [ref=f30e2870]: 
+                        - generic [ref=f30e2871]: Call
+                      - button " Meeting" [ref=f30e2873] [cursor=pointer]:
+                        - generic [ref=f30e2874]: 
+                        - generic [ref=f30e2875]: Meeting
+                      - button " Note" [ref=f30e2877] [cursor=pointer]:
+                        - generic [ref=f30e2878]: 
+                        - generic [ref=f30e2879]: Note
+                      - button " Task" [ref=f30e2881] [cursor=pointer]:
+                        - generic [ref=f30e2882]: 
+                        - generic [ref=f30e2883]: Task
+                      - button " Email" [ref=f30e2885] [cursor=pointer]:
+                        - generic [ref=f30e2886]: 
+                        - generic [ref=f30e2887]: Email
+                      - button " Document" [ref=f30e2889] [cursor=pointer]:
+                        - generic [ref=f30e2890]: 
+                        - generic [ref=f30e2891]: Document
+                    - button " Export" [ref=f30e2894] [cursor=pointer]:
+                      - generic [ref=f30e2895]: 
+                      - generic [ref=f30e2896]: Export
+                  - generic [ref=f30e2897]:
+                    - generic [ref=f30e2898]: 
+                    - textbox "Search the timeline" [ref=f30e2899]:
+                      - /placeholder: "Search the timeline: subject, notes, people, documents"
+                  - list [ref=f30e2912]:
+                    - listitem [ref=f30e2913]:
+                      - generic [ref=f30e2914]: 
+                      - generic [ref=f30e2917]:
+                        - strong [ref=f30e2918]: Created
+                        - generic [ref=f30e2919]: 17 Oct 2026, 15:00
+                    - listitem [ref=f30e2920]: Activities from lead LD-2026-00003
+                    - listitem [ref=f30e2921]:
+                      - generic [ref=f30e2922]: 
+                      - generic [ref=f30e2924]:
+                        - generic [ref=f30e2925]:
+                          - strong [ref=f30e2926]: Converted to opportunity OP-2026-00002
+                          - generic [ref=f30e2927]: 17 Oct 2026, 15:00
+                        - generic [ref=f30e2928]: by Mona Crmadmin · Existing account, existing contact
+                    - listitem [ref=f30e2929]:
+                      - generic [ref=f30e2930]: 
+                      - generic [ref=f30e2932]:
+                        - generic [ref=f30e2933]:
+                          - strong [ref=f30e2934]: "Status: Qualified → Converted"
+                          - generic [ref=f30e2935]: 17 Oct 2026, 15:00
+                        - generic [ref=f30e2936]: by Mona Crmadmin
+                    - listitem [ref=f30e2937]:
+                      - generic [ref=f30e2938]: 
+                      - generic [ref=f30e2940]:
+                        - generic [ref=f30e2941]:
+                          - strong [ref=f30e2942]: "Status: Contacted → Qualified"
+                          - generic [ref=f30e2943]: 17 Oct 2026, 14:59
+                        - generic [ref=f30e2944]: by Mona Crmadmin
+                    - listitem [ref=f30e2945]:
+                      - generic [ref=f30e2946]: 
+                      - generic [ref=f30e2948]:
+                        - generic [ref=f30e2949]:
+                          - strong [ref=f30e2950]: "Stage: Initial Contact → Qualification"
+                          - generic [ref=f30e2951]: 17 Oct 2026, 14:59
+                        - generic [ref=f30e2952]: by Mona Crmadmin
+                    - listitem [ref=f30e2953]:
+                      - generic [ref=f30e2954]: 
+                      - generic [ref=f30e2956]:
+                        - generic [ref=f30e2957]:
+                          - strong [ref=f30e2958]: "Status: New → Contacted"
+                          - generic [ref=f30e2959]: 17 Oct 2026, 14:59
+                        - generic [ref=f30e2960]: "by Mona Crmadmin · Activity logged: E2E_A41 Call about generators"
+                    - listitem [ref=f30e2961]:
+                      - generic [ref=f30e2962]: 
+                      - generic [ref=f30e2964]:
+                        - generic [ref=f30e2965]:
+                          - strong [ref=f30e2966]: "Stage: New Lead → Initial Contact"
+                          - generic [ref=f30e2967]: 17 Oct 2026, 14:59
+                        - generic [ref=f30e2968]: by Mona Crmadmin
+                    - listitem [ref=f30e2969]:
+                      - generic [ref=f30e2970]: 
+                      - generic [ref=f30e2972]:
+                        - generic [ref=f30e2973]:
+                          - strong [ref=f30e2974]: Phone call — E2E_A41 Call about generators
+                          - generic [ref=f30e2975]: 17 Oct 2026, 14:59
+                        - generic [ref=f30e2976]: Mona Crmadmin · New Lead
+                        - link "Open" [ref=f30e2978] [cursor=pointer]:
+                          - /url: javascript:void(0)
+                    - listitem [ref=f30e2979]:
+                      - generic [ref=f30e2980]: 
+                      - generic [ref=f30e2982]:
+                        - generic [ref=f30e2983]:
+                          - strong [ref=f30e2984]: Assigned to Mona Crmadmin
+                          - generic [ref=f30e2985]: 17 Oct 2026, 14:56
+                        - generic [ref=f30e2986]: by Mona Crmadmin
+                    - listitem [ref=f30e2987]:
+                      - generic [ref=f30e2988]: 
+                      - generic [ref=f30e2991]:
+                        - strong [ref=f30e2992]: Created
+                        - generic [ref=f30e2993]: 17 Oct 2026, 14:56
+          - generic [ref=f30e2901]:
+            - tablist [ref=f30e2902]:
+              - tab "Cross-references" [selected] [ref=f30e2903] [cursor=pointer]
+              - button "Hide side panel" [ref=f30e2904] [cursor=pointer]:
+                - generic [ref=f30e2905]: 
+            - generic [ref=f30e2907]:
+              - heading "Other leads for E2E_A41 Alpha Traders" [level=4] [ref=f30e2908]
+              - link "LD-2026-00001 E2E_A41 AC and ovens inquiry from Facebook Converted · 17 Oct 2026" [ref=f30e2909] [cursor=pointer]:
+                - /url: /portal/pages/crm/leads/62242edf-d62f-4f11-8507-716f86fd99d8
+                - text: LD-2026-00001 E2E_A41 AC and ovens inquiry from FacebookConverted · 17 Oct 2026
+              - heading "Other leads for Ahmed Khan" [level=4] [ref=f30e2910]
+              - link "LD-2026-00001 E2E_A41 AC and ovens inquiry from Facebook Converted · 17 Oct 2026" [ref=f30e2911] [cursor=pointer]:
+                - /url: /portal/pages/crm/leads/62242edf-d62f-4f11-8507-716f86fd99d8
+                - text: LD-2026-00001 E2E_A41 AC and ovens inquiry from FacebookConverted · 17 Oct 2026
+      - dialog "Mark as lost" [ref=f30e2995]:
+        - generic [ref=f30e2998]:
+          - generic [ref=f30e2999]: Mark as lost
+          - button [ref=f30e3002] [cursor=pointer]
+        - generic [ref=f30e3007]:
+          - generic [ref=f30e3008]:
+            - generic [ref=f30e3009]: Reason *
+            - textbox "Reason *" [ref=f30e3010]
+          - generic [ref=f30e3011]:
+            - generic [ref=f30e3012]: Lost to (competitor)
+            - textbox "Lost to (competitor)" [ref=f30e3013]
+        - generic [ref=f30e3014]:
+          - button "Cancel" [active] [ref=f30e3016] [cursor=pointer]
+          - button "Mark lost" [disabled] [ref=f30e3019]
+    - generic [ref=f30e408]:
+      - text: All Rights Reserved To
+      - link "Loading" [ref=f30e409] [cursor=pointer]:
+        - /url: https://primeng.org

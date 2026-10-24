@@ -8,6 +8,9 @@ public interface IPurchaseOrderService
 {
     Task<Guid> CreateFromPrAsync(Guid prUuid, ConvertPrToPoRequest req, int createdBy);
     Task<List<Guid>> CreateFromPrSplitAsync(Guid prUuid, ConvertPrSplitRequest req, int createdBy);
+    // A46 C5 / BR-30 - the same conversions, also reporting how many lines were priced from the supplier pricelist.
+    Task<PoConversionResult> CreateFromPrWithSummaryAsync(Guid prUuid, ConvertPrToPoRequest req, int createdBy);
+    Task<PoConversionResult> CreateFromPrSplitWithSummaryAsync(Guid prUuid, ConvertPrSplitRequest req, int createdBy);
     Task<Guid> CreateAsync(CreatePoRequest req, int createdBy);
     // A31-C3/BR-C3-07 — appends to an existing open PRODUCTION-sourced Draft PO for this supplier
     // when one exists, rather than raising a duplicate; creates fresh otherwise.
@@ -18,6 +21,8 @@ public interface IPurchaseOrderService
     // A29-P5-11 §6.2 — returns what changed field by field for a PO the system raised for a sale
     // order (empty for any other), which is what the controller writes to the audit log.
     Task<IReadOnlyList<PoFieldChange>> UpdateAsync(Guid uuid, PatchPoRequest req, int modifiedBy);
+    // A46-0152 - the same update, also returning the per-line pricing result the PATCH answers with.
+    Task<PoUpdateResult> UpdateWithPricingAsync(Guid uuid, PatchPoRequest req, int modifiedBy);
     // A29-P5-11 §6.2 — move part of a line of a DRAFT sale-order PO to a new PO for another supplier.
     Task<SplitPoResult> SplitAsync(Guid uuid, SplitPoRequest req, int userId);
     Task SubmitForApprovalAsync(Guid uuid, int userId);

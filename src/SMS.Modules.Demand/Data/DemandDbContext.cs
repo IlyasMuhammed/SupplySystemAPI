@@ -35,6 +35,8 @@ internal sealed class DemandDbContext : DbContext, ITenantScopedDbContext
     internal DbSet<SaleQuotation>             SaleQuotations            => Set<SaleQuotation>();
     internal DbSet<SaleQuotationLine>         SaleQuotationLines        => Set<SaleQuotationLine>();
     internal DbSet<RejectionReason>           RejectionReasons          => Set<RejectionReason>();
+    // A45 — supplier pricelists (PO auto-pricing).
+    internal DbSet<SupplierPricelist>         SupplierPricelists        => Set<SupplierPricelist>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

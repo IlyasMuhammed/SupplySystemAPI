@@ -237,13 +237,17 @@ export function creditAmount(tenders: Tender[]): number {
     return fromCents(tenders.filter(t => t.method === 'ON_ACCOUNT').reduce((s, t) => s + cents(t.amount), 0));
 }
 
-/** Quick cash amounts for the payment screen: exact, then the next round notes above the due amount. */
+/**
+ * Quick cash amounts for the payment screen: the next round notes ABOVE the due amount, every one a multiple of 50
+ * (50, 100, 500, 1000, 5000 steps), at most five. Always strictly greater than what is due — a due amount that is itself a
+ * multiple of 50 gets the next one up (300 → 350, 400, 500, 1000, 5000). Paying the exact amount stays the prefilled value
+ * of the amount box ("Add cash").
+ */
 export function quickAmounts(due: number): number[] {
     if (due <= 0) return [];
-    const out = new Set<number>([round2(due)]);
-    for (const step of [10, 50, 100, 500, 1000, 5000]) {
-        const v = Math.ceil(due / step) * step;
-        if (v > due) out.add(v);
+    const out = new Set<number>();
+    for (const step of [50, 100, 500, 1000, 5000]) {
+        out.add((Math.floor(round2(due) / step) + 1) * step); // the smallest multiple of `step` above the due amount
         if (out.size >= 5) break;
     }
     return [...out].sort((a, b) => a - b);

@@ -1,0 +1,198 @@
+- generic [ref=f52e4]:
+  - generic [ref=f52e5]:
+    - generic [ref=f52e6]:
+      - button "" [ref=f52e7] [cursor=pointer]
+      - link:
+        - /url: /portal/dashboard
+      - navigation "Breadcrumb" [ref=f52e9]:
+        - generic [ref=f52e10]: Sales
+        - generic [ref=f52e11]: ›
+        - link "Quotations" [ref=f52e12] [cursor=pointer]:
+          - /url: /portal/pages/sales/quotations
+        - generic [ref=f52e13]: ›
+        - strong [ref=f52e14]: SQ-2026-00001
+    - button " Search anything... Ctrl K" [ref=f52e16] [cursor=pointer]:
+      - generic [ref=f52e17]: 
+      - generic [ref=f52e18]: Search anything...
+      - generic [ref=f52e19]: Ctrl K
+    - generic [ref=f52e20]:
+      - generic [ref=f52e21]:
+        - button "" [ref=f52e22] [cursor=pointer]
+        - generic: "1"
+      - generic [ref=f52e24]:
+        - button "Appearance" [ref=f52e25] [cursor=pointer]:
+          - generic [ref=f52e26]: 
+        - text:    
+      - generic [ref=f52e28]:
+        - button "MC " [ref=f52e29] [cursor=pointer]:
+          - generic [ref=f52e30]: MC
+          - generic [ref=f52e32]: 
+        - text:   
+  - generic [ref=f52e33]:
+    - generic [ref=f52e34]:
+      - generic [ref=f52e35]: 
+      - generic [ref=f52e37]:
+        - generic [ref=f52e38]: SupplyChain MS
+        - generic [ref=f52e39]: KFC Pakistan (KFC)
+    - list [ref=f52e41]:
+      - listitem [ref=f52e42]:
+        - button "Home " [ref=f52e43] [cursor=pointer]:
+          - generic [ref=f52e44]: Home
+          - generic [ref=f52e45]: 
+        - list:
+          - listitem [ref=f52e46]:
+            - link " Dashboard" [ref=f52e47] [cursor=pointer]:
+              - /url: /portal/dashboard
+              - generic [ref=f52e48]: 
+              - generic [ref=f52e49]: Dashboard
+          - listitem [ref=f52e50]:
+            - link " My Inbox" [ref=f52e51] [cursor=pointer]:
+              - /url: /portal/pages/workflow-inbox
+              - generic [ref=f52e52]: 
+              - generic [ref=f52e53]: My Inbox
+      - listitem [ref=f52e54]:
+        - button "Sales " [expanded] [ref=f52e55] [cursor=pointer]:
+          - generic [ref=f52e56]: Sales
+          - generic [ref=f52e57]: 
+        - list [ref=f52e58]:
+          - listitem [ref=f52e59]:
+            - link " Customers" [ref=f52e60] [cursor=pointer]:
+              - /url: /portal/pages/customers
+              - generic [ref=f52e61]: 
+              - generic [ref=f52e62]: Customers
+          - listitem [ref=f52e63]:
+            - link " Inquiries" [ref=f52e64] [cursor=pointer]:
+              - /url: /portal/pages/sales/inquiries
+              - generic [ref=f52e65]: 
+              - generic [ref=f52e66]: Inquiries
+          - listitem [ref=f52e67]:
+            - link " Customer Quotations" [ref=f52e68] [cursor=pointer]:
+              - /url: /portal/pages/sales/quotations
+              - generic [ref=f52e69]: 
+              - generic [ref=f52e70]: Customer Quotations
+          - listitem [ref=f52e71]:
+            - generic [ref=f52e72] [cursor=pointer]:
+              - generic [ref=f52e73]: 
+              - generic [ref=f52e74]: Sale Orders
+              - generic [ref=f52e75]: 
+            - list:
+              - listitem [ref=f52e76]:
+                - link " All Sale Orders" [ref=f52e77] [cursor=pointer]:
+                  - /url: /portal/pages/sales/orders
+                  - generic [ref=f52e78]: 
+                  - generic [ref=f52e79]: All Sale Orders
+      - listitem [ref=f52e80]:
+        - button "CRM " [ref=f52e81] [cursor=pointer]:
+          - generic [ref=f52e82]: CRM
+          - generic [ref=f52e83]: 
+        - list:
+          - listitem [ref=f52e84]:
+            - link " Leads" [ref=f52e85] [cursor=pointer]:
+              - /url: /portal/pages/crm/leads
+              - generic [ref=f52e86]: 
+              - generic [ref=f52e87]: Leads
+          - listitem [ref=f52e88]:
+            - link " Opportunities" [ref=f52e89] [cursor=pointer]:
+              - /url: /portal/pages/crm/opportunities
+              - generic [ref=f52e90]: 
+              - generic [ref=f52e91]: Opportunities
+          - listitem [ref=f52e92]:
+            - link " Activities" [ref=f52e93] [cursor=pointer]:
+              - /url: /portal/pages/crm/activities
+              - generic [ref=f52e94]: 
+              - generic [ref=f52e95]: Activities
+          - listitem [ref=f52e96]:
+            - link " Campaigns" [ref=f52e97] [cursor=pointer]:
+              - /url: /portal/pages/crm/campaigns
+              - generic [ref=f52e98]: 
+              - generic [ref=f52e99]: Campaigns
+  - generic [ref=f52e100]:
+    - generic [ref=f52e103]:
+      - toolbar "Commands" [ref=f52e104]:
+        - button " Edit header" [ref=f52e106] [cursor=pointer]:
+          - generic [ref=f52e107]: 
+          - generic [ref=f52e108]: Edit header
+        - button " Copy" [ref=f52e110] [cursor=pointer]:
+          - generic [ref=f52e111]: 
+          - generic [ref=f52e112]: Copy
+      - generic [ref=f52e114]:
+        - banner [ref=f52e115]:
+          - generic [ref=f52e117]:
+            - generic [ref=f52e118]: Customer quotation
+            - heading "SQ-2026-00001 Draft" [level=1] [ref=f52e119]:
+              - generic [ref=f52e120]: SQ-2026-00001
+              - generic [ref=f52e121]: Draft
+            - generic [ref=f52e123]:
+              - text: E2E_A41 Alpha Traders · GBP · from inquiry
+              - generic [ref=f52e124]: —
+          - list "Progress" [ref=f52e126]:
+            - listitem [ref=f52e127]:
+              - generic [ref=f52e128]: Draft
+            - listitem [ref=f52e129]:
+              - generic [ref=f52e130]: Sent
+            - listitem [ref=f52e131]:
+              - generic [ref=f52e132]: Accepted
+            - listitem [ref=f52e133]:
+              - generic [ref=f52e134]: Converted
+          - generic [ref=f52e135]:
+            - generic [ref=f52e136]:
+              - generic [ref=f52e137]: Total
+              - generic [ref=f52e138]: "0.00"
+              - generic [ref=f52e139]: GBP incl. tax
+            - generic [ref=f52e140]:
+              - generic [ref=f52e141]: Valid
+              - generic [ref=f52e142]: 17 Oct 2026 — 16 Nov 2026
+              - generic [ref=f52e143]: 0 lines
+        - generic [ref=f52e146]:
+          - tablist [ref=f52e149]:
+            - tab " Details" [ref=f52e150] [cursor=pointer]:
+              - generic [ref=f52e151]: 
+              - text: Details
+            - tab " Lines" [selected] [ref=f52e153] [cursor=pointer]:
+              - generic [ref=f52e154]: 
+              - text: Lines
+            - tab " Terms" [ref=f52e155] [cursor=pointer]:
+              - generic [ref=f52e156]: 
+              - text: Terms
+            - tab " Attachments" [ref=f52e157] [cursor=pointer]:
+              - generic [ref=f52e158]: 
+              - text: Attachments
+          - generic [ref=f52e159]:
+            - tabpanel " Lines" [ref=f52e161]:
+              - generic [ref=f52e162]:
+                - generic [ref=f52e163]: Lines change only while the quotation is a draft.
+                - button " Add Line" [ref=f52e165] [cursor=pointer]:
+                  - generic [ref=f52e166]: 
+                  - generic [ref=f52e167]: Add Line
+              - table [ref=f52e172]:
+                - rowgroup [ref=f52e173]:
+                  - row [ref=f52e174]:
+                    - columnheader "#" [ref=f52e175]
+                    - columnheader "Product" [ref=f52e176]
+                    - columnheader "Qty" [ref=f52e177]
+                    - columnheader "Price" [ref=f52e178]
+                    - columnheader "Disc %" [ref=f52e179]
+                    - columnheader "Tax" [ref=f52e180]
+                    - columnheader "Total" [ref=f52e181]
+                    - columnheader "Delivery" [ref=f52e182]
+                    - columnheader "Type" [ref=f52e183]
+                    - columnheader "Response" [ref=f52e184]
+                    - columnheader "Actions" [ref=f52e185]
+                - rowgroup [ref=f52e186]:
+                  - row [ref=f52e187]:
+                    - cell "No lines yet." [ref=f52e188]
+              - generic [ref=f52e189]:
+                - generic [ref=f52e190]:
+                  - text: Subtotal
+                  - strong [ref=f52e191]: "0.00"
+                - generic [ref=f52e192]:
+                  - text: Tax
+                  - strong [ref=f52e193]: "0.00"
+                - generic [ref=f52e194]:
+                  - text: Grand total
+                  - strong [ref=f52e195]: 0.00 GBP
+            - generic:   
+    - generic [ref=f52e197]:
+      - text: All Rights Reserved To
+      - link "Loading" [ref=f52e198] [cursor=pointer]:
+        - /url: https://primeng.org

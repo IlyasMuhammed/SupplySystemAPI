@@ -1,0 +1,44 @@
+- generic [ref=f30e3412]:
+  - generic [ref=f30e3413]:
+    - generic [ref=f30e3414]:
+      - button "" [ref=f30e3415] [cursor=pointer]
+      - link:
+        - /url: /portal/dashboard
+      - navigation "Breadcrumb" [ref=f30e3417]:
+        - strong [ref=f30e3418]: Home
+    - button " Search anything... Ctrl K" [ref=f30e3420] [cursor=pointer]:
+      - generic [ref=f30e3421]: 
+      - generic [ref=f30e3422]: Search anything...
+      - generic [ref=f30e3423]: Ctrl K
+    - generic [ref=f30e3424]:
+      - generic [ref=f30e3425]:
+        - button "" [ref=f30e3426] [cursor=pointer]
+        - generic: "2"
+      - generic [ref=f30e3428]:
+        - button "Appearance" [ref=f30e3429] [cursor=pointer]:
+          - generic [ref=f30e3430]: 
+        - text:    
+      - generic [ref=f30e3432]:
+        - button "SS " [ref=f30e3433] [cursor=pointer]:
+          - generic [ref=f30e3434]: SS
+          - generic [ref=f30e3436]: 
+        - text:   
+  - generic [ref=f30e3437]:
+    - generic [ref=f30e3438]:
+      - generic [ref=f30e3439]: 
+      - generic [ref=f30e3441]:
+        - generic [ref=f30e3442]: SupplyChain MS
+        - generic [ref=f30e3443]: Supply Management System
+    - generic:
+      - list
+  - generic [ref=f30e3444]:
+    - generic [ref=f30e3447]:
+      - toolbar "Commands" [ref=f30e3448]:
+        - button "Refresh" [disabled] [ref=f30e3450]
+      - generic [ref=f30e3460]:
+        - generic [ref=f30e3461]: Saturday, 17 October 2026
+        - heading "Supply Chain Dashboard" [level=1] [ref=f30e3462]
+    - generic [ref=f30e3493]:
+      - text: All Rights Reserved To
+      - link "Loading" [ref=f30e3494] [cursor=pointer]:
+        - /url: https://primeng.org

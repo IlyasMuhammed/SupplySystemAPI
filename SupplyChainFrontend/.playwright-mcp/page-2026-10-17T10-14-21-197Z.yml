@@ -1,0 +1,21 @@
+- generic [ref=f35e460]:
+  - button "Switch light / dark" [ref=f35e463] [cursor=pointer]:
+    - generic [ref=f35e464]: 
+  - generic [ref=f35e468]:
+    - generic [ref=f35e469]:
+      - generic [ref=f35e470]: Supply Chain Management
+      - text: Sign in to continue
+    - generic [ref=f35e471]:
+      - generic [ref=f35e472]: Email
+      - textbox "Email" [ref=f35e473]:
+        - /placeholder: Email address
+        - text: e2e.a41.crmadmin@example.com
+      - generic [ref=f35e474]: Password
+      - textbox "Password" [ref=f35e477]: "*RDhf4$pubCX"
+      - generic [ref=f35e481]:
+        - generic [ref=f35e482]:
+          - checkbox "Remember me" [ref=f35e485] [cursor=pointer]
+          - generic [ref=f35e487] [cursor=pointer]: Remember me
+        - generic [ref=f35e488] [cursor=pointer]: Forgot password?
+      - button "Sign In" [disabled] [ref=f35e490]
+      - generic [ref=f35e492]: Don't have an account? Sign Up

@@ -83,6 +83,12 @@
             <div class="sf-ch"><h2>Quotation</h2></div>
             <div class="sf-kv">
               <span>Customer reference</span><span>{{ q.customerReference || '—' }}</span>
+              <ng-container *ngIf="q.sourceOpportunityUuid as opp">
+                <span>Opportunity</span>
+                <span data-testid="source-opportunity">
+                  <a class="source-link" [routerLink]="['/portal/pages/crm/opportunities', opp]" data-testid="source-opportunity-link">Open in CRM</a>
+                </span>
+              </ng-container>
               <span>Reference date</span><span>{{ q.customerReferenceDate ? (day(q.customerReferenceDate) | date:'dd MMM yyyy') : '—' }}</span>
               <span>Valid from</span><span>{{ day(q.validFrom) | date:'dd MMM yyyy' }}</span>
               <span>Valid to</span><span>{{ day(q.validTo) | date:'dd MMM yyyy' }}</span>

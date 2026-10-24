@@ -1,0 +1,43 @@
+- generic [ref=f9e2]:
+  - banner [ref=f9e151]:
+    - generic [ref=f9e152]:
+      - generic [ref=f9e153]: 
+      - generic [ref=f9e154]:
+        - generic [ref=f9e155]: E2E Test Store 20261017
+        - generic [ref=f9e156]: E2E Till 1
+    - generic [ref=f9e157]: No shift
+    - generic [ref=f9e158]:
+      - generic [ref=f9e159]: 
+      - text: Online
+    - generic [ref=f9e160]:
+      - generic [ref=f9e161]: 
+      - text: Ethan Storeadmin
+    - navigation [ref=f9e162]:
+      - link "Sell" [ref=f9e163] [cursor=pointer]:
+        - /url: /pos/sell
+        - generic [ref=f9e164]: 
+      - link "Shift" [ref=f9e166] [cursor=pointer]:
+        - /url: /pos/shift
+        - generic [ref=f9e167]: 
+      - link "History" [ref=f9e169] [cursor=pointer]:
+        - /url: /pos/history
+        - generic [ref=f9e170]: 
+      - link "Settings" [ref=f9e172] [cursor=pointer]:
+        - /url: /pos/settings
+        - generic [ref=f9e173]: 
+      - button "Lock" [ref=f9e174] [cursor=pointer]:
+        - generic [ref=f9e175]: 
+  - main [ref=f9e3]:
+    - generic [ref=f9e178]:
+      - heading "No open shift" [level=1] [ref=f9e179]
+      - paragraph [ref=f9e180]: Count the opening float in the drawer and open the shift for E2E Till 1.
+      - generic [ref=f9e181]:
+        - generic [ref=f9e182]: Opening float
+        - spinbutton "Opening float" [ref=f9e183]
+      - generic [ref=f9e184]:
+        - generic [ref=f9e185]: Variance threshold
+        - spinbutton "Variance threshold" [ref=f9e186]: "0"
+      - button "Open shift" [disabled] [ref=f9e187]
+      - button " Refresh" [ref=f9e189] [cursor=pointer]:
+        - generic [ref=f9e190]: 
+        - text: Refresh

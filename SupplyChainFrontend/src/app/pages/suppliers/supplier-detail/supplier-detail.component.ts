@@ -44,6 +44,7 @@ import { AuthService } from '../../service/auth.service';
 import { ReportsService } from '../../../services/reports.service';
 import { TimelineEvent } from '../../../services/timeline.service';
 import { FLOW, FlowSection } from '../../../shared/flow';
+import { PricelistGridComponent } from '../../../shared/supplier-pricelist/pricelist-grid.component';
 
 @Component({
   selector: 'app-supplier-detail',
@@ -53,7 +54,7 @@ import { FLOW, FlowSection } from '../../../shared/flow';
     ButtonModule, CardModule, TabViewModule, TagModule, ToastModule,
     DialogModule, InputTextModule, TextareaModule, InputNumberModule,
     CheckboxModule, DividerModule, TooltipModule, ConfirmDialogModule,
-    DropdownModule, MultiSelectModule, TableModule, CalendarModule, ...FLOW
+    DropdownModule, MultiSelectModule, TableModule, CalendarModule, PricelistGridComponent, ...FLOW
   ],
   templateUrl: './supplier-detail.component.html',
   styleUrls: ['./supplier-detail.component.scss'],
@@ -143,6 +144,9 @@ export class SupplierDetailComponent implements OnInit {
 
   /** Record Payment / Pay lead to the payment page, which needs PAYMENT_PROCESS (as does the POST). */
   get canRecordPayment(): boolean { return this.authService.hasPermission('PAYMENT_PROCESS'); }
+  // A45 C4 — vendor prices follow the purchase order permissions (D-8)
+  get canViewPricelist(): boolean { return ['PO_VIEW', 'PO_CREATE', 'PO_EDIT', 'PO_APPROVE'].some(c => this.authService.hasPermission(c)); }
+  get canEditPricelist(): boolean { return this.authService.hasPermission('PO_CREATE') || this.authService.hasPermission('PO_EDIT'); }
 
   constructor(
     private route: ActivatedRoute,
@@ -162,6 +166,7 @@ export class SupplierDetailComponent implements OnInit {
   readonly sections: FlowSection[] = [
     { id: 'sec-general', label: 'General' },
     { id: 'sec-purchasing', label: 'Purchasing' },
+    { id: 'sec-products', label: 'Products' },
     { id: 'sec-contacts', label: 'Contacts' },
     { id: 'sec-bank', label: 'Bank' },
     { id: 'sec-documents', label: 'Documents' },

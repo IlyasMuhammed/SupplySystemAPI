@@ -1,0 +1,31 @@
+- main [ref=f9e3]:
+  - generic [ref=f9e633]:
+    - generic [ref=f9e634]:
+      - generic [ref=f9e635]: 
+      - text: SMS POS
+      - generic [ref=f9e636]: Online
+    - generic [ref=f9e639]:
+      - generic [ref=f9e640]:
+        - heading "Locked" [level=1] [ref=f9e641]
+        - paragraph [ref=f9e642]: E2E Test Store 20261017 · E2E Till 1
+        - paragraph [ref=f9e643]: Casey Cashier can resume with their PIN; another PIN switches cashier and clears the cart.
+      - generic [ref=f9e645]:
+        - generic "0 digits entered" [ref=f9e646]
+        - generic [ref=f9e653]:
+          - button "1" [disabled] [ref=f9e654]
+          - button "2" [disabled] [ref=f9e655]
+          - button "3" [disabled] [ref=f9e656]
+          - button "4" [disabled] [ref=f9e657]
+          - button "5" [disabled] [ref=f9e658]
+          - button "6" [disabled] [ref=f9e659]
+          - button "7" [disabled] [ref=f9e660]
+          - button "8" [disabled] [ref=f9e661]
+          - button "9" [disabled] [ref=f9e662]
+          - button "Clear" [disabled] [ref=f9e663]:
+            - generic [ref=f9e664]: 
+          - button "0" [disabled] [ref=f9e665]
+          - button "Backspace" [disabled] [ref=f9e666]:
+            - generic [ref=f9e667]: 
+        - button " Sign in" [disabled] [ref=f9e669]:
+          - generic [ref=f9e670]: 
+          - text: Sign in

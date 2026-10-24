@@ -1,0 +1,242 @@
+- generic [ref=f53e4]:
+  - generic [ref=f53e5]:
+    - generic [ref=f53e6]:
+      - button "" [ref=f53e7] [cursor=pointer]
+      - link:
+        - /url: /portal/dashboard
+      - navigation "Breadcrumb" [ref=f53e104]:
+        - generic [ref=f53e105]: CRM
+        - generic [ref=f53e106]: ›
+        - link "Leads" [ref=f53e107] [cursor=pointer]:
+          - /url: /portal/pages/crm/leads
+        - generic [ref=f53e108]: ›
+        - strong [ref=f53e109]: LD-2026-00001
+    - button " Search anything... Ctrl K" [ref=f53e12] [cursor=pointer]:
+      - generic [ref=f53e13]: 
+      - generic [ref=f53e14]: Search anything...
+      - generic [ref=f53e15]: Ctrl K
+    - generic [ref=f53e16]:
+      - button "" [ref=f53e18] [cursor=pointer]
+      - generic [ref=f53e20]:
+        - button "Appearance" [ref=f53e21] [cursor=pointer]:
+          - generic [ref=f53e22]: 
+        - text:    
+      - generic [ref=f53e24]:
+        - button "MC " [ref=f53e25] [cursor=pointer]:
+          - generic [ref=f53e26]: MC
+          - generic [ref=f53e28]: 
+        - text:   
+  - generic [ref=f53e29]:
+    - generic [ref=f53e30]:
+      - generic [ref=f53e31]: 
+      - generic [ref=f53e33]:
+        - generic [ref=f53e34]: SupplyChain MS
+        - generic [ref=f53e35]: KFC Pakistan (KFC)
+    - list [ref=f53e37]:
+      - listitem [ref=f53e38]:
+        - button "Home " [ref=f53e39] [cursor=pointer]:
+          - generic [ref=f53e40]: Home
+          - generic [ref=f53e41]: 
+        - list:
+          - listitem [ref=f53e42]:
+            - link " Dashboard" [ref=f53e43] [cursor=pointer]:
+              - /url: /portal/dashboard
+              - generic [ref=f53e44]: 
+              - generic [ref=f53e45]: Dashboard
+          - listitem [ref=f53e46]:
+            - link " My Inbox" [ref=f53e47] [cursor=pointer]:
+              - /url: /portal/pages/workflow-inbox
+              - generic [ref=f53e48]: 
+              - generic [ref=f53e49]: My Inbox
+      - listitem [ref=f53e50]:
+        - button "Sales " [ref=f53e51] [cursor=pointer]:
+          - generic [ref=f53e52]: Sales
+          - generic [ref=f53e53]: 
+        - list:
+          - listitem [ref=f53e54]:
+            - link " Customers" [ref=f53e55] [cursor=pointer]:
+              - /url: /portal/pages/customers
+              - generic [ref=f53e56]: 
+              - generic [ref=f53e57]: Customers
+          - listitem [ref=f53e58]:
+            - link " Inquiries" [ref=f53e59] [cursor=pointer]:
+              - /url: /portal/pages/sales/inquiries
+              - generic [ref=f53e60]: 
+              - generic [ref=f53e61]: Inquiries
+          - listitem [ref=f53e62]:
+            - link " Customer Quotations" [ref=f53e63] [cursor=pointer]:
+              - /url: /portal/pages/sales/quotations
+              - generic [ref=f53e64]: 
+              - generic [ref=f53e65]: Customer Quotations
+          - listitem [ref=f53e66]:
+            - generic [ref=f53e67] [cursor=pointer]:
+              - generic [ref=f53e68]: 
+              - generic [ref=f53e69]: Sale Orders
+              - generic [ref=f53e70]: 
+            - list:
+              - listitem [ref=f53e71]:
+                - link " All Sale Orders" [ref=f53e72] [cursor=pointer]:
+                  - /url: /portal/pages/sales/orders
+                  - generic [ref=f53e73]: 
+                  - generic [ref=f53e74]: All Sale Orders
+      - listitem [ref=f53e75]:
+        - button "CRM " [expanded] [ref=f53e76] [cursor=pointer]:
+          - generic [ref=f53e77]: CRM
+          - generic [ref=f53e78]: 
+        - list [ref=f53e79]:
+          - listitem [ref=f53e80]:
+            - link " Leads" [ref=f53e81] [cursor=pointer]:
+              - /url: /portal/pages/crm/leads
+              - generic [ref=f53e82]: 
+              - generic [ref=f53e83]: Leads
+          - listitem [ref=f53e84]:
+            - link " Opportunities" [ref=f53e85] [cursor=pointer]:
+              - /url: /portal/pages/crm/opportunities
+              - generic [ref=f53e86]: 
+              - generic [ref=f53e87]: Opportunities
+          - listitem [ref=f53e88]:
+            - link " Activities" [ref=f53e89] [cursor=pointer]:
+              - /url: /portal/pages/crm/activities
+              - generic [ref=f53e90]: 
+              - generic [ref=f53e91]: Activities
+          - listitem [ref=f53e92]:
+            - link " Campaigns" [ref=f53e93] [cursor=pointer]:
+              - /url: /portal/pages/crm/campaigns
+              - generic [ref=f53e94]: 
+              - generic [ref=f53e95]: Campaigns
+  - generic [ref=f53e96]:
+    - generic [ref=f53e98]:
+      - generic:
+        - alertdialog
+      - generic [ref=f53e110]:
+        - toolbar "Commands" [ref=f53e111]:
+          - button " All leads" [ref=f53e114] [cursor=pointer]:
+            - generic [ref=f53e115]: 
+            - generic [ref=f53e116]: All leads
+        - generic [ref=f53e117]:
+          - generic [ref=f53e118]:
+            - banner [ref=f53e119]:
+              - generic [ref=f53e121]:
+                - generic [ref=f53e122]: Lead · Facebook
+                - heading "LD-2026-00001 Converted Hot" [level=1] [ref=f53e123]:
+                  - generic [ref=f53e124]: LD-2026-00001
+                  - generic [ref=f53e125]: Converted
+                  - generic [ref=f53e126]: Hot
+                - generic [ref=f53e127]: Ahmed Khan · E2E_A41 Alpha Traders · Mona Crmadmin
+              - list "Progress" [ref=f53e129]:
+                - listitem [ref=f53e130]:
+                  - generic [ref=f53e131]: ✓ New
+                - listitem [ref=f53e132]:
+                  - generic [ref=f53e133]: ✓ Contacted
+                - listitem [ref=f53e134]:
+                  - generic [ref=f53e135]: ✓ Qualified
+                - listitem [ref=f53e136]:
+                  - generic [ref=f53e137]: ✓ Converted
+              - generic [ref=f53e138]:
+                - generic [ref=f53e139]:
+                  - generic [ref=f53e140]: Stage
+                  - generic [ref=f53e141]: Qualification
+                  - generic [ref=f53e142]: 20% win probability
+                - generic [ref=f53e143]:
+                  - generic [ref=f53e144]: Estimate
+                  - generic [ref=f53e145]: —
+                - generic [ref=f53e146]:
+                  - generic [ref=f53e147]: Activities
+                  - generic [ref=f53e148]: "1"
+                - generic [ref=f53e149]:
+                  - generic [ref=f53e150]: Opportunity
+                  - link "OP-2026-00001" [ref=f53e152] [cursor=pointer]:
+                    - /url: /portal/pages/crm/opportunities/fb14094d-3bff-4eb4-9a89-abc8548520d2
+            - tablist "Tabs" [ref=f53e154]:
+              - tab "Details" [selected] [ref=f53e155] [cursor=pointer]
+              - tab "Topic" [ref=f53e156] [cursor=pointer]
+              - tab "Timeline" [ref=f53e157] [cursor=pointer]
+            - generic [ref=f53e158]:
+              - generic [ref=f53e159]:
+                - generic [ref=f53e160]:
+                  - heading "Contact" [level=2] [ref=f53e162]
+                  - generic [ref=f53e163]:
+                    - generic [ref=f53e164]: Name
+                    - generic [ref=f53e165]: Ahmed Khan
+                    - generic [ref=f53e166]: Title
+                    - generic [ref=f53e167]: —
+                    - generic [ref=f53e168]: Company
+                    - generic [ref=f53e169]: E2E_A41 Alpha Traders
+                    - generic [ref=f53e170]: Email
+                    - link "e2e.a41.ahmed@alpha-traders.example" [ref=f53e172] [cursor=pointer]:
+                      - /url: mailto:e2e.a41.ahmed@alpha-traders.example
+                    - generic [ref=f53e173]: Phone
+                    - generic [ref=f53e174]: —
+                    - generic [ref=f53e175]: Mobile
+                    - generic [ref=f53e176]: "+923001200001"
+                    - generic [ref=f53e177]: Website
+                    - generic [ref=f53e178]: —
+                    - generic [ref=f53e179]: Address
+                    - generic [ref=f53e180]: —
+                  - heading "Linked account" [level=2] [ref=f53e182]
+                  - generic [ref=f53e183]:
+                    - generic [ref=f53e184]: Account
+                    - generic [ref=f53e185]:
+                      - link "E2E_A41 Alpha Traders" [ref=f53e186] [cursor=pointer]:
+                        - /url: /portal/pages/customers/4e02e15a-0690-4c96-9bfd-21f87a772193
+                      - text: C-00001
+                    - generic [ref=f53e187]: Contact
+                    - generic [ref=f53e188]: Ahmed Khan
+                - generic [ref=f53e189]:
+                  - heading "Source" [level=2] [ref=f53e191]
+                  - generic [ref=f53e192]:
+                    - generic [ref=f53e193]: Source
+                    - generic [ref=f53e194]: Facebook
+                    - generic [ref=f53e195]: Campaign
+                    - generic [ref=f53e196]: —
+                    - generic [ref=f53e197]: Medium
+                    - generic [ref=f53e198]: —
+                    - generic [ref=f53e199]: Reference
+                    - generic [ref=f53e200]: —
+                  - heading "Qualification (BANT)" [level=2] [ref=f53e202]
+                  - generic [ref=f53e203]:
+                    - generic [ref=f53e204]: Budget
+                    - generic [ref=f53e205]:
+                      - generic [ref=f53e206]: 
+                      - text: not known
+                    - generic [ref=f53e207]: Authority
+                    - generic [ref=f53e208]:
+                      - generic [ref=f53e209]: 
+                      - text: Not confirmed
+                    - generic [ref=f53e210]: Need
+                    - generic [ref=f53e211]:
+                      - generic [ref=f53e212]: 
+                      - text: Not identified
+                    - generic [ref=f53e213]: Timeline
+                    - generic [ref=f53e214]: —
+                  - heading "Ownership" [level=2] [ref=f53e216]
+                  - generic [ref=f53e217]:
+                    - generic [ref=f53e218]: Assigned
+                    - generic [ref=f53e219]: Mona Crmadmin since 17 Oct 2026
+                    - generic [ref=f53e220]: Team
+                    - generic [ref=f53e221]: —
+                    - generic [ref=f53e222]: Previous owner
+                    - generic [ref=f53e223]: —
+                    - generic [ref=f53e224]: Priority
+                    - generic [ref=f53e225]: Normal
+                    - generic [ref=f53e226]: Created
+                    - generic [ref=f53e227]: 17 Oct 2026, 09:38 by Mona Crmadmin
+              - text:           
+          - generic [ref=f53e228]:
+            - tablist [ref=f53e229]:
+              - tab "Cross-references" [selected] [ref=f53e230] [cursor=pointer]
+              - button "Hide side panel" [ref=f53e231] [cursor=pointer]:
+                - generic [ref=f53e232]: 
+            - generic [ref=f53e234]:
+              - heading "Other leads for E2E_A41 Alpha Traders" [level=4] [ref=f53e235]
+              - link "LD-2026-00003 E2E_A41 Second inquiry - generators Converted · 17 Oct 2026" [ref=f53e236] [cursor=pointer]:
+                - /url: /portal/pages/crm/leads/881ad0e0-40b9-4449-ab00-be25002e32a6
+                - text: LD-2026-00003 E2E_A41 Second inquiry - generatorsConverted · 17 Oct 2026
+              - heading "Other leads for Ahmed Khan" [level=4] [ref=f53e237]
+              - link "LD-2026-00003 E2E_A41 Second inquiry - generators Converted · 17 Oct 2026" [ref=f53e238] [cursor=pointer]:
+                - /url: /portal/pages/crm/leads/881ad0e0-40b9-4449-ab00-be25002e32a6
+                - text: LD-2026-00003 E2E_A41 Second inquiry - generatorsConverted · 17 Oct 2026
+    - generic [ref=f53e102]:
+      - text: All Rights Reserved To
+      - link "Loading" [ref=f53e103] [cursor=pointer]:
+        - /url: https://primeng.org

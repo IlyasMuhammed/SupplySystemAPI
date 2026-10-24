@@ -1,0 +1,220 @@
+- generic [ref=f43e1]:
+  - generic [ref=f43e25]:
+    - generic:
+      - generic:
+        - link "Skip to Main Content":
+          - /url: "#main"
+        - banner [ref=f43e26]:
+          - navigation "Tools" [ref=f43e27]:
+            - heading "Sandbox Company GB 72c4" [level=2] [ref=f43e32]
+            - generic [ref=f43e43]:
+              - button "Contact expert help" [ref=f43e47] [cursor=pointer]:
+                - generic [ref=f43e49]: Contact experts
+              - button "Tasks" [ref=f43e55] [cursor=pointer]
+              - button "Integrations" [ref=f43e61] [cursor=pointer]
+              - button "Help" [ref=f43e69] [cursor=pointer]
+              - button "Intuit Labs" [ref=f43e75] [cursor=pointer]
+              - button "Settings" [ref=f43e80] [cursor=pointer]
+              - button "Intuit account (I)" [ref=f43e88] [cursor=pointer]:
+                - generic [ref=f43e89]: I
+              - button "Open Intuit Intelligence chat" [ref=f43e95] [cursor=pointer]
+    - navigation "Side" [ref=f43e140]:
+      - link "QuickBooks" [ref=f43e141] [cursor=pointer]:
+        - /url: currencies?intuit_authn_session_slot=VYPodik&iux_intuit_tid=1-6ad4e583-786281b57da2f2e673ba8def
+      - generic [ref=f43e143]:
+        - button "Create" [ref=f43e146] [cursor=pointer]
+        - button "Bookmarks" [ref=f43e154] [cursor=pointer]
+      - generic [ref=f43e159]:
+        - link "Home" [ref=f43e160] [cursor=pointer]:
+          - /url: /app/homepage
+        - link "Feed" [ref=f43e165] [cursor=pointer]:
+          - /url: /app/business-feed
+        - button "Reports" [ref=f43e172] [cursor=pointer]
+        - link "All apps" [ref=f43e180] [cursor=pointer]:
+          - /url: /app/banking?jobId=accounting
+      - generic [ref=f43e185]:
+        - generic [ref=f43e186]: PINNED
+        - generic [ref=f43e187]:
+          - button "Accounting" [ref=f43e191] [cursor=pointer]
+          - button "Expenses" [ref=f43e197] [cursor=pointer]
+          - button "Sales" [ref=f43e203] [cursor=pointer]
+      - button "Customise" [ref=f43e208] [cursor=pointer]
+    - main [ref=f43e215]:
+      - generic [ref=f43e217]:
+        - generic [ref=f43e218]:
+          - heading "We're sorry, we can't find the page you requested." [level=1] [ref=f43e219]
+          - heading "You may have incorrectly typed the address (URL) or clicked on an outdated link." [level=3] [ref=f43e220]
+        - img "not found" [ref=f43e223]
+  - generic: "Essential, Enhanced Experience & Product Improvement These first-party cookies are set by Intuit or one of our service providers; you cannot turn these off. These cookies enable the site to function as intended, including: basic functionality (for example, your ability to log into your Intuit account or add items to your cart for purchase); remember your preferences (for example, your preferred language or login credentials); provide you personalized content when viewing our site; and, allow us to evaluate your use and navigation of the site to fix bugs and improve the overall experience for you and others. A single cookie may be used for one or all of these purposes. Third-Party Advertisement  Yes We leverage advertising trackers across our sites to improve our marketing and advertising activities. These trackers may share some limited personal information with third-party platforms where we may display advertisements or run marketing campaigns. You may choose to turn these trackers off. You will still see Intuit advertisements when you opt-out, but these ads may not be tailored to your interests. This preference applies to your experience on our .intuit sites, once you create or login to your Intuit account, you may be prompted to choose again.    "
+  - search [ref=f43e225]:
+    - searchbox "Search" [active] [ref=f43e232]
+    - status "2 Items found. Press tab or the arrow keys to navigate."
+    - generic [ref=f43e233]:
+      - region [ref=f43e234]:
+        - heading "Search, create, or ask a question" [level=2] [ref=f43e235]
+        - generic [ref=f43e236]:
+          - button "sales receipt from walk-in customer last week" [ref=f43e237] [cursor=pointer]
+          - button "invoice greater than or equal to £48.00 last week" [ref=f43e241] [cursor=pointer]
+          - button "Connect my bank account" [ref=f43e245] [cursor=pointer]
+          - button "How do I setup payments?" [ref=f43e250] [cursor=pointer]
+          - button "How do I create and send an invoice?" [ref=f43e255] [cursor=pointer]
+      - generic [ref=f43e262]:
+        - generic [ref=f43e263]: Recent transactions
+        - button "Recent Transactions, Sales Receipt SINV-20261016-0005, Walk-in Customer, 16/10/2026, £30.00" [ref=f43e265] [cursor=pointer]:
+          - generic [ref=f43e271]:
+            - generic [ref=f43e272]: Sales Receipt SINV-20261016-0005
+            - emphasis [ref=f43e273]: "|"
+            - text: Walk-in Customer
+            - emphasis [ref=f43e274]: "|"
+            - text: 16/10/2026
+            - emphasis [ref=f43e275]: "|"
+            - text: £30.00
+        - generic [ref=f43e277]:
+          - button "Recent Transactions, Invoice SINV-20261016-0004, Thames Valley Supplies Ltd, 16/10/2026, £48.00" [ref=f43e278] [cursor=pointer]:
+            - generic [ref=f43e284]:
+              - generic [ref=f43e285]: Invoice SINV-20261016-0004
+              - emphasis [ref=f43e286]: "|"
+              - text: Thames Valley Supplies Ltd
+              - emphasis [ref=f43e287]: "|"
+              - text: 16/10/2026
+              - emphasis [ref=f43e288]: "|"
+              - text: £48.00
+          - generic [ref=f43e290]:
+            - 'img "transaction status: Open" [ref=f43e291]'
+            - generic [ref=f43e296]: Open
+        - button "Recent Transactions, Payment CPAY-20261016-0003, Thames Valley Supplies Ltd, 16/10/2026, £0.00" [ref=f43e298] [cursor=pointer]:
+          - generic [ref=f43e304]:
+            - generic [ref=f43e305]: Payment CPAY-20261016-0003
+            - emphasis [ref=f43e306]: "|"
+            - text: Thames Valley Supplies Ltd
+            - emphasis [ref=f43e307]: "|"
+            - text: 16/10/2026
+            - emphasis [ref=f43e308]: "|"
+            - text: £0.00
+        - button "Recent Transactions, Sales Receipt SINV-20261016-0003, Walk-in Customer, 16/10/2026, £0.00" [ref=f43e311] [cursor=pointer]:
+          - generic [ref=f43e317]:
+            - generic [ref=f43e318]: Sales Receipt SINV-20261016-0003
+            - emphasis [ref=f43e319]: "|"
+            - text: Walk-in Customer
+            - emphasis [ref=f43e320]: "|"
+            - text: 16/10/2026
+            - emphasis [ref=f43e321]: "|"
+            - text: £0.00
+        - button "Recent Transactions, Payment CPAY-20261016-0001, Thames Valley Supplies Ltd, 16/10/2026, £30.00" [ref=f43e324] [cursor=pointer]:
+          - generic [ref=f43e330]:
+            - generic [ref=f43e331]: Payment CPAY-20261016-0001
+            - emphasis [ref=f43e332]: "|"
+            - text: Thames Valley Supplies Ltd
+            - emphasis [ref=f43e333]: "|"
+            - text: 16/10/2026
+            - emphasis [ref=f43e334]: "|"
+            - text: £30.00
+        - generic [ref=f43e336]:
+          - button "Recent Transactions, Invoice SINV-20261016-0002, Thames Valley Supplies Ltd, 16/10/2026, £30.00" [ref=f43e337] [cursor=pointer]:
+            - generic [ref=f43e343]:
+              - generic [ref=f43e344]: Invoice SINV-20261016-0002
+              - emphasis [ref=f43e345]: "|"
+              - text: Thames Valley Supplies Ltd
+              - emphasis [ref=f43e346]: "|"
+              - text: 16/10/2026
+              - emphasis [ref=f43e347]: "|"
+              - text: £30.00
+          - generic [ref=f43e349]:
+            - 'img "transaction status: Paid" [ref=f43e350]'
+            - generic [ref=f43e355]: Paid
+        - generic [ref=f43e356]:
+          - button "Recent Transactions, Invoice SINV-20261013-0003, Thames Valley Supplies Ltd, 13/10/2026, £288.00" [ref=f43e357] [cursor=pointer]:
+            - generic [ref=f43e363]:
+              - generic [ref=f43e364]: Invoice SINV-20261013-0003
+              - emphasis [ref=f43e365]: "|"
+              - text: Thames Valley Supplies Ltd
+              - emphasis [ref=f43e366]: "|"
+              - text: 13/10/2026
+              - emphasis [ref=f43e367]: "|"
+              - text: £288.00
+          - generic [ref=f43e369]:
+            - 'img "transaction status: Open" [ref=f43e370]'
+            - generic [ref=f43e375]: Open
+        - generic [ref=f43e376]:
+          - button "Recent Transactions, Invoice SINV-20261013-0002, Thames Valley Supplies Ltd, 13/10/2026, £2,280.00" [ref=f43e377] [cursor=pointer]:
+            - generic [ref=f43e383]:
+              - generic [ref=f43e384]: Invoice SINV-20261013-0002
+              - emphasis [ref=f43e385]: "|"
+              - text: Thames Valley Supplies Ltd
+              - emphasis [ref=f43e386]: "|"
+              - text: 13/10/2026
+              - emphasis [ref=f43e387]: "|"
+              - text: £2,280.00
+          - generic [ref=f43e389]:
+            - 'img "transaction status: Open" [ref=f43e390]'
+            - generic [ref=f43e395]: Open
+        - generic [ref=f43e396]:
+          - button "Recent Transactions, Invoice SINV-20261013-0001, Thames Valley Supplies Ltd, 13/10/2026, £0.00" [ref=f43e397] [cursor=pointer]:
+            - generic [ref=f43e403]:
+              - generic [ref=f43e404]: Invoice SINV-20261013-0001
+              - emphasis [ref=f43e405]: "|"
+              - text: Thames Valley Supplies Ltd
+              - emphasis [ref=f43e406]: "|"
+              - text: 13/10/2026
+              - emphasis [ref=f43e407]: "|"
+              - text: £0.00
+          - generic [ref=f43e409]:
+            - 'img "transaction status: Voided" [ref=f43e410]'
+            - generic [ref=f43e415]: Voided
+        - button "Recent Transactions, Cheque 2065, Garcia's Event Space, 25/01/2026, £3,000.00" [ref=f43e417] [cursor=pointer]:
+          - generic [ref=f43e423]:
+            - generic [ref=f43e424]: Cheque 2065
+            - emphasis [ref=f43e425]: "|"
+            - text: Garcia's Event Space
+            - emphasis [ref=f43e426]: "|"
+            - text: 25/01/2026
+            - emphasis [ref=f43e427]: "|"
+            - text: £3,000.00
+        - button "Recent Transactions, Tax Payment 22/11/2025, £734.47" [ref=f43e430] [cursor=pointer]:
+          - generic [ref=f43e436]:
+            - generic [ref=f43e437]: Tax Payment
+            - emphasis [ref=f43e438]: "|"
+            - text: 22/11/2025
+            - emphasis [ref=f43e439]: "|"
+            - text: £734.47
+        - button "Recent Transactions, Billexp Charge Hazel Robinson, 25/11/2025, £1,125.00" [ref=f43e442] [cursor=pointer]:
+          - generic [ref=f43e448]:
+            - generic [ref=f43e449]: Billexp Charge
+            - emphasis [ref=f43e450]: "|"
+            - text: Hazel Robinson
+            - emphasis [ref=f43e451]: "|"
+            - text: 25/11/2025
+            - emphasis [ref=f43e452]: "|"
+            - text: £1,125.00
+        - button "Recent Transactions, Cheque 2028, Kristina Gibson, 23/08/2026, £444.90" [ref=f43e455] [cursor=pointer]:
+          - generic [ref=f43e461]:
+            - generic [ref=f43e462]: Cheque 2028
+            - emphasis [ref=f43e463]: "|"
+            - text: Kristina Gibson
+            - emphasis [ref=f43e464]: "|"
+            - text: 23/08/2026
+            - emphasis [ref=f43e465]: "|"
+            - text: £444.90
+        - button "Recent Transactions, Cheque 2035, City Water Co, 10/09/2026, £108.56" [ref=f43e468] [cursor=pointer]:
+          - generic [ref=f43e474]:
+            - generic [ref=f43e475]: Cheque 2035
+            - emphasis [ref=f43e476]: "|"
+            - text: City Water Co
+            - emphasis [ref=f43e477]: "|"
+            - text: 10/09/2026
+            - emphasis [ref=f43e478]: "|"
+            - text: £108.56
+        - button "Recent Transactions, Deposit 08/04/2026, £35,000.00" [ref=f43e481] [cursor=pointer]:
+          - generic [ref=f43e487]:
+            - generic [ref=f43e488]: Deposit
+            - emphasis [ref=f43e489]: "|"
+            - text: 08/04/2026
+            - emphasis [ref=f43e490]: "|"
+            - text: £35,000.00
+        - link "Show more recent transactions" [ref=f43e492] [cursor=pointer]:
+          - /url: fullSearch/transactions?origin=prominent
+          - text: Show more
+    - generic [ref=f43e494]:
+      - link "Advanced transactions search" [ref=f43e495] [cursor=pointer]:
+        - /url: "#"
+      - text: for more results

@@ -1,0 +1,1 @@
+p50=0.837ms p95=1.218ms max=4.313ms (n=300, fresh DbContext per call, warm cache)

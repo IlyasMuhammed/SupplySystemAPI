@@ -573,6 +573,8 @@ export interface CatalogItem {
     isFavorite: boolean;
     sortOrder: number;
     isActive: boolean;
+    /** False for items that hold no stock (prepared food, services): never flagged out of stock. Absent on an older cached catalogue = stockable. */
+    isStockable?: boolean;
     modifiedAt: string;
 }
 

@@ -1,0 +1,87 @@
+- generic [ref=f43e1]:
+  - generic [ref=f43e25]:
+    - generic:
+      - generic:
+        - link "Skip to Main Content":
+          - /url: "#main"
+        - banner [ref=f43e26]:
+          - navigation "Tools" [ref=f43e27]:
+            - heading "Sandbox Company GB 72c4" [level=2] [ref=f43e32]
+            - generic [ref=f43e43]:
+              - button "Contact expert help" [ref=f43e47] [cursor=pointer]:
+                - generic [ref=f43e49]: Contact experts
+              - button "Tasks" [ref=f43e55] [cursor=pointer]
+              - button "Integrations" [ref=f43e61] [cursor=pointer]
+              - button "Help" [ref=f43e69] [cursor=pointer]
+              - button "Intuit Labs" [ref=f43e75] [cursor=pointer]
+              - button "Settings" [ref=f43e80] [cursor=pointer]
+              - button "Intuit account (I)" [ref=f43e88] [cursor=pointer]:
+                - generic [ref=f43e89]: I
+              - button "Open Intuit Intelligence chat" [ref=f43e95] [cursor=pointer]
+    - navigation "Side" [ref=f43e140]:
+      - link "QuickBooks" [ref=f43e141] [cursor=pointer]:
+        - /url: currencies?intuit_authn_session_slot=VYPodik&iux_intuit_tid=1-6ad4e583-786281b57da2f2e673ba8def
+      - generic [ref=f43e143]:
+        - button "Create" [ref=f43e146] [cursor=pointer]
+        - button "Bookmarks" [ref=f43e154] [cursor=pointer]
+      - generic [ref=f43e159]:
+        - link "Home" [ref=f43e160] [cursor=pointer]:
+          - /url: /app/homepage
+        - link "Feed" [ref=f43e165] [cursor=pointer]:
+          - /url: /app/business-feed
+        - button "Reports" [ref=f43e172] [cursor=pointer]
+        - link "All apps" [ref=f43e180] [cursor=pointer]:
+          - /url: /app/banking?jobId=accounting
+      - generic [ref=f43e185]:
+        - generic [ref=f43e186]: PINNED
+        - generic [ref=f43e187]:
+          - button "Accounting" [ref=f43e191] [cursor=pointer]
+          - button "Expenses" [ref=f43e197] [cursor=pointer]
+          - button "Sales" [ref=f43e203] [cursor=pointer]
+      - button "Customise" [ref=f43e208] [cursor=pointer]
+    - main [ref=f43e215]:
+      - generic [ref=f43e217]:
+        - generic [ref=f43e218]:
+          - heading "We're sorry, we can't find the page you requested." [level=1] [ref=f43e219]
+          - heading "You may have incorrectly typed the address (URL) or clicked on an outdated link." [level=3] [ref=f43e220]
+        - img "not found" [ref=f43e223]
+  - generic: "Essential, Enhanced Experience & Product Improvement These first-party cookies are set by Intuit or one of our service providers; you cannot turn these off. These cookies enable the site to function as intended, including: basic functionality (for example, your ability to log into your Intuit account or add items to your cart for purchase); remember your preferences (for example, your preferred language or login credentials); provide you personalized content when viewing our site; and, allow us to evaluate your use and navigation of the site to fix bugs and improve the overall experience for you and others. A single cookie may be used for one or all of these purposes. Third-Party Advertisement  Yes We leverage advertising trackers across our sites to improve our marketing and advertising activities. These trackers may share some limited personal information with third-party platforms where we may display advertisements or run marketing campaigns. You may choose to turn these trackers off. You will still see Intuit advertisements when you opt-out, but these ads may not be tailored to your interests. This preference applies to your experience on our .intuit sites, once you create or login to your Intuit account, you may be prompted to choose again.    "
+  - search [ref=f43e225]:
+    - generic [ref=f43e229]:
+      - searchbox "Search" [active] [ref=f43e232]: Currencies
+      - button "Clear search input." [ref=f43e497] [cursor=pointer]
+    - status "1 Items found. Press tab or the arrow keys to navigate."
+    - generic [ref=f43e233]:
+      - generic [ref=f43e501]:
+        - generic [ref=f43e502]:
+          - button "search, [object Object] Currencies" [ref=f43e504] [cursor=pointer]:
+            - generic [ref=f43e509]:
+              - generic [ref=f43e510]: Search
+              - emphasis [ref=f43e512]: "|"
+              - text: Currencies
+          - button "search, [object Object] Currencies" [ref=f43e514] [cursor=pointer]:
+            - generic "Intuit Assist" [ref=f43e515]
+            - generic [ref=f43e527]:
+              - generic [ref=f43e528]: Ask Intuit Intelligence
+              - emphasis [ref=f43e530]: "|"
+              - text: Currencies
+        - separator [ref=f43e531]
+      - generic [ref=f43e534]:
+        - generic [ref=f43e535]: Help topics
+        - button "Help Topics, Currency" [ref=f43e537] [cursor=pointer]:
+          - generic [ref=f43e540]: Currency
+        - button "Help Topics, currency gain" [ref=f43e544] [cursor=pointer]:
+          - generic [ref=f43e547]: currency gain
+        - button "Help Topics, currency rate" [ref=f43e551] [cursor=pointer]:
+          - generic [ref=f43e554]: currency rate
+        - button "Help Topics, currency type" [ref=f43e558] [cursor=pointer]:
+          - generic [ref=f43e561]: currency type
+        - button "Help Topics, currency conversion" [ref=f43e565] [cursor=pointer]:
+          - generic [ref=f43e568]: currency conversion
+        - link "Show more help topics" [ref=f43e571] [cursor=pointer]:
+          - /url: fullSearch/help?origin=prominent
+          - text: Show 5 more
+    - generic [ref=f43e572]:
+      - link "Advanced transactions search" [ref=f43e573] [cursor=pointer]:
+        - /url: "#"
+      - text: for more results

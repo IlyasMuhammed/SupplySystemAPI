@@ -1,0 +1,72 @@
+- generic [ref=f159e2]:
+  - banner [ref=f159e4]:
+    - generic [ref=f159e5]:
+      - generic [ref=f159e6]: 
+      - generic [ref=f159e7]:
+        - generic [ref=f159e8]: E2E Test Store 20261017
+        - generic [ref=f159e9]: E2E Till 1
+    - generic [ref=f159e10]: Shift open
+    - generic [ref=f159e11]:
+      - generic [ref=f159e12]: 
+      - text: Online
+    - generic [ref=f159e13]:
+      - generic [ref=f159e14]: 
+      - text: Ethan Storeadmin
+    - navigation [ref=f159e15]:
+      - link "Sell" [ref=f159e16] [cursor=pointer]:
+        - /url: /pos/sell
+        - generic [ref=f159e17]: 
+      - link "Shift" [ref=f159e19] [cursor=pointer]:
+        - /url: /pos/shift
+        - generic [ref=f159e20]: 
+      - link "History" [ref=f159e22] [cursor=pointer]:
+        - /url: /pos/history
+        - generic [ref=f159e23]: 
+      - link "Settings" [ref=f159e25] [cursor=pointer]:
+        - /url: /pos/settings
+        - generic [ref=f159e26]: 
+      - button "Lock" [ref=f159e27] [cursor=pointer]:
+        - generic [ref=f159e28]: 
+  - main [ref=f159e30]:
+    - generic [ref=f159e32]:
+      - generic [ref=f159e33]:
+        - link " Items" [ref=f159e34] [cursor=pointer]:
+          - /url: /pos/return/b84bc933-a5f5-4fd6-b958-b17f25bcb83e
+          - generic [ref=f159e35]: 
+          - text: Items
+        - heading "Refund · POS-E2E-1017-20261018-0003" [level=1] [ref=f159e36]
+      - generic [ref=f159e37]:
+        - generic [ref=f159e38]:
+          - generic [ref=f159e39]: Return subtotal
+          - generic [ref=f159e40]: "3.40"
+        - generic [ref=f159e41]:
+          - generic [ref=f159e42]: Restocking fee
+          - generic [ref=f159e43]: "0.00"
+        - generic [ref=f159e44]:
+          - generic [ref=f159e45]: To refund
+          - generic [ref=f159e46]: GBP 3.40
+      - generic [ref=f159e47]:
+        - heading "Refund method" [level=2] [ref=f159e48]
+        - radiogroup "Refund method" [ref=f159e49]:
+          - button " Cash" [ref=f159e50] [cursor=pointer]:
+            - generic [ref=f159e51]: 
+            - text: Cash
+          - button " Card" [ref=f159e52] [cursor=pointer]:
+            - generic [ref=f159e53]: 
+            - text: Card
+          - button " Mobile" [ref=f159e54] [cursor=pointer]:
+            - generic [ref=f159e55]: 
+            - text: Mobile
+          - button " Bank transfer" [ref=f159e56] [cursor=pointer]:
+            - generic [ref=f159e57]: 
+            - text: Bank transfer
+          - button " Cheque" [ref=f159e58] [cursor=pointer]:
+            - generic [ref=f159e59]: 
+            - text: Cheque
+          - button " Store credit" [ref=f159e60] [cursor=pointer]:
+            - generic [ref=f159e61]: 
+            - text: Store credit
+        - paragraph [ref=f159e62]: A store credit note of GBP 3.40 is issued to the bearer (walk-in sale), valid for 365 days. It can be redeemed at any store while online.
+        - button " Confirm return — refund GBP 3.40" [disabled] [ref=f159e63]:
+          - generic [ref=f159e64]: 
+          - text: Confirm return — refund GBP 3.40

@@ -127,6 +127,9 @@ public static class FinanceModuleExtensions
 
         // A35 — multi-currency core (CUR): org currencies, date-ranged rates, ICurrencyService, the startup/provisioning
         // bootstrap (currencies, rate-currency row, legacy rate conversion, then ICurrencyRatesReadyParticipant).
+        // A46 C9 — ICurrencyConverter (consumers resolve it optional-safe with GetService).
+        services.AddScoped<ICurrencyConverter>(sp =>
+            new CurrencyConverter(sp.GetRequiredService<FinanceDbContext>(), sp.GetService<IOrganizationCurrencyService>()));
         services.AddScoped<ICurrencyService>(sp =>
             new CurrencyService(sp.GetRequiredService<FinanceDbContext>(), sp.GetService<IOrganizationCurrencyService>()));
         services.AddScoped<IOrgCurrencyLookup, OrgCurrencyLookup>();

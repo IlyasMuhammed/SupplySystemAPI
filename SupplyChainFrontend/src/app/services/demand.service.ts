@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
+import type { PricingSummary } from './purchase-pricing.service';
 
 const BASE = environment.apiUrl;
 
@@ -385,6 +386,11 @@ export interface CreatePoLineRequest {
   warehouseId?: string;
   warehouseName?: string;
   requiresInspection?: boolean;
+  // A45 — price provenance (0 Manual, 1 Pricelist, 2 Override, 3 RFQ). The server re-validates it (D-10).
+  priceSource?: number;
+  systemResolvedPrice?: number;
+  supplierPricelistUuid?: string;
+  priceOverrideReason?: string;
 }
 
 export interface CreatePoRequest {
@@ -401,6 +407,8 @@ export interface CreatePoRequest {
   // Client-generated id so attachments uploaded before save can be linked via the same
   // DocumentId — becomes the PO's own UUID on save.
   poUuid?: string;
+  /** A46 C1 — yyyy-MM-dd; omitted = today on the server. Only editable while DRAFT. */
+  orderDate?: string;
   /** A35 — the PO currency (global lookups.Currencies id); omitted = supplier default → purchase base (D-14). */
   currencyId?: string;
   // A31-C3/C9 — one of the backend's PurchaseOrderSources values (e.g. "PRODUCTION"). Defaults to
@@ -408,7 +416,35 @@ export interface CreatePoRequest {
   source?: string;
 }
 
+/** A46-0152: what a PO edit did to each line's price (top-level `pricing` of the PATCH response). */
+export interface PoPricingOffer {
+  kind: 'KEEP_OR_UPDATE' | 'KEEP_OR_APPLY';
+  systemPrice: number;
+  yourPrice: number;
+  qty: number;
+}
+export interface PoPricingLine {
+  lineUuid: string;
+  lineNo: number;
+  priceSource: number;
+  priceSourceName: string;
+  unitPrice: number;
+  systemResolvedPrice?: number | null;
+  resolvedChanged: boolean;
+  warning?: string | null;
+  currencyMismatchWarning: boolean;
+  offer?: PoPricingOffer | null;
+}
+export interface PoPricingResult {
+  lines: PoPricingLine[];
+  pricedCount: number;
+  unpricedCount: number;
+  warnings: string[];
+}
+
 export interface PatchPoRequest {
+  /** A46 C1 — yyyy-MM-dd (DRAFT only; the server answers 400 otherwise). */
+  orderDate?: string;
   supplierName?: string;
   supplierId?: string;
   title?: string;
@@ -487,6 +523,22 @@ export interface PoLineModel {
   // A35 — in the purchase base; null until the rate is locked at approval.
   unitPriceBase?: number | null;
   lineTotalBase?: number | null;
+  // A45 — optional for older servers.
+  priceSource?: number | null;
+  systemResolvedPrice?: number | null;
+  supplierPricelistUuid?: string | null;
+  priceOverrideReason?: string | null;
+  /** 'OrderDate' | 'DeliveryDate' when the server returns it; otherwise unknown (re-lookup on date change skipped). */
+  pricingDateBasis?: string | null;
+  // A46 C10 — server-owned: the pricelist price/currency/rate before conversion into the PO currency.
+  originalCurrencyId?: string | null;
+  originalCurrencyCode?: string | null;
+  originalCurrencyPrice?: number | null;
+  exchangeRateUsed?: number | null;
+  exchangeRateDate?: string | null;
+  /** A46 C10 — set when the last resolve found a price but no exchange rate to convert it. */
+  currencyMismatchWarning?: boolean | null;
+  pricingWarning?: string | null;
 }
 
 export interface PoDetailModel {
@@ -498,6 +550,8 @@ export interface PoDetailModel {
   status: string;
   totalAmount: number;
   deliveryDate?: string;
+  /** A46 C1 — yyyy-MM-dd. */
+  orderDate?: string;
   deliveryWarehouseId?: string;
   deliveryWarehouseName?: string;
   notes?: string;
@@ -569,12 +623,12 @@ export class DemandService {
     return this.http.post<ApiResponse<null>>(`${BASE}/requisitions/${uuid}/reject`, { rejectionReason });
   }
 
-  convertPrToSingleVendorPo(uuid: string, req: ConvertPrToPoRequest): Observable<ApiResponse<string>> {
-    return this.http.post<ApiResponse<string>>(`${BASE}/requisitions/${uuid}/convert`, req);
+  convertPrToSingleVendorPo(uuid: string, req: ConvertPrToPoRequest): Observable<ApiResponse<string> & { pricingSummary?: PricingSummary | null }> {
+    return this.http.post<ApiResponse<string> & { pricingSummary?: PricingSummary | null }>(`${BASE}/requisitions/${uuid}/convert`, req);
   }
 
-  convertPrToSplitPos(uuid: string, req: ConvertPrSplitRequest): Observable<ApiResponse<string[]>> {
-    return this.http.post<ApiResponse<string[]>>(`${BASE}/requisitions/${uuid}/convert-split`, req);
+  convertPrToSplitPos(uuid: string, req: ConvertPrSplitRequest): Observable<ApiResponse<string[]> & { pricingSummary?: PricingSummary | null }> {
+    return this.http.post<ApiResponse<string[]> & { pricingSummary?: PricingSummary | null }>(`${BASE}/requisitions/${uuid}/convert-split`, req);
   }
 
   // ── Quotations ────────────────────────────────────────────────────────────
@@ -663,8 +717,9 @@ export class DemandService {
     return this.http.get<ApiResponse<PoDetailModel>>(`${BASE}/purchase-orders/${uuid}`);
   }
 
-  patchPo(uuid: string, req: PatchPoRequest): Observable<ApiResponse<null>> {
-    return this.http.patch<ApiResponse<null>>(`${BASE}/purchase-orders/${uuid}`, req);
+  // A46-0152: the PATCH also answers with a top-level `pricing` (optional - older servers omit it).
+  patchPo(uuid: string, req: PatchPoRequest): Observable<ApiResponse<null> & { pricing?: PoPricingResult | null }> {
+    return this.http.patch<ApiResponse<null> & { pricing?: PoPricingResult | null }>(`${BASE}/purchase-orders/${uuid}`, req);
   }
 
   submitPo(uuid: string): Observable<ApiResponse<null>> {

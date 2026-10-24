@@ -1,0 +1,86 @@
+- generic [ref=f9e2]:
+  - banner [ref=f9e672]:
+    - generic [ref=f9e673]:
+      - generic [ref=f9e674]: 
+      - generic [ref=f9e675]:
+        - generic [ref=f9e676]: E2E Test Store 20261017
+        - generic [ref=f9e677]: E2E Till 1
+    - generic [ref=f9e678]: SH-E2E-1017-20261017-01 · Open
+    - generic [ref=f9e679]:
+      - generic [ref=f9e680]: 
+      - text: Offline
+    - generic [ref=f9e681]:
+      - generic [ref=f9e682]: 
+      - text: Ethan Storeadmin
+    - navigation [ref=f9e683]:
+      - link "Sell" [ref=f9e684] [cursor=pointer]:
+        - /url: /pos/sell
+        - generic [ref=f9e685]: 
+      - link "Shift" [ref=f9e687] [cursor=pointer]:
+        - /url: /pos/shift
+        - generic [ref=f9e688]: 
+      - link "History" [ref=f9e690] [cursor=pointer]:
+        - /url: /pos/history
+        - generic [ref=f9e691]: 
+      - link "Settings" [ref=f9e693] [cursor=pointer]:
+        - /url: /pos/settings
+        - generic [ref=f9e694]: 
+      - button "Lock" [ref=f9e695] [cursor=pointer]:
+        - generic [ref=f9e696]: 
+  - main [ref=f9e3]:
+    - generic [ref=f9e874]:
+      - generic [ref=f9e875]:
+        - generic [ref=f9e876]: Synced
+        - button " Print" [ref=f9e877] [cursor=pointer]:
+          - generic [ref=f9e878]: 
+          - text: Print
+        - button " Email" [disabled] [ref=f9e880]:
+          - generic [ref=f9e881]: 
+          - text: Email
+        - button " New sale" [ref=f9e882] [cursor=pointer]:
+          - generic [ref=f9e883]: 
+          - text: New sale
+      - generic [ref=f9e884]:
+        - generic [ref=f9e885]: E2E Test Store 20261017
+        - separator [ref=f9e886]
+        - generic [ref=f9e887]:
+          - generic [ref=f9e888]: No.
+          - generic [ref=f9e889]: POS-E2E-1017-20261017-0003
+        - generic [ref=f9e890]:
+          - generic [ref=f9e891]: Date
+          - generic [ref=f9e892]: 17 Oct 2026 13:28
+        - generic [ref=f9e893]:
+          - generic [ref=f9e894]: Till
+          - generic [ref=f9e895]: E2E Till 1
+        - generic [ref=f9e896]:
+          - generic [ref=f9e897]: Cashier
+          - generic [ref=f9e898]: Ethan Storeadmin
+        - generic [ref=f9e899]:
+          - generic [ref=f9e900]: Customer
+          - generic [ref=f9e901]: Walk-in customer
+        - separator [ref=f9e902]
+        - generic [ref=f9e903]: Bed
+        - generic [ref=f9e904]:
+          - generic [ref=f9e905]: 1 × 6,500.00 (−650.00)
+          - generic [ref=f9e906]: 5,850.00
+        - generic [ref=f9e907]: Sofa
+        - generic [ref=f9e908]:
+          - generic [ref=f9e909]: 1 × 7,000.00 (−700.00)
+          - generic [ref=f9e910]: 6,300.00
+        - separator [ref=f9e911]
+        - generic [ref=f9e912]:
+          - generic [ref=f9e913]: Subtotal
+          - generic [ref=f9e914]: 13,500.00
+        - generic [ref=f9e915]:
+          - generic [ref=f9e916]: Discount
+          - generic [ref=f9e917]: −1,350.00
+        - generic [ref=f9e918]:
+          - generic [ref=f9e919]: Tax 0%
+          - generic [ref=f9e920]: "0.00"
+        - generic [ref=f9e921]:
+          - generic [ref=f9e922]: TOTAL
+          - generic [ref=f9e923]: GBP 12,150.00
+        - separator [ref=f9e924]
+        - generic [ref=f9e925]:
+          - generic [ref=f9e926]: Cash
+          - generic [ref=f9e927]: 12,150.00

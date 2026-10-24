@@ -1,0 +1,258 @@
+- generic [active] [ref=f87e1]:
+  - generic [ref=f87e25]:
+    - generic:
+      - generic:
+        - link "Skip to Main Content":
+          - /url: "#main"
+        - banner [ref=f87e26]:
+          - navigation "Tools" [ref=f87e27]:
+            - heading "Sandbox Company GB 72c4" [level=2] [ref=f87e32]
+            - search [ref=f87e35]:
+              - searchbox "Search" [ref=f87e42]
+            - generic [ref=f87e43]:
+              - button "Contact expert help" [ref=f87e47] [cursor=pointer]:
+                - generic [ref=f87e49]: Contact experts
+              - button "Tasks" [ref=f87e55] [cursor=pointer]
+              - button "Integrations" [ref=f87e61] [cursor=pointer]
+              - button "Help" [ref=f87e69] [cursor=pointer]
+              - button "Intuit Labs" [ref=f87e75] [cursor=pointer]
+              - button "Settings" [ref=f87e80] [cursor=pointer]
+              - button "Intuit account (I)" [ref=f87e88] [cursor=pointer]:
+                - generic [ref=f87e89]: I
+              - button "Open Intuit Intelligence chat" [ref=f87e95] [cursor=pointer]
+    - navigation "Side" [ref=f87e140]:
+      - link "QuickBooks" [ref=f87e141] [cursor=pointer]:
+        - /url: currencies?intuit_authn_session_slot=VYPodik&iux_intuit_tid=1-6ad4e583-786281b57da2f2e673ba8def
+      - generic [ref=f87e143]:
+        - button "Create" [ref=f87e146] [cursor=pointer]
+        - button "Bookmarks" [ref=f87e154] [cursor=pointer]
+      - generic [ref=f87e159]:
+        - link "Home" [ref=f87e160] [cursor=pointer]:
+          - /url: /app/homepage
+        - link "Feed" [ref=f87e165] [cursor=pointer]:
+          - /url: /app/business-feed
+        - button "Reports" [ref=f87e172] [cursor=pointer]
+        - link "All apps" [ref=f87e180] [cursor=pointer]:
+          - /url: /app/banking?jobId=accounting
+      - generic [ref=f87e185]:
+        - generic [ref=f87e186]: PINNED
+        - generic [ref=f87e187]:
+          - button "Accounting" [ref=f87e191] [cursor=pointer]
+          - button "Expenses" [ref=f87e197] [cursor=pointer]
+          - button "Sales" [ref=f87e203] [cursor=pointer]
+      - button "Customise" [ref=f87e208] [cursor=pointer]
+    - navigation [ref=f87e213]:
+      - generic [ref=f87e214]:
+        - button "Collapse" [expanded] [ref=f87e216] [cursor=pointer]
+        - heading "All apps" [level=2] [ref=f87e220]
+        - generic [ref=f87e221]:
+          - button "Accounting" [ref=f87e225] [cursor=pointer]
+          - generic [ref=f87e230]:
+            - button "Expenses & Bills" [expanded] [ref=f87e232] [cursor=pointer]
+            - region "Expenses & Bills" [ref=f87e236]:
+              - generic [ref=f87e237]:
+                - generic [ref=f87e238]:
+                  - link "Expense transactions" [ref=f87e239] [cursor=pointer]:
+                    - /url: /app/expenses?jobId=expenses
+                  - button "Add bookmark Expense transactions" [ref=f87e242] [cursor=pointer]
+                - generic [ref=f87e244]:
+                  - link "Suppliers" [ref=f87e245] [cursor=pointer]:
+                    - /url: /app/vendors?jobId=expenses
+                  - button "Add bookmark Suppliers" [ref=f87e248] [cursor=pointer]
+                - generic [ref=f87e250]:
+                  - link "Bills" [ref=f87e251] [cursor=pointer]:
+                    - /url: /app/bills?jobId=expenses
+                  - button "Add bookmark Bills" [ref=f87e254] [cursor=pointer]
+                - generic [ref=f87e256]:
+                  - link "Mileage" [ref=f87e257] [cursor=pointer]:
+                    - /url: /app/mileage?jobId=expenses
+                  - button "Add bookmark Mileage" [ref=f87e260] [cursor=pointer]
+          - button "Sales & Get Paid" [ref=f87e265] [cursor=pointer]
+          - button "Customer Hub" [ref=f87e272] [cursor=pointer]
+          - button "Team" [ref=f87e279] [cursor=pointer]
+          - button "VAT" [ref=f87e286] [cursor=pointer]
+          - button "Income Tax" [ref=f87e293] [cursor=pointer]
+          - button "Capital" [ref=f87e300] [cursor=pointer]
+    - main [ref=f87e306]:
+      - generic [ref=f87e307]:
+        - generic [ref=f87e308]:
+          - heading "Bills" [level=1] [ref=f87e310]
+          - generic [ref=f87e312]:
+            - button "Give feedback" [ref=f87e313] [cursor=pointer]
+            - generic [ref=f87e318]:
+              - button "Pay bills" [ref=f87e319] [cursor=pointer]
+              - button "Pay bills menu" [ref=f87e321] [cursor=pointer]
+            - button "Add bill" [ref=f87e325] [cursor=pointer]
+        - generic [ref=f87e332]:
+          - tablist [ref=f87e333]:
+            - tab "For review" [ref=f87e334] [cursor=pointer]
+            - tab "Unpaid" [expanded] [selected] [ref=f87e337] [cursor=pointer]
+            - tab "Paid" [ref=f87e340] [cursor=pointer]
+          - tabpanel "Unpaid" [ref=f87e343]:
+            - generic [ref=f87e349]:
+              - generic [ref=f87e350]:
+                - generic [ref=f87e351]:
+                  - status [ref=f87e352]
+                  - generic [ref=f87e353]:
+                    - generic [ref=f87e360]:
+                      - text: Supplier
+                      - generic [ref=f87e361]:
+                        - combobox "Supplier" [ref=f87e362] [cursor=pointer]
+                        - generic [aria-hidden] [ref=f87e363] [cursor=pointer]
+                    - generic [ref=f87e369]:
+                      - text: Bill Date
+                      - textbox "Bill Date" [ref=f87e371]: This Year
+                    - button "Filters" [ref=f87e375] [cursor=pointer]
+                  - generic [ref=f87e379]:
+                    - generic [ref=f87e380]:
+                      - button "Print" [ref=f87e381] [cursor=pointer]
+                      - button "Export" [ref=f87e385] [cursor=pointer]
+                    - button "Settings" [ref=f87e390] [cursor=pointer]:
+                      - generic [ref=f87e393]: Customize
+                - generic [ref=f87e397]:
+                  - generic [ref=f87e398]:
+                    - generic [ref=f87e399]: "Bill Date:"
+                    - generic [ref=f87e401]: 01/01/2026-31/12/2026
+                  - button "Remove Bill Date filter" [ref=f87e402] [cursor=pointer]
+              - table [ref=f87e407]:
+                - rowgroup [ref=f87e408]:
+                  - row [ref=f87e409]:
+                    - columnheader "Select all rows" [ref=f87e410]:
+                      - checkbox "Select all rows" [ref=f87e413] [cursor=pointer]: 
+                    - columnheader [ref=f87e415]:
+                      - generic [ref=f87e416]:
+                        - button "Supplier" [ref=f87e418] [cursor=pointer]
+                        - button "Resize Supplier column. Use left and right arrow keys to resize. Hold Shift for larger increments." [ref=f87e420]
+                      - status [ref=f87e421]
+                    - columnheader [ref=f87e422]:
+                      - generic [ref=f87e423]:
+                        - button "Due Date" [ref=f87e425] [cursor=pointer]
+                        - button "Resize Due Date column. Use left and right arrow keys to resize. Hold Shift for larger increments." [ref=f87e432]
+                      - status [ref=f87e433]
+                    - columnheader [ref=f87e434]:
+                      - generic [ref=f87e435]:
+                        - button "Bill Amount" [ref=f87e437] [cursor=pointer]
+                        - button "Resize Bill Amount column. Use left and right arrow keys to resize. Hold Shift for larger increments." [ref=f87e439]
+                      - status [ref=f87e440]
+                    - columnheader [ref=f87e441]:
+                      - generic [ref=f87e442]:
+                        - button "Open Balance" [ref=f87e444] [cursor=pointer]
+                        - button "Resize Open Balance column. Use left and right arrow keys to resize. Hold Shift for larger increments." [ref=f87e446]
+                      - status [ref=f87e447]
+                    - columnheader [ref=f87e448]:
+                      - generic [ref=f87e449]:
+                        - button "Status" [ref=f87e451] [cursor=pointer]
+                        - button "Resize Status column. Use left and right arrow keys to resize. Hold Shift for larger increments." [ref=f87e453]
+                      - status [ref=f87e454]
+                    - columnheader "Action" [ref=f87e455]
+                - rowgroup [ref=f87e457]:
+                  - row [ref=f87e458] [cursor=pointer]:
+                    - cell "Select row" [ref=f87e459]:
+                      - checkbox "Select row" [ref=f87e462]: 
+                    - cell [ref=f87e464]:
+                      - button "Cass Hayden" [ref=f87e467]
+                    - cell "08/04/2026" [ref=f87e470]
+                    - cell "£1,500.00" [ref=f87e475]
+                    - cell "£1,500.00" [ref=f87e480]
+                    - cell "Warning Overdue 193 days ago" [ref=f87e485]:
+                      - generic [ref=f87e488]:
+                        - img "Warning" [ref=f87e490]
+                        - strong [ref=f87e496]:
+                          - generic [ref=f87e497]: Overdue
+                        - generic [ref=f87e498]: 193 days ago
+                    - cell [ref=f87e501]:
+                      - generic [ref=f87e503]:
+                        - button "Mark as paid" [ref=f87e504]
+                        - button "Expand Menu" [ref=f87e507]
+                  - row [ref=f87e510] [cursor=pointer]:
+                    - cell "Select row" [ref=f87e511]:
+                      - checkbox "Select row" [ref=f87e514]: 
+                    - cell [ref=f87e516]:
+                      - button "Organization of Outstanding Event Planners" [ref=f87e519]
+                    - cell "17/04/2026" [ref=f87e522]
+                    - cell "£390.00" [ref=f87e527]
+                    - cell "£390.00" [ref=f87e532]
+                    - cell "Warning Overdue 184 days ago" [ref=f87e537]:
+                      - generic [ref=f87e540]:
+                        - img "Warning" [ref=f87e542]
+                        - strong [ref=f87e548]:
+                          - generic [ref=f87e549]: Overdue
+                        - generic [ref=f87e550]: 184 days ago
+                    - cell [ref=f87e553]:
+                      - generic [ref=f87e555]:
+                        - button "Mark as paid" [ref=f87e556]
+                        - button "Expand Menu" [ref=f87e559]
+                  - row [ref=f87e562] [cursor=pointer]:
+                    - cell "Select row" [ref=f87e563]:
+                      - checkbox "Select row" [ref=f87e566]: 
+                    - cell [ref=f87e568]:
+                      - button "Mark Howard" [ref=f87e571]
+                    - cell "09/05/2026" [ref=f87e574]
+                    - cell "£1,500.00" [ref=f87e579]
+                    - cell "£1,500.00" [ref=f87e584]
+                    - cell "Warning Overdue 162 days ago" [ref=f87e589]:
+                      - generic [ref=f87e592]:
+                        - img "Warning" [ref=f87e594]
+                        - strong [ref=f87e600]:
+                          - generic [ref=f87e601]: Overdue
+                        - generic [ref=f87e602]: 162 days ago
+                    - cell [ref=f87e605]:
+                      - generic [ref=f87e607]:
+                        - button "Mark as paid" [ref=f87e608]
+                        - button "Expand Menu" [ref=f87e611]
+                  - row [ref=f87e614] [cursor=pointer]:
+                    - cell "Select row" [ref=f87e615]:
+                      - checkbox "Select row" [ref=f87e618]: 
+                    - cell [ref=f87e620]:
+                      - button "Mark Howard" [ref=f87e623]
+                    - cell "11/05/2026" [ref=f87e626]
+                    - cell "£1,500.00" [ref=f87e631]
+                    - cell "£1,500.00" [ref=f87e636]
+                    - cell "Warning Overdue 160 days ago" [ref=f87e641]:
+                      - generic [ref=f87e644]:
+                        - img "Warning" [ref=f87e646]
+                        - strong [ref=f87e652]:
+                          - generic [ref=f87e653]: Overdue
+                        - generic [ref=f87e654]: 160 days ago
+                    - cell [ref=f87e657]:
+                      - generic [ref=f87e659]:
+                        - button "Mark as paid" [ref=f87e660]
+                        - button "Expand Menu" [ref=f87e663]
+                  - row [ref=f87e666] [cursor=pointer]:
+                    - cell "Select row" [ref=f87e667]:
+                      - checkbox "Select row" [ref=f87e670]: 
+                    - cell [ref=f87e672]:
+                      - button "Royal Furnitures" [ref=f87e675]
+                    - cell "17/11/2026" [ref=f87e678]
+                    - cell "£20.00" [ref=f87e683]
+                    - cell "£20.00" [ref=f87e688]
+                    - cell "Pending Due later Due in 30 days" [ref=f87e693]:
+                      - generic [ref=f87e696]:
+                        - img "Pending" [ref=f87e698]
+                        - strong [ref=f87e704]:
+                          - generic [ref=f87e705]: Due later
+                        - generic [ref=f87e706]: Due in 30 days
+                    - cell [ref=f87e709]:
+                      - generic [ref=f87e711]:
+                        - button "Mark as paid" [ref=f87e712]
+                        - button "Expand Menu" [ref=f87e715]
+                - rowgroup [ref=f87e718]:
+                  - row [ref=f87e719]:
+                    - cell [ref=f87e720]
+                    - cell [ref=f87e721]
+                    - cell "Total" [ref=f87e722]
+                    - cell "£4,910.00" [ref=f87e723]
+                    - cell "£4,910.00" [ref=f87e724]
+                    - cell [ref=f87e725]
+                    - cell [ref=f87e726]
+              - navigation [ref=f87e729]:
+                - generic [ref=f87e730]: 1 - 5 of 5 items
+                - generic [ref=f87e731]:
+                  - button "Go to previous page, currently on page 1" [disabled]
+                  - generic [ref=f87e732] [cursor=pointer]:
+                    - generic [ref=f87e733]: Page
+                    - spinbutton "Page of 1" [ref=f87e737]: "1"
+                    - generic [ref=f87e738]: of 1
+                  - button "Go to next page, currently on page 1" [disabled]
+  - generic: "Essential, Enhanced Experience & Product Improvement These first-party cookies are set by Intuit or one of our service providers; you cannot turn these off. These cookies enable the site to function as intended, including: basic functionality (for example, your ability to log into your Intuit account or add items to your cart for purchase); remember your preferences (for example, your preferred language or login credentials); provide you personalized content when viewing our site; and, allow us to evaluate your use and navigation of the site to fix bugs and improve the overall experience for you and others. A single cookie may be used for one or all of these purposes. Third-Party Advertisement  Yes We leverage advertising trackers across our sites to improve our marketing and advertising activities. These trackers may share some limited personal information with third-party platforms where we may display advertisements or run marketing campaigns. You may choose to turn these trackers off. You will still see Intuit advertisements when you opt-out, but these ads may not be tailored to your interests. This preference applies to your experience on our .intuit sites, once you create or login to your Intuit account, you may be prompted to choose again.    "
+  - status [ref=f87e740]

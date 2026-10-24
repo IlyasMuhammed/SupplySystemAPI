@@ -77,6 +77,20 @@
     </div>
   </header>
 
+  <!-- A46 C5 / BR-30 — what the PR conversion priced automatically and what still needs a price. -->
+  <div class="pricing-summary" *ngIf="pricingSummary as ps" role="status" data-testid="pricing-summary">
+    <i class="pi pi-info-circle"></i>
+    <div class="pricing-summary-text">
+      <div data-testid="pricing-summary-total">{{ ps.totalLines }} line{{ ps.totalLines !== 1 ? 's' : '' }} created from Purchase Request.</div>
+      <div data-testid="pricing-summary-priced">{{ ps.pricedCount }} line{{ ps.pricedCount !== 1 ? 's' : '' }} priced automatically from Supplier Pricelist.</div>
+      <div data-testid="pricing-summary-unpriced" *ngIf="ps.unpricedCount > 0">{{ ps.unpricedCount }} line{{ ps.unpricedCount !== 1 ? 's' : '' }} require manual pricing (highlighted in yellow).</div>
+      <div class="sf-mu sf-sm" *ngFor="let w of ps.warnings">{{ w }}</div>
+    </div>
+    <p-button *ngIf="ps.unpricedCount > 0" label="View Unpriced Lines" size="small" [outlined]="true" type="button"
+              (onClick)="viewUnpricedLines()" data-testid="view-unpriced-lines"></p-button>
+    <p-button icon="pi pi-times" size="small" [text]="true" severity="secondary" type="button" (onClick)="pricingSummary = null" aria-label="Dismiss"></p-button>
+  </div>
+
   <sf-anchors #tabs mode="tabs" [sections]="sections"></sf-anchors>
 
   <div class="sf-body">
@@ -106,7 +120,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let line of po.lines">
+            <tr *ngFor="let line of po.lines" [class.unpriced-line]="highlightUnpriced && isUnpriced(line)" [attr.data-unpriced]="isUnpriced(line) ? '1' : null">
               <td class="sf-mu">{{ line.lineNo }}</td>
               <td>
                 <div class="line-desc-row">
@@ -144,7 +158,12 @@
                   {{ line.qtyPending | number:'1.0-4' }}
                 </span>
               </td>
-              <td class="sf-r sf-num" data-testid="po-line-unit-price">{{ dual.primary(line.unitPrice, line.unitPriceBase) | money:dual.primaryCurrency:moneyCode }}</td>
+              <td class="sf-r sf-num"><span data-testid="po-line-unit-price" [pTooltip]="'Unit Price: ' + (dual.primary(line.unitPrice, line.unitPriceBase) | money:dual.primaryCurrency:unitCode4)" tooltipPosition="top">{{ dual.primary(line.unitPrice, line.unitPriceBase) | money:dual.primaryCurrency:unitCode2 }}</span>
+                <i class="pi pi-info-circle conv-info" *ngIf="convertedInfo(line) as ci" [pTooltip]="conversionTooltip(ci)" tooltipPosition="top" data-testid="po-line-converted-info"></i>
+                <div class="sf-mu sf-sm line-mismatch" *ngIf="line.currencyMismatchWarning" data-testid="po-line-currency-mismatch"><i class="pi pi-exclamation-triangle"></i> {{ line.pricingWarning || 'No exchange rate available to convert the pricelist price. Enter price manually.' }}</div>
+                <div><span class="sf-pill" [class.ok]="line.priceSource === 1" [class.wn]="line.priceSource === 2" data-testid="po-line-price-source">{{ priceSourceLabel(line.priceSource) }}</span></div>
+                <div class="sf-mu sf-sm" *ngIf="line.priceSource === 2 && line.priceOverrideReason" data-testid="po-line-override-reason">{{ line.priceOverrideReason }}</div>
+              </td>
               <td class="sf-r sf-num total-cell" data-testid="po-line-total-primary">{{ dual.primary(line.lineTotal, line.lineTotalBase) | money:dual.primaryCurrency:moneyCode }}</td>
               <td class="sf-r sf-num total-cell" *ngIf="dual.showBase" data-testid="po-line-total-secondary">{{ dual.secondary(line.lineTotal, line.lineTotalBase) | money:dual.secondaryCurrency:moneyCode }}</td>
               <td>{{ line.budgetCode || '—' }}</td>
@@ -167,6 +186,7 @@
       <div class="sf-kv">
         <span>Supplier</span><span><strong>{{ po.supplierName }}</strong></span>
         <ng-container *ngIf="po.title"><span>Title</span><span>{{ po.title }}</span></ng-container>
+        <span>Order date</span><span data-testid="po-order-date">{{ po.orderDate ? (orderDateValue | date:'dd MMM yyyy') : '—' }}</span>
         <span>Delivery date</span><span>{{ po.deliveryDate ? (po.deliveryDate | date:'dd MMM yyyy') : '—' }}</span>
         <span>Created</span><span>{{ po.createdDate | date:'dd MMM yyyy' }}</span>
         <ng-container *ngIf="po.linkedPrUuids?.length">

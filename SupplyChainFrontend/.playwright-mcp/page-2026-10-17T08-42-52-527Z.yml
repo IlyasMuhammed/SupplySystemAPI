@@ -1,0 +1,254 @@
+- generic [ref=f21e4]:
+  - generic [ref=f21e5]:
+    - generic [ref=f21e6]:
+      - button "" [ref=f21e7] [cursor=pointer]
+      - link:
+        - /url: /portal/dashboard
+      - navigation "Breadcrumb" [ref=f21e9]:
+        - generic [ref=f21e10]: Point of Sale
+        - generic [ref=f21e11]: ›
+        - strong [ref=f21e12]: POS orders
+    - button " Search anything... Ctrl K" [ref=f21e14] [cursor=pointer]:
+      - generic [ref=f21e15]: 
+      - generic [ref=f21e16]: Search anything...
+      - generic [ref=f21e17]: Ctrl K
+    - generic [ref=f21e18]:
+      - generic [ref=f21e19]:
+        - button "" [ref=f21e20] [cursor=pointer]
+        - generic: "2"
+      - generic [ref=f21e22]:
+        - button "Appearance" [ref=f21e23] [cursor=pointer]:
+          - generic [ref=f21e24]: 
+        - text:    
+      - generic [ref=f21e26]:
+        - button "ES " [ref=f21e27] [cursor=pointer]:
+          - generic [ref=f21e28]: ES
+          - generic [ref=f21e30]: 
+        - text:   
+  - generic [ref=f21e31]:
+    - generic [ref=f21e32]:
+      - generic [ref=f21e33]: 
+      - generic [ref=f21e35]:
+        - generic [ref=f21e36]: SupplyChain MS
+        - generic [ref=f21e37]: KFC Pakistan (KFC)
+    - list [ref=f21e39]:
+      - listitem [ref=f21e40]:
+        - button "Home " [ref=f21e41] [cursor=pointer]:
+          - generic [ref=f21e42]: Home
+          - generic [ref=f21e43]: 
+        - list:
+          - listitem [ref=f21e44]:
+            - link " Dashboard" [ref=f21e45] [cursor=pointer]:
+              - /url: /portal/dashboard
+              - generic [ref=f21e46]: 
+              - generic [ref=f21e47]: Dashboard
+          - listitem [ref=f21e48]:
+            - link " My Inbox" [ref=f21e49] [cursor=pointer]:
+              - /url: /portal/pages/workflow-inbox
+              - generic [ref=f21e50]: 
+              - generic [ref=f21e51]: My Inbox
+      - listitem [ref=f21e52]:
+        - button "Sales " [ref=f21e53] [cursor=pointer]:
+          - generic [ref=f21e54]: Sales
+          - generic [ref=f21e55]: 
+        - list:
+          - listitem [ref=f21e56]:
+            - link " Customers" [ref=f21e57] [cursor=pointer]:
+              - /url: /portal/pages/customers
+              - generic [ref=f21e58]: 
+              - generic [ref=f21e59]: Customers
+      - listitem [ref=f21e60]:
+        - button "Point of Sale " [expanded] [ref=f21e61] [cursor=pointer]:
+          - generic [ref=f21e62]: Point of Sale
+          - generic [ref=f21e63]: 
+        - list [ref=f21e64]:
+          - listitem [ref=f21e65]:
+            - link " Stores" [ref=f21e66] [cursor=pointer]:
+              - /url: /portal/pages/pos/stores
+              - generic [ref=f21e67]: 
+              - generic [ref=f21e68]: Stores
+          - listitem [ref=f21e69]:
+            - link " Shifts" [ref=f21e70] [cursor=pointer]:
+              - /url: /portal/pages/pos/shifts
+              - generic [ref=f21e71]: 
+              - generic [ref=f21e72]: Shifts
+          - listitem [ref=f21e73]:
+            - link " POS Orders" [ref=f21e74] [cursor=pointer]:
+              - /url: /portal/pages/pos/orders
+              - generic [ref=f21e75]: 
+              - generic [ref=f21e76]: POS Orders
+          - listitem [ref=f21e77]:
+            - link " Store credit" [ref=f21e78] [cursor=pointer]:
+              - /url: /portal/pages/pos/credit-notes
+              - generic [ref=f21e79]: 
+              - generic [ref=f21e80]: Store credit
+          - listitem [ref=f21e81]:
+            - link " Open POS" [ref=f21e82] [cursor=pointer]:
+              - /url: /pos
+              - generic [ref=f21e83]: 
+              - generic [ref=f21e84]: Open POS
+  - generic [ref=f21e85]:
+    - generic [ref=f21e88]:
+      - toolbar "Commands" [ref=f21e89]:
+        - button " Refresh" [ref=f21e91] [cursor=pointer]:
+          - generic [ref=f21e92]: 
+          - generic [ref=f21e93]: Refresh
+        - button " Clear filters" [ref=f21e96] [cursor=pointer]:
+          - generic [ref=f21e97]: 
+          - generic [ref=f21e98]: Clear filters
+      - generic [ref=f21e101]:
+        - generic [ref=f21e102]:
+          - generic [ref=f21e103]:
+            - heading "POS orders 6" [level=1] [ref=f21e104]:
+              - text: POS orders
+              - generic [ref=f21e105]: "6"
+            - generic [ref=f21e106]: Counter sales and returns from every till, with what needs a supervisor's look
+          - generic [ref=f21e107]:
+            - button "All" [ref=f21e108] [cursor=pointer]
+            - button "Completed" [ref=f21e109] [cursor=pointer]
+            - button "Voided" [ref=f21e110] [cursor=pointer]
+            - button "Returned" [ref=f21e111] [cursor=pointer]
+            - button "Partially returned" [ref=f21e112] [cursor=pointer]
+        - generic [ref=f21e113]:
+          - generic [ref=f21e114]:
+            - generic [ref=f21e115]: 
+            - textbox "Search order number…" [ref=f21e116]
+          - generic [ref=f21e117] [cursor=pointer]:
+            - combobox "All stores" [ref=f21e118]
+            - button "dropdown trigger" [ref=f21e119]
+          - generic:
+            - combobox "All terminals" [disabled]
+            - button "dropdown trigger"
+          - generic [ref=f21e123] [cursor=pointer]:
+            - combobox "All customers" [ref=f21e124]
+            - button "dropdown trigger" [ref=f21e125]
+          - generic [ref=f21e129] [cursor=pointer]:
+            - combobox "Sales and returns" [ref=f21e130]
+            - button "dropdown trigger" [ref=f21e131]
+          - generic [ref=f21e136]:
+            - combobox "Sold between" [ref=f21e137]
+            - button "Choose Date" [ref=f21e138] [cursor=pointer]
+        - generic [ref=f21e144]:
+          - table [ref=f21e146]:
+            - rowgroup [ref=f21e147]:
+              - row [ref=f21e148]:
+                - columnheader "Order" [ref=f21e149]
+                - columnheader "Date" [ref=f21e150]
+                - columnheader "Store / terminal" [ref=f21e151]
+                - columnheader "Cashier" [ref=f21e152]
+                - columnheader "Customer" [ref=f21e153]
+                - columnheader "Total" [ref=f21e154]
+                - columnheader "Payment" [ref=f21e155]
+                - columnheader "Status" [ref=f21e156]
+                - columnheader "Flags" [ref=f21e157]
+                - columnheader "Posting" [ref=f21e158]
+            - rowgroup [ref=f21e159]:
+              - row [ref=f21e160]:
+                - cell [ref=f21e161]:
+                  - link [ref=f21e162] [cursor=pointer]:
+                    - /url: /portal/pages/pos/orders/41dbdfa4-be71-4f70-8c68-71c81a1c8279
+                    - strong [ref=f21e163]: POS-E2E-1017-20261017-0005
+                - cell "17 Oct 2026, 08:29" [ref=f21e164]
+                - cell "E2E Test Store 20261017 E2E Till 1" [ref=f21e165]:
+                  - text: E2E Test Store 20261017
+                  - generic [ref=f21e166]: E2E Till 1
+                - cell "Ethan Storeadmin" [ref=f21e167]
+                - cell "Walk-in Customer" [ref=f21e168]
+                - cell "98,000.00" [ref=f21e169]
+                - cell "Paid" [ref=f21e170]
+                - cell "Completed" [ref=f21e172]
+                - cell "Negative stock" [ref=f21e174]
+                - cell "Posted" [ref=f21e176]
+              - row [ref=f21e178]:
+                - cell [ref=f21e179]:
+                  - link [ref=f21e180] [cursor=pointer]:
+                    - /url: /portal/pages/pos/orders/2d889f0a-60be-4c91-9770-1d9a51c6a776
+                    - strong [ref=f21e181]: POS-E2E-1017-20261017-0003
+                - cell "17 Oct 2026, 08:28" [ref=f21e182]
+                - cell "E2E Test Store 20261017 E2E Till 1" [ref=f21e183]:
+                  - text: E2E Test Store 20261017
+                  - generic [ref=f21e184]: E2E Till 1
+                - cell "Ethan Storeadmin" [ref=f21e185]
+                - cell "Walk-in Customer" [ref=f21e186]
+                - cell "12,150.00" [ref=f21e187]
+                - cell "Paid" [ref=f21e188]
+                - cell "Completed" [ref=f21e190]
+                - cell "Negative stock" [ref=f21e192]
+                - cell "Posted" [ref=f21e194]
+              - row [ref=f21e196]:
+                - cell [ref=f21e197]:
+                  - link [ref=f21e198] [cursor=pointer]:
+                    - /url: /portal/pages/pos/orders/b6f011ff-3032-4041-972b-86c89acfbf74
+                    - strong [ref=f21e199]: POS-E2E-1017-20261017-0002
+                - cell "17 Oct 2026, 08:27" [ref=f21e200]
+                - cell "E2E Test Store 20261017 E2E Till 1" [ref=f21e201]:
+                  - text: E2E Test Store 20261017
+                  - generic [ref=f21e202]: E2E Till 1
+                - cell "Casey Cashier" [ref=f21e203]
+                - cell "Walk-in Customer" [ref=f21e204]
+                - cell "118,000.00" [ref=f21e205]
+                - cell "Paid" [ref=f21e206]
+                - cell "Completed" [ref=f21e208]
+                - cell "—" [ref=f21e210]
+                - cell "Not posted" [ref=f21e211]
+              - row [ref=f21e213]:
+                - cell [ref=f21e214]:
+                  - link [ref=f21e215] [cursor=pointer]:
+                    - /url: /portal/pages/pos/orders/b0f280f2-c38f-4e47-b50a-ce2c45381821
+                    - strong [ref=f21e216]: POS-E2E-1017-20261017-0001
+                - cell "17 Oct 2026, 08:25" [ref=f21e217]
+                - cell "E2E Test Store 20261017 E2E Till 1" [ref=f21e218]:
+                  - text: E2E Test Store 20261017
+                  - generic [ref=f21e219]: E2E Till 1
+                - cell "Casey Cashier" [ref=f21e220]
+                - cell "Walk-in Customer" [ref=f21e221]
+                - cell "7,000.00" [ref=f21e222]
+                - cell "Paid" [ref=f21e223]
+                - cell "Completed" [ref=f21e225]
+                - cell "—" [ref=f21e227]
+                - cell "Not posted" [ref=f21e228]
+              - row [ref=f21e230]:
+                - cell [ref=f21e231]:
+                  - link [ref=f21e232] [cursor=pointer]:
+                    - /url: /portal/pages/pos/orders/a9e2d46f-9012-462a-8791-76df86c5b115
+                    - strong [ref=f21e233]: POS-GULBERG-20261017-0003
+                - cell "17 Oct 2026, 08:12" [ref=f21e234]
+                - cell "KFC Gulberg Order Taking" [ref=f21e235]:
+                  - text: KFC Gulberg
+                  - generic [ref=f21e236]: Order Taking
+                - cell "Test User" [ref=f21e237]
+                - cell "Walk-in Customer" [ref=f21e238]
+                - cell "6,500.00" [ref=f21e239]
+                - cell "Paid" [ref=f21e240]
+                - cell "Completed" [ref=f21e242]
+                - cell "Negative stock" [ref=f21e244]
+                - cell "Posted" [ref=f21e246]
+              - row [ref=f21e248]:
+                - cell [ref=f21e249]:
+                  - link [ref=f21e250] [cursor=pointer]:
+                    - /url: /portal/pages/pos/orders/f07a3c6e-db70-4a7d-98c0-fbc9be5cc527
+                    - strong [ref=f21e251]: POS-GULBERG-20261017-0001
+                - cell "17 Oct 2026, 08:04" [ref=f21e252]
+                - cell "KFC Gulberg Order Taking" [ref=f21e253]:
+                  - text: KFC Gulberg
+                  - generic [ref=f21e254]: Order Taking
+                - cell "Test User" [ref=f21e255]
+                - cell "Walk-in Customer" [ref=f21e256]
+                - cell "7,000.00" [ref=f21e257]
+                - cell "Paid" [ref=f21e258]
+                - cell "Completed" [ref=f21e260]
+                - cell "—" [ref=f21e262]
+                - cell "Not posted" [ref=f21e263]
+          - generic [ref=f21e266]:
+            - button "First Page" [disabled]
+            - button "Previous Page" [disabled]
+            - button "1" [ref=f21e268] [cursor=pointer]
+            - button "Next Page" [disabled]
+            - button "Last Page" [disabled]
+            - generic [ref=f21e269] [cursor=pointer]:
+              - combobox "Rows per page" [ref=f21e270]: "25"
+              - button "dropdown trigger" [ref=f21e271]
+    - generic [ref=f21e276]:
+      - text: All Rights Reserved To
+      - link "Loading" [ref=f21e277] [cursor=pointer]:
+        - /url: https://primeng.org

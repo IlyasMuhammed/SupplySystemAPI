@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule, ActivatedRoute } from '@angular/router';
 import { ReactiveFormsModule, FormsModule, FormBuilder, FormGroup, FormArray, Validators } from '@angular/forms';
@@ -28,6 +28,9 @@ import { DocCurrencyPicker } from '../../../../shared/doc-currency/doc-currency-
 import { DocCurrencyPanelComponent } from '../../../../shared/doc-currency/doc-currency-panel.component';
 import { MoneyPipe } from '../../../../shared/money/money.pipe';
 import { FLOW } from '../../../../shared/flow';
+import { PurchasePricingService } from '../../../../services/purchase-pricing.service';
+import { PoLinePricing, addPricingControls, PRICE_TOAST_KEY, ymd } from '../po-line-pricing';
+import { conversionTooltip, price2, price4 } from '../../../../services/purchase-pricing.service';
 
 @Component({
   selector: 'app-po-create',
@@ -44,7 +47,15 @@ import { FLOW } from '../../../../shared/flow';
   styleUrls: ['./po-create.component.scss'],
   providers: [MessageService]
 })
-export class PoCreateComponent implements OnInit {
+export class PoCreateComponent implements OnInit, OnDestroy {
+  /** A45 — PO line auto-pricing (resolve-price, source badge, C7 re-lookup). */
+  pricing!: PoLinePricing;
+  readonly priceToastKey = PRICE_TOAST_KEY;
+  readonly conversionTooltip = conversionTooltip;
+  readonly price2 = price2;
+  readonly price4 = price4;
+  /** A46 C1 — a PO being created is always a DRAFT, so the order date is always editable here. */
+  readonly orderDateEditable = true;
   form!: FormGroup;
   isSubmitting = false;
   minDate = new Date();
@@ -120,11 +131,20 @@ export class PoCreateComponent implements OnInit {
     private router: Router,
     private authService: AuthService,
     private route: ActivatedRoute,
-    private rateCardService: RateCardService
+    private rateCardService: RateCardService,
+    private pricingSvc: PurchasePricingService
   ) {
     this.buildForm();
     this.currency = new DocCurrencyPicker(this.money, this.form.get('currencyId')!, 'PURCHASE');
+    this.pricing = new PoLinePricing(this.form, this.pricingSvc, this.messageService, this.router, {
+      focusPrice: i => setTimeout(() => document.getElementById('unitPrice-' + i)?.focus()),
+      currencyCode: () => this.currency.code || null,
+      fmt: n => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })
+    });
+    this.lines.controls.forEach(g => this.pricing.attach(g as FormGroup));
   }
+
+  ngOnDestroy() { this.pricing?.destroy(); }
 
   get isProcurementManager(): boolean {
     return this.authService.hasRole('Procurement Manager');
@@ -318,9 +338,10 @@ export class PoCreateComponent implements OnInit {
         : (sel.productName ?? '');
       line.patchValue({
         itemDescription: label,
-        unitOfMeasure:   sel.uomCode ?? line.get('unitOfMeasure')?.value ?? null,
-        unitPrice:       sel.purchasePrice ?? 0
+        unitOfMeasure:   sel.uomCode ?? line.get('unitOfMeasure')?.value ?? null
       });
+      // Silent: this is the product default, not a buyer edit (A45 would read an edit as an override).
+      line.get('unitPrice')!.setValue(sel.purchasePrice ?? 0, { emitEvent: false });
     }
     this.checkDiscountSuggestion(i);
   }
@@ -388,7 +409,7 @@ export class PoCreateComponent implements OnInit {
       next: res => {
         this.loadingImport = false;
         if (!res.success || !res.result) return;
-        while (this.lines.length) this.lines.removeAt(0);
+        this.clearLines();
         for (const line of res.result.lines) {
           const group = this.newLine();
           group.patchValue({
@@ -402,7 +423,7 @@ export class PoCreateComponent implements OnInit {
             unitPrice:        line.estimatedUnitPrice ?? 0,
             lineNotes:        line.lineNotes        ?? '',
             budgetCode:       line.budgetCode       ?? ''
-          });
+          }, { emitEvent: false });
           this.lines.push(group);
         }
         if (this.lines.length === 0) this.lines.push(this.newLine());
@@ -441,7 +462,7 @@ export class PoCreateComponent implements OnInit {
         if (awarded) {
           for (const l of awarded.lines) priceMap.set(l.quotationLineUuid, l.netUnitPrice);
         }
-        while (this.lines.length) this.lines.removeAt(0);
+        this.clearLines();
         for (const line of detail.result.lines) {
           const group = this.newLine();
           group.patchValue({
@@ -454,7 +475,7 @@ export class PoCreateComponent implements OnInit {
             unitPrice:       priceMap.get(line.uuid) ?? 0,
             lineNotes:       '',
             budgetCode:      line.budgetCode ?? ''
-          });
+          }, { emitEvent: false });
           this.lines.push(group);
         }
         if (this.lines.length === 0) this.lines.push(this.newLine());
@@ -481,7 +502,7 @@ export class PoCreateComponent implements OnInit {
     // control OMITTED from the passed value to null (not to newLine()'s defaults), which silently
     // nulled out requiresInspection (a non-nullable bool server-side) and caused a JSON
     // deserialization error on submit whenever this ran with neither a PR nor quotation selected.
-    while (this.lines.length) this.lines.removeAt(0);
+    this.clearLines();
     this.lines.push(this.newLine());
     this.clearSupplierLock();
   }
@@ -544,6 +565,7 @@ export class PoCreateComponent implements OnInit {
     this.form = this.fb.group({
       supplierId:            ['', Validators.required],
       supplierName:          [''],
+      orderDate:             [new Date()],
       currencyId:            [null as string | null],
       title:                 [''],
       deliveryDate:          [null],
@@ -557,7 +579,7 @@ export class PoCreateComponent implements OnInit {
   get lines(): FormArray { return this.form.get('lines') as FormArray; }
 
   newLine(): FormGroup {
-    return this.fb.group({
+    const g = this.fb.group({
       sourcePrLineUuid: [null],
       productUuid:      [null],
       variantUuid:      [null],
@@ -574,10 +596,18 @@ export class PoCreateComponent implements OnInit {
       budgetCode:       [''],
       requiresInspection: [true]
     });
+    addPricingControls(g);
+    return this.pricing ? this.pricing.attach(g) : g;
+  }
+
+  private clearLines() {
+    while (this.lines.length) { this.pricing.detach(this.lines.at(0) as FormGroup); this.lines.removeAt(0); }
   }
 
   addLine()             { this.lines.push(this.newLine()); }
-  removeLine(i: number) { if (this.lines.length > 1) this.lines.removeAt(i); }
+  removeLine(i: number) {
+    if (this.lines.length > 1) { this.pricing.detach(this.lines.at(i) as FormGroup); this.lines.removeAt(i); }
+  }
 
   get estimatedTotal(): number {
     return this.lines.controls.reduce(
@@ -595,6 +625,7 @@ export class PoCreateComponent implements OnInit {
       supplierId:            v.supplierId,
       supplierName:          v.supplierName,
       title:                 v.title               || undefined,
+      orderDate:             ymd(v.orderDate),
       deliveryDate:          v.deliveryDate instanceof Date ? v.deliveryDate.toISOString() : v.deliveryDate || undefined,
       deliveryWarehouseId:   v.deliveryWarehouseId  || undefined,
       deliveryWarehouseName: v.deliveryWarehouseName || undefined,
@@ -615,7 +646,8 @@ export class PoCreateComponent implements OnInit {
         requiredDate:     l.requiredDate instanceof Date ? l.requiredDate.toISOString() : l.requiredDate || undefined,
         lineNotes:        l.lineNotes        || undefined,
         budgetCode:       l.budgetCode       || undefined,
-        requiresInspection: l.requiresInspection
+        requiresInspection: l.requiresInspection,
+        ...PoLinePricing.payload(l)
       })),
       poUuid: this.poUuid
     };

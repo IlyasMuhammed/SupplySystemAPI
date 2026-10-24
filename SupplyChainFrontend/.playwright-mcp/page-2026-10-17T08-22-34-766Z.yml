@@ -1,0 +1,17 @@
+- main [ref=f7e3]:
+  - generic [ref=f7e6]:
+    - generic [ref=f7e7]:
+      - generic [ref=f7e8]: 
+      - text: SMS POS
+      - generic [ref=f7e9]: Online
+    - generic [ref=f7e22]:
+      - heading "Choose this device's terminal" [level=1] [ref=f7e23]
+      - paragraph [ref=f7e24]: This device is not bound yet. Signed in as Ethan Storeadmin.
+      - button "Order Taking123 · KFC Gulberg Bound to another device" [disabled] [ref=f7e26]:
+        - generic [ref=f7e27]:
+          - strong [ref=f7e28]: Order Taking
+          - text: 123 · KFC Gulberg
+        - generic [ref=f7e29]: Bound to another device
+      - generic [ref=f7e30]:
+        - button "Refresh" [ref=f7e31] [cursor=pointer]
+        - button "Sign out device" [ref=f7e32] [cursor=pointer]

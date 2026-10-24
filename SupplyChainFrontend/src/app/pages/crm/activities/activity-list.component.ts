@@ -79,7 +79,7 @@ type Tab = 'pending' | 'all';
         <p-dropdown [options]="typeOptions" [(ngModel)]="type" optionLabel="label" optionValue="value" [showClear]="true" placeholder="All types" (onChange)="reload()" appendTo="body"></p-dropdown>
         <p-dropdown [options]="stateOptions" [(ngModel)]="state" optionLabel="label" optionValue="value" (onChange)="reload()" appendTo="body"></p-dropdown>
         <p-dropdown [options]="ownerOptions" [(ngModel)]="mine" optionLabel="label" optionValue="value" (onChange)="reload()" appendTo="body"></p-dropdown>
-        <p-calendar [(ngModel)]="range" selectionMode="range" [readonlyInput]="true" [showIcon]="true" [showButtonBar]="true" dateFormat="dd M yy"
+        <p-calendar [(ngModel)]="range" selectionMode="range" [readonlyInput]="true" [showIcon]="true" [showButtonBar]="true" todayButtonStyleClass="" clearButtonStyleClass="" dateFormat="dd M yy"
                     placeholder="Between" (ngModelChange)="onRange()" appendTo="body"></p-calendar>
       </div>
       <div class="sf-card p0">

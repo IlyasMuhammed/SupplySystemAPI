@@ -142,7 +142,7 @@ export class LeadConvertDialogComponent implements OnChanges {
     this.closeDate = l.estimatedCloseDate ? fromDateOnly(l.estimatedCloseDate) : null;
     this.ownerId = l.assignedToUserId ?? null;
     this.crm.getAccountMatches(l.uuid).subscribe({ next: r => this.matches = r.result ?? [], error: () => this.matches = [] });
-    if (this.canAssign) this.lookups.users().subscribe(u => this.userOptions = CrmLookupsService.userOptions(u));
+    if (this.canAssign) this.lookups.assignableUsers().subscribe(u => this.userOptions = CrmLookupsService.userOptions(u));
   }
 
   runSearch(): void {

@@ -1,0 +1,204 @@
+- generic [ref=f51e4]:
+  - generic [ref=f51e5]:
+    - generic [ref=f51e6]:
+      - button "" [ref=f51e7] [cursor=pointer]
+      - link:
+        - /url: /portal/dashboard
+      - navigation "Breadcrumb" [ref=f51e9]:
+        - generic [ref=f51e10]: CRM
+        - generic [ref=f51e11]: ›
+        - strong [ref=f51e12]: Campaigns
+    - button " Search anything... Ctrl K" [ref=f51e14] [cursor=pointer]:
+      - generic [ref=f51e15]: 
+      - generic [ref=f51e16]: Search anything...
+      - generic [ref=f51e17]: Ctrl K
+    - generic [ref=f51e18]:
+      - button "" [ref=f51e20] [cursor=pointer]
+      - generic [ref=f51e22]:
+        - button "Appearance" [ref=f51e23] [cursor=pointer]:
+          - generic [ref=f51e24]: 
+        - text:    
+      - generic [ref=f51e26]:
+        - button "MC " [ref=f51e27] [cursor=pointer]:
+          - generic [ref=f51e28]: MC
+          - generic [ref=f51e30]: 
+        - text:   
+  - generic [ref=f51e31]:
+    - generic [ref=f51e32]:
+      - generic [ref=f51e33]: 
+      - generic [ref=f51e35]:
+        - generic [ref=f51e36]: SupplyChain MS
+        - generic [ref=f51e37]: Supply Management System
+    - generic:
+      - list
+  - generic [ref=f51e38]:
+    - generic [ref=f51e40]:
+      - generic:
+        - alertdialog
+      - generic [ref=f51e41]:
+        - toolbar "Commands" [ref=f51e42]:
+          - button " New campaign" [ref=f51e44] [cursor=pointer]:
+            - generic [ref=f51e45]: 
+            - generic [ref=f51e46]: New campaign
+        - generic [ref=f51e49]:
+          - generic [ref=f51e50]:
+            - generic [ref=f51e51]:
+              - heading "Campaigns 0" [level=1] [ref=f51e52]:
+                - text: Campaigns
+                - generic [ref=f51e53]: "0"
+              - generic [ref=f51e54]: Marketing initiatives leads are attributed to — budget, expected and actual leads
+            - generic [ref=f51e55]:
+              - button "All" [ref=f51e56] [cursor=pointer]
+              - button "Draft" [ref=f51e57] [cursor=pointer]
+              - button "Active" [ref=f51e58] [cursor=pointer]
+              - button "Paused" [ref=f51e59] [cursor=pointer]
+              - button "Completed" [ref=f51e60] [cursor=pointer]
+              - button "Cancelled" [ref=f51e61] [cursor=pointer]
+          - generic [ref=f51e63]:
+            - generic [ref=f51e64]: 
+            - textbox "Search name or code" [ref=f51e65]
+          - generic [ref=f51e68]:
+            - table [ref=f51e75]:
+              - rowgroup [ref=f51e76]:
+                - row [ref=f51e77]:
+                  - columnheader "Code" [ref=f51e78]
+                  - columnheader "Campaign" [ref=f51e79]
+                  - columnheader "Type" [ref=f51e80]
+                  - columnheader "Source" [ref=f51e81]
+                  - columnheader "Dates" [ref=f51e82]
+                  - columnheader "Budget" [ref=f51e83]
+                  - columnheader "Leads" [ref=f51e84]
+                  - columnheader "Status" [ref=f51e85]
+              - rowgroup
+            - generic [ref=f51e87]:
+              - button "First Page" [disabled]
+              - button "Previous Page" [disabled]
+              - button "Next Page" [disabled]
+              - button "Last Page" [disabled]
+      - dialog "New campaign" [ref=f51e92]:
+        - generic [ref=f51e95]:
+          - generic [ref=f51e96]: New campaign
+          - button [ref=f51e99] [cursor=pointer]
+        - generic [ref=f51e104]:
+          - generic [ref=f51e105]:
+            - generic [ref=f51e106]: Code *
+            - textbox "Code *" [ref=f51e107]
+          - generic [ref=f51e108]:
+            - generic [ref=f51e109]: Name *
+            - textbox "Name *" [ref=f51e110]
+          - generic [ref=f51e111]:
+            - generic [ref=f51e112]: Type
+            - generic [ref=f51e113] [cursor=pointer]:
+              - combobox [ref=f51e114]
+              - button "dropdown trigger" [ref=f51e115]
+          - generic [ref=f51e119]:
+            - generic [ref=f51e120]: Status
+            - generic [ref=f51e121] [cursor=pointer]:
+              - combobox [ref=f51e122]
+              - button "dropdown trigger" [ref=f51e123]
+          - generic [ref=f51e127]:
+            - generic [ref=f51e128]: Lead source
+            - generic [ref=f51e129] [cursor=pointer]:
+              - combobox [ref=f51e130]
+              - button "dropdown trigger" [ref=f51e131]
+          - generic [ref=f51e135]:
+            - generic [ref=f51e136]: Start
+            - generic [ref=f51e138]:
+              - combobox "Start" [expanded] [active] [ref=f51e139]: 20 Oct 2026
+              - button "Choose Date" [expanded] [ref=f51e140] [cursor=pointer]
+              - dialog "Choose Date" [ref=f51e184]:
+                - generic [ref=f51e186]:
+                  - generic [ref=f51e187]:
+                    - generic "Previous Month" [ref=f51e188]:
+                      - button [ref=f51e189] [cursor=pointer]
+                    - generic [ref=f51e193]:
+                      - button "Choose Month" [ref=f51e194] [cursor=pointer]: October
+                      - button "Choose Year" [ref=f51e195] [cursor=pointer]: "2026"
+                    - generic "Next Month" [ref=f51e196]:
+                      - button [ref=f51e197] [cursor=pointer]
+                  - grid [ref=f51e201]:
+                    - rowgroup [ref=f51e202]:
+                      - row [ref=f51e203]:
+                        - columnheader "Su" [ref=f51e204]
+                        - columnheader "Mo" [ref=f51e205]
+                        - columnheader "Tu" [ref=f51e206]
+                        - columnheader "We" [ref=f51e207]
+                        - columnheader "Th" [ref=f51e208]
+                        - columnheader "Fr" [ref=f51e209]
+                        - columnheader "Sa" [ref=f51e210]
+                    - rowgroup [ref=f51e211]:
+                      - row [ref=f51e212]:
+                        - gridcell "27" [ref=f51e213]
+                        - gridcell "28" [ref=f51e214]
+                        - gridcell "29" [ref=f51e215]
+                        - gridcell "30" [ref=f51e216]
+                        - gridcell "1" [ref=f51e217]
+                        - gridcell "2" [ref=f51e219]
+                        - gridcell "3" [ref=f51e221]
+                      - row [ref=f51e223]:
+                        - gridcell "4" [ref=f51e224]
+                        - gridcell "5" [ref=f51e226]
+                        - gridcell "6" [ref=f51e228]
+                        - gridcell "7" [ref=f51e230]
+                        - gridcell "8" [ref=f51e232]
+                        - gridcell "9" [ref=f51e234]
+                        - gridcell "10" [ref=f51e236]
+                      - row [ref=f51e238]:
+                        - gridcell "11" [ref=f51e239]
+                        - gridcell "12" [ref=f51e241]
+                        - gridcell "13" [ref=f51e243]
+                        - gridcell "14" [ref=f51e245]
+                        - gridcell "15" [ref=f51e247]
+                        - gridcell "16" [ref=f51e249]
+                        - gridcell "17" [ref=f51e251]
+                      - row [ref=f51e253]:
+                        - gridcell "18" [ref=f51e254]
+                        - gridcell "19" [ref=f51e256]
+                        - gridcell "20" [ref=f51e258]
+                        - gridcell "21" [ref=f51e261]
+                        - gridcell "22" [ref=f51e263]
+                        - gridcell "23" [ref=f51e265]
+                        - gridcell "24" [ref=f51e267]
+                      - row [ref=f51e269]:
+                        - gridcell "25" [ref=f51e270]
+                        - gridcell "26" [ref=f51e272]
+                        - gridcell "27" [ref=f51e274]
+                        - gridcell "28" [ref=f51e276]
+                        - gridcell "29" [ref=f51e278]
+                        - gridcell "30" [ref=f51e280]
+                        - gridcell "31" [ref=f51e282]
+                - generic [ref=f51e284]:
+                  - button "Today" [ref=f51e286] [cursor=pointer]
+                  - button "Clear" [ref=f51e289] [cursor=pointer]
+          - generic [ref=f51e144]:
+            - generic [ref=f51e145]: End
+            - generic [ref=f51e147]:
+              - combobox "End" [ref=f51e148]
+              - button "Choose Date" [ref=f51e149] [cursor=pointer]
+          - generic [ref=f51e153]:
+            - generic [ref=f51e154]: Expected leads
+            - spinbutton "Expected leads" [ref=f51e156]
+          - generic [ref=f51e157]:
+            - generic [ref=f51e158]: Budget
+            - spinbutton "Budget" [ref=f51e160]
+          - generic [ref=f51e161]:
+            - generic [ref=f51e162]: Currency
+            - generic [ref=f51e163] [cursor=pointer]:
+              - combobox [ref=f51e164]
+              - button "dropdown trigger" [ref=f51e165]
+          - generic [ref=f51e169]:
+            - generic [ref=f51e170]: External reference
+            - textbox "External reference" [ref=f51e171]:
+              - /placeholder: Facebook / Google Ads id
+          - generic [ref=f51e172]:
+            - generic [ref=f51e173]: Description
+            - textbox "Description" [ref=f51e174]
+        - generic [ref=f51e175]:
+          - button "Close" [ref=f51e177] [cursor=pointer]
+          - button " Create" [ref=f51e180] [cursor=pointer]:
+            - generic [ref=f51e181]: 
+            - generic [ref=f51e182]: Create
+    - generic [ref=f51e89]:
+      - text: All Rights Reserved To
+      - link "Loading" [ref=f51e90] [cursor=pointer]:
+        - /url: https://primeng.org

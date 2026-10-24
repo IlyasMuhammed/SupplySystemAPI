@@ -40,6 +40,18 @@
                         styleClass="w-full" appendTo="body"></p-calendar>
           </div>
 
+          <!-- A46 C2 - supplier handed over by a PO line's Create RFQ (optional; not saved on the RFQ, vendors are invited when it is sent). -->
+          <div class="sf-fld full" *ngIf="showSupplierField" data-testid="rfq-supplier-field">
+            <label>Suggested supplier</label>
+            <p-dropdown formControlName="supplierId" [options]="supplierOptions" optionLabel="label" optionValue="value"
+                        [filter]="true" filterBy="label" [showClear]="true" [loading]="loadingSuppliers"
+                        placeholder="Optional" styleClass="w-full" appendTo="body" data-testid="rfq-supplier"></p-dropdown>
+            <small class="hint">Invite this supplier when you send the RFQ.</small>
+          </div>
+          <div class="sf-fld full" *ngIf="prefill.sourcePo" data-testid="rfq-source-po">
+            <small class="hint"><i class="pi pi-info-circle"></i> Referenced from {{ prefill.sourcePo }}</small>
+          </div>
+
           <!-- PR Dropdown (conditional) -->
           <div class="sf-fld full" *ngIf="sourceType === 'PR'">
             <label>Select Requisition <span class="required">*</span></label>

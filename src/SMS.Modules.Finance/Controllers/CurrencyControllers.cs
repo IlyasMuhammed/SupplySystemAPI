@@ -161,3 +161,61 @@ public class CurrencyConversionController : ControllerBase
         };
     }
 }
+
+/// <summary>A46 C8 — body of POST api/finance/convert-currency. Each side by id or ISO code (id wins); date yyyy-MM-dd, default today.</summary>
+public sealed class ConvertCurrencyA46Request
+{
+    public decimal Amount           { get; set; }
+    public Guid?   FromCurrencyId   { get; set; }
+    public string? FromCurrencyCode { get; set; }
+    public Guid?   ToCurrencyId     { get; set; }
+    public string? ToCurrencyCode   { get; set; }
+    public string? EffectiveDate    { get; set; }
+    /// <summary>0..6, default 4.</summary>
+    public int?    DecimalPlaces    { get; set; }
+}
+
+/// <summary>A46 C8 — the converter's result. A missing rate is 200 with <c>Success=false</c> and an <c>ErrorMessage</c>.</summary>
+public sealed class ConvertCurrencyA46Response
+{
+    public bool    Success          { get; set; }
+    public decimal ConvertedAmount  { get; set; }
+    public decimal RateUsed         { get; set; }
+    public string  RateDate         { get; set; } = string.Empty;
+    public string  FromCurrencyCode { get; set; } = string.Empty;
+    public string  ToCurrencyCode   { get; set; } = string.Empty;
+    public string? ErrorMessage     { get; set; }
+}
+
+/// <summary>
+/// A46 C8 — POST api/finance/convert-currency over <see cref="ICurrencyConverter"/> (direct, inverse, cross via the base
+/// currency). Additive: <c>api/currency/convert</c> (A35) is unchanged. Malformed input (no amount body, bad date) is 400;
+/// "no rate on file" is 200 + success:false.
+/// </summary>
+[ApiController]
+[Route("api/finance/convert-currency")]
+public class FinanceConvertCurrencyController : ControllerBase
+{
+    private readonly ICurrencyConverter _converter;
+    public FinanceConvertCurrencyController(ICurrencyConverter converter) => _converter = converter;
+
+    [HttpPost]
+    [RequirePermission(PermissionCodes.CURRENCY_VIEW, PermissionCodes.CURRENCY_RATE_VIEW)]
+    public async Task<IActionResult> Convert([FromBody] ConvertCurrencyA46Request? req, CancellationToken ct)
+    {
+        if (req is null) throw new BadRequestException("Send the amount to convert.");
+        if (req.DecimalPlaces is < 0 or > 6) throw new BadRequestException("decimalPlaces must be between 0 and 6.");
+        var date = CurrencyRateService.ParseDate(req.EffectiveDate, "effectiveDate") ?? DateOnly.FromDateTime(DateTime.UtcNow);
+
+        var r = await _converter.ConvertAsync(new CurrencyConvertRequest(
+            req.Amount, req.FromCurrencyId, req.FromCurrencyCode, req.ToCurrencyId, req.ToCurrencyCode,
+            date.ToDateTime(TimeOnly.MinValue), req.DecimalPlaces ?? 4), ct);
+
+        return Ok(ApiResponse<ConvertCurrencyA46Response>.Ok(new ConvertCurrencyA46Response
+        {
+            Success = r.Success, ConvertedAmount = r.ConvertedAmount, RateUsed = r.RateUsed,
+            RateDate = CurrencyRateService.Fmt(DateOnly.FromDateTime(r.RateDate)),
+            FromCurrencyCode = r.FromCurrencyCode, ToCurrencyCode = r.ToCurrencyCode, ErrorMessage = r.ErrorMessage
+        }));
+    }
+}

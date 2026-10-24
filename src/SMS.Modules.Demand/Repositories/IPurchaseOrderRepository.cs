@@ -7,6 +7,9 @@ internal interface IPurchaseOrderRepository
 {
     Task<Guid> CreateFromPrAsync(Guid prUuid, ConvertPrToPoRequest req, int createdBy);
     Task<List<Guid>> CreateFromPrSplitAsync(Guid prUuid, ConvertPrSplitRequest req, int createdBy);
+    // A46 C5 / BR-30 - the same conversions, also returning how many lines were priced from the pricelist.
+    Task<PoConversionResult> CreateFromPrWithSummaryAsync(Guid prUuid, ConvertPrToPoRequest req, int createdBy);
+    Task<PoConversionResult> CreateFromPrSplitWithSummaryAsync(Guid prUuid, ConvertPrSplitRequest req, int createdBy);
     Task<Guid> CreateAsync(CreatePoRequest req, int createdBy);
     // A31-C3/BR-C3-07 — finds an open (DRAFT) PO this same mechanism already raised for this
     // supplier and appends to it (a new line, or a bumped quantity on a matching one) instead of
@@ -20,6 +23,8 @@ internal interface IPurchaseOrderRepository
     // A29-P5-11 §6.2 — returns what changed, field by field, for a PO the system raised for a sale
     // order (the audit log's input); empty for any other PO.
     Task<IReadOnlyList<PoFieldChange>> UpdateAsync(Guid uuid, PatchPoRequest req, int modifiedBy);
+    // A46-0152 - the same update, also returning what pricing did to each line (the PATCH response's `pricing`).
+    Task<PoUpdateResult> UpdateWithPricingAsync(Guid uuid, PatchPoRequest req, int modifiedBy);
     // A29-P5-11 §6.2 — DRAFT POs raised for a sale order line only.
     Task<SplitPoResult> SplitAsync(Guid uuid, SplitPoRequest req, int userId);
     Task SendAsync(Guid uuid, string? contactMobile, int modifiedBy);
@@ -50,4 +55,5 @@ internal sealed record SaleOrderDeficitPo(
 
 /// <param name="Sku">Null when the variant couldn't be resolved (no Inventory context, or it's gone).</param>
 /// <param name="Status">A35 — the status it was actually created in: an APPROVED one whose rate cannot be locked is created DRAFT.</param>
-internal sealed record CreatedPurchaseOrder(Guid Uuid, int Id, string PoNumber, string? Sku, string Status = "DRAFT");
+/// <param name="UnitPrice">A46 - the price the line was finally given (a pricelist price replaces the caller's); null when not reported.</param>
+internal sealed record CreatedPurchaseOrder(Guid Uuid, int Id, string PoNumber, string? Sku, string Status = "DRAFT", decimal? UnitPrice = null);

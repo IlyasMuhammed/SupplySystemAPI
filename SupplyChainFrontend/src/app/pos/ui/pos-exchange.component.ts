@@ -106,7 +106,7 @@ import { PosProductGridComponent } from './pos-product-grid.component';
             </aside>
         </div>
 
-        <p-dialog [visible]="!!weighItem()" (onHide)="weighItem.set(null)" [modal]="true" [header]="weighItem() ? label(weighItem()!) : ''" [style]="{ width: 'min(380px, 95vw)' }">
+        <p-dialog [visible]="!!weighItem()" (onHide)="weighItem.set(null)" (visibleChange)="!$event && weighItem.set(null)" [modal]="true" [header]="weighItem() ? label(weighItem()!) : ''" [style]="{ width: 'min(380px, 95vw)' }">
             <div class="stack">
                 <label class="pos-lbl" for="ex-weight">Quantity ({{ weighItem()?.uomCode || 'kg' }})</label>
                 <input id="ex-weight" class="pos-input" type="number" inputmode="decimal" step="0.001" min="0" [(ngModel)]="weighQty" (keyup.enter)="confirmWeight()" autofocus />

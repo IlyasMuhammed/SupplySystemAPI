@@ -1,0 +1,98 @@
+- generic [ref=f20e4]:
+  - generic [ref=f20e5]:
+    - generic [ref=f20e6]:
+      - button "" [ref=f20e7] [cursor=pointer]
+      - link:
+        - /url: /portal/dashboard
+      - generic [ref=f20e9]: KFC Pakistan (KFC)
+    - button " Search anything... Ctrl K" [ref=f20e12] [cursor=pointer]:
+      - generic [ref=f20e13]: 
+      - generic [ref=f20e14]: Search anything...
+      - generic [ref=f20e15]: Ctrl K
+    - generic [ref=f20e16]:
+      - generic [ref=f20e17]:
+        - button "" [ref=f20e18] [cursor=pointer]
+        - generic: "2"
+      - generic [ref=f20e20]:
+        - button "Appearance" [ref=f20e21] [cursor=pointer]:
+          - generic [ref=f20e22]: 
+        - text:    
+      - generic [ref=f20e24]:
+        - button "ES " [ref=f20e25] [cursor=pointer]:
+          - generic [ref=f20e26]: ES
+          - generic [ref=f20e28]: 
+        - text:   
+  - generic [ref=f20e29]:
+    - generic [ref=f20e30]:
+      - generic [ref=f20e31]: 
+      - generic [ref=f20e33]:
+        - generic [ref=f20e34]: SupplyChain MS
+        - generic [ref=f20e51]: KFC Pakistan (KFC)
+    - list [ref=f20e53]:
+      - listitem [ref=f20e54]:
+        - button "Home " [ref=f20e55] [cursor=pointer]:
+          - generic [ref=f20e56]: Home
+          - generic [ref=f20e57]: 
+        - list:
+          - listitem [ref=f20e58]:
+            - link " Dashboard" [ref=f20e59] [cursor=pointer]:
+              - /url: /portal/dashboard
+              - generic [ref=f20e60]: 
+              - generic [ref=f20e61]: Dashboard
+          - listitem [ref=f20e62]:
+            - link " My Inbox" [ref=f20e63] [cursor=pointer]:
+              - /url: /portal/pages/workflow-inbox
+              - generic [ref=f20e64]: 
+              - generic [ref=f20e65]: My Inbox
+      - listitem [ref=f20e66]:
+        - button "Sales " [ref=f20e67] [cursor=pointer]:
+          - generic [ref=f20e68]: Sales
+          - generic [ref=f20e69]: 
+        - list:
+          - listitem [ref=f20e70]:
+            - link " Customers" [ref=f20e71] [cursor=pointer]:
+              - /url: /portal/pages/customers
+              - generic [ref=f20e72]: 
+              - generic [ref=f20e73]: Customers
+      - listitem [ref=f20e74]:
+        - button "Point of Sale " [ref=f20e75] [cursor=pointer]:
+          - generic [ref=f20e76]: Point of Sale
+          - generic [ref=f20e77]: 
+        - list:
+          - listitem [ref=f20e78]:
+            - link " Stores" [ref=f20e79] [cursor=pointer]:
+              - /url: /portal/pages/pos/stores
+              - generic [ref=f20e80]: 
+              - generic [ref=f20e81]: Stores
+          - listitem [ref=f20e82]:
+            - link " Shifts" [ref=f20e83] [cursor=pointer]:
+              - /url: /portal/pages/pos/shifts
+              - generic [ref=f20e84]: 
+              - generic [ref=f20e85]: Shifts
+          - listitem [ref=f20e86]:
+            - link " POS Orders" [ref=f20e87] [cursor=pointer]:
+              - /url: /portal/pages/pos/orders
+              - generic [ref=f20e88]: 
+              - generic [ref=f20e89]: POS Orders
+          - listitem [ref=f20e90]:
+            - link " Store credit" [ref=f20e91] [cursor=pointer]:
+              - /url: /portal/pages/pos/credit-notes
+              - generic [ref=f20e92]: 
+              - generic [ref=f20e93]: Store credit
+          - listitem [ref=f20e94]:
+            - link " Open POS" [ref=f20e95] [cursor=pointer]:
+              - /url: /pos
+              - generic [ref=f20e96]: 
+              - generic [ref=f20e97]: Open POS
+  - generic [ref=f20e36]:
+    - generic [ref=f20e39]:
+      - generic [ref=f20e40]: 
+      - heading "Access Denied" [level=1] [ref=f20e41]
+      - paragraph [ref=f20e42]: You don't have permission to view this page. Contact your system administrator if you believe this is an error.
+      - button " Back to Dashboard" [ref=f20e44] [cursor=pointer]:
+        - generic [ref=f20e45]: 
+        - generic [ref=f20e46]: Back to Dashboard
+    - generic [ref=f20e48]:
+      - text: All Rights Reserved To
+      - link "Loading" [ref=f20e49] [cursor=pointer]:
+        - /url: https://primeng.org

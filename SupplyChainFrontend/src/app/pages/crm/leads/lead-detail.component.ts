@@ -47,7 +47,7 @@ import { LeadConvertDialogComponent } from './lead-convert-dialog.component';
     <p-button *ngIf="can('CONVERT')" label="Convert" icon="pi pi-sync" (onClick)="convertVisible = true" data-testid="convert"></p-button>
     <p-button *ngIf="can('MARK_CONTACTED')" label="Mark contacted" icon="pi pi-phone" [loading]="busy" (onClick)="markContacted()" data-testid="mark-contacted"></p-button>
     <p-button *ngIf="can('REOPEN')" label="Re-open" icon="pi pi-replay" [loading]="busy" (onClick)="reopen()" data-testid="reopen"></p-button>
-    <p-button *ngIf="canLog" label="Log activity" icon="pi pi-plus" [text]="true" (onClick)="openActivity('PHONE_CALL')" data-testid="log-activity"></p-button>
+    <p-button *ngIf="canLog && l.status !== 'CONVERTED'" label="Log activity" icon="pi pi-plus" [text]="true" (onClick)="openActivity('PHONE_CALL')" data-testid="log-activity"></p-button>
     <p-button *ngIf="l.canEdit" label="Edit" icon="pi pi-pencil" [text]="true" (onClick)="formVisible = true" data-testid="edit"></p-button>
     <p-button *ngIf="can('ASSIGN')" label="Assign" icon="pi pi-user-edit" [text]="true" (onClick)="openAssign()" data-testid="assign"></p-button>
     <span class="sf-sep" *ngIf="can('DISQUALIFY') || can('DELETE')"></span>
@@ -149,7 +149,9 @@ import { LeadConvertDialogComponent } from './lead-convert-dialog.component';
   <sf-panel #panel [tabs]="['Cross-references']">
     <ng-container *ngIf="panel.active() === 'Cross-references'">
       <div data-testid="cross-references">
-        <div class="sf-mu sf-sm" *ngIf="!xref?.account">Other leads show here once the lead is linked to an account.</div>
+        <div class="sf-mu sf-sm" *ngIf="xrefLoading" data-testid="xref-loading">Loading…</div>
+        <div class="sf-mu sf-sm" *ngIf="!xrefLoading && !xref?.account && !l.account">Other leads show here once the lead is linked to an account.</div>
+        <div class="sf-mu sf-sm" *ngIf="!xrefLoading && !xref?.account && l.account" data-testid="xref-failed">The cross-references could not be loaded.</div>
         <ng-container *ngIf="xref?.account">
           <h4 class="ld-xh">Other leads for {{ xref!.account!.name }}</h4>
           <div class="sf-mu sf-sm" *ngIf="!xref!.accountLeads.length">(none)</div>
@@ -228,6 +230,7 @@ export class LeadDetailComponent implements OnInit, OnDestroy {
   private timelinePage = 1;
   private timelineSearch = '';
   xref: CrossReferenceResult | null = null;
+  xrefLoading = false;
 
   formVisible = false;
   convertVisible = false;
@@ -272,7 +275,12 @@ export class LeadDetailComponent implements OnInit, OnDestroy {
         this.loadFailed = false;
         this.setLead(r.result);
         this.loadTimeline();
-        this.crm.getLeadCrossReferences(uuid).subscribe({ next: x => this.xref = x.result, error: () => this.xref = null });
+        this.xref = null;           // never show the previous lead's cross-references
+        this.xrefLoading = true;
+        this.crm.getLeadCrossReferences(uuid).subscribe({
+          next: x => { this.xref = x.result; this.xrefLoading = false; },
+          error: () => { this.xref = null; this.xrefLoading = false; }
+        });
       },
       error: () => { this.loading = false; this.loadFailed = true; }
     });
@@ -332,7 +340,7 @@ export class LeadDetailComponent implements OnInit, OnDestroy {
   openAssign(): void {
     this.assignUserId = this.lead?.assignedToUserId ?? null;
     this.assignTeamUuid = null;
-    this.lookups.users().subscribe(u => this.userOptions = CrmLookupsService.userOptions(u));
+    this.lookups.assignableUsers().subscribe(u => this.userOptions = CrmLookupsService.userOptions(u));
     this.lookups.teams().subscribe(t => this.teamOptions = t.map(x => ({ value: x.uuid, label: x.name })));
     this.assignVisible = true;
   }

@@ -55,6 +55,7 @@ import { AuthService } from '../../../service/auth.service';
 import { TenantService } from '../../../service/tenant.service';
 import { VariantRouteFieldComponent } from './variant-route-field/variant-route-field.component';
 import { LeadTimesTabComponent } from './lead-times-tab/lead-times-tab.component';
+import { PricelistGridComponent } from '../../../../shared/supplier-pricelist/pricelist-grid.component';
 import { FLOW } from '../../../../shared/flow';
 import {
   ServiceSettingsFieldsComponent, clearServiceSettingsUnlessService, serviceBillingModelLabel, serviceCategoryLabel,
@@ -83,7 +84,7 @@ const LEAD_TIME_CALCULATE_CODES = [
     DividerModule, TooltipModule, ConfirmDialogModule, DropdownModule, TableModule,
     CheckboxModule, CalendarModule, DynamicAttributeFormComponent, BomManagerComponent, QboSyncBadgeComponent,
     VariantRouteFieldComponent, LeadTimesTabComponent, ServiceSettingsFieldsComponent, ProductRoutesPanelComponent,
-    ProductPosTabComponent, ...FLOW
+    ProductPosTabComponent, PricelistGridComponent, ...FLOW
   ],
   templateUrl: './product-detail.component.html',
   styleUrls: ['./product-detail.component.scss'],
@@ -243,6 +244,9 @@ export class ProductDetailComponent implements OnInit {
   // A34-PB-07 (D-26) — the Lead Times tab: editable with STOCK_MANAGE (the PUT's code); "Recalculate from BOM" with a
   // calculate code (contract §2).
   get canEditLeadTimes(): boolean { return this.authService.hasPermission('STOCK_MANAGE'); }
+  // A45 C4 — vendor prices follow the purchase order permissions (D-8)
+  get canViewPricelist(): boolean { return ['PO_VIEW', 'PO_CREATE', 'PO_EDIT', 'PO_APPROVE'].some(c => this.authService.hasPermission(c)); }
+  get canEditPricelist(): boolean { return this.authService.hasPermission('PO_CREATE') || this.authService.hasPermission('PO_EDIT'); }
   get canCalculateLeadTimes(): boolean { return LEAD_TIME_CALCULATE_CODES.some(c => this.authService.hasPermission(c)); }
 
   // ── Pricing tab (A29-P2-06) ───────────────────────────────────────────────

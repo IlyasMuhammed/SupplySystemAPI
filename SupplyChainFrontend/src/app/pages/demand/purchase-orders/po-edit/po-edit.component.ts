@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { ReactiveFormsModule, FormsModule, FormBuilder, FormGroup, FormArray, Validators } from '@angular/forms';
@@ -24,6 +24,10 @@ import { MoneyPipe } from '../../../../shared/money/money.pipe';
 import { FLOW } from '../../../../shared/flow';
 import { InventoryService, ProductListItemModel, WarehouseModel } from '../../../../services/inventory.service';
 import { ProductVariantPickerComponent, VariantPickerSelection } from '../../../../shared/product-variant-picker/product-variant-picker.component';
+import { PurchasePricingService } from '../../../../services/purchase-pricing.service';
+import { PoLinePricing, addPricingControls, PRICE_TOAST_KEY, ymd } from '../po-line-pricing';
+import { conversionTooltip, price2, price4 } from '../../../../services/purchase-pricing.service';
+import { fromDateOnly } from '../../../../shared/date-only';
 
 @Component({
   selector: 'app-po-edit',
@@ -40,7 +44,16 @@ import { ProductVariantPickerComponent, VariantPickerSelection } from '../../../
   styleUrls: ['./po-edit.component.scss'],
   providers: [MessageService]
 })
-export class PoEditComponent implements OnInit {
+export class PoEditComponent implements OnInit, OnDestroy {
+  /** A45 — PO line auto-pricing (resolve-price, source badge, C7 re-lookup). */
+  pricing!: PoLinePricing;
+  readonly priceToastKey = PRICE_TOAST_KEY;
+  readonly conversionTooltip = conversionTooltip;
+  readonly price2 = price2;
+  readonly price4 = price4;
+  /** A46 C1 — the order date is editable only while the PO is a DRAFT. */
+  orderDateEditable = true;
+  poNumber: string | null = null;
   uuid = '';
   form!: FormGroup;
   isLoading = true;
@@ -82,8 +95,11 @@ export class PoEditComponent implements OnInit {
     private demandService: DemandService,
     private supplierService: SupplierService,
     private inventoryService: InventoryService,
-    private messageService: MessageService
+    private messageService: MessageService,
+    private pricingSvc: PurchasePricingService
   ) {}
+
+  ngOnDestroy() { this.pricing?.destroy(); }
 
   ngOnInit() {
     this.buildForm();
@@ -135,9 +151,10 @@ export class PoEditComponent implements OnInit {
         : (sel.productName ?? '');
       line.patchValue({
         itemDescription: label,
-        unitOfMeasure:   sel.uomCode ?? line.get('unitOfMeasure')?.value ?? null,
-        unitPrice:       sel.purchasePrice ?? 0
+        unitOfMeasure:   sel.uomCode ?? line.get('unitOfMeasure')?.value ?? null
       });
+      // Silent: product default, not a buyer edit.
+      line.get('unitPrice')!.setValue(sel.purchasePrice ?? 0, { emitEvent: false });
     }
   }
 
@@ -145,6 +162,7 @@ export class PoEditComponent implements OnInit {
     this.form = this.fb.group({
       supplierName:          ['', Validators.required],
       supplierId:            [''],
+      orderDate:             [new Date()],
       currencyId:            [null as string | null],
       title:                 [''],
       deliveryDate:          [null],
@@ -155,12 +173,19 @@ export class PoEditComponent implements OnInit {
     });
     this.currency = new DocCurrencyPicker(this.money, this.form.get('currencyId')!, 'PURCHASE');
     this.currency.load(false);
+    this.pricing = new PoLinePricing(this.form, this.pricingSvc, this.messageService, this.router, {
+      focusPrice: i => setTimeout(() => document.getElementById('unitPrice-' + i)?.focus()),
+      currencyCode: () => this.currency.code || null,
+      sourcePo: () => this.poNumber,
+      fmt: n => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })
+    });
+    this.lines.controls.forEach(g => this.pricing.attach(g as FormGroup));
   }
 
   get lines(): FormArray { return this.form.get('lines') as FormArray; }
 
   newLine(): FormGroup {
-    return this.fb.group({
+    const g = this.fb.group({
       productUuid:     [null],
       variantUuid:     [null],
       itemDescription: ['', Validators.required],
@@ -175,6 +200,8 @@ export class PoEditComponent implements OnInit {
       budgetCode:      [''],
       requiresInspection: [true]
     });
+    addPricingControls(g);
+    return this.pricing ? this.pricing.attach(g) : g;
   }
 
   onHeaderWarehouseChange(event: any) {
@@ -197,7 +224,9 @@ export class PoEditComponent implements OnInit {
   }
 
   addLine()             { this.lines.push(this.newLine()); }
-  removeLine(i: number) { if (this.lines.length > 1) this.lines.removeAt(i); }
+  removeLine(i: number) {
+    if (this.lines.length > 1) { this.pricing.detach(this.lines.at(i) as FormGroup); this.lines.removeAt(i); }
+  }
 
   get estimatedTotal(): number {
     return this.lines.controls.reduce((s, c) =>
@@ -242,14 +271,16 @@ export class PoEditComponent implements OnInit {
           return;
         }
         const po = res.result;
+        this.orderDateEditable = po.status === 'DRAFT';
+        if (!this.orderDateEditable) this.form.get('orderDate')!.disable({ emitEvent: false });   // A46 C1
         if (po.status !== 'DRAFT') {
           this.messageService.add({ severity: 'warn', summary: 'Read-only', detail: `Only DRAFT purchase orders can be edited. Status: ${po.status}` });
           setTimeout(() => this.router.navigate(['/portal/pages/demand/purchase-orders', this.uuid]), 1500);
           return;
         }
 
-        while (this.lines.length) this.lines.removeAt(0);
-        (po.lines ?? []).forEach(l => this.lines.push(this.fb.group({
+        while (this.lines.length) { this.pricing.detach(this.lines.at(0) as FormGroup); this.lines.removeAt(0); }
+        (po.lines ?? []).forEach(l => this.lines.push(this.pricing.attach(addPricingControls(this.fb.group({
           productUuid:     [l.productUuid ?? null],
           variantUuid:     [l.variantUuid ?? null],
           itemDescription: [l.itemDescription, Validators.required],
@@ -263,13 +294,23 @@ export class PoEditComponent implements OnInit {
           lineNotes:       [l.lineNotes ?? ''],
           budgetCode:      [l.budgetCode ?? ''],
           requiresInspection: [l.requiresInspection ?? true]
-        })));
+        }), {
+          priceSource: l.priceSource ?? 0, systemResolvedPrice: l.systemResolvedPrice ?? null,
+          supplierPricelistUuid: l.supplierPricelistUuid ?? null, priceOverrideReason: l.priceOverrideReason ?? '',
+          pricingDateBasis: l.pricingDateBasis ?? null,
+          conversion: l.originalCurrencyPrice != null ? {
+            code: l.originalCurrencyCode ?? (l.originalCurrencyId ? this.money.find(l.originalCurrencyId)?.code ?? null : null),
+            price: l.originalCurrencyPrice, rate: l.exchangeRateUsed ?? null, date: l.exchangeRateDate ?? null } : null
+        }))));
         if (!this.lines.length) this.lines.push(this.newLine());
 
         this.supplierAuto = po.supplierName;
+        this.poNumber = po.poNumber ?? null;
+        this.pricing.suspended = true;
         this.form.patchValue({
           supplierName:          po.supplierName,
           supplierId:            po.supplierId,
+          orderDate:             po.orderDate ? fromDateOnly(po.orderDate) : (po.createdDate ? fromDateOnly(po.createdDate) : new Date()),
           title:                 po.title ?? '',
           deliveryDate:          po.deliveryDate ? new Date(po.deliveryDate) : null,
           deliveryWarehouseId:   po.deliveryWarehouseId ?? null,
@@ -277,6 +318,7 @@ export class PoEditComponent implements OnInit {
           notes:                 po.notes ?? '',
           currencyId:            po.currencyId ?? null
         });
+        this.pricing.suspended = false;
         this.currency.rebuild();
       },
       error: () => {
@@ -293,6 +335,7 @@ export class PoEditComponent implements OnInit {
     const req: PatchPoRequest = {
       supplierName:          v.supplierName,
       supplierId:            v.supplierId            || undefined,
+      orderDate:             this.orderDateEditable ? ymd(v.orderDate) : undefined,   // the server refuses a change once the PO is not DRAFT
       title:                 v.title                 || undefined,
       deliveryDate:          v.deliveryDate instanceof Date ? v.deliveryDate.toISOString() : v.deliveryDate || undefined,
       deliveryWarehouseId:   v.deliveryWarehouseId   || undefined,
@@ -311,14 +354,18 @@ export class PoEditComponent implements OnInit {
         requiredDate:    l.requiredDate instanceof Date ? l.requiredDate.toISOString() : l.requiredDate || undefined,
         lineNotes:       l.lineNotes       || undefined,
         budgetCode:      l.budgetCode      || undefined,
-        requiresInspection: l.requiresInspection
+        requiresInspection: l.requiresInspection,
+        ...PoLinePricing.payload(l)
       }))
     };
 
     this.demandService.patchPo(this.uuid, req).subscribe({
-      next: () => {
+      next: (res) => {
         this.isSubmitting = false;
         this.messageService.add({ severity: 'success', summary: 'Saved', detail: 'Purchase order updated.' });
+        // A46-0152: the server's per-line pricing warnings (absent from older servers).
+        for (const warning of res?.pricing?.warnings ?? [])
+          this.messageService.add({ severity: 'warn', summary: 'Pricing', detail: warning });
         setTimeout(() => this.router.navigate(['/portal/pages/demand/purchase-orders', this.uuid]), 1200);
       },
       error: (err) => {

@@ -1,0 +1,81 @@
+- generic [ref=f9e2]:
+  - banner [ref=f9e151]:
+    - generic [ref=f9e152]:
+      - generic [ref=f9e153]: 
+      - generic [ref=f9e154]:
+        - generic [ref=f9e155]: E2E Test Store 20261017
+        - generic [ref=f9e156]: E2E Till 1
+    - generic [ref=f9e191]: SH-E2E-1017-20261017-01 · Open
+    - generic [ref=f9e158]:
+      - generic [ref=f9e159]: 
+      - text: Online
+    - generic [ref=f9e160]:
+      - generic [ref=f9e161]: 
+      - text: Ethan Storeadmin
+    - navigation [ref=f9e162]:
+      - link "Sell" [ref=f9e163] [cursor=pointer]:
+        - /url: /pos/sell
+        - generic [ref=f9e164]: 
+      - link "Shift" [ref=f9e166] [cursor=pointer]:
+        - /url: /pos/shift
+        - generic [ref=f9e167]: 
+      - link "History" [ref=f9e169] [cursor=pointer]:
+        - /url: /pos/history
+        - generic [ref=f9e170]: 
+      - link "Settings" [ref=f9e172] [cursor=pointer]:
+        - /url: /pos/settings
+        - generic [ref=f9e173]: 
+      - button "Lock" [ref=f9e174] [cursor=pointer]:
+        - generic [ref=f9e175]: 
+  - main [ref=f9e3]:
+    - generic [ref=f9e193]:
+      - region "Products" [ref=f9e194]:
+        - generic [ref=f9e195]:
+          - searchbox "Search products" [ref=f9e197]
+          - tablist [ref=f9e198]:
+            - tab " Favourites" [ref=f9e199] [cursor=pointer]:
+              - generic [ref=f9e200]: 
+              - text: Favourites
+            - tab "All" [ref=f9e201] [cursor=pointer]
+            - tab "Electronics" [ref=f9e202] [cursor=pointer]
+            - tab "Furniture" [ref=f9e203] [cursor=pointer]
+            - tab "Garments" [ref=f9e204] [cursor=pointer]
+          - generic [ref=f9e205]:
+            - button "Bed 6,500.00" [ref=f9e206] [cursor=pointer]:
+              - generic [ref=f9e207]: Bed
+              - generic [ref=f9e208]: 6,500.00
+            - button "I Phone 98,000.00" [ref=f9e209] [cursor=pointer]:
+              - generic [ref=f9e210]: I Phone
+              - generic [ref=f9e211]: 98,000.00
+            - button "Sofa 7,000.00" [ref=f9e212] [cursor=pointer]:
+              - generic [ref=f9e213]: Sofa
+              - generic [ref=f9e214]: 7,000.00
+      - complementary "Cart" [ref=f9e215]:
+        - button " Walk-in customer" [ref=f9e217] [cursor=pointer]:
+          - generic [ref=f9e218]: 
+          - generic [ref=f9e219]: Walk-in customer
+        - generic [ref=f9e221]:
+          - generic [ref=f9e222]: 
+          - text: Tap a product or scan a barcode.
+        - generic [ref=f9e223]:
+          - generic [ref=f9e224]: Subtotal
+          - generic [ref=f9e225]: "0.00"
+          - generic [ref=f9e226]: Tax 0%
+          - generic [ref=f9e227]: "0.00"
+          - generic [ref=f9e228]: Total
+          - generic [ref=f9e229]: GBP 0.00
+        - generic [ref=f9e230]:
+          - button " Discount" [disabled] [ref=f9e231]:
+            - generic [ref=f9e232]: 
+            - text: Discount
+          - button " Note" [ref=f9e233] [cursor=pointer]:
+            - generic [ref=f9e234]: 
+            - text: Note
+          - button " Return" [ref=f9e235] [cursor=pointer]:
+            - generic [ref=f9e236]: 
+            - text: Return
+          - button " Clear" [disabled] [ref=f9e237]:
+            - generic [ref=f9e238]: 
+            - text: Clear
+        - button "PAY GBP 0.00" [disabled] [ref=f9e239]
+      - text:    

@@ -1,0 +1,50 @@
+- generic [ref=f36e1]:
+  - generic [ref=f36e23]:
+    - generic:
+      - generic:
+        - link "Skip to Main Content":
+          - /url: "#main"
+        - banner [ref=f36e28]:
+          - navigation "Tools" [ref=f36e29]:
+            - heading "Sandbox Company GB 72c4" [level=2] [ref=f36e34]
+            - search [ref=f36e37]:
+              - searchbox "Search" [ref=f36e44]
+            - generic [ref=f36e45]:
+              - button "Contact expert help" [ref=f36e49] [cursor=pointer]:
+                - generic [ref=f36e51]: Contact experts
+              - button "Tasks" [ref=f36e57] [cursor=pointer]
+              - button "Integrations" [ref=f36e63] [cursor=pointer]
+              - button "Help" [ref=f36e71] [cursor=pointer]
+              - button "Intuit Labs" [ref=f36e77] [cursor=pointer]
+              - button "Settings" [ref=f36e82] [cursor=pointer]
+              - button "Intuit account (I)" [ref=f36e90] [cursor=pointer]:
+                - generic [ref=f36e91]: I
+              - button "Open Intuit Intelligence chat" [ref=f36e97] [cursor=pointer]
+    - navigation "Side" [ref=f36e142]:
+      - link "QuickBooks" [ref=f36e143] [cursor=pointer]:
+        - /url: currencies?intuit_authn_session_slot=VYPodik&iux_intuit_tid=1-6ad4e583-786281b57da2f2e673ba8def
+      - generic [ref=f36e145]:
+        - button "Create" [ref=f36e148] [cursor=pointer]
+        - button "Bookmarks" [ref=f36e156] [cursor=pointer]
+      - generic [ref=f36e161]:
+        - link "Home" [ref=f36e162] [cursor=pointer]:
+          - /url: /app/homepage
+        - link "Feed" [ref=f36e167] [cursor=pointer]:
+          - /url: /app/business-feed
+        - button "Reports" [ref=f36e174] [cursor=pointer]
+        - link "All apps" [ref=f36e182] [cursor=pointer]:
+          - /url: /app/banking?jobId=accounting
+      - generic [ref=f36e187]:
+        - generic [ref=f36e188]: PINNED
+        - generic [ref=f36e189]:
+          - button "Accounting" [ref=f36e193] [cursor=pointer]
+          - button "Expenses" [ref=f36e199] [cursor=pointer]
+          - button "Sales" [ref=f36e205] [cursor=pointer]
+      - button "Customise" [ref=f36e210] [cursor=pointer]
+    - main [active] [ref=f36e25]:
+      - generic [ref=f36e217]:
+        - generic [ref=f36e218]:
+          - heading "We're sorry, we can't find the page you requested." [level=1] [ref=f36e219]
+          - heading "You may have incorrectly typed the address (URL) or clicked on an outdated link." [level=3] [ref=f36e220]
+        - img "not found" [ref=f36e223]
+  - generic: "Essential, Enhanced Experience & Product Improvement These first-party cookies are set by Intuit or one of our service providers; you cannot turn these off. These cookies enable the site to function as intended, including: basic functionality (for example, your ability to log into your Intuit account or add items to your cart for purchase); remember your preferences (for example, your preferred language or login credentials); provide you personalized content when viewing our site; and, allow us to evaluate your use and navigation of the site to fix bugs and improve the overall experience for you and others. A single cookie may be used for one or all of these purposes. Third-Party Advertisement  Yes We leverage advertising trackers across our sites to improve our marketing and advertising activities. These trackers may share some limited personal information with third-party platforms where we may display advertisements or run marketing campaigns. You may choose to turn these trackers off. You will still see Intuit advertisements when you opt-out, but these ads may not be tailored to your interests. This preference applies to your experience on our .intuit sites, once you create or login to your Intuit account, you may be prompted to choose again.    "

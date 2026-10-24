@@ -59,10 +59,13 @@
             .layout-menuitem-root-label {
                 flex: 1;
                 min-width: 0;
-                font-size: 0.78rem;
+                // The department headings are the top of the hierarchy, so they are the largest text in the menu
+                // (items 0.86rem, sub-items 0.82rem, third level 0.78rem) — not smaller than the items below them.
+                // Sized so the longest names ("Warehouse & Inventory", "System Administration") still fit the sidebar.
+                font-size: 0.88rem;
                 text-transform: uppercase;
-                letter-spacing: 0.08em;
-                font-weight: 600;
+                letter-spacing: 0.01em;
+                font-weight: 700;
                 color: var(--sms-navy-muted);
                 overflow: hidden;
                 text-overflow: ellipsis;
@@ -71,7 +74,7 @@
             }
 
             .layout-submenu-toggler {
-                font-size: 0.65rem;
+                font-size: 0.75rem;
                 flex-shrink: 0;
                 color: var(--sms-navy-muted);
                 transition: transform var(--element-transition-duration), color var(--element-transition-duration);
@@ -162,7 +165,7 @@
                 overflow: hidden;
                 text-overflow: ellipsis;
                 white-space: nowrap;
-                font-size: 1rem;
+                font-size: 0.86rem;
             }
 
             .layout-submenu-toggler {
@@ -206,10 +209,10 @@
 
             li a {
                 padding: 0.45rem 0.6rem;
-                font-size: 0.93rem;
+                font-size: 0.82rem;
                 gap: 0.55rem;
 
-                .layout-menuitem-text { font-size: 0.93rem; }
+                .layout-menuitem-text { font-size: 0.82rem; }
 
                 .layout-menuitem-icon {
                     width: 1.1rem;
@@ -227,7 +230,7 @@
                     padding: 0.35rem 0.5rem;
                     color: var(--sms-navy-muted);
 
-                    .layout-menuitem-text { font-size: 0.86rem; }
+                    .layout-menuitem-text { font-size: 0.78rem; }
 
                     &:hover { color: #ffffff; }
                 }

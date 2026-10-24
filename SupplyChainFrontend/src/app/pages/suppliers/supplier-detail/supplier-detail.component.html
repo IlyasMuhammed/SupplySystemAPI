@@ -180,6 +180,12 @@
         </div>
       </section>
 
+      <!-- ══ Products (A45 C4) — what this vendor charges ═════════════════ -->
+      <section id="sec-products" class="sf-section sf-card" *ngIf="canViewPricelist" data-testid="products-section">
+        <div class="sf-ch"><h2>Products &amp; prices</h2></div>
+        <app-pricelist-grid [supplierUuid]="uuid" [supplierName]="supplier.supplierName" [canEdit]="canEditPricelist"></app-pricelist-grid>
+      </section>
+
       <!-- ══ Contacts ═════════════════════════════════════════════════════ -->
       <section id="sec-contacts" class="sf-section sf-card">
         <div class="sf-ch">

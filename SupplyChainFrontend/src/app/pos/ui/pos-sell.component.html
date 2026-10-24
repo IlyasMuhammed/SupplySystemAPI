@@ -14,6 +14,12 @@
             @if (cart.customer()) {
                 <button class="pos-btn ghost" type="button" (click)="pickCustomer(null)" aria-label="Back to walk-in"><i class="pi pi-times"></i></button>
             }
+            <!-- Clear lives up here, away from PAY, as a small icon: one stray tap near the pay button must not wipe the order. -->
+            @if (!cart.isEmpty()) {
+                <button class="pos-btn clear" type="button" [class.armed]="confirmClear()" (click)="clearCart()" aria-label="Clear order" title="Clear order" data-testid="pos-clear">
+                    <i class="pi pi-trash"></i>@if (confirmClear()) { <span>Tap again to clear</span> }
+                </button>
+            }
         </div>
 
         <div class="lines">
@@ -45,6 +51,9 @@
         </div>
 
         <div class="totals" data-testid="pos-totals">
+            @if (!cart.isEmpty()) {
+                <span class="muted">Items</span><span data-testid="pos-item-count">{{ itemCount() | posQty }}</span>
+            }
             <span class="muted">Subtotal</span><span>{{ cart.totals().subtotal | posMoney }}</span>
             @if (cart.totals().discountAmount > 0) {
                 <span class="muted">Order discount</span><span>−{{ cart.totals().discountAmount | posMoney }}</span>
@@ -61,9 +70,19 @@
             @if (canReturn()) {
                 <button class="pos-btn" type="button" (click)="startReturn()" data-testid="pos-return"><i class="pi pi-replay"></i> Return</button>
             }
-            <button class="pos-btn danger" type="button" (click)="clearCart()" [disabled]="cart.isEmpty()"><i class="pi pi-trash"></i> Clear</button>
         </div>
-        <button class="pos-btn primary lg pay" type="button" (click)="pay()" [disabled]="cart.isEmpty()" data-testid="pos-pay">
+        <!-- One-tap settle for the two most common cases: the exact total in cash, or the whole total on a card. -->
+        @if (quickMethods().length) {
+            <div class="quick-pay" data-testid="pos-quick-pay">
+                @if (quickMethods().includes('CASH')) {
+                    <button class="pos-btn ok" type="button" (click)="quickPay('CASH')" [disabled]="cart.isEmpty()" data-testid="pos-quick-cash"><i class="pi pi-money-bill"></i> Cash exact</button>
+                }
+                @if (quickMethods().includes('CARD')) {
+                    <button class="pos-btn ok" type="button" (click)="quickPay('CARD')" [disabled]="cart.isEmpty()" data-testid="pos-quick-card"><i class="pi pi-credit-card"></i> Card</button>
+                }
+            </div>
+        }
+        <button class="pos-btn primary lg pay" type="button" (click)="pay()" [disabled]="cart.isEmpty()" title="Pay (F8)" data-testid="pos-pay">
             PAY {{ cart.totals().grandTotal | posMoney: currency() }}
         </button>
     </aside>
@@ -79,7 +98,7 @@
 </div>
 
 <!-- weighable quantity -->
-<p-dialog [visible]="!!weighItem()" (onHide)="weighItem.set(null)" [modal]="true" [header]="weighItem() ? label(weighItem()!) : ''" [style]="{ width: 'min(380px, 95vw)' }">
+<p-dialog [visible]="!!weighItem()" (onHide)="weighItem.set(null)" (visibleChange)="!$event && weighItem.set(null)" [modal]="true" [header]="weighItem() ? label(weighItem()!) : ''" [style]="{ width: 'min(380px, 95vw)' }">
     <div class="stack">
         <label class="pos-lbl" for="pos-weight">Quantity ({{ weighItem()?.uomCode || 'kg' }})</label>
         <input id="pos-weight" class="pos-input" type="number" inputmode="decimal" step="0.001" min="0" [(ngModel)]="weighQty" (keyup.enter)="confirmWeight()" autofocus data-testid="pos-weight" />
@@ -88,7 +107,7 @@
 </p-dialog>
 
 <!-- quantity -->
-<p-dialog [visible]="!!qtyLine()" (onHide)="qtyLine.set(null)" [modal]="true" header="Quantity" [style]="{ width: 'min(360px, 95vw)' }">
+<p-dialog [visible]="!!qtyLine()" (onHide)="qtyLine.set(null)" (visibleChange)="!$event && qtyLine.set(null)" [modal]="true" header="Quantity" [style]="{ width: 'min(360px, 95vw)' }">
     <div class="stack">
         <input class="pos-input" type="number" inputmode="decimal" [step]="qtyLine()?.isWeighable ? 0.001 : 1" min="0" [(ngModel)]="qtyValue" (keyup.enter)="confirmQty()" autofocus />
         <p class="faint">0 removes the line.</p>
@@ -97,7 +116,7 @@
 </p-dialog>
 
 <!-- discount -->
-<p-dialog [visible]="!!discountTarget()" (onHide)="discountTarget.set(null)" [modal]="true" [header]="discountTarget() === 'order' ? 'Order discount' : 'Line discount'" [style]="{ width: 'min(380px, 95vw)' }">
+<p-dialog [visible]="!!discountTarget()" (onHide)="discountTarget.set(null)" (visibleChange)="!$event && discountTarget.set(null)" [modal]="true" [header]="discountTarget() === 'order' ? 'Order discount' : 'Line discount'" [style]="{ width: 'min(380px, 95vw)' }">
     <div class="stack">
         <div class="row">
             <button class="pos-btn grow" type="button" [class.on]="discountType === 'PERCENT'" (click)="discountType = 'PERCENT'">%</button>
@@ -113,7 +132,7 @@
 </p-dialog>
 
 <!-- customer -->
-<p-dialog [visible]="customerOpen()" (onHide)="customerOpen.set(false)" [modal]="true" header="Customer" [style]="{ width: 'min(520px, 95vw)' }">
+<p-dialog [visible]="customerOpen()" (onHide)="customerOpen.set(false)" (visibleChange)="!$event && customerOpen.set(false)" [modal]="true" header="Customer" [style]="{ width: 'min(520px, 95vw)' }">
     <div class="stack">
         <input class="pos-input" type="search" placeholder="Name, code, phone or email" [(ngModel)]="customerQuery" (ngModelChange)="searchCustomers()" autofocus data-testid="pos-customer-search" />
         <button class="pos-btn block" type="button" (click)="pickCustomer(null)"><i class="pi pi-user"></i> Walk-in customer</button>
@@ -131,7 +150,7 @@
 </p-dialog>
 
 <!-- note -->
-<p-dialog [visible]="noteOpen()" (onHide)="noteOpen.set(false)" [modal]="true" header="Order note" [style]="{ width: 'min(440px, 95vw)' }">
+<p-dialog [visible]="noteOpen()" (onHide)="noteOpen.set(false)" (visibleChange)="!$event && noteOpen.set(false)" [modal]="true" header="Order note" [style]="{ width: 'min(440px, 95vw)' }">
     <div class="stack">
         <textarea class="pos-input" rows="3" maxlength="500" [(ngModel)]="noteText"></textarea>
         <button class="pos-btn primary block" type="button" (click)="saveNote()">Save</button>
@@ -139,7 +158,7 @@
 </p-dialog>
 
 <!-- camera -->
-<p-dialog [visible]="cameraOpen()" (onHide)="closeCamera()" [modal]="true" header="Scan a barcode" [style]="{ width: 'min(520px, 95vw)' }">
+<p-dialog [visible]="cameraOpen()" (onHide)="closeCamera()" (visibleChange)="!$event && closeCamera()" [modal]="true" header="Scan a barcode" [style]="{ width: 'min(520px, 95vw)' }">
     @if (cameraError()) {
         <p class="err-text">{{ cameraError() }}</p>
     } @else {

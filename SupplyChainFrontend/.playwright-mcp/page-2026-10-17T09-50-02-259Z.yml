@@ -1,0 +1,148 @@
+- generic [ref=f29e4]:
+  - generic [ref=f29e5]:
+    - generic [ref=f29e6]:
+      - button "" [ref=f29e7] [cursor=pointer]
+      - link:
+        - /url: /portal/dashboard
+      - navigation "Breadcrumb" [ref=f29e9]:
+        - generic [ref=f29e10]: CRM
+        - generic [ref=f29e11]: ›
+        - strong [ref=f29e846]: Activities
+    - button " Search anything... Ctrl K" [ref=f29e16] [cursor=pointer]:
+      - generic [ref=f29e17]: 
+      - generic [ref=f29e18]: Search anything...
+      - generic [ref=f29e19]: Ctrl K
+    - generic [ref=f29e20]:
+      - button "" [ref=f29e22] [cursor=pointer]
+      - generic [ref=f29e24]:
+        - button "Appearance" [ref=f29e25] [cursor=pointer]:
+          - generic [ref=f29e26]: 
+        - text:    
+      - generic [ref=f29e28]:
+        - button "MC " [ref=f29e29] [cursor=pointer]:
+          - generic [ref=f29e30]: MC
+          - generic [ref=f29e32]: 
+        - text:   
+  - generic [ref=f29e33]:
+    - generic [ref=f29e34]:
+      - generic [ref=f29e35]: 
+      - generic [ref=f29e37]:
+        - generic [ref=f29e38]: SupplyChain MS
+        - generic [ref=f29e39]: KFC Pakistan (KFC)
+    - list [ref=f29e41]:
+      - listitem [ref=f29e42]:
+        - button "Home " [ref=f29e43] [cursor=pointer]:
+          - generic [ref=f29e44]: Home
+          - generic [ref=f29e45]: 
+        - list:
+          - listitem [ref=f29e46]:
+            - link " Dashboard" [ref=f29e47] [cursor=pointer]:
+              - /url: /portal/dashboard
+              - generic [ref=f29e48]: 
+              - generic [ref=f29e49]: Dashboard
+          - listitem [ref=f29e50]:
+            - link " My Inbox" [ref=f29e51] [cursor=pointer]:
+              - /url: /portal/pages/workflow-inbox
+              - generic [ref=f29e52]: 
+              - generic [ref=f29e53]: My Inbox
+      - listitem [ref=f29e54]:
+        - button "Sales " [ref=f29e55] [cursor=pointer]:
+          - generic [ref=f29e56]: Sales
+          - generic [ref=f29e57]: 
+        - list:
+          - listitem [ref=f29e58]:
+            - link " Customers" [ref=f29e59] [cursor=pointer]:
+              - /url: /portal/pages/customers
+              - generic [ref=f29e60]: 
+              - generic [ref=f29e61]: Customers
+          - listitem [ref=f29e62]:
+            - link " Inquiries" [ref=f29e63] [cursor=pointer]:
+              - /url: /portal/pages/sales/inquiries
+              - generic [ref=f29e64]: 
+              - generic [ref=f29e65]: Inquiries
+          - listitem [ref=f29e66]:
+            - link " Customer Quotations" [ref=f29e67] [cursor=pointer]:
+              - /url: /portal/pages/sales/quotations
+              - generic [ref=f29e68]: 
+              - generic [ref=f29e69]: Customer Quotations
+          - listitem [ref=f29e70]:
+            - generic [ref=f29e71] [cursor=pointer]:
+              - generic [ref=f29e72]: 
+              - generic [ref=f29e73]: Sale Orders
+              - generic [ref=f29e74]: 
+            - list:
+              - listitem [ref=f29e75]:
+                - link " All Sale Orders" [ref=f29e76] [cursor=pointer]:
+                  - /url: /portal/pages/sales/orders
+                  - generic [ref=f29e77]: 
+                  - generic [ref=f29e78]: All Sale Orders
+      - listitem [ref=f29e79]:
+        - button "CRM " [expanded] [ref=f29e80] [cursor=pointer]:
+          - generic [ref=f29e81]: CRM
+          - generic [ref=f29e82]: 
+        - list [ref=f29e83]:
+          - listitem [ref=f29e84]:
+            - link " Leads" [ref=f29e85] [cursor=pointer]:
+              - /url: /portal/pages/crm/leads
+              - generic [ref=f29e86]: 
+              - generic [ref=f29e87]: Leads
+          - listitem [ref=f29e88]:
+            - link " Opportunities" [ref=f29e89] [cursor=pointer]:
+              - /url: /portal/pages/crm/opportunities
+              - generic [ref=f29e90]: 
+              - generic [ref=f29e91]: Opportunities
+          - listitem [ref=f29e92]:
+            - link " Activities" [ref=f29e93] [cursor=pointer]:
+              - /url: /portal/pages/crm/activities
+              - generic [ref=f29e94]: 
+              - generic [ref=f29e95]: Activities
+          - listitem [ref=f29e96]:
+            - link " Campaigns" [ref=f29e97] [cursor=pointer]:
+              - /url: /portal/pages/crm/campaigns
+              - generic [ref=f29e98]: 
+              - generic [ref=f29e99]: Campaigns
+  - generic [ref=f29e100]:
+    - generic [ref=f29e847]:
+      - alert [ref=f29e915]:
+        - generic [ref=f29e916]:
+          - generic [ref=f29e921]:
+            - generic [ref=f29e922]: Done
+            - generic [ref=f29e923]: E2E_A41 Proposal meeting with Ahmed
+          - button "Close" [ref=f29e925] [cursor=pointer]
+      - generic [ref=f29e848]:
+        - toolbar "Commands" [ref=f29e849]:
+          - group [ref=f29e850]:
+            - generic [ref=f29e851] [cursor=pointer]: Follow-ups
+            - generic [ref=f29e854] [cursor=pointer]: All activities
+          - button " Refresh" [ref=f29e859] [cursor=pointer]:
+            - generic [ref=f29e860]: 
+            - generic [ref=f29e861]: Refresh
+        - generic [ref=f29e864]:
+          - generic [ref=f29e866]:
+            - heading "Follow-ups & tasks 0" [level=1] [ref=f29e929]:
+              - text: Follow-ups & tasks
+              - generic [ref=f29e868]: "0"
+            - generic [ref=f29e869]: What is due next — follow-ups, open tasks and scheduled calls or meetings
+          - generic [ref=f29e870]:
+            - generic [ref=f29e871] [cursor=pointer]:
+              - combobox "Mine" [ref=f29e872]
+              - button "dropdown trigger" [ref=f29e873]
+            - generic [ref=f29e877] [cursor=pointer]:
+              - combobox "Any date" [ref=f29e878]
+              - button "dropdown trigger" [ref=f29e879]
+          - table [ref=f29e887]:
+            - rowgroup [ref=f29e888]:
+              - row [ref=f29e889]:
+                - columnheader "Due" [ref=f29e890]
+                - columnheader "What" [ref=f29e891]
+                - columnheader "Regarding" [ref=f29e892]
+                - columnheader "Next step" [ref=f29e893]
+                - columnheader "Owner" [ref=f29e894]
+                - columnheader [ref=f29e895]
+            - rowgroup [ref=f29e896]:
+              - row [ref=f29e930]:
+                - cell "Nothing due." [ref=f29e931]
+    - generic [ref=f29e396]:
+      - text: All Rights Reserved To
+      - link "Loading" [ref=f29e397] [cursor=pointer]:
+        - /url: https://primeng.org

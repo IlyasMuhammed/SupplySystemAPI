@@ -1,0 +1,42 @@
+- generic [ref=f20e4]:
+  - generic [ref=f20e5]:
+    - generic [ref=f20e6]:
+      - button "" [ref=f20e7] [cursor=pointer]
+      - link:
+        - /url: /portal/dashboard
+      - generic [ref=f20e9]: Supply Chain
+    - button " Search anything... Ctrl K" [ref=f20e12] [cursor=pointer]:
+      - generic [ref=f20e13]: 
+      - generic [ref=f20e14]: Search anything...
+      - generic [ref=f20e15]: Ctrl K
+    - generic [ref=f20e16]:
+      - button "" [ref=f20e18] [cursor=pointer]
+      - generic [ref=f20e20]:
+        - button "Appearance" [ref=f20e21] [cursor=pointer]:
+          - generic [ref=f20e22]: 
+        - text:    
+      - generic [ref=f20e24]:
+        - button "ES " [ref=f20e25] [cursor=pointer]:
+          - generic [ref=f20e26]: ES
+          - generic [ref=f20e28]: 
+        - text:   
+  - generic [ref=f20e29]:
+    - generic [ref=f20e30]:
+      - generic [ref=f20e31]: 
+      - generic [ref=f20e33]:
+        - generic [ref=f20e34]: SupplyChain MS
+        - generic [ref=f20e35]: Supply Management System
+    - generic:
+      - list
+  - generic [ref=f20e36]:
+    - generic [ref=f20e39]:
+      - generic [ref=f20e40]: 
+      - heading "Access Denied" [level=1] [ref=f20e41]
+      - paragraph [ref=f20e42]: You don't have permission to view this page. Contact your system administrator if you believe this is an error.
+      - button " Back to Dashboard" [ref=f20e44] [cursor=pointer]:
+        - generic [ref=f20e45]: 
+        - generic [ref=f20e46]: Back to Dashboard
+    - generic [ref=f20e48]:
+      - text: All Rights Reserved To
+      - link "Loading" [ref=f20e49] [cursor=pointer]:
+        - /url: https://primeng.org

@@ -50,6 +50,12 @@
         &.ok { background: var(--sms-ok); border-color: var(--sms-ok); color: var(--sms-on-primary); }
         &.ghost { border-color: transparent; background: transparent; }
         &.on { background: var(--sms-primary-soft); border-color: var(--sms-primary-soft-border); color: var(--sms-primary-text); }
+        // Hover of the coloured variants. The generic :hover above paints a light row-hover background, which used to win
+        // over `.ok` (white text on a pale background — "Complete sale" became unreadable) and wash out `.danger` / `.on`.
+        // Each variant now keeps its own colours and only shifts them slightly.
+        &.ok:hover:not(:disabled) { background: var(--sms-ok); border-color: var(--sms-ok); color: var(--sms-on-primary); filter: brightness(.9); }
+        &.danger:hover:not(:disabled) { background: var(--sms-danger-soft); border-color: var(--sms-danger); color: var(--sms-danger); }
+        &.on:hover:not(:disabled) { background: var(--sms-primary-soft); border-color: var(--sms-primary-soft-border); color: var(--sms-primary-text); filter: brightness(.97); }
         &.lg { min-height: 56px; font-size: 1.1rem; }
         &.block { width: 100%; }
     }
@@ -94,8 +100,13 @@
         background: var(--sms-navy); color: var(--sms-navy-text); min-height: 56px; overflow-x: auto;
         .t-name { color: var(--sms-on-primary); font-weight: 650; white-space: nowrap; }
         .t-sub { color: var(--sms-navy-muted); font-size: .8rem; white-space: nowrap; }
+        // The signed-in cashier: readable at arm's length (it used to be the same faint 11px as the till name).
+        .t-user { color: var(--sms-navy-text); font-size: .95rem; font-weight: 600; white-space: nowrap; display: inline-flex; align-items: center; gap: .35rem; }
         .pos-btn { background: transparent; color: var(--sms-navy-text); border-color: var(--sms-navy-2); }
         .pos-btn.on { background: var(--sms-nav-active); color: var(--sms-on-primary); border-color: var(--sms-nav-active); }
+        // Hover on the dark bar: the generic light row-hover would sit under light text.
+        .pos-btn:hover:not(:disabled) { background: var(--sms-navy-2); color: var(--sms-navy-text); border-color: var(--sms-navy-2); }
+        .pos-btn.on:hover:not(:disabled) { background: var(--sms-nav-active); color: var(--sms-on-primary); border-color: var(--sms-nav-active); filter: brightness(1.08); }
     }
 
     .pos-main { flex: 1 1 auto; min-height: 0; overflow: auto; }

@@ -1,5 +1,21 @@
 <p-toast></p-toast>
 
+<!-- A45 C7 — Keep / Update(Apply) offer when a pricelist price differs from the buyer's price. -->
+<p-toast key="price-relookup" position="top-center">
+  <ng-template let-message pTemplate="message">
+    <div class="discount-toast" data-testid="price-relookup-toast">
+      <i class="pi pi-tag"></i>
+      <div class="discount-toast-body">
+        <div class="discount-toast-title">{{ message.summary }}</div>
+        <div class="discount-toast-detail">{{ message.detail }}</div>
+      </div>
+      <div class="discount-toast-actions">
+        <p-button [label]="message.data?.applyLabel" size="small" (onClick)="pricing.acceptOffer(message)" data-testid="price-relookup-apply"></p-button>
+        <p-button label="Keep" size="small" [text]="true" severity="secondary" (onClick)="pricing.keepOffer(message)" data-testid="price-relookup-keep"></p-button>
+      </div>
+    </div>
+  </ng-template>
+</p-toast>
 <sf-page [crumbs]="['Procurement', 'Purchase orders', 'Edit purchase order']">
 
   <header class="sf-hdr sf-compact">
@@ -37,6 +53,12 @@
               [class.p-invalid]="isInvalid('supplierName')">
             </p-autoComplete>
             <small class="p-error" *ngIf="isInvalid('supplierName')">Supplier name is required</small>
+          </div>
+
+          <!-- A46 C1 — the PO's order date: DRAFT only; it is the date the line prices are looked up for. -->
+          <div class="sf-fld" data-testid="po-order-date-field">
+            <label>Order Date</label>
+            <p-calendar formControlName="orderDate" dateFormat="dd/mm/yy" [showIcon]="true" styleClass="w-full" appendTo="body" data-testid="po-order-date"></p-calendar>
           </div>
 
           <!-- A35 P3-14 — PO currency; the rate is locked at approval against the purchase base. -->
@@ -91,6 +113,12 @@
           </div>
         </div>
 
+        <div class="price-warning order-date-banner" *ngIf="pricing.orderDateBanner as ob" data-testid="order-date-banner">
+          <i class="pi pi-exclamation-triangle"></i>
+          <span class="price-warning-text">Order date changed. {{ ob.count }} line(s) may have different prices for the new date.</span>
+          <p-button label="Re-lookup All" size="small" type="button" (onClick)="pricing.reLookupAll()" data-testid="order-date-relookup"></p-button>
+          <p-button label="Keep Current Prices" size="small" severity="secondary" [outlined]="true" type="button" (onClick)="pricing.keepCurrentPrices()" data-testid="order-date-keep"></p-button>
+        </div>
         <div formArrayName="lines">
           <div *ngFor="let line of lines.controls; let i = index" [formGroupName]="i" class="line-card">
 
@@ -148,10 +176,27 @@
 
                 <!-- Unit Price | Required Date -->
                 <div class="sf-fld">
-                  <label>Unit Price <span class="required">*</span></label>
-                  <p-inputNumber formControlName="unitPrice" mode="decimal"
+                  <label>Unit Price <span class="required">*</span>
+                    <span class="price-src-badge" [ngClass]="'src-' + pricing.sourceOf(line)" data-testid="po-line-price-source">{{ pricing.label(line) }}</span>
+                    <i class="pi pi-info-circle conv-info" *ngIf="line.get('conversionInfo')?.value as ci"
+                       [pTooltip]="conversionTooltip(ci)" tooltipPosition="top" data-testid="po-line-converted-info"></i>
+                  </label>
+                  <p-inputNumber formControlName="unitPrice" mode="decimal" [inputId]="'unitPrice-' + i"
                                  [minFractionDigits]="2" [maxFractionDigits]="4"
                                  [min]="0" [max]="9999999" styleClass="w-full"></p-inputNumber>
+                  <input *ngIf="pricing.sourceOf(line) === 2" pInputText formControlName="priceOverrideReason"
+                         placeholder="Override reason (optional)" class="w-full price-override-reason"
+                         maxlength="250" data-testid="po-line-override-reason" />
+                </div>
+                <div class="sf-fld full" *ngIf="pricing.warning(line) as pw" data-testid="po-line-price-warning">
+                  <div class="price-warning">
+                    <i class="pi pi-exclamation-triangle"></i>
+                    <span class="price-warning-text">{{ pw }}</span>
+                    <p-button label="Enter Manually" size="small" severity="secondary" [outlined]="true" type="button"
+                              (onClick)="pricing.enterManually($any(line))" data-testid="po-line-enter-manually"></p-button>
+                    <p-button label="Create RFQ" size="small" severity="secondary" [outlined]="true" type="button"
+                              (onClick)="pricing.createRfq($any(line))" data-testid="po-line-create-rfq"></p-button>
+                  </div>
                 </div>
                 <div class="sf-fld">
                   <label>Required Date</label>

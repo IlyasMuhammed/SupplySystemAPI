@@ -61,13 +61,21 @@ public sealed class CrmConfigController : CrmControllerBase
         CampaignTrackingEnabled = _gate is null || await _gate.IsEnabledAsync(Caller.OrganizationId, CrmFeatureCodes.CampaignTracking, ct)
     }));
 
-    /// <summary>Active users of the organization (assignment, participants, team members).</summary>
+    /// <summary>
+    /// Active users of the organization (participants, colleagues). <c>assignable=true</c> keeps only people who can work CRM
+    /// records — they hold CRM_VIEW_LEADS or CRM_VIEW_OPPORTUNITIES — for owner, assignee and team-member pickers, so a
+    /// cashier or an auditor is not offered as a lead owner.
+    /// </summary>
     [HttpGet("api/crm/users")]
     [RequirePermission(P.CRM_VIEW_LEADS, P.CRM_VIEW_OPPORTUNITIES, P.CRM_VIEW_ACTIVITIES, P.CRM_ADMIN)]
-    public async Task<IActionResult> Users([FromQuery] string? search, [FromQuery] int limit = 50, CancellationToken ct = default)
+    public async Task<IActionResult> Users([FromQuery] string? search, [FromQuery] int limit = 50, [FromQuery] bool assignable = false, CancellationToken ct = default)
     {
-        var users = _users is null ? [] : await _users.SearchAsync(Caller.OrganizationId, search, limit, ct);
-        return Ok(ApiResponse<List<CrmUserModel>>.Ok(users.Select(u => new CrmUserModel
+        // The directory caps the page before the filter runs, so ask for more when filtering.
+        var users = _users is null ? [] : await _users.SearchAsync(Caller.OrganizationId, search, assignable ? Math.Max(limit, 500) : limit, ct);
+        IEnumerable<OrgUserInfo> shown = users;
+        if (assignable)
+            shown = users.Where(u => u.Permissions.Contains(P.CRM_VIEW_LEADS) || u.Permissions.Contains(P.CRM_VIEW_OPPORTUNITIES)).Take(limit);
+        return Ok(ApiResponse<List<CrmUserModel>>.Ok(shown.Select(u => new CrmUserModel
         {
             UserId = u.UserId, Name = u.Name, Email = u.Email, IsActive = u.IsActive
         }).ToList()));

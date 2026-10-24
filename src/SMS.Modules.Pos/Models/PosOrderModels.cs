@@ -418,6 +418,8 @@ public class PosCatalogItemModel
     public bool     IsFavorite   { get; set; }
     public int      SortOrder    { get; set; }
     public bool     IsActive     { get; set; }
+    /// <summary>False for items that hold no stock (prepared food, services): the till does not flag them as out of stock.</summary>
+    public bool     IsStockable  { get; set; } = true;
     public DateTime ModifiedAt   { get; set; }
 }
 

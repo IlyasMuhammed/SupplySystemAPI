@@ -1,0 +1,16 @@
+[9-proposed-ef-projection-after-index] reads=4 rows=6 seek=True scan=False keyLookups=0 serverElapsed=0ms idx=IX_SupplierPricelists_Variant,IX_SupplierPricelists_Lookup
+-- SQL
+SELECT [s].[Id], [s].[UUID], [s].[VariantUuid], [s].[MinQuantity], [s].[Priority], [s].[PricingDateBasis], [s].[UnitPrice], [s].[CurrencyId], [s].[LeadTimeDays], [s].[ValidFrom], [s].[ValidTo]
+FROM [demand].[SupplierPricelists] AS [s]
+WHERE [s].[OrganizationId] = @__org_0 AND [s].[IsActive] = CAST(1 AS bit) AND [s].[SupplierUuid] = @__sup_1 AND [s].[MinQuantity] <= @__qty_2 AND [s].[ProductUuid] = @__prod_3 AND ([s].[VariantUuid] = @__variant_4 OR [s].[VariantUuid] IS NULL)
+-- IO
+Table 'SupplierPricelists'. Scan count 1, logical reads 4, physical reads 0, page server reads 0, read-ahead reads 0, page server read-ahead reads 0, lob logical reads 0, lob physical reads 0, lob page server reads 0, lob read-ahead reads 0, lob page server read-ahead reads 0.
+-- TIME
+CPU time = 0 ms, elapsed time = 0 ms.
+   CPU time = 0 ms,  elapsed time = 0 ms.
+   CPU time = 0 ms, elapsed time = 0 ms.
+   CPU time = 0 ms,  elapsed time = 0 ms.
+   CPU time = 0 ms, elapsed time = 0 ms.
+   CPU time = 0 ms,  elapsed time = 0 ms.
+   CPU time = 0 ms, elapsed time = 0 ms.
+   CPU time = 0 ms,  elapsed time = 0 ms.

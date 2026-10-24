@@ -1,0 +1,20 @@
+- generic [ref=f84e3]:
+  - button "Switch light / dark" [ref=f84e6] [cursor=pointer]:
+    - generic [ref=f84e7]: 
+  - generic [ref=f84e11]:
+    - generic [ref=f84e12]:
+      - generic [ref=f84e13]: Supply Chain Management
+      - text: Sign in to continue
+    - generic [ref=f84e14]:
+      - generic [ref=f84e15]: Email
+      - textbox "Email" [ref=f84e16]:
+        - /placeholder: Email address
+      - generic [ref=f84e17]: Password
+      - textbox "Password" [ref=f84e20]
+      - generic [ref=f84e24]:
+        - generic [ref=f84e25]:
+          - checkbox "Remember me" [ref=f84e28] [cursor=pointer]
+          - generic [ref=f84e30] [cursor=pointer]: Remember me
+        - generic [ref=f84e31] [cursor=pointer]: Forgot password?
+      - button "Sign In" [ref=f84e33] [cursor=pointer]
+      - generic [ref=f84e35]: Don't have an account? Sign Up

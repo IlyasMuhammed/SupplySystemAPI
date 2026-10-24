@@ -189,7 +189,7 @@ const DOC_ROUTES: Record<string, string> = {
     <div class="sf-fld"><label for="oe-cur">Currency</label>
       <p-dropdown inputId="oe-cur" [options]="currencyOptions" [(ngModel)]="edit.currencyCode" [showClear]="true" appendTo="body" styleClass="w-full"></p-dropdown></div>
     <div class="sf-fld"><label for="oe-close">Close by</label>
-      <p-calendar inputId="oe-close" [(ngModel)]="editClose" dateFormat="dd M yy" [showIcon]="true" [showButtonBar]="true" appendTo="body" styleClass="w-full"></p-calendar></div>
+      <p-calendar inputId="oe-close" [(ngModel)]="editClose" dateFormat="dd M yy" [showIcon]="true" [showButtonBar]="true" todayButtonStyleClass="" clearButtonStyleClass="" appendTo="body" styleClass="w-full"></p-calendar></div>
     <div class="sf-fld" *ngIf="canAssign"><label for="oe-owner">Owner</label>
       <p-dropdown inputId="oe-owner" [options]="userOptions" [(ngModel)]="edit.assignedToUserId" optionLabel="label" optionValue="value" [filter]="true" filterBy="label" [showClear]="true" appendTo="body" styleClass="w-full"></p-dropdown></div>
     <div class="sf-fld"><label for="oe-team">Team</label>
@@ -400,7 +400,7 @@ export class OpportunityDetailComponent implements OnInit, OnDestroy {
     this.crm.getAccountContacts(o.accountUuid).subscribe({
       next: r => this.contactOptions = (r.result ?? []).map(c => ({ value: c.id, label: c.title ? `${c.name} — ${c.title}` : c.name }))
     });
-    this.lookups.users().subscribe(u => this.userOptions = CrmLookupsService.userOptions(u));
+    this.lookups.assignableUsers().subscribe(u => this.userOptions = CrmLookupsService.userOptions(u));
     this.lookups.teams().subscribe(t => this.teamOptions = t.map(x => ({ value: x.uuid, label: x.name })));
     this.lookups.currencies().subscribe(c => this.currencyOptions = c.codes);
     this.editVisible = true;

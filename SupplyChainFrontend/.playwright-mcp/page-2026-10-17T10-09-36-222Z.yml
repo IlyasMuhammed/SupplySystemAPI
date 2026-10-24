@@ -1,0 +1,252 @@
+- generic [ref=f33e4]:
+  - generic [ref=f33e5]:
+    - generic [ref=f33e6]:
+      - button "" [ref=f33e7] [cursor=pointer]
+      - link:
+        - /url: /portal/dashboard
+      - navigation "Breadcrumb" [ref=f33e465]:
+        - generic [ref=f33e466]: CRM
+        - generic [ref=f33e467]: ›
+        - link "Leads" [ref=f33e468] [cursor=pointer]:
+          - /url: /portal/pages/crm/leads
+        - generic [ref=f33e469]: ›
+        - strong [ref=f33e470]: LD-2026-00005
+    - button " Search anything... Ctrl K" [ref=f33e14] [cursor=pointer]:
+      - generic [ref=f33e15]: 
+      - generic [ref=f33e16]: Search anything...
+      - generic [ref=f33e17]: Ctrl K
+    - generic [ref=f33e18]:
+      - generic [ref=f33e19]:
+        - button "" [ref=f33e20] [cursor=pointer]
+        - generic: "2"
+      - generic [ref=f33e22]:
+        - button "Appearance" [ref=f33e23] [cursor=pointer]:
+          - generic [ref=f33e24]: 
+        - text:    
+      - generic [ref=f33e26]:
+        - button "SS " [active] [ref=f33e27] [cursor=pointer]:
+          - generic [ref=f33e28]: SS
+          - generic [ref=f33e30]: 
+        - generic [ref=f33e650]:
+          - generic [ref=f33e651]:
+            - generic [ref=f33e652]: SS
+            - generic [ref=f33e654]:
+              - paragraph [ref=f33e655]: Sam Salesrep
+              - paragraph [ref=f33e656]: Sales Representative
+          - list [ref=f33e658]:
+            - listitem [ref=f33e659]:
+              - button " Edit Profile" [ref=f33e660] [cursor=pointer]:
+                - generic [ref=f33e661]: 
+                - generic [ref=f33e662]: Edit Profile
+            - listitem [ref=f33e663]:
+              - button " Change Password" [ref=f33e664] [cursor=pointer]:
+                - generic [ref=f33e665]: 
+                - generic [ref=f33e666]: Change Password
+          - list [ref=f33e668]:
+            - listitem [ref=f33e669]:
+              - button " Sign Out" [ref=f33e670] [cursor=pointer]:
+                - generic [ref=f33e671]: 
+                - generic [ref=f33e672]: Sign Out
+  - generic [ref=f33e31]:
+    - generic [ref=f33e32]:
+      - generic [ref=f33e33]: 
+      - generic [ref=f33e35]:
+        - generic [ref=f33e36]: SupplyChain MS
+        - generic [ref=f33e37]: KFC Pakistan (KFC)
+    - list [ref=f33e39]:
+      - listitem [ref=f33e40]:
+        - button "Home " [ref=f33e41] [cursor=pointer]:
+          - generic [ref=f33e42]: Home
+          - generic [ref=f33e43]: 
+        - list:
+          - listitem [ref=f33e44]:
+            - link " Dashboard" [ref=f33e45] [cursor=pointer]:
+              - /url: /portal/dashboard
+              - generic [ref=f33e46]: 
+              - generic [ref=f33e47]: Dashboard
+          - listitem [ref=f33e48]:
+            - link " My Inbox" [ref=f33e49] [cursor=pointer]:
+              - /url: /portal/pages/workflow-inbox
+              - generic [ref=f33e50]: 
+              - generic [ref=f33e51]: My Inbox
+      - listitem [ref=f33e52]:
+        - button "Sales " [ref=f33e53] [cursor=pointer]:
+          - generic [ref=f33e54]: Sales
+          - generic [ref=f33e55]: 
+        - list:
+          - listitem [ref=f33e56]:
+            - link " Customers" [ref=f33e57] [cursor=pointer]:
+              - /url: /portal/pages/customers
+              - generic [ref=f33e58]: 
+              - generic [ref=f33e59]: Customers
+          - listitem [ref=f33e60]:
+            - link " Inquiries" [ref=f33e61] [cursor=pointer]:
+              - /url: /portal/pages/sales/inquiries
+              - generic [ref=f33e62]: 
+              - generic [ref=f33e63]: Inquiries
+          - listitem [ref=f33e64]:
+            - link " Customer Quotations" [ref=f33e65] [cursor=pointer]:
+              - /url: /portal/pages/sales/quotations
+              - generic [ref=f33e66]: 
+              - generic [ref=f33e67]: Customer Quotations
+          - listitem [ref=f33e68]:
+            - generic [ref=f33e69] [cursor=pointer]:
+              - generic [ref=f33e70]: 
+              - generic [ref=f33e71]: Sale Orders
+              - generic [ref=f33e72]: 
+            - list:
+              - listitem [ref=f33e73]:
+                - link " All Sale Orders" [ref=f33e74] [cursor=pointer]:
+                  - /url: /portal/pages/sales/orders
+                  - generic [ref=f33e75]: 
+                  - generic [ref=f33e76]: All Sale Orders
+      - listitem [ref=f33e77]:
+        - button "CRM " [expanded] [ref=f33e78] [cursor=pointer]:
+          - generic [ref=f33e79]: CRM
+          - generic [ref=f33e80]: 
+        - list [ref=f33e81]:
+          - listitem [ref=f33e82]:
+            - link " Leads" [ref=f33e83] [cursor=pointer]:
+              - /url: /portal/pages/crm/leads
+              - generic [ref=f33e84]: 
+              - generic [ref=f33e85]: Leads
+          - listitem [ref=f33e86]:
+            - link " Opportunities" [ref=f33e87] [cursor=pointer]:
+              - /url: /portal/pages/crm/opportunities
+              - generic [ref=f33e88]: 
+              - generic [ref=f33e89]: Opportunities
+          - listitem [ref=f33e90]:
+            - link " Activities" [ref=f33e91] [cursor=pointer]:
+              - /url: /portal/pages/crm/activities
+              - generic [ref=f33e92]: 
+              - generic [ref=f33e93]: Activities
+          - listitem [ref=f33e94]:
+            - link " Campaigns" [ref=f33e95] [cursor=pointer]:
+              - /url: /portal/pages/crm/campaigns
+              - generic [ref=f33e96]: 
+              - generic [ref=f33e97]: Campaigns
+  - generic [ref=f33e98]:
+    - generic [ref=f33e462]:
+      - generic:
+        - alertdialog
+      - generic [ref=f33e471]:
+        - toolbar "Commands" [ref=f33e472]:
+          - button " Log activity" [ref=f33e474] [cursor=pointer]:
+            - generic [ref=f33e475]: 
+            - generic [ref=f33e476]: Log activity
+          - button " Edit" [ref=f33e478] [cursor=pointer]:
+            - generic [ref=f33e479]: 
+            - generic [ref=f33e480]: Edit
+          - button " All leads" [ref=f33e488] [cursor=pointer]:
+            - generic [ref=f33e489]: 
+            - generic [ref=f33e490]: All leads
+        - generic [ref=f33e491]:
+          - generic [ref=f33e492]:
+            - banner [ref=f33e493]:
+              - generic [ref=f33e495]:
+                - generic [ref=f33e496]: Lead · no source
+                - heading "LD-2026-00005 Disqualified Warm" [level=1] [ref=f33e640]:
+                  - generic [ref=f33e498]: LD-2026-00005
+                  - generic [ref=f33e499]: Disqualified
+                  - generic [ref=f33e500]: Warm
+                - generic [ref=f33e501]: Danish Iqbal · E2E_A41 Gamma Retail · Sam Salesrep
+              - list "Progress" [ref=f33e503]:
+                - listitem [ref=f33e641]:
+                  - generic [ref=f33e642]: ✓ New
+                - listitem [ref=f33e643]:
+                  - generic [ref=f33e644]: ✓ Contacted
+                - listitem [ref=f33e645]:
+                  - generic [ref=f33e646]: ✓ Qualified
+                - listitem [ref=f33e647]:
+                  - generic [ref=f33e648]: Disqualified
+              - generic [ref=f33e512]:
+                - generic [ref=f33e513]:
+                  - generic [ref=f33e514]: Stage
+                  - generic [ref=f33e515]: New Lead
+                  - generic [ref=f33e516]: 5% win probability
+                - generic [ref=f33e517]:
+                  - generic [ref=f33e518]: Estimate
+                  - generic [ref=f33e519]: —
+                - generic [ref=f33e520]:
+                  - generic [ref=f33e521]: Activities
+                  - generic [ref=f33e522]: "0"
+            - generic [ref=f33e649]: "Disqualified on 17 Oct 2026: E2E_A41 Not a valid prospect"
+            - tablist "Tabs" [ref=f33e524]:
+              - tab "Details" [selected] [ref=f33e525] [cursor=pointer]
+              - tab "Topic" [ref=f33e526] [cursor=pointer]
+              - tab "Timeline" [ref=f33e527] [cursor=pointer]
+            - generic [ref=f33e528]:
+              - generic [ref=f33e529]:
+                - generic [ref=f33e530]:
+                  - heading "Contact" [level=2] [ref=f33e532]
+                  - generic [ref=f33e533]:
+                    - generic [ref=f33e534]: Name
+                    - generic [ref=f33e535]: Danish Iqbal
+                    - generic [ref=f33e536]: Title
+                    - generic [ref=f33e537]: —
+                    - generic [ref=f33e538]: Company
+                    - generic [ref=f33e539]: E2E_A41 Gamma Retail
+                    - generic [ref=f33e540]: Email
+                    - generic [ref=f33e541]: —
+                    - generic [ref=f33e542]: Phone
+                    - generic [ref=f33e543]: —
+                    - generic [ref=f33e544]: Mobile
+                    - generic [ref=f33e545]: —
+                    - generic [ref=f33e546]: Website
+                    - generic [ref=f33e547]: —
+                    - generic [ref=f33e548]: Address
+                    - generic [ref=f33e549]: —
+                  - heading "Linked account" [level=2] [ref=f33e551]
+                  - generic [ref=f33e552]:
+                    - generic [ref=f33e553]: 
+                    - text: Not linked yet — the account is created or linked on conversion.
+                - generic [ref=f33e554]:
+                  - heading "Source" [level=2] [ref=f33e556]
+                  - generic [ref=f33e557]:
+                    - generic [ref=f33e558]: Source
+                    - generic [ref=f33e559]: —
+                    - generic [ref=f33e560]: Campaign
+                    - generic [ref=f33e561]: —
+                    - generic [ref=f33e562]: Medium
+                    - generic [ref=f33e563]: —
+                    - generic [ref=f33e564]: Reference
+                    - generic [ref=f33e565]: —
+                  - heading "Qualification (BANT)" [level=2] [ref=f33e567]
+                  - generic [ref=f33e568]:
+                    - generic [ref=f33e569]: Budget
+                    - generic [ref=f33e570]:
+                      - generic [ref=f33e571]: 
+                      - text: not known
+                    - generic [ref=f33e572]: Authority
+                    - generic [ref=f33e573]:
+                      - generic [ref=f33e574]: 
+                      - text: Not confirmed
+                    - generic [ref=f33e575]: Need
+                    - generic [ref=f33e576]:
+                      - generic [ref=f33e577]: 
+                      - text: Not identified
+                    - generic [ref=f33e578]: Timeline
+                    - generic [ref=f33e579]: —
+                  - heading "Ownership" [level=2] [ref=f33e581]
+                  - generic [ref=f33e582]:
+                    - generic [ref=f33e583]: Assigned
+                    - generic [ref=f33e584]: Sam Salesrep since 17 Oct 2026
+                    - generic [ref=f33e585]: Team
+                    - generic [ref=f33e586]: —
+                    - generic [ref=f33e587]: Previous owner
+                    - generic [ref=f33e588]: —
+                    - generic [ref=f33e589]: Priority
+                    - generic [ref=f33e590]: Normal
+                    - generic [ref=f33e591]: Created
+                    - generic [ref=f33e592]: 17 Oct 2026, 10:07 by Sam Salesrep
+              - text:           
+          - generic [ref=f33e593]:
+            - tablist [ref=f33e594]:
+              - tab "Cross-references" [selected] [ref=f33e595] [cursor=pointer]
+              - button "Hide side panel" [ref=f33e596] [cursor=pointer]:
+                - generic [ref=f33e597]: 
+            - generic [ref=f33e598]: Other leads show here once the lead is linked to an account.
+    - generic [ref=f33e261]:
+      - text: All Rights Reserved To
+      - link "Loading" [ref=f33e262] [cursor=pointer]:
+        - /url: https://primeng.org

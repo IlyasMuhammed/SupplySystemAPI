@@ -1,0 +1,789 @@
+- generic [ref=f79e1]:
+  - generic [ref=f79e25]:
+    - generic:
+      - generic:
+        - link "Skip to Main Content":
+          - /url: "#main"
+        - banner [ref=f79e26]:
+          - navigation "Tools" [ref=f79e27]:
+            - heading "Sandbox Company GB 72c4" [level=2] [ref=f79e32]
+            - search [ref=f79e35]:
+              - searchbox "Search" [ref=f79e42]
+            - generic [ref=f79e43]:
+              - button "Contact expert help" [ref=f79e47] [cursor=pointer]:
+                - generic [ref=f79e49]: Contact experts
+              - button "Tasks" [ref=f79e55] [cursor=pointer]
+              - button "Integrations" [ref=f79e61] [cursor=pointer]
+              - button "Help" [ref=f79e69] [cursor=pointer]
+              - button "Intuit Labs" [ref=f79e75] [cursor=pointer]
+              - button "Settings" [ref=f79e80] [cursor=pointer]
+              - button "Intuit account (I)" [ref=f79e88] [cursor=pointer]:
+                - generic [ref=f79e89]: I
+              - button "Open Intuit Intelligence chat" [ref=f79e95] [cursor=pointer]
+    - navigation "Side" [ref=f79e140]:
+      - link "QuickBooks" [ref=f79e141] [cursor=pointer]:
+        - /url: currencies?intuit_authn_session_slot=VYPodik&iux_intuit_tid=1-6ad4e583-786281b57da2f2e673ba8def
+      - generic [ref=f79e143]:
+        - button "Create" [ref=f79e146] [cursor=pointer]
+        - button "Bookmarks" [ref=f79e154] [cursor=pointer]
+      - generic [ref=f79e159]:
+        - link "Home" [ref=f79e160] [cursor=pointer]:
+          - /url: /app/homepage
+        - link "Feed" [ref=f79e165] [cursor=pointer]:
+          - /url: /app/business-feed
+        - button "Reports" [ref=f79e172] [cursor=pointer]
+        - link "All apps" [ref=f79e180] [cursor=pointer]:
+          - /url: /app/banking?jobId=accounting
+      - generic [ref=f79e185]:
+        - generic [ref=f79e186]: PINNED
+        - generic [ref=f79e187]:
+          - button "Accounting" [ref=f79e191] [cursor=pointer]
+          - button "Expenses" [ref=f79e197] [cursor=pointer]
+          - button "Sales" [ref=f79e203] [cursor=pointer]
+      - button "Customise" [ref=f79e208] [cursor=pointer]
+    - navigation [ref=f79e213]:
+      - generic [ref=f79e214]:
+        - button "Collapse" [expanded] [ref=f79e216] [cursor=pointer]
+        - heading "All apps" [level=2] [ref=f79e220]
+        - generic [ref=f79e221]:
+          - button "Accounting" [ref=f79e225] [cursor=pointer]
+          - generic [ref=f79e230]:
+            - button "Expenses & Bills" [expanded] [ref=f79e232] [cursor=pointer]
+            - region "Expenses & Bills" [ref=f79e236]:
+              - generic [ref=f79e237]:
+                - generic [ref=f79e238]:
+                  - link "Expense transactions" [ref=f79e239] [cursor=pointer]:
+                    - /url: /app/expenses?jobId=expenses
+                  - button "Add bookmark Expense transactions" [ref=f79e242] [cursor=pointer]
+                - generic [ref=f79e244]:
+                  - link "Suppliers" [ref=f79e245] [cursor=pointer]:
+                    - /url: /app/vendors?jobId=expenses
+                  - button "Add bookmark Suppliers" [ref=f79e248] [cursor=pointer]
+                - generic [ref=f79e250]:
+                  - link "Bills" [ref=f79e251] [cursor=pointer]:
+                    - /url: /app/bills?jobId=expenses
+                  - button "Add bookmark Bills" [ref=f79e254] [cursor=pointer]
+                - generic [ref=f79e256]:
+                  - link "Mileage" [ref=f79e257] [cursor=pointer]:
+                    - /url: /app/mileage?jobId=expenses
+                  - button "Add bookmark Mileage" [ref=f79e260] [cursor=pointer]
+          - button "Sales & Get Paid" [ref=f79e265] [cursor=pointer]
+          - button "Customer Hub" [ref=f79e272] [cursor=pointer]
+          - button "Team" [ref=f79e279] [cursor=pointer]
+          - button "VAT" [ref=f79e286] [cursor=pointer]
+          - button "Income Tax" [ref=f79e293] [cursor=pointer]
+          - button "Capital" [ref=f79e300] [cursor=pointer]
+    - main [ref=f79e306]:
+      - generic [ref=f79e307]:
+        - generic [ref=f79e308]:
+          - heading "Suppliers" [level=1] [ref=f79e310]
+          - generic [ref=f79e311]:
+            - button "Give feedback" [ref=f79e312] [cursor=pointer]
+            - button
+            - generic [ref=f79e316]:
+              - button "New supplier" [ref=f79e317] [cursor=pointer]
+              - button "New supplier menu" [ref=f79e319] [cursor=pointer]
+        - generic [ref=f79e322]:
+          - generic [ref=f79e325]:
+            - generic [ref=f79e327]:
+              - generic [ref=f79e328]: Unbilled Last 365 Days
+              - generic [ref=f79e333] [cursor=pointer]:
+                - generic [ref=f79e334]: £75.30
+                - generic [ref=f79e335]:
+                  - generic [ref=f79e336]: "1"
+                  - text: Purchase order
+            - generic [ref=f79e338]:
+              - generic [ref=f79e339]: Unpaid Last 365 Days
+              - generic [ref=f79e341]:
+                - generic [ref=f79e344] [cursor=pointer]:
+                  - generic [ref=f79e345]: £5,670.00
+                  - generic [ref=f79e346]:
+                    - generic [ref=f79e347]: "6"
+                    - text: Overdue
+                - generic [ref=f79e350] [cursor=pointer]:
+                  - generic [ref=f79e351]: £5,670.00
+                  - generic [ref=f79e352]:
+                    - generic [ref=f79e353]: "6"
+                    - text: Open bills
+            - generic [ref=f79e355]:
+              - generic [ref=f79e356]: Paid
+              - generic [ref=f79e361] [cursor=pointer]:
+                - generic [ref=f79e362]: £0.00
+                - generic [ref=f79e363]:
+                  - generic [ref=f79e364]: "0"
+                  - text: Paid Last 30 days
+          - button [ref=f79e365] [cursor=pointer]
+        - generic [ref=f79e368]:
+          - button
+          - generic [ref=f79e369]:
+            - generic [ref=f79e370]:
+              - toolbar "Search" [ref=f79e375]:
+                - generic [ref=f79e376]:
+                  - textbox "Search" [ref=f79e377]
+                  - generic [ref=f79e378]: 
+              - generic [ref=f79e379]:
+                - button "Print" [ref=f79e380] [cursor=pointer]
+                - button "Export" [ref=f79e384] [cursor=pointer]
+                - button "Settings" [ref=f79e388] [cursor=pointer]
+            - table [ref=f79e394]:
+              - status [ref=f79e404]
+              - rowgroup [ref=f79e405]:
+                - row [ref=f79e406]:
+                  - columnheader "Select all rows checkbox" [ref=f79e407]:
+                    - checkbox "Select all rows checkbox" [ref=f79e410] [cursor=pointer]: 
+                  - columnheader "Supplier Reverse sort direction for Supplier Resize Supplier column. Use left and right arrow keys to resize. Hold Shift for larger increments." [ref=f79e412]:
+                    - generic [ref=f79e414]:
+                      - generic [ref=f79e415]: Supplier
+                      - button "Reverse sort direction for Supplier" [ref=f79e416] [cursor=pointer]
+                    - button "Resize Supplier column. Use left and right arrow keys to resize. Hold Shift for larger increments." [ref=f79e419]
+                  - columnheader "Company name Sort by Company name Resize Company name column. Use left and right arrow keys to resize. Hold Shift for larger increments." [ref=f79e420]:
+                    - generic [ref=f79e422]:
+                      - generic [ref=f79e423]: Company name
+                      - button "Sort by Company name" [ref=f79e424] [cursor=pointer]
+                    - button "Resize Company name column. Use left and right arrow keys to resize. Hold Shift for larger increments." [ref=f79e427]
+                  - columnheader "Phone Resize Phone column. Use left and right arrow keys to resize. Hold Shift for larger increments." [ref=f79e428]:
+                    - generic [ref=f79e429]: Phone
+                    - button "Resize Phone column. Use left and right arrow keys to resize. Hold Shift for larger increments." [ref=f79e432]
+                  - columnheader "Email Resize Email column. Use left and right arrow keys to resize. Hold Shift for larger increments." [ref=f79e433]:
+                    - generic [ref=f79e434]: Email
+                    - button "Resize Email column. Use left and right arrow keys to resize. Hold Shift for larger increments." [ref=f79e437]
+                  - columnheader "Currency Resize Currency column. Use left and right arrow keys to resize. Hold Shift for larger increments." [ref=f79e438]:
+                    - generic [ref=f79e439]: Currency
+                    - button "Resize Currency column. Use left and right arrow keys to resize. Hold Shift for larger increments." [ref=f79e442]
+                  - columnheader "Open Balance Sort by Open Balance Resize Open Balance column. Use left and right arrow keys to resize. Hold Shift for larger increments." [ref=f79e443]:
+                    - generic [ref=f79e445]:
+                      - generic [ref=f79e446]: Open Balance
+                      - button "Sort by Open Balance" [ref=f79e447] [cursor=pointer]
+                    - button "Resize Open Balance column. Use left and right arrow keys to resize. Hold Shift for larger increments." [ref=f79e450]
+                  - columnheader "Action" [ref=f79e451]
+              - rowgroup [ref=f79e455]:
+                - row [ref=f79e456]:
+                  - cell "Select row checkbox Andrew Haberbosch" [ref=f79e457]:
+                    - checkbox "Select row checkbox Andrew Haberbosch" [ref=f79e460] [cursor=pointer]: 
+                  - cell [ref=f79e462]:
+                    - button "Andrew Haberbosch" [ref=f79e467]
+                  - cell "Andrew Haberbosch" [ref=f79e468]
+                  - cell [ref=f79e472]
+                  - cell [ref=f79e474]
+                  - cell "GBP" [ref=f79e476]
+                  - cell "£0.00" [ref=f79e479]
+                  - cell [ref=f79e482]:
+                    - generic [ref=f79e484]:
+                      - button "Create bill" [ref=f79e485] [cursor=pointer]
+                      - button "Expand Menu" [ref=f79e487] [cursor=pointer]
+                - row [ref=f79e490]:
+                  - cell "Select row checkbox Apple" [ref=f79e491]:
+                    - checkbox "Select row checkbox Apple" [ref=f79e494] [cursor=pointer]: 
+                  - cell [ref=f79e496]:
+                    - button "Apple" [ref=f79e501]
+                  - cell "Apple" [ref=f79e502]
+                  - cell [ref=f79e506]:
+                    - generic [ref=f79e508]:
+                      - text: "+92837364646"
+                      - generic [ref=f79e509]:
+                        - button "Copy phone number"
+                  - cell [ref=f79e510]:
+                    - generic [ref=f79e512]:
+                      - text: apple@gmail.com
+                      - generic [ref=f79e513]:
+                        - button "Copy email"
+                      - button "Email Apple" [ref=f79e514] [cursor=pointer]
+                  - cell "GBP" [ref=f79e517]
+                  - cell "£0.00" [ref=f79e520]
+                  - cell [ref=f79e523]:
+                    - generic [ref=f79e525]:
+                      - button "Create bill" [ref=f79e526] [cursor=pointer]
+                      - button "Expand Menu" [ref=f79e528] [cursor=pointer]
+                - row [ref=f79e531]:
+                  - cell "Select row checkbox Avanceon" [ref=f79e532]:
+                    - checkbox "Select row checkbox Avanceon" [ref=f79e535] [cursor=pointer]: 
+                  - cell [ref=f79e537]:
+                    - button "Avanceon" [ref=f79e542]
+                  - cell "Avanceon" [ref=f79e543]
+                  - cell [ref=f79e547]:
+                    - generic [ref=f79e549]:
+                      - text: "923216065315"
+                      - generic [ref=f79e550]:
+                        - button "Copy phone number"
+                  - cell [ref=f79e551]:
+                    - generic [ref=f79e553]:
+                      - text: haroonarshad230@gmail.com
+                      - generic [ref=f79e554]:
+                        - button "Copy email"
+                      - button "Email Avanceon" [ref=f79e555] [cursor=pointer]
+                  - cell "USD" [ref=f79e558]
+                  - cell "$0.00" [ref=f79e561]
+                  - cell [ref=f79e564]:
+                    - generic [ref=f79e566]:
+                      - button "Create bill" [ref=f79e567] [cursor=pointer]
+                      - button "Expand Menu" [ref=f79e569] [cursor=pointer]
+                - row [ref=f79e572]:
+                  - cell "Select row checkbox Bank of AnyCity" [ref=f79e573]:
+                    - checkbox "Select row checkbox Bank of AnyCity" [ref=f79e576] [cursor=pointer]: 
+                  - cell [ref=f79e578]:
+                    - button "Bank of AnyCity" [ref=f79e583]
+                  - cell [ref=f79e584]
+                  - cell [ref=f79e585]
+                  - cell [ref=f79e587]
+                  - cell "GBP" [ref=f79e589]
+                  - cell "£0.00" [ref=f79e592]
+                  - cell [ref=f79e595]:
+                    - generic [ref=f79e597]:
+                      - button "Create bill" [ref=f79e598] [cursor=pointer]
+                      - button "Expand Menu" [ref=f79e600] [cursor=pointer]
+                - row [ref=f79e603]:
+                  - cell "Select row checkbox Brijesh Jain" [ref=f79e604]:
+                    - checkbox "Select row checkbox Brijesh Jain" [ref=f79e607] [cursor=pointer]: 
+                  - cell [ref=f79e609]:
+                    - button "Brijesh Jain" [ref=f79e614]
+                  - cell "Brijesh Power" [ref=f79e615]
+                  - cell [ref=f79e619]
+                  - cell [ref=f79e621]
+                  - cell "GBP" [ref=f79e623]
+                  - cell "£0.00" [ref=f79e626]
+                  - cell [ref=f79e629]:
+                    - generic [ref=f79e631]:
+                      - button "Create bill" [ref=f79e632] [cursor=pointer]
+                      - button "Expand Menu" [ref=f79e634] [cursor=pointer]
+                - row [ref=f79e637]:
+                  - cell "Select row checkbox Brittney Hughes" [ref=f79e638]:
+                    - checkbox "Select row checkbox Brittney Hughes" [ref=f79e641] [cursor=pointer]: 
+                  - cell [ref=f79e643]:
+                    - button "Brittney Hughes" [ref=f79e648]
+                  - cell "Brittney Ringme" [ref=f79e649]
+                  - cell [ref=f79e653]
+                  - cell [ref=f79e655]
+                  - cell "GBP" [ref=f79e657]
+                  - cell "£0.00" [ref=f79e660]
+                  - cell [ref=f79e663]:
+                    - generic [ref=f79e665]:
+                      - button "Create bill" [ref=f79e666] [cursor=pointer]
+                      - button "Expand Menu" [ref=f79e668] [cursor=pointer]
+                - row [ref=f79e671]:
+                  - cell "Select row checkbox Burc Gunes" [ref=f79e672]:
+                    - checkbox "Select row checkbox Burc Gunes" [ref=f79e675] [cursor=pointer]: 
+                  - cell [ref=f79e677]:
+                    - button "Burc Gunes" [ref=f79e682]
+                  - cell "Burc Heating & AC" [ref=f79e683]
+                  - cell [ref=f79e687]
+                  - cell [ref=f79e689]
+                  - cell "GBP" [ref=f79e691]
+                  - cell "£0.00" [ref=f79e694]
+                  - cell [ref=f79e697]:
+                    - generic [ref=f79e699]:
+                      - button "Create bill" [ref=f79e700] [cursor=pointer]
+                      - button "Expand Menu" [ref=f79e702] [cursor=pointer]
+                - row [ref=f79e705]:
+                  - cell "Select row checkbox Cass Hayden" [ref=f79e706]:
+                    - checkbox "Select row checkbox Cass Hayden" [ref=f79e709] [cursor=pointer]: 
+                  - cell [ref=f79e711]:
+                    - button "Cass Hayden" [ref=f79e716]
+                  - cell "Hayden Insurance Co" [ref=f79e717]
+                  - cell [ref=f79e721]
+                  - cell [ref=f79e723]
+                  - cell "GBP" [ref=f79e725]
+                  - cell "£1,500.00" [ref=f79e728]
+                  - cell [ref=f79e731]:
+                    - generic [ref=f79e733]:
+                      - button "Make payment" [ref=f79e734] [cursor=pointer]
+                      - button "Expand Menu" [ref=f79e736] [cursor=pointer]
+                - row [ref=f79e739]:
+                  - cell "Select row checkbox Celeste Hunter" [ref=f79e740]:
+                    - checkbox "Select row checkbox Celeste Hunter" [ref=f79e743] [cursor=pointer]: 
+                  - cell [ref=f79e745]:
+                    - button "Celeste Hunter" [ref=f79e750]
+                  - cell "Hunter Legal Services" [ref=f79e751]
+                  - cell [ref=f79e755]
+                  - cell [ref=f79e757]
+                  - cell "GBP" [ref=f79e759]
+                  - cell "£0.00" [ref=f79e762]
+                  - cell [ref=f79e765]:
+                    - generic [ref=f79e767]:
+                      - button "Create bill" [ref=f79e768] [cursor=pointer]
+                      - button "Expand Menu" [ref=f79e770] [cursor=pointer]
+                - row [ref=f79e773]:
+                  - cell "Select row checkbox City Water Co" [ref=f79e774]:
+                    - checkbox "Select row checkbox City Water Co" [ref=f79e777] [cursor=pointer]: 
+                  - cell [ref=f79e779]:
+                    - button "City Water Co" [ref=f79e784]
+                  - cell [ref=f79e785]
+                  - cell [ref=f79e786]
+                  - cell [ref=f79e788]
+                  - cell "GBP" [ref=f79e790]
+                  - cell "£0.00" [ref=f79e793]
+                  - cell [ref=f79e796]:
+                    - generic [ref=f79e798]:
+                      - button "Create bill" [ref=f79e799] [cursor=pointer]
+                      - button "Expand Menu" [ref=f79e801] [cursor=pointer]
+                - row [ref=f79e804]:
+                  - cell "Select row checkbox Colleen Grist" [ref=f79e805]:
+                    - checkbox "Select row checkbox Colleen Grist" [ref=f79e808] [cursor=pointer]: 
+                  - cell [ref=f79e810]:
+                    - button "Colleen Grist" [ref=f79e815]
+                  - cell "Grist Janitorial Services" [ref=f79e816]
+                  - cell [ref=f79e820]
+                  - cell [ref=f79e822]
+                  - cell "GBP" [ref=f79e824]
+                  - cell "£0.00" [ref=f79e827]
+                  - cell [ref=f79e830]:
+                    - generic [ref=f79e832]:
+                      - button "Create bill" [ref=f79e833] [cursor=pointer]
+                      - button "Expand Menu" [ref=f79e835] [cursor=pointer]
+                - row [ref=f79e838]:
+                  - cell "Select row checkbox Garcia's Event Space" [ref=f79e839]:
+                    - checkbox "Select row checkbox Garcia's Event Space" [ref=f79e842] [cursor=pointer]: 
+                  - cell [ref=f79e844]:
+                    - button "Garcia's Event Space" [ref=f79e849]
+                  - cell "Garcia's Event Space" [ref=f79e850]
+                  - cell [ref=f79e854]
+                  - cell [ref=f79e856]
+                  - cell "GBP" [ref=f79e858]
+                  - cell "£0.00" [ref=f79e861]
+                  - cell [ref=f79e864]:
+                    - generic [ref=f79e866]:
+                      - button "Create bill" [ref=f79e867] [cursor=pointer]
+                      - button "Expand Menu" [ref=f79e869] [cursor=pointer]
+                - row [ref=f79e872]:
+                  - cell "Select row checkbox Gina Han" [ref=f79e873]:
+                    - checkbox "Select row checkbox Gina Han" [ref=f79e876] [cursor=pointer]: 
+                  - cell [ref=f79e878]:
+                    - button "Gina Han" [ref=f79e883]
+                  - cell "Gina's Virtual Assistant Services" [ref=f79e884]
+                  - cell [ref=f79e888]
+                  - cell [ref=f79e890]
+                  - cell "GBP" [ref=f79e892]
+                  - cell "£0.00" [ref=f79e895]
+                  - cell [ref=f79e898]:
+                    - generic [ref=f79e900]:
+                      - button "Create bill" [ref=f79e901] [cursor=pointer]
+                      - button "Expand Menu" [ref=f79e903] [cursor=pointer]
+                - row [ref=f79e906]:
+                  - cell "Select row checkbox Hall's Promo Items" [ref=f79e907]:
+                    - checkbox "Select row checkbox Hall's Promo Items" [ref=f79e910] [cursor=pointer]: 
+                  - cell [ref=f79e912]:
+                    - button "Hall's Promo Items" [ref=f79e917]
+                  - cell "Hall's Promo Items" [ref=f79e918]
+                  - cell [ref=f79e922]
+                  - cell [ref=f79e924]
+                  - cell "HKD" [ref=f79e926]
+                  - cell "HK$0.00" [ref=f79e929]
+                  - cell [ref=f79e932]:
+                    - generic [ref=f79e934]:
+                      - button "Create bill" [ref=f79e935] [cursor=pointer]
+                      - button "Expand Menu" [ref=f79e937] [cursor=pointer]
+                - row [ref=f79e940]:
+                  - cell "Select row checkbox Heather Gottas" [ref=f79e941]:
+                    - checkbox "Select row checkbox Heather Gottas" [ref=f79e944] [cursor=pointer]: 
+                  - cell [ref=f79e946]:
+                    - button "Heather Gottas" [ref=f79e951]
+                  - cell "Heather's Books" [ref=f79e952]
+                  - cell [ref=f79e956]
+                  - cell [ref=f79e958]
+                  - cell "GBP" [ref=f79e960]
+                  - cell "£0.00" [ref=f79e963]
+                  - cell [ref=f79e966]:
+                    - generic [ref=f79e968]:
+                      - button "Create bill" [ref=f79e969] [cursor=pointer]
+                      - button "Expand Menu" [ref=f79e971] [cursor=pointer]
+                - row [ref=f79e974]:
+                  - cell "Select row checkbox Jacque Hudspeth" [ref=f79e975]:
+                    - checkbox "Select row checkbox Jacque Hudspeth" [ref=f79e978] [cursor=pointer]: 
+                  - cell [ref=f79e980]:
+                    - button "Jacque Hudspeth" [ref=f79e985]
+                  - cell "Jacque's Catering" [ref=f79e986]
+                  - cell [ref=f79e990]
+                  - cell [ref=f79e992]
+                  - cell "GBP" [ref=f79e994]
+                  - cell "£0.00" [ref=f79e997]
+                  - cell [ref=f79e1000]:
+                    - generic [ref=f79e1002]:
+                      - button "Create bill" [ref=f79e1003] [cursor=pointer]
+                      - button "Expand Menu" [ref=f79e1005] [cursor=pointer]
+                - row [ref=f79e1008]:
+                  - cell "Select row checkbox Jane Horton" [ref=f79e1009]:
+                    - checkbox "Select row checkbox Jane Horton" [ref=f79e1012] [cursor=pointer]: 
+                  - cell [ref=f79e1014]:
+                    - button "Jane Horton" [ref=f79e1019]
+                  - cell "Horton's Bartending & DJ Services" [ref=f79e1020]
+                  - cell [ref=f79e1024]
+                  - cell [ref=f79e1026]
+                  - cell "GBP" [ref=f79e1028]
+                  - cell "£0.00" [ref=f79e1031]
+                  - cell [ref=f79e1034]:
+                    - generic [ref=f79e1036]:
+                      - button "Create bill" [ref=f79e1037] [cursor=pointer]
+                      - button "Expand Menu" [ref=f79e1039] [cursor=pointer]
+                - row [ref=f79e1042]:
+                  - cell "Select row checkbox Jennifer Hargreaves" [ref=f79e1043]:
+                    - checkbox "Select row checkbox Jennifer Hargreaves" [ref=f79e1046] [cursor=pointer]: 
+                  - cell [ref=f79e1048]:
+                    - button "Jennifer Hargreaves" [ref=f79e1053]
+                  - cell "Jennifer Hargreaves" [ref=f79e1054]
+                  - cell [ref=f79e1058]
+                  - cell [ref=f79e1060]
+                  - cell "GBP" [ref=f79e1062]
+                  - cell "£240.00" [ref=f79e1065]
+                  - cell [ref=f79e1068]:
+                    - generic [ref=f79e1070]:
+                      - button "Make payment" [ref=f79e1071] [cursor=pointer]
+                      - button "Expand Menu" [ref=f79e1073] [cursor=pointer]
+                - row [ref=f79e1076]:
+                  - cell "Select row checkbox Julie Hickey" [ref=f79e1077]:
+                    - checkbox "Select row checkbox Julie Hickey" [ref=f79e1080] [cursor=pointer]: 
+                  - cell [ref=f79e1082]:
+                    - button "Julie Hickey" [ref=f79e1087]
+                  - cell "Brakes by Hickey" [ref=f79e1088]
+                  - cell [ref=f79e1092]
+                  - cell [ref=f79e1094]
+                  - cell "GBP" [ref=f79e1096]
+                  - cell "£0.00" [ref=f79e1099]
+                  - cell [ref=f79e1102]:
+                    - generic [ref=f79e1104]:
+                      - button "Create bill" [ref=f79e1105] [cursor=pointer]
+                      - button "Expand Menu" [ref=f79e1107] [cursor=pointer]
+                - row [ref=f79e1110]:
+                  - cell "Select row checkbox Kimberly Howell" [ref=f79e1111]:
+                    - checkbox "Select row checkbox Kimberly Howell" [ref=f79e1114] [cursor=pointer]: 
+                  - cell [ref=f79e1116]:
+                    - button "Kimberly Howell" [ref=f79e1121]
+                  - cell "Howell Drivelines" [ref=f79e1122]
+                  - cell [ref=f79e1126]
+                  - cell [ref=f79e1128]
+                  - cell "GBP" [ref=f79e1130]
+                  - cell "£0.00" [ref=f79e1133]
+                  - cell [ref=f79e1136]:
+                    - generic [ref=f79e1138]:
+                      - button "Create bill" [ref=f79e1139] [cursor=pointer]
+                      - button "Expand Menu" [ref=f79e1141] [cursor=pointer]
+                - row [ref=f79e1144]:
+                  - cell "Select row checkbox Kristina Gibson" [ref=f79e1145]:
+                    - checkbox "Select row checkbox Kristina Gibson" [ref=f79e1148] [cursor=pointer]: 
+                  - cell [ref=f79e1150]:
+                    - button "Kristina Gibson" [ref=f79e1155]
+                  - cell "Gibson Printing" [ref=f79e1156]
+                  - cell [ref=f79e1160]
+                  - cell [ref=f79e1162]
+                  - cell "GBP" [ref=f79e1164]
+                  - cell "£540.00" [ref=f79e1167]
+                  - cell [ref=f79e1170]:
+                    - generic [ref=f79e1172]:
+                      - button "Make payment" [ref=f79e1173] [cursor=pointer]
+                      - button "Expand Menu" [ref=f79e1175] [cursor=pointer]
+                - row [ref=f79e1178]:
+                  - cell "Select row checkbox Kristina Holmgren" [ref=f79e1179]:
+                    - checkbox "Select row checkbox Kristina Holmgren" [ref=f79e1182] [cursor=pointer]: 
+                  - cell [ref=f79e1184]:
+                    - button "Kristina Holmgren" [ref=f79e1189]
+                  - cell "Holmgren and Sons" [ref=f79e1190]
+                  - cell [ref=f79e1194]
+                  - cell [ref=f79e1196]
+                  - cell "GBP" [ref=f79e1198]
+                  - cell "£0.00" [ref=f79e1201]
+                  - cell [ref=f79e1204]:
+                    - generic [ref=f79e1206]:
+                      - button "Create bill" [ref=f79e1207] [cursor=pointer]
+                      - button "Expand Menu" [ref=f79e1209] [cursor=pointer]
+                - row [ref=f79e1212]:
+                  - cell "Select row checkbox Kyle Kilat" [ref=f79e1213]:
+                    - checkbox "Select row checkbox Kyle Kilat" [ref=f79e1216] [cursor=pointer]: 
+                  - cell [ref=f79e1218]:
+                    - button "Kyle Kilat" [ref=f79e1223]
+                  - cell "Kyle Kilat" [ref=f79e1224]
+                  - cell [ref=f79e1228]
+                  - cell [ref=f79e1230]
+                  - cell "GBP" [ref=f79e1232]
+                  - cell "£0.00" [ref=f79e1235]
+                  - cell [ref=f79e1238]:
+                    - generic [ref=f79e1240]:
+                      - button "Create bill" [ref=f79e1241] [cursor=pointer]
+                      - button "Expand Menu" [ref=f79e1243] [cursor=pointer]
+                - row [ref=f79e1246]:
+                  - cell "Select row checkbox Mark Howard" [ref=f79e1247]:
+                    - checkbox "Select row checkbox Mark Howard" [ref=f79e1250] [cursor=pointer]: 
+                  - cell [ref=f79e1252]:
+                    - button "Mark Howard" [ref=f79e1257]
+                  - cell "Howard's Property Management" [ref=f79e1258]
+                  - cell [ref=f79e1262]
+                  - cell [ref=f79e1264]
+                  - cell "GBP" [ref=f79e1266]
+                  - cell "£3,000.00" [ref=f79e1269]
+                  - cell [ref=f79e1272]:
+                    - generic [ref=f79e1274]:
+                      - button "Make payment" [ref=f79e1275] [cursor=pointer]
+                      - button "Expand Menu" [ref=f79e1277] [cursor=pointer]
+                - row [ref=f79e1280]:
+                  - cell "Select row checkbox Mauro Giansiracusa" [ref=f79e1281]:
+                    - checkbox "Select row checkbox Mauro Giansiracusa" [ref=f79e1284] [cursor=pointer]: 
+                  - cell [ref=f79e1286]:
+                    - button "Mauro Giansiracusa" [ref=f79e1291]
+                  - cell "Mauro's Magical Show" [ref=f79e1292]
+                  - cell [ref=f79e1296]
+                  - cell [ref=f79e1298]
+                  - cell "GBP" [ref=f79e1300]
+                  - cell "£0.00" [ref=f79e1303]
+                  - cell [ref=f79e1306]:
+                    - generic [ref=f79e1308]:
+                      - button "Create bill" [ref=f79e1309] [cursor=pointer]
+                      - button "Expand Menu" [ref=f79e1311] [cursor=pointer]
+                - row [ref=f79e1314]:
+                  - cell "Select row checkbox Michelle Long" [ref=f79e1315]:
+                    - checkbox "Select row checkbox Michelle Long" [ref=f79e1318] [cursor=pointer]: 
+                  - cell [ref=f79e1320]:
+                    - button "Michelle Long" [ref=f79e1325]
+                  - cell "Michelle Long" [ref=f79e1326]
+                  - cell [ref=f79e1330]
+                  - cell [ref=f79e1332]
+                  - cell "GBP" [ref=f79e1334]
+                  - cell "£0.00" [ref=f79e1337]
+                  - cell [ref=f79e1340]:
+                    - generic [ref=f79e1342]:
+                      - button "Create bill" [ref=f79e1343] [cursor=pointer]
+                      - button "Expand Menu" [ref=f79e1345] [cursor=pointer]
+                - row [ref=f79e1348]:
+                  - cell "Select row checkbox Mindy Khoo" [ref=f79e1349]:
+                    - checkbox "Select row checkbox Mindy Khoo" [ref=f79e1352] [cursor=pointer]: 
+                  - cell [ref=f79e1354]:
+                    - button "Mindy Khoo" [ref=f79e1359]
+                  - cell "Khoo Transmission" [ref=f79e1360]
+                  - cell [ref=f79e1364]
+                  - cell [ref=f79e1366]
+                  - cell "GBP" [ref=f79e1368]
+                  - cell "£0.00" [ref=f79e1371]
+                  - cell [ref=f79e1374]:
+                    - generic [ref=f79e1376]:
+                      - button "Create bill" [ref=f79e1377] [cursor=pointer]
+                      - button "Expand Menu" [ref=f79e1379] [cursor=pointer]
+                - row [ref=f79e1382]:
+                  - cell "Select row checkbox Monica Haslip" [ref=f79e1383]:
+                    - checkbox "Select row checkbox Monica Haslip" [ref=f79e1386] [cursor=pointer]: 
+                  - cell [ref=f79e1388]:
+                    - button "Monica Haslip" [ref=f79e1393]
+                  - cell "Photos by Monica" [ref=f79e1394]
+                  - cell [ref=f79e1398]
+                  - cell [ref=f79e1400]
+                  - cell "GBP" [ref=f79e1402]
+                  - cell "£0.00" [ref=f79e1405]
+                  - cell [ref=f79e1408]:
+                    - generic [ref=f79e1410]:
+                      - button "Create bill" [ref=f79e1411] [cursor=pointer]
+                      - button "Expand Menu" [ref=f79e1413] [cursor=pointer]
+                - row [ref=f79e1416]:
+                  - cell "Select row checkbox MT008-OrgA-Supplier-f1b60637f1fd443baeb48cdd8367c54f" [ref=f79e1417]:
+                    - checkbox "Select row checkbox MT008-OrgA-Supplier-f1b60637f1fd443baeb48cdd8367c54f" [ref=f79e1420] [cursor=pointer]: 
+                  - cell [ref=f79e1422]:
+                    - button "MT008-OrgA-Supplier-f1b60637f1fd443baeb48cdd8367c54f" [ref=f79e1427]
+                  - cell "MT008-OrgA-Supplier-f1b60637f1fd443baeb48cdd8367c54f" [ref=f79e1428]
+                  - cell [ref=f79e1432]
+                  - cell [ref=f79e1434]
+                  - cell "GBP" [ref=f79e1436]
+                  - cell "£0.00" [ref=f79e1439]
+                  - cell [ref=f79e1442]:
+                    - generic [ref=f79e1444]:
+                      - button "Create bill" [ref=f79e1445] [cursor=pointer]
+                      - button "Expand Menu" [ref=f79e1447] [cursor=pointer]
+                - row [ref=f79e1450]:
+                  - cell "Select row checkbox Olivier Helleboid" [ref=f79e1451]:
+                    - checkbox "Select row checkbox Olivier Helleboid" [ref=f79e1454] [cursor=pointer]: 
+                  - cell [ref=f79e1456]:
+                    - button "Olivier Helleboid" [ref=f79e1461]
+                  - cell "BACS Helleboid" [ref=f79e1462]
+                  - cell [ref=f79e1466]
+                  - cell [ref=f79e1468]
+                  - cell "GBP" [ref=f79e1470]
+                  - cell "£0.00" [ref=f79e1473]
+                  - cell [ref=f79e1476]:
+                    - generic [ref=f79e1478]:
+                      - button "Create bill" [ref=f79e1479] [cursor=pointer]
+                      - button "Expand Menu" [ref=f79e1481] [cursor=pointer]
+                - row [ref=f79e1484]:
+                  - cell "Select row checkbox Organization of Outstanding Event Planners" [ref=f79e1485]:
+                    - checkbox "Select row checkbox Organization of Outstanding Event Planners" [ref=f79e1488] [cursor=pointer]: 
+                  - cell [ref=f79e1490]:
+                    - button "Organization of Outstanding Event Planners" [ref=f79e1495]
+                  - cell [ref=f79e1496]
+                  - cell [ref=f79e1497]
+                  - cell [ref=f79e1499]
+                  - cell "GBP" [ref=f79e1501]
+                  - cell "£390.00" [ref=f79e1504]
+                  - cell [ref=f79e1507]:
+                    - generic [ref=f79e1509]:
+                      - button "Make payment" [ref=f79e1510] [cursor=pointer]
+                      - button "Expand Menu" [ref=f79e1512] [cursor=pointer]
+                - row [ref=f79e1515]:
+                  - cell "Select row checkbox Outfitter" [ref=f79e1516]:
+                    - checkbox "Select row checkbox Outfitter" [ref=f79e1519] [cursor=pointer]: 
+                  - cell [ref=f79e1521]:
+                    - button "Outfitter" [ref=f79e1526]
+                  - cell "Outfitter" [ref=f79e1527]
+                  - cell [ref=f79e1531]:
+                    - generic [ref=f79e1533]:
+                      - text: "+921211134355"
+                      - generic [ref=f79e1534]:
+                        - button "Copy phone number"
+                  - cell [ref=f79e1535]:
+                    - generic [ref=f79e1537]:
+                      - text: ilyasmcs119@gmail.com
+                      - generic [ref=f79e1538]:
+                        - button "Copy email"
+                      - button "Email Outfitter" [ref=f79e1539] [cursor=pointer]
+                  - cell "USD" [ref=f79e1542]
+                  - cell "$0.00" [ref=f79e1545]
+                  - cell [ref=f79e1548]:
+                    - generic [ref=f79e1550]:
+                      - button "Create bill" [ref=f79e1551] [cursor=pointer]
+                      - button "Expand Menu" [ref=f79e1553] [cursor=pointer]
+                - row [ref=f79e1556]:
+                  - cell "Select row checkbox Prime Enterprises" [ref=f79e1557]:
+                    - checkbox "Select row checkbox Prime Enterprises" [ref=f79e1560] [cursor=pointer]: 
+                  - cell [ref=f79e1562]:
+                    - button "Prime Enterprises" [ref=f79e1567]
+                  - cell "Prime Enterprises" [ref=f79e1568]
+                  - cell [ref=f79e1572]:
+                    - generic [ref=f79e1574]:
+                      - text: "923134831701"
+                      - generic [ref=f79e1575]:
+                        - button "Copy phone number"
+                  - cell [ref=f79e1576]:
+                    - generic [ref=f79e1578]:
+                      - text: test@prime.com
+                      - generic [ref=f79e1579]:
+                        - button "Copy email"
+                      - button "Email Prime Enterprises" [ref=f79e1580] [cursor=pointer]
+                  - cell "USD" [ref=f79e1583]
+                  - cell "$0.00" [ref=f79e1586]
+                  - cell [ref=f79e1589]:
+                    - generic [ref=f79e1591]:
+                      - button "Create bill" [ref=f79e1592] [cursor=pointer]
+                      - button "Expand Menu" [ref=f79e1594] [cursor=pointer]
+                - row [ref=f79e1597]:
+                  - cell "Select row checkbox Rajeswari Jayaraman" [ref=f79e1598]:
+                    - checkbox "Select row checkbox Rajeswari Jayaraman" [ref=f79e1601] [cursor=pointer]: 
+                  - cell [ref=f79e1603]:
+                    - button "Rajeswari Jayaraman" [ref=f79e1608]
+                  - cell "Raj's Consulting Company" [ref=f79e1609]
+                  - cell [ref=f79e1613]
+                  - cell [ref=f79e1615]
+                  - cell "GBP" [ref=f79e1617]
+                  - cell "£0.00" [ref=f79e1620]
+                  - cell [ref=f79e1623]:
+                    - generic [ref=f79e1625]:
+                      - button "Create bill" [ref=f79e1626] [cursor=pointer]
+                      - button "Expand Menu" [ref=f79e1628] [cursor=pointer]
+                - row [ref=f79e1631]:
+                  - cell "Select row checkbox Royal Furniture" [ref=f79e1632]:
+                    - checkbox "Select row checkbox Royal Furniture" [ref=f79e1635] [cursor=pointer]: 
+                  - cell [ref=f79e1637]:
+                    - button "Royal Furniture" [ref=f79e1642]
+                  - cell "Royal Furniture" [ref=f79e1643]
+                  - cell [ref=f79e1647]:
+                    - generic [ref=f79e1649]:
+                      - text: "+923216065315"
+                      - generic [ref=f79e1650]:
+                        - button "Copy phone number"
+                  - cell [ref=f79e1651]:
+                    - generic [ref=f79e1653]:
+                      - text: haroonarshad230@gmail.com
+                      - generic [ref=f79e1654]:
+                        - button "Copy email"
+                      - button "Email Royal Furniture" [ref=f79e1655] [cursor=pointer]
+                  - cell "USD" [ref=f79e1658]
+                  - cell "$0.00" [ref=f79e1661]
+                  - cell [ref=f79e1664]:
+                    - generic [ref=f79e1666]:
+                      - button "Create bill" [ref=f79e1667] [cursor=pointer]
+                      - button "Expand Menu" [ref=f79e1669] [cursor=pointer]
+                - row [ref=f79e1672]:
+                  - cell "Select row checkbox Sanjeev Kak" [ref=f79e1673]:
+                    - checkbox "Select row checkbox Sanjeev Kak" [ref=f79e1676] [cursor=pointer]: 
+                  - cell [ref=f79e1678]:
+                    - button "Sanjeev Kak" [ref=f79e1683]
+                  - cell "Sanjeev Electrics" [ref=f79e1684]
+                  - cell [ref=f79e1688]
+                  - cell [ref=f79e1690]
+                  - cell "GBP" [ref=f79e1692]
+                  - cell "£0.00" [ref=f79e1695]
+                  - cell [ref=f79e1698]:
+                    - generic [ref=f79e1700]:
+                      - button "Create bill" [ref=f79e1701] [cursor=pointer]
+                      - button "Expand Menu" [ref=f79e1703] [cursor=pointer]
+                - row [ref=f79e1706]:
+                  - cell "Select row checkbox Sukanya Kanogart" [ref=f79e1707]:
+                    - checkbox "Select row checkbox Sukanya Kanogart" [ref=f79e1710] [cursor=pointer]: 
+                  - cell [ref=f79e1712]:
+                    - button "Sukanya Kanogart" [ref=f79e1717]
+                  - cell "Sukanya Kanogart" [ref=f79e1718]
+                  - cell [ref=f79e1722]
+                  - cell [ref=f79e1724]
+                  - cell "GBP" [ref=f79e1726]
+                  - cell "£0.00" [ref=f79e1729]
+                  - cell [ref=f79e1732]:
+                    - generic [ref=f79e1734]:
+                      - button "Create bill" [ref=f79e1735] [cursor=pointer]
+                      - button "Expand Menu" [ref=f79e1737] [cursor=pointer]
+                - row [ref=f79e1740]:
+                  - cell "Select row checkbox Tom Hurlbutt" [ref=f79e1741]:
+                    - checkbox "Select row checkbox Tom Hurlbutt" [ref=f79e1744] [cursor=pointer]: 
+                  - cell [ref=f79e1746]:
+                    - button "Tom Hurlbutt" [ref=f79e1751]
+                  - cell "Tom's Cleaning" [ref=f79e1752]
+                  - cell [ref=f79e1756]
+                  - cell [ref=f79e1758]
+                  - cell "GBP" [ref=f79e1760]
+                  - cell "£0.00" [ref=f79e1763]
+                  - cell [ref=f79e1766]:
+                    - generic [ref=f79e1768]:
+                      - button "Create bill" [ref=f79e1769] [cursor=pointer]
+                      - button "Expand Menu" [ref=f79e1771] [cursor=pointer]
+                - row [ref=f79e1774]:
+                  - cell "Select row checkbox Town Electric & Gas Service" [ref=f79e1775]:
+                    - checkbox "Select row checkbox Town Electric & Gas Service" [ref=f79e1778] [cursor=pointer]: 
+                  - cell [ref=f79e1780]:
+                    - button "Town Electric & Gas Service" [ref=f79e1785]
+                  - cell "Town Electric & Gas Service" [ref=f79e1786]
+                  - cell [ref=f79e1790]
+                  - cell [ref=f79e1792]
+                  - cell "GBP" [ref=f79e1794]
+                  - cell "£0.00" [ref=f79e1797]
+                  - cell [ref=f79e1800]:
+                    - generic [ref=f79e1802]:
+                      - button "Create bill" [ref=f79e1803] [cursor=pointer]
+                      - button "Expand Menu" [ref=f79e1805] [cursor=pointer]
+                - row [ref=f79e1808]:
+                  - cell "Select row checkbox Venue Rental" [ref=f79e1809]:
+                    - checkbox "Select row checkbox Venue Rental" [ref=f79e1812] [cursor=pointer]: 
+                  - cell [ref=f79e1814]:
+                    - button "Venue Rental" [ref=f79e1819]
+                  - cell [ref=f79e1820]
+                  - cell [ref=f79e1821]
+                  - cell [ref=f79e1823]
+                  - cell "GBP" [ref=f79e1825]
+                  - cell "£0.00" [ref=f79e1828]
+                  - cell [ref=f79e1831]:
+                    - generic [ref=f79e1833]:
+                      - button "Create bill" [ref=f79e1834] [cursor=pointer]
+                      - button "Expand Menu" [ref=f79e1836] [cursor=pointer]
+            - generic [ref=f79e1840]:
+              - generic [ref=f79e1841]: 1-40 of 40
+              - navigation [ref=f79e1843]:
+                - button "Go to previous page" [disabled] [ref=f79e1844]
+                - button "Page 1, Current Page" [ref=f79e1848] [cursor=pointer]: "1"
+                - button "Go to next page" [disabled] [ref=f79e1849]
+        - link "Privacy" [ref=f79e1854] [cursor=pointer]:
+          - /url: /app/privacy
+  - generic: "Essential, Enhanced Experience & Product Improvement These first-party cookies are set by Intuit or one of our service providers; you cannot turn these off. These cookies enable the site to function as intended, including: basic functionality (for example, your ability to log into your Intuit account or add items to your cart for purchase); remember your preferences (for example, your preferred language or login credentials); provide you personalized content when viewing our site; and, allow us to evaluate your use and navigation of the site to fix bugs and improve the overall experience for you and others. A single cookie may be used for one or all of these purposes. Third-Party Advertisement  Yes We leverage advertising trackers across our sites to improve our marketing and advertising activities. These trackers may share some limited personal information with third-party platforms where we may display advertisements or run marketing campaigns. You may choose to turn these trackers off. You will still see Intuit advertisements when you opt-out, but these ads may not be tailored to your interests. This preference applies to your experience on our .intuit sites, once you create or login to your Intuit account, you may be prompted to choose again.    "
+  - dialog [ref=f79e1856]:
+    - generic [ref=f79e1857]:
+      - generic [ref=f79e1858]:
+        - generic:
+          - strong
+        - heading "Supplier" [level=2] [ref=f79e1859]
+        - generic [ref=f79e1860]:
+          - generic [ref=f79e1861]:
+            - button "Name and contact" [ref=f79e1863] [cursor=pointer]
+            - button "Address" [ref=f79e1868] [cursor=pointer]
+            - button "Notes and attachments" [ref=f79e1873] [cursor=pointer]
+            - button "Additional info" [ref=f79e1878] [cursor=pointer]
+          - button "Close" [active] [ref=f79e1882] [cursor=pointer]
+      - progressbar "Loading" [ref=f79e1888]
+      - generic [ref=f79e1891]:
+        - button "Save" [disabled]

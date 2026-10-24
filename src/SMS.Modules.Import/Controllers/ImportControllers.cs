@@ -81,7 +81,8 @@ public class ImportSessionsController : ControllerBase
     [RequirePermission(P.IMPORT_UPLOAD)]
     [RequestSizeLimit(12 * 1024 * 1024)]
     [RequestFormLimits(MultipartBodyLengthLimit = 12 * 1024 * 1024)]
-    public async Task<IActionResult> Upload([FromForm] IFormFile? file, [FromForm] ImportUploadRequest req, CancellationToken ct)
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> Upload(IFormFile? file, [FromForm] ImportUploadRequest req, CancellationToken ct)
     {
         if (file is null || file.Length == 0) throw new BadRequestException(ImportMessages.NoDataRows);
         await using var stream = file.OpenReadStream();

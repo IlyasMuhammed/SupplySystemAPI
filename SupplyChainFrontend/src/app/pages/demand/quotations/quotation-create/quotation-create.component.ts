@@ -1,6 +1,6 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router, RouterModule } from '@angular/router';
+import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { ReactiveFormsModule, FormBuilder, FormGroup, FormArray, Validators } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
@@ -18,6 +18,8 @@ import { MessageService } from 'primeng/api';
 import { Subscription } from 'rxjs';
 import { DemandService, CreateQuotationRequest, PrListItemModel, PoListItemModel } from '../../../../services/demand.service';
 import { InventoryService, ProductListItemModel } from '../../../../services/inventory.service';
+import { SupplierService } from '../../../../services/supplier.service';
+import { RfqPrefill, parseRfqPrefill } from './quotation-prefill';
 import { AttachmentListComponent } from '../../../../shared/attachment-list/attachment-list.component';
 import { ProductVariantPickerComponent, VariantPickerSelection } from '../../../../shared/product-variant-picker/product-variant-picker.component';
 import { FLOW } from '../../../../shared/flow';
@@ -82,18 +84,30 @@ export class QuotationCreateComponent implements OnInit, OnDestroy {
 
   private subs = new Subscription();
 
+  // A46 C2 - values handed over by PO line Create RFQ (and the spec's aliases); all stay editable.
+  prefill: RfqPrefill = parseRfqPrefill(null);
+  supplierOptions: { label: string; value: string }[] = [];
+  loadingSuppliers = false;
+  /** True once a valid supplier arrived by query string; stays on so clearing it does not remove the field. */
+  showSupplierField = false;
+
   constructor(
     private fb: FormBuilder,
     private demandService: DemandService,
     private inventoryService: InventoryService,
     private messageService: MessageService,
-    private router: Router
+    private router: Router,
+    private route: ActivatedRoute,
+    private supplierService: SupplierService
   ) {
     this.buildForm();
   }
 
   ngOnInit() {
+    this.prefill = parseRfqPrefill(this.route.snapshot?.queryParams);
+    this.applyQuantityPrefill();
     this.loadProducts();
+    this.loadSuppliers();
 
     // Watch sourceType changes to load PR list or clear selection
     this.subs.add(
@@ -114,6 +128,44 @@ export class QuotationCreateComponent implements OnInit, OnDestroy {
 
   ngOnDestroy() { this.subs.unsubscribe(); }
 
+  // ── A46 C2 prefill (every value optional, invalid ones silently ignored) ──────
+
+  private loadSuppliers() {
+    if (!this.prefill.supplierId) return;   // the field is only a hint; no need to load the list otherwise
+    this.loadingSuppliers = true;
+    this.supplierService.getSuppliers({ status: 'ACTIVE', pageSize: 500 }).subscribe({
+      next: res => {
+        this.loadingSuppliers = false;
+        const data = res?.result?.data ?? [];
+        this.supplierOptions = data.map(s => ({ label: s.supplierName, value: s.uuid }));
+        if (this.prefill.supplierId && this.supplierOptions.some(o => o.value === this.prefill.supplierId)) {
+          this.form.patchValue({ supplierId: this.prefill.supplierId });
+          this.showSupplierField = true;
+        }
+      },
+      error: () => { this.loadingSuppliers = false; }
+    });
+  }
+
+  private applyQuantityPrefill() {
+    if (this.prefill.quantity !== null) this.lines.at(0)?.patchValue({ quantity: this.prefill.quantity });
+  }
+
+  private applyProductPrefill() {
+    const id = this.prefill.productId;
+    const line = this.lines.at(0);
+    if (!id || !line || line.get('productUuid')?.value) return;
+    const p = this.products.find(x => x.uuid === id);
+    if (!p) return;                                  // unknown product: ignore, no error
+    line.patchValue({
+      productUuid: p.uuid,
+      variantUuid: this.prefill.variantUuid ?? null,
+      itemDescription: p.name,
+      unitOfMeasure: this.uomOptions.some(u => u.value === p.uomCode) ? p.uomCode : null
+    });
+    if (!this.form.get('title')?.value) this.form.patchValue({ title: `RFQ - ${p.name}` });
+  }
+
   // ── Product loading ───────────────────────────────────────────────────────
 
   private loadProducts() {
@@ -122,6 +174,7 @@ export class QuotationCreateComponent implements OnInit, OnDestroy {
       next: res => {
         this.loadingProducts = false;
         this.products = res?.result?.data ?? [];
+        this.applyProductPrefill();
       },
       error: () => { this.loadingProducts = false; }
     });
@@ -262,6 +315,7 @@ export class QuotationCreateComponent implements OnInit, OnDestroy {
       title:      ['', [Validators.required, Validators.minLength(3)]],
       sourceType: ['STANDALONE', Validators.required],
       sourceId:   [null],
+      supplierId: [null as string | null],
       dueDate:    [null],
       notes:      [''],
       lines:      this.fb.array([this.newLine()])

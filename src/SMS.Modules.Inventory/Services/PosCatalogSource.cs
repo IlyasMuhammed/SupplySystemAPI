@@ -34,6 +34,7 @@ internal sealed class PosCatalogSource : IPosCatalogSource
         public bool     ProductActive     { get; init; }
         public bool     IsSaleable        { get; init; }
         public bool     IsAvailableForPos { get; init; }
+        public bool     IsStockable       { get; init; }
         public DateTime ModifiedAt        { get; init; }
     }
 
@@ -47,7 +48,7 @@ internal sealed class PosCatalogSource : IPosCatalogSource
             VariantName = v.IsDefault ? null : v.VariantName, Barcode = v.Barcode, CategoryId = p.CategoryId,
             UomCode = p.UomCode, SellingPrice = v.SellingPrice, ImageUrl = p.ImageUrl,
             VariantActive = v.IsActive, ProductActive = p.IsActive, IsSaleable = p.IsSaleable,
-            IsAvailableForPos = v.IsAvailableForPos,
+            IsAvailableForPos = v.IsAvailableForPos, IsStockable = p.IsStockable,
             ModifiedAt = v.ModifiedAt > p.ModifiedAt ? v.ModifiedAt : p.ModifiedAt
         };
 
@@ -124,6 +125,6 @@ internal sealed class PosCatalogSource : IPosCatalogSource
             r.CategoryId, r.CategoryId is { } id ? categories.GetValueOrDefault(id) : null,
             r.UomCode, r.SellingPrice ?? 0m, r.ImageUrl,
             r.VariantActive && r.ProductActive, r.IsSaleable, r.IsAvailableForPos,
-            DateTime.SpecifyKind(r.ModifiedAt, DateTimeKind.Utc))).ToList();
+            DateTime.SpecifyKind(r.ModifiedAt, DateTimeKind.Utc), r.IsStockable)).ToList();
     }
 }

@@ -1,6 +1,6 @@
 import { HttpBackend, HttpClient, HttpErrorResponse, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
-import { firstValueFrom, timeout } from 'rxjs';
+import { TimeoutError, firstValueFrom, timeout } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { ApiResponse } from './pos.models';
 import { PosConnectivity } from './pos-connectivity.service';
@@ -183,7 +183,9 @@ export class PosHttp {
                 const msg = (e.error && typeof e.error === 'object' && (e.error as { message?: string }).message) || statusText(e.status);
                 throw new PosHttpError(e.status, msg, e.error);
             }
-            this.conn.reportFailure();
+            // A slow answer is not an unreachable API: only a real transport failure (status 0) flips the till offline,
+            // otherwise a sluggish server makes the badge flap. The caller still gets a retryable network error.
+            if (!(e instanceof TimeoutError)) this.conn.reportFailure();
             throw new PosNetworkError();
         }
         this.conn.reportSuccess();

@@ -115,7 +115,8 @@ public class RequisitionsController : ControllerBase
     [HttpPost("{uuid:guid}/convert")]
     public async Task<IActionResult> ConvertRequisition(Guid uuid, [FromBody] ConvertPrToPoRequest req)
     {
-        var poUuid  = await _poService.CreateFromPrAsync(uuid, req, User.GetUserId());
+        var converted = await _poService.CreateFromPrWithSummaryAsync(uuid, req, User.GetUserId());
+        var poUuid  = converted.PoUuids[0];
         var pr      = await _service.GetByIdAsync(uuid);
         var actorId = User.GetUserId();
         await _audit.LogAsync(actorId, null, "Demand", "CONVERT", "PurchaseRequisition", uuid, Ip, notes: $"Converted to PO {poUuid}");
@@ -126,13 +127,15 @@ public class RequisitionsController : ControllerBase
                 Category: "Procurement", EntityType: "PR", EntityUuid: uuid.ToString(),
                 NavigationUrl: $"/portal/pages/demand/purchase-orders/{poUuid}",
                 CreatedBy: actorId));
-        return Ok(ApiResponse<Guid>.Ok(poUuid, "Requisition converted to purchase order."));
+        // A46 C5 / BR-30: `result` stays the PO uuid; the batch pricing summary rides beside it.
+        return Ok(PricedApiResponse<Guid>.Ok(poUuid, converted.Summary, "Requisition converted to purchase order."));
     }
 
     [HttpPost("{uuid:guid}/convert-split")]
     public async Task<IActionResult> ConvertRequisitionSplit(Guid uuid, [FromBody] ConvertPrSplitRequest req)
     {
-        var poUuids = await _poService.CreateFromPrSplitAsync(uuid, req, User.GetUserId());
+        var converted = await _poService.CreateFromPrSplitWithSummaryAsync(uuid, req, User.GetUserId());
+        var poUuids = converted.PoUuids.ToList();
         var pr      = await _service.GetByIdAsync(uuid);
         var actorId = User.GetUserId();
         if (pr is not null)
@@ -142,7 +145,7 @@ public class RequisitionsController : ControllerBase
                 Category: "Procurement", EntityType: "PR", EntityUuid: uuid.ToString(),
                 NavigationUrl: $"/portal/pages/demand/requisitions/{uuid}",
                 CreatedBy: actorId));
-        return Ok(ApiResponse<List<Guid>>.Ok(poUuids, $"{poUuids.Count} purchase order(s) created."));
+        return Ok(PricedApiResponse<List<Guid>>.Ok(poUuids, converted.Summary, $"{poUuids.Count} purchase order(s) created."));
     }
 }
 

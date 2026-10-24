@@ -1,0 +1,230 @@
+- generic [ref=f31e4]:
+  - generic [ref=f31e5]:
+    - generic [ref=f31e6]:
+      - button "" [ref=f31e7] [cursor=pointer]
+      - link:
+        - /url: /portal/dashboard
+      - navigation "Breadcrumb" [ref=f31e9]:
+        - generic [ref=f31e10]: CRM
+        - generic [ref=f31e11]: ›
+        - link "Leads" [ref=f31e12] [cursor=pointer]:
+          - /url: /portal/pages/crm/leads
+        - generic [ref=f31e13]: ›
+        - strong [ref=f31e14]: LD-2026-00004
+    - button " Search anything... Ctrl K" [ref=f31e16] [cursor=pointer]:
+      - generic [ref=f31e17]: 
+      - generic [ref=f31e18]: Search anything...
+      - generic [ref=f31e19]: Ctrl K
+    - generic [ref=f31e20]:
+      - generic [ref=f31e21]:
+        - button "" [ref=f31e22] [cursor=pointer]
+        - generic: "2"
+      - generic [ref=f31e24]:
+        - button "Appearance" [ref=f31e25] [cursor=pointer]:
+          - generic [ref=f31e26]: 
+        - text:    
+      - generic [ref=f31e28]:
+        - button "SS " [ref=f31e29] [cursor=pointer]:
+          - generic [ref=f31e30]: SS
+          - generic [ref=f31e32]: 
+        - text:   
+  - generic [ref=f31e33]:
+    - generic [ref=f31e34]:
+      - generic [ref=f31e35]: 
+      - generic [ref=f31e37]:
+        - generic [ref=f31e38]: SupplyChain MS
+        - generic [ref=f31e39]: KFC Pakistan (KFC)
+    - list [ref=f31e41]:
+      - listitem [ref=f31e42]:
+        - button "Home " [ref=f31e43] [cursor=pointer]:
+          - generic [ref=f31e44]: Home
+          - generic [ref=f31e45]: 
+        - list:
+          - listitem [ref=f31e46]:
+            - link " Dashboard" [ref=f31e47] [cursor=pointer]:
+              - /url: /portal/dashboard
+              - generic [ref=f31e48]: 
+              - generic [ref=f31e49]: Dashboard
+          - listitem [ref=f31e50]:
+            - link " My Inbox" [ref=f31e51] [cursor=pointer]:
+              - /url: /portal/pages/workflow-inbox
+              - generic [ref=f31e52]: 
+              - generic [ref=f31e53]: My Inbox
+      - listitem [ref=f31e54]:
+        - button "Sales " [ref=f31e55] [cursor=pointer]:
+          - generic [ref=f31e56]: Sales
+          - generic [ref=f31e57]: 
+        - list:
+          - listitem [ref=f31e58]:
+            - link " Customers" [ref=f31e59] [cursor=pointer]:
+              - /url: /portal/pages/customers
+              - generic [ref=f31e60]: 
+              - generic [ref=f31e61]: Customers
+          - listitem [ref=f31e62]:
+            - link " Inquiries" [ref=f31e63] [cursor=pointer]:
+              - /url: /portal/pages/sales/inquiries
+              - generic [ref=f31e64]: 
+              - generic [ref=f31e65]: Inquiries
+          - listitem [ref=f31e66]:
+            - link " Customer Quotations" [ref=f31e67] [cursor=pointer]:
+              - /url: /portal/pages/sales/quotations
+              - generic [ref=f31e68]: 
+              - generic [ref=f31e69]: Customer Quotations
+          - listitem [ref=f31e70]:
+            - generic [ref=f31e71] [cursor=pointer]:
+              - generic [ref=f31e72]: 
+              - generic [ref=f31e73]: Sale Orders
+              - generic [ref=f31e74]: 
+            - list:
+              - listitem [ref=f31e75]:
+                - link " All Sale Orders" [ref=f31e76] [cursor=pointer]:
+                  - /url: /portal/pages/sales/orders
+                  - generic [ref=f31e77]: 
+                  - generic [ref=f31e78]: All Sale Orders
+      - listitem [ref=f31e79]:
+        - button "CRM " [expanded] [ref=f31e80] [cursor=pointer]:
+          - generic [ref=f31e81]: CRM
+          - generic [ref=f31e82]: 
+        - list [ref=f31e83]:
+          - listitem [ref=f31e84]:
+            - link " Leads" [ref=f31e85] [cursor=pointer]:
+              - /url: /portal/pages/crm/leads
+              - generic [ref=f31e86]: 
+              - generic [ref=f31e87]: Leads
+          - listitem [ref=f31e88]:
+            - link " Opportunities" [ref=f31e89] [cursor=pointer]:
+              - /url: /portal/pages/crm/opportunities
+              - generic [ref=f31e90]: 
+              - generic [ref=f31e91]: Opportunities
+          - listitem [ref=f31e92]:
+            - link " Activities" [ref=f31e93] [cursor=pointer]:
+              - /url: /portal/pages/crm/activities
+              - generic [ref=f31e94]: 
+              - generic [ref=f31e95]: Activities
+          - listitem [ref=f31e96]:
+            - link " Campaigns" [ref=f31e97] [cursor=pointer]:
+              - /url: /portal/pages/crm/campaigns
+              - generic [ref=f31e98]: 
+              - generic [ref=f31e99]: Campaigns
+  - generic [ref=f31e100]:
+    - generic [ref=f31e102]:
+      - generic:
+        - alertdialog
+      - generic [ref=f31e103]:
+        - toolbar "Commands" [ref=f31e104]:
+          - button " Log activity" [ref=f31e106] [cursor=pointer]:
+            - generic [ref=f31e107]: 
+            - generic [ref=f31e108]: Log activity
+          - button " All leads" [ref=f31e111] [cursor=pointer]:
+            - generic [ref=f31e112]: 
+            - generic [ref=f31e113]: All leads
+        - generic [ref=f31e114]:
+          - generic [ref=f31e115]:
+            - banner [ref=f31e116]:
+              - generic [ref=f31e118]:
+                - generic [ref=f31e119]: Lead · no source
+                - heading "LD-2026-00004 New Warm" [level=1] [ref=f31e120]:
+                  - generic [ref=f31e121]: LD-2026-00004
+                  - generic [ref=f31e122]: New
+                  - generic [ref=f31e123]: Warm
+                - generic [ref=f31e124]: Bilal Raza · E2E_A41 Beta Supplies · Mona Crmadmin
+              - list "Progress" [ref=f31e126]:
+                - listitem [ref=f31e127]:
+                  - generic [ref=f31e128]: New
+                - listitem [ref=f31e129]:
+                  - generic [ref=f31e130]: Contacted
+                - listitem [ref=f31e131]:
+                  - generic [ref=f31e132]: Qualified
+                - listitem [ref=f31e133]:
+                  - generic [ref=f31e134]: Converted
+              - generic [ref=f31e135]:
+                - generic [ref=f31e136]:
+                  - generic [ref=f31e137]: Stage
+                  - generic [ref=f31e138]: New Lead
+                  - generic [ref=f31e139]: 5% win probability
+                - generic [ref=f31e140]:
+                  - generic [ref=f31e141]: Estimate
+                  - generic [ref=f31e142]: —
+                - generic [ref=f31e143]:
+                  - generic [ref=f31e144]: Activities
+                  - generic [ref=f31e145]: "0"
+            - tablist "Tabs" [ref=f31e147]:
+              - tab "Details" [selected] [ref=f31e148] [cursor=pointer]
+              - tab "Topic" [ref=f31e149] [cursor=pointer]
+              - tab "Timeline" [ref=f31e150] [cursor=pointer]
+            - generic [ref=f31e151]:
+              - generic [ref=f31e152]:
+                - generic [ref=f31e153]:
+                  - heading "Contact" [level=2] [ref=f31e155]
+                  - generic [ref=f31e156]:
+                    - generic [ref=f31e157]: Name
+                    - generic [ref=f31e158]: Bilal Raza
+                    - generic [ref=f31e159]: Title
+                    - generic [ref=f31e160]: —
+                    - generic [ref=f31e161]: Company
+                    - generic [ref=f31e162]: E2E_A41 Beta Supplies
+                    - generic [ref=f31e163]: Email
+                    - link "e2e.a41.bilal@beta-supplies.example" [ref=f31e165] [cursor=pointer]:
+                      - /url: mailto:e2e.a41.bilal@beta-supplies.example
+                    - generic [ref=f31e166]: Phone
+                    - generic [ref=f31e167]: —
+                    - generic [ref=f31e168]: Mobile
+                    - generic [ref=f31e169]: —
+                    - generic [ref=f31e170]: Website
+                    - generic [ref=f31e171]: —
+                    - generic [ref=f31e172]: Address
+                    - generic [ref=f31e173]: —
+                  - heading "Linked account" [level=2] [ref=f31e175]
+                  - generic [ref=f31e176]:
+                    - generic [ref=f31e177]: 
+                    - text: Not linked yet — the account is created or linked on conversion.
+                - generic [ref=f31e178]:
+                  - heading "Source" [level=2] [ref=f31e180]
+                  - generic [ref=f31e181]:
+                    - generic [ref=f31e182]: Source
+                    - generic [ref=f31e183]: —
+                    - generic [ref=f31e184]: Campaign
+                    - generic [ref=f31e185]: —
+                    - generic [ref=f31e186]: Medium
+                    - generic [ref=f31e187]: —
+                    - generic [ref=f31e188]: Reference
+                    - generic [ref=f31e189]: —
+                  - heading "Qualification (BANT)" [level=2] [ref=f31e191]
+                  - generic [ref=f31e192]:
+                    - generic [ref=f31e193]: Budget
+                    - generic [ref=f31e194]:
+                      - generic [ref=f31e195]: 
+                      - text: not known
+                    - generic [ref=f31e196]: Authority
+                    - generic [ref=f31e197]:
+                      - generic [ref=f31e198]: 
+                      - text: Not confirmed
+                    - generic [ref=f31e199]: Need
+                    - generic [ref=f31e200]:
+                      - generic [ref=f31e201]: 
+                      - text: Not identified
+                    - generic [ref=f31e202]: Timeline
+                    - generic [ref=f31e203]: —
+                  - heading "Ownership" [level=2] [ref=f31e205]
+                  - generic [ref=f31e206]:
+                    - generic [ref=f31e207]: Assigned
+                    - generic [ref=f31e208]: Mona Crmadmin since 17 Oct 2026
+                    - generic [ref=f31e209]: Team
+                    - generic [ref=f31e210]: —
+                    - generic [ref=f31e211]: Previous owner
+                    - generic [ref=f31e212]: —
+                    - generic [ref=f31e213]: Priority
+                    - generic [ref=f31e214]: Normal
+                    - generic [ref=f31e215]: Created
+                    - generic [ref=f31e216]: 17 Oct 2026, 10:02 by Mona Crmadmin
+              - text:          
+          - generic [ref=f31e217]:
+            - tablist [ref=f31e218]:
+              - tab "Cross-references" [selected] [ref=f31e219] [cursor=pointer]
+              - button "Hide side panel" [ref=f31e220] [cursor=pointer]:
+                - generic [ref=f31e221]: 
+            - generic [ref=f31e222]: Other leads show here once the lead is linked to an account.
+    - generic [ref=f31e226]:
+      - text: All Rights Reserved To
+      - link "Loading" [ref=f31e227] [cursor=pointer]:
+        - /url: https://primeng.org

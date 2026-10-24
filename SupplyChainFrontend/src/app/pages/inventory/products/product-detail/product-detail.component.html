@@ -624,6 +624,16 @@
       </div>
     </p-tabPanel>
 
+    <!-- TAB: Purchase (A45 C4) — the vendor prices of this product; loads when first opened -->
+    <p-tabPanel header="Purchase" leftIcon="pi pi-shopping-cart" *ngIf="canViewPricelist" data-testid="purchase-tab">
+      <ng-template pTemplate="content">
+        <div class="tab-content" style="padding-top:1.25rem">
+          <app-pricelist-grid title="Vendor prices" [productUuid]="product.uuid" [productName]="product.name"
+                              [variants]="product.variants" [canEdit]="canEditPricelist"></app-pricelist-grid>
+        </div>
+      </ng-template>
+    </p-tabPanel>
+
     <!-- TAB: Lead Times (A34-PB-07, D-26) — per variant; content loads when the tab is first opened -->
     <p-tabPanel header="Lead Times" leftIcon="pi pi-clock" data-testid="lead-times-tab">
       <ng-template pTemplate="content">

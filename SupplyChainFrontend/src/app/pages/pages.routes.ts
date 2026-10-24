@@ -16,6 +16,7 @@ import { PoListComponent } from './demand/purchase-orders/po-list/po-list.compon
 import { PoCreateComponent } from './demand/purchase-orders/po-create/po-create.component';
 import { PoDetailComponent } from './demand/purchase-orders/po-detail/po-detail.component';
 import { PoEditComponent } from './demand/purchase-orders/po-edit/po-edit.component';
+import { SupplierPricelistListComponent } from './demand/supplier-pricelists/supplier-pricelist-list.component';
 import { SaleOrderListComponent } from './sales/sale-orders/sale-order-list/sale-order-list.component';
 import { SaleOrderDetailComponent } from './sales/sale-orders/sale-order-detail/sale-order-detail.component';
 import { SaleOrderFormComponent } from './sales/sale-orders/sale-order-form/sale-order-form.component';
@@ -574,6 +575,10 @@ export default [
     { path: 'demand/purchase-orders/:uuid/edit', component: PoEditComponent,
       canActivate: [permissionGuard(P.PO_EDIT)] },
     { path: 'demand/purchase-orders/:uuid', component: PoDetailComponent,
+      canActivate: [permissionGuard(P.PO_VIEW, P.PO_CREATE, P.PO_EDIT, P.PO_APPROVE)] },
+
+    // ── Demand — Supplier Pricelists (Addendum 45 C4) ─────────────────────────
+    { path: 'demand/supplier-pricelists', component: SupplierPricelistListComponent,
       canActivate: [permissionGuard(P.PO_VIEW, P.PO_CREATE, P.PO_EDIT, P.PO_APPROVE)] },
 
     // ── Sales — Sale Orders (Addendum 29 P6-08, P9-07) ────────────────────────

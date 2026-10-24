@@ -16,7 +16,14 @@
 .totals { border-top: 1px solid var(--sms-border); padding: .6rem .75rem; display: grid; grid-template-columns: 1fr auto; gap: .2rem .75rem; font-variant-numeric: tabular-nums;
     .big { font-size: 1.35rem; font-weight: 750; }
 }
-.cart-actions { display: flex; gap: .4rem; padding: 0 .75rem .5rem; flex-wrap: wrap; .pos-btn { flex: 1 1 auto; } }
+.cart-actions { display: flex; gap: .4rem; padding: 0 .75rem .5rem; flex-wrap: wrap; .pos-btn { flex: 1 1 0; min-width: 0; } }
+// Clear is a small icon at the top of the cart, not a big red button beside PAY; it asks for a second tap on a bigger order.
+.cart-head .clear { padding: 0 .6rem; color: var(--sms-text-muted); border-color: transparent; background: transparent;
+    &:hover:not(:disabled) { color: var(--sms-danger); background: var(--sms-danger-soft); }
+    &.armed { color: #fff; background: var(--sms-danger); border-color: var(--sms-danger); font-size: .85rem; &:hover:not(:disabled) { color: #fff; background: var(--sms-danger); } }
+}
+// One-tap settle buttons sit above PAY: exact cash and card.
+.quick-pay { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: .5rem; padding: 0 .75rem .5rem; .pos-btn { min-height: 52px; font-size: 1rem; } }
 .pay { margin: 0 .75rem .75rem; }
 .result { display: flex; flex-direction: column; gap: .4rem; max-height: 50vh; overflow: auto; }
 video { width: 100%; border-radius: var(--sms-radius-sm); background: var(--sms-navy); }

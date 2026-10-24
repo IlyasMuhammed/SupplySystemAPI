@@ -1,0 +1,161 @@
+- generic [ref=f43e1]:
+  - generic:
+    - generic:
+      - generic:
+        - generic [ref=f43e25]:
+          - generic:
+            - generic:
+              - link "Skip to Main Content":
+                - /url: "#main"
+              - banner [ref=f43e26]:
+                - navigation "Tools" [ref=f43e27]:
+                  - heading "Sandbox Company GB 72c4" [level=2] [ref=f43e32]
+                  - search [ref=f43e587]:
+                    - generic [ref=f43e591]:
+                      - searchbox "Search" [ref=f43e594]: Currencies
+                      - button "Clear search input." [ref=f43e595] [cursor=pointer]
+                  - generic [ref=f43e43]:
+                    - button "Contact expert help" [ref=f43e47] [cursor=pointer]:
+                      - generic [ref=f43e49]: Contact experts
+                    - button "Tasks" [ref=f43e55] [cursor=pointer]
+                    - button "Integrations" [ref=f43e61] [cursor=pointer]
+                    - button "Help" [ref=f43e69] [cursor=pointer]
+                    - button "Intuit Labs" [ref=f43e75] [cursor=pointer]
+                    - button "Settings" [expanded] [ref=f43e80] [cursor=pointer]
+                    - button "Intuit account (I)" [ref=f43e88] [cursor=pointer]:
+                      - generic [ref=f43e89]: I
+                    - button "Open Intuit Intelligence chat" [ref=f43e95] [cursor=pointer]
+          - navigation "Side" [ref=f43e140]:
+            - link "QuickBooks" [ref=f43e141] [cursor=pointer]:
+              - /url: currencies?intuit_authn_session_slot=VYPodik&iux_intuit_tid=1-6ad4e583-786281b57da2f2e673ba8def
+            - generic [ref=f43e143]:
+              - button "Create" [ref=f43e146] [cursor=pointer]
+              - button "Bookmarks" [ref=f43e154] [cursor=pointer]
+            - generic [ref=f43e159]:
+              - link "Home" [ref=f43e160] [cursor=pointer]:
+                - /url: /app/homepage
+              - link "Feed" [ref=f43e165] [cursor=pointer]:
+                - /url: /app/business-feed
+              - button "Reports" [ref=f43e172] [cursor=pointer]
+              - link "All apps" [ref=f43e180] [cursor=pointer]:
+                - /url: /app/banking?jobId=accounting
+            - generic [ref=f43e185]:
+              - generic [ref=f43e186]: PINNED
+              - generic [ref=f43e187]:
+                - button "Accounting" [ref=f43e191] [cursor=pointer]
+                - button "Expenses" [ref=f43e197] [cursor=pointer]
+                - button "Sales" [ref=f43e203] [cursor=pointer]
+            - button "Customise" [ref=f43e208] [cursor=pointer]
+          - main [ref=f43e215]:
+            - generic [ref=f43e217]:
+              - generic [ref=f43e218]:
+                - heading "We're sorry, we can't find the page you requested." [level=1] [ref=f43e219]
+                - heading "You may have incorrectly typed the address (URL) or clicked on an outdated link." [level=3] [ref=f43e220]
+              - img "not found" [ref=f43e223]
+        - dialog "Settings" [active] [ref=f43e601]:
+          - generic [ref=f43e602]:
+            - generic [ref=f43e603]:
+              - heading "YOUR COMPANY" [level=2] [ref=f43e604]
+              - list [ref=f43e605]:
+                - listitem [ref=f43e606]:
+                  - link "Account and settings" [ref=f43e607] [cursor=pointer]:
+                    - /url: /app/accountsettings
+                - listitem [ref=f43e609]:
+                  - link "Manage users" [ref=f43e610] [cursor=pointer]:
+                    - /url: /app/usermgt
+                - listitem [ref=f43e612]:
+                  - link "Custom form styles" [ref=f43e613] [cursor=pointer]:
+                    - /url: /app/formstyles
+                - listitem [ref=f43e615]:
+                  - link "Chart of accounts" [ref=f43e616] [cursor=pointer]:
+                    - /url: /app/chartofaccounts
+                - listitem [ref=f43e618]:
+                  - link "Payroll settings" [ref=f43e619] [cursor=pointer]:
+                    - /url: /app/payroll-signup?usecase=gearmenu
+                - listitem [ref=f43e621]:
+                  - button "Additional info New" [ref=f43e622] [cursor=pointer]:
+                    - generic [ref=f43e623]:
+                      - generic [ref=f43e624]: Additional info
+                      - generic "New" [ref=f43e625]
+            - generic [ref=f43e627]:
+              - heading "LISTS" [level=2] [ref=f43e628]
+              - list [ref=f43e629]:
+                - listitem [ref=f43e630]:
+                  - link "All lists" [ref=f43e631] [cursor=pointer]:
+                    - /url: /app/lists
+                - listitem [ref=f43e633]:
+                  - link "Products and services" [ref=f43e634] [cursor=pointer]:
+                    - /url: /app/items
+                - listitem [ref=f43e636]:
+                  - link "Recurring transactions" [ref=f43e637] [cursor=pointer]:
+                    - /url: /app/recurring
+                - listitem [ref=f43e639]:
+                  - link "Attachments" [ref=f43e640] [cursor=pointer]:
+                    - /url: /app/attachments
+                - listitem [ref=f43e642]:
+                  - link "Custom fields" [ref=f43e643] [cursor=pointer]:
+                    - /url: /app/customfields
+                - listitem [ref=f43e645]:
+                  - link "Rules" [ref=f43e646] [cursor=pointer]:
+                    - /url: /app/olbrules
+                - listitem [ref=f43e648]:
+                  - link "Currencies" [ref=f43e649] [cursor=pointer]:
+                    - /url: /app/currencycenter
+            - generic [ref=f43e651]:
+              - heading "TOOLS" [level=2] [ref=f43e652]
+              - list [ref=f43e653]:
+                - listitem [ref=f43e654]:
+                  - link "Reclassify transactions" [ref=f43e655] [cursor=pointer]:
+                    - /url: /app/reclassify-transaction
+                - listitem [ref=f43e657]:
+                  - link "Import data" [ref=f43e658] [cursor=pointer]:
+                    - /url: /app/importdata
+                - listitem [ref=f43e660]:
+                  - link "Import desktop data" [ref=f43e661] [cursor=pointer]:
+                    - /url: /app/importquickbooksdesktop
+                - listitem [ref=f43e663]:
+                  - link "Export data" [ref=f43e664] [cursor=pointer]:
+                    - /url: /app/exportdata
+                - listitem [ref=f43e666]:
+                  - link "Reconcile" [ref=f43e667] [cursor=pointer]:
+                    - /url: /app/reconcile
+                - listitem [ref=f43e669]:
+                  - link "Budgeting" [ref=f43e670] [cursor=pointer]:
+                    - /url: /app/budgets
+                - listitem [ref=f43e672]:
+                  - link "Audit log" [ref=f43e673] [cursor=pointer]:
+                    - /url: /app/auditlog
+                - listitem [ref=f43e675]:
+                  - button "Share screen" [ref=f43e676] [cursor=pointer]
+            - generic [ref=f43e678]:
+              - heading "PROFILE" [level=2] [ref=f43e679]
+              - list [ref=f43e680]:
+                - listitem [ref=f43e681]:
+                  - link "Subscriptions and billing" [ref=f43e682] [cursor=pointer]:
+                    - /url: /app/billing
+                - listitem [ref=f43e684]:
+                  - button "Feedback" [ref=f43e685] [cursor=pointer]
+                - listitem [ref=f43e687]:
+                  - link "Privacy" [ref=f43e688] [cursor=pointer]:
+                    - /url: /app/privacy
+                - listitem [ref=f43e690]:
+                  - button "Your Privacy Choices" [ref=f43e691] [cursor=pointer]
+                - listitem [ref=f43e693]:
+                  - link "Cookies" [ref=f43e694] [cursor=pointer]:
+                    - /url: https://security.intuit.com/index.php/intuit-cookie-policy
+                - listitem [ref=f43e696]:
+                  - button "Switch company" [ref=f43e697] [cursor=pointer]
+          - generic [ref=f43e701]:
+            - paragraph [ref=f43e706]:
+              - link "Video tutorials" [ref=f43e708] [cursor=pointer]:
+                - /url: "#"
+            - generic [ref=f43e713]:
+              - button [ref=f43e714] [cursor=pointer]:
+                - generic [ref=f43e715]:
+                  - text: Switch
+                  - strong [ref=f43e716]: from Accountant view
+                  - text: to Business view
+              - button [ref=f43e717] [cursor=pointer]:
+                - paragraph [ref=f43e721]:
+                  - button "Help" [ref=f43e722]
+  - generic: "Essential, Enhanced Experience & Product Improvement These first-party cookies are set by Intuit or one of our service providers; you cannot turn these off. These cookies enable the site to function as intended, including: basic functionality (for example, your ability to log into your Intuit account or add items to your cart for purchase); remember your preferences (for example, your preferred language or login credentials); provide you personalized content when viewing our site; and, allow us to evaluate your use and navigation of the site to fix bugs and improve the overall experience for you and others. A single cookie may be used for one or all of these purposes. Third-Party Advertisement  Yes We leverage advertising trackers across our sites to improve our marketing and advertising activities. These trackers may share some limited personal information with third-party platforms where we may display advertisements or run marketing campaigns. You may choose to turn these trackers off. You will still see Intuit advertisements when you opt-out, but these ads may not be tailored to your interests. This preference applies to your experience on our .intuit sites, once you create or login to your Intuit account, you may be prompted to choose again.    "

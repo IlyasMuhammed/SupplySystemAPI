@@ -173,6 +173,8 @@ This matrix maps Dynamics 365 Sales entities to SMS equivalents for future data 
 | Sale Quotation | SQ-{YYYY}-{NNNN} | SQ-2026-0001 | Yes — existing (Addendum 32) |
 | Sale Order | SO-{NNNN} | SO-0001 | Yes — existing |
 
+> **Implementation note (D-8, confirmed 2026-10-17):** the system's shared `IDocumentNumberGenerator` issues every `PREFIX-YYYY-NNNNN` document number with **five** digits (LD-2026-00001, OP-2026-00001, and the existing INQ-2026-00001 / SQ-2026-00001), per organization and year. The `{NNNN}` patterns in the table above are therefore read as "zero-padded sequence"; CRM does not use a different width from the rest of the platform.
+
 ### 2.3 Creation Paths
 
 The CRM pipeline adds new entry paths while preserving all existing direct-creation paths from Addendum 32.

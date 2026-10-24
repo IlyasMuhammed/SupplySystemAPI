@@ -27,6 +27,7 @@ internal sealed class AuthDataSeeder
         await SeedCustomerGrantsAsync();
         await SeedImportGrantsAsync();
         await SeedGlGrantsAsync();
+        await SeedCrmViewGrantsAsync();
         await SeedAdminUserAsync();
     }
 
@@ -391,6 +392,43 @@ internal sealed class AuthDataSeeder
         PermissionCodes.SALE_INQUIRY_EDIT, PermissionCodes.SALE_QUOTATION_EDIT, PermissionCodes.SALE_QUOTATION_SEND,
         PermissionCodes.SALE_ORDER_EDIT, PermissionCodes.SALE_ORDER_CONFIRM,
     ];
+
+    /// <summary>
+    /// A41 follow-up — the read-only Auditor ("view all records, export reports, no data modification") sees CRM: leads,
+    /// opportunities, activities, campaigns and the timeline export, nothing that changes data. Only MISSING grants are
+    /// added (see <see cref="SeedCrmViewGrantsAsync"/>); a grant an administrator switched off stays off.
+    /// </summary>
+    internal static readonly (string RoleCode, string[] Codes)[] CrmViewGrants =
+    [
+        ("AUDITOR", [PermissionCodes.CRM_VIEW_LEADS, PermissionCodes.CRM_VIEW_OPPORTUNITIES, PermissionCodes.CRM_VIEW_ACTIVITIES,
+                     PermissionCodes.CRM_VIEW_CAMPAIGNS, PermissionCodes.CRM_EXPORT_TIMELINE]),
+    ];
+
+    /// <summary>Idempotent; runs on every start so an existing database's Auditor picks the grants up on the next start.</summary>
+    internal async Task SeedCrmViewGrantsAsync()
+    {
+        var codes = CrmViewGrants.SelectMany(g => g.Codes).Distinct().ToList();
+        var permIds = await _db.Permissions.Where(p => codes.Contains(p.Code)).ToDictionaryAsync(p => p.Code, p => p.PermissionID);
+        var roleCodes = CrmViewGrants.Select(g => g.RoleCode).ToList();
+        var roleIds = await _db.Roles.IgnoreQueryFilters().Where(r => roleCodes.Contains(r.RoleCode))
+            .ToDictionaryAsync(r => r.RoleCode, r => r.RoleID);
+        var existing = (await _db.RolePermissions.IgnoreQueryFilters().Select(rp => new { rp.RoleID, rp.PermissionID }).ToListAsync())
+            .Select(x => (x.RoleID, x.PermissionID)).ToHashSet();
+
+        foreach (var (roleCode, grantCodes) in CrmViewGrants)
+        {
+            if (!roleIds.TryGetValue(roleCode, out var roleId)) continue;
+            foreach (var code in grantCodes)
+            {
+                if (!permIds.TryGetValue(code, out var permId) || !existing.Add((roleId, permId))) continue;
+                _db.RolePermissions.Add(new RolePermission
+                {
+                    RoleID = roleId, PermissionID = permId, IsAllowed = true, OrganizationId = TenantDefaults.ScmDemoOrganizationId
+                });
+            }
+        }
+        await _db.SaveChangesAsync();
+    }
 
     /// <summary>
     /// A40 D-9 / D-11 (IMP) — import grants by built-in role CODE: every built-in role holding a write permission gets

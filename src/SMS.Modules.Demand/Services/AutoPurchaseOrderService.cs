@@ -136,7 +136,8 @@ internal sealed class AutoPurchaseOrderService : IAutoPurchaseOrderService
         line.SelectedSupplierId = supplierId;
         // A29-P5-10 §14.2 — the margin this line now has, per unit, against what it will cost. Saved
         // with the back-pointer: both are "what the PO means for this line" and belong together.
-        (line.Margin, line.MarginPercent) = SaleOrderMargin.Compute(line.UnitPrice, price);
+        // A46 C5: the PO line may have been priced from the supplier's pricelist instead of the selected price; the margin follows what it costs.
+        (line.Margin, line.MarginPercent) = SaleOrderMargin.Compute(line.UnitPrice, created.UnitPrice ?? price);
         await _db.SaveChangesAsync();
 
         // A35 — created.Status: an AUTO_SEND PO whose rate could not be locked is created DRAFT, and is not sent.

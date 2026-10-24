@@ -160,7 +160,7 @@ import { CrmLookupsService, Option } from '../shared/crm-lookups.service';
       <div class="sf-fld"><label for="lf-cur">Currency</label>
         <p-dropdown inputId="lf-cur" [options]="currencyOptions" [(ngModel)]="f.currencyCode" [showClear]="true" appendTo="body" styleClass="w-full" data-testid="lead-currency"></p-dropdown></div>
       <div class="sf-fld"><label for="lf-close">Expected close</label>
-        <p-calendar inputId="lf-close" [(ngModel)]="closeDate" dateFormat="dd M yy" [showIcon]="true" [showButtonBar]="true" appendTo="body" styleClass="w-full"></p-calendar></div>
+        <p-calendar inputId="lf-close" [(ngModel)]="closeDate" dateFormat="dd M yy" [showIcon]="true" [showButtonBar]="true" todayButtonStyleClass="" clearButtonStyleClass="" appendTo="body" styleClass="w-full"></p-calendar></div>
     </div>
 
     <ng-container *ngIf="!lead">
@@ -258,7 +258,7 @@ export class LeadFormDialogComponent implements OnChanges {
     this.lookups.sources().subscribe(s => this.sourceOptions = s.map(x => ({ value: x.uuid, label: x.name })));
     this.lookups.campaigns().subscribe(c => this.campaignOptions = c.map(x => ({ value: x.uuid, label: `${x.name} (${x.code})` })));
     this.lookups.teams().subscribe(t => this.teamOptions = t.map(x => ({ value: x.uuid, label: x.name })));
-    this.lookups.users().subscribe(u => this.userOptions = CrmLookupsService.userOptions(u));
+    this.lookups.assignableUsers().subscribe(u => this.userOptions = CrmLookupsService.userOptions(u));
     this.lookups.currencies().subscribe(c => {
       this.currencyOptions = c.codes;
       if (!this.lead && !this.f.currencyCode) this.f.currencyCode = c.base;

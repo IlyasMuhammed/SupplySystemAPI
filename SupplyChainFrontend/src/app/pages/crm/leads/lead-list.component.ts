@@ -71,7 +71,7 @@ const VIEW_KEY = 'crm.leads.view';
                   placeholder="All teams" (onChange)="reload()" appendTo="body" data-testid="team"></p-dropdown>
       <p-dropdown [options]="ratingOptions" [(ngModel)]="rating" optionLabel="label" optionValue="value" [showClear]="true"
                   placeholder="Any rating" (onChange)="reload()" appendTo="body" data-testid="rating"></p-dropdown>
-      <p-calendar [(ngModel)]="dateRange" selectionMode="range" [readonlyInput]="true" [showIcon]="true" [showButtonBar]="true" dateFormat="dd M yy"
+      <p-calendar [(ngModel)]="dateRange" selectionMode="range" [readonlyInput]="true" [showIcon]="true" [showButtonBar]="true" todayButtonStyleClass="" clearButtonStyleClass="" dateFormat="dd M yy"
                   placeholder="Created between" (ngModelChange)="onDateChange()" appendTo="body"></p-calendar>
     </div>
 

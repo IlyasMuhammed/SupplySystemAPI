@@ -1,0 +1,200 @@
+- generic [ref=f27e4]:
+  - generic [ref=f27e5]:
+    - generic [ref=f27e6]:
+      - button "" [ref=f27e7] [cursor=pointer]
+      - link:
+        - /url: /portal/dashboard
+      - navigation "Breadcrumb" [ref=f27e1768]:
+        - generic [ref=f27e1769]: Sales
+        - generic [ref=f27e1770]: ›
+        - link "Inquiries" [ref=f27e1771] [cursor=pointer]:
+          - /url: /portal/pages/sales/inquiries
+        - generic [ref=f27e1772]: ›
+        - strong [ref=f27e1773]: INQ-2026-00001
+    - button " Search anything... Ctrl K" [ref=f27e14] [cursor=pointer]:
+      - generic [ref=f27e15]: 
+      - generic [ref=f27e16]: Search anything...
+      - generic [ref=f27e17]: Ctrl K
+    - generic [ref=f27e18]:
+      - button "" [ref=f27e20] [cursor=pointer]
+      - generic [ref=f27e22]:
+        - button "Appearance" [ref=f27e23] [cursor=pointer]:
+          - generic [ref=f27e24]: 
+        - text:    
+      - generic [ref=f27e26]:
+        - button "MC " [ref=f27e27] [cursor=pointer]:
+          - generic [ref=f27e28]: MC
+          - generic [ref=f27e30]: 
+        - text:   
+  - generic [ref=f27e31]:
+    - generic [ref=f27e32]:
+      - generic [ref=f27e33]: 
+      - generic [ref=f27e35]:
+        - generic [ref=f27e36]: SupplyChain MS
+        - generic [ref=f27e37]: KFC Pakistan (KFC)
+    - list [ref=f27e39]:
+      - listitem [ref=f27e40]:
+        - button "Home " [ref=f27e41] [cursor=pointer]:
+          - generic [ref=f27e42]: Home
+          - generic [ref=f27e43]: 
+        - list:
+          - listitem [ref=f27e44]:
+            - link " Dashboard" [ref=f27e45] [cursor=pointer]:
+              - /url: /portal/dashboard
+              - generic [ref=f27e46]: 
+              - generic [ref=f27e47]: Dashboard
+          - listitem [ref=f27e48]:
+            - link " My Inbox" [ref=f27e49] [cursor=pointer]:
+              - /url: /portal/pages/workflow-inbox
+              - generic [ref=f27e50]: 
+              - generic [ref=f27e51]: My Inbox
+      - listitem [ref=f27e52]:
+        - button "Sales " [expanded] [ref=f27e53] [cursor=pointer]:
+          - generic [ref=f27e54]: Sales
+          - generic [ref=f27e55]: 
+        - list [ref=f27e1764]:
+          - listitem [ref=f27e56]:
+            - link " Customers" [ref=f27e57] [cursor=pointer]:
+              - /url: /portal/pages/customers
+              - generic [ref=f27e58]: 
+              - generic [ref=f27e59]: Customers
+          - listitem [ref=f27e60]:
+            - link " Inquiries" [ref=f27e61] [cursor=pointer]:
+              - /url: /portal/pages/sales/inquiries
+              - generic [ref=f27e62]: 
+              - generic [ref=f27e63]: Inquiries
+          - listitem [ref=f27e64]:
+            - link " Customer Quotations" [ref=f27e65] [cursor=pointer]:
+              - /url: /portal/pages/sales/quotations
+              - generic [ref=f27e66]: 
+              - generic [ref=f27e67]: Customer Quotations
+          - listitem [ref=f27e68]:
+            - generic [ref=f27e69] [cursor=pointer]:
+              - generic [ref=f27e70]: 
+              - generic [ref=f27e71]: Sale Orders
+              - generic [ref=f27e72]: 
+            - list:
+              - listitem [ref=f27e73]:
+                - link " All Sale Orders" [ref=f27e74] [cursor=pointer]:
+                  - /url: /portal/pages/sales/orders
+                  - generic [ref=f27e75]: 
+                  - generic [ref=f27e76]: All Sale Orders
+      - listitem [ref=f27e77]:
+        - button "CRM " [ref=f27e78] [cursor=pointer]:
+          - generic [ref=f27e79]: CRM
+          - generic [ref=f27e80]: 
+        - list:
+          - listitem [ref=f27e82]:
+            - link " Leads" [ref=f27e83] [cursor=pointer]:
+              - /url: /portal/pages/crm/leads
+              - generic [ref=f27e84]: 
+              - generic [ref=f27e85]: Leads
+          - listitem [ref=f27e86]:
+            - link " Opportunities" [ref=f27e87] [cursor=pointer]:
+              - /url: /portal/pages/crm/opportunities
+              - generic [ref=f27e88]: 
+              - generic [ref=f27e89]: Opportunities
+          - listitem [ref=f27e90]:
+            - link " Activities" [ref=f27e91] [cursor=pointer]:
+              - /url: /portal/pages/crm/activities
+              - generic [ref=f27e92]: 
+              - generic [ref=f27e93]: Activities
+          - listitem [ref=f27e94]:
+            - link " Campaigns" [ref=f27e95] [cursor=pointer]:
+              - /url: /portal/pages/crm/campaigns
+              - generic [ref=f27e96]: 
+              - generic [ref=f27e97]: Campaigns
+  - generic [ref=f27e98]:
+    - generic [ref=f27e1774]:
+      - toolbar "Commands" [ref=f27e1775]:
+        - button " Start review" [disabled] [ref=f27e1777]:
+          - generic [ref=f27e1778]: 
+          - generic [ref=f27e1779]: Start review
+        - button " Mark review complete" [disabled] [ref=f27e1781]:
+          - generic [ref=f27e1782]: 
+          - generic [ref=f27e1783]: Mark review complete
+        - button " Decline inquiry" [disabled] [ref=f27e1786]:
+          - generic [ref=f27e1787]: 
+          - generic [ref=f27e1788]: Decline inquiry
+        - button " All inquiries" [ref=f27e1791] [cursor=pointer]:
+          - generic [ref=f27e1792]: 
+          - generic [ref=f27e1793]: All inquiries
+      - generic [ref=f27e1795]:
+        - banner [ref=f27e1796]:
+          - generic [ref=f27e1798]:
+            - generic [ref=f27e1799]: Sale inquiry · received 17 Oct 2026
+            - heading "INQ-2026-00001 Received" [level=1] [ref=f27e1800]:
+              - generic [ref=f27e1801]: INQ-2026-00001
+              - generic [ref=f27e1802]: Received
+            - generic [ref=f27e1804]: E2E_A41 Alpha Traders · ref — · GBP · assigned to Mona Crmadmin
+          - list "Progress" [ref=f27e1806]:
+            - listitem [ref=f27e1880]:
+              - generic [ref=f27e1881]: Received
+              - generic [ref=f27e1882]: 17 Oct 2026
+            - listitem [ref=f27e1883]:
+              - generic [ref=f27e1884]: Under review
+            - listitem [ref=f27e1885]:
+              - generic [ref=f27e1886]: Reviewed
+            - listitem [ref=f27e1887]:
+              - generic [ref=f27e1888]: Quoted
+          - generic [ref=f27e1816]:
+            - generic [ref=f27e1817]:
+              - generic [ref=f27e1818]: Lines
+              - generic [ref=f27e1819]: "0"
+              - generic [ref=f27e1820]: requested by the customer
+            - generic [ref=f27e1821]:
+              - generic [ref=f27e1822]: Response deadline
+              - generic [ref=f27e1823]: —
+              - generic [ref=f27e1824]: received 17 Oct 2026
+        - generic [ref=f27e1825]:
+          - generic [ref=f27e1826]:
+            - generic [ref=f27e1827]:
+              - strong [ref=f27e1828]: "Start review:"
+              - text: Add at least one line before starting the review.
+            - generic [ref=f27e1829]:
+              - strong [ref=f27e1830]: "Review complete:"
+              - text: Start the review first.
+            - generic [ref=f27e1831]:
+              - strong [ref=f27e1832]: "Decline:"
+              - text: Start the review first — an inquiry is declined once its review has begun.
+          - generic [ref=f27e1834]:
+            - tablist [ref=f27e1837]:
+              - tab " Details" [selected] [ref=f27e1838] [cursor=pointer]:
+                - generic [ref=f27e1839]: 
+                - text: Details
+              - tab " Lines (0)" [ref=f27e1841] [cursor=pointer]:
+                - generic [ref=f27e1842]: 
+                - text: Lines (0)
+              - tab " Attachments" [ref=f27e1843] [cursor=pointer]:
+                - generic [ref=f27e1844]: 
+                - text: Attachments
+            - generic [ref=f27e1845]:
+              - tabpanel " Details" [ref=f27e1847]:
+                - generic [ref=f27e1848]:
+                  - generic [ref=f27e1849]:
+                    - heading "Inquiry" [level=2] [ref=f27e1850]
+                    - button " Edit" [ref=f27e1852] [cursor=pointer]:
+                      - generic [ref=f27e1853]: 
+                      - generic [ref=f27e1854]: Edit
+                  - generic [ref=f27e1855]:
+                    - generic [ref=f27e1856]: Customer
+                    - generic [ref=f27e1857]: E2E_A41 Alpha Traders
+                    - generic [ref=f27e1858]: Customer reference
+                    - generic [ref=f27e1859]: —
+                    - generic [ref=f27e1860]: Reference date
+                    - generic [ref=f27e1861]: —
+                    - generic [ref=f27e1862]: Received
+                    - generic [ref=f27e1863]: 17 Oct 2026
+                    - generic [ref=f27e1864]: Response deadline
+                    - generic [ref=f27e1865]: —
+                    - generic [ref=f27e1866]: Assigned to
+                    - generic [ref=f27e1867]: Mona Crmadmin
+                    - generic [ref=f27e1868]: Created
+                    - generic [ref=f27e1869]: 17 Oct 2026, 09:45
+                  - paragraph [ref=f27e1870]: OP-2026-00001 — E2E_A41 AC and ovens inquiry from Facebook
+              - generic: 
+              - generic:   
+    - generic [ref=f27e191]:
+      - text: All Rights Reserved To
+      - link "Loading" [ref=f27e192] [cursor=pointer]:
+        - /url: https://primeng.org

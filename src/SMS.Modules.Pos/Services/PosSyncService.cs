@@ -112,7 +112,7 @@ internal sealed class PosSyncService : IPosSyncService
                 CategoryName = categoryId is { } c ? categoryNames.GetValueOrDefault(c) ?? (c == v.CategoryId ? v.CategoryName : null) : null,
                 UomCode = v.UomCode, Price = v.Price, ImageUrl = s?.ImageUrl ?? v.ImageUrl, Color = s?.Color,
                 IsWeighable = s?.IsWeighable ?? false, IsFavorite = s?.IsFavorite ?? false, SortOrder = s?.SortOrder ?? 0,
-                IsActive = PosOrderService.IsUsable(v, s), ModifiedAt = Later(v.ModifiedAt, s?.ModifiedAt)
+                IsActive = PosOrderService.IsUsable(v, s), IsStockable = v.IsStockable, ModifiedAt = Later(v.ModifiedAt, s?.ModifiedAt)
             };
         }).OrderBy(i => i.ModifiedAt).ThenBy(i => i.Sku).ToList();
 

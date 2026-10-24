@@ -17,7 +17,7 @@ import { PosMoneyPipe } from './pos-money.pipe';
     standalone: true,
     imports: [DialogModule, PinPadComponent, PosMoneyPipe],
     template: `
-        <p-dialog [visible]="visible()" (onHide)="cancel()" [modal]="true" header="Manager authorization" [style]="{ width: 'min(420px, 95vw)' }">
+        <p-dialog [visible]="visible()" (onHide)="cancel()" (visibleChange)="!$event && cancel()" [modal]="true" header="Manager authorization" [style]="{ width: 'min(420px, 95vw)' }">
             @if (visible()) {
                 <div class="stack" data-testid="manager-auth">
                     <ul class="muted" style="margin: 0; padding-left: 1.1rem">

@@ -67,7 +67,7 @@ const VIEW_KEY = 'crm.opportunities.view';
       <p-dropdown [options]="ownerOptions" [(ngModel)]="mine" optionLabel="label" optionValue="value" (onChange)="reload()" appendTo="body"></p-dropdown>
       <p-dropdown [options]="teamOptions" [(ngModel)]="teamUuid" optionLabel="label" optionValue="value" [showClear]="true" placeholder="All teams"
                   (onChange)="reload()" appendTo="body"></p-dropdown>
-      <p-calendar [(ngModel)]="closeRange" selectionMode="range" [readonlyInput]="true" [showIcon]="true" [showButtonBar]="true" dateFormat="dd M yy"
+      <p-calendar [(ngModel)]="closeRange" selectionMode="range" [readonlyInput]="true" [showIcon]="true" [showButtonBar]="true" todayButtonStyleClass="" clearButtonStyleClass="" dateFormat="dd M yy"
                   placeholder="Closing between" (ngModelChange)="onDateChange()" appendTo="body"></p-calendar>
       <span class="ol-check" *ngIf="view === 'kanban'"><p-checkbox [(ngModel)]="includeClosed" [binary]="true" inputId="ol-closed" (onChange)="reload()"></p-checkbox>
         <label for="ol-closed">Show won &amp; lost</label></span>

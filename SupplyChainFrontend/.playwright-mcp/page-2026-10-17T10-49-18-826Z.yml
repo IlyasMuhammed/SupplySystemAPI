@@ -1,0 +1,81 @@
+- generic [ref=f51e4]:
+  - generic [ref=f51e5]:
+    - generic [ref=f51e6]:
+      - button "" [ref=f51e7] [cursor=pointer]
+      - link:
+        - /url: /portal/dashboard
+      - navigation "Breadcrumb" [ref=f51e9]:
+        - generic [ref=f51e10]: CRM
+        - generic [ref=f51e11]: ›
+        - strong [ref=f51e12]: Campaigns
+    - button " Search anything... Ctrl K" [ref=f51e14] [cursor=pointer]:
+      - generic [ref=f51e15]: 
+      - generic [ref=f51e16]: Search anything...
+      - generic [ref=f51e17]: Ctrl K
+    - generic [ref=f51e18]:
+      - button "" [ref=f51e20] [cursor=pointer]
+      - generic [ref=f51e22]:
+        - button "Appearance" [ref=f51e23] [cursor=pointer]:
+          - generic [ref=f51e24]: 
+        - text:    
+      - generic [ref=f51e26]:
+        - button "MC " [ref=f51e27] [cursor=pointer]:
+          - generic [ref=f51e28]: MC
+          - generic [ref=f51e30]: 
+        - text:   
+  - generic [ref=f51e31]:
+    - generic [ref=f51e32]:
+      - generic [ref=f51e33]: 
+      - generic [ref=f51e35]:
+        - generic [ref=f51e36]: SupplyChain MS
+        - generic [ref=f51e37]: Supply Management System
+    - generic:
+      - list
+  - generic [ref=f51e38]:
+    - generic [ref=f51e40]:
+      - generic:
+        - alertdialog
+      - generic [ref=f51e41]:
+        - toolbar "Commands" [ref=f51e42]:
+          - button " New campaign" [ref=f51e44] [cursor=pointer]:
+            - generic [ref=f51e45]: 
+            - generic [ref=f51e46]: New campaign
+        - generic [ref=f51e49]:
+          - generic [ref=f51e50]:
+            - generic [ref=f51e51]:
+              - heading "Campaigns 0" [level=1] [ref=f51e52]:
+                - text: Campaigns
+                - generic [ref=f51e53]: "0"
+              - generic [ref=f51e54]: Marketing initiatives leads are attributed to — budget, expected and actual leads
+            - generic [ref=f51e55]:
+              - button "All" [ref=f51e56] [cursor=pointer]
+              - button "Draft" [ref=f51e57] [cursor=pointer]
+              - button "Active" [ref=f51e58] [cursor=pointer]
+              - button "Paused" [ref=f51e59] [cursor=pointer]
+              - button "Completed" [ref=f51e60] [cursor=pointer]
+              - button "Cancelled" [ref=f51e61] [cursor=pointer]
+          - generic [ref=f51e63]:
+            - generic [ref=f51e64]: 
+            - textbox "Search name or code" [ref=f51e65]
+          - generic [ref=f51e68]:
+            - table [ref=f51e75]:
+              - rowgroup [ref=f51e76]:
+                - row [ref=f51e77]:
+                  - columnheader "Code" [ref=f51e78]
+                  - columnheader "Campaign" [ref=f51e79]
+                  - columnheader "Type" [ref=f51e80]
+                  - columnheader "Source" [ref=f51e81]
+                  - columnheader "Dates" [ref=f51e82]
+                  - columnheader "Budget" [ref=f51e83]
+                  - columnheader "Leads" [ref=f51e84]
+                  - columnheader "Status" [ref=f51e85]
+              - rowgroup
+            - generic [ref=f51e87]:
+              - button "First Page" [disabled]
+              - button "Previous Page" [disabled]
+              - button "Next Page" [disabled]
+              - button "Last Page" [disabled]
+    - generic [ref=f51e89]:
+      - text: All Rights Reserved To
+      - link "Loading" [ref=f51e90] [cursor=pointer]:
+        - /url: https://primeng.org

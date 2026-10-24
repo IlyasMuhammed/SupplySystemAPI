@@ -1,0 +1,52 @@
+- generic [ref=f18e539]:
+  - generic [ref=f18e540]:
+    - generic [ref=f18e541]:
+      - button "" [ref=f18e542] [cursor=pointer]
+      - link:
+        - /url: /portal/dashboard
+      - navigation "Breadcrumb" [ref=f18e544]:
+        - strong [ref=f18e545]: Home
+    - button " Search anything... Ctrl K" [ref=f18e547] [cursor=pointer]:
+      - generic [ref=f18e548]: 
+      - generic [ref=f18e549]: Search anything...
+      - generic [ref=f18e550]: Ctrl K
+    - generic [ref=f18e551]:
+      - button "" [ref=f18e553] [cursor=pointer]
+      - generic [ref=f18e555]:
+        - button "Appearance" [ref=f18e556] [cursor=pointer]:
+          - generic [ref=f18e557]: 
+        - text:    
+      - generic [ref=f18e559]:
+        - button "ES " [ref=f18e560] [cursor=pointer]:
+          - generic [ref=f18e561]: ES
+          - generic [ref=f18e563]: 
+        - text:   
+  - generic [ref=f18e564]:
+    - generic [ref=f18e565]:
+      - generic [ref=f18e566]: 
+      - generic [ref=f18e568]:
+        - generic [ref=f18e569]: SupplyChain MS
+        - generic [ref=f18e570]: Supply Management System
+    - generic:
+      - list
+  - generic [ref=f18e571]:
+    - generic [ref=f18e574]:
+      - toolbar "Commands" [ref=f18e575]:
+        - button " Refresh" [ref=f18e577] [cursor=pointer]:
+          - generic [ref=f18e578]: 
+          - generic [ref=f18e579]: Refresh
+        - generic [ref=f18e580]: Live
+      - generic [ref=f18e585]:
+        - generic [ref=f18e587]:
+          - generic [ref=f18e588]: Saturday, 17 October 2026
+          - heading "Supply Chain Dashboard" [level=1] [ref=f18e589]
+        - generic [ref=f18e591] [cursor=pointer]:
+          - generic [ref=f18e592]:
+            - generic [ref=f18e593]: 
+            - text: Needs Attention
+          - generic [ref=f18e594]: "0"
+          - generic [ref=f18e595]: 0 queues waiting
+    - generic [ref=f18e597]:
+      - text: All Rights Reserved To
+      - link "Loading" [ref=f18e598] [cursor=pointer]:
+        - /url: https://primeng.org

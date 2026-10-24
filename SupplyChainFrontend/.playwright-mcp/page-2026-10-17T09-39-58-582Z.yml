@@ -1,0 +1,323 @@
+- generic [ref=f27e4]:
+  - generic [ref=f27e5]:
+    - generic [ref=f27e6]:
+      - button "" [ref=f27e7] [cursor=pointer]
+      - link:
+        - /url: /portal/dashboard
+      - navigation "Breadcrumb" [ref=f27e522]:
+        - generic [ref=f27e523]: CRM
+        - generic [ref=f27e524]: ›
+        - link "Leads" [ref=f27e525] [cursor=pointer]:
+          - /url: /portal/pages/crm/leads
+        - generic [ref=f27e526]: ›
+        - strong [ref=f27e527]: LD-2026-00001
+    - button " Search anything... Ctrl K" [ref=f27e14] [cursor=pointer]:
+      - generic [ref=f27e15]: 
+      - generic [ref=f27e16]: Search anything...
+      - generic [ref=f27e17]: Ctrl K
+    - generic [ref=f27e18]:
+      - button "" [ref=f27e20] [cursor=pointer]
+      - generic [ref=f27e22]:
+        - button "Appearance" [ref=f27e23] [cursor=pointer]:
+          - generic [ref=f27e24]: 
+        - text:    
+      - generic [ref=f27e26]:
+        - button "MC " [ref=f27e27] [cursor=pointer]:
+          - generic [ref=f27e28]: MC
+          - generic [ref=f27e30]: 
+        - text:   
+  - generic [ref=f27e31]:
+    - generic [ref=f27e32]:
+      - generic [ref=f27e33]: 
+      - generic [ref=f27e35]:
+        - generic [ref=f27e36]: SupplyChain MS
+        - generic [ref=f27e37]: KFC Pakistan (KFC)
+    - list [ref=f27e39]:
+      - listitem [ref=f27e40]:
+        - button "Home " [ref=f27e41] [cursor=pointer]:
+          - generic [ref=f27e42]: Home
+          - generic [ref=f27e43]: 
+        - list:
+          - listitem [ref=f27e44]:
+            - link " Dashboard" [ref=f27e45] [cursor=pointer]:
+              - /url: /portal/dashboard
+              - generic [ref=f27e46]: 
+              - generic [ref=f27e47]: Dashboard
+          - listitem [ref=f27e48]:
+            - link " My Inbox" [ref=f27e49] [cursor=pointer]:
+              - /url: /portal/pages/workflow-inbox
+              - generic [ref=f27e50]: 
+              - generic [ref=f27e51]: My Inbox
+      - listitem [ref=f27e52]:
+        - button "Sales " [ref=f27e53] [cursor=pointer]:
+          - generic [ref=f27e54]: Sales
+          - generic [ref=f27e55]: 
+        - list:
+          - listitem [ref=f27e56]:
+            - link " Customers" [ref=f27e57] [cursor=pointer]:
+              - /url: /portal/pages/customers
+              - generic [ref=f27e58]: 
+              - generic [ref=f27e59]: Customers
+          - listitem [ref=f27e60]:
+            - link " Inquiries" [ref=f27e61] [cursor=pointer]:
+              - /url: /portal/pages/sales/inquiries
+              - generic [ref=f27e62]: 
+              - generic [ref=f27e63]: Inquiries
+          - listitem [ref=f27e64]:
+            - link " Customer Quotations" [ref=f27e65] [cursor=pointer]:
+              - /url: /portal/pages/sales/quotations
+              - generic [ref=f27e66]: 
+              - generic [ref=f27e67]: Customer Quotations
+          - listitem [ref=f27e68]:
+            - generic [ref=f27e69] [cursor=pointer]:
+              - generic [ref=f27e70]: 
+              - generic [ref=f27e71]: Sale Orders
+              - generic [ref=f27e72]: 
+            - list:
+              - listitem [ref=f27e73]:
+                - link " All Sale Orders" [ref=f27e74] [cursor=pointer]:
+                  - /url: /portal/pages/sales/orders
+                  - generic [ref=f27e75]: 
+                  - generic [ref=f27e76]: All Sale Orders
+      - listitem [ref=f27e77]:
+        - button "CRM " [expanded] [ref=f27e78] [cursor=pointer]:
+          - generic [ref=f27e79]: CRM
+          - generic [ref=f27e80]: 
+        - list [ref=f27e81]:
+          - listitem [ref=f27e82]:
+            - link " Leads" [ref=f27e83] [cursor=pointer]:
+              - /url: /portal/pages/crm/leads
+              - generic [ref=f27e84]: 
+              - generic [ref=f27e85]: Leads
+          - listitem [ref=f27e86]:
+            - link " Opportunities" [ref=f27e87] [cursor=pointer]:
+              - /url: /portal/pages/crm/opportunities
+              - generic [ref=f27e88]: 
+              - generic [ref=f27e89]: Opportunities
+          - listitem [ref=f27e90]:
+            - link " Activities" [ref=f27e91] [cursor=pointer]:
+              - /url: /portal/pages/crm/activities
+              - generic [ref=f27e92]: 
+              - generic [ref=f27e93]: Activities
+          - listitem [ref=f27e94]:
+            - link " Campaigns" [ref=f27e95] [cursor=pointer]:
+              - /url: /portal/pages/crm/campaigns
+              - generic [ref=f27e96]: 
+              - generic [ref=f27e97]: Campaigns
+  - generic [ref=f27e98]:
+    - generic [ref=f27e528]:
+      - generic:
+        - alertdialog
+      - generic [ref=f27e529]:
+        - toolbar "Commands" [ref=f27e530]:
+          - button " Log activity" [ref=f27e532] [cursor=pointer]:
+            - generic [ref=f27e533]: 
+            - generic [ref=f27e534]: Log activity
+          - button " Edit" [ref=f27e536] [cursor=pointer]:
+            - generic [ref=f27e537]: 
+            - generic [ref=f27e538]: Edit
+          - button " Assign" [ref=f27e540] [cursor=pointer]:
+            - generic [ref=f27e541]: 
+            - generic [ref=f27e542]: Assign
+          - button " Disqualify" [ref=f27e545] [cursor=pointer]:
+            - generic [ref=f27e546]: 
+            - generic [ref=f27e547]: Disqualify
+          - button " Delete" [ref=f27e549] [cursor=pointer]:
+            - generic [ref=f27e550]: 
+            - generic [ref=f27e551]: Delete
+          - button " All leads" [ref=f27e554] [cursor=pointer]:
+            - generic [ref=f27e555]: 
+            - generic [ref=f27e556]: All leads
+        - generic [ref=f27e557]:
+          - generic [ref=f27e558]:
+            - banner [ref=f27e559]:
+              - generic [ref=f27e561]:
+                - generic [ref=f27e562]: Lead · Facebook
+                - heading "LD-2026-00001 New Hot" [level=1] [ref=f27e563]:
+                  - generic [ref=f27e564]: LD-2026-00001
+                  - generic [ref=f27e565]: New
+                  - generic [ref=f27e566]: Hot
+                - generic [ref=f27e567]: Ahmed Khan · E2E_A41 Alpha Traders · Mona Crmadmin
+              - list "Progress" [ref=f27e569]:
+                - listitem [ref=f27e570]:
+                  - generic [ref=f27e571]: New
+                - listitem [ref=f27e572]:
+                  - generic [ref=f27e573]: Contacted
+                - listitem [ref=f27e574]:
+                  - generic [ref=f27e575]: Qualified
+                - listitem [ref=f27e576]:
+                  - generic [ref=f27e577]: Converted
+              - generic [ref=f27e578]:
+                - generic [ref=f27e579]:
+                  - generic [ref=f27e580]: Stage
+                  - generic [ref=f27e581]: New Lead
+                  - generic [ref=f27e582]: 5% win probability
+                - generic [ref=f27e583]:
+                  - generic [ref=f27e584]: Estimate
+                  - generic [ref=f27e585]: —
+                - generic [ref=f27e586]:
+                  - generic [ref=f27e587]: Activities
+                  - generic [ref=f27e588]: "0"
+            - tablist "Tabs" [ref=f27e590]:
+              - tab "Details" [selected] [ref=f27e591] [cursor=pointer]
+              - tab "Topic" [ref=f27e592] [cursor=pointer]
+              - tab "Timeline" [ref=f27e593] [cursor=pointer]
+            - generic [ref=f27e594]:
+              - generic [ref=f27e595]:
+                - generic [ref=f27e596]:
+                  - heading "Contact" [level=2] [ref=f27e598]
+                  - generic [ref=f27e599]:
+                    - generic [ref=f27e600]: Name
+                    - generic [ref=f27e601]: Ahmed Khan
+                    - generic [ref=f27e602]: Title
+                    - generic [ref=f27e603]: —
+                    - generic [ref=f27e604]: Company
+                    - generic [ref=f27e605]: E2E_A41 Alpha Traders
+                    - generic [ref=f27e606]: Email
+                    - link "e2e.a41.ahmed@alpha-traders.example" [ref=f27e608] [cursor=pointer]:
+                      - /url: mailto:e2e.a41.ahmed@alpha-traders.example
+                    - generic [ref=f27e609]: Phone
+                    - generic [ref=f27e610]: —
+                    - generic [ref=f27e611]: Mobile
+                    - generic [ref=f27e612]: "+923001200001"
+                    - generic [ref=f27e613]: Website
+                    - generic [ref=f27e614]: —
+                    - generic [ref=f27e615]: Address
+                    - generic [ref=f27e616]: —
+                  - heading "Linked account" [level=2] [ref=f27e618]
+                  - generic [ref=f27e619]:
+                    - generic [ref=f27e620]: 
+                    - text: Not linked yet — the account is created or linked on conversion.
+                - generic [ref=f27e621]:
+                  - heading "Source" [level=2] [ref=f27e623]
+                  - generic [ref=f27e624]:
+                    - generic [ref=f27e625]: Source
+                    - generic [ref=f27e626]: Facebook
+                    - generic [ref=f27e627]: Campaign
+                    - generic [ref=f27e628]: —
+                    - generic [ref=f27e629]: Medium
+                    - generic [ref=f27e630]: —
+                    - generic [ref=f27e631]: Reference
+                    - generic [ref=f27e632]: —
+                  - heading "Qualification (BANT)" [level=2] [ref=f27e634]
+                  - generic [ref=f27e635]:
+                    - generic [ref=f27e636]: Budget
+                    - generic [ref=f27e637]:
+                      - generic [ref=f27e638]: 
+                      - text: not known
+                    - generic [ref=f27e639]: Authority
+                    - generic [ref=f27e640]:
+                      - generic [ref=f27e641]: 
+                      - text: Not confirmed
+                    - generic [ref=f27e642]: Need
+                    - generic [ref=f27e643]:
+                      - generic [ref=f27e644]: 
+                      - text: Not identified
+                    - generic [ref=f27e645]: Timeline
+                    - generic [ref=f27e646]: —
+                  - heading "Ownership" [level=2] [ref=f27e648]
+                  - generic [ref=f27e649]:
+                    - generic [ref=f27e650]: Assigned
+                    - generic [ref=f27e651]: Mona Crmadmin since 17 Oct 2026
+                    - generic [ref=f27e652]: Team
+                    - generic [ref=f27e653]: —
+                    - generic [ref=f27e654]: Previous owner
+                    - generic [ref=f27e655]: —
+                    - generic [ref=f27e656]: Priority
+                    - generic [ref=f27e657]: Normal
+                    - generic [ref=f27e658]: Created
+                    - generic [ref=f27e659]: 17 Oct 2026, 09:38 by Mona Crmadmin
+              - text:          
+          - generic [ref=f27e660]:
+            - tablist [ref=f27e661]:
+              - tab "Cross-references" [selected] [ref=f27e662] [cursor=pointer]
+              - button "Hide side panel" [ref=f27e663] [cursor=pointer]:
+                - generic [ref=f27e664]: 
+            - generic [ref=f27e665]: Other leads show here once the lead is linked to an account.
+      - dialog "Log activity" [ref=f27e669]:
+        - generic [ref=f27e672]:
+          - generic [ref=f27e673]: Log activity
+          - button [ref=f27e676] [cursor=pointer]
+        - generic [ref=f27e680]:
+          - generic [ref=f27e681]:
+            - generic [ref=f27e682]:
+              - generic [ref=f27e683]: Type *
+              - generic [ref=f27e684] [cursor=pointer]:
+                - combobox "Phone call" [ref=f27e685]
+                - button "dropdown trigger" [ref=f27e686]
+            - generic [ref=f27e690]:
+              - generic [ref=f27e691]: Subject *
+              - textbox "Subject *" [ref=f27e692]: E2E_A41 First call with Ahmed
+            - generic [ref=f27e693]:
+              - generic [ref=f27e694]: Date & time
+              - generic [ref=f27e696]:
+                - combobox "Date & time" [ref=f27e697]: 17 Oct 2026 14:39
+                - button "Choose Date" [ref=f27e698] [cursor=pointer]
+            - generic [ref=f27e702]:
+              - generic [ref=f27e703]: Duration (minutes)
+              - spinbutton "Duration (minutes)" [ref=f27e705]
+            - generic [ref=f27e706]:
+              - generic [ref=f27e707]: Contact
+              - generic:
+                - combobox "No linked contacts yet" [disabled]
+                - button "dropdown trigger"
+            - generic [ref=f27e708]:
+              - generic [ref=f27e709]: Performed by
+              - generic [ref=f27e710] [cursor=pointer]:
+                - combobox [ref=f27e711]
+                - button "dropdown trigger" [ref=f27e712]
+          - generic [ref=f27e716]:
+            - generic [ref=f27e717]: Description / meeting notes
+            - generic [ref=f27e719]:
+              - toolbar "Formatting" [ref=f27e720]:
+                - button "Bold" [ref=f27e721] [cursor=pointer]: B
+                - button "Italic" [ref=f27e722] [cursor=pointer]: I
+                - button "Underline" [ref=f27e723] [cursor=pointer]: U
+                - button "Bullet list" [ref=f27e725] [cursor=pointer]:
+                  - generic [ref=f27e726]: 
+                - button "Numbered list" [ref=f27e727] [cursor=pointer]: "1."
+              - textbox "Notes" [ref=f27e728]:
+                - paragraph [ref=f27e783]: Discussed 2 ACs and 1 oven. Budget approx 500k.
+          - generic [ref=f27e729]:
+            - generic [ref=f27e730]:
+              - generic [ref=f27e731]: Outcome
+              - generic [ref=f27e732] [cursor=pointer]:
+                - combobox "Successful" [active] [ref=f27e811]
+                - button "dropdown trigger" [ref=f27e734]
+            - generic [ref=f27e738]:
+              - generic [ref=f27e739]: Outcome notes
+              - textbox "Outcome notes" [ref=f27e740]
+          - generic [ref=f27e741]:
+            - generic [ref=f27e742]:
+              - strong [ref=f27e743]: Participants
+              - generic [ref=f27e744]:
+                - button " Colleague" [ref=f27e746] [cursor=pointer]:
+                  - generic [ref=f27e747]: 
+                  - generic [ref=f27e748]: Colleague
+                - button " Customer contact" [disabled] [ref=f27e750]:
+                  - generic [ref=f27e751]: 
+                  - generic [ref=f27e752]: Customer contact
+                - button " Outsider" [ref=f27e754] [cursor=pointer]:
+                  - generic [ref=f27e755]: 
+                  - generic [ref=f27e756]: Outsider
+            - generic [ref=f27e757]: Nobody else.
+          - generic [ref=f27e758]:
+            - generic [ref=f27e759]:
+              - strong [ref=f27e760]: Documents
+              - generic [ref=f27e762] [cursor=pointer]:
+                - generic [ref=f27e763]: 
+                - text: Attach files
+                - button " Attach files" [ref=f27e764]
+            - generic [ref=f27e765]: PDFs, images, Office files — 20 MB each.
+          - generic [ref=f27e767]:
+            - checkbox "Schedule a follow-up" [ref=f27e770] [cursor=pointer]
+            - strong [ref=f27e773]: Schedule a follow-up
+        - generic [ref=f27e774]:
+          - button "Cancel" [ref=f27e776] [cursor=pointer]
+          - button " Log activity" [ref=f27e779] [cursor=pointer]:
+            - generic [ref=f27e780]: 
+            - generic [ref=f27e781]: Log activity
+    - generic [ref=f27e191]:
+      - text: All Rights Reserved To
+      - link "Loading" [ref=f27e192] [cursor=pointer]:
+        - /url: https://primeng.org

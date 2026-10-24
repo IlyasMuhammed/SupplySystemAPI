@@ -112,7 +112,7 @@ export function filterLocal(filter: HistoryFilter, sales: LocalOrder[], returns:
         </div>
 
         <!-- detail -->
-        <p-dialog [visible]="!!detail()" (onHide)="detail.set(null)" [modal]="true" [header]="detail()?.orderNumber ?? ''" [style]="{ width: 'min(720px, 96vw)' }">
+        <p-dialog [visible]="!!detail()" (onHide)="detail.set(null)" (visibleChange)="!$event && detail.set(null)" [modal]="true" [header]="detail()?.orderNumber ?? ''" [style]="{ width: 'min(720px, 96vw)' }">
             @if (detail(); as d) {
                 <div class="stack">
                     <div class="pos-kv">
@@ -161,7 +161,7 @@ export function filterLocal(filter: HistoryFilter, sales: LocalOrder[], returns:
         </p-dialog>
 
         <!-- void -->
-        <p-dialog [visible]="voidOpen()" (onHide)="voidOpen.set(false)" [modal]="true" header="Void order" [style]="{ width: 'min(420px, 95vw)' }">
+        <p-dialog [visible]="voidOpen()" (onHide)="voidOpen.set(false)" (visibleChange)="!$event && voidOpen.set(false)" [modal]="true" header="Void order" [style]="{ width: 'min(420px, 95vw)' }">
             <div class="stack">
                 <p class="muted">Voiding reverses the whole sale (stock back, payments refunded).</p>
                 <label class="pos-lbl" for="void-reason">Reason</label>

@@ -1,0 +1,1568 @@
+- generic [ref=f65e4]:
+  - generic [ref=f65e5]:
+    - generic [ref=f65e6]:
+      - button "" [ref=f65e7] [cursor=pointer]
+      - link:
+        - /url: /portal/dashboard
+      - navigation "Breadcrumb" [ref=f65e9]:
+        - generic [ref=f65e10]: Finance
+        - generic [ref=f65e11]: ›
+        - strong [ref=f65e12]: Sales invoices
+    - button " Search anything... Ctrl K" [ref=f65e14] [cursor=pointer]:
+      - generic [ref=f65e15]: 
+      - generic [ref=f65e16]: Search anything...
+      - generic [ref=f65e17]: Ctrl K
+    - generic [ref=f65e18]:
+      - generic [ref=f65e19]:
+        - button "" [ref=f65e20] [cursor=pointer]
+        - generic: "7"
+      - generic [ref=f65e22]:
+        - button "Appearance" [ref=f65e23] [cursor=pointer]:
+          - generic [ref=f65e24]: 
+        - text:    
+      - generic [ref=f65e26]:
+        - button "KP " [ref=f65e27] [cursor=pointer]:
+          - generic [ref=f65e28]: KP
+          - generic [ref=f65e30]: 
+        - text:   
+  - generic [ref=f65e31]:
+    - generic [ref=f65e32]:
+      - generic [ref=f65e33]: 
+      - generic [ref=f65e35]:
+        - generic [ref=f65e36]: SupplyChain MS
+        - generic [ref=f65e37]: KFC Pakistan (KFC)
+    - list [ref=f65e39]:
+      - listitem [ref=f65e40]:
+        - button "Home " [ref=f65e41] [cursor=pointer]:
+          - generic [ref=f65e42]: Home
+          - generic [ref=f65e43]: 
+        - list:
+          - listitem [ref=f65e44]:
+            - link " Dashboard" [ref=f65e45] [cursor=pointer]:
+              - /url: /portal/dashboard
+              - generic [ref=f65e46]: 
+              - generic [ref=f65e47]: Dashboard
+          - listitem [ref=f65e48]:
+            - link " My Inbox" [ref=f65e49] [cursor=pointer]:
+              - /url: /portal/pages/workflow-inbox
+              - generic [ref=f65e50]: 
+              - generic [ref=f65e51]: My Inbox
+          - listitem [ref=f65e52]:
+            - link " KPI Dashboard" [ref=f65e53] [cursor=pointer]:
+              - /url: /portal/pages/reports/kpi-dashboard
+              - generic [ref=f65e54]: 
+              - generic [ref=f65e55]: KPI Dashboard
+      - listitem [ref=f65e56]:
+        - button "Sales " [ref=f65e57] [cursor=pointer]:
+          - generic [ref=f65e58]: Sales
+          - generic [ref=f65e59]: 
+        - list:
+          - listitem [ref=f65e60]:
+            - link " Customers" [ref=f65e61] [cursor=pointer]:
+              - /url: /portal/pages/customers
+              - generic [ref=f65e62]: 
+              - generic [ref=f65e63]: Customers
+          - listitem [ref=f65e64]:
+            - link " Inquiries" [ref=f65e65] [cursor=pointer]:
+              - /url: /portal/pages/sales/inquiries
+              - generic [ref=f65e66]: 
+              - generic [ref=f65e67]: Inquiries
+          - listitem [ref=f65e68]:
+            - link " Customer Quotations" [ref=f65e69] [cursor=pointer]:
+              - /url: /portal/pages/sales/quotations
+              - generic [ref=f65e70]: 
+              - generic [ref=f65e71]: Customer Quotations
+          - listitem [ref=f65e72]:
+            - generic [ref=f65e73] [cursor=pointer]:
+              - generic [ref=f65e74]: 
+              - generic [ref=f65e75]: Sale Orders
+              - generic [ref=f65e76]: 
+            - list:
+              - listitem [ref=f65e77]:
+                - link " All Sale Orders" [ref=f65e78] [cursor=pointer]:
+                  - /url: /portal/pages/sales/orders
+                  - generic [ref=f65e79]: 
+                  - generic [ref=f65e80]: All Sale Orders
+      - listitem [ref=f65e81]:
+        - button "CRM " [ref=f65e82] [cursor=pointer]:
+          - generic [ref=f65e83]: CRM
+          - generic [ref=f65e84]: 
+        - list:
+          - listitem [ref=f65e85]:
+            - link " Leads" [ref=f65e86] [cursor=pointer]:
+              - /url: /portal/pages/crm/leads
+              - generic [ref=f65e87]: 
+              - generic [ref=f65e88]: Leads
+          - listitem [ref=f65e89]:
+            - link " Opportunities" [ref=f65e90] [cursor=pointer]:
+              - /url: /portal/pages/crm/opportunities
+              - generic [ref=f65e91]: 
+              - generic [ref=f65e92]: Opportunities
+          - listitem [ref=f65e93]:
+            - link " Activities" [ref=f65e94] [cursor=pointer]:
+              - /url: /portal/pages/crm/activities
+              - generic [ref=f65e95]: 
+              - generic [ref=f65e96]: Activities
+          - listitem [ref=f65e97]:
+            - link " Campaigns" [ref=f65e98] [cursor=pointer]:
+              - /url: /portal/pages/crm/campaigns
+              - generic [ref=f65e99]: 
+              - generic [ref=f65e100]: Campaigns
+      - listitem [ref=f65e101]:
+        - button "Manufacturing " [ref=f65e102] [cursor=pointer]:
+          - generic [ref=f65e103]: Manufacturing
+          - generic [ref=f65e104]: 
+        - list:
+          - listitem [ref=f65e105]:
+            - generic [ref=f65e106] [cursor=pointer]:
+              - generic [ref=f65e107]: 
+              - generic [ref=f65e108]: Production Orders
+              - generic [ref=f65e109]: 
+            - list:
+              - listitem [ref=f65e110]:
+                - link " New Order" [ref=f65e111] [cursor=pointer]:
+                  - /url: /portal/pages/manufacturing/production-orders/new
+                  - generic [ref=f65e112]: 
+                  - generic [ref=f65e113]: New Order
+              - listitem [ref=f65e114]:
+                - link " All Orders" [ref=f65e115] [cursor=pointer]:
+                  - /url: /portal/pages/manufacturing/production-orders
+                  - generic [ref=f65e116]: 
+                  - generic [ref=f65e117]: All Orders
+              - listitem [ref=f65e118]:
+                - link " Purchase Required" [ref=f65e119] [cursor=pointer]:
+                  - /url: /portal/pages/manufacturing/purchase-required
+                  - generic [ref=f65e120]: 
+                  - generic [ref=f65e121]: Purchase Required
+      - listitem [ref=f65e122]:
+        - button "Services " [ref=f65e123] [cursor=pointer]:
+          - generic [ref=f65e124]: Services
+          - generic [ref=f65e125]: 
+        - list:
+          - listitem [ref=f65e126]:
+            - generic [ref=f65e127] [cursor=pointer]:
+              - generic [ref=f65e128]: 
+              - generic [ref=f65e129]: Service Orders
+              - generic [ref=f65e130]: 
+            - list:
+              - listitem [ref=f65e131]:
+                - link " New Service Order" [ref=f65e132] [cursor=pointer]:
+                  - /url: /portal/pages/services/service-orders/new
+                  - generic [ref=f65e133]: 
+                  - generic [ref=f65e134]: New Service Order
+              - listitem [ref=f65e135]:
+                - link " All Service Orders" [ref=f65e136] [cursor=pointer]:
+                  - /url: /portal/pages/services/service-orders
+                  - generic [ref=f65e137]: 
+                  - generic [ref=f65e138]: All Service Orders
+              - listitem [ref=f65e139]:
+                - link " Dashboard" [ref=f65e140] [cursor=pointer]:
+                  - /url: /portal/pages/services/service-orders/dashboard
+                  - generic [ref=f65e141]: 
+                  - generic [ref=f65e142]: Dashboard
+      - listitem [ref=f65e143]:
+        - button "Point of Sale " [ref=f65e144] [cursor=pointer]:
+          - generic [ref=f65e145]: Point of Sale
+          - generic [ref=f65e146]: 
+        - list:
+          - listitem [ref=f65e147]:
+            - link " Stores" [ref=f65e148] [cursor=pointer]:
+              - /url: /portal/pages/pos/stores
+              - generic [ref=f65e149]: 
+              - generic [ref=f65e150]: Stores
+          - listitem [ref=f65e151]:
+            - link " Shifts" [ref=f65e152] [cursor=pointer]:
+              - /url: /portal/pages/pos/shifts
+              - generic [ref=f65e153]: 
+              - generic [ref=f65e154]: Shifts
+          - listitem [ref=f65e155]:
+            - link " POS Orders" [ref=f65e156] [cursor=pointer]:
+              - /url: /portal/pages/pos/orders
+              - generic [ref=f65e157]: 
+              - generic [ref=f65e158]: POS Orders
+          - listitem [ref=f65e159]:
+            - link " Store credit" [ref=f65e160] [cursor=pointer]:
+              - /url: /portal/pages/pos/credit-notes
+              - generic [ref=f65e161]: 
+              - generic [ref=f65e162]: Store credit
+          - listitem [ref=f65e163]:
+            - link " Return reasons" [ref=f65e164] [cursor=pointer]:
+              - /url: /portal/pages/pos/return-reasons
+              - generic [ref=f65e165]: 
+              - generic [ref=f65e166]: Return reasons
+          - listitem [ref=f65e167]:
+            - link " Return policy" [ref=f65e168] [cursor=pointer]:
+              - /url: /portal/pages/pos/return-policy
+              - generic [ref=f65e169]: 
+              - generic [ref=f65e170]: Return policy
+          - listitem [ref=f65e171]:
+            - link " Open POS" [ref=f65e172] [cursor=pointer]:
+              - /url: /pos
+              - generic [ref=f65e173]: 
+              - generic [ref=f65e174]: Open POS
+      - listitem [ref=f65e175]:
+        - button "Procurement " [ref=f65e176] [cursor=pointer]:
+          - generic [ref=f65e177]: Procurement
+          - generic [ref=f65e178]: 
+        - list:
+          - listitem [ref=f65e179]:
+            - generic [ref=f65e180] [cursor=pointer]:
+              - generic [ref=f65e181]: 
+              - generic [ref=f65e182]: Requisitions
+              - generic [ref=f65e183]: 
+            - list:
+              - listitem [ref=f65e184]:
+                - link " New Requisition" [ref=f65e185] [cursor=pointer]:
+                  - /url: /portal/pages/demand/requisitions/create
+                  - generic [ref=f65e186]: 
+                  - generic [ref=f65e187]: New Requisition
+              - listitem [ref=f65e188]:
+                - link " All Requisitions" [ref=f65e189] [cursor=pointer]:
+                  - /url: /portal/pages/demand/requisitions
+                  - generic [ref=f65e190]: 
+                  - generic [ref=f65e191]: All Requisitions
+          - listitem [ref=f65e192]:
+            - generic [ref=f65e193] [cursor=pointer]:
+              - generic [ref=f65e194]: 
+              - generic [ref=f65e195]: Supplier Quotes (RFQ)
+              - generic [ref=f65e196]: 
+            - list:
+              - listitem [ref=f65e197]:
+                - link " New RFQ" [ref=f65e198] [cursor=pointer]:
+                  - /url: /portal/pages/demand/quotations/create
+                  - generic [ref=f65e199]: 
+                  - generic [ref=f65e200]: New RFQ
+              - listitem [ref=f65e201]:
+                - link " All Supplier Quotes" [ref=f65e202] [cursor=pointer]:
+                  - /url: /portal/pages/demand/quotations
+                  - generic [ref=f65e203]: 
+                  - generic [ref=f65e204]: All Supplier Quotes
+          - listitem [ref=f65e205]:
+            - generic [ref=f65e206] [cursor=pointer]:
+              - generic [ref=f65e207]: 
+              - generic [ref=f65e208]: Purchase Orders
+              - generic [ref=f65e209]: 
+            - list:
+              - listitem [ref=f65e210]:
+                - link " New Purchase Order" [ref=f65e211] [cursor=pointer]:
+                  - /url: /portal/pages/demand/purchase-orders/create
+                  - generic [ref=f65e212]: 
+                  - generic [ref=f65e213]: New Purchase Order
+              - listitem [ref=f65e214]:
+                - link " All Purchase Orders" [ref=f65e215] [cursor=pointer]:
+                  - /url: /portal/pages/demand/purchase-orders
+                  - generic [ref=f65e216]: 
+                  - generic [ref=f65e217]: All Purchase Orders
+          - listitem [ref=f65e218]:
+            - link " Supplier Pricelists" [ref=f65e219] [cursor=pointer]:
+              - /url: /portal/pages/demand/supplier-pricelists
+              - generic [ref=f65e220]: 
+              - generic [ref=f65e221]: Supplier Pricelists
+          - listitem [ref=f65e222]:
+            - generic [ref=f65e223] [cursor=pointer]:
+              - generic [ref=f65e224]: 
+              - generic [ref=f65e225]: Suppliers
+              - generic [ref=f65e226]: 
+            - list:
+              - listitem [ref=f65e227]:
+                - link " New Supplier" [ref=f65e228] [cursor=pointer]:
+                  - /url: /portal/pages/suppliers/supplier-create
+                  - generic [ref=f65e229]: 
+                  - generic [ref=f65e230]: New Supplier
+              - listitem [ref=f65e231]:
+                - link " All Suppliers" [ref=f65e232] [cursor=pointer]:
+                  - /url: /portal/pages/suppliers/supplier-list
+                  - generic [ref=f65e233]: 
+                  - generic [ref=f65e234]: All Suppliers
+              - listitem [ref=f65e235]:
+                - link " Supplier Scorecard" [ref=f65e236] [cursor=pointer]:
+                  - /url: /portal/pages/suppliers/supplier-scorecard
+                  - generic [ref=f65e237]: 
+                  - generic [ref=f65e238]: Supplier Scorecard
+              - listitem [ref=f65e239]:
+                - link " Supplier Price Lists" [ref=f65e240] [cursor=pointer]:
+                  - /url: /portal/pages/suppliers/rate-cards
+                  - generic [ref=f65e241]: 
+                  - generic [ref=f65e242]: Supplier Price Lists
+              - listitem [ref=f65e243]:
+                - link " New Business Partner" [ref=f65e244] [cursor=pointer]:
+                  - /url: /portal/pages/suppliers/partner-create
+                  - generic [ref=f65e245]: 
+                  - generic [ref=f65e246]: New Business Partner
+              - listitem [ref=f65e247]:
+                - link " Business Partners" [ref=f65e248] [cursor=pointer]:
+                  - /url: /portal/pages/suppliers/partner-list
+                  - generic [ref=f65e249]: 
+                  - generic [ref=f65e250]: Business Partners
+      - listitem [ref=f65e251]:
+        - button "Warehouse & Inventory " [ref=f65e252] [cursor=pointer]:
+          - generic [ref=f65e253]: Warehouse & Inventory
+          - generic [ref=f65e254]: 
+        - list:
+          - listitem [ref=f65e255]:
+            - generic [ref=f65e256] [cursor=pointer]:
+              - generic [ref=f65e257]: 
+              - generic [ref=f65e258]: Products
+              - generic [ref=f65e259]: 
+            - list:
+              - listitem [ref=f65e260]:
+                - link " New Product" [ref=f65e261] [cursor=pointer]:
+                  - /url: /portal/pages/inventory/products/new
+                  - generic [ref=f65e262]: 
+                  - generic [ref=f65e263]: New Product
+              - listitem [ref=f65e264]:
+                - link " All Products" [ref=f65e265] [cursor=pointer]:
+                  - /url: /portal/pages/inventory/products
+                  - generic [ref=f65e266]: 
+                  - generic [ref=f65e267]: All Products
+              - listitem [ref=f65e268]:
+                - link " Categories" [ref=f65e269] [cursor=pointer]:
+                  - /url: /portal/pages/inventory/categories
+                  - generic [ref=f65e270]: 
+                  - generic [ref=f65e271]: Categories
+              - listitem [ref=f65e272]:
+                - link " Sub-Categories" [ref=f65e273] [cursor=pointer]:
+                  - /url: /portal/pages/inventory/sub-categories
+                  - generic [ref=f65e274]: 
+                  - generic [ref=f65e275]: Sub-Categories
+          - listitem [ref=f65e276]:
+            - generic [ref=f65e277] [cursor=pointer]:
+              - generic [ref=f65e278]: 
+              - generic [ref=f65e279]: Allocations
+              - generic [ref=f65e280]: 
+            - list:
+              - listitem [ref=f65e281]:
+                - link " Allocation Dashboard" [ref=f65e282] [cursor=pointer]:
+                  - /url: /portal/pages/inventory/allocations
+                  - generic [ref=f65e283]: 
+                  - generic [ref=f65e284]: Allocation Dashboard
+          - listitem [ref=f65e285]:
+            - generic [ref=f65e286] [cursor=pointer]:
+              - generic [ref=f65e287]: 
+              - generic [ref=f65e288]: Warehouses
+              - generic [ref=f65e289]: 
+            - list:
+              - listitem [ref=f65e290]:
+                - link " New Warehouse" [ref=f65e291] [cursor=pointer]:
+                  - /url: /portal/pages/inventory/warehouses?action=create
+                  - generic [ref=f65e292]: 
+                  - generic [ref=f65e293]: New Warehouse
+              - listitem [ref=f65e294]:
+                - link " All Warehouses" [ref=f65e295] [cursor=pointer]:
+                  - /url: /portal/pages/inventory/warehouses
+                  - generic [ref=f65e296]: 
+                  - generic [ref=f65e297]: All Warehouses
+          - listitem [ref=f65e298]:
+            - generic [ref=f65e299] [cursor=pointer]:
+              - generic [ref=f65e300]: 
+              - generic [ref=f65e301]: Goods Receipts
+              - generic [ref=f65e302]: 
+            - list:
+              - listitem [ref=f65e303]:
+                - link " New GRN" [ref=f65e304] [cursor=pointer]:
+                  - /url: /portal/pages/warehouse/grn/create
+                  - generic [ref=f65e305]: 
+                  - generic [ref=f65e306]: New GRN
+              - listitem [ref=f65e307]:
+                - link " All GRNs" [ref=f65e308] [cursor=pointer]:
+                  - /url: /portal/pages/warehouse/grn
+                  - generic [ref=f65e309]: 
+                  - generic [ref=f65e310]: All GRNs
+          - listitem [ref=f65e311]:
+            - generic [ref=f65e312] [cursor=pointer]:
+              - generic [ref=f65e313]: 
+              - generic [ref=f65e314]: Supplier Returns
+              - generic [ref=f65e315]: 
+            - list:
+              - listitem [ref=f65e316]:
+                - link " New Return Order" [ref=f65e317] [cursor=pointer]:
+                  - /url: /portal/pages/warehouse/sro/create
+                  - generic [ref=f65e318]: 
+                  - generic [ref=f65e319]: New Return Order
+              - listitem [ref=f65e320]:
+                - link " All Return Orders" [ref=f65e321] [cursor=pointer]:
+                  - /url: /portal/pages/warehouse/sro
+                  - generic [ref=f65e322]: 
+                  - generic [ref=f65e323]: All Return Orders
+          - listitem [ref=f65e324]:
+            - link " Stock Adjustments" [ref=f65e325] [cursor=pointer]:
+              - /url: /portal/pages/inventory/stock-adjustments
+              - generic [ref=f65e326]: 
+              - generic [ref=f65e327]: Stock Adjustments
+          - listitem [ref=f65e328]:
+            - link " Reorder Alerts" [ref=f65e329] [cursor=pointer]:
+              - /url: /portal/pages/inventory/reorder-alerts
+              - generic [ref=f65e330]: 
+              - generic [ref=f65e331]: Reorder Alerts
+      - listitem [ref=f65e332]:
+        - button "Material Management " [ref=f65e333] [cursor=pointer]:
+          - generic [ref=f65e334]: Material Management
+          - generic [ref=f65e335]: 
+        - list:
+          - listitem [ref=f65e336]:
+            - generic [ref=f65e337] [cursor=pointer]:
+              - generic [ref=f65e338]: 
+              - generic [ref=f65e339]: Projects
+              - generic [ref=f65e340]: 
+            - list:
+              - listitem [ref=f65e341]:
+                - link " New Project" [ref=f65e342] [cursor=pointer]:
+                  - /url: /portal/pages/material/projects/new
+                  - generic [ref=f65e343]: 
+                  - generic [ref=f65e344]: New Project
+              - listitem [ref=f65e345]:
+                - link " All Projects" [ref=f65e346] [cursor=pointer]:
+                  - /url: /portal/pages/material/projects
+                  - generic [ref=f65e347]: 
+                  - generic [ref=f65e348]: All Projects
+          - listitem [ref=f65e349]:
+            - generic [ref=f65e350] [cursor=pointer]:
+              - generic [ref=f65e351]: 
+              - generic [ref=f65e352]: Issue Requests (MIR)
+              - generic [ref=f65e353]: 
+            - list:
+              - listitem [ref=f65e354]:
+                - link " New MIR" [ref=f65e355] [cursor=pointer]:
+                  - /url: /portal/pages/material/mir/create
+                  - generic [ref=f65e356]: 
+                  - generic [ref=f65e357]: New MIR
+              - listitem [ref=f65e358]:
+                - link " All MIRs" [ref=f65e359] [cursor=pointer]:
+                  - /url: /portal/pages/material/mir
+                  - generic [ref=f65e360]: 
+                  - generic [ref=f65e361]: All MIRs
+          - listitem [ref=f65e362]:
+            - generic [ref=f65e363] [cursor=pointer]:
+              - generic [ref=f65e364]: 
+              - generic [ref=f65e365]: Issue Vouchers (MIV)
+              - generic [ref=f65e366]: 
+            - list:
+              - listitem [ref=f65e367]:
+                - link " All MIVs" [ref=f65e368] [cursor=pointer]:
+                  - /url: /portal/pages/material/miv
+                  - generic [ref=f65e369]: 
+                  - generic [ref=f65e370]: All MIVs
+          - listitem [ref=f65e371]:
+            - link " Material Returns" [ref=f65e372] [cursor=pointer]:
+              - /url: /portal/pages/material/returns
+              - generic [ref=f65e373]: 
+              - generic [ref=f65e374]: Material Returns
+          - listitem [ref=f65e375]:
+            - link " Wastage Records" [ref=f65e376] [cursor=pointer]:
+              - /url: /portal/pages/material/wastage
+              - generic [ref=f65e377]: 
+              - generic [ref=f65e378]: Wastage Records
+      - listitem [ref=f65e379]:
+        - button "Logistics " [ref=f65e380] [cursor=pointer]:
+          - generic [ref=f65e381]: Logistics
+          - generic [ref=f65e382]: 
+        - list:
+          - listitem [ref=f65e383]:
+            - generic [ref=f65e384] [cursor=pointer]:
+              - generic [ref=f65e385]: 
+              - generic [ref=f65e386]: Deliveries
+              - generic [ref=f65e387]: 
+            - list:
+              - listitem [ref=f65e388]:
+                - link " New Delivery" [ref=f65e389] [cursor=pointer]:
+                  - /url: /portal/pages/logistics/deliveries/create
+                  - generic [ref=f65e390]: 
+                  - generic [ref=f65e391]: New Delivery
+              - listitem [ref=f65e392]:
+                - link " All Deliveries" [ref=f65e393] [cursor=pointer]:
+                  - /url: /portal/pages/logistics/deliveries
+                  - generic [ref=f65e394]: 
+                  - generic [ref=f65e395]: All Deliveries
+              - listitem [ref=f65e396]:
+                - link " Picking" [ref=f65e397] [cursor=pointer]:
+                  - /url: /portal/pages/logistics/picking
+                  - generic [ref=f65e398]: 
+                  - generic [ref=f65e399]: Picking
+          - listitem [ref=f65e400]:
+            - generic [ref=f65e401] [cursor=pointer]:
+              - generic [ref=f65e402]: 
+              - generic [ref=f65e403]: Tracking
+              - generic [ref=f65e404]: 
+            - list:
+              - listitem [ref=f65e405]:
+                - link " Exception Queue" [ref=f65e406] [cursor=pointer]:
+                  - /url: /portal/pages/logistics/exceptions
+                  - generic [ref=f65e407]: 
+                  - generic [ref=f65e408]: Exception Queue
+              - listitem [ref=f65e409]:
+                - link " Proof of Delivery" [ref=f65e410] [cursor=pointer]:
+                  - /url: /portal/pages/logistics/proof-of-delivery
+                  - generic [ref=f65e411]: 
+                  - generic [ref=f65e412]: Proof of Delivery
+              - listitem [ref=f65e413]:
+                - link " Carrier Scorecard" [ref=f65e414] [cursor=pointer]:
+                  - /url: /portal/pages/logistics/carrier-scorecard
+                  - generic [ref=f65e415]: 
+                  - generic [ref=f65e416]: Carrier Scorecard
+          - listitem [ref=f65e417]:
+            - generic [ref=f65e418] [cursor=pointer]:
+              - generic [ref=f65e419]: 
+              - generic [ref=f65e420]: Carriers
+              - generic [ref=f65e421]: 
+            - list:
+              - listitem [ref=f65e422]:
+                - link " New Carrier" [ref=f65e423] [cursor=pointer]:
+                  - /url: /portal/pages/logistics/carriers/create
+                  - generic [ref=f65e424]: 
+                  - generic [ref=f65e425]: New Carrier
+              - listitem [ref=f65e426]:
+                - link " All Carriers" [ref=f65e427] [cursor=pointer]:
+                  - /url: /portal/pages/logistics/carriers
+                  - generic [ref=f65e428]: 
+                  - generic [ref=f65e429]: All Carriers
+              - listitem [ref=f65e430]:
+                - link " Shipping Rules" [ref=f65e431] [cursor=pointer]:
+                  - /url: /portal/pages/logistics/shipping-rules
+                  - generic [ref=f65e432]: 
+                  - generic [ref=f65e433]: Shipping Rules
+          - listitem [ref=f65e434]:
+            - generic [ref=f65e435] [cursor=pointer]:
+              - generic [ref=f65e436]: 
+              - generic [ref=f65e437]: Freight Settlement
+              - generic [ref=f65e438]: 
+            - list:
+              - listitem [ref=f65e439]:
+                - link " Carrier Invoices" [ref=f65e440] [cursor=pointer]:
+                  - /url: /portal/pages/logistics/settlement/carrier-invoices
+                  - generic [ref=f65e441]: 
+                  - generic [ref=f65e442]: Carrier Invoices
+              - listitem [ref=f65e443]:
+                - link " Match Queue" [ref=f65e444] [cursor=pointer]:
+                  - /url: /portal/pages/logistics/settlement/match-queue
+                  - generic [ref=f65e445]: 
+                  - generic [ref=f65e446]: Match Queue
+              - listitem [ref=f65e447]:
+                - link " COD Reconciliation" [ref=f65e448] [cursor=pointer]:
+                  - /url: /portal/pages/logistics/settlement/cod
+                  - generic [ref=f65e449]: 
+                  - generic [ref=f65e450]: COD Reconciliation
+              - listitem [ref=f65e451]:
+                - link " Freight Accruals" [ref=f65e452] [cursor=pointer]:
+                  - /url: /portal/pages/logistics/settlement/freight-accruals
+                  - generic [ref=f65e453]: 
+                  - generic [ref=f65e454]: Freight Accruals
+          - listitem [ref=f65e455]:
+            - link " Shipments (Legacy)" [ref=f65e456] [cursor=pointer]:
+              - /url: /portal/pages/logistics/shipments
+              - generic [ref=f65e457]: 
+              - generic [ref=f65e458]: Shipments (Legacy)
+      - listitem [ref=f65e459]:
+        - button "Finance " [expanded] [ref=f65e460] [cursor=pointer]:
+          - generic [ref=f65e461]: Finance
+          - generic [ref=f65e462]: 
+        - list [ref=f65e463]:
+          - listitem [ref=f65e464]:
+            - generic [ref=f65e465] [cursor=pointer]:
+              - generic [ref=f65e466]: Invoices
+              - generic [ref=f65e467]: 
+            - list:
+              - listitem [ref=f65e468]:
+                - link " New Invoice" [ref=f65e469] [cursor=pointer]:
+                  - /url: /portal/pages/finance/invoices/create
+                  - generic [ref=f65e470]: 
+                  - generic [ref=f65e471]: New Invoice
+              - listitem [ref=f65e472]:
+                - link " All Invoices" [ref=f65e473] [cursor=pointer]:
+                  - /url: /portal/pages/finance/invoices
+                  - generic [ref=f65e474]: 
+                  - generic [ref=f65e475]: All Invoices
+          - listitem [ref=f65e476]:
+            - generic [ref=f65e477] [cursor=pointer]:
+              - generic [ref=f65e478]: 
+              - generic [ref=f65e479]: Payments
+              - generic [ref=f65e480]: 
+            - list:
+              - listitem [ref=f65e481]:
+                - link " Record Payment" [ref=f65e482] [cursor=pointer]:
+                  - /url: /portal/pages/finance/payments/create
+                  - generic [ref=f65e483]: 
+                  - generic [ref=f65e484]: Record Payment
+              - listitem [ref=f65e485]:
+                - link " All Payments" [ref=f65e486] [cursor=pointer]:
+                  - /url: /portal/pages/finance/payments
+                  - generic [ref=f65e487]: 
+                  - generic [ref=f65e488]: All Payments
+          - listitem [ref=f65e489]:
+            - link " Sales Invoices" [ref=f65e490] [cursor=pointer]:
+              - /url: /portal/pages/finance/sales-invoices
+              - generic [ref=f65e491]: 
+              - generic [ref=f65e492]: Sales Invoices
+          - listitem [ref=f65e493]:
+            - generic [ref=f65e494] [cursor=pointer]:
+              - generic [ref=f65e495]: 
+              - generic [ref=f65e496]: Customer Payments
+              - generic [ref=f65e497]: 
+            - list:
+              - listitem [ref=f65e498]:
+                - link " Record Payment" [ref=f65e499] [cursor=pointer]:
+                  - /url: /portal/pages/finance/customer-payments/new
+                  - generic [ref=f65e500]: 
+                  - generic [ref=f65e501]: Record Payment
+              - listitem [ref=f65e502]:
+                - link " All Customer Payments" [ref=f65e503] [cursor=pointer]:
+                  - /url: /portal/pages/finance/customer-payments
+                  - generic [ref=f65e504]: 
+                  - generic [ref=f65e505]: All Customer Payments
+          - listitem [ref=f65e506]:
+            - generic [ref=f65e507] [cursor=pointer]:
+              - generic [ref=f65e508]: 
+              - generic [ref=f65e509]: General Ledger
+              - generic [ref=f65e510]: 
+            - list:
+              - listitem [ref=f65e511]:
+                - link " Set up general ledger" [ref=f65e512] [cursor=pointer]:
+                  - /url: /portal/pages/finance/gl/setup
+                  - generic [ref=f65e513]: 
+                  - generic [ref=f65e514]: Set up general ledger
+              - listitem [ref=f65e515]:
+                - link " Chart of Accounts" [ref=f65e516] [cursor=pointer]:
+                  - /url: /portal/pages/finance/gl/accounts
+                  - generic [ref=f65e517]: 
+                  - generic [ref=f65e518]: Chart of Accounts
+              - listitem [ref=f65e519]:
+                - link " Fiscal Years" [ref=f65e520] [cursor=pointer]:
+                  - /url: /portal/pages/finance/gl/fiscal-years
+                  - generic [ref=f65e521]: 
+                  - generic [ref=f65e522]: Fiscal Years
+              - listitem [ref=f65e523]:
+                - link " Defaults" [ref=f65e524] [cursor=pointer]:
+                  - /url: /portal/pages/finance/gl/defaults
+                  - generic [ref=f65e525]: 
+                  - generic [ref=f65e526]: Defaults
+              - listitem [ref=f65e527]:
+                - link " Opening Balances" [ref=f65e528] [cursor=pointer]:
+                  - /url: /portal/pages/finance/gl/opening-balances
+                  - generic [ref=f65e529]: 
+                  - generic [ref=f65e530]: Opening Balances
+              - listitem [ref=f65e531]:
+                - link " Integrations" [ref=f65e532] [cursor=pointer]:
+                  - /url: /portal/pages/finance/gl/integrations
+                  - generic [ref=f65e533]: 
+                  - generic [ref=f65e534]: Integrations
+              - listitem [ref=f65e535]:
+                - link " Posting" [ref=f65e536] [cursor=pointer]:
+                  - /url: /portal/pages/finance/gl/posting
+                  - generic [ref=f65e537]: 
+                  - generic [ref=f65e538]: Posting
+              - listitem [ref=f65e539]:
+                - link " Setup Status" [ref=f65e540] [cursor=pointer]:
+                  - /url: /portal/pages/finance/gl/setup-status
+                  - generic [ref=f65e541]: 
+                  - generic [ref=f65e542]: Setup Status
+      - listitem [ref=f65e543]:
+        - button "Reports & Analytics " [ref=f65e544] [cursor=pointer]:
+          - generic [ref=f65e545]: Reports & Analytics
+          - generic [ref=f65e546]: 
+        - list:
+          - listitem [ref=f65e547]:
+            - generic [ref=f65e548] [cursor=pointer]:
+              - generic [ref=f65e549]: 
+              - generic [ref=f65e550]: Sales
+              - generic [ref=f65e551]: 
+            - list:
+              - listitem [ref=f65e552]:
+                - link " Sales Reports" [ref=f65e553] [cursor=pointer]:
+                  - /url: /portal/pages/reports/sales-reports
+                  - generic [ref=f65e554]: 
+                  - generic [ref=f65e555]: Sales Reports
+          - listitem [ref=f65e556]:
+            - generic [ref=f65e557] [cursor=pointer]:
+              - generic [ref=f65e558]: 
+              - generic [ref=f65e559]: Manufacturing
+              - generic [ref=f65e560]: 
+            - list:
+              - listitem [ref=f65e561]:
+                - link " Manufacturing Reports" [ref=f65e562] [cursor=pointer]:
+                  - /url: /portal/pages/reports/manufacturing
+                  - generic [ref=f65e563]: 
+                  - generic [ref=f65e564]: Manufacturing Reports
+          - listitem [ref=f65e565]:
+            - generic [ref=f65e566] [cursor=pointer]:
+              - generic [ref=f65e567]: 
+              - generic [ref=f65e568]: Procurement
+              - generic [ref=f65e569]: 
+            - list:
+              - listitem [ref=f65e570]:
+                - link " Supplier Performance" [ref=f65e571] [cursor=pointer]:
+                  - /url: /portal/pages/reports/supplier-performance
+                  - generic [ref=f65e572]: 
+                  - generic [ref=f65e573]: Supplier Performance
+              - listitem [ref=f65e574]:
+                - link " PO Summary & Spend" [ref=f65e575] [cursor=pointer]:
+                  - /url: /portal/pages/reports/po-reports
+                  - generic [ref=f65e576]: 
+                  - generic [ref=f65e577]: PO Summary & Spend
+              - listitem [ref=f65e578]:
+                - link " Approval Backlog (All)" [ref=f65e579] [cursor=pointer]:
+                  - /url: /portal/pages/reports/pending-approvals
+                  - generic [ref=f65e580]: 
+                  - generic [ref=f65e581]: Approval Backlog (All)
+          - listitem [ref=f65e582]:
+            - generic [ref=f65e583] [cursor=pointer]:
+              - generic [ref=f65e584]: 
+              - generic [ref=f65e585]: Inventory & Warehouse
+              - generic [ref=f65e586]: 
+            - list:
+              - listitem [ref=f65e587]:
+                - link " Stock Levels & Valuation" [ref=f65e588] [cursor=pointer]:
+                  - /url: /portal/pages/reports/inventory-reports
+                  - generic [ref=f65e589]: 
+                  - generic [ref=f65e590]: Stock Levels & Valuation
+              - listitem [ref=f65e591]:
+                - link " Stock Movement / Ledger" [ref=f65e592] [cursor=pointer]:
+                  - /url: /portal/pages/reports/stock-reports
+                  - generic [ref=f65e593]: 
+                  - generic [ref=f65e594]: Stock Movement / Ledger
+              - listitem [ref=f65e595]:
+                - link " Master Product Ledger" [ref=f65e596] [cursor=pointer]:
+                  - /url: /portal/pages/inventory/master-product-ledger
+                  - generic [ref=f65e597]: 
+                  - generic [ref=f65e598]: Master Product Ledger
+              - listitem [ref=f65e599]:
+                - link "GRN Variance" [ref=f65e600] [cursor=pointer]:
+                  - /url: /portal/pages/reports/grn-variance
+          - listitem [ref=f65e602]:
+            - generic [ref=f65e603] [cursor=pointer]:
+              - generic [ref=f65e604]: 
+              - generic [ref=f65e605]: Material
+              - generic [ref=f65e606]: 
+            - list:
+              - listitem [ref=f65e607]:
+                - link " Issue Register" [ref=f65e608] [cursor=pointer]:
+                  - /url: /portal/pages/reports/material-issue-register
+                  - generic [ref=f65e609]: 
+                  - generic [ref=f65e610]: Issue Register
+              - listitem [ref=f65e611]:
+                - link " Consumption (Detail)" [ref=f65e612] [cursor=pointer]:
+                  - /url: /portal/pages/material/consumption-register
+                  - generic [ref=f65e613]: 
+                  - generic [ref=f65e614]: Consumption (Detail)
+              - listitem [ref=f65e615]:
+                - link " Consumption (Summary)" [ref=f65e616] [cursor=pointer]:
+                  - /url: /portal/pages/reports/material-consumption-reports
+                  - generic [ref=f65e617]: 
+                  - generic [ref=f65e618]: Consumption (Summary)
+              - listitem [ref=f65e619]:
+                - link " Returns / Wastage / Reserved" [ref=f65e620] [cursor=pointer]:
+                  - /url: /portal/pages/reports/material-ops-reports
+                  - generic [ref=f65e621]: 
+                  - generic [ref=f65e622]: Returns / Wastage / Reserved
+              - listitem [ref=f65e623]:
+                - link " Batch / Serial Trace" [ref=f65e624] [cursor=pointer]:
+                  - /url: /portal/pages/material/batch-serial/trace
+                  - generic [ref=f65e625]: 
+                  - generic [ref=f65e626]: Batch / Serial Trace
+              - listitem [ref=f65e627]:
+                - link " Department Cost Ledger" [ref=f65e628] [cursor=pointer]:
+                  - /url: /portal/pages/material/cost-ledger/departments
+                  - generic [ref=f65e629]: 
+                  - generic [ref=f65e630]: Department Cost Ledger
+          - listitem [ref=f65e631]:
+            - generic [ref=f65e632] [cursor=pointer]:
+              - generic [ref=f65e633]: 
+              - generic [ref=f65e634]: Finance
+              - generic [ref=f65e635]: 
+            - list:
+              - listitem [ref=f65e636]:
+                - link "Invoice Aging & Payments" [ref=f65e637] [cursor=pointer]:
+                  - /url: /portal/pages/reports/finance-reports
+              - listitem [ref=f65e639]:
+                - link " Master Payables Ledger" [ref=f65e640] [cursor=pointer]:
+                  - /url: /portal/pages/finance/master-ledger
+                  - generic [ref=f65e641]: 
+                  - generic [ref=f65e642]: Master Payables Ledger
+              - listitem [ref=f65e643]:
+                - link " Customer Ledger" [ref=f65e644] [cursor=pointer]:
+                  - /url: /portal/pages/finance/customer-ledger
+                  - generic [ref=f65e645]: 
+                  - generic [ref=f65e646]: Customer Ledger
+              - listitem [ref=f65e647]:
+                - link " Exchange Differences" [ref=f65e648] [cursor=pointer]:
+                  - /url: /portal/pages/finance/exchange-differences
+                  - generic [ref=f65e649]: 
+                  - generic [ref=f65e650]: Exchange Differences
+          - listitem [ref=f65e651]:
+            - generic [ref=f65e652] [cursor=pointer]:
+              - generic [ref=f65e653]: 
+              - generic [ref=f65e654]: Audit & Compliance
+              - generic [ref=f65e655]: 
+            - list:
+              - listitem [ref=f65e656]:
+                - link " Audit Trail" [ref=f65e657] [cursor=pointer]:
+                  - /url: /portal/pages/reports/audit-trail
+                  - generic [ref=f65e658]: 
+                  - generic [ref=f65e659]: Audit Trail
+              - listitem [ref=f65e660]:
+                - link " User Activity" [ref=f65e661] [cursor=pointer]:
+                  - /url: /portal/pages/reports/user-activity
+                  - generic [ref=f65e662]: 
+                  - generic [ref=f65e663]: User Activity
+      - listitem [ref=f65e664]:
+        - button "Administration " [ref=f65e665] [cursor=pointer]:
+          - generic [ref=f65e666]: Administration
+          - generic [ref=f65e667]: 
+        - list:
+          - listitem [ref=f65e668]:
+            - generic [ref=f65e669] [cursor=pointer]:
+              - generic [ref=f65e670]: 
+              - generic [ref=f65e671]: Users & Access
+              - generic [ref=f65e672]: 
+            - list:
+              - listitem [ref=f65e673]:
+                - link " Users" [ref=f65e674] [cursor=pointer]:
+                  - /url: /portal/pages/users
+                  - generic [ref=f65e675]: 
+                  - generic [ref=f65e676]: Users
+              - listitem [ref=f65e677]:
+                - link " Roles" [ref=f65e678] [cursor=pointer]:
+                  - /url: /portal/pages/admin/roles
+                  - generic [ref=f65e679]: 
+                  - generic [ref=f65e680]: Roles
+          - listitem [ref=f65e681]:
+            - generic [ref=f65e682] [cursor=pointer]:
+              - generic [ref=f65e683]: 
+              - generic [ref=f65e684]: Master Data
+              - generic [ref=f65e685]: 
+            - list:
+              - listitem [ref=f65e686]:
+                - link " Countries" [ref=f65e687] [cursor=pointer]:
+                  - /url: /portal/pages/countries
+                  - generic [ref=f65e688]: 
+                  - generic [ref=f65e689]: Countries
+              - listitem [ref=f65e690]:
+                - link " Cities" [ref=f65e691] [cursor=pointer]:
+                  - /url: /portal/pages/cities/cities-list
+                  - generic [ref=f65e692]: 
+                  - generic [ref=f65e693]: Cities
+          - listitem [ref=f65e694]:
+            - generic [ref=f65e695] [cursor=pointer]:
+              - generic [ref=f65e696]: 
+              - generic [ref=f65e697]: Settings
+              - generic [ref=f65e698]: 
+            - list:
+              - listitem [ref=f65e699]:
+                - generic [ref=f65e700] [cursor=pointer]:
+                  - generic [ref=f65e701]: 
+                  - generic [ref=f65e702]: Sales & Fulfilment
+                  - generic [ref=f65e703]: 
+                - list:
+                  - listitem [ref=f65e704]:
+                    - link " Sale Order Settings" [ref=f65e705] [cursor=pointer]:
+                      - /url: /portal/pages/sale-order-settings
+                      - generic [ref=f65e706]: 
+                      - generic [ref=f65e707]: Sale Order Settings
+                  - listitem [ref=f65e708]:
+                    - link " Fulfillment Routes" [ref=f65e709] [cursor=pointer]:
+                      - /url: /portal/pages/logistics/fulfillment-routes
+                      - generic [ref=f65e710]: 
+                      - generic [ref=f65e711]: Fulfillment Routes
+                  - listitem [ref=f65e712]:
+                    - link " Lead Time Defaults" [ref=f65e713] [cursor=pointer]:
+                      - /url: /portal/pages/lead-time-defaults
+                      - generic [ref=f65e714]: 
+                      - generic [ref=f65e715]: Lead Time Defaults
+                  - listitem [ref=f65e716]:
+                    - link " Rejection Reasons" [ref=f65e717] [cursor=pointer]:
+                      - /url: /portal/pages/sales/rejection-reasons
+                      - generic [ref=f65e718]: 
+                      - generic [ref=f65e719]: Rejection Reasons
+                  - listitem [ref=f65e720]:
+                    - link " CRM Settings" [ref=f65e721] [cursor=pointer]:
+                      - /url: /portal/pages/crm/settings
+                      - generic [ref=f65e722]: 
+                      - generic [ref=f65e723]: CRM Settings
+              - listitem [ref=f65e724]:
+                - generic [ref=f65e725] [cursor=pointer]:
+                  - generic [ref=f65e726]: 
+                  - generic [ref=f65e727]: Finance Setup
+                  - generic [ref=f65e728]: 
+                - list:
+                  - listitem [ref=f65e729]:
+                    - link " Tax Codes" [ref=f65e730] [cursor=pointer]:
+                      - /url: /portal/pages/finance-setup/tax-codes
+                      - generic [ref=f65e731]: 
+                      - generic [ref=f65e732]: Tax Codes
+                  - listitem [ref=f65e733]:
+                    - link " Currencies" [ref=f65e734] [cursor=pointer]:
+                      - /url: /portal/pages/finance-setup/currencies
+                      - generic [ref=f65e735]: 
+                      - generic [ref=f65e736]: Currencies
+                  - listitem [ref=f65e737]:
+                    - link " Exchange Rates" [ref=f65e738] [cursor=pointer]:
+                      - /url: /portal/pages/finance-setup/exchange-rates
+                      - generic [ref=f65e739]: 
+                      - generic [ref=f65e740]: Exchange Rates
+                  - listitem [ref=f65e741]:
+                    - link " Currency Configuration" [ref=f65e742] [cursor=pointer]:
+                      - /url: /portal/pages/finance-setup/currency-configuration
+                      - generic [ref=f65e743]: 
+                      - generic [ref=f65e744]: Currency Configuration
+              - listitem [ref=f65e745]:
+                - generic [ref=f65e746] [cursor=pointer]:
+                  - generic [ref=f65e747]: 
+                  - generic [ref=f65e748]: Documents
+                  - generic [ref=f65e749]: 
+                - list:
+                  - listitem [ref=f65e750]:
+                    - link " Purchase Order Templates" [ref=f65e751] [cursor=pointer]:
+                      - /url: /portal/pages/po-document-template
+                      - generic [ref=f65e752]: 
+                      - generic [ref=f65e753]: Purchase Order Templates
+              - listitem [ref=f65e754]:
+                - generic [ref=f65e755] [cursor=pointer]:
+                  - generic [ref=f65e756]: 
+                  - generic [ref=f65e757]: System
+                  - generic [ref=f65e758]: 
+                - list:
+                  - listitem [ref=f65e759]:
+                    - link " Modules" [ref=f65e760] [cursor=pointer]:
+                      - /url: /portal/pages/settings/modules
+                      - generic [ref=f65e761]: 
+                      - generic [ref=f65e762]: Modules
+                  - listitem [ref=f65e763]:
+                    - link " Data Import" [ref=f65e764] [cursor=pointer]:
+                      - /url: /portal/pages/settings/import
+                      - generic [ref=f65e765]: 
+                      - generic [ref=f65e766]: Data Import
+              - listitem [ref=f65e767]:
+                - generic [ref=f65e768] [cursor=pointer]:
+                  - generic [ref=f65e769]: 
+                  - generic [ref=f65e770]: Integrations
+                  - generic [ref=f65e771]: 
+                - list:
+                  - listitem [ref=f65e772]:
+                    - link " QuickBooks Integration" [ref=f65e773] [cursor=pointer]:
+                      - /url: /portal/pages/integrations/quickbooks
+                      - generic [ref=f65e774]: 
+                      - generic [ref=f65e775]: QuickBooks Integration
+                  - listitem [ref=f65e776]:
+                    - link " QuickBooks Logs" [ref=f65e777] [cursor=pointer]:
+                      - /url: /portal/pages/integrations/quickbooks?tab=logs
+                      - generic [ref=f65e778]: 
+                      - generic [ref=f65e779]: QuickBooks Logs
+                  - listitem [ref=f65e780]:
+                    - link " Posting Log" [ref=f65e781] [cursor=pointer]:
+                      - /url: /portal/pages/finance/gl/posting
+                      - generic [ref=f65e782]: 
+                      - generic [ref=f65e783]: Posting Log
+          - listitem [ref=f65e784]:
+            - generic [ref=f65e785] [cursor=pointer]:
+              - generic [ref=f65e786]: 
+              - generic [ref=f65e787]: Workflow Engine
+              - generic [ref=f65e788]: 
+            - list:
+              - listitem [ref=f65e789]:
+                - link " Workflow Definitions" [ref=f65e790] [cursor=pointer]:
+                  - /url: /portal/pages/workflow-admin/workflows
+                  - generic [ref=f65e791]: 
+                  - generic [ref=f65e792]: Workflow Definitions
+              - listitem [ref=f65e793]:
+                - link " New Workflow" [ref=f65e794] [cursor=pointer]:
+                  - /url: /portal/pages/workflow-admin/workflows/new
+                  - generic [ref=f65e795]: 
+                  - generic [ref=f65e796]: New Workflow
+  - generic [ref=f65e797]:
+    - generic [ref=f65e800]:
+      - toolbar "Commands" [ref=f65e801]:
+        - button " New invoice" [ref=f65e803] [cursor=pointer]:
+          - generic [ref=f65e804]: 
+          - generic [ref=f65e805]: New invoice
+        - button " Reset filters" [ref=f65e808] [cursor=pointer]:
+          - generic [ref=f65e809]: 
+          - generic [ref=f65e810]: Reset filters
+      - generic [ref=f65e813]:
+        - generic [ref=f65e814]:
+          - generic [ref=f65e815]:
+            - heading "Sales invoices 30" [level=1] [ref=f65e816]:
+              - text: Sales invoices
+              - generic [ref=f65e817]: "30"
+            - generic [ref=f65e818]: What customers have been billed for the goods delivered, and how much of it has been paid
+          - generic [ref=f65e819]:
+            - button "All" [ref=f65e820] [cursor=pointer]
+            - button "Draft" [ref=f65e821] [cursor=pointer]
+            - button "Issued" [ref=f65e822] [cursor=pointer]
+            - button "Partially Paid" [ref=f65e823] [cursor=pointer]
+            - button "Paid" [ref=f65e824] [cursor=pointer]
+            - button "Overdue" [ref=f65e825] [cursor=pointer]
+            - button "Cancelled" [ref=f65e826] [cursor=pointer]
+            - button "Credit Note" [ref=f65e827] [cursor=pointer]
+        - generic [ref=f65e828]:
+          - generic [ref=f65e829]:
+            - generic [ref=f65e830]: 
+            - textbox "Invoice, order, delivery or customer..." [ref=f65e831]
+          - generic [ref=f65e833]:
+            - combobox "From" [ref=f65e834]
+            - button "Choose Date" [ref=f65e835] [cursor=pointer]
+          - generic [ref=f65e840]:
+            - combobox "To" [ref=f65e841]
+            - button "Choose Date" [ref=f65e842] [cursor=pointer]
+        - generic [ref=f65e848]:
+          - table [ref=f65e850]:
+            - rowgroup [ref=f65e851]:
+              - row [ref=f65e852]:
+                - columnheader "Invoice" [ref=f65e853]
+                - columnheader "Customer" [ref=f65e854]
+                - columnheader "Order" [ref=f65e855]
+                - columnheader "Delivery" [ref=f65e856]
+                - columnheader "Invoice date" [ref=f65e857]
+                - columnheader "Due" [ref=f65e858]
+                - columnheader "Total" [ref=f65e859]
+                - columnheader "Paid" [ref=f65e860]
+                - columnheader "Balance" [ref=f65e861]
+                - columnheader "Status" [ref=f65e862]
+                - columnheader "QuickBooks" [ref=f65e863]
+                - columnheader [ref=f65e864]
+            - rowgroup [ref=f65e865]:
+              - row [ref=f65e866]:
+                - cell [ref=f65e867]:
+                  - link [ref=f65e868] [cursor=pointer]:
+                    - /url: /portal/pages/finance/sales-invoices/ba5d7839-00b5-45ed-810f-a7cdb5bbf483
+                    - strong [ref=f65e869]: SINV-20261018-0008
+                - cell "Asif" [ref=f65e870]
+                - cell "SO-2026-00002" [ref=f65e871]
+                - cell "DLV-2026-00002" [ref=f65e872]
+                - cell "18 Oct 2026" [ref=f65e873]
+                - cell "17 Nov 2026" [ref=f65e874]
+                - cell "1,296.30 PKR" [ref=f65e875]
+                - cell "0.00" [ref=f65e876]
+                - cell "1,296.30" [ref=f65e877]
+                - cell "Issued" [ref=f65e878]
+                - cell [ref=f65e881]:
+                  - 'button "QuickBooks: Blocked. Open actions" [ref=f65e884] [cursor=pointer]':
+                    - generic [ref=f65e885]:
+                      - generic [ref=f65e886]: 
+                      - generic [ref=f65e887]: Blocked
+                    - generic [aria-hidden] [ref=f65e888]: 
+                - cell [ref=f65e889]:
+                  - button "" [ref=f65e891] [cursor=pointer]
+                  - button "" [ref=f65e894] [cursor=pointer]
+              - row [ref=f65e896]:
+                - cell [ref=f65e897]:
+                  - link [ref=f65e898] [cursor=pointer]:
+                    - /url: /portal/pages/finance/sales-invoices/14663cff-6aee-486f-ae62-ff14ecdd9e92
+                    - strong [ref=f65e899]: SINV-20261018-0007
+                - cell "Walk-in Customer" [ref=f65e900]
+                - cell "POS POS-E2E-1017-20261018-0009" [ref=f65e901]:
+                  - generic [ref=f65e902]: POS
+                  - link "POS-E2E-1017-20261018-0009" [ref=f65e903] [cursor=pointer]:
+                    - /url: /portal/pages/pos/orders?search=POS-E2E-1017-20261018-0009
+                - cell "—" [ref=f65e904]
+                - cell "18 Oct 2026" [ref=f65e905]
+                - cell "18 Oct 2026" [ref=f65e906]
+                - cell "5.90 GBP" [ref=f65e907]
+                - cell "5.90" [ref=f65e908]
+                - cell "0.00" [ref=f65e909]
+                - cell "Paid" [ref=f65e910]
+                - cell [ref=f65e913]:
+                  - 'button "QuickBooks: Held. Open actions" [ref=f65e916] [cursor=pointer]':
+                    - generic [ref=f65e917]:
+                      - generic [ref=f65e918]: 
+                      - generic [ref=f65e919]: Held
+                    - generic [aria-hidden] [ref=f65e920]: 
+                - cell [ref=f65e921]:
+                  - button "" [ref=f65e923] [cursor=pointer]
+                  - button "" [ref=f65e926] [cursor=pointer]
+              - row [ref=f65e928]:
+                - cell "SCN-20261018-0001 Credit note" [ref=f65e929]:
+                  - link [ref=f65e930] [cursor=pointer]:
+                    - /url: /portal/pages/finance/sales-invoices/11b88ead-b0f2-45cb-9ceb-1e1ca84c48c0
+                    - strong [ref=f65e931]: SCN-20261018-0001
+                  - generic [ref=f65e932]: Credit note
+                - cell "Walk-in Customer" [ref=f65e933]
+                - cell "credits original invoice POS RET-E2E-1017-20261018-0001" [ref=f65e934]:
+                  - text: credits
+                  - link "original invoice" [ref=f65e935] [cursor=pointer]:
+                    - /url: /portal/pages/finance/sales-invoices/ed7b7038-8ad7-4eb9-a56f-347a404e7560
+                  - generic [ref=f65e936]: POS
+                  - link "RET-E2E-1017-20261018-0001" [ref=f65e937] [cursor=pointer]:
+                    - /url: /portal/pages/pos/orders?search=RET-E2E-1017-20261018-0001
+                - cell "—" [ref=f65e938]
+                - cell "18 Oct 2026" [ref=f65e939]
+                - cell "18 Oct 2026" [ref=f65e940]
+                - cell "3.40 GBP" [ref=f65e941]
+                - cell "0.00" [ref=f65e942]
+                - cell "0.00" [ref=f65e943]
+                - cell "Credit Note" [ref=f65e944]
+                - cell [ref=f65e947]:
+                  - 'button "QuickBooks: Not synced. Open actions" [ref=f65e950] [cursor=pointer]':
+                    - generic [ref=f65e951]:
+                      - generic [ref=f65e952]: 
+                      - generic [ref=f65e953]: Not synced
+                    - generic [aria-hidden] [ref=f65e954]: 
+                - cell [ref=f65e955]:
+                  - button "" [ref=f65e957] [cursor=pointer]
+                  - button "" [ref=f65e960] [cursor=pointer]
+              - row [ref=f65e962]:
+                - cell [ref=f65e963]:
+                  - link [ref=f65e964] [cursor=pointer]:
+                    - /url: /portal/pages/finance/sales-invoices/8b30847d-32c2-40d9-985d-2dfbedbc795e
+                    - strong [ref=f65e965]: SINV-20261018-0006
+                - cell "Walk-in Customer" [ref=f65e966]
+                - cell "POS POS-E2E-1017-20261018-0008" [ref=f65e967]:
+                  - generic [ref=f65e968]: POS
+                  - link "POS-E2E-1017-20261018-0008" [ref=f65e969] [cursor=pointer]:
+                    - /url: /portal/pages/pos/orders?search=POS-E2E-1017-20261018-0008
+                - cell "—" [ref=f65e970]
+                - cell "18 Oct 2026" [ref=f65e971]
+                - cell "18 Oct 2026" [ref=f65e972]
+                - cell "632.50 GBP" [ref=f65e973]
+                - cell "632.50" [ref=f65e974]
+                - cell "0.00" [ref=f65e975]
+                - cell "Paid" [ref=f65e976]
+                - cell [ref=f65e979]:
+                  - 'button "QuickBooks: Not synced. Open actions" [ref=f65e982] [cursor=pointer]':
+                    - generic [ref=f65e983]:
+                      - generic [ref=f65e984]: 
+                      - generic [ref=f65e985]: Not synced
+                    - generic [aria-hidden] [ref=f65e986]: 
+                - cell [ref=f65e987]:
+                  - button "" [ref=f65e989] [cursor=pointer]
+                  - button "" [ref=f65e992] [cursor=pointer]
+              - row [ref=f65e994]:
+                - cell [ref=f65e995]:
+                  - link [ref=f65e996] [cursor=pointer]:
+                    - /url: /portal/pages/finance/sales-invoices/f1bb1799-648b-4bea-864f-cdf6a7e35de4
+                    - strong [ref=f65e997]: SINV-20261018-0005
+                - cell "Walk-in Customer" [ref=f65e998]
+                - cell "POS POS-E2E-1017-20261018-0007" [ref=f65e999]:
+                  - generic [ref=f65e1000]: POS
+                  - link "POS-E2E-1017-20261018-0007" [ref=f65e1001] [cursor=pointer]:
+                    - /url: /portal/pages/pos/orders?search=POS-E2E-1017-20261018-0007
+                - cell "—" [ref=f65e1002]
+                - cell "18 Oct 2026" [ref=f65e1003]
+                - cell "18 Oct 2026" [ref=f65e1004]
+                - cell "27.80 GBP" [ref=f65e1005]
+                - cell "27.80" [ref=f65e1006]
+                - cell "0.00" [ref=f65e1007]
+                - cell "Paid" [ref=f65e1008]
+                - cell [ref=f65e1011]:
+                  - 'button "QuickBooks: Not synced. Open actions" [ref=f65e1014] [cursor=pointer]':
+                    - generic [ref=f65e1015]:
+                      - generic [ref=f65e1016]: 
+                      - generic [ref=f65e1017]: Not synced
+                    - generic [aria-hidden] [ref=f65e1018]: 
+                - cell [ref=f65e1019]:
+                  - button "" [ref=f65e1021] [cursor=pointer]
+                  - button "" [ref=f65e1024] [cursor=pointer]
+              - row [ref=f65e1026]:
+                - cell [ref=f65e1027]:
+                  - link [ref=f65e1028] [cursor=pointer]:
+                    - /url: /portal/pages/finance/sales-invoices/579515c3-0017-4480-a23c-b4be3ba620a3
+                    - strong [ref=f65e1029]: SINV-20261018-0004
+                - cell "Walk-in Customer" [ref=f65e1030]
+                - cell "POS POS-E2E-1017-20261018-0006" [ref=f65e1031]:
+                  - generic [ref=f65e1032]: POS
+                  - link "POS-E2E-1017-20261018-0006" [ref=f65e1033] [cursor=pointer]:
+                    - /url: /portal/pages/pos/orders?search=POS-E2E-1017-20261018-0006
+                - cell "—" [ref=f65e1034]
+                - cell "18 Oct 2026" [ref=f65e1035]
+                - cell "18 Oct 2026" [ref=f65e1036]
+                - cell "18.80 GBP" [ref=f65e1037]
+                - cell "18.80" [ref=f65e1038]
+                - cell "0.00" [ref=f65e1039]
+                - cell "Paid" [ref=f65e1040]
+                - cell [ref=f65e1043]:
+                  - 'button "QuickBooks: Not synced. Open actions" [ref=f65e1046] [cursor=pointer]':
+                    - generic [ref=f65e1047]:
+                      - generic [ref=f65e1048]: 
+                      - generic [ref=f65e1049]: Not synced
+                    - generic [aria-hidden] [ref=f65e1050]: 
+                - cell [ref=f65e1051]:
+                  - button "" [ref=f65e1053] [cursor=pointer]
+                  - button "" [ref=f65e1056] [cursor=pointer]
+              - row [ref=f65e1058]:
+                - cell [ref=f65e1059]:
+                  - link [ref=f65e1060] [cursor=pointer]:
+                    - /url: /portal/pages/finance/sales-invoices/272d9de1-1946-41df-82c7-a75f048b3925
+                    - strong [ref=f65e1061]: SINV-20261018-0003
+                - cell "Walk-in Customer" [ref=f65e1062]
+                - cell "POS POS-E2E-1017-20261018-0005" [ref=f65e1063]:
+                  - generic [ref=f65e1064]: POS
+                  - link "POS-E2E-1017-20261018-0005" [ref=f65e1065] [cursor=pointer]:
+                    - /url: /portal/pages/pos/orders?search=POS-E2E-1017-20261018-0005
+                - cell "—" [ref=f65e1066]
+                - cell "18 Oct 2026" [ref=f65e1067]
+                - cell "18 Oct 2026" [ref=f65e1068]
+                - cell "41.20 GBP" [ref=f65e1069]
+                - cell "41.20" [ref=f65e1070]
+                - cell "0.00" [ref=f65e1071]
+                - cell "Paid" [ref=f65e1072]
+                - cell [ref=f65e1075]:
+                  - 'button "QuickBooks: Not synced. Open actions" [ref=f65e1078] [cursor=pointer]':
+                    - generic [ref=f65e1079]:
+                      - generic [ref=f65e1080]: 
+                      - generic [ref=f65e1081]: Not synced
+                    - generic [aria-hidden] [ref=f65e1082]: 
+                - cell [ref=f65e1083]:
+                  - button "" [ref=f65e1085] [cursor=pointer]
+                  - button "" [ref=f65e1088] [cursor=pointer]
+              - row [ref=f65e1090]:
+                - cell [ref=f65e1091]:
+                  - link [ref=f65e1092] [cursor=pointer]:
+                    - /url: /portal/pages/finance/sales-invoices/ed7b7038-8ad7-4eb9-a56f-347a404e7560
+                    - strong [ref=f65e1093]: SINV-20261018-0002
+                - cell "Walk-in Customer" [ref=f65e1094]
+                - cell "POS POS-E2E-1017-20261018-0003" [ref=f65e1095]:
+                  - generic [ref=f65e1096]: POS
+                  - link "POS-E2E-1017-20261018-0003" [ref=f65e1097] [cursor=pointer]:
+                    - /url: /portal/pages/pos/orders?search=POS-E2E-1017-20261018-0003
+                - cell "—" [ref=f65e1098]
+                - cell "18 Oct 2026" [ref=f65e1099]
+                - cell "18 Oct 2026" [ref=f65e1100]
+                - cell "3.40 GBP" [ref=f65e1101]
+                - cell "3.40" [ref=f65e1102]
+                - cell "0.00" [ref=f65e1103]
+                - cell "Paid" [ref=f65e1104]
+                - cell [ref=f65e1107]:
+                  - 'button "QuickBooks: Not synced. Open actions" [ref=f65e1110] [cursor=pointer]':
+                    - generic [ref=f65e1111]:
+                      - generic [ref=f65e1112]: 
+                      - generic [ref=f65e1113]: Not synced
+                    - generic [aria-hidden] [ref=f65e1114]: 
+                - cell [ref=f65e1115]:
+                  - button "" [ref=f65e1117] [cursor=pointer]
+                  - button "" [ref=f65e1120] [cursor=pointer]
+              - row [ref=f65e1122]:
+                - cell [ref=f65e1123]:
+                  - link [ref=f65e1124] [cursor=pointer]:
+                    - /url: /portal/pages/finance/sales-invoices/b0fa246d-cc2a-471f-a6d6-25980054ec09
+                    - strong [ref=f65e1125]: SINV-20261018-0001
+                - cell "Walk-in Customer" [ref=f65e1126]
+                - cell "POS POS-E2E-1017-20261018-0001" [ref=f65e1127]:
+                  - generic [ref=f65e1128]: POS
+                  - link "POS-E2E-1017-20261018-0001" [ref=f65e1129] [cursor=pointer]:
+                    - /url: /portal/pages/pos/orders?search=POS-E2E-1017-20261018-0001
+                - cell "—" [ref=f65e1130]
+                - cell "18 Oct 2026" [ref=f65e1131]
+                - cell "18 Oct 2026" [ref=f65e1132]
+                - cell "46.70 GBP" [ref=f65e1133]
+                - cell "46.70" [ref=f65e1134]
+                - cell "0.00" [ref=f65e1135]
+                - cell "Paid" [ref=f65e1136]
+                - cell [ref=f65e1139]:
+                  - 'button "QuickBooks: Not synced. Open actions" [ref=f65e1142] [cursor=pointer]':
+                    - generic [ref=f65e1143]:
+                      - generic [ref=f65e1144]: 
+                      - generic [ref=f65e1145]: Not synced
+                    - generic [aria-hidden] [ref=f65e1146]: 
+                - cell [ref=f65e1147]:
+                  - button "" [ref=f65e1149] [cursor=pointer]
+                  - button "" [ref=f65e1152] [cursor=pointer]
+              - row [ref=f65e1154]:
+                - cell [ref=f65e1155]:
+                  - link [ref=f65e1156] [cursor=pointer]:
+                    - /url: /portal/pages/finance/sales-invoices/300a6d5d-7c36-49b3-b6d5-5c21ee042474
+                    - strong [ref=f65e1157]: SINV-20261017-0016
+                - cell "Walk-in Customer" [ref=f65e1158]
+                - cell "POS POS-GULBERG-20261017-0005" [ref=f65e1159]:
+                  - generic [ref=f65e1160]: POS
+                  - link "POS-GULBERG-20261017-0005" [ref=f65e1161] [cursor=pointer]:
+                    - /url: /portal/pages/pos/orders?search=POS-GULBERG-20261017-0005
+                - cell "—" [ref=f65e1162]
+                - cell "17 Oct 2026" [ref=f65e1163]
+                - cell "17 Oct 2026" [ref=f65e1164]
+                - cell "101,520.80 GBP" [ref=f65e1165]
+                - cell "101,520.80" [ref=f65e1166]
+                - cell "0.00" [ref=f65e1167]
+                - cell "Paid" [ref=f65e1168]
+                - cell [ref=f65e1171]:
+                  - 'button "QuickBooks: Not synced. Open actions" [ref=f65e1174] [cursor=pointer]':
+                    - generic [ref=f65e1175]:
+                      - generic [ref=f65e1176]: 
+                      - generic [ref=f65e1177]: Not synced
+                    - generic [aria-hidden] [ref=f65e1178]: 
+                - cell [ref=f65e1179]:
+                  - button "" [ref=f65e1181] [cursor=pointer]
+                  - button "" [ref=f65e1184] [cursor=pointer]
+              - row [ref=f65e1186]:
+                - cell [ref=f65e1187]:
+                  - link [ref=f65e1188] [cursor=pointer]:
+                    - /url: /portal/pages/finance/sales-invoices/e0cab782-4a19-4639-8a4a-9c670a3cac4a
+                    - strong [ref=f65e1189]: SINV-20261017-0015
+                - cell "Walk-in Customer" [ref=f65e1190]
+                - cell "POS POS-E2E-1017-20261017-0008" [ref=f65e1191]:
+                  - generic [ref=f65e1192]: POS
+                  - link "POS-E2E-1017-20261017-0008" [ref=f65e1193] [cursor=pointer]:
+                    - /url: /portal/pages/pos/orders?search=POS-E2E-1017-20261017-0008
+                - cell "—" [ref=f65e1194]
+                - cell "17 Oct 2026" [ref=f65e1195]
+                - cell "17 Oct 2026" [ref=f65e1196]
+                - cell "18,200.00 GBP" [ref=f65e1197]
+                - cell "18,200.00" [ref=f65e1198]
+                - cell "0.00" [ref=f65e1199]
+                - cell "Paid" [ref=f65e1200]
+                - cell [ref=f65e1203]:
+                  - 'button "QuickBooks: Not synced. Open actions" [ref=f65e1206] [cursor=pointer]':
+                    - generic [ref=f65e1207]:
+                      - generic [ref=f65e1208]: 
+                      - generic [ref=f65e1209]: Not synced
+                    - generic [aria-hidden] [ref=f65e1210]: 
+                - cell [ref=f65e1211]:
+                  - button "" [ref=f65e1213] [cursor=pointer]
+                  - button "" [ref=f65e1216] [cursor=pointer]
+              - row [ref=f65e1218]:
+                - cell [ref=f65e1219]:
+                  - link [ref=f65e1220] [cursor=pointer]:
+                    - /url: /portal/pages/finance/sales-invoices/24540182-6ddf-4408-8e10-eae0439e00ad
+                    - strong [ref=f65e1221]: SINV-20261017-0014
+                - cell "Walk-in Customer" [ref=f65e1222]
+                - cell "POS POS-E2E-1017-20261017-0002" [ref=f65e1223]:
+                  - generic [ref=f65e1224]: POS
+                  - link "POS-E2E-1017-20261017-0002" [ref=f65e1225] [cursor=pointer]:
+                    - /url: /portal/pages/pos/orders?search=POS-E2E-1017-20261017-0002
+                - cell "—" [ref=f65e1226]
+                - cell "17 Oct 2026" [ref=f65e1227]
+                - cell "17 Oct 2026" [ref=f65e1228]
+                - cell "118,000.00 GBP" [ref=f65e1229]
+                - cell "118,000.00" [ref=f65e1230]
+                - cell "0.00" [ref=f65e1231]
+                - cell "Paid" [ref=f65e1232]
+                - cell [ref=f65e1235]:
+                  - 'button "QuickBooks: Not synced. Open actions" [ref=f65e1238] [cursor=pointer]':
+                    - generic [ref=f65e1239]:
+                      - generic [ref=f65e1240]: 
+                      - generic [ref=f65e1241]: Not synced
+                    - generic [aria-hidden] [ref=f65e1242]: 
+                - cell [ref=f65e1243]:
+                  - button "" [ref=f65e1245] [cursor=pointer]
+                  - button "" [ref=f65e1248] [cursor=pointer]
+              - row [ref=f65e1250]:
+                - cell [ref=f65e1251]:
+                  - link [ref=f65e1252] [cursor=pointer]:
+                    - /url: /portal/pages/finance/sales-invoices/33035c65-d41b-498a-9ea8-d42f370a0062
+                    - strong [ref=f65e1253]: SINV-20261017-0013
+                - cell "Walk-in Customer" [ref=f65e1254]
+                - cell "POS POS-E2E-1017-20261017-0013" [ref=f65e1255]:
+                  - generic [ref=f65e1256]: POS
+                  - link "POS-E2E-1017-20261017-0013" [ref=f65e1257] [cursor=pointer]:
+                    - /url: /portal/pages/pos/orders?search=POS-E2E-1017-20261017-0013
+                - cell "—" [ref=f65e1258]
+                - cell "17 Oct 2026" [ref=f65e1259]
+                - cell "17 Oct 2026" [ref=f65e1260]
+                - cell "2,020.00 GBP" [ref=f65e1261]
+                - cell "2,020.00" [ref=f65e1262]
+                - cell "0.00" [ref=f65e1263]
+                - cell "Paid" [ref=f65e1264]
+                - cell [ref=f65e1267]:
+                  - 'button "QuickBooks: Not synced. Open actions" [ref=f65e1270] [cursor=pointer]':
+                    - generic [ref=f65e1271]:
+                      - generic [ref=f65e1272]: 
+                      - generic [ref=f65e1273]: Not synced
+                    - generic [aria-hidden] [ref=f65e1274]: 
+                - cell [ref=f65e1275]:
+                  - button "" [ref=f65e1277] [cursor=pointer]
+                  - button "" [ref=f65e1280] [cursor=pointer]
+              - row [ref=f65e1282]:
+                - cell [ref=f65e1283]:
+                  - link [ref=f65e1284] [cursor=pointer]:
+                    - /url: /portal/pages/finance/sales-invoices/f56bd289-f4f3-4470-84c3-e26cc00694b4
+                    - strong [ref=f65e1285]: SINV-20261017-0012
+                - cell "Walk-in Customer" [ref=f65e1286]
+                - cell "POS POS-GULBERG-20261017-0006" [ref=f65e1287]:
+                  - generic [ref=f65e1288]: POS
+                  - link "POS-GULBERG-20261017-0006" [ref=f65e1289] [cursor=pointer]:
+                    - /url: /portal/pages/pos/orders?search=POS-GULBERG-20261017-0006
+                - cell "—" [ref=f65e1290]
+                - cell "17 Oct 2026" [ref=f65e1291]
+                - cell "17 Oct 2026" [ref=f65e1292]
+                - cell "3,352.40 GBP" [ref=f65e1293]
+                - cell "3,352.40" [ref=f65e1294]
+                - cell "0.00" [ref=f65e1295]
+                - cell "Paid" [ref=f65e1296]
+                - cell [ref=f65e1299]:
+                  - 'button "QuickBooks: Not synced. Open actions" [ref=f65e1302] [cursor=pointer]':
+                    - generic [ref=f65e1303]:
+                      - generic [ref=f65e1304]: 
+                      - generic [ref=f65e1305]: Not synced
+                    - generic [aria-hidden] [ref=f65e1306]: 
+                - cell [ref=f65e1307]:
+                  - button "" [ref=f65e1309] [cursor=pointer]
+                  - button "" [ref=f65e1312] [cursor=pointer]
+              - row [ref=f65e1314]:
+                - cell [ref=f65e1315]:
+                  - link [ref=f65e1316] [cursor=pointer]:
+                    - /url: /portal/pages/finance/sales-invoices/8c6d271c-43aa-443a-be44-2b2a49d1640d
+                    - strong [ref=f65e1317]: SINV-20261017-0011
+                - cell "Govt of Punjab" [ref=f65e1318]
+                - cell "POS POS-GULBERG-20261017-0004" [ref=f65e1319]:
+                  - generic [ref=f65e1320]: POS
+                  - link "POS-GULBERG-20261017-0004" [ref=f65e1321] [cursor=pointer]:
+                    - /url: /portal/pages/pos/orders?search=POS-GULBERG-20261017-0004
+                - cell "—" [ref=f65e1322]
+                - cell "17 Oct 2026" [ref=f65e1323]
+                - cell "17 Oct 2026" [ref=f65e1324]
+                - cell "7,000.00 GBP" [ref=f65e1325]
+                - cell "7,000.00" [ref=f65e1326]
+                - cell "0.00" [ref=f65e1327]
+                - cell "Paid" [ref=f65e1328]
+                - cell [ref=f65e1331]:
+                  - 'button "QuickBooks: Not synced. Open actions" [ref=f65e1334] [cursor=pointer]':
+                    - generic [ref=f65e1335]:
+                      - generic [ref=f65e1336]: 
+                      - generic [ref=f65e1337]: Not synced
+                    - generic [aria-hidden] [ref=f65e1338]: 
+                - cell [ref=f65e1339]:
+                  - button "" [ref=f65e1341] [cursor=pointer]
+                  - button "" [ref=f65e1344] [cursor=pointer]
+              - row [ref=f65e1346]:
+                - cell "SCN-20261017-0005 Credit note" [ref=f65e1347]:
+                  - link [ref=f65e1348] [cursor=pointer]:
+                    - /url: /portal/pages/finance/sales-invoices/1b30095c-d992-4b5e-8b1a-8d24ebdf05d8
+                    - strong [ref=f65e1349]: SCN-20261017-0005
+                  - generic [ref=f65e1350]: Credit note
+                - cell "Walk-in Customer" [ref=f65e1351]
+                - cell "credits original invoice POS RET-GULBERG-20261017-0001" [ref=f65e1352]:
+                  - text: credits
+                  - link "original invoice" [ref=f65e1353] [cursor=pointer]:
+                    - /url: /portal/pages/finance/sales-invoices/2ca1971a-4f3d-4289-9155-204a8f7ec96f
+                  - generic [ref=f65e1354]: POS
+                  - link "RET-GULBERG-20261017-0001" [ref=f65e1355] [cursor=pointer]:
+                    - /url: /portal/pages/pos/orders?search=RET-GULBERG-20261017-0001
+                - cell "—" [ref=f65e1356]
+                - cell "17 Oct 2026" [ref=f65e1357]
+                - cell "17 Oct 2026" [ref=f65e1358]
+                - cell "6,500.00 GBP" [ref=f65e1359]
+                - cell "0.00" [ref=f65e1360]
+                - cell "0.00" [ref=f65e1361]
+                - cell "Credit Note" [ref=f65e1362]
+                - cell [ref=f65e1365]:
+                  - 'button "QuickBooks: Not synced. Open actions" [ref=f65e1368] [cursor=pointer]':
+                    - generic [ref=f65e1369]:
+                      - generic [ref=f65e1370]: 
+                      - generic [ref=f65e1371]: Not synced
+                    - generic [aria-hidden] [ref=f65e1372]: 
+                - cell [ref=f65e1373]:
+                  - button "" [ref=f65e1375] [cursor=pointer]
+                  - button "" [ref=f65e1378] [cursor=pointer]
+              - row [ref=f65e1380]:
+                - cell [ref=f65e1381]:
+                  - link [ref=f65e1382] [cursor=pointer]:
+                    - /url: /portal/pages/finance/sales-invoices/b4cfeff9-56b1-49ea-961e-089e35a39167
+                    - strong [ref=f65e1383]: SINV-20261017-0010
+                - cell "Walk-in Customer" [ref=f65e1384]
+                - cell "POS POS-E2E-1017-20261017-0012" [ref=f65e1385]:
+                  - generic [ref=f65e1386]: POS
+                  - link "POS-E2E-1017-20261017-0012" [ref=f65e1387] [cursor=pointer]:
+                    - /url: /portal/pages/pos/orders?search=POS-E2E-1017-20261017-0012
+                - cell "—" [ref=f65e1388]
+                - cell "17 Oct 2026" [ref=f65e1389]
+                - cell "17 Oct 2026" [ref=f65e1390]
+                - cell "6,500.00 GBP" [ref=f65e1391]
+                - cell "6,500.00" [ref=f65e1392]
+                - cell "0.00" [ref=f65e1393]
+                - cell "Paid" [ref=f65e1394]
+                - cell [ref=f65e1397]:
+                  - 'button "QuickBooks: Not synced. Open actions" [ref=f65e1400] [cursor=pointer]':
+                    - generic [ref=f65e1401]:
+                      - generic [ref=f65e1402]: 
+                      - generic [ref=f65e1403]: Not synced
+                    - generic [aria-hidden] [ref=f65e1404]: 
+                - cell [ref=f65e1405]:
+                  - button "" [ref=f65e1407] [cursor=pointer]
+                  - button "" [ref=f65e1410] [cursor=pointer]
+              - row [ref=f65e1412]:
+                - cell [ref=f65e1413]:
+                  - link [ref=f65e1414] [cursor=pointer]:
+                    - /url: /portal/pages/finance/sales-invoices/6d12375a-066e-41c8-860d-ced16b5cd540
+                    - strong [ref=f65e1415]: SINV-20261017-0009
+                - cell "Walk-in Customer" [ref=f65e1416]
+                - cell "POS POS-E2E-1017-20261017-0011" [ref=f65e1417]:
+                  - generic [ref=f65e1418]: POS
+                  - link "POS-E2E-1017-20261017-0011" [ref=f65e1419] [cursor=pointer]:
+                    - /url: /portal/pages/pos/orders?search=POS-E2E-1017-20261017-0011
+                - cell "—" [ref=f65e1420]
+                - cell "17 Oct 2026" [ref=f65e1421]
+                - cell "17 Oct 2026" [ref=f65e1422]
+                - cell "7,000.00 GBP" [ref=f65e1423]
+                - cell "7,000.00" [ref=f65e1424]
+                - cell "0.00" [ref=f65e1425]
+                - cell "Paid" [ref=f65e1426]
+                - cell [ref=f65e1429]:
+                  - 'button "QuickBooks: Held. Open actions" [ref=f65e1432] [cursor=pointer]':
+                    - generic [ref=f65e1433]:
+                      - generic [ref=f65e1434]: 
+                      - generic [ref=f65e1435]: Held
+                    - generic [aria-hidden] [ref=f65e1436]: 
+                - cell [ref=f65e1437]:
+                  - button "" [ref=f65e1439] [cursor=pointer]
+                  - button "" [ref=f65e1442] [cursor=pointer]
+              - row [ref=f65e1444]:
+                - cell "SCN-20261017-0004 Credit note" [ref=f65e1445]:
+                  - link [ref=f65e1446] [cursor=pointer]:
+                    - /url: /portal/pages/finance/sales-invoices/f405f061-4bb5-4ab8-aeff-dca965e86930
+                    - strong [ref=f65e1447]: SCN-20261017-0004
+                  - generic [ref=f65e1448]: Credit note
+                - cell "Walk-in Customer" [ref=f65e1449]
+                - cell "credits original invoice POS RET-E2E-1017-20261017-0003" [ref=f65e1450]:
+                  - text: credits
+                  - link "original invoice" [ref=f65e1451] [cursor=pointer]:
+                    - /url: /portal/pages/finance/sales-invoices/7fc17fb7-f756-48ac-b8e6-0ce8220f16ec
+                  - generic [ref=f65e1452]: POS
+                  - link "RET-E2E-1017-20261017-0003" [ref=f65e1453] [cursor=pointer]:
+                    - /url: /portal/pages/pos/orders?search=RET-E2E-1017-20261017-0003
+                - cell "—" [ref=f65e1454]
+                - cell "17 Oct 2026" [ref=f65e1455]
+                - cell "17 Oct 2026" [ref=f65e1456]
+                - cell "7,000.00 GBP" [ref=f65e1457]
+                - cell "0.00" [ref=f65e1458]
+                - cell "0.00" [ref=f65e1459]
+                - cell "Credit Note" [ref=f65e1460]
+                - cell [ref=f65e1463]:
+                  - 'button "QuickBooks: Not synced. Open actions" [ref=f65e1466] [cursor=pointer]':
+                    - generic [ref=f65e1467]:
+                      - generic [ref=f65e1468]: 
+                      - generic [ref=f65e1469]: Not synced
+                    - generic [aria-hidden] [ref=f65e1470]: 
+                - cell [ref=f65e1471]:
+                  - button "" [ref=f65e1473] [cursor=pointer]
+                  - button "" [ref=f65e1476] [cursor=pointer]
+              - row [ref=f65e1478]:
+                - cell "SCN-20261017-0003 Credit note" [ref=f65e1479]:
+                  - link [ref=f65e1480] [cursor=pointer]:
+                    - /url: /portal/pages/finance/sales-invoices/a04f1545-95ab-4442-abd1-46e820eb3f3a
+                    - strong [ref=f65e1481]: SCN-20261017-0003
+                  - generic [ref=f65e1482]: Credit note
+                - cell "Walk-in Customer" [ref=f65e1483]
+                - cell "credits original invoice POS VOID POS-E2E-1017-20261017-0009" [ref=f65e1484]:
+                  - text: credits
+                  - link "original invoice" [ref=f65e1485] [cursor=pointer]:
+                    - /url: /portal/pages/finance/sales-invoices/9d906144-66f0-46d7-aa5f-c09aa1488f38
+                  - generic [ref=f65e1486]: POS
+                  - link "VOID POS-E2E-1017-20261017-0009" [ref=f65e1487] [cursor=pointer]:
+                    - /url: /portal/pages/pos/orders?search=VOID%20POS-E2E-1017-20261017-0009
+                - cell "—" [ref=f65e1488]
+                - cell "17 Oct 2026" [ref=f65e1489]
+                - cell "17 Oct 2026" [ref=f65e1490]
+                - cell "7,000.00 GBP" [ref=f65e1491]
+                - cell "0.00" [ref=f65e1492]
+                - cell "0.00" [ref=f65e1493]
+                - cell "Credit Note" [ref=f65e1494]
+                - cell [ref=f65e1497]:
+                  - 'button "QuickBooks: Not synced. Open actions" [ref=f65e1500] [cursor=pointer]':
+                    - generic [ref=f65e1501]:
+                      - generic [ref=f65e1502]: 
+                      - generic [ref=f65e1503]: Not synced
+                    - generic [aria-hidden] [ref=f65e1504]: 
+                - cell [ref=f65e1505]:
+                  - button "" [ref=f65e1507] [cursor=pointer]
+                  - button "" [ref=f65e1510] [cursor=pointer]
+          - generic [ref=f65e1513]:
+            - button "First Page" [disabled]
+            - button "Previous Page" [disabled]
+            - generic [ref=f65e1514]:
+              - button "1" [ref=f65e1515] [cursor=pointer]
+              - button "2" [ref=f65e1516] [cursor=pointer]
+            - button "Next Page" [ref=f65e1517] [cursor=pointer]
+            - button "Last Page" [ref=f65e1521] [cursor=pointer]
+            - generic [ref=f65e1525] [cursor=pointer]:
+              - combobox "Rows per page" [ref=f65e1526]: "20"
+              - button "dropdown trigger" [ref=f65e1527]
+    - generic [ref=f65e1532]:
+      - text: All Rights Reserved To
+      - link "Loading" [ref=f65e1533] [cursor=pointer]:
+        - /url: https://primeng.org

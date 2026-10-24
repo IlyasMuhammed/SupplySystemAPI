@@ -1,3 +1,4 @@
+import { LowerCasePipe } from '@angular/common';
 import { Component, computed, inject } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { TooltipModule } from 'primeng/tooltip';
@@ -11,7 +12,7 @@ import { PosLabelPipe } from './pos-money.pipe';
 @Component({
     selector: 'pos-topbar',
     standalone: true,
-    imports: [RouterLink, RouterLinkActive, TooltipModule, PosLabelPipe],
+    imports: [RouterLink, RouterLinkActive, TooltipModule, PosLabelPipe, LowerCasePipe],
     template: `
         <header class="pos-top" data-testid="pos-topbar">
             <div class="row">
@@ -22,7 +23,7 @@ import { PosLabelPipe } from './pos-money.pipe';
                 </div>
             </div>
             @if (state.shift(); as s) {
-                <span class="pos-pill hide-sm" [class.ok]="s.status === 'OPEN'" [class.wn]="s.status === 'CLOSING'" data-testid="pos-shift-pill">{{ s.shiftNumber }} · {{ s.status | posLabel }}</span>
+                <span class="pos-pill hide-sm" [class.ok]="s.status === 'OPEN'" [class.wn]="s.status === 'CLOSING'" data-testid="pos-shift-pill" [pTooltip]="s.shiftNumber" tooltipPosition="bottom">Shift {{ s.status | posLabel | lowercase }}</span>
             } @else {
                 <span class="pos-pill wn hide-sm">No shift</span>
             }
@@ -35,13 +36,13 @@ import { PosLabelPipe } from './pos-money.pipe';
                     <i class="pi pi-sync"></i>{{ sync.pendingCount() }} queued@if (sync.errorCount()) { · {{ sync.errorCount() }} failed }
                 </a>
             }
-            <span class="t-sub hide-sm" data-testid="pos-cashier"><i class="pi pi-user"></i> {{ auth.cashier()?.name }}</span>
+            <span class="t-user hide-sm" data-testid="pos-cashier"><i class="pi pi-user"></i> {{ auth.cashier()?.name }}</span>
             <nav class="row">
                 <a class="pos-btn" routerLink="/pos/sell" routerLinkActive="on" aria-label="Sell"><i class="pi pi-shopping-cart"></i><span class="hide-sm">Sell</span></a>
                 <a class="pos-btn" routerLink="/pos/shift" routerLinkActive="on" [routerLinkActiveOptions]="{ exact: true }" aria-label="Shift"><i class="pi pi-clock"></i><span class="hide-sm">Shift</span></a>
                 <a class="pos-btn" routerLink="/pos/history" routerLinkActive="on" aria-label="History"><i class="pi pi-history"></i><span class="hide-sm">History</span></a>
                 <a class="pos-btn" routerLink="/pos/settings" routerLinkActive="on" aria-label="Settings"><i class="pi pi-cog"></i></a>
-                <button class="pos-btn" type="button" (click)="lock()" data-testid="pos-lock" pTooltip="Lock / switch cashier" tooltipPosition="bottom" aria-label="Lock"><i class="pi pi-lock"></i></button>
+                <button class="pos-btn" type="button" (click)="lock()" data-testid="pos-lock" pTooltip="Lock / switch cashier" tooltipPosition="bottom" aria-label="Lock"><i class="pi pi-lock"></i><span class="hide-sm">Lock</span></button>
             </nav>
         </header>
     `

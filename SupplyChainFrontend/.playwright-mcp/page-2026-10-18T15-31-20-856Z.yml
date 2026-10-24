@@ -1,0 +1,96 @@
+- generic [ref=f43e1]:
+  - generic [ref=f43e25]:
+    - generic:
+      - generic:
+        - link "Skip to Main Content":
+          - /url: "#main"
+        - banner [ref=f43e26]:
+          - navigation "Tools" [ref=f43e27]:
+            - heading "Sandbox Company GB 72c4" [level=2] [ref=f43e32]
+            - search [ref=f43e587]:
+              - generic [ref=f43e591]:
+                - searchbox "Search" [ref=f43e594]: Currencies
+                - button "Clear search input." [ref=f43e595] [cursor=pointer]
+            - generic [ref=f43e43]:
+              - button "Contact expert help" [ref=f43e47] [cursor=pointer]:
+                - generic [ref=f43e49]: Contact experts
+              - button "Tasks" [ref=f43e55] [cursor=pointer]
+              - button "Integrations" [ref=f43e61] [cursor=pointer]
+              - button "Help" [ref=f43e69] [cursor=pointer]
+              - button "Intuit Labs" [ref=f43e75] [cursor=pointer]
+              - button "Settings" [ref=f43e80] [cursor=pointer]
+              - button "Intuit account (I)" [ref=f43e88] [cursor=pointer]:
+                - generic [ref=f43e89]: I
+              - button "Open Intuit Intelligence chat" [ref=f43e95] [cursor=pointer]
+    - navigation "Side" [ref=f43e140]:
+      - link "QuickBooks" [ref=f43e141] [cursor=pointer]:
+        - /url: currencies?intuit_authn_session_slot=VYPodik&iux_intuit_tid=1-6ad4e583-786281b57da2f2e673ba8def
+      - generic [ref=f43e143]:
+        - button "Create" [ref=f43e146] [cursor=pointer]
+        - button "Bookmarks" [ref=f43e154] [cursor=pointer]
+      - generic [ref=f43e159]:
+        - link "Home" [ref=f43e160] [cursor=pointer]:
+          - /url: /app/homepage
+        - link "Feed" [ref=f43e165] [cursor=pointer]:
+          - /url: /app/business-feed
+        - button "Reports" [ref=f43e172] [cursor=pointer]
+        - link "All apps" [ref=f43e180] [cursor=pointer]:
+          - /url: /app/banking?jobId=accounting
+      - generic [ref=f43e185]:
+        - generic [ref=f43e186]: PINNED
+        - generic [ref=f43e187]:
+          - button "Accounting" [ref=f43e191] [cursor=pointer]
+          - button "Expenses" [ref=f43e197] [cursor=pointer]
+          - button "Sales" [ref=f43e203] [cursor=pointer]
+      - button "Customise" [ref=f43e208] [cursor=pointer]
+    - main [ref=f43e215]:
+      - generic [ref=f43e728]:
+        - generic [ref=f43e729]:
+          - generic [ref=f43e730]:
+            - button "All lists" [ref=f43e731] [cursor=pointer]
+            - generic [ref=f43e734]: Currencies
+          - button "Add currency" [ref=f43e736] [cursor=pointer]
+        - generic [ref=f43e738]:
+          - 'heading "Home currency: GBP - British Pound Sterling" [level=1] [ref=f43e739]'
+          - table [ref=f43e742]:
+            - rowgroup [ref=f43e743]:
+              - row [ref=f43e744]:
+                - columnheader "CURRENCY" [ref=f43e745]
+                - columnheader "GBP" [ref=f43e746]
+                - columnheader "LAST UPDATED" [ref=f43e747]
+                - columnheader "ACTION" [ref=f43e748]
+            - rowgroup [ref=f43e749]:
+              - row [ref=f43e750]:
+                - cell "USD - United States Dollar" [ref=f43e751]
+                - cell "0.750272" [ref=f43e752]
+                - cell "18/10/2026 at 17:01 Pakistan Standard Time" [ref=f43e753]
+                - cell [ref=f43e754]:
+                  - button "Edit currencies exchange" [ref=f43e755] [cursor=pointer]
+                  - button "Action menu" [ref=f43e756] [cursor=pointer]
+              - row [ref=f43e759]:
+                - cell "EUR - Euro" [ref=f43e760]
+                - cell "0.843241" [ref=f43e761]
+                - cell "18/10/2026 at 17:01 Pakistan Standard Time" [ref=f43e762]
+                - cell [ref=f43e763]:
+                  - button "Edit currencies exchange" [ref=f43e764] [cursor=pointer]
+                  - button "Action menu" [ref=f43e765] [cursor=pointer]
+              - row [ref=f43e768]:
+                - cell "HKD - Hong Kong Dollar" [ref=f43e769]
+                - cell "0.095598" [ref=f43e770]
+                - cell "18/10/2026 at 17:01 Pakistan Standard Time" [ref=f43e771]
+                - cell [ref=f43e772]:
+                  - button "Edit currencies exchange" [ref=f43e773] [cursor=pointer]
+                  - button "Action menu" [ref=f43e774] [cursor=pointer]
+  - generic: "Essential, Enhanced Experience & Product Improvement These first-party cookies are set by Intuit or one of our service providers; you cannot turn these off. These cookies enable the site to function as intended, including: basic functionality (for example, your ability to log into your Intuit account or add items to your cart for purchase); remember your preferences (for example, your preferred language or login credentials); provide you personalized content when viewing our site; and, allow us to evaluate your use and navigation of the site to fix bugs and improve the overall experience for you and others. A single cookie may be used for one or all of these purposes. Third-Party Advertisement  Yes We leverage advertising trackers across our sites to improve our marketing and advertising activities. These trackers may share some limited personal information with third-party platforms where we may display advertisements or run marketing campaigns. You may choose to turn these trackers off. You will still see Intuit advertisements when you opt-out, but these ads may not be tailored to your interests. This preference applies to your experience on our .intuit sites, once you create or login to your Intuit account, you may be prompted to choose again.    "
+  - dialog "popover" [ref=f43e779]:
+    - generic [ref=f43e781]:
+      - generic [ref=f43e782]:
+        - generic [ref=f43e785]:
+          - text: Add Currency
+          - generic [ref=f43e786]:
+            - combobox "Add Currency" [active] [ref=f43e787] [cursor=pointer]: PKR - Pakistani Rupee
+            - button [aria-hidden] [ref=f43e788] [cursor=pointer]
+        - generic [ref=f43e791]:
+          - button "Cancel" [ref=f43e792] [cursor=pointer]
+          - button "Add" [ref=f43e794] [cursor=pointer]
+      - button "Close" [ref=f43e797] [cursor=pointer]

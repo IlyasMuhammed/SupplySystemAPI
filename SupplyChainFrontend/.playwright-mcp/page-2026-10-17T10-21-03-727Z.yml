@@ -1,0 +1,211 @@
+- generic [ref=f39e4]:
+  - generic [ref=f39e5]:
+    - generic [ref=f39e6]:
+      - button "" [ref=f39e7] [cursor=pointer]
+      - link:
+        - /url: /portal/dashboard
+      - navigation "Breadcrumb" [ref=f39e9]:
+        - generic [ref=f39e10]: Sales
+        - generic [ref=f39e11]: ›
+        - strong [ref=f39e12]: Customers
+    - button " Search anything... Ctrl K" [ref=f39e14] [cursor=pointer]:
+      - generic [ref=f39e15]: 
+      - generic [ref=f39e16]: Search anything...
+      - generic [ref=f39e17]: Ctrl K
+    - generic [ref=f39e18]:
+      - generic [ref=f39e19]:
+        - button "" [ref=f39e20] [cursor=pointer]
+        - generic: "1"
+      - generic [ref=f39e22]:
+        - button "Appearance" [ref=f39e23] [cursor=pointer]:
+          - generic [ref=f39e24]: 
+        - text:    
+      - generic [ref=f39e26]:
+        - button "MC " [ref=f39e27] [cursor=pointer]:
+          - generic [ref=f39e28]: MC
+          - generic [ref=f39e30]: 
+        - text:   
+  - generic [ref=f39e31]:
+    - generic [ref=f39e32]:
+      - generic [ref=f39e33]: 
+      - generic [ref=f39e35]:
+        - generic [ref=f39e36]: SupplyChain MS
+        - generic [ref=f39e37]: KFC Pakistan (KFC)
+    - list [ref=f39e39]:
+      - listitem [ref=f39e40]:
+        - button "Home " [ref=f39e41] [cursor=pointer]:
+          - generic [ref=f39e42]: Home
+          - generic [ref=f39e43]: 
+        - list:
+          - listitem [ref=f39e44]:
+            - link " Dashboard" [ref=f39e45] [cursor=pointer]:
+              - /url: /portal/dashboard
+              - generic [ref=f39e46]: 
+              - generic [ref=f39e47]: Dashboard
+          - listitem [ref=f39e48]:
+            - link " My Inbox" [ref=f39e49] [cursor=pointer]:
+              - /url: /portal/pages/workflow-inbox
+              - generic [ref=f39e50]: 
+              - generic [ref=f39e51]: My Inbox
+      - listitem [ref=f39e52]:
+        - button "Sales " [expanded] [ref=f39e53] [cursor=pointer]:
+          - generic [ref=f39e54]: Sales
+          - generic [ref=f39e55]: 
+        - list [ref=f39e56]:
+          - listitem [ref=f39e57]:
+            - link " Customers" [ref=f39e58] [cursor=pointer]:
+              - /url: /portal/pages/customers
+              - generic [ref=f39e59]: 
+              - generic [ref=f39e60]: Customers
+          - listitem [ref=f39e61]:
+            - link " Inquiries" [ref=f39e62] [cursor=pointer]:
+              - /url: /portal/pages/sales/inquiries
+              - generic [ref=f39e63]: 
+              - generic [ref=f39e64]: Inquiries
+          - listitem [ref=f39e65]:
+            - link " Customer Quotations" [ref=f39e66] [cursor=pointer]:
+              - /url: /portal/pages/sales/quotations
+              - generic [ref=f39e67]: 
+              - generic [ref=f39e68]: Customer Quotations
+          - listitem [ref=f39e69]:
+            - generic [ref=f39e70] [cursor=pointer]:
+              - generic [ref=f39e71]: 
+              - generic [ref=f39e72]: Sale Orders
+              - generic [ref=f39e73]: 
+            - list:
+              - listitem [ref=f39e74]:
+                - link " All Sale Orders" [ref=f39e75] [cursor=pointer]:
+                  - /url: /portal/pages/sales/orders
+                  - generic [ref=f39e76]: 
+                  - generic [ref=f39e77]: All Sale Orders
+      - listitem [ref=f39e78]:
+        - button "CRM " [ref=f39e79] [cursor=pointer]:
+          - generic [ref=f39e80]: CRM
+          - generic [ref=f39e81]: 
+        - list:
+          - listitem [ref=f39e82]:
+            - link " Leads" [ref=f39e83] [cursor=pointer]:
+              - /url: /portal/pages/crm/leads
+              - generic [ref=f39e84]: 
+              - generic [ref=f39e85]: Leads
+          - listitem [ref=f39e86]:
+            - link " Opportunities" [ref=f39e87] [cursor=pointer]:
+              - /url: /portal/pages/crm/opportunities
+              - generic [ref=f39e88]: 
+              - generic [ref=f39e89]: Opportunities
+          - listitem [ref=f39e90]:
+            - link " Activities" [ref=f39e91] [cursor=pointer]:
+              - /url: /portal/pages/crm/activities
+              - generic [ref=f39e92]: 
+              - generic [ref=f39e93]: Activities
+          - listitem [ref=f39e94]:
+            - link " Campaigns" [ref=f39e95] [cursor=pointer]:
+              - /url: /portal/pages/crm/campaigns
+              - generic [ref=f39e96]: 
+              - generic [ref=f39e97]: Campaigns
+  - generic [ref=f39e98]:
+    - generic [ref=f39e101]:
+      - toolbar "Commands" [ref=f39e102]:
+        - button " New customer" [ref=f39e104] [cursor=pointer]:
+          - generic [ref=f39e105]: 
+          - generic [ref=f39e106]: New customer
+        - button " Export" [ref=f39e108] [cursor=pointer]:
+          - generic [ref=f39e109]: 
+          - generic [ref=f39e110]: Export
+        - button " Reset filters" [ref=f39e113] [cursor=pointer]:
+          - generic [ref=f39e114]: 
+          - generic [ref=f39e115]: Reset filters
+      - generic [ref=f39e118]:
+        - generic [ref=f39e119]:
+          - generic [ref=f39e120]:
+            - heading "Customers 4" [level=1] [ref=f39e121]:
+              - text: Customers
+              - generic [ref=f39e122]: "4"
+            - generic [ref=f39e123]: Everyone you sell to, with their credit limit and what they owe
+          - generic [ref=f39e124]:
+            - button "Active" [ref=f39e125] [cursor=pointer]
+            - button "Inactive" [ref=f39e126] [cursor=pointer]
+            - button "All" [ref=f39e127] [cursor=pointer]
+        - generic [ref=f39e128]:
+          - generic [ref=f39e129]:
+            - generic [ref=f39e130]: 
+            - textbox "Search code, name, phone or email…" [ref=f39e131]
+          - generic [ref=f39e132] [cursor=pointer]:
+            - combobox "All types" [ref=f39e133]
+            - button "dropdown trigger" [ref=f39e134]
+        - generic [ref=f39e140]:
+          - table [ref=f39e142]:
+            - rowgroup [ref=f39e143]:
+              - row [ref=f39e144]:
+                - columnheader [ref=f39e145] [cursor=pointer]
+                - columnheader [ref=f39e154] [cursor=pointer]
+                - columnheader [ref=f39e163] [cursor=pointer]
+                - columnheader "Phone" [ref=f39e172]
+                - columnheader "Email" [ref=f39e173]
+                - columnheader [ref=f39e174] [cursor=pointer]
+                - columnheader [ref=f39e183] [cursor=pointer]
+                - columnheader [ref=f39e192] [cursor=pointer]
+            - rowgroup [ref=f39e201]:
+              - row [ref=f39e202]:
+                - cell [ref=f39e203]:
+                  - link [ref=f39e204] [cursor=pointer]:
+                    - /url: /portal/pages/customers/4e02e15a-0690-4c96-9bfd-21f87a772193
+                    - strong [ref=f39e205]: C-00001
+                - cell "E2E_A41 Alpha Traders" [ref=f39e206]
+                - cell "Company" [ref=f39e207]
+                - cell "+923001200001" [ref=f39e208]
+                - cell "e2e.a41.ahmed@alpha-traders.example" [ref=f39e209]
+                - cell "0.00" [ref=f39e210]
+                - cell "0.00 GBP" [ref=f39e211]
+                - cell "Active" [ref=f39e212]
+              - row [ref=f39e215]:
+                - cell [ref=f39e216]:
+                  - link [ref=f39e217] [cursor=pointer]:
+                    - /url: /portal/pages/customers/ed6b6b4e-010a-477b-9d8a-00c3b514ce3e
+                    - strong [ref=f39e218]: C-00002
+                - cell "E2E_A41 Beta Supplies" [ref=f39e219]
+                - cell "Company" [ref=f39e220]
+                - cell "—" [ref=f39e221]
+                - cell "e2e.a41.ahmed@beta-supplies.example" [ref=f39e222]
+                - cell "0.00" [ref=f39e223]
+                - cell "0.00 GBP" [ref=f39e224]
+                - cell "Active" [ref=f39e225]
+              - row [ref=f39e228]:
+                - cell [ref=f39e229]:
+                  - link [ref=f39e230] [cursor=pointer]:
+                    - /url: /portal/pages/customers/99416fbb-6194-47cd-874d-46ce5242619c
+                    - strong [ref=f39e231]: "23423"
+                - cell "Govt of Punjab" [ref=f39e232]
+                - cell "Company" [ref=f39e233]
+                - cell "—" [ref=f39e234]
+                - cell "—" [ref=f39e235]
+                - cell "0.00" [ref=f39e236]
+                - cell "0.00 GBP" [ref=f39e237]
+                - cell "Active" [ref=f39e238]
+              - row [ref=f39e241]:
+                - cell [ref=f39e242]:
+                  - link [ref=f39e243] [cursor=pointer]:
+                    - /url: /portal/pages/customers/675513fa-1c60-451c-a567-a2800d2df44d
+                    - strong [ref=f39e244]: C-WALKIN
+                - cell "Walk-in Customer System" [ref=f39e245]:
+                  - text: Walk-in Customer
+                  - generic [ref=f39e246]: System
+                - cell "Walk-in" [ref=f39e247]
+                - cell "—" [ref=f39e248]
+                - cell "—" [ref=f39e249]
+                - cell "0.00" [ref=f39e250]
+                - cell "0.00 GBP" [ref=f39e251]
+                - cell "Active" [ref=f39e252]
+          - generic [ref=f39e256]:
+            - button "First Page" [disabled]
+            - button "Previous Page" [disabled]
+            - button "1" [ref=f39e258] [cursor=pointer]
+            - button "Next Page" [disabled]
+            - button "Last Page" [disabled]
+            - generic [ref=f39e259] [cursor=pointer]:
+              - combobox "Rows per page" [ref=f39e260]: "25"
+              - button "dropdown trigger" [ref=f39e261]
+    - generic [ref=f39e266]:
+      - text: All Rights Reserved To
+      - link "Loading" [ref=f39e267] [cursor=pointer]:
+        - /url: https://primeng.org

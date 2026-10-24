@@ -1,0 +1,66 @@
+- generic [ref=f15e4]:
+  - generic [ref=f15e5]:
+    - generic [ref=f15e6]:
+      - button "" [ref=f15e7] [cursor=pointer]
+      - link:
+        - /url: /portal/dashboard
+      - generic [ref=f15e9]: KFC Pakistan (KFC)
+    - button " Search anything... Ctrl K" [ref=f15e12] [cursor=pointer]:
+      - generic [ref=f15e13]: 
+      - generic [ref=f15e14]: Search anything...
+      - generic [ref=f15e15]: Ctrl K
+    - generic [ref=f15e16]:
+      - button "" [ref=f15e18] [cursor=pointer]
+      - generic [ref=f15e20]:
+        - button "Appearance" [ref=f15e21] [cursor=pointer]:
+          - generic [ref=f15e22]: 
+        - text:    
+      - generic [ref=f15e24]:
+        - button "CC " [ref=f15e25] [cursor=pointer]:
+          - generic [ref=f15e26]: CC
+          - generic [ref=f15e28]: 
+        - text:   
+  - generic [ref=f15e29]:
+    - generic [ref=f15e30]:
+      - generic [ref=f15e31]: 
+      - generic [ref=f15e33]:
+        - generic [ref=f15e34]: SupplyChain MS
+        - generic [ref=f15e35]: KFC Pakistan (KFC)
+    - list [ref=f15e37]:
+      - listitem [ref=f15e38]:
+        - button "Home " [ref=f15e39] [cursor=pointer]:
+          - generic [ref=f15e40]: Home
+          - generic [ref=f15e41]: 
+        - list:
+          - listitem [ref=f15e42]:
+            - link " Dashboard" [ref=f15e43] [cursor=pointer]:
+              - /url: /portal/dashboard
+              - generic [ref=f15e44]: 
+              - generic [ref=f15e45]: Dashboard
+          - listitem [ref=f15e46]:
+            - link " My Inbox" [ref=f15e47] [cursor=pointer]:
+              - /url: /portal/pages/workflow-inbox
+              - generic [ref=f15e48]: 
+              - generic [ref=f15e49]: My Inbox
+      - listitem [ref=f15e50]:
+        - button "Point of Sale " [ref=f15e51] [cursor=pointer]:
+          - generic [ref=f15e52]: Point of Sale
+          - generic [ref=f15e53]: 
+        - list:
+          - listitem [ref=f15e54]:
+            - link " Open POS" [ref=f15e55] [cursor=pointer]:
+              - /url: /pos
+              - generic [ref=f15e56]: 
+              - generic [ref=f15e57]: Open POS
+  - generic [ref=f15e58]:
+    - generic [ref=f15e61]:
+      - generic [ref=f15e62]: 
+      - heading "Access Denied" [level=1] [ref=f15e63]
+      - paragraph [ref=f15e64]: You don't have permission to view this page. Contact your system administrator if you believe this is an error.
+      - button " Back to Dashboard" [ref=f15e66] [cursor=pointer]:
+        - generic [ref=f15e67]: 
+        - generic [ref=f15e68]: Back to Dashboard
+    - generic [ref=f15e70]:
+      - text: All Rights Reserved To
+      - link "Loading" [ref=f15e71] [cursor=pointer]:
+        - /url: https://primeng.org

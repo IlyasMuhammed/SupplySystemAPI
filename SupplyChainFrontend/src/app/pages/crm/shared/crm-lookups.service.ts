@@ -15,6 +15,7 @@ export interface Option<T = string> { label: string; value: T; }
 export class CrmLookupsService {
   private meta$?: Observable<CrmMeta | null>;
   private users$?: Observable<CrmUser[]>;
+  private assignable$?: Observable<CrmUser[]>;
   private sources$?: Observable<LeadSource[]>;
   private teams$?: Observable<SalesTeam[]>;
   private campaigns$?: Observable<Campaign[]>;
@@ -23,7 +24,7 @@ export class CrmLookupsService {
   constructor(private crm: CrmService, private orgCurrency: OrgCurrencyService) {}
 
   reset(): void {
-    this.meta$ = this.users$ = undefined;
+    this.meta$ = this.users$ = this.assignable$ = undefined;
     this.sources$ = undefined;
     this.teams$ = undefined;
     this.campaigns$ = undefined;
@@ -47,6 +48,11 @@ export class CrmLookupsService {
 
   users(): Observable<CrmUser[]> {
     return this.users$ ??= this.crm.getUsers(undefined, 100).pipe(map(r => r.result ?? []), catchError(() => of([])), shareReplay(1));
+  }
+
+  /** People who can own leads and opportunities (they hold a CRM view permission) — owner, assignee and team-member pickers. */
+  assignableUsers(): Observable<CrmUser[]> {
+    return this.assignable$ ??= this.crm.getUsers(undefined, 100, true).pipe(map(r => r.result ?? []), catchError(() => of([])), shareReplay(1));
   }
 
   sources(): Observable<LeadSource[]> {

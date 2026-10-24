@@ -1,0 +1,299 @@
+- generic [active] [ref=f67e1]:
+  - generic [ref=f67e25]:
+    - generic:
+      - generic:
+        - link "Skip to Main Content":
+          - /url: "#main"
+        - banner [ref=f67e26]:
+          - navigation "Tools" [ref=f67e27]:
+            - heading "Sandbox Company GB 72c4" [level=2] [ref=f67e32]
+            - search [ref=f67e35]:
+              - searchbox "Search" [ref=f67e42]
+            - generic [ref=f67e43]:
+              - button "Contact expert help" [ref=f67e47] [cursor=pointer]:
+                - generic [ref=f67e49]: Contact experts
+              - button "Tasks" [ref=f67e55] [cursor=pointer]
+              - button "Integrations" [ref=f67e61] [cursor=pointer]
+              - button "Help" [ref=f67e69] [cursor=pointer]
+              - button "Intuit Labs" [ref=f67e75] [cursor=pointer]
+              - button "Settings" [ref=f67e80] [cursor=pointer]
+              - button "Intuit account (I)" [ref=f67e88] [cursor=pointer]:
+                - generic [ref=f67e89]: I
+              - button "Open Intuit Intelligence chat" [ref=f67e95] [cursor=pointer]
+    - navigation "Side" [ref=f67e140]:
+      - link "QuickBooks" [ref=f67e141] [cursor=pointer]:
+        - /url: currencies?intuit_authn_session_slot=VYPodik&iux_intuit_tid=1-6ad4e583-786281b57da2f2e673ba8def
+      - generic [ref=f67e143]:
+        - button "Create" [ref=f67e146] [cursor=pointer]
+        - button "Bookmarks" [ref=f67e154] [cursor=pointer]
+      - generic [ref=f67e159]:
+        - link "Home" [ref=f67e160] [cursor=pointer]:
+          - /url: /app/homepage
+        - link "Feed" [ref=f67e165] [cursor=pointer]:
+          - /url: /app/business-feed
+        - button "Reports" [ref=f67e172] [cursor=pointer]
+        - link "All apps" [ref=f67e180] [cursor=pointer]:
+          - /url: /app/banking?jobId=accounting
+      - generic [ref=f67e185]:
+        - generic [ref=f67e186]: PINNED
+        - generic [ref=f67e187]:
+          - button "Accounting" [ref=f67e191] [cursor=pointer]
+          - button "Expenses" [ref=f67e197] [cursor=pointer]
+          - button "Sales" [ref=f67e203] [cursor=pointer]
+      - button "Customise" [ref=f67e208] [cursor=pointer]
+    - navigation [ref=f67e213]:
+      - generic [ref=f67e214]:
+        - button "Collapse" [expanded] [ref=f67e216] [cursor=pointer]
+        - heading "All apps" [level=2] [ref=f67e220]
+        - generic [ref=f67e221]:
+          - button "Accounting" [ref=f67e225] [cursor=pointer]
+          - button "Expenses & Bills" [ref=f67e232] [cursor=pointer]
+          - generic [ref=f67e237]:
+            - button "Sales & Get Paid" [expanded] [ref=f67e239] [cursor=pointer]
+            - region "Sales & Get Paid" [ref=f67e243]:
+              - generic [ref=f67e244]:
+                - generic [ref=f67e245]:
+                  - link "Overview" [ref=f67e246] [cursor=pointer]:
+                    - /url: /app/incomeoverview?jobId=sales-payments
+                  - button "Add bookmark Overview" [ref=f67e249] [cursor=pointer]
+                - generic [ref=f67e251]:
+                  - link "Sales transactions" [ref=f67e252] [cursor=pointer]:
+                    - /url: /app/sales?jobId=sales-payments
+                  - button "Add bookmark Sales transactions" [ref=f67e255] [cursor=pointer]
+                - generic [ref=f67e257]:
+                  - link "Invoices" [ref=f67e258] [cursor=pointer]:
+                    - /url: /app/invoices?jobId=sales-payments
+                  - button "Add bookmark Invoices" [ref=f67e261] [cursor=pointer]
+                - generic [ref=f67e263]:
+                  - link "Sales orders" [ref=f67e264] [cursor=pointer]:
+                    - /url: /app/salesorders?jobId=sales-payments
+                  - button "Add bookmark Sales orders" [ref=f67e267] [cursor=pointer]
+                - generic [ref=f67e269]:
+                  - link "QuickBooks payouts" [ref=f67e270] [cursor=pointer]:
+                    - /url: /app/paymentsdeposits?jobId=sales-payments
+                  - button "Add bookmark QuickBooks payouts" [ref=f67e273] [cursor=pointer]
+                - generic [ref=f67e275]:
+                  - link "Products & services" [ref=f67e276] [cursor=pointer]:
+                    - /url: /app/items?jobId=sales-payments
+                  - button "Add bookmark Products & services" [ref=f67e279] [cursor=pointer]
+          - button "Customer Hub" [ref=f67e284] [cursor=pointer]
+          - button "Team" [ref=f67e291] [cursor=pointer]
+          - button "VAT" [ref=f67e298] [cursor=pointer]
+          - button "Income Tax" [ref=f67e305] [cursor=pointer]
+          - button "Capital" [ref=f67e312] [cursor=pointer]
+    - main [ref=f67e318]:
+      - generic [ref=f67e320]:
+        - banner [ref=f67e322]:
+          - heading "Invoices" [level=1] [ref=f67e324]
+        - button "Toggle Moneybar" [expanded] [ref=f67e327] [cursor=pointer]
+        - generic [ref=f67e335]:
+          - generic [ref=f67e336]:
+            - generic [ref=f67e337]:
+              - text: £36,480.32Unpaid
+              - generic [ref=f67e338]: Last 365 days
+            - generic [ref=f67e339]:
+              - generic [ref=f67e340]:
+                - text: £33,860.82
+                - generic [ref=f67e341]: Overdue
+              - 'link "MoneyBar filter: £33,860.82-Overdue" [ref=f67e343]'
+            - generic [ref=f67e344]:
+              - generic [ref=f67e345]:
+                - text: £2,619.50
+                - generic [ref=f67e346]: Not due yet
+              - 'link "MoneyBar filter: £2,619.50-Not due yet" [ref=f67e347]'
+          - generic [ref=f67e348]:
+            - generic [ref=f67e349]:
+              - text: £13,860.00Paid
+              - generic [ref=f67e350]: Last 30 days
+            - generic [ref=f67e351]:
+              - generic [ref=f67e352]:
+                - text: £30.00
+                - generic [ref=f67e353]: Not deposited
+              - 'link "MoneyBar filter: £30.00-Not deposited" [ref=f67e354]'
+            - generic [ref=f67e355]:
+              - generic [ref=f67e356]:
+                - text: £13,830.00
+                - generic [ref=f67e357]: Deposited
+              - 'link "MoneyBar filter: £13,830.00-Deposited" [ref=f67e358]'
+        - generic [ref=f67e359]:
+          - tablist [ref=f67e360]:
+            - tab "All invoices" [expanded] [selected] [ref=f67e361] [cursor=pointer]
+          - tabpanel "All invoices" [ref=f67e364]:
+            - generic [ref=f67e365]:
+              - generic [ref=f67e366]:
+                - generic [ref=f67e368]:
+                  - button "Batch actions" [disabled]
+                - region "Table filters" [ref=f67e369]:
+                  - generic [ref=f67e372]:
+                    - text: Status
+                    - generic [ref=f67e373]:
+                      - combobox "Status filter" [ref=f67e374] [cursor=pointer]: All
+                      - button [aria-hidden] [ref=f67e375] [cursor=pointer]
+                  - generic [ref=f67e380]:
+                    - text: Date
+                    - generic [ref=f67e381]:
+                      - combobox "Date filter" [ref=f67e382] [cursor=pointer]: Last 3 months
+                      - button [aria-hidden] [ref=f67e383] [cursor=pointer]
+                - generic [ref=f67e388]:
+                  - button "Create invoice" [ref=f67e389] [cursor=pointer]
+                  - button "Create invoice menu" [ref=f67e391] [cursor=pointer]
+              - table [ref=f67e395]:
+                - rowgroup [ref=f67e396]:
+                  - row [ref=f67e397]:
+                    - columnheader "Select all invoices" [ref=f67e398]:
+                      - checkbox "Select all invoices" [ref=f67e401] [cursor=pointer]: 
+                    - columnheader "Date" [ref=f67e403] [cursor=pointer]
+                    - columnheader "No." [ref=f67e404] [cursor=pointer]
+                    - columnheader "Customer" [ref=f67e405] [cursor=pointer]
+                    - columnheader "Amount" [ref=f67e406] [cursor=pointer]
+                    - columnheader "Status ▲" [ref=f67e407] [cursor=pointer]
+                    - columnheader "Action Table settings" [ref=f67e408]:
+                      - generic [ref=f67e409]:
+                        - generic [ref=f67e410]: Action
+                        - button "Table settings" [ref=f67e412] [cursor=pointer]
+                - rowgroup [ref=f67e416]:
+                  - row [ref=f67e417]:
+                    - cell "Invoice SINV-20261013-0002" [ref=f67e418]:
+                      - checkbox "Invoice SINV-20261013-0002" [ref=f67e421] [cursor=pointer]: 
+                    - cell "13/10/26" [ref=f67e423]
+                    - cell "SINV-20261013-0002" [ref=f67e424]
+                    - cell "Thames Valley Supplies Ltd" [ref=f67e425]
+                    - cell "£2,280.00" [ref=f67e426]
+                    - cell "Due in 25 days" [ref=f67e427]
+                    - cell [ref=f67e430]:
+                      - generic [ref=f67e432]:
+                        - button "View/Edit SINV-20261013-0002" [ref=f67e434] [cursor=pointer]: View/Edit
+                        - generic [ref=f67e435]:
+                          - button "Receive payment SINV-20261013-0002" [ref=f67e436] [cursor=pointer]: Receive payment
+                          - button "More actions SINV-20261013-0002" [ref=f67e437] [cursor=pointer]
+                  - row [ref=f67e438]:
+                    - cell "Invoice SINV-20261013-0003" [ref=f67e439]:
+                      - checkbox "Invoice SINV-20261013-0003" [ref=f67e442] [cursor=pointer]: 
+                    - cell "13/10/26" [ref=f67e444]
+                    - cell "SINV-20261013-0003" [ref=f67e445]
+                    - cell "Thames Valley Supplies Ltd" [ref=f67e446]
+                    - cell "£288.00" [ref=f67e447]
+                    - cell "Due in 25 days" [ref=f67e448]
+                    - cell [ref=f67e451]:
+                      - generic [ref=f67e453]:
+                        - button "View/Edit SINV-20261013-0003" [ref=f67e455] [cursor=pointer]: View/Edit
+                        - generic [ref=f67e456]:
+                          - button "Receive payment SINV-20261013-0003" [ref=f67e457] [cursor=pointer]: Receive payment
+                          - button "More actions SINV-20261013-0003" [ref=f67e458] [cursor=pointer]
+                  - row [ref=f67e459]:
+                    - cell "Invoice SINV-20261016-0004" [ref=f67e460]:
+                      - checkbox "Invoice SINV-20261016-0004" [ref=f67e463] [cursor=pointer]: 
+                    - cell "16/10/26" [ref=f67e465]
+                    - cell "SINV-20261016-0004" [ref=f67e466]
+                    - cell "Thames Valley Supplies Ltd" [ref=f67e467]
+                    - cell "£48.00" [ref=f67e468]
+                    - cell "Due in 28 days" [ref=f67e469]
+                    - cell [ref=f67e472]:
+                      - generic [ref=f67e474]:
+                        - button "View/Edit SINV-20261016-0004" [ref=f67e476] [cursor=pointer]: View/Edit
+                        - generic [ref=f67e477]:
+                          - button "Receive payment SINV-20261016-0004" [ref=f67e478] [cursor=pointer]: Receive payment
+                          - button "More actions SINV-20261016-0004" [ref=f67e479] [cursor=pointer]
+                  - row [ref=f67e480]:
+                    - cell "Invoice SINV-20261018-0009" [ref=f67e481]:
+                      - checkbox "Invoice SINV-20261018-0009" [ref=f67e484] [cursor=pointer]: 
+                    - cell "18/10/26" [ref=f67e486]
+                    - cell "SINV-20261018-0009" [ref=f67e487]
+                    - cell "Asif" [ref=f67e488]
+                    - cell "£3.50" [ref=f67e489]
+                    - cell "Due in 30 days" [ref=f67e490]
+                    - cell [ref=f67e493]:
+                      - generic [ref=f67e495]:
+                        - button "View/Edit SINV-20261018-0009" [ref=f67e497] [cursor=pointer]: View/Edit
+                        - generic [ref=f67e498]:
+                          - button "Receive payment SINV-20261018-0009" [ref=f67e499] [cursor=pointer]: Receive payment
+                          - button "More actions SINV-20261018-0009" [ref=f67e500] [cursor=pointer]
+                  - row [ref=f67e501]:
+                    - cell "Invoice SINV-20261016-0002" [ref=f67e502]:
+                      - checkbox "Invoice SINV-20261016-0002" [ref=f67e505] [cursor=pointer]: 
+                    - cell "16/10/26" [ref=f67e507]
+                    - cell "SINV-20261016-0002" [ref=f67e508]
+                    - cell "Thames Valley Supplies Ltd" [ref=f67e509]
+                    - cell "£30.00" [ref=f67e510]
+                    - cell " Paid" [ref=f67e511]:
+                      - generic [ref=f67e512]:
+                        - text: 
+                        - generic [ref=f67e513]: Paid
+                    - cell [ref=f67e514]:
+                      - generic [ref=f67e516]:
+                        - button "View/Edit SINV-20261016-0002" [ref=f67e518] [cursor=pointer]: View/Edit
+                        - generic [ref=f67e519]:
+                          - button "Print SINV-20261016-0002" [ref=f67e520] [cursor=pointer]: Print
+                          - button "More actions SINV-20261016-0002" [ref=f67e521] [cursor=pointer]
+                  - row [ref=f67e522]:
+                    - cell "Invoice 1003" [ref=f67e523]:
+                      - checkbox "Invoice 1003" [ref=f67e526] [cursor=pointer]: 
+                    - cell "15/9/26" [ref=f67e528]
+                    - cell "1003" [ref=f67e529]
+                    - cell "Oxon Insurance Agency:Oxon - Retreat 2014" [ref=f67e530]
+                    - cell "£9,859.80" [ref=f67e531]
+                    - cell " Deposited" [ref=f67e532]:
+                      - generic [ref=f67e533]:
+                        - text: 
+                        - generic [ref=f67e534]: Deposited
+                    - cell [ref=f67e535]:
+                      - generic [ref=f67e537]:
+                        - button "View/Edit 1003" [ref=f67e539] [cursor=pointer]: View/Edit
+                        - generic [ref=f67e540]:
+                          - button "Print 1003" [ref=f67e541] [cursor=pointer]: Print
+                          - button "More actions 1003" [ref=f67e542] [cursor=pointer]
+                  - row [ref=f67e543]:
+                    - cell "Invoice 1006" [ref=f67e544]:
+                      - checkbox "Invoice 1006" [ref=f67e547] [cursor=pointer]: 
+                    - cell "18/7/26" [ref=f67e549]
+                    - cell "1006" [ref=f67e550]
+                    - cell "Benjamin Yeung" [ref=f67e551]
+                    - cell "£4,423.50" [ref=f67e552]
+                    - cell " Deposited" [ref=f67e553]:
+                      - generic [ref=f67e554]:
+                        - text: 
+                        - generic [ref=f67e555]: Deposited
+                    - cell [ref=f67e556]:
+                      - generic [ref=f67e558]:
+                        - button "View/Edit 1006" [ref=f67e560] [cursor=pointer]: View/Edit
+                        - generic [ref=f67e561]:
+                          - button "Print 1006" [ref=f67e562] [cursor=pointer]: Print
+                          - button "More actions 1006" [ref=f67e563] [cursor=pointer]
+                  - row [ref=f67e564]:
+                    - cell "Invoice 1007" [ref=f67e565]:
+                      - checkbox "Invoice 1007" [ref=f67e568] [cursor=pointer]: 
+                    - cell "23/8/26" [ref=f67e570]
+                    - cell "1007" [ref=f67e571]
+                    - cell "Lew Plumbing" [ref=f67e572]
+                    - cell "£3,970.20" [ref=f67e573]
+                    - cell " Deposited" [ref=f67e574]:
+                      - generic [ref=f67e575]:
+                        - text: 
+                        - generic [ref=f67e576]: Deposited
+                    - cell [ref=f67e577]:
+                      - generic [ref=f67e579]:
+                        - button "View/Edit 1007" [ref=f67e581] [cursor=pointer]: View/Edit
+                        - generic [ref=f67e582]:
+                          - button "Print 1007" [ref=f67e583] [cursor=pointer]: Print
+                          - button "More actions 1007" [ref=f67e584] [cursor=pointer]
+                  - row [ref=f67e585]:
+                    - cell "Invoice SINV-20261013-0001" [ref=f67e586]:
+                      - checkbox "Invoice SINV-20261013-0001" [ref=f67e589] [cursor=pointer]: 
+                    - cell "13/10/26" [ref=f67e591]
+                    - cell "SINV-20261013-0001" [ref=f67e592]
+                    - cell "Thames Valley Supplies Ltd" [ref=f67e593]
+                    - cell "£0.00" [ref=f67e594]
+                    - cell "Voided" [ref=f67e595]
+                    - cell [ref=f67e598]:
+                      - generic [ref=f67e600]:
+                        - button "View/Edit SINV-20261013-0001" [ref=f67e602] [cursor=pointer]: View/Edit
+                        - generic [ref=f67e603]:
+                          - button "Print SINV-20261013-0001" [ref=f67e604] [cursor=pointer]: Print
+                          - button "More actions SINV-20261013-0001" [ref=f67e605] [cursor=pointer]
+              - generic [ref=f67e606]:
+                - button "First" [disabled] [ref=f67e607]
+                - button "Previous" [disabled] [ref=f67e608]
+                - text: 1–9 of 9
+                - button "Next" [disabled] [ref=f67e609]
+                - button "Last" [disabled] [ref=f67e610]
+  - generic: "Essential, Enhanced Experience & Product Improvement These first-party cookies are set by Intuit or one of our service providers; you cannot turn these off. These cookies enable the site to function as intended, including: basic functionality (for example, your ability to log into your Intuit account or add items to your cart for purchase); remember your preferences (for example, your preferred language or login credentials); provide you personalized content when viewing our site; and, allow us to evaluate your use and navigation of the site to fix bugs and improve the overall experience for you and others. A single cookie may be used for one or all of these purposes. Third-Party Advertisement  Yes We leverage advertising trackers across our sites to improve our marketing and advertising activities. These trackers may share some limited personal information with third-party platforms where we may display advertisements or run marketing campaigns. You may choose to turn these trackers off. You will still see Intuit advertisements when you opt-out, but these ads may not be tailored to your interests. This preference applies to your experience on our .intuit sites, once you create or login to your Intuit account, you may be prompted to choose again.    "

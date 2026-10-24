@@ -126,6 +126,8 @@ export interface SaleInquiry {
   partnerName?: string | null;
   customerReference?: string | null;
   customerReferenceDate?: string | null;
+  /** A41 D-13 — the CRM opportunity it was raised from (link back). */
+  sourceOpportunityUuid?: string | null;
   status: SaleInquiryStatus;
   receivedDate: string;
   responseDeadline?: string | null;
@@ -300,6 +302,8 @@ export interface SaleQuotation {
   partnerName?: string | null;
   customerReference?: string | null;
   customerReferenceDate?: string | null;
+  /** A41 D-13 — the CRM opportunity it was raised from (link back). */
+  sourceOpportunityUuid?: string | null;
   sourceInquiry?: SalesDocumentLink | null;
   /** The sale order it was converted to; null until CONVERTED. */
   saleOrder?: SalesDocumentLink | null;

@@ -1,0 +1,8 @@
+before | entity(*) + OR variant [today's resolver]    | reads= 27 rows=8 seek=True scan=False lookups=1 idx=IX_SupplierPricelists_Variant,IX_SupplierPricelists_Lookup,PK_SupplierPricelists
+before | projected + OR variant                       | reads= 27 rows=8 seek=True scan=False lookups=1 idx=IX_SupplierPricelists_Variant,IX_SupplierPricelists_Lookup,PK_SupplierPricelists
+before | projected, variant filtered in memory        | reads= 27 rows=8 seek=True scan=False lookups=1 idx=IX_SupplierPricelists_Lookup,PK_SupplierPricelists
+before | projected + UNION ALL split on variant       | reads= 30 rows=8 seek=True scan=False lookups=2 idx=IX_SupplierPricelists_Lookup,PK_SupplierPricelists
+after  | entity(*) + OR variant [today's resolver]    | reads= 28 rows=8 seek=True scan=False lookups=1 idx=IX_SupplierPricelists_Variant,IX_SupplierPricelists_Lookup,PK_SupplierPricelists
+after  | projected + OR variant                       | reads=  4 rows=8 seek=True scan=False lookups=0 idx=IX_SupplierPricelists_Variant,IX_SupplierPricelists_Lookup
+after  | projected, variant filtered in memory        | reads=  4 rows=8 seek=True scan=False lookups=0 idx=IX_SupplierPricelists_Lookup
+after  | projected + UNION ALL split on variant       | reads=  8 rows=8 seek=True scan=False lookups=0 idx=IX_SupplierPricelists_Lookup

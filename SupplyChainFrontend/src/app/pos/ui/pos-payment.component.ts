@@ -221,6 +221,19 @@ export class PosPaymentComponent implements OnInit {
         }
         this.method.set(this.methods()[0] ?? 'CASH');
         this.amount = this.due();
+
+        // "Cash exact" / "Card" on the selling screen: pay the whole total with that one tender and finish the sale. Any refusal
+        // (a manager is needed, a reference is missing, ...) simply leaves this page open with the message, as if typed by hand.
+        const quick = this.route.snapshot.queryParamMap.get('quick');
+        if (!ex && (quick === 'CASH' || quick === 'CARD') && this.methods().includes(quick)) {
+            this.selectMethod(quick);
+            void this.quickComplete();
+        }
+    }
+
+    private async quickComplete(): Promise<void> {
+        await this.add();
+        if (this.complete() && !this.error()) await this.confirm();
     }
 
     icon(m: PaymentMethod): string {

@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SMS.Modules.Demand.Data;
 using SMS.Modules.Demand.Domain;
@@ -29,13 +29,22 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
     private readonly IOrganizationCurrencyService? _orgCurrency;
     private readonly IOrgCurrencyLookup? _orgCurrencies;
     private readonly ICurrencyCodeLookup? _currencyCodes;
+    // A46 C4/C5 — every line is created by the factory and every change to a line goes through the pricing middleware (BR-26/29);
+    // both are built from this repository's own services when not supplied (older tests construct it directly).
+    private readonly IPurchaseOrderLineFactory _lines;
+    private readonly IPurchaseOrderLinePricingMiddleware _pricing;
 
     public PurchaseOrderRepository(
         DemandDbContext db, ILogger<PurchaseOrderRepository> logger, IDocumentNumberGenerator numbers, InventoryDbContext? inv = null,
         ICurrencyService? currency = null, IPartnerCurrencyDefaults? partnerCurrencies = null,
         IOrganizationCurrencyService? orgCurrency = null, IOrgCurrencyLookup? orgCurrencies = null,
-        ICurrencyCodeLookup? currencyCodes = null)
+        ICurrencyCodeLookup? currencyCodes = null, IPurchasePriceResolver? priceResolver = null,
+        ICurrencyConverter? currencyConverter = null, IPurchaseOrderLinePricingMiddleware? linePricing = null,
+        IPurchaseOrderLineFactory? lineFactory = null)
     {
+        _pricing           = linePricing ?? new PurchaseOrderLinePricingMiddleware(
+            db, priceResolver ?? new PurchasePriceResolver(db, inv, orgCurrency, currencyCodes, null, currencyConverter), inv);
+        _lines             = lineFactory ?? new PurchaseOrderLineFactory(_pricing);
         _currency          = currency;
         _partnerCurrencies = partnerCurrencies;
         _orgCurrency       = orgCurrency;
@@ -69,7 +78,11 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
 
     // ── Single-vendor conversion: all PR lines → one PO ──────────────────────
 
-    public async Task<Guid> CreateFromPrAsync(Guid prUuid, ConvertPrToPoRequest req, int createdBy)
+    public async Task<Guid> CreateFromPrAsync(Guid prUuid, ConvertPrToPoRequest req, int createdBy) =>
+        (await CreateFromPrWithSummaryAsync(prUuid, req, createdBy)).PoUuids[0];
+
+    /// <summary>A46 C5 — as <see cref="CreateFromPrAsync"/>, plus how many of the lines were priced from the pricelist (BR-30).</summary>
+    public async Task<PoConversionResult> CreateFromPrWithSummaryAsync(Guid prUuid, ConvertPrToPoRequest req, int createdBy)
     {
         var pr = await _db.PurchaseRequisitions
             .Include(p => p.Lines)
@@ -88,28 +101,6 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
         var defaultVariants = await ResolveDefaultVariantUuidsAsync(
             pr.Lines.Where(l => l.ProductId.HasValue).Select(l => l.ProductId!.Value));
 
-        var poLines = new List<PurchaseOrderLine>();
-        int lineNo  = 1;
-        foreach (var prLine in pr.Lines.OrderBy(l => l.LineNo))
-        {
-            poLines.Add(new PurchaseOrderLine
-            {
-                UUID             = Guid.NewGuid(),
-                LineNo           = lineNo++,
-                SourcePrLineUuid = prLine.UUID,
-                VariantUuid      = prLine.ProductId.HasValue && defaultVariants.TryGetValue(prLine.ProductId.Value, out var vUuid) ? vUuid : null,
-                ItemDescription  = prLine.ItemDescription,
-                Specification    = prLine.Specification,
-                UnitOfMeasure    = prLine.UnitOfMeasure,
-                Quantity         = prLine.Quantity,
-                UnitPrice        = prLine.EstimatedUnitPrice,
-                LineTotal        = prLine.LineTotal,
-                RequiredDate     = prLine.RequiredDate,
-                BudgetCode       = prLine.BudgetCode
-            });
-            prLine.LineStatus = "FULLY_CONVERTED";
-        }
-
         var po = new PurchaseOrder
         {
             UUID         = Guid.NewGuid(),
@@ -120,16 +111,24 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
             SupplierName = req.SupplierName,
             Status       = "DRAFT",
             CurrencyId   = await ResolveCurrencyAsync(null, req.SupplierId),
-            TotalAmount  = poLines.Sum(l => l.LineTotal),
             DeliveryDate = req.DeliveryDate,
+            OrderDate    = now.Date,
             Notes               = req.Notes,
             DeliveryWarehouseId = pr.WarehouseUuid,
             IsActive            = true,
             CreatedBy    = createdBy,
             CreatedDate  = now,
-            Lines        = poLines,
             PrLinks      = [new PurchaseOrderPrLink { PrUuid = prUuid }]
         };
+
+        var results = new List<PurchaseOrderLineResult>();
+        int lineNo  = 1;
+        foreach (var prLine in pr.Lines.OrderBy(l => l.LineNo))
+        {
+            results.Add(await AddRequisitionLineAsync(po, prLine, lineNo++, defaultVariants));
+            prLine.LineStatus = "FULLY_CONVERTED";
+        }
+        po.TotalAmount = po.Lines.Sum(l => l.LineTotal);
 
         _db.PurchaseOrders.Add(po);
 
@@ -138,12 +137,15 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
         pr.ModifiedDate = now;
 
         await _db.SaveChangesAsync();
-        return po.UUID;
+        return new PoConversionResult([po.UUID], PurchaseOrderLineFactory.Summarize(results));
     }
 
     // ── Split-by-vendor conversion: each vendor gets their own PO ─────────────
 
-    public async Task<List<Guid>> CreateFromPrSplitAsync(Guid prUuid, ConvertPrSplitRequest req, int createdBy)
+    public async Task<List<Guid>> CreateFromPrSplitAsync(Guid prUuid, ConvertPrSplitRequest req, int createdBy) =>
+        (await CreateFromPrSplitWithSummaryAsync(prUuid, req, createdBy)).PoUuids.ToList();
+
+    public async Task<PoConversionResult> CreateFromPrSplitWithSummaryAsync(Guid prUuid, ConvertPrSplitRequest req, int createdBy)
     {
         var pr = await _db.PurchaseRequisitions
             .Include(p => p.Lines)
@@ -170,6 +172,7 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
         var now        = DateTime.UtcNow;
         var poNumbers  = await GeneratePoNumbersAsync(now, grouped.Count);
         var poUuids    = new List<Guid>();
+        var results    = new List<PurchaseOrderLineResult>();
         int poIndex    = 0;
 
         var defaultVariants = await ResolveDefaultVariantUuidsAsync(
@@ -178,28 +181,6 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
         foreach (var group in grouped)
         {
             var firstAssignment = group.First().Assignment;
-            var poLines         = new List<PurchaseOrderLine>();
-            int lineNo          = 1;
-
-            foreach (var (_, prLine) in group)
-            {
-                poLines.Add(new PurchaseOrderLine
-                {
-                    UUID             = Guid.NewGuid(),
-                    LineNo           = lineNo++,
-                    SourcePrLineUuid = prLine.UUID,
-                    VariantUuid      = prLine.ProductId.HasValue && defaultVariants.TryGetValue(prLine.ProductId.Value, out var vUuid) ? vUuid : null,
-                    ItemDescription  = prLine.ItemDescription,
-                    Specification    = prLine.Specification,
-                    UnitOfMeasure    = prLine.UnitOfMeasure,
-                    Quantity         = prLine.Quantity,
-                    UnitPrice        = prLine.EstimatedUnitPrice,
-                    LineTotal        = prLine.LineTotal,
-                    RequiredDate     = prLine.RequiredDate,
-                    BudgetCode       = prLine.BudgetCode
-                });
-                prLine.LineStatus = "FULLY_CONVERTED";
-            }
 
             var po = new PurchaseOrder
             {
@@ -211,15 +192,22 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
                 SupplierName = firstAssignment.SupplierName,
                 Status       = "DRAFT",
                 CurrencyId   = await ResolveCurrencyAsync(null, group.Key),
-                TotalAmount  = poLines.Sum(l => l.LineTotal),
                 DeliveryDate = req.DeliveryDate,
+                OrderDate    = now.Date,
                 Notes        = req.Notes,
                 IsActive     = true,
                 CreatedBy    = createdBy,
                 CreatedDate  = now,
-                Lines        = poLines,
                 PrLinks      = [new PurchaseOrderPrLink { PrUuid = prUuid }]
             };
+
+            int lineNo = 1;
+            foreach (var (_, prLine) in group)
+            {
+                results.Add(await AddRequisitionLineAsync(po, prLine, lineNo++, defaultVariants));
+                prLine.LineStatus = "FULLY_CONVERTED";
+            }
+            po.TotalAmount = po.Lines.Sum(l => l.LineTotal);
 
             _db.PurchaseOrders.Add(po);
             poUuids.Add(po.UUID);
@@ -232,7 +220,36 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
         pr.ModifiedDate = now;
 
         await _db.SaveChangesAsync();
-        return poUuids;
+        return new PoConversionResult(poUuids, PurchaseOrderLineFactory.Summarize(results));
+    }
+
+    /// <summary>
+    /// A46 C5 - a requisition line becomes a PO line through the factory: an awarded RFQ's price is taken as-is (source RFQ, no
+    /// resolver call); every other line is priced from the supplier's pricelist, falling back to the requisition's estimate
+    /// (Manual) when none applies - never silently to 0, which would throw away the estimate the requester gave.
+    /// </summary>
+    private async Task<PurchaseOrderLineResult> AddRequisitionLineAsync(
+        PurchaseOrder po, PrLine prLine, int lineNo, Dictionary<Guid, Guid> defaultVariants)
+    {
+        var awarded = string.Equals(prLine.QuotationStatus, "AWARDED", StringComparison.Ordinal);
+        var result = await _lines.CreateLineAsync(po, new CreateLineInput
+        {
+            Origin              = awarded ? LineOrigin.Rfq : LineOrigin.PurchaseRequest,
+            LineNo              = lineNo,
+            SourcePrLineUuid    = prLine.UUID,
+            VariantUuid         = prLine.ProductId.HasValue && defaultVariants.TryGetValue(prLine.ProductId.Value, out var vUuid) ? vUuid : null,
+            ItemDescription     = prLine.ItemDescription,
+            Specification       = prLine.Specification,
+            UnitOfMeasure       = prLine.UnitOfMeasure,
+            Quantity            = prLine.Quantity,
+            RequiredDate        = prLine.RequiredDate,
+            BudgetCode          = prLine.BudgetCode,
+            SuppliedPrice       = awarded ? prLine.EstimatedUnitPrice : null,
+            SuppliedPriceSource = awarded ? PriceSource.RFQ : null,
+            FallbackPrice       = prLine.EstimatedUnitPrice
+        });
+        po.Lines.Add(result.Line);
+        return result;
     }
 
     // ── Manual PO creation (with optional multi-PR consolidation) ─────────────
@@ -254,6 +271,8 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
             CurrencyId            = await ResolveCurrencyAsync(req.CurrencyId, req.SupplierId),
             Source                = string.IsNullOrWhiteSpace(req.Source) ? PurchaseOrderSources.Manual : req.Source.Trim().ToUpperInvariant(),
             DeliveryDate          = req.DeliveryDate,
+            // A46 C1 / BR-20 - today (UTC) unless the caller dated the order.
+            OrderDate             = ResolveOrderDate(req.OrderDate, now),
             DeliveryWarehouseId   = req.DeliveryWarehouseId,
             DeliveryWarehouseName = req.DeliveryWarehouseName,
             Notes                 = req.Notes,
@@ -303,21 +322,7 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
             {
                 foreach (var prLine in pr.Lines.OrderBy(l => l.LineNo))
                 {
-                    po.Lines.Add(new PurchaseOrderLine
-                    {
-                        UUID             = Guid.NewGuid(),
-                        LineNo           = lineNo++,
-                        SourcePrLineUuid = prLine.UUID,
-                        VariantUuid      = prLine.ProductId.HasValue && defaultVariants.TryGetValue(prLine.ProductId.Value, out var vUuid) ? vUuid : null,
-                        ItemDescription  = prLine.ItemDescription,
-                        Specification    = prLine.Specification,
-                        UnitOfMeasure    = prLine.UnitOfMeasure,
-                        Quantity         = prLine.Quantity,
-                        UnitPrice        = prLine.EstimatedUnitPrice,
-                        LineTotal        = prLine.LineTotal,
-                        RequiredDate     = prLine.RequiredDate,
-                        BudgetCode       = prLine.BudgetCode
-                    });
+                    await AddRequisitionLineAsync(po, prLine, lineNo++, defaultVariants);
                     prLine.LineStatus = "FULLY_CONVERTED";
                 }
 
@@ -338,27 +343,10 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
             int lineNo = 1;
             foreach (var line in req.Lines)
             {
-                var unitPrice = ResolveLineUnitPrice(line.UnitPrice, line.VariantUuid, variantPrices);
-                po.Lines.Add(new PurchaseOrderLine
-                {
-                    UUID             = Guid.NewGuid(),
-                    LineNo           = lineNo++,
-                    SourcePrLineUuid = line.SourcePrLineUuid,
-                    VariantUuid      = line.VariantUuid,
-                    ItemDescription  = line.ItemDescription,
-                    Specification    = line.Specification,
-                    UnitOfMeasure    = line.UnitOfMeasure,
-                    Quantity         = line.Quantity,
-                    UnitPrice        = unitPrice,
-                    LineDiscountPct  = line.LineDiscountPct,
-                    LineTotal        = line.Quantity * unitPrice,
-                    RequiredDate     = line.RequiredDate,
-                    LineNotes        = line.LineNotes,
-                    BudgetCode       = line.BudgetCode,
-                    WarehouseId      = line.WarehouseId,
-                    WarehouseName    = line.WarehouseName,
-                    RequiresInspection = line.RequiresInspection
-                });
+                // A45 D-10 / A46 C4 - what the client says about the price's source is verified, a line with no price is priced by
+                // the server; both inside the factory.
+                var result = await _lines.CreateLineAsync(po, RequestLine(po, line, lineNo++, variantPrices));
+                po.Lines.Add(result.Line);
             }
         }
 
@@ -366,6 +354,27 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
         _db.PurchaseOrders.Add(po);
         await _db.SaveChangesAsync();
         return po.UUID;
+    }
+
+    /// <summary>
+    /// A client-sent line as factory input. A PO the system raised (production shortage, back-to-back) has no buyer typing prices:
+    /// a price it sends with no source claim is only the fallback, and the pricelist is tried first.
+    /// </summary>
+    private static CreateLineInput RequestLine(
+        PurchaseOrder po, CreatePoLineRequest line, int lineNo, Dictionary<Guid, decimal> variantPrices, PreviousLineState? previous = null)
+    {
+        // The variant's catalogue purchase price stands in for a line sent with no price (it was always so).
+        var fallback = line.UnitPrice > 0m ? line.UnitPrice
+            : line.VariantUuid is { } v && variantPrices.TryGetValue(v, out var catalogue) ? catalogue : (decimal?)null;
+        return CreateLineInput.From(line, lineNo, fallback, previous, systemRaised: po.Source != PurchaseOrderSources.Manual);
+    }
+
+    /// <summary>A46 C1 - the order date a request names (date part), or today when it names none.</summary>
+    private static DateTime ResolveOrderDate(DateTime? requested, DateTime utcNow)
+    {
+        if (requested is not { } d || d == default) return utcNow.Date;
+        if (d.Year < 1990 || d.Year > 2200) throw new BadRequestException("The order date is not a valid date.");
+        return d.Date;
     }
 
     // ── A31-C3/BR-C3-07 — consolidate onto an existing PRODUCTION-sourced draft ──
@@ -379,6 +388,8 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
     /// exists yet. Deliberately never touches <see cref="UpdateAsync"/>'s own Lines-replace path:
     /// that regenerates every line's UUID on every save, which would silently orphan any other
     /// shortage's own link to a line still on the same PO.
+    /// A46 C4: the bump goes through the pricing middleware (a bigger quantity can reach a better tier of the line's pricelist
+    /// price), a new line through the factory.
     /// </summary>
     public async Task<PoConsolidationResult> AddOrIncreaseProductionLineAsync(CreatePoRequest req, int createdBy)
     {
@@ -399,7 +410,7 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
                 SupplierId = req.SupplierId, SupplierName = req.SupplierName, Lines = [newLine],
                 DeliveryDate = req.DeliveryDate, DeliveryWarehouseId = req.DeliveryWarehouseId,
                 DeliveryWarehouseName = req.DeliveryWarehouseName, Title = req.Title, Notes = req.Notes,
-                Source = PurchaseOrderSources.Production
+                OrderDate = req.OrderDate, Source = PurchaseOrderSources.Production
             };
             var poUuid = await CreateAsync(createReq, createdBy);
             var created = await _db.PurchaseOrders.Include(p => p.Lines).FirstAsync(p => p.UUID == poUuid);
@@ -410,26 +421,19 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
         var matching = existing.Lines.FirstOrDefault(l => l.VariantUuid == newLine.VariantUuid);
         if (matching is not null)
         {
+            var before = matching.Quantity;
             matching.Quantity += newLine.Quantity;
-            matching.LineTotal = matching.Quantity * matching.UnitPrice;
+            await _pricing.ApplyPricingAsync(matching, existing, new LineChangeContext
+            {
+                QuantityChanged = true, PreviousQuantity = before, PreviousDeliveryDate = matching.RequiredDate
+            });
+            matching.LineTotal = PurchaseOrderLinePricingMiddleware.LineTotal(matching.Quantity, matching.UnitPrice);
         }
         else
         {
-            matching = new PurchaseOrderLine
-            {
-                UUID             = Guid.NewGuid(),
-                LineNo           = existing.Lines.Count + 1,
-                VariantUuid      = newLine.VariantUuid,
-                ItemDescription  = newLine.ItemDescription,
-                UnitOfMeasure    = newLine.UnitOfMeasure,
-                Quantity         = newLine.Quantity,
-                UnitPrice        = newLine.UnitPrice,
-                LineTotal        = newLine.Quantity * newLine.UnitPrice,
-                RequiredDate     = newLine.RequiredDate,
-                WarehouseId      = newLine.WarehouseId,
-                WarehouseName    = newLine.WarehouseName,
-                RequiresInspection = newLine.RequiresInspection
-            };
+            var variantPrices = await ResolveVariantPricesAsync(newLine.VariantUuid is { } vu ? [vu] : []);
+            var result = await _lines.CreateLineAsync(existing, RequestLine(existing, newLine, existing.Lines.Count + 1, variantPrices));
+            matching = result.Line;
             existing.Lines.Add(matching);
         }
         existing.TotalAmount   = existing.Lines.Sum(l => l.LineTotal);
@@ -438,6 +442,8 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
         await _db.SaveChangesAsync();
         return new PoConsolidationResult(existing.UUID, existing.PoNumber, matching.UUID, matching.Quantity, IsNewPo: false);
     }
+
+
 
     // A31-C3 §5.4 tier 2 — Draft doesn't count as "used" (it may never be sent), Cancelled/Rejected
     // don't either (the order never actually happened).
@@ -490,6 +496,7 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
             SupplierName              = spec.SupplierName,
             Status                    = spec.Status,
             CurrencyId                = await ResolveCurrencyAsync(null, spec.SupplierId),
+            OrderDate                 = now.Date,
             IsActive                  = true,
             CreatedBy                 = createdBy,
             CreatedDate               = now,
@@ -503,17 +510,20 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
             AutoSelectedSupplierId    = spec.SupplierId
         };
 
-        po.Lines.Add(new PurchaseOrderLine
+        // A46 C5 (BR-27) - the supplier's pricelist price wins when there is one; the price the caller selected is the fallback.
+        var lineResult = await _lines.CreateLineAsync(po, new CreateLineInput
         {
-            UUID            = Guid.NewGuid(),
+            Origin          = LineOrigin.AutoGenerated,
             LineNo          = 1,
             VariantUuid     = spec.VariantUuid,
             ItemDescription = description,
             UnitOfMeasure   = variant?.UomCode,
             Quantity        = spec.Quantity,
-            UnitPrice       = spec.UnitPrice,
-            LineTotal       = spec.Quantity * spec.UnitPrice
+            FallbackPrice   = spec.UnitPrice
         });
+        po.Lines.Add(lineResult.Line);
+        // What the system chose is what it priced the line at (the margin of the sale order line is measured against it).
+        po.AutoGeneratedPrice = lineResult.Line.UnitPrice;
 
         po.TotalAmount = po.Lines.Sum(l => l.LineTotal);
 
@@ -538,12 +548,16 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
         _db.PurchaseOrders.Add(po);
         await _db.SaveChangesAsync();
 
-        return new CreatedPurchaseOrder(po.UUID, po.Id, po.PoNumber, variant?.Sku, po.Status);
+        return new CreatedPurchaseOrder(po.UUID, po.Id, po.PoNumber, variant?.Sku, po.Status, lineResult.Line.UnitPrice);
     }
 
     // ── Update DRAFT PO ───────────────────────────────────────────────────────
 
-    public async Task<IReadOnlyList<PoFieldChange>> UpdateAsync(Guid uuid, PatchPoRequest req, int modifiedBy)
+    public async Task<IReadOnlyList<PoFieldChange>> UpdateAsync(Guid uuid, PatchPoRequest req, int modifiedBy) =>
+        (await UpdateWithPricingAsync(uuid, req, modifiedBy)).Changes;
+
+    // A46-0152 - the same update, also reporting what pricing did to each rebuilt line.
+    public async Task<PoUpdateResult> UpdateWithPricingAsync(Guid uuid, PatchPoRequest req, int modifiedBy)
     {
         var po = await _db.PurchaseOrders
             .Include(p => p.Lines)
@@ -551,8 +565,13 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
             ?? throw new NotFoundException("PurchaseOrder", uuid);
 
         if (po.Status != "DRAFT")
+        {
+            // A46 C1 / BR-20 - the order date is frozen once the PO leaves DRAFT; asking for another one is a 400 of its own.
+            if (req.OrderDate is { } requestedDate && requestedDate != default && requestedDate.Date != po.OrderDate.Date)
+                throw new BadRequestException("The order date can only be changed while the purchase order is a draft.");
             throw new UnprocessableEntityException(
                 $"Only DRAFT purchase orders can be edited. Current status: {po.Status}.");
+        }
 
         // A29-P5-11 — snapshot before anything is applied, so what changed can be told afterwards.
         // Only a PO the system raised for a sale order is audited field by field; a hand-made PO's
@@ -565,6 +584,7 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
         var oldDelivery  = po.DeliveryDate;
         var oldTitle     = po.Title;
         var oldNotes     = po.Notes;
+        var oldOrderDate = po.OrderDate;
         var supplierChanged = (req.SupplierId.HasValue && req.SupplierId.Value != po.SupplierId)
                            || (req.SupplierName is not null && req.SupplierName != po.SupplierName);
 
@@ -572,6 +592,7 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
         if (req.SupplierId.HasValue)               po.SupplierId            = req.SupplierId.Value;
         if (req.Title is not null)                 po.Title                 = req.Title;
         if (req.DeliveryDate.HasValue)             po.DeliveryDate          = req.DeliveryDate;
+        if (req.OrderDate is { } orderDate && orderDate != default) po.OrderDate = ResolveOrderDate(orderDate, DateTime.UtcNow);
         if (req.DeliveryWarehouseId.HasValue)      po.DeliveryWarehouseId   = req.DeliveryWarehouseId;
         if (req.DeliveryWarehouseName is not null) po.DeliveryWarehouseName = req.DeliveryWarehouseName;
         if (req.Notes is not null)                 po.Notes                 = req.Notes;
@@ -583,6 +604,7 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
             po.CurrencyId = await ResolveCurrencyAsync(newCurrency, po.SupplierId, po.CurrencyId);
         }
 
+        var pricedLines = new List<(PurchaseOrderLine Line, PurchaseOrderLineResult? Result, PreviousPriceState? Previous)>();
         if (req.Lines is not null)
         {
             ValidateLineQuantities(req.Lines.Select(l => l.Quantity));
@@ -590,35 +612,34 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
             var variantPrices = await ResolveVariantPricesAsync(
                 req.Lines.Where(l => l.VariantUuid.HasValue).Select(l => l.VariantUuid!.Value));
 
+            // A46 C4 - every line is rebuilt below, so which stored line each sent line stands for is worked out first: that is how
+            // the server knows a quantity, product or date changed and re-prices accordingly.
+            var stored = po.Lines.OrderBy(l => l.LineNo).ToList();
+            var previous = new List<PreviousLineState?>();
+            var previousPrices = new List<PreviousPriceState?>();
+            foreach (var l in req.Lines)
+            {
+                var match = (l.Uuid is { } lineUuid ? stored.FirstOrDefault(s => s.UUID == lineUuid) : null)
+                    ?? (l.VariantUuid is { } variant
+                        ? stored.FirstOrDefault(s => s.VariantUuid == variant)
+                        : stored.FirstOrDefault(s => s.VariantUuid == null && s.ItemDescription == l.ItemDescription));
+                if (match is not null) stored.Remove(match);
+                previous.Add(match is null ? null : new PreviousLineState(match.VariantUuid, match.Quantity, match.RequiredDate));
+                previousPrices.Add(match is null ? null : new PreviousPriceState(match.UnitPrice, match.SystemResolvedPrice, match.PriceSource));
+            }
+
             // Cleared as well as removed: RemoveRange only marks the old lines Deleted, they stay in
             // the collection until the save, and the total below is summed from that collection — so
             // without the Clear every edit of a PO's lines left TotalAmount at old + new.
             _db.PurchaseOrderLines.RemoveRange(po.Lines);
             po.Lines.Clear();
             int lineNo = 1;
-            foreach (var l in req.Lines)
+            for (var i = 0; i < req.Lines.Count; i++)
             {
-                var unitPrice = ResolveLineUnitPrice(l.UnitPrice, l.VariantUuid, variantPrices);
-                po.Lines.Add(new PurchaseOrderLine
-                {
-                    UUID             = Guid.NewGuid(),
-                    LineNo           = lineNo++,
-                    SourcePrLineUuid = l.SourcePrLineUuid,
-                    VariantUuid      = l.VariantUuid,
-                    ItemDescription  = l.ItemDescription,
-                    Specification    = l.Specification,
-                    UnitOfMeasure    = l.UnitOfMeasure,
-                    Quantity         = l.Quantity,
-                    UnitPrice        = unitPrice,
-                    LineDiscountPct  = l.LineDiscountPct,
-                    LineTotal        = l.Quantity * unitPrice,
-                    RequiredDate     = l.RequiredDate,
-                    LineNotes        = l.LineNotes,
-                    BudgetCode       = l.BudgetCode,
-                    WarehouseId      = l.WarehouseId,
-                    WarehouseName    = l.WarehouseName,
-                    RequiresInspection = l.RequiresInspection
-                });
+                // A45 D-10 - the claimed price source is verified, not stored as sent; A46 C4 - the change rules run on it.
+                var result = await _lines.CreateLineAsync(po, RequestLine(po, req.Lines[i], lineNo++, variantPrices, previous[i]));
+                po.Lines.Add(result.Line);
+                pricedLines.Add((result.Line, result, previousPrices[i]));
             }
             po.TotalAmount = po.Lines.Sum(l => l.LineTotal);
         }
@@ -628,6 +649,7 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
             if (supplierChanged)                       changes.Add(new("Supplier", oldSupplier, po.SupplierName));
             AddIfDifferent(changes, "Title", oldTitle, po.Title);
             AddIfDifferent(changes, "Delivery date", FormatDate(oldDelivery), FormatDate(po.DeliveryDate));
+            AddIfDifferent(changes, "Order date", FormatDate(oldOrderDate), FormatDate(po.OrderDate));
             AddIfDifferent(changes, "Delivery warehouse", oldWarehouse, po.DeliveryWarehouseName);
             AddIfDifferent(changes, "Notes", oldNotes, po.Notes);
             if (req.Lines is not null)
@@ -642,7 +664,12 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
         po.ModifiedBy   = modifiedBy;
         po.ModifiedDate = DateTime.UtcNow;
         await _db.SaveChangesAsync();
-        return changes;
+
+        // A lines-less edit re-prices nothing: report the stored lines as they stand.
+        var pricing = PoPricingResultBuilder.Build(req.Lines is not null
+            ? pricedLines
+            : po.Lines.OrderBy(l => l.LineNo).Select(l => (l, (PurchaseOrderLineResult?)null, (PreviousPriceState?)null)));
+        return new PoUpdateResult(changes, pricing);
     }
 
     // ── A29-P5-11 §6.2 — split a DRAFT PO raised for a sale order line ────────
@@ -652,6 +679,9 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
     // ship, and the trace_id), so the order's timeline, cancellation and the GRN auto-reservation all
     // treat it as the order's own. It is not "auto-generated": the system chose nothing for it, so
     // its audit columns stay empty and the original PO keeps the record of what the system chose.
+    // A46 C5: the moved quantity is a new line made by the factory - a price typed for the new supplier is kept (Manual), otherwise
+    // the new supplier's pricelist is tried and the original line's price is the fallback; the quantity left on the original line
+    // goes through the pricing middleware (a lower quantity can fall to another tier of a pricelist price).
     public async Task<SplitPoResult> SplitAsync(Guid uuid, SplitPoRequest req, int userId)
     {
         var po = await _db.PurchaseOrders
@@ -693,6 +723,7 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
             Status                    = "DRAFT",
             CurrencyId                = po.CurrencyId, // A35 — the moved quantity keeps the price's currency
             DeliveryDate              = po.DeliveryDate,
+            OrderDate                 = po.OrderDate,  // A46 - the same order, so the same pricing date
             DeliveryWarehouseId       = po.DeliveryWarehouseId,
             DeliveryWarehouseName     = po.DeliveryWarehouseName,
             InternalNotes             = $"Split from {po.PoNumber}: {req.Quantity:0.####} of {line.ItemDescription}.",
@@ -704,18 +735,18 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
             LinkedSoLineId            = po.LinkedSoLineId,
             CustomerShippingAddressId = po.CustomerShippingAddressId
         };
-        newPo.Lines.Add(new PurchaseOrderLine
+        var moved = await _lines.CreateLineAsync(newPo, new CreateLineInput
         {
-            UUID               = Guid.NewGuid(),
+            Origin             = LineOrigin.Split,
             LineNo             = 1,
             VariantUuid        = line.VariantUuid,
             ItemDescription    = line.ItemDescription,
             Specification      = line.Specification,
             UnitOfMeasure      = line.UnitOfMeasure,
             Quantity           = req.Quantity,
-            UnitPrice          = price,
+            UnitPrice          = req.UnitPrice is > 0m ? req.UnitPrice.Value : 0m,
+            FallbackPrice      = line.UnitPrice,
             LineDiscountPct    = line.LineDiscountPct,
-            LineTotal          = req.Quantity * price,
             RequiredDate       = line.RequiredDate,
             LineNotes          = line.LineNotes,
             BudgetCode         = line.BudgetCode,
@@ -723,10 +754,12 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
             WarehouseName      = line.WarehouseName,
             RequiresInspection = line.RequiresInspection
         });
+        newPo.Lines.Add(moved.Line);
         newPo.TotalAmount = newPo.Lines.Sum(l => l.LineTotal);
 
         line.Quantity  = oldQty - req.Quantity;
-        line.LineTotal = line.Quantity * line.UnitPrice;
+        await _pricing.ApplyPricingAsync(line, po, new LineChangeContext { QuantityChanged = true, PreviousQuantity = oldQty });
+        line.LineTotal = PurchaseOrderLinePricingMiddleware.LineTotal(line.Quantity, line.UnitPrice);
         po.TotalAmount = po.Lines.Sum(l => l.LineTotal);
         po.InternalNotes = AppendNote(po.InternalNotes, $"Split: {req.Quantity:0.####} of {line.ItemDescription} moved to {poNumber}.");
         po.ModifiedBy   = userId;
@@ -745,6 +778,7 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
             new PoFieldChange("Split", null, $"{Fmt(req.Quantity)} → {poNumber} ({req.SupplierName})")
         ]);
     }
+
 
     // ── Audit / linkage helpers (A29-P5-11) ───────────────────────────────────
 
@@ -977,6 +1011,7 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
                 CurrencyId      = p.CurrencyId,
                 TotalAmountBase = p.TotalAmountBase,
                 DeliveryDate = p.DeliveryDate,
+                OrderDate    = p.OrderDate.ToString("yyyy-MM-dd"),
                 CreatedDate  = p.CreatedDate
             })
             .ToListAsync();
@@ -1022,8 +1057,23 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
 
         var (linkedSo, autoGenerated) = await ResolveSaleOrderLinkAsync(po);
 
+        // A45 — the date basis of each line's pricelist row (soft-deleted rows included, BR-16).
+        var pricelistUuids = po.Lines.Where(l => l.SupplierPricelistUuid != null).Select(l => l.SupplierPricelistUuid!.Value).Distinct().ToList();
+        var dateBasis = pricelistUuids.Count == 0
+            ? new Dictionary<Guid, PricingDateBasis>()
+            : await _db.SupplierPricelists.IgnoreQueryFilters().AsNoTracking()
+                .Where(r => r.OrganizationId == po.OrganizationId && pricelistUuids.Contains(r.UUID))
+                .ToDictionaryAsync(r => r.UUID, r => r.PricingDateBasis);
+
+        // A46 C10 - the code of each currency a line's price was converted from.
+        var originalCodes = new Dictionary<Guid, string?>();
+        if (_currencyCodes is not null)
+            foreach (var id in po.Lines.Where(l => l.OriginalCurrencyId != null).Select(l => l.OriginalCurrencyId!.Value).Distinct())
+                originalCodes[id] = (await _currencyCodes.GetCodeAsync(id))?.Trim();
+
         return new PoDetailModel
         {
+            OrderDate                 = po.OrderDate.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture),
             Source                    = po.Source,
             LinkedSaleOrderUuid       = linkedSo?.Uuid,
             LinkedSaleOrderNumber     = linkedSo?.SoNumber,
@@ -1089,7 +1139,17 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
                     WarehouseName         = l.WarehouseName,
                     EffectiveWarehouseId  = l.EffectiveWarehouseId,
                     EffectiveWarehouseName = l.EffectiveWarehouseName,
-                    RequiresInspection    = l.RequiresInspection
+                    RequiresInspection    = l.RequiresInspection,
+                    PriceSource           = (int)l.PriceSource,
+                    SystemResolvedPrice   = l.SystemResolvedPrice,
+                    SupplierPricelistUuid = l.SupplierPricelistUuid,
+                    PriceOverrideReason   = l.PriceOverrideReason,
+                    PricingDateBasis      = l.SupplierPricelistUuid is { } pu && dateBasis.TryGetValue(pu, out var basis) ? basis.ToString() : null,
+                    OriginalCurrencyId    = l.OriginalCurrencyId,
+                    OriginalCurrencyCode  = l.OriginalCurrencyId is { } oc && originalCodes.TryGetValue(oc, out var ocCode) ? ocCode : null,
+                    OriginalCurrencyPrice = l.OriginalCurrencyPrice,
+                    ExchangeRateUsed      = l.ExchangeRateUsed,
+                    ExchangeRateDate      = l.ExchangeRateDate?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)
                 };
             }).ToList()
         };
@@ -1170,15 +1230,6 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
             .Where(v => ids.Contains(v.Uuid))
             .Select(v => new { v.Uuid, v.PurchasePrice })
             .ToDictionaryAsync(x => x.Uuid, x => x.PurchasePrice);
-    }
-
-    // Unit_price defaults from ProductVariant.purchase_price when the caller doesn't supply one —
-    // an explicit 0 or positive price from the caller always wins over the catalogue default.
-    private static decimal ResolveLineUnitPrice(decimal requestedUnitPrice, Guid? variantUuid, Dictionary<Guid, decimal> variantPrices)
-    {
-        if (requestedUnitPrice > 0) return requestedUnitPrice;
-        if (variantUuid.HasValue && variantPrices.TryGetValue(variantUuid.Value, out var price)) return price;
-        return requestedUnitPrice;
     }
 
     private sealed record VariantDisplayInfo(string Sku, string VariantName, string ProductName, Guid ProductUuid, string? ImageUrl);

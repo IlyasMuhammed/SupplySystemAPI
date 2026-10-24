@@ -280,6 +280,11 @@ export class AppMenu {
                           permRequired: ['PO_VIEW', 'PO_CREATE', 'PO_EDIT', 'PO_APPROVE'] }
                     ]
                 },
+                // A45 — what each vendor charges per product; prices purchase order lines automatically.
+                { label: 'Supplier Pricelists', icon: 'pi pi-fw pi-dollar',
+                  routerLink: ['/portal/pages/demand/supplier-pricelists'],
+                  featureCode: 'MODULE_DEMAND',
+                  permRequired: ['PO_VIEW', 'PO_CREATE', 'PO_EDIT', 'PO_APPROVE'] },
                 {
                     label: 'Suppliers',
                     icon: 'pi pi-fw pi-building',

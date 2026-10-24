@@ -41,6 +41,16 @@ Status is given per register area, not per task line. Spec Phase 3 items and the
 
 - Qualify, disqualify and mark-contacted validated the transition before ownership. A non-owner therefore got 400 for a wrong-state lead instead of 403. Ownership is now checked first.
 
+## Fixed after the Playwright E2E run (2026-10-17)
+
+- Campaign / lead / opportunity / activity date pickers: `todayButtonStyleClass=""` + `clearButtonStyleClass=""` (PrimeNG binds `ngClass` to them and logged ~100 errors per interaction); campaign pickers attach inside the dialog so Escape no longer strands a calendar; end-before-start is also refused in the form.
+- Quotation and inquiry detail pages link back to the opportunity ("Open in CRM").
+- Lead cross-references panel: loading / not-linked / failed states, and the previous lead's result is cleared on navigation.
+- `GET api/crm/users?assignable=true` keeps only users holding CRM_VIEW_LEADS or CRM_VIEW_OPPORTUNITIES; owner, assignee, convert-assignee and team pickers use it (participants still list every colleague).
+- Read-Only / Auditor gets CRM_VIEW_LEADS, CRM_VIEW_OPPORTUNITIES, CRM_VIEW_ACTIVITIES, CRM_VIEW_CAMPAIGNS, CRM_EXPORT_TIMELINE (`SeedCrmViewGrantsAsync`, additive, a switched-off grant stays off).
+- A CONVERTED lead no longer offers "Log activity" (the server already routed it to the opportunity, §10.1).
+- Number format: FSD §2.2 now notes that all document numbers use the platform's 5-digit width (D-8).
+
 ## Deploy note
 
 Restarting the API applies `A41_CrmInitial` (new `crm` schema) and the guarded `A41_SourceOpportunity` Demand migration to the shared database.

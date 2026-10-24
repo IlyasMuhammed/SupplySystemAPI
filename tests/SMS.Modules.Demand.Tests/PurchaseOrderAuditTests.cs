@@ -162,6 +162,22 @@ public class PurchaseOrderAuditTests
     }
 
     [Fact]
+    public async Task A46_0152_the_patch_response_keeps_success_and_message_and_adds_pricing()
+    {
+        var h = await NewHarness();
+
+        var response = await h.Controller.UpdatePurchaseOrder(h.PoUuid, Edit(h, 25m, 20m));
+
+        var body = response.Should().BeOfType<OkObjectResult>().Subject.Value.Should().BeAssignableTo<ApiResponse>().Subject;
+        body.Success.Should().BeTrue();
+        body.Message.Should().NotBeNullOrEmpty();
+        body.Result.Should().BeNull("the plain envelope had no result, and still has none");
+        var pricing = body.Should().BeOfType<PoPricingApiResponse>().Subject.Pricing;
+        pricing.Should().NotBeNull();
+        pricing!.Lines.Should().ContainSingle().Which.UnitPrice.Should().Be(20m);
+    }
+
+    [Fact]
     public async Task Patching_a_hand_made_po_writes_only_the_generic_row()
     {
         var h = await NewHarness(audited: false);

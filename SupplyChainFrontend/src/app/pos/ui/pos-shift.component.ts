@@ -115,7 +115,7 @@ import { PosLabelPipe, PosMoneyPipe } from './pos-money.pipe';
             }
         </div>
 
-        <p-dialog [visible]="!!cashDir()" (onHide)="cashDir.set(null)" [modal]="true" [header]="cashDir() === 'IN' ? 'Cash in' : 'Cash out'" [style]="{ width: 'min(420px, 95vw)' }">
+        <p-dialog [visible]="!!cashDir()" (onHide)="cashDir.set(null)" (visibleChange)="!$event && cashDir.set(null)" [modal]="true" [header]="cashDir() === 'IN' ? 'Cash in' : 'Cash out'" [style]="{ width: 'min(420px, 95vw)' }">
             <div class="stack">
                 <div><label class="pos-lbl" for="cm-amount">Amount</label><input id="cm-amount" class="pos-input" type="number" inputmode="decimal" step="0.01" min="0" [(ngModel)]="cashAmount" data-testid="cash-amount" /></div>
                 <div><label class="pos-lbl">Reason</label>

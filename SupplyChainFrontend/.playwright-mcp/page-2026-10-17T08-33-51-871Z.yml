@@ -1,0 +1,54 @@
+- generic [ref=f12e906]:
+  - generic [ref=f12e907]:
+    - generic [ref=f12e908]:
+      - button "" [ref=f12e909] [cursor=pointer]
+      - link:
+        - /url: /portal/dashboard
+      - navigation "Breadcrumb" [ref=f12e911]:
+        - strong [ref=f12e912]: Home
+    - button " Search anything... Ctrl K" [ref=f12e914] [cursor=pointer]:
+      - generic [ref=f12e915]: 
+      - generic [ref=f12e916]: Search anything...
+      - generic [ref=f12e917]: Ctrl K
+    - generic [ref=f12e918]:
+      - generic [ref=f12e919]:
+        - button "" [ref=f12e920] [cursor=pointer]
+        - generic: "2"
+      - generic [ref=f12e922]:
+        - button "Appearance" [ref=f12e923] [cursor=pointer]:
+          - generic [ref=f12e924]: 
+        - text:    
+      - generic [ref=f12e926]:
+        - button "CC " [ref=f12e927] [cursor=pointer]:
+          - generic [ref=f12e928]: CC
+          - generic [ref=f12e930]: 
+        - text:   
+  - generic [ref=f12e931]:
+    - generic [ref=f12e932]:
+      - generic [ref=f12e933]: 
+      - generic [ref=f12e935]:
+        - generic [ref=f12e936]: SupplyChain MS
+        - generic [ref=f12e937]: Supply Management System
+    - generic:
+      - list
+  - generic [ref=f12e938]:
+    - generic [ref=f12e941]:
+      - toolbar "Commands" [ref=f12e942]:
+        - button " Refresh" [ref=f12e944] [cursor=pointer]:
+          - generic [ref=f12e945]: 
+          - generic [ref=f12e946]: Refresh
+        - generic [ref=f12e947]: Live
+      - generic [ref=f12e952]:
+        - generic [ref=f12e954]:
+          - generic [ref=f12e955]: Saturday, 17 October 2026
+          - heading "Supply Chain Dashboard" [level=1] [ref=f12e956]
+        - generic [ref=f12e958] [cursor=pointer]:
+          - generic [ref=f12e959]:
+            - generic [ref=f12e960]: 
+            - text: Needs Attention
+          - generic [ref=f12e961]: "0"
+          - generic [ref=f12e962]: 0 queues waiting
+    - generic [ref=f12e964]:
+      - text: All Rights Reserved To
+      - link "Loading" [ref=f12e965] [cursor=pointer]:
+        - /url: https://primeng.org

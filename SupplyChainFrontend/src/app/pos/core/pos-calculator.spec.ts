@@ -250,9 +250,21 @@ describe('A38 §1 totals calculator', () => {
             expect(isFullyTendered(total, t(286.89))).toBeFalse();
         });
 
-        it('suggests the exact amount and the next round notes', () => {
-            expect(quickAmounts(286.91)).toEqual([286.91, 290, 300, 500, 1000]);
+        it('suggests only multiples of 50 that are greater than the amount due', () => {
+            expect(quickAmounts(286.91)).toEqual([300, 500, 1000, 5000]);
+            expect(quickAmounts(7)).toEqual([50, 100, 500, 1000, 5000]);
             expect(quickAmounts(0)).toEqual([]);
+            for (const due of [0.01, 49.99, 50, 120.5, 286.91, 300, 999.99, 1000, 6500, 98000]) {
+                for (const q of quickAmounts(due)) {
+                    expect(q % 50).toBe(0);
+                    expect(q).toBeGreaterThan(due);
+                }
+            }
+        });
+
+        it('moves to the next multiple when the amount due is already one', () => {
+            expect(quickAmounts(300)).toEqual([350, 400, 500, 1000, 5000]);
+            expect(quickAmounts(7000)).toEqual([7050, 7100, 7500, 8000, 10000]);
         });
     });
 });

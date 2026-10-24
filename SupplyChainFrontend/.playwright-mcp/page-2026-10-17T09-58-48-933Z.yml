@@ -1,0 +1,224 @@
+- generic [ref=f30e4]:
+  - generic [ref=f30e5]:
+    - generic [ref=f30e6]:
+      - button "" [ref=f30e7] [cursor=pointer]
+      - link:
+        - /url: /portal/dashboard
+      - navigation "Breadcrumb" [ref=f30e1823]:
+        - generic [ref=f30e1824]: CRM
+        - generic [ref=f30e1825]: ›
+        - strong [ref=f30e1968]: Leads
+    - button " Search anything... Ctrl K" [ref=f30e16] [cursor=pointer]:
+      - generic [ref=f30e17]: 
+      - generic [ref=f30e18]: Search anything...
+      - generic [ref=f30e19]: Ctrl K
+    - generic [ref=f30e20]:
+      - generic [ref=f30e21]:
+        - button "" [ref=f30e22] [cursor=pointer]
+        - generic: "1"
+      - generic [ref=f30e24]:
+        - button "Appearance" [ref=f30e25] [cursor=pointer]:
+          - generic [ref=f30e26]: 
+        - text:    
+      - generic [ref=f30e28]:
+        - button "MC " [ref=f30e29] [cursor=pointer]:
+          - generic [ref=f30e30]: MC
+          - generic [ref=f30e32]: 
+        - text:   
+  - generic [ref=f30e33]:
+    - generic [ref=f30e34]:
+      - generic [ref=f30e35]: 
+      - generic [ref=f30e37]:
+        - generic [ref=f30e38]: SupplyChain MS
+        - generic [ref=f30e39]: KFC Pakistan (KFC)
+    - list [ref=f30e41]:
+      - listitem [ref=f30e42]:
+        - button "Home " [ref=f30e43] [cursor=pointer]:
+          - generic [ref=f30e44]: Home
+          - generic [ref=f30e45]: 
+        - list:
+          - listitem [ref=f30e46]:
+            - link " Dashboard" [ref=f30e47] [cursor=pointer]:
+              - /url: /portal/dashboard
+              - generic [ref=f30e48]: 
+              - generic [ref=f30e49]: Dashboard
+          - listitem [ref=f30e50]:
+            - link " My Inbox" [ref=f30e51] [cursor=pointer]:
+              - /url: /portal/pages/workflow-inbox
+              - generic [ref=f30e52]: 
+              - generic [ref=f30e53]: My Inbox
+      - listitem [ref=f30e54]:
+        - button "Sales " [ref=f30e55] [cursor=pointer]:
+          - generic [ref=f30e56]: Sales
+          - generic [ref=f30e57]: 
+        - list:
+          - listitem [ref=f30e58]:
+            - link " Customers" [ref=f30e59] [cursor=pointer]:
+              - /url: /portal/pages/customers
+              - generic [ref=f30e60]: 
+              - generic [ref=f30e61]: Customers
+          - listitem [ref=f30e62]:
+            - link " Inquiries" [ref=f30e63] [cursor=pointer]:
+              - /url: /portal/pages/sales/inquiries
+              - generic [ref=f30e64]: 
+              - generic [ref=f30e65]: Inquiries
+          - listitem [ref=f30e66]:
+            - link " Customer Quotations" [ref=f30e67] [cursor=pointer]:
+              - /url: /portal/pages/sales/quotations
+              - generic [ref=f30e68]: 
+              - generic [ref=f30e69]: Customer Quotations
+          - listitem [ref=f30e70]:
+            - generic [ref=f30e71] [cursor=pointer]:
+              - generic [ref=f30e72]: 
+              - generic [ref=f30e73]: Sale Orders
+              - generic [ref=f30e74]: 
+            - list:
+              - listitem [ref=f30e75]:
+                - link " All Sale Orders" [ref=f30e76] [cursor=pointer]:
+                  - /url: /portal/pages/sales/orders
+                  - generic [ref=f30e77]: 
+                  - generic [ref=f30e78]: All Sale Orders
+      - listitem [ref=f30e79]:
+        - button "CRM " [expanded] [ref=f30e80] [cursor=pointer]:
+          - generic [ref=f30e81]: CRM
+          - generic [ref=f30e82]: 
+        - list [ref=f30e83]:
+          - listitem [ref=f30e84]:
+            - link " Leads" [ref=f30e85] [cursor=pointer]:
+              - /url: /portal/pages/crm/leads
+              - generic [ref=f30e86]: 
+              - generic [ref=f30e87]: Leads
+          - listitem [ref=f30e88]:
+            - link " Opportunities" [ref=f30e89] [cursor=pointer]:
+              - /url: /portal/pages/crm/opportunities
+              - generic [ref=f30e90]: 
+              - generic [ref=f30e91]: Opportunities
+          - listitem [ref=f30e92]:
+            - link " Activities" [ref=f30e93] [cursor=pointer]:
+              - /url: /portal/pages/crm/activities
+              - generic [ref=f30e94]: 
+              - generic [ref=f30e95]: Activities
+          - listitem [ref=f30e96]:
+            - link " Campaigns" [ref=f30e97] [cursor=pointer]:
+              - /url: /portal/pages/crm/campaigns
+              - generic [ref=f30e98]: 
+              - generic [ref=f30e99]: Campaigns
+  - generic [ref=f30e100]:
+    - generic [ref=f30e1970]:
+      - toolbar "Commands" [ref=f30e1971]:
+        - button " New lead" [ref=f30e1973] [cursor=pointer]:
+          - generic [ref=f30e1974]: 
+          - generic [ref=f30e1975]: New lead
+        - button " Clear filters" [ref=f30e1978] [cursor=pointer]:
+          - generic [ref=f30e1979]: 
+          - generic [ref=f30e1980]: Clear filters
+        - group [ref=f30e1982]:
+          - generic [ref=f30e1983] [cursor=pointer]: List
+          - generic [ref=f30e1986] [cursor=pointer]: Kanban
+      - generic [ref=f30e1991]:
+        - generic [ref=f30e1992]:
+          - generic [ref=f30e1993]:
+            - heading "Leads 3" [level=1] [ref=f30e1994]:
+              - text: Leads
+              - generic [ref=f30e1995]: "3"
+            - generic [ref=f30e1996]: Prospects not yet qualified — capture, contact, qualify and convert them
+          - generic [ref=f30e1997]:
+            - button "All" [ref=f30e1998] [cursor=pointer]
+            - button "New" [ref=f30e1999] [cursor=pointer]
+            - button "Contacted" [ref=f30e2000] [cursor=pointer]
+            - button "Qualified" [ref=f30e2001] [cursor=pointer]
+            - button "Disqualified" [ref=f30e2002] [cursor=pointer]
+            - button "Converted" [ref=f30e2003] [cursor=pointer]
+        - generic [ref=f30e2004]:
+          - generic [ref=f30e2005]:
+            - generic [ref=f30e2006]: 
+            - textbox "Search topic, name, company, email, phone or number" [ref=f30e2007]
+          - generic [ref=f30e2008] [cursor=pointer]:
+            - combobox "Everyone's leads" [ref=f30e2009]
+            - button "dropdown trigger" [ref=f30e2010]
+          - generic [ref=f30e2014] [cursor=pointer]:
+            - combobox "All sources" [ref=f30e2015]
+            - button "dropdown trigger" [ref=f30e2016]
+          - generic [ref=f30e2020] [cursor=pointer]:
+            - combobox "All teams" [ref=f30e2021]
+            - button "dropdown trigger" [ref=f30e2022]
+          - generic [ref=f30e2026] [cursor=pointer]:
+            - combobox "Any rating" [ref=f30e2027]
+            - button "dropdown trigger" [ref=f30e2028]
+          - generic [ref=f30e2033]:
+            - combobox "Created between" [ref=f30e2034]
+            - button "Choose Date" [ref=f30e2035] [cursor=pointer]
+        - generic [ref=f30e2041]:
+          - table [ref=f30e2043]:
+            - rowgroup [ref=f30e2044]:
+              - row [ref=f30e2045]:
+                - columnheader "#" [ref=f30e2046]
+                - columnheader "Lead" [ref=f30e2047]
+                - columnheader "Company" [ref=f30e2048]
+                - columnheader "Source" [ref=f30e2049]
+                - columnheader "Rating" [ref=f30e2050]
+                - columnheader "Stage" [ref=f30e2051]
+                - columnheader "Status" [ref=f30e2052]
+                - columnheader "Estimate" [ref=f30e2053]
+            - rowgroup [ref=f30e2054]:
+              - row [ref=f30e2055] [cursor=pointer]:
+                - cell [ref=f30e2056]:
+                  - link [ref=f30e2057]:
+                    - /url: /portal/pages/crm/leads/881ad0e0-40b9-4449-ab00-be25002e32a6
+                    - strong [ref=f30e2058]: LD-2026-00003
+                - cell "Ahmed Khan E2E_A41 Second inquiry - generators" [ref=f30e2059]:
+                  - strong [ref=f30e2060]: Ahmed Khan
+                  - generic [ref=f30e2061]: E2E_A41 Second inquiry - generators
+                - cell "E2E_A41 Alpha Traders" [ref=f30e2062]
+                - cell "—" [ref=f30e2063]
+                - cell "Warm" [ref=f30e2064]
+                - cell "New Lead" [ref=f30e2066]
+                - cell "New Mona Crmadmin" [ref=f30e2067]:
+                  - generic [ref=f30e2068]: New
+                  - generic [ref=f30e2069]: Mona Crmadmin
+                - cell "—" [ref=f30e2070]
+              - row [ref=f30e2071] [cursor=pointer]:
+                - cell [ref=f30e2072]:
+                  - link [ref=f30e2073]:
+                    - /url: /portal/pages/crm/leads/96a42602-4677-400d-8fb7-bf10a0802ade
+                    - strong [ref=f30e2074]: LD-2026-00002
+                - cell "Zara Malik E2E_A41 Home generator enquiry (B2C)" [ref=f30e2075]:
+                  - strong [ref=f30e2076]: Zara Malik
+                  - generic [ref=f30e2077]: E2E_A41 Home generator enquiry (B2C)
+                - cell "Zara Malik" [ref=f30e2078]
+                - cell "—" [ref=f30e2079]
+                - cell "Warm" [ref=f30e2080]
+                - cell "New Lead" [ref=f30e2082]
+                - cell "New Sam Salesrep" [ref=f30e2083]:
+                  - generic [ref=f30e2084]: New
+                  - generic [ref=f30e2085]: Sam Salesrep
+                - cell "—" [ref=f30e2086]
+              - row [ref=f30e2087] [cursor=pointer]:
+                - cell [ref=f30e2088]:
+                  - link [ref=f30e2089]:
+                    - /url: /portal/pages/crm/leads/62242edf-d62f-4f11-8507-716f86fd99d8
+                    - strong [ref=f30e2090]: LD-2026-00001
+                - cell "Ahmed Khan E2E_A41 AC and ovens inquiry from Facebook" [ref=f30e2091]:
+                  - strong [ref=f30e2092]: Ahmed Khan
+                  - generic [ref=f30e2093]: E2E_A41 AC and ovens inquiry from Facebook
+                - cell "E2E_A41 Alpha Traders" [ref=f30e2094]
+                - cell "Facebook" [ref=f30e2095]
+                - cell "Hot" [ref=f30e2096]
+                - cell "Qualification" [ref=f30e2098]
+                - cell "Converted Mona Crmadmin" [ref=f30e2099]:
+                  - generic [ref=f30e2100]: Converted
+                  - generic [ref=f30e2101]: Mona Crmadmin
+                - cell "—" [ref=f30e2102]
+          - generic [ref=f30e2104]:
+            - button "First Page" [disabled]
+            - button "Previous Page" [disabled]
+            - button "1" [ref=f30e2106] [cursor=pointer]
+            - button "Next Page" [disabled]
+            - button "Last Page" [disabled]
+            - generic [ref=f30e2107] [cursor=pointer]:
+              - combobox "Rows per page" [ref=f30e2108]: "25"
+              - button "dropdown trigger" [ref=f30e2109]
+    - generic [ref=f30e408]:
+      - text: All Rights Reserved To
+      - link "Loading" [ref=f30e409] [cursor=pointer]:
+        - /url: https://primeng.org

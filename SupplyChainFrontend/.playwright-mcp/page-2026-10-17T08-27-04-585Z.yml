@@ -1,0 +1,82 @@
+- generic [ref=f9e2]:
+  - banner [ref=f9e279]:
+    - generic [ref=f9e280]:
+      - generic [ref=f9e281]: 
+      - generic [ref=f9e282]:
+        - generic [ref=f9e283]: E2E Test Store 20261017
+        - generic [ref=f9e284]: E2E Till 1
+    - generic [ref=f9e285]: SH-E2E-1017-20261017-01 · Open
+    - generic [ref=f9e286]:
+      - generic [ref=f9e287]: 
+      - text: Online
+    - generic [ref=f9e288]:
+      - generic [ref=f9e289]: 
+      - text: Casey Cashier
+    - navigation [ref=f9e290]:
+      - link "Sell" [ref=f9e291] [cursor=pointer]:
+        - /url: /pos/sell
+        - generic [ref=f9e292]: 
+      - link "Shift" [ref=f9e294] [cursor=pointer]:
+        - /url: /pos/shift
+        - generic [ref=f9e295]: 
+      - link "History" [ref=f9e297] [cursor=pointer]:
+        - /url: /pos/history
+        - generic [ref=f9e298]: 
+      - link "Settings" [ref=f9e300] [cursor=pointer]:
+        - /url: /pos/settings
+        - generic [ref=f9e301]: 
+      - button "Lock" [ref=f9e302] [cursor=pointer]:
+        - generic [ref=f9e303]: 
+  - main [ref=f9e3]:
+    - generic [ref=f9e567]:
+      - generic [ref=f9e568]:
+        - link " Cart" [ref=f9e569] [cursor=pointer]:
+          - /url: /pos/sell
+          - generic [ref=f9e570]: 
+          - text: Cart
+        - heading "Payment" [level=1] [ref=f9e571]
+        - generic [ref=f9e572]: Walk-in customer
+      - generic [ref=f9e573]:
+        - generic [ref=f9e574]:
+          - generic [ref=f9e575]: Total
+          - generic [ref=f9e576]: GBP 118,000.00
+          - generic [ref=f9e577]: 4 items
+        - generic [ref=f9e578]:
+          - generic [ref=f9e579]: Paid
+          - generic [ref=f9e580]: "0.00"
+        - generic [ref=f9e581]:
+          - generic [ref=f9e582]: Due
+          - generic [ref=f9e583]: 118,000.00
+        - generic [ref=f9e584]:
+          - generic [ref=f9e585]: Change
+          - generic [ref=f9e586]: "0.00"
+      - generic [ref=f9e587]:
+        - radiogroup "Payment method" [ref=f9e588]:
+          - button " Cash" [ref=f9e589] [cursor=pointer]:
+            - generic [ref=f9e590]: 
+            - text: Cash
+          - button " Card" [ref=f9e591] [cursor=pointer]:
+            - generic [ref=f9e592]: 
+            - text: Card
+          - button " Mobile" [ref=f9e593] [cursor=pointer]:
+            - generic [ref=f9e594]: 
+            - text: Mobile
+          - button " Bank transfer" [ref=f9e595] [cursor=pointer]:
+            - generic [ref=f9e596]: 
+            - text: Bank transfer
+          - button " Cheque" [ref=f9e597] [cursor=pointer]:
+            - generic [ref=f9e598]: 
+            - text: Cheque
+          - button " On account" [disabled] [ref=f9e599]:
+            - generic [ref=f9e600]: 
+            - text: On account
+          - button " Store credit" [ref=f9e601] [cursor=pointer]:
+            - generic [ref=f9e602]: 
+            - text: Store credit
+        - generic [ref=f9e603]:
+          - generic [ref=f9e604]: Amount
+          - spinbutton "Amount" [ref=f9e605]: "118000"
+        - generic [ref=f9e606]:
+          - button "118,000.00" [ref=f9e607] [cursor=pointer]
+          - button "120,000.00" [ref=f9e608] [cursor=pointer]
+        - button "Add Cash" [ref=f9e609] [cursor=pointer]

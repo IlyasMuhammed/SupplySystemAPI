@@ -1,0 +1,164 @@
+- generic [ref=f51e4]:
+  - generic [ref=f51e5]:
+    - generic [ref=f51e6]:
+      - button "" [ref=f51e7] [cursor=pointer]
+      - link:
+        - /url: /portal/dashboard
+      - navigation "Breadcrumb" [ref=f51e9]:
+        - generic [ref=f51e10]: CRM
+        - generic [ref=f51e11]: ›
+        - strong [ref=f51e12]: Campaigns
+    - button " Search anything... Ctrl K" [ref=f51e14] [cursor=pointer]:
+      - generic [ref=f51e15]: 
+      - generic [ref=f51e16]: Search anything...
+      - generic [ref=f51e17]: Ctrl K
+    - generic [ref=f51e18]:
+      - generic [ref=f51e19]:
+        - button "" [ref=f51e20] [cursor=pointer]
+        - generic: "1"
+      - generic [ref=f51e22]:
+        - button "Appearance" [ref=f51e23] [cursor=pointer]:
+          - generic [ref=f51e24]: 
+        - text:    
+      - generic [ref=f51e26]:
+        - button "MC " [ref=f51e27] [cursor=pointer]:
+          - generic [ref=f51e28]: MC
+          - generic [ref=f51e30]: 
+        - text:   
+  - generic [ref=f51e31]:
+    - generic [ref=f51e32]:
+      - generic [ref=f51e33]: 
+      - generic [ref=f51e35]:
+        - generic [ref=f51e36]: SupplyChain MS
+        - generic [ref=f51e398]: KFC Pakistan (KFC)
+    - list [ref=f51e400]:
+      - listitem [ref=f51e401]:
+        - button "Home " [ref=f51e402] [cursor=pointer]:
+          - generic [ref=f51e403]: Home
+          - generic [ref=f51e404]: 
+        - list:
+          - listitem [ref=f51e405]:
+            - link " Dashboard" [ref=f51e406] [cursor=pointer]:
+              - /url: /portal/dashboard
+              - generic [ref=f51e407]: 
+              - generic [ref=f51e408]: Dashboard
+          - listitem [ref=f51e409]:
+            - link " My Inbox" [ref=f51e410] [cursor=pointer]:
+              - /url: /portal/pages/workflow-inbox
+              - generic [ref=f51e411]: 
+              - generic [ref=f51e412]: My Inbox
+      - listitem [ref=f51e413]:
+        - button "Sales " [ref=f51e414] [cursor=pointer]:
+          - generic [ref=f51e415]: Sales
+          - generic [ref=f51e416]: 
+        - list:
+          - listitem [ref=f51e417]:
+            - link " Customers" [ref=f51e418] [cursor=pointer]:
+              - /url: /portal/pages/customers
+              - generic [ref=f51e419]: 
+              - generic [ref=f51e420]: Customers
+          - listitem [ref=f51e421]:
+            - link " Inquiries" [ref=f51e422] [cursor=pointer]:
+              - /url: /portal/pages/sales/inquiries
+              - generic [ref=f51e423]: 
+              - generic [ref=f51e424]: Inquiries
+          - listitem [ref=f51e425]:
+            - link " Customer Quotations" [ref=f51e426] [cursor=pointer]:
+              - /url: /portal/pages/sales/quotations
+              - generic [ref=f51e427]: 
+              - generic [ref=f51e428]: Customer Quotations
+          - listitem [ref=f51e429]:
+            - generic [ref=f51e430] [cursor=pointer]:
+              - generic [ref=f51e431]: 
+              - generic [ref=f51e432]: Sale Orders
+              - generic [ref=f51e433]: 
+            - list:
+              - listitem [ref=f51e434]:
+                - link " All Sale Orders" [ref=f51e435] [cursor=pointer]:
+                  - /url: /portal/pages/sales/orders
+                  - generic [ref=f51e436]: 
+                  - generic [ref=f51e437]: All Sale Orders
+      - listitem [ref=f51e438]:
+        - button "CRM " [expanded] [ref=f51e439] [cursor=pointer]:
+          - generic [ref=f51e440]: CRM
+          - generic [ref=f51e441]: 
+        - list [ref=f51e442]:
+          - listitem [ref=f51e443]:
+            - link " Leads" [ref=f51e444] [cursor=pointer]:
+              - /url: /portal/pages/crm/leads
+              - generic [ref=f51e445]: 
+              - generic [ref=f51e446]: Leads
+          - listitem [ref=f51e447]:
+            - link " Opportunities" [ref=f51e448] [cursor=pointer]:
+              - /url: /portal/pages/crm/opportunities
+              - generic [ref=f51e449]: 
+              - generic [ref=f51e450]: Opportunities
+          - listitem [ref=f51e451]:
+            - link " Activities" [ref=f51e452] [cursor=pointer]:
+              - /url: /portal/pages/crm/activities
+              - generic [ref=f51e453]: 
+              - generic [ref=f51e454]: Activities
+          - listitem [ref=f51e455]:
+            - link " Campaigns" [ref=f51e456] [cursor=pointer]:
+              - /url: /portal/pages/crm/campaigns
+              - generic [ref=f51e457]: 
+              - generic [ref=f51e458]: Campaigns
+  - generic [ref=f51e38]:
+    - generic [ref=f51e40]:
+      - generic:
+        - alertdialog
+      - generic [ref=f51e41]:
+        - toolbar "Commands" [ref=f51e42]:
+          - button " New campaign" [ref=f51e44] [cursor=pointer]:
+            - generic [ref=f51e45]: 
+            - generic [ref=f51e46]: New campaign
+        - generic [ref=f51e49]:
+          - generic [ref=f51e50]:
+            - generic [ref=f51e51]:
+              - heading "Campaigns 1" [level=1] [ref=f51e459]:
+                - text: Campaigns
+                - generic [ref=f51e53]: "1"
+              - generic [ref=f51e54]: Marketing initiatives leads are attributed to — budget, expected and actual leads
+            - generic [ref=f51e55]:
+              - button "All" [ref=f51e56] [cursor=pointer]
+              - button "Draft" [ref=f51e57] [cursor=pointer]
+              - button "Active" [ref=f51e58] [cursor=pointer]
+              - button "Paused" [ref=f51e59] [cursor=pointer]
+              - button "Completed" [ref=f51e60] [cursor=pointer]
+              - button "Cancelled" [ref=f51e61] [cursor=pointer]
+          - generic [ref=f51e63]:
+            - generic [ref=f51e64]: 
+            - textbox "Search name or code" [ref=f51e65]
+          - generic [ref=f51e68]:
+            - table [ref=f51e75]:
+              - rowgroup [ref=f51e76]:
+                - row [ref=f51e77]:
+                  - columnheader "Code" [ref=f51e78]
+                  - columnheader "Campaign" [ref=f51e79]
+                  - columnheader "Type" [ref=f51e80]
+                  - columnheader "Source" [ref=f51e81]
+                  - columnheader "Dates" [ref=f51e82]
+                  - columnheader "Budget" [ref=f51e83]
+                  - columnheader "Leads" [ref=f51e84]
+                  - columnheader "Status" [ref=f51e85]
+              - rowgroup [ref=f51e460]:
+                - row [ref=f51e461] [cursor=pointer]:
+                  - cell "E2E_A41_CMP" [ref=f51e462]
+                  - cell [ref=f51e463]:
+                    - strong [ref=f51e464]: E2E_A41 Facebook spring promo
+                  - cell "General" [ref=f51e465]
+                  - cell "—" [ref=f51e466]
+                  - cell "— – —" [ref=f51e467]
+                  - cell "—" [ref=f51e468]
+                  - cell "1" [ref=f51e469]
+                  - cell "Active" [ref=f51e470]
+            - generic [ref=f51e87]:
+              - button "First Page" [disabled]
+              - button "Previous Page" [disabled]
+              - button "1" [ref=f51e473] [cursor=pointer]
+              - button "Next Page" [disabled]
+              - button "Last Page" [disabled]
+    - generic [ref=f51e89]:
+      - text: All Rights Reserved To
+      - link "Loading" [ref=f51e90] [cursor=pointer]:
+        - /url: https://primeng.org

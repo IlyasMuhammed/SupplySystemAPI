@@ -1,4 +1,4 @@
-using System.Net.Http.Headers;
+﻿using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Hangfire;
@@ -49,7 +49,7 @@ public sealed class SapWebApplicationFactory : WebApplicationFactory<Program>, I
 
     public const string ReturnUrl = "http://localhost:4200/portal/pages/integrations/quickbooks";
 
-    private readonly string _dbName = $"{DatabasePrefix}{Guid.NewGuid():N}";
+    private readonly string _dbName = Environment.GetEnvironmentVariable("SMS_E2E_DB_NAME") ?? $"{DatabasePrefix}{Guid.NewGuid():N}";
     private static readonly JsonSerializerOptions Json = new() { PropertyNameCaseInsensitive = true };
 
     private static readonly string[] EnvVars =
@@ -235,6 +235,8 @@ public sealed class SapWebApplicationFactory : WebApplicationFactory<Program>, I
     {
         Dispose();
         foreach (var name in EnvVars) Environment.SetEnvironmentVariable(name, null);
+
+        if (Environment.GetEnvironmentVariable("SMS_E2E_KEEP_DB") == "1") return; // live-stack seeding: the database is kept
 
         try
         {

@@ -111,6 +111,12 @@
           <div class="sf-kv">
             <span>Customer</span><span>{{ i.partnerName || i.partnerId }}</span>
             <span>Customer reference</span><span>{{ i.customerReference || '—' }}</span>
+            <ng-container *ngIf="i.sourceOpportunityUuid as opp">
+              <span>Opportunity</span>
+              <span data-testid="source-opportunity">
+                <a [routerLink]="['/portal/pages/crm/opportunities', opp]" data-testid="source-opportunity-link">Open in CRM</a>
+              </span>
+            </ng-container>
             <span>Reference date</span><span>{{ displayDate(i.customerReferenceDate) }}</span>
             <span>Received</span><span>{{ displayDate(i.receivedDate) }}</span>
             <span>Response deadline</span><span>{{ displayDate(i.responseDeadline) }}</span>

@@ -118,6 +118,28 @@ internal sealed class CurrencyRateService : ICurrencyRateService
             CurrencyRate? closed = null;
 
             var newTo = input.To ?? open;
+
+            // A46 BR-34 — a manual rate beats an auto-fetched one for the same date: the feed row that starts that day is
+            // taken over in place (it becomes MANUAL), so no duplicate day and the feed can never re-assert itself.
+            var feedSameDay = rows.FirstOrDefault(r => IsFeed(r.Source) && r.EffectiveFrom == input.From);
+            if (feedSameDay is not null)
+            {
+                var other = rows.FirstOrDefault(r => r != feedSameDay && r.EffectiveFrom <= newTo && r.EffectiveTo >= input.From);
+                if (other is not null)
+                    throw new ConflictException(Clash(input.Currency.Code, other));
+
+                feedSameDay.Rate         = input.Rate;
+                feedSameDay.InverseRate  = Inverse(input.Rate);
+                feedSameDay.EffectiveTo  = newTo;
+                feedSameDay.Source       = CurrencyConventions.SourceManual;
+                feedSameDay.Notes        = input.Notes;
+                feedSameDay.ModifiedBy   = userId;
+                feedSameDay.ModifiedDate = Now;
+                await SaveAsync(input.Currency.Code, ct);
+                var overridden = await ToModelsAsync(org, [feedSameDay], ct);
+                return new CurrencyRateInsertResult { Rate = overridden[0], ClosedPrevious = null };
+            }
+
             var current = rows.FirstOrDefault(r => r.EffectiveTo == open);
             if (input.To is null && current is not null && current.EffectiveFrom < input.From)
                 closed = current;
@@ -163,6 +185,9 @@ internal sealed class CurrencyRateService : ICurrencyRateService
                        ?? throw new NotFoundException("That exchange rate does not exist in this organization.");
         if (existing.Source == CurrencyConventions.SourceSystem)
             throw new BadRequestException("Base currency rate cannot be modified: the rate currency is always 1.");
+
+        if (IsFeed(existing.Source))
+            throw new BadRequestException("Auto-fetched exchange rates are read-only. Enter a manual rate for the date instead; it takes precedence.");
 
         if (req is not null) req.CurrencyId = existing.CurrencyId;
         var input = await ValidateAsync(org, req, ct);
@@ -234,6 +259,10 @@ internal sealed class CurrencyRateService : ICurrencyRateService
 
         return new ValidRate(currency, req.Rate, from, to, notes);
     }
+
+    /// <summary>A46 — an auto-fetched row (API_SBP, API_ECB, API_OPENEXCHANGE, API_FOREX; the spec's "FEED"/Api source).</summary>
+    internal static bool IsFeed(string? source) =>
+        source is not null && source.StartsWith("API_", StringComparison.OrdinalIgnoreCase);
 
     internal static decimal Inverse(decimal rate) => CurrencyConventions.RoundRate(1m / rate);
 

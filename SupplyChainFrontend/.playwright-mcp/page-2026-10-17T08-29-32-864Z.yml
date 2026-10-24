@@ -1,0 +1,86 @@
+- generic [ref=f9e2]:
+  - banner [ref=f9e672]:
+    - generic [ref=f9e673]:
+      - generic [ref=f9e674]: 
+      - generic [ref=f9e675]:
+        - generic [ref=f9e676]: E2E Test Store 20261017
+        - generic [ref=f9e677]: E2E Till 1
+    - generic [ref=f9e678]: SH-E2E-1017-20261017-01 · Open
+    - generic [ref=f9e679]:
+      - generic [ref=f9e680]: 
+      - text: Online
+    - generic [ref=f9e681]:
+      - generic [ref=f9e682]: 
+      - text: Ethan Storeadmin
+    - navigation [ref=f9e683]:
+      - link "Sell" [ref=f9e684] [cursor=pointer]:
+        - /url: /pos/sell
+        - generic [ref=f9e685]: 
+      - link "Shift" [ref=f9e687] [cursor=pointer]:
+        - /url: /pos/shift
+        - generic [ref=f9e688]: 
+      - link "History" [active] [ref=f9e690] [cursor=pointer]:
+        - /url: /pos/history
+        - generic [ref=f9e691]: 
+      - link "Settings" [ref=f9e693] [cursor=pointer]:
+        - /url: /pos/settings
+        - generic [ref=f9e694]: 
+      - button "Lock" [ref=f9e695] [cursor=pointer]:
+        - generic [ref=f9e696]: 
+  - main [ref=f9e3]:
+    - generic [ref=f9e1078]:
+      - generic [ref=f9e1079]:
+        - heading "Orders · SH-E2E-1017-20261017-01" [level=1] [ref=f9e1080]
+        - searchbox "Order no. or customer" [ref=f9e1081]
+        - button "Refresh" [ref=f9e1082] [cursor=pointer]:
+          - generic [ref=f9e1083]: 
+      - radiogroup "Order type" [ref=f9e1084]:
+        - button "All" [ref=f9e1085] [cursor=pointer]
+        - button "Sales" [ref=f9e1086] [cursor=pointer]
+        - button "Returns" [ref=f9e1087] [cursor=pointer]
+        - button "Exchanges" [ref=f9e1088] [cursor=pointer]
+        - button " Return / exchange" [ref=f9e1089] [cursor=pointer]:
+          - generic [ref=f9e1090]: 
+          - text: Return / exchange
+      - table [ref=f9e1092]:
+        - rowgroup [ref=f9e1093]:
+          - row [ref=f9e1094]:
+            - columnheader "Number" [ref=f9e1095]
+            - columnheader "Time" [ref=f9e1096]
+            - columnheader "Cashier" [ref=f9e1097]
+            - columnheader "Customer" [ref=f9e1098]
+            - columnheader "Status" [ref=f9e1099]
+            - columnheader "Total" [ref=f9e1100]
+        - rowgroup [ref=f9e1101]:
+          - row [ref=f9e1102] [cursor=pointer]:
+            - cell "POS-E2E-1017-20261017-0005" [ref=f9e1103]
+            - cell "08:29" [ref=f9e1104]
+            - cell "Ethan Storeadmin" [ref=f9e1105]
+            - cell "Walk-in Customer" [ref=f9e1106]
+            - cell "Completed Negative stock" [ref=f9e1107]:
+              - generic [ref=f9e1108]: Completed
+              - generic [ref=f9e1109]: Negative stock
+            - cell "98,000.00" [ref=f9e1110]
+          - row [ref=f9e1111] [cursor=pointer]:
+            - cell "POS-E2E-1017-20261017-0003" [ref=f9e1112]
+            - cell "08:28" [ref=f9e1113]
+            - cell "Ethan Storeadmin" [ref=f9e1114]
+            - cell "Walk-in Customer" [ref=f9e1115]
+            - cell "Completed Negative stock" [ref=f9e1116]:
+              - generic [ref=f9e1117]: Completed
+              - generic [ref=f9e1118]: Negative stock
+            - cell "12,150.00" [ref=f9e1119]
+          - row [ref=f9e1120] [cursor=pointer]:
+            - cell "POS-E2E-1017-20261017-0002" [ref=f9e1121]
+            - cell "08:27" [ref=f9e1122]
+            - cell "Casey Cashier" [ref=f9e1123]
+            - cell "Walk-in Customer" [ref=f9e1124]
+            - cell "Completed" [ref=f9e1125]
+            - cell "118,000.00" [ref=f9e1127]
+          - row [ref=f9e1128] [cursor=pointer]:
+            - cell "POS-E2E-1017-20261017-0001" [ref=f9e1129]
+            - cell "08:25" [ref=f9e1130]
+            - cell "Casey Cashier" [ref=f9e1131]
+            - cell "Walk-in Customer" [ref=f9e1132]
+            - cell "Completed" [ref=f9e1133]
+            - cell "7,000.00" [ref=f9e1135]

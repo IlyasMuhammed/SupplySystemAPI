@@ -1,0 +1,619 @@
+- generic [ref=f34e357]:
+  - generic [ref=f34e358]:
+    - generic [ref=f34e359]:
+      - button "" [ref=f34e360] [cursor=pointer]
+      - link:
+        - /url: /portal/dashboard
+      - navigation "Breadcrumb" [ref=f34e362]:
+        - strong [ref=f34e363]: Home
+    - button " Search anything... Ctrl K" [ref=f34e365] [cursor=pointer]:
+      - generic [ref=f34e366]: 
+      - generic [ref=f34e367]: Search anything...
+      - generic [ref=f34e368]: Ctrl K
+    - generic [ref=f34e369]:
+      - button "" [ref=f34e371] [cursor=pointer]
+      - generic [ref=f34e373]:
+        - button "Appearance" [ref=f34e374] [cursor=pointer]:
+          - generic [ref=f34e375]: 
+        - text:    
+      - generic [ref=f34e377]:
+        - button "RR " [ref=f34e378] [cursor=pointer]:
+          - generic [ref=f34e379]: RR
+          - generic [ref=f34e381]: 
+        - text:   
+  - generic [ref=f34e382]:
+    - generic [ref=f34e383]:
+      - generic [ref=f34e384]: 
+      - generic [ref=f34e386]:
+        - generic [ref=f34e387]: SupplyChain MS
+        - generic [ref=f34e388]: KFC Pakistan (KFC)
+    - list [ref=f34e390]:
+      - listitem [ref=f34e391]:
+        - button "Home " [expanded] [ref=f34e392] [cursor=pointer]:
+          - generic [ref=f34e393]: Home
+          - generic [ref=f34e394]: 
+        - list [ref=f34e395]:
+          - listitem [ref=f34e396]:
+            - link " Dashboard" [ref=f34e397] [cursor=pointer]:
+              - /url: /portal/dashboard
+              - generic [ref=f34e398]: 
+              - generic [ref=f34e399]: Dashboard
+          - listitem [ref=f34e400]:
+            - link " My Inbox" [ref=f34e401] [cursor=pointer]:
+              - /url: /portal/pages/workflow-inbox
+              - generic [ref=f34e402]: 
+              - generic [ref=f34e403]: My Inbox
+          - listitem [ref=f34e404]:
+            - link " KPI Dashboard" [ref=f34e405] [cursor=pointer]:
+              - /url: /portal/pages/reports/kpi-dashboard
+              - generic [ref=f34e406]: 
+              - generic [ref=f34e407]: KPI Dashboard
+      - listitem [ref=f34e408]:
+        - button "Sales " [ref=f34e409] [cursor=pointer]:
+          - generic [ref=f34e410]: Sales
+          - generic [ref=f34e411]: 
+        - list:
+          - listitem [ref=f34e412]:
+            - link " Customers" [ref=f34e413] [cursor=pointer]:
+              - /url: /portal/pages/customers
+              - generic [ref=f34e414]: 
+              - generic [ref=f34e415]: Customers
+      - listitem [ref=f34e416]:
+        - button "Manufacturing " [ref=f34e417] [cursor=pointer]:
+          - generic [ref=f34e418]: Manufacturing
+          - generic [ref=f34e419]: 
+        - list:
+          - listitem [ref=f34e420]:
+            - generic [ref=f34e421] [cursor=pointer]:
+              - generic [ref=f34e422]: 
+              - generic [ref=f34e423]: Production Orders
+              - generic [ref=f34e424]: 
+            - list:
+              - listitem [ref=f34e425]:
+                - link " All Orders" [ref=f34e426] [cursor=pointer]:
+                  - /url: /portal/pages/manufacturing/production-orders
+                  - generic [ref=f34e427]: 
+                  - generic [ref=f34e428]: All Orders
+              - listitem [ref=f34e429]:
+                - link " Purchase Required" [ref=f34e430] [cursor=pointer]:
+                  - /url: /portal/pages/manufacturing/purchase-required
+                  - generic [ref=f34e431]: 
+                  - generic [ref=f34e432]: Purchase Required
+      - listitem [ref=f34e433]:
+        - button "Services " [ref=f34e434] [cursor=pointer]:
+          - generic [ref=f34e435]: Services
+          - generic [ref=f34e436]: 
+        - list:
+          - listitem [ref=f34e437]:
+            - generic [ref=f34e438] [cursor=pointer]:
+              - generic [ref=f34e439]: 
+              - generic [ref=f34e440]: Service Orders
+              - generic [ref=f34e441]: 
+            - list:
+              - listitem [ref=f34e442]:
+                - link " All Service Orders" [ref=f34e443] [cursor=pointer]:
+                  - /url: /portal/pages/services/service-orders
+                  - generic [ref=f34e444]: 
+                  - generic [ref=f34e445]: All Service Orders
+              - listitem [ref=f34e446]:
+                - link " Dashboard" [ref=f34e447] [cursor=pointer]:
+                  - /url: /portal/pages/services/service-orders/dashboard
+                  - generic [ref=f34e448]: 
+                  - generic [ref=f34e449]: Dashboard
+      - listitem [ref=f34e450]:
+        - button "Procurement " [ref=f34e451] [cursor=pointer]:
+          - generic [ref=f34e452]: Procurement
+          - generic [ref=f34e453]: 
+        - list:
+          - listitem [ref=f34e454]:
+            - generic [ref=f34e455] [cursor=pointer]:
+              - generic [ref=f34e456]: 
+              - generic [ref=f34e457]: Requisitions
+              - generic [ref=f34e458]: 
+            - list:
+              - listitem [ref=f34e459]:
+                - link " All Requisitions" [ref=f34e460] [cursor=pointer]:
+                  - /url: /portal/pages/demand/requisitions
+                  - generic [ref=f34e461]: 
+                  - generic [ref=f34e462]: All Requisitions
+          - listitem [ref=f34e463]:
+            - generic [ref=f34e464] [cursor=pointer]:
+              - generic [ref=f34e465]: 
+              - generic [ref=f34e466]: Supplier Quotes (RFQ)
+              - generic [ref=f34e467]: 
+            - list:
+              - listitem [ref=f34e468]:
+                - link " All Supplier Quotes" [ref=f34e469] [cursor=pointer]:
+                  - /url: /portal/pages/demand/quotations
+                  - generic [ref=f34e470]: 
+                  - generic [ref=f34e471]: All Supplier Quotes
+          - listitem [ref=f34e472]:
+            - generic [ref=f34e473] [cursor=pointer]:
+              - generic [ref=f34e474]: 
+              - generic [ref=f34e475]: Purchase Orders
+              - generic [ref=f34e476]: 
+            - list:
+              - listitem [ref=f34e477]:
+                - link " All Purchase Orders" [ref=f34e478] [cursor=pointer]:
+                  - /url: /portal/pages/demand/purchase-orders
+                  - generic [ref=f34e479]: 
+                  - generic [ref=f34e480]: All Purchase Orders
+          - listitem [ref=f34e481]:
+            - generic [ref=f34e482] [cursor=pointer]:
+              - generic [ref=f34e483]: 
+              - generic [ref=f34e484]: Suppliers
+              - generic [ref=f34e485]: 
+            - list:
+              - listitem [ref=f34e486]:
+                - link " All Suppliers" [ref=f34e487] [cursor=pointer]:
+                  - /url: /portal/pages/suppliers/supplier-list
+                  - generic [ref=f34e488]: 
+                  - generic [ref=f34e489]: All Suppliers
+              - listitem [ref=f34e490]:
+                - link " Supplier Scorecard" [ref=f34e491] [cursor=pointer]:
+                  - /url: /portal/pages/suppliers/supplier-scorecard
+                  - generic [ref=f34e492]: 
+                  - generic [ref=f34e493]: Supplier Scorecard
+              - listitem [ref=f34e494]:
+                - link " Business Partners" [ref=f34e495] [cursor=pointer]:
+                  - /url: /portal/pages/suppliers/partner-list
+                  - generic [ref=f34e496]: 
+                  - generic [ref=f34e497]: Business Partners
+      - listitem [ref=f34e498]:
+        - button "Warehouse & Inventory " [ref=f34e499] [cursor=pointer]:
+          - generic [ref=f34e500]: Warehouse & Inventory
+          - generic [ref=f34e501]: 
+        - list:
+          - listitem [ref=f34e502]:
+            - generic [ref=f34e503] [cursor=pointer]:
+              - generic [ref=f34e504]: 
+              - generic [ref=f34e505]: Products
+              - generic [ref=f34e506]: 
+            - list:
+              - listitem [ref=f34e507]:
+                - link " All Products" [ref=f34e508] [cursor=pointer]:
+                  - /url: /portal/pages/inventory/products
+                  - generic [ref=f34e509]: 
+                  - generic [ref=f34e510]: All Products
+              - listitem [ref=f34e511]:
+                - link " Categories" [ref=f34e512] [cursor=pointer]:
+                  - /url: /portal/pages/inventory/categories
+                  - generic [ref=f34e513]: 
+                  - generic [ref=f34e514]: Categories
+              - listitem [ref=f34e515]:
+                - link " Sub-Categories" [ref=f34e516] [cursor=pointer]:
+                  - /url: /portal/pages/inventory/sub-categories
+                  - generic [ref=f34e517]: 
+                  - generic [ref=f34e518]: Sub-Categories
+          - listitem [ref=f34e519]:
+            - generic [ref=f34e520] [cursor=pointer]:
+              - generic [ref=f34e521]: 
+              - generic [ref=f34e522]: Allocations
+              - generic [ref=f34e523]: 
+            - list:
+              - listitem [ref=f34e524]:
+                - link " Allocation Dashboard" [ref=f34e525] [cursor=pointer]:
+                  - /url: /portal/pages/inventory/allocations
+                  - generic [ref=f34e526]: 
+                  - generic [ref=f34e527]: Allocation Dashboard
+          - listitem [ref=f34e528]:
+            - generic [ref=f34e529] [cursor=pointer]:
+              - generic [ref=f34e530]: 
+              - generic [ref=f34e531]: Warehouses
+              - generic [ref=f34e532]: 
+            - list:
+              - listitem [ref=f34e533]:
+                - link " All Warehouses" [ref=f34e534] [cursor=pointer]:
+                  - /url: /portal/pages/inventory/warehouses
+                  - generic [ref=f34e535]: 
+                  - generic [ref=f34e536]: All Warehouses
+          - listitem [ref=f34e537]:
+            - link " Reorder Alerts" [ref=f34e538] [cursor=pointer]:
+              - /url: /portal/pages/inventory/reorder-alerts
+              - generic [ref=f34e539]: 
+              - generic [ref=f34e540]: Reorder Alerts
+      - listitem [ref=f34e541]:
+        - button "Finance " [ref=f34e542] [cursor=pointer]:
+          - generic [ref=f34e543]: Finance
+          - generic [ref=f34e544]: 
+        - list:
+          - listitem [ref=f34e545]:
+            - generic [ref=f34e546] [cursor=pointer]:
+              - generic [ref=f34e547]: Invoices
+              - generic [ref=f34e548]: 
+            - list:
+              - listitem [ref=f34e549]:
+                - link " All Invoices" [ref=f34e550] [cursor=pointer]:
+                  - /url: /portal/pages/finance/invoices
+                  - generic [ref=f34e551]: 
+                  - generic [ref=f34e552]: All Invoices
+          - listitem [ref=f34e553]:
+            - generic [ref=f34e554] [cursor=pointer]:
+              - generic [ref=f34e555]: 
+              - generic [ref=f34e556]: Payments
+              - generic [ref=f34e557]: 
+            - list:
+              - listitem [ref=f34e558]:
+                - link " All Payments" [ref=f34e559] [cursor=pointer]:
+                  - /url: /portal/pages/finance/payments
+                  - generic [ref=f34e560]: 
+                  - generic [ref=f34e561]: All Payments
+          - listitem [ref=f34e562]:
+            - link " Sales Invoices" [ref=f34e563] [cursor=pointer]:
+              - /url: /portal/pages/finance/sales-invoices
+              - generic [ref=f34e564]: 
+              - generic [ref=f34e565]: Sales Invoices
+          - listitem [ref=f34e566]:
+            - generic [ref=f34e567] [cursor=pointer]:
+              - generic [ref=f34e568]: 
+              - generic [ref=f34e569]: Customer Payments
+              - generic [ref=f34e570]: 
+            - list:
+              - listitem [ref=f34e571]:
+                - link " All Customer Payments" [ref=f34e572] [cursor=pointer]:
+                  - /url: /portal/pages/finance/customer-payments
+                  - generic [ref=f34e573]: 
+                  - generic [ref=f34e574]: All Customer Payments
+          - listitem [ref=f34e575]:
+            - generic [ref=f34e576] [cursor=pointer]:
+              - generic [ref=f34e577]: 
+              - generic [ref=f34e578]: General Ledger
+              - generic [ref=f34e579]: 
+            - list:
+              - listitem [ref=f34e580]:
+                - link " Set up general ledger" [ref=f34e581] [cursor=pointer]:
+                  - /url: /portal/pages/finance/gl/setup
+                  - generic [ref=f34e582]: 
+                  - generic [ref=f34e583]: Set up general ledger
+              - listitem [ref=f34e584]:
+                - link " Chart of Accounts" [ref=f34e585] [cursor=pointer]:
+                  - /url: /portal/pages/finance/gl/accounts
+                  - generic [ref=f34e586]: 
+                  - generic [ref=f34e587]: Chart of Accounts
+              - listitem [ref=f34e588]:
+                - link " Fiscal Years" [ref=f34e589] [cursor=pointer]:
+                  - /url: /portal/pages/finance/gl/fiscal-years
+                  - generic [ref=f34e590]: 
+                  - generic [ref=f34e591]: Fiscal Years
+              - listitem [ref=f34e592]:
+                - link " Defaults" [ref=f34e593] [cursor=pointer]:
+                  - /url: /portal/pages/finance/gl/defaults
+                  - generic [ref=f34e594]: 
+                  - generic [ref=f34e595]: Defaults
+              - listitem [ref=f34e596]:
+                - link " Opening Balances" [ref=f34e597] [cursor=pointer]:
+                  - /url: /portal/pages/finance/gl/opening-balances
+                  - generic [ref=f34e598]: 
+                  - generic [ref=f34e599]: Opening Balances
+              - listitem [ref=f34e600]:
+                - link " Integrations" [ref=f34e601] [cursor=pointer]:
+                  - /url: /portal/pages/finance/gl/integrations
+                  - generic [ref=f34e602]: 
+                  - generic [ref=f34e603]: Integrations
+              - listitem [ref=f34e604]:
+                - link " Posting" [ref=f34e605] [cursor=pointer]:
+                  - /url: /portal/pages/finance/gl/posting
+                  - generic [ref=f34e606]: 
+                  - generic [ref=f34e607]: Posting
+              - listitem [ref=f34e608]:
+                - link " Setup Status" [ref=f34e609] [cursor=pointer]:
+                  - /url: /portal/pages/finance/gl/setup-status
+                  - generic [ref=f34e610]: 
+                  - generic [ref=f34e611]: Setup Status
+      - listitem [ref=f34e612]:
+        - button "Reports & Analytics " [ref=f34e613] [cursor=pointer]:
+          - generic [ref=f34e614]: Reports & Analytics
+          - generic [ref=f34e615]: 
+        - list:
+          - listitem [ref=f34e616]:
+            - generic [ref=f34e617] [cursor=pointer]:
+              - generic [ref=f34e618]: 
+              - generic [ref=f34e619]: Sales
+              - generic [ref=f34e620]: 
+            - list:
+              - listitem [ref=f34e621]:
+                - link " Sales Reports" [ref=f34e622] [cursor=pointer]:
+                  - /url: /portal/pages/reports/sales-reports
+                  - generic [ref=f34e623]: 
+                  - generic [ref=f34e624]: Sales Reports
+          - listitem [ref=f34e625]:
+            - generic [ref=f34e626] [cursor=pointer]:
+              - generic [ref=f34e627]: 
+              - generic [ref=f34e628]: Manufacturing
+              - generic [ref=f34e629]: 
+            - list:
+              - listitem [ref=f34e630]:
+                - link " Manufacturing Reports" [ref=f34e631] [cursor=pointer]:
+                  - /url: /portal/pages/reports/manufacturing
+                  - generic [ref=f34e632]: 
+                  - generic [ref=f34e633]: Manufacturing Reports
+          - listitem [ref=f34e634]:
+            - generic [ref=f34e635] [cursor=pointer]:
+              - generic [ref=f34e636]: 
+              - generic [ref=f34e637]: Procurement
+              - generic [ref=f34e638]: 
+            - list:
+              - listitem [ref=f34e639]:
+                - link " Supplier Performance" [ref=f34e640] [cursor=pointer]:
+                  - /url: /portal/pages/reports/supplier-performance
+                  - generic [ref=f34e641]: 
+                  - generic [ref=f34e642]: Supplier Performance
+              - listitem [ref=f34e643]:
+                - link " PO Summary & Spend" [ref=f34e644] [cursor=pointer]:
+                  - /url: /portal/pages/reports/po-reports
+                  - generic [ref=f34e645]: 
+                  - generic [ref=f34e646]: PO Summary & Spend
+              - listitem [ref=f34e647]:
+                - link " Approval Backlog (All)" [ref=f34e648] [cursor=pointer]:
+                  - /url: /portal/pages/reports/pending-approvals
+                  - generic [ref=f34e649]: 
+                  - generic [ref=f34e650]: Approval Backlog (All)
+          - listitem [ref=f34e651]:
+            - generic [ref=f34e652] [cursor=pointer]:
+              - generic [ref=f34e653]: 
+              - generic [ref=f34e654]: Inventory & Warehouse
+              - generic [ref=f34e655]: 
+            - list:
+              - listitem [ref=f34e656]:
+                - link " Stock Levels & Valuation" [ref=f34e657] [cursor=pointer]:
+                  - /url: /portal/pages/reports/inventory-reports
+                  - generic [ref=f34e658]: 
+                  - generic [ref=f34e659]: Stock Levels & Valuation
+              - listitem [ref=f34e660]:
+                - link " Stock Movement / Ledger" [ref=f34e661] [cursor=pointer]:
+                  - /url: /portal/pages/reports/stock-reports
+                  - generic [ref=f34e662]: 
+                  - generic [ref=f34e663]: Stock Movement / Ledger
+              - listitem [ref=f34e664]:
+                - link " Master Product Ledger" [ref=f34e665] [cursor=pointer]:
+                  - /url: /portal/pages/inventory/master-product-ledger
+                  - generic [ref=f34e666]: 
+                  - generic [ref=f34e667]: Master Product Ledger
+              - listitem [ref=f34e668]:
+                - link "GRN Variance" [ref=f34e669] [cursor=pointer]:
+                  - /url: /portal/pages/reports/grn-variance
+          - listitem [ref=f34e671]:
+            - generic [ref=f34e672] [cursor=pointer]:
+              - generic [ref=f34e673]: 
+              - generic [ref=f34e674]: Material
+              - generic [ref=f34e675]: 
+            - list:
+              - listitem [ref=f34e676]:
+                - link " Issue Register" [ref=f34e677] [cursor=pointer]:
+                  - /url: /portal/pages/reports/material-issue-register
+                  - generic [ref=f34e678]: 
+                  - generic [ref=f34e679]: Issue Register
+              - listitem [ref=f34e680]:
+                - link " Consumption (Summary)" [ref=f34e681] [cursor=pointer]:
+                  - /url: /portal/pages/reports/material-consumption-reports
+                  - generic [ref=f34e682]: 
+                  - generic [ref=f34e683]: Consumption (Summary)
+              - listitem [ref=f34e684]:
+                - link " Returns / Wastage / Reserved" [ref=f34e685] [cursor=pointer]:
+                  - /url: /portal/pages/reports/material-ops-reports
+                  - generic [ref=f34e686]: 
+                  - generic [ref=f34e687]: Returns / Wastage / Reserved
+          - listitem [ref=f34e688]:
+            - generic [ref=f34e689] [cursor=pointer]:
+              - generic [ref=f34e690]: 
+              - generic [ref=f34e691]: Finance
+              - generic [ref=f34e692]: 
+            - list:
+              - listitem [ref=f34e693]:
+                - link "Invoice Aging & Payments" [ref=f34e694] [cursor=pointer]:
+                  - /url: /portal/pages/reports/finance-reports
+              - listitem [ref=f34e696]:
+                - link " Master Payables Ledger" [ref=f34e697] [cursor=pointer]:
+                  - /url: /portal/pages/finance/master-ledger
+                  - generic [ref=f34e698]: 
+                  - generic [ref=f34e699]: Master Payables Ledger
+              - listitem [ref=f34e700]:
+                - link " Customer Ledger" [ref=f34e701] [cursor=pointer]:
+                  - /url: /portal/pages/finance/customer-ledger
+                  - generic [ref=f34e702]: 
+                  - generic [ref=f34e703]: Customer Ledger
+              - listitem [ref=f34e704]:
+                - link " Exchange Differences" [ref=f34e705] [cursor=pointer]:
+                  - /url: /portal/pages/finance/exchange-differences
+                  - generic [ref=f34e706]: 
+                  - generic [ref=f34e707]: Exchange Differences
+          - listitem [ref=f34e708]:
+            - generic [ref=f34e709] [cursor=pointer]:
+              - generic [ref=f34e710]: 
+              - generic [ref=f34e711]: Audit & Compliance
+              - generic [ref=f34e712]: 
+            - list:
+              - listitem [ref=f34e713]:
+                - link " Audit Trail" [ref=f34e714] [cursor=pointer]:
+                  - /url: /portal/pages/reports/audit-trail
+                  - generic [ref=f34e715]: 
+                  - generic [ref=f34e716]: Audit Trail
+              - listitem [ref=f34e717]:
+                - link " User Activity" [ref=f34e718] [cursor=pointer]:
+                  - /url: /portal/pages/reports/user-activity
+                  - generic [ref=f34e719]: 
+                  - generic [ref=f34e720]: User Activity
+      - listitem [ref=f34e721]:
+        - button "Administration " [ref=f34e722] [cursor=pointer]:
+          - generic [ref=f34e723]: Administration
+          - generic [ref=f34e724]: 
+        - list:
+          - listitem [ref=f34e725]:
+            - generic [ref=f34e726] [cursor=pointer]:
+              - generic [ref=f34e727]: 
+              - generic [ref=f34e728]: Settings
+              - generic [ref=f34e729]: 
+            - list:
+              - listitem [ref=f34e730]:
+                - generic [ref=f34e731] [cursor=pointer]:
+                  - generic [ref=f34e732]: 
+                  - generic [ref=f34e733]: Sales & Fulfilment
+                  - generic [ref=f34e734]: 
+                - list:
+                  - listitem [ref=f34e735]:
+                    - link " Lead Time Defaults" [ref=f34e736] [cursor=pointer]:
+                      - /url: /portal/pages/lead-time-defaults
+                      - generic [ref=f34e737]: 
+                      - generic [ref=f34e738]: Lead Time Defaults
+              - listitem [ref=f34e739]:
+                - generic [ref=f34e740] [cursor=pointer]:
+                  - generic [ref=f34e741]: 
+                  - generic [ref=f34e742]: Finance Setup
+                  - generic [ref=f34e743]: 
+                - list:
+                  - listitem [ref=f34e744]:
+                    - link " Tax Codes" [ref=f34e745] [cursor=pointer]:
+                      - /url: /portal/pages/finance-setup/tax-codes
+                      - generic [ref=f34e746]: 
+                      - generic [ref=f34e747]: Tax Codes
+                  - listitem [ref=f34e748]:
+                    - link " Currencies" [ref=f34e749] [cursor=pointer]:
+                      - /url: /portal/pages/finance-setup/currencies
+                      - generic [ref=f34e750]: 
+                      - generic [ref=f34e751]: Currencies
+                  - listitem [ref=f34e752]:
+                    - link " Exchange Rates" [ref=f34e753] [cursor=pointer]:
+                      - /url: /portal/pages/finance-setup/exchange-rates
+                      - generic [ref=f34e754]: 
+                      - generic [ref=f34e755]: Exchange Rates
+                  - listitem [ref=f34e756]:
+                    - link " Currency Configuration" [ref=f34e757] [cursor=pointer]:
+                      - /url: /portal/pages/finance-setup/currency-configuration
+                      - generic [ref=f34e758]: 
+                      - generic [ref=f34e759]: Currency Configuration
+              - listitem [ref=f34e760]:
+                - generic [ref=f34e761] [cursor=pointer]:
+                  - generic [ref=f34e762]: 
+                  - generic [ref=f34e763]: Integrations
+                  - generic [ref=f34e764]: 
+                - list:
+                  - listitem [ref=f34e765]:
+                    - link " QuickBooks Integration" [ref=f34e766] [cursor=pointer]:
+                      - /url: /portal/pages/integrations/quickbooks
+                      - generic [ref=f34e767]: 
+                      - generic [ref=f34e768]: QuickBooks Integration
+                  - listitem [ref=f34e769]:
+                    - link " QuickBooks Logs" [ref=f34e770] [cursor=pointer]:
+                      - /url: /portal/pages/integrations/quickbooks?tab=logs
+                      - generic [ref=f34e771]: 
+                      - generic [ref=f34e772]: QuickBooks Logs
+                  - listitem [ref=f34e773]:
+                    - link " Posting Log" [ref=f34e774] [cursor=pointer]:
+                      - /url: /portal/pages/finance/gl/posting
+                      - generic [ref=f34e775]: 
+                      - generic [ref=f34e776]: Posting Log
+  - generic [ref=f34e777]:
+    - generic [ref=f34e780]:
+      - toolbar "Commands" [ref=f34e781]:
+        - button " Refresh" [ref=f34e783] [cursor=pointer]:
+          - generic [ref=f34e784]: 
+          - generic [ref=f34e785]: Refresh
+        - generic [ref=f34e786]: Live
+      - generic [ref=f34e791]:
+        - generic [ref=f34e793]:
+          - generic [ref=f34e794]: Saturday, 17 October 2026
+          - heading "Supply Chain Dashboard" [level=1] [ref=f34e795]
+        - generic [ref=f34e796]:
+          - generic [ref=f34e797] [cursor=pointer]:
+            - generic [ref=f34e798]:
+              - generic [ref=f34e799]: 
+              - text: Receivables
+            - generic [ref=f34e800]: "0"
+            - generic [ref=f34e801]: Nothing overdue
+          - generic [ref=f34e802] [cursor=pointer]:
+            - generic [ref=f34e803]:
+              - generic [ref=f34e804]: 
+              - text: Active Production
+            - generic [ref=f34e805]: "0"
+            - generic [ref=f34e806]: 0 made to order · 0 late
+          - generic [ref=f34e807] [cursor=pointer]:
+            - generic [ref=f34e808]:
+              - generic [ref=f34e809]: 
+              - text: Open Purchase Orders
+            - generic [ref=f34e810]: "0"
+            - generic [ref=f34e811]: 0 awaiting delivery
+          - generic [ref=f34e812] [cursor=pointer]:
+            - generic [ref=f34e813]:
+              - generic [ref=f34e814]: 
+              - text: Payables
+            - generic [ref=f34e815]: "0"
+            - generic [ref=f34e816]: Nothing overdue
+          - generic [ref=f34e817] [cursor=pointer]:
+            - generic [ref=f34e818]:
+              - generic [ref=f34e819]: 
+              - text: Active Products
+            - generic [ref=f34e820]: "5"
+            - generic [ref=f34e821]: 0 reorder alerts · 1 manufactured
+          - generic [ref=f34e822] [cursor=pointer]:
+            - generic [ref=f34e823]:
+              - generic [ref=f34e824]: 
+              - text: Needs Attention
+            - generic [ref=f34e825]: "0"
+            - generic [ref=f34e826]: 0 queues waiting
+        - generic [ref=f34e827]:
+          - generic [ref=f34e828]:
+            - generic [ref=f34e829]:
+              - heading "Receivables" [level=2] [ref=f34e830]
+              - link "View all" [ref=f34e831] [cursor=pointer]:
+                - /url: /portal/pages/finance/sales-invoices
+            - generic [ref=f34e832]:
+              - generic [ref=f34e833]: 
+              - paragraph [ref=f34e834]: Nothing outstanding
+          - generic [ref=f34e835]:
+            - generic [ref=f34e836]:
+              - heading "Payables" [level=2] [ref=f34e837]
+              - link "View all" [ref=f34e838] [cursor=pointer]:
+                - /url: /portal/pages/finance/invoices
+            - generic [ref=f34e839]:
+              - generic [ref=f34e840]: 
+              - paragraph [ref=f34e841]: Nothing outstanding
+        - generic [ref=f34e842]:
+          - generic [ref=f34e843]:
+            - generic [ref=f34e844]:
+              - heading "PO status overview" [level=2] [ref=f34e845]
+              - link "View all" [ref=f34e846] [cursor=pointer]:
+                - /url: /portal/pages/demand/purchase-orders
+            - generic [ref=f34e852]:
+              - generic [ref=f34e854]: Draft
+              - generic [ref=f34e855]: "1"
+            - generic [ref=f34e856]:
+              - generic [ref=f34e857]:
+                - generic [ref=f34e858]: "1"
+                - generic [ref=f34e859]: Total POs
+              - generic [ref=f34e861]:
+                - generic [ref=f34e862]: "0"
+                - generic [ref=f34e863]: Requisitions
+              - generic [ref=f34e865]:
+                - generic [ref=f34e866]: "2"
+                - generic [ref=f34e867]: Active suppliers
+          - generic [ref=f34e868]:
+            - generic [ref=f34e869]:
+              - heading "Recent purchase orders" [level=2] [ref=f34e870]
+              - link "View all" [ref=f34e871] [cursor=pointer]:
+                - /url: /portal/pages/demand/purchase-orders
+            - list [ref=f34e872]:
+              - listitem [ref=f34e873] [cursor=pointer]:
+                - generic [ref=f34e874]:
+                  - paragraph [ref=f34e875]: PO-2026-00001
+                  - paragraph [ref=f34e876]: Apple
+                - generic [ref=f34e877]:
+                  - paragraph [ref=f34e878]: PKR 1,900,000
+                  - generic [ref=f34e879]: Draft
+        - generic [ref=f34e881]:
+          - generic [ref=f34e882]:
+            - generic [ref=f34e883]:
+              - heading "Recent GRN records" [level=2] [ref=f34e884]
+              - link "View all" [ref=f34e885] [cursor=pointer]:
+                - /url: /portal/pages/warehouse/grn
+            - generic [ref=f34e886]:
+              - generic [ref=f34e887]: 
+              - paragraph [ref=f34e888]: No goods receipts yet
+          - generic [ref=f34e890]:
+            - heading "GRN pipeline" [level=2] [ref=f34e892]
+            - generic [ref=f34e893]:
+              - generic [ref=f34e894]: 
+              - paragraph [ref=f34e895]: No GRN data yet
+    - generic [ref=f34e897]:
+      - text: All Rights Reserved To
+      - link "Loading" [ref=f34e898] [cursor=pointer]:
+        - /url: https://primeng.org

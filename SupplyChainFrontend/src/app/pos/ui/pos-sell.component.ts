@@ -71,6 +71,7 @@ export class PosSellComponent implements OnDestroy {
 
     ngOnDestroy(): void {
         this.stopCamera();
+        clearTimeout(this.confirmTimer);
     }
 
     label = itemLabel;
@@ -122,6 +123,17 @@ export class PosSellComponent implements OnDestroy {
     @HostListener('document:keydown', ['$event'])
     onKeydown(e: KeyboardEvent): void {
         if (this.anyDialogOpen()) return;
+        // Shortcuts: F2 = search / scan, F8 = pay.
+        if (e.key === 'F2') {
+            e.preventDefault();
+            this.grid?.searchBox?.nativeElement.focus();
+            return;
+        }
+        if (e.key === 'F8') {
+            e.preventDefault();
+            this.pay();
+            return;
+        }
         const code = this.wedge.handle(e.key, e.timeStamp || performance.now());
         if (!code) return;
         e.preventDefault();
@@ -214,13 +226,37 @@ export class PosSellComponent implements OnDestroy {
         this.noteOpen.set(false);
     }
 
+    /** Units in the cart (a weighed item counts once). */
+    readonly itemCount = computed(() => this.cart.lines().reduce((n, l) => n + (l.isWeighable ? 1 : l.quantity), 0));
+
+    /** True for a few seconds after the first tap on Clear when the cart holds more than two lines: the second tap clears. */
+    readonly confirmClear = signal(false);
+    private confirmTimer?: ReturnType<typeof setTimeout>;
+
     clearCart(): void {
+        if (this.cart.lines().length > 2 && !this.confirmClear()) {
+            this.confirmClear.set(true);
+            clearTimeout(this.confirmTimer);
+            this.confirmTimer = setTimeout(() => this.confirmClear.set(false), 3000);
+            return;
+        }
+        clearTimeout(this.confirmTimer);
+        this.confirmClear.set(false);
         this.cart.clear();
     }
 
     pay(): void {
         if (this.cart.isEmpty()) return;
         void this.router.navigate(['/pos/payment']);
+    }
+
+    /** The one-tap buttons offered here: the store's own methods, limited to those that settle a whole total in one go. */
+    readonly quickMethods = computed(() => this.state.paymentMethods().filter(m => m === 'CASH' || m === 'CARD'));
+
+    /** Cash exact / Card: the payment page adds the whole total as that tender and completes the sale (every rule still runs there). */
+    quickPay(method: 'CASH' | 'CARD'): void {
+        if (this.cart.isEmpty()) return;
+        void this.router.navigate(['/pos/payment'], { queryParams: { quick: method } });
     }
 
     // ── camera scanning (BarcodeDetector) ───────────────────────────────────

@@ -1,0 +1,195 @@
+- generic [ref=f40e4]:
+  - generic [ref=f40e5]:
+    - generic [ref=f40e6]:
+      - button "" [ref=f40e7] [cursor=pointer]
+      - link:
+        - /url: /portal/dashboard
+      - navigation "Breadcrumb" [ref=f40e9]:
+        - generic [ref=f40e10]: CRM
+        - generic [ref=f40e11]: ›
+        - strong [ref=f40e12]: Leads
+    - button " Search anything... Ctrl K" [ref=f40e14] [cursor=pointer]:
+      - generic [ref=f40e15]: 
+      - generic [ref=f40e16]: Search anything...
+      - generic [ref=f40e17]: Ctrl K
+    - generic [ref=f40e18]:
+      - generic [ref=f40e19]:
+        - button "" [ref=f40e20] [cursor=pointer]
+        - generic: "1"
+      - generic [ref=f40e22]:
+        - button "Appearance" [ref=f40e23] [cursor=pointer]:
+          - generic [ref=f40e24]: 
+        - text:    
+      - generic [ref=f40e26]:
+        - button "MC " [ref=f40e27] [cursor=pointer]:
+          - generic [ref=f40e28]: MC
+          - generic [ref=f40e30]: 
+        - text:   
+  - generic [ref=f40e31]:
+    - generic [ref=f40e32]:
+      - generic [ref=f40e33]: 
+      - generic [ref=f40e35]:
+        - generic [ref=f40e36]: SupplyChain MS
+        - generic [ref=f40e37]: KFC Pakistan (KFC)
+    - list [ref=f40e39]:
+      - listitem [ref=f40e40]:
+        - button "Home " [ref=f40e41] [cursor=pointer]:
+          - generic [ref=f40e42]: Home
+          - generic [ref=f40e43]: 
+        - list:
+          - listitem [ref=f40e44]:
+            - link " Dashboard" [ref=f40e45] [cursor=pointer]:
+              - /url: /portal/dashboard
+              - generic [ref=f40e46]: 
+              - generic [ref=f40e47]: Dashboard
+          - listitem [ref=f40e48]:
+            - link " My Inbox" [ref=f40e49] [cursor=pointer]:
+              - /url: /portal/pages/workflow-inbox
+              - generic [ref=f40e50]: 
+              - generic [ref=f40e51]: My Inbox
+      - listitem [ref=f40e52]:
+        - button "Sales " [ref=f40e53] [cursor=pointer]:
+          - generic [ref=f40e54]: Sales
+          - generic [ref=f40e55]: 
+        - list:
+          - listitem [ref=f40e56]:
+            - link " Customers" [ref=f40e57] [cursor=pointer]:
+              - /url: /portal/pages/customers
+              - generic [ref=f40e58]: 
+              - generic [ref=f40e59]: Customers
+          - listitem [ref=f40e60]:
+            - link " Inquiries" [ref=f40e61] [cursor=pointer]:
+              - /url: /portal/pages/sales/inquiries
+              - generic [ref=f40e62]: 
+              - generic [ref=f40e63]: Inquiries
+          - listitem [ref=f40e64]:
+            - link " Customer Quotations" [ref=f40e65] [cursor=pointer]:
+              - /url: /portal/pages/sales/quotations
+              - generic [ref=f40e66]: 
+              - generic [ref=f40e67]: Customer Quotations
+          - listitem [ref=f40e68]:
+            - generic [ref=f40e69] [cursor=pointer]:
+              - generic [ref=f40e70]: 
+              - generic [ref=f40e71]: Sale Orders
+              - generic [ref=f40e72]: 
+            - list:
+              - listitem [ref=f40e73]:
+                - link " All Sale Orders" [ref=f40e74] [cursor=pointer]:
+                  - /url: /portal/pages/sales/orders
+                  - generic [ref=f40e75]: 
+                  - generic [ref=f40e76]: All Sale Orders
+      - listitem [ref=f40e77]:
+        - button "CRM " [expanded] [ref=f40e78] [cursor=pointer]:
+          - generic [ref=f40e79]: CRM
+          - generic [ref=f40e80]: 
+        - list [ref=f40e81]:
+          - listitem [ref=f40e82]:
+            - link " Leads" [ref=f40e83] [cursor=pointer]:
+              - /url: /portal/pages/crm/leads
+              - generic [ref=f40e84]: 
+              - generic [ref=f40e85]: Leads
+          - listitem [ref=f40e86]:
+            - link " Opportunities" [ref=f40e87] [cursor=pointer]:
+              - /url: /portal/pages/crm/opportunities
+              - generic [ref=f40e88]: 
+              - generic [ref=f40e89]: Opportunities
+          - listitem [ref=f40e90]:
+            - link " Activities" [ref=f40e91] [cursor=pointer]:
+              - /url: /portal/pages/crm/activities
+              - generic [ref=f40e92]: 
+              - generic [ref=f40e93]: Activities
+          - listitem [ref=f40e94]:
+            - link " Campaigns" [ref=f40e95] [cursor=pointer]:
+              - /url: /portal/pages/crm/campaigns
+              - generic [ref=f40e96]: 
+              - generic [ref=f40e97]: Campaigns
+  - generic [ref=f40e98]:
+    - generic [ref=f40e101]:
+      - toolbar "Commands" [ref=f40e102]:
+        - button " New lead" [ref=f40e104] [cursor=pointer]:
+          - generic [ref=f40e105]: 
+          - generic [ref=f40e106]: New lead
+        - button " Clear filters" [ref=f40e109] [cursor=pointer]:
+          - generic [ref=f40e110]: 
+          - generic [ref=f40e111]: Clear filters
+        - group [ref=f40e113]:
+          - generic [ref=f40e114] [cursor=pointer]: List
+          - generic [active] [ref=f40e117] [cursor=pointer]: Kanban
+      - generic [ref=f40e122]:
+        - generic [ref=f40e124]:
+          - heading "Leads" [level=1] [ref=f40e312]
+          - generic [ref=f40e127]: Prospects not yet qualified — capture, contact, qualify and convert them
+        - generic [ref=f40e135]:
+          - generic [ref=f40e136]:
+            - generic [ref=f40e137]: 
+            - textbox "Search topic, name, company, email, phone or number" [ref=f40e138]
+          - generic [ref=f40e139] [cursor=pointer]:
+            - combobox "Everyone's leads" [ref=f40e140]
+            - button "dropdown trigger" [ref=f40e141]
+          - generic [ref=f40e151] [cursor=pointer]:
+            - combobox "All teams" [ref=f40e152]
+            - button "dropdown trigger" [ref=f40e153]
+          - generic [ref=f40e157] [cursor=pointer]:
+            - combobox "Any rating" [ref=f40e158]
+            - button "dropdown trigger" [ref=f40e159]
+          - generic [ref=f40e164]:
+            - combobox "Created between" [ref=f40e165]
+            - button "Choose Date" [ref=f40e166] [cursor=pointer]
+        - generic [ref=f40e314]:
+          - generic [ref=f40e315]:
+            - generic [ref=f40e316]:
+              - generic [ref=f40e317]:
+                - generic [ref=f40e318]: New Lead
+                - generic [ref=f40e319]: "4"
+              - generic [ref=f40e320]: 5%
+            - generic [ref=f40e322]:
+              - link "LD-2026-00007 Warm Hina Shah E2E_A41 Delta Foods Mona Crmadmin" [ref=f40e324] [cursor=pointer]:
+                - /url: /portal/pages/crm/leads/72ab7bfd-bfb0-4c4b-b941-55d606e106b4
+                - generic [ref=f40e325]:
+                  - generic [ref=f40e326]: LD-2026-00007
+                  - generic [ref=f40e327]: Warm
+                - generic [ref=f40e328]: Hina Shah
+                - generic [ref=f40e329]: E2E_A41 Delta Foods
+                - generic [ref=f40e330]: Mona Crmadmin
+              - link "LD-2026-00005 Warm Danish Iqbal E2E_A41 Gamma Retail Sam Salesrep" [ref=f40e333] [cursor=pointer]:
+                - /url: /portal/pages/crm/leads/71ad504e-3712-4a8d-9aa6-ff2d03831350
+                - generic [ref=f40e334]:
+                  - generic [ref=f40e335]: LD-2026-00005
+                  - generic [ref=f40e336]: Warm
+                - generic [ref=f40e337]: Danish Iqbal
+                - generic [ref=f40e338]: E2E_A41 Gamma Retail
+                - generic [ref=f40e339]: Sam Salesrep
+              - link "LD-2026-00004 Warm Bilal Raza E2E_A41 Beta Supplies Mona Crmadmin" [ref=f40e342] [cursor=pointer]:
+                - /url: /portal/pages/crm/leads/50283cd9-e558-4b75-a15a-b95987276e0f
+                - generic [ref=f40e343]:
+                  - generic [ref=f40e344]: LD-2026-00004
+                  - generic [ref=f40e345]: Warm
+                - generic [ref=f40e346]: Bilal Raza
+                - generic [ref=f40e347]: E2E_A41 Beta Supplies
+                - generic [ref=f40e348]: Mona Crmadmin
+              - link "LD-2026-00002 Warm Zara Malik Zara Malik Sam Salesrep" [ref=f40e351] [cursor=pointer]:
+                - /url: /portal/pages/crm/leads/96a42602-4677-400d-8fb7-bf10a0802ade
+                - generic [ref=f40e352]:
+                  - generic [ref=f40e353]: LD-2026-00002
+                  - generic [ref=f40e354]: Warm
+                - generic [ref=f40e355]: Zara Malik
+                - generic [ref=f40e356]: Zara Malik
+                - generic [ref=f40e357]: Sam Salesrep
+          - generic [ref=f40e359]:
+            - generic [ref=f40e360]:
+              - generic [ref=f40e361]:
+                - generic [ref=f40e362]: Initial Contact
+                - generic [ref=f40e363]: "0"
+              - generic [ref=f40e364]: 10%
+            - generic [ref=f40e366]: Nothing here
+          - generic [ref=f40e368]:
+            - generic [ref=f40e369]:
+              - generic [ref=f40e370]:
+                - generic [ref=f40e371]: Qualification
+                - generic [ref=f40e372]: "0"
+              - generic [ref=f40e373]: 20%
+            - generic [ref=f40e375]: Nothing here
+    - generic [ref=f40e310]:
+      - text: All Rights Reserved To
+      - link "Loading" [ref=f40e311] [cursor=pointer]:
+        - /url: https://primeng.org

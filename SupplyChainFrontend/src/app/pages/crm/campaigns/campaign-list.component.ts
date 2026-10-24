@@ -90,9 +90,9 @@ import { CrmLookupsService, Option } from '../shared/crm-lookups.service';
     <div class="sf-fld"><label for="c-source">Lead source</label>
       <p-dropdown inputId="c-source" [options]="sourceOptions" [(ngModel)]="f.leadSourceUuid" optionLabel="label" optionValue="value" [showClear]="true" appendTo="body" styleClass="w-full" [disabled]="!canManage"></p-dropdown></div>
     <div class="sf-fld"><label for="c-start">Start</label>
-      <p-calendar inputId="c-start" [(ngModel)]="start" dateFormat="dd M yy" [showIcon]="true" [showButtonBar]="true" appendTo="body" styleClass="w-full" [disabled]="!canManage"></p-calendar></div>
+      <p-calendar inputId="c-start" [(ngModel)]="start" dateFormat="dd M yy" [showIcon]="true" [showButtonBar]="true" todayButtonStyleClass="" clearButtonStyleClass="" styleClass="w-full" [disabled]="!canManage"></p-calendar></div>
     <div class="sf-fld"><label for="c-end">End</label>
-      <p-calendar inputId="c-end" [(ngModel)]="end" dateFormat="dd M yy" [showIcon]="true" [showButtonBar]="true" appendTo="body" styleClass="w-full" [disabled]="!canManage"></p-calendar></div>
+      <p-calendar inputId="c-end" [(ngModel)]="end" dateFormat="dd M yy" [showIcon]="true" [showButtonBar]="true" todayButtonStyleClass="" clearButtonStyleClass="" styleClass="w-full" [disabled]="!canManage"></p-calendar></div>
     <div class="sf-fld"><label for="c-expected">Expected leads</label>
       <p-inputnumber inputId="c-expected" [(ngModel)]="f.expectedLeads" [min]="0" [useGrouping]="false" styleClass="w-full" [disabled]="!canManage"></p-inputnumber></div>
     <div class="sf-fld"><label for="c-budget">Budget</label>
@@ -199,6 +199,7 @@ export class CampaignListComponent implements OnInit {
 
   save(): void {
     this.error = null;
+    if (this.start && this.end && this.end < this.start) { this.error = 'The end date cannot be before the start date.'; return; }
     const req: CampaignUpsert = { ...this.f, startDate: this.start ? toDateOnly(this.start) : null, endDate: this.end ? toDateOnly(this.end) : null };
     this.saving = true;
     (this.editing ? this.crm.updateCampaign(this.editing.uuid, req) : this.crm.createCampaign(req)).subscribe({

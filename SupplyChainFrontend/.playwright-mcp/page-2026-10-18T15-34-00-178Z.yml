@@ -1,0 +1,191 @@
+- generic [ref=f51e1]:
+  - generic [ref=f51e25]:
+    - generic:
+      - generic:
+        - link "Skip to Main Content":
+          - /url: "#main"
+        - banner [ref=f51e26]:
+          - navigation "Tools" [ref=f51e27]:
+            - heading "Sandbox Company GB 72c4" [level=2] [ref=f51e32]
+            - search [ref=f51e35]:
+              - searchbox "Search" [ref=f51e42]
+            - generic [ref=f51e43]:
+              - button "Contact expert help" [ref=f51e47] [cursor=pointer]:
+                - generic [ref=f51e49]: Contact experts
+              - button "Tasks" [ref=f51e55] [cursor=pointer]
+              - button "Integrations" [ref=f51e61] [cursor=pointer]
+              - button "Help" [ref=f51e69] [cursor=pointer]
+              - button "Intuit Labs" [ref=f51e75] [cursor=pointer]
+              - button "Settings" [ref=f51e80] [cursor=pointer]
+              - button "Intuit account (I)" [ref=f51e88] [cursor=pointer]:
+                - generic [ref=f51e89]: I
+              - button "Open Intuit Intelligence chat" [ref=f51e95] [cursor=pointer]
+    - navigation "Side" [ref=f51e140]:
+      - link "QuickBooks" [ref=f51e141] [cursor=pointer]:
+        - /url: currencies?intuit_authn_session_slot=VYPodik&iux_intuit_tid=1-6ad4e583-786281b57da2f2e673ba8def
+      - generic [ref=f51e143]:
+        - button "Create" [ref=f51e146] [cursor=pointer]
+        - button "Bookmarks" [ref=f51e154] [cursor=pointer]
+      - generic [ref=f51e159]:
+        - link "Home" [ref=f51e160] [cursor=pointer]:
+          - /url: /app/homepage
+        - link "Feed" [ref=f51e165] [cursor=pointer]:
+          - /url: /app/business-feed
+        - button "Reports" [ref=f51e172] [cursor=pointer]
+        - link "All apps" [ref=f51e180] [cursor=pointer]:
+          - /url: /app/banking?jobId=accounting
+      - generic [ref=f51e185]:
+        - generic [ref=f51e186]: PINNED
+        - generic [ref=f51e187]:
+          - button "Accounting" [ref=f51e191] [cursor=pointer]
+          - button "Expenses" [ref=f51e197] [cursor=pointer]
+          - button "Sales" [ref=f51e203] [cursor=pointer]
+      - button "Customise" [ref=f51e208] [cursor=pointer]
+    - navigation [ref=f51e213]:
+      - generic [ref=f51e214]:
+        - button "Collapse" [expanded] [ref=f51e216] [cursor=pointer]
+        - heading "All apps" [level=2] [ref=f51e220]
+        - generic [ref=f51e221]:
+          - button "Accounting" [ref=f51e225] [cursor=pointer]
+          - generic [ref=f51e230]:
+            - button "Expenses & Bills" [expanded] [ref=f51e232] [cursor=pointer]
+            - region "Expenses & Bills" [ref=f51e236]:
+              - generic [ref=f51e237]:
+                - generic [ref=f51e238]:
+                  - link "Expense transactions" [ref=f51e239] [cursor=pointer]:
+                    - /url: /app/expenses?jobId=expenses
+                  - button "Add bookmark Expense transactions" [ref=f51e242] [cursor=pointer]
+                - generic [ref=f51e244]:
+                  - link "Suppliers" [ref=f51e245] [cursor=pointer]:
+                    - /url: /app/vendors?jobId=expenses
+                  - button "Add bookmark Suppliers" [ref=f51e248] [cursor=pointer]
+                - generic [ref=f51e250]:
+                  - link "Bills" [ref=f51e251] [cursor=pointer]:
+                    - /url: /app/bills?jobId=expenses
+                  - button "Add bookmark Bills" [ref=f51e254] [cursor=pointer]
+                - generic [ref=f51e256]:
+                  - link "Mileage" [ref=f51e257] [cursor=pointer]:
+                    - /url: /app/mileage?jobId=expenses
+                  - button "Add bookmark Mileage" [ref=f51e260] [cursor=pointer]
+          - button "Sales & Get Paid" [ref=f51e265] [cursor=pointer]
+          - button "Customer Hub" [ref=f51e272] [cursor=pointer]
+          - button "Team" [ref=f51e279] [cursor=pointer]
+          - button "VAT" [ref=f51e286] [cursor=pointer]
+          - button "Income Tax" [ref=f51e293] [cursor=pointer]
+          - button "Capital" [ref=f51e300] [cursor=pointer]
+    - main [ref=f51e306]:
+      - generic [ref=f51e307]:
+        - generic [ref=f51e308]:
+          - heading "Suppliers" [level=1] [ref=f51e310]
+          - generic [ref=f51e311]:
+            - button "Give feedback" [ref=f51e312] [cursor=pointer]
+            - button
+            - generic [ref=f51e316]:
+              - button "New supplier" [ref=f51e317] [cursor=pointer]
+              - button "New supplier menu" [ref=f51e319] [cursor=pointer]
+        - generic [ref=f51e322]:
+          - generic [ref=f51e325]:
+            - generic [ref=f51e327]:
+              - generic [ref=f51e328]: Unbilled Last 365 Days
+              - generic [ref=f51e333] [cursor=pointer]:
+                - generic [ref=f51e334]: £75.30
+                - generic [ref=f51e335]:
+                  - generic [ref=f51e336]: "1"
+                  - text: Purchase order
+            - generic [ref=f51e338]:
+              - generic [ref=f51e339]: Unpaid Last 365 Days
+              - generic [ref=f51e341]:
+                - generic [ref=f51e344] [cursor=pointer]:
+                  - generic [ref=f51e345]: £5,670.00
+                  - generic [ref=f51e346]:
+                    - generic [ref=f51e347]: "6"
+                    - text: Overdue
+                - generic [ref=f51e350] [cursor=pointer]:
+                  - generic [ref=f51e351]: £5,670.00
+                  - generic [ref=f51e352]:
+                    - generic [ref=f51e353]: "6"
+                    - text: Open bills
+            - generic [ref=f51e355]:
+              - generic [ref=f51e356]: Paid
+              - generic [ref=f51e361] [cursor=pointer]:
+                - generic [ref=f51e362]: £0.00
+                - generic [ref=f51e363]:
+                  - generic [ref=f51e364]: "0"
+                  - text: Paid Last 30 days
+          - button [ref=f51e365] [cursor=pointer]
+        - generic [ref=f51e368]:
+          - button
+          - generic [ref=f51e369]:
+            - generic [ref=f51e370]:
+              - toolbar "Search" [ref=f51e375]:
+                - generic [ref=f51e376]:
+                  - textbox "Search" [active] [ref=f51e377]: Royal
+                  - generic [ref=f51e378]: 
+              - generic [ref=f51e379]:
+                - button "Print" [ref=f51e380] [cursor=pointer]
+                - button "Export" [ref=f51e384] [cursor=pointer]
+                - button "Settings" [ref=f51e388] [cursor=pointer]
+            - table [ref=f51e394]:
+              - status [ref=f51e404]
+              - rowgroup [ref=f51e405]:
+                - row [ref=f51e406]:
+                  - columnheader "Select all rows checkbox" [ref=f51e407]:
+                    - checkbox "Select all rows checkbox" [ref=f51e410] [cursor=pointer]: 
+                  - columnheader "Supplier Reverse sort direction for Supplier Resize Supplier column. Use left and right arrow keys to resize. Hold Shift for larger increments." [ref=f51e412]:
+                    - generic [ref=f51e414]:
+                      - generic [ref=f51e415]: Supplier
+                      - button "Reverse sort direction for Supplier" [ref=f51e416] [cursor=pointer]
+                    - button "Resize Supplier column. Use left and right arrow keys to resize. Hold Shift for larger increments." [ref=f51e419]
+                  - columnheader "Company name Sort by Company name Resize Company name column. Use left and right arrow keys to resize. Hold Shift for larger increments." [ref=f51e420]:
+                    - generic [ref=f51e422]:
+                      - generic [ref=f51e423]: Company name
+                      - button "Sort by Company name" [ref=f51e424] [cursor=pointer]
+                    - button "Resize Company name column. Use left and right arrow keys to resize. Hold Shift for larger increments." [ref=f51e427]
+                  - columnheader "Phone Resize Phone column. Use left and right arrow keys to resize. Hold Shift for larger increments." [ref=f51e428]:
+                    - generic [ref=f51e429]: Phone
+                    - button "Resize Phone column. Use left and right arrow keys to resize. Hold Shift for larger increments." [ref=f51e432]
+                  - columnheader "Email Resize Email column. Use left and right arrow keys to resize. Hold Shift for larger increments." [ref=f51e433]:
+                    - generic [ref=f51e434]: Email
+                    - button "Resize Email column. Use left and right arrow keys to resize. Hold Shift for larger increments." [ref=f51e437]
+                  - columnheader "Currency Resize Currency column. Use left and right arrow keys to resize. Hold Shift for larger increments." [ref=f51e438]:
+                    - generic [ref=f51e439]: Currency
+                    - button "Resize Currency column. Use left and right arrow keys to resize. Hold Shift for larger increments." [ref=f51e442]
+                  - columnheader "Open Balance Sort by Open Balance Resize Open Balance column. Use left and right arrow keys to resize. Hold Shift for larger increments." [ref=f51e443]:
+                    - generic [ref=f51e445]:
+                      - generic [ref=f51e446]: Open Balance
+                      - button "Sort by Open Balance" [ref=f51e447] [cursor=pointer]
+                    - button "Resize Open Balance column. Use left and right arrow keys to resize. Hold Shift for larger increments." [ref=f51e450]
+                  - columnheader "Action" [ref=f51e451]
+              - rowgroup [ref=f51e455]:
+                - row [ref=f51e1631]:
+                  - cell "Select row checkbox Royal Furniture" [ref=f51e1632]:
+                    - checkbox "Select row checkbox Royal Furniture" [ref=f51e1635] [cursor=pointer]: 
+                  - cell [ref=f51e1637]:
+                    - button "Royal Furniture" [ref=f51e1642]
+                  - cell "Royal Furniture" [ref=f51e1643]
+                  - cell [ref=f51e1647]:
+                    - generic [ref=f51e1649]:
+                      - text: "+923216065315"
+                      - generic [ref=f51e1650]:
+                        - button "Copy phone number"
+                  - cell [ref=f51e1651]:
+                    - generic [ref=f51e1653]:
+                      - text: haroonarshad230@gmail.com
+                      - generic [ref=f51e1654]:
+                        - button "Copy email"
+                      - button "Email Royal Furniture" [ref=f51e1655] [cursor=pointer]
+                  - cell "USD" [ref=f51e1658]
+                  - cell "$0.00" [ref=f51e1661]
+                  - cell [ref=f51e1664]:
+                    - generic [ref=f51e1666]:
+                      - button "Create bill" [ref=f51e1667] [cursor=pointer]
+                      - button "Expand Menu" [ref=f51e1669] [cursor=pointer]
+            - generic [ref=f51e1840]:
+              - generic [ref=f51e1841]: 1-1 of 1
+              - navigation [ref=f51e1843]:
+                - button "Go to previous page" [disabled] [ref=f51e1844]
+                - button "Page 1, Current Page" [ref=f51e1848] [cursor=pointer]: "1"
+                - button "Go to next page" [disabled] [ref=f51e1849]
+        - link "Privacy" [ref=f51e1854] [cursor=pointer]:
+          - /url: /app/privacy
+  - generic: "Essential, Enhanced Experience & Product Improvement These first-party cookies are set by Intuit or one of our service providers; you cannot turn these off. These cookies enable the site to function as intended, including: basic functionality (for example, your ability to log into your Intuit account or add items to your cart for purchase); remember your preferences (for example, your preferred language or login credentials); provide you personalized content when viewing our site; and, allow us to evaluate your use and navigation of the site to fix bugs and improve the overall experience for you and others. A single cookie may be used for one or all of these purposes. Third-Party Advertisement  Yes We leverage advertising trackers across our sites to improve our marketing and advertising activities. These trackers may share some limited personal information with third-party platforms where we may display advertisements or run marketing campaigns. You may choose to turn these trackers off. You will still see Intuit advertisements when you opt-out, but these ads may not be tailored to your interests. This preference applies to your experience on our .intuit sites, once you create or login to your Intuit account, you may be prompted to choose again.    "

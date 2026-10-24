@@ -100,10 +100,14 @@ public class PurchaseOrdersController : ControllerBase
     public async Task<IActionResult> UpdatePurchaseOrder(Guid uuid, [FromBody] PatchPoRequest req)
     {
         var actorId = User.GetUserId();
-        var changes = await _service.UpdateAsync(uuid, req, actorId);
+        var update  = await _service.UpdateWithPricingAsync(uuid, req, actorId);
         await _audit.LogAsync(actorId, null, "Demand", "UPDATE", "PurchaseOrder", uuid, Ip);
-        await LogFieldChangesAsync(actorId, "UPDATE", uuid, changes);
-        return Ok(ApiResponse.Ok(StaticResponseMessage.recordUpdatedSuccessfully));
+        await LogFieldChangesAsync(actorId, "UPDATE", uuid, update?.Changes ?? []);
+        // A46-0152 - additive: the envelope is unchanged, `pricing` rides beside it.
+        return Ok(new PoPricingApiResponse
+        {
+            Success = true, Message = StaticResponseMessage.recordUpdatedSuccessfully, Pricing = update?.Pricing
+        });
     }
 
     // A29-P5-11 §6.2 — "audit log of changes": one row per field the team changed on a PO the system

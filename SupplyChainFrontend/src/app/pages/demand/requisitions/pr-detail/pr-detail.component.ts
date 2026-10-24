@@ -33,6 +33,7 @@ import { MaterialService, PrLineDisbursement } from '../../../../services/materi
 import { TimelinePanelComponent } from '../../../../shared/timeline-panel/timeline-panel.component';
 import { AttachmentListComponent } from '../../../../shared/attachment-list/attachment-list.component';
 import { AttachmentService } from '../../../../services/attachment.service';
+import { PricingSummary } from '../../../../services/purchase-pricing.service';
 import { FLOW, FlowSection, FlowStage, flowStagesFrom } from '../../../../shared/flow';
 
 @Component({
@@ -277,6 +278,15 @@ export class PrDetailComponent implements OnInit {
     }
   }
 
+  /** A46 C5 / BR-30 - the batch pricing result of the last split conversion (single conversion hands it to the PO page). */
+  splitPricingSummary: PricingSummary | null = null;
+  private splitPoIds: string[] = [];
+
+  viewUnpricedPos() {
+    const first = this.splitPoIds[0];
+    if (first) this.router.navigate(['/portal/pages/demand/purchase-orders', first], { queryParams: { unpriced: 1 }, state: { pricingSummary: this.splitPricingSummary } });
+  }
+
   confirmConvert() {
     if (!this.convertSupplierName.trim()) { return; }
     this.isActioning = true;
@@ -291,7 +301,7 @@ export class PrDetailComponent implements OnInit {
         this.isActioning = false; this.showConvertDialog = false;
         this.messageService.add({ severity: 'success', summary: 'PO Created', detail: 'Purchase order created successfully.' });
         this.load();
-        setTimeout(() => this.router.navigate(['/portal/pages/demand/purchase-orders', res.result]), 1500);
+        setTimeout(() => this.router.navigate(['/portal/pages/demand/purchase-orders', res.result], { state: res.pricingSummary ? { pricingSummary: res.pricingSummary } : undefined }), 1500);
       },
       error: (err) => { this.isActioning = false; this.messageService.add({ severity: 'error', summary: 'Error', detail: err?.error?.message ?? 'Conversion failed.' }); }
     });
@@ -324,6 +334,8 @@ export class PrDetailComponent implements OnInit {
     this.demandService.convertPrToSplitPos(this.uuid, req).subscribe({
       next: (res) => {
         this.isActioning = false; this.showSplitDialog = false;
+        this.splitPricingSummary = res.pricingSummary ?? null;
+        this.splitPoIds = res.result ?? [];
         this.messageService.add({ severity: 'success', summary: 'POs Created', detail: `${res.result?.length ?? 0} purchase order(s) created.` });
         this.load();
       },
