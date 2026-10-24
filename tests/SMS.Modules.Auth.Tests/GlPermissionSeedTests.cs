@@ -15,6 +15,15 @@ namespace SMS.Modules.Auth.Tests;
 public class GlPermissionSeedTests
 {
     private static readonly string[] GlCodes = ["GL_VIEW", "GL_ACCOUNT_MANAGE", "GL_SETUP_MANAGE"];
+    /// <summary>A47 D-15 — the journal-engine codes; the three *_VIEW ones follow GL_VIEW.</summary>
+    private static readonly string[] EngineCodes =
+    [
+        "GL_JOURNAL_CREATE", "GL_JOURNAL_EDIT", "GL_JOURNAL_DELETE", "GL_JOURNAL_POST", "GL_JOURNAL_REVERSE",
+        "GL_RECONCILE_VIEW", "GL_RECONCILE_EXECUTE", "GL_REPORTS_VIEW", "GL_PERIOD_CLOSE_VIEW", "GL_PERIOD_CLOSE_EXECUTE", "GL_PERIOD_CLOSE_ADMIN",
+    ];
+    private const string EngineViews = "GL_RECONCILE_VIEW,GL_REPORTS_VIEW,GL_PERIOD_CLOSE_VIEW";
+    private const string AllGl = "GL_VIEW,GL_ACCOUNT_MANAGE,GL_SETUP_MANAGE,GL_JOURNAL_CREATE,GL_JOURNAL_EDIT,GL_JOURNAL_DELETE,GL_JOURNAL_POST,GL_JOURNAL_REVERSE,"
+        + "GL_RECONCILE_VIEW,GL_RECONCILE_EXECUTE,GL_REPORTS_VIEW,GL_PERIOD_CLOSE_VIEW,GL_PERIOD_CLOSE_EXECUTE,GL_PERIOD_CLOSE_ADMIN";
 
     private static object Field(string name) =>
         typeof(AuthDataSeeder).GetField(name, BindingFlags.NonPublic | BindingFlags.Static)!.GetValue(null)!;
@@ -26,11 +35,11 @@ public class GlPermissionSeedTests
     [Fact]
     public void Codes_are_in_the_catalog_seeded_once_mapped_to_finance_and_grouped()
     {
-        PermissionCodes.All.Where(c => c.StartsWith("GL_")).Should().BeEquivalentTo(GlCodes);
+        PermissionCodes.All.Where(c => c.StartsWith("GL_")).Should().BeEquivalentTo(GlCodes.Concat(EngineCodes));
         new[] { PermissionCodes.GL_VIEW, PermissionCodes.GL_ACCOUNT_MANAGE, PermissionCodes.GL_SETUP_MANAGE }
             .Should().Equal(AccountingCodes.GlView, AccountingCodes.GlAccountManage, AccountingCodes.GlSetupManage);
         var seed = ((string Name, string Code, string Description)[])Field("PermissionSeed");
-        foreach (var code in GlCodes)
+        foreach (var code in GlCodes.Concat(EngineCodes))
         {
             seed.Should().ContainSingle(p => p.Code == code).Which.Description.Should().NotBeNullOrWhiteSpace();
             ModuleCodeMap.ForPermission(code).Should().Be(ModuleCodes.Finance);
@@ -63,11 +72,11 @@ public class GlPermissionSeedTests
     }
 
     [Theory]
-    [InlineData("SYSTEM_ADMIN", "GL_VIEW,GL_ACCOUNT_MANAGE,GL_SETUP_MANAGE")]
-    [InlineData("ORG_ADMIN", "GL_VIEW,GL_ACCOUNT_MANAGE,GL_SETUP_MANAGE")]
-    [InlineData("FINANCE_MANAGER", "GL_VIEW,GL_ACCOUNT_MANAGE,GL_SETUP_MANAGE")]
-    [InlineData("FINANCE_OFFICER", "GL_VIEW")]
-    [InlineData("AUDITOR", "GL_VIEW")]
+    [InlineData("SYSTEM_ADMIN", AllGl)]
+    [InlineData("ORG_ADMIN", AllGl)]
+    [InlineData("FINANCE_MANAGER", "GL_VIEW,GL_ACCOUNT_MANAGE,GL_SETUP_MANAGE," + EngineViews)]
+    [InlineData("FINANCE_OFFICER", "GL_VIEW," + EngineViews)]
+    [InlineData("AUDITOR", "GL_VIEW," + EngineViews)]
     [InlineData("PROCUREMENT_MANAGER", "")]
     [InlineData("INVENTORY_MANAGER", "")]
     [InlineData("REQUESTER", "")]
@@ -101,8 +110,8 @@ public class GlPermissionSeedTests
 
         await new AuthDataSeeder(db, new PasswordHasher<UserAccount>()).SeedGlGrantsAsync();
 
-        (await GlGrantsAsync(db, "CTRL")).Should().BeEquivalentTo(GlCodes);
-        (await GlGrantsAsync(db, "ARC")).Should().BeEquivalentTo(["GL_VIEW"]);
+        (await GlGrantsAsync(db, "CTRL")).Should().BeEquivalentTo(GlCodes.Concat(EngineViews.Split(',')));
+        (await GlGrantsAsync(db, "ARC")).Should().BeEquivalentTo(["GL_VIEW", .. EngineViews.Split(',')]);
         (await GlGrantsAsync(db, "OFF")).Should().BeEmpty("a switched-off source grant gives nothing");
     }
 

@@ -59,7 +59,7 @@ internal sealed partial class ChartOfAccountsService
 
     public async Task<ChartTreeModel> GetTreeAsync(AccountingCaller caller, bool includeInactive = false, CancellationToken ct = default)
     {
-        caller.Require(caller.CanView);
+        caller.Require(caller.CanReadGlLookups); // A47 SR-FE-2
         var all = await Accounts(caller.OrganizationId).AsNoTracking().Where(a => includeInactive || a.IsActive).ToListAsync(ct);
         var byId = all.ToDictionary(a => a.Id);
         var reasons = await DeleteBlockedReasonsAsync(caller.OrganizationId, all, ct);
@@ -88,7 +88,7 @@ internal sealed partial class ChartOfAccountsService
 
     public async Task<List<AccountModel>> GetFlatAsync(AccountingCaller caller, AccountFlatQuery query, CancellationToken ct = default)
     {
-        caller.Require(caller.CanView);
+        caller.Require(caller.CanReadGlLookups); // A47 SR-FE-2 — the A47 pages' account pickers
         var q = Accounts(caller.OrganizationId).AsNoTracking();
         if (query.Level is { } level) q = q.Where(a => a.Level == level);
         if (!string.IsNullOrWhiteSpace(query.RootType)) q = q.Where(a => a.RootType == query.RootType);

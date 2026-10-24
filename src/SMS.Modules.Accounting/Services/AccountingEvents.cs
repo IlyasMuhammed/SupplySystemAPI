@@ -58,6 +58,25 @@ public sealed record CoaSetupCompletedEvent(Guid OrganizationId, DateTime Comple
 public sealed record ExternalMappingCreatedEvent(Guid OrganizationId, Guid MappingId, string SystemType, Guid AccountId, string AccountCode,
     string ExternalCode, int? UserId = null, string? UserName = null) : IAccountingEvent;
 
+// A47 (A-19) — journal engine events, written to GlSetupHistory like the A42 ones. Published for manual / engine actions
+// only (a gateway posting is logged in the posting log, not here).
+
+/// <summary>§9.5 step 4 — a journal entry was posted (manual post, or created and posted).</summary>
+public sealed record JournalEntryPostedEvent(Guid OrganizationId, Guid JournalEntryId, string EntryNumber, string JournalTypeCode,
+    decimal TotalDebit, DateOnly EntryDate, int? UserId = null, string? UserName = null) : IAccountingEvent;
+
+/// <summary>A47 C7 (RR publishes) — a posted entry was reversed by <paramref name="ReversalEntryNumber"/>.</summary>
+public sealed record JournalEntryReversedEvent(Guid OrganizationId, Guid JournalEntryId, string EntryNumber, Guid ReversalEntryId,
+    string ReversalEntryNumber, string? Reason, int? UserId = null, string? UserName = null) : IAccountingEvent;
+
+/// <summary>A47 C1 — a journal type was created, changed, deactivated, activated or deleted (Action).</summary>
+public sealed record JournalTypeChangedEvent(Guid OrganizationId, Guid JournalTypeId, string Code, string Action,
+    int? UserId = null, string? UserName = null) : IAccountingEvent;
+
+/// <summary>A47 C10 (RPT publishes) — the fiscal year was closed with its closing entry (null when nothing to close).</summary>
+public sealed record FiscalYearClosedEvent(Guid OrganizationId, Guid FiscalYearId, string FiscalYearName, string? ClosingEntryNumber,
+    decimal NetIncome, int? UserId = null, string? UserName = null) : IAccountingEvent;
+
 /// <summary>Handles one kind of accounting event. Register as many as needed in DI.</summary>
 public interface IAccountingEventHandler<in TEvent> where TEvent : IAccountingEvent
 {
@@ -110,7 +129,11 @@ internal sealed class GlSetupHistoryWriter :
     IAccountingEventHandler<OpeningBalancePostedEvent>,
     IAccountingEventHandler<CoaSetupStatusChangedEvent>,
     IAccountingEventHandler<CoaSetupCompletedEvent>,
-    IAccountingEventHandler<ExternalMappingCreatedEvent>
+    IAccountingEventHandler<ExternalMappingCreatedEvent>,
+    IAccountingEventHandler<JournalEntryPostedEvent>,
+    IAccountingEventHandler<JournalEntryReversedEvent>,
+    IAccountingEventHandler<JournalTypeChangedEvent>,
+    IAccountingEventHandler<FiscalYearClosedEvent>
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     private readonly AccountingDbContext _db;
@@ -144,6 +167,12 @@ internal sealed class GlSetupHistoryWriter :
             : $"{e.Note}: status {e.OldStatus} → {e.NewStatus}.",
         CoaSetupCompletedEvent e         => $"General ledger setup completed with {e.AccountCount} accounts.",
         ExternalMappingCreatedEvent e    => $"Account {e.AccountCode} mapped to {e.ExternalCode} in {ExternalSystemTypes.DisplayNames.GetValueOrDefault(e.SystemType, e.SystemType)}.",
+        JournalEntryPostedEvent e        => $"Journal entry {e.EntryNumber} ({e.JournalTypeCode}) posted: {Money(e.TotalDebit)}, dated {Date(e.EntryDate)}.",
+        JournalEntryReversedEvent e      => $"Journal entry {e.EntryNumber} reversed by {e.ReversalEntryNumber}{(string.IsNullOrWhiteSpace(e.Reason) ? "" : $": {e.Reason}")}.",
+        JournalTypeChangedEvent e        => $"Journal type {e.Code} {e.Action}.",
+        FiscalYearClosedEvent e          => e.ClosingEntryNumber is null
+            ? $"Fiscal year {e.FiscalYearName} closed (nothing to transfer)."
+            : $"Fiscal year {e.FiscalYearName} closed by {e.ClosingEntryNumber}: net income {Money(e.NetIncome)} to retained earnings.",
         _                                => evt.GetType().Name
     };
 
@@ -175,8 +204,12 @@ internal sealed class GlSetupHistoryWriter :
     public Task HandleAsync(CoaSetupStatusChangedEvent evt, CancellationToken ct = default)     => WriteAsync(evt, ct);
     public Task HandleAsync(CoaSetupCompletedEvent evt, CancellationToken ct = default)         => WriteAsync(evt, ct);
     public Task HandleAsync(ExternalMappingCreatedEvent evt, CancellationToken ct = default)    => WriteAsync(evt, ct);
+    public Task HandleAsync(JournalEntryPostedEvent evt, CancellationToken ct = default)        => WriteAsync(evt, ct);
+    public Task HandleAsync(JournalEntryReversedEvent evt, CancellationToken ct = default)      => WriteAsync(evt, ct);
+    public Task HandleAsync(JournalTypeChangedEvent evt, CancellationToken ct = default)        => WriteAsync(evt, ct);
+    public Task HandleAsync(FiscalYearClosedEvent evt, CancellationToken ct = default)          => WriteAsync(evt, ct);
 
-    /// <summary>Registers the writer for all 12 events (one scoped instance).</summary>
+    /// <summary>Registers the writer for all 12 A42 + 4 A47 events (one scoped instance).</summary>
     internal static void Register(IServiceCollection services)
     {
         services.AddScoped<GlSetupHistoryWriter>();
@@ -192,5 +225,9 @@ internal sealed class GlSetupHistoryWriter :
         services.AddScoped<IAccountingEventHandler<CoaSetupStatusChangedEvent>>(sp => sp.GetRequiredService<GlSetupHistoryWriter>());
         services.AddScoped<IAccountingEventHandler<CoaSetupCompletedEvent>>(sp => sp.GetRequiredService<GlSetupHistoryWriter>());
         services.AddScoped<IAccountingEventHandler<ExternalMappingCreatedEvent>>(sp => sp.GetRequiredService<GlSetupHistoryWriter>());
+        services.AddScoped<IAccountingEventHandler<JournalEntryPostedEvent>>(sp => sp.GetRequiredService<GlSetupHistoryWriter>());
+        services.AddScoped<IAccountingEventHandler<JournalEntryReversedEvent>>(sp => sp.GetRequiredService<GlSetupHistoryWriter>());
+        services.AddScoped<IAccountingEventHandler<JournalTypeChangedEvent>>(sp => sp.GetRequiredService<GlSetupHistoryWriter>());
+        services.AddScoped<IAccountingEventHandler<FiscalYearClosedEvent>>(sp => sp.GetRequiredService<GlSetupHistoryWriter>());
     }
 }

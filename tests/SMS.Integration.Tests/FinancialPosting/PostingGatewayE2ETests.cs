@@ -112,7 +112,7 @@ public sealed class PostingGatewayE2ETests : IClassFixture<SapWebApplicationFact
         update.Status.Should().Be(PostingStatus.Success, $"a changed payload is an update, not a duplicate — {update.Describe()}");
         var journals = await _f.JournalsAsync(o.OrgId, id);
         journals.Should().OnlyContain(j => j.Balanced, string.Join("\n", journals));
-        journals.Where(j => j.Status == "Posted").Sum(j => j.Net(receivable))
+        journals.Where(j => j.Status is "Posted" or "Reversed").Sum(j => j.Net(receivable)) // A47 D-4 / D-CORE-4
             .Should().Be(800m, $"the reversal cancels the 500 and the new journal posts 800 — {string.Join("\n", journals)}");
 
         // BR-01 — unbalanced: ValidationFailed, nothing posted

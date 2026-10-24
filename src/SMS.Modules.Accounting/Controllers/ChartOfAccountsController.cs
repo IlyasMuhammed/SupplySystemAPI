@@ -18,12 +18,14 @@ public sealed class ChartOfAccountsController : AccountingControllerBase
     public ChartOfAccountsController(ITenantContext tenant, IChartOfAccountsService chart) : base(tenant) => _chart = chart;
 
     [HttpGet]
-    [RequirePermission(View, ManageAccounts, ManageSetup)]
+    [RequirePermission(View, ManageAccounts, ManageSetup, LookupJournal1, LookupJournal2, LookupJournal3, LookupJournal4, LookupJournal5, LookupReconcile1, LookupReconcile2, LookupReports, LookupClose1, LookupClose2, LookupClose3)] // A47 SR-FE-2
     public async Task<IActionResult> Tree([FromQuery] bool includeInactive = false, CancellationToken ct = default) =>
         Ok(ApiResponse<ChartTreeModel>.Ok(await _chart.GetTreeAsync(Caller, includeInactive, ct)));
 
+    /// <summary>A47 SR-FE-2 — also for the journal-engine read codes (account pickers).</summary>
     [HttpGet("flat")]
-    [RequirePermission(View, ManageAccounts, ManageSetup)]
+    [RequirePermission(View, ManageAccounts, ManageSetup, LookupJournal1, LookupJournal2, LookupJournal3, LookupJournal4, LookupJournal5,
+        LookupReconcile1, LookupReconcile2, LookupReports, LookupClose1, LookupClose2, LookupClose3)]
     public async Task<IActionResult> Flat([FromQuery] AccountFlatQuery query, CancellationToken ct) =>
         Ok(ApiResponse<List<AccountModel>>.Ok(await _chart.GetFlatAsync(Caller, query, ct)));
 

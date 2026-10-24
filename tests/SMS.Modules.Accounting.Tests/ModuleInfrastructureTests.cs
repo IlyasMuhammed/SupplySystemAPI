@@ -32,7 +32,9 @@ public class ModuleInfrastructureTests
             "CoaTemplates", "CoaTemplateItems", "ChartOfAccounts", "FiscalYears", "FiscalPeriods", "AccountingDefaults", "CoaSetupStatuses",
             "OpeningBalanceEntries", "ExternalSystemMappings", "JournalEntries", "JournalEntryLines", "GlSetupHistory",
             // A44 — posting log + finance posting settings.
-            "FinancialPostings", "FinancialPostingTargets", "TenantFinanceConfigs");
+            "FinancialPostings", "FinancialPostingTargets", "TenantFinanceConfigs",
+            // A47 — journal engine.
+            "JournalTypes", "JournalEntrySequences", "ReconcileGroups");
         model.FindEntityType(typeof(CoaTemplate))!.FindProperty(nameof(CoaTemplate.IsGlobal))!.GetColumnName().Should().Be("IsSystem");
         model.FindEntityType(typeof(ChartOfAccount))!.FindProperty(nameof(ChartOfAccount.CurrentBalance))!.GetColumnType().Should().Be("decimal(18,4)");
         model.FindEntityType(typeof(ChartOfAccount))!.GetCheckConstraints().Select(c => c.Name).Should().Contain(

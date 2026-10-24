@@ -58,11 +58,14 @@ internal sealed class OpeningBalanceService : IOpeningBalanceService
     private readonly JournalNumbers _numbers;
     private readonly IOpeningBalanceDateProvider? _dates;
     private readonly IOpeningSubledgerTotals? _subledger;
+    private readonly JournalEntryWriter? _journals;
 
+    /// <summary>A47 D-CORE-2 — <paramref name="journals"/> fills the opening journal's A47 columns (OPEN type, period, flags).</summary>
     public OpeningBalanceService(AccountingDbContext db, IAccountingInitializer init, ISetupStatusService setup,
         IAccountingEventPublisher events, JournalNumbers numbers,
-        IOpeningBalanceDateProvider? dates = null, IOpeningSubledgerTotals? subledger = null)
+        IOpeningBalanceDateProvider? dates = null, IOpeningSubledgerTotals? subledger = null, JournalEntryWriter? journals = null)
     {
+        _journals = journals;
         _db = db;
         _init = init;
         _setup = setup;
@@ -298,6 +301,7 @@ internal sealed class OpeningBalanceService : IOpeningBalanceService
                 OrganizationId = org, LineNumber = ++line, AccountId = plug.Id,
                 DebitAmount = plugDebit, CreditAmount = plugCredit, Memo = "Opening balance difference",
             });
+        if (_journals is not null) await _journals.StampLegacyAsync(journal, ct);
 
         await _db.InTransactionAsync(async () =>
         {

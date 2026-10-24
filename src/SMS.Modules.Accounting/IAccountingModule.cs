@@ -43,6 +43,13 @@ public static class AccountingModuleExtensions
         // Fiscal years, defaults, opening balances, mappings, dashboard (BE2) — Services/SetupServicesRegistration.cs.
         services.AddAccountingSetupServices();
 
+        // A47 — journal engine (Services/Journals/JournalServicesRegistration.cs).
+        services.AddAccountingJournalServices();
+        // A47 RR — reversal + reconciliation (Services/Journals/ReversalReconciliationRegistration.cs).
+        services.AddAccountingReversalAndReconciliationServices();
+        // A47 RPT — trial balance, account ledger, period close, year-end close (Services/Reports/ReportServicesRegistration.cs).
+        services.AddAccountingReportServices();
+
         // A44 — financial posting gateway, entity sync gateway, internal GL target, posting log — Posting/PostingRegistration.cs.
         services.AddAccountingPostingServices();
     }
@@ -59,7 +66,12 @@ public static class AccountingModuleExtensions
     public static IApplicationBuilder UseAccountingModule(this IApplicationBuilder app)
     {
         using var scope = app.ApplicationServices.CreateScope();
-        scope.ServiceProvider.GetRequiredService<AccountingDbContext>().Database.Migrate();
+        var db = scope.ServiceProvider.GetRequiredService<AccountingDbContext>();
+        // A47 REV-9 — A47_JournalEngine backfills JournalEntryLines with full-table statements: the default 30 s command
+        // timeout would roll the migration back (and fail every API start) on a large ledger.
+        db.Database.SetCommandTimeout(TimeSpan.FromMinutes(10));
+        db.Database.Migrate();
+        db.Database.SetCommandTimeout(null);
         try
         {
             scope.ServiceProvider.GetRequiredService<ITemplateSeeder>().SeedAsync().GetAwaiter().GetResult();

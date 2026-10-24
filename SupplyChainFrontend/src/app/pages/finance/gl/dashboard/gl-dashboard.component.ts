@@ -9,6 +9,12 @@ import { glError } from '../gl.shared';
 
 export const GL_LINKS = [
   { label: 'Chart of Accounts', icon: 'pi pi-sitemap', path: 'accounts' },
+  // A47 D-20 — the journal engine.
+  { label: 'Journal Entries', icon: 'pi pi-list', path: 'journal-entries' },
+  { label: 'Trial Balance', icon: 'pi pi-table', path: 'trial-balance' },
+  { label: 'Reconciliation', icon: 'pi pi-link', path: 'reconciliation' },
+  { label: 'Period Close', icon: 'pi pi-lock', path: 'period-close' },
+  { label: 'Journal Types', icon: 'pi pi-tags', path: 'journal-types' },
   { label: 'Fiscal Years', icon: 'pi pi-calendar', path: 'fiscal-years' },
   { label: 'Defaults', icon: 'pi pi-sliders-h', path: 'defaults' },
   { label: 'Opening Balances', icon: 'pi pi-book', path: 'opening-balances' },

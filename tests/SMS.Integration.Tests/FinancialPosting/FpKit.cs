@@ -305,9 +305,10 @@ internal static class Fp
         return result;
     }
 
-    /// <summary>Net movement (debit − credit) on an account code over the org's non-opening posted journals.</summary>
+    /// <summary>Net movement (debit − credit) on an account code over the org's non-opening posted journals.
+    /// A47 D-4 / D-CORE-4 — "posted" = Posted or Reversed (a reversed original still counts; its reversal cancels it).</summary>
     public static async Task<decimal> NetAsync(this SapWebApplicationFactory f, Guid org, string code) =>
-        (await f.AllJournalsAsync(org)).Where(j => j.Status == "Posted").Sum(j => j.Net(code));
+        (await f.AllJournalsAsync(org)).Where(j => j.Status is "Posted" or "Reversed").Sum(j => j.Net(code));
 
     /// <summary>The posting log rows of a source document through the API (GET posting/log, D-12), as JSON.</summary>
     public static async Task<List<JsonElement>> PostingRowsAsync(this SapKit k, Guid source)

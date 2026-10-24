@@ -59,7 +59,7 @@ internal sealed class FiscalYearService : IFiscalYearService
 
     public async Task<IReadOnlyList<FiscalYearModel>> ListAsync(AccountingCaller caller, CancellationToken ct = default)
     {
-        caller.Require(caller.CanView);
+        caller.Require(caller.CanReadGlLookups); // A47 SR-FE-2
         var org = caller.OrganizationId;
         var years = await _db.FiscalYears.IgnoreQueryFilters().AsNoTracking()
             .Where(y => y.OrganizationId == org)
@@ -72,14 +72,14 @@ internal sealed class FiscalYearService : IFiscalYearService
 
     public async Task<FiscalYearModel> GetAsync(AccountingCaller caller, Guid yearUuid, CancellationToken ct = default)
     {
-        caller.Require(caller.CanView);
+        caller.Require(caller.CanReadGlLookups); // A47 SR-FE-2
         var year = await LoadYearAsync(caller.OrganizationId, yearUuid, ct);
         return ToModel(year, await HasPostingsAsync(year, ct));
     }
 
     public async Task<IReadOnlyList<FiscalPeriodModel>> GetPeriodsAsync(AccountingCaller caller, Guid yearUuid, CancellationToken ct = default)
     {
-        caller.Require(caller.CanView);
+        caller.Require(caller.CanReadGlLookups); // A47 SR-FE-2
         var year = await LoadYearAsync(caller.OrganizationId, yearUuid, ct);
         return year.Periods.OrderBy(p => p.PeriodNumber).Select(ToModel).ToList();
     }
@@ -146,6 +146,7 @@ internal sealed class FiscalYearService : IFiscalYearService
         if (datesChanged)
         {
             if (hasPostings) throw new ConflictException(DatesFrozenMessage);
+            if (await HasDraftsAsync(year, ct)) throw new ConflictException(DraftsDatesMessage);
             if (year.Periods.Any(p => p.Status != PeriodStatuses.Open))
                 throw new ConflictException("The dates can only be changed while every period of the year is open.");
             ValidateRange(start, end);
@@ -215,7 +216,7 @@ internal sealed class FiscalYearService : IFiscalYearService
         if (!string.IsNullOrWhiteSpace(request.Status))
         {
             newStatus = PeriodStatuses.All.FirstOrDefault(s => string.Equals(s, request.Status.Trim(), StringComparison.OrdinalIgnoreCase))
-                ?? throw new BadRequestException("Status must be Open, Locked or Closed.");
+                ?? throw new BadRequestException("Status must be Open, Locked or Closed (or AdjustmentOnly).");
             if (newStatus == oldStatus) newStatus = null;
         }
 
@@ -242,6 +243,7 @@ internal sealed class FiscalYearService : IFiscalYearService
         if (newStart != period.StartDate || newEnd != period.EndDate)
         {
             if (await HasPostingsAsync(year, ct)) throw new ConflictException(DatesFrozenMessage);
+            if (await HasDraftsAsync(year, ct)) throw new ConflictException(DraftsDatesMessage);
             if (year.Periods.Any(p => p.Status == PeriodStatuses.Closed) || newStatus == PeriodStatuses.Closed)
                 throw new ConflictException(ClosedPeriodDatesMessage);
             try
@@ -397,14 +399,22 @@ internal sealed class FiscalYearService : IFiscalYearService
         return await query.SingleOrDefaultAsync(ct) ?? throw new NotFoundException("Fiscal year not found.");
     }
 
-    /// <summary>D-50 — a year "has postings" when a posted journal entry is dated inside it (the opening balance entry counts).</summary>
+    /// <summary>D-50 — a year "has postings" when a posted (or posted and reversed, A47 D-4) journal entry is dated inside it
+    /// (the opening balance entry counts).</summary>
     private Task<bool> HasPostingsAsync(FiscalYear year, CancellationToken ct) =>
         _db.JournalEntries.IgnoreQueryFilters().AnyAsync(j => j.OrganizationId == year.OrganizationId
-            && j.Status == JournalStatuses.Posted && j.EntryDate >= year.StartDate && j.EntryDate <= year.EndDate, ct);
+            && j.Status != JournalStatuses.Draft && j.EntryDate >= year.StartDate && j.EntryDate <= year.EndDate, ct);
+
+    /// <summary>A47 D-CORE-9 — draft journals point at the year's periods (FK): its periods cannot be regenerated or moved under them.</summary>
+    private Task<bool> HasDraftsAsync(FiscalYear year, CancellationToken ct) =>
+        _db.JournalEntries.IgnoreQueryFilters().AnyAsync(j => j.OrganizationId == year.OrganizationId && j.Status == JournalStatuses.Draft
+            && (j.FiscalYearId == year.Id || (j.EntryDate >= year.StartDate && j.EntryDate <= year.EndDate)), ct);
+
+    internal const string DraftsDatesMessage = "The dates cannot be changed: draft journal entries are dated in this fiscal year. Post or delete them first.";
 
     private async Task<List<DateOnly>> PostingDatesAsync(Guid org, CancellationToken ct) =>
         await _db.JournalEntries.IgnoreQueryFilters()
-            .Where(j => j.OrganizationId == org && j.Status == JournalStatuses.Posted)
+            .Where(j => j.OrganizationId == org && j.Status != JournalStatuses.Draft)
             .Select(j => j.EntryDate).Distinct().ToListAsync(ct);
 
     private static bool HasPostings(FiscalYear y, List<DateOnly> dates) => dates.Any(d => d >= y.StartDate && d <= y.EndDate);
@@ -434,15 +444,20 @@ internal sealed class FiscalYearService : IFiscalYearService
     };
 }
 
-/// <summary>D-18 — Shared seam for A43 posting: the date lies in an Open period of an open fiscal year.</summary>
+/// <summary>
+/// D-18 — Shared seam for posting: the date lies in a period of an open fiscal year that accepts the entry. A47 D-11 — the
+/// rule is <see cref="JournalPeriodResolver"/>'s: a regular entry needs an Open period, an adjustment (opening/closing)
+/// entry an Open or AdjustmentOnly one.
+/// </summary>
 internal sealed class FiscalPeriodGuard : SMS.Shared.Common.IFiscalPeriodGuard
 {
-    private readonly AccountingDbContext _db;
+    private readonly JournalPeriodResolver _resolver;
 
-    public FiscalPeriodGuard(AccountingDbContext db) => _db = db;
+    public FiscalPeriodGuard(JournalPeriodResolver resolver) => _resolver = resolver;
 
     public Task<bool> IsPostingAllowedAsync(Guid organizationId, DateOnly date, CancellationToken ct = default) =>
-        _db.FiscalPeriods.IgnoreQueryFilters().AsNoTracking().AnyAsync(p => p.OrganizationId == organizationId
-            && p.Status == PeriodStatuses.Open && p.StartDate <= date && date <= p.EndDate
-            && !p.FiscalYear.IsClosed, ct);
+        IsPostingAllowedAsync(organizationId, date, false, ct);
+
+    public async Task<bool> IsPostingAllowedAsync(Guid organizationId, DateOnly date, bool isAdjustmentEntry, CancellationToken ct = default) =>
+        (await _resolver.ResolveAsync(organizationId, date, isAdjustmentEntry, false, ct)).Allowed;
 }

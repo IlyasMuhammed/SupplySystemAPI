@@ -76,11 +76,14 @@ public static class SetupStatuses
     public static bool AllowsChartReplacement(string status) => status is NotStarted or AccountsCreated;
 }
 
-/// <summary>D-18 — Open accepts postings; Locked is a reversible soft close; Closed is final.</summary>
+/// <summary>
+/// D-18 — Open accepts postings; Locked is a reversible soft close; Closed is final. A47 D-11 — AdjustmentOnly accepts only
+/// opening/closing (adjustment) entries.
+/// </summary>
 public static class PeriodStatuses
 {
-    public const string Open = "Open", Locked = "Locked", Closed = "Closed";
-    public static readonly IReadOnlyList<string> All = [Open, Locked, Closed];
+    public const string Open = "Open", AdjustmentOnly = "AdjustmentOnly", Locked = "Locked", Closed = "Closed";
+    public static readonly IReadOnlyList<string> All = [Open, AdjustmentOnly, Locked, Closed];
 }
 
 /// <summary>§10.2 — an opening balance entry is Draft until posted.</summary>
@@ -94,17 +97,112 @@ public static class OpeningEntryStatuses
 public static class JournalEntryTypes
 {
     public const string OpeningBalance = "OPENING_BALANCE";
+    /// <summary>A47 — a journal entered by hand (api/finance/journal-entries).</summary>
+    public const string ManualJournal = "MANUAL_JOURNAL";
+    /// <summary>A47 C10 — the year-end closing entry (P&amp;L → retained earnings).</summary>
+    public const string YearEndClose = "YEAR_END_CLOSE";
 
     /// <summary>A44 §3 — FinDocType name → upper snake: SalesInvoice → SALES_INVOICE, POSSale → POS_SALE.</summary>
     public static string For(string documentType) =>
         System.Text.RegularExpressions.Regex.Replace(documentType, "(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])", "_").ToUpperInvariant();
 }
 
-/// <summary>D-10 / D-29 — journal entry status (A42 writes Posted only; Draft exists for A43 and the period-close check).</summary>
+/// <summary>
+/// D-10 / D-29 — journal entry status. A47 D-4 — Reversed: a posted entry that a reversal cancelled (its lines still count:
+/// every balance, trial balance and ledger reads Posted <b>and</b> Reversed entries — see <see cref="IsPostedFamily"/>).
+/// </summary>
 public static class JournalStatuses
 {
-    public const string Draft = "Draft", Posted = "Posted";
-    public static readonly IReadOnlyList<string> All = [Draft, Posted];
+    public const string Draft = "Draft", Posted = "Posted", Reversed = "Reversed";
+    public static readonly IReadOnlyList<string> All = [Draft, Posted, Reversed];
+
+    /// <summary>A47 D-CORE-4 — the entry moved the balances (Posted, or Posted and later reversed).</summary>
+    public static bool IsPostedFamily(string status) => status is Posted or Reversed;
+}
+
+/// <summary>A47 C1 — the kind of a journal type (spec §4.2 type 0–6, stored as strings like every A42 list).</summary>
+public static class JournalTypeKinds
+{
+    public const string Sale = "Sale", Purchase = "Purchase", Cash = "Cash", Bank = "Bank", Miscellaneous = "Miscellaneous",
+        Opening = "Opening", Closing = "Closing";
+    public static readonly IReadOnlyList<string> All = [Sale, Purchase, Cash, Bank, Miscellaneous, Opening, Closing];
+}
+
+/// <summary>One of the 7 system journal types of §4.3.</summary>
+public sealed record SystemJournalTypeDefinition(string Code, string Name, string Kind, string SequencePrefix, bool RequiresPartner, bool AutoPost, int SortOrder);
+
+/// <summary>A47 §4.3 / D-6 — the system journal types seeded per organization, and their codes.</summary>
+public static class SystemJournalTypes
+{
+    public const string Sale = "SALE", Purchase = "PURCH", Cash = "CASH", Bank = "BANK", Misc = "MISC", Opening = "OPEN", Closing = "CLOSE";
+
+    public static readonly IReadOnlyList<SystemJournalTypeDefinition> Definitions =
+    [
+        new(Sale,     "Sales Journal",         JournalTypeKinds.Sale,          "SALE",  true,  false, 10),
+        new(Purchase, "Purchase Journal",      JournalTypeKinds.Purchase,      "PURCH", true,  false, 20),
+        new(Cash,     "Cash Journal",          JournalTypeKinds.Cash,          "CASH",  false, false, 30),
+        new(Bank,     "Bank Journal",          JournalTypeKinds.Bank,          "BANK",  false, false, 40),
+        new(Misc,     "Miscellaneous Journal", JournalTypeKinds.Miscellaneous, "JV",    false, false, 50),
+        new(Opening,  "Opening Journal",       JournalTypeKinds.Opening,       "OPEN",  false, true,  60),
+        new(Closing,  "Closing Journal",       JournalTypeKinds.Closing,       "CLOSE", false, true,  70),
+    ];
+
+    public static readonly IReadOnlyList<string> Codes = Definitions.Select(d => d.Code).ToList();
+
+    /// <summary>
+    /// D-12 — the system journal type of a journal by its EntryType (FinDocType upper snake, A44): sales documents → SALE,
+    /// purchase documents → PURCH, money movements → CASH when a line is on DEFAULT_CASH else BANK, opening → OPEN, the
+    /// year-end close → CLOSE, everything else (inventory, production, manual) → MISC. The migration backfill uses the same map.
+    /// </summary>
+    public static string ForEntryType(string? entryType, bool usesDefaultCash) => entryType switch
+    {
+        "SALES_INVOICE" or "CREDIT_NOTE" or "SALES_RETURN" or "POS_SALE" or "POS_RETURN" or "SALES_RECEIPT" or "REFUND_RECEIPT" => Sale,
+        "PURCHASE_BILL" or "VENDOR_CREDIT" or "PURCHASE_RETURN" or "EXPENSE" => Purchase,
+        "PAYMENT" or "BILL_PAYMENT" or "DEPOSIT_SLIP" or "BANK_FEE" => usesDefaultCash ? Cash : Bank,
+        JournalEntryTypes.OpeningBalance => Opening,
+        JournalEntryTypes.YearEndClose => Closing,
+        _ => Misc,
+    };
+
+    /// <summary>EntryTypes resolved by D-12 to CASH/BANK (the migration backfill needs the list).</summary>
+    public static readonly IReadOnlyList<string> MoneyEntryTypes = ["PAYMENT", "BILL_PAYMENT", "DEPOSIT_SLIP", "BANK_FEE"];
+    public static readonly IReadOnlyList<string> SaleEntryTypes = ["SALES_INVOICE", "CREDIT_NOTE", "SALES_RETURN", "POS_SALE", "POS_RETURN", "SALES_RECEIPT", "REFUND_RECEIPT"];
+    public static readonly IReadOnlyList<string> PurchaseEntryTypes = ["PURCHASE_BILL", "VENDOR_CREDIT", "PURCHASE_RETURN", "EXPENSE"];
+}
+
+/// <summary>A47 D-5 — idempotency key prefixes that are unique per organization (filtered unique indexes); A44 keys are not.</summary>
+public static class JournalKeys
+{
+    public const string ManualPrefix = "manual:", ReversalPrefix = "reversal:", YearClosePrefix = "yearclose:";
+    public static readonly IReadOnlyList<string> UniquePrefixes = [ManualPrefix, ReversalPrefix, YearClosePrefix];
+
+    public static bool IsUnique(string? key) => key is not null && UniquePrefixes.Any(p => key.StartsWith(p, StringComparison.Ordinal));
+    public static string Manual(Guid id) => ManualPrefix + id.ToString("D");
+    public static string Reversal(Guid originalUuid) => ReversalPrefix + originalUuid.ToString("D");
+    public static string YearClose(Guid fiscalYearUuid) => YearClosePrefix + fiscalYearUuid.ToString("D");
+}
+
+/// <summary>A47 C4 / A-12 — the partner a journal line is about.</summary>
+public static class JournalPartnerTypes
+{
+    public const string Customer = "Customer", Vendor = "Vendor";
+    public static readonly IReadOnlyList<string> All = [Customer, Vendor];
+}
+
+/// <summary>A47 C8 — a reconciliation group nets to zero (Full) or leaves a residual (Partial).</summary>
+public static class ReconcileTypes
+{
+    public const string Full = "Full", Partial = "Partial";
+    public static readonly IReadOnlyList<string> All = [Full, Partial];
+}
+
+/// <summary>A47 — journal engine limits.</summary>
+public static class JournalLimits
+{
+    public const int MaxLines = 500;
+    public const int MaxCodeLength = 10, MaxPrefixLength = 10, MaxTypeNameLength = 100;
+    /// <summary>BR-JE-001 — |Σ debit − Σ credit| must stay below this (CK_JournalEntries_Balanced).</summary>
+    public const decimal BalanceTolerance = 0.01m;
 }
 
 /// <summary>§12.3 — external financial systems an account can be mapped to (D-21).</summary>

@@ -308,7 +308,20 @@ internal sealed class AuthDataSeeder
         // A42 D-14 — general ledger setup.
         ("View General Ledger",           PermissionCodes.GL_VIEW,                 "See the chart of accounts, templates, fiscal years, accounting defaults, opening balances, external mappings and the GL setup status"),
         ("Manage Chart of Accounts",      PermissionCodes.GL_ACCOUNT_MANAGE,       "Add, change and remove accounts in the chart of accounts"),
-        ("Manage General Ledger Setup",   PermissionCodes.GL_SETUP_MANAGE,         "Apply or upload a chart of accounts, set fiscal years and periods, accounting defaults and opening balances, complete or reset the GL setup, and map accounts to external systems"),
+        ("Manage General Ledger Setup",   PermissionCodes.GL_SETUP_MANAGE,         "Apply or upload a chart of accounts, set fiscal years and periods, accounting defaults and opening balances, complete or reset the GL setup, map accounts to external systems, and manage journal types"),
+
+        // A47 D-15 — general ledger journal engine.
+        ("Create Journal Entries",        PermissionCodes.GL_JOURNAL_CREATE,       "Enter manual journal entries (saved as drafts)"),
+        ("Edit Journal Entries",          PermissionCodes.GL_JOURNAL_EDIT,         "Change draft manual journal entries"),
+        ("Delete Journal Entries",        PermissionCodes.GL_JOURNAL_DELETE,       "Delete draft manual journal entries"),
+        ("Post Journal Entries",          PermissionCodes.GL_JOURNAL_POST,         "Post draft journal entries to the general ledger (account balances move)"),
+        ("Reverse Journal Entries",       PermissionCodes.GL_JOURNAL_REVERSE,      "Reverse posted journal entries with a mirror entry, including entries posted from source documents"),
+        ("View Reconciliation",           PermissionCodes.GL_RECONCILE_VIEW,       "See open (unreconciled) journal lines and reconciliation suggestions"),
+        ("Reconcile Journal Lines",       PermissionCodes.GL_RECONCILE_EXECUTE,    "Reconcile and unreconcile journal lines"),
+        ("View GL Reports",               PermissionCodes.GL_REPORTS_VIEW,         "See the trial balance, account balances and account ledgers, and export them"),
+        ("View Period Close",             PermissionCodes.GL_PERIOD_CLOSE_VIEW,    "See the close status of fiscal periods and preview the year-end closing entry"),
+        ("Close Periods",                 PermissionCodes.GL_PERIOD_CLOSE_EXECUTE, "Lock periods, set them to adjustment-only and reopen locked periods"),
+        ("Administer Period Close",       PermissionCodes.GL_PERIOD_CLOSE_ADMIN,   "Close periods finally (irreversible) and run the year-end close"),
     ];
 
     /// <summary>
@@ -330,10 +343,17 @@ internal sealed class AuthDataSeeder
     /// <summary>A42 D-14 — a role (built-in or custom) allowed INVOICE_VIEW or SALES_INVOICE_VIEW gets GL_VIEW.</summary>
     internal static readonly string[] GlViewSourceCodes = [PermissionCodes.INVOICE_VIEW, PermissionCodes.SALES_INVOICE_VIEW];
 
+    /// <summary>
+    /// A47 D-15 — wherever GL_VIEW is granted by the rules above, or a role is allowed GL_VIEW, the three journal-engine
+    /// read codes come with it (unless the role's GL_VIEW was switched off). The journal write / reconcile / close codes
+    /// go to System Admin and Org Admin only (through <see cref="PermissionCodes.All"/>); others are granted by hand.
+    /// </summary>
+    internal static readonly string[] GlEngineViewCodes = [PermissionCodes.GL_RECONCILE_VIEW, PermissionCodes.GL_REPORTS_VIEW, PermissionCodes.GL_PERIOD_CLOSE_VIEW];
+
     /// <summary>A42 — see <see cref="GlGrants"/>. Idempotent; a grant an administrator switched off stays off.</summary>
     internal async Task SeedGlGrantsAsync()
     {
-        var codes = GlSetupHolderCodes.Concat(GlViewSourceCodes).Append(PermissionCodes.FINANCE_SETUP_MANAGE).Distinct().ToList();
+        var codes = GlSetupHolderCodes.Concat(GlViewSourceCodes).Concat(GlEngineViewCodes).Append(PermissionCodes.FINANCE_SETUP_MANAGE).Distinct().ToList();
         var permIds = await _db.Permissions.Where(p => codes.Contains(p.Code)).ToDictionaryAsync(p => p.Code, p => p.PermissionID);
         var grants = await _db.RolePermissions.IgnoreQueryFilters().Select(rp => new { rp.RoleID, rp.PermissionID, rp.IsAllowed }).ToListAsync();
         var existing = grants.Select(g => (g.RoleID, g.PermissionID)).ToHashSet();
@@ -353,6 +373,14 @@ internal sealed class AuthDataSeeder
             if (g.PermissionID == setupId) wanted.AddRange(GlSetupHolderCodes.Select(c => (g.RoleID, c)));
             else if (viewSourceIds.Contains(g.PermissionID)) wanted.Add((g.RoleID, PermissionCodes.GL_VIEW));
         }
+
+        // A47 D-15 — the journal-engine read codes follow GL_VIEW (wanted above, or already allowed).
+        var viewId = Id(PermissionCodes.GL_VIEW);
+        var viewOff = grants.Where(g => g.PermissionID == viewId && !g.IsAllowed).Select(g => g.RoleID).ToHashSet();
+        var viewRoles = wanted.Where(w => w.Code == PermissionCodes.GL_VIEW).Select(w => w.RoleId)
+            .Concat(grants.Where(g => g.PermissionID == viewId && g.IsAllowed).Select(g => g.RoleID))
+            .Where(r => !viewOff.Contains(r)).Distinct().ToList();
+        foreach (var roleId in viewRoles) wanted.AddRange(GlEngineViewCodes.Select(c => (roleId, c)));
 
         foreach (var (roleId, code) in wanted)
         {

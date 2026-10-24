@@ -483,3 +483,34 @@ Checked OK in round 2:
 - **Not reviewed by REV:** the QA live-sandbox run is QA's own sign-off. Its open items are QA's.
 
 **REV sign-off — 2026-10-16.** No open review findings and no blockers from code review.
+
+
+## A47 changes (journal engine, agent GW, 2026-10-24)
+
+Addendum 47 (docs/journal-engine/ADDENDUM-47-ANALYSIS.md, C11, D-19, D-GW-1..8) moved the `internal_gl` target onto the
+journal engine. The gateway contract (`IFinancialPostingGateway`, `FinancialTransaction`, `VoidRequest`, target result codes)
+did not change. What changed inside `InternalGlPostingTarget`:
+
+- **Every journal goes through `JournalEntryWriter.CreateAsync`** (lines already in base, `AmountsInBase`): the post, the
+  update (reversal + new journal) and the void / reverse. The A44 steps before it stay: role → account (explicit code wins),
+  2 dp base conversion with the rounding line on DEFAULT_ROUNDING, PERIOD_CLOSED / EXCHANGE_RATE_MISSING / UNMAPPED_ROLE /
+  ACCOUNT_NOT_FOUND checks, REV-2 / REV-5 / REV-13 (application lock per document, void wins), the internal_gl row saved in the
+  same transaction (T-22), the fingerprint no-op, Draft when AutoPostToGL is off (a draft is deleted and re-created on update,
+  deleted on void).
+- **Journal types and numbers (D-12, D-7).** Each journal gets a journal type (SALE, PURCH, CASH when a line is on DEFAULT_CASH
+  else BANK, MISC, OPEN) and a per-type number `{prefix}/{fiscal year}/{seq:D4}` — e.g. `SALE/2026/0001`, `BANK/2026/0003`,
+  `JV/2026/0001` — from the concurrency-safe sequence table. **R-CORE-4 is closed.** Journals written before A47 keep their
+  `JE-YYYY-NNNNN` numbers (BR-JE-010). A refused post consumes no number.
+- **Reversals are marked and reconciled (D-4, BR-RV-008).** An update or a void marks the original `Reversed` with
+  `ReversedByEntryId`; per account the original's lines and the reversal's lines are reconciled (Full group `REC/{year}/{seq}`,
+  cleared by the reversal on its date), unless a line of that account was already reconciled by hand. The keys stay A44's
+  (document key for the update reversal, `key:void` for the void). The open A44 pairs from before are fixed by the guarded data
+  migration `A47_GatewayReversalReconcile` (D-GW-5).
+- **Partner and line detail (D-13, D-GW-3).** The document's partner goes on its receivable / payable lines (a line's own
+  `PartnerId` wins); tax code, tax amount, cost centre and project are stored per line; the header keeps the document currency
+  and rate, each line its signed document-currency amount (`AmountCurrency`). The journal type's RequiresPartner is not enforced
+  on gateway journals.
+- **Engine refusals (task 411).** A journal-engine refusal is a Failed result, retried as before, with the A44 code:
+  `PERIOD_CLOSED: {date} is not in an open fiscal period. (JE-00x …)`, `ACCOUNT_NOT_FOUND: JE-009/010 …`,
+  `EXCHANGE_RATE_MISSING: JE-012 …`, else `JOURNAL_INVALID: JE-0xx …`. The other targets (QuickBooks) go on regardless.
+- **R-CORE-1 is closed** by the A47 journal-entry pages (a source draft can be posted there, not edited or deleted).

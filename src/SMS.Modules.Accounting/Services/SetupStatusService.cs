@@ -177,6 +177,10 @@ internal sealed class SetupStatusService : ISetupStatusService
             await DeleteAsync(_db.OpeningBalanceEntries.IgnoreQueryFilters().Where(e => e.OrganizationId == org), ct);
             await DeleteAsync(_db.JournalEntryLines.IgnoreQueryFilters().Where(l => l.OrganizationId == org), ct);
             await DeleteAsync(_db.JournalEntries.IgnoreQueryFilters().Where(j => j.OrganizationId == org), ct);
+            // A47 — the journal engine's rows reference the fiscal years and accounts deleted below (system types are re-seeded on demand).
+            await DeleteAsync(_db.ReconcileGroups.IgnoreQueryFilters().Where(g => g.OrganizationId == org), ct);
+            await DeleteAsync(_db.JournalEntrySequences.IgnoreQueryFilters().Where(s => s.OrganizationId == org), ct);
+            await DeleteAsync(_db.JournalTypes.IgnoreQueryFilters().Where(t => t.OrganizationId == org), ct);
             await ClearDefaultsAsync(org, ct);
             await DeleteAsync(_db.FiscalPeriods.IgnoreQueryFilters().Where(p => p.OrganizationId == org), ct);
             await DeleteAsync(_db.FiscalYears.IgnoreQueryFilters().Where(y => y.OrganizationId == org), ct);

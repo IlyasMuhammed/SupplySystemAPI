@@ -16,17 +16,20 @@ public sealed class FiscalYearsController : AccountingControllerBase
     public FiscalYearsController(ITenantContext tenant, IFiscalYearService years) : base(tenant) => _years = years;
 
     [HttpGet("fiscal-years")]
-    [RequirePermission(View, ManageAccounts, ManageSetup)]
+    [RequirePermission(View, ManageAccounts, ManageSetup, LookupJournal1, LookupJournal2, LookupJournal3, LookupJournal4, LookupJournal5,
+        LookupReconcile1, LookupReconcile2, LookupReports, LookupClose1, LookupClose2, LookupClose3)] // A47 SR-FE-2
     public async Task<IActionResult> List(CancellationToken ct) =>
         Ok(ApiResponse<IReadOnlyList<FiscalYearModel>>.Ok(await _years.ListAsync(Caller, ct)));
 
     [HttpGet("fiscal-years/{uuid:guid}")]
-    [RequirePermission(View, ManageAccounts, ManageSetup)]
+    [RequirePermission(View, ManageAccounts, ManageSetup, LookupJournal1, LookupJournal2, LookupJournal3, LookupJournal4, LookupJournal5,
+        LookupReconcile1, LookupReconcile2, LookupReports, LookupClose1, LookupClose2, LookupClose3)] // A47 SR-FE-2
     public async Task<IActionResult> Get(Guid uuid, CancellationToken ct) =>
         Ok(ApiResponse<FiscalYearModel>.Ok(await _years.GetAsync(Caller, uuid, ct)));
 
     [HttpGet("fiscal-years/{uuid:guid}/periods")]
-    [RequirePermission(View, ManageAccounts, ManageSetup)]
+    [RequirePermission(View, ManageAccounts, ManageSetup, LookupJournal1, LookupJournal2, LookupJournal3, LookupJournal4, LookupJournal5,
+        LookupReconcile1, LookupReconcile2, LookupReports, LookupClose1, LookupClose2, LookupClose3)] // A47 SR-FE-2
     public async Task<IActionResult> Periods(Guid uuid, CancellationToken ct) =>
         Ok(ApiResponse<IReadOnlyList<FiscalPeriodModel>>.Ok(await _years.GetPeriodsAsync(Caller, uuid, ct)));
 

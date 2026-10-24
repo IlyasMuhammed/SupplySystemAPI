@@ -13,6 +13,8 @@ internal static class GlColumn
 {
     public const string Money = "decimal(18,4)";
     public const string Date  = "date";
+    /// <summary>A47 — exchange rates (spec decimal(18,6)).</summary>
+    public const string Rate  = "decimal(18,6)";
 
     /// <summary>"[Col] IN ('A','B')" for a CHECK constraint.</summary>
     public static string In(string column, IEnumerable<string> values) =>
@@ -232,6 +234,12 @@ internal sealed class JournalEntryMap : IEntityTypeConfiguration<JournalEntry>
         {
             t.HasCheckConstraint("CK_JournalEntries_Status", GlColumn.In(nameof(JournalEntry.Status), JournalStatuses.All));
             t.HasCheckConstraint("CK_JournalEntries_Totals", "[TotalDebit] >= 0 AND [TotalCredit] >= 0");
+            // A47 §6.2 — BR-JE-001, one flag at most, a reversal is never itself reversed, Reversed has its reversal.
+            t.HasCheckConstraint("CK_JournalEntries_Balanced", "ABS([TotalDebit] - [TotalCredit]) < 0.01");
+            t.HasCheckConstraint("CK_JournalEntries_OpeningClosing", "NOT ([IsOpeningEntry] = 1 AND [IsClosingEntry] = 1)");
+            t.HasCheckConstraint("CK_JournalEntries_ReversalLinks", "NOT ([ReversesEntryId] IS NOT NULL AND [ReversedByEntryId] IS NOT NULL)");
+            t.HasCheckConstraint("CK_JournalEntries_ReversedStatus", "[Status] <> 'Reversed' OR [ReversedByEntryId] IS NOT NULL");
+            t.HasCheckConstraint("CK_JournalEntries_ExchangeRate", "[ExchangeRate] IS NULL OR [ExchangeRate] > 0");
         });
         b.HasKey(x => x.Id);
         b.HasIndex(x => x.Uuid).IsUnique();
@@ -252,11 +260,37 @@ internal sealed class JournalEntryMap : IEntityTypeConfiguration<JournalEntry>
         b.HasIndex(x => new { x.OrganizationId, x.SourceDocumentUuid }).HasFilter("[SourceDocumentUuid] IS NOT NULL")
             .HasDatabaseName("IX_JournalEntries_Org_Source");
         b.HasIndex(x => x.ReversesEntryId).HasFilter("[ReversesEntryId] IS NOT NULL").HasDatabaseName("IX_JournalEntries_Reverses");
-        b.HasOne<JournalEntry>().WithMany().HasForeignKey(x => x.ReversesEntryId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.ReversesEntry).WithMany().HasForeignKey(x => x.ReversesEntryId).OnDelete(DeleteBehavior.Restrict);
         b.HasIndex(x => new { x.OrganizationId, x.EntryNumber }).IsUnique().HasDatabaseName("UX_JournalEntries_Org_Number");
         b.HasIndex(x => new { x.OrganizationId, x.EntryType, x.Status }).HasDatabaseName("IX_JournalEntries_Org_Type_Status");
         b.HasIndex(x => new { x.OrganizationId, x.EntryDate }).HasDatabaseName("IX_JournalEntries_Org_Date");
         b.HasMany(x => x.Lines).WithOne(x => x.JournalEntry).HasForeignKey(x => x.JournalEntryId).OnDelete(DeleteBehavior.Cascade);
+
+        // A47 C3 (D-2) — guarded columns of A47_JournalEngine.
+        b.Property(x => x.DocumentDate).HasColumnType(GlColumn.Date);
+        b.Property(x => x.ExchangeRate).HasColumnType(GlColumn.Rate);
+        b.Property(x => x.ReversalReason).HasMaxLength(200);
+        b.Property(x => x.CreatedByName).HasMaxLength(200);
+        b.Property(x => x.PostedByName).HasMaxLength(200);
+        b.Property(x => x.ModifiedByName).HasMaxLength(200);
+        b.HasOne(x => x.JournalType).WithMany().HasForeignKey(x => x.JournalTypeId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.FiscalYear).WithMany().HasForeignKey(x => x.FiscalYearId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.FiscalPeriod).WithMany().HasForeignKey(x => x.FiscalPeriodId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.ReversedByEntry).WithMany().HasForeignKey(x => x.ReversedByEntryId).OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(x => x.JournalTypeId).HasDatabaseName("IX_JournalEntries_JournalTypeId");
+        b.HasIndex(x => x.FiscalYearId).HasDatabaseName("IX_JournalEntries_FiscalYearId");
+        b.HasIndex(x => x.FiscalPeriodId).HasDatabaseName("IX_JournalEntries_FiscalPeriodId");
+        b.HasIndex(x => x.ReversedByEntryId).HasFilter("[ReversedByEntryId] IS NOT NULL").HasDatabaseName("IX_JournalEntries_ReversedBy");
+        b.HasIndex(x => new { x.OrganizationId, x.Status }).HasDatabaseName("IX_JournalEntries_Org_Status");
+        b.HasIndex(x => new { x.OrganizationId, x.PostedAt }).HasFilter("[Status] = 'Posted'").HasDatabaseName("IX_JournalEntries_Org_PostedAt");
+        // D-5 — keys with these prefixes are unique per organization (A44 keys are shared by a document's versions). A filtered
+        // index cannot use LIKE or OR: one range-filtered index per prefix (':' < ';').
+        b.HasIndex(x => new { x.OrganizationId, x.IdempotencyKey }, "UX_JournalEntries_Org_ManualKey").IsUnique()
+            .HasFilter("[IdempotencyKey] >= N'manual:' AND [IdempotencyKey] < N'manual;'");
+        b.HasIndex(x => new { x.OrganizationId, x.IdempotencyKey }, "UX_JournalEntries_Org_ReversalKey").IsUnique()
+            .HasFilter("[IdempotencyKey] >= N'reversal:' AND [IdempotencyKey] < N'reversal;'");
+        b.HasIndex(x => new { x.OrganizationId, x.IdempotencyKey }, "UX_JournalEntries_Org_YearCloseKey").IsUnique()
+            .HasFilter("[IdempotencyKey] >= N'yearclose:' AND [IdempotencyKey] < N'yearclose;'");
     }
 }
 
@@ -264,7 +298,14 @@ internal sealed class JournalEntryLineMap : IEntityTypeConfiguration<JournalEntr
 {
     public void Configure(EntityTypeBuilder<JournalEntryLine> b)
     {
-        b.ToTable("JournalEntryLines", t => GlColumn.DebitCreditChecks(t, "JournalEntryLines"));
+        b.ToTable("JournalEntryLines", t =>
+        {
+            GlColumn.DebitCreditChecks(t, "JournalEntryLines");
+            // A47 §7.2 — partner type list; a fully reconciled line has no residual.
+            t.HasCheckConstraint("CK_JournalEntryLines_PartnerType", GlColumn.NullOrIn(nameof(JournalEntryLine.PartnerType), JournalPartnerTypes.All));
+            t.HasCheckConstraint("CK_JournalEntryLines_Reconciled", "[Reconciled] = 0 OR [AmountResidual] = 0");
+            t.HasCheckConstraint("CK_JournalEntryLines_ExchangeRate", "[ExchangeRate] IS NULL OR [ExchangeRate] > 0");
+        });
         b.HasKey(x => x.Id);
         b.Property(x => x.DebitAmount).HasColumnType(GlColumn.Money);
         b.Property(x => x.CreditAmount).HasColumnType(GlColumn.Money);
@@ -272,6 +313,31 @@ internal sealed class JournalEntryLineMap : IEntityTypeConfiguration<JournalEntr
         b.HasIndex(x => new { x.JournalEntryId, x.LineNumber }).IsUnique().HasDatabaseName("UX_JournalEntryLines_Entry_Line");
         b.HasIndex(x => new { x.OrganizationId, x.AccountId }).HasDatabaseName("IX_JournalEntryLines_Org_Account");
         b.HasOne(x => x.Account).WithMany().HasForeignKey(x => x.AccountId).OnDelete(DeleteBehavior.Restrict);
+
+        // A47 C4 (D-3) — guarded columns of A47_JournalEngine.
+        b.HasIndex(x => x.Uuid).IsUnique().HasDatabaseName("IX_JournalEntryLines_Uuid");
+        b.Property(x => x.PartnerType).HasMaxLength(20);
+        b.Property(x => x.PartnerName).HasMaxLength(200);
+        b.Property(x => x.CurrencyCode).HasMaxLength(3);
+        b.Property(x => x.AmountCurrency).HasColumnType(GlColumn.Money);
+        b.Property(x => x.ExchangeRate).HasColumnType(GlColumn.Rate);
+        b.Property(x => x.CostCenter).HasMaxLength(50);
+        b.Property(x => x.Project).HasMaxLength(50);
+        b.Property(x => x.TaxCode).HasMaxLength(50);
+        b.Property(x => x.TaxAmount).HasColumnType(GlColumn.Money);
+        b.Property(x => x.AmountResidual).HasColumnType(GlColumn.Money);
+        b.Property(x => x.ClearingDate).HasColumnType(GlColumn.Date);
+        b.HasOne(x => x.ReconcileGroup).WithMany(x => x.Lines).HasForeignKey(x => x.ReconcileGroupId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.ClearingEntry).WithMany().HasForeignKey(x => x.ClearingEntryId).OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(x => new { x.OrganizationId, x.AccountId, x.ClearingDate }).HasDatabaseName("IX_JournalEntryLines_Org_Account_Clearing");
+        b.HasIndex(x => new { x.OrganizationId, x.PartnerUuid, x.PartnerType, x.Reconciled }).HasFilter("[PartnerUuid] IS NOT NULL")
+            .HasDatabaseName("IX_JournalEntryLines_Org_Partner");
+        b.HasIndex(x => x.ReconcileGroupId).HasFilter("[ReconcileGroupId] IS NOT NULL").HasDatabaseName("IX_JournalEntryLines_ReconcileGroup");
+        // §7.2 IX_JEL_OpenItems — a filtered index allows no OR: open = not fully reconciled.
+        b.HasIndex(x => new { x.OrganizationId, x.AccountId, x.Reconciled }).HasFilter("[Reconciled] = 0")
+            .HasDatabaseName("IX_JournalEntryLines_Org_OpenItems");
+        b.HasIndex(x => new { x.OrganizationId, x.CostCenter }).HasFilter("[CostCenter] IS NOT NULL").HasDatabaseName("IX_JournalEntryLines_Org_CostCenter");
+        b.HasIndex(x => x.ClearingEntryId).HasFilter("[ClearingEntryId] IS NOT NULL").HasDatabaseName("IX_JournalEntryLines_ClearingEntry");
     }
 }
 

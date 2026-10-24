@@ -92,8 +92,10 @@ public sealed class GlSetupE2ETests : IClassFixture<SapWebApplicationFactory>
 
         // BR-FP-004 — a draft journal entry dated in a period blocks closing it (A42 writes none: inserted here)
         await _f.ExecuteAsync(
-            "INSERT INTO finance.JournalEntries (Uuid, OrganizationId, EntryNumber, EntryType, EntryDate, Status, TotalDebit, TotalCredit, CreatedAt, ModifiedAt) " +
-            "VALUES (NEWID(), @o, 'JE-QA-DRAFT', 'MANUAL', @d, 'Draft', 0, 0, SYSUTCDATETIME(), SYSUTCDATETIME())", ("@o", o.OrgId), ("@d", new DateTime(Y, 2, 10)));
+            Gl.EnsureMiscJournalTypeSql +
+            "INSERT INTO finance.JournalEntries (Uuid, OrganizationId, EntryNumber, EntryType, EntryDate, Status, TotalDebit, TotalCredit, CreatedAt, ModifiedAt, JournalTypeId) " +
+            "VALUES (NEWID(), @o, 'JE-QA-DRAFT', 'MANUAL', @d, 'Draft', 0, 0, SYSUTCDATETIME(), SYSUTCDATETIME(), " + Gl.MiscJournalTypeIdSql + ")",
+            ("@o", o.OrgId), ("@d", new DateTime(Y, 2, 10)));
         (await k.Put($"/api/finance/fiscal-periods/{periods[1].G("uuid")}", new { status = "Closed" })).ShouldFail(HttpStatusCode.Conflict, "draft in February",
             "draft journal entries");
         await _f.ExecuteAsync("DELETE FROM finance.JournalEntries WHERE OrganizationId = @o AND EntryNumber = 'JE-QA-DRAFT'", ("@o", o.OrgId));

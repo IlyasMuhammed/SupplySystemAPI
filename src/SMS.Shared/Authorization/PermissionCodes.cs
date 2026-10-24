@@ -424,6 +424,30 @@ public static class PermissionCodes
     /// <summary>Applying/uploading a chart, fiscal years and periods, defaults, opening balances, complete/reset, mappings ("Finance.Admin").</summary>
     public const string GL_SETUP_MANAGE    = AccountingCodes.GlSetupManage;
 
+    // ── General ledger journal engine (Addendum 47, D-15; docs/journal-engine/API-CONTRACT.md) ──
+    /// <summary>Entering a manual journal entry (saved as a draft).</summary>
+    public const string GL_JOURNAL_CREATE       = AccountingCodes.GlJournalCreate;
+    /// <summary>Changing a draft manual journal entry.</summary>
+    public const string GL_JOURNAL_EDIT         = AccountingCodes.GlJournalEdit;
+    /// <summary>Deleting a draft manual journal entry.</summary>
+    public const string GL_JOURNAL_DELETE       = AccountingCodes.GlJournalDelete;
+    /// <summary>Posting a draft journal entry to the ledger (balances move).</summary>
+    public const string GL_JOURNAL_POST         = AccountingCodes.GlJournalPost;
+    /// <summary>Reversing a posted journal entry (a mirror entry is posted).</summary>
+    public const string GL_JOURNAL_REVERSE      = AccountingCodes.GlJournalReverse;
+    /// <summary>Seeing open (unreconciled) journal lines and reconciliation suggestions.</summary>
+    public const string GL_RECONCILE_VIEW       = AccountingCodes.GlReconcileView;
+    /// <summary>Reconciling and unreconciling journal lines.</summary>
+    public const string GL_RECONCILE_EXECUTE    = AccountingCodes.GlReconcileExecute;
+    /// <summary>The trial balance, account balances and account ledgers.</summary>
+    public const string GL_REPORTS_VIEW         = AccountingCodes.GlReportsView;
+    /// <summary>Seeing period close status and the year-end close preview.</summary>
+    public const string GL_PERIOD_CLOSE_VIEW    = AccountingCodes.GlPeriodCloseView;
+    /// <summary>Locking, adjustment-only and reopening periods.</summary>
+    public const string GL_PERIOD_CLOSE_EXECUTE = AccountingCodes.GlPeriodCloseExecute;
+    /// <summary>Final (irreversible) period close and the year-end close.</summary>
+    public const string GL_PERIOD_CLOSE_ADMIN   = AccountingCodes.GlPeriodCloseAdmin;
+
     // ── All codes (used by System Admin seed) ─────────────────────────────────
     public static readonly IReadOnlyList<string> All =
     [
@@ -478,5 +502,8 @@ public static class PermissionCodes
         CRM_VIEW_ACTIVITIES, CRM_CREATE_ACTIVITY, CRM_EDIT_ACTIVITY, CRM_DELETE_ACTIVITY, CRM_EXPORT_TIMELINE,
         CRM_VIEW_CAMPAIGNS, CRM_MANAGE_CAMPAIGNS, CRM_ADMIN,
         GL_VIEW, GL_ACCOUNT_MANAGE, GL_SETUP_MANAGE,
+        GL_JOURNAL_CREATE, GL_JOURNAL_EDIT, GL_JOURNAL_DELETE, GL_JOURNAL_POST, GL_JOURNAL_REVERSE,
+        GL_RECONCILE_VIEW, GL_RECONCILE_EXECUTE, GL_REPORTS_VIEW,
+        GL_PERIOD_CLOSE_VIEW, GL_PERIOD_CLOSE_EXECUTE, GL_PERIOD_CLOSE_ADMIN,
     ];
 }

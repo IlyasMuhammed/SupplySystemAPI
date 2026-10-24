@@ -413,12 +413,12 @@ internal static class MappingCsv
 
     public static string Escape(string value)
     {
-        // Formula-injection guard for spreadsheets opening the export.
-        if (value.Length > 0 && "=+-@".Contains(value[0]) && !decimal.TryParse(value, out _)) value = "'" + value;
+        // Formula-injection guard for spreadsheets opening the export (OWASP: = + - @ and a leading TAB / CR — A47 REV-13).
+        if (value.Length > 0 && "=+-@\t\r".Contains(value[0]) && !decimal.TryParse(value, out _)) value = "'" + value;
         return value.IndexOfAny([',', '"', '\n', '\r']) >= 0 ? "\"" + value.Replace("\"", "\"\"") + "\"" : value;
     }
 
     /// <summary>The reverse of the formula guard in <see cref="Escape"/>, so an export imports back unchanged (D-58).</summary>
     public static string Unescape(string value) =>
-        value.Length > 1 && value[0] == '\'' && "=+-@".Contains(value[1]) ? value[1..] : value;
+        value.Length > 1 && value[0] == '\'' && "=+-@\t\r".Contains(value[1]) ? value[1..] : value;
 }

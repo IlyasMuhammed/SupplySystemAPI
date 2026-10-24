@@ -1,0 +1,15 @@
+# Addendum 47 — schema / shared-code requests
+
+Agents that do not own entities, maps, migrations or CORE's services append requests here; CORE decides.
+
+| ID | From | Request | Status |
+|---|---|---|---|
+| SR-RPT-1 | RPT | No schema change needed for C9/C10. Code request: the A42 `PUT api/finance/fiscal-periods/{uuid}` (`FiscalYearService.UpdatePeriodAsync`) still runs the A42 transitions (any → Closed from Open, Open ⇄ Locked, AdjustmentOnly accepted with no D-11 check, drafts checked only for Closed). If it should follow D-11, call the public `PeriodCloseRules.IsAllowed(from, to)` / `NeedsNoDrafts(to)` (Services/PeriodClose/PeriodCloseService.cs) there. Contract §6 says the A42 route keeps its own transitions, so RPT left FiscalYearService untouched. | **declined (CORE)** — the A42 route and its tests (unit + GlSetupE2ETests) rely on Open → Closed directly and the A42 draft rule; D-11 is enforced on the A47 period-close routes, which the UI uses (contract C-11). |
+| SR-RPT-2 | RPT | Optional performance: a covering index `JournalEntryLines (OrganizationId, AccountId) INCLUDE (JournalEntryId, DebitAmount, CreditAmount)` would serve the trial balance and ledger without key lookups. Not needed today: 12,150 entries / 24,300 lines on LocalDB → year TB 59–168 ms, ledger last page 340 ms. | **deferred (CORE)** — not needed at the measured volumes; a later guarded migration if production volumes need it. |
+
+## FE requests
+
+| ID | From | Request | Status |
+|---|---|---|---|
+| SR-FE-1 | FE | `GET api/finance/reconciliation/groups?accountUuid&partnerUuid&fromDate&toDate` → `ReconcileGroup[]` (newest first). Today a **Full** group can only be reached from a journal line's group link (`/gl/reconciliation?groupUuid=`) or right after it is made; the page lists partial groups from the open items. Task 321 works, but a list would let the accountant find any reconciliation to undo. | **done (RR)** — `GET api/finance/reconciliation/groups` (contract Changes C-8): paginated (`PaginatedResponse<ReconcileGroupListItem>`, not a bare array), newest first, filters accountUuid / partnerUuid / fromDate / toDate (on reconciledAt; `from`/`to` aliases), page/pageSize ≤ 200. Item: uuid, groupNumber, reconcileType, account, amount, currencyCode, reconciledAt, createdByName, lineCount; open one with `GET reconciliation/{uuid}`. |
+| SR-FE-2 | FE | The fiscal-year selector of Trial Balance / Period Close and the account pickers of Reconciliation / Period Close read the A42 routes `GET fiscal-years` and `GET chart-of-accounts/flat`, which need GL_VIEW / GL_ACCOUNT_MANAGE / GL_SETUP_MANAGE. A custom role with only GL_REPORTS_VIEW, GL_RECONCILE_* or GL_PERIOD_CLOSE_* gets 403 there (the pages fall back: TB to a date range, period close shows "no fiscal year"). Suggest accepting the A47 read codes on those two GETs. Not an issue for roles that got the *_VIEW codes implicitly through GL_VIEW (D-CORE-15). | **done (CORE)** — the GETs fiscal-years (list, one, periods), chart-of-accounts (tree, flat) and accounting-defaults accept every A47 code; writes unchanged (contract C-10, D-CORE-16). |

@@ -225,7 +225,8 @@ internal class OpeningBalanceEntry : ITenantScopedEntity, IHasModifiedAt
     public JournalEntry?  JournalEntry { get; set; }
 }
 
-/// <summary>D-10 — a (minimal) journal entry. A42 writes only the OPENING_BALANCE entry.</summary>
+/// <summary>D-10 — a journal entry. A42 writes the OPENING_BALANCE entry, A44 one per posted document, A47 the manual,
+/// reversal and year-end entries (docs/journal-engine/ADDENDUM-47-ANALYSIS.md D-2).</summary>
 internal class JournalEntry : ITenantScopedEntity, IHasModifiedAt
 {
     public int       Id             { get; set; }
@@ -252,13 +253,46 @@ internal class JournalEntry : ITenantScopedEntity, IHasModifiedAt
     public Guid?     SourceDocumentUuid { get; set; }
     /// <summary>A44 D-13 — the posting key ("…:void" on a void reversal). Several versions of one document share it.</summary>
     public string?   IdempotencyKey     { get; set; }
-    /// <summary>A44 (D-43) — set on a reversing journal: the journal it reverses.</summary>
+    /// <summary>A44 (D-43) — set on a reversing journal: the journal it reverses (the spec's reversal_of_entry_id).</summary>
     public int?      ReversesEntryId    { get; set; }
+
+    // ── A47 C3 (D-2) ──────────────────────────────────────────────────────────────────────────────────────────────
+    /// <summary>The journal type (SALE, PURCH … or a custom one); backfilled for the A42/A44 journals (D-6).</summary>
+    public int       JournalTypeId      { get; set; }
+    /// <summary>The source document's own date when it differs from <see cref="EntryDate"/>.</summary>
+    public DateOnly? DocumentDate       { get; set; }
+    /// <summary>The fiscal year / period of <see cref="EntryDate"/>; null only for an A44 draft dated outside every year.</summary>
+    public int?      FiscalYearId       { get; set; }
+    public int?      FiscalPeriodId     { get; set; }
+    /// <summary>1 entry-currency unit = rate × base currency; null = the base currency (rate 1).</summary>
+    public decimal?  ExchangeRate       { get; set; }
+    /// <summary>D-4 — set on a reversed journal: its reversal (Status Reversed).</summary>
+    public int?      ReversedByEntryId  { get; set; }
+    public string?   ReversalReason     { get; set; }
+    public bool      IsOpeningEntry     { get; set; }
+    public bool      IsClosingEntry     { get; set; }
+    /// <summary>Denormalized number of lines (display).</summary>
+    public int       LineCount          { get; set; }
+    /// <summary>D-CORE-6 — who did it, by name (the user ids are kept as well).</summary>
+    public string?   CreatedByName      { get; set; }
+    public string?   PostedByName       { get; set; }
+    public int?      ModifiedBy         { get; set; }
+    public string?   ModifiedByName     { get; set; }
+
+    public JournalType   JournalType     { get; set; } = null!;
+    public FiscalYear?   FiscalYear      { get; set; }
+    public FiscalPeriod? FiscalPeriod    { get; set; }
+    public JournalEntry? ReversesEntry   { get; set; }
+    public JournalEntry? ReversedByEntry { get; set; }
 
     public ICollection<JournalEntryLine> Lines { get; set; } = new List<JournalEntryLine>();
 }
 
-/// <summary>D-10 — a debit or credit line of a journal entry, on a leaf account.</summary>
+/// <summary>
+/// D-10 — a debit or credit line of a journal entry, on a leaf account. A47 C4 (D-3): <see cref="DebitAmount"/> /
+/// <see cref="CreditAmount"/> are the <b>base</b> (reporting-currency) amounts (A-9, the spec's local_debit/local_credit);
+/// the transaction-currency amount is <see cref="AmountCurrency"/> (signed, debit positive).
+/// </summary>
 internal class JournalEntryLine : ITenantScopedEntity
 {
     public int     Id             { get; set; }
@@ -268,10 +302,127 @@ internal class JournalEntryLine : ITenantScopedEntity
     public int     AccountId      { get; set; }
     public decimal DebitAmount    { get; set; }
     public decimal CreditAmount   { get; set; }
+    /// <summary>The line's narration (the spec's description).</summary>
     public string? Memo           { get; set; }
 
-    public JournalEntry   JournalEntry { get; set; } = null!;
-    public ChartOfAccount Account      { get; set; } = null!;
+    // ── A47 C4 (D-3) ──────────────────────────────────────────────────────────────────────────────────────────────
+    /// <summary>D-CORE-8 — the line's public id (reconciliation and ledgers address lines by uuid, A-3).</summary>
+    public Guid      Uuid            { get; set; } = Guid.NewGuid();
+    /// <summary>A-12 — a customer/vendor (BusinessPartner uuid); no FK outside the module.</summary>
+    public Guid?     PartnerUuid     { get; set; }
+    /// <summary>Customer | Vendor | null.</summary>
+    public string?   PartnerType     { get; set; }
+    /// <summary>D-CORE-6 — the partner's name when the line was written (display only).</summary>
+    public string?   PartnerName     { get; set; }
+    /// <summary>The transaction currency of <see cref="AmountCurrency"/>.</summary>
+    public string?   CurrencyCode    { get; set; }
+    /// <summary>Signed amount in <see cref="CurrencyCode"/> (debit +, credit −).</summary>
+    public decimal?  AmountCurrency  { get; set; }
+    /// <summary>The rate used for this line (null = the header's).</summary>
+    public decimal?  ExchangeRate    { get; set; }
+    public string?   CostCenter      { get; set; }
+    public string?   Project         { get; set; }
+    public string?   TaxCode         { get; set; }
+    public decimal?  TaxAmount       { get; set; }
+    /// <summary>C8 — fully reconciled (AmountResidual = 0).</summary>
+    public bool      Reconciled      { get; set; }
+    /// <summary>C8 — the line's (one) active reconciliation group (BR-RC-008), full or partial.</summary>
+    public int?      ReconcileGroupId { get; set; }
+    /// <summary>C8 — the entry that cleared the line, and when.</summary>
+    public int?      ClearingEntryId { get; set; }
+    public DateOnly? ClearingDate    { get; set; }
+    /// <summary>C8 — the unreconciled base amount, signed (debit +); starts at Debit − Credit.</summary>
+    public decimal   AmountResidual  { get; set; }
+    public DateTime  CreatedAt       { get; set; } = DateTime.UtcNow;
+
+    public JournalEntry    JournalEntry   { get; set; } = null!;
+    public ChartOfAccount  Account        { get; set; } = null!;
+    public ReconcileGroup? ReconcileGroup { get; set; }
+    public JournalEntry?   ClearingEntry  { get; set; }
+}
+
+/// <summary>
+/// A47 §4.2 — a journal type of the organization: classifies its entries and owns their number sequence
+/// ({SequencePrefix}/{year}/{seq:D4}). The 7 system types (<see cref="SystemJournalTypes"/>) cannot be deleted, only
+/// deactivated; custom types can be added (one Opening and one Closing type per organization).
+/// </summary>
+internal class JournalType : ITenantScopedEntity, IHasModifiedAt
+{
+    public int      Id                     { get; set; }
+    public Guid     Uuid                   { get; set; } = Guid.NewGuid();
+    public Guid     OrganizationId         { get; set; }
+    /// <summary>^[A-Z0-9]{1,10}$, unique per organization.</summary>
+    public string   Code                   { get; set; } = string.Empty;
+    public string   Name                   { get; set; } = string.Empty;
+    /// <summary><see cref="JournalTypeKinds"/>.</summary>
+    public string   Type                   { get; set; } = JournalTypeKinds.Miscellaneous;
+    /// <summary>^[A-Z0-9]{1,10}$, unique per organization (two types sharing a prefix would share entry numbers).</summary>
+    public string   SequencePrefix         { get; set; } = string.Empty;
+    /// <summary>Suggested accounts for the entry form (leaf, active, same organization).</summary>
+    public int?     DefaultDebitAccountId  { get; set; }
+    public int?     DefaultCreditAccountId { get; set; }
+    /// <summary>D-13 — every line of a <b>manual</b> entry of this type needs a partner.</summary>
+    public bool     RequiresPartner        { get; set; }
+    /// <summary>Entries of this type are posted when created (no Draft).</summary>
+    public bool     AutoPost               { get; set; }
+    public bool     IsSystem               { get; set; }
+    public bool     IsActive               { get; set; } = true;
+    public int      SortOrder              { get; set; }
+    public DateTime CreatedAt              { get; set; } = DateTime.UtcNow;
+    public int?     CreatedBy              { get; set; }
+    public DateTime ModifiedAt             { get; set; } = DateTime.UtcNow;
+    public int?     ModifiedBy             { get; set; }
+
+    public ChartOfAccount? DefaultDebitAccount  { get; set; }
+    public ChartOfAccount? DefaultCreditAccount { get; set; }
+}
+
+/// <summary>
+/// A47 §8.2 / D-7 — the last number used per (organization, journal type, fiscal year). The row is taken with UPDLOCK,
+/// HOLDLOCK in the posting transaction, so numbers are unique and gap-free except for deleted drafts. A47 D-16 — rows with
+/// no journal type number the reconciliation groups (REC/{year}/{seq}); rows with no fiscal year number journals dated
+/// outside every fiscal year (calendar year, D-7).
+/// </summary>
+internal class JournalEntrySequence : ITenantScopedEntity, IHasModifiedAt
+{
+    public int      Id              { get; set; }
+    public Guid     OrganizationId  { get; set; }
+    public int?     JournalTypeId   { get; set; }
+    public int?     FiscalYearId    { get; set; }
+    /// <summary>The year shown in the number (the fiscal year's start year, or the calendar year).</summary>
+    public int      SequenceYear    { get; set; }
+    public int      CurrentSequence { get; set; }
+    public DateTime CreatedAt       { get; set; } = DateTime.UtcNow;
+    public DateTime ModifiedAt      { get; set; } = DateTime.UtcNow;
+
+    public JournalType? JournalType { get; set; }
+    public FiscalYear?  FiscalYear  { get; set; }
+}
+
+/// <summary>
+/// A47 §11.2 / D-16 — lines of one account reconciled together: Full (they net to zero, every line cleared) or Partial
+/// (a residual remains). Deleted by an unreconcile (BR-RC-007).
+/// </summary>
+internal class ReconcileGroup : ITenantScopedEntity
+{
+    public int      Id             { get; set; }
+    public Guid     Uuid           { get; set; } = Guid.NewGuid();
+    public Guid     OrganizationId { get; set; }
+    /// <summary>REC/{year}/{seq:D4}, unique per organization.</summary>
+    public string   GroupNumber    { get; set; } = string.Empty;
+    /// <summary><see cref="ReconcileTypes"/>.</summary>
+    public string   ReconcileType  { get; set; } = ReconcileTypes.Full;
+    /// <summary>The account every line of the group is on (BR-RC-002).</summary>
+    public int      AccountId      { get; set; }
+    /// <summary>The amount matched (base currency, positive).</summary>
+    public decimal  Amount         { get; set; }
+    public string?  CurrencyCode   { get; set; }
+    public DateTime ReconciledAt   { get; set; } = DateTime.UtcNow;
+    public int?     CreatedBy      { get; set; }
+    public string?  CreatedByName  { get; set; }
+
+    public ChartOfAccount Account { get; set; } = null!;
+    public ICollection<JournalEntryLine> Lines { get; set; } = new List<JournalEntryLine>();
 }
 
 /// <summary>§12.2 — an account mapped to its counterpart in an external financial system (D-21). No connectors in A42.</summary>

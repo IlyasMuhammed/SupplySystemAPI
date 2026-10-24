@@ -24,6 +24,8 @@ public sealed class AccountRefModel
     public string  AccountCode { get; set; } = string.Empty;
     public string  AccountName { get; set; } = string.Empty;
     public string? AccountType { get; set; }
+    /// <summary>A47 — the account's root type (journal lines, trial balance, reconciliation).</summary>
+    public string? RootType    { get; set; }
 }
 
 public sealed class AccountingDefaultCategoryModel

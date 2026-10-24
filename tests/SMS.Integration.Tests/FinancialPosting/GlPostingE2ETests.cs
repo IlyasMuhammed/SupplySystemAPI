@@ -73,7 +73,9 @@ public sealed class GlPostingE2ETests : IClassFixture<SapWebApplicationFactory>
         await k.Ok(k.Post($"/api/sales-invoices/{inv2.G("uuid")}/cancel", new { reason = "A44 QA wrong customer" }), "cancel invoice");
         var cj = await _f.JournalsAsync(o.OrgId, inv2.G("uuid"));
         cj.Should().HaveCount(2, $"issue + reversal — {Show(cj)}");
-        cj.Should().OnlyContain(j => j.Balanced && j.Status == "Posted", Show(cj));
+        // A47 D-4 — the cancelled issue is Reversed (still posted, D-CORE-4), its reversal Posted.
+        cj.Should().OnlyContain(j => j.Balanced && (j.Status == "Posted" || j.Status == "Reversed"), Show(cj));
+        (cj[0].Status, cj[1].Status).Should().Be(("Reversed", "Posted"), Show(cj));
         cj.Sum(j => j.Net(c["DEFAULT_RECEIVABLE"])).Should().Be(0m, Show(cj));
         cj.Sum(j => j.Net(c["DEFAULT_REVENUE"])).Should().Be(0m, Show(cj));
         cj[1].Key.Should().EndWith(":void", "D-13 void key");

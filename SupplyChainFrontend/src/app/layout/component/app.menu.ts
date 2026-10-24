@@ -36,6 +36,13 @@ type NavItem = MenuItem & {
     items?: NavItem[];
 };
 
+/** A42 — the three GL codes every A42 page opens for. */
+const GL_READ_PERMS = ['GL_VIEW', 'GL_ACCOUNT_MANAGE', 'GL_SETUP_MANAGE'];
+/** A47 contract §0 "JE-READ" — journal entries and journal types (same as their routes). */
+const GL_JOURNAL_MENU_PERMS = [...GL_READ_PERMS, 'GL_JOURNAL_CREATE', 'GL_JOURNAL_EDIT', 'GL_JOURNAL_DELETE', 'GL_JOURNAL_POST', 'GL_JOURNAL_REVERSE'];
+const GL_RECONCILE_PERMS = ['GL_RECONCILE_VIEW', 'GL_RECONCILE_EXECUTE'];
+const GL_PERIOD_CLOSE_PERMS = ['GL_PERIOD_CLOSE_VIEW', 'GL_PERIOD_CLOSE_EXECUTE', 'GL_PERIOD_CLOSE_ADMIN'];
+
 /** The permissions the Reports group used to require of every report in it. */
 const REPORT_PERMS = ['REPORT_VIEW', 'REPORT_EXPORT', 'AUDIT_LOG_VIEW'];
 
@@ -597,29 +604,42 @@ export class AppMenu {
 
                 // ── General Ledger (Addendum 42 D-26) — same codes as the routes. The first entry reads "Set up general
                 // ledger" (→ the wizard) until setup is Complete; see withGlState().
+                // A47 D-20 — the journal-engine pages joined the group; since their codes (D-15) can be held without an A42
+                // code, the group opens for any GL code and every entry carries its route's own gate (D-FE-1).
                 {
                     label: 'General Ledger',
                     icon: 'pi pi-fw pi-book',
                     featureCode: 'FEATURE_GENERAL_LEDGER',
-                    permRequired: ['GL_VIEW', 'GL_ACCOUNT_MANAGE', 'GL_SETUP_MANAGE'],
+                    permRequired: [...GL_READ_PERMS, ...GL_JOURNAL_MENU_PERMS, ...GL_RECONCILE_PERMS, 'GL_REPORTS_VIEW', ...GL_PERIOD_CLOSE_PERMS],
                     items: [
+                        // alsoRequired, not permRequired: the dashboard's route also waits for setup (glSetupCompleteGuard).
                         { id: GL_DASHBOARD_ID, label: 'Dashboard', icon: 'pi pi-fw pi-chart-bar',
-                          routerLink: ['/portal/pages/finance/gl'] },
+                          routerLink: ['/portal/pages/finance/gl'], alsoRequired: GL_READ_PERMS },
                         { label: 'Chart of Accounts', icon: 'pi pi-fw pi-sitemap',
-                          routerLink: ['/portal/pages/finance/gl/accounts'] },
+                          routerLink: ['/portal/pages/finance/gl/accounts'], permRequired: GL_READ_PERMS },
+                        { label: 'Journal Entries', icon: 'pi pi-fw pi-list',
+                          routerLink: ['/portal/pages/finance/gl/journal-entries'], permRequired: GL_JOURNAL_MENU_PERMS },
+                        { label: 'Journal Types', icon: 'pi pi-fw pi-tags',
+                          routerLink: ['/portal/pages/finance/gl/journal-types'], permRequired: GL_JOURNAL_MENU_PERMS },
+                        { label: 'Reconciliation', icon: 'pi pi-fw pi-link',
+                          routerLink: ['/portal/pages/finance/gl/reconciliation'], permRequired: GL_RECONCILE_PERMS },
+                        { label: 'Trial Balance', icon: 'pi pi-fw pi-table',
+                          routerLink: ['/portal/pages/finance/gl/trial-balance'], permRequired: ['GL_REPORTS_VIEW'] },
+                        { label: 'Period Close', icon: 'pi pi-fw pi-lock',
+                          routerLink: ['/portal/pages/finance/gl/period-close'], permRequired: GL_PERIOD_CLOSE_PERMS },
                         { label: 'Fiscal Years', icon: 'pi pi-fw pi-calendar',
-                          routerLink: ['/portal/pages/finance/gl/fiscal-years'] },
+                          routerLink: ['/portal/pages/finance/gl/fiscal-years'], permRequired: GL_READ_PERMS },
                         { label: 'Defaults', icon: 'pi pi-fw pi-sliders-h',
-                          routerLink: ['/portal/pages/finance/gl/defaults'] },
+                          routerLink: ['/portal/pages/finance/gl/defaults'], permRequired: GL_READ_PERMS },
                         { label: 'Opening Balances', icon: 'pi pi-fw pi-book',
-                          routerLink: ['/portal/pages/finance/gl/opening-balances'] },
-                        { label: 'Integrations', icon: 'pi pi-fw pi-link',
-                          routerLink: ['/portal/pages/finance/gl/integrations'] },
-                        // A44 D-30 — internal GL switches + the posting log across targets.
+                          routerLink: ['/portal/pages/finance/gl/opening-balances'], permRequired: GL_READ_PERMS },
+                        { label: 'Integrations', icon: 'pi pi-fw pi-share-alt',
+                          routerLink: ['/portal/pages/finance/gl/integrations'], permRequired: GL_READ_PERMS },
+                        // A44 D-30 — internal GL switches + the posting log across targets (same codes as its route).
                         { label: 'Posting', icon: 'pi pi-fw pi-send',
-                          routerLink: ['/portal/pages/finance/gl/posting'] },
+                          routerLink: ['/portal/pages/finance/gl/posting'], permRequired: [...GL_READ_PERMS, 'INTEGRATION_VIEW', 'INTEGRATION_MANAGE'] },
                         { label: 'Setup Status', icon: 'pi pi-fw pi-list-check',
-                          routerLink: ['/portal/pages/finance/gl/setup-status'] }
+                          routerLink: ['/portal/pages/finance/gl/setup-status'], permRequired: GL_READ_PERMS }
                     ]
                 }
             ]

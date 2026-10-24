@@ -133,10 +133,22 @@ internal static class Gl
     /// <summary>A posted journal entry that is not the opening balance (A43 will write these; A42 has no endpoint).</summary>
     public static Task<int> InsertManualJournalAsync(this SapWebApplicationFactory f, Guid org) =>
         f.ExecuteAsync(
+            EnsureMiscJournalTypeSql +
             "INSERT INTO finance.JournalEntries (Uuid, OrganizationId, EntryNumber, EntryType, EntryDate, Reference, Description, Status, " +
-            "TotalDebit, TotalCredit, CurrencyCode, PostedAt, PostedBy, CreatedAt, CreatedBy, ModifiedAt) " +
+            "TotalDebit, TotalCredit, CurrencyCode, PostedAt, PostedBy, CreatedAt, CreatedBy, ModifiedAt, JournalTypeId) " +
             "VALUES (NEWID(), @o, 'JE-QA-MANUAL', 'MANUAL', CAST(SYSUTCDATETIME() AS date), 'QA', 'QA manual journal', 'Posted', 0, 0, 'PKR', " +
-            "SYSUTCDATETIME(), NULL, SYSUTCDATETIME(), NULL, SYSUTCDATETIME())", ("@o", org));
+            "SYSUTCDATETIME(), NULL, SYSUTCDATETIME(), NULL, SYSUTCDATETIME(), " + MiscJournalTypeIdSql + ")", ("@o", org));
+
+    /// <summary>
+    /// A47 — a raw journal insert needs a JournalTypeId (NOT NULL since A47_JournalEngine): the organization's MISC system
+    /// type, created here when the setup is not Complete yet (the app seeds the other six on demand). Uses @o; row counts off.
+    /// </summary>
+    public const string EnsureMiscJournalTypeSql =
+        "SET NOCOUNT ON; IF NOT EXISTS (SELECT 1 FROM finance.JournalTypes WHERE OrganizationId = @o AND Code = 'MISC') " +
+        "INSERT INTO finance.JournalTypes (Uuid, OrganizationId, Code, Name, Type, SequencePrefix, RequiresPartner, AutoPost, IsSystem, IsActive, SortOrder, CreatedAt, ModifiedAt) " +
+        "VALUES (NEWID(), @o, 'MISC', 'Miscellaneous Journal', 'Miscellaneous', 'JV', 0, 0, 1, 1, 50, SYSUTCDATETIME(), SYSUTCDATETIME()); SET NOCOUNT OFF; ";
+
+    public const string MiscJournalTypeIdSql = "(SELECT Id FROM finance.JournalTypes WHERE OrganizationId = @o AND Code = 'MISC')";
 
     public static async Task<int> RowCountAsync(this SapWebApplicationFactory f, string sql, params (string, object)[] p) =>
         Convert.ToInt32((await f.QueryAsync(sql, p))[0].Values.First());

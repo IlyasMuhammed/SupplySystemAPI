@@ -49,8 +49,10 @@ function find(items: any[], label: string): any {
 }
 
 const GL = ['MODULE_FINANCE', 'FEATURE_GENERAL_LEDGER'];
-// A44 D-30 added "Posting".
-const ITEMS = ['Dashboard', 'Chart of Accounts', 'Fiscal Years', 'Defaults', 'Opening Balances', 'Integrations', 'Posting', 'Setup Status'];
+// A44 D-30 added "Posting"; A47 added Journal Entries / Journal Types (JE-READ, so GL_VIEW sees them) and Reconciliation,
+// Trial Balance, Period Close (their own *_VIEW codes — not held by a bare GL_VIEW token here).
+const ITEMS = ['Dashboard', 'Chart of Accounts', 'Journal Entries', 'Journal Types', 'Fiscal Years', 'Defaults', 'Opening Balances',
+    'Integrations', 'Posting', 'Setup Status'];
 
 /** A42 D-26 — Finance › General Ledger (FEATURE_GENERAL_LEDGER + GL_VIEW); first entry "Set up general ledger" until Complete. */
 describe('AppMenu — A42 General Ledger', () => {
@@ -66,7 +68,7 @@ describe('AppMenu — A42 General Ledger', () => {
         menu = new AppMenu(authService as any, tenantService as any, undefined, accounting as any);
     });
 
-    it('shows the group under Finance with its eight entries for GL_VIEW on a GL tenant', () => {
+    it('shows the group under Finance with its entries for GL_VIEW on a GL tenant', () => {
         authService.permissions = ['GL_VIEW'];
         tenantService.tenant.set(tenant(GL));
         const gl = find(find(menu.model(), 'Finance').items, 'General Ledger');

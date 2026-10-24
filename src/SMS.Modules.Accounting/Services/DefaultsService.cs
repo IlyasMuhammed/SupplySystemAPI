@@ -51,7 +51,7 @@ internal sealed class DefaultsService : IDefaultsService
 
     public async Task<AccountingDefaultsModel> GetAsync(AccountingCaller caller, CancellationToken ct = default)
     {
-        caller.Require(caller.CanView);
+        caller.Require(caller.CanReadGlLookups); // A47 SR-FE-2
         var org = caller.OrganizationId;
         await _init.EnsureAsync(org, ct);
         if (await EnsureOpeningBalanceDefaultAsync(org, ct) is { } evt)

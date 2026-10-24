@@ -99,20 +99,20 @@ public sealed class SyncLogAndBySourceE2ETests : IClassFixture<SapWebApplication
         (await _f.MapAsync(a.OrgId, customer.Uuid, "Customer")).State.Should().Be("Synced", "the timed-out create was settled");
         _f.Company.Records(SyncKind.Customer).Count(r => r.Name == customer.Name).Should().Be(1, "never created twice");
 
-        var all = await k.Ok(k.Get($"{Qb}/sync/log?failedOnly=false&page=1&pageSize=200"), "call log");
+        var all = await k.Ok(k.Get($"{Qb}/sync/log?failedOnly=false&unresolvedOnly=false&page=1&pageSize=200"), "call log");
         var rows = all.A("data");
         // (the one fake company is shared by every org of the class, so an invoice number another org already used is a
         // "duplicate" here and adopted by Find — in real QuickBooks each org has its own company)
         rows.Should().Contain(r => r.S("kind") == "SalesInvoice" && r.S("outcome") == "Succeeded" && r.S("externalId") == inv.G("uuid").ToString());
         (await _f.MapAsync(a.OrgId, inv.G("uuid"), "SalesInvoice")).State.Should().Be("Synced");
-        var failed = await k.Ok(k.Get($"{Qb}/sync/log?page=1&pageSize=200"), "failedOnly (default)");
+        var failed = await k.Ok(k.Get($"{Qb}/sync/log?unresolvedOnly=false&page=1&pageSize=200"), "failedOnly (default); unresolvedOnly=false: A44 QA-7 hides calls of Synced records");
         failed.A("data").Should().NotBeEmpty("the timeout is in the log").And.OnlyContain(r => r.S("outcome") != "Succeeded" && r.S("outcome") != "DryRun");
         failed.A("data").Should().Contain(r => r.S("kind") == "Customer" && r.S("outcome") == "Transient", J.Short(failed));
-        (await k.Ok(k.Get($"{Qb}/sync/log?failedOnly=false&kind=SalesInvoice&page=1&pageSize=200"), "kind filter")).A("data")
+        (await k.Ok(k.Get($"{Qb}/sync/log?failedOnly=false&unresolvedOnly=false&kind=SalesInvoice&page=1&pageSize=200"), "kind filter")).A("data")
             .Should().OnlyContain(r => r.S("kind") == "SalesInvoice");
 
         // org B never sees org A's calls
-        var bRows = (await b.K.Ok(b.K.Get($"{Qb}/sync/log?failedOnly=false&page=1&pageSize=200"), "org B log")).A("data");
+        var bRows = (await b.K.Ok(b.K.Get($"{Qb}/sync/log?failedOnly=false&unresolvedOnly=false&page=1&pageSize=200"), "org B log")).A("data");
         bRows.Select(r => r.S("externalId")).Should().NotContain([inv.G("uuid").ToString(), customer.Uuid.ToString()]);
         var aCall = rows.First(r => r.S("externalId") == inv.G("uuid").ToString());
         (await b.K.Get($"{Qb}/sync/log/{aCall.G("id")}")).Status.Should().Be(HttpStatusCode.NotFound, "another org's call");

@@ -194,6 +194,13 @@ import { GlIntegrationsComponent } from './finance/gl/integrations/gl-integratio
 import { GlSetupStatusComponent } from './finance/gl/setup-status/gl-setup-status.component';
 import { glFeatureGuard, glSetupCompleteGuard, postingFeatureGuard } from './finance/gl/gl.guards';
 import { GlPostingComponent } from './finance/gl/posting/gl-posting.component';
+import { GlJournalEntriesComponent } from './finance/gl/journal-entries/gl-journal-entries.component';
+import { GlJournalEntryFormComponent } from './finance/gl/journal-entries/gl-journal-entry-form.component';
+import { GlJournalEntryDetailComponent } from './finance/gl/journal-entries/gl-journal-entry-detail.component';
+import { GlJournalTypesComponent } from './finance/gl/journal-types/gl-journal-types.component';
+import { GlReconciliationComponent } from './finance/gl/reconciliation/gl-reconciliation.component';
+import { GlTrialBalanceComponent } from './finance/gl/trial-balance/gl-trial-balance.component';
+import { GlPeriodCloseComponent } from './finance/gl/period-close/gl-period-close.component';
 
 // Permission code constants (mirrors PermissionCodes.cs)
 const P = {
@@ -348,10 +355,24 @@ const P = {
   GL_VIEW:                'GL_VIEW',
   GL_ACCOUNT_MANAGE:      'GL_ACCOUNT_MANAGE',
   GL_SETUP_MANAGE:        'GL_SETUP_MANAGE',
+  // Addendum 47 — General Ledger journal engine (docs/journal-engine/API-CONTRACT.md, D-15).
+  GL_JOURNAL_CREATE:       'GL_JOURNAL_CREATE',
+  GL_JOURNAL_EDIT:         'GL_JOURNAL_EDIT',
+  GL_JOURNAL_DELETE:       'GL_JOURNAL_DELETE',
+  GL_JOURNAL_POST:         'GL_JOURNAL_POST',
+  GL_JOURNAL_REVERSE:      'GL_JOURNAL_REVERSE',
+  GL_RECONCILE_VIEW:       'GL_RECONCILE_VIEW',
+  GL_RECONCILE_EXECUTE:    'GL_RECONCILE_EXECUTE',
+  GL_REPORTS_VIEW:         'GL_REPORTS_VIEW',
+  GL_PERIOD_CLOSE_VIEW:    'GL_PERIOD_CLOSE_VIEW',
+  GL_PERIOD_CLOSE_EXECUTE: 'GL_PERIOD_CLOSE_EXECUTE',
+  GL_PERIOD_CLOSE_ADMIN:   'GL_PERIOD_CLOSE_ADMIN',
 } as const;
 
 /** A42 — every GL page opens for any of the three GL codes (custom roles may hold only one). */
 const GL_READ = [P.GL_VIEW, P.GL_ACCOUNT_MANAGE, P.GL_SETUP_MANAGE];
+/** A47 contract §0 "JE-READ" — what reads journal entries and journal types. */
+const JE_READ = [...GL_READ, P.GL_JOURNAL_CREATE, P.GL_JOURNAL_EDIT, P.GL_JOURNAL_DELETE, P.GL_JOURNAL_POST, P.GL_JOURNAL_REVERSE];
 
 export default [
     // ── Users & Roles (System Admin only) ─────────────────────────────────────
@@ -807,6 +828,23 @@ export default [
     // A44 D-30 / D-80 — the posting log serves the GL and QuickBooks targets: GL feature OR the integration module.
     { path: 'finance/gl/posting', component: GlPostingComponent,
       canActivate: [permissionGuard(...GL_READ, P.INTEGRATION_VIEW, P.INTEGRATION_MANAGE), postingFeatureGuard] },
+    // A47 D-20 — journal engine pages, gated as their API reads are (contract §1–§6). "new" before ":uuid".
+    { path: 'finance/gl/journal-entries', component: GlJournalEntriesComponent,
+      canActivate: [permissionGuard(...JE_READ), glFeatureGuard] },
+    { path: 'finance/gl/journal-entries/new', component: GlJournalEntryFormComponent,
+      canActivate: [permissionGuard(P.GL_JOURNAL_CREATE), glFeatureGuard] },
+    { path: 'finance/gl/journal-entries/:uuid', component: GlJournalEntryDetailComponent,
+      canActivate: [permissionGuard(...JE_READ), glFeatureGuard] },
+    { path: 'finance/gl/journal-entries/:uuid/edit', component: GlJournalEntryFormComponent,
+      canActivate: [permissionGuard(P.GL_JOURNAL_EDIT), glFeatureGuard] },
+    { path: 'finance/gl/journal-types', component: GlJournalTypesComponent,
+      canActivate: [permissionGuard(...JE_READ), glFeatureGuard] },
+    { path: 'finance/gl/reconciliation', component: GlReconciliationComponent,
+      canActivate: [permissionGuard(P.GL_RECONCILE_VIEW, P.GL_RECONCILE_EXECUTE), glFeatureGuard] },
+    { path: 'finance/gl/trial-balance', component: GlTrialBalanceComponent,
+      canActivate: [permissionGuard(P.GL_REPORTS_VIEW), glFeatureGuard] },
+    { path: 'finance/gl/period-close', component: GlPeriodCloseComponent,
+      canActivate: [permissionGuard(P.GL_PERIOD_CLOSE_VIEW, P.GL_PERIOD_CLOSE_EXECUTE, P.GL_PERIOD_CLOSE_ADMIN), glFeatureGuard] },
 
     // ── Reports & Analytics ───────────────────────────────────────────────────
     { path: 'reports/kpi-dashboard', component: KpiDashboardComponent,

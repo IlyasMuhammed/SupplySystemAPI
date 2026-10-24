@@ -842,7 +842,7 @@ namespace SMS.Modules.Accounting.Migrations
 
                             t.HasCheckConstraint("CK_FiscalPeriods_Number", "[PeriodNumber] BETWEEN 1 AND 13");
 
-                            t.HasCheckConstraint("CK_FiscalPeriods_Status", "[Status] IN ('Open', 'Locked', 'Closed')");
+                            t.HasCheckConstraint("CK_FiscalPeriods_Status", "[Status] IN ('Open', 'AdjustmentOnly', 'Locked', 'Closed')");
                         });
                 });
 
@@ -971,6 +971,10 @@ namespace SMS.Modules.Accounting.Migrations
                     b.Property<int?>("CreatedBy")
                         .HasColumnType("int");
 
+                    b.Property<string>("CreatedByName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
                     b.Property<string>("CurrencyCode")
                         .HasMaxLength(3)
                         .HasColumnType("nvarchar(3)");
@@ -978,6 +982,9 @@ namespace SMS.Modules.Accounting.Migrations
                     b.Property<string>("Description")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateOnly?>("DocumentDate")
+                        .HasColumnType("date");
 
                     b.Property<DateOnly>("EntryDate")
                         .HasColumnType("date");
@@ -992,12 +999,40 @@ namespace SMS.Modules.Accounting.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");
 
+                    b.Property<decimal?>("ExchangeRate")
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<int?>("FiscalPeriodId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("FiscalYearId")
+                        .HasColumnType("int");
+
                     b.Property<string>("IdempotencyKey")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<bool>("IsClosingEntry")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsOpeningEntry")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("JournalTypeId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("LineCount")
+                        .HasColumnType("int");
+
                     b.Property<DateTime>("ModifiedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<int?>("ModifiedBy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ModifiedByName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<Guid>("OrganizationId")
                         .HasColumnType("uniqueidentifier");
@@ -1008,9 +1043,20 @@ namespace SMS.Modules.Accounting.Migrations
                     b.Property<int?>("PostedBy")
                         .HasColumnType("int");
 
+                    b.Property<string>("PostedByName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
                     b.Property<string>("Reference")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("ReversalReason")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int?>("ReversedByEntryId")
+                        .HasColumnType("int");
 
                     b.Property<int?>("ReversesEntryId")
                         .HasColumnType("int");
@@ -1038,6 +1084,19 @@ namespace SMS.Modules.Accounting.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("FiscalPeriodId")
+                        .HasDatabaseName("IX_JournalEntries_FiscalPeriodId");
+
+                    b.HasIndex("FiscalYearId")
+                        .HasDatabaseName("IX_JournalEntries_FiscalYearId");
+
+                    b.HasIndex("JournalTypeId")
+                        .HasDatabaseName("IX_JournalEntries_JournalTypeId");
+
+                    b.HasIndex("ReversedByEntryId")
+                        .HasDatabaseName("IX_JournalEntries_ReversedBy")
+                        .HasFilter("[ReversedByEntryId] IS NOT NULL");
+
                     b.HasIndex("ReversesEntryId")
                         .HasDatabaseName("IX_JournalEntries_Reverses")
                         .HasFilter("[ReversesEntryId] IS NOT NULL");
@@ -1056,16 +1115,45 @@ namespace SMS.Modules.Accounting.Migrations
                         .HasDatabaseName("IX_JournalEntries_Org_Key")
                         .HasFilter("[IdempotencyKey] IS NOT NULL");
 
+                    b.HasIndex("OrganizationId", "PostedAt")
+                        .HasDatabaseName("IX_JournalEntries_Org_PostedAt")
+                        .HasFilter("[Status] = 'Posted'");
+
                     b.HasIndex("OrganizationId", "SourceDocumentUuid")
                         .HasDatabaseName("IX_JournalEntries_Org_Source")
                         .HasFilter("[SourceDocumentUuid] IS NOT NULL");
 
+                    b.HasIndex("OrganizationId", "Status")
+                        .HasDatabaseName("IX_JournalEntries_Org_Status");
+
                     b.HasIndex("OrganizationId", "EntryType", "Status")
                         .HasDatabaseName("IX_JournalEntries_Org_Type_Status");
 
+                    b.HasIndex(new[] { "OrganizationId", "IdempotencyKey" }, "UX_JournalEntries_Org_ManualKey")
+                        .IsUnique()
+                        .HasFilter("[IdempotencyKey] >= N'manual:' AND [IdempotencyKey] < N'manual;'");
+
+                    b.HasIndex(new[] { "OrganizationId", "IdempotencyKey" }, "UX_JournalEntries_Org_ReversalKey")
+                        .IsUnique()
+                        .HasFilter("[IdempotencyKey] >= N'reversal:' AND [IdempotencyKey] < N'reversal;'");
+
+                    b.HasIndex(new[] { "OrganizationId", "IdempotencyKey" }, "UX_JournalEntries_Org_YearCloseKey")
+                        .IsUnique()
+                        .HasFilter("[IdempotencyKey] >= N'yearclose:' AND [IdempotencyKey] < N'yearclose;'");
+
                     b.ToTable("JournalEntries", "finance", t =>
                         {
-                            t.HasCheckConstraint("CK_JournalEntries_Status", "[Status] IN ('Draft', 'Posted')");
+                            t.HasCheckConstraint("CK_JournalEntries_Balanced", "ABS([TotalDebit] - [TotalCredit]) < 0.01");
+
+                            t.HasCheckConstraint("CK_JournalEntries_ExchangeRate", "[ExchangeRate] IS NULL OR [ExchangeRate] > 0");
+
+                            t.HasCheckConstraint("CK_JournalEntries_OpeningClosing", "NOT ([IsOpeningEntry] = 1 AND [IsClosingEntry] = 1)");
+
+                            t.HasCheckConstraint("CK_JournalEntries_ReversalLinks", "NOT ([ReversesEntryId] IS NOT NULL AND [ReversedByEntryId] IS NOT NULL)");
+
+                            t.HasCheckConstraint("CK_JournalEntries_ReversedStatus", "[Status] <> 'Reversed' OR [ReversedByEntryId] IS NOT NULL");
+
+                            t.HasCheckConstraint("CK_JournalEntries_Status", "[Status] IN ('Draft', 'Posted', 'Reversed')");
 
                             t.HasCheckConstraint("CK_JournalEntries_Totals", "[TotalDebit] >= 0 AND [TotalCredit] >= 0");
                         });
@@ -1082,11 +1170,37 @@ namespace SMS.Modules.Accounting.Migrations
                     b.Property<int>("AccountId")
                         .HasColumnType("int");
 
+                    b.Property<decimal?>("AmountCurrency")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("AmountResidual")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<DateOnly?>("ClearingDate")
+                        .HasColumnType("date");
+
+                    b.Property<int?>("ClearingEntryId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CostCenter")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<decimal>("CreditAmount")
                         .HasColumnType("decimal(18,4)");
 
+                    b.Property<string>("CurrencyCode")
+                        .HasMaxLength(3)
+                        .HasColumnType("nvarchar(3)");
+
                     b.Property<decimal>("DebitAmount")
                         .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("ExchangeRate")
+                        .HasColumnType("decimal(18,6)");
 
                     b.Property<int>("JournalEntryId")
                         .HasColumnType("int");
@@ -1101,9 +1215,52 @@ namespace SMS.Modules.Accounting.Migrations
                     b.Property<Guid>("OrganizationId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("PartnerName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("PartnerType")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid?>("PartnerUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Project")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int?>("ReconcileGroupId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("Reconciled")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal?>("TaxAmount")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("TaxCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid>("Uuid")
+                        .HasColumnType("uniqueidentifier");
+
                     b.HasKey("Id");
 
                     b.HasIndex("AccountId");
+
+                    b.HasIndex("ClearingEntryId")
+                        .HasDatabaseName("IX_JournalEntryLines_ClearingEntry")
+                        .HasFilter("[ClearingEntryId] IS NOT NULL");
+
+                    b.HasIndex("ReconcileGroupId")
+                        .HasDatabaseName("IX_JournalEntryLines_ReconcileGroup")
+                        .HasFilter("[ReconcileGroupId] IS NOT NULL");
+
+                    b.HasIndex("Uuid")
+                        .IsUnique()
+                        .HasDatabaseName("IX_JournalEntryLines_Uuid");
 
                     b.HasIndex("JournalEntryId", "LineNumber")
                         .IsUnique()
@@ -1112,11 +1269,189 @@ namespace SMS.Modules.Accounting.Migrations
                     b.HasIndex("OrganizationId", "AccountId")
                         .HasDatabaseName("IX_JournalEntryLines_Org_Account");
 
+                    b.HasIndex("OrganizationId", "CostCenter")
+                        .HasDatabaseName("IX_JournalEntryLines_Org_CostCenter")
+                        .HasFilter("[CostCenter] IS NOT NULL");
+
+                    b.HasIndex("OrganizationId", "AccountId", "ClearingDate")
+                        .HasDatabaseName("IX_JournalEntryLines_Org_Account_Clearing");
+
+                    b.HasIndex("OrganizationId", "AccountId", "Reconciled")
+                        .HasDatabaseName("IX_JournalEntryLines_Org_OpenItems")
+                        .HasFilter("[Reconciled] = 0");
+
+                    b.HasIndex("OrganizationId", "PartnerUuid", "PartnerType", "Reconciled")
+                        .HasDatabaseName("IX_JournalEntryLines_Org_Partner")
+                        .HasFilter("[PartnerUuid] IS NOT NULL");
+
                     b.ToTable("JournalEntryLines", "finance", t =>
                         {
+                            t.HasCheckConstraint("CK_JournalEntryLines_ExchangeRate", "[ExchangeRate] IS NULL OR [ExchangeRate] > 0");
+
                             t.HasCheckConstraint("CK_JournalEntryLines_NotNegative", "[DebitAmount] >= 0 AND [CreditAmount] >= 0");
 
                             t.HasCheckConstraint("CK_JournalEntryLines_OneSide", "NOT ([DebitAmount] > 0 AND [CreditAmount] > 0)");
+
+                            t.HasCheckConstraint("CK_JournalEntryLines_PartnerType", "[PartnerType] IS NULL OR [PartnerType] IN ('Customer', 'Vendor')");
+
+                            t.HasCheckConstraint("CK_JournalEntryLines_Reconciled", "[Reconciled] = 0 OR [AmountResidual] = 0");
+                        });
+                });
+
+            modelBuilder.Entity("SMS.Modules.Accounting.Domain.JournalEntrySequence", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("CurrentSequence")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("FiscalYearId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("JournalTypeId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("SequenceYear")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FiscalYearId")
+                        .HasDatabaseName("IX_JournalEntrySequences_FiscalYearId");
+
+                    b.HasIndex("JournalTypeId")
+                        .HasDatabaseName("IX_JournalEntrySequences_JournalTypeId");
+
+                    b.HasIndex("OrganizationId", "JournalTypeId", "FiscalYearId", "SequenceYear")
+                        .IsUnique()
+                        .HasDatabaseName("UX_JournalEntrySequences_Org_Type_Year")
+                        .HasFilter("[JournalTypeId] IS NOT NULL AND [FiscalYearId] IS NOT NULL");
+
+                    b.ToTable("JournalEntrySequences", "finance", t =>
+                        {
+                            t.HasCheckConstraint("CK_JournalEntrySequences_Current", "[CurrentSequence] >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("SMS.Modules.Accounting.Domain.JournalType", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("AutoPost")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("DefaultCreditAccountId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("DefaultDebitAccountId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsSystem")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ModifiedBy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("RequiresPartner")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("SequencePrefix")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid>("Uuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DefaultCreditAccountId");
+
+                    b.HasIndex("DefaultDebitAccountId");
+
+                    b.HasIndex("Uuid")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "Code")
+                        .IsUnique()
+                        .HasDatabaseName("UX_JournalTypes_Org_Code");
+
+                    b.HasIndex("OrganizationId", "IsActive")
+                        .HasDatabaseName("IX_JournalTypes_Org_Active")
+                        .HasFilter("[IsActive] = 1");
+
+                    b.HasIndex("OrganizationId", "SequencePrefix")
+                        .IsUnique()
+                        .HasDatabaseName("UX_JournalTypes_Org_Prefix");
+
+                    b.HasIndex("OrganizationId", "Type")
+                        .HasDatabaseName("IX_JournalTypes_Org_Type");
+
+                    b.HasIndex(new[] { "OrganizationId", "Type" }, "UX_JournalTypes_Org_Closing")
+                        .IsUnique()
+                        .HasFilter("[Type] = 'Closing'");
+
+                    b.HasIndex(new[] { "OrganizationId", "Type" }, "UX_JournalTypes_Org_Opening")
+                        .IsUnique()
+                        .HasFilter("[Type] = 'Opening'");
+
+                    b.ToTable("JournalTypes", "finance", t =>
+                        {
+                            t.HasCheckConstraint("CK_JournalTypes_Code", "LEN([Code]) BETWEEN 1 AND 10 AND [Code] COLLATE Latin1_General_BIN NOT LIKE '%[^A-Z0-9]%'");
+
+                            t.HasCheckConstraint("CK_JournalTypes_Prefix", "LEN([SequencePrefix]) BETWEEN 1 AND 10 AND [SequencePrefix] COLLATE Latin1_General_BIN NOT LIKE '%[^A-Z0-9]%'");
+
+                            t.HasCheckConstraint("CK_JournalTypes_Type", "[Type] IN ('Sale', 'Purchase', 'Cash', 'Bank', 'Miscellaneous', 'Opening', 'Closing')");
                         });
                 });
 
@@ -1200,6 +1535,73 @@ namespace SMS.Modules.Accounting.Migrations
                             t.HasCheckConstraint("CK_OpeningBalanceEntries_OneSide", "NOT ([DebitAmount] > 0 AND [CreditAmount] > 0)");
 
                             t.HasCheckConstraint("CK_OpeningBalanceEntries_Status", "[EntryStatus] IN ('Draft', 'Posted')");
+                        });
+                });
+
+            modelBuilder.Entity("SMS.Modules.Accounting.Domain.ReconcileGroup", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AccountId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CreatedByName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("CurrencyCode")
+                        .HasMaxLength(3)
+                        .HasColumnType("nvarchar(3)");
+
+                    b.Property<string>("GroupNumber")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ReconcileType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime>("ReconciledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("Uuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountId")
+                        .HasDatabaseName("IX_ReconcileGroups_AccountId");
+
+                    b.HasIndex("Uuid")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "AccountId")
+                        .HasDatabaseName("IX_ReconcileGroups_Org_Account");
+
+                    b.HasIndex("OrganizationId", "GroupNumber")
+                        .IsUnique()
+                        .HasDatabaseName("UX_ReconcileGroups_Org_Number");
+
+                    b.ToTable("ReconcileGroups", "finance", t =>
+                        {
+                            t.HasCheckConstraint("CK_ReconcileGroups_Amount", "[Amount] >= 0");
+
+                            t.HasCheckConstraint("CK_ReconcileGroups_Type", "[ReconcileType] IN ('Full', 'Partial')");
                         });
                 });
 
@@ -1338,10 +1740,41 @@ namespace SMS.Modules.Accounting.Migrations
 
             modelBuilder.Entity("SMS.Modules.Accounting.Domain.JournalEntry", b =>
                 {
-                    b.HasOne("SMS.Modules.Accounting.Domain.JournalEntry", null)
+                    b.HasOne("SMS.Modules.Accounting.Domain.FiscalPeriod", "FiscalPeriod")
+                        .WithMany()
+                        .HasForeignKey("FiscalPeriodId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("SMS.Modules.Accounting.Domain.FiscalYear", "FiscalYear")
+                        .WithMany()
+                        .HasForeignKey("FiscalYearId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("SMS.Modules.Accounting.Domain.JournalType", "JournalType")
+                        .WithMany()
+                        .HasForeignKey("JournalTypeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SMS.Modules.Accounting.Domain.JournalEntry", "ReversedByEntry")
+                        .WithMany()
+                        .HasForeignKey("ReversedByEntryId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("SMS.Modules.Accounting.Domain.JournalEntry", "ReversesEntry")
                         .WithMany()
                         .HasForeignKey("ReversesEntryId")
                         .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("FiscalPeriod");
+
+                    b.Navigation("FiscalYear");
+
+                    b.Navigation("JournalType");
+
+                    b.Navigation("ReversedByEntry");
+
+                    b.Navigation("ReversesEntry");
                 });
 
             modelBuilder.Entity("SMS.Modules.Accounting.Domain.JournalEntryLine", b =>
@@ -1352,15 +1785,63 @@ namespace SMS.Modules.Accounting.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("SMS.Modules.Accounting.Domain.JournalEntry", "ClearingEntry")
+                        .WithMany()
+                        .HasForeignKey("ClearingEntryId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("SMS.Modules.Accounting.Domain.JournalEntry", "JournalEntry")
                         .WithMany("Lines")
                         .HasForeignKey("JournalEntryId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("SMS.Modules.Accounting.Domain.ReconcileGroup", "ReconcileGroup")
+                        .WithMany("Lines")
+                        .HasForeignKey("ReconcileGroupId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("Account");
 
+                    b.Navigation("ClearingEntry");
+
                     b.Navigation("JournalEntry");
+
+                    b.Navigation("ReconcileGroup");
+                });
+
+            modelBuilder.Entity("SMS.Modules.Accounting.Domain.JournalEntrySequence", b =>
+                {
+                    b.HasOne("SMS.Modules.Accounting.Domain.FiscalYear", "FiscalYear")
+                        .WithMany()
+                        .HasForeignKey("FiscalYearId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("SMS.Modules.Accounting.Domain.JournalType", "JournalType")
+                        .WithMany()
+                        .HasForeignKey("JournalTypeId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("FiscalYear");
+
+                    b.Navigation("JournalType");
+                });
+
+            modelBuilder.Entity("SMS.Modules.Accounting.Domain.JournalType", b =>
+                {
+                    b.HasOne("SMS.Modules.Accounting.Domain.ChartOfAccount", "DefaultCreditAccount")
+                        .WithMany()
+                        .HasForeignKey("DefaultCreditAccountId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("SMS.Modules.Accounting.Domain.ChartOfAccount", "DefaultDebitAccount")
+                        .WithMany()
+                        .HasForeignKey("DefaultDebitAccountId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("DefaultCreditAccount");
+
+                    b.Navigation("DefaultDebitAccount");
                 });
 
             modelBuilder.Entity("SMS.Modules.Accounting.Domain.OpeningBalanceEntry", b =>
@@ -1379,6 +1860,17 @@ namespace SMS.Modules.Accounting.Migrations
                     b.Navigation("Account");
 
                     b.Navigation("JournalEntry");
+                });
+
+            modelBuilder.Entity("SMS.Modules.Accounting.Domain.ReconcileGroup", b =>
+                {
+                    b.HasOne("SMS.Modules.Accounting.Domain.ChartOfAccount", "Account")
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Account");
                 });
 
             modelBuilder.Entity("SMS.Modules.Accounting.Domain.ChartOfAccount", b =>
@@ -1402,6 +1894,11 @@ namespace SMS.Modules.Accounting.Migrations
                 });
 
             modelBuilder.Entity("SMS.Modules.Accounting.Domain.JournalEntry", b =>
+                {
+                    b.Navigation("Lines");
+                });
+
+            modelBuilder.Entity("SMS.Modules.Accounting.Domain.ReconcileGroup", b =>
                 {
                     b.Navigation("Lines");
                 });

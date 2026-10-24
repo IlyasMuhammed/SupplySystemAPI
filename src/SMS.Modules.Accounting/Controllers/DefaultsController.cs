@@ -16,7 +16,7 @@ public sealed class AccountingDefaultsController : AccountingControllerBase
     public AccountingDefaultsController(ITenantContext tenant, IDefaultsService defaults) : base(tenant) => _defaults = defaults;
 
     [HttpGet]
-    [RequirePermission(View, ManageAccounts, ManageSetup)]
+    [RequirePermission(View, ManageAccounts, ManageSetup, LookupJournal1, LookupJournal2, LookupJournal3, LookupJournal4, LookupJournal5, LookupReconcile1, LookupReconcile2, LookupReports, LookupClose1, LookupClose2, LookupClose3)] // A47 SR-FE-2
     public async Task<IActionResult> Get(CancellationToken ct) =>
         Ok(ApiResponse<AccountingDefaultsModel>.Ok(await _defaults.GetAsync(Caller, ct)));
 

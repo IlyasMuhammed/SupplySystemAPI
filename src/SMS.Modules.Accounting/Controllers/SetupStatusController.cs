@@ -15,16 +15,25 @@ namespace SMS.Modules.Accounting.Controllers;
 /// </summary>
 [ApiController]
 [RequiresFeature(AccountingCodes.FeatureGeneralLedger)]
+[ResolveAccountingCallerName]
 public abstract class AccountingControllerBase : ControllerBase
 {
     private readonly ITenantContext _tenant;
 
     protected AccountingControllerBase(ITenantContext tenant) => _tenant = tenant;
 
-    protected AccountingCaller Caller => AccountingCaller.From(User, _tenant);
+    /// <summary>A47 QA-1 — with the display name the filter resolved for this request (the token carries none).</summary>
+    protected AccountingCaller Caller =>
+        AccountingCaller.From(User, _tenant, HttpContext?.Items[ResolveAccountingCallerNameAttribute.ItemKey] as string);
 
     /// <summary>Permission sets for <c>[RequirePermission]</c>.</summary>
     protected const string View = P.GL_VIEW, ManageAccounts = P.GL_ACCOUNT_MANAGE, ManageSetup = P.GL_SETUP_MANAGE;
+
+    /// <summary>A47 SR-FE-2 — every journal-engine code, for the lookups (fiscal years, flat accounts) the A47 pages read.</summary>
+    protected const string LookupJournal1 = P.GL_JOURNAL_CREATE, LookupJournal2 = P.GL_JOURNAL_EDIT, LookupJournal3 = P.GL_JOURNAL_DELETE,
+        LookupJournal4 = P.GL_JOURNAL_POST, LookupJournal5 = P.GL_JOURNAL_REVERSE, LookupReconcile1 = P.GL_RECONCILE_VIEW,
+        LookupReconcile2 = P.GL_RECONCILE_EXECUTE, LookupReports = P.GL_REPORTS_VIEW, LookupClose1 = P.GL_PERIOD_CLOSE_VIEW,
+        LookupClose2 = P.GL_PERIOD_CLOSE_EXECUTE, LookupClose3 = P.GL_PERIOD_CLOSE_ADMIN;
 }
 
 /// <summary>A42 API-CONTRACT "Setup status — api/finance/setup".</summary>

@@ -35,6 +35,10 @@ internal sealed class AccountingDbContext : DbContext, ITenantScopedDbContext
     internal DbSet<FinancialPosting>            FinancialPostings       => Set<FinancialPosting>();
     internal DbSet<FinancialPostingTargetState> FinancialPostingTargets => Set<FinancialPostingTargetState>();
     internal DbSet<TenantFinanceConfig>         TenantFinanceConfigs    => Set<TenantFinanceConfig>();
+    // A47 — journal engine.
+    internal DbSet<JournalType>          JournalTypes          => Set<JournalType>();
+    internal DbSet<JournalEntrySequence> JournalEntrySequences => Set<JournalEntrySequence>();
+    internal DbSet<ReconcileGroup>       ReconcileGroups       => Set<ReconcileGroup>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -60,25 +64,56 @@ internal sealed class AccountingDbContext : DbContext, ITenantScopedDbContext
     {
         this.StampTenantScopedEntities(_tenantContext);
         this.StampModifiedAt();
+        StampNewJournalDefaults();
         // D-20 — the setup history is an audit trail: written once.
         if (ChangeTracker.Entries<GlSetupHistory>().Any(e => e.State is EntityState.Modified))
             throw new InvalidOperationException("GL setup history is immutable.");
     }
 
     /// <summary>
+    /// A47 D-3 — the derived line columns of a NEW journal line that its writer left empty (the A42 opening post and the
+    /// A44 target build lines without them): the residual starts at Debit − Credit, the transaction currency is the
+    /// header's (base) currency, and the header counts its lines. The journal engine sets them itself.
+    /// </summary>
+    private void StampNewJournalDefaults()
+    {
+        foreach (var e in ChangeTracker.Entries<JournalEntryLine>().Where(e => e.State == EntityState.Added))
+        {
+            var line = e.Entity;
+            if (line.AmountResidual == 0 && !line.Reconciled && line.ReconcileGroupId is null)
+                line.AmountResidual = line.DebitAmount - line.CreditAmount;
+            if (line.AmountCurrency is null && line.CurrencyCode is null)
+            {
+                line.CurrencyCode = line.JournalEntry?.CurrencyCode;
+                line.AmountCurrency = line.DebitAmount - line.CreditAmount;
+            }
+        }
+        foreach (var e in ChangeTracker.Entries<JournalEntry>().Where(e => e.State == EntityState.Added && e.Entity.LineCount == 0))
+            e.Entity.LineCount = e.Entity.Lines.Count;
+    }
+
+    /// <summary>
     /// Runs <paramref name="work"/> in one database transaction (through the retrying execution strategy, which refuses
-    /// user transactions otherwise). The in-memory test provider has no transactions: the work just runs.
+    /// user transactions otherwise). The in-memory test provider has no transactions: the work just runs. A47 — inside a
+    /// transaction already open on this context the work joins it (the journal engine is called from posting transactions).
     /// </summary>
     internal async Task InTransactionAsync(Func<Task> work, CancellationToken ct = default)
     {
-        if (!Database.IsRelational())
+        if (!Database.IsRelational() || Database.CurrentTransaction is not null)
         {
             await work();
             return;
         }
         var strategy = Database.CreateExecutionStrategy();
+        // A47 REV-3 — a transient failure (e.g. a deadlock victim, 1205) re-runs the work: what the failed attempt started
+        // tracking (new journals, lines, sequence rows …) is detached first, so the retry does not insert it twice. Entities
+        // the caller tracked before the call stay (the work sets them again).
+        var before = ChangeTracker.Entries().Select(e => e.Entity).ToHashSet(ReferenceEqualityComparer.Instance);
+        var attempt = 0;
         await strategy.ExecuteAsync(async () =>
         {
+            if (attempt++ > 0)
+                foreach (var e in ChangeTracker.Entries().Where(e => !before.Contains(e.Entity)).ToList()) e.State = EntityState.Detached;
             await using var tx = await Database.BeginTransactionAsync(ct);
             await work();
             await tx.CommitAsync(ct);
